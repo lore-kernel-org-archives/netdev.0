@@ -1,92 +1,76 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.11
-Date: Fri, 27 May 2011 13:55:22 +0200
-Message-ID: <4DDF912A.5070003@netfilter.org>
-References: <4DDE857E.40807@trash.net> <4DDE8814.7090201@trash.net> <201105270952.44811.a.miskiewicz@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: ETHTOOL_SFEATURES: remove NETIF_F_COMPAT
+ return
+Date: Fri, 27 May 2011 15:13:46 +0100
+Message-ID: <1306505626.2759.4.camel@bwh-desktop>
+References: <20110516.140958.625993829749556424.davem@davemloft.net>
+	 <20110519100331.GA25103@rere.qmqm.pl> <20110524091437.GA10779@rere.qmqm.pl>
+	 <20110524.153930.610330240390616957.davem@davemloft.net>
+	 <20110524215923.GA20138@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@osdl.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>
-To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46380 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752696Ab1E0Lzd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 May 2011 07:55:33 -0400
-In-Reply-To: <201105270952.44811.a.miskiewicz@gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:18721 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753582Ab1E0ONt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 10:13:49 -0400
+In-Reply-To: <20110524215923.GA20138@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/05/11 09:52, Arkadiusz Miskiewicz wrote:
-> On Thursday 26 of May 2011, Patrick McHardy wrote:
->> Am 26.05.2011 18:53, schrieb Patrick McHardy:
->>> The netfilter coreteam presents:
->>>     iptables version 1.4.10
->>
->> That's supposed to read 1.4.11 of course :)
+On Tue, 2011-05-24 at 23:59 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> On Tue, May 24, 2011 at 03:39:30PM -0400, David Miller wrote:
+> > From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> > Date: Tue, 24 May 2011 11:14:37 +0200
+> >=20
+> > > On Thu, May 19, 2011 at 12:03:31PM +0200, Micha=C5=82 Miros=C5=82=
+aw wrote:
+> > >> On Mon, May 16, 2011 at 02:09:58PM -0400, David Miller wrote:
+> > >> > You guys really need to sort this out properly.
+> > >> > Please resubmit whatever final solution is agreed upon.
+> > >> I noticed that v2.6.39 was tagged today. We should definitely re=
+move
+> > >> NETIF_F_COMPAT so it won't bite us in the future. The other patc=
+h that
+> > >> fixes ethtool_ops->set_flags compatibility is a bugfix, so it sh=
+ould go
+> > >> in - if we decide that the SFEATURES compatibility should be rem=
+oved
+> > >> it won't matter.
+> > >>=20
+> > >> Ben, do you agree?
+> > > Ping?
+> > > http://patchwork.ozlabs.org/patch/95552/
+> > > (this is a bugfix, so should go to stable)
+> > >=20
+> > > http://patchwork.ozlabs.org/patch/95753/
+> > > (removes ETHTOOL_F_COMPAT; this we need to decide on)
+> > You and Ben are still arguing over details.
+> >=20
+> > I want fresh versions of these patches (yes, both of them) once
+> > all of the issues are resolved.
 >=20
-> Too bad it breaks iproute2 build, hope to see fixed iproute2 release =
-then
->=20
-> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -
-> DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\" -DCONFIG_GACT -DCONFIG_GA=
-CT_PROB -
-> DIPT_LIB_DIR=3D\"/usr/lib64/xtables\" -Wl,-export-dynamic -shared -fp=
-ic -o=20
-> q_atm.so q_atm.c -latm
-> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -
-> DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\" -DCONFIG_GACT -DCONFIG_GA=
-CT_PROB -
-> DIPT_LIB_DIR=3D\"/usr/lib64/xtables\" -Wl,-export-dynamic -shared -fp=
-ic -o=20
-> m_xt.so m_xt.c -lxtables
-> m_xt.c: In function =E2=80=98parse_ipt=E2=80=99:
-> m_xt.c:167:31: warning: passing argument 2 of =E2=80=98xtables_merge_=
-options=E2=80=99 discards=20
-> =E2=80=98const=E2=80=99 qualifier from pointer target type [enabled b=
-y default]
-> /usr/include/xtables.h:395:23: note: expected =E2=80=98struct option =
-*=E2=80=99 but argument=20
-> is of type =E2=80=98const struct option *=E2=80=99
-> m_xt.c:167:31: warning: passing argument 3 of =E2=80=98xtables_merge_=
-options=E2=80=99 from=20
-> incompatible pointer type [enabled by default]
-> /usr/include/xtables.h:395:23: note: expected =E2=80=98const struct o=
-ption *=E2=80=99 but=20
-> argument is of type =E2=80=98unsigned int *=E2=80=99
-> m_xt.c:167:31: error: too few arguments to function =E2=80=98xtables_=
-merge_options=E2=80=99
-> /usr/include/xtables.h:395:23: note: declared here
-> m_xt.c:127:6: warning: variable =E2=80=98res=E2=80=99 set but not use=
-d [-Wunused-but-set-
-> variable]
-> m_xt.c: In function =E2=80=98print_ipt=E2=80=99:
-> m_xt.c:312:30: warning: passing argument 2 of =E2=80=98xtables_merge_=
-options=E2=80=99 discards=20
-> =E2=80=98const=E2=80=99 qualifier from pointer target type [enabled b=
-y default]
-> /usr/include/xtables.h:395:23: note: expected =E2=80=98struct option =
-*=E2=80=99 but argument=20
-> is of type =E2=80=98const struct option *=E2=80=99
-> m_xt.c:312:30: warning: passing argument 3 of =E2=80=98xtables_merge_=
-options=E2=80=99 from=20
-> incompatible pointer type [enabled by default]
-> /usr/include/xtables.h:395:23: note: expected =E2=80=98const struct o=
-ption *=E2=80=99 but=20
-> argument is of type =E2=80=98unsigned int *=E2=80=99
-> m_xt.c:312:30: error: too few arguments to function =E2=80=98xtables_=
-merge_options=E2=80=99
-> /usr/include/xtables.h:395:23: note: declared here
-> make[1]: *** [m_xt.so] B=C5=82=C4=85d 1
-> rm emp_ematch.lex.c emp_ematch.yacc.c
+> We could just wait for 2.6.40 and pretend this code part never existe=
+d. ;-)
 
-Backward compatibility was broken in the following iptables commit:
+I think I will make ethtool check for a minimum kernel version of 2.6.4=
+0
+before using ETHTOOL_{G,S}FEATURES.
 
-=46rom 600f38db82548a683775fd89b6e136673e924097 Mon Sep 17 00:00:00 200=
-1
-=46rom: Jan Engelhardt <jengelh@medozas.de>
-Date: Fri, 29 Oct 2010 18:57:42 +0200
-Subject: [PATCH] libxtables: change option precedence order to be intui=
-tive
+> I'll rebase the first patch tomorrow. Without it the compatibility in
+> ETHTOOL_SFEATURES for non-converted drivers is busted wrt set_flags.
+
+This is an improvement, but I still think the fallback is fundamentally
+broken - there's no good way for userland to tell what (if anything)
+went wrong when the return value has ETHTOOL_F_COMPAT set.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
