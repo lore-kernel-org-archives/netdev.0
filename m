@@ -1,59 +1,86 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCH] caif: Fix compile warning in caif_serial.c
-Date: Fri, 27 May 2011 10:09:15 +0200
-Message-ID: <1306483755-3588-1-git-send-email-sjur.brandeland@stericsson.com>
-References: <20110526143006.2d1ef9f7.randy.dunlap@oracle.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v4 1/1] can: add pruss CAN driver.
+Date: Fri, 27 May 2011 10:31:10 +0200
+Message-ID: <4DDF614E.7090905@grandegger.com>
+References: <1303474267-6344-1-git-send-email-subhasish@mistralsolutions.com>	<4DCB88A4.2010901@grandegger.com>
+	<4DCBF1B6.6000104@hartkopp.net>	<201105221230.56243.arnd@arndb.de>
+	<4DD9FCFC.10803@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Randy Dunlap <randy.dunlap@oracle.com>, linux-next@vger.kernel.org,
-	balbi@ti.com, netdev@vger.kernel.org,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sf1.isp.kq.no ([213.172.193.37]:61050 "EHLO pmx.vmail.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758715Ab1E0IJb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 May 2011 04:09:31 -0400
-In-Reply-To: <20110526143006.2d1ef9f7.randy.dunlap@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	m-watkins-l0cyMroinI0@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4DD9FCFC.10803-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46ix the compile warning introduced by the patch:
-"tty: make receive_buf() return the amout of bytes received"
+Hi Oliver,
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
----
-Note: Fixes compile issue in linux-next (no issue in net-2.6).
+sorry for the late answer.
 
- drivers/net/caif/caif_serial.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On 05/23/2011 08:21 AM, Oliver Hartkopp wrote:
+> On 22.05.2011 12:30, Arnd Bergmann wrote:
+>> On Thursday 12 May 2011 16:41:58 Oliver Hartkopp wrote:
+>>> E.g. assume you need the CAN-IDs 0x100, 0x200 and 0x300 in your application
+>>> and for that reason you configure these IDs in the pruss CAN driver.
+>>>
+>>> What if someone generates a 100% CAN busload exactly on CAN-ID 0x100 then?
+>>>
+>>> Worst case (1MBit/s, DLC=0) you would need to handle about 21.000 irqs/s for
+>>> the correctly received CAN frames with the filtered CAN-ID 0x100 ...
+>>
+>> Then I guess the main thing that a "smart" CAN implementation like pruss
+>> should do is interrupt mitigation. When you have a constant flow of
+>> packets coming in, the hardware should be able to DMA a lot of
+>> them into kernel memory before the driver is required to pick them up,
+>> and only get into interrupt driven mode when the kernel has managed
+>> to process all outstanding packets.
+>>
+>>> This all depends heavily on Linux networking (skb handling, caching, etc) and
+>>> is pretty fast and optimized!! That was also the reason why it ran on the old
+>>> PowerPC that smoothly. The mostly seen effect if anything drops is when the
+>>> application (holding the socket) was not fast enough to handle the incoming
+>>> data. NB: For that reason we implemented a CAN content filter (CAN_BCM) that
+>>> is able to do content filtering and timeout monitoring in Kernelspace - all
+>>> performed in the SoftIRQ.
+>>
+>> Right, dropping packets that no process is waiting for should be done as
+>> early as possible. In pruss-can, the idea was to do it in hardware, which
+>> doesn't really work all that well for the reasons discussed before.
+>> Dropping the frames in the NAPI poll function (softirq time) seems like a
+>> logical choice.
+> 
+> In 'real world' CAN setups you'll never see 21.000 CAN frames per second (and
+> therefore 21.000 irqs/s) - you are usually designing CAN network traffic with
+> less than 60% busload. So interrupt rates somewhere below 1000 irqs/s can be
+> assumed.
+> 
+>>From what i've seen so far a 3-4 messages rx FIFO and NAPI support just make it.
 
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_ser=
-ial.c
-index 73c7e03..751ebbd 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -191,7 +191,7 @@ static unsigned int ldisc_receive(struct tty_struct=
- *tty,
- 		dev_info(&ser->dev->dev,
- 			"Bytes received before initial transmission -"
- 			"bytes discarded.\n");
--		return;
-+		return count;
- 	}
-=20
- 	BUG_ON(ser->dev =3D=3D NULL);
-@@ -199,7 +199,7 @@ static unsigned int ldisc_receive(struct tty_struct=
- *tty,
- 	/* Get a suitable caif packet and copy in data. */
- 	skb =3D netdev_alloc_skb(ser->dev, count+1);
- 	if (skb =3D=3D NULL)
--		return;
-+		return 0;
- 	p =3D skb_put(skb, count);
- 	memcpy(p, data, count);
-=20
---=20
-1.7.0.4
+I think you speak about the SJA100 which is able to buffer 64 byte
+corresponding to up to 4 messages. There are CAN controllers able to
+queue more or just one message and then NAPI adds overhead.
 
+> @Marc/Wolfgang: Would this be also your recommendation for a CAN controller
+> design that supports SocketCAN in the best way?
+
+Anyway, NAPI *always* useful as it helps with the infamous interrupt
+flooding.
+
+Wolfgang.
