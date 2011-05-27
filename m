@@ -1,47 +1,92 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] IPVS : bug in ip_vs_ftp, same list heaad used in
- all netns.
-Date: Fri, 27 May 2011 11:33:25 +0200
-Message-ID: <4DDF6FE5.507@netfilter.org>
-References: <1306239065-17271-1-git-send-email-hans.schillstrom@ericsson.com> <4DDE8B3E.30009@netfilter.org> <20110526233744.GD2815@verge.net.au> <201105270724.24129.hans.schillstrom@ericsson.com> <20110527060409.GB24641@verge.net.au>
+Subject: Re: [ANNOUNCE]: Release of iptables-1.4.11
+Date: Fri, 27 May 2011 13:55:22 +0200
+Message-ID: <4DDF912A.5070003@netfilter.org>
+References: <4DDE857E.40807@trash.net> <4DDE8814.7090201@trash.net> <201105270952.44811.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	"ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>,
-	David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110527060409.GB24641@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@osdl.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:46380 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752696Ab1E0Lzd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 May 2011 07:55:33 -0400
+In-Reply-To: <201105270952.44811.a.miskiewicz@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27/05/11 08:04, Simon Horman wrote:
-> On Fri, May 27, 2011 at 07:24:22AM +0200, Hans Schillstrom wrote:
->> On Friday 27 May 2011 01:37:45 Simon Horman wrote:
->>> On Thu, May 26, 2011 at 07:17:50PM +0200, Pablo Neira Ayuso wrote:
->>>> On 24/05/11 14:11, Hans Schillstrom wrote:
->>>>> When ip_vs was adapted to netns the ftp application was not adapted
->>>>> in a correct way.
->>>>> However this is a fix to avoid kernel errors. In the long term another solution
->>>>> might be chosen.  I.e the ports that the ftp appl, uses should be per netns.
->>>>
->>>> applied, thanks.
->>>
->>> Thanks Pablo.
->>>
->>> Hans, is this appropriate for -stable (i.e. 2.6.39.x) ?
+On 27/05/11 09:52, Arkadiusz Miskiewicz wrote:
+> On Thursday 26 of May 2011, Patrick McHardy wrote:
+>> Am 26.05.2011 18:53, schrieb Patrick McHardy:
+>>> The netfilter coreteam presents:
+>>>     iptables version 1.4.10
 >>
->> Yes it is.
-> 
-> Thanks.
-> 
-> Dave, can you handle that once this change makes
-> it into your tree?
+>> That's supposed to read 1.4.11 of course :)
+>=20
+> Too bad it breaks iproute2 build, hope to see fixed iproute2 release =
+then
+>=20
+> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -
+> DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\" -DCONFIG_GACT -DCONFIG_GA=
+CT_PROB -
+> DIPT_LIB_DIR=3D\"/usr/lib64/xtables\" -Wl,-export-dynamic -shared -fp=
+ic -o=20
+> q_atm.so q_atm.c -latm
+> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -
+> DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\" -DCONFIG_GACT -DCONFIG_GA=
+CT_PROB -
+> DIPT_LIB_DIR=3D\"/usr/lib64/xtables\" -Wl,-export-dynamic -shared -fp=
+ic -o=20
+> m_xt.so m_xt.c -lxtables
+> m_xt.c: In function =E2=80=98parse_ipt=E2=80=99:
+> m_xt.c:167:31: warning: passing argument 2 of =E2=80=98xtables_merge_=
+options=E2=80=99 discards=20
+> =E2=80=98const=E2=80=99 qualifier from pointer target type [enabled b=
+y default]
+> /usr/include/xtables.h:395:23: note: expected =E2=80=98struct option =
+*=E2=80=99 but argument=20
+> is of type =E2=80=98const struct option *=E2=80=99
+> m_xt.c:167:31: warning: passing argument 3 of =E2=80=98xtables_merge_=
+options=E2=80=99 from=20
+> incompatible pointer type [enabled by default]
+> /usr/include/xtables.h:395:23: note: expected =E2=80=98const struct o=
+ption *=E2=80=99 but=20
+> argument is of type =E2=80=98unsigned int *=E2=80=99
+> m_xt.c:167:31: error: too few arguments to function =E2=80=98xtables_=
+merge_options=E2=80=99
+> /usr/include/xtables.h:395:23: note: declared here
+> m_xt.c:127:6: warning: variable =E2=80=98res=E2=80=99 set but not use=
+d [-Wunused-but-set-
+> variable]
+> m_xt.c: In function =E2=80=98print_ipt=E2=80=99:
+> m_xt.c:312:30: warning: passing argument 2 of =E2=80=98xtables_merge_=
+options=E2=80=99 discards=20
+> =E2=80=98const=E2=80=99 qualifier from pointer target type [enabled b=
+y default]
+> /usr/include/xtables.h:395:23: note: expected =E2=80=98struct option =
+*=E2=80=99 but argument=20
+> is of type =E2=80=98const struct option *=E2=80=99
+> m_xt.c:312:30: warning: passing argument 3 of =E2=80=98xtables_merge_=
+options=E2=80=99 from=20
+> incompatible pointer type [enabled by default]
+> /usr/include/xtables.h:395:23: note: expected =E2=80=98const struct o=
+ption *=E2=80=99 but=20
+> argument is of type =E2=80=98unsigned int *=E2=80=99
+> m_xt.c:312:30: error: too few arguments to function =E2=80=98xtables_=
+merge_options=E2=80=99
+> /usr/include/xtables.h:395:23: note: declared here
+> make[1]: *** [m_xt.so] B=C5=82=C4=85d 1
+> rm emp_ematch.lex.c emp_ematch.yacc.c
 
-http://permalink.gmane.org/gmane.linux.kernel.wireless.general/70374
+Backward compatibility was broken in the following iptables commit:
+
+=46rom 600f38db82548a683775fd89b6e136673e924097 Mon Sep 17 00:00:00 200=
+1
+=46rom: Jan Engelhardt <jengelh@medozas.de>
+Date: Fri, 29 Oct 2010 18:57:42 +0200
+Subject: [PATCH] libxtables: change option precedence order to be intui=
+tive
