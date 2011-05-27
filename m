@@ -1,50 +1,80 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 36012] New: Kernel oops in
-	__pskb_pull_tail
-Date: Fri, 27 May 2011 15:34:36 -0700
-Message-ID: <20110527153436.fa3ef79a.akpm@linux-foundation.org>
-References: <bug-36012-10286@https.bugzilla.kernel.org/>
-	<20110527151715.a9888b74.akpm@linux-foundation.org>
-	<20110527223030.GA5081@uio.no>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: Section conflict compile failures in net
+Date: Fri, 27 May 2011 18:04:37 -0500
+Message-ID: <1306537477.12244.13.camel@mulgrave.site>
+References: <1306445993.4048.58.camel@mulgrave.site>
+	 <20110527080728.GA2108@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org, bugme-daemon@bugzilla.kernel.org
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20110527223030.GA5081@uio.no>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bedivere.hansenpartnership.com ([66.63.167.143]:41457 "EHLO
+	bedivere.hansenpartnership.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755239Ab1E0XEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 19:04:40 -0400
+In-Reply-To: <20110527080728.GA2108@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 May 2011 00:30:30 +0200
-"Steinar H. Gunderson" <sgunderson@bigfoot.com> wrote:
+On Fri, 2011-05-27 at 10:07 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> On Thu, May 26, 2011 at 04:39:53PM -0500, James Bottomley wrote:
+> > I'm now getting a ton of errors like this in git head:
+> >=20
+> >   CC [M]  drivers/net/3c59x.o
+> >   CC [M]  drivers/net/hp100.o
+> >   CC [M]  drivers/net/ne3210.o
+> >   CC [M]  drivers/net/3c509.o
+> >   CC [M]  drivers/net/depca.o
+> > drivers/net/ne3210.c:83: error: irq_map causes a section type confl=
+ict
+> > drivers/net/ne3210.c:85: error: shmem_map causes a section type con=
+flict
+> > drivers/net/ne3210.c:89: error: ifmap_val causes a section type con=
+flict
+> > drivers/net/ne3210.c:319: error: ne3210_ids causes a section type c=
+onflict
+> > make[2]: *** [drivers/net/ne3210.o] Error 1
+> > make[2]: *** Waiting for unfinished jobs....
+> > drivers/net/hp100.c:198: error: hp100_eisa_tbl causes a section typ=
+e conflict
+> > drivers/net/hp100.c:211: error: hp100_pci_tbl causes a section type=
+ conflict
+> > make[2]: *** [drivers/net/hp100.o] Error 1
+> > drivers/net/depca.c:544: error: de1xx_irq causes a section type con=
+flict
+> > drivers/net/depca.c:545: error: de2xx_irq causes a section type con=
+flict
+> > drivers/net/depca.c:546: error: de422_irq causes a section type con=
+flict
+> [...]
+>=20
+> Those three are only used in depca_hw_init() marked __devinit. What c=
+ompiler
+> [flags] do you use to build this?
 
-> On Fri, May 27, 2011 at 03:17:15PM -0700, Andrew Morton wrote:
-> > (switched to email.  Please respond via emailed reply-to-all, not via the
-> > bugzilla web interface).
-> 
-> Just for reference; this happens to me every time I file a bug. Should I just
-> send it right to netdev@ the next time?
+It's a standard debian one.
 
-Yes please.
+jejb@ion> hppa64-linux-gnu-gcc -v
+Using built-in specs.
+Target: hppa64-linux-gnu
+Configured with: ../src/configure --enable-languages=3Dc --prefix=3D/us=
+r
+--libexecdir=3D/usr/lib --disable-shared --disable-nls --disable-thread=
+s
+--disable-libffi --disable-libgomp --disable-libmudflap --disable-libss=
+p
+--with-as=3D/usr/bin/hppa64-linux-gnu-as
+--with-ld=3D/usr/bin/hppa64-linux-gnu-ld
+--includedir=3D/usr/hppa64-linux-gnu/include --host=3Dhppa-linux-gnu
+--build=3Dhppa-linux-gnu --target=3Dhppa64-linux-gnu
+Thread model: single
+gcc version 4.2.4 (Debian 4.2.4-6)
+
+the problem is definitely the depca_irq[i] in the loop ... replace that
+with a constant and the error goes away.
+
+James
 
 
-------------------------------------------------------------------------------
-vRanger cuts backup time in half-while increasing security.
-With the market-leading solution for virtual backup and recovery, 
-you get blazing-fast, flexible, and affordable data protection.
-Download your free trial now. 
-http://p.sf.net/sfu/quest-d2dcopy1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
