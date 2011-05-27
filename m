@@ -1,57 +1,59 @@
-From: Yann Dupont <Yann.Dupont@univ-nantes.fr>
-Subject: Re: Kernel crash after using new Intel NIC (igb)
-Date: Fri, 27 May 2011 09:56:44 +0200
-Message-ID: <4DDF593C.3060900@univ-nantes.fr>
-References: <201104250033.03401.maxi@daemonizer.de>	 <1303878240.2699.41.camel@edumazet-laptop>	 <1303878771.2699.44.camel@edumazet-laptop>	 <201104271352.00601.maxi@daemonizer.de>	 <20110512211033.GA3468@dev1756.snc6.facebook.com>	 <1305234953.2831.2.camel@edumazet-laptop>	 <20110524213327.GA3917@dev1756.snc6.facebook.com>	 <1306291469.3305.11.camel@edumazet-laptop>	 <20110525060609.GA32244@dev1756.snc6.facebook.com>	 <1306305331.3305.22.camel@edumazet-laptop>  <4DDEAA3C.7020502@fb.com>	 <1306439246.2543.10.camel@edumazet-laptop>  <4DDECA9B.8080206@fb.com>	 <1306447292.2543.32.camel@edumazet-laptop>  <4DDEEBC5.80804@fb.com> <1306466831.2543.58.camel@edumazet-laptop>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+Subject: [PATCH] caif: Fix compile warning in caif_serial.c
+Date: Fri, 27 May 2011 10:09:15 +0200
+Message-ID: <1306483755-3588-1-git-send-email-sjur.brandeland@stericsson.com>
+References: <20110526143006.2d1ef9f7.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arun Sharma <asharma@fb.com>, David Miller <davem@davemloft.net>,
-	Maximilian Engelhardt <maxi@daemonizer.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
-	Denys Fedoryshchenko <denys@visp.net.lb>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306466831.2543.58.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, linux-next@vger.kernel.org,
+	balbi@ti.com, netdev@vger.kernel.org,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sf1.isp.kq.no ([213.172.193.37]:61050 "EHLO pmx.vmail.no"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758715Ab1E0IJb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 May 2011 04:09:31 -0400
+In-Reply-To: <20110526143006.2d1ef9f7.randy.dunlap@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 27/05/2011 05:27, Eric Dumazet a =C3=A9crit :
-> Le jeudi 26 mai 2011 =C3=A0 17:09 -0700, Arun Sharma a =C3=A9crit :
->> On 5/26/11 3:01 PM, Eric Dumazet wrote:
->>
->>
->>>> Yeah - using the refcnt seems better than list_empty(), but I'm no=
-t sure
->>>> that your patch addresses the race above.
->>> It does.
->> True. I can't find any holes in this method and it resolves the "fai=
-lure
->> to unlink from unused" case.
->>
->> Perhaps wrap the while(1) loop into its own primitive in atomic.h or=
- use
->> an existing primitive?
->>
-> Sure, here is a formal submission I cooked.
->
-> Thanks
->
-> [PATCH] inetpeer: fix race in unused_list manipulations
+=46ix the compile warning introduced by the patch:
+"tty: make receive_buf() return the amout of bytes received"
 
-Thanks eric, didn't noticed this thread, nice to see you squashed this =
-bug.
-As you said in a previous message, slub_nomerge prevented us from=20
-crashing for 113 days now :)
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+Note: Fixes compile issue in linux-next (no issue in net-2.6).
 
-But of course, THE REAL FIX is much preffered. Will try this patch with=
+ drivers/net/caif/caif_serial.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_ser=
+ial.c
+index 73c7e03..751ebbd 100644
+--- a/drivers/net/caif/caif_serial.c
++++ b/drivers/net/caif/caif_serial.c
+@@ -191,7 +191,7 @@ static unsigned int ldisc_receive(struct tty_struct=
+ *tty,
+ 		dev_info(&ser->dev->dev,
+ 			"Bytes received before initial transmission -"
+ 			"bytes discarded.\n");
+-		return;
++		return count;
+ 	}
 =20
-the next -stable update.
-
-Thanks for your efforts,
-
+ 	BUG_ON(ser->dev =3D=3D NULL);
+@@ -199,7 +199,7 @@ static unsigned int ldisc_receive(struct tty_struct=
+ *tty,
+ 	/* Get a suitable caif packet and copy in data. */
+ 	skb =3D netdev_alloc_skb(ser->dev, count+1);
+ 	if (skb =3D=3D NULL)
+-		return;
++		return 0;
+ 	p =3D skb_put(skb, count);
+ 	memcpy(p, data, count);
+=20
 --=20
-Yann Dupont - Service IRTS, DSI Universit=C3=A9 de Nantes
-Tel : 02.53.48.49.20 - Mail/Jabber : Yann.Dupont@univ-nantes.fr
+1.7.0.4
+
