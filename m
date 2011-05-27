@@ -1,87 +1,57 @@
-From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.11
-Date: Fri, 27 May 2011 09:52:44 +0200
-Message-ID: <201105270952.44811.a.miskiewicz@gmail.com>
-References: <4DDE857E.40807@trash.net> <4DDE8814.7090201@trash.net>
+From: Yann Dupont <Yann.Dupont@univ-nantes.fr>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Fri, 27 May 2011 09:56:44 +0200
+Message-ID: <4DDF593C.3060900@univ-nantes.fr>
+References: <201104250033.03401.maxi@daemonizer.de>	 <1303878240.2699.41.camel@edumazet-laptop>	 <1303878771.2699.44.camel@edumazet-laptop>	 <201104271352.00601.maxi@daemonizer.de>	 <20110512211033.GA3468@dev1756.snc6.facebook.com>	 <1305234953.2831.2.camel@edumazet-laptop>	 <20110524213327.GA3917@dev1756.snc6.facebook.com>	 <1306291469.3305.11.camel@edumazet-laptop>	 <20110525060609.GA32244@dev1756.snc6.facebook.com>	 <1306305331.3305.22.camel@edumazet-laptop>  <4DDEAA3C.7020502@fb.com>	 <1306439246.2543.10.camel@edumazet-laptop>  <4DDECA9B.8080206@fb.com>	 <1306447292.2543.32.camel@edumazet-laptop>  <4DDEEBC5.80804@fb.com> <1306466831.2543.58.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>
-To: shemminger@osdl.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4DDE8814.7090201@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Arun Sharma <asharma@fb.com>, David Miller <davem@davemloft.net>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
+	Denys Fedoryshchenko <denys@visp.net.lb>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306466831.2543.58.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 26 of May 2011, Patrick McHardy wrote:
-> Am 26.05.2011 18:53, schrieb Patrick McHardy:
-> > The netfilter coreteam presents:
-> >     iptables version 1.4.10
->=20
-> That's supposed to read 1.4.11 of course :)
+Le 27/05/2011 05:27, Eric Dumazet a =C3=A9crit :
+> Le jeudi 26 mai 2011 =C3=A0 17:09 -0700, Arun Sharma a =C3=A9crit :
+>> On 5/26/11 3:01 PM, Eric Dumazet wrote:
+>>
+>>
+>>>> Yeah - using the refcnt seems better than list_empty(), but I'm no=
+t sure
+>>>> that your patch addresses the race above.
+>>> It does.
+>> True. I can't find any holes in this method and it resolves the "fai=
+lure
+>> to unlink from unused" case.
+>>
+>> Perhaps wrap the while(1) loop into its own primitive in atomic.h or=
+ use
+>> an existing primitive?
+>>
+> Sure, here is a formal submission I cooked.
+>
+> Thanks
+>
+> [PATCH] inetpeer: fix race in unused_list manipulations
 
-Too bad it breaks iproute2 build, hope to see fixed iproute2 release th=
-en
+Thanks eric, didn't noticed this thread, nice to see you squashed this =
+bug.
+As you said in a previous message, slub_nomerge prevented us from=20
+crashing for 113 days now :)
 
-gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -
-DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\" -DCONFIG_GACT -DCONFIG_GACT=
-_PROB -
-DIPT_LIB_DIR=3D\"/usr/lib64/xtables\" -Wl,-export-dynamic -shared -fpic=
- -o=20
-q_atm.so q_atm.c -latm
-gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -
-DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\" -DCONFIG_GACT -DCONFIG_GACT=
-_PROB -
-DIPT_LIB_DIR=3D\"/usr/lib64/xtables\" -Wl,-export-dynamic -shared -fpic=
- -o=20
-m_xt.so m_xt.c -lxtables
-m_xt.c: In function =E2=80=98parse_ipt=E2=80=99:
-m_xt.c:167:31: warning: passing argument 2 of =E2=80=98xtables_merge_op=
-tions=E2=80=99 discards=20
-=E2=80=98const=E2=80=99 qualifier from pointer target type [enabled by =
-default]
-/usr/include/xtables.h:395:23: note: expected =E2=80=98struct option *=E2=
-=80=99 but argument=20
-is of type =E2=80=98const struct option *=E2=80=99
-m_xt.c:167:31: warning: passing argument 3 of =E2=80=98xtables_merge_op=
-tions=E2=80=99 from=20
-incompatible pointer type [enabled by default]
-/usr/include/xtables.h:395:23: note: expected =E2=80=98const struct opt=
-ion *=E2=80=99 but=20
-argument is of type =E2=80=98unsigned int *=E2=80=99
-m_xt.c:167:31: error: too few arguments to function =E2=80=98xtables_me=
-rge_options=E2=80=99
-/usr/include/xtables.h:395:23: note: declared here
-m_xt.c:127:6: warning: variable =E2=80=98res=E2=80=99 set but not used =
-[-Wunused-but-set-
-variable]
-m_xt.c: In function =E2=80=98print_ipt=E2=80=99:
-m_xt.c:312:30: warning: passing argument 2 of =E2=80=98xtables_merge_op=
-tions=E2=80=99 discards=20
-=E2=80=98const=E2=80=99 qualifier from pointer target type [enabled by =
-default]
-/usr/include/xtables.h:395:23: note: expected =E2=80=98struct option *=E2=
-=80=99 but argument=20
-is of type =E2=80=98const struct option *=E2=80=99
-m_xt.c:312:30: warning: passing argument 3 of =E2=80=98xtables_merge_op=
-tions=E2=80=99 from=20
-incompatible pointer type [enabled by default]
-/usr/include/xtables.h:395:23: note: expected =E2=80=98const struct opt=
-ion *=E2=80=99 but=20
-argument is of type =E2=80=98unsigned int *=E2=80=99
-m_xt.c:312:30: error: too few arguments to function =E2=80=98xtables_me=
-rge_options=E2=80=99
-/usr/include/xtables.h:395:23: note: declared here
-make[1]: *** [m_xt.so] B=C5=82=C4=85d 1
-rm emp_ematch.lex.c emp_ematch.yacc.c
+But of course, THE REAL FIX is much preffered. Will try this patch with=
+=20
+the next -stable update.
 
+Thanks for your efforts,
 
 --=20
-Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yann Dupont - Service IRTS, DSI Universit=C3=A9 de Nantes
+Tel : 02.53.48.49.20 - Mail/Jabber : Yann.Dupont@univ-nantes.fr
