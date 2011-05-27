@@ -1,59 +1,161 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 3/3] net: Kill ratelimit.h dependency in linux/net.h
-Date: Fri, 27 May 2011 10:44:03 +0200
-Message-ID: <20110527084403.GD21386@elte.hu>
-References: <20110526.164330.2076981043593394399.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/6] unicore32: add pkunity-v3 mac/net driver (umal)
+Date: Fri, 27 May 2011 11:19:41 +0200
+Message-ID: <201105271119.41323.arnd@arndb.de>
+References: <cover.1306408804.git.gxt@mprc.pku.edu.cn> <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:50030 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753556Ab1E0IoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 May 2011 04:44:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20110526.164330.2076981043593394399.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	greg@kroah.com, netdev@vger.kernel.org
+To: GuanXuetao <gxt@mprc.pku.edu.cn>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-* David Miller <davem@davemloft.net> wrote:
-
-> Ingo Molnar noticed that we have this unnecessary ratelimit.h
-> dependency in linux/net.h, which hid compilation problems from
-> people doing builds only with CONFIG_NET enabled.
+On Thursday 26 May 2011, GuanXuetao wrote:
+> From: Guan Xuetao <gxt@mprc.pku.edu.cn>
 > 
-> Move this stuff out to a seperate net/net_ratelimit.h file and
-> include that in the only two places where this thing is needed.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
 > ---
->  include/linux/net.h        |    6 ------
->  net/core/sysctl_net_core.c |    1 +
->  net/core/utils.c           |    1 +
->  3 files changed, 2 insertions(+), 6 deletions(-)
-> 
-> diff --git a/include/linux/net.h b/include/linux/net.h
-> index 1da55e9..b299230 100644
-> --- a/include/linux/net.h
-> +++ b/include/linux/net.h
-> @@ -289,11 +289,5 @@ extern int kernel_sock_shutdown(struct socket *sock,
->  	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto) \
->  		     "-type-" __stringify(type))
->  
-> -#ifdef CONFIG_SYSCTL
-> -#include <linux/sysctl.h>
-> -#include <linux/ratelimit.h>
-> -extern struct ratelimit_state net_ratelimit_state;
-> -#endif
-> -
+>  MAINTAINERS                            |    1 +
+>  arch/unicore32/configs/debug_defconfig |    2 +-
+>  drivers/net/Kconfig                    |    5 +
+>  drivers/net/Makefile                   |    1 +
+>  drivers/net/mac-puv3.c                 | 1942 ++++++++++++++++++++++++++++++++
+>  5 files changed, 1950 insertions(+), 1 deletions(-)
+>  create mode 100644 drivers/net/mac-puv3.c
 
-Assuming that this moved into net_ratelimit.h with a guard define 
-this looks good to me:
+I also have a few comments after looking through the driver.
 
-Acked-by: Ingo Molnar <mingo@elte.hu>
+> +
+> +/**********************************************************************
+> + *  Globals
+> + ********************************************************************* */
 
-Thanks,
+Regular commenting style would be
 
-	Ingo
+/*
+ * Globals
+ */
+
+> +/**********************************************************************
+> + *  Prototypes
+> + ********************************************************************* */
+> +static int umal_mii_reset(struct mii_bus *bus);
+> +static int umal_mii_read(struct mii_bus *bus, int phyaddr, int regidx);
+> +static int umal_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
+> +		u16 val);
+> +static int umal_mii_probe(struct net_device *dev);
+> +
+> +static void umaldma_initctx(struct umaldma *d, struct umal_softc *s,
+> +		int rxtx, int maxdescr);
+> +static void umaldma_uninitctx(struct umaldma *d);
+> +static void umaldma_channel_start(struct umaldma *d, int rxtx);
+> +static void umaldma_channel_stop(struct umaldma *d);
+> +static int umaldma_add_rcvbuffer(struct umal_softc *sc, struct umaldma *d,
+> +		struct sk_buff *m);
+> +static int umaldma_add_txbuffer(struct umaldma *d, struct sk_buff *m);
+> +static void umaldma_emptyring(struct umaldma *d);
+> +static void umaldma_fillring(struct umal_softc *sc, struct umaldma *d);
+> +static int umaldma_rx_process(struct umal_softc *sc, struct umaldma *d,
+> +		int work_to_do, int poll);
+> +static void umaldma_tx_process(struct umal_softc *sc, struct umaldma *d,
+> +		int poll);
+> +
+> +static int umal_initctx(struct umal_softc *s);
+> +static void umal_uninitctx(struct umal_softc *s);
+> +static void umal_channel_start(struct umal_softc *s);
+> +static void umal_channel_stop(struct umal_softc *s);
+> +static enum umal_state umal_set_channel_state(struct umal_softc *,
+> +		enum umal_state);
+> +
+> +static int umal_init(struct platform_device *pldev, long long base);
+> +static int umal_open(struct net_device *dev);
+> +static int umal_close(struct net_device *dev);
+> +static int umal_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+> +static irqreturn_t umal_intr(int irq, void *dev_instance);
+> +static void umal_clr_intr(struct net_device *dev);
+> +static int umal_start_tx(struct sk_buff *skb, struct net_device *dev);
+> +static void umal_tx_timeout(struct net_device *dev);
+> +static void umal_set_rx_mode(struct net_device *dev);
+> +static void umal_promiscuous_mode(struct umal_softc *sc, int onoff);
+> +static void umal_setmulti(struct umal_softc *sc);
+> +static int umal_set_speed(struct umal_softc *s, enum umal_speed speed);
+> +static int umal_set_duplex(struct umal_softc *s, enum umal_duplex duplex,
+> +		enum umal_fc fc);
+> +static int umal_change_mtu(struct net_device *_dev, int new_mtu);
+> +static void umal_miipoll(struct net_device *dev);
+
+Best avoid all these prototypes. Instead, reorder the functions in the
+driver so you don't need them. That is the order in which reviewers expect
+them.
+
+> +/**********************************************************************
+> + *  UMAL_MII_RESET(bus)
+> + *
+> + *  Reset MII bus.
+> + *
+> + *  Input parameters:
+> + *	   bus     - MDIO bus handle
+> + *
+> + *  Return value:
+> + *	   0 if ok
+> + ********************************************************************* */
+
+For extended function documentation, use the kerneldoc style, e.g.
+
+/**
+ * umal_mii_reset - reset MII bus
+ *
+ * @bus: MDIO bus handle
+ *
+ * Returns 0
+ */
+
+See also Documentation/kernel-doc-nano-HOWTO.txt
+
+> +/**********************************************************************
+> + *  UMALDMA_RX_PROCESS(sc,d,work_to_do,poll)
+> + *
+> + *  Process "completed" receive buffers on the specified DMA channel.
+> + *
+> + *  Input parameters:
+> + *            sc - softc structure
+> + *	       d - DMA channel context
+> + *    work_to_do - no. of packets to process before enabling interrupt
+> + *                 again (for NAPI)
+> + *          poll - 1: using polling (for NAPI)
+> + *
+> + *  Return value:
+> + *	   nothing
+> + ********************************************************************* */
+> +static int umaldma_rx_process(struct umal_softc *sc, struct umaldma *d,
+> +		int work_to_do, int poll)
+
+It seems that you tried to convert the driver to NAPI but did not succeed,
+as this function is only called from the interrupt handler directly.
+
+There is usually a significant performance win from using NAPI, so you
+should better try again. If you had problems doing that, please ask
+on netdev.
+
+> +
+> +#ifdef CONFIG_CMDLINE_FORCE
+> +	eaddr[0] = 0x00;
+> +	eaddr[1] = 0x25;
+> +	eaddr[2] = 0x9b;
+> +	eaddr[3] = 0xff;
+> +	eaddr[4] = 0x00;
+> +	eaddr[5] = 0x00;
+> +#endif
+> +
+> +	for (i = 0; i < 6; i++)
+> +		dev->dev_addr[i] = eaddr[i];
+
+You can use random_ether_addr() to generate a working unique MAC address
+if the hardware does not provide one.
+
+	Arnd
