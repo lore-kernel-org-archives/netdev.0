@@ -1,80 +1,123 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 1/2 v2] af-packet: Use existing netdev reference for bound
- sockets.
-Date: Fri, 27 May 2011 13:18:25 -0700
-Message-ID: <4DE00711.6070000@candelatech.com>
-References: <1306467745.2543.60.camel@edumazet-laptop>	<4DDF2463.3020001@candelatech.com>	<1306526921.2533.7.camel@edumazet-laptop> <20110527.161542.568477840432205227.davem@davemloft.net>
+From: C Anthony Risinger <anthony@xtfx.me>
+Subject: Re: [GIT PULL] Namespace file descriptors for 2.6.40
+Date: Fri, 27 May 2011 15:18:45 -0500
+Message-ID: <BANLkTimXMaYe9OYNhqPCiNnG2CqaQOt-yw@mail.gmail.com>
+References: <m1wrhh3z62.fsf@fess.ebiederm.org> <BANLkTikW4vJbC8kcLSKuemUBbu36SO6hwg@mail.gmail.com>
+ <20110525213806.GA4590@mail.hallyn.com> <BANLkTinbw6pZjhMscfXFMArd=XU=VC=+eQ@mail.gmail.com>
+ <m17h9e1h9e.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53157 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753396Ab1E0USb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 16:18:31 -0400
-In-Reply-To: <20110527.161542.568477840432205227.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Serge E. Hallyn" <serge@hallyn.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m17h9e1h9e.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/27/2011 01:15 PM, David Miller wrote:
-> From: Eric Dumazet<eric.dumazet@gmail.com>
-> Date: Fri, 27 May 2011 22:08:41 +0200
+On Wed, May 25, 2011 at 6:40 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> C Anthony Risinger <anthony@xtfx.me> writes:
 >
->> Le jeudi 26 mai 2011 =E0 21:11 -0700, Ben Greear a =E9crit :
->>> On 05/26/2011 08:42 PM, Eric Dumazet wrote:
->>>> Le jeudi 26 mai 2011 =E0 16:55 -0700, greearb@candelatech.com a =E9=
-crit :
->>>
->>>>>    out_free:
->>>>>    	kfree_skb(skb);
->>>>>    out_unlock:
->>>>> -	if (dev)
->>>>> +	if (dev&&   need_rls_dev)
->>>>>    		dev_put(dev);
->>>>>    out:
->>>>>    	return err;
+>> On Wed, May 25, 2011 at 4:38 PM, Serge E. Hallyn <serge@hallyn.com> =
+wrote:
+>>> Quoting C Anthony Risinger (anthony@xtfx.me):
+>>>> On Mon, May 23, 2011 at 4:05 PM, Eric W. Biederman
+>>>> <ebiederm@xmission.com> wrote:
+>>>> >
+>>>> > This tree adds the files /proc/<pid>/ns/net, /proc/<pid>/ns/ipc,
+>>>> > /proc/<pid>/ns/uts that can be opened to refer to the namespaces=
+ of a
+>>>> > process at the time those files are opened, and can be bind moun=
+ted to
+>>>> > keep the specified namespace alive without a process.
+>>>> >
+>>>> > This tree adds the setns system call that can be used to change =
+the
+>>>> > specified namespace of a process to the namespace specified by a=
+ system
+>>>> > call.
 >>>>
->>>> Hmmm, I wonder why you want this Ben.
+>>>> i just have a quick question regarding these, apologies if wrong p=
+lace
+>>>> to respond -- i trimmed to lists only.
 >>>>
->>>> IMHO this is buggy, because we can sleep in this function.
+>>>> if i understand correctly, mount namespaces (for example), allow o=
+ne
+>>>> to build such constructs as "private /tmp" and similar that even
+>>>> `root` cannot access ... and there are many reasons `root` does no=
+t
+>>>> deserve to completely know/interact with user processes (FUSE make=
+s a
+>>>> good example ... just because i [user] have SSH access to a machin=
+e,
+>>>> why should `root`?)
 >>>>
->>>> We must take a ref on device (its really cheap these days, now we =
-have a
->>>> percpu device refcnt)
+>>>> would these /proc additions break such guarantees? =C2=A0IOW, woul=
+d it now
+>>>> become possible for `root` to inject stuff into my private namespa=
+ces,
+>>>> and/or has these guarantees never existed and i am mistaken? =C2=A0=
+is there
+>>>> any kind of ACL mechanism that endows the origin process (or simil=
+ar)
+>>>> with the ability to dictate who can hold and/or interact with thes=
+e
+>>>> references?
 >>>
->>> Why must you take the reference?  And if we must, why isn't the
->>> current code that assigns the prot_hook.dev without taking a
->>> reference OK?
->>>
+>>> If for instance you have a file open in your private /tmp, then roo=
+t
+>>> in another mounts ns can open the file through /proc/$$/fd/N anyway=
+=2E
+>>> If it's a directory, he can now traverse the whole fs.
 >>
->> If we sleep, device can disappear under us.
->>
->> The only way to not take a reference is to hold rcu_read_lock(), but
->> you're not allowed to sleep under rcu_read_lock().
+>> aaah right :-( ... there's always another way isn't there ... curse
+>> you Linux for being so flexible! (just kidding baby i love you)
 >
-> You still have not addresses Ben's point.
+> Even more significant the access to the new files is guarded by the
+> ptrace access checks. =C2=A0And if root can ptrace your process root
+> can remote control your process.
 >
-> Why is it ok for the po->prot_hook.dev handling to not take a
-> reference?  It's been doing this forever.  Ben is just borrowing this
-> behavior for his uses.
+>> this seems like a more fundamental issue then? =C2=A0or should i not=
+ expect
+>> to be able to achieve separation like this? =C2=A0i ask in the conte=
+xt of
+>> OS virt via cgroups + namespaces, eg. LXC et al, because i'm about t=
+o
+>> perform a massive overhaul to our crusty sub-2.6.18 infrastructure a=
+nd
+>> i've used/followed these technologies for couple years now ... and
+>> it's starting to feel like "the right time".
 >
-> After some more research I think it happens to be OK because
-> ->prot_hook.dev is used _only_ for pointer comparisons, it is never
-> actually dereferenced or used in any other way.  Probably, we should
-> just use ->ifindex for this.
+> I don't think anything really new is allowed, but we haven't designed
+> anything that radically reduces the power of root either.
+>
+> At some point we may have the user namespace done and that should
+> give you a root like user with vastly reduced powers, but we aren't
+> there yet.
 
-It's easy enough to add a dev_hold() when I assign the skb instead
-of looking it up in my patch, but perhaps it would be cleaner over all =
-to
-just hold a ref on the prot_hook.dev when it is originally assigned?
+ok -- i knew there was some user namespace work still left for a
+namespaced root -- i was specifically thinking of the root user in the
+host.  i was under the impression that namespaces could achieve
+separation even from the host (save the kernel itself) ... but it
+seems i was mistaken ... still much to learn about Linux i suppose,
+even though i use it everyday for years and years :-)  it kind of
+makes sense i guess, since maybe the host needs supervisory powers
+over the guests?  could be some merit for real separation in the
+future (not only malevolent root host user, but say an attacker/script
+that manages to break thru container?), though how possible i dont
+know.  i wouldnt expect the root user to be prevented from killing/etc
+the container, but maybe only prevented from snooping, eg. the
+container looks like a black box that he may only resource control or
+kill completely.  either way, what we have is just fine for my (and
+likely many other's) uses.
 
-Thanks,
-Ben
+anyways, thanks for all the answers and all the work on
+namespacing/cgroups ... very useful constructs for a wide array of
+problems.
 
 --=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
 
+C Anthony
