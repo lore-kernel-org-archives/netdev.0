@@ -1,44 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net: Kill ratelimit.h dependency in linux/net.h
-Date: Fri, 27 May 2011 13:42:04 -0400 (EDT)
-Message-ID: <20110527.134204.174469626330626704.davem@davemloft.net>
-References: <20110526.164330.2076981043593394399.davem@davemloft.net>
-	<20110527084403.GD21386@elte.hu>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: fixed missing fixup of sctp_local_addr_free
+Date: Fri, 27 May 2011 13:42:13 -0400
+Message-ID: <20110527174213.GB4764@hmsreliant.think-freely.org>
+References: <1306517820-4793-1-git-send-email-nhorman@tuxdriver.com>
+ <20110527.134004.1654129007987862831.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mingo@elte.hu
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33390 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753968Ab1E0RmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 13:42:11 -0400
-In-Reply-To: <20110527084403.GD21386@elte.hu>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40828 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753968Ab1E0RmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 13:42:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20110527.134004.1654129007987862831.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 27 May 2011 10:44:03 +0200
-
->> diff --git a/include/linux/net.h b/include/linux/net.h
->> index 1da55e9..b299230 100644
->> --- a/include/linux/net.h
->> +++ b/include/linux/net.h
->> @@ -289,11 +289,5 @@ extern int kernel_sock_shutdown(struct socket *sock,
->>  	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto) \
->>  		     "-type-" __stringify(type))
->>  
->> -#ifdef CONFIG_SYSCTL
->> -#include <linux/sysctl.h>
->> -#include <linux/ratelimit.h>
->> -extern struct ratelimit_state net_ratelimit_state;
->> -#endif
->> -
+On Fri, May 27, 2011 at 01:40:04PM -0400, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri, 27 May 2011 13:37:00 -0400
 > 
-> Assuming that this moved into net_ratelimit.h with a guard define 
-> this looks good to me:
+> > commit 1231f0baa547a541a7481119323b7f964dda4788  Converted sctp to use
+> > kfree_rcu from sctp_local_addr_free but missed this one call point.  Fix it up
+> > accordingly.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 > 
-> Acked-by: Ingo Molnar <mingo@elte.hu>
+> This has been fixed for several days now.
+> 
+> If you're using the net-next-2.6 tree, don't, when it's not active
+> it's just a dummy tree for Stephen Rothwell to pull into -next
+> and it will be rebuilt as soon as the merge window is over.
+> 
+Ok, copy that, thanks
 
-Yep, thanks for reviewing!
