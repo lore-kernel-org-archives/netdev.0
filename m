@@ -1,49 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] atm: expose ATM device index in sysfs
-Date: Fri, 27 May 2011 13:07:34 -0400 (EDT)
-Message-ID: <20110527.130734.854844547751451297.davem@davemloft.net>
-References: <1306507915.22126.2.camel@dcbw.foobar.com>
-	<1306508269.3445.0.camel@edumazet-laptop>
-	<1306508748.2029.124.camel@i7.infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, dcbw@redhat.com, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil
-To: dwmw2@infradead.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: fixed missing fixup of sctp_local_addr_free
+Date: Fri, 27 May 2011 13:37:00 -0400
+Message-ID: <1306517820-4793-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33015 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977Ab1E0RKs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 13:10:48 -0400
-In-Reply-To: <1306508748.2029.124.camel@i7.infradead.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43541 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753897Ab1E0Rhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 May 2011 13:37:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: David Woodhouse <dwmw2@infradead.org>
-Date: Fri, 27 May 2011 16:05:41 +0100
+commit 1231f0baa547a541a7481119323b7f964dda4788  Converted sctp to use
+kfree_rcu from sctp_local_addr_free but missed this one call point.  Fix it up
+accordingly.
 
-> On Fri, 2011-05-27 at 16:57 +0200, Eric Dumazet wrote:
->> Le vendredi 27 mai 2011 =E0 09:51 -0500, Dan Williams a =E9crit :
->> > It's currently exposed only through /proc which, besides requiring
->> > screen-scraping, doesn't allow userspace to distinguish between tw=
-o
->> > identical ATM adapters with different ATM indexes.  The ATM device=
- index
->> > is required when using PPPoATM on a system with multiple ATM adapt=
-ers.
->> >=20
->> > Signed-off-by: Dan Williams <dcbw@redhat.com>
->> > ---
->> >=20
->>=20
->> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Tested-by: David Woodhouse <dwmw2@infradead.org>
-> Cc: stable@kernel.org
->=20
-> [root@solos atm]# grep ^ /sys/class/atm/*/atmindex
-> /sys/class/atm/solos-pci0/atmindex:0
-> /sys/class/atm/solos-pci1/atmindex:1
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yasevich <vladislav.yasevich@hp.com>
+CC: Sridhar Samudrala <sri@us.ibm.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: linux-sctp@vger.kernel.org
+---
+ net/sctp/bind_addr.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Applied, thanks.
+diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+index 6338413..83e3011 100644
+--- a/net/sctp/bind_addr.c
++++ b/net/sctp/bind_addr.c
+@@ -145,7 +145,7 @@ static void sctp_bind_addr_clean(struct sctp_bind_addr *bp)
+ 	/* Empty the bind address list. */
+ 	list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
+ 		list_del_rcu(&addr->list);
+-		call_rcu(&addr->rcu, sctp_local_addr_free);
++		kfree_rcu(addr, rcu);
+ 		SCTP_DBG_OBJCNT_DEC(addr);
+ 	}
+ }
+-- 
+1.7.5.2
+
