@@ -1,161 +1,116 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/6] unicore32: add pkunity-v3 mac/net driver (umal)
-Date: Fri, 27 May 2011 11:19:41 +0200
-Message-ID: <201105271119.41323.arnd@arndb.de>
-References: <cover.1306408804.git.gxt@mprc.pku.edu.cn> <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [RFC PATCH] net: ethtool: use C99 array initialization for feature-names table
+Date: Fri, 27 May 2011 11:25:25 +0200 (CEST)
+Message-ID: <c6eca0e13800f6fd6465fff1108ef0401b88f89d.1306488115.git.mirq-linux@rere.qmqm.pl>
+References: <BANLkTik5aF-CafhXSuTOZdCZuJiyz_Ot_A@mail.gmail.com>
+	<1306288567-1773-1-git-send-email-maheshb@google.com>
+	<1306363336-13614-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	greg@kroah.com, netdev@vger.kernel.org
-To: GuanXuetao <gxt@mprc.pku.edu.cn>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:35861 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752867Ab1E0JZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 May 2011 05:25:26 -0400
+In-Reply-To: <BANLkTik5aF-CafhXSuTOZdCZuJiyz_Ot_A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 26 May 2011, GuanXuetao wrote:
-> From: Guan Xuetao <gxt@mprc.pku.edu.cn>
-> 
-> Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
-> ---
->  MAINTAINERS                            |    1 +
->  arch/unicore32/configs/debug_defconfig |    2 +-
->  drivers/net/Kconfig                    |    5 +
->  drivers/net/Makefile                   |    1 +
->  drivers/net/mac-puv3.c                 | 1942 ++++++++++++++++++++++++++++++++
->  5 files changed, 1950 insertions(+), 1 deletions(-)
->  create mode 100644 drivers/net/mac-puv3.c
+This depends on Mahesh Bandewar's cleanup of feature bits.
 
-I also have a few comments after looking through the driver.
+Note: This is why I'd like that patch to include TSO bits as well,
+so I can get rid of this ugly NETIF_F_GSO_SHIFT+n.
 
-> +
-> +/**********************************************************************
-> + *  Globals
-> + ********************************************************************* */
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/ethtool.c |   65 +++++++++++++++++++++++++-------------------=
+-------
+ 1 files changed, 32 insertions(+), 33 deletions(-)
 
-Regular commenting style would be
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 59255c1..e5de5e1 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -350,42 +350,41 @@ static int ethtool_set_features(struct net_device=
+ *dev, void __user *useraddr)
+ 	return ret;
+ }
+=20
+-static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * =
+32][ETH_GSTRING_LEN] =3D {
+-	/* NETIF_F_SG */              "tx-scatter-gather",
+-	/* NETIF_F_IP_CSUM */         "tx-checksum-ipv4",
+-	/* NETIF_F_NO_CSUM */         "tx-checksum-unneeded",
+-	/* NETIF_F_HW_CSUM */         "tx-checksum-ip-generic",
+-	/* NETIF_F_IPV6_CSUM */       "tx-checksum-ipv6",
+-	/* NETIF_F_HIGHDMA */         "highdma",
+-	/* NETIF_F_FRAGLIST */        "tx-scatter-gather-fraglist",
+-	/* NETIF_F_HW_VLAN_TX */      "tx-vlan-hw-insert",
++static const char netdev_features_strings[ND_FEATURE_NUM_BITS][ETH_GST=
+RING_LEN] =3D {
++	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
++	[NETIF_F_IP_CSUM_BIT] =3D          "tx-checksum-ipv4",
++	[NETIF_F_NO_CSUM_BIT] =3D          "tx-checksum-unneeded",
++	[NETIF_F_HW_CSUM_BIT] =3D          "tx-checksum-ip-generic",
++	[NETIF_F_IPV6_CSUM_BIT] =3D        "tx-checksum-ipv6",
++	[NETIF_F_HIGHDMA_BIT] =3D          "highdma",
++	[NETIF_F_FRAGLIST_BIT] =3D         "tx-scatter-gather-fraglist",
++	[NETIF_F_HW_VLAN_TX_BIT] =3D       "tx-vlan-hw-insert",
+=20
+-	/* NETIF_F_HW_VLAN_RX */      "rx-vlan-hw-parse",
+-	/* NETIF_F_HW_VLAN_FILTER */  "rx-vlan-filter",
+-	/* NETIF_F_VLAN_CHALLENGED */ "vlan-challenged",
+-	/* NETIF_F_GSO */             "tx-generic-segmentation",
+-	/* NETIF_F_LLTX */            "tx-lockless",
+-	/* NETIF_F_NETNS_LOCAL */     "netns-local",
+-	/* NETIF_F_GRO */             "rx-gro",
+-	/* NETIF_F_LRO */             "rx-lro",
++	[NETIF_F_HW_VLAN_RX_BIT] =3D       "rx-vlan-hw-parse",
++	[NETIF_F_HW_VLAN_FILTER_BIT] =3D   "rx-vlan-filter",
++	[NETIF_F_VLAN_CHALLENGED_BIT] =3D  "vlan-challenged",
++	[NETIF_F_GSO_BIT] =3D              "tx-generic-segmentation",
++	[NETIF_F_LLTX_BIT] =3D             "tx-lockless",
++	[NETIF_F_NETNS_LOCAL_BIT] =3D      "netns-local",
++	[NETIF_F_GRO_BIT] =3D              "rx-gro",
++	[NETIF_F_LRO_BIT] =3D              "rx-lro",
+=20
+-	/* NETIF_F_TSO */             "tx-tcp-segmentation",
+-	/* NETIF_F_UFO */             "tx-udp-fragmentation",
+-	/* NETIF_F_GSO_ROBUST */      "tx-gso-robust",
+-	/* NETIF_F_TSO_ECN */         "tx-tcp-ecn-segmentation",
+-	/* NETIF_F_TSO6 */            "tx-tcp6-segmentation",
+-	/* NETIF_F_FSO */             "tx-fcoe-segmentation",
+-	"",
+-	"",
++	/* must match SKB_GSO_* order */
++	[NETIF_F_GSO_SHIFT+0] =3D          "tx-tcp-segmentation",
++	[NETIF_F_GSO_SHIFT+1] =3D          "tx-udp-fragmentation",
++	[NETIF_F_GSO_SHIFT+2] =3D          "tx-gso-robust",
++	[NETIF_F_GSO_SHIFT+3] =3D          "tx-tcp-ecn-segmentation",
++	[NETIF_F_GSO_SHIFT+4] =3D          "tx-tcp6-segmentation",
++	[NETIF_F_GSO_SHIFT+5] =3D          "tx-fcoe-segmentation",
+=20
+-	/* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
+-	/* NETIF_F_SCTP_CSUM */       "tx-checksum-sctp",
+-	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
+-	/* NETIF_F_NTUPLE */          "rx-ntuple-filter",
+-	/* NETIF_F_RXHASH */          "rx-hashing",
+-	/* NETIF_F_RXCSUM */          "rx-checksum",
+-	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy",
+-	/* NETIF_F_LOOPBACK */        "loopback",
++	[NETIF_F_FCOE_CRC_BIT] =3D         "tx-checksum-fcoe-crc",
++	[NETIF_F_SCTP_CSUM_BIT] =3D        "tx-checksum-sctp",
++	[NETIF_F_FCOE_MTU_BIT] =3D         "fcoe-mtu",
++	[NETIF_F_NTUPLE_BIT] =3D           "rx-ntuple-filter",
++	[NETIF_F_RXHASH_BIT] =3D           "rx-hashing",
++	[NETIF_F_RXCSUM_BIT] =3D           "rx-checksum",
++	[NETIF_F_NOCACHE_COPY_BIT] =3D     "tx-nocache-copy",
++	[NETIF_F_LOOPBACK_BIT] =3D         "loopback",
+ };
+=20
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+--=20
+1.7.2.5
 
-/*
- * Globals
- */
-
-> +/**********************************************************************
-> + *  Prototypes
-> + ********************************************************************* */
-> +static int umal_mii_reset(struct mii_bus *bus);
-> +static int umal_mii_read(struct mii_bus *bus, int phyaddr, int regidx);
-> +static int umal_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
-> +		u16 val);
-> +static int umal_mii_probe(struct net_device *dev);
-> +
-> +static void umaldma_initctx(struct umaldma *d, struct umal_softc *s,
-> +		int rxtx, int maxdescr);
-> +static void umaldma_uninitctx(struct umaldma *d);
-> +static void umaldma_channel_start(struct umaldma *d, int rxtx);
-> +static void umaldma_channel_stop(struct umaldma *d);
-> +static int umaldma_add_rcvbuffer(struct umal_softc *sc, struct umaldma *d,
-> +		struct sk_buff *m);
-> +static int umaldma_add_txbuffer(struct umaldma *d, struct sk_buff *m);
-> +static void umaldma_emptyring(struct umaldma *d);
-> +static void umaldma_fillring(struct umal_softc *sc, struct umaldma *d);
-> +static int umaldma_rx_process(struct umal_softc *sc, struct umaldma *d,
-> +		int work_to_do, int poll);
-> +static void umaldma_tx_process(struct umal_softc *sc, struct umaldma *d,
-> +		int poll);
-> +
-> +static int umal_initctx(struct umal_softc *s);
-> +static void umal_uninitctx(struct umal_softc *s);
-> +static void umal_channel_start(struct umal_softc *s);
-> +static void umal_channel_stop(struct umal_softc *s);
-> +static enum umal_state umal_set_channel_state(struct umal_softc *,
-> +		enum umal_state);
-> +
-> +static int umal_init(struct platform_device *pldev, long long base);
-> +static int umal_open(struct net_device *dev);
-> +static int umal_close(struct net_device *dev);
-> +static int umal_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-> +static irqreturn_t umal_intr(int irq, void *dev_instance);
-> +static void umal_clr_intr(struct net_device *dev);
-> +static int umal_start_tx(struct sk_buff *skb, struct net_device *dev);
-> +static void umal_tx_timeout(struct net_device *dev);
-> +static void umal_set_rx_mode(struct net_device *dev);
-> +static void umal_promiscuous_mode(struct umal_softc *sc, int onoff);
-> +static void umal_setmulti(struct umal_softc *sc);
-> +static int umal_set_speed(struct umal_softc *s, enum umal_speed speed);
-> +static int umal_set_duplex(struct umal_softc *s, enum umal_duplex duplex,
-> +		enum umal_fc fc);
-> +static int umal_change_mtu(struct net_device *_dev, int new_mtu);
-> +static void umal_miipoll(struct net_device *dev);
-
-Best avoid all these prototypes. Instead, reorder the functions in the
-driver so you don't need them. That is the order in which reviewers expect
-them.
-
-> +/**********************************************************************
-> + *  UMAL_MII_RESET(bus)
-> + *
-> + *  Reset MII bus.
-> + *
-> + *  Input parameters:
-> + *	   bus     - MDIO bus handle
-> + *
-> + *  Return value:
-> + *	   0 if ok
-> + ********************************************************************* */
-
-For extended function documentation, use the kerneldoc style, e.g.
-
-/**
- * umal_mii_reset - reset MII bus
- *
- * @bus: MDIO bus handle
- *
- * Returns 0
- */
-
-See also Documentation/kernel-doc-nano-HOWTO.txt
-
-> +/**********************************************************************
-> + *  UMALDMA_RX_PROCESS(sc,d,work_to_do,poll)
-> + *
-> + *  Process "completed" receive buffers on the specified DMA channel.
-> + *
-> + *  Input parameters:
-> + *            sc - softc structure
-> + *	       d - DMA channel context
-> + *    work_to_do - no. of packets to process before enabling interrupt
-> + *                 again (for NAPI)
-> + *          poll - 1: using polling (for NAPI)
-> + *
-> + *  Return value:
-> + *	   nothing
-> + ********************************************************************* */
-> +static int umaldma_rx_process(struct umal_softc *sc, struct umaldma *d,
-> +		int work_to_do, int poll)
-
-It seems that you tried to convert the driver to NAPI but did not succeed,
-as this function is only called from the interrupt handler directly.
-
-There is usually a significant performance win from using NAPI, so you
-should better try again. If you had problems doing that, please ask
-on netdev.
-
-> +
-> +#ifdef CONFIG_CMDLINE_FORCE
-> +	eaddr[0] = 0x00;
-> +	eaddr[1] = 0x25;
-> +	eaddr[2] = 0x9b;
-> +	eaddr[3] = 0xff;
-> +	eaddr[4] = 0x00;
-> +	eaddr[5] = 0x00;
-> +#endif
-> +
-> +	for (i = 0; i < 6; i++)
-> +		dev->dev_addr[i] = eaddr[i];
-
-You can use random_ether_addr() to generate a working unique MAC address
-if the hardware does not provide one.
-
-	Arnd
