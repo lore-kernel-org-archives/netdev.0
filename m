@@ -1,86 +1,75 @@
 From: Joe Perches <joe@perches.com>
-Subject: [TRIVIAL PATCH next 00/15] treewide: Convert vmalloc/memset to vzalloc
-Date: Sat, 28 May 2011 10:36:20 -0700
-Message-ID: <cover.1306603968.git.joe@perches.com>
-Cc: linux-s390@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-media@vger.kernel.org,
-	devel@driverdev.osuosl.org,
-	xfs@oss.sgi.com
-To: linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org,
-	drbd-user@lists.linbit.com,
-	dm-devel@redhat.com,
-	linux-raid@vger.kernel.org,
-	linux-mtd@lists.infradead.org,
-	linux-s
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
+Subject: [TRIVIAL PATCH next 15/15] net: Convert vmalloc/memset to vzalloc
+Date: Sat, 28 May 2011 10:36:35 -0700
+Message-ID: <045996b9688bfaa2efbd8999405a67e23cd0a075.1306603968.git.joe@perches.com>
+References: <cover.1306603968.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rds-devel@oss.oracle.com
+To: Patrick McHardy <kaber@trash.net>,
+	Andy Grover <andy.grover@oracle.com>,
+	Jiri Kosina <trivial@kernel.org>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <cover.1306603968.git.joe@perches.com>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Resubmittal of patches from November 2010 and a few new ones.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/netfilter/x_tables.c |    5 ++---
+ net/rds/ib_cm.c          |    6 ++----
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-Joe Perches (15):
-  s390: Convert vmalloc/memset to vzalloc
-  x86: Convert vmalloc/memset to vzalloc
-  atm: Convert vmalloc/memset to vzalloc
-  drbd: Convert vmalloc/memset to vzalloc
-  char: Convert vmalloc/memset to vzalloc
-  isdn: Convert vmalloc/memset to vzalloc
-  md: Convert vmalloc/memset to vzalloc
-  media: Convert vmalloc/memset to vzalloc
-  mtd: Convert vmalloc/memset to vzalloc
-  scsi: Convert vmalloc/memset to vzalloc
-  staging: Convert vmalloc/memset to vzalloc
-  video: Convert vmalloc/memset to vzalloc
-  fs: Convert vmalloc/memset to vzalloc
-  mm: Convert vmalloc/memset to vzalloc
-  net: Convert vmalloc/memset to vzalloc
-
- arch/s390/hypfs/hypfs_diag.c           |    3 +--
- arch/x86/mm/pageattr-test.c            |    3 +--
- drivers/atm/idt77252.c                 |   11 ++++++-----
- drivers/atm/lanai.c                    |    3 +--
- drivers/block/drbd/drbd_bitmap.c       |    5 ++---
- drivers/char/agp/backend.c             |    3 +--
- drivers/char/raw.c                     |    3 +--
- drivers/isdn/i4l/isdn_common.c         |    4 ++--
- drivers/isdn/mISDN/dsp_core.c          |    3 +--
- drivers/isdn/mISDN/l1oip_codec.c       |    6 ++----
- drivers/md/dm-log.c                    |    3 +--
- drivers/md/dm-snap-persistent.c        |    3 +--
- drivers/md/dm-table.c                  |    4 +---
- drivers/media/video/videobuf2-dma-sg.c |    8 ++------
- drivers/mtd/mtdswap.c                  |    3 +--
- drivers/s390/cio/blacklist.c           |    3 +--
- drivers/scsi/bfa/bfad.c                |    3 +--
- drivers/scsi/bfa/bfad_debugfs.c        |    8 ++------
- drivers/scsi/cxgbi/libcxgbi.h          |    6 ++----
- drivers/scsi/qla2xxx/qla_attr.c        |    6 ++----
- drivers/scsi/qla2xxx/qla_bsg.c         |    3 +--
- drivers/scsi/scsi_debug.c              |    7 ++-----
- drivers/staging/rts_pstor/ms.c         |    3 +--
- drivers/staging/rts_pstor/rtsx_chip.c  |    6 ++----
- drivers/video/arcfb.c                  |    5 ++---
- drivers/video/broadsheetfb.c           |    4 +---
- drivers/video/hecubafb.c               |    5 ++---
- drivers/video/metronomefb.c            |    4 +---
- drivers/video/xen-fbfront.c            |    3 +--
- fs/coda/coda_linux.h                   |    5 ++---
- fs/reiserfs/journal.c                  |    9 +++------
- fs/reiserfs/resize.c                   |    4 +---
- fs/xfs/linux-2.6/kmem.h                |    7 +------
- mm/page_cgroup.c                       |    3 +--
- net/netfilter/x_tables.c               |    5 ++---
- net/rds/ib_cm.c                        |    6 ++----
- 36 files changed, 57 insertions(+), 113 deletions(-)
-
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index b0869fe..71441b9 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -776,12 +776,11 @@ static int xt_jumpstack_alloc(struct xt_table_info *i)
+ 
+ 	size = sizeof(void **) * nr_cpu_ids;
+ 	if (size > PAGE_SIZE)
+-		i->jumpstack = vmalloc(size);
++		i->jumpstack = vzalloc(size);
+ 	else
+-		i->jumpstack = kmalloc(size, GFP_KERNEL);
++		i->jumpstack = kzalloc(size, GFP_KERNEL);
+ 	if (i->jumpstack == NULL)
+ 		return -ENOMEM;
+-	memset(i->jumpstack, 0, size);
+ 
+ 	i->stacksize *= xt_jumpstack_multiplier;
+ 	size = sizeof(void *) * i->stacksize;
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index fd453dd..6ecaf78 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -374,23 +374,21 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 		goto out;
+ 	}
+ 
+-	ic->i_sends = vmalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
++	ic->i_sends = vzalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
+ 				   ibdev_to_node(dev));
+ 	if (!ic->i_sends) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("send allocation failed\n");
+ 		goto out;
+ 	}
+-	memset(ic->i_sends, 0, ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work));
+ 
+-	ic->i_recvs = vmalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
++	ic->i_recvs = vzalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
+ 				   ibdev_to_node(dev));
+ 	if (!ic->i_recvs) {
+ 		ret = -ENOMEM;
+ 		rdsdebug("recv allocation failed\n");
+ 		goto out;
+ 	}
+-	memset(ic->i_recvs, 0, ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work));
+ 
+ 	rds_ib_recv_init_ack(ic);
+ 
 -- 
 1.7.5.rc3.dirty
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
