@@ -1,8 +1,7 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH V7 2/4 net-next] skbuff: Add userspace zero-copy buffers in
- skb
-Date: Sat, 28 May 2011 12:23:08 -0700
-Message-ID: <1306610588.5180.87.camel@localhost.localdomain>
+Subject: [PATCH V7 4/4 net-next] vhost: vhost TX zero-copy support
+Date: Sat, 28 May 2011 12:34:27 -0700
+Message-ID: <1306611267.5180.97.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -15,191 +14,265 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds userspace buffers support in skb shared info. A new 
-struct skb_ubuf_info is needed to maintain the userspace buffers
-argument and index, a callback is used to notify userspace to release
-the buffers once lower device has done DMA (Last reference to that skb
-has gone).
+Hello Michael,
 
-If there is any userspace apps to reference these userspace buffers,
-then these userspaces buffers will be copied into kernel. This way we
-can prevent userspace apps to hold these userspace buffers too long.
+In order to use wait for completion in shutting down, seems to me
+another work thread is needed to call vhost_zerocopy_add_used, it seems
+too much work to address a minor issue here. Do we really need it?
 
-One userspace buffer info pointer is added in skb_shared_info. Is that
-safe to use destructor_arg? From the comments, this destructor_arg is
-used for destructor, destructor calls doesn't wait for last reference to
-that skb is gone.
+Right now, the approach I am using is to ignore outstanding userspace
+buffers during shutting down if any, the device might DMAed some wrong
+data to the wire, do we really care?
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
+Thanks
+Shirley
+
+------------
+
+This patch maintains the outstanding userspace buffers in the 
+sequence it is delivered to vhost. The outstanding userspace buffers 
+will be marked as done once the lower device buffers DMA has finished. 
+This is monitored through last reference of kfree_skb callback. Two
+buffer index are used for this purpose.
+
+The vhost passes the userspace buffers info to lower device skb 
+through message control. Since there will be some done DMAs when
+entering vhost handle_tx. The worse case is all buffers in the vq are
+in pending/done status, so we need to notify guest to release DMA done 
+buffers first before get any new buffers from the vq.
+
+Signed-off-by: Shirley <xma@us.ibm.com>
 ---
- include/linux/skbuff.h |   24 ++++++++++++++++
- net/core/skbuff.c      |   73 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 97 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e8b78ce..37a2cb4 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -189,6 +189,17 @@ enum {
- 	SKBTX_DRV_NEEDS_SK_REF = 1 << 3,
+ drivers/vhost/net.c   |   46 +++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/vhost/vhost.c |   47 +++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.h |   15 +++++++++++++++
+ 3 files changed, 107 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 2f7c76a..e2eaba6 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -32,6 +32,11 @@
+  * Using this limit prevents one virtqueue from starving others. */
+ #define VHOST_NET_WEIGHT 0x80000
+ 
++/* MAX number of TX used buffers for outstanding zerocopy */
++#define VHOST_MAX_PEND 128
++/* change it to 256 when small message size performance issue is addressed */
++#define VHOST_GOODCOPY_LEN 2048
++
+ enum {
+ 	VHOST_NET_VQ_RX = 0,
+ 	VHOST_NET_VQ_TX = 1,
+@@ -151,6 +156,10 @@ static void handle_tx(struct vhost_net *net)
+ 	hdr_size = vq->vhost_hlen;
+ 
+ 	for (;;) {
++		/* Release DMAs done buffers first */
++		if (atomic_read(&vq->refcnt) > VHOST_MAX_PEND)
++			vhost_zerocopy_signal_used(vq, false);
++
+ 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+ 					 &out, &in,
+@@ -166,6 +175,12 @@ static void handle_tx(struct vhost_net *net)
+ 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+ 				break;
+ 			}
++			/* If more outstanding DMAs, queue the work */
++			if (atomic_read(&vq->refcnt) > VHOST_MAX_PEND) {
++				tx_poll_start(net, sock);
++				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
++				break;
++			}
+ 			if (unlikely(vhost_enable_notify(vq))) {
+ 				vhost_disable_notify(vq);
+ 				continue;
+@@ -188,6 +203,26 @@ static void handle_tx(struct vhost_net *net)
+ 			       iov_length(vq->hdr, s), hdr_size);
+ 			break;
+ 		}
++		/* use msg_control to pass vhost zerocopy ubuf info to skb */
++		if (sock_flag(sock->sk, SOCK_ZEROCOPY)) {
++			vq->heads[vq->upend_idx].id = head;
++			if (len < VHOST_GOODCOPY_LEN)
++				/* copy don't need to wait for DMA done */
++				vq->heads[vq->upend_idx].len =
++							VHOST_DMA_DONE_LEN;
++			else {
++				struct ubuf_info *ubuf = &vq->ubuf_info[head];
++
++				vq->heads[vq->upend_idx].len = len;
++				ubuf->callback = vhost_zerocopy_callback;
++				ubuf->arg = vq;
++				ubuf->desc = vq->upend_idx;
++				msg.msg_control = ubuf;
++				msg.msg_controllen = sizeof(ubuf);
++			}
++			atomic_inc(&vq->refcnt);
++			vq->upend_idx = (vq->upend_idx + 1) % UIO_MAXIOV;
++		}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+@@ -198,12 +233,21 @@ static void handle_tx(struct vhost_net *net)
+ 		if (err != len)
+ 			pr_debug("Truncated TX packet: "
+ 				 " len %d != %zd\n", err, len);
+-		vhost_add_used_and_signal(&net->dev, vq, head, 0);
++		if (!sock_flag(sock->sk, SOCK_ZEROCOPY))
++			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		total_len += len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+ 			break;
+ 		}
++		/* if upend_idx is full, then wait for free more */
++/*
++		if (unlikely(vq->upend_idx == vq->done_idx)) {
++			tx_poll_start(net, sock);
++			set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
++				break;
++		}
++*/
+ 	}
+ 
+ 	mutex_unlock(&vq->mutex);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 7aa4eea..b76e42a 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -174,6 +174,9 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call_ctx = NULL;
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
++	vq->upend_idx = 0;
++	vq->done_idx = 0;
++	atomic_set(&vq->refcnt, 0);
+ }
+ 
+ static int vhost_worker(void *data)
+@@ -232,6 +235,8 @@ static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
+ 					  GFP_KERNEL);
+ 		dev->vqs[i].heads = kmalloc(sizeof *dev->vqs[i].heads *
+ 					    UIO_MAXIOV, GFP_KERNEL);
++		dev->vqs[i].ubuf_info = kmalloc(sizeof *dev->vqs[i].ubuf_info *
++					    UIO_MAXIOV, GFP_KERNEL);
+ 
+ 		if (!dev->vqs[i].indirect || !dev->vqs[i].log ||
+ 			!dev->vqs[i].heads)
+@@ -244,6 +249,7 @@ err_nomem:
+ 		kfree(dev->vqs[i].indirect);
+ 		kfree(dev->vqs[i].log);
+ 		kfree(dev->vqs[i].heads);
++		kfree(dev->vqs[i].ubuf_info);
+ 	}
+ 	return -ENOMEM;
+ }
+@@ -385,6 +391,30 @@ long vhost_dev_reset_owner(struct vhost_dev *dev)
+ 	return 0;
+ }
+ 
++/* In case of DMA done not in order in lower device driver for some reason.
++ * upend_idx is used to track end of used idx, done_idx is used to track head
++ * of used idx. Once lower device DMA done contiguously, we will signal KVM
++ * guest used idx.
++ */
++void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq, bool shutdown)
++{
++	int i, j = 0;
++
++	for (i = vq->done_idx; i != vq->upend_idx; i = ++i % UIO_MAXIOV) {
++		if ((vq->heads[i].len == VHOST_DMA_DONE_LEN) || shutdown) {
++			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
++			vhost_add_used_and_signal(vq->dev, vq,
++						  vq->heads[i].id, 0);
++			++j;
++		} else
++			break;
++	}
++	if (j) {
++		vq->done_idx = i;
++		atomic_sub(j, &vq->refcnt);
++	}
++}
++
+ /* Caller should have device mutex */
+ void vhost_dev_cleanup(struct vhost_dev *dev)
+ {
+@@ -395,6 +425,9 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+ 			vhost_poll_stop(&dev->vqs[i].poll);
+ 			vhost_poll_flush(&dev->vqs[i].poll);
+ 		}
++		/* Wait for all lower device DMAs done */
++		if (atomic_read(&dev->vqs[i].refcnt))
++			vhost_zerocopy_signal_used(&dev->vqs[i], true);
+ 		if (dev->vqs[i].error_ctx)
+ 			eventfd_ctx_put(dev->vqs[i].error_ctx);
+ 		if (dev->vqs[i].error)
+@@ -603,6 +636,10 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 
+ 	mutex_lock(&vq->mutex);
+ 
++	/* clean up lower device outstanding DMAs, before setting ring */
++	if (atomic_read(&vq->refcnt))
++		vhost_zerocopy_signal_used(vq, true);
++
+ 	switch (ioctl) {
+ 	case VHOST_SET_VRING_NUM:
+ 		/* Resizing ring with an active backend?
+@@ -1416,3 +1453,13 @@ void vhost_disable_notify(struct vhost_virtqueue *vq)
+ 		vq_err(vq, "Failed to enable notification at %p: %d\n",
+ 		       &vq->used->flags, r);
+ }
++
++void vhost_zerocopy_callback(void *arg)
++{
++	struct ubuf_info *ubuf = (struct ubuf_info *)arg;
++	struct vhost_virtqueue *vq;
++
++	vq = (struct vhost_virtqueue *)ubuf->arg;
++	/* set len = 1 to mark this desc buffers done DMA */
++	vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
++}
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index b3363ae..0b11734 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -13,6 +13,11 @@
+ #include <linux/virtio_ring.h>
+ #include <asm/atomic.h>
+ 
++/* This is for zerocopy, used buffer len is set to 1 when lower device DMA
++ * done */
++#define VHOST_DMA_DONE_LEN	1
++#define VHOST_DMA_CLEAR_LEN	0
++
+ struct vhost_device;
+ 
+ struct vhost_work;
+@@ -108,6 +113,14 @@ struct vhost_virtqueue {
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+ 	struct vhost_log *log;
++	/* vhost zerocopy support */
++	atomic_t refcnt; /* num of outstanding zerocopy DMAs */
++	/* last used idx for outstanding DMA zerocopy buffers */
++	int upend_idx;
++	/* first used idx for DMA done zerocopy buffers */
++	int done_idx;
++	/* an array of userspace buffers info */
++	struct ubuf_info *ubuf_info;
  };
  
-+/*
-+ * The callback notifies userspace to release buffers when skb DMA is done in
-+ * lower device, the skb last reference should be 0 when calling this.
-+ * The desc is used to track userspace buffer index.
-+ */
-+struct ubuf_info {
-+	void (*callback)(void *);
-+	void *arg;
-+	unsigned long desc;
-+};
-+
- /* This data is invariant across clones and lives at
-  * the end of the header data, ie. at skb->end.
-  */
-@@ -203,6 +214,9 @@ struct skb_shared_info {
- 	struct sk_buff	*frag_list;
- 	struct skb_shared_hwtstamps hwtstamps;
+ struct vhost_dev {
+@@ -154,6 +167,8 @@ bool vhost_enable_notify(struct vhost_virtqueue *);
  
-+	/* DMA mapping from/to userspace buffers info */
-+	void		*ubuf_arg;
-+
- 	/*
- 	 * Warning : all fields before dataref are cleared in __alloc_skb()
- 	 */
-@@ -2261,5 +2275,15 @@ static inline void skb_checksum_none_assert(struct sk_buff *skb)
- }
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
++void vhost_zerocopy_callback(void *arg);
++void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq, bool shutdown);
  
- bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
-+
-+/*
-+ *	skb *uarg - is the buffer from userspace
-+ *	@skb: buffer to check
-+ */
-+static inline int skb_ubuf(const struct sk_buff *skb)
-+{
-+	return skb_shinfo(skb)->ubuf_arg != NULL;
-+}
-+
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 46cbd28..115c5ca 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -329,6 +329,19 @@ static void skb_release_data(struct sk_buff *skb)
- 				put_page(skb_shinfo(skb)->frags[i].page);
- 		}
- 
-+		/*
-+		 * If skb buf is from userspace, we need to notify the caller
-+		 * the lower device DMA has done;
-+		 */
-+		if (skb_ubuf(skb)) {
-+			struct ubuf_info *uarg;
-+
-+			uarg = (struct ubuf_info *)skb_shinfo(skb)->ubuf_arg;
-+
-+			if (uarg->callback)
-+				uarg->callback(uarg);
-+		}
-+
- 		if (skb_has_frag_list(skb))
- 			skb_drop_fraglist(skb);
- 
-@@ -481,6 +494,9 @@ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	if (irqs_disabled())
- 		return false;
- 
-+	if (skb_ubuf(skb))
-+		return false;
-+
- 	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
- 		return false;
- 
-@@ -573,6 +589,7 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
- 	atomic_set(&n->users, 1);
- 
- 	atomic_inc(&(skb_shinfo(skb)->dataref));
-+	skb_shinfo(skb)->ubuf_arg = NULL;
- 	skb->cloned = 1;
- 
- 	return n;
-@@ -596,6 +613,51 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
- }
- EXPORT_SYMBOL_GPL(skb_morph);
- 
-+/* skb frags copy userspace buffers to kernel */
-+static int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
-+{
-+	int i;
-+	int num_frags = skb_shinfo(skb)->nr_frags;
-+	struct page *page, *head = NULL;
-+	struct ubuf_info *uarg = skb_shinfo(skb)->ubuf_arg;
-+
-+	for (i = 0; i < num_frags; i++) {
-+		u8 *vaddr;
-+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+
-+		page = alloc_page(GFP_ATOMIC);
-+		if (!page) {
-+			while (head) {
-+				put_page(head);
-+				head = (struct page *)head->private;
-+			}
-+			return -ENOMEM;
-+		}
-+		vaddr = kmap_skb_frag(&skb_shinfo(skb)->frags[i]);
-+		memcpy(page_address(page),
-+		       vaddr + f->page_offset, f->size);
-+		kunmap_skb_frag(vaddr);
-+		page->private = (unsigned long)head;
-+		head = page;
-+	}
-+
-+	/* skb frags release userspace buffers */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+		put_page(skb_shinfo(skb)->frags[i].page);
-+
-+	uarg->callback(uarg);
-+	skb_shinfo(skb)->ubuf_arg = NULL;
-+
-+	/* skb frags point to kernel buffers */
-+	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
-+		skb_shinfo(skb)->frags[i - 1].page_offset = 0;
-+		skb_shinfo(skb)->frags[i - 1].page = head;
-+		head = (struct page *)head->private;
-+	}
-+	return 0;
-+}
-+
-+
- /**
-  *	skb_clone	-	duplicate an sk_buff
-  *	@skb: buffer to clone
-@@ -614,6 +676,11 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- {
- 	struct sk_buff *n;
- 
-+	if (skb_ubuf(skb)) {
-+		if (skb_copy_ubufs(skb, gfp_mask))
-+			return NULL;
-+	}
-+
- 	n = skb + 1;
- 	if (skb->fclone == SKB_FCLONE_ORIG &&
- 	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
-@@ -731,6 +798,12 @@ struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
- 	if (skb_shinfo(skb)->nr_frags) {
- 		int i;
- 
-+		if (skb_ubuf(skb)) {
-+			if (skb_copy_ubufs(skb, gfp_mask)) {
-+				kfree(n);
-+				goto out;
-+			}
-+		}
- 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 			skb_shinfo(n)->frags[i] = skb_shinfo(skb)->frags[i];
- 			get_page(skb_shinfo(n)->frags[i].page);
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
