@@ -1,59 +1,80 @@
-From: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Xen-devel] Re: [PATCH] ethtool: ETHTOOL_SFEATURES:
- remove NETIF_F_COMPAT return
-Date: Sat, 28 May 2011 11:07:08 +0100
-Message-ID: <1306577228.23577.17.camel@dagon.hellion.org.uk>
-References: <20110516.140958.625993829749556424.davem@davemloft.net>
-	<20110519100331.GA25103@rere.qmqm.pl>	<20110524091437.GA10779@rere.qmqm.pl>
-	<20110524.153930.610330240390616957.davem@davemloft.net>
-	<20110524215923.GA20138@rere.qmqm.pl>	<1306505626.2759.4.camel@bwh-desktop>
-	<20110527152809.GA7620@rere.qmqm.pl>	<1306511150.2759.17.camel@bwh-desktop>
-	<20110527163409.GA8497@rere.qmqm.pl>	<1306538755.2759.31.camel@bwh-desktop>
-	<20110528073525.GA19033@rere.qmqm.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 35992] New: Regression: oops when using a
+ bridge interface with tg3
+Date: Sat, 28 May 2011 12:13:07 +0200
+Message-ID: <1306577587.2533.30.camel@edumazet-laptop>
+References: <bug-35992-10286@https.bugzilla.kernel.org/>
+	 <20110527152158.0453899d.akpm@linux-foundation.org>
+	 <4DE0B91E.1080407@debian.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	"xen-devel-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org" <xen-devel-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	xen-api-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org, Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20110528073525.GA19033-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bridge@lists.linux-foundation.org
+To: Bernd Zeimetz <bzed@debian.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:58063 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803Ab1E1KNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2011 06:13:12 -0400
+Received: by wwk4 with SMTP id 4so400165wwk.1
+        for <netdev@vger.kernel.org>; Sat, 28 May 2011 03:13:11 -0700 (PDT)
+In-Reply-To: <4DE0B91E.1080407@debian.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0LCAyMDExLTA1LTI4IGF0IDA4OjM1ICswMTAwLCBNaWNoYcWCIE1pcm9zxYJhdyB3cm90
-ZToKPiBPbiBTYXQsIE1heSAyOCwgMjAxMSBhdCAxMjoyNTo1NUFNICswMTAwLCBCZW4gSHV0Y2hp
-bmdzIHdyb3RlOgo+ID4gT24gRnJpLCAyMDExLTA1LTI3IGF0IDE4OjM0ICswMjAwLCBNaWNoYcWC
-IE1pcm9zxYJhdyB3cm90ZToKPiA+ID4gT24gRnJpLCBNYXkgMjcsIDIwMTEgYXQgMDQ6NDU6NTBQ
-TSArMDEwMCwgQmVuIEh1dGNoaW5ncyB3cm90ZToKPiA+ID4gPiBPbiBGcmksIDIwMTEtMDUtMjcg
-YXQgMTc6MjggKzAyMDAsIE1pY2hhxYIgTWlyb3PFgmF3IHdyb3RlOgo+ID4gWy4uLl0KPiA+ID4g
-PiA+ICAgICAgKG5vdGU6IEVUSFRPT0xfU3tTRywuLi59IGFyZSBub3QgZXZlciBnb2luZyBhd2F5
-KQo+ID4gPiA+ID4gICAgLSBjYXVzZXMgTkVUSUZfRl8qIHRvIGJlIGFuIEFCSQo+ID4gPiA+IElm
-IGZlYXR1cmUgZmxhZyBudW1iZXJzIGFyZSBub3Qgc3RhYmxlIHRoZW4gd2hhdCBpcyB0aGUgcG9p
-bnQgb2YKPiA+ID4gPiAvc3lzL2NsYXNzL25ldC88bmFtZT4vZmVhdHVyZXM/ICBBbHNvLCBJJ20g
-bm90IGF3YXJlIHRoYXQgZmVhdHVyZXMgaGF2ZQo+ID4gPiA+IGV2ZXIgYmVlbiByZW51bWJlcmVk
-IGluIHRoZSBwYXN0Lgo+ID4gPiBTaW5jZSBubyBORVRJRl9GXyogd2VyZSBleHBvcnRlZCBlYXJs
-aWVyLCBJIGFzc3VtZSAvc3lzL2NsYXNzL25ldC8qL2ZlYXR1cmVzCj4gPiA+IGlzIGEgZGVidWdn
-aW5nIGFpZC4gV2hhdCBpcyBpdCB1c2VkIGZvciBiZXNpZGVzIHRoYXQ/Cj4gPiB4ZW4tYXBpIDxo
-dHRwczovL2dpdGh1Yi5jb20veGVuLW9yZy94ZW4tYXBpPiB1c2VzIGl0IGluCj4gPiBzY3JpcHRz
-L0ludGVyZmFjZVJlY29uZmlndXJlVnN3aXRjaC5weS4gIFRob3VnaCBpdCBkb2Vzbid0IHNlZW0g
-dG8gYmUKPiA+IHVzZWQgZm9yIGEgcGFydGljdWxhcmx5IGdvb2QgcmVhc29uLi4uCj4gCj4gTG9v
-ayBsaWtlIGl0IHNob3VsZCB1c2UgRVRIVE9PTF9HRkxBR1MgaW5zdGVhZCBmb3IgbmV0ZGV2X2hh
-c192bGFuX2FjY2VsKCkuCj4gCj4gQmVzdCBSZWdhcmRzLAo+IE1pY2hhxYIgTWlyb3PFgmF3Cj4g
-Cj4gW2FkZGVkIENjOiB4ZW4tZGV2ZWxdCgphZGRlZCBDYzogeGVuLWFwaSBsaXN0IGFuZCBkZXZA
-b3BlbnZzd2l0Y2ggYXMgd2VsbC4KCkNvbXBsZXRlIHRocmVhZCBpcyBhdApodHRwOi8vdGhyZWFk
-LmdtYW5lLm9yZy9nbWFuZS5saW51eC5uZXR3b3JrLzE5NTU1Mi9mb2N1cz0xOTcwMTkKCklhbi4K
-CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFp
-bGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL2Rldgo=
+Le samedi 28 mai 2011 =C3=A0 10:58 +0200, Bernd Zeimetz a =C3=A9crit :
+> On 05/28/2011 12:21 AM, Andrew Morton wrote:
+> > 2.6.38->2.6.39 regression, appears to be bridge-related.  There's a
+> > partial screencap of the oops linked below.
+>=20
+> The oops happens as soon as I add the lxc veth interface to the bridg=
+e, before
+> everything works as expected.
+>=20
+>=20
+> A new, full screenshot is attached
+> https://bugzilla.kernel.org/attachment.cgi?id=3D59732
+>=20
+>=20
+> (For yet unknows reasons I can't access the serial port redirection v=
+ia ssh and
+> I won't be able to attach a real serial port cable before Monday, so =
+I'm afraid
+> you have to work with the screenshot for now.)
+>=20
+>=20
+> > Bernd, it would be helpful if you could set the screen to more rows
+> > (50?) and then retake that photo.  Documentation/svga.txt might hel=
+p
+> > out.  Thanks.
+>=20
+> (the kernel says that vga=3D... is deprecated, guess that documentati=
+on is outdated?)
+>=20
+
+OK, this sounds like an already fixed bug.
+
+(commit : 33eb9873a283a bridge: initialize fake_rtable metrics)
+
+Could you try latest linux-2.6 tree ?
+
+By the way, if panic stills happen, could you try netconsole ?
+
+Here I just add
+"netconsole=3D4444@192.168.20.108/eth1,4444@192.168.20.112/00:1e:0b:ec:=
+c3:e4" to my boot param
+
+192.168.20.108 is my ip addr,
+192.168.20.112 the ip addr of "remote machine",
+00:1e:0b:ec:c3:e4 the mac addr of "remote machine"
+
+On "remote machine" I start : netcat -l -u -p 4444 </dev/null
+
+
+Thanks
+
+
