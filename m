@@ -1,111 +1,101 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel crash after using new Intel NIC (igb)
-Date: Sat, 28 May 2011 07:41:25 +0200
-Message-ID: <1306561285.2533.9.camel@edumazet-laptop>
-References: <20110525060609.GA32244@dev1756.snc6.facebook.com>
-	 <1306305331.3305.22.camel@edumazet-laptop> <4DDEAA3C.7020502@fb.com>
-	 <1306439246.2543.10.camel@edumazet-laptop> <4DDECA9B.8080206@fb.com>
-	 <1306447292.2543.32.camel@edumazet-laptop> <4DDEEBC5.80804@fb.com>
-	 <1306466831.2543.58.camel@edumazet-laptop> <4DDFE4D6.4010000@fb.com>
-	 <1306526219.2533.3.camel@edumazet-laptop>
-	 <20110527211419.GA6793@dev1756.snc6.facebook.com>
+Subject: Re: [PATCH 1/2 v2] af-packet: Use existing netdev reference for
+ bound sockets.
+Date: Sat, 28 May 2011 08:20:30 +0200
+Message-ID: <1306563630.2533.25.camel@edumazet-laptop>
+References: <1306467745.2543.60.camel@edumazet-laptop>
+	 <4DDF2463.3020001@candelatech.com>
+	 <1306526921.2533.7.camel@edumazet-laptop>
+	 <20110527.161542.568477840432205227.davem@davemloft.net>
+	 <4DE00711.6070000@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Maximilian Engelhardt <maxi@daemonizer.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
-	Yann Dupont <Yann.Dupont@univ-nantes.fr>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Arun Sharma <asharma@fb.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56349 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039Ab1E1Flc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2011 01:41:32 -0400
-In-Reply-To: <20110527211419.GA6793@dev1756.snc6.facebook.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:51348 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751561Ab1E1GUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2011 02:20:35 -0400
+Received: by wwk4 with SMTP id 4so310025wwk.1
+        for <netdev@vger.kernel.org>; Fri, 27 May 2011 23:20:34 -0700 (PDT)
+In-Reply-To: <4DE00711.6070000@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 27 mai 2011 =C3=A0 14:14 -0700, Arun Sharma a =C3=A9crit :
+Le vendredi 27 mai 2011 =C3=A0 13:18 -0700, Ben Greear a =C3=A9crit :
+> On 05/27/2011 01:15 PM, David Miller wrote:
+> > From: Eric Dumazet<eric.dumazet@gmail.com>
+> > Date: Fri, 27 May 2011 22:08:41 +0200
+> >
+> >> Le jeudi 26 mai 2011 =C3=A0 21:11 -0700, Ben Greear a =C3=A9crit :
+> >>> On 05/26/2011 08:42 PM, Eric Dumazet wrote:
+> >>>> Le jeudi 26 mai 2011 =C3=A0 16:55 -0700, greearb@candelatech.com=
+ a =C3=A9crit :
+> >>>
+> >>>>>    out_free:
+> >>>>>    	kfree_skb(skb);
+> >>>>>    out_unlock:
+> >>>>> -	if (dev)
+> >>>>> +	if (dev&&   need_rls_dev)
+> >>>>>    		dev_put(dev);
+> >>>>>    out:
+> >>>>>    	return err;
+> >>>>
+> >>>> Hmmm, I wonder why you want this Ben.
+> >>>>
+> >>>> IMHO this is buggy, because we can sleep in this function.
+> >>>>
+> >>>> We must take a ref on device (its really cheap these days, now w=
+e have a
+> >>>> percpu device refcnt)
+> >>>
+> >>> Why must you take the reference?  And if we must, why isn't the
+> >>> current code that assigns the prot_hook.dev without taking a
+> >>> reference OK?
+> >>>
+> >>
+> >> If we sleep, device can disappear under us.
+> >>
+> >> The only way to not take a reference is to hold rcu_read_lock(), b=
+ut
+> >> you're not allowed to sleep under rcu_read_lock().
+> >
+> > You still have not addresses Ben's point.
+> >
+> > Why is it ok for the po->prot_hook.dev handling to not take a
+> > reference?  It's been doing this forever.  Ben is just borrowing th=
+is
+> > behavior for his uses.
+> >
+> > After some more research I think it happens to be OK because
+> > ->prot_hook.dev is used _only_ for pointer comparisons, it is never
+> > actually dereferenced or used in any other way.  Probably, we shoul=
+d
+> > just use ->ifindex for this.
+>=20
+> It's easy enough to add a dev_hold() when I assign the skb instead
+> of looking it up in my patch, but perhaps it would be cleaner over al=
+l to
+> just hold a ref on the prot_hook.dev when it is originally assigned?
 
-> The attached works for me for x86_64. Cc'ing Ingo/Thomas for comment.
->=20
->  -Arun
->=20
-> atomic: Refactor atomic_add_unless
->=20
-> Commit 686a7e3 (inetpeer: fix race in unused_list manipulations)
-> in net-2.6 added a atomic_add_unless_return() variant that tries
-> to detect 0->1 transitions of an atomic reference count.
->=20
-> This sounds like a generic functionality that could be expressed
-> in terms of an __atomic_add_unless() that returned the old value
-> instead of a bool.
->=20
-> Signed-off-by: Arun Sharma <asharma@fb.com>
-> ---
->  arch/x86/include/asm/atomic.h |   22 ++++++++++++++++++----
->  1 files changed, 18 insertions(+), 4 deletions(-)
->=20
-> diff --git a/arch/x86/include/asm/atomic.h b/arch/x86/include/asm/ato=
-mic.h
-> index 952a826..bbdbffe 100644
-> --- a/arch/x86/include/asm/atomic.h
-> +++ b/arch/x86/include/asm/atomic.h
-> @@ -221,15 +221,15 @@ static inline int atomic_xchg(atomic_t *v, int =
-new)
->  }
-> =20
->  /**
-> - * atomic_add_unless - add unless the number is already a given valu=
-e
-> + * __atomic_add_unless - add unless the number is already a given va=
-lue
->   * @v: pointer of type atomic_t
->   * @a: the amount to add to v...
->   * @u: ...unless v is equal to u.
->   *
->   * Atomically adds @a to @v, so long as @v was not already @u.
-> - * Returns non-zero if @v was not @u, and zero otherwise.
-> + * Returns the old value of v
->   */
-> -static inline int atomic_add_unless(atomic_t *v, int a, int u)
-> +static inline int __atomic_add_unless(atomic_t *v, int a, int u)
->  {
->  	int c, old;
->  	c =3D atomic_read(v);
-> @@ -241,7 +241,21 @@ static inline int atomic_add_unless(atomic_t *v,=
- int a, int u)
->  			break;
->  		c =3D old;
->  	}
-> -	return c !=3D (u);
-> +	return c;
-> +}
-> +
-> +/**
-> + * atomic_add_unless - add unless the number is already a given valu=
-e
-> + * @v: pointer of type atomic_t
-> + * @a: the amount to add to v...
-> + * @u: ...unless v is equal to u.
-> + *
-> + * Atomically adds @a to @v, so long as @v was not already @u.
-> + * Returns non-zero if @v was not @u, and zero otherwise.
-> + */
-> +static inline int atomic_add_unless(atomic_t *v, int a, int u)
-> +{
-> +	return __atomic_add_unless(v, a, u) !=3D u;
->  }
-> =20
->  #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
-As I said, atomic_add_unless() has several implementations in various
-arches. You must take care of all, not only x86.
+Problem is : if packet_notifier(NETDEV_DOWN|UNREGISTER) is run while we
+sleep, what happens then ?
 
+Normally, if we sleep a long time in tpacket_snd() after device ref
+increment, and before dev_queue_xmit(), the unregister process can ente=
+r
+the infamous msleep(250) loop in netdev_wait_allrefs(), but at least we
+dont crash.
+
+But if you dont take the reference, we can crash in dev_queue_xmit()
+when dereferencing the freed netdev structure.
+
+Please check commit 1a35ca80c1db7 (packet: dont call sleeping functions
+while holding rcu_read_lock()) for reference on possible problems.
+
+Thanks !
 
 
