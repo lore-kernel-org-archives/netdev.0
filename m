@@ -1,84 +1,76 @@
 From: Joe Perches <joe@perches.com>
-Subject: [TRIVIAL PATCH next 06/15] isdn: Convert vmalloc/memset to vzalloc
-Date: Sat, 28 May 2011 10:36:26 -0700
-Message-ID: <db81a56e3fe6a88a4b2d558f8f68405742d26d65.1306603968.git.joe@perches.com>
+Subject: [TRIVIAL PATCH next 03/15] atm: Convert vmalloc/memset to vzalloc
+Date: Sat, 28 May 2011 10:36:23 -0700
+Message-ID: <116f5bfafcbf40c5bce65498e5ed6983be6c20c1.1306603968.git.joe@perches.com>
 References: <cover.1306603968.git.joe@perches.com>
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2207 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755262Ab1E1RhF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 May 2011 13:37:05 -0400
+To: Chas Williams <chas@cmf.nrl.navy.mil>,
+	Jiri Kosina <trivial@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1306603968.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/isdn/i4l/isdn_common.c   |    4 ++--
- drivers/isdn/mISDN/dsp_core.c    |    3 +--
- drivers/isdn/mISDN/l1oip_codec.c |    6 ++----
- 3 files changed, 5 insertions(+), 8 deletions(-)
+ drivers/atm/idt77252.c |   11 ++++++-----
+ drivers/atm/lanai.c    |    3 +--
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_common.c
-index 6ed82ad..6ddb795e 100644
---- a/drivers/isdn/i4l/isdn_common.c
-+++ b/drivers/isdn/i4l/isdn_common.c
-@@ -2308,11 +2308,11 @@ static int __init isdn_init(void)
- 	int i;
- 	char tmprev[50];
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index 1f8d724..8d7b663 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -3415,27 +3415,28 @@ init_card(struct atm_dev *dev)
  
--	if (!(dev = vmalloc(sizeof(isdn_dev)))) {
-+	dev = vzalloc(sizeof(isdn_dev));
-+	if (!dev) {
- 		printk(KERN_WARNING "isdn: Could not allocate device-struct.\n");
- 		return -EIO;
+ 	size = sizeof(struct vc_map *) * card->tct_size;
+ 	IPRINTK("%s: allocate %d byte for VC map.\n", card->name, size);
+-	if (NULL == (card->vcs = vmalloc(size))) {
++	card->vcs = vzalloc(size);
++	if (!card->vcs) {
+ 		printk("%s: memory allocation failure.\n", card->name);
+ 		deinit_card(card);
+ 		return -1;
  	}
--	memset((char *) dev, 0, sizeof(isdn_dev));
- 	init_timer(&dev->timer);
- 	dev->timer.function = isdn_timer_funct;
- 	spin_lock_init(&dev->lock);
-diff --git a/drivers/isdn/mISDN/dsp_core.c b/drivers/isdn/mISDN/dsp_core.c
-index 2877291..0c41553 100644
---- a/drivers/isdn/mISDN/dsp_core.c
-+++ b/drivers/isdn/mISDN/dsp_core.c
-@@ -1052,12 +1052,11 @@ dspcreate(struct channel_req *crq)
- 	if (crq->protocol != ISDN_P_B_L2DSP
- 	 && crq->protocol != ISDN_P_B_L2DSPHDLC)
- 		return -EPROTONOSUPPORT;
--	ndsp = vmalloc(sizeof(struct dsp));
-+	ndsp = vzalloc(sizeof(struct dsp));
- 	if (!ndsp) {
- 		printk(KERN_ERR "%s: vmalloc struct dsp failed\n", __func__);
+-	memset(card->vcs, 0, size);
+ 
+ 	size = sizeof(struct vc_map *) * card->scd_size;
+ 	IPRINTK("%s: allocate %d byte for SCD to VC mapping.\n",
+ 	        card->name, size);
+-	if (NULL == (card->scd2vc = vmalloc(size))) {
++	card->scd2vc = vzalloc(size);
++	if (!card->scd2vc) {
+ 		printk("%s: memory allocation failure.\n", card->name);
+ 		deinit_card(card);
+ 		return -1;
+ 	}
+-	memset(card->scd2vc, 0, size);
+ 
+ 	size = sizeof(struct tst_info) * (card->tst_size - 2);
+ 	IPRINTK("%s: allocate %d byte for TST to VC mapping.\n",
+ 		card->name, size);
+-	if (NULL == (card->soft_tst = vmalloc(size))) {
++	card->soft_tst = vmalloc(size);
++	if (!card->soft_tst) {
+ 		printk("%s: memory allocation failure.\n", card->name);
+ 		deinit_card(card);
+ 		return -1;
+diff --git a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+index 4e8ba56..be57a14 100644
+--- a/drivers/atm/lanai.c
++++ b/drivers/atm/lanai.c
+@@ -1457,10 +1457,9 @@ static int __devinit vcc_table_allocate(struct lanai_dev *lanai)
+ 	return (lanai->vccs == NULL) ? -ENOMEM : 0;
+ #else
+ 	int bytes = (lanai->num_vci) * sizeof(struct lanai_vcc *);
+-	lanai->vccs = (struct lanai_vcc **) vmalloc(bytes);
++	lanai->vccs = vzalloc(bytes);
+ 	if (unlikely(lanai->vccs == NULL))
  		return -ENOMEM;
- 	}
--	memset(ndsp, 0, sizeof(struct dsp));
- 	if (dsp_debug & DEBUG_DSP_CTRL)
- 		printk(KERN_DEBUG "%s: creating new dsp instance\n", __func__);
- 
-diff --git a/drivers/isdn/mISDN/l1oip_codec.c b/drivers/isdn/mISDN/l1oip_codec.c
-index bbfd1b8..5a89972 100644
---- a/drivers/isdn/mISDN/l1oip_codec.c
-+++ b/drivers/isdn/mISDN/l1oip_codec.c
-@@ -330,14 +330,12 @@ l1oip_4bit_alloc(int ulaw)
- 		return 0;
- 
- 	/* alloc conversion tables */
--	table_com = vmalloc(65536);
--	table_dec = vmalloc(512);
-+	table_com = vzalloc(65536);
-+	table_dec = vzalloc(512);
- 	if (!table_com || !table_dec) {
- 		l1oip_4bit_free();
- 		return -ENOMEM;
- 	}
--	memset(table_com, 0, 65536);
--	memset(table_dec, 0, 512);
- 	/* generate compression table */
- 	i1 = 0;
- 	while (i1 < 256) {
+-	memset(lanai->vccs, 0, bytes);
+ 	return 0;
+ #endif
+ }
 -- 
 1.7.5.rc3.dirty
-
