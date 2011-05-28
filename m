@@ -1,86 +1,54 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: Section conflict compile failures in net
-Date: Sat, 28 May 2011 11:05:12 +0200
-Message-ID: <20110528090512.GA20543@rere.qmqm.pl>
-References: <1306445993.4048.58.camel@mulgrave.site>
- <20110527080728.GA2108@rere.qmqm.pl>
- <1306537477.12244.13.camel@mulgrave.site>
+From: Bernd Zeimetz <bzed@debian.org>
+Subject: Re: [Bugme-new] [Bug 35992] New: Regression: oops when using a bridge
+ interface with tg3
+Date: Sat, 28 May 2011 10:58:06 +0200
+Message-ID: <4DE0B91E.1080407@debian.org>
+References: <bug-35992-10286@https.bugzilla.kernel.org/> <20110527152158.0453899d.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bridge@lists.linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:48372 "EHLO rere.qmqm.pl"
+Received: from mail.recluse.de ([217.196.146.213]:57999 "EHLO mail.recluse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751413Ab1E1JFO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 May 2011 05:05:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1306537477.12244.13.camel@mulgrave.site>
+	id S1751916Ab1E1JFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 May 2011 05:05:21 -0400
+In-Reply-To: <20110527152158.0453899d.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 27, 2011 at 06:04:37PM -0500, James Bottomley wrote:
-> On Fri, 2011-05-27 at 10:07 +0200, Micha=B3 Miros=B3aw wrote:
-> > On Thu, May 26, 2011 at 04:39:53PM -0500, James Bottomley wrote:
-> > > I'm now getting a ton of errors like this in git head:
-> > >=20
-> > >   CC [M]  drivers/net/3c59x.o
-> > >   CC [M]  drivers/net/hp100.o
-> > >   CC [M]  drivers/net/ne3210.o
-> > >   CC [M]  drivers/net/3c509.o
-> > >   CC [M]  drivers/net/depca.o
-> > > drivers/net/ne3210.c:83: error: irq_map causes a section type con=
-flict
-> > > drivers/net/ne3210.c:85: error: shmem_map causes a section type c=
-onflict
-> > > drivers/net/ne3210.c:89: error: ifmap_val causes a section type c=
-onflict
-> > > drivers/net/ne3210.c:319: error: ne3210_ids causes a section type=
- conflict
-> > > make[2]: *** [drivers/net/ne3210.o] Error 1
-> > > make[2]: *** Waiting for unfinished jobs....
-> > > drivers/net/hp100.c:198: error: hp100_eisa_tbl causes a section t=
-ype conflict
-> > > drivers/net/hp100.c:211: error: hp100_pci_tbl causes a section ty=
-pe conflict
-> > > make[2]: *** [drivers/net/hp100.o] Error 1
-> > > drivers/net/depca.c:544: error: de1xx_irq causes a section type c=
-onflict
-> > > drivers/net/depca.c:545: error: de2xx_irq causes a section type c=
-onflict
-> > > drivers/net/depca.c:546: error: de422_irq causes a section type c=
-onflict
-> > [...]
-> >=20
-> > Those three are only used in depca_hw_init() marked __devinit. What=
- compiler
-> > [flags] do you use to build this?
->=20
-> It's a standard debian one.
->=20
-> jejb@ion> hppa64-linux-gnu-gcc -v
-> Using built-in specs.
-> Target: hppa64-linux-gnu
-> Configured with: ../src/configure --enable-languages=3Dc --prefix=3D/=
-usr
-> --libexecdir=3D/usr/lib --disable-shared --disable-nls --disable-thre=
-ads
-> --disable-libffi --disable-libgomp --disable-libmudflap --disable-lib=
-ssp
-> --with-as=3D/usr/bin/hppa64-linux-gnu-as
-> --with-ld=3D/usr/bin/hppa64-linux-gnu-ld
-> --includedir=3D/usr/hppa64-linux-gnu/include --host=3Dhppa-linux-gnu
-> --build=3Dhppa-linux-gnu --target=3Dhppa64-linux-gnu
-> Thread model: single
-> gcc version 4.2.4 (Debian 4.2.4-6)
->=20
-> the problem is definitely the depca_irq[i] in the loop ... replace th=
-at
-> with a constant and the error goes away.
+On 05/28/2011 12:21 AM, Andrew Morton wrote:
+> 2.6.38->2.6.39 regression, appears to be bridge-related.  There's a
+> partial screencap of the oops linked below.
 
-Looks like arch-specific problem. Build test passes for x86 allyesconfi=
-g.
+The oops happens as soon as I add the lxc veth interface to the bridge, before
+everything works as expected.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+
+A new, full screenshot is attached
+https://bugzilla.kernel.org/attachment.cgi?id=59732
+
+
+(For yet unknows reasons I can't access the serial port redirection via ssh and
+I won't be able to attach a real serial port cable before Monday, so I'm afraid
+you have to work with the screenshot for now.)
+
+
+> Bernd, it would be helpful if you could set the screen to more rows
+> (50?) and then retake that photo.  Documentation/svga.txt might help
+> out.  Thanks.
+
+(the kernel says that vga=... is deprecated, guess that documentation is outdated?)
+
+Thanks and cheers,
+
+Bernd
+
+-- 
+ Bernd Zeimetz                            Debian GNU/Linux Developer
+ http://bzed.de                                http://www.debian.org
+ GPG Fingerprint: ECA1 E3F2 8E11 2432 D485  DD95 EB36 171A 6FF9 435F
