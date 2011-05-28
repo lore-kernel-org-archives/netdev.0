@@ -1,76 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: [TRIVIAL PATCH next 03/15] atm: Convert vmalloc/memset to vzalloc
-Date: Sat, 28 May 2011 10:36:23 -0700
-Message-ID: <116f5bfafcbf40c5bce65498e5ed6983be6c20c1.1306603968.git.joe@perches.com>
-References: <cover.1306603968.git.joe@perches.com>
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chas Williams <chas@cmf.nrl.navy.mil>,
-	Jiri Kosina <trivial@kernel.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Sat, 28 May 2011 20:04:34 +0200
+Message-ID: <20110528180434.GB12530@elte.hu>
+References: <4DDEAA3C.7020502@fb.com>
+ <1306439246.2543.10.camel@edumazet-laptop>
+ <4DDECA9B.8080206@fb.com>
+ <1306447292.2543.32.camel@edumazet-laptop>
+ <4DDEEBC5.80804@fb.com>
+ <1306466831.2543.58.camel@edumazet-laptop>
+ <4DDFE4D6.4010000@fb.com>
+ <1306526219.2533.3.camel@edumazet-laptop>
+ <20110527211419.GA6793@dev1756.snc6.facebook.com>
+ <1306561285.2533.9.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arun Sharma <asharma@fb.com>, David Miller <davem@davemloft.net>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
+	Yann Dupont <Yann.Dupont@univ-nantes.fr>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1306603968.git.joe@perches.com>
+Content-Disposition: inline
+In-Reply-To: <1306561285.2533.9.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/atm/idt77252.c |   11 ++++++-----
- drivers/atm/lanai.c    |    3 +--
- 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 1f8d724..8d7b663 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -3415,27 +3415,28 @@ init_card(struct atm_dev *dev)
- 
- 	size = sizeof(struct vc_map *) * card->tct_size;
- 	IPRINTK("%s: allocate %d byte for VC map.\n", card->name, size);
--	if (NULL == (card->vcs = vmalloc(size))) {
-+	card->vcs = vzalloc(size);
-+	if (!card->vcs) {
- 		printk("%s: memory allocation failure.\n", card->name);
- 		deinit_card(card);
- 		return -1;
- 	}
--	memset(card->vcs, 0, size);
- 
- 	size = sizeof(struct vc_map *) * card->scd_size;
- 	IPRINTK("%s: allocate %d byte for SCD to VC mapping.\n",
- 	        card->name, size);
--	if (NULL == (card->scd2vc = vmalloc(size))) {
-+	card->scd2vc = vzalloc(size);
-+	if (!card->scd2vc) {
- 		printk("%s: memory allocation failure.\n", card->name);
- 		deinit_card(card);
- 		return -1;
- 	}
--	memset(card->scd2vc, 0, size);
- 
- 	size = sizeof(struct tst_info) * (card->tst_size - 2);
- 	IPRINTK("%s: allocate %d byte for TST to VC mapping.\n",
- 		card->name, size);
--	if (NULL == (card->soft_tst = vmalloc(size))) {
-+	card->soft_tst = vmalloc(size);
-+	if (!card->soft_tst) {
- 		printk("%s: memory allocation failure.\n", card->name);
- 		deinit_card(card);
- 		return -1;
-diff --git a/drivers/atm/lanai.c b/drivers/atm/lanai.c
-index 4e8ba56..be57a14 100644
---- a/drivers/atm/lanai.c
-+++ b/drivers/atm/lanai.c
-@@ -1457,10 +1457,9 @@ static int __devinit vcc_table_allocate(struct lanai_dev *lanai)
- 	return (lanai->vccs == NULL) ? -ENOMEM : 0;
- #else
- 	int bytes = (lanai->num_vci) * sizeof(struct lanai_vcc *);
--	lanai->vccs = (struct lanai_vcc **) vmalloc(bytes);
-+	lanai->vccs = vzalloc(bytes);
- 	if (unlikely(lanai->vccs == NULL))
- 		return -ENOMEM;
--	memset(lanai->vccs, 0, bytes);
- 	return 0;
- #endif
- }
--- 
-1.7.5.rc3.dirty
+* Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> > +static inline int atomic_add_unless(atomic_t *v, int a, int u)
+> > +{
+> > +	return __atomic_add_unless(v, a, u) != u;
+> >  }
+> >  
+> >  #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
+> 
+> As I said, atomic_add_unless() has several implementations in 
+> various arches. You must take care of all, not only x86.
+
+It's a bit sad to see local hacks to generic facilities committed 
+upstream like that.
+
+Arun: the x86 bits look good at first sight.
+
+Thanks,
+
+	Ingo
