@@ -1,87 +1,175 @@
-From: Dave Jones <davej@redhat.com>
-Subject: [PATCH] Use unsigned variables for packet lengths in ip[6]_queue.
-Date: Fri, 27 May 2011 20:36:51 -0400
-Message-ID: <20110528003651.GA8380@redhat.com>
-References: <20110420014221.GC26949@redhat.com>
- <20110419.204105.68144653.davem@davemloft.net>
+From: "Guan Xuetao" <gxt@mprc.pku.edu.cn>
+Subject: RE: [PATCH 2/6] unicore32: add pkunity-v3 mac/net driver (umal)
+Date: Sat, 28 May 2011 10:52:02 +0800
+Message-ID: <002a01cc1ce2$39b0daa0$ad128fe0$@mprc.pku.edu.cn>
+References: <cover.1306408804.git.gxt@mprc.pku.edu.cn> <556924396ee34f4af94a2f03767973f1cec35e22.1306408804.git.gxt@mprc.pku.edu.cn> <201105271119.41323.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48321 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757560Ab1E1Agz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 May 2011 20:36:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20110419.204105.68144653.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linux-arch@vger.kernel.org>,
+	<greg@kroah.com>, <netdev@vger.kernel.org>
+To: "'Arnd Bergmann'" <arnd@arndb.de>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <201105271119.41323.arnd@arndb.de>
+Content-Language: zh-cn
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 19, 2011 at 08:41:05PM -0700, David Miller wrote:
- > From: Dave Jones <davej@redhat.com>
- > Date: Tue, 19 Apr 2011 21:42:22 -0400
- > 
- > > Not catastrophic, but ipqueue seems to be too trusting of what it gets
- > > passed from userspace, and passes it on down to the page allocator,
- > > where it will spew warnings if the page order is too high.
- > > 
- > > __ipq_rcv_skb has several checks for lengths too small, but doesn't
- > > seem to have any for oversized ones.   I'm not sure what the maximum
- > > we should check for is. I'll code up a diff if anyone has any ideas
- > > on a sane maximum.
- > 
- > Maybe the thing to do is to simply pass __GFP_NOWARN to nlmsg_new()
- > in netlink_ack()?
- > 
- > Anyone else have a better idea?
 
-So I went back to this today, and found something that doesn't look right.
-After adding some instrumentation, and re-running my tests, I found that
-the reason we were blowing up with enormous allocations was that we
-were passing down a nlmsglen's like -1061109568
 
-Is there any reason for that to be signed ?
-The nlmsg_len entry of nlmsghdr is a u32, so I'm assuming this is a bug.
+> -----Original Message-----
+> From: Arnd Bergmann [mailto:arnd@arndb.de]
+> Sent: Friday, May 27, 2011 5:20 PM
+> To: GuanXuetao
+> Cc: linux-kernel@vger.kernel.org; linux-arch@vger.kernel.org; greg@kroah.com; netdev@vger.kernel.org
+> Subject: Re: [PATCH 2/6] unicore32: add pkunity-v3 mac/net driver (umal)
+> 
+> On Thursday 26 May 2011, GuanXuetao wrote:
+> > From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+> >
+> > Signed-off-by: Guan Xuetao <gxt@mprc.pku.edu.cn>
+> > ---
+> >  MAINTAINERS                            |    1 +
+> >  arch/unicore32/configs/debug_defconfig |    2 +-
+> >  drivers/net/Kconfig                    |    5 +
+> >  drivers/net/Makefile                   |    1 +
+> >  drivers/net/mac-puv3.c                 | 1942 ++++++++++++++++++++++++++++++++
+> >  5 files changed, 1950 insertions(+), 1 deletions(-)
+> >  create mode 100644 drivers/net/mac-puv3.c
+> 
+> I also have a few comments after looking through the driver.
+> 
+> > +
+> > +/**********************************************************************
+> > + *  Globals
+> > + ********************************************************************* */
+> 
+> Regular commenting style would be
+> 
+> /*
+>  * Globals
+>  */
+> 
+> > +/**********************************************************************
+> > + *  Prototypes
+> > + ********************************************************************* */
+> > +static int umal_mii_reset(struct mii_bus *bus);
+> > +static int umal_mii_read(struct mii_bus *bus, int phyaddr, int regidx);
+> > +static int umal_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
+> > +		u16 val);
+> > +static int umal_mii_probe(struct net_device *dev);
+> > +
+> > +static void umaldma_initctx(struct umaldma *d, struct umal_softc *s,
+> > +		int rxtx, int maxdescr);
+> > +static void umaldma_uninitctx(struct umaldma *d);
+> > +static void umaldma_channel_start(struct umaldma *d, int rxtx);
+> > +static void umaldma_channel_stop(struct umaldma *d);
+> > +static int umaldma_add_rcvbuffer(struct umal_softc *sc, struct umaldma *d,
+> > +		struct sk_buff *m);
+> > +static int umaldma_add_txbuffer(struct umaldma *d, struct sk_buff *m);
+> > +static void umaldma_emptyring(struct umaldma *d);
+> > +static void umaldma_fillring(struct umal_softc *sc, struct umaldma *d);
+> > +static int umaldma_rx_process(struct umal_softc *sc, struct umaldma *d,
+> > +		int work_to_do, int poll);
+> > +static void umaldma_tx_process(struct umal_softc *sc, struct umaldma *d,
+> > +		int poll);
+> > +
+> > +static int umal_initctx(struct umal_softc *s);
+> > +static void umal_uninitctx(struct umal_softc *s);
+> > +static void umal_channel_start(struct umal_softc *s);
+> > +static void umal_channel_stop(struct umal_softc *s);
+> > +static enum umal_state umal_set_channel_state(struct umal_softc *,
+> > +		enum umal_state);
+> > +
+> > +static int umal_init(struct platform_device *pldev, long long base);
+> > +static int umal_open(struct net_device *dev);
+> > +static int umal_close(struct net_device *dev);
+> > +static int umal_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+> > +static irqreturn_t umal_intr(int irq, void *dev_instance);
+> > +static void umal_clr_intr(struct net_device *dev);
+> > +static int umal_start_tx(struct sk_buff *skb, struct net_device *dev);
+> > +static void umal_tx_timeout(struct net_device *dev);
+> > +static void umal_set_rx_mode(struct net_device *dev);
+> > +static void umal_promiscuous_mode(struct umal_softc *sc, int onoff);
+> > +static void umal_setmulti(struct umal_softc *sc);
+> > +static int umal_set_speed(struct umal_softc *s, enum umal_speed speed);
+> > +static int umal_set_duplex(struct umal_softc *s, enum umal_duplex duplex,
+> > +		enum umal_fc fc);
+> > +static int umal_change_mtu(struct net_device *_dev, int new_mtu);
+> > +static void umal_miipoll(struct net_device *dev);
+> 
+> Best avoid all these prototypes. Instead, reorder the functions in the
+> driver so you don't need them. That is the order in which reviewers expect
+> them.
+> 
+> > +/**********************************************************************
+> > + *  UMAL_MII_RESET(bus)
+> > + *
+> > + *  Reset MII bus.
+> > + *
+> > + *  Input parameters:
+> > + *	   bus     - MDIO bus handle
+> > + *
+> > + *  Return value:
+> > + *	   0 if ok
+> > + ********************************************************************* */
+> 
+> For extended function documentation, use the kerneldoc style, e.g.
+> 
+> /**
+>  * umal_mii_reset - reset MII bus
+>  *
+>  * @bus: MDIO bus handle
+>  *
+>  * Returns 0
+>  */
+> 
+> See also Documentation/kernel-doc-nano-HOWTO.txt
+> 
+> > +/**********************************************************************
+> > + *  UMALDMA_RX_PROCESS(sc,d,work_to_do,poll)
+> > + *
+> > + *  Process "completed" receive buffers on the specified DMA channel.
+> > + *
+> > + *  Input parameters:
+> > + *            sc - softc structure
+> > + *	       d - DMA channel context
+> > + *    work_to_do - no. of packets to process before enabling interrupt
+> > + *                 again (for NAPI)
+> > + *          poll - 1: using polling (for NAPI)
+> > + *
+> > + *  Return value:
+> > + *	   nothing
+> > + ********************************************************************* */
+> > +static int umaldma_rx_process(struct umal_softc *sc, struct umaldma *d,
+> > +		int work_to_do, int poll)
+> 
+> It seems that you tried to convert the driver to NAPI but did not succeed,
+> as this function is only called from the interrupt handler directly.
+> 
+> There is usually a significant performance win from using NAPI, so you
+> should better try again. If you had problems doing that, please ask
+> on netdev.
+> 
+> > +
+> > +#ifdef CONFIG_CMDLINE_FORCE
+> > +	eaddr[0] = 0x00;
+> > +	eaddr[1] = 0x25;
+> > +	eaddr[2] = 0x9b;
+> > +	eaddr[3] = 0xff;
+> > +	eaddr[4] = 0x00;
+> > +	eaddr[5] = 0x00;
+> > +#endif
+> > +
+> > +	for (i = 0; i < 6; i++)
+> > +		dev->dev_addr[i] = eaddr[i];
+> 
+> You can use random_ether_addr() to generate a working unique MAC address
+> if the hardware does not provide one.
+> 
+> 	Arnd
+Thanks Arnd.
+I will redo this driver.
 
-With the patch below, I haven't been able to reproduce the problem, but
-I don't know if I've inadvertantly broken some other behaviour somewhere
-deeper in netlink where this is valid.
-
-	Dave
-
--- 
-
-Netlink message lengths can't be negative, so use unsigned variables.
-
-Signed-off-by: Dave Jones <davej@redhat.com>
-
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index d2c1311..f7f9bd7 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -402,7 +402,8 @@ ipq_dev_drop(int ifindex)
- static inline void
- __ipq_rcv_skb(struct sk_buff *skb)
- {
--	int status, type, pid, flags, nlmsglen, skblen;
-+	int status, type, pid, flags;
-+	unsigned int nlmsglen, skblen;
- 	struct nlmsghdr *nlh;
- 
- 	skblen = skb->len;
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 413ab07..065fe40 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -403,7 +403,8 @@ ipq_dev_drop(int ifindex)
- static inline void
- __ipq_rcv_skb(struct sk_buff *skb)
- {
--	int status, type, pid, flags, nlmsglen, skblen;
-+	int status, type, pid, flags;
-+	unsigned int nlmsglen, skblen;
- 	struct nlmsghdr *nlh;
- 
- 	skblen = skb->len;
-
+Guan Xuetao
