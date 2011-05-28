@@ -1,121 +1,86 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCHv2 10/14] virtio_net: limit xmit polling
-Date: Sat, 28 May 2011 23:02:04 +0300
-Message-ID: <20110528200204.GB7046@redhat.com>
-References: <cover.1305846412.git.mst@redhat.com>
-	<aced8619c07018b5495f9ceb2c02d4fbf897a098.1305846412.git.mst@redhat.com>
-	<877h9kvlps.fsf@rustcorp.com.au>
-	<20110522121008.GA12155@redhat.com>
-	<87boyutbjg.fsf@rustcorp.com.au>
-	<20110523111900.GB27212@redhat.com>
-	<8739k3k1fb.fsf@rustcorp.com.au>
-	<20110525060759.GC26352@redhat.com>
-	<87vcwyjg2w.fsf@rustcorp.com.au>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: [PATCH] ipv4: fix fib metrics
+Date: Sun, 29 May 2011 00:00:17 +0200
+Message-ID: <BANLkTi=8aBj8QRr+RgH=enL1vVuQq61Avg@mail.gmail.com>
+References: <1301005107.2714.113.camel@edumazet-laptop>
+	<AANLkTinv+XGBjbFoK6vpyiDW6gBEBKFjUef+mCAMJU9i@mail.gmail.com>
+	<1301005946.2714.130.camel@edumazet-laptop>
+	<20110324.153623.45921344.davem@davemloft.net>
+	<1301006652.2714.145.camel@edumazet-laptop>
+	<AANLkTi=Xb3KCBKoVCcaVD5iyCtMCAnYaGF_DTeFQ0ays@mail.gmail.com>
+	<AANLkTinh9Li7DGgSqcZ+p9peS5XrHWomerSvKTYwHZ9-@mail.gmail.com>
+	<AANLkTi=hgOcwO8ojQBtmqbROS1qrhm5HCmq7tRxesc=6@mail.gmail.com>
+	<AANLkTinQq=BAVS1FrH80+VukTfAK1OKOkjEH4=gwZkv6@mail.gmail.com>
+	<1306488451.2029.107.camel@i7.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <87vcwyjg2w.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=90e6ba6e864c04af4504a45d2e1b
+Cc: Hiroyuki Kawakatsu <hkawakat@gmail.com>,
+	Kyle Moffett <kyle@moffetthome.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:36300 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057Ab1E1WAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 May 2011 18:00:18 -0400
+In-Reply-To: <1306488451.2029.107.camel@i7.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 26, 2011 at 12:58:23PM +0930, Rusty Russell wrote:
-> On Wed, 25 May 2011 09:07:59 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > On Wed, May 25, 2011 at 11:05:04AM +0930, Rusty Russell wrote:
-> > Hmm I'm not sure I got it, need to think about this.
-> > I'd like to go back and document how my design was supposed to work.
-> > This really should have been in commit log or even a comment.
-> > I thought we need a min, not a max.
-> > We start with this:
-> > 
-> > 	while ((c = (virtqueue_get_capacity(vq) < 2 + MAX_SKB_FRAGS) &&
-> > 		(skb = get_buf)))
-> > 		kfree_skb(skb);
-> > 	return !c;
-> > 
-> > This is clean and simple, right? And it's exactly asking for what we need.
-> 
-> No, I started from the other direction:
-> 
->         for (i = 0; i < 2; i++) {
->                 skb = get_buf();
->                 if (!skb)
->                         break;
->                 kfree_skb(skb);
->         }
-> 
-> ie. free two packets for every one we're about to add.  For steady state
-> that would work really well.
+--90e6ba6e864c04af4504a45d2e1b
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Sure, with indirect buffers, but if we
-don't use indirect (and we discussed switching indirect off
-dynamically in the past) this becomes harder to
-be sure about. I think I understand why but
-does not a simple capacity check make it more obvious?
+On Fri, May 27, 2011 at 11:27 AM, David Woodhouse <dwmw2@infradead.org> wro=
+te:
+> On Fri, 2011-03-25 at 02:25 +0100, Alessandro Suardi wrote:
+>>
+>> ...which didn't take that long - one last bugging question and I'm happi=
+ly
+>> =A0off to sleep; does ipid always come in the form of 0x followed by fou=
+r
+>> =A0bytes representing hex values ? In a perhaps inelegant but working wa=
+y
+>> =A0(I'm now writing through the VPN tunnel),
+>>
+>> =A0 sed 's/cache//;s/metric \?[0-9]\+ [0-9]\+//g;s/hoplimit
+>> [0-9]\+//g;s/ipid 0x....//g'
+>>
+>> =A0appears to be Work For Me (TM).
+>
+> Please could I have a tested patch for vpnc-script?
+>
+> It now lives in its own repository at
+> git://, http://git.infradead.org/users/dwmw2/vpnc-scripts.git because
+> it's used by openconnect too, and has had various bug fixes for
+> cross-platform support and IPv6 since it was forked from vpnc.
 
->  Then we hit the case where the ring
-> seems full after we do the add: at that point, screw latency, and just
-> try to free all the buffers we can.
+I downloaded the git version and checked - the one I use is the Fedora
+ version which seems updated to perhaps two revisions behind git...
+ anyway, attaching (in order to not mangle whitespace) the one-liner
+ change that I've been using since without issues - to the point that I
+ actually forgot having patched the script...
 
-I see. But the code currently does this:
+--alessandro
 
-	for(..)
-		get_buf
-	add_buf
-	if (capacity < max_sk_frags+2) {
-		if (!enable_cb)
-			for(..)
-				get_buf
-	}
+=A0"There's always a siren singing you to shipwreck"
 
+=A0=A0 (Radiohead, "There There")
 
-In other words the second get_buf is only called
-in the unlikely case of race condition.
+--90e6ba6e864c04af4504a45d2e1b
+Content-Type: application/octet-stream; name="vpnc-script.diff"
+Content-Disposition: attachment; filename="vpnc-script.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_go93ri2z0
 
-So we'll need to add *another* call to get_buf.
-Is it just me or is this becoming messy?
-
-I was also be worried that we are adding more
-"modes" to the code: high and low latency
-depending on different speeds between host and guest,
-which would be hard to trigger and test.
-That's why I tried hard to make the code behave the
-same all the time and free up just a bit more than
-the minimum necessary.
-
-> > on the normal path min == 2 so we're low latency but we keep ahead on
-> > average. min == 0 for the "we're out of capacity, we may have to stop
-> > the queue".
-> > 
-> > Does the above make sense at all?
-> 
-> It makes sense, but I think it's a classic case where incremental
-> improvements aren't as good as starting from scratch.
-> 
-> Cheers,
-> Rusty.
-
-The only difference on good path seems an extra capacity check,
-so I don't expect the difference will be testable, do you?
-
--- 
-MST
+LS0tIHZwbmMtc2NyaXB0cy05MjM5YmQ4L3ZwbmMtc2NyaXB0CTIwMTAtMDItMjMgMTk6MTE6NTMu
+MDAwMDAwMDAwICswMTAwCisrKyB2cG5jLXNjcmlwdHMtbmV3L3ZwbmMtc2NyaXB0CTIwMTEtMDUt
+MjggMjM6NDk6MjguMDAwMDAwMDAwICswMjAwCkBAIC0xMzksNyArMTM5LDcgQEAKIAogaWYgWyAt
+biAiJElQUk9VVEUiIF07IHRoZW4KIAlmaXhfaXBfZ2V0X291dHB1dCAoKSB7Ci0JCXNlZCAncy9j
+YWNoZS8vO3MvbWV0cmljIFw/WzAtOV1cKyBbMC05XVwrLy9nO3MvaG9wbGltaXQgWzAtOV1cKy8v
+ZycKKwkJc2VkICdzL2NhY2hlLy87cy9tZXRyaWMgXD9bMC05XVwrIFswLTldXCsvL2c7cy9ob3Bs
+aW1pdCBbMC05XVwrLy9nO3MvaXBpZCAweC4uLi4vL2cnCiAJfQogCiAJc2V0X3ZwbmdhdGV3YXlf
+cm91dGUoKSB7Cgo=
+--90e6ba6e864c04af4504a45d2e1b--
