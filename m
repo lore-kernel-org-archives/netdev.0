@@ -1,75 +1,84 @@
 From: Joe Perches <joe@perches.com>
-Subject: [TRIVIAL PATCH next 15/15] net: Convert vmalloc/memset to vzalloc
-Date: Sat, 28 May 2011 10:36:35 -0700
-Message-ID: <045996b9688bfaa2efbd8999405a67e23cd0a075.1306603968.git.joe@perches.com>
+Subject: [TRIVIAL PATCH next 06/15] isdn: Convert vmalloc/memset to vzalloc
+Date: Sat, 28 May 2011 10:36:26 -0700
+Message-ID: <db81a56e3fe6a88a4b2d558f8f68405742d26d65.1306603968.git.joe@perches.com>
 References: <cover.1306603968.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rds-devel@oss.oracle.com
-To: Patrick McHardy <kaber@trash.net>,
-	Andy Grover <andy.grover@oracle.com>,
-	Jiri Kosina <trivial@kernel.org>
-Return-path: <netfilter-owner@vger.kernel.org>
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:2207 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755262Ab1E1RhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 May 2011 13:37:05 -0400
 In-Reply-To: <cover.1306603968.git.joe@perches.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/netfilter/x_tables.c |    5 ++---
- net/rds/ib_cm.c          |    6 ++----
- 2 files changed, 4 insertions(+), 7 deletions(-)
+ drivers/isdn/i4l/isdn_common.c   |    4 ++--
+ drivers/isdn/mISDN/dsp_core.c    |    3 +--
+ drivers/isdn/mISDN/l1oip_codec.c |    6 ++----
+ 3 files changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index b0869fe..71441b9 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -776,12 +776,11 @@ static int xt_jumpstack_alloc(struct xt_table_info *i)
+diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_common.c
+index 6ed82ad..6ddb795e 100644
+--- a/drivers/isdn/i4l/isdn_common.c
++++ b/drivers/isdn/i4l/isdn_common.c
+@@ -2308,11 +2308,11 @@ static int __init isdn_init(void)
+ 	int i;
+ 	char tmprev[50];
  
- 	size = sizeof(void **) * nr_cpu_ids;
- 	if (size > PAGE_SIZE)
--		i->jumpstack = vmalloc(size);
-+		i->jumpstack = vzalloc(size);
- 	else
--		i->jumpstack = kmalloc(size, GFP_KERNEL);
-+		i->jumpstack = kzalloc(size, GFP_KERNEL);
- 	if (i->jumpstack == NULL)
+-	if (!(dev = vmalloc(sizeof(isdn_dev)))) {
++	dev = vzalloc(sizeof(isdn_dev));
++	if (!dev) {
+ 		printk(KERN_WARNING "isdn: Could not allocate device-struct.\n");
+ 		return -EIO;
+ 	}
+-	memset((char *) dev, 0, sizeof(isdn_dev));
+ 	init_timer(&dev->timer);
+ 	dev->timer.function = isdn_timer_funct;
+ 	spin_lock_init(&dev->lock);
+diff --git a/drivers/isdn/mISDN/dsp_core.c b/drivers/isdn/mISDN/dsp_core.c
+index 2877291..0c41553 100644
+--- a/drivers/isdn/mISDN/dsp_core.c
++++ b/drivers/isdn/mISDN/dsp_core.c
+@@ -1052,12 +1052,11 @@ dspcreate(struct channel_req *crq)
+ 	if (crq->protocol != ISDN_P_B_L2DSP
+ 	 && crq->protocol != ISDN_P_B_L2DSPHDLC)
+ 		return -EPROTONOSUPPORT;
+-	ndsp = vmalloc(sizeof(struct dsp));
++	ndsp = vzalloc(sizeof(struct dsp));
+ 	if (!ndsp) {
+ 		printk(KERN_ERR "%s: vmalloc struct dsp failed\n", __func__);
  		return -ENOMEM;
--	memset(i->jumpstack, 0, size);
- 
- 	i->stacksize *= xt_jumpstack_multiplier;
- 	size = sizeof(void *) * i->stacksize;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index fd453dd..6ecaf78 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -374,23 +374,21 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
- 		goto out;
  	}
+-	memset(ndsp, 0, sizeof(struct dsp));
+ 	if (dsp_debug & DEBUG_DSP_CTRL)
+ 		printk(KERN_DEBUG "%s: creating new dsp instance\n", __func__);
  
--	ic->i_sends = vmalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
-+	ic->i_sends = vzalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
- 				   ibdev_to_node(dev));
- 	if (!ic->i_sends) {
- 		ret = -ENOMEM;
- 		rdsdebug("send allocation failed\n");
- 		goto out;
+diff --git a/drivers/isdn/mISDN/l1oip_codec.c b/drivers/isdn/mISDN/l1oip_codec.c
+index bbfd1b8..5a89972 100644
+--- a/drivers/isdn/mISDN/l1oip_codec.c
++++ b/drivers/isdn/mISDN/l1oip_codec.c
+@@ -330,14 +330,12 @@ l1oip_4bit_alloc(int ulaw)
+ 		return 0;
+ 
+ 	/* alloc conversion tables */
+-	table_com = vmalloc(65536);
+-	table_dec = vmalloc(512);
++	table_com = vzalloc(65536);
++	table_dec = vzalloc(512);
+ 	if (!table_com || !table_dec) {
+ 		l1oip_4bit_free();
+ 		return -ENOMEM;
  	}
--	memset(ic->i_sends, 0, ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work));
- 
--	ic->i_recvs = vmalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
-+	ic->i_recvs = vzalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
- 				   ibdev_to_node(dev));
- 	if (!ic->i_recvs) {
- 		ret = -ENOMEM;
- 		rdsdebug("recv allocation failed\n");
- 		goto out;
- 	}
--	memset(ic->i_recvs, 0, ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work));
- 
- 	rds_ib_recv_init_ack(ic);
- 
+-	memset(table_com, 0, 65536);
+-	memset(table_dec, 0, 512);
+ 	/* generate compression table */
+ 	i1 = 0;
+ 	while (i1 < 256) {
 -- 
 1.7.5.rc3.dirty
 
