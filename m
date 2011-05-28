@@ -1,64 +1,86 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [Xen-devel] Re: [PATCH] ethtool: ETHTOOL_SFEATURES:
- remove NETIF_F_COMPAT return
-Date: Sat, 28 May 2011 10:31:03 -0700
-Message-ID: <BANLkTime8PHYe+BFELt92gg7SZ91xKvAwA@mail.gmail.com>
-References: <20110516.140958.625993829749556424.davem@davemloft.net>
-	<20110519100331.GA25103@rere.qmqm.pl>
-	<20110524091437.GA10779@rere.qmqm.pl>
-	<20110524.153930.610330240390616957.davem@davemloft.net>
-	<20110524215923.GA20138@rere.qmqm.pl>
-	<1306505626.2759.4.camel@bwh-desktop>
-	<20110527152809.GA7620@rere.qmqm.pl>
-	<1306511150.2759.17.camel@bwh-desktop>
-	<20110527163409.GA8497@rere.qmqm.pl>
-	<1306538755.2759.31.camel@bwh-desktop>
-	<20110528073525.GA19033@rere.qmqm.pl>
-	<1306577228.23577.17.camel@dagon.hellion.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	"xen-devel-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org" <xen-devel-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	xen-api-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org, Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1306577228.23577.17.camel-ztPmHsLffjjnO4AKDKe2m+kiAK3p4hvP@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [TRIVIAL PATCH next 00/15] treewide: Convert vmalloc/memset to vzalloc
+Date: Sat, 28 May 2011 10:36:20 -0700
+Message-ID: <cover.1306603968.git.joe@perches.com>
+Cc: linux-s390@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-media@vger.kernel.org,
+	devel@driverdev.osuosl.org,
+	xfs@oss.sgi.com
+To: linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org,
+	drbd-user@lists.linbit.com,
+	dm-devel@redhat.com,
+	linux-raid@vger.kernel.org,
+	linux-mtd@lists.infradead.org,
+	linux-s
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-MjAxMS81LzI4IElhbiBDYW1wYmVsbCA8SWFuLkNhbXBiZWxsQGNpdHJpeC5jb20+Ogo+IE9uIFNh
-dCwgMjAxMS0wNS0yOCBhdCAwODozNSArMDEwMCwgTWljaGHFgiBNaXJvc8WCYXcgd3JvdGU6Cj4+
-IE9uIFNhdCwgTWF5IDI4LCAyMDExIGF0IDEyOjI1OjU1QU0gKzAxMDAsIEJlbiBIdXRjaGluZ3Mg
-d3JvdGU6Cj4+ID4gT24gRnJpLCAyMDExLTA1LTI3IGF0IDE4OjM0ICswMjAwLCBNaWNoYcWCIE1p
-cm9zxYJhdyB3cm90ZToKPj4gPiA+IE9uIEZyaSwgTWF5IDI3LCAyMDExIGF0IDA0OjQ1OjUwUE0g
-KzAxMDAsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6Cj4+ID4gPiA+IE9uIEZyaSwgMjAxMS0wNS0yNyBh
-dCAxNzoyOCArMDIwMCwgTWljaGHFgiBNaXJvc8WCYXcgd3JvdGU6Cj4+ID4gWy4uLl0KPj4gPiA+
-ID4gPiDCoCDCoCDCoChub3RlOiBFVEhUT09MX1N7U0csLi4ufSBhcmUgbm90IGV2ZXIgZ29pbmcg
-YXdheSkKPj4gPiA+ID4gPiDCoCDCoC0gY2F1c2VzIE5FVElGX0ZfKiB0byBiZSBhbiBBQkkKPj4g
-PiA+ID4gSWYgZmVhdHVyZSBmbGFnIG51bWJlcnMgYXJlIG5vdCBzdGFibGUgdGhlbiB3aGF0IGlz
-IHRoZSBwb2ludCBvZgo+PiA+ID4gPiAvc3lzL2NsYXNzL25ldC88bmFtZT4vZmVhdHVyZXM/IMKg
-QWxzbywgSSdtIG5vdCBhd2FyZSB0aGF0IGZlYXR1cmVzIGhhdmUKPj4gPiA+ID4gZXZlciBiZWVu
-IHJlbnVtYmVyZWQgaW4gdGhlIHBhc3QuCj4+ID4gPiBTaW5jZSBubyBORVRJRl9GXyogd2VyZSBl
-eHBvcnRlZCBlYXJsaWVyLCBJIGFzc3VtZSAvc3lzL2NsYXNzL25ldC8qL2ZlYXR1cmVzCj4+ID4g
-PiBpcyBhIGRlYnVnZ2luZyBhaWQuIFdoYXQgaXMgaXQgdXNlZCBmb3IgYmVzaWRlcyB0aGF0Pwo+
-PiA+IHhlbi1hcGkgPGh0dHBzOi8vZ2l0aHViLmNvbS94ZW4tb3JnL3hlbi1hcGk+IHVzZXMgaXQg
-aW4KPj4gPiBzY3JpcHRzL0ludGVyZmFjZVJlY29uZmlndXJlVnN3aXRjaC5weS4gwqBUaG91Z2gg
-aXQgZG9lc24ndCBzZWVtIHRvIGJlCj4+ID4gdXNlZCBmb3IgYSBwYXJ0aWN1bGFybHkgZ29vZCBy
-ZWFzb24uLi4KPj4KPj4gTG9vayBsaWtlIGl0IHNob3VsZCB1c2UgRVRIVE9PTF9HRkxBR1MgaW5z
-dGVhZCBmb3IgbmV0ZGV2X2hhc192bGFuX2FjY2VsKCkuCgpFVEhUT09MX0dGTEFHUyBkaWRuJ3Qg
-ZXhwb3NlIHRoZSB2bGFuIGFjY2VsZXJhdGlvbiBmbGFncyB1bnRpbCAyLjYuMzcsCndoaWNoIGlz
-IHdoeSAvc3lzL2NsYXNzL25ldCB3YXMgdXNlZCBpbnN0ZWFkLgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
-aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Resubmittal of patches from November 2010 and a few new ones.
+
+Joe Perches (15):
+  s390: Convert vmalloc/memset to vzalloc
+  x86: Convert vmalloc/memset to vzalloc
+  atm: Convert vmalloc/memset to vzalloc
+  drbd: Convert vmalloc/memset to vzalloc
+  char: Convert vmalloc/memset to vzalloc
+  isdn: Convert vmalloc/memset to vzalloc
+  md: Convert vmalloc/memset to vzalloc
+  media: Convert vmalloc/memset to vzalloc
+  mtd: Convert vmalloc/memset to vzalloc
+  scsi: Convert vmalloc/memset to vzalloc
+  staging: Convert vmalloc/memset to vzalloc
+  video: Convert vmalloc/memset to vzalloc
+  fs: Convert vmalloc/memset to vzalloc
+  mm: Convert vmalloc/memset to vzalloc
+  net: Convert vmalloc/memset to vzalloc
+
+ arch/s390/hypfs/hypfs_diag.c           |    3 +--
+ arch/x86/mm/pageattr-test.c            |    3 +--
+ drivers/atm/idt77252.c                 |   11 ++++++-----
+ drivers/atm/lanai.c                    |    3 +--
+ drivers/block/drbd/drbd_bitmap.c       |    5 ++---
+ drivers/char/agp/backend.c             |    3 +--
+ drivers/char/raw.c                     |    3 +--
+ drivers/isdn/i4l/isdn_common.c         |    4 ++--
+ drivers/isdn/mISDN/dsp_core.c          |    3 +--
+ drivers/isdn/mISDN/l1oip_codec.c       |    6 ++----
+ drivers/md/dm-log.c                    |    3 +--
+ drivers/md/dm-snap-persistent.c        |    3 +--
+ drivers/md/dm-table.c                  |    4 +---
+ drivers/media/video/videobuf2-dma-sg.c |    8 ++------
+ drivers/mtd/mtdswap.c                  |    3 +--
+ drivers/s390/cio/blacklist.c           |    3 +--
+ drivers/scsi/bfa/bfad.c                |    3 +--
+ drivers/scsi/bfa/bfad_debugfs.c        |    8 ++------
+ drivers/scsi/cxgbi/libcxgbi.h          |    6 ++----
+ drivers/scsi/qla2xxx/qla_attr.c        |    6 ++----
+ drivers/scsi/qla2xxx/qla_bsg.c         |    3 +--
+ drivers/scsi/scsi_debug.c              |    7 ++-----
+ drivers/staging/rts_pstor/ms.c         |    3 +--
+ drivers/staging/rts_pstor/rtsx_chip.c  |    6 ++----
+ drivers/video/arcfb.c                  |    5 ++---
+ drivers/video/broadsheetfb.c           |    4 +---
+ drivers/video/hecubafb.c               |    5 ++---
+ drivers/video/metronomefb.c            |    4 +---
+ drivers/video/xen-fbfront.c            |    3 +--
+ fs/coda/coda_linux.h                   |    5 ++---
+ fs/reiserfs/journal.c                  |    9 +++------
+ fs/reiserfs/resize.c                   |    4 +---
+ fs/xfs/linux-2.6/kmem.h                |    7 +------
+ mm/page_cgroup.c                       |    3 +--
+ net/netfilter/x_tables.c               |    5 ++---
+ net/rds/ib_cm.c                        |    6 ++----
+ 36 files changed, 57 insertions(+), 113 deletions(-)
+
+-- 
+1.7.5.rc3.dirty
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
