@@ -1,49 +1,41 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net: ep93xx_eth: drop GFP_DMA from memory allocations
-Date: Sun, 29 May 2011 12:27:42 +0100
-Message-ID: <20110529112742.GA24876@n2100.arm.linux.org.uk>
-References: <1306659837-23553-1-git-send-email-mika.westerberg@iki.fi> <20110529103825.GZ24876@n2100.arm.linux.org.uk> <20110529105946.GA2655@acer>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Sun, 29 May 2011 14:33:18 +0200
+Message-ID: <20110529123318.GB26627@elte.hu>
+References: <4DDEEBC5.80804@fb.com>
+ <1306466831.2543.58.camel@edumazet-laptop>
+ <4DDFE4D6.4010000@fb.com>
+ <1306526219.2533.3.camel@edumazet-laptop>
+ <20110527211419.GA6793@dev1756.snc6.facebook.com>
+ <1306561285.2533.9.camel@edumazet-laptop>
+ <20110528180434.GB12530@elte.hu>
+ <1306654424.30021.7.camel@edumazet-laptop>
+ <20110529073840.GB21254@elte.hu>
+ <1306654983.30021.10.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hsweeten@visionengravers.com,
-	ryan@bluewatersys.com, kernel@wantstofly.org,
-	linux-arm-kernel@lists.infradead.org
-To: Mika Westerberg <mika.westerberg@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:46873 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818Ab1E2L1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2011 07:27:55 -0400
+Cc: Arun Sharma <asharma@fb.com>, David Miller <davem@davemloft.net>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
+	Yann Dupont <Yann.Dupont@univ-nantes.fr>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110529105946.GA2655@acer>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1306654983.30021.10.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 29, 2011 at 01:59:46PM +0300, Mika Westerberg wrote:
-> FYI, I just enabled DMA debugging and I've got:
-> 
-> [    1.980000] WARNING: at lib/dma-debug.c:911 check_sync+0x460/0x510()
-> [    1.980000] NULL NULL: DMA-API: device driver tries to sync DMA memory it has not allocated [device address=0x00000000c5a11800] [size=78 bytes]
 
-That's because of the 'allocate one buffer, map it once, then treat it
-as two buffers' thing.  DMA API debugging requires that the struct
-device, and device address match:
+* Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-static struct dma_debug_entry *hash_bucket_find(struct hash_bucket *bucket,
-                                                struct dma_debug_entry *ref)
-{
-        struct dma_debug_entry *entry, *ret = NULL;
-        int matches = 0, match_lvl, last_lvl = 0;
+> I asked Arun if he wanted to make this himself, because initial 
+> idea was coming from him, not because I did not want to make it ;)
 
-        list_for_each_entry(entry, &bucket->list, list) {
-                if ((entry->dev_addr != ref->dev_addr) ||
-                    (entry->dev != ref->dev))
-                        continue;
+Hey, fair enough and sorry about the fuss! :-)
 
-so the practice of using dma_sync_single_for_xxx() with partial buffers
-is prohibited by this code (which I've always believed to be the right
-answer.)  I've always believed that dma_sync_single_range_for_xxx() is
-the correct interface for doing this kind of thing.
+Thanks,
 
-Others may have a different view, in which case _something_ needs to get
-fixed because their view is inconsistent with the debugging code!
+	Ingo
