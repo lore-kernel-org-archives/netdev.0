@@ -1,102 +1,90 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] netfilter, ipvs: Avoid undefined order of evaluation in
- assignments to struct nf_conn *
-Date: Sun, 29 May 2011 20:22:56 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1105292011450.4411@swampdragon.chaosbits.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] ip_options_compile: properly handle unaligned pointer
+Date: Sun, 29 May 2011 16:55:44 -0400
+Message-ID: <201105292112.p4TLC6cN017178@farm-0002.internal.tilera.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	<kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In net/netfilter/ipvs/ip_vs_nfct.c::ip_vs_update_conntrack(),
-net/netfilter/ipvs/ip_vs_xmit.c::ip_vs_nat_xmit(), 
-net/netfilter/ipvs/ip_vs_xmit.c::ip_vs_nat_xmit_v6(), 
-net/netfilter/ipvs/ip_vs_xmit.c::ip_vs_icmp_xmit)() 
-net/netfilter/ipvs/ip_vs_xmit.c::and ip_vs_icmp_xmit_v6() we do this:
-	...
-	struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
-	...
+The current code takes an unaligned pointer and does htonl() on it to
+make it big-endian, then does a memcpy().  The problem is that the
+compiler decides that since the pointer is to a __be32, it is legal
+to optimize the copy into a processor word store.  However, on an
+architecture that does not handled unaligned writes in kernel space,
+this produces an unaligned exception fault.
 
-Since '=' is not a sequence point the order of these assignments happening 
-is undefined. Luckily it's easy to avoid by just doing what is obviously 
-the intended thing:
-	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+The solution is to track the pointer as a "char *" (which removes a bunch
+of unpleasant casts in any case), and then just use put_unaligned_be32()
+to write the value to memory.
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 ---
- ip_vs_nfct.c |    2 +-
- ip_vs_xmit.c |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ net/ipv4/ip_options.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
 
- Compile tested only.
- Patch is against Linus' tree as of a few minutes ago.
-
-diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
-index f454c80..a3d86c2 100644
---- a/net/netfilter/ipvs/ip_vs_nfct.c
-+++ b/net/netfilter/ipvs/ip_vs_nfct.c
-@@ -82,7 +82,7 @@ void
- ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
- {
- 	enum ip_conntrack_info ctinfo;
--	struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
-+	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	struct nf_conntrack_tuple new_tuple;
- 
- 	if (ct == NULL || nf_ct_is_confirmed(ct) || nf_ct_is_untracked(ct) ||
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index ee319a4..16d129e 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -544,7 +544,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	if (cp->flags & IP_VS_CONN_F_SYNC && local) {
- 		enum ip_conntrack_info ctinfo;
--		struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
-+		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 
- 		if (ct && !nf_ct_is_untracked(ct)) {
- 			IP_VS_DBG_RL_PKT(10, AF_INET, pp, skb, 0,
-@@ -661,7 +661,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	if (cp->flags & IP_VS_CONN_F_SYNC && local) {
- 		enum ip_conntrack_info ctinfo;
--		struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
-+		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 
- 		if (ct && !nf_ct_is_untracked(ct)) {
- 			IP_VS_DBG_RL_PKT(10, AF_INET6, pp, skb, 0,
-@@ -1176,7 +1176,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	if (cp->flags & IP_VS_CONN_F_SYNC && local) {
- 		enum ip_conntrack_info ctinfo;
--		struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
-+		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 
- 		if (ct && !nf_ct_is_untracked(ct)) {
- 			IP_VS_DBG(10, "%s(): "
-@@ -1296,7 +1296,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	if (cp->flags & IP_VS_CONN_F_SYNC && local) {
- 		enum ip_conntrack_info ctinfo;
--		struct nf_conn *ct = ct = nf_ct_get(skb, &ctinfo);
-+		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 
- 		if (ct && !nf_ct_is_untracked(ct)) {
- 			IP_VS_DBG(10, "%s(): "
-
-
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index 2391b24..a12d33f 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -14,6 +14,7 @@
+ #include <linux/slab.h>
+ #include <linux/types.h>
+ #include <asm/uaccess.h>
++#include <asm/unaligned.h>
+ #include <linux/skbuff.h>
+ #include <linux/ip.h>
+ #include <linux/icmp.h>
+@@ -352,7 +353,7 @@ int ip_options_compile(struct net *net,
+ 				goto error;
+ 			}
+ 			if (optptr[2] <= optlen) {
+-				__be32 *timeptr = NULL;
++				unsigned char *timeptr = NULL;
+ 				if (optptr[2]+3 > optptr[1]) {
+ 					pp_ptr = optptr + 2;
+ 					goto error;
+@@ -361,7 +362,7 @@ int ip_options_compile(struct net *net,
+ 				      case IPOPT_TS_TSONLY:
+ 					opt->ts = optptr - iph;
+ 					if (skb)
+-						timeptr = (__be32*)&optptr[optptr[2]-1];
++						timeptr = &optptr[optptr[2]-1];
+ 					opt->ts_needtime = 1;
+ 					optptr[2] += 4;
+ 					break;
+@@ -373,7 +374,7 @@ int ip_options_compile(struct net *net,
+ 					opt->ts = optptr - iph;
+ 					if (rt)  {
+ 						memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
+-						timeptr = (__be32*)&optptr[optptr[2]+3];
++						timeptr = &optptr[optptr[2]+3];
+ 					}
+ 					opt->ts_needaddr = 1;
+ 					opt->ts_needtime = 1;
+@@ -391,7 +392,7 @@ int ip_options_compile(struct net *net,
+ 						if (inet_addr_type(net, addr) == RTN_UNICAST)
+ 							break;
+ 						if (skb)
+-							timeptr = (__be32*)&optptr[optptr[2]+3];
++							timeptr = &optptr[optptr[2]+3];
+ 					}
+ 					opt->ts_needtime = 1;
+ 					optptr[2] += 8;
+@@ -405,10 +406,10 @@ int ip_options_compile(struct net *net,
+ 				}
+ 				if (timeptr) {
+ 					struct timespec tv;
+-					__be32  midtime;
++					u32  midtime;
+ 					getnstimeofday(&tv);
+-					midtime = htonl((tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC);
+-					memcpy(timeptr, &midtime, sizeof(__be32));
++					midtime = (tv.tv_sec % 86400) * MSEC_PER_SEC + tv.tv_nsec / NSEC_PER_MSEC;
++					put_unaligned_be32(midtime, timeptr);
+ 					opt->is_changed = 1;
+ 				}
+ 			} else {
 -- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
-
+1.6.5.2
