@@ -1,78 +1,48 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Ooops with 2.6.39
-Date: Mon, 30 May 2011 04:34:16 +0200
-Message-ID: <1306722856.30021.28.camel@edumazet-laptop>
-References: <4DE1E013.6010300@au-79.de>
-	 <20110529154542.add2a308.akpm@linux-foundation.org>
+Subject: Re: [Bug 35992] Regression: oops when using a bridge interface
+ with tg3
+Date: Mon, 30 May 2011 04:58:11 +0200
+Message-ID: <1306724291.6368.3.camel@edumazet-laptop>
+References: <bug-35992-17701@https.bugzilla.kernel.org/>
+	 <201105281013.p4SADfPS024949@demeter1.kernel.org>
+	 <4DE0DDFE.9080308@debian.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Robert Goldner <robert@au-79.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110529154542.add2a308.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bridge@lists.linux-foundation.org
+To: Bernd Zeimetz <bzed@debian.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35841 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753275Ab1E3C6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 May 2011 22:58:16 -0400
+Received: by wya21 with SMTP id 21so2344211wya.19
+        for <netdev@vger.kernel.org>; Sun, 29 May 2011 19:58:15 -0700 (PDT)
+In-Reply-To: <4DE0DDFE.9080308@debian.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 29 mai 2011 =C3=A0 15:45 -0700, Andrew Morton a =C3=A9crit =
-:
-> (cc netdev)
+Le samedi 28 mai 2011 =C3=A0 13:35 +0200, Bernd Zeimetz a =C3=A9crit :
+> Hi,
 >=20
-> On Sun, 29 May 2011 07:56:35 +0200 Robert Goldner <robert@au-79.de> w=
-rote:
-
-> > Hi,
+> > OK, this sounds like an already fixed bug.
 > >=20
-> > sometimes I got an Ooops while the system is starting:
+> > (commit : 33eb9873a283a bridge: initialize fake_rtable metrics)
 > >=20
-> > [   15.824365] ------------[ cut here ]------------
-> > [   15.824616] WARNING: at net/sched/sch_generic.c:256
-> > dev_watchdog+0x1d6/0x1e0()
-> > [   15.824868] Hardware name:
-> > [   15.825098] NETDEV WATCHDOG: eth0 (sis900): transmit queue 0 tim=
-ed out
-> > [   15.825333] Modules linked in: coretemp qt1010 af9013 dvb_pll mt=
-2060
-> > dvb_usb_nova_t_usb2 dvb_usb_dibusb_common dib3000mc psmouse
-> > dibx000_common pcspkr dvb_usb_af9015 ohci_hcd
-> > [   15.829066] Pid: 1462, comm: startpar Not tainted 2.6.39-agathe =
-#2
-> > [   15.829301] Call Trace:
-> > [   15.829534]  [<c103c79d>] warn_slowpath_common+0x6d/0xa0
-> > [   15.829948]  [<c13ff216>] ? dev_watchdog+0x1d6/0x1e0
-> > [   15.830183]  [<c13ff216>] ? dev_watchdog+0x1d6/0x1e0
-> > [   15.830417]  [<c103c84e>] warn_slowpath_fmt+0x2e/0x30
-> > [   15.830828]  [<c13ff216>] dev_watchdog+0x1d6/0x1e0
-> > [   15.831241]  [<c104ecc8>] ? __queue_work+0xb8/0x300
-> > [   15.831476]  [<c10048a8>] ? handle_irq+0x18/0x90
-> > [   15.831889]  [<c1041bc7>] ? irq_exit+0x37/0x80
-> > [   15.832127]  [<c10044f6>] ? do_IRQ+0x46/0xb0
-> > [   15.832541]  [<c1080189>] ? rcu_start_gp+0x149/0x1d0
-> > [   15.832954]  [<c1046a24>] run_timer_softirq+0xe4/0x200
-> > [   15.833189]  [<c1041900>] ? local_bh_enable+0x80/0x80
-> > [   15.833426]  [<c151ade9>] ? common_interrupt+0x29/0x30
-> > [   15.833838]  [<c13ff040>] ? qdisc_reset+0x40/0x40
-> > [   15.834250]  [<c1041978>] __do_softirq+0x78/0x100
-> > [   15.834841]  [<c1041900>] ? local_bh_enable+0x80/0x80
-> > [   15.835097]  <IRQ>  [<c1041bfe>] ? irq_exit+0x6e/0x80
-> > [   15.835188]  [<c1019dc6>] ? smp_apic_timer_interrupt+0x56/0x90
-> > [   15.835247]  [<c151a46a>] ? apic_timer_interrupt+0x2a/0x30
-> > [   15.835305]  [<c151a168>] ? resume_userspace+0x14/0x14
-> > [   15.835360] ---[ end trace 519c5412e162986a ]---
-> >=20
-> >=20
-> > The level of pain is very low, because the system is still running =
-very
-> > well.
-> >=20
-> > If somebody needs some more information, please let me know.
-> >=20
+> > Could you try latest linux-2.6 tree ?
 >=20
-> Which net device driver is being used?
+> I've picked the commit into 2.6.39 and it fixed the issue, thanks for=
+ the pointer.
+>=20
+>=20
+> Could we please get that included in 2.6.39.1?
+>=20
 
-Seems to be sis900
+It will, David and Greg took care of this, thanks.
 
-Maybe its TX_TIMEOUT is too low.
 
-Robert, is your NIC in full or half duplex mode ?
+
