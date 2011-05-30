@@ -1,8 +1,8 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 03/17] batman-adv: Annotate functions with
-	format strings
-Date: Mon, 30 May 2011 09:22:48 +0200
-Message-ID: <1306740182-2665-4-git-send-email-sven@narfation.org>
+Subject: [PATCH 01/17] batman-adv: move
+	neigh_node->if_incoming->if_status check in find_router()
+Date: Mon, 30 May 2011 09:22:46 +0200
+Message-ID: <1306740182-2665-2-git-send-email-sven@narfation.org>
 References: <1306740182-2665-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -21,44 +21,46 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+
+Every time that find_router() is invoked, if_status has to be compared with
+IF_ACTIVE. Moving this comparison inside find_router() will avoid to write it
+each time.
+
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/bat_debugfs.c |    1 +
- net/batman-adv/main.h        |    3 ++-
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ net/batman-adv/routing.c |    3 +++
+ net/batman-adv/unicast.c |    3 ---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/bat_debugfs.c b/net/batman-adv/bat_debugfs.c
-index abaeec5..4577d3f 100644
---- a/net/batman-adv/bat_debugfs.c
-+++ b/net/batman-adv/bat_debugfs.c
-@@ -50,6 +50,7 @@ static void emit_log_char(struct debug_log *debug_log, char c)
- 		debug_log->log_start = debug_log->log_end - log_buff_len;
- }
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index bb1c3ec..8c403ce 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -1240,6 +1240,9 @@ struct neigh_node *find_router(struct bat_priv *bat_priv,
+ 		router = find_ifalter_router(primary_orig_node, recv_if);
  
-+__printf(2, 3)
- static int fdebug_log(struct debug_log *debug_log, char *fmt, ...)
- {
- 	va_list args;
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 148b49e..ba28436 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -136,7 +136,7 @@ void dec_module_count(void);
- int is_my_mac(uint8_t *addr);
+ return_router:
++	if (router && router->if_incoming->if_status != IF_ACTIVE)
++		goto err_unlock;
++
+ 	rcu_read_unlock();
+ 	return router;
+ err_unlock:
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index 19c3daf..bab6076 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -314,9 +314,6 @@ find_router:
+ 	if (!neigh_node)
+ 		goto out;
  
- #ifdef CONFIG_BATMAN_ADV_DEBUG
--int debug_log(struct bat_priv *bat_priv, char *fmt, ...);
-+int debug_log(struct bat_priv *bat_priv, char *fmt, ...) __printf(2, 3);
+-	if (neigh_node->if_incoming->if_status != IF_ACTIVE)
+-		goto out;
+-
+ 	if (my_skb_head_push(skb, sizeof(struct unicast_packet)) < 0)
+ 		goto out;
  
- #define bat_dbg(type, bat_priv, fmt, arg...)			\
- 	do {							\
-@@ -145,6 +145,7 @@ int debug_log(struct bat_priv *bat_priv, char *fmt, ...);
- 	}							\
- 	while (0)
- #else /* !CONFIG_BATMAN_ADV_DEBUG */
-+__printf(3, 4)
- static inline void bat_dbg(char type __always_unused,
- 			   struct bat_priv *bat_priv __always_unused,
- 			   char *fmt __always_unused, ...)
 -- 
 1.7.5.3
