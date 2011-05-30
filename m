@@ -1,44 +1,37 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] drivers/net/usb/catc.c: Fix potential deadlock in catc_ctrl_run()
-Date: Mon, 30 May 2011 21:06:24 +0400
-Message-ID: <1306775184-5520-1-git-send-email-khoroshilov@ispras.ru>
-References: <1306774878-5471-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@suse.de>
+From: Arun Sharma <asharma@fb.com>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Mon, 30 May 2011 11:34:22 -0700
+Message-ID: <4DE3E32E.5000302@fb.com>
+References: <4DDEEBC5.80804@fb.com> <1306466831.2543.58.camel@edumazet-laptop> <4DDFE4D6.4010000@fb.com> <1306526219.2533.3.camel@edumazet-laptop> <20110527211419.GA6793@dev1756.snc6.facebook.com> <1306561285.2533.9.camel@edumazet-laptop> <20110528180434.GB12530@elte.hu> <1306654424.30021.7.camel@edumazet-laptop> <20110529073840.GB21254@elte.hu> <1306654983.30021.10.camel@edumazet-laptop> <20110529123318.GB26627@elte.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
+	Yann Dupont <Yann.Dupont@univ-nantes.fr>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306774878-5471-1-git-send-email-khoroshilov@ispras.ru>
+In-Reply-To: <20110529123318.GB26627@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, I missed a description in the previous mail.
+On 5/29/11 5:33 AM, Ingo Molnar wrote:
+>
+> * Eric Dumazet<eric.dumazet@gmail.com>  wrote:
+>
+>> I asked Arun if he wanted to make this himself, because initial
+>> idea was coming from him, not because I did not want to make it ;)
+>
+> Hey, fair enough and sorry about the fuss! :-)
 
+Sounds like there is general consensus that such a cleanup would be 
+good. I'll try to post a patch that does this cleanup for all archs in 
+the next couple of days - but I won't have a way of testing it on 
+anything other than x86_64.
 
-catc_ctrl_run() calls usb_submit_urb() with GFP_KERNEL, while it is called from
-catc_ctrl_async() and catc_ctrl_done() with catc->ctrl_lock spinlock held.
-
-The patch replaces GFP_KERNEL with GFP_ATOMIC.
-
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/usb/catc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
-index d7221c4..8056f8a 100644
---- a/drivers/net/usb/catc.c
-+++ b/drivers/net/usb/catc.c
-@@ -495,7 +495,7 @@ static void catc_ctrl_run(struct catc *catc)
- 	if (!q->dir && q->buf && q->len)
- 		memcpy(catc->ctrl_buf, q->buf, q->len);
- 
--	if ((status = usb_submit_urb(catc->ctrl_urb, GFP_KERNEL)))
-+	if ((status = usb_submit_urb(catc->ctrl_urb, GFP_ATOMIC)))
- 		err("submit(ctrl_urb) status %d", status);
- }
- 
--- 
-1.7.4.1
+  -Arun
