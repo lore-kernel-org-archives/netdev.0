@@ -1,20 +1,28 @@
-From: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Subject: [PATCH] drivers/net/usb/catc.c: Fix potential deadlock in catc_ctrl_run()
-Date: Mon, 30 May 2011 21:01:18 +0400
-Message-ID: <1306774878-5471-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Date: Mon, 30 May 2011 21:06:24 +0400
+Message-ID: <1306775184-5520-1-git-send-email-khoroshilov@ispras.ru>
+References: <1306774878-5471-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306774878-5471-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Sorry, I missed a description in the previous mail.
+
+
+catc_ctrl_run() calls usb_submit_urb() with GFP_KERNEL, while it is called from
+catc_ctrl_async() and catc_ctrl_done() with catc->ctrl_lock spinlock held.
 
 The patch replaces GFP_KERNEL with GFP_ATOMIC.
 
 Found by Linux Driver Verification project (linuxtesting.org).
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 ---
  drivers/net/usb/catc.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
@@ -34,8 +42,3 @@ index d7221c4..8056f8a 100644
  
 -- 
 1.7.4.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
