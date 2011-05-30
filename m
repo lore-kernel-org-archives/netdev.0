@@ -1,8 +1,8 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 09/17] batman-adv: Remove explicit casts cast
-	from void* for store
-Date: Mon, 30 May 2011 09:22:54 +0200
-Message-ID: <1306740182-2665-10-git-send-email-sven@narfation.org>
+Subject: [PATCH 10/17] batman-adv: Remove casts from type x
+	to type x
+Date: Mon, 30 May 2011 09:22:55 +0200
+Message-ID: <1306740182-2665-11-git-send-email-sven@narfation.org>
 References: <1306740182-2665-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -21,55 +21,40 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It is not necessary to cast a void* to the pointer type when we just
-store it and don't want to do pointer arithmetic before the actual
-assignment.
+Casting from pointer like 'struct orig_node*' to 'struct orig_node *'
+doesn't provide any additional functionality and can be savely removed.
 
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/bitarray.c          |    2 +-
- net/batman-adv/hard-interface.c    |    2 +-
- net/batman-adv/translation-table.c |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ net/batman-adv/unicast.c |    2 +-
+ net/batman-adv/vis.c     |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
-index 767e237..700ee4f 100644
---- a/net/batman-adv/bitarray.c
-+++ b/net/batman-adv/bitarray.c
-@@ -130,7 +130,7 @@ static void bit_reset_window(unsigned long *seq_bits)
- char bit_get_packet(void *priv, unsigned long *seq_bits,
- 		    int32_t seq_num_diff, int8_t set_mark)
- {
--	struct bat_priv *bat_priv = (struct bat_priv *)priv;
-+	struct bat_priv *bat_priv = priv;
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index e2deb44..82717fd 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -295,7 +295,7 @@ int unicast_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv)
  
- 	/* sequence number is slightly older. We already got a sequence number
- 	 * higher than this one, so we just mark it. */
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 915e12b..e626e75 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -523,7 +523,7 @@ void hardif_remove_interfaces(void)
- static int hard_if_event(struct notifier_block *this,
- 			 unsigned long event, void *ptr)
- {
--	struct net_device *net_dev = (struct net_device *)ptr;
-+	struct net_device *net_dev = ptr;
- 	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);
- 	struct hard_iface *primary_if = NULL;
- 	struct bat_priv *bat_priv;
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index be7b5cc..802eace 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -313,7 +313,7 @@ out:
- 
- static void _tt_local_del(struct hlist_node *node, void *arg)
- {
--	struct bat_priv *bat_priv = (struct bat_priv *)arg;
-+	struct bat_priv *bat_priv = arg;
- 	void *data = container_of(node, struct tt_local_entry, hash_entry);
- 
- 	kfree(data);
+ 	/* get routing information */
+ 	if (is_multicast_ether_addr(ethhdr->h_dest)) {
+-		orig_node = (struct orig_node *)gw_get_selected_orig(bat_priv);
++		orig_node = gw_get_selected_orig(bat_priv);
+ 		if (orig_node)
+ 			goto find_router;
+ 	}
+diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
+index adb0327..b48954c 100644
+--- a/net/batman-adv/vis.c
++++ b/net/batman-adv/vis.c
+@@ -621,7 +621,7 @@ static int generate_vis_packet(struct bat_priv *bat_priv)
+ 	struct hlist_head *head;
+ 	struct orig_node *orig_node;
+ 	struct neigh_node *router;
+-	struct vis_info *info = (struct vis_info *)bat_priv->my_vis_info;
++	struct vis_info *info = bat_priv->my_vis_info;
+ 	struct vis_packet *packet = (struct vis_packet *)info->skb_packet->data;
+ 	struct vis_info_entry *entry;
+ 	struct tt_local_entry *tt_local_entry;
 -- 
 1.7.5.3
