@@ -1,125 +1,69 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [RFC PATCH 20/35] drivers/net changes for SMBIOS and System Firmware
-Date: Tue, 31 May 2011 11:52:51 -0400
-Message-ID: <20110531155251.3568.64650.sendpatchset@prarit.bos.redhat.com>
-Content-Type: text/x-c; charset=us-ascii
-Cc: Prarit Bhargava <prarit@redhat.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ftrace: tracepoint of net_dev_xmit sees freed skb and
+ causes panic
+Date: Tue, 31 May 2011 12:11:15 -0400
+Message-ID: <20110531161115.GA3267@hmsreliant.think-freely.org>
+References: <4DE49D52.709@jp.fujitsu.com>
+ <1306854791.11899.30.camel@gandalf.stny.rr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, mingo@elte.hu, fweisbec@gmail.com,
+	mathieu.desnoyers@efficios.com, tglx@linutronix.de,
+	kosaki.motohiro@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	kaneshige.kenji@jp.fujitsu.com
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1306854791.11899.30.camel@gandalf.stny.rr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-drivers/net changes for SMBIOS and System Firmware
+On Tue, May 31, 2011 at 11:13:11AM -0400, Steven Rostedt wrote:
+> On Tue, 2011-05-31 at 16:48 +0900, Koki Sanagi wrote:
+> > Because there is a possibility that skb is kfree_skb()ed and zero cleared
+> > after ndo_start_xmit, we should not see the contents of skb like skb->len and
+> > skb->dev->name after ndo_start_xmit. But trace_net_dev_xmit does that
+> > and causes panic by NULL pointer dereference.
+> > This patch fixes trace_net_dev_xmit not to see the contents of skb directly.
+> 
+> 
+> >  
+> >  	if (likely(!skb->next)) {
+> >  		u32 features;
+> > @@ -2139,8 +2140,9 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+> >  			}
+> >  		}
+> >  
+> > +		skb_len = skb->len;
+> >  		rc = ops->ndo_start_xmit(skb, dev);
+> > -		trace_net_dev_xmit(skb, rc);
+> > +		trace_net_dev_xmit(skb, rc, dev, skb_len);
+> >  		if (rc == NETDEV_TX_OK)
+> >  			txq_trans_update(txq);
+> >  		return rc;
+> > @@ -2160,8 +2162,9 @@ gso:
+> >  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+> >  			skb_dst_drop(nskb);
+> >  
+> > +		skb_len = nskb->len;
+> >  		rc = ops->ndo_start_xmit(nskb, dev);
+> > -		trace_net_dev_xmit(nskb, rc);
+> > +		trace_net_dev_xmit(nskb, rc, dev, skb_len);
+> 
+> What if you just put the tracepoint before the call to
+> ops->ndo_start_xmit?
+> 
+Then you won't know the return code of ndo_start_xmit, which this tracepoint
+records.
+Neil
 
----
- drivers/net/skge.c                 |   11 ++++++-----
- drivers/net/via-rhine.c            |   18 ++++++++++--------
- drivers/net/wireless/wl1251/sdio.c |    1 -
- 3 files changed, 16 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index f4be5c7..1200c53 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -43,7 +43,7 @@
- #include <linux/seq_file.h>
- #include <linux/mii.h>
- #include <linux/slab.h>
--#include <linux/dmi.h>
-+#include <linux/sysfw.h>
- #include <linux/prefetch.h>
- #include <asm/irq.h>
- 
-@@ -4089,12 +4089,13 @@ static struct pci_driver skge_driver = {
- 	.driver.pm =	SKGE_PM_OPS,
- };
- 
--static struct dmi_system_id skge_32bit_dma_boards[] = {
-+static struct sysfw_id skge_32bit_dma_boards[] = {
- 	{
- 		.ident = "Gigabyte nForce boards",
- 		.matches = {
--			DMI_MATCH(DMI_BOARD_VENDOR, "Gigabyte Technology Co"),
--			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
-+			SYSFW_MATCH(SYSFW_BOARD_VENDOR,
-+				     "Gigabyte Technology Co"),
-+			SYSFW_MATCH(SYSFW_BOARD_NAME, "nForce"),
- 		},
- 	},
- 	{}
-@@ -4102,7 +4103,7 @@ static struct dmi_system_id skge_32bit_dma_boards[] = {
- 
- static int __init skge_init_module(void)
- {
--	if (dmi_check_system(skge_32bit_dma_boards))
-+	if (sysfw_callback(skge_32bit_dma_boards))
- 		only_32bit_dma = 1;
- 	skge_debug_init();
- 	return pci_register_driver(&skge_driver);
-diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-index 7f23ab9..81725d5 100644
---- a/drivers/net/via-rhine.c
-+++ b/drivers/net/via-rhine.c
-@@ -110,7 +110,7 @@ static const int multicast_filter_limit = 32;
- #include <asm/io.h>
- #include <asm/irq.h>
- #include <asm/uaccess.h>
--#include <linux/dmi.h>
-+#include <linux/sysfw.h>
- 
- /* These identify the driver base version and may not be removed. */
- static const char version[] __devinitconst =
-@@ -2294,22 +2294,24 @@ static struct pci_driver rhine_driver = {
- 	.shutdown =	rhine_shutdown,
- };
- 
--static struct dmi_system_id __initdata rhine_dmi_table[] = {
-+static struct sysfw_id __initdata rhine_id_table[] = {
- 	{
- 		.ident = "EPIA-M",
- 		.matches = {
--			DMI_MATCH(DMI_BIOS_VENDOR, "Award Software International, Inc."),
--			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
-+			SYSFW_MATCH(SYSFW_BIOS_VENDOR,
-+				    "Award Software International, Inc."),
-+			SYSFW_MATCH(SYSFW_BIOS_VERSION, "6.00 PG"),
- 		},
- 	},
- 	{
- 		.ident = "KV7",
- 		.matches = {
--			DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies, LTD"),
--			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
-+			SYSFW_MATCH(SYSFW_BIOS_VENDOR,
-+				    "Phoenix Technologies, LTD"),
-+			SYSFW_MATCH(SYSFW_BIOS_VERSION, "6.00 PG"),
- 		},
- 	},
--	{ NULL }
-+	{}
- };
- 
- static int __init rhine_init(void)
-@@ -2318,7 +2320,7 @@ static int __init rhine_init(void)
- #ifdef MODULE
- 	pr_info("%s\n", version);
- #endif
--	if (dmi_check_system(rhine_dmi_table)) {
-+	if (sysfw_callback(rhine_id_table)) {
- 		/* these BIOSes fail at PXE boot if chip is in D3 */
- 		avoid_D3 = 1;
- 		pr_warn("Broken BIOS detected, avoid_D3 enabled\n");
-diff --git a/drivers/net/wireless/wl1251/sdio.c b/drivers/net/wireless/wl1251/sdio.c
-index f51a024..68e36d7 100644
---- a/drivers/net/wireless/wl1251/sdio.c
-+++ b/drivers/net/wireless/wl1251/sdio.c
-@@ -20,7 +20,6 @@
-  * Copyright (C) 2009 Bob Copeland (me@bobcopeland.com)
-  */
- #include <linux/module.h>
--#include <linux/mod_devicetable.h>
- #include <linux/mmc/sdio_func.h>
- #include <linux/mmc/sdio_ids.h>
- #include <linux/platform_device.h>
--- 
-1.7.5.1
+> -- Steve
+> 
+> >  		if (unlikely(rc != NETDEV_TX_OK)) {
+> >  			if (rc & ~NETDEV_TX_MASK)
+> >  				goto out_kfree_gso_skb;
+> 
+> 
+> 
