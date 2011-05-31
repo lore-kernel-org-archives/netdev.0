@@ -1,187 +1,136 @@
-From: WeipingPan <panweiping3@gmail.com>
-Subject: netxen_nic: unregister_netdevice error
-Date: Tue, 31 May 2011 14:15:24 +0800
-Message-ID: <4DE4877C.1070704@gmail.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] bond_3ad.c: switch MAC_ADDRESS_COMPARE macro for compare_ether_addr()
+Date: Tue, 31 May 2011 09:17:12 +0200
+Message-ID: <4DE495F8.3030903@bfs.de>
+References: <20110531004418.GA22937@optiplex.tchesoft.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: aquini@linux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:58871 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150Ab1EaGOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 02:14:46 -0400
-Received: by qyg14 with SMTP id 14so2216044qyg.19
-        for <netdev@vger.kernel.org>; Mon, 30 May 2011 23:14:45 -0700 (PDT)
+Received: from mx01.sz.bfs.de ([194.94.69.103]:41898 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754064Ab1EaHoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2011 03:44:17 -0400
+In-Reply-To: <20110531004418.GA22937@optiplex.tchesoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
+The intentions are good, the resultung code next to unreadable.
+I do not know the rest of code so i can not suggest an alternative
+way. You may like to experiment with local variables or even make
+a special function.
 
-When test bonding broadcast mode I met a problem.
-modprobe -r bonding will fail after I ping broadcast address.
-
-I find that the problem only shows up when I use netxen_nic driver.
-When use ixgbe and bn2x2 driver, no problem occurs.
-
-I use RHEL 6.2, kernel 2.6.32-131.0.15.el6.i686,
-Can anybody confirm this bug using 2.6.39 or upstream ?
-
-many thanks
-Weiping Pan
+re,
+ wh
 
 
-The test script is followed.
 
-#test script start
-#!/bin/bash
-
-NETWORK_CARD0=eth1
-NETWORK_CARD1=eth2
-
-
-function broadcast_test()
-{
-     modprobe bonding mode=broadcast miimon=100
-     ifconfig bond0 192.168.8.2 netmask 255.255.255.0 up
-     ifconfig $NETWORK_CARD0 down
-     ifconfig $NETWORK_CARD1 down
-     echo +$NETWORK_CARD0 > /sys/class/net/bond0/bonding/slaves
-     echo +$NETWORK_CARD1 > /sys/class/net/bond0/bonding/slaves
-     ping 192.168.8.255 -b -c 10
-     modprobe -r bonding
-}
-
-# main
-echo 0 >/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
-modprobe -r bonding
-
-for i in `seq 1 10`
-do
-     echo    "*******************"
-     echo     "***iteration$i*****"
-     echo -e "*******************\n\n"
-     broadcast_test
-done
-#test script end
-
-
-Some information is followed.
-[root@hp-magnycours-01 ~]# uname -a
-Linux hp-magnycours-01.rhts.eng.bos.redhat.com 2.6.32-131.0.15.el6.i686 
-#1 SMP Tue May 10 15:42:28 EDT 2011 i686 i686 i386 GNU/Linux
-
-[root@hp-magnycours-01 ~]# cat /etc/redhat-release
-Red Hat Enterprise Linux Server release 6.1 (Santiago)
-
-[root@hp-magnycours-01 ~]# lspci |grep Ethernet
-04:00.0 Ethernet controller: NetXen Incorporated NX3031 Multifunction 
-1/10-Gigabit Server Adapter (rev 42)
-04:00.1 Ethernet controller: NetXen Incorporated NX3031 Multifunction 
-1/10-Gigabit Server Adapter (rev 42)
-04:00.2 Ethernet controller: NetXen Incorporated NX3031 Multifunction 
-1/10-Gigabit Server Adapter (rev 42)
-04:00.3 Ethernet controller: NetXen Incorporated NX3031 Multifunction 
-1/10-Gigabit Server Adapter (rev 42)
-
-[root@hp-magnycours-01 ~]# lsmod |grep net
-netxen_nic             83405  0
-
-[root@hp-magnycours-01 ~]# ifconfig -a
-eth0      Link encap:Ethernet  HWaddr 1C:C1:DE:EE:28:F0
-           inet addr:10.16.64.212  Bcast:10.16.71.255  Mask:255.255.248.0
-           inet6 addr: fec0:0:a10:4000:1ec1:deff:feee:28f0/64 Scope:Site
-           inet6 addr: fe80::1ec1:deff:feee:28f0/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:13417 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:713 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:1110663 (1.0 MiB)  TX bytes:90272 (88.1 KiB)
-           Interrupt:93
-
-eth1      Link encap:Ethernet  HWaddr 1C:C1:DE:EE:28:F1
-           BROADCAST MULTICAST  MTU:1500  Metric:1
-           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-           Interrupt:97
-
-eth2      Link encap:Ethernet  HWaddr 1C:C1:DE:EE:28:F2
-           BROADCAST MULTICAST  MTU:1500  Metric:1
-           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-           Interrupt:101
-
-eth3      Link encap:Ethernet  HWaddr 1C:C1:DE:EE:28:F3
-           BROADCAST MULTICAST  MTU:1500  Metric:1
-           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-           Interrupt:105
-
-lo        Link encap:Local Loopback
-           inet addr:127.0.0.1  Mask:255.0.0.0
-           inet6 addr: ::1/128 Scope:Host
-           UP LOOPBACK RUNNING  MTU:16436  Metric:1
-           RX packets:18 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:18 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:10557 (10.3 KiB)  TX bytes:10557 (10.3 KiB)
-
-
-[root@hp-magnycours-01 ~]# ./test_bonding_broadcast.sh |tee log
-*******************
-***iteration1*****
-*******************
-
-
-WARNING: pinging broadcast address
-PING 192.168.8.255 (192.168.8.255) 56(84) bytes of data.
-64 bytes from 192.168.8.2: icmp_seq=1 ttl=64 time=0.041 ms
-64 bytes from 192.168.8.2: icmp_seq=2 ttl=64 time=0.029 ms
-64 bytes from 192.168.8.2: icmp_seq=3 ttl=64 time=0.027 ms
-64 bytes from 192.168.8.2: icmp_seq=4 ttl=64 time=0.026 ms
-64 bytes from 192.168.8.2: icmp_seq=5 ttl=64 time=0.030 ms
-64 bytes from 192.168.8.2: icmp_seq=6 ttl=64 time=0.024 ms
-64 bytes from 192.168.8.2: icmp_seq=7 ttl=64 time=0.024 ms
-64 bytes from 192.168.8.2: icmp_seq=8 ttl=64 time=0.023 ms
-64 bytes from 192.168.8.2: icmp_seq=9 ttl=64 time=0.024 ms
-64 bytes from 192.168.8.2: icmp_seq=10 ttl=64 time=0.023 ms
-
---- 192.168.8.255 ping statistics ---
-10 packets transmitted, 10 received, 0% packet loss, time 9000ms
-rtt min/avg/max/mdev = 0.023/0.027/0.041/0.005 ms
-
-Message from syslogd@hp-magnycours-01 at May 25 04:07:22 ...
-  kernel:unregister_netdevice: waiting for bond0 to become free. Usage 
-count = 1
-
-Message from syslogd@hp-magnycours-01 at May 25 04:07:33 ...
-  kernel:unregister_netdevice: waiting for bond0 to become free. Usage 
-count = 1
-
-
-[root@hp-magnycours-01 ~]# dmesg
-Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
-bonding: MII link monitoring set to 100 ms
-ADDRCONF(NETDEV_UP): bond0: link is not ready
-bonding: bond0: Adding slave eth1.
-bonding: bond0: enslaving eth1 as an active interface with a down link.
-netxen_nic: eth1 NIC Link is up
-bonding: bond0: Adding slave eth2.
-bonding: bond0: enslaving eth2 as an active interface with a down link.
-netxen_nic: eth2 NIC Link is up
-bonding: bond0: link status definitely up for interface eth1.
-bonding: bond0: link status definitely up for interface eth2.
-ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-bond0: IPv6 duplicate address fe80::1ec1:deff:feee:28f1 detected!
-bonding: bond0: released all slaves
-unregister_netdevice: waiting for bond0 to become free. Usage count = 1
-unregister_netdevice: waiting for bond0 to become free. Usage count = 1
-unregister_netdevice: waiting for bond0 to become free. Usage count = 1
-unregister_netdevice: waiting for bond0 to become free. Usage count = 1
-
+Am 31.05.2011 02:44, schrieb Rafael Aquini:
+> Converts all uses of MAC_ADDRESS_COMPARE macro to compare_ether_addr() and delete the macro.
+> 
+> Signed-off-by: Rafael Aquini <aquini@linux.com>
+> ---
+>  drivers/net/bonding/bond_3ad.c |   26 ++++++++++++++------------
+>  1 files changed, 14 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index c7537abc..c2e0d66 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -90,9 +90,6 @@
+>  #define     AD_LINK_SPEED_BITMASK_10000MBPS   0x10
+>  //endalloun
+>  
+> -// compare MAC addresses
+> -#define MAC_ADDRESS_COMPARE(A, B) memcmp(A, B, ETH_ALEN)
+> -
+>  static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
+>  static u16 ad_ticks_per_sec;
+>  static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
+> @@ -469,7 +466,7 @@ static void __choose_matched(struct lacpdu *lacpdu, struct port *port)
+>  	// check if all parameters are alike
+>  	if (((ntohs(lacpdu->partner_port) == port->actor_port_number) &&
+>  	     (ntohs(lacpdu->partner_port_priority) == port->actor_port_priority) &&
+> -	     !MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) &&
+> +	     !compare_ether_addr((const u8 *)&(lacpdu->partner_system), (const u8 *)&(port->actor_system)) &&
+>  	     (ntohs(lacpdu->partner_system_priority) == port->actor_system_priority) &&
+>  	     (ntohs(lacpdu->partner_key) == port->actor_oper_port_key) &&
+>  	     ((lacpdu->partner_state & AD_STATE_AGGREGATION) == (port->actor_oper_port_state & AD_STATE_AGGREGATION))) ||
+> @@ -559,7 +556,8 @@ static void __update_selected(struct lacpdu *lacpdu, struct port *port)
+>  		// check if any parameter is different
+>  		if (ntohs(lacpdu->actor_port) != partner->port_number ||
+>  		    ntohs(lacpdu->actor_port_priority) != partner->port_priority ||
+> -		    MAC_ADDRESS_COMPARE(&lacpdu->actor_system, &partner->system) ||
+> +		    compare_ether_addr((const u8 *)&lacpdu->actor_system,
+> +					(const u8 *)&partner->system) ||
+>  		    ntohs(lacpdu->actor_system_priority) != partner->system_priority ||
+>  		    ntohs(lacpdu->actor_key) != partner->key ||
+>  		    (lacpdu->actor_state & AD_STATE_AGGREGATION) != (partner->port_state & AD_STATE_AGGREGATION)) {
+> @@ -590,7 +588,8 @@ static void __update_default_selected(struct port *port)
+>  		// check if any parameter is different
+>  		if (admin->port_number != oper->port_number ||
+>  		    admin->port_priority != oper->port_priority ||
+> -		    MAC_ADDRESS_COMPARE(&admin->system, &oper->system) ||
+> +		    compare_ether_addr((const u8 *)&admin->system,
+> +					(const u8 *)&oper->system) ||
+>  		    admin->system_priority != oper->system_priority ||
+>  		    admin->key != oper->key ||
+>  		    (admin->port_state & AD_STATE_AGGREGATION)
+> @@ -620,7 +619,8 @@ static void __update_ntt(struct lacpdu *lacpdu, struct port *port)
+>  		// check if any parameter is different
+>  		if ((ntohs(lacpdu->partner_port) != port->actor_port_number) ||
+>  		    (ntohs(lacpdu->partner_port_priority) != port->actor_port_priority) ||
+> -		    MAC_ADDRESS_COMPARE(&(lacpdu->partner_system), &(port->actor_system)) ||
+> +		    compare_ether_addr((const u8 *)&(lacpdu->partner_system),
+> +					(const u8 *)&(port->actor_system)) ||
+>  		    (ntohs(lacpdu->partner_system_priority) != port->actor_system_priority) ||
+>  		    (ntohs(lacpdu->partner_key) != port->actor_oper_port_key) ||
+>  		    ((lacpdu->partner_state & AD_STATE_LACP_ACTIVITY) != (port->actor_oper_port_state & AD_STATE_LACP_ACTIVITY)) ||
+> @@ -1123,7 +1123,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+>  			break;
+>  		case AD_RX_CURRENT:
+>  			// detect loopback situation
+> -			if (!MAC_ADDRESS_COMPARE(&(lacpdu->actor_system), &(port->actor_system))) {
+> +			if (!compare_ether_addr((const u8 *)&(lacpdu->actor_system), (const u8 *)&(port->actor_system))) {
+>  				// INFO_RECEIVED_LOOPBACK_FRAMES
+>  				pr_err("%s: An illegal loopback occurred on adapter (%s).\n"
+>  				       "Check the configuration to verify that all adapters are connected to 802.3ad compliant switch ports\n",
+> @@ -1331,11 +1331,11 @@ static void ad_port_selection_logic(struct port *port)
+>  		}
+>  		// check if current aggregator suits us
+>  		if (((aggregator->actor_oper_aggregator_key == port->actor_oper_port_key) && // if all parameters match AND
+> -		     !MAC_ADDRESS_COMPARE(&(aggregator->partner_system), &(port->partner_oper.system)) &&
+> +		     !compare_ether_addr((const u8 *)&(aggregator->partner_system), (const u8 *)&(port->partner_oper.system)) &&
+>  		     (aggregator->partner_system_priority == port->partner_oper.system_priority) &&
+>  		     (aggregator->partner_oper_aggregator_key == port->partner_oper.key)
+>  		    ) &&
+> -		    ((MAC_ADDRESS_COMPARE(&(port->partner_oper.system), &(null_mac_addr)) && // partner answers
+> +		    ((compare_ether_addr((const u8 *)&(port->partner_oper.system), (const u8 *)&(null_mac_addr)) && // partner answers
+>  		      !aggregator->is_individual)  // but is not individual OR
+>  		    )
+>  		   ) {
+> @@ -1751,7 +1751,9 @@ static void ad_enable_collecting_distributing(struct port *port)
+>   */
+>  static void ad_disable_collecting_distributing(struct port *port)
+>  {
+> -	if (port->aggregator && MAC_ADDRESS_COMPARE(&(port->aggregator->partner_system), &(null_mac_addr))) {
+> +	if (port->aggregator &&
+> +	    compare_ether_addr((const u8 *)&(port->aggregator->partner_system),
+> +				(const u8 *)&(null_mac_addr))) {
+>  		pr_debug("Disabling port %d(LAG %d)\n",
+>  			 port->actor_port_number,
+>  			 port->aggregator->aggregator_identifier);
+> @@ -1875,7 +1877,7 @@ static u16 aggregator_identifier;
+>  void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution, int lacp_fast)
+>  {
+>  	// check that the bond is not initialized yet
+> -	if (MAC_ADDRESS_COMPARE(&(BOND_AD_INFO(bond).system.sys_mac_addr),
+> +	if (compare_ether_addr((const u8 *)&(BOND_AD_INFO(bond).system.sys_mac_addr),
+>  				bond->dev->dev_addr)) {
+>  
+>  		aggregator_identifier = 0;
