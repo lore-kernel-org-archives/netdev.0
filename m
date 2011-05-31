@@ -1,65 +1,55 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: netxen_nic: unregister_netdevice error
-Date: Tue, 31 May 2011 12:12:15 +0200
-Message-ID: <20110531101214.GB2763@psychotron.brq.redhat.com>
-References: <4DE4877C.1070704@gmail.com>
- <4DE4B31A.3090201@gmail.com>
- <1306835326.2809.1.camel@edumazet-laptop>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: Kernel crash after using new Intel NIC (igb)
+Date: Tue, 31 May 2011 12:50:19 +0200
+Message-ID: <20110531105019.GF24172@elte.hu>
+References: <4DDFE4D6.4010000@fb.com>
+ <1306526219.2533.3.camel@edumazet-laptop>
+ <20110527211419.GA6793@dev1756.snc6.facebook.com>
+ <1306561285.2533.9.camel@edumazet-laptop>
+ <20110528180434.GB12530@elte.hu>
+ <1306654424.30021.7.camel@edumazet-laptop>
+ <20110529073840.GB21254@elte.hu>
+ <1306654983.30021.10.camel@edumazet-laptop>
+ <20110529123318.GB26627@elte.hu>
+ <4DE3E32E.5000302@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: WeipingPan <panweiping3@gmail.com>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39550 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750762Ab1EaKMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 May 2011 06:12:18 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Maximilian Engelhardt <maxi@daemonizer.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	StuStaNet Vorstand <vorstand@stusta.mhn.de>,
+	Yann Dupont <Yann.Dupont@univ-nantes.fr>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Arun Sharma <asharma@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1306835326.2809.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4DE3E32E.5000302@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, May 31, 2011 at 11:48:46AM CEST, eric.dumazet@gmail.com wrote:
->Le mardi 31 mai 2011 =E0 17:21 +0800, WeipingPan a =E9crit :
->> On 05/31/2011 02:15 PM, WeipingPan wrote:
->> > hi,
->> >
->> > When test bonding broadcast mode I met a problem.
->> > modprobe -r bonding will fail after I ping broadcast address.
->> >
->> > I find that the problem only shows up when I use netxen_nic driver=
-=2E
->> > When use ixgbe and bn2x2 driver, no problem occurs.
->> >
->> > I use RHEL 6.2, kernel 2.6.32-131.0.15.el6.i686,
->> > Can anybody confirm this bug using 2.6.39 or upstream ?
->> >
->> > many thanks
->> > Weiping Pan
->> >
->> I got a machine to test the=20
->> upstream,55922c9d1b84b89cb946c777fddccb3247e7df2c
->> the problem disappears.
->>=20
->> many thanks
->> Weiping Pan
->
->Might be solved by commit fc75fc8339e772716744 or=20
->
->commit 332dd96f7ac15e937088fe11f15c (net/dst: dst_dev_event() called
->after other notifiers) and commit ef885afbf8a37689 ((net: use
->rcu_barrier() inrollback_registered_many)
 
-Thanks, for suggestions Eric. We'll try those.
+* Arun Sharma <asharma@fb.com> wrote:
 
->
->
->
->
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On 5/29/11 5:33 AM, Ingo Molnar wrote:
+> >
+> >* Eric Dumazet<eric.dumazet@gmail.com>  wrote:
+> >
+> >>I asked Arun if he wanted to make this himself, because initial
+> >>idea was coming from him, not because I did not want to make it ;)
+> >
+> >Hey, fair enough and sorry about the fuss! :-)
+> 
+> Sounds like there is general consensus that such a cleanup would be 
+> good. I'll try to post a patch that does this cleanup for all archs 
+> in the next couple of days - but I won't have a way of testing it 
+> on anything other than x86_64.
+
+-mm is a good place to do such many-arch kind of facility 
+cleanups/extensions so please Cc: Andrew if you think the patch is 
+ready to be tested on that level.
+
+Thanks,
+
+	Ingo
