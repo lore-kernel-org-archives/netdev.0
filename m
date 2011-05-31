@@ -1,71 +1,63 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Skipping past TCP lost packet in userspace
-Date: Tue, 31 May 2011 10:23:44 -0700
-Message-ID: <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>
-References: <4DE44218.4070306@krellan.com>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: [ath5k-devel] ath5k regression associating with APs in 2.6.38
+Date: Tue, 31 May 2011 19:31:07 +0200
+Message-ID: <4DE525DB.1000908@openwrt.org>
+References: <20110504153819.GA4551@thinkpad-t410>	<20110504172716.GC18541@tuxdriver.com>	<20110504192639.GB4551@thinkpad-t410>	<BANLkTimEmBRyxbZgffJMrH4TTc4f6peuTg@mail.gmail.com>	<20110505135207.GA13727@thinkpad-t410>	<BANLkTinkiTQU2k7vBEc0JPGa01AUVCvp2Q@mail.gmail.com>	<20110509070230.GA20458@thinkpad-t410>	<20110517165720.GB9258@thinkpad-t410> <BANLkTi=8ZRUVWn3FLAMtPh=4yY1F0k6i9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, jiyengar@fandm.edu
-To: Josh Lehan <linux@krellan.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Slaby <jirislaby@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Kossifidis <mickflemm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:42045 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756580Ab1EaRYH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 13:24:07 -0400
-Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
-	by smtp-out.google.com with ESMTP id p4VHO5YQ018920
-	for <netdev@vger.kernel.org>; Tue, 31 May 2011 10:24:06 -0700
-Received: from ywa8 (ywa8.prod.google.com [10.192.1.8])
-	by kpbe17.cbf.corp.google.com with ESMTP id p4VHN5DY021087
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 31 May 2011 10:24:04 -0700
-Received: by ywa8 with SMTP id 8so2785398ywa.23
-        for <netdev@vger.kernel.org>; Tue, 31 May 2011 10:24:04 -0700 (PDT)
-In-Reply-To: <4DE44218.4070306@krellan.com>
+Received: from nbd.name ([46.4.11.11]:37919 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757873Ab1EaRba (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2011 13:31:30 -0400
+In-Reply-To: <BANLkTi=8ZRUVWn3FLAMtPh=4yY1F0k6i9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 30, 2011 at 6:19 PM, Josh Lehan <linux@krellan.com> wrote:
+On 2011-05-17 7:14 PM, Nick Kossifidis wrote:
+> 2011/5/17 Seth Forshee<seth.forshee@canonical.com>:
+>>  On Mon, May 09, 2011 at 09:02:30AM +0200, Seth Forshee wrote:
+>>>  On Thu, May 05, 2011 at 05:30:42PM +0300, Nick Kossifidis wrote:
+>>>  >  Hmm I don't see any errors from reset/phy code, can you disable
+>>>  >  Network Manager/wpa-supplicant and test connection on an open network
+>>>  >  using iw ? It 'll give us a better picture...
+>>>  >
+>>>  >  If iw doesn't return any scan results we are probably hitting a PHY/RF
+>>>  >  error specific to your device (not all vendors follow the reference
+>>>  >  design). Maybe we should follow a blacklist/whitelist approach for
+>>>  >  this feature.
+>>>
+>>>  I got the results back from my tester. He was able to get scan results,
+>>>  but it took multiple tries and the direct probe failures appear in the
+>>>  log. He didn't enable ATH5K_DEBUG_RESET this time; let me know if you
+>>>  need that and I'll request he retest with the extra debug logs enabled.
+>>
+>>  I got some more feedback. Most of the time iw does not get scan results,
+>>  but even when it does connecting to the AP isn't always successful. The
+>>  tester did note that he doesn't seem to have any trouble if his machine
+>>  is within a few feet of his AP. Let me know if you'd like something else
+>>  tested.
+>>
+>>  I noticed that bugzilla #31922 (ath5k: Decreased throughput in IBSS or
+>>  802.11n mode) is also fixed by reverting 8aec7af9. It seems like the
+>>  synth-only channel changes are resulting in poor connection quality.
+>>  Maybe that patch needs to be reverted?
+>>
+>>  Thanks,
+>>  Seth
+>>
+>>
 >
-> Hello. =A0I looked, but could not find an answer. =A0Is there already=
- an
-> ioctl() or something like that in Linux, that would allow a userspace
-> TCP socket to skip past a lost packet?
->
-> The kernel already will continue to queue up packets, and with TCP SA=
-CK,
-> the kernel can acknowledge reception of further packets beyond the lo=
-st
-> packet, allowing the queue to continue growing. =A0However, all these
-> queued packets won't be delivered to userspace until the original los=
-t
-> packet is received again, after it has been retransmitted.
->
-> Is there a way for a userspace program to prevent this needless stall=
-?
+> http://www.kernel.org/pub/linux/kernel/people/mickflemm/01-fast-chan-switch-modparm
+Disabling fast channel change also fixed a reproducible crash on 
+Broadcom based MIPS boards with some cards (AR2413, I think).
 
-This paper may have a solution to your problem
-"Minion=97an All-Terrain Packet Packhorse to Jump-Start Stalled Interne=
-t
-Transports"
-http://csweb1.fandm.edu/jiyengar/lair/papers/minion-pfldnet2010.pdf
-
-> It would be great if there was an ioctl() or similar call, that would
-> tell the kernel that it's OK to leave a gap in the data stream, and
-> resume supplying userspace with more data. =A0An obvious application =
-would
-> be media streaming, and many high-level media protocols do their own
-> block framing anyway, so resynchronization after the data gap would n=
-ot
-> be a problem.
->
-> This sounds like something that would be a FAQ, and if so, please poi=
-nt
-> me to the answer. =A0Thank you!
->
-> Josh Lehan
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+- Felix
