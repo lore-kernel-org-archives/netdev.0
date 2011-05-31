@@ -1,49 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: ks8842 Fix crash on received packet when
- in PIO mode.
-Date: Tue, 31 May 2011 15:15:40 -0700 (PDT)
-Message-ID: <20110531.151540.20835046.davem@davemloft.net>
-References: <20110529214652.GA4707@dens-work>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC/PATCH] sungem: Spring cleaning and GRO support
+Date: Tue, 31 May 2011 23:17:29 +0100
+Message-ID: <1306880249.2866.53.camel@bwh-desktop>
+References: <1306828745.7481.660.camel@pasglop>
+	 <1306875564.2866.39.camel@bwh-desktop>  <1306879088.7481.679.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: info@mocean-labs.com, netdev@vger.kernel.org
-To: dennis.aberilla@mimomax.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"R. Herbst" <ruediger.herbst@googlemail.com>,
+	Brian Hamilton <bhamilton04@gmail.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57226 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932702Ab1EaWPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 18:15:51 -0400
-In-Reply-To: <20110529214652.GA4707@dens-work>
+Received: from exchange.solarflare.com ([216.237.3.220]:3918 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932696Ab1EaWRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 18:17:32 -0400
+In-Reply-To: <1306879088.7481.679.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dennis Aberilla <dennis.aberilla@mimomax.com>
-Date: Mon, 30 May 2011 09:46:54 +1200
-
-> This patch fixes a driver crash during packet reception due to not enough
-> bytes allocated in the skb. Since the loop reads out 4 bytes at a time, we
-> need to allow for up to 3 bytes of slack space.
+On Wed, 2011-06-01 at 07:58 +1000, Benjamin Herrenschmidt wrote:
+[...]
+> > Is the pm_mutex really needed?  All control operations should already be
+> > serialised by the RTNL lock, and you've started taking that in the
+> > suspend and resume functions.
 > 
-> Signed-off-by: Dennis Aberilla <denzzzhome@yahoo.com>
+> Well, it's been there forever and I need to get my head around it, but
+> yes, the rtnl lock might be able to get rid of it, good point. I just
+> actually added that :-)
+> 
+> So all ndo_set_* are going to be covered by rtnl including the ethtool ?
 
-Applied, thanks.
+ethtool ops are almost all covered; the kernel-doc comment has the
+details.
 
-> |Dennis
-> =======================================================================
-> This email, including any attachments, is only for the intended
-> addressee.  It is subject to copyright, is confidential and may be
-> the subject of legal or other privilege, none of which is waived or
-> lost by reason of this transmission.
-> If the receiver is not the intended addressee, please accept our
-> apologies, notify us by return, delete all copies and perform no
-> other act on the email.
-> Unfortunately, we cannot warrant that the email has not been
-> altered or corrupted during transmission.
-> =======================================================================
+As for net_device_ops, locking varies (and really ought to be documented
+in <linux/netdevice.h>).  At least ndo_set_mac_address, ndo_change_mtu
+and ndo_do_ioctl (plus of course ndo_open and ndo_stop) are called
+holding the RTNL lock.
 
-Please turn this off for future patch submissions or I will
-completely ignore them.  It is entirely inappropriate for emails
-destined for a public mailing list.
+> I don't really want to take the rtnl lock in the reset task (at least
+> not for the whole duration of it), so I may have to be a bit creative on
+> synchronization there.
+[...]
 
-Thanks.
+Unless reset takes more than a second I wouldn't worry about it.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
