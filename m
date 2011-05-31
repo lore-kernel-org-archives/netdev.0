@@ -1,55 +1,44 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 15/15] ehea: Remove unused tcp_end field in send WQ
-Date: Tue, 31 May 2011 11:16:34 +1000
-Message-ID: <1306804594.7481.642.camel@pasglop>
-References: <20110512005213.897432612@samba.org>
-	 <20110512005623.854973618@samba.org> <1305167473.6124.11.camel@Joe-Laptop>
-	 <20110511.230603.1390935245880337663.davem@davemloft.net>
-	 <1305169927.6124.14.camel@Joe-Laptop>
+From: Josh Lehan <linux@krellan.com>
+Subject: Skipping past TCP lost packet in userspace
+Date: Mon, 30 May 2011 18:19:20 -0700
+Message-ID: <4DE44218.4070306@krellan.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, anton@samba.org,
-	leitao@linux.vnet.ibm.com, michael@ellerman.id.au,
-	jesse@kernel.org, bhutchings@solarflare.com, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:43546 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751458Ab1EaBQ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 May 2011 21:16:57 -0400
-In-Reply-To: <1305169927.6124.14.camel@Joe-Laptop>
+Received: from server4.hostdango.com ([70.86.37.74]:32862 "EHLO
+	server4.hostdango.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048Ab1EaCGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 May 2011 22:06:20 -0400
+Received: from transmat-4.krellan.net ([71.133.204.142] helo=[10.6.9.2])
+	by server4.hostdango.com with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.69)
+	(envelope-from <linux@krellan.com>)
+	id 1QRDc7-0008UJ-Je
+	for netdev@vger.kernel.org; Mon, 30 May 2011 18:19:19 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-05-11 at 20:12 -0700, Joe Perches wrote:
-> On Wed, 2011-05-11 at 23:06 -0400, David Miller wrote:
-> > From: Joe Perches <joe@perches.com>
-> > Date: Wed, 11 May 2011 19:31:13 -0700
-> > > On Thu, 2011-05-12 at 10:52 +1000, Anton Blanchard wrote:
-> > >> plain text document attachment (ehea_22.patch)
-> > >> The tcp_end field is not actually used by the hardware, so there
-> > >> is no need to set it. 
-> > >> +++ linux-net/drivers/net/ehea/ehea_qmr.h	2011-05-12 07:48:06.380382084 +1000
-> > >> @@ -106,7 +106,7 @@ struct ehea_swqe {
-> > >>  	u8 immediate_data_length;
-> > >>  	u8 tcp_offset;
-> > >>  	u8 reserved2;
-> > >> -	u16 tcp_end;
-> > >> +	u16 reserved2b;
-> > >>  	u8 wrap_tag;
-> > >>  	u8 descriptors;		/* number of valid descriptors in WQE */
-> > >>  	u16 reserved3;
-> > > struct ehea_swqe isn't __packed.  Shouldn't it be?
-> > Please don't mark it __packed unless absolutely necessary :-)
-> 
-> Isn't it read from hardware.
-> If not, why reserve anything?
+Hello.  I looked, but could not find an answer.  Is there already an
+ioctl() or something like that in Linux, that would allow a userspace
+TCP socket to skip past a lost packet?
 
-All the fields have the required alignment, so __packed shouldn't be
-necessary but won't hurt either. Yes, it's a HW accessed structure.
+The kernel already will continue to queue up packets, and with TCP SACK,
+the kernel can acknowledge reception of further packets beyond the lost
+packet, allowing the queue to continue growing.  However, all these
+queued packets won't be delivered to userspace until the original lost
+packet is received again, after it has been retransmitted.
 
-Cheers,
-Ben.
+Is there a way for a userspace program to prevent this needless stall?
+It would be great if there was an ioctl() or similar call, that would
+tell the kernel that it's OK to leave a gap in the data stream, and
+resume supplying userspace with more data.  An obvious application would
+be media streaming, and many high-level media protocols do their own
+block framing anyway, so resynchronization after the data gap would not
+be a problem.
 
+This sounds like something that would be a FAQ, and if so, please point
+me to the answer.  Thank you!
 
+Josh Lehan
