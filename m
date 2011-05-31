@@ -1,80 +1,125 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
-Date: Tue, 31 May 2011 17:43:25 +0200
-Message-ID: <0328b2351e8e11a19301262842ef0491@localhost>
-References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
- <20110518.152653.1486764697527722925.davem@davemloft.net>
- <BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
- <20110518.155200.801089483916944725.davem@davemloft.net>
- <20110518202025.GC4175@nuttenaction>
- <BANLkTimtA9BB7g5cOm8c9sGChQjf1P0Q-Q@mail.gmail.com>
- <fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
- <BANLkTi=p1V1x+y=-cH-Q7bvueu_4_D1ywQ@mail.gmail.com>
- <BANLkTimqtjskX5q2ovTp_c05MdqBDOWsRg@mail.gmail.com>
- <da8dbb76f0cb3762227d8d0a99eaff21@localhost>
- <BANLkTikuW7VF8AUPFYHYzGe7mXp5H_emjA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>,
-	David Miller <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-	<pekkas@netcore.fi>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: tsuna <tsunanet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:34105 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753302Ab1EaPn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 11:43:26 -0400
-In-Reply-To: <BANLkTikuW7VF8AUPFYHYzGe7mXp5H_emjA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: [RFC PATCH 20/35] drivers/net changes for SMBIOS and System Firmware
+Date: Tue, 31 May 2011 11:52:51 -0400
+Message-ID: <20110531155251.3568.64650.sendpatchset@prarit.bos.redhat.com>
+Content-Type: text/x-c; charset=us-ascii
+Cc: Prarit Bhargava <prarit@redhat.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+drivers/net changes for SMBIOS and System Firmware
 
-On Tue, 31 May 2011 08:28:18 -0700, tsuna <tsunanet@gmail.com> wrote:
+---
+ drivers/net/skge.c                 |   11 ++++++-----
+ drivers/net/via-rhine.c            |   18 ++++++++++--------
+ drivers/net/wireless/wl1251/sdio.c |    1 -
+ 3 files changed, 16 insertions(+), 14 deletions(-)
 
-
-
-> Sorry I meant a knob such as /proc/sys/net/ipv4/tcp_initrto.
-
-
-
-That's the same! ;-)
-
-
-
->> The initRTO is the ideal candidate for a
-
->> per route knob. And happily you will solve 2) with the per route thing
-
->> too!
-
-> 
-
-> You still need a knob for the default system-wide value, don't you?
-
-
-
-Yes, try to re-read the emails. Sysctl is a no-go, with a per route
-
-interface you have the ability to tune the values. Talk with Jerry once
-
-again - he wrote that at Google they already have a patch for this. And
-
-with a per route knob you can select a even smaller value for your local
-
-network (e.g. datacenter) and a larger value for all other routes. It makes
-
-sense to provide a knob for this on a route basis, not on a global sysctl
-
-basis.
-
-
-
-But once again: talk with Jerry - he has the expert knowledge!
-
-
-
-Hagen
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index f4be5c7..1200c53 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -43,7 +43,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/mii.h>
+ #include <linux/slab.h>
+-#include <linux/dmi.h>
++#include <linux/sysfw.h>
+ #include <linux/prefetch.h>
+ #include <asm/irq.h>
+ 
+@@ -4089,12 +4089,13 @@ static struct pci_driver skge_driver = {
+ 	.driver.pm =	SKGE_PM_OPS,
+ };
+ 
+-static struct dmi_system_id skge_32bit_dma_boards[] = {
++static struct sysfw_id skge_32bit_dma_boards[] = {
+ 	{
+ 		.ident = "Gigabyte nForce boards",
+ 		.matches = {
+-			DMI_MATCH(DMI_BOARD_VENDOR, "Gigabyte Technology Co"),
+-			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
++			SYSFW_MATCH(SYSFW_BOARD_VENDOR,
++				     "Gigabyte Technology Co"),
++			SYSFW_MATCH(SYSFW_BOARD_NAME, "nForce"),
+ 		},
+ 	},
+ 	{}
+@@ -4102,7 +4103,7 @@ static struct dmi_system_id skge_32bit_dma_boards[] = {
+ 
+ static int __init skge_init_module(void)
+ {
+-	if (dmi_check_system(skge_32bit_dma_boards))
++	if (sysfw_callback(skge_32bit_dma_boards))
+ 		only_32bit_dma = 1;
+ 	skge_debug_init();
+ 	return pci_register_driver(&skge_driver);
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 7f23ab9..81725d5 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -110,7 +110,7 @@ static const int multicast_filter_limit = 32;
+ #include <asm/io.h>
+ #include <asm/irq.h>
+ #include <asm/uaccess.h>
+-#include <linux/dmi.h>
++#include <linux/sysfw.h>
+ 
+ /* These identify the driver base version and may not be removed. */
+ static const char version[] __devinitconst =
+@@ -2294,22 +2294,24 @@ static struct pci_driver rhine_driver = {
+ 	.shutdown =	rhine_shutdown,
+ };
+ 
+-static struct dmi_system_id __initdata rhine_dmi_table[] = {
++static struct sysfw_id __initdata rhine_id_table[] = {
+ 	{
+ 		.ident = "EPIA-M",
+ 		.matches = {
+-			DMI_MATCH(DMI_BIOS_VENDOR, "Award Software International, Inc."),
+-			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
++			SYSFW_MATCH(SYSFW_BIOS_VENDOR,
++				    "Award Software International, Inc."),
++			SYSFW_MATCH(SYSFW_BIOS_VERSION, "6.00 PG"),
+ 		},
+ 	},
+ 	{
+ 		.ident = "KV7",
+ 		.matches = {
+-			DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies, LTD"),
+-			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
++			SYSFW_MATCH(SYSFW_BIOS_VENDOR,
++				    "Phoenix Technologies, LTD"),
++			SYSFW_MATCH(SYSFW_BIOS_VERSION, "6.00 PG"),
+ 		},
+ 	},
+-	{ NULL }
++	{}
+ };
+ 
+ static int __init rhine_init(void)
+@@ -2318,7 +2320,7 @@ static int __init rhine_init(void)
+ #ifdef MODULE
+ 	pr_info("%s\n", version);
+ #endif
+-	if (dmi_check_system(rhine_dmi_table)) {
++	if (sysfw_callback(rhine_id_table)) {
+ 		/* these BIOSes fail at PXE boot if chip is in D3 */
+ 		avoid_D3 = 1;
+ 		pr_warn("Broken BIOS detected, avoid_D3 enabled\n");
+diff --git a/drivers/net/wireless/wl1251/sdio.c b/drivers/net/wireless/wl1251/sdio.c
+index f51a024..68e36d7 100644
+--- a/drivers/net/wireless/wl1251/sdio.c
++++ b/drivers/net/wireless/wl1251/sdio.c
+@@ -20,7 +20,6 @@
+  * Copyright (C) 2009 Bob Copeland (me@bobcopeland.com)
+  */
+ #include <linux/module.h>
+-#include <linux/mod_devicetable.h>
+ #include <linux/mmc/sdio_func.h>
+ #include <linux/mmc/sdio_ids.h>
+ #include <linux/platform_device.h>
+-- 
+1.7.5.1
