@@ -1,40 +1,76 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] ftrace: tracepoint of net_dev_xmit sees freed skb and
- causes panic
-Date: Tue, 31 May 2011 12:21:30 -0400
-Message-ID: <1306858890.11899.32.camel@gandalf.stny.rr.com>
-References: <4DE49D52.709@jp.fujitsu.com>
-	 <1306854791.11899.30.camel@gandalf.stny.rr.com>
-	 <20110531161115.GA3267@hmsreliant.think-freely.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [Xen-devel] Re: [PATCH] ethtool: ETHTOOL_SFEATURES:
+ remove NETIF_F_COMPAT return
+Date: Tue, 31 May 2011 11:43:54 -0700
+Message-ID: <BANLkTimo3VsFskTqC6LPHutvV7cXeRNQ4Q@mail.gmail.com>
+References: <20110524.153930.610330240390616957.davem@davemloft.net>
+	<20110524215923.GA20138@rere.qmqm.pl>
+	<1306505626.2759.4.camel@bwh-desktop>
+	<20110527152809.GA7620@rere.qmqm.pl>
+	<1306511150.2759.17.camel@bwh-desktop>
+	<20110527163409.GA8497@rere.qmqm.pl>
+	<1306538755.2759.31.camel@bwh-desktop>
+	<20110528073525.GA19033@rere.qmqm.pl>
+	<1306577228.23577.17.camel@dagon.hellion.org.uk>
+	<BANLkTime8PHYe+BFELt92gg7SZ91xKvAwA@mail.gmail.com>
+	<20110529093849.GA5245@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, mingo@elte.hu, fweisbec@gmail.com,
-	mathieu.desnoyers@efficios.com, tglx@linutronix.de,
-	kosaki.motohiro@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
-	kaneshige.kenji@jp.fujitsu.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110531161115.GA3267@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	"xen-devel-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org" <xen-devel-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org>,
+	Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	xen-api-GuqFBffKawuULHF6PoxzQEEOCMrvLtNR@public.gmane.org, Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20110529093849.GA5245-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-05-31 at 12:11 -0400, Neil Horman wrote:
->  			skb_dst_drop(nskb);
-> > >  
-> > > +		skb_len = nskb->len;
-> > >  		rc = ops->ndo_start_xmit(nskb, dev);
-> > > -		trace_net_dev_xmit(nskb, rc);
-> > > +		trace_net_dev_xmit(nskb, rc, dev, skb_len);
-> > 
-> > What if you just put the tracepoint before the call to
-> > ops->ndo_start_xmit?
-> > 
-> Then you won't know the return code of ndo_start_xmit, which this tracepoint
-> records.
-
-Doh! Yeah, I see that now ;)
-
--- Steve
+MjAxMS81LzI5IE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxpbnV4QHJlcmUucW1xbS5wbD46Cj4g
+T24gU2F0LCBNYXkgMjgsIDIwMTEgYXQgMTA6MzE6MDNBTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3Jv
+dGU6Cj4+IDIwMTEvNS8yOCBJYW4gQ2FtcGJlbGwgPElhbi5DYW1wYmVsbEBjaXRyaXguY29tPjoK
+Pj4gPiBPbiBTYXQsIDIwMTEtMDUtMjggYXQgMDg6MzUgKzAxMDAsIE1pY2hhxYIgTWlyb3PFgmF3
+IHdyb3RlOgo+PiA+PiBPbiBTYXQsIE1heSAyOCwgMjAxMSBhdCAxMjoyNTo1NUFNICswMTAwLCBC
+ZW4gSHV0Y2hpbmdzIHdyb3RlOgo+PiA+PiA+IE9uIEZyaSwgMjAxMS0wNS0yNyBhdCAxODozNCAr
+MDIwMCwgTWljaGHFgiBNaXJvc8WCYXcgd3JvdGU6Cj4+ID4+ID4gPiBPbiBGcmksIE1heSAyNywg
+MjAxMSBhdCAwNDo0NTo1MFBNICswMTAwLCBCZW4gSHV0Y2hpbmdzIHdyb3RlOgo+PiA+PiA+ID4g
+PiBPbiBGcmksIDIwMTEtMDUtMjcgYXQgMTc6MjggKzAyMDAsIE1pY2hhxYIgTWlyb3PFgmF3IHdy
+b3RlOgo+PiA+PiA+IFsuLi5dCj4+ID4+ID4gPiA+ID4gwqAgwqAgwqAobm90ZTogRVRIVE9PTF9T
+e1NHLC4uLn0gYXJlIG5vdCBldmVyIGdvaW5nIGF3YXkpCj4+ID4+ID4gPiA+ID4gwqAgwqAtIGNh
+dXNlcyBORVRJRl9GXyogdG8gYmUgYW4gQUJJCj4+ID4+ID4gPiA+IElmIGZlYXR1cmUgZmxhZyBu
+dW1iZXJzIGFyZSBub3Qgc3RhYmxlIHRoZW4gd2hhdCBpcyB0aGUgcG9pbnQgb2YKPj4gPj4gPiA+
+ID4gL3N5cy9jbGFzcy9uZXQvPG5hbWU+L2ZlYXR1cmVzPyDCoEFsc28sIEknbSBub3QgYXdhcmUg
+dGhhdCBmZWF0dXJlcyBoYXZlCj4+ID4+ID4gPiA+IGV2ZXIgYmVlbiByZW51bWJlcmVkIGluIHRo
+ZSBwYXN0Lgo+PiA+PiA+ID4gU2luY2Ugbm8gTkVUSUZfRl8qIHdlcmUgZXhwb3J0ZWQgZWFybGll
+ciwgSSBhc3N1bWUgL3N5cy9jbGFzcy9uZXQvKi9mZWF0dXJlcwo+PiA+PiA+ID4gaXMgYSBkZWJ1
+Z2dpbmcgYWlkLiBXaGF0IGlzIGl0IHVzZWQgZm9yIGJlc2lkZXMgdGhhdD8KPj4gPj4gPiB4ZW4t
+YXBpIDxodHRwczovL2dpdGh1Yi5jb20veGVuLW9yZy94ZW4tYXBpPiB1c2VzIGl0IGluCj4+ID4+
+ID4gc2NyaXB0cy9JbnRlcmZhY2VSZWNvbmZpZ3VyZVZzd2l0Y2gucHkuIMKgVGhvdWdoIGl0IGRv
+ZXNuJ3Qgc2VlbSB0byBiZQo+PiA+PiA+IHVzZWQgZm9yIGEgcGFydGljdWxhcmx5IGdvb2QgcmVh
+c29uLi4uCj4+ID4+IExvb2sgbGlrZSBpdCBzaG91bGQgdXNlIEVUSFRPT0xfR0ZMQUdTIGluc3Rl
+YWQgZm9yIG5ldGRldl9oYXNfdmxhbl9hY2NlbCgpLgo+PiBFVEhUT09MX0dGTEFHUyBkaWRuJ3Qg
+ZXhwb3NlIHRoZSB2bGFuIGFjY2VsZXJhdGlvbiBmbGFncyB1bnRpbCAyLjYuMzcsCj4+IHdoaWNo
+IGlzIHdoeSAvc3lzL2NsYXNzL25ldCB3YXMgdXNlZCBpbnN0ZWFkLgo+Cj4gaHR0cHM6Ly9naXRo
+dWIuY29tL3hlbi1vcmcveGVuLWFwaS9jb21taXQvNzhiODA3OGU2YWUzY2Y0ODE3OTg1OWJlZDYz
+NTBiYjMyNjk4NzU0Ngo+Cj4gVGhlIGNvbW1pdCB1c2luZyBpdCB3YXMgaW50cm9kdWNlZCBhZnRl
+ciAyLjYuMzcga2VybmVsIHdhcyByZWxlYXNlZAoKV2VsbCBwZW9wbGUgZG8gdXNlIGtlcm5lbHMg
+b3RoZXIgdGhhbiB0aGUgbW9zdCByZWNlbnRseSByZWxlYXNlZCBvbmUuLi4KCj4gYW5kIHVzZXMK
+PiB1bmRvY3VtZW50ZWQgYWNjY2VzcyBwYXRoIHRvIHRoZSBiaXRzIGluIHF1ZXN0aW9uLiBXaGF0
+IGlzIHRoZSBrZXJuZWwgcGF0Y2gKPiB0aGlzIGNvbW1pdCBpcyByZWZlcnJpbmcgdG8/CgpJdCdz
+IGEgdGVtcG9yYXJ5IHdvcmthcm91bmQgdG8gZGVhbCB3aXRoIHRoZSBmYWN0IHRoYXQgbWFueSBk
+cml2ZXJzCnRoYXQgc3VwcG9ydCB2bGFuIGFjY2VsZXJhdGlvbiBkbyBub3QgcHJvcGVybHkgaGFu
+ZGxlIHZsYW4gcGFja2V0cyBpZgp0aGUgY29ycmVzcG9uZGluZyBncm91cCBpc24ndCBjb25maWd1
+cmVkIG9uIHRoZW0uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
+Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
