@@ -1,62 +1,59 @@
-From: tsuna <tsunanet@gmail.com>
-Subject: Re: [PATCH] tcp: Expose the initial RTO via a new sysctl.
-Date: Tue, 31 May 2011 07:48:09 -0700
-Message-ID: <BANLkTimqtjskX5q2ovTp_c05MdqBDOWsRg@mail.gmail.com>
-References: <1305715384-81716-1-git-send-email-tsunanet@gmail.com>
- <20110518.152653.1486764697527722925.davem@davemloft.net> <BANLkTik-6wh8=jb6oMEpJvYC8+KTGGsMsw@mail.gmail.com>
- <20110518.155200.801089483916944725.davem@davemloft.net> <20110518202025.GC4175@nuttenaction>
- <BANLkTimtA9BB7g5cOm8c9sGChQjf1P0Q-Q@mail.gmail.com> <fc49a1b4c32eee9b5cbfbeec4729eef5@localhost>
- <BANLkTi=p1V1x+y=-cH-Q7bvueu_4_D1ywQ@mail.gmail.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] ftrace: tracepoint of net_dev_xmit sees freed skb and
+ causes panic
+Date: Tue, 31 May 2011 11:13:11 -0400
+Message-ID: <1306854791.11899.30.camel@gandalf.stny.rr.com>
+References: <4DE49D52.709@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:57458 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265Ab1EaOsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 10:48:30 -0400
-In-Reply-To: <BANLkTi=p1V1x+y=-cH-Q7bvueu_4_D1ywQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, mingo@elte.hu,
+	fweisbec@gmail.com, mathieu.desnoyers@efficios.com,
+	tglx@linutronix.de, kosaki.motohiro@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DE49D52.709@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 20, 2011 at 5:06 PM, H.K. Jerry Chu <hkjerry.chu@gmail.com> wrote:
-> Yep, that's why we've had a knob for this for years.
+On Tue, 2011-05-31 at 16:48 +0900, Koki Sanagi wrote:
+> Because there is a possibility that skb is kfree_skb()ed and zero cleared
+> after ndo_start_xmit, we should not see the contents of skb like skb->len and
+> skb->dev->name after ndo_start_xmit. But trace_net_dev_xmit does that
+> and causes panic by NULL pointer dereference.
+> This patch fixes trace_net_dev_xmit not to see the contents of skb directly.
 
-I was traveling last week so sorry for not replying earlier to various
-comments people made.
 
-I talked to Jerry and he's agreed to share some patches that Google
-has been using internally for years.  I started this work because
-after leaving Google and taking these changes for granted, I was
-surprised to find that they weren't actually part of the mainline
-Linux kernel.
+>  
+>  	if (likely(!skb->next)) {
+>  		u32 features;
+> @@ -2139,8 +2140,9 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+>  			}
+>  		}
+>  
+> +		skb_len = skb->len;
+>  		rc = ops->ndo_start_xmit(skb, dev);
+> -		trace_net_dev_xmit(skb, rc);
+> +		trace_net_dev_xmit(skb, rc, dev, skb_len);
+>  		if (rc == NETDEV_TX_OK)
+>  			txq_trans_update(txq);
+>  		return rc;
+> @@ -2160,8 +2162,9 @@ gso:
+>  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+>  			skb_dst_drop(nskb);
+>  
+> +		skb_len = nskb->len;
+>  		rc = ops->ndo_start_xmit(nskb, dev);
+> -		trace_net_dev_xmit(nskb, rc);
+> +		trace_net_dev_xmit(nskb, rc, dev, skb_len);
 
-It seems that David is willing to accept a change that will lower the
-initRTO to 1s (compile-time constant), with a fallback to 3s
-(compile-time constant), as per the draft rfc2988bis.  Others are
-legitimately worried about the impact this would cause in environments
-where RTT is typically (or always) in the 1-3s range.  Some would like
-to see this as a per-destination thing.
+What if you just put the tracepoint before the call to
+ops->ndo_start_xmit?
 
-Personally what I think would be ideal would be:
-  1. A sysctl knob for initRTO, to allow people to adjust this
-appropriately for their environment.
-  2. Apply the srtt / rttvar seen on previous connections to new connections.
+-- Steve
 
-Does that sound reasonable?
-
-For 2), I'm not sure how the details would work yet, I believe the
-kernel already has what's necessary to remember these things on a per
-peer basis, but it would be nice if I could specify things like "for
-10.x.0.0/16 (local datacenter) use this aggressive setting, for
-10.0.0.0/8 (my internal backend network) use that, for everything else
-(Internets etc.) use the default".
-
--- 
-Benoit "tsuna" Sigoure
-Software Engineer @ www.StumbleUpon.com
+>  		if (unlikely(rc != NETDEV_TX_OK)) {
+>  			if (rc & ~NETDEV_TX_MASK)
+>  				goto out_kfree_gso_skb;
