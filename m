@@ -1,46 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] uts: Make default hostname configurable, rather than
- always using "(none)"
-Date: Tue, 31 May 2011 12:46:30 -0700 (PDT)
-Message-ID: <20110531.124630.449848946.davem@davemloft.net>
-References: <20110530223847.GA29245@leaf>
-	<BANLkTikgqkd0BckvTrFwAOmJQ0ObP4OOjg@mail.gmail.com>
+From: Chris Adams <cmadams@hiwaay.net>
+Subject: IPv6 support for route realm/flow attribute?
+Date: Tue, 31 May 2011 15:33:11 -0500
+Message-ID: <20110531203311.GD16380@hiwaay.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: josh@joshtriplett.org, netdev@vger.kernel.org, serge@hallyn.com,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	kel@otaku42.de, pkg-sysvinit-devel@lists.alioth.debian.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTikgqkd0BckvTrFwAOmJQ0ObP4OOjg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fly.hiwaay.net ([216.180.54.1]:41676 "EHLO fly.hiwaay.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758301Ab1EaUjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2011 16:39:23 -0400
+Received: from fly.hiwaay.net (localhost [127.0.0.1])
+	by fly.hiwaay.net (8.13.8/8.13.8/fly) with ESMTP id p4VKXBoq014429
+	for <netdev@vger.kernel.org>; Tue, 31 May 2011 15:33:11 -0500
+Received: (from cmadams@localhost)
+	by fly.hiwaay.net (8.13.8/8.13.8/fly-submit) id p4VKXBfZ014425
+	for netdev@vger.kernel.org; Tue, 31 May 2011 15:33:11 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 31 May 2011 20:35:37 +0900
+It looks like the IPv6 routing table doesn't support the realm/flow
+attribute (RTA_FLOW).  Is this something that somebody is planning to
+add?
 
-> On Tue, May 31, 2011 at 7:38 AM, Josh Triplett <josh@joshtriplett.org=
-> wrote:
->>
->> The "hostname" tool falls back to setting the hostname to "localhost=
-" if
->> /etc/hostname does not exist. =A0Distribution init scripts have the =
-same
->> fallback. =A0However, if userspace never calls sethostname, such as =
-when
->> booting with init=3D/bin/sh, or otherwise booting a minimal system w=
-ithout
->> the usual init scripts, the default hostname of "(none)" remains,
->> unhelpfully appearing in various places such as prompts
->> ("root@(none):~#") and logs. =A0Furthermore, "(none)" doesn't typica=
-lly
->> resolve to anything useful.
->=20
-> Ok, I'm fine with this. So Ack as far as I'm concerned.
->=20
-> Does this make most sense through the networking tree, or what?
+I ask because this is very useful for traffic control setups.  I'm
+importing routes via BGP and setting the realm based on the AS path, so
+I can rate-limit outbound traffic based on the destination AS.
 
-Linus, you can just apply this directly.
-
-Thanks!
+-- 
+Chris Adams <cmadams@hiwaay.net>
+Systems and Network Administrator - HiWAAY Internet Services
+I don't speak for anybody but myself - that's enough trouble.
