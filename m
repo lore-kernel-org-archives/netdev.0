@@ -1,35 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vlan: fix typo in vlan_dev_hard_start_xmit()
-Date: Wed, 01 Jun 2011 17:07:07 +0200
-Message-ID: <1306940827.2890.0.camel@edumazet-laptop>
-References: <4DE5FDFF.4000208@cn.fujitsu.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: inet_diag insufficient validation?
+Date: Wed, 01 Jun 2011 11:40:49 -0400
+Message-ID: <1306942849.3150.10.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48825 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501Ab1FAPHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 11:07:12 -0400
-Received: by wwa36 with SMTP id 36so6146410wwa.1
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 08:07:11 -0700 (PDT)
-In-Reply-To: <4DE5FDFF.4000208@cn.fujitsu.com>
+Received: from mx1.vsecurity.com ([209.67.252.12]:57633 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035Ab1FAPk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 11:40:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 01 juin 2011 =C3=A0 16:53 +0800, Wei Yongjun a =C3=A9crit :
-> commit 4af429d29b341bb1735f04c2fb960178ed5d52e7 (vlan: lockless
-> transmit path) have a typo in vlan_dev_hard_start_xmit(), using
-> u64_stats_update_begin() to end the stat update, it should be
-> u64_stats_update_end().
->=20
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+It seems to me that the auditing performed by inet_diag_bc_audit() is
+insufficient to prevent pathological INET_DIAG bytecode from doing bad
+things.
 
-Good catch, Thanks !
+Firstly, it's possible to cause an infinite loop in inet_diag_bc_audit()
+with a INET_DIAG_BC_JMP opcode with a "yes" value of 0.  The valid_cc()
+function, also called from here, seems suspicious as well.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Once the bytecode is actually run in inet_diag_bc_run(), it looks like
+more infinite loops are possible, if appropriate "yes" or "no" values
+are set to zero and weren't validated by the audit.
 
+Finally, I can't seem to find any validation that the reported length of
+the netlink message header doesn't exceed the skb length, as checked in
+some other netlink receive functions, which could result in reading
+beyond the bounds of the socket data.  I could just be missing something
+here though.
+
+Regards,
+Dan
 
