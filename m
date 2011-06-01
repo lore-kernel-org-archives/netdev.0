@@ -1,48 +1,60 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6] bonding: allow all slave speeds
-Date: Wed,  1 Jun 2011 22:36:33 +0200
-Message-ID: <1306960593-16347-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net, fubar@us.ibm.com, andy@greyhouse.net
-To: netdev@vger.kernel.org
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [BUG] net: cpu offline cause napi stall
+Date: Wed, 1 Jun 2011 22:42:34 +0200
+Message-ID: <20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
+References: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
+ <1306930399.3476.1.camel@edumazet-laptop>
+ <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
+ <1306947321.2890.5.camel@edumazet-laptop>
+ <20110601181253.GA2374@osiris.boeblingen.de.ibm.com>
+ <1306958592.3946.0.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35805 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753103Ab1FAUgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 16:36:38 -0400
+Received: from mtagate4.uk.ibm.com ([194.196.100.164]:50845 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759971Ab1FAUmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 16:42:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1306958592.3946.0.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to check for 10, 100, 1000, 10000 explicitly. Just make this
-generic and check for invalid values only (similar check is in ethtool
-userspace app). This enables correct speed handling for slave devices
-with "nonstandard" speeds.
+On Wed, Jun 01, 2011 at 10:03:12PM +0200, Eric Dumazet wrote:
+> Le mercredi 01 juin 2011 =E0 20:12 +0200, Heiko Carstens a =E9crit :
+> > On Wed, Jun 01, 2011 at 06:55:21PM +0200, Eric Dumazet wrote:
+> > > > +	/* Append NAPI poll list from offline CPU. */
+> > > > +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
+> > > > =20
+> > > >  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+> > > >  	local_irq_enable();
+> > >=20
+> > > Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary.
+> >=20
+> > Well, see two lines below the list_splice_init() call ;)
+>=20
+> I see nothing... NET_TX_SOFTIRQ and NET_RX_SOFTIRQ are not the same=20
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/bonding/bond_main.c |    9 +--------
- 1 files changed, 1 insertions(+), 8 deletions(-)
+Indeed. I must be blind.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 17b4dd9..716c852 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -629,15 +629,8 @@ static int bond_update_speed_duplex(struct slave *slave)
- 		return -1;
- 
- 	slave_speed = ethtool_cmd_speed(&etool);
--	switch (slave_speed) {
--	case SPEED_10:
--	case SPEED_100:
--	case SPEED_1000:
--	case SPEED_10000:
--		break;
--	default:
-+	if (slave_speed == 0 || slave_speed == ((__u32) -1))
- 		return -1;
--	}
- 
- 	switch (etool.duplex) {
- 	case DUPLEX_FULL:
--- 
-1.7.4.4
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6561021..6189dac 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5981,6 +5981,11 @@ static int dev_cpu_callback(struct notifier_bloc=
+k *nfb,
+ 		oldsd->output_queue =3D NULL;
+ 		oldsd->output_queue_tailp =3D &oldsd->output_queue;
+ 	}
++	/* Append NAPI poll list from offline CPU. */
++	if (!list_empty(&oldsd->poll_list)) {
++		list_splice_init(&oldsd->poll_list, &sd->poll_list);
++		raise_softirq_irqoff(NET_RX_SOFTIRQ);
++	}
+=20
+ 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+ 	local_irq_enable();
