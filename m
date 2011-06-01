@@ -1,42 +1,35 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 v2] bonding: allow resetting slave failure
- counters
-Date: Wed, 01 Jun 2011 21:23:11 +0200
-Message-ID: <4DE6919F.3030304@gmail.com>
-References: <1306921249-3623-1-git-send-email-jpirko@redhat.com> <4DE63E85.7020508@redhat.com> <20110601135321.GA2909@psychotron.brq.redhat.com> <16056.1306944819@death> <20110601163153.GB2784@psychotron.redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: [RFC] Moving files around in drivers/net
+Date: Wed, 01 Jun 2011 12:30:02 -0700
+Message-ID: <1306956602.32125.28.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Flavio Leitner <fbl@redhat.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45990 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756080Ab1FATXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 15:23:14 -0400
-Received: by wya21 with SMTP id 21so95046wya.19
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 12:23:13 -0700 (PDT)
-In-Reply-To: <20110601163153.GB2784@psychotron.redhat.com>
+Received: from mail.perches.com ([173.55.12.10]:2396 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756771Ab1FATaE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 15:30:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/06/2011 18:31, Jiri Pirko a =E9crit :
-> This patch allows to reset failure counters for all enslaved devices.
+Does anyone still think moving files around in drivers/net
+would be sensible and a suitable candidate for inclusion
+in 3.1?
 
-Hi Jiri,
+Here's what Jeffrey proposed:
+http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
 
-Why do we need a way to reset those counters? What is the problem with =
-having those counters=20
-monotonically increase until the system is rebooted? Do we have a way t=
-o reset other network=20
-statistics (/sys/class/net/eth0/statistics/* for example)?
+Here's what I proposed before that.
+http://www.spinics.net/lists/netdev/msg149717.html
 
-Except from this "do we need this feature" question, the code sounds go=
-od to me.
+I agree with Jan that the current 10/100, 1000, 10000 speed
+selections mechanisms are less than ideal.
 
-Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+Perhaps it'd be worthwhile to remove that speed distinction.
 
-	Nicolas.
