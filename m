@@ -1,40 +1,38 @@
-From: Bill Sommerfeld <wsommerfeld@google.com>
-Subject: Re: Skipping past TCP lost packet in userspace
-Date: Wed, 1 Jun 2011 09:57:30 -0700
-Message-ID: <BANLkTikC+SUp-hvKZ-6nTf+VQQ=kFaFVcewek=1B6H500_4xkg@mail.gmail.com>
-References: <4DE44218.4070306@krellan.com>
-	<BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>
-	<4DE5F3E3.2080609@krellan.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [patch net-next-2.6 v2] bonding: allow resetting slave failure
+ counters
+Date: Wed, 01 Jun 2011 13:41:03 -0300
+Message-ID: <4DE66B9F.9090205@redhat.com>
+References: <1306921249-3623-1-git-send-email-jpirko@redhat.com> <4DE63E85.7020508@redhat.com> <20110601135321.GA2909@psychotron.brq.redhat.com> <16056.1306944819@death> <20110601163153.GB2784@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	jiyengar@fandm.edu
-To: Josh Lehan <linux@krellan.com>
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:37929 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695Ab1FAQ5c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 12:57:32 -0400
-Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
-	by smtp-out.google.com with ESMTP id p51GvWuS009310
-	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 09:57:32 -0700
-Received: from qyk10 (qyk10.prod.google.com [10.241.83.138])
-	by kpbe18.cbf.corp.google.com with ESMTP id p51GrA7T011772
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 09:57:30 -0700
-Received: by qyk10 with SMTP id 10so3786143qyk.11
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 09:57:30 -0700 (PDT)
-In-Reply-To: <4DE5F3E3.2080609@krellan.com>
+Received: from mx1.redhat.com ([209.132.183.28]:16452 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758556Ab1FARHc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 13:07:32 -0400
+In-Reply-To: <20110601163153.GB2784@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 1, 2011 at 01:10, Josh Lehan <linux@krellan.com> wrote:
-> 2) If the out-of-order data is enough to be useful to the application,
-> another ioctl() could be done, to ask the kernel to jump over the gap
-> and deliver the data to the application.
+On 06/01/2011 01:31 PM, Jiri Pirko wrote:
+> This patch allows to reset failure counters for all enslaved devices.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> 
+> v1->v2: added version bump
+> 	added version note to doc
+> 	moved and adjusted printk
+> ---
+>  Documentation/networking/bonding.txt |    9 +++++++++
+>  drivers/net/bonding/bond_sysfs.c     |   28 ++++++++++++++++++++++++++++
+>  drivers/net/bonding/bonding.h        |    4 ++--
+>  3 files changed, 39 insertions(+), 2 deletions(-)
 
-this sounds like a different way to spell lseek(fd, gapsize, SEEK_CUR)
-
-of course, allowing a subset of lseek for sockets could very well mess
-with any code which (ab)uses lseek to guess the type of a random
-descriptor.
+Reviewed-by: Flavio Leitner <fbl@redhat.com>
+Thanks!
+fbl
