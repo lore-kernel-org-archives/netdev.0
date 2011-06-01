@@ -1,45 +1,60 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: patch for ixgbe-3.3.9 (out-of-tree) driver.
-Date: Wed, 01 Jun 2011 13:17:22 -0700
-Message-ID: <4DE69E52.5010002@intel.com>
-References: <4DE67BE1.3060704@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: [PATCH] net: dm9000: Get the chip in a known good state before enabling interrupts
+Date: Wed,  1 Jun 2011 21:18:09 +0100
+Message-ID: <1306959489-28865-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Cc: netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Ben Dooks <ben-linux@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38071 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752849Ab1FAURu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 16:17:50 -0400
-In-Reply-To: <4DE67BE1.3060704@candelatech.com>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:51862 "EHLO
+	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752607Ab1FAUSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 16:18:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2011 10:50 AM, Ben Greear wrote:
-> Using 'ethtool -t ethX' with 82598 chipset causes
-> kernel splats because spin-lock wasn't initialized properly.
-> This can probably cause other problems, but I'm not certain
-> of that.
->
-> I can't tell that anyone actually watches the sourceforge list,
-> so posting it here...
->
-> The reason I'm using the out-of-tree driver is that a customer
-> reports link bouncing when using the 82598 NIC.  They are stuck
-> on a .34 kernel at the moment, so maybe it's fixed upstream already.
-> At any rate, I can't reproduce the problem locally, but the 3.3.9
-> driver appears to work for them.
->
-> Thanks,
-> Ben
->
-Ben,
+Currently the DM9000 driver requests the primary interrupt before it
+resets the chip and puts it into a known good state. This means that if
+the chip is asserting interrupt for some reason we can end up with a
+screaming IRQ that the interrupt handler is unable to deal with. Avoid
+this by only requesting the interrupt after we've reset the chip so we
+know what state it's in.
 
-I will make certain this fix is incorporated into our ixgbe out-of-tree 
-driver for the next release.
+This started manifesting itself on one of my boards in the past month or
+so, I suspect as a result of some core infrastructure changes removing
+some form of mitigation against bad behaviour here, even when things boot
+it seems that the new code brings the interface up more quickly.
 
-Thanks for the patch,
+Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+---
+ drivers/net/dm9000.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Alex
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index fbaff35..ee597e6 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -1157,9 +1157,6 @@ dm9000_open(struct net_device *dev)
+ 
+ 	irqflags |= IRQF_SHARED;
+ 
+-	if (request_irq(dev->irq, dm9000_interrupt, irqflags, dev->name, dev))
+-		return -EAGAIN;
+-
+ 	/* GPIO0 on pre-activate PHY, Reg 1F is not set by reset */
+ 	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
+ 	mdelay(1); /* delay needs by DM9000B */
+@@ -1168,6 +1165,9 @@ dm9000_open(struct net_device *dev)
+ 	dm9000_reset(db);
+ 	dm9000_init_dm9000(dev);
+ 
++	if (request_irq(dev->irq, dm9000_interrupt, irqflags, dev->name, dev))
++		return -EAGAIN;
++
+ 	/* Init driver variable */
+ 	db->dbug_cnt = 0;
+ 
+-- 
+1.7.5.3
+
