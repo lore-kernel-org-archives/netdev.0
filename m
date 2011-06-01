@@ -1,38 +1,42 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [patch net-next-2.6 v2] bonding: allow resetting slave failure
- counters
-Date: Wed, 01 Jun 2011 13:41:03 -0300
-Message-ID: <4DE66B9F.9090205@redhat.com>
-References: <1306921249-3623-1-git-send-email-jpirko@redhat.com> <4DE63E85.7020508@redhat.com> <20110601135321.GA2909@psychotron.brq.redhat.com> <16056.1306944819@death> <20110601163153.GB2784@psychotron.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] af-packet:  Add flag to distinguish VID 0 from
+ no-vlan.
+Date: Wed, 01 Jun 2011 19:08:32 +0200
+Message-ID: <1306948112.2890.6.camel@edumazet-laptop>
+References: <1306946950-29360-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16452 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758556Ab1FARHc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 13:07:32 -0400
-In-Reply-To: <20110601163153.GB2784@psychotron.redhat.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:33915 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755379Ab1FARIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 13:08:35 -0400
+Received: by wwa36 with SMTP id 36so15274wwa.1
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 10:08:34 -0700 (PDT)
+In-Reply-To: <1306946950-29360-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2011 01:31 PM, Jiri Pirko wrote:
-> This patch allows to reset failure counters for all enslaved devices.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> v1->v2: added version bump
-> 	added version note to doc
-> 	moved and adjusted printk
+Le mercredi 01 juin 2011 =C3=A0 09:49 -0700, greearb@candelatech.com a
+=C3=A9crit :
+> From: Ben Greear <greearb@candelatech.com>
+>=20
+> Currently, user-space cannot determine if a 0 tcp_vlan_tci
+> means there is no VLAN tag or the VLAN ID was zero.
+>=20
+> Add flag to make this explicit.  User-space can check for
+> TP_STATUS_VLAN_VALID || tp_vlan_tci > 0, which will be backwards
+> compatible. Older could would have just checked for tp_vlan_tci,
+> so it will work no worse than before.
+>=20
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 > ---
->  Documentation/networking/bonding.txt |    9 +++++++++
->  drivers/net/bonding/bond_sysfs.c     |   28 ++++++++++++++++++++++++++++
->  drivers/net/bonding/bonding.h        |    4 ++--
->  3 files changed, 39 insertions(+), 2 deletions(-)
 
-Reviewed-by: Flavio Leitner <fbl@redhat.com>
-Thanks!
-fbl
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Thanks
+
+
