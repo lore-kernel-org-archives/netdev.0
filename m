@@ -1,53 +1,66 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-Subject: [PATCH] caif: Fix race when conditionally taking rtnl lock
-Date: Wed,  1 Jun 2011 12:55:37 +0200
-Message-ID: <1306925737-1782-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Wed, 01 Jun 2011 14:09:20 +0300
+Message-ID: <4DE61DE0.9030100@redhat.com>
+References: <4DE44333.9000903@fnarfbargle.com> <20110531054729.GA16852@liondog.tnic> <4DE4B432.1090203@fnarfbargle.com> <20110531103808.GA6915@eferding.osrc.amd.com> <4DE4FA2B.2050504@fnarfbargle.com> <alpine.LSU.2.00.1105311517480.21107@sister.anvils> <4DE589C5.8030600@fnarfbargle.com> <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sf1.isp.kq.no ([213.172.193.37]:42320 "EHLO pmx.vmail.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161071Ab1FAKzr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 06:55:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hugh Dickins <hughd@google.com>, Andrea Arcangeli <aarcange@redhat.com>,
+        Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
+        kvm@vger.kernel.org, linux-mm <linux-mm@kvack.org>,
+        netdev <netdev@vger.kernel.org>
+To: Brad Campbell <lists2009@fnarfbargle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4DE61A2B.7000008@fnarfbargle.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Take the RTNL lock unconditionally when calling dev_close.
-Taking the lock conditionally may cause race conditions.
+On 06/01/2011 01:53 PM, Brad Campbell wrote:
+> On 01/06/11 17:41, Avi Kivity wrote:
+>> On 06/01/2011 12:40 PM, Avi Kivity wrote:
+>>>
+>>> bridge and netfilter, IIRC this was also the problem last time.
+>>>
+>>> Do you have any ebtables loaded?
+>
+> Never heard of them, but making a cursory check just in case..
+>
+> brad@srv:/raid10/src/linux-2.6.39$ grep EBTABLE .config
+> # CONFIG_BRIDGE_NF_EBTABLES is not set
+>
+>>> Can you try building a kernel without ebtables? Without netfilter at 
+>>> all?
+>
+> Well, without netfilter I can't get it to crash. The problem is 
+> without netfilter I can't actually use it the way I use it to get it 
+> to crash.
+>
+> I rebooted into a netfilter kernel, and did all the steps I'd used on 
+> the no-netfilter kernel and it ticked along happily.
+>
+> So the result of the experiment is inconclusive. Having said that, the 
+> backtraces certainly smell networky.
+>
+> To get it to crash, I have to start IE in the VM and https to the 
+> public address of the machine, which is then redirected by netfilter 
+> back into another of the VM's.
+>
+> I can https directly to the other VM's address, but that does not 
+> cause it to crash, however without netfilter loaded I can't bounce off 
+> the public IP. It's all rather confusing really.
+>
+> What next Sherlock?
+>
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
----
- net/caif/chnl_net.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
+Maybe the Sherlocks at netdev@ can tell.
 
-diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
-index 649ebac..adbb424 100644
---- a/net/caif/chnl_net.c
-+++ b/net/caif/chnl_net.c
-@@ -139,17 +139,14 @@ static void close_work(struct work_struct *work)
- 	struct chnl_net *dev =3D NULL;
- 	struct list_head *list_node;
- 	struct list_head *_tmp;
--	/* May be called with or without RTNL lock held */
--	int islocked =3D rtnl_is_locked();
--	if (!islocked)
--		rtnl_lock();
-+
-+	rtnl_lock();
- 	list_for_each_safe(list_node, _tmp, &chnl_net_list) {
- 		dev =3D list_entry(list_node, struct chnl_net, list_field);
- 		if (dev->state =3D=3D CAIF_SHUTDOWN)
- 			dev_close(dev->netdev);
- 	}
--	if (!islocked)
--		rtnl_unlock();
-+	rtnl_unlock();
- }
- static DECLARE_WORK(close_worker, close_work);
-=20
---=20
-1.7.0.4
+-- 
+error compiling committee.c: too many arguments to function
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
