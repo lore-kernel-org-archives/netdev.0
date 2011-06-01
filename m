@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dm9000: Get the chip in a known good state before
- enabling interrupts
-Date: Wed, 01 Jun 2011 21:22:28 -0700 (PDT)
-Message-ID: <20110601.212228.922080759961103808.davem@davemloft.net>
-References: <1306959489-28865-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: 3.0-rc1: DMAR errors from iwlagn
+Date: Wed, 01 Jun 2011 16:34:04 -0700
+Message-ID: <4DE6CC6C.7000703@goop.org>
+References: <4DE55A26.6040702@goop.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ben-linux@fluff.org, netdev@vger.kernel.org
-To: broonie@opensource.wolfsonmicro.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46212 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951Ab1FBEWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 00:22:45 -0400
-In-Reply-To: <1306959489-28865-1-git-send-email-broonie@opensource.wolfsonmicro.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DE55A26.6040702@goop.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Date: Wed,  1 Jun 2011 21:18:09 +0100
+Cc: linux-wireless
 
-> Currently the DM9000 driver requests the primary interrupt before it
-> resets the chip and puts it into a known good state. This means that if
-> the chip is asserting interrupt for some reason we can end up with a
-> screaming IRQ that the interrupt handler is unable to deal with. Avoid
-> this by only requesting the interrupt after we've reset the chip so we
-> know what state it's in.
-> 
-> This started manifesting itself on one of my boards in the past month or
-> so, I suspect as a result of some core infrastructure changes removing
-> some form of mitigation against bad behaviour here, even when things boot
-> it seems that the new code brings the interface up more quickly.
-> 
-> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
-
-Applied, thanks.
+On 05/31/2011 02:14 PM, Jeremy Fitzhardinge wrote:
+> I have a Lenovo X220 with:
+>
+> 03:00.0 Network controller: Intel Corporation Centrino Ultimate-N 6300 (rev 35)
+> 	Subsystem: Intel Corporation Centrino Ultimate-N 6300 3x3 AGN
+> 	Flags: bus master, fast devsel, latency 0, IRQ 50
+> 	Memory at d2500000 (64-bit, non-prefetchable) [size=8K]
+> 	Capabilities: <access denied>
+> 	Kernel driver in use: iwlagn
+> 	Kernel modules: iwlagn
+>
+> With 3.0-rc1, I'm seeing these in dmesg:
+>
+> DRHD: handling fault status reg 2
+> DMAR:[DMA Write] Request device [03:00.0] fault addr ffe8a000 
+> DMAR:[fault reason 05] PTE Write access is not set
+> DRHD: handling fault status reg 2
+> DMAR:[DMA Write] Request device [03:00.0] fault addr ffd5a000 
+> DMAR:[fault reason 05] PTE Write access is not set
+> DRHD: handling fault status reg 2
+> DMAR:[DMA Write] Request device [03:00.0] fault addr ffd52000 
+> DMAR:[fault reason 05] PTE Write access is not set
+>
+> but the device seems to be working OK.
+>
+> Thanks,
+> 	J
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
