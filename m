@@ -1,136 +1,121 @@
-From: greearb@candelatech.com
-Subject: [PATCH 2/2 v3] af-packet: Use existing netdev reference for bound sockets.
-Date: Wed,  1 Jun 2011 10:18:53 -0700
-Message-ID: <1306948733-22441-2-git-send-email-greearb@candelatech.com>
-References: <1306948733-22441-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6 v2] bonding: allow resetting slave failure
+ counters
+Date: Wed, 1 Jun 2011 18:31:54 +0200
+Message-ID: <20110601163153.GB2784@psychotron.redhat.com>
+References: <1306921249-3623-1-git-send-email-jpirko@redhat.com>
+ <4DE63E85.7020508@redhat.com>
+ <20110601135321.GA2909@psychotron.brq.redhat.com>
+ <16056.1306944819@death>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Flavio Leitner <fbl@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, andy@greyhouse.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:35506 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758056Ab1FARTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 13:19:16 -0400
-In-Reply-To: <1306948733-22441-1-git-send-email-greearb@candelatech.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33751 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753628Ab1FARXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 13:23:12 -0400
+Content-Disposition: inline
+In-Reply-To: <16056.1306944819@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+This patch allows to reset failure counters for all enslaved devices.
 
-This saves a network device lookup on each packet transmitted,
-for sockets that are bound to a network device.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
+v1->v2: added version bump
+	added version note to doc
+	moved and adjusted printk
 ---
+ Documentation/networking/bonding.txt |    9 +++++++++
+ drivers/net/bonding/bond_sysfs.c     |   28 ++++++++++++++++++++++++++++
+ drivers/net/bonding/bonding.h        |    4 ++--
+ 3 files changed, 39 insertions(+), 2 deletions(-)
 
-v3:  No changes since last time, but previous patch to hold
-     prot_hook.dev should fix locking problems with this patch.
-
-:100644 100644 614d659... c1c5f33... M	net/packet/af_packet.c
- net/packet/af_packet.c |   27 +++++++++++++++------------
- 1 files changed, 15 insertions(+), 12 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 614d659..c1c5f33 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -994,7 +994,8 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	int ifindex, err, reserve = 0;
-+	bool need_rls_dev = false;
-+	int err, reserve = 0;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
- 	int tp_len, size_max;
-@@ -1006,7 +1007,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 675612f..7a8da01 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -782,6 +782,15 @@ resend_igmp
  
- 	err = -EBUSY;
- 	if (saddr == NULL) {
--		ifindex	= po->ifindex;
-+		dev = po->prot_hook.dev;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -1017,12 +1018,12 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 					+ offsetof(struct sockaddr_ll,
- 						sll_addr)))
- 			goto out;
--		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
-+		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
-+		need_rls_dev = true;
- 	}
+ 	This option was added for bonding version 3.7.0.
  
--	dev = dev_get_by_index(sock_net(&po->sk), ifindex);
- 	err = -ENXIO;
- 	if (unlikely(dev == NULL))
- 		goto out;
-@@ -1108,7 +1109,8 @@ out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
- out_put:
--	dev_put(dev);
-+	if (need_rls_dev)
-+		dev_put(dev);
- out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
-@@ -1146,8 +1148,9 @@ static int packet_snd(struct socket *sock,
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
-+	bool need_rls_dev = false;
- 	unsigned char *addr;
--	int ifindex, err, reserve = 0;
-+	int err, reserve = 0;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
- 	int offset = 0;
- 	int vnet_hdr_len;
-@@ -1165,7 +1168,7 @@ static int packet_snd(struct socket *sock,
- 	 */
++reset_failure_counters
++
++	This write-only control file will zero failure counters for
++	all slaves.  Note there is no appropriate module parameter for this
++	since it would not make much sense.
++	Write any value to perform reset.
++
++	This option was added for bonding version 3.7.2.
++
+ 3. Configuring Bonding Devices
+ ==============================
  
- 	if (saddr == NULL) {
--		ifindex	= po->ifindex;
-+		dev = po->prot_hook.dev;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -1174,13 +1177,12 @@ static int packet_snd(struct socket *sock,
- 			goto out;
- 		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
- 			goto out;
--		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
-+		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
-+		need_rls_dev = true;
- 	}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 88fcb25..342b4ed 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1572,6 +1572,33 @@ out:
+ static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
+ 		   bonding_show_resend_igmp, bonding_store_resend_igmp);
  
--
--	dev = dev_get_by_index(sock_net(sk), ifindex);
- 	err = -ENXIO;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -1320,14 +1322,15 @@ static int packet_snd(struct socket *sock,
- 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
- 		goto out_unlock;
++static ssize_t
++bonding_store_reset_failure_counters(struct device *d,
++				     struct device_attribute *attr,
++				     const char *buf, size_t count)
++{
++	struct slave *slave;
++	int i;
++	struct bonding *bond = to_bond(d);
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	pr_info("%s: Resetting failure counters.\n", bond->dev->name);
++
++	read_lock(&bond->lock);
++	bond_for_each_slave(bond, slave, i)
++		slave->link_failure_count = 0;
++	read_unlock(&bond->lock);
++
++	rtnl_unlock();
++
++	return count;
++}
++
++static DEVICE_ATTR(reset_failure_counters, S_IWUSR, NULL,
++		   bonding_store_reset_failure_counters);
++
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
+@@ -1600,6 +1627,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_queue_id.attr,
+ 	&dev_attr_all_slaves_active.attr,
+ 	&dev_attr_resend_igmp.attr,
++	&dev_attr_reset_failure_counters.attr,
+ 	NULL,
+ };
  
--	dev_put(dev);
-+	if (need_rls_dev)
-+		dev_put(dev);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ea1d005..62528f8 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -24,8 +24,8 @@
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
  
- 	return len;
+-#define DRV_VERSION	"3.7.1"
+-#define DRV_RELDATE	"April 27, 2011"
++#define DRV_VERSION	"3.7.2"
++#define DRV_RELDATE	"Jun 1, 2011"
+ #define DRV_NAME	"bonding"
+ #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
  
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev)
-+	if (dev && need_rls_dev)
- 		dev_put(dev);
- out:
- 	return err;
 -- 
-1.7.3.4
+1.7.4.4
 
