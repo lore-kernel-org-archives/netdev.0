@@ -1,107 +1,170 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: Add support for 20G link speed
-Date: Wed, 01 Jun 2011 23:15:00 +0100
-Message-ID: <1306966500.2758.48.camel@bwh-desktop>
-References: <1306157880.20872.102.camel@lb-tlvb-dmitry>
+Subject: [PATCH ethtool] Combine code to display supported and advertised
+ link capabilities
+Date: Wed, 01 Jun 2011 23:49:29 +0100
+Message-ID: <1306968569.2758.54.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	eilong@broadcom.com
-To: Yaniv Rosner <yanivr@broadcom.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Esa-Pekka =?ISO-8859-1?Q?Py=F6kkimies?=
+	<esa-pekka.pyokkimies@stonesoft.com>,
+	Yaniv Rosner <yanivr@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:51097 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:53896 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753812Ab1FAWPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 18:15:04 -0400
-In-Reply-To: <1306157880.20872.102.camel@lb-tlvb-dmitry>
+	with ESMTP id S1756127Ab1FAWtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 18:49:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-05-23 at 16:38 +0300, Yaniv Rosner wrote:
-> Add support for 20G link speed
->
-> Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-> ---
->  ethtool-copy.h |    5 +++++
->  ethtool.c      |   18 +++++++++++++++++-
->  2 files changed, 22 insertions(+), 1 deletions(-)
-> 
-> diff --git a/ethtool-copy.h b/ethtool-copy.h
-> index 22215e9..c02a98b 100644
-> --- a/ethtool-copy.h
-> +++ b/ethtool-copy.h
-> @@ -749,6 +749,8 @@ enum ethtool_sfeatures_retval_bits {
->  #define SUPPORTED_10000baseKX4_Full	(1 << 18)
->  #define SUPPORTED_10000baseKR_Full	(1 << 19)
->  #define SUPPORTED_10000baseR_FEC	(1 << 20)
-> +#define SUPPORTED_20000baseMLD2_Full	(1 << 21)
-> +#define SUPPORTED_20000baseKR2_Full	(1 << 22)
->  
->  /* Indicates what features are advertised by the interface. */
->  #define ADVERTISED_10baseT_Half		(1 << 0)
-> @@ -772,6 +774,9 @@ enum ethtool_sfeatures_retval_bits {
->  #define ADVERTISED_10000baseKX4_Full	(1 << 18)
->  #define ADVERTISED_10000baseKR_Full	(1 << 19)
->  #define ADVERTISED_10000baseR_FEC	(1 << 20)
-> +#define ADVERTISED_20000baseMLD2_Full	(1 << 21)
-> +#define ADVERTISED_20000baseKR2_Full	(1 << 22)
-> +
->  
->  /* The following are all involved in forcing a particular link
->   * mode for the device for setting things.  When getting the
+Rename dump_advertised() to dump_link_caps(), and change
+dump_supported() to call it instead of repeating nearly identical
+code.  Add a separate prefix parameter and adjust indentation
+so that the output is unchanged except for added lines.
 
-You don't need to include this.  I've updated ethtool-copy.h from
-today's net-next-2.6.
+Deleted unused parameter and variables.
 
-> diff --git a/ethtool.c b/ethtool.c
-> index cfdac65..a099a23 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -1238,6 +1238,20 @@ static void dump_supported(struct ethtool_cmd *ep)
->  	if (mask & SUPPORTED_10000baseT_Full) {
->  		did1++; fprintf(stdout, "10000baseT/Full ");
->  	}
-> +	if (did1 && (mask & SUPPORTED_20000baseMLD2_Full)) {
-> +		fprintf(stdout, "\n");
-> +		fprintf(stdout, "	                        ");
-> +	}
-> +	if (mask & SUPPORTED_20000baseMLD2_Full) {
-> +		did1++; fprintf(stdout, "20000baseMLD2/Full ");
-> +	}
-> +	if (did1 && (mask & SUPPORTED_20000baseKR2_Full)) {
-> +		fprintf(stdout, "\n");
-> +		fprintf(stdout, "	                        ");
-> +	}
-> +	if (mask & SUPPORTED_20000baseKR2_Full) {
-> +		did1++; fprintf(stdout, "20000baseKR2/Full ");
-> +	}
->  	fprintf(stdout, "\n");
->  
->  	fprintf(stdout, "	Supports auto-negotiation: ");
+As an immediate benefit, this adds the display of supported pause
+frame use.
 
-This doesn't cover the advertised mask.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+I've just committed and pushed out this change to ethtool.
 
-But I think I'll just combine the code to dump supported vs advertised
-flags - it's ridiculous to duplicate it as the flag definitions are
-deliberately kept equal to each other.
+Esa-Pekka, I think this covers what you wanted.
 
-> @@ -2581,7 +2595,9 @@ static int do_sset(int fd, struct ifreq *ifr)
->  					 ADVERTISED_1000baseT_Half |
->  					 ADVERTISED_1000baseT_Full |
->  					 ADVERTISED_2500baseX_Full |
-> -					 ADVERTISED_10000baseT_Full);
-> +					 ADVERTISED_10000baseT_Full |
-> +					 ADVERTISED_20000baseMLD2_Full |
-> +					 ADVERTISED_20000baseKR2_Full);
->  			} else if (advertising_wanted > 0) {
->  				ecmd.advertising = advertising_wanted;
->  			}
-
-You also need to update the table in the manual page, including a note
-that this these are not IEEE standard modes.
+Yaniv, this should allow you to add the 20G flags in just one function.
+But I still want you to update the manual page at the same time.
 
 Ben.
+
+ ethtool.c |   80 ++++++++++++++++---------------------------------------------
+ 1 files changed, 21 insertions(+), 59 deletions(-)
+
+diff --git a/ethtool.c b/ethtool.c
+index edfbe3d..b6fa6bd 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1132,10 +1132,11 @@ static void parse_cmdline(int argc, char **argp)
+ 		exit_bad_args();
+ }
+ 
++static void dump_link_caps(const char *prefix, const char *an_prefix, u32 mask);
++
+ static void dump_supported(struct ethtool_cmd *ep)
+ {
+-	u_int32_t mask = ep->supported;
+-	int did1;
++	u32 mask = ep->supported;
+ 
+ 	fprintf(stdout, "	Supported ports: [ ");
+ 	if (mask & SUPPORTED_TP)
+@@ -1150,64 +1151,25 @@ static void dump_supported(struct ethtool_cmd *ep)
+ 		fprintf(stdout, "FIBRE ");
+ 	fprintf(stdout, "]\n");
+ 
+-	fprintf(stdout, "	Supported link modes:   ");
+-	did1 = 0;
+-	if (mask & SUPPORTED_10baseT_Half) {
+-		did1++; fprintf(stdout, "10baseT/Half ");
+-	}
+-	if (mask & SUPPORTED_10baseT_Full) {
+-		did1++; fprintf(stdout, "10baseT/Full ");
+-	}
+-	if (did1 && (mask & (SUPPORTED_100baseT_Half|SUPPORTED_100baseT_Full))) {
+-		fprintf(stdout, "\n");
+-		fprintf(stdout, "	                        ");
+-	}
+-	if (mask & SUPPORTED_100baseT_Half) {
+-		did1++; fprintf(stdout, "100baseT/Half ");
+-	}
+-	if (mask & SUPPORTED_100baseT_Full) {
+-		did1++; fprintf(stdout, "100baseT/Full ");
+-	}
+-	if (did1 && (mask & (SUPPORTED_1000baseT_Half|SUPPORTED_1000baseT_Full))) {
+-		fprintf(stdout, "\n");
+-		fprintf(stdout, "	                        ");
+-	}
+-	if (mask & SUPPORTED_1000baseT_Half) {
+-		did1++; fprintf(stdout, "1000baseT/Half ");
+-	}
+-	if (mask & SUPPORTED_1000baseT_Full) {
+-		did1++; fprintf(stdout, "1000baseT/Full ");
+-	}
+-	if (did1 && (mask & SUPPORTED_2500baseX_Full)) {
+-		fprintf(stdout, "\n");
+-		fprintf(stdout, "	                        ");
+-	}
+-	if (mask & SUPPORTED_2500baseX_Full) {
+-		did1++; fprintf(stdout, "2500baseX/Full ");
+-	}
+-	if (did1 && (mask & SUPPORTED_10000baseT_Full)) {
+-		fprintf(stdout, "\n");
+-		fprintf(stdout, "	                        ");
+-	}
+-	if (mask & SUPPORTED_10000baseT_Full) {
+-		did1++; fprintf(stdout, "10000baseT/Full ");
+-	}
+-	fprintf(stdout, "\n");
+-
+-	fprintf(stdout, "	Supports auto-negotiation: ");
+-	if (mask & SUPPORTED_Autoneg)
+-		fprintf(stdout, "Yes\n");
+-	else
+-		fprintf(stdout, "No\n");
++	dump_link_caps("Supported", "Supports", mask);
+ }
+ 
+-static void dump_advertised(struct ethtool_cmd *ep,
+-			    const char *prefix, u_int32_t mask)
++/* Print link capability flags (supported, advertised or lp_advertised).
++ * Assumes that the corresponding SUPPORTED and ADVERTISED flags are equal.
++ */
++static void
++dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
+ {
+-	int indent = strlen(prefix) + 14;
++	int indent;
+ 	int did1;
+ 
+-	fprintf(stdout, "	%s link modes:  ", prefix);
++	/* Indent just like the separate functions used to */
++	indent = strlen(prefix) + 14;
++	if (indent < 24)
++		indent = 24;
++
++	fprintf(stdout, "	%s link modes:%*s", prefix,
++		indent - strlen(prefix) - 12, "");
+ 	did1 = 0;
+ 	if (mask & ADVERTISED_10baseT_Half) {
+ 		did1++; fprintf(stdout, "10baseT/Half ");
+@@ -1266,7 +1228,7 @@ static void dump_advertised(struct ethtool_cmd *ep,
+ 			fprintf(stdout, "No\n");
+ 	}
+ 
+-	fprintf(stdout, "	%s auto-negotiation: ", prefix);
++	fprintf(stdout, "	%s auto-negotiation: ", an_prefix);
+ 	if (mask & ADVERTISED_Autoneg)
+ 		fprintf(stdout, "Yes\n");
+ 	else
+@@ -1278,10 +1240,10 @@ static int dump_ecmd(struct ethtool_cmd *ep)
+ 	u32 speed;
+ 
+ 	dump_supported(ep);
+-	dump_advertised(ep, "Advertised", ep->advertising);
++	dump_link_caps("Advertised", "Advertised", ep->advertising);
+ 	if (ep->lp_advertising)
+-		dump_advertised(ep, "Link partner advertised",
+-				ep->lp_advertising);
++		dump_link_caps("Link partner advertised",
++			       "Link partner advertised", ep->lp_advertising);
+ 
+ 	fprintf(stdout, "	Speed: ");
+ 	speed = ethtool_cmd_speed(ep);
+-- 
+1.7.4.4
+
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare
