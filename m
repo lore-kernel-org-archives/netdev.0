@@ -1,72 +1,58 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch net-next-2.6] bonding: allow resetting slave failure counters
-Date: Wed, 01 Jun 2011 12:53:33 -0700
-Message-ID: <24514.1306958013@death>
-References: <16056.1306944819@death> <20110601.120300.130602301077156524.davem@davemloft.net> <4DE68ECB.70802@redhat.com> <20110601.122240.1431839726613846748.davem@davemloft.net>
-Cc: fbl@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH 1/1] Fix 802.3az compatible issue
+Date: Thu, 2 Jun 2011 03:50:30 +0800
+Message-ID: <20110601193538.M12007@cooldavid.org>
+References: <201106011250.p51Coox8031239@jmr105.jmicron.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=utf-8
+Cc: <netdev@vger.kernel.org>, <devinchiu@jmicron.com>
+To: "Aries Lee" <arieslee@jmicron.com>,
+	"'David Rehner'" <dave@daveonline.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:49008 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759600Ab1FATx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 15:53:59 -0400
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p51JgQQG032082
-	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 13:42:26 -0600
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p51JrmlV102400
-	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 13:53:51 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p51DrbF7028247
-	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 07:53:38 -0600
-In-reply-to: <20110601.122240.1431839726613846748.davem@davemloft.net>
+Received: from cooldavid.org ([114.33.45.68]:51423 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932240Ab1FAT5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 15:57:40 -0400
+In-Reply-To: <201106011250.p51Coox8031239@jmr105.jmicron.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+On Wed, 1 Jun 2011 20:50:50 +0800, Aries Lee wrote
+> The older JMicron NIC chip -- Jme251A, can NOT connect with a linking
+> partner with "802.3az" feature in 1000M speed.
+> More specifically speaking, it's HW design has a problem in
+> auto-negotiation if the linking partner is running 802.3az function.
+> 
+> This "Auto speed down" patch is a software workaround to avoid the user
+> of older jme chip unable to connect with the linking partner with
+> 802.3az function.
+> If the NIC is down speed to 100M, everything is fine. But if the NIC is
+> running by 1000M speed, this problem makes it unable to link up.
+> 
+> The algorithm of this workaround is as following:
+> Setup a timer to polling when the PHY link status is down, If the
+> ethernet cable was attached but auto-negotiation has not been
+> accomplished for a long time (default 11 second), that mean the linking
+> partner maybe running 802.3az function, driver will try to
+> connect by 100M speed.
+> If the link is up, then stop the timer.
+> 
+> Signed-off-by: arieslee <arieslee@jmicron.com>
 
->From: Flavio Leitner <fbl@redhat.com>
->Date: Wed, 01 Jun 2011 16:11:07 -0300
->
->> On 06/01/2011 04:03 PM, David Miller wrote:
->>> From: Jay Vosburgh <fubar@us.ibm.com>
->>> Date: Wed, 01 Jun 2011 09:13:39 -0700
->>> 
->>>> 	The "this dingus was added in version X.Y.Z" is there because
->>>> users sometimes read the most recent version of the documentation (that
->>>> they get from the internet) and then would become confused when their
->>>> older distro driver lacked some option described in the documentation.
->>> 
->>> I disagree with this whole concept, because distros backport features
->>> like this into their kernel and therefore the feature is showing up in
->>> version X.Y.$(Z-20).
->> 
->> It doesn't matter the version if the user can find the feature, so
->> distros backporting features works and that info is not useful at all. 
->> However, when the user doesn't find the feature and search the internet,
->> then that info is helpful.
->
->So how is the user going to find that FC14 has the feature even
->though his FC13 kernel does not?
->
->I'll say it again, this version stuff is completely pointless.
->
->If the user is dabbling with upstream kernels he's a minority,
->and clueful enough to figure out this stuff himself.
+I've already discussed about this fix approach with JMicron staff.
+Personally I do not like the idea of doing "Auto Speed Down"
+in driver. The driver shouldn't implicitly change the AutoNeg
+setting by itself. It might confuse the sysadmin a lot. And by
+design, it is not reasonable.
 
-	The problem was that users would search the internet for bonding
-documentation, and get the version out of the current mainline.  That
-document described options not present in their distro kernel, and I got
-questions asking why they couldn't enable some option present in
-mainline but not their distro kernel.  To try and minimize that
-confusion, I started documenting when features were added (by bonding
-driver version, not by kernel version).
+Their reason of still wanting to send this patch is about the
+end user(Someone not familiar with network) experience. If one
+can get the link, one might not care about what the driver did.
 
-	Maybe this doesn't make as much difference today (for whatever
-reason), but it certainly seemed to help back in the day.
+Anyway, if Davem or other senior developer is fine with this approach.
+I can clean-up this patch, discuss more detail and re-submit again.
 
-	-J
+--
+Guo-Fu Tseng
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
