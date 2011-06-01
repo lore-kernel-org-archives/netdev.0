@@ -1,18 +1,21 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 4/10] drivers/net/can/flexcan.c: add missing clk_put
-Date: Wed,  1 Jun 2011 19:10:07 +0200
-Message-ID: <1306948213-20767-4-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org, socketcan-core@lists.berlios.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>
+Subject: [PATCH 7/10] drivers/net/davinci_emac.c: add missing clk_put
+Date: Wed,  1 Jun 2011 19:10:10 +0200
+Message-ID: <1306948213-20767-7-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, Cyril Chemparathy <cyril@ti.com>,
+	Sriramakrishnan A G <srk@ti.com>,
+	Kevin Hilman <khilman@deeprootsystems.com>,
+	Stefan Weil <weil@mail.berlios.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-The failed_get label is used after the call to clk_get has succeeded, so it
-should be moved up above the call to clk_put.
+Go to existing error handling code at the end of the function that calls
+clk_put.
 
 A simplified version of the semantic match that finds this problem is as
 follows: (http://coccinelle.lip6.fr/)
@@ -36,20 +39,42 @@ if (...) { ... when != clk_put(e1)
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/can/flexcan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/davinci_emac.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index d499056..121739c 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -978,8 +978,8 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-  failed_map:
- 	release_mem_region(mem->start, mem_size);
-  failed_req:
--	clk_put(clk);
-  failed_get:
-+	clk_put(clk);
-  failed_clock:
- 	return err;
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 29a4f06..dcc4a17 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1781,8 +1781,8 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	ndev = alloc_etherdev(sizeof(struct emac_priv));
+ 	if (!ndev) {
+ 		dev_err(&pdev->dev, "error allocating net_device\n");
+-		clk_put(emac_clk);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto free_clk;
+ 	}
+ 
+ 	platform_set_drvdata(pdev, ndev);
+@@ -1796,7 +1796,8 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	pdata = pdev->dev.platform_data;
+ 	if (!pdata) {
+ 		dev_err(&pdev->dev, "no platform data\n");
+-		return -ENODEV;
++		rc = -ENODEV;
++		goto probe_quit;
+ 	}
+ 
+ 	/* MAC addr and PHY mask , RMII enable info from platform_data */
+@@ -1929,8 +1930,9 @@ no_dma:
+ 	iounmap(priv->remap_addr);
+ 
+ probe_quit:
+-	clk_put(emac_clk);
+ 	free_netdev(ndev);
++free_clk:
++	clk_put(emac_clk);
+ 	return rc;
  }
+ 
