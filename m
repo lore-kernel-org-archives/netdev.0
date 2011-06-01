@@ -1,71 +1,33 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [PATCH 4/10] drivers/net/can/flexcan.c: add missing clk_put
-Date: Wed, 01 Jun 2011 19:54:07 +0200
-Message-ID: <4DE67CBF.5080006@bfs.de>
-References: <1306948213-20767-4-git-send-email-julia@diku.dk>
-Reply-To: wharms@bfs.de
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [BUG] net: cpu offline cause napi stall
+Date: Wed, 1 Jun 2011 20:12:54 +0200
+Message-ID: <20110601181253.GA2374@osiris.boeblingen.de.ibm.com>
+References: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
+ <1306930399.3476.1.camel@edumazet-laptop>
+ <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
+ <1306947321.2890.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	kernel-janitors@vger.kernel.org, socketcan-core@lists.berlios.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306948213-20767-4-git-send-email-julia@diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.uk.ibm.com ([194.196.100.164]:59445 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752464Ab1FASM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 14:12:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1306947321.2890.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 01, 2011 at 06:55:21PM +0200, Eric Dumazet wrote:
+> > +	/* Append NAPI poll list from offline CPU. */
+> > +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
+> >  
+> >  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+> >  	local_irq_enable();
+> 
+> Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary.
 
-
-Am 01.06.2011 19:10, schrieb Julia Lawall:
-> From: Julia Lawall <julia@diku.dk>
-> 
-> The failed_get label is used after the call to clk_get has succeeded, so it
-> should be moved up above the call to clk_put.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r exists@
-> expression e1,e2;
-> statement S;
-> @@
-> 
-> e1 = clk_get@p1(...);
-> ... when != e1 = e2
->     when != clk_put(e1)
->     when any
-> if (...) { ... when != clk_put(e1)
->                when != if (...) { ... clk_put(e1) ... }
-> * return@p3 ...;
->  } else S
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-> 
-> ---
->  drivers/net/can/flexcan.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> index d499056..121739c 100644
-> --- a/drivers/net/can/flexcan.c
-> +++ b/drivers/net/can/flexcan.c
-> @@ -978,8 +978,8 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
->   failed_map:
->  	release_mem_region(mem->start, mem_size);
->   failed_req:
-> -	clk_put(clk);
->   failed_get:
-> +	clk_put(clk);
->   failed_clock:
->  	return err;
->  }
-> 
-
-So failed_req == failed_get, is that intended ?
-
-re,
- wh
+Well, see two lines below the list_splice_init() call ;)
