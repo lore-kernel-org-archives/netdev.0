@@ -1,84 +1,77 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: Re: [PATCH 4/10] drivers/net/can/flexcan.c: add missing clk_put
-Date: Wed, 1 Jun 2011 22:04:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1106012201220.5871@ask.diku.dk>
-References: <1306948213-20767-4-git-send-email-julia@diku.dk>
-	<4DE67CBF.5080006@bfs.de>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] bonding: allow resetting slave failure
+ counters
+Date: Wed, 1 Jun 2011 22:07:03 +0200
+Message-ID: <20110601200702.GC2784@psychotron.redhat.com>
+References: <4DE63E85.7020508@redhat.com>
+ <20110601135321.GA2909@psychotron.brq.redhat.com>
+ <16056.1306944819@death>
+ <20110601.120300.130602301077156524.davem@davemloft.net>
+ <4DE68ECB.70802@redhat.com>
+ <4DE69455.3080203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: walter harms <wharms-fPG8STNUNVg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4DE67CBF.5080006-fPG8STNUNVg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Flavio Leitner <fbl@redhat.com>,
+	David Miller <davem@davemloft.net>, fubar@us.ibm.com,
+	netdev@vger.kernel.org, andy@greyhouse.net
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42983 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751930Ab1FAUHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 16:07:24 -0400
+Content-Disposition: inline
+In-Reply-To: <4DE69455.3080203@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Jun 2011, walter harms wrote:
+Wed, Jun 01, 2011 at 09:34:45PM CEST, nicolas.2p.debian@gmail.com wrote=
+:
+>Le 01/06/2011 21:11, Flavio Leitner a =E9crit :
+>>On 06/01/2011 04:03 PM, David Miller wrote:
+>>>From: Jay Vosburgh<fubar@us.ibm.com>
+>>>Date: Wed, 01 Jun 2011 09:13:39 -0700
+>>>
+>>>>	The "this dingus was added in version X.Y.Z" is there because
+>>>>users sometimes read the most recent version of the documentation (=
+that
+>>>>they get from the internet) and then would become confused when the=
+ir
+>>>>older distro driver lacked some option described in the documentati=
+on.
+>>>
+>>>I disagree with this whole concept, because distros backport feature=
+s
+>>>like this into their kernel and therefore the feature is showing up =
+in
+>>>version X.Y.$(Z-20).
+>>
+>>It doesn't matter the version if the user can find the feature, so
+>>distros backporting features works and that info is not useful at all=
+=2E
+>>However, when the user doesn't find the feature and search the intern=
+et,
+>>then that info is helpful.
+>
+>There are *many* new features that get included into the kernel
+>without documenting the exact first version that provide them. Why
+>should we need this for bonding? Also, because we lack a table that
+>gives the kernel version matching a bonding version, the user is not
+>really helped by "you need version X.Y.Z of bonding to have this
+>feature".
 
-> 
-> 
-> Am 01.06.2011 19:10, schrieb Julia Lawall:
-> > From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-> > 
-> > The failed_get label is used after the call to clk_get has succeeded, so it
-> > should be moved up above the call to clk_put.
-> > 
-> > A simplified version of the semantic match that finds this problem is as
-> > follows: (http://coccinelle.lip6.fr/)
-> > 
-> > // <smpl>
-> > @r exists@
-> > expression e1,e2;
-> > statement S;
-> > @@
-> > 
-> > e1 = clk_get@p1(...);
-> > ... when != e1 = e2
-> >     when != clk_put(e1)
-> >     when any
-> > if (...) { ... when != clk_put(e1)
-> >                when != if (...) { ... clk_put(e1) ... }
-> > * return@p3 ...;
-> >  } else S
-> > // </smpl>
-> > 
-> > Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-> > 
-> > ---
-> >  drivers/net/can/flexcan.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> > index d499056..121739c 100644
-> > --- a/drivers/net/can/flexcan.c
-> > +++ b/drivers/net/can/flexcan.c
-> > @@ -978,8 +978,8 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-> >   failed_map:
-> >  	release_mem_region(mem->start, mem_size);
-> >   failed_req:
-> > -	clk_put(clk);
-> >   failed_get:
-> > +	clk_put(clk);
-> >   failed_clock:
-> >  	return err;
-> >  }
-> > 
-> 
-> So failed_req == failed_get, is that intended ?
 
-I have the impression that it is.  failed_req comes after successful 
-calls to platform_get_resource and platform_get_irq, which don't allocate 
-anything.
+I think that doing versioning on multiple parts of the same code is onl=
+y
+confusing. Kernel version should be only version for whole kernel code.
+Changes should be only documented in descriptions of changesets. Any
+other way is redundant, might be not accurate, and rather confusing.
 
-julia
+Jirka
+
+>
+>So, I'm not sure it helps...
+>
+>	Nicolas.
