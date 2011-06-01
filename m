@@ -1,73 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC/PATCH] sungem: Spring cleaning and GRO support
-Date: Wed, 01 Jun 2011 01:04:59 +0100
-Message-ID: <1306886699.2866.79.camel@bwh-desktop>
-References: <1306828745.7481.660.camel@pasglop>
-	 <1306875564.2866.39.camel@bwh-desktop>  <1306879088.7481.679.camel@pasglop>
-	 <1306880249.2866.53.camel@bwh-desktop>  <1306886132.29297.3.camel@pasglop>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: Section conflict compile failures in net
+Date: Wed, 1 Jun 2011 03:27:40 +0200
+Message-ID: <20110601012739.GA25705@rere.qmqm.pl>
+References: <1306445993.4048.58.camel@mulgrave.site>
+ <20110531.154531.493226762.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"R. Herbst" <ruediger.herbst@googlemail.com>,
-	Brian Hamilton <bhamilton04@gmail.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:12108 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758505Ab1FAAFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 20:05:02 -0400
-In-Reply-To: <1306886132.29297.3.camel@pasglop>
+Received: from rere.qmqm.pl ([89.167.52.164]:55418 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933005Ab1FAB1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 May 2011 21:27:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20110531.154531.493226762.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-06-01 at 09:55 +1000, Benjamin Herrenschmidt wrote:
-> On Tue, 2011-05-31 at 23:17 +0100, Ben Hutchings wrote:
-> > On Wed, 2011-06-01 at 07:58 +1000, Benjamin Herrenschmidt wrote:
-> > [...]
-> > > > Is the pm_mutex really needed?  All control operations should already be
-> > > > serialised by the RTNL lock, and you've started taking that in the
-> > > > suspend and resume functions.
-> > > 
-> > > Well, it's been there forever and I need to get my head around it, but
-> > > yes, the rtnl lock might be able to get rid of it, good point. I just
-> > > actually added that :-)
-> > > 
-> > > So all ndo_set_* are going to be covered by rtnl including the ethtool ?
-> > 
-> > ethtool ops are almost all covered; the kernel-doc comment has the
-> > details.
-> > 
-> > As for net_device_ops, locking varies (and really ought to be documented
-> > in <linux/netdevice.h>).  At least ndo_set_mac_address, ndo_change_mtu
-> > and ndo_do_ioctl (plus of course ndo_open and ndo_stop) are called
-> > holding the RTNL lock.
-> 
-> Ok. The main annoyance for locking has always been set_multicast which
-> is called with a spinlock afaik.
+On Tue, May 31, 2011 at 03:45:31PM -0700, David Miller wrote:
+> From: James Bottomley <James.Bottomley@HansenPartnership.com>
+> Date: Thu, 26 May 2011 16:39:53 -0500
+>=20
+> BTW, linux-netdev doesn't exist, it's just plain netdev.
+>=20
+> > Simply reverting=20
+> >=20
+> > commit e5cb966c0838e4da43a3b0751bdcac7fe719f7b4
+> > Author: Micha<C5><82> Miros<C5><82>aw <mirq-linux@rere.qmqm.pl>
+> > Date:   Mon Apr 18 13:31:20 2011 +0000
+> >=20
+> >     net: fix section mismatches
+> >    =20
+> > Fixes the problem.
+> >=20
+> > If I look at the first problem in hp100.c, the addition of
+> > __devinitconst to the device tables is fine, but there's no
+> > corresponding sectional tag on their use, so when compiled as a mod=
+ule,
+> > things like hp100_eisa_driver is now in the main data section but r=
+efers
+> > to something in the init data section ... I assume all the others a=
+re
+> > the same type of problem.
+> Yeah I think the device ID table __devinitconst bits have to be
+> reverted.
 
-Right, that's called with the address-list spinlock (and previously with
-the TX spinlock, I think).  In sfc we defer multicast reconfiguration to
-a work item since it can require process context.
+__devinitconst ID tables do work for PCI drivers. What's different for =
+EISA,
+and why is it working in x86 allyesconfig build but not in hppa?
 
-> > > I don't really want to take the rtnl lock in the reset task (at least
-> > > not for the whole duration of it), so I may have to be a bit creative on
-> > > synchronization there.
-> > [...]
-> > 
-> > Unless reset takes more than a second I wouldn't worry about it.
-> 
-> I don't want to take a spinlock for even near that, especially since we
-> do the reset on every link down. I suppose rtnl might be less of an
-> issue, I'll have a look.
-
-So long as you aren't holding it for, say, blinking an LED indefinitely
-it's fine... :-)
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Best Regards,
+Micha=B3 Miros=B3aw
