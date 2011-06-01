@@ -1,33 +1,40 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [BUG] net: cpu offline cause napi stall
-Date: Wed, 1 Jun 2011 20:12:54 +0200
-Message-ID: <20110601181253.GA2374@osiris.boeblingen.de.ibm.com>
-References: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
- <1306930399.3476.1.camel@edumazet-laptop>
- <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
- <1306947321.2890.5.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next-2.6] bonding: allow resetting slave failure
+ counters
+Date: Wed, 01 Jun 2011 12:03:00 -0700 (PDT)
+Message-ID: <20110601.120300.130602301077156524.davem@davemloft.net>
+References: <4DE63E85.7020508@redhat.com>
+	<20110601135321.GA2909@psychotron.brq.redhat.com>
+	<16056.1306944819@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jpirko@redhat.com, fbl@redhat.com, netdev@vger.kernel.org,
+	andy@greyhouse.net
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([194.196.100.164]:59445 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752464Ab1FASM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 14:12:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1306947321.2890.5.camel@edumazet-laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58160 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759223Ab1FATDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 15:03:13 -0400
+In-Reply-To: <16056.1306944819@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2011 at 06:55:21PM +0200, Eric Dumazet wrote:
-> > +	/* Append NAPI poll list from offline CPU. */
-> > +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
-> >  
-> >  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
-> >  	local_irq_enable();
-> 
-> Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary.
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Wed, 01 Jun 2011 09:13:39 -0700
 
-Well, see two lines below the list_splice_init() call ;)
+> 	The "this dingus was added in version X.Y.Z" is there because
+> users sometimes read the most recent version of the documentation (that
+> they get from the internet) and then would become confused when their
+> older distro driver lacked some option described in the documentation.
+
+I disagree with this whole concept, because distros backport features
+like this into their kernel and therefore the feature is showing up in
+version X.Y.$(Z-20).
+
+And distro kernels are what %99.9999 of users are exposed to.
+
+Therefore, I think this version specification is not only pointless
+but even a possible cause of confusion.
+
