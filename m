@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Section conflict compile failures in net
-Date: Tue, 31 May 2011 19:25:14 -0700 (PDT)
-Message-ID: <20110531.192514.33793304.davem@davemloft.net>
+Date: Tue, 31 May 2011 19:24:32 -0700 (PDT)
+Message-ID: <20110531.192432.480538486.davem@davemloft.net>
 References: <1306445993.4048.58.camel@mulgrave.site>
 	<20110531.154531.493226762.davem@davemloft.net>
-	<1306892570.11897.35.camel@mulgrave.site>
+	<20110601012739.GA25705@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org
-To: James.Bottomley@HansenPartnership.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34125 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34130 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758580Ab1FACZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 22:25:19 -0400
-In-Reply-To: <1306892570.11897.35.camel@mulgrave.site>
+	with ESMTP id S1758615Ab1FACZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 May 2011 22:25:39 -0400
+In-Reply-To: <20110601012739.GA25705@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Wed, 01 Jun 2011 10:42:50 +0900
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Wed, 1 Jun 2011 03:27:40 +0200
 
-> It's really, as has been said, a compiler problem: the compiler is
-> confused about the read only sections.  However, 4.2 is a pretty common
-> compiler (especially for non-x86), so if the compiler can't do the read
-> only section tracking, just not using the __devinitconst designation
-> globally seems to be the best thing, just change it to __devinitdata
-> instead.
+> __devinitconst ID tables do work for PCI drivers. What's different fo=
+r EISA,
+> and why is it working in x86 allyesconfig build but not in hppa?
 
-I think I'm just going to do a full revert then.
-
-You guys work out how to arrive at a solution that solves the problem
-he was originally trying to solve, yet doesn't break this gcc-4.2
-case.
-
-Thanks.
+James shows that it doesn't work for PCI drivers either.
