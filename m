@@ -1,106 +1,41 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] bonding: allow resetting slave failure
- counters
-Date: Wed, 1 Jun 2011 15:53:21 +0200
-Message-ID: <20110601135321.GA2909@psychotron.brq.redhat.com>
-References: <1306921249-3623-1-git-send-email-jpirko@redhat.com>
- <4DE63E85.7020508@redhat.com>
+From: WANG Cong <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] vlan: fix typo in vlan_dev_hard_start_xmit()
+Date: Wed, 1 Jun 2011 13:54:42 +0000 (UTC)
+Message-ID: <is5gb2$1h6$2@dough.gmane.org>
+References: <4DE5FDFF.4000208@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	andy@greyhouse.net
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63260 "EHLO mx1.redhat.com"
+Received: from lo.gmane.org ([80.91.229.12]:60248 "EHLO lo.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757315Ab1FANxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 09:53:42 -0400
-Content-Disposition: inline
-In-Reply-To: <4DE63E85.7020508@redhat.com>
+	id S1755180Ab1FANzS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 09:55:18 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1QRlt5-0005rT-0B
+	for netdev@vger.kernel.org; Wed, 01 Jun 2011 15:55:07 +0200
+Received: from 222-151-096-013.jp.fiberbit.net ([222.151.96.13])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 15:55:06 +0200
+Received: from xiyou.wangcong by 222-151-096-013.jp.fiberbit.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 15:55:06 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jun 01, 2011 at 03:28:37PM CEST, fbl@redhat.com wrote:
->On 06/01/2011 06:40 AM, Jiri Pirko wrote:
->> This patch allows to reset failure counters for all enslaved devices.
->> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->>  Documentation/networking/bonding.txt |    7 +++++++
->>  drivers/net/bonding/bond_sysfs.c     |   27 +++++++++++++++++++++++++++
->>  2 files changed, 34 insertions(+), 0 deletions(-)
->> 
->> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
->> index 675612f..2f51d73 100644
->> --- a/Documentation/networking/bonding.txt
->> +++ b/Documentation/networking/bonding.txt
->> @@ -782,6 +782,13 @@ resend_igmp
->>  
->>  	This option was added for bonding version 3.7.0.
->>  
->> +reset_failure_counters
->> +
->> +	This write-only control file will zero failure counters for
->> +	all slaves.  Note there is no appropriate module parameter for this
->> +	since it would not make much sense.
->> +	Write any value to perform reset.
->
->nit: many options mention when they were added.
->i.e. This option was added for bonding version 3.7.1
+On Wed, 01 Jun 2011 16:53:19 +0800, Wei Yongjun wrote:
 
-hmm, is that necessary Jay, Andy?
+> commit 4af429d29b341bb1735f04c2fb960178ed5d52e7 (vlan: lockless transmit
+> path) have a typo in vlan_dev_hard_start_xmit(), using
+> u64_stats_update_begin() to end the stat update, it should be
+> u64_stats_update_end().
+> 
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-/me thinks this versioning should be removed at all in the first place...
+Yup, good catch!
 
->
->fbl
->
->>  3. Configuring Bonding Devices
->>  ==============================
->>  
->> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->> index 88fcb25..9b45164 100644
->> --- a/drivers/net/bonding/bond_sysfs.c
->> +++ b/drivers/net/bonding/bond_sysfs.c
->> @@ -1572,6 +1572,32 @@ out:
->>  static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
->>  		   bonding_show_resend_igmp, bonding_store_resend_igmp);
->>  
->> +static ssize_t
->> +bonding_store_reset_failure_counters(struct device *d,
->> +				     struct device_attribute *attr,
->> +				     const char *buf, size_t count)
->> +{
->> +	struct slave *slave;
->> +	int i;
->> +	struct bonding *bond = to_bond(d);
->> +
->> +	if (!rtnl_trylock())
->> +		return restart_syscall();
->> +
->> +	read_lock(&bond->lock);
->> +	pr_info("%s: Resetting counters.\n", bond->dev->name);
->> +	bond_for_each_slave(bond, slave, i)
->> +		slave->link_failure_count = 0;
->> +	read_unlock(&bond->lock);
->> +
->> +	rtnl_unlock();
->> +
->> +	return count;
->> +}
->> +
->> +static DEVICE_ATTR(reset_failure_counters, S_IWUSR, NULL,
->> +		   bonding_store_reset_failure_counters);
->> +
->>  static struct attribute *per_bond_attrs[] = {
->>  	&dev_attr_slaves.attr,
->>  	&dev_attr_mode.attr,
->> @@ -1600,6 +1626,7 @@ static struct attribute *per_bond_attrs[] = {
->>  	&dev_attr_queue_id.attr,
->>  	&dev_attr_all_slaves_active.attr,
->>  	&dev_attr_resend_igmp.attr,
->> +	&dev_attr_reset_failure_counters.attr,
->>  	NULL,
->>  };
->>  
->
+Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
+
