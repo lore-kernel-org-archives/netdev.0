@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH RFC 0/3] virtio and vhost-net capacity handling
-Date: Wed, 1 Jun 2011 12:49:37 +0300
-Message-ID: <cover.1306921434.git.mst@redhat.com>
+Subject: [PATCH RFC 1/3] virtio_ring: add capacity check API
+Date: Wed, 1 Jun 2011 12:49:46 +0300
+Message-ID: <8014f898ca6b768d7be626b83c617a1e84adfeb9.1306921434.git.mst@redhat.com>
+References: <cover.1306921434.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,6 +18,7 @@ Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Ot
 To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <cover.1306921434.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
 	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
@@ -28,31 +30,57 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-OK, here's a new attempt to use the new capacity api.  I also added more
-comments to clarify the logic.  Hope this is more readable.  Let me know
-pls.
+Add API to check ring capacity. Because of the option
+to use indirect buffers, this returns the worst
+case, not the normal case capacity.
 
-This is on top of the patches applied by Rusty.
+Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/virtio/virtio_ring.c |    8 ++++++++
+ include/linux/virtio.h       |    5 +++++
+ 2 files changed, 13 insertions(+), 0 deletions(-)
 
-Note: there are now actually 2 calls to fee_old_xmit_skbs on
-data path so instead of passing flag '2' to the
-second one I thought we can just make each call free up
-at least 1 skb. This will work and even might be a bit faster (less
-branches), but in the end I discarded this idea as too fragile (relies
-on two calls on data path to function properly).
-
-Warning: untested. Posting now to give people chance to
-comment on the API.
-
-Michael S. Tsirkin (3):
-  virtio_ring: add capacity check API
-  virtio_net: fix tx capacity checks using new API
-  virtio_net: limit xmit polling
-
- drivers/net/virtio_net.c     |   65 +++++++++++++++++++++++------------------
- drivers/virtio/virtio_ring.c |    8 +++++
- include/linux/virtio.h       |    5 +++
- 3 files changed, 49 insertions(+), 29 deletions(-)
-
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index 68b9136..23422f1 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -344,6 +344,14 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
+ }
+ EXPORT_SYMBOL_GPL(virtqueue_get_buf);
+ 
++int virtqueue_min_capacity(struct virtqueue *_vq)
++{
++	struct vring_virtqueue *vq = to_vvq(_vq);
++
++	return vq->num_free;
++}
++EXPORT_SYMBOL_GPL(virtqueue_min_capacity);
++
+ void virtqueue_disable_cb(struct virtqueue *_vq)
+ {
+ 	struct vring_virtqueue *vq = to_vvq(_vq);
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 7108857..209220d 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -42,6 +42,9 @@ struct virtqueue {
+  *	vq: the struct virtqueue we're talking about.
+  *	len: the length written into the buffer
+  *	Returns NULL or the "data" token handed to add_buf.
++ * virtqueue_min_capacity: get the current capacity of the queue
++ *	vq: the struct virtqueue we're talking about.
++ *	Returns the current worst case capacity of the queue.
+  * virtqueue_disable_cb: disable callbacks
+  *	vq: the struct virtqueue we're talking about.
+  *	Note that this is not necessarily synchronous, hence unreliable and only
+@@ -89,6 +92,8 @@ void virtqueue_kick(struct virtqueue *vq);
+ 
+ void *virtqueue_get_buf(struct virtqueue *vq, unsigned int *len);
+ 
++int virtqueue_min_capacity(struct virtqueue *vq);
++
+ void virtqueue_disable_cb(struct virtqueue *vq);
+ 
+ bool virtqueue_enable_cb(struct virtqueue *vq);
 -- 
 1.7.5.53.gc233e
