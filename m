@@ -1,86 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] net: cpu offline cause napi stall
-Date: Wed, 01 Jun 2011 18:55:21 +0200
-Message-ID: <1306947321.2890.5.camel@edumazet-laptop>
-References: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
-	 <1306930399.3476.1.camel@edumazet-laptop>
-	 <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
+From: Bill Sommerfeld <wsommerfeld@google.com>
+Subject: Re: Skipping past TCP lost packet in userspace
+Date: Wed, 1 Jun 2011 09:57:30 -0700
+Message-ID: <BANLkTikC+SUp-hvKZ-6nTf+VQQ=kFaFVcewek=1B6H500_4xkg@mail.gmail.com>
+References: <4DE44218.4070306@krellan.com>
+	<BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>
+	<4DE5F3E3.2080609@krellan.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
+	jiyengar@fandm.edu
+To: Josh Lehan <linux@krellan.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:37544 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758895Ab1FAQzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 12:55:25 -0400
-In-Reply-To: <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
+Received: from smtp-out.google.com ([216.239.44.51]:37929 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695Ab1FAQ5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 12:57:32 -0400
+Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
+	by smtp-out.google.com with ESMTP id p51GvWuS009310
+	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 09:57:32 -0700
+Received: from qyk10 (qyk10.prod.google.com [10.241.83.138])
+	by kpbe18.cbf.corp.google.com with ESMTP id p51GrA7T011772
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 09:57:30 -0700
+Received: by qyk10 with SMTP id 10so3786143qyk.11
+        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 09:57:30 -0700 (PDT)
+In-Reply-To: <4DE5F3E3.2080609@krellan.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 01 juin 2011 =C3=A0 18:36 +0200, Heiko Carstens a =C3=A9cri=
-t :
-> On Wed, Jun 01, 2011 at 02:13:19PM +0200, Eric Dumazet wrote:
-> > Le mercredi 01 juin 2011 =C3=A0 12:33 +0200, Frank Blaschka a =C3=A9=
-crit :
-> > > Hi Dave, Eric,
-> > >=20
-> > > during heavy network load we turn off/on cpus.
-> > > Sometimes this causes a stall on the network device.
-> > > Digging into the dump I found out following:
-> > >=20
-> > > napi is scheduled but does not run. From the I/O buffers
-> > > and the napi state I see napi/rx_softirq processing has stopped
-> > > because the budget was reached. napi stays in the
-> > > softnet_data poll_list and the rx_softirq was raised again.
-> > >=20
-> > > I assume at this time the cpu offline comes in.
-> > > the rx softirq is raised/moved to another cpu but napi stays in t=
-he poll_list
-> > > of the softnet_data of the now offline cpu.
-> > >=20
-> > > reviewing dev_cpu_callback (net/core/dev.c) I did not find the po=
-ll_list
-> > > is transfered to the new cpu. Do you think this could cause the s=
-tall or
-> > > did I miss something?
-> > >=20
-> > > Thx for your help.
-> >=20
-> > Hi Frank
-> >=20
-> > I believe you are right, I cant see where the poll_list transfert f=
-rom
-> > dead cpu to online cpu is done.
-> >=20
-> > Do you want to prepare a patch ?
->=20
-> Frank will be offline until next week. I assume the patch below would=
- fix
-> the problem, however its untested. I doubt we can verify that it real=
-ly
-> fixes the problem also until next week (public holiday tomorrow).
->=20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6561021..6d6a7cf 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5981,6 +5981,8 @@ static int dev_cpu_callback(struct notifier_blo=
-ck *nfb,
->  		oldsd->output_queue =3D NULL;
->  		oldsd->output_queue_tailp =3D &oldsd->output_queue;
->  	}
-> +	/* Append NAPI poll list from offline CPU. */
-> +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
-> =20
->  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
->  	local_irq_enable();
+On Wed, Jun 1, 2011 at 01:10, Josh Lehan <linux@krellan.com> wrote:
+> 2) If the out-of-order data is enough to be useful to the application,
+> another ioctl() could be done, to ask the kernel to jump over the gap
+> and deliver the data to the application.
 
-Same here, I'll be offline for the next 4 days ;)
+this sounds like a different way to spell lseek(fd, gapsize, SEEK_CUR)
 
-Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary.
-
-
-
+of course, allowing a subset of lseek for sockets could very well mess
+with any code which (ab)uses lseek to guess the type of a random
+descriptor.
