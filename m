@@ -1,60 +1,83 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Skipping past TCP lost packet in userspace
-Date: Wed, 01 Jun 2011 10:35:23 -0700
-Message-ID: <1306949723.8149.2202.camel@tardy>
-References: <4DE44218.4070306@krellan.com>
-	 <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>
-	 <4DE5F3E3.2080609@krellan.com>
-Reply-To: rick.jones2@hp.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: patch for ixgbe-3.3.9 (out-of-tree) driver.
+Date: Wed, 01 Jun 2011 10:50:25 -0700
+Message-ID: <4DE67BE1.3060704@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	jiyengar@fandm.edu
-To: Josh Lehan <linux@krellan.com>
+Content-Type: multipart/mixed;
+ boundary="------------010309090804020508060303"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:23853 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037Ab1FARoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 13:44:06 -0400
-In-Reply-To: <4DE5F3E3.2080609@krellan.com>
+Received: from mail.candelatech.com ([208.74.158.172]:59480 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758108Ab1FARu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 13:50:26 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p51HoPD8005192
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 1 Jun 2011 10:50:26 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-06-01 at 01:10 -0700, Josh Lehan wrote:
-> On 05/31/2011 10:23 AM, Yuchung Cheng wrote:
-> > This paper may have a solution to your problem
-> > "Minion=E2=80=94an All-Terrain Packet Packhorse to Jump-Start Stall=
-ed Internet
-> > Transports"
-> > http://csweb1.fandm.edu/jiyengar/lair/papers/minion-pfldnet2010.pdf
->=20
-> Nice, thanks for pointing me to this.  I appreciate the helpful answe=
-r,
-> instead of just saying "use UDP" or "use SCTP".  That's not the point=
-=2E
->=20
-> For better or for worse, TCP is realistically the only viable protoco=
-l
-> for streaming to the largest possible audience these days, hence my
-> question about adding this feature to the Linux TCP implementation.
+This is a multi-part message in MIME format.
+--------------010309090804020508060303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Isn't that treating the symptoms of problems at layers 8 and 9 (*) with
-kludges (perhaps hacks if one is feeling charitable) at the user
-interface to layer 4?  Just how many more little bits can we add to the
-great pile before the aroma is overpowering?  Or to abuse another
-metaphor, is there really any camel's back left here?
+Using 'ethtool -t ethX' with 82598 chipset causes
+kernel splats because spin-lock wasn't initialized properly.
+This can probably cause other problems, but I'm not certain
+of that.
 
-And while Linux has had some slightly non-trivial, non-portable
-enhancements to its interface to a TCP endpoint (TCP_CORK is something
-that comes to mind) I don't think any of them have been anywhere nearly
-as large a change to a fundamental semantic of a TCP connection as what
-you propose.
+I can't tell that anyone actually watches the sourceforge list,
+so posting it here...
 
-rick jones
+The reason I'm using the out-of-tree driver is that a customer
+reports link bouncing when using the 82598 NIC.  They are stuck
+on a .34 kernel at the moment, so maybe it's fixed upstream already.
+At any rate, I can't reproduce the problem locally, but the 3.3.9
+driver appears to work for them.
 
-*
-http://www.isc.org/store/logoware-clothing/isc-9-layer-osi-model-cotton=
--t-shirt
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
 
+--------------010309090804020508060303
+Content-Type: text/plain;
+ name="ixgbe-3.3.9.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="ixgbe-3.3.9.patch"
+
+--- ixgbe-3.3.9/src/ixgbe_main.c	2011-04-19 16:06:31.000000000 -0700
++++ ixgbe-3.3.9.ben/src/ixgbe_main.c	2011-06-01 10:31:23.163839562 -0700
+@@ -5843,16 +5843,18 @@
+ 			adapter->flags |= IXGBE_FLAG_SRIOV_CAPABLE;
+ 		if (hw->device_id == IXGBE_DEV_ID_82599_T3_LOM)
+ 			adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_CAPABLE;
+-#ifdef NETIF_F_NTUPLE
+-		/* n-tuple support exists, always init our spinlock */
+-		spin_lock_init(&adapter->fdir_perfect_lock);
+-#endif /* NETIF_F_NTUPLE */
+ 		adapter->max_msix_q_vectors = IXGBE_MAX_MSIX_Q_VECTORS_82599;
+ 		break;
+ 	default:
+ 		break;
+ 	}
+-	/* Default DCB settings, if applicable */
++
++#ifdef NETIF_F_NTUPLE
++        /* n-tuple support exists, always init our spinlock */
++        spin_lock_init(&adapter->fdir_perfect_lock);
++#endif /* NETIF_F_NTUPLE */
++
++        /* Default DCB settings, if applicable */
+ 	adapter->ring_feature[RING_F_DCB].indices = 8;
+ 
+ 	if (adapter->flags & IXGBE_FLAG_DCB_CAPABLE) {
+
+--------------010309090804020508060303--
