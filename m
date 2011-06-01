@@ -1,54 +1,58 @@
-From: Brad Campbell <lists2009@fnarfbargle.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Wed, 01 Jun 2011 19:52:33 +0800
-Message-ID: <4DE62801.9080804@fnarfbargle.com>
-References: <alpine.LSU.2.00.1105311517480.21107@sister.anvils> <4DE589C5.8030600@fnarfbargle.com> <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au>
+From: "Stefan (metze) Metzmacher" <metze@samba.org>
+Subject: Re: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
+ mark ncm devices as "mobile broadband devices" with FLAG_WWAN
+Date: Wed, 01 Jun 2011 13:54:37 +0200
+Message-ID: <4DE6287D.5080807@samba.org>
+References: <1306922913-17803-1-git-send-email-metze@samba.org> <1306922913-17803-2-git-send-email-metze@samba.org> <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E583@EXDCVYMBSTM006.EQ1STM.local> <4DE618B7.5070903@samba.org> <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E64B@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, Hugh Dickins <hughd@google.com>,
- Andrea Arcangeli <aarcange@redhat.com>,
- Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
- kvm@vger.kernel.org, linux-mm <linux-mm@kvack.org>,
- netdev <netdev@vger.kernel.org>
-To: CaT <cat@zip.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110601111841.GB3956@zip.com.au>
-Sender: owner-linux-mm@kvack.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig721BDC27E8EC36BD4552E18E"
+Cc: Oliver Neukum <oliver@neukum.name>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E64B@EXDCVYMBSTM006.EQ1STM.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/06/11 19:18, CaT wrote:
-> On Wed, Jun 01, 2011 at 06:53:31PM +0800, Brad Campbell wrote:
->> I rebooted into a netfilter kernel, and did all the steps I'd used
->> on the no-netfilter kernel and it ticked along happily.
->>
->> So the result of the experiment is inconclusive. Having said that,
->> the backtraces certainly smell networky.
->>
->> To get it to crash, I have to start IE in the VM and https to the
->> public address of the machine, which is then redirected by netfilter
->> back into another of the VM's.
->>
->> I can https directly to the other VM's address, but that does not
->> cause it to crash, however without netfilter loaded I can't bounce
->> off the public IP. It's all rather confusing really.
->>
->> What next Sherlock?
->
-> I think you're hitting something I've seen. Can you try rewriting
-> your firewall rules so that it does not reference any bridge
-> interfaces at all. Instead, reference the real interface names
-> in their place. I'm betting it wont crash.
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig721BDC27E8EC36BD4552E18E
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Unfortunately the only interface that is mentioned by name anywhere in 
-my firewall is $DMZ (which is ppp0 and not part of any bridge).
+Am 01.06.2011 13:39, schrieb Alexey ORISHKO:
+>> -----Original Message-----
+>> From: Stefan (metze) Metzmacher [mailto:metze@samba.org]
+>> Sent: Wednesday, June 01, 2011 12:47 PM
+>>
+>> Would it be possible to add some autodetection for known devices, in a=
 
-All of the nat/dnat and other horrible hacks are based on IP addresses.
+>> similar way the cdc_ether driver does it.
+>=20
+> If you use udev rules and create an alias for your device, you won't
+> be dependent on generic driver code.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Ok, do you have examples for that?
+
+metze
+
+
+--------------enig721BDC27E8EC36BD4552E18E
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk3mKH0ACgkQm70gjA5TCD8BWQCcCnVwO2wA0cxUAfVreyDHPllu
+xHYAn1sXDMf9T2yiQYYOQt8twiPwZEX9
+=YuV9
+-----END PGP SIGNATURE-----
+
+--------------enig721BDC27E8EC36BD4552E18E--
