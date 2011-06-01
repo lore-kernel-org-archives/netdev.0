@@ -1,41 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next-2.6] de2104x: use speed defines instead of
- number
-Date: Wed, 01 Jun 2011 18:26:34 +0100
-Message-ID: <1306949194.2758.1.camel@bwh-desktop>
-References: <1306937677-11101-1-git-send-email-jpirko@redhat.com>
-	 <1306943206.22348.10.camel@localhost>
-	 <20110601161932.GA2784@psychotron.redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 4/10] drivers/net/can/flexcan.c: add missing clk_put
+Date: Wed, 01 Jun 2011 10:26:15 -0700
+Message-ID: <1306949175.32125.20.camel@Joe-Laptop>
+References: <1306948213-20767-4-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:26556 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932155Ab1FAR0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 13:26:37 -0400
-In-Reply-To: <20110601161932.GA2784@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	kernel-janitors@vger.kernel.org, socketcan-core@lists.berlios.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306948213-20767-4-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-06-01 at 18:19 +0200, Jiri Pirko wrote:
-> Wed, Jun 01, 2011 at 05:46:46PM CEST, bhutchings@solarflare.com wrote:
-> >The speed/speed_hi fields are defined to hold speed in Mbit/s, not only
-> >specific values.  I don't see any reason to use the names any more.
-> 
-> Do you mean to remove SPEED_X defines in whole code?
-[...]
+On Wed, 2011-06-01 at 19:10 +0200, Julia Lawall wrote:
+> The failed_get label is used after the call to clk_get has succeeded, so it
+> should be moved up above the call to clk_put.
+[]
+> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+[]
+> @@ -978,8 +978,8 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
+>   failed_map:
+>  	release_mem_region(mem->start, mem_size);
+>   failed_req:
+> -	clk_put(clk);
+>   failed_get:
+> +	clk_put(clk);
+>   failed_clock:
+>  	return err;
 
-I have higher priorities - but I would happy to see someone do that.
-The definitions have to stay in <linux/ethtool.h> for user space,
-though.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+If this is correct, it might be better to rename all the
+uses of failed_req to failed_get and delete label failed_req.
