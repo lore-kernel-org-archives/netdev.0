@@ -1,42 +1,47 @@
-From: "juice" <juice@swagman.org>
-Subject: Re: Skipping past TCP lost packet in userspace
-Date: Wed, 1 Jun 2011 22:36:32 +0300
-Message-ID: <e424e4f368f54756a04b0e30f296882d.squirrel@www.liukuma.net>
-References: <4DE44218.4070306@krellan.com>
-    <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>
-    <4DE5F3E3.2080609@krellan.com>
-Reply-To: juice@swagman.org
+From: Kevin Hilman <khilman@ti.com>
+Subject: Re: [PATCH 7/10] drivers/net/davinci_emac.c: add missing clk_put
+Date: Wed, 01 Jun 2011 12:49:24 -0700
+Message-ID: <1306957764.26236.37.camel@vence>
+References: <1306948213-20767-7-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "Josh Lehan" <linux@krellan.com>,
-	"Yuchung Cheng" <ycheng@google.com>,
-	"Josh Lehan" <linux@krellan.com>,
-	"netdev" <netdev@vger.kernel.org>, jiyengar@fandm.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:14176 "EHLO www.liukuma.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758929Ab1FAToU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 15:44:20 -0400
-In-Reply-To: <4DE5F3E3.2080609@krellan.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org, Cyril Chemparathy <cyril@ti.com>,
+	Sriramakrishnan A G <srk@ti.com>,
+	Stefan Weil <weil@mail.berlios.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306948213-20767-7-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 2011-06-01 at 19:10 +0200, Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Go to existing error handling code at the end of the function that calls
+> clk_put.
+> 
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @r exists@
+> expression e1,e2;
+> statement S;
+> @@
+> 
+> e1 = clk_get@p1(...);
+> ... when != e1 = e2
+>     when != clk_put(e1)
+>     when any
+> if (...) { ... when != clk_put(e1)
+>                when != if (...) { ... clk_put(e1) ... }
+> * return@p3 ...;
+>  } else S
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-> Nice, thanks for pointing me to this.  I appreciate the helpful answer,
-> instead of just saying "use UDP" or "use SCTP".  That's not the point.
->
-> For better or for worse, TCP is realistically the only viable protocol
-> for streaming to the largest possible audience these days, hence my
-> question about adding this feature to the Linux TCP implementation.
->
-
-For better or for worse, I think the problem in your proposal is that it
-just will not be portable, even if you implemented it on Linux stack.
-I am quite sure you will not be able to bend other operating systems to
-accept this kind of kludge in the TCP stack so the benefits are minimal.
-
-The correct way to address this problem is to make sure that end-to-end
-connectivity of all the needed protocols is maintained.
-
-
+Acked-by: Kevin Hilman <khilman@ti.com>
