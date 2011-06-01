@@ -1,88 +1,45 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6] bonding: allow resetting slave failure counters
-Date: Wed,  1 Jun 2011 11:40:49 +0200
-Message-ID: <1306921249-3623-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net, fubar@us.ibm.com, andy@greyhouse.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47105 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933179Ab1FAJlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 05:41:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
+Date: Wed, 1 Jun 2011 11:43:46 +0200
+Message-ID: <201106011143.46667.oneukum@suse.de>
+References: <1306919630-13426-1-git-send-email-metze@samba.org> <1306919630-13426-2-git-send-email-metze@samba.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.name>,
+	"Greg Kroah-Hartman" <gregkh@suse.de>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefan Metzmacher <metze@samba.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306919630-13426-2-git-send-email-metze@samba.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch allows to reset failure counters for all enslaved devices.
+Am Mittwoch, 1. Juni 2011, 11:13:50 schrieb Stefan Metzmacher:
+> This avoids messages like this after suspend:
+>=20
+>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
+>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
+>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4=
+, CDC NCM
+>=20
+> This is important for the Ericsson F5521gw GSM/UMTS modem.
+> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm d=
+evices
+> belong together.
+>=20
+> The cdc_ether module does the same.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- Documentation/networking/bonding.txt |    7 +++++++
- drivers/net/bonding/bond_sysfs.c     |   27 +++++++++++++++++++++++++++
- 2 files changed, 34 insertions(+), 0 deletions(-)
+Yes, it does. Have you tested this with active connections and unconnec=
+ted?
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 675612f..2f51d73 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -782,6 +782,13 @@ resend_igmp
- 
- 	This option was added for bonding version 3.7.0.
- 
-+reset_failure_counters
-+
-+	This write-only control file will zero failure counters for
-+	all slaves.  Note there is no appropriate module parameter for this
-+	since it would not make much sense.
-+	Write any value to perform reset.
-+
- 3. Configuring Bonding Devices
- ==============================
- 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 88fcb25..9b45164 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1572,6 +1572,32 @@ out:
- static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
- 		   bonding_show_resend_igmp, bonding_store_resend_igmp);
- 
-+static ssize_t
-+bonding_store_reset_failure_counters(struct device *d,
-+				     struct device_attribute *attr,
-+				     const char *buf, size_t count)
-+{
-+	struct slave *slave;
-+	int i;
-+	struct bonding *bond = to_bond(d);
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	read_lock(&bond->lock);
-+	pr_info("%s: Resetting counters.\n", bond->dev->name);
-+	bond_for_each_slave(bond, slave, i)
-+		slave->link_failure_count = 0;
-+	read_unlock(&bond->lock);
-+
-+	rtnl_unlock();
-+
-+	return count;
-+}
-+
-+static DEVICE_ATTR(reset_failure_counters, S_IWUSR, NULL,
-+		   bonding_store_reset_failure_counters);
-+
- static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_slaves.attr,
- 	&dev_attr_mode.attr,
-@@ -1600,6 +1626,7 @@ static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_queue_id.attr,
- 	&dev_attr_all_slaves_active.attr,
- 	&dev_attr_resend_igmp.attr,
-+	&dev_attr_reset_failure_counters.attr,
- 	NULL,
- };
- 
--- 
-1.7.4.4
-
+	Regards
+		Oliver
+--=20
+- - -=20
+SUSE LINUX Products GmbH, GF: Jeff Hawn, Jennifer Guild, Felix Imend=F6=
+rffer, HRB 16746 (AG N=FCrnberg)=20
+Maxfeldstra=DFe 5                        =20
+90409 N=FCrnberg=20
+Germany=20
+- - -=20
