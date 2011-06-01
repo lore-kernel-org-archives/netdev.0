@@ -1,8 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 08/11] bnx2x: Adjust BCM8726 module detection
- settings
-Date: Wed, 1 Jun 2011 10:28:43 +0300
-Message-ID: <1306913323.20872.115.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 09/11] bnx2x: Fix link status sync
+Date: Wed, 1 Jun 2011 10:29:05 +0300
+Message-ID: <1306913345.20872.116.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -10,217 +9,115 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4333 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1641 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752767Ab1FAH2i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 03:28:38 -0400
+	id S1755400Ab1FAH3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 03:29:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move BCM8726 module detection code into a separate function to be called only once during initialization.
+Fix link status synchronization between the primary function, and rest functions.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_hsi.h  |    5 ++-
- drivers/net/bnx2x/bnx2x_link.c |  100 ++++++++++++++++++++++++++++-----------
- drivers/net/bnx2x/bnx2x_link.h |    4 ++
- drivers/net/bnx2x/bnx2x_main.c |    4 ++
- drivers/net/bnx2x/bnx2x_reg.h  |    1 +
- 5 files changed, 85 insertions(+), 29 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |   29 ++++++++++++++++++++++++-----
+ 1 files changed, 24 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index 5bfdbcc..c308a48 100644
---- a/drivers/net/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -263,7 +263,10 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
- #define PORT_HW_CFG_FAULT_MODULE_LED_GPIO2		      0x00000200
- #define PORT_HW_CFG_FAULT_MODULE_LED_GPIO3		      0x00000300
- #define PORT_HW_CFG_FAULT_MODULE_LED_DISABLED		      0x00000400
--	u32 Reserved01[11];				    /* 0x158 */
-+
-+	u32 Reserved01[10];				    /* 0x158 */
-+
-+	u32 aeu_int_mask;					/* 0x190 */
- 
- 	u32 media_type;					/* 0x194 */
- #define PORT_HW_CFG_MEDIA_TYPE_PHY0_MASK		      0x000000FF
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index 81bcd61..e44c19d 100644
+index e44c19d..1816b2d 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -1915,8 +1915,15 @@ void bnx2x_link_status_update(struct link_params *params,
- 		PORT_HW_CFG_MEDIA_TYPE_PHY2_SHIFT;
- 	DP(NETIF_MSG_LINK, "media_types = 0x%x\n", media_types);
- 
--	DP(NETIF_MSG_LINK, "link_status 0x%x  phy_link_up %x\n",
--		 vars->link_status, vars->phy_link_up);
-+	/* Sync AEU offset */
-+	sync_offset = params->shmem_base +
-+			offsetof(struct shmem_region,
-+				 dev_info.port_hw_config[port].aeu_int_mask);
+@@ -1786,12 +1786,15 @@ void bnx2x_link_status_update(struct link_params *params,
+ 	u8 link_10g;
+ 	u8 port = params->port;
+ 	u32 sync_offset, media_types;
++	/* Update PHY configuration */
++	set_phy_vars(params, vars);
 +
-+	vars->aeu_int_mask = REG_RD(bp, sync_offset);
-+
-+	DP(NETIF_MSG_LINK, "link_status 0x%x  phy_link_up %x int_mask 0x%x\n",
-+		 vars->link_status, vars->phy_link_up, vars->aeu_int_mask);
- 	DP(NETIF_MSG_LINK, "line_speed %x  duplex %x  flow_ctrl 0x%x\n",
- 		 vars->line_speed, vars->duplex, vars->flow_ctrl);
- }
-@@ -5522,8 +5529,6 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
- 				  struct link_vars *vars)
- {
- 	struct bnx2x *bp = params->bp;
--	u32 val;
--	u32 swap_val, swap_override, aeu_gpio_mask, offset;
- 	DP(NETIF_MSG_LINK, "Initializing BCM8726\n");
+ 	vars->link_status = REG_RD(bp, params->shmem_base +
+ 				   offsetof(struct shmem_region,
+ 					    port_mb[port].link_status));
  
- 	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 1<<15);
-@@ -5602,30 +5607,6 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
- 				 phy->tx_preemphasis[1]);
+ 	vars->link_up = (vars->link_status & LINK_STATUS_LINK_UP);
+-
++	vars->phy_flags = PHY_XGXS_FLAG;
+ 	if (vars->link_up) {
+ 		DP(NETIF_MSG_LINK, "phy link up\n");
+ 
+@@ -3436,7 +3439,11 @@ static int bnx2x_link_initialize(struct link_params *params,
  	}
  
--	/* Set GPIO3 to trigger SFP+ module insertion/removal */
--	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_3,
--		       MISC_REGISTERS_GPIO_INPUT_HI_Z, params->port);
--
--	/* The GPIO should be swapped if the swap register is set and active */
--	swap_val = REG_RD(bp, NIG_REG_PORT_SWAP);
--	swap_override = REG_RD(bp, NIG_REG_STRAP_OVERRIDE);
--
--	/* Select function upon port-swap configuration */
--	if (params->port == 0) {
--		offset = MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0;
--		aeu_gpio_mask = (swap_val && swap_override) ?
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1 :
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0;
--	} else {
--		offset = MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0;
--		aeu_gpio_mask = (swap_val && swap_override) ?
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0 :
--			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1;
--	}
--	val = REG_RD(bp, offset);
--	/* add GPIO3 to group */
--	val |= aeu_gpio_mask;
--	REG_WR(bp, offset, val);
- 	return 0;
- 
- }
-@@ -8521,3 +8502,66 @@ void bnx2x_hw_reset_phy(struct link_params *params)
+ 	/* Init external phy*/
+-	if (!non_ext_phy)
++	if (non_ext_phy) {
++		if (params->phy[INT_PHY].supported &
++		    SUPPORTED_FIBRE)
++			vars->link_status |= LINK_STATUS_SERDES_LINK;
++	} else {
+ 		for (phy_index = EXT_PHY1; phy_index < params->num_phys;
+ 		      phy_index++) {
+ 			/*
+@@ -3445,6 +3452,10 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 			 * need to initialize the first phy, since they are
+ 			 * connected.
+ 			 */
++			if (params->phy[phy_index].supported &
++			    SUPPORTED_FIBRE)
++				vars->link_status |= LINK_STATUS_SERDES_LINK;
++
+ 			if (phy_index == EXT_PHY2 &&
+ 			    (bnx2x_phy_selection(params) ==
+ 			     PORT_HW_CFG_PHY_SELECTION_FIRST_PHY)) {
+@@ -3456,7 +3467,7 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 				&params->phy[phy_index],
+ 				params, vars);
  		}
- 	}
- }
-+
-+void bnx2x_init_mod_abs_int(struct bnx2x *bp, struct link_vars *vars,
-+			    u32 chip_id, u32 shmem_base, u32 shmem2_base,
-+			    u8 port)
-+{
-+	u8 gpio_num = 0xff, gpio_port = 0xff, phy_index;
-+	u32 val;
-+	u32 offset, aeu_mask, swap_val, swap_override, sync_offset;
-+
-+	{
-+		struct bnx2x_phy phy;
-+		for (phy_index = EXT_PHY1; phy_index < MAX_PHYS;
-+		      phy_index++) {
-+			if (bnx2x_populate_phy(bp, phy_index, shmem_base,
-+					       shmem2_base, port, &phy)
-+			    != 0) {
-+				DP(NETIF_MSG_LINK, "populate phy failed\n");
-+				return;
-+			}
-+			if (phy.type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) {
-+				gpio_num = MISC_REGISTERS_GPIO_3;
-+				gpio_port = port;
-+				break;
-+			}
-+		}
+-
 +	}
-+
-+	if (gpio_num == 0xff)
-+		return;
-+
-+	/* Set GPIO3 to trigger SFP+ module insertion/removal */
-+	bnx2x_set_gpio(bp, gpio_num, MISC_REGISTERS_GPIO_INPUT_HI_Z, gpio_port);
-+
-+	swap_val = REG_RD(bp, NIG_REG_PORT_SWAP);
-+	swap_override = REG_RD(bp, NIG_REG_STRAP_OVERRIDE);
-+	gpio_port ^= (swap_val && swap_override);
-+
-+	vars->aeu_int_mask = AEU_INPUTS_ATTN_BITS_GPIO0_FUNCTION_0 <<
-+		(gpio_num + (gpio_port << 2));
-+
-+	sync_offset = shmem_base +
-+		offsetof(struct shmem_region,
-+			 dev_info.port_hw_config[port].aeu_int_mask);
-+	REG_WR(bp, sync_offset, vars->aeu_int_mask);
-+
-+	DP(NETIF_MSG_LINK, "Setting MOD_ABS (GPIO%d_P%d) AEU to 0x%x\n",
-+		       gpio_num, gpio_port, vars->aeu_int_mask);
-+
-+	if (port == 0)
-+		offset = MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0;
-+	else
-+		offset = MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0;
-+
-+	/* Open appropriate AEU for interrupts */
-+	aeu_mask = REG_RD(bp, offset);
-+	aeu_mask |= vars->aeu_int_mask;
-+	REG_WR(bp, offset, aeu_mask);
-+
-+	/* Enable the GPIO to trigger interrupt */
-+	val = REG_RD(bp, MISC_REG_GPIO_EVENT_EN);
-+	val |= 1 << (gpio_num + (gpio_port << 2));
-+	REG_WR(bp, MISC_REG_GPIO_EVENT_EN, val);
-+}
-diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/bnx2x/bnx2x_link.h
-index 906b511..a106d8c 100644
---- a/drivers/net/bnx2x/bnx2x_link.h
-+++ b/drivers/net/bnx2x/bnx2x_link.h
-@@ -277,6 +277,7 @@ struct link_vars {
- 	u8 fault_detected;
- 	u8 rsrv1;
- 	u16 rsrv2;
-+	u32 aeu_int_mask;
- };
+ 	/* Reset the interrupt indication after phy was initialized */
+ 	bnx2x_bits_dis(bp, NIG_REG_STATUS_INTERRUPT_PORT0 +
+ 		       params->port*4,
+@@ -3464,6 +3475,7 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 			NIG_STATUS_XGXS0_LINK_STATUS |
+ 			NIG_STATUS_SERDES0_LINK_STATUS |
+ 			NIG_MASK_MI_INT));
++	bnx2x_update_mng(params, vars->link_status);
+ 	return rc;
+ }
  
- /***********************************************************/
-@@ -401,4 +402,7 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos);
- void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
- 						 u32 pfc_frames_sent[2],
- 						 u32 pfc_frames_received[2]);
-+void bnx2x_init_mod_abs_int(struct bnx2x *bp, struct link_vars *vars,
-+			    u32 chip_id, u32 shmem_base, u32 shmem2_base,
-+			    u8 port);
- #endif /* BNX2X_LINK_H */
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 08e9549..ee36001 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -4450,6 +4450,10 @@ void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
+@@ -3507,7 +3519,12 @@ static int bnx2x_update_link_down(struct link_params *params,
+ 	vars->mac_type = MAC_TYPE_NONE;
  
- #endif
+ 	/* update shared memory */
+-	vars->link_status = 0;
++	vars->link_status &= ~(LINK_STATUS_SPEED_AND_DUPLEX_MASK |
++			       LINK_STATUS_LINK_UP |
++			       LINK_STATUS_AUTO_NEGOTIATE_COMPLETE |
++			       LINK_STATUS_RX_FLOW_CONTROL_FLAG_MASK |
++			       LINK_STATUS_TX_FLOW_CONTROL_FLAG_MASK |
++			       LINK_STATUS_PARALLEL_DETECTION_FLAG_MASK);
+ 	vars->line_speed = 0;
+ 	bnx2x_update_mng(params, vars->link_status);
  
-+	/* Initialize MOD_ABS interrupts */
-+	bnx2x_init_mod_abs_int(bp, &bp->link_vars, bp->common.chip_id,
-+			       bp->common.shmem_base, bp->common.shmem2_base,
-+			       BP_PORT(bp));
- 	/* ensure status block indices were read */
- 	rmb();
- 
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 11d3525..949e8bd 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -5184,6 +5184,7 @@
- #define AEU_INPUTS_ATTN_BITS_DMAE_HW_INTERRUPT		      (1<<11)
- #define AEU_INPUTS_ATTN_BITS_DOORBELLQ_HW_INTERRUPT	      (1<<13)
- #define AEU_INPUTS_ATTN_BITS_DOORBELLQ_PARITY_ERROR	      (1<<12)
-+#define AEU_INPUTS_ATTN_BITS_GPIO0_FUNCTION_0		      (1<<2)
- #define AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0		      (1<<5)
- #define AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1		      (1<<9)
- #define AEU_INPUTS_ATTN_BITS_IGU_PARITY_ERROR		      (1<<12)
+@@ -3597,7 +3614,7 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ 	u8 is_mi_int = 0;
+ 	u16 ext_phy_line_speed = 0, prev_line_speed = vars->line_speed;
+ 	u8 active_external_phy = INT_PHY;
+-	vars->link_status = 0;
++
+ 	for (phy_index = INT_PHY; phy_index < params->num_phys;
+ 	      phy_index++) {
+ 		phy_vars[phy_index].flow_ctrl = 0;
+@@ -3738,6 +3755,8 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ 		if (params->phy[active_external_phy].supported &
+ 		    SUPPORTED_FIBRE)
+ 			vars->link_status |= LINK_STATUS_SERDES_LINK;
++		else
++			vars->link_status &= ~LINK_STATUS_SERDES_LINK;
+ 		DP(NETIF_MSG_LINK, "Active external phy selected: %x\n",
+ 			   active_external_phy);
+ 	}
 -- 
 1.7.1
 
