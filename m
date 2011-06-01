@@ -1,7 +1,8 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 06/11] bnx2x: Fix BCM84833 settings
-Date: Wed, 1 Jun 2011 10:28:10 +0300
-Message-ID: <1306913290.20872.113.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 08/11] bnx2x: Adjust BCM8726 module detection
+ settings
+Date: Wed, 1 Jun 2011 10:28:43 +0300
+Message-ID: <1306913323.20872.115.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -11,453 +12,215 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4333 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754393Ab1FAH2I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 03:28:08 -0400
+	id S1752767Ab1FAH2i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 03:28:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix BCM84833 register settings.
+Move BCM8726 module detection code into a separate function to be called only once during initialization.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_link.c |  206 ++++++++++++++++++++++++++++-----------
- drivers/net/bnx2x/bnx2x_reg.h  |   23 +++++
- 2 files changed, 171 insertions(+), 58 deletions(-)
+ drivers/net/bnx2x/bnx2x_hsi.h  |    5 ++-
+ drivers/net/bnx2x/bnx2x_link.c |  100 ++++++++++++++++++++++++++++-----------
+ drivers/net/bnx2x/bnx2x_link.h |    4 ++
+ drivers/net/bnx2x/bnx2x_main.c |    4 ++
+ drivers/net/bnx2x/bnx2x_reg.h  |    1 +
+ 5 files changed, 85 insertions(+), 29 deletions(-)
 
+diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
+index 5bfdbcc..c308a48 100644
+--- a/drivers/net/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/bnx2x/bnx2x_hsi.h
+@@ -263,7 +263,10 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
+ #define PORT_HW_CFG_FAULT_MODULE_LED_GPIO2		      0x00000200
+ #define PORT_HW_CFG_FAULT_MODULE_LED_GPIO3		      0x00000300
+ #define PORT_HW_CFG_FAULT_MODULE_LED_DISABLED		      0x00000400
+-	u32 Reserved01[11];				    /* 0x158 */
++
++	u32 Reserved01[10];				    /* 0x158 */
++
++	u32 aeu_int_mask;					/* 0x190 */
+ 
+ 	u32 media_type;					/* 0x194 */
+ #define PORT_HW_CFG_MEDIA_TYPE_PHY0_MASK		      0x000000FF
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index ffc3c16..6c70e86 100644
+index 81bcd61..e44c19d 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -6099,111 +6099,106 @@ static void bnx2x_8727_link_reset(struct bnx2x_phy *phy,
- static void bnx2x_save_848xx_spirom_version(struct bnx2x_phy *phy,
- 					   struct link_params *params)
- {
--	u16 val, fw_ver1, fw_ver2, cnt, adj;
-+	u16 val, fw_ver1, fw_ver2, cnt;
-+	u8 port;
- 	struct bnx2x *bp = params->bp;
+@@ -1915,8 +1915,15 @@ void bnx2x_link_status_update(struct link_params *params,
+ 		PORT_HW_CFG_MEDIA_TYPE_PHY2_SHIFT;
+ 	DP(NETIF_MSG_LINK, "media_types = 0x%x\n", media_types);
  
--	adj = 0;
--	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
--		adj = -1;
-+	port = params->port;
- 
- 	/* For the 32 bits registers in 848xx, access via MDIO2ARM interface.*/
- 	/* (1) set register 0xc200_0014(SPI_BRIDGE_CTRL_2) to 0x03000000 */
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA819 + adj, 0x0014);
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81A + adj, 0xc200);
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81B + adj, 0x0000);
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81C + adj, 0x0300);
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA817 + adj, 0x0009);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA819, 0x0014);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81A, 0xc200);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81B, 0x0000);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81C, 0x0300);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA817, 0x0009);
- 
- 	for (cnt = 0; cnt < 100; cnt++) {
--		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA818 + adj, &val);
-+		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA818, &val);
- 		if (val & 1)
- 			break;
- 		udelay(5);
- 	}
- 	if (cnt == 100) {
- 		DP(NETIF_MSG_LINK, "Unable to read 848xx phy fw version(1)\n");
--		bnx2x_save_spirom_version(bp, params->port, 0,
-+		bnx2x_save_spirom_version(bp, port, 0,
- 					  phy->ver_addr);
- 		return;
- 	}
- 
-
- 	/* 2) read register 0xc200_0000 (SPI_FW_STATUS) */
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA819 + adj, 0x0000);
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81A + adj, 0xc200);
--	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA817 + adj, 0x000A);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA819, 0x0000);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA81A, 0xc200);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, 0xA817, 0x000A);
- 	for (cnt = 0; cnt < 100; cnt++) {
--		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA818 + adj, &val);
-+		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA818, &val);
- 		if (val & 1)
- 			break;
- 		udelay(5);
- 	}
- 	if (cnt == 100) {
- 		DP(NETIF_MSG_LINK, "Unable to read 848xx phy fw version(2)\n");
--		bnx2x_save_spirom_version(bp, params->port, 0,
-+		bnx2x_save_spirom_version(bp, port, 0,
- 					  phy->ver_addr);
- 		return;
- 	}
- 
- 	/* lower 16 bits of the register SPI_FW_STATUS */
--	bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA81B + adj, &fw_ver1);
-+	bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA81B, &fw_ver1);
- 	/* upper 16 bits of register SPI_FW_STATUS */
--	bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA81C + adj, &fw_ver2);
-+	bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, 0xA81C, &fw_ver2);
- 
--	bnx2x_save_spirom_version(bp, params->port, (fw_ver2<<16) | fw_ver1,
-+	bnx2x_save_spirom_version(bp, port, (fw_ver2<<16) | fw_ver1,
- 				  phy->ver_addr);
+-	DP(NETIF_MSG_LINK, "link_status 0x%x  phy_link_up %x\n",
+-		 vars->link_status, vars->phy_link_up);
++	/* Sync AEU offset */
++	sync_offset = params->shmem_base +
++			offsetof(struct shmem_region,
++				 dev_info.port_hw_config[port].aeu_int_mask);
++
++	vars->aeu_int_mask = REG_RD(bp, sync_offset);
++
++	DP(NETIF_MSG_LINK, "link_status 0x%x  phy_link_up %x int_mask 0x%x\n",
++		 vars->link_status, vars->phy_link_up, vars->aeu_int_mask);
+ 	DP(NETIF_MSG_LINK, "line_speed %x  duplex %x  flow_ctrl 0x%x\n",
+ 		 vars->line_speed, vars->duplex, vars->flow_ctrl);
  }
- 
- static void bnx2x_848xx_set_led(struct bnx2x *bp,
- 				struct bnx2x_phy *phy)
- {
--	u16 val, adj;
--
--	adj = 0;
--	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
--		adj = -1;
-+	u16 val;
- 
- 	/* PHYC_CTL_LED_CTL */
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_PMA_DEVAD,
--			MDIO_PMA_REG_8481_LINK_SIGNAL + adj, &val);
-+			MDIO_PMA_REG_8481_LINK_SIGNAL, &val);
- 	val &= 0xFE00;
- 	val |= 0x0092;
- 
- 	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD,
--			 MDIO_PMA_REG_8481_LINK_SIGNAL + adj, val);
-+			 MDIO_PMA_REG_8481_LINK_SIGNAL, val);
- 
- 	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD,
--			 MDIO_PMA_REG_8481_LED1_MASK + adj,
-+			 MDIO_PMA_REG_8481_LED1_MASK,
- 			 0x80);
- 
- 	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD,
--			 MDIO_PMA_REG_8481_LED2_MASK + adj,
-+			 MDIO_PMA_REG_8481_LED2_MASK,
- 			 0x18);
- 
- 	/* Select activity source by Tx and Rx, as suggested by PHY AE */
- 	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD,
--			 MDIO_PMA_REG_8481_LED3_MASK + adj,
-+			 MDIO_PMA_REG_8481_LED3_MASK,
- 			 0x0006);
- 
- 	/* Select the closest activity blink rate to that in 10/100/1000 */
- 	bnx2x_cl45_write(bp, phy,
- 			MDIO_PMA_DEVAD,
--			MDIO_PMA_REG_8481_LED3_BLINK + adj,
-+			MDIO_PMA_REG_8481_LED3_BLINK,
- 			0);
- 
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_PMA_DEVAD,
--			MDIO_PMA_REG_84823_CTL_LED_CTL_1 + adj, &val);
-+			MDIO_PMA_REG_84823_CTL_LED_CTL_1, &val);
- 	val |= MDIO_PMA_REG_84823_LED3_STRETCH_EN; /* stretch_en for LED3*/
- 
- 	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD,
--			 MDIO_PMA_REG_84823_CTL_LED_CTL_1 + adj, val);
-+			 MDIO_PMA_REG_84823_CTL_LED_CTL_1, val);
- 
- 	/* 'Interrupt Mask' */
- 	bnx2x_cl45_write(bp, phy,
-@@ -6217,6 +6212,13 @@ static int bnx2x_848xx_cmn_config_init(struct bnx2x_phy *phy,
- {
- 	struct bnx2x *bp = params->bp;
- 	u16 autoneg_val, an_1000_val, an_10_100_val;
-+	u16 tmp_req_line_speed;
-+
-+	tmp_req_line_speed = phy->req_line_speed;
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
-+		if (phy->req_line_speed == SPEED_10000)
-+			phy->req_line_speed = SPEED_AUTO_NEG;
-+
- 	/*
- 	 * This phy uses the NIG latch mechanism since link indication
- 	 * arrives through its LED4 and not via its LASI signal, so we
-@@ -6336,6 +6338,8 @@ static int bnx2x_848xx_cmn_config_init(struct bnx2x_phy *phy,
- 	/* Save spirom version */
- 	bnx2x_save_848xx_spirom_version(phy, params);
- 
-+	phy->req_line_speed = tmp_req_line_speed;
-+
- 	return 0;
- }
- 
-@@ -6356,33 +6360,109 @@ static int bnx2x_8481_config_init(struct bnx2x_phy *phy,
- 	return bnx2x_848xx_cmn_config_init(phy, params, vars);
- }
- 
-+
-+#define PHY84833_HDSHK_WAIT 300
-+static int bnx2x_84833_pair_swap_cfg(struct bnx2x_phy *phy,
-+				   struct link_params *params,
-+				   struct link_vars *vars)
-+{
-+	u32 idx;
-+	u16 val;
-+	u16 data = 0x01b1;
-+	struct bnx2x *bp = params->bp;
-+	/* Do pair swap */
-+
-+
-+	/* Write CMD_OPEN_OVERRIDE to STATUS reg */
-+	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+			MDIO_84833_TOP_CFG_SCRATCH_REG2,
-+			PHY84833_CMD_OPEN_OVERRIDE);
-+	for (idx = 0; idx < PHY84833_HDSHK_WAIT; idx++) {
-+		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
-+				MDIO_84833_TOP_CFG_SCRATCH_REG2, &val);
-+		if (val == PHY84833_CMD_OPEN_FOR_CMDS)
-+			break;
-+		msleep(1);
-+	}
-+	if (idx >= PHY84833_HDSHK_WAIT) {
-+		DP(NETIF_MSG_LINK, "Pairswap: FW not ready.\n");
-+		return -EINVAL;
-+	}
-+
-+	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+			MDIO_84833_TOP_CFG_SCRATCH_REG4,
-+			data);
-+	/* Issue pair swap command */
-+	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+			MDIO_84833_TOP_CFG_SCRATCH_REG0,
-+			PHY84833_DIAG_CMD_PAIR_SWAP_CHANGE);
-+	for (idx = 0; idx < PHY84833_HDSHK_WAIT; idx++) {
-+		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
-+				MDIO_84833_TOP_CFG_SCRATCH_REG2, &val);
-+		if ((val == PHY84833_CMD_COMPLETE_PASS) ||
-+			(val == PHY84833_CMD_COMPLETE_ERROR))
-+			break;
-+		msleep(1);
-+	}
-+	if ((idx >= PHY84833_HDSHK_WAIT) ||
-+		(val == PHY84833_CMD_COMPLETE_ERROR)) {
-+		DP(NETIF_MSG_LINK, "Pairswap: override failed.\n");
-+		return -EINVAL;
-+	}
-+	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+			MDIO_84833_TOP_CFG_SCRATCH_REG2,
-+			PHY84833_CMD_CLEAR_COMPLETE);
-+	DP(NETIF_MSG_LINK, "Pairswap OK, val=0x%x\n", data);
-+	return 0;
-+}
-+
- static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 				   struct link_params *params,
- 				   struct link_vars *vars)
- {
- 	struct bnx2x *bp = params->bp;
- 	u8 port, initialize = 1;
--	u16 val, adj;
-+	u16 val;
- 	u16 temp;
- 	u32 actual_phy_selection, cms_enable;
- 	int rc = 0;
- 
--	/* This is just for MDIO_CTL_REG_84823_MEDIA register. */
--	adj = 0;
--	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
--		adj = 3;
--
- 	msleep(1);
--	if (CHIP_IS_E2(bp))
-+
-+	if (!(CHIP_IS_E1(bp)))
- 		port = BP_PATH(bp);
- 	else
- 		port = params->port;
--	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_3,
--		       MISC_REGISTERS_GPIO_OUTPUT_HIGH,
--		       port);
-+
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84823) {
-+		bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_3,
-+			       MISC_REGISTERS_GPIO_OUTPUT_HIGH,
-+			       port);
-+	} else {
-+		bnx2x_cl45_write(bp, phy,
-+				MDIO_PMA_DEVAD,
-+				MDIO_PMA_REG_CTRL, 0x8000);
-+	}
-+
- 	bnx2x_wait_reset_complete(bp, phy, params);
- 	/* Wait for GPHY to come out of reset */
- 	msleep(50);
-+
-+	/* Bring PHY out of super isolate mode */
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
-+		bnx2x_cl45_read(bp, phy,
-+				MDIO_CTL_DEVAD,
-+				MDIO_84833_TOP_CFG_XGPHY_STRAP1, &val);
-+		val &= ~MDIO_84833_SUPER_ISOLATE;
-+		bnx2x_cl45_write(bp, phy,
-+				MDIO_CTL_DEVAD,
-+				MDIO_84833_TOP_CFG_XGPHY_STRAP1, val);
-+		bnx2x_wait_reset_complete(bp, phy, params);
-+	}
-+
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
-+		bnx2x_84833_pair_swap_cfg(phy, params, vars);
-+
- 	/*
- 	 * BCM84823 requires that XGXS links up first @ 10G for normal behavior
- 	 */
-@@ -6395,7 +6475,7 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 	/* Set dual-media configuration according to configuration */
- 
- 	bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
--			MDIO_CTL_REG_84823_MEDIA + adj, &val);
-+			MDIO_CTL_REG_84823_MEDIA, &val);
- 	val &= ~(MDIO_CTL_REG_84823_MEDIA_MAC_MASK |
- 		 MDIO_CTL_REG_84823_MEDIA_LINE_MASK |
- 		 MDIO_CTL_REG_84823_MEDIA_COPPER_CORE_DOWN |
-@@ -6428,7 +6508,7 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 		val |= MDIO_CTL_REG_84823_MEDIA_FIBER_1G;
- 
- 	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
--			 MDIO_CTL_REG_84823_MEDIA + adj, val);
-+			 MDIO_CTL_REG_84823_MEDIA, val);
- 	DP(NETIF_MSG_LINK, "Multi_phy config = 0x%x, Media control = 0x%x\n",
- 		   params->multi_phy_config, val);
- 
-@@ -6459,20 +6539,16 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
+@@ -5522,8 +5529,6 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
  				  struct link_vars *vars)
  {
  	struct bnx2x *bp = params->bp;
--	u16 val, val1, val2, adj;
-+	u16 val, val1, val2;
- 	u8 link_up = 0;
+-	u32 val;
+-	u32 swap_val, swap_override, aeu_gpio_mask, offset;
+ 	DP(NETIF_MSG_LINK, "Initializing BCM8726\n");
  
--	/* Reg offset adjustment for 84833 */
--	adj = 0;
--	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
--		adj = -1;
+ 	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 1<<15);
+@@ -5602,30 +5607,6 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
+ 				 phy->tx_preemphasis[1]);
+ 	}
  
- 	/* Check 10G-BaseT link status */
- 	/* Check PMD signal ok */
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_AN_DEVAD, 0xFFFA, &val1);
- 	bnx2x_cl45_read(bp, phy,
--			MDIO_PMA_DEVAD, MDIO_PMA_REG_8481_PMD_SIGNAL + adj,
-+			MDIO_PMA_DEVAD, MDIO_PMA_REG_8481_PMD_SIGNAL,
- 			&val2);
- 	DP(NETIF_MSG_LINK, "BCM848xx: PMD_SIGNAL 1.a811 = 0x%x\n", val2);
- 
-@@ -6577,13 +6653,21 @@ static void bnx2x_848x3_link_reset(struct bnx2x_phy *phy,
- {
- 	struct bnx2x *bp = params->bp;
- 	u8 port;
--	if (CHIP_IS_E2(bp))
-+
-+	if (!(CHIP_IS_E1(bp)))
- 		port = BP_PATH(bp);
- 	else
- 		port = params->port;
+-	/* Set GPIO3 to trigger SFP+ module insertion/removal */
 -	bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_3,
--		       MISC_REGISTERS_GPIO_OUTPUT_LOW,
--		       port);
-+
-+	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84823) {
-+		bnx2x_set_gpio(bp, MISC_REGISTERS_GPIO_3,
-+			       MISC_REGISTERS_GPIO_OUTPUT_LOW,
-+			       port);
-+	} else {
-+		bnx2x_cl45_write(bp, phy,
-+				MDIO_PMA_DEVAD,
-+				MDIO_PMA_REG_CTRL, 0x800);
-+	}
+-		       MISC_REGISTERS_GPIO_INPUT_HI_Z, params->port);
+-
+-	/* The GPIO should be swapped if the swap register is set and active */
+-	swap_val = REG_RD(bp, NIG_REG_PORT_SWAP);
+-	swap_override = REG_RD(bp, NIG_REG_STRAP_OVERRIDE);
+-
+-	/* Select function upon port-swap configuration */
+-	if (params->port == 0) {
+-		offset = MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0;
+-		aeu_gpio_mask = (swap_val && swap_override) ?
+-			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1 :
+-			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0;
+-	} else {
+-		offset = MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0;
+-		aeu_gpio_mask = (swap_val && swap_override) ?
+-			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0 :
+-			AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1;
+-	}
+-	val = REG_RD(bp, offset);
+-	/* add GPIO3 to group */
+-	val |= aeu_gpio_mask;
+-	REG_WR(bp, offset, val);
+ 	return 0;
+ 
  }
- 
- static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
-@@ -6591,11 +6675,17 @@ static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
- {
- 	struct bnx2x *bp = params->bp;
- 	u16 val;
-+	u8 port;
+@@ -8521,3 +8502,66 @@ void bnx2x_hw_reset_phy(struct link_params *params)
+ 		}
+ 	}
+ }
 +
-+	if (!(CHIP_IS_E1(bp)))
-+		port = BP_PATH(bp);
++void bnx2x_init_mod_abs_int(struct bnx2x *bp, struct link_vars *vars,
++			    u32 chip_id, u32 shmem_base, u32 shmem2_base,
++			    u8 port)
++{
++	u8 gpio_num = 0xff, gpio_port = 0xff, phy_index;
++	u32 val;
++	u32 offset, aeu_mask, swap_val, swap_override, sync_offset;
++
++	{
++		struct bnx2x_phy phy;
++		for (phy_index = EXT_PHY1; phy_index < MAX_PHYS;
++		      phy_index++) {
++			if (bnx2x_populate_phy(bp, phy_index, shmem_base,
++					       shmem2_base, port, &phy)
++			    != 0) {
++				DP(NETIF_MSG_LINK, "populate phy failed\n");
++				return;
++			}
++			if (phy.type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726) {
++				gpio_num = MISC_REGISTERS_GPIO_3;
++				gpio_port = port;
++				break;
++			}
++		}
++	}
++
++	if (gpio_num == 0xff)
++		return;
++
++	/* Set GPIO3 to trigger SFP+ module insertion/removal */
++	bnx2x_set_gpio(bp, gpio_num, MISC_REGISTERS_GPIO_INPUT_HI_Z, gpio_port);
++
++	swap_val = REG_RD(bp, NIG_REG_PORT_SWAP);
++	swap_override = REG_RD(bp, NIG_REG_STRAP_OVERRIDE);
++	gpio_port ^= (swap_val && swap_override);
++
++	vars->aeu_int_mask = AEU_INPUTS_ATTN_BITS_GPIO0_FUNCTION_0 <<
++		(gpio_num + (gpio_port << 2));
++
++	sync_offset = shmem_base +
++		offsetof(struct shmem_region,
++			 dev_info.port_hw_config[port].aeu_int_mask);
++	REG_WR(bp, sync_offset, vars->aeu_int_mask);
++
++	DP(NETIF_MSG_LINK, "Setting MOD_ABS (GPIO%d_P%d) AEU to 0x%x\n",
++		       gpio_num, gpio_port, vars->aeu_int_mask);
++
++	if (port == 0)
++		offset = MISC_REG_AEU_ENABLE1_FUNC_0_OUT_0;
 +	else
-+		port = params->port;
++		offset = MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0;
++
++	/* Open appropriate AEU for interrupts */
++	aeu_mask = REG_RD(bp, offset);
++	aeu_mask |= vars->aeu_int_mask;
++	REG_WR(bp, offset, aeu_mask);
++
++	/* Enable the GPIO to trigger interrupt */
++	val = REG_RD(bp, MISC_REG_GPIO_EVENT_EN);
++	val |= 1 << (gpio_num + (gpio_port << 2));
++	REG_WR(bp, MISC_REG_GPIO_EVENT_EN, val);
++}
+diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/bnx2x/bnx2x_link.h
+index 906b511..a106d8c 100644
+--- a/drivers/net/bnx2x/bnx2x_link.h
++++ b/drivers/net/bnx2x/bnx2x_link.h
+@@ -277,6 +277,7 @@ struct link_vars {
+ 	u8 fault_detected;
+ 	u8 rsrv1;
+ 	u16 rsrv2;
++	u32 aeu_int_mask;
+ };
  
- 	switch (mode) {
- 	case LED_MODE_OFF:
+ /***********************************************************/
+@@ -401,4 +402,7 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos);
+ void bnx2x_pfc_statistic(struct link_params *params, struct link_vars *vars,
+ 						 u32 pfc_frames_sent[2],
+ 						 u32 pfc_frames_received[2]);
++void bnx2x_init_mod_abs_int(struct bnx2x *bp, struct link_vars *vars,
++			    u32 chip_id, u32 shmem_base, u32 shmem2_base,
++			    u8 port);
+ #endif /* BNX2X_LINK_H */
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 08e9549..ee36001 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -4450,6 +4450,10 @@ void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
  
--		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE OFF\n", params->port);
-+		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE OFF\n", port);
+ #endif
  
- 		if ((params->hw_led_mode << SHARED_HW_CFG_LED_MODE_SHIFT) ==
- 		    SHARED_HW_CFG_LED_EXTPHY1) {
-@@ -6631,7 +6721,7 @@ static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
- 	case LED_MODE_FRONT_PANEL_OFF:
++	/* Initialize MOD_ABS interrupts */
++	bnx2x_init_mod_abs_int(bp, &bp->link_vars, bp->common.chip_id,
++			       bp->common.shmem_base, bp->common.shmem2_base,
++			       BP_PORT(bp));
+ 	/* ensure status block indices were read */
+ 	rmb();
  
- 		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE FRONT PANEL OFF\n",
--		   params->port);
-+		   port);
- 
- 		if ((params->hw_led_mode << SHARED_HW_CFG_LED_MODE_SHIFT) ==
- 		    SHARED_HW_CFG_LED_EXTPHY1) {
-@@ -6666,7 +6756,7 @@ static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
- 		break;
- 	case LED_MODE_ON:
- 
--		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE ON\n", params->port);
-+		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE ON\n", port);
- 
- 		if ((params->hw_led_mode << SHARED_HW_CFG_LED_MODE_SHIFT) ==
- 		    SHARED_HW_CFG_LED_EXTPHY1) {
-@@ -6713,7 +6803,7 @@ static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
- 
- 	case LED_MODE_OPER:
- 
--		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE OPER\n", params->port);
-+		DP(NETIF_MSG_LINK, "Port 0x%x: LED MODE OPER\n", port);
- 
- 		if ((params->hw_led_mode << SHARED_HW_CFG_LED_MODE_SHIFT) ==
- 		    SHARED_HW_CFG_LED_EXTPHY1) {
 diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 7260d09..11d3525 100644
+index 11d3525..949e8bd 100644
 --- a/drivers/net/bnx2x/bnx2x_reg.h
 +++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -6202,6 +6202,29 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_PMA_REG_84823_CTL_LED_CTL_1		0xa8e3
- #define MDIO_PMA_REG_84823_LED3_STRETCH_EN		0x0080
- 
-+/* BCM84833 only */
-+#define MDIO_84833_TOP_CFG_XGPHY_STRAP1			0x401a
-+#define MDIO_84833_SUPER_ISOLATE		0x8000
-+/* These are mailbox register set used by 84833. */
-+#define MDIO_84833_TOP_CFG_SCRATCH_REG0			0x4005
-+#define MDIO_84833_TOP_CFG_SCRATCH_REG1			0x4006
-+#define MDIO_84833_TOP_CFG_SCRATCH_REG2			0x4007
-+#define MDIO_84833_TOP_CFG_SCRATCH_REG3			0x4008
-+#define MDIO_84833_TOP_CFG_SCRATCH_REG4			0x4009
-+
-+/* Mailbox command set used by 84833. */
-+#define PHY84833_DIAG_CMD_PAIR_SWAP_CHANGE		0x2
-+/* Mailbox status set used by 84833. */
-+#define PHY84833_CMD_RECEIVED				0x0001
-+#define PHY84833_CMD_IN_PROGRESS			0x0002
-+#define PHY84833_CMD_COMPLETE_PASS			0x0004
-+#define PHY84833_CMD_COMPLETE_ERROR			0x0008
-+#define PHY84833_CMD_OPEN_FOR_CMDS			0x0010
-+#define PHY84833_CMD_SYSTEM_BOOT			0x0020
-+#define PHY84833_CMD_NOT_OPEN_FOR_CMDS			0x0040
-+#define PHY84833_CMD_CLEAR_COMPLETE			0x0080
-+#define PHY84833_CMD_OPEN_OVERRIDE			0xa5a5
-+
- #define IGU_FUNC_BASE			0x0400
- 
- #define IGU_ADDR_MSIX			0x0000
+@@ -5184,6 +5184,7 @@
+ #define AEU_INPUTS_ATTN_BITS_DMAE_HW_INTERRUPT		      (1<<11)
+ #define AEU_INPUTS_ATTN_BITS_DOORBELLQ_HW_INTERRUPT	      (1<<13)
+ #define AEU_INPUTS_ATTN_BITS_DOORBELLQ_PARITY_ERROR	      (1<<12)
++#define AEU_INPUTS_ATTN_BITS_GPIO0_FUNCTION_0		      (1<<2)
+ #define AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_0		      (1<<5)
+ #define AEU_INPUTS_ATTN_BITS_GPIO3_FUNCTION_1		      (1<<9)
+ #define AEU_INPUTS_ATTN_BITS_IGU_PARITY_ERROR		      (1<<12)
 -- 
 1.7.1
 
