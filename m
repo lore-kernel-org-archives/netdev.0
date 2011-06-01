@@ -1,45 +1,58 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
-Date: Wed, 1 Jun 2011 11:43:46 +0200
-Message-ID: <201106011143.46667.oneukum@suse.de>
-References: <1306919630-13426-1-git-send-email-metze@samba.org> <1306919630-13426-2-git-send-email-metze@samba.org>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH RFC 0/3] virtio and vhost-net capacity handling
+Date: Wed, 1 Jun 2011 12:49:37 +0300
+Message-ID: <cover.1306921434.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.name>,
-	"Greg Kroah-Hartman" <gregkh@suse.de>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stefan Metzmacher <metze@samba.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1306919630-13426-2-git-send-email-metze@samba.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 1. Juni 2011, 11:13:50 schrieb Stefan Metzmacher:
-> This avoids messages like this after suspend:
->=20
->    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
->    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
->    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4=
-, CDC NCM
->=20
-> This is important for the Ericsson F5521gw GSM/UMTS modem.
-> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm d=
-evices
-> belong together.
->=20
-> The cdc_ether module does the same.
+OK, here's a new attempt to use the new capacity api.  I also added more
+comments to clarify the logic.  Hope this is more readable.  Let me know
+pls.
 
-Yes, it does. Have you tested this with active connections and unconnec=
-ted?
+This is on top of the patches applied by Rusty.
 
-	Regards
-		Oliver
---=20
-- - -=20
-SUSE LINUX Products GmbH, GF: Jeff Hawn, Jennifer Guild, Felix Imend=F6=
-rffer, HRB 16746 (AG N=FCrnberg)=20
-Maxfeldstra=DFe 5                        =20
-90409 N=FCrnberg=20
-Germany=20
-- - -=20
+Note: there are now actually 2 calls to fee_old_xmit_skbs on
+data path so instead of passing flag '2' to the
+second one I thought we can just make each call free up
+at least 1 skb. This will work and even might be a bit faster (less
+branches), but in the end I discarded this idea as too fragile (relies
+on two calls on data path to function properly).
+
+Warning: untested. Posting now to give people chance to
+comment on the API.
+
+Michael S. Tsirkin (3):
+  virtio_ring: add capacity check API
+  virtio_net: fix tx capacity checks using new API
+  virtio_net: limit xmit polling
+
+ drivers/net/virtio_net.c     |   65 +++++++++++++++++++++++------------------
+ drivers/virtio/virtio_ring.c |    8 +++++
+ include/linux/virtio.h       |    5 +++
+ 3 files changed, 49 insertions(+), 29 deletions(-)
+
+-- 
+1.7.5.53.gc233e
