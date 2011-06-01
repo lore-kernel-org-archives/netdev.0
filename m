@@ -1,83 +1,86 @@
-From: greearb@candelatech.com
-Subject: [PATCH v3] af-packet:  Add flag to distinguish VID 0 from no-vlan.
-Date: Wed,  1 Jun 2011 09:49:10 -0700
-Message-ID: <1306946950-29360-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] net: cpu offline cause napi stall
+Date: Wed, 01 Jun 2011 18:55:21 +0200
+Message-ID: <1306947321.2890.5.camel@edumazet-laptop>
+References: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
+	 <1306930399.3476.1.camel@edumazet-laptop>
+	 <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:49694 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501Ab1FAQtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 12:49:15 -0400
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:37544 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758895Ab1FAQzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 12:55:25 -0400
+In-Reply-To: <20110601163628.GA2418@osiris.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+Le mercredi 01 juin 2011 =C3=A0 18:36 +0200, Heiko Carstens a =C3=A9cri=
+t :
+> On Wed, Jun 01, 2011 at 02:13:19PM +0200, Eric Dumazet wrote:
+> > Le mercredi 01 juin 2011 =C3=A0 12:33 +0200, Frank Blaschka a =C3=A9=
+crit :
+> > > Hi Dave, Eric,
+> > >=20
+> > > during heavy network load we turn off/on cpus.
+> > > Sometimes this causes a stall on the network device.
+> > > Digging into the dump I found out following:
+> > >=20
+> > > napi is scheduled but does not run. From the I/O buffers
+> > > and the napi state I see napi/rx_softirq processing has stopped
+> > > because the budget was reached. napi stays in the
+> > > softnet_data poll_list and the rx_softirq was raised again.
+> > >=20
+> > > I assume at this time the cpu offline comes in.
+> > > the rx softirq is raised/moved to another cpu but napi stays in t=
+he poll_list
+> > > of the softnet_data of the now offline cpu.
+> > >=20
+> > > reviewing dev_cpu_callback (net/core/dev.c) I did not find the po=
+ll_list
+> > > is transfered to the new cpu. Do you think this could cause the s=
+tall or
+> > > did I miss something?
+> > >=20
+> > > Thx for your help.
+> >=20
+> > Hi Frank
+> >=20
+> > I believe you are right, I cant see where the poll_list transfert f=
+rom
+> > dead cpu to online cpu is done.
+> >=20
+> > Do you want to prepare a patch ?
+>=20
+> Frank will be offline until next week. I assume the patch below would=
+ fix
+> the problem, however its untested. I doubt we can verify that it real=
+ly
+> fixes the problem also until next week (public holiday tomorrow).
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 6561021..6d6a7cf 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5981,6 +5981,8 @@ static int dev_cpu_callback(struct notifier_blo=
+ck *nfb,
+>  		oldsd->output_queue =3D NULL;
+>  		oldsd->output_queue_tailp =3D &oldsd->output_queue;
+>  	}
+> +	/* Append NAPI poll list from offline CPU. */
+> +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
+> =20
+>  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+>  	local_irq_enable();
 
-Currently, user-space cannot determine if a 0 tcp_vlan_tci
-means there is no VLAN tag or the VLAN ID was zero.
+Same here, I'll be offline for the next 4 days ;)
 
-Add flag to make this explicit.  User-space can check for
-TP_STATUS_VLAN_VALID || tp_vlan_tci > 0, which will be backwards
-compatible. Older could would have just checked for tp_vlan_tci,
-so it will work no worse than before.
+Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
 
-v3:  Update brace formatting, no functional change.
-
-:100644 100644 72bfa5a... 6d66ce1... M	include/linux/if_packet.h
-:100644 100644 4005b24... f7250d5... M	net/packet/af_packet.c
- include/linux/if_packet.h |    1 +
- net/packet/af_packet.c    |   15 ++++++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index 72bfa5a..6d66ce1 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -70,6 +70,7 @@ struct tpacket_auxdata {
- #define TP_STATUS_COPY		0x2
- #define TP_STATUS_LOSING	0x4
- #define TP_STATUS_CSUMNOTREADY	0x8
-+#define TP_STATUS_VLAN_VALID   0x10 /* auxdata has valid tp_vlan_tci */
- 
- /* Tx ring - header status */
- #define TP_STATUS_AVAILABLE	0x0
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4005b24..f7250d5 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -818,7 +818,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 			getnstimeofday(&ts);
- 		h.h2->tp_sec = ts.tv_sec;
- 		h.h2->tp_nsec = ts.tv_nsec;
--		h.h2->tp_vlan_tci = vlan_tx_tag_get(skb);
-+		if (vlan_tx_tag_present(skb)) {
-+			h.h2->tp_vlan_tci = vlan_tx_tag_get(skb);
-+			status |= TP_STATUS_VLAN_VALID;
-+		} else {
-+			h.h2->tp_vlan_tci = 0;
-+		}
- 		hdrlen = sizeof(*h.h2);
- 		break;
- 	default:
-@@ -1760,8 +1765,12 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		aux.tp_snaplen = skb->len;
- 		aux.tp_mac = 0;
- 		aux.tp_net = skb_network_offset(skb);
--		aux.tp_vlan_tci = vlan_tx_tag_get(skb);
--
-+		if (vlan_tx_tag_present(skb)) {
-+			aux.tp_vlan_tci = vlan_tx_tag_get(skb);
-+			aux.tp_status |= TP_STATUS_VLAN_VALID;
-+		} else {
-+			aux.tp_vlan_tci = 0;
-+		}
- 		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
- 	}
- 
--- 
-1.7.3.4
 
