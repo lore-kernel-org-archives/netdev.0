@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 04/11] bnx2x: Add TX fault check for fiber PHYs
-Date: Wed, 1 Jun 2011 10:27:06 +0300
-Message-ID: <1306913226.20872.111.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 05/11] bnx2x: Fix over current port display
+Date: Wed, 1 Jun 2011 10:27:48 +0300
+Message-ID: <1306913268.20872.112.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -9,194 +9,73 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4509 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4820 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753235Ab1FAH1D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 03:27:03 -0400
+	id S1755351Ab1FAH1r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 03:27:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case TX fault is detected on Fiber PHYs, declare the link as down until TX fault is gone.
+On 57712 chip, port number is enumerated per engine, so it requires adjustment in port display to the user.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_link.c |   72 +++++++++++++++++++++++++++++++++++++--
- drivers/net/bnx2x/bnx2x_link.h |    3 ++
- drivers/net/bnx2x/bnx2x_reg.h  |    1 +
- 3 files changed, 72 insertions(+), 4 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index 7705e79..87c5d9f 100644
+index 87c5d9f..ffc3c16 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -3495,6 +3495,7 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
- 		phy_vars[phy_index].duplex = DUPLEX_FULL;
- 		phy_vars[phy_index].phy_link_up = 0;
- 		phy_vars[phy_index].link_up = 0;
-+		phy_vars[phy_index].fault_detected = 0;
- 	}
- 
- 	DP(NETIF_MSG_LINK, "port %x, XGXS?%x, int_status 0x%x\n",
-@@ -3707,7 +3708,8 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+@@ -4919,15 +4919,14 @@ static void bnx2x_8727_power_module(struct bnx2x *bp,
  	 */
- 	vars->link_up = (vars->phy_link_up &&
- 			 (ext_phy_link_up ||
--			  SINGLE_MEDIA_DIRECT(params)));
-+			  SINGLE_MEDIA_DIRECT(params)) &&
-+			 (phy_vars[active_external_phy].fault_detected == 0));
+ 	if (phy->flags & FLAGS_NOC)
+ 		return;
+-	if (!(phy->flags &
+-	      FLAGS_NOC) && is_power_up)
++	if (is_power_up)
+ 		val = (1<<4);
+ 	else
+ 		/*
+ 		 * Set GPIO control to OUTPUT, and set the power bit
+ 		 * to according to the is_power_up
+ 		 */
+-		val = ((!(is_power_up)) << 1);
++		val = (1<<1);
  
- 	if (vars->link_up)
- 		rc = bnx2x_update_link_up(params, vars, link_10g);
-@@ -5205,6 +5207,29 @@ void bnx2x_handle_module_detect_int(struct link_params *params)
- }
- 
- /******************************************************************/
-+/*		Used by 8706 and 8727                             */
-+/******************************************************************/
-+static void bnx2x_sfp_mask_fault(struct bnx2x *bp,
-+				 struct bnx2x_phy *phy,
-+				 u16 alarm_status_offset,
-+				 u16 alarm_ctrl_offset)
-+{
-+	u16 alarm_status, val;
-+	bnx2x_cl45_read(bp, phy,
-+			MDIO_PMA_DEVAD, alarm_status_offset,
-+			&alarm_status);
-+	bnx2x_cl45_read(bp, phy,
-+			MDIO_PMA_DEVAD, alarm_status_offset,
-+			&alarm_status);
-+	/* Mask or enable the fault event. */
-+	bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, alarm_ctrl_offset, &val);
-+	if (alarm_status & (1<<0))
-+		val &= ~(1<<0);
-+	else
-+		val |= (1<<0);
-+	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, alarm_ctrl_offset, val);
-+}
-+/******************************************************************/
- /*		common BCM8706/BCM8726 PHY SECTION		  */
- /******************************************************************/
- static u8 bnx2x_8706_8726_read_status(struct bnx2x_phy *phy,
-@@ -5218,6 +5243,10 @@ static u8 bnx2x_8706_8726_read_status(struct bnx2x_phy *phy,
- 	/* Clear RX Alarm*/
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM, &val2);
-+
-+	bnx2x_sfp_mask_fault(bp, phy, MDIO_PMA_REG_TX_ALARM,
-+			     MDIO_PMA_REG_TX_ALARM_CTRL);
-+
- 	/* clear LASI indication*/
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val1);
-@@ -5249,6 +5278,17 @@ static u8 bnx2x_8706_8726_read_status(struct bnx2x_phy *phy,
- 		bnx2x_ext_phy_resolve_fc(phy, params, vars);
- 		vars->duplex = DUPLEX_FULL;
- 	}
-+
-+	/* Capture 10G link fault. Read twice to clear stale value. */
-+	if (vars->line_speed == SPEED_10000) {
-+		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
-+			    MDIO_PMA_REG_TX_ALARM, &val1);
-+		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
-+			    MDIO_PMA_REG_TX_ALARM, &val1);
-+		if (val1 & (1<<0))
-+			vars->fault_detected = 1;
-+	}
-+
- 	return link_up;
- }
- 
-@@ -5304,7 +5344,11 @@ static u8 bnx2x_8706_config_init(struct bnx2x_phy *phy,
- 				 MDIO_PMA_DEVAD,
- 				 MDIO_PMA_REG_DIGITAL_CTRL, 0x400);
- 		bnx2x_cl45_write(bp, phy,
--				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 1);
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_TX_ALARM_CTRL,
-+				 0);
-+		/* Arm LASI for link and Tx fault. */
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 3);
- 	} else {
- 		/* Force 1Gbps using autoneg with 1G advertisement */
- 
-@@ -5637,14 +5681,17 @@ static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
- 
- 	bnx2x_wait_reset_complete(bp, phy, params);
- 	rx_alarm_ctrl_val = (1<<2) | (1<<5) ;
--	lasi_ctrl_val = 0x0004;
-+	/* Should be 0x6 to enable XS on Tx side. */
-+	lasi_ctrl_val = 0x0006;
- 
- 	DP(NETIF_MSG_LINK, "Initializing BCM8727\n");
- 	/* enable LASI */
  	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL,
- 			 rx_alarm_ctrl_val);
--
-+	bnx2x_cl45_write(bp, phy,
-+			 MDIO_PMA_DEVAD, MDIO_PMA_REG_TX_ALARM_CTRL,
-+			 0);
- 	bnx2x_cl45_write(bp, phy,
- 			 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, lasi_ctrl_val);
+ 			 MDIO_PMA_DEVAD,
+@@ -5928,7 +5927,7 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
  
-@@ -5899,6 +5946,9 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
- 	vars->line_speed = 0;
- 	DP(NETIF_MSG_LINK, "8727 RX_ALARM_STATUS  0x%x\n", rx_alarm_status);
+ {
+ 	struct bnx2x *bp = params->bp;
+-	u8 link_up = 0;
++	u8 link_up = 0, oc_port = params->port;
+ 	u16 link_status = 0;
+ 	u16 rx_alarm_status, lasi_ctrl, val1;
  
-+	bnx2x_sfp_mask_fault(bp, phy, MDIO_PMA_REG_TX_ALARM,
-+			     MDIO_PMA_REG_TX_ALARM_CTRL);
-+
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val1);
+@@ -5969,8 +5968,10 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 				&val1);
  
-@@ -5991,6 +6041,20 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
- 		DP(NETIF_MSG_LINK, "port %x: External link is down\n",
- 			   params->port);
- 	}
-+
-+	/* Capture 10G link fault. */
-+	if (vars->line_speed == SPEED_10000) {
-+		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
-+			    MDIO_PMA_REG_TX_ALARM, &val1);
-+
-+		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
-+			    MDIO_PMA_REG_TX_ALARM, &val1);
-+
-+		if (val1 & (1<<0)) {
-+			vars->fault_detected = 1;
-+		}
-+	}
-+
- 	if (link_up) {
- 		bnx2x_ext_phy_resolve_fc(phy, params, vars);
- 		vars->duplex = DUPLEX_FULL;
-diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/bnx2x/bnx2x_link.h
-index 418bef4..4d5509b 100644
---- a/drivers/net/bnx2x/bnx2x_link.h
-+++ b/drivers/net/bnx2x/bnx2x_link.h
-@@ -276,6 +276,9 @@ struct link_vars {
- 
- 	/* The same definitions as the shmem parameter */
- 	u32 link_status;
-+	u8 fault_detected;
-+	u8 rsrv1;
-+	u16 rsrv2;
- };
- 
- /***********************************************************/
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 86bba25..7260d09 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -6037,6 +6037,7 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_PMA_REG_BCM_CTRL		0x0096
- #define MDIO_PMA_REG_FEC_CTRL		0x00ab
- #define MDIO_PMA_REG_RX_ALARM_CTRL	0x9000
-+#define MDIO_PMA_REG_TX_ALARM_CTRL	0x9001
- #define MDIO_PMA_REG_LASI_CTRL		0x9002
- #define MDIO_PMA_REG_RX_ALARM		0x9003
- #define MDIO_PMA_REG_TX_ALARM		0x9004
+ 		if ((val1 & (1<<8)) == 0) {
++			if (!CHIP_IS_E1x(bp))
++				oc_port = BP_PATH(bp) + (params->port << 1);
+ 			DP(NETIF_MSG_LINK, "8727 Power fault has been detected"
+-				       " on port %d\n", params->port);
++				       " on port %d\n", oc_port);
+ 			netdev_err(bp->dev, "Error:  Power fault on Port %d has"
+ 					    " been detected and the power to "
+ 					    "that SFP+ module has been removed"
+@@ -5978,7 +5979,7 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 					    " Please remove the SFP+ module and"
+ 					    " restart the system to clear this"
+ 					    " error.\n",
+-			 params->port);
++			 oc_port);
+ 			/* Disable all RX_ALARMs except for mod_abs */
+ 			bnx2x_cl45_write(bp, phy,
+ 					 MDIO_PMA_DEVAD,
 -- 
 1.7.1
 
