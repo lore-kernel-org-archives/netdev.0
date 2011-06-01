@@ -1,57 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] net: cpu offline cause napi stall
-Date: Wed, 01 Jun 2011 14:13:19 +0200
-Message-ID: <1306930399.3476.1.camel@edumazet-laptop>
-References: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: RE: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
+ mark ncm devices as "mobile broadband devices" with FLAG_WWAN
+Date: Wed, 1 Jun 2011 14:27:50 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E6F2@EXDCVYMBSTM006.EQ1STM.local>
+References: <1306922913-17803-1-git-send-email-metze@samba.org>
+ <1306922913-17803-2-git-send-email-metze@samba.org>
+ <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E583@EXDCVYMBSTM006.EQ1STM.local>
+ <4DE618B7.5070903@samba.org>
+ <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E64B@EXDCVYMBSTM006.EQ1STM.local>
+ <4DE6287D.5080807@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, heiko.carstens@de.ibm.com
-To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33063 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756031Ab1FAMNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 08:13:23 -0400
-In-Reply-To: <20110601103356.GA45482@tuxmaker.boeblingen.de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Oliver Neukum <oliver@neukum.name>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Stefan (metze) Metzmacher" <metze@samba.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DE6287D.5080807@samba.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 01 juin 2011 =C3=A0 12:33 +0200, Frank Blaschka a =C3=A9cri=
-t :
-> Hi Dave, Eric,
->=20
-> during heavy network load we turn off/on cpus.
-> Sometimes this causes a stall on the network device.
-> Digging into the dump I found out following:
->=20
-> napi is scheduled but does not run. From the I/O buffers
-> and the napi state I see napi/rx_softirq processing has stopped
-> because the budget was reached. napi stays in the
-> softnet_data poll_list and the rx_softirq was raised again.
->=20
-> I assume at this time the cpu offline comes in.
-> the rx softirq is raised/moved to another cpu but napi stays in the p=
-oll_list
-> of the softnet_data of the now offline cpu.
->=20
-> reviewing dev_cpu_callback (net/core/dev.c) I did not find the poll_l=
-ist
-> is transfered to the new cpu. Do you think this could cause the stall=
- or
-> did I miss something?
->=20
-> Thx for your help.
+> -----Original Message-----
+> From: Stefan (metze) Metzmacher [mailto:metze@samba.org]
+> Sent: Wednesday, June 01, 2011 1:55 PM
 
-Hi Frank
+> > If you use udev rules and create an alias for your device, you won't
+> > be dependent on generic driver code.
+> 
+> Ok, do you have examples for that?
 
-I believe you are right, I cant see where the poll_list transfert from
-dead cpu to online cpu is done.
+Please, read udev man pages. Rule might be as follows
+KERNEL=="usb*", ATTRS{idVendor}=="04cc", ATTRS{idProduct}=="xxxx", NAME="ste_bridge0"
 
-Do you want to prepare a patch ?
-
-Thanks !
-
-
-
+Regards,
+alexey
