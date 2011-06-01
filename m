@@ -1,59 +1,106 @@
-From: WANG Cong <xiyou.wangcong@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
 Subject: Re: [patch net-next-2.6] bonding: allow resetting slave failure
  counters
-Date: Wed, 1 Jun 2011 13:51:25 +0000 (UTC)
-Message-ID: <is5g4s$1h6$1@dough.gmane.org>
+Date: Wed, 1 Jun 2011 15:53:21 +0200
+Message-ID: <20110601135321.GA2909@psychotron.brq.redhat.com>
 References: <1306921249-3623-1-git-send-email-jpirko@redhat.com>
+ <4DE63E85.7020508@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:52852 "EHLO lo.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:63260 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753879Ab1FANvl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Jun 2011 09:51:41 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QRlpj-0003Jt-32
-	for netdev@vger.kernel.org; Wed, 01 Jun 2011 15:51:39 +0200
-Received: from 222-151-096-013.jp.fiberbit.net ([222.151.96.13])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 15:51:39 +0200
-Received: from xiyou.wangcong by 222-151-096-013.jp.fiberbit.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 01 Jun 2011 15:51:39 +0200
+	id S1757315Ab1FANxm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Jun 2011 09:53:42 -0400
+Content-Disposition: inline
+In-Reply-To: <4DE63E85.7020508@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 Jun 2011 11:40:49 +0200, Jiri Pirko wrote:
+Wed, Jun 01, 2011 at 03:28:37PM CEST, fbl@redhat.com wrote:
+>On 06/01/2011 06:40 AM, Jiri Pirko wrote:
+>> This patch allows to reset failure counters for all enslaved devices.
+>> 
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> ---
+>>  Documentation/networking/bonding.txt |    7 +++++++
+>>  drivers/net/bonding/bond_sysfs.c     |   27 +++++++++++++++++++++++++++
+>>  2 files changed, 34 insertions(+), 0 deletions(-)
+>> 
+>> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+>> index 675612f..2f51d73 100644
+>> --- a/Documentation/networking/bonding.txt
+>> +++ b/Documentation/networking/bonding.txt
+>> @@ -782,6 +782,13 @@ resend_igmp
+>>  
+>>  	This option was added for bonding version 3.7.0.
+>>  
+>> +reset_failure_counters
+>> +
+>> +	This write-only control file will zero failure counters for
+>> +	all slaves.  Note there is no appropriate module parameter for this
+>> +	since it would not make much sense.
+>> +	Write any value to perform reset.
+>
+>nit: many options mention when they were added.
+>i.e. This option was added for bonding version 3.7.1
 
-> This patch allows to reset failure counters for all enslaved devices.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
->  Documentation/networking/bonding.txt |    7 +++++++
->  drivers/net/bonding/bond_sysfs.c     |   27 +++++++++++++++++++++++++++
->  2 files changed, 34 insertions(+), 0 deletions(-)
-> 
-> diff --git a/Documentation/networking/bonding.txt
-> b/Documentation/networking/bonding.txt index 675612f..2f51d73 100644
-> --- a/Documentation/networking/bonding.txt +++
-> b/Documentation/networking/bonding.txt @@ -782,6 +782,13 @@ resend_igmp
->  
->  	This option was added for bonding version 3.7.0.
->  
-> +reset_failure_counters
-> +
-> +	This write-only control file will zero failure counters for +	all
-> slaves.  Note there is no appropriate module parameter for this 
-> +	since
-> it would not make much sense. +	Write any value to perform reset.
-> +
+hmm, is that necessary Jay, Andy?
 
-Writing any value includes zero will work? I think only non-zero
-number makes sense, if we write zero, nothing should happen.
+/me thinks this versioning should be removed at all in the first place...
 
-Thanks.
-
+>
+>fbl
+>
+>>  3. Configuring Bonding Devices
+>>  ==============================
+>>  
+>> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>> index 88fcb25..9b45164 100644
+>> --- a/drivers/net/bonding/bond_sysfs.c
+>> +++ b/drivers/net/bonding/bond_sysfs.c
+>> @@ -1572,6 +1572,32 @@ out:
+>>  static DEVICE_ATTR(resend_igmp, S_IRUGO | S_IWUSR,
+>>  		   bonding_show_resend_igmp, bonding_store_resend_igmp);
+>>  
+>> +static ssize_t
+>> +bonding_store_reset_failure_counters(struct device *d,
+>> +				     struct device_attribute *attr,
+>> +				     const char *buf, size_t count)
+>> +{
+>> +	struct slave *slave;
+>> +	int i;
+>> +	struct bonding *bond = to_bond(d);
+>> +
+>> +	if (!rtnl_trylock())
+>> +		return restart_syscall();
+>> +
+>> +	read_lock(&bond->lock);
+>> +	pr_info("%s: Resetting counters.\n", bond->dev->name);
+>> +	bond_for_each_slave(bond, slave, i)
+>> +		slave->link_failure_count = 0;
+>> +	read_unlock(&bond->lock);
+>> +
+>> +	rtnl_unlock();
+>> +
+>> +	return count;
+>> +}
+>> +
+>> +static DEVICE_ATTR(reset_failure_counters, S_IWUSR, NULL,
+>> +		   bonding_store_reset_failure_counters);
+>> +
+>>  static struct attribute *per_bond_attrs[] = {
+>>  	&dev_attr_slaves.attr,
+>>  	&dev_attr_mode.attr,
+>> @@ -1600,6 +1626,7 @@ static struct attribute *per_bond_attrs[] = {
+>>  	&dev_attr_queue_id.attr,
+>>  	&dev_attr_all_slaves_active.attr,
+>>  	&dev_attr_resend_igmp.attr,
+>> +	&dev_attr_reset_failure_counters.attr,
+>>  	NULL,
+>>  };
+>>  
+>
