@@ -1,8 +1,7 @@
 From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2 RFC 4/4] Revert "virtio: make add_buf return
- capacity remaining:
-Date: Thu, 2 Jun 2011 18:43:25 +0300
-Message-ID: <7572d6fb81181e349af4a8b203ea0977f6e91ae1.1307029009.git.mst@redhat.com>
+Subject: [PATCHv2 RFC 3/4] virtio_net: limit xmit polling
+Date: Thu, 2 Jun 2011 18:43:17 +0300
+Message-ID: <a80199422de16ae355e56ee1b2abc9b2bf91a7f6.1307029009.git.mst@redhat.com>
 References: <cover.1307029008.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,41 +30,157 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This reverts commit 3c1b27d5043086a485f8526353ae9fe37bfa1065.
-The only user was virtio_net, and it switched to
-min_capacity instead.
+Current code might introduce a lot of latency variation
+if there are many pending bufs at the time we
+attempt to transmit a new one. This is bad for
+real-time applications and can't be good for TCP either.
+
+Free up just enough to both clean up all buffers
+eventually and to be able to xmit the next packet.
 
 Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/virtio/virtio_ring.c |    2 +-
- include/linux/virtio.h       |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/virtio_net.c |  106 +++++++++++++++++++++++++++++-----------------
+ 1 files changed, 67 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index 23422f1..a6c21eb 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -233,7 +233,7 @@ add_head:
- 	pr_debug("Added buffer head %i to %p\n", head, vq);
- 	END_USE(vq);
- 
--	return vq->num_free;
-+	return 0;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index a0ee78d..b25db1c 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -509,17 +509,33 @@ again:
+ 	return received;
  }
- EXPORT_SYMBOL_GPL(virtqueue_add_buf_gfp);
  
-diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index 209220d..63c4908 100644
---- a/include/linux/virtio.h
-+++ b/include/linux/virtio.h
-@@ -34,7 +34,7 @@ struct virtqueue {
-  *	in_num: the number of sg which are writable (after readable ones)
-  *	data: the token identifying the buffer.
-  *	gfp: how to do memory allocations (if necessary).
-- *      Returns remaining capacity of queue (sg segments) or a negative error.
-+ *      Returns 0 on success or a negative error.
-  * virtqueue_kick: update after add_buf
-  *	vq: the struct virtqueue
-  *	After one or more add_buf calls, invoke this to kick the other side.
+-static void free_old_xmit_skbs(struct virtnet_info *vi)
++static bool free_old_xmit_skb(struct virtnet_info *vi)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len;
+ 
+-	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+-		pr_debug("Sent skb %p\n", skb);
+-		vi->dev->stats.tx_bytes += skb->len;
+-		vi->dev->stats.tx_packets++;
+-		dev_kfree_skb_any(skb);
+-	}
++	skb = virtqueue_get_buf(vi->svq, &len);
++	if (unlikely(!skb))
++		return false;
++	pr_debug("Sent skb %p\n", skb);
++	vi->dev->stats.tx_bytes += skb->len;
++	vi->dev->stats.tx_packets++;
++	dev_kfree_skb_any(skb);
++	return true;
++}
++
++/* Check capacity and try to free enough pending old buffers to enable queueing
++ * new ones. Return true if we can guarantee that a following
++ * virtqueue_add_buf will succeed. */
++static bool free_xmit_capacity(struct virtnet_info *vi)
++{
++	struct sk_buff *skb;
++	unsigned int len;
++
++	while (virtqueue_min_capacity(vi->svq) < MAX_SKB_FRAGS + 2)
++		if (unlikely(!free_old_xmit_skb))
++			return false;
++	return true;
+ }
+ 
+ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+@@ -572,30 +588,34 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-	int capacity;
+-
+-	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(vi);
+-
+-	/* Try to transmit */
+-	capacity = xmit_skb(vi, skb);
+-
+-	/* This can happen with OOM and indirect buffers. */
+-	if (unlikely(capacity < 0)) {
+-		if (net_ratelimit()) {
+-			if (likely(capacity == -ENOMEM)) {
+-				dev_warn(&dev->dev,
+-					 "TX queue failure: out of memory\n");
+-			} else {
+-				dev->stats.tx_fifo_errors++;
++	int ret, i;
++
++	/* We normally do have space in the ring, so try to queue the skb as
++	 * fast as possible. */
++	ret = xmit_skb(vi, skb);
++	if (unlikely(ret < 0)) {
++		/* This triggers on the first xmit after ring full condition.
++		 * We need to free up some skbs first. */
++		if (likely(free_xmit_capacity(vi))) {
++			ret = xmit_skb(vi, skb);
++			/* This should never fail. Check, just in case. */
++			if (unlikely(ret < 0)) {
+ 				dev_warn(&dev->dev,
+ 					 "Unexpected TX queue failure: %d\n",
+-					 capacity);
++					 ret);
++				dev->stats.tx_fifo_errors++;
++				dev->stats.tx_dropped++;
++				kfree_skb(skb);
++				return NETDEV_TX_OK;
+ 			}
++		} else {
++			/* Ring full: it might happen if we get a callback while
++			 * the queue is still mostly full. This should be
++			 * extremely rare. */
++			dev->stats.tx_dropped++;
++			kfree_skb(skb);
++			goto stop;
+ 		}
+-		dev->stats.tx_dropped++;
+-		kfree_skb(skb);
+-		return NETDEV_TX_OK;
+ 	}
+ 	virtqueue_kick(vi->svq);
+ 
+@@ -603,18 +623,26 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_orphan(skb);
+ 	nf_reset(skb);
+ 
+-	/* Apparently nice girls don't return TX_BUSY; stop the queue
+-	 * before it gets out of hand.  Naturally, this wastes entries. */
+-	if (capacity < 2+MAX_SKB_FRAGS) {
+-		netif_stop_queue(dev);
+-		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+-			/* More just got used, free them then recheck. */
+-			free_old_xmit_skbs(vi);
+-			capacity = virtqueue_min_capacity(vi->svq);
+-			if (capacity >= 2+MAX_SKB_FRAGS) {
+-				netif_start_queue(dev);
+-				virtqueue_disable_cb(vi->svq);
+-			}
++	/* We transmit one skb, so try to free at least two pending skbs.
++	 * This is so that we don't hog the skb memory unnecessarily. *
++	 * Doing this after kick means there's a chance we'll free
++	 * the skb we have just sent, which is hot in cache. */
++	for (i = 0; i < 2; i++)
++		free_old_xmit_skb(v);
++
++	if (likely(free_xmit_capacity(vi)))
++		return NETDEV_TX_OK;
++
++stop:
++	/* Apparently nice girls don't return TX_BUSY; check capacity and stop
++	 * the queue before it gets out of hand.
++	 * Naturally, this wastes entries. */
++	netif_stop_queue(dev);
++	if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
++		/* More just got used, free them and recheck. */
++		if (free_xmit_capacity(vi)) {
++			netif_start_queue(dev);
++			virtqueue_disable_cb(vi->svq);
+ 		}
+ 	}
+ 
 -- 
 1.7.5.53.gc233e
