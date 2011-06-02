@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sungem: Spring cleaning and GRO support
-Date: Thu, 02 Jun 2011 14:14:30 -0700 (PDT)
-Message-ID: <20110602.141430.1224168098779433370.davem@davemloft.net>
-References: <1306912630.29297.34.camel@pasglop>
+Subject: Re: [TRIVIAL PATCH next 15/15] net: Convert vmalloc/memset to
+ vzalloc
+Date: Thu, 02 Jun 2011 14:39:27 -0700 (PDT)
+Message-ID: <20110602.143927.1073346459383432955.davem@davemloft.net>
+References: <cover.1306603968.git.joe@perches.com>
+	<045996b9688bfaa2efbd8999405a67e23cd0a075.1306603968.git.joe@perches.com>
+	<4DE7A311.5000406@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ruediger.herbst@googlemail.com,
-	bhamilton04@gmail.com
-To: benh@kernel.crashing.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44311 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752922Ab1FBVOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 17:14:34 -0400
-In-Reply-To: <1306912630.29297.34.camel@pasglop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, kaber@trash.net, andy.grover@oracle.com,
+	trivial@kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rds-devel@oss.oracle.com
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4DE7A311.5000406@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 01 Jun 2011 17:17:10 +1000
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 02 Jun 2011 16:49:53 +0200
 
-> It still needs testing on sparc and maybe a bit more torturing on
-> powerpc. I've done some cursory link up/down tests on a g5 and a
-> powerbook g4 here, and some suspend/resume tests, so far with
-> success, but I'll do more tomorrow just in case.
+> Are you going to take this patch? it includes one chunck which is out of
+> netfilter scope.
 
-I'll give this a quick spin on one of my sparc64 boxes that has
-a sungem in it.  If all goes well I'll just apply this to net-next-2.6
+I think the trivial folks submit these things via their own tree
+and are only looking for ACKs from us.
 
-Thanks!
+Acked-by: David S. Miller <davem@davemloft.net>
