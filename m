@@ -1,53 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] ipvs: restore support for iptables SNAT
-Date: Thu, 02 Jun 2011 13:51:27 +0200
-Message-ID: <4DE7793F.1060108@netfilter.org>
-References: <1306973394-29504-1-git-send-email-horms@verge.net.au> <1306973394-29504-2-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1306973394-29504-2-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: amit.salecha@qlogic.com
+Subject: [PATCH NEXT 1/1] netxen: suppress false lro warning messages
+Date: Thu,  2 Jun 2011 04:50:30 -0700
+Message-ID: <1307015430-10729-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vpn.pathscale.com ([198.186.3.75]:50044 "HELO mx.mv.qlogic.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1758185Ab1FBL5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2011 07:57:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/06/11 02:09, Simon Horman wrote:
-> From: Julian Anastasov <ja@ssi.bg>
-> 
-> 	Fix the IPVS priority in LOCAL_IN hook,
-> so that SNAT target in POSTROUTING is supported for IPVS
-> traffic as in 2.6.36 where it worked depending on
-> module load order.
-> 
-> 	Before 2.6.37 we used priority 100 in LOCAL_IN to
-> process remote requests. We used the same priority as
-> iptables SNAT and if IPVS handlers are installed before
-> SNAT handlers we supported SNAT in POSTROUTING for the IPVS
-> traffic. If SNAT is installed before IPVS, the netfilter
-> handlers are before IPVS and netfilter checks the NAT
-> table twice for the IPVS requests: once in LOCAL_IN where
-> IPS_SRC_NAT_DONE is set and second time in POSTROUTING
-> where the SNAT rules are ignored because IPS_SRC_NAT_DONE
-> was already set in LOCAL_IN.
-> 
-> 	But in 2.6.37 we changed the IPVS priority for
-> LOCAL_IN with the goal to be unique (101) forgetting the
-> fact that for IPVS traffic we should not walk both
-> LOCAL_IN and POSTROUTING nat tables.
-> 
-> 	So, change the priority for processing remote
-> IPVS requests from 101 to 99, i.e. before NAT_SRC (100)
-> because we prefer to support SNAT in POSTROUTING
-> instead of LOCAL_IN. It also moves the priority for
-> IPVS replies from 99 to 98. Use constants instead of
-> magic numbers at these places.
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-I have applied this to my net-next-2.6 tree. Once it hits linus tree,
-I'll pass it to -stable.
+Driver prints false warning messages during lro configuration
+through ethtool, when interface is down.
 
-http://1984.lsi.us.es/git/?p=net-next-2.6/.git;a=shortlog;h=refs/heads/pablo/nf-next-2.6-updates
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_hw.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/netxen/netxen_nic_hw.c
+index 5cef718..0bd6615 100644
+--- a/drivers/net/netxen/netxen_nic_hw.c
++++ b/drivers/net/netxen/netxen_nic_hw.c
+@@ -809,6 +809,9 @@ int netxen_config_hw_lro(struct netxen_adapter *adapter, int enable)
+ 	u64 word;
+ 	int rv = 0;
+ 
++	if (test_bit(__NX_FW_ATTACHED, &adapter->state))
++		return 0;
++
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
+ 
+ 	req.qhdr = cpu_to_le64(NX_HOST_REQUEST << 23);
+@@ -959,6 +962,9 @@ int netxen_send_lro_cleanup(struct netxen_adapter *adapter)
+ 	u64 word;
+ 	int rv;
+ 
++	if (test_bit(__NX_FW_ATTACHED, &adapter->state))
++		return 0;
++
+ 	memset(&req, 0, sizeof(nx_nic_req_t));
+ 	req.qhdr = cpu_to_le64(NX_HOST_REQUEST << 23);
+ 
+-- 
+1.7.3.3
+
