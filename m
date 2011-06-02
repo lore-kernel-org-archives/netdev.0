@@ -1,44 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 4/10] drivers/net/can/flexcan.c: add missing clk_put
-Date: Thu, 02 Jun 2011 00:10:59 -0700 (PDT)
-Message-ID: <20110602.001059.183111215741236866.davem@davemloft.net>
-References: <Pine.LNX.4.64.1106012207260.5871@ask.diku.dk>
-	<20110601.131136.391831410750786951.davem@davemloft.net>
-	<Pine.LNX.4.64.1106020748020.22932@ask.diku.dk>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH 1/6 v9] sctp: Add ADD/DEL ASCONF handling at the receiver.
+Date: Thu, 02 Jun 2011 15:18:12 +0800
+Message-ID: <4DE73934.3050209@cn.fujitsu.com>
+References: <506FB213-6C73-4F00-95B2-E20976F2064E@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, wharms-fPG8STNUNVg@public.gmane.org
-To: julia-dAYI7NvHqcQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.1106020748020.22932-QfmoRoYWmW9knbxzx/v8hQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Michio Honda <micchie@sfc.wide.ad.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:50223 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757514Ab1FBHS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2011 03:18:57 -0400
+In-Reply-To: <506FB213-6C73-4F00-95B2-E20976F2064E@sfc.wide.ad.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Date: Thu, 2 Jun 2011 07:48:50 +0200 (CEST)
 
-> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-> 
-> The failed_get label is used after the call to clk_get has succeeded, so it
-> should be moved up above the call to clk_put.
-> 
-> The failed_req labels doesn't do anything different than failed_get, so
-> delete it.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 
-Applied.
+> >From fb3b20d29f89c1570d44df7fdc20fe0ed12a71f0 Mon Sep 17 00:00:00 2001
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: Tue, 26 Apr 2011 17:37:02 +0900
+> Subject: [PATCH 1/6 v9] sctp: Add ADD/DEL ASCONF handling at the receiver.
+>
+> This patch fixes the problem that the original code cannot delete
+> the remote address where the corresponding transport is currently
+> directed, even when the ASCONF is sent from the other address (this
+> situation happens when the single-homed sender transmits  ASCONF
+> with ADD and DEL.)
+>
+> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>
+Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+
