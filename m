@@ -1,111 +1,155 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
-Date: Thu, 02 Jun 2011 08:26:51 -0700
-Message-ID: <m1ipsob6f8.fsf@fess.ebiederm.org>
-References: <m1aaectyed.fsf@fess.ebiederm.org>
-	<20110524.022406.2228892895515155850.davem@davemloft.net>
-	<m1oc2spmyt.fsf@fess.ebiederm.org>
-	<20110601.205940.1179055860757569997.davem@davemloft.net>
-	<m11uzcidvq.fsf_-_@fess.ebiederm.org>
-	<BANLkTimjfHKh3dpPEzznKiK=Md4v0iTD9A@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH RFC 3/3] virtio_net: limit xmit polling
+Date: Thu, 2 Jun 2011 18:34:23 +0300
+Message-ID: <20110602153423.GA11300@redhat.com>
+References: <cover.1306921434.git.mst@redhat.com>
+	<1ec8eec325839ecf2eac9930a230361e7956047c.1306921434.git.mst@redhat.com>
+	<87pqmwj3am.fsf@rustcorp.com.au> <20110602133425.GJ7141@redhat.com>
+	<OF990F08C5.2ECE35B1-ON652578A3.004DC0FA-652578A3.004E3FE4@in.ibm.com>
+	<20110602144346.GA7995@redhat.com>
+	<OFFF109303.D838CAE2-ON652578A3.0053357D-652578A3.00549366@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:44222 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751992Ab1FBP1B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 11:27:01 -0400
-In-Reply-To: <BANLkTimjfHKh3dpPEzznKiK=Md4v0iTD9A@mail.gmail.com> (Changli
-	Gao's message of "Thu, 2 Jun 2011 22:54:50 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <OFFF109303.D838CAE2-ON652578A3.0053357D-652578A3.00549366-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Changli Gao <xiaosuo@gmail.com> writes:
+On Thu, Jun 02, 2011 at 08:56:42PM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote on 06/02/2011 08:13:46 PM:
+> 
+> > > Please review this patch to see if it looks reasonable:
+> >
+> > Hmm, since you decided to work on top of my patch,
+> > I'd appreciate split-up fixes.
+> 
+> OK (that also explains your next comment).
+> 
+> > > 1. Picked comments/code from MST's code and Rusty's review.
+> > > 2. virtqueue_min_capacity() needs to be called only if it returned
+> > >    empty the last time it was called.
+> > > 3. Fix return value bug in free_old_xmit_skbs (hangs guest).
+> > > 4. Stop queue only if capacity is not enough for next xmit.
+> >
+> > That's what we always did ...
+> 
+> I had made the patch against your patch, hence this change (sorry for
+> the confusion!).
+> 
+> > > 5. Fix/clean some likely/unlikely checks (hopefully).
+> > >
+> > > I have done some minimal netperf tests with this.
+> > >
+> > > With this patch, add_buf returning capacity seems to be useful - it
+> > > allows less virtio API calls.
+> >
+> > Why bother? It's cheap ...
+> 
+> If add_buf retains it's functionality to return the capacity (it
+> is going to need a change to return 0 otherwise anyway), is it
+> useful to call another function at each xmit?
+> 
+> > > +static bool free_old_xmit_skbs(struct virtnet_info *vi, int to_free)
+> > > +{
+> > > +   bool empty = virtqueue_min_capacity(vi->svq) < MAX_SKB_FRAGS + 2;
+> > > +
+> > > +   do {
+> > > +      if (!free_one_old_xmit_skb(vi)) {
+> > > +         /* No more skbs to free up */
+> > >           break;
+> > > -      pr_debug("Sent skb %p\n", skb);
+> > > -      vi->dev->stats.tx_bytes += skb->len;
+> > > -      vi->dev->stats.tx_packets++;
+> > > -      dev_kfree_skb_any(skb);
+> > > -   }
+> > > -   return r;
+> > > +      }
+> > > +
+> > > +      if (empty) {
+> > > +         /* Check again if there is enough space */
+> > > +         empty = virtqueue_min_capacity(vi->svq) <
+> > > +            MAX_SKB_FRAGS + 2;
+> > > +      } else {
+> > > +         --to_free;
+> > > +      }
+> > > +   } while (to_free > 0);
+> > > +
+> > > +   return !empty;
+> > >  }
+> >
+> > Why bother doing the capacity check in this function?
+> 
+> To return whether we have enough space for next xmit. It should call
+> it only once unless space is running out. Does it sound OK?
+> 
+> > > -   if (unlikely(ret < 0)) {
+> > > +   if (unlikely(capacity < 0)) {
+> > > +      /*
+> > > +       * Failure to queue should be impossible. The only way to
+> > > +       * reach here is if we got a cb before 3/4th of space was
+> > > +       * available. We could stop the queue and re-enable
+> > > +       * callbacks (and possibly return TX_BUSY), but we don't
+> > > +       * bother since this is impossible.
+> >
+> > It's far from impossible.  The 3/4 thing is only a hint, and old devices
+> > don't support it anyway.
+> 
+> OK, I will re-put back your comment.
+> 
+> > > -   if (!likely(free_old_xmit_skbs(vi, 2))) {
+> > > -      netif_stop_queue(dev);
+> > > -      if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+> > > -         /* More just got used, free them and recheck. */
+> > > -         if (!likely(free_old_xmit_skbs(vi, 0))) {
+> > > -            netif_start_queue(dev);
+> > > -            virtqueue_disable_cb(vi->svq);
+> > > +   /*
+> > > +    * Apparently nice girls don't return TX_BUSY; check capacity and
+> > > +    * stop the queue before it gets out of hand. Naturally, this
+> wastes
+> > > +    * entries.
+> > > +    */
+> > > +   if (capacity < 2+MAX_SKB_FRAGS) {
+> > > +      /*
+> > > +       * We don't have enough space for the next packet. Try
+> > > +       * freeing more.
+> > > +       */
+> > > +      if (likely(!free_old_xmit_skbs(vi, UINT_MAX))) {
+> > > +         netif_stop_queue(dev);
+> > > +         if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+> > > +            /* More just got used, free them and recheck. */
+> > > +            if (likely(free_old_xmit_skbs(vi, UINT_MAX))) {
+> >
+> > Is this where the bug was?
+> 
+> Return value in free_old_xmit() was wrong. I will re-do against the
+> mainline kernel.
+> 
+> Thanks,
+> 
+> - KK
 
-> On Thu, Jun 2, 2011 at 9:03 PM, Eric W. Biederman <ebiederm@xmission.=
-com> wrote:
->>
->> -static struct sk_buff *vlan_check_reorder_header(struct sk_buff *sk=
-b)
->> +static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
->> =C2=A0{
->> - =C2=A0 =C2=A0 =C2=A0 if (vlan_dev_info(skb->dev)->flags & VLAN_FLA=
-G_REORDER_HDR) {
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (skb_cow(skb, =
-skb_headroom(skb)) < 0)
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 skb =3D NULL;
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (skb) {
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 /* Lifted from Gleb's VLAN code... */
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 memmove(skb->data - ETH_HLEN,
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb->data - VLAN_ETH_HLEN, 12);
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 skb->mac_header +=3D VLAN_HLEN;
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> + =C2=A0 =C2=A0 =C2=A0 if (skb_cow(skb, skb_headroom(skb)) < 0)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb =3D NULL;
->> + =C2=A0 =C2=A0 =C2=A0 if (skb) {
->
-> I think an else branch maybe more readable here.
+Just noting that I'm working on that patch as well, it might
+be more efficient if we don't both of us do this in parallel :)
 
-Probably most readable would be simply returning NULL immediately on
-error.  In this patch I just removed the if statement, and I would like
-to avoid mixing different bug fixes in the same patch if possible.
-
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Lifted from Gl=
-eb's VLAN code... */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 memmove(skb->data=
- - ETH_HLEN,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 skb->data - VLAN_ETH_HLEN, 12);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb->mac_header +=
-=3D VLAN_HLEN;
->
-> skb->mac_len should be adjusted too.
-
-Given how vlan_untag is called at the moment it does appear
-that the skb->mac_len =3D skb->network_header - skb->mac_header
-in __netif_receive_skb that used to handle this for is no longer
-doing this for us.
-
-My feel is that either we need to do all of the header resets and the
-vlan_untagging together.  So we either need this all together before or
-after the another_round label:
-
-So the proper fix is probably something like this.
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bcb05cb..8fe50d4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3102,9 +3102,6 @@ static int __netif_receive_skb(struct sk_buff *sk=
-b)
- 		skb->skb_iif =3D skb->dev->ifindex;
- 	orig_dev =3D skb->dev;
-=20
--	skb_reset_network_header(skb);
--	skb_reset_transport_header(skb);
--	skb->mac_len =3D skb->network_header - skb->mac_header;
-=20
- 	pt_prev =3D NULL;
-=20
-@@ -3119,6 +3116,9 @@ another_round:
- 		if (unlikely(!skb))
- 			goto out;
- 	}
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+	skb->mac_len =3D skb->network_header - skb->mac_header;
-=20
- #ifdef CONFIG_NET_CLS_ACT
- 	if (skb->tc_verd & TC_NCLS) {
+-- 
+MST
