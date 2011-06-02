@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@iki.fi>
-Subject: [PATCH 4/5] net: ep93xx_eth: fix DMA API violations
-Date: Thu,  2 Jun 2011 12:38:16 +0300
-Message-ID: <039d72a44f6c98fdd06f2daa419b813cbc43b632.1307006502.git.mika.westerberg@iki.fi>
+Subject: [PATCH 3/5] net: ep93xx_eth: drop GFP_DMA from call to dma_alloc_coherent()
+Date: Thu,  2 Jun 2011 12:38:15 +0300
+Message-ID: <f36dee062c55ef65e8aff8b6206479f1ba8091c6.1307006502.git.mika.westerberg@iki.fi>
 References: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 Cc: linux-arm-kernel@lists.infradead.org, kernel@wantstofly.org,
 	hsweeten@visionengravers.com, ryan@bluewatersys.com,
@@ -10,100 +10,59 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ey0-f174.google.com ([209.85.215.174]:47618 "EHLO
 	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932771Ab1FBJki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:40:38 -0400
+	with ESMTP id S933050Ab1FBJkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:40:36 -0400
 Received: by mail-ey0-f174.google.com with SMTP id 24so218562eyx.19
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 02:40:38 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 02:40:35 -0700 (PDT)
 In-Reply-To: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 In-Reply-To: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 References: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Russell King said:
->
-> So, to summarize what its doing:
->
-> 1. It allocates buffers for rx and tx.
-> 2. It maps them with dma_map_single().
->       This transfers ownership of the buffer to the DMA device.
-> 3. In ep93xx_xmit,
-> 3a. It copies the data into the buffer with skb_copy_and_csum_dev()
->       This violates the DMA buffer ownership rules - the CPU should
->       not be writing to this buffer while it is (in principle) owned
->       by the DMA device.
-> 3b. It then calls dma_sync_single_for_cpu() for the buffer.
->       This transfers ownership of the buffer to the CPU, which surely
->       is the wrong direction.
-> 4. In ep93xx_rx,
-> 4a. It calls dma_sync_single_for_cpu() for the buffer.
->       This at least transfers the DMA buffer ownership to the CPU
->       before the CPU reads the buffer
-> 4b. It then uses skb_copy_to_linear_data() to copy the data out.
->       At no point does it transfer ownership back to the DMA device.
-> 5. When the driver is removed, it dma_unmap_single()'s the buffer.
->       This transfers ownership of the buffer to the CPU.
-> 6. It frees the buffer.
->
-> While it may work on ep93xx, it's not respecting the DMA API rules,
-> and with DMA debugging enabled it will probably encounter quite a few
-> warnings.
+Commit a197b59ae6e8 (mm: fail GFP_DMA allocations when ZONE_DMA is not
+configured) made page allocator to return NULL if GFP_DMA is set but
+CONFIG_ZONE_DMA is disabled.
 
-This patch fixes these violations.
+This causes ep93xx_eth to fail:
+
+ WARNING: at mm/page_alloc.c:2251 __alloc_pages_nodemask+0x11c/0x638()
+ Modules linked in:
+ [<c0035498>] (unwind_backtrace+0x0/0xf4) from [<c0043da4>] (warn_slowpath_common+0x48/0x60)
+ [<c0043da4>] (warn_slowpath_common+0x48/0x60) from [<c0043dd8>] (warn_slowpath_null+0x1c/0x24)
+ [<c0043dd8>] (warn_slowpath_null+0x1c/0x24) from [<c0083b6c>] (__alloc_pages_nodemask+0x11c/0x638)
+ [<c0083b6c>] (__alloc_pages_nodemask+0x11c/0x638) from [<c00366fc>] (__dma_alloc+0x8c/0x3ec)
+ [<c00366fc>] (__dma_alloc+0x8c/0x3ec) from [<c0036adc>] (dma_alloc_coherent+0x54/0x60)
+ [<c0036adc>] (dma_alloc_coherent+0x54/0x60) from [<c0227808>] (ep93xx_open+0x20/0x864)
+ [<c0227808>] (ep93xx_open+0x20/0x864) from [<c0283144>] (__dev_open+0xb8/0x108)
+ [<c0283144>] (__dev_open+0xb8/0x108) from [<c0280528>] (__dev_change_flags+0x70/0x128)
+ [<c0280528>] (__dev_change_flags+0x70/0x128) from [<c0283054>] (dev_change_flags+0x10/0x48)
+ [<c0283054>] (dev_change_flags+0x10/0x48) from [<c001a720>] (ip_auto_config+0x190/0xf68)
+ [<c001a720>] (ip_auto_config+0x190/0xf68) from [<c00233b0>] (do_one_initcall+0x34/0x18c)
+ [<c00233b0>] (do_one_initcall+0x34/0x18c) from [<c0008400>] (kernel_init+0x94/0x134)
+ [<c0008400>] (kernel_init+0x94/0x134) from [<c0030858>] (kernel_thread_exit+0x0/0x8)
+
+Since there is no restrictions for DMA on ep93xx, we can fix this by just
+removing the GFP_DMA flag from the call.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
 ---
- drivers/net/arm/ep93xx_eth.c |   19 +++++++++++++------
- 1 files changed, 13 insertions(+), 6 deletions(-)
+ drivers/net/arm/ep93xx_eth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index 56b51a1..c2a7847 100644
+index 0c9df11..56b51a1 100644
 --- a/drivers/net/arm/ep93xx_eth.c
 +++ b/drivers/net/arm/ep93xx_eth.c
-@@ -285,11 +285,14 @@ static int ep93xx_rx(struct net_device *dev, int processed, int budget)
+@@ -495,7 +495,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
+ 	int i;
  
- 		skb = dev_alloc_skb(length + 2);
- 		if (likely(skb != NULL)) {
-+			struct ep93xx_rdesc *rxd = &ep->descs->rdesc[entry];
- 			skb_reserve(skb, 2);
--			dma_sync_single_for_cpu(ep->dma_dev,
--						ep->descs->rdesc[entry].buf_addr,
-+
-+			dma_sync_single_for_cpu(ep->dma_dev, rxd->buf_addr,
- 						length, DMA_FROM_DEVICE);
- 			skb_copy_to_linear_data(skb, ep->rx_buf[entry], length);
-+			dma_sync_single_for_device(ep->dma_dev, rxd->buf_addr,
-+						length, DMA_FROM_DEVICE);
- 			skb_put(skb, length);
- 			skb->protocol = eth_type_trans(skb, dev);
+ 	ep->descs = dma_alloc_coherent(dev, sizeof(struct ep93xx_descs),
+-				&ep->descs_dma_addr, GFP_KERNEL | GFP_DMA);
++				&ep->descs_dma_addr, GFP_KERNEL);
+ 	if (ep->descs == NULL)
+ 		return 1;
  
-@@ -351,6 +354,7 @@ poll_some_more:
- static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ep93xx_priv *ep = netdev_priv(dev);
-+	struct ep93xx_tdesc *txd;
- 	int entry;
- 
- 	if (unlikely(skb->len > MAX_PKT_SIZE)) {
-@@ -362,11 +366,14 @@ static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
- 	entry = ep->tx_pointer;
- 	ep->tx_pointer = (ep->tx_pointer + 1) & (TX_QUEUE_ENTRIES - 1);
- 
--	ep->descs->tdesc[entry].tdesc1 =
--		TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
-+	txd = &ep->descs->tdesc[entry];
-+
-+	txd->tdesc1 = TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
-+	dma_sync_single_for_cpu(ep->dma_dev, txd->buf_addr, skb->len,
-+				DMA_TO_DEVICE);
- 	skb_copy_and_csum_dev(skb, ep->tx_buf[entry]);
--	dma_sync_single_for_cpu(ep->dma_dev, ep->descs->tdesc[entry].buf_addr,
--				skb->len, DMA_TO_DEVICE);
-+	dma_sync_single_for_device(ep->dma_dev, txd->buf_addr, skb->len,
-+				   DMA_TO_DEVICE);
- 	dev_kfree_skb(skb);
- 
- 	spin_lock_irq(&ep->tx_pending_lock);
 -- 
 1.7.4.4
 
