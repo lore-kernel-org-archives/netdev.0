@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@iki.fi>
-Subject: [PATCH 2/5] net: ep93xx_eth: allocate buffers using kmalloc()
-Date: Thu,  2 Jun 2011 12:38:14 +0300
-Message-ID: <aa5c6ac72800108e0b9a0fcfae7496de49ec654d.1307006502.git.mika.westerberg@iki.fi>
+Subject: [PATCH 4/5] net: ep93xx_eth: fix DMA API violations
+Date: Thu,  2 Jun 2011 12:38:16 +0300
+Message-ID: <039d72a44f6c98fdd06f2daa419b813cbc43b632.1307006502.git.mika.westerberg@iki.fi>
 References: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 Cc: linux-arm-kernel@lists.infradead.org, kernel@wantstofly.org,
 	hsweeten@visionengravers.com, ryan@bluewatersys.com,
@@ -10,137 +10,100 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ey0-f174.google.com ([209.85.215.174]:47618 "EHLO
 	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933048Ab1FBJkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:40:35 -0400
-Received: by eyx24 with SMTP id 24so218562eyx.19
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 02:40:33 -0700 (PDT)
+	with ESMTP id S932771Ab1FBJki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:40:38 -0400
+Received: by mail-ey0-f174.google.com with SMTP id 24so218562eyx.19
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 02:40:38 -0700 (PDT)
 In-Reply-To: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 In-Reply-To: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 References: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can use simply kmalloc() to allocate the buffers. This also simplifies the
-code and allows us to perform DMA sync operations more easily.
+Russell King said:
+>
+> So, to summarize what its doing:
+>
+> 1. It allocates buffers for rx and tx.
+> 2. It maps them with dma_map_single().
+>       This transfers ownership of the buffer to the DMA device.
+> 3. In ep93xx_xmit,
+> 3a. It copies the data into the buffer with skb_copy_and_csum_dev()
+>       This violates the DMA buffer ownership rules - the CPU should
+>       not be writing to this buffer while it is (in principle) owned
+>       by the DMA device.
+> 3b. It then calls dma_sync_single_for_cpu() for the buffer.
+>       This transfers ownership of the buffer to the CPU, which surely
+>       is the wrong direction.
+> 4. In ep93xx_rx,
+> 4a. It calls dma_sync_single_for_cpu() for the buffer.
+>       This at least transfers the DMA buffer ownership to the CPU
+>       before the CPU reads the buffer
+> 4b. It then uses skb_copy_to_linear_data() to copy the data out.
+>       At no point does it transfer ownership back to the DMA device.
+> 5. When the driver is removed, it dma_unmap_single()'s the buffer.
+>       This transfers ownership of the buffer to the CPU.
+> 6. It frees the buffer.
+>
+> While it may work on ep93xx, it's not respecting the DMA API rules,
+> and with DMA debugging enabled it will probably encounter quite a few
+> warnings.
 
-Memory is allocated with only GFP_KERNEL since there are no DMA allocation
-restrictions on this platform.
+This patch fixes these violations.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
 ---
- drivers/net/arm/ep93xx_eth.c |   51 ++++++++++++++++-------------------------
- 1 files changed, 20 insertions(+), 31 deletions(-)
+ drivers/net/arm/ep93xx_eth.c |   19 +++++++++++++------
+ 1 files changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index 8779d3b..0c9df11 100644
+index 56b51a1..c2a7847 100644
 --- a/drivers/net/arm/ep93xx_eth.c
 +++ b/drivers/net/arm/ep93xx_eth.c
-@@ -463,36 +463,32 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
- 	struct device *dev = ep->dma_dev;
- 	int i;
+@@ -285,11 +285,14 @@ static int ep93xx_rx(struct net_device *dev, int processed, int budget)
  
--	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
-+	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
- 		dma_addr_t d;
+ 		skb = dev_alloc_skb(length + 2);
+ 		if (likely(skb != NULL)) {
++			struct ep93xx_rdesc *rxd = &ep->descs->rdesc[entry];
+ 			skb_reserve(skb, 2);
+-			dma_sync_single_for_cpu(ep->dma_dev,
+-						ep->descs->rdesc[entry].buf_addr,
++
++			dma_sync_single_for_cpu(ep->dma_dev, rxd->buf_addr,
+ 						length, DMA_FROM_DEVICE);
+ 			skb_copy_to_linear_data(skb, ep->rx_buf[entry], length);
++			dma_sync_single_for_device(ep->dma_dev, rxd->buf_addr,
++						length, DMA_FROM_DEVICE);
+ 			skb_put(skb, length);
+ 			skb->protocol = eth_type_trans(skb, dev);
  
- 		d = ep->descs->rdesc[i].buf_addr;
- 		if (d)
--			dma_unmap_single(dev, d, PAGE_SIZE, DMA_FROM_DEVICE);
-+			dma_unmap_single(dev, d, PKT_BUF_SIZE, DMA_FROM_DEVICE);
- 
- 		if (ep->rx_buf[i] != NULL)
--			free_page((unsigned long)ep->rx_buf[i]);
-+			kfree(ep->rx_buf[i]);
- 	}
- 
--	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
-+	for (i = 0; i < TX_QUEUE_ENTRIES; i++) {
- 		dma_addr_t d;
- 
- 		d = ep->descs->tdesc[i].buf_addr;
- 		if (d)
--			dma_unmap_single(dev, d, PAGE_SIZE, DMA_TO_DEVICE);
-+			dma_unmap_single(dev, d, PKT_BUF_SIZE, DMA_TO_DEVICE);
- 
- 		if (ep->tx_buf[i] != NULL)
--			free_page((unsigned long)ep->tx_buf[i]);
-+			kfree(ep->tx_buf[i]);
- 	}
- 
- 	dma_free_coherent(dev, sizeof(struct ep93xx_descs), ep->descs,
- 							ep->descs_dma_addr);
- }
- 
--/*
-- * The hardware enforces a sub-2K maximum packet size, so we put
-- * two buffers on every hardware page.
-- */
- static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
+@@ -351,6 +354,7 @@ poll_some_more:
+ static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	struct device *dev = ep->dma_dev;
-@@ -503,48 +499,41 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
- 	if (ep->descs == NULL)
- 		return 1;
+ 	struct ep93xx_priv *ep = netdev_priv(dev);
++	struct ep93xx_tdesc *txd;
+ 	int entry;
  
--	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
--		void *page;
-+	for (i = 0; i < RX_QUEUE_ENTRIES; i++) {
-+		void *buf;
- 		dma_addr_t d;
+ 	if (unlikely(skb->len > MAX_PKT_SIZE)) {
+@@ -362,11 +366,14 @@ static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	entry = ep->tx_pointer;
+ 	ep->tx_pointer = (ep->tx_pointer + 1) & (TX_QUEUE_ENTRIES - 1);
  
--		page = (void *)__get_free_page(GFP_KERNEL | GFP_DMA);
--		if (page == NULL)
-+		buf = kmalloc(PKT_BUF_SIZE, GFP_KERNEL);
-+		if (buf == NULL)
- 			goto err;
+-	ep->descs->tdesc[entry].tdesc1 =
+-		TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
++	txd = &ep->descs->tdesc[entry];
++
++	txd->tdesc1 = TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
++	dma_sync_single_for_cpu(ep->dma_dev, txd->buf_addr, skb->len,
++				DMA_TO_DEVICE);
+ 	skb_copy_and_csum_dev(skb, ep->tx_buf[entry]);
+-	dma_sync_single_for_cpu(ep->dma_dev, ep->descs->tdesc[entry].buf_addr,
+-				skb->len, DMA_TO_DEVICE);
++	dma_sync_single_for_device(ep->dma_dev, txd->buf_addr, skb->len,
++				   DMA_TO_DEVICE);
+ 	dev_kfree_skb(skb);
  
--		d = dma_map_single(dev, page, PAGE_SIZE, DMA_FROM_DEVICE);
-+		d = dma_map_single(dev, buf, PKT_BUF_SIZE, DMA_FROM_DEVICE);
- 		if (dma_mapping_error(dev, d)) {
--			free_page((unsigned long)page);
-+			kfree(buf);
- 			goto err;
- 		}
- 
--		ep->rx_buf[i] = page;
-+		ep->rx_buf[i] = buf;
- 		ep->descs->rdesc[i].buf_addr = d;
- 		ep->descs->rdesc[i].rdesc1 = (i << 16) | PKT_BUF_SIZE;
--
--		ep->rx_buf[i + 1] = page + PKT_BUF_SIZE;
--		ep->descs->rdesc[i + 1].buf_addr = d + PKT_BUF_SIZE;
--		ep->descs->rdesc[i + 1].rdesc1 = ((i + 1) << 16) | PKT_BUF_SIZE;
- 	}
- 
--	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
--		void *page;
-+	for (i = 0; i < TX_QUEUE_ENTRIES; i++) {
-+		void *buf;
- 		dma_addr_t d;
- 
--		page = (void *)__get_free_page(GFP_KERNEL | GFP_DMA);
--		if (page == NULL)
-+		buf = kmalloc(PKT_BUF_SIZE, GFP_KERNEL);
-+		if (buf == NULL)
- 			goto err;
- 
--		d = dma_map_single(dev, page, PAGE_SIZE, DMA_TO_DEVICE);
-+		d = dma_map_single(dev, buf, PKT_BUF_SIZE, DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, d)) {
--			free_page((unsigned long)page);
-+			kfree(buf);
- 			goto err;
- 		}
- 
--		ep->tx_buf[i] = page;
-+		ep->tx_buf[i] = buf;
- 		ep->descs->tdesc[i].buf_addr = d;
--
--		ep->tx_buf[i + 1] = page + PKT_BUF_SIZE;
--		ep->descs->tdesc[i + 1].buf_addr = d + PKT_BUF_SIZE;
- 	}
- 
- 	return 0;
+ 	spin_lock_irq(&ep->tx_pending_lock);
 -- 
 1.7.4.4
 
