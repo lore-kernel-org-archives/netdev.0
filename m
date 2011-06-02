@@ -1,55 +1,39 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: RE: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
- mark ncm devices as "mobile broadband devices" with FLAG_WWAN
-Date: Thu, 02 Jun 2011 17:35:31 -0500
-Message-ID: <1307054132.21633.25.camel@dcbw.foobar.com>
-References: <1306922913-17803-1-git-send-email-metze@samba.org>
-	 <1306922913-17803-2-git-send-email-metze@samba.org>
-	 <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E583@EXDCVYMBSTM006.EQ1STM.local>
-	 <1307053743.21633.22.camel@dcbw.foobar.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Metzmacher <metze@samba.org>,
-	Oliver Neukum <oliver@neukum.name>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexey ORISHKO <alexey.orishko@stericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1307053743.21633.22.camel@dcbw.foobar.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: [PATCH] qlcnic: Fix bug in FW queue dump
+Date: Thu,  2 Jun 2011 15:42:21 -0700
+Message-ID: <1307054541-11178-1-git-send-email-anirban.chakraborty@qlogic.com>
+Cc: netdev@vger.kernel.org,
+	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vpn.pathscale.com ([198.186.3.75]:58833 "HELO mx.mv.qlogic.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752599Ab1FBWtb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2011 18:49:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-06-02 at 17:29 -0500, Dan Williams wrote:
-> On Wed, 2011-06-01 at 12:20 +0200, Alexey ORISHKO wrote:
-> > > -----Original Message-----
-> > > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> > > owner@vger.kernel.org] On Behalf Of Stefan Metzmacher
-> > > Sent: Wednesday, June 01, 2011 12:09 PM
-> > 
-> > 
-> > > -	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
-> > > +	.flags = FLAG_WWAN | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
-> > 
-> > This patch will introduce incompatibility with already existing
-> > applications, which track usbX devices. As a result, end user
-> > application will stop working.
-> 
-> Applications should *never* track devices based solely on a device name
-> prefix.  What do they do when the device gets renamed either by udev
-> rules or the user?  It's simply broken.  Device names are not stable API
-> and they can and do change at will.  Applications that expect them to
-> have a stable prefix are simply broken.
+Due to a change in FW template, a bug was introduced in dump queue entries. This is
+fixed by reinitializing queue address before looping for each que dump operation.
 
-A follow-on to this is that if you really care about specific devices,
-your application can use udev rules to "tag" specific interfaces based
-on USB VID/PID/GUID or other device attributes, and check for those tags
-in your program.  Use udev (good) or netlink (good) or SIOCGIFCONF (bad)
-to enumerate the various network interfaces on the system and pick the
-one you want using the udev tags instead of hardcoding stuff that will
-inevitably break, as you've seen here.  Yeah, it's more code.  But hey,
-it doesn't break when people do something you don't expect!
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic_hw.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Dan
+diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
+index e965661..a5d9fbf 100644
+--- a/drivers/net/qlcnic/qlcnic_hw.c
++++ b/drivers/net/qlcnic/qlcnic_hw.c
+@@ -1406,6 +1406,7 @@ qlcnic_dump_que(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
+ 
+ 	for (loop = 0; loop < que->no_ops; loop++) {
+ 		QLCNIC_WR_DUMP_REG(que->sel_addr, base, que_id);
++		addr = que->read_addr;
+ 		for (i = 0; i < cnt; i++) {
+ 			QLCNIC_RD_DUMP_REG(addr, base, &data);
+ 			*buffer++ = cpu_to_le32(data);
+-- 
+1.7.4.1
+
