@@ -1,135 +1,77 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] bonding: reset queue mapping prior to transmission to
- physical device
-Date: Thu, 2 Jun 2011 15:46:21 -0400
-Message-ID: <20110602194621.GB2749@hmsreliant.think-freely.org>
-References: <1307037799-32315-1-git-send-email-nhorman@tuxdriver.com>
- <1307039753.2812.16.camel@bwh-desktop>
- <20110602185659.GA2749@hmsreliant.think-freely.org>
- <1307041789.2812.27.camel@bwh-desktop>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: forwarding pings out ingress interface
+Date: Thu, 02 Jun 2011 21:46:50 +0200
+Message-ID: <4DE7E8AA.20000@gmail.com>
+References: <6F5DE7538AFCDA45A114F5E7510424A7027D8388@hq-exchange01.bytemobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jeff Haran <jharan@bytemobile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59757 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752576Ab1FBTq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 15:46:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1307041789.2812.27.camel@bwh-desktop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45436 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508Ab1FBTqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 15:46:55 -0400
+Received: by wya21 with SMTP id 21so889136wya.19
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 12:46:53 -0700 (PDT)
+In-Reply-To: <6F5DE7538AFCDA45A114F5E7510424A7027D8388@hq-exchange01.bytemobile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2011 at 08:09:49PM +0100, Ben Hutchings wrote:
-> On Thu, 2011-06-02 at 14:56 -0400, Neil Horman wrote:
-> > On Thu, Jun 02, 2011 at 07:35:53PM +0100, Ben Hutchings wrote:
-> > > On Thu, 2011-06-02 at 14:03 -0400, Neil Horman wrote:
-> > > > The bonding driver is multiqueue enabled, in which each queue represents a slave
-> > > > to enable optional steering of output frames to given slaves against the default
-> > > > output policy.  However, it needs to reset the skb->queue_mapping prior to
-> > > > queuing to the physical device or the physical slave (if it is multiqueue) could
-> > > > wind up transmitting on an unintended tx queue (one that was reserved for
-> > > > specific traffic classes for instance)
-> [...]
-> > > So far as I can see, this has no effect, because dev_queue_xmit() always
-> > > sets queue_mapping (in dev_pick_tx()).
-> > > 
-> > it resets the queue mapping exactly as you would expect it to.  bonding is a
-> > multiqueue enabled device and selects a potentially non-zero queue based on the
-> > output of bond_select_queue.
-> > 
-> > > What is the problem you're seeing?
-> > > 
-> > The problem is exctly that.  dev_pick_tx() on the bond device sets the
-> > queue_mapping as per the result of bond_select_queue (the ndo_select_queue
-> > method for the bonding driver).  The implementation there is based on the use of
-> > tc with bonding, so that output slaves can be selected for certain types of
-> > traffic.  But when that mechanism is used, skb->queue_mapping is preserved when
-> > the bonding driver queues the frame to the underlying slave.  This denies the
-> > slave (if its also a multiqueue device) the opportunity to reselect the queue
-> > properly, because of this call path:
-> > 
-> > bond_queue_xmit
-> >  dev_queue_xmit(slave_dev)
-> >   dev_pick_tx()
-> >    skb_tx_hash()
-> >     __skb_tx_hash()
-> > 
-> > __skb_tx_hash sees that skb_queue_recorded returns true, and assigns a hardware queue mapping
-> > based on what the bonding driver chose using its own internal logic.  Since
-> > bonding uses the multiqueue infrastructure to do slave output selection without
-> > any regard for slave output queue selection, it seems to me we should really
-> > reset the queue mapping to zero so the slave device can pick its own tx queue.
-> 
-> So you're effectively clearing the *RX queue* number (as this is before
-> dev_pick_tx()) in order to influence TX queue selection.
-> 
-No, you're not seeing it properly.  In bonding (as with all stacked devices) we
-make two passes through dev_pick_tx.
+Le 02/06/2011 21:10, Jeff Haran a =E9crit :
+> Running Redhat Enterprize 6.0, seeing the following behavior.
+>
+> Two Ethernet network segments: 172.30/16 and 169.254.160/24.
+>
+> Three "devices":
+>
+> [linux] is the blade running RHEL6.0. It has multiple network interfa=
+ces
+> and has IP forwarding enabled.
+> [host] is an IP host of some sort.
+> [lb] is an L3 load balancer.
+>
+> They are connected like so:
+>
+> [host] 172.30.0.254<->  172.30.0.2 [lb] 169.254.160.20<->  169.254.16=
+0.1
+> [linux]
+>
+> I have not shown the other network interfaces that [linux] is attache=
+d
+> to for brevity in the diagram.
+>
+> One of the peculiarities of [lb] is if [host] pings it at 172.30.0.2,=
+ it
+> will not respond to the ping itself but instead forward the ping to
+> [linux]. I realize this is broken, but I have to deal with it (its
+> cooked into [lb]'s silicon). [lb]'s vendor assures me that if [linux]
+> would only forward the ping back to [lb] out the same interface it ca=
+me
+> in on, then [lb] will generate a ping response back to [host].
+>
+> My problem is [linux] won't forward the ping back to [lb]. [linux] ha=
+s a
+> route to 172.30/16 out the interface that connects it to [lb] and I c=
+an
+> see from tcpdump that [linux] is getting the ICMP Echo requests with
+> source address 172.30.0.254 and destination address 172.30.0.2, but
+> nothing gets transmitted out that interface in response.
 
-1) The first time we call dev_pick_tx is when the network stack calls
-dev_queue_xmit on the bond device.  here we call ndo_select_queue, which calls
-bond_select_queue.  This method tells the stack which queue to enqueue the skb
-on for the bond device.  We can use tc's skbedit action to select a particular
-queue on the bond device for various classes of traffic, and those queues
-correspond to individual slave devices.
+As per RFC3927, section 2.6.2 "[a] host MUST NOT send a packet with an =
+IPv4 Link-Local destination=20
+address to any router for forwarding." Your linux host use 169.254.160/=
+24, which is in the IPv4=20
+Link-Local range. So it is normal for your linux host not to reply to a=
+ ping request coming from=20
+outside of the local subnet.
 
-2) the second time we call dev_pick_tx is when the bonding bond_queue_xmit
-routine (which is the bonding drivers ndo_start_xmit method, called after the
-frist dev_pick_tx), calls dev_queue_xmit, passing the slave net_device pointer).
-In this case we do whatever the slave device has configured (either reset the
-queue to zero, or call the slaves ndo_select queue method).
+Why do you use an IP in the link local range? For as far as I remember =
+(but I failed to find the=20
+exact section), this RFC also forbid static configuration of an IP in t=
+his range.
 
-What I'm fixing is the fact that the bonding drivers queue_mappnig value is
-'leaking' down to the slave.
-
-Lets say, for example we're bonding two multiqueue devices, and have the bonding
-driver configured to send all traffic to 192.168.1.1 over the first slave (which
-we can accomplish using an appropriate tc rule on the bond device, setting
-frames with that dest ip to have a skb->queue_mapping of 1).
-
-In the above example, frames bound for 192.168.1.1 have skb->queue_mapping set
-to 1 when they enter bond_queue_xmit.  bond_queue_xmit, calls
-dev_queue_xmit(slave, skb), which calls dev_pick_tx(slave, skb).  If we (for
-simplicity's sake) assume the slave has no ndo_select_queue method, dev_pick_tx
-calls __skb_tx_hash to determine the output queue.  But the bonding driver
-already set skb->queue_mapping to 1 (because it wanted this frame output on the
-first slave, not because it wanted to transmit the frame on the slaves tx queue
-1).  Nevertheless, __skb_tx_hash() sees that skb_rx_queue_recorded returns true
-here and as a result, calls skb_rx_get_queue, which returns 0.  Because of that
-we wind up transmitting on hardware queue 0 all the time, which is not at all
-what we want.  What we want is for the bonding driver to be able to use
-queue_mapping for its own purposes, and then allow the physical device to make
-its own output queue selection independently.  To do this, queue_mapping needs
-to be zero, prior to queuenig the skb to the slave, which is exactly what this
-patch does.
-
-> Here, the bonding device seems to be behaving as a forwarding device.
-> If TX queue selection can go wrong for certain combinations of queue
-> configuration when forwarding, then this is a problem for IP forwarding
-> and bridging as well, isn't it?
-> 
-Potentially, yes.  I only fixed this because I was looking at bonding and its
-queue_mapping behavior, and saw that this needed fixing.  Bridging and IP
-forwarding should also likely clear the queue mapping in the forwarding path
-somewhere to avoid selecting an output tx queue that is a function of whatever
-queue and device it arrived on during ingress.  I've not yet looked to see if
-thats already being done.
-
-Neil
-
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+	Nicolas.
