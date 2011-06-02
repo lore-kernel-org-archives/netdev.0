@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: fix typo in vlan_dev_hard_start_xmit()
-Date: Wed, 01 Jun 2011 21:09:34 -0700 (PDT)
-Message-ID: <20110601.210934.118116812798314878.davem@davemloft.net>
-References: <4DE5FDFF.4000208@cn.fujitsu.com>
-	<1306940827.2890.0.camel@edumazet-laptop>
+Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
+Date: Wed, 01 Jun 2011 21:11:42 -0700 (PDT)
+Message-ID: <20110601.211142.557328157396419857.davem@davemloft.net>
+References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E568@EXDCVYMBSTM006.EQ1STM.local>
+	<1306929701-22861-1-git-send-email-metze@samba.org>
+	<1306929701-22861-2-git-send-email-metze@samba.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58879 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834Ab1FBEJq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 00:09:46 -0400
-In-Reply-To: <1306940827.2890.0.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: oliver@neukum.name, gregkh@suse.de, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: metze@samba.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306929701-22861-2-git-send-email-metze@samba.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 01 Jun 2011 17:07:07 +0200
+From: Stefan Metzmacher <metze@samba.org>
+Date: Wed,  1 Jun 2011 14:01:41 +0200
 
-> Le mercredi 01 juin 2011 =E0 16:53 +0800, Wei Yongjun a =E9crit :
->> commit 4af429d29b341bb1735f04c2fb960178ed5d52e7 (vlan: lockless
->> transmit path) have a typo in vlan_dev_hard_start_xmit(), using
->> u64_stats_update_begin() to end the stat update, it should be
->> u64_stats_update_end().
->>=20
->> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
->=20
-> Good catch, Thanks !
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> This avoids messages like this after suspend:
+> 
+>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
+>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
+>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4, CDC NCM
+> 
+> This is important for the Ericsson F5521gw GSM/UMTS modem.
+> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm devices
+> belong together.
+> 
+> The cdc_ether module does the same.
+> 
+> Signed-off-by: Stefan Metzmacher <metze@samba.org>
 
-Applied and queued up for -stable.
-
-Thanks!
+Applied and queued up for -stable, thanks.
