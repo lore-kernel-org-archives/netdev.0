@@ -1,32 +1,29 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TX watchdog vs link-layer flow control
-Date: Thu, 02 Jun 2011 22:01:42 +0100
-Message-ID: <1307048502.2812.67.camel@bwh-desktop>
-References: <1307047720.2812.59.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ftrace: tracepoint of net_dev_xmit sees freed skb and
+ causes panic
+Date: Thu, 02 Jun 2011 13:59:13 -0700 (PDT)
+Message-ID: <20110602.135913.2065173997860104604.davem@davemloft.net>
+References: <4DE49D52.709@jp.fujitsu.com>
+	<1306854867.11899.31.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36810 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754615Ab1FBVBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 17:01:45 -0400
-In-Reply-To: <1307047720.2812.59.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sanagi.koki@jp.fujitsu.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, mingo@elte.hu,
+	fweisbec@gmail.com, mathieu.desnoyers@efficios.com,
+	tglx@linutronix.de, kosaki.motohiro@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com
+To: rostedt@goodmis.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1306854867.11899.31.camel@gandalf.stny.rr.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Also: given that the watchdog fires if *any* TX queue is stopped, that
-seems to mean that on a device with hardware TX priority it could be
-triggered for a TX queue with low priority if the link is filled with
-higher-priority TX packets for long enough.  (This depends on how 'hard'
-the priorities are, of course.)
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 31 May 2011 11:14:27 -0400
 
-Ben.
+> Note, the subject should not be "ftrace:", but "net:" or maybe even
+> "net/tracing", as this really has nothing to do with ftrace code. The
+> tracepoints are more generic than ftrace.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Do you guys mind if I take this in via the net-2.6 tree?
