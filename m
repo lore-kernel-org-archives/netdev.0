@@ -1,97 +1,141 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] bonding: reset queue mapping prior to transmission to
- physical device
-Date: Thu, 2 Jun 2011 14:56:59 -0400
-Message-ID: <20110602185659.GA2749@hmsreliant.think-freely.org>
-References: <1307037799-32315-1-git-send-email-nhorman@tuxdriver.com>
- <1307039753.2812.16.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Mika Westerberg <mika.westerberg@iki.fi>
+Subject: [PATCH v2 2/5] net: ep93xx_eth: pass struct device to DMA API functions
+Date: Thu,  2 Jun 2011 21:59:35 +0300
+Message-ID: <c0ddfc297e0ea1e64e58cedd6552c6b2e52c5fe8.1307040443.git.mika.westerberg@iki.fi>
+References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+Cc: linux-arm-kernel@lists.infradead.org, kernel@wantstofly.org,
+	hsweeten@visionengravers.com, ryan@bluewatersys.com,
+	Mika Westerberg <mika.westerberg@iki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46145 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752018Ab1FBS5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 14:57:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1307039753.2812.16.camel@bwh-desktop>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:61050 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752361Ab1FBTBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 15:01:55 -0400
+Received: by mail-ew0-f46.google.com with SMTP id 4so414248ewy.19
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 12:01:54 -0700 (PDT)
+In-Reply-To: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+In-Reply-To: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2011 at 07:35:53PM +0100, Ben Hutchings wrote:
-> On Thu, 2011-06-02 at 14:03 -0400, Neil Horman wrote:
-> > The bonding driver is multiqueue enabled, in which each queue represents a slave
-> > to enable optional steering of output frames to given slaves against the default
-> > output policy.  However, it needs to reset the skb->queue_mapping prior to
-> > queuing to the physical device or the physical slave (if it is multiqueue) could
-> > wind up transmitting on an unintended tx queue (one that was reserved for
-> > specific traffic classes for instance)
-> >
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > CC: Jay Vosburgh <fubar@us.ibm.com>
-> > CC: Andy Gospodarek <andy@greyhouse.net>
-> > CC: "David S. Miller" <davem@davemloft.net>
-> > ---
-> >  drivers/net/bonding/bond_main.c |    5 +++++
-> >  1 files changed, 5 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> > index 17b4dd9..812c70c 100644
-> > --- a/drivers/net/bonding/bond_main.c
-> > +++ b/drivers/net/bonding/bond_main.c
-> > @@ -4200,6 +4200,11 @@ static inline int bond_slave_override(struct bonding *bond,
-> >  	/* If the slave isn't UP, use default transmit policy. */
-> >  	if (slave && slave->queue_id && IS_UP(slave->dev) &&
-> >  	    (slave->link == BOND_LINK_UP)) {
-> > +		/*
-> > + 		 * Reset the queue mapping to allow the underlying slave	
-> > + 		 * the chance to re-select an appropriate tx queue
-> > + 		 */
-> > +		skb_set_queue_mapping(skb, 0);
-> >  		res = bond_dev_queue_xmit(bond, skb, slave->dev);
-> >  	}
-> >  
-> 
-> So far as I can see, this has no effect, because dev_queue_xmit() always
-> sets queue_mapping (in dev_pick_tx()).
-> 
-it resets the queue mapping exactly as you would expect it to.  bonding is a
-multiqueue enabled device and selects a potentially non-zero queue based on the
-output of bond_select_queue.
+We shouldn't use NULL for any DMA API functions, unless we are dealing with
+ISA or EISA device. So pass correct struct dev pointer to these functions.
 
-> What is the problem you're seeing?
-> 
-The problem is exctly that.  dev_pick_tx() on the bond device sets the
-queue_mapping as per the result of bond_select_queue (the ndo_select_queue
-method for the bonding driver).  The implementation there is based on the use of
-tc with bonding, so that output slaves can be selected for certain types of
-traffic.  But when that mechanism is used, skb->queue_mapping is preserved when
-the bonding driver queues the frame to the underlying slave.  This denies the
-slave (if its also a multiqueue device) the opportunity to reselect the queue
-properly, because of this call path:
+Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
+Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ drivers/net/arm/ep93xx_eth.c |   26 ++++++++++++++++----------
+ 1 files changed, 16 insertions(+), 10 deletions(-)
 
-bond_queue_xmit
- dev_queue_xmit(slave_dev)
-  dev_pick_tx()
-   skb_tx_hash()
-    __skb_tx_hash()
+diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
+index 5a77001..8779d3b 100644
+--- a/drivers/net/arm/ep93xx_eth.c
++++ b/drivers/net/arm/ep93xx_eth.c
+@@ -159,6 +159,8 @@ struct ep93xx_priv
+ 	void __iomem		*base_addr;
+ 	int			irq;
+ 
++	struct device		*dma_dev;
++
+ 	struct ep93xx_descs	*descs;
+ 	dma_addr_t		descs_dma_addr;
+ 
+@@ -284,7 +286,8 @@ static int ep93xx_rx(struct net_device *dev, int processed, int budget)
+ 		skb = dev_alloc_skb(length + 2);
+ 		if (likely(skb != NULL)) {
+ 			skb_reserve(skb, 2);
+-			dma_sync_single_for_cpu(NULL, ep->descs->rdesc[entry].buf_addr,
++			dma_sync_single_for_cpu(ep->dma_dev,
++						ep->descs->rdesc[entry].buf_addr,
+ 						length, DMA_FROM_DEVICE);
+ 			skb_copy_to_linear_data(skb, ep->rx_buf[entry], length);
+ 			skb_put(skb, length);
+@@ -362,7 +365,7 @@ static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	ep->descs->tdesc[entry].tdesc1 =
+ 		TDESC1_EOF | (entry << 16) | (skb->len & 0xfff);
+ 	skb_copy_and_csum_dev(skb, ep->tx_buf[entry]);
+-	dma_sync_single_for_cpu(NULL, ep->descs->tdesc[entry].buf_addr,
++	dma_sync_single_for_cpu(ep->dma_dev, ep->descs->tdesc[entry].buf_addr,
+ 				skb->len, DMA_TO_DEVICE);
+ 	dev_kfree_skb(skb);
+ 
+@@ -457,6 +460,7 @@ static irqreturn_t ep93xx_irq(int irq, void *dev_id)
+ 
+ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+ {
++	struct device *dev = ep->dma_dev;
+ 	int i;
+ 
+ 	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
+@@ -464,7 +468,7 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+ 
+ 		d = ep->descs->rdesc[i].buf_addr;
+ 		if (d)
+-			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_FROM_DEVICE);
++			dma_unmap_single(dev, d, PAGE_SIZE, DMA_FROM_DEVICE);
+ 
+ 		if (ep->rx_buf[i] != NULL)
+ 			free_page((unsigned long)ep->rx_buf[i]);
+@@ -475,13 +479,13 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+ 
+ 		d = ep->descs->tdesc[i].buf_addr;
+ 		if (d)
+-			dma_unmap_single(NULL, d, PAGE_SIZE, DMA_TO_DEVICE);
++			dma_unmap_single(dev, d, PAGE_SIZE, DMA_TO_DEVICE);
+ 
+ 		if (ep->tx_buf[i] != NULL)
+ 			free_page((unsigned long)ep->tx_buf[i]);
+ 	}
+ 
+-	dma_free_coherent(NULL, sizeof(struct ep93xx_descs), ep->descs,
++	dma_free_coherent(dev, sizeof(struct ep93xx_descs), ep->descs,
+ 							ep->descs_dma_addr);
+ }
+ 
+@@ -491,9 +495,10 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+  */
+ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
+ {
++	struct device *dev = ep->dma_dev;
+ 	int i;
+ 
+-	ep->descs = dma_alloc_coherent(NULL, sizeof(struct ep93xx_descs),
++	ep->descs = dma_alloc_coherent(dev, sizeof(struct ep93xx_descs),
+ 				&ep->descs_dma_addr, GFP_KERNEL | GFP_DMA);
+ 	if (ep->descs == NULL)
+ 		return 1;
+@@ -506,8 +511,8 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
+ 		if (page == NULL)
+ 			goto err;
+ 
+-		d = dma_map_single(NULL, page, PAGE_SIZE, DMA_FROM_DEVICE);
+-		if (dma_mapping_error(NULL, d)) {
++		d = dma_map_single(dev, page, PAGE_SIZE, DMA_FROM_DEVICE);
++		if (dma_mapping_error(dev, d)) {
+ 			free_page((unsigned long)page);
+ 			goto err;
+ 		}
+@@ -529,8 +534,8 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
+ 		if (page == NULL)
+ 			goto err;
+ 
+-		d = dma_map_single(NULL, page, PAGE_SIZE, DMA_TO_DEVICE);
+-		if (dma_mapping_error(NULL, d)) {
++		d = dma_map_single(dev, page, PAGE_SIZE, DMA_TO_DEVICE);
++		if (dma_mapping_error(dev, d)) {
+ 			free_page((unsigned long)page);
+ 			goto err;
+ 		}
+@@ -829,6 +834,7 @@ static int ep93xx_eth_probe(struct platform_device *pdev)
+ 	}
+ 	ep = netdev_priv(dev);
+ 	ep->dev = dev;
++	ep->dma_dev = &pdev->dev;
+ 	netif_napi_add(dev, &ep->napi, ep93xx_poll, 64);
+ 
+ 	platform_set_drvdata(pdev, dev);
+-- 
+1.7.4.4
 
-__skb_tx_hash sees that skb_queue_recorded returns true, and assigns a hardware queue mapping
-based on what the bonding driver chose using its own internal logic.  Since
-bonding uses the multiqueue infrastructure to do slave output selection without
-any regard for slave output queue selection, it seems to me we should really
-reset the queue mapping to zero so the slave device can pick its own tx queue.
-
-Neil
-
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
