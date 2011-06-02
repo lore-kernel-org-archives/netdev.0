@@ -1,39 +1,25 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH 6/6 v9] sctp: Add ASCONF operation on the single-homed
- host
-Date: Thu, 02 Jun 2011 15:20:34 +0800
-Message-ID: <4DE739C2.4000306@cn.fujitsu.com>
-References: <99BEF1C4-C638-4007-A538-E43B1463F564@sfc.wide.ad.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6 v9] sctp: Auto-ASCONF patch series
+Date: Thu, 02 Jun 2011 02:06:03 -0700 (PDT)
+Message-ID: <20110602.020603.629168949619760692.davem@davemloft.net>
+References: <4C8C57AE-E872-46F5-806D-DD2699F424C6@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Michio Honda <micchie@sfc.wide.ad.jp>
+Cc: netdev@vger.kernel.org, yjwei@cn.fujitsu.com
+To: micchie@sfc.wide.ad.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58736 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932145Ab1FBHVR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2011 03:21:17 -0400
-In-Reply-To: <99BEF1C4-C638-4007-A538-E43B1463F564@sfc.wide.ad.jp>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37288 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752188Ab1FBJGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:06:15 -0400
+In-Reply-To: <4C8C57AE-E872-46F5-806D-DD2699F424C6@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Date: Thu, 2 Jun 2011 12:00:49 +0900
 
-> >From 907306fafe1ebdde2ad42aefbc6e45821b448cbf Mon Sep 17 00:00:00 2001
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: Tue, 26 Apr 2011 20:19:36 +0900
-> Subject: [PATCH 6/6 v9] sctp: Add ASCONF operation on the single-homed host
->
-> In this case, the SCTP association transmits an ASCONF packet
-> including addition of the new IP address and deletion of the old
-> address.  This patch implements this functionality.
-> In this case, the ASCONF chunk is added to the beginning of the
-> queue, because the other chunks cannot be transmitted in this state.
->
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->  
+> Series of 6 patches to support auto_asconf and the other related functionalities that auto_asconf relies on
 
-Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-
+All applied, thank you.
