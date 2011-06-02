@@ -1,111 +1,95 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [net-next,02/13] tg3: Cleanup transmit error path
-Date: Thu, 2 Jun 2011 16:01:39 -0700
-Message-ID: <20110602230139.GD5068@mcarlson.broadcom.com>
-References: <1305843176-32358-3-git-send-email-mcarlson@broadcom.com>
- <1307053115.3656.19.camel@x201>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
+Date: Fri, 3 Jun 2011 07:18:10 +0800
+Message-ID: <BANLkTikKZy09vsMZgoQy-cKS_XX53gqjkw@mail.gmail.com>
+References: <m1aaectyed.fsf@fess.ebiederm.org> <20110524.022406.2228892895515155850.davem@davemloft.net>
+ <m1oc2spmyt.fsf@fess.ebiederm.org> <20110601.205940.1179055860757569997.davem@davemloft.net>
+ <m11uzcidvq.fsf_-_@fess.ebiederm.org> <BANLkTimjfHKh3dpPEzznKiK=Md4v0iTD9A@mail.gmail.com>
+ <m1ipsob6f8.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Alex Williamson" <alex.williamson@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4156 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754744Ab1FBW5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2011 18:57:36 -0400
-In-Reply-To: <1307053115.3656.19.camel@x201>
-Content-Disposition: inline
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:51980 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755406Ab1FBXSb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 19:18:31 -0400
+Received: by bwz15 with SMTP id 15so1342125bwz.19
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 16:18:30 -0700 (PDT)
+In-Reply-To: <m1ipsob6f8.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2011 at 03:18:35PM -0700, Alex Williamson wrote:
-> On Thu, 2011-05-19 at 12:12 +0000, Matt Carlson wrote:
-> > This patch consolidates the skb cleanup code into a function named
-> > tg3_skb_error_unmap().  The modification addresses a long-standing bug
-> > where pci_unmap_single() was incorrectly being called instead of
-> > pci_unmap_page() in tigon3_dma_hwbug_workaround().
-> 
-> This patch doesn't behave well when an iommu (VT-d) is involved.
-> Booting an X58 chipset based system with intel_iommu=on with 3.0.0-rc1
-> results in the warning below.  Looks like the driver is trying to unmap
-> 0x0.  Eventually something worse happens and the system reports a few
-> iommu faults from the device before panicing.  Neither problem is
-> observed if 432aa7ed is reverted.  tg3 device in use is a BCM5755.
-> Thanks,
-> 
-> Alex
-> 
-> WARNING: at drivers/pci/intel-iommu.c:2888 intel_unmap_page+0x15c/0x180()
-> Hardware name: 4157CTO
-> Driver unmaps unmatched page at PFN 0
-> Modules linked in: nfs lockd auth_rpcgss nfs_acl ipt_MASQUERADE iptable_nat nf_nat iptable_mangle tun autofs4 sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf bridge stp llc ipv6 dm_mirror dm_region_hash dm_log kvm_intel kvm sg microcode serio_raw wmi i2c_i801 i2c_core iTCO_wdt iTCO_vendor_support tg3 ext4 mbcache jbd2 raid1 raid456 async_pq async_xor xor async_memcpy async_raid6_recov raid6_pq async_tx sr_mod cdrom sd_mod crc_t10dif floppy dm_mod [last unloaded: scsi_wait_scan]
-> Pid: 2604, comm: libvirtd Not tainted 3.0.0-rc1+ #184
-> Call Trace:
->  [<ffffffff8105c7df>] warn_slowpath_common+0x7f/0xc0
->  [<ffffffff8105c8d6>] warn_slowpath_fmt+0x46/0x50
->  [<ffffffff81245b8b>] ? find_iova+0x5b/0xa0
->  [<ffffffff8124a60c>] intel_unmap_page+0x15c/0x180
->  [<ffffffffa0128d48>] tg3_skb_error_unmap+0xb8/0x130 [tg3]
->  [<ffffffffa0136041>] tg3_start_xmit+0x661/0xde0 [tg3]
->  [<ffffffffa01363dd>] ? tg3_start_xmit+0x9fd/0xde0 [tg3]
->  [<ffffffff8138d7fe>] dev_hard_start_xmit+0x31e/0x6c0
->  [<ffffffff813a9f5f>] sch_direct_xmit+0xef/0x1c0
->  [<ffffffff8138dd38>] dev_queue_xmit+0x198/0x5f0
->  [<ffffffffa028d2ac>] br_dev_queue_push_xmit+0x6c/0xa0 [bridge]
->  [<ffffffffa028d478>] br_forward_finish+0x58/0x60 [bridge]
->  [<ffffffffa028d4f8>] __br_deliver+0x78/0xf0 [bridge]
->  [<ffffffff814367a9>] ? packet_rcv+0x59/0x450
->  [<ffffffffa028d5a5>] br_deliver+0x35/0x40 [bridge]
->  [<ffffffffa028b8c4>] br_dev_xmit+0x114/0x180 [bridge]
->  [<ffffffff8138d7fe>] dev_hard_start_xmit+0x31e/0x6c0
->  [<ffffffff8138df95>] dev_queue_xmit+0x3f5/0x5f0
->  [<ffffffff813d0c2e>] ip_finish_output+0x16e/0x340
->  [<ffffffff813d1110>] ip_output+0xb0/0xc0
->  [<ffffffff813cfdc3>] ? __ip_local_out+0xa3/0xb0
->  [<ffffffff813d0129>] ip_local_out+0x29/0x30
->  [<ffffffff813d0604>] ip_queue_xmit+0x164/0x410
->  [<ffffffff813e5e5c>] tcp_transmit_skb+0x41c/0x910
->  [<ffffffff813e86f7>] tcp_write_xmit+0x1e7/0x9d0
->  [<ffffffff813e8f46>] __tcp_push_pending_frames+0x26/0xc0
->  [<ffffffff813d77be>] tcp_push+0x6e/0x90
->  [<ffffffff813db4f9>] tcp_sendmsg+0x759/0xc00
->  [<ffffffff813fdaa8>] inet_sendmsg+0x48/0xb0
->  [<ffffffff811cd7f3>] ? selinux_socket_sendmsg+0x23/0x30
->  [<ffffffff81377e52>] sock_sendmsg+0xe2/0x120
->  [<ffffffff8100a7e4>] ? __switch_to+0x194/0x320
->  [<ffffffff81377ed1>] kernel_sendmsg+0x41/0x60
+On Thu, Jun 2, 2011 at 11:26 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Changli Gao <xiaosuo@gmail.com> writes:
+>
+>> On Thu, Jun 2, 2011 at 9:03 PM, Eric W. Biederman <ebiederm@xmission=
+=2Ecom> wrote:
+>>>
+>>> -static struct sk_buff *vlan_check_reorder_header(struct sk_buff *s=
+kb)
+>>> +static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
+>>> =A0{
+>>> - =A0 =A0 =A0 if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDE=
+R_HDR) {
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb_cow(skb, skb_headroom(skb)) <=
+ 0)
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D NULL;
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb) {
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Lifted from Gleb's=
+ VLAN code... */
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(skb->data - E=
+TH_HLEN,
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->=
+data - VLAN_ETH_HLEN, 12);
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->mac_header +=3D =
+VLAN_HLEN;
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>>> + =A0 =A0 =A0 if (skb_cow(skb, skb_headroom(skb)) < 0)
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D NULL;
+>>> + =A0 =A0 =A0 if (skb) {
+>>
+>> I think an else branch maybe more readable here.
+>
+> Probably most readable would be simply returning NULL immediately on
+> error. =A0In this patch I just removed the if statement, and I would =
+like
+> to avoid mixing different bug fixes in the same patch if possible.
+>
 
-Does this patch fix the problem?
+OK. It is minor.
 
-Subject: [PATCH] tg3: Fix tg3_skb_error_unmap()
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Lifted from Gleb's VLAN code... */
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(skb->data - ETH_HLEN,
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->data - VLAN_ETH_=
+HLEN, 12);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->mac_header +=3D VLAN_HLEN;
+>>
+>> skb->mac_len should be adjusted too.
+>
+> Given how vlan_untag is called at the moment it does appear
+> that the skb->mac_len =3D skb->network_header - skb->mac_header
+> in __netif_receive_skb that used to handle this for is no longer
+> doing this for us.
+>
+> My feel is that either we need to do all of the header resets and the
+> vlan_untagging together. =A0So we either need this all together befor=
+e or
+> after the another_round label:
+>
+> So the proper fix is probably something like this.
+>
 
-This function attempts to free one fragment beyond the number of
-fragments that were actually mapped.  This patch brings back the limit
-to the correct spot.
-
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 8ece39b..3d239ab 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5771,7 +5771,7 @@ static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
- 			 dma_unmap_addr(txb, mapping),
- 			 skb_headlen(skb),
- 			 PCI_DMA_TODEVICE);
--	for (i = 0; i <= last; i++) {
-+	for (i = 0; i < last; i++) {
- 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 		entry = NEXT_TX(entry);
--- 
-1.7.3.4
+OK, it is right. Thanks.
 
 
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
