@@ -1,194 +1,88 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [v5 00/39] faster tree-based sysctl implementation
-Date: Thu, 2 Jun 2011 23:58:19 +0300
-Message-ID: <BANLkTin-8aMrRxzYTJ4U2QDPFJ11+8s0=g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Use unsigned variables for packet lengths in
+ ip[6]_queue.
+Date: Thu, 02 Jun 2011 13:57:42 -0700 (PDT)
+Message-ID: <20110602.135742.1323883827030625599.davem@davemloft.net>
+References: <20110420014221.GC26949@redhat.com>
+	<20110419.204105.68144653.davem@davemloft.net>
+	<20110528003651.GA8380@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Octavian Purdila <tavi@cs.pub.ro>,
-	"David S . Miller" <davem@davemloft.net>
-To: "Eric W . Biederman" <ebiederm@xmission.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	pablo@netfilter.org, kaber@trash.net
+To: davej@redhat.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110528003651.GA8380@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Dave Jones <davej@redhat.com>
+Date: Fri, 27 May 2011 20:36:51 -0400
 
-This is version 5 of a patch series that introduces a faster/leaner
-sysctl internal implementation. Due to high number of patches and low
-general interest I'll just point you to the tree/branch:
+> On Tue, Apr 19, 2011 at 08:41:05PM -0700, David Miller wrote:
+>  > From: Dave Jones <davej@redhat.com>
+>  > Date: Tue, 19 Apr 2011 21:42:22 -0400
+>  > 
+>  > > Not catastrophic, but ipqueue seems to be too trusting of what it gets
+>  > > passed from userspace, and passes it on down to the page allocator,
+>  > > where it will spew warnings if the page order is too high.
+>  > > 
+>  > > __ipq_rcv_skb has several checks for lengths too small, but doesn't
+>  > > seem to have any for oversized ones.   I'm not sure what the maximum
+>  > > we should check for is. I'll code up a diff if anyone has any ideas
+>  > > on a sane maximum.
+>  > 
+>  > Maybe the thing to do is to simply pass __GFP_NOWARN to nlmsg_new()
+>  > in netlink_ack()?
+>  > 
+>  > Anyone else have a better idea?
+> 
+> So I went back to this today, and found something that doesn't look right.
+> After adding some instrumentation, and re-running my tests, I found that
+> the reason we were blowing up with enormous allocations was that we
+> were passing down a nlmsglen's like -1061109568
+> 
+> Is there any reason for that to be signed ?
+> The nlmsg_len entry of nlmsghdr is a u32, so I'm assuming this is a bug.
+> 
+> With the patch below, I haven't been able to reproduce the problem, but
+> I don't know if I've inadvertantly broken some other behaviour somewhere
+> deeper in netlink where this is valid.
 
- git://github.com/luciang/linux-2.6-new-sysctl.git  v5-new-sysctl-alg
+netfilter-devel and maintainers CC:'d
 
-
-
-Eric: I have a separate set of patches that make changes to the rest
-      of the kernel. Those patches only change sysctl registrations:
-      they replace complex tree registrations (with explicit sysctl
-      directories), with registrations of arrays of sysctl files.
-
-      Those patches DON'T depend on anything from this series.
-
-      Examples:
-       http://thread.gmane.org/gmane.linux.kernel/1137032/focus=3D11370=
-89
-       http://thread.gmane.org/gmane.linux.kernel/1137032/focus=3D11370=
-87
-
-      I'd like an OK-GO from you to start sending the patches for
-      review to their respective maintainers. Also please say if you
-      want to be CCed in those patches.
-
-
-
-
-Changes since v4:
-  http://thread.gmane.org/gmane.linux.network/196495/focus=3D1144143
-- rebased on 3.0-rc1
-- added a new patch manually register kernel/usermodehelper which
-  was added in 3.0-rc1
-- minor changes to the "sysctl: simplify find_in_table" patch
-
-
-Changes since v3:
-  http://thread.gmane.org/gmane.linux.network/196495/
-- removed a bad patch that shrinked a counter from int to u8
-
-
-Changes since v2:
-  http://thread.gmane.org/gmane.linux.kernel/1137032/focus=3D3D194748
-- added a compatibility layer to support old registering complex
-  sysctl trees. This layer will be deleted once all users of the old
-  are changed.
-- subdirectories and netns correspondent dirs are now held in rbtrees
-- split of from the patches that make changes in the rest of the tree
-- rebased on top of 2.6.39
-
-
-Changes since v1:
-  http://thread.gmane.org/gmane.linux.kernel/1133667
-- rebased on top of 2.6.39-rc6
-- split the patch that adds the new algorithm and data structures.
-- fixed a few bugs lingering in the old code
-- shrinked a reference counter
-- added a new reference counter to maintain ownership information
-- added method to register an empty sysctl dir and converted some users
-- added checks enforcing the rule that a non-netns specific directory m=
-ay
-  not be registered after a netns specific one has already been registe=
-red.
-- added cookie support: register a piece of data with the header to be
-  used to make simple conversions on the ctl_table. This saves memory w=
-here
-
-
-
-
-
-Part 1: introduce compatibility layer:
-
-  sysctl: introduce temporary sysctl wrappers
-  sysctl: register only tables of sysctl files
-
-
-Part 2: minimal changes to sysctl users:
-
-  sysctl: call sysctl_init before the first sysctl registration
-  sysctl: no-child: manually register kernel/random
-  sysctl: no-child: manually register kernel/usermodehelper
-  sysctl: no-child: manually register kernel/keys
-  sysctl: no-child: manually register fs/inotify
-  sysctl: no-child: manually register fs/epoll
-  sysctl: no-child: manually register root tables
-
-
-Part 3: cleanups simplifying the new algorithm (created when
-        asked to break up the new algorithm patch):
-
-  sysctl: faster reimplementation of sysctl_check_table
-  sysctl: remove useless ctl_table->parent field
-  sysctl: simplify find_in_table
-  sysctl: sysctl_head_grab defaults to root header on NULL
-  sysctl: delete useless grab_header function
-  sysctl: rename ->used to ->ctl_use_refs
-  sysctl: rename sysctl_head_grab/finish to sysctl_use_header/unuse
-  sysctl: rename sysctl_head_next to sysctl_use_next_header
-  sysctl: split ->count into ctl_procfs_refs and ctl_header_refs
-  sysctl: rename sysctl_head_get/put to sysctl_proc_inode_get/put
-  sysctl: rename (un)use_table to __sysctl_(un)use_header
-  sysctl: simplify ->permissions hook
-  sysctl: group root-specific operations
-  sysctl: introduce ctl_table_group
-  sysctl: move removal from list out of start_unregistering
-
-
-Part 4: new algorithm/data structures:
-
-  sysctl: faster tree-based sysctl implementation
-
-
-Part 5: checks/warns requested during review:
-
-  sysctl: add duplicate entry and sanity ctl_table checks
-  sysctl: alloc ctl_table_header with kmem_cache
-  sysctl: check netns-specific registration order respected
-  sysctl: warn if registration/unregistration order is not respected
-  RFC: sysctl: always perform sysctl checks
-
-
-Part 6: Eric requested rbtrees for subdirs. I also used rbtrees for
-        netns correspondent dirs. Hope that adding rbtrees after
-        using the old list-based implementation is good enough.
-        The rbtree code complicates things a bit and would uglify
-        the patch adding the new algorithm.
-
-  sysctl: reorder members of ctl_table_header (cleanup)
-  sysctl: add ctl_type member
-  RFC: sysctl: replace subdirectory list with rbtree
-  RFC: sysctl: replace netns corresp list with rbtree
-  sysctl: union-ize some ctl_table_header fields
-
-
-Part 7: Eric requested ability to register an empty dir:
-
-  sysctl: add register_sysctl_dir: register an empty sysctl directory
-
-
-Part 8: unrequested feature I'd like to piggy back :)
-
-  sysctl: add ctl_cookie and ctl_cookie_handler
-  sysctl: add cookie to __register_sysctl_paths
-  sysctl: add register_net_sysctl_table_net_cookie
-
-
-
- drivers/char/random.c            |   27 +-
- fs/eventpoll.c                   |   22 +-
- fs/notify/inotify/inotify_user.c |   22 +-
- fs/proc/inode.c                  |    2 +-
- fs/proc/proc_sysctl.c            |  236 +++++---
- include/linux/inotify.h          |    2 -
- include/linux/key.h              |    3 -
- include/linux/kmod.h             |    3 -
- include/linux/poll.h             |    2 -
- include/linux/sysctl.h           |  221 +++++---
- include/net/net_namespace.h      |    4 +-
- init/main.c                      |    1 +
- kernel/Makefile                  |    5 +-
- kernel/kmod.c                    |   14 +-
- kernel/sysctl.c                  | 1165 +++++++++++++++++++++++++++---=
---------
- kernel/sysctl_check.c            |  316 +++++++----
- lib/Kconfig.debug                |    8 -
- net/sysctl_net.c                 |   86 ++--
- security/keys/key.c              |    7 +
- security/keys/sysctl.c           |   18 +-
- 20 files changed, 1492 insertions(+), 672 deletions(-)
-
-
---=20
-=C2=A0.
-=2E.: Lucian
+> -- 
+> 
+> Netlink message lengths can't be negative, so use unsigned variables.
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
+> 
+> diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+> index d2c1311..f7f9bd7 100644
+> --- a/net/ipv4/netfilter/ip_queue.c
+> +++ b/net/ipv4/netfilter/ip_queue.c
+> @@ -402,7 +402,8 @@ ipq_dev_drop(int ifindex)
+>  static inline void
+>  __ipq_rcv_skb(struct sk_buff *skb)
+>  {
+> -	int status, type, pid, flags, nlmsglen, skblen;
+> +	int status, type, pid, flags;
+> +	unsigned int nlmsglen, skblen;
+>  	struct nlmsghdr *nlh;
+>  
+>  	skblen = skb->len;
+> diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+> index 413ab07..065fe40 100644
+> --- a/net/ipv6/netfilter/ip6_queue.c
+> +++ b/net/ipv6/netfilter/ip6_queue.c
+> @@ -403,7 +403,8 @@ ipq_dev_drop(int ifindex)
+>  static inline void
+>  __ipq_rcv_skb(struct sk_buff *skb)
+>  {
+> -	int status, type, pid, flags, nlmsglen, skblen;
+> +	int status, type, pid, flags;
+> +	unsigned int nlmsglen, skblen;
+>  	struct nlmsghdr *nlh;
+>  
+>  	skblen = skb->len;
