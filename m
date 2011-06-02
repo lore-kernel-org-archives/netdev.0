@@ -1,39 +1,111 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH] qlcnic: Fix bug in FW queue dump
-Date: Thu,  2 Jun 2011 15:42:21 -0700
-Message-ID: <1307054541-11178-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: netdev@vger.kernel.org,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: davem@davemloft.net
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [net-next,02/13] tg3: Cleanup transmit error path
+Date: Thu, 2 Jun 2011 16:01:39 -0700
+Message-ID: <20110602230139.GD5068@mcarlson.broadcom.com>
+References: <1305843176-32358-3-git-send-email-mcarlson@broadcom.com>
+ <1307053115.3656.19.camel@x201>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Alex Williamson" <alex.williamson@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:58833 "HELO mx.mv.qlogic.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752599Ab1FBWtb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Jun 2011 18:49:31 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:4156 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754744Ab1FBW5g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2011 18:57:36 -0400
+In-Reply-To: <1307053115.3656.19.camel@x201>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to a change in FW template, a bug was introduced in dump queue entries. This is
-fixed by reinitializing queue address before looping for each que dump operation.
+On Thu, Jun 02, 2011 at 03:18:35PM -0700, Alex Williamson wrote:
+> On Thu, 2011-05-19 at 12:12 +0000, Matt Carlson wrote:
+> > This patch consolidates the skb cleanup code into a function named
+> > tg3_skb_error_unmap().  The modification addresses a long-standing bug
+> > where pci_unmap_single() was incorrectly being called instead of
+> > pci_unmap_page() in tigon3_dma_hwbug_workaround().
+> 
+> This patch doesn't behave well when an iommu (VT-d) is involved.
+> Booting an X58 chipset based system with intel_iommu=on with 3.0.0-rc1
+> results in the warning below.  Looks like the driver is trying to unmap
+> 0x0.  Eventually something worse happens and the system reports a few
+> iommu faults from the device before panicing.  Neither problem is
+> observed if 432aa7ed is reverted.  tg3 device in use is a BCM5755.
+> Thanks,
+> 
+> Alex
+> 
+> WARNING: at drivers/pci/intel-iommu.c:2888 intel_unmap_page+0x15c/0x180()
+> Hardware name: 4157CTO
+> Driver unmaps unmatched page at PFN 0
+> Modules linked in: nfs lockd auth_rpcgss nfs_acl ipt_MASQUERADE iptable_nat nf_nat iptable_mangle tun autofs4 sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf bridge stp llc ipv6 dm_mirror dm_region_hash dm_log kvm_intel kvm sg microcode serio_raw wmi i2c_i801 i2c_core iTCO_wdt iTCO_vendor_support tg3 ext4 mbcache jbd2 raid1 raid456 async_pq async_xor xor async_memcpy async_raid6_recov raid6_pq async_tx sr_mod cdrom sd_mod crc_t10dif floppy dm_mod [last unloaded: scsi_wait_scan]
+> Pid: 2604, comm: libvirtd Not tainted 3.0.0-rc1+ #184
+> Call Trace:
+>  [<ffffffff8105c7df>] warn_slowpath_common+0x7f/0xc0
+>  [<ffffffff8105c8d6>] warn_slowpath_fmt+0x46/0x50
+>  [<ffffffff81245b8b>] ? find_iova+0x5b/0xa0
+>  [<ffffffff8124a60c>] intel_unmap_page+0x15c/0x180
+>  [<ffffffffa0128d48>] tg3_skb_error_unmap+0xb8/0x130 [tg3]
+>  [<ffffffffa0136041>] tg3_start_xmit+0x661/0xde0 [tg3]
+>  [<ffffffffa01363dd>] ? tg3_start_xmit+0x9fd/0xde0 [tg3]
+>  [<ffffffff8138d7fe>] dev_hard_start_xmit+0x31e/0x6c0
+>  [<ffffffff813a9f5f>] sch_direct_xmit+0xef/0x1c0
+>  [<ffffffff8138dd38>] dev_queue_xmit+0x198/0x5f0
+>  [<ffffffffa028d2ac>] br_dev_queue_push_xmit+0x6c/0xa0 [bridge]
+>  [<ffffffffa028d478>] br_forward_finish+0x58/0x60 [bridge]
+>  [<ffffffffa028d4f8>] __br_deliver+0x78/0xf0 [bridge]
+>  [<ffffffff814367a9>] ? packet_rcv+0x59/0x450
+>  [<ffffffffa028d5a5>] br_deliver+0x35/0x40 [bridge]
+>  [<ffffffffa028b8c4>] br_dev_xmit+0x114/0x180 [bridge]
+>  [<ffffffff8138d7fe>] dev_hard_start_xmit+0x31e/0x6c0
+>  [<ffffffff8138df95>] dev_queue_xmit+0x3f5/0x5f0
+>  [<ffffffff813d0c2e>] ip_finish_output+0x16e/0x340
+>  [<ffffffff813d1110>] ip_output+0xb0/0xc0
+>  [<ffffffff813cfdc3>] ? __ip_local_out+0xa3/0xb0
+>  [<ffffffff813d0129>] ip_local_out+0x29/0x30
+>  [<ffffffff813d0604>] ip_queue_xmit+0x164/0x410
+>  [<ffffffff813e5e5c>] tcp_transmit_skb+0x41c/0x910
+>  [<ffffffff813e86f7>] tcp_write_xmit+0x1e7/0x9d0
+>  [<ffffffff813e8f46>] __tcp_push_pending_frames+0x26/0xc0
+>  [<ffffffff813d77be>] tcp_push+0x6e/0x90
+>  [<ffffffff813db4f9>] tcp_sendmsg+0x759/0xc00
+>  [<ffffffff813fdaa8>] inet_sendmsg+0x48/0xb0
+>  [<ffffffff811cd7f3>] ? selinux_socket_sendmsg+0x23/0x30
+>  [<ffffffff81377e52>] sock_sendmsg+0xe2/0x120
+>  [<ffffffff8100a7e4>] ? __switch_to+0x194/0x320
+>  [<ffffffff81377ed1>] kernel_sendmsg+0x41/0x60
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Does this patch fix the problem?
+
+Subject: [PATCH] tg3: Fix tg3_skb_error_unmap()
+
+This function attempts to free one fragment beyond the number of
+fragments that were actually mapped.  This patch brings back the limit
+to the correct spot.
+
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/qlcnic/qlcnic_hw.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/tg3.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index e965661..a5d9fbf 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -1406,6 +1406,7 @@ qlcnic_dump_que(struct qlcnic_adapter *adapter, struct qlcnic_dump_entry *entry,
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 8ece39b..3d239ab 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -5771,7 +5771,7 @@ static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
+ 			 dma_unmap_addr(txb, mapping),
+ 			 skb_headlen(skb),
+ 			 PCI_DMA_TODEVICE);
+-	for (i = 0; i <= last; i++) {
++	for (i = 0; i < last; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
  
- 	for (loop = 0; loop < que->no_ops; loop++) {
- 		QLCNIC_WR_DUMP_REG(que->sel_addr, base, que_id);
-+		addr = que->read_addr;
- 		for (i = 0; i < cnt; i++) {
- 			QLCNIC_RD_DUMP_REG(addr, base, &data);
- 			*buffer++ = cpu_to_le32(data);
+ 		entry = NEXT_TX(entry);
 -- 
-1.7.4.1
+1.7.3.4
+
 
