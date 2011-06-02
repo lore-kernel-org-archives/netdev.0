@@ -1,96 +1,202 @@
-From: "Jeff Haran" <jharan@bytemobile.com>
-Subject: forwarding pings out ingress interface
-Date: Thu, 2 Jun 2011 12:10:34 -0700
-Message-ID: <6F5DE7538AFCDA45A114F5E7510424A7027D8388@hq-exchange01.bytemobile.com>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCHv2 RFC 3/4] virtio_net: limit xmit polling
+Date: Thu, 2 Jun 2011 22:23:57 +0300
+Message-ID: <20110602192357.GC13444@redhat.com>
+References: <cover.1307029008.git.mst@redhat.com>
+	<a80199422de16ae355e56ee1b2abc9b2bf91a7f6.1307029009.git.mst@redhat.com>
+	<1307038193.2321.38.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport.bytemobile.com ([12.153.136.13]:24386 "EHLO
-	ironport.bytemobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752776Ab1FBTVV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 15:21:21 -0400
-Content-class: urn:content-classes:message
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: Sridhar Samudrala <sri-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1307038193.2321.38.camel-gzECXbv5Qf5llG67XfQwVQGz3MnDiSnoQQ4Iyu8u01E@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Running Redhat Enterprize 6.0, seeing the following behavior.
+On Thu, Jun 02, 2011 at 11:09:53AM -0700, Sridhar Samudrala wrote:
+> On Thu, 2011-06-02 at 18:43 +0300, Michael S. Tsirkin wrote:
+> > Current code might introduce a lot of latency variation
+> > if there are many pending bufs at the time we
+> > attempt to transmit a new one. This is bad for
+> > real-time applications and can't be good for TCP either.
+> > 
+> > Free up just enough to both clean up all buffers
+> > eventually and to be able to xmit the next packet.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > ---
+> >  drivers/net/virtio_net.c |  106 +++++++++++++++++++++++++++++-----------------
+> >  1 files changed, 67 insertions(+), 39 deletions(-)
+> > 
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index a0ee78d..b25db1c 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -509,17 +509,33 @@ again:
+> >  	return received;
+> >  }
+> > 
+> > -static void free_old_xmit_skbs(struct virtnet_info *vi)
+> > +static bool free_old_xmit_skb(struct virtnet_info *vi)
+> >  {
+> >  	struct sk_buff *skb;
+> >  	unsigned int len;
+> > 
+> > -	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+> > -		pr_debug("Sent skb %p\n", skb);
+> > -		vi->dev->stats.tx_bytes += skb->len;
+> > -		vi->dev->stats.tx_packets++;
+> > -		dev_kfree_skb_any(skb);
+> > -	}
+> > +	skb = virtqueue_get_buf(vi->svq, &len);
+> > +	if (unlikely(!skb))
+> > +		return false;
+> > +	pr_debug("Sent skb %p\n", skb);
+> > +	vi->dev->stats.tx_bytes += skb->len;
+> > +	vi->dev->stats.tx_packets++;
+> > +	dev_kfree_skb_any(skb);
+> > +	return true;
+> > +}
+> > +
+> > +/* Check capacity and try to free enough pending old buffers to enable queueing
+> > + * new ones. Return true if we can guarantee that a following
+> > + * virtqueue_add_buf will succeed. */
+> > +static bool free_xmit_capacity(struct virtnet_info *vi)
+> > +{
+> > +	struct sk_buff *skb;
+> > +	unsigned int len;
+> > +
+> > +	while (virtqueue_min_capacity(vi->svq) < MAX_SKB_FRAGS + 2)
+> > +		if (unlikely(!free_old_xmit_skb))
+> > +			return false;
+> If we are using INDIRECT descriptors, 1 descriptor entry is good enough
+> to guarantee that an skb can be queued unless we run out of memory.
+> Is it worth checking if 'indirect' is set on the svq and then only free
+> 1 descriptor? Otherwise, we will be dropping the packet if there are
+> less than 18 free descriptors although we ony need 1.
 
-Two Ethernet network segments: 172.30/16 and 169.254.160/24.
-
-Three "devices":
-
-[linux] is the blade running RHEL6.0. It has multiple network interfaces
-and has IP forwarding enabled.
-[host] is an IP host of some sort.
-[lb] is an L3 load balancer.
-
-They are connected like so:
-
-[host] 172.30.0.254 <-> 172.30.0.2 [lb] 169.254.160.20 <-> 169.254.160.1
-[linux]
-
-I have not shown the other network interfaces that [linux] is attached
-to for brevity in the diagram.
-
-One of the peculiarities of [lb] is if [host] pings it at 172.30.0.2, it
-will not respond to the ping itself but instead forward the ping to
-[linux]. I realize this is broken, but I have to deal with it (its
-cooked into [lb]'s silicon). [lb]'s vendor assures me that if [linux]
-would only forward the ping back to [lb] out the same interface it came
-in on, then [lb] will generate a ping response back to [host].
-
-My problem is [linux] won't forward the ping back to [lb]. [linux] has a
-route to 172.30/16 out the interface that connects it to [lb] and I can
-see from tcpdump that [linux] is getting the ICMP Echo requests with
-source address 172.30.0.254 and destination address 172.30.0.2, but
-nothing gets transmitted out that interface in response.
-
-Now if I modify the route on [linux] to so that packets it receives that
-are destined to 172.30/16 are forwarded out another of its network
-interfaces, it forwards the pings out that interface just fine. It seems
-like [linux] just doesn't want to forward pings it receives on a given
-interface back out that same interface.
-
-I am wondering if there is some switch under /proc or /sys that I need
-to modify to get [linux] to forward the pings out the interface.
-Is there such a thing that defaults to preventing this for security
-reasons maybe?
-
-In digging into this I discovered that /proc/1/net/stat/rt_cache was
-reporting some non-zero statistics under the "in_martian_src" source
-column. I figured maybe that [linux]'s stack was for some reason
-determining that these pings were martians and dropping them so I
-echo'ed 1 to log_martians. What I then see is a bunch of logs like this:
-
-2011-06-01T17:55:51.103140-07:00 s01b01 kernel: martian source
-169.254.160.7 from 169.254.160.6, on dev eth3
-2011-06-01T17:55:51.103147-07:00 s01b01 kernel: ll header:
-ff:ff:ff:ff:ff:ff:e4:1f:13:f6:60:d8:08:06
-
-I don't know if this is related to the immediate ping problem, there are
-other linux hosts on 169.254.160/24 that I've omitted from the diagram,
-but I am truly perplexed at the lines beginning with "ll header".
-Reading the code that generates these logs, ip_handle_martian_source()
-in net/ipv4/route.c, it suggests that what is being shown in those "ll
-header" lines is the MAC header of these packets it considers martians.
-
-What is perplexing is that "08:06" at the end of the line. That's the
-Ethertype for ARP, not IP. Why are ARP frames being treated as IP
-packets? They shouldn't even be getting to ip_handle_martian_source() if
-I am following the receive path correctly.
-
-Just thought somebody on this list might have some insights into what I
-am seeing here.
-
-Thanks,
-
-Jeff Haran
-Bytemobile
+This is not introduced with this patch: the
+issue is that we need to consider worst case
+as indirect memory allocation can fail.
 
 
+I don't think it matters much: 18 out of 256
+descriptors is not too expensive.
 
-
-
-
+> > +	return true;
+> >  }
+> > 
+> >  static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+> > @@ -572,30 +588,34 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+> >  static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  {
+> >  	struct virtnet_info *vi = netdev_priv(dev);
+> > -	int capacity;
+> > -
+> > -	/* Free up any pending old buffers before queueing new ones. */
+> > -	free_old_xmit_skbs(vi);
+> > -
+> > -	/* Try to transmit */
+> > -	capacity = xmit_skb(vi, skb);
+> > -
+> > -	/* This can happen with OOM and indirect buffers. */
+> > -	if (unlikely(capacity < 0)) {
+> > -		if (net_ratelimit()) {
+> > -			if (likely(capacity == -ENOMEM)) {
+> > -				dev_warn(&dev->dev,
+> > -					 "TX queue failure: out of memory\n");
+> > -			} else {
+> > -				dev->stats.tx_fifo_errors++;
+> > +	int ret, i;
+> > +
+> > +	/* We normally do have space in the ring, so try to queue the skb as
+> > +	 * fast as possible. */
+> > +	ret = xmit_skb(vi, skb);
+> > +	if (unlikely(ret < 0)) {
+> > +		/* This triggers on the first xmit after ring full condition.
+> > +		 * We need to free up some skbs first. */
+> > +		if (likely(free_xmit_capacity(vi))) {
+> > +			ret = xmit_skb(vi, skb);
+> > +			/* This should never fail. Check, just in case. */
+> > +			if (unlikely(ret < 0)) {
+> >  				dev_warn(&dev->dev,
+> >  					 "Unexpected TX queue failure: %d\n",
+> > -					 capacity);
+> > +					 ret);
+> > +				dev->stats.tx_fifo_errors++;
+> > +				dev->stats.tx_dropped++;
+> > +				kfree_skb(skb);
+> > +				return NETDEV_TX_OK;
+> >  			}
+> > +		} else {
+> > +			/* Ring full: it might happen if we get a callback while
+> > +			 * the queue is still mostly full. This should be
+> > +			 * extremely rare. */
+> > +			dev->stats.tx_dropped++;
+> > +			kfree_skb(skb);
+> > +			goto stop;
+> >  		}
+> > -		dev->stats.tx_dropped++;
+> > -		kfree_skb(skb);
+> > -		return NETDEV_TX_OK;
+> >  	}
+> >  	virtqueue_kick(vi->svq);
+> > 
+> > @@ -603,18 +623,26 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  	skb_orphan(skb);
+> >  	nf_reset(skb);
+> > 
+> > -	/* Apparently nice girls don't return TX_BUSY; stop the queue
+> > -	 * before it gets out of hand.  Naturally, this wastes entries. */
+> > -	if (capacity < 2+MAX_SKB_FRAGS) {
+> > -		netif_stop_queue(dev);
+> > -		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+> > -			/* More just got used, free them then recheck. */
+> > -			free_old_xmit_skbs(vi);
+> > -			capacity = virtqueue_min_capacity(vi->svq);
+> > -			if (capacity >= 2+MAX_SKB_FRAGS) {
+> > -				netif_start_queue(dev);
+> > -				virtqueue_disable_cb(vi->svq);
+> > -			}
+> > +	/* We transmit one skb, so try to free at least two pending skbs.
+> > +	 * This is so that we don't hog the skb memory unnecessarily. *
+> > +	 * Doing this after kick means there's a chance we'll free
+> > +	 * the skb we have just sent, which is hot in cache. */
+> > +	for (i = 0; i < 2; i++)
+> > +		free_old_xmit_skb(v);
+> > +
+> > +	if (likely(free_xmit_capacity(vi)))
+> > +		return NETDEV_TX_OK;
+> > +
+> > +stop:
+> > +	/* Apparently nice girls don't return TX_BUSY; check capacity and stop
+> > +	 * the queue before it gets out of hand.
+> > +	 * Naturally, this wastes entries. */
+> > +	netif_stop_queue(dev);
+> > +	if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
+> > +		/* More just got used, free them and recheck. */
+> > +		if (free_xmit_capacity(vi)) {
+> > +			netif_start_queue(dev);
+> > +			virtqueue_disable_cb(vi->svq);
+> >  		}
+> >  	}
+> > 
