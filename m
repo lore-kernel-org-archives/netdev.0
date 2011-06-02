@@ -1,111 +1,32 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH RFC 3/3] virtio_net: limit xmit polling
-Date: Thu, 2 Jun 2011 16:34:25 +0300
-Message-ID: <20110602133425.GJ7141@redhat.com>
-References: <cover.1306921434.git.mst@redhat.com>
-	<1ec8eec325839ecf2eac9930a230361e7956047c.1306921434.git.mst@redhat.com>
-	<87pqmwj3am.fsf@rustcorp.com.au>
+From: Karl Kampor <kkampor1@voila.fr>
+Subject: Hi from Karl.
+Date: Thu, 2 Jun 2011 22:38:53 +0900 (KST)
+Message-ID: <329223.39002.qm@web70702.mail.kr3.yahoo.com>
+Reply-To: kkampor@voila.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <87pqmwj3am.fsf-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm1-vm1.bullet.mail.kr3.yahoo.com ([111.67.240.243]:47036 "HELO
+	nm1-vm1.bullet.mail.kr3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754924Ab1FBNjF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2011 09:39:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2011 at 01:24:57PM +0930, Rusty Russell wrote:
-> On Wed, 1 Jun 2011 12:50:03 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > Current code might introduce a lot of latency variation
-> > if there are many pending bufs at the time we
-> > attempt to transmit a new one. This is bad for
-> > real-time applications and can't be good for TCP either.
-> > 
-> > Free up just enough to both clean up all buffers
-> > eventually and to be able to xmit the next packet.
-> 
-> OK, I found this quite confusing to read.
-> 
-> > -	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
-> > +	while ((r = virtqueue_min_capacity(vi->svq) < MAX_SKB_FRAGS + 2) ||
-> > +	       min_skbs-- > 0) {
-> > +		skb = virtqueue_get_buf(vi->svq, &len);
-> > +		if (unlikely(!skb))
-> > +			break;
-> >  		pr_debug("Sent skb %p\n", skb);
-> >  		vi->dev->stats.tx_bytes += skb->len;
-> >  		vi->dev->stats.tx_packets++;
-> >  		dev_kfree_skb_any(skb);
-> >  	}
-> > +	return r;
-> >  }
-> 
-> Gah... what a horrible loop.
-> 
-> Basically, this patch makes hard-to-read code worse, and we should try
-> to make it better.
-> 
-> Currently, xmit *can* fail when an xmit interrupt wakes the queue, but
-> the packet(s) xmitted didn't free up enough space for the new packet.
-> With indirect buffers this only happens if we hit OOM (and thus go to
-> direct buffers).
-> 
-> We could solve this by only waking the queue in skb_xmit_done if the
-> capacity is >= 2 + MAX_SKB_FRAGS.  But can we do it without a race?
+Dear Friend,
 
-I don't think so.
+This message might meet you in utmost surprise, however, it's just my urgent need for a foreign partner that made me to contact you for this transaction. I am Mr Karl Kampor a banker by profession and currently holding the post a manager in the auditing and accounting section of the bank. I have the opportunity of transferring a left over fund by one of my bank late customer were i work in the tune of ($10.8 million). This fund have been laying dormant for the past five or six years now. My proposal is to package and present you as next of kin to this inheritance and want you to know that i discover this fund during our last years audit and i kept this a secret to my self alone since there haven't been any claim for this fund.
 
-> If not, then I'd really prefer to see this, because I think it's clearer:
-> 
->         // Try to free 2 buffers for every 1 xmit, to stay ahead.
->         free_old_buffers(2)
-> 
->         if (!add_buf()) {
->                 // Screw latency, free them all.
->                 free_old_buffers(UINT_MAX)
->                 // OK, this can happen if we are using direct buffers,
->                 // and the xmit interrupt woke us but the packets
->                 // xmitted were smaller than this one.  Rare though.
->                 if (!add_buf())
->                         Whinge and stop queue, maybe loop.
->         }
-> 
->         if (capacity < 2 + MAX_SKB_FRAGS) {
->                 // We don't have enough for the next packet?  Try
->                 // freeing more.
->                 free_old_buffers(UINT_MAX);
->                 if (capacity < 2 + MAX_SKB_FRAGS) {
->                         Stop queue, maybe loop.
->         }
-> 
-> The current code makes my head hurt :(
-> 
-> Thoughts?
-> Rusty.
+But i have some questions for you:- (1) Can you handle this project? (2) Can i give you this trust? (3) Can you provide an account? were this money will be transfer which is very important in this transaction and after the successful transfer we shall share in ratio of 40% for you and 60% for me. 
+I expect your urgent response should you be interested in this project and treat this business with utmost confidentiality and send me the following:
+(1) Full names:....... 
+(2) Private phone number:....... 
+(3) Current residential address:........ 
+(4) Occupation:....... 
+(5) Age and Sex:......
 
-OK, I have something very similar, but I still dislike the screw the
-latency part: this path is exactly what the IBM guys seem to hit.  So I
-created two functions: one tries to free a constant number and another
-one up to capacity. I'll post that now.
-
-
--- 
-MST
+Thanks for your co-operations 
+Mr Karl Kampor
