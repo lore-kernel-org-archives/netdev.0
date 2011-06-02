@@ -1,85 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [TRIVIAL PATCH next 15/15] net: Convert vmalloc/memset to vzalloc
-Date: Thu, 02 Jun 2011 16:49:53 +0200
-Message-ID: <4DE7A311.5000406@netfilter.org>
-References: <cover.1306603968.git.joe@perches.com> <045996b9688bfaa2efbd8999405a67e23cd0a075.1306603968.git.joe@perches.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
+Date: Thu, 2 Jun 2011 22:54:50 +0800
+Message-ID: <BANLkTimjfHKh3dpPEzznKiK=Md4v0iTD9A@mail.gmail.com>
+References: <m1aaectyed.fsf@fess.ebiederm.org> <20110524.022406.2228892895515155850.davem@davemloft.net>
+ <m1oc2spmyt.fsf@fess.ebiederm.org> <20110601.205940.1179055860757569997.davem@davemloft.net>
+ <m11uzcidvq.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Andy Grover <andy.grover@oracle.com>,
-	Jiri Kosina <trivial@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rds-devel@oss.oracle.com
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <045996b9688bfaa2efbd8999405a67e23cd0a075.1306603968.git.joe@perches.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59887 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035Ab1FBOzM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 10:55:12 -0400
+Received: by bwz15 with SMTP id 15so992067bwz.19
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 07:55:10 -0700 (PDT)
+In-Reply-To: <m11uzcidvq.fsf_-_@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+On Thu, Jun 2, 2011 at 9:03 PM, Eric W. Biederman <ebiederm@xmission.co=
+m> wrote:
+>
+> -static struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb=
+)
+> +static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
+> =A0{
+> - =A0 =A0 =A0 if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDER_=
+HDR) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb_cow(skb, skb_headroom(skb)) < 0=
+)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D NULL;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Lifted from Gleb's V=
+LAN code... */
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(skb->data - ETH=
+_HLEN,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->da=
+ta - VLAN_ETH_HLEN, 12);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->mac_header +=3D VL=
+AN_HLEN;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 if (skb_cow(skb, skb_headroom(skb)) < 0)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D NULL;
+> + =A0 =A0 =A0 if (skb) {
 
-Are you going to take this patch? it includes one chunck which is out of
-netfilter scope.
+I think an else branch maybe more readable here.
 
-Thanks.
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Lifted from Gleb's VLAN code... */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(skb->data - ETH_HLEN,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->data - VLAN_ETH_HL=
+EN, 12);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->mac_header +=3D VLAN_HLEN;
 
-On 28/05/11 19:36, Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  net/netfilter/x_tables.c |    5 ++---
->  net/rds/ib_cm.c          |    6 ++----
->  2 files changed, 4 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> index b0869fe..71441b9 100644
-> --- a/net/netfilter/x_tables.c
-> +++ b/net/netfilter/x_tables.c
-> @@ -776,12 +776,11 @@ static int xt_jumpstack_alloc(struct xt_table_info *i)
->  
->  	size = sizeof(void **) * nr_cpu_ids;
->  	if (size > PAGE_SIZE)
-> -		i->jumpstack = vmalloc(size);
-> +		i->jumpstack = vzalloc(size);
->  	else
-> -		i->jumpstack = kmalloc(size, GFP_KERNEL);
-> +		i->jumpstack = kzalloc(size, GFP_KERNEL);
->  	if (i->jumpstack == NULL)
->  		return -ENOMEM;
-> -	memset(i->jumpstack, 0, size);
->  
->  	i->stacksize *= xt_jumpstack_multiplier;
->  	size = sizeof(void *) * i->stacksize;
-> diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-> index fd453dd..6ecaf78 100644
-> --- a/net/rds/ib_cm.c
-> +++ b/net/rds/ib_cm.c
-> @@ -374,23 +374,21 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
->  		goto out;
->  	}
->  
-> -	ic->i_sends = vmalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
-> +	ic->i_sends = vzalloc_node(ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work),
->  				   ibdev_to_node(dev));
->  	if (!ic->i_sends) {
->  		ret = -ENOMEM;
->  		rdsdebug("send allocation failed\n");
->  		goto out;
->  	}
-> -	memset(ic->i_sends, 0, ic->i_send_ring.w_nr * sizeof(struct rds_ib_send_work));
->  
-> -	ic->i_recvs = vmalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
-> +	ic->i_recvs = vzalloc_node(ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work),
->  				   ibdev_to_node(dev));
->  	if (!ic->i_recvs) {
->  		ret = -ENOMEM;
->  		rdsdebug("recv allocation failed\n");
->  		goto out;
->  	}
-> -	memset(ic->i_recvs, 0, ic->i_recv_ring.w_nr * sizeof(struct rds_ib_recv_work));
->  
->  	rds_ib_recv_init_ack(ic);
->  
+skb->mac_len should be adjusted too.
 
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0return skb;
+> =A0}
+
+
+
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
