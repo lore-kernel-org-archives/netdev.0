@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCHv2 RFC 1/4] virtio_ring: add capacity check API
-Date: Thu, 2 Jun 2011 18:42:59 +0300
-Message-ID: <8014f898ca6b768d7be626b83c617a1e84adfeb9.1307029009.git.mst@redhat.com>
+Subject: [PATCHv2 RFC 4/4] Revert "virtio: make add_buf return
+ capacity remaining:
+Date: Thu, 2 Jun 2011 18:43:25 +0300
+Message-ID: <7572d6fb81181e349af4a8b203ea0977f6e91ae1.1307029009.git.mst@redhat.com>
 References: <cover.1307029008.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,57 +31,41 @@ Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public
 Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add API to check ring capacity. Because of the option
-to use indirect buffers, this returns the worst
-case, not the normal case capacity.
+This reverts commit 3c1b27d5043086a485f8526353ae9fe37bfa1065.
+The only user was virtio_net, and it switched to
+min_capacity instead.
 
 Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/virtio/virtio_ring.c |    8 ++++++++
- include/linux/virtio.h       |    5 +++++
- 2 files changed, 13 insertions(+), 0 deletions(-)
+ drivers/virtio/virtio_ring.c |    2 +-
+ include/linux/virtio.h       |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index 68b9136..23422f1 100644
+index 23422f1..a6c21eb 100644
 --- a/drivers/virtio/virtio_ring.c
 +++ b/drivers/virtio/virtio_ring.c
-@@ -344,6 +344,14 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
- }
- EXPORT_SYMBOL_GPL(virtqueue_get_buf);
+@@ -233,7 +233,7 @@ add_head:
+ 	pr_debug("Added buffer head %i to %p\n", head, vq);
+ 	END_USE(vq);
  
-+int virtqueue_min_capacity(struct virtqueue *_vq)
-+{
-+	struct vring_virtqueue *vq = to_vvq(_vq);
-+
-+	return vq->num_free;
-+}
-+EXPORT_SYMBOL_GPL(virtqueue_min_capacity);
-+
- void virtqueue_disable_cb(struct virtqueue *_vq)
- {
- 	struct vring_virtqueue *vq = to_vvq(_vq);
+-	return vq->num_free;
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(virtqueue_add_buf_gfp);
+ 
 diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index 7108857..209220d 100644
+index 209220d..63c4908 100644
 --- a/include/linux/virtio.h
 +++ b/include/linux/virtio.h
-@@ -42,6 +42,9 @@ struct virtqueue {
-  *	vq: the struct virtqueue we're talking about.
-  *	len: the length written into the buffer
-  *	Returns NULL or the "data" token handed to add_buf.
-+ * virtqueue_min_capacity: get the current capacity of the queue
-+ *	vq: the struct virtqueue we're talking about.
-+ *	Returns the current worst case capacity of the queue.
-  * virtqueue_disable_cb: disable callbacks
-  *	vq: the struct virtqueue we're talking about.
-  *	Note that this is not necessarily synchronous, hence unreliable and only
-@@ -89,6 +92,8 @@ void virtqueue_kick(struct virtqueue *vq);
- 
- void *virtqueue_get_buf(struct virtqueue *vq, unsigned int *len);
- 
-+int virtqueue_min_capacity(struct virtqueue *vq);
-+
- void virtqueue_disable_cb(struct virtqueue *vq);
- 
- bool virtqueue_enable_cb(struct virtqueue *vq);
+@@ -34,7 +34,7 @@ struct virtqueue {
+  *	in_num: the number of sg which are writable (after readable ones)
+  *	data: the token identifying the buffer.
+  *	gfp: how to do memory allocations (if necessary).
+- *      Returns remaining capacity of queue (sg segments) or a negative error.
++ *      Returns 0 on success or a negative error.
+  * virtqueue_kick: update after add_buf
+  *	vq: the struct virtqueue
+  *	After one or more add_buf calls, invoke this to kick the other side.
 -- 
 1.7.5.53.gc233e
