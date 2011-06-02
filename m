@@ -1,295 +1,49 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH 6/6 v9] sctp: Add ASCONF operation on the single-homed host
-Date: Thu, 2 Jun 2011 12:02:03 +0900
-Message-ID: <99BEF1C4-C638-4007-A538-E43B1463F564@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:49928 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932201Ab1FBDCE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Jun 2011 23:02:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Subject: Re: [PATCH RFC 2/3] virtio_net: fix tx capacity checks
+	using new API
+Date: Thu, 02 Jun 2011 11:40:26 +0930
+Message-ID: <87vcwphtkd.fsf@rustcorp.com.au>
+References: <cover.1306921434.git.mst@redhat.com>
+	<110045d5bf250e6ed9c739f8cc6adbbf54e3cc9c.1306921434.git.mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <110045d5bf250e6ed9c739f8cc6adbbf54e3cc9c.1306921434.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->From 907306fafe1ebdde2ad42aefbc6e45821b448cbf Mon Sep 17 00:00:00 2001
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Tue, 26 Apr 2011 20:19:36 +0900
-Subject: [PATCH 6/6 v9] sctp: Add ASCONF operation on the single-homed host
+On Wed, 1 Jun 2011 12:49:54 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> In the (rare) case where new descriptors are used
+> while virtio_net enables vq callback for the TX vq,
+> virtio_net uses the number of sg entries in the skb it frees to
+> calculate how many descriptors in the ring have just been made
+> available.  But this value is an overestimate: with indirect buffers
+> each skb only uses one descriptor entry, meaning we may wake the queue
+> only to find we still can't transmit anything.
 
-In this case, the SCTP association transmits an ASCONF packet
-including addition of the new IP address and deletion of the old
-address.  This patch implements this functionality.
-In this case, the ASCONF chunk is added to the beginning of the
-queue, because the other chunks cannot be transmitted in this state.
+This is a bit misleading.
 
-Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- include/net/sctp/structs.h |    2 +
- net/sctp/associola.c       |    6 ++++
- net/sctp/outqueue.c        |   13 ++++++++++
- net/sctp/protocol.c        |    4 ++-
- net/sctp/sm_make_chunk.c   |   27 +++++++++++++++++++++
- net/sctp/socket.c          |   56 +++++++++++++++++++++++++++++++++++++++----
- 6 files changed, 101 insertions(+), 7 deletions(-)
+The value is an overestimate, but so is the requirement for
+2+MAX_SKB_FRAGS, *unless* we suddenly drop into direct mode due to OOM.
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index cd8c929..31d7ea2 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1913,6 +1913,8 @@ struct sctp_association {
- 	 * after reaching 4294967295.
- 	 */
- 	__u32 addip_serial;
-+	union sctp_addr *asconf_addr_del_pending;
-+	int src_out_of_asoc_ok;
- 
- 	/* SCTP AUTH: list of the endpoint shared keys.  These
- 	 * keys are provided out of band by the user applicaton
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 4a62888..dc16b90 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -280,6 +280,8 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	asoc->peer.asconf_capable = 0;
- 	if (sctp_addip_noauth)
- 		asoc->peer.asconf_capable = 1;
-+	asoc->asconf_addr_del_pending = NULL;
-+	asoc->src_out_of_asoc_ok = 0;
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-@@ -446,6 +448,10 @@ void sctp_association_free(struct sctp_association *asoc)
- 
- 	sctp_asconf_queue_teardown(asoc);
- 
-+	/* Free pending address space being deleted */
-+	if (asoc->asconf_addr_del_pending != NULL)
-+		kfree(asoc->asconf_addr_del_pending);
-+
- 	/* AUTH - Free the endpoint shared keys */
- 	sctp_auth_destroy_keys(&asoc->endpoint_shared_keys);
- 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 1c88c89..edc7532 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -754,6 +754,16 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
- 	 */
- 
- 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
-+		/* RFC 5061, 5.3
-+		 * F1) This means that until such time as the ASCONF
-+		 * containing the add is acknowledged, the sender MUST
-+		 * NOT use the new IP address as a source for ANY SCTP
-+		 * packet except on carrying an ASCONF Chunk.
-+		 */
-+		if (asoc->src_out_of_asoc_ok &&
-+		    chunk->chunk_hdr->type != SCTP_CID_ASCONF)
-+			continue;
-+
- 		list_del_init(&chunk->list);
- 
- 		/* Pick the right transport to use. */
-@@ -881,6 +891,9 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
- 		}
- 	}
- 
-+	if (q->asoc->src_out_of_asoc_ok)
-+		goto sctp_flush_out;
-+
- 	/* Is it OK to send data chunks?  */
- 	switch (asoc->state) {
- 	case SCTP_STATE_COOKIE_ECHOED:
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 013c613..af0a6b0 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -503,7 +503,9 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 		sctp_v4_dst_saddr(&dst_saddr, fl4, htons(bp->port));
- 		rcu_read_lock();
- 		list_for_each_entry_rcu(laddr, &bp->address_list, list) {
--			if (!laddr->valid || (laddr->state != SCTP_ADDR_SRC))
-+			if (!laddr->valid || (laddr->state == SCTP_ADDR_DEL) ||
-+			    (laddr->state != SCTP_ADDR_SRC &&
-+			    !asoc->src_out_of_asoc_ok))
- 				continue;
- 			if (sctp_v4_cmp_addr(&dst_saddr, &laddr->a))
- 				goto out_unlock;
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 3740603..3363d37 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2768,6 +2768,7 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
- 	int			addr_param_len = 0;
- 	int 			totallen = 0;
- 	int 			i;
-+	int			del_pickup = 0;
- 
- 	/* Get total length of all the address parameters. */
- 	addr_buf = addrs;
-@@ -2780,6 +2781,13 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
- 		totallen += addr_param_len;
- 
- 		addr_buf += af->sockaddr_len;
-+		if (asoc->asconf_addr_del_pending && !del_pickup) {
-+			/* reuse the parameter length from the same scope one */
-+			totallen += paramlen;
-+			totallen += addr_param_len;
-+			del_pickup = 1;
-+			SCTP_DEBUG_PRINTK("mkasconf_update_ip: picked same-scope del_pending addr, totallen for all addresses is %d\n", totallen);
-+		}
- 	}
- 
- 	/* Create an asconf chunk with the required length. */
-@@ -2802,6 +2810,17 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
- 
- 		addr_buf += af->sockaddr_len;
- 	}
-+	if (flags == SCTP_PARAM_ADD_IP && del_pickup) {
-+		addr = asoc->asconf_addr_del_pending;
-+		af = sctp_get_af_specific(addr->v4.sin_family);
-+		addr_param_len = af->to_addr_param(addr, &addr_param);
-+		param.param_hdr.type = SCTP_PARAM_DEL_IP;
-+		param.param_hdr.length = htons(paramlen + addr_param_len);
-+		param.crr_id = i;
-+
-+		sctp_addto_chunk(retval, paramlen, &param);
-+		sctp_addto_chunk(retval, addr_param_len, &addr_param);
-+	}
- 	return retval;
- }
- 
-@@ -3224,6 +3243,11 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
- 	case SCTP_PARAM_DEL_IP:
- 		local_bh_disable();
- 		sctp_del_bind_addr(bp, &addr);
-+		if (asoc->asconf_addr_del_pending != NULL &&
-+		    sctp_cmp_addr_exact(asoc->asconf_addr_del_pending, &addr)) {
-+			kfree(asoc->asconf_addr_del_pending);
-+			asoc->asconf_addr_del_pending = NULL;
-+		}
- 		local_bh_enable();
- 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
- 				transports) {
-@@ -3381,6 +3405,9 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
- 		asconf_len -= length;
- 	}
- 
-+	if (no_err && asoc->src_out_of_asoc_ok)
-+		asoc->src_out_of_asoc_ok = 0;
-+
- 	/* Free the cached last sent asconf chunk. */
- 	list_del_init(&asconf->transmitted_list);
- 	sctp_chunk_free(asconf);
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index cc06198..e7e1b14 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -583,10 +583,6 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
- 			goto out;
- 		}
- 
--		retval = sctp_send_asconf(asoc, chunk);
--		if (retval)
--			goto out;
--
- 		/* Add the new addresses to the bind address list with
- 		 * use_as_src set to 0.
- 		 */
-@@ -599,6 +595,23 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
- 						    SCTP_ADDR_NEW, GFP_ATOMIC);
- 			addr_buf += af->sockaddr_len;
- 		}
-+		if (asoc->src_out_of_asoc_ok) {
-+			struct sctp_transport *trans;
-+
-+			list_for_each_entry(trans,
-+			    &asoc->peer.transport_addr_list, transports) {
-+				/* Clear the source and route cache */
-+				dst_release(trans->dst);
-+				trans->cwnd = min(4*asoc->pathmtu, max_t(__u32,
-+				    2*asoc->pathmtu, 4380));
-+				trans->ssthresh = asoc->peer.i.a_rwnd;
-+				trans->rto = asoc->rto_initial;
-+				trans->rtt = trans->srtt = trans->rttvar = 0;
-+				sctp_transport_route(trans, NULL,
-+				    sctp_sk(asoc->base.sk));
-+			}
-+		}
-+		retval = sctp_send_asconf(asoc, chunk);
- 	}
- 
- out:
-@@ -715,7 +728,9 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 	struct sctp_sockaddr_entry *saddr;
- 	int 			i;
- 	int 			retval = 0;
-+	int			stored = 0;
- 
-+	chunk = NULL;
- 	if (!sctp_addip_enable)
- 		return retval;
- 
-@@ -766,8 +781,33 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 		bp = &asoc->base.bind_addr;
- 		laddr = sctp_find_unmatch_addr(bp, (union sctp_addr *)addrs,
- 					       addrcnt, sp);
--		if (!laddr)
--			continue;
-+		if ((laddr == NULL) && (addrcnt == 1)) {
-+			if (asoc->asconf_addr_del_pending)
-+				continue;
-+			asoc->asconf_addr_del_pending =
-+			    kzalloc(sizeof(union sctp_addr), GFP_ATOMIC);
-+			asoc->asconf_addr_del_pending->sa.sa_family =
-+				    addrs->sa_family;
-+			asoc->asconf_addr_del_pending->v4.sin_port =
-+				    htons(bp->port);
-+			if (addrs->sa_family == AF_INET) {
-+				struct sockaddr_in *sin;
-+
-+				sin = (struct sockaddr_in *)addrs;
-+				asoc->asconf_addr_del_pending->v4.sin_addr.s_addr = sin->sin_addr.s_addr;
-+			} else if (addrs->sa_family == AF_INET6) {
-+				struct sockaddr_in6 *sin6;
-+
-+				sin6 = (struct sockaddr_in6 *)addrs;
-+				ipv6_addr_copy(&asoc->asconf_addr_del_pending->v6.sin6_addr, &sin6->sin6_addr);
-+			}
-+			SCTP_DEBUG_PRINTK_IPADDR("send_asconf_del_ip: keep the last address asoc: %p ",
-+			    " at %p\n", asoc, asoc->asconf_addr_del_pending,
-+			    asoc->asconf_addr_del_pending);
-+			asoc->src_out_of_asoc_ok = 1;
-+			stored = 1;
-+			goto skip_mkasconf;
-+		}
- 
- 		/* We do not need RCU protection throughout this loop
- 		 * because this is done under a socket lock from the
-@@ -780,6 +820,7 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 			goto out;
- 		}
- 
-+skip_mkasconf:
- 		/* Reset use_as_src flag for the addresses in the bind address
- 		 * list that are to be deleted.
- 		 */
-@@ -805,6 +846,9 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 					     sctp_sk(asoc->base.sk));
- 		}
- 
-+		if (stored)
-+			/* We don't need to transmit ASCONF */
-+			continue;
- 		retval = sctp_send_asconf(asoc, chunk);
- 	}
- out:
--- 
-1.7.3.2
-
-
+Thanks,
+Rusty.
