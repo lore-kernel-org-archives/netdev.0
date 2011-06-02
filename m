@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@iki.fi>
-Subject: [PATCH 3/5] net: ep93xx_eth: drop GFP_DMA from call to dma_alloc_coherent()
-Date: Thu,  2 Jun 2011 12:38:15 +0300
-Message-ID: <f36dee062c55ef65e8aff8b6206479f1ba8091c6.1307006502.git.mika.westerberg@iki.fi>
+Subject: [PATCH 5/5] ep93xx: set DMA masks for the ep93xx_eth
+Date: Thu,  2 Jun 2011 12:38:17 +0300
+Message-ID: <56828d7f2670b3782fea89cbc849d526ca3df8d7.1307006502.git.mika.westerberg@iki.fi>
 References: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 Cc: linux-arm-kernel@lists.infradead.org, kernel@wantstofly.org,
 	hsweeten@visionengravers.com, ryan@bluewatersys.com,
@@ -10,59 +10,45 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ey0-f174.google.com ([209.85.215.174]:47618 "EHLO
 	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933050Ab1FBJkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:40:36 -0400
+	with ESMTP id S933050Ab1FBJkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 05:40:40 -0400
 Received: by mail-ey0-f174.google.com with SMTP id 24so218562eyx.19
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 02:40:35 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 02:40:40 -0700 (PDT)
 In-Reply-To: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 In-Reply-To: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 References: <89df467f9811b4f869513de3ada90ce7de74c6d1.1307006502.git.mika.westerberg@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit a197b59ae6e8 (mm: fail GFP_DMA allocations when ZONE_DMA is not
-configured) made page allocator to return NULL if GFP_DMA is set but
-CONFIG_ZONE_DMA is disabled.
-
-This causes ep93xx_eth to fail:
-
- WARNING: at mm/page_alloc.c:2251 __alloc_pages_nodemask+0x11c/0x638()
- Modules linked in:
- [<c0035498>] (unwind_backtrace+0x0/0xf4) from [<c0043da4>] (warn_slowpath_common+0x48/0x60)
- [<c0043da4>] (warn_slowpath_common+0x48/0x60) from [<c0043dd8>] (warn_slowpath_null+0x1c/0x24)
- [<c0043dd8>] (warn_slowpath_null+0x1c/0x24) from [<c0083b6c>] (__alloc_pages_nodemask+0x11c/0x638)
- [<c0083b6c>] (__alloc_pages_nodemask+0x11c/0x638) from [<c00366fc>] (__dma_alloc+0x8c/0x3ec)
- [<c00366fc>] (__dma_alloc+0x8c/0x3ec) from [<c0036adc>] (dma_alloc_coherent+0x54/0x60)
- [<c0036adc>] (dma_alloc_coherent+0x54/0x60) from [<c0227808>] (ep93xx_open+0x20/0x864)
- [<c0227808>] (ep93xx_open+0x20/0x864) from [<c0283144>] (__dev_open+0xb8/0x108)
- [<c0283144>] (__dev_open+0xb8/0x108) from [<c0280528>] (__dev_change_flags+0x70/0x128)
- [<c0280528>] (__dev_change_flags+0x70/0x128) from [<c0283054>] (dev_change_flags+0x10/0x48)
- [<c0283054>] (dev_change_flags+0x10/0x48) from [<c001a720>] (ip_auto_config+0x190/0xf68)
- [<c001a720>] (ip_auto_config+0x190/0xf68) from [<c00233b0>] (do_one_initcall+0x34/0x18c)
- [<c00233b0>] (do_one_initcall+0x34/0x18c) from [<c0008400>] (kernel_init+0x94/0x134)
- [<c0008400>] (kernel_init+0x94/0x134) from [<c0030858>] (kernel_thread_exit+0x0/0x8)
-
-Since there is no restrictions for DMA on ep93xx, we can fix this by just
-removing the GFP_DMA flag from the call.
+As the driver is now passing platform device to the DMA mapping functions,
+we should give it valid DMA masks.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
 ---
- drivers/net/arm/ep93xx_eth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/arm/mach-ep93xx/core.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index 0c9df11..56b51a1 100644
---- a/drivers/net/arm/ep93xx_eth.c
-+++ b/drivers/net/arm/ep93xx_eth.c
-@@ -495,7 +495,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
- 	int i;
+diff --git a/arch/arm/mach-ep93xx/core.c b/arch/arm/mach-ep93xx/core.c
+index 8207954..1d4b65f 100644
+--- a/arch/arm/mach-ep93xx/core.c
++++ b/arch/arm/mach-ep93xx/core.c
+@@ -402,11 +402,15 @@ static struct resource ep93xx_eth_resource[] = {
+ 	}
+ };
  
- 	ep->descs = dma_alloc_coherent(dev, sizeof(struct ep93xx_descs),
--				&ep->descs_dma_addr, GFP_KERNEL | GFP_DMA);
-+				&ep->descs_dma_addr, GFP_KERNEL);
- 	if (ep->descs == NULL)
- 		return 1;
- 
++static u64 ep93xx_eth_dma_mask = DMA_BIT_MASK(32);
++
+ static struct platform_device ep93xx_eth_device = {
+ 	.name		= "ep93xx-eth",
+ 	.id		= -1,
+ 	.dev		= {
+-		.platform_data	= &ep93xx_eth_data,
++		.platform_data		= &ep93xx_eth_data,
++		.coherent_dma_mask	= DMA_BIT_MASK(32),
++		.dma_mask		= &ep93xx_eth_dma_mask,
+ 	},
+ 	.num_resources	= ARRAY_SIZE(ep93xx_eth_resource),
+ 	.resource	= ep93xx_eth_resource,
 -- 
 1.7.4.4
 
