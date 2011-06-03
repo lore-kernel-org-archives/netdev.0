@@ -1,79 +1,94 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 1/3] net: Remove unnecessary semicolons
-Date: Fri,  3 Jun 2011 14:51:19 -0700
-Message-ID: <d1b27d535ee6100d83a2db8366b3b0083bcf11e9.1307137352.git.joe@perches.com>
-References: <cover.1307137351.git.joe@perches.com>
+Subject: [PATCH net-next 0/3] net: drivers/net: include/net: Remove unnecessary semicolons
+Date: Fri,  3 Jun 2011 14:51:18 -0700
+Message-ID: <cover.1307137351.git.joe@perches.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2500 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:2499 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754156Ab1FCVvW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753980Ab1FCVvW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 3 Jun 2011 17:51:22 -0400
 Received: from Joe-Laptop.home (unknown [192.168.1.162])
-	by mail.perches.com (Postfix) with ESMTP id 9D2D52436B
-	for <netdev@vger.kernel.org>; Fri,  3 Jun 2011 14:51:19 -0700 (PDT)
-In-Reply-To: <cover.1307137351.git.joe@perches.com>
+	by mail.perches.com (Postfix) with ESMTP id E2AD724368
+	for <netdev@vger.kernel.org>; Fri,  3 Jun 2011 14:51:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Semicolons are not necessary after switch/while/for/if braces
-so remove them.
+Done via perl script:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/batman-adv/hard-interface.c |    2 +-
- net/bluetooth/hci_core.c        |    4 ++--
- net/sunrpc/auth.c               |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+my $match_balanced_parentheses = qr/(\((?:[^\(\)]++|(?-1))*\))/;
+my $match_balanced_braces      = qr/(\{(?:[^\{\}]++|(?-1))*\})/;
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index a3fbfb5..5719087 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -568,7 +568,7 @@ static int hard_if_event(struct notifier_block *this,
- 		break;
- 	default:
- 		break;
--	};
-+	}
- 
- hardif_put:
- 	hardif_free_ref(hard_iface);
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 815269b..e937ada 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -1519,7 +1519,7 @@ int hci_recv_fragment(struct hci_dev *hdev, int type, void *data, int count)
- 
- 		data += (count - rem);
- 		count = rem;
--	};
-+	}
- 
- 	return rem;
- }
-@@ -1554,7 +1554,7 @@ int hci_recv_stream_fragment(struct hci_dev *hdev, void *data, int count)
- 
- 		data += (count - rem);
- 		count = rem;
--	};
-+	}
- 
- 	return rem;
- }
-diff --git a/net/sunrpc/auth.c b/net/sunrpc/auth.c
-index cd6e4aa..727e506 100644
---- a/net/sunrpc/auth.c
-+++ b/net/sunrpc/auth.c
-@@ -626,7 +626,7 @@ rpcauth_refreshcred(struct rpc_task *task)
- 		if (err < 0)
- 			goto out;
- 		cred = task->tk_rqstp->rq_cred;
--	};
-+	}
- 	dprintk("RPC: %5u refreshing %s cred %p\n",
- 		task->tk_pid, cred->cr_auth->au_ops->au_name, cred);
- 
+foreach my $file (@ARGV) {
+    my $f;
+    my $text;
+    my $oldtext;
+
+    next if ((-d $file));
+
+    open($f, '<', $file)
+	or die "$P: Can't open $file for read\n";
+    $oldtext = do { local($/) ; <$f> };
+    close($f);
+
+    next if ($oldtext eq "");
+
+    $text = $oldtext;
+
+    my $count = 0;
+    do {
+	$count = 0;
+	$count += $text =~ s@\b(if\s*${match_balanced_parentheses}\s*)${match_balanced_braces}\s*;@"$1$3"@egx;
+	$count += $text =~ s@\b(while\s*${match_balanced_parentheses}\s*)${match_balanced_braces}\s*;@"$1$3"@egx;
+	$count += $text =~ s@\b(for\s*${match_balanced_parentheses}\s*)${match_balanced_braces}\s*;@"$1$3"@egx;
+	$count += $text =~ s@\b(switch\s*${match_balanced_parentheses}\s*)${match_balanced_braces}\s*;@"$1$3"@egx;
+    } while ($count > 0);
+
+    if ($text ne $oldtext) {
+	my $newfile = $file;
+
+	open($f, '>', $newfile)
+	    or die "$P: Can't open $newfile for write\n";
+	print $f $text;
+	close($f);
+
+    }
+}
+
+Joe Perches (3):
+  net: Remove unnecessary semicolons
+  drivers/net: Remove unnecessary semicolons
+  include/net: Remove unnecessary semicolons
+
+ drivers/net/amd8111e.c                  |    2 +-
+ drivers/net/cxgb4/cxgb4_main.c          |    2 +-
+ drivers/net/enic/enic_main.c            |    2 +-
+ drivers/net/irda/via-ircc.h             |    2 +-
+ drivers/net/iseries_veth.c              |    4 ++--
+ drivers/net/ixgbe/ixgbe_82599.c         |    4 ++--
+ drivers/net/ixgbe/ixgbe_common.c        |    4 ++--
+ drivers/net/myri10ge/myri10ge.c         |    2 +-
+ drivers/net/netxen/netxen_nic_init.c    |    2 +-
+ drivers/net/ps3_gelic_net.c             |    2 +-
+ drivers/net/slhc.c                      |    2 +-
+ drivers/net/sungem.c                    |    2 +-
+ drivers/net/tokenring/3c359.c           |    6 ++++--
+ drivers/net/tokenring/ibmtr.c           |    2 +-
+ drivers/net/tun.c                       |    2 +-
+ drivers/net/via-velocity.c              |    2 +-
+ drivers/net/wireless/b43/main.c         |    2 +-
+ drivers/net/wireless/b43legacy/main.c   |    2 +-
+ drivers/net/wireless/iwmc3200wifi/fw.c  |    2 +-
+ drivers/net/wireless/orinoco/main.c     |    2 +-
+ drivers/net/wireless/rt2x00/rt2800lib.c |    2 +-
+ drivers/net/wireless/rt2x00/rt2800pci.c |    2 +-
+ drivers/net/znet.c                      |    2 +-
+ include/net/sctp/sctp.h                 |    4 ++--
+ net/batman-adv/hard-interface.c         |    2 +-
+ net/bluetooth/hci_core.c                |    4 ++--
+ net/sunrpc/auth.c                       |    2 +-
+ 27 files changed, 35 insertions(+), 33 deletions(-)
+
 -- 
 1.7.5.rc3.dirty
 
