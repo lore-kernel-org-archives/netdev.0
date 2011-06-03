@@ -1,46 +1,43 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH RFC 3/3] virtio_net: limit xmit polling
-Date: Fri, 3 Jun 2011 09:38:52 +0530
-Message-ID: <OFB84D77BF.B23AE894-ON652578A4.00162627-652578A4.00168499@in.ibm.com>
-References: <cover.1306921434.git.mst@redhat.com> <1ec8eec325839ecf2eac9930a230361e7956047c.1306921434.git.mst@redhat.com> <87pqmwj3am.fsf@rustcorp.com.au> <20110602133425.GJ7141@redhat.com> <OF990F08C5.2ECE35B1-ON652578A3.004DC0FA-652578A3.004E3FE4@in.ibm.com> <20110602144346.GA7995@redhat.com> <OFFF109303.D838CAE2-ON652578A3.0053357D-652578A3.00549366@in.ibm.com> <20110602153423.GA11300@redhat.com>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: Re: [PATCH] ftrace: tracepoint of net_dev_xmit sees freed skb and
+ causes panic
+Date: Fri, 03 Jun 2011 14:03:51 +0900
+Message-ID: <4DE86B37.4070704@jp.fujitsu.com>
+References: <1306854867.11899.31.camel@gandalf.stny.rr.com>	<20110602.135913.2065173997860104604.davem@davemloft.net>	<1307048512.3667.28.camel@gandalf.stny.rr.com> <20110602.140426.765650914977149734.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
-	Carsten Otte <cotte@de.ibm.com>, habanero@linux.vnet.ibm.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	kvm@vger.kernel.org, lguest@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, linux-s390@vger.kernel.org,
-	linux390@de.ibm.com, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>, steved@us.ibm.com,
-	Tom Lendacky <tahm@linux.vnet.ibm.com>,
-	virtualization@lists.linux-foundation.org,
-	Shirley Ma <xma@us.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, mingo@elte.hu,
+	fweisbec@gmail.com, mathieu.desnoyers@efficios.com,
+	tglx@linutronix.de, kosaki.motohiro@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110602153423.GA11300@redhat.com>
+In-Reply-To: <20110602.140426.765650914977149734.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 06/02/2011 09:04:23 PM:
+(2011/06/03 6:04), David Miller wrote:
+> From: Steven Rostedt <rostedt@goodmis.org>
+> Date: Thu, 02 Jun 2011 17:01:52 -0400
+> 
+>> On Thu, 2011-06-02 at 13:59 -0700, David Miller wrote:
+>>> From: Steven Rostedt <rostedt@goodmis.org>
+>>> Date: Tue, 31 May 2011 11:14:27 -0400
+>>>
+>>>> Note, the subject should not be "ftrace:", but "net:" or maybe even
+>>>> "net/tracing", as this really has nothing to do with ftrace code. The
+>>>> tracepoints are more generic than ftrace.
+>>>
+>>> Do you guys mind if I take this in via the net-2.6 tree?
+>>
+>> I have no issue with that. Heck, I prefer it.
+> 
+> Great, thanks!
 
-> > > Is this where the bug was?
-> >
-> > Return value in free_old_xmit() was wrong. I will re-do against the
-> > mainline kernel.
-> >
-> > Thanks,
-> >
-> > - KK
->
-> Just noting that I'm working on that patch as well, it might
-> be more efficient if we don't both of us do this in parallel :)
+O.K.
+I will resubmit this patch with appropriate subject "net/tracing:"
 
-OK, but my intention was to work on a alternate approach, which
-was the reason to base it against your patch.
-
-I will check your latest patch.
-
-thanks,
-
-- KK
+Thanks,
+Koki Sanagi
