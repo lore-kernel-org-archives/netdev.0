@@ -1,7 +1,7 @@
 From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Subject: [PATCH 2/5] iwlegacy: remove unecessary if statement
-Date: Thu,  2 Jun 2011 21:06:07 -0500
-Message-ID: <1307066770-27309-2-git-send-email-Gregory.Dietsche@cuw.edu>
+Subject: [PATCH 5/5] iwlegacy: add missing null check
+Date: Thu,  2 Jun 2011 21:06:10 -0500
+Message-ID: <1307066770-27309-5-git-send-email-Gregory.Dietsche@cuw.edu>
 References: <1307066770-27309-1-git-send-email-Gregory.Dietsche@cuw.edu>
 Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,24 +12,93 @@ In-Reply-To: <1307066770-27309-1-git-send-email-Gregory.Dietsche@cuw.edu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-the code always returns ret regardless, so if(ret) check is unecessary.
+lq_sta has other null checks in this funcion.
+assuming they are correct, this additional null check
+should be added too.
+
 Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
 ---
- drivers/net/wireless/iwlegacy/iwl-4965.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/wireless/iwlegacy/iwl-4965-rs.c |   66 ++++++++++++++-------------
+ 1 files changed, 34 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/wireless/iwlegacy/iwl-4965.c b/drivers/net/wireless/iwlegacy/iwl-4965.c
-index f5433c7..ffda05c 100644
---- a/drivers/net/wireless/iwlegacy/iwl-4965.c
-+++ b/drivers/net/wireless/iwlegacy/iwl-4965.c
-@@ -1185,8 +1185,6 @@ static int iwl4965_send_rxon_assoc(struct iwl_priv *priv,
+diff --git a/drivers/net/wireless/iwlegacy/iwl-4965-rs.c b/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+index 24d1499..a475aac 100644
+--- a/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
++++ b/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+@@ -2275,40 +2275,42 @@ iwl4965_rs_get_rate(void *priv_r, struct ieee80211_sta *sta, void *priv_sta,
+ 	if (rate_control_send_low(sta, priv_sta, txrc))
+ 		return;
  
- 	ret = iwl_legacy_send_cmd_pdu_async(priv, REPLY_RXON_ASSOC,
- 				     sizeof(rxon_assoc), &rxon_assoc, NULL);
--	if (ret)
--		return ret;
+-	rate_idx  = lq_sta->last_txrate_idx;
+-
+-	if (lq_sta->last_rate_n_flags & RATE_MCS_HT_MSK) {
+-		rate_idx -= IWL_FIRST_OFDM_RATE;
+-		/* 6M and 9M shared same MCS index */
+-		rate_idx = (rate_idx > 0) ? (rate_idx - 1) : 0;
+-		if (iwl4965_rs_extract_rate(lq_sta->last_rate_n_flags) >=
+-			 IWL_RATE_MIMO2_6M_PLCP)
+-			rate_idx = rate_idx + MCS_INDEX_PER_STREAM;
+-		info->control.rates[0].flags = IEEE80211_TX_RC_MCS;
+-		if (lq_sta->last_rate_n_flags & RATE_MCS_SGI_MSK)
+-			info->control.rates[0].flags |=
+-					IEEE80211_TX_RC_SHORT_GI;
+-		if (lq_sta->last_rate_n_flags & RATE_MCS_DUP_MSK)
+-			info->control.rates[0].flags |=
+-					IEEE80211_TX_RC_DUP_DATA;
+-		if (lq_sta->last_rate_n_flags & RATE_MCS_HT40_MSK)
+-			info->control.rates[0].flags |=
+-					IEEE80211_TX_RC_40_MHZ_WIDTH;
+-		if (lq_sta->last_rate_n_flags & RATE_MCS_GF_MSK)
+-			info->control.rates[0].flags |=
+-					IEEE80211_TX_RC_GREEN_FIELD;
+-	} else {
+-		/* Check for invalid rates */
+-		if ((rate_idx < 0) || (rate_idx >= IWL_RATE_COUNT_LEGACY) ||
+-				((sband->band == IEEE80211_BAND_5GHZ) &&
+-				 (rate_idx < IWL_FIRST_OFDM_RATE)))
+-			rate_idx = rate_lowest_index(sband, sta);
+-		/* On valid 5 GHz rate, adjust index */
+-		else if (sband->band == IEEE80211_BAND_5GHZ)
++	if (lq_sta) {
++		rate_idx  = lq_sta->last_txrate_idx;
++
++		if (lq_sta->last_rate_n_flags & RATE_MCS_HT_MSK) {
+ 			rate_idx -= IWL_FIRST_OFDM_RATE;
+-		info->control.rates[0].flags = 0;
++			/* 6M and 9M shared same MCS index */
++			rate_idx = (rate_idx > 0) ? (rate_idx - 1) : 0;
++			if (iwl4965_rs_extract_rate(lq_sta->last_rate_n_flags) >=
++				 IWL_RATE_MIMO2_6M_PLCP)
++				rate_idx = rate_idx + MCS_INDEX_PER_STREAM;
++			info->control.rates[0].flags = IEEE80211_TX_RC_MCS;
++			if (lq_sta->last_rate_n_flags & RATE_MCS_SGI_MSK)
++				info->control.rates[0].flags |=
++						IEEE80211_TX_RC_SHORT_GI;
++			if (lq_sta->last_rate_n_flags & RATE_MCS_DUP_MSK)
++				info->control.rates[0].flags |=
++						IEEE80211_TX_RC_DUP_DATA;
++			if (lq_sta->last_rate_n_flags & RATE_MCS_HT40_MSK)
++				info->control.rates[0].flags |=
++						IEEE80211_TX_RC_40_MHZ_WIDTH;
++			if (lq_sta->last_rate_n_flags & RATE_MCS_GF_MSK)
++				info->control.rates[0].flags |=
++						IEEE80211_TX_RC_GREEN_FIELD;
++		} else {
++			/* Check for invalid rates */
++			if ((rate_idx < 0) || (rate_idx >= IWL_RATE_COUNT_LEGACY) ||
++					((sband->band == IEEE80211_BAND_5GHZ) &&
++					 (rate_idx < IWL_FIRST_OFDM_RATE)))
++				rate_idx = rate_lowest_index(sband, sta);
++			/* On valid 5 GHz rate, adjust index */
++			else if (sband->band == IEEE80211_BAND_5GHZ)
++				rate_idx -= IWL_FIRST_OFDM_RATE;
++			info->control.rates[0].flags = 0;
++		}
++		info->control.rates[0].idx = rate_idx;
+ 	}
+-	info->control.rates[0].idx = rate_idx;
  
- 	return ret;
  }
+ 
 -- 
 1.7.2.5
