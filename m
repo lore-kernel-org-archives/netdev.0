@@ -1,42 +1,44 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH] qlcnic: Avoid double free of skb in tx path
-Date: Fri,  3 Jun 2011 08:52:18 -0700
-Message-ID: <1307116338-1686-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: netdev@vger.kernel.org,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	sucheta.chakraborty@qlogic.com,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:36456 "HELO mx.mv.qlogic.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753417Ab1FCP72 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2011 11:59:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Brad Campbell <brad@fnarfbargle.com>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Sat, 04 Jun 2011 00:07:28 +0800
+Message-ID: <4DE906C0.6060901@fnarfbargle.com>
+References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <isavsg$3or$1@dough.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: kvm@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <isavsg$3or$1@dough.gmane.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+On 03/06/11 23:50, Bernhard Held wrote:
+> Am 03.06.2011 15:38, schrieb Brad Campbell:
+>> On 02/06/11 07:03, CaT wrote:
+>>> On Wed, Jun 01, 2011 at 07:52:33PM +0800, Brad Campbell wrote:
+>>>> Unfortunately the only interface that is mentioned by name anywhere
+>>>> in my firewall is $DMZ (which is ppp0 and not part of any bridge).
+>>>>
+>>>> All of the nat/dnat and other horrible hacks are based on IP addresses.
+>>>
+>>> Damn. Not referencing the bridge interfaces at all stopped our host from
+>>> going down in flames when we passed it a few packets. These are two
+>>> of the oopses we got from it. Whilst the kernel here is .35 we got the
+>>> same issue from a range of kernels. Seems related.
+>>
+>> Well, I tried sending an explanatory message to netdev, netfilter &
+>> cc'd to kvm,
+>> but it appears not to have made it to kvm or netfilter, and the cc to
+>> netdev has
+>> not elicited a response. My resend to netfilter seems to have dropped
+>> into the
+>> bit bucket also.
+> Just another reference 3.5 months ago:
+> http://www.spinics.net/lists/netfilter-devel/msg17239.html
 
-buffer->skb should be marked NULL to avoid double free of the skb.
+<waves hands around shouting "I have a reproducible test case for this 
+and don't mind patching and crashing the machine to get it fixed">
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 3ab7d2c..0f6af5c 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2159,6 +2159,7 @@ qlcnic_unmap_buffers(struct pci_dev *pdev, struct sk_buff *skb,
- 
- 	nf = &pbuf->frag_array[0];
- 	pci_unmap_single(pdev, nf->dma, skb_headlen(skb), PCI_DMA_TODEVICE);
-+	pbuf->skb = NULL;
- }
- 
- static inline void
--- 
-1.7.4.1
-
+Attempted to add netfilter-devel to the cc this time.
