@@ -1,145 +1,92 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] bonding: reset queue mapping prior to transmission to
- physical device
-Date: Thu, 2 Jun 2011 21:16:18 -0400
-Message-ID: <20110603011618.GB2523@neilslaptop.think-freely.org>
-References: <1307037799-32315-1-git-send-email-nhorman@tuxdriver.com>
- <1307039753.2812.16.camel@bwh-desktop>
- <20110602185659.GA2749@hmsreliant.think-freely.org>
- <1307041789.2812.27.camel@bwh-desktop>
- <20110602194621.GB2749@hmsreliant.think-freely.org>
- <1307045604.2812.41.camel@bwh-desktop>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [net-next,02/13] tg3: Cleanup transmit error path
+Date: Thu, 02 Jun 2011 19:18:34 -0600
+Message-ID: <1307063914.3656.22.camel@x201>
+References: <1305843176-32358-3-git-send-email-mcarlson@broadcom.com>
+	 <1307053115.3656.19.camel@x201>
+	 <20110602230139.GD5068@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39194 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825Ab1FCBQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 21:16:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1307045604.2812.41.camel@bwh-desktop>
+Received: from mx1.redhat.com ([209.132.183.28]:38643 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754061Ab1FCBSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Jun 2011 21:18:37 -0400
+In-Reply-To: <20110602230139.GD5068@mcarlson.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2011 at 09:13:24PM +0100, Ben Hutchings wrote:
-> On Thu, 2011-06-02 at 15:46 -0400, Neil Horman wrote:
-> > On Thu, Jun 02, 2011 at 08:09:49PM +0100, Ben Hutchings wrote:
-> > > On Thu, 2011-06-02 at 14:56 -0400, Neil Horman wrote:
-> > > > On Thu, Jun 02, 2011 at 07:35:53PM +0100, Ben Hutchings wrote:
-> > > > > On Thu, 2011-06-02 at 14:03 -0400, Neil Horman wrote:
-> > > > > > The bonding driver is multiqueue enabled, in which each queue represents a slave
-> > > > > > to enable optional steering of output frames to given slaves against the default
-> > > > > > output policy.  However, it needs to reset the skb->queue_mapping prior to
-> > > > > > queuing to the physical device or the physical slave (if it is multiqueue) could
-> > > > > > wind up transmitting on an unintended tx queue (one that was reserved for
-> > > > > > specific traffic classes for instance)
-> > > [...]
-> > > > > So far as I can see, this has no effect, because dev_queue_xmit() always
-> > > > > sets queue_mapping (in dev_pick_tx()).
-> > > > > 
-> > > > it resets the queue mapping exactly as you would expect it to.  bonding is a
-> > > > multiqueue enabled device and selects a potentially non-zero queue based on the
-> > > > output of bond_select_queue.
-> > > > 
-> > > > > What is the problem you're seeing?
-> > > > > 
-> > > > The problem is exctly that.  dev_pick_tx() on the bond device sets the
-> > > > queue_mapping as per the result of bond_select_queue (the ndo_select_queue
-> > > > method for the bonding driver).  The implementation there is based on the use of
-> > > > tc with bonding, so that output slaves can be selected for certain types of
-> > > > traffic.  But when that mechanism is used, skb->queue_mapping is preserved when
-> > > > the bonding driver queues the frame to the underlying slave.  This denies the
-> > > > slave (if its also a multiqueue device) the opportunity to reselect the queue
-> > > > properly, because of this call path:
-> > > > 
-> > > > bond_queue_xmit
-> > > >  dev_queue_xmit(slave_dev)
-> > > >   dev_pick_tx()
-> > > >    skb_tx_hash()
-> > > >     __skb_tx_hash()
-> > > > 
-> > > > __skb_tx_hash sees that skb_queue_recorded returns true, and assigns a hardware queue mapping
-> > > > based on what the bonding driver chose using its own internal logic.  Since
-> > > > bonding uses the multiqueue infrastructure to do slave output selection without
-> > > > any regard for slave output queue selection, it seems to me we should really
-> > > > reset the queue mapping to zero so the slave device can pick its own tx queue.
-> > > 
-> > > So you're effectively clearing the *RX queue* number (as this is before
-> > > dev_pick_tx()) in order to influence TX queue selection.
-> > > 
-> > No, you're not seeing it properly.  In bonding (as with all stacked devices) we
-> > make two passes through dev_pick_tx.
-> 
-> Only if the stacked device has its own software queues and schedulers;
-> e.g. VLAN devices don't.
-> 
-Every net_device has a default fifo qdisc, and as such, each net_device when
-called with dev_queue_xmit calls dev_pick_tx, and that includes vlans.  It just
-so happens that vlans are a single queue device and come out of dev_pick_tx with
-a queue_mapping of 0.  Thats all moot of course, since we're talking about
-bonding.
-
-> > 1) The first time we call dev_pick_tx is when the network stack calls
-> > dev_queue_xmit on the bond device.  here we call ndo_select_queue, which calls
-> > bond_select_queue.  This method tells the stack which queue to enqueue the skb
-> > on for the bond device.  We can use tc's skbedit action to select a particular
-> > queue on the bond device for various classes of traffic, and those queues
-> > correspond to individual slave devices.
+On Thu, 2011-06-02 at 16:01 -0700, Matt Carlson wrote:
+> On Thu, Jun 02, 2011 at 03:18:35PM -0700, Alex Williamson wrote:
+> > On Thu, 2011-05-19 at 12:12 +0000, Matt Carlson wrote:
+> > > This patch consolidates the skb cleanup code into a function named
+> > > tg3_skb_error_unmap().  The modification addresses a long-standing bug
+> > > where pci_unmap_single() was incorrectly being called instead of
+> > > pci_unmap_page() in tigon3_dma_hwbug_workaround().
 > > 
-> > 2) the second time we call dev_pick_tx is when the bonding bond_queue_xmit
-> > routine (which is the bonding drivers ndo_start_xmit method, called after the
-> > frist dev_pick_tx), calls dev_queue_xmit, passing the slave net_device pointer).
-> > In this case we do whatever the slave device has configured (either reset the
-> > queue to zero, or call the slaves ndo_select queue method).
+> > This patch doesn't behave well when an iommu (VT-d) is involved.
+> > Booting an X58 chipset based system with intel_iommu=on with 3.0.0-rc1
+> > results in the warning below.  Looks like the driver is trying to unmap
+> > 0x0.  Eventually something worse happens and the system reports a few
+> > iommu faults from the device before panicing.  Neither problem is
+> > observed if 432aa7ed is reverted.  tg3 device in use is a BCM5755.
+> > Thanks,
 > > 
-> > What I'm fixing is the fact that the bonding drivers queue_mappnig value is
-> > 'leaking' down to the slave.
-> 
-> And this is because dev_queue_xmit() assumes that it's a record of the
-> RX queue number.
-> 
-Yes, correct.  stacked devices provide the opportuninty for queue_mapping to no
-longer be that rx queue number, but rather a tx queue mapping.  This is a
-potentential problem with all stacked devices, but bonding is the only thing
-showing it right now because its the only stacked device that can set a non-zero
-queue_mapping value.
-
-> The differing interpretation of queue_mapping for RX and TX is annoying
-> and I think we should change the initial value of queue_mapping to -1.
-> But that's a separate issue.
-> 
-Agreed.
-
-> > Lets say, for example we're bonding two multiqueue devices, and have the bonding
-> > driver configured to send all traffic to 192.168.1.1 over the first slave (which
-> > we can accomplish using an appropriate tc rule on the bond device, setting
-> > frames with that dest ip to have a skb->queue_mapping of 1).
+> > Alex
 > > 
-> > In the above example, frames bound for 192.168.1.1 have skb->queue_mapping set
-> > to 1 when they enter bond_queue_xmit.  bond_queue_xmit, calls
-> > dev_queue_xmit(slave, skb), which calls dev_pick_tx(slave, skb).  If we (for
-> > simplicity's sake) assume the slave has no ndo_select_queue method, dev_pick_tx
-> > calls __skb_tx_hash to determine the output queue.  But the bonding driver
-> > already set skb->queue_mapping to 1 (because it wanted this frame output on the
-> > first slave, not because it wanted to transmit the frame on the slaves tx queue
-> > 1).  Nevertheless, __skb_tx_hash() sees that skb_rx_queue_recorded returns true
-> > here and as a result, calls skb_rx_get_queue, which returns 0.  Because of that
-> > we wind up transmitting on hardware queue 0 all the time, which is not at all
-> > what we want.  What we want is for the bonding driver to be able to use
-> > queue_mapping for its own purposes, and then allow the physical device to make
-> > its own output queue selection independently.
-> [...]
-> 
-> I think I understand - the bonding device is effectively single-queue
-> and shouldn't record an RX queue number.  But I think you should define
-Well, no, its a multiqueue device, it just happens to treat slaves as queues,
-rather than internal hardware objects.  But I suppose you're saying the same
-thing that dave is, in that we should restore the origional queue_mapping,
-rather than clearing it to preserve the input semantics when we reach the
-physical device.  I can do that.
+> > WARNING: at drivers/pci/intel-iommu.c:2888 intel_unmap_page+0x15c/0x180()
+> > Hardware name: 4157CTO
+> > Driver unmaps unmatched page at PFN 0
+> > Modules linked in: nfs lockd auth_rpcgss nfs_acl ipt_MASQUERADE iptable_nat nf_nat iptable_mangle tun autofs4 sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf bridge stp llc ipv6 dm_mirror dm_region_hash dm_log kvm_intel kvm sg microcode serio_raw wmi i2c_i801 i2c_core iTCO_wdt iTCO_vendor_support tg3 ext4 mbcache jbd2 raid1 raid456 async_pq async_xor xor async_memcpy async_raid6_recov raid6_pq async_tx sr_mod cdrom sd_mod crc_t10dif floppy dm_mod [last unloaded: scsi_wait_scan]
+> > Pid: 2604, comm: libvirtd Not tainted 3.0.0-rc1+ #184
+> > Call Trace:
+> >  [<ffffffff8105c7df>] warn_slowpath_common+0x7f/0xc0
+> >  [<ffffffff8105c8d6>] warn_slowpath_fmt+0x46/0x50
+> >  [<ffffffff81245b8b>] ? find_iova+0x5b/0xa0
+> >  [<ffffffff8124a60c>] intel_unmap_page+0x15c/0x180
+> >  [<ffffffffa0128d48>] tg3_skb_error_unmap+0xb8/0x130 [tg3]
 
-Neil
+> Does this patch fix the problem?
+
+Yes it does, probably explains the subsequent iommu faults if that off
+by one unmapping sometimes finds a non-zero address to unmap.  Thanks,
+
+Alex
+
+Tested-by: Alex Williamson <alex.williamson@redhat.com>
+
+> Subject: [PATCH] tg3: Fix tg3_skb_error_unmap()
+> 
+> This function attempts to free one fragment beyond the number of
+> fragments that were actually mapped.  This patch brings back the limit
+> to the correct spot.
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> ---
+>  drivers/net/tg3.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 8ece39b..3d239ab 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -5771,7 +5771,7 @@ static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
+>  			 dma_unmap_addr(txb, mapping),
+>  			 skb_headlen(skb),
+>  			 PCI_DMA_TODEVICE);
+> -	for (i = 0; i <= last; i++) {
+> +	for (i = 0; i < last; i++) {
+>  		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+>  
+>  		entry = NEXT_TX(entry);
+> -- 
+> 1.7.3.4
+> 
+> 
+
+
+
