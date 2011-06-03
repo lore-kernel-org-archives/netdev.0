@@ -1,69 +1,53 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm: mark ncm devices as "mobile broadband devices" with FLAG_WWAN
-Date: Fri, 3 Jun 2011 12:01:21 +0200
-Message-ID: <201106031201.21933.oneukum@suse.de>
-References: <1306922913-17803-1-git-send-email-metze@samba.org> <5203.1307062683@turing-police.cc.vt.edu> <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] Use unsigned variables for packet lengths in ip[6]_queue.
+Date: Fri, 03 Jun 2011 12:07:37 +0200
+Message-ID: <4DE8B269.9070505@netfilter.org>
+References: <20110420014221.GC26949@redhat.com> <20110419.204105.68144653.davem@davemloft.net> <20110528003651.GA8380@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
-	Dan Williams <dcbw@redhat.com>,
-	Stefan Metzmacher <metze@samba.org>,
-	Oliver Neukum <oliver@neukum.name>,
-	"Greg Kroah-Hartman" <gregkh@suse.de>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexey ORISHKO <alexey.orishko@stericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Dave Jones <davej@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110528003651.GA8380@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, 3. Juni 2011, 11:45:38 schrieb Alexey ORISHKO:
-> > -----Original Message-----
-> > From: Valdis.Kletnieks@vt.edu [mailto:Valdis.Kletnieks@vt.edu]
-> > Sent: Friday, June 03, 2011 2:58 AM
-> >=20
-> > > A follow-on to this is that if you really care about specific
-> > devices,
-> > > your application can use udev rules to "tag" specific interfaces
-> > based
-> > > on USB VID/PID/GUID or other device attributes, and check for tho=
-se
-> > > tags in your program.  Use udev (good) or netlink (good) or
-> > > SIOCGIFCONF (bad) to enumerate the various network interfaces on =
-the
-> > > system and pick the
-> >=20
-> > I think Alexey's point was that the patch will hose up programs tha=
-t
-> > currently do the netlink or  SIOCGIFCONF thing and look for
-> > FLAG_POINTTOPOINT.
->=20
-> Just to clarify, I was objecting to renaming interface name mostly be=
-cause
-> devices which use CDC NCM function might be something different from =
-wwan
-> devices. I would prefer to keep a generic name of interface (usbX or =
-ethX).
->=20
-> As an option anyone can use udev rules to set interface name they wan=
-t=20
-> for their device based on VID/PID or MAC address or something else.
-> I've already provided udev rule example earlier in this thread.
+On 28/05/11 02:36, Dave Jones wrote:
+> On Tue, Apr 19, 2011 at 08:41:05PM -0700, David Miller wrote:
+>  > From: Dave Jones <davej@redhat.com>
+>  > Date: Tue, 19 Apr 2011 21:42:22 -0400
+>  > 
+>  > > Not catastrophic, but ipqueue seems to be too trusting of what it gets
+>  > > passed from userspace, and passes it on down to the page allocator,
+>  > > where it will spew warnings if the page order is too high.
+>  > > 
+>  > > __ipq_rcv_skb has several checks for lengths too small, but doesn't
+>  > > seem to have any for oversized ones.   I'm not sure what the maximum
+>  > > we should check for is. I'll code up a diff if anyone has any ideas
+>  > > on a sane maximum.
+>  > 
+>  > Maybe the thing to do is to simply pass __GFP_NOWARN to nlmsg_new()
+>  > in netlink_ack()?
+>  > 
+>  > Anyone else have a better idea?
+> 
+> So I went back to this today, and found something that doesn't look right.
+> After adding some instrumentation, and re-running my tests, I found that
+> the reason we were blowing up with enormous allocations was that we
+> were passing down a nlmsglen's like -1061109568
+> 
+> Is there any reason for that to be signed ?
+> The nlmsg_len entry of nlmsghdr is a u32, so I'm assuming this is a bug.
+> 
+> With the patch below, I haven't been able to reproduce the problem, but
+> I don't know if I've inadvertantly broken some other behaviour somewhere
+> deeper in netlink where this is valid.
 
-This is not ideal. Distributions cannot care about every VIP:PID value.
-If a device with an NCM interface needs to be treated in a special
-manner we'd better have a special name for such interfaces.
+I have applied this. Thanks.
 
-	Regards
-		Oliver
---=20
-- - -=20
-SUSE LINUX Products GmbH, GF: Jeff Hawn, Jennifer Guild, Felix Imend=F6=
-rffer, HRB 16746 (AG N=FCrnberg)=20
-Maxfeldstra=DFe 5                        =20
-90409 N=FCrnberg=20
-Germany=20
-- - -=20
+BTW, ip[6]_queue has been marked obsoleted since long time, probably we
+can schedule this for removal anytime soon. The nfnetlink_queue
+successor has been there to provide a replacement for this since long time.
