@@ -1,7 +1,7 @@
 From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Subject: [PATCH 3/5] iwlegacy: return -EINVAL instead of -1
-Date: Thu,  2 Jun 2011 21:06:08 -0500
-Message-ID: <1307066770-27309-3-git-send-email-Gregory.Dietsche@cuw.edu>
+Subject: [PATCH 2/5] iwlegacy: remove unecessary if statement
+Date: Thu,  2 Jun 2011 21:06:07 -0500
+Message-ID: <1307066770-27309-2-git-send-email-Gregory.Dietsche@cuw.edu>
 References: <1307066770-27309-1-git-send-email-Gregory.Dietsche@cuw.edu>
 Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,24 +12,24 @@ In-Reply-To: <1307066770-27309-1-git-send-email-Gregory.Dietsche@cuw.edu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cleanup the code to return -EINVAL instead of -1
+the code always returns ret regardless, so if(ret) check is unecessary.
 Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
 ---
- drivers/net/wireless/iwlegacy/iwl-4965.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/wireless/iwlegacy/iwl-4965.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/wireless/iwlegacy/iwl-4965.c b/drivers/net/wireless/iwlegacy/iwl-4965.c
-index ffda05c..06dcee5 100644
+index f5433c7..ffda05c 100644
 --- a/drivers/net/wireless/iwlegacy/iwl-4965.c
 +++ b/drivers/net/wireless/iwlegacy/iwl-4965.c
-@@ -496,7 +496,7 @@ static s32 iwl4965_get_tx_atten_grp(u16 channel)
- 	    channel <= CALIB_IWL_TX_ATTEN_GR4_LCH)
- 		return CALIB_CH_GROUP_4;
+@@ -1185,8 +1185,6 @@ static int iwl4965_send_rxon_assoc(struct iwl_priv *priv,
  
--	return -1;
-+	return -EINVAL;
+ 	ret = iwl_legacy_send_cmd_pdu_async(priv, REPLY_RXON_ASSOC,
+ 				     sizeof(rxon_assoc), &rxon_assoc, NULL);
+-	if (ret)
+-		return ret;
+ 
+ 	return ret;
  }
- 
- static u32 iwl4965_get_sub_band(const struct iwl_priv *priv, u32 channel)
 -- 
 1.7.2.5
