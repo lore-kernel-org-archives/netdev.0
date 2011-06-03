@@ -1,27 +1,41 @@
-From: BballPlayaIY25@aol.com
-Subject: Just 4 U
-Date: Thu, 2 Jun 2011 23:15:50 -0400 (EDT)
-Message-ID: <dc46.2ae9ed4d.3b19abe5@aol.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ims-d11.mx.aol.com ([205.188.249.148]:55519 "EHLO
-	ims-d11.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752375Ab1FCDP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 23:15:56 -0400
-Received: from oms-da02.r1000.mx.aol.com (oms-da02.r1000.mx.aol.com [205.188.255.12])
-	by ims-d11.mx.aol.com (8.14.1/8.14.1) with ESMTP id p533FlC9028314
-	for <netdev@vger.kernel.org>; Thu, 2 Jun 2011 23:15:50 -0400
-Received: from mtaomg-da03.r1000.mx.aol.com (mtaomg-da03.r1000.mx.aol.com [172.29.51.139])
-	by oms-da02.r1000.mx.aol.com (AOL Outbound OMS Interface) with ESMTP id 49DD538000084
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2011 23:15:50 -0400 (EDT)
-Received: from core-mob002c.r1000.mail.aol.com (core-mob002.r1000.mail.aol.com [172.29.194.197])
-	by mtaomg-da03.r1000.mx.aol.com (OMAG/Core Interface) with ESMTP id 1A274E000086
-	for <netdev@vger.kernel.org>; Thu,  2 Jun 2011 23:15:50 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
+Subject: [PATCH 5/5 v2] iwlegacy: add missing null check
+Date: Thu,  2 Jun 2011 22:24:06 -0500
+Message-ID: <1307071446-28730-1-git-send-email-Gregory.Dietsche@cuw.edu>
+References: <20110603030746.GA4834@joana>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Greg Dietsche <Gregory.Dietsche@cuw.edu>
+To: sgruszka@redhat.com, linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110603030746.GA4834@joana>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Meet Hot Local Singles Free Join.! <a href="http://korta.nu/3dkun">Click 
-Here</a>
+lq_sta has other null checks in this function.
+assuming they are correct, this additional null check
+should be added too.
+
+Incorporating suggestion from Gustavo Padovan.
+
+Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
+---
+ drivers/net/wireless/iwlegacy/iwl-4965-rs.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlegacy/iwl-4965-rs.c b/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+index 24d1499..9b65153 100644
+--- a/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
++++ b/drivers/net/wireless/iwlegacy/iwl-4965-rs.c
+@@ -2275,6 +2275,9 @@ iwl4965_rs_get_rate(void *priv_r, struct ieee80211_sta *sta, void *priv_sta,
+ 	if (rate_control_send_low(sta, priv_sta, txrc))
+ 		return;
+ 
++	if (!lq_sta)
++		return;
++
+ 	rate_idx  = lq_sta->last_txrate_idx;
+ 
+ 	if (lq_sta->last_rate_n_flags & RATE_MCS_HT_MSK) {
+-- 
+1.7.2.5
