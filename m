@@ -1,61 +1,69 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
- mark ncm devices as "mobile broadband devices" with FLAG_WWAN
-Date: Fri, 3 Jun 2011 11:45:38 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
-References: <1306922913-17803-1-git-send-email-metze@samba.org>
- <1306922913-17803-2-git-send-email-metze@samba.org>
- <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E583@EXDCVYMBSTM006.EQ1STM.local>
- <1307053743.21633.22.camel@dcbw.foobar.com>
-            <1307054132.21633.25.camel@dcbw.foobar.com>
- <5203.1307062683@turing-police.cc.vt.edu>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm: mark ncm devices as "mobile broadband devices" with FLAG_WWAN
+Date: Fri, 3 Jun 2011 12:01:21 +0200
+Message-ID: <201106031201.21933.oneukum@suse.de>
+References: <1306922913-17803-1-git-send-email-metze@samba.org> <5203.1307062683@turing-police.cc.vt.edu> <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stefan Metzmacher <metze-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org" <Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5203.1307062683-+bZmOdGhbsPr6rcHtW+onFJE71vCis6O@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
+	Dan Williams <dcbw@redhat.com>,
+	Stefan Metzmacher <metze@samba.org>,
+	Oliver Neukum <oliver@neukum.name>,
+	"Greg Kroah-Hartman" <gregkh@suse.de>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org [mailto:Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org]
-> Sent: Friday, June 03, 2011 2:58 AM
-> 
-> > A follow-on to this is that if you really care about specific
-> devices,
-> > your application can use udev rules to "tag" specific interfaces
-> based
-> > on USB VID/PID/GUID or other device attributes, and check for those
-> > tags in your program.  Use udev (good) or netlink (good) or
-> > SIOCGIFCONF (bad) to enumerate the various network interfaces on the
-> > system and pick the
-> 
-> I think Alexey's point was that the patch will hose up programs that
-> currently do the netlink or  SIOCGIFCONF thing and look for
-> FLAG_POINTTOPOINT.
+Am Freitag, 3. Juni 2011, 11:45:38 schrieb Alexey ORISHKO:
+> > -----Original Message-----
+> > From: Valdis.Kletnieks@vt.edu [mailto:Valdis.Kletnieks@vt.edu]
+> > Sent: Friday, June 03, 2011 2:58 AM
+> >=20
+> > > A follow-on to this is that if you really care about specific
+> > devices,
+> > > your application can use udev rules to "tag" specific interfaces
+> > based
+> > > on USB VID/PID/GUID or other device attributes, and check for tho=
+se
+> > > tags in your program.  Use udev (good) or netlink (good) or
+> > > SIOCGIFCONF (bad) to enumerate the various network interfaces on =
+the
+> > > system and pick the
+> >=20
+> > I think Alexey's point was that the patch will hose up programs tha=
+t
+> > currently do the netlink or  SIOCGIFCONF thing and look for
+> > FLAG_POINTTOPOINT.
+>=20
+> Just to clarify, I was objecting to renaming interface name mostly be=
+cause
+> devices which use CDC NCM function might be something different from =
+wwan
+> devices. I would prefer to keep a generic name of interface (usbX or =
+ethX).
+>=20
+> As an option anyone can use udev rules to set interface name they wan=
+t=20
+> for their device based on VID/PID or MAC address or something else.
+> I've already provided udev rule example earlier in this thread.
 
-Just to clarify, I was objecting to renaming interface name mostly because
-devices which use CDC NCM function might be something different from wwan
-devices. I would prefer to keep a generic name of interface (usbX or ethX).
+This is not ideal. Distributions cannot care about every VIP:PID value.
+If a device with an NCM interface needs to be treated in a special
+manner we'd better have a special name for such interfaces.
 
-As an option anyone can use udev rules to set interface name they want 
-for their device based on VID/PID or MAC address or something else.
-I've already provided udev rule example earlier in this thread.
-
-Dan, is it in line with your statement?
-
-/alexey
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Regards
+		Oliver
+--=20
+- - -=20
+SUSE LINUX Products GmbH, GF: Jeff Hawn, Jennifer Guild, Felix Imend=F6=
+rffer, HRB 16746 (AG N=FCrnberg)=20
+Maxfeldstra=DFe 5                        =20
+90409 N=FCrnberg=20
+Germany=20
+- - -=20
