@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next,02/13] tg3: Cleanup transmit error path
-Date: Fri, 03 Jun 2011 00:02:03 -0700 (PDT)
-Message-ID: <20110603.000203.2086668674972261966.davem@davemloft.net>
-References: <1307053115.3656.19.camel@x201>
-	<20110602230139.GD5068@mcarlson.broadcom.com>
-	<1307063914.3656.22.camel@x201>
+Subject: Re: [PATCHv2 NEXT 1/1] netxen: suppress false lro warning messages
+Date: Fri, 03 Jun 2011 00:03:41 -0700 (PDT)
+Message-ID: <20110603.000341.2168660371867103025.davem@davemloft.net>
+References: <1307017454-10826-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org
-To: alex.williamson@redhat.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com, sucheta.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60140 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:55470 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751271Ab1FCHCI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 03:02:08 -0400
-In-Reply-To: <1307063914.3656.22.camel@x201>
+	with ESMTP id S1752135Ab1FCHDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 03:03:46 -0400
+In-Reply-To: <1307017454-10826-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Williamson <alex.williamson@redhat.com>
-Date: Thu, 02 Jun 2011 19:18:34 -0600
+From: amit.salecha@qlogic.com
+Date: Thu,  2 Jun 2011 05:24:14 -0700
 
-> On Thu, 2011-06-02 at 16:01 -0700, Matt Carlson wrote:
->> Does this patch fix the problem?
+> From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 > 
-> Yes it does, probably explains the subsequent iommu faults if that off
-> by one unmapping sometimes finds a non-zero address to unmap.  Thanks,
+> When interface is down, driver prints false warning messages
+> during lro configuration through ethtool.
 > 
-> Alex
-> 
-> Tested-by: Alex Williamson <alex.williamson@redhat.com>
+> Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
 Applied, thanks.
