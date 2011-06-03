@@ -1,52 +1,189 @@
-From: Brad Campbell <lists2009@fnarfbargle.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Fri, 03 Jun 2011 21:38:53 +0800
-Message-ID: <4DE8E3ED.7080004@fnarfbargle.com>
-References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Avi Kivity <avi@redhat.com>, Hugh Dickins <hughd@google.com>,
- Andrea Arcangeli <aarcange@redhat.com>,
- Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
- kvm@vger.kernel.org, linux-mm <linux-mm@kvack.org>,
- netdev <netdev@vger.kernel.org>
-To: CaT <cat@zip.com.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110601230342.GC3956@zip.com.au>
-Sender: owner-linux-mm@kvack.org
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net-next] bonding: make 802.3ad use update lacp_rate
+Date: Fri,  3 Jun 2011 22:35:33 +0800
+Message-ID: <1307111733-4746-1-git-send-email-panweiping3@gmail.com>
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com> (supporter:BONDING DRIVER),
+	Andy Gospodarek <andy@greyhouse.net> (supporter:BONDING DRIVER),
+	netdev@vger.kernel.org (open list:BONDING DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/06/11 07:03, CaT wrote:
-> On Wed, Jun 01, 2011 at 07:52:33PM +0800, Brad Campbell wrote:
->> Unfortunately the only interface that is mentioned by name anywhere
->> in my firewall is $DMZ (which is ppp0 and not part of any bridge).
->>
->> All of the nat/dnat and other horrible hacks are based on IP addresses.
->
-> Damn. Not referencing the bridge interfaces at all stopped our host from
-> going down in flames when we passed it a few packets. These are two
-> of the oopses we got from it. Whilst the kernel here is .35 we got the
-> same issue from a range of kernels. Seems related.
+There is a bug that when you modify lacp_rate via sysfs,
+802.3ad won't use the new value of lacp_rate to transmit packets.
+That is because port->actor_oper_port_state isn't changed.
 
-Well, I tried sending an explanatory message to netdev, netfilter & cc'd 
-to kvm, but it appears not to have made it to kvm or netfilter, and the 
-cc to netdev has not elicited a response. My resend to netfilter seems 
-to have dropped into the bit bucket also.
+And I want to use AD_STATE_LACP_TIMEOUT,
+so I move related macros from bond_3ad.c into bond_3ad.h.
 
-Is there anyone who can point me at the appropriate cage to rattle? I 
-know it appears to be a netfilter issue, but I don't seem to be able to 
-get a message to the list (and I am subscribed to it and have been 
-getting mail for months) and I'm not sure who to pester. The other 
-alternative is I just stop doing "that" and wait for it to bite someone 
-else.
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ drivers/net/bonding/bond_3ad.c   |   48 --------------------------------------
+ drivers/net/bonding/bond_3ad.h   |   48 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c |   15 +++++++++++-
+ 3 files changed, 62 insertions(+), 49 deletions(-)
 
-Cheers.
-Brad
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index c7537abc..9083258 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -34,54 +34,6 @@
+ #include "bonding.h"
+ #include "bond_3ad.h"
+ 
+-// General definitions
+-#define AD_SHORT_TIMEOUT           1
+-#define AD_LONG_TIMEOUT            0
+-#define AD_STANDBY                 0x2
+-#define AD_MAX_TX_IN_SECOND        3
+-#define AD_COLLECTOR_MAX_DELAY     0
+-
+-// Timer definitions(43.4.4 in the 802.3ad standard)
+-#define AD_FAST_PERIODIC_TIME      1
+-#define AD_SLOW_PERIODIC_TIME      30
+-#define AD_SHORT_TIMEOUT_TIME      (3*AD_FAST_PERIODIC_TIME)
+-#define AD_LONG_TIMEOUT_TIME       (3*AD_SLOW_PERIODIC_TIME)
+-#define AD_CHURN_DETECTION_TIME    60
+-#define AD_AGGREGATE_WAIT_TIME     2
+-
+-// Port state definitions(43.4.2.2 in the 802.3ad standard)
+-#define AD_STATE_LACP_ACTIVITY   0x1
+-#define AD_STATE_LACP_TIMEOUT    0x2
+-#define AD_STATE_AGGREGATION     0x4
+-#define AD_STATE_SYNCHRONIZATION 0x8
+-#define AD_STATE_COLLECTING      0x10
+-#define AD_STATE_DISTRIBUTING    0x20
+-#define AD_STATE_DEFAULTED       0x40
+-#define AD_STATE_EXPIRED         0x80
+-
+-// Port Variables definitions used by the State Machines(43.4.7 in the 802.3ad standard)
+-#define AD_PORT_BEGIN           0x1
+-#define AD_PORT_LACP_ENABLED    0x2
+-#define AD_PORT_ACTOR_CHURN     0x4
+-#define AD_PORT_PARTNER_CHURN   0x8
+-#define AD_PORT_READY           0x10
+-#define AD_PORT_READY_N         0x20
+-#define AD_PORT_MATCHED         0x40
+-#define AD_PORT_STANDBY         0x80
+-#define AD_PORT_SELECTED        0x100
+-#define AD_PORT_MOVED           0x200
+-
+-// Port Key definitions
+-// key is determined according to the link speed, duplex and
+-// user key(which is yet not supported)
+-//              ------------------------------------------------------------
+-// Port key :   | User key                       |      Speed       |Duplex|
+-//              ------------------------------------------------------------
+-//              16                               6               1 0
+-#define  AD_DUPLEX_KEY_BITS    0x1
+-#define  AD_SPEED_KEY_BITS     0x3E
+-#define  AD_USER_KEY_BITS      0xFFC0
+-
+ //dalloun
+ #define     AD_LINK_SPEED_BITMASK_1MBPS       0x1
+ #define     AD_LINK_SPEED_BITMASK_10MBPS      0x2
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 0ee3f16..6ce1f6b 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -37,6 +37,54 @@
+ #define AD_LACP_SLOW 0
+ #define AD_LACP_FAST 1
+ 
++#define AD_SHORT_TIMEOUT           1
++#define AD_LONG_TIMEOUT            0
++#define AD_STANDBY                 0x2
++#define AD_MAX_TX_IN_SECOND        3
++#define AD_COLLECTOR_MAX_DELAY     0
++
++// Timer definitions(43.4.4 in the 802.3ad standard)
++#define AD_FAST_PERIODIC_TIME      1
++#define AD_SLOW_PERIODIC_TIME      30
++#define AD_SHORT_TIMEOUT_TIME      (3*AD_FAST_PERIODIC_TIME)
++#define AD_LONG_TIMEOUT_TIME       (3*AD_SLOW_PERIODIC_TIME)
++#define AD_CHURN_DETECTION_TIME    60
++#define AD_AGGREGATE_WAIT_TIME     2
++
++// Port state definitions(43.4.2.2 in the 802.3ad standard)
++#define AD_STATE_LACP_ACTIVITY   0x1
++#define AD_STATE_LACP_TIMEOUT    0x2
++#define AD_STATE_AGGREGATION     0x4
++#define AD_STATE_SYNCHRONIZATION 0x8
++#define AD_STATE_COLLECTING      0x10
++#define AD_STATE_DISTRIBUTING    0x20
++#define AD_STATE_DEFAULTED       0x40
++#define AD_STATE_EXPIRED         0x80
++
++// Port Variables definitions used by the State Machines(43.4.7 in the 802.3ad standard)
++#define AD_PORT_BEGIN           0x1
++#define AD_PORT_LACP_ENABLED    0x2
++#define AD_PORT_ACTOR_CHURN     0x4
++#define AD_PORT_PARTNER_CHURN   0x8
++#define AD_PORT_READY           0x10
++#define AD_PORT_READY_N         0x20
++#define AD_PORT_MATCHED         0x40
++#define AD_PORT_STANDBY         0x80
++#define AD_PORT_SELECTED        0x100
++#define AD_PORT_MOVED           0x200
++
++// Port Key definitions
++// key is determined according to the link speed, duplex and
++// user key(which is yet not supported)
++//              ------------------------------------------------------------
++// Port key :   | User key                       |      Speed       |Duplex|
++//              ------------------------------------------------------------
++//              16                               6               1 0
++#define  AD_DUPLEX_KEY_BITS    0x1
++#define  AD_SPEED_KEY_BITS     0x3E
++#define  AD_USER_KEY_BITS      0xFFC0
++
++
+ typedef struct mac_addr {
+ 	u8 mac_addr_value[ETH_ALEN];
+ } __packed mac_addr_t;
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 88fcb25..2cad514 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -783,8 +783,13 @@ static ssize_t bonding_store_lacp(struct device *d,
+ 				  struct device_attribute *attr,
+ 				  const char *buf, size_t count)
+ {
+-	int new_value, ret = count;
++	int new_value, i, ret = count;
+ 	struct bonding *bond = to_bond(d);
++	struct slave *slave;
++	struct port *port = NULL;
++		
++	if (!rtnl_trylock())
++		return restart_syscall();
+ 
+ 	if (bond->dev->flags & IFF_UP) {
+ 		pr_err("%s: Unable to update LACP rate because interface is up.\n",
+@@ -804,6 +809,13 @@ static ssize_t bonding_store_lacp(struct device *d,
+ 
+ 	if ((new_value == 1) || (new_value == 0)) {
+ 		bond->params.lacp_fast = new_value;
++		bond_for_each_slave(bond, slave, i) {
++			port = &(slave->ad_info.port);
++			if (new_value)
++				port->actor_oper_port_state |= AD_STATE_LACP_TIMEOUT;
++			else
++				port->actor_oper_port_state &= ~AD_STATE_LACP_TIMEOUT;
++		}
+ 		pr_info("%s: Setting LACP rate to %s (%d).\n",
+ 			bond->dev->name, bond_lacp_tbl[new_value].modename,
+ 			new_value);
+@@ -813,6 +825,7 @@ static ssize_t bonding_store_lacp(struct device *d,
+ 		ret = -EINVAL;
+ 	}
+ out:
++	rtnl_unlock();
+ 	return ret;
+ }
+ static DEVICE_ATTR(lacp_rate, S_IRUGO | S_IWUSR,
+-- 
+1.7.4.4
