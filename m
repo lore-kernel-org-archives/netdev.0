@@ -1,54 +1,70 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm: mark ncm devices as "mobile broadband devices" with FLAG_WWAN
-Date: Fri, 03 Jun 2011 14:31:18 +0200
-Message-ID: <87sjrrxfjd.fsf@nemi.mork.no>
-References: <1306922913-17803-1-git-send-email-metze@samba.org>
-	<201106031201.21933.oneukum@suse.de>
-	<2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B620@EXDCVYMBSTM006.EQ1STM.local>
-	<201106031250.28041.oneukum@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey ORISHKO <alexey.orishko@stericsson.com>,
-	"Valdis.Kletnieks\@vt.edu" <Valdis.Kletnieks@vt.edu>,
-	Dan Williams <dcbw@redhat.com>,
-	Stefan Metzmacher <metze@samba.org>,
-	Oliver Neukum <oliver@neukum.name>,
-	"Greg Kroah-Hartman" <gregkh@suse.de>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201106031250.28041.oneukum@suse.de> (Oliver Neukum's message of
-	"Fri, 3 Jun 2011 12:50:27 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] bonding: reset queue mapping prior to transmission to physical device (v2)
+Date: Fri,  3 Jun 2011 09:26:47 -0400
+Message-ID: <1307107607-3015-1-git-send-email-nhorman@tuxdriver.com>
+References: <1307037799-32315-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52947 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127Ab1FCN1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 09:27:35 -0400
+In-Reply-To: <1307037799-32315-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum@suse.de> writes:
+The bonding driver is multiqueue enabled, in which each queue represents a slave
+to enable optional steering of output frames to given slaves against the default
+output policy.  However, it needs to reset the skb->queue_mapping prior to
+queuing to the physical device or the physical slave (if it is multiqueue) could
+wind up transmitting on an unintended tx queue
 
-> Well, but cdc-ether usually means that you can start up dhcp and use =
-the
-> interface as a network card. Can the same be done with cdc-ncm or do =
-you always
-> need to establish a connection through a secondary interface?
+Change Notes:
+v2) Based on first pass review, updated the patch to restore the origional queue
+mapping that was found in bond_select_queue, rather than simply resetting to
+zero.  This preserves the value of queue_mapping when it was set on receive in
+the forwarding case which is desireable.
 
-Is there anything in the class definition that prevents either option,
-for either protocol? No?
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/bonding/bond_main.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-So, could we please kill the device guessing game?  Making decisions
-based on absolute measures like "do we have a global mac address?" do
-make some sense.  But guessing based on USB class does not.  That will
-only tell you the protocol for the USB link. If you want more specific
-device information, then you will have to look at the vid/pid. And I
-assume you don't want to put all of those into the kernel when a class
-driver will do, and whatever additional device specific information jus=
-t
-as well can be added by udev rules. Preferably created by whatever
-application wishing to support the device.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 17b4dd9..8761d86 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -400,6 +400,11 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ {
+ 	skb->dev = slave_dev;
+ 	skb->priority = 1;
++	/*
++	 *restore the origional mapping
++	 */
++	skb_set_queue_mapping(skb, (u16)skb->cb[0]);
++
+ 	if (unlikely(netpoll_tx_running(slave_dev)))
+ 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
+ 	else
+@@ -4216,6 +4221,11 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	 */
+ 	u16 txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
+ 
++	/*
++ 	 * Save the origional txq to restore before passing to the driver
++ 	 */
++	skb->cb[0] = txq;
++
+ 	if (unlikely(txq >= dev->real_num_tx_queues)) {
+ 		do {
+ 			txq -= dev->real_num_tx_queues;
+-- 
+1.7.3.4
 
-But I do also assume you know all this already...
-
-
-
-Bj=C3=B8rn
