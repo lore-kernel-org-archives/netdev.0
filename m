@@ -1,53 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] Use unsigned variables for packet lengths in ip[6]_queue.
-Date: Fri, 03 Jun 2011 12:07:37 +0200
-Message-ID: <4DE8B269.9070505@netfilter.org>
-References: <20110420014221.GC26949@redhat.com> <20110419.204105.68144653.davem@davemloft.net> <20110528003651.GA8380@redhat.com>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: RE: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
+ mark ncm devices as "mobile broadband devices" with FLAG_WWAN
+Date: Fri, 3 Jun 2011 12:23:21 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B620@EXDCVYMBSTM006.EQ1STM.local>
+References: <1306922913-17803-1-git-send-email-metze@samba.org>
+ <5203.1307062683@turing-police.cc.vt.edu>
+ <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
+ <201106031201.21933.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Dave Jones <davej@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110528003651.GA8380@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
+	Dan Williams <dcbw@redhat.com>,
+	Stefan Metzmacher <metze@samba.org>,
+	Oliver Neukum <oliver@neukum.name>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201106031201.21933.oneukum@suse.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 28/05/11 02:36, Dave Jones wrote:
-> On Tue, Apr 19, 2011 at 08:41:05PM -0700, David Miller wrote:
->  > From: Dave Jones <davej@redhat.com>
->  > Date: Tue, 19 Apr 2011 21:42:22 -0400
->  > 
->  > > Not catastrophic, but ipqueue seems to be too trusting of what it gets
->  > > passed from userspace, and passes it on down to the page allocator,
->  > > where it will spew warnings if the page order is too high.
->  > > 
->  > > __ipq_rcv_skb has several checks for lengths too small, but doesn't
->  > > seem to have any for oversized ones.   I'm not sure what the maximum
->  > > we should check for is. I'll code up a diff if anyone has any ideas
->  > > on a sane maximum.
->  > 
->  > Maybe the thing to do is to simply pass __GFP_NOWARN to nlmsg_new()
->  > in netlink_ack()?
->  > 
->  > Anyone else have a better idea?
+> -----Original Message-----
+> From: Oliver Neukum [mailto:oneukum@suse.de]
+> Sent: Friday, June 03, 2011 12:01 PM
 > 
-> So I went back to this today, and found something that doesn't look right.
-> After adding some instrumentation, and re-running my tests, I found that
-> the reason we were blowing up with enormous allocations was that we
-> were passing down a nlmsglen's like -1061109568
-> 
-> Is there any reason for that to be signed ?
-> The nlmsg_len entry of nlmsghdr is a u32, so I'm assuming this is a bug.
-> 
-> With the patch below, I haven't been able to reproduce the problem, but
-> I don't know if I've inadvertantly broken some other behaviour somewhere
-> deeper in netlink where this is valid.
+> This is not ideal. Distributions cannot care about every VIP:PID value.
+> If a device with an NCM interface needs to be treated in a special
+> manner we'd better have a special name for such interfaces.
 
-I have applied this. Thanks.
+There is no difference between cdc_ncm and cdc_ether devices, besides
+the fact cdc_ncm is more efficient in data transfer and cpu load.
+The problem is that you cannot say much about device functionality based
+just on interface name. As example existing devices with cdc_ether 
+interface could be mobile phone which provides connectivity to 3G network,
+or could be a phone in the mode "over PC", where phone applications
+access internet via broadband connection on PC (to save money).
 
-BTW, ip[6]_queue has been marked obsoleted since long time, probably we
-can schedule this for removal anytime soon. The nfnetlink_queue
-successor has been there to provide a replacement for this since long time.
+Network manager cannot simply make decision which devices can be used
+for mobile broadband access based on interface name. It needs an additional
+info, which does not exist in device descriptor. 
+
+So, back to original question, is there any point to rename an interface name,
+if it can't be guaranteed that any device would be wwan device?
+
+/alexey
