@@ -1,72 +1,61 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] bonding: reset queue mapping prior to transmission to physical device (v4)
-Date: Fri,  3 Jun 2011 15:24:33 -0400
-Message-ID: <1307129073-3769-1-git-send-email-nhorman@tuxdriver.com>
-References: <1307123978.2789.53.camel@bwh-desktop>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41600 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755571Ab1FCTZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 15:25:10 -0400
-In-Reply-To: <1307123978.2789.53.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: bridge/netfilter: regression in 2.6.39.1
+Date: Fri, 03 Jun 2011 21:21:06 +0200
+Message-ID: <4DE93422.3070000@ahsoftware.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The bonding driver is multiqueue enabled, in which each queue represents a slave
-to enable optional steering of output frames to given slaves against the default
-output policy.  However, it needs to reset the skb->queue_mapping prior to
-queuing to the physical device or the physical slave (if it is multiqueue) could
-wind up transmitting on an unintended tx queue
+Hello,
 
-Change Notes:
-v2) Based on first pass review, updated the patch to restore the origional queue
-mapping that was found in bond_select_queue, rather than simply resetting to
-zero.  This preserves the value of queue_mapping when it was set on receive in
-the forwarding case which is desireable.
+I'm getting a oops in the bridge code in br_change_mtu() with 2.6.39.1. 
+The patch below seems to fix that.
 
-v3) Fixed spelling an casting error in skb->cb
+I'm not sure about the usage of dst_cow_metrics_generic() in 
+fake_dst_ops, but after having a quick look at it seems to be ok to use 
+that here.
 
-v4) fixed to store raw queue_mapping to avoid double decrement
+Regards,
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: "David S. Miller" <davem@davemloft.net>
+Alexander
+
+-----
+ From 3c1d5951af73389798afeea672ec224e195b8e8d Mon Sep 17 00:00:00 2001
+From: Alexander Holler <holler@ahsoftware.de>
+Date: Fri, 3 Jun 2011 20:43:06 +0200
+Subject: [PATCH] bridge: add dst_cow_metrics_generic to fake_dst_ops
+
+Commit 42923465fb8d025a2b5153f2e7ab1e6e1058bf00 does here what it
+should prevent, it introduces NULL a dereference.
+
+The above commit uses dst_init_metrics() which sets the metrics as
+read only. As result br_change_mtu() dies in dst_metric_set()
+which calls dst_metrics_write_ptr() which calls
+dst->ops->cow_metrics() if the metrics are read only.
 ---
- drivers/net/bonding/bond_main.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+  net/bridge/br_netfilter.c |    1 +
+  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 17b4dd9..76adf27 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -400,6 +400,9 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- {
- 	skb->dev = slave_dev;
- 	skb->priority = 1;
-+
-+	skb->queue_mapping = ((u16 *)skb->cb)[0];
-+
- 	if (unlikely(netpoll_tx_running(slave_dev)))
- 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
- 	else
-@@ -4216,6 +4219,11 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	 */
- 	u16 txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
- 
-+	/*
-+ 	 * Save the original txq to restore before passing to the driver
-+ 	 */
-+	((u16 *)skb->cb)[0] = skb->queue_mapping;
-+
- 	if (unlikely(txq >= dev->real_num_tx_queues)) {
- 		do {
- 			txq -= dev->real_num_tx_queues;
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 5f9c091..de982a1 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -107,6 +107,7 @@ static void fake_update_pmtu(struct dst_entry *dst, 
+u32 mtu)
+  static struct dst_ops fake_dst_ops = {
+         .family =               AF_INET,
+         .protocol =             cpu_to_be16(ETH_P_IP),
++       .cow_metrics =          dst_cow_metrics_generic,
+         .update_pmtu =          fake_update_pmtu,
+  };
+
 -- 
 1.7.3.4
-
