@@ -1,41 +1,46 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
-Date: Fri, 3 Jun 2011 11:59:26 +0800
-Message-ID: <BANLkTikM1TuO_S9LuJv30uV9oGgLjE09Xw@mail.gmail.com>
-References: <m1aaectyed.fsf@fess.ebiederm.org> <20110524.022406.2228892895515155850.davem@davemloft.net>
- <m1oc2spmyt.fsf@fess.ebiederm.org> <20110601.205940.1179055860757569997.davem@davemloft.net>
- <m11uzcidvq.fsf_-_@fess.ebiederm.org> <BANLkTikjdz+LkavRiuqdDNS6+djAer-a0A@mail.gmail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH RFC 3/3] virtio_net: limit xmit polling
+Date: Fri, 3 Jun 2011 09:38:52 +0530
+Message-ID: <OFB84D77BF.B23AE894-ON652578A4.00162627-652578A4.00168499@in.ibm.com>
+References: <cover.1306921434.git.mst@redhat.com> <1ec8eec325839ecf2eac9930a230361e7956047c.1306921434.git.mst@redhat.com> <87pqmwj3am.fsf@rustcorp.com.au> <20110602133425.GJ7141@redhat.com> <OF990F08C5.2ECE35B1-ON652578A3.004DC0FA-652578A3.004E3FE4@in.ibm.com> <20110602144346.GA7995@redhat.com> <OFFF109303.D838CAE2-ON652578A3.0053357D-652578A3.00549366@in.ibm.com> <20110602153423.GA11300@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: padmanabh ratnakar <pratnakarlx@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:54155 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752735Ab1FCD7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Jun 2011 23:59:47 -0400
-Received: by bwz15 with SMTP id 15so1464348bwz.19
-        for <netdev@vger.kernel.org>; Thu, 02 Jun 2011 20:59:46 -0700 (PDT)
-In-Reply-To: <BANLkTikjdz+LkavRiuqdDNS6+djAer-a0A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
+	Carsten Otte <cotte@de.ibm.com>, habanero@linux.vnet.ibm.com,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	kvm@vger.kernel.org, lguest@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, linux-s390@vger.kernel.org,
+	linux390@de.ibm.com, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>, steved@us.ibm.com,
+	Tom Lendacky <tahm@linux.vnet.ibm.com>,
+	virtualization@lists.linux-foundation.org,
+	Shirley Ma <xma@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110602153423.GA11300@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 3, 2011 at 11:34 AM, padmanabh ratnakar
-<pratnakarlx@gmail.com> wrote:
-> Doesnt __vlan_put_tag()/vlan_insert_tag() depend on skb->data pointing
-> to ethernet header.
-> Is'nt the skb->data pointing past ethernet header in netif_receive_skb().
-> Am I missing anything?
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 06/02/2011 09:04:23 PM:
 
-Yes, you are right. skb->data should be adjusted before feeding to
-vlan_insert_tag(), or we make vlan_insert_tag() rely on
-skb->mac_header instead.
+> > > Is this where the bug was?
+> >
+> > Return value in free_old_xmit() was wrong. I will re-do against the
+> > mainline kernel.
+> >
+> > Thanks,
+> >
+> > - KK
+>
+> Just noting that I'm working on that patch as well, it might
+> be more efficient if we don't both of us do this in parallel :)
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+OK, but my intention was to work on a alternate approach, which
+was the reason to base it against your patch.
+
+I will check your latest patch.
+
+thanks,
+
+- KK
