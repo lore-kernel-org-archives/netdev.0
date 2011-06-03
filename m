@@ -1,32 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [TRIVIAL PATCH next 15/15] net: Convert vmalloc/memset to vzalloc
-Date: Fri, 03 Jun 2011 11:39:16 +0200
-Message-ID: <4DE8ABC4.5060404@netfilter.org>
-References: <cover.1306603968.git.joe@perches.com>	<045996b9688bfaa2efbd8999405a67e23cd0a075.1306603968.git.joe@perches.com>	<4DE7A311.5000406@netfilter.org> <20110602.143927.1073346459383432955.davem@davemloft.net>
+From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Subject: RE: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
+ mark ncm devices as "mobile broadband devices" with FLAG_WWAN
+Date: Fri, 3 Jun 2011 11:45:38 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B5F2@EXDCVYMBSTM006.EQ1STM.local>
+References: <1306922913-17803-1-git-send-email-metze@samba.org>
+ <1306922913-17803-2-git-send-email-metze@samba.org>
+ <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E583@EXDCVYMBSTM006.EQ1STM.local>
+ <1307053743.21633.22.camel@dcbw.foobar.com>
+            <1307054132.21633.25.camel@dcbw.foobar.com>
+ <5203.1307062683@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, kaber@trash.net, andy.grover@oracle.com,
-	trivial@kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	rds-devel@oss.oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110602.143927.1073346459383432955.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Stefan Metzmacher <metze-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org" <Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5203.1307062683-+bZmOdGhbsPr6rcHtW+onFJE71vCis6O@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 02/06/11 23:39, David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Thu, 02 Jun 2011 16:49:53 +0200
+> -----Original Message-----
+> From: Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org [mailto:Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org]
+> Sent: Friday, June 03, 2011 2:58 AM
 > 
->> Are you going to take this patch? it includes one chunck which is out of
->> netfilter scope.
+> > A follow-on to this is that if you really care about specific
+> devices,
+> > your application can use udev rules to "tag" specific interfaces
+> based
+> > on USB VID/PID/GUID or other device attributes, and check for those
+> > tags in your program.  Use udev (good) or netlink (good) or
+> > SIOCGIFCONF (bad) to enumerate the various network interfaces on the
+> > system and pick the
 > 
-> I think the trivial folks submit these things via their own tree
-> and are only looking for ACKs from us.
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> I think Alexey's point was that the patch will hose up programs that
+> currently do the netlink or  SIOCGIFCONF thing and look for
+> FLAG_POINTTOPOINT.
 
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Just to clarify, I was objecting to renaming interface name mostly because
+devices which use CDC NCM function might be something different from wwan
+devices. I would prefer to keep a generic name of interface (usbX or ethX).
+
+As an option anyone can use udev rules to set interface name they want 
+for their device based on VID/PID or MAC address or something else.
+I've already provided udev rule example earlier in this thread.
+
+Dan, is it in line with your statement?
+
+/alexey
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
