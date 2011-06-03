@@ -1,72 +1,73 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: [PATCH] TODO FLAG_POINTTOPOINT => FLAG_WWAN? usbnet/cdc_ncm:
- mark ncm devices as "mobile broadband devices" with FLAG_WWAN
-Date: Fri, 3 Jun 2011 13:47:43 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B659@EXDCVYMBSTM006.EQ1STM.local>
-References: <1306922913-17803-1-git-send-email-metze@samba.org>
- <201106031201.21933.oneukum@suse.de>
- <2AC7D4AD8BA1C640B4C60C61C8E520153E3C13B620@EXDCVYMBSTM006.EQ1STM.local>
- <201106031250.28041.oneukum@suse.de>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Skipping past TCP lost packet in userspace
+Date: Fri, 3 Jun 2011 14:51:40 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1106031428280.17529@wel-95.cs.helsinki.fi>
+References: <4DE44218.4070306@krellan.com> <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com> <4DE5F3E3.2080609@krellan.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: MULTIPART/MIXED; boundary="8323329-551681870-1307100584=:17529"
+Cc: netdev <netdev@vger.kernel.org>
+To: Josh Lehan <linux@krellan.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40537 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619Ab1FCLvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 07:51:41 -0400
+In-Reply-To: <4DE5F3E3.2080609@krellan.com>
+Content-ID: <alpine.DEB.2.00.1106031436020.17529@wel-95.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323329-551681870-1307100584=:17529
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-Cc: "Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org" <Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Stefan Metzmacher <metze-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201106031250.28041.oneukum-l3A5Bk7waGM@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-ID: <alpine.DEB.2.00.1106031431291.17529@wel-95.cs.helsinki.fi>
 
-> -----Original Message-----
-> From: Oliver Neukum [mailto:oneukum-l3A5Bk7waGM@public.gmane.org]
-> Sent: Friday, June 03, 2011 12:50 PM
+On Wed, 1 Jun 2011, Josh Lehan wrote:
+
+> On 05/31/2011 10:23 AM, Yuchung Cheng wrote:
+> > This paper may have a solution to your problem
+> > "Minion—an All-Terrain Packet Packhorse to Jump-Start Stalled Internet
+> > Transports"
+> > http://csweb1.fandm.edu/jiyengar/lair/papers/minion-pfldnet2010.pdf
 > 
-> Well, but cdc-ether usually means that you can start up dhcp and use
-> the
-> interface as a network card. Can the same be done with cdc-ncm or do
-> you always
-> need to establish a connection through a secondary interface?
+> Nice, thanks for pointing me to this.  I appreciate the helpful answer,
+> instead of just saying "use UDP" or "use SCTP".  That's not the point.
 > 
+> For better or for worse, TCP is realistically the only viable protocol
+> for streaming to the largest possible audience these days, hence my
+> question about adding this feature to the Linux TCP implementation.
+> 
+> As for the Linux receiver, I was thinking of 2 features:
+> 
+> 1) Assuming the application has already read all data that would be
+> possible without blocking, perform something like an ioctl() to peek at
+> the data, and peek to see if there is any out-of-order data behind a gap.
+> 
+> 2) If the out-of-order data is enough to be useful to the application,
+> another ioctl() could be done, to ask the kernel to jump over the gap
+> and deliver the data to the application.  At this point the missing data
+> would be considered lost.  The data behind the gap would then be
+> delivered to the application as part of its normal reading stream.  The
+> TCP sequence numbers would advance, as usual, just as if the missing
+> data had been there all along.
 
-Some solutions (also based on cdc_ether driver) present IP address assigned
-by 3G network. Initially device carrier is OFF. As soon as 3G network PDP
-context is established, device send notification 
-USB_CDC_NOTIFY_NETWORK_CONNECTION and host driver set carrier ON.
+And you'd send a cumulative ACK without the actual data segment...? 
+...That's gonna break many middleboxes which would want to see that 
+data segment too ...And there goes your "viability" (though with luck it 
+will _sometimes_ work as rexmit of the data segment is already in flight). 
 
-In such a case the problem is the lack of control channel definition in both
-CDC ECM and CDC NCM. In order for mobile device to setup 3G connection
-some application from PC must setup PDP context. The usual way to do it via
-modem by using AT commands. So, it might be CDC ACM or some proprietary
-solution. 
-As a result you have to have vendor specific solution to find "real" control
-channel (/dev/ttyACMx or other) and setup connection.
-The need to know interface name is needed if you want to set default
-route to that interface. Do you want to do it while you have pc broadband 
-connection at hand? Probably not. 
-I've tried to run 3g modem with cdc_ncm on Ubuntu 8 and later without any
-need to specify interface names, same for Fedora.
+...The fact is that such change into TCP wire behavior is no longer TCP 
+enough to work reliably.
 
-So connection manager has to know: control interface, vendor- 
-specific (or ever product specific) AT command sequence and optionally 
-network interface name.
-To sort this out, someone need either to track VID/PID or get
-information by other means, for example via AT channel by guessing the
-right tty device name.
+In addition, such a non-legimite cumulative ACK probably violates number 
+of TCP RFCs or at least assumptions made in them... e.g., for starters, 
+please explain which timestamp you would be putting there into that 
+particular cumulative ACK?
 
-Anyway, all this discussion is user space application problems.
-Solution would be different from vendor to vendor.
 
-/alexey
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+ i.
+--8323329-551681870-1307100584=:17529--
