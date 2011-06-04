@@ -1,72 +1,167 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2/2] bonding: restore NETIF_F_VLAN_CHALLENGED properly in bond_del_vlan()
-Date: Fri, 03 Jun 2011 17:26:51 -0700
-Message-ID: <28701.1307147211@death>
-References: <20110603201424.GB24804@midget.suse.cz>
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pedro Garcia <pedro.netdev@dondevamos.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Jiri Bohac <jbohac@suse.cz>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Add support for MTU change via port
+	profile on a dynamic vnic
+Date: Fri, 03 Jun 2011 17:35:17 -0700
+Message-ID: <20110604003517.21165.45654.stgit@savbu-pc100.cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:52146 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756660Ab1FDA07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 20:26:59 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e38.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p540IiiT008392
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2011 18:18:44 -0600
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p540QuFK166024
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2011 18:26:56 -0600
-Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p540Qssb007482
-	for <netdev@vger.kernel.org>; Fri, 3 Jun 2011 18:26:55 -0600
-In-reply-to: <20110603201424.GB24804@midget.suse.cz>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:7240 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110Ab1FDAfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2011 20:35:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Bohac <jbohac@suse.cz> wrote:
+From: Roopa Prabhu <roprabhu@cisco.com>
 
->Since commit ad1afb00, bond_del_vlan() never restores
->NETIF_F_VLAN_CHALLENGED as intended.  bond->vlan_list is never
->empty once the 8021q module is loaded, because the special VLAN 0
->is always kept registered on the bond interface. Change the
->condition to check if bond->vlan_list contains exactly one item
->instead of checking for an empty list.
->
->Signed-off-by: Jiri Bohac <jbohac@suse.cz>
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 17b4dd9..4d317cd 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -329,9 +329,10 @@ static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
->
-> 			kfree(vlan);
->
->-			if (list_empty(&bond->vlan_list) &&
->+			if (bond->vlan_list.next->next == &bond->vlan_list &&
-> 			    (bond->slave_cnt == 0)) {
->-				/* Last VLAN removed and no slaves, so
->+				/* Last VLAN removed (the only member of vlan_list
->+				 * is the special vid == 0 vlan) and no slaves, so
-> 				 * restore block on adding VLANs. This will
-> 				 * be removed once new slaves that are not
-> 				 * VLAN challenged will be added.
+enic driver gets MTU change notifications for MTU changes in the
+port profile associated to a dynamic vnic. This patch adds support
+in enic driver to set new MTU on the dynamic vnic and dynamically
+adjust its buffers with new MTU size in response to such notifications.
 
-	Could we do this instead in bond_release, when the last slave is
-removed?  The CHALLENGED flag just prevents adding new VLANs; existing
-ones would persist until a new slave was added.
-
-	Since CHALLENGED slaves are in the minority these days (looks
-like just IPoIB, one wimax and one obscure ethernet chipset) we could
-even invert the logic: only assert CHALLENGED for the master when such a
-slave is added.  We'd have to issue a NETDEV_CHANGEADDR when the master
-picks up or releases its MAC address so the VLANs would pick it up, but
-that's not a really big deal, and we probably ought to do that anyway.
-
-	-J
-
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/enic/enic.h      |    3 +-
+ drivers/net/enic/enic_main.c |   71 +++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 68 insertions(+), 6 deletions(-)
+
+
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index 38b351c..e0d2ad1 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.13"
++#define DRV_VERSION		"2.1.1.16"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+@@ -74,6 +74,7 @@ struct enic {
+ 	struct vnic_dev *vdev;
+ 	struct timer_list notify_timer;
+ 	struct work_struct reset;
++	struct work_struct change_mtu_work;
+ 	struct msix_entry msix_entry[ENIC_INTR_MAX];
+ 	struct enic_msix_entry msix[ENIC_INTR_MAX];
+ 	u32 msg_enable;
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 2f433fb..449e3fa 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -423,11 +423,18 @@ static void enic_mtu_check(struct enic *enic)
+ 
+ 	if (mtu && mtu != enic->port_mtu) {
+ 		enic->port_mtu = mtu;
+-		if (mtu < netdev->mtu)
+-			netdev_warn(netdev,
+-				"interface MTU (%d) set higher "
+-				"than switch port MTU (%d)\n",
+-				netdev->mtu, mtu);
++		if (enic_is_dynamic(enic)) {
++			mtu = max_t(int, ENIC_MIN_MTU,
++				min_t(int, ENIC_MAX_MTU, mtu));
++			if (mtu != netdev->mtu)
++				schedule_work(&enic->change_mtu_work);
++		} else {
++			if (mtu < netdev->mtu)
++				netdev_warn(netdev,
++					"interface MTU (%d) set higher "
++					"than switch port MTU (%d)\n",
++					netdev->mtu, mtu);
++		}
+ 	}
+ }
+ 
+@@ -1688,6 +1695,9 @@ static int enic_change_mtu(struct net_device *netdev, int new_mtu)
+ 	if (new_mtu < ENIC_MIN_MTU || new_mtu > ENIC_MAX_MTU)
+ 		return -EINVAL;
+ 
++	if (enic_is_dynamic(enic))
++		return -EOPNOTSUPP;
++
+ 	if (running)
+ 		enic_stop(netdev);
+ 
+@@ -1704,6 +1714,55 @@ static int enic_change_mtu(struct net_device *netdev, int new_mtu)
+ 	return 0;
+ }
+ 
++static void enic_change_mtu_work(struct work_struct *work)
++{
++	struct enic *enic = container_of(work, struct enic, change_mtu_work);
++	struct net_device *netdev = enic->netdev;
++	int new_mtu = vnic_dev_mtu(enic->vdev);
++	int err;
++	unsigned int i;
++
++	new_mtu = max_t(int, ENIC_MIN_MTU, min_t(int, ENIC_MAX_MTU, new_mtu));
++
++	rtnl_lock();
++
++	/* Stop RQ */
++	del_timer_sync(&enic->notify_timer);
++
++	for (i = 0; i < enic->rq_count; i++)
++		napi_disable(&enic->napi[i]);
++
++	vnic_intr_mask(&enic->intr[0]);
++	enic_synchronize_irqs(enic);
++	err = vnic_rq_disable(&enic->rq[0]);
++	if (err) {
++		netdev_err(netdev, "Unable to disable RQ.\n");
++		return;
++	}
++	vnic_rq_clean(&enic->rq[0], enic_free_rq_buf);
++	vnic_cq_clean(&enic->cq[0]);
++	vnic_intr_clean(&enic->intr[0]);
++
++	/* Fill RQ with new_mtu-sized buffers */
++	netdev->mtu = new_mtu;
++	vnic_rq_fill(&enic->rq[0], enic_rq_alloc_buf);
++	/* Need at least one buffer on ring to get going */
++	if (vnic_rq_desc_used(&enic->rq[0]) == 0) {
++		netdev_err(netdev, "Unable to alloc receive buffers.\n");
++		return;
++	}
++
++	/* Start RQ */
++	vnic_rq_enable(&enic->rq[0]);
++	napi_enable(&enic->napi[0]);
++	vnic_intr_unmask(&enic->intr[0]);
++	enic_notify_timer_start(enic);
++
++	rtnl_unlock();
++
++	netdev_info(netdev, "interface MTU set as %d\n", netdev->mtu);
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void enic_poll_controller(struct net_device *netdev)
+ {
+@@ -2345,6 +2404,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 	enic->notify_timer.data = (unsigned long)enic;
+ 
+ 	INIT_WORK(&enic->reset, enic_reset);
++	INIT_WORK(&enic->change_mtu_work, enic_change_mtu_work);
+ 
+ 	for (i = 0; i < enic->wq_count; i++)
+ 		spin_lock_init(&enic->wq_lock[i]);
+@@ -2427,6 +2487,7 @@ static void __devexit enic_remove(struct pci_dev *pdev)
+ 		struct enic *enic = netdev_priv(netdev);
+ 
+ 		cancel_work_sync(&enic->reset);
++		cancel_work_sync(&enic->change_mtu_work);
+ 		unregister_netdev(netdev);
+ 		enic_dev_deinit(enic);
+ 		vnic_dev_close(enic->vdev);
+
