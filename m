@@ -1,69 +1,55 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: bridge/netfilter: regression in 2.6.39.1
-Date: Sat, 04 Jun 2011 14:04:47 +0200
-Message-ID: <4DEA1F5F.4070707@ahsoftware.de>
-References: <4DE93422.3070000@ahsoftware.de>	 <1307129642.2600.2.camel@edumazet-laptop>  <4DE93B31.8040700@ahsoftware.de> <1307130914.2600.12.camel@edumazet-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-2.6 2011-06-03
+Date: Sat, 4 Jun 2011 09:04:14 -0400
+Message-ID: <20110604130413.GA3929@tuxdriver.com>
+References: <20110603195254.GF2509@tuxdriver.com>
+ <BANLkTimoeVDQK+zu=U+nSM_kj0a3-hh_Jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1307130914.2600.12.camel@edumazet-laptop>
+Content-Disposition: inline
+In-Reply-To: <BANLkTimoeVDQK+zu=U+nSM_kj0a3-hh_Jg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 03.06.2011 21:55, schrieb Eric Dumazet:
-> Le vendredi 03 juin 2011 =C3=A0 21:51 +0200, Alexander Holler a =C3=A9=
-crit :
->> Hello,
->>
->> Am 03.06.2011 21:34, schrieb Eric Dumazet:
->>>>
->>>> Commit 42923465fb8d025a2b5153f2e7ab1e6e1058bf00 does here what it
->>>> should prevent, it introduces NULL a dereference.
->>>>
->>>
->>> I cant find this commit in known trees. Could you give the real com=
-mit
->>> id and its title ?
->>
->> Sorry, I haven't seen that question at first. This is the real commi=
-t id
->> as found in the stable tree for 2.6.39. The title of that commit is
->> "bridge: initialize fake_rtable metrics"
->
-> OK, its commit id is 33eb9873a283a2076f2b5628813d5365ca420ea9
->
-> Please always use linux-2.6 tree commits, this saves a lot of time.
+On Fri, Jun 03, 2011 at 11:24:49PM +0200, Rafa=C5=82 Mi=C5=82ecki wrote=
+:
+> On Jun 3, 2011 10:03 PM, "John W. Linville" <linville@tuxdriver.com> =
+wrote:
+> >
+> > Dave,
+> >
+> > Here is a batch of fixes intended for 3.0 -- I guess I'll need to
+> > rename my tree eventually... :-)
+> >
+> > Included are a libertas fix to ensure proper sequence number assign=
+ment
+> > on transmitted frames, an ath9k fix that propogates an earlier fix =
+to a
+> > few more places,  a fix for a cfg80211 regression caused by some me=
+sh
+> > code changes, a locking fix for the bluetooth l2cap code, a zd1211r=
+w
+> > regression fix, a collection of small fixes for wl12xx, an iwl4965
+> > fix for a bad temperature check, an a device ID-related fix for iwl=
+agn.
+> >
+> > Please let me know if there are problems!
+>=20
+> John, you didn't.take my fix for regression in ssb. I really want thi=
+s for
+> 3.0.quickly, as few ppl already had problems with machine locking on =
+boot.
 
-Sorry to have wasted your time with posting a full breakdown of the bug=
-=20
-and a possible solution. I didn't know that stable trees are unknown to=
-=20
-kernel developers and I did'nt know that the "upstream commit id" in=20
-comments of commits in the stable tree are referencing to commit ids in=
-=20
-Linus tree.
+Yours isn't the only fix, and I had quite a few queued already.  Patien=
+ce.
 
-Anyway, I've used the broken way of not using git send-email because I'=
-m=20
-unsure if the solution I've offered is the best one. I'm lacking the=20
-knowledge about what cow_metrics() does, what it is used for, and what,=
-=20
-if any, pre- or post-requisites are needed to use dst_cow_metrics_gener=
-ic().
-
-I can only say that my solution seems to work here, the machine comes u=
-p=20
-without an oops and I didn't have seen any other problems while using=20
-the bridge (which surely doesn't say anything, e.g. I'm not sure if my=20
-use of dst_cow_metrics_generic() may introduce a mem leak or similiar,=20
-it doesn't look so, but who knows).
-
-Regards,
-
-Alexander
+--=20
+John W. Linville =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+Someday the world will need a hero, and you
+linville@tuxdriver.com =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0might be all we have. =C2=A0Be ready.
