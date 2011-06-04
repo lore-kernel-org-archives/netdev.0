@@ -1,48 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: small RPS cache for fragments?
-Date: Sat, 04 Jun 2011 13:29:40 -0700 (PDT)
-Message-ID: <20110604.132940.2214949964968775365.davem@davemloft.net>
-References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	<20110524.160123.2051949867829317339.davem@davemloft.net>
-	<1306273128.8149.1444.camel@tardy>
+Subject: Re: [PATCHv3] net: Define enum for the bits used in features.
+Date: Sat, 04 Jun 2011 13:34:38 -0700 (PDT)
+Message-ID: <20110604.133438.1450652272927306428.davem@davemloft.net>
+References: <1306288567-1773-1-git-send-email-maheshb@google.com>
+	<1306363336-13614-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Cc: netdev@vger.kernel.org, therbert@google.com, mirqus@gmail.com,
+	shemminger@vyatta.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34208 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40366 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753201Ab1FDU3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2011 16:29:46 -0400
-In-Reply-To: <1306273128.8149.1444.camel@tardy>
+	with ESMTP id S1752863Ab1FDUeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2011 16:34:44 -0400
+In-Reply-To: <1306363336-13614-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 24 May 2011 14:38:48 -0700
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Wed, 25 May 2011 15:42:16 -0700
 
-> Isn't there still an issue (perhaps small) of traffic being sent through
-> a mode-rr bond, either at the origin or somewhere along the way?  At the
-> origin point will depend on the presence of UFO and whether it is
-> propagated up through the bond interface, but as a quick test, I
-> disabled TSO, GSO and UFO on four e1000e driven interfaces, bonded them
-> mode-rr and ran a netperf UDP_RR test with a 1473 byte request size and
-> this is what they looked like at my un-bonded reciever at the other end:
+> Little bit cleanup by defining enum for all bits used. Also use those enum
+> values to redefine flags.
 > 
-> 14:31:01.011370 IP (tos 0x0, ttl 64, id 24960, offset 1480, flags
-> [none], proto UDP (17), length 21)
->     tardy.local > raj-8510w.local: udp
-> 14:31:01.011420 IP (tos 0x0, ttl 64, id 24960, offset 0, flags [+],
-> proto UDP (17), length 1500)
->     tardy.local.36073 > raj-8510w.local.59951: UDP, length 1473
-> 14:31:01.011514 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto
-> UDP (17), length 29)
->     raj-8510w.local.59951 > tardy.local.36073: UDP, length 1
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> Changes since v2:
+>  (1) Removed the include which was part of the other patch (split mishap).
+>  (2) Changed the enums to add NETIF_F_ prefix.
 
-That's not good behavior, and it's of course going to cause sub-optimal
-performance if we do the RPS fragment cache.
+I hate to be a pain after you've put so much work into these patches,
+but I simply don't like this approach.
 
-RR bond mode could do something similar, to alleviate this.
+I think the abstracted interfaces should come first.  You don't need to
+change any of the NETIF_F_* defines in order to do that.  You should only
+need to add the netdev_{set,clear,test}_*() macros.
 
-I assume it doesn't do this kind of reordering for TCP.
+If you want you can make the "bit" argument be the flag name after the
+NETIF_F_ prefix, so "netdev_test_active_feature(dev, SG)"
+
+Then you convert every single access.
+
+Then you make the flags type opaque, which should at that point be a
+6 line change at best.
+
+And then you can implement the flags however you want.
