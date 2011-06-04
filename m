@@ -1,38 +1,48 @@
-From: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Subject: Re: software iwarp stack update
-Date: Sat, 4 Jun 2011 20:01:45 +0200
-Message-ID: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w@mail.gmail.com>
-References: <OF64770AFC.B48EBEF2-ONC12577A6.002CC793-C12577A6.002DC569@ch.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: small RPS cache for fragments?
+Date: Sat, 04 Jun 2011 13:29:40 -0700 (PDT)
+Message-ID: <20110604.132940.2214949964968775365.davem@davemloft.net>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	<20110524.160123.2051949867829317339.davem@davemloft.net>
+	<1306273128.8149.1444.camel@tardy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <OF64770AFC.B48EBEF2-ONC12577A6.002CC793-C12577A6.002DC569-Xeyd2O9EBijQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: rick.jones2@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34208 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753201Ab1FDU3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2011 16:29:46 -0400
+In-Reply-To: <1306273128.8149.1444.camel@tardy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 22, 2010 at 10:19 AM, Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org> wrote:
-> Earlier this year, we announced the availability of an open source,
-> full software implementation of the iWARP RDMA protocol stack - see
-> my email "software iwarp stack" from March 14th at the linux-rdma list
-> (http://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg02940.html)
-> While since then working on performance and stability, we provided
-> some source code updates. Current user and kernel code is available at
-> gitorious.org/softiwarp. Please see the CHANGES file in the
-> kernel/ directory for a summary of the most recent changes.
+From: Rick Jones <rick.jones2@hp.com>
+Date: Tue, 24 May 2011 14:38:48 -0700
 
-(replying to an e-mail of about nine months ago)
+> Isn't there still an issue (perhaps small) of traffic being sent through
+> a mode-rr bond, either at the origin or somewhere along the way?  At the
+> origin point will depend on the presence of UFO and whether it is
+> propagated up through the bond interface, but as a quick test, I
+> disabled TSO, GSO and UFO on four e1000e driven interfaces, bonded them
+> mode-rr and ran a netperf UDP_RR test with a 1473 byte request size and
+> this is what they looked like at my un-bonded reciever at the other end:
+> 
+> 14:31:01.011370 IP (tos 0x0, ttl 64, id 24960, offset 1480, flags
+> [none], proto UDP (17), length 21)
+>     tardy.local > raj-8510w.local: udp
+> 14:31:01.011420 IP (tos 0x0, ttl 64, id 24960, offset 0, flags [+],
+> proto UDP (17), length 1500)
+>     tardy.local.36073 > raj-8510w.local.59951: UDP, length 1473
+> 14:31:01.011514 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto
+> UDP (17), length 29)
+>     raj-8510w.local.59951 > tardy.local.36073: UDP, length 1
 
-Hello Bernard,
+That's not good behavior, and it's of course going to cause sub-optimal
+performance if we do the RPS fragment cache.
 
-It has been pretty quiet recently around the "siw" driver. Have you
-had the chance to make any progress recently on this driver ?
+RR bond mode could do something similar, to alleviate this.
 
-Thanks,
-
-Bart.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I assume it doesn't do this kind of reordering for TCP.
