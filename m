@@ -1,49 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] net: Define enum for the bits used in features.
-Date: Sat, 04 Jun 2011 13:34:38 -0700 (PDT)
-Message-ID: <20110604.133438.1450652272927306428.davem@davemloft.net>
-References: <1306288567-1773-1-git-send-email-maheshb@google.com>
-	<1306363336-13614-1-git-send-email-maheshb@google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] breakage in sysfs_readdir() and s_instances abuse in sysfs
+Date: Sat, 4 Jun 2011 23:23:45 +0100
+Message-ID: <20110604222345.GZ11521@ZenIV.linux.org.uk>
+References: <20110604001518.GT11521@ZenIV.linux.org.uk>
+ <20110604212259.GY11521@ZenIV.linux.org.uk>
+ <BANLkTikChZuG4pOZ_ipDYaEv8VQ8omh-YQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, mirqus@gmail.com,
-	shemminger@vyatta.com
-To: maheshb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40366 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863Ab1FDUeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2011 16:34:44 -0400
-In-Reply-To: <1306363336-13614-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTikChZuG4pOZ_ipDYaEv8VQ8omh-YQ@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <maheshb@google.com>
-Date: Wed, 25 May 2011 15:42:16 -0700
-
-> Little bit cleanup by defining enum for all bits used. Also use those enum
-> values to redefine flags.
+On Sun, Jun 05, 2011 at 06:55:12AM +0900, Linus Torvalds wrote:
+> On Sun, Jun 5, 2011 at 6:22 AM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> >
+> > Are you OK with the sketch above? ?I can probably cook a patch along those
+> > lines by tomorrow...
 > 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-> Changes since v2:
->  (1) Removed the include which was part of the other patch (split mishap).
->  (2) Changed the enums to add NETIF_F_ prefix.
+> I'm ok with the sketch, but might think otherwise when actually seeing
+> the patch. And I wish some namespace person would look at this issue.
+> And the networking people would seem to need to be aware of it too,
+> but you've only cc'd fsdevel, so they are entirely unaware of the
+> whole thread..
 
-I hate to be a pain after you've put so much work into these patches,
-but I simply don't like this approach.
+Eh...  The question had been to Eric, unless that pile is actually yours...
+netdev Cc'd, and I'll forward the previous posting there in a few.
 
-I think the abstracted interfaces should come first.  You don't need to
-change any of the NETIF_F_* defines in order to do that.  You should only
-need to add the netdev_{set,clear,test}_*() macros.
+FWIW, reproducing that is trivial: on a box with netns enabled:
 
-If you want you can make the "bit" argument be the flag name after the
-NETIF_F_ prefix, so "netdev_test_active_feature(dev, SG)"
+dizzy:~# unshare -n -- sh -c "mount -t sysfs none /mnt; ls -l /mnt/class/net; ls
+ -l /mnt/class/net/eth0"                                                        
+[ 1301.429755] IPv4 FIB: Using LC-trie version 0.409                            
+total 0                                                                         
+lrwxrwxrwx 1 root root 0 Jun  4 18:16 lo -> ../../devices/virtual/net/lo        
+lrwxrwxrwx 1 root root 0 Jun  4 18:16 sit0 -> ../../devices/virtual/net/sit0    
+ls: cannot access /mnt/class/net/eth0: No such file or directory                
+dizzy:~# ls -l /mnt/class/net/; ls -l /mnt/class/net/eth0                       
+total 0                                                                         
+lrwxrwxrwx 1 root root 0 Jun  4 18:17 /mnt/class/net/eth0 -> ../../devices/pci00
+00:00/0000:00:09.0/net/eth0                                                     
 
-Then you convert every single access.
+IOW, while netns is alive we get sane behaviour - lookup for class/net/eth0
+fails, since there's no such object in that netns.  Once it's gone, we get
+class/net in that sysfs instance empty on readdir *and* lookup for
+class/net/eth0 succeeds giving us an object from another netns.
 
-Then you make the flags type opaque, which should at that point be a
-6 line change at best.
-
-And then you can implement the flags however you want.
+Apologies for not adding netdev - it started as sysfs-internal race, so the
+beginning of that thread went to fsdevel...
