@@ -1,89 +1,95 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 3.0-rc1] smc91c92_cs: set smc->base to NULL before
- iounmap
-Date: Sun, 5 Jun 2011 08:20:16 +0900
-Message-ID: <20110605082016.5a26f61a.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
-	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
-	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
-	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
-	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
-	<20100612191728.2d272cc1.ken_kawasaki@spring.nifty.jp>
-	<20100620102427.77d2c7d3.ken_kawasaki@spring.nifty.jp>
-	<20100706202243.95319ab4.ken_kawasaki@spring.nifty.jp>
-	<20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
-	<20100829074501.946ebcb8.ken_kawasaki@spring.nifty.jp>
-	<20101030071751.63611ede.ken_kawasaki@spring.nifty.jp>
-	<20110111205558.98fcab01.ken_kawasaki@spring.nifty.jp>
-	<20110131061616.05b2fa6f.ken_kawasaki@spring.nifty.jp>
-	<20110221000720.e93225c1.ken_kawasaki@spring.nifty.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from defg500.nifty.com ([202.248.238.127]:32692 "EHLO
-	defg500.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754307Ab1FDX2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2011 19:28:53 -0400
-Received: from userg507.nifty.com (userg507p.nifty.com [172.22.128.87])by defg500.nifty.com with ESMTP id p54NMJJN002666
-	for <netdev@vger.kernel.org>; Sun, 5 Jun 2011 08:22:19 +0900
-Received: from localhost.localdomain (eaoska102210.adsl.ppp.infoweb.ne.jp [218.226.17.210])by userg507.nifty.com with SMTP id p54NLriB024230
-	for <netdev@vger.kernel.org>; Sun, 5 Jun 2011 08:21:53 +0900
-In-Reply-To: <20110221000720.e93225c1.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net-next] bonding: make 802.3ad use update lacp_rate (v2)
+Date: Sun,  5 Jun 2011 11:16:33 +0800
+Message-ID: <1307243793-31007-1-git-send-email-panweiping3@gmail.com>
+References: <19046.1307130148@death>
+Cc: Weiping Pan <panweiping3@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com> (supporter:BONDING DRIVER),
+	Andy Gospodarek <andy@greyhouse.net> (supporter:BONDING DRIVER),
+	netdev@vger.kernel.org (open list:BONDING DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <19046.1307130148@death>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+There is a bug that when you modify lacp_rate via sysfs,
+802.3ad won't use the new value of lacp_rate to transmit packets.
+That is because port->actor_oper_port_state isn't changed.
 
-smc91c92_cs:
-    set smc->base to NULL before iounmap
-    to avoid writing to smc->base in smc_interrupt.
+Change Notes:
+v2)
+1 Hold read_lock(&bond->lock) when iterate slaves, suggested by Jiri Pirko.
+2 Modify actor_oper_port_state via a helper function in bond_3ad.c,
+suggested by Jay Vosburgh.
+3 Hold slave->state_machine_lock,
+so we can modify port->actor_oper_port_state, no matter bond is up or down.
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
 ---
+ drivers/net/bonding/bond_3ad.c   |   27 +++++++++++++++++++++++++++
+ drivers/net/bonding/bond_3ad.h   |    1 +
+ drivers/net/bonding/bond_sysfs.c |    1 +
+ 3 files changed, 29 insertions(+), 0 deletions(-)
 
---- linux-3.0-rc1/drivers/net/pcmcia/smc91c92_cs.c.orig	2011-06-04 19:38:07.000000000 +0900
-+++ linux-3.0-rc1/drivers/net/pcmcia/smc91c92_cs.c	2011-06-05 07:59:51.000000000 +0900
-@@ -315,6 +315,7 @@ static int smc91c92_probe(struct pcmcia_
-     smc = netdev_priv(dev);
-     smc->p_dev = link;
-     link->priv = dev;
-+    smc->base = NULL;
- 
-     spin_lock_init(&smc->lock);
- 
-@@ -954,11 +955,17 @@ config_failed:
- 
- static void smc91c92_release(struct pcmcia_device *link)
- {
-+	struct net_device *dev = link->priv;
-+	struct smc_private *smc = netdev_priv(dev);
-+
- 	dev_dbg(&link->dev, "smc91c92_release\n");
--	if (link->resource[2]->end) {
--		struct net_device *dev = link->priv;
--		struct smc_private *smc = netdev_priv(dev);
--		iounmap(smc->base);
-+
-+	if (smc->base != NULL) {
-+ 		u_char __iomem *tmp;
-+
-+		tmp = smc->base;
-+		smc->base = NULL;    /* set NULL before iounmap */
-+		iounmap(tmp);
- 	}
- 	pcmcia_disable_device(link);
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index c7537abc..5111e0d 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2473,3 +2473,30 @@ void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+ 	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
+ 	read_unlock(&bond->lock);
  }
-@@ -1444,7 +1451,7 @@ irq_done:
- 	mask_bits(0x00ff, ioaddr-0x10+OSITECH_RESET_ISR);
- 	set_bits(0x0300, ioaddr-0x10+OSITECH_RESET_ISR);
-     }
--    if (smc->manfid == MANFID_MOTOROLA) {
-+    if ((smc->base != NULL) && (smc->manfid == MANFID_MOTOROLA)) {
- 	u_char cor;
- 	cor = readb(smc->base + MOT_UART + CISREG_COR);
- 	writeb(cor & ~COR_IREQ_ENA, smc->base + MOT_UART + CISREG_COR);
++
++/*
++ * When modify lacp_rate parameter via sysfs,
++ * update actor_oper_port_state of each port.
++ *
++ * Hold slave->state_machine_lock,
++ * so we can modify port->actor_oper_port_state,
++ * no matter bond is up or down.
++ */
++void bond_3ad_update_lacp_rate(struct bonding *bond)
++{
++	int i;
++	struct slave *slave;
++	struct port *port = NULL;
++
++	read_lock(&bond->lock);
++	bond_for_each_slave(bond, slave, i) {
++		port = &(slave->ad_info.port);
++		__get_state_machine_lock(port);
++		if (bond->params.lacp_fast)
++			port->actor_oper_port_state |= AD_STATE_LACP_TIMEOUT;
++		else
++			port->actor_oper_port_state &= ~AD_STATE_LACP_TIMEOUT;
++		__release_state_machine_lock(port);
++	}
++	read_unlock(&bond->lock);
++}
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 0ee3f16..e466faf 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -282,5 +282,6 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+ void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+ 			  struct slave *slave);
+ int bond_3ad_set_carrier(struct bonding *bond);
++void bond_3ad_update_lacp_rate(struct bonding *bond);
+ #endif //__BOND_3AD_H__
+ 
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 88fcb25..03d1196 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -804,6 +804,7 @@ static ssize_t bonding_store_lacp(struct device *d,
+ 
+ 	if ((new_value == 1) || (new_value == 0)) {
+ 		bond->params.lacp_fast = new_value;
++		bond_3ad_update_lacp_rate(bond);
+ 		pr_info("%s: Setting LACP rate to %s (%d).\n",
+ 			bond->dev->name, bond_lacp_tbl[new_value].modename,
+ 			new_value);
+-- 
+1.7.4
