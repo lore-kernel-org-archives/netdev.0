@@ -1,39 +1,49 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Sun, 05 Jun 2011 11:14:28 +0300
-Message-ID: <4DEB3AE4.8040700@redhat.com>
-References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com>
+From: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>
+Subject: Re: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
+Date: Sun, 5 Jun 2011 10:34:45 +0200
+Message-ID: <20110605083445.GT16318@ibawizard.net>
+References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+Reply-To: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: CaT <cat@zip.com.au>, Hugh Dickins <hughd@google.com>,
-        Andrea Arcangeli <aarcange@redhat.com>, Borislav Petkov <bp@alien8.de>,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-        linux-mm <linux-mm@kvack.org>, netdev <netdev@vger.kernel.org>
-To: Brad Campbell <lists2009@fnarfbargle.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4DE8E3ED.7080004@fnarfbargle.com>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, ryan@bluewatersys.com, kernel@wantstofly.org,
+	linux-arm-kernel@lists.infradead.org, hsweeten@visionengravers.com
+To: Mika Westerberg <mika.westerberg@iki.fi>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 06/03/2011 04:38 PM, Brad Campbell wrote:
->
-> Is there anyone who can point me at the appropriate cage to rattle? I 
-> know it appears to be a netfilter issue, but I don't seem to be able 
-> to get a message to the list (and I am subscribed to it and have been 
-> getting mail for months) and I'm not sure who to pester. The other 
-> alternative is I just stop doing "that" and wait for it to bite 
-> someone else.
+Mika Westerberg <mika.westerberg@iki.fi> [2011-06-02 21:59:34]:
 
-The mailing list might be set not to send your own mails back to you.  
-Check the list archive.
+> As the driver is now passing platform device to the DMA mapping functions,
+> we should give it valid DMA masks.
 
--- 
-error compiling committee.c: too many arguments to function
+Hi Mika,
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+do you have the series available somewhere for pull? I would like to test the
+changes for you on my ts7250/ts7300, but I'm quite lazy and would like to just
+cherry-pick the changes if possible :-)
+
+I also wonder, why this patch[1] from Herbert Valerio Riedel has never made it
+upstream, this email[2] is the last trace of the patch I could find. Looks
+like Herbert did few fixes to the driver and thanks to Matthieu, I'm using
+this forward ported patch[3] since today, without any problems.
+
+Do you personaly use the ethernet on the ep93xx/ts72xx heavily?
+
+1. http://ynezz.ibawizard.net/ts72xx/linux-kernel/2.6.24.y/ep93xx-eth-phylib-framework.patch
+2. http://www.mail-archive.com/netdev@vger.kernel.org/msg62550.html
+3. https://github.com/ynezz/linux-2.6/commit/1dcf7aeb7ca4d7e441be2467926b606b46060a44
+
+-- ynezz
