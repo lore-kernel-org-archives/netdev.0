@@ -1,49 +1,52 @@
-From: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>
+From: Mika Westerberg <mika.westerberg@iki.fi>
 Subject: Re: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
-Date: Sun, 5 Jun 2011 10:34:45 +0200
-Message-ID: <20110605083445.GT16318@ibawizard.net>
+Date: Sun, 5 Jun 2011 11:59:48 +0300
+Message-ID: <20110605085948.GB16018@acer>
 References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
-Reply-To: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>
+ <20110605083445.GT16318@ibawizard.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ryan@bluewatersys.com, kernel@wantstofly.org,
-	linux-arm-kernel@lists.infradead.org, hsweeten@visionengravers.com
-To: Mika Westerberg <mika.westerberg@iki.fi>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hsweeten@visionengravers.com,
+	ryan@bluewatersys.com, kernel@wantstofly.org,
+	linux-arm-kernel@lists.infradead.org, davem@davemloft.net
+To: Petr =?utf-8?Q?=C5=A0tetiar?= <ynezz@true.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:64955 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753853Ab1FEJCD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2011 05:02:03 -0400
+Received: by ewy4 with SMTP id 4so1067573ewy.19
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2011 02:02:01 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110605083445.GT16318@ibawizard.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mika Westerberg <mika.westerberg@iki.fi> [2011-06-02 21:59:34]:
+On Sun, Jun 05, 2011 at 10:34:45AM +0200, Petr =C5=A0tetiar wrote:
+>=20
+> do you have the series available somewhere for pull? I would like to =
+test the
+> changes for you on my ts7250/ts7300, but I'm quite lazy and would lik=
+e to just
+> cherry-pick the changes if possible :-)
 
-> As the driver is now passing platform device to the DMA mapping functions,
-> we should give it valid DMA masks.
+Unfortunately - no. But what's wrong with 'git am <mbox>'? ;-)
 
-Hi Mika,
+> I also wonder, why this patch[1] from Herbert Valerio Riedel has neve=
+r made it
+> upstream, this email[2] is the last trace of the patch I could find. =
+Looks
+> like Herbert did few fixes to the driver and thanks to Matthieu, I'm =
+using
+> this forward ported patch[3] since today, without any problems.
 
-do you have the series available somewhere for pull? I would like to test the
-changes for you on my ts7250/ts7300, but I'm quite lazy and would like to just
-cherry-pick the changes if possible :-)
+I have no idea.
 
-I also wonder, why this patch[1] from Herbert Valerio Riedel has never made it
-upstream, this email[2] is the last trace of the patch I could find. Looks
-like Herbert did few fixes to the driver and thanks to Matthieu, I'm using
-this forward ported patch[3] since today, without any problems.
+It looks like David Miller (CC'd) has been taking care of ep93xx_eth.c =
+maybe
+he knows this better.
 
-Do you personaly use the ethernet on the ep93xx/ts72xx heavily?
+> Do you personaly use the ethernet on the ep93xx/ts72xx heavily?
 
-1. http://ynezz.ibawizard.net/ts72xx/linux-kernel/2.6.24.y/ep93xx-eth-phylib-framework.patch
-2. http://www.mail-archive.com/netdev@vger.kernel.org/msg62550.html
-3. https://github.com/ynezz/linux-2.6/commit/1dcf7aeb7ca4d7e441be2467926b606b46060a44
-
--- ynezz
+Yes, I have NFS roots for the boards so it is essential for me.
