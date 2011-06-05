@@ -1,49 +1,44 @@
-From: Brad Campbell <lists2009@fnarfbargle.com>
+From: Avi Kivity <avi@redhat.com>
 Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Sun, 05 Jun 2011 21:45:22 +0800
-Message-ID: <4DEB8872.2060801@fnarfbargle.com>
-References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <4DEB3AE4.8040700@redhat.com>
+Date: Sun, 05 Jun 2011 16:58:47 +0300
+Message-ID: <4DEB8B97.6020605@redhat.com>
+References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <4DEB3AE4.8040700@redhat.com> <4DEB8872.2060801@fnarfbargle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: CaT <cat@zip.com.au>, Hugh Dickins <hughd@google.com>,
- Andrea Arcangeli <aarcange@redhat.com>,
- Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
- kvm@vger.kernel.org, linux-mm <linux-mm@kvack.org>,
- netdev <netdev@vger.kernel.org>
-To: Avi Kivity <avi@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4DEB3AE4.8040700@redhat.com>
-Sender: owner-linux-mm@kvack.org
+	Andrea Arcangeli <aarcange@redhat.com>,
+	Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org, linux-mm <linux-mm@kvack.org>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Brad Campbell <lists2009@fnarfbargle.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4DEB8872.2060801@fnarfbargle.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/06/11 16:14, Avi Kivity wrote:
-> On 06/03/2011 04:38 PM, Brad Campbell wrote:
->>
->> Is there anyone who can point me at the appropriate cage to rattle? I
->> know it appears to be a netfilter issue, but I don't seem to be able
->> to get a message to the list (and I am subscribed to it and have been
->> getting mail for months) and I'm not sure who to pester. The other
->> alternative is I just stop doing "that" and wait for it to bite
->> someone else.
+On 06/05/2011 04:45 PM, Brad Campbell wrote:
+>> The mailing list might be set not to send your own mails back to you.
+>> Check the list archive.
 >
-> The mailing list might be set not to send your own mails back to you.
-> Check the list archive.
+>
+> Yep, I did that first..
+>
+> Given the response to previous issues along the same line, it looks a 
+> bit like I just remember not to actually use the system in the way 
+> that triggers the bug and be happy that 99% of the time the kernel 
+> does not panic, but have that lovely feeling in the back of the skull 
+> that says "any time now, and without obvious reason the whole machine 
+> might just come crashing down"..
+>
+> I guess it's still better than running Xen or Windows..
 
-Yep, I did that first..
+Not at all.  Can some networking/netfilter expert look at this?
 
-Given the response to previous issues along the same line, it looks a 
-bit like I just remember not to actually use the system in the way that 
-triggers the bug and be happy that 99% of the time the kernel does not 
-panic, but have that lovely feeling in the back of the skull that says 
-"any time now, and without obvious reason the whole machine might just 
-come crashing down"..
+Please file a bug with all the relevant information in this thread.  If 
+you can look for a previous version that worked, that might increase the 
+chances of the bug being resolved faster.
 
-I guess it's still better than running Xen or Windows..
+-- 
+error compiling committee.c: too many arguments to function
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
