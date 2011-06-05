@@ -1,33 +1,68 @@
-From: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>
-Subject: Re: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
-Date: Sun, 5 Jun 2011 11:10:27 +0200
-Message-ID: <20110605091027.GU16318@ibawizard.net>
-References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi> <20110605083445.GT16318@ibawizard.net> <20110605085948.GB16018@acer>
-Reply-To: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH] get_net_ns_by_fd() oopses if proc_ns_fget() returns an error
+Date: Sun, 5 Jun 2011 11:37:35 +0100
+Message-ID: <20110605103735.GB11521@ZenIV.linux.org.uk>
+References: <20110604222531.GA11521@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Petr =?iso-8859-2?Q?=A9tetiar?= <ynezz@true.cz>,
-	netdev@vger.kernel.org, hsweeten@visionengravers.com,
-	ryan@bluewatersys.com, kernel@wantstofly.org,
-	linux-arm-kernel@lists.infradead.org, davem@davemloft.net
-To: Mika Westerberg <mika.westerberg@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ibawizard.net ([82.208.49.253]:53119 "EHLO
-	mengele.ibawizard.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754747Ab1FEJKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2011 05:10:31 -0400
+Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>,
+	linux-fsdevel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110605085948.GB16018@acer>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110604222531.GA11521@ZenIV.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mika Westerberg <mika.westerberg@iki.fi> [2011-06-05 11:59:48]:
+BTW, looking through the code related to struct net lifetime rules has
+caught something else:
 
-> Unfortunately - no. But what's wrong with 'git am <mbox>'? ;-)
+struct net *get_net_ns_by_fd(int fd)
+{
+        ...
+        file = proc_ns_fget(fd);
+        if (!file)
+                goto out;
 
-Nothing, it's just complicated if you don't read emails on the same machine as
-you develop on. Just found patchwork thread, so it's solved[1]. Thanks.
+        ei = PROC_I(file->f_dentry->d_inode);
 
-1. https://patchwork.kernel.org/project/linux-arm-kernel/list/
+while in proc_ns_fget() we have two return ERR_PTR(...) and not a single
+path that would return NULL.  The other caller of proc_ns_fget() treats
+ERR_PTR() correctly...
 
--- ynezz
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+[I don't know which tree should that go through; I'm throwing that into vfs-2.6
+#for-linus, but if networking folks prefer that to go through their tree...]
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 6c6b86d..e41e511 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -310,19 +310,17 @@ struct net *get_net_ns_by_fd(int fd)
+ 	struct file *file;
+ 	struct net *net;
+ 
+-	net = ERR_PTR(-EINVAL);
+ 	file = proc_ns_fget(fd);
+-	if (!file)
+-		goto out;
++	if (IS_ERR(file))
++		return ERR_CAST(file);
+ 
+ 	ei = PROC_I(file->f_dentry->d_inode);
+-	if (ei->ns_ops != &netns_operations)
+-		goto out;
++	if (ei->ns_ops == &netns_operations)
++		net = get_net(ei->ns);
++	else
++		net = ERR_PTR(-EINVAL);
+ 
+-	net = get_net(ei->ns);
+-out:
+-	if (file)
+-		fput(file);
++	fput(file);
+ 	return net;
+ }
+ 
