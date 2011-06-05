@@ -1,68 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] vlan: only create special VLAN 0 once
-Date: Sun, 05 Jun 2011 14:28:23 -0700 (PDT)
-Message-ID: <20110605.142823.1727360496050285755.davem@davemloft.net>
-References: <20110603200738.GA24804@midget.suse.cz>
+Subject: Re: [PATCH] bonding: reset queue mapping prior to transmission to
+ physical device (v5)
+Date: Sun, 05 Jun 2011 14:32:35 -0700 (PDT)
+Message-ID: <20110605.143235.545319481813491859.davem@davemloft.net>
+References: <1307129073-3769-1-git-send-email-nhorman@tuxdriver.com>
+	<1307133352-4111-1-git-send-email-nhorman@tuxdriver.com>
+	<26637.1307143866@death>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	pedro.netdev@dondevamos.com
-To: jbohac@suse.cz
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, andy@greyhouse.net
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51297 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47269 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755967Ab1FEV3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2011 17:29:47 -0400
-In-Reply-To: <20110603200738.GA24804@midget.suse.cz>
+	with ESMTP id S1756129Ab1FEVdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2011 17:33:46 -0400
+In-Reply-To: <26637.1307143866@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Bohac <jbohac@suse.cz>
-Date: Fri, 3 Jun 2011 22:07:38 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Fri, 03 Jun 2011 16:31:06 -0700
 
-> Commit ad1afb00 registers a VLAN with vid == 0 for every device to handle
-> 802.1p frames.  This is currently done on every NETDEV_UP event and the special
-> vlan is never unregistered.  This may have strange effects on drivers
-> implementning ndo_vlan_rx_add_vid(). E.g. bonding will allocate a linked-list
-> element each time, causing a memory leak.
+> Neil Horman <nhorman@tuxdriver.com> wrote:
 > 
-> Only register the special VLAN once on NETDEV_REGISTER.
+>>The bonding driver is multiqueue enabled, in which each queue represents a slave
+>>to enable optional steering of output frames to given slaves against the default
+>>output policy.  However, it needs to reset the skb->queue_mapping prior to
+>>queuing to the physical device or the physical slave (if it is multiqueue) could
+>>wind up transmitting on an unintended tx queue
+>>
+>>Change Notes:
+>>v2) Based on first pass review, updated the patch to restore the origional queue
+>>mapping that was found in bond_select_queue, rather than simply resetting to
+>>zero.  This preserves the value of queue_mapping when it was set on receive in
+>>the forwarding case which is desireable.
+>>
+>>v3) Fixed spelling an casting error in skb->cb
+>>
+>>v4) fixed to store raw queue_mapping to avoid double decrement
+>>
+>>v5) Eric D requested that ->cb access be wrapped in a macro.
 > 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> 	Shouldn't the change log go below the "---" so it doesn't end up
+> in the git commit log?
 
-I recognize the problem, but this solution isn't all that good.
+Yes, usually, however in this case Neil's change notes give some
+important information about why the patch is implemented the way it
+is, especially the notes about "v2" so I left them in the commit
+message.
 
-I am pretty sure that the hardware device driver methods that
-implement ndo_vlan_rx_add_vid() assume that the device is up.
-Because most drivers completely reset the chip when the
-interface is brought up and this will likely clear out the
-VLAN ID tables in the chip.
+> 	In any event, I looked for ways into bond_dev_queue_xmit without
+> first passing through bond_select_queue (lest stale cb[] data intrude),
+> and I don't see any, so I think this is ok.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Second, now even devices which don't ever get brought up will
-have the VLAN ID 0 thing allocated.
-
-Probably the thing to do is to remove the VLAN ID 0 entry on
-NETDEV_DOWN.
-
-Something like:
-
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index c7a581a..135019d 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -379,6 +379,14 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		dev->netdev_ops->ndo_vlan_rx_add_vid(dev, 0);
- 	}
- 
-+	if ((event == NETDEV_DOWN) &&
-+	    (dev->features & NETIF_F_HW_VLAN_FILTER) &&
-+	    dev->netdev_ops->ndo_vlan_rx_kill_vid) {
-+		pr_info("8021q: removing VLAN 0 from HW filter on device %s\n",
-+			dev->name);
-+		dev->netdev_ops->ndo_vlan_rx_kill_vid(dev, 0);
-+	}
-+
- 	grp = rtnl_dereference(dev->vlgrp);
- 	if (!grp)
- 		goto out;
+Applied, thanks everyone.
