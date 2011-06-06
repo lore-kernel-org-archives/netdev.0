@@ -1,170 +1,81 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ethtool -E rejects magic >= 80000000
-Date: Mon, 06 Jun 2011 11:50:36 +0100
-Message-ID: <1307357436.2765.20.camel@bwh-desktop>
-References: <4DECA785.7070207@LiPPERTEmbedded.de>
-	 <1307355820.2765.15.camel@bwh-desktop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: bridge/netfilter: regression in 2.6.39.1
+Date: Mon, 6 Jun 2011 07:15:07 -0400
+Message-ID: <20110606111507.GA1000@hmsreliant.think-freely.org>
+References: <4DE93422.3070000@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-Zkt6kqnQ/H0fyPBHCfK3"
-Cc: Martin Hein <MHein@LiPPERTEmbedded.com>,
-	Jeff Garzik <jgarzik@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jens Rottmann <JRottmann@LiPPERTEmbedded.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Alexander Holler <holler@ahsoftware.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:38992 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752513Ab1FFKuj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 06:50:39 -0400
-In-Reply-To: <1307355820.2765.15.camel@bwh-desktop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49523 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755746Ab1FFLP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 07:15:26 -0400
+Content-Disposition: inline
+In-Reply-To: <4DE93422.3070000@ahsoftware.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jun 03, 2011 at 09:21:06PM +0200, Alexander Holler wrote:
+> Hello,
+> 
+> I'm getting a oops in the bridge code in br_change_mtu() with
+> 2.6.39.1. The patch below seems to fix that.
+> 
+> I'm not sure about the usage of dst_cow_metrics_generic() in
+> fake_dst_ops, but after having a quick look at it seems to be ok to
+> use that here.
+> 
+> Regards,
+> 
+> Alexander
+> 
+How did the flags of the dst entry on which we're callnig dst_entry_write_ptr
+wind up getting the  READ_ONLY flag set on it?  I don't see how we'er falling
+into that clause in which we call cow_metrics when we call dst_metric_set.  It
+seems like that flag is set erroneously.  perhaps we should just update
+fake_rtable.dst to have the correct flags?
+Neil
 
-
---=-Zkt6kqnQ/H0fyPBHCfK3
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-Please can you test the attached patch on top of the git repository
-<git://git.kernel.org/pub/scm/network/ethtool/ethtool.git> or ethtool
-2.6.39.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---=-Zkt6kqnQ/H0fyPBHCfK3
-Content-Disposition: attachment; filename*0=0001-Correct-parameter-types-for-ethtool-e-and-ethtool-E.patc; filename*1=h
-Content-Type: text/x-patch; name="0001-Correct-parameter-types-for-ethtool-e-and-ethtool-E.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
->From ed7fba4e03c39365affbae4ec4f6401b55cfd80b Mon Sep 17 00:00:00 2001
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 6 Jun 2011 11:35:19 +0100
-Subject: [PATCH ethtool] Correct parameter types for ethtool -e and ethtool
- -E
-To: netdev@vger.kernel.org
-Cc: linux-net-drivers@solarflare.com
-
-All parameters to the underlying ethtool commands are unsigned, not
-signed.  In particular, the 'magic' parameter to ethtool -E often has
-the most significant bit set and users should not have to provide it
-as a negative number.
-
-For ethtool -E, the value to be written is 8-bit, not 32-bit.
-
-Reported-by: Jens Rottmann <JRottmann@LiPPERTEmbedded.de>
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ethtool.c |   40 ++++++++++++++++++++++++----------------
- 1 files changed, 24 insertions(+), 16 deletions(-)
-
-diff --git a/ethtool.c b/ethtool.c
-index edfbe3d..288b93f 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -365,13 +365,14 @@ static int gregs_dump_hex = 0;
- static char *gregs_dump_file = NULL;
- static int geeprom_changed = 0;
- static int geeprom_dump_raw = 0;
--static s32 geeprom_offset = 0;
--static s32 geeprom_length = -1;
-+static u32 geeprom_offset = 0;
-+static u32 geeprom_length = -1;
- static int seeprom_changed = 0;
--static s32 seeprom_magic = 0;
--static s32 seeprom_length = -1;
--static s32 seeprom_offset = 0;
--static s32 seeprom_value = EOF;
-+static u32 seeprom_magic = 0;
-+static u32 seeprom_length = -1;
-+static u32 seeprom_offset = 0;
-+static u8 seeprom_value = 0;
-+static int seeprom_value_seen = 0;
- static int rx_fhash_get = 0;
- static int rx_fhash_set = 0;
- static u32 rx_fhash_val = 0;
-@@ -400,6 +401,7 @@ typedef enum {
- 	CMDL_NONE,
- 	CMDL_BOOL,
- 	CMDL_S32,
-+	CMDL_U8,
- 	CMDL_U16,
- 	CMDL_U32,
- 	CMDL_U64,
-@@ -433,16 +435,17 @@ static struct cmdline_info cmdline_gregs[] = {
- };
- 
- static struct cmdline_info cmdline_geeprom[] = {
--	{ "offset", CMDL_S32, &geeprom_offset, NULL },
--	{ "length", CMDL_S32, &geeprom_length, NULL },
-+	{ "offset", CMDL_U32, &geeprom_offset, NULL },
-+	{ "length", CMDL_U32, &geeprom_length, NULL },
- 	{ "raw", CMDL_BOOL, &geeprom_dump_raw, NULL },
- };
- 
- static struct cmdline_info cmdline_seeprom[] = {
--	{ "magic", CMDL_S32, &seeprom_magic, NULL },
--	{ "offset", CMDL_S32, &seeprom_offset, NULL },
--	{ "length", CMDL_S32, &seeprom_length, NULL },
--	{ "value", CMDL_S32, &seeprom_value, NULL },
-+	{ "magic", CMDL_U32, &seeprom_magic, NULL },
-+	{ "offset", CMDL_U32, &seeprom_offset, NULL },
-+	{ "length", CMDL_U32, &seeprom_length, NULL },
-+	{ "value", CMDL_U8, &seeprom_value, NULL,
-+	  0, &seeprom_value_seen },
- };
- 
- static struct cmdline_info cmdline_offload[] = {
-@@ -614,6 +617,11 @@ static void parse_generic_cmdline(int argc, char **argp,
- 							   0x7fffffff);
- 					break;
- 				}
-+				case CMDL_U8: {
-+					u8 *p = info[idx].wanted_val;
-+					*p = get_uint_range(argp[i], 0, 0xff);
-+					break;
-+				}
- 				case CMDL_U16: {
- 					u16 *p = info[idx].wanted_val;
- 					*p = get_uint_range(argp[i], 0, 0xffff);
-@@ -2626,7 +2634,7 @@ static int do_geeprom(int fd, struct ifreq *ifr)
- 		return 74;
- 	}
- 
--	if (geeprom_length <= 0)
-+	if (geeprom_length == -1)
- 		geeprom_length = drvinfo.eedump_len;
- 
- 	if (drvinfo.eedump_len < geeprom_offset + geeprom_length)
-@@ -2667,10 +2675,10 @@ static int do_seeprom(int fd, struct ifreq *ifr)
- 		return 74;
- 	}
- 
--	if (seeprom_value != EOF)
-+	if (seeprom_value_seen)
- 		seeprom_length = 1;
- 
--	if (seeprom_length <= 0)
-+	if (seeprom_length == -1)
- 		seeprom_length = drvinfo.eedump_len;
- 
- 	if (drvinfo.eedump_len < seeprom_offset + seeprom_length)
-@@ -2689,7 +2697,7 @@ static int do_seeprom(int fd, struct ifreq *ifr)
- 	eeprom->data[0] = seeprom_value;
- 
- 	/* Multi-byte write: read input from stdin */
--	if (seeprom_value == EOF)
-+	if (!seeprom_value_seen)
- 		eeprom->len = fread(eeprom->data, 1, eeprom->len, stdin);
- 
- 	ifr->ifr_data = (caddr_t)eeprom;
--- 
-1.7.4.4
-
-
---=-Zkt6kqnQ/H0fyPBHCfK3--
-
+> -----
+> From 3c1d5951af73389798afeea672ec224e195b8e8d Mon Sep 17 00:00:00 2001
+> From: Alexander Holler <holler@ahsoftware.de>
+> Date: Fri, 3 Jun 2011 20:43:06 +0200
+> Subject: [PATCH] bridge: add dst_cow_metrics_generic to fake_dst_ops
+> 
+> Commit 42923465fb8d025a2b5153f2e7ab1e6e1058bf00 does here what it
+> should prevent, it introduces NULL a dereference.
+> 
+> The above commit uses dst_init_metrics() which sets the metrics as
+> read only. As result br_change_mtu() dies in dst_metric_set()
+> which calls dst_metrics_write_ptr() which calls
+> dst->ops->cow_metrics() if the metrics are read only.
+> ---
+>  net/bridge/br_netfilter.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+> index 5f9c091..de982a1 100644
+> --- a/net/bridge/br_netfilter.c
+> +++ b/net/bridge/br_netfilter.c
+> @@ -107,6 +107,7 @@ static void fake_update_pmtu(struct dst_entry
+> *dst, u32 mtu)
+>  static struct dst_ops fake_dst_ops = {
+>         .family =               AF_INET,
+>         .protocol =             cpu_to_be16(ETH_P_IP),
+> +       .cow_metrics =          dst_cow_metrics_generic,
+>         .update_pmtu =          fake_update_pmtu,
+>  };
+> 
+> -- 
+> 1.7.3.4
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
