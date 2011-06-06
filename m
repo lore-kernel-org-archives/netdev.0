@@ -1,64 +1,166 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: bridge/netfilter: regression in 2.6.39.1
-Date: Mon, 06 Jun 2011 13:48:51 +0200
-Message-ID: <4DECBEA3.6070408@ahsoftware.de>
-References: <4DE93422.3070000@ahsoftware.de> <20110606111507.GA1000@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Eric Leblond <eric@regit.org>
+Subject: [RFC PATCH] ipv6: basic implementation of reverse path filtering
+Date: Mon,  6 Jun 2011 13:34:34 +0200
+Message-ID: <1307360074-25473-1-git-send-email-eric@regit.org>
+Cc: Eric Leblond <eric@regit.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:60964 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752998Ab1FFLtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 07:49:10 -0400
-In-Reply-To: <20110606111507.GA1000@hmsreliant.think-freely.org>
+Received: from ks28632.kimsufi.com ([91.121.96.152]:39441 "EHLO
+	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756061Ab1FFL6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 07:58:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 06.06.2011 13:15, schrieb Neil Horman:
-> On Fri, Jun 03, 2011 at 09:21:06PM +0200, Alexander Holler wrote:
->> Hello,
->>
->> I'm getting a oops in the bridge code in br_change_mtu() with
->> 2.6.39.1. The patch below seems to fix that.
->>
->> I'm not sure about the usage of dst_cow_metrics_generic() in
->> fake_dst_ops, but after having a quick look at it seems to be ok to
->> use that here.
->>
->> Regards,
->>
->> Alexander
->>
-> How did the flags of the dst entry on which we're callnig dst_entry_write_ptr
-> wind up getting the  READ_ONLY flag set on it?  I don't see how we'er falling
-> into that clause in which we call cow_metrics when we call dst_metric_set.  It
-> seems like that flag is set erroneously.  perhaps we should just update
-> fake_rtable.dst to have the correct flags?
-> Neil
+This patch provides a basic implementation of reverse path filtering
+for IPv6. Functionnality can be activatedor desactivated through an
+rp_filter entry similar to the IPv4 one.
 
-It is set by that change:
+The functionnality is disabled by default for backward compatibility
+but should be enable on all IPv6 routers/firewalls for security reason.
 
---------
-@@ -124,7 +128,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
-  	atomic_set(&rt->dst.__refcnt, 1);
-  	rt->dst.dev = br->dev;
-  	rt->dst.path = &rt->dst;
--	dst_metric_set(&rt->dst, RTAX_MTU, 1500);
-+	dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
-  	rt->dst.flags	= DST_NOXFRM;
-  	rt->dst.ops = &fake_dst_ops;
-  }
---------
+This implementation is heavily based on the patch Denis Semmau proposed
+in 2006.
 
-The true in dst_init_metrics() is responsible for that flag.
+Signed-off-by: Eric Leblond <eric@regit.org>
+---
+ include/linux/ipv6.h   |    2 ++
+ include/linux/sysctl.h |    1 +
+ net/ipv6/addrconf.c    |   10 ++++++++++
+ net/ipv6/ip6_output.c  |   32 ++++++++++++++++++++++++++++++++
+ 4 files changed, 45 insertions(+), 0 deletions(-)
 
-Regards,
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 0c99776..e61b88d 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -134,6 +134,7 @@ struct ipv6hdr {
+  */
+ struct ipv6_devconf {
+ 	__s32		forwarding;
++	__s32		rp_filter;
+ 	__s32		hop_limit;
+ 	__s32		mtu6;
+ 	__s32		accept_ra;
+@@ -213,6 +214,7 @@ enum {
+ 	DEVCONF_DISABLE_IPV6,
+ 	DEVCONF_ACCEPT_DAD,
+ 	DEVCONF_FORCE_TLLAO,
++	DEVCONF_RP_FILTER,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 11684d9..bdcb7f8 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -568,6 +568,7 @@ enum {
+ 	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=22,
+ 	NET_IPV6_PROXY_NDP=23,
+ 	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
++	NET_IPV6_RP_FILTER=26,
+ 	__NET_IPV6_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 498b927..ba1c574 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -196,6 +196,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
++	.rp_filter		= 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -230,6 +231,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
++	.rp_filter		= 0,
+ };
+ 
+ /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
+@@ -3805,6 +3807,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_DISABLE_IPV6] = cnf->disable_ipv6;
+ 	array[DEVCONF_ACCEPT_DAD] = cnf->accept_dad;
+ 	array[DEVCONF_FORCE_TLLAO] = cnf->force_tllao;
++	array[DEVCONF_RP_FILTER] = cnf->rp_filter;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -4459,6 +4462,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler   = proc_dointvec
+ 		},
+ 		{
++			.procname       = "rp_filter",
++			.data           = &ipv6_devconf.rp_filter,
++			.maxlen         = sizeof(int),
++			.mode           = 0644,
++			.proc_handler   = proc_dointvec
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 9d4b165..c035494 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -374,6 +374,18 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++static int rt6_validate_source(struct sk_buff *skb)
++{
++	struct rt6_info *rt;
++	struct ipv6hdr *hdr = ipv6_hdr(skb);
++	rt = rt6_lookup(dev_net(skb->dev), &hdr->saddr, NULL, 0, 0);
++	if (rt != NULL) {
++		if (rt->rt6i_idev->dev == skb->dev)
++			return 0;
++	}
++	return -1;
++}
++
+ static inline int ip6_forward_finish(struct sk_buff *skb)
+ {
+ 	return dst_output(skb);
+@@ -384,6 +396,7 @@ int ip6_forward(struct sk_buff *skb)
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct ipv6hdr *hdr = ipv6_hdr(skb);
+ 	struct inet6_skb_parm *opt = IP6CB(skb);
++	struct inet6_dev *idev = NULL;
+ 	struct net *net = dev_net(dst->dev);
+ 	u32 mtu;
+ 
+@@ -401,6 +414,25 @@ int ip6_forward(struct sk_buff *skb)
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		goto drop;
+ 
++	idev = in6_dev_get(skb->dev);
++	if (!idev) {
++		printk(KERN_WARNING "idev error for rp_filter\n");
++		goto error;
++	}
++
++	if (net->ipv6.devconf_all->rp_filter & idev->cnf.rp_filter) {
++		if (rt6_validate_source(skb) < 0) {
++			printk(KERN_WARNING
++			       "rp_filter: packet refused on %s, invalid src %pI6 (dst: %pI6)",
++			       skb->dev->name,
++			       &hdr->saddr,
++			       &hdr->daddr
++			      );
++			goto drop;
++		}
++
++	}
++
+ 	skb_forward_csum(skb);
+ 
+ 	/*
+-- 
+1.7.5.3
 
-Alexander
