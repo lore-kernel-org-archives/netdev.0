@@ -1,86 +1,75 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Mon, 06 Jun 2011 22:10:53 +0200
-Message-ID: <4DED344D.7000005@pandora.be>
-References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <isavsg$3or$1@dough.gmane.org> <4DE906C0.6060901@fnarfbargle.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Mon, 06 Jun 2011 21:11:35 +0100
+Message-ID: <1307391096.22348.452.camel@localhost>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+	 <20110523151336.GF21309@gospo.rdu.redhat.com>
+	 <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+	 <20110524163323.GB28521@hmsreliant.think-freely.org>
+	 <BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
+	 <20110525152023.GC11867@hmsreliant.think-freely.org>
+	 <BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
+	 <20110526135053.GB12617@hmsreliant.think-freely.org>
+	 <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
+	 <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
+	 <1307379022.4994.4.camel@Joe-Laptop>
+	 <1307379881.3098.71.camel@edumazet-laptop>
+	 <1307380827.4994.8.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, linux-mm@kvack.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- netfilter-devel@vger.kernel.org
-To: Brad Campbell <brad@fnarfbargle.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4DE906C0.6060901@fnarfbargle.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:29496 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757576Ab1FFULk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:11:40 -0400
+In-Reply-To: <1307380827.4994.8.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Brad,
+On Mon, 2011-06-06 at 10:20 -0700, Joe Perches wrote:
+> On Mon, 2011-06-06 at 19:04 +0200, Eric Dumazet wrote:
+> > Le lundi 06 juin 2011 =C3=A0 09:50 -0700, Joe Perches a =C3=A9crit =
+:
+> > > There is a proposal to move some drivers/net content to
+> > > drivers/net/sw/
+> > > http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
+> > > I think that'd be fine too.
+> > > I believe Jeff is going to submit patches soonish.
+> > > http://comments.gmane.org/gmane.linux.network/197232
+> > As long as the re-organization is done without loosing "git blame"
+> > information on current files, I am fine.
+> > If not, this is a showstopper and not worth the pain, exactly like =
+other
+> > cleanup patches.
+>=20
+> To preserve history, all of this should be done via:
+> 	git mv oldpath/file newpath/file
+> 	git commit -m newpath/file=20
+> with some extra cleanups to Kconfig/Makefile files
+> so no worries.
 
-This has probably nothing to do with ebtables, so please rmmod in case 
-it's loaded.
-A few questions I didn't directly see an answer to in the threads I 
-scanned...
-I'm assuming you actually use the bridging firewall functionality. So, 
-what iptables modules do you use? Can you reduce your iptables rules to 
-a core that triggers the bug?
-Or does it get triggered even with an empty set of firewall rules?
-Are you using a stock .35 kernel or is it patched?
-Is this something I can trigger on a poor guy's laptop or does it 
-require specialized hardware (I'm catching up on qemu/kvm...)?
+git doesn't explicitly record moves; it just recognises moves if you
+tell it to look for them (e.g. 'git diff -M' and 'git log --follow').
 
-cheers,
-Bart
+'git mv' is essentially shorthand for mv && git add && git rm.  And
+specifying the old or new path on the 'git commit' line is redundant,
+because the changes are already in the index.
 
-PS: I'm not sure if we should keep CC-ing everybody, netfilter-devel 
-together with kvm should probably do fine.
+Ben.
 
-Op 3/06/2011 18:07, Brad Campbell schreef:
-> On 03/06/11 23:50, Bernhard Held wrote:
->> Am 03.06.2011 15:38, schrieb Brad Campbell:
->>> On 02/06/11 07:03, CaT wrote:
->>>> On Wed, Jun 01, 2011 at 07:52:33PM +0800, Brad Campbell wrote:
->>>>> Unfortunately the only interface that is mentioned by name anywhere
->>>>> in my firewall is $DMZ (which is ppp0 and not part of any bridge).
->>>>>
->>>>> All of the nat/dnat and other horrible hacks are based on IP 
->>>>> addresses.
->>>>
->>>> Damn. Not referencing the bridge interfaces at all stopped our host 
->>>> from
->>>> going down in flames when we passed it a few packets. These are two
->>>> of the oopses we got from it. Whilst the kernel here is .35 we got the
->>>> same issue from a range of kernels. Seems related.
->>>
->>> Well, I tried sending an explanatory message to netdev, netfilter &
->>> cc'd to kvm,
->>> but it appears not to have made it to kvm or netfilter, and the cc to
->>> netdev has
->>> not elicited a response. My resend to netfilter seems to have dropped
->>> into the
->>> bit bucket also.
->> Just another reference 3.5 months ago:
->> http://www.spinics.net/lists/netfilter-devel/msg17239.html
->
-> <waves hands around shouting "I have a reproducible test case for this 
-> and don't mind patching and crashing the machine to get it fixed">
->
-> Attempted to add netfilter-devel to the cc this time.
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe 
-> netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at http://vger.kernel.org/majordomo-info.html
->
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-
--- 
-Bart De Schuymer
-www.artinalgorithms.be
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
