@@ -1,54 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCHv2] ipv6: implementation of reverse path filtering
-Date: Mon, 06 Jun 2011 12:29:12 -0700 (PDT)
-Message-ID: <20110606.122912.2162766375813456175.davem@davemloft.net>
-References: <1307362957.3098.7.camel@edumazet-laptop>
-	<1307382805-5753-1-git-send-email-eric@regit.org>
+Subject: Re: IPv6 DNSSL (rfc6106): please include the patch to pass it to
+ user space
+Date: Mon, 06 Jun 2011 12:40:10 -0700 (PDT)
+Message-ID: <20110606.124010.589373967388745310.davem@davemloft.net>
+References: <20080401164904.GA2382@2ka.mipt.ru>
+	<20080408122545.GA31729@2ka.mipt.ru>
+	<19949.87.934341.698604@fisica.ufpr.br>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: eric@regit.org
+Cc: netdev@vger.kernel.org
+To: carlos@fisica.ufpr.br
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37375 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43148 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753716Ab1FFTah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 15:30:37 -0400
-In-Reply-To: <1307382805-5753-1-git-send-email-eric@regit.org>
+	with ESMTP id S1753974Ab1FFTkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 15:40:16 -0400
+In-Reply-To: <19949.87.934341.698604@fisica.ufpr.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Leblond <eric@regit.org>
-Date: Mon,  6 Jun 2011 19:53:25 +0200
+From: Carlos Carvalho <carlos@fisica.ufpr.br>
+Date: Mon, 6 Jun 2011 13:29:11 -0300
 
-> This patch provides a basic implementation of reverse path filtering
-> for IPv6. Functionnality can be activatedor desactivated through an
-> rp_filter entry similar to the IPv4 one.
-> 
-> The functionnality is disabled by default for backward compatibility
-> but should be enable on all IPv6 routers/firewalls for security reason.
-> 
-> This implementation is heavily based on the patch Denis Semmau proposed
-> in 2006.
-> 
-> Signed-off-by: Eric Leblond <eric@regit.org>
+> Currently the kernel doesn't pass DNSSL lists received by router
+> advertsiments (rfc 6106) to user space via netlink. Pierre Ossman sent
+> a patch for it about 6 months ago:
+> http://patchwork.ozlabs.org/patch/75243. Could you please include it
+> in mainline? This is a very useful feature.
 
-Do you know that this will make every forwarding route lookup up to 3
-times slower?
+The submitter marked that patch as "RFC", he must make a new formal
+submission and indicate that it's in a final form and ready to be
+actually applied.
 
-And you're not even caching the result like we do in ipv4, so every
-single forwarded PACKET, eats this overhead.
+You are intelligent enough to find the patch in patchwork, yet you
+totally ignore the state that the patch was put into and didn't
+even bother considering what it might mean.
 
-Also, when enabled, this often breaks IPSEC.
+What's the point of having something like patchwork if I still have to
+explain things to people by hand?  It doesn't save me any time, since
+the whole point of patchwork is that I can communicate to the entire
+world what state the patch is in and that tells what (if anything) can
+happen next for that patch.
 
-Frankly, when I remove the routing cache from ipv4, I want to get
-rid of RP filtering entirely.
-
-I think the BSD guys did the right thing, and put this in the
-firewalling code.
-
-Then people can add a forwarding rule that does this reverse path
-lookup, and the rest of the world doesn't need to eat this overhead.
-
-Finally, I want you to tell everyone why you want this change.  People
-might find a less painful way to fix that issue.
