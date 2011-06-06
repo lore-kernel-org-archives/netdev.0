@@ -1,51 +1,91 @@
-From: Lennert Buytenhek <kernel@wantstofly.org>
-Subject: Re: [PATCH] ep93xx-eth: convert to phylib
-Date: Mon, 6 Jun 2011 19:34:38 +0200
-Message-ID: <20110606173438.GC11275@wantstofly.org>
-References: <201106051957.36492.florian@openwrt.org>
-	<201106052029.24742.f.fainelli@gmail.com>
-	<20110605.140657.1039864716002412071.davem@davemloft.net>
-	<201106060715.52332.florian@openwrt.org>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: RE: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
+Date: Mon, 6 Jun 2011 12:48:19 -0500
+Message-ID: <ADE657CA350FB648AAC2C43247A983F001F381FC56CE@AUSP01VMBX24.collaborationhost.net>
+References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+ <20110605083445.GT16318@ibawizard.net> <20110605085948.GB16018@acer>
+ <20110605.140801.1144137337172959622.davem@davemloft.net>
+ <20110606172607.GB3082@acer>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mika.westerberg@iki.fi, hvr@gnu.org,
-	hsweeten@visionengravers.com, ryan@bluewatersys.com,
-	David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <201106060715.52332.florian@openwrt.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "ynezz@true.cz" <ynezz@true.cz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ryan@bluewatersys.com" <ryan@bluewatersys.com>,
+	"kernel@wantstofly.org" <kernel@wantstofly.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Mika Westerberg <mika.westerberg@iki.fi>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail132.messagelabs.com ([216.82.242.115]:17754 "EHLO
+	mail132.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752121Ab1FFRs3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:48:29 -0400
+In-Reply-To: <20110606172607.GB3082@acer>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 06, 2011 at 07:15:52AM +0200, Florian Fainelli wrote:
+On Monday, June 06, 2011 10:26 AM, Mika Westerberg wrote:
+> On Sun, Jun 05, 2011 at 02:08:01PM -0700, David Miller wrote:
+>> From: Mika Westerberg <mika.westerberg@iki.fi>
+>> Date: Sun, 5 Jun 2011 11:59:48 +0300
+>> 
+>>> It looks like David Miller (CC'd) has been taking care of ep93xx_eth.c maybe
+>>> he knows this better.
+>> 
+>> Someone needs to step up and take over as the real maintainer of this
+>> driver.  The way the driver is currently being hacked on is
+>> unsustainable.
+>
+> Can't agree more.
+>
+> Hartley, Ryan: do you have any preferences? Are you guys already overwhelmed
+> with your current maintenance work, or could you consider taking this one as
+> well? 
+>
+> If no one else steps up, I can volunteer but I have to admit that I don't know
+> much about that driver.
 
-> > Instead there are several different people submitting changes to
-> > this one driver and I haven't got a clue who is authoritative and
-> > who is not.
-> > 
-> > So 9 times out of ten I'm not going to merge anything submitted
-> > in this way unless I start to see lots of ACKs from other developers.
-> > 
-> > When it gets to the point where multiple people are touching the
-> > driver in all sorts of ways, there needs to be someone to do all of
-> > the merging and making sure the patches get applied in the right order
-> > and handling merge conflicts handled properly.  Then they submit them
-> > formally here as a sane single set of patches to the list.
-> > 
-> > So who is going to step up and be the ep93xx-eth maintainer?  Lennert
-> > is listed in MAINTAINERS, but I see little to no activity from him.
-> 
-> Lennert, do you still have time, hardware and will to maintain that driver?
+I feel the same way.
 
-I still have hardware, but I have been pretty short on time lately.
-I'd be happy to hand over maintainership of this driver.
+If Lennert is no longer maintaining the this driver we really need someone to
+step up and handle it.
+
+I have no problem doing it but I really don't have a good grasp on the driver
+or the whole network subsystem.
+
+If Lennert is willing to hand it over, I have no problem being listed as a
+co-maintainer along with either yourself of Ryan.  Between the two (or three)
+of us we should be able to handle it.
+
+
+Lennert,
+
+You are listed as the maintainer for these EP93xx related pieces:
+
+ARM/CIRRUS LOGIC EDB9315A MACHINE SUPPORT
+CIRRUS LOGIC EP93XX ETHERNET DRIVER
+CIRRUS LOGIC EP93XX OHCI USB HOST DRIVER
+
+I can take over the edb9315a with no problem.  It actually falls under
+arch/arm/mach-ep93xx, so the entry could just be removed from MAINTAINERS.
+
+For the OHCI driver, I'm in the same boat as the Ethernet.  If you are no longer
+maintaining this driver I'm willing to handle it but would like someone to step
+up as a co-maintainer.  Hopefully someone that has some grasp of that subsystem.
+
+Your also listed in the source as the maintainer of these ep93xx boards:
+
+ADSSPHERE	adssphere.c
+EDB9302A	edb93xx.c
+EDB9315	edb93xx.c
+EDB9315A	edb93xx.c
+GESBC9312	gesbc9312.c
+TS72XX	ts72xx.c
+
+I'm willing to handle those also since they are under arch/arm/mach-ep93xx.
+
+Regards,
+Hartley
