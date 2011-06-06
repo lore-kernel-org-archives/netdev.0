@@ -1,47 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] net: cpu offline cause napi stall
-Date: Mon, 06 Jun 2011 14:50:51 -0700 (PDT)
-Message-ID: <20110606.145051.267562411413352856.davem@davemloft.net>
-References: <20110601181253.GA2374@osiris.boeblingen.de.ibm.com>
-	<1306958592.3946.0.camel@edumazet-laptop>
-	<20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
+From: Simon Kirby <sim@hostway.ca>
+Subject: ipv6 hitting route max_size
+Date: Mon, 6 Jun 2011 14:37:27 -0700
+Message-ID: <20110606213727.GB11757@hostway.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, blaschka@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: heiko.carstens@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60300 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752569Ab1FFVu7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 17:50:59 -0400
-In-Reply-To: <20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
+Received: from peace.netnation.com ([204.174.223.2]:55596 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757423Ab1FFV44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 17:56:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Heiko Carstens <heiko.carstens@de.ibm.com>
-Date: Wed, 1 Jun 2011 22:42:34 +0200
+Hello,
 
-> On Wed, Jun 01, 2011 at 10:03:12PM +0200, Eric Dumazet wrote:
->> Le mercredi 01 juin 2011 =E0 20:12 +0200, Heiko Carstens a =E9crit :
->> > On Wed, Jun 01, 2011 at 06:55:21PM +0200, Eric Dumazet wrote:
->> > > > +	/* Append NAPI poll list from offline CPU. */
->> > > > +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
->> > > > =20
->> > > >  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
->> > > >  	local_irq_enable();
->> > >=20
->> > > Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary=
-=2E
->> >=20
->> > Well, see two lines below the list_splice_init() call ;)
->>=20
->> I see nothing... NET_TX_SOFTIRQ and NET_RX_SOFTIRQ are not the same=20
->=20
-> Indeed. I must be blind.
+/proc/sys/net/ipv4/route/max_size is the maximum size of the ipv4 route
+_cache_, which is based on hash table size which is based on ram size.
+The route _cache_ (eg: ip -4 route show cache) is not allowed to grow
+beyond this size. gc_min_interval_ms was added to allow garbage
+collection to happen often enough that this would not be reached even
+under spoofed-address attacks (which we used to see happen before).
 
-Can I get a final version of this patch with proper commit log message,
-signoffs, etc.?
+/proc/sys/net/ipv6/route/max_size and a number of similar GC knobs exist,
+but max_size seems to limit the size of the v6 route table, not the v6
+route cache. net/ipv6/route.c:2829 just sets this to 4096:
 
-Thanks!
+	net->ipv6.sysctl.ip6_rt_max_size = 4096;
+
+If I set up quagga and ipv6 bgp peering to the Internets, I get about
+6075 routes today, exceeding this limit. This cases zebra to log errors
+such as this when it tries to add the routes to the kernel:
+
+netlink-cmd error: Cannot allocate memory, type=RTM_NEWROUTE(24), seq=27089196, pid=0
+
+This goes away if I increase /proc/sys/net/ipv6/route/max_size.
+
+Is this cache limit somehow tied to route entries by some (un)intentional
+IPv6 feature?
+
+Reproduce with something like this (bash, 2.6.32 or 2.6.39 or similar):
+
+for ((i = 0;i < 4200;i++)); do ip route add unreachable 2000::$i; done
+
+Note that 4100 succeeds on my box, so something else is also happening.
+
+Simon-
+ 
