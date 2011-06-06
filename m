@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH kernel 3.0-rc1] smc91c92_cs: set smc->base to NULL
- before iounmap
-Date: Sun, 05 Jun 2011 14:38:34 -0700 (PDT)
-Message-ID: <20110605.143834.1866501392102519766.davem@davemloft.net>
-References: <20110131061616.05b2fa6f.ken_kawasaki@spring.nifty.jp>
-	<20110221000720.e93225c1.ken_kawasaki@spring.nifty.jp>
-	<20110605082016.5a26f61a.ken_kawasaki@spring.nifty.jp>
+Subject: Re: [PATCH] net: fix smc91x.c device tree support
+Date: Sun, 05 Jun 2011 17:03:01 -0700 (PDT)
+Message-ID: <20110605.170301.571912692972468276.davem@davemloft.net>
+References: <20110604073127.27163.47519.stgit@ponder>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	thomas@wytron.com.tw
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40536 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53811 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114Ab1FEVii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2011 17:38:38 -0400
-In-Reply-To: <20110605082016.5a26f61a.ken_kawasaki@spring.nifty.jp>
+	with ESMTP id S1751634Ab1FFADH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2011 20:03:07 -0400
+In-Reply-To: <20110604073127.27163.47519.stgit@ponder>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Sun, 5 Jun 2011 08:20:16 +0900
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Sat, 04 Jun 2011 01:31:27 -0600
 
+> Fix missing semicolon at end of smc91x.c match tabledevice driver.
+> Also remove unnecessary #ifdef around of_match_table pointer.
 > 
-> smc91c92_cs:
->     set smc->base to NULL before iounmap
->     to avoid writing to smc->base in smc_interrupt.
-> 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
 
-The device should be completely made quiet and all interrupts
-synchronized before unmapping chip registers.  Using NULL checks
-is merely a workaround for the real problem, even though you take
-great pains to assign NULL before the iounmap() call.
-
-Perhaps putting the pcmcia_disable_device() call before the iounmap()
-will be sufficient to fix this bug.  Or perhaps that, plus a call to
-synchronize_irq() or similar.
-
+Applied, thanks Grant.
