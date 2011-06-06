@@ -1,155 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCHv2] ipv6: implementation of reverse path filtering
-Date: Mon, 06 Jun 2011 20:18:27 +0200
-Message-ID: <1307384307.3098.92.camel@edumazet-laptop>
-References: <1307362957.3098.7.camel@edumazet-laptop>
-	 <1307382805-5753-1-git-send-email-eric@regit.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] breakage in sysfs_readdir() and s_instances abuse in sysfs
+Date: Mon, 06 Jun 2011 12:03:52 -0700
+Message-ID: <m1k4cy6auf.fsf@fess.ebiederm.org>
+References: <20110604001518.GT11521@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Leblond <eric@regit.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64912 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750841Ab1FFSSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 14:18:31 -0400
-Received: by wwa36 with SMTP id 36so4094768wwa.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 11:18:29 -0700 (PDT)
-In-Reply-To: <1307382805-5753-1-git-send-email-eric@regit.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le lundi 06 juin 2011 =C3=A0 19:53 +0200, Eric Leblond a =C3=A9crit :
-> This patch provides a basic implementation of reverse path filtering
-> for IPv6. Functionnality can be activatedor desactivated through an
-> rp_filter entry similar to the IPv4 one.
->=20
-> The functionnality is disabled by default for backward compatibility
-> but should be enable on all IPv6 routers/firewalls for security reaso=
-n.
->=20
-> This implementation is heavily based on the patch Denis Semmau propos=
-ed
-> in 2006.
->=20
-> Signed-off-by: Eric Leblond <eric@regit.org>
-> ---
->  include/linux/ipv6.h   |    2 ++
->  include/linux/sysctl.h |    1 +
->  net/ipv6/addrconf.c    |   10 ++++++++++
->  net/ipv6/ip6_output.c  |   35 +++++++++++++++++++++++++++++++++++
->  4 files changed, 48 insertions(+), 0 deletions(-)
->=20
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index 0c99776..6b61869 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -172,6 +172,7 @@ struct ipv6_devconf {
->  	__s32		disable_ipv6;
->  	__s32		accept_dad;
->  	__s32		force_tllao;
-> +	__s32		rp_filter;
->  	void		*sysctl;
->  };
-> =20
-> @@ -213,6 +214,7 @@ enum {
->  	DEVCONF_DISABLE_IPV6,
->  	DEVCONF_ACCEPT_DAD,
->  	DEVCONF_FORCE_TLLAO,
-> +	DEVCONF_RP_FILTER,
->  	DEVCONF_MAX
->  };
-> =20
-> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> index 11684d9..bdcb7f8 100644
-> --- a/include/linux/sysctl.h
-> +++ b/include/linux/sysctl.h
-> @@ -568,6 +568,7 @@ enum {
->  	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=3D22,
->  	NET_IPV6_PROXY_NDP=3D23,
->  	NET_IPV6_ACCEPT_SOURCE_ROUTE=3D25,
-> +	NET_IPV6_RP_FILTER=3D26,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-fsdevel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	<netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20110604001518.GT11521@ZenIV.linux.org.uk> (Al Viro's message of
+	"Sat, 4 Jun 2011 01:15:19 +0100")
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-not needed ?
+Al Viro <viro@ZenIV.linux.org.uk> writes:
 
->  	__NET_IPV6_MAX
->  };
-> =20
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 498b927..ba1c574 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -196,6 +196,7 @@ static struct ipv6_devconf ipv6_devconf __read_mo=
-stly =3D {
->  	.accept_source_route	=3D 0,	/* we do not accept RH0 by default. */
->  	.disable_ipv6		=3D 0,
->  	.accept_dad		=3D 1,
-> +	.rp_filter		=3D 0,
->  };
-> =20
->  static struct ipv6_devconf ipv6_devconf_dflt __read_mostly =3D {
-> @@ -230,6 +231,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __re=
-ad_mostly =3D {
->  	.accept_source_route	=3D 0,	/* we do not accept RH0 by default. */
->  	.disable_ipv6		=3D 0,
->  	.accept_dad		=3D 1,
-> +	.rp_filter		=3D 0,
->  };
-> =20
->  /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
-> @@ -3805,6 +3807,7 @@ static inline void ipv6_store_devconf(struct ip=
-v6_devconf *cnf,
->  	array[DEVCONF_DISABLE_IPV6] =3D cnf->disable_ipv6;
->  	array[DEVCONF_ACCEPT_DAD] =3D cnf->accept_dad;
->  	array[DEVCONF_FORCE_TLLAO] =3D cnf->force_tllao;
-> +	array[DEVCONF_RP_FILTER] =3D cnf->rp_filter;
->  }
-> =20
->  static inline size_t inet6_ifla6_size(void)
-> @@ -4459,6 +4462,13 @@ static struct addrconf_sysctl_table
->  			.proc_handler   =3D proc_dointvec
->  		},
->  		{
-> +			.procname       =3D "rp_filter",
-> +			.data           =3D &ipv6_devconf.rp_filter,
-> +			.maxlen         =3D sizeof(int),
-> +			.mode           =3D 0644,
-> +			.proc_handler   =3D proc_dointvec
-> +		},
-> +		{
->  			/* sentinel */
->  		}
->  	},
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 9d4b165..ad8f351 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -374,6 +374,22 @@ static int ip6_forward_proxy_check(struct sk_buf=
-f *skb)
->  	return 0;
->  }
-> =20
-> +static int rt6_validate_source(struct sk_buff *skb, char mode)
-> +{
-> +	struct rt6_info *rt;
-> +	struct ipv6hdr *hdr =3D ipv6_hdr(skb);
-> +	if (mode =3D=3D 0)
-> +		return 0;
-> +	rt =3D rt6_lookup(dev_net(skb->dev), &hdr->saddr, NULL, 0, 0);
-> +	if (rt !=3D NULL) {
+> What I'm planning to do (for unrelated reasons - ubifs needs it) is to add
+> an analog of iterate_supers() that would go over the superblocks of given
+> type and call a function on them.  I would like to convert sysfs_exit_ns()
+> to it and kill the last abuser of s_instances (and one of the last sb_lock
+> ones), but that really depends on what kind of locking is needed for
+> readdir() and friends - as it is, the damn thing looks *wrong*.
 
-	route leak ?  you need dst_release(&rt->dst); [ and/or rcu ;) ]
+Answering your primary question first, what locking is needed in
+sysfs_exit_ns().
 
-> +		if ((mode >=3D 2) && rt->rt6i_idev->dev)
-> +			return 0;
-> +		if ((mode =3D=3D 1) && (rt->rt6i_idev->dev =3D=3D skb->dev))
-> +			return 0;
-> +	}
-> +	return -1;
-> +}
-> +
+Wrapping my head around this code again, to the best of my memory
+the intent was.
 
+For consistency "info->type[ns]" is an atomic value (void *) so
+it can be safely read and written without relying on locks.  For
+things like lookup 
 
+The assumption is that is primarily an atomic value and so it can
+be safely read by things like sysfs_readdir() and get a valid value
+without relying on the locks. 
 
+sysfs_mutex is needed in things like sysfs_lookup if we want the
+value to not change.
+
+There is indeed a small race in sysfs_readdir.
+
+As for sysfs_lookup it looks like my code to handle untagged members in
+directories where everything else is tagged, such as
+"/sys/class/net/bonding_masters" introduced an overloading of what NULL
+means in the context of sysfs_readdir and sysfs_lookup.   ns == NULL can
+either mean that we have type == KOBJ_NS_TYPE_NONE, or ns == NULL can
+mean that the namespace has gone away beneath us.  I looks like I need
+to fix that.
+
+To sysfs_exit_ns() we have the call chain:
+cleanup_net()
+  ops_exit_list()
+     net_kobj_ns_exit()
+        sysfs_exit_ns()
+
+Which makes the locking order needed for that call path.
+net_mutex()
+   rtnl_lock()
+   sysfs_mutex()
+
+Now somewhere I was also careful that mount did not cause problems,
+with sysfs_exit_ns() but I forget where.
+
+You were asking about kobj_ns_current.
+kboj_ns_current()
+  net_current_ns()
+     current->nsproxy->net_ns
+
+And current has a reference on it's network namespace.
+
+Other pieces of information that should be helpful to know.
+- All sysfs directory entries for a network namespace should be
+  removed from sysfs by the time sysfs_exit_ns is called.
+
+Al hopefully that is enough to get you going and I will what I can
+do with the rest of the sysfs ugliness.
+
+Eric
