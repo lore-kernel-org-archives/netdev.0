@@ -1,49 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv6: check for mistakenly passed in non-AF_INET6
- sockaddrs
-Date: Mon, 06 Jun 2011 14:48:40 -0700 (PDT)
-Message-ID: <20110606.144840.2081848600203422492.davem@davemloft.net>
-References: <20110601.210359.2079286191194442010.davem@davemloft.net>
-	<alpine.LNX.2.00.1106061538210.13876@nitsch.suse.de>
-	<20110606160007.GD28535@suse.de>
+Subject: Re: [BUG] net: cpu offline cause napi stall
+Date: Mon, 06 Jun 2011 14:50:51 -0700 (PDT)
+Message-ID: <20110606.145051.267562411413352856.davem@davemloft.net>
+References: <20110601181253.GA2374@osiris.boeblingen.de.ibm.com>
+	<1306958592.3946.0.camel@edumazet-laptop>
+	<20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: max@suse.de, netdev@vger.kernel.org
-To: meissner@suse.de
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, blaschka@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: heiko.carstens@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60260 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60300 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756131Ab1FFVsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 17:48:46 -0400
-In-Reply-To: <20110606160007.GD28535@suse.de>
+	with ESMTP id S1752569Ab1FFVu7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 17:50:59 -0400
+In-Reply-To: <20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcus Meissner <meissner@suse.de>
-Date: Mon, 6 Jun 2011 18:00:07 +0200
+=46rom: Heiko Carstens <heiko.carstens@de.ibm.com>
+Date: Wed, 1 Jun 2011 22:42:34 +0200
 
-> On Mon, Jun 06, 2011 at 03:47:30PM +0200, Reinhard Max wrote:
->> 
->> On Wed, 1 Jun 2011 at 21:03, David Miller wrote:
->> 
->> >Since we haven't been validating the sin_family field for 18+ years, 
->> >the chance to break some applications is very real.
->> >
->> >But I think it's more important to fix this (and force any broken 
->> >apps to set sin_family correctly).  So I will apply this, thanks.
->> 
->> I think a corresponding check should also go into inet6_bind() in 
->> net/ipv6/af_inet6.c .
-> 
-> Good idea,
-> 
-> Same check as for IPv4, also do for IPv6.
-> 
-> (If you passed in a IPv4 sockaddr_in here, the sizeof check
->  in the line before would have triggered already though.)
-> 
-> Signed-off-by: Marcus Meissner <meissner@suse.de>
-> Cc: Reinhard Max <max@suse.de>
+> On Wed, Jun 01, 2011 at 10:03:12PM +0200, Eric Dumazet wrote:
+>> Le mercredi 01 juin 2011 =E0 20:12 +0200, Heiko Carstens a =E9crit :
+>> > On Wed, Jun 01, 2011 at 06:55:21PM +0200, Eric Dumazet wrote:
+>> > > > +	/* Append NAPI poll list from offline CPU. */
+>> > > > +	list_splice_init(&oldsd->poll_list, &sd->poll_list);
+>> > > > =20
+>> > > >  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
+>> > > >  	local_irq_enable();
+>> > >=20
+>> > > Please make sure we raise NET_RX_SOFTIRQ on new cpu if necessary=
+=2E
+>> >=20
+>> > Well, see two lines below the list_splice_init() call ;)
+>>=20
+>> I see nothing... NET_TX_SOFTIRQ and NET_RX_SOFTIRQ are not the same=20
+>=20
+> Indeed. I must be blind.
 
-Applied, thanks.
+Can I get a final version of this patch with proper commit log message,
+signoffs, etc.?
+
+Thanks!
