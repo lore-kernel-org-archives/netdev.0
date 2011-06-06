@@ -1,58 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Mon, 06 Jun 2011 10:20:27 -0700
-Message-ID: <1307380827.4994.8.camel@Joe-Laptop>
-References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
-	 <20110523151336.GF21309@gospo.rdu.redhat.com>
-	 <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
-	 <20110524163323.GB28521@hmsreliant.think-freely.org>
-	 <BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
-	 <20110525152023.GC11867@hmsreliant.think-freely.org>
-	 <BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
-	 <20110526135053.GB12617@hmsreliant.think-freely.org>
-	 <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
-	 <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
-	 <1307379022.4994.4.camel@Joe-Laptop>
-	 <1307379881.3098.71.camel@edumazet-laptop>
+From: Mika Westerberg <mika.westerberg@iki.fi>
+Subject: Re: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
+Date: Mon, 6 Jun 2011 20:26:07 +0300
+Message-ID: <20110606172607.GB3082@acer>
+References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+ <20110605083445.GT16318@ibawizard.net>
+ <20110605085948.GB16018@acer>
+ <20110605.140801.1144137337172959622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ynezz@true.cz, netdev@vger.kernel.org,
+	hsweeten@visionengravers.com, ryan@bluewatersys.com,
+	kernel@wantstofly.org, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2530 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751695Ab1FFRU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2011 13:20:29 -0400
-In-Reply-To: <1307379881.3098.71.camel@edumazet-laptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:48474 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357Ab1FFR20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:28:26 -0400
+Received: by eyx24 with SMTP id 24so1437087eyx.19
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 10:28:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110605.140801.1144137337172959622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-06-06 at 19:04 +0200, Eric Dumazet wrote:
-> Le lundi 06 juin 2011 =C3=A0 09:50 -0700, Joe Perches a =C3=A9crit :
-> > There is a proposal to move some drivers/net content to
-> > drivers/net/sw/
-> > http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
-> > I think that'd be fine too.
-> > I believe Jeff is going to submit patches soonish.
-> > http://comments.gmane.org/gmane.linux.network/197232
-> As long as the re-organization is done without loosing "git blame"
-> information on current files, I am fine.
-> If not, this is a showstopper and not worth the pain, exactly like ot=
-her
-> cleanup patches.
+On Sun, Jun 05, 2011 at 02:08:01PM -0700, David Miller wrote:
+> From: Mika Westerberg <mika.westerberg@iki.fi>
+> Date: Sun, 5 Jun 2011 11:59:48 +0300
+> 
+> > It looks like David Miller (CC'd) has been taking care of ep93xx_eth.c maybe
+> > he knows this better.
+> 
+> Someone needs to step up and take over as the real maintainer of this
+> driver.  The way the driver is currently being hacked on is
+> unsustainable.
 
-To preserve history, all of this should be done via:
-	git mv oldpath/file newpath/file
-	git commit -m newpath/file=20
-with some extra cleanups to Kconfig/Makefile files
-so no worries.
+Can't agree more.
 
+Hartley, Ryan: do you have any preferences? Are you guys already overwhelmed
+with your current maintenance work, or could you consider taking this one as
+well? 
 
+If no one else steps up, I can volunteer but I have to admit that I don't know
+much about that driver.
