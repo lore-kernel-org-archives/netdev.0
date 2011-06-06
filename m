@@ -1,32 +1,34 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: linux-next: Tree for June 6 (sctp)
-Date: Mon, 6 Jun 2011 12:55:32 -0700
-Message-ID: <20110606125532.793b3cfd.randy.dunlap@oracle.com>
-References: <20110606132036.aebd73a4.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
+Date: Mon, 06 Jun 2011 13:03:09 -0700 (PDT)
+Message-ID: <20110606.130309.847468074358617705.davem@davemloft.net>
+References: <1307389540.2642.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-sctp@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110606132036.aebd73a4.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54745 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753367Ab1FFUDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:03:15 -0400
+In-Reply-To: <1307389540.2642.3.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 Jun 2011 13:20:36 +1000 Stephen Rothwell wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 06 Jun 2011 21:45:40 +0200
 
-> Hi all,
+> While trying Alexander Holler patch, I found a 32bit brctl program was
+> not able to work on a 64bit kernel. So I had to switch to another
+> machine for my tests.
 > 
-> Changes since 20110603:
+> brctl addbr mybridge
+> ->
+> socket(PF_FILE, SOCK_STREAM, 0)         = 3
+> ioctl(3, SIOCSIFBR, 0xffd509c0)         = -1 EINVAL (Invalid argument)
+> 
+> Should we care or not ?
 
-
-when CONFIG_IPV6 is not enabled:
-
-ERROR: "ipv6_chk_addr" [net/sctp/sctp.ko] undefined!
-
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+I think we should make an effort to fix this.
