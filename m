@@ -1,30 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-06-06
-Date: Mon, 06 Jun 2011 13:25:49 -0700 (PDT)
-Message-ID: <20110606.132549.1074295213687787615.davem@davemloft.net>
-References: <20110606190427.GH2604@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] e100: Fix inconsistency in bad frames
+ handling
+Date: Mon, 06 Jun 2011 22:29:57 +0200
+Message-ID: <1307392197.2642.14.camel@edumazet-laptop>
+References: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>
+	<alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>
+	<4DED14E7.2050405@candelatech.com>
+	<1307391315.22348.454.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110606190427.GH2604@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrea Merello <andrea.merello@gmail.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1307391315.22348.454.camel@localhost>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 6 Jun 2011 15:04:27 -0400
-
-> Here are a few more fixes intended for 3.0 -- a libertas fix for a
-> regression related to spurious interrupts, an ath5k fix to disable
-> "fast" channel switching (since it caused a number of devices to
-> regress in performance), an ssb fix for a regression that was applying
-> PCIe workarounds to PCI devices (causing a machine check), an fix for an
-> iwlagn locking regression, and a mac80211 fix for a device-naming
-> regression.
-> 
-> Please let me know if there are problems!
-
-Pulled, thanks John.
+TGUgbHVuZGkgMDYganVpbiAyMDExIMOgIDIxOjE1ICswMTAwLCBCZW4gSHV0Y2hpbmdzIGEgw6lj
+cml0IDoKPiBPbiBNb24sIDIwMTEtMDYtMDYgYXQgMTA6NTYgLTA3MDAsIEJlbiBHcmVlYXIgd3Jv
+dGU6Cj4gPiBPbiAwNi8wNi8yMDExIDEwOjQ5IEFNLCBCcmFuZGVidXJnLCBKZXNzZSB3cm90ZToK
+PiA+ID4KPiA+ID4gPGFkZGVkIG5ldGRldj4sIHJlbW92ZWQgb3RoZXIgdXNlbGVzcyBsaXN0cy4K
+PiA+ID4KPiA+ID4gT24gU2F0LCA0IEp1biAyMDExLCBBbmRyZWEgTWVyZWxsbyB3cm90ZToKPiA+
+ID4+IEluIGUxMDAgZHJpdmVyIGl0IHNlZW1zIHRoYXQgdGhlIGludGVudGlvbiB3YXMgdG8gYWNj
+ZXB0IGJhZCBmcmFtZXMgaW4KPiA+ID4+IHByb21pc2N1b3VzIG1vZGUgYW5kIGxvb3BiYWNrIG1v
+ZGUuCj4gPiA+PiBJIHRoaW5rIHRoaXMgaXMgZXZpZGVudCBiZWNhdXNlIG9mIHRoZSBmb2xsb3dp
+bmcgY29kZSBpbiB0aGUgZHJpdmVyOgo+ID4gPj4KPiA+ID4+IGlmIChuaWMtPmZsYWdzJiAgcHJv
+bWlzY3VvdXMgfHwgbmljLT5sb29wYmFjaykgewo+ID4gPj4gCQljb25maWctPnJ4X3NhdmVfYmFk
+X2ZyYW1lcyA9IDB4MTsJLyogMT1zYXZlLCAwPWRpc2NhcmQgKi8KPiA+ID4+IAkJY29uZmlnLT5y
+eF9kaXNjYXJkX3Nob3J0X2ZyYW1lcyA9IDB4MDsJLyogMT1kaXNjYXJkLCAwPXNhdmUgKi8KPiA+
+ID4+IAkJY29uZmlnLT5wcm9taXNjdW91c19tb2RlID0gMHgxOwkJLyogMT1vbiwgMD1vZmYgKi8K
+PiA+ID4+IAl9Cj4gPiA+Pgo+ID4gPgo+ID4gPiBIaSwgdGhhbmtzIGZvciB5b3VyIHdvcmsgb24g
+ZTEwMC4KPiA+ID4KPiA+ID4+IEhvd2V2ZXIgdGhpcyBpbnRlbnRpb24gaXMgbm90IHJlYWxseSBy
+ZWFsaXplZCBiZWNhdXNlIGJhZCBmcmFtZXMgYXJlCj4gPiA+PiBkaXNjYXJkZWQgbGF0ZXIgYnkg
+U1cgY2hlY2suCj4gPiA+PiBUaGlzIHBhdGNoIGZpbmFsbHkgaG9ub3JzIHRoZSBhYm92ZSBpbnRl
+bnRpb24sIG1ha2luZyB0aGUgUlggY29kZSB0bwo+ID4gPj4gbGV0IGJhZCBmcmFtZXMgdG8gcGFz
+cyB3aGVuIHRoZSBOSUMgaXMgaW4gcHJvbWlzY3VvdXMgb3IgbG9vcGJhY2sKPiA+ID4+IG1vZGUu
+Cj4gPiA+Cj4gPiA+IEkgdGhpbmsgdGhpcyBtYXkgYmUgYSBtaXN0YWtlIGJ5IHRoZSBhdXRob3Jz
+IG9mIHRoZSBzb2Z0d2FyZSBkZXZlbG9wZXJzCj4gPiA+IG1hbnVhbC4gIFRoZSBtYW51YWwgc3Vn
+Z2VzdHMgdGhhdCBzYXZlIGJhZCBmcmFtZXMgYW5kIHNhdmUgc2hvcnQgZnJhbWVzCj4gPiA+IHNo
+b3VsZCBiZSBlbmFibGVkIGluIHByb21pc2MgbW9kZSwgYnV0IGFsbCBvZiBvdXIgb3RoZXIgZHJp
+dmVycyAqZG8gbm90Kgo+ID4gPiBzYXZlIGJhZCBmcmFtZXMgd2hlbiBpbiBwcm9taXNjdW91cyBt
+b2RlIChieSBkZXNpZ24pLiAgVGhpcyBpcyBpbnRlbnRpb25hbAo+ID4gPiBiZWNhdXNlIGEgYmFk
+IGZyYW1lIGlzIGp1c3QgdGhhdCwgYmFkLCBhbmQgd2l0aCBubyBob3BlIG9mIGtub3dpbmcgaWYg
+dGhlCj4gPiA+IGRhdGEgaW4gaXQgaXMgb2theS9tYWxpY2lvdXMvb3RoZXIuICBJIHVuZGVyc3Rh
+bmQgeW91ciByZWFzb25pbmcgYWJvdmUsCj4gPiA+IGJ1dCByZWFsaXN0aWNhbGx5IHRoZSByeF9z
+YXZlX2JhZF9mcmFtZXMgc2hvdWxkIE5PVCBiZSBzZXQuICBJJ2QgYWNrIGEKPiA+ID4gcGF0Y2gg
+dG8gY29tbWVudCB0aGF0IGxpbmUgb3V0Lgo+ID4gPgo+ID4gPj4gVGhpcyBoZWxwZWQgbWUgYSBs
+b3QgdG8gZGVidWcgYW4gRlBHQSBldGhlcm5ldCBjb3JlLgo+ID4gPj4gTWF5YmUgaXQgY2FuIGJl
+IGFsc28gdXNlZnVsIHRvIHNvbWVvbmUgZWxzZS4uCj4gPiA+Cj4gPiA+IEkgdGhpbmsgdGhpcyBw
+YXRjaCBpcyBqdXN0IHRoYXQsIGRlYnVnIG9ubHkuIEFzIGEgZGV2ZWxvcGVyIEkgdW5kZXJzdGFu
+ZAo+ID4gPiB3aHkgdGhpcyBpcyB1c2VmdWwsIGJ1dCB0aGVyZSBpcyBubyByZWFzb24gYW55IG5v
+cm1hbCB1c2VyIHdvdWxkIGJlIGFibGUKPiA+ID4gdG8gYmVuZWZpdCBmcm9tIHRoaXMsIHNvIGZv
+ciBub3csIHNvcnJ5Ogo+ID4gPgo+ID4gPiBOQUNLLgo+ID4gCj4gPiBJIHRoaW5rIGFueW9uZSBz
+bmlmZmluZyBhIGZ1bmt5IG5ldHdvcmsgd291bGQgaGF2ZSBiZW5lZml0IGluCj4gPiByZWNlaXZp
+bmcgYWxsIGZyYW1lcy4gIFNvLCB3aGlsZSBpdCBzaG91bGRuJ3QgYmUgZW5hYmxlZCBieSBkZWZh
+dWx0LAo+ID4gaXQgd291bGQgYmUgbmljZSB0byBoYXZlIGFuIGV0aHRvb2wgY29tbWFuZCB0byB0
+dXJuIG9uIHJlY2VpdmluZwo+ID4gYmFkLWNyYyBmcmFtZXMsIGFzIHdlbGwgYXMgcmVjZWl2aW5n
+IHRoZSA0LWJ5dGUgQ1JDIG9uIHRoZSBlbmQgb2YKPiA+IHRoZSBwYWNrZXRzLgo+ID4gCj4gPiBJ
+dCBqdXN0IHNvIGhhcHBlbnMgSSBoYXZlIHN1Y2ggYSBwYXRjaCwgaW4gY2FzZSBvdGhlcnMgYWdy
+ZWUgOikKPiAKPiBIb3cgd291bGQgYSByZWNlaXZlZCBza2IgYmUgZmxhZ2dlZCBhcyBoYXZpbmcg
+YSBDUkMgZXJyb3I/Cj4gCgptYXliZSBzb21lIHNrYi0+cGt0X3R5cGUgPSBQQUNLRVRfSU5WQUxJ
+RDsgb3Igc29tZXRoaW5nLi4uCgoKCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KU2ltcGxpZnkgZGF0
+YSBiYWNrdXAgYW5kIHJlY292ZXJ5IGZvciB5b3VyIHZpcnR1YWwgZW52aXJvbm1lbnQgd2l0aCB2
+UmFuZ2VyLgpJbnN0YWxsYXRpb24ncyBhIHNuYXAsIGFuZCBmbGV4aWJsZSByZWNvdmVyeSBvcHRp
+b25zIG1lYW4geW91ciBkYXRhIGlzIHNhZmUsCnNlY3VyZSBhbmQgdGhlcmUgd2hlbiB5b3UgbmVl
+ZCBpdC4gRGlzY292ZXIgd2hhdCBhbGwgdGhlIGNoZWVyaW5nJ3MgYWJvdXQuCkdldCB5b3VyIGZy
+ZWUgdHJpYWwgZG93bmxvYWQgdG9kYXkuIApodHRwOi8vcC5zZi5uZXQvc2Z1L3F1ZXN0LWRldjJk
+ZXYyIApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAw
+MC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0
+dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRv
+IGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21t
+dW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
