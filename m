@@ -1,53 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Mon, 06 Jun 2011 22:23:17 +0200
-Message-ID: <1307391797.2642.12.camel@edumazet-laptop>
-References: <20110601011527.GN19505@random.random>
-	 <alpine.LSU.2.00.1105312120530.22808@sister.anvils>
-	 <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com>
-	 <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com>
-	 <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com>
-	 <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com>
-	 <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com>
-	 <isavsg$3or$1@dough.gmane.org> <4DE906C0.6060901@fnarfbargle.com>
-	 <4DED344D.7000005@pandora.be>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
+Date: Mon, 6 Jun 2011 22:26:02 +0200
+Message-ID: <201106062226.02635.arnd@arndb.de>
+References: <1307389540.2642.3.camel@edumazet-laptop> <201106062206.29134.arnd@arndb.de> <1307391174.2642.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Brad Campbell <brad@fnarfbargle.com>, kvm@vger.kernel.org,
- linux-mm@kvack.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- netfilter-devel@vger.kernel.org
-To: Bart De Schuymer <bdschuym@pandora.be>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4DED344D.7000005@pandora.be>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:50229 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753834Ab1FFU0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:26:04 -0400
+In-Reply-To: <1307391174.2642.8.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 juin 2011 =C3=A0 22:10 +0200, Bart De Schuymer a =C3=A9crit :
-> Hi Brad,
->=20
-> This has probably nothing to do with ebtables, so please rmmod in case=20
-> it's loaded.
-> A few questions I didn't directly see an answer to in the threads I=20
-> scanned...
-> I'm assuming you actually use the bridging firewall functionality. So,=20
-> what iptables modules do you use? Can you reduce your iptables rules to=
-=20
-> a core that triggers the bug?
-> Or does it get triggered even with an empty set of firewall rules?
-> Are you using a stock .35 kernel or is it patched?
-> Is this something I can trigger on a poor guy's laptop or does it=20
-> require specialized hardware (I'm catching up on qemu/kvm...)?
->=20
+On Monday 06 June 2011 22:12:54 Eric Dumazet wrote:
+> So for an old binary, compiled at the time SIOCBRADDBR wasnt there (in
+> include file I mean), we ended doing :
+> 
+>         {
+>                 char _br[IFNAMSIZ];
+>                 unsigned long arg[3]
+>                         = { BRCTL_ADD_BRIDGE, (unsigned long) _br };
+> 
+>                 strncpy(_br, brname, IFNAMSIZ);
+>                 ret = ioctl(br_socket_fd, SIOCSIFBR, arg);
+>         }
+> 
+> And this breaks on 64bit kernel
 
-Keep netdev, as this most probably is a networking bug.
+Ah, you were quicker than me at posting this ;-)
 
+> I guess we shall add some logic in kernel to support SIOCSIFBR
+> afterall ;)
+> 
+> Thanks !
+> 
+> BTW: I confirm that compiling an up2date 32bit brctl with an up2date
+> include files is OK on 64bit kernel.
 
+I did a little more digging in the history and found that the code in
+brctl was added in this commit:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+commit 328f4711bbc369dcccf8f8cfba2adf5dd0f74479
+Author: shemminger <shemminger>
+Date:   Fri May 21 17:41:48 2004 +0000
+
+    New version of command and library that use sysfs.
+    Update make system to build with or without sysfs.
+
+It's not completely clear to me if it's worth supporting older
+user space than this, but it's certainly possible.
+
+	Arnd
