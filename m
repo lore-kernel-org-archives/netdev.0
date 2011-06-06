@@ -1,66 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Mon, 06 Jun 2011 22:22:26 +0200
-Message-ID: <1307391746.2642.11.camel@edumazet-laptop>
-References: <20110601011527.GN19505@random.random>
-	 <alpine.LSU.2.00.1105312120530.22808@sister.anvils>
-	 <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com>
-	 <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com>
-	 <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com>
-	 <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com>
-	 <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com>
-	 <4DEB3AE4.8040700@redhat.com>  <4DEB8872.2060801@fnarfbargle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
+Date: Mon, 06 Jun 2011 13:23:15 -0700 (PDT)
+Message-ID: <20110606.132315.1222364671200899036.davem@davemloft.net>
+References: <201106062206.29134.arnd@arndb.de>
+	<20110606.130958.1488166895702555231.davem@davemloft.net>
+	<201106062219.33432.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Avi Kivity <avi@redhat.com>, CaT <cat@zip.com.au>, Hugh Dickins
- <hughd@google.com>, Andrea Arcangeli <aarcange@redhat.com>, Borislav Petkov
- <bp@alien8.de>, linux-kernel@vger.kernel.org, kvm@vger.kernel.org, linux-mm
- <linux-mm@kvack.org>, netdev <netdev@vger.kernel.org>
-To: Brad Campbell <lists2009@fnarfbargle.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4DEB8872.2060801@fnarfbargle.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:55562 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753613Ab1FFUXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:23:21 -0400
+In-Reply-To: <201106062219.33432.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 05 juin 2011 =C3=A0 21:45 +0800, Brad Campbell a =C3=A9crit :
-> On 05/06/11 16:14, Avi Kivity wrote:
-> > On 06/03/2011 04:38 PM, Brad Campbell wrote:
-> >>
-> >> Is there anyone who can point me at the appropriate cage to rattle? =
-I
-> >> know it appears to be a netfilter issue, but I don't seem to be able
-> >> to get a message to the list (and I am subscribed to it and have bee=
-n
-> >> getting mail for months) and I'm not sure who to pester. The other
-> >> alternative is I just stop doing "that" and wait for it to bite
-> >> someone else.
-> >
-> > The mailing list might be set not to send your own mails back to you.
-> > Check the list archive.
->=20
-> Yep, I did that first..
->=20
-> Given the response to previous issues along the same line, it looks a=20
-> bit like I just remember not to actually use the system in the way that=
-=20
-> triggers the bug and be happy that 99% of the time the kernel does not=20
-> panic, but have that lovely feeling in the back of the skull that says=20
-> "any time now, and without obvious reason the whole machine might just=20
-> come crashing down"..
->=20
-> I guess it's still better than running Xen or Windows..
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 6 Jun 2011 22:19:33 +0200
 
-Could you please try latest linux-2.6 tree ?
+> I think it would be good to first understand why it doesn't work with the
+> new style ioctls that are in the kernel. The source code of brctl that
+> I'm looking at here contains:
 
-We fixed many networking bugs that could explain your crash.
+Eric's 32-bit binary was built against older headers that didn't
+define the new ioctls.
 
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+That makes it pretty clear to me that we have to support those
+older ioctls in compat mode even after all these years.
