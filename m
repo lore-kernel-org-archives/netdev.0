@@ -1,29 +1,52 @@
-From: Carlos Carvalho <carlos@fisica.ufpr.br>
-Subject: IPv6 DNSSL (rfc6106): please include the patch to pass it to user space
-Date: Mon, 6 Jun 2011 13:29:11 -0300
-Message-ID: <19949.87.934341.698604@fisica.ufpr.br>
-References: <20080328092036.GA11924@2ka.mipt.ru>
-	<20080328.134053.122172549.davem@davemloft.net>
-	<20080328205613.GA24812@2ka.mipt.ru>
-	<20080328.140736.92315090.davem@davemloft.net>
-	<20080328215131.GB24812@2ka.mipt.ru>
-	<20080401164904.GA2382@2ka.mipt.ru>
-	<20080408122545.GA31729@2ka.mipt.ru>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Mon, 06 Jun 2011 09:50:22 -0700
+Message-ID: <1307379022.4994.4.camel@Joe-Laptop>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+	 <20110523151336.GF21309@gospo.rdu.redhat.com>
+	 <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+	 <20110524163323.GB28521@hmsreliant.think-freely.org>
+	 <BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
+	 <20110525152023.GC11867@hmsreliant.think-freely.org>
+	 <BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
+	 <20110526135053.GB12617@hmsreliant.think-freely.org>
+	 <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
+	 <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fisica.ufpr.br ([200.17.209.129]:58205 "EHLO fisica.ufpr.br"
+Received: from mail.perches.com ([173.55.12.10]:2523 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755498Ab1FFQjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2011 12:39:06 -0400
-In-Reply-To: <20080408122545.GA31729@2ka.mipt.ru>
+	id S1751544Ab1FFQuY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 12:50:24 -0400
+In-Reply-To: <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the kernel doesn't pass DNSSL lists received by router
-advertsiments (rfc 6106) to user space via netlink. Pierre Ossman sent
-a patch for it about 6 months ago:
-http://patchwork.ozlabs.org/patch/75243. Could you please include it
-in mainline? This is a very useful feature.
+On Tue, 2011-06-07 at 00:34 +0800, Am=C3=A9rico Wang wrote:
+> I agree with this, IMHO this would help to organize the code better.
+> And currently only tuntap and bonding are still in net/ directory.
+> In any aspects, now we are mixing net/ and drivers/net/ currently,
+> which could be improved.
+
+There is a proposal to move some drivers/net content to
+drivers/net/sw/
+
+http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
+
+I think that'd be fine too.
+
+I believe Jeff is going to submit patches soonish.
+
+http://comments.gmane.org/gmane.linux.network/197232
+
+
