@@ -1,43 +1,39 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: small RPS cache for fragments?
-Date: Mon, 06 Jun 2011 16:49:22 -0600
-Message-ID: <4DED5972.6020507@genband.com>
-References: <20110606.122217.2183968212149987796.davem@davemloft.net>	<1307390721.8149.2763.camel@tardy>	<17839.1307394369@death> <20110606.144026.1544243502220840783.davem@davemloft.net>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: ipv6 hitting route max_size
+Date: Mon, 6 Jun 2011 16:15:21 -0700
+Message-ID: <20110606231521.GB22559@hostway.ca>
+References: <20110606213727.GB11757@hostway.ca> <20110606.150142.2071869702137894615.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, rick.jones2@hp.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og113.obsmtp.com ([64.18.2.179]:55312 "EHLO
-	exprod7og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758405Ab1FFWt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 18:49:29 -0400
-In-Reply-To: <20110606.144026.1544243502220840783.davem@davemloft.net>
+Received: from peace.netnation.com ([204.174.223.2]:43829 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753739Ab1FFXPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 19:15:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20110606.150142.2071869702137894615.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2011 03:40 PM, David Miller wrote:
-> From: Jay Vosburgh<fubar@us.ibm.com>
-> Date: Mon, 06 Jun 2011 14:06:09 -0700
->
->> 	Right, the common use case for balance-rr (round robin) is to
->> maximize TCP throughput for one connection, over a set of whatever
->> network devices are available (or are cheap) by striping that connection
->> across multiple interfaces.  The tcp_reordering sysctl is set to some
->> large value so that TCP will deal with the reordering as best it can.
->
-> FWIW, I really would never, ever, encourage schemes like this.  Even
-> if they do happen to work.
+On Mon, Jun 06, 2011 at 03:01:42PM -0700, David Miller wrote:
 
-Why not?  And if not then what's the recommended way to handle the above 
-scenario?  (Assuming hardware upgrade isn't an option.)
+> From: Simon Kirby <sim@hostway.ca>
+> Date: Mon, 6 Jun 2011 14:37:27 -0700
+> 
+> > /proc/sys/net/ipv6/route/max_size and a number of similar GC knobs exist,
+> > but max_size seems to limit the size of the v6 route table, not the v6
+> > route cache.
+> 
+> There is no v6 route cache.
+> 
+> Instead of a routing cache, ipv6 route lookups "clone" new routes into
+> the same datastructre the route table is stored in.
 
-Chris
+Ok, makes sense, but the result is now that ipv4 loads a full Internet
+table with no adjustments, while ipv6 does not. Would it make sense to
+change 4096 to 1048576, or would it be better to count only clones of
+the actual route or something along those lines?
 
--- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+Simon-
