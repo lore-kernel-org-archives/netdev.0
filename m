@@ -1,65 +1,62 @@
-From: Marcus Meissner <meissner@suse.de>
-Subject: [PATCH] net/ipv6: check for mistakenly passed in non-AF_INET6 sockaddrs
-Date: Mon, 6 Jun 2011 18:00:07 +0200
-Message-ID: <20110606160007.GD28535@suse.de>
-References: <20110525155918.GA27869@suse.de> <20110601.210359.2079286191194442010.davem@davemloft.net> <alpine.LNX.2.00.1106061538210.13876@nitsch.suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: bridge/netfilter: regression in 2.6.39.1
+Date: Mon, 06 Jun 2011 18:11:45 +0200
+Message-ID: <1307376705.3098.58.camel@edumazet-laptop>
+References: <4DE93422.3070000@ahsoftware.de>
+	 <20110606111507.GA1000@hmsreliant.think-freely.org>
+	 <4DECBEA3.6070408@ahsoftware.de> <1307362358.3098.6.camel@edumazet-laptop>
+	 <4DECCCC0.70905@ahsoftware.de> <1307366166.3098.15.camel@edumazet-laptop>
+	 <4DECD657.9010807@ahsoftware.de> <1307370363.3098.37.camel@edumazet-laptop>
+	 <20110606153213.GC1000@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Reinhard Max <max@suse.de>, David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Holler <holler@ahsoftware.de>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46530 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757587Ab1FFQAK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2011 12:00:10 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.00.1106061538210.13876@nitsch.suse.de>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47255 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755147Ab1FFQLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 12:11:49 -0400
+In-Reply-To: <20110606153213.GC1000@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 06, 2011 at 03:47:30PM +0200, Reinhard Max wrote:
-> 
-> On Wed, 1 Jun 2011 at 21:03, David Miller wrote:
-> 
-> >Since we haven't been validating the sin_family field for 18+ years, 
-> >the chance to break some applications is very real.
-> >
-> >But I think it's more important to fix this (and force any broken 
-> >apps to set sin_family correctly).  So I will apply this, thanks.
-> 
-> I think a corresponding check should also go into inet6_bind() in 
-> net/ipv6/af_inet6.c .
+Le lundi 06 juin 2011 =C3=A0 11:32 -0400, Neil Horman a =C3=A9crit :
 
-Good idea,
+> Not to drag this out further, but since you illustrated the correct w=
+ay to do
+> this with the blackhole_ops test, and this modification now gives us =
+two
+> instances of that case, would it perhaps be better to just do this in
+> dst_metrics_write_ptr:
+>=20
+> return dst->ops->cow_metrics ? return dst->ops->cow_metrics(dst, p) :=
+ NULL;
+>=20
+> Then we could eliminate the two functions that do nothing be retun NU=
+LL (along
+> with their respective call instructions), and save any future users f=
+rom having
+> to remember to include a dummy cow_metrics method if they happen to s=
+et the read
+> only flag on thier dst_ops?
 
-Same check as for IPv4, also do for IPv6.
+Well, I prefer how David coded the thing.
+We can add selective traces where we want.
 
-(If you passed in a IPv4 sockaddr_in here, the sizeof check
- in the line before would have triggered already though.)
+Having a default behavior might give much more work to find a bug in
+this area. A NULL pointer access gives us an immediate indication.
 
-Signed-off-by: Marcus Meissner <meissner@suse.de>
-Cc: Reinhard Max <max@suse.de>
+Its a bit late to add an "if (dst->ops->cow_metrics)" test now that we
+covered all call sites ;)
 
-Ciao, Marcus
----
- net/ipv6/af_inet6.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+But we probably have more bugs elsewhere, because of many dst changes i=
+n
+2.6.39
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index b7919f9..d450a2f 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -272,6 +272,10 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 
- 	if (addr_len < SIN6_LEN_RFC2133)
- 		return -EINVAL;
-+
-+	if (addr->sin6_family != AF_INET6)
-+		return -EINVAL;
-+
- 	addr_type = ipv6_addr_type(&addr->sin6_addr);
- 	if ((addr_type & IPV6_ADDR_MULTICAST) && sock->type == SOCK_STREAM)
- 		return -EINVAL;
--- 
-1.7.4.1
+
 
