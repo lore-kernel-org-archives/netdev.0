@@ -1,143 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bridge/netfilter: regression in 2.6.39.1
-Date: Mon, 06 Jun 2011 16:26:03 +0200
-Message-ID: <1307370363.3098.37.camel@edumazet-laptop>
-References: <4DE93422.3070000@ahsoftware.de>
-	 <20110606111507.GA1000@hmsreliant.think-freely.org>
-	 <4DECBEA3.6070408@ahsoftware.de> <1307362358.3098.6.camel@edumazet-laptop>
-	 <4DECCCC0.70905@ahsoftware.de> <1307366166.3098.15.camel@edumazet-laptop>
-	 <4DECD657.9010807@ahsoftware.de>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next-2.6 PATCH] macvlan: add VLAN filters to lowerdev
+Date: Mon, 06 Jun 2011 07:27:16 -0700
+Message-ID: <20110606142715.2692.6311.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Alexander Holler <holler@ahsoftware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DECD657.9010807@ahsoftware.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:55355 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751226Ab1FFOdc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 10:33:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Alexander Holler <holler@ahsoftware.de>
+Stacking VLANs on top of the macvlan device does not
+work if the lowerdev device is using vlan filters set
+by NETIF_F_HW_VLAN_FILTER. Add ndo ops to pass vlan
+calls to lowerdev.
 
-Le lundi 06 juin 2011 =C3=A0 15:29 +0200, Alexander Holler a =C3=A9crit=
- :
-> > Nice, now please submit a patch with 0972ddb237 as a guideline.
-> >
-> > BTW, you could also check other struct dst_ops methods for
-> > bridge/netfilter:
->=20
-> Sorry, but I prefer to submit patches I understand by myself and for=20
-> stuff I know something about. The patch in my first mail was just mea=
-nt=20
-> as a quick fix (which seemed to work here).
->=20
-> So even if I might be able to construct a working patch using commit=20
-> 0972ddb237, I don't think I should do that.
-
-OK, I'll do it for you then, I am surprised you dont understand my
-review / suggestion.
-
-One patch submitter is supposed to followup and send a new version to
-take into account reviews/comments, not wait that eventually everybody
-says "OK, lets take it as is"
-
-
-[PATCH] bridge: provide a cow_metrics method for fake_ops
-
-Like in commit 0972ddb237 (provide cow_metrics() methods to blackhole
-dst_ops), we must provide a cow_metrics for bridges fake_dst_ops as
-well.
-
-This fixes a regression coming from commits 62fa8a846d7d (net: Implemen=
-t
-read-only protection and COW'ing of metrics.) and 33eb9873a28 (bridge:
-initialize fake_rtable metrics)
-
-ip link set mybridge mtu 1234
--->
-[  136.546243] Pid: 8415, comm: ip Tainted: P=20
-2.6.39.1-00006-g40545b7 #103 ASUSTeK Computer Inc.         V1Sn=20
-        /V1Sn
-[  136.546256] EIP: 0060:[<00000000>] EFLAGS: 00010202 CPU: 0
-[  136.546268] EIP is at 0x0
-[  136.546273] EAX: f14a389c EBX: 000005d4 ECX: f80d32c0 EDX: f80d1da1
-[  136.546279] ESI: f14a3000 EDI: f255bf10 EBP: f15c3b54 ESP: f15c3b48
-[  136.546285]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-[  136.546293] Process ip (pid: 8415, ti=3Df15c2000 task=3Df4741f80=20
-task.ti=3Df15c2000)
-[  136.546297] Stack:
-[  136.546301]  f80c658f f14a3000 ffffffed f15c3b64 c12cb9c8 f80d1b80=20
-ffffffa1 f15c3bbc
-[  136.546315]  c12da347 c12d9c7d 00000000 f7670b00 00000000 f80d1b80=20
-ffffffa6 f15c3be4
-[  136.546329]  00000004 f14a3000 f255bf20 00000008 f15c3bbc c11d6cae=20
-00000000 00000000
-[  136.546343] Call Trace:
-[  136.546359]  [<f80c658f>] ? br_change_mtu+0x5f/0x80 [bridge]
-[  136.546372]  [<c12cb9c8>] dev_set_mtu+0x38/0x80
-[  136.546381]  [<c12da347>] do_setlink+0x1a7/0x860
-[  136.546390]  [<c12d9c7d>] ? rtnl_fill_ifinfo+0x9bd/0xc70
-[  136.546400]  [<c11d6cae>] ? nla_parse+0x6e/0xb0
-[  136.546409]  [<c12db931>] rtnl_newlink+0x361/0x510
-[  136.546420]  [<c1023240>] ? vmalloc_sync_all+0x100/0x100
-[  136.546429]  [<c1362762>] ? error_code+0x5a/0x60
-[  136.546438]  [<c12db5d0>] ? rtnl_configure_link+0x80/0x80
-[  136.546446]  [<c12db27a>] rtnetlink_rcv_msg+0xfa/0x210
-[  136.546454]  [<c12db180>] ? __rtnl_unlock+0x20/0x20
-[  136.546463]  [<c12ee0fe>] netlink_rcv_skb+0x8e/0xb0
-[  136.546471]  [<c12daf1c>] rtnetlink_rcv+0x1c/0x30
-[  136.546479]  [<c12edafa>] netlink_unicast+0x23a/0x280
-[  136.546487]  [<c12ede6b>] netlink_sendmsg+0x26b/0x2f0
-[  136.546497]  [<c12bb828>] sock_sendmsg+0xc8/0x100
-[  136.546508]  [<c10adf61>] ? __alloc_pages_nodemask+0xe1/0x750
-[  136.546517]  [<c11d0602>] ? _copy_from_user+0x42/0x60
-[  136.546525]  [<c12c5e4c>] ? verify_iovec+0x4c/0xc0
-[  136.546534]  [<c12bd805>] sys_sendmsg+0x1c5/0x200
-[  136.546542]  [<c10c2150>] ? __do_fault+0x310/0x410
-[  136.546549]  [<c10c2c46>] ? do_wp_page+0x1d6/0x6b0
-[  136.546557]  [<c10c47d1>] ? handle_pte_fault+0xe1/0x720
-[  136.546565]  [<c12bd1af>] ? sys_getsockname+0x7f/0x90
-[  136.546574]  [<c10c4ec1>] ? handle_mm_fault+0xb1/0x180
-[  136.546582]  [<c1023240>] ? vmalloc_sync_all+0x100/0x100
-[  136.546589]  [<c10233b3>] ? do_page_fault+0x173/0x3d0
-[  136.546596]  [<c12bd87b>] ? sys_recvmsg+0x3b/0x60
-[  136.546605]  [<c12bdd83>] sys_socketcall+0x293/0x2d0
-[  136.546614]  [<c13629d0>] sysenter_do_call+0x12/0x26
-[  136.546619] Code:  Bad EIP value.
-[  136.546627] EIP: [<00000000>] 0x0 SS:ESP 0068:f15c3b48
-[  136.546645] CR2: 0000000000000000
-[  136.546652] ---[ end trace 6909b560e78934fa ]---
-
-Signed-off-by: Alexander Holler <holler@ahsoftware.de>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Neil Horman <nhorman@tuxdriver.com>
-CC: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
-net/bridge/br_netfilter.c |    6 ++++++
- 1 file changed, 6 insertions(+)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 3fa1231..23b43d2 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -104,10 +104,16 @@ static void fake_update_pmtu(struct dst_entry *ds=
-t, u32 mtu)
- {
+ drivers/net/macvlan.c |   39 ++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 38 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index d6aeaa5..cc67cbe 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -414,7 +414,8 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
+ #define MACVLAN_FEATURES \
+ 	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
+ 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
+-	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO | NETIF_F_RXCSUM)
++	 NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_GRO | NETIF_F_RXCSUM | \
++	 NETIF_F_HW_VLAN_FILTER)
+ 
+ #define MACVLAN_STATE_MASK \
+ 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
+@@ -509,6 +510,39 @@ static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
+ 	return stats;
  }
-=20
-+static u32 *fake_cow_metrics(struct dst_entry *dst, unsigned long old)
+ 
++static void macvlan_vlan_rx_register(struct net_device *dev,
++				     struct vlan_group *grp)
 +{
-+	return NULL;
++	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct net_device *lowerdev = vlan->lowerdev;
++	const struct net_device_ops *ops = lowerdev->netdev_ops;
++
++	if (ops->ndo_vlan_rx_register)
++		ops->ndo_vlan_rx_register(lowerdev, grp);
 +}
 +
- static struct dst_ops fake_dst_ops =3D {
- 	.family =3D		AF_INET,
- 	.protocol =3D		cpu_to_be16(ETH_P_IP),
- 	.update_pmtu =3D		fake_update_pmtu,
-+	.cow_metrics =3D		fake_cow_metrics,
++static void macvlan_vlan_rx_add_vid(struct net_device *dev,
++				    unsigned short vid)
++{
++	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct net_device *lowerdev = vlan->lowerdev;
++	const struct net_device_ops *ops = lowerdev->netdev_ops;
++
++	if (ops->ndo_vlan_rx_add_vid)
++		ops->ndo_vlan_rx_add_vid(lowerdev, vid);
++}
++
++static void macvlan_vlan_rx_kill_vid(struct net_device *dev,
++				     unsigned short vid)
++{
++	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct net_device *lowerdev = vlan->lowerdev;
++	const struct net_device_ops *ops = lowerdev->netdev_ops;
++
++	if (ops->ndo_vlan_rx_kill_vid)
++		ops->ndo_vlan_rx_kill_vid(lowerdev, vid);
++}
++
+ static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
+ 					struct ethtool_drvinfo *drvinfo)
+ {
+@@ -541,6 +575,9 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_set_multicast_list	= macvlan_set_multicast_list,
+ 	.ndo_get_stats64	= macvlan_dev_get_stats64,
+ 	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_vlan_rx_register	= macvlan_vlan_rx_register,
++	.ndo_vlan_rx_add_vid	= macvlan_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid	= macvlan_vlan_rx_kill_vid,
  };
-=20
- /*
+ 
+ void macvlan_common_setup(struct net_device *dev)
+
