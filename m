@@ -1,75 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
 Subject: Re: [PATCH 2/3] ipv4: Fix packet size calculation for IPsec
  packets in __ip_append_data
-Date: Mon, 06 Jun 2011 09:38:19 +0200
-Message-ID: <1307345899.3098.3.camel@edumazet-laptop>
+Date: Mon, 6 Jun 2011 10:52:47 +0200
+Message-ID: <20110606085247.GE31505@secunet.com>
 References: <20110606064603.GB31505@secunet.com>
-	 <20110606064802.GC31505@secunet.com>
+ <20110606064802.GC31505@secunet.com>
+ <1307345899.3098.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53130 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014Ab1FFHiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 03:38:23 -0400
-Received: by wwa36 with SMTP id 36so3495719wwa.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 00:38:22 -0700 (PDT)
-In-Reply-To: <20110606064802.GC31505@secunet.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:49607 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756929Ab1FFIta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 04:49:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1307345899.3098.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 juin 2011 =C3=A0 08:48 +0200, Steffen Klassert a =C3=A9crit=
- :
-> Git commit 59104f06 (ip: take care of last fragment in ip_append_data=
-)
-> added a check to see if we exceed the mtu when we add trailer_len.
-> However, the mtu is already subtracted by trailer_len when the
-> xfrm transfomation bundles are set up. So IPsec packets with mtu
-> size get fragmented, or if the DF bit is set the packets will not
-> be send even though they match the mtu perfectly fine. This patch
-> actually reverts commit 59104f06.
->=20
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
+On Mon, Jun 06, 2011 at 09:38:19AM +0200, Eric Dumazet wrote:
+> 
+> Woh, I am afraid I wont have time in following days to check your
+> assertion.
 
-Woh, I am afraid I wont have time in following days to check your
-assertion.
+My test setup was the following:
 
-What about original problem then, how should we fix it ?
+I use an IPsec tunnel with tunnel endpoints 192.168.1.1 and 192.168.1.2
 
-We do have some cases where at least one fragment (the last one) is
-oversized.
+Then I do at 192.168.1.2
 
-I remember I used Nick Bowler scripts at that time, I might find them
-again...
+ping -c1 -M do -s 1410 192.168.1.1
 
-[PATCH] ip : take care of last fragment in ip_append_data
+PING 192.168.1.1 (192.168.1.1) 1410(1438) bytes of data.
+>From 192.168.1.2 icmp_seq=1 Frag needed and DF set (mtu = 1438)
 
-While investigating a bit, I found ip_fragment() slow path was taken
-because ip_append_data() provides following layout for a send(MTU +
-N*(MTU - 20)) syscall :
+--- 192.168.1.1 ping statistics ---
+0 packets transmitted, 0 received, +1 errors
 
-- one skb with 1500 (mtu) bytes
-- N fragments of 1480 (mtu-20) bytes (before adding IP header)
-last fragment gets 17 bytes of trail data because of following bit:
+So the packet matches the mtu but it is not send.
+I used a kernel with your patch as head commit.
 
-        if (datalen =3D=3D length + fraggap)
-                alloclen +=3D rt->dst.trailer_len;
+Reverting your patch (going one commit deeper in the history):
 
-Then esp4 adds 16 bytes of data (while trailer_len is 17... hmm...
-another bug ?)
+ping -c1 -M do -s 1410 192.168.1.1
 
-In ip_fragment(), we notice last fragment is too big (1496 + 20) > mtu,
-so we take slow path, building another skb chain.
+PING 192.168.1.1 (192.168.1.1) 1410(1438) bytes of data.
+1418 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=3.01 ms
 
-In order to avoid taking slow path, we should correct ip_append_data()
-to make sure last fragment has real trail space, under mtu...
+--- 192.168.1.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 3.014/3.014/3.014/0.000 ms
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> What about original problem then, how should we fix it ?
+> 
 
+Hm, I don't know. I'll try to reproduce it here.
+
+> We do have some cases where at least one fragment (the last one) is
+> oversized.
+
+trailer_len is used only on IPsec so the poroblem exists only when
+using IPsec, right?
+
+> 
+> I remember I used Nick Bowler scripts at that time, I might find them
+> again...
+
+Would be nice if you could provide these scripts and some informations
+on how to reproduce the problem.
 
