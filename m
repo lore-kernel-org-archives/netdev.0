@@ -1,49 +1,84 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: bridge/netfilter: regression in 2.6.39.1
-Date: Mon, 06 Jun 2011 08:57:59 +0200
-Message-ID: <4DEC7A77.6010109@ahsoftware.de>
-References: <4DE93422.3070000@ahsoftware.de>	 <1307129642.2600.2.camel@edumazet-laptop>  <4DE93B31.8040700@ahsoftware.de> <1307130914.2600.12.camel@edumazet-laptop> <4DEA1F5F.4070707@ahsoftware.de>
+From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
+Subject: Re: [PATCHv2 RFC 0/4] virtio and vhost-net capacity
+	handling
+Date: Mon, 06 Jun 2011 13:09:35 +0930
+Message-ID: <87fwnniq6f.fsf@rustcorp.com.au>
+References: <cover.1307029008.git.mst@redhat.com>
+	<20110602171721.GA13215@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DEA1F5F.4070707@ahsoftware.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
+	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20110602171721.GA13215-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
+List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
+	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, 2 Jun 2011 20:17:21 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Thu, Jun 02, 2011 at 06:42:35PM +0300, Michael S. Tsirkin wrote:
+> > OK, here's a new attempt to use the new capacity api.  I also added more
+> > comments to clarify the logic.  Hope this is more readable.  Let me know
+> > pls.
+> > 
+> > This is on top of the patches applied by Rusty.
+> > 
+> > Warning: untested. Posting now to give people chance to
+> > comment on the API.
+> > 
+> > Changes from v1:
+> > - fix comment in patch 2 to correct confusion noted by Rusty
+> > - rewrite patch 3 along the lines suggested by Rusty
+> >   note: it's not exactly the same but I hope it's close
+> >   enough, the main difference is that mine does limited
+> >   polling even in the unlikely xmit failure case.
+> > - added a patch to not return capacity from add_buf
+> >   it always looked like a weird hack
+> > 
+> > Michael S. Tsirkin (4):
+> >   virtio_ring: add capacity check API
+> >   virtio_net: fix tx capacity checks using new API
+> >   virtio_net: limit xmit polling
+> >   Revert "virtio: make add_buf return capacity remaining:
+> > 
+> >  drivers/net/virtio_net.c     |  111 ++++++++++++++++++++++++++----------------
+> >  drivers/virtio/virtio_ring.c |   10 +++-
+> >  include/linux/virtio.h       |    7 ++-
+> >  3 files changed, 84 insertions(+), 44 deletions(-)
+> > 
+> > -- 
+> > 1.7.5.53.gc233e
+> 
+> 
+> And just FYI, here's a patch (on top) that I considered but
+> decided against. This does a single get_buf before
+> xmit. I thought it's not really needed as the capacity
+> check in add_buf is relatively cheap, and we removed
+> the kick in xmit_skb. But the point is that the loop
+> will now be easy to move around if someone manages
+> to show this benefits speed (which I doubt).
 
-Am 04.06.2011 14:04, schrieb Alexander Holler:
+Agreed.  The other is clearer.
 
-> Anyway, I've used the broken way of not using git send-email because I'm
-> unsure if the solution I've offered is the best one. I'm lacking the
-> knowledge about what cow_metrics() does, what it is used for, and what,
-> if any, pre- or post-requisites are needed to use
-> dst_cow_metrics_generic().
->
-> I can only say that my solution seems to work here, the machine comes up
-> without an oops and I didn't have seen any other problems while using
-> the bridge (which surely doesn't say anything, e.g. I'm not sure if my
-> use of dst_cow_metrics_generic() may introduce a mem leak or similiar,
-> it doesn't look so, but who knows).
+I like the approach these patches take.  Testing is required, but I
+think the final result is a neater driver than the current one, as well
+as having nicer latency.
 
-After having a second look at dst_cow_metrics_generic(), it seems my 
-patch does introduce a small mem leak which occurs when the bridge will 
-be build as a module and the module gets unloaded. Then the static 
-struct dst_ops fake_dst_ops disappears and with that the memory 
-allocated by dst_cow_metrics_generic() is lost. I'm not sure which of 
-the dst*-functions should be called before the module gets unloaded. 
-Maybe someone with a deeper knowledge of the that stuff could have a 
-look at that.
-Or maybe just changing the true in the call to dst_cow_metrics_generic() 
-in br_netfilter_rtable_init() to false instead of adding 
-dst_cow_metrics_generic() to fake_dst_ops() is an alternative. As I 
-said, I don't know what that metric-stuff does and what it is used for.
-
-Regards,
-
-Alexander
+Thanks,
+Rusty.
