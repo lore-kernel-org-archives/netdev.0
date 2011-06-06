@@ -1,38 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: small RPS cache for fragments?
-Date: Mon, 06 Jun 2011 13:05:21 -0700
-Message-ID: <1307390721.8149.2763.camel@tardy>
-References: <1306273128.8149.1444.camel@tardy>
-	 <20110604.132940.2214949964968775365.davem@davemloft.net>
-	 <1307380132.8149.2718.camel@tardy>
-	 <20110606.122217.2183968212149987796.davem@davemloft.net>
-Reply-To: rick.jones2@hp.com
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
+Date: Mon, 6 Jun 2011 22:06:28 +0200
+Message-ID: <201106062206.29134.arnd@arndb.de>
+References: <1307389540.2642.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:21251 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755948Ab1FFUFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:05:23 -0400
-In-Reply-To: <20110606.122217.2183968212149987796.davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.126.187]:59046 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755793Ab1FFUGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:06:33 -0400
+In-Reply-To: <1307389540.2642.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-06-06 at 12:22 -0700, David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Mon, 06 Jun 2011 10:08:52 -0700
+On Monday 06 June 2011 21:45:40 Eric Dumazet wrote:
+> While trying Alexander Holler patch, I found a 32bit brctl program was
+> not able to work on a 64bit kernel. So I had to switch to another
+> machine for my tests.
 > 
-> > Mode-rr bonding reorders TCP segments all the time. 
+> brctl addbr mybridge
+> ->
+> socket(PF_FILE, SOCK_STREAM, 0)         = 3
+> ioctl(3, SIOCSIFBR, 0xffd509c0)         = -1 EINVAL (Invalid argument)
 > 
-> Oh well, then don't use this if you care about performance at all.
-> And therefore it's not even worth considering for our RPS fragment
-> cache.
+> Should we care or not ?
+> 
 
-Heh - the (or at least a) reason people use mode-rr is to make a single
-(TCP) stream go faster :)  Without buying the next-up NIC speed.
+Generally, we try to make all ioctls work in compat mode. For the old
+bridge ioctls, this is currently impossible because it uses SIOCPRIVATE
+ioctls, but it would be easy to add an ndo_do_compat_ioctl. 
 
-rick jones
+The solution that is documented in net/socket.c is to return 
+an invalid version number for BRCTL_VERSION, in the hope that
+brctl would switch to the newer interfaces. The new style bridge
+ioctls (SIOCBRADDBR, SIOCBRADDIF, ...) are actually supposed to work,
+but I've never tried that.
 
+	Arnd
