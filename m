@@ -1,44 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
+From: Andreas Schwab <schwab@linux-m68k.org>
 Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
-Date: Mon, 6 Jun 2011 22:31:32 +0200
-Message-ID: <201106062231.32226.arnd@arndb.de>
-References: <1307389540.2642.3.camel@edumazet-laptop> <20110606.130309.847468074358617705.davem@davemloft.net> <4DED3759.7030209@genband.com>
+Date: Mon, 06 Jun 2011 22:31:55 +0200
+Message-ID: <m28vtevgzo.fsf@igel.home>
+References: <1307389540.2642.3.camel@edumazet-laptop>
+	<20110606.130309.847468074358617705.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Chris Friesen <chris.friesen@genband.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:57400 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756523Ab1FFUbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:31:35 -0400
-In-Reply-To: <4DED3759.7030209@genband.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:35853 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756071Ab1FFUb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:31:58 -0400
+In-Reply-To: <20110606.130309.847468074358617705.davem@davemloft.net> (David
+	Miller's message of "Mon, 06 Jun 2011 13:03:09 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 06 June 2011 22:23:53 Chris Friesen wrote:
-> It raises an interesting question though...do we plan on supporting 
-> compat indefinitely?
-> 
-> As I see it x86 generally makes more sense to run as 64-bit when 
-> possible due to the extra register availability. Compat is primarily 
-> useful for the embedded space and for backwards compatibility, and 
-> ripping it out would cause a lot of grief for legacy 32-bit apps.  It 
-> would simplify the userspace/kernel interface though.
+David Miller <davem@davemloft.net> writes:
 
-There are a lot of applications that require being run as 32 bit,
-and some of them are much happier in a chroot environment. Removing
-the compat support entirely won't be an option for the next 10 years
-at least, AFAICT. Even if we get all x86 folks to migrate to 64 bits
-at some point in the distant future, there will always be other
-architectures that make the move to 64 bits.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 06 Jun 2011 21:45:40 +0200
+>
+>> While trying Alexander Holler patch, I found a 32bit brctl program was
+>> not able to work on a 64bit kernel. So I had to switch to another
+>> machine for my tests.
+>> 
+>> brctl addbr mybridge
+>> ->
+>> socket(PF_FILE, SOCK_STREAM, 0)         = 3
+>> ioctl(3, SIOCSIFBR, 0xffd509c0)         = -1 EINVAL (Invalid argument)
+>> 
+>> Should we care or not ?
+>
+> I think we should make an effort to fix this.
 
-Note that there is currently work going on to add a new x32 ABI
-to arch/x86 which makes it possible to use 32 bit pointers with the
-full 64 bit register set. If this becomes a success, we will never
-be able to build x86 kernels without compat support.
+OTOH, the SIOCSIFBR and SIOCGIFBR ioctls are obsoleted by the
+SIOCBRADDBR, SIOCBRDELBR, SIOCBRADDIF, SIOCBRDELIF ioctls and bridge
+sysfs files (which have no compat issues).
 
-	Arnd
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
