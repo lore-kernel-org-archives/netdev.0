@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Mon, 06 Jun 2011 10:31:05 -0700
-Message-ID: <1307381465.2698.5740.camel@jtkirshe-linux>
+Date: Mon, 06 Jun 2011 10:31:51 -0700
+Message-ID: <1307381511.2698.5741.camel@jtkirshe-linux>
 References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
 	 <20110523151336.GF21309@gospo.rdu.redhat.com>
 	 <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
@@ -13,10 +13,13 @@ References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
 	 <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
 	 <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
 	 <1307379022.4994.4.camel@Joe-Laptop>
+	 <1307379881.3098.71.camel@edumazet-laptop>
+	 <1307380827.4994.8.camel@Joe-Laptop>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-UmKg0251LjjoikTtd3AG"
-Cc: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-ShGNBBPrHtUN8iJlfMWz"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
 	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
@@ -25,61 +28,59 @@ Cc: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
 	Jay Vosburgh <fubar@us.ibm.com>
 To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:7218 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:11382 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753300Ab1FFRbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2011 13:31:07 -0400
-In-Reply-To: <1307379022.4994.4.camel@Joe-Laptop>
+	id S1753514Ab1FFRbw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 13:31:52 -0400
+In-Reply-To: <1307380827.4994.8.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-UmKg0251LjjoikTtd3AG
+--=-ShGNBBPrHtUN8iJlfMWz
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2011-06-06 at 09:50 -0700, Joe Perches wrote:
-> On Tue, 2011-06-07 at 00:34 +0800, Am=C3=A9rico Wang wrote:
-> > I agree with this, IMHO this would help to organize the code better.
-> > And currently only tuntap and bonding are still in net/ directory.
-> > In any aspects, now we are mixing net/ and drivers/net/ currently,
-> > which could be improved.
+On Mon, 2011-06-06 at 10:20 -0700, Joe Perches wrote:
+> On Mon, 2011-06-06 at 19:04 +0200, Eric Dumazet wrote:
+> > Le lundi 06 juin 2011 =C3=A0 09:50 -0700, Joe Perches a =C3=A9crit :
+> > > There is a proposal to move some drivers/net content to
+> > > drivers/net/sw/
+> > > http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
+> > > I think that'd be fine too.
+> > > I believe Jeff is going to submit patches soonish.
+> > > http://comments.gmane.org/gmane.linux.network/197232
+> > As long as the re-organization is done without loosing "git blame"
+> > information on current files, I am fine.
+> > If not, this is a showstopper and not worth the pain, exactly like othe=
+r
+> > cleanup patches.
 >=20
-> There is a proposal to move some drivers/net content to
-> drivers/net/sw/
->=20
-> http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
->=20
-> I think that'd be fine too.
->=20
-> I believe Jeff is going to submit patches soonish.
->=20
-> http://comments.gmane.org/gmane.linux.network/197232
+> To preserve history, all of this should be done via:
+> 	git mv oldpath/file newpath/file
+> 	git commit -m newpath/file=20
+> with some extra cleanups to Kconfig/Makefile files
+> so no worries.
 >=20
 >=20
 
-Correct, patches will be sent out here this week.
+Joe is right, and that is the method that I have been using.
 
-As far as moving tunap, bonding, etc into /drivers/net/sw that is the
-eventual plan, but I have not done this work for this upcoming patchset.
-I want to coordinate this work with Stephen Hemminger before I do any
-moves.
-
---=-UmKg0251LjjoikTtd3AG
+--=-ShGNBBPrHtUN8iJlfMWz
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJN7Q7ZAAoJECTsCADr/EWUr4kH/RwZmFoD0ATokCzqsUxrVslk
-I7A0AG+6z1rH7jSOqSE/msQAkuAujsoevz10e4+k1baB97Y0OteRa+ZHHSVbmKgL
-1FzGo8WmpfvDey/pQjWI5KVB39WwN+/ihgTRrWQ4p0uEez/CebxBfwreF8dTbpAE
-DEB1OfoEmjqncmmuAWlJBcws2hfoo8nDmDgBkSjw7O4J//rXKUxDGQ8wPJ7wOwnJ
-hydeqkjcaEiYx7BNj6iWh1fI5myDmaXcjYq4+UHdXNKj3hju5raUEVVnE8chUIMd
-h09eIuJaPV53DmFScSYeEompDRK+FZFyfn44sPOj/aOxHpqgyK6QoDdQoje+szg=
-=Cl3D
+iQEcBAABAgAGBQJN7Q8HAAoJECTsCADr/EWUgpgH/ja+5SHsYqHT09X1CuwAZHrq
+0D150gf5XwHrtQuR0DeoRj1W1CZXcnIWM8ikk/gR4wcfFqSXOt0yv6KO8cN6r03N
+IGjWyWgRnwJRbzRio6rjdxvbNe6bzsJOMNmP6KBQYrB4HlbGDRfLd2l9wsDyz96s
+2LRRcXBqRq+Xsp3puiSZUWzoEcGddZjExpXA6xfr1svKXA9uxltZVopxE3oRwgp0
+B+Er/L5lsh0pSMgQFvfbIgaJjv+SwkDyrs4PdJ8puF3rcVUOpI4pzO+sgMZZq0kb
+dX+rd5euLUQ23jgJs50xL+lj2J2XNCDyr/ZRv7c3O9+QeAcjTyLMASqAClyyuLU=
+=ZeH4
 -----END PGP SIGNATURE-----
 
---=-UmKg0251LjjoikTtd3AG--
+--=-ShGNBBPrHtUN8iJlfMWz--
 
