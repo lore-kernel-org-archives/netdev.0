@@ -1,52 +1,57 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
-Date: Mon, 6 Jun 2011 08:06:55 -0700
-Message-ID: <20110606150655.GB3732@suse.de>
-References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E568@EXDCVYMBSTM006.EQ1STM.local>
- <1306929701-22861-1-git-send-email-metze@samba.org>
- <1306929701-22861-2-git-send-email-metze@samba.org>
- <20110601.211142.557328157396419857.davem@davemloft.net>
- <4DECC6B4.5020108@samba.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv3] net: Define enum for the bits used in features.
+Date: Mon, 6 Jun 2011 18:32:53 +0300
+Message-ID: <20110606153253.GB30665@redhat.com>
+References: <1306363336-13614-1-git-send-email-maheshb@google.com>
+ <20110604.133438.1450652272927306428.davem@davemloft.net>
+ <20110606035808.GA28858@redhat.com>
+ <20110605.221537.899061768025493519.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, oliver@neukum.name,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Stefan (metze) Metzmacher" <metze@samba.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: maheshb@google.com, netdev@vger.kernel.org, therbert@google.com,
+	mirqus@gmail.com, shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55947 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757256Ab1FFPck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 11:32:40 -0400
 Content-Disposition: inline
-In-Reply-To: <4DECC6B4.5020108@samba.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110605.221537.899061768025493519.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 06, 2011 at 02:23:16PM +0200, Stefan (metze) Metzmacher wrote:
-> Hi David,
+On Sun, Jun 05, 2011 at 10:15:37PM -0700, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Mon, 6 Jun 2011 06:58:08 +0300
 > 
-> > From: Stefan Metzmacher <metze@samba.org>
-> > Date: Wed,  1 Jun 2011 14:01:41 +0200
+> > I've been thinking about this as well. It turns out most
+> > things above can be done with the spatch (aka coccinelle) tool.
+> > But I think the largest problem is what to do with multiple-feature
+> > macros such as NETIF_F_GSO_SOFTWARE.
 > > 
-> >> This avoids messages like this after suspend:
-> >>
-> >>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
-> >>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
-> >>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4, CDC NCM
-> >>
-> >> This is important for the Ericsson F5521gw GSM/UMTS modem.
-> >> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm devices
-> >> belong together.
-> >>
-> >> The cdc_ether module does the same.
-> >>
-> >> Signed-off-by: Stefan Metzmacher <metze@samba.org>
+> > If we keep them an 'or' of bits, we more or less commit to
+> > an implementation that can represent them all in a single
+> > constant.
 > > 
-> > Applied and queued up for -stable, thanks.
+> > I played with variadic macros but could not come up with something
+> > that does not generate a lot of code.
 > 
-> It seems to be part of 3.0-rc2, but I'm not seeing it in any stable tree
-> yet...
-> 
-> When can I expect it in stable trees like 2.6.38.y?
+> Since the GSO accessors deal with mutliple bits, you can create
+> special GSO specific interfaces to manipulate them.
 
-The .38.y tree is closed and will not have new releases, so you will
-never see it there, sorry.
+Yes but it's not just GSO.
+It's anything that includes more than 1 feature.
+Examples:
+NETIF_F_ALL_CSUM
+NETIF_F_ALL_TX_OFFLOADS
+NETIF_F_V6_CSUM
+NETIF_F_SOFT_FEATURES
 
-greg k-h
+etc
+
+Creating many accessors for each will need a lot
+of code duplication ...
+
+-- 
+MST
