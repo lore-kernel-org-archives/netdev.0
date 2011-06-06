@@ -1,59 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
+From: Chris Friesen <chris.friesen@genband.com>
 Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
-Date: Mon, 6 Jun 2011 22:26:02 +0200
-Message-ID: <201106062226.02635.arnd@arndb.de>
-References: <1307389540.2642.3.camel@edumazet-laptop> <201106062206.29134.arnd@arndb.de> <1307391174.2642.8.camel@edumazet-laptop>
+Date: Mon, 06 Jun 2011 14:23:53 -0600
+Message-ID: <4DED3759.7030209@genband.com>
+References: <1307389540.2642.3.camel@edumazet-laptop> <20110606.130309.847468074358617705.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:50229 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753834Ab1FFU0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:26:04 -0400
-In-Reply-To: <1307391174.2642.8.camel@edumazet-laptop>
+Received: from exprod7og123.obsmtp.com ([64.18.2.24]:60532 "EHLO
+	exprod7og123.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753367Ab1FFU0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:26:36 -0400
+In-Reply-To: <20110606.130309.847468074358617705.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 06 June 2011 22:12:54 Eric Dumazet wrote:
-> So for an old binary, compiled at the time SIOCBRADDBR wasnt there (in
-> include file I mean), we ended doing :
-> 
->         {
->                 char _br[IFNAMSIZ];
->                 unsigned long arg[3]
->                         = { BRCTL_ADD_BRIDGE, (unsigned long) _br };
-> 
->                 strncpy(_br, brname, IFNAMSIZ);
->                 ret = ioctl(br_socket_fd, SIOCSIFBR, arg);
->         }
-> 
-> And this breaks on 64bit kernel
+On 06/06/2011 02:03 PM, David Miller wrote:
+> From: Eric Dumazet<eric.dumazet@gmail.com>
+> Date: Mon, 06 Jun 2011 21:45:40 +0200
+>
+>> While trying Alexander Holler patch, I found a 32bit brctl program was
+>> not able to work on a 64bit kernel. So I had to switch to another
+>> machine for my tests.
+>>
+>> brctl addbr mybridge
+>> ->
+>> socket(PF_FILE, SOCK_STREAM, 0)         = 3
+>> ioctl(3, SIOCSIFBR, 0xffd509c0)         = -1 EINVAL (Invalid argument)
+>>
+>> Should we care or not ?
+>
+> I think we should make an effort to fix this.
 
-Ah, you were quicker than me at posting this ;-)
+For current status of affairs, this makes sense.
 
-> I guess we shall add some logic in kernel to support SIOCSIFBR
-> afterall ;)
-> 
-> Thanks !
-> 
-> BTW: I confirm that compiling an up2date 32bit brctl with an up2date
-> include files is OK on 64bit kernel.
+It raises an interesting question though...do we plan on supporting 
+compat indefinitely?
 
-I did a little more digging in the history and found that the code in
-brctl was added in this commit:
+As I see it x86 generally makes more sense to run as 64-bit when 
+possible due to the extra register availability. Compat is primarily 
+useful for the embedded space and for backwards compatibility, and 
+ripping it out would cause a lot of grief for legacy 32-bit apps.  It 
+would simplify the userspace/kernel interface though.
 
-commit 328f4711bbc369dcccf8f8cfba2adf5dd0f74479
-Author: shemminger <shemminger>
-Date:   Fri May 21 17:41:48 2004 +0000
+Chris
 
-    New version of command and library that use sysfs.
-    Update make system to build with or without sysfs.
-
-It's not completely clear to me if it's worth supporting older
-user space than this, but it's certainly possible.
-
-	Arnd
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
