@@ -1,44 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6 hitting route max_size
-Date: Mon, 06 Jun 2011 16:28:48 -0700 (PDT)
-Message-ID: <20110606.162848.555622812215058188.davem@davemloft.net>
-References: <20110606213727.GB11757@hostway.ca>
-	<20110606.150142.2071869702137894615.davem@davemloft.net>
-	<20110606231521.GB22559@hostway.ca>
+Subject: Re: [net-next-2.6 PATCH] macvlan: add VLAN filters to lowerdev
+Date: Mon, 06 Jun 2011 16:44:00 -0700 (PDT)
+Message-ID: <20110606.164400.1575049396635321206.davem@davemloft.net>
+References: <20110606142715.2692.6311.stgit@jf-dev1-dcblab>
+	<20110606.150352.392614415181146213.davem@davemloft.net>
+	<4DED5857.2000408@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: sim@hostway.ca
+Cc: netdev@vger.kernel.org
+To: john.r.fastabend@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56987 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38450 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752352Ab1FFX3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 19:29:53 -0400
-In-Reply-To: <20110606231521.GB22559@hostway.ca>
+	with ESMTP id S1754440Ab1FFXoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 19:44:02 -0400
+In-Reply-To: <4DED5857.2000408@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Kirby <sim@hostway.ca>
-Date: Mon, 6 Jun 2011 16:15:21 -0700
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Mon, 06 Jun 2011 15:44:39 -0700
 
-> On Mon, Jun 06, 2011 at 03:01:42PM -0700, David Miller wrote:
+> On 6/6/2011 3:03 PM, David Miller wrote:
+>> From: John Fastabend <john.r.fastabend@intel.com>
+>> Date: Mon, 06 Jun 2011 07:27:16 -0700
+>> 
+>>> Stacking VLANs on top of the macvlan device does not
+>>> work if the lowerdev device is using vlan filters set
+>>> by NETIF_F_HW_VLAN_FILTER. Add ndo ops to pass vlan
+>>> calls to lowerdev.
+>>>
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> 
+>> I think this might have unintended side-effects.
+>> 
+>> Much of the VLAN code makes decisions based upon whether these
+>> ops are NULL or not.
+>> 
+>> Now, no matter what is implemented in the lower device, the VLAN
+>> code will see them non-NULL in the macvlan device.
 > 
->> From: Simon Kirby <sim@hostway.ca>
->> Date: Mon, 6 Jun 2011 14:37:27 -0700
->> 
->> > /proc/sys/net/ipv6/route/max_size and a number of similar GC knobs exist,
->> > but max_size seems to limit the size of the v6 route table, not the v6
->> > route cache.
->> 
->> There is no v6 route cache.
->> 
->> Instead of a routing cache, ipv6 route lookups "clone" new routes into
->> the same datastructre the route table is stored in.
+> I would expect these decisions to be wrapped in the feature flag
+> like this,
 > 
-> Ok, makes sense, but the result is now that ipv4 loads a full Internet
-> table with no adjustments, while ipv6 does not. Would it make sense to
-> change 4096 to 1048576, or would it be better to count only clones of
-> the actual route or something along those lines?
+>         if (vlan_id && (real_dev->features & NETIF_F_HW_VLAN_FILTER))
+>                 ops->ndo_vlan_rx_kill_vid(real_dev, vlan_id);
+> 
+> Although grep found two call sites not wrapped,
+ ...
+> I could wrap these in feature flag checks as well but I see no harm
+> in letting these fall through to the macvlan driver and failing.
 
-The latter is probably the way to handle this problem.
+Fair enough, patch applied.
