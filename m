@@ -1,13 +1,16 @@
 From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 00/11] can: at91_can: add support for AT91SAM9X5 series
-Date: Mon,  6 Jun 2011 15:42:49 +0200
-Message-ID: <1307367780-30715-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 02/11] can: at91_can: fix comment about priv->tx_next
+Date: Mon,  6 Jun 2011 15:42:51 +0200
+Message-ID: <1307367780-30715-3-git-send-email-mkl@pengutronix.de>
+References: <1307367780-30715-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1307367780-30715-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -19,45 +22,23 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SGVsbG8sCgp0aGlzIHBhdGNoIHNlcmllcyBhZGQgc3VwcG9ydCBmb3IgdGhlIGF0OTFfY2FuIGNv
-cmUgb24gdGhlIHVwY29taW5nCmF0OTFzYW05eDUgU09DIHNlcmllcy4KClRoZSBvcmlnaW5hbCBh
-dDkxX2NhbiBkcml2ZXIgc3VwcG9ydHMgdGhlIGF0OTFzYW05MjYzIHdoaWNoIGhhcyAxNgptYWls
-Ym94ZXMsIGJ1dCB0aGUgQ0FOIGNvcmUgb24gdGhlIGF0OTFzYW05eDUgaGFzIG9ubHkgOC4gTW9z
-dCBjb25zdGFudHMKdXNlZCBpbiB0aGUgUlggYW5kIFRYIHBhdGggYXJlIGRlcml2ZWQgZnJvbSB0
-aGUgbnVtYmVyIG9mIG1haWxib3hlcy4KClRoaXMgcGF0Y2ggc2VyaWVzIGNoYW5nZXMgdGhlIGRy
-aXZlciBmcm9tIGEgc3RhdGljLCBjb21waWxlIHRpbWUgc2V0dXAKb2YgdGhlIG1haWxib3hlcyB0
-byBhIGR5bmFtaWMgb25lLiBQYXRjaGVzIDEtNCBjbGVhbiB1cCB0aGUgZHJpdmVyLCA1KzYKc2lt
-cGxpZnkgdGhlIHVzYWdlIG9mIHRoZSBjb25zdGFudHMsIHBhdGNoIDcgY29udmVydHMgYWxsIGRl
-cml2ZWQgY29uc3RhbnRzCmludG8gZnVuY3Rpb25zLiBQYXRjaCA4IHdpbGwgYWRkIGlkX3RhYmxl
-IHN1cHBvcnQgdG8gdGhlIGRyaXZlciB0aGVuIGFsbApyZW1haW5pbmcgY29uc3RhbnRzIGFyZSBj
-b252ZXJ0ZWQgaW50byBmdW5jdGlvbnMgdXNpbmcgdGhlIHJ1biB0aW1lCnNlbGVjdGVkIG1haWxi
-b3ggY29uc3RhbnRzLiBUaGUgbmV4dCBwYXRjaCAoOSkgdGFrZXMgY2FyZSBhYm91dCBhbgphdDkx
-c2FtOTI2MyBzcGVjaWZpYyBlcnJhdGEgZml4LiBQYXRjaCAxMCBhbmQgMTEgd2lsbCBmaW5hbGx5
-IGFkZCBzdXBvcHJ0CmZvciB0aGUgYXQ5MXNhbTl4NSBTT0MuCgpUaGlzIHBhdGNoIHNlcmllcyBh
-cHBsaWVzIHRvIGN1cnJlbnQgbmV0LW5leHQtMi42L21hc3RlciBhbmQgaGFzIGJlZW4gdGVzdGVk
-Cm9uIGEgc2FtOTI2MyBhbmQgc2FtOXg1ZWsuCihBbGx0aG91Z2gsIHRoZSBzYW05eDUgc3VwcG9y
-dCBpcyBub3QgbWFpbmxpbmUgeWV0KS4KCnBsZWFzZSByZXZpZXcgYW5kIGNvbnNpZGVyIHRvIGFw
-cGx5LApNYXJjCgpUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IGUzY2MwNTVjMThh
-YjU3NTI5MWFjZjBhZjc2MjJhMmU5N2M0NzI4ZmE6CgogIGluY2x1ZGUvbmV0OiBSZW1vdmUgdW5u
-ZWNlc3Nhcnkgc2VtaWNvbG9ucyAoMjAxMS0wNi0wNSAxNDozMzo0MCAtMDcwMCkKCmFyZSBhdmFp
-bGFibGUgaW4gdGhlIGdpdCByZXBvc2l0b3J5IGF0OgogIGdpdDovL2dpdC5wZW5ndXRyb25peC5k
-ZS9naXQvbWtsL2xpbnV4LTIuNi5naXQgY2FuL2F0OTEtc2FtOXg1CgpNYXJjIEtsZWluZS1CdWRk
-ZSAoMTApOgogICAgICBjYW46IGF0OTFfY2FuOiBkb24ndCBhbGlnbiBzdHJ1Y3QgZGVmaW5pdGlv
-bnMKICAgICAgY2FuOiBhdDkxX2NhbjogZml4IGNvbW1lbnQgYWJvdXQgcHJpdi0+dHhfbmV4dAog
-ICAgICBjYW46IGF0OTFfY2FuOiBkb24ndCBjb3B5IGRhdGEgdG8gcngnZWQgUlRSIGZyYW1lcwog
-ICAgICBjYW46IGF0OTFfY2FuOiBsZXQgZ2V0X3R4XyogZnVuY3Rpb25zIHJldHVybiB1bnNpZ25l
-ZCBpbnQKICAgICAgY2FuOiBhdDkxX2NhbjogZGlyZWN0bHkgZGVmaW5lIEFUOTFfTUJfUlhfTEFT
-VAogICAgICBjYW46IGF0OTFfY2FuOiByZW5hbWUgQVQ5MV9NQl9SWF9NQVNLIHRvIEFUOTFfSVJR
-X01CX1JYCiAgICAgIGNhbjogYXQ5MV9jYW46IGNvbnZlcnQgZGVyaXZlZCBtYWlsYm94IGNvbnN0
-YW50cyBpbnRvIGZ1bmN0aW9ucwogICAgICBjYW46IGF0OTFfY2FuOiBhZGQgaWRfdGFibGUgYW5k
-IGNvbnZlcnQgcHJpbWUgbWFpbGJveCBjb25zdGF0cyB0byBmdW5jdGlvbnMKICAgICAgY2FuOiBh
-dDkxX2NhbjogcmVnaXN0ZXIgbWIwIHN5c2ZzIGVudHJ5IG9ubHkgb24gYXQ5MXNhbTkyNjMKICAg
-ICAgY2FuOiBhdDkxX2NhbjogYWRkIHN1cHBvcnQgZm9yIHRoZSBBVDkxU0FNOVg1IFNPQ3MKClV3
-ZSBLbGVpbmUtS8O2bmlnICgxKToKICAgICAgbmV0L2NhbjogYWxsb3cgQ0FOX0FUOTEgb24gQVQ5
-MVNBTTlYNQoKIGRyaXZlcnMvbmV0L2Nhbi9LY29uZmlnICAgIHwgICAgNSArLQogZHJpdmVycy9u
-ZXQvY2FuL2F0OTFfY2FuLmMgfCAgMzY2ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKyst
-LS0tLS0tLS0tLS0tCiAyIGZpbGVzIGNoYW5nZWQsIDI1OSBpbnNlcnRpb25zKCspLCAxMTIgZGVs
-ZXRpb25zKC0pCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KU29ja2V0Y2FuLWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxp
-b3MuZGUKaHR0cHM6Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlzdGluZm8vc29ja2V0Y2Fu
-LWNvcmUK
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ drivers/net/can/at91_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index 8f15ae4..afd0f5d 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -375,7 +375,7 @@ static void at91_chip_stop(struct net_device *dev, enum can_state state)
+  * mailbox, but without the offset AT91_MB_TX_FIRST. The lower bits
+  * encode the mailbox number, the upper 4 bits the mailbox priority:
+  *
+- * priv->tx_next = (prio << AT91_NEXT_PRIO_SHIFT) ||
++ * priv->tx_next = (prio << AT91_NEXT_PRIO_SHIFT) |
+  *                 (mb - AT91_MB_TX_FIRST);
+  *
+  */
+-- 
+1.7.4.1
