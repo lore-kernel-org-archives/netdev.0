@@ -1,120 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] e100: Fix inconsistency in bad frames
-	handling
-Date: Mon, 06 Jun 2011 10:56:55 -0700
-Message-ID: <4DED14E7.2050405@candelatech.com>
-References: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>
-	<alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: small RPS cache for fragments?
+Date: Mon, 06 Jun 2011 11:06:19 -0700
+Message-ID: <1307383579.8149.2753.camel@tardy>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	 <20110524.160123.2051949867829317339.davem@davemloft.net>
+	 <1306273128.8149.1444.camel@tardy>
+	 <20110604.132940.2214949964968775365.davem@davemloft.net>
+	 <1307380132.8149.2718.camel@tardy>
+	 <1307380513.3098.76.camel@edumazet-laptop>
+Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrea Merello <andrea.merello@gmail.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:17534 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756286Ab1FFSGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 14:06:24 -0400
+In-Reply-To: <1307380513.3098.76.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2011 10:49 AM, Brandeburg, Jesse wrote:
->
-> <added netdev>, removed other useless lists.
->
-> On Sat, 4 Jun 2011, Andrea Merello wrote:
->> In e100 driver it seems that the intention was to accept bad frames in
->> promiscuous mode and loopback mode.
->> I think this is evident because of the following code in the driver:
->>
->> if (nic->flags&  promiscuous || nic->loopback) {
->> 		config->rx_save_bad_frames = 0x1;	/* 1=save, 0=discard */
->> 		config->rx_discard_short_frames = 0x0;	/* 1=discard, 0=save */
->> 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
->> 	}
->>
->
-> Hi, thanks for your work on e100.
->
->> However this intention is not really realized because bad frames are
->> discarded later by SW check.
->> This patch finally honors the above intention, making the RX code to
->> let bad frames to pass when the NIC is in promiscuous or loopback
->> mode.
->
-> I think this may be a mistake by the authors of the software developers
-> manual.  The manual suggests that save bad frames and save short frames
-> should be enabled in promisc mode, but all of our other drivers *do not*
-> save bad frames when in promiscuous mode (by design).  This is intentional
-> because a bad frame is just that, bad, and with no hope of knowing if the
-> data in it is okay/malicious/other.  I understand your reasoning above,
-> but realistically the rx_save_bad_frames should NOT be set.  I'd ack a
-> patch to comment that line out.
->
->> This helped me a lot to debug an FPGA ethernet core.
->> Maybe it can be also useful to someone else..
->
-> I think this patch is just that, debug only. As a developer I understand
-> why this is useful, but there is no reason any normal user would be able
-> to benefit from this, so for now, sorry:
->
-> NACK.
+On Mon, 2011-06-06 at 19:15 +0200, Eric Dumazet wrote:
+> Le lundi 06 juin 2011 =C3=A0 10:08 -0700, Rick Jones a =C3=A9crit :
+>=20
+> > Mode-rr bonding reorders TCP segments all the time.=20
+>=20
+> Shouldnt TCP frames have DF bit set ?
 
-I think anyone sniffing a funky network would have benefit in
-receiving all frames.  So, while it shouldn't be enabled by default,
-it would be nice to have an ethtool command to turn on receiving
-bad-crc frames, as well as receiving the 4-byte CRC on the end of
-the packets.
+I was ass-u-me-ing that when talking about TCP, David was speaking
+generally about TCP segments, and suggesting that were bonding's mode-r=
+r
+altered to not re-order TCP segments, a similar technique
+could/would/should avoid re-ordering IP datagram fragments, regardless
+of their payload.
 
-It just so happens I have such a patch, in case others agree :)
+Jay will have to weigh-in on how difficult that would be, I'm guessing
+it would mean a fair bit of overhead to mode-rr though, to know the
+completion status of frames from the same flow and/or the depth of the
+tx queues etc etc.  I thought that one of mode-rr's (few IMO, just chec=
+k
+the archives where I've complained about it :) redeeming qualities was
+its minimal overhead.
 
-Thanks,
-Ben
+rick jones
 
-
->
->>
->> Thanks
->> Andrea
->>
->>   --- drivers/net/e100_orig.c     2011-06-14 23:29:38.322267075 +0200
->> +++ drivers/net/e100.c  2011-06-14 23:34:10.700791472 +0200
->> @@ -1975,7 +1975,8 @@ static int e100_rx_indicate(struct nic *
->>          skb_put(skb, actual_size);
->>          skb->protocol = eth_type_trans(skb, nic->netdev);
->>
->> -       if (unlikely(!(rfd_status&  cb_ok))) {
->> +       if (unlikely(!(nic->flags&  promiscuous || nic->loopback)&&
->> +           !(rfd_status&  cb_ok))) {
->>                  /* Don't indicate if hardware indicates errors */
->>                  dev_kfree_skb_any(skb);
->>          } else if (actual_size>  ETH_DATA_LEN + VLAN_ETH_HLEN) {
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
-
-------------------------------------------------------------------------------
-Simplify data backup and recovery for your virtual environment with vRanger.
-Installation's a snap, and flexible recovery options mean your data is safe,
-secure and there when you need it. Discover what all the cheering's about.
-Get your free trial download today. 
-http://p.sf.net/sfu/quest-dev2dev2 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
