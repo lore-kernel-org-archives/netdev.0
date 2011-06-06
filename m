@@ -1,91 +1,78 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: RE: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
-Date: Mon, 6 Jun 2011 12:48:19 -0500
-Message-ID: <ADE657CA350FB648AAC2C43247A983F001F381FC56CE@AUSP01VMBX24.collaborationhost.net>
-References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
- <20110605083445.GT16318@ibawizard.net> <20110605085948.GB16018@acer>
- <20110605.140801.1144137337172959622.davem@davemloft.net>
- <20110606172607.GB3082@acer>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [E1000-devel] [PATCH] e100: Fix inconsistency in bad frames
+ handling
+Date: Mon, 6 Jun 2011 10:49:06 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>
+References: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "ynezz@true.cz" <ynezz@true.cz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ryan@bluewatersys.com" <ryan@bluewatersys.com>,
-	"kernel@wantstofly.org" <kernel@wantstofly.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Mika Westerberg <mika.westerberg@iki.fi>,
-	David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>, netdev@vger.kernel.org
+To: Andrea Merello <andrea.merello@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail132.messagelabs.com ([216.82.242.115]:17754 "EHLO
-	mail132.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752121Ab1FFRs3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:48:29 -0400
-In-Reply-To: <20110606172607.GB3082@acer>
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:13616 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752292Ab1FFRtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 13:49:07 -0400
+In-Reply-To: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, June 06, 2011 10:26 AM, Mika Westerberg wrote:
-> On Sun, Jun 05, 2011 at 02:08:01PM -0700, David Miller wrote:
->> From: Mika Westerberg <mika.westerberg@iki.fi>
->> Date: Sun, 5 Jun 2011 11:59:48 +0300
->> 
->>> It looks like David Miller (CC'd) has been taking care of ep93xx_eth.c maybe
->>> he knows this better.
->> 
->> Someone needs to step up and take over as the real maintainer of this
->> driver.  The way the driver is currently being hacked on is
->> unsustainable.
->
-> Can't agree more.
->
-> Hartley, Ryan: do you have any preferences? Are you guys already overwhelmed
-> with your current maintenance work, or could you consider taking this one as
-> well? 
->
-> If no one else steps up, I can volunteer but I have to admit that I don't know
-> much about that driver.
 
-I feel the same way.
+<added netdev>, removed other useless lists.
 
-If Lennert is no longer maintaining the this driver we really need someone to
-step up and handle it.
+On Sat, 4 Jun 2011, Andrea Merello wrote:
+> In e100 driver it seems that the intention was to accept bad frames in
+> promiscuous mode and loopback mode.
+> I think this is evident because of the following code in the driver:
+> 
+> if (nic->flags & promiscuous || nic->loopback) {
+> 		config->rx_save_bad_frames = 0x1;	/* 1=save, 0=discard */
+> 		config->rx_discard_short_frames = 0x0;	/* 1=discard, 0=save */
+> 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
+> 	}
+> 
 
-I have no problem doing it but I really don't have a good grasp on the driver
-or the whole network subsystem.
+Hi, thanks for your work on e100.
+ 
+> However this intention is not really realized because bad frames are
+> discarded later by SW check.
+> This patch finally honors the above intention, making the RX code to
+> let bad frames to pass when the NIC is in promiscuous or loopback
+> mode.
 
-If Lennert is willing to hand it over, I have no problem being listed as a
-co-maintainer along with either yourself of Ryan.  Between the two (or three)
-of us we should be able to handle it.
+I think this may be a mistake by the authors of the software developers 
+manual.  The manual suggests that save bad frames and save short frames 
+should be enabled in promisc mode, but all of our other drivers *do not* 
+save bad frames when in promiscuous mode (by design).  This is intentional 
+because a bad frame is just that, bad, and with no hope of knowing if the 
+data in it is okay/malicious/other.  I understand your reasoning above, 
+but realistically the rx_save_bad_frames should NOT be set.  I'd ack a 
+patch to comment that line out.
 
+> This helped me a lot to debug an FPGA ethernet core.
+> Maybe it can be also useful to someone else..
 
-Lennert,
+I think this patch is just that, debug only. As a developer I understand 
+why this is useful, but there is no reason any normal user would be able 
+to benefit from this, so for now, sorry:
 
-You are listed as the maintainer for these EP93xx related pieces:
+NACK.
 
-ARM/CIRRUS LOGIC EDB9315A MACHINE SUPPORT
-CIRRUS LOGIC EP93XX ETHERNET DRIVER
-CIRRUS LOGIC EP93XX OHCI USB HOST DRIVER
-
-I can take over the edb9315a with no problem.  It actually falls under
-arch/arm/mach-ep93xx, so the entry could just be removed from MAINTAINERS.
-
-For the OHCI driver, I'm in the same boat as the Ethernet.  If you are no longer
-maintaining this driver I'm willing to handle it but would like someone to step
-up as a co-maintainer.  Hopefully someone that has some grasp of that subsystem.
-
-Your also listed in the source as the maintainer of these ep93xx boards:
-
-ADSSPHERE	adssphere.c
-EDB9302A	edb93xx.c
-EDB9315	edb93xx.c
-EDB9315A	edb93xx.c
-GESBC9312	gesbc9312.c
-TS72XX	ts72xx.c
-
-I'm willing to handle those also since they are under arch/arm/mach-ep93xx.
-
-Regards,
-Hartley
+> 
+> Thanks
+> Andrea
+> 
+>  --- drivers/net/e100_orig.c     2011-06-14 23:29:38.322267075 +0200
+> +++ drivers/net/e100.c  2011-06-14 23:34:10.700791472 +0200
+> @@ -1975,7 +1975,8 @@ static int e100_rx_indicate(struct nic *
+>         skb_put(skb, actual_size);
+>         skb->protocol = eth_type_trans(skb, nic->netdev);
+> 
+> -       if (unlikely(!(rfd_status & cb_ok))) {
+> +       if (unlikely(!(nic->flags & promiscuous || nic->loopback) &&
+> +           !(rfd_status & cb_ok))) {
+>                 /* Don't indicate if hardware indicates errors */
+>                 dev_kfree_skb_any(skb);
+>         } else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
+> 
