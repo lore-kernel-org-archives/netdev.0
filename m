@@ -1,116 +1,52 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
-Date: Mon, 6 Jun 2011 16:48:18 +0200
-Message-ID: <20110606144817.GB2887@psychotron.brq.redhat.com>
-References: <m1aaectyed.fsf@fess.ebiederm.org>
- <20110524.022406.2228892895515155850.davem@davemloft.net>
- <m1oc2spmyt.fsf@fess.ebiederm.org>
- <20110601.205940.1179055860757569997.davem@davemloft.net>
- <m11uzcidvq.fsf_-_@fess.ebiederm.org>
- <BANLkTimjfHKh3dpPEzznKiK=Md4v0iTD9A@mail.gmail.com>
- <m1ipsob6f8.fsf@fess.ebiederm.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
+Date: Mon, 6 Jun 2011 08:06:55 -0700
+Message-ID: <20110606150655.GB3732@suse.de>
+References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E568@EXDCVYMBSTM006.EQ1STM.local>
+ <1306929701-22861-1-git-send-email-metze@samba.org>
+ <1306929701-22861-2-git-send-email-metze@samba.org>
+ <20110601.211142.557328157396419857.davem@davemloft.net>
+ <4DECC6B4.5020108@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, netdev@vger.kernel.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, jesse@nicira.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16588 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752785Ab1FFOsb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2011 10:48:31 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, oliver@neukum.name,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Stefan (metze) Metzmacher" <metze@samba.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <m1ipsob6f8.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4DECC6B4.5020108@samba.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Jun 02, 2011 at 05:26:51PM CEST, ebiederm@xmission.com wrote:
->Changli Gao <xiaosuo@gmail.com> writes:
->
->> On Thu, Jun 2, 2011 at 9:03 PM, Eric W. Biederman <ebiederm@xmission=
-=2Ecom> wrote:
->>>
->>> -static struct sk_buff *vlan_check_reorder_header(struct sk_buff *s=
-kb)
->>> +static struct sk_buff *vlan_reorder_header(struct sk_buff *skb)
->>> =A0{
->>> - =A0 =A0 =A0 if (vlan_dev_info(skb->dev)->flags & VLAN_FLAG_REORDE=
-R_HDR) {
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb_cow(skb, skb_headroom(skb)) <=
- 0)
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D NULL;
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb) {
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Lifted from Gleb's=
- VLAN code... */
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(skb->data - E=
-TH_HLEN,
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->=
-data - VLAN_ETH_HLEN, 12);
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->mac_header +=3D =
-VLAN_HLEN;
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->>> + =A0 =A0 =A0 if (skb_cow(skb, skb_headroom(skb)) < 0)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D NULL;
->>> + =A0 =A0 =A0 if (skb) {
->>
->> I think an else branch maybe more readable here.
->
->Probably most readable would be simply returning NULL immediately on
->error.  In this patch I just removed the if statement, and I would lik=
-e
->to avoid mixing different bug fixes in the same patch if possible.
->
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Lifted from Gleb's VLAN code... */
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 memmove(skb->data - ETH_HLEN,
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->data - VLAN_ETH_=
-HLEN, 12);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->mac_header +=3D VLAN_HLEN;
->>
->> skb->mac_len should be adjusted too.
->
->Given how vlan_untag is called at the moment it does appear
->that the skb->mac_len =3D skb->network_header - skb->mac_header
->in __netif_receive_skb that used to handle this for is no longer
->doing this for us.
->
->My feel is that either we need to do all of the header resets and the
->vlan_untagging together.  So we either need this all together before o=
-r
->after the another_round label:
->
->So the proper fix is probably something like this.
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index bcb05cb..8fe50d4 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -3102,9 +3102,6 @@ static int __netif_receive_skb(struct sk_buff *s=
-kb)
-> 		skb->skb_iif =3D skb->dev->ifindex;
-> 	orig_dev =3D skb->dev;
->=20
->-	skb_reset_network_header(skb);
->-	skb_reset_transport_header(skb);
->-	skb->mac_len =3D skb->network_header - skb->mac_header;
->=20
-> 	pt_prev =3D NULL;
->=20
->@@ -3119,6 +3116,9 @@ another_round:
-> 		if (unlikely(!skb))
-> 			goto out;
-> 	}
->+	skb_reset_network_header(skb);
->+	skb_reset_transport_header(skb);
->+	skb->mac_len =3D skb->network_header - skb->mac_header;
->=20
-> #ifdef CONFIG_NET_CLS_ACT
-> 	if (skb->tc_verd & TC_NCLS) {
+On Mon, Jun 06, 2011 at 02:23:16PM +0200, Stefan (metze) Metzmacher wrote:
+> Hi David,
+> 
+> > From: Stefan Metzmacher <metze@samba.org>
+> > Date: Wed,  1 Jun 2011 14:01:41 +0200
+> > 
+> >> This avoids messages like this after suspend:
+> >>
+> >>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
+> >>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
+> >>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4, CDC NCM
+> >>
+> >> This is important for the Ericsson F5521gw GSM/UMTS modem.
+> >> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm devices
+> >> belong together.
+> >>
+> >> The cdc_ether module does the same.
+> >>
+> >> Signed-off-by: Stefan Metzmacher <metze@samba.org>
+> > 
+> > Applied and queued up for -stable, thanks.
+> 
+> It seems to be part of 3.0-rc2, but I'm not seeing it in any stable tree
+> yet...
+> 
+> When can I expect it in stable trees like 2.6.38.y?
 
+The .38.y tree is closed and will not have new releases, so you will
+never see it there, sorry.
 
-This looks good to me. This does not need to be done before vlan_untag.
-
+greg k-h
