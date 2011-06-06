@@ -1,85 +1,78 @@
 From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] bonding: make 802.3ad use update lacp_rate (v2)
-Date: Tue, 7 Jun 2011 00:24:04 +0800
-Message-ID: <BANLkTi=9HbFEM0WxTX+gbiB8J37mW+PCUA@mail.gmail.com>
-References: <19046.1307130148@death>
-	<1307243793-31007-1-git-send-email-panweiping3@gmail.com>
+Subject: Re: [RFC Patch] bonding: move to net/ directory
+Date: Tue, 7 Jun 2011 00:34:25 +0800
+Message-ID: <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
+References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
+	<20110523151336.GF21309@gospo.rdu.redhat.com>
+	<BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
+	<20110524163323.GB28521@hmsreliant.think-freely.org>
+	<BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
+	<20110525152023.GC11867@hmsreliant.think-freely.org>
+	<BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
+	<20110526135053.GB12617@hmsreliant.think-freely.org>
+	<BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
+Cc: Neil Horman <nhorman@tuxdriver.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
-	"open list:BONDING DRIVER" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Weiping Pan <panweiping3@gmail.com>
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:62210 "EHLO
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:51845 "EHLO
 	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754236Ab1FFQYF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 12:24:05 -0400
-In-Reply-To: <1307243793-31007-1-git-send-email-panweiping3@gmail.com>
+	with ESMTP id S1751703Ab1FFQe0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 12:34:26 -0400
+Received: by iwn34 with SMTP id 34so3245505iwn.19
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 09:34:26 -0700 (PDT)
+In-Reply-To: <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 5, 2011 at 11:16 AM, Weiping Pan <panweiping3@gmail.com> wr=
-ote:
-> There is a bug that when you modify lacp_rate via sysfs,
-> 802.3ad won't use the new value of lacp_rate to transmit packets.
-> That is because port->actor_oper_port_state isn't changed.
+2011/5/26 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
+> 2011/5/26 Neil Horman <nhorman@tuxdriver.com>:
+>> On Thu, May 26, 2011 at 05:32:08PM +0800, Am=C3=A9rico Wang wrote:
+>>> I don't think other drivers are supposed to use this function to re=
+gister
+>>> a packet handler, which is an important difference from my view.
+>> Note you just referred to the bridge/bond and vlan code as 'drivers'=
+ :). =C2=A0And
+>> why is that function the gating factor? =C2=A0Why not register_netde=
+v? =C2=A0or
+>> netif_receive_skb or dev_add_pack? =C2=A0They all relate to the crea=
+tion of device
+>> interface and the reception of network data.
+>>
+>> The fact is, bonding/bridging/vlans/tunnels/etc all have aspects tha=
+t
+>> make them more than just drivers. =C2=A0They are where they are for =
+a myrriad of
+>> reasons. =C2=A0Moving them around changes their location, but does _=
+nothing_ about
+>> the underlying fact that they're driver code plus other stuff, and a=
+s such
+>> provides no real advantage in terms of organization.
 >
-> Change Notes:
-> v2)
-> 1 Hold read_lock(&bond->lock) when iterate slaves, suggested by Jiri =
-Pirko.
-> 2 Modify actor_oper_port_state via a helper function in bond_3ad.c,
-> suggested by Jay Vosburgh.
-> 3 Hold slave->state_machine_lock,
-> so we can modify port->actor_oper_port_state, no matter bond is up or=
- down.
+> If you want to draw a line between net/ and drivers/net I propose
+> following idea:
 >
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
-> ---
-> =C2=A0drivers/net/bonding/bond_3ad.c =C2=A0 | =C2=A0 27 +++++++++++++=
-++++++++++++++
-> =C2=A0drivers/net/bonding/bond_3ad.h =C2=A0 | =C2=A0 =C2=A01 +
-> =C2=A0drivers/net/bonding/bond_sysfs.c | =C2=A0 =C2=A01 +
-> =C2=A03 files changed, 29 insertions(+), 0 deletions(-)
+> net/ - everything that is about networking (or library for it) and
+> interacts only within the system (kernel<->user, or in-kernel)
+> drivers/net/ - everything that is a connecting point between the
+> system and external world - be it hardware, other VMs or hypervisor.
 >
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bon=
-d_3ad.c
-> index c7537abc..5111e0d 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -2473,3 +2473,30 @@ void bond_3ad_lacpdu_recv(struct sk_buff *skb,=
- struct bonding *bond,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0bond_3ad_rx_indication((struct lacpdu *) s=
-kb->data, slave, skb->len);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0read_unlock(&bond->lock);
-> =C2=A0}
-> +
-> +/*
-> + * When modify lacp_rate parameter via sysfs,
-> + * update actor_oper_port_state of each port.
-> + *
-> + * Hold slave->state_machine_lock,
-> + * so we can modify port->actor_oper_port_state,
-> + * no matter bond is up or down.
-> + */
-> +void bond_3ad_update_lacp_rate(struct bonding *bond)
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 int i;
-> + =C2=A0 =C2=A0 =C2=A0 struct slave *slave;
-> + =C2=A0 =C2=A0 =C2=A0 struct port *port =3D NULL;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 read_lock(&bond->lock);
-> + =C2=A0 =C2=A0 =C2=A0 bond_for_each_slave(bond, slave, i) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 port =3D &(slave->=
-ad_info.port);
+> net/ would include wireless stack, all kinds of loopback devices,
+> tunnels (incl. vlan), bridging, bonding, tuntap, etc.
+> drivers/net/ would keep only what is hardware or external ABI depende=
+nt
+>
 
-Please use SLAVE_AD_INFO().
+I agree with this, IMHO this would help to organize the code better.
+And currently only tuntap and bonding are still in net/ directory.
 
-Other than this, it looks good to me,
-
-Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
+In any aspects, now we are mixing net/ and drivers/net/ currently,
+which could be improved.
 
 Thanks!
