@@ -1,52 +1,56 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/3] xfrm: Fix off by one in the replay advance functions
-Date: Mon, 6 Jun 2011 08:46:03 +0200
-Message-ID: <20110606064603.GB31505@secunet.com>
+Subject: [PATCH 2/3] ipv4: Fix packet size calculation for IPsec packets in
+ __ip_append_data
+Date: Mon, 6 Jun 2011 08:48:02 +0200
+Message-ID: <20110606064802.GC31505@secunet.com>
+References: <20110606064603.GB31505@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 To: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54528 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:54544 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752108Ab1FFGmn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2011 02:42:43 -0400
+	id S1752940Ab1FFGol (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2011 02:44:41 -0400
 Content-Disposition: inline
+In-Reply-To: <20110606064603.GB31505@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We may write 4 byte too much when we reinitialize the anti replay
-window in the replay advance functions. This patch fixes this by
-adjusting the last index of the initialization loop.
+Git commit 59104f06 (ip: take care of last fragment in ip_append_data)
+added a check to see if we exceed the mtu when we add trailer_len.
+However, the mtu is already subtracted by trailer_len when the
+xfrm transfomation bundles are set up. So IPsec packets with mtu
+size get fragmented, or if the DF bit is set the packets will not
+be send even though they match the mtu perfectly fine. This patch
+actually reverts commit 59104f06.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_replay.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/ip_output.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
-index 47f1b86..b11ea69 100644
---- a/net/xfrm/xfrm_replay.c
-+++ b/net/xfrm/xfrm_replay.c
-@@ -265,7 +265,7 @@ static void xfrm_replay_advance_bmp(struct xfrm_state *x, __be32 net_seq)
- 			bitnr = bitnr & 0x1F;
- 			replay_esn->bmp[nr] |= (1U << bitnr);
- 		} else {
--			nr = replay_esn->replay_window >> 5;
-+			nr = (replay_esn->replay_window - 1) >> 5;
- 			for (i = 0; i <= nr; i++)
- 				replay_esn->bmp[i] = 0;
- 
-@@ -471,7 +471,7 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
- 			bitnr = bitnr & 0x1F;
- 			replay_esn->bmp[nr] |= (1U << bitnr);
- 		} else {
--			nr = replay_esn->replay_window >> 5;
-+			nr = (replay_esn->replay_window - 1) >> 5;
- 			for (i = 0; i <= nr; i++)
- 				replay_esn->bmp[i] = 0;
- 
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 98af369..a16859b 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -888,12 +888,9 @@ alloc_new_skb:
+ 			 * because we have no idea what fragment will be
+ 			 * the last.
+ 			 */
+-			if (datalen == length + fraggap) {
++			if (datalen == length + fraggap)
+ 				alloclen += rt->dst.trailer_len;
+-				/* make sure mtu is not reached */
+-				if (datalen > mtu - fragheaderlen - rt->dst.trailer_len)
+-					datalen -= ALIGN(rt->dst.trailer_len, 8);
+-			}
++
+ 			if (transhdrlen) {
+ 				skb = sock_alloc_send_skb(sk,
+ 						alloclen + hh_len + 15,
 -- 
 1.7.0.4
 
