@@ -1,84 +1,75 @@
-From: Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>
-Subject: Re: [PATCHv2 RFC 0/4] virtio and vhost-net capacity
-	handling
-Date: Mon, 06 Jun 2011 13:09:35 +0930
-Message-ID: <87fwnniq6f.fsf@rustcorp.com.au>
-References: <cover.1307029008.git.mst@redhat.com>
-	<20110602171721.GA13215@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/3] ipv4: Fix packet size calculation for IPsec
+ packets in __ip_append_data
+Date: Mon, 06 Jun 2011 09:38:19 +0200
+Message-ID: <1307345899.3098.3.camel@edumazet-laptop>
+References: <20110606064603.GB31505@secunet.com>
+	 <20110606064802.GC31505@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20110602171721.GA13215-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53130 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014Ab1FFHiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 03:38:23 -0400
+Received: by wwa36 with SMTP id 36so3495719wwa.1
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 00:38:22 -0700 (PDT)
+In-Reply-To: <20110606064802.GC31505@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Jun 2011 20:17:21 +0300, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On Thu, Jun 02, 2011 at 06:42:35PM +0300, Michael S. Tsirkin wrote:
-> > OK, here's a new attempt to use the new capacity api.  I also added more
-> > comments to clarify the logic.  Hope this is more readable.  Let me know
-> > pls.
-> > 
-> > This is on top of the patches applied by Rusty.
-> > 
-> > Warning: untested. Posting now to give people chance to
-> > comment on the API.
-> > 
-> > Changes from v1:
-> > - fix comment in patch 2 to correct confusion noted by Rusty
-> > - rewrite patch 3 along the lines suggested by Rusty
-> >   note: it's not exactly the same but I hope it's close
-> >   enough, the main difference is that mine does limited
-> >   polling even in the unlikely xmit failure case.
-> > - added a patch to not return capacity from add_buf
-> >   it always looked like a weird hack
-> > 
-> > Michael S. Tsirkin (4):
-> >   virtio_ring: add capacity check API
-> >   virtio_net: fix tx capacity checks using new API
-> >   virtio_net: limit xmit polling
-> >   Revert "virtio: make add_buf return capacity remaining:
-> > 
-> >  drivers/net/virtio_net.c     |  111 ++++++++++++++++++++++++++----------------
-> >  drivers/virtio/virtio_ring.c |   10 +++-
-> >  include/linux/virtio.h       |    7 ++-
-> >  3 files changed, 84 insertions(+), 44 deletions(-)
-> > 
-> > -- 
-> > 1.7.5.53.gc233e
-> 
-> 
-> And just FYI, here's a patch (on top) that I considered but
-> decided against. This does a single get_buf before
-> xmit. I thought it's not really needed as the capacity
-> check in add_buf is relatively cheap, and we removed
-> the kick in xmit_skb. But the point is that the loop
-> will now be easy to move around if someone manages
-> to show this benefits speed (which I doubt).
+Le lundi 06 juin 2011 =C3=A0 08:48 +0200, Steffen Klassert a =C3=A9crit=
+ :
+> Git commit 59104f06 (ip: take care of last fragment in ip_append_data=
+)
+> added a check to see if we exceed the mtu when we add trailer_len.
+> However, the mtu is already subtracted by trailer_len when the
+> xfrm transfomation bundles are set up. So IPsec packets with mtu
+> size get fragmented, or if the DF bit is set the packets will not
+> be send even though they match the mtu perfectly fine. This patch
+> actually reverts commit 59104f06.
+>=20
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
 
-Agreed.  The other is clearer.
+Woh, I am afraid I wont have time in following days to check your
+assertion.
 
-I like the approach these patches take.  Testing is required, but I
-think the final result is a neater driver than the current one, as well
-as having nicer latency.
+What about original problem then, how should we fix it ?
 
-Thanks,
-Rusty.
+We do have some cases where at least one fragment (the last one) is
+oversized.
+
+I remember I used Nick Bowler scripts at that time, I might find them
+again...
+
+[PATCH] ip : take care of last fragment in ip_append_data
+
+While investigating a bit, I found ip_fragment() slow path was taken
+because ip_append_data() provides following layout for a send(MTU +
+N*(MTU - 20)) syscall :
+
+- one skb with 1500 (mtu) bytes
+- N fragments of 1480 (mtu-20) bytes (before adding IP header)
+last fragment gets 17 bytes of trail data because of following bit:
+
+        if (datalen =3D=3D length + fraggap)
+                alloclen +=3D rt->dst.trailer_len;
+
+Then esp4 adds 16 bytes of data (while trailer_len is 17... hmm...
+another bug ?)
+
+In ip_fragment(), we notice last fragment is too big (1496 + 20) > mtu,
+so we take slow path, building another skb chain.
+
+In order to avoid taking slow path, we should correct ip_append_data()
+to make sure last fragment has real trail space, under mtu...
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+
