@@ -1,92 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] e100: Fix inconsistency in bad frames
-	handling
-Date: Mon, 06 Jun 2011 15:45:02 -0700
-Message-ID: <4DED586E.4080909@candelatech.com>
-References: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>	
-	<alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>	
-	<4DED14E7.2050405@candelatech.com>
-	<1307391315.22348.454.camel@localhost>
-	<1307392197.2642.14.camel@edumazet-laptop>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: small RPS cache for fragments?
+Date: Mon, 06 Jun 2011 16:49:22 -0600
+Message-ID: <4DED5972.6020507@genband.com>
+References: <20110606.122217.2183968212149987796.davem@davemloft.net>	<1307390721.8149.2763.camel@tardy>	<17839.1307394369@death> <20110606.144026.1544243502220840783.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Andrea Merello <andrea.merello@gmail.com>,
-	netdev@vger.kernel.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1307392197.2642.14.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og113.obsmtp.com ([64.18.2.179]:55312 "EHLO
+	exprod7og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758405Ab1FFWt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 18:49:29 -0400
+In-Reply-To: <20110606.144026.1544243502220840783.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDYvMDYvMjAxMSAwMToyOSBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IExlIGx1bmRpIDA2
-IGp1aW4gMjAxMSDDoCAyMToxNSArMDEwMCwgQmVuIEh1dGNoaW5ncyBhIMOpY3JpdCA6Cj4+IE9u
-IE1vbiwgMjAxMS0wNi0wNiBhdCAxMDo1NiAtMDcwMCwgQmVuIEdyZWVhciB3cm90ZToKPj4+IE9u
-IDA2LzA2LzIwMTEgMTA6NDkgQU0sIEJyYW5kZWJ1cmcsIEplc3NlIHdyb3RlOgo+Pj4+Cj4+Pj4g
-PGFkZGVkIG5ldGRldj4sIHJlbW92ZWQgb3RoZXIgdXNlbGVzcyBsaXN0cy4KPj4+Pgo+Pj4+IE9u
-IFNhdCwgNCBKdW4gMjAxMSwgQW5kcmVhIE1lcmVsbG8gd3JvdGU6Cj4+Pj4+IEluIGUxMDAgZHJp
-dmVyIGl0IHNlZW1zIHRoYXQgdGhlIGludGVudGlvbiB3YXMgdG8gYWNjZXB0IGJhZCBmcmFtZXMg
-aW4KPj4+Pj4gcHJvbWlzY3VvdXMgbW9kZSBhbmQgbG9vcGJhY2sgbW9kZS4KPj4+Pj4gSSB0aGlu
-ayB0aGlzIGlzIGV2aWRlbnQgYmVjYXVzZSBvZiB0aGUgZm9sbG93aW5nIGNvZGUgaW4gdGhlIGRy
-aXZlcjoKPj4+Pj4KPj4+Pj4gaWYgKG5pYy0+ZmxhZ3MmICAgcHJvbWlzY3VvdXMgfHwgbmljLT5s
-b29wYmFjaykgewo+Pj4+PiAJCWNvbmZpZy0+cnhfc2F2ZV9iYWRfZnJhbWVzID0gMHgxOwkvKiAx
-PXNhdmUsIDA9ZGlzY2FyZCAqLwo+Pj4+PiAJCWNvbmZpZy0+cnhfZGlzY2FyZF9zaG9ydF9mcmFt
-ZXMgPSAweDA7CS8qIDE9ZGlzY2FyZCwgMD1zYXZlICovCj4+Pj4+IAkJY29uZmlnLT5wcm9taXNj
-dW91c19tb2RlID0gMHgxOwkJLyogMT1vbiwgMD1vZmYgKi8KPj4+Pj4gCX0KPj4+Pj4KPj4+Pgo+
-Pj4+IEhpLCB0aGFua3MgZm9yIHlvdXIgd29yayBvbiBlMTAwLgo+Pj4+Cj4+Pj4+IEhvd2V2ZXIg
-dGhpcyBpbnRlbnRpb24gaXMgbm90IHJlYWxseSByZWFsaXplZCBiZWNhdXNlIGJhZCBmcmFtZXMg
-YXJlCj4+Pj4+IGRpc2NhcmRlZCBsYXRlciBieSBTVyBjaGVjay4KPj4+Pj4gVGhpcyBwYXRjaCBm
-aW5hbGx5IGhvbm9ycyB0aGUgYWJvdmUgaW50ZW50aW9uLCBtYWtpbmcgdGhlIFJYIGNvZGUgdG8K
-Pj4+Pj4gbGV0IGJhZCBmcmFtZXMgdG8gcGFzcyB3aGVuIHRoZSBOSUMgaXMgaW4gcHJvbWlzY3Vv
-dXMgb3IgbG9vcGJhY2sKPj4+Pj4gbW9kZS4KPj4+Pgo+Pj4+IEkgdGhpbmsgdGhpcyBtYXkgYmUg
-YSBtaXN0YWtlIGJ5IHRoZSBhdXRob3JzIG9mIHRoZSBzb2Z0d2FyZSBkZXZlbG9wZXJzCj4+Pj4g
-bWFudWFsLiAgVGhlIG1hbnVhbCBzdWdnZXN0cyB0aGF0IHNhdmUgYmFkIGZyYW1lcyBhbmQgc2F2
-ZSBzaG9ydCBmcmFtZXMKPj4+PiBzaG91bGQgYmUgZW5hYmxlZCBpbiBwcm9taXNjIG1vZGUsIGJ1
-dCBhbGwgb2Ygb3VyIG90aGVyIGRyaXZlcnMgKmRvIG5vdCoKPj4+PiBzYXZlIGJhZCBmcmFtZXMg
-d2hlbiBpbiBwcm9taXNjdW91cyBtb2RlIChieSBkZXNpZ24pLiAgVGhpcyBpcyBpbnRlbnRpb25h
-bAo+Pj4+IGJlY2F1c2UgYSBiYWQgZnJhbWUgaXMganVzdCB0aGF0LCBiYWQsIGFuZCB3aXRoIG5v
-IGhvcGUgb2Yga25vd2luZyBpZiB0aGUKPj4+PiBkYXRhIGluIGl0IGlzIG9rYXkvbWFsaWNpb3Vz
-L290aGVyLiAgSSB1bmRlcnN0YW5kIHlvdXIgcmVhc29uaW5nIGFib3ZlLAo+Pj4+IGJ1dCByZWFs
-aXN0aWNhbGx5IHRoZSByeF9zYXZlX2JhZF9mcmFtZXMgc2hvdWxkIE5PVCBiZSBzZXQuICBJJ2Qg
-YWNrIGEKPj4+PiBwYXRjaCB0byBjb21tZW50IHRoYXQgbGluZSBvdXQuCj4+Pj4KPj4+Pj4gVGhp
-cyBoZWxwZWQgbWUgYSBsb3QgdG8gZGVidWcgYW4gRlBHQSBldGhlcm5ldCBjb3JlLgo+Pj4+PiBN
-YXliZSBpdCBjYW4gYmUgYWxzbyB1c2VmdWwgdG8gc29tZW9uZSBlbHNlLi4KPj4+Pgo+Pj4+IEkg
-dGhpbmsgdGhpcyBwYXRjaCBpcyBqdXN0IHRoYXQsIGRlYnVnIG9ubHkuIEFzIGEgZGV2ZWxvcGVy
-IEkgdW5kZXJzdGFuZAo+Pj4+IHdoeSB0aGlzIGlzIHVzZWZ1bCwgYnV0IHRoZXJlIGlzIG5vIHJl
-YXNvbiBhbnkgbm9ybWFsIHVzZXIgd291bGQgYmUgYWJsZQo+Pj4+IHRvIGJlbmVmaXQgZnJvbSB0
-aGlzLCBzbyBmb3Igbm93LCBzb3JyeToKPj4+Pgo+Pj4+IE5BQ0suCj4+Pgo+Pj4gSSB0aGluayBh
-bnlvbmUgc25pZmZpbmcgYSBmdW5reSBuZXR3b3JrIHdvdWxkIGhhdmUgYmVuZWZpdCBpbgo+Pj4g
-cmVjZWl2aW5nIGFsbCBmcmFtZXMuICBTbywgd2hpbGUgaXQgc2hvdWxkbid0IGJlIGVuYWJsZWQg
-YnkgZGVmYXVsdCwKPj4+IGl0IHdvdWxkIGJlIG5pY2UgdG8gaGF2ZSBhbiBldGh0b29sIGNvbW1h
-bmQgdG8gdHVybiBvbiByZWNlaXZpbmcKPj4+IGJhZC1jcmMgZnJhbWVzLCBhcyB3ZWxsIGFzIHJl
-Y2VpdmluZyB0aGUgNC1ieXRlIENSQyBvbiB0aGUgZW5kIG9mCj4+PiB0aGUgcGFja2V0cy4KPj4+
-Cj4+PiBJdCBqdXN0IHNvIGhhcHBlbnMgSSBoYXZlIHN1Y2ggYSBwYXRjaCwgaW4gY2FzZSBvdGhl
-cnMgYWdyZWUgOikKPj4KPj4gSG93IHdvdWxkIGEgcmVjZWl2ZWQgc2tiIGJlIGZsYWdnZWQgYXMg
-aGF2aW5nIGEgQ1JDIGVycm9yPwo+Pgo+Cj4gbWF5YmUgc29tZSBza2ItPnBrdF90eXBlID0gUEFD
-S0VUX0lOVkFMSUQ7IG9yIHNvbWV0aGluZy4uLgoKVGhhdCBsb29rcyBnb29kIHRvIG1lLiAgcGt0
-X3R5cGUgaXMgcGFzc2VkIHVwIHRocm91Z2ggc29tZSBvZiB0aGUgcGZfc29ja2V0CmludGVyZmFj
-ZXMsIHNvIGNhcHR1cmUgdG9vbHMgY291bGQgZWFzaWx5IGJlIG1vZGlmaWVkIHRvIHBheSBhdHRl
-bnRpb24gdG8gaXQuCgpXZSBtaWdodCBhbHNvIG5lZWQgdG8gYWRkIGEgZmxhZyAnY3JjLWluY2x1
-ZGVkJyBzbyB0aGF0IHRvb2xzIGNvdWxkIGtub3cKdGhhdCB0aGUgbGFzdCA0IGJ5dGVzIG9mIHRo
-ZSBwYWNrZXQgYXJlIGV0aGVybmV0IENSQywgZm9yIE5JQ3MgdGhhdCBzdXBwb3J0CnRoYXQuCgpU
-aGFua3MsCkJlbgoKLS0gCkJlbiBHcmVlYXIgPGdyZWVhcmJAY2FuZGVsYXRlY2guY29tPgpDYW5k
-ZWxhIFRlY2hub2xvZ2llcyBJbmMgIGh0dHA6Ly93d3cuY2FuZGVsYXRlY2guY29tCgoKLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tCkVkaXRMaXZlIEVudGVycHJpc2UgaXMgdGhlIHdvcmxkJ3MgbW9zdCB0
-ZWNobmljYWxseSBhZHZhbmNlZCBjb250ZW50CmF1dGhvcmluZyB0b29sLiBFeHBlcmllbmNlIHRo
-ZSBwb3dlciBvZiBUcmFjayBDaGFuZ2VzLCBJbmxpbmUgSW1hZ2UKRWRpdGluZyBhbmQgZW5zdXJl
-IGNvbnRlbnQgaXMgY29tcGxpYW50IHdpdGggQWNjZXNzaWJpbGl0eSBDaGVja2luZy4KaHR0cDov
-L3Auc2YubmV0L3NmdS9lcGhveC1kZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBs
-aXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMv
-bGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhl
-cm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+On 06/06/2011 03:40 PM, David Miller wrote:
+> From: Jay Vosburgh<fubar@us.ibm.com>
+> Date: Mon, 06 Jun 2011 14:06:09 -0700
+>
+>> 	Right, the common use case for balance-rr (round robin) is to
+>> maximize TCP throughput for one connection, over a set of whatever
+>> network devices are available (or are cheap) by striping that connection
+>> across multiple interfaces.  The tcp_reordering sysctl is set to some
+>> large value so that TCP will deal with the reordering as best it can.
+>
+> FWIW, I really would never, ever, encourage schemes like this.  Even
+> if they do happen to work.
+
+Why not?  And if not then what's the recommended way to handle the above 
+scenario?  (Assuming hardware upgrade isn't an option.)
+
+Chris
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
