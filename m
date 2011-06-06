@@ -1,47 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] net: Define enum for the bits used in features.
-Date: Mon, 06 Jun 2011 12:20:59 -0700 (PDT)
-Message-ID: <20110606.122059.261517215690508151.davem@davemloft.net>
-References: <20110606035808.GA28858@redhat.com>
-	<20110605.221537.899061768025493519.davem@davemloft.net>
-	<20110606153253.GB30665@redhat.com>
+Subject: Re: small RPS cache for fragments?
+Date: Mon, 06 Jun 2011 12:22:17 -0700 (PDT)
+Message-ID: <20110606.122217.2183968212149987796.davem@davemloft.net>
+References: <1306273128.8149.1444.camel@tardy>
+	<20110604.132940.2214949964968775365.davem@davemloft.net>
+	<1307380132.8149.2718.camel@tardy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, netdev@vger.kernel.org, therbert@google.com,
-	mirqus@gmail.com, shemminger@vyatta.com
-To: mst@redhat.com
+Cc: netdev@vger.kernel.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57352 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:57372 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757855Ab1FFTVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 15:21:12 -0400
-In-Reply-To: <20110606153253.GB30665@redhat.com>
+	with ESMTP id S1755937Ab1FFTWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 15:22:21 -0400
+In-Reply-To: <1307380132.8149.2718.camel@tardy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 6 Jun 2011 18:32:53 +0300
+From: Rick Jones <rick.jones2@hp.com>
+Date: Mon, 06 Jun 2011 10:08:52 -0700
 
-> On Sun, Jun 05, 2011 at 10:15:37PM -0700, David Miller wrote:
->> Since the GSO accessors deal with mutliple bits, you can create
->> special GSO specific interfaces to manipulate them.
-> 
-> Yes but it's not just GSO.
-> It's anything that includes more than 1 feature.
-> Examples:
-> NETIF_F_ALL_CSUM
-> NETIF_F_ALL_TX_OFFLOADS
-> NETIF_F_V6_CSUM
-> NETIF_F_SOFT_FEATURES
-> 
-> etc
-> 
-> Creating many accessors for each will need a lot
-> of code duplication ...
+> Mode-rr bonding reorders TCP segments all the time. 
 
-Yet this is something you must resolve in order to change the feature
-bit implementation.
-
-Whether this issue is difficult or not to address, it has to be done
-either way.
+Oh well, then don't use this if you care about performance at all.
+And therefore it's not even worth considering for our RPS fragment
+cache.
