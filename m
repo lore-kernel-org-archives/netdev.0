@@ -1,56 +1,78 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: small RPS cache for fragments?
-Date: Mon, 06 Jun 2011 10:08:52 -0700
-Message-ID: <1307380132.8149.2718.camel@tardy>
-References: <20110517.143342.1566027350038182221.davem@davemloft.net>
-	 <20110524.160123.2051949867829317339.davem@davemloft.net>
-	 <1306273128.8149.1444.camel@tardy>
-	 <20110604.132940.2214949964968775365.davem@davemloft.net>
-Reply-To: rick.jones2@hp.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: bridge/netfilter: regression in 2.6.39.1
+Date: Mon, 6 Jun 2011 13:07:46 -0400
+Message-ID: <20110606170746.GD1000@hmsreliant.think-freely.org>
+References: <4DE93422.3070000@ahsoftware.de>
+ <20110606111507.GA1000@hmsreliant.think-freely.org>
+ <4DECBEA3.6070408@ahsoftware.de>
+ <1307362358.3098.6.camel@edumazet-laptop>
+ <4DECCCC0.70905@ahsoftware.de>
+ <1307366166.3098.15.camel@edumazet-laptop>
+ <4DECD657.9010807@ahsoftware.de>
+ <1307370363.3098.37.camel@edumazet-laptop>
+ <20110606153213.GC1000@hmsreliant.think-freely.org>
+ <1307376705.3098.58.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Holler <holler@ahsoftware.de>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:23267 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007Ab1FFRIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:08:54 -0400
-In-Reply-To: <20110604.132940.2214949964968775365.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48056 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756136Ab1FFRIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:08:43 -0400
+Content-Disposition: inline
+In-Reply-To: <1307376705.3098.58.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-06-04 at 13:29 -0700, David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Tue, 24 May 2011 14:38:48 -0700
-> 
-> > Isn't there still an issue (perhaps small) of traffic being sent through
-> > a mode-rr bond, either at the origin or somewhere along the way?  At the
-> > origin point will depend on the presence of UFO and whether it is
-> > propagated up through the bond interface, but as a quick test, I
-> > disabled TSO, GSO and UFO on four e1000e driven interfaces, bonded them
-> > mode-rr and ran a netperf UDP_RR test with a 1473 byte request size and
-> > this is what they looked like at my un-bonded reciever at the other end:
-> > 
-> > 14:31:01.011370 IP (tos 0x0, ttl 64, id 24960, offset 1480, flags
-> > [none], proto UDP (17), length 21)
-> >     tardy.local > raj-8510w.local: udp
-> > 14:31:01.011420 IP (tos 0x0, ttl 64, id 24960, offset 0, flags [+],
-> > proto UDP (17), length 1500)
-> >     tardy.local.36073 > raj-8510w.local.59951: UDP, length 1473
-> > 14:31:01.011514 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto
-> > UDP (17), length 29)
-> >     raj-8510w.local.59951 > tardy.local.36073: UDP, length 1
-> 
-> That's not good behavior, and it's of course going to cause sub-optimal
-> performance if we do the RPS fragment cache.
-> 
-> RR bond mode could do something similar, to alleviate this.
-> 
-> I assume it doesn't do this kind of reordering for TCP.
+On Mon, Jun 06, 2011 at 06:11:45PM +0200, Eric Dumazet wrote:
+> Le lundi 06 juin 2011 =E0 11:32 -0400, Neil Horman a =E9crit :
+>=20
+> > Not to drag this out further, but since you illustrated the correct=
+ way to do
+> > this with the blackhole_ops test, and this modification now gives u=
+s two
+> > instances of that case, would it perhaps be better to just do this =
+in
+> > dst_metrics_write_ptr:
+> >=20
+> > return dst->ops->cow_metrics ? return dst->ops->cow_metrics(dst, p)=
+ : NULL;
+> >=20
+> > Then we could eliminate the two functions that do nothing be retun =
+NULL (along
+> > with their respective call instructions), and save any future users=
+ from having
+> > to remember to include a dummy cow_metrics method if they happen to=
+ set the read
+> > only flag on thier dst_ops?
+>=20
+> Well, I prefer how David coded the thing.
+> We can add selective traces where we want.
+>=20
+> Having a default behavior might give much more work to find a bug in
+> this area. A NULL pointer access gives us an immediate indication.
+>=20
+> Its a bit late to add an "if (dst->ops->cow_metrics)" test now that w=
+e
+> covered all call sites ;)
+>=20
+> But we probably have more bugs elsewhere, because of many dst changes=
+ in
+> 2.6.39
+Ok, sounds reasonable to me.
 
-Mode-rr bonding reorders TCP segments all the time. 
+Reviewed-by: Neil Horman <nhorman@tuxdriver.com>
 
-rick
-
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
