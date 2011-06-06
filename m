@@ -1,67 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Mon, 06 Jun 2011 19:04:41 +0200
-Message-ID: <1307379881.3098.71.camel@edumazet-laptop>
-References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
-	 <20110523151336.GF21309@gospo.rdu.redhat.com>
-	 <BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
-	 <20110524163323.GB28521@hmsreliant.think-freely.org>
-	 <BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
-	 <20110525152023.GC11867@hmsreliant.think-freely.org>
-	 <BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
-	 <20110526135053.GB12617@hmsreliant.think-freely.org>
-	 <BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
-	 <BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
-	 <1307379022.4994.4.camel@Joe-Laptop>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: small RPS cache for fragments?
+Date: Mon, 06 Jun 2011 10:08:52 -0700
+Message-ID: <1307380132.8149.2718.camel@tardy>
+References: <20110517.143342.1566027350038182221.davem@davemloft.net>
+	 <20110524.160123.2051949867829317339.davem@davemloft.net>
+	 <1306273128.8149.1444.camel@tardy>
+	 <20110604.132940.2214949964968775365.davem@davemloft.net>
+Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Jeffrey Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34622 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755956Ab1FFREq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:04:46 -0400
-Received: by wwa36 with SMTP id 36so4028221wwa.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 10:04:45 -0700 (PDT)
-In-Reply-To: <1307379022.4994.4.camel@Joe-Laptop>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:23267 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007Ab1FFRIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 13:08:54 -0400
+In-Reply-To: <20110604.132940.2214949964968775365.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 juin 2011 =C3=A0 09:50 -0700, Joe Perches a =C3=A9crit :
-> On Tue, 2011-06-07 at 00:34 +0800, Am=C3=A9rico Wang wrote:
-> > I agree with this, IMHO this would help to organize the code better=
-=2E
-> > And currently only tuntap and bonding are still in net/ directory.
-> > In any aspects, now we are mixing net/ and drivers/net/ currently,
-> > which could be improved.
->=20
-> There is a proposal to move some drivers/net content to
-> drivers/net/sw/
->=20
-> http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
->=20
-> I think that'd be fine too.
->=20
-> I believe Jeff is going to submit patches soonish.
->=20
-> http://comments.gmane.org/gmane.linux.network/197232
->=20
+On Sat, 2011-06-04 at 13:29 -0700, David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Tue, 24 May 2011 14:38:48 -0700
+> 
+> > Isn't there still an issue (perhaps small) of traffic being sent through
+> > a mode-rr bond, either at the origin or somewhere along the way?  At the
+> > origin point will depend on the presence of UFO and whether it is
+> > propagated up through the bond interface, but as a quick test, I
+> > disabled TSO, GSO and UFO on four e1000e driven interfaces, bonded them
+> > mode-rr and ran a netperf UDP_RR test with a 1473 byte request size and
+> > this is what they looked like at my un-bonded reciever at the other end:
+> > 
+> > 14:31:01.011370 IP (tos 0x0, ttl 64, id 24960, offset 1480, flags
+> > [none], proto UDP (17), length 21)
+> >     tardy.local > raj-8510w.local: udp
+> > 14:31:01.011420 IP (tos 0x0, ttl 64, id 24960, offset 0, flags [+],
+> > proto UDP (17), length 1500)
+> >     tardy.local.36073 > raj-8510w.local.59951: UDP, length 1473
+> > 14:31:01.011514 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto
+> > UDP (17), length 29)
+> >     raj-8510w.local.59951 > tardy.local.36073: UDP, length 1
+> 
+> That's not good behavior, and it's of course going to cause sub-optimal
+> performance if we do the RPS fragment cache.
+> 
+> RR bond mode could do something similar, to alleviate this.
+> 
+> I assume it doesn't do this kind of reordering for TCP.
 
-As long as the re-organization is done without loosing "git blame"
-information on current files, I am fine.
+Mode-rr bonding reorders TCP segments all the time. 
 
-If not, this is a showstopper and not worth the pain, exactly like othe=
-r
-cleanup patches.
-
-
+rick
 
