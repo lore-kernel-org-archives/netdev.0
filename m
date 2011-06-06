@@ -1,38 +1,63 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: bridge/netfilter: regression in 2.6.39.1
-Date: Mon, 06 Jun 2011 15:29:59 +0200
-Message-ID: <4DECD657.9010807@ahsoftware.de>
-References: <4DE93422.3070000@ahsoftware.de>	 <20110606111507.GA1000@hmsreliant.think-freely.org>	 <4DECBEA3.6070408@ahsoftware.de> <1307362358.3098.6.camel@edumazet-laptop>	 <4DECCCC0.70905@ahsoftware.de> <1307366166.3098.15.camel@edumazet-laptop>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH 00/11] can: at91_can: add support for AT91SAM9X5 series
+Date: Mon,  6 Jun 2011 15:42:49 +0200
+Message-ID: <1307367780-30715-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:40311 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425Ab1FFNaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 09:30:11 -0400
-In-Reply-To: <1307366166.3098.15.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-> Nice, now please submit a patch with 0972ddb237 as a guideline.
->
-> BTW, you could also check other struct dst_ops methods for
-> bridge/netfilter:
-
-Sorry, but I prefer to submit patches I understand by myself and for 
-stuff I know something about. The patch in my first mail was just meant 
-as a quick fix (which seemed to work here).
-
-So even if I might be able to construct a working patch using commit 
-0972ddb237, I don't think I should do that.
-
-Regards,
-
-Alexander
+SGVsbG8sCgp0aGlzIHBhdGNoIHNlcmllcyBhZGQgc3VwcG9ydCBmb3IgdGhlIGF0OTFfY2FuIGNv
+cmUgb24gdGhlIHVwY29taW5nCmF0OTFzYW05eDUgU09DIHNlcmllcy4KClRoZSBvcmlnaW5hbCBh
+dDkxX2NhbiBkcml2ZXIgc3VwcG9ydHMgdGhlIGF0OTFzYW05MjYzIHdoaWNoIGhhcyAxNgptYWls
+Ym94ZXMsIGJ1dCB0aGUgQ0FOIGNvcmUgb24gdGhlIGF0OTFzYW05eDUgaGFzIG9ubHkgOC4gTW9z
+dCBjb25zdGFudHMKdXNlZCBpbiB0aGUgUlggYW5kIFRYIHBhdGggYXJlIGRlcml2ZWQgZnJvbSB0
+aGUgbnVtYmVyIG9mIG1haWxib3hlcy4KClRoaXMgcGF0Y2ggc2VyaWVzIGNoYW5nZXMgdGhlIGRy
+aXZlciBmcm9tIGEgc3RhdGljLCBjb21waWxlIHRpbWUgc2V0dXAKb2YgdGhlIG1haWxib3hlcyB0
+byBhIGR5bmFtaWMgb25lLiBQYXRjaGVzIDEtNCBjbGVhbiB1cCB0aGUgZHJpdmVyLCA1KzYKc2lt
+cGxpZnkgdGhlIHVzYWdlIG9mIHRoZSBjb25zdGFudHMsIHBhdGNoIDcgY29udmVydHMgYWxsIGRl
+cml2ZWQgY29uc3RhbnRzCmludG8gZnVuY3Rpb25zLiBQYXRjaCA4IHdpbGwgYWRkIGlkX3RhYmxl
+IHN1cHBvcnQgdG8gdGhlIGRyaXZlciB0aGVuIGFsbApyZW1haW5pbmcgY29uc3RhbnRzIGFyZSBj
+b252ZXJ0ZWQgaW50byBmdW5jdGlvbnMgdXNpbmcgdGhlIHJ1biB0aW1lCnNlbGVjdGVkIG1haWxi
+b3ggY29uc3RhbnRzLiBUaGUgbmV4dCBwYXRjaCAoOSkgdGFrZXMgY2FyZSBhYm91dCBhbgphdDkx
+c2FtOTI2MyBzcGVjaWZpYyBlcnJhdGEgZml4LiBQYXRjaCAxMCBhbmQgMTEgd2lsbCBmaW5hbGx5
+IGFkZCBzdXBvcHJ0CmZvciB0aGUgYXQ5MXNhbTl4NSBTT0MuCgpUaGlzIHBhdGNoIHNlcmllcyBh
+cHBsaWVzIHRvIGN1cnJlbnQgbmV0LW5leHQtMi42L21hc3RlciBhbmQgaGFzIGJlZW4gdGVzdGVk
+Cm9uIGEgc2FtOTI2MyBhbmQgc2FtOXg1ZWsuCihBbGx0aG91Z2gsIHRoZSBzYW05eDUgc3VwcG9y
+dCBpcyBub3QgbWFpbmxpbmUgeWV0KS4KCnBsZWFzZSByZXZpZXcgYW5kIGNvbnNpZGVyIHRvIGFw
+cGx5LApNYXJjCgpUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IGUzY2MwNTVjMThh
+YjU3NTI5MWFjZjBhZjc2MjJhMmU5N2M0NzI4ZmE6CgogIGluY2x1ZGUvbmV0OiBSZW1vdmUgdW5u
+ZWNlc3Nhcnkgc2VtaWNvbG9ucyAoMjAxMS0wNi0wNSAxNDozMzo0MCAtMDcwMCkKCmFyZSBhdmFp
+bGFibGUgaW4gdGhlIGdpdCByZXBvc2l0b3J5IGF0OgogIGdpdDovL2dpdC5wZW5ndXRyb25peC5k
+ZS9naXQvbWtsL2xpbnV4LTIuNi5naXQgY2FuL2F0OTEtc2FtOXg1CgpNYXJjIEtsZWluZS1CdWRk
+ZSAoMTApOgogICAgICBjYW46IGF0OTFfY2FuOiBkb24ndCBhbGlnbiBzdHJ1Y3QgZGVmaW5pdGlv
+bnMKICAgICAgY2FuOiBhdDkxX2NhbjogZml4IGNvbW1lbnQgYWJvdXQgcHJpdi0+dHhfbmV4dAog
+ICAgICBjYW46IGF0OTFfY2FuOiBkb24ndCBjb3B5IGRhdGEgdG8gcngnZWQgUlRSIGZyYW1lcwog
+ICAgICBjYW46IGF0OTFfY2FuOiBsZXQgZ2V0X3R4XyogZnVuY3Rpb25zIHJldHVybiB1bnNpZ25l
+ZCBpbnQKICAgICAgY2FuOiBhdDkxX2NhbjogZGlyZWN0bHkgZGVmaW5lIEFUOTFfTUJfUlhfTEFT
+VAogICAgICBjYW46IGF0OTFfY2FuOiByZW5hbWUgQVQ5MV9NQl9SWF9NQVNLIHRvIEFUOTFfSVJR
+X01CX1JYCiAgICAgIGNhbjogYXQ5MV9jYW46IGNvbnZlcnQgZGVyaXZlZCBtYWlsYm94IGNvbnN0
+YW50cyBpbnRvIGZ1bmN0aW9ucwogICAgICBjYW46IGF0OTFfY2FuOiBhZGQgaWRfdGFibGUgYW5k
+IGNvbnZlcnQgcHJpbWUgbWFpbGJveCBjb25zdGF0cyB0byBmdW5jdGlvbnMKICAgICAgY2FuOiBh
+dDkxX2NhbjogcmVnaXN0ZXIgbWIwIHN5c2ZzIGVudHJ5IG9ubHkgb24gYXQ5MXNhbTkyNjMKICAg
+ICAgY2FuOiBhdDkxX2NhbjogYWRkIHN1cHBvcnQgZm9yIHRoZSBBVDkxU0FNOVg1IFNPQ3MKClV3
+ZSBLbGVpbmUtS8O2bmlnICgxKToKICAgICAgbmV0L2NhbjogYWxsb3cgQ0FOX0FUOTEgb24gQVQ5
+MVNBTTlYNQoKIGRyaXZlcnMvbmV0L2Nhbi9LY29uZmlnICAgIHwgICAgNSArLQogZHJpdmVycy9u
+ZXQvY2FuL2F0OTFfY2FuLmMgfCAgMzY2ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKyst
+LS0tLS0tLS0tLS0tCiAyIGZpbGVzIGNoYW5nZWQsIDI1OSBpbnNlcnRpb25zKCspLCAxMTIgZGVs
+ZXRpb25zKC0pCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KU29ja2V0Y2FuLWNvcmUgbWFpbGluZyBsaXN0ClNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxp
+b3MuZGUKaHR0cHM6Ly9saXN0cy5iZXJsaW9zLmRlL21haWxtYW4vbGlzdGluZm8vc29ja2V0Y2Fu
+LWNvcmUK
