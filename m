@@ -1,57 +1,32 @@
-From: julie Sullivan <kernelmail.jms@gmail.com>
-Subject: Re: 3.0.0-rc1: dmesg shows 'wlan%d' instead of 'wlan0'
-Date: Mon, 6 Jun 2011 22:25:07 +0100
-Message-ID: <BANLkTinEecGCZPCUeLrXu4o+hN9cKGa39w@mail.gmail.com>
-References: <20110605201042.21c86763@sf>
-	<BANLkTimLXr1+OLtGGXE2kzccRRG5T-G2mw@mail.gmail.com>
-	<20110606203252.1854e4d7@sf>
+From: David Miller <davem@davemloft.net>
+Subject: Re: small RPS cache for fragments?
+Date: Mon, 06 Jun 2011 14:40:26 -0700 (PDT)
+Message-ID: <20110606.144026.1544243502220840783.davem@davemloft.net>
+References: <20110606.122217.2183968212149987796.davem@davemloft.net>
+	<1307390721.8149.2763.camel@tardy>
+	<17839.1307394369@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mohammed Shafi <shafi.wireless@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Trofimovich <slyich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110606203252.1854e4d7@sf>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: fubar@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36288 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500Ab1FFVkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 17:40:35 -0400
+In-Reply-To: <17839.1307394369@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->
-> Applied this commit on top of 3.0-rc2 and wlan%d switched to wlan0 ba=
-ck.
->
-> Thanks!
->
-> --
->
-> =A0Sergei
->
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Mon, 06 Jun 2011 14:06:09 -0700
 
-Yes, with me too:
+> 	Right, the common use case for balance-rr (round robin) is to
+> maximize TCP throughput for one connection, over a set of whatever
+> network devices are available (or are cheap) by striping that connection
+> across multiple interfaces.  The tcp_reordering sysctl is set to some
+> large value so that TCP will deal with the reordering as best it can.
 
-
-before patch application (3.0-rc2):
-
-[   63.837522] wlan%d: authenticate with 00:18:f6:aa:6e:25 (try 1)
-[   63.843805] wlan%d: authenticated
-[   63.844282] wlan%d: associate with 00:18:f6:aa:6e:25 (try 1)
-[   63.846887] wlan%d: RX AssocResp from 00:18:f6:aa:6e:25
-(capab=3D0x411 status=3D0 aid=3D2)
-[   63.846891] wlan%d: associated
-
-after patch application:
-
-[   69.472955] wlan0: authenticate with 00:18:f6:aa:6e:25 (try 1)
-[   69.479356] wlan0: authenticated
-[   69.479863] wlan0: associate with 00:18:f6:aa:6e:25 (try 1)
-[   69.482425] wlan0: RX AssocResp from 00:18:f6:aa:6e:25 (capab=3D0x41=
-1
-status=3D0 aid=3D2)
-[   69.482428] wlan0: associated
-
-
-Thanks for the pointer, Shafi.
-
-Cheers
-Julie
+FWIW, I really would never, ever, encourage schemes like this.  Even
+if they do happen to work.
