@@ -1,84 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] e100: Fix inconsistency in bad frames
- handling
-Date: Mon, 06 Jun 2011 22:29:57 +0200
-Message-ID: <1307392197.2642.14.camel@edumazet-laptop>
-References: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>
-	<alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>
-	<4DED14E7.2050405@candelatech.com>
-	<1307391315.22348.454.camel@localhost>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
+Date: Mon, 6 Jun 2011 22:31:32 +0200
+Message-ID: <201106062231.32226.arnd@arndb.de>
+References: <1307389540.2642.3.camel@edumazet-laptop> <20110606.130309.847468074358617705.davem@davemloft.net> <4DED3759.7030209@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrea Merello <andrea.merello@gmail.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1307391315.22348.454.camel@localhost>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.171]:57400 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756523Ab1FFUbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:31:35 -0400
+In-Reply-To: <4DED3759.7030209@genband.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgbHVuZGkgMDYganVpbiAyMDExIMOgIDIxOjE1ICswMTAwLCBCZW4gSHV0Y2hpbmdzIGEgw6lj
-cml0IDoKPiBPbiBNb24sIDIwMTEtMDYtMDYgYXQgMTA6NTYgLTA3MDAsIEJlbiBHcmVlYXIgd3Jv
-dGU6Cj4gPiBPbiAwNi8wNi8yMDExIDEwOjQ5IEFNLCBCcmFuZGVidXJnLCBKZXNzZSB3cm90ZToK
-PiA+ID4KPiA+ID4gPGFkZGVkIG5ldGRldj4sIHJlbW92ZWQgb3RoZXIgdXNlbGVzcyBsaXN0cy4K
-PiA+ID4KPiA+ID4gT24gU2F0LCA0IEp1biAyMDExLCBBbmRyZWEgTWVyZWxsbyB3cm90ZToKPiA+
-ID4+IEluIGUxMDAgZHJpdmVyIGl0IHNlZW1zIHRoYXQgdGhlIGludGVudGlvbiB3YXMgdG8gYWNj
-ZXB0IGJhZCBmcmFtZXMgaW4KPiA+ID4+IHByb21pc2N1b3VzIG1vZGUgYW5kIGxvb3BiYWNrIG1v
-ZGUuCj4gPiA+PiBJIHRoaW5rIHRoaXMgaXMgZXZpZGVudCBiZWNhdXNlIG9mIHRoZSBmb2xsb3dp
-bmcgY29kZSBpbiB0aGUgZHJpdmVyOgo+ID4gPj4KPiA+ID4+IGlmIChuaWMtPmZsYWdzJiAgcHJv
-bWlzY3VvdXMgfHwgbmljLT5sb29wYmFjaykgewo+ID4gPj4gCQljb25maWctPnJ4X3NhdmVfYmFk
-X2ZyYW1lcyA9IDB4MTsJLyogMT1zYXZlLCAwPWRpc2NhcmQgKi8KPiA+ID4+IAkJY29uZmlnLT5y
-eF9kaXNjYXJkX3Nob3J0X2ZyYW1lcyA9IDB4MDsJLyogMT1kaXNjYXJkLCAwPXNhdmUgKi8KPiA+
-ID4+IAkJY29uZmlnLT5wcm9taXNjdW91c19tb2RlID0gMHgxOwkJLyogMT1vbiwgMD1vZmYgKi8K
-PiA+ID4+IAl9Cj4gPiA+Pgo+ID4gPgo+ID4gPiBIaSwgdGhhbmtzIGZvciB5b3VyIHdvcmsgb24g
-ZTEwMC4KPiA+ID4KPiA+ID4+IEhvd2V2ZXIgdGhpcyBpbnRlbnRpb24gaXMgbm90IHJlYWxseSBy
-ZWFsaXplZCBiZWNhdXNlIGJhZCBmcmFtZXMgYXJlCj4gPiA+PiBkaXNjYXJkZWQgbGF0ZXIgYnkg
-U1cgY2hlY2suCj4gPiA+PiBUaGlzIHBhdGNoIGZpbmFsbHkgaG9ub3JzIHRoZSBhYm92ZSBpbnRl
-bnRpb24sIG1ha2luZyB0aGUgUlggY29kZSB0bwo+ID4gPj4gbGV0IGJhZCBmcmFtZXMgdG8gcGFz
-cyB3aGVuIHRoZSBOSUMgaXMgaW4gcHJvbWlzY3VvdXMgb3IgbG9vcGJhY2sKPiA+ID4+IG1vZGUu
-Cj4gPiA+Cj4gPiA+IEkgdGhpbmsgdGhpcyBtYXkgYmUgYSBtaXN0YWtlIGJ5IHRoZSBhdXRob3Jz
-IG9mIHRoZSBzb2Z0d2FyZSBkZXZlbG9wZXJzCj4gPiA+IG1hbnVhbC4gIFRoZSBtYW51YWwgc3Vn
-Z2VzdHMgdGhhdCBzYXZlIGJhZCBmcmFtZXMgYW5kIHNhdmUgc2hvcnQgZnJhbWVzCj4gPiA+IHNo
-b3VsZCBiZSBlbmFibGVkIGluIHByb21pc2MgbW9kZSwgYnV0IGFsbCBvZiBvdXIgb3RoZXIgZHJp
-dmVycyAqZG8gbm90Kgo+ID4gPiBzYXZlIGJhZCBmcmFtZXMgd2hlbiBpbiBwcm9taXNjdW91cyBt
-b2RlIChieSBkZXNpZ24pLiAgVGhpcyBpcyBpbnRlbnRpb25hbAo+ID4gPiBiZWNhdXNlIGEgYmFk
-IGZyYW1lIGlzIGp1c3QgdGhhdCwgYmFkLCBhbmQgd2l0aCBubyBob3BlIG9mIGtub3dpbmcgaWYg
-dGhlCj4gPiA+IGRhdGEgaW4gaXQgaXMgb2theS9tYWxpY2lvdXMvb3RoZXIuICBJIHVuZGVyc3Rh
-bmQgeW91ciByZWFzb25pbmcgYWJvdmUsCj4gPiA+IGJ1dCByZWFsaXN0aWNhbGx5IHRoZSByeF9z
-YXZlX2JhZF9mcmFtZXMgc2hvdWxkIE5PVCBiZSBzZXQuICBJJ2QgYWNrIGEKPiA+ID4gcGF0Y2gg
-dG8gY29tbWVudCB0aGF0IGxpbmUgb3V0Lgo+ID4gPgo+ID4gPj4gVGhpcyBoZWxwZWQgbWUgYSBs
-b3QgdG8gZGVidWcgYW4gRlBHQSBldGhlcm5ldCBjb3JlLgo+ID4gPj4gTWF5YmUgaXQgY2FuIGJl
-IGFsc28gdXNlZnVsIHRvIHNvbWVvbmUgZWxzZS4uCj4gPiA+Cj4gPiA+IEkgdGhpbmsgdGhpcyBw
-YXRjaCBpcyBqdXN0IHRoYXQsIGRlYnVnIG9ubHkuIEFzIGEgZGV2ZWxvcGVyIEkgdW5kZXJzdGFu
-ZAo+ID4gPiB3aHkgdGhpcyBpcyB1c2VmdWwsIGJ1dCB0aGVyZSBpcyBubyByZWFzb24gYW55IG5v
-cm1hbCB1c2VyIHdvdWxkIGJlIGFibGUKPiA+ID4gdG8gYmVuZWZpdCBmcm9tIHRoaXMsIHNvIGZv
-ciBub3csIHNvcnJ5Ogo+ID4gPgo+ID4gPiBOQUNLLgo+ID4gCj4gPiBJIHRoaW5rIGFueW9uZSBz
-bmlmZmluZyBhIGZ1bmt5IG5ldHdvcmsgd291bGQgaGF2ZSBiZW5lZml0IGluCj4gPiByZWNlaXZp
-bmcgYWxsIGZyYW1lcy4gIFNvLCB3aGlsZSBpdCBzaG91bGRuJ3QgYmUgZW5hYmxlZCBieSBkZWZh
-dWx0LAo+ID4gaXQgd291bGQgYmUgbmljZSB0byBoYXZlIGFuIGV0aHRvb2wgY29tbWFuZCB0byB0
-dXJuIG9uIHJlY2VpdmluZwo+ID4gYmFkLWNyYyBmcmFtZXMsIGFzIHdlbGwgYXMgcmVjZWl2aW5n
-IHRoZSA0LWJ5dGUgQ1JDIG9uIHRoZSBlbmQgb2YKPiA+IHRoZSBwYWNrZXRzLgo+ID4gCj4gPiBJ
-dCBqdXN0IHNvIGhhcHBlbnMgSSBoYXZlIHN1Y2ggYSBwYXRjaCwgaW4gY2FzZSBvdGhlcnMgYWdy
-ZWUgOikKPiAKPiBIb3cgd291bGQgYSByZWNlaXZlZCBza2IgYmUgZmxhZ2dlZCBhcyBoYXZpbmcg
-YSBDUkMgZXJyb3I/Cj4gCgptYXliZSBzb21lIHNrYi0+cGt0X3R5cGUgPSBQQUNLRVRfSU5WQUxJ
-RDsgb3Igc29tZXRoaW5nLi4uCgoKCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KU2ltcGxpZnkgZGF0
-YSBiYWNrdXAgYW5kIHJlY292ZXJ5IGZvciB5b3VyIHZpcnR1YWwgZW52aXJvbm1lbnQgd2l0aCB2
-UmFuZ2VyLgpJbnN0YWxsYXRpb24ncyBhIHNuYXAsIGFuZCBmbGV4aWJsZSByZWNvdmVyeSBvcHRp
-b25zIG1lYW4geW91ciBkYXRhIGlzIHNhZmUsCnNlY3VyZSBhbmQgdGhlcmUgd2hlbiB5b3UgbmVl
-ZCBpdC4gRGlzY292ZXIgd2hhdCBhbGwgdGhlIGNoZWVyaW5nJ3MgYWJvdXQuCkdldCB5b3VyIGZy
-ZWUgdHJpYWwgZG93bmxvYWQgdG9kYXkuIApodHRwOi8vcC5zZi5uZXQvc2Z1L3F1ZXN0LWRldjJk
-ZXYyIApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAw
-MC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0
-dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRv
-IGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21t
-dW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+On Monday 06 June 2011 22:23:53 Chris Friesen wrote:
+> It raises an interesting question though...do we plan on supporting 
+> compat indefinitely?
+> 
+> As I see it x86 generally makes more sense to run as 64-bit when 
+> possible due to the extra register availability. Compat is primarily 
+> useful for the embedded space and for backwards compatibility, and 
+> ripping it out would cause a lot of grief for legacy 32-bit apps.  It 
+> would simplify the userspace/kernel interface though.
+
+There are a lot of applications that require being run as 32 bit,
+and some of them are much happier in a chroot environment. Removing
+the compat support entirely won't be an option for the next 10 years
+at least, AFAICT. Even if we get all x86 folks to migrate to 64 bits
+at some point in the distant future, there will always be other
+architectures that make the move to 64 bits.
+
+Note that there is currently work going on to add a new x32 ABI
+to arch/x86 which makes it possible to use 32 bit pointers with the
+full 64 bit register set. If this becomes a success, we will never
+be able to build x86 kernels without compat support.
+
+	Arnd
