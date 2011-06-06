@@ -1,42 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] should we care of COMPAT mode in bridge ?
-Date: Mon, 06 Jun 2011 13:09:58 -0700 (PDT)
-Message-ID: <20110606.130958.1488166895702555231.davem@davemloft.net>
-References: <1307389540.2642.3.camel@edumazet-laptop>
-	<201106062206.29134.arnd@arndb.de>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Mon, 06 Jun 2011 22:10:53 +0200
+Message-ID: <4DED344D.7000005@pandora.be>
+References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <isavsg$3or$1@dough.gmane.org> <4DE906C0.6060901@fnarfbargle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47561 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757171Ab1FFUKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 16:10:05 -0400
-In-Reply-To: <201106062206.29134.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, linux-mm@kvack.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+ netfilter-devel@vger.kernel.org
+To: Brad Campbell <brad@fnarfbargle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4DE906C0.6060901@fnarfbargle.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 6 Jun 2011 22:06:28 +0200
+Hi Brad,
 
-> On Monday 06 June 2011 21:45:40 Eric Dumazet wrote:
->> While trying Alexander Holler patch, I found a 32bit brctl program was
->> not able to work on a 64bit kernel. So I had to switch to another
->> machine for my tests.
->> 
->> brctl addbr mybridge
->> ->
->> socket(PF_FILE, SOCK_STREAM, 0)         = 3
->> ioctl(3, SIOCSIFBR, 0xffd509c0)         = -1 EINVAL (Invalid argument)
->> 
->> Should we care or not ?
->> 
-> 
-> Generally, we try to make all ioctls work in compat mode. For the old
-> bridge ioctls, this is currently impossible because it uses SIOCPRIVATE
-> ioctls, but it would be easy to add an ndo_do_compat_ioctl. 
+This has probably nothing to do with ebtables, so please rmmod in case 
+it's loaded.
+A few questions I didn't directly see an answer to in the threads I 
+scanned...
+I'm assuming you actually use the bridging firewall functionality. So, 
+what iptables modules do you use? Can you reduce your iptables rules to 
+a core that triggers the bug?
+Or does it get triggered even with an empty set of firewall rules?
+Are you using a stock .35 kernel or is it patched?
+Is this something I can trigger on a poor guy's laptop or does it 
+require specialized hardware (I'm catching up on qemu/kvm...)?
 
-Right, we need to funnel compat ioctls down to the device and add a
-->ndo_compat_ioctl() or similar, if that is indeed feasible.
+cheers,
+Bart
+
+PS: I'm not sure if we should keep CC-ing everybody, netfilter-devel 
+together with kvm should probably do fine.
+
+Op 3/06/2011 18:07, Brad Campbell schreef:
+> On 03/06/11 23:50, Bernhard Held wrote:
+>> Am 03.06.2011 15:38, schrieb Brad Campbell:
+>>> On 02/06/11 07:03, CaT wrote:
+>>>> On Wed, Jun 01, 2011 at 07:52:33PM +0800, Brad Campbell wrote:
+>>>>> Unfortunately the only interface that is mentioned by name anywhere
+>>>>> in my firewall is $DMZ (which is ppp0 and not part of any bridge).
+>>>>>
+>>>>> All of the nat/dnat and other horrible hacks are based on IP 
+>>>>> addresses.
+>>>>
+>>>> Damn. Not referencing the bridge interfaces at all stopped our host 
+>>>> from
+>>>> going down in flames when we passed it a few packets. These are two
+>>>> of the oopses we got from it. Whilst the kernel here is .35 we got the
+>>>> same issue from a range of kernels. Seems related.
+>>>
+>>> Well, I tried sending an explanatory message to netdev, netfilter &
+>>> cc'd to kvm,
+>>> but it appears not to have made it to kvm or netfilter, and the cc to
+>>> netdev has
+>>> not elicited a response. My resend to netfilter seems to have dropped
+>>> into the
+>>> bit bucket also.
+>> Just another reference 3.5 months ago:
+>> http://www.spinics.net/lists/netfilter-devel/msg17239.html
+>
+> <waves hands around shouting "I have a reproducible test case for this 
+> and don't mind patching and crashing the machine to get it fixed">
+>
+> Attempted to add netfilter-devel to the cc this time.
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe 
+> netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>
+
+
+-- 
+Bart De Schuymer
+www.artinalgorithms.be
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
