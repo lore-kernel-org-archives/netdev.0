@@ -1,72 +1,72 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [PATCH 1/2] vlan: only create special VLAN 0 once
-Date: Tue, 7 Jun 2011 18:41:36 +0200
-Message-ID: <20110607164136.GB5018@midget.suse.cz>
-References: <20110603200738.GA24804@midget.suse.cz>
- <20110605.142823.1727360496050285755.davem@davemloft.net>
- <4DEE4107.1080706@trash.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: RE: Multicast IP packet routed between 2 ports nic on the same host
+Date: Tue, 7 Jun 2011 10:03:55 -0700
+Message-ID: <OFE40D019D.97AF66B9-ON882578A8.005A892D-882578A8.005DBD4E@us.ibm.com>
+References: <24665DDC0D7CF047BD6471A56E615EA628ABF4DE@CA-OPS-MAILBOX.miranda.com>,<OF6C0FF28D.EF048A18-ON882578A7.0069A85E-882578A7.0069FF2A@us.ibm.com> <24665DDC0D7CF047BD6471A56E615EA628ABF94D@CA-OPS-MAILBOX.miranda.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
-	netdev@vger.kernel.org, pedro.netdev@dondevamos.com
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
+To: BONNEAU Guy <gbonneau@miranda.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:58450 "EHLO mx2.suse.de"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:44816 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753992Ab1FGQli (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2011 12:41:38 -0400
-Content-Disposition: inline
-In-Reply-To: <4DEE4107.1080706@trash.net>
+	id S1755613Ab1FGRFr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2011 13:05:47 -0400
+In-Reply-To: <24665DDC0D7CF047BD6471A56E615EA628ABF94D@CA-OPS-MAILBOX.miranda.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 07, 2011 at 05:17:27PM +0200, Patrick McHardy wrote:
-> On 05.06.2011 23:28, David Miller wrote:
-> > I am pretty sure that the hardware device driver methods that
-> > implement ndo_vlan_rx_add_vid() assume that the device is up.
-> > Because most drivers completely reset the chip when the
-> > interface is brought up and this will likely clear out the
-> > VLAN ID tables in the chip.
-> > 
-> 
-> Good point.
-> 
-> I don't think this approach works very well at all since
-> some drivers don't do incremental updates, but iterate over
-> the registered VLAN group when constructing filters. The
-> group is not created until the first real VLAN device is
-> registered however.
-> 
-> Based on a quick grep (may have missed some):
-> 
-> - via_velocity, mlx4, starfire: will do nothing
-> 
-> - benet, igb, vxge, igbvf, ixgbevf, e1000e: would oops on
->   rx_kill_vid due to unnecessary vlan_group_set_device()
+netdev-owner@vger.kernel.org wrote on 06/07/2011 06:57:32 AM:
 
-which approach do you mean? David's or mine? I suppose you mean
-David's, because I did not call rx_kill_vid().
+> From: BONNEAU Guy <gbonneau@miranda.com>
+ 
+> Its works! Thanks a lot David! Googling for SO_BINDTODEVICE helped 
+> me to get insight into my issue. This link was really useful : 
+> http://codingrelic.geekhold.com/2009/10/code-snippet-sobindtodevice.html
+> . However I'm still somewhat confused because I always assumed that 
+> this was one of the purpose of IP_ADD_MEMBERSHIP beside joining a 
+> multicast group. To constrain the multicast socket to a specific 
+> "device" interface. In which case I wonder if the interface member 
+> of structure ip_mreq is still relevant? Can you comment!
 
-> The assumption of the drivers that a VLAN group exists
-> before the first VID is configured is reasonable in my
-> opinion, a lot of them also don't even configure VLAN
-> filtering until the VLAN group is registered.
+Guy,
+        There are 2 steps in multicast delivery:
 
-So this is broken already since ad1afb00 :(
-The assumption broke the bonding driver and this got fixed by
-f35188fa, btw.
+1) group membership, which is controlled by IP_ADD_MEMBERSHIP (et alia).
+        This is per-interface and determines whether multicast packets
+        on that interface will be delivered to the machine. If you don't
+        join a group _on_that_interface_, the interface itself will drop
+        the packets. This is what the interface specification in ip_mreq
+        and ip_mreqn is for; if you want that group on all interfaces,
+        you have to do the join on all interfaces, one at a time. If you
+        don't specify an interface, it'll pick one, which isn't 
+necessarily
+        the one you want.
+2) socket binding.
+        This determines whether a particular socket receives a multicast
+        packet or not. Clearly, all multicast packets that are not 
+delivered
+        to the machine will not be delivered to any socket, so _somebody_ 
+has
+        to have done a group join for sockets bound to multicast addresses
+        to receive packets. However, the socket binding is entirely 
+independent
+        of the group membership. A binding matching the group and port 
+(which
+        also includes INADDR_ANY bindings) will receive matching packets
+        whether or not you did a join on that socket (or a join at all) as
+        long as some process on the machine has done a join on an 
+interface
+        that allows delivery to the machine.
 
-> So I think a good solution would be to make sure all
-> drivers don't enable VLAN filtering before the first
-> VLAN is actually registered and do the automatic
-> registration of VID 0 once the first real VLAN device
-> is created.
+In your test program, you were using the same group and port for both
+instances so they will both receive the same set of packets. If any join
+on any interface would allow delivery of matching packets to the machine,
+they would both receive them, even if neither of your programs did the
+IP_ADD_MEMBERSHIP. And if no process had done an join on an interface
+with matching multicast traffic, neither of the programs would receive
+anything.
 
-But this behaviour is not what was intended by ad1afb00.
-The VID 0 needs to be registered by default, to make 8021p work.
-Even without any real VLAN devices created.
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+                                                                +-DLS
 
