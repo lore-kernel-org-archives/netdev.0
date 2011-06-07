@@ -1,65 +1,58 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] netfilter: nf_nat: avoid double nat for loopback
-Date: Tue, 7 Jun 2011 22:46:47 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1106072234140.1619@ja.ssi.bg>
-References: <alpine.LFD.2.00.1106041640080.1437@ja.ssi.bg> <4DEDF167.1010202@trash.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46344 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753695Ab1FGToi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2011 15:44:38 -0400
-In-Reply-To: <4DEDF167.1010202@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Huewe <peterhuewe@gmx.de>
+Subject: [PATCH] net/mac80211/debugfs: Convert to kstrou8_from_user
+Date: Tue,  7 Jun 2011 22:36:14 +0200
+Message-ID: <1307478974-32727-1-git-send-email-peterhuewe@gmx.de>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Peter Huewe <peterhuewe@gmx.de>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch replaces the code for getting an number from a
+userspace buffer by a simple call to kstrou8_from_user.
+This makes it easier to read and less error prone.
 
-	Hello,
+Since the old buffer was only 10 bytes long and the value is masked by a
+nibble-mask anyway, we don't need to use kstrtoul but rather kstrtou8.
 
-On Tue, 7 Jun 2011, Patrick McHardy wrote:
+Kernel Version: v3.0-rc2
 
-> On 04.06.2011 16:02, Julian Anastasov wrote:
-> > 
-> > 	Avoid double NAT and seq adjustment for loopback
-> > traffic because it causes silent repetition of TCP data. One
-> > example is passive FTP with DNAT rule and difference in the
-> > length of IP addresses.
-> > 
-> > 	This patch adds checks if packet is sent and
-> > received via loopback device. As the same conntrack is used
-> > both for outgoing and incoming direction, we restrict NAT,
-> > seq adjustment and confirmation to happen only in
-> > outgoing direction (OUTPUT and POSTROUTING).
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > ---
-> > 
-> > 	As the check is not so cheap, another alternative
-> > is to add new skb flag, eg. "loopback", that can be set in 
-> > drivers/net/loopback.c, loopback_xmit(). May be there is space
-> > for it in flags2?
-> 
-> I don't think we should be adding code specifically needed for netfilter
-> to the loopback driver if we can avoid it. I don't think we need to
-> actually avoid calling nf_nat_packet twice, that shouldn't do any harm,
-> just the sequence number adjustment. So we could add the loopback check
+Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
+---
+ net/mac80211/debugfs.c |   14 +++-----------
+ 1 files changed, 3 insertions(+), 11 deletions(-)
 
-	Yes, may be calling nf_nat_packet is not fatal.
-
-> to the IPS_SEQ_ADJUST_BIT case to at least avoid it in some cases.
-> Would that work or am I missing something?
-
-	Logically, the new check can be after
-test_bit(IPS_SEQ_ADJUST_BIT, &ct->status). But I suspect
-some modules adjust seqs in the helper->help call,
-for example, sip_help_tcp if I'm correctly reading the
-code.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index 186e02f..267ed45 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -195,20 +195,12 @@ static ssize_t uapsd_queues_write(struct file *file,
+ 				  size_t count, loff_t *ppos)
+ {
+ 	struct ieee80211_local *local = file->private_data;
+-	unsigned long val;
+-	char buf[10];
+-	size_t len;
++	u8 val;
+ 	int ret;
+ 
+-	len = min(count, sizeof(buf) - 1);
+-	if (copy_from_user(buf, user_buf, len))
+-		return -EFAULT;
+-	buf[len] = '\0';
+-
+-	ret = strict_strtoul(buf, 0, &val);
+-
++	ret = kstrtou8_from_user(user_buf, count, 0, &val);
+ 	if (ret)
+-		return -EINVAL;
++		return ret;
+ 
+ 	if (val & ~IEEE80211_WMM_IE_STA_QOSINFO_AC_MASK)
+ 		return -ERANGE;
+-- 
+1.7.3.4
