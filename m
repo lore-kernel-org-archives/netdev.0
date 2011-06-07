@@ -1,108 +1,101 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Use unsigned variables for packet lengths in ip[6]_queue.
-Date: Tue, 07 Jun 2011 14:59:08 +0200
-Message-ID: <4DEE209C.2010104@trash.net>
-References: <20110420014221.GC26949@redhat.com>	<20110419.204105.68144653.davem@davemloft.net>	<20110528003651.GA8380@redhat.com> <20110602.135742.1323883827030625599.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 31/40] ethtool: remove support for ETHTOOL_GRXNTUPLE
+Date: Tue, 07 Jun 2011 14:06:37 +0100
+Message-ID: <1307451997.2908.13.camel@bwh-desktop>
+References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1307449995-9458-32-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080706070507080207030206"
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110602.135742.1323883827030625599.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------080706070507080207030206
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:37842 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754314Ab1FGNGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 09:06:40 -0400
+In-Reply-To: <1307449995-9458-32-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02.06.2011 22:57, David Miller wrote:
-> From: Dave Jones <davej@redhat.com>
-> Date: Fri, 27 May 2011 20:36:51 -0400
+On Tue, 2011-06-07 at 05:33 -0700, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
->> On Tue, Apr 19, 2011 at 08:41:05PM -0700, David Miller wrote:
->>  > From: Dave Jones <davej@redhat.com>
->>  > Date: Tue, 19 Apr 2011 21:42:22 -0400
->>  > 
->>  > > Not catastrophic, but ipqueue seems to be too trusting of what it gets
->>  > > passed from userspace, and passes it on down to the page allocator,
->>  > > where it will spew warnings if the page order is too high.
->>  > > 
->>  > > __ipq_rcv_skb has several checks for lengths too small, but doesn't
->>  > > seem to have any for oversized ones.   I'm not sure what the maximum
->>  > > we should check for is. I'll code up a diff if anyone has any ideas
->>  > > on a sane maximum.
->>  > 
->>  > Maybe the thing to do is to simply pass __GFP_NOWARN to nlmsg_new()
->>  > in netlink_ack()?
->>  > 
->>  > Anyone else have a better idea?
->>
->> So I went back to this today, and found something that doesn't look right.
->> After adding some instrumentation, and re-running my tests, I found that
->> the reason we were blowing up with enormous allocations was that we
->> were passing down a nlmsglen's like -1061109568
->>
->> Is there any reason for that to be signed ?
->> The nlmsg_len entry of nlmsghdr is a u32, so I'm assuming this is a bug.
->>
->> With the patch below, I haven't been able to reproduce the problem, but
->> I don't know if I've inadvertantly broken some other behaviour somewhere
->> deeper in netlink where this is valid.
+> This change is meant to remove all support for displaying an ntuple as
+> strings via ETHTOOL_GRXNTUPLE.  The reason for this change is due to the
+> fact that multiple issues have been found including:
+>  - Multiple buffer overruns for strings being displayed.
+>  - Incorrect filters displayed, cleared filters with ring of -2 are displayed
+>  - Setting get_rx_ntuple displays no rules if defined.
+>  - Endianess wrong on displayed values.
+>  - Hard limit of 1024 filters makes display functionality extremely limited
+> 
+> The only driver that had supported this interface was ixgbe.  Since it no
+> longer uses the interface and due to the issues mentioned above I am
+> submitting this patch to remove it.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  include/linux/ethtool.h   |    8 +-
+>  include/linux/netdevice.h |    3 -
+>  net/core/dev.c            |    5 -
+>  net/core/ethtool.c        |  299 ---------------------------------------------
+>  4 files changed, 2 insertions(+), 313 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index c6a850a..3310ab6 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -287,7 +287,7 @@ enum ethtool_stringset {
+>  	ETH_SS_TEST		= 0,
+>  	ETH_SS_STATS,
+>  	ETH_SS_PRIV_FLAGS,
+> -	ETH_SS_NTUPLE_FILTERS,
+> +	ETH_SS_DO_NOT_USE,		/* was ETH_SS_NTUPLE_FILTERS */
+>  	ETH_SS_FEATURES,
+>  };
+>  
 
-This is fine, but I'm wondering whether this can really fix the problem
-you've been seeing. Before the packet is reallocated, the length of
-nlmsglen - NLMSGLEN(0) - sizeof(struct ipq_peer_msg) is compared to
-ipq_peer_msg->data_len, so both values need to be wrong.
-ipq_peer_msg->data_len is a size_t, so it's unsigned.
+Since this feature didn't work properly, any code that tried to use it
+didn't really work, but it still feels kind of wrong to turn that into a
+compile error.  And it does no harm to leave the definition here, though
+you may want to comment that it is no longer supported.
 
-I think what we should additionally do is verify that data_len < 65535
-since that's the maximum size of an IP packet.
+> @@ -720,8 +720,6 @@ struct ethtool_rx_ntuple_flow_spec_container {
+>  };
+>  
+>  struct ethtool_rx_ntuple_list {
+> -#define ETHTOOL_MAX_NTUPLE_LIST_ENTRY 1024
+> -#define ETHTOOL_MAX_NTUPLE_STRING_PER_ENTRY 14
+>  	struct list_head	list;
+>  	unsigned int		count;
+>  };
 
-Using __GFP_NOWARN also makes sense in my opinion since ip_queue
-prints a warning anyways and we return an errno code to userspace.
-On second thought, we could also simply use GFP_KERNEL, AFAICS
-packet reinjection does not happen in atomic context. I'll give
-that a try.
+You can remove struct ethtool_rx_ntuple_flow_spec_container and struct
+ethtool_rx_ntuple_list as they were not exposed to userland.
 
+[...]
+> @@ -1017,7 +1013,7 @@ struct ethtool_ops {
+>  #define ETHTOOL_FLASHDEV	0x00000033 /* Flash firmware to device */
+>  #define ETHTOOL_RESET		0x00000034 /* Reset hardware */
+>  #define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
+> -#define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
+> +/* ETHTOOL_GRXNTUPLE		0x00000036 disabled due to multiple issues */
+>  #define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
+>  #define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table */
+>  #define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table */
+[...]
 
---------------080706070507080207030206
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="x"
+Same here; the command number needs to be reserved forever and the
+definition does no harm.
 
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index f7f9bd7..8ded42d 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -279,6 +279,9 @@ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
- 
- 	if (v->data_len < sizeof(*user_iph))
- 		return 0;
-+	if (v->data_len > 65535)
-+		return -EMSGSIZE;
-+
- 	diff = v->data_len - e->skb->len;
- 	if (diff < 0) {
- 		if (pskb_trim(e->skb, v->data_len))
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 065fe40..4ea6a9d 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -279,6 +279,9 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
- 
- 	if (v->data_len < sizeof(*user_iph))
- 		return 0;
-+	if (v->data_len > 65535)
-+		return -EMSGSIZE;
-+
- 	diff = v->data_len - e->skb->len;
- 	if (diff < 0) {
- 		if (pskb_trim(e->skb, v->data_len))
+Ben.
 
---------------080706070507080207030206--
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
