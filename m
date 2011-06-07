@@ -1,87 +1,83 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next 30/40] ixgbe: add support for nfc addition and removal
- of filters
-Date: Tue, 07 Jun 2011 15:39:10 -0700
-Message-ID: <4DEEA88E.3020006@intel.com>
-References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>	 <1307449995-9458-31-git-send-email-jeffrey.t.kirsher@intel.com> <1307481879.2908.25.camel@bwh-desktop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] vlan: only create special VLAN 0 once
+Date: Wed, 08 Jun 2011 00:50:41 +0200
+Message-ID: <4DEEAB41.1020306@trash.net>
+References: <20110603200738.GA24804@midget.suse.cz> <20110605.142823.1727360496050285755.davem@davemloft.net> <4DEE4107.1080706@trash.net> <20110607164136.GB5018@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	pedro.netdev@dondevamos.com
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22136 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899Ab1FGWjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2011 18:39:52 -0400
-In-Reply-To: <1307481879.2908.25.camel@bwh-desktop>
+Received: from stinky.trash.net ([213.144.137.162]:62953 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752646Ab1FGWuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 18:50:54 -0400
+In-Reply-To: <20110607164136.GB5018@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/2011 02:24 PM, Ben Hutchings wrote:
-> On Tue, 2011-06-07 at 05:33 -0700, Jeff Kirsher wrote:
->> From: Alexander Duyck<alexander.h.duyck@intel.com>
+On 07.06.2011 18:41, Jiri Bohac wrote:
+> On Tue, Jun 07, 2011 at 05:17:27PM +0200, Patrick McHardy wrote:
+>> On 05.06.2011 23:28, David Miller wrote:
+>>> I am pretty sure that the hardware device driver methods that
+>>> implement ndo_vlan_rx_add_vid() assume that the device is up.
+>>> Because most drivers completely reset the chip when the
+>>> interface is brought up and this will likely clear out the
+>>> VLAN ID tables in the chip.
+>>>
 >>
->> This change is meant to allow for nfc to insert and remove filters in order
->> to test the ethtool interface which includes it's own rules manager.
+>> Good point.
 >>
->> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
->> Tested-by: Ross Brattain<ross.b.brattain@intel.com>
->> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
->> ---
->>   drivers/net/ixgbe/ixgbe_ethtool.c |  245 +++++++++++++++++++++++++++++++++++++
->>   drivers/net/ixgbe/ixgbe_main.c    |   45 +++++++
->>   2 files changed, 290 insertions(+), 0 deletions(-)
+>> I don't think this approach works very well at all since
+>> some drivers don't do incremental updates, but iterate over
+>> the registered VLAN group when constructing filters. The
+>> group is not created until the first real VLAN device is
+>> registered however.
 >>
->> diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
->> index 2c70363..f37c9b8 100644
->> --- a/drivers/net/ixgbe/ixgbe_ethtool.c
->> +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-> [...]
->> +	/* Copy input into formatted structures */
->> +	input->filter.formatted.src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
->> +	mask.formatted.src_ip[0] = fsp->m_u.tcp_ip4_spec.ip4src;
->> +	input->filter.formatted.dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
->> +	mask.formatted.dst_ip[0] = fsp->m_u.tcp_ip4_spec.ip4dst;
->> +	input->filter.formatted.src_port = fsp->h_u.tcp_ip4_spec.psrc;
->> +	mask.formatted.src_port = fsp->m_u.tcp_ip4_spec.psrc;
->> +	input->filter.formatted.dst_port = fsp->h_u.tcp_ip4_spec.pdst;
->> +	mask.formatted.dst_port = fsp->m_u.tcp_ip4_spec.pdst;
->> +
->> +	if (fsp->flow_type&  FLOW_EXT) {
->> +		input->filter.formatted.vm_pool =
->> +				(unsigned char)ntohl(fsp->h_ext.data[1]);
->> +		mask.formatted.vm_pool =
->> +				(unsigned char)ntohl(fsp->m_ext.data[1]);
->> +		input->filter.formatted.vlan_id = fsp->h_ext.vlan_tci;
->> +		mask.formatted.vlan_id = fsp->m_ext.vlan_tci;
->> +		input->filter.formatted.flex_bytes =
->> +						fsp->h_ext.vlan_etype;
->> +		mask.formatted.flex_bytes = fsp->m_ext.vlan_etype;
->> +	}
-> [...]
->
-> Sure you don't need any byte-swapping for the IP, port, and VLAN tag?
->
-> Also is the 'vlan_id' field used to match the whole VLAN/priority tag or
-> only the VID?  If it only matches the VID then you need to check that
-> the priority and CF bits are not set in the given mask.
->
-> Ben.
-I'm pretty sure that is all correct.  The input filter for the Flow 
-Director hashes has everything in big-endian byte order.  Most of the 
-input fields in the hardware for the perfect filters also accept things 
-in big-endian byte order.  So it is in my best interest to just leave 
-things in that byte order since that way I have to do as few byte swaps 
-as possible.
+>> Based on a quick grep (may have missed some):
+>>
+>> - via_velocity, mlx4, starfire: will do nothing
+>>
+>> - benet, igb, vxge, igbvf, ixgbevf, e1000e: would oops on
+>>   rx_kill_vid due to unnecessary vlan_group_set_device()
+> 
+> which approach do you mean? David's or mine? I suppose you mean
+> David's, because I did not call rx_kill_vid().
 
-The VLAN field can include the VLAN priority.  There is a check of the 
-input masks done that verifies that the valid VLAN masks can be 0xEFFF, 
-0xE000, 0x0FFF, and 0x0000.  This mask is anded against the input data 
-when setting up the filter so there isn't any way that a input with a CF 
-bit would be valid.
+Neither, the approach how adding VID 0 was implemented. At
+least the first list of drivers mentioned above will do
+nothing, the second one would oops if we removed the VID
+on NETDEV_DOWN without adding a real VLAN device.
 
-Thanks,
+>> The assumption of the drivers that a VLAN group exists
+>> before the first VID is configured is reasonable in my
+>> opinion, a lot of them also don't even configure VLAN
+>> filtering until the VLAN group is registered.
+> 
+> So this is broken already since ad1afb00 :(
 
-Alex
+Exactly.
+
+> The assumption broke the bonding driver and this got fixed by
+> f35188fa, btw.
+> 
+>> So I think a good solution would be to make sure all
+>> drivers don't enable VLAN filtering before the first
+>> VLAN is actually registered and do the automatic
+>> registration of VID 0 once the first real VLAN device
+>> is created.
+> 
+> But this behaviour is not what was intended by ad1afb00.
+> The VID 0 needs to be registered by default, to make 8021p work.
+> Even without any real VLAN devices created.
+
+I'm not sure what exactly you're referring to. HW VLAN filters
+are (or should be) usually only activated when the first
+VLAN device is registered, so this change has no effect.
+
+If drivers behave that way *and* the VID 0 is only registered
+automatically when the first real device is configured,
+this should provide the desired behaviour.
+
