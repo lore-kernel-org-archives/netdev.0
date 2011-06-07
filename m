@@ -1,78 +1,88 @@
-From: "Stefan (metze) Metzmacher" <metze@samba.org>
-Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
-Date: Tue, 07 Jun 2011 09:38:12 +0200
-Message-ID: <4DEDD564.7050308@samba.org>
-References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E568@EXDCVYMBSTM006.EQ1STM.local> <1306929701-22861-1-git-send-email-metze@samba.org> <1306929701-22861-2-git-send-email-metze@samba.org> <20110601.211142.557328157396419857.davem@davemloft.net> <4DECC6B4.5020108@samba.org> <20110606150655.GB3732@suse.de>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: Re: [PATCH 2/2] net: dummy: allocate devices with alloc_netdev_id
+Date: Tue, 7 Jun 2011 10:49:12 +0300
+Message-ID: <BANLkTi=8mHr=SaUacW5cFR5xqXPaxrg5Xw@mail.gmail.com>
+References: <1307410786-19110-1-git-send-email-lucian.grijincu@gmail.com>
+ <1307410786-19110-3-git-send-email-lucian.grijincu@gmail.com> <1307416765.2642.37.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig583F2D08D208AA556BEAFA07"
-Cc: David Miller <davem@davemloft.net>, oliver@neukum.name,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110606150655.GB3732@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:56767 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab1FGHtn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 03:49:43 -0400
+Received: by iyb14 with SMTP id 14so3779091iyb.19
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2011 00:49:42 -0700 (PDT)
+In-Reply-To: <1307416765.2642.37.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig583F2D08D208AA556BEAFA07
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Am 06.06.2011 17:06, schrieb Greg KH:
-> On Mon, Jun 06, 2011 at 02:23:16PM +0200, Stefan (metze) Metzmacher wro=
-te:
->> Hi David,
+On Tue, Jun 7, 2011 at 6:19 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le mardi 07 juin 2011 =C3=A0 04:39 +0300, Lucian Adrian Grijincu a =C3=
+=A9crit :
+>> The most like case is that no one else is registering devices with a
+>> name like "dummy%d".
 >>
->>> From: Stefan Metzmacher <metze@samba.org>
->>> Date: Wed,  1 Jun 2011 14:01:41 +0200
->>>
->>>> This avoids messages like this after suspend:
->>>>
->>>>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
->>>>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
->>>>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.=
-4, CDC NCM
->>>>
->>>> This is important for the Ericsson F5521gw GSM/UMTS modem.
->>>> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm =
-devices
->>>> belong together.
->>>>
->>>> The cdc_ether module does the same.
->>>>
->>>> Signed-off-by: Stefan Metzmacher <metze@samba.org>
->>>
->>> Applied and queued up for -stable, thanks.
+>> We can bring the complexity down by replacing:
+>> - alloc_netdev_id which is O(N) with
+>> - alloc_netdev_id which, on the average case, is O(1).
 >>
->> It seems to be part of 3.0-rc2, but I'm not seeing it in any stable tr=
-ee
->> yet...
+>> $ time modprobe dummy numdummies=3D5000
+>> - with alloc_netdev =C2=A0 : 9.50s
+>> - with alloc_netdev_id: 3.50s
 >>
->> When can I expect it in stable trees like 2.6.38.y?
->=20
-> The .38.y tree is closed and will not have new releases, so you will
-> never see it there, sorry.
-
-Ok, are there chances for .39.y?
-
-metze
+>> NOTE: Stats generated on a heavily patched 3.0-rc1 which replaces th=
+e
+>> =C2=A0 =C2=A0 =C2=A0 current O(N^2) sysctl algorithm with a better o=
+ne.
+>
+> Yes, and disabled hotplug I guess.
 
 
---------------enig583F2D08D208AA556BEAFA07
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+$ cat .config | grep HOTPLUG
+CONFIG_HOTPLUG=3Dy
+# CONFIG_MEMORY_HOTPLUG is not set
+CONFIG_HOTPLUG_CPU=3Dy
+CONFIG_ARCH_ENABLE_MEMORY_HOTPLUG=3Dy
+CONFIG_ACPI_HOTPLUG_CPU=3Dy
+# CONFIG_HOTPLUG_PCI is not set
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+I would guess you're going for CONFIG_HOTPLUG_PCI or
+CONFIG_HOTPLUG_CPU, but I don't understand the implications.
 
-iEYEARECAAYFAk3t1WcACgkQm70gjA5TCD9R/gCglOQgb0UfCVZ7CpLKbLlPRvyz
-+fcAoIrbSjoWMadPJ8zX3e02+QmrDshY
-=NRFG
------END PGP SIGNATURE-----
 
---------------enig583F2D08D208AA556BEAFA07--
+> Dont try this on a random computer ;)
+
+Could you briefly explain what's at stake here? What can go wrong if
+we do this? I wasn't advocating replacing all alloc_netdev calls with
+the new call.
+
+
+> # time modprobe dummy numdummies=3D5000
+>
+> real =C2=A0 =C2=A04m45.646s
+> user =C2=A0 =C2=A00m0.000s
+> sys =C2=A0 =C2=A0 0m12.440s
+> # uptime
+> =C2=A005:13:46 up 13:30, =C2=A03 users, =C2=A0load average: 11221.41,=
+ 6918.70, 3101.12
+> # uptime
+> =C2=A005:18:45 up 13:35, =C2=A03 users, =C2=A0load average: 12159.82,=
+ 10277.39, 5623.19
+
+
+I don't get where you're going with these stats.
+
+I don't care much about these patches, and even less if they're
+fundamentally borked, but I'd like to know how/why they're not ok.
+
+Please spare a second and illuminate me; I feel left out on a big joke.
+
+
+--=20
+=C2=A0.
+=2E.: Lucian
