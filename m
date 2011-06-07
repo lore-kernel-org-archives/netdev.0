@@ -1,147 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Tue, 07 Jun 2011 15:37:54 +0200
-Message-ID: <1307453874.3091.14.camel@edumazet-laptop>
-References: <20110601011527.GN19505@random.random>
-	 <alpine.LSU.2.00.1105312120530.22808@sister.anvils>
-	 <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com>
-	 <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com>
-	 <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com>
-	 <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com>
-	 <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com>
-	 <4DEB3AE4.8040700@redhat.com>  <4DEB8872.2060801@fnarfbargle.com>
-	 <1307391746.2642.11.camel@edumazet-laptop>
-	 <4DEE273F.7090402@fnarfbargle.com>
+From: BONNEAU Guy <gbonneau@miranda.com>
+Subject: RE: Multicast IP packet routed between 2 ports nic on the same host
+Date: Tue, 7 Jun 2011 13:57:32 +0000
+Message-ID: <24665DDC0D7CF047BD6471A56E615EA628ABF94D@CA-OPS-MAILBOX.miranda.com>
+References: <24665DDC0D7CF047BD6471A56E615EA628ABF4DE@CA-OPS-MAILBOX.miranda.com>,<OF6C0FF28D.EF048A18-ON882578A7.0069A85E-882578A7.0069FF2A@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Avi Kivity <avi@redhat.com>, CaT <cat@zip.com.au>,
-	Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Brad Campbell <lists2009@fnarfbargle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DEE273F.7090402@fnarfbargle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pixmtl-010.148.202.199.miranda.com ([199.202.148.10]:43503 "EHLO
+	webmail.miranda.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754585Ab1FGOCj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 10:02:39 -0400
+In-Reply-To: <OF6C0FF28D.EF048A18-ON882578A7.0069A85E-882578A7.0069FF2A@us.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 07 juin 2011 =C3=A0 21:27 +0800, Brad Campbell a =C3=A9crit :
-> On 07/06/11 04:22, Eric Dumazet wrote:
->=20
-> > Could you please try latest linux-2.6 tree ?
-> >
-> > We fixed many networking bugs that could explain your crash.
-> >
-> >
-> >
-> >
->=20
-> No good I'm afraid.
->=20
-> [  543.040056]=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-> [  543.040136] BUG ip_dst_cache: Padding overwritten.=20
-> 0xffff8803e4217ffe-0xffff8803e4217fff
-> [  543.040194]=20
+Its works! Thanks a lot David! Googling for SO_BINDTODEVICE helped me to get insight into my issue. This link was really useful : http://codingrelic.geekhold.com/2009/10/code-snippet-sobindtodevice.html . However I'm still somewhat confused because I always assumed that this was one of the purpose of IP_ADD_MEMBERSHIP beside joining a multicast group. To constrain the multicast socket to a specific "device" interface. In which case I wonder if the interface member of structure ip_mreq is still relevant? Can you comment!
 
-Thats pretty strange : These are the last two bytes of a page, set to
-0x0000 (a 16 bit value)
+Thanks
+GB
 
-There is no way a dst field could actually sit on this location (its a
-padding), since a dst is a bit less than 256 bytes (0xe8), and each
-entry is aligned on a 64byte address.
+________________________________________
+From: David Stevens [dlstevens@us.ibm.com]
+Sent: Monday, June 06, 2011 3:17 PM
+To: BONNEAU Guy
+Cc: netdev@vger.kernel.org; netdev-owner@vger.kernel.org
+Subject: Re: Multicast IP packet routed between 2 ports nic on the same host
 
-grep dst /proc/slabinfo=20
+netdev-owner@vger.kernel.org wrote on 06/06/2011 06:40:26 AM:
 
-ip_dst_cache       32823  62944    256   32    2 : tunables    0    0
-0 : slabdata   1967   1967      0
+> From: BONNEAU Guy <gbonneau@miranda.com>
 
-sizeof(struct rtable)=3D0xe8
+> I open a second console and I use mreceive to join the same
+> multicast group 239.255.200.200:8000 to receive multicast data from
+> subnet 172.30.8.xx using the console command : ./mreceive -g 239.
+> 255.200.200 -p 8000 -i 172.30.8.31 to the eth1 adapter of my
+> workstation. The application starts to receive multicast data and
+> advertises the data received. This is also the expected behaviour.
+>
+> Now this is where the problem begins. As soon as the multicast data
+> begin to be received on the eth1 adapter the first console begins to
+> advertise multicast data received on eth0 adapter. I am well aware
+> that the Linux kernel implements a multicast level 2 routing
+> capability. Thus at first glance this seems to be the expected
+> behaviour. However... I have forwarding disabled as well as
+> mc_forwarding disabled and rp_filter is enabled for both adapters.
+> Thus I don't expect the kernel to forward the multicast data from
+> eth1 to eth0.
 
+        Routing is between multiple machines. You're receiving the
+packets on the sockets because they have a binding that matches.
+If you only want to receive multicast packets from a particular
+interface, then you need to use "SO_BINDTODEVICE" to restrict to
+that interface.
+        Group membership is per-interface, but socket bindings match
+against any packets delivered to the entire machine, if you haven't
+otherwise restricted it.
 
-> ---------------------------------------------------------------------=
---------
-> [  543.040198]
-> [  543.040298] INFO: Slab 0xffffea000d9e74d0 objects=3D25 used=3D25 f=
-p=3D0x=20
->         (null) flags=3D0x8000000000004081
-> [  543.040364] Pid: 4576, comm: kworker/1:2 Not tainted 3.0.0-rc2 #1
-> [  543.040415] Call Trace:
-> [  543.040472]  [<ffffffff810b9c1d>] ? slab_err+0xad/0xd0
-> [  543.040528]  [<ffffffff8102e034>] ? check_preempt_wakeup+0xa4/0x16=
-0
-> [  543.040595]  [<ffffffff810ba206>] ? slab_pad_check+0x126/0x170
-> [  543.040650]  [<ffffffff8133045b>] ? dst_destroy+0x8b/0x110
-> [  543.040701]  [<ffffffff810ba29a>] ? check_slab+0x4a/0xc0
-> [  543.040753]  [<ffffffff810baf2d>] ? free_debug_processing+0x2d/0x2=
-50
-> [  543.040808]  [<ffffffff810bb27b>] ? __slab_free+0x12b/0x140
-> [  543.040862]  [<ffffffff810bbe99>] ? kmem_cache_free+0x99/0xa0
-> [  543.040915]  [<ffffffff8133045b>] ? dst_destroy+0x8b/0x110
-> [  543.040967]  [<ffffffff813307f6>] ? dst_gc_task+0x196/0x1f0
-> [  543.041021]  [<ffffffff8104e954>] ? queue_delayed_work_on+0x154/0x=
-160
-> [  543.041081]  [<ffffffff813066fe>] ? do_dbs_timer+0x20e/0x3d0
-> [  543.041133]  [<ffffffff81330660>] ? dst_alloc+0x180/0x180
-> [  543.041187]  [<ffffffff8104f28b>] ? process_one_work+0xfb/0x3b0
-> [  543.041242]  [<ffffffff8104f964>] ? worker_thread+0x144/0x3d0
-> [  543.041296]  [<ffffffff8102cc10>] ? __wake_up_common+0x50/0x80
-> [  543.041678]  [<ffffffff8104f820>] ? rescuer_thread+0x2e0/0x2e0
-> [  543.041729]  [<ffffffff8104f820>] ? rescuer_thread+0x2e0/0x2e0
-> [  543.041782]  [<ffffffff81053436>] ? kthread+0x96/0xa0
-> [  543.041835]  [<ffffffff813e1d14>] ? kernel_thread_helper+0x4/0x10
-> [  543.041890]  [<ffffffff810533a0>] ? kthread_worker_fn+0x120/0x120
-> [  543.041944]  [<ffffffff813e1d10>] ? gs_change+0xb/0xb
-> [  543.041993]  Padding 0xffff8803e4217f40:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.042718]  Padding 0xffff8803e4217f50:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.043433]  Padding 0xffff8803e4217f60:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.044155]  Padding 0xffff8803e4217f70:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.044866]  Padding 0xffff8803e4217f80:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.045590]  Padding 0xffff8803e4217f90:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.046311]  Padding 0xffff8803e4217fa0:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.047034]  Padding 0xffff8803e4217fb0:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.047755]  Padding 0xffff8803e4217fc0:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.048474]  Padding 0xffff8803e4217fd0:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.049203]  Padding 0xffff8803e4217fe0:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 5a 5a ZZZZZZZZZZZZZZZZ
-> [  543.049909]  Padding 0xffff8803e4217ff0:  5a 5a 5a 5a 5a 5a 5a 5a =
-5a=20
-> 5a 5a 5a 5a 5a 00 00 ZZZZZZZZZZZZZZ..
-> [  543.050021] FIX ip_dst_cache: Restoring=20
-> 0xffff8803e4217f40-0xffff8803e4217fff=3D0x5a
-> [  543.050021]
->=20
-> Dropped -mm, Hugh and Andrea from CC as this does not appear to be mm=
- or=20
-> ksm related.
->=20
-> I'll pare down the firewall and see if I can make it break easier wit=
-h a=20
-> smaller test set.
+                                                                +-DLS
 
-Hmm, not sure now :(
-
-Could you reproduce another bug please ?
