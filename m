@@ -1,188 +1,159 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 25/40] ixgbe: remove ntuple filtering
-Date: Tue,  7 Jun 2011 05:33:00 -0700
-Message-ID: <1307449995-9458-26-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 23/40] ixgbe: use per NUMA node lock for FCoE DDP
+Date: Tue,  7 Jun 2011 05:32:58 -0700
+Message-ID: <1307449995-9458-24-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:4748 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:39815 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753286Ab1FGMd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753308Ab1FGMd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 7 Jun 2011 08:33:28 -0400
 In-Reply-To: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Vasu Dev <vasu.dev@intel.com>
 
-Due to numerous issues in ntuple filters it has been decided to move the
-interface over to the network flow classification interface.  As a first
-step to achieving this I first need to remove the old ntuple interface.
+Adds per NUMA node lock to have CPU pass thru its NUMA lock
+first before contending for global DDP fcoe->lock to setup
+DDP lock, this is to reduce contentions across NUMA nodes.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Allocates and initialize per NUMA node lock in added
+ixgbe_fcoe_lock_init and then have current CPU's numa_node_id
+based NUMA node lock acquired before taking global fcoe->lock.
+
+The node lock is allocated from its NUMA node using kzalloc_node.
+
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |  136 -------------------------------------
- 1 files changed, 0 insertions(+), 136 deletions(-)
+ drivers/net/ixgbe/ixgbe_fcoe.c |   50 ++++++++++++++++++++++++++++++++++++++-
+ drivers/net/ixgbe/ixgbe_fcoe.h |    1 +
+ 2 files changed, 49 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index cb1555b..48a1bfc 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2335,141 +2335,6 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
- 	return 0;
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
+index f5f39ed..aadff4f 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -109,6 +109,7 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
+ 	len = ddp->len;
+ 	/* if there an error, force to invalidate ddp context */
+ 	if (ddp->err) {
++		spin_lock(fcoe->node_lock[numa_node_id()]);
+ 		spin_lock_bh(&fcoe->lock);
+ 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCFLT, 0);
+ 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCFLTRW,
+@@ -122,6 +123,7 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
+ 				(xid | IXGBE_FCDMARW_RE));
+ 		fcbuff = IXGBE_READ_REG(&adapter->hw, IXGBE_FCBUFF);
+ 		spin_unlock_bh(&fcoe->lock);
++		spin_unlock(fcoe->node_lock[numa_node_id()]);
+ 		if (fcbuff & IXGBE_FCBUFF_VALID)
+ 			udelay(100);
+ 	}
+@@ -294,6 +296,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 
+ 	/* program DMA context */
+ 	hw = &adapter->hw;
++	spin_lock(fcoe->node_lock[numa_node_id()]);
+ 	spin_lock_bh(&fcoe->lock);
+ 
+ 	/* turn on last frame indication for target mode as FCP_RSPtarget is
+@@ -315,6 +318,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCFLTRW, fcfltrw);
+ 
+ 	spin_unlock_bh(&fcoe->lock);
++	spin_unlock(fcoe->node_lock[numa_node_id()]);
+ 
+ 	return 1;
+ 
+@@ -634,6 +638,42 @@ static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
+ 	}
  }
  
--static int ixgbe_set_rx_ntuple(struct net_device *dev,
--                               struct ethtool_rx_ntuple *cmd)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	struct ethtool_rx_ntuple_flow_spec *fs = &cmd->fs;
--	union ixgbe_atr_input input_struct;
--	struct ixgbe_atr_input_masks input_masks;
--	int target_queue;
--	int err;
--
--	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
--		return -EOPNOTSUPP;
--
--	/*
--	 * Don't allow programming if the action is a queue greater than
--	 * the number of online Tx queues.
--	 */
--	if ((fs->action >= adapter->num_tx_queues) ||
--	    (fs->action < ETHTOOL_RXNTUPLE_ACTION_DROP))
--		return -EINVAL;
--
--	memset(&input_struct, 0, sizeof(union ixgbe_atr_input));
--	memset(&input_masks, 0, sizeof(struct ixgbe_atr_input_masks));
--
--	/* record flow type */
--	switch (fs->flow_type) {
--	case IPV4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_IPV4;
--		break;
--	case TCP_V4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
--		break;
--	case UDP_V4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_UDPV4;
--		break;
--	case SCTP_V4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_SCTPV4;
--		break;
--	default:
--		return -1;
--	}
--
--	/* copy vlan tag minus the CFI bit */
--	if ((fs->vlan_tag & 0xEFFF) || (~fs->vlan_tag_mask & 0xEFFF)) {
--		input_struct.formatted.vlan_id = htons(fs->vlan_tag & 0xEFFF);
--		if (!fs->vlan_tag_mask) {
--			input_masks.vlan_id_mask = htons(0xEFFF);
--		} else {
--			switch (~fs->vlan_tag_mask & 0xEFFF) {
--			/* all of these are valid vlan-mask values */
--			case 0xEFFF:
--			case 0xE000:
--			case 0x0FFF:
--			case 0x0000:
--				input_masks.vlan_id_mask =
--					htons(~fs->vlan_tag_mask);
--				break;
--			/* exit with error if vlan-mask is invalid */
--			default:
--				e_err(drv, "Partial VLAN ID or "
--				      "priority mask in vlan-mask is not "
--				      "supported by hardware\n");
--				return -1;
--			}
--		}
--	}
--
--	/* make sure we only use the first 2 bytes of user data */
--	if ((fs->data & 0xFFFF) || (~fs->data_mask & 0xFFFF)) {
--		input_struct.formatted.flex_bytes = htons(fs->data & 0xFFFF);
--		if (!(fs->data_mask & 0xFFFF)) {
--			input_masks.flex_mask = 0xFFFF;
--		} else if (~fs->data_mask & 0xFFFF) {
--			e_err(drv, "Partial user-def-mask is not "
--			      "supported by hardware\n");
--			return -1;
--		}
--	}
--
--	/*
--	 * Copy input into formatted structures
--	 *
--	 * These assignments are based on the following logic
--	 * If neither input or mask are set assume value is masked out.
--	 * If input is set, but mask is not mask should default to accept all.
--	 * If input is not set, but mask is set then mask likely results in 0.
--	 * If input is set and mask is set then assign both.
--	 */
--	if (fs->h_u.tcp_ip4_spec.ip4src || ~fs->m_u.tcp_ip4_spec.ip4src) {
--		input_struct.formatted.src_ip[0] = fs->h_u.tcp_ip4_spec.ip4src;
--		if (!fs->m_u.tcp_ip4_spec.ip4src)
--			input_masks.src_ip_mask[0] = 0xFFFFFFFF;
--		else
--			input_masks.src_ip_mask[0] =
--				~fs->m_u.tcp_ip4_spec.ip4src;
--	}
--	if (fs->h_u.tcp_ip4_spec.ip4dst || ~fs->m_u.tcp_ip4_spec.ip4dst) {
--		input_struct.formatted.dst_ip[0] = fs->h_u.tcp_ip4_spec.ip4dst;
--		if (!fs->m_u.tcp_ip4_spec.ip4dst)
--			input_masks.dst_ip_mask[0] = 0xFFFFFFFF;
--		else
--			input_masks.dst_ip_mask[0] =
--				~fs->m_u.tcp_ip4_spec.ip4dst;
--	}
--	if (fs->h_u.tcp_ip4_spec.psrc || ~fs->m_u.tcp_ip4_spec.psrc) {
--		input_struct.formatted.src_port = fs->h_u.tcp_ip4_spec.psrc;
--		if (!fs->m_u.tcp_ip4_spec.psrc)
--			input_masks.src_port_mask = 0xFFFF;
--		else
--			input_masks.src_port_mask = ~fs->m_u.tcp_ip4_spec.psrc;
--	}
--	if (fs->h_u.tcp_ip4_spec.pdst || ~fs->m_u.tcp_ip4_spec.pdst) {
--		input_struct.formatted.dst_port = fs->h_u.tcp_ip4_spec.pdst;
--		if (!fs->m_u.tcp_ip4_spec.pdst)
--			input_masks.dst_port_mask = 0xFFFF;
--		else
--			input_masks.dst_port_mask = ~fs->m_u.tcp_ip4_spec.pdst;
--	}
--
--	/* determine if we need to drop or route the packet */
--	if (fs->action == ETHTOOL_RXNTUPLE_ACTION_DROP)
--		target_queue = MAX_RX_QUEUES - 1;
--	else
--		target_queue = fs->action;
--
--	spin_lock(&adapter->fdir_perfect_lock);
--	err = ixgbe_fdir_add_perfect_filter_82599(&adapter->hw,
--						  &input_struct,
--						  &input_masks, 0,
--						  target_queue);
--	spin_unlock(&adapter->fdir_perfect_lock);
--
--	return err ? -1 : 0;
--}
--
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2505,7 +2370,6 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_coalesce           = ixgbe_set_coalesce,
- 	.get_flags              = ethtool_op_get_flags,
- 	.set_flags              = ixgbe_set_flags,
--	.set_rx_ntuple          = ixgbe_set_rx_ntuple,
- };
++static void ixgbe_fcoe_locks_free(struct ixgbe_fcoe *fcoe)
++{
++	int node;
++
++	if (!fcoe->node_lock)
++		return;
++
++	for_each_node_with_cpus(node)
++			kfree(fcoe->node_lock[node]);
++
++	kfree(fcoe->node_lock);
++	fcoe->node_lock = NULL;
++}
++
++static void ixgbe_fcoe_lock_init(struct ixgbe_fcoe *fcoe)
++{
++	int node;
++	spinlock_t *node_lock;
++
++	fcoe->node_lock = kzalloc(sizeof(node_lock) * num_possible_nodes(),
++				  GFP_KERNEL);
++	if (!fcoe->node_lock)
++		return;
++
++	for_each_node_with_cpus(node) {
++		node_lock = kzalloc_node(sizeof(*node_lock) , GFP_KERNEL, node);
++		if (!node_lock) {
++			ixgbe_fcoe_locks_free(fcoe);
++			return;
++		}
++		spin_lock_init(node_lock);
++		fcoe->node_lock[node] = node_lock;
++	}
++	spin_lock_init(&fcoe->lock);
++}
++
+ /**
+  * ixgbe_configure_fcoe - configures registers for fcoe at start
+  * @adapter: ptr to ixgbe adapter
+@@ -654,12 +694,16 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ #endif
  
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
+ 	if (!fcoe->pool) {
+-		spin_lock_init(&fcoe->lock);
++		ixgbe_fcoe_lock_init(fcoe);
++		if (!fcoe->node_lock) {
++			e_err(drv, "failed to initialize fcoe locks\n");
++			return;
++		}
+ 
+ 		ixgbe_fcoe_ddp_pools_alloc(adapter);
+ 		if (!fcoe->pool) {
+ 			e_err(drv, "failed to alloc percpu fcoe DDP pools\n");
+-			return;
++			goto out_locks_free;
+ 		}
+ 
+ 		/* Extra buffer to be shared by all DDPs for HW work around */
+@@ -735,6 +779,8 @@ out_extra_ddp_buffer:
+ 	kfree(fcoe->extra_ddp_buffer);
+ out_ddp_pools:
+ 	ixgbe_fcoe_ddp_pools_free(fcoe);
++out_locks_free:
++	ixgbe_fcoe_locks_free(fcoe);
+ }
+ 
+ /**
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/ixgbe_fcoe.h
+index d876e7a..8618892 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.h
++++ b/drivers/net/ixgbe/ixgbe_fcoe.h
+@@ -69,6 +69,7 @@ struct ixgbe_fcoe {
+ 	struct pci_pool **pool;
+ 	atomic_t refcnt;
+ 	spinlock_t lock;
++	struct spinlock **node_lock;
+ 	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
+ 	unsigned char *extra_ddp_buffer;
+ 	dma_addr_t extra_ddp_buffer_dma;
 -- 
 1.7.5.2
 
