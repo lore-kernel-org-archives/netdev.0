@@ -1,116 +1,61 @@
-From: Brad Campbell <brad@fnarfbargle.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Tue, 07 Jun 2011 22:40:25 +0800
-Message-ID: <4DEE3859.6070808@fnarfbargle.com>
-References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <isavsg$3or$1@dough.gmane.org> <4DE906C0.6060901@fnarfbargle.com> <4DED344D.7000005@pandora.be> <4DED9C23.2030408@fnarfbargle.com> <4DEE27DE.7060004@trash.net>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
+Date: Tue, 7 Jun 2011 07:43:48 -0700
+Message-ID: <20110607144348.GB19246@suse.de>
+References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E568@EXDCVYMBSTM006.EQ1STM.local>
+ <1306929701-22861-1-git-send-email-metze@samba.org>
+ <1306929701-22861-2-git-send-email-metze@samba.org>
+ <20110601.211142.557328157396419857.davem@davemloft.net>
+ <4DECC6B4.5020108@samba.org>
+ <20110606150655.GB3732@suse.de>
+ <4DEDD564.7050308@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bart De Schuymer <bdschuym@pandora.be>, kvm@vger.kernel.org,
- linux-mm@kvack.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4DEE27DE.7060004@trash.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, oliver@neukum.name,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Stefan (metze) Metzmacher" <metze@samba.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4DEDD564.7050308@samba.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/06/11 21:30, Patrick McHardy wrote:
-> On 07.06.2011 05:33, Brad Campbell wrote:
->> On 07/06/11 04:10, Bart De Schuymer wrote:
->>> Hi Brad,
->>>
->>> This has probably nothing to do with ebtables, so please rmmod in case
->>> it's loaded.
->>> A few questions I didn't directly see an answer to in the threads I
->>> scanned...
->>> I'm assuming you actually use the bridging firewall functionality. So,
->>> what iptables modules do you use? Can you reduce your iptables rules to
->>> a core that triggers the bug?
->>> Or does it get triggered even with an empty set of firewall rules?
->>> Are you using a stock .35 kernel or is it patched?
->>> Is this something I can trigger on a poor guy's laptop or does it
->>> require specialized hardware (I'm catching up on qemu/kvm...)?
->>
->> Not specialised hardware as such, I've just not been able to reproduce
->> it outside of this specific operating scenario.
->
-> The last similar problem we've had was related to the 32/64 bit compat
-> code. Are you running 32 bit userspace on a 64 bit kernel?
+On Tue, Jun 07, 2011 at 09:38:12AM +0200, Stefan (metze) Metzmacher wrote:
+> Am 06.06.2011 17:06, schrieb Greg KH:
+> > On Mon, Jun 06, 2011 at 02:23:16PM +0200, Stefan (metze) Metzmacher wrote:
+> >> Hi David,
+> >>
+> >>> From: Stefan Metzmacher <metze@samba.org>
+> >>> Date: Wed,  1 Jun 2011 14:01:41 +0200
+> >>>
+> >>>> This avoids messages like this after suspend:
+> >>>>
+> >>>>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
+> >>>>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
+> >>>>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4, CDC NCM
+> >>>>
+> >>>> This is important for the Ericsson F5521gw GSM/UMTS modem.
+> >>>> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm devices
+> >>>> belong together.
+> >>>>
+> >>>> The cdc_ether module does the same.
+> >>>>
+> >>>> Signed-off-by: Stefan Metzmacher <metze@samba.org>
+> >>>
+> >>> Applied and queued up for -stable, thanks.
+> >>
+> >> It seems to be part of 3.0-rc2, but I'm not seeing it in any stable tree
+> >> yet...
+> >>
+> >> When can I expect it in stable trees like 2.6.38.y?
+> > 
+> > The .38.y tree is closed and will not have new releases, so you will
+> > never see it there, sorry.
+> 
+> Ok, are there chances for .39.y?
 
-No, 32 bit Guest OS, but a completely 64 bit userspace on a 64 bit kernel.
+There are, it requires the patch to be in Linus's tree first, please see
+Documentation/stable_kernel_rules.txt for the details.
 
-Userspace is current Debian Stable. Kernel is Vanilla and qemu-kvm is 
-current git
-
-
->> I can't trigger it with empty firewall rules as it relies on a DNAT to
->> occur. If I try it directly to the internal IP address (as I have to
->> without netfilter loaded) then of course nothing fails.
->>
->> It's a pain in the bum as a fault, but it's one I can easily reproduce
->> as long as I use the same set of circumstances.
->>
->> I'll try using 3.0-rc2 (current git) tonight, and if I can reproduce it
->> on that then I'll attempt to pare down the IPTABLES rules to a bare
->> minimum.
->>
->> It is nothing to do with ebtables as I don't compile it. I'm not really
->> sure about "bridging firewall" functionality. I just use a couple of
->> hand coded bash scripts to set the tables up.
->
->  From one of your previous mails:
->
->> # CONFIG_BRIDGE_NF_EBTABLES is not set
->
-> How about CONFIG_BRIDGE_NETFILTER?
->
-
-It was compiled in.
-
-With the following table set I was able to reproduce the problem on 
-3.0-rc2. Replaced my IP with xxx.xxx.xxx.xxx, but otherwise unmodified
-
-root@srv:~# iptables-save
-# Generated by iptables-save v1.4.10 on Tue Jun  7 22:11:30 2011
-*filter
-:INPUT ACCEPT [978:107619]
-:FORWARD ACCEPT [142:7068]
-:OUTPUT ACCEPT [1659:291870]
--A INPUT -i ppp0 -m state --state RELATED,ESTABLISHED -j ACCEPT
--A INPUT ! -i ppp0 -m state --state NEW -j ACCEPT
--A INPUT -i ppp0 -j DROP
-COMMIT
-# Completed on Tue Jun  7 22:11:30 2011
-# Generated by iptables-save v1.4.10 on Tue Jun  7 22:11:30 2011
-*nat
-:PREROUTING ACCEPT [813:49170]
-:INPUT ACCEPT [91:7090]
-:OUTPUT ACCEPT [267:20731]
-:POSTROUTING ACCEPT [296:22281]
--A PREROUTING -d xxx.xxx.xxx.xxx/32 ! -i ppp0 -p tcp -m tcp --dport 443 
--j DNAT --to-destination 192.168.253.198
-COMMIT
-# Completed on Tue Jun  7 22:11:30 2011
-# Generated by iptables-save v1.4.10 on Tue Jun  7 22:11:30 2011
-*mangle
-:PREROUTING ACCEPT [2729:274392]
-:INPUT ACCEPT [2508:262976]
-:FORWARD ACCEPT [142:7068]
-:OUTPUT ACCEPT [1674:293701]
-:POSTROUTING ACCEPT [2131:346411]
--A FORWARD -o ppp0 -p tcp -m tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 
-1400:1536 -j TCPMSS --clamp-mss-to-pmtu
-COMMIT
-# Completed on Tue Jun  7 22:11:30 2011
-
-I've just compiled out CONFIG_BRIDGE_NETFILTER and can no longer access 
-the address the way I was doing it, so that's a no-go for me.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+greg k-h
