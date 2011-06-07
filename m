@@ -1,86 +1,72 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH] usbnet/cdc_ncm: add missing .reset_resume hook
-Date: Tue, 7 Jun 2011 10:35:06 -0700
-Message-ID: <20110607173506.GA27559@suse.de>
-References: <2AC7D4AD8BA1C640B4C60C61C8E520153E3C07E568@EXDCVYMBSTM006.EQ1STM.local>
- <1306929701-22861-1-git-send-email-metze@samba.org>
- <1306929701-22861-2-git-send-email-metze@samba.org>
- <20110601.211142.557328157396419857.davem@davemloft.net>
- <4DECC6B4.5020108@samba.org>
- <20110606150655.GB3732@suse.de>
- <4DEDD564.7050308@samba.org>
- <20110607144348.GB19246@suse.de>
- <4DEE5AEE.8070901@samba.org>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Tue, 07 Jun 2011 20:04:05 +0200
+Message-ID: <4DEE6815.7040504@pandora.be>
+References: <20110601011527.GN19505@random.random> <alpine.LSU.2.00.1105312120530.22808@sister.anvils> <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com> <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com> <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com> <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com> <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com> <isavsg$3or$1@dough.gmane.org> <4DE906C0.6060901@fnarfbargle.com> <4DED344D.7000005@pandora.be> <4DED9C23.2030408@fnarfbargle.com> <4DEE27DE.7060004@trash.net> <4DEE3859.6070808@fnarfbargle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, oliver@neukum.name,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Stefan (metze) Metzmacher" <metze@samba.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4DEE5AEE.8070901@samba.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, kvm@vger.kernel.org,
+ linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Brad Campbell <brad@fnarfbargle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4DEE3859.6070808@fnarfbargle.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2011 at 07:07:58PM +0200, Stefan (metze) Metzmacher wrote:
-> Am 07.06.2011 16:43, schrieb Greg KH:
-> > On Tue, Jun 07, 2011 at 09:38:12AM +0200, Stefan (metze) Metzmacher wrote:
-> >> Am 06.06.2011 17:06, schrieb Greg KH:
-> >>> On Mon, Jun 06, 2011 at 02:23:16PM +0200, Stefan (metze) Metzmacher wrote:
-> >>>> Hi David,
-> >>>>
-> >>>>> From: Stefan Metzmacher <metze@samba.org>
-> >>>>> Date: Wed,  1 Jun 2011 14:01:41 +0200
-> >>>>>
-> >>>>>> This avoids messages like this after suspend:
-> >>>>>>
-> >>>>>>    cdc_ncm 2-1.4:1.6: no reset_resume for driver cdc_ncm?
-> >>>>>>    cdc_ncm 2-1.4:1.7: no reset_resume for driver cdc_ncm?
-> >>>>>>    cdc_ncm 2-1.4:1.6: usb0: unregister 'cdc_ncm' usb-0000:00:1d.0-1.4, CDC NCM
-> >>>>>>
-> >>>>>> This is important for the Ericsson F5521gw GSM/UMTS modem.
-> >>>>>> Otherwise modemmanager looses the fact that the cdc_ncm and cdc_acm devices
-> >>>>>> belong together.
-> >>>>>>
-> >>>>>> The cdc_ether module does the same.
-> >>>>>>
-> >>>>>> Signed-off-by: Stefan Metzmacher <metze@samba.org>
-> >>>>>
-> >>>>> Applied and queued up for -stable, thanks.
-> >>>>
-> >>>> It seems to be part of 3.0-rc2, but I'm not seeing it in any stable tree
-> >>>> yet...
-> >>>>
-> >>>> When can I expect it in stable trees like 2.6.38.y?
-> >>>
-> >>> The .38.y tree is closed and will not have new releases, so you will
-> >>> never see it there, sorry.
-> >>
-> >> Ok, are there chances for .39.y?
-> > 
-> > There are, it requires the patch to be in Linus's tree first,
-> 
-> It's already there:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=85e3c65fa3a1d0542c181510a950a2be7733ff29
-> 
-> > please see Documentation/stable_kernel_rules.txt for the details.
-> 
-> Thanks for the pointer. It seems I've missed the Cc: <stable@kernel.org>
-> line(s).
-> 
-> Would this be the correct syntax in order to get it into 2.6.38.x and
-> 2.6.39.x?
-> (2.6.38 wasn't closed at the time I submitted the patch)
-> 
-> Cc: <stable@kernel.org> # .38.x
-> Cc: <stable@kernel.org> # .39.x
-> 
-> Should I resubmit the patch, or can you just cherry pick
-> 85e3c65fa3a1d0542c181510a950a2be7733ff29
-> from Linus's tree?
+Op 7/06/2011 16:40, Brad Campbell schreef:
+> On 07/06/11 21:30, Patrick McHardy wrote:
+>> On 07.06.2011 05:33, Brad Campbell wrote:
+>>> On 07/06/11 04:10, Bart De Schuymer wrote:
+>>>> Hi Brad,
+>>>>
+>>>> This has probably nothing to do with ebtables, so please rmmod in case
+>>>> it's loaded.
+>>>> A few questions I didn't directly see an answer to in the threads I
+>>>> scanned...
+>>>> I'm assuming you actually use the bridging firewall functionality. So,
+>>>> what iptables modules do you use? Can you reduce your iptables 
+>>>> rules to
+>>>> a core that triggers the bug?
+>>>> Or does it get triggered even with an empty set of firewall rules?
+>>>> Are you using a stock .35 kernel or is it patched?
+>>>> Is this something I can trigger on a poor guy's laptop or does it
+>>>> require specialized hardware (I'm catching up on qemu/kvm...)?
+>>>
+>>> Not specialised hardware as such, I've just not been able to reproduce
+>>> it outside of this specific operating scenario.
+>>
+>> The last similar problem we've had was related to the 32/64 bit compat
+>> code. Are you running 32 bit userspace on a 64 bit kernel?
+>
+> No, 32 bit Guest OS, but a completely 64 bit userspace on a 64 bit 
+> kernel.
+>
+> Userspace is current Debian Stable. Kernel is Vanilla and qemu-kvm is 
+> current git
+>
+If the bug is easily triggered with your guest os, then you could try to 
+capture the traffic with wireshark (or something else) in a 
+configuration that doesn't crash your system. Save the traffic in a pcap 
+file. Then you can see if resending that traffic in the vulnerable 
+configuration triggers the bug (I don't know if something in Windows 
+exists, but tcpreplay should work for Linux). Once you have such a 
+capture , chances are the bug is even easily reproducible by us (unless 
+it's hardware-specific). Success isn't guaranteed, but I think it's 
+worth a shot...
 
-I've queued it up now, thanks.
+cheers,
+Bart
 
-greg k-h
+
+-- 
+Bart De Schuymer
+www.artinalgorithms.be
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
