@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/40] e1000e: do not schedule the Tx queue until ready
-Date: Tue,  7 Jun 2011 05:32:39 -0700
-Message-ID: <1307449995-9458-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/40] e1000e: 82579 intermittently disabled during S0->Sx
+Date: Tue,  7 Jun 2011 05:32:37 -0700
+Message-ID: <1307449995-9458-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -9,7 +9,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:12979 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752073Ab1FGMdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753211Ab1FGMdU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 7 Jun 2011 08:33:20 -0400
 In-Reply-To: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,57 +17,195 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Start the Tx queue when the interface is brought up in e1000e_up() but do
-not schedule the queue until link is up as detected in the watchdog task
-which sets netif_carrier_on.
+When repeatedly cycling Sx->S0 states with the network cable unplugged,
+the 82579 PHY may not initialize as expected and may require a full power
+cycle to recover functionality to the device.  Workaround this by testing
+access of the PHY registers after resuming; if that returns unexpected
+results toggle the LANPHYPC signal to power cycle the PHY.
 
-Also flush the descriptors and clean the Tx and Rx rings before resetting
-the hardware when bringing the interface down otherwise there is a small
-window where the watchdog task can be triggered with netif_carrier_off
-and the Tx ring not yet empty which causes an additional and unnecessary
-reset.
+This is implemented in the new function e1000_resume_workarounds_pchlan()
+which calls another new function, e1000_toggle_lanphypc_value_ich8lan(),
+which has been created to reduce code duplication (same functionality
+required by a previous workaround).  Also, e1000e_disable_gig_wol_ich8lan
+is now e1000_suspend_workarounds_ich8lan to better reflect what it does.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/netdev.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/e1000e/e1000.h   |    3 +-
+ drivers/net/e1000e/ich8lan.c |   86 +++++++++++++++++++++++++++++++++++------
+ drivers/net/e1000e/netdev.c  |    5 ++-
+ 3 files changed, 79 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 9549879..f8cd56a 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -533,7 +533,8 @@ extern void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
+ 						 bool state);
+ extern void e1000e_igp3_phy_powerdown_workaround_ich8lan(struct e1000_hw *hw);
+ extern void e1000e_gig_downshift_workaround_ich8lan(struct e1000_hw *hw);
+-extern void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw);
++extern void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw);
++extern void e1000_resume_workarounds_pchlan(struct e1000_hw *hw);
+ extern s32 e1000_configure_k1_ich8lan(struct e1000_hw *hw, bool k1_enable);
+ extern s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable);
+ extern void e1000_copy_rx_addrs_to_phy_ich8lan(struct e1000_hw *hw);
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 3369d1f..dcd5db5 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -275,6 +275,19 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
+ #define ew16flash(reg,val)	__ew16flash(hw, (reg), (val))
+ #define ew32flash(reg,val)	__ew32flash(hw, (reg), (val))
+ 
++static void e1000_toggle_lanphypc_value_ich8lan(struct e1000_hw *hw)
++{
++	u32 ctrl;
++
++	ctrl = er32(CTRL);
++	ctrl |= E1000_CTRL_LANPHYPC_OVERRIDE;
++	ctrl &= ~E1000_CTRL_LANPHYPC_VALUE;
++	ew32(CTRL, ctrl);
++	udelay(10);
++	ctrl &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
++	ew32(CTRL, ctrl);
++}
++
+ /**
+  *  e1000_init_phy_params_pchlan - Initialize PHY function pointers
+  *  @hw: pointer to the HW structure
+@@ -284,7 +297,7 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
+ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ {
+ 	struct e1000_phy_info *phy = &hw->phy;
+-	u32 ctrl, fwsm;
++	u32 fwsm;
+ 	s32 ret_val = 0;
+ 
+ 	phy->addr                     = 1;
+@@ -308,13 +321,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	 */
+ 	fwsm = er32(FWSM);
+ 	if (!(fwsm & E1000_ICH_FWSM_FW_VALID) && !e1000_check_reset_block(hw)) {
+-		ctrl = er32(CTRL);
+-		ctrl |= E1000_CTRL_LANPHYPC_OVERRIDE;
+-		ctrl &= ~E1000_CTRL_LANPHYPC_VALUE;
+-		ew32(CTRL, ctrl);
+-		udelay(10);
+-		ctrl &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
+-		ew32(CTRL, ctrl);
++		e1000_toggle_lanphypc_value_ich8lan(hw);
+ 		msleep(50);
+ 
+ 		/*
+@@ -3586,17 +3593,16 @@ void e1000e_gig_downshift_workaround_ich8lan(struct e1000_hw *hw)
+ }
+ 
+ /**
+- *  e1000e_disable_gig_wol_ich8lan - disable gig during WoL
++ *  e1000_suspend_workarounds_ich8lan - workarounds needed during S0->Sx
+  *  @hw: pointer to the HW structure
+  *
+  *  During S0 to Sx transition, it is possible the link remains at gig
+  *  instead of negotiating to a lower speed.  Before going to Sx, set
+  *  'LPLU Enabled' and 'Gig Disable' to force link speed negotiation
+- *  to a lower speed.
+- *
+- *  Should only be called for applicable parts.
++ *  to a lower speed.  For PCH and newer parts, the OEM bits PHY register
++ *  (LED, GbE disable and LPLU configurations) also needs to be written.
+  **/
+-void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw)
++void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+ {
+ 	u32 phy_ctrl;
+ 	s32 ret_val;
+@@ -3616,6 +3622,60 @@ void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw)
+ }
+ 
+ /**
++ *  e1000_resume_workarounds_pchlan - workarounds needed during Sx->S0
++ *  @hw: pointer to the HW structure
++ *
++ *  During Sx to S0 transitions on non-managed devices or managed devices
++ *  on which PHY resets are not blocked, if the PHY registers cannot be
++ *  accessed properly by the s/w toggle the LANPHYPC value to power cycle
++ *  the PHY.
++ **/
++void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
++{
++	u32 fwsm;
++
++	if (hw->mac.type != e1000_pch2lan)
++		return;
++
++	fwsm = er32(FWSM);
++	if (!(fwsm & E1000_ICH_FWSM_FW_VALID) || !e1000_check_reset_block(hw)) {
++		u16 phy_id1, phy_id2;
++		s32 ret_val;
++
++		ret_val = hw->phy.ops.acquire(hw);
++		if (ret_val) {
++			e_dbg("Failed to acquire PHY semaphore in resume\n");
++			return;
++		}
++
++		/* Test access to the PHY registers by reading the ID regs */
++		ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_id1);
++		if (ret_val)
++			goto release;
++		ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_id2);
++		if (ret_val)
++			goto release;
++
++		if (hw->phy.id == ((u32)(phy_id1 << 16) |
++				   (u32)(phy_id2 & PHY_REVISION_MASK)))
++			goto release;
++
++		e1000_toggle_lanphypc_value_ich8lan(hw);
++
++		hw->phy.ops.release(hw);
++		msleep(50);
++		e1000_phy_hw_reset(hw);
++		msleep(50);
++		return;
++	}
++
++release:
++	hw->phy.ops.release(hw);
++
++	return;
++}
++
++/**
+  *  e1000_cleanup_led_ich8lan - Restore the default LED operation
+  *  @hw: pointer to the HW structure
+  *
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index f5c1469..da3fff6 100644
+index 3310c3d..f5c1469 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -3346,7 +3346,7 @@ int e1000e_up(struct e1000_adapter *adapter)
- 		e1000_configure_msix(adapter);
- 	e1000_irq_enable(adapter);
+@@ -5277,7 +5277,7 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 		}
  
--	netif_wake_queue(adapter->netdev);
-+	netif_start_queue(adapter->netdev);
+ 		if (adapter->flags & FLAG_IS_ICH)
+-			e1000e_disable_gig_wol_ich8lan(&adapter->hw);
++			e1000_suspend_workarounds_ich8lan(&adapter->hw);
  
- 	/* fire a link change interrupt to start the watchdog */
- 	if (adapter->msix_entries)
-@@ -3413,17 +3413,16 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	e1000e_update_stats(adapter);
- 	spin_unlock(&adapter->stats64_lock);
+ 		/* Allow time for pending master requests to run */
+ 		e1000e_disable_pcie_master(&adapter->hw);
+@@ -5428,6 +5428,9 @@ static int __e1000_resume(struct pci_dev *pdev)
+ 			return err;
+ 	}
  
-+	e1000e_flush_descriptors(adapter);
-+	e1000_clean_tx_ring(adapter);
-+	e1000_clean_rx_ring(adapter);
++	if (hw->mac.type == e1000_pch2lan)
++		e1000_resume_workarounds_pchlan(&adapter->hw);
 +
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
+ 	e1000e_power_up_phy(adapter);
  
- 	if (!pci_channel_offline(adapter->pdev))
- 		e1000e_reset(adapter);
- 
--	e1000e_flush_descriptors(adapter);
--
--	e1000_clean_tx_ring(adapter);
--	e1000_clean_rx_ring(adapter);
--
- 	/*
- 	 * TODO: for power management, we could drop the link and
- 	 * pci_disable_device here.
+ 	/* report the system wakeup cause from S3/S4 */
 -- 
 1.7.5.2
 
