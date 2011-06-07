@@ -1,98 +1,83 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/3] ipv4: Fix packet size calculation for IPsec
- packets in __ip_append_data
-Date: Tue, 07 Jun 2011 07:06:57 +0200
-Message-ID: <1307423217.2642.59.camel@edumazet-laptop>
-References: <20110606064603.GB31505@secunet.com>
-	 <20110606064802.GC31505@secunet.com>
-	 <1307345899.3098.3.camel@edumazet-laptop>
-	 <20110606085247.GE31505@secunet.com>
+Subject: Re: Fw: [PATCH] e100: Fix inconsistency in bad frames handling
+Date: Tue, 07 Jun 2011 07:11:30 +0200
+Message-ID: <1307423490.2642.61.camel@edumazet-laptop>
+References: <20110606214454.4108aff4.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Andrea Merello <andrea.merello@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34887 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752293Ab1FGFHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 01:07:03 -0400
-Received: by wwa36 with SMTP id 36so4517658wwa.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 22:07:01 -0700 (PDT)
-In-Reply-To: <20110606085247.GE31505@secunet.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64165 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752323Ab1FGFLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 01:11:35 -0400
+Received: by wya21 with SMTP id 21so3277935wya.19
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 22:11:34 -0700 (PDT)
+In-Reply-To: <20110606214454.4108aff4.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 juin 2011 =C3=A0 10:52 +0200, Steffen Klassert a =C3=A9crit=
- :
-> On Mon, Jun 06, 2011 at 09:38:19AM +0200, Eric Dumazet wrote:
-> >=20
-> > Woh, I am afraid I wont have time in following days to check your
-> > assertion.
+Le lundi 06 juin 2011 =C3=A0 21:44 -0700, Andrew Morton a =C3=A9crit :
 >=20
-> My test setup was the following:
+> Begin forwarded message:
 >=20
-> I use an IPsec tunnel with tunnel endpoints 192.168.1.1 and 192.168.1=
-=2E2
+> Date: Sun, 5 Jun 2011 03:14:49 +0200
+> From: Andrea Merello <andrea.merello@gmail.com>
+> To: linux-kernel@vger.kernel.org
+> Subject: [PATCH] e100: Fix inconsistency in bad frames handling
 >=20
-> Then I do at 192.168.1.2
 >=20
-> ping -c1 -M do -s 1410 192.168.1.1
+> Hello!
 >=20
-> PING 192.168.1.1 (192.168.1.1) 1410(1438) bytes of data.
-> From 192.168.1.2 icmp_seq=3D1 Frag needed and DF set (mtu =3D 1438)
+> In e100 driver it seems that the intention was to accept bad frames i=
+n
+> promiscuous mode and loopback mode.
+> I think this is evident because of the following code in the driver:
 >=20
-> --- 192.168.1.1 ping statistics ---
-> 0 packets transmitted, 0 received, +1 errors
+> if (nic->flags & promiscuous || nic->loopback) {
+>                config->rx_save_bad_frames =3D 0x1;       /* 1=3Dsave,=
+ 0=3Ddiscard */
+>                config->rx_discard_short_frames =3D 0x0;  /* 1=3Ddisca=
+rd, 0=3Dsave */
+>                config->promiscuous_mode =3D 0x1;         /* 1=3Don, 0=
+=3Doff */
+>        }
 >=20
-> So the packet matches the mtu but it is not send.
-> I used a kernel with your patch as head commit.
 >=20
-> Reverting your patch (going one commit deeper in the history):
+> However this intention is not really realized because bad frames are
+> discarded later by SW check.
+> This patch finally honors the above intention, making the RX code to
+> let bad frames to pass when the NIC is in promiscuous or loopback
+> mode.
 >=20
-> ping -c1 -M do -s 1410 192.168.1.1
+> This helped me a lot to debug an FPGA ethernet core.
+> Maybe it can be also useful to someone else..
 >=20
-> PING 192.168.1.1 (192.168.1.1) 1410(1438) bytes of data.
-> 1418 bytes from 192.168.1.1: icmp_seq=3D1 ttl=3D64 time=3D3.01 ms
+> Thanks
+> Andrea
 >=20
-> --- 192.168.1.1 ping statistics ---
-> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
-> rtt min/avg/max/mdev =3D 3.014/3.014/3.014/0.000 ms
+>  --- drivers/net/e100_orig.c     2011-06-14 23:29:38.322267075 +0200
+> +++ drivers/net/e100.c  2011-06-14 23:34:10.700791472 +0200
+> @@ -1975,7 +1975,8 @@ static int e100_rx_indicate(struct nic *
+>        skb_put(skb, actual_size);
+>        skb->protocol =3D eth_type_trans(skb, nic->netdev);
 >=20
-> >=20
-> > What about original problem then, how should we fix it ?
-> >=20
->=20
-> Hm, I don't know. I'll try to reproduce it here.
->=20
-> > We do have some cases where at least one fragment (the last one) is
-> > oversized.
->=20
-> trailer_len is used only on IPsec so the poroblem exists only when
-> using IPsec, right?
->=20
-> >=20
-> > I remember I used Nick Bowler scripts at that time, I might find th=
-em
-> > again...
->=20
-> Would be nice if you could provide these scripts and some information=
-s
-> on how to reproduce the problem.
->=20
+> -       if (unlikely(!(rfd_status & cb_ok))) {
+> +       if (unlikely(!(nic->flags & promiscuous || nic->loopback) &&
+> +           !(rfd_status & cb_ok))) {
+>                /* Don't indicate if hardware indicates errors */
+>                dev_kfree_skb_any(skb);
+>        } else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
 
-Nick mail was :
 
-http://www.spinics.net/lists/netdev/msg141308.html
+Thanks Andrew, subject already opened on netdev :)
 
-Unfortunatly I could not find on my machines where I put my own
-scripts...
+http://www.spinics.net/lists/netdev/msg166301.html
 
-Not a big deal, I suspect we can revert my commit if you say it added a
-regression :)
+Lets close this thread and continue on previous one ?
 
-Thanks
 
 
