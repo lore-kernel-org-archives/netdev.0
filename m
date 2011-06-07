@@ -1,55 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] macvlan: add VLAN filters to lowerdev
-Date: Mon, 06 Jun 2011 16:44:00 -0700 (PDT)
-Message-ID: <20110606.164400.1575049396635321206.davem@davemloft.net>
-References: <20110606142715.2692.6311.stgit@jf-dev1-dcblab>
-	<20110606.150352.392614415181146213.davem@davemloft.net>
-	<4DED5857.2000408@intel.com>
+Subject: Re: suspect locking in net/irda/iriap.c
+Date: Mon, 06 Jun 2011 17:00:56 -0700 (PDT)
+Message-ID: <20110606.170056.193694265.davem@davemloft.net>
+References: <20110421034057.GA10536@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: john.r.fastabend@intel.com
+Cc: netdev@vger.kernel.org, samuel@sortiz.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38450 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754440Ab1FFXoC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 19:44:02 -0400
-In-Reply-To: <4DED5857.2000408@intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55883
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752798Ab1FGABZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2011 20:01:25 -0400
+In-Reply-To: <20110421034057.GA10536@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Mon, 06 Jun 2011 15:44:39 -0700
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 20 Apr 2011 23:40:58 -0400
 
-> On 6/6/2011 3:03 PM, David Miller wrote:
->> From: John Fastabend <john.r.fastabend@intel.com>
->> Date: Mon, 06 Jun 2011 07:27:16 -0700
->> 
->>> Stacking VLANs on top of the macvlan device does not
->>> work if the lowerdev device is using vlan filters set
->>> by NETIF_F_HW_VLAN_FILTER. Add ndo ops to pass vlan
->>> calls to lowerdev.
->>>
->>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> 
->> I think this might have unintended side-effects.
->> 
->> Much of the VLAN code makes decisions based upon whether these
->> ops are NULL or not.
->> 
->> Now, no matter what is implemented in the lower device, the VLAN
->> code will see them non-NULL in the macvlan device.
-> 
-> I would expect these decisions to be wrapped in the feature flag
-> like this,
-> 
->         if (vlan_id && (real_dev->features & NETIF_F_HW_VLAN_FILTER))
->                 ops->ndo_vlan_rx_kill_vid(real_dev, vlan_id);
-> 
-> Although grep found two call sites not wrapped,
- ...
-> I could wrap these in feature flag checks as well but I see no harm
-> in letting these fall through to the macvlan driver and failing.
+> My reading of that comment suggests that the two locks aren't the same,
+> so is this just missing a lockdep annotation ?
 
-Fair enough, patch applied.
+Dave, I'm going to check in the following to net-2.6 to try and
+address this.  Let me know how it works for you.
+
+--------------------
+irda: iriap: Use seperate lockdep class for irias_objects->hb_spinlock
+
+The SEQ output functions grab the obj->attrib->hb_spinlock lock of
+sub-objects found in the hash traversal.  These locks are in a different
+realm than the one used for the irias_objects hash table itself.
+
+So put the latter into it's own lockdep class.
+
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/irda/iriap.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/irda/iriap.c b/net/irda/iriap.c
+index 3647753..f876eed 100644
+--- a/net/irda/iriap.c
++++ b/net/irda/iriap.c
+@@ -87,6 +87,8 @@ static inline void iriap_start_watchdog_timer(struct iriap_cb *self,
+ 			 iriap_watchdog_timer_expired);
+ }
+ 
++static struct lock_class_key irias_objects_key;
++
+ /*
+  * Function iriap_init (void)
+  *
+@@ -114,6 +116,9 @@ int __init iriap_init(void)
+ 		return -ENOMEM;
+ 	}
+ 
++	lockdep_set_class_and_name(&irias_objects->hb_spinlock, &irias_objects_key,
++				   "irias_objects");
++
+ 	/*
+ 	 *  Register some default services for IrLMP
+ 	 */
+-- 
+1.7.5.2
+
