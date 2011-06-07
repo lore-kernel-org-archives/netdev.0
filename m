@@ -1,36 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: cpu offline cause napi stall
-Date: Tue, 07 Jun 2011 09:09:55 +0200
-Message-ID: <1307430595.2642.81.camel@edumazet-laptop>
-References: <20110601181253.GA2374@osiris.boeblingen.de.ibm.com>
-	 <1306958592.3946.0.camel@edumazet-laptop>
-	 <20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
-	 <20110606.145051.267562411413352856.davem@davemloft.net>
-	 <1307429403.2642.77.camel@edumazet-laptop>
+From: Reinhard Max <max@suse.de>
+Subject: Re: [PATCH] net/ipv6: check for mistakenly passed in non-AF_INET6
+ sockaddrs
+Date: Tue, 7 Jun 2011 09:25:01 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1106070910410.10360@nitsch.suse.de>
+References: <20110525155918.GA27869@suse.de> <20110601.210359.2079286191194442010.davem@davemloft.net> <alpine.LNX.2.00.1106061538210.13876@nitsch.suse.de> <20110606160007.GD28535@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: heiko.carstens@de.ibm.com, blaschka@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Marcus Meissner <meissner@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58992 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654Ab1FGHKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 03:10:00 -0400
-In-Reply-To: <1307429403.2642.77.camel@edumazet-laptop>
+Received: from cantor2.suse.de ([195.135.220.15]:40717 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971Ab1FGHZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2011 03:25:04 -0400
+In-Reply-To: <20110606160007.GD28535@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 07 juin 2011 =C3=A0 08:50 +0200, Eric Dumazet a =C3=A9crit :
-> While doing my tests on bnx2x adapter, I found patch was working ok,
-> but /proc/interrupts still increment interrupt count on my offlined
-> cpu... go figure...
+On Mon, 6 Jun 2011 at 18:00, Marcus Meissner wrote:
 
-Oh well, "cat /proc/interrupts" skips offlined cpu, of course, thats a
-false alarm.
+> Same check as for IPv4, also do for IPv6.
+> [...]
+> +
+> +	if (addr->sin6_family != AF_INET6)
+> +		return -EINVAL;
+> +
 
-I was doing "grep eth1 /proc/interrupts" so didnt catch this.
+According to the POSIX manpage for bind(), the error code should be 
+EAFNOSUPPORT ("The specified address is not a valid address for the 
+address family of the specified socket"). This would also match the 
+error code of connect() in the same situation.
+
+And I think the family should be checked before the length for both, 
+bind() and connect(), to get more descriptive error messages when 
+passing an address of the wrong family.
 
 
-
+cu
+ 	Reinhard
