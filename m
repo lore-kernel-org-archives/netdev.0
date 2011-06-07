@@ -1,79 +1,81 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCHv2 RFC 0/4] virtio and vhost-net capacity
-	handling
-Date: Tue, 7 Jun 2011 19:08:30 +0300
-Message-ID: <20110607160830.GB17581@redhat.com>
-References: <cover.1307029008.git.mst@redhat.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH 1/2] vlan: only create special VLAN 0 once
+Date: Tue, 7 Jun 2011 18:18:08 +0200
+Message-ID: <20110607161808.GA5018@midget.suse.cz>
+References: <20110603200738.GA24804@midget.suse.cz>
+ <20110605.142823.1727360496050285755.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jbohac@suse.cz, kaber@trash.net, netdev@vger.kernel.org,
+	pedro.netdev@dondevamos.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:57530 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754866Ab1FGQSK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2011 12:18:10 -0400
 Content-Disposition: inline
-In-Reply-To: <cover.1307029008.git.mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110605.142823.1727360496050285755.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 02, 2011 at 06:42:35PM +0300, Michael S. Tsirkin wrote:
-> OK, here's a new attempt to use the new capacity api.  I also added more
-> comments to clarify the logic.  Hope this is more readable.  Let me know
-> pls.
+Hi David,
+
+On Sun, Jun 05, 2011 at 02:28:23PM -0700, David Miller wrote:
+> From: Jiri Bohac <jbohac@suse.cz>
+> Date: Fri, 3 Jun 2011 22:07:38 +0200
 > 
-> This is on top of the patches applied by Rusty.
+> > Commit ad1afb00 registers a VLAN with vid == 0 for every device to handle
+> > 802.1p frames.  This is currently done on every NETDEV_UP event and the special
+> > vlan is never unregistered.  This may have strange effects on drivers
+> > implementning ndo_vlan_rx_add_vid(). E.g. bonding will allocate a linked-list
+> > element each time, causing a memory leak.
+> > 
+> > Only register the special VLAN once on NETDEV_REGISTER.
+> > 
+> > Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 > 
-> Warning: untested. Posting now to give people chance to
-> comment on the API.
-
-OK, this seems to have survived some testing so far,
-after I dropped patch 4 and fixed build for patch 3
-(build fixup patch sent in reply to the original).
-
-I'll be mostly offline until Sunday, would appreciate
-testing reports.
-
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
-virtio-net-xmit-polling-v2
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git
-virtio-net-event-idx-v3
-
-Thanks!
-
-> Changes from v1:
-> - fix comment in patch 2 to correct confusion noted by Rusty
-> - rewrite patch 3 along the lines suggested by Rusty
->   note: it's not exactly the same but I hope it's close
->   enough, the main difference is that mine does limited
->   polling even in the unlikely xmit failure case.
-> - added a patch to not return capacity from add_buf
->   it always looked like a weird hack
+> I recognize the problem, but this solution isn't all that good.
 > 
-> Michael S. Tsirkin (4):
->   virtio_ring: add capacity check API
->   virtio_net: fix tx capacity checks using new API
->   virtio_net: limit xmit polling
->   Revert "virtio: make add_buf return capacity remaining:
-> 
->  drivers/net/virtio_net.c     |  111 ++++++++++++++++++++++++++----------------
->  drivers/virtio/virtio_ring.c |   10 +++-
->  include/linux/virtio.h       |    7 ++-
->  3 files changed, 84 insertions(+), 44 deletions(-)
-> 
-> -- 
-> 1.7.5.53.gc233e
+> I am pretty sure that the hardware device driver methods that
+> implement ndo_vlan_rx_add_vid() assume that the device is up.
+> Because most drivers completely reset the chip when the
+> interface is brought up and this will likely clear out the
+> VLAN ID tables in the chip.
+
+Really? In that case, we have a much bigger problem: the vlan
+code allows registering a new vlan on an interface that is down.
+And it only registers the VID with ndo_vlan_rx_add_vid() in
+register_vlan_dev() during the registration of the new vlan
+interface -- it never re-registers the VIDs on a NETDEV_UP.
+
+That would mean doing:
+
+	ip link set down eth0
+	ip link add link eth0 name eth0.1 type vlan id 1
+	ip link set up eth0
+
+... should result in a non-working setup, right? I would expect
+an -EINVAL somewhere along the way.
+However, at least for e1000, I just tested the above setup works.
+
+Could you be wrong about this? Or is this supposed to fail with
+other chips?  In that case, the vlan code or the drivers need
+fixing. Something should either disallow adding vlans when down
+and disallow putting the interface down then vlans are
+configured, or it should re-register the VIDs on every NETDEV_UP.
+
+> Second, now even devices which don't ever get brought up will
+> have the VLAN ID 0 thing allocated.
+
+Why is this a problem?
+ 
+> Probably the thing to do is to remove the VLAN ID 0 entry on
+> NETDEV_DOWN.
+
+OK, if you prefer fixing it this way, why not...
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
