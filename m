@@ -1,244 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/40] ixgbe: DCB use existing TX and RX queues
-Date: Tue,  7 Jun 2011 05:32:50 -0700
-Message-ID: <1307449995-9458-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/40] e1000e: log when swflag is cleared unexpectedly on ICH/PCH devices
+Date: Tue,  7 Jun 2011 05:32:38 -0700
+Message-ID: <1307449995-9458-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:44865 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:54890 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753275Ab1FGMdY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2011 08:33:24 -0400
+	id S1753221Ab1FGMdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2011 08:33:20 -0400
 In-Reply-To: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The number of TX and RX queues allocated depends on the device
-type, the current features set, online CPUs, and various
-compile flags.
+Since EXTCNF_CTRL.SWFLAG (used in the ownership arbitration of shared
+resources, e.g. the PHY shared between the s/w, f/w, and h/w clients)
+can be cleared by any of those clients, log a debug message when
+software attempts to clear it and it is already cleared unexpectedly.
+And since the swflag is cleared by a hardware reset, the driver does
+not need to do that, but the mutex acquired when the bit is set must
+still be cleared.
 
-To enable DCB with multiple queues and allow it to coexist with
-all the features currently implemented it has to setup a valid
-queue count. This is done at init time using the FDIR and RSS
-max queue counts and allowing each TC to allocate a queue per
-CPU.
-
-DCB will now use available queues up to (8 x TCs) this is somewhat
-arbitrary cap but allows DCB to use up to 64 queues. Its easy to
-increase this later if that is needed.
-
-This is prep work to enable Flow Director with DCB. After this
-DCB can easily coexist with existing features and no longer
-needs its own DCB feature ring.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe.h      |    2 -
- drivers/net/ixgbe/ixgbe_main.c |  107 ++++++++++++++++++---------------------
- 2 files changed, 49 insertions(+), 60 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index e467b20..d5674fc 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -244,7 +244,6 @@ struct ixgbe_ring {
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index dcd5db5..dddd0b3 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -889,8 +889,13 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
+ 	u32 extcnf_ctrl;
  
- enum ixgbe_ring_f_enum {
- 	RING_F_NONE = 0,
--	RING_F_DCB,
- 	RING_F_VMDQ,  /* SR-IOV uses the same ring feature */
- 	RING_F_RSS,
- 	RING_F_FDIR,
-@@ -255,7 +254,6 @@ enum ixgbe_ring_f_enum {
- 	RING_F_ARRAY_SIZE      /* must be last in enum set */
- };
- 
--#define IXGBE_MAX_DCB_INDICES  64
- #define IXGBE_MAX_RSS_INDICES  16
- #define IXGBE_MAX_VMDQ_INDICES 64
- #define IXGBE_MAX_FDIR_INDICES 64
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index f6d8105..747da66 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4416,72 +4416,72 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
- 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
- 		return false;
- 
--	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
--#ifdef CONFIG_IXGBE_DCB
--		int tc;
--		struct net_device *dev = adapter->netdev;
-+	f->indices = min((int)num_online_cpus(), f->indices);
- 
--		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
--		f->indices = dev->tc_to_txq[tc].count;
--		f->mask = dev->tc_to_txq[tc].offset;
--#endif
--	} else {
--		f->indices = min((int)num_online_cpus(), f->indices);
--
--		adapter->num_rx_queues = 1;
--		adapter->num_tx_queues = 1;
-+	adapter->num_rx_queues = 1;
-+	adapter->num_tx_queues = 1;
- 
--		if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
--			e_info(probe, "FCoE enabled with RSS\n");
--			if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
--			    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
--				ixgbe_set_fdir_queues(adapter);
--			else
--				ixgbe_set_rss_queues(adapter);
--		}
--		/* adding FCoE rx rings to the end */
--		f->mask = adapter->num_rx_queues;
--		adapter->num_rx_queues += f->indices;
--		adapter->num_tx_queues += f->indices;
-+	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
-+		e_info(probe, "FCoE enabled with RSS\n");
-+		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
-+		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
-+			ixgbe_set_fdir_queues(adapter);
-+		else
-+			ixgbe_set_rss_queues(adapter);
- 	}
-+	/* adding FCoE rx rings to the end */
-+	f->mask = adapter->num_rx_queues;
-+	adapter->num_rx_queues += f->indices;
-+	adapter->num_tx_queues += f->indices;
- 
- 	return true;
- }
- #endif /* IXGBE_FCOE */
- 
-+/* Artificial max queue cap per traffic class in DCB mode */
-+#define DCB_QUEUE_CAP 8
+ 	extcnf_ctrl = er32(EXTCNF_CTRL);
+-	extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
+-	ew32(EXTCNF_CTRL, extcnf_ctrl);
 +
- #ifdef CONFIG_IXGBE_DCB
- static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
- {
--	bool ret = false;
--	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_DCB];
--	int tcs = netdev_get_num_tc(adapter->netdev);
--	int max_q, i, q;
-+	int per_tc_q, q, i, offset = 0;
-+	struct net_device *dev = adapter->netdev;
-+	int tcs = netdev_get_num_tc(dev);
- 
--	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED) || !tcs)
--		return ret;
-+	if (!tcs)
-+		return false;
- 
--	max_q = adapter->netdev->num_tx_queues / tcs;
-+	/* Map queue offset and counts onto allocated tx queues */
-+	per_tc_q = min(dev->num_tx_queues / tcs, (unsigned int)DCB_QUEUE_CAP);
-+	q = min((int)num_online_cpus(), per_tc_q);
- 
--	f->indices = 0;
- 	for (i = 0; i < tcs; i++) {
--		q = min((int)num_online_cpus(), max_q);
--		f->indices += q;
-+		netdev_set_prio_tc_map(dev, i, i);
-+		netdev_set_tc_queue(dev, i, q, offset);
-+		offset += q;
- 	}
- 
--	f->mask = 0x7 << 3;
--	adapter->num_rx_queues = f->indices;
--	adapter->num_tx_queues = f->indices;
--	ret = true;
-+	adapter->num_tx_queues = q * tcs;
-+	adapter->num_rx_queues = q * tcs;
- 
- #ifdef IXGBE_FCOE
--	/* FCoE enabled queues require special configuration done through
--	 * configure_fcoe() and others. Here we map FCoE indices onto the
--	 * DCB queue pairs allowing FCoE to own configuration later.
-+	/* FCoE enabled queues require special configuration indexed
-+	 * by feature specific indices and mask. Here we map FCoE
-+	 * indices onto the DCB queue pairs allowing FCoE to own
-+	 * configuration later.
- 	 */
--	ixgbe_set_fcoe_queues(adapter);
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
-+		int tc;
-+		struct ixgbe_ring_feature *f =
-+					&adapter->ring_feature[RING_F_FCOE];
-+
-+		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
-+		f->indices = dev->tc_to_txq[tc].count;
-+		f->mask = dev->tc_to_txq[tc].offset;
++	if (extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG) {
++		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
++		ew32(EXTCNF_CTRL, extcnf_ctrl);
++	} else {
++		e_dbg("Semaphore unexpectedly released by sw/fw/hw\n");
 +	}
- #endif
  
--	return ret;
-+	return true;
+ 	mutex_unlock(&swflag_mutex);
  }
- #endif
+@@ -3066,7 +3071,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	msleep(20);
  
-@@ -5171,7 +5171,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	rss = min(IXGBE_MAX_RSS_INDICES, (int)num_online_cpus());
- 	adapter->ring_feature[RING_F_RSS].indices = rss;
- 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
--	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
- 	switch (hw->mac.type) {
- 	case ixgbe_mac_82598EB:
- 		if (hw->device_id == IXGBE_DEV_ID_82598AT)
-@@ -7212,10 +7211,8 @@ static void ixgbe_validate_rtr(struct ixgbe_adapter *adapter, u8 tc)
-  */
- int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- {
--	unsigned int q, i, offset = 0;
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int max_q = adapter->netdev->num_tx_queues / tc;
+ 	if (!ret_val)
+-		e1000_release_swflag_ich8lan(hw);
++		mutex_unlock(&swflag_mutex);
  
- 	/* If DCB is anabled do not remove traffic classes, multiple
- 	 * traffic classes are required to implement DCB
-@@ -7241,14 +7238,6 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	else
- 		netdev_reset_tc(dev);
- 
--	/* Partition Tx queues evenly amongst traffic classes */
--	for (i = 0; i < tc; i++) {
--		q = min((int)num_online_cpus(), max_q);
--		netdev_set_prio_tc_map(dev, i, i);
--		netdev_set_tc_queue(dev, i, q, offset);
--		offset += q;
--	}
--
- 	ixgbe_init_interrupt_scheme(adapter);
- 	ixgbe_validate_rtr(adapter, tc);
- 	if (netif_running(dev))
-@@ -7435,14 +7424,16 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
- 
-+#ifdef CONFIG_IXGBE_DCB
-+	indices *= MAX_TRAFFIC_CLASS;
-+#endif
-+
- 	if (ii->mac == ixgbe_mac_82598EB)
- 		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
- 	else
- 		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
- 
--#if defined(CONFIG_DCB)
--	indices = max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
--#elif defined(IXGBE_FCOE)
-+#ifdef IXGBE_FCOE
- 	indices += min_t(unsigned int, num_possible_cpus(),
- 			 IXGBE_MAX_FCOE_INDICES);
- #endif
+ 	if (ctrl & E1000_CTRL_PHY_RST) {
+ 		ret_val = hw->phy.ops.get_cfg_done(hw);
 -- 
 1.7.5.2
 
