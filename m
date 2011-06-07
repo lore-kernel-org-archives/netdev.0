@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: dummy: allocate devices with alloc_netdev_id
-Date: Tue, 07 Jun 2011 02:29:26 -0700 (PDT)
-Message-ID: <20110607.022926.472309688813629515.davem@davemloft.net>
-References: <BANLkTi=8mHr=SaUacW5cFR5xqXPaxrg5Xw@mail.gmail.com>
-	<1307433593.3091.3.camel@edumazet-laptop>
-	<BANLkTinVNkcznN5kPpje4cptjCKfWW6s-w@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: nf_nat: avoid double nat for loopback
+Date: Tue, 07 Jun 2011 11:37:43 +0200
+Message-ID: <4DEDF167.1010202@trash.net>
+References: <alpine.LFD.2.00.1106041640080.1437@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: lucian.grijincu@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39998 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055Ab1FGJ3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 05:29:37 -0400
-In-Reply-To: <BANLkTinVNkcznN5kPpje4cptjCKfWW6s-w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1106041640080.1437@ja.ssi.bg>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Date: Tue, 7 Jun 2011 11:30:38 +0300
+On 04.06.2011 16:02, Julian Anastasov wrote:
+> 
+> 	Avoid double NAT and seq adjustment for loopback
+> traffic because it causes silent repetition of TCP data. One
+> example is passive FTP with DNAT rule and difference in the
+> length of IP addresses.
+> 
+> 	This patch adds checks if packet is sent and
+> received via loopback device. As the same conntrack is used
+> both for outgoing and incoming direction, we restrict NAT,
+> seq adjustment and confirmation to happen only in
+> outgoing direction (OUTPUT and POSTROUTING).
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+> 
+> 	As the check is not so cheap, another alternative
+> is to add new skb flag, eg. "loopback", that can be set in 
+> drivers/net/loopback.c, loopback_xmit(). May be there is space
+> for it in flags2?
 
-> @David: I see [1][2] that you marked the patches as Rejected. If it's
-> not a script that sends all my patches to /dev/null because of the
-> 100+ patch set I sent a while back, could you tell me why you rejected
-> the patches?
-
-I misfired while changing patch states earlier today, I put them back
-into "Under Review"
+I don't think we should be adding code specifically needed for netfilter
+to the loopback driver if we can avoid it. I don't think we need to
+actually avoid calling nf_nat_packet twice, that shouldn't do any harm,
+just the sequence number adjustment. So we could add the loopback check
+to the IPS_SEQ_ADJUST_BIT case to at least avoid it in some cases.
+Would that work or am I missing something?
