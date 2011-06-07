@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 28/40] ixgbe: add basic support for setting and getting nfc controls
-Date: Tue,  7 Jun 2011 05:33:03 -0700
-Message-ID: <1307449995-9458-29-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 27/40] ixgbe: update perfect filter framework to support retaining filters
+Date: Tue,  7 Jun 2011 05:33:02 -0700
+Message-ID: <1307449995-9458-28-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:49432 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:4748 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753330Ab1FGMd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753298Ab1FGMd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 7 Jun 2011 08:33:29 -0400
 In-Reply-To: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,52 +18,892 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change adds basic support for the obtaining of RSS ring counts.
+This change is meant to update the internal framework of ixgbe so that
+perfect filters can be stored and tracked via software.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe.h       |   18 +-
+ drivers/net/ixgbe/ixgbe_82599.c |  603 ++++++++++++++++++++++-----------------
+ drivers/net/ixgbe/ixgbe_main.c  |    2 +-
+ drivers/net/ixgbe/ixgbe_type.h  |   25 +-
+ 4 files changed, 368 insertions(+), 280 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 0a9cd2b..477cbd3 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2335,6 +2335,24 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index d5674fc..5ea5b4c 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -543,16 +543,22 @@ extern void ixgbe_alloc_rx_buffers(struct ixgbe_ring *, u16);
+ extern void ixgbe_write_eitr(struct ixgbe_q_vector *);
+ extern int ethtool_ioctl(struct ifreq *ifr);
+ extern s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw);
+-extern s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 pballoc);
+-extern s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc);
++extern s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 fdirctrl);
++extern s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 fdirctrl);
+ extern s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+ 						 union ixgbe_atr_hash_dword input,
+ 						 union ixgbe_atr_hash_dword common,
+                                                  u8 queue);
+-extern s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+-                                      union ixgbe_atr_input *input,
+-                                      struct ixgbe_atr_input_masks *input_masks,
+-                                      u16 soft_id, u8 queue);
++extern s32 ixgbe_fdir_set_input_mask_82599(struct ixgbe_hw *hw,
++					   union ixgbe_atr_input *input_mask);
++extern s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
++						 union ixgbe_atr_input *input,
++						 u16 soft_id, u8 queue);
++extern s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
++						 union ixgbe_atr_input *input,
++						 u16 soft_id);
++extern void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
++						 union ixgbe_atr_input *mask);
+ extern void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
+                                    struct ixgbe_ring *ring);
+ extern void ixgbe_clear_rscctl(struct ixgbe_adapter *adapter,
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+index 4a6826b..1880d9a 100644
+--- a/drivers/net/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ixgbe/ixgbe_82599.c
+@@ -1107,115 +1107,87 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
+ }
+ 
+ /**
+- *  ixgbe_init_fdir_signature_82599 - Initialize Flow Director signature filters
++ *  ixgbe_set_fdir_rxpba_82599 - Initialize Flow Director Rx packet buffer
+  *  @hw: pointer to hardware structure
+  *  @pballoc: which mode to allocate filters with
+  **/
+-s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 pballoc)
++static s32 ixgbe_set_fdir_rxpba_82599(struct ixgbe_hw *hw, u32 pballoc)
+ {
+-	u32 fdirctrl = 0;
++	u32 fdir_pbsize = hw->mac.rx_pb_size << IXGBE_RXPBSIZE_SHIFT;
++	u32 current_rxpbsize = 0;
+ 	int i;
+ 
+-	/* Send interrupt when 64 filters are left */
+-	fdirctrl |= 4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT;
+-
+-	/* Set the maximum length per hash bucket to 0xA filters */
+-	fdirctrl |= 0xA << IXGBE_FDIRCTRL_MAX_LENGTH_SHIFT;
+-
++	/* reserve space for Flow Director filters */
+ 	switch (pballoc) {
+-	case IXGBE_FDIR_PBALLOC_64K:
+-		/* 8k - 1 signature filters */
+-		fdirctrl |= IXGBE_FDIRCTRL_PBALLOC_64K;
++	case IXGBE_FDIR_PBALLOC_256K:
++		fdir_pbsize -= 256 << IXGBE_RXPBSIZE_SHIFT;
+ 		break;
+ 	case IXGBE_FDIR_PBALLOC_128K:
+-		/* 16k - 1 signature filters */
+-		fdirctrl |= IXGBE_FDIRCTRL_PBALLOC_128K;
++		fdir_pbsize -= 128 << IXGBE_RXPBSIZE_SHIFT;
+ 		break;
+-	case IXGBE_FDIR_PBALLOC_256K:
+-		/* 32k - 1 signature filters */
+-		fdirctrl |= IXGBE_FDIRCTRL_PBALLOC_256K;
++	case IXGBE_FDIR_PBALLOC_64K:
++		fdir_pbsize -= 64 << IXGBE_RXPBSIZE_SHIFT;
+ 		break;
++	case IXGBE_FDIR_PBALLOC_NONE:
+ 	default:
+-		/* bad value */
+-		return IXGBE_ERR_CONFIG;
++		return IXGBE_ERR_PARAM;
+ 	}
+ 
+-	/* Move the flexible bytes to use the ethertype - shift 6 words */
+-	fdirctrl |= (0x6 << IXGBE_FDIRCTRL_FLEX_SHIFT);
++	/* determine current RX packet buffer size */
++	for (i = 0; i < 8; i++)
++		current_rxpbsize += IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i));
+ 
++	/* if there is already room for the filters do nothing */
++	if (current_rxpbsize <= fdir_pbsize)
++		return 0;
+ 
+-	/* Prime the keys for hashing */
+-	IXGBE_WRITE_REG(hw, IXGBE_FDIRHKEY, IXGBE_ATR_BUCKET_HASH_KEY);
+-	IXGBE_WRITE_REG(hw, IXGBE_FDIRSKEY, IXGBE_ATR_SIGNATURE_HASH_KEY);
+-
+-	/*
+-	 * Poll init-done after we write the register.  Estimated times:
+-	 *      10G: PBALLOC = 11b, timing is 60us
+-	 *       1G: PBALLOC = 11b, timing is 600us
+-	 *     100M: PBALLOC = 11b, timing is 6ms
+-	 *
+-	 *     Multiple these timings by 4 if under full Rx load
+-	 *
+-	 * So we'll poll for IXGBE_FDIR_INIT_DONE_POLL times, sleeping for
+-	 * 1 msec per poll time.  If we're at line rate and drop to 100M, then
+-	 * this might not finish in our poll time, but we can live with that
+-	 * for now.
+-	 */
+-	IXGBE_WRITE_REG(hw, IXGBE_FDIRCTRL, fdirctrl);
+-	IXGBE_WRITE_FLUSH(hw);
+-	for (i = 0; i < IXGBE_FDIR_INIT_DONE_POLL; i++) {
+-		if (IXGBE_READ_REG(hw, IXGBE_FDIRCTRL) &
+-		                   IXGBE_FDIRCTRL_INIT_DONE)
+-			break;
+-		usleep_range(1000, 2000);
++	if (current_rxpbsize > hw->mac.rx_pb_size) {
++		/*
++		 * if rxpbsize is greater than max then HW max the Rx buffer
++		 * sizes are unconfigured or misconfigured since HW default is
++		 * to give the full buffer to each traffic class resulting in
++		 * the total size being buffer size 8x actual size
++		 *
++		 * This assumes no DCB since the RXPBSIZE registers appear to
++		 * be unconfigured.
++		 */
++		IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(0), fdir_pbsize);
++		for (i = 1; i < 8; i++)
++			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), 0);
++	} else {
++		/*
++		 * Since the Rx packet buffer appears to have already been
++		 * configured we need to shrink each packet buffer by enough
++		 * to make room for the filters.  As such we take each rxpbsize
++		 * value and multiply it by a fraction representing the size
++		 * needed over the size we currently have.
++		 *
++		 * We need to reduce fdir_pbsize and current_rxpbsize to
++		 * 1/1024 of their original values in order to avoid
++		 * overflowing the u32 being used to store rxpbsize.
++		 */
++		fdir_pbsize >>= IXGBE_RXPBSIZE_SHIFT;
++		current_rxpbsize >>= IXGBE_RXPBSIZE_SHIFT;
++		for (i = 0; i < 8; i++) {
++			u32 rxpbsize = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i));
++			rxpbsize *= fdir_pbsize;
++			rxpbsize /= current_rxpbsize;
++			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpbsize);
++		}
+ 	}
+-	if (i >= IXGBE_FDIR_INIT_DONE_POLL)
+-		hw_dbg(hw, "Flow Director Signature poll time exceeded!\n");
+ 
  	return 0;
  }
  
-+static int ixgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			   void *rule_locs)
+ /**
+- *  ixgbe_init_fdir_perfect_82599 - Initialize Flow Director perfect filters
++ *  ixgbe_fdir_enable_82599 - Initialize Flow Director perfect filters
+  *  @hw: pointer to hardware structure
+- *  @pballoc: which mode to allocate filters with
++ *  @fdirctrl: value to write to flow director control register
+  **/
+-s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc)
++static void ixgbe_fdir_enable_82599(struct ixgbe_hw *hw, u32 fdirctrl)
+ {
+-	u32 fdirctrl = 0;
+ 	int i;
+ 
+-	/* Send interrupt when 64 filters are left */
+-	fdirctrl |= 4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT;
+-
+-	/* Initialize the drop queue to Rx queue 127 */
+-	fdirctrl |= (127 << IXGBE_FDIRCTRL_DROP_Q_SHIFT);
+-
+-	switch (pballoc) {
+-	case IXGBE_FDIR_PBALLOC_64K:
+-		/* 2k - 1 perfect filters */
+-		fdirctrl |= IXGBE_FDIRCTRL_PBALLOC_64K;
+-		break;
+-	case IXGBE_FDIR_PBALLOC_128K:
+-		/* 4k - 1 perfect filters */
+-		fdirctrl |= IXGBE_FDIRCTRL_PBALLOC_128K;
+-		break;
+-	case IXGBE_FDIR_PBALLOC_256K:
+-		/* 8k - 1 perfect filters */
+-		fdirctrl |= IXGBE_FDIRCTRL_PBALLOC_256K;
+-		break;
+-	default:
+-		/* bad value */
+-		return IXGBE_ERR_CONFIG;
+-	}
+-
+-	/* Turn perfect match filtering on */
+-	fdirctrl |= IXGBE_FDIRCTRL_PERFECT_MATCH;
+-	fdirctrl |= IXGBE_FDIRCTRL_REPORT_STATUS;
+-
+-	/* Move the flexible bytes to use the ethertype - shift 6 words */
+-	fdirctrl |= (0x6 << IXGBE_FDIRCTRL_FLEX_SHIFT);
+-
+ 	/* Prime the keys for hashing */
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRHKEY, IXGBE_ATR_BUCKET_HASH_KEY);
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRSKEY, IXGBE_ATR_SIGNATURE_HASH_KEY);
+@@ -1233,10 +1205,6 @@ s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc)
+ 	 * this might not finish in our poll time, but we can live with that
+ 	 * for now.
+ 	 */
+-
+-	/* Set the maximum length per hash bucket to 0xA filters */
+-	fdirctrl |= (0xA << IXGBE_FDIRCTRL_MAX_LENGTH_SHIFT);
+-
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRCTRL, fdirctrl);
+ 	IXGBE_WRITE_FLUSH(hw);
+ 	for (i = 0; i < IXGBE_FDIR_INIT_DONE_POLL; i++) {
+@@ -1245,101 +1213,77 @@ s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc)
+ 			break;
+ 		usleep_range(1000, 2000);
+ 	}
+-	if (i >= IXGBE_FDIR_INIT_DONE_POLL)
+-		hw_dbg(hw, "Flow Director Perfect poll time exceeded!\n");
+ 
+-	return 0;
++	if (i >= IXGBE_FDIR_INIT_DONE_POLL)
++		hw_dbg(hw, "Flow Director poll time exceeded!\n");
+ }
+ 
+-
+ /**
+- *  ixgbe_atr_compute_hash_82599 - Compute the hashes for SW ATR
+- *  @stream: input bitstream to compute the hash on
+- *  @key: 32-bit hash key
++ *  ixgbe_init_fdir_signature_82599 - Initialize Flow Director signature filters
++ *  @hw: pointer to hardware structure
++ *  @fdirctrl: value to write to flow director control register, initially
++ *             contains just the value of the Rx packet buffer allocation
+  **/
+-static u32 ixgbe_atr_compute_hash_82599(union ixgbe_atr_input *atr_input,
+-					u32 key)
++s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 fdirctrl)
+ {
+-	/*
+-	 * The algorithm is as follows:
+-	 *    Hash[15:0] = Sum { S[n] x K[n+16] }, n = 0...350
+-	 *    where Sum {A[n]}, n = 0...n is bitwise XOR of A[0], A[1]...A[n]
+-	 *    and A[n] x B[n] is bitwise AND between same length strings
+-	 *
+-	 *    K[n] is 16 bits, defined as:
+-	 *       for n modulo 32 >= 15, K[n] = K[n % 32 : (n % 32) - 15]
+-	 *       for n modulo 32 < 15, K[n] =
+-	 *             K[(n % 32:0) | (31:31 - (14 - (n % 32)))]
+-	 *
+-	 *    S[n] is 16 bits, defined as:
+-	 *       for n >= 15, S[n] = S[n:n - 15]
+-	 *       for n < 15, S[n] = S[(n:0) | (350:350 - (14 - n))]
+-	 *
+-	 *    To simplify for programming, the algorithm is implemented
+-	 *    in software this way:
+-	 *
+-	 *    key[31:0], hi_hash_dword[31:0], lo_hash_dword[31:0], hash[15:0]
+-	 *
+-	 *    for (i = 0; i < 352; i+=32)
+-	 *        hi_hash_dword[31:0] ^= Stream[(i+31):i];
+-	 *
+-	 *    lo_hash_dword[15:0]  ^= Stream[15:0];
+-	 *    lo_hash_dword[15:0]  ^= hi_hash_dword[31:16];
+-	 *    lo_hash_dword[31:16] ^= hi_hash_dword[15:0];
+-	 *
+-	 *    hi_hash_dword[31:0]  ^= Stream[351:320];
+-	 *
+-	 *    if(key[0])
+-	 *        hash[15:0] ^= Stream[15:0];
+-	 *
+-	 *    for (i = 0; i < 16; i++) {
+-	 *        if (key[i])
+-	 *            hash[15:0] ^= lo_hash_dword[(i+15):i];
+-	 *        if (key[i + 16])
+-	 *            hash[15:0] ^= hi_hash_dword[(i+15):i];
+-	 *    }
+-	 *
+-	 */
+-	__be32 common_hash_dword = 0;
+-	u32 hi_hash_dword, lo_hash_dword, flow_vm_vlan;
+-	u32 hash_result = 0;
+-	u8 i;
++	s32 err;
+ 
+-	/* record the flow_vm_vlan bits as they are a key part to the hash */
+-	flow_vm_vlan = ntohl(atr_input->dword_stream[0]);
++	/* Before enabling Flow Director, verify the Rx Packet Buffer size */
++	err = ixgbe_set_fdir_rxpba_82599(hw, fdirctrl);
++	if (err)
++		return err;
+ 
+-	/* generate common hash dword */
+-	for (i = 10; i; i -= 2)
+-		common_hash_dword ^= atr_input->dword_stream[i] ^
+-				     atr_input->dword_stream[i - 1];
++	/*
++	 * Continue setup of fdirctrl register bits:
++	 *  Move the flexible bytes to use the ethertype - shift 6 words
++	 *  Set the maximum length per hash bucket to 0xA filters
++	 *  Send interrupt when 64 filters are left
++	 */
++	fdirctrl |= (0x6 << IXGBE_FDIRCTRL_FLEX_SHIFT) |
++		    (0xA << IXGBE_FDIRCTRL_MAX_LENGTH_SHIFT) |
++		    (4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT);
+ 
+-	hi_hash_dword = ntohl(common_hash_dword);
++	/* write hashes and fdirctrl register, poll for completion */
++	ixgbe_fdir_enable_82599(hw, fdirctrl);
+ 
+-	/* low dword is word swapped version of common */
+-	lo_hash_dword = (hi_hash_dword >> 16) | (hi_hash_dword << 16);
++	return 0;
++}
+ 
+-	/* apply flow ID/VM pool/VLAN ID bits to hash words */
+-	hi_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan >> 16);
++/**
++ *  ixgbe_init_fdir_perfect_82599 - Initialize Flow Director perfect filters
++ *  @hw: pointer to hardware structure
++ *  @fdirctrl: value to write to flow director control register, initially
++ *             contains just the value of the Rx packet buffer allocation
++ **/
++s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 fdirctrl)
 +{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int ret = -EOPNOTSUPP;
++	s32 err;
+ 
+-	/* Process bits 0 and 16 */
+-	if (key & 0x0001) hash_result ^= lo_hash_dword;
+-	if (key & 0x00010000) hash_result ^= hi_hash_dword;
++	/* Before enabling Flow Director, verify the Rx Packet Buffer size */
++	err = ixgbe_set_fdir_rxpba_82599(hw, fdirctrl);
++	if (err)
++		return err;
+ 
+ 	/*
+-	 * apply flow ID/VM pool/VLAN ID bits to lo hash dword, we had to
+-	 * delay this because bit 0 of the stream should not be processed
+-	 * so we do not add the vlan until after bit 0 was processed
++	 * Continue setup of fdirctrl register bits:
++	 *  Turn perfect match filtering on
++	 *  Report hash in RSS field of Rx wb descriptor
++	 *  Initialize the drop queue
++	 *  Move the flexible bytes to use the ethertype - shift 6 words
++	 *  Set the maximum length per hash bucket to 0xA filters
++	 *  Send interrupt when 64 (0x4 * 16) filters are left
+ 	 */
+-	lo_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan << 16);
++	fdirctrl |= IXGBE_FDIRCTRL_PERFECT_MATCH |
++		    IXGBE_FDIRCTRL_REPORT_STATUS |
++		    (IXGBE_FDIR_DROP_QUEUE << IXGBE_FDIRCTRL_DROP_Q_SHIFT) |
++		    (0x6 << IXGBE_FDIRCTRL_FLEX_SHIFT) |
++		    (0xA << IXGBE_FDIRCTRL_MAX_LENGTH_SHIFT) |
++		    (4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT);
+ 
++	/* write hashes and fdirctrl register, poll for completion */
++	ixgbe_fdir_enable_82599(hw, fdirctrl);
+ 
+-	/* process the remaining 30 bits in the key 2 bits at a time */
+-	for (i = 15; i; i-- ) {
+-		if (key & (0x0001 << i)) hash_result ^= lo_hash_dword >> i;
+-		if (key & (0x00010000 << i)) hash_result ^= hi_hash_dword >> i;
+-	}
+-
+-	return hash_result & IXGBE_ATR_HASH_MASK;
++	return 0;
+ }
+ 
+ /*
+@@ -1476,7 +1420,6 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+ 	 */
+ 	fdirhashcmd = (u64)fdircmd << 32;
+ 	fdirhashcmd |= ixgbe_atr_compute_sig_hash_82599(input, common);
+-
+ 	IXGBE_WRITE_REG64(hw, IXGBE_FDIRHASH, fdirhashcmd);
+ 
+ 	hw_dbg(hw, "Tx Queue=%x hash=%x\n", queue, (u32)fdirhashcmd);
+@@ -1484,6 +1427,101 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+ 	return 0;
+ }
+ 
++#define IXGBE_COMPUTE_BKT_HASH_ITERATION(_n) \
++do { \
++	u32 n = (_n); \
++	if (IXGBE_ATR_BUCKET_HASH_KEY & (0x01 << n)) \
++		bucket_hash ^= lo_hash_dword >> n; \
++	if (IXGBE_ATR_BUCKET_HASH_KEY & (0x01 << (n + 16))) \
++		bucket_hash ^= hi_hash_dword >> n; \
++} while (0);
 +
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = adapter->num_rx_queues;
-+		ret = 0;
-+		break;
-+	default:
-+		break;
-+	}
++/**
++ *  ixgbe_atr_compute_perfect_hash_82599 - Compute the perfect filter hash
++ *  @atr_input: input bitstream to compute the hash on
++ *  @input_mask: mask for the input bitstream
++ *
++ *  This function serves two main purposes.  First it applys the input_mask
++ *  to the atr_input resulting in a cleaned up atr_input data stream.
++ *  Secondly it computes the hash and stores it in the bkt_hash field at
++ *  the end of the input byte stream.  This way it will be available for
++ *  future use without needing to recompute the hash.
++ **/
++void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
++					  union ixgbe_atr_input *input_mask)
++{
 +
-+	return ret;
++	u32 hi_hash_dword, lo_hash_dword, flow_vm_vlan;
++	u32 bucket_hash = 0;
++
++	/* Apply masks to input data */
++	input->dword_stream[0]  &= input_mask->dword_stream[0];
++	input->dword_stream[1]  &= input_mask->dword_stream[1];
++	input->dword_stream[2]  &= input_mask->dword_stream[2];
++	input->dword_stream[3]  &= input_mask->dword_stream[3];
++	input->dword_stream[4]  &= input_mask->dword_stream[4];
++	input->dword_stream[5]  &= input_mask->dword_stream[5];
++	input->dword_stream[6]  &= input_mask->dword_stream[6];
++	input->dword_stream[7]  &= input_mask->dword_stream[7];
++	input->dword_stream[8]  &= input_mask->dword_stream[8];
++	input->dword_stream[9]  &= input_mask->dword_stream[9];
++	input->dword_stream[10] &= input_mask->dword_stream[10];
++
++	/* record the flow_vm_vlan bits as they are a key part to the hash */
++	flow_vm_vlan = ntohl(input->dword_stream[0]);
++
++	/* generate common hash dword */
++	hi_hash_dword = ntohl(input->dword_stream[1] ^
++				    input->dword_stream[2] ^
++				    input->dword_stream[3] ^
++				    input->dword_stream[4] ^
++				    input->dword_stream[5] ^
++				    input->dword_stream[6] ^
++				    input->dword_stream[7] ^
++				    input->dword_stream[8] ^
++				    input->dword_stream[9] ^
++				    input->dword_stream[10]);
++
++	/* low dword is word swapped version of common */
++	lo_hash_dword = (hi_hash_dword >> 16) | (hi_hash_dword << 16);
++
++	/* apply flow ID/VM pool/VLAN ID bits to hash words */
++	hi_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan >> 16);
++
++	/* Process bits 0 and 16 */
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(0);
++
++	/*
++	 * apply flow ID/VM pool/VLAN ID bits to lo hash dword, we had to
++	 * delay this because bit 0 of the stream should not be processed
++	 * so we do not add the vlan until after bit 0 was processed
++	 */
++	lo_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan << 16);
++
++	/* Process remaining 30 bit of the key */
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(1);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(2);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(3);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(4);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(5);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(6);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(7);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(8);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(9);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(10);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(11);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(12);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(13);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(14);
++	IXGBE_COMPUTE_BKT_HASH_ITERATION(15);
++
++	/*
++	 * Limit hash to 13 bits since max bucket count is 8K.
++	 * Store result at the end of the input stream.
++	 */
++	input->formatted.bkt_hash = bucket_hash & 0x1FFF;
 +}
 +
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2370,6 +2388,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_coalesce           = ixgbe_set_coalesce,
- 	.get_flags              = ethtool_op_get_flags,
- 	.set_flags              = ixgbe_set_flags,
-+	.get_rxnfc		= ixgbe_get_rxnfc,
+ /**
+  *  ixgbe_get_fdirtcpm_82599 - generate a tcp port from atr_input_masks
+  *  @input_mask: mask to be bit swapped
+@@ -1493,11 +1531,11 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
+  *  generate a correctly swapped value we need to bit swap the mask and that
+  *  is what is accomplished by this function.
+  **/
+-static u32 ixgbe_get_fdirtcpm_82599(struct ixgbe_atr_input_masks *input_masks)
++static u32 ixgbe_get_fdirtcpm_82599(union ixgbe_atr_input *input_mask)
+ {
+-	u32 mask = ntohs(input_masks->dst_port_mask);
++	u32 mask = ntohs(input_mask->formatted.dst_port);
+ 	mask <<= IXGBE_FDIRTCPM_DPORTM_SHIFT;
+-	mask |= ntohs(input_masks->src_port_mask);
++	mask |= ntohs(input_mask->formatted.src_port);
+ 	mask = ((mask & 0x55555555) << 1) | ((mask & 0xAAAAAAAA) >> 1);
+ 	mask = ((mask & 0x33333333) << 2) | ((mask & 0xCCCCCCCC) >> 2);
+ 	mask = ((mask & 0x0F0F0F0F) << 4) | ((mask & 0xF0F0F0F0) >> 4);
+@@ -1519,52 +1557,14 @@ static u32 ixgbe_get_fdirtcpm_82599(struct ixgbe_atr_input_masks *input_masks)
+ 	IXGBE_WRITE_REG((a), (reg), IXGBE_STORE_AS_BE32(ntohl(value)))
+ 
+ #define IXGBE_STORE_AS_BE16(_value) \
+-	(((u16)(_value) >> 8) | ((u16)(_value) << 8))
++	ntohs(((u16)(_value) >> 8) | ((u16)(_value) << 8))
+ 
+-/**
+- *  ixgbe_fdir_add_perfect_filter_82599 - Adds a perfect filter
+- *  @hw: pointer to hardware structure
+- *  @input: input bitstream
+- *  @input_masks: bitwise masks for relevant fields
+- *  @soft_id: software index into the silicon hash tables for filter storage
+- *  @queue: queue index to direct traffic to
+- *
+- *  Note that the caller to this function must lock before calling, since the
+- *  hardware writes must be protected from one another.
+- **/
+-s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+-                                      union ixgbe_atr_input *input,
+-                                      struct ixgbe_atr_input_masks *input_masks,
+-                                      u16 soft_id, u8 queue)
++s32 ixgbe_fdir_set_input_mask_82599(struct ixgbe_hw *hw,
++				    union ixgbe_atr_input *input_mask)
+ {
+-	u32 fdirhash;
+-	u32 fdircmd;
+-	u32 fdirport, fdirtcpm;
+-	u32 fdirvlan;
+-	/* start with VLAN, flex bytes, VM pool, and IPv6 destination masked */
+-	u32 fdirm = IXGBE_FDIRM_VLANID | IXGBE_FDIRM_VLANP | IXGBE_FDIRM_FLEX |
+-		    IXGBE_FDIRM_POOL | IXGBE_FDIRM_DIPv6;
+-
+-	/*
+-	 * Check flow_type formatting, and bail out before we touch the hardware
+-	 * if there's a configuration issue
+-	 */
+-	switch (input->formatted.flow_type) {
+-	case IXGBE_ATR_FLOW_TYPE_IPV4:
+-		/* use the L4 protocol mask for raw IPv4/IPv6 traffic */
+-		fdirm |= IXGBE_FDIRM_L4P;
+-	case IXGBE_ATR_FLOW_TYPE_SCTPV4:
+-		if (input_masks->dst_port_mask || input_masks->src_port_mask) {
+-			hw_dbg(hw, " Error on src/dst port mask\n");
+-			return IXGBE_ERR_CONFIG;
+-		}
+-	case IXGBE_ATR_FLOW_TYPE_TCPV4:
+-	case IXGBE_ATR_FLOW_TYPE_UDPV4:
+-		break;
+-	default:
+-		hw_dbg(hw, " Error on flow type input\n");
+-		return IXGBE_ERR_CONFIG;
+-	}
++	/* mask IPv6 since it is currently not supported */
++	u32 fdirm = IXGBE_FDIRM_DIPv6;
++	u32 fdirtcpm;
+ 
+ 	/*
+ 	 * Program the relevant mask registers.  If src/dst_port or src/dst_addr
+@@ -1576,41 +1576,71 @@ s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+ 	 * point in time.
+ 	 */
+ 
+-	/* Program FDIRM */
+-	switch (ntohs(input_masks->vlan_id_mask) & 0xEFFF) {
+-	case 0xEFFF:
+-		/* Unmask VLAN ID - bit 0 and fall through to unmask prio */
+-		fdirm &= ~IXGBE_FDIRM_VLANID;
+-	case 0xE000:
+-		/* Unmask VLAN prio - bit 1 */
+-		fdirm &= ~IXGBE_FDIRM_VLANP;
++	/* verify bucket hash is cleared on hash generation */
++	if (input_mask->formatted.bkt_hash)
++		hw_dbg(hw, " bucket hash should always be 0 in mask\n");
++
++	/* Program FDIRM and verify partial masks */
++	switch (input_mask->formatted.vm_pool & 0x7F) {
++	case 0x0:
++		fdirm |= IXGBE_FDIRM_POOL;
++	case 0x7F:
+ 		break;
+-	case 0x0FFF:
+-		/* Unmask VLAN ID - bit 0 */
+-		fdirm &= ~IXGBE_FDIRM_VLANID;
++	default:
++		hw_dbg(hw, " Error on vm pool mask\n");
++		return IXGBE_ERR_CONFIG;
++	}
++
++	switch (input_mask->formatted.flow_type & IXGBE_ATR_L4TYPE_MASK) {
++	case 0x0:
++		fdirm |= IXGBE_FDIRM_L4P;
++		if (input_mask->formatted.dst_port ||
++		    input_mask->formatted.src_port) {
++			hw_dbg(hw, " Error on src/dst port mask\n");
++			return IXGBE_ERR_CONFIG;
++		}
++	case IXGBE_ATR_L4TYPE_MASK:
+ 		break;
++	default:
++		hw_dbg(hw, " Error on flow type mask\n");
++		return IXGBE_ERR_CONFIG;
++	}
++
++	switch (ntohs(input_mask->formatted.vlan_id) & 0xEFFF) {
+ 	case 0x0000:
+-		/* do nothing, vlans already masked */
++		/* mask VLAN ID, fall through to mask VLAN priority */
++		fdirm |= IXGBE_FDIRM_VLANID;
++	case 0x0FFF:
++		/* mask VLAN priority */
++		fdirm |= IXGBE_FDIRM_VLANP;
++		break;
++	case 0xE000:
++		/* mask VLAN ID only, fall through */
++		fdirm |= IXGBE_FDIRM_VLANID;
++	case 0xEFFF:
++		/* no VLAN fields masked */
+ 		break;
+ 	default:
+ 		hw_dbg(hw, " Error on VLAN mask\n");
+ 		return IXGBE_ERR_CONFIG;
+ 	}
+ 
+-	if (input_masks->flex_mask & 0xFFFF) {
+-		if ((input_masks->flex_mask & 0xFFFF) != 0xFFFF) {
+-			hw_dbg(hw, " Error on flexible byte mask\n");
+-			return IXGBE_ERR_CONFIG;
+-		}
+-		/* Unmask Flex Bytes - bit 4 */
+-		fdirm &= ~IXGBE_FDIRM_FLEX;
++	switch (input_mask->formatted.flex_bytes & 0xFFFF) {
++	case 0x0000:
++		/* Mask Flex Bytes, fall through */
++		fdirm |= IXGBE_FDIRM_FLEX;
++	case 0xFFFF:
++		break;
++	default:
++		hw_dbg(hw, " Error on flexible byte mask\n");
++		return IXGBE_ERR_CONFIG;
+ 	}
+ 
+ 	/* Now mask VM pool and destination IPv6 - bits 5 and 2 */
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRM, fdirm);
+ 
+ 	/* store the TCP/UDP port masks, bit reversed from port layout */
+-	fdirtcpm = ixgbe_get_fdirtcpm_82599(input_masks);
++	fdirtcpm = ixgbe_get_fdirtcpm_82599(input_mask);
+ 
+ 	/* write both the same so that UDP and TCP use the same mask */
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRTCPM, ~fdirtcpm);
+@@ -1618,24 +1648,32 @@ s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+ 
+ 	/* store source and destination IP masks (big-enian) */
+ 	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRSIP4M,
+-			     ~input_masks->src_ip_mask[0]);
++			     ~input_mask->formatted.src_ip[0]);
+ 	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRDIP4M,
+-			     ~input_masks->dst_ip_mask[0]);
++			     ~input_mask->formatted.dst_ip[0]);
+ 
+-	/* Apply masks to input data */
+-	input->formatted.vlan_id &= input_masks->vlan_id_mask;
+-	input->formatted.flex_bytes &= input_masks->flex_mask;
+-	input->formatted.src_port &= input_masks->src_port_mask;
+-	input->formatted.dst_port &= input_masks->dst_port_mask;
+-	input->formatted.src_ip[0] &= input_masks->src_ip_mask[0];
+-	input->formatted.dst_ip[0] &= input_masks->dst_ip_mask[0];
++	return 0;
++}
+ 
+-	/* record vlan (little-endian) and flex_bytes(big-endian) */
+-	fdirvlan =
+-		IXGBE_STORE_AS_BE16(ntohs(input->formatted.flex_bytes));
+-	fdirvlan <<= IXGBE_FDIRVLAN_FLEX_SHIFT;
+-	fdirvlan |= ntohs(input->formatted.vlan_id);
+-	IXGBE_WRITE_REG(hw, IXGBE_FDIRVLAN, fdirvlan);
++s32 ixgbe_fdir_write_perfect_filter_82599(struct ixgbe_hw *hw,
++					  union ixgbe_atr_input *input,
++					  u16 soft_id, u8 queue)
++{
++	u32 fdirport, fdirvlan, fdirhash, fdircmd;
++
++	/* currently IPv6 is not supported, must be programmed with 0 */
++	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRSIPv6(0),
++			     input->formatted.src_ip[0]);
++	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRSIPv6(1),
++			     input->formatted.src_ip[1]);
++	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRSIPv6(2),
++			     input->formatted.src_ip[2]);
++
++	/* record the source address (big-endian) */
++	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRIPSA, input->formatted.src_ip[0]);
++
++	/* record the first 32 bits of the destination address (big-endian) */
++	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRIPDA, input->formatted.dst_ip[0]);
+ 
+ 	/* record source and destination port (little-endian)*/
+ 	fdirport = ntohs(input->formatted.dst_port);
+@@ -1643,29 +1681,80 @@ s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
+ 	fdirport |= ntohs(input->formatted.src_port);
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRPORT, fdirport);
+ 
+-	/* record the first 32 bits of the destination address (big-endian) */
+-	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRIPDA, input->formatted.dst_ip[0]);
++	/* record vlan (little-endian) and flex_bytes(big-endian) */
++	fdirvlan = IXGBE_STORE_AS_BE16(input->formatted.flex_bytes);
++	fdirvlan <<= IXGBE_FDIRVLAN_FLEX_SHIFT;
++	fdirvlan |= ntohs(input->formatted.vlan_id);
++	IXGBE_WRITE_REG(hw, IXGBE_FDIRVLAN, fdirvlan);
+ 
+-	/* record the source address (big-endian) */
+-	IXGBE_WRITE_REG_BE32(hw, IXGBE_FDIRIPSA, input->formatted.src_ip[0]);
++	/* configure FDIRHASH register */
++	fdirhash = input->formatted.bkt_hash;
++	fdirhash |= soft_id << IXGBE_FDIRHASH_SIG_SW_INDEX_SHIFT;
++	IXGBE_WRITE_REG(hw, IXGBE_FDIRHASH, fdirhash);
++
++	/*
++	 * flush all previous writes to make certain registers are
++	 * programmed prior to issuing the command
++	 */
++	IXGBE_WRITE_FLUSH(hw);
+ 
+ 	/* configure FDIRCMD register */
+ 	fdircmd = IXGBE_FDIRCMD_CMD_ADD_FLOW | IXGBE_FDIRCMD_FILTER_UPDATE |
+ 		  IXGBE_FDIRCMD_LAST | IXGBE_FDIRCMD_QUEUE_EN;
++	if (queue == IXGBE_FDIR_DROP_QUEUE)
++		fdircmd |= IXGBE_FDIRCMD_DROP;
+ 	fdircmd |= input->formatted.flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
+ 	fdircmd |= (u32)queue << IXGBE_FDIRCMD_RX_QUEUE_SHIFT;
++	fdircmd |= (u32)input->formatted.vm_pool << IXGBE_FDIRCMD_VT_POOL_SHIFT;
+ 
+-	/* we only want the bucket hash so drop the upper 16 bits */
+-	fdirhash = ixgbe_atr_compute_hash_82599(input,
+-						IXGBE_ATR_BUCKET_HASH_KEY);
+-	fdirhash |= soft_id << IXGBE_FDIRHASH_SIG_SW_INDEX_SHIFT;
+-
+-	IXGBE_WRITE_REG(hw, IXGBE_FDIRHASH, fdirhash);
+ 	IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD, fdircmd);
+ 
+ 	return 0;
+ }
+ 
++s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
++					  union ixgbe_atr_input *input,
++					  u16 soft_id)
++{
++	u32 fdirhash;
++	u32 fdircmd = 0;
++	u32 retry_count;
++	s32 err = 0;
++
++	/* configure FDIRHASH register */
++	fdirhash = input->formatted.bkt_hash;
++	fdirhash |= soft_id << IXGBE_FDIRHASH_SIG_SW_INDEX_SHIFT;
++	IXGBE_WRITE_REG(hw, IXGBE_FDIRHASH, fdirhash);
++
++	/* flush hash to HW */
++	IXGBE_WRITE_FLUSH(hw);
++
++	/* Query if filter is present */
++	IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD, IXGBE_FDIRCMD_CMD_QUERY_REM_FILT);
++
++	for (retry_count = 10; retry_count; retry_count--) {
++		/* allow 10us for query to process */
++		udelay(10);
++		/* verify query completed successfully */
++		fdircmd = IXGBE_READ_REG(hw, IXGBE_FDIRCMD);
++		if (!(fdircmd & IXGBE_FDIRCMD_CMD_MASK))
++			break;
++	}
++
++	if (!retry_count)
++		err = IXGBE_ERR_FDIR_REINIT_FAILED;
++
++	/* if filter exists in hardware then remove it */
++	if (fdircmd & IXGBE_FDIRCMD_FILTER_VALID) {
++		IXGBE_WRITE_REG(hw, IXGBE_FDIRHASH, fdirhash);
++		IXGBE_WRITE_FLUSH(hw);
++		IXGBE_WRITE_REG(hw, IXGBE_FDIRCMD,
++				IXGBE_FDIRCMD_CMD_REMOVE_FLOW);
++	}
++
++	return err;
++}
++
+ /**
+  *  ixgbe_read_analog_reg8_82599 - Reads 8 bit Omer analog register
+  *  @hw: pointer to hardware structure
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7c929a2..bfeed84 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5135,7 +5135,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		adapter->atr_sample_rate = 20;
+ 		adapter->ring_feature[RING_F_FDIR].indices =
+ 							 IXGBE_MAX_FDIR_INDICES;
+-		adapter->fdir_pballoc = 0;
++		adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
+ #ifdef IXGBE_FCOE
+ 		adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
+ 		adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 9a499a6..8b1abd4 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -2056,9 +2056,10 @@ enum {
+ #define IXGBE_VFLREC(_i)                 (0x00700 + (_i * 4))
+ 
+ enum ixgbe_fdir_pballoc_type {
+-	IXGBE_FDIR_PBALLOC_64K = 0,
+-	IXGBE_FDIR_PBALLOC_128K,
+-	IXGBE_FDIR_PBALLOC_256K,
++	IXGBE_FDIR_PBALLOC_NONE = 0,
++	IXGBE_FDIR_PBALLOC_64K  = 1,
++	IXGBE_FDIR_PBALLOC_128K = 2,
++	IXGBE_FDIR_PBALLOC_256K = 3,
+ };
+ #define IXGBE_FDIR_PBALLOC_SIZE_SHIFT           16
+ 
+@@ -2112,7 +2113,7 @@ enum ixgbe_fdir_pballoc_type {
+ #define IXGBE_FDIRCMD_CMD_ADD_FLOW              0x00000001
+ #define IXGBE_FDIRCMD_CMD_REMOVE_FLOW           0x00000002
+ #define IXGBE_FDIRCMD_CMD_QUERY_REM_FILT        0x00000003
+-#define IXGBE_FDIRCMD_CMD_QUERY_REM_HASH        0x00000007
++#define IXGBE_FDIRCMD_FILTER_VALID              0x00000004
+ #define IXGBE_FDIRCMD_FILTER_UPDATE             0x00000008
+ #define IXGBE_FDIRCMD_IPv6DMATCH                0x00000010
+ #define IXGBE_FDIRCMD_L4TYPE_UDP                0x00000020
+@@ -2131,6 +2132,8 @@ enum ixgbe_fdir_pballoc_type {
+ #define IXGBE_FDIR_INIT_DONE_POLL               10
+ #define IXGBE_FDIRCMD_CMD_POLL                  10
+ 
++#define IXGBE_FDIR_DROP_QUEUE                   127
++
+ /* Manageablility Host Interface defines */
+ #define IXGBE_HI_MAX_BLOCK_BYTE_LENGTH       1792 /* Num of bytes in range */
+ #define IXGBE_HI_MAX_BLOCK_DWORD_LENGTH      448 /* Num of dwords in range */
+@@ -2350,7 +2353,7 @@ union ixgbe_atr_input {
+ 	 * src_port   - 2 bytes
+ 	 * dst_port   - 2 bytes
+ 	 * flex_bytes - 2 bytes
+-	 * rsvd0      - 2 bytes - space reserved must be 0.
++	 * bkt_hash   - 2 bytes
+ 	 */
+ 	struct {
+ 		u8     vm_pool;
+@@ -2361,7 +2364,7 @@ union ixgbe_atr_input {
+ 		__be16 src_port;
+ 		__be16 dst_port;
+ 		__be16 flex_bytes;
+-		__be16 rsvd0;
++		__be16 bkt_hash;
+ 	} formatted;
+ 	__be32 dword_stream[11];
+ };
+@@ -2382,16 +2385,6 @@ union ixgbe_atr_hash_dword {
+ 	__be32 dword;
  };
  
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
+-struct ixgbe_atr_input_masks {
+-	__be16 rsvd0;
+-	__be16 vlan_id_mask;
+-	__be32 dst_ip_mask[4];
+-	__be32 src_ip_mask[4];
+-	__be16 src_port_mask;
+-	__be16 dst_port_mask;
+-	__be16 flex_mask;
+-};
+-
+ enum ixgbe_eeprom_type {
+ 	ixgbe_eeprom_uninitialized = 0,
+ 	ixgbe_eeprom_spi,
 -- 
 1.7.5.2
 
