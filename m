@@ -1,117 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6 hitting route max_size
-Date: Tue, 07 Jun 2011 00:56:45 -0700 (PDT)
-Message-ID: <20110607.005645.1883989402770213985.davem@davemloft.net>
-References: <20110606213727.GB11757@hostway.ca>
-	<20110606.150142.2071869702137894615.davem@davemloft.net>
-	<20110606231521.GB22559@hostway.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] net: dummy: allocate devices with alloc_netdev_id
+Date: Tue, 07 Jun 2011 09:59:52 +0200
+Message-ID: <1307433593.3091.3.camel@edumazet-laptop>
+References: <1307410786-19110-1-git-send-email-lucian.grijincu@gmail.com>
+	 <1307410786-19110-3-git-send-email-lucian.grijincu@gmail.com>
+	 <1307416765.2642.37.camel@edumazet-laptop>
+	 <BANLkTi=8mHr=SaUacW5cFR5xqXPaxrg5Xw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: sim@hostway.ca
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48277 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261Ab1FGH5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 03:57:50 -0400
-In-Reply-To: <20110606231521.GB22559@hostway.ca>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:64653 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135Ab1FGIBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 04:01:13 -0400
+Received: by wwa36 with SMTP id 36so4638109wwa.1
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2011 01:01:11 -0700 (PDT)
+In-Reply-To: <BANLkTi=8mHr=SaUacW5cFR5xqXPaxrg5Xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Kirby <sim@hostway.ca>
-Date: Mon, 6 Jun 2011 16:15:21 -0700
+Le mardi 07 juin 2011 =C3=A0 10:49 +0300, Lucian Adrian Grijincu a =C3=A9=
+crit :
+> On Tue, Jun 7, 2011 at 6:19 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> > Le mardi 07 juin 2011 =C3=A0 04:39 +0300, Lucian Adrian Grijincu a =
+=C3=A9crit :
+> >> The most like case is that no one else is registering devices with=
+ a
+> >> name like "dummy%d".
+> >>
+> >> We can bring the complexity down by replacing:
+> >> - alloc_netdev_id which is O(N) with
+> >> - alloc_netdev_id which, on the average case, is O(1).
+> >>
+> >> $ time modprobe dummy numdummies=3D5000
+> >> - with alloc_netdev   : 9.50s
+> >> - with alloc_netdev_id: 3.50s
+> >>
+> >> NOTE: Stats generated on a heavily patched 3.0-rc1 which replaces =
+the
+> >>       current O(N^2) sysctl algorithm with a better one.
+> >
+> > Yes, and disabled hotplug I guess.
+>=20
+>=20
 
-> Ok, makes sense, but the result is now that ipv4 loads a full Internet
-> table with no adjustments, while ipv6 does not. Would it make sense to
-> change 4096 to 1048576, or would it be better to count only clones of
-> the actual route or something along those lines?
+Some distros have :
 
-Simon can you give this patch a try?
+$ cat /proc/sys/kernel/hotplug
+/sbin/hotplug
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 7d15d23..e12ddfb 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -77,6 +77,7 @@ struct dst_entry {
- #define DST_NOPOLICY		0x0004
- #define DST_NOHASH		0x0008
- #define DST_NOCACHE		0x0010
-+#define DST_NOCOUNT		0x0020
- 	union {
- 		struct dst_entry	*next;
- 		struct rtable __rcu	*rt_next;
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 9ccca03..6135f36 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -190,7 +190,8 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
- 	dst->lastuse = jiffies;
- 	dst->flags = flags;
- 	dst->next = NULL;
--	dst_entries_add(ops, 1);
-+	if (!(flags & DST_NOCOUNT))
-+		dst_entries_add(ops, 1);
- 	return dst;
- }
- EXPORT_SYMBOL(dst_alloc);
-@@ -243,7 +244,8 @@ again:
- 		neigh_release(neigh);
- 	}
- 
--	dst_entries_add(dst->ops, -1);
-+	if (!(dst->flags & DST_NOCOUNT))
-+		dst_entries_add(dst->ops, -1);
- 
- 	if (dst->ops->destroy)
- 		dst->ops->destroy(dst);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index de2b1de..7fb44b0 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -228,7 +228,8 @@ static struct rt6_info ip6_blk_hole_entry_template = {
- 
- /* allocate dst with ip6_dst_ops */
- static inline struct rt6_info *ip6_dst_alloc(struct dst_ops *ops,
--					     struct net_device *dev)
-+					     struct net_device *dev,
-+					     int flags)
- {
- 	struct rt6_info *rt = dst_alloc(ops, dev, 0, 0, 0);
- 
-@@ -1042,7 +1043,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
- 	if (unlikely(idev == NULL))
- 		return NULL;
- 
--	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops, dev);
-+	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops, dev, 0);
- 	if (unlikely(rt == NULL)) {
- 		in6_dev_put(idev);
- 		goto out;
-@@ -1214,7 +1215,7 @@ int ip6_route_add(struct fib6_config *cfg)
- 		goto out;
- 	}
- 
--	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops, NULL);
-+	rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops, NULL, DST_NOCOUNT);
- 
- 	if (rt == NULL) {
- 		err = -ENOMEM;
-@@ -1734,7 +1735,7 @@ static struct rt6_info * ip6_rt_copy(struct rt6_info *ort)
- {
- 	struct net *net = dev_net(ort->rt6i_dev);
- 	struct rt6_info *rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops,
--					    ort->dst.dev);
-+					    ort->dst.dev, 0);
- 
- 	if (rt) {
- 		rt->dst.input = ort->dst.input;
-@@ -2013,7 +2014,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- {
- 	struct net *net = dev_net(idev->dev);
- 	struct rt6_info *rt = ip6_dst_alloc(&net->ipv6.ip6_dst_ops,
--					    net->loopback_dev);
-+					    net->loopback_dev, 0);
- 	struct neighbour *neigh;
- 
- 	if (rt == NULL) {
+http://linux.die.net/man/8/hotplug
+
+Basically this starts a lot of process when a new device is created.
+
+modprobe dummy numdummies=3D5000
+
+This previous line ask 5000 asynchronous hotplug start, so it launches
+thousands of processes, all fighting to get RTNL because they access
+network configuration data.
+
+
+Please note I was not commenting your patch (it seems fine at a first
+glance), only warning people not doing "modprobe dummy numdummies=3D500=
+0"
+without thinking a bit if their machine wont crash or freeze :)
+
+
+
