@@ -1,73 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: dummy: allocate devices with alloc_netdev_id
-Date: Tue, 07 Jun 2011 09:59:52 +0200
-Message-ID: <1307433593.3091.3.camel@edumazet-laptop>
-References: <1307410786-19110-1-git-send-email-lucian.grijincu@gmail.com>
-	 <1307410786-19110-3-git-send-email-lucian.grijincu@gmail.com>
-	 <1307416765.2642.37.camel@edumazet-laptop>
-	 <BANLkTi=8mHr=SaUacW5cFR5xqXPaxrg5Xw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: cpu offline cause napi stall
+Date: Tue, 07 Jun 2011 01:01:36 -0700 (PDT)
+Message-ID: <20110607.010136.1857896380762569754.davem@davemloft.net>
+References: <20110601204233.GA2410@osiris.boeblingen.de.ibm.com>
+	<20110606.145051.267562411413352856.davem@davemloft.net>
+	<1307429403.2642.77.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: heiko.carstens@de.ibm.com, blaschka@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64653 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135Ab1FGIBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 04:01:13 -0400
-Received: by wwa36 with SMTP id 36so4638109wwa.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2011 01:01:11 -0700 (PDT)
-In-Reply-To: <BANLkTi=8mHr=SaUacW5cFR5xqXPaxrg5Xw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54394 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499Ab1FGIBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 04:01:43 -0400
+In-Reply-To: <1307429403.2642.77.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 07 juin 2011 =C3=A0 10:49 +0300, Lucian Adrian Grijincu a =C3=A9=
-crit :
-> On Tue, Jun 7, 2011 at 6:19 AM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> > Le mardi 07 juin 2011 =C3=A0 04:39 +0300, Lucian Adrian Grijincu a =
-=C3=A9crit :
-> >> The most like case is that no one else is registering devices with=
- a
-> >> name like "dummy%d".
-> >>
-> >> We can bring the complexity down by replacing:
-> >> - alloc_netdev_id which is O(N) with
-> >> - alloc_netdev_id which, on the average case, is O(1).
-> >>
-> >> $ time modprobe dummy numdummies=3D5000
-> >> - with alloc_netdev   : 9.50s
-> >> - with alloc_netdev_id: 3.50s
-> >>
-> >> NOTE: Stats generated on a heavily patched 3.0-rc1 which replaces =
-the
-> >>       current O(N^2) sysctl algorithm with a better one.
-> >
-> > Yes, and disabled hotplug I guess.
->=20
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 07 Jun 2011 08:50:03 +0200
 
-Some distros have :
+> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+> 
+> Frank Blaschka reported :
+> <quote>
+>   During heavy network load we turn off/on cpus.
+>   Sometimes this causes a stall on the network device.
+>   Digging into the dump I found out following:
+> 
+>   napi is scheduled but does not run. From the I/O buffers
+>   and the napi state I see napi/rx_softirq processing has stopped
+>   because the budget was reached. napi stays in the
+>   softnet_data poll_list and the rx_softirq was raised again.
+> 
+>   I assume at this time the cpu offline comes in,
+>   the rx softirq is raised/moved to another cpu but napi stays in the
+>   poll_list of the softnet_data of the now offline cpu.
+> 
+>   Reviewing dev_cpu_callback (net/core/dev.c) I did not find the
+>   poll_list is transfered to the new cpu.
+> </quote>
+> 
+> This patch is a straightforward implementation of Frank suggestion :
+> 
+> Transfert poll_list and trigger NET_RX_SOFTIRQ on new cpu.
+> 
+> Reported-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-$ cat /proc/sys/kernel/hotplug
-/sbin/hotplug
-
-http://linux.die.net/man/8/hotplug
-
-Basically this starts a lot of process when a new device is created.
-
-modprobe dummy numdummies=3D5000
-
-This previous line ask 5000 asynchronous hotplug start, so it launches
-thousands of processes, all fighting to get RTNL because they access
-network configuration data.
-
-
-Please note I was not commenting your patch (it seems fine at a first
-glance), only warning people not doing "modprobe dummy numdummies=3D500=
-0"
-without thinking a bit if their machine wont crash or freeze :)
-
-
-
+Applied, thanks everyone.
