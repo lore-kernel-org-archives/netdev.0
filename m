@@ -1,77 +1,73 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Fw: [PATCH] e100: Fix inconsistency in bad frames handling
-Date: Mon, 6 Jun 2011 21:44:54 -0700
-Message-ID: <20110606214454.4108aff4.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] af_packet: prevent information leak
+Date: Tue, 07 Jun 2011 07:02:19 +0200
+Message-ID: <1307422939.2642.57.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrea Merello <andrea.merello@gmail.com>
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:60337 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750911Ab1FGEoI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2011 00:44:08 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:36249 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952Ab1FGFCX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 01:02:23 -0400
+Received: by wya21 with SMTP id 21so3275311wya.19
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2011 22:02:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In 2.6.27, commit 393e52e33c6c2 (packet: deliver VLAN TCI to userspace)
+added a small information leak.
+
+Add padding field and make sure its zeroed before copy to user.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+---
+ include/linux/if_packet.h |    2 ++
+ net/packet/af_packet.c    |    2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index 6d66ce1..7b31863 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -62,6 +62,7 @@ struct tpacket_auxdata {
+ 	__u16		tp_mac;
+ 	__u16		tp_net;
+ 	__u16		tp_vlan_tci;
++	__u16		tp_padding;
+ };
+ 
+ /* Rx ring - header status */
+@@ -101,6 +102,7 @@ struct tpacket2_hdr {
+ 	__u32		tp_sec;
+ 	__u32		tp_nsec;
+ 	__u16		tp_vlan_tci;
++	__u16		tp_padding;
+ };
+ 
+ #define TPACKET2_HDRLEN		(TPACKET_ALIGN(sizeof(struct tpacket2_hdr)) + sizeof(struct sockaddr_ll))
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index ba248d9..c0c3cda 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -804,6 +804,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		} else {
+ 			h.h2->tp_vlan_tci = 0;
+ 		}
++		h.h2->tp_padding = 0;
+ 		hdrlen = sizeof(*h.h2);
+ 		break;
+ 	default:
+@@ -1736,6 +1737,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		} else {
+ 			aux.tp_vlan_tci = 0;
+ 		}
++		aux.tp_padding = 0;
+ 		put_cmsg(msg, SOL_PACKET, PACKET_AUXDATA, sizeof(aux), &aux);
+ 	}
+ 
 
 
-Begin forwarded message:
-
-Date: Sun, 5 Jun 2011 03:14:49 +0200
-=46rom: Andrea Merello <andrea.merello@gmail.com>
-To: linux-kernel@vger.kernel.org
-Subject: [PATCH] e100: Fix inconsistency in bad frames handling
-
-
-Hello!
-
-In e100 driver it seems that the intention was to accept bad frames in
-promiscuous mode and loopback mode.
-I think this is evident because of the following code in the driver:
-
-if (nic->flags & promiscuous || nic->loopback) {
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0config->rx_save_bad_frames =3D 0x1; =A0 =
-=A0 =A0 /* 1=3Dsave, 0=3Ddiscard */
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0config->rx_discard_short_frames =3D 0x0;=
- =A0/* 1=3Ddiscard, 0=3Dsave */
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0config->promiscuous_mode =3D 0x1; =A0 =A0=
- =A0 =A0 /* 1=3Don, 0=3Doff */
-=A0 =A0 =A0 =A0}
-
-
-However this intention is not really realized because bad frames are
-discarded later by SW check.
-This patch finally honors the above intention, making the RX code to
-let bad frames to pass when the NIC is in promiscuous or loopback
-mode.
-
-This helped me a lot to debug an FPGA ethernet core.
-Maybe it can be also useful to someone else..
-
-Thanks
-Andrea
-
-=A0--- drivers/net/e100_orig.c =A0 =A0 2011-06-14 23:29:38.322267075 +0=
-200
-+++ drivers/net/e100.c =A02011-06-14 23:34:10.700791472 +0200
-@@ -1975,7 +1975,8 @@ static int e100_rx_indicate(struct nic *
-=A0 =A0 =A0 =A0skb_put(skb, actual_size);
-=A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, nic->netdev);
-
-- =A0 =A0 =A0 if (unlikely(!(rfd_status & cb_ok))) {
-+ =A0 =A0 =A0 if (unlikely(!(nic->flags & promiscuous || nic->loopback)=
- &&
-+ =A0 =A0 =A0 =A0 =A0 !(rfd_status & cb_ok))) {
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* Don't indicate if hardware indicates =
-errors */
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_kfree_skb_any(skb);
-=A0 =A0 =A0 =A0} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
---
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
