@@ -1,45 +1,93 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2011-06-08
-Date: Wed, 08 Jun 2011 15:42:06 -0700 (PDT)
-Message-ID: <20110608.154206.659954143604324997.davem@davemloft.net>
-References: <20110608191246.GD27028@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110608191246.GD27028-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Update
+Date: Wed,  8 Jun 2011 15:56:28 -0700
+Message-ID: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:3609 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753523Ab1FHW4n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jun 2011 18:56:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 8 Jun 2011 15:12:47 -0400
+The following series is a (smaller) subset of the previous 40 patch
+submission.  This subset only contains updates to e1000e, igb, igbvf
+and rtnetlink.
 
-> Dave,
->=20
-> Here is the first big wireless pull request for the 3.1 cycle.
-> As usual, this covers a lot of ground -- mostly driver updates.
->=20
-> Some highlights include some math algorithm additions to lib/ from
-> the Broadcom team, sizeable update series for rt2x00 and rtlwifi,
-> the usual iwlagn and ath9k updates from the Intel and Atheros teams
-> (and a few other folks), some more mwifiex updates from the Marvell
-> folks, and a bunch of bcma, ssb and b43 updates from Rafa=A9=A9 Mi=A9=
-=A9ecki.
- ...
-> The following changes since commit ffbc03bc75b39c7bd412e7cc6d2185c11b=
-0ffedd:
->=20
->   net: add needed interrupt.h (2011-06-08 00:15:34 -0700)
->=20
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-nex=
-t-2.6.git for-davem
+e1000e: several cleanups and fixes, as well as bump the version
+igb/igbvf/ixgbevf: bump driver version
+rtnetlink: Compute and store minimum ifinfo dump size
 
-Pulled, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following are changes since commit ffbc03bc75b39c7bd412e7cc6d2185c11b0ffedd:
+  net: add needed interrupt.h
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+
+Bruce Allan (8):
+  e1000e: disable far-end loopback mode on ESB2
+  e1000e: 82579 intermittently disabled during S0->Sx
+  e1000e: log when swflag is cleared unexpectedly on ICH/PCH devices
+  e1000e: do not schedule the Tx queue until ready
+  e1000e: access multiple PHY registers on same page at the same time
+  e1000e: Clear host wakeup bit on 82577/8 without touching PHY page
+    800
+  e1000e: remove redundant reverse dependency on CRC32
+  e1000e: update driver version
+
+Carolyn Wyborny (1):
+  igb: Change version to remove number after -k in kernel versions.
+
+Greg Rose (2):
+  rtnetlink: Compute and store minimum ifinfo dump size
+  ixgbevf: Update the driver string
+
+Williams, Mitch A (1):
+  igbvf: update version number
+
+ drivers/net/Kconfig                  |    1 -
+ drivers/net/e1000e/e1000.h           |   42 +++--
+ drivers/net/e1000e/es2lan.c          |    8 +
+ drivers/net/e1000e/hw.h              |   21 ++-
+ drivers/net/e1000e/ich8lan.c         |  191 ++++++++++++++-----
+ drivers/net/e1000e/netdev.c          |  131 +++++--------
+ drivers/net/e1000e/phy.c             |  352 ++++++++++++++++++++++------------
+ drivers/net/igb/igb_main.c           |    3 +-
+ drivers/net/igbvf/netdev.c           |    2 +-
+ drivers/net/ixgbevf/ixgbevf_main.c   |    2 +-
+ include/linux/netlink.h              |    6 +-
+ include/net/rtnetlink.h              |    7 +-
+ net/bridge/br_netlink.c              |   15 +-
+ net/core/fib_rules.c                 |    6 +-
+ net/core/neighbour.c                 |   11 +-
+ net/core/rtnetlink.c                 |   60 +++++-
+ net/dcb/dcbnl.c                      |    4 +-
+ net/decnet/dn_dev.c                  |    6 +-
+ net/decnet/dn_fib.c                  |    4 +-
+ net/decnet/dn_route.c                |    5 +-
+ net/ipv4/devinet.c                   |    6 +-
+ net/ipv4/fib_frontend.c              |    6 +-
+ net/ipv4/inet_diag.c                 |    2 +-
+ net/ipv4/ipmr.c                      |    3 +-
+ net/ipv4/route.c                     |    2 +-
+ net/ipv6/addrconf.c                  |   16 +-
+ net/ipv6/addrlabel.c                 |    9 +-
+ net/ipv6/ip6_fib.c                   |    3 +-
+ net/ipv6/ip6mr.c                     |    3 +-
+ net/ipv6/route.c                     |    6 +-
+ net/netfilter/ipset/ip_set_core.c    |    2 +-
+ net/netfilter/nf_conntrack_netlink.c |    4 +-
+ net/netlink/af_netlink.c             |   17 +-
+ net/netlink/genetlink.c              |    2 +-
+ net/phonet/pn_netlink.c              |   13 +-
+ net/sched/act_api.c                  |    7 +-
+ net/sched/cls_api.c                  |    6 +-
+ net/sched/sch_api.c                  |   12 +-
+ net/xfrm/xfrm_user.c                 |    3 +-
+ 39 files changed, 643 insertions(+), 356 deletions(-)
+
+-- 
+1.7.5.2
+
