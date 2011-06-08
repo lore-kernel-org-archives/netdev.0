@@ -1,82 +1,72 @@
-From: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
-Subject: [PATCH] ixgbe: Report PAUSE flags to ethtool
-Date: Wed, 8 Jun 2011 09:33:19 +0300
-Message-ID: <op.vwqu5trx6ywr33@esapekka-pc.rad1>
-References: <op.vwnklt0q6ywr33@esapekka-pc.rad1>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCHv3] net: Define enum for the bits used in features.
+Date: Tue, 7 Jun 2011 23:55:10 -0700
+Message-ID: <BANLkTi=-M=NusYU0U66cbvYeu=560U+xXQ@mail.gmail.com>
+References: <20110606035808.GA28858@redhat.com> <20110605.221537.899061768025493519.davem@davemloft.net>
+ <20110606153253.GB30665@redhat.com> <20110606.122059.261517215690508151.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: mst@redhat.com, linux-netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hki-smtp-1b.stonesoft.com ([84.34.144.100]:59965 "EHLO
-	hki-smtp-1b.stonesoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753344Ab1FHGzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 02:55:01 -0400
-Received: from hki-smtp-1b.stonesoft.com (hki-smtp-1b.stonesoft.com [127.0.0.1])
-	by localhost.stonesoft.com (Postfix) with ESMTP id E658CD8CB36
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2011 09:33:19 +0300 (EEST)
-Received: from outlook.stonesoft.com (unknown [172.16.40.22])
-	(using TLSv1 with cipher AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by hki-smtp-1b.stonesoft.com (Postfix) with ESMTP id D9803D8CABC
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2011 09:33:19 +0300 (EEST)
-In-Reply-To: <op.vwnklt0q6ywr33@esapekka-pc.rad1>
+Received: from smtp-out.google.com ([74.125.121.67]:8876 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753344Ab1FHGzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 02:55:43 -0400
+Received: from kpbe20.cbf.corp.google.com (kpbe20.cbf.corp.google.com [172.25.105.84])
+	by smtp-out.google.com with ESMTP id p586tZUJ012053
+	for <netdev@vger.kernel.org>; Tue, 7 Jun 2011 23:55:36 -0700
+Received: from bwz13 (bwz13.prod.google.com [10.188.26.13])
+	by kpbe20.cbf.corp.google.com with ESMTP id p586tUta007065
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 7 Jun 2011 23:55:34 -0700
+Received: by bwz13 with SMTP id 13so166288bwz.3
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2011 23:55:30 -0700 (PDT)
+In-Reply-To: <20110606.122059.261517215690508151.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Mon, Jun 6, 2011 at 12:20 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Mon, 6 Jun 2011 18:32:53 +0300
+>
+>> On Sun, Jun 05, 2011 at 10:15:37PM -0700, David Miller wrote:
+>>> Since the GSO accessors deal with mutliple bits, you can create
+>>> special GSO specific interfaces to manipulate them.
+>>
+>> Yes but it's not just GSO.
+>> It's anything that includes more than 1 feature.
+>> Examples:
+>> NETIF_F_ALL_CSUM
+>> NETIF_F_ALL_TX_OFFLOADS
+>> NETIF_F_V6_CSUM
+>> NETIF_F_SOFT_FEATURES
+>>
+>> etc
+>>
+>> Creating many accessors for each will need a lot
+>> of code duplication ...
+>
+> Yet this is something you must resolve in order to change the feature
+> bit implementation.
+>
+> Whether this issue is difficult or not to address, it has to be done
+> either way.
+>
 
-I noticed that ixgbe driver doesn't report SUPPORTED_Pause and
-ADVERTISED_Pause flags to ethtool. This means that ethtool
-always reports:
-	Supported pause frame use: No
-	Advertised pause frame use: No
-I added reporting for capabilities and advertising.
-I tested it with our ixgbe card and latest ethtool
-   from git repo. I also need to add capability to
-change advertising parameters with "ethtool -s advertise %x",
-but will send in a different patch if this patch looks ok.
+I agree that the cleanup is not really necessary to the feature
+extension as such but this along with the other patch that I have
+posted is the beginning of that work. It's definitely not complete and
+also not as simple as it sounds / feels because of these constants
+defined which are "or-ed" flag values (listed above). I think it will
+be nice to get this done in as little code as possible, but I think
+that should be the constraint.
 
-Signed-off-by: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
----
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c
-b/drivers/net/ixgbe/ixgbe_ethtool.c
-index cb1555b..6005116 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -150,6 +150,7 @@ static int ixgbe_get_settings(struct net_device
-*netdev,
-    	bool link_up;
+In these two patches I have created separate header file
+"netdev_features.h" where everything related to "features" should
+reside including all these accessor macros / functions.
 
-    	ecmd->supported = SUPPORTED_10000baseT_Full;
-+	ecmd->supported |= SUPPORTED_Pause;
-    	ecmd->autoneg = AUTONEG_ENABLE;
-    	ecmd->transceiver = XCVR_EXTERNAL;
-    	if ((hw->phy.media_type == ixgbe_media_type_copper) ||
-@@ -231,6 +232,21 @@ static int ixgbe_get_settings(struct net_device
-*netdev,
-    		ecmd->autoneg = AUTONEG_DISABLE;
-    	}
-
-+	if (hw->fc.current_mode == ixgbe_fc_full) {
-+		ecmd->advertising |= ADVERTISED_Pause;
-+	} else if (hw->fc.current_mode == ixgbe_fc_rx_pause) {
-+		ecmd->advertising |= ADVERTISED_Pause;
-+		ecmd->advertising |= ADVERTISED_Asym_Pause;
-+	} else if (hw->fc.current_mode == ixgbe_fc_tx_pause) {
-+		ecmd->advertising |= ADVERTISED_Asym_Pause;
-+	} else if (hw->fc.current_mode == ixgbe_fc_none) {
-+		/* Correctly initialized */
-+	} else if (hw->fc.current_mode == ixgbe_fc_pfc) {
-+		/* Ethtool doesn't know about this mode */
-+	} else {
-+		/* Future modes */
-+	}
-+
-    	/* Get PHY type */
-    	switch (adapter->hw.phy.type) {
-    	case ixgbe_phy_tn:
-
-
--- 
-Using Opera's revolutionary email client: http://www.opera.com/mail/
+--mahesh..
