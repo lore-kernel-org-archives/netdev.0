@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 37/40] rtnetlink: Compute and store minimum ifinfo
- dump size
-Date: Wed, 08 Jun 2011 00:12:14 -0700 (PDT)
-Message-ID: <20110608.001214.1214949405952155837.davem@davemloft.net>
-References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1307449995-9458-38-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1307513397.3961.0.camel@jlt3.sipsolutions.net>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Wed, 08 Jun 2011 00:16:12 -0700 (PDT)
+Message-ID: <20110608.001612.225121497206099693.davem@davemloft.net>
+References: <20110608155411.c3a2aa09.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, gregory.v.rose@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38461 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565Ab1FHHN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 03:13:26 -0400
-In-Reply-To: <1307513397.3961.0.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, adobriyan@gmail.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110608155411.c3a2aa09.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Wed, 08 Jun 2011 08:09:57 +0200
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 8 Jun 2011 15:54:11 +1000
 
-> Curious. Weren't dumps supposed to be split up into small chunks and
-> then delivered? Where is this splitting going wrong, and could it be
-> improved to split into smaller pieces?
+> After merging the final tree, today's linux-next build (powerpc
+> allyesconfig) failed like this:
+> 
+> drivers/net/ll_temac_main.c: In function 'temac_open':
+> drivers/net/ll_temac_main.c:859:2: error: implicit declaration of function 'request_irq'
+> drivers/net/ll_temac_main.c:870:2: error: implicit declaration of function 'free_irq'
+> drivers/net/ll_temac_main.c: In function 'temac_poll_controller':
+> drivers/net/ll_temac_main.c:903:2: error: implicit declaration of function 'disable_irq'
+> drivers/net/ll_temac_main.c:909:2: error: implicit declaration of function 'enable_irq'
 
-You can only split at the individual object boundary.
+Oh well, I hit all the drivers I could with x86 and sparc64 builds.
 
-And in these cases individual single network device instances are too
-large to go in one SKB.
+> Probably caused by commit a6b7a407865a ("net: remove interrupt.h
+> inclusion from netdevice.h").
+> 
+> I have added this patch for today:
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Wed, 8 Jun 2011 15:49:33 +1000
+> Subject: [PATCH] net: add needed interrupt.h
+
+Applied, thanks Stephen.
