@@ -1,66 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/12] e1000e: log when swflag is cleared unexpectedly on ICH/PCH devices
-Date: Wed,  8 Jun 2011 15:56:31 -0700
-Message-ID: <1307573800-24868-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/12] e1000e: update driver version
+Date: Wed,  8 Jun 2011 15:56:36 -0700
+Message-ID: <1307573800-24868-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:3609 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:3619 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753523Ab1FHW4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jun 2011 18:56:45 -0400
+	id S1756314Ab1FHW4s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jun 2011 18:56:48 -0400
 In-Reply-To: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Since EXTCNF_CTRL.SWFLAG (used in the ownership arbitration of shared
-resources, e.g. the PHY shared between the s/w, f/w, and h/w clients)
-can be cleared by any of those clients, log a debug message when
-software attempts to clear it and it is already cleared unexpectedly.
-And since the swflag is cleared by a hardware reset, the driver does
-not need to do that, but the mutex acquired when the bit is set must
-still be cleared.
-
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/ich8lan.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/e1000e/netdev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index dcd5db5..dddd0b3 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -889,8 +889,13 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
- 	u32 extcnf_ctrl;
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 51cf715..3bf5249 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -54,9 +54,9 @@
  
- 	extcnf_ctrl = er32(EXTCNF_CTRL);
--	extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
--	ew32(EXTCNF_CTRL, extcnf_ctrl);
-+
-+	if (extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG) {
-+		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
-+		ew32(EXTCNF_CTRL, extcnf_ctrl);
-+	} else {
-+		e_dbg("Semaphore unexpectedly released by sw/fw/hw\n");
-+	}
+ #include "e1000.h"
  
- 	mutex_unlock(&swflag_mutex);
- }
-@@ -3066,7 +3071,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 	msleep(20);
+-#define DRV_EXTRAVERSION "-k2"
++#define DRV_EXTRAVERSION "-k"
  
- 	if (!ret_val)
--		e1000_release_swflag_ich8lan(hw);
-+		mutex_unlock(&swflag_mutex);
+-#define DRV_VERSION "1.3.10" DRV_EXTRAVERSION
++#define DRV_VERSION "1.3.16" DRV_EXTRAVERSION
+ char e1000e_driver_name[] = "e1000e";
+ const char e1000e_driver_version[] = DRV_VERSION;
  
- 	if (ctrl & E1000_CTRL_PHY_RST) {
- 		ret_val = hw->phy.ops.get_cfg_done(hw);
 -- 
 1.7.5.2
 
