@@ -1,74 +1,175 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 1/2] vlan: only create special VLAN 0 once
-Date: Tue, 7 Jun 2011 18:25:23 -0700
-Message-ID: <BANLkTikmNXK=i1HhtGtb1+81rGqGgBQ8mA@mail.gmail.com>
-References: <20110603200738.GA24804@midget.suse.cz> <20110605.142823.1727360496050285755.davem@davemloft.net>
- <20110607161808.GA5018@midget.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, pedro.netdev@dondevamos.com
-To: Jiri Bohac <jbohac@suse.cz>
+From: Chetan Loke <loke.chetan@gmail.com>
+Subject: [af-packet 0/2] Enhance af-packet to provide (near zero)lossless packet capture functionality.
+Date: Tue,  7 Jun 2011 23:13:04 -0400
+Message-ID: <1307502786-1396-1-git-send-email-loke.chetan@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kaber@trash.net,
+	johann.baudy@gnu-log.net, Chetan Loke <loke.chetan@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:51614 "EHLO
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:57935 "EHLO
 	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932732Ab1FHBZo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 21:25:44 -0400
-Received: by vxi39 with SMTP id 39so20340vxi.19
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2011 18:25:43 -0700 (PDT)
-In-Reply-To: <20110607161808.GA5018@midget.suse.cz>
+	with ESMTP id S1751688Ab1FHDNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2011 23:13:25 -0400
+Received: by vxi39 with SMTP id 39so65338vxi.19
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2011 20:13:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 7, 2011 at 9:18 AM, Jiri Bohac <jbohac@suse.cz> wrote:
-> Hi David,
->
-> On Sun, Jun 05, 2011 at 02:28:23PM -0700, David Miller wrote:
->> From: Jiri Bohac <jbohac@suse.cz>
->> Date: Fri, 3 Jun 2011 22:07:38 +0200
->>
->> > Commit ad1afb00 registers a VLAN with vid =3D=3D 0 for every devic=
-e to handle
->> > 802.1p frames. =C2=A0This is currently done on every NETDEV_UP eve=
-nt and the special
->> > vlan is never unregistered. =C2=A0This may have strange effects on=
- drivers
->> > implementning ndo_vlan_rx_add_vid(). E.g. bonding will allocate a =
-linked-list
->> > element each time, causing a memory leak.
->> >
->> > Only register the special VLAN once on NETDEV_REGISTER.
->> >
->> > Signed-off-by: Jiri Bohac <jbohac@suse.cz>
->>
->> I recognize the problem, but this solution isn't all that good.
->>
->> I am pretty sure that the hardware device driver methods that
->> implement ndo_vlan_rx_add_vid() assume that the device is up.
->> Because most drivers completely reset the chip when the
->> interface is brought up and this will likely clear out the
->> VLAN ID tables in the chip.
->
-> Really? In that case, we have a much bigger problem: the vlan
-> code allows registering a new vlan on an interface that is down.
-> And it only registers the VID with ndo_vlan_rx_add_vid() in
-> register_vlan_dev() during the registration of the new vlan
-> interface -- it never re-registers the VIDs on a NETDEV_UP.
+Hello,
 
-No, it's not true.  All drivers store the registered vlan filters in
-some way so that they can restore them when the device is reset.  This
-is currently done in one of two ways: storing a bitmap or iterating
-over the devices currently registered in a group.
+Please review the patchset. Any feedback is appreciated.
 
-The vlan code is moving away from directly accessing groups and no new
-drivers do this.  In fact, once all drivers are converted over groups
-will not even be registered on devices.  This is because otherwise
-there is quite a bit of vlan code in each driver, which leads to
-inconsistent behavior and bugs.
+The patch set is intended to:
+a) demonstrate the improvements
+b) gather suggestions
 
-Really, all a driver needs to know is whether it should add a given
-vlan to its table, not what the upper layers plan to do with it.  So
-when ndo_vlan_rx_add_vid() is called it should add it to its CAM table
-and store it if it is needed to restore behavior after a reset, just
-as is done with all other configuration state.
+This patch attempts to:
+1)Improve network capture visibility by increasing packet density
+2)Assist in analyzing multiple(aggregated) capture ports.
+
+Benefits:
+  B1) ~15-20% reduction in cpu-usage.
+  B2) ~20% increase in packet capture rate.
+  B3) ~2x  increase in packet density.
+  B4) Port aggregation analysis.
+  B5) Non static frame size to capture entire packet payload.
+
+
+With the current af_packet->rx::mmap based approach, the element size
+in the block needs to be statically configured. Nothing wrong with this
+config/implementation. But the traffic profile cannot be known in advance.
+And so it would be nice if that configuration wasn't static. Normally,
+one would configure the element-size to be '2048' so that you can atleast
+capture the entire 'MTU-size'.But if the traffic profile varies then we
+would end up either i)wasting memory or ii) end up getting a sliced frame.
+In other words the packet density will be much less in the first case.
+
+--------------------
+Performance results:
+--------------------
+
+Tpacket config(same on Physical/Virtual setup):
+64 blocks(1MB block size)
+
+**************
+Physical setup
+**************
+
+pktgen: 64 byte traffic.
+
+1G Intel
+driver: igb
+version: 2.1.0-k2
+firmware-version: 3.19-0
+
+
+Tpacket          V1                 V3
+capture-rate     600K pps     720K pps
+cpu usage        70%           53%
+Drop-rate         7-10%        ~1%
+
+**********************
+Virtual Machine setup:
+**********************
+
+pktgen: 64 byte traffic,40M packets(clone_skb <40000000>)
+
+Worker VMs(FC12):
+3 VMs:VM0 .. VM2, each sending 40M packets.
+
+probe-VM(FC15): 1-vCPU/512MB memory
+running patched kernel
+
+
+Tpacket          V1                       V3
+capture-rate     700-800K pps        1M pps
+cpu usage        50%                   ~30%
+Drop-rate         9-10%                <1%
+
+
+Plus, in the VM setup,V3 sees/captures around 5-10% more traffic than V1/V2.
+
+------------
+Enhancement:
+------------
+E1) Enhanced tpacket_rcv so that it can dump/copy the packets one after another.
+E2) Also implemented basic timeout mechanism to close 'a' current block.
+    That way, user-space won't be blocked forever on an idle link.
+    This is a much needed feature while monitoring multiple ports.
+    Look at 3) below.
+
+-------------------------------
+Why is such enhancement needed?
+-------------------------------
+1) Well, spin-waiting/polling on a per-packet basis to see if it's ready
+   to be consumed does not scale while monitoring multiple ports.
+   poll() is not performance friendly either.
+2) Also, typically a user-space packet capture interface handles multiple
+   packets to another user-space protocol-decoder.
+
+   ----------------
+   protocol-decoder
+          T2
+   ----------------
+    =============
+    ship pkts
+    =============
+           ^
+           |
+           v
+   -----------------
+   pkt-capture logic
+           T1
+   -----------------
+   ================
+     nic/sock IF
+   ================
+           ^
+           |
+           V
+
+T1 and T2 are user-space threads. If the hand-off between T1 and T2
+happens on a per-pkt basis then the solution does NOT scale.
+
+However, one can argue that T1 can coalesce packets and then pass of a
+single chunk to T2.But T1's packet consumption granularity is still at
+an individual packet level and that is something that needs to be
+addressed to avoid excessive polling.
+
+
+3) Port aggregation analysis:
+   Multiple ports are viewed/analyzed as one logical pipe.
+   Example:
+   3.1) up-stream    path can be tapped in eth1
+   3.2) down-stream  path can be tapped in eth2
+   3.3) Network TAP splits Rx/Tx paths and then feeds to eth1,eth2.
+
+   If both eth1,eth2 need to be viewed as one logical channel,
+   then that implies we need to timesort the packets as they come across
+   eth1,eth2.
+
+   3.4) But following issues further complicates the problem:
+        3.4.1)What if one stream is bursty and other is flowing
+              at line rate?
+        3.4.2)How long do we wait before we can actually make a
+              decision in the app-space and bail-out from the spin-wait?
+
+   Solution:
+   3.5) Once we receive a block from multiple ports,we can compare
+        the timestamps from the block-descriptor and then easily time sort
+        the packets and feed them to the decoders.
+
+
+Please don't shoot the patchset because of its size :).
+
+
+
+Chetan Loke (2):
+
+ include/linux/if_packet.h |  127 +++++++-
+ net/packet/af_packet.c    |  878 ++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 957 insertions(+), 48 deletions(-)
+
+-- 
+1.7.5.2
+
