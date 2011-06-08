@@ -1,50 +1,127 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
-Date: Wed, 8 Jun 2011 18:28:42 +0200
-Message-ID: <20110608162841.GB4409@minipsycho.redhat.com>
-References: <m1aaectyed.fsf@fess.ebiederm.org>
- <20110524.022406.2228892895515155850.davem@davemloft.net>
- <m1oc2spmyt.fsf@fess.ebiederm.org>
- <20110601.205940.1179055860757569997.davem@davemloft.net>
- <m11uzcidvq.fsf_-_@fess.ebiederm.org>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] RFC2988bis + taking RTT sample from 3WHS for the passive
+ open side
+Date: Wed, 8 Jun 2011 10:04:30 -0700
+Message-ID: <BANLkTikpmXMpuTmgejsgisV9O2fP1i7VLnUO3bcYLSU0+iXJVg@mail.gmail.com>
+References: <1307509203-30973-1-git-send-email-hkchu@google.com>
+	<1307550654.3057.70.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, xiaosuo@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+	Hagen Paul Pfeifer <hagen@jauu.net>, tsunanet@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32269 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750885Ab1FHQ2z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jun 2011 12:28:55 -0400
-Content-Disposition: inline
-In-Reply-To: <m11uzcidvq.fsf_-_@fess.ebiederm.org>
+Received: from smtp-out.google.com ([74.125.121.67]:52121 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751343Ab1FHREe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 13:04:34 -0400
+Received: from wpaz21.hot.corp.google.com (wpaz21.hot.corp.google.com [172.24.198.85])
+	by smtp-out.google.com with ESMTP id p58H4WM0029963
+	for <netdev@vger.kernel.org>; Wed, 8 Jun 2011 10:04:32 -0700
+Received: from ywg8 (ywg8.prod.google.com [10.192.7.8])
+	by wpaz21.hot.corp.google.com with ESMTP id p58H33uf030504
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 8 Jun 2011 10:04:31 -0700
+Received: by ywg8 with SMTP id 8so309774ywg.6
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 10:04:31 -0700 (PDT)
+In-Reply-To: <1307550654.3057.70.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 02, 2011 at 03:03:53PM CEST, ebiederm@xmission.com wrote:
->
->Testing of VLAN_FLAG_REORDER_HDR does not belong in vlan_untag
->but rather in vlan_do_receive.  Otherwise the vlan header
->will not be properly put on the packet in the case of
->vlan header accelleration.
->
->As we remove the check from vlan_check_reorder_header
->rename it vlan_reorder_header to keep the naming clean.
->
->Fix up the skb->pkt_type early so we don't look at the packet
->after adding the vlan tag, which guarantees we don't goof
->and look at the wrong field.
->
->Use a simple if statement instead of a complicated switch
->statement to decided that we need to increment rx_stats
->for a multicast packet.
->
->Hopefully at somepoint we will just declare the case where
->VLAN_FLAG_REORDER_HDR is cleared as unsupported and remove
->the code.  Until then this keeps it working correctly.
++netdev (add missing cc)
 
-Why we can't remove this right away?
+On Wed, Jun 8, 2011 at 9:30 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+>
+> Le mardi 07 juin 2011 =E0 22:00 -0700, H.K. Jerry Chu a =E9crit :
+> > From: Jerry Chu <hkchu@google.com>
+> >
+> > This patch lowers the default initRTO from 3secs to 1sec per
+> > RFC2988bis. It falls back to 3secs if the SYN or SYN-ACK packet
+> > has been retransmitted, AND the TCP timestamp option is not on.
+> >
+> > It also adds support to take RTT sample during 3WHS on the passive
+> > open side, just like its active open counterpart, and uses it, if
+> > valid, to seed the initRTO for the data transmission phase.
+> >
+> > The patch also resets ssthresh to its initial default at the
+> > beginning of the data transmission phase, and reduces cwnd to 1 if
+> > there has been MORE THAN ONE retransmission during 3WHS per RFC5681=
+=2E
+> >
+> > Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+> > ---
+>
+> ...
+>
+> > @@ -1854,7 +1859,7 @@ static int tcp_v4_init_sock(struct sock *sk)
+> > =A0 =A0 =A0 =A0* algorithms that we must have the following bandaid=
+ to talk
+> > =A0 =A0 =A0 =A0* efficiently to them. =A0-DaveM
+> > =A0 =A0 =A0 =A0*/
+> > - =A0 =A0 tp->snd_cwnd =3D 2;
+> > + =A0 =A0 tp->snd_cwnd =3D TCP_INIT_CWND;
+>
+> Hmm, are you sure this belongs to this patch ?
+>
+> >
+> > =A0 =A0 =A0 /* See draft-stevens-tcpca-spec-01 for discussion of th=
+e
+> > =A0 =A0 =A0 =A0* initialization of these values.
+> > diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> > index 80b1f80..d2fe4e0 100644
+> > --- a/net/ipv4/tcp_minisocks.c
+> > +++ b/net/ipv4/tcp_minisocks.c
+> > @@ -486,7 +486,7 @@ struct sock *tcp_create_openreq_child(struct so=
+ck *sk, struct request_sock *req,
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* algorithms that we must have the f=
+ollowing bandaid to talk
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* efficiently to them. =A0-DaveM
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> > - =A0 =A0 =A0 =A0 =A0 =A0 newtp->snd_cwnd =3D 2;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 newtp->snd_cwnd =3D TCP_INIT_CWND;
+>
+> same here ?
+
+It's part of the cwnd initialization stuff, which I included some fix
+per RFC5681 (in
+tcp_init_metrics()). The field is currently not being used anyway
+until data-in-SYN is
+supported. I fixed it here just because TCP_INIT_CWND is the right valu=
+e.
+
+>
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 newtp->snd_cwnd_cnt =3D 0;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 newtp->bytes_acked =3D 0;
+> >
+> > @@ -720,6 +720,10 @@ struct sock *tcp_check_req(struct sock *sk, st=
+ruct sk_buff *skb,
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 NET_INC_STATS_BH(sock_net(sk), LINUX_MI=
+B_TCPDEFERACCEPTDROP);
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+> > =A0 =A0 =A0 }
+> > + =A0 =A0 if (tmp_opt.saw_tstamp && tmp_opt.rcv_tsecr)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 tcp_rsk(req)->snt_synack =3D tmp_opt.rcv_=
+tsecr;
+> > + =A0 =A0 else if (req->retrans) /* don't take RTT sample if retran=
+s && ~TS */
+> > + =A0 =A0 =A0 =A0 =A0 =A0 tcp_rsk(req)->snt_synack =3D 0;
+>
+> Could you clarify why this is done in this order ?
+
+What else is more appropriate? It needs to decide if we've got a valid
+RTT sample.
+If TS is on and rcv_tsec !=3D 0 then we've got a valid RTT sample. Othe=
+rwise it
+does not take sample if there has been retrans per Karn's algorithm.
+
+Thanks,
+
+Jerry
+
+>
+> Thanks !
+>
+>
