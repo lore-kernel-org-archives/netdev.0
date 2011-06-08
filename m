@@ -1,37 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] RFC2988bis + taking RTT sample from 3WHS for the
- passive open side
-Date: Wed, 08 Jun 2011 15:13:23 -0700 (PDT)
-Message-ID: <20110608.151323.910676406165209279.davem@davemloft.net>
-References: <1307509203-30973-1-git-send-email-hkchu@google.com>
-	<BANLkTimXgK03tM1e3FYe+wausHT15W6H-2eMNCWaj8LLxRvbZw@mail.gmail.com>
-	<BANLkTi=Gzb7kVRBq3+3Sihdu8rKP_OeTE4kcw7hdfUH=9qm-UQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [af-packet 1/2] Enhance af-packet to provide (near
+ zero)lossless packet capture functionality.
+Date: Thu, 09 Jun 2011 00:22:54 +0200
+Message-ID: <1307571774.3980.7.camel@edumazet-laptop>
+References: <1307502786-1396-1-git-send-email-loke.chetan@gmail.com>
+	 <1307502786-1396-2-git-send-email-loke.chetan@gmail.com>
+	 <1307507754.3102.18.camel@edumazet-laptop>
+	 <BANLkTi=_EFRaiPuT=OjwRaJ4XPw0sUhcnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	johann.baudy@gnu-log.net, Chetan Loke <lokec@ccs.neu.edu>
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44249 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752090Ab1FHWN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 18:13:26 -0400
-In-Reply-To: <BANLkTi=Gzb7kVRBq3+3Sihdu8rKP_OeTE4kcw7hdfUH=9qm-UQ@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41491 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754763Ab1FHWW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 18:22:59 -0400
+Received: by wya21 with SMTP id 21so712553wya.19
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 15:22:57 -0700 (PDT)
+In-Reply-To: <BANLkTi=_EFRaiPuT=OjwRaJ4XPw0sUhcnA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 8 Jun 2011 13:54:41 -0700
+Le mercredi 08 juin 2011 =C3=A0 18:10 -0400, chetan loke a =C3=A9crit :
 
-> Acked-by: Yuchung Cheng <ycheng@google.com>
+> Eric, thanks for pointing that. I will add the padding. But just out
+> of curiosity, how is the information being leaked in tpacket_rcv()?
+>=20
+> If someone is capturing packets then they have access to all the data
+> anyways. Also, tpacket_rcv doesn't memset the frame-element to 'zero'
+> before calling
+> skb_copy_bits(). And we would never want to memset anyways.
+>=20
 
-Please do not top-post.  Quote the commit log message portion, delete
-the patch itself since you're not giving any specific feedback, and
-then insert your Acked-by/Tested-by/Reviewed-by/whatever right
-afterwards.
+Its a security risk, leaking content of kernel stack or kernel memory.
 
-I know that people are trained not to properly put context before the
-things they say in email replied, and edit out the unnecessary
-portions of the quoted material, simply because many popular email
-clients tend to make this difficult and make top-posting way too easy,
-but that is not our problem.
+capturing packets capability is not meaning "accessing full memory"
+
+Some clever hackers can exploit these kind of leaks.
+
+Better make sure we dont have holes in structures copied to user.
+(or mapped in this case, but you never knows ;) )
+
+
+
