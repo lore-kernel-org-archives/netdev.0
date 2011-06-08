@@ -1,127 +1,190 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] RFC2988bis + taking RTT sample from 3WHS for the passive
- open side
-Date: Wed, 8 Jun 2011 10:04:30 -0700
-Message-ID: <BANLkTikpmXMpuTmgejsgisV9O2fP1i7VLnUO3bcYLSU0+iXJVg@mail.gmail.com>
-References: <1307509203-30973-1-git-send-email-hkchu@google.com>
-	<1307550654.3057.70.camel@edumazet-laptop>
+From: Barry G <mr.scada@gmail.com>
+Subject: Configure Distributed Switch Architecture Via Device Tree
+Date: Wed, 8 Jun 2011 10:18:15 -0700
+Message-ID: <BANLkTikystOn-36tCWWnYZR7_+yx2wFt=Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Hagen Paul Pfeifer <hagen@jauu.net>, tsunanet@gmail.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:52121 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343Ab1FHREe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 13:04:34 -0400
-Received: from wpaz21.hot.corp.google.com (wpaz21.hot.corp.google.com [172.24.198.85])
-	by smtp-out.google.com with ESMTP id p58H4WM0029963
-	for <netdev@vger.kernel.org>; Wed, 8 Jun 2011 10:04:32 -0700
-Received: from ywg8 (ywg8.prod.google.com [10.192.7.8])
-	by wpaz21.hot.corp.google.com with ESMTP id p58H33uf030504
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 8 Jun 2011 10:04:31 -0700
-Received: by ywg8 with SMTP id 8so309774ywg.6
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 10:04:31 -0700 (PDT)
-In-Reply-To: <1307550654.3057.70.camel@edumazet-laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:60137 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751443Ab1FHRSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 13:18:16 -0400
+Received: by bwz15 with SMTP id 15so606050bwz.19
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 10:18:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+netdev (add missing cc)
+Hello,
 
-On Wed, Jun 8, 2011 at 9:30 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
->
-> Le mardi 07 juin 2011 =E0 22:00 -0700, H.K. Jerry Chu a =E9crit :
-> > From: Jerry Chu <hkchu@google.com>
-> >
-> > This patch lowers the default initRTO from 3secs to 1sec per
-> > RFC2988bis. It falls back to 3secs if the SYN or SYN-ACK packet
-> > has been retransmitted, AND the TCP timestamp option is not on.
-> >
-> > It also adds support to take RTT sample during 3WHS on the passive
-> > open side, just like its active open counterpart, and uses it, if
-> > valid, to seed the initRTO for the data transmission phase.
-> >
-> > The patch also resets ssthresh to its initial default at the
-> > beginning of the data transmission phase, and reduces cwnd to 1 if
-> > there has been MORE THAN ONE retransmission during 3WHS per RFC5681=
-=2E
-> >
-> > Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-> > ---
->
-> ...
->
-> > @@ -1854,7 +1859,7 @@ static int tcp_v4_init_sock(struct sock *sk)
-> > =A0 =A0 =A0 =A0* algorithms that we must have the following bandaid=
- to talk
-> > =A0 =A0 =A0 =A0* efficiently to them. =A0-DaveM
-> > =A0 =A0 =A0 =A0*/
-> > - =A0 =A0 tp->snd_cwnd =3D 2;
-> > + =A0 =A0 tp->snd_cwnd =3D TCP_INIT_CWND;
->
-> Hmm, are you sure this belongs to this patch ?
->
-> >
-> > =A0 =A0 =A0 /* See draft-stevens-tcpca-spec-01 for discussion of th=
-e
-> > =A0 =A0 =A0 =A0* initialization of these values.
-> > diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> > index 80b1f80..d2fe4e0 100644
-> > --- a/net/ipv4/tcp_minisocks.c
-> > +++ b/net/ipv4/tcp_minisocks.c
-> > @@ -486,7 +486,7 @@ struct sock *tcp_create_openreq_child(struct so=
-ck *sk, struct request_sock *req,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* algorithms that we must have the f=
-ollowing bandaid to talk
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* efficiently to them. =A0-DaveM
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> > - =A0 =A0 =A0 =A0 =A0 =A0 newtp->snd_cwnd =3D 2;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 newtp->snd_cwnd =3D TCP_INIT_CWND;
->
-> same here ?
+We are working on bringing up a powerpc platform that has a few
+Marvell switches on it.  We would like to make use of the DSA
+stuff in the kernel.
 
-It's part of the cwnd initialization stuff, which I included some fix
-per RFC5681 (in
-tcp_init_metrics()). The field is currently not being used anyway
-until data-in-SYN is
-supported. I fixed it here just because TCP_INIT_CWND is the right valu=
-e.
+It appears all the devices currently in the kernel that use DSA
+are done via the platform_add_devices route.  I was hoping
+to use the device tree since most of the powerpc stuff does.
 
->
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 newtp->snd_cwnd_cnt =3D 0;
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 newtp->bytes_acked =3D 0;
-> >
-> > @@ -720,6 +720,10 @@ struct sock *tcp_check_req(struct sock *sk, st=
-ruct sk_buff *skb,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 NET_INC_STATS_BH(sock_net(sk), LINUX_MI=
-B_TCPDEFERACCEPTDROP);
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
-> > =A0 =A0 =A0 }
-> > + =A0 =A0 if (tmp_opt.saw_tstamp && tmp_opt.rcv_tsecr)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 tcp_rsk(req)->snt_synack =3D tmp_opt.rcv_=
-tsecr;
-> > + =A0 =A0 else if (req->retrans) /* don't take RTT sample if retran=
-s && ~TS */
-> > + =A0 =A0 =A0 =A0 =A0 =A0 tcp_rsk(req)->snt_synack =3D 0;
->
-> Could you clarify why this is done in this order ?
+My main two questions right now are:
+How do I pull together the various components into the
+dsa structures and how do I register that structure with
+the dsa subsystem.
 
-What else is more appropriate? It needs to decide if we've got a valid
-RTT sample.
-If TS is on and rcv_tsec !=3D 0 then we've got a valid RTT sample. Othe=
-rwise it
-does not take sample if there has been retrans per Karn's algorithm.
+I added the following to my device tree:
+   virtual-device {
+      compatible = "simple-bus";
+      dsa {
+         compatible = "vendor,my-dsa-of";
+         ethernet-handle = <&enet0>;
+         mdio-handle = <&mdio0>;
+      };
+   };
+
+And wrote the attached driver.  It loads at boot, so I
+know the compatible stuff is working and all, but
+I am a little lost as to the next steps.  Any help
+would be much appreciated.
 
 Thanks,
 
-Jerry
+Barry
 
->
-> Thanks !
->
->
+
+Here is my first hack at a drive:
+#include <linux/of.h>
+#include <linux/kernel.h>
+#include <linux/of_platform.h>
+#include <net/dsa.h>
+
+static struct dsa_chip_data switches[] = {
+   {
+      .sw_addr = 0,
+      .port_names = {
+         "eth%d", //0
+         "eth%d", //1
+         "eth%d", //2
+         "eth%d", //3
+         "eth%d", //4
+         "eth%d", //5
+         "eth%d", //6
+         "eth%d", //7
+         "dsa",   //8
+         "dsa",   //9
+      },
+      .rtable = (s8 []){-1, 8, 9},
+   },
+   {
+      .sw_addr = 1,
+      .port_names = {
+         "eth%d", //0
+         "eth%d", //1
+         "eth%d", //2
+         "eth%d", //3
+         "eth%d", //4
+         "eth%d", //5
+         "eth%d", //6
+         "eth%d", //7
+         "dsa",   //8
+         "dsa",   //9
+         "cpu",   //10
+      },
+      .rtable = (s8 []){9, -1, 8},
+   },
+   {
+      .sw_addr = 2,
+      .port_names = {
+         "eth%d", //0
+         "eth%d", //1
+         "eth%d", //2
+         "eth%d", //3
+         "eth%d", //4
+         "eth%d", //5
+         "eth%d", //6
+         "eth%d", //7
+         "dsa",   //8
+         "dsa",   //9
+         NULL,    //10
+      },
+      .rtable = (s8 []){8, 9, -1},
+   },
+};
+
+static struct dsa_platform_data my_switch_data = {
+   .nr_chips = 3,
+   .chip = switches,
+};
+
+static int __devinit dsa_probe(struct platform_device *);
+static int __devexit dsa_remove(struct platform_device *);
+
+static const struct of_device_id dsa_match[] = {
+   {
+      .compatible = "vendor,my-dsa-of",
+   },
+   {}
+};
+
+static struct platform_driver dsa_driver = {
+   .driver = {
+      .name = "dsa-driver",
+      .owner = THIS_MODULE,
+      .of_match_table = dsa_match,
+   },
+   .probe = dsa_probe,
+   .remove = dsa_remove,
+};
+
+static int __devinit dsa_probe(struct platform_device *pdev)
+{
+   /* Question 1:
+      I need to hookup the mii_bus in the dsa_chip_data and
+      the netdev in the dsa_platform_data to the various
+      struct device *s.  I could get access to the device nodes
+      like:
+
+      ph = of_get_property(np, "mdio-handle", NULL);
+      mdio = of_find_node_by_phandle(*ph);
+
+      Now I have the mdio device_node, but what do I do with
+      it?  How do I get the device *?
+
+      */
+
+   /* Question 2: Whats the entry point into the DSA stuff
+      now that I have my snazzy chips setup in the
+      my_switch_data?  Usually it is added as a stamp device
+      ad added with platform_add_devices.  Do I need to edit
+      the DSA stuff to work with OF devices? */
+
+
+   dev_info(&pdev->dev, "Initializing OF Marvell DSA driver\n");
+
+   return 0;
+}
+
+static int __devexit dsa_remove(struct platform_device *pdev)
+{
+   printk("dsa_remove\n");
+   return 0;
+}
+
+
+static int __init dsa_driver_init(void)
+{
+   printk("dsa_drver_init\n");
+   return platform_driver_register(&dsa_driver);
+}
+
+static void __exit dsa_driver_cleanup(void)
+{
+   printk("dsa_driver_cleanup\n");
+   platform_driver_unregister(&dsa_driver);
+}
+
+module_init(dsa_driver_init);
+module_exit(dsa_driver_cleanup);
+
+MODULE_DESCRIPTION("Marvell DSA OF driver");
+MODULE_AUTHOR("Barry G <mr.scada@gmail.com>");
+MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("platform:dsa-driver");
