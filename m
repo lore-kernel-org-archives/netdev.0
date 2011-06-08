@@ -1,208 +1,114 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [af-packet 2/2] Enhance af-packet to provide (near zero)lossless
- packet capture functionality
-Date: Wed, 8 Jun 2011 18:01:03 -0400
-Message-ID: <BANLkTi=AfvjVh7AZkQiABC8r=DrBYEGrug@mail.gmail.com>
-References: <1307502786-1396-1-git-send-email-loke.chetan@gmail.com>
-	<1307502786-1396-3-git-send-email-loke.chetan@gmail.com>
-	<1307506686.22272.49.camel@Joe-Laptop>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] RFC2988bis + taking RTT sample from 3WHS for the passive
+ open side
+Date: Wed, 8 Jun 2011 15:06:26 -0700
+Message-ID: <BANLkTinnROK1MNAbWJWEdQa8-h_K9yN531gxdp__r_Tf55e9Lg@mail.gmail.com>
+References: <1307509203-30973-1-git-send-email-hkchu@google.com>
+	<BANLkTimXgK03tM1e3FYe+wausHT15W6H-2eMNCWaj8LLxRvbZw@mail.gmail.com>
+	<20110608211639.GA2876@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, kaber@trash.net, johann.baudy@gnu-log.net,
-	Chetan Loke <lokec@ccs.neu.edu>
-To: Joe Perches <joe@perches.com>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, tsunanet@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:38223 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752169Ab1FHWBE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 18:01:04 -0400
-Received: by pwi15 with SMTP id 15so449466pwi.19
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 15:01:03 -0700 (PDT)
-In-Reply-To: <1307506686.22272.49.camel@Joe-Laptop>
+Received: from smtp-out.google.com ([216.239.44.51]:37612 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895Ab1FHWG3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 18:06:29 -0400
+Received: from kpbe19.cbf.corp.google.com (kpbe19.cbf.corp.google.com [172.25.105.83])
+	by smtp-out.google.com with ESMTP id p58M6RU4004054
+	for <netdev@vger.kernel.org>; Wed, 8 Jun 2011 15:06:28 -0700
+Received: from gxk10 (gxk10.prod.google.com [10.202.11.10])
+	by kpbe19.cbf.corp.google.com with ESMTP id p58M5DoE018397
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 8 Jun 2011 15:06:26 -0700
+Received: by gxk10 with SMTP id 10so831090gxk.25
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 15:06:26 -0700 (PDT)
+In-Reply-To: <20110608211639.GA2876@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 8, 2011 at 12:18 AM, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2011-06-07 at 23:13 -0400, Chetan Loke wrote:
->> Signed-off-by: Chetan Loke <lokec@ccs.neu.edu>
+Hi Hagen,
+
+On Wed, Jun 8, 2011 at 2:16 PM, Hagen Paul Pfeifer <hagen@jauu.net> wro=
+te:
+> Hello Jerry
 >
-> just trivia:
+> * Jerry Chu | 2011-06-08 11:04:22 [-0700]:
 >
->> ---
->> =C2=A0net/packet/af_packet.c | =C2=A0878 +++++++++++++++++++++++++++=
-++++++++++++++++++---
-> []
->> +/* kbdq - kernel block descriptor queue */
->> +struct kbdq_core {
->> + =C2=A0 =C2=A0 struct pgv =C2=A0 =C2=A0 =C2=A0*pkbdq;
->> + =C2=A0 =C2=A0 unsigned int =C2=A0 =C2=A0hdrlen;
->> + =C2=A0 =C2=A0 unsigned char =C2=A0 reset_pending_on_curr_blk;
->> + =C2=A0 =C2=A0 unsigned char =C2=A0 delete_blk_timer;
->> + =C2=A0 =C2=A0 unsigned short =C2=A0kactive_blk_num;
->> + =C2=A0 =C2=A0 unsigned short =C2=A0hole_bytes_size;
->> + =C2=A0 =C2=A0 char =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*pkblk=
-_start;
->> + =C2=A0 =C2=A0 char =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*pkblk=
-_end;
->> + =C2=A0 =C2=A0 int =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 kblk_s=
-ize;
->> + =C2=A0 =C2=A0 unsigned int =C2=A0 =C2=A0knum_blocks;
->> + =C2=A0 =C2=A0 uint64_t =C2=A0 =C2=A0 =C2=A0 =C2=A0knxt_seq_num;
->> + =C2=A0 =C2=A0 char =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*prev;
->> + =C2=A0 =C2=A0 char =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*nxt_o=
-ffset;
->> +
->> + =C2=A0 =C2=A0 /* last_kactive_blk_num:
->> + =C2=A0 =C2=A0 =C2=A0* trick to see if user-space has caught up
->> + =C2=A0 =C2=A0 =C2=A0* in order to avoid refreshing timer when ever=
-y single pkt arrives.
->> + =C2=A0 =C2=A0 =C2=A0*/
->> + =C2=A0 =C2=A0 unsigned short =C2=A0last_kactive_blk_num;
->> +
->> + =C2=A0 =C2=A0 atomic_t =C2=A0 =C2=A0 =C2=A0 =C2=A0blk_fill_in_prog=
+>>+ =A0 =A0 =A0 /* Cut cwnd down to 1 per RFC5681 if SYN or SYN-ACK has=
+ been
+>>+ =A0 =A0 =A0 =A0* retransmitted. In light of RFC2988bis' more aggres=
+sive 1sec
+>>+ =A0 =A0 =A0 =A0* initRTO, we only reset cwnd when more than 1 SYN/S=
+YN-ACK
+>>+ =A0 =A0 =A0 =A0* retransmission has occurred.
+>>+ =A0 =A0 =A0 =A0*/
+>>+ =A0 =A0 =A0 if (tp->total_retrans > 1)
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 tp->snd_cwnd =3D 1;
+>>+ =A0 =A0 =A0 else
+>>+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 tp->snd_cwnd =3D tcp_init_cwnd(tp, dst)=
 ;
->> +
->> + =C2=A0 =C2=A0 /* Default is set to 8ms */
->> +#define DEFAULT_PRB_RETIRE_TOV =C2=A0 =C2=A0 =C2=A0 (8)
->> +
->> + =C2=A0 =C2=A0 unsigned short =C2=A0retire_blk_tov;
->> + =C2=A0 =C2=A0 unsigned long =C2=A0 tov_in_jiffies;
->> +
->> + =C2=A0 =C2=A0 /* timer to retire an outstanding block */
->> + =C2=A0 =C2=A0 struct timer_list retire_blk_timer;
->> +};
 >
-> You could align the member entries a bit more,
-> maybe move last_kactive_blk_num after retire_blk_tov
->
-> []
->
->> @@ -248,8 +322,11 @@ static void __packet_set_status(struct packet_s=
-ock *po, void *frame, int status)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 h.h2->tp_status =3D=
- status;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 flush_dcache_page(p=
-gv_to_page(&h.h2->tp_status));
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
->> + =C2=A0 =C2=A0 case TPACKET_V3:
->> =C2=A0 =C2=A0 =C2=A0 default:
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pr_err("TPACKET version =
-not supported\n");
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pr_err("<%s> TPACKET ver=
-sion not supported.Who is calling?\
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 Dumping stack.\n", __func__);
->
-> whitespace defect because of line continuation. =C2=A0Maybe just:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0WARN(1, "TPACK=
-ET version not supported\n");
->
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 BUG();
->> =C2=A0 =C2=A0 =C2=A0 }
->>
->> @@ -274,8 +351,11 @@ static int __packet_get_status(struct packet_so=
-ck *po, void *frame)
->> =C2=A0 =C2=A0 =C2=A0 case TPACKET_V2:
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 flush_dcache_page(p=
-gv_to_page(&h.h2->tp_status));
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return h.h2->tp_sta=
-tus;
->> + =C2=A0 =C2=A0 case TPACKET_V3:
->> =C2=A0 =C2=A0 =C2=A0 default:
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pr_err("TPACKET version =
-not supported\n");
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pr_err("<%s> TPACKET ver=
-sion:%d not supported.\
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 Dumping stack.\n", __func__, po->tp_version);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dump_stack();
->
-> here too.
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0WARN(1, "TPACK=
-ET version %d not supported\n", po->tp_version);
->
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 BUG();
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return 0;
->> =C2=A0 =C2=A0 =C2=A0 }
-> []
->> +static void prb_open_block(struct kbdq_core *pkc1, struct block_des=
-c *pbd1)
->> +{
->> + =C2=A0 =C2=A0 pr_err("<%s> ERROR block:%p is NOT FREE status:%d\
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 kactive_blk_num:%d\n",
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 __func__, pbd1, BLOCK_STATUS(pbd1), pkc1->kactive_blk_num);
->> + =C2=A0 =C2=A0 dump_stack();
->> + =C2=A0 =C2=A0 BUG();
->
-> here too. =C2=A0maybe just:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0WARN(1, "%s: ERROR block:%p is not free. =C2=
-=A0status: %s kactive_blk_num:%d\n"
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 __func__, pbd1, BLOCK_STATU=
-S(pbd1), pkc1->kactive_blk_num);
->
->> +static inline void packet_increment_rx_head(struct packet_sock *po,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- struct packet_ring_buffer *rb)
->> +{
->> + =C2=A0 =C2=A0 switch (po->tp_version) {
->> + =C2=A0 =C2=A0 case TPACKET_V1:
->> + =C2=A0 =C2=A0 case TPACKET_V2:
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return packet_increment_=
-head(rb);
->> + =C2=A0 =C2=A0 case TPACKET_V3:
->> + =C2=A0 =C2=A0 default:
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pr_err("<%s> TPACKET ver=
-sion:%d not supported.\
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 Dumping stack.\n", __func__, po->tp_version);
->
-> whitespace, WARN(1, etc...
->
->
->> @@ -2412,7 +3168,7 @@ out_free_pgvec:
->> =C2=A0 =C2=A0 =C2=A0 goto out;
->> =C2=A0}
->>
->> -static int packet_set_ring(struct sock *sk, struct tpacket_req *req=
-,
->> +static int packet_set_ring(struct sock *sk, union tpacket_req_u *re=
-q_u,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 int closing, int tx=
-_ring)
->> =C2=A0{
->> =C2=A0 =C2=A0 =C2=A0 struct pgv *pg_vec =3D NULL;
->> @@ -2421,7 +3177,17 @@ static int packet_set_ring(struct sock *sk, s=
-truct tpacket_req *req,
->> =C2=A0 =C2=A0 =C2=A0 struct packet_ring_buffer *rb;
->> =C2=A0 =C2=A0 =C2=A0 struct sk_buff_head *rb_queue;
->> =C2=A0 =C2=A0 =C2=A0 __be16 num;
->> - =C2=A0 =C2=A0 int err;
->> + =C2=A0 =C2=A0 int err =3D -EINVAL;
->> + =C2=A0 =C2=A0 /* Added to avoid minimal code churn */
->> + =C2=A0 =C2=A0 struct tpacket_req *req =3D &req_u->req;
->> +
->> + =C2=A0 =C2=A0 /* Opening a Tx-ring is NOT supported in TPACKET_V3 =
-*/
->> + =C2=A0 =C2=A0 if (!closing && tx_ring && (po->tp_version > TPACKET=
-_V2)) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pr_err("<%s> Tx-ring is =
-not supported on version:%d.\
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0Dumping stack.\n", __func__, po->tp_version);
->
-> whitespace, WARN(1, etc...
->
->
->
+> Is this behavior somewhere documented? In RFC2988bis I cannot find so=
+mething
+> similar.
 
-Sure, will address all the comments(sob,alignment,pr_err etc) in the
-next iteration of the patch.
+See my 5/20/11 mail on this subject. The short answer is, no, it's not
+part of RFC2988bis. The long answer is, when we (Vern, Mark and I)
+were working
+on RFC2988bis we shared a common design goal to minimize the negative
+impact to those paths with RTT > 1sec as much as possible.
 
-thanks
-Chetan
+RFC3390 and later RFC5681 have the following clause:
+"... Further, if the SYN or SYN/ACK is lost, the initial window used by=
+ a
+sender after a correctly transmitted SYN MUST be one segment
+consisting of at most SMSS bytes."
+
+Unfortunately, with initRTO reduced to 1sec, unless the stack can relia=
+bly
+detect spurious retransmissions of SYN or SYN-ACK, the paths with RTT >
+1sec may be penalized unnecessarily with initcwnd =3D 1 if the stack
+implementation follows the above clause faithfully. We can't really ame=
+nd
+the clause as part of RFC2988bis because it doesn't belong there, as th=
+e
+latter only covers RTO computation, not the congestion control algorith=
+m.
+In the end Vern/Mark suggested me to add the amendment to the IW10
+proposal I was working on (now becomes draft-ietf-tcpm-initcwnd-01.txt)
+So I did, with following paragraph:
+"...
+   Furthermore, RFC 3390 and RFC 5681 [RFC5681] state that
+
+         "If the SYN or SYN/ACK is lost, the initial window used by a
+         sender after a correctly transmitted SYN MUST be one segment
+         consisting of MSS bytes."
+
+   The proposed change to reduce the default RTO to 1 second [PACS11]
+   increases the chance for spurious SYN or SYN/ACK retransmission, thu=
+s
+   unnecessarily penalizing connections with RTT > 1 second if their
+   initial window is reduced to 1 segment. For this reason, it is
+   RECOMMENDED that implementations refrain from resetting the initial
+   window to 1 segment, unless either there have been multiple SYN or
+   SYN/ACK retransmissions, or true loss detection has been made."
+
+The patch follows the intent of the co-authors. It also moves the
+implementation closer to the spec. Without the patch the existing
+implementation will reduce ssthresh (active open side only), but not th=
+e
+cwnd upon SYN or SYN-ACK retransmission.
+
+Best,
+
+Jerry
+
+>
+>
+> Cheers, Hagen
+>
