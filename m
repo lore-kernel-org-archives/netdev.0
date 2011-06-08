@@ -1,48 +1,69 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 2/3] ipv4: Fix packet size calculation for IPsec
- packets in __ip_append_data
-Date: Wed, 8 Jun 2011 07:30:20 +0200
-Message-ID: <20110608053020.GA6489@secunet.com>
-References: <20110606064603.GB31505@secunet.com>
- <20110606064802.GC31505@secunet.com>
- <1307345899.3098.3.camel@edumazet-laptop>
- <20110606085247.GE31505@secunet.com>
- <1307423217.2642.59.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Wed, 8 Jun 2011 15:54:11 +1000
+Message-ID: <20110608155411.c3a2aa09.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48335 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752143Ab1FHF0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jun 2011 01:26:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1307423217.2642.59.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2011 at 07:06:57AM +0200, Eric Dumazet wrote:
-> 
-> Nick mail was :
-> 
-> http://www.spinics.net/lists/netdev/msg141308.html
-> 
+Hi all,
 
-Thanks for providing these informations.
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
 
-> Unfortunatly I could not find on my machines where I put my own
-> scripts...
-> 
-> Not a big deal, I suspect we can revert my commit if you say it added a
-> regression :)
-> 
+drivers/net/ll_temac_main.c: In function 'temac_open':
+drivers/net/ll_temac_main.c:859:2: error: implicit declaration of function 'request_irq'
+drivers/net/ll_temac_main.c:870:2: error: implicit declaration of function 'free_irq'
+drivers/net/ll_temac_main.c: In function 'temac_poll_controller':
+drivers/net/ll_temac_main.c:903:2: error: implicit declaration of function 'disable_irq'
+drivers/net/ll_temac_main.c:909:2: error: implicit declaration of function 'enable_irq'
 
-In between I can confirm that we get the slowpath problem back with my
-patch, so we still have a bug somewhere. Reverting your commit would
-be just a band aid. I think it is better to find the bug and do a real
-fix instead. Unfortunatly I fear I'm not able to track it down before
-my vacation that starts tomorrow. I'll continue to work at it once I'm
-back...
+Probably caused by commit a6b7a407865a ("net: remove interrupt.h
+inclusion from netdevice.h").
+
+I have added this patch for today:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 8 Jun 2011 15:49:33 +1000
+Subject: [PATCH] net: add needed interrupt.h
+
+Fixes these errors after the removal of interrupt.h from netdevice.h:
+
+drivers/net/ll_temac_main.c: In function 'temac_open':
+drivers/net/ll_temac_main.c:859:2: error: implicit declaration of function 'request_irq'
+drivers/net/ll_temac_main.c:870:2: error: implicit declaration of function 'free_irq'
+drivers/net/ll_temac_main.c: In function 'temac_poll_controller':
+drivers/net/ll_temac_main.c:903:2: error: implicit declaration of function 'disable_irq'
+drivers/net/ll_temac_main.c:909:2: error: implicit declaration of function 'enable_irq'
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/ll_temac_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index b7948cc..e7b8afe 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -48,6 +48,7 @@
+ #include <linux/io.h>
+ #include <linux/ip.h>
+ #include <linux/slab.h>
++#include <linux/interrupt.h>
+ 
+ #include "ll_temac.h"
+ 
+-- 
+1.7.5.3
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
