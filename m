@@ -1,90 +1,50 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Look for physical address from user space address/fixup - NET_DMA
-Date: Wed, 08 Jun 2011 16:45:36 +0200
-Message-ID: <4DEF8B10.6060904@monstr.eu>
-Reply-To: monstr@monstr.eu
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
- David Miller <davem@davemloft.net>,
- Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>,
- Thomas Gle
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
+From: Nicolas Cavallari <Nicolas.Cavallari@lri.fr>
+Subject: [PATCH] netfilter: fix looped (broad|multi)cast's bogus MACs in NFQUEUE
+Date: Wed,  8 Jun 2011 17:18:17 +0200 (CEST)
+Message-ID: <20110608151817.C95E24587D@pc11-132.lri.fr>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+By default, when broadcast or multicast packet are sent from a local
+application, they are sent to the interface then looped by the kernel
+to other local applications, going throught netfilter hooks in the process.
 
-I do some investigation how to speedup memory operations 
-(memcopy/memset/copy_tofrom_user/etc) by dma to improve ethernet performance 
-(currently for PAGE_SIZE operations).
+These looped packet have their MAC header removed from the skb by the kernel
+looping code.
+This confuse netfilter's netlink queue because it tries to extract a hardware
+address from these packets, but extracts a part of the IP header instead.
 
-I profiled kernel and copy_tofrom_user is the weakest place for network 
-operations. I have optimize it by loop unrolling which gave me 20% better 
-throughput but still no enough.
+This patch prevent NFQUEUE to include a MAC header in the netlink message
+if there is none.
 
-Then I added hw dma to the design and changed u-boot mem operations (saved me 5s 
-in bootup time - loading 20MB kernel through 100Mbit/s LAN) and also I have add 
-support to Linux memcpy (haven't measured improvement but there is some).
+Signed-off-by: Nicolas Cavallari <cavallar@lri.fr>
+---
+To reproduce the bug, run libnetfilter_queue's nfqnl_test.c and add
+some iptables -j NFQUEUE rule in PREROUTING.
+Then, either ping -b 255.255.255.255 or ping nonexistenthost.local (if
+avahi or another multicast dns client is configured)
 
-For copy_tofrom_user is situation a little bit complicated but I have prototyped 
-it by dma without fixup to see improvement. There could be next 20%.
+If you see MAC addresses like 40:00:ff:11:0d::70 (for mdns) or
+ 00:00:80:11:70:62 then you can see that they match this part of the packet's
+ip header :
 
-Based on this I have measured spending time on this code and I found that most 
-of the time is spent on looking for physical address from user space address.
-I need to get physical address because dma requires it. It is around 70% of 
-total time.
+               |flags| fragment offset|
+ |ttl| protocol|       checksum       |
 
-I use for Microblaze the part of code shown below but it is slow. Do you know 
-how to do it faster?
-
-	pmd_t *pmdp;
-	pte_t *ptep;
-	pmdp = pmd_offset(pud_offset(
-			pgd_offset(current->mm, address),
-					address), address);
-
-	preempt_disable();
-	ptep = pte_offset_map(pmdp, address);
-	if (pte_present(*ptep)) {
-		address = (unsigned long) page_address(pte_page(*ptep));
-		/* MS: I need add offset in page */
-		address += address & ~PAGE_MASK;
-		/* MS address is virtual */
-		address = virt_to_phys(address);
-	}
-	pte_unmap(ptep);
-	preempt_enable();
-
-
-Currently this is my bottleneck to get better improvement.
-
-Not sure if someone has ever tried to replace by dma with fixup support. That's 
-the second thing where I would like to hear your opinion. Would it be possible 
-to simplify it by access user space address and address + PAGE_SIZE? Or any 
-other scheme?
-
-There is also one option NET_DMA where I expect that dma will be used instead of 
-mem operations. Is it correct assumption? Because I see that there are no irqs 
-coming from dma. Dma test is working well.
-
-Eric, David: How is it supposed to work?
-
-
-Thanks,
-Michal
-
-
--- 
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
-Microblaze U-BOOT custodian
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+patch done against 2.6.39.1 but should also apply to nf-next
+---
+--- linux-2.6.39.1/net/netfilter/nfnetlink_queue.c	2011-06-08 14:43:41.188003302 +0200
++++ linux-2.6.39.1/net/netfilter/nfnetlink_queue.c	2011-06-08 14:46:10.892003541 +0200
+@@ -335,7 +335,8 @@ nfqnl_build_packet_message(struct nfqnl_
+ 	if (entskb->mark)
+ 		NLA_PUT_BE32(skb, NFQA_MARK, htonl(entskb->mark));
+ 
+-	if (indev && entskb->dev) {
++	if (indev && entskb->dev &&
++	    entskb->network_header != entskb->mac_header) {
+ 		struct nfqnl_msg_packet_hw phw;
+ 		int len = dev_parse_header(entskb, phw.hw_addr);
+ 		if (len) {
