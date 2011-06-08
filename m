@@ -1,91 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ANNOUNCE]: Release of iptables-1.4.11.1
-Date: Wed, 08 Jun 2011 15:54:01 +0200
-Message-ID: <4DEF7EF9.7010609@trash.net>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Look for physical address from user space address/fixup - NET_DMA
+Date: Wed, 08 Jun 2011 16:45:36 +0200
+Message-ID: <4DEF8B10.6060904@monstr.eu>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070206020401010904020204"
-To: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org,
-	"'netfilter@vger.kernel.org'
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+ David Miller <davem@davemloft.net>,
+ Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>,
+ Thomas Gle
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070206020401010904020204
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Hi,
 
-The netfilter coreteam presents:
+I do some investigation how to speedup memory operations 
+(memcopy/memset/copy_tofrom_user/etc) by dma to improve ethernet performance 
+(currently for PAGE_SIZE operations).
 
-    iptables version 1.4.11.1
+I profiled kernel and copy_tofrom_user is the weakest place for network 
+operations. I have optimize it by loop unrolling which gave me 20% better 
+throughput but still no enough.
 
-a minor release containing bugfixes for problems discovered in
-the 1.4.11 release as well as some minor documentation updates.
+Then I added hw dma to the design and changed u-boot mem operations (saved me 5s 
+in bootup time - loading 20MB kernel through 100Mbit/s LAN) and also I have add 
+support to Linux memcpy (haven't measured improvement but there is some).
 
-Due to the large number of changes in 1.4.11, some regressions
-and a few minor bugs made it into the release. This version
-addresses all identified problems:
+For copy_tofrom_user is situation a little bit complicated but I have prototyped 
+it by dma without fixup to see improvement. There could be next 20%.
 
-- broken inversion support in the owner match
+Based on this I have measured spending time on this code and I found that most 
+of the time is spent on looking for physical address from user space address.
+I need to get physical address because dma requires it. It is around 70% of 
+total time.
 
-- broken inversion in implicitly loaded protocol extensions, most
-  importantly causing "-p tcp ! --syn" to not negate --syn
+I use for Microblaze the part of code shown below but it is slow. Do you know 
+how to do it faster?
 
-- symlink installation fixes
+	pmd_t *pmdp;
+	pte_t *ptep;
+	pmdp = pmd_offset(pud_offset(
+			pgd_offset(current->mm, address),
+					address), address);
 
-- xml translation missing in IPv6 only builds
-
-See the attached changelogs for the full list of changes.
-
-Version 1.4.11.1 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team.
-Happy firewalling!
-
---------------070206020401010904020204
-Content-Type: text/plain;
- name="changes-iptables-1.4.11.1.txt"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment;
- filename="changes-iptables-1.4.11.1.txt"
-
-Elie De Brauwer (1):
-      doc: fix trivial typo in libipt_SNAT
-
-Jan Engelhardt (13):
-      libxt_owner: restore inversion support
-      build: remove dead code parts
-      build: fix installation of symlinks
-      build: fix absence of xml translator in IPv6-only builds
-      doc: update GPL license text
-      doc: iptables-xml should be in manpage section 1
-      build: move basic preprocessor flags to regular_CPPFLAGS
-      build: move kinclude's preprocessor flags to kinclude_CPPFLAGS
-      src: move all libiptc pieces into its directory
-      src: move all iptables pieces into a separate directory
-      tests: add some sample rulesets to test save-restore cycle
-      option: fix ignored negation before implicit extension loading
-      build: re-add missing CPPFLAGS for libiptc
-
-Maciej Żenczykowski (1):
-      xtables-multi: fix absence of xml translator in IPv6-only builds
-
-Mike Frysinger (1):
-      build: move remaining preprocessor flags to CPPFLAGS
-
-Patrick McHardy (1):
-      Bump version to 1.4.11.1
-
-Vlad Dogaru (1):
-      doc: fix MASQUERADE section of man page
+	preempt_disable();
+	ptep = pte_offset_map(pmdp, address);
+	if (pte_present(*ptep)) {
+		address = (unsigned long) page_address(pte_page(*ptep));
+		/* MS: I need add offset in page */
+		address += address & ~PAGE_MASK;
+		/* MS address is virtual */
+		address = virt_to_phys(address);
+	}
+	pte_unmap(ptep);
+	preempt_enable();
 
 
---------------070206020401010904020204--
+Currently this is my bottleneck to get better improvement.
+
+Not sure if someone has ever tried to replace by dma with fixup support. That's 
+the second thing where I would like to hear your opinion. Would it be possible 
+to simplify it by access user space address and address + PAGE_SIZE? Or any 
+other scheme?
+
+There is also one option NET_DMA where I expect that dma will be used instead of 
+mem operations. Is it correct assumption? Because I see that there are no irqs 
+coming from dma. Dma test is working well.
+
+Eric, David: How is it supposed to work?
+
+
+Thanks,
+Michal
+
+
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
