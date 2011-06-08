@@ -1,18 +1,17 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Fw: [Bug 36122] New: New cache learned PMTU information in inetpeer
- causes ssh to fail when tunneled via an IPSEC VPN
-Date: Wed, 8 Jun 2011 08:43:04 -0700
-Message-ID: <20110608084304.358d5970@nehalam.ftrdhcpuser.net>
+Subject: Fw: [Bridge] IGMP snooping not filtering multicast messages
+Date: Wed, 8 Jun 2011 08:44:34 -0700
+Message-ID: <20110608084434.28bfc18c@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40305 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:59399 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753404Ab1FHPnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 11:43:12 -0400
+	by vger.kernel.org with ESMTP id S1756597Ab1FHPoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 11:44:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,49 +19,39 @@ List-ID: <netdev.vger.kernel.org>
 
 Begin forwarded message:
 
-Date: Sat, 28 May 2011 21:50:29 GMT
-From: bugzilla-daemon@bugzilla.kernel.org
-To: shemminger@linux-foundation.org
-Subject: [Bug 36122] New: New cache learned PMTU information in inetpeer causes ssh to fail when tunneled via an IPSEC VPN
+Date: Tue, 31 May 2011 19:48:52 +0200 (CEST)
+From: "maxd@inwind.it" <maxd@inwind.it>
+To: bridge@lists.linux-foundation.org
+Subject: [Bridge] IGMP snooping not filtering multicast messages
 
 
-https://bugzilla.kernel.org/show_bug.cgi?id=36122
+Hi. I have a partial mesh network composed by Linux nodes. Each linux node may 
+have up to 4 ethernet interfaces, which are exploited to create point-to-point 
+connections with other linux nodes. I have bridged the ethernet interfaces in 
+each node, so that the whole network, which is physically composed by a set of 
+network segments, appears as a single layer-2 domain. I have enabled spanning 
+tree to avoid loops. In this scenario, I would like to exploit the IGMP 
+snooping functionality, but it seems that it is not working properly. I am 
+using iperf to set a multicast source (iperf client) and a few multicast sinks 
+in the network (iperf servers). I am using tcpdump, instead, to check where 
+multicast messages are received. What I notice is that there is apparently no 
+filtering of the multicast messages, that are always flooded in the network. I 
+tried to repeat the test varying the multicast address (paying attention not to 
+get reserved addresses), with and without multicast clients set, with the 
+multicast_router option set to 1 (default) and to 0. To double check that IGMP 
+is working, I have also tried to disable it; the only difference I see is that 
+tcpdump does not show IGMP query messages when the IGMP snooping is disabled. 
+So, I am wondering if the IGMP snooping implementation currently available can 
+deal with my scenario. In particular, I would stress the following points that 
+I think might be relevant:
+-I have no multicast router in my network (it looks like a single stand-alone 
+lan)
+-Each node acts as a bridge, so I have multiple bridges in my network, 
+connected each other.
+Any idea would be greatly appreciated!
 
-               URL: http://bugs.gentoo.org/show_bug.cgi?id=369025
-           Summary: New cache learned PMTU information in inetpeer causes
-                    ssh to fail when tunneled via an IPSEC VPN
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 2.6.39
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: blueness@gentoo.org
-                CC: kernel@gentoo.org
-        Regression: No
-
-
-When trying to ssh from a box running 2.6.39 on one private subnet to another
-box on another private subnet via an IPSEC vpn, ssh freezes and times out at:
-
-   debug1: expecting SSH2_MSG_KEX_DH_GEX_GROUP
-
-This was traced down to commit 2c8cec5c10bced2408082a6656170e74ac17231c.
-
-This type of error is known to occur when there is fragmentation due to
-mismatched mtu's which the commit addresses.
-
-Notice the problem does not occur when ssh-ing directly, ie not via an IPSEC
-tunnel.  I have not tested if other tunnels are affected.
-
-Please see the downstream bug for more details.
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
+Massimiliano
+_______________________________________________
+Bridge mailing list
+Bridge@lists.linux-foundation.org
+https://lists.linux-foundation.org/mailman/listinfo/bridge
