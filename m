@@ -1,69 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net tree
- related)
-Date: Wed, 8 Jun 2011 15:54:11 +1000
-Message-ID: <20110608155411.c3a2aa09.sfr@canb.auug.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [net-next 37/40] rtnetlink: Compute and store minimum ifinfo
+ dump size
+Date: Wed, 08 Jun 2011 08:09:57 +0200
+Message-ID: <1307513397.3961.0.camel@jlt3.sipsolutions.net>
+References: <1307449995-9458-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1307449995-9458-38-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Greg Rose <gregory.v.rose@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:35283 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223Ab1FHGKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 02:10:06 -0400
+In-Reply-To: <1307449995-9458-38-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Tue, 2011-06-07 at 05:33 -0700, Jeff Kirsher wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> The message size allocated for rtnl ifinfo dumps was limited to
+> a single page.  This is not enough for additional interface info
+> available with devices that support SR-IOV and caused a bug in
+> which VF info would not be displayed if more than approximately
+> 40 VFs were created per interface.
+> 
+> Implement a new function pointer for the rtnl_register service that will
+> calculate the amount of data required for the ifinfo dump and allocate
+> enough data to satisfy the request.
 
-After merging the final tree, today's linux-next build (powerpc
-allyesconfig) failed like this:
+Curious. Weren't dumps supposed to be split up into small chunks and
+then delivered? Where is this splitting going wrong, and could it be
+improved to split into smaller pieces?
 
-drivers/net/ll_temac_main.c: In function 'temac_open':
-drivers/net/ll_temac_main.c:859:2: error: implicit declaration of function 'request_irq'
-drivers/net/ll_temac_main.c:870:2: error: implicit declaration of function 'free_irq'
-drivers/net/ll_temac_main.c: In function 'temac_poll_controller':
-drivers/net/ll_temac_main.c:903:2: error: implicit declaration of function 'disable_irq'
-drivers/net/ll_temac_main.c:909:2: error: implicit declaration of function 'enable_irq'
+johannes
 
-Probably caused by commit a6b7a407865a ("net: remove interrupt.h
-inclusion from netdevice.h").
-
-I have added this patch for today:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 8 Jun 2011 15:49:33 +1000
-Subject: [PATCH] net: add needed interrupt.h
-
-Fixes these errors after the removal of interrupt.h from netdevice.h:
-
-drivers/net/ll_temac_main.c: In function 'temac_open':
-drivers/net/ll_temac_main.c:859:2: error: implicit declaration of function 'request_irq'
-drivers/net/ll_temac_main.c:870:2: error: implicit declaration of function 'free_irq'
-drivers/net/ll_temac_main.c: In function 'temac_poll_controller':
-drivers/net/ll_temac_main.c:903:2: error: implicit declaration of function 'disable_irq'
-drivers/net/ll_temac_main.c:909:2: error: implicit declaration of function 'enable_irq'
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/ll_temac_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-index b7948cc..e7b8afe 100644
---- a/drivers/net/ll_temac_main.c
-+++ b/drivers/net/ll_temac_main.c
-@@ -48,6 +48,7 @@
- #include <linux/io.h>
- #include <linux/ip.h>
- #include <linux/slab.h>
-+#include <linux/interrupt.h>
- 
- #include "ll_temac.h"
- 
--- 
-1.7.5.3
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
