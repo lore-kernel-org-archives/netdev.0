@@ -1,51 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] v2 ethtool: remove support for ETHTOOL_GRXNTUPLE
-Date: Wed, 08 Jun 2011 16:45:09 -0700 (PDT)
-Message-ID: <20110608.164509.1093080552984966542.davem@davemloft.net>
-References: <20110608223508.20551.45558.stgit@gitlad.jf.intel.com>
-	<1307574227.22348.501.camel@localhost>
+From: Amos Kong <akong@redhat.com>
+Subject: [PATCH] tun: do not put self in waitq if doing a nonblock read
+Date: Thu, 09 Jun 2011 07:46:06 +0800
+Message-ID: <20110608234606.8681.19932.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59801 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755011Ab1FHXpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 19:45:12 -0400
-In-Reply-To: <1307574227.22348.501.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jasowang@redhat.com, davem@davemloft.net, kvm@vger.kernel.org,
+	mst@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 09 Jun 2011 00:03:47 +0100
+Perf shows a relatively high rate (about 8%) race in
+spin_lock_irqsave() when doing netperf between external host and
+guest. It's mainly becuase the lock contention between the
+tun_do_read() and tun_xmit_skb(), so this patch do not put self into
+waitqueue to reduce this kind of race. After this patch, it drops to
+4%.
 
-> On Wed, 2011-06-08 at 15:35 -0700, Alexander Duyck wrote:
->> This change is meant to remove all support for displaying an ntuple as
->> strings via ETHTOOL_GRXNTUPLE.  The reason for this change is due to the
->> fact that multiple issues have been found including:
->>  - Multiple buffer overruns for strings being displayed.
->>  - Incorrect filters displayed, cleared filters with ring of -2 are displayed
->>  - Setting get_rx_ntuple displays no rules if defined.
->>  - Endianess wrong on displayed values.
->>  - Hard limit of 1024 filters makes display functionality extremely limited
->> 
->> The only driver that had supported this interface was ixgbe.  Since it no
->> longer uses the interface and due to the issues mentioned above I am
->> submitting this patch to remove it.
->> 
->> v2:
->> Updated based on comments from Ben Hutchings
->>  - Left ETH_SS_NTUPLE_FILTERS in code but commented on it being deprecated
->>  - Removed ethtool_rx_ntuple_list and ethtool_rx_ntuple_flow_spec_container
->>  - Left ETHTOOL_GRXNTUPLE but commented it as deprecated
->> 
->> Also cleaned up set_rx_ntuple since there is no flow spec container to
->> maintain we can drop all the code for the alloc and free of it and just
->> return ops->set_rx_ntuple().
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Amos Kong <akong@redhat.com>
+---
+ drivers/net/tun.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-I'll apply this to net-next-2.6, thanks!
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 74e9405..95dbff4 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -817,7 +817,8 @@ static ssize_t tun_do_read(struct tun_struct *tun,
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_chr_read\n");
+ 
+-	add_wait_queue(&tun->wq.wait, &wait);
++	if (unlikely(!noblock))
++		add_wait_queue(&tun->wq.wait, &wait);
+ 	while (len) {
+ 		current->state = TASK_INTERRUPTIBLE;
+ 
+@@ -848,7 +849,8 @@ static ssize_t tun_do_read(struct tun_struct *tun,
+ 	}
+ 
+ 	current->state = TASK_RUNNING;
+-	remove_wait_queue(&tun->wq.wait, &wait);
++	if (unlikely(!noblock))
++		remove_wait_queue(&tun->wq.wait, &wait);
+ 
+ 	return ret;
+ }
+
