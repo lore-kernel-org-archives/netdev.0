@@ -1,57 +1,82 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH v2] netfilter: avoid double seq_adjust for loopback
-Date: Wed, 8 Jun 2011 09:31:05 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1106080926320.1457@ja.ssi.bg>
+From: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
+Subject: [PATCH] ixgbe: Report PAUSE flags to ethtool
+Date: Wed, 8 Jun 2011 09:33:19 +0300
+Message-ID: <op.vwqu5trx6ywr33@esapekka-pc.rad1>
+References: <op.vwnklt0q6ywr33@esapekka-pc.rad1>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hki-smtp-1b.stonesoft.com ([84.34.144.100]:59965 "EHLO
+	hki-smtp-1b.stonesoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753344Ab1FHGzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 02:55:01 -0400
+Received: from hki-smtp-1b.stonesoft.com (hki-smtp-1b.stonesoft.com [127.0.0.1])
+	by localhost.stonesoft.com (Postfix) with ESMTP id E658CD8CB36
+	for <netdev@vger.kernel.org>; Wed,  8 Jun 2011 09:33:19 +0300 (EEST)
+Received: from outlook.stonesoft.com (unknown [172.16.40.22])
+	(using TLSv1 with cipher AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by hki-smtp-1b.stonesoft.com (Postfix) with ESMTP id D9803D8CABC
+	for <netdev@vger.kernel.org>; Wed,  8 Jun 2011 09:33:19 +0300 (EEST)
+In-Reply-To: <op.vwnklt0q6ywr33@esapekka-pc.rad1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
-	Avoid double seq adjustment for loopback traffic
-because it causes silent repetition of TCP data. One
-example is passive FTP with DNAT rule and difference in the
-length of IP addresses.
+I noticed that ixgbe driver doesn't report SUPPORTED_Pause and
+ADVERTISED_Pause flags to ethtool. This means that ethtool
+always reports:
+	Supported pause frame use: No
+	Advertised pause frame use: No
+I added reporting for capabilities and advertising.
+I tested it with our ixgbe card and latest ethtool
+   from git repo. I also need to add capability to
+change advertising parameters with "ethtool -s advertise %x",
+but will send in a different patch if this patch looks ok.
 
-	This patch adds check if packet is sent and
-received via loopback device. As the same conntrack is
-used both for outgoing and incoming direction, we restrict
-seq adjustment to happen only in POSTROUTING.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
 ---
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c
+b/drivers/net/ixgbe/ixgbe_ethtool.c
+index cb1555b..6005116 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -150,6 +150,7 @@ static int ixgbe_get_settings(struct net_device
+*netdev,
+    	bool link_up;
 
-diff -urp v2.6.39/linux/include/net/netfilter/nf_conntrack.h linux/include/net/netfilter/nf_conntrack.h
---- v2.6.39/linux/include/net/netfilter/nf_conntrack.h	2011-05-20 10:38:04.000000000 +0300
-+++ linux/include/net/netfilter/nf_conntrack.h	2011-06-08 08:29:58.880272586 +0300
-@@ -308,6 +308,12 @@ static inline int nf_ct_is_untracked(con
- 	return test_bit(IPS_UNTRACKED_BIT, &ct->status);
- }
- 
-+/* Packet is received from loopback */
-+static inline bool nf_is_loopback_packet(const struct sk_buff *skb)
-+{
-+	return skb->dev && skb->skb_iif && skb->dev->flags & IFF_LOOPBACK;
-+}
+    	ecmd->supported = SUPPORTED_10000baseT_Full;
++	ecmd->supported |= SUPPORTED_Pause;
+    	ecmd->autoneg = AUTONEG_ENABLE;
+    	ecmd->transceiver = XCVR_EXTERNAL;
+    	if ((hw->phy.media_type == ixgbe_media_type_copper) ||
+@@ -231,6 +232,21 @@ static int ixgbe_get_settings(struct net_device
+*netdev,
+    		ecmd->autoneg = AUTONEG_DISABLE;
+    	}
+
++	if (hw->fc.current_mode == ixgbe_fc_full) {
++		ecmd->advertising |= ADVERTISED_Pause;
++	} else if (hw->fc.current_mode == ixgbe_fc_rx_pause) {
++		ecmd->advertising |= ADVERTISED_Pause;
++		ecmd->advertising |= ADVERTISED_Asym_Pause;
++	} else if (hw->fc.current_mode == ixgbe_fc_tx_pause) {
++		ecmd->advertising |= ADVERTISED_Asym_Pause;
++	} else if (hw->fc.current_mode == ixgbe_fc_none) {
++		/* Correctly initialized */
++	} else if (hw->fc.current_mode == ixgbe_fc_pfc) {
++		/* Ethtool doesn't know about this mode */
++	} else {
++		/* Future modes */
++	}
 +
- extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
- extern unsigned int nf_conntrack_htable_size;
- extern unsigned int nf_conntrack_max;
-diff -urp v2.6.39/linux/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c linux/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
---- v2.6.39/linux/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2010-08-02 09:37:49.000000000 +0300
-+++ linux/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-06-08 08:34:15.594269592 +0300
-@@ -121,7 +121,9 @@ static unsigned int ipv4_confirm(unsigne
- 		return ret;
- 	}
- 
--	if (test_bit(IPS_SEQ_ADJUST_BIT, &ct->status)) {
-+	/* adjust seqs for loopback traffic only in outgoing direction */
-+	if (test_bit(IPS_SEQ_ADJUST_BIT, &ct->status) &&
-+	    !nf_is_loopback_packet(skb)) {
- 		typeof(nf_nat_seq_adjust_hook) seq_adjust;
- 
- 		seq_adjust = rcu_dereference(nf_nat_seq_adjust_hook);
+    	/* Get PHY type */
+    	switch (adapter->hw.phy.type) {
+    	case ixgbe_phy_tn:
+
+
+-- 
+Using Opera's revolutionary email client: http://www.opera.com/mail/
