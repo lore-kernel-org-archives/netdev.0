@@ -1,127 +1,47 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/9] xen: convert to 64 bit stats interface
-Date: Wed, 08 Jun 2011 17:53:58 -0700
-Message-ID: <20110609005417.385577995@vyatta.com>
-References: <20110609005356.160260858@vyatta.com>
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com
-To: "David S. Miller" <davem@davemloft.net>,
-	Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-Content-Disposition: inline; filename=xen-stats64.patch
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] bnx2i: fix bnx2i driver to test for physical device
+ support of iscsi early
+Date: Wed, 8 Jun 2011 21:14:58 -0400
+Message-ID: <20110609011457.GA9603@neilslaptop.think-freely.org>
+References: <1307561363-11677-1-git-send-email-nhorman@tuxdriver.com>
+ <1307563443.8532.42.camel@HP1>
+ <20110609001948.GA8203@neilslaptop.think-freely.org>
+ <C27F8246C663564A84BB7AB343977242667C64F9B5@IRVEXCHCCR01.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	'Mike Christie' <michaelc@cs.wisc.edu>,
+	"'David S. Miller'" <davem@davemloft.net>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46601 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382Ab1FIBPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 21:15:11 -0400
+Content-Disposition: inline
+In-Reply-To: <C27F8246C663564A84BB7AB343977242667C64F9B5@IRVEXCHCCR01.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert xen driver to 64 bit statistics interface.
-This driver was already counting packet per queue in a 64 bit value so not
-a huge change.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/drivers/net/xen-netfront.c	2011-06-07 19:34:20.752647705 +0900
-+++ b/drivers/net/xen-netfront.c	2011-06-07 20:02:11.028930158 +0900
-@@ -122,7 +122,14 @@ struct netfront_info {
- 	struct mmu_update rx_mmu[NET_RX_RING_SIZE];
- 
- 	/* Statistics */
--	unsigned long rx_gso_checksum_fixup;
-+	u64 rx_packets;
-+	u64 rx_bytes;
-+	u64 rx_errors;
-+	u64 rx_gso_checksum_fixup;
-+
-+	u64 tx_packets;
-+	u64 tx_bytes;
-+	u64 tx_dropped;
- };
- 
- struct netfront_rx_info {
-@@ -552,8 +559,8 @@ static int xennet_start_xmit(struct sk_b
- 	if (notify)
- 		notify_remote_via_irq(np->netdev->irq);
- 
--	dev->stats.tx_bytes += skb->len;
--	dev->stats.tx_packets++;
-+	np->tx_bytes += skb->len;
-+	np->tx_packets++;
- 
- 	/* Note: It is not safe to access skb after xennet_tx_buf_gc()! */
- 	xennet_tx_buf_gc(dev);
-@@ -566,7 +573,7 @@ static int xennet_start_xmit(struct sk_b
- 	return NETDEV_TX_OK;
- 
-  drop:
--	dev->stats.tx_dropped++;
-+	np->tx_dropped++;
- 	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
-@@ -847,6 +854,7 @@ out:
- static int handle_incoming_queue(struct net_device *dev,
- 				 struct sk_buff_head *rxq)
- {
-+	struct netfront_info *np = netdev_priv(dev);
- 	int packets_dropped = 0;
- 	struct sk_buff *skb;
- 
-@@ -867,12 +875,11 @@ static int handle_incoming_queue(struct
- 		if (checksum_setup(dev, skb)) {
- 			kfree_skb(skb);
- 			packets_dropped++;
--			dev->stats.rx_errors++;
- 			continue;
- 		}
- 
--		dev->stats.rx_packets++;
--		dev->stats.rx_bytes += skb->len;
-+		np->rx_packets++;
-+		np->rx_bytes += skb->len;
- 
- 		/* Pass it up. */
- 		netif_receive_skb(skb);
-@@ -919,7 +926,7 @@ static int xennet_poll(struct napi_struc
- err:
- 			while ((skb = __skb_dequeue(&tmpq)))
- 				__skb_queue_tail(&errq, skb);
--			dev->stats.rx_errors++;
-+			np->rx_errors++;
- 			i = np->rx.rsp_cons;
- 			continue;
- 		}
-@@ -1034,6 +1041,22 @@ static int xennet_change_mtu(struct net_
- 	return 0;
- }
- 
-+static struct rtnl_link_stats64 *xennet_get_stats64(struct net_device *dev,
-+						    struct rtnl_link_stats64 *stats)
-+{
-+	struct netfront_info *np = netdev_priv(dev);
-+
-+	stats->rx_packets = np->rx_packets;
-+	stats->rx_bytes   = np->rx_bytes;
-+	stats->rx_errors  = np->rx_errors;
-+
-+	stats->tx_packets = np->tx_packets;
-+	stats->tx_bytes   = np->tx_bytes;
-+	stats->tx_bytes   = np->tx_dropped;
-+
-+	return stats;
-+}
-+
- static void xennet_release_tx_bufs(struct netfront_info *np)
- {
- 	struct sk_buff *skb;
-@@ -1182,6 +1205,7 @@ static const struct net_device_ops xenne
- 	.ndo_stop            = xennet_close,
- 	.ndo_start_xmit      = xennet_start_xmit,
- 	.ndo_change_mtu	     = xennet_change_mtu,
-+	.ndo_get_stats64     = xennet_get_stats64,
- 	.ndo_set_mac_address = eth_mac_addr,
- 	.ndo_validate_addr   = eth_validate_addr,
- 	.ndo_fix_features    = xennet_fix_features,
+On Wed, Jun 08, 2011 at 05:46:23PM -0700, Michael Chan wrote:
+> Neil Horman wrote:
+> 
+> > How do you figure?  bnx2_cnic_probe is only called from is_cnic_dev
+> > (which still
+> > makes me shake my head a bit).  is_cnic_dev is only called from
+> > cnic_netdev_event, which holds the rtnl_lock.  Since the event we
+> > trigger on is
+> > called from NETDEV_REGISTER or NETDEV_UP, I don't see how we can wind
+> > up
+> > suspending the device prior to caling bnx2_cnic_probe.
+> 
+> Consider NETDEV_REGISTER -> NETDEV_UP -> NETDEV_DOWN
+> 
+> During NETDEV_DOWN, we shutdown the device, but the netdev is still
+> registered.
+> 
+> Then we load cnic.  The NETDEV events will be replayed when we call
+> netdev_register_notifier() and cnic will get the NETDEV_REGISTER event.
+> We'll then call bnx2_cnic_probe() but the device is down.
+Ah,ok.  Please CC me on your patch.
+Neil
