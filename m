@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Update
-Date: Thu, 09 Jun 2011 01:06:03 -0700
-Message-ID: <1307606764.32044.24.camel@jtkirshe-mobl>
+Date: Thu, 09 Jun 2011 01:14:27 -0700
+Message-ID: <1307607268.32044.26.camel@jtkirshe-mobl>
 References: <1307605611.32044.16.camel@jtkirshe-mobl>
 	 <20110609.005051.1530473933808285841.davem@davemloft.net>
 	 <1307605995.32044.18.camel@jtkirshe-mobl>
@@ -9,21 +9,21 @@ References: <1307605611.32044.16.camel@jtkirshe-mobl>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-tZmXyxQnhzjP23u3jitR"
+	boundary="=-lalUVulWrRGiXIrpQ9yF"
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22579 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:2875 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757007Ab1FIIGE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 04:06:04 -0400
+	id S1752879Ab1FIIOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 04:14:36 -0400
 In-Reply-To: <20110609.005821.841607202181194646.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-tZmXyxQnhzjP23u3jitR
+--=-lalUVulWrRGiXIrpQ9yF
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -43,13 +43,10 @@ I
 >=20
 > And if you're touching global code, you should too :-)
 
-Don't worry, I will be having a talk with validation, because my
-understanding was that yes, we were doing allmodconfig compile testing
-(along with several other's like allyesconfig and randomconfig).  I do a
-sanity check compile before sending anything out, but my config just
-makes sure that all the Intel LAN drivers (and DCB) are enabled.
+Looks like after a thorough search, the infiniband instance was the only
+instance missed.
 
---=-tZmXyxQnhzjP23u3jitR
+--=-lalUVulWrRGiXIrpQ9yF
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -57,14 +54,14 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEbBAABAgAGBQJN8H7rAAoJECTsCADr/EWUCGIH91yf/JgIfmcOvWbovEF4Ueiv
-q7hElCiFWIP/gVB28w0inCNGT6J2m0V70d26mepVPxckpL0xnNPXltwkZB5VbxBZ
-QB87Flz0i/8wuBJt1a9TgP4VKpqppNa9NpB1RNlJCs5IUm55l87UEhSW8vXMUNAI
-SAapBsGQhUGnwq+7EVI4J+21/BJNU78QOS63zq/3bes8L+M2mBOzg/t7fzCVJ77A
-1z7wmOX/rgftXfrqv2tHpTkMndnAVUqSt174pw12dSENSXpU0CrdrkHxfdnh20X+
-nasyKfqJpNHYr3K48tRROqVmJXk7S3OgcHHCbHV2XoaK48lEqzkQ0nj2C1mjuw==
-=iEhz
+iQEcBAABAgAGBQJN8IDjAAoJECTsCADr/EWUmS8IAKYvz6ZzeozsnCyA1hJp62h2
+2RZCA+Iab1BiUrdrlQJoMTG/iWWe6GkWlUWpJuM/FE/Sv+PWsoLZ1OafOcg6xYRx
+TPmGbM8Biv5ISzlRThsgRcvrUZEHnnl029o73XhxIlIqiJo50Crl7iL6Qzzy+XYR
+LBYa6u8K9jacyu7o0Bq2R8XAqzYgBgfdW0KmUj7vPhAmREFZ7xD6XJsCvK1DoluA
+gKG3mznbcXDYWHwuUIhSm8NmrDUslioaJRJlXhigRnFuEQ7toqrxbeGPjqfh0KYx
+tPorIjjVV3jwPNzBBNdv86GYY20PhGf8xEpV0cgUV4k5UYDWviTwdcHxOD4sFpc=
+=OE5V
 -----END PGP SIGNATURE-----
 
---=-tZmXyxQnhzjP23u3jitR--
+--=-lalUVulWrRGiXIrpQ9yF--
 
