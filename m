@@ -1,34 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: do not put self in waitq if doing a nonblock read
-Date: Thu, 09 Jun 2011 00:27:21 -0700 (PDT)
-Message-ID: <20110609.002721.963829441380663942.davem@davemloft.net>
-References: <20110608234606.8681.19932.stgit@localhost6.localdomain6>
+From: WeipingPan <panweiping3@gmail.com>
+Subject: Re: [PATCH v4 net-next 0/5] bonding:use latest lacp_rate and ad_select
+ and delete unused ad_timer and arp_mon_pt
+Date: Thu, 09 Jun 2011 15:29:51 +0800
+Message-ID: <4DF0766F.50706@gmail.com>
+References: <cover.1307603621.git.panweiping3@gmail.com> <20110609.002155.1433667911487783052.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jasowang@redhat.com, kvm@vger.kernel.org,
-	mst@redhat.com
-To: akong@redhat.com
+Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53183 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753501Ab1FIH1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:27:25 -0400
-In-Reply-To: <20110608234606.8681.19932.stgit@localhost6.localdomain6>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:38886 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859Ab1FIH3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:29:10 -0400
+In-Reply-To: <20110609.002155.1433667911487783052.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amos Kong <akong@redhat.com>
-Date: Thu, 09 Jun 2011 07:46:06 +0800
+On 06/09/2011 03:21 PM, David Miller wrote:
+> My head will spin if I see yet another submission of these
+> patches :-(
+sorry for the inconvenience
 
-> Perf shows a relatively high rate (about 8%) race in
-> spin_lock_irqsave() when doing netperf between external host and
-> guest. It's mainly becuase the lock contention between the
-> tun_do_read() and tun_xmit_skb(), so this patch do not put self into
-> waitqueue to reduce this kind of race. After this patch, it drops to
-> 4%.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Amos Kong <akong@redhat.com>
-
-Applied, thanks.
+Weiping Pan
