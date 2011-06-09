@@ -1,43 +1,36 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net-next 5/5] bonding: delete unused arp_mon_pt
-Date: Thu,  9 Jun 2011 15:03:31 +0800
-Message-ID: <a525731fc8b30cb4aa596eeb1915e49f01160dca.1307601948.git.panweiping3@gmail.com>
-References: <cover.1307601948.git.panweiping3@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Weiping Pan <panweiping3@gmail.com>
-To: fubar@us.ibm.com, andy@greyhouse.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Update
+Date: Thu, 09 Jun 2011 00:05:05 -0700 (PDT)
+Message-ID: <20110609.000505.2259375858864240000.davem@davemloft.net>
+References: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:33126 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756782Ab1FIHDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:03:20 -0400
-In-Reply-To: <cover.1307601948.git.panweiping3@gmail.com>
-In-Reply-To: <cover.1307601948.git.panweiping3@gmail.com>
-References: <cover.1307601948.git.panweiping3@gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38570 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753619Ab1FIHFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:05:09 -0400
+In-Reply-To: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now all received packets are handled by bond_handle_frame,
-and arp_mon_pt isn't used any more.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  8 Jun 2011 15:56:28 -0700
 
-Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- drivers/net/bonding/bonding.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> The following series is a (smaller) subset of the previous 40 patch
+> submission.  This subset only contains updates to e1000e, igb, igbvf
+> and rtnetlink.
+> 
+> e1000e: several cleanups and fixes, as well as bump the version
+> igb/igbvf/ixgbevf: bump driver version
+> rtnetlink: Compute and store minimum ifinfo dump size
+> 
+> The following are changes since commit ffbc03bc75b39c7bd412e7cc6d2185c11b0ffedd:
+>   net: add needed interrupt.h
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index ea1d005..382903f 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -240,7 +240,6 @@ struct bonding {
- 	struct   bond_params params;
- 	struct   list_head vlan_list;
- 	struct   vlan_group *vlgrp;
--	struct   packet_type arp_mon_pt;
- 	struct   workqueue_struct *wq;
- 	struct   delayed_work mii_work;
- 	struct   delayed_work arp_work;
--- 
-1.7.4.4
-
+Pulled, thanks Jeff.
