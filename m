@@ -1,51 +1,35 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
-Date: Thu, 9 Jun 2011 08:01:06 +0200
-Message-ID: <20110609060105.GA6286@minipsycho.redhat.com>
-References: <m1aaectyed.fsf@fess.ebiederm.org>
- <20110524.022406.2228892895515155850.davem@davemloft.net>
- <m1oc2spmyt.fsf@fess.ebiederm.org>
- <20110601.205940.1179055860757569997.davem@davemloft.net>
- <m11uzcidvq.fsf_-_@fess.ebiederm.org>
- <20110608162841.GB4409@minipsycho.redhat.com>
- <BANLkTiksNQ-f=qN4PhPP4qX0Saiwb-hY1A@mail.gmail.com>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH 5/9] netxen: convert to 64 bit statistics
+Date: Thu, 9 Jun 2011 01:13:26 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FD4B128C0@MNEXMB2.qlogic.org>
+References: <20110609005356.160260858@vyatta.com>
+ <20110609005417.572148247@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, greearb@candelatech.com,
-	nicolas.2p.debian@gmail.com, netdev@vger.kernel.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net, jesse@nicira.com
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54517 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750953Ab1FIGBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 02:01:49 -0400
-Content-Disposition: inline
-In-Reply-To: <BANLkTiksNQ-f=qN4PhPP4qX0Saiwb-hY1A@mail.gmail.com>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:19592 "EHLO
+	TX2EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341Ab1FIGOb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 02:14:31 -0400
+In-Reply-To: <20110609005417.572148247@vyatta.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jun 09, 2011 at 01:08:13AM CEST, xiaosuo@gmail.com wrote:
->On Thu, Jun 9, 2011 at 12:28 AM, Jiri Pirko <jpirko@redhat.com> wrote:
->>
->> Why we can't remove this right away?
->>
->
->I think the reason is this patch is a bug fix for the stable kernel,
->so we should not introduce new features or remove old features.
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> 
+> Change to 64 bit statistics interface, driver was already maintaining
+> 64 bit
+> value.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+Acked-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-But for net-next if should be ok, right?
+Thanks Stephen.
 
-What's the reason for possibility of removing the reorder flag? Why
-would user want do it?
 
-Thanks
-
-Jirka
->
->-- 
->Regards,
->Changli Gao(xiaosuo@gmail.com)
