@@ -1,51 +1,43 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 10/14] netvm: Set PF_MEMALLOC as appropriate during SKB processing
-Date: Thu, 9 Jun 2011 12:21:31 +0200
-Message-ID: <BANLkTimUE9yb-DegdUk0BbbOGWoUhEBrqw@mail.gmail.com>
-References: <1307606573-24704-1-git-send-email-mgorman@suse.de> <1307606573-24704-11-git-send-email-mgorman@suse.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 5/5 net-next] cnic, bnx2: Check iSCSI support early in
+ bnx2_init_one()
+Date: Thu, 9 Jun 2011 06:42:28 -0400
+Message-ID: <20110609104228.GA24178@hmsreliant.think-freely.org>
+References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
+ <1307597376-5379-2-git-send-email-mchan@broadcom.com>
+ <1307597376-5379-3-git-send-email-mchan@broadcom.com>
+ <1307597376-5379-4-git-send-email-mchan@broadcom.com>
+ <1307597376-5379-5-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1307606573-24704-11-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49553 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752971Ab1FIKmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 06:42:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1307597376-5379-5-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/6/9 Mel Gorman <mgorman@suse.de>:
-[...]
-> +/*
-> + * Limit which protocols can use the PFMEMALLOC reserves to those that a=
-re
-> + * expected to be used for communication with swap.
-> + */
-> +static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
-> +{
-> + =A0 =A0 =A0 switch (skb->protocol) {
-> + =A0 =A0 =A0 case __constant_htons(ETH_P_ARP):
-> + =A0 =A0 =A0 case __constant_htons(ETH_P_IP):
-> + =A0 =A0 =A0 case __constant_htons(ETH_P_IPV6):
-> + =A0 =A0 =A0 case __constant_htons(ETH_P_8021Q):
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return true;
-> + =A0 =A0 =A0 default:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return false;
-> + =A0 =A0 =A0 }
-> +}
+On Wed, Jun 08, 2011 at 10:29:36PM -0700, Michael Chan wrote:
+> Based on earlier patch from Neil Horman <nhorman@tuxdriver.com>
+> 
+> If iSCSI is not supported on a bnx2 device, bnx2_cnic_probe() will
+> return NULL and the cnic device will not be visible to bnx2i.  This
+> will prevent bnx2i from registering and then unregistering during
+> cnic_start() and cause the warning message:
+> 
+> bnx2 0003:01:00.1: eth1: Failed waiting for ULP up call to complete
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+Thank you Michael.  This also lets you eliminate some dead code in bnx2i_start
+now, since cdev->max_iscsi_conn will never be zero.
 
-This is not needed and wrong. Whatever list there will be, it's going
-to always miss some obscure setup (or not that obscure, like
-ATAoverEthernet).
+Regards
+Neil
 
-Best Regards,
-Micha=B3 Miros=B3aw
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> 
