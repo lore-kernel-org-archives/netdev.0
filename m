@@ -1,52 +1,62 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: Request for review on Hyper-V virtual network driver
-Date: Thu, 9 Jun 2011 16:00:25 -0700
-Message-ID: <20110609230025.GA22856@suse.de>
-References: <1307654865-30326-1-git-send-email-haiyangz@microsoft.com>
- <1307655530.13329.49.camel@Joe-Laptop>
- <A1F3067C9B68744AA19F6802BAB8FFDC09603E8F@TK5EX14MBXC227.redmond.corp.microsoft.com>
- <20110609220701.GA24006@suse.de>
- <1307658497.18357.6.camel@Joe-Laptop>
- <1307659748.3127.42.camel@bwh-desktop>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: RE: [PATCH v2 2/5] net: ep93xx_eth: pass struct device to DMA API
+ functions
+Date: Thu, 9 Jun 2011 18:40:21 -0500
+Message-ID: <ADE657CA350FB648AAC2C43247A983F001F3820B8699@AUSP01VMBX24.collaborationhost.net>
+References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
+ <c0ddfc297e0ea1e64e58cedd6552c6b2e52c5fe8.1307040443.git.mika.westerberg@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Hank Janssen <hjanssen@microsoft.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"kernel@wantstofly.org" <kernel@wantstofly.org>,
+	"ryan@bluewatersys.com" <ryan@bluewatersys.com>
+To: Mika Westerberg <mika.westerberg@iki.fi>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:59858 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756698Ab1FIXAk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 19:00:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1307659748.3127.42.camel@bwh-desktop>
+Received: from mail131.messagelabs.com ([216.82.242.99]:19357 "EHLO
+	mail131.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755398Ab1FIXkc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 19:40:32 -0400
+In-Reply-To: <c0ddfc297e0ea1e64e58cedd6552c6b2e52c5fe8.1307040443.git.mika.westerberg@iki.fi>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 09, 2011 at 11:49:08PM +0100, Ben Hutchings wrote:
-> On Thu, 2011-06-09 at 15:28 -0700, Joe Perches wrote:
-> [...]
-> > It's odd and a bit ugly to use #include "../../staging/hyperv.h"
-> > 
-> > Maybe add another include path to the Makefile and just use
-> > #include "hyperv.h"
-> > until all of the hyperv files are moved out of staging?
+On Thursday, June 02, 2011 12:00 PM, Mika Westerberg wrote:
+>
+> We shouldn't use NULL for any DMA API functions, unless we are dealing with
+> ISA or EISA device. So pass correct struct dev pointer to these functions.
+>
+> Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
+> Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> ---
+>  drivers/net/arm/ep93xx_eth.c |   26 ++++++++++++++++----------
+>  1 files changed, 16 insertions(+), 10 deletions(-)
 > 
-> It seems strange for files outside staging to have dependencies inside
-> staging.  I think that header file should be moved out first (or at the
-> same time).
+> diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
+> index 5a77001..8779d3b 100644
+> --- a/drivers/net/arm/ep93xx_eth.c
+> +++ b/drivers/net/arm/ep93xx_eth.c
+> @@ -159,6 +159,8 @@ struct ep93xx_priv
+>  	void __iomem		*base_addr;
+>  	int			irq;
+>  
+> +	struct device		*dma_dev;
 
-The hyperv core hasn't moved out yet, as there is other work happening
-there first.  I think Haiyang wanted to find out what was left to do on
-the network driver side first while others work on the core issues.
+Mika,
 
-So you can safely ignore that include for now, it's not a big deal, this
-isn't ready to be merged yet, that's what the review is for :)
+I just noticed this macro in include/linux/netdevice.h
 
-thanks,
+/* Set the sysfs physical device reference for the network logical device
+ * if set prior to registration will cause a symlink during initialization.
+ */
+#define SET_NETDEV_DEV(net, pdev)       ((net)->dev.parent = (pdev))
 
-greg k-h
+Is there anyway you could use that macro in the probe to save the platform_device
+(with it's associated device) instead of introducing a new struct device * in the
+private data?
+
+Regards,
+Hartley
