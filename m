@@ -1,49 +1,61 @@
 From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH v4 net-next 0/5] bonding:use latest lacp_rate and ad_select and delete unused ad_timer and arp_mon_pt
-Date: Thu,  9 Jun 2011 15:19:00 +0800
-Message-ID: <cover.1307603621.git.panweiping3@gmail.com>
+Subject: [PATCH net-next 3/5] bonding:delete agg_select_mode from ad_bond_info
+Date: Thu,  9 Jun 2011 15:19:03 +0800
+Message-ID: <61b3301f160012b2568e9801325d09787c8dff4c.1307603621.git.panweiping3@gmail.com>
+References: <cover.1307603621.git.panweiping3@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Weiping Pan <panweiping3@gmail.com>
 To: fubar@us.ibm.com, andy@greyhouse.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1307603621.git.panweiping3@gmail.com>
+In-Reply-To: <cover.1307603621.git.panweiping3@gmail.com>
+References: <cover.1307603621.git.panweiping3@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is bug that when you modify lacp_rate via sysfs,
-802.3ad won't use the new value of lacp_rate to transmit packets.
-This is because port->actor_oper_port_state isn't changed.
+bond_params->ad_select and ad_bond_info->agg_select_mode have the same
+meaning, they are duplicate and need extra synchronization.
 
-As for ad_select, it can work,
-but both struct bond_params and ad_bond_info have lacp_fast and ad_select,
-they are duplicate and need extra synchronization.
-802.3ad can get them from bond_params directly every time.
+__get_agg_selection_mode() get ad_select from bond_params directly.
 
-And ad_timer and arp_mon_pt aren't used any more, just delete them.
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ drivers/net/bonding/bond_3ad.c |    3 +--
+ drivers/net/bonding/bond_3ad.h |    1 -
+ 2 files changed, 1 insertions(+), 3 deletions(-)
 
-changelog:
-v2:
-add bond_3ad_update_lacp_rate() as a helper function,
-and hold bond->lock when iterates slave list.
-
-v3:
-delete duplicate lacp_fast and agg_select_mode from struct ad_bond_info.
-
-v4:
-delete unused ad_timer and arp_mon_pt.
-
-Weiping Pan (5):
-  bonding: make 802.3ad use latest lacp_rate
-  bonding:delete lacp_fast from ad_bond_info
-  bonding:delete agg_select_mode from ad_bond_info
-  bonding: delete unused ad_timer
-  bonding: delete unused arp_mon_pt
-
- drivers/net/bonding/bond_3ad.c   |   41 ++++++++++++++++++++++++++++++++-----
- drivers/net/bonding/bond_3ad.h   |    8 +-----
- drivers/net/bonding/bond_main.c  |    3 +-
- drivers/net/bonding/bond_sysfs.c |    1 +
- drivers/net/bonding/bonding.h    |    1 -
- 5 files changed, 39 insertions(+), 15 deletions(-)
-
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 013a801..6122725 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -262,7 +262,7 @@ static inline u32 __get_agg_selection_mode(struct port *port)
+ 	if (bond == NULL)
+ 		return BOND_AD_STABLE;
+ 
+-	return BOND_AD_INFO(bond).agg_select_mode;
++	return bond->params.ad_select;
+ }
+ 
+ /**
+@@ -1859,7 +1859,6 @@ static void ad_marker_response_received(struct bond_marker *marker,
+ void bond_3ad_initiate_agg_selection(struct bonding *bond, int timeout)
+ {
+ 	BOND_AD_INFO(bond).agg_select_timer = timeout;
+-	BOND_AD_INFO(bond).agg_select_mode = bond->params.ad_select;
+ }
+ 
+ static u16 aggregator_identifier;
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 9782785..1682e69 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -253,7 +253,6 @@ struct ad_system {
+ struct ad_bond_info {
+ 	struct ad_system system;	    /* 802.3ad system structure */
+ 	u32 agg_select_timer;	    // Timer to select aggregator after all adapter's hand shakes
+-	u32 agg_select_mode;	    // Mode of selection of active aggregator(bandwidth/count)
+ 	struct timer_list ad_timer;
+ };
+ 
 -- 
 1.7.4.4
