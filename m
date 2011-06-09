@@ -1,40 +1,32 @@
-From: "Miljanovic, Nebojsa (Neb)" <neb.miljanovic@alcatel-lucent.com>
-Subject: Re:  [PATCH net-2.6.23] Per-datagram TTL and TOS via sendmsg()
-Date: Thu, 9 Jun 2011 10:48:48 -0500
-Message-ID: <180685543D224348869F70A5870DB9408A5EE802@USNAVSXCHMBSB2.ndc.alcatel-lucent.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: fix looped (broad|multi)cast's MAC handling.
+Date: Thu, 09 Jun 2011 18:08:06 +0200
+Message-ID: <4DF0EFE6.4010206@trash.net>
+References: <20110608153032.GA26912@Chamillionaire.breakpoint.cc> <1307626748-10992-1-git-send-email-cavallar@lri.fr> <1307626748-10992-2-git-send-email-cavallar@lri.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ihemail3.lucent.com ([135.245.0.37]:46394 "EHLO
-	ihemail3.lucent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392Ab1FIPsw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 11:48:52 -0400
-Received: from usnavsmail4.ndc.alcatel-lucent.com (usnavsmail4.ndc.alcatel-lucent.com [135.3.39.12])
-	by ihemail3.lucent.com (8.13.8/IER-o) with ESMTP id p59Fmoom026340
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 9 Jun 2011 10:48:51 -0500 (CDT)
-Received: from USNAVSXCHHUB01.ndc.alcatel-lucent.com (usnavsxchhub01.ndc.alcatel-lucent.com [135.3.39.110])
-	by usnavsmail4.ndc.alcatel-lucent.com (8.14.3/8.14.3/GMO) with ESMTP id p59FmoFO016646
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 9 Jun 2011 10:48:50 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Nicolas Cavallari <cavallar@lri.fr>
+To: Nicolas Cavallari <Nicolas.Cavallari@lri.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1307626748-10992-2-git-send-email-cavallar@lri.fr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(re-submitting to the mailing list since I did not use plain text the first time around)
+On 09.06.2011 15:39, Nicolas Cavallari wrote:
+> By default, when broadcast or multicast packet are sent from a local
+> application, they are sent to the interface then looped by the kernel
+> to other local applications, going throught netfilter hooks in the process.
+> 
+> These looped packet have their MAC header removed from the skb by the kernel
+> looping code.
+> This confuse various netfilter's netlink queue, netlink log and the
+> legacy ip_queue, because they try to extract a hardware
+> address from these packets, but extracts a part of the IP header instead.
+> 
+> This patch prevent NFQUEUE, NFLOG and ip_QUEUE to include a MAC header
+> if there is none in the packet.
 
-Hello David,
-
-is there any way to get this old PATCH accepted. I am finding it very useful since the only other way to control TOS/DSCP is via socket option. However, socket wide TOS/DSCP is not always practical. Having ability for applications to control TOS/DSCP on per-datagram basis is so much more powerful.
-
-
-http://marc.info/?l=linux-netdev&m=118388241201593
-
- 
-Thanks,
-Neb Miljanovic
-Alcatel-Lucent
-
- 
+Please add a Signed-off-by: line to your patch so I can apply it.
+Thanks!
