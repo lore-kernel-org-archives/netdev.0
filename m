@@ -1,67 +1,39 @@
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Subject: [net-next-2.6 PATCH 4/4] enic: Bug Fix: Fix hardware transmit queue
-	indexing in enic_poll_controller
-Date: Thu, 09 Jun 2011 13:37:07 -0700
-Message-ID: <20110609203707.31838.84936.stgit@savbu-pc100.cisco.com>
-References: <20110609203620.31838.61879.stgit@savbu-pc100.cisco.com>
+From: Bryan Huntsman <bryanh@codeaurora.org>
+Subject: Re: [PATCH 2/3] net: msm_ipc: Add user-space support for MSM_IPC
+ Router
+Date: Thu, 09 Jun 2011 13:41:53 -0700
+Message-ID: <4DF13011.6060003@codeaurora.org>
+References: <1307555467-1530-1-git-send-email-kramasub@codeaurora.org> <4DF0FD8A.1000304@codeaurora.org> <20110609.123553.784125057506332397.davem@davemloft.net> <201106092215.49079.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:39019 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634Ab1FIUhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 16:37:19 -0400
-In-Reply-To: <20110609203620.31838.61879.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, kramasub@codeaurora.org,
+	netdev@vger.kernel.org, linux-arm-msm@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <201106092215.49079.arnd@arndb.de>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
+On 06/09/2011 01:15 PM, Arnd Bergmann wrote:
+> I can see some good use cases for having a socket to do IPC between OS
+> images that have a shared memory interconnect. What I see as most
+> problematic is to have it defined in a way that is tightly connected
+> to specific hardware from one vendor. If the protocol was defined
+> in a way that is useful for communication between virtual machines
+> (e.g. on top of virtio) and tranparent PCI bridges, it would probably
+> be much more acceptable.
+> 
+> 	Arnd
 
+Yeah, we're trying to figure out the best way to do socket-based
+communication between various images within a SoC.  I was thinking that
+some kind of registration scheme would be necessary for the new AF to
+support different SoCs and communication mechanisms.  We'll take a look
+at ways to have a generic implementation.  Thanks.
 
+- Bryan
 
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: Danny Guo <dannguo@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
----
- drivers/net/enic/enic.h      |    2 +-
- drivers/net/enic/enic_main.c |    8 ++++++--
- 2 files changed, 7 insertions(+), 3 deletions(-)
-
-
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index 2dcf310..f747bce 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -32,7 +32,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.1.1.19"
-+#define DRV_VERSION		"2.1.1.20"
- #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index eee2526..4c5546d 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1777,8 +1777,12 @@ static void enic_poll_controller(struct net_device *netdev)
- 			enic_isr_msix_rq(enic->msix_entry[intr].vector,
- 				&enic->napi[i]);
- 		}
--		intr = enic_msix_wq_intr(enic, i);
--		enic_isr_msix_wq(enic->msix_entry[intr].vector, enic);
-+
-+		for (i = 0; i < enic->wq_count; i++) {
-+			intr = enic_msix_wq_intr(enic, i);
-+			enic_isr_msix_wq(enic->msix_entry[intr].vector, enic);
-+		}
-+
- 		break;
- 	case VNIC_DEV_INTR_MODE_MSI:
- 		enic_isr_msi(enic->pdev->irq, enic);
-
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
