@@ -1,41 +1,33 @@
-From: WeipingPan <panweiping3@gmail.com>
-Subject: Re: [PATCH net-next 0/2] bonding: delete two unused variables
-Date: Thu, 09 Jun 2011 15:23:54 +0800
-Message-ID: <4DF0750A.7030307@gmail.com>
-References: <cover.1307587586.git.panweiping3@gmail.com> <BANLkTi=xoCJUZAfHBR18bs_WmXwD7rt58g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: pmtu_expires fixes
+Date: Thu, 09 Jun 2011 00:25:27 -0700 (PDT)
+Message-ID: <20110609.002527.263847988277639548.davem@davemloft.net>
+References: <1307549227.3057.64.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTi=xoCJUZAfHBR18bs_WmXwD7rt58g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37740 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752791Ab1FIHZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:25:31 -0400
+In-Reply-To: <1307549227.3057.64.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2011 11:19 AM, Am=C3=A9rico Wang wrote:
-> On Thu, Jun 9, 2011 at 10:51 AM, Weiping Pan<panweiping3@gmail.com>  =
-wrote:
->> Delete two unused variables in bonding.
->>
->> Weiping Pan (2):
->>   bonding: delete unused ad_timer
->>   bonding: delete unused arp_mon_pt
->>
-> Both look good to me,
->
-> Reviewed-by: WANG Cong<xiyou.wangcong@gmail.com>
->
-> Thanks.
-thanks,
-But I move these two patches into another patchset,
-the title is "[PATCH v4 net-next 0/5] bonding:use latest lacp_rate and=20
-ad_select and delete unused ad_timer and arp_mon_pt"
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 08 Jun 2011 18:07:07 +0200
 
-Hope it will be convenient to be reviewed and merged, so forget these=20
-two patches.
+> commit 2c8cec5c10bc (ipv4: Cache learned PMTU information in inetpeer)
+> added some racy peer->pmtu_expires accesses.
+> 
+> As its value can be changed by another cpu/thread, we should be more
+> careful, reading its value once.
+> 
+> Add peer_pmtu_expired() and peer_pmtu_cleaned() helpers
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-thanks
-Weiping Pan
+I've decided to apply this to net-2.6, thanks Eric.
