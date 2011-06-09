@@ -1,54 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] RFC2988bis + taking RTT sample from 3WHS for the
- passive open side
-Date: Wed, 08 Jun 2011 16:59:36 -0700 (PDT)
-Message-ID: <20110608.165936.858380505498163552.davem@davemloft.net>
-References: <1307576361.3980.26.camel@edumazet-laptop>
-	<20110608.164433.1248144748353908346.davem@davemloft.net>
-	<1307577470.8149.3096.camel@tardy>
+Subject: Re: [PATCH 1/2] vlan: only create special VLAN 0 once
+Date: Wed, 08 Jun 2011 17:01:41 -0700 (PDT)
+Message-ID: <20110608.170141.15424428944606042.davem@davemloft.net>
+References: <20110605.142823.1727360496050285755.davem@davemloft.net>
+	<20110607161808.GA5018@midget.suse.cz>
+	<BANLkTikmNXK=i1HhtGtb1+81rGqGgBQ8mA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, hkchu@google.com, hagen@jauu.net,
-	tsunanet@gmail.com, netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbohac@suse.cz, kaber@trash.net, netdev@vger.kernel.org,
+	pedro.netdev@dondevamos.com
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58717 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48400 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755372Ab1FHX7o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 19:59:44 -0400
-In-Reply-To: <1307577470.8149.3096.camel@tardy>
+	with ESMTP id S1750880Ab1FIAFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2011 20:05:47 -0400
+In-Reply-To: <BANLkTikmNXK=i1HhtGtb1+81rGqGgBQ8mA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rick Jones <rick.jones2@hp.com>
-Date: Wed, 08 Jun 2011 16:57:50 -0700
+From: Jesse Gross <jesse@nicira.com>
+Date: Tue, 7 Jun 2011 18:25:23 -0700
 
-> On Wed, 2011-06-08 at 16:44 -0700, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 09 Jun 2011 01:39:21 +0200
->>=20
->> > Le mercredi 08 juin 2011 =E0 15:26 -0700, Jerry Chu a =E9crit :
->> >> It just occurred to me now that initRTO is being reduced, both TC=
-P_SYN_RETRIES
->> >> and TCP_SYNACK_RETRIES should be bumped up a bit, to e.g., 7 (?) =
-to meet the
->> >> 3 minutes R2 requirement per RFC1122.
->> >>=20
->> >> If you agree, I will submit another patch.
->> >=20
->> > Good catch, but no RFC lowered yet this 3 minutes requirement ?
->>=20
->> I host my email on other planets, please do not break this.
->=20
-> As the RTT to Mars is a minimum of 500 seconds and a maximum of 2500,
-> and a minimum of 276 seconds for Venus, your software must already be
-> successfully dealing with TCP connection timeouts less than the RTT t=
-o
-> the planets nearest to Earth, so there should be no need to maintain =
-3
-> minutes anyway :)
+> No, it's not true.  All drivers store the registered vlan filters in
+> some way so that they can restore them when the device is reset.  This
+> is currently done in one of two ways: storing a bitmap or iterating
+> over the devices currently registered in a group.
+> 
+> The vlan code is moving away from directly accessing groups and no new
+> drivers do this.  In fact, once all drivers are converted over groups
+> will not even be registered on devices.  This is because otherwise
+> there is quite a bit of vlan code in each driver, which leads to
+> inconsistent behavior and bugs.
+> 
+> Really, all a driver needs to know is whether it should add a given
+> vlan to its table, not what the upper layers plan to do with it.  So
+> when ndo_vlan_rx_add_vid() is called it should add it to its CAM table
+> and store it if it is needed to restore behavior after a reset, just
+> as is done with all other configuration state.
 
-This just proves that the stickler for details can ruin any joke, sigh.=
-=2E.
-:-)
+Thanks for clearing all of this up Jesse.
