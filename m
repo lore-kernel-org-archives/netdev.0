@@ -1,41 +1,50 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: Request for review on Hyper-V virtual network driver
-Date: Thu, 9 Jun 2011 22:00:04 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC09603E9D@TK5EX14MBXC227.redmond.corp.microsoft.com>
-References: <1307654865-30326-1-git-send-email-haiyangz@microsoft.com>
- <20110609145641.cf245229.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 0/5] bonding:use latest lacp_rate and
+ ad_select and delete unused ad_timer and arp_mon_pt
+Date: Thu, 09 Jun 2011 15:03:19 -0700 (PDT)
+Message-ID: <20110609.150319.1816839671339957224.davem@davemloft.net>
+References: <cover.1307603621.git.panweiping3@gmail.com>
+	<31665.1307656691@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Hank Janssen <hjanssen@microsoft.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	"gregkh@suse.de" <gregkh@suse.de>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.microsoft.com ([131.107.115.214]:18642 "EHLO
-	smtp.microsoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756206Ab1FIWAF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 18:00:05 -0400
-In-Reply-To: <20110609145641.cf245229.randy.dunlap@oracle.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: panweiping3@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: fubar@us.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <31665.1307656691@death>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Thu, 09 Jun 2011 14:58:11 -0700
 
-
-> -----Original Message-----
-> From: Randy Dunlap [mailto:randy.dunlap@oracle.com]
-> Sent: Thursday, June 09, 2011 5:57 PM
-> > +config HYPERV_NET
-> > +	tristate "Microsoft Hyper-V virtual network driver"
-> > +	depends on NET
+> Weiping Pan <panweiping3@gmail.com> wrote:
 > 
-> Drop line above -- it's no longer needed since drivers/net/Kconfig
-> handles that.
+>>There is bug that when you modify lacp_rate via sysfs,
+>>802.3ad won't use the new value of lacp_rate to transmit packets.
+>>This is because port->actor_oper_port_state isn't changed.
+>>
+>>As for ad_select, it can work,
+>>but both struct bond_params and ad_bond_info have lacp_fast and ad_select,
+>>they are duplicate and need extra synchronization.
+>>802.3ad can get them from bond_params directly every time.
+>>
+>>And ad_timer and arp_mon_pt aren't used any more, just delete them.
+>>
+>>changelog:
+>>v2:
+>>add bond_3ad_update_lacp_rate() as a helper function,
+>>and hold bond->lock when iterates slave list.
+>>
+>>v3:
+>>delete duplicate lacp_fast and agg_select_mode from struct ad_bond_info.
+>>
+>>v4:
+>>delete unused ad_timer and arp_mon_pt.
+> 
+> 	All patches in the series look reasonable.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Will do.
-
-Thanks,
-- Haiyang
+All applied, thanks everyone.
