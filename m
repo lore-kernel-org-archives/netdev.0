@@ -1,43 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Update
-Date: Thu, 09 Jun 2011 00:08:23 -0700 (PDT)
-Message-ID: <20110609.000823.2202058578852433528.davem@davemloft.net>
-References: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110609.000505.2259375858864240000.davem@davemloft.net>
+From: WeipingPan <panweiping3@gmail.com>
+Subject: Re: [PATCH] bonding: use new value of lacp_rate and ad_select
+Date: Thu, 09 Jun 2011 15:09:50 +0800
+Message-ID: <4DF071BE.1080006@gmail.com>
+References: <1307413455-6942-1-git-send-email-panweiping3@gmail.com>	<4DF03894.2090202@gmail.com>	<BANLkTimb-ankqNPyvcJMJY24zf9hB5AgOQ@mail.gmail.com> <BANLkTik4az0FF+AUo1SbmvhJhKP-bBG4Fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47461 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827Ab1FIHI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:08:27 -0400
-In-Reply-To: <20110609.000505.2259375858864240000.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jpirko@redhat.com, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	open list <linux-kernel@vger.kernel.org>
+To: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTik4az0FF+AUo1SbmvhJhKP-bBG4Fw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAwOSBK
-dW4gMjAxMSAwMDowNTowNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEplZmYgS2lyc2hlciA8amVm
-ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBXZWQsICA4IEp1biAyMDExIDE1OjU2
-OjI4IC0wNzAwDQo+IA0KPj4gVGhlIGZvbGxvd2luZyBzZXJpZXMgaXMgYSAoc21hbGxlcikgc3Vi
-c2V0IG9mIHRoZSBwcmV2aW91cyA0MCBwYXRjaA0KPj4gc3VibWlzc2lvbi4gIFRoaXMgc3Vic2V0
-IG9ubHkgY29udGFpbnMgdXBkYXRlcyB0byBlMTAwMGUsIGlnYiwgaWdidmYNCj4+IGFuZCBydG5l
-dGxpbmsuDQo+PiANCj4+IGUxMDAwZTogc2V2ZXJhbCBjbGVhbnVwcyBhbmQgZml4ZXMsIGFzIHdl
-bGwgYXMgYnVtcCB0aGUgdmVyc2lvbg0KPj4gaWdiL2lnYnZmL2l4Z2JldmY6IGJ1bXAgZHJpdmVy
-IHZlcnNpb24NCj4+IHJ0bmV0bGluazogQ29tcHV0ZSBhbmQgc3RvcmUgbWluaW11bSBpZmluZm8g
-ZHVtcCBzaXplDQo+PiANCj4+IFRoZSBmb2xsb3dpbmcgYXJlIGNoYW5nZXMgc2luY2UgY29tbWl0
-IGZmYmMwM2JjNzViMzljN2JkNDEyZTdjYzZkMjE4NWMxMWIwZmZlZGQ6DQo+PiAgIG5ldDogYWRk
-IG5lZWRlZCBpbnRlcnJ1cHQuaA0KPj4gYW5kIGFyZSBhdmFpbGFibGUgaW4gdGhlIGdpdCByZXBv
-c2l0b3J5IGF0Og0KPj4gICBtYXN0ZXIua2VybmVsLm9yZzovcHViL3NjbS9saW51eC9rZXJuZWwv
-Z2l0L2praXJzaGVyL25ldC1uZXh0LTIuNiBtYXN0ZXINCj4gDQo+IFB1bGxlZCwgdGhhbmtzIEpl
-ZmYuDQoNCkFjdHVhbGx5LCBJIGhhdmUgdG8gdW4tcHVsbC4gIFBsZWFzZSBidWlsZCB0ZXN0IHlv
-dXIgY2hhbmdlczoNCg0KZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvbmV0bGluay5jOiBJbiBmdW5j
-dGlvbiChaWJubF9yY3ZfbXNnojoNCmRyaXZlcnMvaW5maW5pYmFuZC9jb3JlL25ldGxpbmsuYzox
-NTE6OTogZXJyb3I6IHRvbyBmZXcgYXJndW1lbnRzIHRvIGZ1bmN0aW9uIKFuZXRsaW5rX2R1bXBf
-c3RhcnSiDQppbmNsdWRlL2xpbnV4L25ldGxpbmsuaDoyNjA6MTI6IG5vdGU6IGRlY2xhcmVkIGhl
-cmUNCm1ha2VbM106ICoqKiBbZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvbmV0bGluay5vXSBFcnJv
-ciAxDQptYWtlWzJdOiAqKiogW2RyaXZlcnMvaW5maW5pYmFuZC9jb3JlXSBFcnJvciAyDQptYWtl
-WzFdOiAqKiogW2RyaXZlcnMvaW5maW5pYmFuZF0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFdhaXRp
-bmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4NCg==
+On 06/09/2011 11:15 AM, Am=C3=A9rico Wang wrote:
+> On Thu, Jun 9, 2011 at 11:13 AM, Am=C3=A9rico Wang<xiyou.wangcong@gma=
+il.com>  wrote:
+>> On Thu, Jun 9, 2011 at 11:05 AM, WeipingPan<panweiping3@gmail.com>  =
+wrote:
+>>> On 06/07/2011 10:24 AM, Weiping Pan wrote:
+>>>> There is bug that when you modify lacp_rate via sysfs,
+>>>> 802.3ad won't use the new value of lacp_rate to transmit packets.
+>>>> This is because port->actor_oper_port_state isn't changed.
+>>>>
+>>>> As for ad_select, it can work,
+>>>> but both struct bond_params and ad_bond_info have lacp_fast and ad=
+_select,
+>>>> they are duplicate and need extra synchronization.
+>>>> 802.3ad can get them from bond_params directly every time.
+>>>>
+>>> Any comments ?
+>>>
+>> I think you'd better separate bug fix from cleanup's.
+>>
+> By the way, please mark the version of your patch in $subject,
+> in this case, V3. And describe what you changed from V2.
+ok, I will split the patch.
+
+thanks
+Weiping Pan
