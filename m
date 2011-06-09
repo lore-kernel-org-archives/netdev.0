@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: pmtu_expires fixes
-Date: Thu, 09 Jun 2011 00:25:27 -0700 (PDT)
-Message-ID: <20110609.002527.263847988277639548.davem@davemloft.net>
-References: <1307549227.3057.64.camel@edumazet-laptop>
+Subject: Re: [PATCH] tun: do not put self in waitq if doing a nonblock read
+Date: Thu, 09 Jun 2011 00:27:21 -0700 (PDT)
+Message-ID: <20110609.002721.963829441380663942.davem@davemloft.net>
+References: <20110608234606.8681.19932.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jasowang@redhat.com, kvm@vger.kernel.org,
+	mst@redhat.com
+To: akong@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37740 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53183 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791Ab1FIHZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:25:31 -0400
-In-Reply-To: <1307549227.3057.64.camel@edumazet-laptop>
+	with ESMTP id S1753501Ab1FIH1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:27:25 -0400
+In-Reply-To: <20110608234606.8681.19932.stgit@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 08 Jun 2011 18:07:07 +0200
+From: Amos Kong <akong@redhat.com>
+Date: Thu, 09 Jun 2011 07:46:06 +0800
 
-> commit 2c8cec5c10bc (ipv4: Cache learned PMTU information in inetpeer)
-> added some racy peer->pmtu_expires accesses.
+> Perf shows a relatively high rate (about 8%) race in
+> spin_lock_irqsave() when doing netperf between external host and
+> guest. It's mainly becuase the lock contention between the
+> tun_do_read() and tun_xmit_skb(), so this patch do not put self into
+> waitqueue to reduce this kind of race. After this patch, it drops to
+> 4%.
 > 
-> As its value can be changed by another cpu/thread, we should be more
-> careful, reading its value once.
-> 
-> Add peer_pmtu_expired() and peer_pmtu_cleaned() helpers
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Amos Kong <akong@redhat.com>
 
-I've decided to apply this to net-2.6, thanks Eric.
+Applied, thanks.
