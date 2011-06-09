@@ -1,39 +1,34 @@
-From: Greg K-H <greg@kroah.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Wed, 8 Jun 2011 22:17:55 -0700
-Message-ID: <7CA9E653-DABC-470C-BCA6-905D6EBF9283@kroah.com>
-References: <20110609145657.96fae0d0.sfr@canb.auug.org.au>
-Mime-Version: 1.0 (iPad Mail 8J2)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110609145657.96fae0d0.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Scott Goldman <scottjg@vmware.com>
+Subject: RE: [Pv-drivers] [PATCH 1/9] vmxnet3: convert to 64 bit stats
+ interface
+Date: Wed, 8 Jun 2011 22:17:45 -0700
+Message-ID: <F78BCF638F95D74A99D036114107EDB5028DE8C542@EXCH-MBX-3.vmware.com>
+References: <20110609005356.160260858@vyatta.com>,<20110609005417.324633042@vyatta.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:45286 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751238Ab1FIFTE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 01:19:04 -0400
+In-Reply-To: <20110609005417.324633042@vyatta.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Jun 8, 2011, at 9:56 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-
-> Hi all,
+> Convert vmxnet3 driver to 64 bit statistics interface.
+> This driver was already counting packet per queue in a 64 bit value so not
+> a huge change. Eliminate unused old net_device_stats structure.
 > 
-> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-> failed like this:
-> 
-> [See summary in patch below.]
-> 
-> [Hmmm, suddenly allmodconfig is building stuff in staging?  Ah ha!
-> Commit fe35a59e16fb ("Staging: remove STAGING_EXCLUDE_BUILD
-> option")  Greg, a bit of warning might have been nice :-( ]
-> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Sorry, this is something that Linus asked for and will be going to him
-tomorrow with the rest of the staging-linus branch.
+Thanks for taking care of this.
 
-greg k-h
+Signed-off-by: Scott J. Goldman <scottjg@vmware.com>
