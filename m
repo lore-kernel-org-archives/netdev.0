@@ -1,96 +1,40 @@
-From: Nicolas Cavallari <Nicolas.Cavallari@lri.fr>
-Subject: [PATCH] netfilter: fix looped (broad|multi)cast's MAC handling.
-Date: Thu,  9 Jun 2011 15:39:08 +0200
-Message-ID: <1307626748-10992-2-git-send-email-cavallar@lri.fr>
-References: <20110608153032.GA26912@Chamillionaire.breakpoint.cc>
- <1307626748-10992-1-git-send-email-cavallar@lri.fr>
-Cc: Nicolas Cavallari <cavallar@lri.fr>
-To: fw@strlen.de, kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] tun: reserves space for network in skb
+Date: Thu, 9 Jun 2011 07:16:51 -0700 (PDT)
+Message-ID: <1809430734.67816.1307629011701.JavaMail.root@tahiti.vyatta.com>
+References: <20110609.000914.359816474597759076.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.u-psud.fr ([129.175.33.41]:57259 "EHLO smtp1.u-psud.fr"
+Received: from mail.vyatta.com ([76.74.103.46]:58245 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757641Ab1FINru (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 09:47:50 -0400
-In-Reply-To: <1307626748-10992-1-git-send-email-cavallar@lri.fr>
+	id S1751052Ab1FIOQw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 10:16:52 -0400
+In-Reply-To: <20110609.000914.359816474597759076.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, when broadcast or multicast packet are sent from a local
-application, they are sent to the interface then looped by the kernel
-to other local applications, going throught netfilter hooks in the process.
 
-These looped packet have their MAC header removed from the skb by the kernel
-looping code.
-This confuse various netfilter's netlink queue, netlink log and the
-legacy ip_queue, because they try to extract a hardware
-address from these packets, but extracts a part of the IP header instead.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 08 Jun 2011 17:33:07 -0700
+> 
+> > The tun driver allocates skb's to hold data from user and then
+> > passes the data into the network stack as received data. Most
+> > network devices
+> > allocate the receive skb with routines like dev_alloc_skb() that
+> > reserves additional space for use by network protocol stack but tun
+> > does not.
+> >
+> > Because of the lack of padding, when the packet is passed through
+> > bridge netfilter a new skb has to be allocated.
+> >
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Netconf must be coming up soon, Stephen Hemminger is submitting
+> patches again :-)
 
-This patch prevent NFQUEUE, NFLOG and ip_QUEUE to include a MAC header
-if there is none in the packet.
----
- net/ipv4/netfilter/ip_queue.c   |    3 ++-
- net/ipv6/netfilter/ip6_queue.c  |    3 ++-
- net/netfilter/nfnetlink_log.c   |    3 ++-
- net/netfilter/nfnetlink_queue.c |    3 ++-
- 4 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index f7f9bd7..5c9b9d9 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -203,7 +203,8 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 	else
- 		pmsg->outdev_name[0] = '\0';
- 
--	if (entry->indev && entry->skb->dev) {
-+	if (entry->indev && entry->skb->dev &&
-+	    entry->skb->mac_header != entry->skb->network_header) {
- 		pmsg->hw_type = entry->skb->dev->type;
- 		pmsg->hw_addrlen = dev_parse_header(entry->skb,
- 						    pmsg->hw_addr);
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 065fe40..2493948 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -204,7 +204,8 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 	else
- 		pmsg->outdev_name[0] = '\0';
- 
--	if (entry->indev && entry->skb->dev) {
-+	if (entry->indev && entry->skb->dev &&
-+	    entry->skb->mac_header != entry->skb->network_header) {
- 		pmsg->hw_type = entry->skb->dev->type;
- 		pmsg->hw_addrlen = dev_parse_header(entry->skb, pmsg->hw_addr);
- 	}
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index e0ee010..2e7ccbb 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -456,7 +456,8 @@ __build_packet_message(struct nfulnl_instance *inst,
- 	if (skb->mark)
- 		NLA_PUT_BE32(inst->skb, NFULA_MARK, htonl(skb->mark));
- 
--	if (indev && skb->dev) {
-+	if (indev && skb->dev &&
-+	    skb->mac_header != skb->network_header) {
- 		struct nfulnl_msg_packet_hw phw;
- 		int len = dev_parse_header(skb, phw.hw_addr);
- 		if (len > 0) {
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index b83123f..fdd2faf 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -335,7 +335,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (entskb->mark)
- 		NLA_PUT_BE32(skb, NFQA_MARK, htonl(entskb->mark));
- 
--	if (indev && entskb->dev) {
-+	if (indev && entskb->dev &&
-+	    entskb->mac_header != entskb->network_header) {
- 		struct nfqnl_msg_packet_hw phw;
- 		int len = dev_parse_header(entskb, phw.hw_addr);
- 		if (len) {
--- 
-1.7.5.3
-
+12 hours on plane + 8 hours in airports tend to get the
+trivial patch backlog moving again. 
