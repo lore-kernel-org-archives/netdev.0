@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
-Date: Wed, 08 Jun 2011 23:31:45 -0700 (PDT)
-Message-ID: <20110608.233145.255635792817750847.davem@davemloft.net>
-References: <1307600810.3980.85.camel@edumazet-laptop>
+Subject: Re: [PATCH 1/5 net-next] cnic: Fix interrupt logic
+Date: Wed, 08 Jun 2011 23:52:55 -0700 (PDT)
+Message-ID: <20110608.235255.348627008657936656.davem@davemloft.net>
+References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andi@firstfloor.org,
-	tim.c.chen@linux.intel.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50944 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46814 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547Ab1FIGbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 02:31:52 -0400
-In-Reply-To: <1307600810.3980.85.camel@edumazet-laptop>
+	with ESMTP id S1751419Ab1FIGw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 02:52:56 -0400
+In-Reply-To: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Jun 2011 08:26:50 +0200
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 8 Jun 2011 22:29:32 -0700
 
-> Profiles show false sharing in addr_compare() because refcnt/dtime
-> changes dirty the first inet_peer cache line, where are lying the keys
-> used at lookup time. If many cpus are calling inet_getpeer() and
-> inet_putpeer(), or need frag ids, addr_compare() is in 2nd position in
-> "perf top".
+> We need to keep looping until cnic_get_kcqes() returns 0.  cnic_get_kcqes()
+> returns a maximum of 64 entries.  If there are more entries in the queue
+> and we don't loop back, the remaining entries may not be serviced for a
+> long time.
 > 
-> Before patch, my udpflood bench (16 threads) on my 2x4x2 machine :
- ..
-> After patch, no more addr_compare() in profiles :
- ..
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Andi Kleen <andi@firstfloor.org>
-> CC: Tim Chen <tim.c.chen@linux.intel.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied, thanks!
+Applied.
