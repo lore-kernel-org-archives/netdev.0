@@ -1,63 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Thu, 9 Jun 2011 15:39:04 +1000
-Message-ID: <20110609153904.e602b317.sfr@canb.auug.org.au>
-References: <20110609145657.96fae0d0.sfr@canb.auug.org.au>
-	<7CA9E653-DABC-470C-BCA6-905D6EBF9283@kroah.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check v2
+Date: Thu, 9 Jun 2011 08:01:06 +0200
+Message-ID: <20110609060105.GA6286@minipsycho.redhat.com>
+References: <m1aaectyed.fsf@fess.ebiederm.org>
+ <20110524.022406.2228892895515155850.davem@davemloft.net>
+ <m1oc2spmyt.fsf@fess.ebiederm.org>
+ <20110601.205940.1179055860757569997.davem@davemloft.net>
+ <m11uzcidvq.fsf_-_@fess.ebiederm.org>
+ <20110608162841.GB4409@minipsycho.redhat.com>
+ <BANLkTiksNQ-f=qN4PhPP4qX0Saiwb-hY1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__9_Jun_2011_15_39_04_+1000_6kpAXfJ2tYt0zzV1"
-Cc: David Miller <davem@davemloft.net>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Greg K-H <greg@kroah.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <7CA9E653-DABC-470C-BCA6-905D6EBF9283@kroah.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Thu__9_Jun_2011_15_39_04_+1000_6kpAXfJ2tYt0zzV1
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, greearb@candelatech.com,
+	nicolas.2p.debian@gmail.com, netdev@vger.kernel.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, jesse@nicira.com
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54517 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750953Ab1FIGBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 02:01:49 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <BANLkTiksNQ-f=qN4PhPP4qX0Saiwb-hY1A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
-
-On Wed, 8 Jun 2011 22:17:55 -0700 Greg K-H <greg@kroah.com> wrote:
+Thu, Jun 09, 2011 at 01:08:13AM CEST, xiaosuo@gmail.com wrote:
+>On Thu, Jun 9, 2011 at 12:28 AM, Jiri Pirko <jpirko@redhat.com> wrote:
+>>
+>> Why we can't remove this right away?
+>>
 >
-> Sorry, this is something that Linus asked for and will be going to him
-> tomorrow with the rest of the staging-linus branch.
+>I think the reason is this patch is a bug fix for the stable kernel,
+>so we should not introduce new features or remove old features.
 
-Yeah, I remember the discussion, just not a conclusion.  At least the
-x86_64 allmodconfig builds worked before I merged the net tree, so that is
-something.
+But for net-next if should be ok, right?
 
-The powerpc allyesconfig build is going to be interesting :-(
+What's the reason for possibility of removing the reorder flag? Why
+would user want do it?
 
-You might like to check the build results at
-http://kisskb.ellerman.id.au/kisskb/branch/9/ sometime tomorrow.  Or
-point your janitors at it :-)
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Thanks
 
---Signature=_Thu__9_Jun_2011_15_39_04_+1000_6kpAXfJ2tYt0zzV1
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJN8Fx4AAoJEDMEi1NhKgbsqtQH/2q4/o65CQRamoGjKezeBIzo
-AvQk+kdnGwpdoquIa1/BS6CzFiNV8xZkiO1DK4JyuRpLo/jOd4YoQJND3PZgH0ls
-S0DviiVrqzh5nZFKf4u1hPayt5nMTpVvBCgpo3XueRRIcHnKpyMFAOEDv2Lm14FZ
-y25u1AovA1AIsSBbQ3KaJprfa2ffVMVlO4JajVvU+78W7831/GrRE0cmZShhfarZ
-aBHPNBO1a4uS6Pg6NMK6UtkiZhuvufZBRu5Pybq2pWYC8ndgcyvkFy4wqbM6JBPw
-ucaEASj/ssiWNlD7vR1C/DH8rSWqq/+u7lhhimOCHRoi88C0iBje+JZOfXSi5Ks=
-=omz4
------END PGP SIGNATURE-----
-
---Signature=_Thu__9_Jun_2011_15_39_04_+1000_6kpAXfJ2tYt0zzV1--
+Jirka
+>
+>-- 
+>Regards,
+>Changli Gao(xiaosuo@gmail.com)
