@@ -1,91 +1,137 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/5 net-next] cnic: Randomize initial TCP port for iSCSI
- connections
-Date: Wed, 8 Jun 2011 22:29:34 -0700
-Message-ID: <1307597376-5379-3-git-send-email-mchan@broadcom.com>
-References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
- <1307597376-5379-2-git-send-email-mchan@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] inetpeer: lower false sharing effect
+Date: Thu, 09 Jun 2011 08:26:50 +0200
+Message-ID: <1307600810.3980.85.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Eddie Wai" <eddie.wai@broadcom.com>
-To: davem@davemloft.net
+Cc: netdev <netdev@vger.kernel.org>, Andi Kleen <andi@firstfloor.org>,
+	Tim Chen <tim.c.chen@linux.intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1185 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752541Ab1FIGVG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 02:21:06 -0400
-In-Reply-To: <1307597376-5379-2-git-send-email-mchan@broadcom.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53792 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198Ab1FIG0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 02:26:55 -0400
+Received: by wwa36 with SMTP id 36so1332061wwa.1
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2011 23:26:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eddie Wai <eddie.wai@broadcom.com>
+Profiles show false sharing in addr_compare() because refcnt/dtime
+changes dirty the first inet_peer cache line, where are lying the keys
+used at lookup time. If many cpus are calling inet_getpeer() and
+inet_putpeer(), or need frag ids, addr_compare() is in 2nd position in
+"perf top".
 
-This reduces the likelihood of port re-use when re-loading the driver.
+Before patch, my udpflood bench (16 threads) on my 2x4x2 machine :
 
-Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+             5784.00  9.7% csum_partial_copy_generic [kernel]
+             3356.00  5.6% addr_compare              [kernel]
+             2638.00  4.4% fib_table_lookup          [kernel]
+             2625.00  4.4% ip_fragment               [kernel]
+             1934.00  3.2% neigh_lookup              [kernel]
+             1617.00  2.7% udp_sendmsg               [kernel]
+             1608.00  2.7% __ip_route_output_key     [kernel]
+             1480.00  2.5% __ip_append_data          [kernel]
+             1396.00  2.3% kfree                     [kernel]
+             1195.00  2.0% kmem_cache_free           [kernel]
+             1157.00  1.9% inet_getpeer              [kernel]
+             1121.00  1.9% neigh_resolve_output      [kernel]
+             1012.00  1.7% dev_queue_xmit            [kernel]
+# time ./udpflood.sh
+
+real	0m44.511s
+user	0m20.020s
+sys	11m22.780s
+
+# time ./udpflood.sh
+
+real	0m44.099s
+user	0m20.140s
+sys	11m15.870s
+
+After patch, no more addr_compare() in profiles :
+
+             4171.00 10.7% csum_partial_copy_generic   [kernel]
+             1787.00  4.6% fib_table_lookup            [kernel]
+             1756.00  4.5% ip_fragment                 [kernel]
+             1234.00  3.2% udp_sendmsg                 [kernel]
+             1191.00  3.0% neigh_lookup                [kernel]
+             1118.00  2.9% __ip_append_data            [kernel]
+             1022.00  2.6% kfree                       [kernel]
+              993.00  2.5% __ip_route_output_key       [kernel]
+              841.00  2.2% neigh_resolve_output        [kernel]
+              816.00  2.1% kmem_cache_free             [kernel]
+              658.00  1.7% ia32_sysenter_target        [kernel]
+              632.00  1.6% kmem_cache_alloc_node       [kernel]
+
+# time ./udpflood.sh
+
+real	0m41.587s
+user	0m19.190s
+sys	10m36.370s
+
+# time ./udpflood.sh
+
+real	0m41.486s
+user	0m19.290s
+sys	10m33.650s
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Andi Kleen <andi@firstfloor.org>
+CC: Tim Chen <tim.c.chen@linux.intel.com>
 ---
- drivers/net/cnic.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+ include/net/inetpeer.h |   24 +++++++++++++-----------
+ 1 files changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index ea7245c..a529bde 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -605,11 +605,12 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
- }
- EXPORT_SYMBOL(cnic_unregister_driver);
+diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+index 1f0966f..39d1230 100644
+--- a/include/net/inetpeer.h
++++ b/include/net/inetpeer.h
+@@ -32,12 +32,17 @@ struct inet_peer {
+ 	struct inet_peer __rcu	*avl_left, *avl_right;
+ 	struct inetpeer_addr	daddr;
+ 	__u32			avl_height;
+-	__u32			dtime;		/* the time of last use of not
+-						 * referenced entries */
+-	atomic_t		refcnt;
++
++	u32			metrics[RTAX_MAX];
++	u32			rate_tokens;	/* rate limiting for ICMP */
++	unsigned long		rate_last;
++	unsigned long		pmtu_expires;
++	u32			pmtu_orig;
++	u32			pmtu_learned;
++	struct inetpeer_addr_base redirect_learned;
+ 	/*
+ 	 * Once inet_peer is queued for deletion (refcnt == -1), following fields
+-	 * are not available: rid, ip_id_count, tcp_ts, tcp_ts_stamp, metrics
++	 * are not available: rid, ip_id_count, tcp_ts, tcp_ts_stamp
+ 	 * We can share memory with rcu_head to help keep inet_peer small.
+ 	 */
+ 	union {
+@@ -46,17 +51,14 @@ struct inet_peer {
+ 			atomic_t			ip_id_count;	/* IP ID for the next packet */
+ 			__u32				tcp_ts;
+ 			__u32				tcp_ts_stamp;
+-			u32				metrics[RTAX_MAX];
+-			u32				rate_tokens;	/* rate limiting for ICMP */
+-			unsigned long			rate_last;
+-			unsigned long			pmtu_expires;
+-			u32				pmtu_orig;
+-			u32				pmtu_learned;
+-			struct inetpeer_addr_base	redirect_learned;
+ 		};
+ 		struct rcu_head         rcu;
+ 		struct inet_peer	*gc_next;
+ 	};
++
++	/* following fields might be frequently dirtied */
++	__u32			dtime;	/* the time of last use of not referenced entries */
++	atomic_t		refcnt;
+ };
  
--static int cnic_init_id_tbl(struct cnic_id_tbl *id_tbl, u32 size, u32 start_id)
-+static int cnic_init_id_tbl(struct cnic_id_tbl *id_tbl, u32 size, u32 start_id,
-+			    u32 next)
- {
- 	id_tbl->start = start_id;
- 	id_tbl->max = size;
--	id_tbl->next = 0;
-+	id_tbl->next = next;
- 	spin_lock_init(&id_tbl->lock);
- 	id_tbl->table = kzalloc(DIV_ROUND_UP(size, 32) * 4, GFP_KERNEL);
- 	if (!id_tbl->table)
-@@ -3804,14 +3805,17 @@ static void cnic_cm_free_mem(struct cnic_dev *dev)
- static int cnic_cm_alloc_mem(struct cnic_dev *dev)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
-+	u32 port_id;
- 
- 	cp->csk_tbl = kzalloc(sizeof(struct cnic_sock) * MAX_CM_SK_TBL_SZ,
- 			      GFP_KERNEL);
- 	if (!cp->csk_tbl)
- 		return -ENOMEM;
- 
-+	get_random_bytes(&port_id, sizeof(port_id));
-+	port_id %= CNIC_LOCAL_PORT_RANGE;
- 	if (cnic_init_id_tbl(&cp->csk_port_tbl, CNIC_LOCAL_PORT_RANGE,
--			     CNIC_LOCAL_PORT_MIN)) {
-+			     CNIC_LOCAL_PORT_MIN, port_id)) {
- 		cnic_cm_free_mem(dev);
- 		return -ENOMEM;
- 	}
-@@ -4829,7 +4833,7 @@ static int cnic_start_bnx2x_hw(struct cnic_dev *dev)
- 	pfid = cp->pfid;
- 
- 	ret = cnic_init_id_tbl(&cp->cid_tbl, MAX_ISCSI_TBL_SZ,
--			       cp->iscsi_start_cid);
-+			       cp->iscsi_start_cid, 0);
- 
- 	if (ret)
- 		return -ENOMEM;
-@@ -4837,7 +4841,7 @@ static int cnic_start_bnx2x_hw(struct cnic_dev *dev)
- 	if (BNX2X_CHIP_IS_E2(cp->chip_id)) {
- 		ret = cnic_init_id_tbl(&cp->fcoe_cid_tbl,
- 					BNX2X_FCOE_NUM_CONNECTIONS,
--					cp->fcoe_start_cid);
-+					cp->fcoe_start_cid, 0);
- 
- 		if (ret)
- 			return -ENOMEM;
--- 
-1.6.4.GIT
+ void			inet_initpeers(void) __init;
 
 
