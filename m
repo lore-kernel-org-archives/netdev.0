@@ -1,12 +1,13 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 5/6] batman-adv: Use enums for related
-	constants
-Date: Thu,  9 Jun 2011 23:09:13 +0200
-Message-ID: <1307653754-5014-6-git-send-email-sven@narfation.org>
+Subject: [PATCH 6/6] batman-adv: use NO_FLAGS define instead
+	of hard-coding 0
+Date: Thu,  9 Jun 2011 23:09:14 +0200
+Message-ID: <1307653754-5014-7-git-send-email-sven@narfation.org>
 References: <1307653754-5014-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 In-Reply-To: <1307653754-5014-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
@@ -21,145 +22,94 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CodingStyle "Chapter 12: Macros, Enums and RTL" recommends to use enums
-for several related constants. Internal states can be used without
-defining the actual value, but all values which are visible to the
-outside must be defined as before. Normal values are assigned as usual
-and flags are defined by shifts of a bit.
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 
+The definition NO_FLAGS was introduced to make the code more
+readable and shall be used to initialize flag fields.
+
+Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/hard-interface.h |   14 ++++++-----
- net/batman-adv/main.h           |   17 ++++++++-----
- net/batman-adv/packet.h         |   47 ++++++++++++++++++++++++---------------
- 3 files changed, 47 insertions(+), 31 deletions(-)
+ net/batman-adv/aggregation.c    |    2 +-
+ net/batman-adv/gateway_client.c |    4 ++--
+ net/batman-adv/hard-interface.c |    2 +-
+ net/batman-adv/main.h           |    2 ++
+ net/batman-adv/send.c           |    2 +-
+ 5 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
-index 79e25cb..442eacb 100644
---- a/net/batman-adv/hard-interface.h
-+++ b/net/batman-adv/hard-interface.h
-@@ -22,12 +22,14 @@
- #ifndef _NET_BATMAN_ADV_HARD_INTERFACE_H_
- #define _NET_BATMAN_ADV_HARD_INTERFACE_H_
+diff --git a/net/batman-adv/aggregation.c b/net/batman-adv/aggregation.c
+index b41f25b..4080970 100644
+--- a/net/batman-adv/aggregation.c
++++ b/net/batman-adv/aggregation.c
+@@ -151,7 +151,7 @@ static void new_aggregated_packet(const unsigned char *packet_buff,
+ 	forw_packet_aggr->own = own_packet;
+ 	forw_packet_aggr->if_incoming = if_incoming;
+ 	forw_packet_aggr->num_packets = 0;
+-	forw_packet_aggr->direct_link_flags = 0;
++	forw_packet_aggr->direct_link_flags = NO_FLAGS;
+ 	forw_packet_aggr->send_time = send_time;
  
--#define IF_NOT_IN_USE 0
--#define IF_TO_BE_REMOVED 1
--#define IF_INACTIVE 2
--#define IF_ACTIVE 3
--#define IF_TO_BE_ACTIVATED 4
--#define IF_I_WANT_YOU 5
-+enum hard_if_state {
-+	IF_NOT_IN_USE,
-+	IF_TO_BE_REMOVED,
-+	IF_INACTIVE,
-+	IF_ACTIVE,
-+	IF_TO_BE_ACTIVATED,
-+	IF_I_WANT_YOU
-+};
+ 	/* save packet direct link flag status */
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index cf7f95e..24aee56 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -322,7 +322,7 @@ void gw_node_update(struct bat_priv *bat_priv,
  
- extern struct notifier_block hard_if_notifier;
+ 		gw_node->deleted = 0;
  
+-		if (new_gwflags == 0) {
++		if (new_gwflags == NO_FLAGS) {
+ 			gw_node->deleted = jiffies;
+ 			bat_dbg(DBG_BATMAN, bat_priv,
+ 				"Gateway %pM removed from gateway list\n",
+@@ -335,7 +335,7 @@ void gw_node_update(struct bat_priv *bat_priv,
+ 		goto unlock;
+ 	}
+ 
+-	if (new_gwflags == 0)
++	if (new_gwflags == NO_FLAGS)
+ 		goto unlock;
+ 
+ 	gw_node_add(bat_priv, orig_node, new_gwflags);
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index a3fbfb5..b55e861 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -337,7 +337,7 @@ int hardif_enable_interface(struct hard_iface *hard_iface,
+ 	batman_packet = (struct batman_packet *)(hard_iface->packet_buff);
+ 	batman_packet->packet_type = BAT_PACKET;
+ 	batman_packet->version = COMPAT_VERSION;
+-	batman_packet->flags = 0;
++	batman_packet->flags = NO_FLAGS;
+ 	batman_packet->ttl = 2;
+ 	batman_packet->tq = TQ_MAX_VALUE;
+ 	batman_packet->num_tt = 0;
 diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 610eaf0..27ad734 100644
+index 27ad734..ed488cb 100644
 --- a/net/batman-adv/main.h
 +++ b/net/batman-adv/main.h
-@@ -72,9 +72,11 @@
- #define RESET_PROTECTION_MS 30000
- #define EXPECTED_SEQNO_RANGE	65536
+@@ -51,6 +51,8 @@
+ #define TQ_LOCAL_BIDRECT_RECV_MINIMUM 1
+ #define TQ_TOTAL_BIDRECT_LIMIT 1
  
--#define MESH_INACTIVE 0
--#define MESH_ACTIVE 1
--#define MESH_DEACTIVATING 2
-+enum mesh_state {
-+	MESH_INACTIVE,
-+	MESH_ACTIVE,
-+	MESH_DEACTIVATING
-+};
- 
- #define BCAST_QUEUE_LEN		256
- #define BATMAN_QUEUE_LEN	256
-@@ -89,10 +91,11 @@
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
- /* all messages related to routing / flooding / broadcasting / etc */
--#define DBG_BATMAN 1
--/* route or tt entry added / changed / deleted */
--#define DBG_ROUTES 2
--#define DBG_ALL 3
-+enum dbg_level {
-+	DBG_BATMAN = 1 << 0,
-+	DBG_ROUTES = 1 << 1, /* route added / changed / deleted */
-+	DBG_ALL    = 3
-+};
- 
- 
- /*
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index eda9965..9f77086 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -24,33 +24,44 @@
- 
- #define ETH_P_BATMAN  0x4305	/* unofficial/not registered Ethertype */
- 
--#define BAT_PACKET       0x01
--#define BAT_ICMP         0x02
--#define BAT_UNICAST      0x03
--#define BAT_BCAST        0x04
--#define BAT_VIS          0x05
--#define BAT_UNICAST_FRAG 0x06
-+enum bat_packettype {
-+	BAT_PACKET       = 0x01,
-+	BAT_ICMP         = 0x02,
-+	BAT_UNICAST      = 0x03,
-+	BAT_BCAST        = 0x04,
-+	BAT_VIS          = 0x05,
-+	BAT_UNICAST_FRAG = 0x06
-+};
- 
- /* this file is included by batctl which needs these defines */
- #define COMPAT_VERSION 12
--#define DIRECTLINK 0x40
--#define VIS_SERVER 0x20
--#define PRIMARIES_FIRST_HOP 0x10
++#define NO_FLAGS 0
 +
-+enum batman_flags {
-+	PRIMARIES_FIRST_HOP = 1 << 4,
-+	VIS_SERVER	    = 1 << 5,
-+	DIRECTLINK	    = 1 << 6
-+};
+ #define NUM_WORDS (TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE)
  
- /* ICMP message types */
--#define ECHO_REPLY 0
--#define DESTINATION_UNREACHABLE 3
--#define ECHO_REQUEST 8
--#define TTL_EXCEEDED 11
--#define PARAMETER_PROBLEM 12
-+enum icmp_packettype {
-+	ECHO_REPLY		= 0,
-+	DESTINATION_UNREACHABLE = 3,
-+	ECHO_REQUEST		= 8,
-+	TTL_EXCEEDED		= 11,
-+	PARAMETER_PROBLEM	= 12
-+};
+ #define LOG_BUF_LEN 8192	  /* has to be a power of 2 */
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index d0cfa95..a1b8c31 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -289,7 +289,7 @@ void schedule_own_packet(struct hard_iface *hard_iface)
+ 		batman_packet->gw_flags =
+ 				(uint8_t)atomic_read(&bat_priv->gw_bandwidth);
+ 	else
+-		batman_packet->gw_flags = 0;
++		batman_packet->gw_flags = NO_FLAGS;
  
- /* vis defines */
--#define VIS_TYPE_SERVER_SYNC		0
--#define VIS_TYPE_CLIENT_UPDATE		1
-+enum vis_packettype {
-+	VIS_TYPE_SERVER_SYNC   = 0,
-+	VIS_TYPE_CLIENT_UPDATE = 1
-+};
+ 	atomic_inc(&hard_iface->seqno);
  
- /* fragmentation defines */
--#define UNI_FRAG_HEAD 0x01
--#define UNI_FRAG_LARGETAIL 0x02
-+enum unicast_frag_flags {
-+	UNI_FRAG_HEAD	   = 1 << 0,
-+	UNI_FRAG_LARGETAIL = 1 << 1
-+};
- 
- struct batman_packet {
- 	uint8_t  packet_type;
 -- 
 1.7.5.3
