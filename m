@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Update
-Date: Thu, 09 Jun 2011 00:05:05 -0700 (PDT)
-Message-ID: <20110609.000505.2259375858864240000.davem@davemloft.net>
+Date: Thu, 09 Jun 2011 00:08:23 -0700 (PDT)
+Message-ID: <20110609.000823.2202058578852433528.davem@davemloft.net>
 References: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20110609.000505.2259375858864240000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, gospo@redhat.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38570 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47461 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753619Ab1FIHFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:05:09 -0400
-In-Reply-To: <1307573800-24868-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1752827Ab1FIHI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:08:27 -0400
+In-Reply-To: <20110609.000505.2259375858864240000.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  8 Jun 2011 15:56:28 -0700
-
-> The following series is a (smaller) subset of the previous 40 patch
-> submission.  This subset only contains updates to e1000e, igb, igbvf
-> and rtnetlink.
-> 
-> e1000e: several cleanups and fixes, as well as bump the version
-> igb/igbvf/ixgbevf: bump driver version
-> rtnetlink: Compute and store minimum ifinfo dump size
-> 
-> The following are changes since commit ffbc03bc75b39c7bd412e7cc6d2185c11b0ffedd:
->   net: add needed interrupt.h
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
-
-Pulled, thanks Jeff.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAwOSBK
+dW4gMjAxMSAwMDowNTowNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEplZmYgS2lyc2hlciA8amVm
+ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBXZWQsICA4IEp1biAyMDExIDE1OjU2
+OjI4IC0wNzAwDQo+IA0KPj4gVGhlIGZvbGxvd2luZyBzZXJpZXMgaXMgYSAoc21hbGxlcikgc3Vi
+c2V0IG9mIHRoZSBwcmV2aW91cyA0MCBwYXRjaA0KPj4gc3VibWlzc2lvbi4gIFRoaXMgc3Vic2V0
+IG9ubHkgY29udGFpbnMgdXBkYXRlcyB0byBlMTAwMGUsIGlnYiwgaWdidmYNCj4+IGFuZCBydG5l
+dGxpbmsuDQo+PiANCj4+IGUxMDAwZTogc2V2ZXJhbCBjbGVhbnVwcyBhbmQgZml4ZXMsIGFzIHdl
+bGwgYXMgYnVtcCB0aGUgdmVyc2lvbg0KPj4gaWdiL2lnYnZmL2l4Z2JldmY6IGJ1bXAgZHJpdmVy
+IHZlcnNpb24NCj4+IHJ0bmV0bGluazogQ29tcHV0ZSBhbmQgc3RvcmUgbWluaW11bSBpZmluZm8g
+ZHVtcCBzaXplDQo+PiANCj4+IFRoZSBmb2xsb3dpbmcgYXJlIGNoYW5nZXMgc2luY2UgY29tbWl0
+IGZmYmMwM2JjNzViMzljN2JkNDEyZTdjYzZkMjE4NWMxMWIwZmZlZGQ6DQo+PiAgIG5ldDogYWRk
+IG5lZWRlZCBpbnRlcnJ1cHQuaA0KPj4gYW5kIGFyZSBhdmFpbGFibGUgaW4gdGhlIGdpdCByZXBv
+c2l0b3J5IGF0Og0KPj4gICBtYXN0ZXIua2VybmVsLm9yZzovcHViL3NjbS9saW51eC9rZXJuZWwv
+Z2l0L2praXJzaGVyL25ldC1uZXh0LTIuNiBtYXN0ZXINCj4gDQo+IFB1bGxlZCwgdGhhbmtzIEpl
+ZmYuDQoNCkFjdHVhbGx5LCBJIGhhdmUgdG8gdW4tcHVsbC4gIFBsZWFzZSBidWlsZCB0ZXN0IHlv
+dXIgY2hhbmdlczoNCg0KZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvbmV0bGluay5jOiBJbiBmdW5j
+dGlvbiChaWJubF9yY3ZfbXNnojoNCmRyaXZlcnMvaW5maW5pYmFuZC9jb3JlL25ldGxpbmsuYzox
+NTE6OTogZXJyb3I6IHRvbyBmZXcgYXJndW1lbnRzIHRvIGZ1bmN0aW9uIKFuZXRsaW5rX2R1bXBf
+c3RhcnSiDQppbmNsdWRlL2xpbnV4L25ldGxpbmsuaDoyNjA6MTI6IG5vdGU6IGRlY2xhcmVkIGhl
+cmUNCm1ha2VbM106ICoqKiBbZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvbmV0bGluay5vXSBFcnJv
+ciAxDQptYWtlWzJdOiAqKiogW2RyaXZlcnMvaW5maW5pYmFuZC9jb3JlXSBFcnJvciAyDQptYWtl
+WzFdOiAqKiogW2RyaXZlcnMvaW5maW5pYmFuZF0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFdhaXRp
+bmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4NCg==
