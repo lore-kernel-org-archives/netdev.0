@@ -1,40 +1,195 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/5 net-next] cnic: Randomize initial TCP port for iSCSI
- connections
-Date: Thu, 9 Jun 2011 08:27:22 -0700
-Message-ID: <20110609082722.492b46b5@nehalam.ftrdhcpuser.net>
-References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
-	<1307597376-5379-2-git-send-email-mchan@broadcom.com>
-	<1307597376-5379-3-git-send-email-mchan@broadcom.com>
+From: Charles Bearden <Charles.F.Bearden@uth.tmc.edu>
+Subject: TCP keepalives ignored by kernel when the contain timestamps
+Date: Thu, 9 Jun 2011 10:26:48 -0500
+Message-ID: <4DF0E638.2010506@uth.tmc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Eddie Wai" <eddie.wai@broadcom.com>
-To: "Michael Chan" <mchan@broadcom.com>
+Content-Type: multipart/signed; protocol="application/pkcs7-signature";
+	micalg=sha1; boundary="------------ms040402040204080508070606"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57052 "EHLO mail.vyatta.com"
+Received: from mta3.uth.tmc.edu ([129.106.148.58]:60578 "EHLO mta3.uth.tmc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751685Ab1FIP1c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 11:27:32 -0400
-In-Reply-To: <1307597376-5379-3-git-send-email-mchan@broadcom.com>
+	id S1751685Ab1FIPgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 11:36:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 8 Jun 2011 22:29:34 -0700
-"Michael Chan" <mchan@broadcom.com> wrote:
+--------------ms040402040204080508070606
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
->  static int cnic_cm_alloc_mem(struct cnic_dev *dev)
->  {
->  	struct cnic_local *cp = dev->cnic_priv;
-> +	u32 port_id;
->  
->  	cp->csk_tbl = kzalloc(sizeof(struct cnic_sock) * MAX_CM_SK_TBL_SZ,
->  			      GFP_KERNEL);
->  	if (!cp->csk_tbl)
->  		return -ENOMEM;
->  
-> +	get_random_bytes(&port_id, sizeof(port_id));
+I have come across a case that looks like it might be a kernel bug. It ap=
+pears=20
+that tcp keepalives sent by a remote system are ignored when they contain=
+ tcp=20
+timestamps, but are ACKed when they don't. When they are ignored, the rem=
+ote=20
+system resets the connection after a number of retries.
 
-I think random32() or it's alias net_random() would be sufficient
-for your needs here.
+I have replicated this problem on both Ubuntu 10.04 with a 2.6.32-32-serv=
+er=20
+kernel (x86_64) and CentOS 5.6 with a 2.6.18-238.12.1.el5 kernel. I'm sor=
+ry that=20
+I haven't had a chance to try to replicate the bug with a newer kernel, t=
+hough a=20
+co-worker has looked through changelogs for more recent kernels and didn'=
+t find=20
+anything that looked relevant.
+
+ From either of these hosts I run an application that connects to a remot=
+e host=20
+for 2-3 minutes, and that for most of that time sends no application data=
+ back=20
+and forth. After 30 seconds of no data from the Linux host, the remote ho=
+st=20
+sends a garden variety keepalive. When the remote host includes tcp times=
+tamps=20
+in the keepalives, they are ignored by the Linux host, and the remote hos=
+t=20
+resets the connection after 10 unACKed keepalives. When timestamps are ab=
+sent=20
+from the keepalives, the Linux host ACKs each one, and all is copacetic.
+
+Text output of a tcpdump trace of a connection that fails:
+   http://pastebin.com/v6CpteJ9
+
+Text output of a tcpdump trace of a connection that succeeds:
+   http://pastebin.com/KVLb3Mzh
+
+More details, in case you think they are relevant:
+
+   My application creates a JDBC connection to a remote MS SQL Server and=
+
+   executes a statement that does not return a result set, and so it does=
+n't
+   need to pass application data back and forth while it executes. The
+   statement takes 2 or 3 minutes to complete. I connect to two different=
+
+   remote hosts: a Win2003 machine, and a Win2008R2 machine. The Win2003
+   machine doesn't put timestamps in its keep-alives, so the application
+   completes successfully when connecting to that host. If tcp timestamps=
+
+   are enabled on the Linux host, the Win2008 host includes them in its
+   keepalives, and they are unACKed, so the connection is reset; if they
+   are disabled on the Linux host, the Win2008 host doesn't include them =
+in
+   the keepalives, and the application completes successfully. I use (as
+   you might expect) sysctl to disable tcp timestamps on the Linux hosts.=
+
+
+I have dumps for all permutations of CentOS/Ubuntu, Win200[38], and +/-=20
+timestamps on the Linux side, and I will post them if the developers thin=
+k that=20
+they would be useful.
+
+Thanks,
+Chuck Bearden
+Programmer Analyst IV
+The University of Texas Health Science Center at Houston
+School of Biomedical Informatics
+Email: Charles.F.Bearden@uth.tmc.edu
+
+
+--------------ms040402040204080508070606
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOkjCC
+A/AwggNZoAMCAQICECvsJV556vX0vt2D0bDTS1EwDQYJKoZIhvcNAQEFBQAwgcExCzAJBgNV
+BAYTAlVTMRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjE8MDoGA1UECxMzQ2xhc3MgMiBQdWJs
+aWMgUHJpbWFyeSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eSAtIEcyMTowOAYDVQQLEzEoYykg
+MTk5OCBWZXJpU2lnbiwgSW5jLiAtIEZvciBhdXRob3JpemVkIHVzZSBvbmx5MR8wHQYDVQQL
+ExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMB4XDTk5MDMzMTAwMDAwMFoXDTEyMDMzMDIzNTk1
+OVowggEBMScwJQYDVQQKEx5UaGUgVW5pdmVyc2l0eSBvZiBUZXhhcyBTeXN0ZW0xHzAdBgNV
+BAsTFlZlcmlTaWduIFRydXN0IE5ldHdvcmsxOzA5BgNVBAsTMlRlcm1zIG9mIHVzZSBhdCBo
+dHRwczovL3d3dy52ZXJpc2lnbi5jb20vcnBhIChjKTk5MTIwMAYDVQQLEylDbGFzcyAyIENB
+IC0gT25TaXRlIEluZGl2aWR1YWwgU3Vic2NyaWJlcjFEMEIGA1UEAxM7VGhlIFVuaXZlcnNp
+dHkgb2YgVGV4YXMgSGVhbHRoIFNjaWVuY2UgQ2VudGVyIGF0IEhvdXN0b24gQ0EwgZ8wDQYJ
+KoZIhvcNAQEBBQADgY0AMIGJAoGBAMYZu7ND40kLWbOvYuQPb8PFktqYhTIXhsUC6+ORnSLB
+JBjGbM9kh17samWncixNITwgkX/nfuvY6Mw/jEIGjs+0TNYdxYrcJBc23FLrMRgXSngtiYAY
+gVI4e6kqo8sMHV93Wbpgb/dXYS9ZKenjgBv9KbGILA7+5GXNyS++j7TrAgMBAAGjgaUwgaIw
+KQYDVR0RBCIwIKQeMBwxGjAYBgNVBAMTEVByaXZhdGVMYWJlbDEtMTQyMBEGCWCGSAGG+EIB
+AQQEAwIBBjBEBgNVHSAEPTA7MDkGC2CGSAGG+EUBBwEBMCowKAYIKwYBBQUHAgEWHGh0dHBz
+Oi8vd3d3LnZlcmlzaWduLmNvbS9SUEEwDwYDVR0TBAgwBgEB/wIBADALBgNVHQ8EBAMCAQYw
+DQYJKoZIhvcNAQEFBQADgYEAXGsbxBJsSYJvZ0JXPkrU13f1i6bGO2O0+065rXqaqkGxYxR9
+Ny+i5ULa/g3wzwgp6Ma+3mASenj5TaOoqET50A8+b+iDaLnoikznZPyIc88KFNXjj++fR7Ti
+cC0OmFevQ6Kv88bgBDXojh4FnckSQdmaUIGzlHPCYdnUqsgIfWgwggVLMIIEtKADAgECAhA1
+0JQhDLEDoEunhjpaAPiuMA0GCSqGSIb3DQEBBQUAMIIBATEnMCUGA1UEChMeVGhlIFVuaXZl
+cnNpdHkgb2YgVGV4YXMgU3lzdGVtMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3Jr
+MTswOQYDVQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3Jw
+YSAoYyk5OTEyMDAGA1UECxMpQ2xhc3MgMiBDQSAtIE9uU2l0ZSBJbmRpdmlkdWFsIFN1YnNj
+cmliZXIxRDBCBgNVBAMTO1RoZSBVbml2ZXJzaXR5IG9mIFRleGFzIEhlYWx0aCBTY2llbmNl
+IENlbnRlciBhdCBIb3VzdG9uIENBMB4XDTEwMDcxNTAwMDAwMFoXDTExMDcxNTIzNTk1OVow
+gecxJzAlBgNVBAoUHlRoZSBVbml2ZXJzaXR5IG9mIFRleGFzIFN5c3RlbTEsMCoGA1UECxQj
+SGVhbHRoIFNjaWVuY2UgQ2VudGVyIGF0IEhvdXN0b24gQ0ExRjBEBgNVBAsTPXd3dy52ZXJp
+c2lnbi5jb20vcmVwb3NpdG9yeS9DUFMgSW5jb3JwLiBieSBSZWYuLExJQUIuTFREKGMpOTkx
+GDAWBgNVBAMTD0NoYXJsZXMgQmVhcmRlbjEsMCoGCSqGSIb3DQEJARYdY2hhcmxlcy5mLmJl
+YXJkZW5AdXRoLnRtYy5lZHUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDL6PEn
+8JW2sJ816agItdzWFdWpy4n2J+5HApDX4Nvm0F/TumWPVe6DVg7MLMl9pHqD2Eca5NwxC5iW
+r/ft+j7CxNDc/xxUEb4yHrQXAJmYteUoAn0DPDrmhM/8amCM3zHKNZCHcUm5k+FehpSqTrdZ
+ydJHLLpQUF2Jf+/r5uNj3pLR3vCkZUY/OT48NJEkIemYzo0Y/4ZTicDF+D0c0h9l5NdSt6/5
+u+lNi8igNzxj23lT4Mo4QT2IUaCZKloyYtL3QFGPR6MyyZ4pKPzHgeqSiS2CcNFLKKxADo4z
+pJT/jdNSL1ag1KnErQoOPjcaQLqvm2Y0kF4qn3Db2tU0CVzRAgMBAAGjggFVMIIBUTAJBgNV
+HRMEAjAAMIGsBgNVHSAEgaQwgaEwgZ4GC2CGSAGG+EUBBwEBMIGOMCgGCCsGAQUFBwIBFhxo
+dHRwczovL3d3dy52ZXJpc2lnbi5jb20vQ1BTMGIGCCsGAQUFBwICMFYwFRYOVmVyaVNpZ24s
+IEluYy4wAwIBARo9VmVyaVNpZ24ncyBDUFMgaW5jb3JwLiBieSByZWZlcmVuY2UgbGlhYi4g
+bHRkLiAoYyk5NyBWZXJpU2lnbjALBgNVHQ8EBAMCBaAwEQYJYIZIAYb4QgEBBAQDAgeAMHUG
+A1UdHwRuMGwwaqBooGaGZGh0dHA6Ly9vbnNpdGVjcmwudmVyaXNpZ24uY29tL1RoZVVuaXZl
+cnNpdHlvZlRleGFzU3lzdGVtSGVhbHRoU2NpZW5jZUNlbnRlcmF0SG91c3RvbkNBL0xhdGVz
+dENSTC5jcmwwDQYJKoZIhvcNAQEFBQADgYEACj42pCEmLRqHsiyuy4H5mIPMzZKM7YuwJpyq
+p/hfb6Mctj2AeUUHSEKqkJmcN5X0FuuS9dnaPyzeQO0Ivp+ePw9Bj4jjRE0vS68lw4a7dOzQ
+VmJmjzpatJHnMdYRY9Tvfo/xMaW4qakSVLchqNMLRD61a6k9fKaY/3H31dqmaI0wggVLMIIE
+tKADAgECAhA10JQhDLEDoEunhjpaAPiuMA0GCSqGSIb3DQEBBQUAMIIBATEnMCUGA1UEChMe
+VGhlIFVuaXZlcnNpdHkgb2YgVGV4YXMgU3lzdGVtMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVz
+dCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNp
+Z24uY29tL3JwYSAoYyk5OTEyMDAGA1UECxMpQ2xhc3MgMiBDQSAtIE9uU2l0ZSBJbmRpdmlk
+dWFsIFN1YnNjcmliZXIxRDBCBgNVBAMTO1RoZSBVbml2ZXJzaXR5IG9mIFRleGFzIEhlYWx0
+aCBTY2llbmNlIENlbnRlciBhdCBIb3VzdG9uIENBMB4XDTEwMDcxNTAwMDAwMFoXDTExMDcx
+NTIzNTk1OVowgecxJzAlBgNVBAoUHlRoZSBVbml2ZXJzaXR5IG9mIFRleGFzIFN5c3RlbTEs
+MCoGA1UECxQjSGVhbHRoIFNjaWVuY2UgQ2VudGVyIGF0IEhvdXN0b24gQ0ExRjBEBgNVBAsT
+PXd3dy52ZXJpc2lnbi5jb20vcmVwb3NpdG9yeS9DUFMgSW5jb3JwLiBieSBSZWYuLExJQUIu
+TFREKGMpOTkxGDAWBgNVBAMTD0NoYXJsZXMgQmVhcmRlbjEsMCoGCSqGSIb3DQEJARYdY2hh
+cmxlcy5mLmJlYXJkZW5AdXRoLnRtYy5lZHUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+AoIBAQDL6PEn8JW2sJ816agItdzWFdWpy4n2J+5HApDX4Nvm0F/TumWPVe6DVg7MLMl9pHqD
+2Eca5NwxC5iWr/ft+j7CxNDc/xxUEb4yHrQXAJmYteUoAn0DPDrmhM/8amCM3zHKNZCHcUm5
+k+FehpSqTrdZydJHLLpQUF2Jf+/r5uNj3pLR3vCkZUY/OT48NJEkIemYzo0Y/4ZTicDF+D0c
+0h9l5NdSt6/5u+lNi8igNzxj23lT4Mo4QT2IUaCZKloyYtL3QFGPR6MyyZ4pKPzHgeqSiS2C
+cNFLKKxADo4zpJT/jdNSL1ag1KnErQoOPjcaQLqvm2Y0kF4qn3Db2tU0CVzRAgMBAAGjggFV
+MIIBUTAJBgNVHRMEAjAAMIGsBgNVHSAEgaQwgaEwgZ4GC2CGSAGG+EUBBwEBMIGOMCgGCCsG
+AQUFBwIBFhxodHRwczovL3d3dy52ZXJpc2lnbi5jb20vQ1BTMGIGCCsGAQUFBwICMFYwFRYO
+VmVyaVNpZ24sIEluYy4wAwIBARo9VmVyaVNpZ24ncyBDUFMgaW5jb3JwLiBieSByZWZlcmVu
+Y2UgbGlhYi4gbHRkLiAoYyk5NyBWZXJpU2lnbjALBgNVHQ8EBAMCBaAwEQYJYIZIAYb4QgEB
+BAQDAgeAMHUGA1UdHwRuMGwwaqBooGaGZGh0dHA6Ly9vbnNpdGVjcmwudmVyaXNpZ24uY29t
+L1RoZVVuaXZlcnNpdHlvZlRleGFzU3lzdGVtSGVhbHRoU2NpZW5jZUNlbnRlcmF0SG91c3Rv
+bkNBL0xhdGVzdENSTC5jcmwwDQYJKoZIhvcNAQEFBQADgYEACj42pCEmLRqHsiyuy4H5mIPM
+zZKM7YuwJpyqp/hfb6Mctj2AeUUHSEKqkJmcN5X0FuuS9dnaPyzeQO0Ivp+ePw9Bj4jjRE0v
+S68lw4a7dOzQVmJmjzpatJHnMdYRY9Tvfo/xMaW4qakSVLchqNMLRD61a6k9fKaY/3H31dqm
+aI0xggVgMIIFXAIBATCCARcwggEBMScwJQYDVQQKEx5UaGUgVW5pdmVyc2l0eSBvZiBUZXhh
+cyBTeXN0ZW0xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdvcmsxOzA5BgNVBAsTMlRl
+cm1zIG9mIHVzZSBhdCBodHRwczovL3d3dy52ZXJpc2lnbi5jb20vcnBhIChjKTk5MTIwMAYD
+VQQLEylDbGFzcyAyIENBIC0gT25TaXRlIEluZGl2aWR1YWwgU3Vic2NyaWJlcjFEMEIGA1UE
+AxM7VGhlIFVuaXZlcnNpdHkgb2YgVGV4YXMgSGVhbHRoIFNjaWVuY2UgQ2VudGVyIGF0IEhv
+dXN0b24gQ0ECEDXQlCEMsQOgS6eGOloA+K4wCQYFKw4DAhoFAKCCAxwwGAYJKoZIhvcNAQkD
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTEwNjA5MTUyNjQ4WjAjBgkqhkiG9w0B
+CQQxFgQUE5i1qRJJSxmM/vBHZgyEbG/HfV4wXwYJKoZIhvcNAQkPMVIwUDALBglghkgBZQME
+AQIwCgYIKoZIhvcNAwcwDgYIKoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIH
+MA0GCCqGSIb3DQMCAgEoMIIBKgYJKwYBBAGCNxAEMYIBGzCCARcwggEBMScwJQYDVQQKEx5U
+aGUgVW5pdmVyc2l0eSBvZiBUZXhhcyBTeXN0ZW0xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0
+IE5ldHdvcmsxOzA5BgNVBAsTMlRlcm1zIG9mIHVzZSBhdCBodHRwczovL3d3dy52ZXJpc2ln
+bi5jb20vcnBhIChjKTk5MTIwMAYDVQQLEylDbGFzcyAyIENBIC0gT25TaXRlIEluZGl2aWR1
+YWwgU3Vic2NyaWJlcjFEMEIGA1UEAxM7VGhlIFVuaXZlcnNpdHkgb2YgVGV4YXMgSGVhbHRo
+IFNjaWVuY2UgQ2VudGVyIGF0IEhvdXN0b24gQ0ECEDXQlCEMsQOgS6eGOloA+K4wggEsBgsq
+hkiG9w0BCRACCzGCARugggEXMIIBATEnMCUGA1UEChMeVGhlIFVuaXZlcnNpdHkgb2YgVGV4
+YXMgU3lzdGVtMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYDVQQLEzJU
+ZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYyk5OTEyMDAG
+A1UECxMpQ2xhc3MgMiBDQSAtIE9uU2l0ZSBJbmRpdmlkdWFsIFN1YnNjcmliZXIxRDBCBgNV
+BAMTO1RoZSBVbml2ZXJzaXR5IG9mIFRleGFzIEhlYWx0aCBTY2llbmNlIENlbnRlciBhdCBI
+b3VzdG9uIENBAhA10JQhDLEDoEunhjpaAPiuMA0GCSqGSIb3DQEBAQUABIIBAGAPKkcoxmgl
+J/ud+QHGpMUEXqxv+MJ0D79jeelOUkRTr4UwOTJUfHpFbLP7lxEmnm3oXLnwvxanIFLCywst
+54vIy34MV8Iy7j9tYbPflTvEI6TbP5jnG5hj1/A4r/2Xol59LsQg65YLDM9eUDCnnk3+WLIv
+nVaaaqbAbGSH5pdDHqEyl4YHG9dl19t6NHmVs3EZZY39/+ryq1UmFuGQIeePwnYRhXTvx4lM
+IsJmvoqOdO6ebrl1Qva7OnS9WkOisHTNWyLem/vr3cODpBvFm9Ou+fxo2cK67QFW5OmZpRV1
+KQ6XGSjsm98iI9FfoyM43VFrewgRlf2KQ9Fejbmi4skAAAAAAAA=
+--------------ms040402040204080508070606--
