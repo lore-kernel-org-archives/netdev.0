@@ -1,60 +1,59 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: RE: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
-Date: Thu, 9 Jun 2011 16:26:08 -0500
-Message-ID: <ADE657CA350FB648AAC2C43247A983F001F3820B863A@AUSP01VMBX24.collaborationhost.net>
-References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
-	<ADE657CA350FB648AAC2C43247A983F001F3820B85F3@AUSP01VMBX24.collaborationhost.net>
-	<20110609204113.GE2857@acer>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Request for review on Hyper-V virtual network driver
+Date: Thu, 09 Jun 2011 14:38:50 -0700
+Message-ID: <1307655530.13329.49.camel@Joe-Laptop>
+References: <1307654865-30326-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ryan@bluewatersys.com" <ryan@bluewatersys.com>,
-	"kernel@wantstofly.org" <kernel@wantstofly.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Mika Westerberg <mika.westerberg@iki.fi>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20110609204113.GE2857@acer>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: hjanssen@microsoft.com, kys@microsoft.com, gregkh@suse.de,
+	shemminger@vyatta.com, netdev@vger.kernel.org
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:2717 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756489Ab1FIViw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 17:38:52 -0400
+In-Reply-To: <1307654865-30326-1-git-send-email-haiyangz@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, June 09, 2011 1:41 PM, Mika Westerberg wrote:
-> On Thu, Jun 09, 2011 at 03:27:11PM -0500, H Hartley Sweeten wrote:
->> On Thursday, June 02, 2011 12:00 PM, Mika Westerberg wrote:
->>>
->>> As the driver is now passing platform device to the DMA mapping functions,
->>> we should give it valid DMA masks.
->>>
->>> Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
->>> Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
->> 
->> Since you made this patch the first in the series the commit message is not
->> quite right.  Other than that:
->> 
->> Acked-by: H Hartley Sweeten <hsweeten@visionengravers.com>
->
-> Ah, right. I forgot to change the commit message. How about following?
->
-> From: Mika Westerberg <mika.westerberg@iki.fi>
-> Subject: [PATCH 1/5] ep93xx: set DMA masks for the ep93xx_eth
->
-> Since the driver uses the DMA API, we should pass it valid DMA masks.
->
-> Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
-> Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> Acked-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+On Thu, 2011-06-09 at 14:27 -0700, Haiyang Zhang wrote:
+> To network maintainers,
+> 
+> Over the last several months we have addressed all the known issues in our
+> Hyper-V virtual network driver. We are very keen on getting this driver out
+> of the staging area. To that end, we would like to request you to review
+> this code. 
 
-I like that better.
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> ---
+>  drivers/net/Kconfig               |    2 +
+>  drivers/net/Makefile              |    1 +
+>  drivers/net/hyperv/Kconfig        |   10 +
+>  drivers/net/hyperv/Makefile       |    4 +
+>  drivers/net/hyperv/hyperv_net.h   | 1057 +++++++++++++++++++++++++++++++++++++
+>  drivers/net/hyperv/netvsc.c       | 1014 +++++++++++++++++++++++++++++++++++
+>  drivers/net/hyperv/netvsc_drv.c   |  473 +++++++++++++++++
+>  drivers/net/hyperv/rndis_filter.c |  830 +++++++++++++++++++++++++++++
+>  drivers/staging/hv/Kconfig        |    7 -
+>  drivers/staging/hv/Makefile       |    2 -
+>  drivers/staging/hv/hyperv_net.h   | 1057 -------------------------------------
+>  drivers/staging/hv/netvsc.c       | 1015 -----------------------------------
+>  drivers/staging/hv/netvsc_drv.c   |  474 -----------------
+>  drivers/staging/hv/rndis_filter.c |  831 -----------------------------
+>  14 files changed, 3391 insertions(+), 3386 deletions(-)
+>  create mode 100644 drivers/net/hyperv/Kconfig
+>  create mode 100644 drivers/net/hyperv/Makefile
+>  create mode 100644 drivers/net/hyperv/hyperv_net.h
+>  create mode 100644 drivers/net/hyperv/netvsc.c
+>  create mode 100644 drivers/net/hyperv/netvsc_drv.c
+>  create mode 100644 drivers/net/hyperv/rndis_filter.c
+>  delete mode 100644 drivers/staging/hv/hyperv_net.h
+>  delete mode 100644 drivers/staging/hv/netvsc.c
+>  delete mode 100644 drivers/staging/hv/netvsc_drv.c
+>  delete mode 100644 drivers/staging/hv/rndis_filter.c
 
-Thanks,
-Hartley
+I suggest you resend this using the -M or --find-renames option.
+
+
