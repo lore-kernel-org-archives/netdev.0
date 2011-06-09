@@ -1,8 +1,8 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 3/6] batman-adv: Fix signedness problem in
-	parse_gw_bandwidth
-Date: Thu,  9 Jun 2011 23:09:11 +0200
-Message-ID: <1307653754-5014-4-git-send-email-sven@narfation.org>
+Subject: [PATCH 4/6] batman-adv: Rewrite debugfs kobj_to_*
+	helpers as functions
+Date: Thu,  9 Jun 2011 23:09:12 +0200
+Message-ID: <1307653754-5014-5-git-send-email-sven@narfation.org>
 References: <1307653754-5014-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -21,35 +21,39 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-strict_strtoul as used in parse_gw_bandwidth is defined for unsigned
-long and strict_strtol should be used instead for long.
+CodingStyle "Chapter 12: Macros, Enums and RTL" highly recommends to use
+functions instead of macros were possible. This ensures type safety and
+prevents shadowing of other variables.
 
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/gateway_common.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/batman-adv/bat_sysfs.c |   14 +++++++++++---
+ 1 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
-index ed3bd36..e74307b 100644
---- a/net/batman-adv/gateway_common.c
-+++ b/net/batman-adv/gateway_common.c
-@@ -97,7 +97,7 @@ static bool parse_gw_bandwidth(struct net_device *net_dev, char *buff,
- 			*tmp_ptr = '\0';
- 	}
+diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
+index 6f70560..924d577 100644
+--- a/net/batman-adv/bat_sysfs.c
++++ b/net/batman-adv/bat_sysfs.c
+@@ -28,9 +28,17 @@
+ #include "gateway_client.h"
+ #include "vis.h"
  
--	ret = strict_strtoul(buff, 10, &ldown);
-+	ret = strict_strtol(buff, 10, &ldown);
- 	if (ret) {
- 		bat_err(net_dev,
- 			"Download speed of gateway mode invalid: %s\n",
-@@ -122,7 +122,7 @@ static bool parse_gw_bandwidth(struct net_device *net_dev, char *buff,
- 				*tmp_ptr = '\0';
- 		}
+-#define to_dev(obj)		container_of(obj, struct device, kobj)
+-#define kobj_to_netdev(obj)	to_net_dev(to_dev(obj->parent))
+-#define kobj_to_batpriv(obj)	netdev_priv(kobj_to_netdev(obj))
++static struct net_device *kobj_to_netdev(struct kobject *obj)
++{
++	struct device *dev = container_of(obj->parent, struct device, kobj);
++	return to_net_dev(dev);
++}
++
++static struct bat_priv *kobj_to_batpriv(struct kobject *obj)
++{
++	struct net_device *net_dev = kobj_to_netdev(obj);
++	return netdev_priv(net_dev);
++}
  
--		ret = strict_strtoul(slash_ptr + 1, 10, &lup);
-+		ret = strict_strtol(slash_ptr + 1, 10, &lup);
- 		if (ret) {
- 			bat_err(net_dev,
- 				"Upload speed of gateway mode invalid: "
+ /* Use this, if you have customized show and store functions */
+ #define BAT_ATTR(_name, _mode, _show, _store)	\
 -- 
 1.7.5.3
