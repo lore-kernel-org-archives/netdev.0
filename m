@@ -1,38 +1,45 @@
 From: Greg KH <greg@kroah.com>
-Subject: Re: Request for review on Hyper-V virtual network driver
-Date: Thu, 9 Jun 2011 12:28:41 -0700
-Message-ID: <20110609192841.GA12036@kroah.com>
-References: <A1F3067C9B68744AA19F6802BAB8FFDC09603BC2@TK5EX14MBXC227.redmond.corp.microsoft.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Thu, 9 Jun 2011 12:29:29 -0700
+Message-ID: <20110609192929.GA12121@kroah.com>
+References: <20110609145657.96fae0d0.sfr@canb.auug.org.au>
+ <7CA9E653-DABC-470C-BCA6-905D6EBF9283@kroah.com>
+ <20110609153904.e602b317.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Hank Janssen <hjanssen@microsoft.com>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4.smtp.messagingengine.com ([66.111.4.28]:52028 "EHLO
-	out4.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754654Ab1FIT2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 15:28:46 -0400
+Cc: David Miller <davem@davemloft.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC09603BC2@TK5EX14MBXC227.redmond.corp.microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110609153904.e602b317.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 09, 2011 at 07:23:59PM +0000, Haiyang Zhang wrote:
-> To network maintainers:
+On Thu, Jun 09, 2011 at 03:39:04PM +1000, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> On Wed, 8 Jun 2011 22:17:55 -0700 Greg K-H <greg@kroah.com> wrote:
+> >
+> > Sorry, this is something that Linus asked for and will be going to him
+> > tomorrow with the rest of the staging-linus branch.
+> 
+> Yeah, I remember the discussion, just not a conclusion.  At least the
+> x86_64 allmodconfig builds worked before I merged the net tree, so that is
+> something.
+> 
+> The powerpc allyesconfig build is going to be interesting :-(
+> 
+> You might like to check the build results at
+> http://kisskb.ellerman.id.au/kisskb/branch/9/ sometime tomorrow.  Or
+> point your janitors at it :-)
 
-<snip>
+I don't see any failures in the staging tree in the powerpc allyesconfig
+build, so all must be good :)
 
-You aren't going to get very far posting emails in HTML format, which is
-filtered out by the mailing list, and most sane email users...
-
-care to try again?
-
-Oh, and the best way to ask for a code review is to post the code in the
-message, in diff format, so that it can be read and reviewed and
-commented on inline, otherwise you are asking people to do a lot of
-extra work for you for no good reason.
+thanks,
 
 greg k-h
