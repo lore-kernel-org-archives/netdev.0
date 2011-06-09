@@ -1,38 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5 net-next] cnic, bnx2: Check iSCSI support early in
- bnx2_init_one()
-Date: Wed, 08 Jun 2011 23:53:27 -0700 (PDT)
-Message-ID: <20110608.235327.549372211258112268.davem@davemloft.net>
-References: <1307597376-5379-3-git-send-email-mchan@broadcom.com>
-	<1307597376-5379-4-git-send-email-mchan@broadcom.com>
-	<1307597376-5379-5-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46858 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752894Ab1FIGzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 02:55:03 -0400
-In-Reply-To: <1307597376-5379-5-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH v4 net-next 0/5] bonding:use latest lacp_rate and ad_select,
+Date: Thu,  9 Jun 2011 15:03:26 +0800
+Message-ID: <cover.1307601948.git.panweiping3@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Weiping Pan <panweiping3@gmail.com>
+To: fubar@us.ibm.com, andy@greyhouse.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 8 Jun 2011 22:29:36 -0700
+There is bug that when you modify lacp_rate via sysfs,
+802.3ad won't use the new value of lacp_rate to transmit packets.
+This is because port->actor_oper_port_state isn't changed.
 
-> Based on earlier patch from Neil Horman <nhorman@tuxdriver.com>
-> 
-> If iSCSI is not supported on a bnx2 device, bnx2_cnic_probe() will
-> return NULL and the cnic device will not be visible to bnx2i.  This
-> will prevent bnx2i from registering and then unregistering during
-> cnic_start() and cause the warning message:
-> 
-> bnx2 0003:01:00.1: eth1: Failed waiting for ULP up call to complete
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
+As for ad_select, it can work,
+but both struct bond_params and ad_bond_info have lacp_fast and ad_select,
+they are duplicate and need extra synchronization.
+802.3ad can get them from bond_params directly every time.
 
-Applied.
+And ad_timer and arp_mon_pt aren't used any more, just delete them.
+
+changelog:
+v2:
+add bond_3ad_update_lacp_rate() as a helper function,
+and hold bond->lock when iterates slave list.
+
+v3:
+delete duplicate lacp_fast and agg_select_mode from struct ad_bond_info.
+
+v4:
+delete unused ad_timer and arp_mon_pt.
+
+Weiping Pan (5):
+  bonding: make 802.3ad use latest lacp_rate
+  bonding:delete lacp_fast from ad_bond_info
+  bonding:delete agg_select_mode from ad_bond_info
+  bonding: delete unused ad_timer
+  bonding: delete unused arp_mon_pt
+
+ drivers/net/bonding/bond_3ad.c   |   41 ++++++++++++++++++++++++++++++++-----
+ drivers/net/bonding/bond_3ad.h   |    8 +-----
+ drivers/net/bonding/bond_main.c  |    3 +-
+ drivers/net/bonding/bond_sysfs.c |    1 +
+ drivers/net/bonding/bonding.h    |    1 -
+ 5 files changed, 39 insertions(+), 15 deletions(-)
+
+-- 
+1.7.4.4
