@@ -1,37 +1,48 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net-next 4/5] bonding: delete unused ad_timer
-Date: Thu,  9 Jun 2011 15:19:04 +0800
-Message-ID: <5fd74a13b14c3bd39f6f033dc0ddc48fb9c2c3b6.1307603621.git.panweiping3@gmail.com>
-References: <cover.1307603621.git.panweiping3@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Weiping Pan <panweiping3@gmail.com>
-To: fubar@us.ibm.com, andy@greyhouse.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1307603621.git.panweiping3@gmail.com>
-In-Reply-To: <cover.1307603621.git.panweiping3@gmail.com>
-References: <cover.1307603621.git.panweiping3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: dummy: allocate devices with alloc_netdev_id
+Date: Thu, 09 Jun 2011 00:20:55 -0700 (PDT)
+Message-ID: <20110609.002055.558422517682261395.davem@davemloft.net>
+References: <1307433593.3091.3.camel@edumazet-laptop>
+	<BANLkTinVNkcznN5kPpje4cptjCKfWW6s-w@mail.gmail.com>
+	<20110607.022926.472309688813629515.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: lucian.grijincu@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57749 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926Ab1FIHU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 03:20:59 -0400
+In-Reply-To: <20110607.022926.472309688813629515.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now we use agg_select_timer and ad_work.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 07 Jun 2011 02:29:26 -0700 (PDT)
 
-Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- drivers/net/bonding/bond_3ad.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+> Date: Tue, 7 Jun 2011 11:30:38 +0300
+> 
+>> @David: I see [1][2] that you marked the patches as Rejected. If it's
+>> not a script that sends all my patches to /dev/null because of the
+>> 100+ patch set I sent a while back, could you tell me why you rejected
+>> the patches?
+> 
+> I misfired while changing patch states earlier today, I put them back
+> into "Under Review"
 
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 1682e69..235b2cc 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -253,7 +253,6 @@ struct ad_system {
- struct ad_bond_info {
- 	struct ad_system system;	    /* 802.3ad system structure */
- 	u32 agg_select_timer;	    // Timer to select aggregator after all adapter's hand shakes
--	struct timer_list ad_timer;
- };
- 
- struct ad_slave_info {
--- 
-1.7.4.4
+So I took a look again, you're patches introduce problems.
+
+We don't do the instance allocation and (more importantly) conflict
+validation of the netdev name in alloc_netdev_mqs(), we do it when the
+netdev is registered.
+
+So with your patch some other entity could rename a random netdev
+to "dummy62" in between the alloc_netdev_id() call and the register
+and the register will fail erroneously.
+
+I really don't like this optimization, sorry.  Make dev_alloc_name()
+less stupid instead.
+
