@@ -1,122 +1,106 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: [PATCH 3/3] NET: am79c961: fix assembler warnings
-Date: Fri, 10 Jun 2011 11:52:35 +0100
-Message-ID: <E1QUzKN-0004BE-2a@rmk-PC.arm.linux.org.uk>
-References: <20110610105122.GA27087@flint.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: netdev@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] virtio_net: introduce VIRTIO_NET_HDR_F_DATA_VALID
+Date: Fri, 10 Jun 2011 18:56:17 +0800
+Message-ID: <1307703377-3798-1-git-send-email-jasowang@redhat.com>
+Cc: yvugenfi@redhat.com, kvm@vger.kernel.org,
+	herbert@gondor.hengli.com.au, Jason Wang <jasowang@redhat.com>
+To: rusty@rustcorp.com.au, mst@redhat.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:35114 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755444Ab1FJKwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 06:52:39 -0400
-Received: from e0022681537dd.dyn.arm.linux.org.uk ([2002:4e20:1eda:1:222:68ff:fe15:37dd] helo=rmk-PC.arm.linux.org.uk)
-	by caramon.arm.linux.org.uk with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.72)
-	(envelope-from <rmk@arm.linux.org.uk>)
-	id 1QUzKO-0006QA-A1
-	for netdev@vger.kernel.org; Fri, 10 Jun 2011 11:52:36 +0100
-Received: from rmk by rmk-PC.arm.linux.org.uk with local (Exim 4.76)
-	(envelope-from <rmk@arm.linux.org.uk>)
-	id 1QUzKN-0004BE-2a
-	for netdev@vger.kernel.org; Fri, 10 Jun 2011 11:52:35 +0100
-In-Reply-To: <20110610105122.GA27087@flint.arm.linux.org.uk>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:24344 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755444Ab1FJKzd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 06:55:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix:
-/tmp/ccvoZ6h8.s: Assembler messages:
-/tmp/ccvoZ6h8.s:284: Warning: register range not in ascending order
-/tmp/ccvoZ6h8.s:881: Warning: register range not in ascending order
-/tmp/ccvoZ6h8.s:1087: Warning: register range not in ascending order
+There's no need for the guest to validate the checksum if it have been
+validated by host nics. So this patch introduces a new flag -
+VIRTIO_NET_HDR_F_DATA_VALID which is used to bypass the checksum
+examing in guest. The backend (tap/macvtap) may set this flag when
+met skbs with CHECKSUM_UNNECESSARY to save cpu utilization.
 
-by ensuring that we have temporary variables placed into specific
-registers.  Reorder the code a bit to allow the resulting assembly
-to be slightly more optimal.
+No feature negotiation is needed as old driver just ignore this flag.
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Iperf shows 12%-30% performance improvement for UDP traffic. For TCP,
+when gro is on no difference as it produces skb with partial
+checksum. But when gro is disabled, 20% or even higher improvement
+could be measured by netperf.
+
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/arm/am79c961a.c |   35 ++++++++++++++++++-----------------
- 1 files changed, 18 insertions(+), 17 deletions(-)
+ drivers/net/macvtap.c      |    2 ++
+ drivers/net/tun.c          |    2 ++
+ drivers/net/virtio_net.c   |    2 ++
+ include/linux/virtio_net.h |    1 +
+ net/packet/af_packet.c     |    2 ++
+ 5 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
-index 79d88a0..7b3e23f 100644
---- a/drivers/net/arm/am79c961a.c
-+++ b/drivers/net/arm/am79c961a.c
-@@ -91,40 +91,41 @@ static inline unsigned short read_ireg(u_long base_addr, u_int reg)
- #define am_writeword(dev,off,val) __raw_writew(val, ISAMEM_BASE + ((off) << 1))
- #define am_readword(dev,off)      __raw_readw(ISAMEM_BASE + ((off) << 1))
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 6696e56..ecee0fe 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -508,6 +508,8 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+ 		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+ 		vnet_hdr->csum_start = skb_checksum_start_offset(skb);
+ 		vnet_hdr->csum_offset = skb->csum_offset;
++	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
++		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 	} /* else everything is zero */
  
--static inline void
-+static void
- am_writebuffer(struct net_device *dev, u_int offset, unsigned char *buf, unsigned int length)
- {
- 	offset = ISAMEM_BASE + (offset << 1);
- 	length = (length + 1) & ~1;
- 	if ((int)buf & 2) {
--		__asm__ __volatile__("str%?h	%2, [%0], #4"
-+		asm volatile("str%?h	%2, [%0], #4"
- 		 : "=&r" (offset) : "0" (offset), "r" (buf[0] | (buf[1] << 8)));
- 		buf += 2;
- 		length -= 2;
- 	}
- 	while (length > 8) {
--		unsigned int tmp, tmp2;
--		__asm__ __volatile__(
--			"ldm%?ia	%1!, {%2, %3}\n\t"
-+		register unsigned int tmp asm("r2"), tmp2 asm("r3");
-+		asm volatile(
-+			"ldm%?ia	%0!, {%1, %2}"
-+			: "+r" (buf), "=&r" (tmp), "=&r" (tmp2));
-+		length -= 8;
-+		asm volatile(
-+			"str%?h	%1, [%0], #4\n\t"
-+			"mov%?	%1, %1, lsr #16\n\t"
-+			"str%?h	%1, [%0], #4\n\t"
- 			"str%?h	%2, [%0], #4\n\t"
- 			"mov%?	%2, %2, lsr #16\n\t"
--			"str%?h	%2, [%0], #4\n\t"
--			"str%?h	%3, [%0], #4\n\t"
--			"mov%?	%3, %3, lsr #16\n\t"
--			"str%?h	%3, [%0], #4"
--		: "=&r" (offset), "=&r" (buf), "=r" (tmp), "=r" (tmp2)
--		: "0" (offset), "1" (buf));
--		length -= 8;
-+			"str%?h	%2, [%0], #4"
-+		: "+r" (offset), "=&r" (tmp), "=&r" (tmp2));
- 	}
- 	while (length > 0) {
--		__asm__ __volatile__("str%?h	%2, [%0], #4"
-+		asm volatile("str%?h	%2, [%0], #4"
- 		 : "=&r" (offset) : "0" (offset), "r" (buf[0] | (buf[1] << 8)));
- 		buf += 2;
- 		length -= 2;
- 	}
- }
+ 	return 0;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 74e9405..f43fa45 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -788,6 +788,8 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+ 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+ 			gso.csum_start = skb_checksum_start_offset(skb);
+ 			gso.csum_offset = skb->csum_offset;
++		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
++			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
  
--static inline void
-+static void
- am_readbuffer(struct net_device *dev, u_int offset, unsigned char *buf, unsigned int length)
- {
- 	offset = ISAMEM_BASE + (offset << 1);
-@@ -140,12 +141,12 @@ am_readbuffer(struct net_device *dev, u_int offset, unsigned char *buf, unsigned
- 		length -= 2;
+ 		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f685324..be3686a 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -274,6 +274,8 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+ 					  hdr->hdr.csum_start,
+ 					  hdr->hdr.csum_offset))
+ 			goto frame_err;
++	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
  	}
- 	while (length > 8) {
--		unsigned int tmp, tmp2, tmp3;
-+		register unsigned int tmp asm("r2"), tmp2 asm("r3"), tmp3;
- 		asm volatile(
- 			"ldr%?h	%2, [%0], #4\n\t"
-+			"ldr%?h	%4, [%0], #4\n\t"
- 			"ldr%?h	%3, [%0], #4\n\t"
--			"orr%?	%2, %2, %3, lsl #16\n\t"
--			"ldr%?h	%3, [%0], #4\n\t"
-+			"orr%?	%2, %2, %4, lsl #16\n\t"
- 			"ldr%?h	%4, [%0], #4\n\t"
- 			"orr%?	%3, %3, %4, lsl #16\n\t"
- 			"stm%?ia	%1!, {%2, %3}"
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index 136040b..970d5a2 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -63,6 +63,7 @@ struct virtio_net_config {
+  * specify GSO or CSUM features, you can simply ignore the header. */
+ struct virtio_net_hdr {
+ #define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	// Use csum_start, csum_offset
++#define VIRTIO_NET_HDR_F_DATA_VALID	2	// Csum is valid
+ 	__u8 flags;
+ #define VIRTIO_NET_HDR_GSO_NONE		0	// Not a GSO frame
+ #define VIRTIO_NET_HDR_GSO_TCPV4	1	// GSO frame, IPv4 TCP (TSO)
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c0c3cda..99ca471 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1681,6 +1681,8 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+ 			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
+ 			vnet_hdr.csum_offset = skb->csum_offset;
++		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
++			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 		} /* else everything is zero */
+ 
+ 		err = memcpy_toiovec(msg->msg_iov, (void *)&vnet_hdr,
 -- 
-1.7.4.4
+1.7.1
 
