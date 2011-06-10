@@ -1,50 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 10/12] igb: Change version to remove number after -k in kernel versions.
-Date: Thu,  9 Jun 2011 20:47:54 -0700
-Message-ID: <1307677676-26690-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 01/12] e1000e: disable far-end loopback mode on ESB2
+Date: Thu,  9 Jun 2011 20:47:45 -0700
+Message-ID: <1307677676-26690-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56870 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:9764 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754718Ab1FJDsF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 23:48:05 -0400
+	id S1753163Ab1FJDsA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 23:48:00 -0400
 In-Reply-To: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-This patch changes the way versioning is done for igb in the kernel by
-removing the number after the "k."  It has been determined that just the
-"k" is sufficient to identify a kernel version and the following number
-was used in an inconsistent manner.
+The ESB2 LAN includes a debug feature that enables far-end loopback (FELB)
+of the SerDes/Kumeran interface.  This feature is activated when receiving
+a sequence of symbols that includes a reserved codeword.  On a perfect
+link, FELB would never be activated.  In the presence of bit errors, there
+is a very small, but non-zero, probability of FELB being activated.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+If the FELB is activated, the SerDes link becomes non-functional and must
+be reset.  It could also corrupt the switching tables in the switch since
+the ESB2 is transmitting packets with a different source MAC address.
+
+This patch disables the FELB feature.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/igb/igb_main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/es2lan.c |    8 ++++++++
+ drivers/net/e1000e/hw.h     |    1 +
+ 2 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 18fccf9..c2e9670 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -54,9 +54,8 @@
- #define MAJ 3
- #define MIN 0
- #define BUILD 6
--#define KFIX 2
- #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
--__stringify(BUILD) "-k" __stringify(KFIX)
-+__stringify(BUILD) "-k"
- char igb_driver_name[] = "igb";
- char igb_driver_version[] = DRV_VERSION;
- static const char igb_driver_string[] =
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index f4bbeb2..c0ecb2d 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -836,6 +836,7 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
+ 	struct e1000_mac_info *mac = &hw->mac;
+ 	u32 reg_data;
+ 	s32 ret_val;
++	u16 kum_reg_data;
+ 	u16 i;
+ 
+ 	e1000_initialize_hw_bits_80003es2lan(hw);
+@@ -861,6 +862,13 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
+ 	/* Setup link and flow control */
+ 	ret_val = e1000e_setup_link(hw);
+ 
++	/* Disable IBIST slave mode (far-end loopback) */
++	e1000_read_kmrn_reg_80003es2lan(hw, E1000_KMRNCTRLSTA_INBAND_PARAM,
++					&kum_reg_data);
++	kum_reg_data |= E1000_KMRNCTRLSTA_IBIST_DISABLE;
++	e1000_write_kmrn_reg_80003es2lan(hw, E1000_KMRNCTRLSTA_INBAND_PARAM,
++					 kum_reg_data);
++
+ 	/* Set the transmit descriptor write-back policy */
+ 	reg_data = er32(TXDCTL(0));
+ 	reg_data = (reg_data & ~E1000_TXDCTL_WTHRESH) |
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 6c2fa83..dde584f 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -312,6 +312,7 @@ enum e1e_registers {
+ #define E1000_KMRNCTRLSTA_DIAG_OFFSET	0x3    /* Kumeran Diagnostic */
+ #define E1000_KMRNCTRLSTA_TIMEOUTS	0x4    /* Kumeran Timeouts */
+ #define E1000_KMRNCTRLSTA_INBAND_PARAM	0x9    /* Kumeran InBand Parameters */
++#define E1000_KMRNCTRLSTA_IBIST_DISABLE	0x0200 /* Kumeran IBIST Disable */
+ #define E1000_KMRNCTRLSTA_DIAG_NELPBK	0x1000 /* Nearend Loopback mode */
+ #define E1000_KMRNCTRLSTA_K1_CONFIG	0x7
+ #define E1000_KMRNCTRLSTA_K1_ENABLE	0x0002
 -- 
 1.7.5.2
 
