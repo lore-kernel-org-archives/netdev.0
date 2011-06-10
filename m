@@ -1,38 +1,61 @@
-From: Mika Westerberg <mika.westerberg@iki.fi>
-Subject: Re: [PATCH v2 1/5] ep93xx: set DMA masks for the ep93xx_eth
-Date: Fri, 10 Jun 2011 19:56:22 +0300
-Message-ID: <20110610165622.GB2753@acer>
-References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
- <20110605083445.GT16318@ibawizard.net>
- <20110605085948.GB16018@acer>
- <20110610154736.GA16318@ibawizard.net>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
+Date: Fri, 10 Jun 2011 10:05:31 -0700
+Message-ID: <1307725531.17300.58.camel@schen9-DESK>
+References: <1307600810.3980.85.camel@edumazet-laptop>
+	 <1307664235.17300.44.camel@schen9-DESK>
+	 <1307680287.3210.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel@wantstofly.org,
-	hsweeten@visionengravers.com, ryan@bluewatersys.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Petr =?utf-8?Q?=C5=A0tetiar?= <ynezz@true.cz>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Andi Kleen <andi@firstfloor.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:46308 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753107Ab1FJQ6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 12:58:52 -0400
-Received: by ewy4 with SMTP id 4so972594ewy.19
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 09:58:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110610154736.GA16318@ibawizard.net>
+Received: from mga02.intel.com ([134.134.136.20]:24699 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751622Ab1FJREi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 13:04:38 -0400
+In-Reply-To: <1307680287.3210.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 10, 2011 at 05:47:36PM +0200, Petr =C5=A0tetiar wrote:
->=20
-> I've tested the whole series and didn't find any problems so far, tha=
-nks. You
-> can add my
->=20
-> 	Tested-by: Petr =C5=A0tetiar <ynezz@true.cz>
->=20
-> if you wish.
+On Fri, 2011-06-10 at 06:31 +0200, Eric Dumazet wrote:
 
-Cool. Thanks for testing :)
+> 
+> Thanks Tim
+> 
+> I have some questions for further optimizations.
+> 
+> 1) How many different destinations are used in your stress load ?
+> 2) Could you provide a distribution of the size of packet lengthes ?
+>    Or maybe the average length would be OK
+> 
+> 
+> 
+
+Actually I have one load generator and one server connected to each
+other via a 10Gb link.
+
+The server is a 40 core 4 socket Westmere-EX machine and the load
+generator is a 12 core 2 socket Westmere-EP machine.
+
+There are 40 memcached daemons on the server each bound to a cpu core
+and listening on a distinctive UDP port.  The load generator has 40
+threads, with each thread sending memcache request to a particular UDP
+port.
+
+
+The load generator's memcache request packet has a UDP payload of 25
+bytes.  The response packet from the daemon has a UDP payload of 13
+bytes.
+
+The UPD packets on the load generator and server are distributed across
+16 Tx-Rx queues by hashing on the UDP ports (with slight modification of
+the hash flags of ixgbe).
+
+Thanks.
+
+Tim
+
+
