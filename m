@@ -1,38 +1,44 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
-Subject: Re: [PATCH net-2.6.23] Per-datagram TTL and TOS via sendmsg()
-Date: Fri, 10 Jun 2011 09:24:28 +0200
-Message-ID: <361fb66ec9a3f9788ba1ad24562b2166@chewa.net>
-References: <180685543D224348869F70A5870DB9408A5EE7D2@USNAVSXCHMBSB2.ndc.alcatel-lucent.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "Miljanovic, Nebojsa (Neb)" <neb.miljanovic@alcatel-lucent.com>,
-	<netdev@vger.kernel.org>
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: [PATCH] sctp: kzalloc() error handling on deleting last address
+Date: Fri, 10 Jun 2011 17:07:56 +0900
+Message-ID: <F8A1B797-89A2-4AAA-AFB1-9B187AC08456@sfc.wide.ad.jp>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:38892 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752106Ab1FJHYa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2011 03:24:30 -0400
-In-Reply-To: <180685543D224348869F70A5870DB9408A5EE7D2@USNAVSXCHMBSB2.ndc.alcatel-lucent.com>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:39169 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754435Ab1FJIIB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 04:08:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Jun 2011 08:20:46 -0500, "Miljanovic, Nebojsa (Neb)"=0D
-<neb.miljanovic@alcatel-lucent.com> wrote:=0D
-> is there any way to get this old PATCH accepted. I am finding it very=
-=0D
-> useful since the only other way to control TOS/DSCP is via socket=0D
-option.=0D
-> However, socket wide TOS/DSCP is not always practical. Having ability=
-=0D
-for=0D
-> applications to control TOS/DSCP on per-datagram basis is so much mor=
-e=0D
-> powerful.=0D
-=0D
-I have not tried, but with 17 kernel passed, it is safe to assume that=0D
-this patch cannot be applied as is.=0D
-=0D
--- =0D
-R=C3=A9mi Denis-Courmont=0D
-http://www.remlab.net/
+>From 49a66ecad72af8c367b125c695a113d3f3870320 Mon Sep 17 00:00:00 2001
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Date: Fri, 10 Jun 2011 16:42:14 +0900
+Subject: [PATCH] sctp: kzalloc() error handling on deleting last address
+
+Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+---
+ net/sctp/socket.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index e7e1b14..a23d898 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -786,6 +786,8 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
+ 				continue;
+ 			asoc->asconf_addr_del_pending =
+ 			    kzalloc(sizeof(union sctp_addr), GFP_ATOMIC);
++			if (asoc->asconf_addr_del_pending == NULL) 
++				continue;
+ 			asoc->asconf_addr_del_pending->sa.sa_family =
+ 				    addrs->sa_family;
+ 			asoc->asconf_addr_del_pending->v4.sin_port =
+-- 
+1.7.3.2
+
+
