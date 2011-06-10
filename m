@@ -1,43 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
-Date: Fri, 10 Jun 2011 06:47:50 +0200
-Message-ID: <1307681270.3210.9.camel@edumazet-laptop>
-References: <1307600810.3980.85.camel@edumazet-laptop>
-	 <1307664235.17300.44.camel@schen9-DESK>
-	 <20110609.204330.2090335955971650557.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 3/5 net-next] cnic: Randomize initial TCP port for
+ iSCSI connections
+Date: Thu, 9 Jun 2011 23:25:12 -0700
+Message-ID: <C27F8246C663564A84BB7AB343977242667C64F9B7@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
+ <1307597376-5379-2-git-send-email-mchan@broadcom.com>
+ <1307597376-5379-3-git-send-email-mchan@broadcom.com>
+ <20110609082722.492b46b5@nehalam.ftrdhcpuser.net>
+ <1307668080.14980.13.camel@HP1>
+ <20110609210157.6a1f016b@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tim.c.chen@linux.intel.com, netdev@vger.kernel.org,
-	andi@firstfloor.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"Eddie Wai" <eddie.wai@broadcom.com>
+To: "'Stephen Hemminger'" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:32872 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733Ab1FJErz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 00:47:55 -0400
-Received: by wya21 with SMTP id 21so1590110wya.19
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2011 21:47:54 -0700 (PDT)
-In-Reply-To: <20110609.204330.2090335955971650557.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:4666 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751130Ab1FJGZ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 02:25:28 -0400
+In-Reply-To: <20110609210157.6a1f016b@nehalam.ftrdhcpuser.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 09 juin 2011 =C3=A0 20:43 -0700, David Miller a =C3=A9crit :
-> From: Tim Chen <tim.c.chen@linux.intel.com>
-> Date: Thu, 09 Jun 2011 17:03:55 -0700
->=20
-> > When I retest with original 3.0-rc2 kernel, inet_putpeer no longer =
-shows
-> > up, wonder if dst->peer was not set for some reason.=20
->=20
-> The overhead will only show up if an inetpeer entry exists for
-> the destination IP address.
->=20
-> You can force one to be created, for example, by making a TCP
-> connection to that destination.
+Stephen Hemminger wrote:
 
-Or sending big frames, to force ip fragmentation (we store the id
-generator in inetpeer cache)
+> On Thu, 9 Jun 2011 18:08:00 -0700
+> "Michael Chan" <mchan@broadcom.com> wrote:
+> > random32() is pseudo random so we can get the same number after reboot,
+> > right?  One scenario is that we may be booting from an iSCSI target, but
+> > due to some failure, the user may be rebooting multiple times rapidly.
+> > We want to use a different port during each boot.
+> 
+> random32 is seeded off get_random_bytes at boot.
 
-
+Thanks.  We'll change it to random32() in our next patchset then.
 
