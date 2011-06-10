@@ -1,51 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Fri, 10 Jun 2011 11:52:49 +0900
-Message-ID: <20110610025249.GD643@verge.net.au>
-References: <4DED344D.7000005@pandora.be>
- <4DED9C23.2030408@fnarfbargle.com>
- <4DEE27DE.7060004@trash.net>
- <4DEE3859.6070808@fnarfbargle.com>
- <4DEE4538.1020404@trash.net>
- <1307471484.3091.43.camel@edumazet-laptop>
- <4DEEACC3.3030509@trash.net>
- <4DEEBFC2.4060102@fnarfbargle.com>
- <1307505541.3102.12.camel@edumazet-laptop>
- <4DEFAB15.2060905@fnarfbargle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
+Date: Thu, 09 Jun 2011 20:43:30 -0700 (PDT)
+Message-ID: <20110609.204330.2090335955971650557.davem@davemloft.net>
+References: <1307600810.3980.85.camel@edumazet-laptop>
+	<1307664235.17300.44.camel@schen9-DESK>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Bart De Schuymer <bdschuym@pandora.be>, kvm@vger.kernel.org,
-	linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Brad Campbell <brad@fnarfbargle.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <4DEFAB15.2060905@fnarfbargle.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, andi@firstfloor.org
+To: tim.c.chen@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53221 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753326Ab1FJDnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 23:43:39 -0400
+In-Reply-To: <1307664235.17300.44.camel@schen9-DESK>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 09, 2011 at 01:02:13AM +0800, Brad Campbell wrote:
-> On 08/06/11 11:59, Eric Dumazet wrote:
-> 
-> >Well, a bisection definitely should help, but needs a lot of time in
-> >your case.
-> 
-> Yes. compile, test, crash, walk out to the other building to press
-> reset, lather, rinse, repeat.
-> 
-> I need a reset button on the end of a 50M wire, or a hardware watchdog!
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Date: Thu, 09 Jun 2011 17:03:55 -0700
 
-Not strictly on-topic, but in situations where I have machines
-that either don't have lights-out facilities or have broken ones
-I find that network controlled power switches to be very useful.
+> When I retest with original 3.0-rc2 kernel, inet_putpeer no longer shows
+> up, wonder if dst->peer was not set for some reason. 
 
-At one point I would have need an 8000km long wire to the reset switch :-)
+The overhead will only show up if an inetpeer entry exists for
+the destination IP address.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+You can force one to be created, for example, by making a TCP
+connection to that destination.
