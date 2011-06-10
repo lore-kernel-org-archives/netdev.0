@@ -1,77 +1,32 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: [PATCH] net: DM9000: Add support for byte EEPROM access
-Date: Fri, 10 Jun 2011 11:50:32 +0100
-Message-ID: <1307703032-20349-1-git-send-email-broonie@opensource.wolfsonmicro.com>
-Cc: netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>
-To: unlisted-recipients:; (no To-header on input)
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: [PATCH 0/3] Fixes for ARM/ebsa110 am79c961 driver
+Date: Fri, 10 Jun 2011 11:51:22 +0100
+Message-ID: <20110610105122.GA27087@flint.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from opensource.wolfsonmicro.com ([80.75.67.52]:50254 "EHLO
-	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754621Ab1FJKuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 06:50:40 -0400
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:35111 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755257Ab1FJKvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 06:51:32 -0400
+Received: from flint.arm.linux.org.uk ([2002:4e20:1eda:1:201:2ff:fe14:8fad])
+	by caramon.arm.linux.org.uk with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.72)
+	(envelope-from <rmk@arm.linux.org.uk>)
+	id 1QUzJI-0006Py-Uz
+	for netdev@vger.kernel.org; Fri, 10 Jun 2011 11:51:29 +0100
+Received: from rmk by flint.arm.linux.org.uk with local (Exim 4.69)
+	(envelope-from <rmk@flint.arm.linux.org.uk>)
+	id 1QUzJE-0008He-LX
+	for netdev@vger.kernel.org; Fri, 10 Jun 2011 11:51:24 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Dooks <ben-linux@fluff.org>
+This series of patches fix some of the more serious issues discovered
+with GCC 4 and the ARM EBSA110 am79c961 ethernet driver last weekend
+while upgrading my firewall to 2.6.39.
 
-Given many versions of ethtool's reluctance to do anything other than
-byte accesses to the EEPROM interface, it is easier to update the driver
-to support byte accesses so that all the ethtool versions that have been
-observed in Debian can write the EEPROM.
-
-Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
----
- drivers/net/dm9000.c |   26 ++++++++++++++++++++------
- 1 files changed, 20 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 863e9c4..8ef31dc 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -535,21 +535,35 @@ static int dm9000_set_eeprom(struct net_device *dev,
- 	board_info_t *dm = to_dm9000_board(dev);
- 	int offset = ee->offset;
- 	int len = ee->len;
--	int i;
-+	int done;
- 
- 	/* EEPROM access is aligned to two bytes */
- 
--	if ((len & 1) != 0 || (offset & 1) != 0)
--		return -EINVAL;
--
- 	if (dm->flags & DM9000_PLATF_NO_EEPROM)
- 		return -ENOENT;
- 
- 	if (ee->magic != DM_EEPROM_MAGIC)
- 		return -EINVAL;
- 
--	for (i = 0; i < len; i += 2)
--		dm9000_write_eeprom(dm, (offset + i) / 2, data + i);
-+	while (len > 0) {
-+		if (len & 1 || offset & 1) {
-+			int which = offset & 1;
-+			u8 tmp[2];
-+
-+			dm9000_read_eeprom(dm, offset / 2, tmp);
-+			tmp[which] = *data;
-+			dm9000_write_eeprom(dm, offset / 2, tmp);
-+
-+			done = 1;
-+		} else {
-+			dm9000_write_eeprom(dm, offset / 2, data);
-+			done = 2;
-+		}
-+
-+		data += done;
-+		offset += done;
-+		len -= done;
-+	}
- 
- 	return 0;
- }
 -- 
-1.7.5.3
-
+Russell King
