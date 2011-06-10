@@ -1,68 +1,134 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP keepalives ignored by kernel when the contain timestamps
-Date: Fri, 10 Jun 2011 20:41:06 +0200
-Message-ID: <1307731266.2872.4.camel@edumazet-laptop>
-References: <4DF0E638.2010506@uth.tmc.edu>
-	 <1307714177.4044.4.camel@edumazet-laptop> <4DF233CE.5020000@uth.tmc.edu>
-	 <4DF24154.3060505@uth.tmc.edu> <1307722621.4044.17.camel@edumazet-laptop>
-	 <4DF248C5.9050004@uth.tmc.edu> <1307724870.4044.20.camel@edumazet-laptop>
-	 <4DF25BA2.4040200@uth.tmc.edu> <1307729054.2872.0.camel@edumazet-laptop>
-	 <4DF25EE2.6020803@uth.tmc.edu>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH 2/2] bonding: restore NETIF_F_VLAN_CHALLENGED properly in
+ bond_del_vlan()
+Date: Fri, 10 Jun 2011 22:27:20 +0200
+Message-ID: <20110610202720.GA4256@midget.suse.cz>
+References: <20110603201424.GB24804@midget.suse.cz>
+ <28701.1307147211@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Charles Bearden <Charles.F.Bearden@uth.tmc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Bohac <jbohac@suse.cz>, Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pedro Garcia <pedro.netdev@dondevamos.com>,
+	Patrick McHardy <kaber@trash.net>, mirq-linux@rere.qmqm.pl
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34064 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757770Ab1FJSlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 14:41:11 -0400
-Received: by wwa36 with SMTP id 36so3068517wwa.1
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 11:41:10 -0700 (PDT)
-In-Reply-To: <4DF25EE2.6020803@uth.tmc.edu>
+Received: from cantor2.suse.de ([195.135.220.15]:60249 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758004Ab1FJU10 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 16:27:26 -0400
+Content-Disposition: inline
+In-Reply-To: <28701.1307147211@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 10 juin 2011 =C3=A0 13:13 -0500, Charles Bearden a =C3=A9cr=
-it :
-> On 06/10/2011 01:04 PM, Eric Dumazet wrote:
-> > Le vendredi 10 juin 2011 =C3=A0 13:00 -0500, Charles Bearden a =C3=A9=
-crit :
+Hi,
+
+On Fri, Jun 03, 2011 at 05:26:51PM -0700, Jay Vosburgh wrote:
+> Jiri Bohac <jbohac@suse.cz> wrote:
+> 
+> >Since commit ad1afb00, bond_del_vlan() never restores
+> >NETIF_F_VLAN_CHALLENGED as intended.  bond->vlan_list is never
+> >empty once the 8021q module is loaded, because the special VLAN 0
+> >is always kept registered on the bond interface. Change the
+> >condition to check if bond->vlan_list contains exactly one item
+> >instead of checking for an empty list.
 > >
-> >> Each keepalive from the Win2008 machine has a 1-byte payload 0x00.=
- The last byte
-> >> of the last packet with a payload before that from the Win2008 hos=
-t (at
-> >> 14:40:18.166394 in the paste) is also 0x00. Is that what you were =
-asking about?
-> >>
+> >Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 > >
-> > Yes, thats fine, thanks :)
->=20
-> One other thing: when tcp timestamps are disabled on the Linux (recei=
-ving) end,=20
-> so that the Win2008 host sends keepalives without timestamps, the che=
-cksums in=20
-> the keepalives are correct. It's only when the keepalives also contai=
-n=20
-> timestamps that the checksums are broken.
->=20
-> If you think this might be a Linux kernel issue, I'll be glad to keep=
- working=20
-> with you, but I don't want to spam this list if my problem isn't rele=
-vant. Thank=20
-> you for your help in any case.
->=20
+> >diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> >index 17b4dd9..4d317cd 100644
+> >--- a/drivers/net/bonding/bond_main.c
+> >+++ b/drivers/net/bonding/bond_main.c
+> >@@ -329,9 +329,10 @@ static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
+> >
+> > 			kfree(vlan);
+> >
+> >-			if (list_empty(&bond->vlan_list) &&
+> >+			if (bond->vlan_list.next->next == &bond->vlan_list &&
+> > 			    (bond->slave_cnt == 0)) {
+> >-				/* Last VLAN removed and no slaves, so
+> >+				/* Last VLAN removed (the only member of vlan_list
+> >+				 * is the special vid == 0 vlan) and no slaves, so
+> > 				 * restore block on adding VLANs. This will
+> > 				 * be removed once new slaves that are not
+> > 				 * VLAN challenged will be added.
+> 
+> 	Could we do this instead in bond_release, when the last slave is
+> removed?  The CHALLENGED flag just prevents adding new VLANs; existing
+> ones would persist until a new slave was added.
 
-Well, if your linux machine receives frames with a bad checksum, linux
-is working well : These frames must be dropped.
+Actually, this has already happenned with commit b2a103e6. Sorry
+I originally checked with an older kernel. This makes the above
+patch obsolete and calls for a little cleanup (below).
 
-It is a bug in the sender (Win2008 in this case).=20
+b2a103e6 has changed the behaviour a little. Before, if you had a
+vlan configured on a bond and removed the last slave, the
+CHALLENGED flag would stay off, until you deleted the vlan.  Now,
+CHALLENGED is turned on as soon as the last slave is deleted.
 
-I am not that surprised, given timestamps were disabled in microsoft
-products until very last releases (Windows Seven, and apparently
-winserver 2008)
+BTW, this can lead to a sort of inconsistent state, where CHALLENGED
+is on and the bond has vlans.
+
+> Since CHALLENGED slaves are in the minority these days (looks
+> like just IPoIB, one wimax and one obscure ethernet chipset) we
+> could even invert the logic: only assert CHALLENGED for the
+> master when such a slave is added.
+
+This sounds good. I don't understand why bonding currently tries
+to prevent VLANs on an slave-less bond, and I might not be the
+only one. Citing a comment in bond_fix_features():
+
+	/* Disable adding VLANs to empty bond. But why? --mq */
+
+Another comment, in bond_setup():
+
+        /* At first, we block adding VLANs. That's the only way to
+         * prevent problems that occur when adding VLANs over an
+         * empty bond. The block will be removed once non-challenged
+         * slaves are enslaved.
+         */
+
+Do we need to prevent this at all? What are the potential
+problems?
+
+Anyway a little cleanup:
 
 
+bonding: clean up bond_del_vlan()
+
+1) the setting of NETIF_F_VLAN_CHALLENGED in bond_del_vlan() is
+useless since commit b2a103e6 because bond_fix_features() now
+sets NETIF_F_VLAN_CHALLENGED whenever the last slave is being
+removed.
+
+2) the code never triggers anyway as vlan_list is never empty
+since ad1afb00.
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -329,16 +329,6 @@ static int bond_del_vlan(struct bonding *bond, unsigned short vlan_id)
+ 
+ 			kfree(vlan);
+ 
+-			if (list_empty(&bond->vlan_list) &&
+-			    (bond->slave_cnt == 0)) {
+-				/* Last VLAN removed and no slaves, so
+-				 * restore block on adding VLANs. This will
+-				 * be removed once new slaves that are not
+-				 * VLAN challenged will be added.
+-				 */
+-				bond->dev->features |= NETIF_F_VLAN_CHALLENGED;
+-			}
+-
+ 			res = 0;
+ 			goto out;
+ 		}
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
