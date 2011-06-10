@@ -1,52 +1,51 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 3/5 net-next] cnic: Randomize initial TCP port for
- iSCSI connections
-Date: Thu, 9 Jun 2011 18:08:00 -0700
-Message-ID: <1307668080.14980.13.camel@HP1>
-References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
- <1307597376-5379-2-git-send-email-mchan@broadcom.com>
- <1307597376-5379-3-git-send-email-mchan@broadcom.com>
- <20110609082722.492b46b5@nehalam.ftrdhcpuser.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Fri, 10 Jun 2011 11:52:49 +0900
+Message-ID: <20110610025249.GD643@verge.net.au>
+References: <4DED344D.7000005@pandora.be>
+ <4DED9C23.2030408@fnarfbargle.com>
+ <4DEE27DE.7060004@trash.net>
+ <4DEE3859.6070808@fnarfbargle.com>
+ <4DEE4538.1020404@trash.net>
+ <1307471484.3091.43.camel@edumazet-laptop>
+ <4DEEACC3.3030509@trash.net>
+ <4DEEBFC2.4060102@fnarfbargle.com>
+ <1307505541.3102.12.camel@edumazet-laptop>
+ <4DEFAB15.2060905@fnarfbargle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eddie Wai" <eddie.wai@broadcom.com>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3818 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756427Ab1FJBO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 21:14:58 -0400
-In-Reply-To: <20110609082722.492b46b5@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Bart De Schuymer <bdschuym@pandora.be>, kvm@vger.kernel.org,
+	linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Brad Campbell <brad@fnarfbargle.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4DEFAB15.2060905@fnarfbargle.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-
-On Thu, 2011-06-09 at 08:27 -0700, Stephen Hemminger wrote:
-> On Wed, 8 Jun 2011 22:29:34 -0700
-> "Michael Chan" <mchan@broadcom.com> wrote:
+On Thu, Jun 09, 2011 at 01:02:13AM +0800, Brad Campbell wrote:
+> On 08/06/11 11:59, Eric Dumazet wrote:
 > 
-> >  static int cnic_cm_alloc_mem(struct cnic_dev *dev)
-> >  {
-> >  	struct cnic_local *cp = dev->cnic_priv;
-> > +	u32 port_id;
-> >  
-> >  	cp->csk_tbl = kzalloc(sizeof(struct cnic_sock) * MAX_CM_SK_TBL_SZ,
-> >  			      GFP_KERNEL);
-> >  	if (!cp->csk_tbl)
-> >  		return -ENOMEM;
-> >  
-> > +	get_random_bytes(&port_id, sizeof(port_id));
+> >Well, a bisection definitely should help, but needs a lot of time in
+> >your case.
 > 
-> I think random32() or it's alias net_random() would be sufficient
-> for your needs here.
+> Yes. compile, test, crash, walk out to the other building to press
+> reset, lather, rinse, repeat.
 > 
+> I need a reset button on the end of a 50M wire, or a hardware watchdog!
 
-random32() is pseudo random so we can get the same number after reboot,
-right?  One scenario is that we may be booting from an iSCSI target, but
-due to some failure, the user may be rebooting multiple times rapidly.
-We want to use a different port during each boot.
+Not strictly on-topic, but in situations where I have machines
+that either don't have lights-out facilities or have broken ones
+I find that network controlled power switches to be very useful.
 
+At one point I would have need an 8000km long wire to the reset switch :-)
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
