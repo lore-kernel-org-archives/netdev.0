@@ -1,42 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP keepalives ignored by kernel when the contain timestamps
-Date: Fri, 10 Jun 2011 18:17:01 +0200
-Message-ID: <1307722621.4044.17.camel@edumazet-laptop>
-References: <4DF0E638.2010506@uth.tmc.edu>
-	 <1307714177.4044.4.camel@edumazet-laptop> <4DF233CE.5020000@uth.tmc.edu>
-	 <4DF24154.3060505@uth.tmc.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/9] veth: convert to 64 bit statistics
+Date: Fri, 10 Jun 2011 17:34:19 +0100
+Message-ID: <1307723659.2815.9.camel@bwh-desktop>
+References: <20110609005356.160260858@vyatta.com>
+	 <20110609005417.449670103@vyatta.com>
+	 <1307584841.22348.528.camel@localhost>
+	 <20110608202241.52ce68ae@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Charles Bearden <Charles.F.Bearden@uth.tmc.edu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63470 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885Ab1FJQRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 12:17:05 -0400
-Received: by wya21 with SMTP id 21so1977034wya.19
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 09:17:04 -0700 (PDT)
-In-Reply-To: <4DF24154.3060505@uth.tmc.edu>
+Received: from exchange.solarflare.com ([216.237.3.220]:49742 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618Ab1FJQeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 12:34:22 -0400
+In-Reply-To: <20110608202241.52ce68ae@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 10 juin 2011 =C3=A0 11:07 -0500, Charles Bearden a =C3=A9cr=
-it :
+On Wed, 2011-06-08 at 20:22 -0700, Stephen Hemminger wrote:
+> On Thu, 09 Jun 2011 03:00:41 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > On Wed, 2011-06-08 at 17:53 -0700, Stephen Hemminger wrote:
+> > > Not much change, device was already keeping per cpu statistics.
+> > > Use recent 64 statistics interface.
+> > [...]
+> > 
+> > It's also going to need to use u64_stats_sync functions.
+> > 
+> > Ben.
+> > 
+> 
+> No veth is doing per-cpu update therefore the new code has the same guarantee
+> as the old code.
 
-> You are correct: the checksums in the keepalives are broken, though t=
-hey are=20
-> correct in the other segments from the Win2008 server. I have updated=
- the pastes=20
-> linked to above with 'tcpdump -v' output. I apologize for missing tha=
-t problem=20
-> the first time around.
+Per-cpu statistics avoid the problem of races between writers without
+using expensive atomic operations.  They don't solve the problem of
+races between writer and reader (on 32-bit systems).
 
-Hmm, maybe its OK : If checksums are offloaded to NIC, tcpdump 'lies'
-telling checksum is not OK, since tcpdump get a copy of the packet
-before being handled by the NIC.
+For example, if veth_get_stats() races with a receive or transmit that
+increments a value from 0x00000001ffffffff to 0x0000000200000000, it may
+see the value as 0x00000002ffffffff.
 
-You should take a tcpdump on the receiving machine (the machine that
-apparently doesnt react to the keepalive probes)
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
