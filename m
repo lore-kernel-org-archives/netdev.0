@@ -1,51 +1,52 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 5/5 net-next] cnic, bnx2: Check iSCSI support early
- in bnx2_init_one()
-Date: Thu, 9 Jun 2011 17:37:11 -0700
-Message-ID: <1307666231.14980.4.camel@HP1>
+Subject: Re: [PATCH 3/5 net-next] cnic: Randomize initial TCP port for
+ iSCSI connections
+Date: Thu, 9 Jun 2011 18:08:00 -0700
+Message-ID: <1307668080.14980.13.camel@HP1>
 References: <1307597376-5379-1-git-send-email-mchan@broadcom.com>
  <1307597376-5379-2-git-send-email-mchan@broadcom.com>
  <1307597376-5379-3-git-send-email-mchan@broadcom.com>
- <1307597376-5379-4-git-send-email-mchan@broadcom.com>
- <1307597376-5379-5-git-send-email-mchan@broadcom.com>
- <20110609104228.GA24178@hmsreliant.think-freely.org>
+ <20110609082722.492b46b5@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Neil Horman" <nhorman@tuxdriver.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eddie Wai" <eddie.wai@broadcom.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1607 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3818 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754996Ab1FJAoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 20:44:09 -0400
-In-Reply-To: <20110609104228.GA24178@hmsreliant.think-freely.org>
+	id S1756427Ab1FJBO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 21:14:58 -0400
+In-Reply-To: <20110609082722.492b46b5@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Thu, 2011-06-09 at 03:42 -0700, Neil Horman wrote:
-> On Wed, Jun 08, 2011 at 10:29:36PM -0700, Michael Chan wrote:
-> > Based on earlier patch from Neil Horman <nhorman@tuxdriver.com>
-> > 
-> > If iSCSI is not supported on a bnx2 device, bnx2_cnic_probe() will
-> > return NULL and the cnic device will not be visible to bnx2i.  This
-> > will prevent bnx2i from registering and then unregistering during
-> > cnic_start() and cause the warning message:
-> > 
-> > bnx2 0003:01:00.1: eth1: Failed waiting for ULP up call to complete
-> > 
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > Cc: Neil Horman <nhorman@tuxdriver.com>
-> Thank you Michael.  This also lets you eliminate some dead code in bnx2i_start
-> now, since cdev->max_iscsi_conn will never be zero.
+On Thu, 2011-06-09 at 08:27 -0700, Stephen Hemminger wrote:
+> On Wed, 8 Jun 2011 22:29:34 -0700
+> "Michael Chan" <mchan@broadcom.com> wrote:
+> 
+> >  static int cnic_cm_alloc_mem(struct cnic_dev *dev)
+> >  {
+> >  	struct cnic_local *cp = dev->cnic_priv;
+> > +	u32 port_id;
+> >  
+> >  	cp->csk_tbl = kzalloc(sizeof(struct cnic_sock) * MAX_CM_SK_TBL_SZ,
+> >  			      GFP_KERNEL);
+> >  	if (!cp->csk_tbl)
+> >  		return -ENOMEM;
+> >  
+> > +	get_random_bytes(&port_id, sizeof(port_id));
+> 
+> I think random32() or it's alias net_random() would be sufficient
+> for your needs here.
 > 
 
-This is true for bnx2.  For bnx2x, some devices may support FCoE only
-and not iSCSI, so we still need code similar to what you proposed
-yesterday.  We'll add that through the scsi tree.
-
-Thanks.
+random32() is pseudo random so we can get the same number after reboot,
+right?  One scenario is that we may be booting from an iSCSI target, but
+due to some failure, the user may be rebooting multiple times rapidly.
+We want to use a different port during each boot.
 
 
