@@ -1,109 +1,42 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 06/12] e1000e: Clear host wakeup bit on 82577/8 without touching PHY page 800
-Date: Thu,  9 Jun 2011 20:47:50 -0700
-Message-ID: <1307677676-26690-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 12/12] ixgbevf: Update the driver string
+Date: Thu,  9 Jun 2011 20:47:56 -0700
+Message-ID: <1307677676-26690-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9764 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:11153 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754388Ab1FJDsC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 23:48:02 -0400
+	id S1754757Ab1FJDsF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 23:48:05 -0400
 In-Reply-To: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The Host Wakeup Active bit in the PHY Port General Configuration register
-(page 769 register 17) must be cleared after every PHY reset to prevent an
-unexpected wake signal from the PHY. Originally, this was accomplished by
-simply reading the PHY Wakeup Control register on page 800 which clears the
-Host Wakeup Active bit as a side-effect. Unfortunately, a hardware bug on
-the 82577 and 82578 PHY can cause unexpected behavior when registers on
-page 800 are accessed while in gigabit mode.
-
-This patch changes the remaining instances when the Host Wakeup Active bit
-needs to be cleared while possibly in gigabit mode by accessing the Port
-General Configuration register directly instead of accessing any register
-on page 800.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Evan Swanson <evan.swanson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/e1000.h   |    1 +
- drivers/net/e1000e/ich8lan.c |   24 +++++++++++++-----------
- 2 files changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/ixgbevf/ixgbevf_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 2c05b4f..c1e7f94 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -104,6 +104,7 @@ struct e1000_info;
- 	 (((reg) & ~MAX_PHY_REG_ADDRESS) << (PHY_UPPER_SHIFT - PHY_PAGE_SHIFT)))
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 28d3cb2..b2c5ecd 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -52,7 +52,7 @@ char ixgbevf_driver_name[] = "ixgbevf";
+ static const char ixgbevf_driver_string[] =
+ 	"Intel(R) 10 Gigabit PCI Express Virtual Function Network Driver";
  
- /* PHY Wakeup Registers and defines */
-+#define BM_PORT_GEN_CFG PHY_REG(BM_PORT_CTRL_PAGE, 17)
- #define BM_RCTL         PHY_REG(BM_WUC_PAGE, 0)
- #define BM_WUC          PHY_REG(BM_WUC_PAGE, 1)
- #define BM_WUFC         PHY_REG(BM_WUC_PAGE, 2)
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 1ede6e0..c175212 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -1391,14 +1391,11 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
- 	ret_val = hw->phy.ops.acquire(hw);
- 	if (ret_val)
- 		goto out;
--	ret_val = hw->phy.ops.read_reg_locked(hw,
--	                                      PHY_REG(BM_PORT_CTRL_PAGE, 17),
--	                                      &phy_data);
-+	ret_val = hw->phy.ops.read_reg_locked(hw, BM_PORT_GEN_CFG, &phy_data);
- 	if (ret_val)
- 		goto release;
--	ret_val = hw->phy.ops.write_reg_locked(hw,
--	                                       PHY_REG(BM_PORT_CTRL_PAGE, 17),
--	                                       phy_data & 0x00FF);
-+	ret_val = hw->phy.ops.write_reg_locked(hw, BM_PORT_GEN_CFG,
-+					       phy_data & 0x00FF);
- release:
- 	hw->phy.ops.release(hw);
- out:
-@@ -1760,9 +1757,12 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
- 		break;
- 	}
- 
--	/* Dummy read to clear the phy wakeup bit after lcd reset */
--	if (hw->mac.type >= e1000_pchlan)
--		e1e_rphy(hw, BM_WUC, &reg);
-+	/* Clear the host wakeup bit after lcd reset */
-+	if (hw->mac.type >= e1000_pchlan) {
-+		e1e_rphy(hw, BM_PORT_GEN_CFG, &reg);
-+		reg &= ~BM_WUC_HOST_WU_BIT;
-+		e1e_wphy(hw, BM_PORT_GEN_CFG, reg);
-+	}
- 
- 	/* Configure the LCD with the extended configuration region in NVM */
- 	ret_val = e1000_sw_lcd_config_ich8lan(hw);
-@@ -3161,11 +3161,13 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
- 
- 	/*
- 	 * The 82578 Rx buffer will stall if wakeup is enabled in host and
--	 * the ME.  Reading the BM_WUC register will clear the host wakeup bit.
-+	 * the ME.  Disable wakeup by clearing the host wakeup bit.
- 	 * Reset the phy after disabling host wakeup to reset the Rx buffer.
- 	 */
- 	if (hw->phy.type == e1000_phy_82578) {
--		e1e_rphy(hw, BM_WUC, &i);
-+		e1e_rphy(hw, BM_PORT_GEN_CFG, &i);
-+		i &= ~BM_WUC_HOST_WU_BIT;
-+		e1e_wphy(hw, BM_PORT_GEN_CFG, i);
- 		ret_val = e1000_phy_hw_reset_ich8lan(hw);
- 		if (ret_val)
- 			return ret_val;
+-#define DRV_VERSION "2.0.0-k2"
++#define DRV_VERSION "2.1.0-k"
+ const char ixgbevf_driver_version[] = DRV_VERSION;
+ static char ixgbevf_copyright[] =
+ 	"Copyright (c) 2009 - 2010 Intel Corporation.";
 -- 
 1.7.5.2
 
