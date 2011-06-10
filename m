@@ -1,45 +1,113 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v3] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check
-Date: Fri, 10 Jun 2011 19:20:29 +0800
-Message-ID: <BANLkTinctdoyYJo+sU9qUWV8uZV8yGNdnw@mail.gmail.com>
-References: <m11uzcidvq.fsf_-_@fess.ebiederm.org> <BANLkTikjdz+LkavRiuqdDNS6+djAer-a0A@mail.gmail.com>
- <BANLkTikM1TuO_S9LuJv30uV9oGgLjE09Xw@mail.gmail.com> <20110605.141446.1838641439880246155.davem@davemloft.net>
- <20110610083539.GB17568@minipsycho.redhat.com> <BANLkTinqikKoeW6mbjMV9nPii0Nzp4vSdQ@mail.gmail.com>
- <20110610093413.GC17568@minipsycho.redhat.com> <BANLkTimHi7V3YwbPepLyW7=pTS7hQVxEBQ@mail.gmail.com>
- <20110610103503.GD17568@minipsycho.redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio_net: introduce VIRTIO_NET_HDR_F_DATA_VALID
+Date: Fri, 10 Jun 2011 14:28:28 +0300
+Message-ID: <20110610112828.GA21037@redhat.com>
+References: <1307703377-3798-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, pratnakarlx@gmail.com,
-	ebiederm@xmission.com, shemminger@linux-foundation.org,
-	greearb@candelatech.com, nicolas.2p.debian@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:34181 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753428Ab1FJLUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 07:20:49 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 15so2091615bwz.19
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 04:20:49 -0700 (PDT)
-In-Reply-To: <20110610103503.GD17568@minipsycho.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, yvugenfi@redhat.com,
+	kvm@vger.kernel.org, herbert@gondor.hengli.com.au
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1307703377-3798-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 10, 2011 at 6:35 PM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Fri, Jun 10, 2011 at 11:49:27AM CEST, xiaosuo@gmail.com wrote:
->>
->>For hw-accel-vlan-rx, is the headroom for this header expansion
->>reserved? I don't think so. Thanks.
->
-> But this wasn't done for hw-accel-vlan-rx previously right? So why don't
-> check for hw-accel-vlan-rx and don do unreorder in that case?
->
+On Fri, Jun 10, 2011 at 06:56:17PM +0800, Jason Wang wrote:
+> There's no need for the guest to validate the checksum if it have been
+> validated by host nics. So this patch introduces a new flag -
+> VIRTIO_NET_HDR_F_DATA_VALID which is used to bypass the checksum
+> examing in guest. The backend (tap/macvtap) may set this flag when
+> met skbs with CHECKSUM_UNNECESSARY to save cpu utilization.
+> 
+> No feature negotiation is needed as old driver just ignore this flag.
 
-Yes, it wasn't done before. We want to make the behaviors of
-hw-accel-vlan-rx and non-hw-accel-vlan-rx are the same. Is it your
-original goal of your vlan-untag patch?
+This wasn't required by the spec, but maybe it should be.
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+> Iperf shows 12%-30% performance improvement for UDP traffic. For TCP,
+> when gro is on no difference as it produces skb with partial
+> checksum. But when gro is disabled, 20% or even higher improvement
+> could be measured by netperf.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+>  drivers/net/macvtap.c      |    2 ++
+>  drivers/net/tun.c          |    2 ++
+>  drivers/net/virtio_net.c   |    2 ++
+>  include/linux/virtio_net.h |    1 +
+>  net/packet/af_packet.c     |    2 ++
+>  5 files changed, 9 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 6696e56..ecee0fe 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -508,6 +508,8 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
+>  		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+>  		vnet_hdr->csum_start = skb_checksum_start_offset(skb);
+>  		vnet_hdr->csum_offset = skb->csum_offset;
+> +	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+> +		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>  	} /* else everything is zero */
+>  
+>  	return 0;
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 74e9405..f43fa45 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -788,6 +788,8 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
+>  			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+>  			gso.csum_start = skb_checksum_start_offset(skb);
+>  			gso.csum_offset = skb->csum_offset;
+> +		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+> +			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>  		} /* else everything is zero */
+>  
+>  		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index f685324..be3686a 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -274,6 +274,8 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+>  					  hdr->hdr.csum_start,
+>  					  hdr->hdr.csum_offset))
+>  			goto frame_err;
+> +	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
+> +		skb->ip_summed = CHECKSUM_UNNECESSARY;
+>  	}
+>  
+>  	skb->protocol = eth_type_trans(skb, dev);
+> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+> index 136040b..970d5a2 100644
+> --- a/include/linux/virtio_net.h
+> +++ b/include/linux/virtio_net.h
+> @@ -63,6 +63,7 @@ struct virtio_net_config {
+>   * specify GSO or CSUM features, you can simply ignore the header. */
+>  struct virtio_net_hdr {
+>  #define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	// Use csum_start, csum_offset
+> +#define VIRTIO_NET_HDR_F_DATA_VALID	2	// Csum is valid
+>  	__u8 flags;
+>  #define VIRTIO_NET_HDR_GSO_NONE		0	// Not a GSO frame
+>  #define VIRTIO_NET_HDR_GSO_TCPV4	1	// GSO frame, IPv4 TCP (TSO)
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index c0c3cda..99ca471 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1681,6 +1681,8 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
+>  			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+>  			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
+>  			vnet_hdr.csum_offset = skb->csum_offset;
+> +		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+> +			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>  		} /* else everything is zero */
+>  
+>  		err = memcpy_toiovec(msg->msg_iov, (void *)&vnet_hdr,
+> -- 
+> 1.7.1
