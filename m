@@ -1,73 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 04/12] e1000e: do not schedule the Tx queue until ready
-Date: Thu,  9 Jun 2011 20:47:48 -0700
-Message-ID: <1307677676-26690-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 09/12] igbvf: update version number
+Date: Thu,  9 Jun 2011 20:47:53 -0700
+Message-ID: <1307677676-26690-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56870 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:11153 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751914Ab1FJDsC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 23:48:02 -0400
+	id S1751914Ab1FJDsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 23:48:04 -0400
 In-Reply-To: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
 
-Start the Tx queue when the interface is brought up in e1000e_up() but do
-not schedule the queue until link is up as detected in the watchdog task
-which sets netif_carrier_on.
+Update the version number to match version conventions. Bump the major
+version to indicate that new hardware support (i350) has been added.
 
-Also flush the descriptors and clean the Tx and Rx rings before resetting
-the hardware when bringing the interface down otherwise there is a small
-window where the watchdog task can be triggered with netif_carrier_off
-and the Tx ring not yet empty which causes an additional and unnecessary
-reset.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/netdev.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/igbvf/netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c4a23c7..bc99458 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3347,7 +3347,7 @@ int e1000e_up(struct e1000_adapter *adapter)
- 		e1000_configure_msix(adapter);
- 	e1000_irq_enable(adapter);
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 1c77fb3..64b47bf 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -45,7 +45,7 @@
  
--	netif_wake_queue(adapter->netdev);
-+	netif_start_queue(adapter->netdev);
+ #include "igbvf.h"
  
- 	/* fire a link change interrupt to start the watchdog */
- 	if (adapter->msix_entries)
-@@ -3414,17 +3414,16 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	e1000e_update_stats(adapter);
- 	spin_unlock(&adapter->stats64_lock);
- 
-+	e1000e_flush_descriptors(adapter);
-+	e1000_clean_tx_ring(adapter);
-+	e1000_clean_rx_ring(adapter);
-+
- 	adapter->link_speed = 0;
- 	adapter->link_duplex = 0;
- 
- 	if (!pci_channel_offline(adapter->pdev))
- 		e1000e_reset(adapter);
- 
--	e1000e_flush_descriptors(adapter);
--
--	e1000_clean_tx_ring(adapter);
--	e1000_clean_rx_ring(adapter);
--
- 	/*
- 	 * TODO: for power management, we could drop the link and
- 	 * pci_disable_device here.
+-#define DRV_VERSION "1.0.8-k0"
++#define DRV_VERSION "2.0.0-k"
+ char igbvf_driver_name[] = "igbvf";
+ const char igbvf_driver_version[] = DRV_VERSION;
+ static const char igbvf_driver_string[] =
 -- 
 1.7.5.2
 
