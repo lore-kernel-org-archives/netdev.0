@@ -1,106 +1,61 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH] virtio_net: introduce VIRTIO_NET_HDR_F_DATA_VALID
-Date: Fri, 10 Jun 2011 18:56:17 +0800
-Message-ID: <1307703377-3798-1-git-send-email-jasowang@redhat.com>
-Cc: yvugenfi@redhat.com, kvm@vger.kernel.org,
-	herbert@gondor.hengli.com.au, Jason Wang <jasowang@redhat.com>
-To: rusty@rustcorp.com.au, mst@redhat.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+From: Daniel Hellstrom <daniel@gaisler.com>
+Subject: CRC endianess problem on DGE-510T
+Date: Fri, 10 Jun 2011 10:03:14 +0200
+Message-ID: <4DF1CFC2.5080101@gaisler.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24344 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755444Ab1FJKzd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2011 06:55:33 -0400
+Received: from mail176c2.megamailservers.com ([69.49.111.76]:43243 "EHLO
+	mail176c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755715Ab1FJKzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 06:55:43 -0400
+Received: from [192.168.0.47] (gaisler.se [92.33.28.242])
+	(authenticated bits=0)
+	by mail176c2.megamailservers.com (8.13.6/8.13.1) with ESMTP id p5A83K1m031663
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 04:03:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's no need for the guest to validate the checksum if it have been
-validated by host nics. So this patch introduces a new flag -
-VIRTIO_NET_HDR_F_DATA_VALID which is used to bypass the checksum
-examing in guest. The backend (tap/macvtap) may set this flag when
-met skbs with CHECKSUM_UNNECESSARY to save cpu utilization.
+Hello,
 
-No feature negotiation is needed as old driver just ignore this flag.
+I'm having problems with the PCI network board D-LINK DGE-510T on 
+SPARC32/LEON. The CRC calculated by ether_crc_le() does not match the 
+CRC, however after swapping the result it matches. This is the same 
+behaviour with the 3 boards I have. After applying the patch below 
+everything works.
 
-Iperf shows 12%-30% performance improvement for UDP traffic. For TCP,
-when gro is on no difference as it produces skb with partial
-checksum. But when gro is disabled, 20% or even higher improvement
-could be measured by netperf.
+Does anyone know if this is a correct patch or has had similar problems 
+on big endian machines?
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Daniel
+
+
+
+
+From: Daniel Hellstrom <daniel@gaisler.com>
+Date: Wed, 6 Apr 2011 15:01:44 +0200
+[PATCH] dl2k: EEPROM CRC calculation wrong endianess on bigendian machine
+
+Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
 ---
- drivers/net/macvtap.c      |    2 ++
- drivers/net/tun.c          |    2 ++
- drivers/net/virtio_net.c   |    2 ++
- include/linux/virtio_net.h |    1 +
- net/packet/af_packet.c     |    2 ++
- 5 files changed, 9 insertions(+), 0 deletions(-)
+ drivers/net/dl2k.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 6696e56..ecee0fe 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -508,6 +508,8 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
- 		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
- 		vnet_hdr->csum_start = skb_checksum_start_offset(skb);
- 		vnet_hdr->csum_offset = skb->csum_offset;
-+	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 	} /* else everything is zero */
- 
- 	return 0;
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 74e9405..f43fa45 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -788,6 +788,8 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
- 			gso.csum_start = skb_checksum_start_offset(skb);
- 			gso.csum_offset = skb->csum_offset;
-+		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
- 
- 		if (unlikely(memcpy_toiovecend(iv, (void *)&gso, total,
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f685324..be3686a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -274,6 +274,8 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
- 					  hdr->hdr.csum_start,
- 					  hdr->hdr.csum_offset))
- 			goto frame_err;
-+	} else if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
- 
- 	skb->protocol = eth_type_trans(skb, dev);
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 136040b..970d5a2 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -63,6 +63,7 @@ struct virtio_net_config {
-  * specify GSO or CSUM features, you can simply ignore the header. */
- struct virtio_net_hdr {
- #define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	// Use csum_start, csum_offset
-+#define VIRTIO_NET_HDR_F_DATA_VALID	2	// Csum is valid
- 	__u8 flags;
- #define VIRTIO_NET_HDR_GSO_NONE		0	// Not a GSO frame
- #define VIRTIO_NET_HDR_GSO_TCPV4	1	// GSO frame, IPv4 TCP (TSO)
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index c0c3cda..99ca471 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1681,6 +1681,8 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			vnet_hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
- 			vnet_hdr.csum_start = skb_checksum_start_offset(skb);
- 			vnet_hdr.csum_offset = skb->csum_offset;
-+		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+			vnet_hdr.flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 		} /* else everything is zero */
- 
- 		err = memcpy_toiovec(msg->msg_iov, (void *)&vnet_hdr,
--- 
-1.7.1
-
+diff --git a/drivers/net/dl2k.c b/drivers/net/dl2k.c
+index c445457..4bbbd7b 100644
+--- a/drivers/net/dl2k.c
++++ b/drivers/net/dl2k.c
+@@ -346,7 +346,7 @@ parse_eeprom (struct net_device *dev)
+        if (np->pdev->vendor == PCI_VENDOR_ID_DLINK) {  /* D-Link Only */
+                /* Check CRC */
+                crc = ~ether_crc_le (256 - 4, sromdata);
+-               if (psrom->crc != crc) {
++               if (psrom->crc != cpu_to_le32(crc)) {q
+                        printk (KERN_ERR "%s: EEPROM data CRC error.\n",
+                                        dev->name);
+                        return -1;
+--
+1.5.4
