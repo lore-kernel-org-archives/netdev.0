@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/12][pull request] Intel Wired LAN Driver Update
-Date: Fri, 10 Jun 2011 01:20:16 -0700 (PDT)
-Message-ID: <20110610.012016.941952296323309008.davem@davemloft.net>
-References: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH] sctp: kzalloc() error handling on deleting last address
+Date: Fri, 10 Jun 2011 16:21:51 +0800
+Message-ID: <4DF1D41F.6010300@cn.fujitsu.com>
+References: <F8A1B797-89A2-4AAA-AFB1-9B187AC08456@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Michio Honda <micchie@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55344 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754526Ab1FJIUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 04:20:23 -0400
-In-Reply-To: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:57548 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753630Ab1FJIXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 04:23:09 -0400
+In-Reply-To: <F8A1B797-89A2-4AAA-AFB1-9B187AC08456@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  9 Jun 2011 20:47:44 -0700
 
-> The following series is a (smaller) subset of the previous 40 patch
-> submission.  This subset only contains updates to e1000e, igb, igbvf
-> and rtnetlink.
-> 
-> e1000e: several cleanups and fixes, as well as bump the version
-> igb/igbvf/ixgbevf: bump driver version
-> rtnetlink: Compute and store minimum ifinfo dump size
-> 
-> -v2: fixed infiniband compile issue with the rtnetlink patch
->   
-> The following are changes since commit e357964ee66723d0ced63ac1dbd1db4a6a1d417e:
->   bonding: delete unused arp_mon_pt
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+> From 49a66ecad72af8c367b125c695a113d3f3870320 Mon Sep 17 00:00:00 2001
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: Fri, 10 Jun 2011 16:42:14 +0900
+> Subject: [PATCH] sctp: kzalloc() error handling on deleting last address
+>
+> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+> ---
+>  net/sctp/socket.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+>
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index e7e1b14..a23d898 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -786,6 +786,8 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
+>  				continue;
+>  			asoc->asconf_addr_del_pending =
+>  			    kzalloc(sizeof(union sctp_addr), GFP_ATOMIC);
+> +			if (asoc->asconf_addr_del_pending == NULL) 
+> +				continue;
 
-Pulled, thanks Jeff.
+better to return with ENOMEM.
+
+if (asoc->asconf_addr_del_pending == NULL) {
+	retval = -ENOMEM;
+	goto out;
+}
+
+
+>  			asoc->asconf_addr_del_pending->sa.sa_family =
+>  				    addrs->sa_family;
+>  			asoc->asconf_addr_del_pending->v4.sin_port =
