@@ -1,53 +1,50 @@
-From: Elof Vrigborn <elof.vrigborn@ericsson.com>
-Subject: [PATCH 1/1] cdc_ncm: Fix TCP Window Size issue by CDC NCM driver
-Date: Fri, 10 Jun 2011 15:39:34 +0200
-Message-ID: <1307713174-533-1-git-send-email-elof.vrigborn@ericsson.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1] dl2k: EEPROM CRC calculation wrong endianess on
+ bigendian machine
+Date: Fri, 10 Jun 2011 14:49:11 +0100
+Message-ID: <1307713751.22348.602.camel@localhost>
+References: <1307711777-12119-1-git-send-email-daniel@gaisler.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Elof Vrigborn <elof.vrigborn@ericsson.com>
-To: Oliver Neukum <oliver@neukum.name>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Hellstrom <daniel@gaisler.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:65110 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756444Ab1FJNkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 09:40:42 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:20677 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932136Ab1FJNtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 09:49:15 -0400
+In-Reply-To: <1307711777-12119-1-git-send-email-daniel@gaisler.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CDC NCM driver clones SKBs for received data and update SKB
-members of the clones according to received frames.
+On Fri, 2011-06-10 at 15:16 +0200, Daniel Hellstrom wrote:
+> Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
+> ---
+>  drivers/net/dl2k.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/dl2k.c b/drivers/net/dl2k.c
+> index c445457..4bbbd7b 100644
+> --- a/drivers/net/dl2k.c
+> +++ b/drivers/net/dl2k.c
+> @@ -346,7 +346,7 @@ parse_eeprom (struct net_device *dev)
+>  	if (np->pdev->vendor == PCI_VENDOR_ID_DLINK) {	/* D-Link Only */
+>  		/* Check CRC */
+>  		crc = ~ether_crc_le (256 - 4, sromdata);
+> -		if (psrom->crc != crc) {
+> +		if (psrom->crc != cpu_to_le32(crc)) {q
 
-If SKB clone len member is updated but truesize member is not, it
-could cause check #2 of the tcp_grow_window function to increase
-the TCP window by the __tcp_grow_window function instead of the
-expected increment by 2*advmss. This could to a great extent
-limit the rcv_ssthres and by that the advertised TCP Window Size,
-and in the end the data rate of a TCP connection, as according to
-the TCP Sliding Window concept.
+You still have a rogue 'q' there.
 
-With this patch the truesize member of the SKB clones is updated
-in similarity to the len member and by this the expected incremental
-of the advertised TCP Window Size is seen and the TCP connection
-data rate will not be unnecessarily limited.
+Ben.
 
-Signed-off-by: Elof Vrigborn <elof.vrigborn@ericsson.com>
----
- drivers/net/usb/cdc_ncm.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+>  			printk (KERN_ERR "%s: EEPROM data CRC error.\n",
+>  					dev->name);
+>  			return -1;
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index f33ca6a..09923cd 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1083,6 +1083,7 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
- 			if (!skb)
- 				goto error;
- 			skb->len = temp;
-+			skb->truesize = temp + sizeof(struct sk_buff);
- 			skb->data = ((u8 *)skb_in->data) + offset;
- 			skb_set_tail_pointer(skb, temp);
- 			usbnet_skb_return(dev, skb);
 -- 
-1.7.4.4
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
