@@ -1,62 +1,67 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: RE: [PATCH v2 2/5] net: ep93xx_eth: pass struct device to DMA API
- functions
-Date: Thu, 9 Jun 2011 18:40:21 -0500
-Message-ID: <ADE657CA350FB648AAC2C43247A983F001F3820B8699@AUSP01VMBX24.collaborationhost.net>
-References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
- <c0ddfc297e0ea1e64e58cedd6552c6b2e52c5fe8.1307040443.git.mika.westerberg@iki.fi>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
+Date: Thu, 09 Jun 2011 17:03:55 -0700
+Message-ID: <1307664235.17300.44.camel@schen9-DESK>
+References: <1307600810.3980.85.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"kernel@wantstofly.org" <kernel@wantstofly.org>,
-	"ryan@bluewatersys.com" <ryan@bluewatersys.com>
-To: Mika Westerberg <mika.westerberg@iki.fi>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Andi Kleen <andi@firstfloor.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail131.messagelabs.com ([216.82.242.99]:19357 "EHLO
-	mail131.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755398Ab1FIXkc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2011 19:40:32 -0400
-In-Reply-To: <c0ddfc297e0ea1e64e58cedd6552c6b2e52c5fe8.1307040443.git.mika.westerberg@iki.fi>
-Content-Language: en-US
+Received: from mga02.intel.com ([134.134.136.20]:48489 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756046Ab1FJADK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 20:03:10 -0400
+In-Reply-To: <1307600810.3980.85.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, June 02, 2011 12:00 PM, Mika Westerberg wrote:
->
-> We shouldn't use NULL for any DMA API functions, unless we are dealing with
-> ISA or EISA device. So pass correct struct dev pointer to these functions.
->
-> Signed-off-by: Mika Westerberg <mika.westerberg@iki.fi>
-> Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> ---
->  drivers/net/arm/ep93xx_eth.c |   26 ++++++++++++++++----------
->  1 files changed, 16 insertions(+), 10 deletions(-)
+On Thu, 2011-06-09 at 08:26 +0200, Eric Dumazet wrote:
+> Profiles show false sharing in addr_compare() because refcnt/dtime
+> changes dirty the first inet_peer cache line, where are lying the keys
+> used at lookup time. If many cpus are calling inet_getpeer() and
+> inet_putpeer(), or need frag ids, addr_compare() is in 2nd position in
+> "perf top".
 > 
-> diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-> index 5a77001..8779d3b 100644
-> --- a/drivers/net/arm/ep93xx_eth.c
-> +++ b/drivers/net/arm/ep93xx_eth.c
-> @@ -159,6 +159,8 @@ struct ep93xx_priv
->  	void __iomem		*base_addr;
->  	int			irq;
->  
-> +	struct device		*dma_dev;
 
-Mika,
+I've applied both inetpeer patches.  I also no longer have inet_getpeer
+and inet_putpeer and addr_compare in my profile.  Instead, neighbor
+lookup is now dominant.  See profile below.
 
-I just noticed this macro in include/linux/netdevice.h
+When I retest with original 3.0-rc2 kernel, inet_putpeer no longer shows
+up, wonder if dst->peer was not set for some reason. 
 
-/* Set the sysfs physical device reference for the network logical device
- * if set prior to registration will cause a symlink during initialization.
- */
-#define SET_NETDEV_DEV(net, pdev)       ((net)->dev.parent = (pdev))
+Tim
 
-Is there anyway you could use that macro in the probe to save the platform_device
-(with it's associated device) instead of introducing a new struct device * in the
-private data?
+-     27.06%     memcached  [kernel.kallsyms]             [k] atomic_add_unless.clone.34
+   - atomic_add_unless.clone.34
+      - 99.97% neigh_lookup
+           __neigh_lookup_errno.clone.17
+           arp_bind_neighbour
+           rt_intern_hash
+           __ip_route_output_key
+           ip_route_output_flow
+           udp_sendmsg
+           inet_sendmsg
+           __sock_sendmsg
+           sock_sendmsg
+           __sys_sendmsg
+           sys_sendmsg
+           system_call_fastpath
+           __sendmsg
+-     13.33%     memcached  [kernel.kallsyms]             [k] atomic_dec_and_test
+   - atomic_dec_and_test
+      - 99.89% dst_destroy
+         - dst_release
+            - 98.12% skb_dst_drop.clone.55
+                 dev_hard_start_xmit
+               + sch_direct_xmit
+            + 1.88% skb_release_head_state
+-      3.26%     memcached  [kernel.kallsyms]             [k] do_raw_spin_lock
+   - do_raw_spin_lock
+      - 92.24% _raw_spin_lock
+         + 41.39% sch_direct_xmit
 
-Regards,
-Hartley
+
