@@ -1,44 +1,1055 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 07/12] e1000e: remove redundant reverse dependency on CRC32
-Date: Thu,  9 Jun 2011 20:47:51 -0700
-Message-ID: <1307677676-26690-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 05/12] e1000e: access multiple PHY registers on same page at the same time
+Date: Thu,  9 Jun 2011 20:47:49 -0700
+Message-ID: <1307677676-26690-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56870 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:11153 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754441Ab1FJDsD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 23:48:03 -0400
+	id S1754259Ab1FJDsC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 23:48:02 -0400
 In-Reply-To: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Commit 5d03078a6804bf4c7f943c5b68bef80468c0717f added a redundant 'select
-CRC32'; remove it.
+Doing a PHY page select can take a long time, relatively speaking. This
+can cause a significant delay when updating a number of PHY registers on
+the same page by unnecessarily setting the page for each PHY access. For
+example when going to Sx, all the PHY wakeup registers (WUC, RAR[], MTA[],
+SHRAR[], IP4AT[], IP6AT[], etc.) on 82577/8/9 need to be updated which
+takes a long time which can cause issues when suspending.
+
+This patch introduces new PHY ops function pointers to allow callers to
+set the page directly and do any number of PHY accesses on that page.
+This feature is currently only implemented for 82577, 82578 and 82579
+PHYs for both the normally addressed registers as well as the special-
+case addressing of the PHY wakeup registers on page 800. For the latter
+registers, the existing function for accessing the wakeup registers has
+been divided up into three- 1) enable access to the wakeup register page,
+2) perform the register access and 3) disable access to the wakeup register
+page. The two functions that enable/disable access to the wakeup register
+page are necessarily available to the caller so that the caller can restore
+the value of the Port Control (a.k.a. Wakeup Enable) register after the
+wakeup register accesses are done.
+
+All instances of writing to multiple PHY registers on the same page are
+updated to use this new method and to acquire any PHY locking mechanism
+before setting the page and performing the register accesses, and release
+the locking mechanism afterward.
+
+Some affiliated magic number cleanup is done as well.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/e1000.h   |   38 +++--
+ drivers/net/e1000e/hw.h      |   20 +++-
+ drivers/net/e1000e/ich8lan.c |   70 ++++++---
+ drivers/net/e1000e/netdev.c  |  111 +++++--------
+ drivers/net/e1000e/phy.c     |  352 +++++++++++++++++++++++++++---------------
+ 5 files changed, 366 insertions(+), 225 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 19f04a3..fa0ea6d 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2115,7 +2115,6 @@ config E1000
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index f8cd56a..2c05b4f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -122,20 +122,21 @@ struct e1000_info;
+ #define BM_RCTL_PMCF          0x0040          /* Pass MAC Control Frames */
+ #define BM_RCTL_RFCE          0x0080          /* Rx Flow Control Enable */
  
- config E1000E
- 	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
--	select CRC32
- 	depends on PCI && (!SPARC32 || BROKEN)
- 	select CRC32
- 	---help---
+-#define HV_SCC_UPPER		PHY_REG(778, 16) /* Single Collision Count */
+-#define HV_SCC_LOWER		PHY_REG(778, 17)
+-#define HV_ECOL_UPPER		PHY_REG(778, 18) /* Excessive Collision Count */
+-#define HV_ECOL_LOWER		PHY_REG(778, 19)
+-#define HV_MCC_UPPER		PHY_REG(778, 20) /* Multiple Collision Count */
+-#define HV_MCC_LOWER		PHY_REG(778, 21)
+-#define HV_LATECOL_UPPER	PHY_REG(778, 23) /* Late Collision Count */
+-#define HV_LATECOL_LOWER	PHY_REG(778, 24)
+-#define HV_COLC_UPPER		PHY_REG(778, 25) /* Collision Count */
+-#define HV_COLC_LOWER		PHY_REG(778, 26)
+-#define HV_DC_UPPER		PHY_REG(778, 27) /* Defer Count */
+-#define HV_DC_LOWER		PHY_REG(778, 28)
+-#define HV_TNCRS_UPPER		PHY_REG(778, 29) /* Transmit with no CRS */
+-#define HV_TNCRS_LOWER		PHY_REG(778, 30)
++#define HV_STATS_PAGE	778
++#define HV_SCC_UPPER	PHY_REG(HV_STATS_PAGE, 16) /* Single Collision Count */
++#define HV_SCC_LOWER	PHY_REG(HV_STATS_PAGE, 17)
++#define HV_ECOL_UPPER	PHY_REG(HV_STATS_PAGE, 18) /* Excessive Coll. Count */
++#define HV_ECOL_LOWER	PHY_REG(HV_STATS_PAGE, 19)
++#define HV_MCC_UPPER	PHY_REG(HV_STATS_PAGE, 20) /* Multiple Coll. Count */
++#define HV_MCC_LOWER	PHY_REG(HV_STATS_PAGE, 21)
++#define HV_LATECOL_UPPER PHY_REG(HV_STATS_PAGE, 23) /* Late Collision Count */
++#define HV_LATECOL_LOWER PHY_REG(HV_STATS_PAGE, 24)
++#define HV_COLC_UPPER	PHY_REG(HV_STATS_PAGE, 25) /* Collision Count */
++#define HV_COLC_LOWER	PHY_REG(HV_STATS_PAGE, 26)
++#define HV_DC_UPPER	PHY_REG(HV_STATS_PAGE, 27) /* Defer Count */
++#define HV_DC_LOWER	PHY_REG(HV_STATS_PAGE, 28)
++#define HV_TNCRS_UPPER	PHY_REG(HV_STATS_PAGE, 29) /* Transmit with no CRS */
++#define HV_TNCRS_LOWER	PHY_REG(HV_STATS_PAGE, 30)
+ 
+ #define E1000_FCRTV_PCH     0x05F40 /* PCH Flow Control Refresh Timer Value */
+ 
+@@ -585,6 +586,7 @@ extern s32 e1000e_check_reset_block_generic(struct e1000_hw *hw);
+ extern s32 e1000e_phy_force_speed_duplex_igp(struct e1000_hw *hw);
+ extern s32 e1000e_get_cable_length_igp_2(struct e1000_hw *hw);
+ extern s32 e1000e_get_phy_info_igp(struct e1000_hw *hw);
++extern s32 e1000_set_page_igp(struct e1000_hw *hw, u16 page);
+ extern s32 e1000e_read_phy_reg_igp(struct e1000_hw *hw, u32 offset, u16 *data);
+ extern s32 e1000e_read_phy_reg_igp_locked(struct e1000_hw *hw, u32 offset,
+                                           u16 *data);
+@@ -605,6 +607,10 @@ extern enum e1000_phy_type e1000e_get_phy_type_from_id(u32 phy_id);
+ extern s32 e1000e_determine_phy_address(struct e1000_hw *hw);
+ extern s32 e1000e_write_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 data);
+ extern s32 e1000e_read_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 *data);
++extern s32 e1000_enable_phy_wakeup_reg_access_bm(struct e1000_hw *hw,
++						 u16 *phy_reg);
++extern s32 e1000_disable_phy_wakeup_reg_access_bm(struct e1000_hw *hw,
++						  u16 *phy_reg);
+ extern s32 e1000e_read_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 *data);
+ extern s32 e1000e_write_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 data);
+ extern void e1000e_phy_force_speed_duplex_setup(struct e1000_hw *hw, u16 *phy_ctrl);
+@@ -625,9 +631,13 @@ extern s32 e1000e_check_downshift(struct e1000_hw *hw);
+ extern s32 e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data);
+ extern s32 e1000_read_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset,
+                                         u16 *data);
++extern s32 e1000_read_phy_reg_page_hv(struct e1000_hw *hw, u32 offset,
++				      u16 *data);
+ extern s32 e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data);
+ extern s32 e1000_write_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset,
+                                          u16 data);
++extern s32 e1000_write_phy_reg_page_hv(struct e1000_hw *hw, u32 offset,
++				       u16 data);
+ extern s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw);
+ extern s32 e1000_copper_link_setup_82577(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_82577(struct e1000_hw *hw);
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index dde584f..2967039 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -246,6 +246,7 @@ enum e1e_registers {
+ #define BM_WUC_ENABLE_REG		17
+ #define BM_WUC_ENABLE_BIT		(1 << 2)
+ #define BM_WUC_HOST_WU_BIT		(1 << 4)
++#define BM_WUC_ME_WU_BIT		(1 << 5)
+ 
+ #define BM_WUC	PHY_REG(BM_WUC_PAGE, 1)
+ #define BM_WUFC PHY_REG(BM_WUC_PAGE, 2)
+@@ -778,7 +779,21 @@ struct e1000_mac_operations {
+ 	s32  (*read_mac_addr)(struct e1000_hw *);
+ };
+ 
+-/* Function pointers for the PHY. */
++/*
++ * When to use various PHY register access functions:
++ *
++ *                 Func   Caller
++ *   Function      Does   Does    When to use
++ *   ~~~~~~~~~~~~  ~~~~~  ~~~~~~  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++ *   X_reg         L,P,A  n/a     for simple PHY reg accesses
++ *   X_reg_locked  P,A    L       for multiple accesses of different regs
++ *                                on different pages
++ *   X_reg_page    A      L,P     for multiple accesses of different regs
++ *                                on the same page
++ *
++ * Where X=[read|write], L=locking, P=sets page, A=register access
++ *
++ */
+ struct e1000_phy_operations {
+ 	s32  (*acquire)(struct e1000_hw *);
+ 	s32  (*cfg_on_link_up)(struct e1000_hw *);
+@@ -789,14 +804,17 @@ struct e1000_phy_operations {
+ 	s32  (*get_cfg_done)(struct e1000_hw *hw);
+ 	s32  (*get_cable_length)(struct e1000_hw *);
+ 	s32  (*get_info)(struct e1000_hw *);
++	s32  (*set_page)(struct e1000_hw *, u16);
+ 	s32  (*read_reg)(struct e1000_hw *, u32, u16 *);
+ 	s32  (*read_reg_locked)(struct e1000_hw *, u32, u16 *);
++	s32  (*read_reg_page)(struct e1000_hw *, u32, u16 *);
+ 	void (*release)(struct e1000_hw *);
+ 	s32  (*reset)(struct e1000_hw *);
+ 	s32  (*set_d0_lplu_state)(struct e1000_hw *, bool);
+ 	s32  (*set_d3_lplu_state)(struct e1000_hw *, bool);
+ 	s32  (*write_reg)(struct e1000_hw *, u32, u16);
+ 	s32  (*write_reg_locked)(struct e1000_hw *, u32, u16);
++	s32  (*write_reg_page)(struct e1000_hw *, u32, u16);
+ 	void (*power_up)(struct e1000_hw *);
+ 	void (*power_down)(struct e1000_hw *);
+ };
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index dddd0b3..1ede6e0 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -303,12 +303,15 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->addr                     = 1;
+ 	phy->reset_delay_us           = 100;
+ 
++	phy->ops.set_page             = e1000_set_page_igp;
+ 	phy->ops.read_reg             = e1000_read_phy_reg_hv;
+ 	phy->ops.read_reg_locked      = e1000_read_phy_reg_hv_locked;
++	phy->ops.read_reg_page        = e1000_read_phy_reg_page_hv;
+ 	phy->ops.set_d0_lplu_state    = e1000_set_lplu_state_pchlan;
+ 	phy->ops.set_d3_lplu_state    = e1000_set_lplu_state_pchlan;
+ 	phy->ops.write_reg            = e1000_write_phy_reg_hv;
+ 	phy->ops.write_reg_locked     = e1000_write_phy_reg_hv_locked;
++	phy->ops.write_reg_page       = e1000_write_phy_reg_page_hv;
+ 	phy->ops.power_up             = e1000_power_up_phy_copper;
+ 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+@@ -1409,17 +1412,36 @@ out:
+ void e1000_copy_rx_addrs_to_phy_ich8lan(struct e1000_hw *hw)
+ {
+ 	u32 mac_reg;
+-	u16 i;
++	u16 i, phy_reg = 0;
++	s32 ret_val;
++
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val)
++		return;
++	ret_val = e1000_enable_phy_wakeup_reg_access_bm(hw, &phy_reg);
++	if (ret_val)
++		goto release;
+ 
+ 	/* Copy both RAL/H (rar_entry_count) and SHRAL/H (+4) to PHY */
+ 	for (i = 0; i < (hw->mac.rar_entry_count + 4); i++) {
+ 		mac_reg = er32(RAL(i));
+-		e1e_wphy(hw, BM_RAR_L(i), (u16)(mac_reg & 0xFFFF));
+-		e1e_wphy(hw, BM_RAR_M(i), (u16)((mac_reg >> 16) & 0xFFFF));
++		hw->phy.ops.write_reg_page(hw, BM_RAR_L(i),
++					   (u16)(mac_reg & 0xFFFF));
++		hw->phy.ops.write_reg_page(hw, BM_RAR_M(i),
++					   (u16)((mac_reg >> 16) & 0xFFFF));
++
+ 		mac_reg = er32(RAH(i));
+-		e1e_wphy(hw, BM_RAR_H(i), (u16)(mac_reg & 0xFFFF));
+-		e1e_wphy(hw, BM_RAR_CTRL(i), (u16)((mac_reg >> 16) & 0x8000));
++		hw->phy.ops.write_reg_page(hw, BM_RAR_H(i),
++					   (u16)(mac_reg & 0xFFFF));
++		hw->phy.ops.write_reg_page(hw, BM_RAR_CTRL(i),
++					   (u16)((mac_reg & E1000_RAH_AV)
++						 >> 16));
+ 	}
++
++	e1000_disable_phy_wakeup_reg_access_bm(hw, &phy_reg);
++
++release:
++	hw->phy.ops.release(hw);
+ }
+ 
+ /**
+@@ -3897,6 +3919,7 @@ static void e1000_power_down_phy_copper_ich8lan(struct e1000_hw *hw)
+ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
+ {
+ 	u16 phy_data;
++	s32 ret_val;
+ 
+ 	e1000e_clear_hw_cntrs_base(hw);
+ 
+@@ -3918,20 +3941,29 @@ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82579) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+-		e1e_rphy(hw, HV_SCC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_SCC_LOWER, &phy_data);
+-		e1e_rphy(hw, HV_ECOL_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_ECOL_LOWER, &phy_data);
+-		e1e_rphy(hw, HV_MCC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_MCC_LOWER, &phy_data);
+-		e1e_rphy(hw, HV_LATECOL_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_LATECOL_LOWER, &phy_data);
+-		e1e_rphy(hw, HV_COLC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_COLC_LOWER, &phy_data);
+-		e1e_rphy(hw, HV_DC_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_DC_LOWER, &phy_data);
+-		e1e_rphy(hw, HV_TNCRS_UPPER, &phy_data);
+-		e1e_rphy(hw, HV_TNCRS_LOWER, &phy_data);
++		ret_val = hw->phy.ops.acquire(hw);
++		if (ret_val)
++			return;
++		ret_val = hw->phy.ops.set_page(hw,
++					       HV_STATS_PAGE << IGP_PAGE_SHIFT);
++		if (ret_val)
++			goto release;
++		hw->phy.ops.read_reg_page(hw, HV_SCC_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_SCC_LOWER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_ECOL_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_ECOL_LOWER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_MCC_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_MCC_LOWER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_LATECOL_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_LATECOL_LOWER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_COLC_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_COLC_LOWER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_DC_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_DC_LOWER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_TNCRS_UPPER, &phy_data);
++		hw->phy.ops.read_reg_page(hw, HV_TNCRS_LOWER, &phy_data);
++release:
++		hw->phy.ops.release(hw);
+ 	}
+ }
+ 
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index bc99458..51cf715 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3833,6 +3833,8 @@ static void e1000_update_phy_info(unsigned long data)
+ /**
+  * e1000e_update_phy_stats - Update the PHY statistics counters
+  * @adapter: board private structure
++ *
++ * Read/clear the upper 16-bit PHY registers and read/accumulate lower
+  **/
+ static void e1000e_update_phy_stats(struct e1000_adapter *adapter)
+ {
+@@ -3844,89 +3846,61 @@ static void e1000e_update_phy_stats(struct e1000_adapter *adapter)
+ 	if (ret_val)
+ 		return;
+ 
+-	hw->phy.addr = 1;
+-
+-#define HV_PHY_STATS_PAGE	778
+ 	/*
+ 	 * A page set is expensive so check if already on desired page.
+ 	 * If not, set to the page with the PHY status registers.
+ 	 */
++	hw->phy.addr = 1;
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+ 					   &phy_data);
+ 	if (ret_val)
+ 		goto release;
+-	if (phy_data != (HV_PHY_STATS_PAGE << IGP_PAGE_SHIFT)) {
+-		ret_val = e1000e_write_phy_reg_mdic(hw,
+-						    IGP01E1000_PHY_PAGE_SELECT,
+-						    (HV_PHY_STATS_PAGE <<
+-						     IGP_PAGE_SHIFT));
++	if (phy_data != (HV_STATS_PAGE << IGP_PAGE_SHIFT)) {
++		ret_val = hw->phy.ops.set_page(hw,
++					       HV_STATS_PAGE << IGP_PAGE_SHIFT);
+ 		if (ret_val)
+ 			goto release;
+ 	}
+ 
+-	/* Read/clear the upper 16-bit registers and read/accumulate lower */
+-
+ 	/* Single Collision Count */
+-	e1000e_read_phy_reg_mdic(hw, HV_SCC_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_SCC_LOWER & MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_SCC_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_SCC_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		adapter->stats.scc += phy_data;
+ 
+ 	/* Excessive Collision Count */
+-	e1000e_read_phy_reg_mdic(hw, HV_ECOL_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_ECOL_LOWER & MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_ECOL_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_ECOL_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		adapter->stats.ecol += phy_data;
+ 
+ 	/* Multiple Collision Count */
+-	e1000e_read_phy_reg_mdic(hw, HV_MCC_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_MCC_LOWER & MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_MCC_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_MCC_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		adapter->stats.mcc += phy_data;
+ 
+ 	/* Late Collision Count */
+-	e1000e_read_phy_reg_mdic(hw, HV_LATECOL_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_LATECOL_LOWER &
+-					   MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_LATECOL_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_LATECOL_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		adapter->stats.latecol += phy_data;
+ 
+ 	/* Collision Count - also used for adaptive IFS */
+-	e1000e_read_phy_reg_mdic(hw, HV_COLC_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_COLC_LOWER & MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_COLC_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_COLC_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		hw->mac.collision_delta = phy_data;
+ 
+ 	/* Defer Count */
+-	e1000e_read_phy_reg_mdic(hw, HV_DC_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_DC_LOWER & MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_DC_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_DC_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		adapter->stats.dc += phy_data;
+ 
+ 	/* Transmit with no CRS */
+-	e1000e_read_phy_reg_mdic(hw, HV_TNCRS_UPPER & MAX_PHY_REG_ADDRESS,
+-				 &phy_data);
+-	ret_val = e1000e_read_phy_reg_mdic(hw,
+-					   HV_TNCRS_LOWER & MAX_PHY_REG_ADDRESS,
+-					   &phy_data);
++	hw->phy.ops.read_reg_page(hw, HV_TNCRS_UPPER, &phy_data);
++	ret_val = hw->phy.ops.read_reg_page(hw, HV_TNCRS_LOWER, &phy_data);
+ 	if (!ret_val)
+ 		adapter->stats.tncrs += phy_data;
+ 
+@@ -5154,21 +5128,34 @@ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 i, mac_reg;
+-	u16 phy_reg;
++	u16 phy_reg, wuc_enable;
+ 	int retval = 0;
+ 
+ 	/* copy MAC RARs to PHY RARs */
+ 	e1000_copy_rx_addrs_to_phy_ich8lan(hw);
+ 
+-	/* copy MAC MTA to PHY MTA */
++	retval = hw->phy.ops.acquire(hw);
++	if (retval) {
++		e_err("Could not acquire PHY\n");
++		return retval;
++	}
++
++	/* Enable access to wakeup registers on and set page to BM_WUC_PAGE */
++	retval = e1000_enable_phy_wakeup_reg_access_bm(hw, &wuc_enable);
++	if (retval)
++		goto out;
++
++	/* copy MAC MTA to PHY MTA - only needed for pchlan */
+ 	for (i = 0; i < adapter->hw.mac.mta_reg_count; i++) {
+ 		mac_reg = E1000_READ_REG_ARRAY(hw, E1000_MTA, i);
+-		e1e_wphy(hw, BM_MTA(i), (u16)(mac_reg & 0xFFFF));
+-		e1e_wphy(hw, BM_MTA(i) + 1, (u16)((mac_reg >> 16) & 0xFFFF));
++		hw->phy.ops.write_reg_page(hw, BM_MTA(i),
++					   (u16)(mac_reg & 0xFFFF));
++		hw->phy.ops.write_reg_page(hw, BM_MTA(i) + 1,
++					   (u16)((mac_reg >> 16) & 0xFFFF));
+ 	}
+ 
+ 	/* configure PHY Rx Control register */
+-	e1e_rphy(&adapter->hw, BM_RCTL, &phy_reg);
++	hw->phy.ops.read_reg_page(&adapter->hw, BM_RCTL, &phy_reg);
+ 	mac_reg = er32(RCTL);
+ 	if (mac_reg & E1000_RCTL_UPE)
+ 		phy_reg |= BM_RCTL_UPE;
+@@ -5185,31 +5172,19 @@ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
+ 	mac_reg = er32(CTRL);
+ 	if (mac_reg & E1000_CTRL_RFCE)
+ 		phy_reg |= BM_RCTL_RFCE;
+-	e1e_wphy(&adapter->hw, BM_RCTL, phy_reg);
++	hw->phy.ops.write_reg_page(&adapter->hw, BM_RCTL, phy_reg);
+ 
+ 	/* enable PHY wakeup in MAC register */
+ 	ew32(WUFC, wufc);
+ 	ew32(WUC, E1000_WUC_PHY_WAKE | E1000_WUC_PME_EN);
+ 
+ 	/* configure and enable PHY wakeup in PHY registers */
+-	e1e_wphy(&adapter->hw, BM_WUFC, wufc);
+-	e1e_wphy(&adapter->hw, BM_WUC, E1000_WUC_PME_EN);
++	hw->phy.ops.write_reg_page(&adapter->hw, BM_WUFC, wufc);
++	hw->phy.ops.write_reg_page(&adapter->hw, BM_WUC, E1000_WUC_PME_EN);
+ 
+ 	/* activate PHY wakeup */
+-	retval = hw->phy.ops.acquire(hw);
+-	if (retval) {
+-		e_err("Could not acquire PHY\n");
+-		return retval;
+-	}
+-	e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+-	                         (BM_WUC_ENABLE_PAGE << IGP_PAGE_SHIFT));
+-	retval = e1000e_read_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, &phy_reg);
+-	if (retval) {
+-		e_err("Could not read PHY page 769\n");
+-		goto out;
+-	}
+-	phy_reg |= BM_WUC_ENABLE_BIT | BM_WUC_HOST_WU_BIT;
+-	retval = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, phy_reg);
++	wuc_enable |= BM_WUC_ENABLE_BIT | BM_WUC_HOST_WU_BIT;
++	retval = e1000_disable_phy_wakeup_reg_access_bm(hw, &wuc_enable);
+ 	if (retval)
+ 		e_err("Could not set PHY Host Wakeup bit\n");
+ out:
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 484774c..2a6ee13 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -36,7 +36,7 @@ static s32 e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active);
+ static s32 e1000_wait_autoneg(struct e1000_hw *hw);
+ static u32 e1000_get_phy_addr_for_bm_page(u32 page, u32 reg);
+ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+-					  u16 *data, bool read);
++					  u16 *data, bool read, bool page_set);
+ static u32 e1000_get_phy_addr_for_hv_page(u32 page);
+ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
+                                           u16 *data, bool read);
+@@ -348,6 +348,24 @@ s32 e1000e_write_phy_reg_m88(struct e1000_hw *hw, u32 offset, u16 data)
+ }
+ 
+ /**
++ *  e1000_set_page_igp - Set page as on IGP-like PHY(s)
++ *  @hw: pointer to the HW structure
++ *  @page: page to set (shifted left when necessary)
++ *
++ *  Sets PHY page required for PHY register access.  Assumes semaphore is
++ *  already acquired.  Note, this function sets phy.addr to 1 so the caller
++ *  must set it appropriately (if necessary) after this function returns.
++ **/
++s32 e1000_set_page_igp(struct e1000_hw *hw, u16 page)
++{
++	e_dbg("Setting page 0x%x\n", page);
++
++	hw->phy.addr = 1;
++
++	return e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT, page);
++}
++
++/**
+  *  __e1000e_read_phy_reg_igp - Read igp PHY register
+  *  @hw: pointer to the HW structure
+  *  @offset: register offset to be read
+@@ -2418,7 +2436,7 @@ s32 e1000e_write_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 data)
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+ 		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset, &data,
+-							 false);
++							 false, false);
+ 		goto out;
+ 	}
+ 
+@@ -2477,7 +2495,7 @@ s32 e1000e_read_phy_reg_bm(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+ 		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset, data,
+-							 true);
++							 true, false);
+ 		goto out;
+ 	}
+ 
+@@ -2535,7 +2553,7 @@ s32 e1000e_read_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+ 		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset, data,
+-							 true);
++							 true, false);
+ 		goto out;
+ 	}
+ 
+@@ -2579,7 +2597,7 @@ s32 e1000e_write_phy_reg_bm2(struct e1000_hw *hw, u32 offset, u16 data)
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+ 		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset, &data,
+-							 false);
++							 false, false);
+ 		goto out;
+ 	}
+ 
+@@ -2603,104 +2621,163 @@ out:
+ }
+ 
+ /**
+- *  e1000_access_phy_wakeup_reg_bm - Read BM PHY wakeup register
++ *  e1000_enable_phy_wakeup_reg_access_bm - enable access to BM wakeup registers
+  *  @hw: pointer to the HW structure
+- *  @offset: register offset to be read or written
+- *  @data: pointer to the data to read or write
+- *  @read: determines if operation is read or write
++ *  @phy_reg: pointer to store original contents of BM_WUC_ENABLE_REG
+  *
+- *  Acquires semaphore, if necessary, then reads the PHY register at offset
+- *  and storing the retrieved information in data.  Release any acquired
+- *  semaphores before exiting. Note that procedure to read the wakeup
+- *  registers are different. It works as such:
+- *  1) Set page 769, register 17, bit 2 = 1
+- *  2) Set page to 800 for host (801 if we were manageability)
+- *  3) Write the address using the address opcode (0x11)
+- *  4) Read or write the data using the data opcode (0x12)
+- *  5) Restore 769_17.2 to its original value
+- *
+- *  Assumes semaphore already acquired.
++ *  Assumes semaphore already acquired and phy_reg points to a valid memory
++ *  address to store contents of the BM_WUC_ENABLE_REG register.
+  **/
+-static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+-					  u16 *data, bool read)
++s32 e1000_enable_phy_wakeup_reg_access_bm(struct e1000_hw *hw, u16 *phy_reg)
+ {
+ 	s32 ret_val;
+-	u16 reg = BM_PHY_REG_NUM(offset);
+-	u16 phy_reg = 0;
++	u16 temp;
+ 
+-	/* Gig must be disabled for MDIO accesses to page 800 */
+-	if ((hw->mac.type == e1000_pchlan) &&
+-	   (!(er32(PHY_CTRL) & E1000_PHY_CTRL_GBE_DISABLE)))
+-		e_dbg("Attempting to access page 800 while gig enabled.\n");
+-
+-	/* All operations in this function are phy address 1 */
++	/* All page select, port ctrl and wakeup registers use phy address 1 */
+ 	hw->phy.addr = 1;
+ 
+-	/* Set page 769 */
+-	e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+-	                          (BM_WUC_ENABLE_PAGE << IGP_PAGE_SHIFT));
++	/* Select Port Control Registers page */
++	ret_val = e1000_set_page_igp(hw, (BM_PORT_CTRL_PAGE << IGP_PAGE_SHIFT));
++	if (ret_val) {
++		e_dbg("Could not set Port Control page\n");
++		goto out;
++	}
+ 
+-	ret_val = e1000e_read_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, &phy_reg);
++	ret_val = e1000e_read_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, phy_reg);
+ 	if (ret_val) {
+-		e_dbg("Could not read PHY page 769\n");
++		e_dbg("Could not read PHY register %d.%d\n",
++		      BM_PORT_CTRL_PAGE, BM_WUC_ENABLE_REG);
+ 		goto out;
+ 	}
+ 
+-	/* First clear bit 4 to avoid a power state change */
+-	phy_reg &= ~(BM_WUC_HOST_WU_BIT);
+-	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, phy_reg);
++	/*
++	 * Enable both PHY wakeup mode and Wakeup register page writes.
++	 * Prevent a power state change by disabling ME and Host PHY wakeup.
++	 */
++	temp = *phy_reg;
++	temp |= BM_WUC_ENABLE_BIT;
++	temp &= ~(BM_WUC_ME_WU_BIT | BM_WUC_HOST_WU_BIT);
++
++	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, temp);
+ 	if (ret_val) {
+-		e_dbg("Could not clear PHY page 769 bit 4\n");
++		e_dbg("Could not write PHY register %d.%d\n",
++		      BM_PORT_CTRL_PAGE, BM_WUC_ENABLE_REG);
+ 		goto out;
+ 	}
+ 
+-	/* Write bit 2 = 1, and clear bit 4 to 769_17 */
+-	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG,
+-	                                    phy_reg | BM_WUC_ENABLE_BIT);
++	/* Select Host Wakeup Registers page */
++	ret_val = e1000_set_page_igp(hw, (BM_WUC_PAGE << IGP_PAGE_SHIFT));
++
++	/* caller now able to write registers on the Wakeup registers page */
++out:
++	return ret_val;
++}
++
++/**
++ *  e1000_disable_phy_wakeup_reg_access_bm - disable access to BM wakeup regs
++ *  @hw: pointer to the HW structure
++ *  @phy_reg: pointer to original contents of BM_WUC_ENABLE_REG
++ *
++ *  Restore BM_WUC_ENABLE_REG to its original value.
++ *
++ *  Assumes semaphore already acquired and *phy_reg is the contents of the
++ *  BM_WUC_ENABLE_REG before register(s) on BM_WUC_PAGE were accessed by
++ *  caller.
++ **/
++s32 e1000_disable_phy_wakeup_reg_access_bm(struct e1000_hw *hw, u16 *phy_reg)
++{
++	s32 ret_val = 0;
++
++	/* Select Port Control Registers page */
++	ret_val = e1000_set_page_igp(hw, (BM_PORT_CTRL_PAGE << IGP_PAGE_SHIFT));
+ 	if (ret_val) {
+-		e_dbg("Could not write PHY page 769 bit 2\n");
++		e_dbg("Could not set Port Control page\n");
+ 		goto out;
+ 	}
+ 
+-	/* Select page 800 */
+-	ret_val = e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+-	                                    (BM_WUC_PAGE << IGP_PAGE_SHIFT));
++	/* Restore 769.17 to its original value */
++	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, *phy_reg);
++	if (ret_val)
++		e_dbg("Could not restore PHY register %d.%d\n",
++		      BM_PORT_CTRL_PAGE, BM_WUC_ENABLE_REG);
++out:
++	return ret_val;
++}
+ 
+-	/* Write the page 800 offset value using opcode 0x11 */
++/**
++ *  e1000_access_phy_wakeup_reg_bm - Read/write BM PHY wakeup register
++ *  @hw: pointer to the HW structure
++ *  @offset: register offset to be read or written
++ *  @data: pointer to the data to read or write
++ *  @read: determines if operation is read or write
++ *  @page_set: BM_WUC_PAGE already set and access enabled
++ *
++ *  Read the PHY register at offset and store the retrieved information in
++ *  data, or write data to PHY register at offset.  Note the procedure to
++ *  access the PHY wakeup registers is different than reading the other PHY
++ *  registers. It works as such:
++ *  1) Set 769.17.2 (page 769, register 17, bit 2) = 1
++ *  2) Set page to 800 for host (801 if we were manageability)
++ *  3) Write the address using the address opcode (0x11)
++ *  4) Read or write the data using the data opcode (0x12)
++ *  5) Restore 769.17.2 to its original value
++ *
++ *  Steps 1 and 2 are done by e1000_enable_phy_wakeup_reg_access_bm() and
++ *  step 5 is done by e1000_disable_phy_wakeup_reg_access_bm().
++ *
++ *  Assumes semaphore is already acquired.  When page_set==true, assumes
++ *  the PHY page is set to BM_WUC_PAGE (i.e. a function in the call stack
++ *  is responsible for calls to e1000_[enable|disable]_phy_wakeup_reg_bm()).
++ **/
++static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
++					  u16 *data, bool read, bool page_set)
++{
++	s32 ret_val;
++	u16 reg = BM_PHY_REG_NUM(offset);
++	u16 page = BM_PHY_REG_PAGE(offset);
++	u16 phy_reg = 0;
++
++	/* Gig must be disabled for MDIO accesses to Host Wakeup reg page */
++	if ((hw->mac.type == e1000_pchlan) &&
++	    (!(er32(PHY_CTRL) & E1000_PHY_CTRL_GBE_DISABLE)))
++		e_dbg("Attempting to access page %d while gig enabled.\n",
++		      page);
++
++	if (!page_set) {
++		/* Enable access to PHY wakeup registers */
++		ret_val = e1000_enable_phy_wakeup_reg_access_bm(hw, &phy_reg);
++		if (ret_val) {
++			e_dbg("Could not enable PHY wakeup reg access\n");
++			goto out;
++		}
++	}
++
++	e_dbg("Accessing PHY page %d reg 0x%x\n", page, reg);
++
++	/* Write the Wakeup register page offset value using opcode 0x11 */
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ADDRESS_OPCODE, reg);
+ 	if (ret_val) {
+-		e_dbg("Could not write address opcode to page 800\n");
++		e_dbg("Could not write address opcode to page %d\n", page);
+ 		goto out;
+ 	}
+ 
+ 	if (read) {
+-	        /* Read the page 800 value using opcode 0x12 */
++		/* Read the Wakeup register page value using opcode 0x12 */
+ 		ret_val = e1000e_read_phy_reg_mdic(hw, BM_WUC_DATA_OPCODE,
+ 		                                   data);
+ 	} else {
+-	        /* Write the page 800 value using opcode 0x12 */
++		/* Write the Wakeup register page value using opcode 0x12 */
+ 		ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_DATA_OPCODE,
+ 						    *data);
+ 	}
+ 
+ 	if (ret_val) {
+-		e_dbg("Could not access data value from page 800\n");
++		e_dbg("Could not access PHY reg %d.%d\n", page, reg);
+ 		goto out;
+ 	}
+ 
+-	/*
+-	 * Restore 769_17.2 to its original value
+-	 * Set page 769
+-	 */
+-	e1000e_write_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
+-	                          (BM_WUC_ENABLE_PAGE << IGP_PAGE_SHIFT));
+-
+-	/* Clear 769_17.2 */
+-	ret_val = e1000e_write_phy_reg_mdic(hw, BM_WUC_ENABLE_REG, phy_reg);
+-	if (ret_val) {
+-		e_dbg("Could not clear PHY page 769 bit 2\n");
+-		goto out;
+-	}
++	if (!page_set)
++		ret_val = e1000_disable_phy_wakeup_reg_access_bm(hw, &phy_reg);
+ 
+ out:
+ 	return ret_val;
+@@ -2792,11 +2869,12 @@ static s32 e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active)
+  *  semaphore before exiting.
+  **/
+ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+-                                   bool locked)
++				   bool locked, bool page_set)
+ {
+ 	s32 ret_val;
+ 	u16 page = BM_PHY_REG_PAGE(offset);
+ 	u16 reg = BM_PHY_REG_NUM(offset);
++	u32 phy_addr = hw->phy.addr = e1000_get_phy_addr_for_hv_page(page);
+ 
+ 	if (!locked) {
+ 		ret_val = hw->phy.ops.acquire(hw);
+@@ -2806,8 +2884,8 @@ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+ 
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+-		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset,
+-		                                         data, true);
++		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset, data,
++							 true, page_set);
+ 		goto out;
+ 	}
+ 
+@@ -2817,26 +2895,25 @@ static s32 __e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data,
+ 		goto out;
+ 	}
+ 
+-	hw->phy.addr = e1000_get_phy_addr_for_hv_page(page);
+-
+-	if (page == HV_INTC_FC_PAGE_START)
+-		page = 0;
++	if (!page_set) {
++		if (page == HV_INTC_FC_PAGE_START)
++			page = 0;
+ 
+-	if (reg > MAX_PHY_MULTI_PAGE_REG) {
+-		u32 phy_addr = hw->phy.addr;
++		if (reg > MAX_PHY_MULTI_PAGE_REG) {
++			/* Page is shifted left, PHY expects (page x 32) */
++			ret_val = e1000_set_page_igp(hw,
++						     (page << IGP_PAGE_SHIFT));
+ 
+-		hw->phy.addr = 1;
+-
+-		/* Page is shifted left, PHY expects (page x 32) */
+-		ret_val = e1000e_write_phy_reg_mdic(hw,
+-					     IGP01E1000_PHY_PAGE_SELECT,
+-					     (page << IGP_PAGE_SHIFT));
+-		hw->phy.addr = phy_addr;
++			hw->phy.addr = phy_addr;
+ 
+-		if (ret_val)
+-			goto out;
++			if (ret_val)
++				goto out;
++		}
+ 	}
+ 
++	e_dbg("reading PHY page %d (or 0x%x shifted) reg 0x%x\n", page,
++	      page << IGP_PAGE_SHIFT, reg);
++
+ 	ret_val = e1000e_read_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & reg,
+ 	                                  data);
+ out:
+@@ -2858,7 +2935,7 @@ out:
+  **/
+ s32 e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data)
+ {
+-	return __e1000_read_phy_reg_hv(hw, offset, data, false);
++	return __e1000_read_phy_reg_hv(hw, offset, data, false, false);
+ }
+ 
+ /**
+@@ -2872,7 +2949,21 @@ s32 e1000_read_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 *data)
+  **/
+ s32 e1000_read_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset, u16 *data)
+ {
+-	return __e1000_read_phy_reg_hv(hw, offset, data, true);
++	return __e1000_read_phy_reg_hv(hw, offset, data, true, false);
++}
++
++/**
++ *  e1000_read_phy_reg_page_hv - Read HV PHY register
++ *  @hw: pointer to the HW structure
++ *  @offset: register offset to write to
++ *  @data: data to write at register offset
++ *
++ *  Reads the PHY register at offset and stores the retrieved information
++ *  in data.  Assumes semaphore already acquired and page already set.
++ **/
++s32 e1000_read_phy_reg_page_hv(struct e1000_hw *hw, u32 offset, u16 *data)
++{
++	return __e1000_read_phy_reg_hv(hw, offset, data, true, true);
+ }
+ 
+ /**
+@@ -2886,11 +2977,12 @@ s32 e1000_read_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset, u16 *data)
+  *  at the offset.  Release any acquired semaphores before exiting.
+  **/
+ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+-                                    bool locked)
++				    bool locked, bool page_set)
+ {
+ 	s32 ret_val;
+ 	u16 page = BM_PHY_REG_PAGE(offset);
+ 	u16 reg = BM_PHY_REG_NUM(offset);
++	u32 phy_addr = hw->phy.addr = e1000_get_phy_addr_for_hv_page(page);
+ 
+ 	if (!locked) {
+ 		ret_val = hw->phy.ops.acquire(hw);
+@@ -2900,8 +2992,8 @@ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+ 
+ 	/* Page 800 works differently than the rest so it has its own func */
+ 	if (page == BM_WUC_PAGE) {
+-		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset,
+-		                                         &data, false);
++		ret_val = e1000_access_phy_wakeup_reg_bm(hw, offset, &data,
++							 false, page_set);
+ 		goto out;
+ 	}
+ 
+@@ -2911,42 +3003,41 @@ static s32 __e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data,
+ 		goto out;
+ 	}
+ 
+-	hw->phy.addr = e1000_get_phy_addr_for_hv_page(page);
+-
+-	if (page == HV_INTC_FC_PAGE_START)
+-		page = 0;
+-
+-	/*
+-	 * Workaround MDIO accesses being disabled after entering IEEE Power
+-	 * Down (whenever bit 11 of the PHY Control register is set)
+-	 */
+-	if ((hw->phy.type == e1000_phy_82578) &&
+-	    (hw->phy.revision >= 1) &&
+-	    (hw->phy.addr == 2) &&
+-	    ((MAX_PHY_REG_ADDRESS & reg) == 0) &&
+-	    (data & (1 << 11))) {
+-		u16 data2 = 0x7EFF;
+-		ret_val = e1000_access_phy_debug_regs_hv(hw, (1 << 6) | 0x3,
+-		                                         &data2, false);
+-		if (ret_val)
+-			goto out;
+-	}
++	if (!page_set) {
++		if (page == HV_INTC_FC_PAGE_START)
++			page = 0;
+ 
+-	if (reg > MAX_PHY_MULTI_PAGE_REG) {
+-		u32 phy_addr = hw->phy.addr;
++		/*
++		 * Workaround MDIO accesses being disabled after entering IEEE
++		 * Power Down (when bit 11 of the PHY Control register is set)
++		 */
++		if ((hw->phy.type == e1000_phy_82578) &&
++		    (hw->phy.revision >= 1) &&
++		    (hw->phy.addr == 2) &&
++		    ((MAX_PHY_REG_ADDRESS & reg) == 0) && (data & (1 << 11))) {
++			u16 data2 = 0x7EFF;
++			ret_val = e1000_access_phy_debug_regs_hv(hw,
++								 (1 << 6) | 0x3,
++								 &data2, false);
++			if (ret_val)
++				goto out;
++		}
+ 
+-		hw->phy.addr = 1;
++		if (reg > MAX_PHY_MULTI_PAGE_REG) {
++			/* Page is shifted left, PHY expects (page x 32) */
++			ret_val = e1000_set_page_igp(hw,
++						     (page << IGP_PAGE_SHIFT));
+ 
+-		/* Page is shifted left, PHY expects (page x 32) */
+-		ret_val = e1000e_write_phy_reg_mdic(hw,
+-					     IGP01E1000_PHY_PAGE_SELECT,
+-					     (page << IGP_PAGE_SHIFT));
+-		hw->phy.addr = phy_addr;
++			hw->phy.addr = phy_addr;
+ 
+-		if (ret_val)
+-			goto out;
++			if (ret_val)
++				goto out;
++		}
+ 	}
+ 
++	e_dbg("writing PHY page %d (or 0x%x shifted) reg 0x%x\n", page,
++	      page << IGP_PAGE_SHIFT, reg);
++
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, MAX_PHY_REG_ADDRESS & reg,
+ 	                                  data);
+ 
+@@ -2968,7 +3059,7 @@ out:
+  **/
+ s32 e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data)
+ {
+-	return __e1000_write_phy_reg_hv(hw, offset, data, false);
++	return __e1000_write_phy_reg_hv(hw, offset, data, false, false);
+ }
+ 
+ /**
+@@ -2982,7 +3073,21 @@ s32 e1000_write_phy_reg_hv(struct e1000_hw *hw, u32 offset, u16 data)
+  **/
+ s32 e1000_write_phy_reg_hv_locked(struct e1000_hw *hw, u32 offset, u16 data)
+ {
+-	return __e1000_write_phy_reg_hv(hw, offset, data, true);
++	return __e1000_write_phy_reg_hv(hw, offset, data, true, false);
++}
++
++/**
++ *  e1000_write_phy_reg_page_hv - Write HV PHY register
++ *  @hw: pointer to the HW structure
++ *  @offset: register offset to write to
++ *  @data: data to write at register offset
++ *
++ *  Writes the data to PHY register at the offset.  Assumes semaphore
++ *  already acquired and page already set.
++ **/
++s32 e1000_write_phy_reg_page_hv(struct e1000_hw *hw, u32 offset, u16 data)
++{
++	return __e1000_write_phy_reg_hv(hw, offset, data, true, true);
+ }
+ 
+ /**
+@@ -3004,11 +3109,12 @@ static u32 e1000_get_phy_addr_for_hv_page(u32 page)
+  *  @hw: pointer to the HW structure
+  *  @offset: register offset to be read or written
+  *  @data: pointer to the data to be read or written
+- *  @read: determines if operation is read or written
++ *  @read: determines if operation is read or write
+  *
+  *  Reads the PHY register at offset and stores the retreived information
+  *  in data.  Assumes semaphore already acquired.  Note that the procedure
+- *  to read these regs uses the address port and data port to read/write.
++ *  to access these regs uses the address port and data port to read/write.
++ *  These accesses done with PHY address 2 and without using pages.
+  **/
+ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
+                                           u16 *data, bool read)
+@@ -3028,7 +3134,7 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
+ 	/* masking with 0x3F to remove the page from offset */
+ 	ret_val = e1000e_write_phy_reg_mdic(hw, addr_reg, (u16)offset & 0x3F);
+ 	if (ret_val) {
+-		e_dbg("Could not write PHY the HV address register\n");
++		e_dbg("Could not write the Address Offset port register\n");
+ 		goto out;
+ 	}
+ 
+@@ -3039,7 +3145,7 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
+ 		ret_val = e1000e_write_phy_reg_mdic(hw, data_reg, *data);
+ 
+ 	if (ret_val) {
+-		e_dbg("Could not read data value from HV data register\n");
++		e_dbg("Could not access the Data port register\n");
+ 		goto out;
+ 	}
+ 
 -- 
 1.7.5.2
 
