@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 03/12] e1000e: log when swflag is cleared unexpectedly on ICH/PCH devices
-Date: Thu,  9 Jun 2011 20:47:47 -0700
-Message-ID: <1307677676-26690-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 06/12] e1000e: Clear host wakeup bit on 82577/8 without touching PHY page 800
+Date: Thu,  9 Jun 2011 20:47:50 -0700
+Message-ID: <1307677676-26690-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -9,58 +9,101 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:9764 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753861Ab1FJDsA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2011 23:48:00 -0400
+	id S1754388Ab1FJDsC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2011 23:48:02 -0400
 In-Reply-To: <1307677676-26690-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Since EXTCNF_CTRL.SWFLAG (used in the ownership arbitration of shared
-resources, e.g. the PHY shared between the s/w, f/w, and h/w clients)
-can be cleared by any of those clients, log a debug message when
-software attempts to clear it and it is already cleared unexpectedly.
-And since the swflag is cleared by a hardware reset, the driver does
-not need to do that, but the mutex acquired when the bit is set must
-still be cleared.
+The Host Wakeup Active bit in the PHY Port General Configuration register
+(page 769 register 17) must be cleared after every PHY reset to prevent an
+unexpected wake signal from the PHY. Originally, this was accomplished by
+simply reading the PHY Wakeup Control register on page 800 which clears the
+Host Wakeup Active bit as a side-effect. Unfortunately, a hardware bug on
+the 82577 and 82578 PHY can cause unexpected behavior when registers on
+page 800 are accessed while in gigabit mode.
+
+This patch changes the remaining instances when the Host Wakeup Active bit
+needs to be cleared while possibly in gigabit mode by accessing the Port
+General Configuration register directly instead of accessing any register
+on page 800.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/ich8lan.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/e1000e/e1000.h   |    1 +
+ drivers/net/e1000e/ich8lan.c |   24 +++++++++++++-----------
+ 2 files changed, 14 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 2c05b4f..c1e7f94 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -104,6 +104,7 @@ struct e1000_info;
+ 	 (((reg) & ~MAX_PHY_REG_ADDRESS) << (PHY_UPPER_SHIFT - PHY_PAGE_SHIFT)))
+ 
+ /* PHY Wakeup Registers and defines */
++#define BM_PORT_GEN_CFG PHY_REG(BM_PORT_CTRL_PAGE, 17)
+ #define BM_RCTL         PHY_REG(BM_WUC_PAGE, 0)
+ #define BM_WUC          PHY_REG(BM_WUC_PAGE, 1)
+ #define BM_WUFC         PHY_REG(BM_WUC_PAGE, 2)
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index dcd5db5..dddd0b3 100644
+index 1ede6e0..c175212 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -889,8 +889,13 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
- 	u32 extcnf_ctrl;
+@@ -1391,14 +1391,11 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		goto out;
+-	ret_val = hw->phy.ops.read_reg_locked(hw,
+-	                                      PHY_REG(BM_PORT_CTRL_PAGE, 17),
+-	                                      &phy_data);
++	ret_val = hw->phy.ops.read_reg_locked(hw, BM_PORT_GEN_CFG, &phy_data);
+ 	if (ret_val)
+ 		goto release;
+-	ret_val = hw->phy.ops.write_reg_locked(hw,
+-	                                       PHY_REG(BM_PORT_CTRL_PAGE, 17),
+-	                                       phy_data & 0x00FF);
++	ret_val = hw->phy.ops.write_reg_locked(hw, BM_PORT_GEN_CFG,
++					       phy_data & 0x00FF);
+ release:
+ 	hw->phy.ops.release(hw);
+ out:
+@@ -1760,9 +1757,12 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
+ 		break;
+ 	}
  
- 	extcnf_ctrl = er32(EXTCNF_CTRL);
--	extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
--	ew32(EXTCNF_CTRL, extcnf_ctrl);
-+
-+	if (extcnf_ctrl & E1000_EXTCNF_CTRL_SWFLAG) {
-+		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
-+		ew32(EXTCNF_CTRL, extcnf_ctrl);
-+	} else {
-+		e_dbg("Semaphore unexpectedly released by sw/fw/hw\n");
+-	/* Dummy read to clear the phy wakeup bit after lcd reset */
+-	if (hw->mac.type >= e1000_pchlan)
+-		e1e_rphy(hw, BM_WUC, &reg);
++	/* Clear the host wakeup bit after lcd reset */
++	if (hw->mac.type >= e1000_pchlan) {
++		e1e_rphy(hw, BM_PORT_GEN_CFG, &reg);
++		reg &= ~BM_WUC_HOST_WU_BIT;
++		e1e_wphy(hw, BM_PORT_GEN_CFG, reg);
 +	}
  
- 	mutex_unlock(&swflag_mutex);
- }
-@@ -3066,7 +3071,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 	msleep(20);
+ 	/* Configure the LCD with the extended configuration region in NVM */
+ 	ret_val = e1000_sw_lcd_config_ich8lan(hw);
+@@ -3161,11 +3161,13 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
  
- 	if (!ret_val)
--		e1000_release_swflag_ich8lan(hw);
-+		mutex_unlock(&swflag_mutex);
- 
- 	if (ctrl & E1000_CTRL_PHY_RST) {
- 		ret_val = hw->phy.ops.get_cfg_done(hw);
+ 	/*
+ 	 * The 82578 Rx buffer will stall if wakeup is enabled in host and
+-	 * the ME.  Reading the BM_WUC register will clear the host wakeup bit.
++	 * the ME.  Disable wakeup by clearing the host wakeup bit.
+ 	 * Reset the phy after disabling host wakeup to reset the Rx buffer.
+ 	 */
+ 	if (hw->phy.type == e1000_phy_82578) {
+-		e1e_rphy(hw, BM_WUC, &i);
++		e1e_rphy(hw, BM_PORT_GEN_CFG, &i);
++		i &= ~BM_WUC_HOST_WU_BIT;
++		e1e_wphy(hw, BM_PORT_GEN_CFG, i);
+ 		ret_val = e1000_phy_hw_reset_ich8lan(hw);
+ 		if (ret_val)
+ 			return ret_val;
 -- 
 1.7.5.2
 
