@@ -1,44 +1,39 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH] sctp: kzalloc() error handling on deleting last address
-Date: Fri, 10 Jun 2011 17:07:56 +0900
-Message-ID: <F8A1B797-89A2-4AAA-AFB1-9B187AC08456@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Yongjun <yjwei@cn.fujitsu.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:39169 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754435Ab1FJIIB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 04:08:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [PATCH 1/1] IPVS remove unused var from migration to netns
+Date: Fri, 10 Jun 2011 10:19:09 +0200
+Message-ID: <1307693949-22301-1-git-send-email-hans.schillstrom@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
+	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<netfilter-devel@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From 49a66ecad72af8c367b125c695a113d3f3870320 Mon Sep 17 00:00:00 2001
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Fri, 10 Jun 2011 16:42:14 +0900
-Subject: [PATCH] sctp: kzalloc() error handling on deleting last address
+Remove variable ctl_key from struct netns_ipvs,
+it's a leftover from early netns work.
 
-Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 ---
- net/sctp/socket.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ include/net/ip_vs.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index e7e1b14..a23d898 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -786,6 +786,8 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 				continue;
- 			asoc->asconf_addr_del_pending =
- 			    kzalloc(sizeof(union sctp_addr), GFP_ATOMIC);
-+			if (asoc->asconf_addr_del_pending == NULL) 
-+				continue;
- 			asoc->asconf_addr_del_pending->sa.sa_family =
- 				    addrs->sa_family;
- 			asoc->asconf_addr_del_pending->v4.sin_port =
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 481f856..34a6fa8 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -836,8 +836,6 @@ struct netns_ipvs {
+ 	int			num_services;    /* no of virtual services */
+ 
+ 	rwlock_t		rs_lock;         /* real services table */
+-	/* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
+-	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
+ 	/* Trash for destinations */
+ 	struct list_head	dest_trash;
+ 	/* Service counters */
 -- 
-1.7.3.2
-
+1.6.0.2
 
