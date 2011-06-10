@@ -1,50 +1,52 @@
-From: "Jean-Marie Degryse" <Jean-Marie.Degryse@uclouvain.be>
-Subject: Re.funds
-Date: Fri, 10 Jun 2011 18:27:40 +0200
-Message-ID: <caa420e99e3ddd97994dbbd41dfdb063.squirrel__13621.5560640723$1307724165$gmane$org@mmp.sipr-dc.ucl.ac.be>
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Fri, 10 Jun 2011 13:43:41 -0300
+Message-ID: <20110610164341.GA784@khazad-dum.debian.net>
+References: <4DEE27DE.7060004@trash.net>
+ <4DEE3859.6070808@fnarfbargle.com>
+ <4DEE4538.1020404@trash.net>
+ <1307471484.3091.43.camel@edumazet-laptop>
+ <4DEEACC3.3030509@trash.net>
+ <4DEEBFC2.4060102@fnarfbargle.com>
+ <1307505541.3102.12.camel@edumazet-laptop>
+ <4DEFAB15.2060905@fnarfbargle.com>
+ <20110610025249.GD643@verge.net.au>
+ <4DF21002.3040708@teksavvy.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:56202 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752327Ab1FJQm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 12:42:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>,
+	Brad Campbell <brad@fnarfbargle.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Bart De Schuymer <bdschuym@pandora.be>, kvm@vger.kernel.org,
+	linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Mark Lord <kernel@teksavvy.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4DF21002.3040708@teksavvy.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-My associate has helped me to send your first payment
-of $5000 USD to you as instructed by the Malaysian
-Government and Mr. David Cameron the United Kingdom
-prime minister after the last G20 meeting that was
-held in Malaysia, making you one of the beneficiaries.
-Here is the information below.
+On Fri, 10 Jun 2011, Mark Lord wrote:
+> Something many of us don't realize is that nearly all Intel chipsets
+> have a built-in hardware watchdog timer.  This includes chipset for
+> consumer desktop boards as well as the big iron server stuff.
+> 
+> It's the "i8xx_tco" driver in the kernel enables use of them:
 
-Refrence Numbers: 86147516
-Sender Name Is = Patrick Lee Chun
+That's the old module name, but yes, it is very useful in desktops and
+laptops (when it works).   Server-class hardware will have a baseboard
+management unit that can really power-cycle the system instead of just
+rebooting.
 
-I told him to keep sending you $5000 USD twice a week
-until the FULL payment of ($820000.00 United State Dollars)
-is completed.
+And test it first before you depend on it triggering at a remote location,
+as the firmware might cause the Intel chipset watchdog to actually hang the
+box instead of causing a proper reboot (happens on the IBM thinkpad T43, for
+example).
 
-A certificate will be made to change the Receivers Name
-to your name as stated by the Malaysian Government,reconfirm
-your {1}Full Names {2}address {3}Mobile Number
-
-via Email to:money_gramlimited@mspil.edu.cn Allan Davis
-to proceed.
-
-       Note:
-
-You cannot pickup the money until the certificate is
-obtained by you.
-
-Regards
-Mr. Allan Davis.
-Tel: +(60) 163544376.
-
-For more info: www.g20.org
-
-
-
+-- 
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
