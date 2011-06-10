@@ -1,60 +1,69 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: RE: [PATCH v2 2/5] net: ep93xx_eth: pass struct device to DMA API
- functions
-Date: Fri, 10 Jun 2011 12:30:48 -0500
-Message-ID: <ADE657CA350FB648AAC2C43247A983F001F3820B880E@AUSP01VMBX24.collaborationhost.net>
-References: <f20d8fe52f823e7e65423720c53f2935d3e08967.1307040443.git.mika.westerberg@iki.fi>
- <c0ddfc297e0ea1e64e58cedd6552c6b2e52c5fe8.1307040443.git.mika.westerberg@iki.fi>
- <ADE657CA350FB648AAC2C43247A983F001F3820B8699@AUSP01VMBX24.collaborationhost.net>
- <20110610165545.GA2753@acer>
+From: Charles Bearden <Charles.F.Bearden@uth.tmc.edu>
+Subject: Re: TCP keepalives ignored by kernel when the contain timestamps
+Date: Fri, 10 Jun 2011 13:00:02 -0500
+Message-ID: <4DF25BA2.4040200@uth.tmc.edu>
+References: <4DF0E638.2010506@uth.tmc.edu> <1307714177.4044.4.camel@edumazet-laptop> <4DF233CE.5020000@uth.tmc.edu> <4DF24154.3060505@uth.tmc.edu> <1307722621.4044.17.camel@edumazet-laptop> <4DF248C5.9050004@uth.tmc.edu> <1307724870.4044.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"kernel@wantstofly.org" <kernel@wantstofly.org>,
-	"rmallon@gmail.com" <rmallon@gmail.com>
-To: Mika Westerberg <mika.westerberg@iki.fi>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail127.messagelabs.com ([216.82.250.115]:8015 "EHLO
-	mail127.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755711Ab1FJRav convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 13:30:51 -0400
-In-Reply-To: <20110610165545.GA2753@acer>
-Content-Language: en-US
+Received: from mta3.uth.tmc.edu ([129.106.148.58]:31058 "EHLO mta3.uth.tmc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757477Ab1FJSAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 14:00:03 -0400
+In-Reply-To: <1307724870.4044.20.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, June 10, 2011 9:56 AM, Mika Westerberg wrote:
-> On Thu, Jun 09, 2011 at 06:40:21PM -0500, H Hartley Sweeten wrote:
->> 
->> I just noticed this macro in include/linux/netdevice.h
->> 
->> /* Set the sysfs physical device reference for the network logical device
->>  * if set prior to registration will cause a symlink during initialization.
->>  */
->> #define SET_NETDEV_DEV(net, pdev)       ((net)->dev.parent = (pdev))
->> 
->> Is there anyway you could use that macro in the probe to save the platform_device
->> (with it's associated device) instead of introducing a new struct device * in the
->> private data?
+On 06/10/2011 11:54 AM, Eric Dumazet wrote:
+> Le vendredi 10 juin 2011 =C3=A0 11:39 -0500, Charles Bearden a =C3=A9=
+crit :
+>> On 06/10/2011 11:17 AM, Eric Dumazet wrote:
+>>> Le vendredi 10 juin 2011 =C3=A0 11:07 -0500, Charles Bearden a =C3=A9=
+crit :
+>>>
+>>>> You are correct: the checksums in the keepalives are broken, thoug=
+h they are
+>>>> correct in the other segments from the Win2008 server. I have upda=
+ted the pastes
+>>>> linked to above with 'tcpdump -v' output. I apologize for missing =
+that problem
+>>>> the first time around.
+>>>
+>>> Hmm, maybe its OK : If checksums are offloaded to NIC, tcpdump 'lie=
+s'
+>>> telling checksum is not OK, since tcpdump get a copy of the packet
+>>> before being handled by the NIC.
+>>>
+>>> You should take a tcpdump on the receiving machine (the machine tha=
+t
+>>> apparently doesnt react to the keepalive probes)
+>>
+>> I should have made this clear before: these dumps were captured on t=
+he machine
+>> that is ignoring the keepalives ("Ubuntu.host" in the dumps) from th=
+e other host
+>> ("Win200[38].host" in the dumps). If I understand tcp checksum offlo=
+ading
+>> correctly, it wouldn't play a role here.
+>>
 >
-> Nice finding, thanks.
+> OK, thanks.
 >
-> I'll look into that and send new version of the whole series soon.
+> I am curious, could you check the payload byte included in the keepal=
+ive
+> probes has the value of last sent byte on the session ?
+>
+> (linux send keepalive probes with no data, so implementing this
+> 'feature' would need to keep track of this value in tcp socket)
 
-It looks like after doing this in the probe:
+Each keepalive from the Win2008 machine has a 1-byte payload 0x00. The =
+last byte=20
+of the last packet with a payload before that from the Win2008 host (at=
+=20
+14:40:18.166394 in the paste) is also 0x00. Is that what you were askin=
+g about?
 
-	SET_NETDEV_DEV(dev, &pdev->dev);
-
-You can then pass the required struct device pointer to the DMA API functions
-like this:
-
-static int ep93xx_rx(struct net_device *dev, int processed, int budget)
-{
-	...
-	dma_sync_single_for_cpu(dev->dev.parent, ...
-
-Regards,
-Hartley
