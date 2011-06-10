@@ -1,93 +1,38 @@
-From: Nicolas Cavallari <Nicolas.Cavallari@lri.fr>
-Subject: [PATCH] netfilter: fix looped (broad|multi)cast's MAC handling.
-Date: Fri, 10 Jun 2011 09:20:40 +0200
-Message-ID: <1307690440-18760-1-git-send-email-cavallar@lri.fr>
-References: <4DF0EFE6.4010206@trash.net>
-Cc: Nicolas Cavallari <cavallar@lri.fr>
-To: kaber@trash.net, fw@strlen.de, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4DF0EFE6.4010206@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: [PATCH net-2.6.23] Per-datagram TTL and TOS via sendmsg()
+Date: Fri, 10 Jun 2011 09:24:28 +0200
+Message-ID: <361fb66ec9a3f9788ba1ad24562b2166@chewa.net>
+References: <180685543D224348869F70A5870DB9408A5EE7D2@USNAVSXCHMBSB2.ndc.alcatel-lucent.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "Miljanovic, Nebojsa (Neb)" <neb.miljanovic@alcatel-lucent.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:38892 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752106Ab1FJHYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 03:24:30 -0400
+In-Reply-To: <180685543D224348869F70A5870DB9408A5EE7D2@USNAVSXCHMBSB2.ndc.alcatel-lucent.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-By default, when broadcast or multicast packet are sent from a local
-application, they are sent to the interface then looped by the kernel
-to other local applications, going throught netfilter hooks in the process.
-
-These looped packet have their MAC header removed from the skb by the kernel
-looping code.
-This confuse various netfilter's netlink queue, netlink log and the
-legacy ip_queue, because they try to extract a hardware
-address from these packets, but extracts a part of the IP header instead.
-
-This patch prevent NFQUEUE, NFLOG and ip_QUEUE to include a MAC header
-if there is none in the packet.
-
-Signed-off-by: Nicolas Cavallari <cavallar@lri.fr>
----
- net/ipv4/netfilter/ip_queue.c   |    3 ++-
- net/ipv6/netfilter/ip6_queue.c  |    3 ++-
- net/netfilter/nfnetlink_log.c   |    3 ++-
- net/netfilter/nfnetlink_queue.c |    3 ++-
- 4 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index f7f9bd7..5c9b9d9 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -203,7 +203,8 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 	else
- 		pmsg->outdev_name[0] = '\0';
- 
--	if (entry->indev && entry->skb->dev) {
-+	if (entry->indev && entry->skb->dev &&
-+	    entry->skb->mac_header != entry->skb->network_header) {
- 		pmsg->hw_type = entry->skb->dev->type;
- 		pmsg->hw_addrlen = dev_parse_header(entry->skb,
- 						    pmsg->hw_addr);
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 065fe40..2493948 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -204,7 +204,8 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 	else
- 		pmsg->outdev_name[0] = '\0';
- 
--	if (entry->indev && entry->skb->dev) {
-+	if (entry->indev && entry->skb->dev &&
-+	    entry->skb->mac_header != entry->skb->network_header) {
- 		pmsg->hw_type = entry->skb->dev->type;
- 		pmsg->hw_addrlen = dev_parse_header(entry->skb, pmsg->hw_addr);
- 	}
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index e0ee010..2e7ccbb 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -456,7 +456,8 @@ __build_packet_message(struct nfulnl_instance *inst,
- 	if (skb->mark)
- 		NLA_PUT_BE32(inst->skb, NFULA_MARK, htonl(skb->mark));
- 
--	if (indev && skb->dev) {
-+	if (indev && skb->dev &&
-+	    skb->mac_header != skb->network_header) {
- 		struct nfulnl_msg_packet_hw phw;
- 		int len = dev_parse_header(skb, phw.hw_addr);
- 		if (len > 0) {
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index b83123f..fdd2faf 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -335,7 +335,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (entskb->mark)
- 		NLA_PUT_BE32(skb, NFQA_MARK, htonl(entskb->mark));
- 
--	if (indev && entskb->dev) {
-+	if (indev && entskb->dev &&
-+	    entskb->mac_header != entskb->network_header) {
- 		struct nfqnl_msg_packet_hw phw;
- 		int len = dev_parse_header(entskb, phw.hw_addr);
- 		if (len) {
--- 
-1.7.5.3
-
+On Thu, 9 Jun 2011 08:20:46 -0500, "Miljanovic, Nebojsa (Neb)"=0D
+<neb.miljanovic@alcatel-lucent.com> wrote:=0D
+> is there any way to get this old PATCH accepted. I am finding it very=
+=0D
+> useful since the only other way to control TOS/DSCP is via socket=0D
+option.=0D
+> However, socket wide TOS/DSCP is not always practical. Having ability=
+=0D
+for=0D
+> applications to control TOS/DSCP on per-datagram basis is so much mor=
+e=0D
+> powerful.=0D
+=0D
+I have not tried, but with 17 kernel passed, it is safe to assume that=0D
+this patch cannot be applied as is.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net/
