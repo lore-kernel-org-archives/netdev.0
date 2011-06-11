@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: DM9000: Add support for byte EEPROM access
-Date: Sat, 11 Jun 2011 15:55:11 -0700 (PDT)
-Message-ID: <20110611.155511.378086413275108077.davem@davemloft.net>
-References: <1307703032-20349-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH 0/3] Fixes for ARM/ebsa110 am79c961 driver
+Date: Sat, 11 Jun 2011 15:56:15 -0700 (PDT)
+Message-ID: <20110611.155615.1694355231183005186.davem@davemloft.net>
+References: <20110610105122.GA27087@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben-linux@fluff.org
-To: broonie@opensource.wolfsonmicro.com
+Cc: netdev@vger.kernel.org
+To: rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47215 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49591 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752210Ab1FKWzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 18:55:31 -0400
-In-Reply-To: <1307703032-20349-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+	with ESMTP id S1752276Ab1FKW51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 18:57:27 -0400
+In-Reply-To: <20110610105122.GA27087@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Date: Fri, 10 Jun 2011 11:50:32 +0100
+From: Russell King <rmk@arm.linux.org.uk>
+Date: Fri, 10 Jun 2011 11:51:22 +0100
 
-> From: Ben Dooks <ben-linux@fluff.org>
-> 
-> Given many versions of ethtool's reluctance to do anything other than
-> byte accesses to the EEPROM interface, it is easier to update the driver
-> to support byte accesses so that all the ethtool versions that have been
-> observed in Debian can write the EEPROM.
-> 
-> Signed-off-by: Ben Dooks <ben-linux@fluff.org>
-> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+> This series of patches fix some of the more serious issues discovered
+> with GCC 4 and the ARM EBSA110 am79c961 ethernet driver last weekend
+> while upgrading my firewall to 2.6.39.
 
-Applied to net-next-2.6, thanks.
+All applied to net-2.6, thanks Russell.
