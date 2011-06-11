@@ -1,45 +1,61 @@
-From: Joris van Rantwijk <joris@jorisvr.nl>
-Subject: Question about LRO/GRO and TCP acknowledgements
-Date: Sat, 11 Jun 2011 21:59:19 +0200
-Message-ID: <20110611215919.5fc29c27@konijn>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Sat, 11 Jun 2011 13:06:25 -0700
+Message-ID: <20110611200625.GB14582@kroah.com>
+References: <1307748870-12950-1-git-send-email-marius@kotsbak.com>
+ <20110610235557.GA23443@kroah.com>
+ <4DF2B5E4.8070303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, "Marius B. Kotsbak" <marius@kotsbak.com>
+To: Marius Kotsbak <marius.kotsbak@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr18.xs4all.nl ([194.109.24.38]:2664 "EHLO
-	smtp-vbr18.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751136Ab1FKUMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 16:12:02 -0400
-Received: from konijn (vertex.xs4all.nl [82.95.239.45])
-	by smtp-vbr18.xs4all.nl (8.13.8/8.13.8) with ESMTP id p5BJxKE5070568
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 11 Jun 2011 21:59:26 +0200 (CEST)
-	(envelope-from joris@jorisvr.nl)
+Received: from out4.smtp.messagingengine.com ([66.111.4.28]:44139 "EHLO
+	out4.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751715Ab1FKUOf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 16:14:35 -0400
+Content-Disposition: inline
+In-Reply-To: <4DF2B5E4.8070303@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sat, Jun 11, 2011 at 02:25:08AM +0200, Marius Kotsbak wrote:
+> On 11. juni 2011 01:55, Greg KH wrote:
+> > On Sat, Jun 11, 2011 at 01:34:30AM +0200, Marius B. Kotsbak wrote:
+> >> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
+> >> It has also an ACM interface that previous patches associates with the "option"
+> >> module. To access those interfaces, the modem must first be switched from modem
+> >> mode using a tool like usb_modeswitch.
+> > Do we need to blacklist this device from the option driver?
+> 
+> It is already done, in commits:
+> 
+> 80f9df3e0093ad9f1eeefd2ff7fd27daaa518d25
+> 15b2f3204a5c878c32939094775fb7349f707263
 
-I'm trying to understand how Linux produces TCP acknowledgements
-for segments received via LRO/GRO.
+Ah, nevermind then :)
 
-As far as I can see, the network driver uses GRO to collect several
-received packets into one big super skb, which is then handled
-during just one call to tcp_v4_rcv(). This will eventually result
-in the sending of at most one ACK packet for the entire GRO packet.
+> >> + * This program is distributed in the hope that it will be useful,
+> >> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> >> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+> >> + * GNU General Public License for more details.
+> >> + *
+> >> + * You should have received a copy of the GNU General Public License
+> >> + * along with this program; if not, write to the Free Software
+> >> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+> > These two paragraphs are not needed, and unless you want to track the
+> > FSF's office changes for the next 40+ years, I'd really suggest not
+> > putting it in there at all.
+> >
+> 
+> Same here, I have reused what I found in other modules. Do you have an
+> example of a module with the recommended header?
 
-Conventional wisdom (RFC 5681) says that a receiver should send at
-least one ACK for every two data segments received. The sending TCP
-needs these ACKs to update its congestion window (e.g. slow start).
+Just take out these two paragraphs and you should be fine, and be sure
+that you really mean "any later" for your license and that you didn't
+copy any code from a non "any later" file.
 
-It seems to me that the current implementation in Linux may send
-just one ACK for a large number of received segments. This would
-be a deviation from the standard. As a result the congestion
-window of the sender would grow much slower than intended.
+thanks,
 
-Maybe I misunderstand something in the network code (likely).
-Could someone please explain me how this ACK issue is handled?
-
-Thanks,
-Joris van Rantwijk.
+greg k-h
