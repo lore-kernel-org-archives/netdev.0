@@ -1,31 +1,77 @@
-From: Liu Yan <lyany@gonanut.com>
-Subject: Dear Friend
-Date: Sat, 11 Jun 2011 03:53:14 -0700
-Message-ID: <42ea5a5a-d60e-487a-b9cb-8b053b6e9946@AUSP01MHUB07.collaborationhost.net>
-Reply-To: <ly@ostatmig.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH -next] net/m68k: Include <linux/interrupt.h> where needed
+Date: Sat, 11 Jun 2011 13:38:55 +0200
+Message-ID: <1307792335-9926-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: Undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail131.messagelabs.com ([216.82.242.99]:51509 "EHLO
-	mail131.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357Ab1FKIxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 04:53:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Friend,
+arch/m68k/emu/nfeth.c: In function =E2=80=98nfeth_init=E2=80=99:
+arch/m68k/emu/nfeth.c:243: error: implicit declaration of function =E2=80=
+=98request_irq=E2=80=99
+arch/m68k/emu/nfeth.c:243: error: =E2=80=98IRQF_SHARED=E2=80=99 undecla=
+red (first use in this function)
+arch/m68k/emu/nfeth.c:243: error: (Each undeclared identifier is report=
+ed only once
+arch/m68k/emu/nfeth.c:243: error: for each function it appears in.)
+arch/m68k/emu/nfeth.c: In function =E2=80=98nfeth_cleanup=E2=80=99:
+arch/m68k/emu/nfeth.c:266: error: implicit declaration of function =E2=80=
+=98free_irq=E2=80=99
+drivers/net/apne.c: In function =E2=80=98apne_probe=E2=80=99:
+drivers/net/apne.c:189: error: implicit declaration of function =E2=80=98=
+free_irq=E2=80=99
+drivers/net/apne.c: In function =E2=80=98apne_probe1=E2=80=99:
+drivers/net/apne.c:317: error: implicit declaration of function =E2=80=98=
+request_irq=E2=80=99
+drivers/net/apne.c:317: error: =E2=80=98IRQF_SHARED=E2=80=99 undeclared=
+ (first use in this function)
+drivers/net/apne.c:317: error: (Each undeclared identifier is reported =
+only once
+drivers/net/apne.c:317: error: for each function it appears in.)
 
-I am Mr. Liu Yan a transfer supervisor in Bank of China Ltd. I have a business plan for you.
-On June 5, 2002, a client made a numbered time (Fixed) Deposit in my branch and upon maturity, I sent a routine notification to his forwarding address but got no reply and later discovered from his contract employers that he died from an auto-mobile accident. 
-On further investigation, I found out that he died without making a WILL and he did not declare any next of kin or relations in all his official documents with us.
+Introduced by commit a6b7a407865a ("net: remove interrupt.h inclusion f=
+rom
+netdevice.h").
 
-The money is still sitting in my Bank and the interest is being rolled over with the principal sum at the end of each year. No one will ever come forward to claim it.
-Consequently, my proposal is that I will like you as a foreigner to stand in as the next of kin to this client so we can share the money before it falls into the hands of some corrupt government officials.
-There is no risk at all as my position as the credit officer guarantees the successful execution of this transaction. 
-If you are interested, please reply immediately to my private email box, ly@ostatmig.com
+Include <linux/interrupt.h> in the individual drivers to fix the build.
 
-Regards,
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ arch/m68k/emu/nfeth.c |    1 +
+ drivers/net/apne.c    |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-Liu Yan
+diff --git a/arch/m68k/emu/nfeth.c b/arch/m68k/emu/nfeth.c
+index 8b6e201..3c55312 100644
+--- a/arch/m68k/emu/nfeth.c
++++ b/arch/m68k/emu/nfeth.c
+@@ -16,6 +16,7 @@
+=20
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/interrupt.h>
+ #include <linux/module.h>
+ #include <asm/natfeat.h>
+ #include <asm/virtconvert.h>
+diff --git a/drivers/net/apne.c b/drivers/net/apne.c
+index 2fe60f1..5477373 100644
+--- a/drivers/net/apne.c
++++ b/drivers/net/apne.c
+@@ -36,6 +36,7 @@
+ #include <linux/delay.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/interrupt.h>
+ #include <linux/jiffies.h>
+=20
+ #include <asm/system.h>
+--=20
+1.7.0.4
