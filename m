@@ -1,43 +1,43 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] ISDN, hfcsusb: Don't leak in hfcsusb_ph_info()
-Date: Sat, 11 Jun 2011 18:36:42 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1106111832270.23835@swampdragon.chaosbits.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Peter Sprenger <sprenger@moving-bytes.de>,
-	Martin Bachem <info@bachem-it.com>
-To: Karsten Keil <isdn@linux-pingi.de>
+From: Connor Hansen <cmdkhh@gmail.com>
+Subject: [PATCH] drivers/ssb/driver_chipcommon_pmu.c: uninitilized warning
+Date: Sat, 11 Jun 2011 11:14:45 -0700
+Message-ID: <1307816085-20062-1-git-send-email-cmdkhh@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Connor Hansen <cmdkhh@gmail.com>
+To: mb@bu3sch.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We leak the memory allocated to 'phi' when the variable goes out of scope 
-in hfcsusb_ph_info().
+warning message
+drivers/ssb/driver_chipcommon_pmu.c: In function ssb_pmu_resources_init
+drivers/ssb/driver_chipcommon_pmu.c:420:15: warning: updown_tab_size may
+be used uninitilized in this function.
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+updown_tab_size and depend_tab_size may not be set in the bus->chip_id
+switch statement, so set to 0 by default to avoid using uninitialized
+stack space.
+
+Signed-off-by: Connor Hansen <cmdkhh@gmail.com>
 ---
- hfcsusb.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/ssb/driver_chipcommon_pmu.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
- I have no way to really test this patch, so it is only compile tested.
-
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-index 3ccbff1..71a8eb6 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.c
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-@@ -283,6 +283,7 @@ hfcsusb_ph_info(struct hfcsusb *hw)
- 	_queue_data(&dch->dev.D, MPH_INFORMATION_IND, MISDN_ID_ANY,
- 		sizeof(struct ph_info_dch) + dch->dev.nrbchan *
- 		sizeof(struct ph_info_ch), phi, GFP_ATOMIC);
-+	kfree(phi);
- }
+diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driver_chipcommon_pmu.c
+index 305ade7..a7aef47 100644
+--- a/drivers/ssb/driver_chipcommon_pmu.c
++++ b/drivers/ssb/driver_chipcommon_pmu.c
+@@ -417,9 +417,9 @@ static void ssb_pmu_resources_init(struct ssb_chipcommon *cc)
+ 	u32 min_msk = 0, max_msk = 0;
+ 	unsigned int i;
+ 	const struct pmu_res_updown_tab_entry *updown_tab = NULL;
+-	unsigned int updown_tab_size;
++	unsigned int updown_tab_size = 0;
+ 	const struct pmu_res_depend_tab_entry *depend_tab = NULL;
+-	unsigned int depend_tab_size;
++	unsigned int depend_tab_size = 0;
  
- /*
-
-
+ 	switch (bus->chip_id) {
+ 	case 0x4312:
 -- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+1.7.4.4
