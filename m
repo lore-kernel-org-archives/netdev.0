@@ -1,45 +1,43 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] netpoll: call dev_put() on error in netpoll_setup()
-Date: Sat, 11 Jun 2011 18:50:47 +0300
-Message-ID: <20110611155047.GA3583@shale.localdomain>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] ISDN, hfcsusb: Don't leak in hfcsusb_ph_info()
+Date: Sat, 11 Jun 2011 18:36:42 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1106111832270.23835@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: WANG Cong <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:40533 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758690Ab1FKPv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 11:51:29 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Sprenger <sprenger@moving-bytes.de>,
+	Martin Bachem <info@bachem-it.com>
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a dev_put(ndev) missing on an error path.  This was
-introduced in 0c1ad04aecb "netpoll: prevent netpoll setup on slave
-devices".
+We leak the memory allocated to 'phi' when the variable goes out of scope 
+in hfcsusb_ph_info().
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 ---
-This is a static checker bug, and it's possible I've misunderstood
-something.
+ hfcsusb.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 42ea4b0..18d9cbd 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -795,7 +795,8 @@ int netpoll_setup(struct netpoll *np)
- 	if (ndev->master) {
- 		printk(KERN_ERR "%s: %s is a slave device, aborting.\n",
- 		       np->name, np->dev_name);
--		return -EBUSY;
-+		err = -EBUSY;
-+		goto put;
- 	}
+ I have no way to really test this patch, so it is only compile tested.
+
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+index 3ccbff1..71a8eb6 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.c
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+@@ -283,6 +283,7 @@ hfcsusb_ph_info(struct hfcsusb *hw)
+ 	_queue_data(&dch->dev.D, MPH_INFORMATION_IND, MISDN_ID_ANY,
+ 		sizeof(struct ph_info_dch) + dch->dev.nrbchan *
+ 		sizeof(struct ph_info_ch), phi, GFP_ATOMIC);
++	kfree(phi);
+ }
  
- 	if (!netif_running(ndev)) {
+ /*
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
