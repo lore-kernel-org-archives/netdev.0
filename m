@@ -1,101 +1,81 @@
-From: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
-Date: Sat, 11 Jun 2011 02:25:08 +0200
-Message-ID: <4DF2B5E4.8070303@gmail.com>
-References: <1307748870-12950-1-git-send-email-marius@kotsbak.com> <20110610235557.GA23443@kroah.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
+Date: Sat, 11 Jun 2011 08:54:09 +0800
+Message-ID: <BANLkTikU_ug=zUdfOZAX6eJ+BD9ZZvDrJA@mail.gmail.com>
+References: <1307600810.3980.85.camel@edumazet-laptop> <1307664235.17300.44.camel@schen9-DESK>
+ <20110609.204330.2090335955971650557.davem@davemloft.net> <1307745190.17300.85.camel@schen9-DESK>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110610235557.GA23443-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, andi@firstfloor.org
+To: Tim Chen <tim.c.chen@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:47040 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758378Ab1FKAya convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 20:54:30 -0400
+Received: by bwz15 with SMTP id 15so2585868bwz.19
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 17:54:29 -0700 (PDT)
+In-Reply-To: <1307745190.17300.85.camel@schen9-DESK>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11. juni 2011 01:55, Greg KH wrote:
-> On Sat, Jun 11, 2011 at 01:34:30AM +0200, Marius B. Kotsbak wrote:
->> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
->> It has also an ACM interface that previous patches associates with the "option"
->> module. To access those interfaces, the modem must first be switched from modem
->> mode using a tool like usb_modeswitch.
-> Do we need to blacklist this device from the option driver?
-
-It is already done, in commits:
-
-80f9df3e0093ad9f1eeefd2ff7fd27daaa518d25
-15b2f3204a5c878c32939094775fb7349f707263
-
->   We can do
-> that easily then you don't need a usb_modeswitch change, right?
-
-usb_modeswitch is for turning it into a modem (with network+modem
-interface) instead of just a windows driver serving dongle.
-
-It is a tricky story, and it also is a problem using usb_modeswitch
-newer than 1.1.4:
-
-https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/769816
-
->> As the proprietary protocol has been discovered by watching the MS Windows driver
->> behavior, there might be errors in the protocol handling, but stable and fast
->> connection has been established for hours with Norwegian operator NetCom that
->> distributes this modem with their LTE/4G subscription.
->>
->> More and updated information about how to use this driver is available here:
->>
->> http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
->> https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
->>
->> Signed-off-by: Marius B. Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-> Very nice job, one minor comment nit:
+On Sat, Jun 11, 2011 at 6:33 AM, Tim Chen <tim.c.chen@linux.intel.com> =
+wrote:
 >
->> +/*
->> + * USB network interface driver for Samsung Kalmia based LTE USB modem like the
->> + * Samsung GT-B3730 and GT-B3710.
->> + *
->> + * Copyright (C) 2011 Marius Bjoernstad Kotsbak
-> Email address after your name?
-
-Will add.
-
->> + *
->> + * Sponsored by Quicklink Video Distribution Services Ltd.
->> + *
->> + * Based on the cdc_eem module.
->> + *
->> + * This program is free software; you can redistribute it and/or modify
->> + * it under the terms of the GNU General Public License as published by
->> + * the Free Software Foundation; either version 2 of the License, or
->> + * (at your option) any later version.
-> Do you really mean "any later version"?
+> You're right. =A0By adding the TCP connection, inet peer shows up now=
+ in
+> my profile of the patched kernel with Eric's two patches.
 >
-
-I have not considered it much.
-
->> + *
->> + * This program is distributed in the hope that it will be useful,
->> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
->> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
->> + * GNU General Public License for more details.
->> + *
->> + * You should have received a copy of the GNU General Public License
->> + * along with this program; if not, write to the Free Software
->> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-> These two paragraphs are not needed, and unless you want to track the
-> FSF's office changes for the next 40+ years, I'd really suggest not
-> putting it in there at all.
+> Eric's patches produced much better cpu utilization.
+> The addr_compare (used to consume 10% cpu) and atomic_dec_and_lock (u=
+sed
+> to consume 20.5% cpu) in inet_putpeer is eliminated and inet_putpeer
+> uses only 10% cpu now. =A0Though inet_getpeer and inet_putpeer still
+> consumes significant cpu compared to the other test case when peer is
+> not present.
+>
+> Tim
+>
+> Profile with Eric's two patches and peer forced to be present with TC=
+P
+> added looks like this:
+>
+> - =A0 =A0 19.38% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0 =A0=
+ =A0 =A0 [k] inet_getpeer
+> =A0 - inet_getpeer
+> =A0 =A0 =A0+ 99.97% inet_getpeer_v4
+> - =A0 =A0 11.49% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0 =A0=
+ =A0 =A0 [k] inet_putpeer
+> =A0 - inet_putpeer
+> =A0 =A0 =A0- 99.96% ipv4_dst_destroy
+> =A0 =A0 =A0 =A0 =A0 dst_destroy
+> =A0 =A0 =A0 =A0 + dst_release
+> - =A0 =A0 =A05.71% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] rt_set_nexthop.clone.30
+> =A0 - rt_set_nexthop.clone.30
+> =A0 =A0 =A0+ 99.89% __ip_route_output_key
+> - =A0 =A0 =A05.60% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] atomic_add_unless.clone.34
+> =A0 - atomic_add_unless.clone.34
+> =A0 =A0 =A0+ 99.94% neigh_lookup
+> + =A0 =A0 =A03.02% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] do_raw_spin_lock
+> + =A0 =A0 =A02.87% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] atomic_dec_and_test
+> + =A0 =A0 =A01.45% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] atomic_add
+> + =A0 =A0 =A01.04% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] _raw_spin_lock_irqsave
+> + =A0 =A0 =A01.03% =A0 =A0 memcached =A0[kernel.kallsyms] =A0 =A0 =A0=
+ =A0 =A0 =A0 [k] bit_spin_lock.clone.41
+>
 >
 
-Same here, I have reused what I found in other modules. Do you have an
-example of a module with the recommended header?
+Did you disable routing cache when profiling? If so, enable it and try =
+again.
 
---
-Marius
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
