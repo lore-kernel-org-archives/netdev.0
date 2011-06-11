@@ -1,72 +1,40 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Sat, 11 Jun 2011 14:26:48 +1000
-Message-ID: <20110611142648.bf71b026.sfr@canb.auug.org.au>
-References: <20110609145657.96fae0d0.sfr@canb.auug.org.au>
-	<BANLkTi=fn1qxcJGs7Ngag6ph2uMECiyWLg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] inetpeer: lower false sharing effect
+Date: Sat, 11 Jun 2011 06:54:12 +0200
+Message-ID: <1307768052.2872.50.camel@edumazet-laptop>
+References: <1307600810.3980.85.camel@edumazet-laptop>
+	 <1307664235.17300.44.camel@schen9-DESK>
+	 <20110609.204330.2090335955971650557.davem@davemloft.net>
+	 <1307745190.17300.85.camel@schen9-DESK>
+	 <BANLkTikU_ug=zUdfOZAX6eJ+BD9ZZvDrJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Sat__11_Jun_2011_14_26_48_+1000_1qHZEHXaj31N+mfP"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Greg KH <greg@kroah.com>, Alexey Dobriyan <adobriyan@gmail.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <BANLkTi=fn1qxcJGs7Ngag6ph2uMECiyWLg@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tim Chen <tim.c.chen@linux.intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	andi@firstfloor.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:50135 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751527Ab1FKEyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 00:54:17 -0400
+Received: by wwk4 with SMTP id 4so1272326wwk.1
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 21:54:16 -0700 (PDT)
+In-Reply-To: <BANLkTikU_ug=zUdfOZAX6eJ+BD9ZZvDrJA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Sat__11_Jun_2011_14_26_48_+1000_1qHZEHXaj31N+mfP
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le samedi 11 juin 2011 =C3=A0 08:54 +0800, Changli Gao a =C3=A9crit :
 
-Hi Geert,
-
-On Fri, 10 Jun 2011 22:28:03 +0200 Geert Uytterhoeven <geert@linux-m68k.org=
-> wrote:
->
-> On Thu, Jun 9, 2011 at 06:56, Stephen Rothwell <sfr@canb.auug.org.au> wro=
-te:
-> > I assume that this is fallout from commit a6b7a407865a ("net: remove
-> > interrupt.h inclusion from netdevice.h").
+> Did you disable routing cache when profiling? If so, enable it and tr=
+y again.
 >=20
-> Ah, that's were the failures on m68k come from:
-> http://kisskb.ellerman.id.au/kisskb/buildresult/4222666/
-> http://kisskb.ellerman.id.au/kisskb/buildresult/4223000/
 
-Yep.
+Whole point of the exercice is to prepare ground for routing cache
+removal :)
 
-> My first bisection between two successive versions of linux-next failed, =
-but
+If you want a server being hit by millions of clients around the world,
+routing cache is a real pain because of memory needs.
 
-Bisecting between successive linux-next versions is bound not to work.
-Bisection really only works between a commit and one of ist ancestors.
 
-> the second one between linus and linux-next just finished and points
-> to that commit.
-
-That is a much better bet.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Sat__11_Jun_2011_14_26_48_+1000_1qHZEHXaj31N+mfP
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJN8u6IAAoJEDMEi1NhKgbsYj8IAJ34qlOZZKeU8JseUrn9rCjz
-LHJaIeP37ro53ead5jRwOSI3YBJtprBYlupFG/FvBd+R+/xojYFo70P2lZRmS/i2
-FjhsdZtL32KamWS73gmyqy3AeCqw5h1WvTZxE01E6l/xHQ7+6rwpgqO4g77R5nw4
-qRKrwYBuTiZsH/X5+U7Ro1VuwHpMMVarfA/zRkonffTAkZIVn7DrYv6OWucjP1a8
-aAFrUi6eL9ixotT6MzeiPvSaF4VGOVnhpqKILMvDt5y27Y/8ck8RVgatfMAWhShH
-fMfDvhN6/z+DQZ+QBYiz0B2rSzcoaGA+Klomby13vqUp4H3MfIHJ56EQHIEi81Q=
-=SGUd
------END PGP SIGNATURE-----
-
---Signature=_Sat__11_Jun_2011_14_26_48_+1000_1qHZEHXaj31N+mfP--
