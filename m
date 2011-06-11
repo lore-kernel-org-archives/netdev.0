@@ -1,52 +1,45 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH] drivers/ssb/driver_chipcommon_pmu.c: uninitilized
- warning
-Date: Sat, 11 Jun 2011 20:50:57 +0200
-Message-ID: <20110611205057.4b9bf462@maggie>
-References: <1307816085-20062-1-git-send-email-cmdkhh@gmail.com>
+From: Joris van Rantwijk <joris@jorisvr.nl>
+Subject: Question about LRO/GRO and TCP acknowledgements
+Date: Sat, 11 Jun 2011 21:59:19 +0200
+Message-ID: <20110611215919.5fc29c27@konijn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mb@bu3sch.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Connor Hansen <cmdkhh@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1307816085-20062-1-git-send-email-cmdkhh@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-vbr18.xs4all.nl ([194.109.24.38]:2664 "EHLO
+	smtp-vbr18.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136Ab1FKUMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 16:12:02 -0400
+Received: from konijn (vertex.xs4all.nl [82.95.239.45])
+	by smtp-vbr18.xs4all.nl (8.13.8/8.13.8) with ESMTP id p5BJxKE5070568
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Sat, 11 Jun 2011 21:59:26 +0200 (CEST)
+	(envelope-from joris@jorisvr.nl)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 11 Jun 2011 11:14:45 -0700
-Connor Hansen <cmdkhh@gmail.com> wrote:
+Hi,
 
-> warning message
-> drivers/ssb/driver_chipcommon_pmu.c: In function ssb_pmu_resources_init
-> drivers/ssb/driver_chipcommon_pmu.c:420:15: warning: updown_tab_size may
-> be used uninitilized in this function.
-> 
-> updown_tab_size and depend_tab_size may not be set in the bus->chip_id
-> switch statement, so set to 0 by default to avoid using uninitialized
-> stack space.
+I'm trying to understand how Linux produces TCP acknowledgements
+for segments received via LRO/GRO.
 
-We wouldn't be using uninitialized stack space or uninitialized variables,
-without this patch. However, for the sake of shutting up the compiler, ACK.
+As far as I can see, the network driver uses GRO to collect several
+received packets into one big super skb, which is then handled
+during just one call to tcp_v4_rcv(). This will eventually result
+in the sending of at most one ACK packet for the entire GRO packet.
 
-> Signed-off-by: Connor Hansen <cmdkhh@gmail.com>
-> ---
->  drivers/ssb/driver_chipcommon_pmu.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driver_chipcommon_pmu.c
-> index 305ade7..a7aef47 100644
-> --- a/drivers/ssb/driver_chipcommon_pmu.c
-> +++ b/drivers/ssb/driver_chipcommon_pmu.c
-> @@ -417,9 +417,9 @@ static void ssb_pmu_resources_init(struct ssb_chipcommon *cc)
->  	u32 min_msk = 0, max_msk = 0;
->  	unsigned int i;
->  	const struct pmu_res_updown_tab_entry *updown_tab = NULL;
-> -	unsigned int updown_tab_size;
-> +	unsigned int updown_tab_size = 0;
->  	const struct pmu_res_depend_tab_entry *depend_tab = NULL;
-> -	unsigned int depend_tab_size;
-> +	unsigned int depend_tab_size = 0;
->  
->  	switch (bus->chip_id) {
->  	case 0x4312:
+Conventional wisdom (RFC 5681) says that a receiver should send at
+least one ACK for every two data segments received. The sending TCP
+needs these ACKs to update its congestion window (e.g. slow start).
+
+It seems to me that the current implementation in Linux may send
+just one ACK for a large number of received segments. This would
+be a deviation from the standard. As a result the congestion
+window of the sender would grow much slower than intended.
+
+Maybe I misunderstand something in the network code (likely).
+Could someone please explain me how this ACK issue is handled?
+
+Thanks,
+Joris van Rantwijk.
