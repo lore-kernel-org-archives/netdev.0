@@ -1,363 +1,110 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/13] ixgbe: add support for Dell CEM
-Date: Fri, 10 Jun 2011 20:02:19 -0700
-Message-ID: <1307761341-5267-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/13] ixgbe: DCB, remove unneeded ixgbe_dcb_txq_to_tc() routine
+Date: Fri, 10 Jun 2011 20:02:18 -0700
+Message-ID: <1307761341-5267-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1307761341-5267-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43542 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:3248 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757526Ab1FKDCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2011 23:02:30 -0400
+	id S1758553Ab1FKDC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 23:02:29 -0400
 In-Reply-To: <1307761341-5267-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This patch adds support for Dell CEM (Comprehensive Embedded Management)).
-This consists of informing the management firmware of the driver version
-during probe on 82599 and X540 HW.
+The ixgbe_dcb_txq_to_tc() routine was used to map TX rings to
+a DCB traffic class. Now that a tx_ring has a DCB traffic class
+associated with it this routine is no longer needed.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Evan Swanson <evan.swanson@intel.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_82598.c  |    1 +
- drivers/net/ixgbe/ixgbe_82599.c  |    1 +
- drivers/net/ixgbe/ixgbe_common.c |  174 ++++++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_common.h |    2 +
- drivers/net/ixgbe/ixgbe_main.c   |    4 +
- drivers/net/ixgbe/ixgbe_type.h   |   46 ++++++++++
- drivers/net/ixgbe/ixgbe_x540.c   |    1 +
- 7 files changed, 229 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   58 +---------------------------------------
+ 1 files changed, 1 insertions(+), 57 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index bb417d7..0d4e382 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -1316,6 +1316,7 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.clear_vfta		= &ixgbe_clear_vfta_82598,
- 	.set_vfta		= &ixgbe_set_vfta_82598,
- 	.fc_enable		= &ixgbe_fc_enable_82598,
-+	.set_fw_drv_ver         = NULL,
- 	.acquire_swfw_sync      = &ixgbe_acquire_swfw_sync,
- 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
- };
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 324a505..4a6826b 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -2126,6 +2126,7 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.clear_vfta             = &ixgbe_clear_vfta_generic,
- 	.set_vfta               = &ixgbe_set_vfta_generic,
- 	.fc_enable              = &ixgbe_fc_enable_generic,
-+	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
- 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
- 	.setup_sfp              = &ixgbe_setup_sfp_modules_82599,
- 	.set_mac_anti_spoofing  = &ixgbe_set_mac_anti_spoofing,
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index cc2a4a1..777051f 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -3333,3 +3333,177 @@ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw,
- 		IXGBE_WRITE_REG(hw, IXGBE_TXPBTHRESH(i), 0);
- 	}
- }
-+
-+/**
-+ *  ixgbe_calculate_checksum - Calculate checksum for buffer
-+ *  @buffer: pointer to EEPROM
-+ *  @length: size of EEPROM to calculate a checksum for
-+ *  Calculates the checksum for some buffer on a specified length.  The
-+ *  checksum calculated is returned.
-+ **/
-+static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
-+{
-+	u32 i;
-+	u8 sum = 0;
-+
-+	if (!buffer)
-+		return 0;
-+
-+	for (i = 0; i < length; i++)
-+		sum += buffer[i];
-+
-+	return (u8) (0 - sum);
-+}
-+
-+/**
-+ *  ixgbe_host_interface_command - Issue command to manageability block
-+ *  @hw: pointer to the HW structure
-+ *  @buffer: contains the command to write and where the return status will
-+ *           be placed
-+ *  @lenght: lenght of buffer, must be multiple of 4 bytes
-+ *
-+ *  Communicates with the manageability block.  On success return 0
-+ *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
-+ **/
-+static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
-+					u32 length)
-+{
-+	u32 hicr, i;
-+	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
-+	u8 buf_len, dword_len;
-+
-+	s32 ret_val = 0;
-+
-+	if (length == 0 || length & 0x3 ||
-+	    length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
-+		hw_dbg(hw, "Buffer length failure.\n");
-+		ret_val = IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+		goto out;
-+	}
-+
-+	/* Check that the host interface is enabled. */
-+	hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
-+	if ((hicr & IXGBE_HICR_EN) == 0) {
-+		hw_dbg(hw, "IXGBE_HOST_EN bit disabled.\n");
-+		ret_val = IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+		goto out;
-+	}
-+
-+	/* Calculate length in DWORDs */
-+	dword_len = length >> 2;
-+
-+	/*
-+	 * The device driver writes the relevant command block
-+	 * into the ram area.
-+	 */
-+	for (i = 0; i < dword_len; i++)
-+		IXGBE_WRITE_REG_ARRAY(hw, IXGBE_FLEX_MNG,
-+				      i, *((u32 *)buffer + i));
-+
-+	/* Setting this bit tells the ARC that a new command is pending. */
-+	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
-+
-+	for (i = 0; i < IXGBE_HI_COMMAND_TIMEOUT; i++) {
-+		hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
-+		if (!(hicr & IXGBE_HICR_C))
-+			break;
-+		usleep_range(1000, 2000);
-+	}
-+
-+	/* Check command successful completion. */
-+	if (i == IXGBE_HI_COMMAND_TIMEOUT ||
-+	    (!(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV))) {
-+		hw_dbg(hw, "Command has failed with no status valid.\n");
-+		ret_val = IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+		goto out;
-+	}
-+
-+	/* Calculate length in DWORDs */
-+	dword_len = hdr_size >> 2;
-+
-+	/* first pull in the header so we know the buffer length */
-+	for (i = 0; i < dword_len; i++)
-+		*((u32 *)buffer + i) =
-+			IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
-+
-+	/* If there is any thing in data position pull it in */
-+	buf_len = ((struct ixgbe_hic_hdr *)buffer)->buf_len;
-+	if (buf_len == 0)
-+		goto out;
-+
-+	if (length < (buf_len + hdr_size)) {
-+		hw_dbg(hw, "Buffer not large enough for reply message.\n");
-+		ret_val = IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+		goto out;
-+	}
-+
-+	/* Calculate length in DWORDs, add one for odd lengths */
-+	dword_len = (buf_len + 1) >> 2;
-+
-+	/* Pull in the rest of the buffer (i is where we left off)*/
-+	for (; i < buf_len; i++)
-+		*((u32 *)buffer + i) =
-+			IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
-+
-+out:
-+	return ret_val;
-+}
-+
-+/**
-+ *  ixgbe_set_fw_drv_ver_generic - Sends driver version to firmware
-+ *  @hw: pointer to the HW structure
-+ *  @maj: driver version major number
-+ *  @min: driver version minor number
-+ *  @build: driver version build number
-+ *  @sub: driver version sub build number
-+ *
-+ *  Sends driver version number to firmware through the manageability
-+ *  block.  On success return 0
-+ *  else returns IXGBE_ERR_SWFW_SYNC when encountering an error acquiring
-+ *  semaphore or IXGBE_ERR_HOST_INTERFACE_COMMAND when command fails.
-+ **/
-+s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
-+				 u8 build, u8 sub)
-+{
-+	struct ixgbe_hic_drv_info fw_cmd;
-+	int i;
-+	s32 ret_val = 0;
-+
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_SW_MNG_SM) != 0) {
-+		ret_val = IXGBE_ERR_SWFW_SYNC;
-+		goto out;
-+	}
-+
-+	fw_cmd.hdr.cmd = FW_CEM_CMD_DRIVER_INFO;
-+	fw_cmd.hdr.buf_len = FW_CEM_CMD_DRIVER_INFO_LEN;
-+	fw_cmd.hdr.cmd_or_resp.cmd_resv = FW_CEM_CMD_RESERVED;
-+	fw_cmd.port_num = (u8)hw->bus.func;
-+	fw_cmd.ver_maj = maj;
-+	fw_cmd.ver_min = min;
-+	fw_cmd.ver_build = build;
-+	fw_cmd.ver_sub = sub;
-+	fw_cmd.hdr.checksum = 0;
-+	fw_cmd.hdr.checksum = ixgbe_calculate_checksum((u8 *)&fw_cmd,
-+				(FW_CEM_HDR_LEN + fw_cmd.hdr.buf_len));
-+	fw_cmd.pad = 0;
-+	fw_cmd.pad2 = 0;
-+
-+	for (i = 0; i <= FW_CEM_MAX_RETRIES; i++) {
-+		ret_val = ixgbe_host_interface_command(hw, (u8 *)&fw_cmd,
-+						       sizeof(fw_cmd));
-+		if (ret_val != 0)
-+			continue;
-+
-+		if (fw_cmd.hdr.cmd_or_resp.ret_status ==
-+		    FW_CEM_RESP_STATUS_SUCCESS)
-+			ret_val = 0;
-+		else
-+			ret_val = IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+
-+		break;
-+	}
-+
-+	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_SW_MNG_SM);
-+out:
-+	return ret_val;
-+}
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 32a454f..f24fd64 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -99,6 +99,8 @@ s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index);
- void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int pf);
- void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
- s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
-+s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
-+				 u8 build, u8 ver);
- 
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 295ab6d..4cd66ae 100644
+index 5caf42a..295ab6d 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -7674,6 +7674,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 			ixgbe_vf_configuration(pdev, (i | 0x10000000));
- 	}
+@@ -665,62 +665,6 @@ void ixgbe_unmap_and_free_tx_resource(struct ixgbe_ring *tx_ring,
+ 	/* tx_buffer_info must be completely set up in the transmit path */
+ }
  
-+	/* Inform firmware of driver version */
-+	if (hw->mac.ops.set_fw_drv_ver)
-+		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD, KFIX);
-+
- 	/* add san mac addr to netdev */
- 	ixgbe_add_sanmac_netdev(netdev);
+-/**
+- * ixgbe_dcb_txq_to_tc - convert a reg index to a traffic class
+- * @adapter: driver private struct
+- * @index: reg idx of queue to query (0-127)
+- *
+- * Helper function to determine the traffic index for a particular
+- * register index.
+- *
+- * Returns : a tc index for use in range 0-7, or 0-3
+- */
+-static u8 ixgbe_dcb_txq_to_tc(struct ixgbe_adapter *adapter, u8 reg_idx)
+-{
+-	int tc = -1;
+-	int dcb_i = netdev_get_num_tc(adapter->netdev);
+-
+-	/* if DCB is not enabled the queues have no TC */
+-	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+-		return tc;
+-
+-	/* check valid range */
+-	if (reg_idx >= adapter->hw.mac.max_tx_queues)
+-		return tc;
+-
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_82598EB:
+-		tc = reg_idx >> 2;
+-		break;
+-	default:
+-		if (dcb_i != 4 && dcb_i != 8)
+-			break;
+-
+-		/* if VMDq is enabled the lowest order bits determine TC */
+-		if (adapter->flags & (IXGBE_FLAG_SRIOV_ENABLED |
+-				      IXGBE_FLAG_VMDQ_ENABLED)) {
+-			tc = reg_idx & (dcb_i - 1);
+-			break;
+-		}
+-
+-		/*
+-		 * Convert the reg_idx into the correct TC. This bitmask
+-		 * targets the last full 32 ring traffic class and assigns
+-		 * it a value of 1. From there the rest of the rings are
+-		 * based on shifting the mask further up to include the
+-		 * reg_idx / 16 and then reg_idx / 8. It assumes dcB_i
+-		 * will only ever be 8 or 4 and that reg_idx will never
+-		 * be greater then 128. The code without the power of 2
+-		 * optimizations would be:
+-		 * (((reg_idx % 32) + 32) * dcb_i) >> (9 - reg_idx / 32)
+-		 */
+-		tc = ((reg_idx & 0X1F) + 0x20) * dcb_i;
+-		tc >>= 9 - (reg_idx >> 5);
+-	}
+-
+-	return tc;
+-}
+-
+ static void ixgbe_update_xoff_received(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -766,7 +710,7 @@ static void ixgbe_update_xoff_received(struct ixgbe_adapter *adapter)
+ 	/* disarm tx queues that have received xoff frames */
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+ 		struct ixgbe_ring *tx_ring = adapter->tx_ring[i];
+-		u32 tc = ixgbe_dcb_txq_to_tc(adapter, tx_ring->reg_idx);
++		u8 tc = tx_ring->dcb_tc;
  
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 5455064..9a499a6 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -707,6 +707,13 @@
- #define IXGBE_HFDR      0x15FE8
- #define IXGBE_FLEX_MNG  0x15800 /* 0x15800 - 0x15EFC */
- 
-+#define IXGBE_HICR_EN              0x01  /* Enable bit - RO */
-+/* Driver sets this bit when done to put command in RAM */
-+#define IXGBE_HICR_C               0x02
-+#define IXGBE_HICR_SV              0x04  /* Status Validity */
-+#define IXGBE_HICR_FW_RESET_ENABLE 0x40
-+#define IXGBE_HICR_FW_RESET        0x80
-+
- /* PCI-E registers */
- #define IXGBE_GCR       0x11000
- #define IXGBE_GTV       0x11004
-@@ -2124,6 +2131,41 @@ enum ixgbe_fdir_pballoc_type {
- #define IXGBE_FDIR_INIT_DONE_POLL               10
- #define IXGBE_FDIRCMD_CMD_POLL                  10
- 
-+/* Manageablility Host Interface defines */
-+#define IXGBE_HI_MAX_BLOCK_BYTE_LENGTH       1792 /* Num of bytes in range */
-+#define IXGBE_HI_MAX_BLOCK_DWORD_LENGTH      448 /* Num of dwords in range */
-+#define IXGBE_HI_COMMAND_TIMEOUT             500 /* Process HI command limit */
-+
-+/* CEM Support */
-+#define FW_CEM_HDR_LEN                0x4
-+#define FW_CEM_CMD_DRIVER_INFO        0xDD
-+#define FW_CEM_CMD_DRIVER_INFO_LEN    0x5
-+#define FW_CEM_CMD_RESERVED           0X0
-+#define FW_CEM_MAX_RETRIES            3
-+#define FW_CEM_RESP_STATUS_SUCCESS    0x1
-+
-+/* Host Interface Command Structures */
-+struct ixgbe_hic_hdr {
-+	u8 cmd;
-+	u8 buf_len;
-+	union {
-+		u8 cmd_resv;
-+		u8 ret_status;
-+	} cmd_or_resp;
-+	u8 checksum;
-+};
-+
-+struct ixgbe_hic_drv_info {
-+	struct ixgbe_hic_hdr hdr;
-+	u8 port_num;
-+	u8 ver_sub;
-+	u8 ver_build;
-+	u8 ver_min;
-+	u8 ver_maj;
-+	u8 pad; /* end spacing to ensure length is mult. of dword */
-+	u16 pad2; /* end spacing to ensure length is mult. of dword2 */
-+};
-+
- /* Transmit Descriptor - Advanced */
- union ixgbe_adv_tx_desc {
- 	struct {
-@@ -2663,6 +2705,9 @@ struct ixgbe_mac_operations {
- 
- 	/* Flow Control */
- 	s32 (*fc_enable)(struct ixgbe_hw *, s32);
-+
-+	/* Manageability interface */
-+	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
- };
- 
- struct ixgbe_phy_operations {
-@@ -2832,6 +2877,7 @@ struct ixgbe_info {
- #define IXGBE_ERR_SFP_SETUP_NOT_COMPLETE        -30
- #define IXGBE_ERR_PBA_SECTION                   -31
- #define IXGBE_ERR_INVALID_ARGUMENT              -32
-+#define IXGBE_ERR_HOST_INTERFACE_COMMAND        -33
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
- 
- #endif /* _IXGBE_TYPE_H_ */
-diff --git a/drivers/net/ixgbe/ixgbe_x540.c b/drivers/net/ixgbe/ixgbe_x540.c
-index fa566ed..bec30ed 100644
---- a/drivers/net/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ixgbe/ixgbe_x540.c
-@@ -894,6 +894,7 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.clear_vfta             = &ixgbe_clear_vfta_generic,
- 	.set_vfta               = &ixgbe_set_vfta_generic,
- 	.fc_enable              = &ixgbe_fc_enable_generic,
-+	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
- 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
- 	.setup_sfp              = NULL,
- 	.set_mac_anti_spoofing  = &ixgbe_set_mac_anti_spoofing,
+ 		if (xoff[tc])
+ 			clear_bit(__IXGBE_HANG_CHECK_ARMED, &tx_ring->state);
 -- 
 1.7.5.2
 
