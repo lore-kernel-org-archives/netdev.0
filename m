@@ -1,51 +1,33 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
-Date: Sat, 11 Jun 2011 15:40:12 -0700
-Message-ID: <20110611224011.GA16951@kroah.com>
-References: <1307748870-12950-1-git-send-email-marius@kotsbak.com>
- <20110610235557.GA23443@kroah.com>
- <4DF2B5E4.8070303@gmail.com>
- <20110611200625.GB14582@kroah.com>
- <4DF3E4E1.2070309@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net: add Faraday FTGMAC100 Gigabit Ethernet driver
+Date: Sat, 11 Jun 2011 15:50:52 -0700 (PDT)
+Message-ID: <20110611.155052.13030300060739570.davem@davemloft.net>
+References: <1300355238-1619-1-git-send-email-ratbert.chuang@gmail.com>
+	<1307611968-1595-1-git-send-email-ratbert.chuang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-To: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4DF3E4E1.2070309-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, ratbert@faraday-tech.com
+To: ratbert.chuang@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59111 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751905Ab1FKWvB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 18:51:01 -0400
+In-Reply-To: <1307611968-1595-1-git-send-email-ratbert.chuang@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 11, 2011 at 11:57:53PM +0200, Marius Kotsbak wrote:
-> On 11. juni 2011 22:06, Greg KH wrote:
-> >>>> > >> + * This program is distributed in the hope that it will be useful,
-> >>>> > >> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> >>>> > >> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-> >>>> > >> + * GNU General Public License for more details.
-> >>>> > >> + *
-> >>>> > >> + * You should have received a copy of the GNU General Public License
-> >>>> > >> + * along with this program; if not, write to the Free Software
-> >>>> > >> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-> >>> > > These two paragraphs are not needed, and unless you want to track the
-> >>> > > FSF's office changes for the next 40+ years, I'd really suggest not
-> >>> > > putting it in there at all.
-> >>> > >
-> >> > 
-> >> > Same here, I have reused what I found in other modules. Do you have an
-> >> > example of a module with the recommended header?
-> > Just take out these two paragraphs and you should be fine, and be sure
-> > that you really mean "any later" for your license and that you didn't
-> > copy any code from a non "any later" file.
-> >
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Date: Thu,  9 Jun 2011 17:32:48 +0800
+
+> From: Po-Yu Chuang <ratbert@faraday-tech.com>
 > 
-> Japp, that is fine for me. Fixed the other stuff and sent updated patch
-> now. How is the possibility of getting a stable backported version of
-> this one accepted (to Ubuntu LTS/Natty kernel versions)?
+> FTGMAC100 Ethernet Media Access Controller supports 10/100/1000 Mbps
+> and MII/GMII.  This driver has been working on some ARM/NDS32 SoC's
+> including Faraday A369 and Andes AG102.
+> 
+> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
 
-Talk to the Ubuntu developers, they are the ones in charge of that.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next-2.6, thanks.
