@@ -1,68 +1,101 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v3] vlan: Fix the ingress VLAN_FLAG_REORDER_HDR check
-Date: Sat, 11 Jun 2011 08:05:37 +0800
-Message-ID: <BANLkTi=LeDecHK4x+6qa-q2h5Duub4zoTg@mail.gmail.com>
-References: <m11uzcidvq.fsf_-_@fess.ebiederm.org> <BANLkTikjdz+LkavRiuqdDNS6+djAer-a0A@mail.gmail.com>
- <BANLkTikM1TuO_S9LuJv30uV9oGgLjE09Xw@mail.gmail.com> <20110605.141446.1838641439880246155.davem@davemloft.net>
- <20110610083539.GB17568@minipsycho.redhat.com> <BANLkTinqikKoeW6mbjMV9nPii0Nzp4vSdQ@mail.gmail.com>
- <20110610093413.GC17568@minipsycho.redhat.com> <BANLkTimHi7V3YwbPepLyW7=pTS7hQVxEBQ@mail.gmail.com>
- <20110610103503.GD17568@minipsycho.redhat.com> <BANLkTinctdoyYJo+sU9qUWV8uZV8yGNdnw@mail.gmail.com>
- <20110610165656.GA25677@minipsycho.redhat.com>
+From: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Sat, 11 Jun 2011 02:25:08 +0200
+Message-ID: <4DF2B5E4.8070303@gmail.com>
+References: <1307748870-12950-1-git-send-email-marius@kotsbak.com> <20110610235557.GA23443@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, pratnakarlx@gmail.com,
-	ebiederm@xmission.com, shemminger@linux-foundation.org,
-	greearb@candelatech.com, nicolas.2p.debian@gmail.com,
-	netdev@vger.kernel.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net, jesse@nicira.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:55367 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758305Ab1FKAF6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2011 20:05:58 -0400
-Received: by bwz15 with SMTP id 15so2570784bwz.19
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2011 17:05:57 -0700 (PDT)
-In-Reply-To: <20110610165656.GA25677@minipsycho.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110610235557.GA23443-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 11, 2011 at 12:56 AM, Jiri Pirko <jpirko@redhat.com> wrote:
-> This time heavily based on Eric's V2. mac_len is reset at appropriate
-> places. Also skb->data is adjusted to point to beginning of mac heade=
-r
-> before calling vlan_insert_tag.
->
-> Please review (fingers crossed).
->
-> Subject: [patch net-2.6 v2.1] vlan: Fix the ingress VLAN_FLAG_REORDER=
-_HDR check
->
-> Testing of VLAN_FLAG_REORDER_HDR does not belong in vlan_untag
-> but rather in vlan_do_receive. =A0Otherwise the vlan header
-> will not be properly put on the packet in the case of
-> vlan header accelleration.
->
-> As we remove the check from vlan_check_reorder_header
-> rename it vlan_reorder_header to keep the naming clean.
->
-> Fix up the skb->pkt_type early so we don't look at the packet
-> after adding the vlan tag, which guarantees we don't goof
-> and look at the wrong field.
->
-> Use a simple if statement instead of a complicated switch
-> statement to decided that we need to increment rx_stats
-> for a multicast packet.
->
-> Hopefully at somepoint we will just declare the case where
-> VLAN_FLAG_REORDER_HDR is cleared as unsupported and remove
-> the code. =A0Until then this keeps it working correctly.
->
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-Acked-by: Changli Gao <xiaosuo@gmail.com>
+On 11. juni 2011 01:55, Greg KH wrote:
+> On Sat, Jun 11, 2011 at 01:34:30AM +0200, Marius B. Kotsbak wrote:
+>> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
+>> It has also an ACM interface that previous patches associates with the "option"
+>> module. To access those interfaces, the modem must first be switched from modem
+>> mode using a tool like usb_modeswitch.
+> Do we need to blacklist this device from the option driver?
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+It is already done, in commits:
+
+80f9df3e0093ad9f1eeefd2ff7fd27daaa518d25
+15b2f3204a5c878c32939094775fb7349f707263
+
+>   We can do
+> that easily then you don't need a usb_modeswitch change, right?
+
+usb_modeswitch is for turning it into a modem (with network+modem
+interface) instead of just a windows driver serving dongle.
+
+It is a tricky story, and it also is a problem using usb_modeswitch
+newer than 1.1.4:
+
+https://bugs.launchpad.net/ubuntu/+source/usb-modeswitch/+bug/769816
+
+>> As the proprietary protocol has been discovered by watching the MS Windows driver
+>> behavior, there might be errors in the protocol handling, but stable and fast
+>> connection has been established for hours with Norwegian operator NetCom that
+>> distributes this modem with their LTE/4G subscription.
+>>
+>> More and updated information about how to use this driver is available here:
+>>
+>> http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
+>> https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
+>>
+>> Signed-off-by: Marius B. Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+> Very nice job, one minor comment nit:
+>
+>> +/*
+>> + * USB network interface driver for Samsung Kalmia based LTE USB modem like the
+>> + * Samsung GT-B3730 and GT-B3710.
+>> + *
+>> + * Copyright (C) 2011 Marius Bjoernstad Kotsbak
+> Email address after your name?
+
+Will add.
+
+>> + *
+>> + * Sponsored by Quicklink Video Distribution Services Ltd.
+>> + *
+>> + * Based on the cdc_eem module.
+>> + *
+>> + * This program is free software; you can redistribute it and/or modify
+>> + * it under the terms of the GNU General Public License as published by
+>> + * the Free Software Foundation; either version 2 of the License, or
+>> + * (at your option) any later version.
+> Do you really mean "any later version"?
+>
+
+I have not considered it much.
+
+>> + *
+>> + * This program is distributed in the hope that it will be useful,
+>> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+>> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+>> + * GNU General Public License for more details.
+>> + *
+>> + * You should have received a copy of the GNU General Public License
+>> + * along with this program; if not, write to the Free Software
+>> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+> These two paragraphs are not needed, and unless you want to track the
+> FSF's office changes for the next 40+ years, I'd really suggest not
+> putting it in there at all.
+>
+
+Same here, I have reused what I found in other modules. Do you have an
+example of a module with the recommended header?
+
+--
+Marius
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
