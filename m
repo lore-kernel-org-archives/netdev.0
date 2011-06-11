@@ -1,46 +1,31 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [smatch] re: bonding:delete lacp_fast from ad_bond_info
-Date: Sat, 11 Jun 2011 11:12:14 +0300
-Message-ID: <20110611081214.GA21427@shale.localdomain>
+From: Liu Yan <lyany@gonanut.com>
+Subject: Dear Friend
+Date: Sat, 11 Jun 2011 03:53:14 -0700
+Message-ID: <42ea5a5a-d60e-487a-b9cb-8b053b6e9946@AUSP01MHUB07.collaborationhost.net>
+Reply-To: <ly@ostatmig.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "open list:BONDING DRIVER" <netdev@vger.kernel.org>
-To: panweiping3@gmail.com
+Content-Type: text/plain; charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:37241 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357Ab1FKIQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 04:16:28 -0400
-Received: by pwi15 with SMTP id 15so1531539pwi.19
-        for <netdev@vger.kernel.org>; Sat, 11 Jun 2011 01:16:28 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail131.messagelabs.com ([216.82.242.99]:51509 "EHLO
+	mail131.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751357Ab1FKIxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 04:53:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was a dereference before a check added in 56d00c677de0a
-"bonding:delete lacp_fast from ad_bond_info"
+Dear Friend,
 
-drivers/net/bonding/bond_3ad.c +1907 bond_3ad_bind_slave(7)
-	warn: variable dereferenced before check 'bond'
+I am Mr. Liu Yan a transfer supervisor in Bank of China Ltd. I have a business plan for you.
+On June 5, 2002, a client made a numbered time (Fixed) Deposit in my branch and upon maturity, I sent a routine notification to his forwarding address but got no reply and later discovered from his contract employers that he died from an auto-mobile accident. 
+On further investigation, I found out that he died without making a WILL and he did not declare any next of kin or relations in all his official documents with us.
 
-  1900  int bond_3ad_bind_slave(struct slave *slave)
-  1901  {
-  1902          struct bonding *bond = bond_get_bond_by_slave(slave);
-  1903          int lacp_fast = bond->params.lacp_fast;
-                                ^^^^^^^^^^^^
-	dereference.
+The money is still sitting in my Bank and the interest is being rolled over with the principal sum at the end of each year. No one will ever come forward to claim it.
+Consequently, my proposal is that I will like you as a foreigner to stand in as the next of kin to this client so we can share the money before it falls into the hands of some corrupt government officials.
+There is no risk at all as my position as the credit officer guarantees the successful execution of this transaction. 
+If you are interested, please reply immediately to my private email box, ly@ostatmig.com
 
-  1904          struct port *port;
-  1905          struct aggregator *aggregator;
-  1906  
-  1907          if (bond == NULL) {
-                    ^^^^^^^^^^^^
-	check.
+Regards,
 
-  1908                  pr_err("%s: The slave %s is not attached to its bond\n",
-  1909                         slave->dev->master->name, slave->dev->name);
-  1910                  return -1;
-  1911          }
-
-regards,
-dan carpenter
+Liu Yan
