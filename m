@@ -1,27 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Fixes for ARM/ebsa110 am79c961 driver
-Date: Sat, 11 Jun 2011 15:56:15 -0700 (PDT)
-Message-ID: <20110611.155615.1694355231183005186.davem@davemloft.net>
-References: <20110610105122.GA27087@flint.arm.linux.org.uk>
+Subject: Re: [PATCH] virtio_net: introduce VIRTIO_NET_HDR_F_DATA_VALID
+Date: Sat, 11 Jun 2011 15:58:02 -0700 (PDT)
+Message-ID: <20110611.155802.495936379311916892.davem@davemloft.net>
+References: <1307703377-3798-1-git-send-email-jasowang@redhat.com>
+	<20110610112828.GA21037@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rmk@arm.linux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49591 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276Ab1FKW51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2011 18:57:27 -0400
-In-Reply-To: <20110610105122.GA27087@flint.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jasowang@redhat.com, rusty@rustcorp.com.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, yvugenfi@redhat.com,
+	kvm@vger.kernel.org, herbert@gondor.hengli.com.au
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110610112828.GA21037@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk@arm.linux.org.uk>
-Date: Fri, 10 Jun 2011 11:51:22 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Fri, 10 Jun 2011 14:28:28 +0300
 
-> This series of patches fix some of the more serious issues discovered
-> with GCC 4 and the ARM EBSA110 am79c961 ethernet driver last weekend
-> while upgrading my firewall to 2.6.39.
+> On Fri, Jun 10, 2011 at 06:56:17PM +0800, Jason Wang wrote:
+>> There's no need for the guest to validate the checksum if it have been
+>> validated by host nics. So this patch introduces a new flag -
+>> VIRTIO_NET_HDR_F_DATA_VALID which is used to bypass the checksum
+>> examing in guest. The backend (tap/macvtap) may set this flag when
+>> met skbs with CHECKSUM_UNNECESSARY to save cpu utilization.
+>> 
+>> No feature negotiation is needed as old driver just ignore this flag.
+> 
+> This wasn't required by the spec, but maybe it should be.
+> 
+>> Iperf shows 12%-30% performance improvement for UDP traffic. For TCP,
+>> when gro is on no difference as it produces skb with partial
+>> checksum. But when gro is disabled, 20% or even higher improvement
+>> could be measured by netperf.
+>> 
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> 
+> 
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-All applied to net-2.6, thanks Russell.
+Applied to net-next-2.6
