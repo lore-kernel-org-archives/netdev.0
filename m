@@ -1,34 +1,65 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH v1] sctp: kzalloc() error handling on deleting last address
-Date: Sat, 11 Jun 2011 09:33:54 +0800
-Message-ID: <4DF2C602.3000101@cn.fujitsu.com>
-References: <42280E6C-8514-4C01-9B81-35DDE65BBE42@sfc.wide.ad.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Michio Honda <micchie@sfc.wide.ad.jp>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Update
+Date: Fri, 10 Jun 2011 20:02:08 -0700
+Message-ID: <1307761341-5267-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62978 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1758453Ab1FKBfY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2011 21:35:24 -0400
-In-Reply-To: <42280E6C-8514-4C01-9B81-35DDE65BBE42@sfc.wide.ad.jp>
+Received: from mga09.intel.com ([134.134.136.24]:29360 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756850Ab1FKDCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2011 23:02:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The following series contains updates for ixgbe.  The updates are
+mainly cleanup of DCB code.  There is the addition of Dell CEM
+support and a couple of FCoE DDP patches.
 
-> From be2da529aa45061e77ad96313175e141aaadc16a Mon Sep 17 00:00:00 2001
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: Fri, 10 Jun 2011 16:42:14 +0900
-> Subject: [PATCH v1] sctp: kzalloc() error handling on deleting last address
->
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-> ---
->  net/sctp/socket.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
->
-It is OK to me.
+The following are changes since commit 1057c42747ebf4d1cbaa2ab6125b92914b8ec622:
+  ixgbevf: Update the driver string
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
-Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Emil Tantilov (1):
+  ixgbe: add support for Dell CEM
+
+John Fastabend (10):
+  ixgbe: dcbnl reduce duplicated code and indentation
+  ixgbe: consolidate packet buffer allocation
+  ixgbe: consolidate MRQC and MTQC handling
+  ixgbe: configure minimal packet buffers to support TC
+  ixgbe: DCB use existing TX and RX queues
+  ixgbe: DCB 82598 devices, tx_idx and rx_idx swapped
+  ixgbe: setup redirection table for multiple packet buffers
+  ixgbe: fix bit mask for DCB version
+  ixgbe: DCB and perfect filters can coexist
+  ixgbe: DCB, remove unneeded ixgbe_dcb_txq_to_tc() routine
+
+Vasu Dev (2):
+  ixgbe: setup per CPU PCI pool for FCoE DDP
+  ixgbe: use per NUMA node lock for FCoE DDP
+
+ drivers/net/ixgbe/ixgbe.h           |    2 -
+ drivers/net/ixgbe/ixgbe_82598.c     |   43 ++++
+ drivers/net/ixgbe/ixgbe_82599.c     |   40 +----
+ drivers/net/ixgbe/ixgbe_common.c    |  240 +++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_common.h    |    5 +
+ drivers/net/ixgbe/ixgbe_dcb.c       |   10 +-
+ drivers/net/ixgbe/ixgbe_dcb.h       |    7 -
+ drivers/net/ixgbe/ixgbe_dcb_82598.c |   43 +----
+ drivers/net/ixgbe/ixgbe_dcb_82598.h |    3 +-
+ drivers/net/ixgbe/ixgbe_dcb_82599.c |  119 +-----------
+ drivers/net/ixgbe/ixgbe_dcb_82599.h |   14 +--
+ drivers/net/ixgbe/ixgbe_dcb_nl.c    |   52 ++---
+ drivers/net/ixgbe/ixgbe_fcoe.c      |  151 +++++++++++---
+ drivers/net/ixgbe/ixgbe_fcoe.h      |   14 +-
+ drivers/net/ixgbe/ixgbe_main.c      |  397 +++++++++++++++++------------------
+ drivers/net/ixgbe/ixgbe_type.h      |   71 +++++++
+ drivers/net/ixgbe/ixgbe_x540.c      |    2 +
+ 17 files changed, 716 insertions(+), 497 deletions(-)
+
+-- 
+1.7.5.2
 
