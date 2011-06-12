@@ -1,76 +1,50 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] Revert "net: minor cleanup to net_namespace.c."
-Date: Sun, 12 Jun 2011 14:09:50 +0300
-Message-ID: <20110612110950.GA11321@p183.telecom.by>
+Subject: Re: [RFC] procfs: add hidepid and hidenet modes
+Date: Sun, 12 Jun 2011 14:12:23 +0300
+Message-ID: <20110612111222.GA23467@p183.telecom.by>
+References: <20110612075100.GA4459@albatros>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rlandley@parallels.com, jpirko@redhat.com
-To: davem@davemloft.net
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Nikanth Karthikesan <knikanth@suse.de>,
+	David Rientjes <rientjes@google.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	kernel-hardening@lists.openwall.com
+To: Vasiliy Kulikov <segoon@openwall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:37893 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53763 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378Ab1FLLJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 07:09:56 -0400
-Received: by bwz15 with SMTP id 15so3106507bwz.19
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 04:09:55 -0700 (PDT)
+	with ESMTP id S1750986Ab1FLLM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 07:12:29 -0400
 Content-Disposition: inline
+In-Reply-To: <20110612075100.GA4459@albatros>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-git revert 911cb193f3eb0370f20fbba712211e55ffede4de
+On Sun, Jun 12, 2011 at 11:51:01AM +0400, Vasiliy Kulikov wrote:
+> hidenet means /proc/PID/net will be accessible to processes with
+> CAP_NET_ADMIN capability or to members of a special group.
+> 
+> gid=XXX defines a group that will be able to gather all processes' info
+> and network connections info.
+> 
+> Similar features are implemented for old kernels in -ow patches (for
+> Linux 2.2 and 2.4) and for Linux 2.6 in -grsecurity (but both of them
+> are implemented as configure options, not cofigurable in runtime).
+> 
+> 
+> In current version hidenet works for CONFIG_NET_NS=y via creating a
+> "fake" net namespace and slipping it to nonauthorized users, resulting
+> in users observing blank net files (like nobody use the network).  If
+> CONFIG_NET_NS=n I don't see anything better than just fully denying
+> access to /proc/<pid>/net.  More elegant ideas are welcome.
 
-	commit 911cb193f3eb0370f20fbba712211e55ffede4de
-	Author: Rob Landley <rlandley@parallels.com>
-	Date:   Fri Apr 15 02:26:25 2011 +0000
-	
-	    net: minor cleanup to net_namespace.c.
-	    
-	    Inline a small static function that's only ever called from one place.
-	    
-	    Signed-off-by: Rob Landley <rlandley@parallels.com>
-	    Reviewed-by: Jiri Pirko <jpirko@redhat.com>
-	    Signed-off-by: David S. Miller <davem@davemloft.net>
+This fake netns concept is ugly.
+If you wan't deny something, why don't you return -E?
 
-Rationale for net_create() still holds:
-* C/R and other out-of-tree code uses or will use it,
-* permissions checks are separate thing (and different in C/R case),
-* one function doesn't hurt anything.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- net/core/net_namespace.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -210,14 +210,11 @@ static void net_free(struct net *net)
- 	kmem_cache_free(net_cachep, net);
- }
- 
--struct net *copy_net_ns(unsigned long flags, struct net *old_net)
-+static struct net *net_create(void)
- {
- 	struct net *net;
- 	int rv;
- 
--	if (!(flags & CLONE_NEWNET))
--		return get_net(old_net);
--
- 	net = net_alloc();
- 	if (!net)
- 		return ERR_PTR(-ENOMEM);
-@@ -236,6 +233,13 @@ struct net *copy_net_ns(unsigned long flags, struct net *old_net)
- 	return net;
- }
- 
-+struct net *copy_net_ns(unsigned long flags, struct net *old_net)
-+{
-+	if (!(flags & CLONE_NEWNET))
-+		return get_net(old_net);
-+	return net_create();
-+}
-+
- static DEFINE_SPINLOCK(cleanup_list_lock);
- static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
- 
+Regardless, these should be separate patch from PID stuff.
