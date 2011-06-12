@@ -1,35 +1,50 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
-Date: Sun, 12 Jun 2011 18:38:12 +0300
-Message-ID: <4DF4DD64.2020802@redhat.com>
-References: <4DED344D.7000005@pandora.be> <4DED9C23.2030408@fnarfbargle.com> <4DEE27DE.7060004@trash.net> <4DEE3859.6070808@fnarfbargle.com> <4DEE4538.1020404@trash.net> <1307471484.3091.43.camel@edumazet-laptop> <4DEEACC3.3030509@trash.net> <4DEEBFC2.4060102@fnarfbargle.com> <1307505541.3102.12.camel@edumazet-laptop> <4DEFAB15.2060905@fnarfbargle.com> <20110610025249.GD643@verge.net.au>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC] breakage in sysfs_readdir() and s_instances abuse in sysfs
+Date: Sun, 12 Jun 2011 10:59:42 -0700
+Message-ID: <BANLkTi=AfYH1eg_O1N2M9BfcF=UmBFPy6w@mail.gmail.com>
+References: <20110604001518.GT11521@ZenIV.linux.org.uk> <m1k4cy6auf.fsf@fess.ebiederm.org>
+ <20110607215834.GR11521@ZenIV.linux.org.uk> <20110607225902.GS11521@ZenIV.linux.org.uk>
+ <20110609012646.GV11521@ZenIV.linux.org.uk> <m1y617wmeb.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Brad Campbell <brad@fnarfbargle.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Patrick McHardy <kaber@trash.net>,
-        Bart De Schuymer <bdschuym@pandora.be>, kvm@vger.kernel.org,
-        linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110610025249.GD643@verge.net.au>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Al Viro <viro@zeniv.linux.org.uk>, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <m1y617wmeb.fsf@fess.ebiederm.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/10/2011 05:52 AM, Simon Horman wrote:
-> At one point I would have need an 8000km long wire to the reset switch :-)
+On Sun, Jun 12, 2011 at 12:15 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> I honestly hate the pattern that is being used here. =A0Holding a
+> reference count because we can't be bothered to free things reliably
+> when we actually stop using them.
 
-Even more off-topic, there has been a case when a 200,000,000 km long 
-wire to the reset button was needed.  IIRC they got away with a watchdog.
+WHAT?
 
--- 
-error compiling committee.c: too many arguments to function
+That's what a reference count *is*. It's all about "free things
+reliably when we actually stop using them".
 
+Your comment makes zero sense.
+
+EVERY SINGLE kernel data structure should be reference counted. Read
+Documentation/CodingStyle, or look at any of the good code in the
+kernel (ie core process or VFS code). A non-refcounted data structure
+that is used by more than one entity IS A BUG!
+
+Quite frankly, your objection sounds moronic. If there is more than
+one user, then a reference count is _always_ the right thing. Nothing
+else ever works, and trust me, people have tried. They've tried
+locking, they've tried luck, they've tried crazy things. Nothing but
+refcounts works.
+
+                           Linus
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
