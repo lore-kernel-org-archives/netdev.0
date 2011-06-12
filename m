@@ -1,51 +1,46 @@
-From: Joris van Rantwijk <joris@jorisvr.nl>
-Subject: Re: Question about LRO/GRO and TCP acknowledgements
-Date: Sun, 12 Jun 2011 21:37:26 +0200
-Message-ID: <20110612213726.4d203a6e@konijn>
-References: <20110611215919.5fc29c27@konijn>
-	<1307850224.22348.626.camel@localhost>
-	<20110612095131.6d924082@konijn>
-	<1307869632.2872.106.camel@edumazet-laptop>
-	<20110612113004.79f48f40@konijn>
-	<1307875698.2872.130.camel@edumazet-laptop>
-	<20110612132428.3e1a4593@konijn>
-	<1307890657.2872.158.camel@edumazet-laptop>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: 3c503: fix broken IRQ autoprobing
+Date: Sun, 12 Jun 2011 21:40:49 +0200
+Message-ID: <201106122140.51776.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr12.xs4all.nl ([194.109.24.32]:1860 "EHLO
-	smtp-vbr12.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415Ab1FLThc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 15:37:32 -0400
-In-Reply-To: <1307890657.2872.158.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kernel development list <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2011-06-12, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Think of GRO being a receiver facility against stress/load, typically
-> in datacenter.
-> 
-> Only when receiver is overloaded, GRO kicks in and can coalesce
-> several frames before being handled in TCP stack in one run.
+Fix broken IRQ autoprobing in 3c503 driver:
+ - improper IRQ freeing (does not free IRQs causes WARN)
+ - missing break when an working IRQ is found
 
-Ok, it now becomes clear to me that I have a different scenario in mind
-than GRO was designed to handle. I'm interested in LRO as a method
-to sustain 1 Gbit through a single TCP connection on a slow embedded
-computer.
+The driver works with this patch.
 
-> If receiver is so loaded that more than 2 frames are coalesced in a
-> NAPI run, it certainly helps to not allow sender to increase its cwnd
-> more than one SMSS. We probably are right before packet drops anyway.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 
-Right. So unlike TSO, GRO is not a transparent, generally applicable
-performance improvement. It's more like a form of graceful degradation,
-helping a server to sustain overall throughput when it is already
-swamped in TCP traffic.
+--- linux-2.6.39-rc2-orig/drivers/net/3c503.c	2011-04-06 03:30:43.000000000 +0200
++++ linux-2.6.39-rc2/drivers/net/3c503.c	2011-06-12 21:29:47.000000000 +0200
+@@ -412,7 +412,7 @@ el2_open(struct net_device *dev)
+ 		outb_p(0x04 << ((*irqp == 9) ? 2 : *irqp), E33G_IDCFR);
+ 		outb_p(0x00, E33G_IDCFR);
+ 		msleep(1);
+-		free_irq(*irqp, el2_probe_interrupt);
++		free_irq(*irqp, &seen);
+ 		if (!seen)
+ 			continue;
+ 
+@@ -422,6 +422,7 @@ el2_open(struct net_device *dev)
+ 			continue;
+ 		if (retval < 0)
+ 			goto err_disable;
++		break;
+ 	} while (*++irqp);
+ 
+ 	if (*irqp == 0) {
 
-Thanks for your clarification. This has certainly solved some confusion
-on my side.
 
-Joris.
+-- 
+Ondrej Zary
