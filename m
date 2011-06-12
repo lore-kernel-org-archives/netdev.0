@@ -1,18 +1,19 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 04/10] davinci_emac: enable transmit time stamping.
-Date: Sun, 12 Jun 2011 14:19:01 +0200
-Message-ID: <8a2ddd8b4d012e06d1f1889751d7e68c62b8ec06.1307880494.git.richard.cochran@omicron.at>
+Subject: [PATCH V3 05/10] tg3: enable transmit time stamping.
+Date: Sun, 12 Jun 2011 14:19:02 +0200
+Message-ID: <9bba014c0ff52cf9a28394959284b8f803e90d22.1307880494.git.richard.cochran@omicron.at>
 References: <cover.1307880494.git.richard.cochran@omicron.at>
-Cc: David Miller <davem@davemloft.net>, Anant Gole <anantgole@ti.com>,
-	Kevin Hilman <khilman@deeprootsystems.com>
+Cc: David Miller <davem@davemloft.net>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bw0-f46.google.com ([209.85.214.46]:46427 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753137Ab1FLMTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 08:19:22 -0400
+	with ESMTP id S1753514Ab1FLMTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 08:19:25 -0400
 Received: by mail-bw0-f46.google.com with SMTP id 15so3125460bwz.19
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 05:19:21 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 05:19:24 -0700 (PDT)
 In-Reply-To: <cover.1307880494.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1307880494.git.richard.cochran@omicron.at>
 References: <cover.1307880494.git.richard.cochran@omicron.at>
@@ -20,27 +21,28 @@ Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This patch enables software (and phy device) transmit time stamping
-for the DaVinci EMAC driver. Tested together with the dp83640 PHY.
+for the TIGON3 driver. Compile tested only.
 
-Cc: Anant Gole <anantgole@ti.com>
-Cc: Kevin Hilman <khilman@deeprootsystems.com>
+Cc: Matt Carlson <mcarlson@broadcom.com>
+Cc: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/davinci_emac.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/tg3.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 5c2baa4..f5688ff 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -1090,6 +1090,7 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
- 			dev_err(emac_dev, "DaVinci EMAC: desc submit failed");
- 		goto fail_tx;
- 	}
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index a1f9f9e..743d997 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -6091,6 +6091,8 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Packets are ready, update Tx producer idx local and on card. */
+ 	tw32_tx_mbox(tnapi->prodmbox, entry);
+ 
 +	skb_tx_timestamp(skb);
- 
- 	return NETDEV_TX_OK;
- 
++
+ 	tnapi->tx_prod = entry;
+ 	if (unlikely(tg3_tx_avail(tnapi) <= (MAX_SKB_FRAGS + 1))) {
+ 		netif_tx_stop_queue(txq);
 -- 
 1.7.0.4
 
