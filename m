@@ -1,63 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question about LRO/GRO and TCP acknowledgements
-Date: Sun, 12 Jun 2011 12:48:18 +0200
-Message-ID: <1307875698.2872.130.camel@edumazet-laptop>
-References: <20110611215919.5fc29c27@konijn>
-	 <1307850224.22348.626.camel@localhost> <20110612095131.6d924082@konijn>
-	 <1307869632.2872.106.camel@edumazet-laptop>
-	 <20110612113004.79f48f40@konijn>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] Revert "net: minor cleanup to net_namespace.c."
+Date: Sun, 12 Jun 2011 14:09:50 +0300
+Message-ID: <20110612110950.GA11321@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Joris van Rantwijk <joris@jorisvr.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, rlandley@parallels.com, jpirko@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35134 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753004Ab1FLKs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 06:48:26 -0400
-Received: by wya21 with SMTP id 21so2657501wya.19
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 03:48:25 -0700 (PDT)
-In-Reply-To: <20110612113004.79f48f40@konijn>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:37893 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751378Ab1FLLJ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 07:09:56 -0400
+Received: by bwz15 with SMTP id 15so3106507bwz.19
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 04:09:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 12 juin 2011 =C3=A0 11:30 +0200, Joris van Rantwijk a =C3=A9=
-crit :
-> On 2011-06-12, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > As far as I can see, current code will send just one ACK per
-> > > coalesced GRO bundle, while the sender expects one ACK per two
-> > > segments.
->=20
-> > One ACK carries an implicit ack for _all_ previous segments. If sen=
-der
-> > only 'counts' ACKs, it is a bit dumb...
->=20
-> It may be dumb, but it's what the RFCs recommend and it's what Linux
-> implements.
->=20
-> RFC 5681:
->   "During slow start, a TCP increments cwnd by at most SMSS bytes for
->    each ACK received that cumulatively acknowledges new data."
->=20
+git revert 911cb193f3eb0370f20fbba712211e55ffede4de
 
-Note also RFC says:
+	commit 911cb193f3eb0370f20fbba712211e55ffede4de
+	Author: Rob Landley <rlandley@parallels.com>
+	Date:   Fri Apr 15 02:26:25 2011 +0000
+	
+	    net: minor cleanup to net_namespace.c.
+	    
+	    Inline a small static function that's only ever called from one place.
+	    
+	    Signed-off-by: Rob Landley <rlandley@parallels.com>
+	    Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+	    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-The RECOMMENDED way to increase cwnd during congestion avoidance is
-   to count the number of bytes that have been acknowledged by ACKs for
-   new data.=20
+Rationale for net_create() still holds:
+* C/R and other out-of-tree code uses or will use it,
+* permissions checks are separate thing (and different in C/R case),
+* one function doesn't hurt anything.
 
-So your concern is more a Sender side implementation missing this
-recommendation, not GRO per se...
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-GRO kicks when receiver receives a train of consecutive frames in his
-NAPI run. In order to really reduce number of ACKS, you need to receive
-3 frames in a very short time.
+ net/core/net_namespace.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-This leads to the RTT rule : "Note that during congestion avoidance,
-cwnd MUST NOT be increased by more than SMSS bytes per RTT"
-
-So GRO, lowering number of ACKS, can help sender to not waste its time
-on extra ACKS.
-
-
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -210,14 +210,11 @@ static void net_free(struct net *net)
+ 	kmem_cache_free(net_cachep, net);
+ }
+ 
+-struct net *copy_net_ns(unsigned long flags, struct net *old_net)
++static struct net *net_create(void)
+ {
+ 	struct net *net;
+ 	int rv;
+ 
+-	if (!(flags & CLONE_NEWNET))
+-		return get_net(old_net);
+-
+ 	net = net_alloc();
+ 	if (!net)
+ 		return ERR_PTR(-ENOMEM);
+@@ -236,6 +233,13 @@ struct net *copy_net_ns(unsigned long flags, struct net *old_net)
+ 	return net;
+ }
+ 
++struct net *copy_net_ns(unsigned long flags, struct net *old_net)
++{
++	if (!(flags & CLONE_NEWNET))
++		return get_net(old_net);
++	return net_create();
++}
++
+ static DEFINE_SPINLOCK(cleanup_list_lock);
+ static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
+ 
