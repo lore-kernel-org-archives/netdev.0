@@ -1,80 +1,45 @@
-From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Subject: Re: Question about LRO/GRO and TCP acknowledgements
-Date: Sun, 12 Jun 2011 14:01:44 +0200
-Message-ID: <D893CC04-58B3-43EB-8664-17DECD59A16F@comsys.rwth-aachen.de>
-References: <20110611215919.5fc29c27@konijn>
- <1307850224.22348.626.camel@localhost> <20110612095131.6d924082@konijn>
- <1307869632.2872.106.camel@edumazet-laptop> <20110612113004.79f48f40@konijn>
- <1307875698.2872.130.camel@edumazet-laptop> <20110612132428.3e1a4593@konijn>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 01/10] net: introduce time stamping wrapper for
+ netif_rx.
+Date: Sun, 12 Jun 2011 14:04:07 +0200
+Message-ID: <20110612120407.GA3174@riccoc20.at.omicron.at>
+References: <20110610082056.5ab6b981@nehalam.ftrdhcpuser.net>
+ <20110610172747.GA2925@riccoc20.at.omicron.at>
+ <20110610111924.54fede19@nehalam.ftrdhcpuser.net>
+ <20110611.161025.317157517912316585.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg=pgp-sha1; boundary=Apple-Mail-10-1007906967
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Joris van Rantwijk <joris@jorisvr.nl>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:61269 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753227Ab1FLMBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 08:01:45 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0LMO00BB0EQWBEE0@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Sun, 12 Jun 2011 14:01:44 +0200 (CEST)
-Received: from [137.226.12.53] ([unknown] [137.226.12.53])
- by relay-auth-2.ms.rz.rwth-aachen.de
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0LMO00004EQWGB00@relay-auth-2.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Sun, 12 Jun 2011 14:01:44 +0200 (CEST)
-In-reply-to: <20110612132428.3e1a4593@konijn>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:45542 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753233Ab1FLMEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 08:04:11 -0400
+Received: by bwz15 with SMTP id 15so3121074bwz.19
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 05:04:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110611.161025.317157517912316585.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---Apple-Mail-10-1007906967
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=us-ascii
-
-Hi Joris,
-
-Am 12.06.2011 um 13:24 schrieb Joris van Rantwijk:
-
+On Sat, Jun 11, 2011 at 04:10:25PM -0700, David Miller wrote:
 > 
-> By the way, Linux does not implement the recommended (byte-counting)
-> method by default. It can be enabled through sysctl tcp_abc, which is
-> off by default.
+> Also, it makes no sense to add this for obsolete RX processing such
+> that netif_rx() is.
 > 
-> 
+> If drivers want to add fancy features like this timestamping stuff,
+> they better move on to NAPI, GRO, etc. first.  Putting support for
+> new features into deprecating things like netif_rx() makes no
+> sense at all.
 
-See http://kerneltrap.org/mailarchive/linux-netdev/2010/3/3/6271114
+Okay, I see your point. I won't bother trying to improve the "academy
+of ancient drivers," and I'll repost without the netif_rx wrapper.
 
+However, I do want to support the coldfire fec driver, since Freescale
+is selling two coldfire development boards with the dp83640 phy. But I
+don't think it makes sense to try and upgrade the fec driver to napi,
+when a simple "if !skb_defer_rx_timestamp" will do there.
 
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22222
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
-
-
---Apple-Mail-10-1007906967
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: Signierter Teil der Nachricht
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.17 (Darwin)
-Comment: GPGTools - http://gpgtools.org
-
-iEYEARECAAYFAk30qqkACgkQdyiq39b9uS6IRgCgiHtzbeeAer18c4OXXcZzHYO1
-MPEAn2vPoAo2dZ3jGi7G14pGrS4yNfd8
-=k6Yr
------END PGP SIGNATURE-----
-
---Apple-Mail-10-1007906967--
+Thanks,
+Richard
