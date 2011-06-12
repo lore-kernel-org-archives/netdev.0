@@ -1,45 +1,80 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 01/10] net: introduce time stamping wrapper for
- netif_rx.
-Date: Sun, 12 Jun 2011 14:04:07 +0200
-Message-ID: <20110612120407.GA3174@riccoc20.at.omicron.at>
-References: <20110610082056.5ab6b981@nehalam.ftrdhcpuser.net>
- <20110610172747.GA2925@riccoc20.at.omicron.at>
- <20110610111924.54fede19@nehalam.ftrdhcpuser.net>
- <20110611.161025.317157517912316585.davem@davemloft.net>
+Subject: [PATCH V3 00/10] net: expand time stamping, batch #1
+Date: Sun, 12 Jun 2011 14:18:57 +0200
+Message-ID: <cover.1307880494.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:45542 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:46427 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753233Ab1FLMEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 08:04:11 -0400
-Received: by bwz15 with SMTP id 15so3121074bwz.19
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 05:04:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110611.161025.317157517912316585.davem@davemloft.net>
+	with ESMTP id S1753137Ab1FLMTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 08:19:10 -0400
+Received: by bwz15 with SMTP id 15so3125460bwz.19
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 05:19:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 11, 2011 at 04:10:25PM -0700, David Miller wrote:
-> 
-> Also, it makes no sense to add this for obsolete RX processing such
-> that netif_rx() is.
-> 
-> If drivers want to add fancy features like this timestamping stuff,
-> they better move on to NAPI, GRO, etc. first.  Putting support for
-> new features into deprecating things like netif_rx() makes no
-> sense at all.
+This patch series represents the start of an effort to get better
+coverage of the SO_TIMESTAMPING socket API in the Ethernet drivers.
+Adding time stamping support to a given driver solves two separate
+issues, namely software transmit time stamping and hardware time
+stamping in PHY devices.
 
-Okay, I see your point. I won't bother trying to improve the "academy
-of ancient drivers," and I'll repost without the netif_rx wrapper.
+The SO_TIMESTAMPING socket API has been around since 2.6.30, but it
+turned out that getting software transmit time stamps could not be
+done in one central place in the stack. Instead, a work around was
+introduced whereby each MAC driver must call a skb_tx_timestamp() hook
+in order to support SW Tx time stamps.
 
-However, I do want to support the coldfire fec driver, since Freescale
-is selling two coldfire development boards with the dp83640 phy. But I
-don't think it makes sense to try and upgrade the fec driver to napi,
-when a simple "if !skb_defer_rx_timestamp" will do there.
+Full PTP Hardware Clock (PHC) support has been merged for Linux 3.0,
+including a driver for a PHY that does HW stamping. In the receive
+path, the PHY based time stamping is handled by the stack for NAPI
+based MAC drivers. But for transmit time stamps, support is needed in
+the Ethernet MAC driver by calling the skb_tx_timestamp() hook.
 
-Thanks,
-Richard
+The first patch exports a time stamping function for use in modules.
+The next three patches enable PHY time stamping for two MACs which
+have been paired with a PHC PHY on real life boards.
+
+The remaining patches are for MACs that I chose because they (1) use
+phylib and (2) compile for x86. However, I only compiled these, not
+tested, since I do not have the hardware.
+
+The larger goal is to eventually get the skb_tx_timestamp hook into as
+many Ethernet MAC drivers as possible, so that SO_TIMESTAMPING using
+SW time stamps will be supported across on most modern hardware. I
+have started by picking those drivers in which adding the hook will
+bring the greatest benefit, namely those using phylib, since adding
+hooks provides both SW and PHY HW time stamping.
+
+If people approve of this effort, I will follow with another patch
+series adding SW Tx time stamping to yet more MACs. Adding SW Tx
+support is just a single line, but still, perhaps compile testing only
+is too risky. I would appreciate feedback on this issue.
+
+Richard Cochran (10):
+  net: export time stamp utility function for Ethernet MAC drivers
+  fec: enable transmit and receive time stamping.
+  davinci_emac: pass ioctls through to phy device.
+  davinci_emac: enable transmit time stamping.
+  tg3: enable transmit time stamping.
+  dnet: enable transmit time stamping.
+  ethoc: enable transmit time stamping.
+  r6040: enable transmit time stamping.
+  stmmac: enable transmit time stamping.
+  smsc9420: enable transmit time stamping.
+
+ drivers/net/davinci_emac.c       |    5 +++--
+ drivers/net/dnet.c               |    2 ++
+ drivers/net/ethoc.c              |    1 +
+ drivers/net/fec.c                |    5 ++++-
+ drivers/net/r6040.c              |    2 ++
+ drivers/net/smsc9420.c           |    2 ++
+ drivers/net/stmmac/stmmac_main.c |    2 ++
+ drivers/net/tg3.c                |    2 ++
+ net/core/timestamping.c          |    1 +
+ 9 files changed, 19 insertions(+), 3 deletions(-)
+
