@@ -1,98 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question about LRO/GRO and TCP acknowledgements
-Date: Sun, 12 Jun 2011 11:07:12 +0200
-Message-ID: <1307869632.2872.106.camel@edumazet-laptop>
-References: <20110611215919.5fc29c27@konijn>
-	 <1307850224.22348.626.camel@localhost>  <20110612095131.6d924082@konijn>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: [PATCH] drivers/ssb/driver_chipcommon_pmu.c: uninitilized
+ warning
+Date: Sun, 12 Jun 2011 11:07:21 +0200
+Message-ID: <20110612090721.GA9247@liondog.tnic>
+References: <1307816085-20062-1-git-send-email-cmdkhh@gmail.com>
+ <20110611205057.4b9bf462@maggie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Joris van Rantwijk <joris@jorisvr.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40133 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463Ab1FLJHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2011 05:07:20 -0400
-Received: by wya21 with SMTP id 21so2631297wya.19
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2011 02:07:18 -0700 (PDT)
-In-Reply-To: <20110612095131.6d924082@konijn>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael =?utf-8?B?QsO8c2No?= <m@bues.ch>, mb@bu3sch.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Connor Hansen <cmdkhh@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110611205057.4b9bf462@maggie>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 12 juin 2011 =C3=A0 09:51 +0200, Joris van Rantwijk a =C3=A9=
-crit :
-> On 2011-06-12, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > LRO implementations (and GRO) are expected to put the actual segmen=
-t
-> > size in skb_shared_info(skb)->gso_size on the aggregated skb.  TCP
-> > will then use that rather than the aggregated payload size when
-> > deciding whether to defer an ACK.
+On Sat, Jun 11, 2011 at 08:50:57PM +0200, Michael B=C3=BCsch wrote:
+> On Sat, 11 Jun 2011 11:14:45 -0700
+> Connor Hansen <cmdkhh@gmail.com> wrote:
 >=20
-> Thanks. I see that indeed gso_size is being used for MSS calculations
-> instead of the total GRO size.
+> > warning message
+> > drivers/ssb/driver_chipcommon_pmu.c: In function ssb_pmu_resources_=
+init
+> > drivers/ssb/driver_chipcommon_pmu.c:420:15: warning: updown_tab_siz=
+e may
+> > be used uninitilized in this function.
+> >=20
+> > updown_tab_size and depend_tab_size may not be set in the bus->chip=
+_id
+> > switch statement, so set to 0 by default to avoid using uninitializ=
+ed
+> > stack space.
 >=20
-> However, I'm not sure that this completely answers my question.
-> I am not so much concerned about quick ACK vs delayed ACK.
-> Instead, I'm looking at the total number of ACKs transmitted.
-> The sender depends on the _number_ of ACKs to update its congestion
-> window.
+> We wouldn't be using uninitialized stack space or uninitialized varia=
+bles,
+> without this patch. However, for the sake of shutting up the compiler=
+, ACK.
+
+Also, Connor you have to be more specific in your commit messages.
+Especially if this warning is triggered only with the extended build
+checks aka make W=3D[123].
+
+Please take a look at the code and check whether this is actually
+fixing anything first because Michael is correct - there's no case
+where {depend,uptown}_tab_size will be used uninitialized. So having
+unnecessary churn when the compiler bitches about something it can't
+understand yet is not something we want.
+
+Thanks.
+
 >=20
-
-
-> As far as I can see, current code will send just one ACK per coalesce=
-d
-> GRO bundle, while the sender expects one ACK per two segments.
+> > Signed-off-by: Connor Hansen <cmdkhh@gmail.com>
+> > ---
+> >  drivers/ssb/driver_chipcommon_pmu.c |    4 ++--
+> >  1 files changed, 2 insertions(+), 2 deletions(-)
+> >=20
+> > diff --git a/drivers/ssb/driver_chipcommon_pmu.c b/drivers/ssb/driv=
+er_chipcommon_pmu.c
+> > index 305ade7..a7aef47 100644
+> > --- a/drivers/ssb/driver_chipcommon_pmu.c
+> > +++ b/drivers/ssb/driver_chipcommon_pmu.c
+> > @@ -417,9 +417,9 @@ static void ssb_pmu_resources_init(struct ssb_c=
+hipcommon *cc)
+> >  	u32 min_msk =3D 0, max_msk =3D 0;
+> >  	unsigned int i;
+> >  	const struct pmu_res_updown_tab_entry *updown_tab =3D NULL;
+> > -	unsigned int updown_tab_size;
+> > +	unsigned int updown_tab_size =3D 0;
+> >  	const struct pmu_res_depend_tab_entry *depend_tab =3D NULL;
+> > -	unsigned int depend_tab_size;
+> > +	unsigned int depend_tab_size =3D 0;
+> > =20
+> >  	switch (bus->chip_id) {
+> >  	case 0x4312:
 >=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-One ACK carries an implicit ack for _all_ previous segments. If sender
-only 'counts' ACKs, it is a bit dumb...
-
-
-10:05:02.755146 IP 192.168.20.110.57736 > 192.168.20.108.53563: SWE 964=
-44459:96444459(0) win 14600 <mss 1460,sackOK,timestamp 12174491=20
-0,nop,wscale 8>
-10:05:02.755242 IP 192.168.20.108.53563 > 192.168.20.110.57736: SE 1849=
-523184:1849523184(0) ack 96444460 win 14480 <mss 1460,sackOK,tim
-estamp 15334585 12174491,nop,wscale 7>
-10:05:02.755310 IP 192.168.20.110.57736 > 192.168.20.108.53563: . ack 1=
- win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755369 IP 192.168.20.110.57736 > 192.168.20.108.53563: . 1:144=
-9(1448) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755417 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 1=
-449 win 136 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755428 IP 192.168.20.110.57736 > 192.168.20.108.53563: P 1449:=
-8689(7240) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755476 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 8=
-689 win 159 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755482 IP 192.168.20.110.57736 > 192.168.20.108.53563: . 8689:=
-13033(4344) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755529 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 1=
-3033 win 181 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755535 IP 192.168.20.110.57736 > 192.168.20.108.53563: . 13033=
-:14481(1448) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755582 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 1=
-4481 win 204 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755588 IP 192.168.20.110.57736 > 192.168.20.108.53563: P 14481=
-:16385(1904) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755635 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 1=
-6385 win 227 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755641 IP 192.168.20.110.57736 > 192.168.20.108.53563: . 16385=
-:23625(7240) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755689 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 2=
-3625 win 249 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755695 IP 192.168.20.110.57736 > 192.168.20.108.53563: P 23625=
-:26521(2896) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755742 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 2=
-6521 win 272 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755750 IP 192.168.20.110.57736 > 192.168.20.108.53563: P 26521=
-:33761(7240) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755796 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 3=
-3761 win 295 <nop,nop,timestamp 15334585 12174491>
-10:05:02.755802 IP 192.168.20.110.57736 > 192.168.20.108.53563: . 33761=
-:39553(5792) ack 1 win 58 <nop,nop,timestamp 12174491 15334585>
-10:05:02.755849 IP 192.168.20.108.53563 > 192.168.20.110.57736: . ack 3=
-9553 win 259 <nop,nop,timestamp 15334585 12174491>
-
-
-
+--=20
+Regards/Gruss,
+    Boris.
