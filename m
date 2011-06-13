@@ -1,27 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/hplance: hplance_init() should be __devinit
-Date: Mon, 13 Jun 2011 18:33:02 -0400 (EDT)
-Message-ID: <20110613.183302.2017485603429002993.davem@davemloft.net>
-References: <1307989056-21814-1-git-send-email-geert@linux-m68k.org>
+From: Wanlong Gao <wanlong.gao@gmail.com>
+Subject: Re: [PATCH] Documentation:change all arch/i386 to arch/x86 in
+ Documentation
+Date: Tue, 14 Jun 2011 07:28:36 +0800
+Message-ID: <1308007716.2267.2.camel@Tux>
+References: <1307942898-3728-1-git-send-email-wanlong.gao@gmail.com>
+	 <20110613172344.GC2272@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <1307989056-21814-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	linux-video@atrey.karlin.mff.cuni.cz,
+	xiyoulinuxkernelgroup@googlegroups.com, linux-kernel@zh-kernel.org,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Nick Piggin <npiggin@kernel.dk>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Michal Marek <mmarek@suse.cz>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Martin Mares <mj@ucw.cz>, Harry Wei <harryxiyou@gmail.com>,
+	Chuck Lever <chuck.lever@oracle.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Thomas Weber <weber@corscience.de>,
+	Mike Frysinger <vapier.adi@gmail.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	"Justin P. Mattock" <justinmattock@gmail.com>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110613172344.GC2272@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 13 Jun 2011 20:17:36 +0200
-
-> WARNING: vmlinux.o(.devinit.text+0x253e): Section mismatch in reference from the function hplance_init_one() to the function .init.text:hplance_init()
-> 
-> The forward declaration had the correct attribute, but the actual function
-> definition hadn't.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-Applied, thanks.
+On =E4=B8=80, 2011-06-13 at 10:23 -0700, Paul E. McKenney wrote:
+> On Mon, Jun 13, 2011 at 01:28:18PM +0800, Wanlong Gao wrote:
+> > From: Wanlong Gao <wanlong.gao@gmail.com>
+> >=20
+> > Change all "arch/i386" to "arch/x86" in Documentaion/,
+> > since the directory has changed.
+> >=20
+> > Signed-off-by: Wanlong Gao <wanlong.gao@gmail.com>
+>=20
+> I have queued the Documentation/RCU/NMI-RCU.txt hunk with your
+> Signed-off-by, thank you!
+>=20
+> 							Thanx, Paul
+Hi Paul:
+http://git.kernel.org/?p=3Dlinux/kernel/git/jikos/trivial.git;a=3Dcommi=
+tdiff;h=3D25eb650a690b95cb0e2cf0c3b03f4900a59e0135
+jiri had queued these all, will it get a merge failure?
+Thanks
+>=20
+> > ---
+> >  Documentation/RCU/NMI-RCU.txt             |    4 +-
+> >  Documentation/blockdev/README.DAC960      |    2 +-
+> >  Documentation/blockdev/ramdisk.txt        |    8 +++---
+> >  Documentation/cpu-freq/cpu-drivers.txt    |    2 +-
+> >  Documentation/filesystems/nfs/nfsroot.txt |    2 +-
+> >  Documentation/isdn/README.HiSax           |    2 +-
+> >  Documentation/kbuild/makefiles.txt        |   38 ++++++++++++++---=
+-----------
+> >  Documentation/magic-number.txt            |    2 +-
+> >  Documentation/mca.txt                     |    6 ++--
+> >  Documentation/scheduler/sched-arch.txt    |    2 +-
+> >  Documentation/scsi/BusLogic.txt           |    2 +-
+> >  Documentation/serial/computone.txt        |    2 +-
+> >  Documentation/svga.txt                    |    2 +-
+> >  Documentation/zh_CN/magic-number.txt      |    2 +-
+> >  14 files changed, 38 insertions(+), 38 deletions(-)
+<snip patch>
