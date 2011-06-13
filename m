@@ -1,36 +1,36 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] net/hplance: hplance_init() should be __devinit
-Date: Mon, 13 Jun 2011 20:17:36 +0200
-Message-ID: <1307989056-21814-1-git-send-email-geert@linux-m68k.org>
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-m68k-owner@vger.kernel.org>
-Sender: linux-m68k-owner@vger.kernel.org
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [PATCH] ieee802154: Don't leak memory in ieee802154_nl_fill_phy
+Date: Tue, 14 Jun 2011 00:02:38 +0400
+Message-ID: <BANLkTikBnQADmUpP7J5gmJLXA9-O+4kSvw@mail.gmail.com>
+References: <alpine.LNX.2.00.1106121621360.25151@swampdragon.chaosbits.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>,
+	Sergey Lapin <slapin@ossfans.org>,
+	Maxim Osipov <maxim.osipov@siemens.com>
+To: Jesper Juhl <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1106121621360.25151@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-WARNING: vmlinux.o(.devinit.text+0x253e): Section mismatch in reference from the function hplance_init_one() to the function .init.text:hplance_init()
+On 6/12/11, Jesper Juhl <jj@chaosbits.net> wrote:
+> In net/ieee802154/nl-phy.c::ieee802154_nl_fill_phy() I see two small
+> issues.
+> 1) If the allocation of 'buf' fails we may just as well return -EMSGSIZE
+>    directly rather than jumping to 'out:' and do a pointless kfree(0).
+> 2) We do not free 'buf' unless we jump to one of the error labels and this
+>    leaks memory.
+> This patch should address both.
+>
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-The forward declaration had the correct attribute, but the actual function
-definition hadn't.
+Acked-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/hplance.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+David, please commit this.
 
-diff --git a/drivers/net/hplance.c b/drivers/net/hplance.c
-index b6060f7..a900d5b 100644
---- a/drivers/net/hplance.c
-+++ b/drivers/net/hplance.c
-@@ -135,7 +135,7 @@ static void __devexit hplance_remove_one(struct dio_dev *d)
- }
- 
- /* Initialise a single lance board at the given DIO device */
--static void __init hplance_init(struct net_device *dev, struct dio_dev *d)
-+static void __devinit hplance_init(struct net_device *dev, struct dio_dev *d)
- {
-         unsigned long va = (d->resource.start + DIO_VIRADDRBASE);
-         struct hplance_private *lp;
 -- 
-1.7.0.4
+With best wishes
+Dmitry
