@@ -1,76 +1,97 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 37172] New: Enabling 802.1q vlan causes some
- packets to be received with a vlan id of 64
-Date: Mon, 13 Jun 2011 16:43:55 -0700
-Message-ID: <20110613164355.c4f7b7b2.akpm@linux-foundation.org>
-References: <bug-37172-10286@https.bugzilla.kernel.org/>
+From: Vasu Dev <vasu.dev@linux.intel.com>
+Subject: Re: [net-next 13/13] ixgbe: use per NUMA node lock for FCoE DDP
+Date: Mon, 13 Jun 2011 16:59:12 -0700
+Message-ID: <1308009552.31900.80.camel@vi2.jf.intel.com>
+References: <1307761341-5267-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1307761341-5267-14-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1307769482.2872.62.camel@edumazet-laptop>
+	 <1307770931.2872.70.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: a.reversat@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37374 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753625Ab1FMXoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 19:44:06 -0400
-In-Reply-To: <bug-37172-10286@https.bugzilla.kernel.org/>
+Received: from mga11.intel.com ([192.55.52.93]:56928 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755319Ab1FMX7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jun 2011 19:59:13 -0400
+In-Reply-To: <1307770931.2872.70.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 2011-06-11 at 07:42 +0200, Eric Dumazet wrote:
+> Le samedi 11 juin 2011 =C3=A0 07:18 +0200, Eric Dumazet a =C3=A9crit =
+:
+> > >  /**
+> > > diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/i=
+xgbe_fcoe.h
+> > > index d876e7a..8618892 100644
+> > > --- a/drivers/net/ixgbe/ixgbe_fcoe.h
+> > > +++ b/drivers/net/ixgbe/ixgbe_fcoe.h
+> > > @@ -69,6 +69,7 @@ struct ixgbe_fcoe {
+> > >  	struct pci_pool **pool;
+> > >  	atomic_t refcnt;
+> > >  	spinlock_t lock;
+> > > +	struct spinlock **node_lock;
+> >=20
+> > Wont this read_mostly pointer sits in often modified cache line ?
+> >=20
+> > >  	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
+> > >  	unsigned char *extra_ddp_buffer;
+> > >  	dma_addr_t extra_ddp_buffer_dma;
+> >=20
+>=20
+> This patch seems overkill to me, have you tried the more simple way I
+> did in commit 79640a4ca6955e3ebdb7038508fa7a0cd7fa5527
+> (net: add additional lock to qdisc to increase throughput )
+>=20
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Conceptually this patch does same as referred patch from you, in your
+case added Qdisc busylock worked fine with multiple tx/Qdisc  but for
+fcoe a single ixgbe_fcoe instance is used and therefore this patch
+required to setup per node lock similar to Qdisc busylock and that was
+the only additional code here and rest is similar.
 
-On Fri, 10 Jun 2011 19:20:58 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+> (remember you must place ->busylock in a separate cache line, to not
+> slow down the two cpus that have access to ->lock)
+>=20
+> struct ixgbe_fcoe could probably be more carefuly reordered to lower
+> false sharing
+>=20
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=37172
-> 
->            Summary: Enabling 802.1q vlan causes some packets to be
->                     received with a vlan id of 64
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.39
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: a.reversat@gmail.com
->         Regression: Yes
+I did optimize ixgbe_fcoe due to added node_lock using pahole and not t=
+o
+stepped on any mostly modified line beside also reducing holes, but
+moving far away in the struct on new cacheline boundary is even better
+and I'll do that in updated patch.
 
->From which kernel version did we regress?  Was 2.6.38 OK?
+> I kindly ask you guys provide actual perf numbers between
+>=20
+> 1) before any patch
+> 2) After your multilevel per numanode locks
+> 3) A more simple way (my suggestion of adding a single 'busylock')
+>=20
 
-Thanks.
+I'm retracting this patch for now and in case of updated patch I'll get
+number by just this change, earlier I had number w/ and w/o three DDP
+related improvements patches in this series and that had net 26% IOPS
+increase for 512Bytes reads but that is mainly from other patch adding
+per CPU pci pool. The two sockets systems had about same IOPS w/ or w/o
+just this patch and so may be this will work better w/ more sockets, so
+I'll will respin this patch only if I see any justifiable gain by just
+this patch.
 
-> 
-> Created an attachment (id=61502)
->  --> (https://bugzilla.kernel.org/attachment.cgi?id=61502)
-> Packet capture of problem
-> 
-> I added a vlan to my main network card by doing :
-> 
-> vconfig add eth0 6
-> 
-> Then I got huge packet loss when pinging e.g google (around 70% packet loss).
-> 
-> After checking a packet capture it seems that some packets come in with a vlan
-> tag even though they shouldn't. In my capture I see them with a vlan id of 64
-> where they shouldn't even be 802.1q tagged.
-> 
-> Kernel version is 2.6.39 and I am using the forcedeth driver so I don't know if
-> it is related to the network stack or the forcedeth driver.
-> 
-> Attached is the relevant capture. Note how packet with seq 2 for instance is
-> tagged and packet with seq 5 isn't.
-> 
-> I'll test this with the latest 3.0 rc and update the bug report if the problem
-> is fixed in there.
-> 
+Thanks
+Vasu
 
+> Thanks
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
