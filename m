@@ -1,403 +1,699 @@
-From: Wanlong Gao <wanlong.gao@gmail.com>
-Subject: [PATCH] Documentation:change all arch/i386 to arch/x86 in Documentation
-Date: Mon, 13 Jun 2011 13:28:18 +0800
-Message-ID: <1307942898-3728-1-git-send-email-wanlong.gao@gmail.com>
-Cc: Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Nick Piggin <npiggin@kernel.dk>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Michal Marek <mmarek@suse.cz>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Martin Mares <mj@ucw.cz>, Harry Wei <harryxiyou@gmail.com>,
-	Chuck Lever <chuck.lever@oracle.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Thomas Weber <weber@corscience.de>,
-	Mike Frysinger <vapier.adi@gmail.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	"Justin P. Mattock" <justinmattock@gmail.com>,
-	Wanlong Gao <wanlong.gao@gmail.com>
-To: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
-	linux-video@atrey.karlin.mff.cuni.cz,
-	xiyoulinuxkernelgroup@googlegroups
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next-2.6] be2net: support multiple TX queues
+Date: Mon, 13 Jun 2011 11:31:58 +0530
+Message-ID: <f67e2aac-b763-404d-8e45-5c5f52c56d18@exht1.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:44042 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750695Ab1FMGC2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 02:02:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wanlong Gao <wanlong.gao@gmail.com>
+This patch provides support for multiple TX queues.
 
-Change all "arch/i386" to "arch/x86" in Documentaion/,
-since the directory has changed.
-
-Signed-off-by: Wanlong Gao <wanlong.gao@gmail.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- Documentation/RCU/NMI-RCU.txt             |    4 +-
- Documentation/blockdev/README.DAC960      |    2 +-
- Documentation/blockdev/ramdisk.txt        |    8 +++---
- Documentation/cpu-freq/cpu-drivers.txt    |    2 +-
- Documentation/filesystems/nfs/nfsroot.txt |    2 +-
- Documentation/isdn/README.HiSax           |    2 +-
- Documentation/kbuild/makefiles.txt        |   38 ++++++++++++++--------------
- Documentation/magic-number.txt            |    2 +-
- Documentation/mca.txt                     |    6 ++--
- Documentation/scheduler/sched-arch.txt    |    2 +-
- Documentation/scsi/BusLogic.txt           |    2 +-
- Documentation/serial/computone.txt        |    2 +-
- Documentation/svga.txt                    |    2 +-
- Documentation/zh_CN/magic-number.txt      |    2 +-
- 14 files changed, 38 insertions(+), 38 deletions(-)
+ drivers/net/benet/be.h         |   13 ++-
+ drivers/net/benet/be_ethtool.c |   50 +++++++---
+ drivers/net/benet/be_main.c    |  227 ++++++++++++++++++++++------------------
+ 3 files changed, 171 insertions(+), 119 deletions(-)
 
-diff --git a/Documentation/RCU/NMI-RCU.txt b/Documentation/RCU/NMI-RCU.txt
-index a8536cb..bf82851 100644
---- a/Documentation/RCU/NMI-RCU.txt
-+++ b/Documentation/RCU/NMI-RCU.txt
-@@ -5,8 +5,8 @@ Although RCU is usually used to protect read-mostly data structures,
- it is possible to use RCU to provide dynamic non-maskable interrupt
- handlers, as well as dynamic irq handlers.  This document describes
- how to do this, drawing loosely from Zwane Mwaikambo's NMI-timer
--work in "arch/i386/oprofile/nmi_timer_int.c" and in
--"arch/i386/kernel/traps.c".
-+work in "arch/x86/oprofile/nmi_timer_int.c" and in
-+"arch/x86/kernel/traps.c".
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index a7db870..a36f5a6 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -87,6 +87,7 @@ static inline char *nic_name(struct pci_dev *pdev)
  
- The relevant pieces of code are listed below, each followed by a
- brief explanation.
-diff --git a/Documentation/blockdev/README.DAC960 b/Documentation/blockdev/README.DAC960
-index 0e8f618..bd85fb9 100644
---- a/Documentation/blockdev/README.DAC960
-+++ b/Documentation/blockdev/README.DAC960
-@@ -214,7 +214,7 @@ replacing "/usr/src" with wherever you keep your Linux kernel source tree:
-   make config
-   make bzImage (or zImage)
+ #define MAX_RSS_QS		4	/* BE limit is 4 queues/port */
+ #define MAX_RX_QS		(MAX_RSS_QS + 1) /* RSS qs + 1 def Rx */
++#define MAX_TX_QS		8
+ #define BE_MAX_MSIX_VECTORS	(MAX_RX_QS + 1)/* RX + TX */
+ #define BE_NAPI_WEIGHT		64
+ #define MAX_RX_POST 		BE_NAPI_WEIGHT /* Frags posted at a time */
+@@ -170,7 +171,6 @@ struct be_tx_stats {
+ 	u32 be_tx_reqs;		/* number of TX requests initiated */
+ 	u32 be_tx_stops;	/* number of times TX Q was stopped */
+ 	u32 be_tx_wrbs;		/* number of tx WRBs used */
+-	u32 be_tx_events;	/* number of tx completion events  */
+ 	u32 be_tx_compl;	/* number of tx completion entries processed */
+ 	ulong be_tx_jiffies;
+ 	u64 be_tx_bytes;
+@@ -184,6 +184,7 @@ struct be_tx_obj {
+ 	struct be_queue_info cq;
+ 	/* Remember the skbs that were transmitted */
+ 	struct sk_buff *sent_skb_list[TX_Q_LEN];
++	struct be_tx_stats stats;
+ };
  
--Then install "arch/i386/boot/bzImage" or "arch/i386/boot/zImage" as your
-+Then install "arch/x86/boot/bzImage" or "arch/x86/boot/zImage" as your
- standard kernel, run lilo if appropriate, and reboot.
+ /* Struct to remember the pages posted for rx frags */
+@@ -319,8 +320,8 @@ struct be_adapter {
  
- To create the necessary devices in /dev, the "make_rd" script included in
-diff --git a/Documentation/blockdev/ramdisk.txt b/Documentation/blockdev/ramdisk.txt
-index 6c820ba..fa72e97 100644
---- a/Documentation/blockdev/ramdisk.txt
-+++ b/Documentation/blockdev/ramdisk.txt
-@@ -64,9 +64,9 @@ the RAM disk dynamically grows as data is being written into it, a size field
- is not required. Bits 11 to 13 are not currently used and may as well be zero.
- These numbers are no magical secrets, as seen below:
+ 	/* TX Rings */
+ 	struct be_eq_obj tx_eq;
+-	struct be_tx_obj tx_obj;
+-	struct be_tx_stats tx_stats;
++	struct be_tx_obj tx_obj[MAX_TX_QS];
++	u8 num_tx_qs;
  
--./arch/i386/kernel/setup.c:#define RAMDISK_IMAGE_START_MASK     0x07FF
--./arch/i386/kernel/setup.c:#define RAMDISK_PROMPT_FLAG          0x8000
--./arch/i386/kernel/setup.c:#define RAMDISK_LOAD_FLAG            0x4000
-+./arch/x86/kernel/setup.c:#define RAMDISK_IMAGE_START_MASK     0x07FF
-+./arch/x86/kernel/setup.c:#define RAMDISK_PROMPT_FLAG          0x8000
-+./arch/x86/kernel/setup.c:#define RAMDISK_LOAD_FLAG            0x4000
+ 	u32 cache_line_break[8];
  
- Consider a typical two floppy disk setup, where you will have the
- kernel on disk one, and have already put a RAM disk image onto disk #2.
-@@ -85,7 +85,7 @@ The command line equivalent is: "prompt_ramdisk=1"
- Putting that together gives 2^15 + 2^14 + 0 = 49152 for an rdev word.
- So to create disk one of the set, you would do:
+@@ -391,7 +392,7 @@ struct be_adapter {
+ extern const struct ethtool_ops be_ethtool_ops;
  
--	/usr/src/linux# cat arch/i386/boot/zImage > /dev/fd0
-+	/usr/src/linux# cat arch/x86/boot/zImage > /dev/fd0
- 	/usr/src/linux# rdev /dev/fd0 /dev/fd0
- 	/usr/src/linux# rdev -r /dev/fd0 49152
+ #define msix_enabled(adapter)		(adapter->num_msix_vec > 0)
+-#define tx_stats(adapter)		(&adapter->tx_stats)
++#define tx_stats(txo)			(&txo->stats)
+ #define rx_stats(rxo)			(&rxo->stats)
  
-diff --git a/Documentation/cpu-freq/cpu-drivers.txt b/Documentation/cpu-freq/cpu-drivers.txt
-index 6c30e93..ed07e4f 100644
---- a/Documentation/cpu-freq/cpu-drivers.txt
-+++ b/Documentation/cpu-freq/cpu-drivers.txt
-@@ -168,7 +168,7 @@ in-chipset dynamic frequency switching to policy->min, the upper limit
- to policy->max, and -if supported- select a performance-oriented
- setting when policy->policy is CPUFREQ_POLICY_PERFORMANCE, and a
- powersaving-oriented setting when CPUFREQ_POLICY_POWERSAVE. Also check
--the reference implementation in arch/i386/kernel/cpu/cpufreq/longrun.c
-+the reference implementation in arch/x86/kernel/cpu/cpufreq/longrun.c
+ #define BE_SET_NETDEV_OPS(netdev, ops)	(netdev->netdev_ops = ops)
+@@ -405,6 +406,10 @@ extern const struct ethtool_ops be_ethtool_ops;
+ 	for (i = 0, rxo = &adapter->rx_obj[i+1]; i < (adapter->num_rx_qs - 1);\
+ 		i++, rxo++)
  
++#define for_all_tx_queues(adapter, txo, i)				\
++	for (i = 0, txo = &adapter->tx_obj[i]; i < adapter->num_tx_qs;	\
++		i++, txo++)
++
+ #define PAGE_SHIFT_4K		12
+ #define PAGE_SIZE_4K		(1 << PAGE_SHIFT_4K)
  
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index facfe3c..84e03a7 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -52,12 +52,7 @@ static const struct be_ethtool_stat et_stats[] = {
+ 	{NETSTAT_INFO(tx_errors)},
+ 	{NETSTAT_INFO(rx_dropped)},
+ 	{NETSTAT_INFO(tx_dropped)},
+-	{DRVSTAT_TX_INFO(be_tx_rate)},
+-	{DRVSTAT_TX_INFO(be_tx_reqs)},
+-	{DRVSTAT_TX_INFO(be_tx_wrbs)},
+-	{DRVSTAT_TX_INFO(be_tx_stops)},
+-	{DRVSTAT_TX_INFO(be_tx_events)},
+-	{DRVSTAT_TX_INFO(be_tx_compl)},
++	{DRVSTAT_INFO(be_tx_events)},
+ 	{DRVSTAT_INFO(rx_crc_errors)},
+ 	{DRVSTAT_INFO(rx_alignment_symbol_errors)},
+ 	{DRVSTAT_INFO(rx_pause_frames)},
+@@ -111,6 +106,16 @@ static const struct be_ethtool_stat et_rx_stats[] = {
+ };
+ #define ETHTOOL_RXSTATS_NUM (ARRAY_SIZE(et_rx_stats))
  
-diff --git a/Documentation/filesystems/nfs/nfsroot.txt b/Documentation/filesystems/nfs/nfsroot.txt
-index 90c71c6..ffdd9d8 100644
---- a/Documentation/filesystems/nfs/nfsroot.txt
-+++ b/Documentation/filesystems/nfs/nfsroot.txt
-@@ -226,7 +226,7 @@ They depend on various facilities being available:
-      	cdrecord.
++/* Stats related to multi TX queues */
++static const struct be_ethtool_stat et_tx_stats[] = {
++	{DRVSTAT_TX_INFO(be_tx_rate)},
++	{DRVSTAT_TX_INFO(be_tx_reqs)},
++	{DRVSTAT_TX_INFO(be_tx_wrbs)},
++	{DRVSTAT_TX_INFO(be_tx_stops)},
++	{DRVSTAT_TX_INFO(be_tx_compl)}
++};
++#define ETHTOOL_TXSTATS_NUM (ARRAY_SIZE(et_tx_stats))
++
+ static const char et_self_tests[][ETH_GSTRING_LEN] = {
+ 	"MAC Loopback test",
+ 	"PHY Loopback test",
+@@ -253,17 +258,15 @@ be_get_ethtool_stats(struct net_device *netdev,
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct be_rx_obj *rxo;
++	struct be_tx_obj *txo;
+ 	void *p = NULL;
+-	int i, j;
++	int i, j, base;
  
- 	e.g.
--	  cdrecord dev=ATAPI:1,0,0 arch/i386/boot/image.iso
-+	  cdrecord dev=ATAPI:1,0,0 arch/x86/boot/image.iso
+ 	for (i = 0; i < ETHTOOL_STATS_NUM; i++) {
+ 		switch (et_stats[i].type) {
+ 		case NETSTAT:
+ 			p = &netdev->stats;
+ 			break;
+-		case DRVSTAT_TX:
+-			p = &adapter->tx_stats;
+-			break;
+ 		case DRVSTAT:
+ 			p = &adapter->drv_stats;
+ 			break;
+@@ -274,6 +277,7 @@ be_get_ethtool_stats(struct net_device *netdev,
+ 				*(u64 *)p: *(u32 *)p;
+ 	}
  
-      	For more information on isolinux, including how to create bootdisks
-      	for prebuilt kernels, see http://syslinux.zytor.com/
-diff --git a/Documentation/isdn/README.HiSax b/Documentation/isdn/README.HiSax
-index 99e87a6..b1a573c 100644
---- a/Documentation/isdn/README.HiSax
-+++ b/Documentation/isdn/README.HiSax
-@@ -506,7 +506,7 @@ to e.g. the Internet:
-      <ISDN subsystem - ISDN support -- HiSax>
-      make clean; make zImage; make modules; make modules_install
- 2. Install the new kernel
--     cp /usr/src/linux/arch/i386/boot/zImage /etc/kernel/linux.isdn
-+     cp /usr/src/linux/arch/x86/boot/zImage /etc/kernel/linux.isdn
-      vi /etc/lilo.conf
-      <add new kernel in the bootable image section>
-      lilo
-diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
-index 47435e5..f47cdef 100644
---- a/Documentation/kbuild/makefiles.txt
-+++ b/Documentation/kbuild/makefiles.txt
-@@ -441,7 +441,7 @@ more details, with real examples.
- 	specified if first option are not supported.
++	base = ETHTOOL_STATS_NUM;
+ 	for_all_rx_queues(adapter, rxo, j) {
+ 		for (i = 0; i < ETHTOOL_RXSTATS_NUM; i++) {
+ 			switch (et_rx_stats[i].type) {
+@@ -285,11 +289,21 @@ be_get_ethtool_stats(struct net_device *netdev,
+ 								rxo->q.id;
+ 				break;
+ 			}
+-			data[ETHTOOL_STATS_NUM + j * ETHTOOL_RXSTATS_NUM + i] =
++			data[base + j * ETHTOOL_RXSTATS_NUM + i] =
+ 				(et_rx_stats[i].size == sizeof(u64)) ?
+ 					*(u64 *)p: *(u32 *)p;
+ 		}
+ 	}
++
++	base = ETHTOOL_STATS_NUM + adapter->num_rx_qs * ETHTOOL_RXSTATS_NUM;
++	for_all_tx_queues(adapter, txo, j) {
++		for (i = 0; i < ETHTOOL_TXSTATS_NUM; i++) {
++			p = (u8 *)&txo->stats + et_tx_stats[i].offset;
++			data[base + j * ETHTOOL_TXSTATS_NUM + i] =
++				(et_tx_stats[i].size == sizeof(u64)) ?
++					*(u64 *)p: *(u32 *)p;
++		}
++	}
+ }
  
- 	Example:
--		#arch/i386/kernel/Makefile
-+		#arch/x86/kernel/Makefile
- 		vsyscall-flags += $(call cc-ldoption, -Wl$(comma)--hash-style=sysv)
+ static void
+@@ -312,6 +326,13 @@ be_get_stat_strings(struct net_device *netdev, uint32_t stringset,
+ 				data += ETH_GSTRING_LEN;
+ 			}
+ 		}
++		for (i = 0; i < adapter->num_tx_qs; i++) {
++			for (j = 0; j < ETHTOOL_TXSTATS_NUM; j++) {
++				sprintf(data, "txq%d: %s", i,
++					et_tx_stats[j].desc);
++				data += ETH_GSTRING_LEN;
++			}
++		}
+ 		break;
+ 	case ETH_SS_TEST:
+ 		for (i = 0; i < ETHTOOL_TESTS_NUM; i++) {
+@@ -331,7 +352,8 @@ static int be_get_sset_count(struct net_device *netdev, int stringset)
+ 		return ETHTOOL_TESTS_NUM;
+ 	case ETH_SS_STATS:
+ 		return ETHTOOL_STATS_NUM +
+-			adapter->num_rx_qs * ETHTOOL_RXSTATS_NUM;
++			adapter->num_rx_qs * ETHTOOL_RXSTATS_NUM +
++			adapter->num_tx_qs * ETHTOOL_TXSTATS_NUM;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -457,10 +479,10 @@ be_get_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
+ 	struct be_adapter *adapter = netdev_priv(netdev);
  
- 	In the above example, vsyscall-flags will be assigned the option
-@@ -460,7 +460,7 @@ more details, with real examples.
- 	supported to use an optional second option.
+ 	ring->rx_max_pending = adapter->rx_obj[0].q.len;
+-	ring->tx_max_pending = adapter->tx_obj.q.len;
++	ring->tx_max_pending = adapter->tx_obj[0].q.len;
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		cflags-y += $(call cc-option,-march=pentium-mmx,-march=i586)
+ 	ring->rx_pending = atomic_read(&adapter->rx_obj[0].q.used);
+-	ring->tx_pending = atomic_read(&adapter->tx_obj.q.used);
++	ring->tx_pending = atomic_read(&adapter->tx_obj[0].q.used);
+ }
  
- 	In the above example, cflags-y will be assigned the option
-@@ -522,7 +522,7 @@ more details, with real examples.
- 	even though the option was accepted by gcc.
+ static void
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 9ba197b..af6647a 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -427,6 +427,7 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 	struct be_drv_stats *drvs = &adapter->drv_stats;
+ 	struct net_device_stats *dev_stats = &adapter->netdev->stats;
+ 	struct be_rx_obj *rxo;
++	struct be_tx_obj *txo;
+ 	int i;
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		cflags-y += $(shell \
- 		if [ $(call cc-version) -ge 0300 ] ; then \
- 			echo "-mregparm=3"; fi ;)
-@@ -802,7 +802,7 @@ but in the architecture makefiles where the kbuild infrastructure
- is not sufficient this sometimes needs to be explicit.
+ 	memset(dev_stats, 0, sizeof(*dev_stats));
+@@ -450,8 +451,10 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 		}
+ 	}
  
- 	Example:
--		#arch/i386/boot/Makefile
-+		#arch/x86/boot/Makefile
- 		subdir- := compressed/
+-	dev_stats->tx_packets = tx_stats(adapter)->be_tx_pkts;
+-	dev_stats->tx_bytes = tx_stats(adapter)->be_tx_bytes;
++	for_all_tx_queues(adapter, txo, i) {
++		dev_stats->tx_packets += tx_stats(txo)->be_tx_pkts;
++		dev_stats->tx_bytes += tx_stats(txo)->be_tx_bytes;
++	}
  
- The above assignment instructs kbuild to descend down in the
-@@ -812,12 +812,12 @@ To support the clean infrastructure in the Makefiles that builds the
- final bootimage there is an optional target named archclean:
+ 	/* bad pkts received */
+ 	dev_stats->rx_errors = drvs->rx_crc_errors +
+@@ -554,9 +557,9 @@ static u32 be_calc_rate(u64 bytes, unsigned long ticks)
+ 	return rate;
+ }
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		archclean:
--			$(Q)$(MAKE) $(clean)=arch/i386/boot
-+			$(Q)$(MAKE) $(clean)=arch/x86/boot
+-static void be_tx_rate_update(struct be_adapter *adapter)
++static void be_tx_rate_update(struct be_tx_obj *txo)
+ {
+-	struct be_tx_stats *stats = tx_stats(adapter);
++	struct be_tx_stats *stats = tx_stats(txo);
+ 	ulong now = jiffies;
  
--When "make clean" is executed, make will descend down in arch/i386/boot,
--and clean as usual. The Makefile located in arch/i386/boot/ may use
-+When "make clean" is executed, make will descend down in arch/x86/boot,
-+and clean as usual. The Makefile located in arch/x86/boot/ may use
- the subdir- trick to descend further down.
+ 	/* Wrapped around? */
+@@ -575,10 +578,11 @@ static void be_tx_rate_update(struct be_adapter *adapter)
+ 	}
+ }
  
- Note 1: arch/$(ARCH)/Makefile cannot use "subdir-", because that file is
-@@ -882,7 +882,7 @@ When kbuild executes, the following steps are followed (roughly):
- 	LDFLAGS_vmlinux uses the LDFLAGS_$@ support.
+-static void be_tx_stats_update(struct be_adapter *adapter,
++static void be_tx_stats_update(struct be_tx_obj *txo,
+ 			u32 wrb_cnt, u32 copied, u32 gso_segs, bool stopped)
+ {
+-	struct be_tx_stats *stats = tx_stats(adapter);
++	struct be_tx_stats *stats = tx_stats(txo);
++
+ 	stats->be_tx_reqs++;
+ 	stats->be_tx_wrbs += wrb_cnt;
+ 	stats->be_tx_bytes += copied;
+@@ -682,14 +686,13 @@ static void unmap_tx_frag(struct device *dev, struct be_eth_wrb *wrb,
+ 	}
+ }
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		LDFLAGS_vmlinux := -e stext
+-static int make_tx_wrbs(struct be_adapter *adapter,
++static int make_tx_wrbs(struct be_adapter *adapter, struct be_queue_info *txq,
+ 		struct sk_buff *skb, u32 wrb_cnt, bool dummy_wrb)
+ {
+ 	dma_addr_t busaddr;
+ 	int i, copied = 0;
+ 	struct device *dev = &adapter->pdev->dev;
+ 	struct sk_buff *first_skb = skb;
+-	struct be_queue_info *txq = &adapter->tx_obj.q;
+ 	struct be_eth_wrb *wrb;
+ 	struct be_eth_hdr_wrb *hdr;
+ 	bool map_single = false;
+@@ -753,19 +756,19 @@ static netdev_tx_t be_xmit(struct sk_buff *skb,
+ 			struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+-	struct be_tx_obj *tx_obj = &adapter->tx_obj;
+-	struct be_queue_info *txq = &tx_obj->q;
++	struct be_tx_obj *txo = &adapter->tx_obj[skb_get_queue_mapping(skb)];
++	struct be_queue_info *txq = &txo->q;
+ 	u32 wrb_cnt = 0, copied = 0;
+ 	u32 start = txq->head;
+ 	bool dummy_wrb, stopped = false;
  
-     OBJCOPYFLAGS	objcopy flags
-@@ -920,14 +920,14 @@ When kbuild executes, the following steps are followed (roughly):
- 	Often, the KBUILD_CFLAGS variable depends on the configuration.
+ 	wrb_cnt = wrb_cnt_for_skb(adapter, skb, &dummy_wrb);
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		cflags-$(CONFIG_M386) += -march=i386
- 		KBUILD_CFLAGS += $(cflags-y)
+-	copied = make_tx_wrbs(adapter, skb, wrb_cnt, dummy_wrb);
++	copied = make_tx_wrbs(adapter, txq, skb, wrb_cnt, dummy_wrb);
+ 	if (copied) {
+ 		/* record the sent skb in the sent_skb table */
+-		BUG_ON(tx_obj->sent_skb_list[start]);
+-		tx_obj->sent_skb_list[start] = skb;
++		BUG_ON(txo->sent_skb_list[start]);
++		txo->sent_skb_list[start] = skb;
  
- 	Many arch Makefiles dynamically run the target C compiler to
- 	probe supported options:
+ 		/* Ensure txq has space for the next skb; Else stop the queue
+ 		 * *BEFORE* ringing the tx doorbell, so that we serialze the
+@@ -774,13 +777,13 @@ static netdev_tx_t be_xmit(struct sk_buff *skb,
+ 		atomic_add(wrb_cnt, &txq->used);
+ 		if ((BE_MAX_TX_FRAG_COUNT + atomic_read(&txq->used)) >=
+ 								txq->len) {
+-			netif_stop_queue(netdev);
++			netif_stop_subqueue(netdev, skb_get_queue_mapping(skb));
+ 			stopped = true;
+ 		}
  
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
+ 		be_txq_notify(adapter, txq->id, wrb_cnt);
  
- 		...
- 		cflags-$(CONFIG_MPENTIUMII)     += $(call cc-option,\
-@@ -1038,8 +1038,8 @@ When kbuild executes, the following steps are followed (roughly):
- 	into the arch/$(ARCH)/boot/Makefile.
+-		be_tx_stats_update(adapter, wrb_cnt, copied,
++		be_tx_stats_update(txo, wrb_cnt, copied,
+ 				skb_shinfo(skb)->gso_segs, stopped);
+ 	} else {
+ 		txq->head = start;
+@@ -1459,11 +1462,12 @@ static struct be_eth_tx_compl *be_tx_compl_get(struct be_queue_info *tx_cq)
+ 	return txcp;
+ }
  
- 	Example:
--		#arch/i386/Makefile
--		boot := arch/i386/boot
-+		#arch/x86/Makefile
-+		boot := arch/x86/boot
- 		bzImage: vmlinux
- 			$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
+-static u16 be_tx_compl_process(struct be_adapter *adapter, u16 last_index)
++static u16 be_tx_compl_process(struct be_adapter *adapter,
++		struct be_tx_obj *txo, u16 last_index)
+ {
+-	struct be_queue_info *txq = &adapter->tx_obj.q;
++	struct be_queue_info *txq = &txo->q;
+ 	struct be_eth_wrb *wrb;
+-	struct sk_buff **sent_skbs = adapter->tx_obj.sent_skb_list;
++	struct sk_buff **sent_skbs = txo->sent_skb_list;
+ 	struct sk_buff *sent_skb;
+ 	u16 cur_index, num_wrbs = 1; /* account for hdr wrb */
+ 	bool unmap_skb_hdr = true;
+@@ -1504,7 +1508,8 @@ static inline struct be_eq_entry *event_get(struct be_eq_obj *eq_obj)
+ }
  
-@@ -1051,7 +1051,7 @@ When kbuild executes, the following steps are followed (roughly):
- 	To support this, $(archhelp) must be defined.
+ static int event_handle(struct be_adapter *adapter,
+-			struct be_eq_obj *eq_obj)
++			struct be_eq_obj *eq_obj,
++			bool rearm)
+ {
+ 	struct be_eq_entry *eqe;
+ 	u16 num = 0;
+@@ -1517,7 +1522,10 @@ static int event_handle(struct be_adapter *adapter,
+ 	/* Deal with any spurious interrupts that come
+ 	 * without events
+ 	 */
+-	be_eq_notify(adapter, eq_obj->q.id, true, true, num);
++	if (!num)
++		rearm = true;
++
++	be_eq_notify(adapter, eq_obj->q.id, rearm, true, num);
+ 	if (num)
+ 		napi_schedule(&eq_obj->napi);
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		define archhelp
- 		  echo  '* bzImage      - Image (arch/$(ARCH)/boot/bzImage)'
- 		endif
-@@ -1065,7 +1065,7 @@ When kbuild executes, the following steps are followed (roughly):
- 	from vmlinux.
+@@ -1565,13 +1573,14 @@ static void be_rx_q_clean(struct be_adapter *adapter, struct be_rx_obj *rxo)
+ 	BUG_ON(atomic_read(&rxq->used));
+ }
  
- 	Example:
--		#arch/i386/Makefile
-+		#arch/x86/Makefile
- 		all: bzImage
+-static void be_tx_compl_clean(struct be_adapter *adapter)
++static void be_tx_compl_clean(struct be_adapter *adapter,
++				struct be_tx_obj *txo)
+ {
+-	struct be_queue_info *tx_cq = &adapter->tx_obj.cq;
+-	struct be_queue_info *txq = &adapter->tx_obj.q;
++	struct be_queue_info *tx_cq = &txo->cq;
++	struct be_queue_info *txq = &txo->q;
+ 	struct be_eth_tx_compl *txcp;
+ 	u16 end_idx, cmpl = 0, timeo = 0, num_wrbs = 0;
+-	struct sk_buff **sent_skbs = adapter->tx_obj.sent_skb_list;
++	struct sk_buff **sent_skbs = txo->sent_skb_list;
+ 	struct sk_buff *sent_skb;
+ 	bool dummy_wrb;
  
- 	When "make" is executed without arguments, bzImage will be built.
-@@ -1083,7 +1083,7 @@ When kbuild executes, the following steps are followed (roughly):
- 	2) kbuild knows what files to delete during "make clean"
+@@ -1580,7 +1589,7 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 		while ((txcp = be_tx_compl_get(tx_cq))) {
+ 			end_idx = AMAP_GET_BITS(struct amap_eth_tx_compl,
+ 					wrb_index, txcp);
+-			num_wrbs += be_tx_compl_process(adapter, end_idx);
++			num_wrbs += be_tx_compl_process(adapter, txo, end_idx);
+ 			cmpl++;
+ 		}
+ 		if (cmpl) {
+@@ -1607,7 +1616,7 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 		index_adv(&end_idx,
+ 			wrb_cnt_for_skb(adapter, sent_skb, &dummy_wrb) - 1,
+ 			txq->len);
+-		num_wrbs = be_tx_compl_process(adapter, end_idx);
++		num_wrbs = be_tx_compl_process(adapter, txo, end_idx);
+ 		atomic_sub(num_wrbs, &txq->used);
+ 	}
+ }
+@@ -1666,16 +1675,20 @@ err:
+ static void be_tx_queues_destroy(struct be_adapter *adapter)
+ {
+ 	struct be_queue_info *q;
++	struct be_tx_obj *txo;
++	u8 i;
  
- 	Example:
--		#arch/i386/kernel/Makefile
-+		#arch/x86/kernel/Makefile
- 		extra-y := head.o init_task.o
+-	q = &adapter->tx_obj.q;
+-	if (q->created)
+-		be_cmd_q_destroy(adapter, q, QTYPE_TXQ);
+-	be_queue_free(adapter, q);
++	for_all_tx_queues(adapter, txo, i) {
++		q = &txo->q;
++		if (q->created)
++			be_cmd_q_destroy(adapter, q, QTYPE_TXQ);
++		be_queue_free(adapter, q);
  
- 	In this example, extra-y is used to list object files that
-@@ -1133,7 +1133,7 @@ When kbuild executes, the following steps are followed (roughly):
- 	Compress target. Use maximum compression to compress target.
+-	q = &adapter->tx_obj.cq;
+-	if (q->created)
+-		be_cmd_q_destroy(adapter, q, QTYPE_CQ);
+-	be_queue_free(adapter, q);
++		q = &txo->cq;
++		if (q->created)
++			be_cmd_q_destroy(adapter, q, QTYPE_CQ);
++		be_queue_free(adapter, q);
++	}
  
- 	Example:
--		#arch/i386/boot/Makefile
-+		#arch/x86/boot/Makefile
- 		LDFLAGS_bootsect := -Ttext 0x0 -s --oformat binary
- 		LDFLAGS_setup    := -Ttext 0x0 -s --oformat binary -e begtext
+ 	/* Clear any residual events */
+ 	be_eq_clean(adapter, &adapter->tx_eq);
+@@ -1686,56 +1699,48 @@ static void be_tx_queues_destroy(struct be_adapter *adapter)
+ 	be_queue_free(adapter, q);
+ }
  
-@@ -1193,7 +1193,7 @@ When kbuild executes, the following steps are followed (roughly):
++/* One TX event queue is shared by all TX compl qs */
+ static int be_tx_queues_create(struct be_adapter *adapter)
+ {
+ 	struct be_queue_info *eq, *q, *cq;
++	struct be_tx_obj *txo;
++	u8 i;
  
- 	When updating the $(obj)/bzImage target, the line
+ 	adapter->tx_eq.max_eqd = 0;
+ 	adapter->tx_eq.min_eqd = 0;
+ 	adapter->tx_eq.cur_eqd = 96;
+ 	adapter->tx_eq.enable_aic = false;
+-	/* Alloc Tx Event queue */
++
+ 	eq = &adapter->tx_eq.q;
+-	if (be_queue_alloc(adapter, eq, EVNT_Q_LEN, sizeof(struct be_eq_entry)))
++	if (be_queue_alloc(adapter, eq, EVNT_Q_LEN,
++		sizeof(struct be_eq_entry)))
+ 		return -1;
  
--	BUILD    arch/i386/boot/bzImage
-+	BUILD    arch/x86/boot/bzImage
+-	/* Ask BE to create Tx Event queue */
+ 	if (be_cmd_eq_create(adapter, eq, adapter->tx_eq.cur_eqd))
+-		goto tx_eq_free;
+-
++		goto err;
+ 	adapter->tx_eq.eq_idx = adapter->eq_next_idx++;
  
- 	will be displayed with "make KBUILD_VERBOSE=0".
+-
+-	/* Alloc TX eth compl queue */
+-	cq = &adapter->tx_obj.cq;
+-	if (be_queue_alloc(adapter, cq, TX_CQ_LEN,
++	for_all_tx_queues(adapter, txo, i) {
++		cq = &txo->cq;
++		if (be_queue_alloc(adapter, cq, TX_CQ_LEN,
+ 			sizeof(struct be_eth_tx_compl)))
+-		goto tx_eq_destroy;
++			goto err;
  
-@@ -1207,7 +1207,7 @@ When kbuild executes, the following steps are followed (roughly):
- 	kbuild knows .lds files and includes a rule *lds.S -> *lds.
+-	/* Ask BE to create Tx eth compl queue */
+-	if (be_cmd_cq_create(adapter, cq, eq, false, false, 3))
+-		goto tx_cq_free;
++		if (be_cmd_cq_create(adapter, cq, eq, false, false, 3))
++			goto err;
  
- 	Example:
--		#arch/i386/kernel/Makefile
-+		#arch/x86/kernel/Makefile
- 		always := vmlinux.lds
+-	/* Alloc TX eth queue */
+-	q = &adapter->tx_obj.q;
+-	if (be_queue_alloc(adapter, q, TX_Q_LEN, sizeof(struct be_eth_wrb)))
+-		goto tx_cq_destroy;
++		q = &txo->q;
++		if (be_queue_alloc(adapter, q, TX_Q_LEN,
++			sizeof(struct be_eth_wrb)))
++			goto err;
  
- 		#Makefile
-diff --git a/Documentation/magic-number.txt b/Documentation/magic-number.txt
-index 4b12abc..20ec3d9 100644
---- a/Documentation/magic-number.txt
-+++ b/Documentation/magic-number.txt
-@@ -66,7 +66,7 @@ MKISS_DRIVER_MAGIC    0x04bf      mkiss_channel     drivers/net/mkiss.h
- RISCOM8_MAGIC         0x0907      riscom_port       drivers/char/riscom8.h
- SPECIALIX_MAGIC       0x0907      specialix_port    drivers/char/specialix_io8.h
- HDLC_MAGIC            0x239e      n_hdlc            drivers/char/n_hdlc.c
--APM_BIOS_MAGIC        0x4101      apm_user          arch/i386/kernel/apm.c
-+APM_BIOS_MAGIC        0x4101      apm_user          arch/x86/kernel/apm.c
- CYCLADES_MAGIC        0x4359      cyclades_port     include/linux/cyclades.h
- DB_MAGIC              0x4442      fc_info           drivers/net/iph5526_novram.c
- DL_MAGIC              0x444d      fc_info           drivers/net/iph5526_novram.c
-diff --git a/Documentation/mca.txt b/Documentation/mca.txt
-index 510375d..cf8fd39 100644
---- a/Documentation/mca.txt
-+++ b/Documentation/mca.txt
-@@ -3,7 +3,7 @@ i386 Micro Channel Architecture Support
+-	/* Ask BE to create Tx eth queue */
+-	if (be_cmd_txq_create(adapter, q, cq))
+-		goto tx_q_free;
++		if (be_cmd_txq_create(adapter, q, cq))
++			goto err;
++	}
+ 	return 0;
  
- MCA support is enabled using the CONFIG_MCA define.  A machine with a MCA
- bus will have the kernel variable MCA_bus set, assuming the BIOS feature
--bits are set properly (see arch/i386/boot/setup.S for information on
-+bits are set properly (see arch/x86/boot/setup.S for information on
- how this detection is done).
+-tx_q_free:
+-	be_queue_free(adapter, q);
+-tx_cq_destroy:
+-	be_cmd_q_destroy(adapter, cq, QTYPE_CQ);
+-tx_cq_free:
+-	be_queue_free(adapter, cq);
+-tx_eq_destroy:
+-	be_cmd_q_destroy(adapter, eq, QTYPE_EQ);
+-tx_eq_free:
+-	be_queue_free(adapter, eq);
++err:
++	be_tx_queues_destroy(adapter);
+ 	return -1;
+ }
  
- Adapter Detection
-@@ -11,7 +11,7 @@ Adapter Detection
+@@ -1876,10 +1881,10 @@ static irqreturn_t be_intx(int irq, void *dev)
  
- The ideal MCA adapter detection is done through the use of the
- Programmable Option Select registers.  Generic functions for doing
--this have been added in include/linux/mca.h and arch/i386/kernel/mca.c.
-+this have been added in include/linux/mca.h and arch/x86/kernel/mca.c.
- Everything needed to detect adapters and read (and write) configuration
- information is there.  A number of MCA-specific drivers already use
- this.  The typical probe code looks like the following:
-@@ -81,7 +81,7 @@ more people use shared IRQs on PCI machines.
- In general, an interrupt must be acknowledged not only at the ICU (which
- is done automagically by the kernel), but at the device level.  In
- particular, IRQ 0 must be reset after a timer interrupt (now done in
--arch/i386/kernel/time.c) or the first timer interrupt hangs the system.
-+arch/x86/kernel/time.c) or the first timer interrupt hangs the system.
- There were also problems with the 1.3.x floppy drivers, but that seems
- to have been fixed.
+ 	if (lancer_chip(adapter)) {
+ 		if (event_peek(&adapter->tx_eq))
+-			tx = event_handle(adapter, &adapter->tx_eq);
++			tx = event_handle(adapter, &adapter->tx_eq, false);
+ 		for_all_rx_queues(adapter, rxo, i) {
+ 			if (event_peek(&rxo->rx_eq))
+-				rx |= event_handle(adapter, &rxo->rx_eq);
++				rx |= event_handle(adapter, &rxo->rx_eq, true);
+ 		}
  
-diff --git a/Documentation/scheduler/sched-arch.txt b/Documentation/scheduler/sched-arch.txt
-index d43dbcb..28aa107 100644
---- a/Documentation/scheduler/sched-arch.txt
-+++ b/Documentation/scheduler/sched-arch.txt
-@@ -66,7 +66,7 @@ Your cpu_idle routines need to obey the following rules:
- 	    barrier issued (followed by a test of need_resched with
- 	    interrupts disabled, as explained in 3).
+ 		if (!(tx || rx))
+@@ -1892,11 +1897,11 @@ static irqreturn_t be_intx(int irq, void *dev)
+ 			return IRQ_NONE;
  
--arch/i386/kernel/process.c has examples of both polling and
-+arch/x86/kernel/process.c has examples of both polling and
- sleeping idle functions.
+ 		if ((1 << adapter->tx_eq.eq_idx & isr))
+-			event_handle(adapter, &adapter->tx_eq);
++			event_handle(adapter, &adapter->tx_eq, false);
  
+ 		for_all_rx_queues(adapter, rxo, i) {
+ 			if ((1 << rxo->rx_eq.eq_idx & isr))
+-				event_handle(adapter, &rxo->rx_eq);
++				event_handle(adapter, &rxo->rx_eq, true);
+ 		}
+ 	}
  
-diff --git a/Documentation/scsi/BusLogic.txt b/Documentation/scsi/BusLogic.txt
-index d7fbc94..48e982c 100644
---- a/Documentation/scsi/BusLogic.txt
-+++ b/Documentation/scsi/BusLogic.txt
-@@ -553,7 +553,7 @@ replacing "/usr/src" with wherever you keep your Linux kernel source tree:
-   make config
-   make zImage
+@@ -1908,7 +1913,7 @@ static irqreturn_t be_msix_rx(int irq, void *dev)
+ 	struct be_rx_obj *rxo = dev;
+ 	struct be_adapter *adapter = rxo->adapter;
  
--Then install "arch/i386/boot/zImage" as your standard kernel, run lilo if
-+Then install "arch/x86/boot/zImage" as your standard kernel, run lilo if
- appropriate, and reboot.
+-	event_handle(adapter, &rxo->rx_eq);
++	event_handle(adapter, &rxo->rx_eq, true);
  
+ 	return IRQ_HANDLED;
+ }
+@@ -1917,7 +1922,7 @@ static irqreturn_t be_msix_tx_mcc(int irq, void *dev)
+ {
+ 	struct be_adapter *adapter = dev;
  
-diff --git a/Documentation/serial/computone.txt b/Documentation/serial/computone.txt
-index c57ea47..60a6f65 100644
---- a/Documentation/serial/computone.txt
-+++ b/Documentation/serial/computone.txt
-@@ -87,7 +87,7 @@ c) Set address on ISA cards then:
- 	   edit /usr/src/linux/drivers/char/ip2.c  
-            (Optional - may be specified on kernel command line now)
- d) Run "make zImage" or whatever target you prefer.
--e) mv /usr/src/linux/arch/i386/boot/zImage to /boot.
-+e) mv /usr/src/linux/arch/x86/boot/zImage to /boot.
- f) Add new config for this kernel into /etc/lilo.conf, run "lilo"
- 	or copy to a floppy disk and boot from that floppy disk.
- g) Reboot using this kernel
-diff --git a/Documentation/svga.txt b/Documentation/svga.txt
-index cd66ec8..e5da082 100644
---- a/Documentation/svga.txt
-+++ b/Documentation/svga.txt
-@@ -150,7 +150,7 @@ end of the display.
+-	event_handle(adapter, &adapter->tx_eq);
++	event_handle(adapter, &adapter->tx_eq, false);
  
- 4. Options
- ~~~~~~~~~~
--   Some options can be set in the source text (in arch/i386/boot/video.S).
-+   Some options can be set in the source text (in arch/x86/boot/video.S).
- All of them are simple #define's -- change them to #undef's when you want to
- switch them off. Currently supported:
+ 	return IRQ_HANDLED;
+ }
+@@ -1978,45 +1983,48 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
+ 	struct be_eq_obj *tx_eq = container_of(napi, struct be_eq_obj, napi);
+ 	struct be_adapter *adapter =
+ 		container_of(tx_eq, struct be_adapter, tx_eq);
+-	struct be_queue_info *txq = &adapter->tx_obj.q;
+-	struct be_queue_info *tx_cq = &adapter->tx_obj.cq;
++	struct be_tx_obj *txo;
+ 	struct be_eth_tx_compl *txcp;
+-	int tx_compl = 0, mcc_compl, status = 0;
+-	u16 end_idx, num_wrbs = 0;
++	int tx_compl, mcc_compl, status = 0;
++	u8 i;
++	u16 num_wrbs;
++
++	for_all_tx_queues(adapter, txo, i) {
++		tx_compl = 0;
++		num_wrbs = 0;
++		while ((txcp = be_tx_compl_get(&txo->cq))) {
++			num_wrbs += be_tx_compl_process(adapter, txo,
++				AMAP_GET_BITS(struct amap_eth_tx_compl,
++					wrb_index, txcp));
++			tx_compl++;
++		}
++		if (tx_compl) {
++			be_cq_notify(adapter, txo->cq.id, true, tx_compl);
++
++			atomic_sub(num_wrbs, &txo->q.used);
  
-diff --git a/Documentation/zh_CN/magic-number.txt b/Documentation/zh_CN/magic-number.txt
-index 4c4ce85..a9e6fdd 100644
---- a/Documentation/zh_CN/magic-number.txt
-+++ b/Documentation/zh_CN/magic-number.txt
-@@ -66,7 +66,7 @@ MKISS_DRIVER_MAGIC    0x04bf      mkiss_channel     drivers/net/mkiss.h
- RISCOM8_MAGIC         0x0907      riscom_port       drivers/char/riscom8.h
- SPECIALIX_MAGIC       0x0907      specialix_port    drivers/char/specialix_io8.h
- HDLC_MAGIC            0x239e      n_hdlc            drivers/char/n_hdlc.c
--APM_BIOS_MAGIC        0x4101      apm_user          arch/i386/kernel/apm.c
-+APM_BIOS_MAGIC        0x4101      apm_user          arch/x86/kernel/apm.c
- CYCLADES_MAGIC        0x4359      cyclades_port     include/linux/cyclades.h
- DB_MAGIC              0x4442      fc_info           drivers/net/iph5526_novram.c
- DL_MAGIC              0x444d      fc_info           drivers/net/iph5526_novram.c
+-	while ((txcp = be_tx_compl_get(tx_cq))) {
+-		end_idx = AMAP_GET_BITS(struct amap_eth_tx_compl,
+-				wrb_index, txcp);
+-		num_wrbs += be_tx_compl_process(adapter, end_idx);
+-		tx_compl++;
++			/* As Tx wrbs have been freed up, wake up netdev queue
++			 * if it was stopped due to lack of tx wrbs.  */
++			if (__netif_subqueue_stopped(adapter->netdev, i) &&
++				atomic_read(&txo->q.used) < txo->q.len / 2) {
++				netif_wake_subqueue(adapter->netdev, i);
++			}
++
++			adapter->drv_stats.be_tx_events++;
++			txo->stats.be_tx_compl += tx_compl;
++		}
+ 	}
+ 
+ 	mcc_compl = be_process_mcc(adapter, &status);
+ 
+-	napi_complete(napi);
+-
+ 	if (mcc_compl) {
+ 		struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
+ 		be_cq_notify(adapter, mcc_obj->cq.id, true, mcc_compl);
+ 	}
+ 
+-	if (tx_compl) {
+-		be_cq_notify(adapter, adapter->tx_obj.cq.id, true, tx_compl);
+-
+-		atomic_sub(num_wrbs, &txq->used);
+-
+-		/* As Tx wrbs have been freed up, wake up netdev queue if
+-		 * it was stopped due to lack of tx wrbs.
+-		 */
+-		if (netif_queue_stopped(adapter->netdev) &&
+-			atomic_read(&txq->used) < txq->len / 2) {
+-			netif_wake_queue(adapter->netdev);
+-		}
+-
+-		tx_stats(adapter)->be_tx_events++;
+-		tx_stats(adapter)->be_tx_compl += tx_compl;
+-	}
++	napi_complete(napi);
+ 
++	be_eq_notify(adapter, tx_eq->q.id, true, false, 0);
+ 	return 1;
+ }
+ 
+@@ -2065,6 +2073,7 @@ static void be_worker(struct work_struct *work)
+ 	struct be_adapter *adapter =
+ 		container_of(work, struct be_adapter, work.work);
+ 	struct be_rx_obj *rxo;
++	struct be_tx_obj *txo;
+ 	int i;
+ 
+ 	if (!adapter->ue_detected && !lancer_chip(adapter))
+@@ -2092,7 +2101,9 @@ static void be_worker(struct work_struct *work)
+ 		else
+ 			be_cmd_get_stats(adapter, &adapter->stats_cmd);
+ 	}
+-	be_tx_rate_update(adapter);
++
++	for_all_tx_queues(adapter, txo, i)
++		be_tx_rate_update(txo);
+ 
+ 	for_all_rx_queues(adapter, rxo, i) {
+ 		be_rx_rate_update(rxo);
+@@ -2294,6 +2305,7 @@ static int be_close(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct be_rx_obj *rxo;
++	struct be_tx_obj *txo;
+ 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
+ 	int vec, i;
+ 
+@@ -2311,10 +2323,11 @@ static int be_close(struct net_device *netdev)
+ 	napi_disable(&tx_eq->napi);
+ 
+ 	if (lancer_chip(adapter)) {
+-		be_cq_notify(adapter, adapter->tx_obj.cq.id, false, 0);
+ 		be_cq_notify(adapter, adapter->mcc_obj.cq.id, false, 0);
+ 		for_all_rx_queues(adapter, rxo, i)
+ 			 be_cq_notify(adapter, rxo->cq.id, false, 0);
++		for_all_tx_queues(adapter, txo, i)
++			 be_cq_notify(adapter, txo->cq.id, false, 0);
+ 	}
+ 
+ 	if (msix_enabled(adapter)) {
+@@ -2333,7 +2346,8 @@ static int be_close(struct net_device *netdev)
+ 	/* Wait for all pending tx completions to arrive so that
+ 	 * all tx skbs are freed.
+ 	 */
+-	be_tx_compl_clean(adapter);
++	for_all_tx_queues(adapter, txo, i)
++		be_tx_compl_clean(adapter, txo);
+ 
+ 	return 0;
+ }
+@@ -3186,6 +3200,17 @@ static int be_get_config(struct be_adapter *adapter)
+ 		return status;
+ 
+ 	be_cmd_check_native_mode(adapter);
++
++	if ((num_vfs && adapter->sriov_enabled) ||
++		(adapter->function_mode & 0x400) ||
++		lancer_chip(adapter) || !be_physfn(adapter)) {
++		adapter->num_tx_qs = 1;
++		netif_set_real_num_tx_queues(adapter->netdev,
++			adapter->num_tx_qs);
++	} else {
++		adapter->num_tx_qs = MAX_TX_QS;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -3288,7 +3313,7 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 		goto disable_dev;
+ 	pci_set_master(pdev);
+ 
+-	netdev = alloc_etherdev(sizeof(struct be_adapter));
++	netdev = alloc_etherdev_mq(sizeof(struct be_adapter), MAX_TX_QS);
+ 	if (netdev == NULL) {
+ 		status = -ENOMEM;
+ 		goto rel_reg;
 -- 
-1.7.4.1
+1.7.4
 
