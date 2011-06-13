@@ -1,64 +1,35 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH 1/1] IPVS netns shutdown/startup dead-lock
-Date: Tue, 14 Jun 2011 00:25:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1106132309440.1627@ja.ssi.bg>
-References: <1307957530-12732-1-git-send-email-hans.schillstrom@ericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 00/10] net: expand time stamping, batch #1
+Date: Mon, 13 Jun 2011 17:26:50 -0400 (EDT)
+Message-ID: <20110613.172650.482765433985419839.davem@davemloft.net>
+References: <cover.1307880494.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1307957530-12732-1-git-send-email-hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: richardcochran@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50760 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753730Ab1FMV0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 17:26:54 -0400
+In-Reply-To: <cover.1307880494.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Sun, 12 Jun 2011 14:18:57 +0200
 
-	Hello,
+> Richard Cochran (10):
+>   net: export time stamp utility function for Ethernet MAC drivers
+>   fec: enable transmit and receive time stamping.
+>   davinci_emac: pass ioctls through to phy device.
+>   davinci_emac: enable transmit time stamping.
+>   tg3: enable transmit time stamping.
+>   dnet: enable transmit time stamping.
+>   ethoc: enable transmit time stamping.
+>   r6040: enable transmit time stamping.
+>   stmmac: enable transmit time stamping.
+>   smsc9420: enable transmit time stamping.
 
-On Mon, 13 Jun 2011, Hans Schillstrom wrote:
-
-> ip_vs_mutext is used by both netns shutdown code and startup
-> and both implicit uses sk_lock-AF_INET mutex.
-> 
-> cleanup CPU-1         startup CPU-2
-> ip_vs_dst_event()     ip_vs_genl_set_cmd()
->  sk_lock-AF_INET     __ip_vs_mutex
->                      sk_lock-AF_INET
-> __ip_vs_mutex
-> * DEAD LOCK *
-
-	So, sk_lock-AF_INET is locked before calling
-ip_vs_dst_event ? Do you have a backtrace for this case?
-I assume your patch is tested to fix the problem ?
-
-> This can be solved by have the ip_vs_mutex per netns
-> or avid locking when starting/stoping sync-threads.
-> i.e. just add a starting/stoping flag.
-
-	sk_release_kernel is called in thread
-context, so ip_vs_mutex is not involved there. We
-have a problem only with start_sync_thread, right?
-
-> ip_vs_mutex per name-space seems to be a more future proof solution.
-
-	Global mutex protects some global lists such as
-virtual services. If your patch works, better way to fix this problem
-is to use some new mutex. May be we can move the IPVS_CMD_NEW_DAEMON,
-IPVS_CMD_DEL_DAEMON and IP_VS_SO_GET_DAEMON code before the
-__ip_vs_mutex locking. This mutex should be used for start_sync_thread,
-stop_sync_thread, ip_vs_genl_dump_daemons and IP_VS_SO_GET_DAEMON.
-For example, ip_vs_sync_mutex.
-
-	Note that __ip_vs_sync_cleanup is missing a
-__ip_vs_mutex lock. We have to use the new mutex there.
-
-> Which one should be used ?
-
-	For now __ip_vs_mutex should be global ...
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+All applied to net-next-2.6, thanks.
