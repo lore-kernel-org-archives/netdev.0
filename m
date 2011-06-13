@@ -1,138 +1,265 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/8] tg3: Workaround tagged status update bug
-Date: Mon, 13 Jun 2011 16:38:55 -0700
-Message-ID: <1308008342-21030-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 8/8] tg3: Create funcs for power source
+ switching
+Date: Mon, 13 Jun 2011 16:39:02 -0700
+Message-ID: <1308008342-21030-9-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com,
-	"Michael Chan" <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2440 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2449 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755319Ab1FMXiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755320Ab1FMXiT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 Jun 2011 19:38:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On rare occasions, writing the tag to the interrupt mailbox does not
-reenable interrupts.  This patch fixes the problem by reissuing the
-mailbox update.
+The power source switching code is about to get a little more complex.
+This patch seeks to simplify future power source switching patches by
+clarifying the existing code.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |   38 +++++++++++++++++++++++++++++++++++++-
- drivers/net/tg3.h |    3 +++
- 2 files changed, 40 insertions(+), 1 deletions(-)
+ drivers/net/tg3.c |  201 +++++++++++++++++++++++++++++++----------------------
+ 1 files changed, 119 insertions(+), 82 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index c8a145d..e8f16c5 100644
+index 7dfacc0..372700b 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7752,6 +7752,9 @@ static void tg3_rings_reset(struct tg3 *tp)
+@@ -107,6 +107,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+ 	 NETIF_MSG_RX_ERR	| \
+ 	 NETIF_MSG_TX_ERR)
  
- 	/* Disable interrupts */
- 	tw32_mailbox_f(tp->napi[0].int_mbox, 1);
-+	tp->napi[0].chk_msi_cnt = 0;
-+	tp->napi[0].last_rx_cons = 0;
-+	tp->napi[0].last_tx_cons = 0;
- 
- 	/* Zero mailbox registers. */
- 	if (tg3_flag(tp, SUPPORT_MSIX)) {
-@@ -7762,6 +7765,9 @@ static void tg3_rings_reset(struct tg3 *tp)
- 				tw32_mailbox(tp->napi[i].prodmbox, 0);
- 			tw32_rx_mbox(tp->napi[i].consmbox, 0);
- 			tw32_mailbox_f(tp->napi[i].int_mbox, 1);
-+			tp->napi[0].chk_msi_cnt = 0;
-+			tp->napi[i].last_rx_cons = 0;
-+			tp->napi[i].last_tx_cons = 0;
- 		}
- 		if (!tg3_flag(tp, ENABLE_TSS))
- 			tw32_mailbox(tp->napi[0].prodmbox, 0);
-@@ -8817,6 +8823,30 @@ static void tg3_periodic_fetch_stats(struct tg3 *tp)
- 	TG3_STAT_ADD32(&sp->rx_errors, RCVLPC_IN_ERRORS_CNT);
++#define TG3_GRC_LCLCTL_PWRSW_DELAY	100
++
+ /* length of time before we decide the hardware is borked,
+  * and dev->tx_timeout() should be called to fix the problem
+  */
+@@ -2165,6 +2167,118 @@ out:
+ 	return 0;
  }
  
-+static void tg3_chk_missed_msi(struct tg3 *tp)
++static inline int tg3_pwrsrc_switch_to_vmain(struct tg3 *tp)
 +{
-+	u32 i;
++	if (!tg3_flag(tp, IS_NIC))
++		return 0;
 +
-+	for (i = 0; i < tp->irq_cnt; i++) {
-+		struct tg3_napi *tnapi = &tp->napi[i];
++	tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl,
++		    TG3_GRC_LCLCTL_PWRSW_DELAY);
 +
-+		if (tg3_has_work(tnapi)) {
-+			if (tnapi->last_rx_cons == tnapi->rx_rcb_ptr &&
-+			    tnapi->last_tx_cons == tnapi->tx_cons) {
-+				if (tnapi->chk_msi_cnt < 1) {
-+					tnapi->chk_msi_cnt++;
-+					return;
-+				}
-+				tw32_mailbox(tnapi->int_mbox,
-+					     tnapi->last_tag << 24);
-+			}
++	return 0;
++}
++
++static void tg3_pwrsrc_die_with_vmain(struct tg3 *tp)
++{
++	u32 grc_local_ctrl;
++
++	if (!tg3_flag(tp, IS_NIC) ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
++		return;
++
++	grc_local_ctrl = tp->grc_local_ctrl | GRC_LCLCTRL_GPIO_OE1;
++
++	tw32_wait_f(GRC_LOCAL_CTRL,
++		    grc_local_ctrl | GRC_LCLCTRL_GPIO_OUTPUT1,
++		    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++	tw32_wait_f(GRC_LOCAL_CTRL,
++		    grc_local_ctrl,
++		    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++	tw32_wait_f(GRC_LOCAL_CTRL,
++		    grc_local_ctrl | GRC_LCLCTRL_GPIO_OUTPUT1,
++		    TG3_GRC_LCLCTL_PWRSW_DELAY);
++}
++
++static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
++{
++	if (!tg3_flag(tp, IS_NIC))
++		return;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
++		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
++			    (GRC_LCLCTRL_GPIO_OE0 |
++			     GRC_LCLCTRL_GPIO_OE1 |
++			     GRC_LCLCTRL_GPIO_OE2 |
++			     GRC_LCLCTRL_GPIO_OUTPUT0 |
++			     GRC_LCLCTRL_GPIO_OUTPUT1),
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++	} else if (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761 ||
++		   tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761S) {
++		/* The 5761 non-e device swaps GPIO 0 and GPIO 2. */
++		u32 grc_local_ctrl = GRC_LCLCTRL_GPIO_OE0 |
++				     GRC_LCLCTRL_GPIO_OE1 |
++				     GRC_LCLCTRL_GPIO_OE2 |
++				     GRC_LCLCTRL_GPIO_OUTPUT0 |
++				     GRC_LCLCTRL_GPIO_OUTPUT1 |
++				     tp->grc_local_ctrl;
++		tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++		grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT2;
++		tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++		grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT0;
++		tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++	} else {
++		u32 no_gpio2;
++		u32 grc_local_ctrl = 0;
++
++		/* Workaround to prevent overdrawing Amps. */
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714) {
++			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE3;
++			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
++				    grc_local_ctrl,
++				    TG3_GRC_LCLCTL_PWRSW_DELAY);
 +		}
-+		tnapi->chk_msi_cnt = 0;
-+		tnapi->last_rx_cons = tnapi->rx_rcb_ptr;
-+		tnapi->last_tx_cons = tnapi->tx_cons;
++
++		/* On 5753 and variants, GPIO2 cannot be used. */
++		no_gpio2 = tp->nic_sram_data_cfg &
++			   NIC_SRAM_DATA_CFG_NO_GPIO2;
++
++		grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE0 |
++				  GRC_LCLCTRL_GPIO_OE1 |
++				  GRC_LCLCTRL_GPIO_OE2 |
++				  GRC_LCLCTRL_GPIO_OUTPUT1 |
++				  GRC_LCLCTRL_GPIO_OUTPUT2;
++		if (no_gpio2) {
++			grc_local_ctrl &= ~(GRC_LCLCTRL_GPIO_OE2 |
++					    GRC_LCLCTRL_GPIO_OUTPUT2);
++		}
++		tw32_wait_f(GRC_LOCAL_CTRL,
++			    tp->grc_local_ctrl | grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++		grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT0;
++
++		tw32_wait_f(GRC_LOCAL_CTRL,
++			    tp->grc_local_ctrl | grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++		if (!no_gpio2) {
++			grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT2;
++			tw32_wait_f(GRC_LOCAL_CTRL,
++				    tp->grc_local_ctrl | grc_local_ctrl,
++				    TG3_GRC_LCLCTL_PWRSW_DELAY);
++		}
 +	}
 +}
 +
- static void tg3_timer(unsigned long __opaque)
+ static void tg3_frob_aux_power(struct tg3 *tp)
  {
- 	struct tg3 *tp = (struct tg3 *) __opaque;
-@@ -8826,6 +8856,10 @@ static void tg3_timer(unsigned long __opaque)
+ 	bool need_vaux = false;
+@@ -2200,86 +2314,10 @@ static void tg3_frob_aux_power(struct tg3 *tp)
+ 	if (tg3_flag(tp, WOL_ENABLE) || tg3_flag(tp, ENABLE_ASF))
+ 		need_vaux = true;
  
- 	spin_lock(&tp->lock);
+-	if (need_vaux) {
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+-		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
+-			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-				    (GRC_LCLCTRL_GPIO_OE0 |
+-				     GRC_LCLCTRL_GPIO_OE1 |
+-				     GRC_LCLCTRL_GPIO_OE2 |
+-				     GRC_LCLCTRL_GPIO_OUTPUT0 |
+-				     GRC_LCLCTRL_GPIO_OUTPUT1),
+-				    100);
+-		} else if (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761 ||
+-			   tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761S) {
+-			/* The 5761 non-e device swaps GPIO 0 and GPIO 2. */
+-			u32 grc_local_ctrl = GRC_LCLCTRL_GPIO_OE0 |
+-					     GRC_LCLCTRL_GPIO_OE1 |
+-					     GRC_LCLCTRL_GPIO_OE2 |
+-					     GRC_LCLCTRL_GPIO_OUTPUT0 |
+-					     GRC_LCLCTRL_GPIO_OUTPUT1 |
+-					     tp->grc_local_ctrl;
+-			tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl, 100);
+-
+-			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT2;
+-			tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl, 100);
+-
+-			grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT0;
+-			tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl, 100);
+-		} else {
+-			u32 no_gpio2;
+-			u32 grc_local_ctrl = 0;
+-
+-			/* Workaround to prevent overdrawing Amps. */
+-			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
+-			    ASIC_REV_5714) {
+-				grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE3;
+-				tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-					    grc_local_ctrl, 100);
+-			}
+-
+-			/* On 5753 and variants, GPIO2 cannot be used. */
+-			no_gpio2 = tp->nic_sram_data_cfg &
+-				    NIC_SRAM_DATA_CFG_NO_GPIO2;
+-
+-			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE0 |
+-					 GRC_LCLCTRL_GPIO_OE1 |
+-					 GRC_LCLCTRL_GPIO_OE2 |
+-					 GRC_LCLCTRL_GPIO_OUTPUT1 |
+-					 GRC_LCLCTRL_GPIO_OUTPUT2;
+-			if (no_gpio2) {
+-				grc_local_ctrl &= ~(GRC_LCLCTRL_GPIO_OE2 |
+-						    GRC_LCLCTRL_GPIO_OUTPUT2);
+-			}
+-			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-						    grc_local_ctrl, 100);
+-
+-			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT0;
+-
+-			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-						    grc_local_ctrl, 100);
+-
+-			if (!no_gpio2) {
+-				grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT2;
+-				tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-					    grc_local_ctrl, 100);
+-			}
+-		}
+-	} else {
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700 &&
+-		    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701) {
+-			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-				    (GRC_LCLCTRL_GPIO_OE1 |
+-				     GRC_LCLCTRL_GPIO_OUTPUT1), 100);
+-
+-			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-				    GRC_LCLCTRL_GPIO_OE1, 100);
+-
+-			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+-				    (GRC_LCLCTRL_GPIO_OE1 |
+-				     GRC_LCLCTRL_GPIO_OUTPUT1), 100);
+-		}
+-	}
++	if (need_vaux)
++		tg3_pwrsrc_switch_to_vaux(tp);
++	else
++		tg3_pwrsrc_die_with_vmain(tp);
+ }
  
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
-+		tg3_chk_missed_msi(tp);
-+
- 	if (!tg3_flag(tp, TAGGED_STATUS)) {
- 		/* All of this garbage is because when using non-tagged
- 		 * IRQ status the mailbox/status_block protocol the chip
-@@ -9301,7 +9335,9 @@ static int tg3_open(struct net_device *dev)
- 		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
- 		tg3_free_rings(tp);
- 	} else {
--		if (tg3_flag(tp, TAGGED_STATUS))
-+		if (tg3_flag(tp, TAGGED_STATUS) &&
-+			GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5717 &&
-+			GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_57765)
- 			tp->timer_offset = HZ;
- 		else
- 			tp->timer_offset = HZ / 10;
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 5b3d2f3..3c113c1 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2800,6 +2800,7 @@ struct tg3_napi {
- 	struct tg3			*tp;
- 	struct tg3_hw_status		*hw_status;
+ static int tg3_5700_link_polarity(struct tg3 *tp, u32 speed)
+@@ -2624,8 +2662,7 @@ static int tg3_power_up(struct tg3 *tp)
+ 	pci_set_power_state(tp->pdev, PCI_D0);
  
-+	u32				chk_msi_cnt;
- 	u32				last_tag;
- 	u32				last_irq_tag;
- 	u32				int_mbox;
-@@ -2807,6 +2808,7 @@ struct tg3_napi {
+ 	/* Switch out of Vaux if it is a NIC */
+-	if (tg3_flag(tp, IS_NIC))
+-		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl, 100);
++	tg3_pwrsrc_switch_to_vmain(tp);
  
- 	u32				consmbox ____cacheline_aligned;
- 	u32				rx_rcb_ptr;
-+	u32				last_rx_cons;
- 	u16				*rx_rcb_prod_idx;
- 	struct tg3_rx_prodring_set	prodring;
- 	struct tg3_rx_buffer_desc	*rx_rcb;
-@@ -2814,6 +2816,7 @@ struct tg3_napi {
- 	u32				tx_prod	____cacheline_aligned;
- 	u32				tx_cons;
- 	u32				tx_pending;
-+	u32				last_tx_cons;
- 	u32				prodmbox;
- 	struct tg3_tx_buffer_desc	*tx_ring;
- 	struct ring_info		*tx_buffers;
+ 	return 0;
+ }
 -- 
 1.7.3.4
 
