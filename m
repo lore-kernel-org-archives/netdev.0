@@ -1,161 +1,482 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net/r8169: Update the new parser for the new firmware
-Date: Mon, 13 Jun 2011 16:32:41 +0200
-Message-ID: <20110613143241.GA1579@electric-eye.fr.zoreil.com>
-References: <1307956594-1248-1-git-send-email-hayeswang@realtek.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Mon, 13 Jun 2011 09:57:17 -0500
+Message-ID: <1307977039.2117.7.camel@dcbw.foobar.com>
+References: <1307748870-12950-1-git-send-email-marius@kotsbak.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47789 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752315Ab1FMOpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 10:45:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1307956594-1248-1-git-send-email-hayeswang@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+To: "Marius B. Kotsbak" <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1307748870-12950-1-git-send-email-marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> :
-> Update the parser for the new firmware which is embedded some information.
-> The paser cannot be used for the old firmware. It is only for the new type one.
-
+On Sat, 2011-06-11 at 01:34 +0200, Marius B. Kotsbak wrote:
+> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
+> It has also an ACM interface that previous patches associates with the "option"
+> module. To access those interfaces, the modem must first be switched from modem
+> mode using a tool like usb_modeswitch.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> As the proprietary protocol has been discovered by watching the MS Windows driver
+> behavior, there might be errors in the protocol handling, but stable and fast
+> connection has been established for hours with Norwegian operator NetCom that
+> distributes this modem with their LTE/4G subscription.
+
+Why make the driver bind to both the switched and unswitched USB IDs?
+Shouldn't the kernel bind the driver after switch when the device
+reconnects with the new IDs?
+
+Dan
+
+> More and updated information about how to use this driver is available here:
+> 
+> http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
+> https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
+> 
+> Signed-off-by: Marius B. Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
 > ---
->  drivers/net/r8169.c |   59 ++++++++++++++++++++++++++++----------------------
->  1 files changed, 33 insertions(+), 26 deletions(-)
+>  drivers/net/usb/Kconfig  |   10 ++
+>  drivers/net/usb/Makefile |    2 +-
+>  drivers/net/usb/kalmia.c |  393 ++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 404 insertions(+), 1 deletions(-)
+>  create mode 100644 drivers/net/usb/kalmia.c
 > 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index ef1ce2e..87b684f 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -36,11 +36,11 @@
->  #define MODULENAME "r8169"
->  #define PFX MODULENAME ": "
+> diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+> index 9d4f911..b6e4efc 100644
+> --- a/drivers/net/usb/Kconfig
+> +++ b/drivers/net/usb/Kconfig
+> @@ -385,6 +385,16 @@ config USB_NET_CX82310_ETH
+>  	  router with USB ethernet port. This driver is for routers only,
+>  	  it will not work with ADSL modems (use cxacru driver instead).
 >  
-> -#define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-1.fw"
-> -#define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-2.fw"
-> -#define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-1.fw"
-> -#define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-2.fw"
-> -#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
-> +#define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-3.fw"
-> +#define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-4.fw"
-> +#define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-3.fw"
-> +#define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-4.fw"
-> +#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-2.fw"
-
-Why ?
-
-I see it more as a calling convention to communicate with userspace
-than as a place to funnel a partial version information.
-
->  #ifdef RTL8169_DEBUG
->  #define assert(expr) \
-> @@ -594,6 +594,13 @@ struct ring_info {
->  	u8		__pad[sizeof(void *) - sizeof(u32)];
->  };
->  
-> +struct fw_info {
-> +	char	version[32];
-> +	u32	fw_start;
-> +	u32	fw_len;
-> +	u8	chksum;
-
-The chksum field is never used.
-
-[...]
-> @@ -1743,16 +1750,30 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
->  static void
->  rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
->  {
-> -	__le32 *phytable = (__le32 *)fw->data;
-> +	__le32 *phytable;
->  	struct net_device *dev = tp->dev;
-> -	size_t index, fw_size = fw->size / sizeof(*phytable);
-> +	struct fw_info *f_info;
-> +	size_t index, fw_size;
-
-s/index/i/
-
->  	u32 predata, count;
-> +	u8 checksum;
+> +config CONFIG_USB_NET_KALMIA
+> +	tristate "Samsung Kalmia based LTE USB modem"
+> +	depends on USB_USBNET
+> +	help
+> +	  Choose this option if you have a Samsung Kalmia based USB modem
+> +	  as Samsung GT-B3730.
 > +
-> +	f_info = (struct fw_info *)fw->data;
-
-It will not work very well on big-endian computers. start and len should
-both use le32_to_cpu.
-
->  
-> -	if (fw->size % sizeof(*phytable)) {
-> -		netif_err(tp, probe, dev, "odd sized firmware %zd\n", fw->size);
-> +	if (checksum != 0) {
-> +		netif_err(tp, probe, dev, "none zero checksum(%u)\n", checksum);
->  		return;
->  	}
-
-Nit: "checksum" is not used beyond this point. It should be possible to put
-a few things in distinct functions to save some local variables.
-
-> +	netif_info(tp, probe, dev, "firmware: %s\n", f_info->version);
+> +	  To compile this driver as a module, choose M here: the
+> +	  module will be called kalmia.
 > +
-> +	phytable = (__le32 *)(fw->data + f_info->fw_start);
-> +	fw_size = f_info->fw_len;
+>  config USB_HSO
+>  	tristate "Option USB High Speed Mobile Devices"
+>  	depends on USB && RFKILL
+> diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+> index c7ec8a5..6091249 100644
+> --- a/drivers/net/usb/Makefile
+> +++ b/drivers/net/usb/Makefile
+> @@ -28,4 +28,4 @@ obj-$(CONFIG_USB_SIERRA_NET)	+= sierra_net.o
+>  obj-$(CONFIG_USB_NET_CX82310_ETH)	+= cx82310_eth.o
+>  obj-$(CONFIG_USB_NET_CDC_NCM)	+= cdc_ncm.o
+>  obj-$(CONFIG_USB_VL600)		+= lg-vl600.o
+> -
+> +obj-$(CONFIG_USB_NET_KALMIA)	+= kalmia.o
+> diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+> new file mode 100644
+> index 0000000..d1e80e0
+> --- /dev/null
+> +++ b/drivers/net/usb/kalmia.c
+> @@ -0,0 +1,393 @@
+> +/*
+> + * USB network interface driver for Samsung Kalmia based LTE USB modem like the
+> + * Samsung GT-B3730 and GT-B3710.
+> + *
+> + * Copyright (C) 2011 Marius Bjoernstad Kotsbak
+> + *
+> + * Sponsored by Quicklink Video Distribution Services Ltd.
+> + *
+> + * Based on the cdc_eem module.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+> + */
 > +
->  	for (index = 0; index < fw_size; index++) {
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/ctype.h>
+> +#include <linux/ethtool.h>
+> +#include <linux/workqueue.h>
+> +#include <linux/mii.h>
+> +#include <linux/usb.h>
+> +#include <linux/crc32.h>
+> +#include <linux/usb/cdc.h>
+> +#include <linux/usb/usbnet.h>
+> +#include <linux/gfp.h>
+> +
+> +/*
+> + * The Samsung Kalmia based LTE USB modems have a CDC ACM port for modem control
+> + * handled by the "option" module and an ethernet data port handled by this
+> + * module.
+> + *
+> + * The stick must first be switched into modem mode by usb_modeswitch
+> + * or similar tool. Then the modem gets sent two initialization packets by
+> + * this module, which gives the MAC address of the device. User space can then
+> + * connect the modem using AT commands through the ACM port and then use
+> + * DHCP on the network interface exposed by this module. Network packets are
+> + * sent to and from the modem in a proprietary format discovered after watching
+> + * the behavior of the windows driver for the modem.
+> + *
+> + * More information about the use of the modem is available in usb_modeswitch
+> + * forum and the project page:
+> + *
+> + * http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
+> + * https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
+> + */
+> +
+> +/* #define	DEBUG */
+> +/* #define	VERBOSE */
+> +
+> +#define KALMIA_HEADER_LENGTH 6
+> +#define KALMIA_ALIGN_SIZE 4
+> +#define KALMIA_USB_TIMEOUT 10000
+> +
+> +/*-------------------------------------------------------------------------*/
+> +
+> +static int
+> +kalmia_send_init_packet(struct usbnet *dev, u8 *init_msg, u8 init_msg_len,
+> +	u8 *buffer, u8 expected_len)
+> +{
+> +	int act_len;
+> +	int status;
+> +
+> +	netdev_dbg(dev->net, "Sending init packet");
+> +
+> +	status = usb_bulk_msg(dev->udev, usb_sndbulkpipe(dev->udev, 0x02),
+> +		init_msg, init_msg_len, &act_len, KALMIA_USB_TIMEOUT);
+> +	if (status != 0) {
+> +		netdev_err(dev->net,
+> +			"Error sending init packet. Status %i, length %i\n",
+> +			status, act_len);
+> +		return status;
+> +	}
+> +	else if (act_len != init_msg_len) {
+> +		netdev_err(dev->net,
+> +			"Did not send all of init packet. Bytes sent: %i",
+> +			act_len);
+> +	}
+> +	else {
+> +		netdev_dbg(dev->net, "Successfully sent init packet.");
+> +	}
+> +
+> +	status = usb_bulk_msg(dev->udev, usb_rcvbulkpipe(dev->udev, 0x81),
+> +		buffer, expected_len, &act_len, KALMIA_USB_TIMEOUT);
+> +
+> +	if (status != 0)
+> +		netdev_err(dev->net,
+> +			"Error receiving init result. Status %i, length %i\n",
+> +			status, act_len);
+> +	else if (act_len != expected_len)
+> +		netdev_err(dev->net, "Unexpected init result length: %i\n",
+> +			act_len);
+> +
+> +	return status;
+> +}
+> +
+> +static int
+> +kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
+> +{
+> +	char init_msg_1[] =
+> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
+> +		0x00, 0x00 };
+> +	char init_msg_2[] =
+> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
+> +		0x00, 0x00 };
+> +	char receive_buf[28];
+> +	int status;
+> +
+> +	status = kalmia_send_init_packet(dev, init_msg_1, sizeof(init_msg_1)
+> +		/ sizeof(init_msg_1[0]), receive_buf, 24);
+> +	if (status != 0)
+> +		return status;
+> +
+> +	status = kalmia_send_init_packet(dev, init_msg_2, sizeof(init_msg_2)
+> +		/ sizeof(init_msg_2[0]), receive_buf, 28);
+> +	if (status != 0)
+> +		return status;
+> +
+> +	memcpy(ethernet_addr, receive_buf + 10, ETH_ALEN);
+> +
+> +	return status;
+> +}
+> +
+> +static int
+> +kalmia_bind(struct usbnet *dev, struct usb_interface *intf)
+> +{
+> +	u8 status;
+> +	u8 ethernet_addr[ETH_ALEN];
+> +
+> +	/* Don't bind to AT command interface */
+> +	if (intf->cur_altsetting->desc.bInterfaceClass != USB_CLASS_VENDOR_SPEC)
+> +		return -EINVAL;
+> +
+> +	dev->in = usb_rcvbulkpipe(dev->udev, 0x81 & USB_ENDPOINT_NUMBER_MASK);
+> +	dev->out = usb_sndbulkpipe(dev->udev, 0x02 & USB_ENDPOINT_NUMBER_MASK);
+> +	dev->status = NULL;
+> +
+> +	dev->net->hard_header_len += KALMIA_HEADER_LENGTH;
+> +	dev->hard_mtu = 1400;
+> +	dev->rx_urb_size = dev->hard_mtu * 10; // Found as optimal after testing
+> +
+> +	status = kalmia_init_and_get_ethernet_addr(dev, ethernet_addr);
+> +
+> +	if (status < 0) {
+> +		usb_set_intfdata(intf, NULL);
+> +		usb_driver_release_interface(driver_of(intf), intf);
+> +		return status;
+> +	}
+> +
+> +	memcpy(dev->net->dev_addr, ethernet_addr, ETH_ALEN);
+> +	memcpy(dev->net->perm_addr, ethernet_addr, ETH_ALEN);
+> +
+> +	return status;
+> +}
+> +
+> +static struct sk_buff *
+> +kalmia_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+> +{
+> +	struct sk_buff *skb2 = NULL;
+> +	u16 content_len;
+> +	unsigned char *header_start;
+> +	unsigned char ether_type_1, ether_type_2;
+> +	u8 remainder, padlen = 0;
+> +
+> +	if (!skb_cloned(skb)) {
+> +		int headroom = skb_headroom(skb);
+> +		int tailroom = skb_tailroom(skb);
+> +
+> +		if ((tailroom >= KALMIA_ALIGN_SIZE) && (headroom
+> +			>= KALMIA_HEADER_LENGTH))
+> +			goto done;
+> +
+> +		if ((headroom + tailroom) > (KALMIA_HEADER_LENGTH
+> +			+ KALMIA_ALIGN_SIZE)) {
+> +			skb->data = memmove(skb->head + KALMIA_HEADER_LENGTH,
+> +				skb->data, skb->len);
+> +			skb_set_tail_pointer(skb, skb->len);
+> +			goto done;
+> +		}
+> +	}
+> +
+> +	skb2 = skb_copy_expand(skb, KALMIA_HEADER_LENGTH,
+> +		KALMIA_ALIGN_SIZE, flags);
+> +	if (!skb2)
+> +		return NULL;
+> +
+> +	dev_kfree_skb_any(skb);
+> +	skb = skb2;
+> +
+> +	done: header_start = skb_push(skb, KALMIA_HEADER_LENGTH);
+> +	ether_type_1 = header_start[KALMIA_HEADER_LENGTH + 12];
+> +	ether_type_2 = header_start[KALMIA_HEADER_LENGTH + 13];
+> +
+> +	netdev_dbg(dev->net, "Sending etherType: %02x%02x", ether_type_1,
+> +		ether_type_2);
+> +
+> +	/* According to empiric data for data packages */
+> +	header_start[0] = 0x57;
+> +	header_start[1] = 0x44;
+> +	content_len = skb->len - KALMIA_HEADER_LENGTH;
+> +	header_start[2] = (content_len & 0xff); /* low byte */
+> +	header_start[3] = (content_len >> 8); /* high byte */
+> +
+> +	header_start[4] = ether_type_1;
+> +	header_start[5] = ether_type_2;
+> +
+> +	/* Align to 4 bytes by padding with zeros */
+> +	remainder = skb->len % KALMIA_ALIGN_SIZE;
+> +	if (remainder > 0) {
+> +		padlen = KALMIA_ALIGN_SIZE - remainder;
+> +		memset(skb_put(skb, padlen), 0, padlen);
+> +	}
+> +
+> +	netdev_dbg(
+> +		dev->net,
+> +		"Sending package with length %i and padding %i. Header: %02x:%02x:%02x:%02x:%02x:%02x.",
+> +		content_len, padlen, header_start[0], header_start[1],
+> +		header_start[2], header_start[3], header_start[4],
+> +		header_start[5]);
+> +
+> +	return skb;
+> +}
+> +
+> +static int
+> +kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+> +{
+> +	/*
+> +	 * Our task here is to strip off framing, leaving skb with one
+> +	 * data frame for the usbnet framework code to process.
+> +	 */
+> +	const u8 HEADER_END_OF_USB_PACKET[] =
+> +		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
+> +	const u8 EXPECTED_UNKNOWN_HEADER_1[] =
+> +		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
+> +	const u8 EXPECTED_UNKNOWN_HEADER_2[] =
+> +		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
+> +	u8 i = 0;
+> +
+> +	/* incomplete header? */
+> +	if (skb->len < KALMIA_HEADER_LENGTH)
+> +		return 0;
+> +
+> +	do {
+> +		struct sk_buff *skb2 = NULL;
+> +		u8 *header_start;
+> +		u16 usb_packet_length, ether_packet_length;
+> +		int is_last;
+> +
+> +		header_start = skb->data;
+> +
+> +		if (unlikely(header_start[0] != 0x57 || header_start[1] != 0x44)) {
+> +			if (!memcmp(header_start, EXPECTED_UNKNOWN_HEADER_1,
+> +				sizeof(EXPECTED_UNKNOWN_HEADER_1)) || !memcmp(
+> +				header_start, EXPECTED_UNKNOWN_HEADER_2,
+> +				sizeof(EXPECTED_UNKNOWN_HEADER_2))) {
+> +				netdev_dbg(
+> +					dev->net,
+> +					"Received expected unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+> +					header_start[0], header_start[1],
+> +					header_start[2], header_start[3],
+> +					header_start[4], header_start[5],
+> +					skb->len - KALMIA_HEADER_LENGTH);
+> +			}
+> +			else {
+> +				netdev_err(
+> +					dev->net,
+> +					"Received unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+> +					header_start[0], header_start[1],
+> +					header_start[2], header_start[3],
+> +					header_start[4], header_start[5],
+> +					skb->len - KALMIA_HEADER_LENGTH);
+> +				return 0;
+> +			}
+> +		}
+> +		else
+> +			netdev_dbg(
+> +				dev->net,
+> +				"Received header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+> +				header_start[0], header_start[1], header_start[2],
+> +				header_start[3], header_start[4], header_start[5],
+> +				skb->len - KALMIA_HEADER_LENGTH);
+> +
+> +		/* subtract start header and end header */
+> +		usb_packet_length = skb->len - (2 * KALMIA_HEADER_LENGTH);
+> +		ether_packet_length = header_start[2] + (header_start[3] << 8);
+> +		skb_pull(skb, KALMIA_HEADER_LENGTH);
+> +
+> +		/* Some small packets misses end marker */
+> +		if (usb_packet_length < ether_packet_length) {
+> +			ether_packet_length = usb_packet_length
+> +				+ KALMIA_HEADER_LENGTH;
+> +			is_last = true;
+> +		}
+> +		else {
+> +			netdev_dbg(dev->net, "Correct package length #%i", i
+> +				+ 1);
+> +
+> +			is_last = (memcmp(skb->data + ether_packet_length,
+> +				HEADER_END_OF_USB_PACKET,
+> +				sizeof(HEADER_END_OF_USB_PACKET)) == 0);
+> +			if (!is_last) {
+> +				header_start = skb->data + ether_packet_length;
+> +				netdev_dbg(
+> +					dev->net,
+> +					"End header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+> +					header_start[0], header_start[1],
+> +					header_start[2], header_start[3],
+> +					header_start[4], header_start[5],
+> +					skb->len - KALMIA_HEADER_LENGTH);
+> +			}
+> +		}
+> +
+> +		if (is_last) {
+> +			skb2 = skb;
+> +		}
+> +		else {
+> +			skb2 = skb_clone(skb, GFP_ATOMIC);
+> +			if (unlikely(!skb2))
+> +				return 0;
+> +		}
+> +
+> +		skb_trim(skb2, ether_packet_length);
+> +
+> +		if (is_last) {
+> +			return 1;
+> +		}
+> +		else {
+> +			usbnet_skb_return(dev, skb2);
+> +			skb_pull(skb, ether_packet_length);
+> +		}
+> +
+> +		i++;
+> +	}
+> +	while (skb->len);
+> +
+> +	return 1;
+> +}
+> +
+> +static const struct driver_info kalmia_info = {
+> +	.description = "Samsung Kalmia LTE USB dongle",
+> +	.flags = FLAG_WWAN,
+> +	.bind = kalmia_bind,
+> +	.rx_fixup = kalmia_rx_fixup,
+> +	.tx_fixup = kalmia_tx_fixup
+> +};
+> +
+> +/*-------------------------------------------------------------------------*/
+> +
+> +static const struct usb_device_id products[] = {
+> +	/* The unswitched USB ID, to get the module auto loaded: */
+> +	{ USB_DEVICE(0x04e8, 0x689a) },
+> +	/* The stick swithed into modem (by e.g. usb_modeswitch): */
+> +	{ USB_DEVICE(0x04e8, 0x6889),
+> +		.driver_info = (unsigned long) &kalmia_info, },
+> +	{ /* EMPTY == end of list */} };
+> +MODULE_DEVICE_TABLE( usb, products);
+> +
+> +static struct usb_driver kalmia_driver = {
+> +	.name = "kalmia",
+> +	.id_table = products,
+> +	.probe = usbnet_probe,
+> +	.disconnect = usbnet_disconnect,
+> +	.suspend = usbnet_suspend,
+> +	.resume = usbnet_resume
+> +};
+> +
+> +static int __init kalmia_init(void)
+> +{
+> +	return usb_register(&kalmia_driver);
+> +}
+> +module_init( kalmia_init);
+> +
+> +static void __exit kalmia_exit(void)
+> +{
+> +	usb_deregister(&kalmia_driver);
+> +}
+> +module_exit( kalmia_exit);
+> +
+> +MODULE_AUTHOR("Marius Bjoernstad Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>");
+> +MODULE_DESCRIPTION("Samsung Kalmia USB network driver");
+> +MODULE_LICENSE("GPL");
 
-It's a bit paranoid but I would feel safer if f_info->fw_len was compared
-to fw->size beforehand.
 
-[...]
-> @@ -1892,14 +1913,6 @@ static void rtl_apply_firmware(struct rtl8169_private *tp)
->  		rtl_phy_write_fw(tp, fw);
->  }
->  
-> -static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 reg, u16 val)
-> -{
-> -	if (rtl_readphy(tp, reg) != val)
-> -		netif_warn(tp, hw, tp->dev, "chipset not ready for firmware\n");
-> -	else
-> -		rtl_apply_firmware(tp);
-> -}
-> -
->  static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
->  {
->  	static const struct phy_reg phy_reg_init[] = {
-> @@ -2334,10 +2347,7 @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
->  	rtl_w1w0_phy(tp, 0x02, 0x0100, 0x0600);
->  	rtl_w1w0_phy(tp, 0x03, 0x0000, 0xe000);
->  
-> -	rtl_writephy(tp, 0x1f, 0x0005);
-> -	rtl_writephy(tp, 0x05, 0x001b);
-> -
-> -	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xbf00);
-> +	rtl_apply_firmware(tp);
->  
->  	rtl_writephy(tp, 0x1f, 0x0000);
->  }
-> @@ -2437,10 +2447,7 @@ static void rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
->  	rtl_writephy(tp, 0x1f, 0x0002);
->  	rtl_patchphy(tp, 0x0f, 0x0017);
->  
-> -	rtl_writephy(tp, 0x1f, 0x0005);
-> -	rtl_writephy(tp, 0x05, 0x001b);
-> -
-> -	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xb300);
-> +	rtl_apply_firmware(tp);
-
-Actually both the format and the content of the firmware are changed by the
-patch.
-
-Imho the new firmware format could include some specific string so that the
-driver can identify the new firmware format and fallback to the old format
-otherwise. Any fixed magic prefix would be enough as the new format mandates
-the version information.
-
-This way Linus's test machine won't risk of breaking (again...) if he builds
-a new kernel without updating the firmware at the same time.
-
--- 
-Ueimor
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
