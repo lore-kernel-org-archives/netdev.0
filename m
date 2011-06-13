@@ -1,265 +1,89 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 8/8] tg3: Create funcs for power source
- switching
-Date: Mon, 13 Jun 2011 16:39:02 -0700
-Message-ID: <1308008342-21030-9-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 3/8] tg3: Remove 4G_DMA_BNDRY_BUG flag
+Date: Mon, 13 Jun 2011 16:38:57 -0700
+Message-ID: <1308008342-21030-4-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2449 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2435 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755320Ab1FMXiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755315Ab1FMXiT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 Jun 2011 19:38:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The power source switching code is about to get a little more complex.
-This patch seeks to simplify future power source switching patches by
-clarifying the existing code.
+Now that all chips have this bug, the flag checks become useless code.
+This patch removes the flag.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 ---
- drivers/net/tg3.c |  201 +++++++++++++++++++++++++++++++----------------------
- 1 files changed, 119 insertions(+), 82 deletions(-)
+ drivers/net/tg3.c |   14 +++-----------
+ drivers/net/tg3.h |    1 -
+ 2 files changed, 3 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 7dfacc0..372700b 100644
+index 488bcf9..765f3dc 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -107,6 +107,8 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
- 	 NETIF_MSG_RX_ERR	| \
- 	 NETIF_MSG_TX_ERR)
+@@ -5822,8 +5822,7 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
+ 		/* Make sure new skb does not cross any 4G boundaries.
+ 		 * Drop the packet if it does.
+ 		 */
+-		} else if (tg3_flag(tp, 4G_DMA_BNDRY_BUG) &&
+-			   tg3_4g_overflow_test(new_addr, new_skb->len)) {
++		} else if (tg3_4g_overflow_test(new_addr, new_skb->len)) {
+ 			pci_unmap_single(tp->pdev, new_addr, new_skb->len,
+ 					 PCI_DMA_TODEVICE);
+ 			ret = -1;
+@@ -6018,8 +6017,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (tg3_flag(tp, SHORT_DMA_BUG) && len <= 8)
+ 		would_hit_hwbug = 1;
  
-+#define TG3_GRC_LCLCTL_PWRSW_DELAY	100
-+
- /* length of time before we decide the hardware is borked,
-  * and dev->tx_timeout() should be called to fix the problem
-  */
-@@ -2165,6 +2167,118 @@ out:
- 	return 0;
- }
+-	if (tg3_flag(tp, 4G_DMA_BNDRY_BUG) &&
+-	    tg3_4g_overflow_test(mapping, len))
++	if (tg3_4g_overflow_test(mapping, len))
+ 		would_hit_hwbug = 1;
  
-+static inline int tg3_pwrsrc_switch_to_vmain(struct tg3 *tp)
-+{
-+	if (!tg3_flag(tp, IS_NIC))
-+		return 0;
-+
-+	tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl,
-+		    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+	return 0;
-+}
-+
-+static void tg3_pwrsrc_die_with_vmain(struct tg3 *tp)
-+{
-+	u32 grc_local_ctrl;
-+
-+	if (!tg3_flag(tp, IS_NIC) ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
-+		return;
-+
-+	grc_local_ctrl = tp->grc_local_ctrl | GRC_LCLCTRL_GPIO_OE1;
-+
-+	tw32_wait_f(GRC_LOCAL_CTRL,
-+		    grc_local_ctrl | GRC_LCLCTRL_GPIO_OUTPUT1,
-+		    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+	tw32_wait_f(GRC_LOCAL_CTRL,
-+		    grc_local_ctrl,
-+		    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+	tw32_wait_f(GRC_LOCAL_CTRL,
-+		    grc_local_ctrl | GRC_LCLCTRL_GPIO_OUTPUT1,
-+		    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+}
-+
-+static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
-+{
-+	if (!tg3_flag(tp, IS_NIC))
-+		return;
-+
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
-+		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
-+			    (GRC_LCLCTRL_GPIO_OE0 |
-+			     GRC_LCLCTRL_GPIO_OE1 |
-+			     GRC_LCLCTRL_GPIO_OE2 |
-+			     GRC_LCLCTRL_GPIO_OUTPUT0 |
-+			     GRC_LCLCTRL_GPIO_OUTPUT1),
-+			    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+	} else if (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761 ||
-+		   tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761S) {
-+		/* The 5761 non-e device swaps GPIO 0 and GPIO 2. */
-+		u32 grc_local_ctrl = GRC_LCLCTRL_GPIO_OE0 |
-+				     GRC_LCLCTRL_GPIO_OE1 |
-+				     GRC_LCLCTRL_GPIO_OE2 |
-+				     GRC_LCLCTRL_GPIO_OUTPUT0 |
-+				     GRC_LCLCTRL_GPIO_OUTPUT1 |
-+				     tp->grc_local_ctrl;
-+		tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl,
-+			    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+		grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT2;
-+		tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl,
-+			    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+		grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT0;
-+		tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl,
-+			    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+	} else {
-+		u32 no_gpio2;
-+		u32 grc_local_ctrl = 0;
-+
-+		/* Workaround to prevent overdrawing Amps. */
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714) {
-+			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE3;
-+			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
-+				    grc_local_ctrl,
-+				    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+		}
-+
-+		/* On 5753 and variants, GPIO2 cannot be used. */
-+		no_gpio2 = tp->nic_sram_data_cfg &
-+			   NIC_SRAM_DATA_CFG_NO_GPIO2;
-+
-+		grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE0 |
-+				  GRC_LCLCTRL_GPIO_OE1 |
-+				  GRC_LCLCTRL_GPIO_OE2 |
-+				  GRC_LCLCTRL_GPIO_OUTPUT1 |
-+				  GRC_LCLCTRL_GPIO_OUTPUT2;
-+		if (no_gpio2) {
-+			grc_local_ctrl &= ~(GRC_LCLCTRL_GPIO_OE2 |
-+					    GRC_LCLCTRL_GPIO_OUTPUT2);
-+		}
-+		tw32_wait_f(GRC_LOCAL_CTRL,
-+			    tp->grc_local_ctrl | grc_local_ctrl,
-+			    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+		grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT0;
-+
-+		tw32_wait_f(GRC_LOCAL_CTRL,
-+			    tp->grc_local_ctrl | grc_local_ctrl,
-+			    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+		if (!no_gpio2) {
-+			grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT2;
-+			tw32_wait_f(GRC_LOCAL_CTRL,
-+				    tp->grc_local_ctrl | grc_local_ctrl,
-+				    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+		}
-+	}
-+}
-+
- static void tg3_frob_aux_power(struct tg3 *tp)
- {
- 	bool need_vaux = false;
-@@ -2200,86 +2314,10 @@ static void tg3_frob_aux_power(struct tg3 *tp)
- 	if (tg3_flag(tp, WOL_ENABLE) || tg3_flag(tp, ENABLE_ASF))
- 		need_vaux = true;
+ 	if (tg3_40bit_overflow_test(tp, mapping, len))
+@@ -6055,8 +6053,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			    len <= 8)
+ 				would_hit_hwbug = 1;
  
--	if (need_vaux) {
--		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
--		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
--			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--				    (GRC_LCLCTRL_GPIO_OE0 |
--				     GRC_LCLCTRL_GPIO_OE1 |
--				     GRC_LCLCTRL_GPIO_OE2 |
--				     GRC_LCLCTRL_GPIO_OUTPUT0 |
--				     GRC_LCLCTRL_GPIO_OUTPUT1),
--				    100);
--		} else if (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761 ||
--			   tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761S) {
--			/* The 5761 non-e device swaps GPIO 0 and GPIO 2. */
--			u32 grc_local_ctrl = GRC_LCLCTRL_GPIO_OE0 |
--					     GRC_LCLCTRL_GPIO_OE1 |
--					     GRC_LCLCTRL_GPIO_OE2 |
--					     GRC_LCLCTRL_GPIO_OUTPUT0 |
--					     GRC_LCLCTRL_GPIO_OUTPUT1 |
--					     tp->grc_local_ctrl;
--			tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl, 100);
--
--			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT2;
--			tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl, 100);
--
--			grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT0;
--			tw32_wait_f(GRC_LOCAL_CTRL, grc_local_ctrl, 100);
--		} else {
--			u32 no_gpio2;
--			u32 grc_local_ctrl = 0;
--
--			/* Workaround to prevent overdrawing Amps. */
--			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
--			    ASIC_REV_5714) {
--				grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE3;
--				tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--					    grc_local_ctrl, 100);
--			}
--
--			/* On 5753 and variants, GPIO2 cannot be used. */
--			no_gpio2 = tp->nic_sram_data_cfg &
--				    NIC_SRAM_DATA_CFG_NO_GPIO2;
--
--			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OE0 |
--					 GRC_LCLCTRL_GPIO_OE1 |
--					 GRC_LCLCTRL_GPIO_OE2 |
--					 GRC_LCLCTRL_GPIO_OUTPUT1 |
--					 GRC_LCLCTRL_GPIO_OUTPUT2;
--			if (no_gpio2) {
--				grc_local_ctrl &= ~(GRC_LCLCTRL_GPIO_OE2 |
--						    GRC_LCLCTRL_GPIO_OUTPUT2);
--			}
--			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--						    grc_local_ctrl, 100);
--
--			grc_local_ctrl |= GRC_LCLCTRL_GPIO_OUTPUT0;
--
--			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--						    grc_local_ctrl, 100);
--
--			if (!no_gpio2) {
--				grc_local_ctrl &= ~GRC_LCLCTRL_GPIO_OUTPUT2;
--				tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--					    grc_local_ctrl, 100);
--			}
--		}
--	} else {
--		if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700 &&
--		    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701) {
--			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--				    (GRC_LCLCTRL_GPIO_OE1 |
--				     GRC_LCLCTRL_GPIO_OUTPUT1), 100);
--
--			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--				    GRC_LCLCTRL_GPIO_OE1, 100);
--
--			tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
--				    (GRC_LCLCTRL_GPIO_OE1 |
--				     GRC_LCLCTRL_GPIO_OUTPUT1), 100);
--		}
--	}
-+	if (need_vaux)
-+		tg3_pwrsrc_switch_to_vaux(tp);
-+	else
-+		tg3_pwrsrc_die_with_vmain(tp);
- }
+-			if (tg3_flag(tp, 4G_DMA_BNDRY_BUG) &&
+-			    tg3_4g_overflow_test(mapping, len))
++			if (tg3_4g_overflow_test(mapping, len))
+ 				would_hit_hwbug = 1;
  
- static int tg3_5700_link_polarity(struct tg3 *tp, u32 speed)
-@@ -2624,8 +2662,7 @@ static int tg3_power_up(struct tg3 *tp)
- 	pci_set_power_state(tp->pdev, PCI_D0);
+ 			if (tg3_40bit_overflow_test(tp, mapping, len))
+@@ -13701,11 +13698,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		}
+ 	}
  
- 	/* Switch out of Vaux if it is a NIC */
--	if (tg3_flag(tp, IS_NIC))
--		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl, 100);
-+	tg3_pwrsrc_switch_to_vmain(tp);
+-	/* All chips can get confused if TX buffers
+-	 * straddle the 4GB address boundary.
+-	 */
+-	tg3_flag_set(tp, 4G_DMA_BNDRY_BUG);
+-
+ 	if (tg3_flag(tp, 5755_PLUS))
+ 		tg3_flag_set(tp, SHORT_DMA_BUG);
  
- 	return 0;
- }
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 4f5dbf6..fc33566 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2896,7 +2896,6 @@ enum TG3_FLAGS {
+ 	TG3_FLAG_NO_NVRAM,
+ 	TG3_FLAG_ENABLE_RSS,
+ 	TG3_FLAG_ENABLE_TSS,
+-	TG3_FLAG_4G_DMA_BNDRY_BUG,
+ 	TG3_FLAG_SHORT_DMA_BUG,
+ 	TG3_FLAG_USE_JUMBO_BDFLAG,
+ 	TG3_FLAG_L1PLLPD_EN,
 -- 
 1.7.3.4
 
