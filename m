@@ -1,114 +1,56 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re: Re: [RFC PATCH 1/1] IPVS netns shutdown/startup dead-lock
-Date: Tue, 14 Jun 2011 00:09:26 +0200 (CEST)
-Message-ID: <oth2obo.8109e7bd386ff72c34c0bda4b6945edf@obelix.schillstrom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	horms@verge.net.au, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: "Julian Anastasov" <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding:delete a dereference before check
+Date: Mon, 13 Jun 2011 15:11:01 -0700
+Message-ID: <18226.1308003061@death>
+References: <20110611081214.GA21427@shale.localdomain> <1307975410-13523-1-git-send-email-panweiping3@gmail.com>
+Cc: error27@gmail.com,
+	Andy Gospodarek (supporter:BONDING DRIVER) <andy@greyhouse.net>,
+	netdev@vger.kernel.org (open list:BONDING DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+To: Weiping Pan <panweiping3@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:42127 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753009Ab1FMWLH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jun 2011 18:11:07 -0400
+In-reply-to: <1307975410-13523-1-git-send-email-panweiping3@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->---- Original Message ----
->From: Julian Anastasov <ja@ssi.bg>
->To: "Hans Schillstrom" <hans.schillstrom@ericsson.com>
->Cc: horms@verge.net.au, wensong@linux-vs.org, lvs-devel@vger.kernel.org, netdev@vger.kernel.org, netfilter-devel@vger.kernel.org, hans@schillstrom.com
->Sent: Mon, Jun 13, 2011, 23:23 PM
->Subject: Re: [RFC PATCH 1/1] IPVS netns shutdown/startup dead-lock
+Weiping Pan <panweiping3@gmail.com> wrote:
+
+>Dan Carpenter found that there was a dereference before a check,
+>added in 56d00c677de0(bonding:delete lacp_fast from ad_bond_info).
 >
->Hello,
+>Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+	-J
+
+> drivers/net/bonding/bond_3ad.c |    3 +--
+> 1 files changed, 1 insertions(+), 2 deletions(-)
 >
->On Mon, 13 Jun 2011, Hans Schillstrom wrote:
+>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>index 6122725..77da2e8 100644
+>--- a/drivers/net/bonding/bond_3ad.c
+>+++ b/drivers/net/bonding/bond_3ad.c
+>@@ -1900,7 +1900,6 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
+> int bond_3ad_bind_slave(struct slave *slave)
+> {
+> 	struct bonding *bond = bond_get_bond_by_slave(slave);
+>-	int lacp_fast = bond->params.lacp_fast;
+> 	struct port *port;
+> 	struct aggregator *aggregator;
 >
->> ip_vs_mutext is used by both netns shutdown code and startup
->> and both implicit uses sk_lock-AF_INET mutex.
->> 
->> cleanup CPU-1         startup CPU-2
->> ip_vs_dst_event()     ip_vs_genl_set_cmd()
->>  sk_lock-AF_INET     __ip_vs_mutex
->>                      sk_lock-AF_INET
->> __ip_vs_mutex
->> * DEAD LOCK *
+>@@ -1916,7 +1915,7 @@ int bond_3ad_bind_slave(struct slave *slave)
+> 		// port initialization
+> 		port = &(SLAVE_AD_INFO(slave).port);
 >
->	So, sk_lock-AF_INET is locked before calling
->ip_vs_dst_event ? Do you have a backtrace for this case?
-
-Yes plenty this one is with lockdep
-
-Chain exists of:
-  rtnl_mutex --> __ip_vs_mutex --> sk_lock-AF_INET
-
- Possible unsafe locking scenario:
-
-       CPU0                    CPU1
-       ----                    ----
-  lock(sk_lock-AF_INET);
-                               lock(__ip_vs_mutex);
-                               lock(sk_lock-AF_INET);
-  lock(rtnl_mutex);
-
- *** DEADLOCK ***
-
-3 locks held by ipvsadm/993:
- #0:  (genl_mutex){+.+.+.}, at: [<ffffffff812edc52>] genl_lock+0x17/0x19
- #1:  (__ip_vs_mutex){+.+.+.}, at: [<ffffffff81307dcb>] ip_vs_genl_set_cmd+0xe1/0x3a3
- #2:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8130ffc1>] start_sync_thread+0x3ec/0x5ff
-
-
->I assume your patch is tested to fix the problem ?
-
-Yes.
-
+>-		ad_initialize_port(port, lacp_fast);
+>+		ad_initialize_port(port, bond->params.lacp_fast);
 >
->> This can be solved by have the ip_vs_mutex per netns
->> or avid locking when starting/stoping sync-threads.
->> i.e. just add a starting/stoping flag.
->
->	sk_release_kernel is called in thread
->context, so ip_vs_mutex is not involved there. We
->have a problem only with start_sync_thread, right?
-
-Yes the socket operations
-
->
->> ip_vs_mutex per name-space seems to be a more future proof solution.
->
->	Global mutex protects some global lists such as
->virtual services. If your patch works, better way to fix this problem
->is to use some new mutex. May be we can move the IPVS_CMD_NEW_DAEMON,
->IPVS_CMD_DEL_DAEMON and IP_VS_SO_GET_DAEMON code before the
->__ip_vs_mutex locking. This mutex should be used for start_sync_thread,
->stop_sync_thread, ip_vs_genl_dump_daemons and IP_VS_SO_GET_DAEMON.
->For example, ip_vs_sync_mutex.
-
-I think we should avoid global mutexes as a rule of tumb, 
-because it's realy hard to keep track of all possible cases 
-that can occur when multiple netns is alive and/or goes up and down.
-
-There might be more suprises while a netns exits (in terms of locks)...
-my gut feeling is, avoid global locks as long as possible.
-
->
->	Note that __ip_vs_sync_cleanup is missing a
->__ip_vs_mutex lock. We have to use the new mutex there.
-
-OK
-
->
->> Which one should be used ?
->
->	For now __ip_vs_mutex should be global ...
-
-I do agree, but in the long term I vote for mutex per netns.
- 
-Thanks a lot Julian
-
-Regards
-Hans
-
+> 		port->slave = slave;
+> 		port->actor_port_number = SLAVE_AD_INFO(slave).id;
+>-- 
+>1.7.4.4
