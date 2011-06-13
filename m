@@ -1,96 +1,77 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH] be2net: fix netdev_stats_update()
-Date: Mon, 13 Jun 2011 00:09:38 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F63F18593D4F@EXMAIL.ad.emulex.com>
-References: <f67e2aac-b763-404d-8e45-5c5f52c56d18@exht1.ad.emulex.com>
- <1307947748.2872.182.camel@edumazet-laptop>
+From: Aaron Wu <aaronwu06@gmail.com>
+Subject: Question on IP_TOS options
+Date: Mon, 13 Jun 2011 15:28:19 +0800
+Message-ID: <BANLkTinnhZSvREW8MrL7R2DUirHtG_eQUw@mail.gmail.com>
+References: <BANLkTikJKzWPU2qb2GkYGej0yE=O3Z+EWw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:22110 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753132Ab1FMHJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 03:09:57 -0400
-In-Reply-To: <1307947748.2872.182.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:64280 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752119Ab1FMH2V convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 03:28:21 -0400
+Received: by qwk3 with SMTP id 3so2050134qwk.19
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2011 00:28:19 -0700 (PDT)
+In-Reply-To: <BANLkTikJKzWPU2qb2GkYGej0yE=O3Z+EWw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIEVyaWMuIFdpbGwgZG8uDQoNCkRhdmUsIEkgd291bGQgcHJlZmVyIHRvIHNlbmQgYSBz
-ZXBhcmF0ZSBwYXRjaCBmaXhpbmcgdGhlIG5ldGRldiBzdGF0cyBpc3N1ZSBhZnRlciB5b3UgYXBw
-bHkgdGhpcyBtdWx0aXBsZSBUWFEgcGF0Y2guIEFyZSB5b3UgT0sgd2l0aCB0aGF0Pw0KDQo+IC0t
-LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVy
-aWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgSnVuZSAxMywgMjAxMSAxMjox
-OSBQTQ0KPiBUbzogUGVybGEsIFNhdGh5YTsgRGF2aWQgTWlsbGVyDQo+IENjOiBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSF0gYmUybmV0OiBmaXggbmV0ZGV2X3N0YXRz
-X3VwZGF0ZSgpDQo+IA0KPiBMZSBsdW5kaSAxMyBqdWluIDIwMTEgw6AgMTE6MzEgKzA1MzAsIFNh
-dGh5YSBQZXJsYSBhIMOpY3JpdCA6DQo+ID4gVGhpcyBwYXRjaCBwcm92aWRlcyBzdXBwb3J0IGZv
-ciBtdWx0aXBsZSBUWCBxdWV1ZXMuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBTYXRoeWEgUGVy
-bGEgPHNhdGh5YS5wZXJsYUBlbXVsZXguY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9i
-ZW5ldC9iZS5oICAgICAgICAgfCAgIDEzICsrLQ0KPiA+ICBkcml2ZXJzL25ldC9iZW5ldC9iZV9l
-dGh0b29sLmMgfCAgIDUwICsrKysrKystLS0NCj4gPiAgZHJpdmVycy9uZXQvYmVuZXQvYmVfbWFp
-bi5jICAgIHwgIDIyNyArKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0NCj4gLS0tLS0tLS0t
-LQ0KPiA+ICAzIGZpbGVzIGNoYW5nZWQsIDE3MSBpbnNlcnRpb25zKCspLCAxMTkgZGVsZXRpb25z
-KC0pDQo+ID4NCjxzbmlwPg0KPiA+ICAJbWVtc2V0KGRldl9zdGF0cywgMCwgc2l6ZW9mKCpkZXZf
-c3RhdHMpKTsNCj4gPiBAQCAtNDUwLDggKzQ1MSwxMCBAQCB2b2lkIG5ldGRldl9zdGF0c191cGRh
-dGUoc3RydWN0IGJlX2FkYXB0ZXINCj4gKmFkYXB0ZXIpDQo+ID4gIAkJfQ0KPiA+ICAJfQ0KPiA+
-DQo+ID4gLQlkZXZfc3RhdHMtPnR4X3BhY2tldHMgPSB0eF9zdGF0cyhhZGFwdGVyKS0+YmVfdHhf
-cGt0czsNCj4gPiAtCWRldl9zdGF0cy0+dHhfYnl0ZXMgPSB0eF9zdGF0cyhhZGFwdGVyKS0+YmVf
-dHhfYnl0ZXM7DQo+ID4gKwlmb3JfYWxsX3R4X3F1ZXVlcyhhZGFwdGVyLCB0eG8sIGkpIHsNCj4g
-PiArCQlkZXZfc3RhdHMtPnR4X3BhY2tldHMgKz0gdHhfc3RhdHModHhvKS0+YmVfdHhfcGt0czsN
-Cj4gPiArCQlkZXZfc3RhdHMtPnR4X2J5dGVzICs9IHR4X3N0YXRzKHR4byktPmJlX3R4X2J5dGVz
-Ow0KPiA+ICsJfQ0KPiA+DQo+ID4gIAkvKiBiYWQgcGt0cyByZWNlaXZlZCAqLw0KPiA+ICAJZGV2
-X3N0YXRzLT5yeF9lcnJvcnMgPSBkcnZzLT5yeF9jcmNfZXJyb3JzICsNCj4gPiBAQCAtNTU0LDkg
-KzU1Nyw5IEBAIHN0YXRpYyB1MzIgYmVfY2FsY19yYXRlKHU2NCBieXRlcywgdW5zaWduZWQgbG9u
-Zw0KPiB0aWNrcykNCj4gPiAgCXJldHVybiByYXRlOw0KPiA+ICB9DQo+ID4NCj4gDQo+IEhpIFNh
-dGh5YQ0KPiANCj4gQnJvd3NpbmcgaW50byB0aGlzIHBhdGNoIG1hZGUgbWUgcmVhbGl6ZSBiZTJu
-ZXQgbmV0ZGV2X3N0YXRzX3VwZGF0ZSgpDQo+IGlzDQo+IHdyb25nLg0KPiANCj4gSXQgc2hvdWxk
-IG5vdCByZXNldCBldmVuIHRlbXBvcmFybHkgbmV0ZGV2LT5zdGF0cy4NCj4gDQo+IFlvdSBzaG91
-bGQgaGF2ZSBzb21ldGhpbmcgbGlrZSB0aGUgZm9sbG93aW5nIEkgY29va2VkIGZvciBsaW51eC0y
-LjYsIHNvDQo+IHRoYXQgeW91IGdldCB0aGUgaWRlYS4gUGxlYXNlIHJlc3BpbiB5b3VyIHBhdGNo
-IGFmdGVyIGFwcGx5aW5nDQo+IGZvbGxvd2luZw0KPiBmaXguDQo+IA0KPiBbUEFUQ0hdIGJlMm5l
-dDogZml4IG5ldGRldl9zdGF0c191cGRhdGUoKQ0KPiANCj4gU2luY2UgdGhpcyBkcml2ZXIgdXNl
-cyB0aGUgZGVmYXVsdCBkZXZfZ2V0X3N0YXRzKCkgWyBhcyBpdCBkb2VzbnQNCj4gcHJvdmlkZSBu
-ZG9fZ2V0X3N0YXRzKCkgbm9yIG5kb19nZXRfc3RhdHM2NCgpIG1ldGhvZCBdLCByZXNldHRpbmcN
-Cj4gbmV0ZGV2LT5zdGF0cyBjYW4gbGVhZCBzb21lIFNOTVAgcmVhZGVycyBjYXRjaGluZyBpbnRl
-cm1lZGlhdGUgdmFsdWVzLA0KPiBicmVha2luZyB0aGUgcnVsZSB0aGF0IGNvdW50ZXJzIG9ubHkg
-Y2FuIGluY3JlYXNlIGluIHRpbWUuDQo+IA0KPiBXZSBpbnN0ZWFkIHNob3VsZCB1c2UgdGVtcG9y
-YXJ5IGFjY3VtdWxhdG9ycyBhbmQgb25seSBzZXQgbmV0ZGV2LT5zdGF0cw0KPiB2YWx1ZXMgd2l0
-aCBmaW5hbCByZXN1bHRzLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmlj
-LmR1bWF6ZXRAZ21haWwuY29tPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2JlbmV0L2JlX21haW4u
-YyB8ICAgMTcgKysrKysrKysrKystLS0tLS0NCj4gIDEgZmlsZXMgY2hhbmdlZCwgMTEgaW5zZXJ0
-aW9ucygrKSwgNiBkZWxldGlvbnMoLSkNCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JlbmV0
-L2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2JlbmV0L2JlX21haW4uYw0KPiBpbmRleCBhNDg1Zjdm
-Li45NjI1MDlkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9iZW5ldC9iZV9tYWluLmMNCj4g
-KysrIGIvZHJpdmVycy9uZXQvYmVuZXQvYmVfbWFpbi5jDQo+IEBAIC00MjcsMjggKzQyNywzMyBA
-QCB2b2lkIG5ldGRldl9zdGF0c191cGRhdGUoc3RydWN0IGJlX2FkYXB0ZXINCj4gKmFkYXB0ZXIp
-DQo+ICAJc3RydWN0IGJlX2Rydl9zdGF0cyAqZHJ2cyA9ICZhZGFwdGVyLT5kcnZfc3RhdHM7DQo+
-ICAJc3RydWN0IG5ldF9kZXZpY2Vfc3RhdHMgKmRldl9zdGF0cyA9ICZhZGFwdGVyLT5uZXRkZXYt
-PnN0YXRzOw0KPiAgCXN0cnVjdCBiZV9yeF9vYmogKnJ4bzsNCj4gKwl1bnNpZ25lZCBsb25nIHJ4
-X3BhY2tldHMgPSAwLCByeF9ieXRlcyA9IDAsIG11bHRpY2FzdCA9IDA7DQo+ICsJdW5zaWduZWQg
-bG9uZyByeF9kcm9wcGVkID0gMDsNCj4gIAlpbnQgaTsNCj4gDQo+IC0JbWVtc2V0KGRldl9zdGF0
-cywgMCwgc2l6ZW9mKCpkZXZfc3RhdHMpKTsNCj4gIAlmb3JfYWxsX3J4X3F1ZXVlcyhhZGFwdGVy
-LCByeG8sIGkpIHsNCj4gLQkJZGV2X3N0YXRzLT5yeF9wYWNrZXRzICs9IHJ4X3N0YXRzKHJ4bykt
-PnJ4X3BrdHM7DQo+IC0JCWRldl9zdGF0cy0+cnhfYnl0ZXMgKz0gcnhfc3RhdHMocnhvKS0+cnhf
-Ynl0ZXM7DQo+IC0JCWRldl9zdGF0cy0+bXVsdGljYXN0ICs9IHJ4X3N0YXRzKHJ4byktPnJ4X21j
-YXN0X3BrdHM7DQo+ICsJCXJ4X3BhY2tldHMgKz0gcnhfc3RhdHMocnhvKS0+cnhfcGt0czsNCj4g
-KwkJcnhfYnl0ZXMgKz0gcnhfc3RhdHMocnhvKS0+cnhfYnl0ZXM7DQo+ICsJCW11bHRpY2FzdCAr
-PSByeF9zdGF0cyhyeG8pLT5yeF9tY2FzdF9wa3RzOw0KPiAgCQkvKiAgbm8gc3BhY2UgaW4gbGlu
-dXggYnVmZmVyczogYmVzdCBwb3NzaWJsZSBhcHByb3hpbWF0aW9uDQo+ICovDQo+ICAJCWlmIChh
-ZGFwdGVyLT5nZW5lcmF0aW9uID09IEJFX0dFTjMpIHsNCj4gIAkJCWlmICghKGxhbmNlcl9jaGlw
-KGFkYXB0ZXIpKSkgew0KPiAgCQkJCXN0cnVjdCBiZV9lcnhfc3RhdHNfdjEgKmVyeF9zdGF0cyA9
-DQo+ICAJCQkJCWJlX2VyeF9zdGF0c19mcm9tX2NtZChhZGFwdGVyKTsNCj4gLQkJCQlkZXZfc3Rh
-dHMtPnJ4X2Ryb3BwZWQgKz0NCj4gKwkJCQlyeF9kcm9wcGVkICs9DQo+ICAJCQkJZXJ4X3N0YXRz
-LT5yeF9kcm9wc19ub19mcmFnbWVudHNbcnhvLT5xLmlkXTsNCj4gIAkJCX0NCj4gIAkJfSBlbHNl
-IHsNCj4gIAkJCXN0cnVjdCBiZV9lcnhfc3RhdHNfdjAgKmVyeF9zdGF0cyA9DQo+ICAJCQkJCWJl
-X2VyeF9zdGF0c19mcm9tX2NtZChhZGFwdGVyKTsNCj4gLQkJCWRldl9zdGF0cy0+cnhfZHJvcHBl
-ZCArPQ0KPiArCQkJcnhfZHJvcHBlZCArPQ0KPiAgCQkJCWVyeF9zdGF0cy0+cnhfZHJvcHNfbm9f
-ZnJhZ21lbnRzW3J4by0+cS5pZF07DQo+ICAJCX0NCj4gIAl9DQo+ICsJZGV2X3N0YXRzLT5yeF9w
-YWNrZXRzID0gcnhfcGFja2V0czsNCj4gKwlkZXZfc3RhdHMtPnJ4X2J5dGVzID0gcnhfYnl0ZXM7
-DQo+ICsJZGV2X3N0YXRzLT5tdWx0aWNhc3QgPSBtdWx0aWNhc3Q7DQo+ICsJZGV2X3N0YXRzLT5y
-eF9kcm9wcGVkID0gcnhfZHJvcHBlZDsNCj4gDQo+ICAJZGV2X3N0YXRzLT50eF9wYWNrZXRzID0g
-dHhfc3RhdHMoYWRhcHRlciktPmJlX3R4X3BrdHM7DQo+ICAJZGV2X3N0YXRzLT50eF9ieXRlcyA9
-IHR4X3N0YXRzKGFkYXB0ZXIpLT5iZV90eF9ieXRlczsNCj4gDQoNCg==
+Greetings!
+
+Recently I am looking into some network performance test, but have no
+idea how the IP_TOS, to be specific the 0xa0 (means
+IPTOS_PREC_CRITIC_ECP?) works. Here is the full story:
+By starting two iperf sessions at the same time, followed by the third
+iperf session right after 10 seconds like below:
+
+1)iperf -c <serverip> -p 5001 -u -t 20 -S 0x00 -b 3.2M -i 2
+2)iperf -c <serverip> -p 5002 -u -t 20 -S 0xa0 -b 2.8M -i 2
+
+3)iperf -c <serverip> -p 5003 -u -t 20 -S 0x00 -b 3.2M -i 2
+
+The total network bandwidth is about 6M, so first we fill all the
+bandwidth with session 1 and sesson 2, session one is marked as low
+priority by -S 0x00 and session 2 as high prioirty with -S 0xa0.
+Then 10 seconds later, we start the third low priority session. The
+expected result is: bandwidth for session 2=A0will not drop to 90%=A0of
+it's original value before the insertion of session 3, as it's the
+high priority session. However, the actual test result varies=A0from
+platform to platform, on=A0a=A0ubuntu 10.04 X86 computer is works as
+expected, on another embedded platform also running the=A0IPV4,
+bandwidth for session 2 decreased=A0greatly due to the insertion of
+session 3. We tracked the code and find=A0-S option for iperf eventuall=
+y
+invokes the following code in=A0net/ipv4/ip_sockglue.c:
+
+=A0=A0case IP_TOS:=A0=A0=A0 /* This sets both TOS and Precedence */
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 printk("Setting IP_TOS, v=
+al is 0x%x\n", val);
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if (sk->sk_type =3D=3D SO=
+CK_STREAM) {
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 v=
+al &=3D ~3;
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 v=
+al |=3D inet->tos & 3;
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 p=
+rintk("Setting IP_TOS, is stream val is 0x%x\n", val);
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 }
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 if (inet->tos !=3D val) {
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 i=
+net->tos =3D val;
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 s=
+k->sk_priority =3D rt_tos2priority(val);
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 s=
+k_dst_reset(sk);
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 p=
+rintk("Setting IP_TOS, set tos to val is 0x%x\n", val);
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 }
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 break;
+We don't have idea on the 0xa0 (IPTOS_PREC_CRITIC_ECP) for IP_TOS
+option and have no idea why on X86 it works well and on the embedded
+platform it does not. Appreciate very much if someone could shed some
+light.
+
+Best regards,
+Aaron
