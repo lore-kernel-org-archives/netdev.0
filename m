@@ -1,11 +1,11 @@
-From: Debashis Dutt <debdut@gmail.com>
+From: Daniele Venzano <venza@brownhat.org>
 Subject: Re: [PATCH net-next 2/2] drivers/net: Remove casts of void *
-Date: Tue, 14 Jun 2011 00:56:22 -0700
-Message-ID: <BANLkTi=k-noagFZv-tZbx2FyZ-uBzwP=KA@mail.gmail.com>
+Date: Tue, 14 Jun 2011 10:18:12 +0200
+Message-ID: <BANLkTimdj-p9a+615JPe6oUJQqQo4_+-rA@mail.gmail.com>
 References: <cover.1308024069.git.joe@perches.com>
 	<486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
@@ -27,49 +27,52 @@ Cc: netdev@vger.kernel.org,
 	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
 	Steve Hodgson <shodgson@solarflare.com>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	Daniele Venzano <venza@brownhat
+	David Dillow <dave@thedillows.o
 To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/bna/bfa_cee.c
-> index f7b789a..dcfbf08 100644
-> --- a/drivers/net/bna/bfa_cee.c
-> +++ b/drivers/net/bna/bfa_cee.c
-> @@ -236,7 +236,7 @@ static void
-> =A0bfa_cee_hbfail(void *arg)
-> =A0{
-> =A0 =A0 =A0 =A0struct bfa_cee *cee;
-> - =A0 =A0 =A0 cee =3D (struct bfa_cee *) arg;
-> + =A0 =A0 =A0 cee =3D arg;
->
-> =A0 =A0 =A0 =A0if (cee->get_attr_pending =3D=3D true) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0cee->get_attr_status =3D BFA_STATUS_FA=
-ILED;
-> diff --git a/drivers/net/bna/cna.h b/drivers/net/bna/cna.h
-> index bbd39dc..3c47dc5 100644
-> --- a/drivers/net/bna/cna.h
-> +++ b/drivers/net/bna/cna.h
-> @@ -74,7 +74,7 @@ typedef struct mac { u8 mac[MAC_ADDRLEN]; } mac_t;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bfa_q_next(_q) =3D bfa_q_next(*((struc=
-t list_head **) _qe)); \
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bfa_q_qe_init(*((struct list_head **) =
-_qe)); =A0 =A0 =A0 =A0 =A0 =A0\
-> =A0 =A0 =A0 =A0} else { =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0\
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 *((struct list_head **) (_qe)) =3D (str=
-uct list_head *) NULL; \
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 *((struct list_head **)(_qe)) =3D NULL;=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
-> =A0 =A0 =A0 =A0} =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- \
-> =A0}
->
+2011/6/14 Joe Perches <joe@perches.com>:
+> Unnecessary casts of void * clutter the code.
 
-"bna" patches look good.
+> diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
+> index 484f795..658a192 100644
+> --- a/drivers/net/sis900.c
+> +++ b/drivers/net/sis900.c
+> @@ -482,7 +482,7 @@ static int __devinit sis900_probe(struct pci_dev =
+*pci_dev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D -ENOME=
+M;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_out_c=
+leardev;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> - =C2=A0 =C2=A0 =C2=A0 sis_priv->tx_ring =3D (BufferDesc *)ring_space=
+;
+> + =C2=A0 =C2=A0 =C2=A0 sis_priv->tx_ring =3D ring_space;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sis_priv->tx_ring_dma =3D ring_dma;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0ring_space =3D pci_alloc_consistent(pci_de=
+v, RX_TOTAL_SIZE, &ring_dma);
+> @@ -490,7 +490,7 @@ static int __devinit sis900_probe(struct pci_dev =
+*pci_dev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D -ENOME=
+M;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_unmap=
+_tx;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> - =C2=A0 =C2=A0 =C2=A0 sis_priv->rx_ring =3D (BufferDesc *)ring_space=
+;
+> + =C2=A0 =C2=A0 =C2=A0 sis_priv->rx_ring =3D ring_space;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sis_priv->rx_ring_dma =3D ring_dma;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* The SiS900-specific entries in the devi=
+ce structure. */
 
-Thanks
---Debashis
+sis900 looks good, too.
+
+--=20
+Daniele Venzano
+venza@brownhat.org
+http://www.brownhat.org
