@@ -1,36 +1,50 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: Is skb->queue_mapping valid for received packets?
-Date: Mon, 13 Jun 2011 22:16:31 -0400
-Message-ID: <20110614021631.GK21309@gospo.rdu.redhat.com>
-References: <4DF6C091.5050301@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46476 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899Ab1FNCQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jun 2011 22:16:33 -0400
-Content-Disposition: inline
-In-Reply-To: <4DF6C091.5050301@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next 0/2] net: remove casts of void *
+Date: Mon, 13 Jun 2011 19:21:25 -0700
+Message-ID: <cover.1308017857.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, ebtables-user@lists.sourceforge.net,
+	ebtables-devel@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	ceph-devel@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 13, 2011 at 06:59:45PM -0700, Ben Greear wrote:
->
-> Anyone know if skb->queue_mapping is set for incoming packets, ie to
-> notify which queue they came in on?  I can't find it set anywhere,
-> and it appears it is sometimes set to 1 when it should be 0 in
-> my system.
->
-> Maybe it's never actually set, and I'm just reading some stale
-> data?
->
-> Thanks,
-> Ben
+Joe Perches (2):
+  net: Remove casts of void *
+  net: netfilter: Remove casts of void *
 
-Yes, it is set by calls to skb_record_rx_queue in various multiqueue-
-capable ethernet drivers.  Where are you checking it and seeing the
-incorrect value?
+ net/8021q/vlanproc.c                |    2 +-
+ net/atm/mpc.c                       |    2 +-
+ net/bridge/netfilter/ebtables.c     |    2 +-
+ net/ceph/crypto.c                   |    2 +-
+ net/decnet/dn_dev.c                 |    2 +-
+ net/ipv4/netfilter/arp_tables.c     |   16 ++++++----------
+ net/ipv4/netfilter/ip_tables.c      |   13 +++++--------
+ net/ipv6/netfilter/ip6_tables.c     |   13 +++++--------
+ net/irda/af_irda.c                  |    4 ++--
+ net/irda/ircomm/ircomm_tty_attach.c |    2 +-
+ net/irda/irda_device.c              |    2 +-
+ net/irda/iriap.c                    |    8 ++++----
+ net/irda/irlan/irlan_client.c       |   10 +++++-----
+ net/irda/irlan/irlan_common.c       |   10 +++++-----
+ net/irda/irlan/irlan_eth.c          |    2 +-
+ net/irda/irlan/irlan_provider.c     |   10 +++++-----
+ net/irda/irqueue.c                  |    4 ++--
+ net/irda/irttp.c                    |   18 +++++++++---------
+ net/key/af_key.c                    |   20 ++++++++++----------
+ net/netfilter/ipset/ip_set_core.c   |    2 +-
+ net/netfilter/nf_conntrack_proto.c  |    2 +-
+ net/netlabel/netlabel_unlabeled.c   |   10 ++++------
+ net/sctp/bind_addr.c                |    2 +-
+ net/sctp/input.c                    |    3 +--
+ net/sctp/sm_make_chunk.c            |   26 ++++++++++----------------
+ net/sctp/sm_sideeffect.c            |    2 +-
+ net/sctp/socket.c                   |   16 ++++++++--------
+ 27 files changed, 93 insertions(+), 112 deletions(-)
 
+-- 
+1.7.6.rc0
