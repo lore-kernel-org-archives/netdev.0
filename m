@@ -1,146 +1,320 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V7 0/4 net-next] macvtap/vhost TX zero-copy support
-Date: Tue, 14 Jun 2011 16:30:07 +0300
-Message-ID: <20110614133006.GA13258@redhat.com>
-References: <1306610077.5180.78.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: [PATCH] TTY: define TTY_MAX_RECEIVE_ROOM to 65536
+Date: Tue, 14 Jun 2011 15:26:25 +0200
+Message-ID: <1308057986-11472-1-git-send-email-ffainelli@freebox.fr>
+Cc: Florian Fainelli <ffainelli@freebox.fr>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andreas Koensgen <ajk@comnets.uni-bremen.de>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Mikael Starvik <starvik@axis.com>,
+	Jesper Nilsson <jesper.nilsson@axis.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Pavan Savoy <pavan_savoy@ti.com>, Felipe Balbi <balbi@ti.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14137 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751083Ab1FNNaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 09:30:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1306610077.5180.78.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Jiri Slaby <jslaby@suse.cz>, linux-bluetooth@vger.kernel.org,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, linux-ppp@vger.kernel.org,
+	linux-cris-kerne
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 28, 2011 at 12:14:37PM -0700, Shirley Ma wrote:
-> This patchset add supports for TX zero-copy between guest and host
-> kernel through vhost. It significantly reduces CPU utilization on the
-> local host on which the guest is located (It reduced about 50% CPU us=
-age
-> for single stream test on the host, while 4K message size BW has
-> increased about 50%). The patchset is based on previous submission an=
-d
-> comments from the community regarding when/how to handle guest kernel
-> buffers to be released. This is the simplest approach I can think of
-> after comparing with several other solutions.
->=20
-> This patchset has integrated V3 review comments from community:=20
->=20
-> 1. Add more comments on how to use device ZEROCOPY flag;
-> 2. Change device ZEROCOPY to available bit 31
-> 3. Fix skb header linear allocation when virtio_net GSO is not enable=
-d
->=20
-> It has integrated V4 review comments from MST and Sridhar:
-> 1. In vhost, using socket poll wake up for outstanding DMAs
-> 2. Add detailed comments for vhost_zerocopy_signal_used call
-> 3. Add sleep in vhost shutting down instead of busy-wait for outstand=
-ing
->    DMAs.
-> 4. Copy small packets, don't do zero-copy callback in mavtap, mark it=
-'s
->    DMA done in vhost
-> 5. change zerocopy to bool in macvtap.
->=20
-> It has integrated V5 review comments from MST and=20
-> Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>
-> 1. Prevent userspace apps from holding skb userspace buffers by copyi=
-ng
-> userspace buffers to kernel in skb_clone, skb_copy, pskb_copy,
-> pskb_expand_head.
-> 2. It is also used HIGHDMA, SG feature bits to enable ZEROCOPY to rem=
-ove
-> the dependency of a new feature bit, we can add it later when new
-> feature bit is available.
->=20
-> It has integrated V6 review comments from Eric Dumazet.
-> 1. Moving ubuf_info object from skb to caller, just use one pointer i=
-n
-> skb_share_info to point ubuf_info object.
->=20
-> 2. Change the zero-copy size from 256 bytes to PAGE_SIZE (4K) because=
- of
-> the small message size performance issue.
->=20
-> 3. During vhost shutting down, release outstanding userspace buffers =
-w/o
-> waiting for lower device DMAs done if any. Do we really care about th=
-e
-> possible wrong data being sent on the wire during shutting down?
+A lot of TTY drivers are setting their receive_room value to 65536
+so let's define a constant for this.
 
-Yes, we do. IMHO the right approach is to wait
-for DMAs to be done - just use a sleep/wake up construct,
-not a timed sleep.
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+---
+ drivers/bluetooth/hci_ldisc.c |    2 +-
+ drivers/misc/ti-st/st_core.c  |    2 +-
+ drivers/net/can/slcan.c       |    2 +-
+ drivers/net/hamradio/6pack.c  |    2 +-
+ drivers/net/hamradio/mkiss.c  |    2 +-
+ drivers/net/irda/irtty-sir.c  |    2 +-
+ drivers/net/ppp_async.c       |    2 +-
+ drivers/net/ppp_synctty.c     |    2 +-
+ drivers/net/slip.c            |    2 +-
+ drivers/net/wan/x25_asy.c     |    2 +-
+ drivers/tty/n_gsm.c           |    2 +-
+ drivers/tty/n_hdlc.c          |    2 +-
+ drivers/tty/n_r3964.c         |    2 +-
+ drivers/tty/n_tracerouter.c   |    3 +--
+ drivers/tty/n_tracesink.c     |    1 -
+ drivers/tty/serial/crisv10.c  |    2 +-
+ drivers/tty/tty_buffer.c      |    2 +-
+ drivers/tty/tty_io.c          |    2 +-
+ include/linux/tty.h           |    2 +-
+ 19 files changed, 18 insertions(+), 20 deletions(-)
 
-> This patchset includes:
-> 1/4: Add a new sock zero-copy flag, SOCK_ZEROCOPY;
->=20
-> 2/4: Add a new struct skb_ubuf_info in skb_share_info for userspace
-> buffers release callback when lower device DMA has done for that skb,
-> which is the last reference count gone; Or whenever skb_clone, skb_co=
-py,
-> pskb_copy, pskb_expand_head get call from tcpdump, filtering, these
-> userspace buffers will be copied into kernel ... we don't want usersp=
-ace
-> apps to hold userspace buffers too long.
->=20
-> 3/4: Add vhost zero-copy callback in vhost when skb last refcnt is go=
-ne;
-> add vhost_zerocopy_signal_used to notify guest to release TX skb
-> buffers.
->=20
-> 4/4: Add macvtap zero-copy in lower device when sending packet is
-> greater than PAGE_SIZE.
->=20
-> The patchset is built against linux-2.6.39. It has passed
-> netperf/netserver multiple streams stress test, tcpdump
-> suspended test, dynamically SG change test.
->=20
-> Single TCP_STREAM 120 secs test results 2.6.39-rc3 over ixgbe 10Gb NI=
-C
-> results:
->=20
-> Message BW(Gb/s)qemu-kvm (NumCPU)vhost-net(NumCPU) PerfTop irq/s
-> 4K      7408.57         92.1%           22.6%           1229
-> 4K(Orig)4913.17         118.1%          84.1%           2086   =20
-> 8K      9129.90         89.3%           23.3%           1141
-> 8K(Orig)7094.55         115.9%          84.7%           2157
-> 16K     9178.81         89.1%           23.3%           1139
-> 16K(Orig)8927.1         118.7%          83.4%           2262
-> 64K     9171.43         88.4%           24.9%           1253
-> 64K(Orig)9085.85        115.9%          82.4%           2229
->=20
-> For message size less or equal than 2K, there is a known KVM guest TX
-> overrun issue. With this zero-copy patch, the issue becomes more seve=
-re,
-> guest io_exits has tripled than before, so the performance is not goo=
-d.
-> Once the TX overrun problem has been addressed, I will retest the sma=
-ll
-> message size performance.
->=20
->  drivers/net/macvtap.c  |  131
-> ++++++++++++++++++++++++++++++++++++++++++++----
->  drivers/vhost/net.c    |   45 ++++++++++++++++-
->  drivers/vhost/vhost.c  |   51 +++++++++++++++++++
->  drivers/vhost/vhost.h  |   15 ++++++
->  include/linux/skbuff.h |   25 +++++++++
->  include/net/sock.h     |    1 +
->  net/core/skbuff.c      |   83 ++++++++++++++++++++++++++++++-
->  7 files changed, 338 insertions(+), 13 deletions(-)
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/bluetooth/hci_ldisc.c b/drivers/bluetooth/hci_ldisc.c
+index 48ad2a7..052e418 100644
+--- a/drivers/bluetooth/hci_ldisc.c
++++ b/drivers/bluetooth/hci_ldisc.c
+@@ -273,7 +273,7 @@ static int hci_uart_tty_open(struct tty_struct *tty)
+ 
+ 	tty->disc_data = hu;
+ 	hu->tty = tty;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 
+ 	spin_lock_init(&hu->rx_lock);
+ 
+diff --git a/drivers/misc/ti-st/st_core.c b/drivers/misc/ti-st/st_core.c
+index f91f82e..b3bde88 100644
+--- a/drivers/misc/ti-st/st_core.c
++++ b/drivers/misc/ti-st/st_core.c
+@@ -690,7 +690,7 @@ static int st_tty_open(struct tty_struct *tty)
+ 
+ 	/* mem already allocated
+ 	 */
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 	/* Flush any pending characters in the driver and discipline. */
+ 	tty_ldisc_flush(tty);
+ 	tty_driver_flush_buffer(tty);
+diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
+index 1b49df6..50b4052 100644
+--- a/drivers/net/can/slcan.c
++++ b/drivers/net/can/slcan.c
+@@ -582,7 +582,7 @@ static int slcan_open(struct tty_struct *tty)
+ 
+ 	/* Done.  We have linked the TTY line to a channel. */
+ 	rtnl_unlock();
+-	tty->receive_room = 65536;	/* We don't flow control */
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;	/* We don't flow control */
+ 
+ 	/* TTY layer expects 0 on success */
+ 	return 0;
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 3e5d0b6..e3b735d 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -660,7 +660,7 @@ static int sixpack_open(struct tty_struct *tty)
+ 
+ 	/* Done.  We have linked the TTY line to a channel. */
+ 	tty->disc_data = sp;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 
+ 	/* Now we're ready to register. */
+ 	if (register_netdev(dev))
+diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+index 4c62839..8cb597d 100644
+--- a/drivers/net/hamradio/mkiss.c
++++ b/drivers/net/hamradio/mkiss.c
+@@ -751,7 +751,7 @@ static int mkiss_open(struct tty_struct *tty)
+ 
+ 	ax->tty = tty;
+ 	tty->disc_data = ax;
+-	tty->receive_room = 65535;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 
+ 	tty_driver_flush_buffer(tty);
+ 
+diff --git a/drivers/net/irda/irtty-sir.c b/drivers/net/irda/irtty-sir.c
+index 3352b24..306cf56 100644
+--- a/drivers/net/irda/irtty-sir.c
++++ b/drivers/net/irda/irtty-sir.c
+@@ -471,7 +471,7 @@ static int irtty_open(struct tty_struct *tty)
+ 
+ 	dev->priv = priv;
+ 	tty->disc_data = priv;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 
+ 	mutex_unlock(&irtty_mutex);
+ 
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index a1b82c9..a75d11a 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -197,7 +197,7 @@ ppp_asynctty_open(struct tty_struct *tty)
+ 		goto out_free;
+ 
+ 	tty->disc_data = ap;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 	return 0;
+ 
+  out_free:
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
+index 2573f52..d4ae9ce 100644
+--- a/drivers/net/ppp_synctty.c
++++ b/drivers/net/ppp_synctty.c
+@@ -244,7 +244,7 @@ ppp_sync_open(struct tty_struct *tty)
+ 		goto out_free;
+ 
+ 	tty->disc_data = ap;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 	return 0;
+ 
+  out_free:
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+index 8ec1a9a..f448d1f 100644
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -852,7 +852,7 @@ static int slip_open(struct tty_struct *tty)
+ 
+ 	/* Done.  We have linked the TTY line to a channel. */
+ 	rtnl_unlock();
+-	tty->receive_room = 65536;	/* We don't flow control */
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;	/* We don't flow control */
+ 
+ 	/* TTY layer expects 0 on success */
+ 	return 0;
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index 24297b2..920b79d 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -565,7 +565,7 @@ static int x25_asy_open_tty(struct tty_struct *tty)
+ 
+ 	sl->tty = tty;
+ 	tty->disc_data = sl;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 	tty_driver_flush_buffer(tty);
+ 	tty_ldisc_flush(tty);
+ 
+diff --git a/drivers/tty/n_gsm.c b/drivers/tty/n_gsm.c
+index 09e8c7d..74d8d29 100644
+--- a/drivers/tty/n_gsm.c
++++ b/drivers/tty/n_gsm.c
+@@ -2236,7 +2236,7 @@ static int gsmld_open(struct tty_struct *tty)
+ 		return -ENOMEM;
+ 
+ 	tty->disc_data = gsm;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 
+ 	/* Attach the initial passive connection */
+ 	gsm->encoding = 1;
+diff --git a/drivers/tty/n_hdlc.c b/drivers/tty/n_hdlc.c
+index cea5603..217186f 100644
+--- a/drivers/tty/n_hdlc.c
++++ b/drivers/tty/n_hdlc.c
+@@ -358,7 +358,7 @@ static int n_hdlc_tty_open (struct tty_struct *tty)
+ 		
+ 	tty->disc_data = n_hdlc;
+ 	n_hdlc->tty    = tty;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 	
+ #if defined(TTY_NO_WRITE_SPLIT)
+ 	/* change tty_io write() to not split large writes into 8K chunks */
+diff --git a/drivers/tty/n_r3964.c b/drivers/tty/n_r3964.c
+index 5c6c314..5d4797a 100644
+--- a/drivers/tty/n_r3964.c
++++ b/drivers/tty/n_r3964.c
+@@ -993,7 +993,7 @@ static int r3964_open(struct tty_struct *tty)
+ 	pInfo->nRetry = 0;
+ 
+ 	tty->disc_data = pInfo;
+-	tty->receive_room = 65536;
++	tty->receive_room = TTY_MAX_RECEIVE_ROOM;
+ 
+ 	setup_timer(&pInfo->tmr, on_timeout, (unsigned long)pInfo);
+ 
+diff --git a/drivers/tty/n_tracerouter.c b/drivers/tty/n_tracerouter.c
+index 1f063d3..25934df 100644
+--- a/drivers/tty/n_tracerouter.c
++++ b/drivers/tty/n_tracerouter.c
+@@ -42,7 +42,6 @@
+  * 'I can always accept 64k' and flow control is off.
+  * This number is deemed appropriate for this driver.
+  */
+-#define RECEIVE_ROOM	65536
+ #define DRIVERNAME	"n_tracerouter"
+ 
+ /*
+@@ -81,7 +80,7 @@ static int n_tracerouter_open(struct tty_struct *tty)
+ 		} else {
+ 			tr_data->opencalled = 1;
+ 			tty->disc_data      = tr_data;
+-			tty->receive_room   = RECEIVE_ROOM;
++			tty->receive_room   = TTY_MAX_RECEIVE_ROOM;
+ 			tty_driver_flush_buffer(tty);
+ 			retval = 0;
+ 		}
+diff --git a/drivers/tty/n_tracesink.c b/drivers/tty/n_tracesink.c
+index ddce58b..ff065ba 100644
+--- a/drivers/tty/n_tracesink.c
++++ b/drivers/tty/n_tracesink.c
+@@ -42,7 +42,6 @@
+  * 'I can always accept 64k' and flow control is off.
+  * This number is deemed appropriate for this driver.
+  */
+-#define RECEIVE_ROOM	65536
+ #define DRIVERNAME	"n_tracesink"
+ 
+ /*
+diff --git a/drivers/tty/serial/crisv10.c b/drivers/tty/serial/crisv10.c
+index 225123b..695a4617 100644
+--- a/drivers/tty/serial/crisv10.c
++++ b/drivers/tty/serial/crisv10.c
+@@ -1787,7 +1787,7 @@ static unsigned int handle_descr_data(struct e100_serial *info,
+ {
+ 	struct etrax_recv_buffer *buffer = phys_to_virt(descr->buf) - sizeof *buffer;
+ 
+-	if (info->recv_cnt + recvl > 65536) {
++	if (info->recv_cnt + recvl > TTY_MAX_RECEIVE_ROOM) {
+ 		printk(KERN_CRIT
+ 		       "%s: Too much pending incoming serial data! Dropping %u bytes.\n", __func__, recvl);
+ 		return 0;
+diff --git a/drivers/tty/tty_buffer.c b/drivers/tty/tty_buffer.c
+index f1a7918..e166b3a 100644
+--- a/drivers/tty/tty_buffer.c
++++ b/drivers/tty/tty_buffer.c
+@@ -58,7 +58,7 @@ static struct tty_buffer *tty_buffer_alloc(struct tty_struct *tty, size_t size)
+ {
+ 	struct tty_buffer *p;
+ 
+-	if (tty->buf.memory_used + size > 65536)
++	if (tty->buf.memory_used + size > TTY_MAX_RECEIVE_ROOM)
+ 		return NULL;
+ 	p = kmalloc(sizeof(struct tty_buffer) + 2 * size, GFP_ATOMIC);
+ 	if (p == NULL)
+diff --git a/drivers/tty/tty_io.c b/drivers/tty/tty_io.c
+index 6556f74..df5f8f2 100644
+--- a/drivers/tty/tty_io.c
++++ b/drivers/tty/tty_io.c
+@@ -1016,7 +1016,7 @@ static inline ssize_t do_tty_write(
+ 	 */
+ 	chunk = 2048;
+ 	if (test_bit(TTY_NO_WRITE_SPLIT, &tty->flags))
+-		chunk = 65536;
++		chunk = TTY_MAX_RECEIVE_ROOM;
+ 	if (count < chunk)
+ 		chunk = count;
+ 
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index 44bc0c5..ba074a0 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -46,7 +46,6 @@
+ 
+ #include <asm/system.h>
+ 
+-
+ /*
+  * (Note: the *_driver.minor_start values 1, 64, 128, 192 are
+  * hardcoded at present.)
+@@ -296,6 +295,7 @@ struct tty_struct {
+ 	struct list_head tty_files;
+ 
+ #define N_TTY_BUF_SIZE 4096
++#define TTY_MAX_RECEIVE_ROOM	(65536)
+ 
+ 	/*
+ 	 * The following is data for the N_TTY line discipline.  For
+-- 
+1.7.4.1
+
