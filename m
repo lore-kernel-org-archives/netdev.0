@@ -1,55 +1,84 @@
-From: Vasu Dev <vasu.dev@linux.intel.com>
-Subject: Re: [net-next 13/13] ixgbe: use per NUMA node lock for FCoE DDP
-Date: Mon, 13 Jun 2011 17:02:57 -0700
-Message-ID: <1308009777.31900.87.camel@vi2.jf.intel.com>
-References: <1307761341-5267-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1307761341-5267-14-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1307769482.2872.62.camel@edumazet-laptop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Documentation:change all arch/i386 to arch/x86 in
+ Documentation
+Date: Mon, 13 Jun 2011 17:06:01 -0700
+Message-ID: <20110614000601.GO2326@linux.vnet.ibm.com>
+References: <1307942898-3728-1-git-send-email-wanlong.gao@gmail.com>
+ <20110613172344.GC2272@linux.vnet.ibm.com>
+ <1308007716.2267.2.camel@Tux>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:46427 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755361Ab1FNAC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jun 2011 20:02:58 -0400
-In-Reply-To: <1307769482.2872.62.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	linux-video@atrey.karlin.mff.cuni.cz,
+	xiyoulinuxkernelgroup@googlegroups.com, linux-kernel@zh-kernel.org,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Nick Piggin <npiggin@kernel.dk>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Michal Marek <mmarek@suse.cz>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Martin Mares <mj@ucw.cz>, Harry Wei <harryxiyou@gmail.com>,
+	Chuck Lever <chuck.lever@oracle.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Thomas Weber <weber@corscience.de>,
+	Mike Frysinger <vapier.adi@gmail.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	"Justin P. Mattock" <justinmattock@gmail.com>
+To: Wanlong Gao <wanlong.gao@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1308007716.2267.2.camel@Tux>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2011-06-11 at 07:18 +0200, Eric Dumazet wrote:
-> > +static void ixgbe_fcoe_lock_init(struct ixgbe_fcoe *fcoe)
-> > +{
-> > +     int node;
-> > +     spinlock_t *node_lock;
-> > +
-> > +     fcoe->node_lock = kzalloc(sizeof(node_lock) *
-> num_possible_nodes(),
-> > +                               GFP_KERNEL);
-> 
-> Hmm...
-> 
-> 1) Think of what happens if some machine has 3 possible nodes : 0, 2,
-> 3
-> 
->         -> You should use nr_node_ids instead of num_possible_nodes() 
-> 
+On Tue, Jun 14, 2011 at 07:28:36AM +0800, Wanlong Gao wrote:
+> On =E4=B8=80, 2011-06-13 at 10:23 -0700, Paul E. McKenney wrote:
+> > On Mon, Jun 13, 2011 at 01:28:18PM +0800, Wanlong Gao wrote:
+> > > From: Wanlong Gao <wanlong.gao@gmail.com>
+> > >=20
+> > > Change all "arch/i386" to "arch/x86" in Documentaion/,
+> > > since the directory has changed.
+> > >=20
+> > > Signed-off-by: Wanlong Gao <wanlong.gao@gmail.com>
+> >=20
+> > I have queued the Documentation/RCU/NMI-RCU.txt hunk with your
+> > Signed-off-by, thank you!
+> >=20
+> > 							Thanx, Paul
+> Hi Paul:
+> http://git.kernel.org/?p=3Dlinux/kernel/git/jikos/trivial.git;a=3Dcom=
+mitdiff;h=3D25eb650a690b95cb0e2cf0c3b03f4900a59e0135
+> jiri had queued these all, will it get a merge failure?
 
-Just curious won't these both return same values ? Anycase use of
-nr_nodes_ids looks better as it is already set. 
+If it does, I will drop mine.
 
-> 2) Make sure this block cant have false sharing : Allocate at least a
-> full cache line : On a typical 2 node machine, you currently allocate
-> 16bytes of memory, and this small block could share a contended cache
-> line.
+							Thanx, Paul
 
-Yeap good point. Thanks
-
-> 
-> 
-> > +     if (!fcoe->node_lock)
-
+> Thanks
+> >=20
+> > > ---
+> > >  Documentation/RCU/NMI-RCU.txt             |    4 +-
+> > >  Documentation/blockdev/README.DAC960      |    2 +-
+> > >  Documentation/blockdev/ramdisk.txt        |    8 +++---
+> > >  Documentation/cpu-freq/cpu-drivers.txt    |    2 +-
+> > >  Documentation/filesystems/nfs/nfsroot.txt |    2 +-
+> > >  Documentation/isdn/README.HiSax           |    2 +-
+> > >  Documentation/kbuild/makefiles.txt        |   38 ++++++++++++++-=
+-------------
+> > >  Documentation/magic-number.txt            |    2 +-
+> > >  Documentation/mca.txt                     |    6 ++--
+> > >  Documentation/scheduler/sched-arch.txt    |    2 +-
+> > >  Documentation/scsi/BusLogic.txt           |    2 +-
+> > >  Documentation/serial/computone.txt        |    2 +-
+> > >  Documentation/svga.txt                    |    2 +-
+> > >  Documentation/zh_CN/magic-number.txt      |    2 +-
+> > >  14 files changed, 38 insertions(+), 38 deletions(-)
+> <snip patch>
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
