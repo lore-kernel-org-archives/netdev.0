@@ -1,85 +1,83 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: avoid using uninitialized variable
-Date: Tue, 14 Jun 2011 00:02:30 -0400
-Message-ID: <20110614000230.4166a1ae@s6510.ftrdhcpuser.net>
-References: <xr93vcw9s9zc.fsf@gthelen.mtv.corp.google.com>
-	<20110613181212.571f8e76@s6510.ftrdhcpuser.net>
-	<BANLkTi=jw5=9LcwxnXW6xNkF4RbFhHaB55Au=oDhn1yYWf53dA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Greg Thelen <gthelen@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49970 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751089Ab1FNEC1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 00:02:27 -0400
-In-Reply-To: <BANLkTi=jw5=9LcwxnXW6xNkF4RbFhHaB55Au=oDhn1yYWf53dA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next 0/2] drivers/net: Remove casts of void *
+Date: Mon, 13 Jun 2011 21:02:37 -0700
+Message-ID: <cover.1308024069.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Jun 2011 17:34:00 -0700
-Greg Thelen <gthelen@google.com> wrote:
+Joe Perches (2):
+  wireless: Remove casts of void *
+  drivers/net: Remove casts of void *
 
-> On Mon, Jun 13, 2011 at 3:12 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> > On Mon, 13 Jun 2011 14:21:59 -0700
-> > Greg Thelen <gthelen@google.com> wrote:
-> >
-> >> I am not sure if 0 or ~0 would be a better choice in the gm_phy_re=
-ad()
-> >> error case. =A0I used 0. =A0A more complete solution might be to p=
-lumb up
-> >> error handling to the callers of gm_phy_read().
-> >>
-> >> =3D=3D
-> >> From 37486219a3d93881f3b2619a4b2bb21be62db7d4 Mon Sep 17 00:00:00 =
-2001
-> >> From: Greg Thelen <gthelen@google.com>
-> >> Date: Mon, 13 Jun 2011 14:09:07 -0700
-> >> Subject: [PATCH] sky2: avoid using uninitialized variable
-> >>
-> >> Prior to this change gm_phy_read() could return an uninitialized
-> >> variable if __gm_phy_read() failed.
-> >>
-> >> This change returns zero in the failure case.
-> >>
-> >> Signed-off-by: Greg Thelen <gthelen@google.com>
-> >
-> > Shouldn't the callers be changed to check rather than just returnin=
-g
-> > 0 and masking the problem.
->=20
-> I agree that the right long term solution is to plumb the error
-> handling up through the callers.  This would involve deleting the
-> error-free gm_phy_read() routine and replacing all calls to it with
-> calls to error-capable __gm_phy_read().  This would require convertin=
-g
-> several routines from returning void to returning int allowing errors
-> to propagate upwards.  Notable affected routines include:
-> sky2_phy_power_up(), sky2_wol_init(), sky2_phy_power_down(),
-> sky2_hw_down(), sky2_mac_init(), sky2_hw_up(), sky2_phy_intr(),
-> sky2_led().  sky2_restart() would likely have to re-queue the work
-> item in the case of failure.  Presumably sky2_poll() would return 0 i=
-f
-> error is seen.  On a related note, it also seems that gm_phy_write()
-> callers should be checking its return value to also handle the same
-> class of I/O errors.  Testing these changes would involve injecting
-> error values or access to certain kinds of broken hardware.
+ drivers/net/a2065.c                            |    2 +-
+ drivers/net/appletalk/ltpc.c                   |    8 ++--
+ drivers/net/atl1e/atl1e_main.c                 |    5 +--
+ drivers/net/atlx/atl2.c                        |    3 +-
+ drivers/net/benet/be_cmds.c                    |    3 +-
+ drivers/net/benet/be_ethtool.c                 |    4 +-
+ drivers/net/bna/bfa_cee.c                      |    2 +-
+ drivers/net/bna/cna.h                          |    2 +-
+ drivers/net/caif/caif_shmcore.c                |    2 +-
+ drivers/net/cnic.c                             |    4 +-
+ drivers/net/cxgb3/cxgb3_offload.c              |    2 +-
+ drivers/net/davinci_cpdma.c                    |    2 +-
+ drivers/net/declance.c                         |   38 ++++++++++++---------
+ drivers/net/depca.c                            |    4 +-
+ drivers/net/dl2k.c                             |    4 +-
+ drivers/net/ehea/ehea_qmr.c                    |    2 +-
+ drivers/net/epic100.c                          |    4 +-
+ drivers/net/fealnx.c                           |    4 +-
+ drivers/net/gianfar.c                          |    4 +-
+ drivers/net/hamachi.c                          |    4 +-
+ drivers/net/macmace.c                          |    2 +-
+ drivers/net/mlx4/en_rx.c                       |    2 +-
+ drivers/net/mlx4/en_tx.c                       |    5 +--
+ drivers/net/myri_sbus.c                        |    3 +-
+ drivers/net/netxen/netxen_nic_ctx.c            |   16 ++++----
+ drivers/net/pxa168_eth.c                       |    2 +-
+ drivers/net/qla3xxx.c                          |    5 +--
+ drivers/net/qlcnic/qlcnic_ctx.c                |   26 +++++++-------
+ drivers/net/qlcnic/qlcnic_ethtool.c            |    2 +-
+ drivers/net/qlcnic/qlcnic_hw.c                 |    3 +-
+ drivers/net/qlcnic/qlcnic_main.c               |    2 +-
+ drivers/net/qlge/qlge_main.c                   |    4 +-
+ drivers/net/s2io.c                             |   18 ++++------
+ drivers/net/sfc/siena.c                        |    2 +-
+ drivers/net/sis900.c                           |    4 +-
+ drivers/net/tokenring/madgemc.c                |    2 +-
+ drivers/net/typhoon.c                          |    2 +-
+ drivers/net/vxge/vxge-config.c                 |   44 ++++++++---------------
+ drivers/net/vxge/vxge-traffic.c                |    6 ++--
+ drivers/net/wan/pc300_tty.c                    |    2 +-
+ drivers/net/wireless/ath/ath9k/ar9003_mac.c    |    2 +-
+ drivers/net/wireless/ath/ath9k/htc_hst.c       |    6 +--
+ drivers/net/wireless/ath/ath9k/init.c          |    2 +-
+ drivers/net/wireless/ath/ath9k/wmi.c           |    2 +-
+ drivers/net/wireless/ath/carl9170/usb.c        |    2 +-
+ drivers/net/wireless/hostap/hostap_cs.c        |    4 +-
+ drivers/net/wireless/hostap/hostap_pci.c       |    4 +-
+ drivers/net/wireless/hostap/hostap_plx.c       |    4 +-
+ drivers/net/wireless/ipw2x00/ipw2100.c         |    6 +--
+ drivers/net/wireless/iwlegacy/iwl-4965-rs.c    |    2 +-
+ drivers/net/wireless/iwlegacy/iwl-4965-ucode.c |    8 ++--
+ drivers/net/wireless/iwlegacy/iwl3945-base.c   |    8 ++--
+ drivers/net/wireless/iwlegacy/iwl4965-base.c   |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.c      |    2 +-
+ drivers/net/wireless/mwifiex/11n.c             |    5 +--
+ drivers/net/wireless/mwifiex/cmdevt.c          |    3 +-
+ drivers/net/wireless/mwifiex/join.c            |    2 +-
+ drivers/net/wireless/mwifiex/scan.c            |    2 +-
+ drivers/net/wireless/mwifiex/sta_cmd.c         |    4 +-
+ drivers/net/wireless/mwifiex/sta_cmdresp.c     |   12 +++---
+ drivers/net/wireless/mwifiex/txrx.c            |    2 +-
+ drivers/net/wireless/p54/eeprom.c              |    4 +-
+ drivers/net/xilinx_emaclite.c                  |    4 +-
+ drivers/net/yellowfin.c                        |    6 ++--
+ 64 files changed, 164 insertions(+), 189 deletions(-)
 
-In my experience if phy reads once successfully, it is going
-to read every time. If there is a problem it only happens on
-the first access (powered off, bad timing, etc).
-
-
-=20
-> For the short term I figured that not consuming random data was a ste=
-p
-> in right direction.  But I understand if you prefer to hold out for
-> the complete solution.  Unfortunately, I do not currently have time t=
-o
-> contribute to the complete solution.
-
+-- 
+1.7.6.rc0
