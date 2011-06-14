@@ -1,42 +1,59 @@
 From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao
 	<fernando@oss.ntt.co.jp>
-Subject: Re: [PATCH 0/2] IGMP snooping: set mrouters_only flag properly
-Date: Tue, 14 Jun 2011 10:01:41 +0900
-Message-ID: <1308013301.3896.6.camel@nexus.oss.ntt.co.jp>
+Subject: [PATCH 1/2] IGMP snooping: set mrouters_only flag for IPv4 traffic
+ properly
+Date: Tue, 14 Jun 2011 10:04:43 +0900
+Message-ID: <1308013483.3896.9.camel@nexus.oss.ntt.co.jp>
 References: <1307933995.2704.11.camel@nausicaa>
+	 <1308013301.3896.6.camel@nexus.oss.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	Hayato Kakuta <kakuta.hayato@oss.ntt.co.jp>,
 	"David S. Miller" <davem@davemloft.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:54686 "EHLO
+Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:54757 "EHLO
 	serv2.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497Ab1FNBBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 21:01:42 -0400
-In-Reply-To: <1307933995.2704.11.camel@nausicaa>
+	with ESMTP id S1752497Ab1FNBEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2011 21:04:45 -0400
+In-Reply-To: <1308013301.3896.6.camel@nexus.oss.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-06-13 at 11:59 +0900, Fernando Luis Vazquez Cao wrote:
-> I am sending you a fix for a IGMP snooping bug that bit us when we tried
-> to deploy it in production. This bug has been present since day one in
-> the IGMP code and I think the fix deserves a backport to -stable
-> (>=2.6.34).
-> 
-> The reason I am sending you separate patches for IPv4 and IPv6 is that I
-> wanted to acknowledge Hayato Kakuta for his extensive testing of IPv4's
-> IGMP code.
+Upon reception of a IGMP/IGMPv2 membership report the kernel sets the
+mrouters_only flag in a skb that may be a clone of the original skb, which
+means that sometimes the bridge loses track of membership report packets (cb
+buffers are tied to a specific skb and not shared) and it ends up forwading
+join requests to the bridge interface.
 
-I fat fingered the subject of the first patch and found some typos. I
-will be replying to this email with the updated patches. I am sorry for
-the noise.
+This can cause unexpected membership timeouts and intermitent/permanent loss
+of connectivity as described in RFC 4541 [2.1.1. IGMP Forwarding Rules]:
 
-David, would you be picking up these fixes or should they go through
-someone else's tree. Hopefully I got the mailing list right this time
-around.
+    A snooping switch should forward IGMP Membership Reports only to
+    those ports where multicast routers are attached.
+    [...]
+    Sending membership reports to other hosts can result, for IGMPv1
+    and IGMPv2, in unintentionally preventing a host from joining a
+    specific multicast group.
 
-Thanks,
-Fernando
+
+Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+Tested-by: Hayato Kakuta <kakuta.hayato@oss.ntt.co.jp>
+---
+
+diff -urNp linux-3.0-rc2-orig/net/bridge/br_multicast.c linux-3.0-rc2/net/bridge/br_multicast.c
+--- linux-3.0-rc2-orig/net/bridge/br_multicast.c	2011-06-09 13:34:04.164261031 +0900
++++ linux-3.0-rc2/net/bridge/br_multicast.c	2011-06-09 20:04:23.473930447 +0900
+@@ -1424,7 +1424,7 @@ static int br_multicast_ipv4_rcv(struct
+ 	switch (ih->type) {
+ 	case IGMP_HOST_MEMBERSHIP_REPORT:
+ 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+-		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
++		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+ 		err = br_ip4_multicast_add_group(br, port, ih->group);
+ 		break;
+ 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+
 
