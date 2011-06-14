@@ -1,75 +1,85 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [Bugme-new] [Bug 37202] New: Cannot change MTU on bridged interface
-Date: Tue, 14 Jun 2011 11:16:06 +0800
-Message-ID: <4DF6D276.7000804@cn.fujitsu.com>
-References: <bug-37202-10286@https.bugzilla.kernel.org/> <20110613163735.34c42044.akpm@linux-foundation.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: avoid using uninitialized variable
+Date: Tue, 14 Jun 2011 00:02:30 -0400
+Message-ID: <20110614000230.4166a1ae@s6510.ftrdhcpuser.net>
+References: <xr93vcw9s9zc.fsf@gthelen.mtv.corp.google.com>
+	<20110613181212.571f8e76@s6510.ftrdhcpuser.net>
+	<BANLkTi=jw5=9LcwxnXW6xNkF4RbFhHaB55Au=oDhn1yYWf53dA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	steve-alexander@roadrunner.com, holler@ahsoftware.de
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Greg Thelen <gthelen@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52717 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032Ab1FNDPN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Jun 2011 23:15:13 -0400
-In-Reply-To: <20110613163735.34c42044.akpm@linux-foundation.org>
+Received: from mail.vyatta.com ([76.74.103.46]:49970 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751089Ab1FNEC1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 00:02:27 -0400
+In-Reply-To: <BANLkTi=jw5=9LcwxnXW6xNkF4RbFhHaB55Au=oDhn1yYWf53dA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote, at 06/14/2011 07:37 AM:
-> 
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Sat, 11 Jun 2011 10:59:18 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=37202
->>
->>            Summary: Cannot change MTU on bridged interface
->>            Product: Networking
->>            Version: 2.5
->>     Kernel Version: 3.0.0-rc2
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: Other
->>         AssignedTo: acme@ghostprotocols.net
->>         ReportedBy: steve-alexander@roadrunner.com
->>         Regression: No
->>
->>
->> Without bridge, setting mtu on eth0 works as expected.
->> When eth0 is added to bridge 'br0' and this command is executed,
->>
->> ip link set eth0 mtu 4000
+On Mon, 13 Jun 2011 17:34:00 -0700
+Greg Thelen <gthelen@google.com> wrote:
 
-This bug has been fixed.
+> On Mon, Jun 13, 2011 at 3:12 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> > On Mon, 13 Jun 2011 14:21:59 -0700
+> > Greg Thelen <gthelen@google.com> wrote:
+> >
+> >> I am not sure if 0 or ~0 would be a better choice in the gm_phy_re=
+ad()
+> >> error case. =A0I used 0. =A0A more complete solution might be to p=
+lumb up
+> >> error handling to the callers of gm_phy_read().
+> >>
+> >> =3D=3D
+> >> From 37486219a3d93881f3b2619a4b2bb21be62db7d4 Mon Sep 17 00:00:00 =
+2001
+> >> From: Greg Thelen <gthelen@google.com>
+> >> Date: Mon, 13 Jun 2011 14:09:07 -0700
+> >> Subject: [PATCH] sky2: avoid using uninitialized variable
+> >>
+> >> Prior to this change gm_phy_read() could return an uninitialized
+> >> variable if __gm_phy_read() failed.
+> >>
+> >> This change returns zero in the failure case.
+> >>
+> >> Signed-off-by: Greg Thelen <gthelen@google.com>
+> >
+> > Shouldn't the callers be changed to check rather than just returnin=
+g
+> > 0 and masking the problem.
+>=20
+> I agree that the right long term solution is to plumb the error
+> handling up through the callers.  This would involve deleting the
+> error-free gm_phy_read() routine and replacing all calls to it with
+> calls to error-capable __gm_phy_read().  This would require convertin=
+g
+> several routines from returning void to returning int allowing errors
+> to propagate upwards.  Notable affected routines include:
+> sky2_phy_power_up(), sky2_wol_init(), sky2_phy_power_down(),
+> sky2_hw_down(), sky2_mac_init(), sky2_hw_up(), sky2_phy_intr(),
+> sky2_led().  sky2_restart() would likely have to re-queue the work
+> item in the case of failure.  Presumably sky2_poll() would return 0 i=
+f
+> error is seen.  On a related note, it also seems that gm_phy_write()
+> callers should be checking its return value to also handle the same
+> class of I/O errors.  Testing these changes would involve injecting
+> error values or access to certain kinds of broken hardware.
 
-commit 6407d74c5106bb362b4087693688afd34942b094
-Author: Alexander Holler <holler@ahsoftware.de>
-Date:   Tue Jun 7 00:51:35 2011 -0700
+In my experience if phy reads once successfully, it is going
+to read every time. If there is a problem it only happens on
+the first access (powered off, bad timing, etc).
 
-    bridge: provide a cow_metrics method for fake_ops
-    
-    Like in commit 0972ddb237 (provide cow_metrics() methods to blackhole
-    dst_ops), we must provide a cow_metrics for bridges fake_dst_ops as
-    well.
-    
-    This fixes a regression coming from commits 62fa8a846d7d (net: Implement
-    read-only protection and COW'ing of metrics.) and 33eb9873a28 (bridge:
-    initialize fake_rtable metrics)
-    
-    ip link set mybridge mtu 1234
 
--- 
-Best Regards
------
-Shan Wei
+=20
+> For the short term I figured that not consuming random data was a ste=
+p
+> in right direction.  But I understand if you prefer to hold out for
+> the complete solution.  Unfortunately, I do not currently have time t=
+o
+> contribute to the complete solution.
+
