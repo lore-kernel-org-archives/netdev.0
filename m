@@ -1,52 +1,87 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: Re: [PATCH net-next 0/24] bnx2x: New FW and support for 578xx
-Date: Tue, 14 Jun 2011 11:32:04 -0700
-Message-ID: <35D366A0-235E-44ED-8D5B-AEDB1D8AC0F5@broadcom.com>
-References: <201106141922.40906.vladz@broadcom.com>
- <20110614.133200.1595212089561436266.davem@davemloft.net>
- <1308072953.9492.4.camel@HP1>
- <20110614.134653.607599293786464713.davem@davemloft.net>
+From: <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [PATCH net-next 2/2] drivers/net: Remove casts of void *
+Date: Tue, 14 Jun 2011 11:31:45 -0700
+Message-ID: <f841e39b-8c30-4c3b-9d17-fa45b6615c23@exht2.ad.emulex.com>
+References: <cover.1308024069.git.joe@perches.com>
+ <486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>,<C4E199C967B4824F9C9DF4C42CE4A3B8591B7F0D78@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "Michael Chan" <mchan@broadcom.com>,
-	"Bhanu (Venkata Bhanu Prakash) Gollapudi" <bprakash@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <acme@ghostprotocols.net>, <jcliburn@gmail.com>,
+	<chris.snook@gmail.com>, <jie.yang@atheros.com>,
+	<Sathya.Perla@Emulex.Com>, <subbu.seetharaman@emulex.com>,
+	<rmody@brocade.com>, <ddutt@brocade.com>,
+	<sjur.brandeland@stericsson.com>, <divy@chelsio.com>,
+	<leitao@linux.vnet.ibm.com>, <amit.salecha@qlogic.com>,
+	<ron.mercer@qlogic.com>, <linux-driver@qlogic.com>,
+	<anirban.chakraborty@qlogic.com>, <jdmason@kudzu.us>,
+	<linux-net-drivers@solarflare.com>, <shodgson@solarflare.com>,
+	<bhutchings@solarflare.com>, <venza@brownhat.org>,
+	<dave@thedillows.org>, <linux-kernel@vger.kernel.org>
+To: <joe@perches.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3211 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751553Ab1FNScY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 14:32:24 -0400
-In-Reply-To: <20110614.134653.607599293786464713.davem@davemloft.net>
+Received: from exht2.emulex.com ([138.239.113.184]:35967 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751553Ab1FNScj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 14:32:39 -0400
+In-Reply-To: <C4E199C967B4824F9C9DF4C42CE4A3B8591B7F0D78@EXMAIL.ad.emulex.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCk9uIDE0INeR15nXldegIDIwMTEsIGF0IDIwOjQ3LCAiRGF2aWQgTWlsbGVyIiA8ZGF2ZW1A
-ZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6DQoNCj4gRnJvbTogIk1pY2hhZWwgQ2hhbiIgPG1jaGFuQGJy
-b2FkY29tLmNvbT4NCj4gRGF0ZTogVHVlLCAxNCBKdW4gMjAxMSAxMDozNTo1MyAtMDcwMA0KPiAN
-Cj4+IElmIHRoZSBmaXJtd2FyZSBpcyBub3QgaW50ZWdyYXRlZCBpbnRvIG5ldC1uZXh0LTIuNiwg
-dGhlIG5ld2x5IHBhdGNoZWQNCj4+IGRyaXZlciB3b24ndCB3b3JrLiAgWW91IGdldCBhbiBlcnJv
-ciBhdCBydW4gdGltZSBzYXlpbmcgdGhlIGZpcm13YXJlIGlzDQo+PiBub3QgYXZhaWxhYmxlLg0K
-Pj4gDQo+PiBXaGVuIERhdmlkIFdvb2Rob3VzZSBpbnRlZ3JhdGVzIHRoZSBmaXJtd2FyZSBhbmQg
-YSBuZXcgZmlybXdhcmUgcnBtIGlzDQo+PiBtYWRlIGF2YWlsYWJsZSBmb3IgdXNlcnMsIHRoZW4g
-dGhlIG5ldyBkcml2ZXIgd2lsbCB3b3JrLg0KPiANCj4gVGhpcyBpcyB0ZXJyaWJsZS4NCj4gDQpB
-bm90aGVyIG9wdGlvbiBpcyB0aGF0IHRoZSBwZXJzb24gdGhhdCB3aWxscyB0byBydW4gYSBiaXNl
-Y3QgaGFzIHRvIHN0YXJ0IHdpdGggcHVsbGluZyB0aGUgbGF0ZXN0IGxpbnV4LWZpcm13YXJlIGdp
-dCwgY29weWluZyBpdHMgY29udGVudHMgaW50byB0aGUgL2xpYi9maXJtd2FyZSBhbmQgdGhlbiBz
-dGFydCBhIGJpc2VjdC4gDQoNClRoaXMgcmVxdWlyZXMgc29tZSBzeW5jIGJldHdlZW4gRGF2ZSBh
-bmQgRGF2aWQ6IERhdmlkIHNob3VsZCBhbHdheXMgYmUgdGhlIGZpcnN0IHRvIGludGVncmF0ZSBh
-IG5ldyBGVyBhbmQgb25seSB0aGVuIERhdmUgc2hvdWxkIGluZWdyYXRlIGEgZHJpdmVyIHBhdGNo
-IHNlcmllcyB3aXRoIHRoZSBzdXBwb3J0IGZvciB0aGlzIG5ldyBGVy4gVGhlIHJlc3BvbnNpYmls
-aXR5IGZvciB0aGUgb3JkZXJpbmcgc2hvdWxkIGJlIG9uIHRoZSBkcml2ZXIgb3duZXI6IGluIG91
-ciBjYXNlLCBpIHNob3VsZG4ndCBiZSBzZW5kaW5nIGEgbmV0LW5leHQgcGF0Y2ggc2VyaWVzIHVu
-dGlsIHRoZSBsaW51eC1maXJtd2FyZSBwYXRjaCBpcyBhcHBsaWVkLg0KDQpJdCBkb2Vzbid0IHNv
-dW5kIHRoYXQgdGVycmlibGUgcHJpY2UgZm9yIGhhdmluZyBhIGtlcm5lbCB0cmVlIGNsZWFuIGZy
-b20gYmluYXJpZXMgYmxvYnMuLi4gOykNCg0KVmxhZA==
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> Subject: [PATCH net-next 2/2] drivers/net: Remove casts of void *
+>
+> Unnecessary casts of void * clutter the code.
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+> diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+> index 0c12c2d..30719f5 100644
+> --- a/drivers/net/benet/be_cmds.c
+> +++ b/drivers/net/benet/be_cmds.c
+> @@ -2334,8 +2334,7 @@ int be_cmd_get_cntl_attributes(struct be_adapter
+> *adapter)
+>
+>       status = be_mbox_notify_wait(adapter);
+>       if (!status) {
+> -             attribs = (struct mgmt_controller_attrib *)( attribs_cmd.va
+> +
+> -                                     sizeof(struct be_cmd_resp_hdr));
+> +             attribs = attribs_cmd.va + sizeof(struct be_cmd_resp_hdr);
+>               adapter->hba_port_num = attribs->hba_attribs.phy_port;
+>       }
+>
+> diff --git a/drivers/net/benet/be_ethtool.c
+> b/drivers/net/benet/be_ethtool.c
+> index facfe3c..5572c78 100644
+> --- a/drivers/net/benet/be_ethtool.c
+> +++ b/drivers/net/benet/be_ethtool.c
+> @@ -386,7 +386,7 @@ static int be_get_settings(struct net_device
+> *netdev, struct ethtool_cmd *ecmd)
+>               }
+>               status = be_cmd_get_phy_info(adapter, &phy_cmd);
+>               if (!status) {
+> -                     resp = (struct be_cmd_resp_get_phy_info *)
+> phy_cmd.va;
+> +                     resp = phy_cmd.va;
+>                       intf_type = le16_to_cpu(resp->interface_type);
+>
+>                       switch (intf_type) {
+> @@ -690,7 +690,7 @@ be_read_eeprom(struct net_device *netdev, struct
+> ethtool_eeprom *eeprom,
+>       status = be_cmd_get_seeprom_data(adapter, &eeprom_cmd);
+>
+>       if (!status) {
+> -             resp = (struct be_cmd_resp_seeprom_read *) eeprom_cmd.va;
+> +             resp = eeprom_cmd.va;
+>               memcpy(data, resp->seeprom_data + eeprom->offset, eeprom-
+> >len);
+>       }
+>       dma_free_coherent(&adapter->pdev->dev, eeprom_cmd.size,
+> eeprom_cmd.va,
 
+The be2net part of the patch looks good.
+
+Acked-by: Ajit Khaparde ajit.khaparde@emulex.com
