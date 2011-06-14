@@ -1,52 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [ath9k-devel] [PATCH net-next 1/2] wireless: Remove casts of
- void *
-Date: Tue, 14 Jun 2011 09:43:51 -0700
-Message-ID: <1308069831.21026.9.camel@Joe-Laptop>
-References: <cover.1308024069.git.joe@perches.com>
-	 <337c22b774ff7f007b90b266b25c9a33ff555c48.1308024069.git.joe@perches.com>
-	 <4DF78CEC.70409@gnu.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Intel Linux Wireless <ilw@linux.intel.com>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jouni Malinen <jmalinen@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>,
-	ath9k-devel@lists.ath9k.org, Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>
-To: Pavel Roskin <proski@gnu.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DF78CEC.70409@gnu.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: greearb@candelatech.com
+Subject: [PATCH] net:  Ensure tx watchdog failures always print.
+Date: Tue, 14 Jun 2011 09:50:13 -0700
+Message-ID: <1308070213-13244-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:46996 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751410Ab1FNQuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 12:50:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-06-14 at 12:31 -0400, Pavel Roskin wrote:
-> On 06/14/2011 12:02 AM, Joe Perches wrote:
-> >   		/* Get the message ID */
-> > -		msg_id = (__be16 *) ((void *) htc_hdr +
-> > -				     sizeof(struct htc_frame_hdr));
-> > +		msg_id = (void *)htc_hdr + sizeof(struct htc_frame_hdr);
-> I would never do stuff like this without verifying by sparse that no 
-> warnings are introduced.
+From: Ben Greear <greearb@candelatech.com>
 
-I did that.  I believe there are no new warnings.
+These are too important to not have some log message
+generated.  But, keep the logic that only prints
+a single stack dump.
 
-> Sparse warnings should be avoided to keep sparse checks useful. 
-> Otherwise, important warnings would drown in the noise.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 90939ba... fce5558... M	net/sched/sch_generic.c
+ net/sched/sch_generic.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-$ make allyesconfig
-$ git log -1 --pretty=oneline drivers/net/wireless/ath/ath9k/htc_hst.c
-337c22b774ff7f007b90b266b25c9a33ff555c48 wireless: Remove casts of void *
-$ make C=2 drivers/net/wireless/ath/ath9k/htc_hst.o
-make[1]: Nothing to be done for `all'.
-  CHK     include/linux/version.h
-  CHK     include/generated/utsrelease.h
-  CALL    scripts/checksyscalls.sh
-  CHECK   scripts/mod/empty.c
-  CHECK   drivers/net/wireless/ath/ath9k/htc_hst.c
-  CC      drivers/net/wireless/ath/ath9k/htc_hst.o
-$
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 90939ba..fce5558 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -252,8 +252,20 @@ static void dev_watchdog(unsigned long arg)
+ 
+ 			if (some_queue_timedout) {
+ 				char drivername[64];
+-				WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
+-				       dev->name, netdev_drivername(dev, drivername, 64), i);
++				static bool do_once = true;
++				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s):"
++				       " transmit queue %u timed out,"
++				       " trans_start: %lu, wd-timeout: %i"
++				       " jiffies: %lu tx-queues: %i\n",
++				       dev->name,
++				       netdev_drivername(dev, drivername, 64),
++				       i,
++				       trans_start, dev->watchdog_timeo,
++				       jiffies, dev->num_tx_queues);
++				if (do_once) {
++					do_once = false;
++					WARN_ON(1);
++				}
+ 				dev->netdev_ops->ndo_tx_timeout(dev);
+ 			}
+ 			if (!mod_timer(&dev->watchdog_timer,
+-- 
+1.7.3.4
+
