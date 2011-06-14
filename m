@@ -1,47 +1,75 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 1/2] wireless: Remove casts of void *
-Date: Tue, 14 Jun 2011 00:19:21 -0700
-Message-ID: <1308035961.32499.3.camel@Joe-Laptop>
+From: Debashis Dutt <debdut@gmail.com>
+Subject: Re: [PATCH net-next 2/2] drivers/net: Remove casts of void *
+Date: Tue, 14 Jun 2011 00:56:22 -0700
+Message-ID: <BANLkTi=k-noagFZv-tZbx2FyZ-uBzwP=KA@mail.gmail.com>
 References: <cover.1308024069.git.joe@perches.com>
-	 <337c22b774ff7f007b90b266b25c9a33ff555c48.1308024069.git.joe@perches.com>
-	 <BANLkTi=i30Rn7gpCDbn9KKJucq8CB=hssA@mail.gmail.com>
-	 <1308029532.26699.68.camel@Joe-Laptop>
-	 <BANLkTik4fWbCc8pRZfKCzvKD2f6sK9QCEw@mail.gmail.com>
+	<486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Jouni Malinen <jmalinen@atheros.com>,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	linux-kernel@vger.kernel.org
-To: Julian Calaby <julian.calaby@gmail.com>
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <jie.yang@atheros.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	Breno Leitao <leitao@linux.vnet.ibm.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	Jon Mason <jdmason@kudzu.us>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Steve Hodgson <shodgson@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Daniele Venzano <venza@brownhat
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTik4fWbCc8pRZfKCzvKD2f6sK9QCEw@mail.gmail.com>
+In-Reply-To: <486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-06-14 at 15:39 +1000, Julian Calaby wrote:
-> My issue here is that you mention in the commit log that this relates
-> to the removal of netdev_priv and dev_priv, but the casts removed
-> (mostly) don't.
+> diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/bna/bfa_cee.c
+> index f7b789a..dcfbf08 100644
+> --- a/drivers/net/bna/bfa_cee.c
+> +++ b/drivers/net/bna/bfa_cee.c
+> @@ -236,7 +236,7 @@ static void
+> =A0bfa_cee_hbfail(void *arg)
+> =A0{
+> =A0 =A0 =A0 =A0struct bfa_cee *cee;
+> - =A0 =A0 =A0 cee =3D (struct bfa_cee *) arg;
+> + =A0 =A0 =A0 cee =3D arg;
+>
+> =A0 =A0 =A0 =A0if (cee->get_attr_pending =3D=3D true) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0cee->get_attr_status =3D BFA_STATUS_FA=
+ILED;
+> diff --git a/drivers/net/bna/cna.h b/drivers/net/bna/cna.h
+> index bbd39dc..3c47dc5 100644
+> --- a/drivers/net/bna/cna.h
+> +++ b/drivers/net/bna/cna.h
+> @@ -74,7 +74,7 @@ typedef struct mac { u8 mac[MAC_ADDRLEN]; } mac_t;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bfa_q_next(_q) =3D bfa_q_next(*((struc=
+t list_head **) _qe)); \
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bfa_q_qe_init(*((struct list_head **) =
+_qe)); =A0 =A0 =A0 =A0 =A0 =A0\
+> =A0 =A0 =A0 =A0} else { =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0\
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 *((struct list_head **) (_qe)) =3D (str=
+uct list_head *) NULL; \
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 *((struct list_head **)(_qe)) =3D NULL;=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+> =A0 =A0 =A0 =A0} =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ \
+> =A0}
+>
 
-Sorry if that was unclear to you.
+"bna" patches look good.
 
-None of these patches remove casts of netdev_priv.
-
-What I meant to say was that net and drivers/net have
-had many patches that remove casts of void * like the
-patches that removed casts of netdev_priv.
-
-These patches remove the last casts of void * types
-in net and drivers/net.
-
-cheers, Joe
+Thanks
+--Debashis
