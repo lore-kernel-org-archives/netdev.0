@@ -1,218 +1,195 @@
 From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next 1/24] cnic: Move indexing function pointers to
- struct kcq_info
-Date: Tue, 14 Jun 2011 14:32:38 +0300
-Message-ID: <201106141432.38924.vladz@broadcom.com>
+Subject: [PATCH net-next 3/24] bnx2x: remove references to intr_sem
+Date: Tue, 14 Jun 2011 14:32:53 +0300
+Message-ID: <201106141432.54084.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
-To: "Dave Miller" <davem@davemloft.net>
+To: "Dave Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2143 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3785 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756273Ab1FNLd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 07:33:26 -0400
+	id S1756296Ab1FNLdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 07:33:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <mchan@broadcom.com>
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-The hardware indexing scheme for the FCoE kcq will change in the upcoming
-firmware.  This patch will cope with the change easily.
+It's not needed any more since device always operates in interrupt-driven mode
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/cnic.c |   84 ++++++++++++++++++++++++++-------------------------
- drivers/net/cnic.h |    5 ++-
- 2 files changed, 46 insertions(+), 43 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |    2 --
+ drivers/net/bnx2x/bnx2x_cmn.c  |   23 +++++------------------
+ drivers/net/bnx2x/bnx2x_main.c |   36 ------------------------------------
+ 3 files changed, 5 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 363c7f3..07f1b13 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -900,24 +900,56 @@ static int cnic_alloc_context(struct cnic_dev *dev)
- 	return 0;
- }
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 668a578..2b744b0 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -925,8 +925,6 @@ struct bnx2x {
+ 	struct iro		*iro_arr;
+ #define IRO (bp->iro_arr)
  
--static int cnic_alloc_kcq(struct cnic_dev *dev, struct kcq_info *info)
-+static u16 cnic_bnx2_next_idx(u16 idx)
-+{
-+	return idx + 1;
-+}
-+
-+static u16 cnic_bnx2_hw_idx(u16 idx)
-+{
-+	return idx;
-+}
-+
-+static u16 cnic_bnx2x_next_idx(u16 idx)
+-	atomic_t		intr_sem;
+-
+ 	bnx2x_recovery_state_t	recovery_state;
+ 	int			is_leader;
+ 	struct msix_entry	*msix_table;
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index ca2bbc0..d89a877 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -737,12 +737,6 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
+ 	struct bnx2x_fastpath *fp = fp_cookie;
+ 	struct bnx2x *bp = fp->bp;
+ 
+-	/* Return here if interrupt is disabled */
+-	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+-		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+-		return IRQ_HANDLED;
+-	}
+-
+ 	DP(BNX2X_MSG_FP, "got an MSI-X interrupt on IDX:SB "
+ 			 "[fp %d fw_sd %d igusb %d]\n",
+ 	   fp->index, fp->fw_sb_id, fp->igu_sb_id);
+@@ -1287,18 +1281,11 @@ static void bnx2x_napi_disable(struct bnx2x *bp)
+ 
+ void bnx2x_netif_start(struct bnx2x *bp)
  {
--	int err, i, is_bnx2 = 0;
-+	idx++;
-+	if ((idx & MAX_KCQE_CNT) == MAX_KCQE_CNT)
-+		idx++;
-+
-+	return idx;
-+}
-+
-+static u16 cnic_bnx2x_hw_idx(u16 idx)
-+{
-+	if ((idx & MAX_KCQE_CNT) == MAX_KCQE_CNT)
-+		idx++;
-+	return idx;
-+}
-+
-+static int cnic_alloc_kcq(struct cnic_dev *dev, struct kcq_info *info,
-+			  bool use_pg_tbl)
-+{
-+	int err, i, use_page_tbl = 0;
- 	struct kcqe **kcq;
- 
--	if (test_bit(CNIC_F_BNX2_CLASS, &dev->flags))
--		is_bnx2 = 1;
-+	if (use_pg_tbl)
-+		use_page_tbl = 1;
- 
--	err = cnic_alloc_dma(dev, &info->dma, KCQ_PAGE_CNT, is_bnx2);
-+	err = cnic_alloc_dma(dev, &info->dma, KCQ_PAGE_CNT, use_page_tbl);
- 	if (err)
- 		return err;
- 
- 	kcq = (struct kcqe **) info->dma.pg_arr;
- 	info->kcq = kcq;
- 
--	if (is_bnx2)
-+	info->next_idx = cnic_bnx2_next_idx;
-+	info->hw_idx = cnic_bnx2_hw_idx;
-+	if (use_pg_tbl)
- 		return 0;
- 
-+	info->next_idx = cnic_bnx2x_next_idx;
-+	info->hw_idx = cnic_bnx2x_hw_idx;
-+
- 	for (i = 0; i < KCQ_PAGE_CNT; i++) {
- 		struct bnx2x_bd_chain_next *next =
- 			(struct bnx2x_bd_chain_next *) &kcq[i][MAX_KCQE_CNT];
-@@ -1060,7 +1092,7 @@ static int cnic_alloc_bnx2_resc(struct cnic_dev *dev)
- 		goto error;
- 	cp->kwq = (struct kwqe **) cp->kwq_info.pg_arr;
- 
--	ret = cnic_alloc_kcq(dev, &cp->kcq1);
-+	ret = cnic_alloc_kcq(dev, &cp->kcq1, true);
- 	if (ret)
- 		goto error;
- 
-@@ -1196,12 +1228,12 @@ static int cnic_alloc_bnx2x_resc(struct cnic_dev *dev)
- 			j++;
+-	int intr_sem;
+-
+-	intr_sem = atomic_dec_and_test(&bp->intr_sem);
+-	smp_wmb(); /* Ensure that bp->intr_sem update is SMP-safe */
+-
+-	if (intr_sem) {
+-		if (netif_running(bp->dev)) {
+-			bnx2x_napi_enable(bp);
+-			bnx2x_int_enable(bp);
+-			if (bp->state == BNX2X_STATE_OPEN)
+-				netif_tx_wake_all_queues(bp->dev);
+-		}
++	if (netif_running(bp->dev)) {
++		bnx2x_napi_enable(bp);
++		bnx2x_int_enable(bp);
++		if (bp->state == BNX2X_STATE_OPEN)
++			netif_tx_wake_all_queues(bp->dev);
  	}
- 
--	ret = cnic_alloc_kcq(dev, &cp->kcq1);
-+	ret = cnic_alloc_kcq(dev, &cp->kcq1, false);
- 	if (ret)
- 		goto error;
- 
- 	if (BNX2X_CHIP_IS_E2(cp->chip_id)) {
--		ret = cnic_alloc_kcq(dev, &cp->kcq2);
-+		ret = cnic_alloc_kcq(dev, &cp->kcq2, false);
- 		if (ret)
- 			goto error;
- 	}
-@@ -2652,32 +2684,6 @@ end:
- 		cnic_spq_completion(dev, DRV_CTL_RET_L5_SPQ_CREDIT_CMD, comp);
  }
  
--static u16 cnic_bnx2_next_idx(u16 idx)
--{
--	return idx + 1;
--}
--
--static u16 cnic_bnx2_hw_idx(u16 idx)
--{
--	return idx;
--}
--
--static u16 cnic_bnx2x_next_idx(u16 idx)
--{
--	idx++;
--	if ((idx & MAX_KCQE_CNT) == MAX_KCQE_CNT)
--		idx++;
--
--	return idx;
--}
--
--static u16 cnic_bnx2x_hw_idx(u16 idx)
--{
--	if ((idx & MAX_KCQE_CNT) == MAX_KCQE_CNT)
--		idx++;
--	return idx;
--}
--
- static int cnic_get_kcqes(struct cnic_dev *dev, struct kcq_info *info)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
-@@ -2688,12 +2694,12 @@ static int cnic_get_kcqes(struct cnic_dev *dev, struct kcq_info *info)
- 	i = ri = last = info->sw_prod_idx;
- 	ri &= MAX_KCQ_IDX;
- 	hw_prod = *info->hw_prod_idx_ptr;
--	hw_prod = cp->hw_idx(hw_prod);
-+	hw_prod = info->hw_idx(hw_prod);
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index f45c0ca..e5eb2a2 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -1285,10 +1285,6 @@ void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
+ 	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
+ 	int i, offset;
  
- 	while ((i != hw_prod) && (kcqe_cnt < MAX_COMPLETED_KCQE)) {
- 		kcqe = &info->kcq[KCQ_PG(ri)][KCQ_IDX(ri)];
- 		cp->completed_kcq[kcqe_cnt++] = kcqe;
--		i = cp->next_idx(i);
-+		i = info->next_idx(i);
- 		ri = i & MAX_KCQ_IDX;
- 		if (likely(!(kcqe->kcqe_op_flag & KCQE_FLAGS_NEXT))) {
- 			last_cnt = kcqe_cnt;
-@@ -5227,8 +5233,6 @@ static struct cnic_dev *init_bnx2_cnic(struct net_device *dev)
- 	cp->enable_int = cnic_enable_bnx2_int;
- 	cp->disable_int_sync = cnic_disable_bnx2_int_sync;
- 	cp->close_conn = cnic_close_bnx2_conn;
--	cp->next_idx = cnic_bnx2_next_idx;
--	cp->hw_idx = cnic_bnx2_hw_idx;
- 	return cdev;
+-	/* disable interrupt handling */
+-	atomic_inc(&bp->intr_sem);
+-	smp_wmb(); /* Ensure that bp->intr_sem update is SMP-safe */
+-
+ 	if (disable_hw)
+ 		/* prevent the HW from sending interrupts */
+ 		bnx2x_int_disable(bp);
+@@ -1411,12 +1407,6 @@ irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+ 	}
+ 	DP(NETIF_MSG_INTR, "got an interrupt  status 0x%x\n", status);
  
- cnic_err:
-@@ -5294,8 +5298,6 @@ static struct cnic_dev *init_bnx2x_cnic(struct net_device *dev)
- 	else
- 		cp->ack_int = cnic_ack_bnx2x_msix;
- 	cp->close_conn = cnic_close_bnx2x_conn;
--	cp->next_idx = cnic_bnx2x_next_idx;
--	cp->hw_idx = cnic_bnx2x_hw_idx;
- 	return cdev;
+-	/* Return here if interrupt is disabled */
+-	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+-		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+-		return IRQ_HANDLED;
+-	}
+-
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+ 		return IRQ_HANDLED;
+@@ -3808,12 +3798,6 @@ static void bnx2x_sp_task(struct work_struct *work)
+ 	struct bnx2x *bp = container_of(work, struct bnx2x, sp_task.work);
+ 	u16 status;
+ 
+-	/* Return here if interrupt is disabled */
+-	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+-		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+-		return;
+-	}
+-
+ 	status = bnx2x_update_dsb_idx(bp);
+ /*	if (status == 0)				     */
+ /*		BNX2X_ERR("spurious slowpath interrupt!\n"); */
+@@ -3857,12 +3841,6 @@ irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+ 	struct net_device *dev = dev_instance;
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+-	/* Return here if interrupt is disabled */
+-	if (unlikely(atomic_read(&bp->intr_sem) != 0)) {
+-		DP(NETIF_MSG_INTR, "called but intr_sem not 0, returning\n");
+-		return IRQ_HANDLED;
+-	}
+-
+ 	bnx2x_ack_sb(bp, bp->igu_dsb_id, USTORM_ID, 0,
+ 		     IGU_INT_DISABLE, 0);
+ 
+@@ -3896,9 +3874,6 @@ static void bnx2x_timer(unsigned long data)
+ 	if (!netif_running(bp->dev))
+ 		return;
+ 
+-	if (atomic_read(&bp->intr_sem) != 0)
+-		goto timer_restart;
+-
+ 	if (poll) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[0];
+ 
+@@ -3933,7 +3908,6 @@ static void bnx2x_timer(unsigned long data)
+ 	if (bp->state == BNX2X_STATE_OPEN)
+ 		bnx2x_stats_handle(bp, STATS_EVENT_UPDATE);
+ 
+-timer_restart:
+ 	mod_timer(&bp->timer, jiffies + bp->current_interval);
  }
  
-diff --git a/drivers/net/cnic.h b/drivers/net/cnic.h
-index 3367a6d3..eb11821 100644
---- a/drivers/net/cnic.h
-+++ b/drivers/net/cnic.h
-@@ -185,6 +185,9 @@ struct kcq_info {
- 	u16		sw_prod_idx;
- 	u16		*status_idx_ptr;
- 	u32		io_addr;
-+
-+	u16		(*next_idx)(u16);
-+	u16		(*hw_idx)(u16);
- };
+@@ -4503,9 +4477,6 @@ void bnx2x_nic_init(struct bnx2x *bp, u32 load_code)
+ 	bnx2x_init_ind_table(bp);
+ 	bnx2x_stats_init(bp);
  
- struct iro {
-@@ -332,8 +335,6 @@ struct cnic_local {
- 	void			(*disable_int_sync)(struct cnic_dev *);
- 	void			(*ack_int)(struct cnic_dev *);
- 	void			(*close_conn)(struct cnic_sock *, u32 opcode);
--	u16			(*next_idx)(u16);
--	u16			(*hw_idx)(u16);
- };
+-	/* At this point, we are ready for interrupts */
+-	atomic_set(&bp->intr_sem, 0);
+-
+ 	/* flush all before enabling interrupts */
+ 	mb();
+ 	mmiowb();
+@@ -8700,10 +8671,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 	int timer_interval;
+ 	int rc;
  
- struct bnx2x_bd_chain_next {
+-	/* Disable interrupt handling until HW is initialized */
+-	atomic_set(&bp->intr_sem, 1);
+-	smp_wmb(); /* Ensure that bp->intr_sem update is SMP-safe */
+-
+ 	mutex_init(&bp->port.phy_mutex);
+ 	mutex_init(&bp->fw_mb_mutex);
+ 	spin_lock_init(&bp->stats_lock);
+@@ -10221,9 +10188,6 @@ static int bnx2x_register_cnic(struct net_device *dev, struct cnic_ops *ops,
+ 	if (ops == NULL)
+ 		return -EINVAL;
+ 
+-	if (atomic_read(&bp->intr_sem) != 0)
+-		return -EBUSY;
+-
+ 	bp->cnic_kwq = kzalloc(PAGE_SIZE, GFP_KERNEL);
+ 	if (!bp->cnic_kwq)
+ 		return -ENOMEM;
 -- 
-1.7.4.1
+1.7.2.2
 
 
