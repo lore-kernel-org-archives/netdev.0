@@ -1,57 +1,71 @@
-From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: [ath9k-devel] [PATCH net-next 1/2] wireless: Remove casts of void *
-Date: Tue, 14 Jun 2011 19:43:15 +0200
-Message-ID: <201106141943.15887.chunkeey@googlemail.com>
-References: <cover.1308024069.git.joe@perches.com> <4DF78CEC.70409@gnu.org> <1308069831.21026.9.camel@Joe-Laptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next 0/24] bnx2x: New FW and support for 578xx
+Date: Tue, 14 Jun 2011 10:35:53 -0700
+Message-ID: <1308072953.9492.4.camel@HP1>
+References: <201106141432.32257.vladz@broadcom.com>
+ <20110614.115402.426774711287563448.davem@davemloft.net>
+ <201106141922.40906.vladz@broadcom.com>
+ <20110614.133200.1595212089561436266.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, "Wey-Yi Guy" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1308069831.21026.9.camel@Joe-Laptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Bhanu (Venkata Bhanu Prakash) Gollapudi" <bprakash@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"dwmw2@infradead.org" <dwmw2@infradead.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4479 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753111Ab1FNRmv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 13:42:51 -0400
+In-Reply-To: <20110614.133200.1595212089561436266.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 14 June 2011 18:43:51 Joe Perches wrote:
-> On Tue, 2011-06-14 at 12:31 -0400, Pavel Roskin wrote:
-> > On 06/14/2011 12:02 AM, Joe Perches wrote:
-> > >   		/* Get the message ID */
-> > > -		msg_id = (__be16 *) ((void *) htc_hdr +
-> > > -				     sizeof(struct htc_frame_hdr));
-> > > +		msg_id = (void *)htc_hdr + sizeof(struct htc_frame_hdr);
-> > I would never do stuff like this without verifying by sparse that no 
-> > warnings are introduced.
+
+On Tue, 2011-06-14 at 10:32 -0700, David Miller wrote:
+> From: "Vlad Zolotarov" <vladz@broadcom.com>
+> Date: Tue, 14 Jun 2011 19:22:40 +0300
 > 
-> I did that.  I believe there are no new warnings.
+> > On Tuesday 14 June 2011 18:54:02 David Miller wrote:
+> >> From: "Vlad Zolotarov" <vladz@broadcom.com>
+> >> Date: Tue, 14 Jun 2011 14:32:31 +0300
+> >> 
+> >> > We also send the new FW files to David Woodhouse. It's the first time we
+> >> > submit to the linux-firmware git so I hope we don't mess the things up:
+> >> > we DO NOT patch firmware/WHENCE and firmware/Makefile files in our
+> >> > net-next patches and we patch the WHENCE file in the linux-firmware
+> >> > patch. Dave, pls., confirm if it's a correct procedure.
+> >> > 
+> >> > If it is, pls., note that the bnx2x driver will compile but won't work
+> >> > until u integrate the new FW into the kernel tree.
+> >> 
+> >> David Woodhouse, what do you think we should do here?
+> >> 
+> >> I'm inclined to integrate the firmware into net-next-2.6 since this
+> >> is the only way to keep the driver working consistently.
+> >> 
+> >> Otherwise people won't be able to git bisect properly, and that sucks.
+> > 
+> > Dave, as long as /lib/firmware contains all existing firmwares there should be 
+> > no problems, isn't it?
 > 
-> > Sparse warnings should be avoided to keep sparse checks useful. 
-> > Otherwise, important warnings would drown in the noise.
+> You're saying above that the driver will compile but not work in net-next-2.6
+> until the FW is integrated, that's not acceptable, the tree must be fully
+> bisectable for people trying to track down bugs.
 > 
-> $ make allyesconfig
-> $ git log -1 --pretty=oneline drivers/net/wireless/ath/ath9k/htc_hst.c
-> 337c22b774ff7f007b90b266b25c9a33ff555c48 wireless: Remove casts of void *
-> $ make C=2 drivers/net/wireless/ath/ath9k/htc_hst.o
+> Which is it?
+> 
 
-Just a quick FYI: To perform endianness checks, you may define __CHECK_ENDIAN__:
+If the firmware is not integrated into net-next-2.6, the newly patched
+driver won't work.  You get an error at run time saying the firmware is
+not available.
 
-make C=2 CF="-D__CHECK_ENDIAN__"
+When David Woodhouse integrates the firmware and a new firmware rpm is
+made available for users, then the new driver will work.
 
-[Although, it doesn't look like your patch introduced any new endianness
-problems]
 
-Regards,
-	Chr
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
