@@ -1,102 +1,79 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 4/5] IPVS: labels at pos 0
-Date: Wed, 15 Jun 2011 08:43:20 +0900
-Message-ID: <1308095001-21002-5-git-send-email-horms@verge.net.au>
-References: <1308095001-21002-1-git-send-email-horms@verge.net.au>
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Simon Horman <horms@verge.net.au>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 1/2] batman-adv: count_real_packets() in batman-adv assumes
+ char is signed
+Date: Wed, 15 Jun 2011 00:51:32 +0100
+Message-ID: <20110614235132.3724.57632.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Howells <dhowells@redhat.com>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	Sven Eckelmann <sven@narfation.org>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60633 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752666Ab1FNXn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 19:43:29 -0400
-In-Reply-To: <1308095001-21002-1-git-send-email-horms@verge.net.au>
+Received: from mx1.redhat.com ([209.132.183.28]:46645 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750947Ab1FNXvp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 19:51:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+count_real_packets() in batman-adv assumes char is signed, and returns -1
+through it:
 
-Put goto labels at the beginig of row
-acording to coding style example.
+net/batman-adv/routing.c: In function 'receive_bat_packet':
+net/batman-adv/routing.c:739: warning: comparison is always false due to limited range of data type
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Use int instead.
+
+This is also looks a bit weird as (presumably signed) is_duplicate is
+constructed by OR'ding together the unsigned results of get_bit_status()
+(though the latter only returns 0 or 1).
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+cc: Marek Lindner <lindner_marek@yahoo.de>
+cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+cc: Sven Eckelmann <sven@narfation.org>
+cc: b.a.t.m.a.n@lists.open-mesh.org
+cc: netdev@vger.kernel.org
 ---
- net/netfilter/ipvs/ip_vs_core.c |   10 +++++-----
- net/netfilter/ipvs/ip_vs_ctl.c  |    8 ++++----
- 2 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 7c2c726..6cefe32 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1384,7 +1384,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
- 		offset += 2 * sizeof(__u16);
- 	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset, hooknum);
+ net/batman-adv/routing.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index bb1c3ec..3075fcb 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -531,15 +531,15 @@ static int window_protected(struct bat_priv *bat_priv,
+  *  -1 the packet is old and has been received while the seqno window
+  *     was protected. Caller should drop it.
+  */
+-static char count_real_packets(struct ethhdr *ethhdr,
+-			       struct batman_packet *batman_packet,
+-			       struct hard_iface *if_incoming)
++static int count_real_packets(struct ethhdr *ethhdr,
++			      struct batman_packet *batman_packet,
++			      struct hard_iface *if_incoming)
+ {
+ 	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
+ 	struct orig_node *orig_node;
+ 	struct neigh_node *tmp_neigh_node;
+ 	struct hlist_node *node;
+-	char is_duplicate = 0;
++	uint8_t is_duplicate = 0;
+ 	int32_t seq_diff;
+ 	int need_update = 0;
+ 	int set_mark, ret = -1;
+@@ -608,7 +608,7 @@ void receive_bat_packet(struct ethhdr *ethhdr,
+ 	char has_directlink_flag;
+ 	char is_my_addr = 0, is_my_orig = 0, is_my_oldorig = 0;
+ 	char is_broadcast = 0, is_bidirectional, is_single_hop_neigh;
+-	char is_duplicate;
++	int is_duplicate;
+ 	uint32_t if_incoming_seqno;
  
--  out:
-+out:
- 	__ip_vs_conn_put(cp);
- 
- 	return verdict;
-@@ -2018,14 +2018,14 @@ cleanup_sub:
- 	unregister_pernet_subsys(&ipvs_core_ops);
- cleanup_sync:
- 	ip_vs_sync_cleanup();
--  cleanup_conn:
-+cleanup_conn:
- 	ip_vs_conn_cleanup();
--  cleanup_app:
-+cleanup_app:
- 	ip_vs_app_cleanup();
--  cleanup_protocol:
-+cleanup_protocol:
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
--  cleanup_estimator:
-+cleanup_estimator:
- 	ip_vs_estimator_cleanup();
- 	return ret;
- }
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 6bedea1..be43fd8 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1334,9 +1334,9 @@ ip_vs_edit_service(struct ip_vs_service *svc, struct ip_vs_service_user_kern *u)
- 		ip_vs_bind_pe(svc, pe);
- 	}
- 
--  out_unlock:
-+out_unlock:
- 	write_unlock_bh(&__ip_vs_svc_lock);
--  out:
-+out:
- 	ip_vs_scheduler_put(old_sched);
- 	ip_vs_pe_put(old_pe);
- 	return ret;
-@@ -2469,7 +2469,7 @@ __ip_vs_get_service_entries(struct net *net,
- 			count++;
- 		}
- 	}
--  out:
-+out:
- 	return ret;
- }
- 
-@@ -2707,7 +2707,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
- 		ret = -EINVAL;
- 	}
- 
--  out:
-+out:
- 	mutex_unlock(&__ip_vs_mutex);
- 	return ret;
- }
--- 
-1.7.4.4
+ 	/* Silently drop when the batman packet is actually not a
 
