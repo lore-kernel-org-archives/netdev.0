@@ -1,252 +1,330 @@
 From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next 15/24] bnx2x: Cosmetic changes.
-Date: Tue, 14 Jun 2011 14:34:02 +0300
-Message-ID: <201106141434.02623.vladz@broadcom.com>
+Subject: [PATCH net-next 22/24] bnx2x: Rename LASI registers to
+ definitions in mdio.h
+Date: Tue, 14 Jun 2011 14:34:38 +0300
+Message-ID: <201106141434.38901.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2495 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2918 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756359Ab1FNLfW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 07:35:22 -0400
+	id S1756379Ab1FNLf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 07:35:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+From: Yaniv Rosner <yanivr@broadcom.com>
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x.h         |   12 ++++--------
- drivers/net/bnx2x/bnx2x_ethtool.c |   12 ++++++------
- drivers/net/bnx2x/bnx2x_main.c    |   37 ++++++++++++++++++-------------------
- 3 files changed, 28 insertions(+), 33 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |   82 ++++++++++++++++++++--------------------
+ drivers/net/bnx2x/bnx2x_reg.h  |    6 ---
+ 2 files changed, 41 insertions(+), 47 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index c108e4c..4616d80 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -22,10 +22,6 @@
- #define DRV_MODULE_RELDATE      "2011/03/20"
- #define BNX2X_BC_VER            0x040200
+diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
+index e802c2a..6c8ee64 100644
+--- a/drivers/net/bnx2x/bnx2x_link.c
++++ b/drivers/net/bnx2x/bnx2x_link.c
+@@ -6821,9 +6821,9 @@ static int bnx2x_8073_config_init(struct bnx2x_phy *phy,
  
--#define BNX2X_MULTI_QUEUE
--
--#define BNX2X_NEW_NAPI
--
- #if defined(CONFIG_DCB)
- #define BCM_DCBNL
- #endif
-@@ -745,9 +741,9 @@ struct bnx2x_common {
- 					 (CHIP_REV(bp) == CHIP_REV_Ax))
+ 	/* enable LASI */
+ 	bnx2x_cl45_write(bp, phy,
+-			 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL, (1<<2));
++			 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL, (1<<2));
+ 	bnx2x_cl45_write(bp, phy,
+-			 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL,  0x0004);
++			 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL,  0x0004);
  
- 	int			flash_size;
--#define NVRAM_1MB_SIZE			0x20000	/* 1M bit in bytes */
--#define NVRAM_TIMEOUT_COUNT		30000
--#define NVRAM_PAGE_SIZE			256
-+#define BNX2X_NVRAM_1MB_SIZE			0x20000	/* 1M bit in bytes */
-+#define BNX2X_NVRAM_TIMEOUT_COUNT		30000
-+#define BNX2X_NVRAM_PAGE_SIZE			256
+ 	bnx2x_8073_set_pause_cl37(params, phy, vars);
  
- 	u32			shmem_base;
- 	u32			shmem2_base;
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 965fb07..1a3ed41 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -762,7 +762,7 @@ static int bnx2x_acquire_nvram_lock(struct bnx2x *bp)
- 	u32 val = 0;
+@@ -6831,7 +6831,7 @@ static int bnx2x_8073_config_init(struct bnx2x_phy *phy,
+ 			MDIO_PMA_DEVAD, MDIO_PMA_REG_M8051_MSGOUT_REG, &tmp1);
  
- 	/* adjust timeout for emulation/FPGA */
--	count = NVRAM_TIMEOUT_COUNT;
-+	count = BNX2X_NVRAM_TIMEOUT_COUNT;
- 	if (CHIP_REV_IS_SLOW(bp))
- 		count *= 100;
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM, &tmp1);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXSTAT, &tmp1);
  
-@@ -793,7 +793,7 @@ static int bnx2x_release_nvram_lock(struct bnx2x *bp)
- 	u32 val = 0;
+ 	DP(NETIF_MSG_LINK, "Before rom RX_ALARM(port1): 0x%x\n", tmp1);
  
- 	/* adjust timeout for emulation/FPGA */
--	count = NVRAM_TIMEOUT_COUNT;
-+	count = BNX2X_NVRAM_TIMEOUT_COUNT;
- 	if (CHIP_REV_IS_SLOW(bp))
- 		count *= 100;
+@@ -6965,7 +6965,7 @@ static u8 bnx2x_8073_read_status(struct bnx2x_phy *phy,
+ 	u16 an1000_status = 0;
  
-@@ -861,7 +861,7 @@ static int bnx2x_nvram_read_dword(struct bnx2x *bp, u32 offset, __be32 *ret_val,
- 	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND, cmd_flags);
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val1);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_STAT, &val1);
  
- 	/* adjust timeout for emulation/FPGA */
--	count = NVRAM_TIMEOUT_COUNT;
-+	count = BNX2X_NVRAM_TIMEOUT_COUNT;
- 	if (CHIP_REV_IS_SLOW(bp))
- 		count *= 100;
+ 	DP(NETIF_MSG_LINK, "8703 LASI status 0x%x\n", val1);
  
-@@ -984,7 +984,7 @@ static int bnx2x_nvram_write_dword(struct bnx2x *bp, u32 offset, u32 val,
- 	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND, cmd_flags);
+@@ -6981,7 +6981,7 @@ static u8 bnx2x_8073_read_status(struct bnx2x_phy *phy,
  
- 	/* adjust timeout for emulation/FPGA */
--	count = NVRAM_TIMEOUT_COUNT;
-+	count = BNX2X_NVRAM_TIMEOUT_COUNT;
- 	if (CHIP_REV_IS_SLOW(bp))
- 		count *= 100;
+ 	/* Check the LASI */
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM, &val2);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXSTAT, &val2);
  
-@@ -1088,9 +1088,9 @@ static int bnx2x_nvram_write(struct bnx2x *bp, u32 offset, u8 *data_buf,
- 	while ((written_so_far < buf_size) && (rc == 0)) {
- 		if (written_so_far == (buf_size - sizeof(u32)))
- 			cmd_flags |= MCPR_NVM_COMMAND_LAST;
--		else if (((offset + 4) % NVRAM_PAGE_SIZE) == 0)
-+		else if (((offset + 4) % BNX2X_NVRAM_PAGE_SIZE) == 0)
- 			cmd_flags |= MCPR_NVM_COMMAND_LAST;
--		else if ((offset % NVRAM_PAGE_SIZE) == 0)
-+		else if ((offset % BNX2X_NVRAM_PAGE_SIZE) == 0)
- 			cmd_flags |= MCPR_NVM_COMMAND_FIRST;
+ 	DP(NETIF_MSG_LINK, "KR 0x9003 0x%x\n", val2);
  
- 		memcpy(&val, data_buf, 4);
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 73a22fd..a2cc7d5 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -1557,7 +1557,7 @@ void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
- 		offset++;
- #endif
- 		for_each_eth_queue(bp, i)
--			synchronize_irq(bp->msix_table[i + offset].vector);
-+			synchronize_irq(bp->msix_table[offset++].vector);
- 	} else
- 		synchronize_irq(bp->pdev->irq);
+@@ -8109,16 +8109,16 @@ static u8 bnx2x_8706_8726_read_status(struct bnx2x_phy *phy,
+ 	DP(NETIF_MSG_LINK, "XGXS 8706/8726\n");
+ 	/* Clear RX Alarm*/
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM, &val2);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXSTAT, &val2);
  
-@@ -2514,7 +2514,8 @@ u32 bnx2x_fw_command(struct bnx2x *bp, u32 command, u32 param)
- 	SHMEM_WR(bp, func_mb[mb_idx].drv_mb_param, param);
- 	SHMEM_WR(bp, func_mb[mb_idx].drv_mb_header, (command | seq));
+-	bnx2x_sfp_mask_fault(bp, phy, MDIO_PMA_REG_TX_ALARM,
+-			     MDIO_PMA_REG_TX_ALARM_CTRL);
++	bnx2x_sfp_mask_fault(bp, phy, MDIO_PMA_LASI_TXSTAT,
++			     MDIO_PMA_LASI_TXCTRL);
  
--	DP(BNX2X_MSG_MCP, "wrote command (%x) to FW MB\n", (command | seq));
-+	DP(BNX2X_MSG_MCP, "wrote command (%x) to FW MB param 0x%08x\n",
-+			(command | seq), param);
+ 	/* clear LASI indication*/
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val1);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_STAT, &val1);
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val2);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_STAT, &val2);
+ 	DP(NETIF_MSG_LINK, "8706/8726 LASI status 0x%x--> 0x%x\n", val1, val2);
  
- 	do {
- 		/* let the FW do it's magic ... */
-@@ -8187,7 +8188,7 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ 	bnx2x_cl45_read(bp, phy,
+@@ -8149,9 +8149,9 @@ static u8 bnx2x_8706_8726_read_status(struct bnx2x_phy *phy,
+ 	/* Capture 10G link fault. Read twice to clear stale value. */
+ 	if (vars->line_speed == SPEED_10000) {
+ 		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
+-			    MDIO_PMA_REG_TX_ALARM, &val1);
++			    MDIO_PMA_LASI_TXSTAT, &val1);
+ 		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
+-			    MDIO_PMA_REG_TX_ALARM, &val1);
++			    MDIO_PMA_LASI_TXSTAT, &val1);
+ 		if (val1 & (1<<0))
+ 			vars->fault_detected = 1;
+ 	}
+@@ -8215,11 +8215,11 @@ static u8 bnx2x_8706_config_init(struct bnx2x_phy *phy,
+ 				 MDIO_PMA_DEVAD,
+ 				 MDIO_PMA_REG_DIGITAL_CTRL, 0x400);
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_TX_ALARM_CTRL,
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_TXCTRL,
+ 				 0);
+ 		/* Arm LASI for link and Tx fault. */
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 3);
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, 3);
+ 	} else {
+ 		/* Force 1Gbps using autoneg with 1G advertisement */
+ 
+@@ -8242,10 +8242,10 @@ static u8 bnx2x_8706_config_init(struct bnx2x_phy *phy,
+ 		bnx2x_cl45_write(bp, phy,
+ 				 MDIO_AN_DEVAD, MDIO_AN_REG_CTRL, 0x1200);
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL,
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL,
+ 				 0x0400);
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL,
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL,
+ 				 0x0004);
+ 	}
+ 	bnx2x_save_bcm_spirom_ver(bp, phy, params->port);
+@@ -8379,9 +8379,9 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
+ 		bnx2x_cl45_write(bp, phy,
+ 				 MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2, 0xD);
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 0x5);
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, 0x5);
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL,
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL,
+ 				 0x400);
+ 	} else if ((phy->req_line_speed == SPEED_AUTO_NEG) &&
+ 		   (phy->speed_cap_mask &
+@@ -8407,14 +8407,14 @@ static int bnx2x_8726_config_init(struct bnx2x_phy *phy,
+ 		 * change
+ 		 */
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 0x4);
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, 0x4);
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL,
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL,
+ 				 0x400);
+ 
+ 	} else { /* Default 10G. Set only LASI control */
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 1);
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, 1);
  	}
  
- 	val = REG_RD(bp, MCP_REG_MCPR_NVM_CFG4);
--	bp->common.flash_size = (NVRAM_1MB_SIZE <<
-+	bp->common.flash_size = (BNX2X_NVRAM_1MB_SIZE <<
- 				 (val & MCPR_NVM_CFG4_FLASH_SIZE));
- 	BNX2X_DEV_INFO("flash_size 0x%x (%d)\n",
- 		       bp->common.flash_size, bp->common.flash_size);
-@@ -8460,7 +8461,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_10baseT_Full |
- 					 ADVERTISED_TP);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 					    "Invalid link_config 0x%x"
- 					    "  speed_cap_mask 0x%x\n",
- 					    link_config,
-@@ -8479,7 +8480,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_10baseT_Half |
- 					 ADVERTISED_TP);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 					    "Invalid link_config 0x%x"
- 					    "  speed_cap_mask 0x%x\n",
- 					    link_config,
-@@ -8497,7 +8498,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_100baseT_Full |
- 					 ADVERTISED_TP);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 					    "Invalid link_config 0x%x"
- 					    "  speed_cap_mask 0x%x\n",
- 					    link_config,
-@@ -8517,7 +8518,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_100baseT_Half |
- 					 ADVERTISED_TP);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 				    "Invalid link_config 0x%x"
- 				    "  speed_cap_mask 0x%x\n",
- 				    link_config,
-@@ -8535,7 +8536,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_1000baseT_Full |
- 					 ADVERTISED_TP);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 				    "Invalid link_config 0x%x"
- 				    "  speed_cap_mask 0x%x\n",
- 				    link_config,
-@@ -8553,7 +8554,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_2500baseX_Full |
- 						ADVERTISED_TP);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 				    "Invalid link_config 0x%x"
- 				    "  speed_cap_mask 0x%x\n",
- 				    link_config,
-@@ -8571,7 +8572,7 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 					(ADVERTISED_10000baseT_Full |
- 						ADVERTISED_FIBRE);
- 			} else {
--				BNX2X_ERROR("NVRAM config error. "
-+				BNX2X_ERR("NVRAM config error. "
- 				    "Invalid link_config 0x%x"
- 				    "  speed_cap_mask 0x%x\n",
- 				    link_config,
-@@ -8581,9 +8582,9 @@ static void __devinit bnx2x_link_settings_requested(struct bnx2x *bp)
- 			break;
+ 	/* Set TX PreEmphasis if needed */
+@@ -8538,13 +8538,13 @@ static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
+ 	DP(NETIF_MSG_LINK, "Initializing BCM8727\n");
+ 	/* enable LASI */
+ 	bnx2x_cl45_write(bp, phy,
+-			 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL,
++			 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL,
+ 			 rx_alarm_ctrl_val);
+ 	bnx2x_cl45_write(bp, phy,
+-			 MDIO_PMA_DEVAD, MDIO_PMA_REG_TX_ALARM_CTRL,
++			 MDIO_PMA_DEVAD, MDIO_PMA_LASI_TXCTRL,
+ 			 0);
+ 	bnx2x_cl45_write(bp, phy,
+-			 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, lasi_ctrl_val);
++			 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, lasi_ctrl_val);
  
- 		default:
--			BNX2X_ERROR("NVRAM config error. "
--				    "BAD link speed link_config 0x%x\n",
--					  link_config);
-+			BNX2X_ERR("NVRAM config error. "
-+				  "BAD link speed link_config 0x%x\n",
-+				  link_config);
- 				bp->link_params.req_line_speed[idx] =
- 							SPEED_AUTO_NEG;
- 				bp->port.advertising[idx] =
-@@ -8956,14 +8957,12 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
- 					bp->mf_config[vn] = MF_CFG_RD(bp,
- 						func_mf_config[func].config);
- 				} else
--					DP(NETIF_MSG_PROBE, "illegal OV for "
--							    "SD\n");
-+					BNX2X_DEV_INFO("illegal OV for SD\n");
- 				break;
- 			default:
- 				/* Unknown configuration: reset mf_config */
- 				bp->mf_config[vn] = 0;
--				DP(NETIF_MSG_PROBE, "Unknown MF mode 0x%x\n",
--				   val);
-+				BNX2X_DEV_INFO("unkown MF mode 0x%x\n", val);
- 			}
+ 	/*
+ 	 * Initially configure MOD_ABS to interrupt when module is
+@@ -8586,7 +8586,7 @@ static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
+ 			MDIO_PMA_DEVAD, MDIO_PMA_REG_M8051_MSGOUT_REG, &tmp1);
+ 
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM, &tmp1);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXSTAT, &tmp1);
+ 
+ 	/* Set option 1G speed */
+ 	if (phy->req_line_speed == SPEED_1000) {
+@@ -8726,7 +8726,7 @@ static void bnx2x_8727_handle_mod_abs(struct bnx2x_phy *phy,
+ 		 */
+ 		bnx2x_cl45_read(bp, phy,
+ 				MDIO_PMA_DEVAD,
+-				MDIO_PMA_REG_RX_ALARM, &rx_alarm_status);
++				MDIO_PMA_LASI_RXSTAT, &rx_alarm_status);
+ 
+ 	} else {
+ 		/* Module is present */
+@@ -8755,7 +8755,7 @@ static void bnx2x_8727_handle_mod_abs(struct bnx2x_phy *phy,
+ 		 */
+ 		bnx2x_cl45_read(bp, phy,
+ 				MDIO_PMA_DEVAD,
+-				MDIO_PMA_REG_RX_ALARM, &rx_alarm_status);
++				MDIO_PMA_LASI_RXSTAT, &rx_alarm_status);
+ 
+ 
+ 		if ((val & PORT_FEAT_CFG_OPT_MDL_ENFRCMNT_MASK) ==
+@@ -8785,23 +8785,23 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 
+ 	/* If PHY is not initialized, do not check link status */
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL,
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL,
+ 			&lasi_ctrl);
+ 	if (!lasi_ctrl)
+ 		return 0;
+ 
+ 	/* Check the LASI on Rx */
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM,
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXSTAT,
+ 			&rx_alarm_status);
+ 	vars->line_speed = 0;
+ 	DP(NETIF_MSG_LINK, "8727 RX_ALARM_STATUS  0x%x\n", rx_alarm_status);
+ 
+-	bnx2x_sfp_mask_fault(bp, phy, MDIO_PMA_REG_TX_ALARM,
+-			     MDIO_PMA_REG_TX_ALARM_CTRL);
++	bnx2x_sfp_mask_fault(bp, phy, MDIO_PMA_LASI_TXSTAT,
++			     MDIO_PMA_LASI_TXCTRL);
+ 
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val1);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_STAT, &val1);
+ 
+ 	DP(NETIF_MSG_LINK, "8727 LASI status 0x%x\n", val1);
+ 
+@@ -8835,7 +8835,7 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 			/* Disable all RX_ALARMs except for mod_abs */
+ 			bnx2x_cl45_write(bp, phy,
+ 					 MDIO_PMA_DEVAD,
+-					 MDIO_PMA_REG_RX_ALARM_CTRL, (1<<5));
++					 MDIO_PMA_LASI_RXCTRL, (1<<5));
+ 
+ 			bnx2x_cl45_read(bp, phy,
+ 					MDIO_PMA_DEVAD,
+@@ -8848,7 +8848,7 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 			/* Clear RX alarm */
+ 			bnx2x_cl45_read(bp, phy,
+ 				MDIO_PMA_DEVAD,
+-				MDIO_PMA_REG_RX_ALARM, &rx_alarm_status);
++				MDIO_PMA_LASI_RXSTAT, &rx_alarm_status);
+ 			return 0;
  		}
- 
-@@ -10400,8 +10399,8 @@ static void bnx2x_io_resume(struct pci_dev *pdev)
- 	struct bnx2x *bp = netdev_priv(dev);
- 
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
--		printk(KERN_ERR "Handling parity error recovery. "
--				"Try again later\n");
-+		netdev_err(bp->dev, "Handling parity error recovery. "
-+				    "Try again later\n");
- 		return;
+ 	} /* Over current check */
+@@ -8858,7 +8858,7 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 		bnx2x_8727_handle_mod_abs(phy, params);
+ 		/* Enable all mod_abs and link detection bits */
+ 		bnx2x_cl45_write(bp, phy,
+-				 MDIO_PMA_DEVAD, MDIO_PMA_REG_RX_ALARM_CTRL,
++				 MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXCTRL,
+ 				 ((1<<5) | (1<<2)));
  	}
+ 	DP(NETIF_MSG_LINK, "Enabling 8727 TX laser if SFP is approved\n");
+@@ -8898,10 +8898,10 @@ static u8 bnx2x_8727_read_status(struct bnx2x_phy *phy,
+ 	/* Capture 10G link fault. */
+ 	if (vars->line_speed == SPEED_10000) {
+ 		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
+-			    MDIO_PMA_REG_TX_ALARM, &val1);
++			    MDIO_PMA_LASI_TXSTAT, &val1);
  
+ 		bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD,
+-			    MDIO_PMA_REG_TX_ALARM, &val1);
++			    MDIO_PMA_LASI_TXSTAT, &val1);
+ 
+ 		if (val1 & (1<<0)) {
+ 			vars->fault_detected = 1;
+@@ -8941,7 +8941,7 @@ static void bnx2x_8727_link_reset(struct bnx2x_phy *phy,
+ 	/* Disable Transmitter */
+ 	bnx2x_sfp_set_transmitter(params, phy, 0);
+ 	/* Clear LASI */
+-	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 0);
++	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, 0);
+ 
+ }
+ 
+@@ -10137,7 +10137,7 @@ static int bnx2x_7101_config_init(struct bnx2x_phy *phy,
+ 	bnx2x_wait_reset_complete(bp, phy, params);
+ 
+ 	bnx2x_cl45_write(bp, phy,
+-			 MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_CTRL, 0x1);
++			 MDIO_PMA_DEVAD, MDIO_PMA_LASI_CTRL, 0x1);
+ 	DP(NETIF_MSG_LINK, "Setting the SFX7101 LED to blink on traffic\n");
+ 	bnx2x_cl45_write(bp, phy,
+ 			 MDIO_PMA_DEVAD, MDIO_PMA_REG_7107_LED_CNTL, (1<<3));
+@@ -10169,9 +10169,9 @@ static u8 bnx2x_7101_read_status(struct bnx2x_phy *phy,
+ 	u8 link_up;
+ 	u16 val1, val2;
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val2);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_STAT, &val2);
+ 	bnx2x_cl45_read(bp, phy,
+-			MDIO_PMA_DEVAD, MDIO_PMA_REG_LASI_STATUS, &val1);
++			MDIO_PMA_DEVAD, MDIO_PMA_LASI_STAT, &val1);
+ 	DP(NETIF_MSG_LINK, "10G-base-T LASI status 0x%x->0x%x\n",
+ 		   val2, val1);
+ 	bnx2x_cl45_read(bp, phy,
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index 2511f99..53da4ef 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -6610,12 +6610,6 @@ Theotherbitsarereservedandshouldbezero*/
+ /*bcm*/
+ #define MDIO_PMA_REG_BCM_CTRL		0x0096
+ #define MDIO_PMA_REG_FEC_CTRL		0x00ab
+-#define MDIO_PMA_REG_RX_ALARM_CTRL	0x9000
+-#define MDIO_PMA_REG_TX_ALARM_CTRL	0x9001
+-#define MDIO_PMA_REG_LASI_CTRL		0x9002
+-#define MDIO_PMA_REG_RX_ALARM		0x9003
+-#define MDIO_PMA_REG_TX_ALARM		0x9004
+-#define MDIO_PMA_REG_LASI_STATUS	0x9005
+ #define MDIO_PMA_REG_PHY_IDENTIFIER	0xc800
+ #define MDIO_PMA_REG_DIGITAL_CTRL	0xc808
+ #define MDIO_PMA_REG_DIGITAL_STATUS	0xc809
 -- 
-1.7.4.1
+1.7.1
 
 
