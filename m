@@ -1,321 +1,206 @@
-From: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
-Date: Tue, 14 Jun 2011 11:32:00 +0200
-Message-ID: <4DF72A90.1070702@gmail.com>
-References: <20110611200625.GB14582@kroah.com> <1307829318-18246-1-git-send-email-marius@kotsbak.com> <201106141049.39150.oneukum@suse.de>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH] net/r8169: Update the new parser for the new firmware
+Date: Tue, 14 Jun 2011 17:36:03 +0800
+Message-ID: <AAB6D1CA92564062BD4DA23B485C6B55@realtek.com.tw>
+References: <1307956594-1248-1-git-send-email-hayeswang@realtek.com> <20110613143241.GA1579@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201106141049.39150.oneukum-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110613143241.GA1579@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Den 14. juni 2011 10:49, skrev Oliver Neukum:
-> Am Samstag, 11. Juni 2011, 23:55:18 schrieb Marius B. Kotsbak:
->
->> +static int
->> +kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
->> +{
->> +	char init_msg_1[] =
->> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
->> +		0x00, 0x00 };
->> +	char init_msg_2[] =
->> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
->> +		0x00, 0x00 };
->> +	char receive_buf[28];
-> You are doing DMA on the stack. This will fail on some architectures.
->
+ 
 
-Okay, a bit strange that this API is available then. Which API functions 
-should be used in this case?
+> -----Original Message-----
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Monday, June 13, 2011 10:33 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH] net/r8169: Update the new parser for the 
+> new firmware
+> 
+> Hayes Wang <hayeswang@realtek.com> :
+> > Update the parser for the new firmware which is embedded 
+> some information.
+> > The paser cannot be used for the old firmware. It is only 
+> for the new type one.
+> 
+> > 
+> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> > ---
+> >  drivers/net/r8169.c |   59 
+> ++++++++++++++++++++++++++++----------------------
+> >  1 files changed, 33 insertions(+), 26 deletions(-)
+> > 
+> > diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c index 
+> > ef1ce2e..87b684f 100644
+> > --- a/drivers/net/r8169.c
+> > +++ b/drivers/net/r8169.c
+> > @@ -36,11 +36,11 @@
+> >  #define MODULENAME "r8169"
+> >  #define PFX MODULENAME ": "
+> >  
+> > -#define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-1.fw"
+> > -#define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-2.fw"
+> > -#define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-1.fw"
+> > -#define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-2.fw"
+> > -#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
+> > +#define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-3.fw"
+> > +#define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-4.fw"
+> > +#define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-3.fw"
+> > +#define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-4.fw"
+> > +#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-2.fw"
+> 
+> Why ?
 
->> +	int status;
->> +
->> +	status = kalmia_send_init_packet(dev, init_msg_1, sizeof(init_msg_1)
->> +		/ sizeof(init_msg_1[0]), receive_buf, 24);
->> +	if (status != 0)
->> +		return status;
->> +
->> +	status = kalmia_send_init_packet(dev, init_msg_2, sizeof(init_msg_2)
->> +		/ sizeof(init_msg_2[0]), receive_buf, 28);
->> +	if (status != 0)
->> +		return status;
->> +
->> +	memcpy(ethernet_addr, receive_buf + 10, ETH_ALEN);
->> +
->> +	return status;
->> +}
->> +
->> +static int
->> +kalmia_bind(struct usbnet *dev, struct usb_interface *intf)
->> +{
->> +	u8 status;
->> +	u8 ethernet_addr[ETH_ALEN];
->> +
->> +	/* Don't bind to AT command interface */
->> +	if (intf->cur_altsetting->desc.bInterfaceClass != USB_CLASS_VENDOR_SPEC)
->> +		return -EINVAL;
->> +
->> +	dev->in = usb_rcvbulkpipe(dev->udev, 0x81&  USB_ENDPOINT_NUMBER_MASK);
->> +	dev->out = usb_sndbulkpipe(dev->udev, 0x02&  USB_ENDPOINT_NUMBER_MASK);
->> +	dev->status = NULL;
->> +
->> +	dev->net->hard_header_len += KALMIA_HEADER_LENGTH;
->> +	dev->hard_mtu = 1400;
->> +	dev->rx_urb_size = dev->hard_mtu * 10; // Found as optimal after testing
->> +
->> +	status = kalmia_init_and_get_ethernet_addr(dev, ethernet_addr);
->> +
->> +	if (status<  0) {
->> +		usb_set_intfdata(intf, NULL);
->> +		usb_driver_release_interface(driver_of(intf), intf);
->> +		return status;
-> Why are you doing this? What is to be undone?
+I want to keep the old firmware used by the old paser. The old paser cannot use
+the new firmware and the new paser cannot use the old firmware, so I separate
+them.
 
-You mean the 3 last lines? I just did the same as done in another 
-similar usbnet based driver. Is it incorrect if the init fails?
+> 
+> I see it more as a calling convention to communicate with 
+> userspace than as a place to funnel a partial version information.
+> 
+> >  #ifdef RTL8169_DEBUG
+> >  #define assert(expr) \
+> > @@ -594,6 +594,13 @@ struct ring_info {
+> >  	u8		__pad[sizeof(void *) - sizeof(u32)];
+> >  };
+> >  
+> > +struct fw_info {
+> > +	char	version[32];
+> > +	u32	fw_start;
+> > +	u32	fw_len;
+> > +	u8	chksum;
+> 
+> The chksum field is never used.
 
->> +	}
->> +
->> +	memcpy(dev->net->dev_addr, ethernet_addr, ETH_ALEN);
->> +	memcpy(dev->net->perm_addr, ethernet_addr, ETH_ALEN);
->> +
->> +	return status;
->> +}
->> +
->> +static struct sk_buff *
->> +kalmia_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
->> +{
->> +	struct sk_buff *skb2 = NULL;
->> +	u16 content_len;
->> +	unsigned char *header_start;
->> +	unsigned char ether_type_1, ether_type_2;
->> +	u8 remainder, padlen = 0;
->> +
->> +	if (!skb_cloned(skb)) {
->> +		int headroom = skb_headroom(skb);
->> +		int tailroom = skb_tailroom(skb);
->> +
->> +		if ((tailroom>= KALMIA_ALIGN_SIZE)&&  (headroom
->> +			>= KALMIA_HEADER_LENGTH))
->> +			goto done;
->> +
->> +		if ((headroom + tailroom)>  (KALMIA_HEADER_LENGTH
->> +			+ KALMIA_ALIGN_SIZE)) {
->> +			skb->data = memmove(skb->head + KALMIA_HEADER_LENGTH,
->> +				skb->data, skb->len);
->> +			skb_set_tail_pointer(skb, skb->len);
->> +			goto done;
->> +		}
->> +	}
->> +
->> +	skb2 = skb_copy_expand(skb, KALMIA_HEADER_LENGTH,
->> +		KALMIA_ALIGN_SIZE, flags);
->> +	if (!skb2)
->> +		return NULL;
->> +
->> +	dev_kfree_skb_any(skb);
->> +	skb = skb2;
->> +
->> +	done: header_start = skb_push(skb, KALMIA_HEADER_LENGTH);
-> coding style
+This field in the binary file makes sure the checksum is zero. Driver don't need
+to access this address. But it needs in the binary file for checking.
 
-The last line? I see.
+> 
+> [...]
+> > @@ -1743,16 +1750,30 @@ static void rtl_writephy_batch(struct 
+> > rtl8169_private *tp,  static void  rtl_phy_write_fw(struct 
+> > rtl8169_private *tp, const struct firmware *fw)  {
+> > -	__le32 *phytable = (__le32 *)fw->data;
+> > +	__le32 *phytable;
+> >  	struct net_device *dev = tp->dev;
+> > -	size_t index, fw_size = fw->size / sizeof(*phytable);
+> > +	struct fw_info *f_info;
+> > +	size_t index, fw_size;
+> 
+> s/index/i/
 
->> +	ether_type_1 = header_start[KALMIA_HEADER_LENGTH + 12];
->> +	ether_type_2 = header_start[KALMIA_HEADER_LENGTH + 13];
->> +
->> +	netdev_dbg(dev->net, "Sending etherType: %02x%02x", ether_type_1,
->> +		ether_type_2);
->> +
->> +	/* According to empiric data for data packages */
->> +	header_start[0] = 0x57;
->> +	header_start[1] = 0x44;
->> +	content_len = skb->len - KALMIA_HEADER_LENGTH;
->> +	header_start[2] = (content_len&  0xff); /* low byte */
->> +	header_start[3] = (content_len>>  8); /* high byte */
-> Please use an endianness macro
+Yes, I would replace it.
 
-Wil fix. It will be very relevant to support other architectures for 
-this driver, as I want to run it on a ARM based NAS as LTE router.
+> 
+> >  	u32 predata, count;
+> > +	u8 checksum;
+> > +
+> > +	f_info = (struct fw_info *)fw->data;
+> 
+> It will not work very well on big-endian computers. start and 
+> len should both use le32_to_cpu.
+> 
 
->> +	header_start[4] = ether_type_1;
->> +	header_start[5] = ether_type_2;
->> +
->> +	/* Align to 4 bytes by padding with zeros */
->> +	remainder = skb->len % KALMIA_ALIGN_SIZE;
->> +	if (remainder>  0) {
->> +		padlen = KALMIA_ALIGN_SIZE - remainder;
->> +		memset(skb_put(skb, padlen), 0, padlen);
->> +	}
->> +
->> +	netdev_dbg(
->> +		dev->net,
->> +		"Sending package with length %i and padding %i. Header: %02x:%02x:%02x:%02x:%02x:%02x.",
->> +		content_len, padlen, header_start[0], header_start[1],
->> +		header_start[2], header_start[3], header_start[4],
->> +		header_start[5]);
->> +
->> +	return skb;
->> +}
->> +
->> +static int
->> +kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->> +{
->> +	/*
->> +	 * Our task here is to strip off framing, leaving skb with one
->> +	 * data frame for the usbnet framework code to process.
->> +	 */
->> +	const u8 HEADER_END_OF_USB_PACKET[] =
->> +		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
->> +	const u8 EXPECTED_UNKNOWN_HEADER_1[] =
->> +		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
->> +	const u8 EXPECTED_UNKNOWN_HEADER_2[] =
->> +		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
-> What does the compiler do to this declaration?
+I would fix these. Thanks.
 
-Not sure I understand what you mean here.
+> >  
+> > -	if (fw->size % sizeof(*phytable)) {
+> > -		netif_err(tp, probe, dev, "odd sized firmware 
+> %zd\n", fw->size);
+> > +	if (checksum != 0) {
+> > +		netif_err(tp, probe, dev, "none zero 
+> checksum(%u)\n", checksum);
+> >  		return;
+> >  	}
+> 
+> Nit: "checksum" is not used beyond this point. It should be 
+> possible to put a few things in distinct functions to save 
+> some local variables.
+> 
 
->> +	u8 i = 0;
-> Why not int?
+I would separate this into another function.
 
-I can change that. Thought int was not to be used because it is of 
-unknown size.
->> +
->> +	/* incomplete header? */
->> +	if (skb->len<  KALMIA_HEADER_LENGTH)
->> +		return 0;
->> +
->> +	do {
->> +		struct sk_buff *skb2 = NULL;
->> +		u8 *header_start;
->> +		u16 usb_packet_length, ether_packet_length;
->> +		int is_last;
->> +
->> +		header_start = skb->data;
->> +
->> +		if (unlikely(header_start[0] != 0x57 || header_start[1] != 0x44)) {
->> +			if (!memcmp(header_start, EXPECTED_UNKNOWN_HEADER_1,
->> +				sizeof(EXPECTED_UNKNOWN_HEADER_1)) || !memcmp(
->> +				header_start, EXPECTED_UNKNOWN_HEADER_2,
->> +				sizeof(EXPECTED_UNKNOWN_HEADER_2))) {
->> +				netdev_dbg(
->> +					dev->net,
->> +					"Received expected unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
->> +					header_start[0], header_start[1],
->> +					header_start[2], header_start[3],
->> +					header_start[4], header_start[5],
->> +					skb->len - KALMIA_HEADER_LENGTH);
->> +			}
->> +			else {
->> +				netdev_err(
->> +					dev->net,
->> +					"Received unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
->> +					header_start[0], header_start[1],
->> +					header_start[2], header_start[3],
->> +					header_start[4], header_start[5],
->> +					skb->len - KALMIA_HEADER_LENGTH);
->> +				return 0;
->> +			}
->> +		}
->> +		else
->> +			netdev_dbg(
->> +				dev->net,
->> +				"Received header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
->> +				header_start[0], header_start[1], header_start[2],
->> +				header_start[3], header_start[4], header_start[5],
->> +				skb->len - KALMIA_HEADER_LENGTH);
->> +
->> +		/* subtract start header and end header */
->> +		usb_packet_length = skb->len - (2 * KALMIA_HEADER_LENGTH);
->> +		ether_packet_length = header_start[2] + (header_start[3]<<  8);
-> Please use an endianness macro
+> > +	netif_info(tp, probe, dev, "firmware: %s\n", f_info->version);
+> > +
+> > +	phytable = (__le32 *)(fw->data + f_info->fw_start);
+> > +	fw_size = f_info->fw_len;
+> > +
+> >  	for (index = 0; index < fw_size; index++) {
+> 
+> It's a bit paranoid but I would feel safer if f_info->fw_len 
+> was compared to fw->size beforehand.
+> 
 
-Oki.
->> +		skb_pull(skb, KALMIA_HEADER_LENGTH);
->> +
->> +		/* Some small packets misses end marker */
->> +		if (usb_packet_length<  ether_packet_length) {
->> +			ether_packet_length = usb_packet_length
->> +				+ KALMIA_HEADER_LENGTH;
->> +			is_last = true;
->> +		}
->> +		else {
->> +			netdev_dbg(dev->net, "Correct package length #%i", i
->> +				+ 1);
->> +
->> +			is_last = (memcmp(skb->data + ether_packet_length,
->> +				HEADER_END_OF_USB_PACKET,
->> +				sizeof(HEADER_END_OF_USB_PACKET)) == 0);
->> +			if (!is_last) {
->> +				header_start = skb->data + ether_packet_length;
->> +				netdev_dbg(
->> +					dev->net,
->> +					"End header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
->> +					header_start[0], header_start[1],
->> +					header_start[2], header_start[3],
->> +					header_start[4], header_start[5],
->> +					skb->len - KALMIA_HEADER_LENGTH);
->> +			}
->> +		}
->> +
->> +		if (is_last) {
->> +			skb2 = skb;
->> +		}
->> +		else {
->> +			skb2 = skb_clone(skb, GFP_ATOMIC);
->> +			if (unlikely(!skb2))
->> +				return 0;
->> +		}
->> +
->> +		skb_trim(skb2, ether_packet_length);
->> +
->> +		if (is_last) {
->> +			return 1;
->> +		}
->> +		else {
->> +			usbnet_skb_return(dev, skb2);
->> +			skb_pull(skb, ether_packet_length);
->> +		}
->> +
->> +		i++;
->> +	}
->> +	while (skb->len);
->> +
->> +	return 1;
->> +}
->> +
->> +static const struct driver_info kalmia_info = {
->> +	.description = "Samsung Kalmia LTE USB dongle",
->> +	.flags = FLAG_WWAN,
->> +	.bind = kalmia_bind,
->> +	.rx_fixup = kalmia_rx_fixup,
->> +	.tx_fixup = kalmia_tx_fixup
->> +};
->> +
->> +/*-------------------------------------------------------------------------*/
->> +
->> +static const struct usb_device_id products[] = {
->> +	/* The unswitched USB ID, to get the module auto loaded: */
->> +	{ USB_DEVICE(0x04e8, 0x689a) },
-> Why is this needed? Doesn't the switch trigger an autoload?
+You are right. I would do it.
 
-Please see the comment from Dan Williams. Will test his proposal.
+> [...]
+> > @@ -1892,14 +1913,6 @@ static void 
+> rtl_apply_firmware(struct rtl8169_private *tp)
+> >  		rtl_phy_write_fw(tp, fw);
+> >  }
+> >  
+> > -static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 
+> > reg, u16 val) -{
+> > -	if (rtl_readphy(tp, reg) != val)
+> > -		netif_warn(tp, hw, tp->dev, "chipset not ready 
+> for firmware\n");
+> > -	else
+> > -		rtl_apply_firmware(tp);
+> > -}
+> > -
+> >  static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)  {
+> >  	static const struct phy_reg phy_reg_init[] = { @@ 
+> -2334,10 +2347,7 
+> > @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
+> >  	rtl_w1w0_phy(tp, 0x02, 0x0100, 0x0600);
+> >  	rtl_w1w0_phy(tp, 0x03, 0x0000, 0xe000);
+> >  
+> > -	rtl_writephy(tp, 0x1f, 0x0005);
+> > -	rtl_writephy(tp, 0x05, 0x001b);
+> > -
+> > -	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xbf00);
+> > +	rtl_apply_firmware(tp);
+> >  
+> >  	rtl_writephy(tp, 0x1f, 0x0000);
+> >  }
+> > @@ -2437,10 +2447,7 @@ static void 
+> rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
+> >  	rtl_writephy(tp, 0x1f, 0x0002);
+> >  	rtl_patchphy(tp, 0x0f, 0x0017);
+> >  
+> > -	rtl_writephy(tp, 0x1f, 0x0005);
+> > -	rtl_writephy(tp, 0x05, 0x001b);
+> > -
+> > -	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xb300);
+> > +	rtl_apply_firmware(tp);
+> 
+> Actually both the format and the content of the firmware are 
+> changed by the patch.
+> 
+> Imho the new firmware format could include some specific 
+> string so that the driver can identify the new firmware 
+> format and fallback to the old format otherwise. Any fixed 
+> magic prefix would be enough as the new format mandates the 
+> version information.
+> 
+> This way Linus's test machine won't risk of breaking 
+> (again...) if he builds a new kernel without updating the 
+> firmware at the same time.
+> 
 
-Anyway it should not do any damage for anyone (I think even the driver 
-disk is available with this included). The module could in fact also do 
-the switch into modem mode to avoid the dependency on usb_modeswitch.
+I plan to let the old paser loads the old firmware and the new paser loads the
+new firmware. If you build the new kernel without updating the firmware, you
+just load no firmware because the new firmware doesn't exist. However, it is
+more dangerous for the old paser to load the new firmware. That is why I create
+the new ones, not replace the existing files.
 
---
-Marius
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 
+Best Regards,
+Hayes
