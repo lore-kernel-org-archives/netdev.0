@@ -1,88 +1,56 @@
 From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next 9/24] bnx2x: use bnx2x_reload_if_running
-Date: Tue, 14 Jun 2011 14:33:30 +0300
-Message-ID: <201106141433.31289.vladz@broadcom.com>
+Subject: [PATCH net-next 7/24] bnx2x: do not call link update without HW
+ notification
+Date: Tue, 14 Jun 2011 14:33:19 +0300
+Message-ID: <201106141433.19525.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2356 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2495 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756043Ab1FNLeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 07:34:16 -0400
+	id S1756260Ab1FNLeV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 07:34:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+From: Yaniv Rosner <yanivr@broadcom.com>
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c     |    2 +-
- drivers/net/bnx2x/bnx2x_cmn.h     |    3 +++
- drivers/net/bnx2x/bnx2x_ethtool.c |    8 +-------
- 3 files changed, 5 insertions(+), 8 deletions(-)
+ drivers/net/bnx2x/bnx2x_main.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index dabfec0..c020dfc 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -2808,7 +2808,7 @@ alloc_err:
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index e6439a3..0e8d302 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -2885,9 +2885,15 @@ static void bnx2x_attn_int_asserted(struct bnx2x *bp, u32 asserted)
  
- }
+ 			/* save nig interrupt mask */
+ 			nig_mask = REG_RD(bp, nig_int_mask_addr);
+-			REG_WR(bp, nig_int_mask_addr, 0);
  
--static int bnx2x_reload_if_running(struct net_device *dev)
-+int bnx2x_reload_if_running(struct net_device *dev)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
-index b01f737..09f2d3d 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/bnx2x/bnx2x_cmn.h
-@@ -377,6 +377,9 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev);
- /* select_queue callback */
- u16 bnx2x_select_queue(struct net_device *dev, struct sk_buff *skb);
- 
-+/* reload helper */
-+int bnx2x_reload_if_running(struct net_device *dev);
+-			bnx2x_link_attn(bp);
++			/* If nig_mask is not set, no need to call the update
++			 * function.
++			 */
++			if (nig_mask) {
++				REG_WR(bp, nig_int_mask_addr, 0);
 +
- int bnx2x_change_mac_addr(struct net_device *dev, void *p);
++				bnx2x_link_attn(bp);
++			}
  
- /* NAPI poll Rx part */
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 10b17f6..382e03c 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -1216,7 +1216,6 @@ static int bnx2x_set_ringparam(struct net_device *dev,
- 			       struct ethtool_ringparam *ering)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
--	int rc = 0;
- 
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
- 		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
-@@ -1233,12 +1232,7 @@ static int bnx2x_set_ringparam(struct net_device *dev,
- 	bp->rx_ring_size = ering->rx_pending;
- 	bp->tx_ring_size = ering->tx_pending;
- 
--	if (netif_running(dev)) {
--		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
--		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
--	}
--
--	return rc;
-+	return bnx2x_reload_if_running(dev);
- }
- 
- static void bnx2x_get_pauseparam(struct net_device *dev,
+ 			/* handle unicore attn? */
+ 		}
 -- 
 1.7.2.2
 
