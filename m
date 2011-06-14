@@ -1,30 +1,52 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH net-next 0/24] bnx2x: New FW and support for 578xx
-Date: Tue, 14 Jun 2011 20:23:08 +0100 (BST)
-Message-ID: <alpine.LFD.2.02.1106142021470.8326@localhost6.localdomain6>
-References: <1308072953.9492.4.camel@HP1> <20110614.134653.607599293786464713.davem@davemloft.net> <35D366A0-235E-44ED-8D5B-AEDB1D8AC0F5@broadcom.com> <20110614.143349.1778665510231099747.davem@davemloft.net>
+From: Joris van Rantwijk <joris@jorisvr.nl>
+Subject: Re: Question about LRO/GRO and TCP acknowledgements
+Date: Tue, 14 Jun 2011 21:37:18 +0200
+Message-ID: <20110614213718.67022768@konijn>
+References: <20110611215919.5fc29c27@konijn>
+	<1307850224.22348.626.camel@localhost>
+	<20110612095131.6d924082@konijn>
+	<1307869632.2872.106.camel@edumazet-laptop>
+	<20110612113004.79f48f40@konijn>
+	<1307875698.2872.130.camel@edumazet-laptop>
+	<20110612132428.3e1a4593@konijn>
+	<1307890657.2872.158.camel@edumazet-laptop>
+	<20110612213726.4d203a6e@konijn>
+	<alpine.DEB.2.00.1106141302110.17529@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: vladz@broadcom.com, mchan@broadcom.com, bprakash@broadcom.com,
-	eilong@broadcom.com, netdev@vger.kernel.org, dmitry@broadcom.com,
-	yaniv.rosner@broadcom.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: "Ilpo =?ISO-8859-1?Q?J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50405 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101Ab1FNTXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 15:23:14 -0400
-In-Reply-To: <20110614.143349.1778665510231099747.davem@davemloft.net>
+Received: from smtp-vbr4.xs4all.nl ([194.109.24.24]:2060 "EHLO
+	smtp-vbr4.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753100Ab1FNTh0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 15:37:26 -0400
+In-Reply-To: <alpine.DEB.2.00.1106141302110.17529@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Jun 2011, David Miller wrote:
+On 2011-06-14, "Ilpo J=C3=A4rvinen" <ilpo.jarvinen@helsinki.fi> wrote:
+> BTW, it wouldn't be impossible to create all those "missing" ACKs on
+> the TCP layer relatively cheaply when receiving the GRO'ed super
+> segment.  I'm certainly not opposed you coming up such patch which
+> does all that minimal work needed on TCP layer but I think it
+> requires also some TSO/GSO related problem solving because TSO/GSO as
+> is won't let you create such super ACKs we'd want to send out on that
+> single go.
 
-> Ok, then let's get this propagated into David's firmware tree.
+Your super-ACK idea is similar to the solution presented in this paper:
+http://www.usenix.org/event/usenix08/tech/full_papers/menon/menon_html/
 
-If there's a git-binary patch in my mailbox that I can apply when I get 
-home in a few hours, I'll do it immediately. Bwh also has access now, too.
+Actually, I started looking at the GRO code after reading that
+paper, hoping to find that Linux has a better way to deal with ACKs.
 
--- 
-dwmw2
+The super ACK doesn't look easy. It must contain all different ack_seq
+values to avoid tripping duplicate ACK detection. Ideally, the ack_seq
+values would match real seq values from the received segments.
 
+I don't currently have a setup where I could test these kinds of
+changes, so this doesn't seem like a job for me. At least not right now=
+=2E
+
+Thanks, Joris.
