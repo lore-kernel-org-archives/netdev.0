@@ -1,62 +1,57 @@
-From: "Stefan (metze) Metzmacher" <metze@samba.org>
-Subject: [ipv6] valid_lft and active connections
-Date: Tue, 14 Jun 2011 12:39:41 +0200
-Message-ID: <4DF73A6D.1050809@samba.org>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Question about LRO/GRO and TCP acknowledgements
+Date: Tue, 14 Jun 2011 13:53:37 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1106141302110.17529@wel-95.cs.helsinki.fi>
+References: <20110611215919.5fc29c27@konijn> <1307850224.22348.626.camel@localhost> <20110612095131.6d924082@konijn> <1307869632.2872.106.camel@edumazet-laptop> <20110612113004.79f48f40@konijn> <1307875698.2872.130.camel@edumazet-laptop> <20110612132428.3e1a4593@konijn>
+ <1307890657.2872.158.camel@edumazet-laptop> <20110612213726.4d203a6e@konijn>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig85EB08868EC731408C6E43A5"
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Joris van Rantwijk <joris@jorisvr.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p05-ob.rzone.de ([81.169.146.181]:37297 "EHLO
-	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754651Ab1FNKjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 06:39:47 -0400
-Received: from [IPv6:2001:470:9f11:11e1:7d79:b5d5:2232:4647]
-	([2001:470:9f11:11e1:7d79:b5d5:2232:4647])
-	by post.strato.de (cohen mo3) (RZmta 25.18)
-	with ESMTPA id g00fafn5E96nYU for <netdev@vger.kernel.org>;
-	Tue, 14 Jun 2011 12:39:45 +0200 (MEST)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41542 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755845Ab1FNKxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 06:53:38 -0400
+In-Reply-To: <20110612213726.4d203a6e@konijn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig85EB08868EC731408C6E43A5
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Sun, 12 Jun 2011, Joris van Rantwijk wrote:
 
-Hi,
+> On 2011-06-12, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Think of GRO being a receiver facility against stress/load, typically
+> > in datacenter.
+> > 
+> > Only when receiver is overloaded, GRO kicks in and can coalesce
+> > several frames before being handled in TCP stack in one run.
+> 
+> Ok, it now becomes clear to me that I have a different scenario in mind
+> than GRO was designed to handle. I'm interested in LRO as a method
+> to sustain 1 Gbit through a single TCP connection on a slow embedded
+> computer.
+> 
+> > If receiver is so loaded that more than 2 frames are coalesced in a
+> > NAPI run, it certainly helps to not allow sender to increase its cwnd
+> > more than one SMSS. We probably are right before packet drops anyway.
+> 
+> Right. So unlike TSO, GRO is not a transparent, generally applicable
+> performance improvement. It's more like a form of graceful degradation,
+> helping a server to sustain overall throughput when it is already
+> swamped in TCP traffic.
+> 
+> Thanks for your clarification. This has certainly solved some confusion
+> on my side.
 
-I have the following problem:
-
-If I use ipv6 addresses with valid_lft !=3D forever, the ipv6 addresses
-are removed from the interface if the valid_lft expires, even if there're=
-
-established connection which use with address.
-
-Would it be possible keep the address until the last active connection
-is closed? Otherwise the usable of the privacy extensions will make
-very long living tcp connections impossible.
-
-It would be also ok to add a new special value "used" similar to "forever=
-",
-which triggers the modified behavior.
-
-metze
+BTW, it wouldn't be impossible to create all those "missing" ACKs on the 
+TCP layer relatively cheaply when receiving the GRO'ed super segment.  I'm 
+certainly not opposed you coming up such patch which does all that minimal 
+work needed on TCP layer but I think it requires also some TSO/GSO related 
+problem solving because TSO/GSO as is won't let you create such super ACKs 
+we'd want to send out on that single go.
 
 
---------------enig85EB08868EC731408C6E43A5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk33Om0ACgkQm70gjA5TCD+fvACfR9rxWsOAPksF45dkXVuXZLhe
-V04An1Sc4qRBsVehbkZ3fKc7QyQG6/VK
-=LiNY
------END PGP SIGNATURE-----
-
---------------enig85EB08868EC731408C6E43A5--
+-- 
+ i.
