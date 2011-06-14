@@ -1,206 +1,93 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH] net/r8169: Update the new parser for the new firmware
-Date: Tue, 14 Jun 2011 17:36:03 +0800
-Message-ID: <AAB6D1CA92564062BD4DA23B485C6B55@realtek.com.tw>
-References: <1307956594-1248-1-git-send-email-hayeswang@realtek.com> <20110613143241.GA1579@electric-eye.fr.zoreil.com>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Tue, 14 Jun 2011 11:46:19 +0200
+Message-ID: <201106141146.19097.oneukum@suse.de>
+References: <20110611200625.GB14582@kroah.com> <201106141049.39150.oneukum@suse.de> <4DF72A90.1070702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110613143241.GA1579@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+To: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4DF72A90.1070702-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
- 
+Am Dienstag, 14. Juni 2011, 11:32:00 schrieb Marius Kotsbak:
+> Den 14. juni 2011 10:49, skrev Oliver Neukum:
+> > Am Samstag, 11. Juni 2011, 23:55:18 schrieb Marius B. Kotsbak:
+> >
+> >> +static int
+> >> +kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
+> >> +{
+> >> +	char init_msg_1[] =
+> >> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
+> >> +		0x00, 0x00 };
+> >> +	char init_msg_2[] =
+> >> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
+> >> +		0x00, 0x00 };
+> >> +	char receive_buf[28];
+> > You are doing DMA on the stack. This will fail on some architectures.
+> >
+> 
+> Okay, a bit strange that this API is available then. Which API functions 
+> should be used in this case?
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Monday, June 13, 2011 10:33 PM
-> To: Hayeswang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH] net/r8169: Update the new parser for the 
-> new firmware
-> 
-> Hayes Wang <hayeswang@realtek.com> :
-> > Update the parser for the new firmware which is embedded 
-> some information.
-> > The paser cannot be used for the old firmware. It is only 
-> for the new type one.
-> 
-> > 
-> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> > ---
-> >  drivers/net/r8169.c |   59 
-> ++++++++++++++++++++++++++++----------------------
-> >  1 files changed, 33 insertions(+), 26 deletions(-)
-> > 
-> > diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c index 
-> > ef1ce2e..87b684f 100644
-> > --- a/drivers/net/r8169.c
-> > +++ b/drivers/net/r8169.c
-> > @@ -36,11 +36,11 @@
-> >  #define MODULENAME "r8169"
-> >  #define PFX MODULENAME ": "
-> >  
-> > -#define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-1.fw"
-> > -#define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-2.fw"
-> > -#define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-1.fw"
-> > -#define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-2.fw"
-> > -#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
-> > +#define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-3.fw"
-> > +#define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-4.fw"
-> > +#define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-3.fw"
-> > +#define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-4.fw"
-> > +#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-2.fw"
-> 
-> Why ?
+The API is correct. You just need to copy the init strings into buffers
+allocated with kmalloc.
 
-I want to keep the old firmware used by the old paser. The old paser cannot use
-the new firmware and the new paser cannot use the old firmware, so I separate
-them.
+> >> +	if (status<  0) {
+> >> +		usb_set_intfdata(intf, NULL);
+> >> +		usb_driver_release_interface(driver_of(intf), intf);
+> >> +		return status;
+> > Why are you doing this? What is to be undone?
+> 
+> You mean the 3 last lines? I just did the same as done in another 
+> similar usbnet based driver. Is it incorrect if the init fails?
 
-> 
-> I see it more as a calling convention to communicate with 
-> userspace than as a place to funnel a partial version information.
-> 
-> >  #ifdef RTL8169_DEBUG
-> >  #define assert(expr) \
-> > @@ -594,6 +594,13 @@ struct ring_info {
-> >  	u8		__pad[sizeof(void *) - sizeof(u32)];
-> >  };
-> >  
-> > +struct fw_info {
-> > +	char	version[32];
-> > +	u32	fw_start;
-> > +	u32	fw_len;
-> > +	u8	chksum;
-> 
-> The chksum field is never used.
+Yes, the last three lines. If all drivers do that this is an opportunity to
+share common code in usbnet. I'll look at it. 
 
-This field in the binary file makes sure the checksum is zero. Driver don't need
-to access this address. But it needs in the binary file for checking.
+> >> +static int
+> >> +kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+> >> +{
+> >> +	/*
+> >> +	 * Our task here is to strip off framing, leaving skb with one
+> >> +	 * data frame for the usbnet framework code to process.
+> >> +	 */
+> >> +	const u8 HEADER_END_OF_USB_PACKET[] =
+> >> +		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
+> >> +	const u8 EXPECTED_UNKNOWN_HEADER_1[] =
+> >> +		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
+> >> +	const u8 EXPECTED_UNKNOWN_HEADER_2[] =
+> >> +		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
+> > What does the compiler do to this declaration?
+> 
+> Not sure I understand what you mean here.
 
-> 
-> [...]
-> > @@ -1743,16 +1750,30 @@ static void rtl_writephy_batch(struct 
-> > rtl8169_private *tp,  static void  rtl_phy_write_fw(struct 
-> > rtl8169_private *tp, const struct firmware *fw)  {
-> > -	__le32 *phytable = (__le32 *)fw->data;
-> > +	__le32 *phytable;
-> >  	struct net_device *dev = tp->dev;
-> > -	size_t index, fw_size = fw->size / sizeof(*phytable);
-> > +	struct fw_info *f_info;
-> > +	size_t index, fw_size;
-> 
-> s/index/i/
+Will the compiler put those strings into the image or build them on
+the stack each time the function is called? Shouldn't they be static?
 
-Yes, I would replace it.
+> >> +	u8 i = 0;
+> > Why not int?
+> 
+> I can change that. Thought int was not to be used because it is of 
+> unknown size.
 
-> 
-> >  	u32 predata, count;
-> > +	u8 checksum;
-> > +
-> > +	f_info = (struct fw_info *)fw->data;
-> 
-> It will not work very well on big-endian computers. start and 
-> len should both use le32_to_cpu.
-> 
+Well, then are you sure i will never be larger than 255?
 
-I would fix these. Thanks.
+> Anyway it should not do any damage for anyone (I think even the driver 
+> disk is available with this included). The module could in fact also do 
+> the switch into modem mode to avoid the dependency on usb_modeswitch.
 
-> >  
-> > -	if (fw->size % sizeof(*phytable)) {
-> > -		netif_err(tp, probe, dev, "odd sized firmware 
-> %zd\n", fw->size);
-> > +	if (checksum != 0) {
-> > +		netif_err(tp, probe, dev, "none zero 
-> checksum(%u)\n", checksum);
-> >  		return;
-> >  	}
-> 
-> Nit: "checksum" is not used beyond this point. It should be 
-> possible to put a few things in distinct functions to save 
-> some local variables.
-> 
+Please don't do that. It has been decided to put such things into usb_modeswitch
+for now.
 
-I would separate this into another function.
-
-> > +	netif_info(tp, probe, dev, "firmware: %s\n", f_info->version);
-> > +
-> > +	phytable = (__le32 *)(fw->data + f_info->fw_start);
-> > +	fw_size = f_info->fw_len;
-> > +
-> >  	for (index = 0; index < fw_size; index++) {
-> 
-> It's a bit paranoid but I would feel safer if f_info->fw_len 
-> was compared to fw->size beforehand.
-> 
-
-You are right. I would do it.
-
-> [...]
-> > @@ -1892,14 +1913,6 @@ static void 
-> rtl_apply_firmware(struct rtl8169_private *tp)
-> >  		rtl_phy_write_fw(tp, fw);
-> >  }
-> >  
-> > -static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 
-> > reg, u16 val) -{
-> > -	if (rtl_readphy(tp, reg) != val)
-> > -		netif_warn(tp, hw, tp->dev, "chipset not ready 
-> for firmware\n");
-> > -	else
-> > -		rtl_apply_firmware(tp);
-> > -}
-> > -
-> >  static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)  {
-> >  	static const struct phy_reg phy_reg_init[] = { @@ 
-> -2334,10 +2347,7 
-> > @@ static void rtl8168d_1_hw_phy_config(struct rtl8169_private *tp)
-> >  	rtl_w1w0_phy(tp, 0x02, 0x0100, 0x0600);
-> >  	rtl_w1w0_phy(tp, 0x03, 0x0000, 0xe000);
-> >  
-> > -	rtl_writephy(tp, 0x1f, 0x0005);
-> > -	rtl_writephy(tp, 0x05, 0x001b);
-> > -
-> > -	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xbf00);
-> > +	rtl_apply_firmware(tp);
-> >  
-> >  	rtl_writephy(tp, 0x1f, 0x0000);
-> >  }
-> > @@ -2437,10 +2447,7 @@ static void 
-> rtl8168d_2_hw_phy_config(struct rtl8169_private *tp)
-> >  	rtl_writephy(tp, 0x1f, 0x0002);
-> >  	rtl_patchphy(tp, 0x0f, 0x0017);
-> >  
-> > -	rtl_writephy(tp, 0x1f, 0x0005);
-> > -	rtl_writephy(tp, 0x05, 0x001b);
-> > -
-> > -	rtl_apply_firmware_cond(tp, MII_EXPANSION, 0xb300);
-> > +	rtl_apply_firmware(tp);
-> 
-> Actually both the format and the content of the firmware are 
-> changed by the patch.
-> 
-> Imho the new firmware format could include some specific 
-> string so that the driver can identify the new firmware 
-> format and fallback to the old format otherwise. Any fixed 
-> magic prefix would be enough as the new format mandates the 
-> version information.
-> 
-> This way Linus's test machine won't risk of breaking 
-> (again...) if he builds a new kernel without updating the 
-> firmware at the same time.
-> 
-
-I plan to let the old paser loads the old firmware and the new paser loads the
-new firmware. If you build the new kernel without updating the firmware, you
-just load no firmware because the new firmware doesn't exist. However, it is
-more dangerous for the old paser to load the new firmware. That is why I create
-the new ones, not replace the existing files.
-
- 
-Best Regards,
-Hayes
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
