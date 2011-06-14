@@ -1,93 +1,121 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
-Date: Tue, 14 Jun 2011 11:46:19 +0200
-Message-ID: <201106141146.19097.oneukum@suse.de>
-References: <20110611200625.GB14582@kroah.com> <201106141049.39150.oneukum@suse.de> <4DF72A90.1070702@gmail.com>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re: Re: Re: [RFC PATCH 1/1] IPVS netns shutdown/startup
+	dead-lock
+Date: Tue, 14 Jun 2011 11:47:16 +0200 (CEST)
+Message-ID: <g3jhi88.2bcfc2101bf583421863a27e41ed53b6@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-To: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4DF72A90.1070702-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
+	horms@verge.net.au, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: "Julian Anastasov" <ja@ssi.bg>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, 14. Juni 2011, 11:32:00 schrieb Marius Kotsbak:
-> Den 14. juni 2011 10:49, skrev Oliver Neukum:
-> > Am Samstag, 11. Juni 2011, 23:55:18 schrieb Marius B. Kotsbak:
-> >
-> >> +static int
-> >> +kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
-> >> +{
-> >> +	char init_msg_1[] =
-> >> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
-> >> +		0x00, 0x00 };
-> >> +	char init_msg_2[] =
-> >> +		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
-> >> +		0x00, 0x00 };
-> >> +	char receive_buf[28];
-> > You are doing DMA on the stack. This will fail on some architectures.
-> >
-> 
-> Okay, a bit strange that this API is available then. Which API functions 
-> should be used in this case?
 
-The API is correct. You just need to copy the init strings into buffers
-allocated with kmalloc.
+Hello,
+>
+>On Tue, 14 Jun 2011, Hans Schillstrom wrote:
+>
+>> >On Mon, 13 Jun 2011, Hans Schillstrom wrote:
+>> >
+>> >> ip_vs_mutext is used by both netns shutdown code and startup
+>> >> and both implicit uses sk_lock-AF_INET mutex.
+>> >> 
+>> >> cleanup CPU-1         startup CPU-2
+>> >> ip_vs_dst_event()     ip_vs_genl_set_cmd()
+>> >>  sk_lock-AF_INET     __ip_vs_mutex
+>> >>                      sk_lock-AF_INET
+>> >> __ip_vs_mutex
+>> >> * DEAD LOCK *
+>> >
+>> >	So, sk_lock-AF_INET is locked before calling
+>> >ip_vs_dst_event ? Do you have a backtrace for this case?
+>> 
+>> Yes plenty this one is with lockdep
+>> 
+>> Chain exists of:
+>>   rtnl_mutex --> __ip_vs_mutex --> sk_lock-AF_INET
+>> 
+>>  Possible unsafe locking scenario:
+>> 
+>>        CPU0                    CPU1
+>>        ----                    ----
+>>   lock(sk_lock-AF_INET);
+>>                                lock(__ip_vs_mutex);
+>>                                lock(sk_lock-AF_INET);
+>>   lock(rtnl_mutex);
+>> 
+>>  *** DEADLOCK ***
+>> 
+>> 3 locks held by ipvsadm/993:
+>>  #0:  (genl_mutex){+.+.+.}, at: [<ffffffff812edc52>] genl_lock+0x17/0x19
+>>  #1:  (__ip_vs_mutex){+.+.+.}, at: [<ffffffff81307dcb>] ip_vs_genl_set_cmd+0xe1/0x3a3
+>>  #2:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8130ffc1>] start_sync_thread+0x3ec/0x5ff
+>
+>	I see
+>
+>> >> ip_vs_mutex per name-space seems to be a more future proof solution.
+>> >
+>> >	Global mutex protects some global lists such as
+>> >virtual services. If your patch works, better way to fix this problem
+>> >is to use some new mutex. May be we can move the IPVS_CMD_NEW_DAEMON,
+>> >IPVS_CMD_DEL_DAEMON and IP_VS_SO_GET_DAEMON code before the
+>> >__ip_vs_mutex locking. This mutex should be used for start_sync_thread,
+>> >stop_sync_thread, ip_vs_genl_dump_daemons and IP_VS_SO_GET_DAEMON.
+>> >For example, ip_vs_sync_mutex.
+>> 
+>> I think we should avoid global mutexes as a rule of tumb, 
+>> because it's realy hard to keep track of all possible cases 
+>> that can occur when multiple netns is alive and/or goes up and down.
+>> 
+>> There might be more suprises while a netns exits (in terms of locks)...
+>> my gut feeling is, avoid global locks as long as possible.
+>
+>	There should not be a problem between two netns when
+>using global mutexes. 
 
-> >> +	if (status<  0) {
-> >> +		usb_set_intfdata(intf, NULL);
-> >> +		usb_driver_release_interface(driver_of(intf), intf);
-> >> +		return status;
-> > Why are you doing this? What is to be undone?
-> 
-> You mean the 3 last lines? I just did the same as done in another 
-> similar usbnet based driver. Is it incorrect if the init fails?
+as long as the locking occurs in the same order :-)
 
-Yes, the last three lines. If all drivers do that this is an opportunity to
-share common code in usbnet. I'll look at it. 
+>And there are no many places in IPVS
+>where other modules are accessed.
+>
+>> >	Note that __ip_vs_sync_cleanup is missing a
+>> >__ip_vs_mutex lock. We have to use the new mutex there.
+>> 
+>> OK
+>> 
+>> >
+>> >> Which one should be used ?
+>> >
+>> >	For now __ip_vs_mutex should be global ...
+>> 
+>> I do agree, but in the long term I vote for mutex per netns.
+>
+>	It will not help because the problem does not happen
+>between two netspaces but between ipvs and other modules.
+>The same problem would happen even if __ip_vs_mutex was
+>pernet mutex. 
 
-> >> +static int
-> >> +kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-> >> +{
-> >> +	/*
-> >> +	 * Our task here is to strip off framing, leaving skb with one
-> >> +	 * data frame for the usbnet framework code to process.
-> >> +	 */
-> >> +	const u8 HEADER_END_OF_USB_PACKET[] =
-> >> +		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
-> >> +	const u8 EXPECTED_UNKNOWN_HEADER_1[] =
-> >> +		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
-> >> +	const u8 EXPECTED_UNKNOWN_HEADER_2[] =
-> >> +		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
-> > What does the compiler do to this declaration?
-> 
-> Not sure I understand what you mean here.
+Actually it's between userspaces that uses different netns
+i.e. when starting a thread and exit a container (with different namespaces)
+This bug would not have occured if a per netns mutex had been used.
 
-Will the compiler put those strings into the image or build them on
-the stack each time the function is called? Shouldn't they be static?
+>So, lets try with new mutex.
 
-> >> +	u8 i = 0;
-> > Why not int?
-> 
-> I can change that. Thought int was not to be used because it is of 
-> unknown size.
+OK, I missed the reading of thread status, i.e. a sync_mutex is needed
 
-Well, then are you sure i will never be larger than 255?
+There is no need for a lock(mutex) in ip_vs_sync_net_cleanup() before stoping threads,
+because when it's called no user processes exits in that namespace.
 
-> Anyway it should not do any damage for anyone (I think even the driver 
-> disk is available with this included). The module could in fact also do 
-> the switch into modem mode to avoid the dependency on usb_modeswitch.
+Regards
+Hans Schillstrom
 
-Please don't do that. It has been decided to put such things into usb_modeswitch
-for now.
 
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
