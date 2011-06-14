@@ -1,32 +1,80 @@
-From: Antoine Reversat <a.reversat@gmail.com>
-Subject: Re: [Bugme-new] [Bug 37172] New: Enabling 802.1q vlan causes some
- packets to be received with a vlan id of 64
-Date: Tue, 14 Jun 2011 09:31:52 -0400
-Message-ID: <BANLkTi=Omr+oe3nMiqVeS+8tiSJnxONbhQ@mail.gmail.com>
-References: <bug-37172-10286@https.bugzilla.kernel.org/>
-	<20110613164355.c4f7b7b2.akpm@linux-foundation.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/2] drivers/net: Remove casts of void *
+Date: Tue, 14 Jun 2011 07:00:28 -0700
+Message-ID: <1308060028.18987.6.camel@Joe-Laptop>
+References: <cover.1308024069.git.joe@perches.com>
+	 <486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>
+	 <BANLkTim-yLJqfxrCprwiTgdRJNy+OGDUuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:41741 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369Ab1FNNhS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 09:37:18 -0400
-Received: by eyx24 with SMTP id 24so2012907eyx.19
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2011 06:37:17 -0700 (PDT)
-In-Reply-To: <20110613164355.c4f7b7b2.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <jie.yang@atheros.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	Breno Leitao <leitao@linux.vnet.ibm.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	Jon Mason <jdmason@kudzu.us>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Steve Hodgson <shodgson@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Daniele Venzano <venza@brownhat
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTim-yLJqfxrCprwiTgdRJNy+OGDUuw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 13, 2011 at 7:43 PM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
->
-> From which kernel version did we regress? =A0Was 2.6.38 OK?
+On Tue, 2011-06-14 at 11:21 +0200, Geert Uytterhoeven wrote:
+> On Tue, Jun 14, 2011 at 06:02, Joe Perches <joe@perches.com> wrote:
+> > Unnecessary casts of void * clutter the code.
+> > --- a/drivers/net/a2065.c
+> > +++ b/drivers/net/a2065.c
+> > @@ -426,7 +426,7 @@ static irqreturn_t lance_interrupt (int irq, void *dev_id)
+> >        volatile struct lance_regs *ll;
+> >        int csr0;
+> >
+> > -       dev = (struct net_device *) dev_id;
+> > +       dev = dev_id;
+> 
+> I think it would look better if you merge this line with the line that
+> defines "dev".
 
-I can confirm this bug is present in 2.6.38.6
+I think so too, but I also think it should look like below
+and that's something better done in a separate pass, don't
+you think?
 
-I'll try and see if I can reproduce it on a 2.6.37
+diff --git a/drivers/net/a2065.c b/drivers/net/a2065.c
+index deaa8bc..25ea98a 100644
+--- a/drivers/net/a2065.c
++++ b/drivers/net/a2065.c
+@@ -421,16 +421,11 @@ static int lance_tx (struct net_device *dev)
+ 
+ static irqreturn_t lance_interrupt (int irq, void *dev_id)
+ {
+-	struct net_device *dev;
+-	struct lance_private *lp;
+-	volatile struct lance_regs *ll;
++	struct net_device *dev = dev_id;
++	struct lance_private *lp = netdev_priv(dev);
++	volatile struct lance_regs *ll = lp->ll;
+ 	int csr0;
+ 
+-	dev = (struct net_device *) dev_id;
+-
+-	lp = netdev_priv(dev);
+-	ll = lp->ll;
+-
+ 	ll->rap = LE_CSR0;		/* LANCE Controller Status */
+ 	csr0 = ll->rdp;
+ 
