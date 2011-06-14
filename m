@@ -1,21 +1,21 @@
 From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next 20/24] bnx2x: Adjust BCM84833 to BCM578xx
-Date: Tue, 14 Jun 2011 14:34:27 +0300
-Message-ID: <201106141434.27781.vladz@broadcom.com>
+Subject: [PATCH net-next 16/24] bnx2x: Add new MAC support for 578xx
+Date: Tue, 14 Jun 2011 14:34:07 +0300
+Message-ID: <201106141434.07476.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
 To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2888 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4076 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756356Ab1FNLfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 07:35:17 -0400
+	id S1756367Ab1FNLfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 07:35:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,200 +25,1580 @@ Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_link.c |   85 +++++++++++++++++++++++++++++++++++++--
- drivers/net/bnx2x/bnx2x_main.c |   47 ++++++++++++++++++++++
- 2 files changed, 127 insertions(+), 5 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |  981 +++++++++++++++++++++++++++++++++-------
+ drivers/net/bnx2x/bnx2x_link.h |   16 +-
+ drivers/net/bnx2x/bnx2x_reg.h  |  181 +++++++-
+ 3 files changed, 1003 insertions(+), 175 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index f5e5153..9de1775 100644
+index 347f323..a1fa9e0 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -9198,6 +9198,52 @@ static int bnx2x_84833_pair_swap_cfg(struct bnx2x_phy *phy,
- 	return 0;
- }
+@@ -105,12 +105,6 @@
+ 			MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10G_HIG
+ #define GP_STATUS_10G_CX4 \
+ 			MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10G_CX4
+-#define GP_STATUS_12G_HIG \
+-			MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_12G_HIG
+-#define GP_STATUS_12_5G MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_12_5G
+-#define GP_STATUS_13G	MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_13G
+-#define GP_STATUS_15G	MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_15G
+-#define GP_STATUS_16G	MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_16G
+ #define GP_STATUS_1G_KX MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_1G_KX
+ #define GP_STATUS_10G_KX4 \
+ 			MDIO_GP_STATUS_TOP_AN_STATUS1_ACTUAL_SPEED_10G_KX4
+@@ -128,16 +122,6 @@
+ #define LINK_2500XFD		LINK_STATUS_SPEED_AND_DUPLEX_2500XFD
+ #define LINK_10GTFD		LINK_STATUS_SPEED_AND_DUPLEX_10GTFD
+ #define LINK_10GXFD		LINK_STATUS_SPEED_AND_DUPLEX_10GXFD
+-#define LINK_12GTFD		LINK_STATUS_SPEED_AND_DUPLEX_12GTFD
+-#define LINK_12GXFD		LINK_STATUS_SPEED_AND_DUPLEX_12GXFD
+-#define LINK_12_5GTFD		LINK_STATUS_SPEED_AND_DUPLEX_12_5GTFD
+-#define LINK_12_5GXFD		LINK_STATUS_SPEED_AND_DUPLEX_12_5GXFD
+-#define LINK_13GTFD		LINK_STATUS_SPEED_AND_DUPLEX_13GTFD
+-#define LINK_13GXFD		LINK_STATUS_SPEED_AND_DUPLEX_13GXFD
+-#define LINK_15GTFD		LINK_STATUS_SPEED_AND_DUPLEX_15GTFD
+-#define LINK_15GXFD		LINK_STATUS_SPEED_AND_DUPLEX_15GXFD
+-#define LINK_16GTFD		LINK_STATUS_SPEED_AND_DUPLEX_16GTFD
+-#define LINK_16GXFD		LINK_STATUS_SPEED_AND_DUPLEX_16GXFD
  
+ #define PHY_XGXS_FLAG			0x1
+ #define PHY_SGMII_FLAG			0x2
+@@ -167,8 +151,103 @@
+ #define EDC_MODE_PASSIVE_DAC			0x0055
+ 
+ 
++/* BRB thresholds for E2*/
++#define PFC_E2_BRB_MAC_PAUSE_XOFF_THR_PAUSE		170
++#define PFC_E2_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE		0
 +
-+static int bnx2x_84833_common_init_phy(struct bnx2x *bp,
-+						u32 shmem_base_path[],
-+						u32 chip_id)
++#define PFC_E2_BRB_MAC_PAUSE_XON_THR_PAUSE		250
++#define PFC_E2_BRB_MAC_PAUSE_XON_THR_NON_PAUSE		0
++
++#define PFC_E2_BRB_MAC_FULL_XOFF_THR_PAUSE		10
++#define PFC_E2_BRB_MAC_FULL_XOFF_THR_NON_PAUSE		90
++
++#define PFC_E2_BRB_MAC_FULL_XON_THR_PAUSE			50
++#define PFC_E2_BRB_MAC_FULL_XON_THR_NON_PAUSE		250
++
++/* BRB thresholds for E3A0 */
++#define PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_PAUSE		290
++#define PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE		0
++
++#define PFC_E3A0_BRB_MAC_PAUSE_XON_THR_PAUSE		410
++#define PFC_E3A0_BRB_MAC_PAUSE_XON_THR_NON_PAUSE		0
++
++#define PFC_E3A0_BRB_MAC_FULL_XOFF_THR_PAUSE		10
++#define PFC_E3A0_BRB_MAC_FULL_XOFF_THR_NON_PAUSE		170
++
++#define PFC_E3A0_BRB_MAC_FULL_XON_THR_PAUSE		50
++#define PFC_E3A0_BRB_MAC_FULL_XON_THR_NON_PAUSE		410
++
++
++/* BRB thresholds for E3B0 2 port mode*/
++#define PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_PAUSE		1025
++#define PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE	0
++
++#define PFC_E3B0_2P_BRB_MAC_PAUSE_XON_THR_PAUSE		1025
++#define PFC_E3B0_2P_BRB_MAC_PAUSE_XON_THR_NON_PAUSE	0
++
++#define PFC_E3B0_2P_BRB_MAC_FULL_XOFF_THR_PAUSE		10
++#define PFC_E3B0_2P_BRB_MAC_FULL_XOFF_THR_NON_PAUSE	1025
++
++#define PFC_E3B0_2P_BRB_MAC_FULL_XON_THR_PAUSE		50
++#define PFC_E3B0_2P_BRB_MAC_FULL_XON_THR_NON_PAUSE	1025
++
++/* only for E3B0*/
++#define PFC_E3B0_2P_BRB_FULL_LB_XOFF_THR			1025
++#define PFC_E3B0_2P_BRB_FULL_LB_XON_THR			1025
++
++/* Lossy +Lossless GUARANTIED == GUART */
++#define PFC_E3B0_2P_MIX_PAUSE_LB_GUART			284
++/* Lossless +Lossless*/
++#define PFC_E3B0_2P_PAUSE_LB_GUART			236
++/* Lossy +Lossy*/
++#define PFC_E3B0_2P_NON_PAUSE_LB_GUART			342
++
++/* Lossy +Lossless*/
++#define PFC_E3B0_2P_MIX_PAUSE_MAC_0_CLASS_T_GUART		284
++/* Lossless +Lossless*/
++#define PFC_E3B0_2P_PAUSE_MAC_0_CLASS_T_GUART		236
++/* Lossy +Lossy*/
++#define PFC_E3B0_2P_NON_PAUSE_MAC_0_CLASS_T_GUART		336
++#define PFC_E3B0_2P_BRB_MAC_0_CLASS_T_GUART_HYST		80
++
++#define PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART		0
++#define PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART_HYST		0
++
++/* BRB thresholds for E3B0 4 port mode */
++#define PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_PAUSE		304
++#define PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE	0
++
++#define PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_PAUSE		384
++#define PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_NON_PAUSE	0
++
++#define PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_PAUSE		10
++#define PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_NON_PAUSE	304
++
++#define PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_PAUSE		50
++#define PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_NON_PAUSE	384
++
++
++/* only for E3B0*/
++#define PFC_E3B0_4P_BRB_FULL_LB_XOFF_THR			304
++#define PFC_E3B0_4P_BRB_FULL_LB_XON_THR			384
++#define PFC_E3B0_4P_LB_GUART				120
++
++#define PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART		120
++#define PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART_HYST		80
++
++#define PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART		80
++#define PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART_HYST		120
++
++#define DCBX_INVALID_COS					(0xFF)
++
+ #define ETS_BW_LIMIT_CREDIT_UPPER_BOUND		(0x5000)
+ #define ETS_BW_LIMIT_CREDIT_WEIGHT		(0x5000)
++#define ETS_E3B0_NIG_MIN_W_VAL_UP_TO_10GBPS		(1360)
++#define ETS_E3B0_NIG_MIN_W_VAL_20GBPS			(2720)
++#define ETS_E3B0_PBF_MIN_W_VAL				(10000)
++
++#define MAX_PACKET_SIZE					(9700)
++
+ /**********************************************************/
+ /*                     INTERFACE                          */
+ /**********************************************************/
+@@ -390,6 +469,53 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos)
+ /*			PFC section				  */
+ /******************************************************************/
+ 
++static void bnx2x_update_pfc_xmac(struct link_params *params,
++				  struct link_vars *vars,
++				  u8 is_lb)
 +{
-+	u32 reset_pin[2];
-+	u32 idx;
-+	u8 reset_gpios;
-+	if (CHIP_IS_E3(bp)) {
-+		/* Assume that these will be GPIOs, not EPIOs. */
-+		for (idx = 0; idx < 2; idx++) {
-+			/* Map config param to register bit. */
-+			reset_pin[idx] = REG_RD(bp, shmem_base_path[idx] +
-+				offsetof(struct shmem_region,
-+				dev_info.port_hw_config[0].e3_cmn_pin_cfg));
-+			reset_pin[idx] = (reset_pin[idx] &
-+				PORT_HW_CFG_E3_PHY_RESET_MASK) >>
-+				PORT_HW_CFG_E3_PHY_RESET_SHIFT;
-+			reset_pin[idx] -= PIN_CFG_GPIO0_P0;
-+			reset_pin[idx] = (1 << reset_pin[idx]);
-+		}
-+		reset_gpios = (u8)(reset_pin[0] | reset_pin[1]);
-+	} else {
-+		/* E2, look from diff place of shmem. */
-+		for (idx = 0; idx < 2; idx++) {
-+			reset_pin[idx] = REG_RD(bp, shmem_base_path[idx] +
-+				offsetof(struct shmem_region,
-+				dev_info.port_hw_config[0].default_cfg));
-+			reset_pin[idx] &= PORT_HW_CFG_EXT_PHY_GPIO_RST_MASK;
-+			reset_pin[idx] -= PORT_HW_CFG_EXT_PHY_GPIO_RST_GPIO0_P0;
-+			reset_pin[idx] >>= PORT_HW_CFG_EXT_PHY_GPIO_RST_SHIFT;
-+			reset_pin[idx] = (1 << reset_pin[idx]);
-+		}
-+		reset_gpios = (u8)(reset_pin[0] | reset_pin[1]);
++	struct bnx2x *bp = params->bp;
++	u32 xmac_base;
++	u32 pause_val, pfc0_val, pfc1_val;
++
++	/* XMAC base adrr */
++	xmac_base = (params->port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
++
++	/* Initialize pause and pfc registers */
++	pause_val = 0x18000;
++	pfc0_val = 0xFFFF8000;
++	pfc1_val = 0x2;
++
++	/* No PFC support */
++	if (!(params->feature_config_flags &
++	      FEATURE_CONFIG_PFC_ENABLED)) {
++
++		/*
++		 * RX flow control - Process pause frame in receive direction
++		 */
++		if (vars->flow_ctrl & BNX2X_FLOW_CTRL_RX)
++			pause_val |= XMAC_PAUSE_CTRL_REG_RX_PAUSE_EN;
++
++		/*
++		 * TX flow control - Send pause packet when buffer is full
++		 */
++		if (vars->flow_ctrl & BNX2X_FLOW_CTRL_TX)
++			pause_val |= XMAC_PAUSE_CTRL_REG_TX_PAUSE_EN;
++	} else {/* PFC support */
++		pfc1_val |= XMAC_PFC_CTRL_HI_REG_PFC_REFRESH_EN |
++			XMAC_PFC_CTRL_HI_REG_PFC_STATS_EN |
++			XMAC_PFC_CTRL_HI_REG_RX_PFC_EN |
++			XMAC_PFC_CTRL_HI_REG_TX_PFC_EN;
 +	}
 +
-+	bnx2x_set_mult_gpio(bp, reset_gpios, MISC_REGISTERS_GPIO_OUTPUT_LOW);
-+	udelay(10);
-+	bnx2x_set_mult_gpio(bp, reset_gpios, MISC_REGISTERS_GPIO_OUTPUT_HIGH);
-+	msleep(800);
-+	DP(NETIF_MSG_LINK, "84833 reset pulse on pin values 0x%x\n",
-+		reset_gpios);
++	/* Write pause and PFC registers */
++	REG_WR(bp, xmac_base + XMAC_REG_PAUSE_CTRL, pause_val);
++	REG_WR(bp, xmac_base + XMAC_REG_PFC_CTRL, pfc0_val);
++	REG_WR(bp, xmac_base + XMAC_REG_PFC_CTRL_HI, pfc1_val);
++
++	udelay(30);
++}
++
++
+ static void bnx2x_bmac2_get_pfc_stat(struct link_params *params,
+ 				     u32 pfc_frames_sent[2],
+ 				     u32 pfc_frames_received[2])
+@@ -533,6 +659,233 @@ static void bnx2x_emac_init(struct link_params *params,
+ 	EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + 4, val);
+ }
+ 
++static void bnx2x_set_xumac_nig(struct link_params *params,
++				u16 tx_pause_en,
++				u8 enable)
++{
++	struct bnx2x *bp = params->bp;
++
++	REG_WR(bp, params->port ? NIG_REG_P1_MAC_IN_EN : NIG_REG_P0_MAC_IN_EN,
++	       enable);
++	REG_WR(bp, params->port ? NIG_REG_P1_MAC_OUT_EN : NIG_REG_P0_MAC_OUT_EN,
++	       enable);
++	REG_WR(bp, params->port ? NIG_REG_P1_MAC_PAUSE_OUT_EN :
++	       NIG_REG_P0_MAC_PAUSE_OUT_EN, tx_pause_en);
++}
++
++static void bnx2x_umac_enable(struct link_params *params,
++			    struct link_vars *vars, u8 lb)
++{
++	u32 val;
++	u32 umac_base = params->port ? GRCBASE_UMAC1 : GRCBASE_UMAC0;
++	struct bnx2x *bp = params->bp;
++	/* Reset UMAC */
++	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
++	       (MISC_REGISTERS_RESET_REG_2_UMAC0 << params->port));
++	usleep_range(1000, 1000);
++
++	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
++	       (MISC_REGISTERS_RESET_REG_2_UMAC0 << params->port));
++
++	DP(NETIF_MSG_LINK, "enabling UMAC\n");
++
++	/**
++	 * This register determines on which events the MAC will assert
++	 * error on the i/f to the NIG along w/ EOP.
++	 */
++
++	/**
++	 * BD REG_WR(bp, NIG_REG_P0_MAC_RSV_ERR_MASK +
++	 * params->port*0x14,      0xfffff.
++	 */
++	/* This register opens the gate for the UMAC despite its name */
++	REG_WR(bp, NIG_REG_EGRESS_EMAC0_PORT + params->port*4, 1);
++
++	val = UMAC_COMMAND_CONFIG_REG_PROMIS_EN |
++		UMAC_COMMAND_CONFIG_REG_PAD_EN |
++		UMAC_COMMAND_CONFIG_REG_SW_RESET |
++		UMAC_COMMAND_CONFIG_REG_NO_LGTH_CHECK;
++	switch (vars->line_speed) {
++	case SPEED_10:
++		val |= (0<<2);
++		break;
++	case SPEED_100:
++		val |= (1<<2);
++		break;
++	case SPEED_1000:
++		val |= (2<<2);
++		break;
++	case SPEED_2500:
++		val |= (3<<2);
++		break;
++	default:
++		DP(NETIF_MSG_LINK, "Invalid speed for UMAC %d\n",
++			       vars->line_speed);
++		break;
++	}
++	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
++	udelay(50);
++
++	/* Enable RX and TX */
++	val &= ~UMAC_COMMAND_CONFIG_REG_PAD_EN;
++	val |= UMAC_COMMAND_CONFIG_REG_TX_ENA |
++	       UMAC_COMMAND_CONFIG_REG_RX_ENA;
++	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
++	udelay(50);
++
++	/* Remove SW Reset */
++	val &= ~UMAC_COMMAND_CONFIG_REG_SW_RESET;
++
++	/* Check loopback mode */
++	if (lb)
++		val |= UMAC_COMMAND_CONFIG_REG_LOOP_ENA;
++	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
++
++	/*
++	 * Maximum Frame Length (RW). Defines a 14-Bit maximum frame
++	 * length used by the MAC receive logic to check frames.
++	 */
++	REG_WR(bp, umac_base + UMAC_REG_MAXFR, 0x2710);
++	bnx2x_set_xumac_nig(params,
++			    ((vars->flow_ctrl & BNX2X_FLOW_CTRL_TX) != 0), 1);
++	vars->mac_type = MAC_TYPE_UMAC;
++
++}
++
++static u8 bnx2x_is_4_port_mode(struct bnx2x *bp)
++{
++	u32 port4mode_ovwr_val;
++	/* Check 4-port override enabled */
++	port4mode_ovwr_val = REG_RD(bp, MISC_REG_PORT4MODE_EN_OVWR);
++	if (port4mode_ovwr_val & (1<<0)) {
++		/* Return 4-port mode override value */
++		return ((port4mode_ovwr_val & (1<<1)) == (1<<1));
++	}
++	/* Return 4-port mode from input pin */
++	return (u8)REG_RD(bp, MISC_REG_PORT4MODE_EN);
++}
++
++/* Define the XMAC mode */
++static void bnx2x_xmac_init(struct bnx2x *bp, u32 max_speed)
++{
++	u32 is_port4mode = bnx2x_is_4_port_mode(bp);
++
++	/**
++	* In 4-port mode, need to set the mode only once, so if XMAC is
++	* already out of reset, it means the mode has already been set,
++	* and it must not* reset the XMAC again, since it controls both
++	* ports of the path
++	**/
++
++	if (is_port4mode && (REG_RD(bp, MISC_REG_RESET_REG_2) &
++	     MISC_REGISTERS_RESET_REG_2_XMAC)) {
++		DP(NETIF_MSG_LINK, "XMAC already out of reset"
++				   " in 4-port mode\n");
++		return;
++	}
++
++	/* Hard reset */
++	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
++	       MISC_REGISTERS_RESET_REG_2_XMAC);
++	usleep_range(1000, 1000);
++
++	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
++	       MISC_REGISTERS_RESET_REG_2_XMAC);
++	if (is_port4mode) {
++		DP(NETIF_MSG_LINK, "Init XMAC to 2 ports x 10G per path\n");
++
++		/*  Set the number of ports on the system side to up to 2 */
++		REG_WR(bp, MISC_REG_XMAC_CORE_PORT_MODE, 1);
++
++		/* Set the number of ports on the Warp Core to 10G */
++		REG_WR(bp, MISC_REG_XMAC_PHY_PORT_MODE, 3);
++	} else {
++		/*  Set the number of ports on the system side to 1 */
++		REG_WR(bp, MISC_REG_XMAC_CORE_PORT_MODE, 0);
++		if (max_speed == SPEED_10000) {
++			DP(NETIF_MSG_LINK, "Init XMAC to 10G x 1"
++					   " port per path\n");
++			/* Set the number of ports on the Warp Core to 10G */
++			REG_WR(bp, MISC_REG_XMAC_PHY_PORT_MODE, 3);
++		} else {
++			DP(NETIF_MSG_LINK, "Init XMAC to 20G x 2 ports"
++					   " per path\n");
++			/* Set the number of ports on the Warp Core to 20G */
++			REG_WR(bp, MISC_REG_XMAC_PHY_PORT_MODE, 1);
++		}
++	}
++	/* Soft reset */
++	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
++	       MISC_REGISTERS_RESET_REG_2_XMAC_SOFT);
++	usleep_range(1000, 1000);
++
++	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
++	       MISC_REGISTERS_RESET_REG_2_XMAC_SOFT);
++
++}
++
++static void bnx2x_xmac_disable(struct link_params *params)
++{
++	u8 port = params->port;
++	struct bnx2x *bp = params->bp;
++	u32 xmac_base = (port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
++
++	if (REG_RD(bp, MISC_REG_RESET_REG_2) &
++	    MISC_REGISTERS_RESET_REG_2_XMAC) {
++		DP(NETIF_MSG_LINK, "Disable XMAC on port %x\n", port);
++		REG_WR(bp, xmac_base + XMAC_REG_CTRL, 0);
++		usleep_range(1000, 1000);
++		bnx2x_set_xumac_nig(params, 0, 0);
++		REG_WR(bp, xmac_base + XMAC_REG_CTRL,
++		       XMAC_CTRL_REG_SOFT_RESET);
++	}
++}
++
++static int bnx2x_xmac_enable(struct link_params *params,
++			     struct link_vars *vars, u8 lb)
++{
++	u32 val, xmac_base;
++	struct bnx2x *bp = params->bp;
++	DP(NETIF_MSG_LINK, "enabling XMAC\n");
++
++	xmac_base = (params->port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
++
++	bnx2x_xmac_init(bp, vars->line_speed);
++
++	/*
++	 * This register determines on which events the MAC will assert
++	 * error on the i/f to the NIG along w/ EOP.
++	 */
++
++	/*
++	 * This register tells the NIG whether to send traffic to UMAC
++	 * or XMAC
++	 */
++	REG_WR(bp, NIG_REG_EGRESS_EMAC0_PORT + params->port*4, 0);
++
++	/* Set Max packet size */
++	REG_WR(bp, xmac_base + XMAC_REG_RX_MAX_SIZE, 0x2710);
++
++	/* CRC append for Tx packets */
++	REG_WR(bp, xmac_base + XMAC_REG_TX_CTRL, 0xC800);
++
++	/* update PFC */
++	bnx2x_update_pfc_xmac(params, vars, 0);
++
++	/* Enable TX and RX */
++	val = XMAC_CTRL_REG_TX_EN | XMAC_CTRL_REG_RX_EN;
++
++	/* Check loopback mode */
++	if (lb)
++		val |= XMAC_CTRL_REG_CORE_LOCAL_LPBK;
++	REG_WR(bp, xmac_base + XMAC_REG_CTRL, val);
++	bnx2x_set_xumac_nig(params,
++			    ((vars->flow_ctrl & BNX2X_FLOW_CTRL_TX) != 0), 1);
++
++	vars->mac_type = MAC_TYPE_XMAC;
++
++	return 0;
++}
+ static int bnx2x_emac_enable(struct link_params *params,
+ 			     struct link_vars *vars, u8 lb)
+ {
+@@ -785,95 +1138,341 @@ static void bnx2x_update_pfc_bmac2(struct link_params *params,
+ 	REG_WR_DMAE(bp, bmac_addr + BIGMAC2_REGISTER_BMAC_CONTROL, wb_data, 2);
+ }
+ 
+-static void bnx2x_update_pfc_brb(struct link_params *params,
+-		struct link_vars *vars,
+-		struct bnx2x_nig_brb_pfc_port_params *pfc_params)
++
++/* PFC BRB internal port configuration params */
++struct bnx2x_pfc_brb_threshold_val {
++	u32 pause_xoff;
++	u32 pause_xon;
++	u32 full_xoff;
++	u32 full_xon;
++};
++
++struct bnx2x_pfc_brb_e3b0_val {
++	u32 full_lb_xoff_th;
++	u32 full_lb_xon_threshold;
++	u32 lb_guarantied;
++	u32 mac_0_class_t_guarantied;
++	u32 mac_0_class_t_guarantied_hyst;
++	u32 mac_1_class_t_guarantied;
++	u32 mac_1_class_t_guarantied_hyst;
++};
++
++struct bnx2x_pfc_brb_th_val {
++	struct bnx2x_pfc_brb_threshold_val pauseable_th;
++	struct bnx2x_pfc_brb_threshold_val non_pauseable_th;
++};
++static int bnx2x_pfc_brb_get_config_params(
++				struct link_params *params,
++				struct bnx2x_pfc_brb_th_val *config_val)
+ {
+ 	struct bnx2x *bp = params->bp;
++	DP(NETIF_MSG_LINK, "Setting PFC BRB configuration\n");
++	if (CHIP_IS_E2(bp)) {
++		config_val->pauseable_th.pause_xoff =
++		    PFC_E2_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
++		config_val->pauseable_th.pause_xon =
++		    PFC_E2_BRB_MAC_PAUSE_XON_THR_PAUSE;
++		config_val->pauseable_th.full_xoff =
++		    PFC_E2_BRB_MAC_FULL_XOFF_THR_PAUSE;
++		config_val->pauseable_th.full_xon =
++		    PFC_E2_BRB_MAC_FULL_XON_THR_PAUSE;
++		/* non pause able*/
++		config_val->non_pauseable_th.pause_xoff =
++		    PFC_E2_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE;
++		config_val->non_pauseable_th.pause_xon =
++		    PFC_E2_BRB_MAC_PAUSE_XON_THR_NON_PAUSE;
++		config_val->non_pauseable_th.full_xoff =
++		    PFC_E2_BRB_MAC_FULL_XOFF_THR_NON_PAUSE;
++		config_val->non_pauseable_th.full_xon =
++		    PFC_E2_BRB_MAC_FULL_XON_THR_NON_PAUSE;
++	} else if (CHIP_IS_E3A0(bp)) {
++		config_val->pauseable_th.pause_xoff =
++		    PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
++		config_val->pauseable_th.pause_xon =
++		    PFC_E3A0_BRB_MAC_PAUSE_XON_THR_PAUSE;
++		config_val->pauseable_th.full_xoff =
++		    PFC_E3A0_BRB_MAC_FULL_XOFF_THR_PAUSE;
++		config_val->pauseable_th.full_xon =
++		    PFC_E3A0_BRB_MAC_FULL_XON_THR_PAUSE;
++		/* non pause able*/
++		config_val->non_pauseable_th.pause_xoff =
++		    PFC_E3A0_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE;
++		config_val->non_pauseable_th.pause_xon =
++		    PFC_E3A0_BRB_MAC_PAUSE_XON_THR_NON_PAUSE;
++		config_val->non_pauseable_th.full_xoff =
++		    PFC_E3A0_BRB_MAC_FULL_XOFF_THR_NON_PAUSE;
++		config_val->non_pauseable_th.full_xon =
++		    PFC_E3A0_BRB_MAC_FULL_XON_THR_NON_PAUSE;
++	} else if (CHIP_IS_E3B0(bp)) {
++		if (params->phy[INT_PHY].flags &
++		    FLAGS_4_PORT_MODE) {
++			config_val->pauseable_th.pause_xoff =
++			    PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
++			config_val->pauseable_th.pause_xon =
++			    PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_PAUSE;
++			config_val->pauseable_th.full_xoff =
++			    PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_PAUSE;
++			config_val->pauseable_th.full_xon =
++			    PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_PAUSE;
++			/* non pause able*/
++			config_val->non_pauseable_th.pause_xoff =
++			    PFC_E3B0_4P_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE;
++			config_val->non_pauseable_th.pause_xon =
++			    PFC_E3B0_4P_BRB_MAC_PAUSE_XON_THR_NON_PAUSE;
++			config_val->non_pauseable_th.full_xoff =
++			    PFC_E3B0_4P_BRB_MAC_FULL_XOFF_THR_NON_PAUSE;
++			config_val->non_pauseable_th.full_xon =
++			    PFC_E3B0_4P_BRB_MAC_FULL_XON_THR_NON_PAUSE;
++	    } else {
++		config_val->pauseable_th.pause_xoff =
++		    PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_PAUSE;
++		config_val->pauseable_th.pause_xon =
++		    PFC_E3B0_2P_BRB_MAC_PAUSE_XON_THR_PAUSE;
++		config_val->pauseable_th.full_xoff =
++		    PFC_E3B0_2P_BRB_MAC_FULL_XOFF_THR_PAUSE;
++		config_val->pauseable_th.full_xon =
++			PFC_E3B0_2P_BRB_MAC_FULL_XON_THR_PAUSE;
++		/* non pause able*/
++		config_val->non_pauseable_th.pause_xoff =
++		    PFC_E3B0_2P_BRB_MAC_PAUSE_XOFF_THR_NON_PAUSE;
++		config_val->non_pauseable_th.pause_xon =
++		    PFC_E3B0_2P_BRB_MAC_PAUSE_XON_THR_NON_PAUSE;
++		config_val->non_pauseable_th.full_xoff =
++		    PFC_E3B0_2P_BRB_MAC_FULL_XOFF_THR_NON_PAUSE;
++		config_val->non_pauseable_th.full_xon =
++		    PFC_E3B0_2P_BRB_MAC_FULL_XON_THR_NON_PAUSE;
++	    }
++	} else
++	    return -EINVAL;
 +
 +	return 0;
 +}
 +
- static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 				   struct link_params *params,
- 				   struct link_vars *vars)
-@@ -9263,8 +9309,14 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 		 MDIO_CTL_REG_84823_MEDIA_COPPER_CORE_DOWN |
- 		 MDIO_CTL_REG_84823_MEDIA_PRIORITY_MASK |
- 		 MDIO_CTL_REG_84823_MEDIA_FIBER_1G);
--	val |= MDIO_CTL_REG_84823_CTRL_MAC_XFI |
--		MDIO_CTL_REG_84823_MEDIA_LINE_XAUI_L;
 +
-+	if (CHIP_IS_E3(bp)) {
-+		val &= ~(MDIO_CTL_REG_84823_MEDIA_MAC_MASK |
-+			 MDIO_CTL_REG_84823_MEDIA_LINE_MASK);
++static void bnx2x_pfc_brb_get_e3b0_config_params(struct link_params *params,
++						 struct bnx2x_pfc_brb_e3b0_val
++						 *e3b0_val,
++						 u32 cos0_pauseable,
++						 u32 cos1_pauseable)
++{
++	if (params->phy[INT_PHY].flags & FLAGS_4_PORT_MODE) {
++		e3b0_val->full_lb_xoff_th =
++		    PFC_E3B0_4P_BRB_FULL_LB_XOFF_THR;
++		e3b0_val->full_lb_xon_threshold =
++		    PFC_E3B0_4P_BRB_FULL_LB_XON_THR;
++		e3b0_val->lb_guarantied =
++		    PFC_E3B0_4P_LB_GUART;
++		e3b0_val->mac_0_class_t_guarantied =
++		    PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART;
++		e3b0_val->mac_0_class_t_guarantied_hyst =
++		    PFC_E3B0_4P_BRB_MAC_0_CLASS_T_GUART_HYST;
++		e3b0_val->mac_1_class_t_guarantied =
++		    PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART;
++		e3b0_val->mac_1_class_t_guarantied_hyst =
++		    PFC_E3B0_4P_BRB_MAC_1_CLASS_T_GUART_HYST;
 +	} else {
-+		val |= (MDIO_CTL_REG_84823_CTRL_MAC_XFI |
-+			MDIO_CTL_REG_84823_MEDIA_LINE_XAUI_L);
++		e3b0_val->full_lb_xoff_th =
++		    PFC_E3B0_2P_BRB_FULL_LB_XOFF_THR;
++		e3b0_val->full_lb_xon_threshold =
++		    PFC_E3B0_2P_BRB_FULL_LB_XON_THR;
++		e3b0_val->mac_0_class_t_guarantied_hyst =
++		    PFC_E3B0_2P_BRB_MAC_0_CLASS_T_GUART_HYST;
++		e3b0_val->mac_1_class_t_guarantied =
++		    PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART;
++		e3b0_val->mac_1_class_t_guarantied_hyst =
++		    PFC_E3B0_2P_BRB_MAC_1_CLASS_T_GUART_HYST;
++
++		if (cos0_pauseable != cos1_pauseable) {
++			/* nonpauseable= Lossy + pauseable = Lossless*/
++			e3b0_val->lb_guarantied =
++			    PFC_E3B0_2P_MIX_PAUSE_LB_GUART;
++			e3b0_val->mac_0_class_t_guarantied =
++			    PFC_E3B0_2P_MIX_PAUSE_MAC_0_CLASS_T_GUART;
++		} else if (cos0_pauseable) {
++			/* Lossless +Lossless*/
++			e3b0_val->lb_guarantied =
++			    PFC_E3B0_2P_PAUSE_LB_GUART;
++			e3b0_val->mac_0_class_t_guarantied =
++			    PFC_E3B0_2P_PAUSE_MAC_0_CLASS_T_GUART;
++		} else {
++			/* Lossy +Lossy*/
++			e3b0_val->lb_guarantied =
++			    PFC_E3B0_2P_NON_PAUSE_LB_GUART;
++			e3b0_val->mac_0_class_t_guarantied =
++			    PFC_E3B0_2P_NON_PAUSE_MAC_0_CLASS_T_GUART;
++		}
 +	}
++}
++static int bnx2x_update_pfc_brb(struct link_params *params,
++				struct link_vars *vars,
++				struct bnx2x_nig_brb_pfc_port_params
++				*pfc_params)
++{
++	struct bnx2x *bp = params->bp;
++	struct bnx2x_pfc_brb_th_val config_val = { {0} };
++	struct bnx2x_pfc_brb_threshold_val *reg_th_config =
++	    &config_val.pauseable_th;
++	struct bnx2x_pfc_brb_e3b0_val e3b0_val = {0};
+ 	int set_pfc = params->feature_config_flags &
+ 		FEATURE_CONFIG_PFC_ENABLED;
++	int bnx2x_status = 0;
++	u8 port = params->port;
  
- 	actual_phy_selection = bnx2x_phy_selection(params);
+ 	/* default - pause configuration */
+-	u32 pause_xoff_th = PFC_BRB_MAC_PAUSE_XOFF_THRESHOLD_PAUSEABLE;
+-	u32 pause_xon_th = PFC_BRB_MAC_PAUSE_XON_THRESHOLD_PAUSEABLE;
+-	u32 full_xoff_th = PFC_BRB_MAC_FULL_XOFF_THRESHOLD_PAUSEABLE;
+-	u32 full_xon_th = PFC_BRB_MAC_FULL_XON_THRESHOLD_PAUSEABLE;
++	reg_th_config = &config_val.pauseable_th;
++	bnx2x_status = bnx2x_pfc_brb_get_config_params(params, &config_val);
++	if (0 != bnx2x_status)
++		return bnx2x_status;
  
-@@ -9435,6 +9487,7 @@ static void bnx2x_848x3_link_reset(struct bnx2x_phy *phy,
+ 	if (set_pfc && pfc_params)
+ 		/* First COS */
+-		if (!pfc_params->cos0_pauseable) {
+-			pause_xoff_th =
+-			  PFC_BRB_MAC_PAUSE_XOFF_THRESHOLD_NON_PAUSEABLE;
+-			pause_xon_th =
+-			  PFC_BRB_MAC_PAUSE_XON_THRESHOLD_NON_PAUSEABLE;
+-			full_xoff_th =
+-			  PFC_BRB_MAC_FULL_XOFF_THRESHOLD_NON_PAUSEABLE;
+-			full_xon_th =
+-			  PFC_BRB_MAC_FULL_XON_THRESHOLD_NON_PAUSEABLE;
+-		}
++		if (!pfc_params->cos0_pauseable)
++			reg_th_config = &config_val.non_pauseable_th;
+ 	/*
+ 	 * The number of free blocks below which the pause signal to class 0
+ 	 * of MAC #n is asserted. n=0,1
+ 	 */
+-	REG_WR(bp, BRB1_REG_PAUSE_0_XOFF_THRESHOLD_0 , pause_xoff_th);
++	REG_WR(bp, (port) ? BRB1_REG_PAUSE_0_XOFF_THRESHOLD_1 :
++	       BRB1_REG_PAUSE_0_XOFF_THRESHOLD_0 ,
++	       reg_th_config->pause_xoff);
+ 	/*
+ 	 * The number of free blocks above which the pause signal to class 0
+ 	 * of MAC #n is de-asserted. n=0,1
+ 	 */
+-	REG_WR(bp, BRB1_REG_PAUSE_0_XON_THRESHOLD_0 , pause_xon_th);
++	REG_WR(bp, (port) ? BRB1_REG_PAUSE_0_XON_THRESHOLD_1 :
++	       BRB1_REG_PAUSE_0_XON_THRESHOLD_0 , reg_th_config->pause_xon);
+ 	/*
+ 	 * The number of free blocks below which the full signal to class 0
+ 	 * of MAC #n is asserted. n=0,1
+ 	 */
+-	REG_WR(bp, BRB1_REG_FULL_0_XOFF_THRESHOLD_0 , full_xoff_th);
++	REG_WR(bp, (port) ? BRB1_REG_FULL_0_XOFF_THRESHOLD_1 :
++	       BRB1_REG_FULL_0_XOFF_THRESHOLD_0 , reg_th_config->full_xoff);
+ 	/*
+ 	 * The number of free blocks above which the full signal to class 0
+ 	 * of MAC #n is de-asserted. n=0,1
+ 	 */
+-	REG_WR(bp, BRB1_REG_FULL_0_XON_THRESHOLD_0 , full_xon_th);
++	REG_WR(bp, (port) ? BRB1_REG_FULL_0_XON_THRESHOLD_1 :
++	       BRB1_REG_FULL_0_XON_THRESHOLD_0 , reg_th_config->full_xon);
+ 
+ 	if (set_pfc && pfc_params) {
+ 		/* Second COS */
+-		if (pfc_params->cos1_pauseable) {
+-			pause_xoff_th =
+-			  PFC_BRB_MAC_PAUSE_XOFF_THRESHOLD_PAUSEABLE;
+-			pause_xon_th =
+-			  PFC_BRB_MAC_PAUSE_XON_THRESHOLD_PAUSEABLE;
+-			full_xoff_th =
+-			  PFC_BRB_MAC_FULL_XOFF_THRESHOLD_PAUSEABLE;
+-			full_xon_th =
+-			  PFC_BRB_MAC_FULL_XON_THRESHOLD_PAUSEABLE;
+-		} else {
+-			pause_xoff_th =
+-			  PFC_BRB_MAC_PAUSE_XOFF_THRESHOLD_NON_PAUSEABLE;
+-			pause_xon_th =
+-			  PFC_BRB_MAC_PAUSE_XON_THRESHOLD_NON_PAUSEABLE;
+-			full_xoff_th =
+-			  PFC_BRB_MAC_FULL_XOFF_THRESHOLD_NON_PAUSEABLE;
+-			full_xon_th =
+-			  PFC_BRB_MAC_FULL_XON_THRESHOLD_NON_PAUSEABLE;
+-		}
++		if (pfc_params->cos1_pauseable)
++			reg_th_config = &config_val.pauseable_th;
++		else
++			reg_th_config = &config_val.non_pauseable_th;
+ 		/*
+ 		 * The number of free blocks below which the pause signal to
+ 		 * class 1 of MAC #n is asserted. n=0,1
+-		 */
+-		REG_WR(bp, BRB1_REG_PAUSE_1_XOFF_THRESHOLD_0, pause_xoff_th);
++		**/
++		REG_WR(bp, (port) ? BRB1_REG_PAUSE_1_XOFF_THRESHOLD_1 :
++		       BRB1_REG_PAUSE_1_XOFF_THRESHOLD_0,
++		       reg_th_config->pause_xoff);
+ 		/*
+ 		 * The number of free blocks above which the pause signal to
+ 		 * class 1 of MAC #n is de-asserted. n=0,1
+ 		 */
+-		REG_WR(bp, BRB1_REG_PAUSE_1_XON_THRESHOLD_0, pause_xon_th);
++		REG_WR(bp, (port) ? BRB1_REG_PAUSE_1_XON_THRESHOLD_1 :
++		       BRB1_REG_PAUSE_1_XON_THRESHOLD_0,
++		       reg_th_config->pause_xon);
+ 		/*
+ 		 * The number of free blocks below which the full signal to
+ 		 * class 1 of MAC #n is asserted. n=0,1
+ 		 */
+-		REG_WR(bp, BRB1_REG_FULL_1_XOFF_THRESHOLD_0, full_xoff_th);
++		REG_WR(bp, (port) ? BRB1_REG_FULL_1_XOFF_THRESHOLD_1 :
++		       BRB1_REG_FULL_1_XOFF_THRESHOLD_0,
++		       reg_th_config->full_xoff);
+ 		/*
+ 		 * The number of free blocks above which the full signal to
+ 		 * class 1 of MAC #n is de-asserted. n=0,1
+ 		 */
+-		REG_WR(bp, BRB1_REG_FULL_1_XON_THRESHOLD_0, full_xon_th);
+-	}
++		REG_WR(bp, (port) ? BRB1_REG_FULL_1_XON_THRESHOLD_1 :
++		       BRB1_REG_FULL_1_XON_THRESHOLD_0,
++		       reg_th_config->full_xon);
++
++
++		if (CHIP_IS_E3B0(bp)) {
++			/*Should be done by init tool */
++			/*
++			* BRB_empty_for_dup = BRB1_REG_BRB_EMPTY_THRESHOLD
++			* reset value
++			* 944
++			*/
++
++			/**
++			 * The hysteresis on the guarantied buffer space for the Lb port
++			 * before signaling XON.
++			 **/
++			REG_WR(bp, BRB1_REG_LB_GUARANTIED_HYST, 80);
++
++			bnx2x_pfc_brb_get_e3b0_config_params(
++			    params,
++			    &e3b0_val,
++			    pfc_params->cos0_pauseable,
++			    pfc_params->cos1_pauseable);
++			/**
++			 * The number of free blocks below which the full signal to the
++			 * LB port is asserted.
++			*/
++			REG_WR(bp, BRB1_REG_FULL_LB_XOFF_THRESHOLD,
++				   e3b0_val.full_lb_xoff_th);
++			/**
++			 * The number of free blocks above which the full signal to the
++			 * LB port is de-asserted.
++			*/
++			REG_WR(bp, BRB1_REG_FULL_LB_XON_THRESHOLD,
++				   e3b0_val.full_lb_xon_threshold);
++			/**
++			* The number of blocks guarantied for the MAC #n port. n=0,1
++			*/
++
++			/*The number of blocks guarantied for the LB port.*/
++			REG_WR(bp, BRB1_REG_LB_GUARANTIED,
++			       e3b0_val.lb_guarantied);
++
++			/**
++			 * The number of blocks guarantied for the MAC #n port.
++			*/
++			REG_WR(bp, BRB1_REG_MAC_GUARANTIED_0,
++				   2 * e3b0_val.mac_0_class_t_guarantied);
++			REG_WR(bp, BRB1_REG_MAC_GUARANTIED_1,
++				   2 * e3b0_val.mac_1_class_t_guarantied);
++			/**
++			 * The number of blocks guarantied for class #t in MAC0. t=0,1
++			*/
++			REG_WR(bp, BRB1_REG_MAC_0_CLASS_0_GUARANTIED,
++			       e3b0_val.mac_0_class_t_guarantied);
++			REG_WR(bp, BRB1_REG_MAC_0_CLASS_1_GUARANTIED,
++			       e3b0_val.mac_0_class_t_guarantied);
++			/**
++			 * The hysteresis on the guarantied buffer space for class in
++			 * MAC0.  t=0,1
++			*/
++			REG_WR(bp, BRB1_REG_MAC_0_CLASS_0_GUARANTIED_HYST,
++			       e3b0_val.mac_0_class_t_guarantied_hyst);
++			REG_WR(bp, BRB1_REG_MAC_0_CLASS_1_GUARANTIED_HYST,
++			       e3b0_val.mac_0_class_t_guarantied_hyst);
++
++			/**
++			 * The number of blocks guarantied for class #t in MAC1.t=0,1
++			*/
++			REG_WR(bp, BRB1_REG_MAC_1_CLASS_0_GUARANTIED,
++			       e3b0_val.mac_1_class_t_guarantied);
++			REG_WR(bp, BRB1_REG_MAC_1_CLASS_1_GUARANTIED,
++			       e3b0_val.mac_1_class_t_guarantied);
++			/**
++			 * The hysteresis on the guarantied buffer space for class #t
++			* in MAC1.  t=0,1
++			*/
++			REG_WR(bp, BRB1_REG_MAC_1_CLASS_0_GUARANTIED_HYST,
++			       e3b0_val.mac_1_class_t_guarantied_hyst);
++			REG_WR(bp, BRB1_REG_MAC_1_CLASS_1_GUARANTIED_HYST,
++			       e3b0_val.mac_1_class_t_guarantied_hyst);
++
++	    }
++
++	}
++
++	return bnx2x_status;
+ }
+ 
+ /******************************************************************************
+@@ -931,9 +1530,9 @@ static void bnx2x_update_pfc_nig(struct link_params *params,
+ 	u32 xcm_mask = 0, ppp_enable = 0, pause_enable = 0, llfc_out_en = 0;
+ 	u32 llfc_enable = 0, xcm0_out_en = 0, p0_hwpfc_enable = 0;
+ 	u32 pkt_priority_to_cos = 0;
+-	u32 val;
+ 	struct bnx2x *bp = params->bp;
+-	int port = params->port;
++	u8 port = params->port;
++
+ 	int set_pfc = params->feature_config_flags &
+ 		FEATURE_CONFIG_PFC_ENABLED;
+ 	DP(NETIF_MSG_LINK, "updating pfc nig parameters\n");
+@@ -954,6 +1553,9 @@ static void bnx2x_update_pfc_nig(struct link_params *params,
+ 		pause_enable = 0;
+ 		llfc_out_en = 0;
+ 		llfc_enable = 0;
++		if (CHIP_IS_E3(bp))
++			ppp_enable = 0;
++		else
+ 		ppp_enable = 1;
+ 		xcm_mask &= ~(port ? NIG_LLH1_XCM_MASK_REG_LLH1_XCM_MASK_BCN :
+ 				     NIG_LLH0_XCM_MASK_REG_LLH0_XCM_MASK_BCN);
+@@ -972,6 +1574,9 @@ static void bnx2x_update_pfc_nig(struct link_params *params,
+ 		xcm0_out_en = 1;
+ 	}
+ 
++	if (CHIP_IS_E3(bp))
++		REG_WR(bp, port ? NIG_REG_BRB1_PAUSE_IN_EN :
++		       NIG_REG_BRB0_PAUSE_IN_EN, pause_enable);
+ 	REG_WR(bp, port ? NIG_REG_LLFC_OUT_EN_1 :
+ 	       NIG_REG_LLFC_OUT_EN_0, llfc_out_en);
+ 	REG_WR(bp, port ? NIG_REG_LLFC_ENABLE_1 :
+@@ -993,20 +1598,6 @@ static void bnx2x_update_pfc_nig(struct link_params *params,
+ 	/* HW PFC TX enable */
+ 	REG_WR(bp, NIG_REG_P0_HWPFC_ENABLE, p0_hwpfc_enable);
+ 
+-	/* 0x2 = BMAC, 0x1= EMAC */
+-	switch (vars->mac_type) {
+-	case MAC_TYPE_EMAC:
+-		val = 1;
+-		break;
+-	case MAC_TYPE_BMAC:
+-		val = 0;
+-		break;
+-	default:
+-		val = 0;
+-		break;
+-	}
+-	REG_WR(bp, NIG_REG_EGRESS_EMAC0_PORT, val);
+-
+ 	if (nig_params) {
+ 		u8 i = 0;
+ 		pkt_priority_to_cos = nig_params->pkt_priority_to_cos;
+@@ -1028,8 +1619,7 @@ static void bnx2x_update_pfc_nig(struct link_params *params,
+ 	       pkt_priority_to_cos);
+ }
+ 
+-
+-void bnx2x_update_pfc(struct link_params *params,
++int bnx2x_update_pfc(struct link_params *params,
+ 		      struct link_vars *vars,
+ 		      struct bnx2x_nig_brb_pfc_port_params *pfc_params)
+ {
+@@ -1040,38 +1630,48 @@ void bnx2x_update_pfc(struct link_params *params,
+ 	 */
+ 	u32 val;
+ 	struct bnx2x *bp = params->bp;
+-
++	int bnx2x_status = 0;
++	u8 bmac_loopback = (params->loopback_mode == LOOPBACK_BMAC);
+ 	/* update NIG params */
+ 	bnx2x_update_pfc_nig(params, vars, pfc_params);
+ 
+ 	/* update BRB params */
+-	bnx2x_update_pfc_brb(params, vars, pfc_params);
++	bnx2x_status = bnx2x_update_pfc_brb(params, vars, pfc_params);
++	if (0 != bnx2x_status)
++		return bnx2x_status;
+ 
+ 	if (!vars->link_up)
+-		return;
+-
+-	val = REG_RD(bp, MISC_REG_RESET_REG_2);
+-	if ((val & (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << params->port))
+-	    == 0) {
+-		DP(NETIF_MSG_LINK, "About to update PFC in EMAC\n");
+-		bnx2x_emac_enable(params, vars, 0);
+-		return;
+-	}
++		return bnx2x_status;
+ 
+ 	DP(NETIF_MSG_LINK, "About to update PFC in BMAC\n");
+-	if (CHIP_IS_E2(bp))
+-		bnx2x_update_pfc_bmac2(params, vars, 0);
+-	else
+-		bnx2x_update_pfc_bmac1(params, vars);
++	if (CHIP_IS_E3(bp))
++		bnx2x_update_pfc_xmac(params, vars, 0);
++	else {
++		val = REG_RD(bp, MISC_REG_RESET_REG_2);
++		if ((val &
++		    (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << params->port))
++		    == 0) {
++			DP(NETIF_MSG_LINK, "About to update PFC in EMAC\n");
++			bnx2x_emac_enable(params, vars, 0);
++			return bnx2x_status;
++		}
+ 
+-	val = 0;
+-	if ((params->feature_config_flags &
+-	      FEATURE_CONFIG_PFC_ENABLED) ||
+-	    (vars->flow_ctrl & BNX2X_FLOW_CTRL_TX))
+-		val = 1;
+-	REG_WR(bp, NIG_REG_BMAC0_PAUSE_OUT_EN + params->port*4, val);
++		if (CHIP_IS_E2(bp))
++			bnx2x_update_pfc_bmac2(params, vars, bmac_loopback);
++		else
++			bnx2x_update_pfc_bmac1(params, vars);
++
++		val = 0;
++		if ((params->feature_config_flags &
++		     FEATURE_CONFIG_PFC_ENABLED) ||
++		    (vars->flow_ctrl & BNX2X_FLOW_CTRL_TX))
++			val = 1;
++		REG_WR(bp, NIG_REG_BMAC0_PAUSE_OUT_EN + params->port*4, val);
++	}
++	return bnx2x_status;
+ }
+ 
++
+ static int bnx2x_bmac1_enable(struct link_params *params,
+ 			      struct link_vars *vars,
+ 			      u8 is_lb)
+@@ -1819,7 +2419,7 @@ void bnx2x_link_status_update(struct link_params *params,
+ 			      struct link_vars *vars)
  {
  	struct bnx2x *bp = params->bp;
- 	u8 port;
-+	u16 val16;
- 
- 	if (!(CHIP_IS_E1(bp)))
- 		port = BP_PATH(bp);
-@@ -9446,9 +9499,14 @@ static void bnx2x_848x3_link_reset(struct bnx2x_phy *phy,
- 			       MISC_REGISTERS_GPIO_OUTPUT_LOW,
- 			       port);
- 	} else {
--		bnx2x_cl45_write(bp, phy,
--				MDIO_PMA_DEVAD,
--				MDIO_PMA_REG_CTRL, 0x800);
-+		bnx2x_cl45_read(bp, phy,
-+				MDIO_CTL_DEVAD,
-+				0x400f, &val16);
-+		/* Put to low power mode on newer FW */
-+		if ((val16 & 0x303f) > 0x1009)
-+			bnx2x_cl45_write(bp, phy,
-+					MDIO_PMA_DEVAD,
-+					MDIO_PMA_REG_CTRL, 0x800);
- 	}
- }
- 
-@@ -9647,7 +9705,17 @@ static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
+-	u8 link_10g;
++	u8 link_10g_plus;
+ 	u8 port = params->port;
+ 	u32 sync_offset, media_types;
+ 	/* Update PHY configuration */
+@@ -1893,17 +2493,19 @@ void bnx2x_link_status_update(struct link_params *params,
  		}
- 		break;
- 	}
+ 
+ 		/* anything 10 and over uses the bmac */
+-		link_10g = ((vars->line_speed == SPEED_10000) ||
+-			    (vars->line_speed == SPEED_12000) ||
+-			    (vars->line_speed == SPEED_12500) ||
+-			    (vars->line_speed == SPEED_13000) ||
+-			    (vars->line_speed == SPEED_15000) ||
+-			    (vars->line_speed == SPEED_16000));
+-		if (link_10g)
++		link_10g_plus = (vars->line_speed >= SPEED_10000);
 +
-+	/*
-+	 * This is a workaround for E3+84833 until autoneg
-+	 * restart is fixed in f/w
-+	 */
-+	if (CHIP_IS_E3(bp)) {
-+		bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
-+				MDIO_WC_REG_GP2_STATUS_GP_2_1, &val);
++		if (link_10g_plus) {
++			if (USES_WARPCORE(bp))
++				vars->mac_type = MAC_TYPE_XMAC;
++			else
+ 			vars->mac_type = MAC_TYPE_BMAC;
++		} else {
++			if (USES_WARPCORE(bp))
++				vars->mac_type = MAC_TYPE_UMAC;
+ 		else
+ 			vars->mac_type = MAC_TYPE_EMAC;
+-
++		}
+ 	} else { /* link down */
+ 		DP(NETIF_MSG_LINK, "phy link down\n");
+ 
+@@ -3507,14 +4109,21 @@ static int bnx2x_update_link_down(struct link_params *params,
+ 	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + port*4, 1);
+ 
+ 	/* disable emac */
+-	REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
++	if (!CHIP_IS_E3(bp))
++		REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
+ 
+ 	msleep(10);
+-
+-	/* reset BigMac */
+-	bnx2x_bmac_rx_disable(bp, params->port);
+-	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
++	/* reset BigMac/Xmac */
++	if (CHIP_IS_E1x(bp) ||
++	    CHIP_IS_E2(bp)) {
++		bnx2x_bmac_rx_disable(bp, params->port);
++		REG_WR(bp, GRCBASE_MISC +
++		       MISC_REGISTERS_RESET_REG_2_CLEAR,
+ 	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
 +	}
- }
++	if (CHIP_IS_E3(bp))
++		bnx2x_xmac_disable(params);
 +
- /******************************************************************/
- /*			54616S PHY SECTION			  */
- /******************************************************************/
-@@ -11700,6 +11768,13 @@ static int bnx2x_ext_phy_common_init(struct bnx2x *bp, u32 shmem_base_path[],
- 						shmem2_base_path,
- 						phy_index, chip_id);
- 		break;
-+	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833:
-+		/*
-+		 * GPIO3's are linked, and so both need to be toggled
-+		 * to obtain required 2us pulse.
-+		 */
-+		rc = bnx2x_84833_common_init_phy(bp, shmem_base_path, chip_id);
-+		break;
- 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_FAILURE:
- 		rc = -EINVAL;
- 		break;
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index c824f16..0e2cd26 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -1959,6 +1959,53 @@ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode, u8 port)
  	return 0;
  }
  
-+int bnx2x_set_mult_gpio(struct bnx2x *bp, u8 pins, u32 mode)
-+{
-+	u32 gpio_reg = 0;
-+	int rc = 0;
-+
-+	/* Any port swapping should be handled by caller. */
-+
-+	bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_GPIO);
-+	/* read GPIO and mask except the float bits */
-+	gpio_reg = REG_RD(bp, MISC_REG_GPIO);
-+	gpio_reg &= ~(pins << MISC_REGISTERS_GPIO_FLOAT_POS);
-+	gpio_reg &= ~(pins << MISC_REGISTERS_GPIO_CLR_POS);
-+	gpio_reg &= ~(pins << MISC_REGISTERS_GPIO_SET_POS);
-+
-+	switch (mode) {
-+	case MISC_REGISTERS_GPIO_OUTPUT_LOW:
-+		DP(NETIF_MSG_LINK, "Set GPIO 0x%x -> output low\n", pins);
-+		/* set CLR */
-+		gpio_reg |= (pins << MISC_REGISTERS_GPIO_CLR_POS);
-+		break;
-+
-+	case MISC_REGISTERS_GPIO_OUTPUT_HIGH:
-+		DP(NETIF_MSG_LINK, "Set GPIO 0x%x -> output high\n", pins);
-+		/* set SET */
-+		gpio_reg |= (pins << MISC_REGISTERS_GPIO_SET_POS);
-+		break;
-+
-+	case MISC_REGISTERS_GPIO_INPUT_HI_Z:
-+		DP(NETIF_MSG_LINK, "Set GPIO 0x%x -> input\n", pins);
-+		/* set FLOAT */
-+		gpio_reg |= (pins << MISC_REGISTERS_GPIO_FLOAT_POS);
-+		break;
-+
-+	default:
-+		BNX2X_ERR("Invalid GPIO mode assignment %d\n", mode);
-+		rc = -EINVAL;
-+		break;
+@@ -3535,25 +4144,36 @@ static int bnx2x_update_link_up(struct link_params *params,
+ 	if (vars->flow_ctrl & BNX2X_FLOW_CTRL_RX)
+ 		vars->link_status |=
+ 			LINK_STATUS_RX_FLOW_CONTROL_ENABLED;
+-
+-	if (link_10g) {
+-		bnx2x_bmac_enable(params, vars, 0);
++	if (USES_WARPCORE(bp)) {
++		if (link_10g)
++			bnx2x_xmac_enable(params, vars, 0);
++		else
++			bnx2x_umac_enable(params, vars, 0);
+ 		bnx2x_set_led(params, vars,
+-			      LED_MODE_OPER, SPEED_10000);
+-	} else {
+-		rc = bnx2x_emac_program(params, vars);
+-
+-		bnx2x_emac_enable(params, vars, 0);
++			      LED_MODE_OPER, vars->line_speed);
 +	}
++	if ((CHIP_IS_E1x(bp) ||
++	     CHIP_IS_E2(bp))) {
++		if (link_10g) {
++			bnx2x_bmac_enable(params, vars, 0);
+ 
+-		/* AN complete? */
+-		if ((vars->link_status & LINK_STATUS_AUTO_NEGOTIATE_COMPLETE)
+-		    && (!(vars->phy_flags & PHY_SGMII_FLAG)) &&
+-		    SINGLE_MEDIA_DIRECT(params))
+-			bnx2x_set_gmii_tx_driver(params);
++			bnx2x_set_led(params, vars,
++				      LED_MODE_OPER, SPEED_10000);
++		} else {
++			rc = bnx2x_emac_program(params, vars);
++			bnx2x_emac_enable(params, vars, 0);
 +
-+	if (rc == 0)
-+		REG_WR(bp, MISC_REG_GPIO, gpio_reg);
++			/* AN complete? */
++			if ((vars->link_status &
++			     LINK_STATUS_AUTO_NEGOTIATE_COMPLETE)
++			    && (!(vars->phy_flags & PHY_SGMII_FLAG)) &&
++			    SINGLE_MEDIA_DIRECT(params))
++				bnx2x_set_gmii_tx_driver(params);
++		}
+ 	}
+ 
+ 	/* PBF - link up */
+-	if (!(CHIP_IS_E2(bp)))
++	if (CHIP_IS_E1x(bp))
+ 		rc |= bnx2x_pbf_update(params, vars->flow_ctrl,
+ 				       vars->line_speed);
+ 
+@@ -3617,7 +4237,8 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
+ 	  REG_RD(bp, NIG_REG_XGXS0_STATUS_LINK_STATUS + port*0x68));
+ 
+ 	/* disable emac */
+-	REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
++	if (!CHIP_IS_E3(bp))
++		REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
+ 
+ 	/*
+ 	 * Step 1:
+@@ -7871,6 +8492,43 @@ void bnx2x_init_emac_loopback(struct link_params *params,
+ 		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
+ }
+ 
++void bnx2x_init_xmac_loopback(struct link_params *params,
++			      struct link_vars *vars)
++{
++	struct bnx2x *bp = params->bp;
++	vars->link_up = 1;
++	if (!params->req_line_speed[0])
++		vars->line_speed = SPEED_10000;
++	else
++		vars->line_speed = params->req_line_speed[0];
++	vars->duplex = DUPLEX_FULL;
++	vars->flow_ctrl = BNX2X_FLOW_CTRL_NONE;
++	vars->mac_type = MAC_TYPE_XMAC;
++	vars->phy_flags = PHY_XGXS_FLAG;
++	/*
++	 * Set WC to loopback mode since link is required to provide clock
++	 * to the XMAC in 20G mode
++	 */
 +
-+	bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_GPIO);
-+
-+	return rc;
++	bnx2x_xmac_enable(params, vars, 1);
++	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
 +}
 +
- int bnx2x_set_gpio_int(struct bnx2x *bp, int gpio_num, u32 mode, u8 port)
++void bnx2x_init_umac_loopback(struct link_params *params,
++			      struct link_vars *vars)
++{
++	struct bnx2x *bp = params->bp;
++	vars->link_up = 1;
++	vars->line_speed = SPEED_1000;
++	vars->duplex = DUPLEX_FULL;
++	vars->flow_ctrl = BNX2X_FLOW_CTRL_NONE;
++	vars->mac_type = MAC_TYPE_UMAC;
++	vars->phy_flags = PHY_XGXS_FLAG;
++	bnx2x_umac_enable(params, vars, 1);
++
++	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
++}
++
+ void bnx2x_init_xgxs_loopback(struct link_params *params,
+ 			      struct link_vars *vars)
  {
- 	/* The GPIO should be swapped if swap register is set and active */
+@@ -7883,17 +8541,23 @@ void bnx2x_init_xgxs_loopback(struct link_params *params,
+ 	else
+ 			vars->line_speed = SPEED_10000;
+ 
+-
+-	bnx2x_xgxs_deassert(params);
++	if (!USES_WARPCORE(bp))
++		bnx2x_xgxs_deassert(params);
+ 	bnx2x_link_initialize(params, vars);
+ 
+ 	if (params->req_line_speed[0] == SPEED_1000) {
+-		bnx2x_emac_program(params, vars);
+-		bnx2x_emac_enable(params, vars, 0);
+-
+-	} else
+-		bnx2x_bmac_enable(params, vars, 0);
+-
++		if (USES_WARPCORE(bp))
++			bnx2x_umac_enable(params, vars, 0);
++		else {
++			bnx2x_emac_program(params, vars);
++			bnx2x_emac_enable(params, vars, 0);
++		}
++	} else {
++		if (USES_WARPCORE(bp))
++			bnx2x_xmac_enable(params, vars, 0);
++		else
++			bnx2x_bmac_enable(params, vars, 0);
++	}
+ 
+ 		if (params->loopback_mode == LOOPBACK_XGXS) {
+ 			/* set 10G XGXS loopback */
+@@ -7957,17 +8621,23 @@ int bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
+ 	case LOOPBACK_EMAC:
+ 		bnx2x_init_emac_loopback(params, vars);
+ 		break;
++	case LOOPBACK_XMAC:
++		bnx2x_init_xmac_loopback(params, vars);
++		break;
++	case LOOPBACK_UMAC:
++		bnx2x_init_umac_loopback(params, vars);
++		break;
+ 	case LOOPBACK_XGXS:
+ 	case LOOPBACK_EXT_PHY:
+ 		bnx2x_init_xgxs_loopback(params, vars);
+ 		break;
+ 	default:
+-		/* No loopback */
+-		if (params->switch_cfg == SWITCH_CFG_10G)
+-			bnx2x_xgxs_deassert(params);
+-		else
+-			bnx2x_serdes_deassert(bp, params->port);
+-
++		if (!CHIP_IS_E3(bp)) {
++			if (params->switch_cfg == SWITCH_CFG_10G)
++				bnx2x_xgxs_deassert(params);
++			else
++				bnx2x_serdes_deassert(bp, params->port);
++		}
+ 		bnx2x_link_initialize(params, vars);
+ 		msleep(30);
+ 		bnx2x_link_int_enable(params);
+@@ -7995,14 +8665,19 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
+ 	REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + port*4, 1);
+ 
+ 	/* disable nig egress interface */
+-	REG_WR(bp, NIG_REG_BMAC0_OUT_EN + port*4, 0);
+-	REG_WR(bp, NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0);
++	if (!CHIP_IS_E3(bp)) {
++		REG_WR(bp, NIG_REG_BMAC0_OUT_EN + port*4, 0);
++		REG_WR(bp, NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0);
++	}
+ 
+ 	/* Stop BigMac rx */
+-	bnx2x_bmac_rx_disable(bp, port);
+-
++	if (!CHIP_IS_E3(bp))
++		bnx2x_bmac_rx_disable(bp, port);
++	else
++		bnx2x_xmac_disable(params);
+ 	/* disable emac */
+-	REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
++	if (!CHIP_IS_E3(bp))
++		REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
+ 
+ 	msleep(10);
+ 	/* The PHY reset is controlled by GPIO 1
+@@ -8038,10 +8713,10 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
+ 	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
+ 
+ 	/* disable nig ingress interface */
+-	REG_WR(bp, NIG_REG_BMAC0_IN_EN + port*4, 0);
+-	REG_WR(bp, NIG_REG_EMAC0_IN_EN + port*4, 0);
+-	REG_WR(bp, NIG_REG_BMAC0_OUT_EN + port*4, 0);
+-	REG_WR(bp, NIG_REG_EGRESS_EMAC0_OUT_EN + port*4, 0);
++	if (!CHIP_IS_E3(bp)) {
++		REG_WR(bp, NIG_REG_BMAC0_IN_EN + port*4, 0);
++		REG_WR(bp, NIG_REG_EMAC0_IN_EN + port*4, 0);
++	}
+ 	vars->link_up = 0;
+ 	return 0;
+ }
+diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/bnx2x/bnx2x_link.h
+index 3fef778..12602f1 100644
+--- a/drivers/net/bnx2x/bnx2x_link.h
++++ b/drivers/net/bnx2x/bnx2x_link.h
+@@ -66,17 +66,6 @@
+ #define FW_PARAM_SET(phy_addr, phy_type, mdio_access) \
+ 	(phy_addr | phy_type | mdio_access << FW_PARAM_MDIO_CTRL_OFFSET)
+ 
+-#define PFC_BRB_MAC_PAUSE_XOFF_THRESHOLD_PAUSEABLE		170
+-#define PFC_BRB_MAC_PAUSE_XOFF_THRESHOLD_NON_PAUSEABLE		0
+-
+-#define PFC_BRB_MAC_PAUSE_XON_THRESHOLD_PAUSEABLE			250
+-#define PFC_BRB_MAC_PAUSE_XON_THRESHOLD_NON_PAUSEABLE		0
+-
+-#define PFC_BRB_MAC_FULL_XOFF_THRESHOLD_PAUSEABLE			10
+-#define PFC_BRB_MAC_FULL_XOFF_THRESHOLD_NON_PAUSEABLE		90
+-
+-#define PFC_BRB_MAC_FULL_XON_THRESHOLD_PAUSEABLE			50
+-#define PFC_BRB_MAC_FULL_XON_THRESHOLD_NON_PAUSEABLE		250
+ 
+ #define PFC_BRB_FULL_LB_XOFF_THRESHOLD				170
+ #define PFC_BRB_FULL_LB_XON_THRESHOLD				250
+@@ -132,6 +121,7 @@ struct bnx2x_phy {
+ #define FLAGS_FAN_FAILURE_DET_REQ	(1<<2)
+ 	/* Initialize first the XGXS and only then the phy itself */
+ #define FLAGS_INIT_XGXS_FIRST		(1<<3)
++#define FLAGS_4_PORT_MODE		(1<<5)
+ #define FLAGS_REARM_LATCH_SIGNAL	(1<<6)
+ #define FLAGS_SFP_NOT_APPROVED		(1<<7)
+ 
+@@ -366,6 +356,8 @@ int bnx2x_phy_probe(struct link_params *params);
+ u8 bnx2x_fan_failure_det_req(struct bnx2x *bp, u32 shmem_base,
+ 			     u32 shmem2_base, u8 port);
+ 
++
++
+ /* DCBX structs */
+ 
+ /* Number of maximum COS per chip */
+@@ -400,7 +392,7 @@ struct bnx2x_nig_brb_pfc_port_params {
+  * Used to update the PFC attributes in EMAC, BMAC, NIG and BRB
+  * when link is already up
+  */
+-void bnx2x_update_pfc(struct link_params *params,
++int bnx2x_update_pfc(struct link_params *params,
+ 		      struct link_vars *vars,
+ 		      struct bnx2x_nig_brb_pfc_port_params *pfc_params);
+ 
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index f8436e0..65f3b12 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -54,16 +54,20 @@
+ /* [RW 10] The number of free blocks below which the full signal to class 0
+  * is asserted */
+ #define BRB1_REG_FULL_0_XOFF_THRESHOLD_0			 0x601d0
+-/* [RW 10] The number of free blocks above which the full signal to class 0
++#define BRB1_REG_FULL_0_XOFF_THRESHOLD_1			 0x60230
++/* [RW 11] The number of free blocks above which the full signal to class 0
+  * is de-asserted */
+ #define BRB1_REG_FULL_0_XON_THRESHOLD_0				 0x601d4
+-/* [RW 10] The number of free blocks below which the full signal to class 1
++#define BRB1_REG_FULL_0_XON_THRESHOLD_1				 0x60234
++/* [RW 11] The number of free blocks below which the full signal to class 1
+  * is asserted */
+ #define BRB1_REG_FULL_1_XOFF_THRESHOLD_0			 0x601d8
+-/* [RW 10] The number of free blocks above which the full signal to class 1
++#define BRB1_REG_FULL_1_XOFF_THRESHOLD_1			 0x60238
++/* [RW 11] The number of free blocks above which the full signal to class 1
+  * is de-asserted */
+ #define BRB1_REG_FULL_1_XON_THRESHOLD_0				 0x601dc
+-/* [RW 10] The number of free blocks below which the full signal to the LB
++#define BRB1_REG_FULL_1_XON_THRESHOLD_1				 0x6023c
++/* [RW 11] The number of free blocks below which the full signal to the LB
+  * port is asserted */
+ #define BRB1_REG_FULL_LB_XOFF_THRESHOLD				 0x601e0
+ /* [RW 10] The number of free blocks above which the full signal to the LB
+@@ -75,15 +79,49 @@
+ /* [RW 10] The number of free blocks below which the High_llfc signal to
+    interface #n is asserted. */
+ #define BRB1_REG_HIGH_LLFC_LOW_THRESHOLD_0			 0x6013c
+-/* [RW 23] LL RAM data. */
+-#define BRB1_REG_LL_RAM 					 0x61000
++/* [RW 11] The number of blocks guarantied for the LB port */
++#define BRB1_REG_LB_GUARANTIED					 0x601ec
++/* [RW 11] The hysteresis on the guarantied buffer space for the Lb port
++ * before signaling XON. */
++#define BRB1_REG_LB_GUARANTIED_HYST				 0x60264
++/* [RW 24] LL RAM data. */
++#define BRB1_REG_LL_RAM						 0x61000
+ /* [RW 10] The number of free blocks above which the Low_llfc signal to
+    interface #n is de-asserted. */
+ #define BRB1_REG_LOW_LLFC_HIGH_THRESHOLD_0			 0x6016c
+ /* [RW 10] The number of free blocks below which the Low_llfc signal to
+    interface #n is asserted. */
+ #define BRB1_REG_LOW_LLFC_LOW_THRESHOLD_0			 0x6015c
+-/* [RW 10] The number of blocks guarantied for the MAC port */
++/* [RW 11] The number of blocks guarantied for class 0 in MAC 0. The
++ * register is applicable only when per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_0_CLASS_0_GUARANTIED			 0x60244
++/* [RW 11] The hysteresis on the guarantied buffer space for class 0 in MAC
++ * 1 before signaling XON. The register is applicable only when
++ * per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_0_CLASS_0_GUARANTIED_HYST			 0x60254
++/* [RW 11] The number of blocks guarantied for class 1 in MAC 0. The
++ * register is applicable only when per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_0_CLASS_1_GUARANTIED			 0x60248
++/* [RW 11] The hysteresis on the guarantied buffer space for class 1in MAC 0
++ * before signaling XON. The register is applicable only when
++ * per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_0_CLASS_1_GUARANTIED_HYST			 0x60258
++/* [RW 11] The number of blocks guarantied for class 0in MAC1.The register
++ * is applicable only when per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_1_CLASS_0_GUARANTIED			 0x6024c
++/* [RW 11] The hysteresis on the guarantied buffer space for class 0 in MAC
++ * 1 before signaling XON. The register is applicable only when
++ * per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_1_CLASS_0_GUARANTIED_HYST			 0x6025c
++/* [RW 11] The number of blocks guarantied for class 1 in MAC 1. The
++ * register is applicable only when per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_1_CLASS_1_GUARANTIED			 0x60250
++/* [RW 11] The hysteresis on the guarantied buffer space for class 1 in MAC
++ * 1 before signaling XON. The register is applicable only when
++ * per_class_guaranty_mode is set. */
++#define BRB1_REG_MAC_1_CLASS_1_GUARANTIED_HYST			 0x60260
++/* [RW 11] The number of blocks guarantied for the MAC port. The register is
++ * applicable only when per_class_guaranty_mode is reset. */
+ #define BRB1_REG_MAC_GUARANTIED_0				 0x601e8
+ #define BRB1_REG_MAC_GUARANTIED_1				 0x60240
+ /* [R 24] The number of full blocks. */
+@@ -100,15 +138,19 @@
+ /* [RW 10] The number of free blocks below which the pause signal to class 0
+  * is asserted */
+ #define BRB1_REG_PAUSE_0_XOFF_THRESHOLD_0			 0x601c0
+-/* [RW 10] The number of free blocks above which the pause signal to class 0
++#define BRB1_REG_PAUSE_0_XOFF_THRESHOLD_1			 0x60220
++/* [RW 11] The number of free blocks above which the pause signal to class 0
+  * is de-asserted */
+ #define BRB1_REG_PAUSE_0_XON_THRESHOLD_0			 0x601c4
+-/* [RW 10] The number of free blocks below which the pause signal to class 1
++#define BRB1_REG_PAUSE_0_XON_THRESHOLD_1			 0x60224
++/* [RW 11] The number of free blocks below which the pause signal to class 1
+  * is asserted */
+ #define BRB1_REG_PAUSE_1_XOFF_THRESHOLD_0			 0x601c8
+-/* [RW 10] The number of free blocks above which the pause signal to class 1
++#define BRB1_REG_PAUSE_1_XOFF_THRESHOLD_1			 0x60228
++/* [RW 11] The number of free blocks above which the pause signal to class 1
+  * is de-asserted */
+ #define BRB1_REG_PAUSE_1_XON_THRESHOLD_0			 0x601cc
++#define BRB1_REG_PAUSE_1_XON_THRESHOLD_1			 0x6022c
+ /* [RW 10] Write client 0: De-assert pause threshold. Not Functional */
+ #define BRB1_REG_PAUSE_HIGH_THRESHOLD_0 			 0x60078
+ #define BRB1_REG_PAUSE_HIGH_THRESHOLD_1 			 0x6007c
+@@ -1655,12 +1697,31 @@
+  * is compared to the value on ctrl_md_devad. Drives output
+  * misc_xgxs0_phy_addr. Global register. */
+ #define MISC_REG_WC0_CTRL_PHY_ADDR				 0xa9cc
++/* [RW 2] XMAC Core port mode. Indicates the number of ports on the system
++   side. This should be less than or equal to phy_port_mode; if some of the
++   ports are not used. This enables reduction of frequency on the core side.
++   This is a strap input for the XMAC_MP core. 00 - Single Port Mode; 01 -
++   Dual Port Mode; 10 - Tri Port Mode; 11 - Quad Port Mode. This is a strap
++   input for the XMAC_MP core; and should be changed only while reset is
++   held low. Reset on Hard reset. */
++#define MISC_REG_XMAC_CORE_PORT_MODE				 0xa964
++/* [RW 2] XMAC PHY port mode. Indicates the number of ports on the Warp
++   Core. This is a strap input for the XMAC_MP core. 00 - Single Port Mode;
++   01 - Dual Port Mode; 1x - Quad Port Mode; This is a strap input for the
++   XMAC_MP core; and should be changed only while reset is held low. Reset
++   on Hard reset. */
++#define MISC_REG_XMAC_PHY_PORT_MODE				 0xa960
+ /* [RW 32] 1 [47] Packet Size = 64 Write to this register write bits 31:0.
+  * Reads from this register will clear bits 31:0. */
+ #define MSTAT_REG_RX_STAT_GR64_LO				 0x200
+ /* [RW 32] 1 [00] Tx Good Packet Count Write to this register write bits
+  * 31:0. Reads from this register will clear bits 31:0. */
+ #define MSTAT_REG_TX_STAT_GTXPOK_LO				 0
++#define NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_BRCST	 (0x1<<0)
++#define NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_MLCST	 (0x1<<1)
++#define NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_NO_VLAN	 (0x1<<4)
++#define NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_UNCST	 (0x1<<2)
++#define NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_VLAN	 (0x1<<3)
+ #define NIG_LLH0_XCM_MASK_REG_LLH0_XCM_MASK_BCN			 (0x1<<0)
+ #define NIG_LLH1_XCM_MASK_REG_LLH1_XCM_MASK_BCN			 (0x1<<0)
+ #define NIG_MASK_INTERRUPT_PORT0_REG_MASK_EMAC0_MISC_MI_INT	 (0x1<<0)
+@@ -1903,6 +1964,12 @@
+ #define NIG_REG_P0_HWPFC_ENABLE				 0x18078
+ #define NIG_REG_P0_LLH_FUNC_MEM2				 0x18480
+ #define NIG_REG_P0_LLH_FUNC_MEM2_ENABLE			 0x18440
++/* [RW 1] Input enable for RX MAC interface. */
++#define NIG_REG_P0_MAC_IN_EN					 0x185ac
++/* [RW 1] Output enable for TX MAC interface */
++#define NIG_REG_P0_MAC_OUT_EN					 0x185b0
++/* [RW 1] Output enable for TX PAUSE signal to the MAC. */
++#define NIG_REG_P0_MAC_PAUSE_OUT_EN				 0x185b4
+ /* [RW 32] Eight 4-bit configurations for specifying which COS (0-15 for
+  * future expansion) each priorty is to be mapped to. Bits 3:0 specify the
+  * COS for priority 0. Bits 31:28 specify the COS for priority 7. The 3-bit
+@@ -1939,6 +2006,7 @@
+  * than one bit may be set; allowing multiple priorities to be mapped to one
+  * COS. */
+ #define NIG_REG_P0_RX_COS5_PRIORITY_MASK			 0x186bc
++/* [R 1] RX FIFO for receiving data from MAC is empty. */
+ /* [RW 15] Specify which of the credit registers the client is to be mapped
+  * to. Bits[2:0] are for client 0; bits [14:12] are for client 4. For
+  * clients that are not subject to WFQ credit blocking - their
+@@ -1981,6 +2049,11 @@
+ #define NIG_REG_P1_HDRS_AFTER_BASIC				 0x1818c
+ #define NIG_REG_P1_LLH_FUNC_MEM2				 0x184c0
+ #define NIG_REG_P1_LLH_FUNC_MEM2_ENABLE			 0x18460
++#define NIG_REG_P1_MAC_IN_EN					 0x185c0
++/* [RW 1] Output enable for TX MAC interface */
++#define NIG_REG_P1_MAC_OUT_EN					 0x185c4
++/* [RW 1] Output enable for TX PAUSE signal to the MAC. */
++#define NIG_REG_P1_MAC_PAUSE_OUT_EN				 0x185c8
+ /* [RW 32] Eight 4-bit configurations for specifying which COS (0-15 for
+  * future expansion) each priorty is to be mapped to. Bits 3:0 specify the
+  * COS for priority 0. Bits 31:28 specify the COS for priority 7. The 3-bit
+@@ -2002,6 +2075,52 @@
+  * than one bit may be set; allowing multiple priorities to be mapped to one
+  * COS. */
+ #define NIG_REG_P1_RX_COS2_PRIORITY_MASK			 0x186f8
++/* [R 1] RX FIFO for receiving data from MAC is empty. */
++#define NIG_REG_P1_RX_MACFIFO_EMPTY				 0x1858c
++/* [R 1] TLLH FIFO is empty. */
++#define NIG_REG_P1_TLLH_FIFO_EMPTY				 0x18338
++/* [RW 32] Specify which of the credit registers the client is to be mapped
++ * to. This register specifies bits 31:0 of the 36-bit value. Bits[3:0] are
++ * for client 0; bits [35:32] are for client 8. For clients that are not
++ * subject to WFQ credit blocking - their specifications here are not used.
++ * This is a new register (with 2_) added in E3 B0 to accommodate the 9
++ * input clients to ETS arbiter. The reset default is set for management and
++ * debug to use credit registers 6, 7, and 8, respectively, and COSes 0-5 to
++ * use credit registers 0-5 respectively (0x543210876). Note that credit
++ * registers can not be shared between clients. Note also that there are
++ * only COS0-2 in port 1- there is a total of 6 clients in port 1. Only
++ * credit registers 0-5 are valid. This register should be configured
++ * appropriately before enabling WFQ. */
++#define NIG_REG_P1_TX_ARB_CLIENT_CREDIT_MAP2_LSB		 0x186e8
++/* [RW 4] Specify which of the credit registers the client is to be mapped
++ * to. This register specifies bits 35:32 of the 36-bit value. Bits[3:0] are
++ * for client 0; bits [35:32] are for client 8. For clients that are not
++ * subject to WFQ credit blocking - their specifications here are not used.
++ * This is a new register (with 2_) added in E3 B0 to accommodate the 9
++ * input clients to ETS arbiter. The reset default is set for management and
++ * debug to use credit registers 6, 7, and 8, respectively, and COSes 0-5 to
++ * use credit registers 0-5 respectively (0x543210876). Note that credit
++ * registers can not be shared between clients. Note also that there are
++ * only COS0-2 in port 1- there is a total of 6 clients in port 1. Only
++ * credit registers 0-5 are valid. This register should be configured
++ * appropriately before enabling WFQ. */
++#define NIG_REG_P1_TX_ARB_CLIENT_CREDIT_MAP2_MSB		 0x186ec
++/* [RW 9] Specify whether the client competes directly in the strict
++ * priority arbiter. The bits are mapped according to client ID (client IDs
++ * are defined in tx_arb_priority_client2): 0-management; 1-debug traffic
++ * from this port; 2-debug traffic from other port; 3-COS0 traffic; 4-COS1
++ * traffic; 5-COS2 traffic; 6-COS3 traffic; 7-COS4 traffic; 8-COS5 traffic.
++ * Default value is set to enable strict priorities for all clients. */
++#define NIG_REG_P1_TX_ARB_CLIENT_IS_STRICT			 0x18234
++/* [RW 9] Specify whether the client is subject to WFQ credit blocking. The
++ * bits are mapped according to client ID (client IDs are defined in
++ * tx_arb_priority_client2): 0-management; 1-debug traffic from this port;
++ * 2-debug traffic from other port; 3-COS0 traffic; 4-COS1 traffic; 5-COS2
++ * traffic; 6-COS3 traffic; 7-COS4 traffic; 8-COS5 traffic. Default value is
++ * 0 for not using WFQ credit blocking. */
++#define NIG_REG_P1_TX_ARB_CLIENT_IS_SUBJECT2WFQ			 0x18238
++/* [RW 32] Specify the upper bound that credit register 0 is allowed to
++ * reach. */
+ /* [RW 1] Pause enable for port0. This register may get 1 only when
+    ~safc_enable.safc_enable = 0 and ppp_enable.ppp_enable =0 for the same
+    port */
+@@ -4427,6 +4546,17 @@
+    The fields are: [4:0] - tail pointer; 10:5] - Link List size; 15:11] -
+    header pointer. */
+ #define UCM_REG_XX_TABLE					 0xe0300
++#define UMAC_COMMAND_CONFIG_REG_LOOP_ENA			 (0x1<<15)
++#define UMAC_COMMAND_CONFIG_REG_NO_LGTH_CHECK			 (0x1<<24)
++#define UMAC_COMMAND_CONFIG_REG_PAD_EN				 (0x1<<5)
++#define UMAC_COMMAND_CONFIG_REG_PROMIS_EN			 (0x1<<4)
++#define UMAC_COMMAND_CONFIG_REG_RX_ENA				 (0x1<<1)
++#define UMAC_COMMAND_CONFIG_REG_SW_RESET			 (0x1<<13)
++#define UMAC_COMMAND_CONFIG_REG_TX_ENA				 (0x1<<0)
++#define UMAC_REG_COMMAND_CONFIG					 0x8
++/* [RW 14] Defines a 14-Bit maximum frame length used by the MAC receive
++ * logic to check frames. */
++#define UMAC_REG_MAXFR						 0x14
+ /* [RW 8] The event id for aggregated interrupt 0 */
+ #define USDM_REG_AGG_INT_EVENT_0				 0xc4038
+ #define USDM_REG_AGG_INT_EVENT_1				 0xc403c
+@@ -4939,6 +5069,28 @@
+ #define XCM_REG_XX_MSG_NUM					 0x20428
+ /* [RW 8] The Event ID; sent to the STORM in case of XX overflow. */
+ #define XCM_REG_XX_OVFL_EVNT_ID 				 0x20058
++#define XMAC_CLEAR_RX_LSS_STATUS_REG_CLEAR_LOCAL_FAULT_STATUS	 (0x1<<0)
++#define XMAC_CLEAR_RX_LSS_STATUS_REG_CLEAR_REMOTE_FAULT_STATUS	 (0x1<<1)
++#define XMAC_CTRL_REG_CORE_LOCAL_LPBK				 (0x1<<3)
++#define XMAC_CTRL_REG_RX_EN					 (0x1<<1)
++#define XMAC_CTRL_REG_SOFT_RESET				 (0x1<<6)
++#define XMAC_CTRL_REG_TX_EN					 (0x1<<0)
++#define XMAC_PAUSE_CTRL_REG_RX_PAUSE_EN				 (0x1<<18)
++#define XMAC_PAUSE_CTRL_REG_TX_PAUSE_EN				 (0x1<<17)
++#define XMAC_PFC_CTRL_HI_REG_PFC_REFRESH_EN			 (0x1<<0)
++#define XMAC_PFC_CTRL_HI_REG_PFC_STATS_EN			 (0x1<<3)
++#define XMAC_PFC_CTRL_HI_REG_RX_PFC_EN				 (0x1<<4)
++#define XMAC_PFC_CTRL_HI_REG_TX_PFC_EN				 (0x1<<5)
++#define XMAC_REG_CLEAR_RX_LSS_STATUS				 0x60
++#define XMAC_REG_CTRL						 0
++#define XMAC_REG_PAUSE_CTRL					 0x68
++#define XMAC_REG_PFC_CTRL					 0x70
++#define XMAC_REG_PFC_CTRL_HI					 0x74
++#define XMAC_REG_RX_LSS_STATUS					 0x58
++/* [RW 14] Maximum packet size in receive direction; exclusive of preamble &
++ * CRC in strip mode */
++#define XMAC_REG_RX_MAX_SIZE					 0x40
++#define XMAC_REG_TX_CTRL					 0x20
+ /* [RW 16] Indirect access to the XX table of the XX protection mechanism.
+    The fields are:[4:0] - tail pointer; 9:5] - Link List size; 14:10] -
+    header pointer. */
+@@ -5011,6 +5163,8 @@
+ #define XSDM_REG_NUM_OF_Q8_CMD					 0x166264
+ /* [ST 32] The number of commands received in queue 9 */
+ #define XSDM_REG_NUM_OF_Q9_CMD					 0x166268
++/* [RW 13] The start address in the internal RAM for queue counters */
++#define XSDM_REG_Q_COUNTER_START_ADDR				 0x166010
+ /* [W 17] Generate an operation after completion; bit-16 is
+  * AggVectIdx_valid; bits 15:8 are AggVectIdx; bits 7:5 are the TRIG and
+  * bits 4:0 are the T124Param[4:0] */
+@@ -5312,6 +5466,9 @@
+ #define MISC_REGISTERS_RESET_REG_2_RST_PCI_MDIO			 (0x1<<13)
+ #define MISC_REGISTERS_RESET_REG_2_RST_RBCN			 (0x1<<9)
+ #define MISC_REGISTERS_RESET_REG_2_SET				 0x594
++#define MISC_REGISTERS_RESET_REG_2_UMAC0			 (0x1<<20)
++#define MISC_REGISTERS_RESET_REG_2_XMAC				 (0x1<<22)
++#define MISC_REGISTERS_RESET_REG_2_XMAC_SOFT			 (0x1<<23)
+ #define MISC_REGISTERS_RESET_REG_3_CLEAR			 0x5a8
+ #define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_SERDES0_IDDQ	 (0x1<<1)
+ #define MISC_REGISTERS_RESET_REG_3_MISC_NIG_MUX_SERDES0_PWRDWN	 (0x1<<2)
+@@ -5503,9 +5660,13 @@
+ #define GRCBASE_HC		0x108000
+ #define GRCBASE_PXP2		0x120000
+ #define GRCBASE_PBF		0x140000
++#define GRCBASE_UMAC0		0x160000
++#define GRCBASE_UMAC1		0x160400
+ #define GRCBASE_XPB		0x161000
+ #define GRCBASE_MSTAT0	    0x162000
+ #define GRCBASE_MSTAT1	    0x162800
++#define GRCBASE_XMAC0		0x163000
++#define GRCBASE_XMAC1		0x163800
+ #define GRCBASE_TIMERS		0x164000
+ #define GRCBASE_XSDM		0x166000
+ #define GRCBASE_QM		0x168000
 -- 
 1.7.1
 
