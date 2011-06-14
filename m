@@ -1,81 +1,93 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] net:  Ensure tx watchdog failures always print.
-Date: Tue, 14 Jun 2011 10:25:13 -0700
-Message-ID: <4DF79979.2070309@candelatech.com>
-References: <1308070213-13244-1-git-send-email-greearb@candelatech.com> <1308071667.4870.17.camel@edumazet-laptop>
+Subject: Re: [PATCH] e100: Fix inconsistency in bad frames
+	handling
+Date: Tue, 14 Jun 2011 10:30:25 -0700
+Message-ID: <4DF79AB1.2080109@candelatech.com>
+References: <BANLkTimpYniHhN6ccMXN7Lx3xDdK6sC+FQ@mail.gmail.com>	
+	<alpine.WNT.2.00.1106060940010.3568@JBRANDEB-DESK2.amr.corp.intel.com>	
+	<4DED14E7.2050405@candelatech.com>
+	<1307391315.22348.454.camel@localhost>
+	<1307392197.2642.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Andrea Merello <andrea.merello@gmail.com>,
+	netdev@vger.kernel.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53515 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312Ab1FNRZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 13:25:27 -0400
-In-Reply-To: <1308071667.4870.17.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1307392197.2642.14.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 06/14/2011 10:14 AM, Eric Dumazet wrote:
-> Le mardi 14 juin 2011 =C3=A0 09:50 -0700, greearb@candelatech.com a =C3=
-=A9crit :
->> From: Ben Greear<greearb@candelatech.com>
->>
->> These are too important to not have some log message
->> generated.  But, keep the logic that only prints
->> a single stack dump.
->>
->> Signed-off-by: Ben Greear<greearb@candelatech.com>
->> ---
->> :100644 100644 90939ba... fce5558... M	net/sched/sch_generic.c
->>   net/sched/sch_generic.c |   16 ++++++++++++++--
->>   1 files changed, 14 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
->> index 90939ba..fce5558 100644
->> --- a/net/sched/sch_generic.c
->> +++ b/net/sched/sch_generic.c
->> @@ -252,8 +252,20 @@ static void dev_watchdog(unsigned long arg)
->>
->>   			if (some_queue_timedout) {
->>   				char drivername[64];
->> -				WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queu=
-e %u timed out\n",
->> -				       dev->name, netdev_drivername(dev, drivername, 64), i);
->> +				static bool do_once =3D true;
->> +				printk(KERN_INFO "NETDEV WATCHDOG: %s (%s):"
->> +				       " transmit queue %u timed out,"
->> +				       " trans_start: %lu, wd-timeout: %i"
->> +				       " jiffies: %lu tx-queues: %i\n",
->> +				       dev->name,
->> +				       netdev_drivername(dev, drivername, 64),
->> +				       i,
->> +				       trans_start, dev->watchdog_timeo,
->> +				       jiffies, dev->num_tx_queues);
->> +				if (do_once) {
->> +					do_once =3D false;
->> +					WARN_ON(1);
->
-> You could use WARN_ON_ONCE(1) here
-
-Er, right..don't know what I was thinking.
-
-Will re-send.
-
-Thanks,
-Ben
-
->
->> +				}
->>   				dev->netdev_ops->ndo_tx_timeout(dev);
->>   			}
->>   			if (!mod_timer(&dev->watchdog_timer,
->
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+T24gMDYvMDYvMjAxMSAwMToyOSBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IExlIGx1bmRpIDA2
+IGp1aW4gMjAxMSDDoCAyMToxNSArMDEwMCwgQmVuIEh1dGNoaW5ncyBhIMOpY3JpdCA6Cj4+IE9u
+IE1vbiwgMjAxMS0wNi0wNiBhdCAxMDo1NiAtMDcwMCwgQmVuIEdyZWVhciB3cm90ZToKPj4+IE9u
+IDA2LzA2LzIwMTEgMTA6NDkgQU0sIEJyYW5kZWJ1cmcsIEplc3NlIHdyb3RlOgo+Pj4+Cj4+Pj4g
+PGFkZGVkIG5ldGRldj4sIHJlbW92ZWQgb3RoZXIgdXNlbGVzcyBsaXN0cy4KPj4+Pgo+Pj4+IE9u
+IFNhdCwgNCBKdW4gMjAxMSwgQW5kcmVhIE1lcmVsbG8gd3JvdGU6Cj4+Pj4+IEluIGUxMDAgZHJp
+dmVyIGl0IHNlZW1zIHRoYXQgdGhlIGludGVudGlvbiB3YXMgdG8gYWNjZXB0IGJhZCBmcmFtZXMg
+aW4KPj4+Pj4gcHJvbWlzY3VvdXMgbW9kZSBhbmQgbG9vcGJhY2sgbW9kZS4KPj4+Pj4gSSB0aGlu
+ayB0aGlzIGlzIGV2aWRlbnQgYmVjYXVzZSBvZiB0aGUgZm9sbG93aW5nIGNvZGUgaW4gdGhlIGRy
+aXZlcjoKPj4+Pj4KPj4+Pj4gaWYgKG5pYy0+ZmxhZ3MmICAgcHJvbWlzY3VvdXMgfHwgbmljLT5s
+b29wYmFjaykgewo+Pj4+PiAJCWNvbmZpZy0+cnhfc2F2ZV9iYWRfZnJhbWVzID0gMHgxOwkvKiAx
+PXNhdmUsIDA9ZGlzY2FyZCAqLwo+Pj4+PiAJCWNvbmZpZy0+cnhfZGlzY2FyZF9zaG9ydF9mcmFt
+ZXMgPSAweDA7CS8qIDE9ZGlzY2FyZCwgMD1zYXZlICovCj4+Pj4+IAkJY29uZmlnLT5wcm9taXNj
+dW91c19tb2RlID0gMHgxOwkJLyogMT1vbiwgMD1vZmYgKi8KPj4+Pj4gCX0KPj4+Pj4KPj4+Pgo+
+Pj4+IEhpLCB0aGFua3MgZm9yIHlvdXIgd29yayBvbiBlMTAwLgo+Pj4+Cj4+Pj4+IEhvd2V2ZXIg
+dGhpcyBpbnRlbnRpb24gaXMgbm90IHJlYWxseSByZWFsaXplZCBiZWNhdXNlIGJhZCBmcmFtZXMg
+YXJlCj4+Pj4+IGRpc2NhcmRlZCBsYXRlciBieSBTVyBjaGVjay4KPj4+Pj4gVGhpcyBwYXRjaCBm
+aW5hbGx5IGhvbm9ycyB0aGUgYWJvdmUgaW50ZW50aW9uLCBtYWtpbmcgdGhlIFJYIGNvZGUgdG8K
+Pj4+Pj4gbGV0IGJhZCBmcmFtZXMgdG8gcGFzcyB3aGVuIHRoZSBOSUMgaXMgaW4gcHJvbWlzY3Vv
+dXMgb3IgbG9vcGJhY2sKPj4+Pj4gbW9kZS4KPj4+Pgo+Pj4+IEkgdGhpbmsgdGhpcyBtYXkgYmUg
+YSBtaXN0YWtlIGJ5IHRoZSBhdXRob3JzIG9mIHRoZSBzb2Z0d2FyZSBkZXZlbG9wZXJzCj4+Pj4g
+bWFudWFsLiAgVGhlIG1hbnVhbCBzdWdnZXN0cyB0aGF0IHNhdmUgYmFkIGZyYW1lcyBhbmQgc2F2
+ZSBzaG9ydCBmcmFtZXMKPj4+PiBzaG91bGQgYmUgZW5hYmxlZCBpbiBwcm9taXNjIG1vZGUsIGJ1
+dCBhbGwgb2Ygb3VyIG90aGVyIGRyaXZlcnMgKmRvIG5vdCoKPj4+PiBzYXZlIGJhZCBmcmFtZXMg
+d2hlbiBpbiBwcm9taXNjdW91cyBtb2RlIChieSBkZXNpZ24pLiAgVGhpcyBpcyBpbnRlbnRpb25h
+bAo+Pj4+IGJlY2F1c2UgYSBiYWQgZnJhbWUgaXMganVzdCB0aGF0LCBiYWQsIGFuZCB3aXRoIG5v
+IGhvcGUgb2Yga25vd2luZyBpZiB0aGUKPj4+PiBkYXRhIGluIGl0IGlzIG9rYXkvbWFsaWNpb3Vz
+L290aGVyLiAgSSB1bmRlcnN0YW5kIHlvdXIgcmVhc29uaW5nIGFib3ZlLAo+Pj4+IGJ1dCByZWFs
+aXN0aWNhbGx5IHRoZSByeF9zYXZlX2JhZF9mcmFtZXMgc2hvdWxkIE5PVCBiZSBzZXQuICBJJ2Qg
+YWNrIGEKPj4+PiBwYXRjaCB0byBjb21tZW50IHRoYXQgbGluZSBvdXQuCj4+Pj4KPj4+Pj4gVGhp
+cyBoZWxwZWQgbWUgYSBsb3QgdG8gZGVidWcgYW4gRlBHQSBldGhlcm5ldCBjb3JlLgo+Pj4+PiBN
+YXliZSBpdCBjYW4gYmUgYWxzbyB1c2VmdWwgdG8gc29tZW9uZSBlbHNlLi4KPj4+Pgo+Pj4+IEkg
+dGhpbmsgdGhpcyBwYXRjaCBpcyBqdXN0IHRoYXQsIGRlYnVnIG9ubHkuIEFzIGEgZGV2ZWxvcGVy
+IEkgdW5kZXJzdGFuZAo+Pj4+IHdoeSB0aGlzIGlzIHVzZWZ1bCwgYnV0IHRoZXJlIGlzIG5vIHJl
+YXNvbiBhbnkgbm9ybWFsIHVzZXIgd291bGQgYmUgYWJsZQo+Pj4+IHRvIGJlbmVmaXQgZnJvbSB0
+aGlzLCBzbyBmb3Igbm93LCBzb3JyeToKPj4+Pgo+Pj4+IE5BQ0suCj4+Pgo+Pj4gSSB0aGluayBh
+bnlvbmUgc25pZmZpbmcgYSBmdW5reSBuZXR3b3JrIHdvdWxkIGhhdmUgYmVuZWZpdCBpbgo+Pj4g
+cmVjZWl2aW5nIGFsbCBmcmFtZXMuICBTbywgd2hpbGUgaXQgc2hvdWxkbid0IGJlIGVuYWJsZWQg
+YnkgZGVmYXVsdCwKPj4+IGl0IHdvdWxkIGJlIG5pY2UgdG8gaGF2ZSBhbiBldGh0b29sIGNvbW1h
+bmQgdG8gdHVybiBvbiByZWNlaXZpbmcKPj4+IGJhZC1jcmMgZnJhbWVzLCBhcyB3ZWxsIGFzIHJl
+Y2VpdmluZyB0aGUgNC1ieXRlIENSQyBvbiB0aGUgZW5kIG9mCj4+PiB0aGUgcGFja2V0cy4KPj4+
+Cj4+PiBJdCBqdXN0IHNvIGhhcHBlbnMgSSBoYXZlIHN1Y2ggYSBwYXRjaCwgaW4gY2FzZSBvdGhl
+cnMgYWdyZWUgOikKPj4KPj4gSG93IHdvdWxkIGEgcmVjZWl2ZWQgc2tiIGJlIGZsYWdnZWQgYXMg
+aGF2aW5nIGEgQ1JDIGVycm9yPwo+Pgo+Cj4gbWF5YmUgc29tZSBza2ItPnBrdF90eXBlID0gUEFD
+S0VUX0lOVkFMSUQ7IG9yIHNvbWV0aGluZy4uLgoKSmVzc2U6ICBJZiBJIGNhbiBnZXQgdGhlIGV0
+aHRvb2wgcmVsYXRlZCBwYXRjaGVzIGFjY2VwdGVkLCB3b3VsZAp5b3UgYWNjZXB0IHBhdGNoZXMg
+dG8gZTEwMCAoYW5kIG90aGVyIEludGVsIGRyaXZlcnMpIGZvcgp0aGlzIGZlYXR1cmU/CgpUaGFu
+a3MsCkJlbgoKPgo+Cj4KPiAtLQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5k
+IHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdl
+IHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBo
+dHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwKCgotLSAKQmVuIEdyZWVh
+ciA8Z3JlZWFyYkBjYW5kZWxhdGVjaC5jb20+CkNhbmRlbGEgVGVjaG5vbG9naWVzIEluYyAgaHR0
+cDovL3d3dy5jYW5kZWxhdGVjaC5jb20KCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KRWRpdExpdmUg
+RW50ZXJwcmlzZSBpcyB0aGUgd29ybGQncyBtb3N0IHRlY2huaWNhbGx5IGFkdmFuY2VkIGNvbnRl
+bnQKYXV0aG9yaW5nIHRvb2wuIEV4cGVyaWVuY2UgdGhlIHBvd2VyIG9mIFRyYWNrIENoYW5nZXMs
+IElubGluZSBJbWFnZQpFZGl0aW5nIGFuZCBlbnN1cmUgY29udGVudCBpcyBjb21wbGlhbnQgd2l0
+aCBBY2Nlc3NpYmlsaXR5IENoZWNraW5nLgpodHRwOi8vcC5zZi5uZXQvc2Z1L2VwaG94LWRldjJk
+ZXYKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAt
+ZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRw
+czovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBs
+ZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVu
+aXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
