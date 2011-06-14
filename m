@@ -1,75 +1,104 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net-next 1/2] wireless: Remove casts of void *
-Date: Mon, 13 Jun 2011 22:32:12 -0700
-Message-ID: <1308029532.26699.68.camel@Joe-Laptop>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH net-next 1/2] wireless: Remove casts of
+	void *
+Date: Tue, 14 Jun 2011 15:39:32 +1000
+Message-ID: <BANLkTik4fWbCc8pRZfKCzvKD2f6sK9QCEw@mail.gmail.com>
 References: <cover.1308024069.git.joe@perches.com>
-	 <337c22b774ff7f007b90b266b25c9a33ff555c48.1308024069.git.joe@perches.com>
-	 <BANLkTi=i30Rn7gpCDbn9KKJucq8CB=hssA@mail.gmail.com>
+	<337c22b774ff7f007b90b266b25c9a33ff555c48.1308024069.git.joe@perches.com>
+	<BANLkTi=i30Rn7gpCDbn9KKJucq8CB=hssA@mail.gmail.com>
+	<1308029532.26699.68.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTi=i30Rn7gpCDbn9KKJucq8CB=hssA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Intel Linux Wireless <ilw@linux.intel.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jouni Malinen <jmalinen@atheros.com>,
+	Senthil Balasubramanian <senthilkumar@atheros.com>,
+	ath9k-devel@lists.ath9k.org, Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
+	Christian Lamparter <chunkeey@googlemail.com>,
+	Stanislaw Gruszka <sgruszka@redhat.com>, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+In-Reply-To: <1308029532.26699.68.camel@Joe-Laptop>
+List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
+List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
+List-Post: <mailto:ath9k-devel@lists.ath9k.org>
+List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
+List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
+Sender: ath9k-devel-bounces@lists.ath9k.org
+Errors-To: ath9k-devel-bounces@lists.ath9k.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-06-14 at 15:23 +1000, Julian Calaby wrote:
-> Joe,
+Joe,
 
-Hi Julian.
+On Tue, Jun 14, 2011 at 15:32, Joe Perches <joe@perches.com> wrote:
+> On Tue, 2011-06-14 at 15:23 +1000, Julian Calaby wrote:
+>> Joe,
+>
+> Hi Julian.
+>
+>> On Tue, Jun 14, 2011 at 14:02, Joe Perches <joe@perches.com> wrote:
+>> > Unnecessary casts of void * clutter the code.
+>> > These are the remainder casts after several specific
+>> > patches to remove netdev_priv and dev_priv.
+>> You seem to have removed a lot of casts that don't relate to these clean=
+ups.
+>> In particular, some of the casts seem to relate more to documentation
+>> rather than just changing pointer types to make the compiler happy.
+>
+> All of the cast removals are casts of void* types.
+> I think none of of the casts are useful.
+> None of them are required, all are duplicative.
 
-> On Tue, Jun 14, 2011 at 14:02, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> > Unnecessary casts of void * clutter the code.
-> > These are the remainder casts after several specific
-> > patches to remove netdev_priv and dev_priv.
-> You seem to have removed a lot of casts that don't relate to these cleanups.
-> In particular, some of the casts seem to relate more to documentation
-> rather than just changing pointer types to make the compiler happy.
+My issue here is that you mention in the commit log that this relates
+to the removal of netdev_priv and dev_priv, but the casts removed
+(mostly) don't.
 
-All of the cast removals are casts of void* types.
-I think none of of the casts are useful.
-None of them are required, all are duplicative.
+>> In
+>> particular, I'm referring to the casts describing the different usages
+>> of data_buf in mwiflex, and around some pointer math in ath9k.
+>
+> Can you describe more in detail why you think these are documentary?
+>
+> This sort of cast:
+>
+> diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mw=
+ifiex/11n.c
+> @@ -191,7 +191,7 @@ int mwifiex_ret_11n_cfg(struct host_cmd_ds_command *r=
+esp, void *data_buf)
+> =A0 =A0 =A0 =A0struct host_cmd_ds_11n_cfg *htcfg =3D &resp->params.htcfg;
+>
+> =A0 =A0 =A0 =A0if (data_buf) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_cfg =3D (struct mwifiex_ds_11n_tx_cfg *)=
+ data_buf;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_cfg =3D data_buf;
+>
+> I think pretty useless. =A0tx_cfg is a struct mwifiex_ds_11n_tx_cfg *.
 
-> In
-> particular, I'm referring to the casts describing the different usages
-> of data_buf in mwiflex, and around some pointer math in ath9k.
+True, but IMHO, this documents, particularly in a random snippet like
+this, what's going on. Arguably though, a better fix would be to move
+the cast to the place where this function is called.
 
-Can you describe more in detail why you think these are documentary?
+>> Whilst I'm sure that the compiler is smart enough to handle automatic
+>> casts between pointer types, some of these, in particular the mwiflex
+>> bits, add some documentation to the code.
+>
+> I think not. =A0Opinions of course can vary.
 
-This sort of cast:
+Of course. I rarely look at full files, so the more information that
+can be stuffed into a patch, the better for me. That said, I agree
+that all the casts removed are superfluous.
 
-diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mwifiex/11n.c
-@@ -191,7 +191,7 @@ int mwifiex_ret_11n_cfg(struct host_cmd_ds_command *resp, void *data_buf)
- 	struct host_cmd_ds_11n_cfg *htcfg = &resp->params.htcfg;
- 
- 	if (data_buf) {
--		tx_cfg = (struct mwifiex_ds_11n_tx_cfg *) data_buf;
-+               tx_cfg = data_buf;
+Thanks,
 
-I think pretty useless.  tx_cfg is a struct mwifiex_ds_11n_tx_cfg *.
+-- =
 
-> Whilst I'm sure that the compiler is smart enough to handle automatic
-> casts between pointer types, some of these, in particular the mwiflex
-> bits, add some documentation to the code.
+Julian Calaby
 
-I think not.  Opinions of course can vary.
-
-cheers, Joe
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby/
