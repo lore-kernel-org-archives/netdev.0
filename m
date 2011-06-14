@@ -1,22 +1,21 @@
 From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next 8/24] bnx2x: dump FW memory when appropriate
- msglvl is raised
-Date: Tue, 14 Jun 2011 14:33:25 +0300
-Message-ID: <201106141433.25717.vladz@broadcom.com>
+Subject: [PATCH net-next 10/24] bnx2x: removed unused variables
+Date: Tue, 14 Jun 2011 14:33:34 +0300
+Message-ID: <201106141433.35165.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
 	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
 	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2506 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2495 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756261Ab1FNLeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2011 07:34:21 -0400
+	id S1756299Ab1FNLe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2011 07:34:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,112 +25,92 @@ Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.h     |    2 ++
- drivers/net/bnx2x/bnx2x_ethtool.c |    6 +++++-
- drivers/net/bnx2x/bnx2x_main.c    |   23 ++++++++++++++++++-----
- drivers/net/bnx2x/bnx2x_reg.h     |    1 +
- 4 files changed, 26 insertions(+), 6 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |    3 ---
+ drivers/net/bnx2x/bnx2x_main.c |   15 ++++++---------
+ 2 files changed, 6 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
-index fab161e..b01f737 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/bnx2x/bnx2x_cmn.h
-@@ -363,6 +363,8 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state);
-  */
- void bnx2x_update_max_mf_config(struct bnx2x *bp, u32 value);
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 2b744b0..791fb77 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -928,8 +928,6 @@ struct bnx2x {
+ 	bnx2x_recovery_state_t	recovery_state;
+ 	int			is_leader;
+ 	struct msix_entry	*msix_table;
+-#define INT_MODE_INTx			1
+-#define INT_MODE_MSI			2
  
-+void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl);
-+
- /* dev_close main block */
- int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode);
+ 	int			tx_ring_size;
  
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 727fe89..10b17f6 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -682,8 +682,12 @@ static void bnx2x_set_msglevel(struct net_device *dev, u32 level)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
+@@ -1092,7 +1090,6 @@ struct bnx2x {
+ 	int			multi_mode;
+ 	int			num_queues;
+ 	int			disable_tpa;
+-	int			int_mode;
+ 	u32			*rx_indir_table;
  
--	if (capable(CAP_NET_ADMIN))
-+	if (capable(CAP_NET_ADMIN)) {
-+		/* dump MCP trace */
-+		if (level & BNX2X_MSG_MCP)
-+			bnx2x_fw_dump_lvl(bp, KERN_INFO);
- 		bp->msg_enable = level;
-+	}
- }
- 
- static int bnx2x_nway_reset(struct net_device *dev)
+ 	struct tstorm_eth_mac_filter_config	mac_filters;
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 0e8d302..c6c59ad 100644
+index c6c59ad..07feb32 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -833,9 +833,9 @@ static int bnx2x_mc_assert(struct bnx2x *bp)
- 	return rc;
- }
+@@ -99,6 +99,8 @@ static int disable_tpa;
+ module_param(disable_tpa, int, 0);
+ MODULE_PARM_DESC(disable_tpa, " Disable the TPA (LRO) feature");
  
--static void bnx2x_fw_dump(struct bnx2x *bp)
-+void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl)
++#define INT_MODE_INTx			1
++#define INT_MODE_MSI			2
+ static int int_mode;
+ module_param(int_mode, int, 0);
+ MODULE_PARM_DESC(int_mode, " Force interrupt mode other then MSI-X "
+@@ -6639,11 +6641,10 @@ static int bnx2x_setup_fw_client(struct bnx2x *bp,
+  *
+  * In case of MSI-X it will also try to enable MSI-X.
+  */
+-static int __devinit bnx2x_set_int_mode(struct bnx2x *bp)
++static void __devinit bnx2x_set_int_mode(struct bnx2x *bp)
  {
--	u32 addr;
-+	u32 addr, val;
- 	u32 mark, offset;
- 	__be32 data[9];
- 	int word;
-@@ -844,6 +844,14 @@ static void bnx2x_fw_dump(struct bnx2x *bp)
- 		BNX2X_ERR("NO MCP - can not dump\n");
- 		return;
- 	}
-+	netdev_printk(lvl, bp->dev, "bc %d.%d.%d\n",
-+		(bp->common.bc_ver & 0xff0000) >> 16,
-+		(bp->common.bc_ver & 0xff00) >> 8,
-+		(bp->common.bc_ver & 0xff));
-+
-+	val = REG_RD(bp, MCP_REG_MCPR_CPU_PROGRAM_COUNTER);
-+	if (val == REG_RD(bp, MCP_REG_MCPR_CPU_PROGRAM_COUNTER))
-+		printk("%s" "MCP PC at 0x%x\n", lvl, val);
+-	int rc = 0;
  
- 	if (BP_PATH(bp) == 0)
- 		trace_shmem_base = bp->common.shmem_base;
-@@ -853,9 +861,9 @@ static void bnx2x_fw_dump(struct bnx2x *bp)
- 	mark = REG_RD(bp, addr);
- 	mark = (CHIP_IS_E1x(bp) ? MCP_REG_MCPR_SCRATCH : MCP_A_REG_MCPR_SCRATCH)
- 			+ ((mark + 0x3) & ~0x3) - 0x08000000;
--	pr_err("begin fw dump (mark 0x%x)\n", mark);
-+	printk("%s" "begin fw dump (mark 0x%x)\n", lvl, mark);
+-	switch (bp->int_mode) {
++	switch (int_mode) {
+ 	case INT_MODE_MSI:
+ 		bnx2x_enable_msi(bp);
+ 		/* falling through... */
+@@ -6662,8 +6663,7 @@ static int __devinit bnx2x_set_int_mode(struct bnx2x *bp)
+ 		 * so try to enable MSI-X with the requested number of fp's
+ 		 * and fallback to MSI or legacy INTx with one fp
+ 		 */
+-		rc = bnx2x_enable_msix(bp);
+-		if (rc) {
++		if (bnx2x_enable_msix(bp)) {
+ 			/* failed to enable MSI-X */
+ 			if (bp->multi_mode)
+ 				DP(NETIF_MSG_IFUP,
+@@ -6674,14 +6674,12 @@ static int __devinit bnx2x_set_int_mode(struct bnx2x *bp)
+ 				   1 + NONE_ETH_CONTEXT_USE);
+ 			bp->num_queues = 1 + NONE_ETH_CONTEXT_USE;
  
--	pr_err("");
-+	printk("%s", lvl);
- 	for (offset = mark; offset <= trace_shmem_base; offset += 0x8*4) {
- 		for (word = 0; word < 8; word++)
- 			data[word] = htonl(REG_RD(bp, offset + 4*word));
-@@ -868,7 +876,12 @@ static void bnx2x_fw_dump(struct bnx2x *bp)
- 		data[8] = 0x0;
- 		pr_cont("%s", (char *)data);
++			/* Try to enable MSI */
+ 			if (!(bp->flags & DISABLE_MSI_FLAG))
+ 				bnx2x_enable_msi(bp);
+ 		}
+-
+ 		break;
  	}
--	pr_err("end of fw dump\n");
-+	printk("%s" "end of fw dump\n", lvl);
-+}
-+
-+static inline void bnx2x_fw_dump(struct bnx2x *bp)
-+{
-+	bnx2x_fw_dump_lvl(bp, KERN_ERR);
+-
+-	return rc;
  }
  
- void bnx2x_panic_dump(struct bnx2x *bp)
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 86bba25..40bddca 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -933,6 +933,7 @@
-  * clear; 1 = set. Data valid only in addresses 0-4. all the rest are zero. */
- #define IGU_REG_WRITE_DONE_PENDING				 0x130480
- #define MCP_A_REG_MCPR_SCRATCH					 0x3a0000
-+#define MCP_REG_MCPR_CPU_PROGRAM_COUNTER			 0x8501c
- #define MCP_REG_MCPR_NVM_ACCESS_ENABLE				 0x86424
- #define MCP_REG_MCPR_NVM_ADDR					 0x8640c
- #define MCP_REG_MCPR_NVM_CFG4					 0x8642c
+ /* must be called prioir to any HW initializations */
+@@ -8725,7 +8723,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 					"must load devices in order!\n");
+ 
+ 	bp->multi_mode = multi_mode;
+-	bp->int_mode = int_mode;
+ 
+ 	/* Set TPA flags */
+ 	if (disable_tpa) {
 -- 
 1.7.2.2
 
