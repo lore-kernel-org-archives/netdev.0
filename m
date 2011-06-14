@@ -1,104 +1,102 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH net-next 1/2] wireless: Remove casts of
-	void *
-Date: Tue, 14 Jun 2011 15:39:32 +1000
-Message-ID: <BANLkTik4fWbCc8pRZfKCzvKD2f6sK9QCEw@mail.gmail.com>
-References: <cover.1308024069.git.joe@perches.com>
-	<337c22b774ff7f007b90b266b25c9a33ff555c48.1308024069.git.joe@perches.com>
-	<BANLkTi=i30Rn7gpCDbn9KKJucq8CB=hssA@mail.gmail.com>
-	<1308029532.26699.68.camel@Joe-Laptop>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Re: [RFC PATCH 1/1] IPVS netns shutdown/startup dead-lock
+Date: Tue, 14 Jun 2011 09:36:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1106140855230.1575@ja.ssi.bg>
+References: <oth2obo.8109e7bd386ff72c34c0bda4b6945edf@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Intel Linux Wireless <ilw@linux.intel.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jouni Malinen <jmalinen@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>,
-	ath9k-devel@lists.ath9k.org, Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <1308029532.26699.68.camel@Joe-Laptop>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	horms@verge.net.au, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <oth2obo.8109e7bd386ff72c34c0bda4b6945edf@obelix.schillstrom.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe,
 
-On Tue, Jun 14, 2011 at 15:32, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2011-06-14 at 15:23 +1000, Julian Calaby wrote:
->> Joe,
->
-> Hi Julian.
->
->> On Tue, Jun 14, 2011 at 14:02, Joe Perches <joe@perches.com> wrote:
->> > Unnecessary casts of void * clutter the code.
->> > These are the remainder casts after several specific
->> > patches to remove netdev_priv and dev_priv.
->> You seem to have removed a lot of casts that don't relate to these clean=
-ups.
->> In particular, some of the casts seem to relate more to documentation
->> rather than just changing pointer types to make the compiler happy.
->
-> All of the cast removals are casts of void* types.
-> I think none of of the casts are useful.
-> None of them are required, all are duplicative.
+	Hello,
 
-My issue here is that you mention in the commit log that this relates
-to the removal of netdev_priv and dev_priv, but the casts removed
-(mostly) don't.
+On Tue, 14 Jun 2011, Hans Schillstrom wrote:
 
->> In
->> particular, I'm referring to the casts describing the different usages
->> of data_buf in mwiflex, and around some pointer math in ath9k.
->
-> Can you describe more in detail why you think these are documentary?
->
-> This sort of cast:
->
-> diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mw=
-ifiex/11n.c
-> @@ -191,7 +191,7 @@ int mwifiex_ret_11n_cfg(struct host_cmd_ds_command *r=
-esp, void *data_buf)
-> =A0 =A0 =A0 =A0struct host_cmd_ds_11n_cfg *htcfg =3D &resp->params.htcfg;
->
-> =A0 =A0 =A0 =A0if (data_buf) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_cfg =3D (struct mwifiex_ds_11n_tx_cfg *)=
- data_buf;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx_cfg =3D data_buf;
->
-> I think pretty useless. =A0tx_cfg is a struct mwifiex_ds_11n_tx_cfg *.
+> >On Mon, 13 Jun 2011, Hans Schillstrom wrote:
+> >
+> >> ip_vs_mutext is used by both netns shutdown code and startup
+> >> and both implicit uses sk_lock-AF_INET mutex.
+> >> 
+> >> cleanup CPU-1         startup CPU-2
+> >> ip_vs_dst_event()     ip_vs_genl_set_cmd()
+> >>  sk_lock-AF_INET     __ip_vs_mutex
+> >>                      sk_lock-AF_INET
+> >> __ip_vs_mutex
+> >> * DEAD LOCK *
+> >
+> >	So, sk_lock-AF_INET is locked before calling
+> >ip_vs_dst_event ? Do you have a backtrace for this case?
+> 
+> Yes plenty this one is with lockdep
+> 
+> Chain exists of:
+>   rtnl_mutex --> __ip_vs_mutex --> sk_lock-AF_INET
+> 
+>  Possible unsafe locking scenario:
+> 
+>        CPU0                    CPU1
+>        ----                    ----
+>   lock(sk_lock-AF_INET);
+>                                lock(__ip_vs_mutex);
+>                                lock(sk_lock-AF_INET);
+>   lock(rtnl_mutex);
+> 
+>  *** DEADLOCK ***
+> 
+> 3 locks held by ipvsadm/993:
+>  #0:  (genl_mutex){+.+.+.}, at: [<ffffffff812edc52>] genl_lock+0x17/0x19
+>  #1:  (__ip_vs_mutex){+.+.+.}, at: [<ffffffff81307dcb>] ip_vs_genl_set_cmd+0xe1/0x3a3
+>  #2:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff8130ffc1>] start_sync_thread+0x3ec/0x5ff
 
-True, but IMHO, this documents, particularly in a random snippet like
-this, what's going on. Arguably though, a better fix would be to move
-the cast to the place where this function is called.
+	I see
 
->> Whilst I'm sure that the compiler is smart enough to handle automatic
->> casts between pointer types, some of these, in particular the mwiflex
->> bits, add some documentation to the code.
->
-> I think not. =A0Opinions of course can vary.
+> >> ip_vs_mutex per name-space seems to be a more future proof solution.
+> >
+> >	Global mutex protects some global lists such as
+> >virtual services. If your patch works, better way to fix this problem
+> >is to use some new mutex. May be we can move the IPVS_CMD_NEW_DAEMON,
+> >IPVS_CMD_DEL_DAEMON and IP_VS_SO_GET_DAEMON code before the
+> >__ip_vs_mutex locking. This mutex should be used for start_sync_thread,
+> >stop_sync_thread, ip_vs_genl_dump_daemons and IP_VS_SO_GET_DAEMON.
+> >For example, ip_vs_sync_mutex.
+> 
+> I think we should avoid global mutexes as a rule of tumb, 
+> because it's realy hard to keep track of all possible cases 
+> that can occur when multiple netns is alive and/or goes up and down.
+> 
+> There might be more suprises while a netns exits (in terms of locks)...
+> my gut feeling is, avoid global locks as long as possible.
 
-Of course. I rarely look at full files, so the more information that
-can be stuffed into a patch, the better for me. That said, I agree
-that all the casts removed are superfluous.
+	There should not be a problem between two netns when
+using global mutexes. And there are no many places in IPVS
+where other modules are accessed.
 
-Thanks,
+> >	Note that __ip_vs_sync_cleanup is missing a
+> >__ip_vs_mutex lock. We have to use the new mutex there.
+> 
+> OK
+> 
+> >
+> >> Which one should be used ?
+> >
+> >	For now __ip_vs_mutex should be global ...
+> 
+> I do agree, but in the long term I vote for mutex per netns.
 
--- =
+	It will not help because the problem does not happen
+between two netspaces but between ipvs and other modules.
+The same problem would happen even if __ip_vs_mutex was
+pernet mutex. So, lets try with new mutex.
 
-Julian Calaby
+Regards
 
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
-.Plan: http://sites.google.com/site/juliancalaby/
+--
+Julian Anastasov <ja@ssi.bg>
