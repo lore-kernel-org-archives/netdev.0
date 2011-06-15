@@ -1,56 +1,75 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH for 3.0-rc4 2/2] dp83640: drop PHY status frames in the driver.
-Date: Wed, 15 Jun 2011 11:55:20 +0200
-Message-ID: <c09567e3debd1b20c091e294ab06e071c0654e67.1308129342.git.richard.cochran@omicron.at>
+Subject: [PATCH for 3.0-rc4 1/2] dp83640: fix phy status frame event parsing
+Date: Wed, 15 Jun 2011 11:55:19 +0200
+Message-ID: <66636408c37d95142c47014424ec4341c45cf547.1308129342.git.richard.cochran@omicron.at>
 References: <cover.1308129342.git.richard.cochran@omicron.at>
 Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
 	John Stultz <john.stultz@linaro.org>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:47658 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754348Ab1FOJzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 05:55:19 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1308129342.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1308129342.git.richard.cochran@omicron.at>
 References: <cover.1308129342.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The dp83640 PHY provides time stamp and other information via special
-PHY status frames. Previously, the driver decoded the frames and then
-let the network stack drop them. This works fine when the PTP messages
-come over UDP.
-
-However, when receiving PTP messages via L2 packets, this creates a
-problem. The status frames use the official PTP destination MAC address,
-and so they are delivered to user space along with the "real" frames,
-causing confusion for applications.
-
-This commit fixes the issue by simply dropping the PHY status frames
-in the driver.
+If two eternal time stamp events occur at nearly the same time, the
+phyter will add an extra word into the status frame. This commit fixes
+the parsing code to recognize and skip over the extra word.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/phy/dp83640.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/phy/dp83640.c |   20 +++++++++++++++-----
+ 1 files changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index ead323e..2cd8dc5 100644
+index b0c9522..ead323e 100644
 --- a/drivers/net/phy/dp83640.c
 +++ b/drivers/net/phy/dp83640.c
-@@ -1044,8 +1044,8 @@ static bool dp83640_rxtstamp(struct phy_device *phydev,
+@@ -543,11 +543,20 @@ static void recalibrate(struct dp83640_clock *clock)
  
- 	if (is_status_frame(skb, type)) {
- 		decode_status_frame(dp83640, skb);
--		/* Let the stack drop this frame. */
--		return false;
-+		kfree_skb(skb);
-+		return true;
- 	}
+ /* time stamping methods */
  
- 	SKB_PTP_TYPE(skb) = type;
+-static void decode_evnt(struct dp83640_private *dp83640,
+-			struct phy_txts *phy_txts, u16 ests)
++static int decode_evnt(struct dp83640_private *dp83640,
++		       void *data, u16 ests)
+ {
++	struct phy_txts *phy_txts;
+ 	struct ptp_clock_event event;
+ 	int words = (ests >> EVNT_TS_LEN_SHIFT) & EVNT_TS_LEN_MASK;
++	u16 ext_status = 0;
++
++	if (ests & MULT_EVNT) {
++		ext_status = *(u16 *) data;
++		data += sizeof(ext_status);
++	}
++
++	phy_txts = data;
+ 
+ 	switch (words) { /* fall through in every case */
+ 	case 3:
+@@ -565,6 +574,9 @@ static void decode_evnt(struct dp83640_private *dp83640,
+ 	event.timestamp = phy2txts(&dp83640->edata);
+ 
+ 	ptp_clock_event(dp83640->clock->ptp_clock, &event);
++
++	words = ext_status ? words + 2 : words + 1;
++	return words * sizeof(u16);
+ }
+ 
+ static void decode_rxts(struct dp83640_private *dp83640,
+@@ -643,9 +655,7 @@ static void decode_status_frame(struct dp83640_private *dp83640,
+ 
+ 		} else if (PSF_EVNT == type && len >= sizeof(*phy_txts)) {
+ 
+-			phy_txts = (struct phy_txts *) ptr;
+-			decode_evnt(dp83640, phy_txts, ests);
+-			size = sizeof(*phy_txts);
++			size = decode_evnt(dp83640, ptr, ests);
+ 
+ 		} else {
+ 			size = 0;
 -- 
 1.7.0.4
-
