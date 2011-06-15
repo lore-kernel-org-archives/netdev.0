@@ -1,46 +1,48 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH 001/001] forcedeth: Don't enable hardware vlan support
- on hardware that doesn't support it
-Date: Wed, 15 Jun 2011 13:53:00 -0700 (PDT)
-Message-ID: <585670083.71238.1308171180725.JavaMail.root@tahiti.vyatta.com>
+From: Antoine Reversat <a.reversat@gmail.com>
+Subject: Re: [PATCH 001/001] forcedeth: Don't enable hardware vlan support on
+ hardware that doesn't support it
+Date: Wed, 15 Jun 2011 17:08:18 -0400
+Message-ID: <BANLkTimqAXLDZ8cev5dgUTDR3pg-_Y3XUA@mail.gmail.com>
 References: <25664046.71236.1308171027618.JavaMail.root@tahiti.vyatta.com>
+	<585670083.71238.1308171180725.JavaMail.root@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org
-To: Antoine Reversat <a.reversat@gmail.com>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51969 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753444Ab1FOUxE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2011 16:53:04 -0400
-In-Reply-To: <25664046.71236.1308171027618.JavaMail.root@tahiti.vyatta.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:37545 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982Ab1FOVIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 17:08:19 -0400
+Received: by bwz15 with SMTP id 15so804242bwz.19
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 14:08:18 -0700 (PDT)
+In-Reply-To: <585670083.71238.1308171180725.JavaMail.root@tahiti.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 15, 2011 at 4:53 PM, Stephen Hemminger
+<stephen.hemminger@vyatta.com> wrote:
+>
+> This shouldn't be necessary. rx_register should not be called
+> unless NETIF_F_HW_VLAN_RX is set; and device should not be setting
+> NETIF_F_HW_VLAN_RX unless DEV_HAS_VLAN is set.
 
-> In the forcedeth driver hardware vlan support is used even on hardware
-> that doesn't support it leading to incorrect tagging of some packets
-> when using vlan.
-> 
-> Signed-off-by: Antoine Reversat <a.reversat@gmail.com>
-> ---
-> --- linux-2.6.39/drivers/net/forcedeth.c 2011-05-19 00:06:34.000000000
-> -0400 +++ linux-2.6.39-fixed/drivers/net/forcedeth.c 2011-06-15
-> 15:57:45.331158001 -0400
-> @@ -4915,6 +4915,10 @@ static void nv_vlan_rx_register(struct n
-> { struct fe_priv *np = get_nvpriv(dev);
-> 
-> + /* Don't do anything if device doesn't support VLAN */
-> + if (!(np->driver_data & DEV_HAS_VLAN))
-> + return;
-> + spin_lock_irq(&np->lock);
-> 
-> /* save vlan group */
+I can confirm that rx_register gets called on hardware that doesn't
+have vlan support (namely MCP79).
 
-This shouldn't be necessary. rx_register should not be called
-unless NETIF_F_HW_VLAN_RX is set; and device should not be setting
-NETIF_F_HW_VLAN_RX unless DEV_HAS_VLAN is set.
+>From what I can see in vlan.c (in register_vlan_dev) there is no check
+on the features of the device before calling the register function :
 
-The real problem is vlan_dev.c, and applies to all devices.
+    if (ngrp) {
+        if (ops->ndo_vlan_rx_register)
+            ops->ndo_vlan_rx_register(real_dev, ngrp);
+        rcu_assign_pointer(real_dev->vlgrp, ngrp);
+    }
 
+If the function exists, it's called. Should I send a patch to call the
+function only if the hardware supports it ?
+
+>
+> The real problem is vlan_dev.c, and applies to all devices.
+>
+>
