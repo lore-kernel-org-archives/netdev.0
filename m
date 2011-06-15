@@ -1,88 +1,211 @@
-From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Subject: Re: software iwarp stack update
-Date: Wed, 15 Jun 2011 17:43:04 +0200
-Message-ID: <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784@ch.ibm.com>
-References: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] virtio-net: per cpu 64 bit stats
+Date: Wed, 15 Jun 2011 11:43:37 -0400
+Message-ID: <20110615114337.09fe62f6@s6510.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36976 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753602Ab1FOPnf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2011 11:43:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bart, all,
-after rebasing to davem/net-next-2.6.git, I formatted a patch adding
-to the initial 'siw' driver posting from last October. Given the rather
-substantial amount of changes and time elapsed, I am not sure if people
-would better like a complete re-posting of all files.
-If I don't hear objection before tomorrow I would post it as an
-increment - as summarized below.
+Use per-cpu variables to maintain 64 bit statistics.
+Compile tested only.
 
-Many thanks for advice,
-Bernard.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
- drivers/infiniband/hw/siw/Makefile |    2 +-
- drivers/infiniband/hw/siw/iwarp.h |  100 +++++++++++++++++
-+------------------
- drivers/infiniband/hw/siw/siw.h |  128 +++++++++++++++++
-+--------------------
- drivers/infiniband/hw/siw/siw_main.c |  229 +++++++++++++++++++++++++++
-+------
- drivers/infiniband/hw/siw/siw_ae.c    |    2 +-
- drivers/infiniband/hw/siw/siw_verbs.c |  572 ++++++++++++++++++++
-+------------
- drivers/infiniband/hw/siw/siw_verbs.h |    3 +
- drivers/infiniband/hw/siw/siw_cm.c | 1158 +++++++++++++++++
-+------------------
- drivers/infiniband/hw/siw/siw_cm.h |   38 +-
- drivers/infiniband/hw/siw/siw_obj.c |  165 +++++++++++++
-+---------------------
- drivers/infiniband/hw/siw/siw_obj.h |   34 +++++++-
- drivers/infiniband/hw/siw/siw_qp.c |  128 ++++++++++++++++++++
-+---------------
- drivers/infiniband/hw/siw/siw_cq.c |   24 ++++--------------------
- drivers/infiniband/hw/siw/siw_qp_tx.c |  147 ++++++++++++++++++
-+--------------
- drivers/infiniband/hw/siw/siw_qp_rx.c |  234 ++++++++++++++++++++
-+------------
- Documentation/networking/siw.txt |   62 +++++++++++++++++++++++++
-+-----------
- drivers/infiniband/hw/siw/siw_mem.c |  178 +++++++++++++++++++++++++++++++
-++++
-
-
-linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 06/04/2011 08:01:45 PM:
-
-> On Wed, Sep 22, 2010 at 10:19 AM, Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-wrote:
-> > Earlier this year, we announced the availability of an open source,
-> > full software implementation of the iWARP RDMA protocol stack - see
-> > my email "software iwarp stack" from March 14th at the linux-rdma list
-> > (http://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg02940.html)
-> > While since then working on performance and stability, we provided
-> > some source code updates. Current user and kernel code is available at
-> > gitorious.org/softiwarp. Please see the CHANGES file in the
-> > kernel/ directory for a summary of the most recent changes.
->
-> (replying to an e-mail of about nine months ago)
->
-> Hello Bernard,
->
-> It has been pretty quiet recently around the "siw" driver. Have you
-> had the chance to make any progress recently on this driver ?
->
-> Thanks,
->
-> Bart.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/drivers/net/virtio_net.c	2011-06-14 15:18:46.448596355 -0400
++++ b/drivers/net/virtio_net.c	2011-06-15 09:54:22.914426067 -0400
+@@ -40,6 +40,15 @@ module_param(gso, bool, 0444);
+ 
+ #define VIRTNET_SEND_COMMAND_SG_MAX    2
+ 
++struct virtnet_stats {
++	struct u64_stats_sync syncp;
++	u64 tx_bytes;
++	u64 tx_packets;
++
++	u64 rx_bytes;
++	u64 rx_packets;
++};
++
+ struct virtnet_info {
+ 	struct virtio_device *vdev;
+ 	struct virtqueue *rvq, *svq, *cvq;
+@@ -56,6 +65,9 @@ struct virtnet_info {
+ 	/* Host will merge rx buffers for big packets (shake it! shake it!) */
+ 	bool mergeable_rx_bufs;
+ 
++	/* Active statistics */
++	struct virtnet_stats __percpu *stats;
++
+ 	/* Work struct for refilling if we run low on memory. */
+ 	struct delayed_work refill;
+ 
+@@ -209,7 +221,6 @@ static int receive_mergeable(struct virt
+ 			skb->dev->stats.rx_length_errors++;
+ 			return -EINVAL;
+ 		}
+-
+ 		page = virtqueue_get_buf(vi->rvq, &len);
+ 		if (!page) {
+ 			pr_debug("%s: rx error: %d buffers missing\n",
+@@ -217,6 +228,7 @@ static int receive_mergeable(struct virt
+ 			skb->dev->stats.rx_length_errors++;
+ 			return -EINVAL;
+ 		}
++
+ 		if (len > PAGE_SIZE)
+ 			len = PAGE_SIZE;
+ 
+@@ -230,6 +242,7 @@ static int receive_mergeable(struct virt
+ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
++	struct virtnet_stats __percpu *stats = this_cpu_ptr(vi->stats);
+ 	struct sk_buff *skb;
+ 	struct page *page;
+ 	struct skb_vnet_hdr *hdr;
+@@ -265,8 +278,11 @@ static void receive_buf(struct net_devic
+ 
+ 	hdr = skb_vnet_hdr(skb);
+ 	skb->truesize += skb->data_len;
+-	dev->stats.rx_bytes += skb->len;
+-	dev->stats.rx_packets++;
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->rx_bytes += skb->len;
++	stats->rx_packets++;
++	u64_stats_update_begin(&stats->syncp);
+ 
+ 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
+ 		pr_debug("Needs csum!\n");
+@@ -515,11 +531,16 @@ static unsigned int free_old_xmit_skbs(s
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len, tot_sgs = 0;
++	struct virtnet_stats __percpu *stats = this_cpu_ptr(vi->stats);
+ 
+ 	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+-		vi->dev->stats.tx_bytes += skb->len;
+-		vi->dev->stats.tx_packets++;
++
++		u64_stats_update_begin(&stats->syncp);
++		stats->tx_bytes += skb->len;
++		stats->tx_packets++;
++		u64_stats_update_begin(&stats->syncp);
++
+ 		tot_sgs += skb_vnet_hdr(skb)->num_sg;
+ 		dev_kfree_skb_any(skb);
+ 	}
+@@ -641,6 +662,40 @@ static int virtnet_set_mac_address(struc
+ 	return 0;
+ }
+ 
++static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
++					       struct rtnl_link_stats64 *tot)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	int cpu;
++	unsigned int start;
++
++	for_each_possible_cpu(cpu) {
++		struct virtnet_stats __percpu *stats
++			= per_cpu_ptr(vi->stats, cpu);
++		u64 tpackets, tbytes, rpackets, rbytes;
++
++		do {
++			start = u64_stats_fetch_begin(&stats->syncp);
++			tpackets = stats->tx_packets;
++			tbytes   = stats->tx_bytes;
++			rpackets = stats->rx_packets;
++			rbytes   = stats->rx_bytes;
++		} while (u64_stats_fetch_retry(&stats->syncp, start));
++
++		tot->rx_packets += rpackets;
++		tot->tx_packets += tpackets;
++		tot->rx_bytes   += rbytes;
++		tot->tx_bytes   += tbytes;
++	}
++
++	tot->tx_dropped = dev->stats.tx_dropped;
++	tot->rx_dropped = dev->stats.rx_dropped;
++	tot->rx_length_errors = dev->stats.rx_length_errors;
++	tot->rx_frame_errors = dev->stats.rx_frame_errors;
++
++	return tot;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void virtnet_netpoll(struct net_device *dev)
+ {
+@@ -650,6 +705,14 @@ static void virtnet_netpoll(struct net_d
+ }
+ #endif
+ 
++static void virtnet_free(struct net_device *dev)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	free_percpu(vi->stats);
++	free_netdev(dev);
++}
++
+ static int virtnet_open(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+@@ -835,6 +898,7 @@ static const struct net_device_ops virtn
+ 	.ndo_set_mac_address = virtnet_set_mac_address,
+ 	.ndo_set_rx_mode     = virtnet_set_rx_mode,
+ 	.ndo_change_mtu	     = virtnet_change_mtu,
++	.ndo_get_stats64     = virtnet_stats,
+ 	.ndo_vlan_rx_add_vid = virtnet_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid = virtnet_vlan_rx_kill_vid,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -895,6 +959,8 @@ static int virtnet_probe(struct virtio_d
+ 	/* Set up network device as normal. */
+ 	dev->netdev_ops = &virtnet_netdev;
+ 	dev->features = NETIF_F_HIGHDMA;
++	dev->destructor = virtnet_free;
++
+ 	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
+ 	SET_NETDEV_DEV(dev, &vdev->dev);
+ 
+@@ -939,6 +1005,11 @@ static int virtnet_probe(struct virtio_d
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
+ 	vi->pages = NULL;
++	vi->stats = alloc_percpu(struct virtnet_stats);
++	err = -ENOMEM;
++	if (vi->stats == NULL)
++		goto free;
++
+ 	INIT_DELAYED_WORK(&vi->refill, refill_work);
+ 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+ 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
+@@ -958,7 +1029,7 @@ static int virtnet_probe(struct virtio_d
+ 
+ 	err = vdev->config->find_vqs(vdev, nvqs, vqs, callbacks, names);
+ 	if (err)
+-		goto free;
++		goto free_stats;
+ 
+ 	vi->rvq = vqs[0];
+ 	vi->svq = vqs[1];
+@@ -1003,6 +1074,8 @@ unregister:
+ 	cancel_delayed_work_sync(&vi->refill);
+ free_vqs:
+ 	vdev->config->del_vqs(vdev);
++free_stats:
++	free_percpu(vi->stats);
+ free:
+ 	free_netdev(dev);
+ 	return err;
