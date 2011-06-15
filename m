@@ -1,54 +1,33 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH] tun: teach the tun/tap driver to support netpoll
-Date: Wed, 15 Jun 2011 13:50:38 -0400
-Message-ID: <4DF8F0EE.4070009@redhat.com>
-References: <1308151501-8434-1-git-send-email-nhorman@tuxdriver.com>
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: software iwarp stack update
+Date: Wed, 15 Jun 2011 11:11:08 -0700
+Message-ID: <BANLkTimya-nDTd4AC=p8qF6=4k=2NPXBow@mail.gmail.com>
+References: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w@mail.gmail.com>
+ <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784@ch.ibm.com> <BANLkTimmxN71ihGGXPH3JB1vGWyv1p-7mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qualcomm.com>,
-	Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44532 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752618Ab1FORuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2011 13:50:52 -0400
-In-Reply-To: <1308151501-8434-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTimmxN71ihGGXPH3JB1vGWyv1p-7mw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/15/2011 11:25 AM, Neil Horman wrote:
-> Commit 8d8fc29d02a33e4bd5f4fa47823c1fd386346093 changed the behavior of slave
-> devices in regards to netpoll.  Specifically it created a mutually exclusive
-> relationship between being a slave and a netpoll-capable device.  This creates
-> problems for KVM because guests relied on needing netconsole active on a slave
-> device to a bridge.  Ideally libvirtd could just attach netconsole to the bridge
-> device instead, but thats currently infeasible, because while the bridge device
-> supports netpoll, it requires that all slave interface also support it, but the
-> tun/tap driver currently does not.  The most direct solution is to teach tun/tap
-> to support netpoll, which is implemented by the patch below.
->
-> I've not tested this yet, but its pretty straightforward.
+On Wed, Jun 15, 2011 at 9:32 AM, Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org> wrote:
+> IMHO reposting the entire driver makes reviewing easier.
 
-I have tested it.  I can run netconsole and my KVM guests
-simultaneously again.
+Yes, I agree.  I don't think anyone is familiar enough with the
+original version,
+so an incremental patch is not particularly enlightening.
 
-Thank you, Neil!
+> And please address checkpatch and sparse complaints before reposting.
 
-Now all I have to do is log whatever other bugs are haunting
-3.0-rc and causing my system to hang :)
+Right.  It's always best to take care of the trivial easy stuff first, to let
+people focus on real issues.
 
-> Signed-off-by: Neil Horman<nhorman@tuxdriver.com>
-> Reported-by: Rik van Riel<riel@redhat.com>
-> CC: Rik van Riel<riel@redhat.com>
-> CC: Maxim Krasnyansky<maxk@qualcomm.com>
-> CC: Cong Wang<amwang@redhat.com>
-> CC: "David S. Miller"<davem@davemloft.net>
-
-Reviewed-by: Rik van Riel <riel@redhat.com>
-Tested-by: Rik van Riel <riel@redhat.com>
-
--- 
-All rights reversed
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
