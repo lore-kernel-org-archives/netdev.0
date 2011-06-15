@@ -1,43 +1,45 @@
-From: Florian Fainelli <ffainelli@freebox.fr>
-Subject: Re: [PATCH] phylib: Allow BCM63XX PHY to be selected only on BCM63XX.
-Date: Wed, 15 Jun 2011 10:20:11 +0200
-Message-ID: <201106151020.11904.ffainelli@freebox.fr>
-References: <20110615080758.GA3226@linux-mips.org>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [Xen-devel] Re: [PATCH 2/9] xen: convert to 64 bit stats
+ interface
+Date: Wed, 15 Jun 2011 09:38:12 +0100
+Message-ID: <1308127092.17937.118.camel@zakaz.uk.xensource.com>
+References: <20110609005356.160260858@vyatta.com>
+	 <20110609005417.385577995@vyatta.com>
+	 <1307584605.22348.527.camel@localhost>
+	 <20110614210756.GA22304@dumpdata.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:42338 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753059Ab1FOIQD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2011 04:16:03 -0400
-In-Reply-To: <20110615080758.GA3226@linux-mips.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:64014 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753059Ab1FOIiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 04:38:14 -0400
+In-Reply-To: <20110614210756.GA22304@dumpdata.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 15 June 2011 10:07:58 Ralf Baechle wrote:
-> This PHY is available integrated into BCM63xx series SOCs only.
+On Tue, 2011-06-14 at 22:07 +0100, Konrad Rzeszutek Wilk wrote:
+> On Thu, Jun 09, 2011 at 02:56:45AM +0100, Ben Hutchings wrote:
+> > On Wed, 2011-06-08 at 17:53 -0700, Stephen Hemminger wrote:
+> > > Convert xen driver to 64 bit statistics interface.
+> > > This driver was already counting packet per queue in a 64 bit value so not
+> > > a huge change.
+> > [...]
+> > 
+> > I think this driver will need to use u64_stats_sync.
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Ian?
 
-Acked-by: Florian Fainelli <ffainelli@freebox.fr>
+I'll defer to Ben on this, but the case for needing u64_stats_sync for
+64 bit values seems reasonable to me.
 
-> 
->  drivers/net/phy/Kconfig |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index 392a6c4..a702443 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -58,6 +58,7 @@ config BROADCOM_PHY
-> 
->  config BCM63XX_PHY
->  	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
-> +	depends on BCM63XX
->  	---help---
->  	  Currently supports the 6348 and 6358 PHYs.
+Ian.
+
