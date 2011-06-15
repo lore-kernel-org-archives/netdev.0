@@ -1,39 +1,27 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [Security] inet_diag insufficient validation?
-Date: Wed, 15 Jun 2011 10:35:24 -0400
-Message-ID: <1308148524.3718.0.camel@dan>
-References: <1306942849.3150.10.camel@dan>
-	 <BANLkTin9fqYSxq4ne5hV_ri-zKeMZ9mE_g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] linux-firmware: Add a new FW 7.0.20.0 (second try)
+Date: Wed, 15 Jun 2011 10:47:33 -0400 (EDT)
+Message-ID: <20110615.104733.846170079427573376.davem@davemloft.net>
+References: <201106151308.23789.vladz@broadcom.com>
+	<alpine.LFD.2.02.1106151138390.8326@localhost6.localdomain6>
+	<8628FE4E7912BF47A96AE7DD7BAC0AADF2F744F4E9@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	security@kernel.org, Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Eugene Teo <eugeneteo@kernel.sg>
+Cc: dwmw2@infradead.org, eilong@broadcom.com, netdev@vger.kernel.org
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:55154 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754618Ab1FOOfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 10:35:39 -0400
-In-Reply-To: <BANLkTin9fqYSxq4ne5hV_ri-zKeMZ9mE_g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45203 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753026Ab1FOOtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 10:49:00 -0400
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADF2F744F4E9@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-03 at 14:55 +0800, Eugene Teo wrote:
-> Cc'ed acme.
-> 
-> On Wed, Jun 1, 2011 at 11:40 PM, Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-> > It seems to me that the auditing performed by inet_diag_bc_audit() is
-> > insufficient to prevent pathological INET_DIAG bytecode from doing bad
-> > things.
-> >
-> > Firstly, it's possible to cause an infinite loop in inet_diag_bc_audit()
-> > with a INET_DIAG_BC_JMP opcode with a "yes" value of 0.  The valid_cc()
-> > function, also called from here, seems suspicious as well.
-> >
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Wed, 15 Jun 2011 04:57:09 -0700
 
-Any chance of getting this fixed?  I have a reproducer available if
-necessary.
+> Dave, what do u want me to do now: do u want me to resend the series?
 
--Dan
-
+Not necessary, they are still queued up in patchwork.
