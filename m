@@ -1,48 +1,23 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: RE: [PATCH] linux-firmware: Add a new FW 7.0.20.0 (second try)
-Date: Wed, 15 Jun 2011 09:43:12 +0100
-Message-ID: <1308127394.3450.103.camel@i7.infradead.org>
-References: <201106151011.34758.vladz@broadcom.com>
+From: monicagirl4god8g@yahoo.com
+Subject: =?UTF-8?Q?Hi Dear?=
+Date: Wed, 15 Jun 2011 11:16:52 +0200
+Message-ID: <2025549104.27@euromail>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vlad Zolotarov <vladz@broadcom.com>
+Content-Type: TEXT/plain; CHARSET=UTF-8
+To: monicagirl4god8g@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37198 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753622Ab1FOInS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 04:43:18 -0400
-In-Reply-To: <201106151011.34758.vladz@broadcom.com>
+Received: from euromail.hu ([77.111.88.194]:49367 "EHLO
+	hkvirtual00.humankraft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754009Ab1FOJRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 05:17:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-06-15 at 10:11 +0300, Vlad Zolotarov wrote:
-> >  - Add a separate directory for the bnx2x FW.
-> >  - Post a new FW version: 7.0.20.0
-> > 
-> > Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > ---
-> >  WHENCE                      |    3 +++
-> >  bnx2x/bnx2x-e1-7.0.20.0.fw  |  Bin 0 -> 161144 bytes
-> >  bnx2x/bnx2x-e1h-7.0.20.0.fw |  Bin 0 -> 168552 bytes
-> >  bnx2x/bnx2x-e2-7.0.20.0.fw  |  Bin 0 -> 290952 bytes
-> >  4 files changed, 3 insertions(+), 0 deletions(-)
-> >  create mode 100644 bnx2x/bnx2x-e1-7.0.20.0.fw
-> >  create mode 100644 bnx2x/bnx2x-e1h-7.0.20.0.fw
-> >  create mode 100644 bnx2x/bnx2x-e2-7.0.20.0.fw
-> 
-> David, did u have a chance to apply it? Pls., let me know if u want me to 
-> resend it to u.
+Hello
+My name is Miss Monica.a 23 yrs old girl .I am average in height and fair in complexion ,am a loving and caring angel.I fine your mail contact today truly is quiet interesting to me then , i decide to contact you.i really want to have a good relationship with you. Beside i have a special something i want to discuses with you,so you can reach me through this my(monicagirl4god8g@yahoo.com)Hope to hear from you soon.i will send my beautiful pictures to you and also tell you more about my self. I know age will not be a barer to our relationship, what i need is just your love and caring. I will give you my best,
+bye for now. care from
+Miss Monica
 
-Hm, I don't think I did receive that. Last message I have from you in
-that thread is Tue, 14 Jun 2011 13:53:34 +0300 
 
-Please resend.
 
--- 
-dwmw2
 
