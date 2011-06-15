@@ -1,57 +1,47 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC] Moving files around in drivers/net
-Date: Wed, 15 Jun 2011 11:38:43 -0700
-Message-ID: <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
-References: <1306956602.32125.28.camel@Joe-Laptop>
-	<1306957998.3076.18.camel@jtkirshe-MOBL1>
-	<1306958478.32125.32.camel@Joe-Laptop>
+From: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Subject: Re: software iwarp stack update
+Date: Wed, 15 Jun 2011 20:57:38 +0200
+Message-ID: <BANLkTimEGgKEMZd3qppOofN-Vj-u-PH-xA@mail.gmail.com>
+References: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w@mail.gmail.com> <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784@ch.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39751 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753503Ab1FOSyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 14:54:13 -0400
-Received: by fxm17 with SMTP id 17so620100fxm.19
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 11:54:12 -0700 (PDT)
-In-Reply-To: <1306958478.32125.32.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784-Xeyd2O9EBijQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 1, 2011 at 13:01, Joe Perches <joe@perches.com> wrote:
-> On Wed, 2011-06-01 at 12:53 -0700, Jeff Kirsher wrote:
->> On Wed, 2011-06-01 at 12:30 -0700, Joe Perches wrote:
->> > Does anyone still think moving files around in drivers/net
->> > would be sensible and a suitable candidate for inclusion
->> > in 3.1?
->> > Here's what Jeffrey proposed:
->> > http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
->> > Here's what I proposed before that.
->> > http://www.spinics.net/lists/netdev/msg149717.html
->> I am over 90% done with the work and have been trying to finish up the
->> patches so that I could get them out as an RFC here in the next week.
->
-> Excellent, thanks.
->
+On Wed, Jun 15, 2011 at 5:43 PM, Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org> wrote:
+> after rebasing to davem/net-next-2.6.git, I formatted a patch adding
+> to the initial 'siw' driver posting from last October. Given the rather
+> substantial amount of changes and time elapsed, I am not sure if people
+> would better like a complete re-posting of all files.
+> If I don't hear objection before tomorrow I would post it as an
+> increment - as summarized below.
 
-I thought for sure I would have finished what I have left by last
-weekend, but I keep getting interrupted.  (Blame it on the NHL stanley
-cup playoffs) :)
+Documentation in general and for sysfs attributes in particular seems
+to be missing ?
 
-I have created a git tree on kernel.org with all the work that I have
-completed so far (see below).  This first stage of the move is only
-taking care of the drivers.  The next stage will move the networking
-core drivers (bridging, bonding, vlan, etc.) into drivers/net/sw.
+Also, the following statement in siw_main.c:
 
-git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize
+ibdev->modify_port = NULL;
 
-I will send out all the patches as an RFC by the end of the week (for sure).
+causes the following behavior if ib_modify_port() is invoked on a
+softiwarp port:
 
--- 
-Cheers,
-Jeff
+BUG: unable to handle kernel NULL pointer dereference at           (null)
+IP: [<          (null)>]           (null)
+Call Trace:
+ [<ffffffffa0313c15>] ? ib_modify_port+0x55/0x60 [ib_core]
+[ ... ]
+
+Shouldn't the siw driver return an error code instead of setting
+ibdev->modify_port to NULL ?
+
+Bart.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
