@@ -1,48 +1,43 @@
-From: Andrei Popa <ierdnah@gmail.com>
-Subject: tc match MAC destination
-Date: Wed, 15 Jun 2011 11:12:01 +0300
-Message-ID: <1308125523.30324.64.camel@ierdnac-hp>
-Reply-To: ierdnah@gmail.com
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: Re: [PATCH] phylib: Allow BCM63XX PHY to be selected only on BCM63XX.
+Date: Wed, 15 Jun 2011 10:20:11 +0200
+Message-ID: <201106151020.11904.ffainelli@freebox.fr>
+References: <20110615080758.GA3226@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: pdoru.kernel@evox.ro, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:42338 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753059Ab1FOIQD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2011 04:16:03 -0400
+In-Reply-To: <20110615080758.GA3226@linux-mips.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wednesday 15 June 2011 10:07:58 Ralf Baechle wrote:
+> This PHY is available integrated into BCM63xx series SOCs only.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-I want to shape PVSTP+ traffic (traffic that has MAC destination
-01:00:0c:cc:cc:cd) and it doesn't work.
-I've tried
-filter parent 1: protocol 802_3 pref 2 u32 fh 802::11 order 17 key ht
-802 bkt 0 flowid 1:3 
-  match 01000ccc/ffffffff at 0
-but it doesn't work.
+Acked-by: Florian Fainelli <ffainelli@freebox.fr>
 
-With
-filter parent 1: protocol arp pref 1 u32 
-filter parent 1: protocol arp pref 1 u32 fh 801: ht divisor 1 
-filter parent 1: protocol arp pref 1 u32 fh 801::7 order 7 key ht 801
-bkt 0 flowid 1:3 
-  match 00000000/00000000 at 0
-filter parent 1: protocol 802_3 pref 2 u32 
-filter parent 1: protocol 802_3 pref 2 u32 fh 802: ht divisor 1 
-filter parent 1: protocol 802_3 pref 2 u32 fh 802::3 order 3 key ht 802
-bkt 0 flowid 1:3 
-  match 00000000/00000000 at 0
-        action order 1: mirred (Egress Mirror to device ifb1) pipe
-        index 1923 ref 1 bind 1
-
-I see arp trafic with tcpdump on ifb1, but no STP traffic or any kind of
-traffic except arp, because I've matched all MAC addreses.
-Can somebody verify that this match works ?
-
-I use kernel 2.6.39.1.
-
-Thank you,
--- 
-Andrei Popa
-0760 683 280
+> 
+>  drivers/net/phy/Kconfig |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 392a6c4..a702443 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -58,6 +58,7 @@ config BROADCOM_PHY
+> 
+>  config BCM63XX_PHY
+>  	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
+> +	depends on BCM63XX
+>  	---help---
+>  	  Currently supports the 6348 and 6358 PHYs.
