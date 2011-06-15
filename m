@@ -1,92 +1,88 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] tun: teach the tun/tap driver to support netpoll
-Date: Wed, 15 Jun 2011 11:25:01 -0400
-Message-ID: <1308151501-8434-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Rik van Riel <riel@redhat.com>,
-	Maxim Krasnyansky <maxk@qualcomm.com>,
-	Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57378 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754796Ab1FOPZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 11:25:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Subject: Re: software iwarp stack update
+Date: Wed, 15 Jun 2011 17:43:04 +0200
+Message-ID: <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784@ch.ibm.com>
+References: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit 8d8fc29d02a33e4bd5f4fa47823c1fd386346093 changed the behavior of slave
-devices in regards to netpoll.  Specifically it created a mutually exclusive
-relationship between being a slave and a netpoll-capable device.  This creates
-problems for KVM because guests relied on needing netconsole active on a slave
-device to a bridge.  Ideally libvirtd could just attach netconsole to the bridge
-device instead, but thats currently infeasible, because while the bridge device
-supports netpoll, it requires that all slave interface also support it, but the
-tun/tap driver currently does not.  The most direct solution is to teach tun/tap
-to support netpoll, which is implemented by the patch below.
+Bart, all,
+after rebasing to davem/net-next-2.6.git, I formatted a patch adding
+to the initial 'siw' driver posting from last October. Given the rather
+substantial amount of changes and time elapsed, I am not sure if people
+would better like a complete re-posting of all files.
+If I don't hear objection before tomorrow I would post it as an
+increment - as summarized below.
 
-I've not tested this yet, but its pretty straightforward.
+Many thanks for advice,
+Bernard.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Rik van Riel <riel@redhat.com>
-CC: Rik van Riel <riel@redhat.com>
-CC: Maxim Krasnyansky <maxk@qualcomm.com>
-CC: Cong Wang <amwang@redhat.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/tun.c |   24 +++++++++++++++++++++++-
- 1 files changed, 23 insertions(+), 1 deletions(-)
+ drivers/infiniband/hw/siw/Makefile |    2 +-
+ drivers/infiniband/hw/siw/iwarp.h |  100 +++++++++++++++++
++------------------
+ drivers/infiniband/hw/siw/siw.h |  128 +++++++++++++++++
++--------------------
+ drivers/infiniband/hw/siw/siw_main.c |  229 +++++++++++++++++++++++++++
++------
+ drivers/infiniband/hw/siw/siw_ae.c    |    2 +-
+ drivers/infiniband/hw/siw/siw_verbs.c |  572 ++++++++++++++++++++
++------------
+ drivers/infiniband/hw/siw/siw_verbs.h |    3 +
+ drivers/infiniband/hw/siw/siw_cm.c | 1158 +++++++++++++++++
++------------------
+ drivers/infiniband/hw/siw/siw_cm.h |   38 +-
+ drivers/infiniband/hw/siw/siw_obj.c |  165 +++++++++++++
++---------------------
+ drivers/infiniband/hw/siw/siw_obj.h |   34 +++++++-
+ drivers/infiniband/hw/siw/siw_qp.c |  128 ++++++++++++++++++++
++---------------
+ drivers/infiniband/hw/siw/siw_cq.c |   24 ++++--------------------
+ drivers/infiniband/hw/siw/siw_qp_tx.c |  147 ++++++++++++++++++
++--------------
+ drivers/infiniband/hw/siw/siw_qp_rx.c |  234 ++++++++++++++++++++
++------------
+ Documentation/networking/siw.txt |   62 +++++++++++++++++++++++++
++-----------
+ drivers/infiniband/hw/siw/siw_mem.c |  178 +++++++++++++++++++++++++++++++
+++++
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 4dab85e..9a6b382 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -460,7 +460,23 @@ static u32 tun_net_fix_features(struct net_device *dev, u32 features)
- 
- 	return (features & tun->set_features) | (features & ~TUN_USER_FEATURES);
- }
--
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void tun_poll_controller(struct net_device *dev)
-+{
-+	/*
-+	 * Tun only receives frames when:
-+	 * 1) the char device endpoint gets data from user space
-+	 * 2) the tun socket gets a sendmsg call from user space
-+	 * Since both of those are syncronous operations, we are guaranteed
-+	 * never to have pending data when we poll for it
-+	 * so theres nothing to do here but return.
-+	 * We need this though so netpoll recognizes us as an interface that
-+	 * supports polling, which enables bridge devices in virt setups to
-+	 * still use netconsole
-+	 */
-+	return;
-+}
-+#endif
- static const struct net_device_ops tun_netdev_ops = {
- 	.ndo_uninit		= tun_net_uninit,
- 	.ndo_open		= tun_net_open,
-@@ -468,6 +484,9 @@ static const struct net_device_ops tun_netdev_ops = {
- 	.ndo_start_xmit		= tun_net_xmit,
- 	.ndo_change_mtu		= tun_net_change_mtu,
- 	.ndo_fix_features	= tun_net_fix_features,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= tun_poll_controller,
-+#endif
- };
- 
- static const struct net_device_ops tap_netdev_ops = {
-@@ -480,6 +499,9 @@ static const struct net_device_ops tap_netdev_ops = {
- 	.ndo_set_multicast_list	= tun_net_mclist,
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= tun_poll_controller,
-+#endif
- };
- 
- /* Initialize net device. */
--- 
-1.7.5.4
 
+linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 06/04/2011 08:01:45 PM:
+
+> On Wed, Sep 22, 2010 at 10:19 AM, Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+wrote:
+> > Earlier this year, we announced the availability of an open source,
+> > full software implementation of the iWARP RDMA protocol stack - see
+> > my email "software iwarp stack" from March 14th at the linux-rdma list
+> > (http://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg02940.html)
+> > While since then working on performance and stability, we provided
+> > some source code updates. Current user and kernel code is available at
+> > gitorious.org/softiwarp. Please see the CHANGES file in the
+> > kernel/ directory for a summary of the most recent changes.
+>
+> (replying to an e-mail of about nine months ago)
+>
+> Hello Bernard,
+>
+> It has been pretty quiet recently around the "siw" driver. Have you
+> had the chance to make any progress recently on this driver ?
+>
+> Thanks,
+>
+> Bart.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
