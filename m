@@ -1,141 +1,80 @@
-From: Mika Westerberg <mika.westerberg@iki.fi>
-Subject: Re: [PATCH] ep93xx-eth: convert to phylib
-Date: Wed, 15 Jun 2011 22:15:05 +0300
-Message-ID: <20110615191505.GA2595@acer>
-References: <201106051957.36492.florian@openwrt.org>
- <201106052029.24742.f.fainelli@gmail.com>
- <20110609203059.GZ16318@ibawizard.net>
+From: Satoru Moriya <satoru.moriya@hds.com>
+Subject: RE: [RFC][PATCH] add tracepoint to __sk_mem_schedule
+Date: Wed, 15 Jun 2011 15:18:09 -0400
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9C3FBC0709@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9C3FBC0707@USINDEVS02.corp.hds.com>,<20110615110723.GA23380@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	Herbert Valerio Riedel <hvr@gnu.org>, davem@davemloft.net,
-	hsweeten@visionengravers.com, ryan@bluewatersys.com,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	linux-arm-kernel@lists.infradead.org
-To: Petr =?utf-8?Q?=C5=A0tetiar?= <ynezz@true.cz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"dle-develop@lists.sourceforge.net"
+	<dle-develop@lists.sourceforge.net>,
+	Seiji Aguchi <seiji.aguchi@hds.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:42854 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752502Ab1FOTRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 15:17:50 -0400
-Received: by eyx24 with SMTP id 24so284895eyx.19
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 12:17:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110609203059.GZ16318@ibawizard.net>
+Received: from usindmx01.hds.com ([207.126.252.12]:52625 "EHLO
+	usindmx01.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753397Ab1FOTSv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 15:18:51 -0400
+In-Reply-To: <20110615110723.GA23380@hmsreliant.think-freely.org>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 09, 2011 at 10:30:59PM +0200, Petr =C5=A0tetiar wrote:
->=20
-> just FYI, I wanted to test recent Mika's DMA/ep93xx_eth fixes, so I'v=
-e added
-> this patch also and it oopsed. If I revert this patch, it seems to wo=
-rk so
-> far. You can find the whole patchset I've been testing on the GitHub[=
-1]. I've
-> tested it on ts-7250 and ts-7300, the oops is same. Here's the oops:
->=20
-> 	ep93xx-eth version 0.1 loading
-> 	ep93xx_eth_mii: probed
-> 	ep93xx_eth:ep93xx_mii_probe: no PHY found
-> 	ep93xx-eth ep93xx-eth: failed to probe MII bus
+Hi Neil,
 
-I ran into same problem when I tried this patch on my TS-7260. It turne=
-d out
-that call to mdiobus_register() tries to access PHY registers and the h=
-ardware
-is not fully initialized yet. On Sim.One there is no such problem and I=
- guess
-that the bootloader leaves the hardware in more consistent state or som=
-ething.
+Thank you for looking at it.
+I'm afraid that my explanation was not enough.
 
-I was able to boot both TS-7260 and Sim.One with following hack on top =
-of
-this patch:
+On 06/15/2011 07:07 AM, Neil Horman wrote:
+> On Tue, Jun 14, 2011 at 03:24:14PM -0400, Satoru Moriya wrote:
+>
+> There are several ways to do this already.  Every drop that occurs in the stack
+> should have a corresponding statistical counter exposed for it, and we also have
+> a tracepoint in kfree_skb that the dropwatch system monitors to inform us of
+> dropped packets in a certralized fashion.  Not saying this tracepoint isn't
+> worthwhile, only that it covers already covered ground.
 
-diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.=
-c
-index 21cc0ee..06eeb10 100644
---- a/drivers/net/arm/ep93xx_eth.c
-+++ b/drivers/net/arm/ep93xx_eth.c
-@@ -241,6 +241,13 @@ static int ep93xx_mdiobus_write(struct mii_bus *bu=
-s, int phy_id, int reg, u16 da
-=20
- static int ep93xx_mdiobus_reset(struct mii_bus *bus)
- {
-+	struct ep93xx_priv *ep =3D netdev_priv(bus->priv);
-+
-+	/*
-+	 * Make sure that the PHY clock divisor is valid before trying to
-+	 * access any of it's registers.
-+	 */
-+	wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9));
- 	return 0;
- }
-=20
-@@ -631,10 +638,8 @@ err:
- 	return 1;
- }
-=20
--static int ep93xx_start_hw(struct net_device *dev)
-+static void ep93xx_reset_hw(struct ep93xx_priv *ep)
- {
--	struct ep93xx_priv *ep =3D netdev_priv(dev);
--	unsigned long addr;
- 	int i;
-=20
- 	wrl(ep, REG_SELFCTL, REG_SELFCTL_RESET);
-@@ -644,12 +649,15 @@ static int ep93xx_start_hw(struct net_device *dev=
-)
- 		msleep(1);
- 	}
-=20
--	if (i =3D=3D 10) {
-+	if (i =3D=3D 10)
- 		pr_crit("hw failed to reset\n");
--		return 1;
--	}
-+}
-=20
--	wrl(ep, REG_SELFCTL, ((ep->mdc_divisor - 1) << 9));
-+static int ep93xx_start_hw(struct net_device *dev)
-+{
-+	struct ep93xx_priv *ep =3D netdev_priv(dev);
-+	unsigned long addr;
-+	int i;
-=20
- 	/* Does the PHY support preamble suppress?  */
- 	if ((ep93xx_mdiobus_read(ep->mii_bus, ep->phy_addr, MII_BMSR) & 0x004=
-0) !=3D 0)
-@@ -715,18 +723,7 @@ static int ep93xx_start_hw(struct net_device *dev)
-=20
- static void ep93xx_stop_hw(struct net_device *dev)
- {
--	struct ep93xx_priv *ep =3D netdev_priv(dev);
--	int i;
--
--	wrl(ep, REG_SELFCTL, REG_SELFCTL_RESET);
--	for (i =3D 0; i < 10; i++) {
--		if ((rdl(ep, REG_SELFCTL) & REG_SELFCTL_RESET) =3D=3D 0)
--			break;
--		msleep(1);
--	}
--
--	if (i =3D=3D 10)
--		pr_crit("hw failed to reset\n");
-+	ep93xx_reset_hw(netdev_priv(dev));
- }
-=20
- static int ep93xx_open(struct net_device *dev)
-@@ -934,6 +931,8 @@ static int ep93xx_eth_probe(struct platform_device =
-*pdev)
- 	}
- 	ep->irq =3D irq;
-=20
-+	ep93xx_reset_hw(ep);
-+
- 	ep->mii_bus =3D mdiobus_alloc();
- 	if (!ep->mii_bus) {
- 		dev_err(&pdev->dev, "Failed to allocate mdiobus\n");
+Right. We can catch packet drop events via dropwatch/kfree_skb tracepoint.
+OTOH, what I'd like to know is why kernel dropped packets. Basically,
+we're able to know the reason because kfree_skb tracepoint records its
+return address. But in this case it is difficult to know a detailed reason
+because there are some possibilities. I'll try to explain UDP case.
 
+> Again, this is why dropwatch exists.  UDP gets into this path from:
+> __udp_queue_rcv_skb
+>  ip_queue_rcv_skb
+>   sock_queue_rcv_skb
+>    sk_rmem_schedule
+>     __sk_mem_schedule
+> 
+> If ip_queue_rcv_skb fails we increment the UDP_MIB_RCVBUFERRORS counter as well
+> as the UDP_MIB_INERRORS counter, and on the kfree_skb call after those
+> increments, dropwatch will report the frame loss and the fact that it occured in
+> __udp_queue_rcv_skb
+
+As you said, we're able to catch the packet drop in __udp_queue_rcv_skb
+and it means ip_queue_rcv_skb/sock_queue_rcv_skb returned negative value.
+In sock_queue_rcv_skb there are 3 possibilities where it returns nagative
+val but we can't separate them from the kfree_skb tracepoint. Moreover
+sock_queue_rcv_skb calls __sk_mem_schedule and there are several
+if-statement to decide whether kernel should drop a packet in it. I'd like
+to know the condition when it returned error because some of them are
+related to sysctl knob e.g. /proc/sys/net/ipv4/udp_mem, udp_rmem_min,
+udp_wmem_min for UDP case and we can tune kernel behavior easily.
+Also they are needed to show root cause of packet drop to our customers.
+
+Does it make sense?
+
+> I still think its an interesting tracepoint, just because it might be nice to
+> know which sockets are expanding their snd/rcv buffer space, but why not modify
+> the tracepoint so that it accepts the return code of __sk_mem_schedule and call
+> it from both sk_rmem_schedule and sk_wmem_schedule.   That way you can use the
+> tracepoint to record both successfull expansion and failed expansions.
+
+It may be good but not enough for me as I mentioned above.
+
+
+Regards,
+Satoru
