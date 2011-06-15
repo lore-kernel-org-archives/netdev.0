@@ -1,117 +1,212 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [ipv6] valid_lft and active connections
-Date: Wed, 15 Jun 2011 12:37:41 +0900
-Message-ID: <1308109061.19757.40.camel@cirrhata>
-References: <4DF73A6D.1050809@samba.org> <1308051710.3424.15.camel@takos>
-	 <4DF753C6.1000700@samba.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH v2] net/r8169: update the new parser for the new firmware
+Date: Wed, 15 Jun 2011 11:45:31 +0800
+Message-ID: <1308109531-31698-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: "Stefan (metze) Metzmacher" <metze@samba.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39875 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753939Ab1FODhx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 23:37:53 -0400
-In-Reply-To: <4DF753C6.1000700@samba.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stefan (metze) Metzmacher wrote:
-> Am 14.06.2011 13:41, schrieb YOSHIFUJI Hideaki:
-> > Hello.
-> > 
-> > Stefan (metze) Metzmacher wrote:
-> >> If I use ipv6 addresses with valid_lft != forever, the ipv6 addresses
-> >> are removed from the interface if the valid_lft expires, even if there're
-> >> established connection which use with address.
-> >>
-> >> Would it be possible keep the address until the last active connection
-> >> is closed? Otherwise the usable of the privacy extensions will make
-> >> very long living tcp connections impossible.
-> >>
-> > 
-> > I cannot imagine why you do not hear RAs before the address expires.
-> 
-> They do not reset the valid lifetime counter for temporary addresses.
-> 
-> And I think that valid_lft and preferred_lft should work with a manual
-> configured setup in a similar way.
+Update the parser for the new firmware which is embedded some information.
 
-This is because of RFC3041 Section 3.3:
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/r8169.c |   96 +++++++++++++++++++++++++++++++++++++--------------
+ 1 files changed, 70 insertions(+), 26 deletions(-)
 
-|   1) Process the Prefix Information Option as defined in [ADDRCONF],
-|      either creating a public address or adjusting the lifetimes of
-|      existing addresses, both public and temporary.  When adjusting the
-|      lifetimes of an existing temporary address, only lower the
-|      lifetimes.  Implementations must not increase the lifetimes of an
-|      existing temporary address when processing a Prefix Information
-|      Option.
-
-It would be make sense to allow extending valid lifetime of non-deprecated
-addresses, but not sure.
-
-> > And well, I don't think it is a good idea because it is not what
-> > "valid lifetime" means.
-> > 
-> > We have 3 states:
-> > 
-> > 1) time <= preferred lifetime
-> > 2) preferred lifetime < time <= valid lifetime
-> > 3) valid lifetime < lifetime
-> > 
-> > You can make new connection during the period of 1 and you can continue
-> > using that connection during the period of 1 and 2.
-> 
-> But it means tcp connection can not last longer than the valid lifetime of
-> a temporary address, which is very ugly as the application layer will
-> run into
-> timeouts instead of getting an immediate error when the kernel drops the
-> related ip.
-> 
-
-Valid lifetime represents administrative "hard" lifetime.  If it 
-expired, all address must be gone.
-
-> > Ask network administrator to advertise longer "valid" lifetime, if
-> > needed, and you may want to make net.ipv6.conf.*.max_addresses larger.
-> 
-> My aim is to have a preferred lifetime of say 4 hours, in order to have
-> no limit
-> on the lifetime of tcp connections, I'd have to set valid lifetime to
-> forever,
-> which means that I'll have about 180 addresses on an interface after
-> a month (8760 after a year) which are mostly all unused.
-
-This is how it works.
-
-How can you determine if one address is not unused at all?
-For UDP, applications only know, for example.
-
-In fact, RFC3041 Section 3.4 says:
-|   As an optional optimization, an implementation may wish to remove a
-|   deprecated temporary address that is not in use by applications or
-|   upper-layers.  For TCP connections, such information is available in
-|   control blocks.  For UDP-based applications, it may be the case that
-|   only the applications have knowledge about what addresses are
-|   actually in use.  Consequently, one may need to use heuristics in
-|   deciding when an address is no longer in use (e.g., the default
-|   TEMP_VALID_LIFETIME suggested above).
-
-Of course, we could have some sysctl (but default must be off
-(or moderate; do it if the number addresses exceeds some limit).
-
-> Do you know a better solution?
-
-Ask your administrator to advertise larger valid lifetime.
-Otherwise, other implementation will have similar issues, anyway.
-
-We could have above "optimization" with sysctl.
-
-And, please note that if you want to change address preference in 
-an application, consider using IPV6_ADDR_PREFERENCES socket
-option.
-
---yoshfuji
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index ef1ce2e..bd9e78f 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -594,6 +594,14 @@ struct ring_info {
+ 	u8		__pad[sizeof(void *) - sizeof(u32)];
+ };
+ 
++struct fw_info {
++	u32	magic;
++	char	version[32];
++	u32	fw_start;
++	u32	fw_len;
++	u8	chksum;
++};
++
+ enum features {
+ 	RTL_FEATURE_WOL		= (1 << 0),
+ 	RTL_FEATURE_MSI		= (1 << 1),
+@@ -1740,21 +1748,57 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
+ #define PHY_DELAY_MS		0xe0000000
+ #define PHY_WRITE_ERI_WORD	0xf0000000
+ 
++static int is_firmware_valid(const struct firmware *fw)
++{
++	struct fw_info *f_info = (struct fw_info *)fw->data;
++
++	if (f_info->magic == 0) {
++		size_t i, fw_size;
++		u8 checksum = 0;
++
++		for (i = 0; i < fw->size; i++) {
++			checksum += fw->data[i];
++		}
++
++		if (checksum != 0)
++			return 0;
++
++		fw_size = (fw->size - le32_to_cpu(f_info->fw_start)) / 4;
++		if (fw_size < le32_to_cpu(f_info->fw_len))
++			return 0;
++	} else if (fw->size % 4) {
++		return 0;
++	}
++
++	return 1;
++}
++
+ static void
+ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ {
+-	__le32 *phytable = (__le32 *)fw->data;
++	struct fw_info *f_info = (struct fw_info *)fw->data;
+ 	struct net_device *dev = tp->dev;
+-	size_t index, fw_size = fw->size / sizeof(*phytable);
++	__le32 *phytable;
++	size_t i, fw_size;
+ 	u32 predata, count;
+ 
+-	if (fw->size % sizeof(*phytable)) {
+-		netif_err(tp, probe, dev, "odd sized firmware %zd\n", fw->size);
++	if (!is_firmware_valid(fw)) {
++		netif_err(tp, probe, dev, "Invalid firwmare\n");
+ 		return;
+ 	}
+ 
+-	for (index = 0; index < fw_size; index++) {
+-		u32 action = le32_to_cpu(phytable[index]);
++	if (f_info->magic == 0) {
++		netif_info(tp, probe, dev, "firmware: %s\n", f_info->version);
++
++		phytable = (__le32 *)(fw->data + le32_to_cpu(f_info->fw_start));
++		fw_size = le32_to_cpu(f_info->fw_len);
++	} else {
++		phytable = (__le32 *)fw->data;
++		fw_size = fw->size / sizeof(*phytable);
++	}
++
++	for (i = 0; i < fw_size; i++) {
++		u32 action = le32_to_cpu(phytable[i]);
+ 		u32 regno = (action & 0x0fff0000) >> 16;
+ 
+ 		switch(action & 0xf0000000) {
+@@ -1769,14 +1813,14 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ 			break;
+ 
+ 		case PHY_BJMPN:
+-			if (regno > index) {
++			if (regno > i) {
+ 				netif_err(tp, probe, tp->dev,
+ 					  "Out of range of firmware\n");
+ 				return;
+ 			}
+ 			break;
+ 		case PHY_READCOUNT_EQ_SKIP:
+-			if (index + 2 >= fw_size) {
++			if (i + 2 >= fw_size) {
+ 				netif_err(tp, probe, tp->dev,
+ 					  "Out of range of firmware\n");
+ 				return;
+@@ -1785,7 +1829,7 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ 		case PHY_COMP_EQ_SKIPN:
+ 		case PHY_COMP_NEQ_SKIPN:
+ 		case PHY_SKIPN:
+-			if (index + 1 + regno >= fw_size) {
++			if (i + 1 + regno >= fw_size) {
+ 				netif_err(tp, probe, tp->dev,
+ 					  "Out of range of firmware\n");
+ 				return;
+@@ -1805,8 +1849,8 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ 	predata = 0;
+ 	count = 0;
+ 
+-	for (index = 0; index < fw_size; ) {
+-		u32 action = le32_to_cpu(phytable[index]);
++	for (i = 0; i < fw_size; ) {
++		u32 action = le32_to_cpu(phytable[i]);
+ 		u32 data = action & 0x0000ffff;
+ 		u32 regno = (action & 0x0fff0000) >> 16;
+ 
+@@ -1817,54 +1861,54 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ 		case PHY_READ:
+ 			predata = rtl_readphy(tp, regno);
+ 			count++;
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_DATA_OR:
+ 			predata |= data;
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_DATA_AND:
+ 			predata &= data;
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_BJMPN:
+-			index -= regno;
++			i -= regno;
+ 			break;
+ 		case PHY_READ_EFUSE:
+ 			predata = rtl8168d_efuse_read(tp->mmio_addr, regno);
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_CLEAR_READCOUNT:
+ 			count = 0;
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_WRITE:
+ 			rtl_writephy(tp, regno, data);
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_READCOUNT_EQ_SKIP:
+-			index += (count == data) ? 2 : 1;
++			i += (count == data) ? 2 : 1;
+ 			break;
+ 		case PHY_COMP_EQ_SKIPN:
+ 			if (predata == data)
+-				index += regno;
+-			index++;
++				i += regno;
++			i++;
+ 			break;
+ 		case PHY_COMP_NEQ_SKIPN:
+ 			if (predata != data)
+-				index += regno;
+-			index++;
++				i += regno;
++			i++;
+ 			break;
+ 		case PHY_WRITE_PREVIOUS:
+ 			rtl_writephy(tp, regno, predata);
+-			index++;
++			i++;
+ 			break;
+ 		case PHY_SKIPN:
+-			index += regno + 1;
++			i += regno + 1;
+ 			break;
+ 		case PHY_DELAY_MS:
+ 			mdelay(data);
+-			index++;
++			i++;
+ 			break;
+ 
+ 		case PHY_READ_MAC_BYTE:
+-- 
+1.7.3.2
