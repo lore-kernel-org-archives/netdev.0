@@ -1,77 +1,57 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: [RFC 3/5 v4] net: restore net_create and make it globally visible
-Date: Wed, 15 Jun 2011 22:51:50 +0400
-Message-ID: <1308163910-6104-1-git-send-email-segoon@openwall.com>
-Cc: kernel-hardening@lists.openwall.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFC] Moving files around in drivers/net
+Date: Wed, 15 Jun 2011 11:38:43 -0700
+Message-ID: <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
+References: <1306956602.32125.28.camel@Joe-Laptop>
+	<1306957998.3076.18.camel@jtkirshe-MOBL1>
+	<1306958478.32125.32.camel@Joe-Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:39751 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503Ab1FOSyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 14:54:13 -0400
+Received: by fxm17 with SMTP id 17so620100fxm.19
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 11:54:12 -0700 (PDT)
+In-Reply-To: <1306958478.32125.32.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 911cb193f3eb0370f20fbba712211e55ffede4de and
-makes net_create() globally visible.  net_create() will be needed
-for fake_net in fs/proc/proc_net.c. 
+On Wed, Jun 1, 2011 at 13:01, Joe Perches <joe@perches.com> wrote:
+> On Wed, 2011-06-01 at 12:53 -0700, Jeff Kirsher wrote:
+>> On Wed, 2011-06-01 at 12:30 -0700, Joe Perches wrote:
+>> > Does anyone still think moving files around in drivers/net
+>> > would be sensible and a suitable candidate for inclusion
+>> > in 3.1?
+>> > Here's what Jeffrey proposed:
+>> > http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
+>> > Here's what I proposed before that.
+>> > http://www.spinics.net/lists/netdev/msg149717.html
+>> I am over 90% done with the work and have been trying to finish up the
+>> patches so that I could get them out as an RFC here in the next week.
+>
+> Excellent, thanks.
+>
 
-Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
----
- include/net/net_namespace.h |    2 ++
- net/core/net_namespace.c    |   12 ++++++++----
- 2 files changed, 10 insertions(+), 4 deletions(-)
+I thought for sure I would have finished what I have left by last
+weekend, but I keep getting interrupted.  (Blame it on the NHL stanley
+cup playoffs) :)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 2bf9ed9..5d5328c 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -116,6 +116,8 @@ static inline struct net *copy_net_ns(unsigned long flags, struct net *net_ns)
- }
- #endif /* CONFIG_NET */
- 
-+extern struct net *net_create(void);
-+
- 
- extern struct list_head net_namespace_list;
- 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 6c6b86d..c90f0db 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -210,14 +210,11 @@ static void net_free(struct net *net)
- 	kmem_cache_free(net_cachep, net);
- }
- 
--struct net *copy_net_ns(unsigned long flags, struct net *old_net)
-+struct net *net_create(void)
- {
- 	struct net *net;
- 	int rv;
- 
--	if (!(flags & CLONE_NEWNET))
--		return get_net(old_net);
--
- 	net = net_alloc();
- 	if (!net)
- 		return ERR_PTR(-ENOMEM);
-@@ -236,6 +233,13 @@ struct net *copy_net_ns(unsigned long flags, struct net *old_net)
- 	return net;
- }
- 
-+struct net *copy_net_ns(unsigned long flags, struct net *old_net)
-+{
-+	if (!(flags & CLONE_NEWNET))
-+		return get_net(old_net);
-+	return net_create();
-+}
-+
- static DEFINE_SPINLOCK(cleanup_list_lock);
- static LIST_HEAD(cleanup_list);  /* Must hold cleanup_list_lock to touch */
- 
+I have created a git tree on kernel.org with all the work that I have
+completed so far (see below).  This first stage of the move is only
+taking care of the drivers.  The next stage will move the networking
+core drivers (bridging, bonding, vlan, etc.) into drivers/net/sw.
+
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize
+
+I will send out all the patches as an RFC by the end of the week (for sure).
+
 -- 
-1.7.0.4
+Cheers,
+Jeff
