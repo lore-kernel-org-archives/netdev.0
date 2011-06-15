@@ -1,36 +1,54 @@
-From: Antoine Reversat <a.reversat@gmail.com>
-Subject: Re: [Bugme-new] [Bug 37172] New: Enabling 802.1q vlan causes some
- packets to be received with a vlan id of 64
-Date: Wed, 15 Jun 2011 12:57:43 -0400
-Message-ID: <BANLkTi=8G+CeP5qD1mUA5xSbASYG33TviQ@mail.gmail.com>
-References: <bug-37172-10286@https.bugzilla.kernel.org/>
-	<20110613164355.c4f7b7b2.akpm@linux-foundation.org>
-	<BANLkTi=Omr+oe3nMiqVeS+8tiSJnxONbhQ@mail.gmail.com>
-	<BANLkTikU=78h1BcVm7akgE3PxRP5eb57gw@mail.gmail.com>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [PATCH] tun: teach the tun/tap driver to support netpoll
+Date: Wed, 15 Jun 2011 13:50:38 -0400
+Message-ID: <4DF8F0EE.4070009@redhat.com>
+References: <1308151501-8434-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qualcomm.com>,
+	Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:40708 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274Ab1FOQ5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 12:57:44 -0400
-Received: by bwz15 with SMTP id 15so630328bwz.19
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 09:57:43 -0700 (PDT)
-In-Reply-To: <BANLkTikU=78h1BcVm7akgE3PxRP5eb57gw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:44532 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752618Ab1FORuw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2011 13:50:52 -0400
+In-Reply-To: <1308151501-8434-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2011 at 12:13 PM, Antoine Reversat <a.reversat@gmail.com> wrote:
-> I've tested 2.6.37.6 and 3.0.0-rc2 and the bug is still reproducible
-> in both kernels. I'll try a 2.6.36 to see if it was present in it too.
+On 06/15/2011 11:25 AM, Neil Horman wrote:
+> Commit 8d8fc29d02a33e4bd5f4fa47823c1fd386346093 changed the behavior of slave
+> devices in regards to netpoll.  Specifically it created a mutually exclusive
+> relationship between being a slave and a netpoll-capable device.  This creates
+> problems for KVM because guests relied on needing netconsole active on a slave
+> device to a bridge.  Ideally libvirtd could just attach netconsole to the bridge
+> device instead, but thats currently infeasible, because while the bridge device
+> supports netpoll, it requires that all slave interface also support it, but the
+> tun/tap driver currently does not.  The most direct solution is to teach tun/tap
+> to support netpoll, which is implemented by the patch below.
 >
-> Has this been tested on other hardware ? I'm still unsure if it's a
-> driver issue or if it's something else.
->
+> I've not tested this yet, but its pretty straightforward.
 
-Infact it's probably a driver bug : I've tried on a coworkers computer
-with a different network adapter and it works flawlessly. I'll contact
-the forcedeth people about this.
+I have tested it.  I can run netconsole and my KVM guests
+simultaneously again.
+
+Thank you, Neil!
+
+Now all I have to do is log whatever other bugs are haunting
+3.0-rc and causing my system to hang :)
+
+> Signed-off-by: Neil Horman<nhorman@tuxdriver.com>
+> Reported-by: Rik van Riel<riel@redhat.com>
+> CC: Rik van Riel<riel@redhat.com>
+> CC: Maxim Krasnyansky<maxk@qualcomm.com>
+> CC: Cong Wang<amwang@redhat.com>
+> CC: "David S. Miller"<davem@davemloft.net>
+
+Reviewed-by: Rik van Riel <riel@redhat.com>
+Tested-by: Rik van Riel <riel@redhat.com>
+
+-- 
+All rights reversed
