@@ -1,42 +1,57 @@
-From: Antoine Reversat <a.reversat@gmail.com>
-Subject: Re: [Bugme-new] [Bug 37172] New: Enabling 802.1q vlan causes some
- packets to be received with a vlan id of 64
-Date: Wed, 15 Jun 2011 12:13:50 -0400
-Message-ID: <BANLkTikU=78h1BcVm7akgE3PxRP5eb57gw@mail.gmail.com>
-References: <bug-37172-10286@https.bugzilla.kernel.org/>
-	<20110613164355.c4f7b7b2.akpm@linux-foundation.org>
-	<BANLkTi=Omr+oe3nMiqVeS+8tiSJnxONbhQ@mail.gmail.com>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: Re: software iwarp stack update
+Date: Wed, 15 Jun 2011 18:32:36 +0200
+Message-ID: <BANLkTimmxN71ihGGXPH3JB1vGWyv1p-7mw@mail.gmail.com>
+References: <BANLkTikUWpf4iAQT-9DwL_qSCEcY7CPN6w@mail.gmail.com> <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784@ch.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-rdma@vger.kernel.org, linux-rdma-owner@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Bernard Metzler <BMT@zurich.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:48946 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704Ab1FOQNw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 12:13:52 -0400
-Received: by bwz15 with SMTP id 15so594045bwz.19
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 09:13:51 -0700 (PDT)
-In-Reply-To: <BANLkTi=Omr+oe3nMiqVeS+8tiSJnxONbhQ@mail.gmail.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:60527 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754357Ab1FOQd6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 12:33:58 -0400
+In-Reply-To: <OFC721DC15.CBE893E3-ONC12578B0.0053737C-C12578B0.00565784@ch.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've tested 2.6.37.6 and 3.0.0-rc2 and the bug is still reproducible
-in both kernels. I'll try a 2.6.36 to see if it was present in it too.
+On Wed, Jun 15, 2011 at 5:43 PM, Bernard Metzler <BMT@zurich.ibm.com> w=
+rote:
+> after rebasing to davem/net-next-2.6.git, I formatted a patch adding
+> to the initial 'siw' driver posting from last October. Given the rath=
+er
+> substantial amount of changes and time elapsed, I am not sure if peop=
+le
+> would better like a complete re-posting of all files.
+> If I don't hear objection before tomorrow I would post it as an
+> increment - as summarized below.
 
-Has this been tested on other hardware ? I'm still unsure if it's a
-driver issue or if it's something else.
+IMHO reposting the entire driver makes reviewing easier.
 
-On Tue, Jun 14, 2011 at 9:31 AM, Antoine Reversat <a.reversat@gmail.com=
-> wrote:
-> On Mon, Jun 13, 2011 at 7:43 PM, Andrew Morton
-> <akpm@linux-foundation.org> wrote:
->>
->> From which kernel version did we regress? =A0Was 2.6.38 OK?
->
-> I can confirm this bug is present in 2.6.38.6
->
-> I'll try and see if I can reproduce it on a 2.6.37
->
+And please address checkpatch and sparse complaints before reposting.
+The code currently available at gitorious triggers several easy to
+address checkpatch and spare complaints:
+$ cd softiwarp
+$ convert-file-to-patch *[ch] |
+/usr/src/torvalds-2.6.git/scripts/checkpatch.pl - -notree -nosignoff |
+grep -E '^ERROR|^WARNING' | grep -v LINUX_VERSION_CODE | sort | uniq
+-c | sort -rn
+=A0=A0=A0=A0 10 ERROR: spaces required around that '?' (ctx:VxV)
+=A0=A0=A0=A0=A0 8 ERROR: spaces required around that ':' (ctx:VxV)
+=A0=A0=A0=A0=A0 3 ERROR: spaces required around that ':' (ctx:VxW)
+=A0=A0=A0=A0=A0 2 ERROR: Macros with complex values should be enclosed =
+in parenthesis
+=A0=A0=A0=A0=A0 1 WARNING: line over 80 characters
+=A0=A0=A0=A0=A0 1 ERROR: trailing whitespace
+$ LC_ALL=3DC make C=3D2 | grep warning
+/home/bart/software/softiwarp/softiwarp/siw_main.c:73:10: warning:
+symbol 'siw_num_cep' was not declared. Should it be static?
+/home/bart/software/softiwarp/softiwarp/siw_verbs.c:1417:14: warning:
+symbol 'siw_reg_phys_mr' was not declared. Should it be static?
+/home/bart/software/softiwarp/softiwarp/siw_mem.c:164:27: warning:
+symbol 'siw_dma_mapping_ops' was not declared. Should it be static?
+
+Bart.
