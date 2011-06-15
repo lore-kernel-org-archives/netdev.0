@@ -1,73 +1,75 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH net-next 2/2] drivers/net: Remove casts of void *
-Date: Wed, 15 Jun 2011 00:10:14 +0000
-Message-ID: <157393863283F442885425D2C454285601D4D26B@nasanexd02a.na.qualcomm.com>
-References: <cover.1308024069.git.joe@perches.com>
- <486a21b708a9dce0c1c0059a21a2f9b66dac9e3c.1308024069.git.joe@perches.com>
- <BANLkTik8+OK3QNreHLn7rqx-s4UXNypOEg@mail.gmail.com>
- <1308061044.18987.14.camel@Joe-Laptop>
- <BANLkTimK4RXsQUnHbE0Eu9==54AbdBKzzQ@mail.gmail.com>
+From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
+Subject: Re: Please revert "iwlagn: Support new 5000 microcode."
+ from 2.6.32 and 2.6.33
+Date: Tue, 14 Jun 2011 22:14:44 -0300
+Message-ID: <20110615011443.GA13680@herton-IdeaPad-Y430>
+References: <20110613181317.GA3385@herton-IdeaPad-Y430>
+	<20110614230344.GA2065@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Cliburn <jcliburn@gmail.com>
-To: Chris Snook <chris.snook@gmail.com>, Joe Perches <joe@perches.com>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:2167 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150Ab1FOAKP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2011 20:10:15 -0400
-In-Reply-To: <BANLkTimK4RXsQUnHbE0Eu9==54AbdBKzzQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ak@linux.intel.com, sgruszka@redhat.com, stable@linux.kernel.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        linville@tuxdriver.com, donald.h.fry@intel.com,
+        linux-kernel@vger.kernel.org, ilw@linux.intel.com,
+        wey-yi.w.guy@intel.com, reinette.chatre@intel.com
+To: Greg KH <greg@kroah.com>
+Return-path: <stable-bounces@linux.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110614230344.GA2065@kroah.com>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Chris
-     Yes, Jie yang doesn't maintain it any more. Could you add cjren@qc=
-a.qualcomm.com to the list ? thanks.
+On Tue, Jun 14, 2011 at 04:03:44PM -0700, Greg KH wrote:
+> On Mon, Jun 13, 2011 at 03:13:18PM -0300, Herton Ronaldo Krzesinski wrote:
+> > The patch ("iwlagn: Support new 5000 microcode") shoudn't have been
+> > applied on 2.6.32 and 2.6.33 stable trees, it doesn't support new
+> > firmware file format, thus if the new firmware is on the disk, loading
+> > fails, as reported on:
+> > https://bugs.launchpad.net/ubuntu/+source/linux/+bug/796336
+> > 
+> > Support for the iwlagn new firmware file format was only added beginning
+> > with 2.6.35 (commit "iwlagn: implement loading a new firmware file
+> > type"), so iwlagn works with new firmware only with 2.6.35 or later.
+> 
+> Can I get an ack from the developer of the patch and the people involved
+> with it first?  It was asked to be backported for a reason, so I would
+> at least like to get the people who asked for the backport to have a
+> chance to respond please.
+> 
+> It's only nice, why would you exclude them?
 
--Xiong
+I didn't intend to exclude anyone and I'm just reporting it, it didn't
+came to my mind CC'ing people while sending to stable, and hopefully
+everyone related are CC'ed now.
 
------Original Message-----
-=46rom: Chris Snook [mailto:chris.snook@gmail.com]=20
-Sent: Tuesday, June 14, 2011 22:23
-To: Joe Perches; Huang, Xiong
-Cc: netdev@vger.kernel.org; Jay Cliburn
-Subject: Re: [PATCH net-next 2/2] drivers/net: Remove casts of void *
+Also note that this revert request is for 2.6.32 and 2.6.33 *only*
 
-On Tue, Jun 14, 2011 at 10:17 AM, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2011-06-14 at 06:34 -0400, Chris Snook wrote:
->> atlx looks fine.
->> Acked-By: Chris Snook <chris.snook@gmail.com>
->
-> Hey Chris.
->
-> I get bounce messages from one of the ATLX DRIVERS MAINTAINERS.
->
-> ATLX ETHERNET DRIVERS
-> M: =A0 =A0 =A0Jay Cliburn <jcliburn@gmail.com>
-> M: =A0 =A0 =A0Chris Snook <chris.snook@gmail.com>
-> M: =A0 =A0 =A0Jie Yang <jie.yang@atheros.com>
->
-> Jie Yang at atheros.com doesn't work for me.
-> Perhaps that entry should be removed?
->
-> Jie Yang doesn't seem to have contributed any acks or patches to=20
-> drivers/net/atlx/
->
-> <jie.yang@atheros.com>: host gatewayhorse1.qualcomm.com[199.106.114.1=
-11] said:
-> =A0 =A0550 #5.1.0 Address rejected jie.yang@atheros.com (in reply to =
-RCPT=20
-> TO
-> =A0 =A0command)
+And seems the right thing to do for them.
 
-Xiong --
+The other stable release where this was applied (2.6.35) looks fine
+but these two are too old to support the new firmware (don't work, need
+extra patches backported which weren't, like the commit I mentioned --
+commit "iwlagn: implement loading a new firmware file type"), as yourself
+can check reading the code/bug report, and what I wrote.
 
-Is Jie still working on atlx drivers? Should someone else (such as
-yourself) at Atheros be listed instead, or is this just a temporary ser=
-ver error?
+> 
+> greg k-h
+> 
 
--- Chris
+-- 
+[]'s
+Herton
+
+_______________________________________________
+stable mailing list
+stable@linux.kernel.org
+http://linux.kernel.org/mailman/listinfo/stable
