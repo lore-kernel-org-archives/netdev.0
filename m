@@ -1,212 +1,67 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH v2] net/r8169: update the new parser for the new firmware
-Date: Wed, 15 Jun 2011 11:45:31 +0800
-Message-ID: <1308109531-31698-1-git-send-email-hayeswang@realtek.com>
+From: Fernando Luis =?ISO-8859-1?Q?V=E1zquez?= Cao
+	<fernando@oss.ntt.co.jp>
+Subject: Re: IGMP snooping: set mrouters_only flag for IPv4 traffic properly
+Date: Wed, 15 Jun 2011 14:09:45 +0900
+Message-ID: <1308114585.4256.1.camel@nexus.oss.ntt.co.jp>
+References: <1307933995.2704.11.camel@nausicaa>
+	 <1307934163.3550.2.camel@nausicaa>
+	 <20110614132212.2ac83c6c@s6510.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	Hayato Kakuta <kakuta.hayato@oss.ntt.co.jp>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:54360 "EHLO
+	serv2.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170Ab1FOFJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 01:09:46 -0400
+In-Reply-To: <20110614132212.2ac83c6c@s6510.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Update the parser for the new firmware which is embedded some information.
+On Tue, 2011-06-14 at 13:22 -0400, Stephen Hemminger wrote:
+> On Mon, 13 Jun 2011 12:02:43 +0900
+> Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp> wrote:
+> 
+> > Upon reception of a IGMP/IGMPv2 membership report the kernel sets the
+> > mrouters_only flag in a skb that may be a clone of the original skb, which
+> > means that sometimes the bridge loses track of membership report packets (cb
+> > buffers are tied to a specifici skb and not shared) and it ends up forwading
+> > join requests to the bridge interface.
+> > 
+> > This can cause unexpected membership timeouts and intermitent/permanent loss of connectivity as described in RFC 4541 [2.1.1. IGMP Forwarding Rules]:
+> > 
+> >     A snooping switch should forward IGMP Membership Reports only to
+> >     those ports where multicast routers are attached.
+> >     [...]
+> >     Sending membership reports to other hosts can result, for IGMPv1
+> >     and IGMPv2, in unintentionally preventing a host from joining a
+> >     specific multicast group.
+> > 
+> > 
+> > Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+> > Tested-by: Hayato Kakuta <kakuta.hayato@oss.ntt.co.jp>
+> > ---
+> > 
+> > diff -urNp linux-3.0-rc2-orig/net/bridge/br_multicast.c linux-3.0-rc2/net/bridge/br_multicast.c
+> > --- linux-3.0-rc2-orig/net/bridge/br_multicast.c	2011-06-09 13:34:04.164261031 +0900
+> > +++ linux-3.0-rc2/net/bridge/br_multicast.c	2011-06-09 20:04:23.473930447 +0900
+> > @@ -1424,7 +1424,7 @@ static int br_multicast_ipv4_rcv(struct
+> >  	switch (ih->type) {
+> >  	case IGMP_HOST_MEMBERSHIP_REPORT:
+> >  	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+> > -		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
+> > +		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+> >  		err = br_ip4_multicast_add_group(br, port, ih->group);
+> >  		break;
+> >  	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+> 
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/r8169.c |   96 +++++++++++++++++++++++++++++++++++++--------------
- 1 files changed, 70 insertions(+), 26 deletions(-)
+Can I take that as an acked-by for the IPv6 patch too?
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index ef1ce2e..bd9e78f 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -594,6 +594,14 @@ struct ring_info {
- 	u8		__pad[sizeof(void *) - sizeof(u32)];
- };
- 
-+struct fw_info {
-+	u32	magic;
-+	char	version[32];
-+	u32	fw_start;
-+	u32	fw_len;
-+	u8	chksum;
-+};
-+
- enum features {
- 	RTL_FEATURE_WOL		= (1 << 0),
- 	RTL_FEATURE_MSI		= (1 << 1),
-@@ -1740,21 +1748,57 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
- #define PHY_DELAY_MS		0xe0000000
- #define PHY_WRITE_ERI_WORD	0xf0000000
- 
-+static int is_firmware_valid(const struct firmware *fw)
-+{
-+	struct fw_info *f_info = (struct fw_info *)fw->data;
-+
-+	if (f_info->magic == 0) {
-+		size_t i, fw_size;
-+		u8 checksum = 0;
-+
-+		for (i = 0; i < fw->size; i++) {
-+			checksum += fw->data[i];
-+		}
-+
-+		if (checksum != 0)
-+			return 0;
-+
-+		fw_size = (fw->size - le32_to_cpu(f_info->fw_start)) / 4;
-+		if (fw_size < le32_to_cpu(f_info->fw_len))
-+			return 0;
-+	} else if (fw->size % 4) {
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
- static void
- rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
- {
--	__le32 *phytable = (__le32 *)fw->data;
-+	struct fw_info *f_info = (struct fw_info *)fw->data;
- 	struct net_device *dev = tp->dev;
--	size_t index, fw_size = fw->size / sizeof(*phytable);
-+	__le32 *phytable;
-+	size_t i, fw_size;
- 	u32 predata, count;
- 
--	if (fw->size % sizeof(*phytable)) {
--		netif_err(tp, probe, dev, "odd sized firmware %zd\n", fw->size);
-+	if (!is_firmware_valid(fw)) {
-+		netif_err(tp, probe, dev, "Invalid firwmare\n");
- 		return;
- 	}
- 
--	for (index = 0; index < fw_size; index++) {
--		u32 action = le32_to_cpu(phytable[index]);
-+	if (f_info->magic == 0) {
-+		netif_info(tp, probe, dev, "firmware: %s\n", f_info->version);
-+
-+		phytable = (__le32 *)(fw->data + le32_to_cpu(f_info->fw_start));
-+		fw_size = le32_to_cpu(f_info->fw_len);
-+	} else {
-+		phytable = (__le32 *)fw->data;
-+		fw_size = fw->size / sizeof(*phytable);
-+	}
-+
-+	for (i = 0; i < fw_size; i++) {
-+		u32 action = le32_to_cpu(phytable[i]);
- 		u32 regno = (action & 0x0fff0000) >> 16;
- 
- 		switch(action & 0xf0000000) {
-@@ -1769,14 +1813,14 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
- 			break;
- 
- 		case PHY_BJMPN:
--			if (regno > index) {
-+			if (regno > i) {
- 				netif_err(tp, probe, tp->dev,
- 					  "Out of range of firmware\n");
- 				return;
- 			}
- 			break;
- 		case PHY_READCOUNT_EQ_SKIP:
--			if (index + 2 >= fw_size) {
-+			if (i + 2 >= fw_size) {
- 				netif_err(tp, probe, tp->dev,
- 					  "Out of range of firmware\n");
- 				return;
-@@ -1785,7 +1829,7 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
- 		case PHY_COMP_EQ_SKIPN:
- 		case PHY_COMP_NEQ_SKIPN:
- 		case PHY_SKIPN:
--			if (index + 1 + regno >= fw_size) {
-+			if (i + 1 + regno >= fw_size) {
- 				netif_err(tp, probe, tp->dev,
- 					  "Out of range of firmware\n");
- 				return;
-@@ -1805,8 +1849,8 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
- 	predata = 0;
- 	count = 0;
- 
--	for (index = 0; index < fw_size; ) {
--		u32 action = le32_to_cpu(phytable[index]);
-+	for (i = 0; i < fw_size; ) {
-+		u32 action = le32_to_cpu(phytable[i]);
- 		u32 data = action & 0x0000ffff;
- 		u32 regno = (action & 0x0fff0000) >> 16;
- 
-@@ -1817,54 +1861,54 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
- 		case PHY_READ:
- 			predata = rtl_readphy(tp, regno);
- 			count++;
--			index++;
-+			i++;
- 			break;
- 		case PHY_DATA_OR:
- 			predata |= data;
--			index++;
-+			i++;
- 			break;
- 		case PHY_DATA_AND:
- 			predata &= data;
--			index++;
-+			i++;
- 			break;
- 		case PHY_BJMPN:
--			index -= regno;
-+			i -= regno;
- 			break;
- 		case PHY_READ_EFUSE:
- 			predata = rtl8168d_efuse_read(tp->mmio_addr, regno);
--			index++;
-+			i++;
- 			break;
- 		case PHY_CLEAR_READCOUNT:
- 			count = 0;
--			index++;
-+			i++;
- 			break;
- 		case PHY_WRITE:
- 			rtl_writephy(tp, regno, data);
--			index++;
-+			i++;
- 			break;
- 		case PHY_READCOUNT_EQ_SKIP:
--			index += (count == data) ? 2 : 1;
-+			i += (count == data) ? 2 : 1;
- 			break;
- 		case PHY_COMP_EQ_SKIPN:
- 			if (predata == data)
--				index += regno;
--			index++;
-+				i += regno;
-+			i++;
- 			break;
- 		case PHY_COMP_NEQ_SKIPN:
- 			if (predata != data)
--				index += regno;
--			index++;
-+				i += regno;
-+			i++;
- 			break;
- 		case PHY_WRITE_PREVIOUS:
- 			rtl_writephy(tp, regno, predata);
--			index++;
-+			i++;
- 			break;
- 		case PHY_SKIPN:
--			index += regno + 1;
-+			i += regno + 1;
- 			break;
- 		case PHY_DELAY_MS:
- 			mdelay(data);
--			index++;
-+			i++;
- 			break;
- 
- 		case PHY_READ_MAC_BYTE:
--- 
-1.7.3.2
+Thanks,
+Fernando
+
