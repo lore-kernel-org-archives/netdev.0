@@ -1,396 +1,184 @@
 From: Bernard Metzler <bmt@zurich.ibm.com>
-Subject: [PATCH 12/14] SIWv2: Debugging and Tracing: siw_debug.c, siw_debug.h
-Date: Thu, 16 Jun 2011 14:42:44 +0200
-Message-ID: <1308228164-22754-1-git-send-email-bmt@zurich.ibm.com>
+Subject: [PATCH 14/14] SIWv2: Documentation: siw.txt
+Date: Thu, 16 Jun 2011 14:42:54 +0200
+Message-ID: <1308228174-22788-1-git-send-email-bmt@zurich.ibm.com>
 Cc: linux-rdma@vger.kernel.org, Bernard Metzler <bmt@zurich.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([194.196.100.163]:57972 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752719Ab1FPMmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 08:42:46 -0400
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:38578 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753125Ab1FPMm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 08:42:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 ---
- drivers/infiniband/hw/siw/siw_debug.c |  200 +++++++++++++++++++++++++++++++++
- drivers/infiniband/hw/siw/siw_debug.h |  160 ++++++++++++++++++++++++++
- 2 files changed, 360 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/hw/siw/siw_debug.c
- create mode 100644 drivers/infiniband/hw/siw/siw_debug.h
+ Documentation/networking/siw.txt |  156 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 156 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/siw.txt
 
-diff --git a/drivers/infiniband/hw/siw/siw_debug.c b/drivers/infiniband/hw/siw/siw_debug.c
+diff --git a/Documentation/networking/siw.txt b/Documentation/networking/siw.txt
 new file mode 100644
-index 0000000..06c548d
+index 0000000..805e21b
 --- /dev/null
-+++ b/drivers/infiniband/hw/siw/siw_debug.c
-@@ -0,0 +1,200 @@
-+/*
-+ * Software iWARP device driver for Linux
-+ *
-+ * Authors: Bernard Metzler <bmt@zurich.ibm.com>
-+ *          Fredy Neeser <nfd@zurich.ibm.com>
-+ *
-+ * Copyright (c) 2008-2011, IBM Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ *   Redistribution and use in source and binary forms, with or
-+ *   without modification, are permitted provided that the following
-+ *   conditions are met:
-+ *
-+ *   - Redistributions of source code must retain the above copyright notice,
-+ *     this list of conditions and the following disclaimer.
-+ *
-+ *   - Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in the
-+ *     documentation and/or other materials provided with the distribution.
-+ *
-+ *   - Neither the name of IBM nor the names of its contributors may be
-+ *     used to endorse or promote products derived from this software without
-+ *     specific prior written permission.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
++++ b/Documentation/networking/siw.txt
+@@ -0,0 +1,156 @@
++SoftiWARP: Software iWARP kernel driver module.
 +
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <net/tcp.h>
-+
-+#include <rdma/iw_cm.h>
-+#include <rdma/ib_verbs.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_user_verbs.h>
-+
-+#include "siw.h"
-+#include "siw_obj.h"
++General
++-------
++SoftiWARP (siw) implements the iWARP protocol suite (MPA/DDP/RDMAP,
++IETF-RFC 5044/5041/5040) completely in software as a Linux kernel module.
++siw runs on top of TCP kernel sockets and exports the Linux kernel ibverbs
++RDMA interface. siw interfaces with the iwcm connection manager.
 +
 +
-+void siw_print_qp_attr_mask(enum ib_qp_attr_mask attr_mask, char *msg)
-+{
-+	printk(KERN_INFO "-------- %s -------\n", msg);
-+	if (IB_QP_STATE & attr_mask)
-+		printk(KERN_INFO "IB_QP_STATE\n");
-+	if (IB_QP_CUR_STATE & attr_mask)
-+		printk(KERN_INFO "IB_QP_CUR_STATE\n");
-+	if (IB_QP_EN_SQD_ASYNC_NOTIFY & attr_mask)
-+		printk(KERN_INFO "IB_QP_EN_SQD_ASYNC_NOTIFY\n");
-+	if (IB_QP_ACCESS_FLAGS & attr_mask)
-+		printk(KERN_INFO "IB_QP_ACCESS_FLAGS\n");
-+	if (IB_QP_PKEY_INDEX & attr_mask)
-+		printk(KERN_INFO "IB_QP_PKEY_INDEX\n");
-+	if (IB_QP_PORT & attr_mask)
-+		printk(KERN_INFO "IB_QP_PORT\n");
-+	if (IB_QP_QKEY & attr_mask)
-+		printk(KERN_INFO "IB_QP_QKEY\n");
-+	if (IB_QP_AV & attr_mask)
-+		printk(KERN_INFO "IB_QP_AV\n");
-+	if (IB_QP_PATH_MTU & attr_mask)
-+		printk(KERN_INFO "IB_QP_PATH_MTU\n");
-+	if (IB_QP_TIMEOUT & attr_mask)
-+		printk(KERN_INFO "IB_QP_TIMEOUT\n");
-+	if (IB_QP_RETRY_CNT & attr_mask)
-+		printk(KERN_INFO "IB_QP_RETRY_CNT\n");
-+	if (IB_QP_RNR_RETRY & attr_mask)
-+		printk(KERN_INFO "IB_QP_RNR_RETRY\n");
-+	if (IB_QP_RQ_PSN & attr_mask)
-+		printk(KERN_INFO "IB_QP_RQ_PSN\n");
-+	if (IB_QP_MAX_QP_RD_ATOMIC & attr_mask)
-+		printk(KERN_INFO "IB_QP_MAX_QP_RD_ATOMIC\n");
-+	if (IB_QP_ALT_PATH & attr_mask)
-+		printk(KERN_INFO "IB_QP_ALT_PATH\n");
-+	if (IB_QP_MIN_RNR_TIMER & attr_mask)
-+		printk(KERN_INFO "IB_QP_MIN_RNR_TIMER\n");
-+	if (IB_QP_SQ_PSN & attr_mask)
-+		printk(KERN_INFO "IB_QP_SQ_PSN\n");
-+	if (IB_QP_MAX_DEST_RD_ATOMIC & attr_mask)
-+		printk(KERN_INFO "IB_QP_MAX_DEST_RD_ATOMIC\n");
-+	if (IB_QP_PATH_MIG_STATE & attr_mask)
-+		printk(KERN_INFO "IB_QP_PATH_MIG_STATE\n");
-+	if (IB_QP_CAP & attr_mask)
-+		printk(KERN_INFO "IB_QP_CAP\n");
-+	if (IB_QP_DEST_QPN & attr_mask)
-+		printk(KERN_INFO "IB_QP_DEST_QPN\n");
-+	printk(KERN_INFO "-------- %s -(end)-\n", msg);
-+}
++Transmit Path
++-------------
++If a send queue (SQ) work queue element gets posted, siw tries to send
++it directly out of the application context. If the SQ was non-empty,
++SQ processing is done asynchronously by a kernel worker thread. This
++thread gets scheduled if the TCP socket signals new write space to
++be available. If during send operation the socket send space becomes
++exhausted, SQ processing is abandoned until new socket write space
++becomes available.
 +
 +
-+void siw_print_hdr(union iwarp_hdrs *hdr, int qp_id, char *msg)
-+{
-+	switch (hdr->ctrl.opcode) {
-+
-+	case RDMAP_RDMA_WRITE:
-+		printk(KERN_INFO "QP%04d %s(WRITE, MPA len %d): "
-+			"%08x %016llx\n",
-+			qp_id, msg, ntohs(hdr->ctrl.mpa_len),
-+			hdr->rwrite.sink_stag, hdr->rwrite.sink_to);
-+		break;
-+
-+	case RDMAP_RDMA_READ_REQ:
-+		printk(KERN_INFO "QP%04d %s(RREQ, MPA len %d): %08x %08x "
-+			"%08x %08x %016llx %08x %08x %016llx\n", qp_id, msg,
-+			ntohs(hdr->ctrl.mpa_len),
-+			hdr->rreq.ddp_qn, hdr->rreq.ddp_msn,
-+			hdr->rreq.ddp_mo, hdr->rreq.sink_stag,
-+			hdr->rreq.sink_to, hdr->rreq.read_size,
-+			hdr->rreq.source_stag, hdr->rreq.source_to);
-+
-+		break;
-+	case RDMAP_RDMA_READ_RESP:
-+		printk(KERN_INFO "QP%04d %s(RRESP, MPA len %d):"
-+			" %08x %016llx\n",
-+			qp_id, msg, ntohs(hdr->ctrl.mpa_len),
-+			hdr->rresp.sink_stag, hdr->rresp.sink_to);
-+		break;
-+
-+	case RDMAP_SEND:
-+		printk(KERN_INFO "QP%04d %s(SEND, MPA len %d): %08x %08x "
-+			"%08x\n", qp_id, msg, ntohs(hdr->ctrl.mpa_len),
-+			hdr->send.ddp_qn, hdr->send.ddp_msn, hdr->send.ddp_mo);
-+		break;
-+
-+	case RDMAP_SEND_INVAL:
-+		printk(KERN_INFO "QP%04d %s(S_INV, MPA len %d): %08x %08x "
-+			"%08x\n", qp_id, msg, ntohs(hdr->ctrl.mpa_len),
-+			hdr->send.ddp_qn, hdr->send.ddp_msn,
-+			hdr->send.ddp_mo);
-+		break;
-+
-+	case RDMAP_SEND_SE:
-+		printk(KERN_INFO "QP%04d %s(S_SE, MPA len %d): %08x %08x "
-+			"%08x\n", qp_id, msg, ntohs(hdr->ctrl.mpa_len),
-+			hdr->send.ddp_qn, hdr->send.ddp_msn,
-+			hdr->send.ddp_mo);
-+		break;
-+
-+	case RDMAP_SEND_SE_INVAL:
-+		printk(KERN_INFO "QP%04d %s(S_SE_INV, MPA len %d): %08x %08x "
-+			"%08x\n", qp_id, msg, ntohs(hdr->ctrl.mpa_len),
-+			hdr->send.ddp_qn, hdr->send.ddp_msn,
-+			hdr->send.ddp_mo);
-+		break;
-+
-+	case RDMAP_TERMINATE:
-+		printk(KERN_INFO "QP%04d %s(TERM, MPA len %d):\n", qp_id, msg,
-+			ntohs(hdr->ctrl.mpa_len));
-+		break;
-+
-+	default:
-+		printk(KERN_INFO "QP%04d %s ?????\n", qp_id, msg);
-+		break;
-+	}
-+}
-+
-+void siw_print_rctx(struct siw_iwarp_rx *rctx)
-+{
-+	printk(KERN_INFO "---RX Context-->\n");
-+	siw_print_hdr(&rctx->hdr, RX_QPID(rctx), "\nCurrent Pkt:\t");
-+	printk(KERN_INFO "Skbuf State:\tp:0x%p, new:%d, off:%d, copied:%d\n",
-+		rctx->skb, rctx->skb_new, rctx->skb_offset, rctx->skb_copied);
-+	printk(KERN_INFO "FPDU State:\trx_state:%d,\n\t\trcvd:%d, rem:%d, "
-+		"pad:%d\n", rctx->state, rctx->fpdu_part_rcvd,
-+		rctx->fpdu_part_rem, rctx->pad);
-+	printk(KERN_INFO "Rx Mem:\t\tp:0x%p, chunk:0x%p,\n\t\tp_ix:%d, "
-+		"p_off:%d, stag:0x%08x, mem_id:%d\n",
-+		rctx->dest.wqe, rctx->umem_chunk, rctx->pg_idx, rctx->pg_off,
-+		rctx->ddp_stag, rctx->ddp_stag >> 8);
-+	printk(KERN_INFO "DDP State:\tprev_op:%d, first_seg:%d, "
-+		"more_segs:%d\n", rctx->prev_ddp_opcode, rctx->first_ddp_seg,
-+		rctx->more_ddp_segs);
-+	printk(KERN_INFO "MPA State:\tlen:%d, crc_enabled:%d, crc:0x%x\n",
-+		rctx->hdr.ctrl.mpa_len, rctx->crc_enabled, rctx->trailer.crc);
-+	printk(KERN_INFO "<---------------\n");
-+}
-+
-+#if DPRINT_MASK > 0
-+char ib_qp_state_to_string[IB_QPS_ERR+1][sizeof "RESET"] = {
-+	[IB_QPS_RESET]	= "RESET",
-+	[IB_QPS_INIT]	= "INIT",
-+	[IB_QPS_RTR]	= "RTR",
-+	[IB_QPS_RTS]	= "RTS",
-+	[IB_QPS_SQD]	= "SQD",
-+	[IB_QPS_SQE]	= "SQE",
-+	[IB_QPS_ERR]	= "ERR"
-+};
-+#endif
-diff --git a/drivers/infiniband/hw/siw/siw_debug.h b/drivers/infiniband/hw/siw/siw_debug.h
-new file mode 100644
-index 0000000..4769bec
---- /dev/null
-+++ b/drivers/infiniband/hw/siw/siw_debug.h
-@@ -0,0 +1,160 @@
-+/*
-+ * Software iWARP device driver for Linux
-+ *
-+ * Authors: Fredy Neeser <nfd@zurich.ibm.com>
-+ *          Bernard Metzler <bmt@zurich.ibm.com> 
-+ *
-+ * Copyright (c) 2008-2011, IBM Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * BSD license below:
-+ *
-+ *   Redistribution and use in source and binary forms, with or
-+ *   without modification, are permitted provided that the following
-+ *   conditions are met:
-+ *
-+ *   - Redistributions of source code must retain the above copyright notice,
-+ *     this list of conditions and the following disclaimer.
-+ *
-+ *   - Redistributions in binary form must reproduce the above copyright
-+ *     notice, this list of conditions and the following disclaimer in the
-+ *     documentation and/or other materials provided with the distribution.
-+ *
-+ *   - Neither the name of IBM nor the names of its contributors may be
-+ *     used to endorse or promote products derived from this software without
-+ *     specific prior written permission.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef _SIW_DEBUG_H
-+#define _SIW_DEBUG_H
-+
-+#include <linux/uaccess.h>
-+#include <linux/hardirq.h>	/* in_interrupt() */
-+
-+/*
-+ * dprint: Selective debug printing
-+ *
-+ * Use an OR combination of DBG_* as dbgcat in dprint*(dbgcat,...)
-+ * to assign debug messages to categories:
-+ *
-+ * dbgcat	Debug message belongs to category
-+ * ----------------------------------------------------------------------------
-+ * DBG_ON	Always on, for really important events or error conditions
-+ * DBG_TMP	Temporarily on for fine-grained debugging
-+ * DBQ_OBJ	Object management (object construction/destruction/refcounting)
-+ * DBG_MM	Memory management
-+ * DBG_EH	Event handling (completion events and asynchronous events)
-+ * DBG_CM	Connection management, QP states
-+ * DBG_WR	Work requests
-+ * DBG_TX	iWARP TX path
-+ * DBG_RX	iWARP RX path
-+ * DBG_SK	Socket operations
-+ * DBG_KT	Kernel threads
-+ * DBG_IRQ	Interrupt context (SoftIRQ or HardIRQ)
-+ * DBG_DM	Device management
-+ * DBG_HDR	Packet HDRs
-+ * DBG_ALL	All categories above
-+ */
-+#define DBG_ON		0x00000001
-+#define DBG_TMP		0x00000002
-+#define DBG_OBJ		0x00000004
-+#define DBG_MM		0x00000008
-+#define DBG_EH		0x00000010
-+#define DBG_CM		0x00000020
-+#define DBG_WR		0x00000040
-+#define DBG_TX		0x00000080
-+#define DBG_RX		0x00000100
-+#define DBG_SK		0x00000200
-+#define DBG_KT		0x00000400
-+#define DBG_IRQ		0x00000800
-+#define DBG_DM		0x00001000
-+#define DBG_HDR		0x00002000
-+#define DBG_ALL		(DBG_IRQ|DBG_KT|DBG_SK|DBG_RX|DBG_TX|DBG_WR|\
-+DBG_CM|DBG_EH|DBG_MM|DBG_OBJ|DBG_TMP|DBG_DM|DBG_ON|DBG_HDR)
-+#define DBG_ALL_NOHDR	(DBG_IRQ|DBG_KT|DBG_SK|DBG_RX|DBG_TX|DBG_WR|\
-+DBG_CM|DBG_EH|DBG_MM|DBG_OBJ|DBG_TMP|DBG_DM|DBG_ON)
-+#define DBG_CTRL	(DBG_ON|DBG_CM|DBG_DM)
-+
-+/*
-+ * Set DPRINT_MASK to tailor your debugging needs:
-+ *
-+ * DPRINT_MASK value		Enables debug messages for
-+ * ---------------------------------------------------------------------
-+ * DBG_ON			Important events / error conditions only
-+ *				(minimum number of debug messages)
-+ * OR-ed combination of DBG_*	Selective debugging
-+ * DBG_KT|DBG_ON		Kernel threads
-+ * DBG_ALL			All categories
-+ */
-+#define DPRINT_MASK	0
-+
-+extern void siw_print_hdr(union iwarp_hdrs *, int, char *);
-+extern void siw_print_rctx(struct siw_iwarp_rx *);
-+extern void siw_print_qp_attr_mask(enum ib_qp_attr_mask, char *);
-+
-+#if DPRINT_MASK > 0
-+
-+/**
-+ * dprint - Selective debug print for process, SoftIRQ or HardIRQ context
-+ *
-+ * Debug print with selectable debug categories,
-+ * starting with header
-+ * - "( pid /cpu) __func__" for process context
-+ * - "( irq /cpu) __func__" for IRQ context
-+ *
-+ * @dbgcat	: Set of debug categories (OR-ed combination of DBG_* above),
-+ *		  to which this debug message is assigned.
-+ * @fmt		: printf compliant format string
-+ * @args	: printf compliant argument list
-+ */
-+#define dprint(dbgcat, fmt, args...)					\
-+	do {								\
-+		if ((dbgcat) & DPRINT_MASK) {				\
-+			if (!in_interrupt())				\
-+				printk(KERN_INFO "(%5d/%1d) %s" fmt,	\
-+					current->pid,			\
-+					current_thread_info()->cpu,	\
-+					__func__, ## args);		\
-+			else						\
-+				printk(KERN_INFO "( irq /%1d) %s" fmt,	\
-+					current_thread_info()->cpu,	\
-+					__func__, ## args);		\
-+		}							\
-+	} while (0)
++Receive Path
++------------
++All application data is placed into target buffers within softirq
++socket callback. Application notification is asynchronous.
 +
 +
-+#define siw_dprint_rctx(r)	siw_print_rctx(r)
-+extern char ib_qp_state_to_string[IB_QPS_ERR+1][sizeof "RESET"];
++User Interface
++--------------
++All user space fast path operations such as posting of work requests and
++reaping of work completions currently involve a isynchronous call into
++the siw kernel module via ib_uverbs interface. Kernel/user-mapped send
++and receive as well as completion queues are not part of the current code.
++In particular, mapped completion queues may improve performance,
++since reaping completion queue entries as well as re-arming
++the completion queue could be done more efficiently.
 +
-+#else
-+#define dprint(dbgcat, fmt, args...)	do { } while (0)
-+#define siw_dprint_rctx(r)	do { } while (0)
-+#endif
++
++Kernel Client Support
++---------------------
++To guarantee non-blocking fast path operations, for kernel clients
++all work queue elements (send/receive/shared-receive queue) are
++pre-allocated during connection resource setup.
 +
 +
-+#if DPRINT_MASK & DBG_HDR
-+#define siw_dprint_hdr(h, i, m)	siw_print_hdr(h, i, m)
-+#else
-+#define siw_dprint_hdr(h, i, m)	do { } while (0)
-+#endif
++Memory Management
++-----------------
++siw currently uses the ib_umem_get() function of the ib_core module
++to pin memory for later use in data transfer operations. Transmit
++and receive memory are checked against correct access permissions only
++in the moment of access by the network input path or before pushing it
++to the TCP socket for transmission.
++ib_umem_get() provides DMA mappings for the requested address space which
++are not used by siw.
 +
-+#if DPRINT_MASK & DBG_CM
-+#define siw_dprint_qp_attr_mask(mask)\
-+		siw_print_qp_attr_mask(mask, (char *)__func__)
-+#else
-+#define siw_dprint_qp_attr_mask(mask)	do { } while (0)
-+#endif
 +
-+#endif
++Module Parameters
++-----------------
++The following siw module parameters are recognized.
++
++loopback_enabled:
++	If set, siw attaches also to the looback device. Checked only
++	during module insertion.
++
++mpa_crc_required:
++	If set, the MPA CRC gets generated and checked both in tx and rx
++	path. Without hardware support, setting this flag will severely
++	hurt throughput. Default setting is 0 (off).
++
++mpa_crc_strict:
++	If set, MPA CRC will not be enabled, even if peer requests
++	it. If the peer requests CRC generation, the connection setup
++	will be aborted. Default setting is 1 (on).
++
++zcopy_tx:
++	If set, payload of non-signalled work requests
++	(such as non-signalled WRITE or SEND as well as all READ
++	responses) are transferred using the TCP sockets
++	sendpage interface. This parameter can be switched on and
++	off dynamically (echo 1 >> /sys/module/siw/parameters/zcopy_tx
++	for enablement, 0 for disabling). System load may benefits from
++	using 0copy data transmission. 0copy is not enabled if
++	mpa_crc_enabled is set. Default setting is 1 (on).
++
++tcp_nodelay:
++	If set, on the TCP socket the TCP_NODELAY option is set.
++	Default setting is 1 (on).
++
++iface_list:
++	Comma separated list of interfaces siw should attach to.
++	If no list is given, siw attaches to all available devices.
++	If a list is given, siw skips those devices not listed.
++	Currently, the list is restricted to 12 entries. If needed,
++	the 'SIW_MAX_IF' #define in siw_main.c can be adaped.
++	This parameter might be usefull to skip devices which are
++	attached to a real RNIC device. Default setting is an empty list.
++
++
++Compile Time Flags:
++-------------------
++-DCHECK_DMA_CAPABILITIES
++	Checks if the device siw wants to attach to provides
++	DMA capabilities. While DMA capabilities are currently not
++	needed (siw works on top of a kernel TCP socket), siw
++	uses ib_umem_get() which performs a (not used) DMA address
++	translation. Writing a siw private memory reservation and
++	pinning routine would solve the issue.
++
++-DSIW_TX_FULLSEGS
++	Experimental, not enabled by default. If set,
++	siw tries not to overrun the socket (not sending until
++	-EAGAIN return), but stops sending if the current segment
++	would not fit into the socket's estimated tx buffer. With that,
++	wire FPDUs may get truncated by the TCP stack far less often.
++	Since this feature manipulates the sock's SOCK_NOSPACE
++	bit, it violates strict layering and is therefore considered
++	proprietary.
++	Since TCP is a byte stream protocol, no guarantee can be given
++	if FPDU's are not fragmented.
++
++
++Debugging SIW:
++--------------
++The siw_debug.h file defines a 'dprint' macro which is used to debug
++siw at runtime. Verbosity of debugging is controlled at compile time
++via setting the 'DPRINT_MASK' to a or'd list of know value as defined
++in siw_debug.h, e.g. '#define DPRINT_MASK (DBG_ON|DBG_CM)' to debug
++errors and connection management. Defining DPRINT_MASK to '0' avoids
++to compile any runtime debugging code.
++
++To track siw's useage of its objects (connection endpoints, tcp sockets,
++protection domains, queue pairs, shared receive queues, completion queues,
++memory registrations, work queue elements), the /sys/class/infiniband/siw*
++directory contains siw interface specific objects, which can be read to
++gather simple statistics:
++
++/sys/class/infiniband/siw*/stats:
++	Summary of allocated WQE's, PD's, QP's, CQ's, SRQ's, MR's, CEP's.
++	WQE statistics are not gathered if 'DPRINT_MASK' is set to '0'
++	(see above).
++
++/sys/class/infiniband/siw*/qp:
++	Summary of allocated queue pairs. If queue pairs are allocated,
++	after reading 'qp' a more detailed status of all queue pairs has
++	been printed to the kernel syslog and can be retrieved via
++	'dmesg' command.
++
++/sys/class/infiniband/siw*/cep:
++	Summary of allocated connection end points. If connection endpoints
++	are allocated, after reading 'cep' a more detailed status of all
++	CEP's is printed to the kernel syslog and can be retrieved via
++	'dmesg' command.
++
++Using the sysfs to gather siw's object allocations is considered a
++tentative aid during further driver development and should disappear
++in a stable version of siw.
 -- 
 1.5.4.3
 
