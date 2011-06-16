@@ -1,91 +1,51 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
-Date: Thu, 16 Jun 2011 17:56:52 +0900
-Message-ID: <151AD57D-3AB7-400C-B354-265F05A85E8F@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+From: Srinivasa T N <seenutn@linux.vnet.ibm.com>
+Subject: Re: Netconf2011 slides...
+Date: Thu, 16 Jun 2011 15:39:08 +0530
+Message-ID: <4DF9D644.708@linux.vnet.ibm.com>
+References: <20110615.145937.1748734114172641662.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:60091 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757322Ab1FPI4w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 04:56:52 -0400
+Received: from e23smtp01.au.ibm.com ([202.81.31.143]:48984 "EHLO
+	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754006Ab1FPKJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 06:09:25 -0400
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.31.245])
+	by e23smtp01.au.ibm.com (8.14.4/8.13.1) with ESMTP id p5GA4x0p019787
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2011 20:04:59 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p5GA9GGd659602
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2011 20:09:16 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p5GA9FFD030500
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2011 20:09:15 +1000
+In-Reply-To: <20110615.145937.1748734114172641662.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 111463f295a5ea7ae03c26bf62671895e803bc28 Mon Sep 17 00:00:00 2001
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Thu, 16 Jun 2011 17:14:34 +0900
-Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
+On 06/16/2011 12:29 AM, David Miller wrote:
+>
+> As we're winding down here in Toronto I wanted to point
+> folks at our web page:
+>
+> 	http://vger.kernel.org/netconf2011.html
+>
+> as most of the slides are up for people to take a look
+> at.  I'll make sure the remaining ones go up over the
+> next few days.
+>
+> Go bruins!
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+Hi David,
+	Were there some interesting topics which is useful for the community? 
+(Few lines on each such topic would do).
 
-With this patch a HEARTBEAT chunk is bundled into the ASCONF-ACK
-for ADD IP ADDRESS, confirming the new destination as quickly as
-possible.
-
-Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
----
- include/net/sctp/structs.h |    1 +
- net/sctp/associola.c       |    1 +
- net/sctp/sm_make_chunk.c   |    1 +
- net/sctp/sm_statefuns.c    |    5 +++++
- 4 files changed, 8 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 31d7ea2..7154980 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1915,6 +1915,7 @@ struct sctp_association {
- 	__u32 addip_serial;
- 	union sctp_addr *asconf_addr_del_pending;
- 	int src_out_of_asoc_ok;
-+	struct sctp_transport *new_transport;
- 
- 	/* SCTP AUTH: list of the endpoint shared keys.  These
- 	 * keys are provided out of band by the user applicaton
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index dc16b90..152b5b3 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -282,6 +282,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 		asoc->peer.asconf_capable = 1;
- 	asoc->asconf_addr_del_pending = NULL;
- 	asoc->src_out_of_asoc_ok = 0;
-+	asoc->new_transport = NULL;
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 3363d37..a42d3b0 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3016,6 +3016,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 		/* Start the heartbeat timer. */
- 		if (!mod_timer(&peer->hb_timer, sctp_transport_timeout(peer)))
- 			sctp_transport_hold(peer);
-+		asoc->new_transport = peer;
- 		break;
- 	case SCTP_PARAM_DEL_IP:
- 		/* ADDIP 4.3 D7) If a request is received to delete the
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index a297283..5cfd6d2 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3612,6 +3612,11 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
- 	 */
- 	asconf_ack->dest = chunk->source;
- 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(asconf_ack));
-+	if (asoc->new_transport) {
-+	        sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport,
-+                    commands);
-+		((struct sctp_association *)asoc)->new_transport = NULL;
-+	}
- 
- 	return SCTP_DISPOSITION_CONSUME;
- }
--- 
-1.7.3.2
-
-
+Regards,
+Seenu.
