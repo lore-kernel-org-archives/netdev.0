@@ -1,30 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2] netfilter: avoid double seq_adjust for loopback
-Date: Thu, 16 Jun 2011 17:30:16 +0200
-Message-ID: <4DFA2188.5000505@trash.net>
-References: <alpine.LFD.2.00.1106080926320.1457@ja.ssi.bg>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 001/001] forcedeth: Don't enable hardware vlan support
+ on hardware that doesn't support it
+Date: Thu, 16 Jun 2011 08:42:38 -0700
+Message-ID: <20110616084238.7830cd92@nehalam.ftrdhcpuser.net>
+References: <25664046.71236.1308171027618.JavaMail.root@tahiti.vyatta.com>
+	<585670083.71238.1308171180725.JavaMail.root@tahiti.vyatta.com>
+	<BANLkTimqAXLDZ8cev5dgUTDR3pg-_Y3XUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1106080926320.1457@ja.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Antoine Reversat <a.reversat@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:39720 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754831Ab1FPPmu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jun 2011 11:42:50 -0400
+In-Reply-To: <BANLkTimqAXLDZ8cev5dgUTDR3pg-_Y3XUA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08.06.2011 08:31, Julian Anastasov wrote:
-> 	Avoid double seq adjustment for loopback traffic
-> because it causes silent repetition of TCP data. One
-> example is passive FTP with DNAT rule and difference in the
-> length of IP addresses.
-> 
-> 	This patch adds check if packet is sent and
-> received via loopback device. As the same conntrack is
-> used both for outgoing and incoming direction, we restrict
-> seq adjustment to happen only in POSTROUTING.
-> 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+On Wed, 15 Jun 2011 17:08:18 -0400
+Antoine Reversat <a.reversat@gmail.com> wrote:
 
-Applied, thanks Julian.
+> On Wed, Jun 15, 2011 at 4:53 PM, Stephen Hemminger
+> <stephen.hemminger@vyatta.com> wrote:
+> >
+> > This shouldn't be necessary. rx_register should not be called
+> > unless NETIF_F_HW_VLAN_RX is set; and device should not be setting
+> > NETIF_F_HW_VLAN_RX unless DEV_HAS_VLAN is set.
+> 
+> I can confirm that rx_register gets called on hardware that doesn't
+> have vlan support (namely MCP79).
+> 
+> From what I can see in vlan.c (in register_vlan_dev) there is no check
+> on the features of the device before calling the register function :
+> 
+>     if (ngrp) {
+>         if (ops->ndo_vlan_rx_register)
+>             ops->ndo_vlan_rx_register(real_dev, ngrp);
+>         rcu_assign_pointer(real_dev->vlgrp, ngrp);
+>     }
+> 
+> If the function exists, it's called. Should I send a patch to call the
+> function only if the hardware supports it ?
+> 
+> >
+> > The real problem is vlan_dev.c, and applies to all devices.
+
+That is was suggesting because other drivers may have the same issue
+where they need to define rx_register for some hardware and control
+usage of vlan by the feature bits.
