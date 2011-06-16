@@ -1,47 +1,40 @@
 From: kaber@trash.net
-Subject: [PATCH 3/6] netfilter: ipt_ecn: fix protocol check in ecn_mt_check()
-Date: Thu, 16 Jun 2011 21:41:38 +0200
-Message-ID: <1308253301-29894-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 2/6] netfilter: ip_tables: fix compile with debug
+Date: Thu, 16 Jun 2011 21:41:37 +0200
+Message-ID: <1308253301-29894-3-git-send-email-kaber@trash.net>
 References: <1308253301-29894-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:64061 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757799Ab1FPTlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 15:41:45 -0400
 In-Reply-To: <1308253301-29894-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 
-Check for protocol inversion in ecn_mt_check() and remove the
-unnecessary runtime check for IPPROTO_TCP in ecn_mt().
-
+Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/ipt_ecn.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/ipv4/netfilter/ip_tables.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_ecn.c b/net/ipv4/netfilter/ipt_ecn.c
-index af6e9c7..aaa85be 100644
---- a/net/ipv4/netfilter/ipt_ecn.c
-+++ b/net/ipv4/netfilter/ipt_ecn.c
-@@ -76,8 +76,6 @@ static bool ecn_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			return false;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 7647438..24e556e 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -566,7 +566,7 @@ check_entry(const struct ipt_entry *e, const char *name)
+ 	const struct xt_entry_target *t;
  
- 	if (info->operation & (IPT_ECN_OP_MATCH_ECE|IPT_ECN_OP_MATCH_CWR)) {
--		if (ip_hdr(skb)->protocol != IPPROTO_TCP)
--			return false;
- 		if (!match_tcp(skb, info, &par->hotdrop))
- 			return false;
- 	}
-@@ -97,7 +95,7 @@ static int ecn_mt_check(const struct xt_mtchk_param *par)
- 		return -EINVAL;
- 
- 	if (info->operation & (IPT_ECN_OP_MATCH_ECE|IPT_ECN_OP_MATCH_CWR) &&
--	    ip->proto != IPPROTO_TCP) {
-+	    (ip->proto != IPPROTO_TCP || ip->invflags & IPT_INV_PROTO)) {
- 		pr_info("cannot match TCP bits in rule for non-tcp packets\n");
+ 	if (!ip_checkentry(&e->ip)) {
+-		duprintf("ip check failed %p %s.\n", e, par->match->name);
++		duprintf("ip check failed %p %s.\n", e, name);
  		return -EINVAL;
  	}
+ 
 -- 
 1.7.2.3
 
