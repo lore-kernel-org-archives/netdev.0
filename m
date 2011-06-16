@@ -1,95 +1,33 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 6/7] qlcnic: Add support to enable/disable FW dump capability
-Date: Thu, 16 Jun 2011 13:37:37 -0700
-Message-ID: <1308256659-19895-6-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1308256659-19895-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: David Miller <davem@davemloft.net>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+From: Antoine Reversat <a.reversat@gmail.com>
+Subject: [PATCH 001/001] vlan: don't call ndo_vlan_rx_register on hardware
+ that doesn't have vlan support
+Date: Thu, 16 Jun 2011 16:47:13 -0400
+Message-ID: <BANLkTimBm8rFF41RzAN6vk3o6SLy6cfZDQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:50527 "HELO mx.mv.qlogic.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S932254Ab1FPUpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2011 16:45:31 -0400
-In-Reply-To: <1308256659-19895-1-git-send-email-anirban.chakraborty@qlogic.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:61827 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933015Ab1FPUrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 16:47:14 -0400
+Received: by bwz15 with SMTP id 15so282724bwz.19
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2011 13:47:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In certain situations, it may be required to not enable FW dump
-capability. Add support to turn off/on FW dump capability.
-
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+This patch removes the call to ndo_vlan_rx_register if the underlying
+device doesn't have hardware support for VLAN.
+Signed-off-by: Antoine Reversat <a.reversat@gmail.com>
 ---
- drivers/net/qlcnic/qlcnic.h         |    3 +++
- drivers/net/qlcnic/qlcnic_ctx.c     |    1 +
- drivers/net/qlcnic/qlcnic_ethtool.c |   19 +++++++++++++++++++
- 3 files changed, 23 insertions(+), 0 deletions(-)
+--- linux-2.6.39/net/8021q/vlan.c	2011-05-19 00:06:34.000000000 -0400
++++ linux-2.6.39-fixed/net/8021q/vlan.c	2011-06-16 16:39:25.933742004 -0400
+@@ -211,7 +211,7 @@ int register_vlan_dev(struct net_device
+ 	grp->nr_vlans++;
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 58d7616..0be84bd 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -429,6 +429,7 @@ struct qlcnic_dump_template_hdr {
- 
- struct qlcnic_fw_dump {
- 	u8	clr;	/* flag to indicate if dump is cleared */
-+	u8	enable; /* enable/disable dump */
- 	u32	size;	/* total size of the dump */
- 	void	*data;	/* dump data area */
- 	struct	qlcnic_dump_template_hdr *tmpl_hdr;
-@@ -1320,6 +1321,8 @@ enum op_codes {
- #define QLCNIC_DUMP_MASK_DEF		0x7f
- #define QLCNIC_DUMP_MASK_MAX		0xff
- #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
-+#define QLCNIC_ENABLE_FW_DUMP		0xaddfeed
-+#define QLCNIC_DISABLE_FW_DUMP		0xbadfeed
- 
- struct qlcnic_dump_operations {
- 	enum op_codes opcode;
-diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
-index 0ca514a..b6769c7 100644
---- a/drivers/net/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/qlcnic/qlcnic_ctx.c
-@@ -150,6 +150,7 @@ int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
- 		tmpl_hdr->drv_cap_mask = tmpl_hdr->cap_mask;
- 	else
- 		tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
-+	ahw->fw_dump.enable = 1;
- error:
- 	dma_free_coherent(&adapter->pdev->dev, temp_size, tmp_addr, tmp_addr_t);
- 	return err;
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 3e79c20..a7f16a6 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -1019,8 +1019,27 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 
- 	if (val->flag == QLCNIC_FORCE_FW_DUMP_KEY) {
-+		if (!fw_dump->enable) {
-+			netdev_info(netdev, "FW dump not enabled\n");
-+			return ret;
-+		}
-+		if (fw_dump->clr) {
-+			dev_info(&adapter->pdev->dev,
-+			"Previous dump not cleared, not forcing dump\n");
-+			return ret;
-+		}
- 		netdev_info(netdev, "Forcing a FW dump\n");
- 		qlcnic_dev_request_reset(adapter);
-+	} else if (val->flag == QLCNIC_DISABLE_FW_DUMP) {
-+		if (fw_dump->enable) {
-+			netdev_info(netdev, "Disabling FW dump\n");
-+			fw_dump->enable = 0;
-+		}
-+	} else if (val->flag == QLCNIC_ENABLE_FW_DUMP) {
-+		if (!fw_dump->enable && fw_dump->tmpl_hdr) {
-+			netdev_info(netdev, "Enabling FW dump\n");
-+			fw_dump->enable = 1;
-+		}
- 	} else {
- 		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
- 			val->flag < QLCNIC_DUMP_MASK_MIN) {
--- 
-1.7.4.1
-
+ 	if (ngrp) {
+-		if (ops->ndo_vlan_rx_register)
++		if (ops->ndo_vlan_rx_register && (real_dev->features & NETIF_F_HW_VLAN_RX))
+ 			ops->ndo_vlan_rx_register(real_dev, ngrp);
+ 		rcu_assign_pointer(real_dev->vlgrp, ngrp);
+ 	}
