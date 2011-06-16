@@ -1,215 +1,58 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [RFC] Moving files around in drivers/net
-Date: Thu, 16 Jun 2011 11:34:02 +0800
-Message-ID: <BANLkTinb0U+=rbK65Xs+E+GBwqvVSV_a9A@mail.gmail.com>
-References: <1306956602.32125.28.camel@Joe-Laptop> <1306957998.3076.18.camel@jtkirshe-MOBL1>
- <1306958478.32125.32.camel@Joe-Laptop> <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [RFC] Moving files around in drivers/net
+Date: Wed, 15 Jun 2011 22:05:30 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F63F1859422D@EXMAIL.ad.emulex.com>
+References: <1306956602.32125.28.camel@Joe-Laptop>
+	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
+	 <1306958478.32125.32.camel@Joe-Laptop>
+	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
  <1308186619.12377.23.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<paul.gortmaker@windriver.com>, <jengelh@medozas.de>
+To: <joe@perches.com>, <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60673 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921Ab1FPDeX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2011 23:34:23 -0400
-Received: by fxm17 with SMTP id 17so828642fxm.19
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2011 20:34:22 -0700 (PDT)
+Received: from exht2.emulex.com ([138.239.113.184]:51851 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751040Ab1FPFFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 01:05:52 -0400
 In-Reply-To: <1308186619.12377.23.camel@Joe-Laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Joe,
-
-On Thu, Jun 16, 2011 at 9:10 AM, Joe Perches <joe@perches.com> wrote:
-> On Wed, 2011-06-15 at 11:38 -0700, Jeff Kirsher wrote:
->> On Wed, Jun 1, 2011 at 13:01, Joe Perches <joe@perches.com> wrote:
->> > On Wed, 2011-06-01 at 12:53 -0700, Jeff Kirsher wrote:
->> >> On Wed, 2011-06-01 at 12:30 -0700, Joe Perches wrote:
->> >> > Does anyone still think moving files around in drivers/net
->> >> > would be sensible and a suitable candidate for inclusion
->> >> > in 3.1?
->> >> > Here's what Jeffrey proposed:
->> >> > http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
->> >> > Here's what I proposed before that.
->> >> > http://www.spinics.net/lists/netdev/msg149717.html
->> >> I am over 90% done with the work and have been trying to finish u=
-p the
->> >> patches so that I could get them out as an RFC here in the next w=
-eek.
->> > Excellent, thanks.
->> I thought for sure I would have finished what I have left by last
->> weekend, but I keep getting interrupted. =C2=A0(Blame it on the NHL =
-stanley
->> cup playoffs) :)
->> I have created a git tree on kernel.org with all the work that I hav=
-e
->> completed so far (see below). =C2=A0This first stage of the move is =
-only
->> taking care of the drivers. =C2=A0The next stage will move the netwo=
-rking
->> core drivers (bridging, bonding, vlan, etc.) into drivers/net/sw.
->> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize
->> I will send out all the patches as an RFC by the end of the week (fo=
-r sure)
->
-> I've put the body of the git log below my comments
-> to make it easier to discuss.
->
-> Comments:
->
-> pktgen in hamachi/yellowfin should be pkteng
->
-> I think it might be better if:
->
-> Things were more spelled out:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pkteng should be packetengines
-> And things maybe not spelled out
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0ixp2000 might just be ixp (what not intel?=
-:)
->
-> And maybe drivers/net/ethernet/ should be as
-> unpopulated as possible. =C2=A0Maybe create a misc
-> directory and throw old unclassifiable junk there.
->
-> Lance should be its own directory like 8390.
-> I think a2065 and ariadne are lance drivers.
->
-> Some manufacturer directories are directly populated
-> with multiple drivers, some have subdirectories.
-> Should one style be consistently used?
->
-> pch_gbe should probably be oki.
->
-> Isn't syskonnect now marvell?
->
-> stmmac may not be a good name. =C2=A0Maybe stmicro.
->
-> enic may not be a good name. =C2=A0Maybe cisco.
->
-> mlx4 may be mellanox
->
-> sfc may be solarflare
->
-> bna may be brocade
->
-> cheers, Joe
->
-
-[snip...]
-
-> commit 5fe875b9e93af6b5a099b37471bebb541f1ba0c6
-> Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: =C2=A0 Thu May 19 22:06:03 2011 -0700
->
-> =C2=A0 =C2=A0arm: Move the ARM/ACORN drivers
->
-> =C2=A0 =C2=A0Move the ARM/ACORN drivers into drivers/net/ethernet/arm=
-/ and make the
-> =C2=A0 =C2=A0necessary Kconfig and Makefile changes.
-> =C2=A0 =C2=A0There were 4 drivers (TI Davinci & ftmac100) not in the
-> =C2=A0 =C2=A0drivers/net/arm/ which should have been since they are o=
-nly supported
-> =C2=A0 =C2=A0under ARM, so they were added to the new directory struc=
-ture.
->
-> =C2=A0 =C2=A0NOTE: There are no "maintainers" for the TI Davinci driv=
-ers, so I am
-> =C2=A0 =C2=A0CC'ing the last 3 major contributors from TI.
->
-> =C2=A0 =C2=A0CC: Sriram <srk@ti.com>
-> =C2=A0 =C2=A0CC: Vinay Hegde <vinay.hegde@ti.com>
-> =C2=A0 =C2=A0CC: Cyril Chemparathy <cyril@ti.com>
-> =C2=A0 =C2=A0CC: Russell King <linux@arm.linux.org.uk>
-> =C2=A0 =C2=A0CC: Wan ZongShun <mcuos.com@gmail.com>
-> =C2=A0 =C2=A0CC: Lennert Buytenhek <kernel@wantstofly.org>
-> =C2=A0 =C2=A0CC: Krzysztof Halasa <khc@pm.waw.pl>
-> =C2=A0 =C2=A0CC: Po-Yu Chuang <ratbert@faraday-tech.com>
-> =C2=A0 =C2=A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com=
->
->
-> =C2=A0MAINTAINERS =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-| =C2=A0 10 +-
-> =C2=A0drivers/net/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 51 -------=
---
-> =C2=A0drivers/net/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A07 --
-> =C2=A0drivers/net/arm/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 74 -------------
-> =C2=A0drivers/net/ethernet/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A01 +
-> =C2=A0drivers/net/ethernet/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A01 +
-> =C2=A0drivers/net/ethernet/arm/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 | =C2=A0138 ++++++++++++++++++++++++
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/Makefile =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0| =C2=A0 =C2=A06 +-
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/am79c961a.c =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/am79c961a.h =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/at91_ether.c =C2=A0 =C2=A0| =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/at91_ether.h =C2=A0 =C2=A0| =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/davinci_cpdma.c | =C2=A0 =C2=A0=
-0
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/davinci_cpdma.h | =C2=A0 =C2=A0=
-0
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/davinci_emac.c =C2=A0| =C2=A0 =
-=C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/davinci_mdio.c =C2=A0| =C2=A0 =
-=C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ep93xx_eth.c =C2=A0 =C2=A0| =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ether1.c =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ether1.h =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ether3.c =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ether3.h =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/etherh.c =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/ftgmac100.c =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/ftgmac100.h =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/ftmac100.c =C2=A0 =C2=A0 =C2=A0=
-| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet/arm}/ftmac100.h =C2=A0 =C2=A0 =C2=A0=
-| =C2=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ixp4xx_eth.c =C2=A0 =C2=A0| =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ks8695net.c =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/ks8695net.h =C2=A0 =C2=A0 | =C2=
-=A0 =C2=A00
-> =C2=A0drivers/net/{ =3D> ethernet}/arm/w90p910_ether.c | =C2=A0 =C2=A0=
-0
-> =C2=A030 files changed, 150 insertions(+), 138 deletions(-)
->
-
-[snip...]
-
-=46araday ftmac100 and ftgmac100 are used by not only ARM SoCs.
-There are SoCs of NDS32 architecture use these controllers, but
-NDS32 architecture is not in Linux mainline (yet).
-If these drivers were moved to arm directory, they maybe need to be
-moved out of it someday.
-
-So, how about:
-driver/net{ =3D> ethernet/faraday}/ftmac100.c
-driver/net{ =3D> ethernet/faraday}/ftgmac100.c
-
-Best regards,
-Po-Yu Chuang
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
+bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+QmVoYWxm
+IE9mIEpvZSBQZXJjaGVzDQo+U2VudDogVGh1cnNkYXksIEp1bmUgMTYsIDIwMTEgNjo0MCBBTQ0K
+PlRvOiBKZWZmIEtpcnNoZXINCj5DYzogbmV0ZGV2OyBEYXZpZCBNaWxsZXI7IFBhdWwgR29ydG1h
+a2VyOyBKYW4gRW5nZWxoYXJkdA0KPlN1YmplY3Q6IFJlOiBbUkZDXSBNb3ZpbmcgZmlsZXMgYXJv
+dW5kIGluIGRyaXZlcnMvbmV0DQo+DQo+DQo+Y29tbWl0IDkzMWRhNTk0MTFlNjA1NzRhMTIzNWQw
+YWQyZDYzZWJkMTYzOGE4NTkNCj5BdXRob3I6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNo
+ZXJAaW50ZWwuY29tPg0KPkRhdGU6ICAgRnJpIE1heSAxMyAwMDozNzoyNyAyMDExIC0wNzAwDQo+
+DQo+ICAgIGJlMm5ldDogTW92ZSB0aGUgQmxhZGVFbmdpbmUgMiBkcml2ZXINCj4NCj4gICAgTW92
+ZXMgdGhlIFNlcnZlciBFbmdpbmUgZHJpdmVyIGludG8gZHJpdmVycy9uZXQvZXRoZXJuZXQvYmVu
+ZXQvIGFuZA0KPiAgICBtYWtlIHRoZSBuZWNlc3NhcnkgS2NvbmZpZyBhbmQgTWFrZWZpbGUgY2hh
+bmdlcy4NCj4NCj4gICAgQ0M6IFNhdGh5YSBQZXJsYSA8c2F0aHlhLnBlcmxhQGVtdWxleC5jb20+
+DQo+ICAgIENDOiBTdWJidSBTZWV0aGFyYW1hbiA8c3ViYnUuc2VldGhhcmFtYW5AZW11bGV4LmNv
+bT4NCj4gICAgQ0M6IEFqaXQgS2hhcGFyZGUgPGFqaXQua2hhcGFyZGVAZW11bGV4LmNvbT4NCj4g
+ICAgU2lnbmVkLW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
+b20+DQo+DQo+IE1BSU5UQUlORVJTICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDIgKy0NCj4gZHJpdmVycy9uZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICAg
+IHwgICAgMiAtLQ0KPiBkcml2ZXJzL25ldC9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAg
+ICAgfCAgICAxIC0NCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvS2NvbmZpZyAgICAgICAgICAgICAg
+ICAgIHwgICAgMSArDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L01ha2VmaWxlICAgICAgICAgICAg
+ICAgICB8ICAgIDEgKw0KPiBkcml2ZXJzL25ldC97ID0+IGV0aGVybmV0fS9iZW5ldC9LY29uZmln
+ICAgICAgfCAgICAwDQo+IGRyaXZlcnMvbmV0L3sgPT4gZXRoZXJuZXR9L2JlbmV0L01ha2VmaWxl
+ICAgICB8ICAgIDANCj4gZHJpdmVycy9uZXQveyA9PiBldGhlcm5ldH0vYmVuZXQvYmUuaCAgICAg
+ICAgIHwgICAgMA0KPiBkcml2ZXJzL25ldC97ID0+IGV0aGVybmV0fS9iZW5ldC9iZV9jbWRzLmMg
+ICAgfCAgICAwDQo+IGRyaXZlcnMvbmV0L3sgPT4gZXRoZXJuZXR9L2JlbmV0L2JlX2NtZHMuaCAg
+ICB8ICAgIDANCj4gZHJpdmVycy9uZXQveyA9PiBldGhlcm5ldH0vYmVuZXQvYmVfZXRodG9vbC5j
+IHwgICAgMA0KPiBkcml2ZXJzL25ldC97ID0+IGV0aGVybmV0fS9iZW5ldC9iZV9ody5oICAgICAg
+fCAgICAwDQo+IGRyaXZlcnMvbmV0L3sgPT4gZXRoZXJuZXR9L2JlbmV0L2JlX21haW4uYyAgICB8
+ICAgIDANCj4gMTMgZmlsZXMgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygt
+KQ0KPg0KDQpJZiB5b3UgYXJlIGdvaW5nIHRvIGNvbnNpc3RlbnRseSBoYXZlIHRoZSBwYXRoIGFz
+IGRyaXZlcnMvbmV0L2V0aGVybmV0Lzxjb21wYW55LW5hbWU+Lzxkcml2ZXItbmFtZT4sIHRoZW4N
+CmJlMm5ldCBkcml2ZXIgbXVzdCBiZSB1bmRlciBkcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgv
+YmUybmV0Lw0KDQp0aGFua3MsDQotU2F0aHlhDQo=
