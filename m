@@ -1,107 +1,101 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH] vhost: set dirty log when updating flags of used ring
-Date: Thu, 16 Jun 2011 14:45:56 +0800
-Message-ID: <20110616064556.9137.87807.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+From: Doru Theodor Petrescu <pdoru.kernel@evox.ro>
+Subject: Re: tc match MAC destination - nothing matches on protocol 802_3
+Date: Thu, 16 Jun 2011 10:56:52 +0300
+Message-ID: <1308211012.12982.36365.camel@u.evox.ro>
+References: <1308125523.30324.64.camel@ierdnac-hp>
+	 <20110615092907.2b79ee66@s6510.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25255 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750761Ab1FPGoo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2011 02:44:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ierdnah@gmail.com, linux-kernel@vger.kernel.org,
+	pdoru.kernel@evox.ro, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110615092907.2b79ee66@s6510.ftrdhcpuser.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We need to set log when updating flags of used ring, otherwise they may
-be missed after migration. A helper was introduced to write used_flags
-back to guest memory and update the log if necessary.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/vhost.c |   26 ++++++++++++++++++++++----
- drivers/vhost/vhost.h |    2 ++
- 2 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 2ab2912..7c46aed 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -573,8 +573,10 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
- static int init_used(struct vhost_virtqueue *vq,
- 		     struct vring_used __user *used)
- {
--	int r = put_user(vq->used_flags, &used->flags);
-+	int r;
- 
-+	vq->used = used;
-+	r = vhost_update_used_flags(vq);
- 	if (r)
- 		return r;
- 	return get_user(vq->last_used_idx, &used->idx);
-@@ -700,7 +702,6 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
- 		vq->desc = (void __user *)(unsigned long)a.desc_user_addr;
- 		vq->avail = (void __user *)(unsigned long)a.avail_user_addr;
- 		vq->log_addr = a.log_guest_addr;
--		vq->used = (void __user *)(unsigned long)a.used_user_addr;
- 		break;
- 	case VHOST_SET_VRING_KICK:
- 		if (copy_from_user(&f, argp, sizeof f)) {
-@@ -1375,6 +1376,23 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
- 	vhost_signal(dev, vq);
- }
- 
-+int vhost_update_used_flags(struct vhost_virtqueue *vq)
-+{
-+	if (put_user(vq->used_flags, &vq->used->flags) < 0)
-+		return -EFAULT;
-+	if (unlikely(vq->log_used)) {
-+		/* Make sure the flag is seen before log. */
-+		smp_wmb();
-+		/* Log used flag write. */
-+		log_write(vq->log_base,
-+			  vq->log_addr + offsetof(struct vring_used, flags),
-+			  sizeof vq->used->flags);
-+		if (vq->log_ctx)
-+			eventfd_signal(vq->log_ctx, 1);
-+	}
-+	return 0;
-+}
-+
- /* OK, now we need to know about added descriptors. */
- bool vhost_enable_notify(struct vhost_virtqueue *vq)
- {
-@@ -1384,7 +1402,7 @@ bool vhost_enable_notify(struct vhost_virtqueue *vq)
- 	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
- 		return false;
- 	vq->used_flags &= ~VRING_USED_F_NO_NOTIFY;
--	r = put_user(vq->used_flags, &vq->used->flags);
-+	r = vhost_update_used_flags(vq);
- 	if (r) {
- 		vq_err(vq, "Failed to enable notification at %p: %d\n",
- 		       &vq->used->flags, r);
-@@ -1411,7 +1429,7 @@ void vhost_disable_notify(struct vhost_virtqueue *vq)
- 	if (vq->used_flags & VRING_USED_F_NO_NOTIFY)
- 		return;
- 	vq->used_flags |= VRING_USED_F_NO_NOTIFY;
--	r = put_user(vq->used_flags, &vq->used->flags);
-+	r = vhost_update_used_flags(vq);
- 	if (r)
- 		vq_err(vq, "Failed to enable notification at %p: %d\n",
- 		       &vq->used->flags, r);
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index b3363ae..76f4c61 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -155,6 +155,8 @@ bool vhost_enable_notify(struct vhost_virtqueue *);
- int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
- 		    unsigned int log_num, u64 len);
- 
-+int vhost_update_used_flags(struct vhost_virtqueue *vq);
-+
- #define vq_err(vq, fmt, ...) do {                                  \
- 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
- 		if ((vq)->error_ctx)                               \
+I updated my scripts to use the 'tc filter ... match ether src/dst'
+syntax. it really makes reading the script easier. thanks for the tip!
 
+however the problem persists. I changed the rule to match ANY pachet of
+type 802_3 and redirect it to ifb1. but nothing arrives on ifb1.
+
+I tried to redirect ARP pachets using 'protocol arp' filter and it works
+perfectly as expected.
+
+so at this point the problem is no longer 'how to match ethernet header'
+but rather 'how to match a pachet of type 802_3'. My feeling is that
+there is a bug somewhere in kernel where the 'protocol 802_3' matching
+happens.
+
+
+I attach part of the script I use to generate the filters and classes. I
+removed everything related to HTB and IP pachets because there is no
+problem there. in case the formating is lost, you can download it from
+here: http://evox.ro/kernel_netdev_tc_protocol_802.3/
+
+
+Thx for any help,
+Doru Theodor Petrescu
+CTO, Evox Solutions SRL
+http://evox.ro/
+
+
+
+for DEV in bond0.2199 bond1.2199 bond0.3000 bond1.3001 ; do
+
+
+   tc qdisc  del dev $DEV root
+
+   tc qdisc  add dev $DEV root handle 1: htb default 2
+   tc class  add dev $DEV parent 1: classid 1:1 htb rate 930000kbit ceil
+930000kbit quantum 1600
+   
+   tc filter add dev $DEV parent 1: prio 5 protocol ip u32
+# ==> 800:
+
+   tc filter add dev $DEV parent 1: prio 1 protocol 0x0806 u32
+# ==> 801:      protocol ARP
+   tc filter add dev $DEV parent 1: prio 1 handle 801:0:7 protocol
+0x0806 u32  match u32 0 0 flowid 1:3
+
+   tc filter add dev $DEV parent 1: prio 2 protocol 802_3 u32
+# ==> 802:
+
+   tc filter add dev $DEV parent 1: prio 6 protocol ip u32
+# ==> 803:
+
+
+   tc filter replace dev $DEV parent 1: prio 2 handle 802:0:3  protocol
+802_3 u32 match u16 0 0 at 0 flowid 1:3 action mirred egress mirror dev
+ifb1
+   tc filter replace dev $DEV parent 1: prio 2 handle 802:0:9  protocol
+802_3 u32 match ether src 01:00:0c:cc:cc:cd flowid 1:3 action mirred
+egress mirror dev ifb1
+   tc filter replace dev $DEV parent 1: prio 2 handle 802:0:10 protocol
+802_3 u32 match ether dst 01:00:0c:cc:cc:cd flowid 1:3 action mirred
+egress mirror dev ifb1
+
+done
+
+
+# the 802_3 pachet filter:   
+# 
+# 802:0:3 should match ANY pachet of type 802_3 and mirror it to ifb1
+# 802:0:9 and 802:0:10 should match any pachet with src/dst
+01:00:0c:cc:cc:cd and mirror it to ifb1
+#
+# however NOTHING is going to ifb1    try 'tcpdump -nltve -i ifb1'
+# at the same time 'tcpdump -nltve -i bond1.2199 ether host
+0100.0ccc.cccd' will show about one pachet every second
+# 
+
+
+# at the same time the ARP filter works. you can mirror all ARP trafic
+to IFB1 like this:
+# tc filter replace dev $DEV parent 1: prio 1 handle 801:0:7 protocol
+0x0806 u32  match u32 0 0 flowid 1:3 action mirred egress mirror dev
+ifb1
