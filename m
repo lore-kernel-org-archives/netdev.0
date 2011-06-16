@@ -1,16 +1,19 @@
 From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Subject: [PATCH] net: icplus: remove unnecessary code
-Date: Thu, 16 Jun 2011 12:04:30 -0500
-Message-ID: <1308243870-30203-1-git-send-email-Gregory.Dietsche@cuw.edu>
-Cc: kernel-janitors@vger.kernel.org, davem@davemloft.net,
-	peppe.cavallaro@st.com, u.kleine-koenig@pengutronix.de,
+Subject: [PATCH] e1000: remove unnecessary code
+Date: Thu, 16 Jun 2011 12:09:30 -0500
+Message-ID: <1308244170-30304-1-git-send-email-Gregory.Dietsche@cuw.edu>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
 	Greg Dietsche <Gregory.Dietsche@cuw.edu>
-To: netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta21.charter.net ([216.33.127.81]:41367 "EHLO
+Received: from mta21.charter.net ([216.33.127.81]:45824 "EHLO
 	mta21.charter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752096Ab1FPREs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 13:04:48 -0400
+	with ESMTP id S1756054Ab1FPRKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 13:10:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,26 +25,34 @@ remove unnecessary code that matches this coccinelle pattern
 
 Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
 ---
- drivers/net/phy/icplus.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
+ drivers/net/e1000/e1000_hw.c |    7 +------
+ 1 files changed, 1 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-index 9a09e24..d4cbc29 100644
---- a/drivers/net/phy/icplus.c
-+++ b/drivers/net/phy/icplus.c
-@@ -109,11 +109,7 @@ static int ip1001_config_init(struct phy_device *phydev)
- 	value = phy_read(phydev, 16);
- 	value |= 0x3;
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index 7501d97..1698622 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -3080,7 +3080,6 @@ s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ {
+ 	u32 ctrl, ctrl_ext;
+ 	u32 led_ctrl;
+-	s32 ret_val;
  
--	err = phy_write(phydev, 16, value);
--	if (err < 0)
--		return err;
+ 	e_dbg("e1000_phy_hw_reset");
+ 
+@@ -3126,11 +3125,7 @@ s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ 	}
+ 
+ 	/* Wait for FW to finish PHY configuration. */
+-	ret_val = e1000_get_phy_cfg_done(hw);
+-	if (ret_val != E1000_SUCCESS)
+-		return ret_val;
 -
--	return err;
-+	return phy_write(phydev, 16, value);
+-	return ret_val;
++	return e1000_get_phy_cfg_done(hw);
  }
  
- static int ip175c_read_status(struct phy_device *phydev)
+ /**
 -- 
 1.7.2.5
 
