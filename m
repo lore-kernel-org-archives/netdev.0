@@ -1,58 +1,36 @@
-From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Subject: [PATCH] e1000: remove unnecessary code
-Date: Thu, 16 Jun 2011 12:09:30 -0500
-Message-ID: <1308244170-30304-1-git-send-email-Gregory.Dietsche@cuw.edu>
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Greg Dietsche <Gregory.Dietsche@cuw.edu>
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta21.charter.net ([216.33.127.81]:45824 "EHLO
-	mta21.charter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756054Ab1FPRKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 13:10:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: software iwarp stack update
+Date: Thu, 16 Jun 2011 10:20:04 -0700
+Message-ID: <BANLkTi=2woNzF=GL3cT3NB_hye5JHfodMA@mail.gmail.com>
+References: <BANLkTimEGgKEMZd3qppOofN-Vj-u-PH-xA@mail.gmail.com> <OFB7458EEB.BFB8A4EE-ONC12578B1.004026D1-C12578B1.0041190E@ch.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <OFB7458EEB.BFB8A4EE-ONC12578B1.004026D1-C12578B1.0041190E-Xeyd2O9EBijQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Compile tested.
-remove unnecessary code that matches this coccinelle pattern
-	if (...)
-		return ret;
-	return ret;
+> I was expecting there is an ib_device->uverbs_cmd_mask
+> flag which siw does not set... Unfortunately, it is not
+> completely clear to me when a command mask bit is available
+> and when the OFA core strictly expects a function pointer.
+> Maybe there is some redundancy/inconsistency?
 
-Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
----
- drivers/net/e1000/e1000_hw.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
+The uverbs_cmd_mask controls which commands userspace
+can send down.  A kernel consumer does not go through the
+code that checks this mask.
 
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 7501d97..1698622 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -3080,7 +3080,6 @@ s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- {
- 	u32 ctrl, ctrl_ext;
- 	u32 led_ctrl;
--	s32 ret_val;
- 
- 	e_dbg("e1000_phy_hw_reset");
- 
-@@ -3126,11 +3125,7 @@ s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- 	}
- 
- 	/* Wait for FW to finish PHY configuration. */
--	ret_val = e1000_get_phy_cfg_done(hw);
--	if (ret_val != E1000_SUCCESS)
--		return ret_val;
--
--	return ret_val;
-+	return e1000_get_phy_cfg_done(hw);
- }
- 
- /**
--- 
-1.7.2.5
+It does seem we are missing an IB_MANDATORY_FUNC
+entry for modify_port in ib_device_check_mandatory; or on
+the flip side we are missing a check of modify_port and a
+-ENOSYS return... I guess modify_port does not really make
+sense for iWARP so probably the second option is better.
 
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
