@@ -1,7 +1,7 @@
 From: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Subject: [PATCH 02/14] SIWv2: iWARP Protocol headers: iwarp.h
-Date: Thu, 16 Jun 2011 14:41:52 +0200
-Message-ID: <1308228112-22582-1-git-send-email-bmt@zurich.ibm.com>
+Subject: [PATCH 04/14] SIWv2: Module initialization: siw_main.c
+Date: Thu, 16 Jun 2011 14:42:02 +0200
+Message-ID: <1308228122-22616-1-git-send-email-bmt@zurich.ibm.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
@@ -9,21 +9,20 @@ Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 ---
- drivers/infiniband/hw/siw/iwarp.h |  324 +++++++++++++++++++++++++++++++++++++
- 1 files changed, 324 insertions(+), 0 deletions(-)
- create mode 100644 drivers/infiniband/hw/siw/iwarp.h
+ drivers/infiniband/hw/siw/siw_main.c |  603 ++++++++++++++++++++++++++++++++++
+ 1 files changed, 603 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/infiniband/hw/siw/siw_main.c
 
-diff --git a/drivers/infiniband/hw/siw/iwarp.h b/drivers/infiniband/hw/siw/iwarp.h
+diff --git a/drivers/infiniband/hw/siw/siw_main.c b/drivers/infiniband/hw/siw/siw_main.c
 new file mode 100644
-index 0000000..5aebd86
+index 0000000..b2b7bea
 --- /dev/null
-+++ b/drivers/infiniband/hw/siw/iwarp.h
-@@ -0,0 +1,324 @@
++++ b/drivers/infiniband/hw/siw/siw_main.c
+@@ -0,0 +1,603 @@
 +/*
 + * Software iWARP device driver for Linux
 + *
 + * Authors: Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-+ *          Fredy Neeser <nfd-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
 + *
 + * Copyright (c) 2008-2011, IBM Corporation
 + *
@@ -58,291 +57,571 @@ index 0000000..5aebd86
 + * SOFTWARE.
 + */
 +
-+#ifndef _IWARP_H
-+#define _IWARP_H
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/errno.h>
++#include <linux/netdevice.h>
++#include <linux/inetdevice.h>
++#include <net/net_namespace.h>
++#include <linux/rtnetlink.h>
++#include <linux/if_arp.h>
++#include <linux/list.h>
 +
-+#include <rdma/rdma_user_cm.h>	/* RDMA_MAX_PRIVATE_DATA */
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
++#include <rdma/ib_verbs.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_user_verbs.h>
++
++#include "siw.h"
++#include "siw_obj.h"
++#include "siw_cm.h"
++#include "siw_verbs.h"
 +
 +
-+#define RDMAP_VERSION		1
-+#define DDP_VERSION		1
-+#define MPA_REVISION_1		1
-+#define MPA_MAX_PRIVDATA	RDMA_MAX_PRIVATE_DATA
-+#define MPA_KEY_REQ		"MPA ID Req Frame"
-+#define MPA_KEY_REP		"MPA ID Rep Frame"
++MODULE_DESCRIPTION("Software iWARP Driver");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_VERSION("0.1");
 +
-+struct mpa_rr_params {
-+#if defined(__LITTLE_ENDIAN_BITFIELD)
-+	__be16	res:5,
-+		r:1,
-+		c:1,
-+		m:1,
-+		rev:8;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	__be16	m:1,
-+		c:1,
-+		r:1,
-+		res:5,
-+		rev:8;
-+#else
-+#error "Adjust your <asm/byteorder.h> defines"
++#define SIW_MAX_IF 12
++static char *iface_list[SIW_MAX_IF];
++module_param_array(iface_list, charp, NULL, 0444);
++MODULE_PARM_DESC(iface_list, "Interface list siw attaches to if present");
++
++static bool loopback_enabled;
++module_param(loopback_enabled, bool, 0644);
++MODULE_PARM_DESC(loopback_enabled, "enable_loopback");
++
++atomic_t siw_num_wqe;
++atomic_t siw_num_cep;
++
++static LIST_HEAD(siw_devlist);
++
++
++static ssize_t show_sw_version(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct siw_dev *siw_dev = container_of(dev, struct siw_dev,
++						 ofa_dev.dev);
++
++	return sprintf(buf, "%x\n", siw_dev->attrs.version);
++}
++
++static ssize_t show_stats(struct device *dev,
++			  struct device_attribute *attr, char *buf)
++{
++	struct siw_dev *siw_dev = container_of(dev, struct siw_dev,
++					       ofa_dev.dev);
++
++	return sprintf(buf, "Allocated SIW Objects:\n"
++#if DPRINT_MASK > 0
++			"Global     :\t%s: %d\n"
 +#endif
-+	__be16	pd_len;
-+};
-+
-+/*
-+ * MPA request/reply header
-+ */
-+struct mpa_rr {
-+	__u8	key[16];
-+	struct mpa_rr_params params;
-+};
-+
-+/*
-+ * Don't change the layout/size of this struct!
-+ */
-+struct mpa_marker {
-+	__be16	rsvd;
-+	__be16	fpdu_hmd; /* FPDU header-marker distance (= MPA's FPDUPTR) */
-+};
-+
-+#define MPA_MARKER_SPACING	512
-+#define MPA_HDR_SIZE		2
-+
-+/*
-+ * MPA marker size:
-+ * - Standards-compliant marker insertion: Use sizeof(struct mpa_marker)
-+ * - "Invisible markers" for testing sender's marker insertion
-+ *   without affecting receiver: Use 0
-+ */
-+#define MPA_MARKER_SIZE		sizeof(struct mpa_marker)
-+
-+
-+/*
-+ * maximum MPA trailer
-+ */
-+struct mpa_trailer {
-+	char	pad[4];
-+	__be32	crc;
-+};
-+
-+#define MPA_CRC_SIZE	4
-+
-+
-+/*
-+ * Common portion of iWARP headers (MPA, DDP, RDMAP)
-+ * for any FPDU
-+ */
-+struct iwarp_ctrl {
-+	__be16	mpa_len;
-+#if defined(__LITTLE_ENDIAN_BITFIELD)
-+	__be16	dv:2,		/* DDP Version */
-+		rsvd:4,		/* DDP reserved, MBZ */
-+		l:1,		/* DDP Last flag */
-+		t:1,		/* DDP Tagged flag */
-+		opcode:4,	/* RDMAP opcode */
-+		rsv:2,		/* RDMAP reserved, MBZ */
-+		rv:2;		/* RDMAP Version, 01 for IETF, 00 for RDMAC */
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	__be16	t:1,		/* DDP Tagged flag */
-+		l:1,		/* DDP Last flag */
-+		rsvd:4,		/* DDP reserved, MBZ */
-+		dv:2,		/* DDP Version */
-+		rv:2,		/* RDMAP Version, 01 for IETF, 00 for RDMAC */
-+		rsv:2,		/* RDMAP reserved, MBZ */
-+		opcode:4;	/* RDMAP opcode */
-+#else
-+#error "Adjust your <asm/byteorder.h> defines"
++			"Device %s:\t"
++			"%s: %d, %s: %d, %s: %d, %s: %d, %s: %d, %s: %d\n",
++#if DPRINT_MASK > 0
++			"WQEs", atomic_read(&siw_num_wqe),
 +#endif
++			siw_dev->ofa_dev.name,
++			"PDs", atomic_read(&siw_dev->num_pd),
++			"QPs", atomic_read(&siw_dev->num_qp),
++			"CQs", atomic_read(&siw_dev->num_cq),
++			"SRQs", atomic_read(&siw_dev->num_srq),
++			"MRs", atomic_read(&siw_dev->num_mem),
++			"CEPs", atomic_read(&siw_dev->num_cep));
++}
++
++static ssize_t show_ceps(struct device *dev,
++			  struct device_attribute *attr, char *buf)
++{
++	struct siw_dev *siw_dev = container_of(dev, struct siw_dev,
++					       ofa_dev.dev);
++
++	struct list_head *pos, *tmp;
++	int len, num_cep = atomic_read(&siw_dev->num_cep);
++
++	if (buf)
++		len = sprintf(buf, "%s: %d CEPs %s\n", siw_dev->ofa_dev.name,
++			      num_cep,
++			      num_cep ? "- see dmesg for details" : "");
++	else
++		len = 0;
++
++	if (num_cep)
++		printk(KERN_INFO "\n%d CEPs on device %s:\n",
++			num_cep, siw_dev->ofa_dev.name);
++	else
++		return len;
++
++	printk(KERN_INFO "%-20s%-6s%-6s%-7s%-3s%-3s%-4s%-21s%-9s\n",
++		"CEP", "State", "Ref's", "QP-ID", "LQ", "LC", "U", "Sock",
++		"CM-ID");
++
++	list_for_each_safe(pos, tmp, &siw_dev->cep_list) {
++		struct siw_cep *cep = list_entry(pos, struct siw_cep, devq);
++
++		printk(KERN_INFO "0x%-18p%-6d%-6d%-7d%-3s%-3s%-4d0x%-18p"
++			" 0x%-16p\n",
++			cep, cep->state,
++			atomic_read(&cep->ref.refcount),
++			cep->qp ? QP_ID(cep->qp) : -1,
++			list_empty(&cep->listenq) ? "n" : "y",
++			cep->listen_cep ? "y" : "n",
++			cep->in_use,
++			cep->llp.sock,
++			cep->cm_id);
++	}
++	return len;
++}
++
++static ssize_t show_qps(struct device *dev,
++			  struct device_attribute *attr, char *buf)
++{
++	struct siw_dev *siw_dev = container_of(dev, struct siw_dev,
++					       ofa_dev.dev);
++
++	struct list_head *pos, *tmp;
++	int len, num_qp = atomic_read(&siw_dev->num_qp);
++
++	len = sprintf(buf, "%s: %d QPs %s\n", siw_dev->ofa_dev.name,
++		      num_qp, num_qp ? "- see dmesg for details" : "");
++
++	if (num_qp)
++		printk(KERN_INFO "\n%d QPs on device %s:\n",
++		       num_qp, siw_dev->ofa_dev.name);
++	else
++		return len;
++
++	printk(KERN_INFO "%-7s%-6s%-6s%-5s%-5s%-5s%-5s%-5s%-20s%-20s\n",
++		"QP-ID", "State", "Ref's", "SQ", "RQ", "IRQ", "ORQ", "s/r",
++		"Sock", "CEP");
++
++	list_for_each_safe(pos, tmp, &siw_dev->qp_list) {
++		struct siw_qp *qp = list_entry(pos, struct siw_qp, devq);
++
++		printk(KERN_INFO "%-7d%-6d%-6d%-5d%-5d%-5d%-5d%d/%-3d0x%-17p"
++			" 0x%-18p\n",
++			QP_ID(qp),
++			qp->attrs.state,
++			atomic_read(&qp->hdr.ref.refcount),
++			qp->attrs.sq_size - atomic_read(&qp->sq_space),
++			qp->attrs.rq_size - atomic_read(&qp->rq_space),
++			qp->attrs.ird - atomic_read(&qp->irq_space),
++			qp->attrs.ord - atomic_read(&qp->orq_space),
++			tx_wqe(qp) ? 1 : 0,
++			rx_wqe(qp) ? 1 : 0,
++			qp->attrs.llp_stream_handle,
++			qp->cep);
++	}
++	return len;
++}
++
++static ssize_t show_if_type(struct device *dev,
++			    struct device_attribute *attr, char *buf)
++{
++	struct siw_dev *siw_dev = container_of(dev, struct siw_dev,
++					       ofa_dev.dev);
++
++	return sprintf(buf, "%d\n", siw_dev->attrs.iftype);
++}
++
++static DEVICE_ATTR(sw_version, S_IRUGO, show_sw_version, NULL);
++static DEVICE_ATTR(if_type, S_IRUGO, show_if_type, NULL);
++static DEVICE_ATTR(stats, S_IRUGO, show_stats, NULL);
++static DEVICE_ATTR(qp, S_IRUGO, show_qps, NULL);
++static DEVICE_ATTR(cep, S_IRUGO, show_ceps, NULL);
++
++static struct device_attribute *siw_dev_attributes[] = {
++	&dev_attr_sw_version,
++	&dev_attr_if_type,
++	&dev_attr_stats,
++	&dev_attr_qp,
++	&dev_attr_cep
 +};
 +
-+
-+struct rdmap_terminate_ctrl {
-+#if defined(__LITTLE_ENDIAN_BITFIELD)
-+	__be32	etype:4,
-+		layer:4,
-+		ecode:8,
-+		rsvd1:5,
-+		r:1,
-+		d:1,
-+		m:1,
-+		rsvd2:8;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	__be32	layer:4,
-+		etype:4,
-+		ecode:8,
-+		m:1,
-+		d:1,
-+		r:1,
-+		rsvd1:5,
-+		rsvd2:8;
-+#else
-+#error "Adjust your <asm/byteorder.h> defines"
-+#endif
-+};
++static int siw_modify_port(struct ib_device *ofa_dev, u8 port, int mask,
++			   struct ib_port_modify *props)
++{
++	return -EOPNOTSUPP;
++}
 +
 +
-+struct iwarp_rdma_write {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			sink_stag;
-+	__be64			sink_to;
-+};
++static int siw_register_device(struct siw_dev *dev)
++{
++	struct ib_device *ibdev = &dev->ofa_dev;
++	int rv, i;
 +
-+struct iwarp_rdma_rreq {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			rsvd;
-+	__be32			ddp_qn;
-+	__be32			ddp_msn;
-+	__be32			ddp_mo;
-+	__be32			sink_stag;
-+	__be64			sink_to;
-+	__be32			read_size;
-+	__be32			source_stag;
-+	__be64			source_to;
-+};
++	if (dev->l2dev->type != ARPHRD_LOOPBACK)
++		strlcpy(ibdev->name, "siw%d", IB_DEVICE_NAME_MAX);
++	else
++		strlcpy(ibdev->name, "siw_lo%d", IB_DEVICE_NAME_MAX);
++	memset(&ibdev->node_guid, 0, sizeof(ibdev->node_guid));
++	memcpy(&ibdev->node_guid, dev->l2dev->dev_addr, 6);
 +
-+struct iwarp_rdma_rresp {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			sink_stag;
-+	__be64			sink_to;
-+};
++	ibdev->owner = THIS_MODULE;
 +
-+struct iwarp_send {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			rsvd;
-+	__be32			ddp_qn;
-+	__be32			ddp_msn;
-+	__be32			ddp_mo;
-+};
++	ibdev->uverbs_cmd_mask =
++	    (1ull << IB_USER_VERBS_CMD_GET_CONTEXT) |
++	    (1ull << IB_USER_VERBS_CMD_QUERY_DEVICE) |
++	    (1ull << IB_USER_VERBS_CMD_QUERY_PORT) |
++	    (1ull << IB_USER_VERBS_CMD_ALLOC_PD) |
++	    (1ull << IB_USER_VERBS_CMD_DEALLOC_PD) |
++	    (1ull << IB_USER_VERBS_CMD_REG_MR) |
++	    (1ull << IB_USER_VERBS_CMD_DEREG_MR) |
++	    (1ull << IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL) |
++	    (1ull << IB_USER_VERBS_CMD_CREATE_CQ) |
++	    (1ull << IB_USER_VERBS_CMD_POLL_CQ) |
++	    (1ull << IB_USER_VERBS_CMD_REQ_NOTIFY_CQ) |
++	    (1ull << IB_USER_VERBS_CMD_DESTROY_CQ) |
++	    (1ull << IB_USER_VERBS_CMD_CREATE_QP) |
++	    (1ull << IB_USER_VERBS_CMD_QUERY_QP) |
++	    (1ull << IB_USER_VERBS_CMD_MODIFY_QP) |
++	    (1ull << IB_USER_VERBS_CMD_DESTROY_QP) |
++	    (1ull << IB_USER_VERBS_CMD_POST_SEND) |
++	    (1ull << IB_USER_VERBS_CMD_POST_RECV) |
++	    (1ull << IB_USER_VERBS_CMD_CREATE_SRQ) |
++	    (1ull << IB_USER_VERBS_CMD_MODIFY_SRQ) |
++	    (1ull << IB_USER_VERBS_CMD_QUERY_SRQ) |
++	    (1ull << IB_USER_VERBS_CMD_DESTROY_SRQ) |
++	    (1ull << IB_USER_VERBS_CMD_POST_SRQ_RECV);
 +
-+struct iwarp_send_inv {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			inval_stag;
-+	__be32			ddp_qn;
-+	__be32			ddp_msn;
-+	__be32			ddp_mo;
-+};
++	ibdev->node_type = RDMA_NODE_RNIC;
++	memcpy(ibdev->node_desc, SIW_NODE_DESC, sizeof(SIW_NODE_DESC));
 +
-+struct iwarp_terminate {
-+	struct iwarp_ctrl	ctrl;
-+	__be32				rsvd;
-+	__be32				ddp_qn;
-+	__be32				ddp_msn;
-+	__be32				ddp_mo;
-+	struct rdmap_terminate_ctrl	term_ctrl;
-+};
++	/*
++	 * Current model (one-to-one device association):
++	 * One Softiwarp device per net_device or, equivalently,
++	 * per physical port.
++	 */
++	ibdev->phys_port_cnt = 1;
++
++	ibdev->num_comp_vectors = 1;
++	/*
++	 * While DMA adresses are not used a device must be provided
++	 * as long as the code relies on OFA's ib_umem_get() function for
++	 * memory pinning. calling ib_umem_get() includes a
++	 * (for siw case useless) translation of memory to DMA
++	 * adresses for that device.
++	 */
++	ibdev->dma_device = dev->l2dev->dev.parent;
++	ibdev->query_device = siw_query_device;
++	ibdev->query_port = siw_query_port;
++	ibdev->query_qp = siw_query_qp;
++	ibdev->modify_port = siw_modify_port;
++	ibdev->query_pkey = siw_query_pkey;
++	ibdev->query_gid = siw_query_gid;
++	ibdev->alloc_ucontext = siw_alloc_ucontext;
++	ibdev->dealloc_ucontext = siw_dealloc_ucontext;
++	ibdev->mmap = siw_mmap;
++	ibdev->alloc_pd = siw_alloc_pd;
++	ibdev->dealloc_pd = siw_dealloc_pd;
++	ibdev->create_ah = siw_create_ah;
++	ibdev->destroy_ah = siw_destroy_ah;
++	ibdev->create_qp = siw_create_qp;
++	ibdev->modify_qp = siw_ofed_modify_qp;
++	ibdev->destroy_qp = siw_destroy_qp;
++	ibdev->create_cq = siw_create_cq;
++	ibdev->destroy_cq = siw_destroy_cq;
++	ibdev->resize_cq = NULL;
++	ibdev->poll_cq = siw_poll_cq;
++	ibdev->get_dma_mr = siw_get_dma_mr;
++	ibdev->reg_phys_mr = NULL;
++	ibdev->rereg_phys_mr = NULL;
++	ibdev->reg_user_mr = siw_reg_user_mr;
++	ibdev->dereg_mr = siw_dereg_mr;
++	ibdev->alloc_mw = NULL;
++	ibdev->bind_mw = NULL;
++	ibdev->dealloc_mw = NULL;
++
++	ibdev->create_srq = siw_create_srq;
++	ibdev->modify_srq = siw_modify_srq;
++	ibdev->query_srq = siw_query_srq;
++	ibdev->destroy_srq = siw_destroy_srq;
++	ibdev->post_srq_recv = siw_post_srq_recv;
++
++	ibdev->attach_mcast = NULL;
++	ibdev->detach_mcast = NULL;
++	ibdev->process_mad = siw_no_mad;
++
++	ibdev->req_notify_cq = siw_req_notify_cq;
++	ibdev->post_send = siw_post_send;
++	ibdev->post_recv = siw_post_receive;
++
++	ibdev->dma_ops = &siw_dma_mapping_ops;
++
++	ibdev->iwcm = kmalloc(sizeof(struct iw_cm_verbs), GFP_KERNEL);
++	if (!ibdev->iwcm)
++		return -ENOMEM;
++
++	ibdev->iwcm->connect = siw_connect;
++	ibdev->iwcm->accept = siw_accept;
++	ibdev->iwcm->reject = siw_reject;
++	ibdev->iwcm->create_listen = siw_create_listen;
++	ibdev->iwcm->destroy_listen = siw_destroy_listen;
++	ibdev->iwcm->add_ref = siw_qp_get_ref;
++	ibdev->iwcm->rem_ref = siw_qp_put_ref;
++	ibdev->iwcm->get_qp = siw_get_ofaqp;
++	/*
++	 * set and register sw version + user if type
++	 */
++	dev->attrs.version = VERSION_ID_SOFTIWARP;
++	dev->attrs.iftype  = SIW_IF_OFED;
++
++	dev->attrs.vendor_id = SIW_VENDOR_ID;
++	dev->attrs.vendor_part_id = SIW_VENDORT_PART_ID;
++	dev->attrs.sw_version = SIW_SW_VERSION;
++	dev->attrs.max_qp = SIW_MAX_QP;
++	dev->attrs.max_qp_wr = SIW_MAX_QP_WR;
++	dev->attrs.max_ord = SIW_MAX_ORD;
++	dev->attrs.max_ird = SIW_MAX_IRD;
++	dev->attrs.cap_flags = 0;
++	dev->attrs.max_sge = SIW_MAX_SGE;
++	dev->attrs.max_sge_rd = SIW_MAX_SGE_RD;
++	dev->attrs.max_cq = SIW_MAX_CQ;
++	dev->attrs.max_cqe = SIW_MAX_CQE;
++	dev->attrs.max_mr = SIW_MAX_MR;
++	dev->attrs.max_mr_size = rlimit(RLIMIT_MEMLOCK);
++	dev->attrs.max_pd = SIW_MAX_PD;
++	dev->attrs.max_mw = SIW_MAX_MW;
++	dev->attrs.max_fmr = SIW_MAX_FMR;
++	dev->attrs.max_srq = SIW_MAX_SRQ;
++	dev->attrs.max_srq_wr = SIW_MAX_SRQ_WR;
++	dev->attrs.max_srq_sge = SIW_MAX_SGE;
++
++	siw_idr_init(dev);
++	INIT_LIST_HEAD(&dev->cep_list);
++	INIT_LIST_HEAD(&dev->qp_list);
++
++	atomic_set(&dev->num_srq, 0);
++	atomic_set(&dev->num_qp, 0);
++	atomic_set(&dev->num_cq, 0);
++	atomic_set(&dev->num_mem, 0);
++	atomic_set(&dev->num_pd, 0);
++	atomic_set(&dev->num_cep, 0);
++
++	rv = ib_register_device(ibdev, NULL);
++	if (rv) {
++		dprint(DBG_DM|DBG_ON, "(dev=%s): "
++			"ib_register_device failed: rv=%d\n", ibdev->name, rv);
++		return rv;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(siw_dev_attributes); ++i) {
++		rv = device_create_file(&ibdev->dev, siw_dev_attributes[i]);
++		if (rv) {
++			dprint(DBG_DM|DBG_ON, "(dev=%s): "
++				"device_create_file failed: i=%d, rv=%d\n",
++				ibdev->name, i, rv);
++			ib_unregister_device(ibdev);
++			return rv;
++		}
++	}
++
++	dprint(DBG_DM, ": dev 0x%p: Registered '%s' for interface '%s', "
++		"HWaddr=%02x.%02x.%02x.%02x.%02x.%02x\n",
++		dev, ibdev->name, dev->l2dev->name,
++		*(u8 *)dev->l2dev->dev_addr,
++		*((u8 *)dev->l2dev->dev_addr + 1),
++		*((u8 *)dev->l2dev->dev_addr + 2),
++		*((u8 *)dev->l2dev->dev_addr + 3),
++		*((u8 *)dev->l2dev->dev_addr + 4),
++		*((u8 *)dev->l2dev->dev_addr + 5));
++	return 0;
++}
++
++static void siw_deregister_device(struct siw_dev *dev)
++{
++	int i;
++
++	siw_idr_release(dev);
++
++	WARN_ON(atomic_read(&dev->num_srq) || atomic_read(&dev->num_qp) ||
++		atomic_read(&dev->num_cq) || atomic_read(&dev->num_mem) ||
++		atomic_read(&dev->num_pd));
++
++	if (!list_empty(&dev->cep_list)) {
++		int num_ceps = 0;
++
++		show_ceps(&dev->ofa_dev.dev, NULL, NULL);
++		while (!list_empty(&dev->cep_list)) {
++			struct siw_cep  *cep = list_entry(dev->cep_list.next,
++						struct siw_cep, devq);
++			list_del(&cep->devq);
++			kfree(cep);
++			num_ceps++;
++		}
++		printk(KERN_INFO "siw_deregister_device: "
++			"free'd %d orphaned CEPs\n", num_ceps);
++	}
++	for (i = 0; i < ARRAY_SIZE(siw_dev_attributes); ++i)
++		device_remove_file(&dev->ofa_dev.dev, siw_dev_attributes[i]);
++
++	dprint(DBG_OBJ, ": Unregister '%s' for interface '%s'\n",
++		dev->ofa_dev.name, dev->l2dev->name);
++
++	ib_unregister_device(&dev->ofa_dev);
++}
++
++static int siw_match_iflist(struct net_device *dev)
++{
++	int i = 0, found = *iface_list ? 0 : 1;
++
++	while (iface_list[i]) {
++		if (!strcmp(iface_list[i++], dev->name)) {
++			found = 1;
++			break;
++		}
++	}
++	return found;
++}
 +
 +
 +/*
-+ * Common portion of iWARP headers (MPA, DDP, RDMAP)
-+ * for an FPDU carrying an untagged DDP segment
++ * siw_init_module - Initialize Softiwarp module and create Softiwarp devices
++ *
++ * There are three design options for Softiwarp device management supporting
++ * - multiple physical Ethernet ports, i.e., multiple net_device instances
++ * - and multi-homing, i.e., multiple IP addresses associated with net_device,
++ * as follows:
++ *
++ *    Option 1: One Softiwarp device per net_device and
++ *              IP address associated with the net_device
++ *    Option 2: One Softiwarp device per net_device
++ *              (and all IP addresses associated with the net_device)
++ *    Option 3: Single Softiwarp device for all net_device instances
++ *              (and all IP addresses associated with these instances)
++ *
++ * We currently use Option 2, registering a separate siw_dev for
++ * each net_device.
++ *
++ * TODO: Dynamic device management (network device registration/removal).
++ *       IPv6 support.
 + */
-+struct iwarp_ctrl_untagged {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			rsvd;
-+	__be32			ddp_qn;
-+	__be32			ddp_msn;
-+	__be32			ddp_mo;
-+};
++static __init int siw_init_module(void)
++{
++	struct net_device	*dev;
++	struct siw_dev		*siw_p;
++	int rv = 0;
 +
-+/*
-+ * Common portion of iWARP headers (MPA, DDP, RDMAP)
-+ * for an FPDU carrying a tagged DDP segment
-+ */
-+struct iwarp_ctrl_tagged {
-+	struct iwarp_ctrl	ctrl;
-+	__be32			ddp_stag;
-+	__be64			ddp_to;
-+};
++	/*
++	 * Identify all net_device instances and create a
++	 * Softiwarp device for each net_device supporting IPv4
++	 *
++	 * TODO:
++	 * - Do we have to generalize for IPv6?
++	 * - Exclude devices based on IPoIB - if any
++	 * - Consider excluding Ethernet devices with an
++	 *   associated iWARP hardware device
++	 */
++	rtnl_lock();
++	for_each_netdev(&init_net, dev) {
++		struct in_device *in_dev;
 +
-+union iwarp_hdrs {
-+	struct iwarp_ctrl		ctrl;
-+	struct iwarp_ctrl_untagged	c_untagged;
-+	struct iwarp_ctrl_tagged	c_tagged;
-+	struct iwarp_rdma_write		rwrite;
-+	struct iwarp_rdma_rreq		rreq;
-+	struct iwarp_rdma_rresp		rresp;
-+	struct iwarp_terminate		terminate;
-+	struct iwarp_send		send;
-+	struct iwarp_send_inv		send_inv;
-+};
-+
-+
-+#define MPA_MIN_FRAG ((sizeof(union iwarp_hdrs) + MPA_CRC_SIZE))
-+
-+enum ddp_etype {
-+	DDP_ETYPE_CATASTROPHIC	= 0x0,
-+	DDP_ETYPE_TAGGED_BUF	= 0x1,
-+	DDP_ETYPE_UNTAGGED_BUF	= 0x2,
-+	DDP_ETYPE_RSVD		= 0x3
-+};
-+
-+enum ddp_ecode {
-+	DDP_ECODE_CATASTROPHIC		= 0x00,
-+	/* Tagged Buffer Errors */
-+	DDP_ECODE_T_INVALID_STAG	= 0x00,
-+	DDP_ECODE_T_BASE_BOUNDS		= 0x01,
-+	DDP_ECODE_T_STAG_NOT_ASSOC	= 0x02,
-+	DDP_ECODE_T_TO_WRAP		= 0x03,
-+	DDP_ECODE_T_DDP_VERSION		= 0x04,
-+	/* Untagged Buffer Errors */
-+	DDP_ECODE_UT_INVALID_QN		= 0x01,
-+	DDP_ECODE_UT_INVALID_MSN_NOBUF	= 0x02,
-+	DDP_ECODE_UT_INVALID_MSN_RANGE	= 0x03,
-+	DDP_ECODE_UT_INVALID_MO		= 0x04,
-+	DDP_ECODE_UT_MSG_TOOLONG	= 0x05,
-+	DDP_ECODE_UT_DDP_VERSION	= 0x06
-+};
-+
-+
-+enum rdmap_untagged_qn {
-+	RDMAP_UNTAGGED_QN_SEND		= 0,
-+	RDMAP_UNTAGGED_QN_RDMA_READ	= 1,
-+	RDMAP_UNTAGGED_QN_TERMINATE	= 2,
-+	RDMAP_UNTAGGED_QN_COUNT		= 3
-+};
-+
-+enum rdmap_etype {
-+	RDMAP_ETYPE_CATASTROPHIC	= 0x0,
-+	RDMAP_ETYPE_REMOTE_PROTECTION	= 0x1,
-+	RDMAP_ETYPE_REMOTE_OPERATION	= 0x2
-+};
-+
-+enum rdmap_ecode {
-+	RDMAP_ECODE_INVALID_STAG	= 0x00,
-+	RDMAP_ECODE_BASE_BOUNDS		= 0x01,
-+	RDMAP_ECODE_ACCESS_RIGHTS	= 0x02,
-+	RDMAP_ECODE_STAG_NOT_ASSOC	= 0x03,
-+	RDMAP_ECODE_TO_WRAP		= 0x04,
-+	RDMAP_ECODE_RDMAP_VERSION	= 0x05,
-+	RDMAP_ECODE_UNEXPECTED_OPCODE	= 0x06,
-+	RDMAP_ECODE_CATASTROPHIC_STREAM	= 0x07,
-+	RDMAP_ECODE_CATASTROPHIC_GLOBAL	= 0x08,
-+	RDMAP_ECODE_STAG_NOT_INVALIDATE	= 0x09,
-+	RDMAP_ECODE_UNSPECIFIED		= 0xff
-+};
-+
-+enum rdmap_elayer {
-+	RDMAP_ERROR_LAYER_RDMA	= 0x00,
-+	RDMAP_ERROR_LAYER_DDP	= 0x01,
-+	RDMAP_ERROR_LAYER_LLP	= 0x02	/* eg., MPA */
-+};
-+
-+enum rdma_opcode {
-+	RDMAP_RDMA_WRITE	= 0x0,
-+	RDMAP_RDMA_READ_REQ	= 0x1,
-+	RDMAP_RDMA_READ_RESP	= 0x2,
-+	RDMAP_SEND		= 0x3,
-+	RDMAP_SEND_INVAL	= 0x4,
-+	RDMAP_SEND_SE		= 0x5,
-+	RDMAP_SEND_SE_INVAL	= 0x6,
-+	RDMAP_TERMINATE		= 0x7,
-+	RDMAP_NOT_SUPPORTED	= RDMAP_TERMINATE + 1
-+};
-+
++		in_dev = in_dev_get(dev);
++		if (!in_dev) {
++			dprint(DBG_DM, ": Skipped %s (no indev)\n", dev->name);
++			continue;
++		}
++		if (!in_dev->ifa_list) {
++			dprint(DBG_DM, ": Skipped %s (no ifa)\n", dev->name);
++			in_dev_put(in_dev);
++			continue;
++		}
++		/*
++		 * This device has an in_device attached. Attach to it
++		 * if it is LOOPBACK or ETHER or IEEE801-TR device.
++		 *
++		 * Additional hardware support can be added here
++		 * (e.g. ARPHRD_FDDI, ARPHRD_ATM, ...) - see
++		 * <linux/if_arp.h> for type identifiers.
++		 *
++		 * NOTE: ARPHRD_TUNNEL/6 are excluded.
++		 */
++		if (dev->type == ARPHRD_ETHER ||
++		    dev->type == ARPHRD_IEEE802 ||
++		    (dev->type == ARPHRD_LOOPBACK && loopback_enabled)) {
++			if (!siw_match_iflist(dev)) {
++				dprint(DBG_DM|DBG_ON, ": %s (not selected)\n",
++					dev->name);
++				in_dev_put(in_dev);
++				continue;
++			}
++#ifdef CHECK_DMA_CAPABILITIES
++			if (!dev->dev.parent ||
++			    !get_dma_ops(dev->dev.parent)) {
++				dprint(DBG_DM|DBG_ON,
++					": No DMA ops: %s (skipped)\n",
++					dev->name);
++				in_dev_put(in_dev);
++				continue;
++			}
 +#endif
++			siw_p =
++			      (struct siw_dev *)ib_alloc_device(sizeof *siw_p);
++
++			if (!siw_p) {
++				in_dev_put(in_dev);
++				rv = -ENOMEM;
++				break;
++			}
++
++			siw_p->l2dev = dev;
++			list_add_tail(&siw_p->list, &siw_devlist);
++
++			rv = siw_register_device(siw_p);
++			if (rv) {
++				list_del(&siw_p->list);
++				in_dev_put(in_dev);
++				ib_dealloc_device(&siw_p->ofa_dev);
++
++				break;
++			}
++		} else {
++			dprint(DBG_DM, ": Skipped %s (type %d)\n",
++				dev->name, dev->type);
++			in_dev_put(in_dev);
++		}
++	}
++	rtnl_unlock();
++
++	if (list_empty(&siw_devlist))
++		return -ENODEV;
++
++	if (rv)
++		return rv;
++	/*
++	 * FIXME: In case of error, we leave devices allocated.
++	 *        Is this correct?
++	 */
++	rv = siw_cm_init();
++	if (rv)
++		return rv;
++
++	rv = siw_sq_worker_init();
++
++	atomic_set(&siw_num_wqe, 0);
++	atomic_set(&siw_num_cep, 0);
++
++	printk(KERN_INFO "SoftIWARP attached\n");
++	return rv;
++}
++
++static void __exit siw_exit_module(void)
++{
++	siw_sq_worker_exit();
++	siw_cm_exit();
++
++	while (!list_empty(&siw_devlist)) {
++		struct siw_dev  *siw_p =
++			list_entry(siw_devlist.next, struct siw_dev, list);
++		list_del(&siw_p->list);
++		siw_deregister_device(siw_p);
++		in_dev_put(siw_p->l2dev->ip_ptr);
++		ib_dealloc_device(&siw_p->ofa_dev);
++	}
++	printk(KERN_INFO "SoftIWARP detached\n");
++}
++
++module_init(siw_init_module);
++module_exit(siw_exit_module);
 -- 
 1.5.4.3
 
