@@ -1,88 +1,102 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] netdev: bfin_mac: fix memory leak when freeing dma descriptors
-Date: Thu, 16 Jun 2011 18:31:58 -0400
-Message-ID: <1308263518-22724-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Connor Hansen <cmdkhh@gmail.com>
+Subject: Re: rionet: NULL pointer dereference
+Date: Thu, 16 Jun 2011 15:53:24 -0700
+Message-ID: <BANLkTimwzbB9ZwbG3u=oRNAHSECioEJ3dQ@mail.gmail.com>
+References: <alpine.LNX.2.00.1106162359560.8140@swampdragon.chaosbits.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Matt Porter <mporter@kernel.crashing.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Jesper Juhl <jj@chaosbits.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:40576 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752180Ab1FPWb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2011 18:31:29 -0400
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:39507 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754522Ab1FPWx0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 18:53:26 -0400
+In-Reply-To: <alpine.LNX.2.00.1106162359560.8140@swampdragon.chaosbits.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+On Thu, Jun 16, 2011 at 3:06 PM, Jesper Juhl <jj@chaosbits.net> wrote:
+> Hi
+>
+> Just noticed that drivers/net/rionet.c::rionet_remove() can cause a N=
+ULL
+> deref when it calls unregister_netdev().
+> It initializes local variable 'ndev' to NULL and nothing changes this
+> before the call to unregister_netdev(ndev) - that functions then call=
+s:
+> unregister_netdevice > unregister_netdevice_queue > list_move_tail >
+> __list_del_entry =A0which dereferences the pointer (which, being NULL=
+, will
+> end in tears).
 
-The size of the desc array is not the size of the desc structure, so
-when we try to free up things, we leak some parts.
+unregister_netdevice(struct net_device *dev)
+{
+        unregister_netdevice_queue(dev, NULL);
+}
 
-Reported-by: Regis Dargent <rdargent@edevice.com>
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/bfin_mac.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+ so unregister_netdevice_queue is being called with NULL,NULL
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 68d45ba..6c019e1 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -52,13 +52,13 @@ MODULE_DESCRIPTION(DRV_DESC);
- MODULE_ALIAS("platform:bfin_mac");
- 
- #if defined(CONFIG_BFIN_MAC_USE_L1)
--# define bfin_mac_alloc(dma_handle, size)  l1_data_sram_zalloc(size)
--# define bfin_mac_free(dma_handle, ptr)    l1_data_sram_free(ptr)
-+# define bfin_mac_alloc(dma_handle, size, num)  l1_data_sram_zalloc(size*num)
-+# define bfin_mac_free(dma_handle, ptr, num)    l1_data_sram_free(ptr)
- #else
--# define bfin_mac_alloc(dma_handle, size) \
--	dma_alloc_coherent(NULL, size, dma_handle, GFP_KERNEL)
--# define bfin_mac_free(dma_handle, ptr) \
--	dma_free_coherent(NULL, sizeof(*ptr), ptr, dma_handle)
-+# define bfin_mac_alloc(dma_handle, size, num) \
-+	dma_alloc_coherent(NULL, size*num, dma_handle, GFP_KERNEL)
-+# define bfin_mac_free(dma_handle, ptr, num) \
-+	dma_free_coherent(NULL, sizeof(*ptr)*num, ptr, dma_handle)
- #endif
- 
- #define PKT_BUF_SZ 1580
-@@ -95,7 +95,7 @@ static void desc_list_free(void)
- 				t = t->next;
- 			}
- 		}
--		bfin_mac_free(dma_handle, tx_desc);
-+		bfin_mac_free(dma_handle, tx_desc, CONFIG_BFIN_TX_DESC_NUM);
- 	}
- 
- 	if (rx_desc) {
-@@ -109,7 +109,7 @@ static void desc_list_free(void)
- 				r = r->next;
- 			}
- 		}
--		bfin_mac_free(dma_handle, rx_desc);
-+		bfin_mac_free(dma_handle, rx_desc, CONFIG_BFIN_RX_DESC_NUM);
- 	}
- }
- 
-@@ -126,13 +126,13 @@ static int desc_list_init(void)
- #endif
- 
- 	tx_desc = bfin_mac_alloc(&dma_handle,
--				sizeof(struct net_dma_desc_tx) *
-+				sizeof(struct net_dma_desc_tx),
- 				CONFIG_BFIN_TX_DESC_NUM);
- 	if (tx_desc == NULL)
- 		goto init_error;
- 
- 	rx_desc = bfin_mac_alloc(&dma_handle,
--				sizeof(struct net_dma_desc_rx) *
-+				sizeof(struct net_dma_desc_rx),
- 				CONFIG_BFIN_RX_DESC_NUM);
- 	if (rx_desc == NULL)
- 		goto init_error;
--- 
-1.7.5.3
+void unregister_netdevice_queue(struct net_device *dev, struct list_hea=
+d *head)
+{
+        ASSERT_RTNL();
 
+        if (head) {
+                list_move_tail(&dev->unreg_list, head);
+        } else {
+                rollback_registered(dev);
+                /* Finish processing unregister after unlock */
+                net_set_todo(dev);
+        }
+}
+
+if head is null, which it is from the call, then we call
+rollback_registered, and not list_move_tail()
+
+the else calls rollback_registered(NULL) then net_set_todo(NULL)
+
+both of which dereference null when passed, so yes there is a null
+dereference, just not in the code branch you thought.
+
+static void rollback_registered(struct net_device *dev)
+{
+        LIST_HEAD(single);
+
+        list_add(&dev->unreg_list, &single);    null dereference
+        rollback_registered_many(&single);
+        list_del(&single);
+}
+
+static void net_set_todo(struct net_device *dev)
+{
+        list_add_tail(&dev->todo_list, &net_todo_list);  null dereferen=
+ce
+}
+
+Connor
+
+>
+> I won't claim to know this code nor what the proper fix is; just thou=
+ght
+> i'd report it so someone else with more knowledge of this could perha=
+ps
+> come up with a fix.
+>
+> Have a nice day.
+>
+> --
+> Jesper Juhl <jj@chaosbits.net> =A0 =A0 =A0 http://www.chaosbits.net/
+> Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+> Plain text mails only, please.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
