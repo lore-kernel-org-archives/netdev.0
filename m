@@ -1,351 +1,290 @@
 From: kaber@trash.net
-Subject: [PATCH 03/20] IPVS: rename of netns init and cleanup functions.
-Date: Thu, 16 Jun 2011 21:47:03 +0200
-Message-ID: <1308253640-29942-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 20/20] netfilter: ipset: whitespace and coding fixes detected by checkpatch.pl
+Date: Thu, 16 Jun 2011 21:47:20 +0200
+Message-ID: <1308253640-29942-21-git-send-email-kaber@trash.net>
 References: <1308253640-29942-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64139 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932239Ab1FPTrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 15:47:24 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1308253640-29942-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hans Schillstrom <hans@schillstrom.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Make it more clear what the functions does,
-on request by Julian.
-
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/ip_vs.h              |   26 +++++++++++++-------------
- net/netfilter/ipvs/ip_vs_app.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_conn.c  |    4 ++--
- net/netfilter/ipvs/ip_vs_core.c  |   36 ++++++++++++++++++------------------
- net/netfilter/ipvs/ip_vs_ctl.c   |   20 ++++++++++----------
- net/netfilter/ipvs/ip_vs_est.c   |    4 ++--
- net/netfilter/ipvs/ip_vs_proto.c |    4 ++--
- net/netfilter/ipvs/ip_vs_sync.c  |    4 ++--
- 8 files changed, 51 insertions(+), 51 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h         |    6 ++--
+ include/linux/netfilter/ipset/ip_set_ahash.h   |    2 +-
+ include/linux/netfilter/ipset/ip_set_timeout.h |    2 +-
+ include/linux/netfilter/ipset/pfxlen.h         |    2 +-
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c      |    3 +-
+ net/netfilter/ipset/ip_set_core.c              |    4 +-
+ net/netfilter/ipset/ip_set_hash_net.c          |    4 +-
+ net/netfilter/ipset/ip_set_hash_netiface.c     |   26 ++++++++++++------------
+ net/netfilter/ipset/ip_set_hash_netport.c      |    2 +-
+ net/netfilter/ipset/pfxlen.c                   |    2 +-
+ net/netfilter/xt_set.c                         |    2 +-
+ 11 files changed, 28 insertions(+), 27 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 34a6fa8..1b0985f 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1087,19 +1087,19 @@ ip_vs_control_add(struct ip_vs_conn *cp, struct ip_vs_conn *ctl_cp)
- /*
-  * IPVS netns init & cleanup functions
-  */
--extern int __ip_vs_estimator_init(struct net *net);
--extern int __ip_vs_control_init(struct net *net);
--extern int __ip_vs_protocol_init(struct net *net);
--extern int __ip_vs_app_init(struct net *net);
--extern int __ip_vs_conn_init(struct net *net);
--extern int __ip_vs_sync_init(struct net *net);
--extern void __ip_vs_conn_cleanup(struct net *net);
--extern void __ip_vs_app_cleanup(struct net *net);
--extern void __ip_vs_protocol_cleanup(struct net *net);
--extern void __ip_vs_control_cleanup(struct net *net);
--extern void __ip_vs_estimator_cleanup(struct net *net);
--extern void __ip_vs_sync_cleanup(struct net *net);
--extern void __ip_vs_service_cleanup(struct net *net);
-+extern int ip_vs_estimator_net_init(struct net *net);
-+extern int ip_vs_control_net_init(struct net *net);
-+extern int ip_vs_protocol_net_init(struct net *net);
-+extern int ip_vs_app_net_init(struct net *net);
-+extern int ip_vs_conn_net_init(struct net *net);
-+extern int ip_vs_sync_net_init(struct net *net);
-+extern void ip_vs_conn_net_cleanup(struct net *net);
-+extern void ip_vs_app_net_cleanup(struct net *net);
-+extern void ip_vs_protocol_net_cleanup(struct net *net);
-+extern void ip_vs_control_net_cleanup(struct net *net);
-+extern void ip_vs_estimator_net_cleanup(struct net *net);
-+extern void ip_vs_sync_net_cleanup(struct net *net);
-+extern void ip_vs_service_net_cleanup(struct net *net);
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index e409173..3540c6e 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -331,7 +331,7 @@ struct ip_set {
+ /* register and unregister set references */
+ extern ip_set_id_t ip_set_get_byname(const char *name, struct ip_set **set);
+ extern void ip_set_put_byindex(ip_set_id_t index);
+-extern const char * ip_set_name_byindex(ip_set_id_t index);
++extern const char *ip_set_name_byindex(ip_set_id_t index);
+ extern ip_set_id_t ip_set_nfnl_get(const char *name);
+ extern ip_set_id_t ip_set_nfnl_get_byindex(ip_set_id_t index);
+ extern void ip_set_nfnl_put(ip_set_id_t index);
+@@ -349,7 +349,7 @@ extern int ip_set_test(ip_set_id_t id, const struct sk_buff *skb,
+ 		       const struct ip_set_adt_opt *opt);
  
- /*
-  *      IPVS application functions
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 059af31..e223fb7 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -576,7 +576,7 @@ static const struct file_operations ip_vs_app_fops = {
+ /* Utility functions */
+-extern void * ip_set_alloc(size_t size);
++extern void *ip_set_alloc(size_t size);
+ extern void ip_set_free(void *members);
+ extern int ip_set_get_ipaddr4(struct nlattr *nla,  __be32 *ipaddr);
+ extern int ip_set_get_ipaddr6(struct nlattr *nla, union nf_inet_addr *ipaddr);
+@@ -359,7 +359,7 @@ ip_set_get_hostipaddr4(struct nlattr *nla, u32 *ipaddr)
+ {
+ 	__be32 ip;
+ 	int ret = ip_set_get_ipaddr4(nla, &ip);
+-	
++
+ 	if (ret)
+ 		return ret;
+ 	*ipaddr = ntohl(ip);
+diff --git a/include/linux/netfilter/ipset/ip_set_ahash.h b/include/linux/netfilter/ipset/ip_set_ahash.h
+index 8a0999a..c5b06aa 100644
+--- a/include/linux/netfilter/ipset/ip_set_ahash.h
++++ b/include/linux/netfilter/ipset/ip_set_ahash.h
+@@ -43,7 +43,7 @@ struct htable {
+ 	struct hbucket bucket[0]; /* hashtable buckets */
  };
- #endif
  
--int __net_init __ip_vs_app_init(struct net *net)
-+int __net_init ip_vs_app_net_init(struct net *net)
+-#define hbucket(h, i)		&((h)->bucket[i])
++#define hbucket(h, i)		(&((h)->bucket[i]))
+ 
+ /* Book-keeping of the prefixes added to the set */
+ struct ip_set_hash_nets {
+diff --git a/include/linux/netfilter/ipset/ip_set_timeout.h b/include/linux/netfilter/ipset/ip_set_timeout.h
+index bae086a..4792320 100644
+--- a/include/linux/netfilter/ipset/ip_set_timeout.h
++++ b/include/linux/netfilter/ipset/ip_set_timeout.h
+@@ -78,7 +78,7 @@ ip_set_timeout_set(u32 timeout)
+ static inline u32
+ ip_set_timeout_get(unsigned long timeout)
  {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -585,7 +585,7 @@ int __net_init __ip_vs_app_init(struct net *net)
- 	return 0;
+-	return timeout == IPSET_ELEM_PERMANENT ? 0 : 
++	return timeout == IPSET_ELEM_PERMANENT ? 0 :
+ 		jiffies_to_msecs(timeout - jiffies)/1000;
  }
  
--void __net_exit __ip_vs_app_cleanup(struct net *net)
-+void __net_exit ip_vs_app_net_cleanup(struct net *net)
+diff --git a/include/linux/netfilter/ipset/pfxlen.h b/include/linux/netfilter/ipset/pfxlen.h
+index d55a6cc..199fd11 100644
+--- a/include/linux/netfilter/ipset/pfxlen.h
++++ b/include/linux/netfilter/ipset/pfxlen.h
+@@ -2,7 +2,7 @@
+ #define _PFXLEN_H
+ 
+ #include <asm/byteorder.h>
+-#include <linux/netfilter.h> 
++#include <linux/netfilter.h>
+ #include <net/tcp.h>
+ 
+ /* Prefixlen maps, by Jan Engelhardt  */
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 51ab664..56096f5 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -635,7 +635,8 @@ static struct ip_set_type bitmap_ipmac_type = {
+ 	},
+ 	.adt_policy	= {
+ 		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
+-		[IPSET_ATTR_ETHER]	= { .type = NLA_BINARY, .len  = ETH_ALEN },
++		[IPSET_ATTR_ETHER]	= { .type = NLA_BINARY,
++					    .len  = ETH_ALEN },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
+ 	},
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 80a1262..c012985 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -683,8 +683,8 @@ ip_set_create(struct sock *ctnl, struct sk_buff *skb,
+ 	if (attr[IPSET_ATTR_DATA] &&
+ 	    nla_parse_nested(tb, IPSET_ATTR_CREATE_MAX, attr[IPSET_ATTR_DATA],
+ 			     set->type->create_policy)) {
+-	    	ret = -IPSET_ERR_PROTOCOL;
+-	    	goto put_out;
++		ret = -IPSET_ERR_PROTOCOL;
++		goto put_out;
+ 	}
+ 
+ 	ret = set->type->create(set, tb, flags);
+diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
+index 050163f..2d4b1f4 100644
+--- a/net/netfilter/ipset/ip_set_hash_net.c
++++ b/net/netfilter/ipset/ip_set_hash_net.c
+@@ -187,7 +187,7 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 			return -IPSET_ERR_TIMEOUT;
+ 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
+ 	}
+-	
++
+ 	if (adt == IPSET_TEST || !tb[IPSET_ATTR_IP_TO]) {
+ 		data.ip = htonl(ip & ip_set_hostmask(data.cidr));
+ 		ret = adtfn(set, &data, timeout, flags);
+@@ -205,7 +205,7 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 			return -IPSET_ERR_HASH_RANGE;
+ 	}
+ 	if (retried)
+-		ip = h->next.ip;		
++		ip = h->next.ip;
+ 	while (!after(ip, ip_to)) {
+ 		data.ip = htonl(ip);
+ 		last = ip_set_range_to_cidr(ip, ip_to, &data.cidr);
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index 51e5df1..3d6c53b 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -100,7 +100,7 @@ iface_test(struct rb_root *root, const char **iface)
+ 	while (n) {
+ 		const char *d = iface_data(n);
+ 		int res = ifname_compare(*iface, d);
+-		
++
+ 		if (res < 0)
+ 			n = n->rb_left;
+ 		else if (res > 0)
+@@ -118,7 +118,7 @@ iface_add(struct rb_root *root, const char **iface)
  {
- 	proc_net_remove(net, "ip_vs_app");
- }
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index bf28ac2..77c61b0 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -1247,7 +1247,7 @@ flush_again:
- /*
-  * per netns init and exit
-  */
--int __net_init __ip_vs_conn_init(struct net *net)
-+int __net_init ip_vs_conn_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -1258,7 +1258,7 @@ int __net_init __ip_vs_conn_init(struct net *net)
- 	return 0;
- }
- 
--void __net_exit __ip_vs_conn_cleanup(struct net *net)
-+void __net_exit ip_vs_conn_net_cleanup(struct net *net)
- {
- 	/* flush all the connection entries first */
- 	ip_vs_conn_flush(net);
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index bfa808f..7c2c726 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1891,22 +1891,22 @@ static int __net_init __ip_vs_init(struct net *net)
- 	atomic_inc(&ipvs_netns_cnt);
- 	net->ipvs = ipvs;
- 
--	if (__ip_vs_estimator_init(net) < 0)
-+	if (ip_vs_estimator_net_init(net) < 0)
- 		goto estimator_fail;
- 
--	if (__ip_vs_control_init(net) < 0)
-+	if (ip_vs_control_net_init(net) < 0)
- 		goto control_fail;
- 
--	if (__ip_vs_protocol_init(net) < 0)
-+	if (ip_vs_protocol_net_init(net) < 0)
- 		goto protocol_fail;
- 
--	if (__ip_vs_app_init(net) < 0)
-+	if (ip_vs_app_net_init(net) < 0)
- 		goto app_fail;
- 
--	if (__ip_vs_conn_init(net) < 0)
-+	if (ip_vs_conn_net_init(net) < 0)
- 		goto conn_fail;
- 
--	if (__ip_vs_sync_init(net) < 0)
-+	if (ip_vs_sync_net_init(net) < 0)
- 		goto sync_fail;
- 
- 	printk(KERN_INFO "IPVS: Creating netns size=%zu id=%d\n",
-@@ -1917,27 +1917,27 @@ static int __net_init __ip_vs_init(struct net *net)
-  */
- 
- sync_fail:
--	__ip_vs_conn_cleanup(net);
-+	ip_vs_conn_net_cleanup(net);
- conn_fail:
--	__ip_vs_app_cleanup(net);
-+	ip_vs_app_net_cleanup(net);
- app_fail:
--	__ip_vs_protocol_cleanup(net);
-+	ip_vs_protocol_net_cleanup(net);
- protocol_fail:
--	__ip_vs_control_cleanup(net);
-+	ip_vs_control_net_cleanup(net);
- control_fail:
--	__ip_vs_estimator_cleanup(net);
-+	ip_vs_estimator_net_cleanup(net);
- estimator_fail:
- 	return -ENOMEM;
- }
- 
- static void __net_exit __ip_vs_cleanup(struct net *net)
- {
--	__ip_vs_service_cleanup(net);	/* ip_vs_flush() with locks */
--	__ip_vs_conn_cleanup(net);
--	__ip_vs_app_cleanup(net);
--	__ip_vs_protocol_cleanup(net);
--	__ip_vs_control_cleanup(net);
--	__ip_vs_estimator_cleanup(net);
-+	ip_vs_service_net_cleanup(net);	/* ip_vs_flush() with locks */
-+	ip_vs_conn_net_cleanup(net);
-+	ip_vs_app_net_cleanup(net);
-+	ip_vs_protocol_net_cleanup(net);
-+	ip_vs_control_net_cleanup(net);
-+	ip_vs_estimator_net_cleanup(net);
- 	IP_VS_DBG(2, "ipvs netns %d released\n", net_ipvs(net)->gen);
- }
- 
-@@ -1945,7 +1945,7 @@ static void __net_exit __ip_vs_dev_cleanup(struct net *net)
- {
- 	EnterFunction(2);
- 	net_ipvs(net)->enable = 0;	/* Disable packet reception */
--	__ip_vs_sync_cleanup(net);
-+	ip_vs_sync_net_cleanup(net);
- 	LeaveFunction(2);
- }
- 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 699c79a..6bedea1 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1483,7 +1483,7 @@ static int ip_vs_flush(struct net *net)
-  *	Delete service by {netns} in the service table.
-  *	Called by __ip_vs_cleanup()
-  */
--void __ip_vs_service_cleanup(struct net *net)
-+void ip_vs_service_net_cleanup(struct net *net)
- {
- 	EnterFunction(2);
- 	/* Check for "full" addressed entries */
-@@ -1662,7 +1662,7 @@ proc_do_sync_mode(ctl_table *table, int write,
- /*
-  *	IPVS sysctl table (under the /proc/sys/net/ipv4/vs/)
-  *	Do not change order or insert new entries without
-- *	align with netns init in __ip_vs_control_init()
-+ *	align with netns init in ip_vs_control_net_init()
-  */
- 
- static struct ctl_table vs_vars[] = {
-@@ -3595,7 +3595,7 @@ static void ip_vs_genl_unregister(void)
-  * per netns intit/exit func.
-  */
- #ifdef CONFIG_SYSCTL
--int __net_init __ip_vs_control_init_sysctl(struct net *net)
-+int __net_init ip_vs_control_net_init_sysctl(struct net *net)
- {
- 	int idx;
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-@@ -3654,7 +3654,7 @@ int __net_init __ip_vs_control_init_sysctl(struct net *net)
- 	return 0;
- }
- 
--void __net_init __ip_vs_control_cleanup_sysctl(struct net *net)
-+void __net_init ip_vs_control_net_cleanup_sysctl(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -3665,8 +3665,8 @@ void __net_init __ip_vs_control_cleanup_sysctl(struct net *net)
- 
+ 	struct rb_node **n = &(root->rb_node), *p = NULL;
+ 	struct iface_node *d;
+-	
++
+ 	while (*n) {
+ 		char *ifname = iface_data(*n);
+ 		int res = ifname_compare(*iface, ifname);
+@@ -296,10 +296,10 @@ hash_netiface4_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 	if (opt->cmdflags & IPSET_FLAG_PHYSDEV) {
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 		const struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+-		
++
+ 		if (!nf_bridge)
+ 			return -EINVAL;
+-		data.iface = SRCDIR ? PHYSDEV(physindev): PHYSDEV(physoutdev);
++		data.iface = SRCDIR ? PHYSDEV(physindev) : PHYSDEV(physoutdev);
+ 		data.physdev = 1;
  #else
+ 		data.iface = NULL;
+@@ -350,7 +350,7 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_CIDR]) {
+ 		data.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+ 		if (!data.cidr)
+-			return -IPSET_ERR_INVALID_CIDR; 
++			return -IPSET_ERR_INVALID_CIDR;
+ 	}
  
--int __net_init __ip_vs_control_init_sysctl(struct net *net) { return 0; }
--void __net_init __ip_vs_control_cleanup_sysctl(struct net *net) { }
-+int __net_init ip_vs_control_net_init_sysctl(struct net *net) { return 0; }
-+void __net_init ip_vs_control_net_cleanup_sysctl(struct net *net) { }
+ 	if (tb[IPSET_ATTR_TIMEOUT]) {
+@@ -359,7 +359,7 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
+ 	}
  
- #endif
+-	strcpy(iface, nla_data(tb[IPSET_ATTR_IFACE])); 
++	strcpy(iface, nla_data(tb[IPSET_ATTR_IFACE]));
+ 	data.iface = iface;
+ 	ret = iface_test(&h->rbtree, &data.iface);
+ 	if (adt == IPSET_ADD) {
+@@ -372,8 +372,8 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		return ret;
  
-@@ -3674,7 +3674,7 @@ static struct notifier_block ip_vs_dst_notifier = {
- 	.notifier_call = ip_vs_dst_event,
- };
+ 	if (tb[IPSET_ATTR_CADT_FLAGS]) {
+-		u32 flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
+-		if (flags & IPSET_FLAG_PHYSDEV)
++		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
++		if (cadt_flags & IPSET_FLAG_PHYSDEV)
+ 			data.physdev = 1;
+ 	}
  
--int __net_init __ip_vs_control_init(struct net *net)
-+int __net_init ip_vs_control_net_init(struct net *net)
- {
- 	int idx;
- 	struct netns_ipvs *ipvs = net_ipvs(net);
-@@ -3702,7 +3702,7 @@ int __net_init __ip_vs_control_init(struct net *net)
- 	proc_net_fops_create(net, "ip_vs_stats_percpu", 0,
- 			     &ip_vs_stats_percpu_fops);
+@@ -559,10 +559,10 @@ hash_netiface6_kadt(struct ip_set *set, const struct sk_buff *skb,
+ 	if (opt->cmdflags & IPSET_FLAG_PHYSDEV) {
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 		const struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+-		
++
+ 		if (!nf_bridge)
+ 			return -EINVAL;
+-		data.iface = SRCDIR ? PHYSDEV(physindev): PHYSDEV(physoutdev);
++		data.iface = SRCDIR ? PHYSDEV(physindev) : PHYSDEV(physoutdev);
+ 		data.physdev = 1;
+ #else
+ 		data.iface = NULL;
+@@ -623,7 +623,7 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
+ 	}
  
--	if (__ip_vs_control_init_sysctl(net))
-+	if (ip_vs_control_net_init_sysctl(net))
- 		goto err;
+-	strcpy(iface, nla_data(tb[IPSET_ATTR_IFACE])); 
++	strcpy(iface, nla_data(tb[IPSET_ATTR_IFACE]));
+ 	data.iface = iface;
+ 	ret = iface_test(&h->rbtree, &data.iface);
+ 	if (adt == IPSET_ADD) {
+@@ -636,8 +636,8 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		return ret;
  
- 	return 0;
-@@ -3712,13 +3712,13 @@ err:
- 	return -ENOMEM;
+ 	if (tb[IPSET_ATTR_CADT_FLAGS]) {
+-		u32 flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
+-		if (flags & IPSET_FLAG_PHYSDEV)
++		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
++		if (cadt_flags & IPSET_FLAG_PHYSDEV)
+ 			data.physdev = 1;
+ 	}
+ 
+diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
+index d7710a9..fe203d1 100644
+--- a/net/netfilter/ipset/ip_set_hash_netport.c
++++ b/net/netfilter/ipset/ip_set_hash_netport.c
+@@ -199,7 +199,7 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_CIDR]) {
+ 		data.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+ 		if (!data.cidr)
+-			return -IPSET_ERR_INVALID_CIDR; 
++			return -IPSET_ERR_INVALID_CIDR;
+ 	}
+ 
+ 	if (tb[IPSET_ATTR_PORT])
+diff --git a/net/netfilter/ipset/pfxlen.c b/net/netfilter/ipset/pfxlen.c
+index b57a856..bd13d66 100644
+--- a/net/netfilter/ipset/pfxlen.c
++++ b/net/netfilter/ipset/pfxlen.c
+@@ -148,7 +148,7 @@ const union nf_inet_addr ip_set_netmask_map[] = {
+ EXPORT_SYMBOL_GPL(ip_set_netmask_map);
+ 
+ #undef  E
+-#define E(a, b, c, d) 						\
++#define E(a, b, c, d)						\
+ 	{.ip6 = { (__force __be32) a, (__force __be32) b,	\
+ 		  (__force __be32) c, (__force __be32) d,	\
+ 	} }
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index 453847f..19461c4 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -37,7 +37,7 @@ match_set(ip_set_id_t index, const struct sk_buff *skb,
+ 	return inv;
  }
  
--void __net_exit __ip_vs_control_cleanup(struct net *net)
-+void __net_exit ip_vs_control_net_cleanup(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_trash_cleanup(net);
- 	ip_vs_stop_estimator(net, &ipvs->tot_stats);
--	__ip_vs_control_cleanup_sysctl(net);
-+	ip_vs_control_net_cleanup_sysctl(net);
- 	proc_net_remove(net, "ip_vs_stats_percpu");
- 	proc_net_remove(net, "ip_vs_stats");
- 	proc_net_remove(net, "ip_vs");
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index 508cce9..f5d2a01 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -192,7 +192,7 @@ void ip_vs_read_estimator(struct ip_vs_stats_user *dst,
- 	dst->outbps = (e->outbps + 0xF) >> 5;
- }
- 
--int __net_init __ip_vs_estimator_init(struct net *net)
-+int __net_init ip_vs_estimator_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -203,7 +203,7 @@ int __net_init __ip_vs_estimator_init(struct net *net)
- 	return 0;
- }
- 
--void __net_exit __ip_vs_estimator_cleanup(struct net *net)
-+void __net_exit ip_vs_estimator_net_cleanup(struct net *net)
- {
- 	del_timer_sync(&net_ipvs(net)->est_timer);
- }
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index eb86028..52d073c 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -316,7 +316,7 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
- /*
-  * per network name-space init
-  */
--int __net_init __ip_vs_protocol_init(struct net *net)
-+int __net_init ip_vs_protocol_net_init(struct net *net)
- {
- #ifdef CONFIG_IP_VS_PROTO_TCP
- 	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
-@@ -336,7 +336,7 @@ int __net_init __ip_vs_protocol_init(struct net *net)
- 	return 0;
- }
- 
--void __net_exit __ip_vs_protocol_cleanup(struct net *net)
-+void __net_exit ip_vs_protocol_net_cleanup(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_proto_data *pd;
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index e292e5b..58bfabb 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1663,7 +1663,7 @@ int stop_sync_thread(struct net *net, int state)
- /*
-  * Initialize data struct for each netns
-  */
--int __net_init __ip_vs_sync_init(struct net *net)
-+int __net_init ip_vs_sync_net_init(struct net *net)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -1677,7 +1677,7 @@ int __net_init __ip_vs_sync_init(struct net *net)
- 	return 0;
- }
- 
--void __ip_vs_sync_cleanup(struct net *net)
-+void ip_vs_sync_net_cleanup(struct net *net)
- {
- 	int retc;
- 
+-#define ADT_OPT(n, f, d, fs, cfs, t) 	\
++#define ADT_OPT(n, f, d, fs, cfs, t)	\
+ const struct ip_set_adt_opt n = {	\
+ 	.family	= f,			\
+ 	.dim = d,			\
 -- 
 1.7.2.3
 
