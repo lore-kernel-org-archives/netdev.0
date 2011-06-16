@@ -1,58 +1,107 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [RFC] Moving files around in drivers/net
-Date: Wed, 15 Jun 2011 22:05:30 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F63F1859422D@EXMAIL.ad.emulex.com>
-References: <1306956602.32125.28.camel@Joe-Laptop>
-	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
-	 <1306958478.32125.32.camel@Joe-Laptop>
-	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
- <1308186619.12377.23.camel@Joe-Laptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] vhost: set dirty log when updating flags of used ring
+Date: Thu, 16 Jun 2011 14:45:56 +0800
+Message-ID: <20110616064556.9137.87807.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<paul.gortmaker@windriver.com>, <jengelh@medozas.de>
-To: <joe@perches.com>, <jeffrey.t.kirsher@intel.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:51851 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751040Ab1FPFFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 01:05:52 -0400
-In-Reply-To: <1308186619.12377.23.camel@Joe-Laptop>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:25255 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750761Ab1FPGoo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jun 2011 02:44:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
-bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+QmVoYWxm
-IE9mIEpvZSBQZXJjaGVzDQo+U2VudDogVGh1cnNkYXksIEp1bmUgMTYsIDIwMTEgNjo0MCBBTQ0K
-PlRvOiBKZWZmIEtpcnNoZXINCj5DYzogbmV0ZGV2OyBEYXZpZCBNaWxsZXI7IFBhdWwgR29ydG1h
-a2VyOyBKYW4gRW5nZWxoYXJkdA0KPlN1YmplY3Q6IFJlOiBbUkZDXSBNb3ZpbmcgZmlsZXMgYXJv
-dW5kIGluIGRyaXZlcnMvbmV0DQo+DQo+DQo+Y29tbWl0IDkzMWRhNTk0MTFlNjA1NzRhMTIzNWQw
-YWQyZDYzZWJkMTYzOGE4NTkNCj5BdXRob3I6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNo
-ZXJAaW50ZWwuY29tPg0KPkRhdGU6ICAgRnJpIE1heSAxMyAwMDozNzoyNyAyMDExIC0wNzAwDQo+
-DQo+ICAgIGJlMm5ldDogTW92ZSB0aGUgQmxhZGVFbmdpbmUgMiBkcml2ZXINCj4NCj4gICAgTW92
-ZXMgdGhlIFNlcnZlciBFbmdpbmUgZHJpdmVyIGludG8gZHJpdmVycy9uZXQvZXRoZXJuZXQvYmVu
-ZXQvIGFuZA0KPiAgICBtYWtlIHRoZSBuZWNlc3NhcnkgS2NvbmZpZyBhbmQgTWFrZWZpbGUgY2hh
-bmdlcy4NCj4NCj4gICAgQ0M6IFNhdGh5YSBQZXJsYSA8c2F0aHlhLnBlcmxhQGVtdWxleC5jb20+
-DQo+ICAgIENDOiBTdWJidSBTZWV0aGFyYW1hbiA8c3ViYnUuc2VldGhhcmFtYW5AZW11bGV4LmNv
-bT4NCj4gICAgQ0M6IEFqaXQgS2hhcGFyZGUgPGFqaXQua2hhcGFyZGVAZW11bGV4LmNvbT4NCj4g
-ICAgU2lnbmVkLW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
-b20+DQo+DQo+IE1BSU5UQUlORVJTICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
-ICAgIDIgKy0NCj4gZHJpdmVycy9uZXQvS2NvbmZpZyAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHwgICAgMiAtLQ0KPiBkcml2ZXJzL25ldC9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgICAxIC0NCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvS2NvbmZpZyAgICAgICAgICAgICAg
-ICAgIHwgICAgMSArDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L01ha2VmaWxlICAgICAgICAgICAg
-ICAgICB8ICAgIDEgKw0KPiBkcml2ZXJzL25ldC97ID0+IGV0aGVybmV0fS9iZW5ldC9LY29uZmln
-ICAgICAgfCAgICAwDQo+IGRyaXZlcnMvbmV0L3sgPT4gZXRoZXJuZXR9L2JlbmV0L01ha2VmaWxl
-ICAgICB8ICAgIDANCj4gZHJpdmVycy9uZXQveyA9PiBldGhlcm5ldH0vYmVuZXQvYmUuaCAgICAg
-ICAgIHwgICAgMA0KPiBkcml2ZXJzL25ldC97ID0+IGV0aGVybmV0fS9iZW5ldC9iZV9jbWRzLmMg
-ICAgfCAgICAwDQo+IGRyaXZlcnMvbmV0L3sgPT4gZXRoZXJuZXR9L2JlbmV0L2JlX2NtZHMuaCAg
-ICB8ICAgIDANCj4gZHJpdmVycy9uZXQveyA9PiBldGhlcm5ldH0vYmVuZXQvYmVfZXRodG9vbC5j
-IHwgICAgMA0KPiBkcml2ZXJzL25ldC97ID0+IGV0aGVybmV0fS9iZW5ldC9iZV9ody5oICAgICAg
-fCAgICAwDQo+IGRyaXZlcnMvbmV0L3sgPT4gZXRoZXJuZXR9L2JlbmV0L2JlX21haW4uYyAgICB8
-ICAgIDANCj4gMTMgZmlsZXMgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygt
-KQ0KPg0KDQpJZiB5b3UgYXJlIGdvaW5nIHRvIGNvbnNpc3RlbnRseSBoYXZlIHRoZSBwYXRoIGFz
-IGRyaXZlcnMvbmV0L2V0aGVybmV0Lzxjb21wYW55LW5hbWU+Lzxkcml2ZXItbmFtZT4sIHRoZW4N
-CmJlMm5ldCBkcml2ZXIgbXVzdCBiZSB1bmRlciBkcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgv
-YmUybmV0Lw0KDQp0aGFua3MsDQotU2F0aHlhDQo=
+We need to set log when updating flags of used ring, otherwise they may
+be missed after migration. A helper was introduced to write used_flags
+back to guest memory and update the log if necessary.
+
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/vhost.c |   26 ++++++++++++++++++++++----
+ drivers/vhost/vhost.h |    2 ++
+ 2 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 2ab2912..7c46aed 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -573,8 +573,10 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
+ static int init_used(struct vhost_virtqueue *vq,
+ 		     struct vring_used __user *used)
+ {
+-	int r = put_user(vq->used_flags, &used->flags);
++	int r;
+ 
++	vq->used = used;
++	r = vhost_update_used_flags(vq);
+ 	if (r)
+ 		return r;
+ 	return get_user(vq->last_used_idx, &used->idx);
+@@ -700,7 +702,6 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 		vq->desc = (void __user *)(unsigned long)a.desc_user_addr;
+ 		vq->avail = (void __user *)(unsigned long)a.avail_user_addr;
+ 		vq->log_addr = a.log_guest_addr;
+-		vq->used = (void __user *)(unsigned long)a.used_user_addr;
+ 		break;
+ 	case VHOST_SET_VRING_KICK:
+ 		if (copy_from_user(&f, argp, sizeof f)) {
+@@ -1375,6 +1376,23 @@ void vhost_add_used_and_signal_n(struct vhost_dev *dev,
+ 	vhost_signal(dev, vq);
+ }
+ 
++int vhost_update_used_flags(struct vhost_virtqueue *vq)
++{
++	if (put_user(vq->used_flags, &vq->used->flags) < 0)
++		return -EFAULT;
++	if (unlikely(vq->log_used)) {
++		/* Make sure the flag is seen before log. */
++		smp_wmb();
++		/* Log used flag write. */
++		log_write(vq->log_base,
++			  vq->log_addr + offsetof(struct vring_used, flags),
++			  sizeof vq->used->flags);
++		if (vq->log_ctx)
++			eventfd_signal(vq->log_ctx, 1);
++	}
++	return 0;
++}
++
+ /* OK, now we need to know about added descriptors. */
+ bool vhost_enable_notify(struct vhost_virtqueue *vq)
+ {
+@@ -1384,7 +1402,7 @@ bool vhost_enable_notify(struct vhost_virtqueue *vq)
+ 	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
+ 		return false;
+ 	vq->used_flags &= ~VRING_USED_F_NO_NOTIFY;
+-	r = put_user(vq->used_flags, &vq->used->flags);
++	r = vhost_update_used_flags(vq);
+ 	if (r) {
+ 		vq_err(vq, "Failed to enable notification at %p: %d\n",
+ 		       &vq->used->flags, r);
+@@ -1411,7 +1429,7 @@ void vhost_disable_notify(struct vhost_virtqueue *vq)
+ 	if (vq->used_flags & VRING_USED_F_NO_NOTIFY)
+ 		return;
+ 	vq->used_flags |= VRING_USED_F_NO_NOTIFY;
+-	r = put_user(vq->used_flags, &vq->used->flags);
++	r = vhost_update_used_flags(vq);
+ 	if (r)
+ 		vq_err(vq, "Failed to enable notification at %p: %d\n",
+ 		       &vq->used->flags, r);
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index b3363ae..76f4c61 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -155,6 +155,8 @@ bool vhost_enable_notify(struct vhost_virtqueue *);
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
+ 
++int vhost_update_used_flags(struct vhost_virtqueue *vq);
++
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+ 		if ((vq)->error_ctx)                               \
+
