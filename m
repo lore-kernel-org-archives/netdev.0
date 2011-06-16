@@ -1,7 +1,7 @@
-From: Jon Mason <jdmason@kudzu.us>
+From: Jon Mason <jon.mason@myri.com>
 Subject: Re: [RFC] Moving files around in drivers/net
-Date: Thu, 16 Jun 2011 09:14:52 -0500
-Message-ID: <BANLkTinWOc14oNEon_UctVMB3fEDzDQa=Q@mail.gmail.com>
+Date: Thu, 16 Jun 2011 10:03:27 -0500
+Message-ID: <BANLkTin0QzAscKcN0Yw6rc7fUh5d5q143w@mail.gmail.com>
 References: <1306956602.32125.28.camel@Joe-Laptop>
 	<1306957998.3076.18.camel@jtkirshe-MOBL1>
 	<1306958478.32125.32.camel@Joe-Laptop>
@@ -14,15 +14,16 @@ Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jan Engelhardt <jengelh@medozas.de>
+	Jan Engelhardt <jengelh@medozas.de>,
+	Andrew Gallatin <gallatin@myri.com>
 To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:43977 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502Ab1FPOOz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 10:14:55 -0400
-Received: by eyx24 with SMTP id 24so565697eyx.19
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2011 07:14:53 -0700 (PDT)
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:44439 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753086Ab1FPPD2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 11:03:28 -0400
+Received: by iwn34 with SMTP id 34so1203232iwn.19
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2011 08:03:28 -0700 (PDT)
 In-Reply-To: <1308186619.12377.23.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -1301,15 +1302,6 @@ he
 > =A0 =A0Move the Exar drivers into drivers/net/ethernet/exar/ and make=
  the
 > =A0 =A0necessary Kconfig and Makefile changes.
-
-I think it makes more since to have the folder named neterion, as that
-was the name the adapters were sold under.
-
-Aside from that, it looks good to me.
-
-Thanks,
-Jon
-
 >
 > =A0 =A0CC: Jon Mason <jdmason@kudzu.us>
 > =A0 =A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -1390,6 +1382,20 @@ d make
 0
 > =A0drivers/net/{ =3D> ethernet/myricom}/myri_sbus.h =A0 =A0 | =A0 =A0=
 0
+
+/me puts on Myricom hat
+
+I believe we want to put the driver above in the sbus/legacy
+directory.  Better yet, move this driver to /dev/null.  There is no
+possibility of ethernet mode on this adapter, so it's Myrinet only.
+It won't inter-op with modern versions of Myrinet, and thus can only
+work with legacy adapters.  There are no drivers for the PCI version
+of this adapter, so it only can work on ~15year old hardware.  It's
+long in the tooth, let's take it to the knackers.
+
+Thanks,
+Jon
+
 > =A013 files changed, 60 insertions(+), 39 deletions(-)
 >
 > commit c04bd079e4ab82c5ee8fd0cb526f16e9ffce9360
