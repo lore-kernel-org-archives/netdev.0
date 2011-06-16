@@ -1,32 +1,47 @@
-From: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Subject: Re: software iwarp stack update
-Date: Thu, 16 Jun 2011 20:06:44 +0200
-Message-ID: <BANLkTikE-oc2qWZec+2BfWuUy-oNdf-opg@mail.gmail.com>
-References: <BANLkTimEGgKEMZd3qppOofN-Vj-u-PH-xA@mail.gmail.com>
- <OFB7458EEB.BFB8A4EE-ONC12578B1.004026D1-C12578B1.0041190E@ch.ibm.com> <BANLkTi=2woNzF=GL3cT3NB_hye5JHfodMA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTi=2woNzF=GL3cT3NB_hye5JHfodMA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: kaber@trash.net
+Subject: [PATCH 3/6] netfilter: ipt_ecn: fix protocol check in ecn_mt_check()
+Date: Thu, 16 Jun 2011 21:41:38 +0200
+Message-ID: <1308253301-29894-4-git-send-email-kaber@trash.net>
+References: <1308253301-29894-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1308253301-29894-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 16, 2011 at 7:20 PM, Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org> wrote:
-> It does seem we are missing an IB_MANDATORY_FUNC
-> entry for modify_port in ib_device_check_mandatory; or on
-> the flip side we are missing a check of modify_port and a
-> -ENOSYS return... I guess modify_port does not really make
-> sense for iWARP so probably the second option is better.
+From: Patrick McHardy <kaber@trash.net>
 
-It's not just ib_modify_port() - there are several other functions in
-the amso and cxgb* drivers that do nothing more than returning either
--ENOSYS or ERR_PTR(-ENOSYS).
+Check for protocol inversion in ecn_mt_check() and remove the
+unnecessary runtime check for IPPROTO_TCP in ecn_mt().
 
-Bart.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter/ipt_ecn.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_ecn.c b/net/ipv4/netfilter/ipt_ecn.c
+index af6e9c7..aaa85be 100644
+--- a/net/ipv4/netfilter/ipt_ecn.c
++++ b/net/ipv4/netfilter/ipt_ecn.c
+@@ -76,8 +76,6 @@ static bool ecn_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 			return false;
+ 
+ 	if (info->operation & (IPT_ECN_OP_MATCH_ECE|IPT_ECN_OP_MATCH_CWR)) {
+-		if (ip_hdr(skb)->protocol != IPPROTO_TCP)
+-			return false;
+ 		if (!match_tcp(skb, info, &par->hotdrop))
+ 			return false;
+ 	}
+@@ -97,7 +95,7 @@ static int ecn_mt_check(const struct xt_mtchk_param *par)
+ 		return -EINVAL;
+ 
+ 	if (info->operation & (IPT_ECN_OP_MATCH_ECE|IPT_ECN_OP_MATCH_CWR) &&
+-	    ip->proto != IPPROTO_TCP) {
++	    (ip->proto != IPPROTO_TCP || ip->invflags & IPT_INV_PROTO)) {
+ 		pr_info("cannot match TCP bits in rule for non-tcp packets\n");
+ 		return -EINVAL;
+ 	}
+-- 
+1.7.2.3
+
