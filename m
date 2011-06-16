@@ -1,74 +1,43 @@
 From: kaber@trash.net
-Subject: [PATCH 1/6] IPVS netns exit causes crash in conntrack
-Date: Thu, 16 Jun 2011 21:41:36 +0200
-Message-ID: <1308253301-29894-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 4/6] netfilter: ipt_ecn: fix inversion for IP header ECN match
+Date: Thu, 16 Jun 2011 21:41:39 +0200
+Message-ID: <1308253301-29894-5-git-send-email-kaber@trash.net>
 References: <1308253301-29894-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64059 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:64060 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757942Ab1FPTlp (ORCPT
+	with ESMTP id S1757775Ab1FPTlp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 15:41:45 -0400
 In-Reply-To: <1308253301-29894-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: Patrick McHardy <kaber@trash.net>
 
-Quote from Patric Mc Hardy
-"This looks like nfnetlink.c excited and destroyed the nfnl socket, but
-ip_vs was still holding a reference to a conntrack. When the conntrack
-got destroyed it created a ctnetlink event, causing an oops in
-netlink_has_listeners when trying to use the destroyed nfnetlink
-socket."
+Userspace allows to specify inversion for IP header ECN matches, the
+kernel silently accepts it, but doesn't invert the match result.
 
-If nf_conntrack_netlink is loaded before ip_vs this is not a problem.
-
-This patch simply avoids calling ip_vs_conn_drop_conntrack()
-when netns is dying as suggested by Julian.
-
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_conn.c |   10 +++++++++-
- net/netfilter/ipvs/ip_vs_core.c |    1 +
- 2 files changed, 10 insertions(+), 1 deletions(-)
+ net/ipv4/netfilter/ipt_ecn.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index bf28ac2..782db27 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -776,8 +776,16 @@ static void ip_vs_conn_expire(unsigned long data)
- 		if (cp->control)
- 			ip_vs_control_del(cp);
- 
--		if (cp->flags & IP_VS_CONN_F_NFCT)
-+		if (cp->flags & IP_VS_CONN_F_NFCT) {
- 			ip_vs_conn_drop_conntrack(cp);
-+			/* Do not access conntracks during subsys cleanup
-+			 * because nf_conntrack_find_get can not be used after
-+			 * conntrack cleanup for the net.
-+			 */
-+			smp_rmb();
-+			if (ipvs->enable)
-+				ip_vs_conn_drop_conntrack(cp);
-+		}
- 
- 		ip_vs_pe_put(cp->pe);
- 		kfree(cp->pe_data);
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 55af224..24c28d2 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1945,6 +1945,7 @@ static void __net_exit __ip_vs_dev_cleanup(struct net *net)
+diff --git a/net/ipv4/netfilter/ipt_ecn.c b/net/ipv4/netfilter/ipt_ecn.c
+index aaa85be..2b57e52 100644
+--- a/net/ipv4/netfilter/ipt_ecn.c
++++ b/net/ipv4/netfilter/ipt_ecn.c
+@@ -25,7 +25,8 @@ MODULE_LICENSE("GPL");
+ static inline bool match_ip(const struct sk_buff *skb,
+ 			    const struct ipt_ecn_info *einfo)
  {
- 	EnterFunction(2);
- 	net_ipvs(net)->enable = 0;	/* Disable packet reception */
-+	smp_wmb();
- 	__ip_vs_sync_cleanup(net);
- 	LeaveFunction(2);
+-	return (ip_hdr(skb)->tos & IPT_ECN_IP_MASK) == einfo->ip_ect;
++	return ((ip_hdr(skb)->tos & IPT_ECN_IP_MASK) == einfo->ip_ect) ^
++	       !!(einfo->invert & IPT_ECN_OP_MATCH_IP);
  }
+ 
+ static inline bool match_tcp(const struct sk_buff *skb,
 -- 
 1.7.2.3
 
