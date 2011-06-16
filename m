@@ -1,191 +1,93 @@
 From: kaber@trash.net
-Subject: [PATCH 05/20] IPVS: remove unused init and cleanup functions.
-Date: Thu, 16 Jun 2011 21:47:05 +0200
-Message-ID: <1308253640-29942-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 04/20] IPVS: labels at pos 0
+Date: Thu, 16 Jun 2011 21:47:04 +0200
+Message-ID: <1308253640-29942-5-git-send-email-kaber@trash.net>
 References: <1308253640-29942-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64142 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932244Ab1FPTrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 15:47:24 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1308253640-29942-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-After restructuring, there is some unused or empty functions
-left to be removed.
+Put goto labels at the beginig of row
+acording to coding style example.
 
 Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h             |    6 ------
- net/netfilter/ipvs/ip_vs_app.c  |   10 ----------
- net/netfilter/ipvs/ip_vs_core.c |   29 ++++-------------------------
- net/netfilter/ipvs/ip_vs_est.c  |    9 ---------
- net/netfilter/ipvs/ip_vs_sync.c |    9 ---------
- 5 files changed, 4 insertions(+), 59 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c |   10 +++++-----
+ net/netfilter/ipvs/ip_vs_ctl.c  |    8 ++++----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 1b0985f..b1370c4 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1117,8 +1117,6 @@ extern void ip_vs_app_inc_put(struct ip_vs_app *inc);
- 
- extern int ip_vs_app_pkt_out(struct ip_vs_conn *, struct sk_buff *skb);
- extern int ip_vs_app_pkt_in(struct ip_vs_conn *, struct sk_buff *skb);
--extern int ip_vs_app_init(void);
--extern void ip_vs_app_cleanup(void);
- 
- void ip_vs_bind_pe(struct ip_vs_service *svc, struct ip_vs_pe *pe);
- void ip_vs_unbind_pe(struct ip_vs_service *svc);
-@@ -1221,15 +1219,11 @@ extern int start_sync_thread(struct net *net, int state, char *mcast_ifn,
- 			     __u8 syncid);
- extern int stop_sync_thread(struct net *net, int state);
- extern void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp);
--extern int ip_vs_sync_init(void);
--extern void ip_vs_sync_cleanup(void);
- 
- 
- /*
-  *      IPVS rate estimator prototypes (from ip_vs_est.c)
-  */
--extern int ip_vs_estimator_init(void);
--extern void ip_vs_estimator_cleanup(void);
- extern void ip_vs_start_estimator(struct net *net, struct ip_vs_stats *stats);
- extern void ip_vs_stop_estimator(struct net *net, struct ip_vs_stats *stats);
- extern void ip_vs_zero_estimator(struct ip_vs_stats *stats);
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index e223fb7..fe6cb43 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -589,13 +589,3 @@ void __net_exit ip_vs_app_net_cleanup(struct net *net)
- {
- 	proc_net_remove(net, "ip_vs_app");
- }
--
--int __init ip_vs_app_init(void)
--{
--	return 0;
--}
--
--
--void ip_vs_app_cleanup(void)
--{
--}
 diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 6cefe32..2200bae 100644
+index 7c2c726..6cefe32 100644
 --- a/net/netfilter/ipvs/ip_vs_core.c
 +++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1967,36 +1967,23 @@ static int __init ip_vs_init(void)
- {
- 	int ret;
+@@ -1384,7 +1384,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 		offset += 2 * sizeof(__u16);
+ 	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset, hooknum);
  
--	ip_vs_estimator_init();
- 	ret = ip_vs_control_init();
- 	if (ret < 0) {
- 		pr_err("can't setup control.\n");
--		goto cleanup_estimator;
-+		goto exit;
- 	}
+-  out:
++out:
+ 	__ip_vs_conn_put(cp);
  
- 	ip_vs_protocol_init();
- 
--	ret = ip_vs_app_init();
--	if (ret < 0) {
--		pr_err("can't setup application helper.\n");
--		goto cleanup_protocol;
--	}
--
- 	ret = ip_vs_conn_init();
- 	if (ret < 0) {
- 		pr_err("can't setup connection table.\n");
--		goto cleanup_app;
--	}
--
--	ret = ip_vs_sync_init();
--	if (ret < 0) {
--		pr_err("can't setup sync data.\n");
--		goto cleanup_conn;
-+		goto cleanup_protocol;
- 	}
- 
- 	ret = register_pernet_subsys(&ipvs_core_ops);	/* Alloc ip_vs struct */
- 	if (ret < 0)
--		goto cleanup_sync;
-+		goto cleanup_conn;
- 
- 	ret = register_pernet_device(&ipvs_core_dev_ops);
- 	if (ret < 0)
-@@ -2016,17 +2003,12 @@ cleanup_dev:
- 	unregister_pernet_device(&ipvs_core_dev_ops);
- cleanup_sub:
+ 	return verdict;
+@@ -2018,14 +2018,14 @@ cleanup_sub:
  	unregister_pernet_subsys(&ipvs_core_ops);
--cleanup_sync:
--	ip_vs_sync_cleanup();
- cleanup_conn:
+ cleanup_sync:
+ 	ip_vs_sync_cleanup();
+-  cleanup_conn:
++cleanup_conn:
  	ip_vs_conn_cleanup();
--cleanup_app:
--	ip_vs_app_cleanup();
- cleanup_protocol:
+-  cleanup_app:
++cleanup_app:
+ 	ip_vs_app_cleanup();
+-  cleanup_protocol:
++cleanup_protocol:
  	ip_vs_protocol_cleanup();
  	ip_vs_control_cleanup();
--cleanup_estimator:
--	ip_vs_estimator_cleanup();
-+exit:
+-  cleanup_estimator:
++cleanup_estimator:
+ 	ip_vs_estimator_cleanup();
+ 	return ret;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 6bedea1..be43fd8 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1334,9 +1334,9 @@ ip_vs_edit_service(struct ip_vs_service *svc, struct ip_vs_service_user_kern *u)
+ 		ip_vs_bind_pe(svc, pe);
+ 	}
+ 
+-  out_unlock:
++out_unlock:
+ 	write_unlock_bh(&__ip_vs_svc_lock);
+-  out:
++out:
+ 	ip_vs_scheduler_put(old_sched);
+ 	ip_vs_pe_put(old_pe);
+ 	return ret;
+@@ -2469,7 +2469,7 @@ __ip_vs_get_service_entries(struct net *net,
+ 			count++;
+ 		}
+ 	}
+-  out:
++out:
  	return ret;
  }
  
-@@ -2035,12 +2017,9 @@ static void __exit ip_vs_cleanup(void)
- 	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
- 	unregister_pernet_device(&ipvs_core_dev_ops);
- 	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
--	ip_vs_sync_cleanup();
- 	ip_vs_conn_cleanup();
--	ip_vs_app_cleanup();
- 	ip_vs_protocol_cleanup();
- 	ip_vs_control_cleanup();
--	ip_vs_estimator_cleanup();
- 	pr_info("ipvs unloaded.\n");
- }
+@@ -2707,7 +2707,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 		ret = -EINVAL;
+ 	}
  
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index f5d2a01..0fac601 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -207,12 +207,3 @@ void __net_exit ip_vs_estimator_net_cleanup(struct net *net)
- {
- 	del_timer_sync(&net_ipvs(net)->est_timer);
+-  out:
++out:
+ 	mutex_unlock(&__ip_vs_mutex);
+ 	return ret;
  }
--
--int __init ip_vs_estimator_init(void)
--{
--	return 0;
--}
--
--void ip_vs_estimator_cleanup(void)
--{
--}
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 58bfabb..7ee7215 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1689,12 +1689,3 @@ void ip_vs_sync_net_cleanup(struct net *net)
- 	if (retc && retc != -ESRCH)
- 		pr_err("Failed to stop Backup Daemon\n");
- }
--
--int __init ip_vs_sync_init(void)
--{
--	return 0;
--}
--
--void ip_vs_sync_cleanup(void)
--{
--}
 -- 
 1.7.2.3
 
