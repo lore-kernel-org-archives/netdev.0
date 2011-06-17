@@ -1,35 +1,30 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Netconf2011 slides...
-Date: Fri, 17 Jun 2011 21:21:34 +0800
-Message-ID: <BANLkTi=Vk__TbiGGrUkqexoJ1=mGh8a1gw@mail.gmail.com>
-References: <20110615.145937.1748734114172641662.davem@davemloft.net> <4DF9D644.708@linux.vnet.ibm.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [AX25] inconsistent lock state
+Date: Fri, 17 Jun 2011 14:28:20 +0100
+Message-ID: <20110617132820.GA24458@linux-mips.org>
+References: <4B2CD772.1030106@upmc.fr>
+ <4B2D1025.1020106@gmail.com>
+ <4B2E6729.1090102@free.fr>
+ <4B507FAA.8010007@free.fr>
+ <20100115203654.GA3084@del.dom.local>
+ <4DFA662D.5030302@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Srinivasa T N <seenutn@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:64616 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758984Ab1FQNV4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 09:21:56 -0400
-Received: by bwz15 with SMTP id 15so755659bwz.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 06:21:55 -0700 (PDT)
-In-Reply-To: <4DF9D644.708@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Jarek Poplawski <jarkao2@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams@vger.kernel.org
+To: f6bvp <f6bvp@free.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4DFA662D.5030302@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 16, 2011 at 6:09 PM, Srinivasa T N
-<seenutn@linux.vnet.ibm.com> wrote:
-> =A0 =A0 =A0 =A0Were there some interesting topics which is useful for=
- the community?
-> (Few lines on each such topic would do).
->
+On Thu, Jun 16, 2011 at 10:23:09PM +0200, f6bvp wrote:
 
-netmap was mentioned by Tom. It is interesting for me.
+> When unpluging ethernet connector a few seconds I observed the
+> following kernel message :
 
-http://info.iet.unipi.it/~luigi/netmap/
+Can you describe your setup and what you did to trigger this?
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+  Ralf
