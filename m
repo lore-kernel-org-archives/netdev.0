@@ -1,8 +1,8 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH #3 net-next 2/4] r8169: explicit firmware format check.
-Date: Sat, 18 Jun 2011 13:26:46 +0200
-Message-ID: <20110618112646.GC2573@electric-eye.fr.zoreil.com>
-References: <20110618112605.GA2573@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH #2 net-next 0/4] Pull request for 'davem-next.r8169' branch
+Date: Sat, 18 Jun 2011 00:48:10 +0200
+Message-ID: <20110617224810.GA2531@electric-eye.fr.zoreil.com>
+References: <20110617224001.GA2483@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org,
@@ -11,136 +11,19 @@ Cc: netdev@vger.kernel.org,
 	Ben Hutchings <ben@decadent.org.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52934 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52931 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755592Ab1FRLlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 07:41:06 -0400
+	with ESMTP id S1755025Ab1FRLlC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 07:41:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20110618112605.GA2573@electric-eye.fr.zoreil.com>
+In-Reply-To: <20110617224001.GA2483@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/r8169.c |   62 ++++++++++++++++++++++++++++++++++++++++----------
- 1 files changed, 49 insertions(+), 13 deletions(-)
+Francois Romieu <romieu@fr.zoreil.com> :
+> Please pull from branch 'davem-next.r8169.hayes' in repository
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 3eeefe4..8fc9af2 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -669,6 +669,15 @@ struct rtl8169_private {
- 
- 	struct rtl_fw {
- 		const struct firmware *fw;
-+
-+#define RTL_VER_SIZE		32
-+
-+		char version[RTL_VER_SIZE];
-+
-+		struct rtl_fw_phy_action {
-+			__le32 *code;
-+			size_t size;
-+		} phy_action;
- 	} *rtl_fw;
- #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN);
- };
-@@ -1229,8 +1238,9 @@ static void rtl8169_get_drvinfo(struct net_device *dev,
- 	strcpy(info->driver, MODULENAME);
- 	strcpy(info->version, RTL8169_VERSION);
- 	strcpy(info->bus_info, pci_name(tp->pci_dev));
--	strncpy(info->fw_version, IS_ERR_OR_NULL(rtl_fw) ? "N/A" :
--		rtl_lookup_firmware_name(tp), sizeof(info->fw_version) - 1);
-+	BUILD_BUG_ON(sizeof(info->fw_version) < sizeof(rtl_fw->version));
-+	strcpy(info->fw_version, IS_ERR_OR_NULL(rtl_fw) ? "N/A" :
-+	       rtl_fw->version);
- }
- 
- static int rtl8169_get_regs_len(struct net_device *dev)
-@@ -1744,21 +1754,47 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
- #define PHY_DELAY_MS		0xe0000000
- #define PHY_WRITE_ERI_WORD	0xf0000000
- 
--static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
-+#define FW_OPCODE_SIZE	sizeof(typeof(*((struct rtl_fw_phy_action *)0)->code))
-+
-+static bool rtl_fw_format_ok(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- {
- 	const struct firmware *fw = rtl_fw->fw;
--	__le32 *phytable = (__le32 *)fw->data;
-+	struct rtl_fw_phy_action *pa = &rtl_fw->phy_action;
-+	char *version = rtl_fw->version;
-+	bool rc = false;
-+
-+	if (fw->size < FW_OPCODE_SIZE)
-+		goto out;
-+	else {
-+		if (fw->size % FW_OPCODE_SIZE)
-+			goto out;
-+
-+		strlcpy(version, rtl_lookup_firmware_name(tp), RTL_VER_SIZE);
-+
-+		pa->code = (__le32 *)fw->data;
-+		pa->size = fw->size / FW_OPCODE_SIZE;
-+	}
-+	version[RTL_VER_SIZE - 1] = 0;
-+
-+	rc = true;
-+out:
-+	return rc;
-+}
-+
-+static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
-+{
-+	struct rtl_fw_phy_action *pa = &rtl_fw->phy_action;
- 	struct net_device *dev = tp->dev;
--	size_t index, fw_size = fw->size / sizeof(*phytable);
- 	u32 predata, count;
-+	size_t index;
- 
--	if (fw->size % sizeof(*phytable)) {
--		netif_err(tp, probe, dev, "odd sized firmware %zd\n", fw->size);
-+	if (!rtl_fw_format_ok(tp, rtl_fw)) {
-+		netif_err(tp, probe, dev, "invalid firwmare\n");
- 		return;
- 	}
- 
--	for (index = 0; index < fw_size; index++) {
--		u32 action = le32_to_cpu(phytable[index]);
-+	for (index = 0; index < pa->size; index++) {
-+		u32 action = le32_to_cpu(pa->code[index]);
- 		u32 regno = (action & 0x0fff0000) >> 16;
- 
- 		switch(action & 0xf0000000) {
-@@ -1780,7 +1816,7 @@ static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- 			}
- 			break;
- 		case PHY_READCOUNT_EQ_SKIP:
--			if (index + 2 >= fw_size) {
-+			if (index + 2 >= pa->size) {
- 				netif_err(tp, probe, tp->dev,
- 					  "Out of range of firmware\n");
- 				return;
-@@ -1789,7 +1825,7 @@ static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- 		case PHY_COMP_EQ_SKIPN:
- 		case PHY_COMP_NEQ_SKIPN:
- 		case PHY_SKIPN:
--			if (index + 1 + regno >= fw_size) {
-+			if (index + 1 + regno >= pa->size) {
- 				netif_err(tp, probe, tp->dev,
- 					  "Out of range of firmware\n");
- 				return;
-@@ -1809,8 +1845,8 @@ static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- 	predata = 0;
- 	count = 0;
- 
--	for (index = 0; index < fw_size; ) {
--		u32 action = le32_to_cpu(phytable[index]);
-+	for (index = 0; index < pa->size; ) {
-+		u32 action = le32_to_cpu(pa->code[index]);
- 		u32 data = action & 0x0000ffff;
- 		u32 regno = (action & 0x0fff0000) >> 16;
- 
+Don't, I have not amended correctly #2.
+
 -- 
-1.7.4.4
-
+Ueimor
