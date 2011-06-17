@@ -1,394 +1,334 @@
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Subject: [next-next-2.6 PATCH] enic: Add support to configure hardware
-	interrupt coalesce timers in a platform independent way
-Date: Fri, 17 Jun 2011 10:56:48 -0700
-Message-ID: <20110617175648.5502.43785.stgit@savbu-pc100.cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] ip: introduce ip_is_fragment helper inline function
+Date: Fri, 17 Jun 2011 14:08:11 -0400
+Message-ID: <1308334091-10031-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:46214 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236Ab1FQR4s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 13:56:48 -0400
+Received: from mail.windriver.com ([147.11.1.11]:43587 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751090Ab1FQSIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 14:08:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
+There are enough instances of this:
 
-enic driver and the underlying hardware use different units for representing the interrupt coalesce timer.
-Driver converts the interrupt coalesce timer in usec to hardware cycles while setting the relevant hardware
-registers. The conversion factor can be different for each of the adapter hardware types. So it is dynamically
-learnt from the adapter firmware using the devcmd CMD_INTR_COAL_CONVERT. This allows the driver to configure
-the hardware interrupt coalesce timers in a platform independent way.
+    iph->frag_off & htons(IP_MF | IP_OFFSET)
 
-Signed-off-by: Danny Guo <dannguo@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
+that a helper function is probably warranted.
+
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/enic/enic.h        |    2 +
- drivers/net/enic/enic_dev.c    |   11 +++++++
- drivers/net/enic/enic_dev.h    |    1 +
- drivers/net/enic/enic_main.c   |   26 +++++++++++------
- drivers/net/enic/enic_res.c    |    7 ++---
- drivers/net/enic/vnic_dev.c    |   60 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/enic/vnic_dev.h    |    5 +++
- drivers/net/enic/vnic_devcmd.h |   19 +++++++++++++
- drivers/net/enic/vnic_enet.h   |    4 ---
- drivers/net/enic/vnic_intr.c   |    7 +++--
- drivers/net/enic/vnic_intr.h   |    6 +---
- 11 files changed, 122 insertions(+), 26 deletions(-)
+ drivers/net/bonding/bond_main.c        |    2 +-
+ drivers/net/ioc3-eth.c                 |    2 +-
+ drivers/net/myri10ge/myri10ge.c        |    2 +-
+ drivers/net/s2io.c                     |    2 +-
+ drivers/net/sfc/filter.c               |    2 +-
+ drivers/net/vxge/vxge-main.c           |    2 +-
+ include/net/ip.h                       |    5 +++++
+ net/core/dev.c                         |    2 +-
+ net/ipv4/ip_input.c                    |    4 ++--
+ net/ipv4/ip_output.c                   |    2 +-
+ net/ipv4/ipconfig.c                    |    2 +-
+ net/ipv4/netfilter/nf_defrag_ipv4.c    |    2 +-
+ net/ipv4/netfilter/nf_nat_standalone.c |    2 +-
+ net/ipv4/xfrm4_policy.c                |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c        |    7 +++----
+ net/sched/cls_flow.c                   |    4 ++--
+ net/sched/cls_rsvp.h                   |    2 +-
+ net/sched/sch_choke.c                  |    2 +-
+ net/sched/sch_sfq.c                    |    2 +-
+ 19 files changed, 27 insertions(+), 23 deletions(-)
 
-
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index f747bce..f0b062b 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -32,7 +32,7 @@
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 07e866d..5baeb6e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3432,7 +3432,7 @@ static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
+ 	int layer4_xor = 0;
  
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.1.1.20"
-+#define DRV_VERSION		"2.1.1.24"
- #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+-		if (!(iph->frag_off & htons(IP_MF|IP_OFFSET)) &&
++		if (!ip_is_fragment(iph) &&
+ 		    (iph->protocol == IPPROTO_TCP ||
+ 		     iph->protocol == IPPROTO_UDP)) {
+ 			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
+diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ioc3-eth.c
+index 32f07f8..318a25a 100644
+--- a/drivers/net/ioc3-eth.c
++++ b/drivers/net/ioc3-eth.c
+@@ -532,7 +532,7 @@ static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
+ 		return;
  
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/enic/enic_dev.c b/drivers/net/enic/enic_dev.c
-index 90687b1..fd6247b 100644
---- a/drivers/net/enic/enic_dev.c
-+++ b/drivers/net/enic/enic_dev.c
-@@ -166,6 +166,17 @@ int enic_dev_disable(struct enic *enic)
- 	return err;
+ 	ih = (struct iphdr *) ((char *)eh + ETH_HLEN);
+-	if (ih->frag_off & htons(IP_MF | IP_OFFSET))
++	if (ip_is_fragment(ih))
+ 		return;
+ 
+ 	proto = ih->protocol;
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 04e10f4..110b61a 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -2257,7 +2257,7 @@ myri10ge_get_frag_header(struct skb_frag_struct *frag, void **mac_hdr,
+ 	*ip_hdr = iph;
+ 	if (iph->protocol != IPPROTO_TCP)
+ 		return -1;
+-	if (iph->frag_off & htons(IP_MF | IP_OFFSET))
++	if (ip_is_fragment(iph))
+ 		return -1;
+ 	*hdr_flags |= LRO_TCP;
+ 	*tcpudp_hdr = (u8 *) (*ip_hdr) + (iph->ihl << 2);
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index df0d2c8..5897513 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -4111,7 +4111,7 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			struct tcphdr *th;
+ 			ip = ip_hdr(skb);
+ 
+-			if ((ip->frag_off & htons(IP_OFFSET|IP_MF)) == 0) {
++			if (ip_is_fragment(ip) == 0) {
+ 				th = (struct tcphdr *)(((unsigned char *)ip) +
+ 						       ip->ihl*4);
+ 
+diff --git a/drivers/net/sfc/filter.c b/drivers/net/sfc/filter.c
+index 95a980f..f2fc258 100644
+--- a/drivers/net/sfc/filter.c
++++ b/drivers/net/sfc/filter.c
+@@ -652,7 +652,7 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
+ 	/* RFS must validate the IP header length before calling us */
+ 	EFX_BUG_ON_PARANOID(!pskb_may_pull(skb, nhoff + sizeof(*ip)));
+ 	ip = (const struct iphdr *)(skb->data + nhoff);
+-	if (ip->frag_off & htons(IP_MF | IP_OFFSET))
++	if (ip_is_fragment(ip))
+ 		return -EPROTONOSUPPORT;
+ 	EFX_BUG_ON_PARANOID(!pskb_may_pull(skb, nhoff + 4 * ip->ihl + 4));
+ 	ports = (const __be16 *)(skb->data + nhoff + 4 * ip->ihl);
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index e658edd..0068605 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -629,7 +629,7 @@ static u32 vxge_get_vpath_no(struct vxgedev *vdev, struct sk_buff *skb)
+ 
+ 		ip = ip_hdr(skb);
+ 
+-		if ((ip->frag_off & htons(IP_OFFSET|IP_MF)) == 0) {
++		if (ip_is_fragment(ip) == 0) {
+ 			th = (struct tcphdr *)(((unsigned char *)ip) +
+ 					ip->ihl*4);
+ 
+diff --git a/include/net/ip.h b/include/net/ip.h
+index e9ea7c7..114a152 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -250,6 +250,11 @@ int ip_decrease_ttl(struct iphdr *iph)
+ 	return --iph->ttl;
  }
  
-+int enic_dev_intr_coal_timer_info(struct enic *enic)
++static inline int ip_is_fragment(const struct iphdr *iph)
 +{
-+	int err;
-+
-+	spin_lock(&enic->devcmd_lock);
-+	err = vnic_dev_intr_coal_timer_info(enic->vdev);
-+	spin_unlock(&enic->devcmd_lock);
-+
-+	return err;
++	return iph->frag_off & htons(IP_MF | IP_OFFSET);
 +}
 +
- int enic_vnic_dev_deinit(struct enic *enic)
+ static inline
+ int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
  {
- 	int err;
-diff --git a/drivers/net/enic/enic_dev.h b/drivers/net/enic/enic_dev.h
-index d5f6813..ff8e87f 100644
---- a/drivers/net/enic/enic_dev.h
-+++ b/drivers/net/enic/enic_dev.h
-@@ -34,6 +34,7 @@ int enic_dev_hang_notify(struct enic *enic);
- int enic_dev_set_ig_vlan_rewrite_mode(struct enic *enic);
- int enic_dev_enable(struct enic *enic);
- int enic_dev_disable(struct enic *enic);
-+int enic_dev_intr_coal_timer_info(struct enic *enic);
- int enic_vnic_dev_deinit(struct enic *enic);
- int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp);
- int enic_dev_deinit_done(struct enic *enic, int *status);
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 4b3a93a..e25800f 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -284,12 +284,10 @@ static int enic_set_coalesce(struct net_device *netdev,
- 	u32 rx_coalesce_usecs;
- 	unsigned int i, intr;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b3f52d2..5bb00d5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2532,7 +2532,7 @@ __u32 __skb_get_rxhash(struct sk_buff *skb)
+ 			goto done;
  
--	tx_coalesce_usecs = min_t(u32,
--		INTR_COALESCE_HW_TO_USEC(VNIC_INTR_TIMER_MAX),
--		ecmd->tx_coalesce_usecs);
--	rx_coalesce_usecs = min_t(u32,
--		INTR_COALESCE_HW_TO_USEC(VNIC_INTR_TIMER_MAX),
--		ecmd->rx_coalesce_usecs);
-+	tx_coalesce_usecs = min_t(u32, ecmd->tx_coalesce_usecs,
-+		vnic_dev_get_intr_coal_timer_max(enic->vdev));
-+	rx_coalesce_usecs = min_t(u32, ecmd->rx_coalesce_usecs,
-+		vnic_dev_get_intr_coal_timer_max(enic->vdev));
- 
- 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
- 	case VNIC_DEV_INTR_MODE_INTX:
-@@ -298,26 +296,26 @@ static int enic_set_coalesce(struct net_device *netdev,
- 
- 		intr = enic_legacy_io_intr();
- 		vnic_intr_coalescing_timer_set(&enic->intr[intr],
--			INTR_COALESCE_USEC_TO_HW(tx_coalesce_usecs));
-+			tx_coalesce_usecs);
- 		break;
- 	case VNIC_DEV_INTR_MODE_MSI:
- 		if (tx_coalesce_usecs != rx_coalesce_usecs)
- 			return -EINVAL;
- 
- 		vnic_intr_coalescing_timer_set(&enic->intr[0],
--			INTR_COALESCE_USEC_TO_HW(tx_coalesce_usecs));
-+			tx_coalesce_usecs);
- 		break;
- 	case VNIC_DEV_INTR_MODE_MSIX:
- 		for (i = 0; i < enic->wq_count; i++) {
- 			intr = enic_msix_wq_intr(enic, i);
- 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
--				INTR_COALESCE_USEC_TO_HW(tx_coalesce_usecs));
-+				tx_coalesce_usecs);
- 		}
- 
- 		for (i = 0; i < enic->rq_count; i++) {
- 			intr = enic_msix_rq_intr(enic, i);
- 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
--				INTR_COALESCE_USEC_TO_HW(rx_coalesce_usecs));
-+				rx_coalesce_usecs);
- 		}
- 
- 		break;
-@@ -2175,6 +2173,14 @@ static int enic_dev_init(struct enic *enic)
- 	unsigned int i;
- 	int err;
- 
-+	/* Get interrupt coalesce timer info */
-+	err = enic_dev_intr_coal_timer_info(enic);
-+	if (err) {
-+		dev_warn(dev, "Using default conversion factor for "
-+			"interrupt coalesce timer\n");
-+		vnic_dev_intr_coal_timer_info_default(enic->vdev);
-+	}
-+
- 	/* Get vNIC configuration
+ 		ip = (const struct iphdr *) (skb->data + nhoff);
+-		if (ip->frag_off & htons(IP_MF | IP_OFFSET))
++		if (ip_is_fragment(ip))
+ 			ip_proto = 0;
+ 		else
+ 			ip_proto = ip->protocol;
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index c8f48ef..073a9b0 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -165,7 +165,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 		    (!sk->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if == dev->ifindex) &&
+ 		    net_eq(sock_net(sk), dev_net(dev))) {
+-			if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
++			if (ip_is_fragment(ip_hdr(skb))) {
+ 				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN))
+ 					return 1;
+ 			}
+@@ -256,7 +256,7 @@ int ip_local_deliver(struct sk_buff *skb)
+ 	 *	Reassemble IP fragments.
  	 */
  
-diff --git a/drivers/net/enic/enic_res.c b/drivers/net/enic/enic_res.c
-index 34f4207..4a35367 100644
---- a/drivers/net/enic/enic_res.c
-+++ b/drivers/net/enic/enic_res.c
-@@ -90,9 +90,8 @@ int enic_get_vnic_config(struct enic *enic)
- 		max_t(u16, ENIC_MIN_MTU,
- 		c->mtu));
- 
--	c->intr_timer_usec = min_t(u32,
--		INTR_COALESCE_HW_TO_USEC(VNIC_INTR_TIMER_MAX),
--		c->intr_timer_usec);
-+	c->intr_timer_usec = min_t(u32, c->intr_timer_usec,
-+		vnic_dev_get_intr_coal_timer_max(enic->vdev));
- 
- 	dev_info(enic_get_dev(enic),
- 		"vNIC MAC addr %pM wq/rq %d/%d mtu %d\n",
-@@ -303,7 +302,7 @@ void enic_init_vnic_resources(struct enic *enic)
- 
- 	for (i = 0; i < enic->intr_count; i++) {
- 		vnic_intr_init(&enic->intr[i],
--			INTR_COALESCE_USEC_TO_HW(enic->config.intr_timer_usec),
-+			enic->config.intr_timer_usec,
- 			enic->config.intr_timer_type,
- 			mask_on_assertion);
+-	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
++	if (ip_is_fragment(ip_hdr(skb))) {
+ 		if (ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER))
+ 			return 0;
  	}
-diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
-index 68f24ae..8c4c8cf 100644
---- a/drivers/net/enic/vnic_dev.c
-+++ b/drivers/net/enic/vnic_dev.c
-@@ -40,6 +40,12 @@ struct vnic_res {
- 	unsigned int count;
- };
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 98af369..529a6f6 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -489,7 +489,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
  
-+struct vnic_intr_coal_timer_info {
-+	u32 mul;
-+	u32 div;
-+	u32 max_usec;
-+};
-+
- struct vnic_dev {
- 	void *priv;
- 	struct pci_dev *pdev;
-@@ -58,6 +64,7 @@ struct vnic_dev {
- 	enum vnic_proxy_type proxy;
- 	u32 proxy_index;
- 	u64 args[VNIC_DEVCMD_NARGS];
-+	struct vnic_intr_coal_timer_info intr_coal_timer_info;
- };
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+-		    (iph->frag_off & htons(IP_MF|IP_OFFSET)) ||
++		    ip_is_fragment(iph) ||
+ 		    skb_cloned(skb))
+ 			goto slow_path;
  
- #define VNIC_MAX_RES_HDR_SIZE \
-@@ -794,6 +801,42 @@ int vnic_dev_deinit(struct vnic_dev *vdev)
- 	return vnic_dev_cmd(vdev, CMD_DEINIT, &a0, &a1, wait);
- }
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index ab7e554..ae93dd5 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -932,7 +932,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
+ 		goto drop;
  
-+void vnic_dev_intr_coal_timer_info_default(struct vnic_dev *vdev)
-+{
-+	/* Default: hardware intr coal timer is in units of 1.5 usecs */
-+	vdev->intr_coal_timer_info.mul = 2;
-+	vdev->intr_coal_timer_info.div = 3;
-+	vdev->intr_coal_timer_info.max_usec =
-+		vnic_dev_intr_coal_timer_hw_to_usec(vdev, 0xffff);
-+}
-+
-+int vnic_dev_intr_coal_timer_info(struct vnic_dev *vdev)
-+{
-+	int wait = 1000;
-+	int err;
-+
-+	memset(vdev->args, 0, sizeof(vdev->args));
-+
-+	err = _vnic_dev_cmd(vdev, CMD_INTR_COAL_CONVERT, wait);
-+
-+	/* Use defaults when firmware doesn't support the devcmd at all or
-+	 * supports it for only specific hardware
-+	 */
-+	if ((err == ERR_ECMDUNKNOWN) ||
-+		(!err && !(vdev->args[0] && vdev->args[1] && vdev->args[2]))) {
-+		pr_warning("Using default conversion factor for "
-+			"interrupt coalesce timer\n");
-+		vnic_dev_intr_coal_timer_info_default(vdev);
-+		return 0;
-+	}
-+
-+	vdev->intr_coal_timer_info.mul = (u32) vdev->args[0];
-+	vdev->intr_coal_timer_info.div = (u32) vdev->args[1];
-+	vdev->intr_coal_timer_info.max_usec = (u32) vdev->args[2];
-+
-+	return err;
-+}
-+
- int vnic_dev_link_status(struct vnic_dev *vdev)
- {
- 	if (!vnic_dev_notify_ready(vdev))
-@@ -838,6 +881,23 @@ enum vnic_dev_intr_mode vnic_dev_get_intr_mode(
- 	return vdev->intr_mode;
- }
+ 	/* Fragments are not supported */
+-	if (h->frag_off & htons(IP_OFFSET | IP_MF)) {
++	if (ip_is_fragment(h)) {
+ 		if (net_ratelimit())
+ 			printk(KERN_ERR "DHCP/BOOTP: Ignoring fragmented "
+ 			       "reply.\n");
+diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
+index f3a9b42..9bb1b8a 100644
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -82,7 +82,7 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
+ #endif
+ #endif
+ 	/* Gather fragments. */
+-	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
++	if (ip_is_fragment(ip_hdr(skb))) {
+ 		enum ip_defrag_users user = nf_ct_defrag_user(hooknum, skb);
+ 		if (nf_ct_ipv4_gather_frags(skb, user))
+ 			return NF_STOLEN;
+diff --git a/net/ipv4/netfilter/nf_nat_standalone.c b/net/ipv4/netfilter/nf_nat_standalone.c
+index 7317bdf..42c0e45 100644
+--- a/net/ipv4/netfilter/nf_nat_standalone.c
++++ b/net/ipv4/netfilter/nf_nat_standalone.c
+@@ -88,7 +88,7 @@ nf_nat_fn(unsigned int hooknum,
  
-+u32 vnic_dev_intr_coal_timer_usec_to_hw(struct vnic_dev *vdev, u32 usec)
-+{
-+	return (usec * vdev->intr_coal_timer_info.mul) /
-+		vdev->intr_coal_timer_info.div;
-+}
-+
-+u32 vnic_dev_intr_coal_timer_hw_to_usec(struct vnic_dev *vdev, u32 hw_cycles)
-+{
-+	return (hw_cycles * vdev->intr_coal_timer_info.div) /
-+		vdev->intr_coal_timer_info.mul;
-+}
-+
-+u32 vnic_dev_get_intr_coal_timer_max(struct vnic_dev *vdev)
-+{
-+	return vdev->intr_coal_timer_info.max_usec;
-+}
-+
- void vnic_dev_unregister(struct vnic_dev *vdev)
- {
- 	if (vdev) {
-diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/enic/vnic_dev.h
-index cf482a2..852b698 100644
---- a/drivers/net/enic/vnic_dev.h
-+++ b/drivers/net/enic/vnic_dev.h
-@@ -109,11 +109,16 @@ int vnic_dev_open(struct vnic_dev *vdev, int arg);
- int vnic_dev_open_done(struct vnic_dev *vdev, int *done);
- int vnic_dev_init(struct vnic_dev *vdev, int arg);
- int vnic_dev_deinit(struct vnic_dev *vdev);
-+void vnic_dev_intr_coal_timer_info_default(struct vnic_dev *vdev);
-+int vnic_dev_intr_coal_timer_info(struct vnic_dev *vdev);
- int vnic_dev_hang_reset(struct vnic_dev *vdev, int arg);
- int vnic_dev_hang_reset_done(struct vnic_dev *vdev, int *done);
- void vnic_dev_set_intr_mode(struct vnic_dev *vdev,
- 	enum vnic_dev_intr_mode intr_mode);
- enum vnic_dev_intr_mode vnic_dev_get_intr_mode(struct vnic_dev *vdev);
-+u32 vnic_dev_intr_coal_timer_usec_to_hw(struct vnic_dev *vdev, u32 usec);
-+u32 vnic_dev_intr_coal_timer_hw_to_usec(struct vnic_dev *vdev, u32 hw_cycles);
-+u32 vnic_dev_get_intr_coal_timer_max(struct vnic_dev *vdev);
- void vnic_dev_unregister(struct vnic_dev *vdev);
- int vnic_dev_set_ig_vlan_rewrite_mode(struct vnic_dev *vdev,
- 	u8 ig_vlan_rewrite_mode);
-diff --git a/drivers/net/enic/vnic_devcmd.h b/drivers/net/enic/vnic_devcmd.h
-index c5569bf..8025e88 100644
---- a/drivers/net/enic/vnic_devcmd.h
-+++ b/drivers/net/enic/vnic_devcmd.h
-@@ -318,6 +318,25 @@ enum vnic_devcmd_cmd {
- 	 *             ERR_EINPROGRESS - command in a0 is still in progress
- 	 */
- 	CMD_STATUS = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ALL, 49),
-+
-+	/*
-+	 * Returns interrupt coalescing timer conversion factors.
-+	 * After calling this devcmd, ENIC driver can convert
-+	 * interrupt coalescing timer in usec into CPU cycles as follows:
-+	 *
-+	 *   intr_timer_cycles = intr_timer_usec * multiplier / divisor
-+	 *
-+	 * Interrupt coalescing timer in usecs can be obtained from
-+	 * CPU cycles as follows:
-+	 *
-+	 *   intr_timer_usec = intr_timer_cycles * divisor / multiplier
-+	 *
-+	 * in: none
-+	 * out: (u32)a0 = multiplier
-+	 *      (u32)a1 = divisor
-+	 *      (u32)a2 = maximum timer value in usec
-+	 */
-+	CMD_INTR_COAL_CONVERT = _CMDC(_CMD_DIR_READ, _CMD_VTYPE_ALL, 50),
- };
+ 	/* We never see fragments: conntrack defrags on pre-routing
+ 	   and local-out, and nf_nat_out protects post-routing. */
+-	NF_CT_ASSERT(!(ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)));
++	NF_CT_ASSERT(!ip_is_fragment(ip_hdr(skb)));
  
- /* CMD_ENABLE2 flags */
-diff --git a/drivers/net/enic/vnic_enet.h b/drivers/net/enic/vnic_enet.h
-index 061ad87..6095428 100644
---- a/drivers/net/enic/vnic_enet.h
-+++ b/drivers/net/enic/vnic_enet.h
-@@ -20,10 +20,6 @@
- #ifndef _VNIC_ENIC_H_
- #define _VNIC_ENIC_H_
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	/* Can't track?  It's not due to stress, or conntrack would
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 981e43e..fc5368a 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -117,7 +117,7 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 	memset(fl4, 0, sizeof(struct flowi4));
+ 	fl4->flowi4_mark = skb->mark;
  
--/* Hardware intr coalesce timer is in units of 1.5us */
--#define INTR_COALESCE_USEC_TO_HW(usec) ((usec) * 2/3)
--#define INTR_COALESCE_HW_TO_USEC(usec) ((usec) * 3/2)
--
- /* Device-specific region: enet configuration */
- struct vnic_enet_config {
- 	u32 flags;
-diff --git a/drivers/net/enic/vnic_intr.c b/drivers/net/enic/vnic_intr.c
-index 3873771..0ca107f 100644
---- a/drivers/net/enic/vnic_intr.c
-+++ b/drivers/net/enic/vnic_intr.c
-@@ -46,7 +46,7 @@ int vnic_intr_alloc(struct vnic_dev *vdev, struct vnic_intr *intr,
- 	return 0;
- }
+-	if (!(iph->frag_off & htons(IP_MF | IP_OFFSET))) {
++	if (!ip_is_fragment(iph)) {
+ 		switch (iph->protocol) {
+ 		case IPPROTO_UDP:
+ 		case IPPROTO_UDPLITE:
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index bfa808f..c965428 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -852,7 +852,7 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related,
+ 	*related = 1;
  
--void vnic_intr_init(struct vnic_intr *intr, unsigned int coalescing_timer,
-+void vnic_intr_init(struct vnic_intr *intr, u32 coalescing_timer,
- 	unsigned int coalescing_type, unsigned int mask_on_assertion)
- {
- 	vnic_intr_coalescing_timer_set(intr, coalescing_timer);
-@@ -56,9 +56,10 @@ void vnic_intr_init(struct vnic_intr *intr, unsigned int coalescing_timer,
- }
+ 	/* reassemble IP fragments */
+-	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
++	if (ip_is_fragment(ip_hdr(skb))) {
+ 		if (ip_vs_gather_frags(skb, ip_vs_defrag_user(hooknum)))
+ 			return NF_STOLEN;
+ 	}
+@@ -1156,8 +1156,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 		ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+ 	} else
+ #endif
+-		if (unlikely(ip_hdr(skb)->frag_off & htons(IP_MF|IP_OFFSET) &&
+-			     !pp->dont_defrag)) {
++		if (unlikely(ip_is_fragment(ip_hdr(skb)) && !pp->dont_defrag)) {
+ 			if (ip_vs_gather_frags(skb,
+ 					       ip_vs_defrag_user(hooknum)))
+ 				return NF_STOLEN;
+@@ -1310,7 +1309,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 	*related = 1;
  
- void vnic_intr_coalescing_timer_set(struct vnic_intr *intr,
--	unsigned int coalescing_timer)
-+	u32 coalescing_timer)
- {
--	iowrite32(coalescing_timer, &intr->ctrl->coalescing_timer);
-+	iowrite32(vnic_dev_intr_coal_timer_usec_to_hw(intr->vdev,
-+		coalescing_timer), &intr->ctrl->coalescing_timer);
- }
+ 	/* reassemble IP fragments */
+-	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
++	if (ip_is_fragment(ip_hdr(skb))) {
+ 		if (ip_vs_gather_frags(skb, ip_vs_defrag_user(hooknum)))
+ 			return NF_STOLEN;
+ 	}
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 8ec0139..34533a5 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -121,7 +121,7 @@ static u32 flow_get_proto_src(struct sk_buff *skb)
+ 		if (!pskb_network_may_pull(skb, sizeof(*iph)))
+ 			break;
+ 		iph = ip_hdr(skb);
+-		if (iph->frag_off & htons(IP_MF | IP_OFFSET))
++		if (ip_is_fragment(iph))
+ 			break;
+ 		poff = proto_ports_offset(iph->protocol);
+ 		if (poff >= 0 &&
+@@ -163,7 +163,7 @@ static u32 flow_get_proto_dst(struct sk_buff *skb)
+ 		if (!pskb_network_may_pull(skb, sizeof(*iph)))
+ 			break;
+ 		iph = ip_hdr(skb);
+-		if (iph->frag_off & htons(IP_MF | IP_OFFSET))
++		if (ip_is_fragment(iph))
+ 			break;
+ 		poff = proto_ports_offset(iph->protocol);
+ 		if (poff >= 0 &&
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index 402c44b..ed691b1 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -167,7 +167,7 @@ restart:
+ 	dst = &nhptr->daddr;
+ 	protocol = nhptr->protocol;
+ 	xprt = ((u8 *)nhptr) + (nhptr->ihl<<2);
+-	if (nhptr->frag_off & htons(IP_MF | IP_OFFSET))
++	if (ip_is_fragment(nhptr))
+ 		return -1;
+ #endif
  
- void vnic_intr_clean(struct vnic_intr *intr)
-diff --git a/drivers/net/enic/vnic_intr.h b/drivers/net/enic/vnic_intr.h
-index 09dc0b7..2b16363 100644
---- a/drivers/net/enic/vnic_intr.h
-+++ b/drivers/net/enic/vnic_intr.h
-@@ -24,8 +24,6 @@
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index 06afbae..3422b25 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -181,7 +181,7 @@ static bool choke_match_flow(struct sk_buff *skb1,
+ 		    ip1->saddr != ip2->saddr || ip1->daddr != ip2->daddr)
+ 			return false;
  
- #include "vnic_dev.h"
- 
--#define VNIC_INTR_TIMER_MAX		0xffff
--
- #define VNIC_INTR_TIMER_TYPE_ABS	0
- #define VNIC_INTR_TIMER_TYPE_QUIET	1
- 
-@@ -104,10 +102,10 @@ static inline u32 vnic_intr_legacy_pba(u32 __iomem *legacy_pba)
- void vnic_intr_free(struct vnic_intr *intr);
- int vnic_intr_alloc(struct vnic_dev *vdev, struct vnic_intr *intr,
- 	unsigned int index);
--void vnic_intr_init(struct vnic_intr *intr, unsigned int coalescing_timer,
-+void vnic_intr_init(struct vnic_intr *intr, u32 coalescing_timer,
- 	unsigned int coalescing_type, unsigned int mask_on_assertion);
- void vnic_intr_coalescing_timer_set(struct vnic_intr *intr,
--	unsigned int coalescing_timer);
-+	u32 coalescing_timer);
- void vnic_intr_clean(struct vnic_intr *intr);
- 
- #endif /* _VNIC_INTR_H_ */
+-		if ((ip1->frag_off | ip2->frag_off) & htons(IP_MF | IP_OFFSET))
++		if (ip_is_fragment(ip1) | ip_is_fragment(ip2))
+ 			ip_proto = 0;
+ 		off1 += ip1->ihl * 4;
+ 		off2 += ip2->ihl * 4;
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index b6ea6af..4536ee6 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -157,7 +157,7 @@ static unsigned int sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
+ 		iph = ip_hdr(skb);
+ 		h = (__force u32)iph->daddr;
+ 		h2 = (__force u32)iph->saddr ^ iph->protocol;
+-		if (iph->frag_off & htons(IP_MF | IP_OFFSET))
++		if (ip_is_fragment(iph))
+ 			break;
+ 		poff = proto_ports_offset(iph->protocol);
+ 		if (poff >= 0 &&
+-- 
+1.7.4.4
 
