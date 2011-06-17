@@ -1,40 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/4] r8169: explicit firmware format check.
-Date: Fri, 17 Jun 2011 22:16:45 +0100
-Message-ID: <1308345405.2831.34.camel@bwh-desktop>
-References: <20110617192826.GA2277@electric-eye.fr.zoreil.com>
-	 <20110617193105.GB2287@electric-eye.fr.zoreil.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [PATCH 0/7] Series short description
+Date: Fri, 17 Jun 2011 14:16:07 -0700
+Message-ID: <20110617211027.26578.11317.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, shmulikr@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:4005 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751254Ab1FQVQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 17:16:50 -0400
-In-Reply-To: <20110617193105.GB2287@electric-eye.fr.zoreil.com>
+Received: from mga09.intel.com ([134.134.136.24]:2338 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751901Ab1FQVWk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 17:22:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-17 at 21:31 +0200, Francois Romieu wrote:
-[...]
-> -	if (fw->size % sizeof(*phytable)) {
-> -		netif_err(tp, probe, dev, "odd sized firmware %zd\n", fw->size);
-> +	if (!rtl_fw_format_ok(tp, rtl_fw)) {
-> +		netif_err(tp, probe, dev, "invalid firwmare\n");
-[...]
+The following series implements improvements to the DCB netlink
+interface. This work was done to improve Application handling
+and support firmware based LLDP agents.
 
-Also, there's a typo in this error message.
+This adds a multicast group for DCB currently user space has
+trouble keeping in sync across multiple applications and with
+firmware agents making DCB attribute changes in the driver.
 
-Ben.
+To help support the recently ratified IEEE802.1Qaz extension
+which supports multiple APP data entries for the same
+selector and protocol fields a series of ieee set and delete
+routines were improved and in the delete case added.
+
+Finally the patches 5 and 6 are fixes to currently existing
+code.
+
+Please consider for net-next-2.6 inclusion.
+
+---
+
+John Fastabend (7):
+      dcb: Add missing error check in dcb_ieee_set()
+      dcb: fix return type on dcb_setapp()
+      dcb: Add dcb_ieee_getapp_mask() for drivers to query APP settings
+      dcb: Add ieee_dcb_delapp() and dcb op to delete app entry
+      dcb: Add ieee_dcb_setapp() to be used for IEEE 802.1Qaz APP data
+      net: dcbnl, add multicast group for DCB
+      dcb: Add DCBX capabilities bitmask to the get_ieee response
+
+
+ include/linux/dcbnl.h     |    2 
+ include/linux/rtnetlink.h |    2 
+ include/net/dcbnl.h       |    6 +
+ net/dcb/dcbnl.c           |  414 +++++++++++++++++++++++++++++++++++----------
+ 4 files changed, 334 insertions(+), 90 deletions(-)
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Signature
