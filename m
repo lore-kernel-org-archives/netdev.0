@@ -1,51 +1,49 @@
-From: =?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
-Date: Fri, 17 Jun 2011 12:31:49 +0200
-Message-ID: <4DFB2D15.5060006@gmail.com>
-References: <20110611.162942.1706711069327005315.davem@davemloft.net>	<1307882102-31659-1-git-send-email-marius@kotsbak.com> <20110616.220112.882657314456163072.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] vmxnet3: fix starving rx ring when alloc_skb fails
+Date: Fri, 17 Jun 2011 13:14:20 +0100
+Message-ID: <1308312860.11457.56.camel@localhost>
+References: <1308261747-17702-1-git-send-email-scottjg@vmware.com>
+	 <20110617.001610.2160676566738613200.davem@davemloft.net>
+	 <03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com>
+	 <20110617.005356.180809929241094878.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110616.220112.882657314456163072.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: scottjg@vmware.com, netdev@vger.kernel.org, pv-drivers@vmware.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:18703 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758050Ab1FQMOY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 08:14:24 -0400
+In-Reply-To: <20110617.005356.180809929241094878.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Den 17. juni 2011 04:01, skrev David Miller:
-> From: "Marius B. Kotsbak"<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Sun, 12 Jun 2011 14:35:02 +0200
->
->> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
->> It has also an ACM interface that previous patches associates with the "option"
->> module. To access those interfaces, the modem must first be switched from modem
->> mode using a tool like usb_modeswitch.
->>
->> As the proprietary protocol has been discovered by watching the MS Windows driver
->> behavior, there might be errors in the protocol handling, but stable and fast
->> connection has been established for hours with Norwegian operator NetCom that
->> distributes this modem with their LTE/4G subscription.
->>
->> More and updated information about how to use this driver is available here:
->>
->> http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
->> https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
->>
->> Signed-off-by: Marius B. Kotsbak<marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-> Applied, thanks.
+On Fri, 2011-06-17 at 00:53 -0400, David Miller wrote:
+> From: Scott Goldman <scottjg@vmware.com>
+> Date: Thu, 16 Jun 2011 21:40:15 -0700
+> 
+> > I'm sorry if my patch description was unclear, but as I understand it, what you are describing is what this patch implements. The patched rx handler does something like:
+> > 1) poll the rx ring, peel off a pending skb (don't pass the packet up the stack yet)
+> > 2) if the ring needs to be repopulated, we do that
+> > 3) if the ring was repopulated successfully, then that's great, and we pass up the pending skb to the network stack.
+> > 4) if not and there are no skbs left on the ring, we reuse the pending skb and recycle it back on the ring (effectively dropping the packet we were about to pass up to the network stack)
+> 
+> You shouldn't restrict this logic to when the ring is empty, you
+> should never leave any RX ring slots empty.
+> 
+> Every RX ring entry should be processed with a "alloc_skb()" first,
+> and if the allocation fails you recycle the RX ring's SKB.
 
-Thanks, will send additional patches with improvements for non-x86 
-proposed by Oliver soon.
+But this means the driver drops received packets as soon as there is an
+allocation failure, rather than only if there are repeated failures.  I
+don't see how that's preferable.
 
---
-Marius
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
