@@ -1,107 +1,89 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/4] r8169: explicit firmware format check.
-Date: Fri, 17 Jun 2011 22:13:20 +0100
-Message-ID: <1308345200.2831.31.camel@bwh-desktop>
-References: <20110617192826.GA2277@electric-eye.fr.zoreil.com>
-	 <20110617193105.GB2287@electric-eye.fr.zoreil.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] r8169: fix static initializers.
+Date: Fri, 17 Jun 2011 23:01:24 +0200
+Message-ID: <20110617210124.GA2347@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
 	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
+	Hayes Wang <hayeswang@realtek.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:3746 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757651Ab1FQVNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 17:13:24 -0400
-In-Reply-To: <20110617193105.GB2287@electric-eye.fr.zoreil.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43463 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901Ab1FQVOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 17:14:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-17 at 21:31 +0200, Francois Romieu wrote:
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> ---
->  drivers/net/r8169.c |   54 +++++++++++++++++++++++++++++++++++++++-----------
->  1 files changed, 42 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 3eeefe4..452db86 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -669,6 +669,15 @@ struct rtl8169_private {
->  
->  	struct rtl_fw {
->  		const struct firmware *fw;
-> +
-> +#define RTL_VER_SIZE		32
-> +
-> +		char version[RTL_VER_SIZE];
-> +
-> +		struct rtl_fw_phy_action {
-> +			__le32 *code;
-> +			size_t size;
-> +		} phy_action;
->  	} *rtl_fw;
->  #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN);
->  };
-> @@ -1230,7 +1239,7 @@ static void rtl8169_get_drvinfo(struct net_device *dev,
->  	strcpy(info->version, RTL8169_VERSION);
->  	strcpy(info->bus_info, pci_name(tp->pci_dev));
->  	strncpy(info->fw_version, IS_ERR_OR_NULL(rtl_fw) ? "N/A" :
-> -		rtl_lookup_firmware_name(tp), sizeof(info->fw_version) - 1);
-> +		rtl_fw->version, RTL_VER_SIZE);
+Please pull from branch 'davem.r8169' in repository
 
-You appear to ensure that rtl_fw->version is properly terminated, so I
-would suggest:
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem.r8169
 
-	BUILD_BUG_ON(sizeof(info->fw_version) < sizeof(rtl_fw->version));
-	strcpy(info->fw_version, IS_ERR_OR_NULL(rtl_fw) ? "N/A" : rtl_fw->version);
+to get the change below.
 
->  }
->  
->  static int rtl8169_get_regs_len(struct net_device *dev)
-> @@ -1744,21 +1753,42 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
->  #define PHY_DELAY_MS		0xe0000000
->  #define PHY_WRITE_ERI_WORD	0xf0000000
->  
-> -static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
-> +#define FW_OPCODE_SIZE	sizeof(typeof(*((struct rtl_fw_phy_action *)0)->code))
-> +
-> +static bool rtl_fw_format_ok(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
->  {
->  	const struct firmware *fw = rtl_fw->fw;
-> -	__le32 *phytable = (__le32 *)fw->data;
-> +	struct rtl_fw_phy_action *pa = &rtl_fw->phy_action;
-> +	bool rc = false;
-> +
-> +	if (!(fw->size % FW_OPCODE_SIZE)) {
-> +		snprintf(rtl_fw->version, RTL_VER_SIZE, "%s",
-> +			 rtl_lookup_firmware_name(tp));
+Distance from 'davem' (eeb1497277d6b1a0a34ed36b97e18f2bd7d6de0d)
+----------------------------------------------------------------
 
-strlcpy()
+3744100e05c4e403ed21c99cd389c7e784664e4b
 
-> +		pa->code = (__le32 *)fw->data;
-> +		pa->size = fw->size / FW_OPCODE_SIZE;
-> +	}
-> +	rtl_fw->version[RTL_VER_SIZE - 1] = 0;
-> +
-> +	rc = true;
-> +
-> +	return rc;
-> +}
-[...]
+Diffstat
+--------
 
-This function is doing rather more than what its name suggests.  And it
-always returns true, so it doesn't actually do what its name suggests at
-all.
+ drivers/net/r8169.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-Ben.
+Shortlog
+--------
 
+Francois Romieu (1):
+      r8169: fix static initializers.
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index ef1ce2e..05d8178 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1621,7 +1621,7 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 	 *
+ 	 * (RTL_R32(TxConfig) & 0x700000) == 0x200000 ? 8101Eb : 8101Ec
+ 	 */
+-	static const struct {
++	static const struct rtl_mac_info {
+ 		u32 mask;
+ 		u32 val;
+ 		int mac_version;
+@@ -1689,7 +1689,8 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 
+ 		/* Catch-all */
+ 		{ 0x00000000, 0x00000000,	RTL_GIGA_MAC_NONE   }
+-	}, *p = mac_info;
++	};
++	const struct rtl_mac_info *p = mac_info;
+ 	u32 reg;
+ 
+ 	reg = RTL_R32(TxConfig);
+@@ -3681,7 +3682,7 @@ static void rtl_set_rx_max_size(void __iomem *ioaddr, unsigned int rx_buf_sz)
+ 
+ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+ {
+-	static const struct {
++	static const struct rtl_cfg2_info {
+ 		u32 mac_version;
+ 		u32 clk;
+ 		u32 val;
+@@ -3690,7 +3691,8 @@ static void rtl8169_set_magic_reg(void __iomem *ioaddr, unsigned mac_version)
+ 		{ RTL_GIGA_MAC_VER_05, PCI_Clock_66MHz, 0x000fffff },
+ 		{ RTL_GIGA_MAC_VER_06, PCI_Clock_33MHz, 0x00ffff00 }, // 8110SCe
+ 		{ RTL_GIGA_MAC_VER_06, PCI_Clock_66MHz, 0x00ffffff }
+-	}, *p = cfg2_info;
++	};
++	const struct rtl_cfg2_info *p = cfg2_info;
+ 	unsigned int i;
+ 	u32 clk;
+ 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Ueimor
