@@ -1,42 +1,40 @@
-From: Pavel Shved <shved@ispras.ru>
-Subject: [PATCH] farsync: add module_put to error path in fst_open()
-Date: Fri, 17 Jun 2011 20:25:10 +0400
-Message-ID: <1308327913-23220-1-git-send-email-shved@ispras.ru>
-Cc: Pavel Shved <shved@ispras.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: vkolluri <vkolluri@cisco.com>
+Subject: Re: [next-next-2.6 PATCH] enic: Add support to configure hardware
+ interrupt coalesce timers in a platform independent way
+Date: Fri, 17 Jun 2011 10:27:50 -0700
+Message-ID: <CA20DCA6.5F74%vkolluri@cisco.com>
+References: <20110616.235715.2076846351080666905.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:37971 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752307Ab1FQR1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 13:27:54 -0400
+In-Reply-To: <20110616.235715.2076846351080666905.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The fst_open() function, after a successful try_module_get() may return
-an error code if hdlc_open() returns it.  However, it does not put the
-module on this error path.
+I'll fix and resubmit.
 
-This patch adds the necessary module_put() call.
+Thanks
+Vasanthy
 
-Found by Linux Driver Verification project (linuxtesting.org).
 
-Signed-off-by: Pavel Shved <shved@ispras.ru>
----
- drivers/net/wan/farsync.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+On 6/16/11 8:57 PM, "David Miller" <davem@davemloft.net> wrote:
 
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index e050bd6..777d1a4 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -2203,8 +2203,10 @@ fst_open(struct net_device *dev)
- 
- 	if (port->mode != FST_RAW) {
- 		err = hdlc_open(dev);
--		if (err)
-+		if (err) {
-+			module_put(THIS_MODULE);
- 			return err;
-+		}
- 	}
- 
- 	fst_openport(port);
--- 
-1.7.0.2
+> From: Vasanthy Kolluri <vkolluri@cisco.com>
+> Date: Wed, 15 Jun 2011 14:17:58 -0700
+> 
+>> + /* Get interrupt coalesce timer info
+>> +  */
+>> +
+>> + err = enic_dev_intr_coal_timer_info(enic);
+> 
+> Please, comment should be just one line long and empty
+> line is superflous.
+
