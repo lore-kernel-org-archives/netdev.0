@@ -1,7 +1,8 @@
 From: Satoru Moriya <satoru.moriya@hds.com>
-Subject: [PATCH 0/2] Tracepoints for queueing skb to rcvbuf
-Date: Fri, 17 Jun 2011 17:56:55 -0400
-Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9C402B96E4@USINDEVS02.corp.hds.com>
+Subject: [PATCH 1/2] udp:  add tracepoints for queueing skb to rcvbuf
+Date: Fri, 17 Jun 2011 17:58:39 -0400
+Message-ID: <65795E11DBF1E645A09CEC7EAEE94B9C402B96E5@USINDEVS02.corp.hds.com>
+References: <65795E11DBF1E645A09CEC7EAEE94B9C402B96E4@USINDEVS02.corp.hds.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -12,61 +13,105 @@ Cc: "nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
 	Seiji Aguchi <seiji.aguchi@hds.com>
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usindmx01.hds.com ([207.126.252.12]:40548 "EHLO
+Received: from usindmx01.hds.com ([207.126.252.12]:41118 "EHLO
 	usindmx01.hds.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754875Ab1FQV5N convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 17:57:13 -0400
+	with ESMTP id S1756317Ab1FQV7B convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 17:59:01 -0400
+In-Reply-To: <65795E11DBF1E645A09CEC7EAEE94B9C402B96E4@USINDEVS02.corp.hds.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch adds a tracepoint to __udp_queue_rcv_skb to get the
+return value of ip_queue_rcv_skb. It indicates why kernel drops
+a packet at this point.
 
-Kernel may drops packets when it queues them to socket receive buffer. 
-Currently We can detect packet drop events and know when and where it
-happened via kfree_skb tracepoint. But it's difficult to know a detailed
-reason because there are some possibilities. 
+ip_queue_rcv_skb returns following values in the packet drop case:
 
-In UDP case, core function for queueing skb to socket rcvbuf is 
-__udp_queue_rcv_skb and its call chain is following:
-
-__udp_queue_rcv_skb
- ip_queue_rcv_skb
-  sock_queue_rcv_skb
-   sk_rmem_schedule
-    __sk_mem_schedule
-
-We can catch a packet drop event in __udp_queue_rcv_skb and it means
-ip_queue_rcv_skb/sock_queue_rcv_skb returned negative value.
-In sock_queue_rcv_skb there are 3 possibilities-(*) where it returns
-negative value but we can't separate them. Moreover sock_queue_rcv_skb calls
-__sk_mem_schedule and there are several if satetements to decide whether
-kernel should drop the packet.
-
-To separate these reasons, this patchset adds 3 tracepoints.
-
-1st one is added to __udp_queue_rcv_skb to get return value of
-ip_queue_rcv_skb. Analyzing it we can separate above (*) (3 possibilities).
-
-2nd and 3rd one are to get more detailed information. We can collect status 
-of socket receive queue and related parameters(some of them are sysctl knob
-e.g. /proc/sys/net/ipv4/udp_mem, etc. for UDP) and then we can tune kernel
-behavior easily.
-
-Any comments and feedback are welcome.
+rcvbuf is full                 : -ENOMEM
+sk_filter returns error        : -EINVAL, -EACCESS, -ENOMEM, etc.
+__sk_mem_schedule returns error: -ENOBUF
 
 
-Satoru Moriya (2):
-  udp: add tracepoint for queueing skb to rcvbuf
-  core: add tracepoints for queueing skb to rcvbuf
-
- include/trace/events/sock.h |   68 +++++++++++++++++++++++++++++++++++++++++++
- include/trace/events/udp.h  |   32 ++++++++++++++++++++
- net/core/net-traces.c       |    2 +
- net/core/sock.c             |    5 +++
- net/ipv4/udp.c              |    2 +
- 5 files changed, 109 insertions(+), 0 deletions(-)
- create mode 100644 include/trace/events/sock.h
+Signed-off-by: Satoru Moriya <satoru.moriya@hds.com>
+---
+ include/trace/events/udp.h |   32 ++++++++++++++++++++++++++++++++
+ net/core/net-traces.c      |    1 +
+ net/ipv4/udp.c             |    2 ++
+ 3 files changed, 35 insertions(+), 0 deletions(-)
  create mode 100644 include/trace/events/udp.h
+
+diff --git a/include/trace/events/udp.h b/include/trace/events/udp.h
+new file mode 100644
+index 0000000..a664bb9
+--- /dev/null
++++ b/include/trace/events/udp.h
+@@ -0,0 +1,32 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM udp
++
++#if !defined(_TRACE_UDP_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_UDP_H
++
++#include <linux/udp.h>
++#include <linux/tracepoint.h>
++
++TRACE_EVENT(udp_fail_queue_rcv_skb,
++
++	TP_PROTO(int rc, struct sock *sk),
++
++	TP_ARGS(rc, sk),
++
++	TP_STRUCT__entry(
++		__field(int, rc)
++		__field(__u16, lport)
++	),
++
++	TP_fast_assign(
++		__entry->rc = rc;
++		__entry->lport = inet_sk(sk)->inet_num;
++	),
++
++	TP_printk("rc=%d port=%hu", __entry->rc, __entry->lport)
++);
++
++#endif /* _TRACE_UDP_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index 7f1bb2a..13aab64 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -28,6 +28,7 @@
+ #include <trace/events/skb.h>
+ #include <trace/events/net.h>
+ #include <trace/events/napi.h>
++#include <trace/events/udp.h>
+ 
+ EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
+ 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index abca870..37aa9bf 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -105,6 +105,7 @@
+ #include <net/route.h>
+ #include <net/checksum.h>
+ #include <net/xfrm.h>
++#include <trace/events/udp.h>
+ #include "udp_impl.h"
+ 
+ struct udp_table udp_table __read_mostly;
+@@ -1363,6 +1364,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 					 is_udplite);
+ 		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 		kfree_skb(skb);
++		trace_udp_fail_queue_rcv_skb(rc, sk);
+ 		return -1;
+ 	}
+ 
+-- 
+1.7.1
 
 
