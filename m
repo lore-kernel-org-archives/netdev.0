@@ -1,87 +1,89 @@
-From: Kieran Kunhya <kierank@ob-encoder.com>
-Subject: Re: bnx2 udp multicast packet loss and jtter
-Date: Fri, 17 Jun 2011 17:42:59 +0100
-Message-ID: <BANLkTi=j_yYaNTeSfjqtOUnNoZRymAK32A@mail.gmail.com>
-References: <BANLkTimCgWSANaje4aBE5gQdwKWNRJX40A@mail.gmail.com>
-	<1308324641.3539.1.camel@edumazet-laptop>
-	<BANLkTimNG0Tk4iPEZTMnUXpaZxcR3ZkLVw@mail.gmail.com>
-	<1308325964.3539.14.camel@edumazet-laptop>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: bnx2 vlan issue
+Date: Fri, 17 Jun 2011 09:47:27 -0700
+Message-ID: <BANLkTinPQSB_Jc5xGL=pSLekun4LZjbGfA@mail.gmail.com>
+References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com>
+ <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com>
+ <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com>
+ <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com>
+ <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com>
+ <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com>
+ <AANLkTi=D9Qw+Tw7wHb2T7UG_o9zkZcr2meHE3fwcMwvF@mail.gmail.com>
+ <AANLkTimnKRDY8QLiJMMLqNzCA_-6UJmUDHKf-i1Yt3V5@mail.gmail.com>
+ <AANLkTi=zfhwHTB7kitgwk3AzSa0aFFyxgM_ZY-3wObR5@mail.gmail.com>
+ <AANLkTi=gsP3ZZyEwO+CcM3uB6G5-QswYEfqdtiy8oOyv@mail.gmail.com>
+ <AANLkTi=CaWMSmRsN8SXfn999=4RNnFESTLjyBytYVzR2@mail.gmail.com> <loom.20110617T075702-107@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Dominique Martinet <rnfhrznznaq.tf@noclue.notk.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:42162 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752294Ab1FQQnA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 12:43:00 -0400
-Received: by yia27 with SMTP id 27so1360347yia.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 09:43:00 -0700 (PDT)
-In-Reply-To: <1308325964.3539.14.camel@edumazet-laptop>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:48576 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742Ab1FQQrs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 12:47:48 -0400
+Received: by vxi39 with SMTP id 39so2115402vxi.19
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 09:47:47 -0700 (PDT)
+In-Reply-To: <loom.20110617T075702-107@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2011 at 4:52 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 17 juin 2011 =E0 16:35 +0100, Kieran Kunhya a =E9crit :
->> On Fri, Jun 17, 2011 at 4:30 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> >
->> > Le samedi 11 juin 2011 =E0 15:32 +0100, Kieran Kunhya a =E9crit :
->> > > Hello,
->> > >
->> > > I get some bad packet loss and high jitter on a BCM5709. This is=
- on
->> > > kernel 2.6.38-8 - unfortunately using a newer kernel isn't an op=
-tion
->> > > right now.
->> > > The bnx2 driver is version v2.0.23b.
->> > >
->> > > I've tried a lot of kenel types such as -lowlatency, -ck and van=
-illa.
->> > > The thread doing the udp output is at realtime priority and the =
-same
->> > > thing happens with different applications.
->> > >
->> > > Example of jitter
->> > > http://dl.dropbox.com/u/2701213/jitter.png
->> > >
->> > > Is there anything I can do to further diagnose this problem?
->> > >
->> >
->> > Hi
->> >
->> > How is this jitter measured ?
->> >
->> > Is the link otherwise idle, or do you have a particular qdisc setu=
-p to
->> > make sure packets from other flow wont have an effect ?
+On Thu, Jun 16, 2011 at 11:10 PM, Dominique Martinet
+<rnfhrznznaq.tf@noclue.notk.org> wrote:
+> Hi,
+>
+> Jesse Gross <jesse <at> nicira.com> writes:
+>> On Thu, Mar 24, 2011 at 5:26 PM, Seblu <seblu <at> seblu.net> wrote:
+>> > Maybe i was not enough clear. It seems to me that new behaviour, w=
+ith
+>> > vlan on top of bridge rather than above interface in bridge is not
+>> > functional.
+>> > In other words, i cannot use vlan and bridge together in 2.6.38 (w=
+ith
+>> > e1000e).
 >>
->> Thanks for the reply.
->> The jitter is measured with an IPTV analyser. There are other device=
+>> Sorry, I misunderstood what you were saying before. =C2=A0Can you tr=
+y and
+>> see where the packets are getting lost or improperly handled by
+>> running tcpdump on the various interfaces? =C2=A0For example, check =
+that
+>> packets are coming in with tags on the physical interfaces, have tag=
 s
->> on the same switch which don't have any jitter issues.
->> The link is otherwise idle.
+>> on the bridge interface, no tag on the vlan interface, etc.
 >
-> jitter has a precise meaning in RTP flows. Is this IPTV analyser usin=
-g
-> this definition ?
+> I think I ran into the same problem, and my workaround for this was t=
+o add
+> a vlan do the bridge and then add the vlan'ed bridge to another bridg=
+e, i.e.
+> (since I can't draw, commands will be better :P)
 >
-> Is this analyser running on the machine that sends frames, or another
-> machine ?
+> brctl addbr br0
+> brctl addif br0 eth0
+> ip link add link br0 name br0.42 type vlan id 42
+> ip link set br0.42 up
 >
-> Are you sure the realtime thread fullfill its requirements ?
-> (RT priority wont help if this thread is cpu bounded)
+> brctl addbr br_42
+> brctl addif br_42 br0.42
+>
+> and then I could put VMs in br_42 which got network "as expected"
+> before, I used to have br_42 with eth0.42 in it, so it is just one mo=
+re
+> step..
+> What bothers me is that I also want to put VMs in br0, and it does wo=
+rk,
+> but this bridge also sees all the tagged data - isn't there a way to =
+just
+> "pick" the untagged network?
 
-The analyzer can either use the RTP definition of jitter, or it uses
-its own algorithm to attempt to
-mimic the RTP definition of jitter when using TS packets in UDP by
-using the continuity counter.
-This happens with both UDP and RTP streams. (though for unrelated
-reasons UDP is usually used)
+You are bridging the VMs to the physical network, so it is expected
+that they will see all traffic.  That said, you could use ebtables to
+only take vlan 0, similar to if you only wanted them to see packets to
+their MAC address and not flooding.
 
-The analyzer is on a different machine. The UDP thread isn't bottleneck=
-ed at all
-and the machine is only under moderate load. It also happens with many
-different applications
-that can serve mpegts files.
+> My other question is that I'm not certain if that's the expected way =
+to
+> use the new behaviour, if not I wouldn't mind light shining from abov=
+e :)
+
+Yes, that's the intended behavior and correct usage.
