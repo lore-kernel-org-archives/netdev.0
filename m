@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Use pr_<level>, netdev_<level> and
- netif_<level>
-Date: Thu, 16 Jun 2011 23:35:42 -0400 (EDT)
-Message-ID: <20110616.233542.1974667912524600949.davem@davemloft.net>
-References: <1f8bdbed8f110b214daaff8350ae9bde68c9cc12.1308076047.git.joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] net: rfs: enable RFS before first data
+ packet is received
+Date: Thu, 16 Jun 2011 23:38:41 -0400 (EDT)
+Message-ID: <20110616.233841.1893411919443027926.davem@davemloft.net>
+References: <1308104128.4578.10.camel@edumazet-laptop>
+	<1308268246.2925.37.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, sebastian.belden@googlemail.com,
-	netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1f8bdbed8f110b214daaff8350ae9bde68c9cc12.1308076047.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53773 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756214Ab1FQDis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:38:48 -0400
+In-Reply-To: <1308268246.2925.37.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 14 Jun 2011 11:57:47 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 17 Jun 2011 00:50:46 +0100
 
-> Use the current logging styles.
+> On Wed, 2011-06-15 at 04:15 +0200, Eric Dumazet wrote:
+>> @@ -1594,6 +1594,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+>>  			goto discard;
+>>  
+>>  		if (nsk != sk) {
+>> +			sock_rps_save_rxhash(nsk, skb->rxhash);
+>>  			if (tcp_child_process(sk, nsk, skb)) {
+>>  				rsk = nsk;
+>>  				goto reset;
+>> 
 > 
-> Add #define DEBUG to get same output for <foo>_dbg messages.
-> Convert a few bare printks to pr_err.
+> I haven't tried this, but it looks reasonable to me.
 > 
-> Fix a likely copy/paste defect where a test was done with RX values:
->         if (num_rx_qs > MAX_RX_QS) {
-> but TX limits were emitted:
->         printk(KERN_ERR "num_rx_qs(=%d) greater than MAX_RX_QS(=%d)\n",
->                               num_tx_qs, MAX_TX_QS);
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> What about IPv6?  The logic in tcp_v6_do_rcv() looks very similar.
 
-Applied, thanks Joe.
+Indeed ipv6 side needs the same fix.
+
+Eric please add that part and resubmit.  And in fact I might stick
+this into net-2.6 instead of net-next-2.6
+
+Thanks!
