@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar v3: implement nfc
-Date: Thu, 16 Jun 2011 23:31:02 -0400 (EDT)
-Message-ID: <20110616.233102.1659546586182470974.davem@davemloft.net>
-References: <1308064750.13416.15.camel@DENEC1DT0191>
+Subject: Re: [RFC 1/2] ethtool: Add DMA Coalescing adapter feature to
+ ethtool.
+Date: Thu, 16 Jun 2011 23:32:39 -0400 (EDT)
+Message-ID: <20110616.233239.2238723246132860968.davem@davemloft.net>
+References: <1308071556-6271-1-git-send-email-carolyn.wyborny@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	sebastian.poehn@belden.com
-To: sebastian.belden@googlemail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: carolyn.wyborny@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48984 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:55145 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755028Ab1FQDbJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:31:09 -0400
-In-Reply-To: <1308064750.13416.15.camel@DENEC1DT0191>
+	with ESMTP id S1755399Ab1FQDcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:32:43 -0400
+In-Reply-To: <1308071556-6271-1-git-send-email-carolyn.wyborny@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "Sebastian P=F6hn" <sebastian.belden@googlemail.com>
-Date: Tue, 14 Jun 2011 17:19:10 +0200
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Date: Tue, 14 Jun 2011 10:12:36 -0700
 
-> +	list_for_each_entry(comp, &priv->rx_list.list, list)
-> +	{
+> This RFC patch adds support for DMA Coalescing device feature
+> configuration via ethtool.
+> 
+> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+ ...
+>  static struct cmdline_info cmdline_offload[] = {
+> -	{ "rx", CMDL_BOOL, &off_csum_rx_wanted, NULL },
+> -	{ "tx", CMDL_BOOL, &off_csum_tx_wanted, NULL },
+> -	{ "sg", CMDL_BOOL, &off_sg_wanted, NULL },
 
-Please put the openning brace at the end of the previous line.
-
-You did this in several locations of the patch.
+Can you please not destroy the existing formatting of every single
+table and piece of code you are modifying?
