@@ -1,77 +1,69 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: Netconf2011 slides...
-Date: Fri, 17 Jun 2011 14:09:47 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B911E6EF96@nsmail.netscout.com>
-References: <20110615.145937.1748734114172641662.davem@davemloft.net> <4DF9D644.708@linux.vnet.ibm.com> <BANLkTi=Vk__TbiGGrUkqexoJ1=mGh8a1gw@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] ip: introduce ip_is_fragment helper inline
+ function
+Date: Fri, 17 Jun 2011 19:19:24 +0100
+Message-ID: <1308334764.2831.18.camel@bwh-desktop>
+References: <1308334091-10031-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Changli Gao" <xiaosuo@gmail.com>,
-	"Srinivasa T N" <seenutn@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og107.obsmtp.com ([64.18.1.208]:48800 "HELO
-	exprod6og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S932104Ab1FQSQ6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 14:16:58 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <BANLkTi=Vk__TbiGGrUkqexoJ1=mGh8a1gw@mail.gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:49603 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932107Ab1FQST2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 14:19:28 -0400
+In-Reply-To: <1308334091-10031-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Changli Gao
-> Sent: June 17, 2011 9:22 AM
-> To: Srinivasa T N
-> Cc: David Miller; netdev@vger.kernel.org
-> Subject: Re: Netconf2011 slides...
->=20
-> On Thu, Jun 16, 2011 at 6:09 PM, Srinivasa T N
-> <seenutn@linux.vnet.ibm.com> wrote:
-> > =A0 =A0 =A0 =A0Were there some interesting topics which is useful f=
-or the
-> community?
-> > (Few lines on each such topic would do).
-> >
->=20
-> netmap was mentioned by Tom. It is interesting for me.
->=20
-> http://info.iet.unipi.it/~luigi/netmap/
+On Fri, 2011-06-17 at 14:08 -0400, Paul Gortmaker wrote:
+> There are enough instances of this:
+> 
+>     iph->frag_off & htons(IP_MF | IP_OFFSET)
+> 
+> that a helper function is probably warranted.
+[...]
+> --- a/drivers/net/s2io.c
+> +++ b/drivers/net/s2io.c
+> @@ -4111,7 +4111,7 @@ static netdev_tx_t s2io_xmit(struct sk_buff *skb, struct net_device *dev)
+>  			struct tcphdr *th;
+>  			ip = ip_hdr(skb);
+>  
+> -			if ((ip->frag_off & htons(IP_OFFSET|IP_MF)) == 0) {
+> +			if (ip_is_fragment(ip) == 0) {
+>  				th = (struct tcphdr *)(((unsigned char *)ip) +
+>  						       ip->ihl*4);
+>  
 
-http://lists.openwall.net/netdev/2011/06/08/7
+The condition should be written more clearly as !ip_is_fragment().
 
-Just curious is there anything that we can do to enhance TPACKET_V3 (ig=
-nore the memcpy)?
-Not selling it because I have proposed the patch but anyone who is seri=
-ous
-about online/offline packet mining for multiple ports would have hard t=
-ime scaling with
-tpacket_v1[2] to begin with.
+[...]
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index e9ea7c7..114a152 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -250,6 +250,11 @@ int ip_decrease_ttl(struct iphdr *iph)
+>  	return --iph->ttl;
+>  }
+>  
+> +static inline int ip_is_fragment(const struct iphdr *iph)
+> +{
+> +	return iph->frag_off & htons(IP_MF | IP_OFFSET);
+> +}
+> +
+>  static inline
+>  int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
+>  {
+[..]
 
-At the very least, one needs block abstraction + timeout mechanism. Sim=
-ple.
-One just can't retire data - packet-by-packet. We have boxes capable
-of mining ~40G with similar approach.
+The return type should be bool.
 
-Now we can also think about rolling it into a separate driver but then =
-that's
-something that is open for discussion.
+Ben.
 
-Benefits of a driver are as follows:
-1) Folks can customize block/packet headers according to their needs wi=
-thout having to recompile the kernel.
-2) No core network bloat.
-3) Smaller NPU/FPGA shops can churn out a new driver patchset relativel=
-y quickly.
-
-
-
->=20
-> --
-> Regards,
-> Changli Gao(xiaosuo@gmail.com)
-
-Regards
-Chetan Loke
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
