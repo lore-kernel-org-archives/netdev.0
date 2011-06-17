@@ -1,43 +1,48 @@
-From: Scott Goldman <scottjg@vmware.com>
-Subject: RE: [PATCH] vmxnet3: fix starving rx ring when alloc_skb fails
-Date: Thu, 16 Jun 2011 21:40:15 -0700
-Message-ID: <03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com>
-References: <1308261747-17702-1-git-send-email-scottjg@vmware.com>,<20110617.001610.2160676566738613200.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 1/2] net: Remove casts of void *
+Date: Thu, 16 Jun 2011 21:52:00 -0700
+Message-ID: <1308286320.12072.25.camel@Joe-Laptop>
+References: <cover.1308017857.git.joe@perches.com>
+	 <d010144f11f9165670ac0c9e3559bf5e3191ff28.1308017857.git.joe@perches.com>
+	 <20110616.232344.2285390268187937319.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:5797 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751979Ab1FQEkQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2011 00:40:16 -0400
-In-Reply-To: <20110617.001610.2160676566738613200.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail.perches.com ([173.55.12.10]:3059 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754235Ab1FQEwC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 00:52:02 -0400
+In-Reply-To: <20110616.232344.2285390268187937319.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David. 
+On Thu, 2011-06-16 at 23:23 -0400, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Mon, 13 Jun 2011 19:21:26 -0700
+> > Unnecessary casts of void * clutter the code.
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> Applied.
 
-> This is why other drivers allocate the replacement skb _first_ before
-> handing the current receive packet to the stack.
-> 
-> And if the replacement allocation fails, they elide passing the packet
-> to the stack, and instead recycle it back onto the RX ring.
-> 
-> Please implement your RX policy in this manner, as we advise all Linux
-> networking drivers to, and you simply won't have this problem.
+Hey David.
 
-I'm sorry if my patch description was unclear, but as I understand it, what you are describing is what this patch implements. The patched rx handler does something like:
-1) poll the rx ring, peel off a pending skb (don't pass the packet up the stack yet)
-2) if the ring needs to be repopulated, we do that
-3) if the ring was repopulated successfully, then that's great, and we pass up the pending skb to the network stack.
-4) if not and there are no skbs left on the ring, we reuse the pending skb and recycle it back on the ring (effectively dropping the packet we were about to pass up to the network stack)
+The equivalent drivers/net patch is marked "changes requested".
+I think that's not true as I only saw acks.
 
-Maybe the code structure is a bit unclear? Since we don't always repopulate the ring every iteration (only when we hit a low watermark), it's true that we don't strictly always allocate a new skb before passing up the old one, but since this is only a problem when there are no skbs on the ring, and we do elide passing up the pending skb in this case, is that not ok?
+Geert commented and I'll do a separate pr_<level>/netdev_<level>
+neatening pass for a2065, lib8390 and zorro8390 and maybe any
+other 8390 driver Geert wants.
 
-thanks,
--sjg
+As I now have a working m68k cross compiler,
+these will be compile tested only.
+
+fyi: this version 
+http://www.kernel.org/pub/tools/crosstool/files/bin/i686/4.6.0/i686-gcc-4.6.0-nolibc_m68k-linux.tar.bz2
+doesn't cross compile for m68k/amiga successfully,
+but the 3.4.5 version does
+http://www.kernel.org/pub/tools/crosstool/files/bin/old/m68k-gcc-3.4.5-glibc-2.3.6.tar.bz2
+
+cheers, Joe
+
