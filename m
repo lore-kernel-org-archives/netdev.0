@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vmxnet3: fix starving rx ring when alloc_skb fails
-Date: Fri, 17 Jun 2011 00:53:56 -0400 (EDT)
-Message-ID: <20110617.005356.180809929241094878.davem@davemloft.net>
-References: <1308261747-17702-1-git-send-email-scottjg@vmware.com>
-	<20110617.001610.2160676566738613200.davem@davemloft.net>
-	<03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com>
+Subject: Re: [PATCH net-next 1/2] net: Remove casts of void *
+Date: Fri, 17 Jun 2011 00:54:43 -0400 (EDT)
+Message-ID: <20110617.005443.124861918568831869.davem@davemloft.net>
+References: <d010144f11f9165670ac0c9e3559bf5e3191ff28.1308017857.git.joe@perches.com>
+	<20110616.232344.2285390268187937319.davem@davemloft.net>
+	<1308286320.12072.25.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pv-drivers@vmware.com
-To: scottjg@vmware.com
+Cc: netdev@vger.kernel.org, geert@linux-m68k.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56887 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56913 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754186Ab1FQEyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 00:54:00 -0400
-In-Reply-To: <03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com>
+	with ESMTP id S1753061Ab1FQEzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 00:55:49 -0400
+In-Reply-To: <1308286320.12072.25.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Goldman <scottjg@vmware.com>
-Date: Thu, 16 Jun 2011 21:40:15 -0700
+From: Joe Perches <joe@perches.com>
+Date: Thu, 16 Jun 2011 21:52:00 -0700
 
-> I'm sorry if my patch description was unclear, but as I understand it, what you are describing is what this patch implements. The patched rx handler does something like:
-> 1) poll the rx ring, peel off a pending skb (don't pass the packet up the stack yet)
-> 2) if the ring needs to be repopulated, we do that
-> 3) if the ring was repopulated successfully, then that's great, and we pass up the pending skb to the network stack.
-> 4) if not and there are no skbs left on the ring, we reuse the pending skb and recycle it back on the ring (effectively dropping the packet we were about to pass up to the network stack)
+> On Thu, 2011-06-16 at 23:23 -0400, David Miller wrote:
+>> From: Joe Perches <joe@perches.com>
+>> Date: Mon, 13 Jun 2011 19:21:26 -0700
+>> > Unnecessary casts of void * clutter the code.
+>> > Signed-off-by: Joe Perches <joe@perches.com>
+>> Applied.
+> 
+> Hey David.
+> 
+> The equivalent drivers/net patch is marked "changes requested".
+> I think that's not true as I only saw acks.
 
-You shouldn't restrict this logic to when the ring is empty, you
-should never leave any RX ring slots empty.
-
-Every RX ring entry should be processed with a "alloc_skb()" first,
-and if the allocation fails you recycle the RX ring's SKB.
+You were asked to modify the logic of your changes in one hunk
+and even provided the RFC patch, please integrate that RFC patch
+into your patch and resubmit.
