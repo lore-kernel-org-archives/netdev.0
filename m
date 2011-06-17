@@ -1,34 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 001/001] vlan: don't call ndo_vlan_rx_register on
- hardware that doesn't have vlan support
-Date: Fri, 17 Jun 2011 12:00:32 -0700
-Message-ID: <20110617120032.6ed3ae3c@nehalam.ftrdhcpuser.net>
-References: <BANLkTimBm8rFF41RzAN6vk3o6SLy6cfZDQ@mail.gmail.com>
-	<20110617.001310.887138223551857478.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2011-06-17
+Date: Fri, 17 Jun 2011 15:01:35 -0400 (EDT)
+Message-ID: <20110617.150135.1664074829629603538.davem@davemloft.net>
+References: <20110617173613.GC6820@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.reversat@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53927 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932325Ab1FQTAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2011 15:00:36 -0400
-In-Reply-To: <20110617.001310.887138223551857478.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110617173613.GC6820-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Jun 2011 00:13:10 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 17 Jun 2011 13:36:14 -0400
 
-> From: Antoine Reversat <a.reversat@gmail.com>
-> Date: Thu, 16 Jun 2011 16:47:13 -0400
+> Here is a batch of fixes intended for 3.0.  Included are a regression
+> for mwl8k which caused CCMP encryption to fail on that device, and an
+> mwifiex fix for a null pointer dereference.  Also included is a batch
+> of Bluetooth fixes from Gustavo, including a regression fix for BT 1.1
+> devices, a fix for shutdown of SCO devices, a fix for an information
+> leak, and a silly error-checking fix that I thought was worth including
+> to prevent misinterpreting bad data as device command options.
 > 
-> > This patch removes the call to ndo_vlan_rx_register if the underlying
-> > device doesn't have hardware support for VLAN.
-> > Signed-off-by: Antoine Reversat <a.reversat@gmail.com>
-> 
-> Applied, thanks.
+> Please let me know if there are problems!
 
-Need same check for unregister?
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
