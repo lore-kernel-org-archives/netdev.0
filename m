@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: fix netdev_stats_update()
-Date: Thu, 16 Jun 2011 23:06:53 -0400 (EDT)
-Message-ID: <20110616.230653.2259178543745778124.davem@davemloft.net>
-References: <f67e2aac-b763-404d-8e45-5c5f52c56d18@exht1.ad.emulex.com>
-	<1307947748.2872.182.camel@edumazet-laptop>
-	<3367B80B08154D42A3B2BC708B5D41F63F18593D4F@EXMAIL.ad.emulex.com>
+Subject: Re: [PATCH] net: sh_eth: tidyup compile warrning
+Date: Thu, 16 Jun 2011 23:08:37 -0400 (EDT)
+Message-ID: <20110616.230837.2097042603976967927.davem@davemloft.net>
+References: <w3p62oa6t8a.wl%kuninori.morimoto.gx@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Sathya.Perla@Emulex.Com
+Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
+To: morimoto.kuninori@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51393 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51415 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754844Ab1FQDG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:06:59 -0400
-In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F63F18593D4F@EXMAIL.ad.emulex.com>
+	with ESMTP id S1754836Ab1FQDIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:08:42 -0400
+In-Reply-To: <w3p62oa6t8a.wl%kuninori.morimoto.gx@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Sathya.Perla@Emulex.Com>
-Date: Mon, 13 Jun 2011 00:09:38 -0700
+From: Kuninori Morimoto <morimoto.kuninori@renesas.com>
+Date: Mon, 13 Jun 2011 17:17:09 +0900
 
-> Dave, I would prefer to send a separate patch fixing the netdev
-> stats issue after you apply this multiple TXQ patch. Are you OK with
-> that?
+> This patch tidyup below warrning
+> 
+> ${LINUX}/drivers/net/sh_eth.c:1773: warning:
+> 'mdp' may be used uninitialized in this function
+> 
+> Cc: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> Signed-off-by: Kuninori Morimoto <morimoto.kuninori@renesas.com>
 
-Sure.
+Please just move the mdp assignment right after alloc_netdev()
+succeeds.
