@@ -1,68 +1,43 @@
-From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-Subject: Re: [PATCH 1/2] IGMP snooping: set mrouters_only flag for IPv4
- traffic properly
-Date: Fri, 17 Jun 2011 13:39:01 +0900
-Message-ID: <1308285541.3761.7.camel@nausicaa>
-References: <1307933995.2704.11.camel@nausicaa>
-	 <1308013301.3896.6.camel@nexus.oss.ntt.co.jp>
-	 <1308013483.3896.9.camel@nexus.oss.ntt.co.jp>
-	 <20110616.231447.1625738654020726451.davem@davemloft.net>
+From: Scott Goldman <scottjg@vmware.com>
+Subject: RE: [PATCH] vmxnet3: fix starving rx ring when alloc_skb fails
+Date: Thu, 16 Jun 2011 21:40:15 -0700
+Message-ID: <03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com>
+References: <1308261747-17702-1-git-send-email-scottjg@vmware.com>,<20110617.001610.2160676566738613200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.hengli.com.au, shemminger@vyatta.com,
-	netdev@vger.kernel.org, kakuta.hayato@oss.ntt.co.jp
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:37657 "EHLO
-	serv2.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751606Ab1FQEjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 00:39:05 -0400
-In-Reply-To: <20110616.231447.1625738654020726451.davem@davemloft.net>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:5797 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751979Ab1FQEkQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 00:40:16 -0400
+In-Reply-To: <20110617.001610.2160676566738613200.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Fernando Luis V=C3=A1zquez Cao <fernando@oss.ntt.co.jp>
-> Date: Tue, 14 Jun 2011 10:04:43 +0900
->=20
-> > Upon reception of a IGMP/IGMPv2 membership report the kernel sets t=
-he
-> > mrouters_only flag in a skb that may be a clone of the original skb=
-, which
-> > means that sometimes the bridge loses track of membership report pa=
-ckets (cb
-> > buffers are tied to a specific skb and not shared) and it ends up f=
-orwading
-> > join requests to the bridge interface.
-> >=20
-> > This can cause unexpected membership timeouts and intermitent/perma=
-nent loss
-> > of connectivity as described in RFC 4541 [2.1.1. IGMP Forwarding Ru=
-les]:
-> >=20
-> >     A snooping switch should forward IGMP Membership Reports only t=
-o
-> >     those ports where multicast routers are attached.
-> >     [...]
-> >     Sending membership reports to other hosts can result, for IGMPv=
-1
-> >     and IGMPv2, in unintentionally preventing a host from joining a
-> >     specific multicast group.
-> >=20
-> >=20
-> > Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-> > Tested-by: Hayato Kakuta <kakuta.hayato@oss.ntt.co.jp>
->=20
-> Applied.
+Hi David. 
 
-Thank you David.
+> This is why other drivers allocate the replacement skb _first_ before
+> handing the current receive packet to the stack.
+> 
+> And if the replacement allocation fails, they elide passing the packet
+> to the stack, and instead recycle it back onto the RX ring.
+> 
+> Please implement your RX policy in this manner, as we advise all Linux
+> networking drivers to, and you simply won't have this problem.
 
-By the way, What kernel version(s) are you targeting for these two
-patches. It would be great if we could get them upstream before 3.0
-comes out. Without this fix the IGMP snooping code is simply unusable i=
-n
-certain configurations.
+I'm sorry if my patch description was unclear, but as I understand it, what you are describing is what this patch implements. The patched rx handler does something like:
+1) poll the rx ring, peel off a pending skb (don't pass the packet up the stack yet)
+2) if the ring needs to be repopulated, we do that
+3) if the ring was repopulated successfully, then that's great, and we pass up the pending skb to the network stack.
+4) if not and there are no skbs left on the ring, we reuse the pending skb and recycle it back on the ring (effectively dropping the packet we were about to pass up to the network stack)
 
-- Fernando
+Maybe the code structure is a bit unclear? Since we don't always repopulate the ring every iteration (only when we hit a low watermark), it's true that we don't strictly always allocate a new skb before passing up the old one, but since this is only a problem when there are no skbs on the ring, and we do elide passing up the pending skb in this case, is that not ok?
 
+thanks,
+-sjg
