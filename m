@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/20] netfilter: netfilter update
-Date: Thu, 16 Jun 2011 21:54:14 -0400 (EDT)
-Message-ID: <20110616.215414.1319778131348479365.davem@davemloft.net>
-References: <1308253640-29942-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Thu, 16 Jun 2011 22:01:12 -0400 (EDT)
+Message-ID: <20110616.220112.882657314456163072.davem@davemloft.net>
+References: <20110611.162942.1706711069327005315.davem@davemloft.net>
+	<1307882102-31659-1-git-send-email-marius@kotsbak.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	marius@kotsbak.com
+To: marius.kotsbak@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59420 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:57975 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756271Ab1FQBzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 21:55:18 -0400
-In-Reply-To: <1308253640-29942-1-git-send-email-kaber@trash.net>
+	with ESMTP id S1757967Ab1FQCBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 22:01:16 -0400
+In-Reply-To: <1307882102-31659-1-git-send-email-marius@kotsbak.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Thu, 16 Jun 2011 21:47:00 +0200
+From: "Marius B. Kotsbak" <marius.kotsbak@gmail.com>
+Date: Sun, 12 Jun 2011 14:35:02 +0200
 
-> Hi Dave,
+> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
+> It has also an ACM interface that previous patches associates with the "option"
+> module. To access those interfaces, the modem must first be switched from modem
+> mode using a tool like usb_modeswitch.
 > 
-> following is a netfilter update for nf-next-2.6.git, containing
+> As the proprietary protocol has been discovered by watching the MS Windows driver
+> behavior, there might be errors in the protocol handling, but stable and fast
+> connection has been established for hours with Norwegian operator NetCom that
+> distributes this modem with their LTE/4G subscription.
 > 
-> - IPVS cleanups from Hans
+> More and updated information about how to use this driver is available here:
 > 
-> - a big ipset update from Jozsef
+> http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
+> https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
 > 
-> - support for more FTP PASV responses in the IPVS FTP helper, from Julian
-> 
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+> Signed-off-by: Marius B. Kotsbak <marius@kotsbak.com>
 
-Pulled, thanks!
+Applied, thanks.
