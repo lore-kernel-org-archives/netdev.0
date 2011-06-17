@@ -1,75 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bnx2 udp multicast packet loss and jtter
-Date: Fri, 17 Jun 2011 17:52:44 +0200
-Message-ID: <1308325964.3539.14.camel@edumazet-laptop>
-References: <BANLkTimCgWSANaje4aBE5gQdwKWNRJX40A@mail.gmail.com>
-	 <1308324641.3539.1.camel@edumazet-laptop>
-	 <BANLkTimNG0Tk4iPEZTMnUXpaZxcR3ZkLVw@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC 1/2] net:  Support getting/setting RX-FCS in drivers.
+Date: Fri, 17 Jun 2011 17:00:34 +0100
+Message-ID: <1308326434.2831.16.camel@bwh-desktop>
+References: <1308285007-11302-1-git-send-email-greearb@candelatech.com>
+	 <1308285007-11302-2-git-send-email-greearb@candelatech.com>
+	 <1308313212.11457.62.camel@localhost>  <4DFB73B2.10506@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Kieran Kunhya <kierank@ob-encoder.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62269 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759190Ab1FQPws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 11:52:48 -0400
-Received: by wwe5 with SMTP id 5so604488wwe.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 08:52:47 -0700 (PDT)
-In-Reply-To: <BANLkTimNG0Tk4iPEZTMnUXpaZxcR3ZkLVw@mail.gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:35756 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754036Ab1FQQAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 12:00:38 -0400
+In-Reply-To: <4DFB73B2.10506@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 17 juin 2011 =C3=A0 16:35 +0100, Kieran Kunhya a =C3=A9crit=
- :
-> On Fri, Jun 17, 2011 at 4:30 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> >
-> > Le samedi 11 juin 2011 =C3=A0 15:32 +0100, Kieran Kunhya a =C3=A9cr=
-it :
-> > > Hello,
-> > >
-> > > I get some bad packet loss and high jitter on a BCM5709. This is =
-on
-> > > kernel 2.6.38-8 - unfortunately using a newer kernel isn't an opt=
-ion
-> > > right now.
-> > > The bnx2 driver is version v2.0.23b.
-> > >
-> > > I've tried a lot of kenel types such as -lowlatency, -ck and vani=
-lla.
-> > > The thread doing the udp output is at realtime priority and the s=
-ame
-> > > thing happens with different applications.
-> > >
-> > > Example of jitter
-> > > http://dl.dropbox.com/u/2701213/jitter.png
-> > >
-> > > Is there anything I can do to further diagnose this problem?
-> > >
-> >
-> > Hi
-> >
-> > How is this jitter measured ?
-> >
-> > Is the link otherwise idle, or do you have a particular qdisc setup=
- to
-> > make sure packets from other flow wont have an effect ?
->=20
-> Thanks for the reply.
-> The jitter is measured with an IPTV analyser. There are other devices
-> on the same switch which don't have any jitter issues.
-> The link is otherwise idle.
+On Fri, 2011-06-17 at 08:33 -0700, Ben Greear wrote:
+> On 06/17/2011 05:20 AM, Ben Hutchings wrote:
+> > On Thu, 2011-06-16 at 21:30 -0700, greearb@candelatech.com wrote:
+> >> From: Ben Greear<greearb@candelatech.com>
+> >>
+> >> This will allow us to enable/disable having the Ethernet
+> >> frame checksum appended to the skb.  Enabling this is
+> >> useful when sniffing packets.
+> >>
+> >> In particular, this can be used to test logic that allows
+> >> a NIC to receive all frames, even ones with bad checksums.
+[...]
+> > And as Michal says, this could reasonably be a feature not an entirely
+> > separate flag.  I'm not sure it's that important to have debugging flags
+> > in features, but I also don't want to have 2 commands per flag...
+> 
+> I'm not sure it really counts as a feature, and I've no desire to tangle
+> with the effort to extend features beyond 32 bits.
 
-jitter has a precise meaning in RTP flows. Is this IPTV analyser using
-this definition ?
+There are several people wanting to add new flags, so between you I'm
+sure you can manage it.
 
-Is this analyser running on the machine that sends frames, or another
-machine ?
+> Maybe we could have a new
+> ethtool command that took a struct with two args, so we can "set flag-foo val"
+> instead of 'enable-flag-foo' and 'disable-flag-foo'?
+> 
+> That should be only one additional method for the drivers to implement, and
+> can be used for the other patches I have planned as well.
 
-Are you sure the realtime thread fullfill its requirements ?
-(RT priority wont help if this thread is cpu bounded)
+Whereas implementing an extra feature toggle now requires zero extra
+methods.
 
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
