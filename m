@@ -1,62 +1,107 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 0/2] Allow NICs to pass Frame Checksum up the stack.
-Date: Fri, 17 Jun 2011 13:58:55 -0700
-Message-ID: <4DFBC00F.4000500@candelatech.com>
-References: <1308339615-5866-1-git-send-email-greearb@candelatech.com>	 <BANLkTikiNT1F39XaMFWc67OuP=StmntL=g@mail.gmail.com>	 <4DFBBD83.9040300@candelatech.com> <1308344222.2831.20.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 2/4] r8169: explicit firmware format check.
+Date: Fri, 17 Jun 2011 22:13:20 +0100
+Message-ID: <1308345200.2831.31.camel@bwh-desktop>
+References: <20110617192826.GA2277@electric-eye.fr.zoreil.com>
+	 <20110617193105.GB2287@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55098 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932205Ab1FQU7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 16:59:00 -0400
-In-Reply-To: <1308344222.2831.20.camel@bwh-desktop>
+Received: from mail.solarflare.com ([216.237.3.220]:3746 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757651Ab1FQVNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 17:13:24 -0400
+In-Reply-To: <20110617193105.GB2287@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/2011 01:57 PM, Ben Hutchings wrote:
-> On Fri, 2011-06-17 at 13:48 -0700, Ben Greear wrote:
->> On 06/17/2011 01:00 PM, Micha=C5=82 Miros=C5=82aw wrote:
->>> 2011/6/17<greearb@candelatech.com>:
->>>> From: Ben Greear<greearb@candelatech.com>
->>>>
->>>> This series provides ethtool support to set and get the rx-checksu=
-m
->>>> flag, and adds support to the e100 driver.
->>> [...]
->>>
->>> If you want to test the new features approach, you can shave top bi=
-t
->>> off NETIF_F_GSO_MASK (there are two unused bits there). The
->>> introducing patch will be +2 lines (+1 dev.c, +1 ethtool.c),
->>> implementation in e100: 20 lines less than patch you sent, ethtool
->>> userspace changes: none (assuming
->>> http://patchwork.ozlabs.org/patch/96374/ or equivalent applied).
->>
->> Well, is that patch going in?
->>
->> How do we get more bits if we need more than two?  Totally new
->> API?
->
-> See this thread:
-> http://thread.gmane.org/gmane.linux.network/196684
+On Fri, 2011-06-17 at 21:31 +0200, Francois Romieu wrote:
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/r8169.c |   54 +++++++++++++++++++++++++++++++++++++++-----------
+>  1 files changed, 42 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 3eeefe4..452db86 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -669,6 +669,15 @@ struct rtl8169_private {
+>  
+>  	struct rtl_fw {
+>  		const struct firmware *fw;
+> +
+> +#define RTL_VER_SIZE		32
+> +
+> +		char version[RTL_VER_SIZE];
+> +
+> +		struct rtl_fw_phy_action {
+> +			__le32 *code;
+> +			size_t size;
+> +		} phy_action;
+>  	} *rtl_fw;
+>  #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN);
+>  };
+> @@ -1230,7 +1239,7 @@ static void rtl8169_get_drvinfo(struct net_device *dev,
+>  	strcpy(info->version, RTL8169_VERSION);
+>  	strcpy(info->bus_info, pci_name(tp->pci_dev));
+>  	strncpy(info->fw_version, IS_ERR_OR_NULL(rtl_fw) ? "N/A" :
+> -		rtl_lookup_firmware_name(tp), sizeof(info->fw_version) - 1);
+> +		rtl_fw->version, RTL_VER_SIZE);
 
-It's idle for 11 days.  Seems dead in the water if you ask me.
+You appear to ensure that rtl_fw->version is properly terminated, so I
+would suggest:
 
-Thanks,
-Ben
+	BUILD_BUG_ON(sizeof(info->fw_version) < sizeof(rtl_fw->version));
+	strcpy(info->fw_version, IS_ERR_OR_NULL(rtl_fw) ? "N/A" : rtl_fw->version);
 
->
-> Ben.
->
+>  }
+>  
+>  static int rtl8169_get_regs_len(struct net_device *dev)
+> @@ -1744,21 +1753,42 @@ static void rtl_writephy_batch(struct rtl8169_private *tp,
+>  #define PHY_DELAY_MS		0xe0000000
+>  #define PHY_WRITE_ERI_WORD	0xf0000000
+>  
+> -static void rtl_phy_write_fw(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
+> +#define FW_OPCODE_SIZE	sizeof(typeof(*((struct rtl_fw_phy_action *)0)->code))
+> +
+> +static bool rtl_fw_format_ok(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
+>  {
+>  	const struct firmware *fw = rtl_fw->fw;
+> -	__le32 *phytable = (__le32 *)fw->data;
+> +	struct rtl_fw_phy_action *pa = &rtl_fw->phy_action;
+> +	bool rc = false;
+> +
+> +	if (!(fw->size % FW_OPCODE_SIZE)) {
+> +		snprintf(rtl_fw->version, RTL_VER_SIZE, "%s",
+> +			 rtl_lookup_firmware_name(tp));
 
+strlcpy()
 
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> +		pa->code = (__le32 *)fw->data;
+> +		pa->size = fw->size / FW_OPCODE_SIZE;
+> +	}
+> +	rtl_fw->version[RTL_VER_SIZE - 1] = 0;
+> +
+> +	rc = true;
+> +
+> +	return rc;
+> +}
+[...]
+
+This function is doing rather more than what its name suggests.  And it
+always returns true, so it doesn't actually do what its name suggests at
+all.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
