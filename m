@@ -1,48 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bnx2 udp multicast packet loss and jtter
-Date: Fri, 17 Jun 2011 17:30:41 +0200
-Message-ID: <1308324641.3539.1.camel@edumazet-laptop>
-References: <BANLkTimCgWSANaje4aBE5gQdwKWNRJX40A@mail.gmail.com>
+From: f6bvp <f6bvp@free.fr>
+Subject: Re: [AX25] inconsistent lock state
+Date: Fri, 17 Jun 2011 17:31:30 +0200
+Message-ID: <4DFB7352.1040706@free.fr>
+References: <4B2CD772.1030106@upmc.fr> <201106171536.15660.arnd@arndb.de> <20110617135147.GA3470@linux-mips.org> <201106171611.10655.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Kieran Kunhya <kierank@ob-encoder.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53696 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759410Ab1FQPaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 11:30:46 -0400
-Received: by wyb38 with SMTP id 38so400276wyb.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 08:30:45 -0700 (PDT)
-In-Reply-To: <BANLkTimCgWSANaje4aBE5gQdwKWNRJX40A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <201106171611.10655.arnd@arndb.de>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 11 juin 2011 =C3=A0 15:32 +0100, Kieran Kunhya a =C3=A9crit :
-> Hello,
->=20
-> I get some bad packet loss and high jitter on a BCM5709. This is on
-> kernel 2.6.38-8 - unfortunately using a newer kernel isn't an option
-> right now.
-> The bnx2 driver is version v2.0.23b.
->=20
-> I've tried a lot of kenel types such as -lowlatency, -ck and vanilla.
-> The thread doing the udp output is at realtime priority and the same
-> thing happens with different applications.
->=20
-> Example of jitter
-> http://dl.dropbox.com/u/2701213/jitter.png
->=20
-> Is there anything I can do to further diagnose this problem?
->=20
+Hi Arnd,
 
-Hi
+I will apply your patch with write_lock_bh only following your
+remark about recursive call.
 
-How is this jitter measured ?
+I agree that the error message did not appear systematically
+when doing what I did i.e. unpluging the ethernet cable from
+the computer interface.
 
-Is the link otherwise idle, or do you have a particular qdisc setup to
-make sure packets from other flow wont have an effect ?
+However, I will perform the same a few times and see what happens.
+
+Many thanks.
+
+Bernard
 
 
+Le 17/06/2011 16:11, Arnd Bergmann a =E9crit :
+> On Friday 17 June 2011 15:51:48 Ralf Baechle wrote:
+>> On Fri, Jun 17, 2011 at 03:36:15PM +0200, Arnd Bergmann wrote:
+>>
+>> (Removed Jarek from cc; his email bounces.)
+>>
+>>> The message hints that disc_data_lock is aquired with softirqs disa=
+bled,
+>>> but does not itself disable softirqs, which can in rare circumstanc=
+es
+>>> lead to a deadlock.
+>>>
+>>> Does this fix it?
+>> If so, drivers/net/hamradio.c, function sp_get() would probably need=
+ the
+>> equivalent fix.  Same for drivers/net/ppp_async.c:ap_get() and sp_ge=
+t() in
+>> drivers/net/ppp_synctty.c.
+> It seems that ppp_synctty.c is ok, it uses write_lock_irq() already,
+> sixpack.c looks like it has the same bug as mkiss. I also realized
+> after sending out the patch that only the write_lock needs to be
+> changed to write_lock_bh, while read_lock can leave softirqs enabled
+> because it can be called recursively.
+>
+> 	Arnd
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
