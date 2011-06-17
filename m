@@ -1,46 +1,135 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] vmxnet3: fix starving rx ring when alloc_skb fails
-Date: Fri, 17 Jun 2011 13:14:20 +0100
-Message-ID: <1308312860.11457.56.camel@localhost>
-References: <1308261747-17702-1-git-send-email-scottjg@vmware.com>
-	 <20110617.001610.2160676566738613200.davem@davemloft.net>
-	 <03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com>
-	 <20110617.005356.180809929241094878.davem@davemloft.net>
+Subject: Re: [RFC 1/2] net:  Support getting/setting RX-FCS in drivers.
+Date: Fri, 17 Jun 2011 13:20:12 +0100
+Message-ID: <1308313212.11457.62.camel@localhost>
+References: <1308285007-11302-1-git-send-email-greearb@candelatech.com>
+	 <1308285007-11302-2-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: scottjg@vmware.com, netdev@vger.kernel.org, pv-drivers@vmware.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:18703 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:18948 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758050Ab1FQMOY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 08:14:24 -0400
-In-Reply-To: <20110617.005356.180809929241094878.davem@davemloft.net>
+	with ESMTP id S1753567Ab1FQMUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 08:20:15 -0400
+In-Reply-To: <1308285007-11302-2-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-17 at 00:53 -0400, David Miller wrote:
-> From: Scott Goldman <scottjg@vmware.com>
-> Date: Thu, 16 Jun 2011 21:40:15 -0700
+On Thu, 2011-06-16 at 21:30 -0700, greearb@candelatech.com wrote:
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> > I'm sorry if my patch description was unclear, but as I understand it, what you are describing is what this patch implements. The patched rx handler does something like:
-> > 1) poll the rx ring, peel off a pending skb (don't pass the packet up the stack yet)
-> > 2) if the ring needs to be repopulated, we do that
-> > 3) if the ring was repopulated successfully, then that's great, and we pass up the pending skb to the network stack.
-> > 4) if not and there are no skbs left on the ring, we reuse the pending skb and recycle it back on the ring (effectively dropping the packet we were about to pass up to the network stack)
+> This will allow us to enable/disable having the Ethernet
+> frame checksum appended to the skb.  Enabling this is
+> useful when sniffing packets.
 > 
-> You shouldn't restrict this logic to when the ring is empty, you
-> should never leave any RX ring slots empty.
+> In particular, this can be used to test logic that allows
+> a NIC to receive all frames, even ones with bad checksums.
 > 
-> Every RX ring entry should be processed with a "alloc_skb()" first,
-> and if the allocation fails you recycle the RX ring's SKB.
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> ---
+> :100644 100644 439b173... e5e8747... M	include/linux/ethtool.h
+> :100644 100644 fd14116... b36bac7... M	net/core/ethtool.c
+>  include/linux/ethtool.h |    5 +++++
+>  net/core/ethtool.c      |   38 ++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 43 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index 439b173..e5e8747 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -955,6 +955,8 @@ struct ethtool_ops {
+>  	int	(*get_dump_data)(struct net_device *,
+>  				 struct ethtool_dump *, void *);
+>  	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+> +	int	(*set_save_fcs)(struct net_device *, u32);
+> +	int	(*get_save_fcs)(struct net_device *, u32 *);
 
-But this means the driver drops received packets as soon as there is an
-allocation failure, rather than only if there are repeated failures.  I
-don't see how that's preferable.
+These need to be described in the kernel-doc.
+
+Why do these function names use 'save_fcs' whereas the command names use
+'RXFCS'?
+
+>  };
+>  #endif /* __KERNEL__ */
+> @@ -1029,6 +1031,9 @@ struct ethtool_ops {
+>  #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
+>  #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
+>  #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
+> +#define ETHTOOL_GETRXFCS	0x00000041 /* Get RX Save Frame Checksum */
+> +#define ETHTOOL_SETRXFCS	0x00000042 /* Set RX Save Frame Checksum */
+> +
+>  
+>  /* compatibility with older code */
+>  #define SPARC_ETH_GSET		ETHTOOL_GSET
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index fd14116..b36bac7 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -1927,6 +1927,38 @@ out:
+>  	return ret;
+>  }
+>  
+> +static int ethtool_get_rx_fcs(struct net_device *dev, void __user *useraddr)
+> +{
+> +	struct ethtool_value edata;
+> +	int rv = 0;
+> +
+> +	if (!dev->ethtool_ops->get_save_fcs)
+> +		return -EOPNOTSUPP;
+> +
+> +	rv = dev->ethtool_ops->get_save_fcs(dev, &edata.data);
+> +	if (rv < 0)
+> +		return rv;
+> +
+> +	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+> +		return -EFAULT;
+> +	return 0;
+> +}
+> +
+> +
+> +static int ethtool_set_rx_fcs(struct net_device *dev, void __user *useraddr)
+> +{
+> +	struct ethtool_value id;
+> +
+> +	if (!dev->ethtool_ops->set_save_fcs)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (copy_from_user(&id, useraddr, sizeof(id)))
+> +		return -EFAULT;
+> +
+> +	return dev->ethtool_ops->set_save_fcs(dev, id.data);
+> +}
+> +
+> +
+>  /* The main entry point in this file.  Called from net/core/dev.c */
+>  
+>  int dev_ethtool(struct net *net, struct ifreq *ifr)
+> @@ -2152,6 +2184,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>  	case ETHTOOL_GET_DUMP_DATA:
+>  		rc = ethtool_get_dump_data(dev, useraddr);
+>  		break;
+> +	case ETHTOOL_SETRXFCS:
+> +		rc = ethtool_set_rx_fcs(dev, useraddr);
+> +		break;
+> +	case ETHTOOL_GETRXFCS:
+> +		rc = ethtool_get_rx_fcs(dev, useraddr);
+> +		break;
+
+You can use ethtool_{get,set}_value() rather than adding new trivial
+functions.
+
+And as Michal says, this could reasonably be a feature not an entirely
+separate flag.  I'm not sure it's that important to have debugging flags
+in features, but I also don't want to have 2 commands per flag...
 
 Ben.
+
+>  	default:
+>  		rc = -EOPNOTSUPP;
+>  	}
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare
