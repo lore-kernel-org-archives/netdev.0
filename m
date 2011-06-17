@@ -1,55 +1,67 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH net-next] net: remove mm.h inclusion from netdevice.h
-Date: Fri, 17 Jun 2011 13:19:37 +1000
-Message-ID: <20110617131937.63c71cb6.sfr@canb.auug.org.au>
-References: <20110616210134.GA18026@p183.telecom.by>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH v2] net/r8169: update the new parser for the new firmware
+Date: Fri, 17 Jun 2011 11:25:13 +0800
+Message-ID: <8AC7DE11560749B895F99EBA7D42AA49@realtek.com.tw>
+References: <1308109531-31698-1-git-send-email-hayeswang@realtek.com> <20110616225904.GA2064@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp,
-	linux-arch@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20110616210134.GA18026@p183.telecom.by>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:50954 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754495Ab1FQDZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:25:21 -0400
+In-Reply-To: <20110616225904.GA2064@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ 
 
-Hi Alexy,
+> -----Original Message-----
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Friday, June 17, 2011 6:59 AM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH v2] net/r8169: update the new parser for 
+> the new firmware
+> 
+> Hayes Wang <hayeswang@realtek.com> :
+> > Update the parser for the new firmware which is embedded 
+> some information.
+> 
+> I have modified several things :
+> - s/u32/__le32/ in fw_info
+> - fix unsigned (size_t) comparisons
+> - more size checks before dereferencing fw_info
+> 
 
-On Fri, 17 Jun 2011 00:01:34 +0300 Alexey Dobriyan <adobriyan@gmail.com> wr=
-ote:
->
-> Remove linux/mm.h inclusion from netdevice.h -- it's unused (I've checked=
- manually).
+Thanks. They are fine.
 
-Have you tried building this with STAGING enabled?  The fallout for
-STAGING from the removal of linux/interrupt.h is still not sorted out.
+> The new firmware format should be the same. The old 
+> r8168d-1.fw firmware proved usable when prefixed with :
+> 
+> 0000000: 0000 0000 3031 0000 0000 0000 0000 0000  ....01..........
+> 0000010: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+> 0000020: 0000 0000 3000 0000 7501 0000 a000 0000  ....0...u.......
+> 
+> I realized after testing that netif_err could be abused with 
+> non-string fw_info.version. :o/
+> 
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Excuse me. I don't understand what you want to express. Do you mean the
+situation of the old paser with the new firmware for checking the firmware? For
+the normal situation, the old paser would not use the new firmware. And I put
+zero in front of the new firmware to prevent the old paser from running it. That
+is all I do.
 
---Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b
-Content-Type: application/pgp-signature
+If you don't mean that, I could promise the new firmware I release would contain
+the valid string unless someone modifies it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+> Comments ?
+> 
+ 
+Best Regards,
+Hayes
 
-iQEcBAEBAgAGBQJN+sfJAAoJEDMEi1NhKgbs+AgH/jYsT2sY6W6QmlkD8CAleZP5
-EM2YDrgZHNG8sePYbubGvJsIsnRihoWiL+eK97fud7ED2CBHysYu4Dn3du0amj6o
-33MAT8WiKW211OvhAV1TthlPiRhwDRmi6eXMWh5fzYdhbIWE/8N0+VUYFyoqyEDc
-1cvKjSckXY+iIYKnpTyBvpPf/f6YCuE/7RdYRGaNhCyC77VlJ1izgbE9TI+Eo91K
-0uGxKOM+6WPrDlEmZpGxqPnPlRWFwuVRxCeksRJM2oYNjS+vkeZO5SywnDJi8e0l
-acn5GfS97TQfbJ8H6XnVvG5LDt51+ilAYaK6bDOr1bHZrVZmVTbxatq3DMrTq0c=
-=09qq
------END PGP SIGNATURE-----
-
---Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b--
