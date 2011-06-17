@@ -1,61 +1,36 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [RFC 1/2] ethtool: Add DMA Coalescing adapter feature to
- ethtool.
-Date: Fri, 17 Jun 2011 07:54:00 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F016EEF8967@orsmsx508.amr.corp.intel.com>
-References: <1308071556-6271-1-git-send-email-carolyn.wyborny@intel.com>
- <20110616.233239.2238723246132860968.davem@davemloft.net>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH net-next V2] drivers/net: Remove casts of void *
+Date: Fri, 17 Jun 2011 10:14:12 -0400
+Message-ID: <1308320052.2198.1.camel@obelisk.thedillows.org>
+References: <3bea9d0803a4ebfee2bb0f6e42defbf76126dc86.1308287030.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51367 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932392Ab1FQOyE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 10:54:04 -0400
-In-Reply-To: <20110616.233239.2238723246132860968.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3bea9d0803a4ebfee2bb0f6e42defbf76126dc86.1308287030.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2011-06-16 at 22:08 -0700, Joe Perches wrote:
+> Unnecessary casts of void * clutter the code.
+> 
+> These are the remainder casts after several specific
+> patches to remove netdev_priv and dev_priv.
 
+> diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+> index 3de4283..1d5091a 100644
+> --- a/drivers/net/typhoon.c
+> +++ b/drivers/net/typhoon.c
+> @@ -2367,7 +2367,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  
+>  	dev->irq = pdev->irq;
+>  	tp = netdev_priv(dev);
+> -	tp->shared = (struct typhoon_shared *) shared;
+> +	tp->shared = shared;
+>  	tp->shared_dma = shared_dma;
+>  	tp->pdev = pdev;
+>  	tp->tx_pdev = pdev;
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Thursday, June 16, 2011 8:33 PM
->To: Wyborny, Carolyn
->Cc: netdev@vger.kernel.org; bhutchings@solarflare.com
->Subject: Re: [RFC 1/2] ethtool: Add DMA Coalescing adapter feature to
->ethtool.
->
->From: Carolyn Wyborny <carolyn.wyborny@intel.com>
->Date: Tue, 14 Jun 2011 10:12:36 -0700
->
->> This RFC patch adds support for DMA Coalescing device feature
->> configuration via ethtool.
->>
->> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> ...
->>  static struct cmdline_info cmdline_offload[] = {
->> -	{ "rx", CMDL_BOOL, &off_csum_rx_wanted, NULL },
->> -	{ "tx", CMDL_BOOL, &off_csum_tx_wanted, NULL },
->> -	{ "sg", CMDL_BOOL, &off_sg_wanted, NULL },
->
->Can you please not destroy the existing formatting of every single
->table and piece of code you are modifying?
-
-Yes, this is an error, I'm already redoing the patch.
-
-Thanks,
-
-Carolyn
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
-
-
+Acked-by: David Dillow <dave@thedillows.org>
