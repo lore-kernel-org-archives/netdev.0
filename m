@@ -1,52 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: bnx2 udp multicast packet loss and jtter
-Date: Fri, 17 Jun 2011 18:55:18 +0200
-Message-ID: <1308329718.3539.22.camel@edumazet-laptop>
-References: <BANLkTimCgWSANaje4aBE5gQdwKWNRJX40A@mail.gmail.com>
-	 <1308324641.3539.1.camel@edumazet-laptop>
-	 <BANLkTimNG0Tk4iPEZTMnUXpaZxcR3ZkLVw@mail.gmail.com>
-	 <1308325964.3539.14.camel@edumazet-laptop>
-	 <BANLkTi=j_yYaNTeSfjqtOUnNoZRymAK32A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Kieran Kunhya <kierank@ob-encoder.com>
+From: Pavel Shved <shved@ispras.ru>
+Subject: [PATCH] gigaset: call module_put before restart of if_open()
+Date: Fri, 17 Jun 2011 20:25:11 +0400
+Message-ID: <1308327913-23220-2-git-send-email-shved@ispras.ru>
+References: <1308327913-23220-1-git-send-email-shved@ispras.ru>
+Cc: Pavel Shved <shved@ispras.ru>,
+	Tilman Schmidt <tilman@imap.cc> (maintainer:GIGASET ISDN DRIVERS),
+	Karsten Keil <isdn@linux-pingi.de> (maintainer:ISDN SUBSYSTEM),
+	gigaset307x-common@lists.sourceforge.net (open list:GIGASET ISDN
+	DRIVERS), netdev@vger.kernel.org (open list:ISDN SUBSYSTEM),
+	linux-kernel@vger.kernel.org (open list), ldv-project@ispras.ru
+To: Hansjoerg Lipp <hjlipp@web.de> (maintainer:GIGASET ISDN DRIVERS)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37310 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752356Ab1FQQzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 12:55:23 -0400
-Received: by wyb38 with SMTP id 38so452876wyb.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 09:55:21 -0700 (PDT)
-In-Reply-To: <BANLkTi=j_yYaNTeSfjqtOUnNoZRymAK32A@mail.gmail.com>
+Received: from smtp.ispras.ru ([83.149.198.202]:56032 "EHLO smtp.ispras.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756090Ab1FQQ47 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 12:56:59 -0400
+In-Reply-To: <1308327913-23220-1-git-send-email-shved@ispras.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 17 juin 2011 =C3=A0 17:42 +0100, Kieran Kunhya a =C3=A9crit=
- :
+if_open() calls try_module_get(), and after an attempt to lock a mutex
+the if_open() function may return -ERESTARTSYS without
+putting the module.  Then, when if_open() is executed again,
+try_module_get() is called making the reference counter of THIS_MODULE
+greater than one at successful exit from if_open().  The if_close()
+function puts the module only once, and as a result it can't be
+unloaded.
 
-> The analyzer can either use the RTP definition of jitter, or it uses
-> its own algorithm to attempt to
-> mimic the RTP definition of jitter when using TS packets in UDP by
-> using the continuity counter.
-> This happens with both UDP and RTP streams. (though for unrelated
-> reasons UDP is usually used)
->=20
-> The analyzer is on a different machine. The UDP thread isn't bottlene=
-cked at all
-> and the machine is only under moderate load. It also happens with man=
-y
-> different applications
-> that can serve mpegts files.
+This patch adds module_put call before the return from if_open().
 
-Quite frankly, I cant believe your bnx2 can be responsible of jitters
-like that. By the way, check you're on full duplex mode, not on half
-duplex.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-You could take a tcpdump on the sender machine, to check if delays are
-on this machine, or later in your network (a congestioned egress
-somewhere)
+Signed-off-by: Pavel Shved <shved@ispras.ru>
+---
+ drivers/isdn/gigaset/interface.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index 59de638..e35058b 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -156,8 +156,10 @@ static int if_open(struct tty_struct *tty, struct file *filp)
+ 	if (!cs || !try_module_get(cs->driver->owner))
+ 		return -ENODEV;
+ 
+-	if (mutex_lock_interruptible(&cs->mutex))
++	if (mutex_lock_interruptible(&cs->mutex)) {
++		module_put(cs->driver->owner);
+ 		return -ERESTARTSYS;
++	}
+ 	tty->driver_data = cs;
+ 
+ 	++cs->open_count;
+-- 
+1.7.0.2
 
