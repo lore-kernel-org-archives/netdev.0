@@ -1,138 +1,57 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC 1/2] net:  Support getting/setting RX-FCS in drivers.
-Date: Fri, 17 Jun 2011 13:20:12 +0100
-Message-ID: <1308313212.11457.62.camel@localhost>
-References: <1308285007-11302-1-git-send-email-greearb@candelatech.com>
-	 <1308285007-11302-2-git-send-email-greearb@candelatech.com>
+Subject: Re: [PATCH v2] net/r8169: update the new parser for the new
+ firmware
+Date: Fri, 17 Jun 2011 13:22:44 +0100
+Message-ID: <1308313364.11457.63.camel@localhost>
+References: <1308109531-31698-1-git-send-email-hayeswang@realtek.com>
+	 <20110616225904.GA2064@electric-eye.fr.zoreil.com>
+	 <8AC7DE11560749B895F99EBA7D42AA49@realtek.com.tw>
+	 <20110617063948.GA2146@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:18948 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753567Ab1FQMUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 08:20:15 -0400
-In-Reply-To: <1308285007-11302-2-git-send-email-greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hayeswang <hayeswang@realtek.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110617063948.GA2146@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-06-16 at 21:30 -0700, greearb@candelatech.com wrote:
-> From: Ben Greear <greearb@candelatech.com>
+On Fri, 2011-06-17 at 08:39 +0200, Francois Romieu wrote:
+> hayeswang <hayeswang@realtek.com> :
+> > Francois Romieu :
+> [...]
+> > > The new firmware format should be the same. The old 
+> > > r8168d-1.fw firmware proved usable when prefixed with :
+> > > 
+> > > 0000000: 0000 0000 3031 0000 0000 0000 0000 0000  ....01..........
+> > > 0000010: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+> > > 0000020: 0000 0000 3000 0000 7501 0000 a000 0000  ....0...u.......
+> > > 
+> > > I realized after testing that netif_err could be abused with 
+> > > non-string fw_info.version. :o/
+> > > 
+> > 
+> > Excuse me. I don't understand what you want to express. Do you mean the
+> > situation of the old paser with the new firmware for checking the firmware?
 > 
-> This will allow us to enable/disable having the Ethernet
-> frame checksum appended to the skb.  Enabling this is
-> useful when sniffing packets.
-> 
-> In particular, this can be used to test logic that allows
-> a NIC to receive all frames, even ones with bad checksums.
-> 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
-> ---
-> :100644 100644 439b173... e5e8747... M	include/linux/ethtool.h
-> :100644 100644 fd14116... b36bac7... M	net/core/ethtool.c
->  include/linux/ethtool.h |    5 +++++
->  net/core/ethtool.c      |   38 ++++++++++++++++++++++++++++++++++++++
->  2 files changed, 43 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 439b173..e5e8747 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -955,6 +955,8 @@ struct ethtool_ops {
->  	int	(*get_dump_data)(struct net_device *,
->  				 struct ethtool_dump *, void *);
->  	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
-> +	int	(*set_save_fcs)(struct net_device *, u32);
-> +	int	(*get_save_fcs)(struct net_device *, u32 *);
+> No. The code does a printk with a %s specifier on fw_info.version while there
+> is no evidence that fw_info.version is 0 terminated.
 
-These need to be described in the kernel-doc.
-
-Why do these function names use 'save_fcs' whereas the command names use
-'RXFCS'?
-
->  };
->  #endif /* __KERNEL__ */
-> @@ -1029,6 +1031,9 @@ struct ethtool_ops {
->  #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
->  #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
->  #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
-> +#define ETHTOOL_GETRXFCS	0x00000041 /* Get RX Save Frame Checksum */
-> +#define ETHTOOL_SETRXFCS	0x00000042 /* Set RX Save Frame Checksum */
-> +
->  
->  /* compatibility with older code */
->  #define SPARC_ETH_GSET		ETHTOOL_GSET
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index fd14116..b36bac7 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1927,6 +1927,38 @@ out:
->  	return ret;
->  }
->  
-> +static int ethtool_get_rx_fcs(struct net_device *dev, void __user *useraddr)
-> +{
-> +	struct ethtool_value edata;
-> +	int rv = 0;
-> +
-> +	if (!dev->ethtool_ops->get_save_fcs)
-> +		return -EOPNOTSUPP;
-> +
-> +	rv = dev->ethtool_ops->get_save_fcs(dev, &edata.data);
-> +	if (rv < 0)
-> +		return rv;
-> +
-> +	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-> +		return -EFAULT;
-> +	return 0;
-> +}
-> +
-> +
-> +static int ethtool_set_rx_fcs(struct net_device *dev, void __user *useraddr)
-> +{
-> +	struct ethtool_value id;
-> +
-> +	if (!dev->ethtool_ops->set_save_fcs)
-> +		return -EOPNOTSUPP;
-> +
-> +	if (copy_from_user(&id, useraddr, sizeof(id)))
-> +		return -EFAULT;
-> +
-> +	return dev->ethtool_ops->set_save_fcs(dev, id.data);
-> +}
-> +
-> +
->  /* The main entry point in this file.  Called from net/core/dev.c */
->  
->  int dev_ethtool(struct net *net, struct ifreq *ifr)
-> @@ -2152,6 +2184,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
->  	case ETHTOOL_GET_DUMP_DATA:
->  		rc = ethtool_get_dump_data(dev, useraddr);
->  		break;
-> +	case ETHTOOL_SETRXFCS:
-> +		rc = ethtool_set_rx_fcs(dev, useraddr);
-> +		break;
-> +	case ETHTOOL_GETRXFCS:
-> +		rc = ethtool_get_rx_fcs(dev, useraddr);
-> +		break;
-
-You can use ethtool_{get,set}_value() rather than adding new trivial
-functions.
-
-And as Michal says, this could reasonably be a feature not an entirely
-separate flag.  I'm not sure it's that important to have debugging flags
-in features, but I also don't want to have 2 commands per flag...
+I thought the idea of embedding a version here was to be able to report
+in in get_drvinfo, not to print it on load.
 
 Ben.
 
->  	default:
->  		rc = -EOPNOTSUPP;
->  	}
+> > For the normal situation, the old paser would not use the new firmware.
+> > And I put zero in front of the new firmware to prevent the old paser from
+> > running it. That is all I do.
+> 
+> It is fine.
+> 
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
-
