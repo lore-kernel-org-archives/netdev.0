@@ -1,57 +1,63 @@
-From: Kieran Kunhya <kierank@ob-encoder.com>
-Subject: Re: bnx2 udp multicast packet loss and jtter
-Date: Fri, 17 Jun 2011 16:35:58 +0100
-Message-ID: <BANLkTimNG0Tk4iPEZTMnUXpaZxcR3ZkLVw@mail.gmail.com>
-References: <BANLkTimCgWSANaje4aBE5gQdwKWNRJX40A@mail.gmail.com>
-	<1308324641.3539.1.camel@edumazet-laptop>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [RFC 2/2] ethtool: Add support for DMA Coalescing feature
+ config to ethtool.
+Date: Fri, 17 Jun 2011 08:50:11 -0700
+Message-ID: <EDC0E76513226749BFBC9C3FB031318F016EEF8A6E@orsmsx508.amr.corp.intel.com>
+References: <1308071606-6333-1-git-send-email-carolyn.wyborny@intel.com>
+ <20110616.233354.508986372720173787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:49314 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932081Ab1FQPf7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 11:35:59 -0400
-Received: by ywe9 with SMTP id 9so1325095ywe.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 08:35:58 -0700 (PDT)
-In-Reply-To: <1308324641.3539.1.camel@edumazet-laptop>
+Received: from mga11.intel.com ([192.55.52.93]:33523 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753993Ab1FQPuO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 11:50:14 -0400
+In-Reply-To: <20110616.233354.508986372720173787.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2011 at 4:30 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->
-> Le samedi 11 juin 2011 =E0 15:32 +0100, Kieran Kunhya a =E9crit :
-> > Hello,
-> >
-> > I get some bad packet loss and high jitter on a BCM5709. This is on
-> > kernel 2.6.38-8 - unfortunately using a newer kernel isn't an optio=
-n
-> > right now.
-> > The bnx2 driver is version v2.0.23b.
-> >
-> > I've tried a lot of kenel types such as -lowlatency, -ck and vanill=
-a.
-> > The thread doing the udp output is at realtime priority and the sam=
-e
-> > thing happens with different applications.
-> >
-> > Example of jitter
-> > http://dl.dropbox.com/u/2701213/jitter.png
-> >
-> > Is there anything I can do to further diagnose this problem?
-> >
->
-> Hi
->
-> How is this jitter measured ?
->
-> Is the link otherwise idle, or do you have a particular qdisc setup t=
-o
-> make sure packets from other flow wont have an effect ?
 
-Thanks for the reply.
-The jitter is measured with an IPTV analyser. There are other devices
-on the same switch which don't have any jitter issues.
-The link is otherwise idle.
+
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Thursday, June 16, 2011 8:34 PM
+>To: Wyborny, Carolyn
+>Cc: netdev@vger.kernel.org; bhutchings@solarflare.com
+>Subject: Re: [RFC 2/2] ethtool: Add support for DMA Coalescing feature
+>config to ethtool.
+>
+>From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>Date: Tue, 14 Jun 2011 10:13:26 -0700
+>
+>> This RFC patch adds functions to get and set DMA Coalescing feature
+>> configuration.
+>>
+>> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>
+>What in the world is "DMA Coalescing feature", what does it do?
+>
+>Might it want parameters and not just want to be turned on or off?
+>
+>This change, at a minimum, needs a more descriptive commit log entry.
+>So that other driver authors can understand what exactly the feature
+>is and therefore whether they might like to add support for it to
+>their drivers.
+
+I will add a fuller description of the feature in my updated patch.  I thought the feature was more well known. Quick description is that it's a power saving feature that causes the adapter to coalesce its DMA writes at low traffic times to save power on the platform by reducing wakeups.  The parameter is intended as a simple u32 value, not just an on or off, but also to allow a variety of configuration by adapter vendors, with validation of the input on the driver side.  Since I left out the implementation in my patch, this wasn't clear.  I will also fix this in my next submission.
+
+Thanks,
+
+Carolyn
+
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
+
+
+
