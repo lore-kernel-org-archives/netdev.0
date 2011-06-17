@@ -1,30 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio-net: per cpu 64 bit stats (v2)
-Date: Fri, 17 Jun 2011 15:18:21 -0400 (EDT)
-Message-ID: <20110617.151821.1341973645484302135.davem@davemloft.net>
-References: <20110615114337.09fe62f6@s6510.ftrdhcpuser.net>
-	<1308153538.3128.3.camel@edumazet-laptop>
-	<20110615123629.6efae8aa@s6510.ftrdhcpuser.net>
+Subject: Re: [PATCH net-next V2] drivers/net: Remove casts of void *
+Date: Fri, 17 Jun 2011 15:19:03 -0400 (EDT)
+Message-ID: <20110617.151903.1203335395245647912.davem@davemloft.net>
+References: <3bea9d0803a4ebfee2bb0f6e42defbf76126dc86.1308287030.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39506 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932083Ab1FQTSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 15:18:34 -0400
-In-Reply-To: <20110615123629.6efae8aa@s6510.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: acme@ghostprotocols.net, jcliburn@gmail.com, chris.snook@gmail.com,
+	jie.yang@atheros.com, sathya.perla@emulex.com,
+	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
+	rmody@brocade.com, ddutt@brocade.com,
+	sjur.brandeland@stericsson.com, divy@chelsio.com,
+	leitao@linux.vnet.ibm.com, amit.salecha@qlogic.com,
+	ron.mercer@qlogic.com, linux-driver@qlogic.com,
+	anirban.chakraborty@qlogic.com, jdmason@kudzu.us,
+	linux-net-drivers@solarflare.com, shodgson@solarflare.com,
+	bhutchings@solarflare.com, venza@brownhat.org, dave@thedillows.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3bea9d0803a4ebfee2bb0f6e42defbf76126dc86.1308287030.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 15 Jun 2011 12:36:29 -0400
+=46rom: Joe Perches <joe@perches.com>
+Date: Thu, 16 Jun 2011 22:08:06 -0700
 
-> Use per-cpu variables to maintain 64 bit statistics.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Unnecessary casts of void * clutter the code.
+>=20
+> These are the remainder casts after several specific
+> patches to remove netdev_priv and dev_priv.
+>=20
+> Done via coccinelle script (and a little editing):
+>=20
+> $ cat cast_void_pointer.cocci
+> @@
+> type T;
+> T *pt;
+> void *pv;
+> @@
+>=20
+> - pt =3D (T *)pv;
+> + pt =3D pv;
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+> Acked-By: Chris Snook <chris.snook@gmail.com>
+> Acked-by: Jon Mason <jdmason@kudzu.us>
 
-I'll apply this, thanks.
+Applied, thanks.
