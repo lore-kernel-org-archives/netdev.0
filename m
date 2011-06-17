@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: remove wrong sock_put() in macvtap_put_queue()
-Date: Thu, 16 Jun 2011 22:58:25 -0400 (EDT)
-Message-ID: <20110616.225825.127982592225091945.davem@davemloft.net>
-References: <1307934919-4189-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net-next-2.6] be2net: support multiple TX queues
+Date: Thu, 16 Jun 2011 23:02:42 -0400 (EDT)
+Message-ID: <20110616.230242.306818394713493115.davem@davemloft.net>
+References: <f67e2aac-b763-404d-8e45-5c5f52c56d18@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jasowang@redhat.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46226 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54110 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752813Ab1FQC6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 22:58:35 -0400
-In-Reply-To: <1307934919-4189-1-git-send-email-jasowang@redhat.com>
+	with ESMTP id S1754495Ab1FQDCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:02:45 -0400
+In-Reply-To: <f67e2aac-b763-404d-8e45-5c5f52c56d18@exht1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 13 Jun 2011 11:15:19 +0800
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Mon, 13 Jun 2011 11:31:58 +0530
 
-> The calling of sock_put() should be delayed after synchronize_rcu(),
-> otherwise inconsist data may be seen during packets transmitting.
+> This patch provides support for multiple TX queues.
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
-You're leaking sockets now.
-
-This function has to release the socket twice if there is
-a non-NULL vlan assigned to the queue.
-
-Now you're only doing it once in that situation.
-
-Which probably fixes your crash, but adds a socket leak.
+Applied, thanks.
