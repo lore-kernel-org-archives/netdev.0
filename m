@@ -1,51 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IGMP snooping: set mrouters_only flag for IPv6
- traffic properly
-Date: Thu, 16 Jun 2011 23:14:53 -0400 (EDT)
-Message-ID: <20110616.231453.746182027732338575.davem@davemloft.net>
-References: <1307933995.2704.11.camel@nausicaa>
-	<1308013301.3896.6.camel@nexus.oss.ntt.co.jp>
-	<1308013618.3896.11.camel@nexus.oss.ntt.co.jp>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next] net: remove mm.h inclusion from netdevice.h
+Date: Fri, 17 Jun 2011 13:19:37 +1000
+Message-ID: <20110617131937.63c71cb6.sfr@canb.auug.org.au>
+References: <20110616210134.GA18026@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.hengli.com.au, shemminger@vyatta.com,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: fernando@oss.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754495Ab1FQDQC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:16:02 -0400
-In-Reply-To: <1308013618.3896.11.camel@nexus.oss.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp,
+	linux-arch@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20110616210134.GA18026@p183.telecom.by>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Fernando Luis V=E1zquez Cao <fernando@oss.ntt.co.jp>
-Date: Tue, 14 Jun 2011 10:06:58 +0900
+--Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Upon reception of a MGM report packet the kernel sets the mrouters_on=
-ly flag
-> in a skb that is a clone of the original skb, which means that the br=
-idge
-> loses track of MGM packets (cb buffers are tied to a specific skb and=
- not
-> shared) and it ends up forwading join requests to the bridge interfac=
-e.
->=20
-> This can cause unexpected membership timeouts and intermitent/permane=
-nt loss
-> of connectivity as described in RFC 4541 [2.1.1. IGMP Forwarding Rule=
-s]:
->=20
->     A snooping switch should forward IGMP Membership Reports only to
->     those ports where multicast routers are attached.
->     [...]
->     Sending membership reports to other hosts can result, for IGMPv1
->     and IGMPv2, in unintentionally preventing a host from joining a
->     specific multicast group.
->=20
->=20
-> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+Hi Alexy,
 
-Applied.
+On Fri, 17 Jun 2011 00:01:34 +0300 Alexey Dobriyan <adobriyan@gmail.com> wr=
+ote:
+>
+> Remove linux/mm.h inclusion from netdevice.h -- it's unused (I've checked=
+ manually).
+
+Have you tried building this with STAGING enabled?  The fallout for
+STAGING from the removal of linux/interrupt.h is still not sorted out.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJN+sfJAAoJEDMEi1NhKgbs+AgH/jYsT2sY6W6QmlkD8CAleZP5
+EM2YDrgZHNG8sePYbubGvJsIsnRihoWiL+eK97fud7ED2CBHysYu4Dn3du0amj6o
+33MAT8WiKW211OvhAV1TthlPiRhwDRmi6eXMWh5fzYdhbIWE/8N0+VUYFyoqyEDc
+1cvKjSckXY+iIYKnpTyBvpPf/f6YCuE/7RdYRGaNhCyC77VlJ1izgbE9TI+Eo91K
+0uGxKOM+6WPrDlEmZpGxqPnPlRWFwuVRxCeksRJM2oYNjS+vkeZO5SywnDJi8e0l
+acn5GfS97TQfbJ8H6XnVvG5LDt51+ilAYaK6bDOr1bHZrVZmVTbxatq3DMrTq0c=
+=09qq
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__17_Jun_2011_13_19_37_+1000_1v=4LmR4gIeb+V=b--
