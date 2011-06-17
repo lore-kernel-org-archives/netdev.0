@@ -1,7 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [PATCH 2/7] net: dcbnl, add multicast group for DCB
-Date: Fri, 17 Jun 2011 14:16:18 -0700
-Message-ID: <20110617211618.26578.34100.stgit@jf-dev1-dcblab>
+Subject: [PATCH 1/7] dcb: Add DCBX capabilities bitmask to the get_ieee
+	response
+Date: Fri, 17 Jun 2011 14:16:13 -0700
+Message-ID: <20110617211613.26578.63959.stgit@jf-dev1-dcblab>
 References: <20110617211027.26578.11317.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,326 +10,62 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, shmulikr@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64522 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:16974 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752573Ab1FQVWv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2011 17:22:51 -0400
+	id S1755629Ab1FQVWx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 17:22:53 -0400
 In-Reply-To: <20110617211027.26578.11317.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that dcbnl is being used in many cases by more
-than a single agent it is beneficial to be notified
-when some entity either driver or user space has
-changed the DCB attributes.
+Adding the capabilities bitmask to the get_ieee response allows
+user space to determine the current DCBX mode. Either CEE or IEEE
+this is useful with devices that support switching between modes
+where knowing the current state is relevant.
 
-Today applications either end up polling the interface
-or relying on a user space database to maintain the DCB
-state and post events. Polling is a poor solution for
-obvious reasons. And relying on a user space database
-has its own downside. Namely it has created strange
-boot dependencies requiring the database be populated
-before any applications dependent on DCB attributes
-starts or the application goes into a polling loop.
-Populating the database requires negotiating link
-setting with the peer and can take anywhere from less
-than a second up to a few seconds depending on the switch
-implementation.
-
-Perhaps more importantly if another application or an
-embedded agent sets a DCB link attribute the database
-has no way of knowing other than polling the kernel.
-This prevents applications from responding quickly to
-changes in link events which at least in the FCoE case
-and probably any other protocols expecting a lossless
-link may result in IO errors.
-
-By adding a multicast group for DCB we have clean way
-to disseminate kernel DCB link attributes up to user
-space. Avoiding the need for user space to maintain
-a coherant database and disperse events that potentially
-do not reflect the current link state.
+Derived from work by Mark Rustad
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/rtnetlink.h |    2 
- net/dcb/dcbnl.c           |  228 +++++++++++++++++++++++++++++----------------
- 2 files changed, 147 insertions(+), 83 deletions(-)
+ net/dcb/dcbnl.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index bbad657..c81226a 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -585,6 +585,8 @@ enum rtnetlink_groups {
- #define RTNLGRP_PHONET_IFADDR	RTNLGRP_PHONET_IFADDR
- 	RTNLGRP_PHONET_ROUTE,
- #define RTNLGRP_PHONET_ROUTE	RTNLGRP_PHONET_ROUTE
-+	RTNLGRP_DCB,
-+#define RTNLGRP_DCB		RTNLGRP_DCB
- 	__RTNLGRP_MAX
- };
- #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
 diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 3a6d97d..b514579 100644
+index ed1bb8c..3a6d97d 100644
 --- a/net/dcb/dcbnl.c
 +++ b/net/dcb/dcbnl.c
-@@ -1166,64 +1166,6 @@ err:
- 	return ret;
- }
- 
--/* Handle IEEE 802.1Qaz SET commands. If any requested operation can not
-- * be completed the entire msg is aborted and error value is returned.
-- * No attempt is made to reconcile the case where only part of the
-- * cmd can be completed.
-- */
--static int dcbnl_ieee_set(struct net_device *netdev, struct nlattr **tb,
--			  u32 pid, u32 seq, u16 flags)
--{
--	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
--	struct nlattr *ieee[DCB_ATTR_IEEE_MAX + 1];
--	int err = -EOPNOTSUPP;
--
--	if (!ops)
--		goto err;
--
--	err = nla_parse_nested(ieee, DCB_ATTR_IEEE_MAX,
--			       tb[DCB_ATTR_IEEE], dcbnl_ieee_policy);
--	if (err)
--		goto err;
--
--	if (ieee[DCB_ATTR_IEEE_ETS] && ops->ieee_setets) {
--		struct ieee_ets *ets = nla_data(ieee[DCB_ATTR_IEEE_ETS]);
--		err = ops->ieee_setets(netdev, ets);
--		if (err)
--			goto err;
--	}
--
--	if (ieee[DCB_ATTR_IEEE_PFC] && ops->ieee_setpfc) {
--		struct ieee_pfc *pfc = nla_data(ieee[DCB_ATTR_IEEE_PFC]);
--		err = ops->ieee_setpfc(netdev, pfc);
--		if (err)
--			goto err;
--	}
--
--	if (ieee[DCB_ATTR_IEEE_APP_TABLE]) {
--		struct nlattr *attr;
--		int rem;
--
--		nla_for_each_nested(attr, ieee[DCB_ATTR_IEEE_APP_TABLE], rem) {
--			struct dcb_app *app_data;
--			if (nla_type(attr) != DCB_ATTR_IEEE_APP)
--				continue;
--			app_data = nla_data(attr);
--			if (ops->ieee_setapp)
--				err = ops->ieee_setapp(netdev, app_data);
--			else
--				err = dcb_setapp(netdev, app_data);
--			if (err)
--				goto err;
--		}
--	}
--
--err:
--	dcbnl_reply(err, RTM_SETDCB, DCB_CMD_IEEE_SET, DCB_ATTR_IEEE,
--		    pid, seq, flags);
--	return err;
--}
--
- static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb,
- 				int app_nested_type, int app_info_type,
- 				int app_entry_type)
-@@ -1279,30 +1221,13 @@ nla_put_failure:
- }
- 
- /* Handle IEEE 802.1Qaz GET commands. */
--static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
--			  u32 pid, u32 seq, u16 flags)
-+static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
- {
--	struct sk_buff *skb;
--	struct nlmsghdr *nlh;
--	struct dcbmsg *dcb;
+@@ -1288,6 +1288,7 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
  	struct nlattr *ieee, *app;
  	struct dcb_app_type *itr;
  	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
- 	int dcbx;
--	int err;
--
--	if (!ops)
--		return -EOPNOTSUPP;
--
--	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
--	if (!skb)
--		return -ENOBUFS;
--
--	nlh = NLMSG_NEW(skb, pid, seq, RTM_GETDCB, sizeof(*dcb), flags);
--
--	dcb = NLMSG_DATA(nlh);
--	dcb->dcb_family = AF_UNSPEC;
--	dcb->cmd = DCB_CMD_IEEE_GET;
-+	int err = -EMSGSIZE;
++	int dcbx;
+ 	int err;
  
- 	NLA_PUT_STRING(skb, DCB_ATTR_IFNAME, netdev->name);
- 
-@@ -1378,16 +1303,153 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
- 		if (err)
- 			goto nla_put_failure;
+ 	if (!ops)
+@@ -1338,6 +1339,12 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 			}
+ 		}
  	}
--	nlmsg_end(skb, nlh);
++
++	if (netdev->dcbnl_ops->getdcbx)
++		dcbx = netdev->dcbnl_ops->getdcbx(netdev);
++	else
++		dcbx = -EOPNOTSUPP;
++
+ 	spin_unlock(&dcb_lock);
+ 	nla_nest_end(skb, app);
  
--	return rtnl_unicast(skb, &init_net, pid);
-+	return 0;
-+
- nla_put_failure:
--	nlmsg_cancel(skb, nlh);
--nlmsg_failure:
--	kfree_skb(skb);
--	return -1;
-+	return err;
- }
+@@ -1366,6 +1373,11 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 	}
  
-+static int dcbnl_notify(struct net_device *dev, int event, int cmd,
-+			u32 seq, u32 pid)
-+{
-+	struct net *net = dev_net(dev);
-+	struct sk_buff *skb;
-+	struct nlmsghdr *nlh;
-+	struct dcbmsg *dcb;
-+	const struct dcbnl_rtnl_ops *ops = dev->dcbnl_ops;
-+	int err;
-+
-+	if (!ops)
-+		return -EOPNOTSUPP;
-+
-+	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOBUFS;
-+
-+	nlh = nlmsg_put(skb, pid, 0, event, sizeof(*dcb), 0);
-+	if (nlh == NULL) {
-+		kfree(skb);
-+		return -EMSGSIZE;
-+	}
-+
-+	dcb = NLMSG_DATA(nlh);
-+	dcb->dcb_family = AF_UNSPEC;
-+	dcb->cmd = cmd;
-+
-+	err = dcbnl_ieee_fill(skb, dev);
-+	if (err < 0) {
-+		/* Report error to broadcast listeners */
-+		nlmsg_cancel(skb, nlh);
-+		kfree_skb(skb);
-+		rtnl_set_sk_err(net, RTNLGRP_DCB, err);
-+	} else {
-+		/* End nlmsg and notify broadcast listeners */
-+		nlmsg_end(skb, nlh);
-+		rtnl_notify(skb, net, 0, RTNLGRP_DCB, NULL, GFP_KERNEL);
-+	}
-+
-+	return err;
-+}
-+
-+/* Handle IEEE 802.1Qaz SET commands. If any requested operation can not
-+ * be completed the entire msg is aborted and error value is returned.
-+ * No attempt is made to reconcile the case where only part of the
-+ * cmd can be completed.
-+ */
-+static int dcbnl_ieee_set(struct net_device *netdev, struct nlattr **tb,
-+			  u32 pid, u32 seq, u16 flags)
-+{
-+	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
-+	struct nlattr *ieee[DCB_ATTR_IEEE_MAX + 1];
-+	int err = -EOPNOTSUPP;
-+
-+	if (!ops)
-+		return err;
-+
-+	err = nla_parse_nested(ieee, DCB_ATTR_IEEE_MAX,
-+			       tb[DCB_ATTR_IEEE], dcbnl_ieee_policy);
-+	if (err)
-+		return err;
-+
-+	if (ieee[DCB_ATTR_IEEE_ETS] && ops->ieee_setets) {
-+		struct ieee_ets *ets = nla_data(ieee[DCB_ATTR_IEEE_ETS]);
-+		err = ops->ieee_setets(netdev, ets);
+ 	nla_nest_end(skb, ieee);
++	if (dcbx >= 0) {
++		err = nla_put_u8(skb, DCB_ATTR_DCBX, dcbx);
 +		if (err)
-+			goto err;
++			goto nla_put_failure;
 +	}
-+
-+	if (ieee[DCB_ATTR_IEEE_PFC] && ops->ieee_setpfc) {
-+		struct ieee_pfc *pfc = nla_data(ieee[DCB_ATTR_IEEE_PFC]);
-+		err = ops->ieee_setpfc(netdev, pfc);
-+		if (err)
-+			goto err;
-+	}
-+
-+	if (ieee[DCB_ATTR_IEEE_APP_TABLE]) {
-+		struct nlattr *attr;
-+		int rem;
-+
-+		nla_for_each_nested(attr, ieee[DCB_ATTR_IEEE_APP_TABLE], rem) {
-+			struct dcb_app *app_data;
-+			if (nla_type(attr) != DCB_ATTR_IEEE_APP)
-+				continue;
-+			app_data = nla_data(attr);
-+			if (ops->ieee_setapp)
-+				err = ops->ieee_setapp(netdev, app_data);
-+			else
-+				err = dcb_setapp(netdev, app_data);
-+			if (err)
-+				goto err;
-+		}
-+	}
-+
-+err:
-+	dcbnl_reply(err, RTM_SETDCB, DCB_CMD_IEEE_SET, DCB_ATTR_IEEE,
-+		    pid, seq, flags);
-+	dcbnl_notify(netdev, RTM_SETDCB, DCB_CMD_IEEE_SET, seq, 0);
-+	return err;
-+}
-+
-+static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
-+			  u32 pid, u32 seq, u16 flags)
-+{
-+	struct net *net = dev_net(netdev);
-+	struct sk_buff *skb;
-+	struct nlmsghdr *nlh;
-+	struct dcbmsg *dcb;
-+	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
-+	int err;
-+
-+	if (!ops)
-+		return -EOPNOTSUPP;
-+
-+	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOBUFS;
-+
-+	nlh = nlmsg_put(skb, pid, seq, RTM_GETDCB, sizeof(*dcb), flags);
-+	if (nlh == NULL) {
-+		kfree(skb);
-+		return -EMSGSIZE;
-+	}
-+
-+	dcb = NLMSG_DATA(nlh);
-+	dcb->dcb_family = AF_UNSPEC;
-+	dcb->cmd = DCB_CMD_IEEE_GET;
-+
-+	err = dcbnl_ieee_fill(skb, netdev);
-+
-+	if (err < 0) {
-+		nlmsg_cancel(skb, nlh);
-+		kfree_skb(skb);
-+	} else {
-+		nlmsg_end(skb, nlh);
-+		err = rtnl_unicast(skb, net, pid);
-+	}
-+
-+	return err;
-+}
- /* DCBX configuration */
- static int dcbnl_getdcbx(struct net_device *netdev, struct nlattr **tb,
- 			 u32 pid, u32 seq, u16 flags)
+ 	nlmsg_end(skb, nlh);
+ 
+ 	return rtnl_unicast(skb, &init_net, pid);
 
