@@ -1,72 +1,47 @@
-From: Dominique Martinet <rnfhrznznaq.tf@noclue.notk.org>
-Subject: Re: bnx2 vlan issue
-Date: Fri, 17 Jun 2011 06:10:24 +0000 (UTC)
-Message-ID: <loom.20110617T075702-107@post.gmane.org>
-References: <AANLkTik0BOuDj5wmfHabZx_OzXDROtDLR2qtqUqQu4ko@mail.gmail.com> <AANLkTi=rOjHZt_F01UfunrTm=2r1BO5QGFDeV9XyKX4G@mail.gmail.com> <AANLkTimAnHcoVDY_p8PqZLMJdMz2w7bMnSbOwzn4aR4i@mail.gmail.com> <AANLkTimJsBYefz3+3HgBgrHUR33g+TWuBp15E=VODohb@mail.gmail.com> <AANLkTik1JJO7mqxPzqfshMfH2JFUXn+yxbTqVdr4QDf6@mail.gmail.com> <AANLkTi=7ETnRWOLRVAWhv=3BHZdzUnLvAqzxXOz399Xx@mail.gmail.com> <AANLkTi=D9Qw+Tw7wHb2T7UG_o9zkZcr2meHE3fwcMwvF@mail.gmail.com> <AANLkTimnKRDY8QLiJMMLqNzCA_-6UJmUDHKf-i1Yt3V5@mail.gmail.com> <AANLkTi=zfhwHTB7kitgwk3AzSa0aFFyxgM_ZY-3wObR5@mail.gmail.com> <AANLkTi=gsP3ZZyEwO+CcM3uB6G5-QswYEfqdtiy8oOyv@mail.gmail.com> <AANLkTi=CaWMSmRsN8SXfn999=4RNnFESTLjyBytYVzR2@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2] net/r8169: update the new parser for the new firmware
+Date: Fri, 17 Jun 2011 08:39:48 +0200
+Message-ID: <20110617063948.GA2146@electric-eye.fr.zoreil.com>
+References: <1308109531-31698-1-git-send-email-hayeswang@realtek.com> <20110616225904.GA2064@electric-eye.fr.zoreil.com> <8AC7DE11560749B895F99EBA7D42AA49@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:39961 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751603Ab1FQGPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2011 02:15:10 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QXSKh-0000Ks-PU
-	for netdev@vger.kernel.org; Fri, 17 Jun 2011 08:15:09 +0200
-Received: from nobunaga.t.u-tokyo.ac.jp ([157.82.13.93])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 08:15:07 +0200
-Received: from rnfhrznznaq.tf by nobunaga.t.u-tokyo.ac.jp with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 08:15:07 +0200
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38411 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751603Ab1FQGw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 02:52:26 -0400
+Content-Disposition: inline
+In-Reply-To: <8AC7DE11560749B895F99EBA7D42AA49@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Jesse Gross <jesse <at> nicira.com> writes:
-> On Thu, Mar 24, 2011 at 5:26 PM, Seblu <seblu <at> seblu.net> wrote:
-> > Maybe i was not enough clear. It seems to me that new behaviour, with
-> > vlan on top of bridge rather than above interface in bridge is not
-> > functional.
-> > In other words, i cannot use vlan and bridge together in 2.6.38 (with 
-> > e1000e).
+hayeswang <hayeswang@realtek.com> :
+> Francois Romieu :
+[...]
+> > The new firmware format should be the same. The old 
+> > r8168d-1.fw firmware proved usable when prefixed with :
+> > 
+> > 0000000: 0000 0000 3031 0000 0000 0000 0000 0000  ....01..........
+> > 0000010: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+> > 0000020: 0000 0000 3000 0000 7501 0000 a000 0000  ....0...u.......
+> > 
+> > I realized after testing that netif_err could be abused with 
+> > non-string fw_info.version. :o/
+> > 
 > 
-> Sorry, I misunderstood what you were saying before.  Can you try and
-> see where the packets are getting lost or improperly handled by
-> running tcpdump on the various interfaces?  For example, check that
-> packets are coming in with tags on the physical interfaces, have tags
-> on the bridge interface, no tag on the vlan interface, etc.
+> Excuse me. I don't understand what you want to express. Do you mean the
+> situation of the old paser with the new firmware for checking the firmware?
 
-I think I ran into the same problem, and my workaround for this was to add
-a vlan do the bridge and then add the vlan'ed bridge to another bridge, i.e.
-(since I can't draw, commands will be better :P)
+No. The code does a printk with a %s specifier on fw_info.version while there
+is no evidence that fw_info.version is 0 terminated.
 
-brctl addbr br0
-brctl addif br0 eth0
-ip link add link br0 name br0.42 type vlan id 42
-ip link set br0.42 up
+> For the normal situation, the old paser would not use the new firmware.
+> And I put zero in front of the new firmware to prevent the old paser from
+> running it. That is all I do.
 
-brctl addbr br_42
-brctl addif br_42 br0.42
+It is fine.
 
-and then I could put VMs in br_42 which got network "as expected"
-before, I used to have br_42 with eth0.42 in it, so it is just one more
-step..
-What bothers me is that I also want to put VMs in br0, and it does work,
-but this bridge also sees all the tagged data - isn't there a way to just
-"pick" the untagged network?
-My other question is that I'm not certain if that's the expected way to
-use the new behaviour, if not I wouldn't mind light shining from above :)
-
-This is enough for me, though I can't say I like the change I can't argue
-that having everything behave the same way is better, but I'm still
-curious...
-
-Regards,
-Dominique Martinet | Asmadeus
-
+-- 
+Ueimor
