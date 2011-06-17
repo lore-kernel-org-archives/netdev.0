@@ -1,37 +1,42 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 0/2] Allow NICs to pass Frame Checksum up the stack.
-Date: Fri, 17 Jun 2011 22:00:28 +0200
-Message-ID: <BANLkTikiNT1F39XaMFWc67OuP=StmntL=g@mail.gmail.com>
-References: <1308339615-5866-1-git-send-email-greearb@candelatech.com>
+From: Tomasz Chmielewski <mangoo@wpkg.org>
+Subject: what's causing "ip_rt_bug"?
+Date: Fri, 17 Jun 2011 22:00:48 +0200
+Message-ID: <4DFBB270.8000003@wpkg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:53877 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932963Ab1FQUAu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 16:00:50 -0400
-Received: by qwk3 with SMTP id 3so97448qwk.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 13:00:49 -0700 (PDT)
-In-Reply-To: <1308339615-5866-1-git-send-email-greearb@candelatech.com>
+Received: from mail.virtall.com ([178.63.195.102]:40796 "EHLO mail.virtall.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932986Ab1FQUAu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 16:00:50 -0400
+Received: from mail.virtall.com (localhost [127.0.0.1])
+	by mail.virtall.com (Postfix) with ESMTP id 49E1636467D
+	for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 22:00:49 +0200 (CEST)
+Received: from [192.168.10.145] (e183095092.adsl.alicedsl.de [85.183.95.92])
+	by mail.virtall.com (Postfix) with ESMTPSA id F206436467A
+	for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 22:00:48 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/6/17  <greearb@candelatech.com>:
-> From: Ben Greear <greearb@candelatech.com>
->
-> This series provides ethtool support to set and get the rx-checksum
-> flag, and adds support to the e100 driver.
-[...]
+I have a system pushing around 800 Mbit/s, ~130 kpps.
 
-If you want to test the new features approach, you can shave top bit
-off NETIF_F_GSO_MASK (there are two unused bits there). The
-introducing patch will be +2 lines (+1 dev.c, +1 ethtool.c),
-implementation in e100: 20 lines less than patch you sent, ethtool
-userspace changes: none (assuming
-http://patchwork.ozlabs.org/patch/96374/ or equivalent applied).
+It uses 2.6.35.12 kernel.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+
+Several times a minute, I can see entries like (a.b.c.d - IP of this system):
+
+Jun 18 02:39:19 KOR-SV22 kernel: [37187.665951] ip_rt_bug: 110.x.x.x -> a.b.c.d, ?
+Jun 18 02:39:19 KOR-SV22 kernel: [37187.685419] ip_rt_bug: 110.x.x.x -> a.b.c.d, ?
+Jun 18 02:40:31 KOR-SV22 kernel: [37259.199315] ip_rt_bug: 124.x.x.x -> a.b.c.d, ?
+Jun 18 02:40:36 KOR-SV22 kernel: [37263.828000] ip_rt_bug: 124.x.x.x -> a.b.c.d, ?
+Jun 18 02:44:16 KOR-SV22 kernel: [37484.120689] ip_rt_bug: 110.x.x.x -> a.b.c.d, ?
+Jun 18 02:44:19 KOR-SV22 kernel: [37487.114357] ip_rt_bug: 110.x.x.x -> a.b.c.d, ?
+
+What may be causing this? Is it "dangerous"?
+
+
+-- 
+Tomasz Chmielewski
+http://wpkg.org
