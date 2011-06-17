@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] farsync: add module_put to error path in fst_open()
-Date: Fri, 17 Jun 2011 15:28:05 -0400 (EDT)
-Message-ID: <20110617.152805.824692696209804231.davem@davemloft.net>
+Subject: Re: [PATCH] gigaset: call module_put before restart of if_open()
+Date: Fri, 17 Jun 2011 15:28:00 -0400 (EDT)
+Message-ID: <20110617.152800.1945884789188813626.davem@davemloft.net>
 References: <1308327913-23220-1-git-send-email-shved@ispras.ru>
+	<1308327913-23220-2-git-send-email-shved@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kevin.curtis@farsite.co.uk, netdev@vger.kernel.org,
+Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
 To: shved@ispras.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47527 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932429Ab1FQT2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 15:28:24 -0400
-In-Reply-To: <1308327913-23220-1-git-send-email-shved@ispras.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1308327913-23220-2-git-send-email-shved@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pavel Shved <shved@ispras.ru>
-Date: Fri, 17 Jun 2011 20:25:10 +0400
+Date: Fri, 17 Jun 2011 20:25:11 +0400
 
-> The fst_open() function, after a successful try_module_get() may return
-> an error code if hdlc_open() returns it.  However, it does not put the
-> module on this error path.
+> if_open() calls try_module_get(), and after an attempt to lock a mutex
+> the if_open() function may return -ERESTARTSYS without
+> putting the module.  Then, when if_open() is executed again,
+> try_module_get() is called making the reference counter of THIS_MODULE
+> greater than one at successful exit from if_open().  The if_close()
+> function puts the module only once, and as a result it can't be
+> unloaded.
 > 
-> This patch adds the necessary module_put() call.
+> This patch adds module_put call before the return from if_open().
 > 
 > Found by Linux Driver Verification project (linuxtesting.org).
 > 
