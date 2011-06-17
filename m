@@ -1,35 +1,54 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [RFC 1/2] net: Support getting/setting RX-FCS in drivers.
-Date: Fri, 17 Jun 2011 09:36:31 +0200
-Message-ID: <BANLkTikhUiVR-+DORohviSVTpQJLZQuTCQ@mail.gmail.com>
-References: <1308285007-11302-1-git-send-email-greearb@candelatech.com> <1308285007-11302-2-git-send-email-greearb@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+From: Holger Brunck <holger.brunck@keymile.com>
+Subject: [PATCH] fs_enet: fix freescale FCC ethernet dp buffer alignment
+Date: Fri, 17 Jun 2011 10:30:39 +0200
+Message-ID: <1308299439-5975-1-git-send-email-holger.brunck@keymile.com>
+Cc: Clive Stubbings <clive.stubbings@xentech.co.uk>,
+	Holger Brunck <holger.brunck@keymile.com>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, netdev@vger.kernel.org
+To: linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:48097 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755529Ab1FQHgw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 03:36:52 -0400
-Received: by qyg14 with SMTP id 14so1181837qyg.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 00:36:51 -0700 (PDT)
-In-Reply-To: <1308285007-11302-2-git-send-email-greearb@candelatech.com>
+Received: from mail.de.keymile.com ([195.8.104.1]:41035 "HELO
+	mail.de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751743Ab1FQImR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 04:42:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/6/17  <greearb@candelatech.com>:
-> From: Ben Greear <greearb@candelatech.com>
->
-> This will allow us to enable/disable having the Ethernet
-> frame checksum appended to the skb. =C2=A0Enabling this is
-> useful when sniffing packets.
->
-> In particular, this can be used to test logic that allows
-> a NIC to receive all frames, even ones with bad checksums.
+From: Clive Stubbings <clive.stubbings@xentech.co.uk>
 
-You want to silently run away from extending dev->features field? ;-)
+The RIPTR and TIPTR  (receive/transmit internal temporary data pointer),
+used by microcode as a temporary buffer for data, must be 32-byte aligned
+according to the RM for MPC8247.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Tested on mgcoge.
+
+Signed-off-by: Clive Stubbings <clive.stubbings@xentech.co.uk>
+Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+cc: Vitaly Bordug <vbordug@ru.mvista.com>
+cc: netdev@vger.kernel.org
+---
+This fixes a kernel crash on mgcoge when using SPI on CPM2 and
+ethernet over FCC. Now fixed because the fcc driver now allocates
+the space he really needs.
+
+ drivers/net/fs_enet/mac-fcc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/fs_enet/mac-fcc.c
+index 7a84e45..7583a95 100644
+--- a/drivers/net/fs_enet/mac-fcc.c
++++ b/drivers/net/fs_enet/mac-fcc.c
+@@ -105,7 +105,7 @@ static int do_pd_setup(struct fs_enet_private *fep)
+ 		goto out_ep;
+ 
+ 	fep->fcc.mem = (void __iomem *)cpm2_immr;
+-	fpi->dpram_offset = cpm_dpalloc(128, 8);
++	fpi->dpram_offset = cpm_dpalloc(128, 32);
+ 	if (IS_ERR_VALUE(fpi->dpram_offset)) {
+ 		ret = fpi->dpram_offset;
+ 		goto out_fcccp;
+-- 
+1.7.1
+
