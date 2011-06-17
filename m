@@ -1,50 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2] net/r8169: update the new parser for the new
- firmware
-Date: Fri, 17 Jun 2011 15:50:19 +0100
-Message-ID: <1308322219.2831.1.camel@bwh-desktop>
-References: <1308109531-31698-1-git-send-email-hayeswang@realtek.com>
-	 <20110616225904.GA2064@electric-eye.fr.zoreil.com>
-	 <8AC7DE11560749B895F99EBA7D42AA49@realtek.com.tw>
-	 <20110617063948.GA2146@electric-eye.fr.zoreil.com>
-	 <1308313364.11457.63.camel@localhost>
-	 <20110617125300.GA2193@electric-eye.fr.zoreil.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [RFC 1/2] ethtool: Add DMA Coalescing adapter feature to
+ ethtool.
+Date: Fri, 17 Jun 2011 07:54:00 -0700
+Message-ID: <EDC0E76513226749BFBC9C3FB031318F016EEF8967@orsmsx508.amr.corp.intel.com>
+References: <1308071556-6271-1-git-send-email-carolyn.wyborny@intel.com>
+ <20110616.233239.2238723246132860968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: hayeswang <hayeswang@realtek.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:28576 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759245Ab1FQOuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 10:50:23 -0400
-In-Reply-To: <20110617125300.GA2193@electric-eye.fr.zoreil.com>
+Received: from mga09.intel.com ([134.134.136.24]:51367 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932392Ab1FQOyE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 10:54:04 -0400
+In-Reply-To: <20110616.233239.2238723246132860968.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-17 at 14:53 +0200, Francois Romieu wrote:
-> Ben Hutchings <bhutchings@solarflare.com> :
-> [...]
-> > I thought the idea of embedding a version here was to be able to report
-> > in in get_drvinfo, not to print it on load.
-> 
-> Reporting the version for the new firmware format through ethtool is
-> currently hacked on.
-> 
-> Do you want the load time version / format messages removed ?
+
+
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Thursday, June 16, 2011 8:33 PM
+>To: Wyborny, Carolyn
+>Cc: netdev@vger.kernel.org; bhutchings@solarflare.com
+>Subject: Re: [RFC 1/2] ethtool: Add DMA Coalescing adapter feature to
+>ethtool.
 >
-> I think they can be of some use - at least temporarily - but I won't mind
-> removing them now.
+>From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>Date: Tue, 14 Jun 2011 10:12:36 -0700
+>
+>> This RFC patch adds support for DMA Coalescing device feature
+>> configuration via ethtool.
+>>
+>> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> ...
+>>  static struct cmdline_info cmdline_offload[] = {
+>> -	{ "rx", CMDL_BOOL, &off_csum_rx_wanted, NULL },
+>> -	{ "tx", CMDL_BOOL, &off_csum_tx_wanted, NULL },
+>> -	{ "sg", CMDL_BOOL, &off_sg_wanted, NULL },
+>
+>Can you please not destroy the existing formatting of every single
+>table and piece of code you are modifying?
 
-I don't care one way or the other.  But it's more important to report
-the version through get_drvinfo.
+Yes, this is an error, I'm already redoing the patch.
 
-Ben.
+Thanks,
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Carolyn
+
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
+
 
