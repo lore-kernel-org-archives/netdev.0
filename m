@@ -1,51 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] drivers/net: Remove casts of void *
-Date: Fri, 17 Jun 2011 15:19:03 -0400 (EDT)
-Message-ID: <20110617.151903.1203335395245647912.davem@davemloft.net>
-References: <3bea9d0803a4ebfee2bb0f6e42defbf76126dc86.1308287030.git.joe@perches.com>
+Subject: Re: [PATCH] fs_enet: fix freescale FCC ethernet dp buffer alignment
+Date: Fri, 17 Jun 2011 15:21:23 -0400 (EDT)
+Message-ID: <20110617.152123.620960460056800771.davem@davemloft.net>
+References: <1308299439-5975-1-git-send-email-holger.brunck@keymile.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: acme@ghostprotocols.net, jcliburn@gmail.com, chris.snook@gmail.com,
-	jie.yang@atheros.com, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com,
-	rmody@brocade.com, ddutt@brocade.com,
-	sjur.brandeland@stericsson.com, divy@chelsio.com,
-	leitao@linux.vnet.ibm.com, amit.salecha@qlogic.com,
-	ron.mercer@qlogic.com, linux-driver@qlogic.com,
-	anirban.chakraborty@qlogic.com, jdmason@kudzu.us,
-	linux-net-drivers@solarflare.com, shodgson@solarflare.com,
-	bhutchings@solarflare.com, venza@brownhat.org, dave@thedillows.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3bea9d0803a4ebfee2bb0f6e42defbf76126dc86.1308287030.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@lists.ozlabs.org, clive.stubbings@xentech.co.uk,
+	pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
+	netdev@vger.kernel.org
+To: holger.brunck@keymile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49324 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932154Ab1FQTXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 15:23:38 -0400
+In-Reply-To: <1308299439-5975-1-git-send-email-holger.brunck@keymile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Joe Perches <joe@perches.com>
-Date: Thu, 16 Jun 2011 22:08:06 -0700
+From: Holger Brunck <holger.brunck@keymile.com>
+Date: Fri, 17 Jun 2011 10:30:39 +0200
 
-> Unnecessary casts of void * clutter the code.
->=20
-> These are the remainder casts after several specific
-> patches to remove netdev_priv and dev_priv.
->=20
-> Done via coccinelle script (and a little editing):
->=20
-> $ cat cast_void_pointer.cocci
-> @@
-> type T;
-> T *pt;
-> void *pv;
-> @@
->=20
-> - pt =3D (T *)pv;
-> + pt =3D pv;
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
-> Acked-By: Chris Snook <chris.snook@gmail.com>
-> Acked-by: Jon Mason <jdmason@kudzu.us>
+> From: Clive Stubbings <clive.stubbings@xentech.co.uk>
+> 
+> The RIPTR and TIPTR  (receive/transmit internal temporary data pointer),
+> used by microcode as a temporary buffer for data, must be 32-byte aligned
+> according to the RM for MPC8247.
+> 
+> Tested on mgcoge.
+> 
+> Signed-off-by: Clive Stubbings <clive.stubbings@xentech.co.uk>
+> Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+> cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+> cc: Vitaly Bordug <vbordug@ru.mvista.com>
+> cc: netdev@vger.kernel.org
 
 Applied, thanks.
