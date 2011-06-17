@@ -1,43 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: Remove casts of void *
-Date: Thu, 16 Jun 2011 23:23:44 -0400 (EDT)
-Message-ID: <20110616.232344.2285390268187937319.davem@davemloft.net>
-References: <cover.1308017857.git.joe@perches.com>
-	<d010144f11f9165670ac0c9e3559bf5e3191ff28.1308017857.git.joe@perches.com>
+Subject: Re: [PATCH] gianfar v3: implement nfc
+Date: Thu, 16 Jun 2011 23:31:02 -0400 (EDT)
+Message-ID: <20110616.233102.1659546586182470974.davem@davemloft.net>
+References: <1308064750.13416.15.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, sage@newdream.net,
-	samuel@sortiz.org, paul.moore@hp.com, vladislav.yasevich@hp.com,
-	sri@us.ibm.com, linux-kernel@vger.kernel.org,
-	ceph-devel@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net, linux-sctp@vger.kernel.org
-To: joe@perches.com
-Return-path: <ceph-devel-owner@vger.kernel.org>
-In-Reply-To: <d010144f11f9165670ac0c9e3559bf5e3191ff28.1308017857.git.joe@perches.com>
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	sebastian.poehn@belden.com
+To: sebastian.belden@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755028Ab1FQDbJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 23:31:09 -0400
+In-Reply-To: <1308064750.13416.15.camel@DENEC1DT0191>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 13 Jun 2011 19:21:26 -0700
+=46rom: "Sebastian P=F6hn" <sebastian.belden@googlemail.com>
+Date: Tue, 14 Jun 2011 17:19:10 +0200
 
-> Unnecessary casts of void * clutter the code.
-> 
-> These are the remainder casts after several specific
-> patches to remove netdev_priv and dev_priv.
-> 
-> Done via coccinelle script:
-> 
-> $ cat cast_void_pointer.cocci
-> @@
-> type T;
-> T *pt;
-> void *pv;
-> @@
-> 
-> - pt = (T *)pv;
-> + pt = pv;
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> +	list_for_each_entry(comp, &priv->rx_list.list, list)
+> +	{
 
-Applied.
+Please put the openning brace at the end of the previous line.
+
+You did this in several locations of the patch.
