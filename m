@@ -1,65 +1,144 @@
-From: f6bvp <f6bvp@free.fr>
-Subject: Re: [AX25] inconsistent lock state
-Date: Fri, 17 Jun 2011 17:31:30 +0200
-Message-ID: <4DFB7352.1040706@free.fr>
-References: <4B2CD772.1030106@upmc.fr> <201106171536.15660.arnd@arndb.de> <20110617135147.GA3470@linux-mips.org> <201106171611.10655.arnd@arndb.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC 1/2] net:  Support getting/setting RX-FCS in drivers.
+Date: Fri, 17 Jun 2011 08:33:06 -0700
+Message-ID: <4DFB73B2.10506@candelatech.com>
+References: <1308285007-11302-1-git-send-email-greearb@candelatech.com>	 <1308285007-11302-2-git-send-email-greearb@candelatech.com> <1308313212.11457.62.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <201106171611.10655.arnd@arndb.de>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:48863 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932567Ab1FQPdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 11:33:09 -0400
+In-Reply-To: <1308313212.11457.62.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
-
-I will apply your patch with write_lock_bh only following your
-remark about recursive call.
-
-I agree that the error message did not appear systematically
-when doing what I did i.e. unpluging the ethernet cable from
-the computer interface.
-
-However, I will perform the same a few times and see what happens.
-
-Many thanks.
-
-Bernard
-
-
-Le 17/06/2011 16:11, Arnd Bergmann a =E9crit :
-> On Friday 17 June 2011 15:51:48 Ralf Baechle wrote:
->> On Fri, Jun 17, 2011 at 03:36:15PM +0200, Arnd Bergmann wrote:
+On 06/17/2011 05:20 AM, Ben Hutchings wrote:
+> On Thu, 2011-06-16 at 21:30 -0700, greearb@candelatech.com wrote:
+>> From: Ben Greear<greearb@candelatech.com>
 >>
->> (Removed Jarek from cc; his email bounces.)
+>> This will allow us to enable/disable having the Ethernet
+>> frame checksum appended to the skb.  Enabling this is
+>> useful when sniffing packets.
 >>
->>> The message hints that disc_data_lock is aquired with softirqs disa=
-bled,
->>> but does not itself disable softirqs, which can in rare circumstanc=
-es
->>> lead to a deadlock.
->>>
->>> Does this fix it?
->> If so, drivers/net/hamradio.c, function sp_get() would probably need=
- the
->> equivalent fix.  Same for drivers/net/ppp_async.c:ap_get() and sp_ge=
-t() in
->> drivers/net/ppp_synctty.c.
-> It seems that ppp_synctty.c is ok, it uses write_lock_irq() already,
-> sixpack.c looks like it has the same bug as mkiss. I also realized
-> after sending out the patch that only the write_lock needs to be
-> changed to write_lock_bh, while read_lock can leave softirqs enabled
-> because it can be called recursively.
+>> In particular, this can be used to test logic that allows
+>> a NIC to receive all frames, even ones with bad checksums.
+>>
+>> Signed-off-by: Ben Greear<greearb@candelatech.com>
+>> ---
+>> :100644 100644 439b173... e5e8747... M	include/linux/ethtool.h
+>> :100644 100644 fd14116... b36bac7... M	net/core/ethtool.c
+>>   include/linux/ethtool.h |    5 +++++
+>>   net/core/ethtool.c      |   38 ++++++++++++++++++++++++++++++++++++++
+>>   2 files changed, 43 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> index 439b173..e5e8747 100644
+>> --- a/include/linux/ethtool.h
+>> +++ b/include/linux/ethtool.h
+>> @@ -955,6 +955,8 @@ struct ethtool_ops {
+>>   	int	(*get_dump_data)(struct net_device *,
+>>   				 struct ethtool_dump *, void *);
+>>   	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+>> +	int	(*set_save_fcs)(struct net_device *, u32);
+>> +	int	(*get_save_fcs)(struct net_device *, u32 *);
 >
-> 	Arnd
+> These need to be described in the kernel-doc.
+>
+> Why do these function names use 'save_fcs' whereas the command names use
+> 'RXFCS'?
+>
+>>   };
+>>   #endif /* __KERNEL__ */
+>> @@ -1029,6 +1031,9 @@ struct ethtool_ops {
+>>   #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
+>>   #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
+>>   #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
+>> +#define ETHTOOL_GETRXFCS	0x00000041 /* Get RX Save Frame Checksum */
+>> +#define ETHTOOL_SETRXFCS	0x00000042 /* Set RX Save Frame Checksum */
+>> +
+>>
+>>   /* compatibility with older code */
+>>   #define SPARC_ETH_GSET		ETHTOOL_GSET
+>> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+>> index fd14116..b36bac7 100644
+>> --- a/net/core/ethtool.c
+>> +++ b/net/core/ethtool.c
+>> @@ -1927,6 +1927,38 @@ out:
+>>   	return ret;
+>>   }
+>>
+>> +static int ethtool_get_rx_fcs(struct net_device *dev, void __user *useraddr)
+>> +{
+>> +	struct ethtool_value edata;
+>> +	int rv = 0;
+>> +
+>> +	if (!dev->ethtool_ops->get_save_fcs)
+>> +		return -EOPNOTSUPP;
+>> +
+>> +	rv = dev->ethtool_ops->get_save_fcs(dev,&edata.data);
+>> +	if (rv<  0)
+>> +		return rv;
+>> +
+>> +	if (copy_to_user(useraddr,&edata, sizeof(edata)))
+>> +		return -EFAULT;
+>> +	return 0;
+>> +}
+>> +
+>> +
+>> +static int ethtool_set_rx_fcs(struct net_device *dev, void __user *useraddr)
+>> +{
+>> +	struct ethtool_value id;
+>> +
+>> +	if (!dev->ethtool_ops->set_save_fcs)
+>> +		return -EOPNOTSUPP;
+>> +
+>> +	if (copy_from_user(&id, useraddr, sizeof(id)))
+>> +		return -EFAULT;
+>> +
+>> +	return dev->ethtool_ops->set_save_fcs(dev, id.data);
+>> +}
+>> +
+>> +
+>>   /* The main entry point in this file.  Called from net/core/dev.c */
+>>
+>>   int dev_ethtool(struct net *net, struct ifreq *ifr)
+>> @@ -2152,6 +2184,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>>   	case ETHTOOL_GET_DUMP_DATA:
+>>   		rc = ethtool_get_dump_data(dev, useraddr);
+>>   		break;
+>> +	case ETHTOOL_SETRXFCS:
+>> +		rc = ethtool_set_rx_fcs(dev, useraddr);
+>> +		break;
+>> +	case ETHTOOL_GETRXFCS:
+>> +		rc = ethtool_get_rx_fcs(dev, useraddr);
+>> +		break;
+>
+> You can use ethtool_{get,set}_value() rather than adding new trivial
+> functions.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll look at that.
+
+>
+> And as Michal says, this could reasonably be a feature not an entirely
+> separate flag.  I'm not sure it's that important to have debugging flags
+> in features, but I also don't want to have 2 commands per flag...
+
+I'm not sure it really counts as a feature, and I've no desire to tangle
+with the effort to extend features beyond 32 bits.  Maybe we could have a new
+ethtool command that took a struct with two args, so we can "set flag-foo val"
+instead of 'enable-flag-foo' and 'disable-flag-foo'?
+
+That should be only one additional method for the drivers to implement, and
+can be used for the other patches I have planned as well.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
