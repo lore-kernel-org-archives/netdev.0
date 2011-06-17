@@ -1,8 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [PATCH 3/7] dcb: Add ieee_dcb_setapp() to be used for IEEE 802.1Qaz
-	APP data
-Date: Fri, 17 Jun 2011 14:16:24 -0700
-Message-ID: <20110617211623.26578.88849.stgit@jf-dev1-dcblab>
+Subject: [PATCH 4/7] dcb: Add ieee_dcb_delapp() and dcb op to delete app entry
+Date: Fri, 17 Jun 2011 14:16:29 -0700
+Message-ID: <20110617211629.26578.49479.stgit@jf-dev1-dcblab>
 References: <20110617211027.26578.11317.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,121 +9,183 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, shmulikr@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:23078 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:28670 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757305Ab1FQVW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2011 17:22:56 -0400
+	id S1757786Ab1FQVXD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2011 17:23:03 -0400
 In-Reply-To: <20110617211027.26578.11317.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a setapp routine for IEEE802.1Qaz encoded APP data types.
-The IEEE 802.1Qaz spec encodes the priority bits differently and
-allows for multiple APP data entries of the same selector and
-protocol. Trying to force these to use the same set routines was
-becoming tedious. Furthermore, userspace could probably enforce
-the correct semantics, but expecting drivers to do this seems
-error prone in the firmware case.
+Now that we allow multiple IEEE App entries we need a way
+to remove specific entries. To do this add the ieee_dcb_delapp()
+routine.
 
-For these reasons add ieee_dcb_setapp() that understands the
-IEEE 802.1Qaz encoded form.
+Additionaly drivers may need to remove the APP entry from
+their firmware tables. Add dcb ops routine to handle this.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/net/dcbnl.h |    1 +
- net/dcb/dcbnl.c     |   55 +++++++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 52 insertions(+), 4 deletions(-)
+ include/linux/dcbnl.h |    2 +
+ include/net/dcbnl.h   |    2 +
+ net/dcb/dcbnl.c       |   90 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 92 insertions(+), 2 deletions(-)
 
+diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+index c522800..66a6723 100644
+--- a/include/linux/dcbnl.h
++++ b/include/linux/dcbnl.h
+@@ -203,6 +203,7 @@ struct dcbmsg {
+  * @DCB_CMD_GFEATCFG: get DCBX features flags
+  * @DCB_CMD_SFEATCFG: set DCBX features negotiation flags
+  * @DCB_CMD_CEE_GET: get CEE aggregated configuration
++ * @DCB_CMD_IEEE_DEL: delete IEEE 802.1Qaz configuration
+  */
+ enum dcbnl_commands {
+ 	DCB_CMD_UNDEFINED,
+@@ -246,6 +247,7 @@ enum dcbnl_commands {
+ 	DCB_CMD_SFEATCFG,
+ 
+ 	DCB_CMD_CEE_GET,
++	DCB_CMD_IEEE_DEL,
+ 
+ 	__DCB_CMD_ENUM_MAX,
+ 	DCB_CMD_MAX = __DCB_CMD_ENUM_MAX - 1,
 diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index e5983c9..47a17d2 100644
+index 47a17d2..8c545b1 100644
 --- a/include/net/dcbnl.h
 +++ b/include/net/dcbnl.h
-@@ -30,6 +30,7 @@ struct dcb_app_type {
- 
+@@ -31,6 +31,7 @@ struct dcb_app_type {
  u8 dcb_setapp(struct net_device *, struct dcb_app *);
  u8 dcb_getapp(struct net_device *, struct dcb_app *);
-+int dcb_ieee_setapp(struct net_device *, struct dcb_app *);
+ int dcb_ieee_setapp(struct net_device *, struct dcb_app *);
++int dcb_ieee_delapp(struct net_device *, struct dcb_app *);
  
  /*
   * Ops struct for the netlink callbacks.  Used by DCB-enabled drivers through
+@@ -44,6 +45,7 @@ struct dcbnl_rtnl_ops {
+ 	int (*ieee_setpfc) (struct net_device *, struct ieee_pfc *);
+ 	int (*ieee_getapp) (struct net_device *, struct dcb_app *);
+ 	int (*ieee_setapp) (struct net_device *, struct dcb_app *);
++	int (*ieee_delapp) (struct net_device *, struct dcb_app *);
+ 	int (*ieee_peer_getets) (struct net_device *, struct ieee_ets *);
+ 	int (*ieee_peer_getpfc) (struct net_device *, struct ieee_pfc *);
+ 
 diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index b514579..4e77170 100644
+index 4e77170..233a6fc 100644
 --- a/net/dcb/dcbnl.c
 +++ b/net/dcb/dcbnl.c
-@@ -1398,7 +1398,7 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlattr **tb,
- 			if (ops->ieee_setapp)
- 				err = ops->ieee_setapp(netdev, app_data);
- 			else
--				err = dcb_setapp(netdev, app_data);
-+				err = dcb_ieee_setapp(netdev, app_data);
- 			if (err)
- 				goto err;
- 		}
-@@ -1828,10 +1828,11 @@ u8 dcb_getapp(struct net_device *dev, struct dcb_app *app)
- EXPORT_SYMBOL(dcb_getapp);
+@@ -1450,6 +1450,52 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
  
- /**
-- * ixgbe_dcbnl_setapp - add dcb application data to app list
-+ * dcb_setapp - add CEE dcb application data to app list
-  *
-- * Priority 0 is the default priority this removes applications
-- * from the app list if the priority is set to zero.
-+ * Priority 0 is an invalid priority in CEE spec. This routine
-+ * removes applications from the app list if the priority is
-+ * set to zero.
-  */
- u8 dcb_setapp(struct net_device *dev, struct dcb_app *new)
- {
-@@ -1876,6 +1877,52 @@ out:
+ 	return err;
  }
- EXPORT_SYMBOL(dcb_setapp);
++
++static int dcbnl_ieee_del(struct net_device *netdev, struct nlattr **tb,
++			  u32 pid, u32 seq, u16 flags)
++{
++	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
++	struct nlattr *ieee[DCB_ATTR_IEEE_MAX + 1];
++	int err = -EOPNOTSUPP;
++
++	if (!ops)
++		return -EOPNOTSUPP;
++
++	if (!tb[DCB_ATTR_IEEE])
++		return -EINVAL;
++
++	err = nla_parse_nested(ieee, DCB_ATTR_IEEE_MAX,
++			       tb[DCB_ATTR_IEEE], dcbnl_ieee_policy);
++	if (err)
++		return err;
++
++	if (ieee[DCB_ATTR_IEEE_APP_TABLE]) {
++		struct nlattr *attr;
++		int rem;
++
++		nla_for_each_nested(attr, ieee[DCB_ATTR_IEEE_APP_TABLE], rem) {
++			struct dcb_app *app_data;
++
++			if (nla_type(attr) != DCB_ATTR_IEEE_APP)
++				continue;
++			app_data = nla_data(attr);
++			if (ops->ieee_delapp)
++				err = ops->ieee_delapp(netdev, app_data);
++			else
++				err = dcb_ieee_delapp(netdev, app_data);
++			if (err)
++				goto err;
++		}
++	}
++
++err:
++	dcbnl_reply(err, RTM_SETDCB, DCB_CMD_IEEE_DEL, DCB_ATTR_IEEE,
++		    pid, seq, flags);
++	dcbnl_notify(netdev, RTM_SETDCB, DCB_CMD_IEEE_DEL, seq, 0);
++	return err;
++}
++
++
+ /* DCBX configuration */
+ static int dcbnl_getdcbx(struct net_device *netdev, struct nlattr **tb,
+ 			 u32 pid, u32 seq, u16 flags)
+@@ -1764,11 +1810,15 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		goto out;
+ 	case DCB_CMD_IEEE_SET:
+ 		ret = dcbnl_ieee_set(netdev, tb, pid, nlh->nlmsg_seq,
+-				 nlh->nlmsg_flags);
++				     nlh->nlmsg_flags);
+ 		goto out;
+ 	case DCB_CMD_IEEE_GET:
+ 		ret = dcbnl_ieee_get(netdev, tb, pid, nlh->nlmsg_seq,
+-				 nlh->nlmsg_flags);
++				     nlh->nlmsg_flags);
++		goto out;
++	case DCB_CMD_IEEE_DEL:
++		ret = dcbnl_ieee_del(netdev, tb, pid, nlh->nlmsg_seq,
++				     nlh->nlmsg_flags);
+ 		goto out;
+ 	case DCB_CMD_GDCBX:
+ 		ret = dcbnl_getdcbx(netdev, tb, pid, nlh->nlmsg_seq,
+@@ -1923,6 +1973,42 @@ out:
+ }
+ EXPORT_SYMBOL(dcb_ieee_setapp);
  
 +/**
-+ * dcb_ieee_setapp - add IEEE dcb application data to app list
++ * dcb_ieee_delapp - delete IEEE dcb application data from list
 + *
-+ * This adds Application data to the list. Multiple application
-+ * entries may exists for the same selector and protocol as long
-+ * as the priorities are different.
++ * This removes a matching APP data from the APP list
 + */
-+int dcb_ieee_setapp(struct net_device *dev, struct dcb_app *new)
++int dcb_ieee_delapp(struct net_device *dev, struct dcb_app *del)
 +{
-+	struct dcb_app_type *itr, *entry;
++	struct dcb_app_type *itr;
 +	struct dcb_app_type event;
-+	int err = 0;
++	int err = -ENOENT;
 +
 +	memcpy(&event.name, dev->name, sizeof(event.name));
-+	memcpy(&event.app, new, sizeof(event.app));
++	memcpy(&event.app, del, sizeof(event.app));
 +
 +	spin_lock(&dcb_lock);
-+	/* Search for existing match and abort if found */
++	/* Search for existing match and remove it. */
 +	list_for_each_entry(itr, &dcb_app_list, list) {
-+		if (itr->app.selector == new->selector &&
-+		    itr->app.protocol == new->protocol &&
-+		    itr->app.priority == new->priority &&
++		if (itr->app.selector == del->selector &&
++		    itr->app.protocol == del->protocol &&
++		    itr->app.priority == del->priority &&
 +		    (strncmp(itr->name, dev->name, IFNAMSIZ) == 0)) {
-+			err = -EEXIST;
++			list_del(&itr->list);
++			kfree(itr);
++			err = 0;
 +			goto out;
 +		}
 +	}
 +
-+	/* App entry does not exist add new entry */
-+	entry = kmalloc(sizeof(struct dcb_app_type), GFP_ATOMIC);
-+	if (!entry) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
-+	memcpy(&entry->app, new, sizeof(*new));
-+	strncpy(entry->name, dev->name, IFNAMSIZ);
-+	list_add(&entry->list, &dcb_app_list);
 +out:
 +	spin_unlock(&dcb_lock);
 +	if (!err)
 +		call_dcbevent_notifiers(DCB_APP_EVENT, &event);
 +	return err;
 +}
-+EXPORT_SYMBOL(dcb_ieee_setapp);
++EXPORT_SYMBOL(dcb_ieee_delapp);
 +
  static void dcb_flushapp(void)
  {
