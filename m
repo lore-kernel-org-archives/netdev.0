@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [next-next-2.6 PATCH] enic: Add support to configure hardware
- interrupt coalesce timers in a platform independent way
-Date: Fri, 17 Jun 2011 15:25:43 -0400 (EDT)
-Message-ID: <20110617.152543.2216040030701311621.davem@davemloft.net>
-References: <20110617175648.5502.43785.stgit@savbu-pc100.cisco.com>
+Subject: Re: [PATCH v2] net: rfs: enable RFS before first data packet is
+ received
+Date: Fri, 17 Jun 2011 15:27:50 -0400 (EDT)
+Message-ID: <20110617.152750.246351152745882198.davem@davemloft.net>
+References: <1308268246.2925.37.camel@bwh-desktop>
+	<20110616.233841.1893411919443027926.davem@davemloft.net>
+	<1308318315.2780.12.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vkolluri@cisco.com
+Cc: bhutchings@solarflare.com, therbert@google.com,
+	netdev@vger.kernel.org, hadi@cyberus.ca
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49352 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47513 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932429Ab1FQTZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 15:25:49 -0400
-In-Reply-To: <20110617175648.5502.43785.stgit@savbu-pc100.cisco.com>
+	with ESMTP id S1754696Ab1FQT17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 15:27:59 -0400
+In-Reply-To: <1308318315.2780.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Date: Fri, 17 Jun 2011 10:56:48 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 17 Jun 2011 15:45:15 +0200
 
-> From: Vasanthy Kolluri <vkolluri@cisco.com>
+> [PATCH v2] net: rfs: enable RFS before first data packet is received
 > 
-> enic driver and the underlying hardware use different units for representing the interrupt coalesce timer.
-> Driver converts the interrupt coalesce timer in usec to hardware cycles while setting the relevant hardware
-> registers. The conversion factor can be different for each of the adapter hardware types. So it is dynamically
-> learnt from the adapter firmware using the devcmd CMD_INTR_COAL_CONVERT. This allows the driver to configure
-> the hardware interrupt coalesce timers in a platform independent way.
+> First packet received on a passive tcp flow is not correctly RFS
+> steered.
 > 
-> Signed-off-by: Danny Guo <dannguo@cisco.com>
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+> One sock_rps_record_flow() call is missing in inet_accept()
+> 
+> But before that, we also must record rxhash when child socket is setup.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
