@@ -1,54 +1,53 @@
-From: Brandon Black <blblack@gmail.com>
-Subject: Re: [PATCH] net: Add sendmmsg socket system call
-Date: Fri, 17 Jun 2011 08:15:02 -0500
-Message-ID: <BANLkTimZV2uoKmeHztv=PH9Ycq+mOYdhdg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] ss: fix autobound filter
+Date: Fri, 17 Jun 2011 15:21:51 +0200
+Message-ID: <1308316911.2780.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, anton@samba.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:45081 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758947Ab1FQNPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 09:15:03 -0400
-Received: by qyk9 with SMTP id 9so53383qyk.19
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 06:15:03 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54170 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758984Ab1FQNVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 09:21:55 -0400
+Received: by wyb38 with SMTP id 38so309479wyb.19
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 06:21:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Re: the patch in http://lists.openwall.net/netdev/2011/05/03/12 ,
-which is now in the 3.0-rc kernels
+Fixes following error. We currently provide garbage data to kernel, that
+can abort the validation process or produce unexpected results.
 
-I was wondering if would it be possible / valid to add support to
-sendmmsg() for skipping packets with a zero msg_iovlen?  The use-case
-I'm think of here is a daemon that's basically looping on recvmmsg() +
-sendmmsg() to cut overhead.  The simplest userspace approach in this
-sort of case is to re-use the same mmsg_hdr and set of iov's for both
-recvmmsg() and sendmmsg().
+$ ss -a autobound
+State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
+TCPDIAG answers: Invalid argument
 
-Consider this scenario though: It may, for example, receive 8 packets,
-parse them in userspace, decide packet #5 is malformed, and then wish
-to respond only to packets 1-4,6-8.  However, in order to drop a
-response packet from the set with the current sendmmsg()
-implementation, the userspace code would have to shift all of the
-mmsg_hdr entries down to close the gaps where no response was desired.
- If sendmmsg() had code to simply skip the underlying sendmsg() on
-msg_iovlen = 0, it becomes a lot simpler to handle this case.  sendmsg
-with a msg_iovlen of zero currently sends a packet with no data (just
-UDP headers in the UDP case) it seems.
+After patch:
 
-The arguments against this would be that some applications may have a
-use for sending zero-data-bytes packets via this mechanism today
-(although there's the alternate path for this with msg_iovlen = 1 and
-a zero length for the actual iov within), and the overhead of adding
-another branch in the sendmmsg() code.  I suppose there's a middle
-route too, where we add a custom flags for sendmmsg() to turn on this
-behavior, and leave the default at today's behavior.
+$ misc/ss -a autobound 
+State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
+LISTEN     0      128                     *:44624                    *:*       
+ESTAB      0      0            192.168.1.21:47141        74.125.79.109:imaps   
 
-Anyone have any thoughts for/against this idea?  Leaving this alone in
-the kernel and doing the shifting in userspace isn't too bad a
-solution either, but if nobody has a problem with patching in the
-"skip on msg_iovlen == 0" behavior it does make the userspace code
-cleaner and simpler.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ misc/ss.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--- Brandon
+diff --git a/misc/ss.c b/misc/ss.c
+index 482b6bb..4033e92 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -803,7 +803,7 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
+ 	{
+ 		if (!(*bytecode=malloc(4))) abort();
+ 		((struct inet_diag_bc_op*)*bytecode)[0] = (struct inet_diag_bc_op){ INET_DIAG_BC_AUTO, 4, 8 };
+-		return 8;
++		return 4;
+ 	}
+ 		case SSF_DCOND:
+ 		case SSF_SCOND:
+
+
