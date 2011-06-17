@@ -1,34 +1,35 @@
-From: "Mr. Vincent Cheng" <director@sevilla.uned.es>
-Subject: (unknown)
-Date: Fri, 17 Jun 2011 04:18:44 +0200
-Message-ID: <285bc5ea27e9287538976abaa0e6c6b0.squirrel__30091.9295558289$1308277922$gmane$org@correo.uned.es>
-Reply-To: choi_chu003@yahoo.co.jp
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] macvtap: remove wrong sock_put() in macvtap_put_queue()
+Date: Thu, 16 Jun 2011 22:58:25 -0400 (EDT)
+Message-ID: <20110616.225825.127982592225091945.davem@davemloft.net>
+References: <1307934919-4189-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out-cinco.uned.es ([62.204.192.119]:46902 "EHLO
-	smtp-out-cinco.uned.es" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829Ab1FQCbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 22:31:25 -0400
-Subject: 
+Received: from shards.monkeyblade.net ([198.137.202.13]:46226 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813Ab1FQC6f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2011 22:58:35 -0400
+In-Reply-To: <1307934919-4189-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good Day,
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 13 Jun 2011 11:15:19 +0800
 
-I am Mr. Vincent Cheng Hoi Chuen, GBS, JP Chairman of the Hong Kong and
-Shanghai Banking Corporation Limited.i have a business proposal of Twenty
-Two million Five Hundred Thousand United State Dollars only for you to 
-transact with me from my bank to your country.
+> The calling of sock_put() should be delayed after synchronize_rcu(),
+> otherwise inconsist data may be seen during packets transmitting.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-All confirmable documents to back up the claims will be made available to
-you prior to your acceptance and as soon as I receive your return mail and
-I will let you know what is required of you.
+You're leaking sockets now.
 
-Your earliest response to this letter will be appreciated.
+This function has to release the socket twice if there is
+a non-NULL vlan assigned to the queue.
 
-Best Regards,
-Mr. Vincent Cheng
+Now you're only doing it once in that situation.
 
+Which probably fixes your crash, but adds a socket leak.
