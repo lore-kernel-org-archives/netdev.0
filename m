@@ -1,250 +1,394 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2011-06-17
-Date: Fri, 17 Jun 2011 13:36:14 -0400
-Message-ID: <20110617173613.GC6820@tuxdriver.com>
+From: Vasanthy Kolluri <vkolluri@cisco.com>
+Subject: [next-next-2.6 PATCH] enic: Add support to configure hardware
+	interrupt coalesce timers in a platform independent way
+Date: Fri, 17 Jun 2011 10:56:48 -0700
+Message-ID: <20110617175648.5502.43785.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:46214 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236Ab1FQR4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2011 13:56:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+From: Vasanthy Kolluri <vkolluri@cisco.com>
 
-Here is a batch of fixes intended for 3.0.  Included are a regression
-for mwl8k which caused CCMP encryption to fail on that device, and an
-mwifiex fix for a null pointer dereference.  Also included is a batch
-of Bluetooth fixes from Gustavo, including a regression fix for BT 1.1
-devices, a fix for shutdown of SCO devices, a fix for an information
-leak, and a silly error-checking fix that I thought was worth including
-to prevent misinterpreting bad data as device command options.
+enic driver and the underlying hardware use different units for representing the interrupt coalesce timer.
+Driver converts the interrupt coalesce timer in usec to hardware cycles while setting the relevant hardware
+registers. The conversion factor can be different for each of the adapter hardware types. So it is dynamically
+learnt from the adapter firmware using the devcmd CMD_INTR_COAL_CONVERT. This allows the driver to configure
+the hardware interrupt coalesce timers in a platform independent way.
 
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
+Signed-off-by: Danny Guo <dannguo@cisco.com>
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
 ---
+ drivers/net/enic/enic.h        |    2 +
+ drivers/net/enic/enic_dev.c    |   11 +++++++
+ drivers/net/enic/enic_dev.h    |    1 +
+ drivers/net/enic/enic_main.c   |   26 +++++++++++------
+ drivers/net/enic/enic_res.c    |    7 ++---
+ drivers/net/enic/vnic_dev.c    |   60 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/enic/vnic_dev.h    |    5 +++
+ drivers/net/enic/vnic_devcmd.h |   19 +++++++++++++
+ drivers/net/enic/vnic_enet.h   |    4 ---
+ drivers/net/enic/vnic_intr.c   |    7 +++--
+ drivers/net/enic/vnic_intr.h   |    6 +---
+ 11 files changed, 122 insertions(+), 26 deletions(-)
 
-The following changes since commit 118133e6580a0c912cda86109b6468b5ffe73f1c:
 
-  netdev: bfin_mac: fix memory leak when freeing dma descriptors (2011-06-17 00:19:09 -0400)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git for-davem
-
-David Miller (1):
-      Bluetooth: Do not ignore errors returned from strict_strtol()
-
-Filip Palian (1):
-      Bluetooth: l2cap and rfcomm: fix 1 byte infoleak to userspace.
-
-John W. Linville (2):
-      Merge branch 'master' of master.kernel.org:/.../padovan/bluetooth-2.6
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6 into for-davem
-
-Luiz Augusto von Dentz (1):
-      Bluetooth: fix shutdown on SCO sockets
-
-Nishant Sarmukadam (1):
-      mwl8k: Tell firmware to generate CCMP header
-
-Ville Tervo (1):
-      Bluetooth: Do not send SET_EVENT_MASK for 1.1 and earlier devices
-
-Yogesh Ashok Powar (1):
-      mwifiex: Fixing NULL pointer dereference
-
- drivers/bluetooth/btmrvl_debugfs.c      |   12 ++++++++++++
- drivers/net/wireless/mwifiex/cfg80211.c |    2 ++
- drivers/net/wireless/mwl8k.c            |    4 +++-
- net/bluetooth/hci_event.c               |   18 ++++++++++--------
- net/bluetooth/l2cap_sock.c              |    1 +
- net/bluetooth/rfcomm/sock.c             |    1 +
- net/bluetooth/sco.c                     |   13 ++++++++++++-
- 7 files changed, 41 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/bluetooth/btmrvl_debugfs.c b/drivers/bluetooth/btmrvl_debugfs.c
-index fd6305b..8ecf4c6 100644
---- a/drivers/bluetooth/btmrvl_debugfs.c
-+++ b/drivers/bluetooth/btmrvl_debugfs.c
-@@ -64,6 +64,8 @@ static ssize_t btmrvl_hscfgcmd_write(struct file *file,
- 		return -EFAULT;
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index f747bce..f0b062b 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
  
- 	ret = strict_strtol(buf, 10, &result);
-+	if (ret)
-+		return ret;
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.20"
++#define DRV_VERSION		"2.1.1.24"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
  
- 	priv->btmrvl_dev.hscfgcmd = result;
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/enic/enic_dev.c b/drivers/net/enic/enic_dev.c
+index 90687b1..fd6247b 100644
+--- a/drivers/net/enic/enic_dev.c
++++ b/drivers/net/enic/enic_dev.c
+@@ -166,6 +166,17 @@ int enic_dev_disable(struct enic *enic)
+ 	return err;
+ }
  
-@@ -108,6 +110,8 @@ static ssize_t btmrvl_psmode_write(struct file *file, const char __user *ubuf,
- 		return -EFAULT;
- 
- 	ret = strict_strtol(buf, 10, &result);
-+	if (ret)
-+		return ret;
- 
- 	priv->btmrvl_dev.psmode = result;
- 
-@@ -147,6 +151,8 @@ static ssize_t btmrvl_pscmd_write(struct file *file, const char __user *ubuf,
- 		return -EFAULT;
- 
- 	ret = strict_strtol(buf, 10, &result);
-+	if (ret)
-+		return ret;
- 
- 	priv->btmrvl_dev.pscmd = result;
- 
-@@ -191,6 +197,8 @@ static ssize_t btmrvl_gpiogap_write(struct file *file, const char __user *ubuf,
- 		return -EFAULT;
- 
- 	ret = strict_strtol(buf, 16, &result);
-+	if (ret)
-+		return ret;
- 
- 	priv->btmrvl_dev.gpio_gap = result;
- 
-@@ -230,6 +238,8 @@ static ssize_t btmrvl_hscmd_write(struct file *file, const char __user *ubuf,
- 		return -EFAULT;
- 
- 	ret = strict_strtol(buf, 10, &result);
-+	if (ret)
-+		return ret;
- 
- 	priv->btmrvl_dev.hscmd = result;
- 	if (priv->btmrvl_dev.hscmd) {
-@@ -272,6 +282,8 @@ static ssize_t btmrvl_hsmode_write(struct file *file, const char __user *ubuf,
- 		return -EFAULT;
- 
- 	ret = strict_strtol(buf, 10, &result);
-+	if (ret)
-+		return ret;
- 
- 	priv->btmrvl_dev.hsmode = result;
- 
-diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
-index 660831c..687c1f2 100644
---- a/drivers/net/wireless/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/mwifiex/cfg80211.c
-@@ -1288,6 +1288,8 @@ int mwifiex_register_cfg80211(struct net_device *dev, u8 *mac,
- 
- 	*(unsigned long *) wdev_priv = (unsigned long) priv;
- 
-+	set_wiphy_dev(wdev->wiphy, (struct device *) priv->adapter->dev);
++int enic_dev_intr_coal_timer_info(struct enic *enic)
++{
++	int err;
 +
- 	ret = wiphy_register(wdev->wiphy);
- 	if (ret < 0) {
- 		dev_err(priv->adapter->dev, "%s: registering cfg80211 device\n",
-diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
-index 3226118..aeac3cc 100644
---- a/drivers/net/wireless/mwl8k.c
-+++ b/drivers/net/wireless/mwl8k.c
-@@ -2474,6 +2474,7 @@ struct mwl8k_cmd_set_hw_spec {
-  * faster client.
-  */
- #define MWL8K_SET_HW_SPEC_FLAG_ENABLE_LIFE_TIME_EXPIRY	0x00000400
-+#define MWL8K_SET_HW_SPEC_FLAG_GENERATE_CCMP_HDR	0x00000200
- #define MWL8K_SET_HW_SPEC_FLAG_HOST_DECR_MGMT		0x00000080
- #define MWL8K_SET_HW_SPEC_FLAG_HOSTFORM_PROBERESP	0x00000020
- #define MWL8K_SET_HW_SPEC_FLAG_HOSTFORM_BEACON		0x00000010
-@@ -2510,7 +2511,8 @@ static int mwl8k_cmd_set_hw_spec(struct ieee80211_hw *hw)
- 	cmd->flags = cpu_to_le32(MWL8K_SET_HW_SPEC_FLAG_HOST_DECR_MGMT |
- 				 MWL8K_SET_HW_SPEC_FLAG_HOSTFORM_PROBERESP |
- 				 MWL8K_SET_HW_SPEC_FLAG_HOSTFORM_BEACON |
--				 MWL8K_SET_HW_SPEC_FLAG_ENABLE_LIFE_TIME_EXPIRY);
-+				 MWL8K_SET_HW_SPEC_FLAG_ENABLE_LIFE_TIME_EXPIRY |
-+				 MWL8K_SET_HW_SPEC_FLAG_GENERATE_CCMP_HDR);
- 	cmd->num_tx_desc_per_queue = cpu_to_le32(MWL8K_TX_DESCS);
- 	cmd->total_rxd = cpu_to_le32(MWL8K_RX_DESCS);
- 
-diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
-index f13ddbf..77930aa 100644
---- a/net/bluetooth/hci_event.c
-+++ b/net/bluetooth/hci_event.c
-@@ -477,14 +477,16 @@ static void hci_setup_event_mask(struct hci_dev *hdev)
- 	 * command otherwise */
- 	u8 events[8] = { 0xff, 0xff, 0xfb, 0xff, 0x00, 0x00, 0x00, 0x00 };
- 
--	/* Events for 1.2 and newer controllers */
--	if (hdev->lmp_ver > 1) {
--		events[4] |= 0x01; /* Flow Specification Complete */
--		events[4] |= 0x02; /* Inquiry Result with RSSI */
--		events[4] |= 0x04; /* Read Remote Extended Features Complete */
--		events[5] |= 0x08; /* Synchronous Connection Complete */
--		events[5] |= 0x10; /* Synchronous Connection Changed */
--	}
-+	/* CSR 1.1 dongles does not accept any bitfield so don't try to set
-+	 * any event mask for pre 1.2 devices */
-+	if (hdev->lmp_ver <= 1)
-+		return;
++	spin_lock(&enic->devcmd_lock);
++	err = vnic_dev_intr_coal_timer_info(enic->vdev);
++	spin_unlock(&enic->devcmd_lock);
 +
-+	events[4] |= 0x01; /* Flow Specification Complete */
-+	events[4] |= 0x02; /* Inquiry Result with RSSI */
-+	events[4] |= 0x04; /* Read Remote Extended Features Complete */
-+	events[5] |= 0x08; /* Synchronous Connection Complete */
-+	events[5] |= 0x10; /* Synchronous Connection Changed */
++	return err;
++}
++
+ int enic_vnic_dev_deinit(struct enic *enic)
+ {
+ 	int err;
+diff --git a/drivers/net/enic/enic_dev.h b/drivers/net/enic/enic_dev.h
+index d5f6813..ff8e87f 100644
+--- a/drivers/net/enic/enic_dev.h
++++ b/drivers/net/enic/enic_dev.h
+@@ -34,6 +34,7 @@ int enic_dev_hang_notify(struct enic *enic);
+ int enic_dev_set_ig_vlan_rewrite_mode(struct enic *enic);
+ int enic_dev_enable(struct enic *enic);
+ int enic_dev_disable(struct enic *enic);
++int enic_dev_intr_coal_timer_info(struct enic *enic);
+ int enic_vnic_dev_deinit(struct enic *enic);
+ int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp);
+ int enic_dev_deinit_done(struct enic *enic, int *status);
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 4b3a93a..e25800f 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -284,12 +284,10 @@ static int enic_set_coalesce(struct net_device *netdev,
+ 	u32 rx_coalesce_usecs;
+ 	unsigned int i, intr;
  
- 	if (hdev->features[3] & LMP_RSSI_INQ)
- 		events[4] |= 0x04; /* Inquiry Result with RSSI */
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 18dc988..8248303 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -413,6 +413,7 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
- 			break;
+-	tx_coalesce_usecs = min_t(u32,
+-		INTR_COALESCE_HW_TO_USEC(VNIC_INTR_TIMER_MAX),
+-		ecmd->tx_coalesce_usecs);
+-	rx_coalesce_usecs = min_t(u32,
+-		INTR_COALESCE_HW_TO_USEC(VNIC_INTR_TIMER_MAX),
+-		ecmd->rx_coalesce_usecs);
++	tx_coalesce_usecs = min_t(u32, ecmd->tx_coalesce_usecs,
++		vnic_dev_get_intr_coal_timer_max(enic->vdev));
++	rx_coalesce_usecs = min_t(u32, ecmd->rx_coalesce_usecs,
++		vnic_dev_get_intr_coal_timer_max(enic->vdev));
+ 
+ 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
+ 	case VNIC_DEV_INTR_MODE_INTX:
+@@ -298,26 +296,26 @@ static int enic_set_coalesce(struct net_device *netdev,
+ 
+ 		intr = enic_legacy_io_intr();
+ 		vnic_intr_coalescing_timer_set(&enic->intr[intr],
+-			INTR_COALESCE_USEC_TO_HW(tx_coalesce_usecs));
++			tx_coalesce_usecs);
+ 		break;
+ 	case VNIC_DEV_INTR_MODE_MSI:
+ 		if (tx_coalesce_usecs != rx_coalesce_usecs)
+ 			return -EINVAL;
+ 
+ 		vnic_intr_coalescing_timer_set(&enic->intr[0],
+-			INTR_COALESCE_USEC_TO_HW(tx_coalesce_usecs));
++			tx_coalesce_usecs);
+ 		break;
+ 	case VNIC_DEV_INTR_MODE_MSIX:
+ 		for (i = 0; i < enic->wq_count; i++) {
+ 			intr = enic_msix_wq_intr(enic, i);
+ 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
+-				INTR_COALESCE_USEC_TO_HW(tx_coalesce_usecs));
++				tx_coalesce_usecs);
  		}
  
-+		memset(&cinfo, 0, sizeof(cinfo));
- 		cinfo.hci_handle = chan->conn->hcon->handle;
- 		memcpy(cinfo.dev_class, chan->conn->hcon->dev_class, 3);
+ 		for (i = 0; i < enic->rq_count; i++) {
+ 			intr = enic_msix_rq_intr(enic, i);
+ 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
+-				INTR_COALESCE_USEC_TO_HW(rx_coalesce_usecs));
++				rx_coalesce_usecs);
+ 		}
  
-diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-index 386cfaf..1b10727 100644
---- a/net/bluetooth/rfcomm/sock.c
-+++ b/net/bluetooth/rfcomm/sock.c
-@@ -788,6 +788,7 @@ static int rfcomm_sock_getsockopt_old(struct socket *sock, int optname, char __u
+ 		break;
+@@ -2175,6 +2173,14 @@ static int enic_dev_init(struct enic *enic)
+ 	unsigned int i;
+ 	int err;
  
- 		l2cap_sk = rfcomm_pi(sk)->dlc->session->sock->sk;
- 
-+		memset(&cinfo, 0, sizeof(cinfo));
- 		cinfo.hci_handle = conn->hcon->handle;
- 		memcpy(cinfo.dev_class, conn->hcon->dev_class, 3);
- 
-diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
-index 42fdffd..cb4fb78 100644
---- a/net/bluetooth/sco.c
-+++ b/net/bluetooth/sco.c
-@@ -369,6 +369,15 @@ static void __sco_sock_close(struct sock *sk)
- 
- 	case BT_CONNECTED:
- 	case BT_CONFIG:
-+		if (sco_pi(sk)->conn) {
-+			sk->sk_state = BT_DISCONN;
-+			sco_sock_set_timer(sk, SCO_DISCONN_TIMEOUT);
-+			hci_conn_put(sco_pi(sk)->conn->hcon);
-+			sco_pi(sk)->conn->hcon = NULL;
-+		} else
-+			sco_chan_del(sk, ECONNRESET);
-+		break;
++	/* Get interrupt coalesce timer info */
++	err = enic_dev_intr_coal_timer_info(enic);
++	if (err) {
++		dev_warn(dev, "Using default conversion factor for "
++			"interrupt coalesce timer\n");
++		vnic_dev_intr_coal_timer_info_default(enic->vdev);
++	}
 +
- 	case BT_CONNECT:
- 	case BT_DISCONN:
- 		sco_chan_del(sk, ECONNRESET);
-@@ -819,7 +828,9 @@ static void sco_chan_del(struct sock *sk, int err)
- 		conn->sk = NULL;
- 		sco_pi(sk)->conn = NULL;
- 		sco_conn_unlock(conn);
--		hci_conn_put(conn->hcon);
-+
-+		if (conn->hcon)
-+			hci_conn_put(conn->hcon);
+ 	/* Get vNIC configuration
+ 	 */
+ 
+diff --git a/drivers/net/enic/enic_res.c b/drivers/net/enic/enic_res.c
+index 34f4207..4a35367 100644
+--- a/drivers/net/enic/enic_res.c
++++ b/drivers/net/enic/enic_res.c
+@@ -90,9 +90,8 @@ int enic_get_vnic_config(struct enic *enic)
+ 		max_t(u16, ENIC_MIN_MTU,
+ 		c->mtu));
+ 
+-	c->intr_timer_usec = min_t(u32,
+-		INTR_COALESCE_HW_TO_USEC(VNIC_INTR_TIMER_MAX),
+-		c->intr_timer_usec);
++	c->intr_timer_usec = min_t(u32, c->intr_timer_usec,
++		vnic_dev_get_intr_coal_timer_max(enic->vdev));
+ 
+ 	dev_info(enic_get_dev(enic),
+ 		"vNIC MAC addr %pM wq/rq %d/%d mtu %d\n",
+@@ -303,7 +302,7 @@ void enic_init_vnic_resources(struct enic *enic)
+ 
+ 	for (i = 0; i < enic->intr_count; i++) {
+ 		vnic_intr_init(&enic->intr[i],
+-			INTR_COALESCE_USEC_TO_HW(enic->config.intr_timer_usec),
++			enic->config.intr_timer_usec,
+ 			enic->config.intr_timer_type,
+ 			mask_on_assertion);
  	}
+diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
+index 68f24ae..8c4c8cf 100644
+--- a/drivers/net/enic/vnic_dev.c
++++ b/drivers/net/enic/vnic_dev.c
+@@ -40,6 +40,12 @@ struct vnic_res {
+ 	unsigned int count;
+ };
  
- 	sk->sk_state = BT_CLOSED;
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
++struct vnic_intr_coal_timer_info {
++	u32 mul;
++	u32 div;
++	u32 max_usec;
++};
++
+ struct vnic_dev {
+ 	void *priv;
+ 	struct pci_dev *pdev;
+@@ -58,6 +64,7 @@ struct vnic_dev {
+ 	enum vnic_proxy_type proxy;
+ 	u32 proxy_index;
+ 	u64 args[VNIC_DEVCMD_NARGS];
++	struct vnic_intr_coal_timer_info intr_coal_timer_info;
+ };
+ 
+ #define VNIC_MAX_RES_HDR_SIZE \
+@@ -794,6 +801,42 @@ int vnic_dev_deinit(struct vnic_dev *vdev)
+ 	return vnic_dev_cmd(vdev, CMD_DEINIT, &a0, &a1, wait);
+ }
+ 
++void vnic_dev_intr_coal_timer_info_default(struct vnic_dev *vdev)
++{
++	/* Default: hardware intr coal timer is in units of 1.5 usecs */
++	vdev->intr_coal_timer_info.mul = 2;
++	vdev->intr_coal_timer_info.div = 3;
++	vdev->intr_coal_timer_info.max_usec =
++		vnic_dev_intr_coal_timer_hw_to_usec(vdev, 0xffff);
++}
++
++int vnic_dev_intr_coal_timer_info(struct vnic_dev *vdev)
++{
++	int wait = 1000;
++	int err;
++
++	memset(vdev->args, 0, sizeof(vdev->args));
++
++	err = _vnic_dev_cmd(vdev, CMD_INTR_COAL_CONVERT, wait);
++
++	/* Use defaults when firmware doesn't support the devcmd at all or
++	 * supports it for only specific hardware
++	 */
++	if ((err == ERR_ECMDUNKNOWN) ||
++		(!err && !(vdev->args[0] && vdev->args[1] && vdev->args[2]))) {
++		pr_warning("Using default conversion factor for "
++			"interrupt coalesce timer\n");
++		vnic_dev_intr_coal_timer_info_default(vdev);
++		return 0;
++	}
++
++	vdev->intr_coal_timer_info.mul = (u32) vdev->args[0];
++	vdev->intr_coal_timer_info.div = (u32) vdev->args[1];
++	vdev->intr_coal_timer_info.max_usec = (u32) vdev->args[2];
++
++	return err;
++}
++
+ int vnic_dev_link_status(struct vnic_dev *vdev)
+ {
+ 	if (!vnic_dev_notify_ready(vdev))
+@@ -838,6 +881,23 @@ enum vnic_dev_intr_mode vnic_dev_get_intr_mode(
+ 	return vdev->intr_mode;
+ }
+ 
++u32 vnic_dev_intr_coal_timer_usec_to_hw(struct vnic_dev *vdev, u32 usec)
++{
++	return (usec * vdev->intr_coal_timer_info.mul) /
++		vdev->intr_coal_timer_info.div;
++}
++
++u32 vnic_dev_intr_coal_timer_hw_to_usec(struct vnic_dev *vdev, u32 hw_cycles)
++{
++	return (hw_cycles * vdev->intr_coal_timer_info.div) /
++		vdev->intr_coal_timer_info.mul;
++}
++
++u32 vnic_dev_get_intr_coal_timer_max(struct vnic_dev *vdev)
++{
++	return vdev->intr_coal_timer_info.max_usec;
++}
++
+ void vnic_dev_unregister(struct vnic_dev *vdev)
+ {
+ 	if (vdev) {
+diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/enic/vnic_dev.h
+index cf482a2..852b698 100644
+--- a/drivers/net/enic/vnic_dev.h
++++ b/drivers/net/enic/vnic_dev.h
+@@ -109,11 +109,16 @@ int vnic_dev_open(struct vnic_dev *vdev, int arg);
+ int vnic_dev_open_done(struct vnic_dev *vdev, int *done);
+ int vnic_dev_init(struct vnic_dev *vdev, int arg);
+ int vnic_dev_deinit(struct vnic_dev *vdev);
++void vnic_dev_intr_coal_timer_info_default(struct vnic_dev *vdev);
++int vnic_dev_intr_coal_timer_info(struct vnic_dev *vdev);
+ int vnic_dev_hang_reset(struct vnic_dev *vdev, int arg);
+ int vnic_dev_hang_reset_done(struct vnic_dev *vdev, int *done);
+ void vnic_dev_set_intr_mode(struct vnic_dev *vdev,
+ 	enum vnic_dev_intr_mode intr_mode);
+ enum vnic_dev_intr_mode vnic_dev_get_intr_mode(struct vnic_dev *vdev);
++u32 vnic_dev_intr_coal_timer_usec_to_hw(struct vnic_dev *vdev, u32 usec);
++u32 vnic_dev_intr_coal_timer_hw_to_usec(struct vnic_dev *vdev, u32 hw_cycles);
++u32 vnic_dev_get_intr_coal_timer_max(struct vnic_dev *vdev);
+ void vnic_dev_unregister(struct vnic_dev *vdev);
+ int vnic_dev_set_ig_vlan_rewrite_mode(struct vnic_dev *vdev,
+ 	u8 ig_vlan_rewrite_mode);
+diff --git a/drivers/net/enic/vnic_devcmd.h b/drivers/net/enic/vnic_devcmd.h
+index c5569bf..8025e88 100644
+--- a/drivers/net/enic/vnic_devcmd.h
++++ b/drivers/net/enic/vnic_devcmd.h
+@@ -318,6 +318,25 @@ enum vnic_devcmd_cmd {
+ 	 *             ERR_EINPROGRESS - command in a0 is still in progress
+ 	 */
+ 	CMD_STATUS = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ALL, 49),
++
++	/*
++	 * Returns interrupt coalescing timer conversion factors.
++	 * After calling this devcmd, ENIC driver can convert
++	 * interrupt coalescing timer in usec into CPU cycles as follows:
++	 *
++	 *   intr_timer_cycles = intr_timer_usec * multiplier / divisor
++	 *
++	 * Interrupt coalescing timer in usecs can be obtained from
++	 * CPU cycles as follows:
++	 *
++	 *   intr_timer_usec = intr_timer_cycles * divisor / multiplier
++	 *
++	 * in: none
++	 * out: (u32)a0 = multiplier
++	 *      (u32)a1 = divisor
++	 *      (u32)a2 = maximum timer value in usec
++	 */
++	CMD_INTR_COAL_CONVERT = _CMDC(_CMD_DIR_READ, _CMD_VTYPE_ALL, 50),
+ };
+ 
+ /* CMD_ENABLE2 flags */
+diff --git a/drivers/net/enic/vnic_enet.h b/drivers/net/enic/vnic_enet.h
+index 061ad87..6095428 100644
+--- a/drivers/net/enic/vnic_enet.h
++++ b/drivers/net/enic/vnic_enet.h
+@@ -20,10 +20,6 @@
+ #ifndef _VNIC_ENIC_H_
+ #define _VNIC_ENIC_H_
+ 
+-/* Hardware intr coalesce timer is in units of 1.5us */
+-#define INTR_COALESCE_USEC_TO_HW(usec) ((usec) * 2/3)
+-#define INTR_COALESCE_HW_TO_USEC(usec) ((usec) * 3/2)
+-
+ /* Device-specific region: enet configuration */
+ struct vnic_enet_config {
+ 	u32 flags;
+diff --git a/drivers/net/enic/vnic_intr.c b/drivers/net/enic/vnic_intr.c
+index 3873771..0ca107f 100644
+--- a/drivers/net/enic/vnic_intr.c
++++ b/drivers/net/enic/vnic_intr.c
+@@ -46,7 +46,7 @@ int vnic_intr_alloc(struct vnic_dev *vdev, struct vnic_intr *intr,
+ 	return 0;
+ }
+ 
+-void vnic_intr_init(struct vnic_intr *intr, unsigned int coalescing_timer,
++void vnic_intr_init(struct vnic_intr *intr, u32 coalescing_timer,
+ 	unsigned int coalescing_type, unsigned int mask_on_assertion)
+ {
+ 	vnic_intr_coalescing_timer_set(intr, coalescing_timer);
+@@ -56,9 +56,10 @@ void vnic_intr_init(struct vnic_intr *intr, unsigned int coalescing_timer,
+ }
+ 
+ void vnic_intr_coalescing_timer_set(struct vnic_intr *intr,
+-	unsigned int coalescing_timer)
++	u32 coalescing_timer)
+ {
+-	iowrite32(coalescing_timer, &intr->ctrl->coalescing_timer);
++	iowrite32(vnic_dev_intr_coal_timer_usec_to_hw(intr->vdev,
++		coalescing_timer), &intr->ctrl->coalescing_timer);
+ }
+ 
+ void vnic_intr_clean(struct vnic_intr *intr)
+diff --git a/drivers/net/enic/vnic_intr.h b/drivers/net/enic/vnic_intr.h
+index 09dc0b7..2b16363 100644
+--- a/drivers/net/enic/vnic_intr.h
++++ b/drivers/net/enic/vnic_intr.h
+@@ -24,8 +24,6 @@
+ 
+ #include "vnic_dev.h"
+ 
+-#define VNIC_INTR_TIMER_MAX		0xffff
+-
+ #define VNIC_INTR_TIMER_TYPE_ABS	0
+ #define VNIC_INTR_TIMER_TYPE_QUIET	1
+ 
+@@ -104,10 +102,10 @@ static inline u32 vnic_intr_legacy_pba(u32 __iomem *legacy_pba)
+ void vnic_intr_free(struct vnic_intr *intr);
+ int vnic_intr_alloc(struct vnic_dev *vdev, struct vnic_intr *intr,
+ 	unsigned int index);
+-void vnic_intr_init(struct vnic_intr *intr, unsigned int coalescing_timer,
++void vnic_intr_init(struct vnic_intr *intr, u32 coalescing_timer,
+ 	unsigned int coalescing_type, unsigned int mask_on_assertion);
+ void vnic_intr_coalescing_timer_set(struct vnic_intr *intr,
+-	unsigned int coalescing_timer);
++	u32 coalescing_timer);
+ void vnic_intr_clean(struct vnic_intr *intr);
+ 
+ #endif /* _VNIC_INTR_H_ */
+
