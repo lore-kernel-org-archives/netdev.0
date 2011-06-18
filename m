@@ -1,192 +1,191 @@
 From: greearb@candelatech.com
-Subject: [PATCH v2 1/2] ethtool:  Support get/set rx-save-fcs flag.
-Date: Sat, 18 Jun 2011 13:58:42 -0700
-Message-ID: <1308430723-25028-1-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v2 2/2] ethtool:  Support enabling rx of errored frames.
+Date: Sat, 18 Jun 2011 13:58:43 -0700
+Message-ID: <1308430723-25028-2-git-send-email-greearb@candelatech.com>
+References: <1308430723-25028-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54379 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:54381 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935Ab1FRU6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 16:58:49 -0400
+	with ESMTP id S1753000Ab1FRU66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 16:58:58 -0400
+In-Reply-To: <1308430723-25028-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows users to receive the Ethernet frame checksum
-on supported drivers.
+This can be useful when sniffing dodgy networks.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-
-v2:  Fix typo in man-page description.
-
-:100644 100644 c7a18f7... c059852... M	ethtool-copy.h
-:100644 100644 7b1cdf5... e2eca31... M	ethtool.8.in
-:100644 100644 c189c78... b97552c... M	ethtool.c
+:100644 100644 c059852... 91ad2e6... M	ethtool-copy.h
+:100644 100644 e2eca31... ca146fb... M	ethtool.8.in
+:100644 100644 b97552c... 3179ad8... M	ethtool.c
  ethtool-copy.h |    2 ++
- ethtool.8.in   |   18 ++++++++++++++++++
+ ethtool.8.in   |   19 +++++++++++++++++++
  ethtool.c      |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 74 insertions(+), 1 deletions(-)
+ 3 files changed, 75 insertions(+), 1 deletions(-)
 
 diff --git a/ethtool-copy.h b/ethtool-copy.h
-index c7a18f7..c059852 100644
+index c059852..91ad2e6 100644
 --- a/ethtool-copy.h
 +++ b/ethtool-copy.h
-@@ -751,6 +751,8 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
- #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
+@@ -753,6 +753,8 @@ enum ethtool_sfeatures_retval_bits {
  #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
-+#define ETHTOOL_GET_SAVE_RXFCS	0x00000041 /* Get RX Save Frame Checksum */
-+#define ETHTOOL_SET_SAVE_RXFCS	0x00000042 /* Set RX Save Frame Checksum */
+ #define ETHTOOL_GET_SAVE_RXFCS	0x00000041 /* Get RX Save Frame Checksum */
+ #define ETHTOOL_SET_SAVE_RXFCS	0x00000042 /* Set RX Save Frame Checksum */
++#define ETHTOOL_GET_SAVE_RXERR	0x00000043 /* Get RX Save Errored Frames */
++#define ETHTOOL_SET_SAVE_RXERR	0x00000044 /* Set RX Save Errored Frames */
  
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
 diff --git a/ethtool.8.in b/ethtool.8.in
-index 7b1cdf5..e2eca31 100644
+index e2eca31..ca146fb 100644
 --- a/ethtool.8.in
 +++ b/ethtool.8.in
-@@ -274,6 +274,13 @@ ethtool \- query or control network driver and hardware settings
- .IR W1
- .RB ...\ ]
+@@ -281,6 +281,13 @@ ethtool \- query or control network driver and hardware settings
+ .I ethX
+ .BI \ N
  .HP
-+.B ethtool \-z|\-\-get\-save\-rxfcs
++.B ethtool \-b|\-\-get\-save\-rxerr
 +.I ethX
 +.HP
-+.B ethtool\ \-Z|\-\-set\-save\-rxfcs
++.B ethtool\ \-B|\-\-set\-save\-rxerr
 +.I ethX
 +.BI \ N
 +.HP
  .B ethtool \-f|\-\-flash
  .I ethX
  .RI FILE
-@@ -630,6 +637,17 @@ Sets the receive flow hash indirection table to spread flows between
- receive queues according to the given weights.  The sum of the weights
- must be non-zero and must not exceed the size of the indirection table.
+@@ -648,6 +655,18 @@ Configures the receive frame checksum flag.
+ Frame Checksum will be appended to the end of the packet.  This
+ can be useful when sniffing packets.
  .TP
-+.B \-z \-\-show\-save\-rxfcs
-+Retrieves the receive frame checksum flag.
++.B \-b \-\-show\-save\-rxerr
++Retrieves the receive save errored frames flag.
 +.TP
-+.B \-Z \-\-set\-save\-rxcfs
-+Configures the receive frame checksum flag.
++.B \-B \-\-set\-save\-rxerr
++Configures the receive save errored frames flag.
 +.TP
 +.B N
-+1 means enable, 0 means disable.  When enabled, the 4-byte
-+Frame Checksum will be appended to the end of the packet.  This
-+can be useful when sniffing packets.
++1 means enable, 0 means disable.  When enabled, the NIC should
++receive all possible frames and pass them up the stack, including
++frames with bad Ethernet checksums, bad length, etc.
++This can be useful when sniffing packets.
 +.TP
  .B \-f \-\-flash \ FILE
  Flash firmware image from the specified file to a region on the adapter.
  By default this will flash all the regions on the adapter.
 diff --git a/ethtool.c b/ethtool.c
-index c189c78..b97552c 100644
+index b97552c..3179ad8 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -99,6 +99,8 @@ static int do_flash(int fd, struct ifreq *ifr);
- static int do_permaddr(int fd, struct ifreq *ifr);
- static int do_getfwdump(int fd, struct ifreq *ifr);
+@@ -101,6 +101,8 @@ static int do_getfwdump(int fd, struct ifreq *ifr);
  static int do_setfwdump(int fd, struct ifreq *ifr);
-+static int do_set_save_rxfcs(int fd, struct ifreq *ifr);
-+static int do_get_save_rxfcs(int fd, struct ifreq *ifr);
+ static int do_set_save_rxfcs(int fd, struct ifreq *ifr);
+ static int do_get_save_rxfcs(int fd, struct ifreq *ifr);
++static int do_set_save_rxerr(int fd, struct ifreq *ifr);
++static int do_get_save_rxerr(int fd, struct ifreq *ifr);
  
  static int send_ioctl(int fd, struct ifreq *ifr);
  
-@@ -133,6 +135,8 @@ static enum {
- 	MODE_PERMADDR,
- 	MODE_SET_DUMP,
+@@ -137,6 +139,8 @@ static enum {
  	MODE_GET_DUMP,
-+	MODE_SET_SAVE_RXFCS,
-+	MODE_GET_SAVE_RXFCS,
+ 	MODE_SET_SAVE_RXFCS,
+ 	MODE_GET_SAVE_RXFCS,
++	MODE_SET_SAVE_RXERR,
++	MODE_GET_SAVE_RXERR,
  } mode = MODE_GSET;
  
  static struct option {
-@@ -266,6 +270,11 @@ static struct option {
-     { "-W", "--set-dump", MODE_SET_DUMP,
- 		"Set dump flag of the device",
+@@ -275,6 +279,11 @@ static struct option {
+     { "-Z", "--set-save-rxfcs", MODE_SET_SAVE_RXFCS,
+ 		"Set Save RX-FCS flag of the device",
  		"		N\n"},
-+    { "-z", "--get-save-rxfcs", MODE_GET_SAVE_RXFCS,
-+		"Get Save RX-FCS flag" },
-+    { "-Z", "--set-save-rxfcs", MODE_SET_SAVE_RXFCS,
-+		"Set Save RX-FCS flag of the device",
++    { "-b", "--get-save-rxerr", MODE_GET_SAVE_RXERR,
++		"Get Save RX-ERR flag" },
++    { "-B", "--set-save-rxerr", MODE_SET_SAVE_RXERR,
++		"Set Save RX-ERR flag of the device",
 +		"		N\n"},
      { "-h", "--help", MODE_HELP, "Show this help" },
      { NULL, "--version", MODE_VERSION, "Show version number" },
      {}
-@@ -398,6 +407,7 @@ static u32 msglvl_wanted = 0;
- static u32 msglvl_mask = 0;
+@@ -408,6 +417,7 @@ static u32 msglvl_mask = 0;
  static u32 dump_flag;
  static char *dump_file = NULL;
-+static u32 save_rxfcs_flag;
+ static u32 save_rxfcs_flag;
++static u32 save_rxerr_flag;
  
  static int rx_class_rule_get = -1;
  static int rx_class_rule_del = -1;
-@@ -792,7 +802,9 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode == MODE_FLASHDEV) ||
- 			    (mode == MODE_PERMADDR) ||
+@@ -804,7 +814,9 @@ static void parse_cmdline(int argc, char **argp)
  			    (mode == MODE_SET_DUMP) ||
--			    (mode == MODE_GET_DUMP)) {
-+			    (mode == MODE_GET_DUMP) ||
-+			    (mode == MODE_SET_SAVE_RXFCS) ||
-+			    (mode == MODE_GET_SAVE_RXFCS)) {
+ 			    (mode == MODE_GET_DUMP) ||
+ 			    (mode == MODE_SET_SAVE_RXFCS) ||
+-			    (mode == MODE_GET_SAVE_RXFCS)) {
++			    (mode == MODE_GET_SAVE_RXFCS) ||
++			    (mode == MODE_SET_SAVE_RXERR) ||
++			    (mode == MODE_GET_SAVE_RXERR)) {
  				devname = argp[i];
  				break;
  			}
-@@ -817,6 +829,9 @@ static void parse_cmdline(int argc, char **argp)
- 			} else if (mode == MODE_SET_DUMP) {
- 				dump_flag = get_u32(argp[i], 0);
+@@ -832,6 +844,9 @@ static void parse_cmdline(int argc, char **argp)
+ 			} else if (mode == MODE_SET_SAVE_RXFCS) {
+ 				save_rxfcs_flag = get_u32(argp[i], 0);
  				break;
-+			} else if (mode == MODE_SET_SAVE_RXFCS) {
-+				save_rxfcs_flag = get_u32(argp[i], 0);
++			} else if (mode == MODE_SET_SAVE_RXERR) {
++				save_rxerr_flag = get_u32(argp[i], 0);
 +				break;
  			}
  			/* fallthrough */
  		default:
-@@ -1935,6 +1950,10 @@ static int doit(void)
- 		return do_getfwdump(fd, &ifr);
- 	} else if (mode == MODE_SET_DUMP) {
- 		return do_setfwdump(fd, &ifr);
-+	} else if (mode == MODE_GET_SAVE_RXFCS) {
-+		return do_get_save_rxfcs(fd, &ifr);
-+	} else if (mode == MODE_SET_SAVE_RXFCS) {
-+		return do_set_save_rxfcs(fd, &ifr);
+@@ -1954,6 +1969,10 @@ static int doit(void)
+ 		return do_get_save_rxfcs(fd, &ifr);
+ 	} else if (mode == MODE_SET_SAVE_RXFCS) {
+ 		return do_set_save_rxfcs(fd, &ifr);
++	} else if (mode == MODE_GET_SAVE_RXERR) {
++		return do_get_save_rxerr(fd, &ifr);
++	} else if (mode == MODE_SET_SAVE_RXERR) {
++		return do_set_save_rxerr(fd, &ifr);
  	}
  
  	return 69;
-@@ -3322,6 +3341,40 @@ static int do_setfwdump(int fd, struct ifreq *ifr)
- 	return 0;
+@@ -3375,6 +3394,40 @@ static int do_get_save_rxfcs(int fd, struct ifreq *ifr)
+ 	}
  }
  
-+static int do_set_save_rxfcs(int fd, struct ifreq *ifr)
++static int do_set_save_rxerr(int fd, struct ifreq *ifr)
 +{
 +	int err;
 +	struct ethtool_value edata;
 +
-+	edata.cmd = ETHTOOL_SET_SAVE_RXFCS;
-+	edata.data = save_rxfcs_flag;
++	edata.cmd = ETHTOOL_SET_SAVE_RXERR;
++	edata.data = save_rxerr_flag;
 +	ifr->ifr_data = (caddr_t)&edata;
 +	err = send_ioctl(fd, ifr);
 +	if (err < 0) {
-+		perror("Can not set Save RX FCS level\n");
++		perror("Can not set Save RX ERR flag.\n");
 +		return 1;
 +	}
 +	return 0;
 +}
 +
-+static int do_get_save_rxfcs(int fd, struct ifreq *ifr)
++static int do_get_save_rxerr(int fd, struct ifreq *ifr)
 +{
 +	int err;
 +	struct ethtool_value edata;
 +
-+	edata.cmd = ETHTOOL_GET_SAVE_RXFCS;
++	edata.cmd = ETHTOOL_GET_SAVE_RXERR;
 +	ifr->ifr_data = (caddr_t)&edata;
 +	err = send_ioctl(fd, ifr);
 +	if (err == 0) {
-+		fprintf(stdout, "	Save RX-FCS %s\n",
++		fprintf(stdout, "	Save RX-ERR %s\n",
 +			edata.data ? "Enabled" : "Disabled");
 +		return 0;
 +	} else {
-+		perror("Can not get Save RX FCS flag\n");
++		perror("Can not get Save RX ERR flag\n");
 +		return 1;
 +	}
 +}
