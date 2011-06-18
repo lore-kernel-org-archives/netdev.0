@@ -1,27 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2 1/5] net:  Support ethtool ops for rx of errored frames.
-Date: Sat, 18 Jun 2011 23:34:00 +0200
-Message-ID: <20110618213400.GA2741@electric-eye.fr.zoreil.com>
-References: <1308430045-24816-1-git-send-email-greearb@candelatech.com> <1308430045-24816-2-git-send-email-greearb@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH #3 net-next 0/4] Pull request for 'davem-next.r8169'
+ branch
+Date: Sat, 18 Jun 2011 16:41:32 -0700 (PDT)
+Message-ID: <20110618.164132.1365786651537868955.davem@davemloft.net>
+References: <20110618112605.GA2573@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	hayeswang@realtek.com, ben@decadent.org.uk
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:49965 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752741Ab1FRVqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 17:46:43 -0400
-Content-Disposition: inline
-In-Reply-To: <1308430045-24816-2-git-send-email-greearb@candelatech.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51415 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752717Ab1FRXlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 19:41:47 -0400
+In-Reply-To: <20110618112605.GA2573@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-greearb@candelatech.com <greearb@candelatech.com> :
-[...]
-> This can be useful when sniffing dodgy networks.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Sat, 18 Jun 2011 13:26:05 +0200
 
-Do you plan to add something similar - i.e. not per packet - for the Tx path ?
+> Please pull from branch 'davem-next.r8169' in repository
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem-next.r8169
+> 
+> to get the changes below.
 
--- 
-Ueimor
+Pulled, thanks!
