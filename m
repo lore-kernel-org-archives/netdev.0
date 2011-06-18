@@ -1,197 +1,91 @@
-From: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Subject: Re: software iwarp stack update
-Date: Sat, 18 Jun 2011 18:35:42 +0200
-Message-ID: <BANLkTi=L057TZug2=nrFZTYdNoHLMvmBRA@mail.gmail.com>
-References: <BANLkTimEGgKEMZd3qppOofN-Vj-u-PH-xA@mail.gmail.com>
- <OFB7458EEB.BFB8A4EE-ONC12578B1.004026D1-C12578B1.0041190E@ch.ibm.com> <BANLkTi=2woNzF=GL3cT3NB_hye5JHfodMA@mail.gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: Section conflict compile failures in net
+Date: Sat, 18 Jun 2011 19:06:20 +0200
+Message-ID: <20110618170620.GA10479@rere.qmqm.pl>
+References: <1306445993.4048.58.camel@mulgrave.site>
+ <20110531.154531.493226762.davem@davemloft.net>
+ <1306892570.11897.35.camel@mulgrave.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTi=2woNzF=GL3cT3NB_hye5JHfodMA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:47826 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750844Ab1FRRGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Jun 2011 13:06:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1306892570.11897.35.camel@mulgrave.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 16, 2011 at 7:20 PM, Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org> wrote:
-> It does seem we are missing an IB_MANDATORY_FUNC
-> entry for modify_port in ib_device_check_mandatory; or on
-> the flip side we are missing a check of modify_port and a
-> -ENOSYS return... I guess modify_port does not really make
-> sense for iWARP so probably the second option is better.
+On Wed, Jun 01, 2011 at 10:42:50AM +0900, James Bottomley wrote:
+> On Tue, 2011-05-31 at 15:45 -0700, David Miller wrote:
+> > From: James Bottomley <James.Bottomley@HansenPartnership.com>
+> > Date: Thu, 26 May 2011 16:39:53 -0500
+> >=20
+> > BTW, linux-netdev doesn't exist, it's just plain netdev.
+>=20
+> Um, yes ... I thought it was netdev, then I checked MARC and it had
+> linux-netdev.  I'll remember for next time (well, at least for the ne=
+xt
+> six months).
+>=20
+> > > Simply reverting=20
+> > >=20
+> > > commit e5cb966c0838e4da43a3b0751bdcac7fe719f7b4
+> > > Author: Micha<C5><82> Miros<C5><82>aw <mirq-linux@rere.qmqm.pl>
+> > > Date:   Mon Apr 18 13:31:20 2011 +0000
+> > >=20
+> > >     net: fix section mismatches
+> > >    =20
+> > > Fixes the problem.
+> > >=20
+> > > If I look at the first problem in hp100.c, the addition of
+> > > __devinitconst to the device tables is fine, but there's no
+> > > corresponding sectional tag on their use, so when compiled as a m=
+odule,
+> > > things like hp100_eisa_driver is now in the main data section but=
+ refers
+> > > to something in the init data section ... I assume all the others=
+ are
+> > > the same type of problem.
+> >=20
+> > Yeah I think the device ID table __devinitconst bits have to be
+> > reverted.
+> >=20
+> > I'll apply something like the following:
+> >=20
+> > net: Revert adding __devinitconst to driver ID tables.
+> >=20
+> > If the table is hooked up to foo_driver->id_table we can't
+> > mark it __devinitconst otherwise we end up with section
+> > mismatches.
+> >=20
+> > Reported-by: James Bottomley <James.Bottomley@HansenPartnership.com=
+>
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+>=20
+> That fixes some but not all; the pci tables still cause a section
+> conflict:
+>=20
+> drivers/net/hp100.c:211: error: hp100_pci_tbl causes a section type c=
+onflict
+> make[2]: *** [drivers/net/hp100.o] Error 1
+>=20
+>=20
+> It's really, as has been said, a compiler problem: the compiler is
+> confused about the read only sections.  However, 4.2 is a pretty comm=
+on
+> compiler (especially for non-x86), so if the compiler can't do the re=
+ad
+> only section tracking, just not using the __devinitconst designation
+> globally seems to be the best thing, just change it to __devinitdata
+> instead.
 
-There seems to be disagreement about whether to return 0, -ENOSYS or
--EOPNOTSUPP for not supported functionality. Does the patch below make sense ?
-Note: I don't have all the hardware necessary to test the patch below.
+So maybe just #define __devinitconst __devinitdata for those broken gcc
+versions?
 
-diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
-index 4007f72..e711de4 100644
---- a/drivers/infiniband/core/device.c
-+++ b/drivers/infiniband/core/device.c
-@@ -627,6 +627,9 @@ int ib_modify_device(struct ib_device *device,
- 		     int device_modify_mask,
- 		     struct ib_device_modify *device_modify)
- {
-+	if (!device->modify_device)
-+		return -ENOSYS;
-+
- 	return device->modify_device(device, device_modify_mask,
- 				     device_modify);
- }
-@@ -647,6 +650,9 @@ int ib_modify_port(struct ib_device *device,
- 		   u8 port_num, int port_modify_mask,
- 		   struct ib_port_modify *port_modify)
- {
-+	if (!device->modify_port)
-+		return -ENOSYS;
-+
- 	if (port_num < start_port(device) || port_num > end_port(device))
- 		return -EINVAL;
-
-diff --git a/drivers/infiniband/hw/amso1100/c2_provider.c
-b/drivers/infiniband/hw/amso1100/c2_provider.c
-index aeebc4d..f101bb7 100644
---- a/drivers/infiniband/hw/amso1100/c2_provider.c
-+++ b/drivers/infiniband/hw/amso1100/c2_provider.c
-@@ -99,14 +99,6 @@ static int c2_query_port(struct ib_device *ibdev,
- 	return 0;
- }
-
--static int c2_modify_port(struct ib_device *ibdev,
--			  u8 port, int port_modify_mask,
--			  struct ib_port_modify *props)
--{
--	pr_debug("%s:%u\n", __func__, __LINE__);
--	return 0;
--}
--
- static int c2_query_pkey(struct ib_device *ibdev,
- 			 u8 port, u16 index, u16 * pkey)
- {
-@@ -817,7 +809,6 @@ int c2_register_device(struct c2_dev *dev)
- 	dev->ibdev.dma_device = &dev->pcidev->dev;
- 	dev->ibdev.query_device = c2_query_device;
- 	dev->ibdev.query_port = c2_query_port;
--	dev->ibdev.modify_port = c2_modify_port;
- 	dev->ibdev.query_pkey = c2_query_pkey;
- 	dev->ibdev.query_gid = c2_query_gid;
- 	dev->ibdev.alloc_ucontext = c2_alloc_ucontext;
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-index 2e27413..c7d9411 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_provider.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_provider.c
-@@ -61,13 +61,6 @@
- #include "iwch_user.h"
- #include "common.h"
-
--static int iwch_modify_port(struct ib_device *ibdev,
--			    u8 port, int port_modify_mask,
--			    struct ib_port_modify *props)
--{
--	return -ENOSYS;
--}
--
- static struct ib_ah *iwch_ah_create(struct ib_pd *pd,
- 				    struct ib_ah_attr *ah_attr)
- {
-@@ -1392,7 +1385,6 @@ int iwch_register_device(struct iwch_dev *dev)
- 	dev->ibdev.dma_device = &(dev->rdev.rnic_info.pdev->dev);
- 	dev->ibdev.query_device = iwch_query_device;
- 	dev->ibdev.query_port = iwch_query_port;
--	dev->ibdev.modify_port = iwch_modify_port;
- 	dev->ibdev.query_pkey = iwch_query_pkey;
- 	dev->ibdev.query_gid = iwch_query_gid;
- 	dev->ibdev.alloc_ucontext = iwch_alloc_ucontext;
-diff --git a/drivers/infiniband/hw/cxgb4/provider.c
-b/drivers/infiniband/hw/cxgb4/provider.c
-index 5b9e422..247fe70 100644
---- a/drivers/infiniband/hw/cxgb4/provider.c
-+++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -58,13 +58,6 @@ static int fastreg_support = 1;
- module_param(fastreg_support, int, 0644);
- MODULE_PARM_DESC(fastreg_support, "Advertise fastreg support (default=1)");
-
--static int c4iw_modify_port(struct ib_device *ibdev,
--			    u8 port, int port_modify_mask,
--			    struct ib_port_modify *props)
--{
--	return -ENOSYS;
--}
--
- static struct ib_ah *c4iw_ah_create(struct ib_pd *pd,
- 				    struct ib_ah_attr *ah_attr)
- {
-@@ -456,7 +449,6 @@ int c4iw_register_device(struct c4iw_dev *dev)
- 	dev->ibdev.dma_device = &(dev->rdev.lldi.pdev->dev);
- 	dev->ibdev.query_device = c4iw_query_device;
- 	dev->ibdev.query_port = c4iw_query_port;
--	dev->ibdev.modify_port = c4iw_modify_port;
- 	dev->ibdev.query_pkey = c4iw_query_pkey;
- 	dev->ibdev.query_gid = c4iw_query_gid;
- 	dev->ibdev.alloc_ucontext = c4iw_alloc_ucontext;
-diff --git a/drivers/infiniband/hw/nes/nes_verbs.c
-b/drivers/infiniband/hw/nes/nes_verbs.c
-index 95ca93c..9f2f7d4 100644
---- a/drivers/infiniband/hw/nes/nes_verbs.c
-+++ b/drivers/infiniband/hw/nes/nes_verbs.c
-@@ -605,16 +605,6 @@ static int nes_query_port(struct ib_device
-*ibdev, u8 port, struct ib_port_attr
-
-
- /**
-- * nes_modify_port
-- */
--static int nes_modify_port(struct ib_device *ibdev, u8 port,
--		int port_modify_mask, struct ib_port_modify *props)
--{
--	return 0;
--}
--
--
--/**
-  * nes_query_pkey
-  */
- static int nes_query_pkey(struct ib_device *ibdev, u8 port, u16
-index, u16 *pkey)
-@@ -3882,7 +3872,6 @@ struct nes_ib_device *nes_init_ofa_device(struct
-net_device *netdev)
- 	nesibdev->ibdev.dev.parent = &nesdev->pcidev->dev;
- 	nesibdev->ibdev.query_device = nes_query_device;
- 	nesibdev->ibdev.query_port = nes_query_port;
--	nesibdev->ibdev.modify_port = nes_modify_port;
- 	nesibdev->ibdev.query_pkey = nes_query_pkey;
- 	nesibdev->ibdev.query_gid = nes_query_gid;
- 	nesibdev->ibdev.alloc_ucontext = nes_alloc_ucontext;
-diff --git a/drivers/infiniband/hw/siw/siw_main.c
-b/drivers/infiniband/hw/siw/siw_main.c
-index b2b7bea..d2346fe 100644
---- a/drivers/infiniband/hw/siw/siw_main.c
-+++ b/drivers/infiniband/hw/siw/siw_main.c
-@@ -216,13 +216,6 @@ static struct device_attribute *siw_dev_attributes[] = {
- 	&dev_attr_cep
- };
-
--static int siw_modify_port(struct ib_device *ofa_dev, u8 port, int mask,
--			   struct ib_port_modify *props)
--{
--	return -EOPNOTSUPP;
--}
--
--
- static int siw_register_device(struct siw_dev *dev)
- {
- 	struct ib_device *ibdev = &dev->ofa_dev;
-@@ -284,7 +277,6 @@ static int siw_register_device(struct siw_dev *dev)
- 	ibdev->query_device = siw_query_device;
- 	ibdev->query_port = siw_query_port;
- 	ibdev->query_qp = siw_query_qp;
--	ibdev->modify_port = siw_modify_port;
- 	ibdev->query_pkey = siw_query_pkey;
- 	ibdev->query_gid = siw_query_gid;
- 	ibdev->alloc_ucontext = siw_alloc_ucontext;
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best Regards,
+Micha=B3 Miros=B3aw
