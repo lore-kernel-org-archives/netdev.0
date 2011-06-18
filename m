@@ -1,89 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFT PATCH] net: remove legacy ethtool ops
-Date: Sat, 18 Jun 2011 11:19:50 -0700
-Message-ID: <1308421191.22851.11.camel@jtkirshe-mobl>
-References: <20110507114802.A0C841389B@rere.qmqm.pl>
-	 <BANLkTikHS0=XaVb4tutWAJTYcMLgYPzTGA@mail.gmail.com>
-	 <20110618171543.GA11090@rere.qmqm.pl>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 2/3] net/fec: add device tree support
+Date: Sat, 18 Jun 2011 20:27:22 +0200
+Message-ID: <201106182027.22974.arnd@arndb.de>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+	<1308410354-21387-3-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-TTFxgB31u2KZR674Cyu8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34936 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751921Ab1FRSTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Jun 2011 14:19:51 -0400
-In-Reply-To: <20110618171543.GA11090@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-TTFxgB31u2KZR674Cyu8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, 2011-06-18 at 10:15 -0700, Micha=C5=82 Miros=C5=82aw wrote:
-> On Sat, May 07, 2011 at 04:58:07AM -0700, Jeff Kirsher wrote:
-> > 2011/5/7 Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>:
-> > > As all drivers are converted, we may now remove discrete offload sett=
-ing
-> > > callback handling.
-> > >
-> > > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> > > ---
-> > >
-> > > Note: This needs to wait for Intel guys to finish conversion of their
-> > > LAN drivers.
-> > >
-> > >  include/linux/ethtool.h   |   52 ------
-> > >  include/linux/netdevice.h |   16 --
-> > >  net/8021q/vlan_dev.c      |    2 +-
-> > >  net/core/dev.c            |   13 +-
-> > >  net/core/ethtool.c        |  399 +++--------------------------------=
-----------
-> > >  5 files changed, 28 insertions(+), 454 deletions(-)
-> > I do apologize for the delay, we did find several problems with the
-> > original set of patches you submitted during review and testing.
-> > Currently we have fixed up the e1000e, yet there is still work to be
-> > done on the other drivers.  I will make every effort to make sure that
-> > we complete the work over the next week.
->=20
-> Ping?
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
-
-I will be pushing the patches that have passed validation this weekend.
-Don is still working on the ixgbe changes, I will work with him to get
-the work wrapped up early this week.
-
-Cheers,
-Jeff
-
---=-TTFxgB31u2KZR674Cyu8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1308410354-21387-3-git-send-email-shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+On Saturday 18 June 2011 17:19:13 Shawn Guo wrote:
+> diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+> new file mode 100644
+> index 0000000..705111d
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+> @@ -0,0 +1,14 @@
+> +* Freescale Fast Ethernet Controller (FEC)
+> +
+> +Required properties:
+> +- compatible : should be "fsl,<soc>-fec", "fsl,fec"
+> +- reg : address and length of the register set for the device
+> +- interrupts : should contain fec interrupt
+> +
+> +Example:
+> +
+> +fec@83fec000 {
+> +	compatible = "fsl,imx51-fec", "fsl,fec";
+> +	reg = <0x83fec000 0x4000>;
+> +	interrupts = <87>;
+> +};
 
-iQEcBAABAgAGBQJN/OxGAAoJECTsCADr/EWU8fAH/0iRxGiIGpYYsN8Y/2hfNOMy
-qxh1DL/EIPKapiDRP1UInmnomXsXH3zsR0l0WeAU8MTSx3CWhhoMSffCMhrOPDm0
-OYWoos8mAoIenAkR1XtFwIAx7O+vjUZxSp1bEfjWhU7hH7gZHayueRgwaI5vV8zk
-tdkzjMOfXwAMwc0BqqUz3seyoOYO5lYGCiAKdSQi1gU0NE/Wx1gI+9O6YNzj43Ou
-yXG/8HwocrrtChe+KTqjjVbHPTY1Su/Jb5uL1SWZlh4tpr3DV39a/ZMsKOLiAhrv
-wUxytvL1Xwd2rzghwmtBvkUAkfd5EES7Ztox7ckcEcup67EL19FG0X9coy/w0rI=
-=a+TJ
------END PGP SIGNATURE-----
+How about also adding device_type="network" as required here, so you
+inherit the attributes like "local-mac-address".
 
---=-TTFxgB31u2KZR674Cyu8--
+I would also suggest adding a call to of_get_mac_address() so you
+can read the address out of the device tree when it is not configured
+in hardware. Today, the driver relies on a module parameter or
+platform_data on hardware with a mac address set.
 
+The other information that is currently encoded in platform_data
+is the phy mode. How about adding a property that enables RMII mode
+when present?
+
+	Arnd
