@@ -1,71 +1,82 @@
 From: greearb@candelatech.com
-Subject: [PATCH v2 0/5]  Ethernet low-level frame debugging support.
-Date: Sat, 18 Jun 2011 13:47:20 -0700
-Message-ID: <1308430045-24816-1-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v2 1/5] net:  Support ethtool ops for rx of errored frames.
+Date: Sat, 18 Jun 2011 13:47:21 -0700
+Message-ID: <1308430045-24816-2-git-send-email-greearb@candelatech.com>
+References: <1308430045-24816-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:33313 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:33319 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151Ab1FRUrc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 16:47:32 -0400
+	with ESMTP id S1752226Ab1FRUrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 16:47:48 -0400
+In-Reply-To: <1308430045-24816-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This builds on the previous patches to allow receiving the
-Ethernet FCS.
+This can be useful when sniffing dodgy networks.
 
-These patches let one receive errored frames up the stack
-and generate frames with customized FCS.  This allows one
-to generate and receive frames with bad CRC for testing
-and sniffing purposes.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 675ddc0... fb0fac9... M	include/linux/ethtool.h
+:100644 100644 0e01860... 443a63c... M	net/core/ethtool.c
+ include/linux/ethtool.h |    7 +++++++
+ net/core/ethtool.c      |    8 ++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
 
-I'll finish send/rcv support for e100,e1000, and e1000e
-if these patches are acceptable.
-
-v2:  Change 'kludge' to fcs_len in af_packet.c
-     Add SO_NOFCS to the rest of the various arch socket.h files.
-
-*** BLURB HERE ***
-
-Ben Greear (5):
-  net:  Support ethtool ops for rx of errored frames.
-  net:  Add pkt-type PACKET_INVALID
-  e100:  Support receiving errored frames.
-  net:  Support sending frame with specified FCS.
-  e1000e:  Support sending frame with custom FCS.
-
- arch/alpha/include/asm/socket.h   |    1 +
- arch/arm/include/asm/socket.h     |    1 +
- arch/avr32/include/asm/socket.h   |    1 +
- arch/cris/include/asm/socket.h    |    1 +
- arch/frv/include/asm/socket.h     |    1 +
- arch/h8300/include/asm/socket.h   |    1 +
- arch/ia64/include/asm/socket.h    |    1 +
- arch/m32r/include/asm/socket.h    |    1 +
- arch/m68k/include/asm/socket.h    |    1 +
- arch/mips/include/asm/socket.h    |    1 +
- arch/mn10300/include/asm/socket.h |    1 +
- arch/parisc/include/asm/socket.h  |    1 +
- arch/powerpc/include/asm/socket.h |    1 +
- arch/s390/include/asm/socket.h    |    1 +
- arch/sparc/include/asm/socket.h   |    1 +
- arch/xtensa/include/asm/socket.h  |    1 +
- drivers/net/e100.c                |   42 +++++++++++++++++++++++++++++++++++-
- drivers/net/e1000e/netdev.c       |   11 +++++++++
- include/asm-generic/socket.h      |    7 ++++++
- include/linux/ethtool.h           |    7 ++++++
- include/linux/if_packet.h         |    7 ++++-
- include/linux/skbuff.h            |    5 +++-
- include/net/sock.h                |    6 +++++
- net/core/ethtool.c                |    8 +++++++
- net/core/skbuff.c                 |    1 +
- net/core/sock.c                   |    7 ++++++
- net/packet/af_packet.c            |   18 ++++++++++++++-
- 27 files changed, 128 insertions(+), 7 deletions(-)
-
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 675ddc0..fb0fac9 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -880,6 +880,9 @@ bool ethtool_invalid_flags(struct net_device *dev, u32 data, u32 supported);
+  * @set_save_rxfcs:  Set flag to save (1), or discard (0), the Ethernet
+  *	Frame Checksum for received packets.
+  * @get_save_rxfcs:  Get current value for Save RX-FCS flag.
++ * @set_save_rxerr:  Set flag to save (1), or discard (0), received Ethernet
++ *	frames with errors (bad checksum, etc)
++ * @get_save_rxerr:  Get current value for Save RX-ERR flag.
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+@@ -960,6 +963,8 @@ struct ethtool_ops {
+ 	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+ 	int	(*set_save_rxfcs)(struct net_device *, u32);
+ 	u32	(*get_save_rxfcs)(struct net_device *);
++	int	(*set_save_rxerr)(struct net_device *, u32);
++	u32	(*get_save_rxerr)(struct net_device *);
+ 
+ };
+ #endif /* __KERNEL__ */
+@@ -1036,6 +1041,8 @@ struct ethtool_ops {
+ #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
+ #define ETHTOOL_GET_SAVE_RXFCS	0x00000041 /* Get RX Save Frame Checksum */
+ #define ETHTOOL_SET_SAVE_RXFCS	0x00000042 /* Set RX Save Frame Checksum */
++#define ETHTOOL_GET_SAVE_RXERR	0x00000043 /* Get RX Save Errored Frames */
++#define ETHTOOL_SET_SAVE_RXERR	0x00000044 /* Set RX Save Errored Frames */
+ 
+ 
+ /* compatibility with older code */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 0e01860..443a63c 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -2160,6 +2160,14 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 		rc =  ethtool_get_value(dev, useraddr, ethcmd,
+ 					dev->ethtool_ops->get_save_rxfcs);
+ 		break;
++	case ETHTOOL_SET_SAVE_RXERR:
++		rc = ethtool_set_value(dev, useraddr,
++				       dev->ethtool_ops->set_save_rxerr);
++		break;
++	case ETHTOOL_GET_SAVE_RXERR:
++		rc =  ethtool_get_value(dev, useraddr, ethcmd,
++					dev->ethtool_ops->get_save_rxerr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
 -- 
 1.7.3.4
 
