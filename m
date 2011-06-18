@@ -1,115 +1,227 @@
-From: Yinglin Luan <synmyth@gmail.com>
-Subject: [PATCH]rionet: fix NULL pointer dereference in rionet_remove
-Date: Sat, 18 Jun 2011 23:27:15 +0800
-Message-ID: <1308410839.9175.11.camel@localhost>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Sat, 18 Jun 2011 10:19:34 -0600
+Message-ID: <20110618161934.GH8195@ponder.secretlab.ca>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mporter@kernel.crashing.org, jj@chaosbits.net,
-	cmdkhh@gmail.com, synmyth@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:44140 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752351Ab1FRP1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 11:27:23 -0400
-Received: by iwn6 with SMTP id 6so146383iwn.19
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2011 08:27:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1308410354-21387-2-git-send-email-shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Function rionet_remove initializes local variable 'ndev' to NULL
-and do nothing changes before the call to unregister_netdev(ndev),
-this could cause a NULL pointer dereference.
+On Sat, Jun 18, 2011 at 11:19:12PM +0800, Shawn Guo wrote:
+> It adds device tree data parsing support for imx tty/serial driver.
+> 
+> Signed-off-by: Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Signed-off-by: Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Cc: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> ---
+>  .../bindings/tty/serial/fsl-imx-uart.txt           |   21 +++++
+>  drivers/tty/serial/imx.c                           |   81 +++++++++++++++++---
+>  2 files changed, 92 insertions(+), 10 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+> new file mode 100644
+> index 0000000..7648e17
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+> @@ -0,0 +1,21 @@
+> +* Freescale i.MX Universal Asynchronous Receiver/Transmitter (UART)
+> +
+> +Required properties:
+> +- compatible : should be "fsl,<soc>-uart", "fsl,imx-uart"
 
-Reported-by: Jesper Juhl <jj@chaosbits.net>
-Signed-off-by: Yinglin Luan <synmyth@gmail.com>
----
- drivers/net/rionet.c |   28 +++++++++++++++-------------
- 1 files changed, 15 insertions(+), 13 deletions(-)
+I'd make this "fsl,<soc>-uart", "fsl,imx51-uart"
 
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index 77c5092..5d3436d 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -378,7 +378,7 @@ static int rionet_close(struct net_device *ndev)
- 
- static void rionet_remove(struct rio_dev *rdev)
- {
--	struct net_device *ndev = NULL;
-+	struct net_device *ndev = rio_get_drvdata(rdev);
- 	struct rionet_peer *peer, *tmp;
- 
- 	free_pages((unsigned long)rionet_active, rdev->net->hport->sys_size ?
-@@ -433,22 +433,12 @@ static const struct net_device_ops
-rionet_netdev_ops = {
- 	.ndo_set_mac_address	= eth_mac_addr,
- };
- 
--static int rionet_setup_netdev(struct rio_mport *mport)
-+static int rionet_setup_netdev(struct rio_mport *mport, struct
-net_device *ndev)
- {
- 	int rc = 0;
--	struct net_device *ndev = NULL;
- 	struct rionet_private *rnet;
- 	u16 device_id;
- 
--	/* Allocate our net_device structure */
--	ndev = alloc_etherdev(sizeof(struct rionet_private));
--	if (ndev == NULL) {
--		printk(KERN_INFO "%s: could not allocate ethernet device.\n",
--		       DRV_NAME);
--		rc = -ENOMEM;
--		goto out;
--	}
--
- 	rionet_active = (struct rio_dev **)__get_free_pages(GFP_KERNEL,
- 			mport->sys_size ? __fls(sizeof(void *)) + 4 : 0);
- 	if (!rionet_active) {
-@@ -504,11 +494,21 @@ static int rionet_probe(struct rio_dev *rdev,
-const struct rio_device_id *id)
- 	int rc = -ENODEV;
- 	u32 lpef, lsrc_ops, ldst_ops;
- 	struct rionet_peer *peer;
-+	struct net_device *ndev = NULL;
- 
- 	/* If local device is not rionet capable, give up quickly */
- 	if (!rionet_capable)
- 		goto out;
- 
-+	/* Allocate our net_device structure */
-+	ndev = alloc_etherdev(sizeof(struct rionet_private));
-+	if (ndev == NULL) {
-+		printk(KERN_INFO "%s: could not allocate ethernet device.\n",
-+		       DRV_NAME);
-+		rc = -ENOMEM;
-+		goto out;
-+	}
-+
- 	/*
- 	 * First time through, make sure local device is rionet
- 	 * capable, setup netdev,  and set flags so this is skipped
-@@ -529,7 +529,7 @@ static int rionet_probe(struct rio_dev *rdev, const
-struct rio_device_id *id)
- 			goto out;
- 		}
- 
--		rc = rionet_setup_netdev(rdev->net->hport);
-+		rc = rionet_setup_netdev(rdev->net->hport, ndev);
- 		rionet_check = 1;
- 	}
- 
-@@ -546,6 +546,8 @@ static int rionet_probe(struct rio_dev *rdev, const
-struct rio_device_id *id)
- 		list_add_tail(&peer->node, &rionet_peers);
- 	}
- 
-+	rio_set_drvdata(rdev, ndev);
-+
-       out:
- 	return rc;
- }
--- 
-1.7.5.4
+It's better to anchor these things on real silicon, or a real ip block
+specification rather than something pseudo-generic.  Subsequent chips,
+like the imx53, should simply claim compatibility with the older
+fsl,imx51-uart.
 
+(in essence, "fsl,imx51-uart" becomes the generic string without the
+downside of having no obvious recourse when new silicon shows up that
+is an imx part, but isn't compatible with the imx51 uart.
+
+> +- reg : address and length of the register set for the device
+> +- interrupts : should contain uart interrupt
+> +- id : should be the port ID defined by soc
+> +
+> +Optional properties:
+> +- fsl,has-rts-cts : indicate it has rts-cts
+> +- fsl,irda-mode : support irda mode
+> +
+> +Example:
+> +
+> +uart@73fbc000 {
+> +	compatible = "fsl,imx51-uart", "fsl,imx-uart";
+> +	reg = <0x73fbc000 0x4000>;
+> +	interrupts = <31>;
+> +	id = <1>;
+> +	fsl,has-rts-cts;
+> +};
+> diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
+> index a544731..2769353 100644
+> --- a/drivers/tty/serial/imx.c
+> +++ b/drivers/tty/serial/imx.c
+> @@ -45,6 +45,8 @@
+>  #include <linux/delay.h>
+>  #include <linux/rational.h>
+>  #include <linux/slab.h>
+> +#include <linux/of.h>
+> +#include <linux/of_address.h>
+>  
+>  #include <asm/io.h>
+>  #include <asm/irq.h>
+> @@ -1223,6 +1225,63 @@ static int serial_imx_resume(struct platform_device *dev)
+>  	return 0;
+>  }
+>  
+> +#ifdef CONFIG_OF
+> +static int serial_imx_probe_dt(struct imx_port *sport,
+> +		struct platform_device *pdev)
+> +{
+> +	struct device_node *node = pdev->dev.of_node;
+> +	const __be32 *line;
+> +
+> +	if (!node)
+> +		return -ENODEV;
+> +
+> +	line = of_get_property(node, "id", NULL);
+> +	if (!line)
+> +		return -ENODEV;
+> +
+> +	sport->port.line = be32_to_cpup(line) - 1;
+
+Hmmm, I really would like to be rid of this.  Instead, if uarts must
+be enumerated, the driver should look for a /aliases/uart* property
+that matches the of_node.  Doing it that way is already established in
+the OpenFirmware documentation, and it ensures there are no overlaps
+in the global namespace.
+
+We do need some infrastructure to make that easier though.  Would you
+have time to help put that together?
+
+> +
+> +	if (of_get_property(node, "fsl,has-rts-cts", NULL))
+> +		sport->have_rtscts = 1;
+> +
+> +	if (of_get_property(node, "fsl,irda-mode", NULL))
+> +		sport->use_irda = 1;
+> +
+> +	return 0;
+> +}
+> +
+> +static struct of_device_id imx_uart_dt_ids[] = {
+> +	{ .compatible = "fsl,imx-uart" },
+> +	{},
+> +};
+> +#else
+> +static int serial_imx_probe_dt(struct imx_port *sport,
+> +		struct platform_device *pdev)
+> +{
+> +	return -ENODEV;
+> +}
+> +#define imx_uart_dt_ids NULL
+> +#endif
+> +
+> +static int serial_imx_probe_pdata(struct imx_port *sport,
+> +		struct platform_device *pdev)
+> +{
+> +	struct imxuart_platform_data *pdata = pdev->dev.platform_data;
+> +
+> +	if (!pdata)
+> +		return 0;
+> +
+> +	if (pdata->flags & IMXUART_HAVE_RTSCTS)
+> +		sport->have_rtscts = 1;
+> +
+> +	if (pdata->flags & IMXUART_IRDA)
+> +		sport->use_irda = 1;
+> +
+> +	sport->port.line = pdev->id;
+> +
+> +	return 0;
+> +}
+> +
+>  static int serial_imx_probe(struct platform_device *pdev)
+>  {
+>  	struct imx_port *sport;
+> @@ -1235,6 +1294,12 @@ static int serial_imx_probe(struct platform_device *pdev)
+>  	if (!sport)
+>  		return -ENOMEM;
+>  
+> +	ret = serial_imx_probe_dt(sport, pdev);
+> +	if (ret == -ENODEV)
+> +		ret = serial_imx_probe_pdata(sport, pdev);
+> +	if (ret)
+> +		goto free;
+> +
+>  	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	if (!res) {
+>  		ret = -ENODEV;
+> @@ -1259,7 +1324,6 @@ static int serial_imx_probe(struct platform_device *pdev)
+>  	sport->port.fifosize = 32;
+>  	sport->port.ops = &imx_pops;
+>  	sport->port.flags = UPF_BOOT_AUTOCONF;
+> -	sport->port.line = pdev->id;
+>  	init_timer(&sport->timer);
+>  	sport->timer.function = imx_timeout;
+>  	sport->timer.data     = (unsigned long)sport;
+> @@ -1273,17 +1337,13 @@ static int serial_imx_probe(struct platform_device *pdev)
+>  
+>  	sport->port.uartclk = clk_get_rate(sport->clk);
+>  
+> -	imx_ports[pdev->id] = sport;
+> +	if (imx_ports[sport->port.line]) {
+> +		ret = -EBUSY;
+> +		goto clkput;
+> +	}
+> +	imx_ports[sport->port.line] = sport;
+>  
+>  	pdata = pdev->dev.platform_data;
+> -	if (pdata && (pdata->flags & IMXUART_HAVE_RTSCTS))
+> -		sport->have_rtscts = 1;
+> -
+> -#ifdef CONFIG_IRDA
+> -	if (pdata && (pdata->flags & IMXUART_IRDA))
+> -		sport->use_irda = 1;
+> -#endif
+> -
+>  	if (pdata && pdata->init) {
+>  		ret = pdata->init(pdev);
+>  		if (ret)
+> @@ -1344,6 +1404,7 @@ static struct platform_driver serial_imx_driver = {
+>  	.driver		= {
+>  		.name	= "imx-uart",
+>  		.owner	= THIS_MODULE,
+> +		.of_match_table = imx_uart_dt_ids,
+>  	},
+>  };
+>  
+> -- 
+> 1.7.4.1
+> 
+> _______________________________________________
+> devicetree-discuss mailing list
+> devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> https://lists.ozlabs.org/listinfo/devicetree-discuss
