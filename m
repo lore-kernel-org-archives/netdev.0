@@ -1,77 +1,233 @@
-From: WANG Cong <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC Patch] bonding: move to net/ directory
-Date: Sat, 18 Jun 2011 02:48:18 +0000 (UTC)
-Message-ID: <ith3li$16c$1@dough.gmane.org>
-References: <BANLkTimkxi0BofJYv_tRj8Et+OZFu+VfBw@mail.gmail.com>
-	<20110523151336.GF21309@gospo.rdu.redhat.com>
-	<BANLkTikT2HJyGb_4BOF+Ds1AAcJV+HVQ-w@mail.gmail.com>
-	<20110524163323.GB28521@hmsreliant.think-freely.org>
-	<BANLkTinoRXmEAp0mbZdxSmMbntsE-QeRsQ@mail.gmail.com>
-	<20110525152023.GC11867@hmsreliant.think-freely.org>
-	<BANLkTin2HaYjHgGACkwvKwuY-Y_e3+r3JQ@mail.gmail.com>
-	<20110526135053.GB12617@hmsreliant.think-freely.org>
-	<BANLkTikrsr5sZ4aZ5aEmfBSvPE0mEL8g0g@mail.gmail.com>
-	<BANLkTin4VyK3boPqDQnd+Dkv6==cHww9PA@mail.gmail.com>
-	<1307379022.4994.4.camel@Joe-Laptop>
-	<1307381465.2698.5740.camel@jtkirshe-linux>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC 4/5] net:  Support sending frame with specified FCS.
+Date: Sat, 18 Jun 2011 07:54:33 +0200
+Message-ID: <1308376473.3539.37.camel@edumazet-laptop>
+References: <1308355783-22407-1-git-send-email-greearb@candelatech.com>
+	 <1308355783-22407-5-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:44223 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751093Ab1FRCsc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2011 22:48:32 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QXlaI-0005vG-Ie
-	for netdev@vger.kernel.org; Sat, 18 Jun 2011 04:48:30 +0200
-Received: from 123.124.21.93 ([123.124.21.93])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2011 04:48:30 +0200
-Received: from xiyou.wangcong by 123.124.21.93 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2011 04:48:30 +0200
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58990 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760Ab1FRFyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 01:54:40 -0400
+Received: by wwe5 with SMTP id 5so1050151wwe.1
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2011 22:54:38 -0700 (PDT)
+In-Reply-To: <1308355783-22407-5-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 06 Jun 2011 10:31:05 -0700, Jeff Kirsher wrote:
-
-> On Mon, 2011-06-06 at 09:50 -0700, Joe Perches wrote:
->> On Tue, 2011-06-07 at 00:34 +0800, Am=C3=A9rico Wang wrote:
->> > I agree with this, IMHO this would help to organize the code bette=
-r.
->> > And currently only tuntap and bonding are still in net/ directory.=
- In
->> > any aspects, now we are mixing net/ and drivers/net/ currently, wh=
-ich
->> > could be improved.
->>=20
->> There is a proposal to move some drivers/net content to drivers/net/=
-sw/
->>=20
->> http://vger.kernel.org/netconf2010_slides/netconf-jtk.pdf
->>=20
->> I think that'd be fine too.
->>=20
->> I believe Jeff is going to submit patches soonish.
->>=20
->> http://comments.gmane.org/gmane.linux.network/197232
->>=20
->>=20
->>=20
-> Correct, patches will be sent out here this week.
+Le vendredi 17 juin 2011 =C3=A0 17:09 -0700, greearb@candelatech.com a
+=C3=A9crit :
+> From: Ben Greear <greearb@candelatech.com>
 >=20
+> This allows user-space to send a packet with the
+> ethernet FCS appended to the end.  Supporting NICs
+> will know to disable their own FCS calculations and
+> send frame as is.
+>=20
+> This is useful for injecting bad frames on a network
+> for testing.
+>=20
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> ---
+> :100644 100644 9a6115e... 22193a2... M	include/asm-generic/socket.h
+> :100644 100644 c0a4f3a... 05b15be... M	include/linux/skbuff.h
+> :100644 100644 f2046e4... d7e0d88... M	include/net/sock.h
+> :100644 100644 46cbd28... a552560... M	net/core/skbuff.c
+> :100644 100644 6e81978... 0c5f827... M	net/core/sock.c
+> :100644 100644 c0c3cda... 0d29d68... M	net/packet/af_packet.c
+>  include/asm-generic/socket.h |    7 +++++++
+>  include/linux/skbuff.h       |    5 ++++-
+>  include/net/sock.h           |    6 ++++++
+>  net/core/skbuff.c            |    1 +
+>  net/core/sock.c              |    7 +++++++
+>  net/packet/af_packet.c       |   22 ++++++++++++++++++++--
+>  6 files changed, 45 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/include/asm-generic/socket.h b/include/asm-generic/socke=
+t.h
+> index 9a6115e..22193a2 100644
+> --- a/include/asm-generic/socket.h
+> +++ b/include/asm-generic/socket.h
+> @@ -64,4 +64,11 @@
+>  #define SO_DOMAIN		39
+> =20
+>  #define SO_RXQ_OVFL             40
+> +
+> +/* Instruct lower device to not calculate the frame
+> + * checksum.  Useful for generating Ethernet frames
+> + * with custom checksums.
+> + */
+> +#define SO_NOFCS		41
+> +
 
-But I still don't see them so far... :-/ Can you Cc me as well?
+Please take a look at :
 
-> As far as moving tunap, bonding, etc into /drivers/net/sw that is the
-> eventual plan, but I have not done this work for this upcoming patchs=
-et.
-> I want to coordinate this work with Stephen Hemminger before I do any
-> moves.
+arch/*/include/asm/socket.h for many arches.
 
-Is net/bridge =3D=3D> drivers/net/sw/bridge in your plan too?
+>  #endif /* __ASM_GENERIC_SOCKET_H */
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index c0a4f3a..05b15be 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -307,6 +307,8 @@ typedef unsigned char *sk_buff_data_t;
+>   *	@peeked: this packet has been seen already, so stats have been
+>   *		done for it, don't do them again
+>   *	@nf_trace: netfilter packet trace flag
+> + *	@use_specified_ether_crc: skb is Ethernet frame with FCS already
+> + *		appended.  Use that FCS.  Requires special support in NIC.
+>   *	@nfctinfo: Relationship of this skb to the connection
+>   *	@nfct_reasm: netfilter conntrack re-assembly pointer
+>   *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
+> @@ -396,7 +398,8 @@ struct sk_buff {
+>  #ifdef CONFIG_IPV6_NDISC_NODETYPE
+>  	__u8			ndisc_nodetype:2;
+>  #endif
+> -	__u8			ooo_okay:1;
+> +	__u8			ooo_okay:1,
+> +				use_specified_ether_crc:1;
+>  	kmemcheck_bitfield_end(flags2);
+> =20
+>  	/* 0/13 bit hole */
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index f2046e4..d7e0d88 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -563,6 +563,12 @@ enum sock_flags {
+>  	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE *=
+/
+>  	SOCK_FASYNC, /* fasync() active */
+>  	SOCK_RXQ_OVFL,
+> +	SOCK_DONT_DO_LL_FCS, /* Tell NIC not to do the Ethernet FCS.
+> +			      * Will use last 4 bytes of packet sent from
+> +			      * user-space instead.  Requires special
+> +			      * support in NIC.
+> +			      */
+> +
+>  };
+> =20
+>  static inline void sock_copy_flags(struct sock *nsk, struct sock *os=
+k)
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 46cbd28..a552560 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -541,6 +541,7 @@ static void __copy_skb_header(struct sk_buff *new=
+, const struct sk_buff *old)
+>  	new->tc_verd		=3D old->tc_verd;
+>  #endif
+>  #endif
+> +	new->use_specified_ether_crc =3D old->use_specified_ether_crc;
+>  	new->vlan_tci		=3D old->vlan_tci;
+> =20
+>  	skb_copy_secmark(new, old);
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 6e81978..0c5f827 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -641,6 +641,13 @@ set_rcvbuf:
+>  		sock_warn_obsolete_bsdism("setsockopt");
+>  		break;
+> =20
+> +	case SO_NOFCS:
+> +		if (valbool)
+> +			sk->sk_flags |=3D SOCK_DONT_DO_LL_FCS;
+> +		else
+> +			sk->sk_flags &=3D ~(SOCK_DONT_DO_LL_FCS);
+> +		break;
+> +
+>  	case SO_PASSCRED:
+>  		if (valbool)
+>  			set_bit(SOCK_PASSCRED, &sock->flags);
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index c0c3cda..0d29d68 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -430,6 +430,10 @@ static int packet_sendmsg_spkt(struct kiocb *ioc=
+b, struct socket *sock,
+>  	struct net_device *dev;
+>  	__be16 proto =3D 0;
+>  	int err;
+> +	int kludge =3D 0;
+> +
+> +	if (unlikely(sk->sk_flags & SOCK_DONT_DO_LL_FCS))
+> +		kludge =3D 4; /* We're doing our own FCS */
+> =20
+>  	/*
+>  	 *	Get and verify the address.
+> @@ -465,7 +469,7 @@ retry:
+>  	 */
+> =20
+>  	err =3D -EMSGSIZE;
+> -	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN)
+> +	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN + kludge)
+>  		goto out_unlock;
+> =20
+>  	if (!skb) {
+> @@ -518,6 +522,11 @@ retry:
+>  	if (err < 0)
+>  		goto out_unlock;
+> =20
+> +	if (unlikely(sk->sk_flags & SOCK_DONT_DO_LL_FCS))
+> +		skb->use_specified_ether_crc =3D 1;
+> +	else
+> +		skb->use_specified_ether_crc =3D 0;
+> +
+
+Manipulating a bit field is very expensive, and having an else branch i=
+s
+expensive as well, so please avoid setting crc to zero if its already
+guaranteed to be so.
+
+
+
+Also I cant see where you actually _set_ the fcs value : that might
+trigger a kmemcheck warning later when we read it.
+
+
+>  	dev_queue_xmit(skb);
+>  	rcu_read_unlock();
+>  	return len;
+> @@ -1134,6 +1143,10 @@ static int packet_snd(struct socket *sock,
+>  	int vnet_hdr_len;
+>  	struct packet_sock *po =3D pkt_sk(sk);
+>  	unsigned short gso_type =3D 0;
+> +	int kludge =3D 0;
+> +
+> +	if (unlikely(sk->sk_flags & SOCK_DONT_DO_LL_FCS))
+> +		kludge =3D 4; /* We're doing our own Ethernet FCS */
+
+kludge ? You mean fcs_len or something ? ;)
+> =20
+>  	/*
+>  	 *	Get and verify the address.
+> @@ -1215,7 +1228,7 @@ static int packet_snd(struct socket *sock,
+>  	}
+> =20
+>  	err =3D -EMSGSIZE;
+> -	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN))
+> +	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN + kludge))
+>  		goto out_unlock;
+> =20
+>  	err =3D -ENOBUFS;
+> @@ -1278,6 +1291,11 @@ static int packet_snd(struct socket *sock,
+>  		len +=3D vnet_hdr_len;
+>  	}
+> =20
+> +	if (unlikely(sk->sk_flags & SOCK_DONT_DO_LL_FCS))
+> +		skb->use_specified_ether_crc =3D 1;
+> +	else
+> +		skb->use_specified_ether_crc =3D 0;
+
+same remark here : ether_crc is already 0 here.
+
+> +
+>  	/*
+>  	 *	Now send it
+>  	 */
+
 
