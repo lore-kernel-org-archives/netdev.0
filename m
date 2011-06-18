@@ -1,57 +1,51 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [PATCH 02/14] SIWv2: iWARP Protocol headers: iwarp.h
-Date: Sat, 18 Jun 2011 19:52:49 +0200
-Message-ID: <BANLkTi=Z--Qq1TBymERFCcNWrO--cpeMmw@mail.gmail.com>
-References: <1308228112-22582-1-git-send-email-bmt@zurich.ibm.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Sat, 18 Jun 2011 20:11:32 +0200
+Message-ID: <201106182011.33146.arnd@arndb.de>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+	<201106181821.46574.arnd@arndb.de>
+	<20110618162655.GK8195@ponder.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-To: Bernard Metzler <bmt@zurich.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f51.google.com ([209.85.212.51]:41944 "EHLO
-	mail-vw0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750Ab1FRSAc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2011 14:00:32 -0400
-In-Reply-To: <1308228112-22582-1-git-send-email-bmt@zurich.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20110618162655.GK8195-e0URQFbLeQY2iJbIjFUEsiwD8/FfD2ys@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 16, 2011 at 2:41 PM, Bernard Metzler <bmt@zurich.ibm.com> w=
-rote:
-> ---
-> =A0drivers/infiniband/hw/siw/iwarp.h | =A0324 +++++++++++++++++++++++=
-++++++++++++++
-> =A01 files changed, 324 insertions(+), 0 deletions(-)
-> =A0create mode 100644 drivers/infiniband/hw/siw/iwarp.h
->
-> diff --git a/drivers/infiniband/hw/siw/iwarp.h b/drivers/infiniband/h=
-w/siw/iwarp.h
-> [ ... ]
-> +struct mpa_rr_params {
-> +#if defined(__LITTLE_ENDIAN_BITFIELD)
-> + =A0 =A0 =A0 __be16 =A0res:5,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 r:1,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 c:1,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 m:1,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rev:8;
-> +#elif defined(__BIG_ENDIAN_BITFIELD)
-> + =A0 =A0 =A0 __be16 =A0m:1,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 c:1,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 r:1,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 res:5,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rev:8;
-> +#else
-> +#error "Adjust your <asm/byteorder.h> defines"
-> +#endif
-> + =A0 =A0 =A0 __be16 =A0pd_len;
-> +};
+On Saturday 18 June 2011 18:26:55 Grant Likely wrote:
+> On Sat, Jun 18, 2011 at 06:21:46PM +0200, Arnd Bergmann wrote:
 
-The above style for declaring endianness specific bitfields in the
-kernel is generally frowned upon. The preferred style is to declare a
-__be32 or __le32 member variable, to define the bitmasks explicitly,
-to use the __constant_cpu_to_be32() conversion function and friends
-and to verify the resulting code with sparse (make C=3D1
-CF=3D-D__CHECK_ENDIAN__ ...).
+> > Should this also support the "clock-frequency" property that 8250-style
+> > serial ports support [1]?
+> > 
+> > For the flow-control properties, should we name that more generic? The
+> > same property certainly makes sense for other serial-ports if it does
+> > here. OTOH, I'm not sure it's actually reliable, because it also depends
+> > on whether the other side of the connection and the cable support hw flow
+> > control.
+> 
+> I'd like to see a few use cases before defining a common property.
+> That said, has-rts-cts does sound like a useful generic property.
+> Or maybe named "uart-has-rts-cts" to make it clear that it is a uart
+> specific binding?
+> 
 
-Bart.
+
+Sounds ok to me.
+
+	Arnd
