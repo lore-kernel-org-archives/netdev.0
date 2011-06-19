@@ -1,131 +1,89 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH 2/3] net/fec: add device tree support
-Date: Sun, 19 Jun 2011 21:39:32 +1000
-Message-ID: <4DFDDFF4.8000305@snapgear.com>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org> <1308410354-21387-3-git-send-email-shawn.guo@linaro.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 03/11] emaclite: enable transmit and receive time
+ stamping.
+Date: Sun, 19 Jun 2011 13:53:41 +0200
+Message-ID: <1308484421.3539.71.camel@edumazet-laptop>
+References: <cover.1308481491.git.richard.cochran@omicron.at>
+	 <47d1af192e2a51722c2d93b78d9c25de1116e82a.1308481492.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>, <patches@linaro.org>,
-	<netdev@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>,
-	Jason Liu <jason.hui@linaro.org>,
-	<linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1308410354-21387-3-git-send-email-shawn.guo@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	John Linn <john.linn@xilinx.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:51756 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753551Ab1FSLxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 07:53:51 -0400
+Received: by wyb38 with SMTP id 38so1116796wyb.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 04:53:50 -0700 (PDT)
+In-Reply-To: <47d1af192e2a51722c2d93b78d9c25de1116e82a.1308481492.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Hi Shawn,
-
-On 06/19/2011 01:19 AM, Shawn Guo wrote:
-> It adds device tree data parsing support for fec driver.
->
-> Signed-off-by: Jason Liu<jason.hui@linaro.org>
-> Signed-off-by: Shawn Guo<shawn.guo@linaro.org>
-> Cc: David S. Miller<davem@davemloft.net>
+Le dimanche 19 juin 2011 =C3=A0 13:19 +0200, Richard Cochran a =C3=A9cr=
+it :
+> This patch enables software (and phy device) time stamping. Since thi=
+s
+> MAC uses phylib, adding the hooks make hardware time stamping in the =
+phy
+> possible.
+>=20
+> Compile tested only.
+>=20
+> Cc: John Linn <john.linn@xilinx.com>
+> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 > ---
->   Documentation/devicetree/bindings/net/fsl-fec.txt |   14 ++++++++++
->   drivers/net/fec.c                                 |   28 +++++++++++++++++++++
->   2 files changed, 42 insertions(+), 0 deletions(-)
->   create mode 100644 Documentation/devicetree/bindings/net/fsl-fec.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> new file mode 100644
-> index 0000000..705111d
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> @@ -0,0 +1,14 @@
-> +* Freescale Fast Ethernet Controller (FEC)
+>  drivers/net/xilinx_emaclite.c |    9 +++++++--
+>  1 files changed, 7 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emacl=
+ite.c
+> index 372572c..ae029d0 100644
+> --- a/drivers/net/xilinx_emaclite.c
+> +++ b/drivers/net/xilinx_emaclite.c
+> @@ -647,7 +647,8 @@ static void xemaclite_rx_handler(struct net_devic=
+e *dev)
+>  	dev->stats.rx_packets++;
+>  	dev->stats.rx_bytes +=3D len;
+> =20
+> -	netif_rx(skb);		/* Send the packet upstream */
+> +	if (!skb_defer_rx_timestamp(skb))
+> +		netif_rx(skb);	/* Send the packet upstream */
+>  }
+> =20
+>  /**
+> @@ -1029,15 +1030,19 @@ static int xemaclite_send(struct sk_buff *ori=
+g_skb, struct net_device *dev)
+>  	spin_lock_irqsave(&lp->reset_lock, flags);
+>  	if (xemaclite_send_data(lp, (u8 *) new_skb->data, len) !=3D 0) {
+>  		/* If the Emaclite Tx buffer is busy, stop the Tx queue and
+> -		 * defer the skb for transmission at a later point when the
+> +		 * defer the skb for transmission during the ISR, after the
+>  		 * current transmission is complete */
+>  		netif_stop_queue(dev);
+>  		lp->deferred_skb =3D new_skb;
+>  		spin_unlock_irqrestore(&lp->reset_lock, flags);
+
+Since you unlock reset_lock right here, there is no guarantee something
+wont eat 'deferred_skb', so you might manipulate a freed skb after this
+point.
+
+> +		/* Take the time stamp now, since we can't do this in an ISR. */
+> +		skb_tx_timestamp(new_skb);
+>  		return 0;
+>  	}
+>  	spin_unlock_irqrestore(&lp->reset_lock, flags);
+> =20
+> +	skb_tx_timestamp(new_skb);
 > +
-> +Required properties:
-> +- compatible : should be "fsl,<soc>-fec", "fsl,fec"
-> +- reg : address and length of the register set for the device
-> +- interrupts : should contain fec interrupt
-> +
-> +Example:
-> +
-> +fec@83fec000 {
-> +	compatible = "fsl,imx51-fec", "fsl,fec";
-> +	reg =<0x83fec000 0x4000>;
-> +	interrupts =<87>;
-> +};
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 885d8ba..ef3d175 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -44,6 +44,8 @@
->   #include<linux/platform_device.h>
->   #include<linux/phy.h>
->   #include<linux/fec.h>
-> +#include<linux/of.h>
-> +#include<linux/of_device.h>
->
->   #include<asm/cacheflush.h>
->
-> @@ -78,6 +80,26 @@ static struct platform_device_id fec_devtype[] = {
->   	{ }
->   };
->
-> +#ifdef CONFIG_OF
-> +static const struct of_device_id fec_dt_ids[] = {
-> +	{ .compatible = "fsl,fec", .data =&fec_devtype[0], },
-> +	{},
-> +};
-> +
-> +static const struct of_device_id *
-> +fec_get_of_device_id(struct platform_device *pdev)
-> +{
-> +	return of_match_device(fec_dt_ids,&pdev->dev);
-> +}
-> +#else
-> +#define fec_dt_ids NULL
-> +static inline struct of_device_id *
-> +fec_get_of_device_id(struct platform_device *pdev)
-> +{
-> +	return NULL;
-> +}
-> +#endif
-> +
->   static unsigned char macaddr[ETH_ALEN];
->   module_param_array(macaddr, byte, NULL, 0);
->   MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
-> @@ -1363,6 +1385,11 @@ fec_probe(struct platform_device *pdev)
->   	struct net_device *ndev;
->   	int i, irq, ret = 0;
->   	struct resource *r;
-> +	const struct of_device_id *of_id;
-> +
-> +	of_id = fec_get_of_device_id(pdev);
 
-fec_get_of_device_id() is defined inside of "#ifdef CONFIG_OF". This
-use of it will break compilation when this is not defined.
+this one is ok.
 
-Regards
-Greg
+>  	dev->stats.tx_bytes +=3D len;
+>  	dev_kfree_skb(new_skb);
+> =20
 
 
 
-> +	if (of_id)
-> +		pdev->id_entry = (struct platform_device_id *) of_id->data;
->
->   	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->   	if (!r)
-> @@ -1531,6 +1558,7 @@ static struct platform_driver fec_driver = {
->   #ifdef CONFIG_PM
->   		.pm	=&fec_pm_ops,
->   #endif
-> +		.of_match_table = fec_dt_ids,
->   	},
->   	.id_table = fec_devtype,
->   	.probe	= fec_probe,
-
-
--- 
-------------------------------------------------------------------------
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
-SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
-8 Gardner Close,                            FAX:         +61 7 3891 3630
-Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.com
