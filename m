@@ -1,58 +1,57 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 02/11] lib8390: enable transmit and receive time stamping.
-Date: Sun, 19 Jun 2011 19:56:55 +0200
-Message-ID: <78a221a72eeca02ae74d4cb3bdd8035f751c915c.1308499701.git.richard.cochran@omicron.at>
+Subject: [PATCH V2 05/11] fec_mpc52xx: enable transmit and receive time stamping.
+Date: Sun, 19 Jun 2011 19:56:58 +0200
+Message-ID: <2d0623bf2ee51df919b7a4ae7844fad516c4149d.1308499701.git.richard.cochran@omicron.at>
 References: <cover.1308499701.git.richard.cochran@omicron.at>
 Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Grant Likely <grant.likely@secretlab.ca>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:58291 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754317Ab1FSR5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:07 -0400
-Received: by fxm17 with SMTP id 17so546578fxm.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:06 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:49063 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754408Ab1FSR5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:15 -0400
+Received: by mail-bw0-f46.google.com with SMTP id 15so1751766bwz.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:15 -0700 (PDT)
 In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
 References: <cover.1308499701.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables software (and phy device) time stamping. This file is
-included by drivers/net/ax88796.c, which is based on phylib. So, this
-patch makes hardware time stamping in the PHY possible.
+This patch enables software (and phy device) time stamping. Software
+time stamping using the SO_TIMESTAMPING API was tested and found to be
+working on the LITE5200B board.
 
-Compile tested only.
-
+Cc: Grant Likely <grant.likely@secretlab.ca>
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/lib8390.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/fec_mpc52xx.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
-index 17b75e5..70eb207 100644
---- a/drivers/net/lib8390.c
-+++ b/drivers/net/lib8390.c
-@@ -410,7 +410,7 @@ static netdev_tx_t __ei_start_xmit(struct sk_buff *skb,
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index 9f81b1a..a4dd6a4 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -335,6 +335,7 @@ static int mpc52xx_fec_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	bd->skb_pa = dma_map_single(dev->dev.parent, skb->data, skb->len,
+ 				    DMA_TO_DEVICE);
  
- 	spin_unlock(&ei_local->page_lock);
- 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
--
 +	skb_tx_timestamp(skb);
- 	dev_kfree_skb (skb);
- 	dev->stats.tx_bytes += send_length;
+ 	bcom_submit_next_buffer(priv->tx_dmatsk, skb);
+ 	spin_unlock_irqrestore(&priv->lock, flags);
  
-@@ -758,7 +758,8 @@ static void ei_receive(struct net_device *dev)
- 				skb_put(skb, pkt_len);	/* Make room */
- 				ei_block_input(dev, pkt_len, skb, current_offset + sizeof(rx_frame));
- 				skb->protocol=eth_type_trans(skb,dev);
--				netif_rx(skb);
-+				if (!skb_defer_rx_timestamp(skb))
-+					netif_rx(skb);
- 				dev->stats.rx_packets++;
- 				dev->stats.rx_bytes += pkt_len;
- 				if (pkt_stat & ENRSR_PHY)
+@@ -434,7 +435,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
+ 		length = status & BCOM_FEC_RX_BD_LEN_MASK;
+ 		skb_put(rskb, length - 4);	/* length without CRC32 */
+ 		rskb->protocol = eth_type_trans(rskb, dev);
+-		netif_rx(rskb);
++		if (!skb_defer_rx_timestamp(skb))
++			netif_rx(rskb);
+ 
+ 		spin_lock(&priv->lock);
+ 	}
 -- 
 1.7.0.4
 
