@@ -1,74 +1,97 @@
-From: "Shmulik Ravid" <shmulikr@broadcom.com>
-Subject: Re: [PATCH 2/7] net: dcbnl, add multicast group for DCB
-Date: Sun, 19 Jun 2011 21:14:39 +0300
-Message-ID: <1308507279.15528.14.camel@lb-tlvb-shmulik.il.broadcom.com>
-References: <20110617211027.26578.11317.stgit@jf-dev1-dcblab>
- <20110617211618.26578.34100.stgit@jf-dev1-dcblab>
+From: Dominik Kaspar <dokaspar.ietf@gmail.com>
+Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
+Date: Sun, 19 Jun 2011 18:25:47 +0200
+Message-ID: <BANLkTi=SdhEnyad8keUO30LsNKFNvw6AoA@mail.gmail.com>
+References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com>
+	<BANLkTikjcd6ZAF5wH_8CKA_OCrfprGokmw@mail.gmail.com>
+	<BANLkTikoQfbSxnJi_OR+N6sa5iVNcTO6Ug@mail.gmail.com>
+	<201104271157.49386.carsten@wolffcarsten.de>
+	<BANLkTimNC9DgWtkTTtjC_v0FsxzvBMsQGw@mail.gmail.com>
+	<BANLkTi=i5ZftuL++ORuy=n_yM_futWYoZw@mail.gmail.com>
+	<BANLkTinsHuP3XSSghfpYET=os9VcJ3FRDA@mail.gmail.com>
+	<BANLkTin5dsubSjOhz3enOjubfVVk6uiNbQ@mail.gmail.com>
+	<B35A6FDF-714A-4226-AFF4-D12ECCD4A152@comsys.rwth-aachen.de>
+	<BANLkTinueBFkVmR-Hd6d1Yojt+gsAV9PYw@mail.gmail.com>
+	<C040825C-480A-46C6-AF32-76D90717BA06@comsys.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "John Fastabend" <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Carsten Wolff <carsten@wolffcarsten.de>,
+	John Heffner <johnwheffner@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Lennart Schulte <Lennart.Schulte@comsys.rwth-aachen.de>,
+	Arnd Hannemann <arnd@arndnet.de>
+To: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4209 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751078Ab1FSQYd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jun 2011 12:24:33 -0400
-In-Reply-To: <20110617211618.26578.34100.stgit@jf-dev1-dcblab>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:56059 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482Ab1FSQZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 12:25:48 -0400
+Received: by iyb12 with SMTP id 12so1382077iyb.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 09:25:47 -0700 (PDT)
+In-Reply-To: <C040825C-480A-46C6-AF32-76D90717BA06@comsys.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Alexander,
 
-On Fri, 2011-06-17 at 14:16 -0700, John Fastabend wrote:
-> Now that dcbnl is being used in many cases by more
-> than a single agent it is beneficial to be notified
-> when some entity either driver or user space has
-> changed the DCB attributes.
-> 
-> Today applications either end up polling the interface
-> or relying on a user space database to maintain the DCB
-> state and post events. Polling is a poor solution for
-> obvious reasons. And relying on a user space database
-> has its own downside. Namely it has created strange
-> boot dependencies requiring the database be populated
-> before any applications dependent on DCB attributes
-> starts or the application goes into a polling loop.
-> Populating the database requires negotiating link
-> setting with the peer and can take anywhere from less
-> than a second up to a few seconds depending on the switch
-> implementation.
-> 
-> Perhaps more importantly if another application or an
-> embedded agent sets a DCB link attribute the database
-> has no way of knowing other than polling the kernel.
-> This prevents applications from responding quickly to
-> changes in link events which at least in the FCoE case
-> and probably any other protocols expecting a lossless
-> link may result in IO errors.
-> 
-> By adding a multicast group for DCB we have clean way
-> to disseminate kernel DCB link attributes up to user
-> space. Avoiding the need for user space to maintain
-> a coherant database and disperse events that potentially
-> do not reflect the current link state.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
-> 
->  include/linux/rtnetlink.h |    2 
->  net/dcb/dcbnl.c           |  228 +++++++++++++++++++++++++++++----------------
->  2 files changed, 147 insertions(+), 83 deletions(-)
-> 
-[...]
-> +static int dcbnl_notify(struct net_device *dev, int event, int cmd,
-> +			u32 seq, u32 pid)
-[...]
-A driver supporting an embedded dcbx stack would want to directly invoke
-the notification routine, therefore it should be exported. I'd like also
-to add support for a CEE notification. Also when the driver invokes the
-notification shouldn't it use a new event type something like
-RTM_NEWDCB?
- 
+Ah... the receiver DSACKs the "original" packet. However, the sender
+already received an ACK for its retransmission and advances SND.UNA.
+When the DSACK finally arrives, it is actually outside of the SND.UNA
+- SND.NXT range, which causes the DSACK to trigger "SACK reneging".
+Did I get that right? :-)
 
+Cheers,
+Dominik
 
+On Sun, Jun 19, 2011 at 5:38 PM, Alexander Zimmermann
+<alexander.zimmermann@comsys.rwth-aachen.de> wrote:
+> Hi,
+>
+> Am 19.06.2011 um 17:22 schrieb Dominik Kaspar:
+>
+>> Hello again,
+>>
+>> I have another question to Linux TCP and packet reordering. What
+>> exactly happens, when a packet is so much delayed (but not causing a
+>> timeout), that it gets overtaken by a retransmitted version of itself?
+>> It seems to me that this results in "SACK reneging", but I don't
+>> really understand why...
+>
+> in theory, you can detect this case with a combination of DSACK
+> and timestamps. However, in practice a reordering delay greater than
+> RTT will likely case an RTO (see RFC4653). IMO, if you have an packet
+> reordering with an delay greater that the RTT, you have much more problems
+> that SACK reneging
+>
+>>
+>> The simplified situation goes this:
+>> - Segment A gets sent and very much delayed (but not causing RTO)
+>> - Segments B, C, D cause dupACKs
+>> - Segment A_ret is retransmitted and ACKed (sent over new path)
+>> - Some more segments E, F, ... are sent and ACKed
+>> - Segment A (the delayed one) arrives at the receiver.
+>> - Now what exactly happens next...?
+>
+> Receiver sends a DSACK
+>
+>>
+>> I use default Linux TCP (with sack=1, dsack=1, fack=1, timestamps=1,
+>> ...) and the above described series of events is cause why
+>> transparently forwarding IP packets over multiple paths with RTTs of
+>> 10 and 100 milliseconds.
+>>
+>> I'd appreciate your help - best regards,
+>> Dominik
+>
+> //
+> // Dipl.-Inform. Alexander Zimmermann
+> // Department of Computer Science, Informatik 4
+> // RWTH Aachen University
+> // Ahornstr. 55, 52056 Aachen, Germany
+> // phone: (49-241) 80-21422, fax: (49-241) 80-22222
+> // email: zimmermann@cs.rwth-aachen.de
+> // web: http://www.umic-mesh.net
+> //
+>
+>
