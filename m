@@ -1,111 +1,465 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: Re: rcu_sched_state detected stall on CPU 0, 3.0-rc2
-Date: Sun, 19 Jun 2011 14:20:14 -0700
-Message-ID: <20110619212014.GA17499@hexapodia.org>
-References: <20110612195856.GA11580@hexapodia.org> <20110612231143.GC11580@hexapodia.org> <20110612235555.GD11580@hexapodia.org> <1307932206.22348.677.camel@localhost> <20110613060453.GA21778@hexapodia.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Paul E. McKenney" <paulmck@us.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110613060453.GA21778@hexapodia.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Marius B. Kotsbak" <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/2] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Sun, 19 Jun 2011 23:45:56 +0200
+Message-ID: <1308519957-28860-1-git-send-email-marius@kotsbak.com>
+References: <201106141146.19097.oneukum@suse.de>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201106141146.19097.oneukum-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 12, 2011 at 11:04:53PM -0700, Andy Isaacson wrote:
-> On Sun, Jun 12, 2011 at 10:30:05PM -0400, Ben Hutchings wrote:
-> > > Of course now that I'm trying to debug, I am seeing many successful
-> > > suspend-resume cycles.  I don't see any signs of difference between the
-> > > cases that hung and the cases that are now succeeding.
-> > > 
-> > > CCing netdev, because I suspend by running pm-suspend, and in at least
-> > > one failure, an ethtool running under pm-suspend seemed to be the
-> > > problem:
-> > > 
-> > > root 11558 pts/8    S+ \_ /bin/sh /usr/lib/pm-utils/sleep.d/00powers
-> > > root 11559 pts/8    S+     \_ /bin/sh /usr/sbin/pm-powersave
-> > > root 11576 pts/8    S+         \_ /bin/sh /usr/lib/pm-utils/power.d/
-> > > root 11577 pts/8    D+             \_ ethtool -s eth0 wol g
-> > [...]
-> > 
-> > Wake-on-LAN configuration is entirely handled by the relevant driver;
-> > the ethtool core just copies the parameters in and out.  It looks like
-> > there is some sort of deadlock or missing unlock in the driver.  So my
-> > question would be which driver is running eth0?
-> 
-> I attached the whole gzipped dmesg, but anyways, it's e1000e:
-> 
-> [    1.168733] e1000e: Intel(R) PRO/1000 Network Driver - 1.3.10-k2
-> [    1.168879] e1000e: Copyright(c) 1999 - 2011 Intel Corporation.
-> [    1.169346] e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
-> [    1.169494] e1000e 0000:00:19.0: setting latency timer to 64
-> [    1.169603] usbcore: registered new interface driver usbfs
-> [    1.169675] e1000e 0000:00:19.0: irq 40 for MSI/MSI-X
-> [    1.169794] usbcore: registered new interface driver hub
-> [    1.181231] usbcore: registered new device driver usb
-> [    1.181879] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
-> [    1.190984] thermal LNXTHERM:00: registered as thermal_zone0
-> [    1.191129] ACPI: Thermal Zone [THM0] (48 C)
-> [    1.205191] SCSI subsystem initialized
-> [    1.207349] libata version 3.00 loaded.
-> [    1.352926] e1000e 0000:00:19.0: eth0: (PCI Express:2.5GT/s:Width x1) 00:26:2d:f3:14:0f
-> [    1.353243] e1000e 0000:00:19.0: eth0: Intel(R) PRO/1000 Network Connection
-> [    1.353473] e1000e 0000:00:19.0: eth0: MAC: 9, PHY: 10, PBA No: A002FF-0FF
-> [snip]
-> [ 1221.836727] PM: Entering mem sleep
-> [ 1221.836855] Suspending console(s) (use no_console_suspend to debug)
-> [ 1222.018735] sd 0:0:0:0: [sda] Synchronizing SCSI cache
-> [ 1222.063181] sd 0:0:0:0: [sda] Stopping disk
-> [ 1222.272665] ehci_hcd 0000:00:1d.0: PCI INT D disabled
-> [ 1222.272668] ehci_hcd 0000:00:1a.0: PCI INT D disabled
-> [ 1222.304428] i915 0000:00:02.0: power state changed by ACPI to D3
-> [ 1222.378384] e1000e 0000:00:19.0: PCI INT A disabled
-> [ 1222.378393] e1000e 0000:00:19.0: PME# enabled
-> [ 1222.378400] e1000e 0000:00:19.0: wake-up capability enabled by ACPI
-> 
-> ethtool does show up in the failure dmesg:
-> 
-> [56520.872462] INFO: task ethtool:18105 blocked for more than 120 seconds.
-> [56520.872465] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-> [56520.872468] ethtool         D 7fffffffffffffff     0 18105  18104 0x00000000
-> [56520.872473]  ffff880105d99ad8 0000000000000082 ffffffff810d0c05 ffff880137d15730
-> [56520.872479]  ffff880130fd3780 ffff880105d99fd8 ffff880105d99fd8 0000000000012500
-> [56520.872485]  ffff8801333794d0 ffff880130fd3780 ffff880105d99fd8 ffff880137ffbe00
-> [56520.872490] Call Trace:
-> [56520.872499]  [<ffffffff810d0c05>] ? zone_statistics+0x7c/0x83
-> [56520.872504]  [<ffffffff8131c13e>] schedule_timeout+0x34/0xde
-> [56520.872509]  [<ffffffff8131bef8>] wait_for_common+0xa3/0x11a
-> [56520.872514]  [<ffffffff8103c393>] ? try_to_wake_up+0x1ac/0x1ac
-> [56520.872519]  [<ffffffff8131c023>] wait_for_completion+0x1d/0x1f
-> [56520.872524]  [<ffffffff8109557d>] synchronize_sched+0x5a/0x5c
-> [56520.872528]  [<ffffffff8105beac>] ? find_ge_pid+0x41/0x41
-> [56520.872536]  [<ffffffff8122f67a>] wakeup_source_remove+0x60/0x64
-> [56520.872541]  [<ffffffff8122f785>] wakeup_source_unregister+0x13/0x1f
-> [56520.872546]  [<ffffffff8122f7f1>] device_wakeup_disable+0x60/0x6b
-> [56520.872550]  [<ffffffff8122f942>] device_set_wakeup_enable+0x2d/0x2f
-> [56520.872573]  [<ffffffffa003a56a>] e1000_set_wol+0x9b/0x9f [e1000e]
-> [56520.872580]  [<ffffffff81261c8e>] dev_ethtool+0x338/0x1c06
-> [56520.872585]  [<ffffffff810d4be4>] ? __do_fault+0x313/0x34a
-> [56520.872591]  [<ffffffff810329ef>] ? should_resched+0xe/0x2d
-> [56520.872595]  [<ffffffff8131be41>] ? _cond_resched+0xe/0x22
-> [56520.872600]  [<ffffffff8126019d>] dev_ioctl+0x503/0x688
-> [56520.872605]  [<ffffffff81319009>] ? __slab_alloc+0x330/0x342
-> [56520.872610]  [<ffffffff8124ac72>] ? sock_alloc_inode+0x24/0xb7
-> [56520.872615]  [<ffffffff8124b0c2>] sock_do_ioctl+0x3b/0x46
-> [56520.872619]  [<ffffffff8124b4f1>] sock_ioctl+0x20d/0x21b
-> [56520.872625]  [<ffffffff810feb02>] ? get_empty_filp+0x93/0x11b
-> [56520.872630]  [<ffffffff8110b218>] do_vfs_ioctl+0x460/0x4a1
-> [56520.872635]  [<ffffffff8124ca82>] ? sock_alloc_file+0xb3/0x114
-> [56520.872640]  [<ffffffff8131d13e>] ? _raw_spin_lock+0xe/0x10
-> [56520.872646]  [<ffffffff810fc23d>] ? fd_install+0x31/0x5d
-> [56520.872650]  [<ffffffff8110b2a0>] sys_ioctl+0x47/0x6b
-> [56520.872655]  [<ffffffff8131ddc2>] system_call_fastpath+0x16/0x1b
+Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
+It has also an ACM interface that previous patches associates with the "option"
+module. To access those interfaces, the modem must first be switched from modem
+mode using a tool like usb_modeswitch.
 
-I've been using 3.0.0-rc2 at 3c25fa74 and haven't seen this problem
-reoccur, so I guess it was either transient or fixed by something in
-7f45e5c..3c25fa7.  Thanks for the help, everyone.
+As the proprietary protocol has been discovered by watching the MS Windows driver
+behavior, there might be errors in the protocol handling, but stable and fast
+connection has been established for hours with Norwegian operator NetCom that
+distributes this modem with their LTE/4G subscription.
 
--andy
+More and updated information about how to use this driver is available here:
+
+http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
+https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
+
+Signed-off-by: Marius B. Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/Kconfig  |   10 ++
+ drivers/net/usb/Makefile |    1 +
+ drivers/net/usb/kalmia.c |  384 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 395 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/usb/kalmia.c
+
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 9d4f911..84d4608 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -385,6 +385,16 @@ config USB_NET_CX82310_ETH
+ 	  router with USB ethernet port. This driver is for routers only,
+ 	  it will not work with ADSL modems (use cxacru driver instead).
+ 
++config USB_NET_KALMIA
++	tristate "Samsung Kalmia based LTE USB modem"
++	depends on USB_USBNET
++	help
++	  Choose this option if you have a Samsung Kalmia based USB modem
++	  as Samsung GT-B3730.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called kalmia.
++
+ config USB_HSO
+ 	tristate "Option USB High Speed Mobile Devices"
+ 	depends on USB && RFKILL
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index c7ec8a5..c203fa2 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -23,6 +23,7 @@ obj-$(CONFIG_USB_NET_MCS7830)	+= mcs7830.o
+ obj-$(CONFIG_USB_USBNET)	+= usbnet.o
+ obj-$(CONFIG_USB_NET_INT51X1)	+= int51x1.o
+ obj-$(CONFIG_USB_CDC_PHONET)	+= cdc-phonet.o
++obj-$(CONFIG_USB_NET_KALMIA)	+= kalmia.o
+ obj-$(CONFIG_USB_IPHETH)	+= ipheth.o
+ obj-$(CONFIG_USB_SIERRA_NET)	+= sierra_net.o
+ obj-$(CONFIG_USB_NET_CX82310_ETH)	+= cx82310_eth.o
+diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+new file mode 100644
+index 0000000..d965fb1
+--- /dev/null
++++ b/drivers/net/usb/kalmia.c
+@@ -0,0 +1,384 @@
++/*
++ * USB network interface driver for Samsung Kalmia based LTE USB modem like the
++ * Samsung GT-B3730 and GT-B3710.
++ *
++ * Copyright (C) 2011 Marius Bjoernstad Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
++ *
++ * Sponsored by Quicklink Video Distribution Services Ltd.
++ *
++ * Based on the cdc_eem module.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ctype.h>
++#include <linux/ethtool.h>
++#include <linux/workqueue.h>
++#include <linux/mii.h>
++#include <linux/usb.h>
++#include <linux/crc32.h>
++#include <linux/usb/cdc.h>
++#include <linux/usb/usbnet.h>
++#include <linux/gfp.h>
++
++/*
++ * The Samsung Kalmia based LTE USB modems have a CDC ACM port for modem control
++ * handled by the "option" module and an ethernet data port handled by this
++ * module.
++ *
++ * The stick must first be switched into modem mode by usb_modeswitch
++ * or similar tool. Then the modem gets sent two initialization packets by
++ * this module, which gives the MAC address of the device. User space can then
++ * connect the modem using AT commands through the ACM port and then use
++ * DHCP on the network interface exposed by this module. Network packets are
++ * sent to and from the modem in a proprietary format discovered after watching
++ * the behavior of the windows driver for the modem.
++ *
++ * More information about the use of the modem is available in usb_modeswitch
++ * forum and the project page:
++ *
++ * http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
++ * https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
++ */
++
++/* #define	DEBUG */
++/* #define	VERBOSE */
++
++#define KALMIA_HEADER_LENGTH 6
++#define KALMIA_ALIGN_SIZE 4
++#define KALMIA_USB_TIMEOUT 10000
++
++/*-------------------------------------------------------------------------*/
++
++static int
++kalmia_send_init_packet(struct usbnet *dev, u8 *init_msg, u8 init_msg_len,
++	u8 *buffer, u8 expected_len)
++{
++	int act_len;
++	int status;
++
++	netdev_dbg(dev->net, "Sending init packet");
++
++	status = usb_bulk_msg(dev->udev, usb_sndbulkpipe(dev->udev, 0x02),
++		init_msg, init_msg_len, &act_len, KALMIA_USB_TIMEOUT);
++	if (status != 0) {
++		netdev_err(dev->net,
++			"Error sending init packet. Status %i, length %i\n",
++			status, act_len);
++		return status;
++	}
++	else if (act_len != init_msg_len) {
++		netdev_err(dev->net,
++			"Did not send all of init packet. Bytes sent: %i",
++			act_len);
++	}
++	else {
++		netdev_dbg(dev->net, "Successfully sent init packet.");
++	}
++
++	status = usb_bulk_msg(dev->udev, usb_rcvbulkpipe(dev->udev, 0x81),
++		buffer, expected_len, &act_len, KALMIA_USB_TIMEOUT);
++
++	if (status != 0)
++		netdev_err(dev->net,
++			"Error receiving init result. Status %i, length %i\n",
++			status, act_len);
++	else if (act_len != expected_len)
++		netdev_err(dev->net, "Unexpected init result length: %i\n",
++			act_len);
++
++	return status;
++}
++
++static int
++kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
++{
++	char init_msg_1[] =
++		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
++		0x00, 0x00 };
++	char init_msg_2[] =
++		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
++		0x00, 0x00 };
++	char receive_buf[28];
++	int status;
++
++	status = kalmia_send_init_packet(dev, init_msg_1, sizeof(init_msg_1)
++		/ sizeof(init_msg_1[0]), receive_buf, 24);
++	if (status != 0)
++		return status;
++
++	status = kalmia_send_init_packet(dev, init_msg_2, sizeof(init_msg_2)
++		/ sizeof(init_msg_2[0]), receive_buf, 28);
++	if (status != 0)
++		return status;
++
++	memcpy(ethernet_addr, receive_buf + 10, ETH_ALEN);
++
++	return status;
++}
++
++static int
++kalmia_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	u8 status;
++	u8 ethernet_addr[ETH_ALEN];
++
++	/* Don't bind to AT command interface */
++	if (intf->cur_altsetting->desc.bInterfaceClass != USB_CLASS_VENDOR_SPEC)
++		return -EINVAL;
++
++	dev->in = usb_rcvbulkpipe(dev->udev, 0x81 & USB_ENDPOINT_NUMBER_MASK);
++	dev->out = usb_sndbulkpipe(dev->udev, 0x02 & USB_ENDPOINT_NUMBER_MASK);
++	dev->status = NULL;
++
++	dev->net->hard_header_len += KALMIA_HEADER_LENGTH;
++	dev->hard_mtu = 1400;
++	dev->rx_urb_size = dev->hard_mtu * 10; // Found as optimal after testing
++
++	status = kalmia_init_and_get_ethernet_addr(dev, ethernet_addr);
++
++	if (status < 0) {
++		usb_set_intfdata(intf, NULL);
++		usb_driver_release_interface(driver_of(intf), intf);
++		return status;
++	}
++
++	memcpy(dev->net->dev_addr, ethernet_addr, ETH_ALEN);
++	memcpy(dev->net->perm_addr, ethernet_addr, ETH_ALEN);
++
++	return status;
++}
++
++static struct sk_buff *
++kalmia_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
++{
++	struct sk_buff *skb2 = NULL;
++	u16 content_len;
++	unsigned char *header_start;
++	unsigned char ether_type_1, ether_type_2;
++	u8 remainder, padlen = 0;
++
++	if (!skb_cloned(skb)) {
++		int headroom = skb_headroom(skb);
++		int tailroom = skb_tailroom(skb);
++
++		if ((tailroom >= KALMIA_ALIGN_SIZE) && (headroom
++			>= KALMIA_HEADER_LENGTH))
++			goto done;
++
++		if ((headroom + tailroom) > (KALMIA_HEADER_LENGTH
++			+ KALMIA_ALIGN_SIZE)) {
++			skb->data = memmove(skb->head + KALMIA_HEADER_LENGTH,
++				skb->data, skb->len);
++			skb_set_tail_pointer(skb, skb->len);
++			goto done;
++		}
++	}
++
++	skb2 = skb_copy_expand(skb, KALMIA_HEADER_LENGTH,
++		KALMIA_ALIGN_SIZE, flags);
++	if (!skb2)
++		return NULL;
++
++	dev_kfree_skb_any(skb);
++	skb = skb2;
++
++	done: header_start = skb_push(skb, KALMIA_HEADER_LENGTH);
++	ether_type_1 = header_start[KALMIA_HEADER_LENGTH + 12];
++	ether_type_2 = header_start[KALMIA_HEADER_LENGTH + 13];
++
++	netdev_dbg(dev->net, "Sending etherType: %02x%02x", ether_type_1,
++		ether_type_2);
++
++	/* According to empiric data for data packages */
++	header_start[0] = 0x57;
++	header_start[1] = 0x44;
++	content_len = skb->len - KALMIA_HEADER_LENGTH;
++	header_start[2] = (content_len & 0xff); /* low byte */
++	header_start[3] = (content_len >> 8); /* high byte */
++
++	header_start[4] = ether_type_1;
++	header_start[5] = ether_type_2;
++
++	/* Align to 4 bytes by padding with zeros */
++	remainder = skb->len % KALMIA_ALIGN_SIZE;
++	if (remainder > 0) {
++		padlen = KALMIA_ALIGN_SIZE - remainder;
++		memset(skb_put(skb, padlen), 0, padlen);
++	}
++
++	netdev_dbg(
++		dev->net,
++		"Sending package with length %i and padding %i. Header: %02x:%02x:%02x:%02x:%02x:%02x.",
++		content_len, padlen, header_start[0], header_start[1],
++		header_start[2], header_start[3], header_start[4],
++		header_start[5]);
++
++	return skb;
++}
++
++static int
++kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
++{
++	/*
++	 * Our task here is to strip off framing, leaving skb with one
++	 * data frame for the usbnet framework code to process.
++	 */
++	const u8 HEADER_END_OF_USB_PACKET[] =
++		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
++	const u8 EXPECTED_UNKNOWN_HEADER_1[] =
++		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
++	const u8 EXPECTED_UNKNOWN_HEADER_2[] =
++		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
++	u8 i = 0;
++
++	/* incomplete header? */
++	if (skb->len < KALMIA_HEADER_LENGTH)
++		return 0;
++
++	do {
++		struct sk_buff *skb2 = NULL;
++		u8 *header_start;
++		u16 usb_packet_length, ether_packet_length;
++		int is_last;
++
++		header_start = skb->data;
++
++		if (unlikely(header_start[0] != 0x57 || header_start[1] != 0x44)) {
++			if (!memcmp(header_start, EXPECTED_UNKNOWN_HEADER_1,
++				sizeof(EXPECTED_UNKNOWN_HEADER_1)) || !memcmp(
++				header_start, EXPECTED_UNKNOWN_HEADER_2,
++				sizeof(EXPECTED_UNKNOWN_HEADER_2))) {
++				netdev_dbg(
++					dev->net,
++					"Received expected unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
++					header_start[0], header_start[1],
++					header_start[2], header_start[3],
++					header_start[4], header_start[5],
++					skb->len - KALMIA_HEADER_LENGTH);
++			}
++			else {
++				netdev_err(
++					dev->net,
++					"Received unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
++					header_start[0], header_start[1],
++					header_start[2], header_start[3],
++					header_start[4], header_start[5],
++					skb->len - KALMIA_HEADER_LENGTH);
++				return 0;
++			}
++		}
++		else
++			netdev_dbg(
++				dev->net,
++				"Received header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
++				header_start[0], header_start[1], header_start[2],
++				header_start[3], header_start[4], header_start[5],
++				skb->len - KALMIA_HEADER_LENGTH);
++
++		/* subtract start header and end header */
++		usb_packet_length = skb->len - (2 * KALMIA_HEADER_LENGTH);
++		ether_packet_length = header_start[2] + (header_start[3] << 8);
++		skb_pull(skb, KALMIA_HEADER_LENGTH);
++
++		/* Some small packets misses end marker */
++		if (usb_packet_length < ether_packet_length) {
++			ether_packet_length = usb_packet_length
++				+ KALMIA_HEADER_LENGTH;
++			is_last = true;
++		}
++		else {
++			netdev_dbg(dev->net, "Correct package length #%i", i
++				+ 1);
++
++			is_last = (memcmp(skb->data + ether_packet_length,
++				HEADER_END_OF_USB_PACKET,
++				sizeof(HEADER_END_OF_USB_PACKET)) == 0);
++			if (!is_last) {
++				header_start = skb->data + ether_packet_length;
++				netdev_dbg(
++					dev->net,
++					"End header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
++					header_start[0], header_start[1],
++					header_start[2], header_start[3],
++					header_start[4], header_start[5],
++					skb->len - KALMIA_HEADER_LENGTH);
++			}
++		}
++
++		if (is_last) {
++			skb2 = skb;
++		}
++		else {
++			skb2 = skb_clone(skb, GFP_ATOMIC);
++			if (unlikely(!skb2))
++				return 0;
++		}
++
++		skb_trim(skb2, ether_packet_length);
++
++		if (is_last) {
++			return 1;
++		}
++		else {
++			usbnet_skb_return(dev, skb2);
++			skb_pull(skb, ether_packet_length);
++		}
++
++		i++;
++	}
++	while (skb->len);
++
++	return 1;
++}
++
++static const struct driver_info kalmia_info = {
++	.description = "Samsung Kalmia LTE USB dongle",
++	.flags = FLAG_WWAN,
++	.bind = kalmia_bind,
++	.rx_fixup = kalmia_rx_fixup,
++	.tx_fixup = kalmia_tx_fixup
++};
++
++/*-------------------------------------------------------------------------*/
++
++static const struct usb_device_id products[] = {
++	/* The unswitched USB ID, to get the module auto loaded: */
++	{ USB_DEVICE(0x04e8, 0x689a) },
++	/* The stick swithed into modem (by e.g. usb_modeswitch): */
++	{ USB_DEVICE(0x04e8, 0x6889),
++		.driver_info = (unsigned long) &kalmia_info, },
++	{ /* EMPTY == end of list */} };
++MODULE_DEVICE_TABLE( usb, products);
++
++static struct usb_driver kalmia_driver = {
++	.name = "kalmia",
++	.id_table = products,
++	.probe = usbnet_probe,
++	.disconnect = usbnet_disconnect,
++	.suspend = usbnet_suspend,
++	.resume = usbnet_resume
++};
++
++static int __init kalmia_init(void)
++{
++	return usb_register(&kalmia_driver);
++}
++module_init( kalmia_init);
++
++static void __exit kalmia_exit(void)
++{
++	usb_deregister(&kalmia_driver);
++}
++module_exit( kalmia_exit);
++
++MODULE_AUTHOR("Marius Bjoernstad Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>");
++MODULE_DESCRIPTION("Samsung Kalmia USB network driver");
++MODULE_LICENSE("GPL");
+-- 
+1.7.4.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
