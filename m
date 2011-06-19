@@ -1,53 +1,48 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 10/11] mv643xx_eth: enable transmit time stamping.
-Date: Sun, 19 Jun 2011 20:17:40 +0200
-Message-ID: <20110619181740.GC3594@riccoc20.at.omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 07/11] fs_enet: enable transmit time stamping.
+Date: Sun, 19 Jun 2011 20:30:49 +0200
+Message-ID: <1308508249.3539.78.camel@edumazet-laptop>
 References: <cover.1308481491.git.richard.cochran@omicron.at>
- <1b5632e5cd90ed390245f3d1264e42fdd760dd7e.1308481492.git.richard.cochran@omicron.at>
+	 <2a8677b99c6b8d0e34bbf0f6d6a44e6c7992636d.1308481492.git.richard.cochran@omicron.at>
+	 <1308484684.3539.76.camel@edumazet-laptop>
+	 <20110619181212.GA3594@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:52677 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754471Ab1FSSRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 14:17:38 -0400
-Received: by fxm17 with SMTP id 17so551145fxm.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 11:17:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1b5632e5cd90ed390245f3d1264e42fdd760dd7e.1308481492.git.richard.cochran@omicron.at>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56971 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754609Ab1FSSa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 14:30:58 -0400
+Received: by wyb38 with SMTP id 38so1229962wyb.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 11:30:57 -0700 (PDT)
+In-Reply-To: <20110619181212.GA3594@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 19, 2011 at 01:20:06PM +0200, Richard Cochran wrote:
-> This patch enables software (and phy device) transmit time stamping.
-> Compile tested only.
-> 
-> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-> ---
->  drivers/net/mv643xx_eth.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> index a5d9b1c..c7a8f10 100644
-> --- a/drivers/net/mv643xx_eth.c
-> +++ b/drivers/net/mv643xx_eth.c
-> @@ -884,6 +884,8 @@ static netdev_tx_t mv643xx_eth_xmit(struct sk_buff *skb, struct net_device *dev)
->  	if (!txq_submit_skb(txq, skb)) {
->  		int entries_left;
->  
-> +		skb_tx_timestamp(skb);
-> +
->  		txq->tx_bytes += skb->len;
+Le dimanche 19 juin 2011 =C3=A0 20:12 +0200, Richard Cochran a =C3=A9cr=
+it :
 
-And the line above is unsafe, as well.
+> Thanks for your review. I have posted a fix for the first batch (sinc=
+e
+> they are already in next) and reposted this series.
+>=20
+> But, considering your point, it looks like pxa168_eth and mv643xx_eth
+> (see patches 9 and 10 of this series) already access skb->len unsafel=
+y.
+>=20
+> Would you care to comment on those spots, too?
 
->  		txq->tx_packets++;
->  
-> -- 
-> 1.7.0.4
-> 
+They certainly are buggy, at a first glance.
+
+Not only skb->len is unsafe, but netif_tx_stop_queue() calls are unsafe
+too.
+
+Not sure anyone still use these drivers...
+
+
+
