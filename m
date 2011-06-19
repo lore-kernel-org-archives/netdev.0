@@ -1,150 +1,184 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH 1/2] proc: Generalize proc inode allocation
-Date: Sun, 19 Jun 2011 09:20:14 -0500
-Message-ID: <20110619142014.GA4694@mail.hallyn.com>
-References: <20110521093936.GA3015@p183>
- <m11uzsxdty.fsf@fess.ebiederm.org>
- <20110521223054.GA3198@p183>
- <m1vcx3r3o5.fsf@fess.ebiederm.org>
- <20110523014303.GA2351982@jupiter.n2.diac24.net>
- <20110523014751.GB2351982@jupiter.n2.diac24.net>
- <m1wrgkavbm.fsf_-_@fess.ebiederm.org>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Sun, 19 Jun 2011 09:05:49 -0600
+Message-ID: <BANLkTi=1hf7ycwMBcZ0+VDNRMG1_vdnSqA@mail.gmail.com>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+ <1308410354-21387-2-git-send-email-shawn.guo@linaro.org> <20110618161934.GH8195@ponder.secretlab.ca>
+ <20110619073000.GA23171@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers@lists.osdl.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	David Lamparter <equinox@diac24.net>,
-	linux-kernel@vger.kernel.org, "Serge E. Hallyn" <serge@hallyn.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <m1wrgkavbm.fsf_-_@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shawn Guo <shawn.guo@linaro.org>, patches@linaro.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	Jeremy Kerr <jeremy.kerr@canonical.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:34410 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754019Ab1FSPGL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 11:06:11 -0400
+In-Reply-To: <20110619073000.GA23171@S2100-06.ap.freescale.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> 
-> Generalize the proc inode allocation so that it can be
-> used without having to having to create a proc_dir_entry.
-> 
-> This will allow namespace file descriptors to remain light
-> weight entitities but still have the same inode number
-> when the backing namespace is the same.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+On Sun, Jun 19, 2011 at 1:30 AM, Shawn Guo <shawn.guo@freescale.com> wr=
+ote:
+> On Sat, Jun 18, 2011 at 10:19:34AM -0600, Grant Likely wrote:
+>> On Sat, Jun 18, 2011 at 11:19:12PM +0800, Shawn Guo wrote:
+>> > It adds device tree data parsing support for imx tty/serial driver=
+=2E
+>> >
+>> > Signed-off-by: Jeremy Kerr <jeremy.kerr@canonical.com>
+>> > Signed-off-by: Jason Liu <jason.hui@linaro.org>
+>> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+>> > Cc: Sascha Hauer <s.hauer@pengutronix.de>
+>> > ---
+>> > =A0.../bindings/tty/serial/fsl-imx-uart.txt =A0 =A0 =A0 =A0 =A0 | =
+=A0 21 +++++
+>> > =A0drivers/tty/serial/imx.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 | =A0 81 +++++++++++++++++---
+>> > =A02 files changed, 92 insertions(+), 10 deletions(-)
+>> > =A0create mode 100644 Documentation/devicetree/bindings/tty/serial=
+/fsl-imx-uart.txt
+>> >
+>> > diff --git a/Documentation/devicetree/bindings/tty/serial/fsl-imx-=
+uart.txt b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.tx=
+t
+>> > new file mode 100644
+>> > index 0000000..7648e17
+>> > --- /dev/null
+>> > +++ b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.tx=
+t
+>> > @@ -0,0 +1,21 @@
+>> > +* Freescale i.MX Universal Asynchronous Receiver/Transmitter (UAR=
+T)
+>> > +
+>> > +Required properties:
+>> > +- compatible : should be "fsl,<soc>-uart", "fsl,imx-uart"
+>>
+>> I'd make this "fsl,<soc>-uart", "fsl,imx51-uart"
+>>
+>> It's better to anchor these things on real silicon, or a real ip blo=
+ck
+>> specification rather than something pseudo-generic. =A0Subsequent ch=
+ips,
+>> like the imx53, should simply claim compatibility with the older
+>> fsl,imx51-uart.
+>
+> It is a real IP block on all imx silicons (except imx23 and imx28
+> which are known as former stmp).
+>
+>>
+>> (in essence, "fsl,imx51-uart" becomes the generic string without the
+>> downside of having no obvious recourse when new silicon shows up tha=
+t
+>> is an imx part, but isn't compatible with the imx51 uart.
+>>
+> In this case, should imx1 the ancestor of imx family than imx51
+> becomes part of that generic string? =A0Claiming uart of imx1, imx21
+> and imx31 (senior than imx51) compatible with the imx51 uart seems
+> odd to me.
+>
+> That said, IMO, "fsl,imx-uart" stands a real IP block specification
+> here and can be a perfect generic compatibility string to tell the
+> recourse of any imx silicon using this IP.
 
-Acked-by: Serge Hallyn <serge@hallyn.com>
+Yes, but which /version/ of the IP block?  Hardware designers are
+notorious for changing hardware designs for newer silicon, sometimes
+to add features, sometimes to fix bugs.  While I understand the
+temptation to boil a compatible value down to a nice clean generic
+string, doing so only works in a perfect world.  In the real world,
+you still need to have some information about the specific
+implementation.  I prefer this specifying it to the SoC name, but I've
+been known to be convinced that specifying it to the ip-block name &
+version in certain circumstances, like for IP blocks in an FPGA, or
+some of the Freescale powerpc pXXXX SoCs which actually had an IP
+block swapped out midway through the life of the chip.
 
-> ---
-> 
-> Baring problems in review I plan to merge these patches
-> via my linux-2.6-nsfd tree.
-> 
->  fs/proc/generic.c       |   26 +++++++++++++-------------
->  include/linux/proc_fs.h |   10 ++++++++++
->  2 files changed, 23 insertions(+), 13 deletions(-)
-> 
-> diff --git a/fs/proc/generic.c b/fs/proc/generic.c
-> index f1637f1..65416a1 100644
-> --- a/fs/proc/generic.c
-> +++ b/fs/proc/generic.c
-> @@ -350,14 +350,14 @@ static DEFINE_SPINLOCK(proc_inum_lock); /* protects the above */
->   * Return an inode number between PROC_DYNAMIC_FIRST and
->   * 0xffffffff, or zero on failure.
->   */
-> -static unsigned int get_inode_number(void)
-> +int proc_alloc_inum(unsigned int *inum)
->  {
->  	unsigned int i;
->  	int error;
->  
->  retry:
-> -	if (ida_pre_get(&proc_inum_ida, GFP_KERNEL) == 0)
-> -		return 0;
-> +	if (!ida_pre_get(&proc_inum_ida, GFP_KERNEL))
-> +		return -ENOMEM;
->  
->  	spin_lock(&proc_inum_lock);
->  	error = ida_get_new(&proc_inum_ida, &i);
-> @@ -365,18 +365,19 @@ retry:
->  	if (error == -EAGAIN)
->  		goto retry;
->  	else if (error)
-> -		return 0;
-> +		return error;
->  
->  	if (i > UINT_MAX - PROC_DYNAMIC_FIRST) {
->  		spin_lock(&proc_inum_lock);
->  		ida_remove(&proc_inum_ida, i);
->  		spin_unlock(&proc_inum_lock);
-> -		return 0;
-> +		return -ENOSPC;
->  	}
-> -	return PROC_DYNAMIC_FIRST + i;
-> +	*inum = PROC_DYNAMIC_FIRST + i;
-> +	return 0;
->  }
->  
-> -static void release_inode_number(unsigned int inum)
-> +void proc_free_inum(unsigned int inum)
->  {
->  	spin_lock(&proc_inum_lock);
->  	ida_remove(&proc_inum_ida, inum - PROC_DYNAMIC_FIRST);
-> @@ -554,13 +555,12 @@ static const struct inode_operations proc_dir_inode_operations = {
->  
->  static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp)
->  {
-> -	unsigned int i;
->  	struct proc_dir_entry *tmp;
-> +	int ret;
->  	
-> -	i = get_inode_number();
-> -	if (i == 0)
-> -		return -EAGAIN;
-> -	dp->low_ino = i;
-> +	ret = proc_alloc_inum(&dp->low_ino);
-> +	if (ret)
-> +		return ret;
->  
->  	if (S_ISDIR(dp->mode)) {
->  		if (dp->proc_iops == NULL) {
-> @@ -766,7 +766,7 @@ EXPORT_SYMBOL(proc_create_data);
->  
->  static void free_proc_entry(struct proc_dir_entry *de)
->  {
-> -	release_inode_number(de->low_ino);
-> +	proc_free_inum(de->low_ino);
->  
->  	if (S_ISLNK(de->mode))
->  		kfree(de->data);
-> diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
-> index e7576cf..3067b44 100644
-> --- a/include/linux/proc_fs.h
-> +++ b/include/linux/proc_fs.h
-> @@ -175,6 +175,8 @@ extern struct proc_dir_entry *proc_net_mkdir(struct net *net, const char *name,
->  
->  extern struct file *proc_ns_fget(int fd);
->  
-> +extern int proc_alloc_inum(unsigned int *pino);
-> +extern void proc_free_inum(unsigned int inum);
->  #else
->  
->  #define proc_net_fops_create(net, name, mode, fops)  ({ (void)(mode), NULL; })
-> @@ -229,6 +231,14 @@ static inline struct file *proc_ns_fget(int fd)
->  	return ERR_PTR(-EINVAL);
->  }
->  
-> +static inline int proc_alloc_inum(unsigned int *inum)
-> +{
-> +	*inum = 1;
-> +	return 0;
-> +}
-> +static inline void proc_free_inum(unsigned int inum)
-> +{
-> +}
->  #endif /* CONFIG_PROC_FS */
->  
->  #if !defined(CONFIG_PROC_KCORE)
-> -- 
-> 1.7.5.1.217.g4e3aa
-> 
+Besides, encoding an soc or ip block version into the 'generic'
+compatible values is not just good practice, it has *zero downside*.
+That's the beauty of the compatible property semantics.  Any node can
+claim compatibility with an existing device.  If no existing device
+fits correctly, then the node simple does not claim compatibility.
+Drivers can bind to any number of compatible strings, so it would be
+just fine for the of_match_table list to include both "fsl,imx-21" and
+"fsl,imx-51" (assuming that is the appropriate solution in this case).
+
+>
+>> > +- reg : address and length of the register set for the device
+>> > +- interrupts : should contain uart interrupt
+>> > +- id : should be the port ID defined by soc
+>> > +
+>> > +Optional properties:
+>> > +- fsl,has-rts-cts : indicate it has rts-cts
+>> > +- fsl,irda-mode : support irda mode
+>> > +
+>> > +Example:
+>> > +
+>> > +uart@73fbc000 {
+>> > + =A0 compatible =3D "fsl,imx51-uart", "fsl,imx-uart";
+>> > + =A0 reg =3D <0x73fbc000 0x4000>;
+>> > + =A0 interrupts =3D <31>;
+>> > + =A0 id =3D <1>;
+>> > + =A0 fsl,has-rts-cts;
+>> > +};
+>> > diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
+>> > index a544731..2769353 100644
+>> > --- a/drivers/tty/serial/imx.c
+>> > +++ b/drivers/tty/serial/imx.c
+>> > @@ -45,6 +45,8 @@
+>> > =A0#include <linux/delay.h>
+>> > =A0#include <linux/rational.h>
+>> > =A0#include <linux/slab.h>
+>> > +#include <linux/of.h>
+>> > +#include <linux/of_address.h>
+>> >
+>> > =A0#include <asm/io.h>
+>> > =A0#include <asm/irq.h>
+>> > @@ -1223,6 +1225,63 @@ static int serial_imx_resume(struct platfor=
+m_device *dev)
+>> > =A0 =A0 return 0;
+>> > =A0}
+>> >
+>> > +#ifdef CONFIG_OF
+>> > +static int serial_imx_probe_dt(struct imx_port *sport,
+>> > + =A0 =A0 =A0 =A0 =A0 struct platform_device *pdev)
+>> > +{
+>> > + =A0 struct device_node *node =3D pdev->dev.of_node;
+>> > + =A0 const __be32 *line;
+>> > +
+>> > + =A0 if (!node)
+>> > + =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+>> > +
+>> > + =A0 line =3D of_get_property(node, "id", NULL);
+>> > + =A0 if (!line)
+>> > + =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+>> > +
+>> > + =A0 sport->port.line =3D be32_to_cpup(line) - 1;
+>>
+>> Hmmm, I really would like to be rid of this. =A0Instead, if uarts mu=
+st
+>> be enumerated, the driver should look for a /aliases/uart* property
+>> that matches the of_node. =A0Doing it that way is already establishe=
+d in
+>> the OpenFirmware documentation, and it ensures there are no overlaps
+>> in the global namespace.
+>>
+>
+> I just gave one more try to avoid using 'aliases', and you gave a
+> 'no' again. =A0Now, I know how hard you are on this. =A0Okay, I start
+> thinking about your suggestion seriously :)
+
+Ha ha ha.
+
+>
+>> We do need some infrastructure to make that easier though. =A0Would =
+you
+>> have time to help put that together?
+>>
+> Ok, I will give it a try.
+
+Cool. We'll talk next week about it.
