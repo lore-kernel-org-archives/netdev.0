@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sctp: HEARTBEAT negotiation after ASCONF
-Date: Sun, 19 Jun 2011 16:10:34 -0700 (PDT)
-Message-ID: <20110619.161034.893667223164209739.davem@davemloft.net>
-References: <9C3219F3-AD39-40CF-8422-241D26ECA4D7@sfc.wide.ad.jp>
+Subject: Re: [Patch] netpoll: copy dev name of slaves to struct netpoll
+Date: Sun, 19 Jun 2011 16:13:40 -0700 (PDT)
+Message-ID: <20110619.161340.1697888006248728609.davem@davemloft.net>
+References: <1308303817-3498-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
-To: micchie@sfc.wide.ad.jp
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37910 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49003 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754765Ab1FSXKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:10:42 -0400
-In-Reply-To: <9C3219F3-AD39-40CF-8422-241D26ECA4D7@sfc.wide.ad.jp>
+	with ESMTP id S1754170Ab1FSXNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:13:44 -0400
+In-Reply-To: <1308303817-3498-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Thu, 16 Jun 2011 17:56:42 +0900
+From: Amerigo Wang <amwang@redhat.com>
+Date: Fri, 17 Jun 2011 17:43:37 +0800
 
-> @@ -989,6 +991,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
->  			    ((new_transport->state == SCTP_INACTIVE) ||
->  			     (new_transport->state == SCTP_UNCONFIRMED)))
->  				new_transport = asoc->peer.active_path;
-> +			if (new_transport->state == SCTP_UNCONFIRMED) 
-> +				continue;
->  
->  			/* Change packets if necessary.  */
->  			if (new_transport != transport) {
+> Otherwise we will not see the name of the slave dev in error
+> message:
+> 
+> [  388.469446] (null):  doesn't support polling, aborting.
+> 
+> Signed-off-by: WANG Cong <amwang@redhat.com>
 
-This code path uses the asoc->peer.active_path is the new_transport
-is in the SCTP_UNCONFIRMED state.  Are you sure your new check is
-correct in that case?
-
-Shouldn't you be testing the variable "new_transport" instead?
-
+Applied, thanks.
