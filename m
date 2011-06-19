@@ -1,60 +1,47 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 04/11] ll_temac: enable transmit and receive time stamping.
-Date: Sun, 19 Jun 2011 19:56:57 +0200
-Message-ID: <18c39ecff0e13bac28868de5f5fe62fcdc8919b8.1308499701.git.richard.cochran@omicron.at>
+Subject: [PATCH V2 06/11] macb: enable transmit time stamping.
+Date: Sun, 19 Jun 2011 19:56:59 +0200
+Message-ID: <3ca7dbb040dca718efcbab6e2d8d76e656698ed8.1308499701.git.richard.cochran@omicron.at>
 References: <cover.1308499701.git.richard.cochran@omicron.at>
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Grant Likely <grant.likely@secretlab.ca>
+	Nicolas Ferre <nicolas.ferre@atmel.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:58291 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754317Ab1FSR5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:12 -0400
-Received: by mail-fx0-f46.google.com with SMTP id 17so546578fxm.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:11 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:49063 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754416Ab1FSR5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:18 -0400
+Received: by mail-bw0-f46.google.com with SMTP id 15so1751766bwz.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:17 -0700 (PDT)
 In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
 References: <cover.1308499701.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables software (and phy device) time stamping. Since this MAC
-is based on phylib, adding the hooks makes hardware time stamping in the
-phy possible.
-
+This patch enables software (and phy device) transmit time stamping
 Compile tested only.
 
-Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/ll_temac_main.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ drivers/net/macb.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-index b7948cc..ce9a607 100644
---- a/drivers/net/ll_temac_main.c
-+++ b/drivers/net/ll_temac_main.c
-@@ -727,6 +727,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (lp->tx_bd_tail >= TX_BD_NUM)
- 		lp->tx_bd_tail = 0;
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index 6c6a028..fab63bf 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -669,6 +669,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	entry = NEXT_TX(entry);
+ 	bp->tx_head = entry;
  
 +	skb_tx_timestamp(skb);
 +
- 	/* Kick off the transfer */
- 	lp->dma_out(lp, TX_TAILDESC_PTR, tail_p); /* DMA start */
+ 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
  
-@@ -772,7 +774,8 @@ static void ll_temac_recv(struct net_device *ndev)
- 			skb->ip_summed = CHECKSUM_COMPLETE;
- 		}
- 
--		netif_rx(skb);
-+		if (!skb_defer_rx_timestamp(skb))
-+			netif_rx(skb);
- 
- 		ndev->stats.rx_packets++;
- 		ndev->stats.rx_bytes += length;
+ 	if (TX_BUFFS_AVAIL(bp) < 1)
 -- 
 1.7.0.4
 
