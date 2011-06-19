@@ -1,57 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 07/11] fs_enet: enable transmit time stamping.
-Date: Sun, 19 Jun 2011 13:58:04 +0200
-Message-ID: <1308484684.3539.76.camel@edumazet-laptop>
-References: <cover.1308481491.git.richard.cochran@omicron.at>
-	 <2a8677b99c6b8d0e34bbf0f6d6a44e6c7992636d.1308481492.git.richard.cochran@omicron.at>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/3] net/fec: add device tree support
+Date: Sun, 19 Jun 2011 14:11:31 +0200
+Message-ID: <201106191411.32137.arnd@arndb.de>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org> <1308410354-21387-3-git-send-email-shawn.guo@linaro.org> <4DFDDFF4.8000305@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-	Vitaly Bordug <vbordug@ru.mvista.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37369 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753693Ab1FSL6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 07:58:14 -0400
-Received: by wyb38 with SMTP id 38so1117876wyb.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 04:58:13 -0700 (PDT)
-In-Reply-To: <2a8677b99c6b8d0e34bbf0f6d6a44e6c7992636d.1308481492.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Greg Ungerer <gerg@snapgear.com>, Shawn Guo <shawn.guo@linaro.org>,
+	patches@linaro.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DFDDFF4.8000305@snapgear.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 19 juin 2011 =C3=A0 13:20 +0200, Richard Cochran a =C3=A9cr=
-it :
-> This patch enables software (and phy device) transmit time stamping.
-> Compile tested only.
->=20
-> Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
-> Cc: Vitaly Bordug <vbordug@ru.mvista.com>
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-> ---
->  drivers/net/fs_enet/fs_enet-main.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet=
-/fs_enet-main.c
-> index 21abb5c..8dcb272 100644
-> --- a/drivers/net/fs_enet/fs_enet-main.c
-> +++ b/drivers/net/fs_enet/fs_enet-main.c
-> @@ -701,6 +701,8 @@ static int fs_enet_start_xmit(struct sk_buff *skb=
-, struct net_device *dev)
-> =20
->  	spin_unlock_irqrestore(&fep->tx_lock, flags);
-> =20
-> +	skb_tx_timestamp(skb);
-> +
->  	return NETDEV_TX_OK;
->  }
-> =20
+On Sunday 19 June 2011 13:39:32 Greg Ungerer wrote:
+> > +#ifdef CONFIG_OF
+> > +static const struct of_device_id fec_dt_ids[] = {
+> > +     { .compatible = "fsl,fec", .data =&fec_devtype[0], },
+> > +     {},
+> > +};
+> > +
+> > +static const struct of_device_id *
+> > +fec_get_of_device_id(struct platform_device *pdev)
+> > +{
+> > +     return of_match_device(fec_dt_ids,&pdev->dev);
+> > +}
+> > +#else
+> > +#define fec_dt_ids NULL
+> > +static inline struct of_device_id *
+> > +fec_get_of_device_id(struct platform_device *pdev)
+> > +{
+> > +     return NULL;
+> > +}
+> > +#endif
+> > +
+> >   static unsigned char macaddr[ETH_ALEN];
+> >   module_param_array(macaddr, byte, NULL, 0);
+> >   MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+> > @@ -1363,6 +1385,11 @@ fec_probe(struct platform_device *pdev)
+> >       struct net_device *ndev;
+> >       int i, irq, ret = 0;
+> >       struct resource *r;
+> > +     const struct of_device_id *of_id;
+> > +
+> > +     of_id = fec_get_of_device_id(pdev);
+> 
+> fec_get_of_device_id() is defined inside of "#ifdef CONFIG_OF". This
+> use of it will break compilation when this is not defined.
+> 
 
-Well, I'll stop my review here, there is the same problem I guess in al=
-l
-your patches.
 
+Why? Note the #else path defining an empty function.
 
+	Arnd
