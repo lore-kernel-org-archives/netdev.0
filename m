@@ -1,48 +1,58 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 01/11] net: export the receive time stamping hook for non-NAPI drivers
-Date: Sun, 19 Jun 2011 19:56:54 +0200
-Message-ID: <a25247fca84746d38aa395cd4789186968cc036e.1308499701.git.richard.cochran@omicron.at>
+Subject: [PATCH V2 02/11] lib8390: enable transmit and receive time stamping.
+Date: Sun, 19 Jun 2011 19:56:55 +0200
+Message-ID: <78a221a72eeca02ae74d4cb3bdd8035f751c915c.1308499701.git.richard.cochran@omicron.at>
 References: <cover.1308499701.git.richard.cochran@omicron.at>
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49063 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753943Ab1FSR5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:02 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 15so1751766bwz.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:02 -0700 (PDT)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:58291 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754317Ab1FSR5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:07 -0400
+Received: by fxm17 with SMTP id 17so546578fxm.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:06 -0700 (PDT)
 In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
 References: <cover.1308499701.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ethernet MAC drivers based on phylib (but not using NAPI) can
-enable hardware time stamping in phy devices by calling netif_rx()
-conditionally based on a call to skb_defer_rx_timestamp().
+This patch enables software (and phy device) time stamping. This file is
+included by drivers/net/ax88796.c, which is based on phylib. So, this
+patch makes hardware time stamping in the PHY possible.
 
-This commit exports that function so that drivers calling it may
-be compiled as modules.
+Compile tested only.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- net/core/timestamping.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/lib8390.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index 3b00a6b..98a5264 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -122,6 +122,7 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
+diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
+index 17b75e5..70eb207 100644
+--- a/drivers/net/lib8390.c
++++ b/drivers/net/lib8390.c
+@@ -410,7 +410,7 @@ static netdev_tx_t __ei_start_xmit(struct sk_buff *skb,
  
- 	return false;
- }
-+EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
+ 	spin_unlock(&ei_local->page_lock);
+ 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
+-
++	skb_tx_timestamp(skb);
+ 	dev_kfree_skb (skb);
+ 	dev->stats.tx_bytes += send_length;
  
- void __init skb_timestamping_init(void)
- {
+@@ -758,7 +758,8 @@ static void ei_receive(struct net_device *dev)
+ 				skb_put(skb, pkt_len);	/* Make room */
+ 				ei_block_input(dev, pkt_len, skb, current_offset + sizeof(rx_frame));
+ 				skb->protocol=eth_type_trans(skb,dev);
+-				netif_rx(skb);
++				if (!skb_defer_rx_timestamp(skb))
++					netif_rx(skb);
+ 				dev->stats.rx_packets++;
+ 				dev->stats.rx_bytes += pkt_len;
+ 				if (pkt_stat & ENRSR_PHY)
 -- 
 1.7.0.4
 
