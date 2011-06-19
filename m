@@ -1,57 +1,54 @@
-From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: RFT: virtio_net: limit xmit polling
-Date: Sun, 19 Jun 2011 13:27:00 +0300
-Message-ID: <20110619102700.GA11198@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	roprabhu-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
-To: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH 00/11] net: expand time stamping, batch #2
+Date: Sun, 19 Jun 2011 13:19:56 +0200
+Message-ID: <cover.1308481491.git.richard.cochran@omicron.at>
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:44082 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753431Ab1FSLUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 07:20:03 -0400
+Received: by fxm17 with SMTP id 17so448603fxm.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 04:20:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OK, different people seem to test different trees.  In the hope to get
-everyone on the same page, I created several variants of this patch so
-they can be compared. Whoever's interested, please check out the
-following, and tell me how these compare:
+This patch series represents a continuation of the effort to get
+better coverage of the SO_TIMESTAMPING socket API in the Ethernet
+drivers.  Adding time stamping support to a given driver solves two
+separate issues, namely software transmit time stamping and hardware
+time stamping in PHY devices.
 
-kernel:
+This second batch adds the hooks into all remaining (?) arm and
+powerpc MAC drivers using phylib. The first patch exports the receive
+hook for use by non-NAPI drivers when compiled as modules. Patch #5
+has been tested on real hardware, but the rest have only been compile
+tested.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
+Richard Cochran (11):
+  net: export the receive time stamping hook for non-NAPI drivers
+  lib8390: enable transmit and receive time stamping.
+  emaclite: enable transmit and receive time stamping.
+  ll_temac: enable transmit and receive time stamping.
+  fec_mpc52xx: enable transmit and receive time stamping.
+  macb: enable transmit time stamping.
+  fs_enet: enable transmit time stamping.
+  smsc911x: enable transmit time stamping.
+  pxa168_eth: enable transmit time stamping.
+  mv643xx_eth: enable transmit time stamping.
+  ucc_geth: enable transmit time stamping.
 
-virtio-net-limit-xmit-polling/base - this is net-next baseline to test against
-virtio-net-limit-xmit-polling/v0 - fixes checks on out of capacity
-virtio-net-limit-xmit-polling/v1 - previous revision of the patch
-		this does xmit,free,xmit,2*free,free
-virtio-net-limit-xmit-polling/v2 - new revision of the patch
-		this does free,xmit,2*free,free
+ drivers/net/fec_mpc52xx.c          |    4 +++-
+ drivers/net/fs_enet/fs_enet-main.c |    2 ++
+ drivers/net/lib8390.c              |    5 +++--
+ drivers/net/ll_temac_main.c        |    5 ++++-
+ drivers/net/macb.c                 |    2 ++
+ drivers/net/mv643xx_eth.c          |    2 ++
+ drivers/net/pxa168_eth.c           |    1 +
+ drivers/net/smsc911x.c             |    1 +
+ drivers/net/ucc_geth.c             |    1 +
+ drivers/net/xilinx_emaclite.c      |    9 +++++++--
+ net/core/timestamping.c            |    1 +
+ 11 files changed, 27 insertions(+), 6 deletions(-)
 
-There's also this on top:
-virtio-net-limit-xmit-polling/v3 -> don't delay avail index update
-I don't think it's important to test this one, yet
-
-Userspace to use: event index work is not yet merged upstream
-so the revision to use is still this:
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git
-virtio-net-event-idx-v3
-
--- 
-MST
