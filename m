@@ -1,43 +1,101 @@
-From: Mark Smith <lk-netdev@lk-netdev.nosense.org>
-Subject: Ethernet low-level frame debugging support
-Date: Sun, 19 Jun 2011 10:44:31 +0930
-Message-ID: <20110619104431.23a22fe9@opy.nosense.org>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Sun, 19 Jun 2011 09:02:38 +0200
+Message-ID: <20110619070238.GD1632@pengutronix.de>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+ <1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
+ <20110618161934.GH8195@ponder.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DrWhICOqskFTAXiy"
+Cc: Shawn Guo <shawn.guo@linaro.org>, patches@linaro.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	Jeremy Kerr <jeremy.kerr@canonical.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.adam.net.au ([202.136.110.247]:53180 "EHLO
-	smtp4.adam.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751393Ab1FSFoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 01:44:55 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:38625 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751766Ab1FSHCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 03:02:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20110618161934.GH8195@ponder.secretlab.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Firstly, I think this is a potentially quite useful feature for
-networking people and that I hope it makes it into the kernel proper.
+--DrWhICOqskFTAXiy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-One thing I've thought is that perhaps it might be made and named a bit
-more generally, as NICs will also drop frames for other reasons other
-than FCs failures e.g. runt frames. So perhaps something like "true
-promiscuous" or "full promiscuous" might be a more general name, and if
-it is enabled, then all NIC error checking that can be switched off is
-switched off. Looking at the chipset data sheets for a few NICs that I
-have / have had (netgear FA312 (natsemi ns83815), smc epic100, ne2000),
-they all seem to have registers which allow switching off many if not
-all of the NIC error checking settings.
+On Sat, Jun 18, 2011 at 10:19:34AM -0600, Grant Likely wrote:
+> On Sat, Jun 18, 2011 at 11:19:12PM +0800, Shawn Guo wrote:
+> > It adds device tree data parsing support for imx tty/serial driver.
+> >=20
+> > Signed-off-by: Jeremy Kerr <jeremy.kerr@canonical.com>
+> > Signed-off-by: Jason Liu <jason.hui@linaro.org>
+> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> > Cc: Sascha Hauer <s.hauer@pengutronix.de>
+> > ---
+> >  .../bindings/tty/serial/fsl-imx-uart.txt           |   21 +++++
+> >  drivers/tty/serial/imx.c                           |   81 ++++++++++++=
++++++---
+> >  2 files changed, 92 insertions(+), 10 deletions(-)
+> >  create mode 100644 Documentation/devicetree/bindings/tty/serial/fsl-im=
+x-uart.txt
+> >=20
+> > diff --git a/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.=
+txt b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+> > new file mode 100644
+> > index 0000000..7648e17
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+> > @@ -0,0 +1,21 @@
+> > +* Freescale i.MX Universal Asynchronous Receiver/Transmitter (UART)
+> > +
+> > +Required properties:
+> > +- compatible : should be "fsl,<soc>-uart", "fsl,imx-uart"
+>=20
+> I'd make this "fsl,<soc>-uart", "fsl,imx51-uart"
+>=20
+> It's better to anchor these things on real silicon, or a real ip block
+> specification rather than something pseudo-generic.  Subsequent chips,
+> like the imx53, should simply claim compatibility with the older
+> fsl,imx51-uart.
+>=20
+> (in essence, "fsl,imx51-uart" becomes the generic string without the
+> downside of having no obvious recourse when new silicon shows up that
+> is an imx part, but isn't compatible with the imx51 uart.
 
-The other thing I've thought could be useful would be to be able to
-send runts by not padding the frames when they're less then 64 bytes.
-I've been able to test if this is possible with the netgear FA312, as
-the chipset does the padding. I connected it back to back with an
-e1000e I have, switched off the chipset automatic padding on the FA312,
-sent small traffic, and then saw that the e1000e's internal
-rx_short_length_errors counter correspondingly increased. Of course I
-can't see them with tcpdump on the e1000e because it is dropping them. 
+Shouldn't that be the oldest SoC this core showed up? It might be an academ=
+ic
+question, but it would look a bit funny if mx27 got dt-support and would ha=
+ve a
+imx51-uart? The first imx to have this core is the mx1. (Although there are
+some cpu_is_mx1() calls used in the driver, but they are still available, o=
+r?)
 
 Regards,
-Mark.
+
+   Wolfram
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--DrWhICOqskFTAXiy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEARECAAYFAk39nw0ACgkQD27XaX1/VRtl2wCgu/g3mtisRr4cQ/8mCuEye+KB
+EJYAnjTluNJAV/A18/6VwAHX6doVyZxB
+=/xem
+-----END PGP SIGNATURE-----
+
+--DrWhICOqskFTAXiy--
