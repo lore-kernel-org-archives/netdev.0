@@ -1,46 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] proc: Usable inode numbers for the namespace file
- descriptors.
-Date: Sun, 19 Jun 2011 16:22:18 -0700 (PDT)
-Message-ID: <20110619.162218.1110628316477222542.davem@davemloft.net>
-References: <20110523014751.GB2351982@jupiter.n2.diac24.net>
-	<m1wrgkavbm.fsf_-_@fess.ebiederm.org>
-	<m1mxhgav9c.fsf_-_@fess.ebiederm.org>
+Subject: Re: [PATCH v2 1/5] net: Support ethtool ops for rx of errored
+ frames.
+Date: Sun, 19 Jun 2011 16:24:37 -0700 (PDT)
+Message-ID: <20110619.162437.1293948476324391637.davem@davemloft.net>
+References: <4DFE57DA.8090404@candelatech.com>
+	<20110619224800.GA2861@electric-eye.fr.zoreil.com>
+	<4DFE832C.7000100@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, adobriyan@gmail.com,
-	netdev@vger.kernel.org, equinox@diac24.net,
-	linux-kernel@vger.kernel.org, serge@hallyn.com
-To: ebiederm@xmission.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1mxhgav9c.fsf_-_@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51450 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754765Ab1FSXYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:24:41 -0400
+In-Reply-To: <4DFE832C.7000100@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 17 Jun 2011 16:33:19 -0700
+From: Ben Greear <greearb@candelatech.com>
+Date: Sun, 19 Jun 2011 16:15:56 -0700
 
-> 
-> Assign a unique proc inode to each namespace, yielding an
-> identifier that userspace can use for identifying a namespace.
-> 
-> This has been a long requested feature and only blocked because
-> a naive implementation would put the id in a global space and
-> would ultimately require having a namespace for the names of
-> namespaces, making migration and certain virtualization tricks
-> impossible.
-> 
-> We still don't have per superblock inode numbers for proc, which
-> appears necessary for application unaware checkpoint/restart and
-> migrations (if the application is using namespace filedescriptors)
-> but that is now allowd by the design if it becomes important.
-> 
-> I have preallocated the ipc and uts initial proc inode numbers so
-> their structures can be statically initialized.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> This would be separate from the 'features' patches that are floating
+> around.
 
-For networking bits:
+netdev->features is how you should implement your patch, please don't
+create new facilities.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+With netdev->features they can be validated against netdev->hw_features
+which, in this case, r8169 would have this feature bit clear.
+
+That's how all of this stuff is designed to work, the driver says what
+the hardware can do and thus ethtool generically can validate attempts
+to turn on features.
+
+No new facilities are necessary at all.
