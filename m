@@ -1,40 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2 1/5] net:  Support ethtool ops for rx of errored frames.
-Date: Mon, 20 Jun 2011 00:48:00 +0200
-Message-ID: <20110619224800.GA2861@electric-eye.fr.zoreil.com>
-References: <1308430045-24816-1-git-send-email-greearb@candelatech.com> <1308430045-24816-2-git-send-email-greearb@candelatech.com> <20110618213400.GA2741@electric-eye.fr.zoreil.com> <4DFE57DA.8090404@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] sctp: HEARTBEAT negotiation after ASCONF
+Date: Sun, 19 Jun 2011 16:10:34 -0700 (PDT)
+Message-ID: <20110619.161034.893667223164209739.davem@davemloft.net>
+References: <9C3219F3-AD39-40CF-8422-241D26ECA4D7@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yjwei@cn.fujitsu.com, netdev@vger.kernel.org
+To: micchie@sfc.wide.ad.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39278 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755013Ab1FSXAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:00:48 -0400
-Content-Disposition: inline
-In-Reply-To: <4DFE57DA.8090404@candelatech.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37910 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754765Ab1FSXKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:10:42 -0400
+In-Reply-To: <9C3219F3-AD39-40CF-8422-241D26ECA4D7@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear <greearb@candelatech.com> :
-> On 06/18/2011 02:34 PM, Francois Romieu wrote:
-> >greearb@candelatech.com<greearb@candelatech.com>  :
-> >[...]
-> >>This can be useful when sniffing dodgy networks.
-> >
-> >Do you plan to add something similar - i.e. not per packet - for the Tx path ?
-> 
-> Ability to tx errored frames?  I posted a patch to enable sending
-> frames with custom (ie, invalid) Ethernet FCS, but you have to
-> enable it per-socket, and it will only work with AF_PACKET sockets.
-> 
-> Can you offer more details on what you are asking for?
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Date: Thu, 16 Jun 2011 17:56:42 +0900
 
-Realtek's 816[89] and 810[23] have no room in their Tx descriptors to
-control ethernet checksum generation. There is a global register (TxConfig)
-though. Before looking at the per-socket information, the driver would need
-to be instructed to disable Tx hardware ethernet checksumming globally.
+> @@ -989,6 +991,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>  			    ((new_transport->state == SCTP_INACTIVE) ||
+>  			     (new_transport->state == SCTP_UNCONFIRMED)))
+>  				new_transport = asoc->peer.active_path;
+> +			if (new_transport->state == SCTP_UNCONFIRMED) 
+> +				continue;
+>  
+>  			/* Change packets if necessary.  */
+>  			if (new_transport != transport) {
 
--- 
-Ueimor
+This code path uses the asoc->peer.active_path is the new_transport
+is in the SCTP_UNCONFIRMED state.  Are you sure your new check is
+correct in that case?
+
+Shouldn't you be testing the variable "new_transport" instead?
+
