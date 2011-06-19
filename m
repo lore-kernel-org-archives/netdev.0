@@ -1,58 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 10/11] mv643xx_eth: enable transmit time stamping.
-Date: Sun, 19 Jun 2011 20:33:18 +0200
-Message-ID: <1308508398.3539.80.camel@edumazet-laptop>
-References: <cover.1308481491.git.richard.cochran@omicron.at>
-	 <1b5632e5cd90ed390245f3d1264e42fdd760dd7e.1308481492.git.richard.cochran@omicron.at>
-	 <20110619181740.GC3594@riccoc20.at.omicron.at>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 2/3] net/fec: add device tree support
+Date: Sun, 19 Jun 2011 12:43:30 -0600
+Message-ID: <BANLkTinbPGMyBxK+zo6ZtFhisSSkU7daYA@mail.gmail.com>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+ <1308410354-21387-3-git-send-email-shawn.guo@linaro.org> <4DFDDFF4.8000305@snapgear.com>
+ <201106191411.32137.arnd@arndb.de> <4DFE111B.8010001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:52224 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754611Ab1FSSd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 14:33:27 -0400
-Received: by wyb38 with SMTP id 38so1230710wyb.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 11:33:25 -0700 (PDT)
-In-Reply-To: <20110619181740.GC3594@riccoc20.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Shawn Guo <shawn.guo@linaro.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Greg Ungerer <gerg@snapgear.com>, patches@linaro.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Rob Herring <robherring2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4DFE111B.8010001@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 19 juin 2011 =C3=A0 20:17 +0200, Richard Cochran a =C3=A9cr=
-it :
-> On Sun, Jun 19, 2011 at 01:20:06PM +0200, Richard Cochran wrote:
-> > This patch enables software (and phy device) transmit time stamping=
-=2E
-> > Compile tested only.
-> >=20
-> > Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> > Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-> > ---
-> >  drivers/net/mv643xx_eth.c |    2 ++
-> >  1 files changed, 2 insertions(+), 0 deletions(-)
-> >=20
-> > diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> > index a5d9b1c..c7a8f10 100644
-> > --- a/drivers/net/mv643xx_eth.c
-> > +++ b/drivers/net/mv643xx_eth.c
-> > @@ -884,6 +884,8 @@ static netdev_tx_t mv643xx_eth_xmit(struct sk_b=
-uff *skb, struct net_device *dev)
-> >  	if (!txq_submit_skb(txq, skb)) {
-> >  		int entries_left;
-> > =20
-> > +		skb_tx_timestamp(skb);
-> > +
-> >  		txq->tx_bytes +=3D skb->len;
->=20
-> And the line above is unsafe, as well.
->=20
+On Sun, Jun 19, 2011 at 9:09 AM, Rob Herring <robherring2@gmail.com> wr=
+ote:
+> On 06/19/2011 07:11 AM, Arnd Bergmann wrote:
+>> On Sunday 19 June 2011 13:39:32 Greg Ungerer wrote:
+>>>> +#ifdef CONFIG_OF
+>>>> +static const struct of_device_id fec_dt_ids[] =3D {
+>>>> + =A0 =A0 { .compatible =3D "fsl,fec", .data =3D&fec_devtype[0], }=
+,
+>>>> + =A0 =A0 {},
+>>>> +};
+>>>> +
+>>>> +static const struct of_device_id *
+>>>> +fec_get_of_device_id(struct platform_device *pdev)
+>>>> +{
+>>>> + =A0 =A0 return of_match_device(fec_dt_ids,&pdev->dev);
+>>>> +}
+>>>> +#else
+>>>> +#define fec_dt_ids NULL
+>>>> +static inline struct of_device_id *
+>>>> +fec_get_of_device_id(struct platform_device *pdev)
+>>>> +{
+>>>> + =A0 =A0 return NULL;
+>>>> +}
+>>>> +#endif
+>>>> +
+>>>> =A0 static unsigned char macaddr[ETH_ALEN];
+>>>> =A0 module_param_array(macaddr, byte, NULL, 0);
+>>>> =A0 MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+>>>> @@ -1363,6 +1385,11 @@ fec_probe(struct platform_device *pdev)
+>>>> =A0 =A0 =A0 struct net_device *ndev;
+>>>> =A0 =A0 =A0 int i, irq, ret =3D 0;
+>>>> =A0 =A0 =A0 struct resource *r;
+>>>> + =A0 =A0 const struct of_device_id *of_id;
+>>>> +
+>>>> + =A0 =A0 of_id =3D fec_get_of_device_id(pdev);
+>>>
+>>> fec_get_of_device_id() is defined inside of "#ifdef CONFIG_OF". Thi=
+s
+>>> use of it will break compilation when this is not defined.
+>>>
+>>
+>>
+>> Why? Note the #else path defining an empty function.
+>>
+>
+> None of this is necessary in the first place. Just call of_match_devi=
+ce
+> directly. There is already an empty function to return NULL when
+> CONFIG_OF is not defined.
 
-Yes, for sure, please submit patches to fix this (before adding time
-stamping patches), as this should go to stable.
+Heh, right you are.  I should have caught on to that.  :-)
 
-
-
+g.
