@@ -1,60 +1,41 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/3] net/fec: add device tree support
-Date: Sun, 19 Jun 2011 14:11:31 +0200
-Message-ID: <201106191411.32137.arnd@arndb.de>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org> <1308410354-21387-3-git-send-email-shawn.guo@linaro.org> <4DFDDFF4.8000305@snapgear.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Ungerer <gerg@snapgear.com>, Shawn Guo <shawn.guo@linaro.org>,
-	patches@linaro.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org,
-	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4DFDDFF4.8000305@snapgear.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH 0/7] net: fixup time stamping batch #1
+Date: Sun, 19 Jun 2011 15:31:38 +0200
+Message-ID: <cover.1308489767.git.richard.cochran@omicron.at>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55555 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753709Ab1FSNbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 09:31:43 -0400
+Received: by fxm17 with SMTP id 17so477619fxm.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 06:31:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 19 June 2011 13:39:32 Greg Ungerer wrote:
-> > +#ifdef CONFIG_OF
-> > +static const struct of_device_id fec_dt_ids[] = {
-> > +     { .compatible = "fsl,fec", .data =&fec_devtype[0], },
-> > +     {},
-> > +};
-> > +
-> > +static const struct of_device_id *
-> > +fec_get_of_device_id(struct platform_device *pdev)
-> > +{
-> > +     return of_match_device(fec_dt_ids,&pdev->dev);
-> > +}
-> > +#else
-> > +#define fec_dt_ids NULL
-> > +static inline struct of_device_id *
-> > +fec_get_of_device_id(struct platform_device *pdev)
-> > +{
-> > +     return NULL;
-> > +}
-> > +#endif
-> > +
-> >   static unsigned char macaddr[ETH_ALEN];
-> >   module_param_array(macaddr, byte, NULL, 0);
-> >   MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
-> > @@ -1363,6 +1385,11 @@ fec_probe(struct platform_device *pdev)
-> >       struct net_device *ndev;
-> >       int i, irq, ret = 0;
-> >       struct resource *r;
-> > +     const struct of_device_id *of_id;
-> > +
-> > +     of_id = fec_get_of_device_id(pdev);
-> 
-> fec_get_of_device_id() is defined inside of "#ifdef CONFIG_OF". This
-> use of it will break compilation when this is not defined.
-> 
+As Eric Dumazet helpfully pointed out, the placing the transmit time
+stamp hook after giving the skb to hardware races with the completion
+ISR, for those drivers which free the buffer in the ISR.
 
+This series fixes up the first batch of time stamping hook patches.
 
-Why? Note the #else path defining an empty function.
+Richard Cochran (7):
+  net: correct comment on where to place transmit time stamp hook.
+  fec: fix race in transmit time stamping.
+  tg3: fix race in transmit time stamping.
+  r6040: fix race in transmit time stamping.
+  stmmac: fix race in transmit time stamping.
+  smsc9420: fix race in transmit time stamping.
+  davinci_emac: fix race in transmit time stamping.
 
-	Arnd
+ drivers/net/davinci_emac.c       |    3 ++-
+ drivers/net/fec.c                |    4 ++--
+ drivers/net/r6040.c              |    5 +++--
+ drivers/net/smsc9420.c           |    4 ++--
+ drivers/net/stmmac/stmmac_main.c |    4 ++--
+ drivers/net/tg3.c                |    4 ++--
+ include/linux/skbuff.h           |    3 +--
+ 7 files changed, 14 insertions(+), 13 deletions(-)
+
