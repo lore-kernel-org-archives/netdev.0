@@ -1,49 +1,40 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 11/11] ucc_geth: enable transmit time stamping.
-Date: Sun, 19 Jun 2011 19:57:04 +0200
-Message-ID: <2fb8c090d95fd8e7fe8a8c1215bf3f886237418f.1308499701.git.richard.cochran@omicron.at>
-References: <cover.1308499701.git.richard.cochran@omicron.at>
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Shlomi Gridish <gridish@freescale.com>,
-	Li Yang <leoli@freescale.com>
-To: <netdev@vger.kernel.org>
+Subject: Re: [PATCH 07/11] fs_enet: enable transmit time stamping.
+Date: Sun, 19 Jun 2011 20:12:13 +0200
+Message-ID: <20110619181212.GA3594@riccoc20.at.omicron.at>
+References: <cover.1308481491.git.richard.cochran@omicron.at>
+ <2a8677b99c6b8d0e34bbf0f6d6a44e6c7992636d.1308481492.git.richard.cochran@omicron.at>
+ <1308484684.3539.76.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49063 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754509Ab1FSR5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 13:57:35 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 15so1751766bwz.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 10:57:34 -0700 (PDT)
-In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
-In-Reply-To: <cover.1308499701.git.richard.cochran@omicron.at>
-References: <cover.1308499701.git.richard.cochran@omicron.at>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37564 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752908Ab1FSSMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 14:12:12 -0400
+Received: by fxm17 with SMTP id 17so549970fxm.19
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 11:12:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1308484684.3539.76.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables software (and phy device) transmit time stamping.
-Compile tested only.
+On Sun, Jun 19, 2011 at 01:58:04PM +0200, Eric Dumazet wrote:
+> 
+> Well, I'll stop my review here, there is the same problem I guess in all
+> your patches.
 
-Cc: Shlomi Gridish <gridish@freescale.com>
-Cc: Li Yang <leoli@freescale.com>
-Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
----
- drivers/net/ucc_geth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Thanks for your review. I have posted a fix for the first batch (since
+they are already in next) and reposted this series.
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index ef04105..3127700 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3165,6 +3165,8 @@ static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	ugeth->txBd[txQ] = bd;
- 
-+	skb_tx_timestamp(skb);
-+
- 	if (ugeth->p_scheduler) {
- 		ugeth->cpucount[txQ]++;
- 		/* Indicate to QE that there are more Tx bds ready for
--- 
-1.7.0.4
+But, considering your point, it looks like pxa168_eth and mv643xx_eth
+(see patches 9 and 10 of this series) already access skb->len unsafely.
 
+Would you care to comment on those spots, too?
+
+Thanks,
+Richard
