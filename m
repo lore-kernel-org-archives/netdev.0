@@ -1,54 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] sgi-xp: fix a use after free
-Date: Mon, 20 Jun 2011 00:52:36 +0200
-Message-ID: <1308523956.3539.105.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net/usb: Add Samsung Kalmia driver for Samsung
+ GT-B3730
+Date: Sun, 19 Jun 2011 15:57:55 -0700 (PDT)
+Message-ID: <20110619.155755.1854488306547854947.davem@davemloft.net>
+References: <201106141146.19097.oneukum@suse.de>
+	<1308519957-28860-1-git-send-email-marius@kotsbak.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, Robin Holt <holt@sgi.com>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	marius@kotsbak.com
+To: marius.kotsbak@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50426 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754936Ab1FSWwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 18:52:44 -0400
-Received: by wwe5 with SMTP id 5so1993581wwe.1
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 15:52:43 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:37567 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754989Ab1FSW7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 18:59:12 -0400
+In-Reply-To: <1308519957-28860-1-git-send-email-marius@kotsbak.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Its illegal to dereference skb after dev_kfree_skb(skb)
+From: "Marius B. Kotsbak" <marius.kotsbak@gmail.com>
+Date: Sun, 19 Jun 2011 23:45:56 +0200
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Robin Holt <holt@sgi.com>
----
-David, I am not sure Robin is active these days, maybe you can take this
-patch, since its clearly network related ?
+> Introducing driver for the network port of Samsung Kalmia based USB LTE modems.
+> It has also an ACM interface that previous patches associates with the "option"
+> module. To access those interfaces, the modem must first be switched from modem
+> mode using a tool like usb_modeswitch.
+> 
+> As the proprietary protocol has been discovered by watching the MS Windows driver
+> behavior, there might be errors in the protocol handling, but stable and fast
+> connection has been established for hours with Norwegian operator NetCom that
+> distributes this modem with their LTE/4G subscription.
+> 
+> More and updated information about how to use this driver is available here:
+> 
+> http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?t=465
+> https://github.com/mkotsbak/Samsung-GT-B3730-linux-driver
+> 
+> Signed-off-by: Marius B. Kotsbak <marius@kotsbak.com>
 
- drivers/misc/sgi-xp/xpnet.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Please submit only one patch for adding a new driver.
 
-diff --git a/drivers/misc/sgi-xp/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
-index ee5109a..42f0673 100644
---- a/drivers/misc/sgi-xp/xpnet.c
-+++ b/drivers/misc/sgi-xp/xpnet.c
-@@ -495,14 +495,14 @@ xpnet_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
-+
- 	if (atomic_dec_return(&queued_msg->use_count) == 0) {
- 		dev_kfree_skb(skb);
- 		kfree(queued_msg);
- 	}
- 
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
--
- 	return NETDEV_TX_OK;
- }
- 
+Adding a second patch that fixes the driver in various ways is
+just noise, put those fixes into this one initial patch instead.
 
-
+Thanks.
