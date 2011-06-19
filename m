@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 0/2] Allow NICs to pass Frame Checksum up the stack.
-Date: Sun, 19 Jun 2011 16:20:15 -0700 (PDT)
-Message-ID: <20110619.162015.1284402754081338255.davem@davemloft.net>
-References: <1308339615-5866-1-git-send-email-greearb@candelatech.com>
+Date: Sun, 19 Jun 2011 16:21:41 -0700 (PDT)
+Message-ID: <20110619.162141.790923043226083093.davem@davemloft.net>
+References: <4DFBBD83.9040300@candelatech.com>
+	<1308344222.2831.20.camel@bwh-desktop>
+	<4DFBC00F.4000500@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: bhutchings@solarflare.com, mirqus@gmail.com, netdev@vger.kernel.org
 To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60218 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51407 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754765Ab1FSXUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:20:18 -0400
-In-Reply-To: <1308339615-5866-1-git-send-email-greearb@candelatech.com>
+	with ESMTP id S1754170Ab1FSXVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 19:21:46 -0400
+In-Reply-To: <4DFBC00F.4000500@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: greearb@candelatech.com
-Date: Fri, 17 Jun 2011 12:40:13 -0700
+From: Ben Greear <greearb@candelatech.com>
+Date: Fri, 17 Jun 2011 13:58:55 -0700
 
-> This series provides ethtool support to set and get the rx-checksum
-> flag, and adds support to the e100 driver.
+> It's idle for 11 days.  Seems dead in the water if you ask me.
 
-Please don't create entire new ethtool ops just to set what amounts
-precisely to a boolean flag, that's what ETHTOOL_{S,G}FLAGS is for.
+Because nobody wants to put in the effort to implement it properly.
 
-The fact that we've exhausted 32-bits of flags in netdev->features
-is not an acceptable reason to avoid using those interfaces.
+It's not an excuse for polluting the kernel with extraneous ethtool
+commands just because a fundamental issue is not being worked on.
+
+If this is important to you, you have all the power in the world to
+make it move forward.
+
+Your choice.
