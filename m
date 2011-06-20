@@ -1,200 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/17] e1000: convert to ndo_fix_features
-Date: Sun, 19 Jun 2011 17:58:22 -0700
-Message-ID: <1308531518-17298-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/17] ixgbevf: provide 64 bit statistics
+Date: Sun, 19 Jun 2011 17:58:25 -0700
+Message-ID: <1308531518-17298-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10991 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:51969 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751232Ab1FTA7B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751491Ab1FTA7B (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 19 Jun 2011 20:59:01 -0400
 In-Reply-To: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+From: Stephen Hemminger <shemminger@vyatta.com>
 
-Private rx_csum flags are now duplicate of netdev->features & NETIF_F_R=
-XCSUM.
-Removing this needs deeper surgery.
+Compute statistics per ring using 64 bits, and provide
+network device stats in 64 bits.
 
-Things noticed:
- - RX csum disabled by default
- - HW VLAN acceleration probably can be toggled, but it's left as is
- - the resets on RX csum offload change can probably be avoided
- - there is A LOT of copy-and-pasted code here
-
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-Tested-by:  Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Acked-by: Greg Rose <Gregory.v.rose@intel.com>
+Tested-by: Evan Swanson <evan.swanson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000/e1000_ethtool.c |   69 -----------------------------=
---------
- drivers/net/e1000/e1000_main.c    |   30 ++++++++++++++--
- 2 files changed, 26 insertions(+), 73 deletions(-)
+ drivers/net/ixgbevf/ixgbevf.h      |    6 +++---
+ drivers/net/ixgbevf/ixgbevf_main.c |   33 ++++++++++++++++++++++++---------
+ 2 files changed, 27 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e100=
-0_ethtool.c
-index ec0fa42..c5f0f04 100644
---- a/drivers/net/e1000/e1000_ethtool.c
-+++ b/drivers/net/e1000/e1000_ethtool.c
-@@ -290,69 +290,6 @@ static int e1000_set_pauseparam(struct net_device =
-*netdev,
- 	return retval;
+diff --git a/drivers/net/ixgbevf/ixgbevf.h b/drivers/net/ixgbevf/ixgbevf.h
+index a2bbbb3..f060840 100644
+--- a/drivers/net/ixgbevf/ixgbevf.h
++++ b/drivers/net/ixgbevf/ixgbevf.h
+@@ -69,12 +69,12 @@ struct ixgbevf_ring {
+ 		struct ixgbevf_rx_buffer *rx_buffer_info;
+ 	};
+ 
++	u64 total_bytes;
++	u64 total_packets;
++
+ 	u16 head;
+ 	u16 tail;
+ 
+-	unsigned int total_bytes;
+-	unsigned int total_packets;
+-
+ 	u16 reg_idx; /* holds the special value that gets the hardware register
+ 		      * offset associated with this ring, which is different
+ 		      * for DCB and RSS modes */
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 721417e..c1f9fa6 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -267,9 +267,6 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_adapter *adapter,
+ 	tx_ring->total_bytes += total_bytes;
+ 	tx_ring->total_packets += total_packets;
+ 
+-	netdev->stats.tx_bytes += total_bytes;
+-	netdev->stats.tx_packets += total_packets;
+-
+ 	return count < tx_ring->work_limit;
  }
-=20
--static u32 e1000_get_rx_csum(struct net_device *netdev)
--{
--	struct e1000_adapter *adapter =3D netdev_priv(netdev);
--	return adapter->rx_csum;
--}
--
--static int e1000_set_rx_csum(struct net_device *netdev, u32 data)
--{
--	struct e1000_adapter *adapter =3D netdev_priv(netdev);
--	adapter->rx_csum =3D data;
--
--	if (netif_running(netdev))
--		e1000_reinit_locked(adapter);
--	else
--		e1000_reset(adapter);
--	return 0;
--}
--
--static u32 e1000_get_tx_csum(struct net_device *netdev)
--{
--	return (netdev->features & NETIF_F_HW_CSUM) !=3D 0;
--}
--
--static int e1000_set_tx_csum(struct net_device *netdev, u32 data)
--{
--	struct e1000_adapter *adapter =3D netdev_priv(netdev);
--	struct e1000_hw *hw =3D &adapter->hw;
--
--	if (hw->mac_type < e1000_82543) {
--		if (!data)
--			return -EINVAL;
--		return 0;
--	}
--
--	if (data)
--		netdev->features |=3D NETIF_F_HW_CSUM;
--	else
--		netdev->features &=3D ~NETIF_F_HW_CSUM;
--
--	return 0;
--}
--
--static int e1000_set_tso(struct net_device *netdev, u32 data)
--{
--	struct e1000_adapter *adapter =3D netdev_priv(netdev);
--	struct e1000_hw *hw =3D &adapter->hw;
--
--	if ((hw->mac_type < e1000_82544) ||
--	    (hw->mac_type =3D=3D e1000_82547))
--		return data ? -EINVAL : 0;
--
--	if (data)
--		netdev->features |=3D NETIF_F_TSO;
--	else
--		netdev->features &=3D ~NETIF_F_TSO;
--
--	netdev->features &=3D ~NETIF_F_TSO6;
--
--	e_info(probe, "TSO is %s\n", data ? "Enabled" : "Disabled");
--	adapter->tso_force =3D true;
--	return 0;
--}
--
- static u32 e1000_get_msglevel(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter =3D netdev_priv(netdev);
-@@ -1905,12 +1842,6 @@ static const struct ethtool_ops e1000_ethtool_op=
-s =3D {
- 	.set_ringparam          =3D e1000_set_ringparam,
- 	.get_pauseparam         =3D e1000_get_pauseparam,
- 	.set_pauseparam         =3D e1000_set_pauseparam,
--	.get_rx_csum            =3D e1000_get_rx_csum,
--	.set_rx_csum            =3D e1000_set_rx_csum,
--	.get_tx_csum            =3D e1000_get_tx_csum,
--	.set_tx_csum            =3D e1000_set_tx_csum,
--	.set_sg                 =3D ethtool_op_set_sg,
--	.set_tso                =3D e1000_set_tso,
- 	.self_test              =3D e1000_diag_test,
- 	.get_strings            =3D e1000_get_strings,
- 	.set_phys_id            =3D e1000_set_phys_id,
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_m=
-ain.c
-index 76e8af0..188d99a 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -797,6 +797,24 @@ static int e1000_is_need_ioport(struct pci_dev *pd=
-ev)
- 	}
+ 
+@@ -597,8 +594,6 @@ next_desc:
+ 
+ 	rx_ring->total_packets += total_rx_packets;
+ 	rx_ring->total_bytes += total_rx_bytes;
+-	adapter->netdev->stats.rx_bytes += total_rx_bytes;
+-	adapter->netdev->stats.rx_packets += total_rx_packets;
+ 
+ 	return cleaned;
  }
-=20
-+static int e1000_set_features(struct net_device *netdev, u32 features)
+@@ -2288,10 +2283,6 @@ void ixgbevf_update_stats(struct ixgbevf_adapter *adapter)
+ 				adapter->stats.vfgotc);
+ 	UPDATE_VF_COUNTER_32bit(IXGBE_VFMPRC, adapter->stats.last_vfmprc,
+ 				adapter->stats.vfmprc);
+-
+-	/* Fill out the OS statistics structure */
+-	adapter->netdev->stats.multicast = adapter->stats.vfmprc -
+-		adapter->stats.base_vfmprc;
+ }
+ 
+ /**
+@@ -3248,11 +3239,35 @@ static void ixgbevf_shutdown(struct pci_dev *pdev)
+ 	pci_disable_device(pdev);
+ }
+ 
++static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *netdev,
++						   struct rtnl_link_stats64 *stats)
 +{
-+	struct e1000_adapter *adapter =3D netdev_priv(netdev);
-+	u32 changed =3D features ^ netdev->features;
++	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
++	int i;
 +
-+	if (!(changed & NETIF_F_RXCSUM))
-+		return 0;
++	ixgbevf_update_stats(adapter);
 +
-+	adapter->rx_csum =3D !!(features & NETIF_F_RXCSUM);
++	stats->multicast = adapter->stats.vfmprc - adapter->stats.base_vfmprc;
 +
-+	if (netif_running(netdev))
-+		e1000_reinit_locked(adapter);
-+	else
-+		e1000_reset(adapter);
++	for (i = 0; i < adapter->num_rx_queues; i++) {
++		stats->rx_bytes += adapter->rx_ring[i].total_bytes;
++		stats->rx_packets += adapter->rx_ring[i].total_packets;
++	}
 +
-+	return 0;
++	for (i = 0; i < adapter->num_tx_queues; i++) {
++		stats->tx_bytes += adapter->tx_ring[i].total_bytes;
++		stats->tx_packets += adapter->tx_ring[i].total_packets;
++	}
++
++	return stats;
 +}
 +
- static const struct net_device_ops e1000_netdev_ops =3D {
- 	.ndo_open		=3D e1000_open,
- 	.ndo_stop		=3D e1000_close,
-@@ -815,6 +833,7 @@ static const struct net_device_ops e1000_netdev_ops=
- =3D {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	=3D e1000_netpoll,
- #endif
-+	.ndo_set_features       =3D e1000_set_features,
- };
-=20
- /**
-@@ -1016,16 +1035,19 @@ static int __devinit e1000_probe(struct pci_dev=
- *pdev,
- 	}
-=20
- 	if (hw->mac_type >=3D e1000_82543) {
--		netdev->features =3D NETIF_F_SG |
--				   NETIF_F_HW_CSUM |
--				   NETIF_F_HW_VLAN_TX |
-+		netdev->hw_features =3D NETIF_F_SG |
-+				   NETIF_F_HW_CSUM;
-+		netdev->features =3D NETIF_F_HW_VLAN_TX |
- 				   NETIF_F_HW_VLAN_RX |
- 				   NETIF_F_HW_VLAN_FILTER;
- 	}
-=20
- 	if ((hw->mac_type >=3D e1000_82544) &&
- 	   (hw->mac_type !=3D e1000_82547))
--		netdev->features |=3D NETIF_F_TSO;
-+		netdev->hw_features |=3D NETIF_F_TSO;
-+
-+	netdev->features |=3D netdev->hw_features;
-+	netdev->hw_features |=3D NETIF_F_RXCSUM;
-=20
- 	if (pci_using_dac) {
- 		netdev->features |=3D NETIF_F_HIGHDMA;
---=20
+ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_open		= &ixgbevf_open,
+ 	.ndo_stop		= &ixgbevf_close,
+ 	.ndo_start_xmit		= &ixgbevf_xmit_frame,
+ 	.ndo_set_rx_mode	= &ixgbevf_set_rx_mode,
++	.ndo_get_stats64	= ixgbevf_get_stats,
+ 	.ndo_set_multicast_list	= &ixgbevf_set_rx_mode,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= &ixgbevf_set_mac,
+-- 
 1.7.5.4
 
