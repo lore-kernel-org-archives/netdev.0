@@ -1,110 +1,188 @@
-From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.belden@googlemail.com>
-Subject: [PATCH] ethtool v2: NFC corrections
-Date: Mon, 20 Jun 2011 15:29:10 +0200
-Message-ID: <1308576550.17442.4.camel@DENEC1DT0191>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 04/17] ixgbevf: provide 64 bit statistics
+Date: Mon, 20 Jun 2011 17:46:28 +0200
+Message-ID: <1308584788.26922.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1308531518-17298-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1308545992.3539.114.camel@edumazet-laptop>
+	 <1308572991.22851.50.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@belden.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Linux Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:51135 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754517Ab1FTN3R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2011 09:29:17 -0400
-Received: from mail-ww0-f42.google.com (mail-ww0-f42.google.com [74.125.82.42])
-	by hera.kernel.org (8.14.4/8.14.3) with ESMTP id p5KDTEr0010051
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 13:29:15 GMT
-Received: by wwg11 with SMTP id 11so2199639wwg.1
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 06:29:13 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33438 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754045Ab1FTNqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 09:46:42 -0400
+Received: by wyb38 with SMTP id 38so1663991wyb.19
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 06:46:41 -0700 (PDT)
+In-Reply-To: <1308572991.22851.50.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first patch has checked for IP_USER after FLOW_EXT setting! Corrected that ...
+Le lundi 20 juin 2011 =C3=A0 05:29 -0700, Jeff Kirsher a =C3=A9crit :
 
-This patch:
-# Adds an alias for ip4 called l4data pointing to spi (first 4 Layer 4
-bytes)
-# [TRIVIAL] Corrects the permutation of dst and src for ethernet
-# Suggests to always set the ip_ver field of usr_ip to ETH_RX_NFC_IP4 at
-least as long there is no opportunity to use others than IPv4 and there
-is no frontend option to enter ip_ver.
+> I will drop Stephen's patch from this series and look forward to your
+> fixes.  Thanks Eric.
+>=20
+>=20
 
-Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+Here is an updated patch :
+
+[PATCH net-next] ixgbevf: provide 64 bit statistics
+
+Compute statistics per ring using 64 bits, and provide
+network device stats in 64 bits.
+
+It should make this driver multiqueue operations faster (no more cache
+line ping pongs on netdev->stats structure)
+
+Use u64_stats_sync infrastructure so that its safe on 32bit arches as
+well.
+
+Based on a prior patch from Stephen Hemminger
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
 ---
+ drivers/net/ixgbevf/ixgbevf.h      |    8 ++--
+ drivers/net/ixgbevf/ixgbevf_main.c |   52 ++++++++++++++++++++++-----
+ 2 files changed, 48 insertions(+), 12 deletions(-)
 
- ethtool.8.in |    5 +++++
- rxclass.c    |   11 ++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
-
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 7b1cdf5..0a64d75 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -296,6 +296,7 @@ ethtool \- query or control network driver and
-hardware settings
- .BM src\-port
- .BM dst\-port
- .BM spi
-+.BM l4data
- .BM vlan\-etype
- .BM vlan
- .BM user\-def
-@@ -718,6 +719,10 @@ Specify the value of the security parameter index
-field (applicable to
- AH/ESP packets)in the incoming packet to match along with an optional
- mask.  Valid for flow-types ip4, ah4, and esp4.
- .TP
-+.BI l4data \ N \\fR\ [\\fPm \ N \\fR]\\fP
-+Specify the value of the first 4 Bytes of Layer 4 in the incoming
-packet to
-+match along with an optional mask.  Valid for ip4 flow-type.
-+.TP
- .BI vlan\-etype \ N \\fR\ [\\fPm \ N \\fR]\\fP
- Includes the VLAN tag Ethertype and an optional mask.
- .TP
-diff --git a/rxclass.c b/rxclass.c
-index ee486f7..b227901 100644
---- a/rxclass.c
-+++ b/rxclass.c
-@@ -622,6 +622,9 @@ static struct rule_opts rule_nfc_usr_ip4[] = {
- 	{ "l4proto", OPT_U8, NFC_FLAG_PROTO,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.proto),
- 	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip4_spec.proto) },
-+	{ "l4data", OPT_BE32, NFC_FLAG_SPI,
-+	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.l4_4_bytes),
-+	  offsetof(struct ethtool_rx_flow_spec,
-m_u.usr_ip4_spec.l4_4_bytes) },
- 	{ "spi", OPT_BE32, NFC_FLAG_SPI,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.l4_4_bytes),
- 	  offsetof(struct ethtool_rx_flow_spec,
-m_u.usr_ip4_spec.l4_4_bytes) },
-@@ -648,11 +651,11 @@ static struct rule_opts rule_nfc_usr_ip4[] = {
- 
- static struct rule_opts rule_nfc_ether[] = {
- 	{ "src", OPT_MAC, NFC_FLAG_SADDR,
--	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_dest),
--	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_dest) },
--	{ "dst", OPT_MAC, NFC_FLAG_DADDR,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_source),
- 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_source) },
-+	{ "dst", OPT_MAC, NFC_FLAG_DADDR,
-+	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_dest),
-+	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_dest) },
- 	{ "proto", OPT_BE16, NFC_FLAG_PROTO,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_proto),
- 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_proto) },
-@@ -1062,6 +1065,8 @@ int rxclass_parse_ruleopts(char **argp, int argc,
- 		}
+diff --git a/drivers/net/ixgbevf/ixgbevf.h b/drivers/net/ixgbevf/ixgbev=
+f.h
+index b703f60..162cff1 100644
+--- a/drivers/net/ixgbevf/ixgbevf.h
++++ b/drivers/net/ixgbevf/ixgbevf.h
+@@ -32,6 +32,7 @@
+ #include <linux/timer.h>
+ #include <linux/io.h>
+ #include <linux/netdevice.h>
++#include <linux/u64_stats_sync.h>
+=20
+ #include "vf.h"
+=20
+@@ -69,12 +70,13 @@ struct ixgbevf_ring {
+ 		struct ixgbevf_rx_buffer *rx_buffer_info;
+ 	};
+=20
++	u64			total_bytes;
++	u64			total_packets;
++	struct u64_stats_sync	syncp;
++
+ 	u16 head;
+ 	u16 tail;
+=20
+-	unsigned int total_bytes;
+-	unsigned int total_packets;
+-
+ 	u16 reg_idx; /* holds the special value that gets the hardware regist=
+er
+ 		      * offset associated with this ring, which is different
+ 		      * for DCB and RSS modes */
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/i=
+xgbevf_main.c
+index b2c5ecd..ee13e26 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -264,11 +264,10 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_a=
+dapter *adapter,
+ 		IXGBE_WRITE_REG(hw, IXGBE_VTEICS, tx_ring->v_idx);
  	}
- 
-+	if (flow_type == IP_USER_FLOW)
-+		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
- 	if (flags & (NTUPLE_FLAG_VLAN | NTUPLE_FLAG_UDEF | NTUPLE_FLAG_VETH))
- 		fsp->flow_type |= FLOW_EXT;
- 
+=20
++	u64_stats_update_begin(&tx_ring->syncp);
+ 	tx_ring->total_bytes +=3D total_bytes;
+ 	tx_ring->total_packets +=3D total_packets;
+-
+-	netdev->stats.tx_bytes +=3D total_bytes;
+-	netdev->stats.tx_packets +=3D total_packets;
++	u64_stats_update_end(&tx_ring->syncp);
+=20
+ 	return count < tx_ring->work_limit;
+ }
+@@ -595,10 +594,10 @@ next_desc:
+ 	if (cleaned_count)
+ 		ixgbevf_alloc_rx_buffers(adapter, rx_ring, cleaned_count);
+=20
++	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->total_packets +=3D total_rx_packets;
+ 	rx_ring->total_bytes +=3D total_rx_bytes;
+-	adapter->netdev->stats.rx_bytes +=3D total_rx_bytes;
+-	adapter->netdev->stats.rx_packets +=3D total_rx_packets;
++	u64_stats_update_end(&rx_ring->syncp);
+=20
+ 	return cleaned;
+ }
+@@ -2288,10 +2287,6 @@ void ixgbevf_update_stats(struct ixgbevf_adapter=
+ *adapter)
+ 				adapter->stats.vfgotc);
+ 	UPDATE_VF_COUNTER_32bit(IXGBE_VFMPRC, adapter->stats.last_vfmprc,
+ 				adapter->stats.vfmprc);
+-
+-	/* Fill out the OS statistics structure */
+-	adapter->netdev->stats.multicast =3D adapter->stats.vfmprc -
+-		adapter->stats.base_vfmprc;
+ }
+=20
+ /**
+@@ -3248,11 +3243,50 @@ static void ixgbevf_shutdown(struct pci_dev *pd=
+ev)
+ 	pci_disable_device(pdev);
+ }
+=20
++static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *=
+netdev,
++						   struct rtnl_link_stats64 *stats)
++{
++	struct ixgbevf_adapter *adapter =3D netdev_priv(netdev);
++	unsigned int start;
++	u64 bytes, packets;
++	const struct ixgbevf_ring *ring;
++	int i;
++
++	ixgbevf_update_stats(adapter);
++
++	stats->multicast =3D adapter->stats.vfmprc - adapter->stats.base_vfmp=
+rc;
++
++	for (i =3D 0; i < adapter->num_rx_queues; i++) {
++		ring =3D &adapter->rx_ring[i];
++		do {
++			start =3D u64_stats_fetch_begin_bh(&ring->syncp);
++			bytes =3D ring->total_bytes;
++			packets =3D ring->total_packets;
++		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
++		stats->rx_bytes +=3D bytes;
++		stats->rx_packets +=3D packets;
++	}
++
++	for (i =3D 0; i < adapter->num_tx_queues; i++) {
++		ring =3D &adapter->tx_ring[i];
++		do {
++			start =3D u64_stats_fetch_begin_bh(&ring->syncp);
++			bytes =3D ring->total_bytes;
++			packets =3D ring->total_packets;
++		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
++		stats->tx_bytes +=3D bytes;
++		stats->tx_packets +=3D packets;
++	}
++
++	return stats;
++}
++
+ static const struct net_device_ops ixgbe_netdev_ops =3D {
+ 	.ndo_open		=3D &ixgbevf_open,
+ 	.ndo_stop		=3D &ixgbevf_close,
+ 	.ndo_start_xmit		=3D &ixgbevf_xmit_frame,
+ 	.ndo_set_rx_mode	=3D &ixgbevf_set_rx_mode,
++	.ndo_get_stats64	=3D ixgbevf_get_stats,
+ 	.ndo_set_multicast_list	=3D &ixgbevf_set_rx_mode,
+ 	.ndo_validate_addr	=3D eth_validate_addr,
+ 	.ndo_set_mac_address	=3D &ixgbevf_set_mac,
 
 
