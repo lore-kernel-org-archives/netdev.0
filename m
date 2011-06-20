@@ -1,46 +1,33 @@
-From: Vitaliy Ivanov <vitalivanov@gmail.com>
-Subject: Re: [PATCH][Trivial]: ipv4, ping: Remove duplicate icmp.h include
-Date: Mon, 20 Jun 2011 23:50:38 +0300
-Message-ID: <415E440A-6C7F-4ADB-AE81-05AEAD5C3269@gmail.com>
-References: <alpine.LNX.2.00.1106201028340.18991@swampdragon.chaosbits.net> <20110620.130515.1956879930278498236.davem@davemloft.net>
-Mime-Version: 1.0 (iPhone Mail 7A341)
-Content-Type: text/plain;
-	charset=us-ascii;
-	format=flowed;
-	delsp=yes
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFT PATCH 3/9] net: ethtool: break association of ETH_FLAG_*
+ with NETIF_F_*
+Date: Mon, 20 Jun 2011 13:52:24 -0700 (PDT)
+Message-ID: <20110620.135224.1609394919600206157.davem@davemloft.net>
+References: <51d2fd4cf6855c2285ca9bcd8d267abedcbc599c.1308596963.git.mirq-linux@rere.qmqm.pl>
+	<1308600681.2701.159.camel@bwh-desktop>
+	<20110620135109.63d81d83@nehalam.ftrdhcpuser.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "jj@chaosbits.net" <jj@chaosbits.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"segoon@openwall.com" <segoon@openwall.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"trivial@kernel.org" <trivial@kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110620.130515.1956879930278498236.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, mirq-linux@rere.qmqm.pl,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34845 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752901Ab1FTUwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 16:52:31 -0400
+In-Reply-To: <20110620135109.63d81d83@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 20 Jun 2011 13:51:09 -0700
 
-It's already in Jiri's trivial tree.
+> I have no problem with dropping or changing the sysfs feature output.
+> It is useful to have a way to check if device supports something.
 
-Vitaliy
+These days that's not even where we store the "capabilities" of the
+device.
 
-Sent from my iPhone
-
-On Jun 20, 2011, at 23:05, David Miller <davem@davemloft.net> wrote:
-
-> From: Jesper Juhl <jj@chaosbits.net>
-> Date: Mon, 20 Jun 2011 10:31:20 +0200 (CEST)
->
->> Remove the duplicate inclusion of net/icmp.h from net/ipv4/ping.c
->>
->> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
->
-> Applied.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux- 
-> kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+That happens in ->hw_features now.
