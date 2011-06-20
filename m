@@ -1,57 +1,72 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 05/11] fec_mpc52xx: enable transmit and receive time stamping.
-Date: Mon, 20 Jun 2011 09:51:27 +0200
-Message-ID: <39e579cfbe58b483ac76b9a1cb050834d769a2bf.1308556146.git.richard.cochran@omicron.at>
+Subject: [PATCH V3 03/11] emaclite: enable transmit and receive time stamping.
+Date: Mon, 20 Jun 2011 09:51:25 +0200
+Message-ID: <59f1ec96f041366d5dcb3cf1ccd33eca5e0eee68.1308556146.git.richard.cochran@omicron.at>
 References: <cover.1308556146.git.richard.cochran@omicron.at>
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Grant Likely <grant.likely@secretlab.ca>
+	John Linn <john.linn@xilinx.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f46.google.com ([209.85.161.46]:40854 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753470Ab1FTHvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 03:51:46 -0400
+	with ESMTP id S1753601Ab1FTHvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 03:51:36 -0400
 Received: by mail-fx0-f46.google.com with SMTP id 17so760782fxm.19
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 00:51:45 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 00:51:35 -0700 (PDT)
 In-Reply-To: <cover.1308556146.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1308556146.git.richard.cochran@omicron.at>
 References: <cover.1308556146.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables software (and phy device) time stamping. Software
-time stamping using the SO_TIMESTAMPING API was tested and found to be
-working on the LITE5200B board.
+This patch enables software (and phy device) time stamping. Since this
+MAC uses phylib, adding the hooks make hardware time stamping in the phy
+possible.
 
-Cc: Grant Likely <grant.likely@secretlab.ca>
+Compile tested only.
+
+Cc: John Linn <john.linn@xilinx.com>
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/fec_mpc52xx.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/xilinx_emaclite.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index 9f81b1a..a4dd6a4 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -335,6 +335,7 @@ static int mpc52xx_fec_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	bd->skb_pa = dma_map_single(dev->dev.parent, skb->data, skb->len,
- 				    DMA_TO_DEVICE);
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
+index 372572c..8cae4f6 100644
+--- a/drivers/net/xilinx_emaclite.c
++++ b/drivers/net/xilinx_emaclite.c
+@@ -647,7 +647,8 @@ static void xemaclite_rx_handler(struct net_device *dev)
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
  
-+	skb_tx_timestamp(skb);
- 	bcom_submit_next_buffer(priv->tx_dmatsk, skb);
- 	spin_unlock_irqrestore(&priv->lock, flags);
+-	netif_rx(skb);		/* Send the packet upstream */
++	if (!skb_defer_rx_timestamp(skb))
++		netif_rx(skb);	/* Send the packet upstream */
+ }
  
-@@ -434,7 +435,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
- 		length = status & BCOM_FEC_RX_BD_LEN_MASK;
- 		skb_put(rskb, length - 4);	/* length without CRC32 */
- 		rskb->protocol = eth_type_trans(rskb, dev);
--		netif_rx(rskb);
-+		if (!skb_defer_rx_timestamp(skb))
-+			netif_rx(rskb);
- 
- 		spin_lock(&priv->lock);
+ /**
+@@ -1029,15 +1030,19 @@ static int xemaclite_send(struct sk_buff *orig_skb, struct net_device *dev)
+ 	spin_lock_irqsave(&lp->reset_lock, flags);
+ 	if (xemaclite_send_data(lp, (u8 *) new_skb->data, len) != 0) {
+ 		/* If the Emaclite Tx buffer is busy, stop the Tx queue and
+-		 * defer the skb for transmission at a later point when the
++		 * defer the skb for transmission during the ISR, after the
+ 		 * current transmission is complete */
+ 		netif_stop_queue(dev);
+ 		lp->deferred_skb = new_skb;
++		/* Take the time stamp now, since we can't do this in an ISR. */
++		skb_tx_timestamp(new_skb);
+ 		spin_unlock_irqrestore(&lp->reset_lock, flags);
+ 		return 0;
  	}
+ 	spin_unlock_irqrestore(&lp->reset_lock, flags);
+ 
++	skb_tx_timestamp(new_skb);
++
+ 	dev->stats.tx_bytes += len;
+ 	dev_kfree_skb(new_skb);
+ 
 -- 
 1.7.0.4
 
