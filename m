@@ -1,169 +1,107 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] netlink: advertise incomplete dumps
-Date: Mon, 20 Jun 2011 13:40:46 +0200
-Message-ID: <1308570046.4322.5.camel@jlt3.sipsolutions.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 04/17] ixgbevf: provide 64 bit statistics
+Date: Mon, 20 Jun 2011 05:29:50 -0700
+Message-ID: <1308572991.22851.50.camel@jtkirshe-mobl>
+References: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1308531518-17298-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1308545992.3539.114.camel@edumazet-laptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Samuel Ortiz <samuel@sortiz.org>,
-	"aloisio.almeida" <aloisio.almeida@openbossa.org>,
-	John Linville <linville@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-Gl6R4Gu3HQntvEb8xmjn"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:46617 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875Ab1FTLku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 07:40:50 -0400
+Received: from mga14.intel.com ([143.182.124.37]:7658 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753514Ab1FTM3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 08:29:52 -0400
+In-Reply-To: <1308545992.3539.114.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
 
-Consider the following situation:
- * a dump that would show 8 entries, four in the first
-   round, and four in the second
- * between the first and second rounds, 6 entries are
-   removed
- * now the second round will not show any entry, and
-   even if there is a sequence/generation counter the
-   application will not know
+--=-Gl6R4Gu3HQntvEb8xmjn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-To solve this problem, add a new flag NLM_F_DUMP_INTR
-to the netlink header that indicates the dump wasn't
-consistent, this flag can also be set on the MSG_DONE
-message that terminates the dump, and as such above
-situation can be detected.
+On Sun, 2011-06-19 at 21:59 -0700, Eric Dumazet wrote:
+> Le dimanche 19 juin 2011 =C3=A0 17:58 -0700, Jeff Kirsher a =C3=A9crit :
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> >=20
+> > Compute statistics per ring using 64 bits, and provide
+> > network device stats in 64 bits.
+> >=20
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > Acked-by: Greg Rose <Gregory.v.rose@intel.com>
+> > Tested-by: Evan Swanson <evan.swanson@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+>=20
+> > =20
+> > +static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *=
+netdev,
+> > +						   struct rtnl_link_stats64 *stats)
+> > +{
+> > +	struct ixgbevf_adapter *adapter =3D netdev_priv(netdev);
+> > +	int i;
+> > +
+> > +	ixgbevf_update_stats(adapter);
+> > +
+> > +	stats->multicast =3D adapter->stats.vfmprc - adapter->stats.base_vfmp=
+rc;
+> > +
+> > +	for (i =3D 0; i < adapter->num_rx_queues; i++) {
+> > +		stats->rx_bytes +=3D adapter->rx_ring[i].total_bytes;
+> > +		stats->rx_packets +=3D adapter->rx_ring[i].total_packets;
+> > +	}
+> > +
+> > +	for (i =3D 0; i < adapter->num_tx_queues; i++) {
+> > +		stats->tx_bytes +=3D adapter->tx_ring[i].total_bytes;
+> > +		stats->tx_packets +=3D adapter->tx_ring[i].total_packets;
+> > +	}
+> > +
+> > +	return stats;
+> > +}
+> > +
+>=20
+> Unfortunately this patch is racy on 32bit arches.
+>=20
+> Jeff, maybe you missed all the discussion we had lately on these
+> conversions, needing appropriate synchronization ?
 
-To achieve this, add a sequence counter to the netlink
-callback struct. Of course, netlink code still needs
-to use this new functionality. The correct way to do
-that is to always set cb->seq when a dumpit callback
-is invoked and call nl_dump_check_consistent() for
-each new message. The core code will also call this
-function for the final MSG_DONE message.
+I apologize I did not see the discussion regarding Stephen's patches.
 
-To make it usable with generic netlink, a new function
-genlmsg_nlhdr() is needed to obtain the netlink header
-from the genetlink user header.
+>=20
+> It seems a lot of bugs were added lately with Stephen patches, this is
+> rather unfortunate...
+>=20
+> I guess I'll have to review them and send fixes.
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
-Should we merge this through wireless? From wireless-next it'll go into
-net-next quickly, but the converse isn't true, so using it in wireless
-would be harder if it was merged through net-next I think? Or John can
-cherry-pick into wireless-testing?
+I will drop Stephen's patch from this series and look forward to your
+fixes.  Thanks Eric.
 
 
- include/linux/netlink.h  |    2 ++
- include/net/genetlink.h  |   32 ++++++++++++++++++++++++++++++++
- include/net/netlink.h    |   24 ++++++++++++++++++++++++
- net/netlink/af_netlink.c |    2 ++
- 4 files changed, 60 insertions(+)
 
---- a/include/linux/netlink.h	2011-06-20 08:42:41.000000000 +0200
-+++ b/include/linux/netlink.h	2011-06-20 09:39:19.000000000 +0200
-@@ -49,6 +49,7 @@ struct nlmsghdr {
- #define NLM_F_MULTI		2	/* Multipart message, terminated by NLMSG_DONE */
- #define NLM_F_ACK		4	/* Reply with ack, with zero or error code */
- #define NLM_F_ECHO		8	/* Echo this request 		*/
-+#define NLM_F_DUMP_INTR		16	/* Dump was inconsistent due to sequence change */
- 
- /* Modifiers to GET request */
- #define NLM_F_ROOT	0x100	/* specify tree	root	*/
-@@ -222,6 +223,7 @@ struct netlink_callback {
- 					struct netlink_callback *cb);
- 	int			(*done)(struct netlink_callback *cb);
- 	int			family;
-+	unsigned int		prev_seq, seq;
- 	long			args[6];
- };
- 
---- a/net/netlink/af_netlink.c	2011-06-20 08:42:41.000000000 +0200
-+++ b/net/netlink/af_netlink.c	2011-06-20 09:39:19.000000000 +0200
-@@ -1693,6 +1693,8 @@ static int netlink_dump(struct sock *sk)
- 	if (!nlh)
- 		goto errout_skb;
- 
-+	nl_dump_check_consistent(cb, nlh);
-+
- 	memcpy(nlmsg_data(nlh), &len, sizeof(len));
- 
- 	if (sk_filter(sk, skb))
---- a/include/net/genetlink.h	2011-06-20 08:42:41.000000000 +0200
-+++ b/include/net/genetlink.h	2011-06-20 13:36:54.000000000 +0200
-@@ -160,6 +160,38 @@ static inline void *genlmsg_put(struct s
- }
- 
- /**
-+ * genlmsg_nlhdr - Obtain netlink header from user specified header
-+ * @user_hdr: user header as returned from genlmsg_put()
-+ * @family: generic netlink family
-+ *
-+ * Returns pointer to netlink header.
-+ */
-+static inline struct nlmsghdr *genlmsg_nlhdr(void *user_hdr,
-+					     struct genl_family *family)
-+{
-+	return (struct nlmsghdr *)((char *)user_hdr -
-+				   family->hdrsize -
-+				   GENL_HDRLEN -
-+				   NLMSG_HDRLEN);
-+}
-+
-+/**
-+ * genl_dump_check_consistent - check if sequence is consistent and advertise if not
-+ * @cb: netlink callback structure that stores the sequence number
-+ * @user_hdr: user header as returned from genlmsg_put()
-+ * @family: generic netlink family
-+ *
-+ * Cf. nl_dump_check_consistent(), this just provides a wrapper to make it
-+ * simpler to use with generic netlink.
-+ */
-+static inline void genl_dump_check_consistent(struct netlink_callback *cb,
-+					      void *user_hdr,
-+					      struct genl_family *family)
-+{
-+	nl_dump_check_consistent(cb, genlmsg_nlhdr(user_hdr, family));
-+}
-+
-+/**
-  * genlmsg_put_reply - Add generic netlink header to a reply message
-  * @skb: socket buffer holding the message
-  * @info: receiver info
---- a/include/net/netlink.h	2011-06-20 08:42:41.000000000 +0200
-+++ b/include/net/netlink.h	2011-06-20 09:39:19.000000000 +0200
-@@ -638,6 +638,30 @@ static inline int nlmsg_unicast(struct s
- 	     nlmsg_ok(pos, rem); \
- 	     pos = nlmsg_next(pos, &(rem)))
- 
-+/**
-+ * nl_dump_check_consistent - check if sequence is consistent and advertise if not
-+ * @cb: netlink callback structure that stores the sequence number
-+ * @nlh: netlink message header to write the flag to
-+ *
-+ * This function checks if the sequence (generation) number changed during dump
-+ * and if it did, advertises it in the netlink message header.
-+ *
-+ * The correct way to use it is to set cb->seq to the generation counter when
-+ * all locks for dumping have been acquired, and then call this function for
-+ * each message that is generated.
-+ *
-+ * Note that due to initialisation concerns, 0 is an invalid sequence number
-+ * and must not be used by code that uses this functionality.
-+ */
-+static inline void
-+nl_dump_check_consistent(struct netlink_callback *cb,
-+			 struct nlmsghdr *nlh)
-+{
-+	if (cb->prev_seq && cb->seq != cb->prev_seq)
-+		nlh->nlmsg_flags |= NLM_F_DUMP_INTR;
-+	cb->prev_seq = cb->seq;
-+}
-+
- /**************************************************************************
-  * Netlink Attributes
-  **************************************************************************/
+--=-Gl6R4Gu3HQntvEb8xmjn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJN/z0+AAoJECTsCADr/EWUa6sH/A2ABbdbsUlUpheuPpFhm08u
+bmGIwtT0D+djRXfi7N69TuUaSNjl6wZsP4WQiQd3Ie+cLvg3/R9p+lRkSCBpzWV0
+Cwmb3ojcKXzQ8YSN+erddpyj/FB14bOdbmyncSDWU7LqmqocZxk60KioqujC8MVB
+WiTfO5PiZJoPPAq5KT20b6HJN3rXYizEfPzgm4YfRQUtYokBcnqR1PHMV23ga5K7
+sn7m8c/DvAvaY8wKzOO6lgYOth37Fx9JJsRV8HH0WQLMOLqDeEt/qO3iNNgdU5hF
+c2YIeFYDZCXBgynEWNLoLzfp/Q4nQkUqtRDjHRDJs025g00649Jf3aIa3GmUMwo=
+=P34d
+-----END PGP SIGNATURE-----
+
+--=-Gl6R4Gu3HQntvEb8xmjn--
 
