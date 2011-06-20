@@ -1,269 +1,244 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 17/17] ixgbe: setup per CPU PCI pool for FCoE DDP
-Date: Sun, 19 Jun 2011 17:58:38 -0700
-Message-ID: <1308531518-17298-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/17] ixgbe: DCB use existing TX and RX queues
+Date: Sun, 19 Jun 2011 17:58:31 -0700
+Message-ID: <1308531518-17298-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:10991 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751921Ab1FTA7F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jun 2011 20:59:05 -0400
+	id S1751861Ab1FTA7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jun 2011 20:59:03 -0400
 In-Reply-To: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasu Dev <vasu.dev@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Currently single PCI pool used across all CPUs and that
-doesn't scales up as number of CPU increases, so this
-patch adds per CPU PCI pool to setup udl and that aligns
-well from FCoE stack as that already has per CPU exch locking.
+The number of TX and RX queues allocated depends on the device
+type, the current features set, online CPUs, and various
+compile flags.
 
-Adds per CPU PCI alloc setup and free in
-ixgbe_fcoe_ddp_pools_alloc and ixgbe_fcoe_ddp_pools_free,
-use CPU specific pool during DDP setup.
+To enable DCB with multiple queues and allow it to coexist with
+all the features currently implemented it has to setup a valid
+queue count. This is done at init time using the FDIR and RSS
+max queue counts and allowing each TC to allocate a queue per
+CPU.
 
-Re-arranged ixgbe_fcoe struct to have fewer holes
-along with adding pools ptr using pahole.
+DCB will now use available queues up to (8 x TCs) this is somewhat
+arbitrary cap but allows DCB to use up to 64 queues. Its easy to
+increase this later if that is needed.
 
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+This is prep work to enable Flow Director with DCB. After this
+DCB can easily coexist with existing features and no longer
+needs its own DCB feature ring.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_fcoe.c |  105 ++++++++++++++++++++++++++++-----------
- drivers/net/ixgbe/ixgbe_fcoe.h |   13 +++--
- 2 files changed, 82 insertions(+), 36 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    2 -
+ drivers/net/ixgbe/ixgbe_main.c |  107 ++++++++++++++++++---------------------
+ 2 files changed, 49 insertions(+), 60 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
-index 0592072..f5f39ed 100644
---- a/drivers/net/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.c
-@@ -128,7 +128,11 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
- 	if (ddp->sgl)
- 		pci_unmap_sg(adapter->pdev, ddp->sgl, ddp->sgc,
- 			     DMA_FROM_DEVICE);
--	pci_pool_free(fcoe->pool, ddp->udl, ddp->udp);
-+	if (ddp->pool) {
-+		pci_pool_free(ddp->pool, ddp->udl, ddp->udp);
-+		ddp->pool = NULL;
-+	}
-+
- 	ixgbe_fcoe_clear_ddp(ddp);
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index e467b20..d5674fc 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -244,7 +244,6 @@ struct ixgbe_ring {
  
- out_ddp_put:
-@@ -163,6 +167,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 	unsigned int thislen = 0;
- 	u32 fcbuff, fcdmarw, fcfltrw, fcrxctl;
- 	dma_addr_t addr = 0;
-+	struct pci_pool *pool;
+ enum ixgbe_ring_f_enum {
+ 	RING_F_NONE = 0,
+-	RING_F_DCB,
+ 	RING_F_VMDQ,  /* SR-IOV uses the same ring feature */
+ 	RING_F_RSS,
+ 	RING_F_FDIR,
+@@ -255,7 +254,6 @@ enum ixgbe_ring_f_enum {
+ 	RING_F_ARRAY_SIZE      /* must be last in enum set */
+ };
  
- 	if (!netdev || !sgl)
- 		return 0;
-@@ -199,12 +204,14 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 		return 0;
+-#define IXGBE_MAX_DCB_INDICES  64
+ #define IXGBE_MAX_RSS_INDICES  16
+ #define IXGBE_MAX_VMDQ_INDICES 64
+ #define IXGBE_MAX_FDIR_INDICES 64
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7e3850a..3a88fb6 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4417,72 +4417,72 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+ 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+ 		return false;
+ 
+-	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-#ifdef CONFIG_IXGBE_DCB
+-		int tc;
+-		struct net_device *dev = adapter->netdev;
++	f->indices = min((int)num_online_cpus(), f->indices);
+ 
+-		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
+-		f->indices = dev->tc_to_txq[tc].count;
+-		f->mask = dev->tc_to_txq[tc].offset;
+-#endif
+-	} else {
+-		f->indices = min((int)num_online_cpus(), f->indices);
+-
+-		adapter->num_rx_queues = 1;
+-		adapter->num_tx_queues = 1;
++	adapter->num_rx_queues = 1;
++	adapter->num_tx_queues = 1;
+ 
+-		if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-			e_info(probe, "FCoE enabled with RSS\n");
+-			if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+-			    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+-				ixgbe_set_fdir_queues(adapter);
+-			else
+-				ixgbe_set_rss_queues(adapter);
+-		}
+-		/* adding FCoE rx rings to the end */
+-		f->mask = adapter->num_rx_queues;
+-		adapter->num_rx_queues += f->indices;
+-		adapter->num_tx_queues += f->indices;
++	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
++		e_info(probe, "FCoE enabled with RSS\n");
++		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
++		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
++			ixgbe_set_fdir_queues(adapter);
++		else
++			ixgbe_set_rss_queues(adapter);
  	}
++	/* adding FCoE rx rings to the end */
++	f->mask = adapter->num_rx_queues;
++	adapter->num_rx_queues += f->indices;
++	adapter->num_tx_queues += f->indices;
  
--	/* alloc the udl from our ddp pool */
--	ddp->udl = pci_pool_alloc(fcoe->pool, GFP_ATOMIC, &ddp->udp);
-+	/* alloc the udl from per cpu ddp pool */
-+	pool = *per_cpu_ptr(fcoe->pool, get_cpu());
-+	ddp->udl = pci_pool_alloc(pool, GFP_ATOMIC, &ddp->udp);
- 	if (!ddp->udl) {
- 		e_err(drv, "failed allocated ddp context\n");
- 		goto out_noddp_unmap;
- 	}
-+	ddp->pool = pool;
- 	ddp->sgl = sgl;
- 	ddp->sgc = sgc;
- 
-@@ -268,6 +275,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 		j++;
- 		lastsize = 1;
- 	}
-+	put_cpu();
- 
- 	fcbuff = (IXGBE_FCBUFF_4KB << IXGBE_FCBUFF_BUFFSIZE_SHIFT);
- 	fcbuff |= ((j & 0xff) << IXGBE_FCBUFF_BUFFCNT_SHIFT);
-@@ -311,11 +319,12 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 	return 1;
- 
- out_noddp_free:
--	pci_pool_free(fcoe->pool, ddp->udl, ddp->udp);
-+	pci_pool_free(pool, ddp->udl, ddp->udp);
- 	ixgbe_fcoe_clear_ddp(ddp);
- 
- out_noddp_unmap:
- 	pci_unmap_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
-+	put_cpu();
- 	return 0;
+ 	return true;
  }
+ #endif /* IXGBE_FCOE */
  
-@@ -585,6 +594,46 @@ int ixgbe_fso(struct ixgbe_adapter *adapter,
- 	return skb_is_gso(skb);
- }
++/* Artificial max queue cap per traffic class in DCB mode */
++#define DCB_QUEUE_CAP 8
++
+ #ifdef CONFIG_IXGBE_DCB
+ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ {
+-	bool ret = false;
+-	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_DCB];
+-	int tcs = netdev_get_num_tc(adapter->netdev);
+-	int max_q, i, q;
++	int per_tc_q, q, i, offset = 0;
++	struct net_device *dev = adapter->netdev;
++	int tcs = netdev_get_num_tc(dev);
  
-+static void ixgbe_fcoe_ddp_pools_free(struct ixgbe_fcoe *fcoe)
-+{
-+	unsigned int cpu;
-+	struct pci_pool **pool;
+-	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED) || !tcs)
+-		return ret;
++	if (!tcs)
++		return false;
+ 
+-	max_q = adapter->netdev->num_tx_queues / tcs;
++	/* Map queue offset and counts onto allocated tx queues */
++	per_tc_q = min(dev->num_tx_queues / tcs, (unsigned int)DCB_QUEUE_CAP);
++	q = min((int)num_online_cpus(), per_tc_q);
+ 
+-	f->indices = 0;
+ 	for (i = 0; i < tcs; i++) {
+-		q = min((int)num_online_cpus(), max_q);
+-		f->indices += q;
++		netdev_set_prio_tc_map(dev, i, i);
++		netdev_set_tc_queue(dev, i, q, offset);
++		offset += q;
+ 	}
+ 
+-	f->mask = 0x7 << 3;
+-	adapter->num_rx_queues = f->indices;
+-	adapter->num_tx_queues = f->indices;
+-	ret = true;
++	adapter->num_tx_queues = q * tcs;
++	adapter->num_rx_queues = q * tcs;
+ 
+ #ifdef IXGBE_FCOE
+-	/* FCoE enabled queues require special configuration done through
+-	 * configure_fcoe() and others. Here we map FCoE indices onto the
+-	 * DCB queue pairs allowing FCoE to own configuration later.
++	/* FCoE enabled queues require special configuration indexed
++	 * by feature specific indices and mask. Here we map FCoE
++	 * indices onto the DCB queue pairs allowing FCoE to own
++	 * configuration later.
+ 	 */
+-	ixgbe_set_fcoe_queues(adapter);
++	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
++		int tc;
++		struct ixgbe_ring_feature *f =
++					&adapter->ring_feature[RING_F_FCOE];
 +
-+	for_each_possible_cpu(cpu) {
-+		pool = per_cpu_ptr(fcoe->pool, cpu);
-+		if (*pool)
-+			pci_pool_destroy(*pool);
++		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
++		f->indices = dev->tc_to_txq[tc].count;
++		f->mask = dev->tc_to_txq[tc].offset;
 +	}
-+	free_percpu(fcoe->pool);
-+	fcoe->pool = NULL;
-+}
-+
-+static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
-+	unsigned int cpu;
-+	struct pci_pool **pool;
-+	char pool_name[32];
-+
-+	fcoe->pool = alloc_percpu(struct pci_pool *);
-+	if (!fcoe->pool)
-+		return;
-+
-+	/* allocate pci pool for each cpu */
-+	for_each_possible_cpu(cpu) {
-+		snprintf(pool_name, 32, "ixgbe_fcoe_ddp_%d", cpu);
-+		pool = per_cpu_ptr(fcoe->pool, cpu);
-+		*pool = pci_pool_create(pool_name,
-+					adapter->pdev, IXGBE_FCPTR_MAX,
-+					IXGBE_FCPTR_ALIGN, PAGE_SIZE);
-+		if (!*pool) {
-+			e_err(drv, "failed to alloc DDP pool on cpu:%d\n", cpu);
-+			ixgbe_fcoe_ddp_pools_free(fcoe);
-+			return;
-+		}
-+	}
-+}
-+
- /**
-  * ixgbe_configure_fcoe - configures registers for fcoe at start
-  * @adapter: ptr to ixgbe adapter
-@@ -604,22 +653,20 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 	u32 up2tc;
  #endif
  
--	/* create the pool for ddp if not created yet */
- 	if (!fcoe->pool) {
--		/* allocate ddp pool */
--		fcoe->pool = pci_pool_create("ixgbe_fcoe_ddp",
--					     adapter->pdev, IXGBE_FCPTR_MAX,
--					     IXGBE_FCPTR_ALIGN, PAGE_SIZE);
--		if (!fcoe->pool)
--			e_err(drv, "failed to allocated FCoE DDP pool\n");
--
- 		spin_lock_init(&fcoe->lock);
- 
-+		ixgbe_fcoe_ddp_pools_alloc(adapter);
-+		if (!fcoe->pool) {
-+			e_err(drv, "failed to alloc percpu fcoe DDP pools\n");
-+			return;
-+		}
-+
- 		/* Extra buffer to be shared by all DDPs for HW work around */
- 		fcoe->extra_ddp_buffer = kmalloc(IXGBE_FCBUFF_MIN, GFP_ATOMIC);
- 		if (fcoe->extra_ddp_buffer == NULL) {
- 			e_err(drv, "failed to allocated extra DDP buffer\n");
--			goto out_extra_ddp_buffer_alloc;
-+			goto out_ddp_pools;
- 		}
- 
- 		fcoe->extra_ddp_buffer_dma =
-@@ -630,7 +677,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 		if (dma_mapping_error(&adapter->pdev->dev,
- 				      fcoe->extra_ddp_buffer_dma)) {
- 			e_err(drv, "failed to map extra DDP buffer\n");
--			goto out_extra_ddp_buffer_dma;
-+			goto out_extra_ddp_buffer;
- 		}
- 	}
- 
-@@ -684,11 +731,10 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 
- 	return;
- 
--out_extra_ddp_buffer_dma:
-+out_extra_ddp_buffer:
- 	kfree(fcoe->extra_ddp_buffer);
--out_extra_ddp_buffer_alloc:
--	pci_pool_destroy(fcoe->pool);
--	fcoe->pool = NULL;
-+out_ddp_pools:
-+	ixgbe_fcoe_ddp_pools_free(fcoe);
+-	return ret;
++	return true;
  }
+ #endif
  
- /**
-@@ -704,18 +750,17 @@ void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter)
- 	int i;
- 	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+@@ -5172,7 +5172,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	rss = min(IXGBE_MAX_RSS_INDICES, (int)num_online_cpus());
+ 	adapter->ring_feature[RING_F_RSS].indices = rss;
+ 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
+-	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+ 		if (hw->device_id == IXGBE_DEV_ID_82598AT)
+@@ -7213,10 +7212,8 @@ static void ixgbe_validate_rtr(struct ixgbe_adapter *adapter, u8 tc)
+  */
+ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ {
+-	unsigned int q, i, offset = 0;
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	int max_q = adapter->netdev->num_tx_queues / tc;
  
--	/* release ddp resource */
--	if (fcoe->pool) {
--		for (i = 0; i < IXGBE_FCOE_DDP_MAX; i++)
--			ixgbe_fcoe_ddp_put(adapter->netdev, i);
--		dma_unmap_single(&adapter->pdev->dev,
--				 fcoe->extra_ddp_buffer_dma,
--				 IXGBE_FCBUFF_MIN,
--				 DMA_FROM_DEVICE);
--		kfree(fcoe->extra_ddp_buffer);
--		pci_pool_destroy(fcoe->pool);
--		fcoe->pool = NULL;
+ 	/* If DCB is anabled do not remove traffic classes, multiple
+ 	 * traffic classes are required to implement DCB
+@@ -7242,14 +7239,6 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ 	else
+ 		netdev_reset_tc(dev);
+ 
+-	/* Partition Tx queues evenly amongst traffic classes */
+-	for (i = 0; i < tc; i++) {
+-		q = min((int)num_online_cpus(), max_q);
+-		netdev_set_prio_tc_map(dev, i, i);
+-		netdev_set_tc_queue(dev, i, q, offset);
+-		offset += q;
 -	}
-+	if (!fcoe->pool)
-+		return;
-+
-+	for (i = 0; i < IXGBE_FCOE_DDP_MAX; i++)
-+		ixgbe_fcoe_ddp_put(adapter->netdev, i);
-+	dma_unmap_single(&adapter->pdev->dev,
-+			 fcoe->extra_ddp_buffer_dma,
-+			 IXGBE_FCBUFF_MIN,
-+			 DMA_FROM_DEVICE);
-+	kfree(fcoe->extra_ddp_buffer);
-+	ixgbe_fcoe_ddp_pools_free(fcoe);
- }
+-
+ 	ixgbe_init_interrupt_scheme(adapter);
+ 	ixgbe_validate_rtr(adapter, tc);
+ 	if (netif_running(dev))
+@@ -7436,14 +7425,16 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
  
- /**
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ixgbe/ixgbe_fcoe.h
-index 5a650a4..d876e7a 100644
---- a/drivers/net/ixgbe/ixgbe_fcoe.h
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.h
-@@ -62,20 +62,21 @@ struct ixgbe_fcoe_ddp {
- 	struct scatterlist *sgl;
- 	dma_addr_t udp;
- 	u64 *udl;
-+	struct pci_pool *pool;
- };
- 
- struct ixgbe_fcoe {
--#ifdef CONFIG_IXGBE_DCB
--	u8 tc;
--	u8 up;
--#endif
--	unsigned long mode;
-+	struct pci_pool **pool;
- 	atomic_t refcnt;
- 	spinlock_t lock;
--	struct pci_pool *pool;
- 	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
- 	unsigned char *extra_ddp_buffer;
- 	dma_addr_t extra_ddp_buffer_dma;
-+	unsigned long mode;
 +#ifdef CONFIG_IXGBE_DCB
-+	u8 tc;
-+	u8 up;
++	indices *= MAX_TRAFFIC_CLASS;
 +#endif
- };
++
+ 	if (ii->mac == ixgbe_mac_82598EB)
+ 		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
+ 	else
+ 		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
  
- #endif /* _IXGBE_FCOE_H */
+-#if defined(CONFIG_DCB)
+-	indices = max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
+-#elif defined(IXGBE_FCOE)
++#ifdef IXGBE_FCOE
+ 	indices += min_t(unsigned int, num_possible_cpus(),
+ 			 IXGBE_MAX_FCOE_INDICES);
+ #endif
 -- 
 1.7.5.4
 
