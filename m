@@ -1,107 +1,119 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 04/17] ixgbevf: provide 64 bit statistics
-Date: Mon, 20 Jun 2011 05:29:50 -0700
-Message-ID: <1308572991.22851.50.camel@jtkirshe-mobl>
-References: <1308531518-17298-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1308531518-17298-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1308545992.3539.114.camel@edumazet-laptop>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+Subject: Re: [PATCH 10/14] SIWv2: Transmit path: siw_qp_tx.c
+Date: Mon, 20 Jun 2011 14:33:00 +0200
+Message-ID: <OF564FAAA3.FC8A4AB9-ONC12578B5.003C1E38-C12578B5.0044F0C1@ch.ibm.com>
+References: <BANLkTimSqwBK_pEGsydCAEvO=S6WVVzDPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-Gl6R4Gu3HQntvEb8xmjn"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:7658 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753514Ab1FTM3w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2011 08:29:52 -0400
-In-Reply-To: <1308545992.3539.114.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bart.vanassche-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <BANLkTimSqwBK_pEGsydCAEvO=S6WVVzDPQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-Gl6R4Gu3HQntvEb8xmjn
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2011-06-19 at 21:59 -0700, Eric Dumazet wrote:
-> Le dimanche 19 juin 2011 =C3=A0 17:58 -0700, Jeff Kirsher a =C3=A9crit :
-> > From: Stephen Hemminger <shemminger@vyatta.com>
-> >=20
-> > Compute statistics per ring using 64 bits, and provide
-> > network device stats in 64 bits.
-> >=20
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > Acked-by: Greg Rose <Gregory.v.rose@intel.com>
-> > Tested-by: Evan Swanson <evan.swanson@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+bart.vanassche-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote on 06/18/2011 07:47:29 PM:
+
+> On Thu, Jun 16, 2011 at 2:42 PM, Bernard Metzler <bmt-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
+wrote:
 > > ---
->=20
-> > =20
-> > +static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *=
-netdev,
-> > +						   struct rtnl_link_stats64 *stats)
+> > =A0drivers/infiniband/hw/siw/siw_qp_tx.c | 1332
+> +++++++++++++++++++++++++++++++++
+> > =A01 files changed, 1332 insertions(+), 0 deletions(-)
+> > =A0create mode 100644 drivers/infiniband/hw/siw/siw_qp_tx.c
+> >
+> > diff --git a/drivers/infiniband/hw/siw/siw_qp_tx.c
+> b/drivers/infiniband/hw/siw/siw_qp_tx.c
+> [ ... ]
+> > +/*
+> > + * Write out iov referencing hdr, data and trailer of current FPDU=
+=2E
+> > + * Update transmit state dependent on write return status
+> > + */
+> > +static int siw_tx_hdt(struct siw_iwarp_tx *c_tx, struct socket *s)
 > > +{
-> > +	struct ixgbevf_adapter *adapter =3D netdev_priv(netdev);
-> > +	int i;
+> > + =A0 =A0 =A0 struct siw_wqe =A0 =A0 =A0 =A0 =A0*wqe =3D c_tx->wqe;
+> > + =A0 =A0 =A0 struct siw_sge =A0 =A0 =A0 =A0 =A0*sge =3D &wqe->wr.s=
+gl.sge[c_tx->sge_idx],
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *firs=
+t_sge =3D sge;
+> > + =A0 =A0 =A0 struct siw_mr =A0 =A0 =A0 =A0 =A0 *mr =3D NULL;
+> > + =A0 =A0 =A0 struct ib_umem_chunk =A0 =A0*chunk =3D c_tx->umem_chu=
+nk;
 > > +
-> > +	ixgbevf_update_stats(adapter);
+> > + =A0 =A0 =A0 struct kvec =A0 =A0 =A0 =A0 =A0 =A0 iov[MAX_ARRAY];
+> > + =A0 =A0 =A0 struct page =A0 =A0 =A0 =A0 =A0 =A0 *page_array[MAX_A=
+RRAY];
+> > + =A0 =A0 =A0 struct msghdr =A0 =A0 =A0 =A0 =A0 msg =3D {.msg_flags=
+ =3D MSG_DONTWAIT};
 > > +
-> > +	stats->multicast =3D adapter->stats.vfmprc - adapter->stats.base_vfmp=
-rc;
-> > +
-> > +	for (i =3D 0; i < adapter->num_rx_queues; i++) {
-> > +		stats->rx_bytes +=3D adapter->rx_ring[i].total_bytes;
-> > +		stats->rx_packets +=3D adapter->rx_ring[i].total_packets;
-> > +	}
-> > +
-> > +	for (i =3D 0; i < adapter->num_tx_queues; i++) {
-> > +		stats->tx_bytes +=3D adapter->tx_ring[i].total_bytes;
-> > +		stats->tx_packets +=3D adapter->tx_ring[i].total_packets;
-> > +	}
-> > +
-> > +	return stats;
-> > +}
-> > +
->=20
-> Unfortunately this patch is racy on 32bit arches.
->=20
-> Jeff, maybe you missed all the discussion we had lately on these
-> conversions, needing appropriate synchronization ?
+> > + =A0 =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 seg =3D 0=
+, do_crc =3D c_tx->do_crc,
+> is_kva =3D 0, rv;
+> > + =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0data_len =3D c_tx=
+->bytes_unsent,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hdr_l=
+en =3D 0,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 trl_l=
+en =3D 0,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sge_o=
+ff =3D c_tx->sge_off,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sge_i=
+dx =3D c_tx->sge_idx,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pg_id=
+x =3D c_tx->pg_idx;
+>
+> Have you run the siw source code through sparse ? Sparse reports the
+> following for the above:
+>
+yes, I did.
 
-I apologize I did not see the discussion regarding Stephen's patches.
+> drivers/infiniband/hw/siw/siw_qp_tx.c:694:1: warning: the frame size
+> of 1120 bytes is larger than 1024 bytes
+>
+> I assume that you know that one should be careful with stack
+> allocations in the kernel ?
+>
+yes. I will have to make the MAX_ARRAY parameter smaller. It
+defines the maximum amount of elements in a vector to be pushed to
+tcp_sendmsg() in one call.
+In an older version of the code we pushed iwarp header, data pages
+and iwarp trailer in several consecutive calls. While the code looked
+cleaner, it induced a measureable performance penalty. A smaller
+MAX_ARRAY will also restrict the maximum allowed scatter-gather-element=
+s
+in a work request to a smaller safe value (currently 10 SGEs),
+since the code intentionally tries to pack as many SGEs
+into one iwarp frame as possible.
+Alternatively, the vector could be part of the queue pair
+structure, but that would significantly increase per connection
+memory footprint, which we wanted to avoid.
 
->=20
-> It seems a lot of bugs were added lately with Stephen patches, this is
-> rather unfortunate...
->=20
-> I guess I'll have to review them and send fixes.
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tx_type =3D=3D RDMAP_RDMA_READ_RE=
+Q) {
+>
+> This is what the compiler says about the above statement:
+>
+> drivers/infiniband/hw/siw/siw_qp_tx.c:1145:15: warning: comparison
+> between enum siw_wr_opcode and enum rdma_opcode
+>
+> So how can that statement be correct ?
+>
+it will not - must be changed to 'SIW_WR_RDMA_READ_REQ'...many thanks!
+I obviously used sparse in a wrong way:
+building within kernel tree with 'make C=3D1 CF=3D"-Wsparse-all' does n=
+ot give
+me the indicated warning (neither does setting CF=3D"-Wenum-mismatch").
+Can you please advice? Thank you and sorry for the newbie question.
 
-I will drop Stephen's patch from this series and look forward to your
-fixes.  Thanks Eric.
+Bernard.
 
-
-
---=-Gl6R4Gu3HQntvEb8xmjn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJN/z0+AAoJECTsCADr/EWUa6sH/A2ABbdbsUlUpheuPpFhm08u
-bmGIwtT0D+djRXfi7N69TuUaSNjl6wZsP4WQiQd3Ie+cLvg3/R9p+lRkSCBpzWV0
-Cwmb3ojcKXzQ8YSN+erddpyj/FB14bOdbmyncSDWU7LqmqocZxk60KioqujC8MVB
-WiTfO5PiZJoPPAq5KT20b6HJN3rXYizEfPzgm4YfRQUtYokBcnqR1PHMV23ga5K7
-sn7m8c/DvAvaY8wKzOO6lgYOth37Fx9JJsRV8HH0WQLMOLqDeEt/qO3iNNgdU5hF
-c2YIeFYDZCXBgynEWNLoLzfp/Q4nQkUqtRDjHRDJs025g00649Jf3aIa3GmUMwo=
-=P34d
------END PGP SIGNATURE-----
-
---=-Gl6R4Gu3HQntvEb8xmjn--
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
