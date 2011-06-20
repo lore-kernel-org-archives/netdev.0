@@ -1,82 +1,60 @@
-From: ?? <yangyong@neusoft.com>
-Subject: ??: [PATCH] fs_enet: fix freescale FCC ethernet dp buffer alignment
-Date: Mon, 20 Jun 2011 12:01:19 +0800
-Message-ID: <003801cc2efe$b70571e0$2804000a@yangyong>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8ADA6@saturn3.aculab.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [PATCH net-next 5/7] qlcnic: fix default operating state of
+ interface
+Date: Sun, 19 Jun 2011 21:14:50 -0700
+Message-ID: <56E7FAE7-A409-4E5C-8D1C-E8D33ACB2051@qlogic.com>
+References: <1308256659-19895-1-git-send-email-anirban.chakraborty@qlogic.com>
+ <1308256659-19895-5-git-send-email-anirban.chakraborty@qlogic.com>
+ <20110617.001035.1602476678651330954.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Clive Stubbings' <clive.stubbings@xentech.co.uk>,
-	'Vitaly Bordug' <vbordug@ru.mvista.com>
-To: 'David Laight' <David.Laight@ACULAB.COM>,
-	'Holger Brunck' <holger.brunck@keymile.com>, linuxppc-dev@lists.ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-reply-to: <AE90C24D6B3A694183C094C60CF0A2F6D8ADA6@saturn3.aculab.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
-
-Hi David Laight, Thank you so much~~
-1. Hardware based on FPGA, it dose not support buffer chaining.
-2. How dose the dma map support buffer chaining function?
-3. On the align issue, the hardware designer start to fix it, maybe it's a
-better way.  
-
------????-----
-???: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] ??
-David Laight
-????: 2011?6?17? 18:16
-???: yangyong@neusoft.com; Holger Brunck; linuxppc-dev@lists.ozlabs.org
-??: netdev@vger.kernel.org; Clive Stubbings; Vitaly Bordug
-??: RE: [PATCH] fs_enet: fix freescale FCC ethernet dp buffer alignment
-
- 
-> Hello,
-> Motioned to the memory aligned, now there is such requirement:
-> When the driver send an packet to hardware, the skb's address passed
-by
-> stack do a dma map into hardware, the skb's dma address must 
-> be 64-byte aligned.
-
-Does the hardware support buffer chaining?
-In which case you only need to copy the data upto the first
-64 byte boundary into another buffer.
-
-Actually, given that you are likely to have to fixup every
-fragment of the frame being transmitted, if might be worth
-allocating a fixed transmnit buffer area and copying the
-frames into it prior to sending.
-Certainly you need to allow for transmits made up of a
-significant number of small buffers linked together.
-
-Really you should beat up the hardware designers!
-
-Copying the data to even a 4 byte boundary is almost
-always a misaligned copy. Typically this only applies
-to the receive dma - when writing a 2 byte pad before
-the frame data would be much better.
-
-	David
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Amit Salecha <amit.salecha@qlogic.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:52238
+	"EHLO DB3EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750863Ab1FTEOr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 00:14:47 -0400
+In-Reply-To: <20110617.001035.1602476678651330954.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Jun 16, 2011, at 9:10 PM, David Miller wrote:
 
----------------------------------------------------------------------------------------------------
-Confidentiality Notice: The information contained in this e-mail and any accompanying attachment(s) 
-is intended only for the use of the intended recipient and may be confidential and/or privileged of 
-Neusoft Corporation, its subsidiaries and/or its affiliates. If any reader of this communication is 
-not the intended recipient, unauthorized use, forwarding, printing,  storing, disclosure or copying 
-is strictly prohibited, and may be unlawful.If you have received this communication in error,please 
-immediately notify the sender by return e-mail, and delete the original message and all copies from 
-your system. Thank you. 
----------------------------------------------------------------------------------------------------
+> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+> Date: Thu, 16 Jun 2011 13:37:36 -0700
+> 
+>> From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+>> 
+>> Currently interface shows status as RUNNING, even if there is no link.
+>> To fix this, netif_carrier_off should be called after register_netdev().
+>> 
+>> netif_carrier_off calls linkwatch_fire_event(dev); only if netdev is registered,
+>> otherwise it skips. linkwatch_fire_event set default state of nic interface.
+>> 
+>> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+>> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+> 
+> You cannot do this.
+> 
+> The exact second that register_netdev() is called, the device can
+> be brought up asynchronously and the link brought into the up state.
+> 
+> Your netif_carrier_off() call will race with this.
+> 
+> This is why no other (properly functioning) driver does what you're
+> trying to do here.
+> 
+
+We will take care of it. Please ignore the series. 
+
+thanks much,
+Anirban
+
+
+
