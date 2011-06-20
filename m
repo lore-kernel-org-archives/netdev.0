@@ -1,44 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 5/5] ifb: convert to 64 bit stats (v3)
-Date: Mon, 20 Jun 2011 23:44:38 +0200
-Message-ID: <1308606278.2658.33.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 2/5] niu: fix 64 bit statistics on 32 bit
+ platform
+Date: Mon, 20 Jun 2011 22:45:56 +0100
+Message-ID: <1308606356.2701.199.camel@bwh-desktop>
 References: <20110620203506.363818794@vyatta.com>
-	 <20110620.135607.2158729745388010853.davem@davemloft.net>
-	 <20110620141253.00249218@nehalam.ftrdhcpuser.net>
-	 <1308604980.2658.23.camel@edumazet-laptop>
-	 <1308605221.2658.25.camel@edumazet-laptop>
-	 <20110620144230.29421b05@nehalam.ftrdhcpuser.net>
+	 <20110620203602.739916889@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45757 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901Ab1FTVol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 17:44:41 -0400
-Received: by wwe5 with SMTP id 5so2986644wwe.1
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 14:44:40 -0700 (PDT)
-In-Reply-To: <20110620144230.29421b05@nehalam.ftrdhcpuser.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:35876 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752901Ab1FTVp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 17:45:59 -0400
+In-Reply-To: <20110620203602.739916889@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 20 juin 2011 =C3=A0 14:42 -0700, Stephen Hemminger a =C3=A9cri=
-t :
-> Subject: ifb: convert to 64 bit stats
->=20
-> Convert input functional block device to use 64 bit stats.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> ---
-> v3 - split tx/rsync=20
+On Mon, 2011-06-20 at 13:35 -0700, Stephen Hemminger wrote:
 
-Seems good :)
+> This resolves issues with NIU driver statistics wrapping on 32 bit SMP.
+> Use stats_sync wrapper for bytes and packets, and change error counters
+> to natural word size (unsigned long).
+[...]
+>  static void niu_get_tx_stats(struct niu *np,
+>  			     struct rtnl_link_stats64 *stats)
+>  {
+> -	u64 pkts, errors, bytes;
+>  	struct tx_ring_info *tx_rings;
+>  	int i;
+>  
+> -	pkts = errors = bytes = 0;
+> -
+>  	tx_rings = ACCESS_ONCE(np->tx_rings);
+>  	if (!tx_rings)
+> -		goto no_rings;
+> +		return;
+>  
+>  	for (i = 0; i < np->num_tx_rings; i++) {
+>  		struct tx_ring_info *rp = &tx_rings[i];
+> +		unsigned int start;
+> +		u64 pkts, bytes;
+>  
+> -		pkts += rp->tx_packets;
+> -		bytes += rp->tx_bytes;
+> -		errors += rp->tx_errors;
+> +		do {
+> +			start = u64_stats_fetch_begin(&rp->syncp);
+> +			pkts   = rp->tx_packets;
+> +			bytes  = rp->tx_bytes;
+> +		} while (u64_stats_fetch_retry(&rp->syncp, start));
+> +
+> +		stats->tx_packets += pkts;
+> +		stats->tx_bytes   += bytes;
+> +		stats->tx_errors  += rp->tx_errors;
+>  	}
+[...]
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+It looks like you also need to update release_tx_packet() where these
+stats are written.
 
+Ben.
 
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
