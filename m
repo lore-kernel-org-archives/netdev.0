@@ -1,70 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] Moving files around in drivers/net
-Date: Mon, 20 Jun 2011 04:22:12 +0100
-Message-ID: <1308540132.11457.97.camel@localhost>
-References: <1306956602.32125.28.camel@Joe-Laptop>
-	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
-	 <1306958478.32125.32.camel@Joe-Laptop>
-	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
-	 <1308186619.12377.23.camel@Joe-Laptop>
-	 <1308536729.22851.42.camel@jtkirshe-mobl>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: linux-next: manual merge of the net tree with the net-current
+ tree
+Date: Mon, 20 Jun 2011 12:39:52 +0900
+Message-ID: <20110620033951.GA2457@verge.net.au>
+References: <20110620125616.e319c55c.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8744 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752458Ab1FTDWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2011 23:22:16 -0400
-In-Reply-To: <1308536729.22851.42.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110620125616.e319c55c.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-06-19 at 19:25 -0700, Jeff Kirsher wrote:
-> On Wed, 2011-06-15 at 18:10 -0700, Joe Perches wrote:
-[...]
-> > Some manufacturer directories are directly populated
-> > with multiple drivers, some have subdirectories.
-> > Should one style be consistently used?
+On Mon, Jun 20, 2011 at 12:56:16PM +1000, Stephen Rothwell wrote:
+> Hi all,
 > 
-> This is a grey area.  I think it makes more sense to group drivers
-> either by company, maintainer, bus or commonly used header.  It has been
-> expressed by others in the community and while placing drivers in
-> driver/net/ethernet/<company name> is nice way to organize, companies
-> get bought and sold and driver ownership moves from one company to
-> another.  To constantly rename directories based on the ownership may
-> cause un-necessary flux in the directory structure.  I tried to tried to
-> avoid using company names unless I was confident about it.
+> Today's linux-next merge of the net tree got a conflict in
+> net/netfilter/ipvs/ip_vs_core.c between commit 8f4e0a18682d ("IPVS netns
+> exit causes crash in conntrack") from the net-current tree and commit
+> 503cf15a5ecc ("IPVS: rename of netns init and cleanup functions") from
+> the net tree.
+> 
+> Just context changes.  I fixed it up (see below) and can carry the fix as
+> necessary.
 
-You could try to futureproof by leaving out companies altogether and
-just considering the technical heritage of hardware.  For example, the
-netxen and qlcnic drivers appear to work with related hardware, but qlge
-and qlcnic do not.  But this is possibly not a lot more objective than
-what you've done so far, and it doesn't make it any easier to name the
-directories.
+Thanks.
 
-> Some of the suggestions you listed below seem fine, especially since
-> several of these companies have been around for some time and actively
-> maintain their driver(s).
-[...]
-> > sfc may be solarflare
-[...]
+I think this should all come out in the wash
+when Dave merges net-2.6 into net-next-2.6.
 
-This directory only contains a single net driver, and its name matches
-the prefix for Solarflare controller part numbers (not LOMs, but the
-driver doesn't care about the distinction).  Any separate driver for
-future Solarflare hardware is also likely to be named beginning with the
-letters 'sfc'.  So I'd be happier if this was *not* renamed.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> -- 
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+> 
+> diff --cc net/netfilter/ipvs/ip_vs_core.c
+> index 24c28d2,2200bae..0000000
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@@ -1945,8 -1945,7 +1945,8 @@@ static void __net_exit __ip_vs_dev_clea
+>   {
+>   	EnterFunction(2);
+>   	net_ipvs(net)->enable = 0;	/* Disable packet reception */
+>  +	smp_wmb();
+> - 	__ip_vs_sync_cleanup(net);
+> + 	ip_vs_sync_net_cleanup(net);
+>   	LeaveFunction(2);
+>   }
+>   
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
