@@ -1,63 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2/2] proc: Usable inode numbers for the namespace file descriptors.
-Date: Mon, 20 Jun 2011 12:50:57 -0700
-Message-ID: <m1ei2o5ljy.fsf@fess.ebiederm.org>
-References: <20110521093936.GA3015@p183> <m11uzsxdty.fsf@fess.ebiederm.org>
-	<20110521223054.GA3198@p183> <m1vcx3r3o5.fsf@fess.ebiederm.org>
-	<20110523014303.GA2351982@jupiter.n2.diac24.net>
-	<20110523014751.GB2351982@jupiter.n2.diac24.net>
-	<m1wrgkavbm.fsf_-_@fess.ebiederm.org>
-	<m1mxhgav9c.fsf_-_@fess.ebiederm.org>
-	<20110620160656.GB16444@mail.hallyn.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] myri_sbus: remove driver
+Date: Mon, 20 Jun 2011 12:51:33 -0700 (PDT)
+Message-ID: <20110620.125133.311330932319985237.davem@davemloft.net>
+References: <20110620193859.GA19114@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers@lists.osdl.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	David Lamparter <equinox@diac24.net>,
-	linux-kernel@vger.kernel.org
-To: "Serge E. Hallyn" <serge@hallyn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110620160656.GB16444@mail.hallyn.com> (Serge E. Hallyn's
-	message of "Mon, 20 Jun 2011 11:06:56 -0500")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	gallatin@myri.com
+To: jon.mason@myri.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58380 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945Ab1FTTvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 15:51:53 -0400
+In-Reply-To: <20110620193859.GA19114@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Serge E. Hallyn" <serge@hallyn.com> writes:
+From: Jon Mason <jon.mason@myri.com>
+Date: Mon, 20 Jun 2011 14:39:00 -0500
 
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> 
->> Assign a unique proc inode to each namespace, yielding an
->> identifier that userspace can use for identifying a namespace.
->> 
->> This has been a long requested feature and only blocked because
->> a naive implementation would put the id in a global space and
->> would ultimately require having a namespace for the names of
->> namespaces, making migration and certain virtualization tricks
->> impossible.
->> 
->> We still don't have per superblock inode numbers for proc, which
->> appears necessary for application unaware checkpoint/restart and
->> migrations (if the application is using namespace filedescriptors)
->> but that is now allowd by the design if it becomes important.
->> 
->> I have preallocated the ipc and uts initial proc inode numbers so
->> their structures can be statically initialized.
->> 
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->
-> I've not looked at the setns patches enough, but from what I can see
-> here it looks good.
->
-> Acked-by: Serge Hallyn <serge@hallyn.com>
+> Remove the myri_sbus driver. Why?
+> * There is no possibility of ethernet mode on this adapter, so it's
+>   Myrinet only.
+> * It won't inter-op with modern versions of Myrinet, and thus can only
+>   work with legacy adapters.
+> * There are no in-kernel Linux drivers for the PCI version of this
+>   adapter, so it only can work on ~15 year old Sun hardware.
+> 
+> It's long in the tooth, let's take it to the knackers.
+> 
+> Signed-off-by: Jon Mason <mason@myri.com>
 
-Thanks.
-
-There are bugs in my existing proc bits that I am working on fixing so
-this second patch will have a small update, before it gets merged.
-
-But posting the patches I was looking for a little review and I was
-announcing I had solved the technical problem of how we talk about
-namespaces, without needing to introduce another namespace for
-namespaces.
-
-Eric
+Sniff sniff... applied.
