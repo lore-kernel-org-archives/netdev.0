@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 03/14] mm: Introduce __GFP_MEMALLOC to allow access to emergency reserves
-Date: Mon, 20 Jun 2011 14:12:09 +0100
-Message-ID: <1308575540-25219-4-git-send-email-mgorman@suse.de>
+Subject: [PATCH 06/14] net: Introduce sk_allocation() to allow addition of GFP flags depending on the individual socket
+Date: Mon, 20 Jun 2011 14:12:12 +0100
+Message-ID: <1308575540-25219-7-git-send-email-mgorman@suse.de>
 References: <1308575540-25219-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -14,144 +14,159 @@ In-Reply-To: <1308575540-25219-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-__GFP_MEMALLOC will allow the allocation to disregard the watermarks,
-much like PF_MEMALLOC. It allows one to pass along the memalloc state in
-object related allocation flags as opposed to task related flags, such
-as sk->sk_allocation. This removes the need for ALLOC_PFMEMALLOC as
-callers using __GFP_MEMALLOC can get the ALLOC_NO_WATERMARK flag which
-is now enough to identify allocations related to page reclaim.
+Introduce sk_allocation(), this function allows to inject sock specific
+flags to each sock related allocation. It is only used on allocation
+paths that may be required for writing pages back to network storage.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- include/linux/gfp.h             |   10 ++++++++--
- include/linux/mm_types.h        |    2 +-
- include/trace/events/gfpflags.h |    1 +
- mm/page_alloc.c                 |   14 ++++++--------
- mm/slab.c                       |    2 +-
- 5 files changed, 17 insertions(+), 12 deletions(-)
+ include/net/sock.h    |    5 +++++
+ net/ipv4/tcp.c        |    3 ++-
+ net/ipv4/tcp_output.c |   13 +++++++------
+ net/ipv6/tcp_ipv6.c   |   12 +++++++++---
+ 4 files changed, 23 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-index cb40892..faefba9 100644
---- a/include/linux/gfp.h
-+++ b/include/linux/gfp.h
-@@ -23,6 +23,7 @@ struct vm_area_struct;
- #define ___GFP_REPEAT		0x400u
- #define ___GFP_NOFAIL		0x800u
- #define ___GFP_NORETRY		0x1000u
-+#define ___GFP_MEMALLOC		0x2000u
- #define ___GFP_COMP		0x4000u
- #define ___GFP_ZERO		0x8000u
- #define ___GFP_NOMEMALLOC	0x10000u
-@@ -75,9 +76,14 @@ struct vm_area_struct;
- #define __GFP_REPEAT	((__force gfp_t)___GFP_REPEAT)	/* See above */
- #define __GFP_NOFAIL	((__force gfp_t)___GFP_NOFAIL)	/* See above */
- #define __GFP_NORETRY	((__force gfp_t)___GFP_NORETRY) /* See above */
-+#define __GFP_MEMALLOC	((__force gfp_t)___GFP_MEMALLOC)/* Allow access to emergency reserves */
- #define __GFP_COMP	((__force gfp_t)___GFP_COMP)	/* Add compound page metadata */
- #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)	/* Return zeroed page on success */
--#define __GFP_NOMEMALLOC ((__force gfp_t)___GFP_NOMEMALLOC) /* Don't use emergency reserves */
-+#define __GFP_NOMEMALLOC ((__force gfp_t)___GFP_NOMEMALLOC) /* Don't use emergency reserves.
-+							 * This takes precedence over the
-+							 * __GFP_MEMALLOC flag if both are
-+							 * set
-+							 */
- #define __GFP_HARDWALL   ((__force gfp_t)___GFP_HARDWALL) /* Enforce hardwall cpuset memory allocs */
- #define __GFP_THISNODE	((__force gfp_t)___GFP_THISNODE)/* No fallback, no policies */
- #define __GFP_RECLAIMABLE ((__force gfp_t)___GFP_RECLAIMABLE) /* Page is reclaimable */
-@@ -127,7 +133,7 @@ struct vm_area_struct;
- /* Control page allocator reclaim behavior */
- #define GFP_RECLAIM_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS|\
- 			__GFP_NOWARN|__GFP_REPEAT|__GFP_NOFAIL|\
--			__GFP_NORETRY|__GFP_NOMEMALLOC)
-+			__GFP_NORETRY|__GFP_MEMALLOC|__GFP_NOMEMALLOC)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index f2046e4..e89c38f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -585,6 +585,11 @@ static inline int sock_flag(struct sock *sk, enum sock_flags flag)
+ 	return test_bit(flag, &sk->sk_flags);
+ }
  
- /* Control slab gfp mask during early boot */
- #define GFP_BOOT_MASK (__GFP_BITS_MASK & ~(__GFP_WAIT|__GFP_IO|__GFP_FS))
-diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-index 2986426..319a7cd 100644
---- a/include/linux/mm_types.h
-+++ b/include/linux/mm_types.h
-@@ -72,7 +72,7 @@ struct page {
- 		pgoff_t index;		/* Our offset within mapping. */
- 		void *freelist;		/* SLUB: freelist req. slab lock */
- 		bool pfmemalloc;	/* If set by the page allocator,
--					 * ALLOC_PFMEMALLOC was set and the
-+					 * ALLOC_NO_WATERMARKS was set and the
- 					 * low watermark was not met implying
- 					 * that the system is under some
- 					 * pressure. The caller should try
-diff --git a/include/trace/events/gfpflags.h b/include/trace/events/gfpflags.h
-index 9fe3a366..d6fd8e5 100644
---- a/include/trace/events/gfpflags.h
-+++ b/include/trace/events/gfpflags.h
-@@ -30,6 +30,7 @@
- 	{(unsigned long)__GFP_COMP,		"GFP_COMP"},		\
- 	{(unsigned long)__GFP_ZERO,		"GFP_ZERO"},		\
- 	{(unsigned long)__GFP_NOMEMALLOC,	"GFP_NOMEMALLOC"},	\
-+	{(unsigned long)__GFP_MEMALLOC,		"GFP_MEMALLOC"},	\
- 	{(unsigned long)__GFP_HARDWALL,		"GFP_HARDWALL"},	\
- 	{(unsigned long)__GFP_THISNODE,		"GFP_THISNODE"},	\
- 	{(unsigned long)__GFP_RECLAIMABLE,	"GFP_RECLAIMABLE"},	\
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 7769a3d..27043e7 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -1369,7 +1369,6 @@ failed:
- #define ALLOC_HARDER		0x10 /* try to alloc harder */
- #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
- #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
--#define ALLOC_PFMEMALLOC	0x80 /* Caller has PF_MEMALLOC set */
- 
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
-@@ -2044,11 +2043,10 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
- 	} else if (unlikely(rt_task(current)) && !in_interrupt())
- 		alloc_flags |= ALLOC_HARDER;
- 
--	if ((current->flags & PF_MEMALLOC) ||
--			unlikely(test_thread_flag(TIF_MEMDIE))) {
--		alloc_flags |= ALLOC_PFMEMALLOC;
--
--		if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
-+	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
-+		if (gfp_mask & __GFP_MEMALLOC)
-+			alloc_flags |= ALLOC_NO_WATERMARKS;
-+		else if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 	}
- 
-@@ -2057,7 +2055,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
- 
- bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
++static inline gfp_t sk_allocation(struct sock *sk, gfp_t gfp_mask)
++{
++	return gfp_mask;
++}
++
+ static inline void sk_acceptq_removed(struct sock *sk)
  {
--	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_PFMEMALLOC);
-+	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_NO_WATERMARKS);
- }
+ 	sk->sk_ack_backlog--;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 054a59d..8c1a9d5 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -698,7 +698,8 @@ struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp)
+ 	/* The TCP header must be at least 32-bit aligned.  */
+ 	size = ALIGN(size, 4);
  
- static inline struct page *
-@@ -2239,7 +2237,7 @@ got_pg:
- 	 * steps that will free more memory. The caller should avoid the
- 	 * page being used for !PFMEMALLOC purposes.
+-	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
++	skb = alloc_skb_fclone(size + sk->sk_prot->max_header,
++			       sk_allocation(sk, gfp));
+ 	if (skb) {
+ 		if (sk_wmem_schedule(sk, skb->truesize)) {
+ 			/*
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 882e0b0..87b98f6 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2324,7 +2324,7 @@ void tcp_send_fin(struct sock *sk)
+ 		/* Socket is locked, keep trying until memory is available. */
+ 		for (;;) {
+ 			skb = alloc_skb_fclone(MAX_TCP_HEADER,
+-					       sk->sk_allocation);
++					       sk_allocation(sk, GFP_KERNEL));
+ 			if (skb)
+ 				break;
+ 			yield();
+@@ -2350,7 +2350,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
+ 	struct sk_buff *skb;
+ 
+ 	/* NOTE: No TCP options attached and we never retransmit this. */
+-	skb = alloc_skb(MAX_TCP_HEADER, priority);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, priority));
+ 	if (!skb) {
+ 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
+ 		return;
+@@ -2423,7 +2423,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 
+ 	if (cvp != NULL && cvp->s_data_constant && cvp->s_data_desired)
+ 		s_data_desired = cvp->s_data_desired;
+-	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1, GFP_ATOMIC);
++	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1,
++					sk_allocation(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return NULL;
+ 
+@@ -2719,7 +2720,7 @@ void tcp_send_ack(struct sock *sk)
+ 	 * tcp_transmit_skb() will set the ownership to this
+ 	 * sock.
  	 */
--	page->pfmemalloc = !!(alloc_flags & ALLOC_PFMEMALLOC);
-+	page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
+-	buff = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	buff = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
+ 	if (buff == NULL) {
+ 		inet_csk_schedule_ack(sk);
+ 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
+@@ -2734,7 +2735,7 @@ void tcp_send_ack(struct sock *sk)
  
- 	return page;
+ 	/* Send it off, this clears delayed acks for us. */
+ 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
+-	tcp_transmit_skb(sk, buff, 0, GFP_ATOMIC);
++	tcp_transmit_skb(sk, buff, 0, sk_allocation(sk, GFP_ATOMIC));
  }
-diff --git a/mm/slab.c b/mm/slab.c
-index a6480df..fceb656 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -2979,7 +2979,7 @@ static int cache_grow(struct kmem_cache *cachep,
- 	if (!slabp)
- 		goto opps1;
  
--	/* Record if ALLOC_PFMEMALLOC was set when allocating the slab */
-+	/* Record if ALLOC_NO_WATERMARKS was set when allocating the slab */
- 	if (pfmemalloc) {
- 		struct array_cache *ac = cpu_cache_get(cachep);
- 		slabp->pfmemalloc = true;
+ /* This routine sends a packet with an out of date sequence
+@@ -2754,7 +2755,7 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent)
+ 	struct sk_buff *skb;
+ 
+ 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
+-	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_allocation(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return -1;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index d1fd287..62bc424 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -597,7 +597,8 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
+ 	} else {
+ 		/* reallocate new list if current one is full. */
+ 		if (!tp->md5sig_info) {
+-			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info), GFP_ATOMIC);
++			tp->md5sig_info = kzalloc(sizeof(*tp->md5sig_info),
++					sk_allocation(sk, GFP_ATOMIC));
+ 			if (!tp->md5sig_info) {
+ 				kfree(newkey);
+ 				return -ENOMEM;
+@@ -610,7 +611,8 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
+ 		}
+ 		if (tp->md5sig_info->alloced6 == tp->md5sig_info->entries6) {
+ 			keys = kmalloc((sizeof (tp->md5sig_info->keys6[0]) *
+-				       (tp->md5sig_info->entries6 + 1)), GFP_ATOMIC);
++				       (tp->md5sig_info->entries6 + 1)),
++				       sk_allocation(sk, GFP_ATOMIC));
+ 
+ 			if (!keys) {
+ 				tcp_free_md5sig_pool();
+@@ -734,7 +736,8 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
+ 		struct tcp_sock *tp = tcp_sk(sk);
+ 		struct tcp_md5sig_info *p;
+ 
+-		p = kzalloc(sizeof(struct tcp_md5sig_info), GFP_KERNEL);
++		p = kzalloc(sizeof(struct tcp_md5sig_info),
++				   sk_allocation(sk, GFP_KERNEL));
+ 		if (!p)
+ 			return -ENOMEM;
+ 
+@@ -1084,6 +1087,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	struct tcphdr *th = tcp_hdr(skb);
+ 	u32 seq = 0, ack_seq = 0;
+ 	struct tcp_md5sig_key *key = NULL;
++	gfp_t gfp_mask = GFP_ATOMIC;
+ 
+ 	if (th->rst)
+ 		return;
+@@ -1095,6 +1099,8 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	if (sk)
+ 		key = tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr);
+ #endif
++	if (sk)
++		gfp_mask = sk_allocation(sk, gfp_mask);
+ 
+ 	if (th->ack)
+ 		seq = ntohl(th->ack_seq);
 -- 
 1.7.3.4
 
