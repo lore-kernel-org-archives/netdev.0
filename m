@@ -1,61 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RESENT PATCH] net: tuntap: Fix tun_net_fix_features()
-Date: Mon, 20 Jun 2011 20:25:06 +0100
-Message-ID: <1308597906.2701.148.camel@bwh-desktop>
-References: <d66c8380b6c50fdcfe2dce344b39bb470a75ba3f.1308595725.git.mirq-linux@rere.qmqm.pl>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 37992] New: It's not possible to compile
+ kernel if CONFIG_NETCONSOLE_DYNAMIC is turned on
+Date: Mon, 20 Jun 2011 12:28:35 -0700
+Message-ID: <20110620122835.444f16d7.akpm@linux-foundation.org>
+References: <bug-37992-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Shan Wei <shanwei@cn.fujitsu.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, hilld@binarystorm.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:24384 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139Ab1FTTZJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 15:25:09 -0400
-In-Reply-To: <d66c8380b6c50fdcfe2dce344b39bb470a75ba3f.1308595725.git.mirq-linux@rere.qmqm.pl>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42767 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752344Ab1FTT2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 15:28:40 -0400
+In-Reply-To: <bug-37992-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-06-20 at 21:14 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> tun->set_features are meant to limit not force the features.
->
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
->=20
-> ---
->  drivers/net/tun.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 4dab85e..56981c2 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -458,7 +458,7 @@ static u32 tun_net_fix_features(struct net_device=
- *dev, u32 features)
->  {
->  	struct tun_struct *tun =3D netdev_priv(dev);
-> =20
-> -	return (features & tun->set_features) | (features & ~TUN_USER_FEATU=
-RES);
-> +	return features & (tun->set_features | ~TUN_USER_FEATURES);
 
-(A & B) | (A & C) <=3D> A & (B | C)
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-This is a cosmetic change, not a fix.  Maybe you think it is clearer bu=
-t
-then you should say that in the commit message.
+On Mon, 20 Jun 2011 19:09:49 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Ben.
-
->  }
-> =20
->  static const struct net_device_ops tun_netdev_ops =3D {
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> https://bugzilla.kernel.org/show_bug.cgi?id=37992
+> 
+>            Summary: It's not possible to compile kernel if
+>                     CONFIG_NETCONSOLE_DYNAMIC is turned on
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 3.0-rc3+
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: hilld@binarystorm.net
+>         Regression: No
+> 
+> 
+> Hello guys,
+> 
+>     It's not possible to compile kernel if CONFIG_NETCONSOLE_DYNAMIC is turned
+> on ...
+> 
+> drivers/built-in.o: In function `netconsole_target_put':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:133: undefined reference to
+> `config_item_put'
+> drivers/built-in.o: In function `netconsole_target_get':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:127: undefined reference to
+> `config_item_get'
+> drivers/built-in.o: In function `netconsole_target_put':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:133: undefined reference to
+> `config_item_put'
+> drivers/built-in.o: In function `netconsole_target_get':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:127: undefined reference to
+> `config_item_get'
+> drivers/built-in.o: In function `netconsole_target_put':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:133: undefined reference to
+> `config_item_put'
+> drivers/built-in.o: In function `drop_netconsole_target':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:588: undefined reference to
+> `config_item_put'
+> drivers/built-in.o: In function `make_netconsole_target':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:561: undefined reference to
+> `config_item_init_type_name'
+> drivers/built-in.o: In function `dynamic_netconsole_init':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:109: undefined reference to
+> `config_group_init'
+> /usr/src/linux-3.0/drivers/net/netconsole.c:111: undefined reference to
+> `configfs_register_subsystem'
+> drivers/built-in.o: In function `dynamic_netconsole_exit':
+> /usr/src/linux-3.0/drivers/net/netconsole.c:116: undefined reference to
+> `configfs_unregister_subsystem'
+> make: *** [.tmp_vmlinux1] Error 1
 
