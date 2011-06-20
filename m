@@ -1,54 +1,105 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH net-next 3/5] netxen: make 64 bit stats safe on 32 bit
- platform
-Date: Mon, 20 Jun 2011 15:18:32 -0700 (PDT)
-Message-ID: <1528961426.419.1308608312735.JavaMail.root@tahiti.vyatta.com>
-References: <1308606738.2701.203.camel@bwh-desktop>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Remove redundant linux/version.h includes from net/
+Date: Tue, 21 Jun 2011 00:13:10 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1106210009520.27735@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37859 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932097Ab1FTWSf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2011 18:18:35 -0400
-In-Reply-To: <1308606738.2701.203.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, coreteam@netfilter.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Dmitry Kozlov <xeb@mail.ru>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+It was suggested by "make versioncheck" that the follwing includes of
+linux/version.h are redundant:
 
-> On Mon, 2011-06-20 at 13:35 -0700, Stephen Hemminger wrote:
-> 
-> > Use stats_update wrapper to avoid problems where 64 bit statistic
-> > update is not atomic on 32 bit platform.
-> [...]
-> > @@ -2115,11 +2117,17 @@ static struct rtnl_link_stats64 *netxen_
-> >  						      struct rtnl_link_stats64 *stats)
-> >  {
-> >  	struct netxen_adapter *adapter = netdev_priv(netdev);
-> > + unsigned int start;
-> > + + do {
-> > + start = u64_stats_fetch_begin(&adapter->stats.syncp);
-> > + + stats->rx_packets = adapter->stats.rx_pkts +
-> > adapter->stats.lro_pkts; + stats->tx_packets =
-> > adapter->stats.xmitfinished; + stats->rx_bytes =
-> > adapter->stats.rxbytes; + stats->tx_bytes = adapter->stats.txbytes;
-> > + } while (u64_stats_fetch_retry(&adapter->stats.syncp, start));
-> >
-> > - stats->rx_packets = adapter->stats.rx_pkts +
-> > adapter->stats.lro_pkts; - stats->tx_packets =
-> > adapter->stats.xmitfinished; - stats->rx_bytes =
-> > adapter->stats.rxbytes; - stats->tx_bytes = adapter->stats.txbytes;
-> >  	stats->rx_dropped = adapter->stats.rxdropped;
-> >  	stats->tx_dropped = adapter->stats.txdropped;
-> 
-> netxen_nic_get_ethtool_stats() should also be fixed.
-> 
-> The 'txdropped' and 'csummed' stats are also 64-bit and updated on the
-> data path. ('rxdropped' isn't updated at all, AFAICS.)
+  /home/jj/src/linux-2.6/net/caif/caif_dev.c: 14 linux/version.h not needed.
+  /home/jj/src/linux-2.6/net/caif/chnl_net.c: 10 linux/version.h not needed.
+  /home/jj/src/linux-2.6/net/ipv4/gre.c: 19 linux/version.h not needed.
+  /home/jj/src/linux-2.6/net/netfilter/ipset/ip_set_core.c: 20 linux/version.h not needed.
+  /home/jj/src/linux-2.6/net/netfilter/xt_set.c: 16 linux/version.h not needed.
 
-Since they are error counters, just changing them to unsigned long is
-easier.
+and it seems that it is right.
+
+Beyond manually inspecting the source files I also did a few build
+tests with various configs to confirm that including the header in
+those files is indeed not needed.
+
+Here's a patch to remove the pointless includes.
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ net/caif/caif_dev.c               |    1 -
+ net/caif/chnl_net.c               |    1 -
+ net/ipv4/gre.c                    |    1 -
+ net/netfilter/ipset/ip_set_core.c |    1 -
+ net/netfilter/xt_set.c            |    1 -
+ 5 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+index 682c0fe..7c2fa0a 100644
+--- a/net/caif/caif_dev.c
++++ b/net/caif/caif_dev.c
+@@ -11,7 +11,6 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ":%s(): " fmt, __func__
+ 
+-#include <linux/version.h>
+ #include <linux/kernel.h>
+ #include <linux/if_arp.h>
+ #include <linux/net.h>
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+index adbb424..8237766 100644
+--- a/net/caif/chnl_net.c
++++ b/net/caif/chnl_net.c
+@@ -7,7 +7,6 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ":%s(): " fmt, __func__
+ 
+-#include <linux/version.h>
+ #include <linux/fs.h>
+ #include <linux/init.h>
+ #include <linux/module.h>
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+index c6933f2..9dbe108 100644
+--- a/net/ipv4/gre.c
++++ b/net/ipv4/gre.c
+@@ -16,7 +16,6 @@
+ #include <linux/skbuff.h>
+ #include <linux/in.h>
+ #include <linux/netdevice.h>
+-#include <linux/version.h>
+ #include <linux/spinlock.h>
+ #include <net/protocol.h>
+ #include <net/gre.h>
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 42aa64b..40c9645 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -17,7 +17,6 @@
+ #include <linux/spinlock.h>
+ #include <linux/netlink.h>
+ #include <linux/rculist.h>
+-#include <linux/version.h>
+ #include <net/netlink.h>
+ 
+ #include <linux/netfilter.h>
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index b3babae..5c23c44 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -13,7 +13,6 @@
+ 
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+-#include <linux/version.h>
+ 
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_set.h>
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
