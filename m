@@ -1,50 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netxen: fix race in skb->len access
-Date: Mon, 20 Jun 2011 08:26:15 +0200
-Message-ID: <1308551175.3539.133.camel@edumazet-laptop>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] net/usb: Add Samsung Kalmia driver for Samsung GT-B3730
+Date: Mon, 20 Jun 2011 08:47:51 +0200
+Message-ID: <201106200847.51725.oneukum@suse.de>
+References: <20110611200625.GB14582@kroah.com> <201106141146.19097.oneukum@suse.de> <4DFE6FD8.1080003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49862 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203Ab1FTGdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 02:33:35 -0400
-Received: by wyb38 with SMTP id 38so1418392wyb.19
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2011 23:33:34 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+To: Marius Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4DFE6FD8.1080003-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-As soon as skb is given to hardware, TX completion can free skb under
-us.
-Therefore, we should update dev stats before kicking the device.
+Am Sonntag, 19. Juni 2011, 23:53:28 schrieb Marius Kotsbak:
+> On 14. juni 2011 11:46, Oliver Neukum wrote:
+> > Am Dienstag, 14. Juni 2011, 11:32:00 schrieb Marius Kotsbak:
+> >> Den 14. juni 2011 10:49, skrev Oliver Neukum:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> > The API is correct. You just need to copy the init strings into buffers
+> > allocated with kmalloc.
+> >
+> 
+> This should be addressed in the extra patch just sent. And it still
+> works on my x86-64.
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index b644383..c0788a3 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1965,11 +1965,11 @@ netxen_nic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	netxen_tso_check(netdev, tx_ring, first_desc, skb);
- 
--	netxen_nic_update_cmd_producer(adapter, tx_ring);
--
- 	adapter->stats.txbytes += skb->len;
- 	adapter->stats.xmitcalled++;
- 
-+	netxen_nic_update_cmd_producer(adapter, tx_ring);
-+
- 	return NETDEV_TX_OK;
- 
- drop_packet:
+x86-64 works. ppc and arm are hurt.
 
+> The 2 patches might be squashed if desired.
 
+ David?
+
+> Okay, I can see the reasoning behind that. The problem is just that it
+> would be nice to avoid it because >1.1.4 versions of it does not work
+> with this modem, but that can be addressed there as well.
+
+All's well, as far as I can see.
+
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
