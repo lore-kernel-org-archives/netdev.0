@@ -1,48 +1,57 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V3 01/11] net: export the receive time stamping hook for non-NAPI drivers
-Date: Mon, 20 Jun 2011 09:51:23 +0200
-Message-ID: <cf1d6f373d83c3a1cbaf53a06ee331d5d950f25b.1308556146.git.richard.cochran@omicron.at>
+Subject: [PATCH V3 05/11] fec_mpc52xx: enable transmit and receive time stamping.
+Date: Mon, 20 Jun 2011 09:51:27 +0200
+Message-ID: <39e579cfbe58b483ac76b9a1cb050834d769a2bf.1308556146.git.richard.cochran@omicron.at>
 References: <cover.1308556146.git.richard.cochran@omicron.at>
 Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Grant Likely <grant.likely@secretlab.ca>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f46.google.com ([209.85.161.46]:40854 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753601Ab1FTHva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 03:51:30 -0400
+	with ESMTP id S1753470Ab1FTHvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 03:51:46 -0400
 Received: by mail-fx0-f46.google.com with SMTP id 17so760782fxm.19
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 00:51:29 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 00:51:45 -0700 (PDT)
 In-Reply-To: <cover.1308556146.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1308556146.git.richard.cochran@omicron.at>
 References: <cover.1308556146.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ethernet MAC drivers based on phylib (but not using NAPI) can
-enable hardware time stamping in phy devices by calling netif_rx()
-conditionally based on a call to skb_defer_rx_timestamp().
+This patch enables software (and phy device) time stamping. Software
+time stamping using the SO_TIMESTAMPING API was tested and found to be
+working on the LITE5200B board.
 
-This commit exports that function so that drivers calling it may
-be compiled as modules.
-
+Cc: Grant Likely <grant.likely@secretlab.ca>
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- net/core/timestamping.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/fec_mpc52xx.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index 3b00a6b..98a5264 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -122,6 +122,7 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
+index 9f81b1a..a4dd6a4 100644
+--- a/drivers/net/fec_mpc52xx.c
++++ b/drivers/net/fec_mpc52xx.c
+@@ -335,6 +335,7 @@ static int mpc52xx_fec_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	bd->skb_pa = dma_map_single(dev->dev.parent, skb->data, skb->len,
+ 				    DMA_TO_DEVICE);
  
- 	return false;
- }
-+EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
++	skb_tx_timestamp(skb);
+ 	bcom_submit_next_buffer(priv->tx_dmatsk, skb);
+ 	spin_unlock_irqrestore(&priv->lock, flags);
  
- void __init skb_timestamping_init(void)
- {
+@@ -434,7 +435,8 @@ static irqreturn_t mpc52xx_fec_rx_interrupt(int irq, void *dev_id)
+ 		length = status & BCOM_FEC_RX_BD_LEN_MASK;
+ 		skb_put(rskb, length - 4);	/* length without CRC32 */
+ 		rskb->protocol = eth_type_trans(rskb, dev);
+-		netif_rx(rskb);
++		if (!skb_defer_rx_timestamp(skb))
++			netif_rx(rskb);
+ 
+ 		spin_lock(&priv->lock);
+ 	}
 -- 
 1.7.0.4
 
