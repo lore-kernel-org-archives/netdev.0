@@ -1,38 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] myri10ge: 64bit slice stats
-Date: Mon, 20 Jun 2011 20:52:12 +0200
-Message-ID: <1308595932.2658.17.camel@edumazet-laptop>
-References: <20110620184635.GA18577@myri.com>
-	 <1308595758.2658.16.camel@edumazet-laptop>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [RFT PATCH 6/9] net: ethtool: use C99 array initialization for feature-names table
+Date: Mon, 20 Jun 2011 21:14:55 +0200 (CEST)
+Message-ID: <a461f6bdbf0b31c3e6715df743ff792b53445480.1308596963.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Gallatin <gallatin@myri.com>
-To: Jon Mason <jon.mason@myri.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58538 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816Ab1FTSwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 14:52:19 -0400
-Received: by wwe5 with SMTP id 5so2858461wwe.1
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 11:52:17 -0700 (PDT)
-In-Reply-To: <1308595758.2658.16.camel@edumazet-laptop>
+Received: from rere.qmqm.pl ([89.167.52.164]:41915 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753164Ab1FTTO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 15:14:58 -0400
+In-Reply-To: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 20 juin 2011 =C3=A0 20:49 +0200, Eric Dumazet a =C3=A9crit :
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/ethtool.c |   74 +++++++++++++++++++++++++-------------------=
+-------
+ 1 files changed, 36 insertions(+), 38 deletions(-)
 
-> Hmm, no sorry, this wont work on 32bit arches :(
->=20
-> Please take a look at various patches addressing this problem.
->=20
->=20
-
-=46or example take a look at the once sent some hours ago :
-
-http://patchwork.ozlabs.org/patch/101128/
-
-
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 17f5f96..97bbf25 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -40,6 +40,42 @@ EXPORT_SYMBOL(ethtool_op_get_link);
+=20
+ #define ETHTOOL_DEV_FEATURE_WORDS	1
+=20
++static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GS=
+TRING_LEN] =3D {
++	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
++	[NETIF_F_IP_CSUM_BIT] =3D          "tx-checksum-ipv4",
++	[NETIF_F_NO_CSUM_BIT] =3D          "tx-checksum-unneeded",
++	[NETIF_F_HW_CSUM_BIT] =3D          "tx-checksum-ip-generic",
++	[NETIF_F_IPV6_CSUM_BIT] =3D        "tx-checksum-ipv6",
++	[NETIF_F_HIGHDMA_BIT] =3D          "highdma",
++	[NETIF_F_FRAGLIST_BIT] =3D         "tx-scatter-gather-fraglist",
++	[NETIF_F_HW_VLAN_TX_BIT] =3D       "tx-vlan-hw-insert",
++
++	[NETIF_F_HW_VLAN_RX_BIT] =3D       "rx-vlan-hw-parse",
++	[NETIF_F_HW_VLAN_FILTER_BIT] =3D   "rx-vlan-filter",
++	[NETIF_F_VLAN_CHALLENGED_BIT] =3D  "vlan-challenged",
++	[NETIF_F_GSO_BIT] =3D              "tx-generic-segmentation",
++	[NETIF_F_LLTX_BIT] =3D             "tx-lockless",
++	[NETIF_F_NETNS_LOCAL_BIT] =3D      "netns-local",
++	[NETIF_F_GRO_BIT] =3D              "rx-gro",
++	[NETIF_F_LRO_BIT] =3D              "rx-lro",
++
++	[NETIF_F_TSO_BIT] =3D              "tx-tcp-segmentation",
++	[NETIF_F_UFO_BIT] =3D              "tx-udp-fragmentation",
++	[NETIF_F_GSO_ROBUST_BIT] =3D       "tx-gso-robust",
++	[NETIF_F_TSO_ECN_BIT] =3D          "tx-tcp-ecn-segmentation",
++	[NETIF_F_TSO6_BIT] =3D             "tx-tcp6-segmentation",
++	[NETIF_F_FSO_BIT] =3D              "tx-fcoe-segmentation",
++
++	[NETIF_F_FCOE_CRC_BIT] =3D         "tx-checksum-fcoe-crc",
++	[NETIF_F_SCTP_CSUM_BIT] =3D        "tx-checksum-sctp",
++	[NETIF_F_FCOE_MTU_BIT] =3D         "fcoe-mtu",
++	[NETIF_F_NTUPLE_BIT] =3D           "rx-ntuple-filter",
++	[NETIF_F_RXHASH_BIT] =3D           "rx-hashing",
++	[NETIF_F_RXCSUM_BIT] =3D           "rx-checksum",
++	[NETIF_F_NOCACHE_COPY_BIT] =3D     "tx-nocache-copy",
++	[NETIF_F_LOOPBACK_BIT] =3D         "loopback",
++};
++
+ static int ethtool_get_features(struct net_device *dev, void __user *u=
+seraddr)
+ {
+ 	struct ethtool_gfeatures cmd =3D {
+@@ -107,44 +143,6 @@ static int ethtool_set_features(struct net_device =
+*dev, void __user *useraddr)
+ 	return ret;
+ }
+=20
+-static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * =
+32][ETH_GSTRING_LEN] =3D {
+-	/* NETIF_F_SG */              "tx-scatter-gather",
+-	/* NETIF_F_IP_CSUM */         "tx-checksum-ipv4",
+-	/* NETIF_F_NO_CSUM */         "tx-checksum-unneeded",
+-	/* NETIF_F_HW_CSUM */         "tx-checksum-ip-generic",
+-	/* NETIF_F_IPV6_CSUM */       "tx-checksum-ipv6",
+-	/* NETIF_F_HIGHDMA */         "highdma",
+-	/* NETIF_F_FRAGLIST */        "tx-scatter-gather-fraglist",
+-	/* NETIF_F_HW_VLAN_TX */      "tx-vlan-hw-insert",
+-
+-	/* NETIF_F_HW_VLAN_RX */      "rx-vlan-hw-parse",
+-	/* NETIF_F_HW_VLAN_FILTER */  "rx-vlan-filter",
+-	/* NETIF_F_VLAN_CHALLENGED */ "vlan-challenged",
+-	/* NETIF_F_GSO */             "tx-generic-segmentation",
+-	/* NETIF_F_LLTX */            "tx-lockless",
+-	/* NETIF_F_NETNS_LOCAL */     "netns-local",
+-	/* NETIF_F_GRO */             "rx-gro",
+-	/* NETIF_F_LRO */             "rx-lro",
+-
+-	/* NETIF_F_TSO */             "tx-tcp-segmentation",
+-	/* NETIF_F_UFO */             "tx-udp-fragmentation",
+-	/* NETIF_F_GSO_ROBUST */      "tx-gso-robust",
+-	/* NETIF_F_TSO_ECN */         "tx-tcp-ecn-segmentation",
+-	/* NETIF_F_TSO6 */            "tx-tcp6-segmentation",
+-	/* NETIF_F_FSO */             "tx-fcoe-segmentation",
+-	"",
+-	"",
+-
+-	/* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
+-	/* NETIF_F_SCTP_CSUM */       "tx-checksum-sctp",
+-	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
+-	/* NETIF_F_NTUPLE */          "rx-ntuple-filter",
+-	/* NETIF_F_RXHASH */          "rx-hashing",
+-	/* NETIF_F_RXCSUM */          "rx-checksum",
+-	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy",
+-	/* NETIF_F_LOOPBACK */        "loopback",
+-};
+-
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	const struct ethtool_ops *ops =3D dev->ethtool_ops;
+--=20
+1.7.2.5
 
