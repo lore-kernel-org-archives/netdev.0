@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [RFT PATCH 6/9] net: ethtool: use C99 array initialization for feature-names table
-Date: Mon, 20 Jun 2011 21:14:55 +0200 (CEST)
-Message-ID: <a461f6bdbf0b31c3e6715df743ff792b53445480.1308596963.git.mirq-linux@rere.qmqm.pl>
+Subject: [RFT PATCH 3/9] net: ethtool: break association of ETH_FLAG_* with NETIF_F_*
+Date: Mon, 20 Jun 2011 21:14:54 +0200 (CEST)
+Message-ID: <51d2fd4cf6855c2285ca9bcd8d267abedcbc599c.1308596963.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,116 +10,85 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:41915 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:41914 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753164Ab1FTTO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2011 15:14:58 -0400
+	id S1752167Ab1FTTO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 15:14:57 -0400
 In-Reply-To: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is the only place where NETIF_F_* feature flags are exposed
+to userspace. After this patch feature flags may be changed/reordered
+freely.
+
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- net/core/ethtool.c |   74 +++++++++++++++++++++++++-------------------=
--------
- 1 files changed, 36 insertions(+), 38 deletions(-)
+ net/core/ethtool.c |   33 +++++++++++++++++++++++----------
+ 1 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 17f5f96..97bbf25 100644
+index 58d98c3..9214e54 100644
 --- a/net/core/ethtool.c
 +++ b/net/core/ethtool.c
-@@ -40,6 +40,42 @@ EXPORT_SYMBOL(ethtool_op_get_link);
-=20
- #define ETHTOOL_DEV_FEATURE_WORDS	1
-=20
-+static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GS=
-TRING_LEN] =3D {
-+	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
-+	[NETIF_F_IP_CSUM_BIT] =3D          "tx-checksum-ipv4",
-+	[NETIF_F_NO_CSUM_BIT] =3D          "tx-checksum-unneeded",
-+	[NETIF_F_HW_CSUM_BIT] =3D          "tx-checksum-ip-generic",
-+	[NETIF_F_IPV6_CSUM_BIT] =3D        "tx-checksum-ipv6",
-+	[NETIF_F_HIGHDMA_BIT] =3D          "highdma",
-+	[NETIF_F_FRAGLIST_BIT] =3D         "tx-scatter-gather-fraglist",
-+	[NETIF_F_HW_VLAN_TX_BIT] =3D       "tx-vlan-hw-insert",
-+
-+	[NETIF_F_HW_VLAN_RX_BIT] =3D       "rx-vlan-hw-parse",
-+	[NETIF_F_HW_VLAN_FILTER_BIT] =3D   "rx-vlan-filter",
-+	[NETIF_F_VLAN_CHALLENGED_BIT] =3D  "vlan-challenged",
-+	[NETIF_F_GSO_BIT] =3D              "tx-generic-segmentation",
-+	[NETIF_F_LLTX_BIT] =3D             "tx-lockless",
-+	[NETIF_F_NETNS_LOCAL_BIT] =3D      "netns-local",
-+	[NETIF_F_GRO_BIT] =3D              "rx-gro",
-+	[NETIF_F_LRO_BIT] =3D              "rx-lro",
-+
-+	[NETIF_F_TSO_BIT] =3D              "tx-tcp-segmentation",
-+	[NETIF_F_UFO_BIT] =3D              "tx-udp-fragmentation",
-+	[NETIF_F_GSO_ROBUST_BIT] =3D       "tx-gso-robust",
-+	[NETIF_F_TSO_ECN_BIT] =3D          "tx-tcp-ecn-segmentation",
-+	[NETIF_F_TSO6_BIT] =3D             "tx-tcp6-segmentation",
-+	[NETIF_F_FSO_BIT] =3D              "tx-fcoe-segmentation",
-+
-+	[NETIF_F_FCOE_CRC_BIT] =3D         "tx-checksum-fcoe-crc",
-+	[NETIF_F_SCTP_CSUM_BIT] =3D        "tx-checksum-sctp",
-+	[NETIF_F_FCOE_MTU_BIT] =3D         "fcoe-mtu",
-+	[NETIF_F_NTUPLE_BIT] =3D           "rx-ntuple-filter",
-+	[NETIF_F_RXHASH_BIT] =3D           "rx-hashing",
-+	[NETIF_F_RXCSUM_BIT] =3D           "rx-checksum",
-+	[NETIF_F_NOCACHE_COPY_BIT] =3D     "tx-nocache-copy",
-+	[NETIF_F_LOOPBACK_BIT] =3D         "loopback",
-+};
-+
- static int ethtool_get_features(struct net_device *dev, void __user *u=
-seraddr)
- {
- 	struct ethtool_gfeatures cmd =3D {
-@@ -107,44 +143,6 @@ static int ethtool_set_features(struct net_device =
-*dev, void __user *useraddr)
- 	return ret;
+@@ -240,32 +240,45 @@ static int ethtool_set_one_feature(struct net_dev=
+ice *dev,
+ 	return 0;
  }
 =20
--static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * =
-32][ETH_GSTRING_LEN] =3D {
--	/* NETIF_F_SG */              "tx-scatter-gather",
--	/* NETIF_F_IP_CSUM */         "tx-checksum-ipv4",
--	/* NETIF_F_NO_CSUM */         "tx-checksum-unneeded",
--	/* NETIF_F_HW_CSUM */         "tx-checksum-ip-generic",
--	/* NETIF_F_IPV6_CSUM */       "tx-checksum-ipv6",
--	/* NETIF_F_HIGHDMA */         "highdma",
--	/* NETIF_F_FRAGLIST */        "tx-scatter-gather-fraglist",
--	/* NETIF_F_HW_VLAN_TX */      "tx-vlan-hw-insert",
--
--	/* NETIF_F_HW_VLAN_RX */      "rx-vlan-hw-parse",
--	/* NETIF_F_HW_VLAN_FILTER */  "rx-vlan-filter",
--	/* NETIF_F_VLAN_CHALLENGED */ "vlan-challenged",
--	/* NETIF_F_GSO */             "tx-generic-segmentation",
--	/* NETIF_F_LLTX */            "tx-lockless",
--	/* NETIF_F_NETNS_LOCAL */     "netns-local",
--	/* NETIF_F_GRO */             "rx-gro",
--	/* NETIF_F_LRO */             "rx-lro",
--
--	/* NETIF_F_TSO */             "tx-tcp-segmentation",
--	/* NETIF_F_UFO */             "tx-udp-fragmentation",
--	/* NETIF_F_GSO_ROBUST */      "tx-gso-robust",
--	/* NETIF_F_TSO_ECN */         "tx-tcp-ecn-segmentation",
--	/* NETIF_F_TSO6 */            "tx-tcp6-segmentation",
--	/* NETIF_F_FSO */             "tx-fcoe-segmentation",
--	"",
--	"",
--
--	/* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
--	/* NETIF_F_SCTP_CSUM */       "tx-checksum-sctp",
--	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
--	/* NETIF_F_NTUPLE */          "rx-ntuple-filter",
--	/* NETIF_F_RXHASH */          "rx-hashing",
--	/* NETIF_F_RXCSUM */          "rx-checksum",
--	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy",
--	/* NETIF_F_LOOPBACK */        "loopback",
--};
--
- static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+-/* the following list of flags are the same as their associated
+- * NETIF_F_xxx values in include/linux/netdevice.h
+- */
+-static const u32 flags_dup_features =3D
+-	(ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN | ETH_FLAG_NTUPLE |
+-	 ETH_FLAG_RXHASH);
++#define ETH_ALL_FLAGS    (ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TX=
+VLAN | \
++			  ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH)
++#define ETH_ALL_FEATURES (NETIF_F_LRO | NETIF_F_HW_VLAN_RX | \
++			  NETIF_F_HW_VLAN_TX | NETIF_F_NTUPLE | NETIF_F_RXHASH)
+=20
+ static u32 __ethtool_get_flags(struct net_device *dev)
  {
- 	const struct ethtool_ops *ops =3D dev->ethtool_ops;
+-	return dev->features & flags_dup_features;
++	u32 flags =3D 0;
++
++	if (dev->features & NETIF_F_LRO)	flags |=3D ETH_FLAG_LRO;
++	if (dev->features & NETIF_F_HW_VLAN_RX)	flags |=3D ETH_FLAG_RXVLAN;
++	if (dev->features & NETIF_F_HW_VLAN_TX)	flags |=3D ETH_FLAG_TXVLAN;
++	if (dev->features & NETIF_F_NTUPLE)	flags |=3D ETH_FLAG_NTUPLE;
++	if (dev->features & NETIF_F_RXHASH)	flags |=3D ETH_FLAG_RXHASH;
++
++	return flags;
+ }
+=20
+ static int __ethtool_set_flags(struct net_device *dev, u32 data)
+ {
++	u32 features =3D 0;
+ 	u32 changed;
+=20
+-	if (data & ~flags_dup_features)
++	if (data & ~ETH_ALL_FLAGS)
+ 		return -EINVAL;
+=20
++	if (data & ETH_FLAG_LRO)	features |=3D NETIF_F_LRO;
++	if (data & ETH_FLAG_RXVLAN)	features |=3D NETIF_F_HW_VLAN_RX;
++	if (data & ETH_FLAG_TXVLAN)	features |=3D NETIF_F_HW_VLAN_TX;
++	if (data & ETH_FLAG_NTUPLE)	features |=3D NETIF_F_NTUPLE;
++	if (data & ETH_FLAG_RXHASH)	features |=3D NETIF_F_RXHASH;
++
+ 	/* allow changing only bits set in hw_features */
+-	changed =3D (data ^ dev->features) & flags_dup_features;
++	changed =3D (features ^ dev->features) & ETH_ALL_FEATURES;
+ 	if (changed & ~dev->hw_features)
+ 		return (changed & dev->hw_features) ? -EINVAL : -EOPNOTSUPP;
+=20
+ 	dev->wanted_features =3D
+-		(dev->wanted_features & ~changed) | (data & dev->hw_features);
++		(dev->wanted_features & ~changed) | (features & dev->hw_features);
+=20
+ 	__netdev_update_features(dev);
+=20
 --=20
 1.7.2.5
 
