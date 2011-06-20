@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [RFT PATCH 5/9] net: Define enum for net device features.
-Date: Mon, 20 Jun 2011 21:14:54 +0200 (CEST)
-Message-ID: <1714b545f4d3220fb747e690cc08106194078f11.1308596963.git.mirq-linux@rere.qmqm.pl>
+Subject: [RFT PATCH 7/9] ethtool: prepare for larger netdev_features_t type
+Date: Mon, 20 Jun 2011 21:14:55 +0200 (CEST)
+Message-ID: <852a74b9068b3be7413a65023f6096f142dfd805.1308596963.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,184 +10,114 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:41918 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:41921 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753841Ab1FTTPA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753815Ab1FTTPA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 20 Jun 2011 15:15:00 -0400
 In-Reply-To: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Define feature values by bit position instead of direct 2**i values
-and force the values to be of type netdev_features_t.
-
-Cleaned and extended from patch by Mahesh Bandewar <maheshb@google.com>=
-:
-+ added netdev_features_t casts
-+ included bits under NETIF_F_GSO_MASK
-+ moved feature #defines out of struct net_device definition
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- include/linux/netdev_features.h |  125 +++++++++++++++++++++++++++----=
--------
- 1 files changed, 89 insertions(+), 36 deletions(-)
-
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_fea=
-tures.h
-index d36bdcd..2361e3ee 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -14,55 +14,108 @@
-=20
- typedef u32 netdev_features_t;
-=20
--#define NETIF_F_SG		1	/* Scatter/gather IO. */
--#define NETIF_F_IP_CSUM		2	/* Can checksum TCP/UDP over IPv4. */
--#define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack.=
- */
--#define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
--#define NETIF_F_IPV6_CSUM	16	/* Can checksum TCP/UDP over IPV6 */
--#define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
--#define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
--#define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
--#define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
--#define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
--#define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN pack=
-ets */
--#define NETIF_F_GSO		2048	/* Enable software GSO. */
--#define NETIF_F_LLTX		4096	/* LockLess TX - deprecated. Please */
-+enum {
-+	NETIF_F_SG_BIT,			/* Scatter/gather IO. */
-+	NETIF_F_IP_CSUM_BIT,		/* Can checksum TCP/UDP over IPv4. */
-+	NETIF_F_NO_CSUM_BIT,		/* Does not require checksum. F.e. loopack. */
-+	NETIF_F_HW_CSUM_BIT,		/* Can checksum all the packets. */
-+	NETIF_F_IPV6_CSUM_BIT,		/* Can checksum TCP/UDP over IPV6 */
-+	NETIF_F_HIGHDMA_BIT,		/* Can DMA to high memory. */
-+	NETIF_F_FRAGLIST_BIT,		/* Scatter/gather IO. */
-+	NETIF_F_HW_VLAN_TX_BIT,		/* Transmit VLAN hw acceleration */
-+	NETIF_F_HW_VLAN_RX_BIT,		/* Receive VLAN hw acceleration */
-+	NETIF_F_HW_VLAN_FILTER_BIT,	/* Receive filtering on VLAN */
-+	NETIF_F_VLAN_CHALLENGED_BIT,	/* Device cannot handle VLAN packets */
-+	NETIF_F_GSO_BIT,		/* Enable software GSO. */
-+	NETIF_F_LLTX_BIT,		/* LockLess TX - deprecated. Please */
- 					/* do not use LLTX in new drivers */
--#define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces=
- */
--#define NETIF_F_GRO		16384	/* Generic receive offload */
--#define NETIF_F_LRO		32768	/* large receive offload */
-+	NETIF_F_NETNS_LOCAL_BIT,	/* Does not change network namespaces */
-+	NETIF_F_GRO_BIT,		/* Generic receive offload */
-+	NETIF_F_LRO_BIT,		/* large receive offload */
-=20
--/* the GSO_MASK reserves bits 16 through 23 */
--#define NETIF_F_FCOE_CRC	(1 << 24) /* FCoE CRC32 */
--#define NETIF_F_SCTP_CSUM	(1 << 25) /* SCTP checksum offload */
--#define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 byte=
-s*/
--#define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
--#define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
--#define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
--#define NETIF_F_NOCACHE_COPY	(1 << 30) /* Use no-cache copyfromuser */
--#define NETIF_F_LOOPBACK	(1 << 31) /* Enable loopback */
-+	/**/NETIF_F_GSO_SHIFT,		/* keep the order of SKB_GSO_* bits */
-+	NETIF_F_TSO_BIT			/* ... TCPv4 segmentation */
-+		=3D NETIF_F_GSO_SHIFT,
-+	NETIF_F_UFO_BIT,		/* ... UDPv4 fragmentation */
-+	NETIF_F_GSO_ROBUST_BIT,		/* ... ->SKB_GSO_DODGY */
-+	NETIF_F_TSO_ECN_BIT,		/* ... TCP ECN support */
-+	NETIF_F_TSO6_BIT,		/* ... TCPv6 segmentation */
-+	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
-+	NETIF_F_GSO_RESERVED1,		/* ... free (fill GSO_MASK to 8 bits) */
-+	/**/NETIF_F_GSO_LAST,		/* [can't be last bit, see GSO_MASK] */
-+	NETIF_F_GSO_RESERVED2		/* ... free (fill GSO_MASK to 8 bits) */
-+		=3D NETIF_F_GSO_LAST,
-=20
--	/* Segmentation offload features */
--#define NETIF_F_GSO_SHIFT	16
--#define NETIF_F_GSO_MASK	0x00ff0000
--#define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
--#define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
--#define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
--#define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
--#define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
--#define NETIF_F_FSO		(SKB_GSO_FCOE << NETIF_F_GSO_SHIFT)
-+	NETIF_F_FCOE_CRC_BIT,		/* FCoE CRC32 */
-+	NETIF_F_SCTP_CSUM_BIT,		/* SCTP checksum offload */
-+	NETIF_F_FCOE_MTU_BIT,		/* Supports max FCoE MTU, 2158 bytes*/
-+	NETIF_F_NTUPLE_BIT,		/* N-tuple filters supported */
-+	NETIF_F_RXHASH_BIT,		/* Receive hashing offload */
-+	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
-+	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
-+	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
-+
-+	/*
-+	 * Add your fresh new feature above and remember to update
-+	 * netdev_features_strings[] in net/core/ethtool.c and maybe
-+	 * some feature mask #defines below.
-+	 */
-+
-+	/**/NETDEV_FEATURE_COUNT
-+};
-+
-+/* copy'n'paste compression ;) */
-+#define __NETIF_F_BIT(bit)	((netdev_features_t)1 << (bit))
-+#define __NETIF_F(name)		__NETIF_F_BIT(NETIF_F_##name##_BIT)
-+
-+#define NETIF_F_SG		__NETIF_F(SG)
-+#define NETIF_F_IP_CSUM		__NETIF_F(IP_CSUM)
-+#define NETIF_F_NO_CSUM		__NETIF_F(NO_CSUM)
-+#define NETIF_F_HW_CSUM		__NETIF_F(HW_CSUM)
-+#define NETIF_F_IPV6_CSUM	__NETIF_F(IPV6_CSUM)
-+#define NETIF_F_HIGHDMA		__NETIF_F(HIGHDMA)
-+#define NETIF_F_FRAGLIST	__NETIF_F(FRAGLIST)
-+#define NETIF_F_HW_VLAN_TX	__NETIF_F(HW_VLAN_TX)
-+#define NETIF_F_HW_VLAN_RX	__NETIF_F(HW_VLAN_RX)
-+#define NETIF_F_HW_VLAN_FILTER	__NETIF_F(HW_VLAN_FILTER)
-+#define NETIF_F_VLAN_CHALLENGED	__NETIF_F(VLAN_CHALLENGED)
-+#define NETIF_F_GSO		__NETIF_F(GSO)
-+#define NETIF_F_LLTX		__NETIF_F(LLTX)
-+#define NETIF_F_NETNS_LOCAL	__NETIF_F(NETNS_LOCAL)
-+#define NETIF_F_GRO		__NETIF_F(GRO)
-+#define NETIF_F_LRO		__NETIF_F(LRO)
-+#define NETIF_F_TSO		__NETIF_F(TSO)
-+#define NETIF_F_UFO		__NETIF_F(UFO)
-+#define NETIF_F_GSO_ROBUST	__NETIF_F(GSO_ROBUST)
-+#define NETIF_F_TSO_ECN		__NETIF_F(TSO_ECN)
-+#define NETIF_F_TSO6		__NETIF_F(TSO6)
-+#define NETIF_F_FSO		__NETIF_F(FSO)
-+#define NETIF_F_FCOE_CRC	__NETIF_F(FCOE_CRC)
-+#define NETIF_F_SCTP_CSUM	__NETIF_F(SCTP_CSUM)
-+#define NETIF_F_FCOE_MTU	__NETIF_F(FCOE_MTU)
-+#define NETIF_F_NTUPLE		__NETIF_F(NTUPLE)
-+#define NETIF_F_RXHASH		__NETIF_F(RXHASH)
-+#define NETIF_F_RXCSUM		__NETIF_F(RXCSUM)
-+#define NETIF_F_NOCACHE_COPY	__NETIF_F(NOCACHE_COPY)
-+#define NETIF_F_LOOPBACK	__NETIF_F(LOOPBACK)
-=20
- 	/* Features valid for ethtool to change */
- 	/* =3D all defined minus driver/device-class-related */
- #define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
- 				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
--#define NETIF_F_ETHTOOL_BITS	(0xff3fffff & ~NETIF_F_NEVER_CHANGE)
-+	/* remember that ((t)1 << t_BITS) is undefined in C99 */
-+#define NETIF_F_ETHTOOL_BITS	((__NETIF_F_BIT(NETDEV_FEATURE_COUNT - 1)=
- | \
-+		(__NETIF_F_BIT(NETDEV_FEATURE_COUNT - 1) - 1)) & \
-+		~NETIF_F_NEVER_CHANGE)
-+
-+	/* Segmentation offload feature mask */
-+#define NETIF_F_GSO_MASK	(__NETIF_F_BIT(NETIF_F_GSO_LAST + 1) - \
-+		__NETIF_F_BIT(NETIF_F_GSO_SHIFT))
-=20
- 	/* List of features with software fallbacks. */
- #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
- 				 NETIF_F_TSO6 | NETIF_F_UFO)
-=20
+ net/core/ethtool.c |   45 +++++++++++++++++++++++++++++---------------=
 -
- #define NETIF_F_GEN_CSUM	(NETIF_F_NO_CSUM | NETIF_F_HW_CSUM)
- #define NETIF_F_V4_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IP_CSUM)
- #define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+ 1 files changed, 29 insertions(+), 16 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 97bbf25..3a93932 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -38,7 +38,7 @@ EXPORT_SYMBOL(ethtool_op_get_link);
+=20
+ /* Handlers for each ethtool command */
+=20
+-#define ETHTOOL_DEV_FEATURE_WORDS	1
++#define ETHTOOL_DEV_FEATURE_WORDS	((NETDEV_FEATURE_COUNT + 31) / 32)
+=20
+ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GS=
+TRING_LEN] =3D {
+ 	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
+@@ -82,16 +82,21 @@ static int ethtool_get_features(struct net_device *=
+dev, void __user *useraddr)
+ 		.cmd =3D ETHTOOL_GFEATURES,
+ 		.size =3D ETHTOOL_DEV_FEATURE_WORDS,
+ 	};
+-	struct ethtool_get_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
+ =3D {
+-		{
+-			.available =3D dev->hw_features,
+-			.requested =3D dev->wanted_features,
+-			.active =3D dev->features,
+-			.never_changed =3D NETIF_F_NEVER_CHANGE,
+-		},
+-	};
++	struct ethtool_get_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
+;
+ 	u32 __user *sizeaddr;
+ 	u32 copy_size;
++	int i;
++
++	/* in case feature bits run out again */
++	BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS*sizeof(u32) > sizeof(netdev_fe=
+atures_t));
++
++	/* this should get loop-unrolled easily by compiler */
++	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
++		features[i].available =3D (u32)(dev->hw_features >> (32*i));
++		features[i].requested =3D (u32)(dev->wanted_features >> (32*i));
++		features[i].active =3D (u32)(dev->features >> (32*i));
++		features[i].never_changed =3D (u32)(NETIF_F_NEVER_CHANGE >> (32*i));
++	}
+=20
+ 	sizeaddr =3D useraddr + offsetof(struct ethtool_gfeatures, size);
+ 	if (get_user(copy_size, sizeaddr))
+@@ -113,7 +118,8 @@ static int ethtool_set_features(struct net_device *=
+dev, void __user *useraddr)
+ {
+ 	struct ethtool_sfeatures cmd;
+ 	struct ethtool_set_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
+;
+-	int ret =3D 0;
++	netdev_features_t wanted =3D 0, valid =3D 0;
++	int i, ret =3D 0;
+=20
+ 	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+ 		return -EFAULT;
+@@ -125,19 +131,26 @@ static int ethtool_set_features(struct net_device=
+ *dev, void __user *useraddr)
+ 	if (copy_from_user(features, useraddr, sizeof(features)))
+ 		return -EFAULT;
+=20
+-	if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
++	/* I wonder if the compiler will be smart enough to loop-unroll
++	 * and optimize this... (no worries if not) --mq */
++	for (i =3D ETHTOOL_DEV_FEATURE_WORDS; i-- > 0; ) {
++		valid =3D (valid << 32)|features[i].valid;
++		wanted =3D (wanted << 32)|features[i].requested;
++	}
++
++	if (valid & ~NETIF_F_ETHTOOL_BITS)
+ 		return -EINVAL;
+=20
+-	if (features[0].valid & ~dev->hw_features) {
+-		features[0].valid &=3D dev->hw_features;
++	if (valid & ~dev->hw_features) {
++		valid &=3D dev->hw_features;
+ 		ret |=3D ETHTOOL_F_UNSUPPORTED;
+ 	}
+=20
+-	dev->wanted_features &=3D ~features[0].valid;
+-	dev->wanted_features |=3D features[0].valid & features[0].requested;
++	dev->wanted_features &=3D ~valid;
++	dev->wanted_features |=3D wanted & valid;
+ 	__netdev_update_features(dev);
+=20
+-	if ((dev->wanted_features ^ dev->features) & features[0].valid)
++	if ((dev->wanted_features ^ dev->features) & valid)
+ 		ret |=3D ETHTOOL_F_WISH;
+=20
+ 	return ret;
 --=20
 1.7.2.5
 
