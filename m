@@ -1,8 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 02/14] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve pages
-Date: Mon, 20 Jun 2011 14:12:08 +0100
-Message-ID: <1308575540-25219-3-git-send-email-mgorman@suse.de>
-References: <1308575540-25219-1-git-send-email-mgorman@suse.de>
+Subject: [PATCH 00/14] Swap-over-NBD without deadlocking v5
+Date: Mon, 20 Jun 2011 14:12:06 +0100
+Message-ID: <1308575540-25219-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
@@ -10,702 +9,197 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1308575540-25219-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Allocations of pages below the min watermark run a risk of the machine
-hanging due to lack of memory.  To prevent this, only callers who
-have PF_MEMALLOC or TIF_MEMDIE set and not processing an interrupt
-are allowed to allocate with ALLOC_NO_WATERMARKS. Once they are
-allocated to a slab though, nothing prevents other callers consuming
-free objects within those slabs. This patch limits access to slab
-pages that were alloced from the PFMEMALLOC reserves.
+Changelog since V4
+  o Update comment clarifying what protocols can be used		(Michal)
+  o Rebase to 3.0-rc3
 
-Pages allocated from the reserve are returned with page->pfmemalloc
-set and it's up to the caller to determine how the page should be
-protected.  SLAB restricts access to any page with page->pfmemalloc set
-to callers which are known to able to access the PFMEMALLOC reserve. If
-one is not available, an attempt is made to allocate a new page rather
-than use a reserve. SLUB is a bit more relaxed in that it only records
-if the current per-CPU page was allocated from PFMEMALLOC reserve and
-uses another partial slab if the caller does not have the necessary
-GFP or process flags. This was found to be sufficient in tests to
-avoid hangs due to SLUB generally maintaining smaller lists than SLAB.
+Changelog since V3
+  o Propogate pfmemalloc from packet fragment pages to skb		(Neil)
+  o Rebase to 3.0-rc2
 
-In low-memory conditions it does mean that !PFMEMALLOC allocators
-can fail a slab allocation even though free objects are available
-because they are being preserved for callers that are freeing pages.
+Changelog since V2
+  o Document that __GFP_NOMEMALLOC overrides __GFP_MEMALLOC		(Neil)
+  o Use wait_event_interruptible					(Neil)
+  o Use !! when casting to bool to avoid any possibilitity of type
+    truncation								(Neil)
+  o Nicer logic when using skb_pfmemalloc_protocol			(Neil)
 
-[a.p.zijlstra@chello.nl: Original implementation]
-Signed-off-by: Mel Gorman <mgorman@suse.de>
----
- include/linux/mm_types.h |    8 ++
- include/linux/slub_def.h |    1 +
- mm/internal.h            |    3 +
- mm/page_alloc.c          |   27 +++++-
- mm/slab.c                |  216 +++++++++++++++++++++++++++++++++++++++-------
- mm/slub.c                |   33 ++++++--
- 6 files changed, 244 insertions(+), 44 deletions(-)
+Changelog since V1
+  o Rebase on top of mmotm
+  o Use atomic_t for memalloc_socks		(David Miller)
+  o Remove use of sk_memalloc_socks in vmscan	(Neil Brown)
+  o Check throttle within prepare_to_wait	(Neil Brown)
+  o Add statistics on throttling instead of printk
 
-diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-index 027935c..2986426 100644
---- a/include/linux/mm_types.h
-+++ b/include/linux/mm_types.h
-@@ -71,6 +71,14 @@ struct page {
- 	union {
- 		pgoff_t index;		/* Our offset within mapping. */
- 		void *freelist;		/* SLUB: freelist req. slab lock */
-+		bool pfmemalloc;	/* If set by the page allocator,
-+					 * ALLOC_PFMEMALLOC was set and the
-+					 * low watermark was not met implying
-+					 * that the system is under some
-+					 * pressure. The caller should try
-+					 * ensure this page is only used to
-+					 * free other pages.
-+					 */
- 	};
- 	struct list_head lru;		/* Pageout list, eg. active_list
- 					 * protected by zone->lru_lock !
-diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index c8668d1..ff7eb16 100644
---- a/include/linux/slub_def.h
-+++ b/include/linux/slub_def.h
-@@ -40,6 +40,7 @@ struct kmem_cache_cpu {
- 	unsigned long tid;	/* Globally unique transaction id */
- 	struct page *page;	/* The slab from which we are allocating */
- 	int node;		/* The node of the page (or -1 for debug) */
-+	bool pfmemalloc;	/* Slab page had pfmemalloc set */
- #ifdef CONFIG_SLUB_STATS
- 	unsigned stat[NR_SLUB_STAT_ITEMS];
- #endif
-diff --git a/mm/internal.h b/mm/internal.h
-index d071d380..a520f3b 100644
---- a/mm/internal.h
-+++ b/mm/internal.h
-@@ -193,6 +193,9 @@ static inline struct page *mem_map_next(struct page *iter,
- #define __paginginit __init
- #endif
- 
-+/* Returns true if the gfp_mask allows use of ALLOC_NO_WATERMARK */
-+bool gfp_pfmemalloc_allowed(gfp_t gfp_mask);
-+
- /* Memory initialisation debug and verification */
- enum mminit_level {
- 	MMINIT_WARNING,
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index a327a72..7769a3d 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -656,6 +656,7 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
- 	trace_mm_page_free_direct(page, order);
- 	kmemcheck_free_shadow(page, order);
- 
-+	page->pfmemalloc = false;
- 	if (PageAnon(page))
- 		page->mapping = NULL;
- 	for (i = 0; i < (1 << order); i++)
-@@ -1174,6 +1175,7 @@ void free_hot_cold_page(struct page *page, int cold)
- 
- 	migratetype = get_pageblock_migratetype(page);
- 	set_page_private(page, migratetype);
-+	page->pfmemalloc = false;
- 	local_irq_save(flags);
- 	if (unlikely(wasMlocked))
- 		free_page_mlock(page);
-@@ -1367,6 +1369,7 @@ failed:
- #define ALLOC_HARDER		0x10 /* try to alloc harder */
- #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
- #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
-+#define ALLOC_PFMEMALLOC	0x80 /* Caller has PF_MEMALLOC set */
- 
- #ifdef CONFIG_FAIL_PAGE_ALLOC
- 
-@@ -2041,16 +2044,22 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
- 	} else if (unlikely(rt_task(current)) && !in_interrupt())
- 		alloc_flags |= ALLOC_HARDER;
- 
--	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
--		if (!in_interrupt() &&
--		    ((current->flags & PF_MEMALLOC) ||
--		     unlikely(test_thread_flag(TIF_MEMDIE))))
-+	if ((current->flags & PF_MEMALLOC) ||
-+			unlikely(test_thread_flag(TIF_MEMDIE))) {
-+		alloc_flags |= ALLOC_PFMEMALLOC;
-+
-+		if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
- 			alloc_flags |= ALLOC_NO_WATERMARKS;
- 	}
- 
- 	return alloc_flags;
- }
- 
-+bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
-+{
-+	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_PFMEMALLOC);
-+}
-+
- static inline struct page *
- __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
- 	struct zonelist *zonelist, enum zone_type high_zoneidx,
-@@ -2223,8 +2232,16 @@ nopage:
- got_pg:
- 	if (kmemcheck_enabled)
- 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
--	return page;
- 
-+	/*
-+	 * page->pfmemalloc is set when the caller had PFMEMALLOC set or is
-+	 * been OOM killed. The expectation is that the caller is taking
-+	 * steps that will free more memory. The caller should avoid the
-+	 * page being used for !PFMEMALLOC purposes.
-+	 */
-+	page->pfmemalloc = !!(alloc_flags & ALLOC_PFMEMALLOC);
-+
-+	return page;
- }
- 
- /*
-diff --git a/mm/slab.c b/mm/slab.c
-index d96e223..a6480df 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -121,6 +121,8 @@
- #include	<asm/tlbflush.h>
- #include	<asm/page.h>
- 
-+#include	"internal.h"
-+
- /*
-  * DEBUG	- 1 for kmem_cache_create() to honour; SLAB_RED_ZONE & SLAB_POISON.
-  *		  0 for faster, smaller code (especially in the critical paths).
-@@ -227,6 +229,7 @@ struct slab {
- 			unsigned int inuse;	/* num of objs active in slab */
- 			kmem_bufctl_t free;
- 			unsigned short nodeid;
-+			bool pfmemalloc;	/* Slab had pfmemalloc set */
- 		};
- 		struct slab_rcu __slab_cover_slab_rcu;
- 	};
-@@ -248,15 +251,37 @@ struct array_cache {
- 	unsigned int avail;
- 	unsigned int limit;
- 	unsigned int batchcount;
--	unsigned int touched;
-+	bool touched;
-+	bool pfmemalloc;
- 	spinlock_t lock;
- 	void *entry[];	/*
- 			 * Must have this definition in here for the proper
- 			 * alignment of array_cache. Also simplifies accessing
- 			 * the entries.
-+			 *
-+			 * Entries should not be directly dereferenced as
-+			 * entries belonging to slabs marked pfmemalloc will
-+			 * have the lower bits set SLAB_OBJ_PFMEMALLOC
- 			 */
- };
- 
-+#define SLAB_OBJ_PFMEMALLOC	1
-+static inline bool is_obj_pfmemalloc(void *objp)
-+{
-+	return (unsigned long)objp & SLAB_OBJ_PFMEMALLOC;
-+}
-+
-+static inline void set_obj_pfmemalloc(void **objp)
-+{
-+	*objp = (void *)((unsigned long)*objp | SLAB_OBJ_PFMEMALLOC);
-+	return;
-+}
-+
-+static inline void clear_obj_pfmemalloc(void **objp)
-+{
-+	*objp = (void *)((unsigned long)*objp & ~SLAB_OBJ_PFMEMALLOC);
-+}
-+
- /*
-  * bootstrap: The caches do not work without cpuarrays anymore, but the
-  * cpuarrays are allocated from the generic caches...
-@@ -889,12 +914,100 @@ static struct array_cache *alloc_arraycache(int node, int entries,
- 		nc->avail = 0;
- 		nc->limit = entries;
- 		nc->batchcount = batchcount;
--		nc->touched = 0;
-+		nc->touched = false;
- 		spin_lock_init(&nc->lock);
- 	}
- 	return nc;
- }
- 
-+/* Clears ac->pfmemalloc if no slabs have pfmalloc set */
-+static void check_ac_pfmemalloc(struct kmem_cache *cachep,
-+						struct array_cache *ac)
-+{
-+	struct kmem_list3 *l3 = cachep->nodelists[numa_mem_id()];
-+	struct slab *slabp;
-+
-+	if (!ac->pfmemalloc)
-+		return;
-+
-+	list_for_each_entry(slabp, &l3->slabs_full, list)
-+		if (slabp->pfmemalloc)
-+			return;
-+
-+	list_for_each_entry(slabp, &l3->slabs_partial, list)
-+		if (slabp->pfmemalloc)
-+			return;
-+
-+	list_for_each_entry(slabp, &l3->slabs_free, list)
-+		if (slabp->pfmemalloc)
-+			return;
-+
-+	ac->pfmemalloc = false;
-+}
-+
-+static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+						gfp_t flags, bool force_refill)
-+{
-+	int i;
-+	void *objp = ac->entry[--ac->avail];
-+
-+	/* Ensure the caller is allowed to use objects from PFMEMALLOC slab */
-+	if (unlikely(is_obj_pfmemalloc(objp))) {
-+		struct kmem_list3 *l3;
-+
-+		if (gfp_pfmemalloc_allowed(flags)) {
-+			clear_obj_pfmemalloc(&objp);
-+			return objp;
-+		}
-+
-+		/* The caller cannot use PFMEMALLOC objects, find another one */
-+		for (i = 1; i < ac->avail; i++) {
-+			/* If a !PFMEMALLOC object is found, swap them */
-+			if (!is_obj_pfmemalloc(ac->entry[i])) {
-+				objp = ac->entry[i];
-+				ac->entry[i] = ac->entry[ac->avail];
-+				ac->entry[ac->avail] = objp;
-+				return objp;
-+			}
-+		}
-+
-+		/*
-+		 * If there are empty slabs on the slabs_free list and we are
-+		 * being forced to refill the cache, mark this one !pfmemalloc.
-+		 */
-+		l3 = cachep->nodelists[numa_mem_id()];
-+		if (!list_empty(&l3->slabs_free) && force_refill) {
-+			struct slab *slabp = virt_to_slab(objp);
-+			slabp->pfmemalloc = false;
-+			clear_obj_pfmemalloc(&objp);
-+			check_ac_pfmemalloc(cachep, ac);
-+			return objp;
-+		}
-+
-+		/* No !PFMEMALLOC objects available */
-+		ac->avail++;
-+		objp = NULL;
-+	}
-+
-+	return objp;
-+}
-+
-+static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+								void *objp)
-+{
-+	struct slab *slabp;
-+
-+	/* If there are pfmemalloc slabs, check if the object is part of one */
-+	if (unlikely(ac->pfmemalloc)) {
-+		slabp = virt_to_slab(objp);
-+
-+		if (slabp->pfmemalloc)
-+			set_obj_pfmemalloc(&objp);
-+	}
-+
-+	ac->entry[ac->avail++] = objp;
-+}
-+
- /*
-  * Transfer objects in one arraycache to another.
-  * Locking must be handled by the caller.
-@@ -1071,7 +1184,7 @@ static inline int cache_free_alien(struct kmem_cache *cachep, void *objp)
- 			STATS_INC_ACOVERFLOW(cachep);
- 			__drain_alien_cache(cachep, alien, nodeid);
- 		}
--		alien->entry[alien->avail++] = objp;
-+		ac_put_obj(cachep, alien, objp);
- 		spin_unlock(&alien->lock);
- 	} else {
- 		spin_lock(&(cachep->nodelists[nodeid])->list_lock);
-@@ -1678,7 +1791,8 @@ __initcall(cpucache_init);
-  * did not request dmaable memory, we might get it, but that
-  * would be relatively rare and ignorable.
-  */
--static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
-+static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid,
-+		bool *pfmemalloc)
- {
- 	struct page *page;
- 	int nr_pages;
-@@ -1699,6 +1813,7 @@ static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
- 	page = alloc_pages_exact_node(nodeid, flags | __GFP_NOTRACK, cachep->gfporder);
- 	if (!page)
- 		return NULL;
-+	*pfmemalloc = page->pfmemalloc;
- 
- 	nr_pages = (1 << cachep->gfporder);
- 	if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
-@@ -2131,7 +2246,7 @@ static int __init_refok setup_cpu_cache(struct kmem_cache *cachep, gfp_t gfp)
- 	cpu_cache_get(cachep)->avail = 0;
- 	cpu_cache_get(cachep)->limit = BOOT_CPUCACHE_ENTRIES;
- 	cpu_cache_get(cachep)->batchcount = 1;
--	cpu_cache_get(cachep)->touched = 0;
-+	cpu_cache_get(cachep)->touched = false;
- 	cachep->batchcount = 1;
- 	cachep->limit = BOOT_CPUCACHE_ENTRIES;
- 	return 0;
-@@ -2678,6 +2793,7 @@ static struct slab *alloc_slabmgmt(struct kmem_cache *cachep, void *objp,
- 	slabp->s_mem = objp + colour_off;
- 	slabp->nodeid = nodeid;
- 	slabp->free = 0;
-+	slabp->pfmemalloc = false;
- 	return slabp;
- }
- 
-@@ -2809,7 +2925,7 @@ static void slab_map_pages(struct kmem_cache *cache, struct slab *slab,
-  * kmem_cache_alloc() when there are no active objs left in a cache.
-  */
- static int cache_grow(struct kmem_cache *cachep,
--		gfp_t flags, int nodeid, void *objp)
-+		gfp_t flags, int nodeid, void *objp, bool pfmemalloc)
- {
- 	struct slab *slabp;
- 	size_t offset;
-@@ -2853,7 +2969,7 @@ static int cache_grow(struct kmem_cache *cachep,
- 	 * 'nodeid'.
- 	 */
- 	if (!objp)
--		objp = kmem_getpages(cachep, local_flags, nodeid);
-+		objp = kmem_getpages(cachep, local_flags, nodeid, &pfmemalloc);
- 	if (!objp)
- 		goto failed;
- 
-@@ -2863,6 +2979,13 @@ static int cache_grow(struct kmem_cache *cachep,
- 	if (!slabp)
- 		goto opps1;
- 
-+	/* Record if ALLOC_PFMEMALLOC was set when allocating the slab */
-+	if (pfmemalloc) {
-+		struct array_cache *ac = cpu_cache_get(cachep);
-+		slabp->pfmemalloc = true;
-+		ac->pfmemalloc = true;
-+	}
-+
- 	slab_map_pages(cachep, slabp, objp);
- 
- 	cache_init_objs(cachep, slabp);
-@@ -3004,16 +3127,19 @@ bad:
- #define check_slabp(x,y) do { } while(0)
- #endif
- 
--static void *cache_alloc_refill(struct kmem_cache *cachep, gfp_t flags)
-+static void *cache_alloc_refill(struct kmem_cache *cachep, gfp_t flags,
-+							bool force_refill)
- {
- 	int batchcount;
- 	struct kmem_list3 *l3;
- 	struct array_cache *ac;
- 	int node;
- 
--retry:
- 	check_irq_off();
- 	node = numa_mem_id();
-+	if (unlikely(force_refill))
-+		goto force_grow;
-+retry:
- 	ac = cpu_cache_get(cachep);
- 	batchcount = ac->batchcount;
- 	if (!ac->touched && batchcount > BATCHREFILL_LIMIT) {
-@@ -3031,7 +3157,7 @@ retry:
- 
- 	/* See if we can refill from the shared array */
- 	if (l3->shared && transfer_objects(ac, l3->shared, batchcount)) {
--		l3->shared->touched = 1;
-+		l3->shared->touched = true;
- 		goto alloc_done;
- 	}
- 
-@@ -3063,8 +3189,8 @@ retry:
- 			STATS_INC_ACTIVE(cachep);
- 			STATS_SET_HIGH(cachep);
- 
--			ac->entry[ac->avail++] = slab_get_obj(cachep, slabp,
--							    node);
-+			ac_put_obj(cachep, ac, slab_get_obj(cachep, slabp,
-+									node));
- 		}
- 		check_slabp(cachep, slabp);
- 
-@@ -3083,18 +3209,25 @@ alloc_done:
- 
- 	if (unlikely(!ac->avail)) {
- 		int x;
--		x = cache_grow(cachep, flags | GFP_THISNODE, node, NULL);
-+force_grow:
-+		x = cache_grow(cachep, flags | GFP_THISNODE, node, NULL, false);
- 
- 		/* cache_grow can reenable interrupts, then ac could change. */
- 		ac = cpu_cache_get(cachep);
--		if (!x && ac->avail == 0)	/* no objects in sight? abort */
-+
-+		/* no objects in sight? abort */
-+		if (!x && (ac->avail == 0 || force_refill))
- 			return NULL;
- 
--		if (!ac->avail)		/* objects refilled by interrupt? */
-+		/* objects refilled by interrupt? */
-+		if (!ac->avail) {
-+			node = numa_node_id();
- 			goto retry;
-+		}
- 	}
--	ac->touched = 1;
--	return ac->entry[--ac->avail];
-+	ac->touched = true;
-+
-+	return ac_get_obj(cachep, ac, flags, force_refill);
- }
- 
- static inline void cache_alloc_debugcheck_before(struct kmem_cache *cachep,
-@@ -3177,23 +3310,35 @@ static inline void *____cache_alloc(struct kmem_cache *cachep, gfp_t flags)
- {
- 	void *objp;
- 	struct array_cache *ac;
-+	bool force_refill = false;
- 
- 	check_irq_off();
- 
- 	ac = cpu_cache_get(cachep);
- 	if (likely(ac->avail)) {
--		STATS_INC_ALLOCHIT(cachep);
--		ac->touched = 1;
--		objp = ac->entry[--ac->avail];
--	} else {
--		STATS_INC_ALLOCMISS(cachep);
--		objp = cache_alloc_refill(cachep, flags);
-+		ac->touched = true;
-+		objp = ac_get_obj(cachep, ac, flags, false);
-+
- 		/*
--		 * the 'ac' may be updated by cache_alloc_refill(),
--		 * and kmemleak_erase() requires its correct value.
-+		 * Allow for the possibility all avail objects are not allowed
-+		 * by the current flags
- 		 */
--		ac = cpu_cache_get(cachep);
-+		if (objp) {
-+			STATS_INC_ALLOCHIT(cachep);
-+			goto out;
-+		}
-+		force_refill = true;
- 	}
-+
-+	STATS_INC_ALLOCMISS(cachep);
-+	objp = cache_alloc_refill(cachep, flags, force_refill);
-+	/*
-+	 * the 'ac' may be updated by cache_alloc_refill(),
-+	 * and kmemleak_erase() requires its correct value.
-+	 */
-+	ac = cpu_cache_get(cachep);
-+
-+out:
- 	/*
- 	 * To avoid a false negative, if an object that is in one of the
- 	 * per-CPU caches is leaked, we need to make sure kmemleak doesn't
-@@ -3246,6 +3391,7 @@ static void *fallback_alloc(struct kmem_cache *cache, gfp_t flags)
- 	enum zone_type high_zoneidx = gfp_zone(flags);
- 	void *obj = NULL;
- 	int nid;
-+	bool pfmemalloc;
- 
- 	if (flags & __GFP_THISNODE)
- 		return NULL;
-@@ -3282,7 +3428,8 @@ retry:
- 		if (local_flags & __GFP_WAIT)
- 			local_irq_enable();
- 		kmem_flagcheck(cache, flags);
--		obj = kmem_getpages(cache, local_flags, numa_mem_id());
-+		obj = kmem_getpages(cache, local_flags, numa_mem_id(),
-+							&pfmemalloc);
- 		if (local_flags & __GFP_WAIT)
- 			local_irq_disable();
- 		if (obj) {
-@@ -3290,7 +3437,7 @@ retry:
- 			 * Insert into the appropriate per node queues
- 			 */
- 			nid = page_to_nid(virt_to_page(obj));
--			if (cache_grow(cache, flags, nid, obj)) {
-+			if (cache_grow(cache, flags, nid, obj, pfmemalloc)) {
- 				obj = ____cache_alloc_node(cache,
- 					flags | GFP_THISNODE, nid);
- 				if (!obj)
-@@ -3362,7 +3509,7 @@ retry:
- 
- must_grow:
- 	spin_unlock(&l3->list_lock);
--	x = cache_grow(cachep, flags | GFP_THISNODE, nodeid, NULL);
-+	x = cache_grow(cachep, flags | GFP_THISNODE, nodeid, NULL, false);
- 	if (x)
- 		goto retry;
- 
-@@ -3512,9 +3659,12 @@ static void free_block(struct kmem_cache *cachep, void **objpp, int nr_objects,
- 	struct kmem_list3 *l3;
- 
- 	for (i = 0; i < nr_objects; i++) {
--		void *objp = objpp[i];
-+		void *objp;
- 		struct slab *slabp;
- 
-+		clear_obj_pfmemalloc(&objpp[i]);
-+		objp = objpp[i];
-+
- 		slabp = virt_to_slab(objp);
- 		l3 = cachep->nodelists[node];
- 		list_del(&slabp->list);
-@@ -3627,12 +3777,12 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
- 
- 	if (likely(ac->avail < ac->limit)) {
- 		STATS_INC_FREEHIT(cachep);
--		ac->entry[ac->avail++] = objp;
-+		ac_put_obj(cachep, ac, objp);
- 		return;
- 	} else {
- 		STATS_INC_FREEMISS(cachep);
- 		cache_flusharray(cachep, ac);
--		ac->entry[ac->avail++] = objp;
-+		ac_put_obj(cachep, ac, objp);
- 	}
- }
- 
-@@ -4058,7 +4208,7 @@ static void drain_array(struct kmem_cache *cachep, struct kmem_list3 *l3,
- 	if (!ac || !ac->avail)
- 		return;
- 	if (ac->touched && !force) {
--		ac->touched = 0;
-+		ac->touched = false;
- 	} else {
- 		spin_lock_irq(&l3->list_lock);
- 		if (ac->avail) {
-diff --git a/mm/slub.c b/mm/slub.c
-index 35f351f..dd552a5 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -30,6 +30,8 @@
- 
- #include <trace/events/kmem.h>
- 
-+#include "internal.h"
-+
- /*
-  * Lock order:
-  *   1. slab_lock(page)
-@@ -1242,7 +1244,8 @@ static void setup_object(struct kmem_cache *s, struct page *page,
- 		s->ctor(object);
- }
- 
--static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
-+static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node,
-+							bool *pfmemalloc)
- {
- 	struct page *page;
- 	void *start;
-@@ -1257,6 +1260,7 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
- 		goto out;
- 
- 	inc_slabs_node(s, page_to_nid(page), page->objects);
-+	*pfmemalloc = page->pfmemalloc;
- 	page->slab = s;
- 	page->flags |= 1 << PG_slab;
- 
-@@ -1772,6 +1776,14 @@ slab_out_of_memory(struct kmem_cache *s, gfp_t gfpflags, int nid)
- 	}
- }
- 
-+static inline bool pfmemalloc_match(struct kmem_cache_cpu *c, gfp_t gfpflags)
-+{
-+	if (unlikely(c->pfmemalloc))
-+		return gfp_pfmemalloc_allowed(gfpflags);
-+
-+	return true;
-+}
-+
- /*
-  * Slow path. The lockless freelist is empty or we need to perform
-  * debugging duties.
-@@ -1796,6 +1808,7 @@ static void *__slab_alloc(struct kmem_cache *s, gfp_t gfpflags, int node,
- 	void **object;
- 	struct page *page;
- 	unsigned long flags;
-+	bool pfmemalloc = false;
- 
- 	local_irq_save(flags);
- #ifdef CONFIG_PREEMPT
-@@ -1815,7 +1828,13 @@ static void *__slab_alloc(struct kmem_cache *s, gfp_t gfpflags, int node,
- 		goto new_slab;
- 
- 	slab_lock(page);
--	if (unlikely(!node_match(c, node)))
-+
-+	/*
-+	 * By rights, we should be searching for a slab page that was
-+	 * PFMEMALLOC but right now, we are losing the pfmemalloc
-+	 * information when the page leaves the per-cpu allocator
-+	 */
-+	if (unlikely(!pfmemalloc_match(c, gfpflags) || !node_match(c, node)))
- 		goto another_slab;
- 
- 	stat(s, ALLOC_REFILL);
-@@ -1853,7 +1872,7 @@ new_slab:
- 	if (gfpflags & __GFP_WAIT)
- 		local_irq_enable();
- 
--	page = new_slab(s, gfpflags, node);
-+	page = new_slab(s, gfpflags, node, &pfmemalloc);
- 
- 	if (gfpflags & __GFP_WAIT)
- 		local_irq_disable();
-@@ -1868,6 +1887,7 @@ new_slab:
- 		__SetPageSlubFrozen(page);
- 		c->node = page_to_nid(page);
- 		c->page = page;
-+		c->pfmemalloc = pfmemalloc;
- 		goto load_freelist;
- 	}
- 	if (!(gfpflags & __GFP_NOWARN) && printk_ratelimit())
-@@ -1927,8 +1947,8 @@ redo:
- 	barrier();
- 
- 	object = c->freelist;
--	if (unlikely(!object || !node_match(c, node)))
--
-+	if (unlikely(!object || !node_match(c, node) ||
-+					!pfmemalloc_match(c, gfpflags)))
- 		object = __slab_alloc(s, gfpflags, node, addr, c);
- 
- 	else {
-@@ -2351,10 +2371,11 @@ static void early_kmem_cache_node_alloc(int node)
- 	struct page *page;
- 	struct kmem_cache_node *n;
- 	unsigned long flags;
-+	bool pfmemalloc;	/* Ignore this early in boot */
- 
- 	BUG_ON(kmem_cache_node->size < sizeof(struct kmem_cache_node));
- 
--	page = new_slab(kmem_cache_node, GFP_NOWAIT, node);
-+	page = new_slab(kmem_cache_node, GFP_NOWAIT, node, &pfmemalloc);
- 
- 	BUG_ON(!page);
- 	if (page_to_nid(page) != node) {
+Swapping over NBD is something that is technically possible but not
+often advised. While there are number of guides on the internet
+on how to configure it and nbd-client supports a -swap switch to
+"prevent deadlocks", the fact of the matter is a machine using NBD
+for swap can be locked up within minutes if swap is used intensively.
+
+The problem is that network block devices do not use mempools like
+normal block devices do. As the host cannot control where they receive
+packets from, they cannot reliably work out in advance how much memory
+they might need.
+
+Some years ago, Peter Ziljstra developed a series of patches that
+supported swap over an NFS that some distributions are carrying in
+their kernels. This patch series borrows very heavily from Peter's work
+to support swapping over NBD (the relatively straight-forward case)
+and uses throttling instead of dynamically resized memory reserves
+so the series is not too unwieldy for review.
+
+Patch 1 serialises access to min_free_kbytes. It's not strictly needed
+	by this series but as the series cares about watermarks in
+	general, it's a harmless fix. It could be merged independently.
+
+Patch 2 adds knowledge of the PFMEMALLOC reserves to SLAB and SLUB to
+	preserve access to pages allocated under low memory situations
+	to callers that are freeying memory.
+
+Patch 3 introduces __GFP_MEMALLOC to allow access to the PFMEMALLOC
+	reserves without setting PFMEMALLOC.
+
+Patch 4 opens the possibility for softirqs to use PFMEMALLOC reserves
+	for later use by network packet processing.
+
+Patch 5 ignores memory policies when ALLOC_NO_WATERMARKS is set.
+
+Patches 6-10 allows network processing to use PFMEMALLOC reserves when
+	the socket has been marked as being used by the VM to clean
+	pages. If packets are received and stored in pages that were
+	allocated under low-memory situations and are unrelated to
+	the VM, the packets are dropped.
+
+Patch 11 is a micro-optimisation to avoid a function call in the
+	common case.
+
+Patch 12 tags NBD sockets as being SOCK_MEMALLOC so they can use
+	PFMEMALLOC if necessary.
+
+Patch 13 notes that it is still possible for the PFMEMALLOC reserve
+	to be depleted. To prevent this, direct reclaimers get
+	throttled on a waitqueue if 50% of the PFMEMALLOC reserves are
+	depleted.  It is expected that kswapd and the direct reclaimers
+	already running will clean enough pages for the low watermark
+	to be reached and the throttled processes are woken up.
+
+Patch 14 adds a statistic to track how often processes get throttled
+
+Some basic performance testing was run using kernel builds, netperf
+on loopback for UDP and TCP, hackbench (pipes and sockets), iozone
+and sysbench. Each of them were expected to use the sl*b allocators
+reasonably heavily but there did not appear to be significant
+performance variances. Here is the results from netperf using
+slab as an example
+
+NETPERF UDP
+      64   237.47 ( 0.00%)    237.34 (-0.05%) 
+     128   472.69 ( 0.00%)    465.96 (-1.44%) 
+     256   926.82 ( 0.00%)    948.40 ( 2.28%) 
+    1024  3260.08 ( 0.00%)   3266.50 ( 0.20%) 
+    2048  5535.11 ( 0.00%)   5453.55 (-1.50%) 
+    3312  7496.60 ( 0.00%)*  7574.44 ( 1.03%) 
+             1.12%             1.00%        
+    4096  8266.35 ( 0.00%)*  8240.06 (-0.32%)*
+             1.18%             1.49%        
+    8192 11026.01 ( 0.00%)  11010.44 (-0.14%) 
+   16384 14653.98 ( 0.00%)  14666.97 ( 0.09%) 
+MMTests Statistics: duration
+User/Sys Time Running Test (seconds)       2156.64   1873.27
+Total Elapsed Time (seconds)               2570.09   2234.10
+
+NETPERF TCP
+                   netperf-tcp       tcp-swapnbd
+                  vanilla-slab         v4r3-slab
+      64  1250.76 ( 0.00%)   1256.52 ( 0.46%) 
+     128  2290.70 ( 0.00%)   2336.43 ( 1.96%) 
+     256  3668.42 ( 0.00%)   3751.17 ( 2.21%) 
+    1024  7214.33 ( 0.00%)   7237.23 ( 0.32%) 
+    2048  8230.01 ( 0.00%)   8280.02 ( 0.60%) 
+    3312  8634.95 ( 0.00%)   8758.62 ( 1.41%) 
+    4096  8851.18 ( 0.00%)   9045.88 ( 2.15%) 
+    8192 10067.59 ( 0.00%)  10263.30 ( 1.91%) 
+   16384 11523.26 ( 0.00%)  11654.78 ( 1.13%) 
+MMTests Statistics: duration
+User/Sys Time Running Test (seconds)       1450.23    1389.8
+Total Elapsed Time (seconds)               1450.41   1390.35
+
+Here is the equivalent test for SLUB
+
+                   netperf-udp       udp-swapnbd
+                  vanilla-slub         v4r3-slub
+      64   235.33 ( 0.00%)    237.80 ( 1.04%) 
+     128   465.92 ( 0.00%)    469.98 ( 0.86%) 
+     256   907.16 ( 0.00%)    907.58 ( 0.05%) 
+    1024  3240.25 ( 0.00%)   3255.56 ( 0.47%) 
+    2048  5564.87 ( 0.00%)   5446.46 (-2.17%) 
+    3312  7427.65 ( 0.00%)*  7650.00 ( 2.91%) 
+             1.33%             1.00%        
+    4096  8004.51 ( 0.00%)*  8132.79 ( 1.58%)*
+             1.05%             1.21%        
+    8192 11079.60 ( 0.00%)  10927.09 (-1.40%) 
+   16384 14737.38 ( 0.00%)  15019.50 ( 1.88%) 
+MMTests Statistics: duration
+User/Sys Time Running Test (seconds)       2056.21   2160.38
+Total Elapsed Time (seconds)               2426.09   2498.16
+
+NETPERF TCP
+                   netperf-tcp       tcp-swapnbd
+                  vanilla-slub         v4r3-slub
+      64  1251.64 ( 0.00%)   1262.89 ( 0.89%) 
+     128  2289.88 ( 0.00%)   2332.94 ( 1.85%) 
+     256  3654.34 ( 0.00%)   3736.48 ( 2.20%) 
+    1024  7192.47 ( 0.00%)   7286.96 ( 1.30%) 
+    2048  8243.55 ( 0.00%)   8291.50 ( 0.58%) 
+    3312  8664.16 ( 0.00%)   8799.88 ( 1.54%) 
+    4096  8869.13 ( 0.00%)   9018.12 ( 1.65%) 
+    8192 10009.53 ( 0.00%)  10214.26 ( 2.00%) 
+   16384 11470.78 ( 0.00%)  11685.20 ( 1.83%) 
+MMTests Statistics: duration
+User/Sys Time Running Test (seconds)       1368.28   1511.81
+Total Elapsed Time (seconds)               1370.33   1510.42
+
+Time to completion varied a lot but this can happen with netperf as
+it tries to find results within a sufficiently high confidence. There
+were some small gains and losses but they are close to the variances
+seen between kernel releases.
+
+For testing swap-over-NBD, a machine was booted with 2G of RAM with a
+swapfile backed by NBD. 8*NUM_CPU processes were started that create
+anonymous memory mappings and read them linearly in a loop. The total
+size of the mappings were 4*PHYSICAL_MEMORY to use swap heavily under
+memory pressure. Without the patches, the machine locks up within
+minutes and runs to completion with them applied.
+
+ drivers/block/nbd.c             |    7 +-
+ include/linux/gfp.h             |   13 ++-
+ include/linux/mm_types.h        |    8 ++
+ include/linux/mmzone.h          |    1 +
+ include/linux/sched.h           |    7 +
+ include/linux/skbuff.h          |   21 +++-
+ include/linux/slub_def.h        |    1 +
+ include/linux/vm_event_item.h   |    1 +
+ include/net/sock.h              |   19 +++
+ include/trace/events/gfpflags.h |    1 +
+ kernel/softirq.c                |    3 +
+ mm/page_alloc.c                 |   57 +++++++--
+ mm/slab.c                       |  240 +++++++++++++++++++++++++++++++++------
+ mm/slub.c                       |   33 +++++-
+ mm/vmscan.c                     |   55 +++++++++
+ mm/vmstat.c                     |    1 +
+ net/core/dev.c                  |   48 +++++++-
+ net/core/filter.c               |    8 ++
+ net/core/skbuff.c               |   95 +++++++++++++---
+ net/core/sock.c                 |   42 +++++++
+ net/ipv4/tcp.c                  |    3 +-
+ net/ipv4/tcp_output.c           |   13 +-
+ net/ipv6/tcp_ipv6.c             |   12 ++-
+ 23 files changed, 602 insertions(+), 87 deletions(-)
+
 -- 
 1.7.3.4
 
