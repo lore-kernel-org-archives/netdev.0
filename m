@@ -1,38 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/5] niu: fix 64 bit statistics on 32 bit
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH net-next 3/5] netxen: make 64 bit stats safe on 32 bit
  platform
-Date: Tue, 21 Jun 2011 00:02:32 +0200
-Message-ID: <1308607352.2658.38.camel@edumazet-laptop>
-References: <20110620203506.363818794@vyatta.com>
-	 <20110620203602.739916889@vyatta.com>
-	 <1308606356.2701.199.camel@bwh-desktop>
-	 <20110620145201.42dd9bf8@nehalam.ftrdhcpuser.net>
+Date: Mon, 20 Jun 2011 15:18:32 -0700 (PDT)
+Message-ID: <1528961426.419.1308608312735.JavaMail.root@tahiti.vyatta.com>
+References: <1308606738.2701.203.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Amit Kumar Salecha <amit.salecha@qlogic.com>,
 	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64643 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755023Ab1FTWCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 18:02:36 -0400
-Received: by wyb38 with SMTP id 38so1980376wyb.19
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 15:02:35 -0700 (PDT)
-In-Reply-To: <20110620145201.42dd9bf8@nehalam.ftrdhcpuser.net>
+Received: from mail.vyatta.com ([76.74.103.46]:37859 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932097Ab1FTWSf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 18:18:35 -0400
+In-Reply-To: <1308606738.2701.203.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 20 juin 2011 =C3=A0 14:52 -0700, Stephen Hemminger a =C3=A9cri=
-t :
-> > It looks like you also need to update release_tx_packet() where the=
-se
-> > stats are written.
->=20
-> Probably need to split tx/rx update as well.
 
-Its already done in your patch ;)
+> On Mon, 2011-06-20 at 13:35 -0700, Stephen Hemminger wrote:
+> 
+> > Use stats_update wrapper to avoid problems where 64 bit statistic
+> > update is not atomic on 32 bit platform.
+> [...]
+> > @@ -2115,11 +2117,17 @@ static struct rtnl_link_stats64 *netxen_
+> >  						      struct rtnl_link_stats64 *stats)
+> >  {
+> >  	struct netxen_adapter *adapter = netdev_priv(netdev);
+> > + unsigned int start;
+> > + + do {
+> > + start = u64_stats_fetch_begin(&adapter->stats.syncp);
+> > + + stats->rx_packets = adapter->stats.rx_pkts +
+> > adapter->stats.lro_pkts; + stats->tx_packets =
+> > adapter->stats.xmitfinished; + stats->rx_bytes =
+> > adapter->stats.rxbytes; + stats->tx_bytes = adapter->stats.txbytes;
+> > + } while (u64_stats_fetch_retry(&adapter->stats.syncp, start));
+> >
+> > - stats->rx_packets = adapter->stats.rx_pkts +
+> > adapter->stats.lro_pkts; - stats->tx_packets =
+> > adapter->stats.xmitfinished; - stats->rx_bytes =
+> > adapter->stats.rxbytes; - stats->tx_bytes = adapter->stats.txbytes;
+> >  	stats->rx_dropped = adapter->stats.rxdropped;
+> >  	stats->tx_dropped = adapter->stats.txdropped;
+> 
+> netxen_nic_get_ethtool_stats() should also be fixed.
+> 
+> The 'txdropped' and 'csummed' stats are also 64-bit and updated on the
+> data path. ('rxdropped' isn't updated at all, AFAICS.)
 
-
-
+Since they are error counters, just changing them to unsigned long is
+easier.
