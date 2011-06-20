@@ -1,93 +1,120 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 3/5] e100:  Support receiving errored frames.
-Date: Mon, 20 Jun 2011 18:57:52 +0100
-Message-ID: <1308592672.2701.146.camel@bwh-desktop>
-References: <1308430045-24816-1-git-send-email-greearb@candelatech.com>
-	 <1308430045-24816-4-git-send-email-greearb@candelatech.com>
+From: Jon Mason <jon.mason@myri.com>
+Subject: Re: [PATCH net-next-2.6] myricom: remove stats_lock
+Date: Mon, 20 Jun 2011 13:00:45 -0500
+Message-ID: <BANLkTim-Akor_QuFsF+SM0u5=BwjdwYr2g@mail.gmail.com>
+References: <1308550066.3539.129.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:16794 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352Ab1FTR5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 13:57:55 -0400
-In-Reply-To: <1308430045-24816-4-git-send-email-greearb@candelatech.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:54576 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755462Ab1FTSAq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 14:00:46 -0400
+Received: by iyb12 with SMTP id 12so2176385iyb.19
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 11:00:46 -0700 (PDT)
+In-Reply-To: <1308550066.3539.129.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-06-18 at 13:47 -0700, greearb@candelatech.com wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> 
-> This can be helpful when sniffing dodgy networks.
-> 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
+On Mon, Jun 20, 2011 at 1:07 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> stats_lock is non useless, lets remove it.
+>
+> Also, ndo_get_stats64() doesnt have to clear the stats, caller takes
+> care of this.
+>
+> Note: folding 32bit fields in 64bit one is problematic when one of 32=
+bit
+> values wraps : SNMP reader will see a ~2^32 back change in a 64bit
+> value. A future patch should fix this.
+
+Good point, I'll push a patch shortly to increase the size of the
+slice stats to 64b.
+
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> CC: Andrew Gallatin <gallatin@myri.com>
+> CC: Brice Goglin <brice@myri.com>
+
+Acked-by: Jon Mason <mason@myri.com>
+
 > ---
-> :100644 100644 647d8c6... aad303d... M	drivers/net/e100.c
->  drivers/net/e100.c |   42 ++++++++++++++++++++++++++++++++++++++++--
->  1 files changed, 40 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> index 647d8c6..aad303d 100644
-> --- a/drivers/net/e100.c
-> +++ b/drivers/net/e100.c
-> @@ -588,6 +588,7 @@ struct nic {
->  		wol_magic          = (1 << 3),
->  		ich_10h_workaround = (1 << 4),
->  		save_rxfcs         = (1 << 5),
-> +		save_rxerr         = (1 << 6),
->  	} flags					____cacheline_aligned;
->  
->  	enum mac mac;
-> @@ -1126,9 +1127,13 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
->  		config->full_duplex_force = 0x1;	/* 1=force, 0=auto */
->  
->  	if (nic->flags & promiscuous || nic->loopback) {
-> +		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
-> +	}
-> +
-> +	if (nic->flags & save_rxerr) {
-> +		config->rx_discard_overruns = 0x1;	/* 1=save, 0=discard */
->  		config->rx_save_bad_frames = 0x1;	/* 1=save, 0=discard */
->  		config->rx_discard_short_frames = 0x0;	/* 1=discard, 0=save */
-
-Any idea why these were previously set in promiscuous or loopback mode?
-
-> -		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
->  	}
->  
->  	if (nic->flags & save_rxfcs)
-> @@ -1983,7 +1988,18 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
->  	skb_put(skb, actual_size);
->  	skb->protocol = eth_type_trans(skb, nic->netdev);
->  
-> -	if (unlikely(!(rfd_status & cb_ok))) {
-> +	if (unlikely(nic->flags & save_rxerr)) {
-> +		if (!(rfd_status & cb_ok)) {
-> +			skb->pkt_type = PACKET_INVALID;
-> +		} else if (actual_size >
-> +			   ETH_DATA_LEN + VLAN_ETH_HLEN + rxfcs_pad) {
-> +			nic->rx_over_length_errors++;
-> +			skb->pkt_type = PACKET_INVALID;
-> +		}
-> +		goto process_skb;
-> +	}
-> +
-> +	if (unlikely((nic->flags & save_rxerr) && !(rfd_status & cb_ok))) {
-[...]
-
-You're adding an if-statement to cover the save_rxerr case, and the
-existing if-else-statement should cover the !save_rxerr case - so you
-are missing a '!'.  But since the new if-statement's body ends with a
-goto, there should be no need to change the condition for the existing
-if-else statement at all.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> =A0drivers/net/myri10ge/myri10ge.c | =A0 10 +++-------
+> =A01 file changed, 3 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/m=
+yri10ge.c
+> index 04e10f4..3e89a84 100644
+> --- a/drivers/net/myri10ge/myri10ge.c
+> +++ b/drivers/net/myri10ge/myri10ge.c
+> @@ -210,7 +210,6 @@ struct myri10ge_priv {
+> =A0 =A0 =A0 =A0int big_bytes;
+> =A0 =A0 =A0 =A0int max_intr_slots;
+> =A0 =A0 =A0 =A0struct net_device *dev;
+> - =A0 =A0 =A0 spinlock_t stats_lock;
+> =A0 =A0 =A0 =A0u8 __iomem *sram;
+> =A0 =A0 =A0 =A0int sram_size;
+> =A0 =A0 =A0 =A0unsigned long board_span;
+> @@ -1837,6 +1836,7 @@ myri10ge_get_ethtool_stats(struct net_device *n=
+etdev,
+> =A0 =A0 =A0 =A0int i;
+>
+> =A0 =A0 =A0 =A0/* force stats update */
+> + =A0 =A0 =A0 memset(&link_stats, 0, sizeof(link_stats));
+> =A0 =A0 =A0 =A0(void)myri10ge_get_stats(netdev, &link_stats);
+> =A0 =A0 =A0 =A0for (i =3D 0; i < MYRI10GE_NET_STATS_LEN; i++)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data[i] =3D ((u64 *)&link_stats)[i];
+> @@ -2981,12 +2981,10 @@ drop:
+> =A0static struct rtnl_link_stats64 *myri10ge_get_stats(struct net_dev=
+ice *dev,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct rtnl_link_stats64 *stats)
+> =A0{
+> - =A0 =A0 =A0 struct myri10ge_priv *mgp =3D netdev_priv(dev);
+> - =A0 =A0 =A0 struct myri10ge_slice_netstats *slice_stats;
+> + =A0 =A0 =A0 const struct myri10ge_priv *mgp =3D netdev_priv(dev);
+> + =A0 =A0 =A0 const struct myri10ge_slice_netstats *slice_stats;
+> =A0 =A0 =A0 =A0int i;
+>
+> - =A0 =A0 =A0 spin_lock(&mgp->stats_lock);
+> - =A0 =A0 =A0 memset(stats, 0, sizeof(*stats));
+> =A0 =A0 =A0 =A0for (i =3D 0; i < mgp->num_slices; i++) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0slice_stats =3D &mgp->ss[i].stats;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0stats->rx_packets +=3D slice_stats->rx=
+_packets;
+> @@ -2996,7 +2994,6 @@ static struct rtnl_link_stats64 *myri10ge_get_s=
+tats(struct net_device *dev,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0stats->rx_dropped +=3D slice_stats->rx=
+_dropped;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0stats->tx_dropped +=3D slice_stats->tx=
+_dropped;
+> =A0 =A0 =A0 =A0}
+> - =A0 =A0 =A0 spin_unlock(&mgp->stats_lock);
+> =A0 =A0 =A0 =A0return stats;
+> =A0}
+>
+> @@ -3966,7 +3963,6 @@ static int myri10ge_probe(struct pci_dev *pdev,=
+ const struct pci_device_id *ent)
+> =A0 =A0 =A0 =A0setup_timer(&mgp->watchdog_timer, myri10ge_watchdog_ti=
+mer,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(unsigned long)mgp);
+>
+> - =A0 =A0 =A0 spin_lock_init(&mgp->stats_lock);
+> =A0 =A0 =A0 =A0SET_ETHTOOL_OPS(netdev, &myri10ge_ethtool_ops);
+> =A0 =A0 =A0 =A0INIT_WORK(&mgp->watchdog_work, myri10ge_watchdog);
+> =A0 =A0 =A0 =A0status =3D register_netdev(netdev);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
