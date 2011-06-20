@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 00/11] net: expand time stamping, batch #2
-Date: Mon, 20 Jun 2011 13:57:17 -0700 (PDT)
-Message-ID: <20110620.135717.364300288585830864.davem@davemloft.net>
-References: <cover.1308556146.git.richard.cochran@omicron.at>
+Subject: Re: [PATCH] gianfar v5: implement nfc
+Date: Mon, 20 Jun 2011 13:58:08 -0700 (PDT)
+Message-ID: <20110620.135808.1686703771592664461.davem@davemloft.net>
+References: <1308562782.12794.6.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: richardcochran@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sebastian.poehn@belden.com, joe@perches.com
+To: sebastian.belden@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33842 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33860 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755600Ab1FTU5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 16:57:20 -0400
-In-Reply-To: <cover.1308556146.git.richard.cochran@omicron.at>
+	with ESMTP id S1755284Ab1FTU6R convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 16:58:17 -0400
+In-Reply-To: <1308562782.12794.6.camel@DENEC1DT0191>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Mon, 20 Jun 2011 09:51:22 +0200
+=46rom: "Sebastian P=F6hn" <sebastian.belden@googlemail.com>
+Date: Mon, 20 Jun 2011 11:39:42 +0200
 
-> This patch series represents a continuation of the effort to get
-> better coverage of the SO_TIMESTAMPING socket API in the Ethernet
-> drivers.  Adding time stamping support to a given driver solves two
-> separate issues, namely software transmit time stamping and hardware
-> time stamping in PHY devices.
-> 
-> This second batch adds the hooks into all remaining (?) arm and
-> powerpc MAC drivers using phylib. The first patch exports the receive
-> hook for use by non-NAPI drivers when compiled as modules. Patch #5
-> has been tested on real hardware, but the rest have only been compile
-> tested.
+> This patch adds all missing functionalities for nfc except GRXFH. The=
+re is so much code because hardware has not a TCAM.
+> Further hardware rule space is very limited. So I had to extensively =
+use
+> optimization features. Both reasons lead to the necessity to hold all
+> online flows in a linked-list.
+>=20
+> Change-log:
+> # Some suggestions by Joe Perches applied (thanks!)
+> # Shorted some logs
+> # Use memcmp() for comparing
+>=20
+> Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
 
-All except patch #10 applied, thanks.
+Applied, thanks.
