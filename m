@@ -1,16 +1,12 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 03/12] batman-adv: count_real_packets() in
-	batman-adv assumes char is signed
-Date: Mon, 20 Jun 2011 12:16:56 +0200
-Message-ID: <1308565025-21293-4-git-send-email-sven@narfation.org>
-References: <1308565025-21293-1-git-send-email-sven@narfation.org>
+Subject: pull request: batman-adv 2011-06-20
+Date: Mon, 20 Jun 2011 12:16:53 +0200
+Message-ID: <1308565025-21293-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1308565025-21293-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
 	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
@@ -22,94 +18,73 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Hi,
 
-count_real_packets() in batman-adv assumes char is signed, and returns -1
-through it:
+I would like to propose following changes for net-next-2.6/3.1. The
+first part (1-4) are only only small cleanup patches. The last 8 patches
+are related to Antonio Quartulli's research "Client announcement and
+Fast roaming in a Layer-2 mesh network". The technical report isn't
+published yet, but will hopefully follow soon. He tried to document all
+important parts in some (unofficial) documents [1,2,3].
 
-net/batman-adv/routing.c: In function 'receive_bat_packet':
-net/batman-adv/routing.c:739: warning: comparison is always false due to limited range of data type
+thanks,
+	Sven
 
-Use int instead.
+[1] http://www.open-mesh.org/wiki/batman-adv/Client-announcement
+[2] http://www.open-mesh.org/wiki/batman-adv/Client-roaming
+[3] http://www.open-mesh.org/wiki/batman-adv/Uevent
 
-Signed-off-by: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-[sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org: Rebase on top of current version]
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
----
- net/batman-adv/bitarray.c |    4 ++--
- net/batman-adv/bitarray.h |    4 ++--
- net/batman-adv/routing.c  |    8 ++++----
- 3 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
-index 700ee4f..3659a25 100644
---- a/net/batman-adv/bitarray.c
-+++ b/net/batman-adv/bitarray.c
-@@ -26,8 +26,8 @@
- 
- /* returns true if the corresponding bit in the given seq_bits indicates true
-  * and curr_seqno is within range of last_seqno */
--uint8_t get_bit_status(const unsigned long *seq_bits, uint32_t last_seqno,
--		       uint32_t curr_seqno)
-+int get_bit_status(const unsigned long *seq_bits, uint32_t last_seqno,
-+		   uint32_t curr_seqno)
- {
- 	int32_t diff, word_offset, word_num;
- 
-diff --git a/net/batman-adv/bitarray.h b/net/batman-adv/bitarray.h
-index e32eb2d..277c037 100644
---- a/net/batman-adv/bitarray.h
-+++ b/net/batman-adv/bitarray.h
-@@ -26,8 +26,8 @@
- 
- /* returns true if the corresponding bit in the given seq_bits indicates true
-  * and curr_seqno is within range of last_seqno */
--uint8_t get_bit_status(const unsigned long *seq_bits, uint32_t last_seqno,
--		       uint32_t curr_seqno);
-+int get_bit_status(const unsigned long *seq_bits, uint32_t last_seqno,
-+		   uint32_t curr_seqno);
- 
- /* turn corresponding bit on, so we can remember that we got the packet */
- void bit_mark(unsigned long *seq_bits, int32_t n);
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 934f1f2..d5ce644 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -361,7 +361,7 @@ static void update_orig(struct bat_priv *bat_priv, struct orig_node *orig_node,
- 			const struct batman_packet *batman_packet,
- 			struct hard_iface *if_incoming,
- 			const unsigned char *tt_buff, int tt_buff_len,
--			char is_duplicate)
-+			int is_duplicate)
- {
- 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
- 	struct neigh_node *router = NULL;
-@@ -528,7 +528,7 @@ static int window_protected(struct bat_priv *bat_priv,
-  *  -1 the packet is old and has been received while the seqno window
-  *     was protected. Caller should drop it.
-  */
--static char count_real_packets(const struct ethhdr *ethhdr,
-+static int count_real_packets(const struct ethhdr *ethhdr,
- 			       const struct batman_packet *batman_packet,
- 			       const struct hard_iface *if_incoming)
- {
-@@ -536,7 +536,7 @@ static char count_real_packets(const struct ethhdr *ethhdr,
- 	struct orig_node *orig_node;
- 	struct neigh_node *tmp_neigh_node;
- 	struct hlist_node *node;
--	char is_duplicate = 0;
-+	int is_duplicate = 0;
- 	int32_t seq_diff;
- 	int need_update = 0;
- 	int set_mark, ret = -1;
-@@ -605,7 +605,7 @@ void receive_bat_packet(const struct ethhdr *ethhdr,
- 	char has_directlink_flag;
- 	char is_my_addr = 0, is_my_orig = 0, is_my_oldorig = 0;
- 	char is_broadcast = 0, is_bidirectional, is_single_hop_neigh;
--	char is_duplicate;
-+	int is_duplicate;
- 	uint32_t if_incoming_seqno;
- 
- 	/* Silently drop when the batman packet is actually not a
--- 
-1.7.5.3
+The following changes since commit ecbd532108cb21d9d3770f73e168bad65d14d9eb:
+
+  batman-adv: use NO_FLAGS define instead of hard-coding 0 (2011-06-09 20:40:38 +0200)
+
+are available in the git repository at:
+  git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
+
+Antonio Quartulli (8):
+      batman-adv: Unify the first 3 bytes in each packet
+      batman-adv: improved client announcement mechanism
+      batman-adv: improved roaming mechanism
+      batman-adv: protect the local and the global trans-tables with rcu
+      batman-adv: add wrapper function to throw uevent in userspace
+      batman-adv: gateway election code refactoring
+      batman-adv: throw uevent in userspace on gateway add/change/del event
+      batman-adv: improved gateway tq-based selection
+
+David Howells (1):
+      batman-adv: count_real_packets() in batman-adv assumes char is signed
+
+Sven Eckelmann (3):
+      batman-adv: Move compare_orig to originator.c
+      batman-adv: Keep interface_tx as local function
+      batman-adv: Reduce usage of char
+
+ net/batman-adv/Kconfig             |    1 +
+ net/batman-adv/aggregation.c       |   25 +-
+ net/batman-adv/aggregation.h       |    8 +-
+ net/batman-adv/bat_sysfs.c         |   73 ++-
+ net/batman-adv/bat_sysfs.h         |    2 +
+ net/batman-adv/bitarray.c          |    8 +-
+ net/batman-adv/bitarray.h          |    8 +-
+ net/batman-adv/gateway_client.c    |  238 +++++--
+ net/batman-adv/gateway_client.h    |    3 +-
+ net/batman-adv/gateway_common.c    |    6 +-
+ net/batman-adv/hard-interface.c    |   17 +-
+ net/batman-adv/main.c              |   18 +-
+ net/batman-adv/main.h              |   27 +-
+ net/batman-adv/originator.c        |   17 +-
+ net/batman-adv/originator.h        |    8 -
+ net/batman-adv/packet.h            |   92 ++-
+ net/batman-adv/routing.c           |  317 +++++++--
+ net/batman-adv/routing.h           |    7 +-
+ net/batman-adv/send.c              |   92 ++-
+ net/batman-adv/send.h              |    2 +-
+ net/batman-adv/soft-interface.c    |   26 +-
+ net/batman-adv/soft-interface.h    |    1 -
+ net/batman-adv/translation-table.c | 1428 ++++++++++++++++++++++++++++++------
+ net/batman-adv/translation-table.h |   38 +-
+ net/batman-adv/types.h             |   64 ++-
+ net/batman-adv/unicast.c           |    3 +
+ net/batman-adv/vis.c               |   13 +-
+ 27 files changed, 2080 insertions(+), 462 deletions(-)
