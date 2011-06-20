@@ -1,44 +1,54 @@
-From: Barry Grussling <barry@grussling.com>
-Subject: [PATCH 1/1] Allow cascading to work with 6131 chip
-Date: Mon, 20 Jun 2011 13:40:33 -0700
-Message-ID: <1308602433-31320-2-git-send-email-barry@grussling.com>
-References: <1308602433-31320-1-git-send-email-barry@grussling.com>
-Cc: buytenh@wantstofly.org, Barry Grussling <barry@grussling.com>
-To: netdev@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFT PATCH 7/9] ethtool: prepare for larger netdev_features_t
+ type
+Date: Mon, 20 Jun 2011 22:16:58 +0100
+Message-ID: <1308604618.2701.189.camel@bwh-desktop>
+References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
+	 <852a74b9068b3be7413a65023f6096f142dfd805.1308596963.git.mirq-linux@rere.qmqm.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from duster.selinc.com ([74.117.214.140]:48772 "EHLO
-	duster.selinc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754985Ab1FTVOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 17:14:06 -0400
-In-Reply-To: <1308602433-31320-1-git-send-email-barry@grussling.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:33116 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753838Ab1FTVRB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 17:17:01 -0400
+In-Reply-To: <852a74b9068b3be7413a65023f6096f142dfd805.1308596963.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- net/dsa/mv88e6131.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+On Mon, 2011-06-20 at 21:14 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+[...]
+> @@ -125,19 +131,26 @@ static int ethtool_set_features(struct net_devi=
+ce *dev, void __user *useraddr)
+>  	if (copy_from_user(features, useraddr, sizeof(features)))
+>  		return -EFAULT;
+> =20
+> -	if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
+> +	/* I wonder if the compiler will be smart enough to loop-unroll
+> +	 * and optimize this... (no worries if not) --mq */
+> +	for (i =3D ETHTOOL_DEV_FEATURE_WORDS; i-- > 0; ) {
+> +		valid =3D (valid << 32)|features[i].valid;
+> +		wanted =3D (wanted << 32)|features[i].requested;
+> +	}
+[...]
 
-diff --git a/net/dsa/mv88e6131.c b/net/dsa/mv88e6131.c
-index 45f7411..1a1d1d1 100644
---- a/net/dsa/mv88e6131.c
-+++ b/net/dsa/mv88e6131.c
-@@ -118,10 +118,14 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
- 	REG_WRITE(REG_GLOBAL, 0x1a, (dsa_upstream_port(ds) * 0x1100) | 0x00f0);
- 
- 	/*
--	 * Disable cascade port functionality, and set the switch's
-+	 * Disable cascade port functionality unless this device is
-+    * used in a cascade configuration, and set the switch's
- 	 * DSA device number.
- 	 */
--	REG_WRITE(REG_GLOBAL, 0x1c, 0xe000 | (ds->index & 0x1f));
-+   if (ds->dst->pd->nr_chips > 1)
-+      REG_WRITE(REG_GLOBAL, 0x1c, 0xf000 | (ds->index & 0x1f));
-+   else
-+      REG_WRITE(REG_GLOBAL, 0x1c, 0xe000 | (ds->index & 0x1f));
- 
- 	/*
- 	 * Send all frames with destination addresses matching
--- 
-1.7.0.4
+I don't know (or care) about optimisation of this, but I would expect
+gcc to complain about shifting a 32-bit value by 32 bits.  I suggest yo=
+u
+write this as:
+
+	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
+		valid |=3D (netdev_features_t)features[i].valid << 32 *i;
+		wanted |=3D (netdev_features_t)features[i].requested << 32 *i;
+	}
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
