@@ -1,38 +1,38 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [RFC] Moving files around in drivers/net
-Date: Sun, 19 Jun 2011 18:51:01 -0700
-Message-ID: <1308534662.22851.20.camel@jtkirshe-mobl>
+Date: Sun, 19 Jun 2011 18:59:33 -0700
+Message-ID: <1308535174.22851.26.camel@jtkirshe-mobl>
 References: <1306956602.32125.28.camel@Joe-Laptop>
 	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
 	 <1306958478.32125.32.camel@Joe-Laptop>
 	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
 	 <1308186619.12377.23.camel@Joe-Laptop>
-	 <BANLkTinWOc14oNEon_UctVMB3fEDzDQa=Q@mail.gmail.com>
+	 <BANLkTin0QzAscKcN0Yw6rc7fUh5d5q143w@mail.gmail.com>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-pdmCwnvMZZIPpI1gAqlg"
+	boundary="=-/kGUdYv4PxPCRwQJlT4n"
 Cc: Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Jon Mason <jdmason@kudzu.us>
+	Jan Engelhardt <jengelh@medozas.de>,
+	Andrew Gallatin <gallatin@myri.com>
+To: Jon Mason <jon.mason@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:16187 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:44552 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750770Ab1FTBvD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jun 2011 21:51:03 -0400
-In-Reply-To: <BANLkTinWOc14oNEon_UctVMB3fEDzDQa=Q@mail.gmail.com>
+	id S1750731Ab1FTB7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jun 2011 21:59:45 -0400
+In-Reply-To: <BANLkTin0QzAscKcN0Yw6rc7fUh5d5q143w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-pdmCwnvMZZIPpI1gAqlg
+--=-/kGUdYv4PxPCRwQJlT4n
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2011-06-16 at 07:14 -0700, Jon Mason wrote:
->=20
+On Thu, 2011-06-16 at 08:03 -0700, Jon Mason wrote:
 > On Wed, Jun 15, 2011 at 8:10 PM, Joe Perches <joe@perches.com> wrote:
 > > On Wed, 2011-06-15 at 11:38 -0700, Jeff Kirsher wrote:
 > >> On Wed, Jun 1, 2011 at 13:01, Joe Perches <joe@perches.com> wrote:
@@ -1104,18 +1104,84 @@ On Thu, 2011-06-16 at 07:14 -0700, Jon Mason wrote:
 > >    Move the Exar drivers into drivers/net/ethernet/exar/ and make
 > the
 > >    necessary Kconfig and Makefile changes.
+> >
+> >    CC: Jon Mason <jdmason@kudzu.us>
+> >    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> >
+> >  MAINTAINERS                                        |    3 +-
+> >  drivers/net/Kconfig                                |   34
+> -------------
+> >  drivers/net/Makefile                               |    2 -
+> >  drivers/net/ethernet/Kconfig                       |    1 +
+> >  drivers/net/ethernet/Makefile                      |    1 +
+> >  drivers/net/ethernet/exar/Kconfig                  |   50
+> ++++++++++++++++++++
+> >  drivers/net/ethernet/exar/Makefile                 |    6 ++
+> >  drivers/net/{ =3D> ethernet/exar}/s2io-regs.h        |    0
+> >  drivers/net/{ =3D> ethernet/exar}/s2io.c             |    0
+> >  drivers/net/{ =3D> ethernet/exar}/s2io.h             |    0
+> >  drivers/net/{ =3D> ethernet/exar}/vxge/Makefile      |    0
+> >  drivers/net/{ =3D> ethernet/exar}/vxge/vxge-config.c |    0
+> >  drivers/net/{ =3D> ethernet/exar}/vxge/vxge-config.h |    0
+> >  .../net/{ =3D> ethernet/exar}/vxge/vxge-ethtool.c    |    0
+> >  .../net/{ =3D> ethernet/exar}/vxge/vxge-ethtool.h    |    0
+> >  drivers/net/{ =3D> ethernet/exar}/vxge/vxge-main.c   |    0
+> >  drivers/net/{ =3D> ethernet/exar}/vxge/vxge-main.h   |    0
+> >  drivers/net/{ =3D> ethernet/exar}/vxge/vxge-reg.h    |    0
+> >  .../net/{ =3D> ethernet/exar}/vxge/vxge-traffic.c    |    0
+> >  .../net/{ =3D> ethernet/exar}/vxge/vxge-traffic.h    |    0
+> >  .../net/{ =3D> ethernet/exar}/vxge/vxge-version.h    |    0
+> >  21 files changed, 59 insertions(+), 38 deletions(-)
+> >
+> > commit 83df87d655e25119eafaeb4225bc5eedaa82c6e0
+> > Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Date:   Fri May 13 02:24:46 2011 -0700
+> >
+> >    myri*: Move the Myricom drivers
+> >
+> >    Move the Myricom drivers into drivers/net/ethernet/myricom/ and
+> make
+> >    the necessary Kconfig and Makefile changes.
+> >
+> >    CC: Andrew Gallatin <gallatin@myri.com>
+> >    CC: Brice Goglin <brice@myri.com>
+> >    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> >
+> >  MAINTAINERS                                        |    2 +-
+> >  drivers/net/Kconfig                                |   35
+> -------------
+> >  drivers/net/Makefile                               |    3 -
+> >  drivers/net/ethernet/Kconfig                       |    1 +
+> >  drivers/net/ethernet/Makefile                      |    1 +
+> >  drivers/net/ethernet/myricom/Kconfig               |   51
+> ++++++++++++++++++++
+> >  drivers/net/ethernet/myricom/Makefile              |    6 ++
+> >  .../net/{ =3D> ethernet/myricom}/myri10ge/Makefile   |    0
+> >  .../net/{ =3D> ethernet/myricom}/myri10ge/myri10ge.c |    0
+> >  .../{ =3D> ethernet/myricom}/myri10ge/myri10ge_mcp.h |    0
+> >  .../myricom}/myri10ge/myri10ge_mcp_gen_header.h    |    0
+> >  drivers/net/{ =3D> ethernet/myricom}/myri_sbus.c     |    0
+> >  drivers/net/{ =3D> ethernet/myricom}/myri_sbus.h     |    0
 >=20
-> I think it makes more since to have the folder named neterion, as that
-> was the name the adapters were sold under.
+> /me puts on Myricom hat
 >=20
-> Aside from that, it looks good to me.
+> I believe we want to put the driver above in the sbus/legacy
+> directory.  Better yet, move this driver to /dev/null.  There is no
+> possibility of ethernet mode on this adapter, so it's Myrinet only.
+> It won't inter-op with modern versions of Myrinet, and thus can only
+> work with legacy adapters.  There are no drivers for the PCI version
+> of this adapter, so it only can work on ~15year old hardware.  It's
+> long in the tooth, let's take it to the knackers.
 >=20
 > Thanks,
 > Jon=20
 
-That sounds fine, I will make the change.
+That sounds good.  Since I am not the maintainer or author of the
+driver, I think such a move should come from Myricom.  I can drop the
+move of myri_sbus.[ch] from my patches to organize the driver/net/
+directory.
 
---=-pdmCwnvMZZIPpI1gAqlg
+--=-/kGUdYv4PxPCRwQJlT4n
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -1123,14 +1189,14 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJN/qeFAAoJECTsCADr/EWU9qAH/3pnxH7395nxn7iwDc64Jexm
-U5m4xdgs53yw8uNS+3qKLanguyA4CXGIqrL4PUltRUaL3T7Vz+0xPK8uBGEqQ7VJ
-D/qZhXxfRpV4GEwtIRzCcGGslmoGDW+E9WbJPNXSua3p40aHsvdZNqTRPnOl/dGS
-4ZI3pDsavC90ntq4gIW6FDP4DdyalfTp96i7wyOcpA+/IR7Xl898+3jiLZ8c5b0R
-zDyxcNoNFgfZa/rMWR6GCOQlNqpDXTxIfasRyD6fAMyORQxuk2+abXMoTRHTvPDE
-CuhI4k8IP2d3f28Q2Q5ALWTfA9rTbbGVvLygaB0NU9lU1drm3ijMbqNJ1pTNpZg=
-=JkU6
+iQEcBAABAgAGBQJN/qmFAAoJECTsCADr/EWUfWQH/3Uztd8ntN/NtSTW2D5NPRkB
+NoxWNHMh3aWlr/LLjOSywiYj1SkY0lhNH8ZX6vuGs24keXt2ZHid0Wh2k7OVT4Vg
+dr6ftyfAqEo7a6vL2WxVm97fIdxJftuDqYhOZpxHmKyLJF7Tmzx+1MoVaWI4BlQn
+KTEcP6FCGJvMHsOshViEfxjK1utNGxwoT6ayqD4BQ9hg+8eP9vip15GUcCJ67Z73
+90jnxsvXl5r8U7qL8rkoR+0LVVd4uEU/jxLyyPD7HCc7DRIdqi6B7e7k71XO8d28
+KskDHYbREdgtRwiF2lcTQvVdNoi4x60Fepa2u6QIebAwVc7r0+WU0GeQeU1LXP0=
+=C8ib
 -----END PGP SIGNATURE-----
 
---=-pdmCwnvMZZIPpI1gAqlg--
+--=-/kGUdYv4PxPCRwQJlT4n--
 
