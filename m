@@ -1,32 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] veth: fix 64bit stats on 32bit arches
-Date: Sun, 19 Jun 2011 22:48:42 -0700 (PDT)
-Message-ID: <20110619.224842.1099321143557842624.davem@davemloft.net>
-References: <1308548772.3539.121.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC] Moving files around in drivers/net
+Date: Sun, 19 Jun 2011 23:01:48 -0700
+Message-ID: <1308549708.13032.14.camel@Joe-Laptop>
+References: <1306956602.32125.28.camel@Joe-Laptop>
+	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
+	 <1306958478.32125.32.camel@Joe-Laptop>
+	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
+	 <1308186619.12377.23.camel@Joe-Laptop>
+	 <1308536729.22851.42.camel@jtkirshe-mobl>
+	 <alpine.LNX.2.01.1106200717100.10183@frira.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	jeffrey.t.kirsher@intel.com
-To: eric.dumazet@gmail.com
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43013 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751489Ab1FTFsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 01:48:45 -0400
-In-Reply-To: <1308548772.3539.121.camel@edumazet-laptop>
+Received: from mail.perches.com ([173.55.12.10]:3095 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751902Ab1FTGBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 02:01:50 -0400
+In-Reply-To: <alpine.LNX.2.01.1106200717100.10183@frira.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 20 Jun 2011 07:46:12 +0200
+On Mon, 2011-06-20 at 07:23 +0200, Jan Engelhardt wrote:
+> What's next, directory naming by Windows-originating coding styles -
+> "Drivers/Networking/Ethernet/Packet Engines/"?
+> >> And things maybe not spelled out
+> >>         ixp2000 might just be ixp (what not intel?:)
 
-> Using 64bit stats on 32bit arches must use a synchronization or readers
-> can get transient values.
-> 
-> Fixes bug introduced in commit 6311cc44a2 (veth: convert to 64 bit
-> statistics)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Using embedded spaces is a poor choice.
 
-Applied.
+> I don't understand your logic of doing pkteng -> packetengines
+
+As demonstrated, it's too easy to typo
+pkteng as pktgen.
+
+> and ixp2000 -> ixp at the same time. I was quite thankful that
+> Linux's driver names were not (always) TLAs like in OpenBSD.
+
+The (what not intel?:) was just teasing.
+I think ixp is sufficient.
+
+I never thought of ixp2000 as the family
+for the 2400 and 2800/2850.
+
+Castine maybe, ixp2xxx maybe.
+ixp2000?  Never heard of it.
+
+Though maybe ixp would be confused for
+those ixp4xx and maybe even the original
+Digital/Intel ixp1200 parts too.
+
+'course all of this is 10 years old now
+and kind of pointless.
+
+cheers, Joe
+
