@@ -1,66 +1,73 @@
-From: Tom Lendacky <tahm-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: RFT: virtio_net: limit xmit polling
-Date: Tue, 21 Jun 2011 10:23:22 -0500
-Message-ID: <201106211023.24643.tahm@linux.vnet.ibm.com>
-References: <20110619102700.GA11198@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Xen-devel] [PATCH net-next 4/5] xen: convert to 64 bit stats
+ interface
+Date: Tue, 21 Jun 2011 08:29:58 -0700
+Message-ID: <20110621082958.3136c7b2@nehalam.ftrdhcpuser.net>
+References: <20110620203506.363818794@vyatta.com>
+	<20110620203602.929964665@vyatta.com>
+	<1308665154.6920.46.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, habanero-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Shirley Ma <xma-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Carsten Otte <cotte-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, steved-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org,
-	Christian Borntraeger <borntraeger-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Martin Schwidefsky <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	roprabhu-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20110619102700.GA11198-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/lguest>
-List-Post: <mailto:lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/lguest>,
-	<mailto:lguest-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: lguest-bounces+glkvl-lguest=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37061 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751005Ab1FUPaB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 11:30:01 -0400
+In-Reply-To: <1308665154.6920.46.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday, June 19, 2011 05:27:00 AM Michael S. Tsirkin wrote:
-> OK, different people seem to test different trees.  In the hope to get
-> everyone on the same page, I created several variants of this patch so
-> they can be compared. Whoever's interested, please check out the
-> following, and tell me how these compare:
+On Tue, 21 Jun 2011 15:05:54 +0100
+Ian Campbell <Ian.Campbell@citrix.com> wrote:
 
-I'm in the process of testing these patches.  Base and v0 are complete
-and v1 is near complete with v2 to follow.  I'm testing with a variety
-of TCP_RR and TCP_STREAM/TCP_MAERTS tests involving local guest-to-guest
-tests and remote host-to-guest tests.  I'll post the results in the next
-day or two when the tests finish.
+> On Mon, 2011-06-20 at 21:35 +0100, Stephen Hemminger wrote:
+> > Convert xen driver to 64 bit statistics interface.
+> > Use stats_sync to ensure that 64 bit update is read atomically
+> > on 32 bit platform. Put hot statistics into per-cpu table.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Thanks Stephen.
+> 
+> > @@ -867,12 +882,13 @@ static int handle_incoming_queue(struct
+> >  		if (checksum_setup(dev, skb)) {
+> >  			kfree_skb(skb);
+> >  			packets_dropped++;
+> > -			dev->stats.rx_errors++;
+> 
+> Why is this dropped? We should be counting these somehow, I think.
+> 
+> [...]
+> 
+> > >From shemminger@vyatta.com Mon Jun 20 13:36:03 2011
+> > Message-Id: <20110620203603.019928129@vyatta.com>
+> > User-Agent: quilt/0.48-1
+> > Date: Mon, 20 Jun 2011 13:35:11 -0700
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> > To: davem@davemloft.net
+> > Cc: netdev@vger.kernel.org
+> > Subject: [PATCH net-next 5/5] ifb: convert to 64 bit stats
+> > References: <20110620203506.363818794@vyatta.com>
+> > Content-Disposition: inline; filename=ifb-stats64.patch
+> > 
+> > Convert input functional block device to use 64 bit stats.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > 
+> > ---
+> > v2 - add stats_sync
+> > 
+> > 
+> > --- a/drivers/net/ifb.c	2011-06-09 14:39:25.000000000 -0700
+> > +++ b/drivers/net/ifb.c	2011-06-20 13:30:30.135992612 -0700
+> 
+> This entire patch was appended in the mail I got -- something up with
+> your scripting?
 
-Thanks,
-Tom
-
-> 
-> kernel:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
-> 
-> virtio-net-limit-xmit-polling/base - this is net-next baseline to test
-> against virtio-net-limit-xmit-polling/v0 - fixes checks on out of capacity
-> virtio-net-limit-xmit-polling/v1 - previous revision of the patch
-> 		this does xmit,free,xmit,2*free,free
-> virtio-net-limit-xmit-polling/v2 - new revision of the patch
-> 		this does free,xmit,2*free,free
-> 
-> There's also this on top:
-> virtio-net-limit-xmit-polling/v3 -> don't delay avail index update
-> I don't think it's important to test this one, yet
-> 
-> Userspace to use: event index work is not yet merged upstream
-> so the revision to use is still this:
-> git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git
-> virtio-net-event-idx-v3
+Bad mbox file to quilt, merged two patches
