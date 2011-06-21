@@ -1,47 +1,50 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] svcsock.c: include sunrpc.h to quite sparse noise
-Date: Tue, 21 Jun 2011 18:44:18 -0400
-Message-ID: <20110621224418.GB28047@fieldses.org>
-References: <201106201754.51704.hartleys@visionengravers.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] svcauth_unix.c: quiet sparse noise
+Date: Tue, 21 Jun 2011 18:44:30 -0400
+Message-ID: <20110621224430.GC28047@fieldses.org>
+References: <201106201819.12839.hartleys@visionengravers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-nfs@vger.kernel.org,
-	Trond.Myklebust@netapp.com, neilb@suse.de, davem@davemloft.net
-To: H Hartley Sweeten <hartleys@visionengravers.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: H Hartley Sweeten <hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <201106201754.51704.hartleys@visionengravers.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <201106201819.12839.hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 20, 2011 at 05:54:51PM -0700, H Hartley Sweeten wrote:
-> Include the private header sunrpc.h to pickup the declaration of the
-> function svc_send_common to quiet the following sparse noise:
+On Mon, Jun 20, 2011 at 06:19:12PM -0700, H Hartley Sweeten wrote:
+> Like svcauth_unix, the symbol svcauth_null is used external from this
+> file. Declare it as extern to quiet the following sparse noise:
 > 
-> warning: symbol 'svc_send_common' was not declared. Should it be static?
+> warning: symbol 'svcauth_null' was not declared. Should it be static?
 
-Thanks, applying for 3.1--b.
+Also applying for 3.1.--b.
 
 > 
-> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-> Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
-> Cc: "J. Bruce Fields" <bfields@fieldses.org>
-> Cc: Neil Brown <neilb@suse.de>
-> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: H Hartley Sweeten <hsweeten-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 > 
 > ---
 > 
-> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-> index af04f77..f2cb5b8 100644
-> --- a/net/sunrpc/svcsock.c
-> +++ b/net/sunrpc/svcsock.c
-> @@ -51,6 +51,8 @@
->  #include <linux/sunrpc/stats.h>
->  #include <linux/sunrpc/xprt.h>
+> diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+> index c8e1021..62e49e2 100644
+> --- a/net/sunrpc/svcauth_unix.c
+> +++ b/net/sunrpc/svcauth_unix.c
+> @@ -36,6 +36,7 @@ struct unix_domain {
+>  	/* other stuff later */
+>  };
 >  
-> +#include "sunrpc.h"
-> +
->  #define RPCDBG_FACILITY	RPCDBG_SVCXPRT
+> +extern struct auth_ops svcauth_null;
+>  extern struct auth_ops svcauth_unix;
 >  
->  
+>  static void svcauth_unix_domain_release(struct auth_domain *dom)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
