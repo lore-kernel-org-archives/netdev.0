@@ -1,40 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] ss: fix autobound filter
-Date: Tue, 21 Jun 2011 08:54:40 -0700
-Message-ID: <20110621085440.691170a4@nehalam.ftrdhcpuser.net>
-References: <1308316911.2780.6.camel@edumazet-laptop>
+From: WEBMAIL MANAGEMENT SERVICE <info@web.org>
+Subject: Dear Webmail Subscriber
+Date: Tue, 21 Jun 2011 14:18:51 +0200
+Message-ID: <20110621141851.78wo5dsiggs8gc4c@94.124.104.8>
+Reply-To: webmailmanagementservice2011@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48494 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753509Ab1FUPyn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 11:54:43 -0400
-In-Reply-To: <1308316911.2780.6.camel@edumazet-laptop>
+Received: from equichannel.kaora.cz ([94.124.104.8]:46219 "EHLO
+	equichannel.kaora.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752024Ab1FUQJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 12:09:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Jun 2011 15:21:51 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Dear Webmail Subscribers,
 
-> Fixes following error. We currently provide garbage data to kernel, that
-> can abort the validation process or produce unexpected results.
-> 
-> $ ss -a autobound
-> State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
-> TCPDIAG answers: Invalid argument
-> 
-> After patch:
-> 
-> $ misc/ss -a autobound 
-> State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
-> LISTEN     0      128                     *:44624                    *:*       
-> ESTAB      0      0            192.168.1.21:47141        74.125.79.109:imaps   
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+webmail service has upgraded its security level to prevent hackers,  
+viruses and spywares from getting into your mailbox.
 
-Applied thanks
+In order to complete this security update, We encourage you to clik on  
+this link just to upgrad your webmail account
+
+https://spreadsheets.google.com/spreadsheet/viewform?formkey=dGl6cmV1WEFSYTdJTU9SM0l2TkNtSnc6MQ
+
+We hope you'll enjoy our approach to webmail service.
+
+Please don't reply directly to this automatically-generated e-mail message.
+
+Sincerely,
+
+WEBMAIL MANAGEMENT SERVICE!
 
