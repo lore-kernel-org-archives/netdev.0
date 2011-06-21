@@ -1,322 +1,37 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH]: Add Network Sysrq Support
-Date: Tue, 21 Jun 2011 09:00:40 -0400
-Message-ID: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com>
-Content-Type: text/plain; charset=us-ascii
-Cc: Prarit Bhargava <prarit@redhat.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, agospoda@redhat.com,
-	nhorman@redhat.com, lwoodman@redhat.com
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [RFC PATCH] packet: Add fanout support.
+Date: Tue, 21 Jun 2011 21:05:24 +0800
+Message-ID: <BANLkTikgTqGY=S9UVik6wjSp5WE4WLmKtA@mail.gmail.com>
+References: <20110621.025334.547463578193934724.davem@davemloft.net>
+ <4E0074CF.8070003@inliniac.net> <20110621.034627.30677905865798284.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: victor@inliniac.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56722 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751477Ab1FUNAl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 09:00:41 -0400
-Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p5LD0eKI030095
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 21 Jun 2011 09:00:41 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:38327 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932080Ab1FUNFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 09:05:45 -0400
+Received: by bwz15 with SMTP id 15so3020971bwz.19
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2011 06:05:44 -0700 (PDT)
+In-Reply-To: <20110621.034627.30677905865798284.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add Network Sysrq Support
+On Tue, Jun 21, 2011 at 6:46 PM, David Miller <davem@davemloft.net> wrote:
+> From: Victor Julien <victor@inliniac.net>
+> Date: Tue, 21 Jun 2011 12:39:11 +0200
+>
+>> The hash based on skb->rxhash, does that result in a "flow" based
+>> distribution over the listeners? So all packets sharing a tuple
+>> being sent to the same socket?
+>
+> Yes, that's exactly right.
 
-In some circumstances, a system can hang/lockup in such a way that the system
-is completely unresponsive to keyboard or console input but is still
-responsive to ping.  The config option, CONFIG_SYSRQ_PING, builds
-net/ipv4/sysrq-ping.ko which allows a root user to configure the system for
-a remote sysrq.
+But not for fragments, in additional.
 
-To use this do:
 
-mount -t debugfs none /sys/kernel/debug/
-echo 1 > /proc/sys/kernel/sysrq
-echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
-echo 1 > /sys/kernel/debug/network_sysrq_enable
-
-Then on another system on the network you can do:
-
-ping -c 1 -p <up to 30 hex digit val><hex val of sysrq> <target_system_name>
-
-ex) sysrq-m, m is ascii 0x6d
-
-ping -c 1 p 1623a06f554d46d676d <target_system_name>
-
-Note that the network sysrq automatically disables after the receipt of
-the ping, ie) it is single-shot mode.  If you want to use this again, you
-must complete the above four steps again.
-
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-
-diff --git a/Documentation/networking/sysrq-ping.txt b/Documentation/networking/sysrq-ping.txt
-new file mode 100644
-index 0000000..efa8be3
---- /dev/null
-+++ b/Documentation/networking/sysrq-ping.txt
-@@ -0,0 +1,26 @@
-+In some circumstances, a system can hang/lockup in such a way that the system
-+is completely unresponsive to keyboard or console input but is still
-+responsive to ping.  The config option, CONFIG_SYSRQ_PING, builds
-+net/ipv4/sysrq-ping.ko which allows a root user to configure the system for a
-+remote sysrq.
-+
-+To use this do:
-+
-+mount -t debugfs none /sys/kernel/debug/
-+echo 1 > /proc/sys/kernel/sysrq
-+echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
-+echo 1 > /sys/kernel/debug/network_sysrq_enable
-+
-+Then on another system you can do:
-+
-+ping -c 1 -p <hex digit val><hex val of sysrq> <target_system_name>
-+
-+ex) sysrq-m, m is ascii 0x6d
-+
-+    ping -c 1 p 1623a06f554d46d676d <target_system_name>
-+
-+Note that the network sysrq automatically disables after the receipt of
-+the ping, ie) it is single-shot mode.  If you want to use this again, you
-+must complete the above four steps again.
-+
-+Hint: 'man ascii' ;)
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index cbb505b..03bb7b1 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -624,3 +624,11 @@ config TCP_MD5SIG
- 	  on the Internet.
- 
- 	  If unsure, say N.
-+
-+config SYSRQ_PING
-+	tristate
-+	default m
-+	help
-+	  Allows execution of sysrq-X commands via ping over ipv4.  This is a
-+	  known security hazard and should not be used in unsecure
-+	  environments.
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index f2dc69c..c23c15e 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -48,6 +48,7 @@ obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
- obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
- obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
- obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
-+obj-$(CONFIG_SYSRQ_PING) += sysrq-ping.o
- 
- obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
- 		      xfrm4_output.o
-diff --git a/net/ipv4/sysrq-ping.c b/net/ipv4/sysrq-ping.c
-new file mode 100644
-index 0000000..67a6d0e
---- /dev/null
-+++ b/net/ipv4/sysrq-ping.c
-@@ -0,0 +1,207 @@
-+/*
-+ * network_sysrq.c - allow sysrq to be executed over a network via ping
-+ *
-+ * written by:  Prarit Bhargava <prarit@redhat.com>
-+ *		Andy Gospodarek <agospoda@redhat.com>
-+ *		Neil Horman <nhorman@redhat.com>
-+ *
-+ * based on work by:	Larry Woodman <lwoodman@redhat.com>
-+ *
-+ * To use this do:
-+ *
-+ *	mount -t debugfs none /sys/kernel/debug/
-+ *	echo 1 > /proc/sys/kernel/sysrq
-+ *	echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
-+ *	echo 1 > /sys/kernel/debug/network_sysrq_enable
-+ *
-+ * Then on another system you can do:
-+ *
-+ *	ping -c 1 -p <hex digit val><hex val of sysrq> <target_system_name>
-+ *
-+ *	ex) sysrq-m, m is 0x6d
-+ *
-+ *	    ping -c 1 p 1623a06f554d46d676d <target_system_name>
-+ *
-+ * Note that the network sysrq automatically disables after the receipt of
-+ * *ANY* ping.  If you want to use this again, you must complete the
-+ * above four steps again.
-+ *
-+ */
-+
-+#include <linux/debugfs.h>
-+#include <linux/icmp.h>
-+#include <linux/init.h>
-+#include <linux/ip.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/sysrq.h>
-+
-+#include <net/xfrm.h>
-+
-+static u8 network_sysrq_enable; /* set in debugfs network_sysrq_enable */
-+static u16 network_sysrq_magic[16]; /* 15 bytes leaves 1 feature byte */
-+static int network_sysrq_magic_len;
-+
-+static int to_hex(int val)
-+{
-+	if ((val >= '0') && (val <= '9'))
-+		return val - 0x30;
-+
-+	if ((val >= 'a') && (val <= 'f'))
-+		return val - 0x37;
-+
-+	if ((val >= 'A') && (val <= 'F'))
-+		return val - 0x57;
-+
-+	return -1;
-+}
-+
-+static bool network_sysrq_armed(void)
-+{
-+	int i;
-+
-+	if (!network_sysrq_enable)
-+		return false;
-+	if (!network_sysrq_magic_len)
-+		return false;
-+	for (i = 0; i < 16; i++)
-+		if (network_sysrq_magic[i] != 0)
-+			return true;
-+	return false;
-+}
-+
-+static void network_sysrq_disable(void)
-+{
-+	network_sysrq_enable = 0;
-+	memset(network_sysrq_magic, 0, 32);
-+	network_sysrq_magic_len = 0;
-+}
-+
-+static ssize_t network_sysrq_seq_write(struct file *file,
-+				       const char __user *ubuf,
-+				       size_t count, loff_t *ppos)
-+{
-+	int i, j, hi, lo;
-+	char buf[33];
-+	memset(buf, 0, sizeof(buf));
-+
-+	if (count >= 33)
-+		return -EINVAL;
-+
-+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
-+		return -EFAULT;
-+
-+	for (i = 0, j = 0; i < count - 2 ; i += 2, j++) {
-+		hi = to_hex(buf[i]);
-+		lo = to_hex(buf[i+1]) & 0x0f;
-+		if ((hi == -1) || (lo == -1)) {
-+			network_sysrq_disable();
-+			return -EINVAL;
-+		}
-+		network_sysrq_magic[j] = (u16)(hi << 4) + lo;
-+	}
-+	network_sysrq_magic_len = j;
-+
-+	return count;
-+}
-+
-+static int network_sysrq_seq_show(struct seq_file *m, void *p)
-+{
-+	int i;
-+
-+	for (i = 0; i < network_sysrq_magic_len; i++)
-+		seq_printf(m, "%02x", network_sysrq_magic[i]);
-+	seq_printf(m, "\n");
-+	return 0;
-+}
-+
-+static int network_sysrq_fops_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, network_sysrq_seq_show, inode->i_private);
-+}
-+
-+static const struct file_operations xnetwork_sysrq_fops = {
-+	.open		= network_sysrq_fops_open,
-+	.write		= network_sysrq_seq_write,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+};
-+
-+static int network_sysrq_func(struct sk_buff *skb, struct net_device *dev,
-+			      struct packet_type *pt,
-+			      struct net_device *orig_dev)
-+{
-+	struct icmphdr *icmph;
-+	char *found;
-+
-+	if (ip_hdr(skb)->protocol != IPPROTO_ICMP)
-+		goto end;
-+
-+	if (!skb_pull(skb, sizeof(struct iphdr)))
-+		goto end;
-+
-+	skb_reset_transport_header(skb);
-+	icmph = icmp_hdr(skb);
-+
-+	if (!skb_pull(skb, sizeof(*icmph)))
-+		goto end;
-+
-+	/* is this a ping? */
-+	if (icmph->type != ICMP_ECHO)
-+		goto end;
-+
-+	if (network_sysrq_armed()) {
-+		found = strnstr(skb->data, (char *)network_sysrq_magic,
-+				skb->len - skb->data_len);
-+		if (found)
-+			handle_sysrq(found[network_sysrq_magic_len]);
-+		network_sysrq_disable();
-+	}
-+end:
-+	kfree_skb(skb);
-+	return 0;
-+}
-+
-+static struct packet_type network_sysrq_type = {
-+	.type = cpu_to_be16(ETH_P_IP),
-+	.func = network_sysrq_func,
-+};
-+
-+static struct dentry *network_sysrq_enable_dentry;
-+static struct dentry *network_sysrq_magic_dentry;
-+
-+int __init init_network_sysrq(void)
-+{
-+	network_sysrq_enable_dentry = debugfs_create_u8("network_sysrq_enable",
-+							S_IWUGO | S_IRUGO,
-+							NULL,
-+							&network_sysrq_enable);
-+	if (!network_sysrq_enable_dentry)
-+		return -EIO;
-+
-+	network_sysrq_magic_dentry = debugfs_create_file("network_sysrq_magic",
-+							S_IWUGO | S_IRUGO,
-+							NULL,
-+							&network_sysrq_magic,
-+							&xnetwork_sysrq_fops);
-+	if (!network_sysrq_magic_dentry) {
-+		debugfs_remove(network_sysrq_enable_dentry);
-+		return -EIO;
-+	}
-+
-+	dev_add_pack(&network_sysrq_type);
-+	return 0;
-+}
-+
-+void __exit cleanup_network_sysrq(void)
-+{
-+	dev_remove_pack(&network_sysrq_type);
-+	debugfs_remove(network_sysrq_enable_dentry);
-+	debugfs_remove(network_sysrq_magic_dentry);
-+}
-+
-+module_init(init_network_sysrq);
-+module_exit(cleanup_network_sysrq);
-+
-+MODULE_LICENSE("GPL");
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
