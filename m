@@ -1,58 +1,70 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: Carsten Wolff <carsten@wolffcarsten.de>
 Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
-Date: Tue, 21 Jun 2011 14:35:01 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1106211431430.17529@wel-95.cs.helsinki.fi>
-References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com> <BANLkTikjcd6ZAF5wH_8CKA_OCrfprGokmw@mail.gmail.com> <BANLkTikoQfbSxnJi_OR+N6sa5iVNcTO6Ug@mail.gmail.com> <201104271157.49386.carsten@wolffcarsten.de> <BANLkTimNC9DgWtkTTtjC_v0FsxzvBMsQGw@mail.gmail.com>
- <BANLkTi=i5ZftuL++ORuy=n_yM_futWYoZw@mail.gmail.com> <BANLkTinsHuP3XSSghfpYET=os9VcJ3FRDA@mail.gmail.com> <BANLkTin5dsubSjOhz3enOjubfVVk6uiNbQ@mail.gmail.com> <B35A6FDF-714A-4226-AFF4-D12ECCD4A152@comsys.rwth-aachen.de> <BANLkTinueBFkVmR-Hd6d1Yojt+gsAV9PYw@mail.gmail.com>
- <C040825C-480A-46C6-AF32-76D90717BA06@comsys.rwth-aachen.de> <BANLkTi=SdhEnyad8keUO30LsNKFNvw6AoA@mail.gmail.com> <alpine.DEB.2.00.1106201336450.17529@wel-95.cs.helsinki.fi> <BANLkTin6fsc=4GUY+1UKsLEbgzeybx7FHg@mail.gmail.com>
+Date: Tue, 21 Jun 2011 13:34:16 +0200
+Message-ID: <201106211334.17825.carsten@wolffcarsten.de>
+References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com> <D0D2412D-2D30-4051-B346-32D20858BC92@nets.rwth-aachen.de> <alpine.DEB.2.00.1106211423400.17529@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Carsten Wolff <carsten@wolffcarsten.de>,
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Zimmermann <zimmermann@nets.rwth-aachen.de>,
+	Dominik Kaspar <dokaspar.ietf@gmail.com>,
 	John Heffner <johnwheffner@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
 	Lennart Schulte <Lennart.Schulte@comsys.rwth-aachen.de>,
 	Arnd Hannemann <arnd@arndnet.de>
-To: Dominik Kaspar <dokaspar.ietf@gmail.com>
+To: "Ilpo =?utf-8?q?J=C3=A4rvinen?=" <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49589 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166Ab1FULfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 07:35:02 -0400
-In-Reply-To: <BANLkTin6fsc=4GUY+1UKsLEbgzeybx7FHg@mail.gmail.com>
+Received: from h1346787.stratoserver.net ([85.214.49.182]:32981 "EHLO
+	h1346787.stratoserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166Ab1FULk1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 07:40:27 -0400
+In-Reply-To: <alpine.DEB.2.00.1106211423400.17529@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Jun 2011, Dominik Kaspar wrote:
+Hi,
 
-> > Where did you get this idea of reneging?!?
-> 
-> I observed that my scenario of a retransmitted packet overtaking the
-> original somehow causes TCP to enter the "Loss" state although no RTO
-> was caused. And since the Loss state seems to be only entered due to
-> RTO timeout or SACK reneging, I got the idea that reneging must be
-> occurring.
-> 
-> > Reneging has nothing to do with DSACKs,
-> > instead it is only detected if the cumulative ACK stops to such
-> > boundary where the _next_ segment is SACKed (i.e., some reason
-> > the receiver "didn't bother" to cumulatively ACK for that too). ...
-> > That certainly does not happen (ever) for out of window DSACKs.
-> 
-> You are right. If I turn off DSACK, the same thing happens: TCP enters
-> the Loss state without timeouts occurring. Isn't that a sign of
-> reneging happening? What else can it be?
+On Tuesday 21 June 2011, Ilpo J=C3=A4rvinen wrote:
+> On Wed, 27 Apr 2011, Alexander Zimmermann wrote:
+> > Am 27.04.2011 um 18:22 schrieb Dominik Kaspar:
+> > > Hi Carsten,
+> > >=20
+> > > Thanks for your feedback. I made some new tests with the same set=
+up of
+> > > packet-based forwarding over two emulated paths (600 KB/s, 10 ms)=
+ +
+> > > (400 KB/s, 100 ms). In the first experiments, which showed a step=
+-wise
+> > > adaptation to reordering, SACK, DSACK, and Timestamps were all
+> > > enabled. In the experiments, I individually disabled these three
+> > > mechanisms and saw the following:
+> > >=20
+> > > - Disabling timestamps causes TCP to never adjust to reordering a=
+t all.
+> >=20
+> > Reordering detection with DSACK is broken in Linux. We will fix tha=
+t in
+> > a couple of weeks...
+> >=20
+> > > - Disabling SACK allows TCP to adapt very rapidly ("perfect"
+> > > aggregation!).
+> >=20
+> > If you disable SACK, you will use the NewReno detection
+>=20
+> Which probably has some reordering over-estimate bugs on its own...
+> (but I've forgotten details of my suspicion long time ago so please d=
+on't
+> ask for the them).
 
-There's a MIB for reneging from where you should be able to confirm 
-that it did(n't) happen...
+the NewReno detection is clever, but there's no exact information it co=
+uld=20
+utilize for a good metric, because it detects the event too late, when =
+the=20
+information is already gone. In my experiments it always under-estimate=
+d the=20
+reordering extent, though. I also remmember thinking that the metric of=
+ the=20
+Eifel-detection has an off-by-one bug.
 
-Please note that tcpprobe is only run per ACK (not on timeouts), and 
-FRTO (enabled by default) doesn't even cause CA_Loss entry immediately 
-but slightly later on once it has figured out that the timeout doesn't 
-seem to be spurious.
-
--- 
- i.
+Carsten
