@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Three possible UDP fixes.
-Date: Tue, 21 Jun 2011 16:31:22 -0700 (PDT)
-Message-ID: <20110621.163122.2184787350829030278.davem@davemloft.net>
-References: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH]: Add Network Sysrq Support
+Date: Tue, 21 Jun 2011 20:32:14 -0300
+Message-ID: <4E0129FE.7050709@redhat.com>
+References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com> <4E0115B3.2030802@redhat.com> <4E011A96.7050509@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, agospoda@redhat.com,
+	nhorman@redhat.com, lwoodman@redhat.com
+To: Prarit Bhargava <prarit@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756939Ab1FUXbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:31:25 -0400
-In-Reply-To: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:19957 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757299Ab1FUXcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 19:32:20 -0400
+In-Reply-To: <4E011A96.7050509@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 21 Jun 2011 16:43:37 -0400
-
-> These were originally found on a 2.6.34 baseline, but I looked
-> at them and couldn't see any reason why they wouldn't be valid
-> fixes on net-next.  But I'll feel better when someone like
-> Dave and/or Eric sanity checks them too.
+On 06/21/2011 07:26 PM, Prarit Bhargava wrote:
+>> I'm thinking on a situation where we leave the systems with this enabled
+>> and then an ordinary user starts pinging the network guessing the hexa to
+>> cause reboots.
+>>   
 > 
-> There was one thing that was a consideration.  In the 3rd patch,
-> where we clear MSG_TRUNC bit -- is there anything in there that
-> we really need to be concerned about preserving on the retry,
-> or could we just unconditionally do "msg->msg_flags = 0" ?
-> I wasn't sure, and so sticking with clearing the offending bit
-> seemed like the most cautious approach.
+> Good point Flavio, but that's *exactly* why I wrote this in single-shot
+> mode.  I really think the code might be a bit too risky for most people
+> to deploy in production environments.  It's too risky for me to let
+> someone ping and ping and ping until they luckily hit the magic number
+> and figure out how to bring *all* of my systems down.  What are the
+> chances that a lab admin is smart enough to set the password to
+> different numbers across different machines in a single lab?
 
-All applied and queued up for -stable, thanks!
+I see your point.  I liked the patch because of the simplicity but
+oh well, if we care that much about the security, then in the end
+we will have something similar to what the xt_SYSRQ does already.
+
+fbl
+
