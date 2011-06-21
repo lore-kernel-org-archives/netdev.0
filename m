@@ -1,66 +1,51 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH] netconsole: fix build when CONFIG_NETCONSOLE_DYNAMIC is
- turned on
-Date: Mon, 20 Jun 2011 21:25:04 -0700
-Message-ID: <20110620212504.e639ad5c.randy.dunlap@oracle.com>
-References: <bug-37992-10286@https.bugzilla.kernel.org/>
-	<20110620122835.444f16d7.akpm@linux-foundation.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V4] mv643xx_eth: enable transmit time stamping.
+Date: Tue, 21 Jun 2011 06:35:19 +0200
+Message-ID: <20110621043519.GA3579@riccoc20.at.omicron.at>
+References: <cover.1308556146.git.richard.cochran@omicron.at>
+ <96e6a2899b55ac1272cee8ce63e2549e24a10386.1308556146.git.richard.cochran@omicron.at>
+ <20110620163524.GD994@wantstofly.org>
+ <20110620.135512.26659219089505445.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	hilld@binarystorm.net
-To: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: buytenh@wantstofly.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:27766 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245Ab1FUE1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 00:27:05 -0400
-In-Reply-To: <20110620122835.444f16d7.akpm@linux-foundation.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:46653 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750901Ab1FUEfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 00:35:14 -0400
+Received: by fxm17 with SMTP id 17so1401804fxm.19
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 21:35:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110620.135512.26659219089505445.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-When NETCONSOLE_DYNAMIC=y and CONFIGFS_FS=m, there are build errors
-in netconsole:
+This patch enables software (and phy device) transmit time stamping.
+Compile tested only.
 
-drivers/built-in.o: In function `drop_netconsole_target':
-netconsole.c:(.text+0x1a100f): undefined reference to `config_item_put'
-drivers/built-in.o: In function `make_netconsole_target':
-netconsole.c:(.text+0x1a10b9): undefined reference to `config_item_init_type_name'
-drivers/built-in.o: In function `write_msg':
-netconsole.c:(.text+0x1a11a4): undefined reference to `config_item_get'
-netconsole.c:(.text+0x1a1211): undefined reference to `config_item_put'
-drivers/built-in.o: In function `netconsole_netdev_event':
-netconsole.c:(.text+0x1a12cc): undefined reference to `config_item_put'
-netconsole.c:(.text+0x1a12ec): undefined reference to `config_item_get'
-netconsole.c:(.text+0x1a1366): undefined reference to `config_item_put'
-drivers/built-in.o: In function `init_netconsole':
-netconsole.c:(.init.text+0x953a): undefined reference to `config_group_init'
-netconsole.c:(.init.text+0x9560): undefined reference to `configfs_register_subsystem'
-drivers/built-in.o: In function `dynamic_netconsole_exit':
-netconsole.c:(.exit.text+0x809): undefined reference to `configfs_unregister_subsystem'
-
-so make NETCONSOLE_DYNAMIC require CONFIGFS_FS=y to fix the build errors.
-
-This is one possible fix.
-Fixes https://bugzilla.kernel.org/show_bug.cgi?id=37992
-
-Reported-by: David Hill <hilld@binarystorm.net>
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/mv643xx_eth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
---- lnx-30-rc3.orig/drivers/net/Kconfig
-+++ lnx-30-rc3/drivers/net/Kconfig
-@@ -3416,7 +3416,7 @@ config NETCONSOLE
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 1b7d2c1..77dc6ab 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -840,6 +840,8 @@ no_csum:
  
- config NETCONSOLE_DYNAMIC
- 	bool "Dynamic reconfiguration of logging targets"
--	depends on NETCONSOLE && SYSFS && CONFIGFS_FS
-+	depends on NETCONSOLE && SYSFS && CONFIGFS_FS=y
- 	help
- 	  This option enables the ability to dynamically reconfigure target
- 	  parameters (interface, IP addresses, port numbers, MAC addresses)
+ 	__skb_queue_tail(&txq->tx_skb, skb);
+ 
++	skb_tx_timestamp(skb);
++
+ 	/* ensure all other descriptors are written before first cmd_sts */
+ 	wmb();
+ 	desc->cmd_sts = cmd_sts;
+-- 
+1.7.0.4
+
