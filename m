@@ -1,42 +1,35 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFT PATCH 0/9] Cleanup and extension of netdev features
-Date: Tue, 21 Jun 2011 16:27:35 -0700
-Message-ID: <BANLkTi=BaWLWZZu=FWAO-6LPh7Y37pNjrA@mail.gmail.com>
-References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
-	<4E011080.7000008@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] Three possible UDP fixes.
+Date: Tue, 21 Jun 2011 16:31:22 -0700 (PDT)
+Message-ID: <20110621.163122.2184787350829030278.davem@davemloft.net>
+References: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:35267 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757350Ab1FUX1h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:27:37 -0400
-Received: by fxm17 with SMTP id 17so280638fxm.19
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2011 16:27:36 -0700 (PDT)
-In-Reply-To: <4E011080.7000008@candelatech.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756939Ab1FUXbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:31:25 -0400
+In-Reply-To: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/6/21 Ben Greear <greearb@candelatech.com>:
-> On 06/20/2011 12:14 PM, Micha=C5=82 Miros=C5=82aw wrote:
->>
->> This is a preview of the cleanups pending after getting rid of old
->> ethtool ops from remaining drivers.
->
-> Even when skipping patch 1 (seems this was just merged earlier today)=
-,
-> these patches do not all apply to net-next.
->
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 21 Jun 2011 16:43:37 -0400
 
-Not all of patch was merged earlier today, just the update to e1000
-and igbvf.  I still have e1000e, igb, ixgb, ixgbe and ixgbevf patches
-still being worked on.  I do apologize for delay.
+> These were originally found on a 2.6.34 baseline, but I looked
+> at them and couldn't see any reason why they wouldn't be valid
+> fixes on net-next.  But I'll feel better when someone like
+> Dave and/or Eric sanity checks them too.
+> 
+> There was one thing that was a consideration.  In the 3rd patch,
+> where we clear MSG_TRUNC bit -- is there anything in there that
+> we really need to be concerned about preserving on the retry,
+> or could we just unconditionally do "msg->msg_flags = 0" ?
+> I wasn't sure, and so sticking with clearing the offending bit
+> seemed like the most cautious approach.
 
---=20
-Cheers,
-Jeff
+All applied and queued up for -stable, thanks!
