@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/5] vxge: fix 64 bit access on 32 bit
- platforms
-Date: Tue, 21 Jun 2011 15:56:03 -0700 (PDT)
-Message-ID: <20110621.155603.512721164385831874.davem@davemloft.net>
-References: <20110620203506.363818794@vyatta.com>
-	<20110620203602.653878704@vyatta.com>
+Subject: Re: [PATCH net-next 5/5] ifb: convert to 64 bit stats (v3)
+Date: Tue, 21 Jun 2011 15:55:22 -0700 (PDT)
+Message-ID: <20110621.155522.955319731260676914.davem@davemloft.net>
+References: <20110620144230.29421b05@nehalam.ftrdhcpuser.net>
+	<1308606278.2658.33.camel@edumazet-laptop>
+	<1308614681.12661.1.camel@mojatatu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46411 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46419 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903Ab1FUW4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 18:56:05 -0400
-In-Reply-To: <20110620203602.653878704@vyatta.com>
+	with ESMTP id S1753094Ab1FUW43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 18:56:29 -0400
+In-Reply-To: <1308614681.12661.1.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 20 Jun 2011 13:35:07 -0700
+From: jamal <hadi@cyberus.ca>
+Date: Mon, 20 Jun 2011 20:04:41 -0400
 
-> Need to add stat_sync wrapper around 64 bit statistic values.
-> Fix wraparound bug in lockup detector where it is unsafely comparing
-> 64 bit value that is not atomic. Since only care about detecting activity
-> just looking at current low order bits will work.
+> On Mon, 2011-06-20 at 23:44 +0200, Eric Dumazet wrote:
 > 
-> Remove unused entries in old vxge_sw_stats structure.
-> Change the error counters to unsigned long since they won't grow so large
-> as to have to be 64 bits.
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 Applied.
