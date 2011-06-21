@@ -1,45 +1,166 @@
-From: H Hartley Sweeten <hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
-Subject: [PATCH] svcauth_unix.c: quiet sparse noise
-Date: Mon, 20 Jun 2011 18:19:12 -0700
-Message-ID: <201106201819.12839.hartleys@visionengravers.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next] cnic, bnx2i: Add support for new devices -
+ 57800, 57810, and 57840
+Date: Mon, 20 Jun 2011 18:15:56 -0700
+Message-ID: <1308618956-31169-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>, <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	<neilb-l3A5Bk7waGM@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1286 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751838Ab1FUCHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2011 22:07:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Like svcauth_unix, the symbol svcauth_null is used external from this
-file. Declare it as extern to quiet the following sparse noise:
+And change iSCSI RQ doorbell size from 16B to 64B to match new firmware.
 
-warning: symbol 'svcauth_null' was not declared. Should it be static?
-
-Signed-off-by: H Hartley Sweeten <hsweeten-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 ---
+ drivers/net/cnic.h                        |   14 +++++++++++++-
+ drivers/scsi/bnx2i/57xx_iscsi_constants.h |    2 +-
+ drivers/scsi/bnx2i/bnx2i.h                |    2 +-
+ drivers/scsi/bnx2i/bnx2i_init.c           |   21 +++++++++++++++------
+ include/linux/pci_ids.h                   |    9 +++++++++
+ 5 files changed, 39 insertions(+), 9 deletions(-)
 
-diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
-index c8e1021..62e49e2 100644
---- a/net/sunrpc/svcauth_unix.c
-+++ b/net/sunrpc/svcauth_unix.c
-@@ -36,6 +36,7 @@ struct unix_domain {
- 	/* other stuff later */
+diff --git a/drivers/net/cnic.h b/drivers/net/cnic.h
+index 330ef93..7a2928f 100644
+--- a/drivers/net/cnic.h
++++ b/drivers/net/cnic.h
+@@ -384,6 +384,9 @@ struct bnx2x_bd_chain_next {
+ #define BNX2X_CHIP_NUM_57712E		0x1663
+ #define BNX2X_CHIP_NUM_57713		0x1651
+ #define BNX2X_CHIP_NUM_57713E		0x1652
++#define BNX2X_CHIP_NUM_57800		0x168a
++#define BNX2X_CHIP_NUM_57810		0x168e
++#define BNX2X_CHIP_NUM_57840		0x168d
+ 
+ #define BNX2X_CHIP_NUM(x)		(x >> 16)
+ #define BNX2X_CHIP_IS_57710(x)		\
+@@ -402,10 +405,19 @@ struct bnx2x_bd_chain_next {
+ 	(BNX2X_CHIP_NUM(x) == BNX2X_CHIP_NUM_57713)
+ #define BNX2X_CHIP_IS_57713E(x)		\
+ 	(BNX2X_CHIP_NUM(x) == BNX2X_CHIP_NUM_57713E)
++#define BNX2X_CHIP_IS_57800(x)		\
++	(BNX2X_CHIP_NUM(x) == BNX2X_CHIP_NUM_57800)
++#define BNX2X_CHIP_IS_57810(x)		\
++	(BNX2X_CHIP_NUM(x) == BNX2X_CHIP_NUM_57810)
++#define BNX2X_CHIP_IS_57840(x)		\
++	(BNX2X_CHIP_NUM(x) == BNX2X_CHIP_NUM_57840)
+ #define BNX2X_CHIP_IS_E2(x)		\
+ 	(BNX2X_CHIP_IS_57712(x) || BNX2X_CHIP_IS_57712E(x) || \
+ 	 BNX2X_CHIP_IS_57713(x) || BNX2X_CHIP_IS_57713E(x))
+-#define BNX2X_CHIP_IS_E2_PLUS(x) BNX2X_CHIP_IS_E2(x)
++#define BNX2X_CHIP_IS_E3(x)			\
++	(BNX2X_CHIP_IS_57800(x) || BNX2X_CHIP_IS_57810(x) || \
++	 BNX2X_CHIP_IS_57840(x))
++#define BNX2X_CHIP_IS_E2_PLUS(x) (BNX2X_CHIP_IS_E2(x) || BNX2X_CHIP_IS_E3(x))
+ 
+ #define IS_E1H_OFFSET       		BNX2X_CHIP_IS_E1H(cp->chip_id)
+ 
+diff --git a/drivers/scsi/bnx2i/57xx_iscsi_constants.h b/drivers/scsi/bnx2i/57xx_iscsi_constants.h
+index 30e6bdb..15673cc 100644
+--- a/drivers/scsi/bnx2i/57xx_iscsi_constants.h
++++ b/drivers/scsi/bnx2i/57xx_iscsi_constants.h
+@@ -125,7 +125,7 @@
+ 
+ /* SQ/RQ/CQ DB structure sizes */
+ #define ISCSI_SQ_DB_SIZE    (16)
+-#define ISCSI_RQ_DB_SIZE    (16)
++#define ISCSI_RQ_DB_SIZE    (64)
+ #define ISCSI_CQ_DB_SIZE    (80)
+ 
+ #define ISCSI_SQN_TO_NOTIFY_NOT_VALID                                   0xFFFF
+diff --git a/drivers/scsi/bnx2i/bnx2i.h b/drivers/scsi/bnx2i/bnx2i.h
+index 6bdd25a..e7cb7ec 100644
+--- a/drivers/scsi/bnx2i/bnx2i.h
++++ b/drivers/scsi/bnx2i/bnx2i.h
+@@ -478,7 +478,7 @@ struct bnx2i_5771x_cq_db {
+ 
+ struct bnx2i_5771x_sq_rq_db {
+ 	u16 prod_idx;
+-	u8 reserved0[14]; /* Pad structure size to 16 bytes */
++	u8 reserved0[62]; /* Pad structure size to 64 bytes */
  };
  
-+extern struct auth_ops svcauth_null;
- extern struct auth_ops svcauth_unix;
  
- static void svcauth_unix_domain_release(struct auth_domain *dom)
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/scsi/bnx2i/bnx2i_init.c b/drivers/scsi/bnx2i/bnx2i_init.c
+index 6adbdc3..f815197 100644
+--- a/drivers/scsi/bnx2i/bnx2i_init.c
++++ b/drivers/scsi/bnx2i/bnx2i_init.c
+@@ -30,7 +30,7 @@ MODULE_AUTHOR("Anil Veerabhadrappa <anilgv@broadcom.com> and "
+ 	      "Eddie Wai <eddie.wai@broadcom.com>");
+ 
+ MODULE_DESCRIPTION("Broadcom NetXtreme II BCM5706/5708/5709/57710/57711/57712"
+-		   " iSCSI Driver");
++		   "/57800/57810/57840 iSCSI Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_MODULE_VERSION);
+ 
+@@ -88,11 +88,20 @@ void bnx2i_identify_device(struct bnx2i_hba *hba)
+ 	    (hba->pci_did == PCI_DEVICE_ID_NX2_5709S)) {
+ 		set_bit(BNX2I_NX2_DEV_5709, &hba->cnic_dev_type);
+ 		hba->mail_queue_access = BNX2I_MQ_BIN_MODE;
+-	} else if (hba->pci_did == PCI_DEVICE_ID_NX2_57710  ||
+-		   hba->pci_did == PCI_DEVICE_ID_NX2_57711  ||
+-		   hba->pci_did == PCI_DEVICE_ID_NX2_57711E ||
+-		   hba->pci_did == PCI_DEVICE_ID_NX2_57712  ||
+-		   hba->pci_did == PCI_DEVICE_ID_NX2_57712E)
++	} else if (hba->pci_did == PCI_DEVICE_ID_NX2_57710    ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57711    ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57711E   ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57712    ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57712E   ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57800    ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57800_MF ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57800_VF ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57810    ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57810_MF ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57810_VF ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57840    ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57840_MF ||
++		   hba->pci_did == PCI_DEVICE_ID_NX2_57840_VF)
+ 		set_bit(BNX2I_NX2_DEV_57710, &hba->cnic_dev_type);
+ 	else
+ 		printk(KERN_ALERT "bnx2i: unknown device, 0x%x\n",
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index a311008..d76bd9e 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2102,6 +2102,9 @@
+ #define PCI_DEVICE_ID_TIGON3_5761E	0x1680
+ #define PCI_DEVICE_ID_TIGON3_5761	0x1681
+ #define PCI_DEVICE_ID_TIGON3_5764	0x1684
++#define PCI_DEVICE_ID_NX2_57800		0x168a
++#define PCI_DEVICE_ID_NX2_57840		0x168d
++#define PCI_DEVICE_ID_NX2_57810		0x168e
+ #define PCI_DEVICE_ID_TIGON3_5787M	0x1693
+ #define PCI_DEVICE_ID_TIGON3_5782	0x1696
+ #define PCI_DEVICE_ID_TIGON3_5784	0x1698
+@@ -2109,11 +2112,17 @@
+ #define PCI_DEVICE_ID_TIGON3_5787	0x169b
+ #define PCI_DEVICE_ID_TIGON3_5788	0x169c
+ #define PCI_DEVICE_ID_TIGON3_5789	0x169d
++#define PCI_DEVICE_ID_NX2_57800_MF	0x16a5
+ #define PCI_DEVICE_ID_TIGON3_5702X	0x16a6
+ #define PCI_DEVICE_ID_TIGON3_5703X	0x16a7
+ #define PCI_DEVICE_ID_TIGON3_5704S	0x16a8
++#define PCI_DEVICE_ID_NX2_57800_VF	0x16a9
+ #define PCI_DEVICE_ID_NX2_5706S		0x16aa
++#define PCI_DEVICE_ID_NX2_57840_MF	0x16ab
+ #define PCI_DEVICE_ID_NX2_5708S		0x16ac
++#define PCI_DEVICE_ID_NX2_57840_VF	0x16ad
++#define PCI_DEVICE_ID_NX2_57810_MF	0x16ae
++#define PCI_DEVICE_ID_NX2_57810_VF	0x16af
+ #define PCI_DEVICE_ID_TIGON3_5702A3	0x16c6
+ #define PCI_DEVICE_ID_TIGON3_5703A3	0x16c7
+ #define PCI_DEVICE_ID_TIGON3_5781	0x16dd
+-- 
+1.6.4.GIT
+
+
