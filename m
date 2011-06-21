@@ -1,8 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v2 4/7] dcb: Add ieee_dcb_delapp() and dcb op to
-	delete app entry
-Date: Tue, 21 Jun 2011 10:34:48 -0700
-Message-ID: <20110621173447.2777.38923.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v2 5/7] dcb: Add dcb_ieee_getapp_mask() for drivers
+	to query APP settings
+Date: Tue, 21 Jun 2011 10:34:53 -0700
+Message-ID: <20110621173453.2777.26992.stgit@jf-dev1-dcblab>
 References: <20110621173431.2777.39482.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,185 +10,80 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, shmulikr@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53969 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:21162 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757082Ab1FURl0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 13:41:26 -0400
+	id S1757082Ab1FURlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 13:41:31 -0400
 In-Reply-To: <20110621173431.2777.39482.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we allow multiple IEEE App entries we need a way
-to remove specific entries. To do this add the ieee_dcb_delapp()
-routine.
+With multiple APP entries per selector and protocol drivers
+or stacks may want to pick a specific value or stripe traffic
+across many priorities. Also if an APP entry in use is
+deleted the stack/driver may want to choose from the existing
+APP entries.
 
-Additionaly drivers may need to remove the APP entry from
-their firmware tables. Add dcb ops routine to handle this.
+To facilitate this and avoid having duplicate code to walk
+the APP ring provide a routine dcb_ieee_getapp_mask() to
+return a u8 bitmask of all priorities set for the specified
+selector and protocol. This routine and bitmask is a helper
+for DCB kernel users.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/dcbnl.h |    2 +
- include/net/dcbnl.h   |    2 +
- net/dcb/dcbnl.c       |   90 ++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 92 insertions(+), 2 deletions(-)
+ include/net/dcbnl.h |    1 +
+ net/dcb/dcbnl.c     |   26 ++++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-index c522800..66a6723 100644
---- a/include/linux/dcbnl.h
-+++ b/include/linux/dcbnl.h
-@@ -203,6 +203,7 @@ struct dcbmsg {
-  * @DCB_CMD_GFEATCFG: get DCBX features flags
-  * @DCB_CMD_SFEATCFG: set DCBX features negotiation flags
-  * @DCB_CMD_CEE_GET: get CEE aggregated configuration
-+ * @DCB_CMD_IEEE_DEL: delete IEEE 802.1Qaz configuration
-  */
- enum dcbnl_commands {
- 	DCB_CMD_UNDEFINED,
-@@ -246,6 +247,7 @@ enum dcbnl_commands {
- 	DCB_CMD_SFEATCFG,
- 
- 	DCB_CMD_CEE_GET,
-+	DCB_CMD_IEEE_DEL,
- 
- 	__DCB_CMD_ENUM_MAX,
- 	DCB_CMD_MAX = __DCB_CMD_ENUM_MAX - 1,
 diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index c53a4e0..62a2685 100644
+index 62a2685..c14fd94 100644
 --- a/include/net/dcbnl.h
 +++ b/include/net/dcbnl.h
-@@ -31,6 +31,7 @@ struct dcb_app_type {
- u8 dcb_setapp(struct net_device *, struct dcb_app *);
+@@ -32,6 +32,7 @@ u8 dcb_setapp(struct net_device *, struct dcb_app *);
  u8 dcb_getapp(struct net_device *, struct dcb_app *);
  int dcb_ieee_setapp(struct net_device *, struct dcb_app *);
-+int dcb_ieee_delapp(struct net_device *, struct dcb_app *);
+ int dcb_ieee_delapp(struct net_device *, struct dcb_app *);
++u8 dcb_ieee_getapp_mask(struct net_device *, struct dcb_app *);
  
  int dcbnl_notify(struct net_device *dev, int event, int cmd, u32 seq, u32 pid);
  
-@@ -46,6 +47,7 @@ struct dcbnl_rtnl_ops {
- 	int (*ieee_setpfc) (struct net_device *, struct ieee_pfc *);
- 	int (*ieee_getapp) (struct net_device *, struct dcb_app *);
- 	int (*ieee_setapp) (struct net_device *, struct dcb_app *);
-+	int (*ieee_delapp) (struct net_device *, struct dcb_app *);
- 	int (*ieee_peer_getets) (struct net_device *, struct ieee_ets *);
- 	int (*ieee_peer_getpfc) (struct net_device *, struct ieee_pfc *);
- 
 diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 3e3b51c..196084f 100644
+index 196084f..b7d0be0 100644
 --- a/net/dcb/dcbnl.c
 +++ b/net/dcb/dcbnl.c
-@@ -1451,6 +1451,52 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+@@ -1929,6 +1929,32 @@ out:
+ EXPORT_SYMBOL(dcb_setapp);
  
- 	return err;
- }
-+
-+static int dcbnl_ieee_del(struct net_device *netdev, struct nlattr **tb,
-+			  u32 pid, u32 seq, u16 flags)
-+{
-+	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
-+	struct nlattr *ieee[DCB_ATTR_IEEE_MAX + 1];
-+	int err = -EOPNOTSUPP;
-+
-+	if (!ops)
-+		return -EOPNOTSUPP;
-+
-+	if (!tb[DCB_ATTR_IEEE])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(ieee, DCB_ATTR_IEEE_MAX,
-+			       tb[DCB_ATTR_IEEE], dcbnl_ieee_policy);
-+	if (err)
-+		return err;
-+
-+	if (ieee[DCB_ATTR_IEEE_APP_TABLE]) {
-+		struct nlattr *attr;
-+		int rem;
-+
-+		nla_for_each_nested(attr, ieee[DCB_ATTR_IEEE_APP_TABLE], rem) {
-+			struct dcb_app *app_data;
-+
-+			if (nla_type(attr) != DCB_ATTR_IEEE_APP)
-+				continue;
-+			app_data = nla_data(attr);
-+			if (ops->ieee_delapp)
-+				err = ops->ieee_delapp(netdev, app_data);
-+			else
-+				err = dcb_ieee_delapp(netdev, app_data);
-+			if (err)
-+				goto err;
-+		}
-+	}
-+
-+err:
-+	dcbnl_reply(err, RTM_SETDCB, DCB_CMD_IEEE_DEL, DCB_ATTR_IEEE,
-+		    pid, seq, flags);
-+	dcbnl_notify(netdev, RTM_SETDCB, DCB_CMD_IEEE_DEL, seq, 0);
-+	return err;
-+}
-+
-+
- /* DCBX configuration */
- static int dcbnl_getdcbx(struct net_device *netdev, struct nlattr **tb,
- 			 u32 pid, u32 seq, u16 flags)
-@@ -1765,11 +1811,15 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		goto out;
- 	case DCB_CMD_IEEE_SET:
- 		ret = dcbnl_ieee_set(netdev, tb, pid, nlh->nlmsg_seq,
--				 nlh->nlmsg_flags);
-+				     nlh->nlmsg_flags);
- 		goto out;
- 	case DCB_CMD_IEEE_GET:
- 		ret = dcbnl_ieee_get(netdev, tb, pid, nlh->nlmsg_seq,
--				 nlh->nlmsg_flags);
-+				     nlh->nlmsg_flags);
-+		goto out;
-+	case DCB_CMD_IEEE_DEL:
-+		ret = dcbnl_ieee_del(netdev, tb, pid, nlh->nlmsg_seq,
-+				     nlh->nlmsg_flags);
- 		goto out;
- 	case DCB_CMD_GDCBX:
- 		ret = dcbnl_getdcbx(netdev, tb, pid, nlh->nlmsg_seq,
-@@ -1924,6 +1974,42 @@ out:
- }
- EXPORT_SYMBOL(dcb_ieee_setapp);
- 
-+/**
-+ * dcb_ieee_delapp - delete IEEE dcb application data from list
+ /**
++ * dcb_ieee_getapp_mask - retrieve the IEEE DCB application priority
 + *
-+ * This removes a matching APP data from the APP list
++ * Helper routine which on success returns a non-zero 802.1Qaz user
++ * priority bitmap otherwise returns 0 to indicate the dcb_app was
++ * not found in APP list.
 + */
-+int dcb_ieee_delapp(struct net_device *dev, struct dcb_app *del)
++u8 dcb_ieee_getapp_mask(struct net_device *dev, struct dcb_app *app)
 +{
 +	struct dcb_app_type *itr;
-+	struct dcb_app_type event;
-+	int err = -ENOENT;
-+
-+	memcpy(&event.name, dev->name, sizeof(event.name));
-+	memcpy(&event.app, del, sizeof(event.app));
++	u8 prio = 0;
 +
 +	spin_lock(&dcb_lock);
-+	/* Search for existing match and remove it. */
 +	list_for_each_entry(itr, &dcb_app_list, list) {
-+		if (itr->app.selector == del->selector &&
-+		    itr->app.protocol == del->protocol &&
-+		    itr->app.priority == del->priority &&
++		if (itr->app.selector == app->selector &&
++		    itr->app.protocol == app->protocol &&
 +		    (strncmp(itr->name, dev->name, IFNAMSIZ) == 0)) {
-+			list_del(&itr->list);
-+			kfree(itr);
-+			err = 0;
-+			goto out;
++			prio |= 1 << itr->app.priority;
 +		}
 +	}
-+
-+out:
 +	spin_unlock(&dcb_lock);
-+	if (!err)
-+		call_dcbevent_notifiers(DCB_APP_EVENT, &event);
-+	return err;
-+}
-+EXPORT_SYMBOL(dcb_ieee_delapp);
 +
- static void dcb_flushapp(void)
- {
- 	struct dcb_app_type *app;
++	return prio;
++}
++EXPORT_SYMBOL(dcb_ieee_getapp_mask);
++
++/**
+  * dcb_ieee_setapp - add IEEE dcb application data to app list
+  *
+  * This adds Application data to the list. Multiple application
 
