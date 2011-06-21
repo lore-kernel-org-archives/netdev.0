@@ -1,63 +1,57 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Tue, 21 Jun 2011 13:46:45 -0700
-Message-ID: <20110621134645.e58284fa.randy.dunlap@oracle.com>
-References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com>
-	<20110621130929.ddd107f7.rdunlap@xenotime.net>
-	<20110621203720.GB16021@Chamillionaire.breakpoint.cc>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Reported regression against commit a05d2ad
+Date: Tue, 21 Jun 2011 13:49:45 -0700
+Message-ID: <m1oc1qnc46.fsf@fess.ebiederm.org>
+References: <20110621201528.GB2249@herton-IdeaPad-Y430>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Prarit Bhargava <prarit@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, agospoda@redhat.com, nhorman@redhat.com,
-	lwoodman@redhat.com
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: lamont@canonical.com, sconklin@canonical.com,
+	tim.gardner@canonical.com, netdev@vger.kernel.org
+To: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:64911 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757177Ab1FUUrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 16:47:21 -0400
-In-Reply-To: <20110621203720.GB16021@Chamillionaire.breakpoint.cc>
+Received: from out01.mta.xmission.com ([166.70.13.231]:52133 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757558Ab1FUUtu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 16:49:50 -0400
+In-Reply-To: <20110621201528.GB2249@herton-IdeaPad-Y430> (Herton Ronaldo
+	Krzesinski's message of "Tue, 21 Jun 2011 17:15:29 -0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Jun 2011 22:37:20 +0200 Florian Westphal wrote:
+Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com> writes:
 
-> Randy Dunlap <rdunlap@xenotime.net> wrote:
-> > > diff --git a/Documentation/networking/sysrq-ping.txt b/Documentation/networking/sysrq-ping.txt
-> > > new file mode 100644
-> > > index 0000000..efa8be3
-> > > --- /dev/null
-> > > +++ b/Documentation/networking/sysrq-ping.txt
-> > > @@ -0,0 +1,26 @@
-> > > +In some circumstances, a system can hang/lockup in such a way that the system
-> > > +is completely unresponsive to keyboard or console input but is still
-> > > +responsive to ping.  The config option, CONFIG_SYSRQ_PING, builds
-> > > +net/ipv4/sysrq-ping.ko which allows a root user to configure the system for a
-> > 
-> > or it can be built-in the kernel image... (i.e., not a loadable module)
-> > 
-> > > +remote sysrq.
-> > > +
-> > > +To use this do:
-> > > +
-> > > +mount -t debugfs none /sys/kernel/debug/
-> > > +echo 1 > /proc/sys/kernel/sysrq
-> > > +echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
-> > > +echo 1 > /sys/kernel/debug/network_sysrq_enable
-> > 
-> > so all of this (insecure) stuff has to be done before you suspect that
-> > you need it .. in case the local keyboard/console is dead.
-> 
-> There is an xt_SYSREQ module in xtables-addons package (i.e., a
-> netfilter target), it supports hashed passwords and has some sequence
-> number scheme to avoid replays.
-> 
-> I think it would make more sense to merge that upstream, simply because
-> it seems to be a bit more advanced...
+> Hi,
+>
+> after update to one of the latest 2.6.32.x stable kernels for Ubuntu, we
+> got a regression report about timeout in tcp connections
+> (https://launchpad.net/bugs/791512).
+>
+> We tried help reporter with a bisect process, but it was taking some
+> time, so we reverted some suspect commits, until we isolated it to
+> commit "af_unix: Only allow recv on connected seqpacket sockets."
+>
+> With only commit a05d2ad reverted, testing results so far indicate the
+> issue doesn't happen.
+>
+> I'm unfamiliar with unix sockets code, so can't see at first why this
+> commit in particular is causing problems, for now I can only say may be
+> something at application level using unix sockets regressed with it (?).
+> I'm just reporting it right now, and we plan to revert it for that kernel
+> until more info is found about it.
 
-in which case I would prefer this patch instead of a netfilter patch.  :)
+The only thing commit a05d2ad will prevent is a non-sense use of a
+af_unix socket, and on recent enough kernels a NULL pointer deference.
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+I respectfully suggest that the bug is elsewhere perhaps a broken user
+space application out there that needs to be fixed, or you have a kernel
+memory stomp that removing patch a05d2ad happens to shift the memory
+layout to be harmful in a different way.
+
+af_unix sockets have nothing to do with tcp and only happen to use
+the TCP_ESTABLISHED flag to indicated connected or non-connected
+sockets.
+
+Eric
+
+> I'm adding reporter to CC (Lamont), in case more details are necessary
+> etc.
