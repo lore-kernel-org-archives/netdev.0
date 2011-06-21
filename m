@@ -1,73 +1,55 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: Linux TCP's Robustness to Multipath Packet Reordering
-Date: Tue, 21 Jun 2011 14:46:11 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1106211444210.17529@wel-95.cs.helsinki.fi>
-References: <BANLkTimpgXCpweZKCihCQkLjSZw5zL4=Pg@mail.gmail.com> <D0D2412D-2D30-4051-B346-32D20858BC92@nets.rwth-aachen.de> <alpine.DEB.2.00.1106211423400.17529@wel-95.cs.helsinki.fi> <201106211334.17825.carsten@wolffcarsten.de>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH 1/2] udp:  add tracepoints for queueing skb to rcvbuf
+Date: Tue, 21 Jun 2011 13:58:27 +0200
+Message-ID: <4123e3d3ce0192e63947178f249d3411@localhost>
+References: <65795E11DBF1E645A09CEC7EAEE94B9C402B96E4@USINDEVS02.corp.hds.com>
+ <65795E11DBF1E645A09CEC7EAEE94B9C402B96E5@USINDEVS02.corp.hds.com>
+ <20110621104742.GA16311@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1887077171-1308656771=:17529"
-Cc: Alexander Zimmermann <zimmermann@nets.rwth-aachen.de>,
-	Dominik Kaspar <dokaspar.ietf@gmail.com>,
-	John Heffner <johnwheffner@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Lennart Schulte <Lennart.Schulte@comsys.rwth-aachen.de>,
-	Arnd Hannemann <arnd@arndnet.de>
-To: Carsten Wolff <carsten@wolffcarsten.de>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Satoru Moriya <satoru.moriya@hds.com>, <netdev@vger.kernel.org>,
+	Seiji Aguchi <seiji.aguchi@hds.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33789 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663Ab1FULqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 07:46:12 -0400
-In-Reply-To: <201106211334.17825.carsten@wolffcarsten.de>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:50431 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751166Ab1FUL6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 07:58:30 -0400
+In-Reply-To: <20110621104742.GA16311@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323329-1887077171-1308656771=:17529
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+On Tue, 21 Jun 2011 06:47:43 -0400, Neil Horman wrote:
 
-On Tue, 21 Jun 2011, Carsten Wolff wrote:
 
-> On Tuesday 21 June 2011, Ilpo Järvinen wrote:
-> > On Wed, 27 Apr 2011, Alexander Zimmermann wrote:
-> > > Am 27.04.2011 um 18:22 schrieb Dominik Kaspar:
-> > > > Hi Carsten,
-> > > > 
-> > > > Thanks for your feedback. I made some new tests with the same setup of
-> > > > packet-based forwarding over two emulated paths (600 KB/s, 10 ms) +
-> > > > (400 KB/s, 100 ms). In the first experiments, which showed a step-wise
-> > > > adaptation to reordering, SACK, DSACK, and Timestamps were all
-> > > > enabled. In the experiments, I individually disabled these three
-> > > > mechanisms and saw the following:
-> > > > 
-> > > > - Disabling timestamps causes TCP to never adjust to reordering at all.
-> > > 
-> > > Reordering detection with DSACK is broken in Linux. We will fix that in
-> > > a couple of weeks...
-> > > 
-> > > > - Disabling SACK allows TCP to adapt very rapidly ("perfect"
-> > > > aggregation!).
-> > > 
-> > > If you disable SACK, you will use the NewReno detection
-> > 
-> > Which probably has some reordering over-estimate bugs on its own...
-> > (but I've forgotten details of my suspicion long time ago so please don't
-> > ask for the them).
-> 
-> the NewReno detection is clever, but there's no exact information it could 
-> utilize for a good metric, because it detects the event too late, when the 
-> information is already gone. In my experiments it always under-estimated the 
-> reordering extent, though. I also remmember thinking that the metric of the 
-> Eifel-detection has an off-by-one bug.
 
-That might be true for most of the cases but IIRC I figured out a
-a scenario where it miscalculates RTT worth of extra into the reordering 
-(but I never really confirmed that in real tests or so, just figured it 
-a bit).
+> I was thinking you could just trace callers of __sk_mem_schedule, but
 
--- 
- i.
---8323329-1887077171-1308656771=:17529--
+> looking at
+
+> it this works as well
+
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+
+
+Hey Neil,
+
+
+
+since you acked the patch do you have any plans to migrate dropwatch to
+
+use perf infrastructure and skip the netlink transport? Should be
+
+practicable now. No kernel patch required to run dropwatch ;-)
+
+
+
+
+
+HGN
+
+
