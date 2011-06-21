@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] mv643xx_eth: fix race in trasmit path.
-Date: Tue, 21 Jun 2011 16:00:45 -0700 (PDT)
-Message-ID: <20110621.160045.1770529742447572859.davem@davemloft.net>
-References: <cover.1308555865.git.richard.cochran@omicron.at>
-	<cover.1308555865.git.richard.cochran@omicron.at>
-	<25a379578b71bf01f3c77ac76a193d26554f9e0c.1308555865.git.richard.cochran@omicron.at>
+Subject: Re: [PATCH V4] mv643xx_eth: enable transmit time stamping.
+Date: Tue, 21 Jun 2011 16:01:40 -0700 (PDT)
+Message-ID: <20110621.160140.1294679827403078088.davem@davemloft.net>
+References: <20110620163524.GD994@wantstofly.org>
+	<20110620.135512.26659219089505445.davem@davemloft.net>
+	<20110621043519.GA3579@riccoc20.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, stable@kernel.org,
-	buytenh@wantstofly.org
+Cc: buytenh@wantstofly.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
 To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38092 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58052 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752903Ab1FUXAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:00:50 -0400
-In-Reply-To: <25a379578b71bf01f3c77ac76a193d26554f9e0c.1308555865.git.richard.cochran@omicron.at>
+	with ESMTP id S1756800Ab1FUXBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:01:44 -0400
+In-Reply-To: <20110621043519.GA3579@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Richard Cochran <richardcochran@gmail.com>
-Date: Mon, 20 Jun 2011 09:48:07 +0200
+Date: Tue, 21 Jun 2011 06:35:19 +0200
 
-> Because the socket buffer is freed in the completion interrupt, it is not
-> safe to access it after submitting it to the hardware.
+> This patch enables software (and phy device) transmit time stamping.
+> Compile tested only.
 > 
 > Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 
-Since this isn't actually a bonafide bug fix I've applied this to net-next-2.6
+Applied.
