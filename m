@@ -1,609 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/16] ixgbe: consolidate packet buffer allocation
-Date: Tue, 21 Jun 2011 01:33:38 -0700
-Message-ID: <1308645228-32444-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/16] ixgbe: dcbnl reduce duplicated code and indentation
+Date: Tue, 21 Jun 2011 01:33:37 -0700
+Message-ID: <1308645228-32444-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43481 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:34699 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754050Ab1FUId4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 04:33:56 -0400
+	id S1751344Ab1FUIdz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 04:33:55 -0400
 In-Reply-To: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-Consolidate packet buffer allocation currently being
-done in the DCB path and main path. This allows the
-feature set and packet buffer requirements to be done
-once.
+Replace duplicated code in if/else branches with single
+check and ixgbe_init_interrupt_scheme().
 
-This is prep work to allow DCB to coexist with other
-features namely, flow director.
-
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_82598.c     |   42 ++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_82599.c     |   39 +--------------------
- drivers/net/ixgbe/ixgbe_common.c    |   66 +++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_common.h    |    3 ++
- drivers/net/ixgbe/ixgbe_dcb.c       |   10 ++---
- drivers/net/ixgbe/ixgbe_dcb.h       |    7 ----
- drivers/net/ixgbe/ixgbe_dcb_82598.c |   43 +----------------------
- drivers/net/ixgbe/ixgbe_dcb_82598.h |    3 +-
- drivers/net/ixgbe/ixgbe_dcb_82599.c |   62 +--------------------------------
- drivers/net/ixgbe/ixgbe_dcb_82599.h |   14 +-------
- drivers/net/ixgbe/ixgbe_main.c      |   16 ++++++++-
- drivers/net/ixgbe/ixgbe_type.h      |   24 +++++++++++++
- drivers/net/ixgbe/ixgbe_x540.c      |    1 +
- 13 files changed, 160 insertions(+), 170 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |   51 ++++++++++++++++++--------------------
+ 1 files changed, 24 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index 8179e50..bb417d7 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -1242,6 +1242,47 @@ static void ixgbe_set_lan_id_multi_port_pcie_82598(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index 5e7ed22..293ff06 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -146,37 +146,34 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
+ 		if (!netdev_get_num_tc(netdev))
+ 			ixgbe_setup_tc(netdev, MAX_TRAFFIC_CLASS);
+-
+-		ixgbe_init_interrupt_scheme(adapter);
+-		if (netif_running(netdev))
+-			netdev->netdev_ops->ndo_open(netdev);
+ 	} else {
+ 		/* Turn off DCB */
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-			if (netif_running(netdev))
+-				netdev->netdev_ops->ndo_stop(netdev);
+-			ixgbe_clear_interrupt_scheme(adapter);
++		if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
++			goto out;
+ 
+-			adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
+-			adapter->temp_dcb_cfg.pfc_mode_enable = false;
+-			adapter->dcb_cfg.pfc_mode_enable = false;
+-			adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+-			switch (adapter->hw.mac.type) {
+-			case ixgbe_mac_82599EB:
+-			case ixgbe_mac_X540:
+-				adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+-				break;
+-			default:
+-				break;
+-			}
+-
+-			ixgbe_setup_tc(netdev, 0);
+-
+-			ixgbe_init_interrupt_scheme(adapter);
+-			if (netif_running(netdev))
+-				netdev->netdev_ops->ndo_open(netdev);
++		if (netif_running(netdev))
++			netdev->netdev_ops->ndo_stop(netdev);
++		ixgbe_clear_interrupt_scheme(adapter);
++
++		adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
++		adapter->temp_dcb_cfg.pfc_mode_enable = false;
++		adapter->dcb_cfg.pfc_mode_enable = false;
++		adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
++		switch (adapter->hw.mac.type) {
++		case ixgbe_mac_82599EB:
++		case ixgbe_mac_X540:
++			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
++			break;
++		default:
++			break;
+ 		}
++
++		ixgbe_setup_tc(netdev, 0);
  	}
++
++	ixgbe_init_interrupt_scheme(adapter);
++	if (netif_running(netdev))
++		netdev->netdev_ops->ndo_open(netdev);
+ out:
+ 	return err;
  }
- 
-+/**
-+ * ixgbe_set_rxpba_82598 - Configure packet buffers
-+ * @hw: pointer to hardware structure
-+ * @dcb_config: pointer to ixgbe_dcb_config structure
-+ *
-+ * Configure packet buffers.
-+ */
-+static void ixgbe_set_rxpba_82598(struct ixgbe_hw *hw, int num_pb, u32 headroom,
-+				  int strategy)
-+{
-+	u32 rxpktsize = IXGBE_RXPBSIZE_64KB;
-+	u8  i = 0;
-+
-+	if (!num_pb)
-+		return;
-+
-+	/* Setup Rx packet buffer sizes */
-+	switch (strategy) {
-+	case PBA_STRATEGY_WEIGHTED:
-+		/* Setup the first four at 80KB */
-+		rxpktsize = IXGBE_RXPBSIZE_80KB;
-+		for (; i < 4; i++)
-+			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpktsize);
-+		/* Setup the last four at 48KB...don't re-init i */
-+		rxpktsize = IXGBE_RXPBSIZE_48KB;
-+		/* Fall Through */
-+	case PBA_STRATEGY_EQUAL:
-+	default:
-+		/* Divide the remaining Rx packet buffer evenly among the TCs */
-+		for (; i < IXGBE_MAX_PACKET_BUFFERS; i++)
-+			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpktsize);
-+		break;
-+	}
-+
-+	/* Setup Tx packet buffer sizes */
-+	for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i), IXGBE_TXPBSIZE_40KB);
-+
-+	return;
-+}
-+
- static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.init_hw		= &ixgbe_init_hw_generic,
- 	.reset_hw		= &ixgbe_reset_hw_82598,
-@@ -1257,6 +1298,7 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.read_analog_reg8	= &ixgbe_read_analog_reg8_82598,
- 	.write_analog_reg8	= &ixgbe_write_analog_reg8_82598,
- 	.setup_link		= &ixgbe_setup_mac_link_82598,
-+	.set_rxpba		= &ixgbe_set_rxpba_82598,
- 	.check_link		= &ixgbe_check_mac_link_82598,
- 	.get_link_capabilities	= &ixgbe_get_link_capabilities_82598,
- 	.led_on			= &ixgbe_led_on_generic,
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 0d7bc91..324a505 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -1114,27 +1114,8 @@ s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw)
- s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 pballoc)
- {
- 	u32 fdirctrl = 0;
--	u32 pbsize;
- 	int i;
- 
--	/*
--	 * Before enabling Flow Director, the Rx Packet Buffer size
--	 * must be reduced.  The new value is the current size minus
--	 * flow director memory usage size.
--	 */
--	pbsize = (1 << (IXGBE_FDIR_PBALLOC_SIZE_SHIFT + pballoc));
--	IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(0),
--	    (IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(0)) - pbsize));
--
--	/*
--	 * The defaults in the HW for RX PB 1-7 are not zero and so should be
--	 * initialized to zero for non DCB mode otherwise actual total RX PB
--	 * would be bigger than programmed and filter space would run into
--	 * the PB 0 region.
--	 */
--	for (i = 1; i < 8; i++)
--		IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), 0);
--
- 	/* Send interrupt when 64 filters are left */
- 	fdirctrl |= 4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT;
- 
-@@ -1202,27 +1183,8 @@ s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 pballoc)
- s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc)
- {
- 	u32 fdirctrl = 0;
--	u32 pbsize;
- 	int i;
- 
--	/*
--	 * Before enabling Flow Director, the Rx Packet Buffer size
--	 * must be reduced.  The new value is the current size minus
--	 * flow director memory usage size.
--	 */
--	pbsize = (1 << (IXGBE_FDIR_PBALLOC_SIZE_SHIFT + pballoc));
--	IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(0),
--	    (IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(0)) - pbsize));
--
--	/*
--	 * The defaults in the HW for RX PB 1-7 are not zero and so should be
--	 * initialized to zero for non DCB mode otherwise actual total RX PB
--	 * would be bigger than programmed and filter space would run into
--	 * the PB 0 region.
--	 */
--	for (i = 1; i < 8; i++)
--		IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), 0);
--
- 	/* Send interrupt when 64 filters are left */
- 	fdirctrl |= 4 << IXGBE_FDIRCTRL_FULL_THRESH_SHIFT;
- 
-@@ -2146,6 +2108,7 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.read_analog_reg8       = &ixgbe_read_analog_reg8_82599,
- 	.write_analog_reg8      = &ixgbe_write_analog_reg8_82599,
- 	.setup_link             = &ixgbe_setup_mac_link_82599,
-+	.set_rxpba		= &ixgbe_set_rxpba_generic,
- 	.check_link             = &ixgbe_check_mac_link_generic,
- 	.get_link_capabilities  = &ixgbe_get_link_capabilities_82599,
- 	.led_on                 = &ixgbe_led_on_generic,
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index de65643..cc2a4a1 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -3267,3 +3267,69 @@ s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps)
- 
- 	return 0;
- }
-+
-+/**
-+ * ixgbe_set_rxpba_generic - Initialize RX packet buffer
-+ * @hw: pointer to hardware structure
-+ * @num_pb: number of packet buffers to allocate
-+ * @headroom: reserve n KB of headroom
-+ * @strategy: packet buffer allocation strategy
-+ **/
-+void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw,
-+			     int num_pb,
-+			     u32 headroom,
-+			     int strategy)
-+{
-+	u32 pbsize = hw->mac.rx_pb_size;
-+	int i = 0;
-+	u32 rxpktsize, txpktsize, txpbthresh;
-+
-+	/* Reserve headroom */
-+	pbsize -= headroom;
-+
-+	if (!num_pb)
-+		num_pb = 1;
-+
-+	/* Divide remaining packet buffer space amongst the number
-+	 * of packet buffers requested using supplied strategy.
-+	 */
-+	switch (strategy) {
-+	case (PBA_STRATEGY_WEIGHTED):
-+		/* pba_80_48 strategy weight first half of packet buffer with
-+		 * 5/8 of the packet buffer space.
-+		 */
-+		rxpktsize = ((pbsize * 5 * 2) / (num_pb * 8));
-+		pbsize -= rxpktsize * (num_pb / 2);
-+		rxpktsize <<= IXGBE_RXPBSIZE_SHIFT;
-+		for (; i < (num_pb / 2); i++)
-+			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpktsize);
-+		/* Fall through to configure remaining packet buffers */
-+	case (PBA_STRATEGY_EQUAL):
-+		/* Divide the remaining Rx packet buffer evenly among the TCs */
-+		rxpktsize = (pbsize / (num_pb - i)) << IXGBE_RXPBSIZE_SHIFT;
-+		for (; i < num_pb; i++)
-+			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpktsize);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	/*
-+	 * Setup Tx packet buffer and threshold equally for all TCs
-+	 * TXPBTHRESH register is set in K so divide by 1024 and subtract
-+	 * 10 since the largest packet we support is just over 9K.
-+	 */
-+	txpktsize = IXGBE_TXPBSIZE_MAX / num_pb;
-+	txpbthresh = (txpktsize / 1024) - IXGBE_TXPKT_SIZE_MAX;
-+	for (i = 0; i < num_pb; i++) {
-+		IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i), txpktsize);
-+		IXGBE_WRITE_REG(hw, IXGBE_TXPBTHRESH(i), txpbthresh);
-+	}
-+
-+	/* Clear unused TCs, if any, to zero buffer size*/
-+	for (; i < IXGBE_MAX_PB; i++) {
-+		IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i), 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_TXPBTHRESH(i), 0);
-+	}
-+}
-diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ixgbe/ixgbe_common.h
-index 46be83c..32a454f 100644
---- a/drivers/net/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ixgbe/ixgbe_common.h
-@@ -100,6 +100,9 @@ void ixgbe_set_mac_anti_spoofing(struct ixgbe_hw *hw, bool enable, int pf);
- void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
- s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
- 
-+void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
-+			     u32 headroom, int strategy);
-+
- #define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
- 
- #ifndef writeq
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.c b/drivers/net/ixgbe/ixgbe_dcb.c
-index 686a17a..9d88c31 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb.c
-@@ -258,15 +258,13 @@ s32 ixgbe_dcb_hw_config(struct ixgbe_hw *hw,
- 
- 	switch (hw->mac.type) {
- 	case ixgbe_mac_82598EB:
--		ret = ixgbe_dcb_hw_config_82598(hw, dcb_config->rx_pba_cfg,
--						pfc_en, refill, max, bwgid,
--						ptype);
-+		ret = ixgbe_dcb_hw_config_82598(hw, pfc_en, refill, max,
-+						bwgid, ptype);
- 		break;
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
--		ret = ixgbe_dcb_hw_config_82599(hw, dcb_config->rx_pba_cfg,
--						pfc_en, refill, max, bwgid,
--						ptype, prio_tc);
-+		ret = ixgbe_dcb_hw_config_82599(hw, pfc_en, refill, max,
-+						bwgid, ptype, prio_tc);
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ixgbe/ixgbe_dcb.h
-index 944838f..e85826a 100644
---- a/drivers/net/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb.h
-@@ -123,11 +123,6 @@ struct tc_configuration {
- 	u8 tc; /* Traffic class (TC) */
- };
- 
--enum dcb_rx_pba_cfg {
--	pba_equal,     /* PBA[0-7] each use 64KB FIFO */
--	pba_80_48      /* PBA[0-3] each use 80KB, PBA[4-7] each use 48KB */
--};
--
- struct dcb_num_tcs {
- 	u8 pg_tcs;
- 	u8 pfc_tcs;
-@@ -140,8 +135,6 @@ struct ixgbe_dcb_config {
- 	u8     bw_percentage[2][MAX_BW_GROUP]; /* One each for Tx/Rx */
- 	bool   pfc_mode_enable;
- 
--	enum dcb_rx_pba_cfg rx_pba_cfg;
--
- 	u32  dcb_cfg_version; /* Not used...OS-specific? */
- 	u32  link_speed; /* For bandwidth allocation validation purpose */
- };
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-index 771d01a..2288c3c 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.c
-@@ -32,45 +32,6 @@
- #include "ixgbe_dcb_82598.h"
- 
- /**
-- * ixgbe_dcb_config_packet_buffers_82598 - Configure packet buffers
-- * @hw: pointer to hardware structure
-- * @dcb_config: pointer to ixgbe_dcb_config structure
-- *
-- * Configure packet buffers for DCB mode.
-- */
--static s32 ixgbe_dcb_config_packet_buffers_82598(struct ixgbe_hw *hw, u8 rx_pba)
--{
--	s32 ret_val = 0;
--	u32 value = IXGBE_RXPBSIZE_64KB;
--	u8  i = 0;
--
--	/* Setup Rx packet buffer sizes */
--	switch (rx_pba) {
--	case pba_80_48:
--		/* Setup the first four at 80KB */
--		value = IXGBE_RXPBSIZE_80KB;
--		for (; i < 4; i++)
--			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), value);
--		/* Setup the last four at 48KB...don't re-init i */
--		value = IXGBE_RXPBSIZE_48KB;
--		/* Fall Through */
--	case pba_equal:
--	default:
--		for (; i < IXGBE_MAX_PACKET_BUFFERS; i++)
--			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), value);
--
--		/* Setup Tx packet buffer sizes */
--		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
--			IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i),
--					IXGBE_TXPBSIZE_40KB);
--		}
--		break;
--	}
--
--	return ret_val;
--}
--
--/**
-  * ixgbe_dcb_config_rx_arbiter_82598 - Config Rx data arbiter
-  * @hw: pointer to hardware structure
-  * @dcb_config: pointer to ixgbe_dcb_config structure
-@@ -321,11 +282,9 @@ static s32 ixgbe_dcb_config_tc_stats_82598(struct ixgbe_hw *hw)
-  *
-  * Configure dcb settings and enable dcb mode.
-  */
--s32 ixgbe_dcb_hw_config_82598(struct ixgbe_hw *hw,
--			      u8 rx_pba, u8 pfc_en, u16 *refill,
-+s32 ixgbe_dcb_hw_config_82598(struct ixgbe_hw *hw, u8 pfc_en, u16 *refill,
- 			      u16 *max, u8 *bwg_id, u8 *prio_type)
- {
--	ixgbe_dcb_config_packet_buffers_82598(hw, rx_pba);
- 	ixgbe_dcb_config_rx_arbiter_82598(hw, refill, max, prio_type);
- 	ixgbe_dcb_config_tx_desc_arbiter_82598(hw, refill, max,
- 					       bwg_id, prio_type);
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.h b/drivers/net/ixgbe/ixgbe_dcb_82598.h
-index 1e9750c..2f31893 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82598.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82598.h
-@@ -91,8 +91,7 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82598(struct ixgbe_hw *hw,
- 						u8 *bwg_id,
- 						u8 *prio_type);
- 
--s32 ixgbe_dcb_hw_config_82598(struct ixgbe_hw *hw,
--			      u8 rx_pba, u8 pfc_en, u16 *refill,
-+s32 ixgbe_dcb_hw_config_82598(struct ixgbe_hw *hw, u8 pfc_en, u16 *refill,
- 			      u16 *max, u8 *bwg_id, u8 *prio_type);
- 
- #endif /* _DCB_82598_CONFIG_H */
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ixgbe/ixgbe_dcb_82599.c
-index d50cf78..befe8ad 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82599.c
-@@ -31,63 +31,6 @@
- #include "ixgbe_dcb_82599.h"
- 
- /**
-- * ixgbe_dcb_config_packet_buffers_82599 - Configure DCB packet buffers
-- * @hw: pointer to hardware structure
-- * @rx_pba: method to distribute packet buffer
-- *
-- * Configure packet buffers for DCB mode.
-- */
--static s32 ixgbe_dcb_config_packet_buffers_82599(struct ixgbe_hw *hw, u8 rx_pba)
--{
--	int num_tcs = IXGBE_MAX_PACKET_BUFFERS;
--	u32 rx_pb_size = hw->mac.rx_pb_size << IXGBE_RXPBSIZE_SHIFT;
--	u32 rxpktsize;
--	u32 txpktsize;
--	u32 txpbthresh;
--	u8  i = 0;
--
--	/*
--	 * This really means configure the first half of the TCs
--	 * (Traffic Classes) to use 5/8 of the Rx packet buffer
--	 * space.  To determine the size of the buffer for each TC,
--	 * we are multiplying the average size by 5/4 and applying
--	 * it to half of the traffic classes.
--	 */
--	if (rx_pba == pba_80_48) {
--		rxpktsize = (rx_pb_size * 5) / (num_tcs * 4);
--		rx_pb_size -= rxpktsize * (num_tcs / 2);
--		for (; i < (num_tcs / 2); i++)
--			IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpktsize);
--	}
--
--	/* Divide the remaining Rx packet buffer evenly among the TCs */
--	rxpktsize = rx_pb_size / (num_tcs - i);
--	for (; i < num_tcs; i++)
--		IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), rxpktsize);
--
--	/*
--	 * Setup Tx packet buffer and threshold equally for all TCs
--	 * TXPBTHRESH register is set in K so divide by 1024 and subtract
--	 * 10 since the largest packet we support is just over 9K.
--	 */
--	txpktsize = IXGBE_TXPBSIZE_MAX / num_tcs;
--	txpbthresh = (txpktsize / 1024) - IXGBE_TXPKT_SIZE_MAX;
--	for (i = 0; i < num_tcs; i++) {
--		IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i), txpktsize);
--		IXGBE_WRITE_REG(hw, IXGBE_TXPBTHRESH(i), txpbthresh);
--	}
--
--	/* Clear unused TCs, if any, to zero buffer size*/
--	for (; i < MAX_TRAFFIC_CLASS; i++) {
--		IXGBE_WRITE_REG(hw, IXGBE_RXPBSIZE(i), 0);
--		IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i), 0);
--		IXGBE_WRITE_REG(hw, IXGBE_TXPBTHRESH(i), 0);
--	}
--
--	return 0;
--}
--
--/**
-  * ixgbe_dcb_config_rx_arbiter_82599 - Config Rx Data arbiter
-  * @hw: pointer to hardware structure
-  * @refill: refill credits index by traffic class
-@@ -434,7 +377,6 @@ static s32 ixgbe_dcb_config_82599(struct ixgbe_hw *hw)
- /**
-  * ixgbe_dcb_hw_config_82599 - Configure and enable DCB
-  * @hw: pointer to hardware structure
-- * @rx_pba: method to distribute packet buffer
-  * @refill: refill credits index by traffic class
-  * @max: max credits index by traffic class
-  * @bwg_id: bandwidth grouping indexed by traffic class
-@@ -443,11 +385,9 @@ static s32 ixgbe_dcb_config_82599(struct ixgbe_hw *hw)
-  *
-  * Configure dcb settings and enable dcb mode.
-  */
--s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw,
--			      u8 rx_pba, u8 pfc_en, u16 *refill,
-+s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw, u8 pfc_en, u16 *refill,
- 			      u16 *max, u8 *bwg_id, u8 *prio_type, u8 *prio_tc)
- {
--	ixgbe_dcb_config_packet_buffers_82599(hw, rx_pba);
- 	ixgbe_dcb_config_82599(hw);
- 	ixgbe_dcb_config_rx_arbiter_82599(hw, refill, max, bwg_id,
- 					  prio_type, prio_tc);
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ixgbe/ixgbe_dcb_82599.h
-index 2de71a5..08d1749 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_82599.h
-+++ b/drivers/net/ixgbe/ixgbe_dcb_82599.h
-@@ -86,17 +86,6 @@
- #define IXGBE_RTTPCS_ARBD_SHIFT 22
- #define IXGBE_RTTPCS_ARBD_DCB   0x4        /* Arbitration delay in DCB mode */
- 
--#define IXGBE_TXPBSIZE_20KB     0x00005000 /* 20KB Packet Buffer */
--#define IXGBE_TXPBSIZE_40KB     0x0000A000 /* 40KB Packet Buffer */
--#define IXGBE_RXPBSIZE_48KB     0x0000C000 /* 48KB Packet Buffer */
--#define IXGBE_RXPBSIZE_64KB     0x00010000 /* 64KB Packet Buffer */
--#define IXGBE_RXPBSIZE_80KB     0x00014000 /* 80KB Packet Buffer */
--#define IXGBE_RXPBSIZE_128KB    0x00020000 /* 128KB Packet Buffer */
--#define IXGBE_TXPBSIZE_MAX	0x00028000 /* 160KB Packet Buffer*/
--
--#define IXGBE_TXPBTHRESH_DCB    0xA        /* THRESH value for DCB mode */
--#define IXGBE_TXPKT_SIZE_MAX    0xA        /* Max Tx Packet size  */
--
- /* SECTXMINIFG DCB */
- #define IXGBE_SECTX_DCB		0x00001F00 /* DCB TX Buffer IFG */
- 
-@@ -127,8 +116,7 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82599(struct ixgbe_hw *hw,
- 						u8 *prio_type,
- 						u8 *prio_tc);
- 
--s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw,
--			      u8 rx_pba, u8 pfc_en, u16 *refill,
-+s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw, u8 pfc_en, u16 *refill,
- 			      u16 *max, u8 *bwg_id, u8 *prio_type,
- 			      u8 *prio_tc);
- 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 06cfaf3..fba1e323 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3780,12 +3780,27 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- }
- 
- #endif
-+
-+static void ixgbe_configure_pb(struct ixgbe_adapter *adapter)
-+{
-+	int hdrm = 0;
-+	int num_tc = netdev_get_num_tc(adapter->netdev);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
-+	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE ||
-+	    adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)
-+		hdrm = 64 << adapter->fdir_pballoc;
-+
-+	hw->mac.ops.set_rxpba(&adapter->hw, num_tc, hdrm, PBA_STRATEGY_EQUAL);
-+}
-+
- static void ixgbe_configure(struct ixgbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	int i;
- 
-+	ixgbe_configure_pb(adapter);
- #ifdef CONFIG_IXGBE_DCB
- 	ixgbe_configure_dcb(adapter);
- #endif
-@@ -5251,7 +5266,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	}
- 	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
- 	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
--	adapter->dcb_cfg.rx_pba_cfg = pba_equal;
- 	adapter->dcb_cfg.pfc_mode_enable = false;
- 	adapter->dcb_set_bitmap = 0x00;
- 	adapter->dcbx_cap = DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_CEE;
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index fa43f25..c0849a6 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1118,6 +1118,27 @@
- #define IXGBE_GPIE_VTMODE_32     0x00008000 /* 32 VFs 4 queues per VF */
- #define IXGBE_GPIE_VTMODE_64     0x0000C000 /* 64 VFs 2 queues per VF */
- 
-+/* Packet Buffer Initialization */
-+#define IXGBE_TXPBSIZE_20KB     0x00005000 /* 20KB Packet Buffer */
-+#define IXGBE_TXPBSIZE_40KB     0x0000A000 /* 40KB Packet Buffer */
-+#define IXGBE_RXPBSIZE_48KB     0x0000C000 /* 48KB Packet Buffer */
-+#define IXGBE_RXPBSIZE_64KB     0x00010000 /* 64KB Packet Buffer */
-+#define IXGBE_RXPBSIZE_80KB     0x00014000 /* 80KB Packet Buffer */
-+#define IXGBE_RXPBSIZE_128KB    0x00020000 /* 128KB Packet Buffer */
-+#define IXGBE_RXPBSIZE_MAX      0x00080000 /* 512KB Packet Buffer*/
-+#define IXGBE_TXPBSIZE_MAX      0x00028000 /* 160KB Packet Buffer*/
-+
-+#define IXGBE_TXPKT_SIZE_MAX    0xA        /* Max Tx Packet size  */
-+#define IXGBE_MAX_PB		8
-+
-+/* Packet buffer allocation strategies */
-+enum {
-+	PBA_STRATEGY_EQUAL	= 0,	/* Distribute PB space equally */
-+#define PBA_STRATEGY_EQUAL	PBA_STRATEGY_EQUAL
-+	PBA_STRATEGY_WEIGHTED	= 1,	/* Weight front half of TCs */
-+#define PBA_STRATEGY_WEIGHTED	PBA_STRATEGY_WEIGHTED
-+};
-+
- /* Transmit Flow Control status */
- #define IXGBE_TFCS_TXOFF         0x00000001
- #define IXGBE_TFCS_TXOFF0        0x00000100
-@@ -2615,6 +2636,9 @@ struct ixgbe_mac_operations {
- 	s32 (*get_link_capabilities)(struct ixgbe_hw *, ixgbe_link_speed *,
- 	                             bool *);
- 
-+	/* Packet Buffer Manipulation */
-+	void (*set_rxpba)(struct ixgbe_hw *, int, u32, int);
-+
- 	/* LED */
- 	s32 (*led_on)(struct ixgbe_hw *, u32);
- 	s32 (*led_off)(struct ixgbe_hw *, u32);
-diff --git a/drivers/net/ixgbe/ixgbe_x540.c b/drivers/net/ixgbe/ixgbe_x540.c
-index 4ed687b..fa566ed 100644
---- a/drivers/net/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ixgbe/ixgbe_x540.c
-@@ -876,6 +876,7 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.read_analog_reg8       = NULL,
- 	.write_analog_reg8      = NULL,
- 	.setup_link             = &ixgbe_setup_mac_link_X540,
-+	.set_rxpba		= &ixgbe_set_rxpba_generic,
- 	.check_link             = &ixgbe_check_mac_link_generic,
- 	.get_link_capabilities  = &ixgbe_get_copper_link_capabilities_generic,
- 	.led_on                 = &ixgbe_led_on_generic,
 -- 
 1.7.5.4
 
