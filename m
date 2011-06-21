@@ -1,49 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC 1/7] netdev: add standardized irq naming function
-Date: Tue, 21 Jun 2011 10:56:18 -0700
-Message-ID: <20110621105618.358347a8@nehalam.ftrdhcpuser.net>
-References: <20110621170541.309890798@vyatta.com>
-	<20110621170658.395370414@vyatta.com>
-	<BANLkTi=b89+C=-fnJuacKTKZXBYYouNK=w@mail.gmail.com>
-	<1308678535.2743.27.camel@bwh-desktop>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH v2] netconsole: fix build when CONFIG_NETCONSOLE_DYNAMIC is
+ turned on
+Date: Tue, 21 Jun 2011 11:01:20 -0700
+Message-ID: <20110621110120.50c3b57d.randy.dunlap@oracle.com>
+References: <bug-37992-10286@https.bugzilla.kernel.org/>
+	<20110620122835.444f16d7.akpm@linux-foundation.org>
+	<20110620212504.e639ad5c.randy.dunlap@oracle.com>
+	<1308660309.3093.108.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	hilld@binarystorm.net
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39260 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757082Ab1FUR4U convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 13:56:20 -0400
-In-Reply-To: <1308678535.2743.27.camel@bwh-desktop>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:42432 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757129Ab1FUSCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 14:02:18 -0400
+In-Reply-To: <1308660309.3093.108.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Jun 2011 18:48:55 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-> On Tue, 2011-06-21 at 19:30 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> > 2011/6/21 Stephen Hemminger <shemminger@vyatta.com>:
-> > > To force driver developers to use a standard convention for namin=
-g
-> > > network device IRQ's, provide a standardized method for creating
-> > > the name.
-> >=20
-> > Can this be modified to track netdev renames?
->=20
-> We should handle renames somehow.
->=20
-> sfc currently uses a netdev notifier to update the names of its IRQs
-> (and MTDs) but it might make more sense to add something to
-> net_device_ops rather than having every driver receive notification f=
-or
-> every device.
->=20
-> Ben.
->=20
+When NETCONSOLE_DYNAMIC=y and CONFIGFS_FS=m, there are build errors
+in netconsole:
 
-Since renames are only allowed when netdevice is down.
-Renames do not need to be tracked if device registers irq in open
-handler.
+drivers/built-in.o: In function `drop_netconsole_target':
+netconsole.c:(.text+0x1a100f): undefined reference to `config_item_put'
+drivers/built-in.o: In function `make_netconsole_target':
+netconsole.c:(.text+0x1a10b9): undefined reference to `config_item_init_type_name'
+drivers/built-in.o: In function `write_msg':
+netconsole.c:(.text+0x1a11a4): undefined reference to `config_item_get'
+netconsole.c:(.text+0x1a1211): undefined reference to `config_item_put'
+drivers/built-in.o: In function `netconsole_netdev_event':
+netconsole.c:(.text+0x1a12cc): undefined reference to `config_item_put'
+netconsole.c:(.text+0x1a12ec): undefined reference to `config_item_get'
+netconsole.c:(.text+0x1a1366): undefined reference to `config_item_put'
+drivers/built-in.o: In function `init_netconsole':
+netconsole.c:(.init.text+0x953a): undefined reference to `config_group_init'
+netconsole.c:(.init.text+0x9560): undefined reference to `configfs_register_subsystem'
+drivers/built-in.o: In function `dynamic_netconsole_exit':
+netconsole.c:(.exit.text+0x809): undefined reference to `configfs_unregister_subsystem'
+
+so fix the NETCONSOLE_DYNAMIC depends clause to prevent this.
+Based on email suggestion from Ben Hutchings.  Thanks.
+
+Fixes https://bugzilla.kernel.org/show_bug.cgi?id=37992
+
+Reported-by: David Hill <hilld@binarystorm.net>
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/Kconfig |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- lnx-30-rc3.orig/drivers/net/Kconfig
++++ lnx-30-rc3/drivers/net/Kconfig
+@@ -3416,7 +3416,8 @@ config NETCONSOLE
+ 
+ config NETCONSOLE_DYNAMIC
+ 	bool "Dynamic reconfiguration of logging targets"
+-	depends on NETCONSOLE && SYSFS && CONFIGFS_FS
++	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
++			!(NETCONSOLE=y && CONFIGFS_FS=m)
+ 	help
+ 	  This option enables the ability to dynamically reconfigure target
+ 	  parameters (interface, IP addresses, port numbers, MAC addresses)
