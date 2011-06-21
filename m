@@ -1,69 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [RFC 2/2] ethtool: Add support for DMA Coalescing feature
- config to ethtool.
-Date: Tue, 21 Jun 2011 18:38:13 +0100
-Message-ID: <1308677893.2743.24.camel@bwh-desktop>
-References: <1308071606-6333-1-git-send-email-carolyn.wyborny@intel.com>
-	 <20110616.233354.508986372720173787.davem@davemloft.net>
-	 <EDC0E76513226749BFBC9C3FB031318F016EEF8A6E@orsmsx508.amr.corp.intel.com>
-	 <20110617.145420.866989290749857501.davem@davemloft.net>
-	 <EDC0E76513226749BFBC9C3FB031318F016F501D8D@orsmsx508.amr.corp.intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH v2 1/7] dcb: Add DCBX capabilities bitmask to the
+	get_ieee response
+Date: Tue, 21 Jun 2011 10:34:31 -0700
+Message-ID: <20110621173431.2777.39482.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Cc: netdev@vger.kernel.org, shmulikr@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5824 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756771Ab1FURiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 13:38:16 -0400
-In-Reply-To: <EDC0E76513226749BFBC9C3FB031318F016F501D8D@orsmsx508.amr.corp.intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:28131 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757226Ab1FURlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 13:41:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-06-21 at 10:23 -0700, Wyborny, Carolyn wrote:
-> 
-> >-----Original Message-----
-> >From: David Miller [mailto:davem@davemloft.net]
-> >Sent: Friday, June 17, 2011 11:54 AM
-> >To: Wyborny, Carolyn
-> >Cc: netdev@vger.kernel.org; bhutchings@solarflare.com
-> >Subject: Re: [RFC 2/2] ethtool: Add support for DMA Coalescing feature
-> >config to ethtool.
-> >
-> >From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-> >Date: Fri, 17 Jun 2011 08:50:11 -0700
-> >
-> >> I will add a fuller description of the feature in my updated patch.
-> >> I thought the feature was more well known. Quick description is that
-> >> it's a power saving feature that causes the adapter to coalesce its
-> >> DMA writes at low traffic times to save power on the platform by
-> >> reducing wakeups.  The parameter is intended as a simple u32 value,
-> >> not just an on or off, but also to allow a variety of configuration
-> >> by adapter vendors, with validation of the input on the driver side.
-> >> Since I left out the implementation in my patch, this wasn't clear.
-> >> I will also fix this in my next submission.
-> >
-> >The value cannot have adapter specific meaning, you must define it
-> >precisely and in a generic manner, such that the user can specify the
-> >same setting across different card types.
-> 
-> Ok, good point.  I will refine the definition of the parameter in the
-> next submission, once the dust clears on the major revisions in
-> progress.
+Adding the capabilities bitmask to the get_ieee response allows
+user space to determine the current DCBX mode. Either CEE or IEEE
+this is useful with devices that support switching between modes
+where knowing the current state is relevant.
 
-You may wish to propose a new command structure that covers both IRQ and
-DMA moderation.  They seem to be related, since DMA cannot be delayed
-longer than the corresponding IRQ.  We are currently lacking a way to
-specify different IRQ moderation for multiqueue devices where the queues
-are not all used in the same way.
+Derived from work by Mark Rustad
 
-Ben.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+ net/dcb/dcbnl.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index ed1bb8c..3a6d97d 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1288,6 +1288,7 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 	struct nlattr *ieee, *app;
+ 	struct dcb_app_type *itr;
+ 	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
++	int dcbx;
+ 	int err;
+ 
+ 	if (!ops)
+@@ -1338,6 +1339,12 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 			}
+ 		}
+ 	}
++
++	if (netdev->dcbnl_ops->getdcbx)
++		dcbx = netdev->dcbnl_ops->getdcbx(netdev);
++	else
++		dcbx = -EOPNOTSUPP;
++
+ 	spin_unlock(&dcb_lock);
+ 	nla_nest_end(skb, app);
+ 
+@@ -1366,6 +1373,11 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 	}
+ 
+ 	nla_nest_end(skb, ieee);
++	if (dcbx >= 0) {
++		err = nla_put_u8(skb, DCB_ATTR_DCBX, dcbx);
++		if (err)
++			goto nla_put_failure;
++	}
+ 	nlmsg_end(skb, nlh);
+ 
+ 	return rtnl_unicast(skb, &init_net, pid);
 
