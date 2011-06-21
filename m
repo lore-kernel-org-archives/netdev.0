@@ -1,78 +1,212 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Tue, 21 Jun 2011 14:30:04 -0400
-Message-ID: <20110621183004.GE16311@hmsreliant.think-freely.org>
-References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com>
- <20110621100858.70c23a93@nehalam.ftrdhcpuser.net>
+From: Mitch Bradley <wmb@firmworks.com>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Tue, 21 Jun 2011 08:32:50 -1000
+Message-ID: <4E00E3D2.6050602@firmworks.com>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>	<20110618161934.GH8195@ponder.secretlab.ca>	<20110619073000.GA23171@S2100-06.ap.freescale.net>
+	<20110621135558.GB9228@S2101-09.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Prarit Bhargava <prarit@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, agospoda@redhat.com, nhorman@redhat.com,
-	lwoodman@redhat.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60374 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754679Ab1FUSaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 14:30:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20110621100858.70c23a93@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: patches@linaro.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Jeremy Kerr <jeremy.kerr@canonical.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>, linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20110621135558.GB9228@S2101-09.ap.freescale.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 21, 2011 at 10:08:58AM -0700, Stephen Hemminger wrote:
-> On Tue, 21 Jun 2011 09:00:40 -0400
-> Prarit Bhargava <prarit@redhat.com> wrote:
+I wonder if it makes sense to create a new device node "/linux-devices" to express a desired mapping from device nodes to /dev entries?  The properties could be the names of device special files and the values the corresponding node phandles.
+
+
+
+On 6/21/2011 3:55 AM, Shawn Guo wrote:
+> Hi Grant,
 > 
-> > Add Network Sysrq Support
-> > 
-> > In some circumstances, a system can hang/lockup in such a way that the system
-> > is completely unresponsive to keyboard or console input but is still
-> > responsive to ping.  The config option, CONFIG_SYSRQ_PING, builds
-> > net/ipv4/sysrq-ping.ko which allows a root user to configure the system for
-> > a remote sysrq.
-> > 
-> > To use this do:
-> > 
-> > mount -t debugfs none /sys/kernel/debug/
-> > echo 1 > /proc/sys/kernel/sysrq
-> > echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
-> > echo 1 > /sys/kernel/debug/network_sysrq_enable
-> > 
-> > Then on another system on the network you can do:
-> > 
-> > ping -c 1 -p <up to 30 hex digit val><hex val of sysrq> <target_system_name>
-> > 
-> > ex) sysrq-m, m is ascii 0x6d
-> > 
-> > ping -c 1 p 1623a06f554d46d676d <target_system_name>
-> > 
-> > Note that the network sysrq automatically disables after the receipt of
-> > the ping, ie) it is single-shot mode.  If you want to use this again, you
-> > must complete the above four steps again.
-> > 
-> > Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+> I just gave a try to use aliases node for identify the device index.
+> Please take a look and let me know if it's what you expect.
 > 
-> Isn't same functionality already available with netconsole?
-Negative, netconsole is a unidirectional protocol.  It registers no rx_hook and
-so it doesn't receive frames.  It could be added, and we could add this
-functionality that way, but that would seem wierd (to me at least):
-
-1) It would mean that netconsole was writeable, which means we would need a
-utility on the remote server to do that writing to the proper udp port
-
-2) Said utility in (1) would have some security concerns, unless we implemented
-the exact same magic key sequencing that prarit has here.  Otherwise any
-attacker could send an unsolicited request to the netconsole port on a system.
-I like the idea of keeping this functionality separate from a feature that gets
-such wide use in a production environment.
-
-I've hacked this kind of feature together to solve this problem a few times now,
-I think it would be good to have it as a well defined feature permanently.
-Acked-by: Neil Horman <nhorman@tuxdriver.com> 
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On Sun, Jun 19, 2011 at 03:30:02PM +0800, Shawn Guo wrote:
+> [...]
+>>>>
+>>>> +#ifdef CONFIG_OF
+>>>> +static int serial_imx_probe_dt(struct imx_port *sport,
+>>>> +		struct platform_device *pdev)
+>>>> +{
+>>>> +	struct device_node *node = pdev->dev.of_node;
+>>>> +	const __be32 *line;
+>>>> +
+>>>> +	if (!node)
+>>>> +		return -ENODEV;
+>>>> +
+>>>> +	line = of_get_property(node, "id", NULL);
+>>>> +	if (!line)
+>>>> +		return -ENODEV;
+>>>> +
+>>>> +	sport->port.line = be32_to_cpup(line) - 1;
+>>>
+>>> Hmmm, I really would like to be rid of this.  Instead, if uarts must
+>>> be enumerated, the driver should look for a /aliases/uart* property
+>>> that matches the of_node.  Doing it that way is already established in
+>>> the OpenFirmware documentation, and it ensures there are no overlaps
+>>> in the global namespace.
+>>>
+>>
+>> I just gave one more try to avoid using 'aliases', and you gave a
+>> 'no' again.  Now, I know how hard you are on this.  Okay, I start
+>> thinking about your suggestion seriously :)
+>>
+>>> We do need some infrastructure to make that easier though.  Would you
+>>> have time to help put that together?
+>>>
+>> Ok, I will give it a try.
+>>
+> 
+> diff --git a/arch/arm/boot/dts/imx51-babbage.dts b/arch/arm/boot/dts/imx51-babbage.dts
+> index da0381a..f4a5c3c 100644
+> --- a/arch/arm/boot/dts/imx51-babbage.dts
+> +++ b/arch/arm/boot/dts/imx51-babbage.dts
+> @@ -18,6 +18,12 @@
+>   	compatible = "fsl,imx51-babbage", "fsl,imx51";
+>   	interrupt-parent =<&tzic>;
+> 
+> +	aliases {
+> +		serial0 =&uart0;
+> +		serial1 =&uart1;
+> +		serial2 =&uart2;
+> +	};
+> +
+>   	chosen {
+>   		bootargs = "console=ttymxc0,115200 root=/dev/mmcblk0p3 rootwait";
+>   	};
+> @@ -47,29 +53,29 @@
+>   			reg =<0x70000000 0x40000>;
+>   			ranges;
+> 
+> -			uart@7000c000 {
+> +			uart2: uart@7000c000 {
+>   				compatible = "fsl,imx51-uart", "fsl,imx21-uart";
+>   				reg =<0x7000c000 0x4000>;
+>   				interrupts =<33>;
+>   				id =<3>;
+> -				fsl,has-rts-cts;
+> +				fsl,uart-has-rtscts;
+>   			};
+>   		};
+> 
+> -		uart@73fbc000 {
+> +		uart0: uart@73fbc000 {
+>   			compatible = "fsl,imx51-uart", "fsl,imx21-uart";
+>   			reg =<0x73fbc000 0x4000>;
+>   			interrupts =<31>;
+>   			id =<1>;
+> -			fsl,has-rts-cts;
+> +			fsl,uart-has-rtscts;
+>   		};
+> 
+> -		uart@73fc0000 {
+> +		uart1: uart@73fc0000 {
+>   			compatible = "fsl,imx51-uart", "fsl,imx21-uart";
+>   			reg =<0x73fc0000 0x4000>;
+>   			interrupts =<32>;
+>   			id =<2>;
+> -			fsl,has-rts-cts;
+> +			fsl,uart-has-rtscts;
+>   		};
+>   	};
+> 
+> diff --git a/drivers/of/base.c b/drivers/of/base.c
+> index 632ebae..13df5d2 100644
+> --- a/drivers/of/base.c
+> +++ b/drivers/of/base.c
+> @@ -737,6 +737,37 @@ err0:
+>   EXPORT_SYMBOL(of_parse_phandles_with_args);
+> 
+>   /**
+> + *	of_get_device_index - Get device index by looking up "aliases" node
+> + *	@np:	Pointer to device node that asks for device index
+> + *	@name:	The device alias without index number
+> + *
+> + *	Returns the device index if find it, else returns -ENODEV.
+> + */
+> +int of_get_device_index(struct device_node *np, const char *alias)
+> +{
+> +	struct device_node *aliases = of_find_node_by_name(NULL, "aliases");
+> +	struct property *prop;
+> +	char name[32];
+> +	int index = 0;
+> +
+> +	if (!aliases)
+> +		return -ENODEV;
+> +
+> +	while (1) {
+> +		snprintf(name, sizeof(name), "%s%d", alias, index);
+> +		prop = of_find_property(aliases, name, NULL);
+> +		if (!prop)
+> +			return -ENODEV;
+> +		if (np == of_find_node_by_path(prop->value))
+> +			break;
+> +		index++;
+> +	}
+> +
+> +	return index;
+> +}
+> +EXPORT_SYMBOL(of_get_device_index);
+> +
+> +/**
+>    * prom_add_property - Add a property to a node
+>    */
+>   int prom_add_property(struct device_node *np, struct property *prop)
+> diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
+> index da436e0..852668f 100644
+> --- a/drivers/tty/serial/imx.c
+> +++ b/drivers/tty/serial/imx.c
+> @@ -1271,18 +1271,18 @@ static int serial_imx_probe_dt(struct imx_port *sport,
+>   	struct device_node *node = pdev->dev.of_node;
+>   	const struct of_device_id *of_id =
+>   			of_match_device(imx_uart_dt_ids,&pdev->dev);
+> -	const __be32 *line;
+> +	int line;
+> 
+>   	if (!node)
+>   		return -ENODEV;
+> 
+> -	line = of_get_property(node, "id", NULL);
+> -	if (!line)
+> +	line = of_get_device_index(node, "serial");
+> +	if (IS_ERR_VALUE(line))
+>   		return -ENODEV;
+> 
+> -	sport->port.line = be32_to_cpup(line) - 1;
+> +	sport->port.line = line;
+> 
+> -	if (of_get_property(node, "fsl,has-rts-cts", NULL))
+> +	if (of_get_property(node, "fsl,uart-has-rtscts", NULL))
+>   		sport->have_rtscts = 1;
+> 
+>   	if (of_get_property(node, "fsl,irda-mode", NULL))
+> diff --git a/include/linux/of.h b/include/linux/of.h
+> index bfc0ed1..3153752 100644
+> --- a/include/linux/of.h
+> +++ b/include/linux/of.h
+> @@ -213,6 +213,8 @@ extern int of_parse_phandles_with_args(struct device_node *np,
+>   	const char *list_name, const char *cells_name, int index,
+>   	struct device_node **out_node, const void **out_args);
+> 
+> +extern int of_get_device_index(struct device_node *np, const char *alias);
+> +
+>   extern int of_machine_is_compatible(const char *compat);
+> 
+>   extern int prom_add_property(struct device_node* np, struct property* prop);
 > 
