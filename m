@@ -1,48 +1,36 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: TCP new-reno support?
-Date: Tue, 21 Jun 2011 09:35:04 -0700
-Message-ID: <4E00C838.70706@candelatech.com>
-References: <4E00BDAB.1040309@candelatech.com> <A6200100-A147-481C-8230-9782822EA1F7@comsys.rwth-aachen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC 7/7] netxen: use netdev_irqname
+Date: Tue, 21 Jun 2011 10:05:48 -0700
+Message-ID: <20110621170658.981179979@vyatta.com>
+References: <20110621170541.309890798@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:43958 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756881Ab1FUQfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 12:35:08 -0400
-In-Reply-To: <A6200100-A147-481C-8230-9782822EA1F7@comsys.rwth-aachen.de>
+Received: from suva.vyatta.com ([76.74.103.44]:49492 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756989Ab1FURHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 13:07:24 -0400
+Content-Disposition: inline; filename=netxen-use-irqname.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/21/2011 09:32 AM, Alexander Zimmermann wrote:
-> Hi,
->
-> Am 21.06.2011 um 17:50 schrieb Ben Greear:
->
->> I see a large number of TCP congestion algorithms supported, but
->> nothing that explicitly says newreno.
->
-> It's implicit :-)
->
->>   Is it actually supported?
->
-> tcp_congestion_control=reno
-> tcp_dsack=0
-> tcp_fack=0
-> tcp_sack=0
-> tcp_frto=0
->
-> then, you get NewReno. And, yes, it's not possible to get Reno
+Use the new netdev_irqname to cause network device interrupts to
+be named according to the standard convention of "ethX-N".
 
-Thanks!
-
-Ben
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- a/drivers/net/netxen/netxen_nic_main.c	2011-06-21 10:00:10.223951255 -0700
++++ b/drivers/net/netxen/netxen_nic_main.c	2011-06-21 10:02:46.695951169 -0700
+@@ -955,7 +955,8 @@ netxen_nic_request_irq(struct netxen_ada
+ 
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+-		sprintf(sds_ring->name, "%s[%d]", netdev->name, ring);
++		netdev_irqname(sds_ring->name, sizeof(sds_ring->name),
++			       netdev, NETIF_IRQ_TXRX, ring);
+ 		err = request_irq(sds_ring->irq, handler,
+ 				  flags, sds_ring->name, sds_ring);
+ 		if (err)
+
 
