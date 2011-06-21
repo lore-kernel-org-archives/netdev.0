@@ -1,61 +1,244 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/16] ixgbe: setup redirection table for multiple packet buffers
-Date: Tue, 21 Jun 2011 01:33:43 -0700
-Message-ID: <1308645228-32444-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/16] ixgbe: DCB use existing TX and RX queues
+Date: Tue, 21 Jun 2011 01:33:41 -0700
+Message-ID: <1308645228-32444-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34699 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:43481 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754007Ab1FUIeE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 04:34:04 -0400
+	id S1754087Ab1FUIeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 04:34:03 -0400
 In-Reply-To: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-Setup RSS redirection table to be compatible with multiple packet
-buffers. Currently, this works on 82599 devices because the RSS
-redirection index is masked by the number of queues per packet
-buffer.
+The number of TX and RX queues allocated depends on the device
+type, the current features set, online CPUs, and various
+compile flags.
 
-This sets the cap on the RSS table to maxq.
+To enable DCB with multiple queues and allow it to coexist with
+all the features currently implemented it has to setup a valid
+queue count. This is done at init time using the FDIR and RSS
+max queue counts and allowing each TC to allocate a queue per
+CPU.
+
+DCB will now use available queues up to (8 x TCs) this is somewhat
+arbitrary cap but allows DCB to use up to 64 queues. Its easy to
+increase this later if that is needed.
+
+This is prep work to enable Flow Director with DCB. After this
+DCB can easily coexist with existing features and no longer
+needs its own DCB feature ring.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    2 -
+ drivers/net/ixgbe/ixgbe_main.c |  107 ++++++++++++++++++---------------------
+ 2 files changed, 49 insertions(+), 60 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index e467b20..d5674fc 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -244,7 +244,6 @@ struct ixgbe_ring {
+ 
+ enum ixgbe_ring_f_enum {
+ 	RING_F_NONE = 0,
+-	RING_F_DCB,
+ 	RING_F_VMDQ,  /* SR-IOV uses the same ring feature */
+ 	RING_F_RSS,
+ 	RING_F_FDIR,
+@@ -255,7 +254,6 @@ enum ixgbe_ring_f_enum {
+ 	RING_F_ARRAY_SIZE      /* must be last in enum set */
+ };
+ 
+-#define IXGBE_MAX_DCB_INDICES  64
+ #define IXGBE_MAX_RSS_INDICES  16
+ #define IXGBE_MAX_VMDQ_INDICES 64
+ #define IXGBE_MAX_FDIR_INDICES 64
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index f829d36..e81dc85 100644
+index 7e3850a..3a88fb6 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2939,6 +2939,10 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- 	u32 rxcsum;
- 	int i, j;
- 	u8 tcs = netdev_get_num_tc(adapter->netdev);
-+	int maxq = adapter->ring_feature[RING_F_RSS].indices;
+@@ -4417,72 +4417,72 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+ 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+ 		return false;
+ 
+-	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+-#ifdef CONFIG_IXGBE_DCB
+-		int tc;
+-		struct net_device *dev = adapter->netdev;
++	f->indices = min((int)num_online_cpus(), f->indices);
+ 
+-		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
+-		f->indices = dev->tc_to_txq[tc].count;
+-		f->mask = dev->tc_to_txq[tc].offset;
+-#endif
+-	} else {
+-		f->indices = min((int)num_online_cpus(), f->indices);
+-
+-		adapter->num_rx_queues = 1;
+-		adapter->num_tx_queues = 1;
++	adapter->num_rx_queues = 1;
++	adapter->num_tx_queues = 1;
+ 
+-		if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-			e_info(probe, "FCoE enabled with RSS\n");
+-			if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+-			    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+-				ixgbe_set_fdir_queues(adapter);
+-			else
+-				ixgbe_set_rss_queues(adapter);
+-		}
+-		/* adding FCoE rx rings to the end */
+-		f->mask = adapter->num_rx_queues;
+-		adapter->num_rx_queues += f->indices;
+-		adapter->num_tx_queues += f->indices;
++	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
++		e_info(probe, "FCoE enabled with RSS\n");
++		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
++		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
++			ixgbe_set_fdir_queues(adapter);
++		else
++			ixgbe_set_rss_queues(adapter);
+ 	}
++	/* adding FCoE rx rings to the end */
++	f->mask = adapter->num_rx_queues;
++	adapter->num_rx_queues += f->indices;
++	adapter->num_tx_queues += f->indices;
+ 
+ 	return true;
+ }
+ #endif /* IXGBE_FCOE */
+ 
++/* Artificial max queue cap per traffic class in DCB mode */
++#define DCB_QUEUE_CAP 8
 +
-+	if (tcs)
-+		maxq = min(maxq, adapter->num_tx_queues / tcs);
+ #ifdef CONFIG_IXGBE_DCB
+ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ {
+-	bool ret = false;
+-	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_DCB];
+-	int tcs = netdev_get_num_tc(adapter->netdev);
+-	int max_q, i, q;
++	int per_tc_q, q, i, offset = 0;
++	struct net_device *dev = adapter->netdev;
++	int tcs = netdev_get_num_tc(dev);
  
- 	/* Fill out hash function seeds */
- 	for (i = 0; i < 10; i++)
-@@ -2946,7 +2950,7 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+-	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED) || !tcs)
+-		return ret;
++	if (!tcs)
++		return false;
  
- 	/* Fill out redirection table */
- 	for (i = 0, j = 0; i < 128; i++, j++) {
--		if (j == adapter->ring_feature[RING_F_RSS].indices)
-+		if (j == maxq)
- 			j = 0;
- 		/* reta = 4-byte sliding window of
- 		 * 0x00..(indices-1)(indices-1)00..etc. */
+-	max_q = adapter->netdev->num_tx_queues / tcs;
++	/* Map queue offset and counts onto allocated tx queues */
++	per_tc_q = min(dev->num_tx_queues / tcs, (unsigned int)DCB_QUEUE_CAP);
++	q = min((int)num_online_cpus(), per_tc_q);
+ 
+-	f->indices = 0;
+ 	for (i = 0; i < tcs; i++) {
+-		q = min((int)num_online_cpus(), max_q);
+-		f->indices += q;
++		netdev_set_prio_tc_map(dev, i, i);
++		netdev_set_tc_queue(dev, i, q, offset);
++		offset += q;
+ 	}
+ 
+-	f->mask = 0x7 << 3;
+-	adapter->num_rx_queues = f->indices;
+-	adapter->num_tx_queues = f->indices;
+-	ret = true;
++	adapter->num_tx_queues = q * tcs;
++	adapter->num_rx_queues = q * tcs;
+ 
+ #ifdef IXGBE_FCOE
+-	/* FCoE enabled queues require special configuration done through
+-	 * configure_fcoe() and others. Here we map FCoE indices onto the
+-	 * DCB queue pairs allowing FCoE to own configuration later.
++	/* FCoE enabled queues require special configuration indexed
++	 * by feature specific indices and mask. Here we map FCoE
++	 * indices onto the DCB queue pairs allowing FCoE to own
++	 * configuration later.
+ 	 */
+-	ixgbe_set_fcoe_queues(adapter);
++	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
++		int tc;
++		struct ixgbe_ring_feature *f =
++					&adapter->ring_feature[RING_F_FCOE];
++
++		tc = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
++		f->indices = dev->tc_to_txq[tc].count;
++		f->mask = dev->tc_to_txq[tc].offset;
++	}
+ #endif
+ 
+-	return ret;
++	return true;
+ }
+ #endif
+ 
+@@ -5172,7 +5172,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	rss = min(IXGBE_MAX_RSS_INDICES, (int)num_online_cpus());
+ 	adapter->ring_feature[RING_F_RSS].indices = rss;
+ 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
+-	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+ 		if (hw->device_id == IXGBE_DEV_ID_82598AT)
+@@ -7213,10 +7212,8 @@ static void ixgbe_validate_rtr(struct ixgbe_adapter *adapter, u8 tc)
+  */
+ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ {
+-	unsigned int q, i, offset = 0;
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	int max_q = adapter->netdev->num_tx_queues / tc;
+ 
+ 	/* If DCB is anabled do not remove traffic classes, multiple
+ 	 * traffic classes are required to implement DCB
+@@ -7242,14 +7239,6 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ 	else
+ 		netdev_reset_tc(dev);
+ 
+-	/* Partition Tx queues evenly amongst traffic classes */
+-	for (i = 0; i < tc; i++) {
+-		q = min((int)num_online_cpus(), max_q);
+-		netdev_set_prio_tc_map(dev, i, i);
+-		netdev_set_tc_queue(dev, i, q, offset);
+-		offset += q;
+-	}
+-
+ 	ixgbe_init_interrupt_scheme(adapter);
+ 	ixgbe_validate_rtr(adapter, tc);
+ 	if (netif_running(dev))
+@@ -7436,14 +7425,16 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
++#ifdef CONFIG_IXGBE_DCB
++	indices *= MAX_TRAFFIC_CLASS;
++#endif
++
+ 	if (ii->mac == ixgbe_mac_82598EB)
+ 		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
+ 	else
+ 		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
+ 
+-#if defined(CONFIG_DCB)
+-	indices = max_t(unsigned int, indices, IXGBE_MAX_DCB_INDICES);
+-#elif defined(IXGBE_FCOE)
++#ifdef IXGBE_FCOE
+ 	indices += min_t(unsigned int, num_possible_cpus(),
+ 			 IXGBE_MAX_FCOE_INDICES);
+ #endif
 -- 
 1.7.5.4
 
