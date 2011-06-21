@@ -1,93 +1,148 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Update
-Date: Tue, 21 Jun 2011 01:33:32 -0700
-Message-ID: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 07/16] ixgbe: consolidate MRQC and MTQC handling
+Date: Tue, 21 Jun 2011 01:33:39 -0700
+Message-ID: <1308645228-32444-8-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43481 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:34914 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751800Ab1FUIdx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 04:33:53 -0400
+	id S1754689Ab1FUId4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 04:33:56 -0400
+In-Reply-To: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains update for e1000, igb, ixgbevf and ixgbe.
+From: John Fastabend <john.r.fastabend@intel.com>
 
-e1000 and igb: conversion to ndo_fix_features from Michal
-ixgbevf: fix function declarations and removal of un-necessary &'s
-ixgbe: Mainly cleanup of DCB code and the addition of Dell CEM support.
+The MRQC and MTQC registers are configured in the main
+setup path but are also reconfigured in the DCB setup
+path. The DCB path fixes the DCB configuration by configuring
+the SECTXMINIFG gap which is required for DCB pause
+to operate correctly.
 
-Dropped the problem patch from Vasu that was previously submitted in th=
-e last
-patch series.
+This patch reduces the duplicate code and does all setup
+in ixgbe_setup_mtqc() and ixgbe_setup_mrqc().
 
-The following are changes since commit 9f6ec8d697c08963d83880ccd35c13c5=
-ace716ea:
-  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/=
-davem/net-2.6
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 mas=
-ter
+Additionally, this removes the IXGBE_QDE. This write never
+set the WRITE bit in the register so the write was not
+actually doing anything. Also this was to clear the register
+but, it is never set and defaults to zero. If this is
+needed for SRIOV it should be added correctly in a follow
+up patch. But it's never been working so removing it here
+should be OK.
 
-Emil Tantilov (1):
-  ixgbe: add support for Dell CEM
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_dcb_82599.c |   57 -----------------------------------
+ drivers/net/ixgbe/ixgbe_main.c      |    7 ++++
+ 2 files changed, 7 insertions(+), 57 deletions(-)
 
-Greg Rose (1):
-  ixgbevf: Fix bungled declaration of ixgbevf_mbx_ops
-
-John Fastabend (10):
-  ixgbe: dcbnl reduce duplicated code and indentation
-  ixgbe: consolidate packet buffer allocation
-  ixgbe: consolidate MRQC and MTQC handling
-  ixgbe: configure minimal packet buffers to support TC
-  ixgbe: DCB use existing TX and RX queues
-  ixgbe: DCB 82598 devices, tx_idx and rx_idx swapped
-  ixgbe: setup redirection table for multiple packet buffers
-  ixgbe: fix bit mask for DCB version
-  ixgbe: DCB and perfect filters can coexist
-  ixgbe: DCB, remove unneeded ixgbe_dcb_txq_to_tc() routine
-
-Micha=C5=82 Miros=C5=82aw (2):
-  e1000: convert to ndo_fix_features
-  igb: convert to ndo_fix_features
-
-Stephen Hemminger (1):
-  ixgbevf: remove unnecessary ampersands
-
-Vasu Dev (1):
-  ixgbe: setup per CPU PCI pool for FCoE DDP
-
- drivers/net/e1000/e1000_ethtool.c   |   69 ------
- drivers/net/e1000/e1000_main.c      |   30 +++-
- drivers/net/igb/igb_ethtool.c       |   67 ------
- drivers/net/igb/igb_main.c          |   33 +++-
- drivers/net/ixgbe/ixgbe.h           |    2 -
- drivers/net/ixgbe/ixgbe_82598.c     |   43 ++++
- drivers/net/ixgbe/ixgbe_82599.c     |   40 +----
- drivers/net/ixgbe/ixgbe_common.c    |  240 +++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_common.h    |    5 +
- drivers/net/ixgbe/ixgbe_dcb.c       |   10 +-
- drivers/net/ixgbe/ixgbe_dcb.h       |    7 -
- drivers/net/ixgbe/ixgbe_dcb_82598.c |   43 +----
- drivers/net/ixgbe/ixgbe_dcb_82598.h |    3 +-
- drivers/net/ixgbe/ixgbe_dcb_82599.c |  119 +-----------
- drivers/net/ixgbe/ixgbe_dcb_82599.h |   14 +--
- drivers/net/ixgbe/ixgbe_dcb_nl.c    |   52 ++---
- drivers/net/ixgbe/ixgbe_fcoe.c      |  105 +++++++---
- drivers/net/ixgbe/ixgbe_fcoe.h      |   13 +-
- drivers/net/ixgbe/ixgbe_main.c      |  397 +++++++++++++++++----------=
---------
- drivers/net/ixgbe/ixgbe_type.h      |   71 +++++++
- drivers/net/ixgbe/ixgbe_x540.c      |    2 +
- drivers/net/ixgbevf/ixgbevf.h       |    2 +-
- drivers/net/ixgbevf/ixgbevf_main.c  |   24 +-
- 23 files changed, 734 insertions(+), 657 deletions(-)
-
---=20
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ixgbe/ixgbe_dcb_82599.c
+index befe8ad..ade9820 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_82599.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_82599.c
+@@ -319,62 +319,6 @@ static s32 ixgbe_dcb_config_tc_stats_82599(struct ixgbe_hw *hw)
+ }
+ 
+ /**
+- * ixgbe_dcb_config_82599 - Configure general DCB parameters
+- * @hw: pointer to hardware structure
+- *
+- * Configure general DCB parameters.
+- */
+-static s32 ixgbe_dcb_config_82599(struct ixgbe_hw *hw)
+-{
+-	u32 reg;
+-	u32 q;
+-
+-	/* Disable the Tx desc arbiter so that MTQC can be changed */
+-	reg = IXGBE_READ_REG(hw, IXGBE_RTTDCS);
+-	reg |= IXGBE_RTTDCS_ARBDIS;
+-	IXGBE_WRITE_REG(hw, IXGBE_RTTDCS, reg);
+-
+-	/* Enable DCB for Rx with 8 TCs */
+-	reg = IXGBE_READ_REG(hw, IXGBE_MRQC);
+-	switch (reg & IXGBE_MRQC_MRQE_MASK) {
+-	case 0:
+-	case IXGBE_MRQC_RT4TCEN:
+-		/* RSS disabled cases */
+-		reg = (reg & ~IXGBE_MRQC_MRQE_MASK) | IXGBE_MRQC_RT8TCEN;
+-		break;
+-	case IXGBE_MRQC_RSSEN:
+-	case IXGBE_MRQC_RTRSS4TCEN:
+-		/* RSS enabled cases */
+-		reg = (reg & ~IXGBE_MRQC_MRQE_MASK) | IXGBE_MRQC_RTRSS8TCEN;
+-		break;
+-	default:
+-		/* Unsupported value, assume stale data, overwrite no RSS */
+-		reg = (reg & ~IXGBE_MRQC_MRQE_MASK) | IXGBE_MRQC_RT8TCEN;
+-	}
+-	IXGBE_WRITE_REG(hw, IXGBE_MRQC, reg);
+-
+-	/* Enable DCB for Tx with 8 TCs */
+-	reg = IXGBE_MTQC_RT_ENA | IXGBE_MTQC_8TC_8TQ;
+-	IXGBE_WRITE_REG(hw, IXGBE_MTQC, reg);
+-
+-	/* Disable drop for all queues */
+-	for (q = 0; q < 128; q++)
+-		IXGBE_WRITE_REG(hw, IXGBE_QDE, q << IXGBE_QDE_IDX_SHIFT);
+-
+-	/* Enable the Tx desc arbiter */
+-	reg = IXGBE_READ_REG(hw, IXGBE_RTTDCS);
+-	reg &= ~IXGBE_RTTDCS_ARBDIS;
+-	IXGBE_WRITE_REG(hw, IXGBE_RTTDCS, reg);
+-
+-	/* Enable Security TX Buffer IFG for DCB */
+-	reg = IXGBE_READ_REG(hw, IXGBE_SECTXMINIFG);
+-	reg |= IXGBE_SECTX_DCB;
+-	IXGBE_WRITE_REG(hw, IXGBE_SECTXMINIFG, reg);
+-
+-	return 0;
+-}
+-
+-/**
+  * ixgbe_dcb_hw_config_82599 - Configure and enable DCB
+  * @hw: pointer to hardware structure
+  * @refill: refill credits index by traffic class
+@@ -388,7 +332,6 @@ static s32 ixgbe_dcb_config_82599(struct ixgbe_hw *hw)
+ s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw, u8 pfc_en, u16 *refill,
+ 			      u16 *max, u8 *bwg_id, u8 *prio_type, u8 *prio_tc)
+ {
+-	ixgbe_dcb_config_82599(hw);
+ 	ixgbe_dcb_config_rx_arbiter_82599(hw, refill, max, bwg_id,
+ 					  prio_type, prio_tc);
+ 	ixgbe_dcb_config_tx_desc_arbiter_82599(hw, refill, max,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index fba1e323..20467da 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2816,6 +2816,7 @@ static void ixgbe_setup_mtqc(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 rttdcs;
+ 	u32 mask;
++	u32 reg;
+ 
+ 	if (hw->mac.type == ixgbe_mac_82598EB)
+ 		return;
+@@ -2838,6 +2839,12 @@ static void ixgbe_setup_mtqc(struct ixgbe_adapter *adapter)
+ 		/* We enable 8 traffic classes, DCB only */
+ 		IXGBE_WRITE_REG(hw, IXGBE_MTQC,
+ 			      (IXGBE_MTQC_RT_ENA | IXGBE_MTQC_8TC_8TQ));
++
++		/* Enable Security TX Buffer IFG for DCB */
++		reg = IXGBE_READ_REG(hw, IXGBE_SECTXMINIFG);
++		reg |= IXGBE_SECTX_DCB;
++		IXGBE_WRITE_REG(hw, IXGBE_SECTXMINIFG, reg);
++
+ 		break;
+ 
+ 	default:
+-- 
 1.7.5.4
 
