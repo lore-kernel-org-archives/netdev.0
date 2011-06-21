@@ -1,50 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] MAINTAINERS: Remove Sven Eckelmann from
-	BATMAN ADVANCED
-Date: Tue, 21 Jun 2011 14:35:15 -0700 (PDT)
-Message-ID: <20110621.143515.1651926143381429168.davem@davemloft.net>
-References: <1308661983-4113-1-git-send-email-sven@narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] packet: Add fanout support.
+Date: Tue, 21 Jun 2011 14:39:02 -0700 (PDT)
+Message-ID: <20110621.143902.274396574751811372.davem@davemloft.net>
+References: <20110621.034627.30677905865798284.davem@davemloft.net>
+	<BANLkTikgTqGY=S9UVik6wjSp5WE4WLmKtA@mail.gmail.com>
+	<4E009C5A.8060208@inliniac.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1308661983-4113-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: victor@inliniac.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39177 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751613Ab1FUVjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 17:39:09 -0400
+In-Reply-To: <4E009C5A.8060208@inliniac.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Tue, 21 Jun 2011 15:13:03 +0200
+From: Victor Julien <victor@inliniac.net>
+Date: Tue, 21 Jun 2011 15:27:54 +0200
 
-> I cannot speak on behalf of the batman-adv developers due to conflicts
-> in the opinion about the ongoing development. The batman-adv module is
-> still maintained by Marek Lindner and Simon Wunderlich. Those are the
-> main persons behind the visions of batman-adv. Therefore, the state of
-> module hasn't changed.
-> 
-> Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-> Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+> From a Suricata IDS point of view, I would need to have the
+> fragments of a flow/tuple on the same socket.
 
-You have to be kidding me.
-
-All of this effort was placed to get this thing merged into the
-main tree, and then moved out of staging.
-
-And now you're just going to give up and jump ship and take exactly
-zero responsibility for that burdon you've placed upon us?
-
-You make me feel like a real idiot for sticking around and maintaining
-the Linux networking for more than 15 years.  Maybe 13 years ago I
-should have stepped down just because I disagreed with a few other
-people.
+Currently you would, they would all go to the first socket in
+the fanout.
