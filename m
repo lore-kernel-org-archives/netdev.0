@@ -1,49 +1,50 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 1/3] serial/imx: add device tree support
-Date: Tue, 21 Jun 2011 12:42:14 -0600
-Message-ID: <BANLkTiny9xDwiUww9Ys+jQZ0SHdQATABUA@mail.gmail.com>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
- <1308410354-21387-2-git-send-email-shawn.guo@linaro.org> <20110618161934.GH8195@ponder.secretlab.ca>
- <20110619073000.GA23171@S2100-06.ap.freescale.net> <20110621135558.GB9228@S2101-09.ap.freescale.net>
- <4E00E3D2.6050602@firmworks.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC 5/7] bnx2: use netdev_irqname
+Date: Tue, 21 Jun 2011 19:42:46 +0100
+Message-ID: <1308681766.2743.69.camel@bwh-desktop>
+References: <20110621170541.309890798@vyatta.com>
+	 <20110621170658.788401517@vyatta.com>
+	 <1308679911.2743.45.camel@bwh-desktop>
+	 <20110621111756.5c7541ba@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shawn Guo <shawn.guo@freescale.com>, patches@linaro.org,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
-	Jeremy Kerr <jeremy.kerr@canonical.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	linux-arm-kernel@lists.infradead.org
-To: Mitch Bradley <wmb@firmworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:49788 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754679Ab1FUSmf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 14:42:35 -0400
-In-Reply-To: <4E00E3D2.6050602@firmworks.com>
+Received: from mail.solarflare.com ([216.237.3.220]:10535 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751865Ab1FUSmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 14:42:49 -0400
+In-Reply-To: <20110621111756.5c7541ba@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2011 at 12:32 PM, Mitch Bradley <wmb@firmworks.com> wro=
-te:
-> I wonder if it makes sense to create a new device node "/linux-device=
-s" to express a desired mapping from device nodes to /dev entries? =A0T=
-he properties could be the names of device special files and the values=
- the corresponding node phandles.
+On Tue, 2011-06-21 at 11:17 -0700, Stephen Hemminger wrote:
+> On Tue, 21 Jun 2011 19:11:51 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > On Tue, 2011-06-21 at 10:05 -0700, Stephen Hemminger wrote:
+> > 
+> > > Also increase size of irq name to account for longer device names.
+> > > Original code was broken for full size names.
+> > [...]
+> > 
+> > We should define a macro for the maximum netdev IRQ name length.  I
+> > think this would be IFNAMSIZ + 1 + 2 + 1 + 5 (2 characters for queue
+> > type; up to 5 digits for 16-bit queue index).
+> > 
+> > Ben.
+> > 
+> 
+> Probably should put it in the queue structures?
 
-I've been trying /really/ hard to avoid doing something like that
-because a lot of the time the desired Linux dev name is a
-implementation detail, and a potentially unstable one at that.  If
-Linux requires certain devices to have certain names because that is
-how it hooks up clocks (which is the current situation on some
-platforms), then I'd rather have Linux encode a lookup of the
-preferred name, at least until the that particular implementation
-detail goes away.
+Not really, given an IRQ can be related to multiple queues.
 
-As for enumerating devices, I don't think this is a Linux-specific
-thing.  In this case it is entirely reasonable to want to say /this
-node/ is the second serial port, and /that node/ is the third, which
-is information needed regardless of the client OS.
+Ben.
 
-g.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
