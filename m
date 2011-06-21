@@ -1,70 +1,74 @@
-From: Mitch Bradley <wmb-D5eQfiDGL7eakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH 1/3] serial/imx: add device tree support
-Date: Tue, 21 Jun 2011 09:04:33 -1000
-Message-ID: <4E00EB41.9080606@firmworks.com>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
-	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
-	<20110618161934.GH8195@ponder.secretlab.ca>
-	<20110619073000.GA23171@S2100-06.ap.freescale.net>
-	<20110621135558.GB9228@S2101-09.ap.freescale.net>
-	<4E00E3D2.6050602@firmworks.com>
-	<BANLkTiny9xDwiUww9Ys+jQZ0SHdQATABUA@mail.gmail.com>
+From: Guenter Roeck <guenter.roeck@ericsson.com>
+Subject: [PATCH RFC] igb: Fix false positive return of
+	igb_get_auto_rd_done for 82580
+Date: Tue, 21 Jun 2011 12:02:49 -0700
+Message-ID: <1308682969-20690-1-git-send-email-guenter.roeck@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <BANLkTiny9xDwiUww9Ys+jQZ0SHdQATABUA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Tong Ho <tong.ho@ericsson.com>, Guenter Roeck <guenter.roeck@ericsson.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, Jesse Brandeburg
+	<jesse.brandeburg@intel.com>, Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>, Don Skidm
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 6/21/2011 8:42 AM, Grant Likely wrote:
-> On Tue, Jun 21, 2011 at 12:32 PM, Mitch Bradley<wmb-D5eQfiDGL7eakBO8gow8eQ@public.gmane.org>  wrote:
->> I wonder if it makes sense to create a new device node "/linux-devices" to express a desired mapping from device nodes to /dev entries?  The properties could be the names of device special files and the values the corresponding node phandles.
->
-> I've been trying /really/ hard to avoid doing something like that
-> because a lot of the time the desired Linux dev name is a
-> implementation detail, and a potentially unstable one at that.  If
-> Linux requires certain devices to have certain names because that is
-> how it hooks up clocks (which is the current situation on some
-> platforms), then I'd rather have Linux encode a lookup of the
-> preferred name, at least until the that particular implementation
-> detail goes away.
->
-> As for enumerating devices, I don't think this is a Linux-specific
-> thing.  In this case it is entirely reasonable to want to say /this
-> node/ is the second serial port, and /that node/ is the third, which
-> is information needed regardless of the client OS.
+From: Tong Ho <tong.ho@ericsson.com>
+
+82580 re-reads the port specific portion of eeprom after port reset.
+If called immediately after a reset, igb_get_auto_rd_done() returns
+false positive because the done bit has yet to transition from 1 to 0.
+
+Add wrfl() immediately after resetting 82580 port or device,
+plus a 1ms delay, to avoid the problem.
+
+Signed-off-by: Tong Ho <tong.ho@ericsson.com>
+Signed-off-by: Guenter Roeck <guenter.roeck@ericsson.com>
+---
+Sent as RFC since I am not entirely sure if the solution is the correct one
+to address the problem we are seeing. If there is a better solution, please
+let me know.
+
+ drivers/net/igb/e1000_82575.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 0f563c8..28dae48 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1735,10 +1735,10 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
+ 		ctrl |= E1000_CTRL_RST;
+ 
+ 	wr32(E1000_CTRL, ctrl);
++	wrfl();
+ 
+ 	/* Add delay to insure DEV_RST has time to complete */
+-	if (global_device_reset)
+-		msleep(5);
++	msleep(global_device_reset ? 5 : 1);
+ 
+ 	ret_val = igb_get_auto_rd_done(hw);
+ 	if (ret_val) {
+-- 
+1.7.3.1
 
 
-This reminds me a little of the "slot-names" property defined by the PCI 
-bus binding.  It was intended to correlate PCI device numbers with the 
-corresponding externally-visible labeling of the slot, so that error 
-messages could identify a slot using a name that had some meaning to a user.
-
-The notion of "first" and "second" is, of course, rather difficult to 
-define precisely.  What aspect of the device establishes the order?
-
-The "slot-names" property was useful for systems from e.g. Sun, where 
-one vendor controlled the whole system rollup.  It was almost useless 
-for cases where the one vendor supplied the motherboard and others put 
-it in various cases.
-
->
-> g.
->
->
+------------------------------------------------------------------------------
+EditLive Enterprise is the world's most technically advanced content
+authoring tool. Experience the power of Track Changes, Inline Image
+Editing and ensure content is compliant with Accessibility Checking.
+http://p.sf.net/sfu/ephox-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
