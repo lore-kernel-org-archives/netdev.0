@@ -1,29 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] packet: Add fanout support.
-Date: Tue, 21 Jun 2011 14:39:02 -0700 (PDT)
-Message-ID: <20110621.143902.274396574751811372.davem@davemloft.net>
-References: <20110621.034627.30677905865798284.davem@davemloft.net>
-	<BANLkTikgTqGY=S9UVik6wjSp5WE4WLmKtA@mail.gmail.com>
-	<4E009C5A.8060208@inliniac.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFT PATCH 0/9] Cleanup and extension of netdev features
+Date: Tue, 21 Jun 2011 14:43:28 -0700
+Message-ID: <4E011080.7000008@candelatech.com>
+References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: victor@inliniac.net
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39177 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751613Ab1FUVjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 17:39:09 -0400
-In-Reply-To: <4E009C5A.8060208@inliniac.net>
+Received: from mail.candelatech.com ([208.74.158.172]:43290 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751613Ab1FUVnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 17:43:37 -0400
+In-Reply-To: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Victor Julien <victor@inliniac.net>
-Date: Tue, 21 Jun 2011 15:27:54 +0200
+On 06/20/2011 12:14 PM, Micha=C5=82 Miros=C5=82aw wrote:
+> This is a preview of the cleanups pending after getting rid of old
+> ethtool ops from remaining drivers.
 
-> From a Suricata IDS point of view, I would need to have the
-> fragments of a flow/tuple on the same socket.
+Even when skipping patch 1 (seems this was just merged earlier today),
+these patches do not all apply to net-next.
 
-Currently you would, they would all go to the first socket in
-the fanout.
+They are also full of white-space warnings.
+
+Please re-post them when you sync against upstream
+and I'll try to do some testing.
+
+Also, do you have a cooresponding patch against ethtool
+to make it able to handle the new 64-bit flags?
+
+Thanks,
+Ben
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
