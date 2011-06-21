@@ -1,58 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netconsole: fix build when
- CONFIG_NETCONSOLE_DYNAMIC is turned on
-Date: Tue, 21 Jun 2011 16:26:58 -0700 (PDT)
-Message-ID: <20110621.162658.2225538921640361550.davem@davemloft.net>
-References: <20110620212504.e639ad5c.randy.dunlap@oracle.com>
-	<1308660309.3093.108.camel@localhost>
-	<20110621110120.50c3b57d.randy.dunlap@oracle.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFT PATCH 0/9] Cleanup and extension of netdev features
+Date: Tue, 21 Jun 2011 16:27:35 -0700
+Message-ID: <BANLkTi=BaWLWZZu=FWAO-6LPh7Y37pNjrA@mail.gmail.com>
+References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
+	<4E011080.7000008@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	hilld@binarystorm.net
-To: randy.dunlap@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42583 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756909Ab1FUX1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:27:34 -0400
-In-Reply-To: <20110621110120.50c3b57d.randy.dunlap@oracle.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35267 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757350Ab1FUX1h convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:27:37 -0400
+Received: by fxm17 with SMTP id 17so280638fxm.19
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2011 16:27:36 -0700 (PDT)
+In-Reply-To: <4E011080.7000008@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Tue, 21 Jun 2011 11:01:20 -0700
+2011/6/21 Ben Greear <greearb@candelatech.com>:
+> On 06/20/2011 12:14 PM, Micha=C5=82 Miros=C5=82aw wrote:
+>>
+>> This is a preview of the cleanups pending after getting rid of old
+>> ethtool ops from remaining drivers.
+>
+> Even when skipping patch 1 (seems this was just merged earlier today)=
+,
+> these patches do not all apply to net-next.
+>
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> When NETCONSOLE_DYNAMIC=y and CONFIGFS_FS=m, there are build errors
-> in netconsole:
-> 
-> drivers/built-in.o: In function `drop_netconsole_target':
-> netconsole.c:(.text+0x1a100f): undefined reference to `config_item_put'
-> drivers/built-in.o: In function `make_netconsole_target':
-> netconsole.c:(.text+0x1a10b9): undefined reference to `config_item_init_type_name'
-> drivers/built-in.o: In function `write_msg':
-> netconsole.c:(.text+0x1a11a4): undefined reference to `config_item_get'
-> netconsole.c:(.text+0x1a1211): undefined reference to `config_item_put'
-> drivers/built-in.o: In function `netconsole_netdev_event':
-> netconsole.c:(.text+0x1a12cc): undefined reference to `config_item_put'
-> netconsole.c:(.text+0x1a12ec): undefined reference to `config_item_get'
-> netconsole.c:(.text+0x1a1366): undefined reference to `config_item_put'
-> drivers/built-in.o: In function `init_netconsole':
-> netconsole.c:(.init.text+0x953a): undefined reference to `config_group_init'
-> netconsole.c:(.init.text+0x9560): undefined reference to `configfs_register_subsystem'
-> drivers/built-in.o: In function `dynamic_netconsole_exit':
-> netconsole.c:(.exit.text+0x809): undefined reference to `configfs_unregister_subsystem'
-> 
-> so fix the NETCONSOLE_DYNAMIC depends clause to prevent this.
-> Based on email suggestion from Ben Hutchings.  Thanks.
-> 
-> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=37992
-> 
-> Reported-by: David Hill <hilld@binarystorm.net>
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Not all of patch was merged earlier today, just the update to e1000
+and igbvf.  I still have e1000e, igb, ixgb, ixgbe and ixgbevf patches
+still being worked on.  I do apologize for delay.
 
-Applied, thanks Randy.
+--=20
+Cheers,
+Jeff
