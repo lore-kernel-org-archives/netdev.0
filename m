@@ -1,30 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: all trees merged
-Date: Mon, 20 Jun 2011 22:30:54 -0700 (PDT)
-Message-ID: <20110620.223054.248100005876325298.davem@davemloft.net>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [netfilter-core] [PATCH] Remove redundant linux/version.h includes
+ from net/
+Date: Tue, 21 Jun 2011 08:58:24 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1106210854370.23091@blackhole.kfki.hu>
+References: <alpine.LNX.2.00.1106210009520.27735@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48188 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965Ab1FUFa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 01:30:57 -0400
-Received: from localhost (74-93-104-100-Washington.hfc.comcastbusiness.net [74.93.104.100])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p5L5UsZG004972
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 22:30:56 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org, Dmitry Kozlov <xeb@mail.ru>,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Jesper Juhl <jj@chaosbits.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1106210009520.27735@swampdragon.chaosbits.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 21 Jun 2011, Jesper Juhl wrote:
 
-Linus took in my net-2.6 fixes in time for 3.0-rc4
+> It was suggested by "make versioncheck" that the follwing includes of
+> linux/version.h are redundant:
+> 
+>   /home/jj/src/linux-2.6/net/caif/caif_dev.c: 14 linux/version.h not needed.
+>   /home/jj/src/linux-2.6/net/caif/chnl_net.c: 10 linux/version.h not needed.
+>   /home/jj/src/linux-2.6/net/ipv4/gre.c: 19 linux/version.h not needed.
+>   /home/jj/src/linux-2.6/net/netfilter/ipset/ip_set_core.c: 20 linux/version.h not needed.
+>   /home/jj/src/linux-2.6/net/netfilter/xt_set.c: 16 linux/version.h not needed.
+> 
+> and it seems that it is right.
+> 
+> Beyond manually inspecting the source files I also did a few build
+> tests with various configs to confirm that including the header in
+> those files is indeed not needed.
+> 
+> Here's a patch to remove the pointless includes.
+> 
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> ---
+>  net/caif/caif_dev.c               |    1 -
+>  net/caif/chnl_net.c               |    1 -
+>  net/ipv4/gre.c                    |    1 -
+>  net/netfilter/ipset/ip_set_core.c |    1 -
+>  net/netfilter/xt_set.c            |    1 -
+>  5 files changed, 0 insertions(+), 5 deletions(-)
 
-Therefore I fast-forwarded net-2.6 to Linus's tree's head.
+For ipset/xt_set.c:
 
-Then I merged net-2.6 into net-next-2.6
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Note that this makes the staging drivers available in the config by
-default as a side effect.
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
