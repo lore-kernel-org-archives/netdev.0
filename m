@@ -1,71 +1,85 @@
 From: Prarit Bhargava <prarit@redhat.com>
 Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Tue, 21 Jun 2011 18:12:30 -0400
-Message-ID: <4E01174E.2010403@redhat.com>
-References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com> <20110621130929.ddd107f7.rdunlap@xenotime.net>
+Date: Tue, 21 Jun 2011 18:26:30 -0400
+Message-ID: <4E011A96.7050509@redhat.com>
+References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com> <4E0115B3.2030802@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net, agospoda@redhat.com,
 	nhorman@redhat.com, lwoodman@redhat.com
-To: Randy Dunlap <rdunlap@xenotime.net>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22071 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50378 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752255Ab1FUWMd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 18:12:33 -0400
-In-Reply-To: <20110621130929.ddd107f7.rdunlap@xenotime.net>
+	id S1752903Ab1FUW0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 18:26:32 -0400
+In-Reply-To: <4E0115B3.2030802@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-
-On 06/21/2011 04:09 PM, Randy Dunlap wrote:
->
->
->> +remote sysrq.
->> +
->> +To use this do:
->> +
->> +mount -t debugfs none /sys/kernel/debug/
->> +echo 1 > /proc/sys/kernel/sysrq
->> +echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
->> +echo 1 > /sys/kernel/debug/network_sysrq_enable
+>> + * Note that the network sysrq automatically disables after the receipt of
+>> + * *ANY* ping.  If you want to use this again, you must complete the
+>> + * above four steps again.
 >>     
-> so all of this (insecure) stuff has to be done before you suspect that
-> you need it .. in case the local keyboard/console is dead.
+>   
+
+Hi Flavio,
+
+> why not leave it running? perhaps disable it for some time to
+> filter any ping retransmission, for instance netsysrq_reenable=10 seconds. 
+> and then do if (time_after(jiffies, last_ping + netsysrq_reenable))...
 >
 >   
 
-Randy,
+To be honest I have no objection to that, except that I thought the
+community's objection would be about the security of this code -- I
+specifically set out to make this as secure as I could (multiple
+enabling steps, 30 digit hash, single-shot mode).
 
-Yes -- this needs to be enabled before the system is unresponsive.  I've
-used it to sysrq-c systems that were reproducibly hanging in ways that
-the system could not be accessed via console or keyboard.  It really is
-a debug feature.
+With your method someone *theoretically* could ping -p a system and
+eventually crash it.  Of course anyone using this in production is crazy
+and probably would end up getting what they deserved ;)
 
-[I've also sysrq-t'd and sysrq-m'd systems as well fwiw]
+I'm certainly willing to consider your proposal -- but I have a feeling
+that people would want this in single-shot mode over a rearming-mode.
 
->> +
->> +Then on another system you can do:
->> +
->> +ping -c 1 -p <hex digit val><hex val of sysrq> <target_system_name>
->>     
-> What are the <up to 30 hex digits> for?
+> I have an USB KVM console, so often when testing workload, the USB takes
+> ages to register the keyboard and I'd like to shot some sysrq+t or w,
+> so if it disables after the first one, I can't get more traces because
+> I simply can't enable it again.
 >
 >   
 
-A secret key.  By turning this on you're leaving a system susceptible to
-a panic by anyone else who decides to ping your system.  The ping
-payload accepts up to a 32 digit hex number.  Two of those are needed
-for the sysrq type, so that leaves 30.
+Yup.  One of the thoughts was to have the enable sysfs file take a
+number from 1 to 5, which would become a countdown.  I thought it better
+to get the base code in than muddy the waters with a potentially risky
+(security-wise) proposal. (see later comment on ping flooding)
 
-I figured a 30 digit hash, with multiple enabling steps, and single-shot
-mode, was good enough to alleviate any security issues anyone would have
-about this code.
+>   
+>>     
+>
+> What about a whitelist of source MAC or IP addresses to accept the sysrq?
+>   
 
-I'll take all of your suggestions into [v2].
+Oh ... that's a great idea :).  I'll think about that for a later
+enhancement if that's okay.  One of the other ideas that came up during
+discussion was a maskfile of some sort that indicated what sysrq options
+were available (maybe you *don't* want a sysrq-c to be executed).
 
-Thanks for the review,
+> I'm thinking on a situation where we leave the systems with this enabled
+> and then an ordinary user starts pinging the network guessing the hexa to
+> cause reboots.
+>
+>   
+
+Good point Flavio, but that's *exactly* why I wrote this in single-shot
+mode.  I really think the code might be a bit too risky for most people
+to deploy in production environments.  It's too risky for me to let
+someone ping and ping and ping until they luckily hit the magic number
+and figure out how to bring *all* of my systems down.  What are the
+chances that a lab admin is smart enough to set the password to
+different numbers across different machines in a single lab?
 
 P.
