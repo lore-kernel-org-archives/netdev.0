@@ -1,48 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/16] ixgbe: fix bit mask for DCB version
-Date: Tue, 21 Jun 2011 01:33:44 -0700
-Message-ID: <1308645228-32444-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/16] ixgbevf: Fix bungled declaration of ixgbevf_mbx_ops
+Date: Tue, 21 Jun 2011 01:33:35 -0700
+Message-ID: <1308645228-32444-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34914 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:43481 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754689Ab1FUIeE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 04:34:04 -0400
+	id S1751980Ab1FUIdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2011 04:33:54 -0400
 In-Reply-To: <1308645228-32444-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This bit mask is wrong DCBX_HOST is always set. It was missed up
-until now because lldpad reprograms the device on a link
-event. However this is still wrong and it is best not to be
-mis-configured for some time immediately following ixgbe_up().
+In two places storage for mbx_ops is misidentified as type
+ixgbe_mac_operations.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Reported-by: Andi Kleen <ak@linux.intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ixgbevf/ixgbevf.h      |    2 +-
+ drivers/net/ixgbevf/ixgbevf_main.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index e81dc85..5caf42a 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3745,7 +3745,7 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
+diff --git a/drivers/net/ixgbevf/ixgbevf.h b/drivers/net/ixgbevf/ixgbevf.h
+index b703f60..a2bbbb3 100644
+--- a/drivers/net/ixgbevf/ixgbevf.h
++++ b/drivers/net/ixgbevf/ixgbevf.h
+@@ -279,7 +279,7 @@ enum ixgbevf_boards {
  
- 	/* reconfigure the hardware */
--	if (adapter->dcbx_cap & (DCB_CAP_DCBX_HOST | DCB_CAP_DCBX_VER_CEE)) {
-+	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE) {
- #ifdef CONFIG_FCOE
- 		if (adapter->netdev->features & NETIF_F_FCOE_MTU)
- 			max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
+ extern struct ixgbevf_info ixgbevf_82599_vf_info;
+ extern struct ixgbevf_info ixgbevf_X540_vf_info;
+-extern struct ixgbe_mac_operations ixgbevf_mbx_ops;
++extern struct ixgbe_mbx_operations ixgbevf_mbx_ops;
+ 
+ /* needed by ethtool.c */
+ extern char ixgbevf_driver_name[];
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index b2c5ecd..721417e 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -3364,7 +3364,7 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
+ 	hw->mac.type  = ii->mac;
+ 
+ 	memcpy(&hw->mbx.ops, &ixgbevf_mbx_ops,
+-	       sizeof(struct ixgbe_mac_operations));
++	       sizeof(struct ixgbe_mbx_operations));
+ 
+ 	adapter->flags &= ~IXGBE_FLAG_RX_PS_CAPABLE;
+ 	adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
 -- 
 1.7.5.4
 
