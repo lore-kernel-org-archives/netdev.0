@@ -1,40 +1,46 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH net-next 5/5] ifb: convert to 64 bit stats (v3)
-Date: Mon, 20 Jun 2011 20:04:41 -0400
-Message-ID: <1308614681.12661.1.camel@mojatatu>
-References: <20110620203506.363818794@vyatta.com>
-	 <20110620.135607.2158729745388010853.davem@davemloft.net>
-	 <20110620141253.00249218@nehalam.ftrdhcpuser.net>
-	 <1308604980.2658.23.camel@edumazet-laptop>
-	 <1308605221.2658.25.camel@edumazet-laptop>
-	 <20110620144230.29421b05@nehalam.ftrdhcpuser.net>
-	 <1308606278.2658.33.camel@edumazet-laptop>
-Reply-To: hadi@cyberus.ca
+From: H Hartley Sweeten <hartleys-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Subject: [PATCH] svcsock.c: include sunrpc.h to quite sparse noise
+Date: Mon, 20 Jun 2011 17:54:51 -0700
+Message-ID: <201106201754.51704.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:38081 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756367Ab1FUAEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2011 20:04:46 -0400
-Received: by gxk21 with SMTP id 21so529131gxk.19
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2011 17:04:45 -0700 (PDT)
-In-Reply-To: <1308606278.2658.33.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>, <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	<neilb-l3A5Bk7waGM@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-06-20 at 23:44 +0200, Eric Dumazet wrote:
+Include the private header sunrpc.h to pickup the declaration of the
+function svc_send_common to quiet the following sparse noise:
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+warning: symbol 'svc_send_common' was not declared. Should it be static?
 
-Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Signed-off-by: H Hartley Sweeten <hsweeten-3FF4nKcrg1dE2c76skzGb0EOCMrvLtNR@public.gmane.org>
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
-cheers,
-jamal
+---
 
-
-
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index af04f77..f2cb5b8 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -51,6 +51,8 @@
+ #include <linux/sunrpc/stats.h>
+ #include <linux/sunrpc/xprt.h>
+ 
++#include "sunrpc.h"
++
+ #define RPCDBG_FACILITY	RPCDBG_SVCXPRT
+ 
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
