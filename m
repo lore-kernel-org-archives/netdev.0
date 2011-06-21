@@ -1,58 +1,42 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH] MAINTAINERS: Remove Sven Eckelmann from
-	BATMAN ADVANCED
-Date: Tue, 21 Jun 2011 15:13:03 +0200
-Message-ID: <1308661983-4113-1-git-send-email-sven@narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Victor Julien <victor@inliniac.net>
+Subject: Re: [RFC PATCH] packet: Add fanout support.
+Date: Tue, 21 Jun 2011 15:27:54 +0200
+Message-ID: <4E009C5A.8060208@inliniac.net>
+References: <20110621.025334.547463578193934724.davem@davemloft.net> <4E0074CF.8070003@inliniac.net> <20110621.034627.30677905865798284.davem@davemloft.net> <BANLkTikgTqGY=S9UVik6wjSp5WE4WLmKtA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-27.netfusion.at ([83.215.238.27]:46570 "EHLO
+	tulpe.vuurmuur.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752331Ab1FUN2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 09:28:20 -0400
+In-Reply-To: <BANLkTikgTqGY=S9UVik6wjSp5WE4WLmKtA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I cannot speak on behalf of the batman-adv developers due to conflicts
-in the opinion about the ongoing development. The batman-adv module is
-still maintained by Marek Lindner and Simon Wunderlich. Those are the
-main persons behind the visions of batman-adv. Therefore, the state of
-module hasn't changed.
+On 06/21/2011 03:05 PM, Changli Gao wrote:
+> On Tue, Jun 21, 2011 at 6:46 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Victor Julien <victor@inliniac.net>
+>> Date: Tue, 21 Jun 2011 12:39:11 +0200
+>>
+>>> The hash based on skb->rxhash, does that result in a "flow" based
+>>> distribution over the listeners? So all packets sharing a tuple
+>>> being sent to the same socket?
+>>
+>> Yes, that's exactly right.
+> 
+> But not for fragments, in additional.
 
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
----
-Just as small background information:
-https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2011-June/005020.html
-expresses the same problems I have with the changes and I can honestly
-not speak on behalf the developers when I my inner mind is against the
-changes and I would only be an additional, unneeded barrier.
+>From a Suricata IDS point of view, I would need to have the fragments of
+a flow/tuple on the same socket.
 
-This decission was made in context of the changes which are on the
-horizon. I personally don't know what is coming, but that many things
-are changing in an incompatible way. I would like to leave here instead
-to destroy some friendships.
-
- MAINTAINERS |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index dc2a7c8..9597832 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1390,7 +1390,6 @@ F:	include/linux/backlight.h
- BATMAN ADVANCED
- M:	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
- M:	Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
--M:	Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
- L:	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
- W:	http://www.open-mesh.org/
- S:	Maintained
 -- 
-1.7.5.3
+---------------------------------------------
+Victor Julien
+http://www.inliniac.net/
+PGP: http://www.inliniac.net/victorjulien.asc
+---------------------------------------------
+
