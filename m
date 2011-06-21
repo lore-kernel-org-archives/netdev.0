@@ -1,68 +1,63 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 3/3] udp/recvmsg: Clear MSG_TRUNC flag when starting over for a new packet
-Date: Tue, 21 Jun 2011 16:43:40 -0400
-Message-ID: <1308689020-1873-4-git-send-email-paul.gortmaker@windriver.com>
-References: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org, Xufeng Zhang <xufeng.zhang@windriver.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: davem@davemloft.net, eric.dumazet@gmail.com
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH]: Add Network Sysrq Support
+Date: Tue, 21 Jun 2011 13:46:45 -0700
+Message-ID: <20110621134645.e58284fa.randy.dunlap@oracle.com>
+References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com>
+	<20110621130929.ddd107f7.rdunlap@xenotime.net>
+	<20110621203720.GB16021@Chamillionaire.breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Prarit Bhargava <prarit@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, agospoda@redhat.com, nhorman@redhat.com,
+	lwoodman@redhat.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58267 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757527Ab1FUUoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 16:44:12 -0400
-In-Reply-To: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:64911 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757177Ab1FUUrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 16:47:21 -0400
+In-Reply-To: <20110621203720.GB16021@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xufeng Zhang <xufeng.zhang@windriver.com>
+On Tue, 21 Jun 2011 22:37:20 +0200 Florian Westphal wrote:
 
-Consider this scenario: When the size of the first received udp packet
-is bigger than the receive buffer, MSG_TRUNC bit is set in msg->msg_flags.
-However, if checksum error happens and this is a blocking socket, it will
-goto try_again loop to receive the next packet.  But if the size of the
-next udp packet is smaller than receive buffer, MSG_TRUNC flag should not
-be set, but because MSG_TRUNC bit is not cleared in msg->msg_flags before
-receive the next packet, MSG_TRUNC is still set, which is wrong.
+> Randy Dunlap <rdunlap@xenotime.net> wrote:
+> > > diff --git a/Documentation/networking/sysrq-ping.txt b/Documentation/networking/sysrq-ping.txt
+> > > new file mode 100644
+> > > index 0000000..efa8be3
+> > > --- /dev/null
+> > > +++ b/Documentation/networking/sysrq-ping.txt
+> > > @@ -0,0 +1,26 @@
+> > > +In some circumstances, a system can hang/lockup in such a way that the system
+> > > +is completely unresponsive to keyboard or console input but is still
+> > > +responsive to ping.  The config option, CONFIG_SYSRQ_PING, builds
+> > > +net/ipv4/sysrq-ping.ko which allows a root user to configure the system for a
+> > 
+> > or it can be built-in the kernel image... (i.e., not a loadable module)
+> > 
+> > > +remote sysrq.
+> > > +
+> > > +To use this do:
+> > > +
+> > > +mount -t debugfs none /sys/kernel/debug/
+> > > +echo 1 > /proc/sys/kernel/sysrq
+> > > +echo <hex digit val> > /sys/kernel/debug/network_sysrq_magic
+> > > +echo 1 > /sys/kernel/debug/network_sysrq_enable
+> > 
+> > so all of this (insecure) stuff has to be done before you suspect that
+> > you need it .. in case the local keyboard/console is dead.
+> 
+> There is an xt_SYSREQ module in xtables-addons package (i.e., a
+> netfilter target), it supports hashed passwords and has some sequence
+> number scheme to avoid replays.
+> 
+> I think it would make more sense to merge that upstream, simply because
+> it seems to be a bit more advanced...
 
-Fix this problem by clearing MSG_TRUNC flag when starting over for a
-new packet.
+in which case I would prefer this patch instead of a netfilter patch.  :)
 
-Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/ipv4/udp.c |    3 +++
- net/ipv6/udp.c |    3 +++
- 2 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 6f53a5a..15d550c 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1249,6 +1249,9 @@ csum_copy_err:
- 
- 	if (noblock)
- 		return -EAGAIN;
-+
-+	/* starting over for a new packet */
-+	msg->msg_flags &= ~MSG_TRUNC;
- 	goto try_again;
- }
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1e7a43f..328985c 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -455,6 +455,9 @@ csum_copy_err:
- 
- 	if (noblock)
- 		return -EAGAIN;
-+
-+	/* starting over for a new packet */
-+	msg->msg_flags &= ~MSG_TRUNC;
- 	goto try_again;
- }
- 
--- 
-1.7.4.4
-
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
