@@ -1,81 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] gianfar v5: implement nfc
-Date: Tue, 21 Jun 2011 10:44:13 -0700
-Message-ID: <1308678253.3338.13.camel@Joe-Laptop>
-References: <1308562782.12794.6.camel@DENEC1DT0191>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC 1/7] netdev: add standardized irq naming function
+Date: Tue, 21 Jun 2011 18:48:55 +0100
+Message-ID: <1308678535.2743.27.camel@bwh-desktop>
+References: <20110621170541.309890798@vyatta.com>
+	 <20110621170658.395370414@vyatta.com>
+	 <BANLkTi=b89+C=-fnJuacKTKZXBYYouNK=w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev <netdev@vger.kernel.org>,
-	Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@belden.com>
-To: Sebastian =?ISO-8859-1?Q?P=F6hn?=
-	<sebastian.belden@googlemail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3106 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756977Ab1FURoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2011 13:44:14 -0400
-In-Reply-To: <1308562782.12794.6.camel@DENEC1DT0191>
+Received: from mail.solarflare.com ([216.237.3.220]:6513 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756950Ab1FURs7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 13:48:59 -0400
+In-Reply-To: <BANLkTi=b89+C=-fnJuacKTKZXBYYouNK=w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-06-20 at 11:39 +0200, Sebastian P=C3=B6hn wrote:
-> This patch adds all missing functionalities for nfc except GRXFH. The=
-re is so much code because hardware has not a TCAM.
-> Further hardware rule space is very limited. So I had to extensively =
-use
-> optimization features. Both reasons lead to the necessity to hold all
-> online flows in a linked-list.
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+On Tue, 2011-06-21 at 19:30 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> 2011/6/21 Stephen Hemminger <shemminger@vyatta.com>:
+> > To force driver developers to use a standard convention for naming
+> > network device IRQ's, provide a standardized method for creating
+> > the name.
+>=20
+> Can this be modified to track netdev renames?
 
-Just a bit more trivia...
+We should handle renames somehow.
 
-[]
+sfc currently uses a netdev notifier to update the names of its IRQs
+(and MTDs) but it might make more sense to add something to
+net_device_ops rather than having every driver receive notification for
+every device.
 
-> +/* Swaps the 0xFF80 masked bits of a1<>a2 and b1<>b2 */
-> +static void gfar_swap_ff80_bits(struct gfar_filer_entry *a1,
-> +		struct gfar_filer_entry *a2, struct gfar_filer_entry *b1,
-> +		struct gfar_filer_entry *b2)
-> +{
-> +	u32 temp[4];
-> +	temp[0] =3D a1->ctrl & 0xFF80;
-> +	temp[1] =3D a2->ctrl & 0xFF80;
-> +	temp[2] =3D b1->ctrl & 0xFF80;
-> +	temp[3] =3D b2->ctrl & 0xFF80;
-> +
-> +	a1->ctrl &=3D ~0xFF80;
-> +	a2->ctrl &=3D ~0xFF80;
-> +	b1->ctrl &=3D ~0xFF80;
-> +	b2->ctrl &=3D ~0xFF80;
-> +
-> +	a1->ctrl |=3D temp[1];
-> +	a2->ctrl |=3D temp[0];
-> +	b1->ctrl |=3D temp[3];
-> +	b2->ctrl |=3D temp[2];
-> +}
+Ben.
 
-maybe add a macro similar to swap:
-
-#define swap_bits(a, b, bits)			\
-do {						\
-	typeof(a) _bits =3D bits;			\
-	typeof(a) _a_bits =3D (a) & _bits;	\
-	typeof(a) _b_bits =3D (b) & _bits;	\
-						\
-	(a) &=3D ~_bits;				\
-	(b) &=3D ~_bits;				\
-						\
-	(a) |=3D _b_bits;				\
-	(b) |=3D _a_bits;				\
-} while (0)
-
-and use this macro directly in gfar_sort_mask_table?
-
-	swap_bits(temp_table->fe[new_first],
-		  temp_table->fe[old_first], 0xff80);
-	swap_bits(temp_table->fe[new_last],
-		  temp_table->fe[old_last], 0xff80);
-
-And maybe 0xff80 should be a #define?
-
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
