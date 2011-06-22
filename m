@@ -1,74 +1,66 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH net-next] bonding: add min links parameter to 802.3ad
-Date: Wed, 22 Jun 2011 18:35:25 -0300
-Message-ID: <4E02601D.1010406@redhat.com>
-References: <20110622105408.06fd4788@nehalam.ftrdhcpuser.net>	<4E02452E.2030307@redhat.com> <20110622125439.44e47a2c@nehalam.ftrdhcpuser.net>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Remove IPv6 ND prefix on ethernet disconnect?
+Date: Wed, 22 Jun 2011 23:41:29 +0200
+Message-ID: <20110622214129.GA30521@prithivi.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39134 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758574Ab1FVVfl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 17:35:41 -0400
-In-Reply-To: <20110622125439.44e47a2c@nehalam.ftrdhcpuser.net>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:58949 "EHLO
+	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758899Ab1FVVlf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 17:41:35 -0400
+Received: from uucp by ganesha.gnumonks.org with local-bsmtp (Exim 4.72)
+	(envelope-from <laforge@gnumonks.org>)
+	id 1QZVB0-0002za-On
+	for netdev@vger.kernel.org; Wed, 22 Jun 2011 23:41:34 +0200
+Received: from laforge by nataraja.de.gnumonks.org with local (Exim 4.76)
+	(envelope-from <laforge@gnumonks.org>)
+	id 1QZVAv-0007x1-Dn
+	for netdev@vger.kernel.org; Wed, 22 Jun 2011 23:41:29 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/22/2011 04:54 PM, Stephen Hemminger wrote:
-> This adds support for a configuring the minimum number of links that
-> must be active before asserting carrier. It is similar to the Cisco
-> EtherChannel min-links feature. This allows setting the minimum number
-> of member ports that must be up (link-up state) before marking the
-> bond device as up (carrier on). This is useful for situations where
-> higher level services such as clustering want to ensure a minimum
-> number of low bandwidth links are active before switchover.
-> 
-> See:
->    http://bugzilla.vyatta.com/show_bug.cgi?id=7196
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
-> v2 - need to transition to carrier_off if insufficient number of links
->      and whitespace cleanup
-> 
->  drivers/net/bonding/bond_3ad.c    |    8 ++++++--
->  drivers/net/bonding/bond_main.c   |    5 +++++
->  drivers/net/bonding/bond_procfs.c |    1 +
->  drivers/net/bonding/bond_sysfs.c  |   35 +++++++++++++++++++++++++++++++++++
->  drivers/net/bonding/bonding.h     |    1 +
->  5 files changed, 48 insertions(+), 2 deletions(-)
-[...]
-> --- a/drivers/net/bonding/bond_3ad.c	2011-06-22 08:43:25.599999586 -0700
-> +++ b/drivers/net/bonding/bond_3ad.c	2011-06-22 12:51:43.431614028 -0700
-> @@ -2342,8 +2342,17 @@ void bond_3ad_handle_link_change(struct
->   */
->  int bond_3ad_set_carrier(struct bonding *bond)
->  {
-> -	if (__get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator))) {
-> -		if (!netif_carrier_ok(bond->dev)) {
-> +	struct aggregator *active;
-> +
-> +	active = __get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator));
-> +	if (active) {
-> +		/* are enough slaves available to consider link up? */
-> +		if (active->num_of_ports < bond->params.min_links) {
-> +			if (netif_carrier_ok(bond->dev)) {
-> +				netif_carrier_off(bond->dev);
-> +				return 1;
-> +			}
-> +		} else if (!netif_carrier_ok(bond->dev)) {
->  			netif_carrier_on(bond->dev);
->  			return 1;
->  		}
+Hi all,
 
-Looks good and works here, thanks!
+I know I've lost a bit touch with the Linux networking area in recent
+years...
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
+Nonetheless, there's one thing that's been bugging me for a long time
+and I'm thinking of investing some time to resolve it.  Before doing
+that, I'm curious to see if there are existing solutions or existing
+discussions that I've missed on the subject:
 
-fbl
+Imagine a setting where somebody is carrying a laptop around all day,
+visiting several sites (office, customer, home,...) without rebooting
+the machine (suspend to ram or disk).
+
+You start at home in the morning, you get an IPv6 prefix via
+auto-discovery, everything is fine.  Now you move along to your office,
+but despite the link down and link up events, the IPv6 prefix remains
+configured.
+
+You may or may not get a new prefix, but based on my experience, in both
+cases you experience errors following up:
+1) in the case of the new prefix, the old default route/prefix is still
+   used
+2) in case there is no new prefix, the kernel happily sends ipv6 packets
+   to the non-existant router of a completely different network.
+
+Now I presume that those things are supposedly resolved by
+NetworkManager, but I don't really see why a complex and large userspace
+program should be required for something as simple as removing prefixes
+that have prevously been added automatically.
+
+My point is: If it's the kernel that automatically adds it, why is it
+not the kernel that automatically deletes it when it is no longer safe
+to assume it is valid (such as after loosing the link)?
+
+Any input is appreciated. Regards,
+	Harald
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
