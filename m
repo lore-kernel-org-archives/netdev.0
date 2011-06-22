@@ -1,115 +1,21 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 6/7] qlcnic: Add support to enable/disable FW dump capability
-Date: Wed, 22 Jun 2011 05:52:22 -0700
-Message-ID: <1308747144-23785-6-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next 0/7] qlcnic: Misc. fixes and loopback support
+Date: Wed, 22 Jun 2011 05:52:24 -0700
+Message-ID: <1308747144-23785-8-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: David Miller <davem@davemloft.net>,
 	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:55836 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:55835 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757591Ab1FVNAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757555Ab1FVNAX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 22 Jun 2011 09:00:23 -0400
 In-Reply-To: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In certain situations, it may be required to not enable FW dump
-capability. Add support to turn off/on FW dump capability.
+Please apply the series to net-next. Thanks.
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h         |    3 +++
- drivers/net/qlcnic/qlcnic_ctx.c     |    1 +
- drivers/net/qlcnic/qlcnic_ethtool.c |   19 +++++++++++++++++++
- drivers/net/qlcnic/qlcnic_main.c    |    8 +++++---
- 4 files changed, 28 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 58d7616..0be84bd 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -429,6 +429,7 @@ struct qlcnic_dump_template_hdr {
- 
- struct qlcnic_fw_dump {
- 	u8	clr;	/* flag to indicate if dump is cleared */
-+	u8	enable; /* enable/disable dump */
- 	u32	size;	/* total size of the dump */
- 	void	*data;	/* dump data area */
- 	struct	qlcnic_dump_template_hdr *tmpl_hdr;
-@@ -1320,6 +1321,8 @@ enum op_codes {
- #define QLCNIC_DUMP_MASK_DEF		0x7f
- #define QLCNIC_DUMP_MASK_MAX		0xff
- #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
-+#define QLCNIC_ENABLE_FW_DUMP		0xaddfeed
-+#define QLCNIC_DISABLE_FW_DUMP		0xbadfeed
- 
- struct qlcnic_dump_operations {
- 	enum op_codes opcode;
-diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
-index be2dee1..33f5c8a 100644
---- a/drivers/net/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/qlcnic/qlcnic_ctx.c
-@@ -150,6 +150,7 @@ int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
- 		tmpl_hdr->drv_cap_mask = tmpl_hdr->cap_mask;
- 	else
- 		tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
-+	ahw->fw_dump.enable = 1;
- error:
- 	dma_free_coherent(&adapter->pdev->dev, temp_size, tmp_addr, tmp_addr_t);
- 	return err;
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index e183ed2..31f5cba 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -1019,8 +1019,27 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 
- 	if (val->flag == QLCNIC_FORCE_FW_DUMP_KEY) {
-+		if (!fw_dump->enable) {
-+			netdev_info(netdev, "FW dump not enabled\n");
-+			return ret;
-+		}
-+		if (fw_dump->clr) {
-+			dev_info(&adapter->pdev->dev,
-+			"Previous dump not cleared, not forcing dump\n");
-+			return ret;
-+		}
- 		netdev_info(netdev, "Forcing a FW dump\n");
- 		qlcnic_dev_request_reset(adapter);
-+	} else if (val->flag == QLCNIC_DISABLE_FW_DUMP) {
-+		if (fw_dump->enable) {
-+			netdev_info(netdev, "Disabling FW dump\n");
-+			fw_dump->enable = 0;
-+		}
-+	} else if (val->flag == QLCNIC_ENABLE_FW_DUMP) {
-+		if (!fw_dump->enable && fw_dump->tmpl_hdr) {
-+			netdev_info(netdev, "Enabling FW dump\n");
-+			fw_dump->enable = 1;
-+		}
- 	} else {
- 		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
- 			val->flag < QLCNIC_DUMP_MASK_MIN) {
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 5dcb853..ac7f8a2 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2849,9 +2849,11 @@ skip_ack_check:
- 		qlcnic_api_unlock(adapter);
- 
- 		rtnl_lock();
--		QLCDB(adapter, DRV, "Take FW dump\n");
--		qlcnic_dump_fw(adapter);
--		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
-+		if (adapter->ahw->fw_dump.enable) {
-+			QLCDB(adapter, DRV, "Take FW dump\n");
-+			qlcnic_dump_fw(adapter);
-+			adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
-+		}
- 		rtnl_unlock();
- 		if (!adapter->nic_ops->start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
--- 
-1.7.4.1
+-Anirban
 
