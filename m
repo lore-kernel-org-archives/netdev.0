@@ -1,48 +1,42 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH v2 net-next af-packet 0/2] Enhance af-packet to provide
- (near zero)lossless packet capture functionality.
-Date: Tue, 21 Jun 2011 23:02:11 -0400
-Message-ID: <BANLkTimisxLVdYJTK1NcR1vQi27CE20yxQ@mail.gmail.com>
-References: <1308708650-25509-1-git-send-email-loke.chetan@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] irda: fix smsc-ircc2 section mismatch
+	warning
+Date: Tue, 21 Jun 2011 20:33:04 -0700 (PDT)
+Message-ID: <20110621.203304.1676390665093844812.davem@davemloft.net>
+References: <20110621123938.5c932de8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, joe@perches.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, linux-kernel@vger.kernel.org,
-	Chetan Loke <loke.chetan@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1308708650-25509-1-git-send-email-loke.chetan@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20110621123938.5c932de8.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 21, 2011 at 10:10 PM, Chetan Loke <loke.chetan@gmail.com> w=
-rote:
-> Hello,
->
-> Please review the patchset.
->
-> Changes from v1:
->
-> 1) v1 was based on 2.6.38.9. v2 is rebased to net-next.
-> 2) Aligned bdqc members, pr_err to WARN, sob email =C2=A0 =C2=A0 =C2=A0=
-(Joe Perches)
-> 3) Added tp_padding =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 (Eric Dumazet)
-> 4) Nuked useless ;) white space =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (Stephen H)
-> 5) Use __u types in headers =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (Ben Hutchings=
-)
-> 6) Added field for creating private area =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0(Chetan Loke)
->
+From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Tue, 21 Jun 2011 12:39:38 -0700
 
-Hi Dave,
+> From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> 
+> Fix section mismatch warning:
+> 
+> WARNING: drivers/net/irda/smsc-ircc2.o(.devinit.text+0x1a7): Section mismatch in reference from the function smsc_ircc_pnp_probe() to the function .init.text:smsc_ircc_open()
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Is there a chance of getting this merged either in 3.0 or 3.1 or ever ;=
-) ?
+Applied to net-next-2.6, thanks!
 
-thanks
-Chetan
+------------------------------------------------------------------------------
+Simplify data backup and recovery for your virtual environment with vRanger.
+Installation's a snap, and flexible recovery options mean your data is safe,
+secure and there when you need it. Data protection magic?
+Nope - It's vRanger. Get your free trial download today.
+http://p.sf.net/sfu/quest-sfdev2dev
