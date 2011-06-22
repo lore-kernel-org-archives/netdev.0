@@ -1,87 +1,85 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 3/7] qlcnic: Add code to tune FW dump
-Date: Wed, 22 Jun 2011 05:52:19 -0700
-Message-ID: <1308747144-23785-3-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH 2/7] qlcnic: Remove holding api lock while taking the dump
+Date: Wed, 22 Jun 2011 05:52:18 -0700
+Message-ID: <1308747144-23785-2-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: David Miller <davem@davemloft.net>,
 	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:55827 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:55828 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756698Ab1FVNAW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757177Ab1FVNAW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 22 Jun 2011 09:00:22 -0400
 In-Reply-To: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To accommodate change in FW dump template, it is required to modify the
-FW dump routine that captures cache data. Also, the default mask is changed
-to capture a dump that would cover all the protocols that this FW supports.
+With the change in logic for taking FW dump across multiple drivers,
+there is no need to hold onto the api lock anymore in the fw dump path.
+Instead use rtnl_lock() to synchronize the access to FW dump data structs.
 
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h    |    5 ++---
- drivers/net/qlcnic/qlcnic_hw.c |   14 +++++++++++---
- 2 files changed, 13 insertions(+), 6 deletions(-)
+ drivers/net/qlcnic/qlcnic_ethtool.c |    6 ------
+ drivers/net/qlcnic/qlcnic_main.c    |    8 +++++---
+ 2 files changed, 5 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 194376e..e5bb332 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1220,8 +1220,7 @@ struct __ctrl {
+diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
+index 8ea8001..e183ed2 100644
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c
+@@ -986,8 +986,6 @@ qlcnic_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
  
- struct __cache {
- 	__le32	addr;
--	u8	stride;
--	u8	rsvd;
-+	__le16	stride;
- 	__le16	init_tag_val;
- 	__le32	size;
- 	__le32	no_ops;
-@@ -1319,7 +1318,7 @@ enum op_codes {
- #define QLCNIC_DUMP_SKIP	BIT_7
+-	if (qlcnic_api_lock(adapter))
+-		return -EIO;
+ 	if (!fw_dump->clr) {
+ 		netdev_info(netdev, "Dump not available\n");
+ 		qlcnic_api_unlock(adapter);
+@@ -1009,7 +1007,6 @@ qlcnic_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
+ 	vfree(fw_dump->data);
+ 	fw_dump->data = NULL;
+ 	fw_dump->clr = 0;
+-	qlcnic_api_unlock(adapter);
  
- #define QLCNIC_DUMP_MASK_MIN		3
--#define QLCNIC_DUMP_MASK_DEF		0x0f
-+#define QLCNIC_DUMP_MASK_DEF		0x7f
- #define QLCNIC_DUMP_MASK_MAX		0xff
- #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
+ 	return 0;
+ }
+@@ -1032,10 +1029,7 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
+ 				ret = -EINVAL;
+ 				goto out;
+ 		}
+-		if (qlcnic_api_lock(adapter))
+-			return -EIO;
+ 		fw_dump->tmpl_hdr->drv_cap_mask = val->flag & 0xff;
+-		qlcnic_api_unlock(adapter);
+ 		netdev_info(netdev, "Driver mask changed to: 0x%x\n",
+ 			fw_dump->tmpl_hdr->drv_cap_mask);
+ 	}
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 0ddbb80..a656a12 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -2846,13 +2846,15 @@ skip_ack_check:
+ 			set_bit(__QLCNIC_START_FW, &adapter->state);
+ 			QLCDB(adapter, DRV, "Restarting fw\n");
+ 			qlcnic_idc_debug_info(adapter, 0);
+-			QLCDB(adapter, DRV, "Take FW dump\n");
+-			qlcnic_dump_fw(adapter);
+-			adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
+ 		}
  
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 1947f81..81de563 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -1509,18 +1509,26 @@ qlcnic_dump_l2_cache(struct qlcnic_adapter *adapter,
+ 		qlcnic_api_unlock(adapter);
  
- 	for (i = 0; i < l2->no_ops; i++) {
- 		QLCNIC_WR_DUMP_REG(l2->addr, base, val);
--		do {
-+		if (LSW(l2->ctrl_val))
- 			QLCNIC_WR_DUMP_REG(l2->ctrl_addr, base,
- 				LSW(l2->ctrl_val));
-+		if (!poll_mask)
-+			goto skip_poll;
-+		do {
- 			QLCNIC_RD_DUMP_REG(l2->ctrl_addr, base, &data);
- 			if (!(data & poll_mask))
- 				break;
- 			msleep(1);
- 			time_out++;
- 		} while (time_out <= poll_to);
--		if (time_out > poll_to)
--			return -EINVAL;
- 
-+		if (time_out > poll_to) {
-+			dev_err(&adapter->pdev->dev,
-+				"Timeout exceeded in %s, aborting dump\n",
-+				__func__);
-+			return -EINVAL;
-+		}
-+skip_poll:
- 		addr = l2->read_addr;
- 		cnt = l2->read_addr_num;
- 		while (cnt) {
++		rtnl_lock();
++		QLCDB(adapter, DRV, "Take FW dump\n");
++		qlcnic_dump_fw(adapter);
++		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
++		rtnl_unlock();
+ 		if (!adapter->nic_ops->start_firmware(adapter)) {
+ 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
+ 			adapter->fw_wait_cnt = 0;
 -- 
 1.7.4.1
 
