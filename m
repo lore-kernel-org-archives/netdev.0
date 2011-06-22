@@ -1,54 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] udp/recvmsg: Clear MSG_TRUNC flag when
- starting over for a new packet
-Date: Wed, 22 Jun 2011 07:43:58 +0200
-Message-ID: <1308721438.2713.6.camel@edumazet-laptop>
-References: <1308689020-1873-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1308689020-1873-4-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Xufeng Zhang <xufeng.zhang@windriver.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:57721 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969Ab1FVFoC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 01:44:02 -0400
-Received: by wwg11 with SMTP id 11so901328wwg.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2011 22:44:00 -0700 (PDT)
-In-Reply-To: <1308689020-1873-4-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [PATCH 0/5] notifiers: split notifier.h into subsystem headers
+Date: Wed, 22 Jun 2011 14:35:17 +0800
+Message-ID: <1308724522-32461-1-git-send-email-amwang@redhat.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	WANG Cong <amwang@redhat.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 21 juin 2011 =C3=A0 16:43 -0400, Paul Gortmaker a =C3=A9crit :
-> From: Xufeng Zhang <xufeng.zhang@windriver.com>
->=20
-> Consider this scenario: When the size of the first received udp packe=
-t
-> is bigger than the receive buffer, MSG_TRUNC bit is set in msg->msg_f=
-lags.
-> However, if checksum error happens and this is a blocking socket, it =
-will
-> goto try_again loop to receive the next packet.  But if the size of t=
-he
-> next udp packet is smaller than receive buffer, MSG_TRUNC flag should=
- not
-> be set, but because MSG_TRUNC bit is not cleared in msg->msg_flags be=
-fore
-> receive the next packet, MSG_TRUNC is still set, which is wrong.
->=20
-> Fix this problem by clearing MSG_TRUNC flag when starting over for a
-> new packet.
->=20
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  net/ipv4/udp.c |    3 +++
->  net/ipv6/udp.c |    3 +++
->  2 files changed, 6 insertions(+), 0 deletions(-)
+Now we define all kinds of notifiers in notifier.h, this is not
+necessary at all, since different subsystems use different
+notifiers, they are almost non-related with each other.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+This can also save much build time. Suppose I add a new netdevice
+event, really I don't have to recompile all the source, just network
+related. Without this patch, all the source will be recompiled.
 
+I move the notify events near to their subsystem notifier registers,
+so that they can be found more easily.
 
+In case of conflicts, I hope Andrew Morton would take the whole
+patchset, rather than different subsystem maintainers take their own.
+
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
+---
+ drivers/mmc/core/core.c   |    3 ++
+ include/linux/cpu.h       |   33 ++++++++++++++++++
+ include/linux/netdevice.h |   36 ++++++++++++++++++--
+ include/linux/notifier.h  |   82 +++-----------------------------------------
+ include/linux/reboot.h    |    5 +++
+ include/linux/suspend.h   |    8 ++++
+ include/linux/vt.h        |    7 ++++
+ kernel/notifier.c         |   31 -----------------
+ kernel/sys.c              |   32 +++++++++++++++++-
+ net/rds/page.c            |    1 +
+ 10 files changed, 127 insertions(+), 111 deletions(-)
