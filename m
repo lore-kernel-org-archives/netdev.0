@@ -1,48 +1,72 @@
-From: WANG Cong <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Wed, 22 Jun 2011 07:55:20 +0000 (UTC)
-Message-ID: <its758$adj$1@dough.gmane.org>
-References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] MAINTAINERS: Remove Sven Eckelmann from
+	BATMAN ADVANCED
+Date: Wed, 22 Jun 2011 01:16:20 -0700 (PDT)
+Message-ID: <20110622.011620.1019772975075064501.davem@davemloft.net>
+References: <1308661983-4113-1-git-send-email-sven@narfation.org>
+	<20110621.143515.1651926143381429168.davem@davemloft.net>
+	<28453742.RFlbu1Gcpv@sven-desktop.home.narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:34204 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750975Ab1FVHzn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 03:55:43 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QZIHi-0006ey-7f
-	for netdev@vger.kernel.org; Wed, 22 Jun 2011 09:55:41 +0200
-Received: from 202.106.149.182 ([202.106.149.182])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2011 09:55:38 +0200
-Received: from xiyou.wangcong by 202.106.149.182 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2011 09:55:38 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <28453742.RFlbu1Gcpv-1RWNDQYo44h8XcdJbWeDu3TFMtCCXL7YSoIsB4E12gc@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Jun 2011 09:00:40 -0400, Prarit Bhargava wrote:
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Date: Wed, 22 Jun 2011 09:41:45 +0200
 
-> Add Network Sysrq Support
+> On Tuesday 21 June 2011 14:35:15 David Miller wrote:
+>> All of this effort was placed to get this thing merged into the
+>> main tree, and then moved out of staging.
 > 
-> In some circumstances, a system can hang/lockup in such a way that the
-> system is completely unresponsive to keyboard or console input but is
-> still responsive to ping.  The config option, CONFIG_SYSRQ_PING, builds
-> net/ipv4/sysrq-ping.ko which allows a root user to configure the system
-> for a remote sysrq.
-> 
+> "Shooting the messenger" - I think that is the matching phrase. Just try to 
+> grep my name in the net/batman-adv/ and you will see it nowhere.
 
-Cool work, Prarit! Now we have remote sysrq!
+It is everywhere as far as I am concerned, because you're the only person
+actually keeping upstream maintained and in sync.
 
-I am just wondering why the module is in net/ipv4/sysrq-ping.c?
-Not drivers/net/sysrq-ping.c? or perhaps net/core/sysrq-ping.c?
-I understand it only supports IPv4 now, but we can add IPv6 support,
-can't we? ;)
+> The problem is that I am probably the most unimportant person in the
+> whole project.
 
-Thanks!
+>From my perspective, this is not true.  You are the most important
+person.  And this is because the people writing the code obviously
+don't care enough about upstream to do any merges themselves.  Yet
+you do.
 
+> But at least I was good enough to send some patches around which
+> were accepted or made by other people. I was also not the person
+> behind the whole Linux-merge thing, but only some kind of
+> marionette.
+
+When we agree to allow someone to merge something into the tree,
+especially a significant piece of code like batman-adv, there are some
+impressions we want to have beforehand.
+
+And one such impression we want is that there is going to be someone
+continuing to be active maintaing the code upstream, even after the
+code is merged.
+
+Otherwise we get "merge and run" scenerios.  As networking maintainer,
+I've been burnt by this several times.
+
+If you're the only person who had the energy and motivation to do the
+merges of this code, then you're only person we know that can keep up
+with the expectations we had when we agreed to merge the code.
+
+If you step down, that trust has been broken, and we're left with a
+rotting pile of poo in the tree because it's unlikely anyone else is
+going to step up and keep things maintained upstream as you did.
