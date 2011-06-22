@@ -1,49 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Reported regression against commit a05d2ad
-Date: Wed, 22 Jun 2011 11:00:56 -0700
-Message-ID: <m1y60tlp9j.fsf@fess.ebiederm.org>
-References: <20110621201528.GB2249@herton-IdeaPad-Y430>
-	<m1oc1qnc46.fsf@fess.ebiederm.org> <4E02273E.2080000@canonical.com>
+From: Vitaliy Ivanov <vitalivanov@gmail.com>
+Subject: [PATCH] net: wimax: Remove of unused 'rfkill_input' pointer
+Date: Wed, 22 Jun 2011 21:06:44 +0300
+Message-ID: <1308766004.13761.32.camel@vivanov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>,
-	lamont@canonical.com, sconklin@canonical.com,
-	netdev@vger.kernel.org
-To: tim.gardner@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47614 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758455Ab1FVSBA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 14:01:00 -0400
-In-Reply-To: <4E02273E.2080000@canonical.com> (Tim Gardner's message of "Wed,
-	22 Jun 2011 11:32:46 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Alan Jenkins <alan-jenkins@tuffmail.co.uk>,
+	Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tim Gardner <tim.gardner@canonical.com> writes:
 
-> On 06/21/2011 02:49 PM, Eric W. Biederman wrote:
-> <snip>
->> I respectfully suggest that the bug is elsewhere perhaps a broken user
->> space application out there that needs to be fixed, or you have a kernel
->> memory stomp that removing patch a05d2ad happens to shift the memory
->> layout to be harmful in a different way.
->>
->
-> OK, I'm remembering how PF_UNIX Unix domain sockets are used, so I think your
-> theory about a misbehaving user space application is more likely. However, I am
-> a bit confused about how an application can attempt to receive before the socket
-> is fully opened. Some kind of race condition with socketpair() ?
+David,
 
-The case that is relevant is a listening SOCK_SEQPACKET socket.
+Please apply.
 
-The case that is affected is when you call receive on a listening
-socket.
+I added here all the peoples who took part in
+19d337dff95cbf76edd3ad95c0cee2732c3e1ec5 commit for any comments.
 
-It isn't that the socket isn't fully opened.  It is that accept is the
-only legitimate operation at that point.
+Also performed all yes/no/mod config builds w/ no issues.
 
-It took a mistake while someone was developing an application for this
-kernel bug to be found.
 
-Eric
+>From b93ca8947e85e4ff7e9f314675d4770b90b77548 Mon Sep 17 00:00:00 2001
+From: Vitaliy Ivanov <vitalivanov@gmail.com>
+Date: Wed, 22 Jun 2011 20:57:49 +0300
+Subject: [PATCH] net: wimax: Remove of unused 'rfkill_input' pointer
+
+Seems like this was not cleaned during the 'rfkill: rewrite' checkin
+19d337dff95cbf76edd3ad95c0cee2732c3e1ec5.
+
+Signed-off-by: Vitaliy Ivanov <vitalivanov@gmail.com>
+---
+ include/net/wimax.h |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/wimax.h b/include/net/wimax.h
+index 7328d50..322ff4f 100644
+--- a/include/net/wimax.h
++++ b/include/net/wimax.h
+@@ -423,7 +423,6 @@ struct wimax_dev {
+ 	int (*op_reset)(struct wimax_dev *wimax_dev);
+ 
+ 	struct rfkill *rfkill;
+-	struct input_dev *rfkill_input;
+ 	unsigned rf_hw;
+ 	unsigned rf_sw;
+ 	char name[32];
+-- 
+1.7.0.4
