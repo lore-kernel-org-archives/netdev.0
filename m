@@ -1,83 +1,152 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: eth4 received packet on queue 4, but number of RX queues is 4
-Date: Wed, 22 Jun 2011 10:34:25 -0500
-Message-ID: <20110622153425.GA2176@BohrerMBP.rgmadvisors.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Wed, 22 Jun 2011 09:52:11 -0600
+Message-ID: <BANLkTimsk2eWKPi2hnHbaAn-vSMKmdYsGQ@mail.gmail.com>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
+	<20110618161934.GH8195@ponder.secretlab.ca>
+	<20110619073000.GA23171@S2100-06.ap.freescale.net>
+	<20110621135558.GB9228@S2101-09.ap.freescale.net>
+	<BANLkTim4vunTm1176MRw3pqRZnunu4=9jg@mail.gmail.com>
+	<20110622153353.GA25799@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:34649 "EHLO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757922Ab1FVPef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 11:34:35 -0400
-Received: by gwb1 with SMTP id 1so602786gwb.22
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2011 08:34:34 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: patches@linaro.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	Jeremy Kerr <jeremy.kerr@canonical.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org,
+	David Gibson <david@gibson.dropbear.id.au>
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20110622153353.GA25799@S2100-06.ap.freescale.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-I just booted up 3.0.0-rc4+ and got the following trace in the logs:
+On Wed, Jun 22, 2011 at 9:33 AM, Shawn Guo <shawn.guo@freescale.com> wrote:
+> On Tue, Jun 21, 2011 at 01:13:50PM -0600, Grant Likely wrote:
+>> On Tue, Jun 21, 2011 at 7:55 AM, Shawn Guo <shawn.guo@freescale.com> wro=
+te:
+>> > Hi Grant,
+>> >
+>> > I just gave a try to use aliases node for identify the device index.
+>> > Please take a look and let me know if it's what you expect.
+>>
+>> Thanks Shawn. =A0This is definitely on track. =A0Comments below...
+>>
+>> >
+>> > On Sun, Jun 19, 2011 at 03:30:02PM +0800, Shawn Guo wrote:
+>> > [...]
+>> >> > >
+>> >> > > +#ifdef CONFIG_OF
+>> >> > > +static int serial_imx_probe_dt(struct imx_port *sport,
+>> >> > > + =A0 =A0 =A0 =A0 struct platform_device *pdev)
+>> >> > > +{
+>> >> > > + struct device_node *node =3D pdev->dev.of_node;
+>> >> > > + const __be32 *line;
+>> >> > > +
+>> >> > > + if (!node)
+>> >> > > + =A0 =A0 =A0 =A0 return -ENODEV;
+>> >> > > +
+>> >> > > + line =3D of_get_property(node, "id", NULL);
+>> >> > > + if (!line)
+>> >> > > + =A0 =A0 =A0 =A0 return -ENODEV;
+>> >> > > +
+>> >> > > + sport->port.line =3D be32_to_cpup(line) - 1;
+>> >> >
+>> >> > Hmmm, I really would like to be rid of this. =A0Instead, if uarts m=
+ust
+>> >> > be enumerated, the driver should look for a /aliases/uart* property
+>> >> > that matches the of_node. =A0Doing it that way is already establish=
+ed in
+>> >> > the OpenFirmware documentation, and it ensures there are no overlaps
+>> >> > in the global namespace.
+>> >> >
+>> >>
+>> >> I just gave one more try to avoid using 'aliases', and you gave a
+>> >> 'no' again. =A0Now, I know how hard you are on this. =A0Okay, I start
+>> >> thinking about your suggestion seriously :)
+>> >>
+>> >> > We do need some infrastructure to make that easier though. =A0Would=
+ you
+>> >> > have time to help put that together?
+>> >> >
+>> >> Ok, I will give it a try.
+>> >>
+>> >
+>> > diff --git a/arch/arm/boot/dts/imx51-babbage.dts b/arch/arm/boot/dts/i=
+mx51-babbage.dts
+>> > index da0381a..f4a5c3c 100644
+>> > --- a/arch/arm/boot/dts/imx51-babbage.dts
+>> > +++ b/arch/arm/boot/dts/imx51-babbage.dts
+>> > @@ -18,6 +18,12 @@
+>> > =A0 =A0 =A0 =A0compatible =3D "fsl,imx51-babbage", "fsl,imx51";
+>> > =A0 =A0 =A0 =A0interrupt-parent =3D <&tzic>;
+>> >
+>> > + =A0 =A0 =A0 aliases {
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial0 =3D &uart0;
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial1 =3D &uart1;
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial2 =3D &uart2;
+>> > + =A0 =A0 =A0 };
+>> > +
+>>
+>> Hmmm. =A0David Gibson had tossed out an idea of automatically generating
+>> aliases from labels. =A0It may be time to revisit that idea.
+>>
+>> David, perhaps using this format for a label should turn it into an
+>> alias (prefix label with an asterisk):
+>>
+>> =A0 =A0 =A0 =A0 *thealias: i2c@12340000 { /*...*/ };
+>>
+>> .... although that approach gets *really* hairy when considering that
+>> different boards will want different enumeration. =A0How would one
+>> override an automatic alias defined by an included .dts file?
+>>
+> Another dependency the patch has to wait for? =A0Or we can go ahead and
+> utilize the facility later when it gets ready?
 
-cxgb3 0000:04:00.0: found old FW minor version(7.4), driver compiled for version 7.10
-cxgb3 0000:04:00.0: successful upgrade to firmware 7.10.0
-cxgb3 0000:04:00.0: FW upgrade to 7.10.0 succeeded
-eth4: link up, 10Gbps, full-duplex
-eth4: link down
-------------[ cut here ]------------
-WARNING: at net/core/dev.c:2656 get_rps_cpu+0x1d1/0x350()
-Hardware name: PowerEdge R610
-eth4 received packet on queue 4, but number of RX queues is 4
-Modules linked in: fuse ext3 jbd mbcache dm_mirror dm_multipath scsi_dh video sbs sbshc acpi_pad acpi_ipmi ipmi_msghandler parport_pc lp parport sg ses enclosure joydev cxgb3 mdio bnx2 iTCO_wdt iTCO_vendor_support serio_raw snd_pcm snd_timer snd soundcore snd_page_alloc dcdbas pcspkr dm_region_hash dm_log dm_mod shpchp megaraid_sas sd_mod scsi_mod crc_t10dif xfs exportfs uhci_hcd ohci_hcd ssb mmc_core ehci_hcd [last unloaded: microcode]
-Pid: 0, comm: swapper Not tainted 3.0.0-rc4+ #25
-Call Trace:
- <IRQ>  [<ffffffff8104e94f>] warn_slowpath_common+0x7f/0xc0
- [<ffffffff811da090>] ? timerqueue_add+0x60/0xb0
- [<ffffffff8104ea46>] warn_slowpath_fmt+0x46/0x50
- [<ffffffff813499e1>] get_rps_cpu+0x1d1/0x350
- [<ffffffff81073c8b>] ? hrtimer_interrupt+0x13b/0x230
- [<ffffffff81349b95>] netif_receive_skb+0x35/0x90
- [<ffffffffa026c6af>] process_responses+0x62f/0x1580 [cxgb3]
- [<ffffffff81075d55>] ? sched_clock_cpu+0xc5/0x100
- [<ffffffffa026d63c>] napi_rx_handler+0x3c/0x90 [cxgb3]
- [<ffffffff8134a3b7>] net_rx_action+0xe7/0x230
- [<ffffffff81055182>] __do_softirq+0xb2/0x1f0
- [<ffffffff81408cac>] call_softirq+0x1c/0x30
- [<ffffffff81004295>] do_softirq+0x55/0x90
- [<ffffffff81054fa5>] irq_exit+0x65/0x70
- [<ffffffff81409236>] do_IRQ+0x66/0xe0
- [<ffffffff81400513>] common_interrupt+0x13/0x13
- <EOI>  [<ffffffff8122c69b>] ? intel_idle+0xbb/0x110
- [<ffffffff8122c67e>] ? intel_idle+0x9e/0x110
- [<ffffffff813147fc>] cpuidle_idle_call+0xbc/0x240
- [<ffffffff81001ee9>] cpu_idle+0xa9/0xf0
- [<ffffffff813e85e2>] rest_init+0x72/0x80
- [<ffffffff81942cf4>] start_kernel+0x3a1/0x3ac
- [<ffffffff81942321>] x86_64_start_reservations+0x131/0x135
- [<ffffffff81942412>] x86_64_start_kernel+0xed/0xf4
----[ end trace 741fa1dbbcf6aa7b ]---
-eth4: link up, 10Gbps, full-duplex
-802.1Q VLAN Support v1.8
+No, this isn't something you need to wait for.  Just musing on future
+enhancements.
 
+>> Also, when obtaining an enumeration for a device, you'll need to be
+>> careful about what number gets returned. =A0If the node doesn't match a
+>> given alias, but aliases do exist for other devices of like type, then
+>> you need to be careful not to assign a number already assigned to
+>> another device via an alias (this of course assumes the driver
+>> supports dynamics enumeration, which many drivers will). =A0It would be
+>>
+> Some words not finished?
 
-$ sudo /usr/sbin/ethtool -i eth4
-driver: cxgb3
-version: 1.1.4-ko
-firmware-version: T 7.10.0 TP 1.1.0
-bus-info: 0000:04:00.0
+heh, that happens sometimes.  I tend to be a bit scattered when
+replying to email.  Just ignore the last sentence fragment.
 
+>> > - =A0 =A0 =A0 line =3D of_get_property(node, "id", NULL);
+>> > - =A0 =A0 =A0 if (!line)
+>> > + =A0 =A0 =A0 line =3D of_get_device_index(node, "serial");
+>> > + =A0 =A0 =A0 if (IS_ERR_VALUE(line))
+>> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
+>>
+>> Personally, it an alias isn't present, then I'd dynamically assign a por=
+t id.
+>>
+> We probably can not. =A0The driver works with being told the correct
+> port id which is defined by soc. =A0Instead of dynamically assigning
+> a port id, we have to tell the driver the exact hardware port id of
+> the device that is being probed.
 
-$ /sbin/lspci | grep 04:00.0
-04:00.0 Ethernet controller: Chelsio Communications Inc S320-LP-CR 10GbE Dual Port Adapter
+Are you sure?  It doesn't look like the driver behaviour uses id for
+anything other than an index into the statically allocated serial port
+instance table.  I don't see any change of behaviour based on the port
+number anywhere.
 
-
-Thanks,
-Shawn
-
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
-
+g.
