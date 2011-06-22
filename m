@@ -1,149 +1,115 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 1/7] qlcnic: Add capability to take FW dump deterministically
-Date: Wed, 22 Jun 2011 05:52:17 -0700
-Message-ID: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH 6/7] qlcnic: Add support to enable/disable FW dump capability
+Date: Wed, 22 Jun 2011 05:52:22 -0700
+Message-ID: <1308747144-23785-6-git-send-email-anirban.chakraborty@qlogic.com>
+References: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: David Miller <davem@davemloft.net>,
-	Sritej Velaga <sritej.velaga@qlogic.com>
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:55826 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:55836 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756555Ab1FVNAW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 09:00:22 -0400
+	id S1757591Ab1FVNAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 09:00:23 -0400
+In-Reply-To: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+In certain situations, it may be required to not enable FW dump
+capability. Add support to turn off/on FW dump capability.
 
-In presence of multiple functions, current driver implementation does not
-guarantee that the FW dump is taken by the same function that forces it.
-Change it by adding a fw reset owner flag that could be changed in the device
-reset path and only when a function determines that it needs to reset it.
-
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    1 +
- drivers/net/qlcnic/qlcnic_ctx.c  |    4 ++--
- drivers/net/qlcnic/qlcnic_main.c |   32 ++++++++++++++++++++++++--------
- 3 files changed, 27 insertions(+), 10 deletions(-)
+ drivers/net/qlcnic/qlcnic.h         |    3 +++
+ drivers/net/qlcnic/qlcnic_ctx.c     |    1 +
+ drivers/net/qlcnic/qlcnic_ethtool.c |   19 +++++++++++++++++++
+ drivers/net/qlcnic/qlcnic_main.c    |    8 +++++---
+ 4 files changed, 28 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 480ef5c..194376e 100644
+index 58d7616..0be84bd 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -895,6 +895,7 @@ struct qlcnic_ipaddr {
- #define QLCNIC_MAC_OVERRIDE_DISABLED	0x400
- #define QLCNIC_PROMISC_DISABLED		0x800
- #define QLCNIC_NEED_FLR			0x1000
-+#define QLCNIC_FW_RESET_OWNER		0x2000
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
+@@ -429,6 +429,7 @@ struct qlcnic_dump_template_hdr {
  
+ struct qlcnic_fw_dump {
+ 	u8	clr;	/* flag to indicate if dump is cleared */
++	u8	enable; /* enable/disable dump */
+ 	u32	size;	/* total size of the dump */
+ 	void	*data;	/* dump data area */
+ 	struct	qlcnic_dump_template_hdr *tmpl_hdr;
+@@ -1320,6 +1321,8 @@ enum op_codes {
+ #define QLCNIC_DUMP_MASK_DEF		0x7f
+ #define QLCNIC_DUMP_MASK_MAX		0xff
+ #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
++#define QLCNIC_ENABLE_FW_DUMP		0xaddfeed
++#define QLCNIC_DISABLE_FW_DUMP		0xbadfeed
+ 
+ struct qlcnic_dump_operations {
+ 	enum op_codes opcode;
 diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
-index c77024f..be2dee1 100644
+index be2dee1..33f5c8a 100644
 --- a/drivers/net/qlcnic/qlcnic_ctx.c
 +++ b/drivers/net/qlcnic/qlcnic_ctx.c
-@@ -95,8 +95,8 @@ int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
- 			QLCNIC_CDRP_CMD_TEMP_SIZE);
- 	if (err != QLCNIC_RCODE_SUCCESS) {
- 		err = QLCRD32(adapter, QLCNIC_ARG1_CRB_OFFSET);
--		dev_err(&adapter->pdev->dev,
--			"Failed to get template size %d\n", err);
-+		dev_info(&adapter->pdev->dev,
-+			"Can't get template size %d\n", err);
- 		err = -EIO;
- 		return err;
- 	}
+@@ -150,6 +150,7 @@ int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
+ 		tmpl_hdr->drv_cap_mask = tmpl_hdr->cap_mask;
+ 	else
+ 		tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
++	ahw->fw_dump.enable = 1;
+ error:
+ 	dma_free_coherent(&adapter->pdev->dev, temp_size, tmp_addr, tmp_addr_t);
+ 	return err;
+diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
+index e183ed2..31f5cba 100644
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c
+@@ -1019,8 +1019,27 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
+ 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
+ 
+ 	if (val->flag == QLCNIC_FORCE_FW_DUMP_KEY) {
++		if (!fw_dump->enable) {
++			netdev_info(netdev, "FW dump not enabled\n");
++			return ret;
++		}
++		if (fw_dump->clr) {
++			dev_info(&adapter->pdev->dev,
++			"Previous dump not cleared, not forcing dump\n");
++			return ret;
++		}
+ 		netdev_info(netdev, "Forcing a FW dump\n");
+ 		qlcnic_dev_request_reset(adapter);
++	} else if (val->flag == QLCNIC_DISABLE_FW_DUMP) {
++		if (fw_dump->enable) {
++			netdev_info(netdev, "Disabling FW dump\n");
++			fw_dump->enable = 0;
++		}
++	} else if (val->flag == QLCNIC_ENABLE_FW_DUMP) {
++		if (!fw_dump->enable && fw_dump->tmpl_hdr) {
++			netdev_info(netdev, "Enabling FW dump\n");
++			fw_dump->enable = 1;
++		}
+ 	} else {
+ 		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
+ 			val->flag < QLCNIC_DUMP_MASK_MIN) {
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 347a4a8..0ddbb80 100644
+index 5dcb853..ac7f8a2 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1590,10 +1590,6 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* This will be reset for mezz cards  */
- 	adapter->portnum = adapter->ahw->pci_func;
- 
--	/* Get FW dump template and store it */
--	if (adapter->op_mode != QLCNIC_NON_PRIV_FUNC)
--		qlcnic_fw_cmd_get_minidump_temp(adapter);
--
- 	err = qlcnic_get_board_info(adapter);
- 	if (err) {
- 		dev_err(&pdev->dev, "Error getting board config info.\n");
-@@ -1612,6 +1608,12 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_decr_ref;
- 	}
- 
-+	/* Get FW dump template and store it */
-+	if (adapter->op_mode != QLCNIC_NON_PRIV_FUNC)
-+		if (!qlcnic_fw_cmd_get_minidump_temp(adapter))
-+			dev_info(&pdev->dev,
-+				"Supports FW dump capability\n");
-+
- 	if (qlcnic_read_mac_addr(adapter))
- 		dev_warn(&pdev->dev, "failed to read mac addr\n");
- 
-@@ -2683,11 +2685,16 @@ err:
- static int
- qlcnic_check_drv_state(struct qlcnic_adapter *adapter)
- {
--	int act, state;
-+	int act, state, active_mask;
- 
- 	state = QLCRD32(adapter, QLCNIC_CRB_DRV_STATE);
- 	act = QLCRD32(adapter, QLCNIC_CRB_DRV_ACTIVE);
- 
-+	if (adapter->flags & QLCNIC_FW_RESET_OWNER) {
-+		active_mask = (~(1 << (adapter->ahw->pci_func * 4)));
-+		act = act & active_mask;
-+	}
-+
- 	if (((state & 0x11111111) == (act & 0x11111111)) ||
- 			((act & 0x11111111) == ((state >> 1) & 0x11111111)))
- 		return 0;
-@@ -2826,6 +2833,11 @@ qlcnic_fwinit_work(struct work_struct *work)
- 
- 	if (!qlcnic_check_drv_state(adapter)) {
- skip_ack_check:
-+		if (!(adapter->flags & QLCNIC_FW_RESET_OWNER)) {
-+			qlcnic_api_unlock(adapter);
-+			goto wait_npar;
-+		}
-+
- 		dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 
- 		if (dev_state == QLCNIC_DEV_NEED_RESET) {
-@@ -2836,6 +2848,7 @@ skip_ack_check:
- 			qlcnic_idc_debug_info(adapter, 0);
- 			QLCDB(adapter, DRV, "Take FW dump\n");
- 			qlcnic_dump_fw(adapter);
-+			adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
- 		}
- 
+@@ -2849,9 +2849,11 @@ skip_ack_check:
  		qlcnic_api_unlock(adapter);
-@@ -2900,9 +2913,11 @@ qlcnic_detach_work(struct work_struct *work)
  
- 	if (adapter->temp == QLCNIC_TEMP_PANIC)
- 		goto err_ret;
--
--	if (qlcnic_set_drv_state(adapter, adapter->dev_state))
--		goto err_ret;
-+	/* Dont ack if this instance is the reset owner */
-+	if (!(adapter->flags & QLCNIC_FW_RESET_OWNER)) {
-+		if (qlcnic_set_drv_state(adapter, adapter->dev_state))
-+			goto err_ret;
-+	}
- 
- 	adapter->fw_wait_cnt = 0;
- 
-@@ -2947,6 +2962,7 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
- 
- 	if (state == QLCNIC_DEV_READY) {
- 		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
-+		adapter->flags |= QLCNIC_FW_RESET_OWNER;
- 		QLCDB(adapter, DRV, "NEED_RESET state set\n");
- 		qlcnic_idc_debug_info(adapter, 0);
- 	}
+ 		rtnl_lock();
+-		QLCDB(adapter, DRV, "Take FW dump\n");
+-		qlcnic_dump_fw(adapter);
+-		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
++		if (adapter->ahw->fw_dump.enable) {
++			QLCDB(adapter, DRV, "Take FW dump\n");
++			qlcnic_dump_fw(adapter);
++			adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
++		}
+ 		rtnl_unlock();
+ 		if (!adapter->nic_ops->start_firmware(adapter)) {
+ 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
 -- 
 1.7.4.1
 
