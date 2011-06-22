@@ -1,36 +1,90 @@
-From: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>
-Subject: Re: [PATCH] net: wimax: Remove of unused 'rfkill_input' pointer
-Date: Wed, 22 Jun 2011 14:47:07 -0700
-Message-ID: <8F0C2E89B9AA20448D482EB589641EB3010264D9CC@orsmsx507.amr.corp.intel.com>
-References: <1308766004.13761.32.camel@vivanov>
+From: Fabienne Ducroquet <fabiduc@gmail.com>
+Subject: Re: net/ipv4: commit d0733d2e29b breaks rtorrent
+Date: Thu, 23 Jun 2011 01:02:39 +0200
+Message-ID: <20110622230239.GA5009@localhost>
+References: <20110622124045.GA3247@localhost>
+ <20110622124727.GC19184@suse.de>
+ <alpine.LNX.2.00.1106221508310.10066@nitsch.suse.de>
+ <20110622145144.GA31734@localhost>
+ <alpine.LNX.2.00.1106221654500.20275@nitsch.suse.de>
+ <20110622085329.65c625de@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"alan-jenkins@tuffmail.co.uk" <alan-jenkins@tuffmail.co.uk>,
-	"hmh@hmh.eng.br" <hmh@hmh.eng.br>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>
-To: "vitalivanov@gmail.com" <vitalivanov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1308766004.13761.32.camel@vivanov>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Reinhard Max <max@suse.de>, Marcus Meissner <meissner@suse.de>,
+	sundell.software@gmail.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from poutre.nerim.net ([62.4.16.124]:50380 "EHLO poutre.nerim.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756627Ab1FVXCl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 19:02:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20110622085329.65c625de@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDExLTA2LTIyIGF0IDIxOjA2ICswMzAwLCBWaXRhbGl5IEl2YW5vdiB3cm90ZToK
-PiBEYXZpZCwKPiAKPiBQbGVhc2UgYXBwbHkuCj4gCj4gSSBhZGRlZCBoZXJlIGFsbCB0aGUgcGVv
-cGxlcyB3aG8gdG9vayBwYXJ0IGluCj4gMTlkMzM3ZGZmOTVjYmY3NmVkZDNhZDk1YzBjZWUyNzMy
-YzNlMWVjNSBjb21taXQgZm9yIGFueSBjb21tZW50cy4KPiAKPiBBbHNvIHBlcmZvcm1lZCBhbGwg
-eWVzL25vL21vZCBjb25maWcgYnVpbGRzIHcvIG5vIGlzc3Vlcy4KCj4gPkZyb20gYjkzY2E4OTQ3
-ZTg1ZTRmZjdlOWYzMTQ2NzVkNDc3MGI5MGI3NzU0OCBNb24gU2VwIDE3IDAwOjAwOjAwIDIwMDEK
-PiBGcm9tOiBWaXRhbGl5IEl2YW5vdiA8dml0YWxpdmFub3ZAZ21haWwuY29tPgo+IERhdGU6IFdl
-ZCwgMjIgSnVuIDIwMTEgMjA6NTc6NDkgKzAzMDAKPiBTdWJqZWN0OiBbUEFUQ0hdIG5ldDogd2lt
-YXg6IFJlbW92ZSBvZiB1bnVzZWQgJ3Jma2lsbF9pbnB1dCcgcG9pbnRlcgo+IAo+IFNlZW1zIGxp
-a2UgdGhpcyB3YXMgbm90IGNsZWFuZWQgZHVyaW5nIHRoZSAncmZraWxsOiByZXdyaXRlJyBjaGVj
-a2luCj4gMTlkMzM3ZGZmOTVjYmY3NmVkZDNhZDk1YzBjZWUyNzMyYzNlMWVjNS4KPiAKPiBTaWdu
-ZWQtb2ZmLWJ5OiBWaXRhbGl5IEl2YW5vdiA8dml0YWxpdmFub3ZAZ21haWwuY29tPgoKQWNrZWQt
-Ynk6IEluYWt5IFBlcmV6LUdvbnphbGV6IDxpbmFreS5wZXJlei1nb256YWxlekBpbnRlbC5jb20+
-Cgo=
+On Wed, Jun 22, 2011 at 08:53:29AM -0700, Stephen Hemminger wrote:
+> You can find code here http://libtorrent.rakshasa.no/
+> but it is in C++ so there is an abnormally high indirection factor
+> between reality of the bug and the code as written.
+
+I had a look at the code, I found where bind is called, but it does not 
+help: it is in libtorrent/src/net/socket_fd.cc:
+
+	bool
+	SocketFd::bind(const rak::socket_address& sa) {
+	  check_valid();
+	
+	  return !::bind(m_fd, sa.c_sockaddr(), sa.length());
+	}
+
+check_valid() checks the validity of the socket FD.
+It is called by the function:
+
+	bool
+	Listen::open(uint16_t first, uint16_t last, const rak::socket_address* bindAddress) {
+	  close();
+
+	  [ Checks that the range of the ports is OK, that the address 
+	  is an inet or inet6 address, that the socket can be 
+	  allocated.]
+
+	  rak::socket_address sa;
+	  sa.copy(*bindAddress, bindAddress->length());
+
+	  for (uint16_t i = first; i <= last; ++i) {
+	  sa.set_port(i);
+
+	  if (get_fd().bind(sa) && get_fd().listen(50)) {
+	     ...
+
+in libtorrent/src/net/listen.cc. That function was called by:
+
+	bool
+	ConnectionManager::listen_open(port_type begin, port_type end) {
+	  if (!m_listen->open(begin, end, rak::socket_address::cast_from(m_bindAddress)))
+	    return false;
+	
+	  m_listenPort = m_listen->port();
+	
+	  return true;
+	}
+
+in libtorrent/src/torrent/connection_manager.cc, and it was itself 
+called by Manager::listen_open() in rtorrent/core/manager.cc, which 
+throws the error message I got because the call to
+
+	torrent::connection_manager()->listen_open(portFirst, portLast)
+
+fails.
+
+So the question now is to find how the m_bindAddress used in 
+ConnectionManager::listen_open is set, but I prefer not to do that right 
+now.
+
+> Did you try contacting the developer?
+
+I've put him in the Cc: since the first message.
+
+Fabienne
