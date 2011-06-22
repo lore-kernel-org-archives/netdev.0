@@ -1,506 +1,59 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 7/7] qlcnic: multi protocol internal loopback support added.
-Date: Wed, 22 Jun 2011 05:52:23 -0700
-Message-ID: <1308747144-23785-7-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH 4/7] qlcnic: fix initial number of msix entries in adapter.
+Date: Wed, 22 Jun 2011 05:55:59 -0700
+Message-ID: <1308747359-23891-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: David Miller <davem@davemloft.net>,
 	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:55834 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:52071 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757502Ab1FVNAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 09:00:23 -0400
-In-Reply-To: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
+	id S1757502Ab1FVNDy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 09:03:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-Driver will generate loopback traffic pattern and do the test. And
-returns result of the test to application.
-
-Updated driver version to 5.0.19.
+Calculation of number of MSI-X vectors was wrong on uniprocessor
+systems.
 
 Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h         |   22 ++++++-
- drivers/net/qlcnic/qlcnic_ethtool.c |  123 +++++++++++++++++++++++++++++++++-
- drivers/net/qlcnic/qlcnic_hw.c      |   50 ++++++++++++++
- drivers/net/qlcnic/qlcnic_init.c    |  126 ++++++++++++++++++++++++++++++++++-
- drivers/net/qlcnic/qlcnic_main.c    |    6 ++
- 5 files changed, 322 insertions(+), 5 deletions(-)
+ drivers/net/qlcnic/qlcnic.h      |    1 -
+ drivers/net/qlcnic/qlcnic_main.c |    6 ++----
+ 2 files changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 0be84bd..e545450 100644
+index e5bb332..58d7616 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -36,8 +36,8 @@
+@@ -900,7 +900,6 @@ struct qlcnic_ipaddr {
+ 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 18
--#define QLCNIC_LINUX_VERSIONID  "5.0.18"
-+#define _QLCNIC_LINUX_SUBVERSION 19
-+#define QLCNIC_LINUX_VERSIONID  "5.0.19"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
-@@ -451,6 +451,7 @@ struct qlcnic_hardware_context {
- 	u8 revision_id;
- 	u8 pci_func;
- 	u8 linkup;
-+	u8 loopback_state;
- 	u16 port_type;
- 	u16 board_type;
- 
-@@ -780,6 +781,13 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_IP_UP		2
- #define QLCNIC_IP_DOWN		3
- 
-+#define QLCNIC_ILB_MODE		0x1
-+
-+#define QLCNIC_LINKEVENT	0x1
-+#define QLCNIC_LB_RESPONSE	0x2
-+#define QLCNIC_IS_LB_CONFIGURED(VAL)	\
-+		(VAL == (QLCNIC_LINKEVENT | QLCNIC_LB_RESPONSE))
-+
- /*
-  * Driver --> Firmware
-  */
-@@ -789,13 +797,17 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_H2C_OPCODE_LRO_REQUEST			0x7
- #define QLCNIC_H2C_OPCODE_SET_MAC_RECEIVE_MODE		0xc
- #define QLCNIC_H2C_OPCODE_CONFIG_IPADDR		0x12
-+
- #define QLCNIC_H2C_OPCODE_GET_LINKEVENT		0x15
- #define QLCNIC_H2C_OPCODE_CONFIG_BRIDGING		0x17
- #define QLCNIC_H2C_OPCODE_CONFIG_HW_LRO		0x18
-+#define QLCNIC_H2C_OPCODE_CONFIG_LOOPBACK		0x13
-+
- /*
-  * Firmware --> Driver
-  */
- 
-+#define QLCNIC_C2H_OPCODE_CONFIG_LOOPBACK		0x8f
- #define QLCNIC_C2H_OPCODE_GET_LINKEVENT_RESPONSE	141
- 
- #define VPORT_MISS_MODE_DROP		0 /* drop all unmatched */
-@@ -1430,6 +1442,12 @@ int qlcnic_send_lro_cleanup(struct qlcnic_adapter *adapter);
- void qlcnic_update_cmd_producer(struct qlcnic_adapter *adapter,
- 		struct qlcnic_host_tx_ring *tx_ring);
- void qlcnic_fetch_mac(struct qlcnic_adapter *, u32, u32, u8, u8 *);
-+void qlcnic_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring);
-+void qlcnic_clear_lb_mode(struct qlcnic_adapter *adapter);
-+int qlcnic_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode);
-+
-+/* Functions from qlcnic_ethtool.c */
-+int qlcnic_check_loopback_buff(unsigned char *data, u8 mac[]);
- 
- /* Functions from qlcnic_main.c */
- int qlcnic_reset_context(struct qlcnic_adapter *);
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 31f5cba..743035e 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -84,7 +84,8 @@ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
- static const char qlcnic_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Register_Test_on_offline",
- 	"Link_Test_on_offline",
--	"Interrupt_Test_offline"
-+	"Interrupt_Test_offline",
-+	"Loopback_Test_offline"
- };
- 
- #define QLCNIC_TEST_LEN	ARRAY_SIZE(qlcnic_gstrings_test)
-@@ -685,6 +686,123 @@ clear_it:
- 	return ret;
- }
- 
-+#define QLCNIC_ILB_PKT_SIZE 64
-+#define QLCNIC_NUM_ILB_PKT	16
-+#define QLCNIC_ILB_MAX_RCV_LOOP 10
-+
-+static void qlcnic_create_loopback_buff(unsigned char *data, u8 mac[])
-+{
-+	unsigned char random_data[] = {0xa8, 0x06, 0x45, 0x00};
-+
-+	memset(data, 0x4e, QLCNIC_ILB_PKT_SIZE);
-+
-+	memcpy(data, mac, ETH_ALEN);
-+	memcpy(data + ETH_ALEN, mac, ETH_ALEN);
-+
-+	memcpy(data + 2 * ETH_ALEN, random_data, sizeof(random_data));
-+}
-+
-+int qlcnic_check_loopback_buff(unsigned char *data, u8 mac[])
-+{
-+	unsigned char buff[QLCNIC_ILB_PKT_SIZE];
-+	qlcnic_create_loopback_buff(buff, mac);
-+	return memcmp(data, buff, QLCNIC_ILB_PKT_SIZE);
-+}
-+
-+static int qlcnic_do_ilb_test(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
-+	struct qlcnic_host_sds_ring *sds_ring = &recv_ctx->sds_rings[0];
-+	struct sk_buff *skb;
-+	int i, loop, cnt = 0;
-+
-+	for (i = 0; i < QLCNIC_NUM_ILB_PKT; i++) {
-+		skb = dev_alloc_skb(QLCNIC_ILB_PKT_SIZE);
-+		qlcnic_create_loopback_buff(skb->data, adapter->mac_addr);
-+		skb_put(skb, QLCNIC_ILB_PKT_SIZE);
-+
-+		adapter->diag_cnt = 0;
-+		qlcnic_xmit_frame(skb, adapter->netdev);
-+
-+		loop = 0;
-+		do {
-+			msleep(1);
-+			qlcnic_process_rcv_ring_diag(sds_ring);
-+			if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP)
-+				break;
-+		} while (!adapter->diag_cnt);
-+
-+		dev_kfree_skb_any(skb);
-+
-+		if (!adapter->diag_cnt)
-+			dev_warn(&adapter->pdev->dev, "ILB Test: %dth packet"
-+				" not recevied\n", i + 1);
-+		else
-+			cnt++;
-+	}
-+	if (cnt != i) {
-+		dev_warn(&adapter->pdev->dev, "ILB Test failed\n");
-+		return -1;
-+	}
-+	return 0;
-+}
-+
-+static int qlcnic_iloopback_test(struct net_device *netdev)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	int max_sds_rings = adapter->max_sds_rings;
-+	struct qlcnic_host_sds_ring *sds_ring;
-+	int loop = 0;
-+	int ret;
-+
-+	netdev_info(netdev, "%s:  in progress\n", __func__);
-+	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
-+		netdev_warn(netdev, "Loopback test not supported for non "
-+				"privilege function\n");
-+		return 0;
-+	}
-+
-+	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
-+		return -EIO;
-+
-+
-+	ret = qlcnic_diag_alloc_res(netdev, QLCNIC_LOOPBACK_TEST);
-+	if (ret)
-+		goto clear_it;
-+
-+	sds_ring = &adapter->recv_ctx->sds_rings[0];
-+
-+	ret = qlcnic_set_lb_mode(adapter, QLCNIC_ILB_MODE);
-+	if (ret)
-+		goto free_res;
-+
-+	do {
-+		msleep(500);
-+		qlcnic_process_rcv_ring_diag(sds_ring);
-+		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP)
-+			break;
-+	} while (!QLCNIC_IS_LB_CONFIGURED(adapter->ahw->loopback_state));
-+
-+	if (!QLCNIC_IS_LB_CONFIGURED(adapter->ahw->loopback_state)) {
-+		netdev_info(netdev, "firmware didnt respond to loopback "
-+				"configure request\n");
-+		ret = adapter->ahw->loopback_state;
-+		goto free_res;
-+	}
-+
-+	ret = qlcnic_do_ilb_test(adapter);
-+
-+	qlcnic_clear_lb_mode(adapter);
-+
-+ free_res:
-+	qlcnic_diag_free_res(netdev, max_sds_rings);
-+
-+ clear_it:
-+	adapter->max_sds_rings = max_sds_rings;
-+	clear_bit(__QLCNIC_RESETTING, &adapter->state);
-+	return ret;
-+}
-+
- static void
- qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 		     u64 *data)
-@@ -704,6 +822,9 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 		if (data[2])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-+		data[3] = qlcnic_iloopback_test(dev);
-+		if (data[3])
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
- 	}
- }
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 81de563..0391a04 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -533,6 +533,56 @@ void qlcnic_delete_lb_filters(struct qlcnic_adapter *adapter)
- 	}
- }
- 
-+int qlcnic_set_fw_loopback(struct qlcnic_adapter *adapter, u8 flag)
-+{
-+	struct qlcnic_nic_req req;
-+	int rv;
-+
-+	memset(&req, 0, sizeof(struct qlcnic_nic_req));
-+
-+	req.qhdr = cpu_to_le64(QLCNIC_HOST_REQUEST << 23);
-+	req.req_hdr = cpu_to_le64(QLCNIC_H2C_OPCODE_CONFIG_LOOPBACK |
-+		((u64) adapter->portnum << 16) | ((u64) 0x1 << 32));
-+
-+	req.words[0] = cpu_to_le64(flag);
-+
-+	rv = qlcnic_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
-+	if (rv != 0)
-+		dev_err(&adapter->pdev->dev, "%sting loopback mode failed\n",
-+				flag ? "Set" : "Reset");
-+	return rv;
-+}
-+
-+int qlcnic_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
-+{
-+	if (qlcnic_set_fw_loopback(adapter, mode))
-+		return -EIO;
-+
-+	if (qlcnic_nic_set_promisc(adapter, VPORT_MISS_MODE_ACCEPT_ALL)) {
-+		qlcnic_set_fw_loopback(adapter, mode);
-+		return -EIO;
-+	}
-+
-+	msleep(1000);
-+	return 0;
-+}
-+
-+void qlcnic_clear_lb_mode(struct qlcnic_adapter *adapter)
-+{
-+	int mode = VPORT_MISS_MODE_DROP;
-+	struct net_device *netdev = adapter->netdev;
-+
-+	qlcnic_set_fw_loopback(adapter, 0);
-+
-+	if (netdev->flags & IFF_PROMISC)
-+		mode = VPORT_MISS_MODE_ACCEPT_ALL;
-+	else if (netdev->flags & IFF_ALLMULTI)
-+		mode = VPORT_MISS_MODE_ACCEPT_MULTI;
-+
-+	qlcnic_nic_set_promisc(adapter, mode);
-+	msleep(1000);
-+}
-+
- /*
-  * Send the interrupt coalescing parameter set by ethtool to the card.
-  */
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 5b8bbcf..9d5bee0 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1281,6 +1281,7 @@ qlcnic_handle_linkevent(struct qlcnic_adapter *adapter,
- 	u16 cable_len;
- 	u16 link_speed;
- 	u8  link_status, module, duplex, autoneg;
-+	u8 lb_status = 0;
- 	struct net_device *netdev = adapter->netdev;
- 
- 	adapter->has_link_events = 1;
-@@ -1292,6 +1293,7 @@ qlcnic_handle_linkevent(struct qlcnic_adapter *adapter,
- 	link_status = msg->body[2] & 0xff;
- 	duplex = (msg->body[2] >> 16) & 0xff;
- 	autoneg = (msg->body[2] >> 24) & 0xff;
-+	lb_status = (msg->body[2] >> 32) & 0x3;
- 
- 	module = (msg->body[2] >> 8) & 0xff;
- 	if (module == LINKEVENT_MODULE_TWINAX_UNSUPPORTED_CABLE)
-@@ -1301,6 +1303,9 @@ qlcnic_handle_linkevent(struct qlcnic_adapter *adapter,
- 		dev_info(&netdev->dev, "unsupported cable length %d\n",
- 				cable_len);
- 
-+	if (!link_status && (lb_status == 1))
-+		adapter->ahw->loopback_state |= QLCNIC_LINKEVENT;
-+
- 	qlcnic_advert_link_change(adapter, link_status);
- 
- 	if (duplex == LINKEVENT_FULL_DUPLEX)
-@@ -1319,7 +1324,9 @@ qlcnic_handle_fw_message(int desc_cnt, int index,
- {
- 	struct qlcnic_fw_msg msg;
- 	struct status_desc *desc;
--	int i = 0, opcode;
-+	struct qlcnic_adapter *adapter;
-+	struct device *dev;
-+	int i = 0, opcode, ret;
- 
- 	while (desc_cnt > 0 && i < 8) {
- 		desc = &sds_ring->desc_head[index];
-@@ -1330,10 +1337,28 @@ qlcnic_handle_fw_message(int desc_cnt, int index,
- 		desc_cnt--;
- 	}
- 
-+	adapter = sds_ring->adapter;
-+	dev = &adapter->pdev->dev;
- 	opcode = qlcnic_get_nic_msg_opcode(msg.body[0]);
-+
- 	switch (opcode) {
- 	case QLCNIC_C2H_OPCODE_GET_LINKEVENT_RESPONSE:
--		qlcnic_handle_linkevent(sds_ring->adapter, &msg);
-+		qlcnic_handle_linkevent(adapter, &msg);
-+		break;
-+	case QLCNIC_C2H_OPCODE_CONFIG_LOOPBACK:
-+		ret = (u32)(msg.body[1]);
-+		switch (ret) {
-+		case 0:
-+			adapter->ahw->loopback_state |= QLCNIC_LB_RESPONSE;
-+			break;
-+		case 1:
-+			dev_info(dev, "loopback already in progress\n");
-+			break;
-+		default:
-+			dev_info(dev, "loopback configure request failed,"
-+					" ret %x\n", ret);
-+			break;
-+		}
- 		break;
- 	default:
- 		break;
-@@ -1746,6 +1771,103 @@ qlcnic_post_rx_buffers_nodb(struct qlcnic_adapter *adapter,
- 	spin_unlock(&rds_ring->lock);
- }
- 
-+static void dump_skb(struct sk_buff *skb)
-+{
-+	int i;
-+	unsigned char *data = skb->data;
-+
-+	printk(KERN_INFO "\n");
-+	for (i = 0; i < skb->len; i++) {
-+		printk(KERN_INFO "%02x ", data[i]);
-+		if ((i & 0x0f) == 8)
-+			printk(KERN_INFO "\n");
-+	}
-+}
-+
-+void qlcnic_process_rcv_diag(struct qlcnic_adapter *adapter,
-+		struct qlcnic_host_sds_ring *sds_ring,
-+		int ring, u64 sts_data0)
-+{
-+	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
-+	struct sk_buff *skb;
-+	struct qlcnic_host_rds_ring *rds_ring;
-+	int index, length, cksum, pkt_offset;
-+
-+	if (unlikely(ring >= adapter->max_rds_rings))
-+		return;
-+
-+	rds_ring = &recv_ctx->rds_rings[ring];
-+
-+	index = qlcnic_get_sts_refhandle(sts_data0);
-+	length = qlcnic_get_sts_totallength(sts_data0);
-+	if (unlikely(index >= rds_ring->num_desc))
-+		return;
-+
-+	cksum  = qlcnic_get_sts_status(sts_data0);
-+	pkt_offset = qlcnic_get_sts_pkt_offset(sts_data0);
-+
-+	skb = qlcnic_process_rxbuf(adapter, rds_ring, index, cksum);
-+	if (!skb)
-+		return;
-+
-+	if (length > rds_ring->skb_size)
-+		skb_put(skb, rds_ring->skb_size);
-+	else
-+		skb_put(skb, length);
-+
-+	if (pkt_offset)
-+		skb_pull(skb, pkt_offset);
-+
-+	if (!qlcnic_check_loopback_buff(skb->data, adapter->mac_addr))
-+		adapter->diag_cnt++;
-+	else
-+		dump_skb(skb);
-+
-+	dev_kfree_skb_any(skb);
-+	adapter->stats.rx_pkts++;
-+	adapter->stats.rxbytes += length;
-+
-+	return;
-+}
-+
-+void
-+qlcnic_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring)
-+{
-+	struct qlcnic_adapter *adapter = sds_ring->adapter;
-+	struct status_desc *desc;
-+	u64 sts_data0;
-+	int ring, opcode, desc_cnt;
-+
-+	u32 consumer = sds_ring->consumer;
-+
-+	desc = &sds_ring->desc_head[consumer];
-+	sts_data0 = le64_to_cpu(desc->status_desc_data[0]);
-+
-+	if (!(sts_data0 & STATUS_OWNER_HOST))
-+		return;
-+
-+	desc_cnt = qlcnic_get_sts_desc_cnt(sts_data0);
-+	opcode = qlcnic_get_sts_opcode(sts_data0);
-+	switch (opcode) {
-+	case QLCNIC_RESPONSE_DESC:
-+		qlcnic_handle_fw_message(desc_cnt, consumer, sds_ring);
-+		break;
-+	default:
-+		ring = qlcnic_get_sts_type(sts_data0);
-+		qlcnic_process_rcv_diag(adapter, sds_ring, ring, sts_data0);
-+		break;
-+	}
-+
-+	for (; desc_cnt > 0; desc_cnt--) {
-+		desc = &sds_ring->desc_head[consumer];
-+		desc->status_desc_data[0] = cpu_to_le64(STATUS_OWNER_PHANTOM);
-+		consumer = get_next_index(consumer, sds_ring->num_desc);
-+	}
-+
-+	sds_ring->consumer = consumer;
-+	writel(consumer, sds_ring->crb_sts_consumer);
-+}
-+
- void
- qlcnic_fetch_mac(struct qlcnic_adapter *adapter, u32 off1, u32 off2,
- 			u8 alt_mac, u8 *mac)
+ #define QLCNIC_DEF_NUM_STS_DESC_RINGS	4
+-#define QLCNIC_MIN_NUM_RSS_RINGS	2
+ #define QLCNIC_MSIX_TBL_SPACE		8192
+ #define QLCNIC_PCI_REG_MSIX_TBL 	0x44
+ #define QLCNIC_MSIX_TBL_PGSIZE		4096
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index ac7f8a2..357436b 100644
+index a656a12..a050746 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1391,6 +1391,12 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int test)
- 			qlcnic_enable_int(sds_ring);
- 		}
- 	}
-+
-+	if (adapter->diag_test == QLCNIC_LOOPBACK_TEST) {
-+		adapter->ahw->loopback_state = 0;
-+		qlcnic_linkevent_request(adapter, 1);
-+	}
-+
- 	set_bit(__QLCNIC_DEV_UP, &adapter->state);
+@@ -418,10 +418,8 @@ qlcnic_setup_intr(struct qlcnic_adapter *adapter)
+ 	int num_msix;
  
- 	return 0;
+ 	if (adapter->msix_supported) {
+-		num_msix = (num_online_cpus() >=
+-			QLCNIC_DEF_NUM_STS_DESC_RINGS) ?
+-			QLCNIC_DEF_NUM_STS_DESC_RINGS :
+-			QLCNIC_MIN_NUM_RSS_RINGS;
++		num_msix = rounddown_pow_of_two(min_t(int, num_online_cpus(),
++				QLCNIC_DEF_NUM_STS_DESC_RINGS));
+ 	} else
+ 		num_msix = 1;
+ 
 -- 
 1.7.4.1
 
