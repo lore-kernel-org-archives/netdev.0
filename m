@@ -1,30 +1,37 @@
-From: Joyce Yu - System Software <joyce.yu@oracle.com>
-Subject: Re: Steps to integrate new 40G Network driver to the kernel tree
-Date: Tue, 21 Jun 2011 16:53:21 -0700
-Message-ID: <4E012EF1.3050005@oracle.com>
-References: <4DA8D9F6.2070908@oracle.com> <20110415175429.5e91fb59@nehalam> <4E012D80.4090907@oracle.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging tree with the trivial
+ and net trees
+Date: Tue, 21 Jun 2011 17:10:09 -0700
+Message-ID: <20110622001009.GA9627@kroah.com>
+References: <20110621151055.0775f17a.sfr@canb.auug.org.au>
+ <BANLkTimmy0GJMgho4YK62gru6QXGox6Eqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:58266 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756933Ab1FUXwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 19:52:51 -0400
-In-Reply-To: <4E012D80.4090907@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Kosina <jkosina@suse.cz>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vitaliy Ivanov <vitalivanov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTimmy0GJMgho4YK62gru6QXGox6Eqg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 22, 2011 at 01:40:48AM +0300, Vitaliy Ivanov wrote:
+> Stephen,
+> 
+> On Tue, Jun 21, 2011 at 8:10 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> > Today's linux-next merge of the staging tree got a conflict in
+> > drivers/staging/brcm80211/brcmfmac/wl_iw.c between commit e44ba033c565
+> > ("treewide: remove duplicate includes") from the trivial tree, commit
+> > 219eb47e6f35 ("net/staging: add needed interrupt.h and hardirq.h
+> > includes") from the net tree and various commits from the staging tree.
+> >
+> > I fixed them up (see below) and can carry the fix as necessary.
+> 
+> This one and all the others look good to me.
 
-Since it is a new driver, shall I follow the "Submitting Drivers for the 
-Linux Kernel" Doc? The driver is ready and passed all our QA cycles. I  
-have three source base, one is for 2.6.16 and 2.6.18 (for RHL 5.X and 
-SLES 10 SP3) , one is for 2.6.32 (For RHL 6.X, SLES11SP1), one for 
-2.6.27 (For SLES11). Can it be integrated to the 2.6.18 and 2.6.32 tree? 
-or it has to be in the latest 2.6.39 or later?
+Me too, thanks for doing this.
 
-Thanks,
-Joyce
-
+greg k-h
