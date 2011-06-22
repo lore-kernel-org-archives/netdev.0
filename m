@@ -1,66 +1,36 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Remove IPv6 ND prefix on ethernet disconnect?
-Date: Wed, 22 Jun 2011 23:41:29 +0200
-Message-ID: <20110622214129.GA30521@prithivi.gnumonks.org>
+From: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>
+Subject: Re: [PATCH] net: wimax: Remove of unused 'rfkill_input' pointer
+Date: Wed, 22 Jun 2011 14:47:07 -0700
+Message-ID: <8F0C2E89B9AA20448D482EB589641EB3010264D9CC@orsmsx507.amr.corp.intel.com>
+References: <1308766004.13761.32.camel@vivanov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:58949 "EHLO
-	ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758899Ab1FVVlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 17:41:35 -0400
-Received: from uucp by ganesha.gnumonks.org with local-bsmtp (Exim 4.72)
-	(envelope-from <laforge@gnumonks.org>)
-	id 1QZVB0-0002za-On
-	for netdev@vger.kernel.org; Wed, 22 Jun 2011 23:41:34 +0200
-Received: from laforge by nataraja.de.gnumonks.org with local (Exim 4.76)
-	(envelope-from <laforge@gnumonks.org>)
-	id 1QZVAv-0007x1-Dn
-	for netdev@vger.kernel.org; Wed, 22 Jun 2011 23:41:29 +0200
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"alan-jenkins@tuffmail.co.uk" <alan-jenkins@tuffmail.co.uk>,
+	"hmh@hmh.eng.br" <hmh@hmh.eng.br>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>
+To: "vitalivanov@gmail.com" <vitalivanov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1308766004.13761.32.camel@vivanov>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-
-I know I've lost a bit touch with the Linux networking area in recent
-years...
-
-Nonetheless, there's one thing that's been bugging me for a long time
-and I'm thinking of investing some time to resolve it.  Before doing
-that, I'm curious to see if there are existing solutions or existing
-discussions that I've missed on the subject:
-
-Imagine a setting where somebody is carrying a laptop around all day,
-visiting several sites (office, customer, home,...) without rebooting
-the machine (suspend to ram or disk).
-
-You start at home in the morning, you get an IPv6 prefix via
-auto-discovery, everything is fine.  Now you move along to your office,
-but despite the link down and link up events, the IPv6 prefix remains
-configured.
-
-You may or may not get a new prefix, but based on my experience, in both
-cases you experience errors following up:
-1) in the case of the new prefix, the old default route/prefix is still
-   used
-2) in case there is no new prefix, the kernel happily sends ipv6 packets
-   to the non-existant router of a completely different network.
-
-Now I presume that those things are supposedly resolved by
-NetworkManager, but I don't really see why a complex and large userspace
-program should be required for something as simple as removing prefixes
-that have prevously been added automatically.
-
-My point is: If it's the kernel that automatically adds it, why is it
-not the kernel that automatically deletes it when it is no longer safe
-to assume it is valid (such as after loosing the link)?
-
-Any input is appreciated. Regards,
-	Harald
--- 
-- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-============================================================================
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+T24gV2VkLCAyMDExLTA2LTIyIGF0IDIxOjA2ICswMzAwLCBWaXRhbGl5IEl2YW5vdiB3cm90ZToK
+PiBEYXZpZCwKPiAKPiBQbGVhc2UgYXBwbHkuCj4gCj4gSSBhZGRlZCBoZXJlIGFsbCB0aGUgcGVv
+cGxlcyB3aG8gdG9vayBwYXJ0IGluCj4gMTlkMzM3ZGZmOTVjYmY3NmVkZDNhZDk1YzBjZWUyNzMy
+YzNlMWVjNSBjb21taXQgZm9yIGFueSBjb21tZW50cy4KPiAKPiBBbHNvIHBlcmZvcm1lZCBhbGwg
+eWVzL25vL21vZCBjb25maWcgYnVpbGRzIHcvIG5vIGlzc3Vlcy4KCj4gPkZyb20gYjkzY2E4OTQ3
+ZTg1ZTRmZjdlOWYzMTQ2NzVkNDc3MGI5MGI3NzU0OCBNb24gU2VwIDE3IDAwOjAwOjAwIDIwMDEK
+PiBGcm9tOiBWaXRhbGl5IEl2YW5vdiA8dml0YWxpdmFub3ZAZ21haWwuY29tPgo+IERhdGU6IFdl
+ZCwgMjIgSnVuIDIwMTEgMjA6NTc6NDkgKzAzMDAKPiBTdWJqZWN0OiBbUEFUQ0hdIG5ldDogd2lt
+YXg6IFJlbW92ZSBvZiB1bnVzZWQgJ3Jma2lsbF9pbnB1dCcgcG9pbnRlcgo+IAo+IFNlZW1zIGxp
+a2UgdGhpcyB3YXMgbm90IGNsZWFuZWQgZHVyaW5nIHRoZSAncmZraWxsOiByZXdyaXRlJyBjaGVj
+a2luCj4gMTlkMzM3ZGZmOTVjYmY3NmVkZDNhZDk1YzBjZWUyNzMyYzNlMWVjNS4KPiAKPiBTaWdu
+ZWQtb2ZmLWJ5OiBWaXRhbGl5IEl2YW5vdiA8dml0YWxpdmFub3ZAZ21haWwuY29tPgoKQWNrZWQt
+Ynk6IEluYWt5IFBlcmV6LUdvbnphbGV6IDxpbmFreS5wZXJlei1nb256YWxlekBpbnRlbC5jb20+
+Cgo=
