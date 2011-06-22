@@ -1,80 +1,69 @@
-From: John Haxby <john.haxby@oracle.com>
-Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Wed, 22 Jun 2011 13:37:17 +0100
-Message-ID: <4E01E1FD.8010802@oracle.com>
-References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com> <4E0115B3.2030802@redhat.com> <20110621225645.GD16021@Chamillionaire.breakpoint.cc> <20110621.155816.1840729860084652508.davem@davemloft.net> <4E01C34F.6050009@redhat.com> <20110622105434.GE16021@Chamillionaire.breakpoint.cc>
+From: Marcus Meissner <meissner@suse.de>
+Subject: Re: net/ipv4: commit d0733d2e29b breaks rtorrent
+Date: Wed, 22 Jun 2011 14:47:27 +0200
+Message-ID: <20110622124727.GC19184@suse.de>
+References: <20110622124045.GA3247@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Prarit Bhargava <prarit@redhat.com>,
-	David Miller <davem@davemloft.net>, fbl@redhat.com,
-	netdev@vger.kernel.org, agospoda@redhat.com, nhorman@redhat.com,
-	lwoodman@redhat.com
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: sundell.software@gmail.com, Reinhard Max <max@suse.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Fabienne Ducroquet <fabiduc@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:49907 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757815Ab1FVMhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 08:37:50 -0400
-In-Reply-To: <20110622105434.GE16021@Chamillionaire.breakpoint.cc>
+Received: from cantor2.suse.de ([195.135.220.15]:38945 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754944Ab1FVMr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 08:47:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20110622124045.GA3247@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/06/11 11:54, Florian Westphal wrote:
-> Prarit Bhargava <prarit@redhat.com> wrote:
->
-> [ cc'd John Haxby, who worked on xt_SYSREQ ]
->
->> On 06/21/2011 06:58 PM, David Miller wrote:
->>> From: Florian Westphal <fw@strlen.de>
->>> Date: Wed, 22 Jun 2011 00:56:45 +0200
->>>> This is one of the reasons why I still think that
->>>> xt_SYSREQ would be the better solution, you get all
->>>> kinds of filtering features for free.
->>>>
->>>> You could even use crazy things like '-m time' to restrict
->>>> sysreq availability to working hours and whatnot.
->>>>
->>> Agreed.
->> Using the netfilter xt-SYSRQ code seems to store the entered code and
->> execute it later after the system has returned to a normal state....
->> which is much too late to be useful.
-> The target handler of the kernel part invokes handle_sysrq(),
-> I don't see any delaying/queueing?
->
-> FWIW, the old discussion is in the archives:
-> search for subject "nf-next: sysrq and condition 20100421" from Jan
-> Engelhardt, or try
-> http://thread.gmane.org/gmane.comp.security.firewalls.netfilter.devel/33615/focus=34808
->
-> As far as i understand the use case described by John Haxby matches yours.
->
-> Patrick McHardy suggested an alternative standalone method involving
-> encapsulation sockets; perhaps the reasons why this path was not chosen
-> have changed.
->
-> I think that a standalone module (i.e. not requiring netfilter) that
-> runs the sysreq handling after all netfilter hooks would be optimal,
-> but I don't see a simple method to implement that.
+On Wed, Jun 22, 2011 at 02:40:45PM +0200, Fabienne Ducroquet wrote:
+> Hi,
+> 
+> With the latest versions of the Linux kernel (I've just tried 
+> 3.0.0-rc4-00034-g2992c4b) rtorrent (version 0.8.7 with libtorrent 
+> 0.12.7, from Debian unstable) fails to start with the error message:
+> 
+> 	rtorrent: Could not open/bind port for listening: Invalid argument
+> 
+> I bisected it down to:
+> 
+> 	commit d0733d2e29b652b2e7b1438ececa732e4eed98eb
+> 	Author: Marcus Meissner <meissner@suse.de>
+> 	Date:   Wed Jun 1 21:05:22 2011 -0700
+> 
+> 	    net/ipv4: Check for mistakenly passed in non-IPv4 address
+> 
+> 	    Check against mistakenly passing in IPv6 addresses (which would result
+> 	    in an INADDR_ANY bind) or similar incompatible sockaddrs.
+> 
+> 	    Signed-off-by: Marcus Meissner <meissner@suse.de>
+> 	    Cc: Reinhard Max <max@suse.de>
+> 	    Signed-off-by: David S. Miller <davem@davemloft.net>
+> 	---
+> 	 net/ipv4/af_inet.c |    3 +++
+> 	 1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> 	diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> 	index cc14631..9c19260 100644
+> 	--- a/net/ipv4/af_inet.c
+> 	+++ b/net/ipv4/af_inet.c
+> 	@@ -465,6 +465,9 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+> 		if (addr_len < sizeof(struct sockaddr_in))
+> 			goto out;
+> 
+> 	+       if (addr->sin_family != AF_INET)
+> 	+               goto out;
+> 	+
+> 		chk_addr_ret = inet_addr_type(sock_net(sk), addr->sin_addr.s_addr);
+> 
+> 		/* Not specified by any standard per-se, however it breaks too
+> 
+> With this commit reverted rtorrent works again.
 
-The xt_SYSRQ calls handle_sysrq() in BH context, much the same context
-as ping is handled in.  (Actually, it's likely xt_SYSRQ will work even
-if ping doesn't since nothing has to come back.)
+Can you show us the code surrounding the bind in rtorrent?
 
-It's possible for xt_SYSRQ to fail.   My usual case for failure was
-simply not enabling it :-)  However, as you typically have to fight your
-way through iptables to get to xt_SYSRQ then you can get into trouble
-that way.
+You either do not set the sin_family member, or pass in a ipv6 address.
 
-Although I wasn't sure that it could happen, it's also possible that the
-cryptographic functions can get in your way.  xt_SYSRQ does its best to
-avoid problems by pre-allocating everything it can so there is as little
-as possible to do when it is needed, but it is possible for it to fail.
-
-The module that Patrick McHardy suggested works up to a point:
-handle_sysrq() can still be called in BH context but unfortunately I
-couldn't get it working for IPv6: the necessary hook isn't implemented
-for IPv6 (or rather, it wasn't, I don't know if something has changed
-since then).
-
-jch
+Ciao, Marcus
