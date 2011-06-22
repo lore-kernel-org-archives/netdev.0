@@ -1,38 +1,36 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Weird locking in __release_sock()?
-Date: Wed, 22 Jun 2011 16:31:13 -0700
-Message-ID: <4E027B41.3040009@caviumnetworks.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: Remove IPv6 ND prefix on ethernet disconnect?
+Date: Thu, 23 Jun 2011 01:33:11 +0200
+Message-ID: <20110622233311.GB19903@nuttenaction>
+References: <20110622214129.GA30521@prithivi.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:19653 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757427Ab1FVXbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 19:31:14 -0400
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:33186 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757961Ab1FVXdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 19:33:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20110622214129.GA30521@prithivi.gnumonks.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+* Harald Welte | 2011-06-22 23:41:29 [+0200]:
 
-In net/core/sock.c the function __release_sock() appears to drop the 
-socket lock, and then feed the backlogged skbs to sk_backlog_rcv().
+>My point is: If it's the kernel that automatically adds it, why is it
+>not the kernel that automatically deletes it when it is no longer safe
+>to assume it is valid (such as after loosing the link)?
 
+Is loosing the link a sufficient criterion to restart ND? IMHO it is superior
+to keep the same IP address (I assume privacy extension enabled) in the same
+network if you lose the link artificial.
 
-In the case of an IPv4 TCP socket, sk_backlog_rcv() calls 
-tcp_v4_do_rcv(), which is documented like this:
+Environments where the link goes down and up again may suffer from such a
+behavior. Maybe a script in Network Manager may be the better place. For me it
+sounds like a policy thing which should not handled in the kernel.
 
-/* The socket must have it's spinlock held when we get
-  * here.
-.
-.
-.
-*/
+But yes Harald, I understand your objection! ;-)
 
-Q: How can this be correct?
-
-Perhaps I am missing something.  In any event, thanks in advance 
-shedding some light on the locking situation.
-
-David Daney
+Hagen
