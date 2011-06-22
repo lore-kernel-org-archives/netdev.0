@@ -1,18 +1,14 @@
 From: Amerigo Wang <amwang@redhat.com>
-Subject: [PATCH 3/5] sys: move reboot notifiers into reboot.h
-Date: Wed, 22 Jun 2011 14:35:20 +0800
-Message-ID: <1308724522-32461-4-git-send-email-amwang@redhat.com>
+Subject: [PATCH 5/5] vt: move vt notifiers into vt.h
+Date: Wed, 22 Jun 2011 14:35:22 +0800
+Message-ID: <1308724522-32461-6-git-send-email-amwang@redhat.com>
 References: <1308724522-32461-1-git-send-email-amwang@redhat.com>
 Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	Amerigo Wang <amwang@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Jiri Slaby <jslaby@suse.cz>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	David Howells <dhowells@redhat.com>,
-	James Morris <jmorris@namei.org>
+	Josh Triplett <josh@joshtriplett.org>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1308724522-32461-1-git-send-email-amwang@redhat.com>
@@ -20,142 +16,57 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 It is not necessary to share the same notifier.h.
-This patch already moves register_reboot_notifier()
-and unregister_reboot_notifier() from kernel/notifier.c to
-kernel/sys.c.
 
 Signed-off-by: WANG Cong <amwang@redhat.com>
 
 ---
- include/linux/notifier.h |    5 +----
- include/linux/reboot.h   |    5 +++++
- kernel/notifier.c        |   31 -------------------------------
- kernel/sys.c             |   32 +++++++++++++++++++++++++++++++-
- 4 files changed, 37 insertions(+), 36 deletions(-)
+ include/linux/notifier.h |    9 ++-------
+ include/linux/vt.h       |    7 +++++++
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-index e8a858a..145c436 100644
+index ae8f7d9..d65746e 100644
 --- a/include/linux/notifier.h
 +++ b/include/linux/notifier.h
-@@ -189,10 +189,7 @@ static inline int notifier_to_errno(int ret)
+@@ -193,6 +193,8 @@ static inline int notifier_to_errno(int ret)
  
- /* netdevice notifiers are defined in include/linux/netdevice.h */
+ /* Hibernation and suspend events are defined in include/linux/suspend.h. */
  
--#define SYS_DOWN	0x0001	/* Notify of system down */
--#define SYS_RESTART	SYS_DOWN
--#define SYS_HALT	0x0002	/* Notify of system halt */
--#define SYS_POWER_OFF	0x0003	/* Notify of system power off */
-+/* reboot notifiers are defined in include/linux/reboot.h. */
- 
++/* Virtual Terminal events are defined in include/linux/vt.h. */
++
  #define NETLINK_URELEASE	0x0001	/* Unicast netlink socket released */
  
-diff --git a/include/linux/reboot.h b/include/linux/reboot.h
-index 3005d5a..e0879a7 100644
---- a/include/linux/reboot.h
-+++ b/include/linux/reboot.h
-@@ -39,6 +39,11 @@
+ /* Console keyboard events.
+@@ -206,12 +208,5 @@ static inline int notifier_to_errno(int ret)
  
- #include <linux/notifier.h>
+ extern struct blocking_notifier_head reboot_notifier_list;
  
-+#define SYS_DOWN	0x0001	/* Notify of system down */
-+#define SYS_RESTART	SYS_DOWN
-+#define SYS_HALT	0x0002	/* Notify of system halt */
-+#define SYS_POWER_OFF	0x0003	/* Notify of system power off */
-+
- extern int register_reboot_notifier(struct notifier_block *);
- extern int unregister_reboot_notifier(struct notifier_block *);
- 
-diff --git a/kernel/notifier.c b/kernel/notifier.c
-index 2488ba7..8d7b435 100644
---- a/kernel/notifier.c
-+++ b/kernel/notifier.c
-@@ -525,37 +525,6 @@ void srcu_init_notifier_head(struct srcu_notifier_head *nh)
- }
- EXPORT_SYMBOL_GPL(srcu_init_notifier_head);
- 
--/**
-- *	register_reboot_notifier - Register function to be called at reboot time
-- *	@nb: Info about notifier function to be called
-- *
-- *	Registers a function with the list of functions
-- *	to be called at reboot time.
-- *
-- *	Currently always returns zero, as blocking_notifier_chain_register()
-- *	always returns zero.
-- */
--int register_reboot_notifier(struct notifier_block *nb)
--{
--	return blocking_notifier_chain_register(&reboot_notifier_list, nb);
--}
--EXPORT_SYMBOL(register_reboot_notifier);
+-/* Virtual Terminal events. */
+-#define VT_ALLOCATE		0x0001 /* Console got allocated */
+-#define VT_DEALLOCATE		0x0002 /* Console will be deallocated */
+-#define VT_WRITE		0x0003 /* A char got output */
+-#define VT_UPDATE		0x0004 /* A bigger update occurred */
+-#define VT_PREWRITE		0x0005 /* A char is about to be written to the console */
 -
--/**
-- *	unregister_reboot_notifier - Unregister previously registered reboot notifier
-- *	@nb: Hook to be unregistered
-- *
-- *	Unregisters a previously registered reboot
-- *	notifier function.
-- *
-- *	Returns zero on success, or %-ENOENT on failure.
-- */
--int unregister_reboot_notifier(struct notifier_block *nb)
--{
--	return blocking_notifier_chain_unregister(&reboot_notifier_list, nb);
--}
--EXPORT_SYMBOL(unregister_reboot_notifier);
--
- static ATOMIC_NOTIFIER_HEAD(die_chain);
+ #endif /* __KERNEL__ */
+ #endif /* _LINUX_NOTIFIER_H */
+diff --git a/include/linux/vt.h b/include/linux/vt.h
+index d5dd0bc..30a8dd9 100644
+--- a/include/linux/vt.h
++++ b/include/linux/vt.h
+@@ -86,6 +86,13 @@ struct vt_setactivate {
  
- int notrace __kprobes notify_die(enum die_val val, const char *str,
-diff --git a/kernel/sys.c b/kernel/sys.c
-index e4128b2..a101ba3 100644
---- a/kernel/sys.c
-+++ b/kernel/sys.c
-@@ -8,7 +8,6 @@
- #include <linux/mm.h>
- #include <linux/utsname.h>
- #include <linux/mman.h>
--#include <linux/notifier.h>
- #include <linux/reboot.h>
- #include <linux/prctl.h>
- #include <linux/highuid.h>
-@@ -320,6 +319,37 @@ void kernel_restart_prepare(char *cmd)
- }
+ #ifdef __KERNEL__
  
- /**
-+ *	register_reboot_notifier - Register function to be called at reboot time
-+ *	@nb: Info about notifier function to be called
-+ *
-+ *	Registers a function with the list of functions
-+ *	to be called at reboot time.
-+ *
-+ *	Currently always returns zero, as blocking_notifier_chain_register()
-+ *	always returns zero.
-+ */
-+int register_reboot_notifier(struct notifier_block *nb)
-+{
-+	return blocking_notifier_chain_register(&reboot_notifier_list, nb);
-+}
-+EXPORT_SYMBOL(register_reboot_notifier);
++/* Virtual Terminal events. */
++#define VT_ALLOCATE		0x0001 /* Console got allocated */
++#define VT_DEALLOCATE		0x0002 /* Console will be deallocated */
++#define VT_WRITE		0x0003 /* A char got output */
++#define VT_UPDATE		0x0004 /* A bigger update occurred */
++#define VT_PREWRITE		0x0005 /* A char is about to be written to the console */
 +
-+/**
-+ *	unregister_reboot_notifier - Unregister previously registered reboot notifier
-+ *	@nb: Hook to be unregistered
-+ *
-+ *	Unregisters a previously registered reboot
-+ *	notifier function.
-+ *
-+ *	Returns zero on success, or %-ENOENT on failure.
-+ */
-+int unregister_reboot_notifier(struct notifier_block *nb)
-+{
-+	return blocking_notifier_chain_unregister(&reboot_notifier_list, nb);
-+}
-+EXPORT_SYMBOL(unregister_reboot_notifier);
-+
-+/**
-  *	kernel_restart - reboot the system
-  *	@cmd: pointer to buffer containing command to execute for restart
-  *		or %NULL
+ #ifdef CONFIG_VT_CONSOLE
+ 
+ extern int vt_kmsg_redirect(int new);
 -- 
 1.7.4.4
