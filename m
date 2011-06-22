@@ -1,47 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
-Date: Wed, 22 Jun 2011 16:11:28 -0700
-Message-ID: <4E0276A0.8010802@candelatech.com>
-References: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Weird locking in __release_sock()?
+Date: Wed, 22 Jun 2011 16:31:13 -0700
+Message-ID: <4E027B41.3040009@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51553 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757743Ab1FVXLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 19:11:33 -0400
-In-Reply-To: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:19653 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757427Ab1FVXbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 19:31:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/22/2011 09:04 AM, Micha=C5=82 Miros=C5=82aw wrote:
-> v3 of a feature handling cleanup and extension series. For testing, y=
-ou
-> might want user-space ethtool patched with:
->
-> http://patchwork.ozlabs.org/patch/96374/
+Hi,
 
-There is a typo in one of those patches:
+In net/core/sock.c the function __release_sock() appears to drop the 
+socket lock, and then feed the backlogged skbs to sk_backlog_rcv().
 
-   CC      fs/quota/netlink.o
-/home/greearb/git/net-next-2.6/net/core/dev.c: In function =E2=80=98__n=
-etdev_update_features=E2=80=99:
-/home/greearb/git/net-next-2.6/net/core/dev.c:5288: warning: too many a=
-rguments for format
-   CC      net/core/ethtool.o
 
-	netdev_dbg(dev, "Features changed: %pNF -> pNF\n",
-		&dev->features, &features);
+In the case of an IPv4 TCP socket, sk_backlog_rcv() calls 
+tcp_v4_do_rcv(), which is documented like this:
 
-Thanks,
-Ben
+/* The socket must have it's spinlock held when we get
+  * here.
+.
+.
+.
+*/
 
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Q: How can this be correct?
 
+Perhaps I am missing something.  In any event, thanks in advance 
+shedding some light on the locking situation.
+
+David Daney
