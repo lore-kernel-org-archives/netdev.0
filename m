@@ -1,42 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] irda: fix smsc-ircc2 section mismatch
-	warning
-Date: Tue, 21 Jun 2011 20:33:04 -0700 (PDT)
-Message-ID: <20110621.203304.1676390665093844812.davem@davemloft.net>
-References: <20110621123938.5c932de8.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] ip: introduce ip_is_fragment helper inline
+ function
+Date: Tue, 21 Jun 2011 20:33:47 -0700 (PDT)
+Message-ID: <20110621.203347.384207505903484883.davem@davemloft.net>
+References: <1308680702-2212-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20110621123938.5c932de8.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45465 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757564Ab1FVDdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 23:33:50 -0400
+In-Reply-To: <1308680702-2212-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 21 Jun 2011 12:39:38 -0700
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 21 Jun 2011 14:25:02 -0400
 
-> From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> There are enough instances of this:
 > 
-> Fix section mismatch warning:
+>     iph->frag_off & htons(IP_MF | IP_OFFSET)
 > 
-> WARNING: drivers/net/irda/smsc-ircc2.o(.devinit.text+0x1a7): Section mismatch in reference from the function smsc_ircc_pnp_probe() to the function .init.text:smsc_ircc_open()
+> that a helper function is probably warranted.
 > 
-> Signed-off-by: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Applied to net-next-2.6, thanks!
-
-------------------------------------------------------------------------------
-Simplify data backup and recovery for your virtual environment with vRanger.
-Installation's a snap, and flexible recovery options mean your data is safe,
-secure and there when you need it. Data protection magic?
-Nope - It's vRanger. Get your free trial download today.
-http://p.sf.net/sfu/quest-sfdev2dev
+Applied, thanks.
