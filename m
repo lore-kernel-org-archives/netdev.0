@@ -1,62 +1,87 @@
-From: Fabienne Ducroquet <fabiduc@gmail.com>
-Subject: net/ipv4: commit d0733d2e29b breaks rtorrent
-Date: Wed, 22 Jun 2011 14:40:45 +0200
-Message-ID: <20110622124045.GA3247@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sundell.software@gmail.com, Reinhard Max <max@suse.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Marcus Meissner <meissner@suse.de>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: [PATCH 3/7] qlcnic: Add code to tune FW dump
+Date: Wed, 22 Jun 2011 05:52:19 -0700
+Message-ID: <1308747144-23785-3-git-send-email-anirban.chakraborty@qlogic.com>
+References: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
+Cc: David Miller <davem@davemloft.net>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bamako.nerim.net ([62.4.17.28]:65067 "EHLO bamako.nerim.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757882Ab1FVMu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 08:50:58 -0400
-Content-Disposition: inline
+Received: from vpn.pathscale.com ([198.186.3.75]:55827 "HELO mx.mv.qlogic.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1756698Ab1FVNAW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 09:00:22 -0400
+In-Reply-To: <1308747144-23785-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+To accommodate change in FW dump template, it is required to modify the
+FW dump routine that captures cache data. Also, the default mask is changed
+to capture a dump that would cover all the protocols that this FW supports.
 
-With the latest versions of the Linux kernel (I've just tried 
-3.0.0-rc4-00034-g2992c4b) rtorrent (version 0.8.7 with libtorrent 
-0.12.7, from Debian unstable) fails to start with the error message:
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic.h    |    5 ++---
+ drivers/net/qlcnic/qlcnic_hw.c |   14 +++++++++++---
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-	rtorrent: Could not open/bind port for listening: Invalid argument
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index 194376e..e5bb332 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -1220,8 +1220,7 @@ struct __ctrl {
+ 
+ struct __cache {
+ 	__le32	addr;
+-	u8	stride;
+-	u8	rsvd;
++	__le16	stride;
+ 	__le16	init_tag_val;
+ 	__le32	size;
+ 	__le32	no_ops;
+@@ -1319,7 +1318,7 @@ enum op_codes {
+ #define QLCNIC_DUMP_SKIP	BIT_7
+ 
+ #define QLCNIC_DUMP_MASK_MIN		3
+-#define QLCNIC_DUMP_MASK_DEF		0x0f
++#define QLCNIC_DUMP_MASK_DEF		0x7f
+ #define QLCNIC_DUMP_MASK_MAX		0xff
+ #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
+ 
+diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
+index 1947f81..81de563 100644
+--- a/drivers/net/qlcnic/qlcnic_hw.c
++++ b/drivers/net/qlcnic/qlcnic_hw.c
+@@ -1509,18 +1509,26 @@ qlcnic_dump_l2_cache(struct qlcnic_adapter *adapter,
+ 
+ 	for (i = 0; i < l2->no_ops; i++) {
+ 		QLCNIC_WR_DUMP_REG(l2->addr, base, val);
+-		do {
++		if (LSW(l2->ctrl_val))
+ 			QLCNIC_WR_DUMP_REG(l2->ctrl_addr, base,
+ 				LSW(l2->ctrl_val));
++		if (!poll_mask)
++			goto skip_poll;
++		do {
+ 			QLCNIC_RD_DUMP_REG(l2->ctrl_addr, base, &data);
+ 			if (!(data & poll_mask))
+ 				break;
+ 			msleep(1);
+ 			time_out++;
+ 		} while (time_out <= poll_to);
+-		if (time_out > poll_to)
+-			return -EINVAL;
+ 
++		if (time_out > poll_to) {
++			dev_err(&adapter->pdev->dev,
++				"Timeout exceeded in %s, aborting dump\n",
++				__func__);
++			return -EINVAL;
++		}
++skip_poll:
+ 		addr = l2->read_addr;
+ 		cnt = l2->read_addr_num;
+ 		while (cnt) {
+-- 
+1.7.4.1
 
-I bisected it down to:
-
-	commit d0733d2e29b652b2e7b1438ececa732e4eed98eb
-	Author: Marcus Meissner <meissner@suse.de>
-	Date:   Wed Jun 1 21:05:22 2011 -0700
-
-	    net/ipv4: Check for mistakenly passed in non-IPv4 address
-
-	    Check against mistakenly passing in IPv6 addresses (which would result
-	    in an INADDR_ANY bind) or similar incompatible sockaddrs.
-
-	    Signed-off-by: Marcus Meissner <meissner@suse.de>
-	    Cc: Reinhard Max <max@suse.de>
-	    Signed-off-by: David S. Miller <davem@davemloft.net>
-	---
-	 net/ipv4/af_inet.c |    3 +++
-	 1 files changed, 3 insertions(+), 0 deletions(-)
-
-	diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-	index cc14631..9c19260 100644
-	--- a/net/ipv4/af_inet.c
-	+++ b/net/ipv4/af_inet.c
-	@@ -465,6 +465,9 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-		if (addr_len < sizeof(struct sockaddr_in))
-			goto out;
-
-	+       if (addr->sin_family != AF_INET)
-	+               goto out;
-	+
-		chk_addr_ret = inet_addr_type(sock_net(sk), addr->sin_addr.s_addr);
-
-		/* Not specified by any standard per-se, however it breaks too
-
-With this commit reverted rtorrent works again.
-
-Fabienne
