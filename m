@@ -1,124 +1,277 @@
-From: "Marius B. Kotsbak" <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] net/usb: kalmia: Various fixes for better support of non-x86 architectures.
-Date: Wed, 22 Jun 2011 17:26:16 +0200
-Message-ID: <1308756376-9920-1-git-send-email-marius@kotsbak.com>
-References: <20110619.155755.1854488306547854947.davem@davemloft.net>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110619.155755.1854488306547854947.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Shawn Guo <shawn.guo-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Wed, 22 Jun 2011 23:33:54 +0800
+Message-ID: <20110622153353.GA25799@S2100-06.ap.freescale.net>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
+	<20110618161934.GH8195@ponder.secretlab.ca>
+	<20110619073000.GA23171@S2100-06.ap.freescale.net>
+	<20110621135558.GB9228@S2101-09.ap.freescale.net>
+	<BANLkTim4vunTm1176MRw3pqRZnunu4=9jg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <BANLkTim4vunTm1176MRw3pqRZnunu4=9jg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
--Support for big endian.
--Do not use USB buffers at the stack.
--Safer/more efficient code for local constants.
+On Tue, Jun 21, 2011 at 01:13:50PM -0600, Grant Likely wrote:
+> On Tue, Jun 21, 2011 at 7:55 AM, Shawn Guo <shawn.guo-KZfg59tc24xl57MIdRCFDg@public.gmane.org> wrot=
+e:
+> > Hi Grant,
+> >
+> > I just gave a try to use aliases node for identify the device index.
+> > Please take a look and let me know if it's what you expect.
+> =
 
-Signed-off-by: Marius B. Kotsbak <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/kalmia.c |   40 ++++++++++++++++++++++++----------------
- 1 files changed, 24 insertions(+), 16 deletions(-)
+> Thanks Shawn.  This is definitely on track.  Comments below...
+> =
 
-diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
-index d965fb1..d4edeb2 100644
---- a/drivers/net/usb/kalmia.c
-+++ b/drivers/net/usb/kalmia.c
-@@ -100,27 +100,35 @@ kalmia_send_init_packet(struct usbnet *dev, u8 *init_msg, u8 init_msg_len,
- static int
- kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
- {
--	char init_msg_1[] =
-+	const static char init_msg_1[] =
- 		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
- 		0x00, 0x00 };
--	char init_msg_2[] =
-+	const static char init_msg_2[] =
- 		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
- 		0x00, 0x00 };
--	char receive_buf[28];
-+	const static int buflen = 28;
-+	char *usb_buf;
- 	int status;
- 
--	status = kalmia_send_init_packet(dev, init_msg_1, sizeof(init_msg_1)
--		/ sizeof(init_msg_1[0]), receive_buf, 24);
-+	usb_buf = kmalloc(buflen, GFP_DMA | GFP_KERNEL);
-+	if (!usb_buf)
-+		return -ENOMEM;
-+
-+	memcpy(usb_buf, init_msg_1, 12);
-+	status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_1)
-+		/ sizeof(init_msg_1[0]), usb_buf, 24);
- 	if (status != 0)
- 		return status;
- 
--	status = kalmia_send_init_packet(dev, init_msg_2, sizeof(init_msg_2)
--		/ sizeof(init_msg_2[0]), receive_buf, 28);
-+	memcpy(usb_buf, init_msg_2, 12);
-+	status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_2)
-+		/ sizeof(init_msg_2[0]), usb_buf, 28);
- 	if (status != 0)
- 		return status;
- 
--	memcpy(ethernet_addr, receive_buf + 10, ETH_ALEN);
-+	memcpy(ethernet_addr, usb_buf + 10, ETH_ALEN);
- 
-+	kfree(usb_buf);
- 	return status;
- }
- 
-@@ -190,7 +198,8 @@ kalmia_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
- 	dev_kfree_skb_any(skb);
- 	skb = skb2;
- 
--	done: header_start = skb_push(skb, KALMIA_HEADER_LENGTH);
-+done:
-+	header_start = skb_push(skb, KALMIA_HEADER_LENGTH);
- 	ether_type_1 = header_start[KALMIA_HEADER_LENGTH + 12];
- 	ether_type_2 = header_start[KALMIA_HEADER_LENGTH + 13];
- 
-@@ -201,9 +210,8 @@ kalmia_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
- 	header_start[0] = 0x57;
- 	header_start[1] = 0x44;
- 	content_len = skb->len - KALMIA_HEADER_LENGTH;
--	header_start[2] = (content_len & 0xff); /* low byte */
--	header_start[3] = (content_len >> 8); /* high byte */
- 
-+	put_unaligned_le16(content_len, &header_start[2]);
- 	header_start[4] = ether_type_1;
- 	header_start[5] = ether_type_2;
- 
-@@ -231,13 +239,13 @@ kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 	 * Our task here is to strip off framing, leaving skb with one
- 	 * data frame for the usbnet framework code to process.
- 	 */
--	const u8 HEADER_END_OF_USB_PACKET[] =
-+	const static u8 HEADER_END_OF_USB_PACKET[] =
- 		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
--	const u8 EXPECTED_UNKNOWN_HEADER_1[] =
-+	const static u8 EXPECTED_UNKNOWN_HEADER_1[] =
- 		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
--	const u8 EXPECTED_UNKNOWN_HEADER_2[] =
-+	const static u8 EXPECTED_UNKNOWN_HEADER_2[] =
- 		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
--	u8 i = 0;
-+	int i = 0;
- 
- 	/* incomplete header? */
- 	if (skb->len < KALMIA_HEADER_LENGTH)
-@@ -285,7 +293,7 @@ kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 
- 		/* subtract start header and end header */
- 		usb_packet_length = skb->len - (2 * KALMIA_HEADER_LENGTH);
--		ether_packet_length = header_start[2] + (header_start[3] << 8);
-+		ether_packet_length = get_unaligned_le16(&header_start[2]);
- 		skb_pull(skb, KALMIA_HEADER_LENGTH);
- 
- 		/* Some small packets misses end marker */
--- 
-1.7.4.1
+> >
+> > On Sun, Jun 19, 2011 at 03:30:02PM +0800, Shawn Guo wrote:
+> > [...]
+> >> > >
+> >> > > +#ifdef CONFIG_OF
+> >> > > +static int serial_imx_probe_dt(struct imx_port *sport,
+> >> > > + =A0 =A0 =A0 =A0 struct platform_device *pdev)
+> >> > > +{
+> >> > > + struct device_node *node =3D pdev->dev.of_node;
+> >> > > + const __be32 *line;
+> >> > > +
+> >> > > + if (!node)
+> >> > > + =A0 =A0 =A0 =A0 return -ENODEV;
+> >> > > +
+> >> > > + line =3D of_get_property(node, "id", NULL);
+> >> > > + if (!line)
+> >> > > + =A0 =A0 =A0 =A0 return -ENODEV;
+> >> > > +
+> >> > > + sport->port.line =3D be32_to_cpup(line) - 1;
+> >> >
+> >> > Hmmm, I really would like to be rid of this. =A0Instead, if uarts mu=
+st
+> >> > be enumerated, the driver should look for a /aliases/uart* property
+> >> > that matches the of_node. =A0Doing it that way is already establishe=
+d in
+> >> > the OpenFirmware documentation, and it ensures there are no overlaps
+> >> > in the global namespace.
+> >> >
+> >>
+> >> I just gave one more try to avoid using 'aliases', and you gave a
+> >> 'no' again. =A0Now, I know how hard you are on this. =A0Okay, I start
+> >> thinking about your suggestion seriously :)
+> >>
+> >> > We do need some infrastructure to make that easier though. =A0Would =
+you
+> >> > have time to help put that together?
+> >> >
+> >> Ok, I will give it a try.
+> >>
+> >
+> > diff --git a/arch/arm/boot/dts/imx51-babbage.dts b/arch/arm/boot/dts/im=
+x51-babbage.dts
+> > index da0381a..f4a5c3c 100644
+> > --- a/arch/arm/boot/dts/imx51-babbage.dts
+> > +++ b/arch/arm/boot/dts/imx51-babbage.dts
+> > @@ -18,6 +18,12 @@
+> > =A0 =A0 =A0 =A0compatible =3D "fsl,imx51-babbage", "fsl,imx51";
+> > =A0 =A0 =A0 =A0interrupt-parent =3D <&tzic>;
+> >
+> > + =A0 =A0 =A0 aliases {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial0 =3D &uart0;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial1 =3D &uart1;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial2 =3D &uart2;
+> > + =A0 =A0 =A0 };
+> > +
+> =
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Hmmm.  David Gibson had tossed out an idea of automatically generating
+> aliases from labels.  It may be time to revisit that idea.
+> =
+
+> David, perhaps using this format for a label should turn it into an
+> alias (prefix label with an asterisk):
+> =
+
+>         *thealias: i2c@12340000 { /*...*/ };
+> =
+
+> .... although that approach gets *really* hairy when considering that
+> different boards will want different enumeration.  How would one
+> override an automatic alias defined by an included .dts file?
+> =
+
+Another dependency the patch has to wait for?  Or we can go ahead and
+utilize the facility later when it gets ready?
+
+> > =A0 =A0 =A0 =A0chosen {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bootargs =3D "console=3Dttymxc0,115200 r=
+oot=3D/dev/mmcblk0p3 rootwait";
+> > =A0 =A0 =A0 =A0};
+> > @@ -47,29 +53,29 @@
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <0x70000000 0x40=
+000>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ranges;
+> >
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart@7000c000 {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart2: uart@7000c000 {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0compatib=
+le =3D "fsl,imx51-uart", "fsl,imx21-uart";
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D =
+<0x7000c000 0x4000>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0interrup=
+ts =3D <33>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0id =3D <=
+3>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,has-r=
+ts-cts;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,uart-=
+has-rtscts;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+> >
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart@73fbc000 {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart0: uart@73fbc000 {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0compatible =3D "fsl,imx5=
+1-uart", "fsl,imx21-uart";
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <0x73fbc000 0x40=
+00>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0interrupts =3D <31>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0id =3D <1>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,has-rts-cts;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,uart-has-rtscts;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+> >
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart@73fc0000 {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart1: uart@73fc0000 {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0compatible =3D "fsl,imx5=
+1-uart", "fsl,imx21-uart";
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <0x73fc0000 0x40=
+00>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0interrupts =3D <32>;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0id =3D <2>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,has-rts-cts;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,uart-has-rtscts;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+> > =A0 =A0 =A0 =A0};
+> >
+> > diff --git a/drivers/of/base.c b/drivers/of/base.c
+> > index 632ebae..13df5d2 100644
+> > --- a/drivers/of/base.c
+> > +++ b/drivers/of/base.c
+> > @@ -737,6 +737,37 @@ err0:
+> > =A0EXPORT_SYMBOL(of_parse_phandles_with_args);
+> >
+> > =A0/**
+> > + * =A0 =A0 of_get_device_index - Get device index by looking up "alias=
+es" node
+> > + * =A0 =A0 @np: =A0 =A0Pointer to device node that asks for device ind=
+ex
+> > + * =A0 =A0 @name: =A0The device alias without index number
+> > + *
+> > + * =A0 =A0 Returns the device index if find it, else returns -ENODEV.
+> > + */
+> > +int of_get_device_index(struct device_node *np, const char *alias)
+> > +{
+> > + =A0 =A0 =A0 struct device_node *aliases =3D of_find_node_by_name(NULL=
+, "aliases");
+> > + =A0 =A0 =A0 struct property *prop;
+> > + =A0 =A0 =A0 char name[32];
+> > + =A0 =A0 =A0 int index =3D 0;
+> > +
+> > + =A0 =A0 =A0 if (!aliases)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+> > +
+> > + =A0 =A0 =A0 while (1) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 snprintf(name, sizeof(name), "%s%d", alia=
+s, index);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 prop =3D of_find_property(aliases, name, =
+NULL);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!prop)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (np =3D=3D of_find_node_by_path(prop->=
+value))
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 index++;
+> > + =A0 =A0 =A0 }
+> =
+
+> Rather than parsing the alias strings everytime, it would probably be
+> better to preprocess all the properties in the aliases node and create
+> a lookup table of alias->node references that can be walked quickly
+> and trivially.
+> =
+
+Ok, I'm thinking about it.  Will probably ask something on details
+later.
+
+> Also, when obtaining an enumeration for a device, you'll need to be
+> careful about what number gets returned.  If the node doesn't match a
+> given alias, but aliases do exist for other devices of like type, then
+> you need to be careful not to assign a number already assigned to
+> another device via an alias (this of course assumes the driver
+> supports dynamics enumeration, which many drivers will).  It would be
+> =
+
+Some words not finished?
+
+> \> +
+> > + =A0 =A0 =A0 return index;
+> > +}
+> > +EXPORT_SYMBOL(of_get_device_index);
+> > +
+> > +/**
+> > =A0* prom_add_property - Add a property to a node
+> > =A0*/
+> > =A0int prom_add_property(struct device_node *np, struct property *prop)
+> > diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
+> > index da436e0..852668f 100644
+> > --- a/drivers/tty/serial/imx.c
+> > +++ b/drivers/tty/serial/imx.c
+> > @@ -1271,18 +1271,18 @@ static int serial_imx_probe_dt(struct imx_port =
+*sport,
+> > =A0 =A0 =A0 =A0struct device_node *node =3D pdev->dev.of_node;
+> > =A0 =A0 =A0 =A0const struct of_device_id *of_id =3D
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0of_match_device(imx_uart=
+_dt_ids, &pdev->dev);
+> > - =A0 =A0 =A0 const __be32 *line;
+> > + =A0 =A0 =A0 int line;
+> >
+> > =A0 =A0 =A0 =A0if (!node)
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
+> >
+> > - =A0 =A0 =A0 line =3D of_get_property(node, "id", NULL);
+> > - =A0 =A0 =A0 if (!line)
+> > + =A0 =A0 =A0 line =3D of_get_device_index(node, "serial");
+> > + =A0 =A0 =A0 if (IS_ERR_VALUE(line))
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
+> =
+
+> Personally, it an alias isn't present, then I'd dynamically assign a port=
+ id.
+> =
+
+We probably can not.  The driver works with being told the correct
+port id which is defined by soc.  Instead of dynamically assigning
+a port id, we have to tell the driver the exact hardware port id of
+the device that is being probed.
+
+-- =
+
+Regards,
+Shawn
