@@ -1,90 +1,47 @@
-From: Fabienne Ducroquet <fabiduc@gmail.com>
-Subject: Re: net/ipv4: commit d0733d2e29b breaks rtorrent
-Date: Thu, 23 Jun 2011 01:02:39 +0200
-Message-ID: <20110622230239.GA5009@localhost>
-References: <20110622124045.GA3247@localhost>
- <20110622124727.GC19184@suse.de>
- <alpine.LNX.2.00.1106221508310.10066@nitsch.suse.de>
- <20110622145144.GA31734@localhost>
- <alpine.LNX.2.00.1106221654500.20275@nitsch.suse.de>
- <20110622085329.65c625de@nehalam.ftrdhcpuser.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
+Date: Wed, 22 Jun 2011 16:11:28 -0700
+Message-ID: <4E0276A0.8010802@candelatech.com>
+References: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Reinhard Max <max@suse.de>, Marcus Meissner <meissner@suse.de>,
-	sundell.software@gmail.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poutre.nerim.net ([62.4.16.124]:50380 "EHLO poutre.nerim.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756627Ab1FVXCl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 19:02:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20110622085329.65c625de@nehalam.ftrdhcpuser.net>
+Received: from mail.candelatech.com ([208.74.158.172]:51553 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757743Ab1FVXLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 19:11:33 -0400
+In-Reply-To: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 22, 2011 at 08:53:29AM -0700, Stephen Hemminger wrote:
-> You can find code here http://libtorrent.rakshasa.no/
-> but it is in C++ so there is an abnormally high indirection factor
-> between reality of the bug and the code as written.
+On 06/22/2011 09:04 AM, Micha=C5=82 Miros=C5=82aw wrote:
+> v3 of a feature handling cleanup and extension series. For testing, y=
+ou
+> might want user-space ethtool patched with:
+>
+> http://patchwork.ozlabs.org/patch/96374/
 
-I had a look at the code, I found where bind is called, but it does not 
-help: it is in libtorrent/src/net/socket_fd.cc:
+There is a typo in one of those patches:
 
-	bool
-	SocketFd::bind(const rak::socket_address& sa) {
-	  check_valid();
-	
-	  return !::bind(m_fd, sa.c_sockaddr(), sa.length());
-	}
+   CC      fs/quota/netlink.o
+/home/greearb/git/net-next-2.6/net/core/dev.c: In function =E2=80=98__n=
+etdev_update_features=E2=80=99:
+/home/greearb/git/net-next-2.6/net/core/dev.c:5288: warning: too many a=
+rguments for format
+   CC      net/core/ethtool.o
 
-check_valid() checks the validity of the socket FD.
-It is called by the function:
+	netdev_dbg(dev, "Features changed: %pNF -> pNF\n",
+		&dev->features, &features);
 
-	bool
-	Listen::open(uint16_t first, uint16_t last, const rak::socket_address* bindAddress) {
-	  close();
+Thanks,
+Ben
 
-	  [ Checks that the range of the ports is OK, that the address 
-	  is an inet or inet6 address, that the socket can be 
-	  allocated.]
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-	  rak::socket_address sa;
-	  sa.copy(*bindAddress, bindAddress->length());
-
-	  for (uint16_t i = first; i <= last; ++i) {
-	  sa.set_port(i);
-
-	  if (get_fd().bind(sa) && get_fd().listen(50)) {
-	     ...
-
-in libtorrent/src/net/listen.cc. That function was called by:
-
-	bool
-	ConnectionManager::listen_open(port_type begin, port_type end) {
-	  if (!m_listen->open(begin, end, rak::socket_address::cast_from(m_bindAddress)))
-	    return false;
-	
-	  m_listenPort = m_listen->port();
-	
-	  return true;
-	}
-
-in libtorrent/src/torrent/connection_manager.cc, and it was itself 
-called by Manager::listen_open() in rtorrent/core/manager.cc, which 
-throws the error message I got because the call to
-
-	torrent::connection_manager()->listen_open(portFirst, portLast)
-
-fails.
-
-So the question now is to find how the m_bindAddress used in 
-ConnectionManager::listen_open is set, but I prefer not to do that right 
-now.
-
-> Did you try contacting the developer?
-
-I've put him in the Cc: since the first message.
-
-Fabienne
