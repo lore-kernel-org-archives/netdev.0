@@ -1,7 +1,7 @@
 From: John Haxby <jch@thehaxbys.co.uk>
 Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Wed, 22 Jun 2011 19:46:20 +0100
-Message-ID: <9A104657-E760-4489-A92E-7DF04CC0EE6C@oracle.com>
+Date: Wed, 22 Jun 2011 19:57:11 +0100
+Message-ID: <A2D02CF4-27C4-4A6E-A322-8D04C15EF3F3@oracle.com>
 References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com> <4E0115B3.2030802@redhat.com> <20110621225645.GD16021@Chamillionaire.breakpoint.cc> <20110621.155816.1840729860084652508.davem@davemloft.net> <4E01C34F.6050009@redhat.com> <20110622105434.GE16021@Chamillionaire.breakpoint.cc> <4E01E1FD.8010802@oracle.com> <4E0228C3.8090402@redhat.com>
 Mime-Version: 1.0 (Apple Message framework v1084)
 Content-Type: text/plain; charset=us-ascii
@@ -12,12 +12,12 @@ Cc: David Miller <davem@davemloft.net>,
 	lwoodman@redhat.com
 To: Prarit Bhargava <prarit@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:37873 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758622Ab1FVSqZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 14:46:25 -0400
-Received: by wwe5 with SMTP id 5so1147528wwe.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2011 11:46:24 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49414 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758605Ab1FVS5P convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 14:57:15 -0400
+Received: by wyb38 with SMTP id 38so785115wyb.19
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2011 11:57:14 -0700 (PDT)
 In-Reply-To: <4E0228C3.8090402@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -55,7 +55,5 @@ On 22 Jun 2011, at 18:39, Prarit Bhargava wrote:
 
 I've just re-read the thread and I'm reminded that I never did submit the xt_SYSRQ hash update I mentioned at the end of the thread.
 
-davem: I'm more than happy to push that patch through if it will make xt_SYSRQ more acceptable.
 
-jch
 
