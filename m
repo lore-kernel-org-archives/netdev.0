@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] packet: Add fanout support.
-Date: Tue, 21 Jun 2011 19:12:34 -0700 (PDT)
-Message-ID: <20110621.191234.1252718817049863482.davem@davemloft.net>
-References: <4E009C5A.8060208@inliniac.net>
-	<20110621.143902.274396574751811372.davem@davemloft.net>
-	<BANLkTinxvHbkCLehJkqoCfryeTqL0zhWiw@mail.gmail.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH v2 net-next af-packet 0/2] Enhance af-packet to provide
+ (near zero)lossless packet capture functionality.
+Date: Tue, 21 Jun 2011 23:02:11 -0400
+Message-ID: <BANLkTimisxLVdYJTK1NcR1vQi27CE20yxQ@mail.gmail.com>
+References: <1308708650-25509-1-git-send-email-loke.chetan@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: victor@inliniac.net, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54359 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757737Ab1FVCMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2011 22:12:43 -0400
-In-Reply-To: <BANLkTinxvHbkCLehJkqoCfryeTqL0zhWiw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, joe@perches.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, linux-kernel@vger.kernel.org,
+	Chetan Loke <loke.chetan@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1308708650-25509-1-git-send-email-loke.chetan@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed, 22 Jun 2011 09:44:00 +0800
+On Tue, Jun 21, 2011 at 10:10 PM, Chetan Loke <loke.chetan@gmail.com> w=
+rote:
+> Hello,
+>
+> Please review the patchset.
+>
+> Changes from v1:
+>
+> 1) v1 was based on 2.6.38.9. v2 is rebased to net-next.
+> 2) Aligned bdqc members, pr_err to WARN, sob email =C2=A0 =C2=A0 =C2=A0=
+(Joe Perches)
+> 3) Added tp_padding =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 (Eric Dumazet)
+> 4) Nuked useless ;) white space =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (Stephen H)
+> 5) Use __u types in headers =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (Ben Hutchings=
+)
+> 6) Added field for creating private area =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0(Chetan Loke)
+>
 
-> I think he also needs all the packets belong to the related
-> connections are received via the same socket. I am afraid that he has
-> to dispatch these kind of packets among the uesrland processes again.
-> :)
+Hi Dave,
 
-I mean, if we really wanted to, we could create a new ip_defrag()
-client case in the rxhash receive code.  But this would need to be
-configurable and off by default.
+Is there a chance of getting this merged either in 3.0 or 3.1 or ever ;=
+) ?
 
-It would provide the desired behavior.
+thanks
+Chetan
