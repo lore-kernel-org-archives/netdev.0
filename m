@@ -1,68 +1,76 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/12] ixgbe: fix ring assignment issues for SR-IOV and drop cases
-Date: Wed, 22 Jun 2011 18:44:35 -0700
-Message-ID: <1308793476-11596-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/12] ixgbe: update driver version string
+Date: Wed, 22 Jun 2011 18:44:36 -0700
+Message-ID: <1308793476-11596-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:45487 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932382Ab1FWBoq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 21:44:46 -0400
+	id S932390Ab1FWBor (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 21:44:47 -0400
 In-Reply-To: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This change fixes the fact that we would trigger a null pointer dereference
-or specify the wrong ring if the rings were restored.  This change makes
-certain that the DROP queue is a static value, and all other rings are
-based on the ring offsets for the PF.
+Update the ixgbe driver version string to better match the Source Driver
+with similar device support.  Likewise update to the current LAD Linux
+versioning scheme.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-of-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Evan Swanson <evan.swanson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |    2 ++
- drivers/net/ixgbe/ixgbe_main.c    |    8 +++++---
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    8 ++++----
+ drivers/net/ixgbe/ixgbe_type.h |    3 ++-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index cb59359..ac3028d 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2722,6 +2722,8 @@ static int ixgbe_add_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
- 	/* program filters to filter memory */
- 	err = ixgbe_fdir_write_perfect_filter_82599(hw,
- 				&input->filter, input->sw_idx,
-+				(input->action == IXGBE_FDIR_DROP_QUEUE) ?
-+				IXGBE_FDIR_DROP_QUEUE :
- 				adapter->rx_ring[input->action]->reg_idx);
- 	if (err)
- 		goto err_out_w_lock;
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c03b5cc..168a5d6 100644
+index 168a5d6..700903c 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3760,9 +3760,11 @@ static void ixgbe_fdir_filter_restore(struct ixgbe_adapter *adapter)
- 	hlist_for_each_entry_safe(filter, node, node2,
- 				  &adapter->fdir_filter_list, fdir_node) {
- 		ixgbe_fdir_write_perfect_filter_82599(hw,
--						      &filter->filter,
--						      filter->sw_idx,
--						      filter->action);
-+				&filter->filter,
-+				filter->sw_idx,
-+				(filter->action == IXGBE_FDIR_DROP_QUEUE) ?
-+				IXGBE_FDIR_DROP_QUEUE :
-+				adapter->rx_ring[filter->action]->reg_idx);
- 	}
+@@ -54,11 +54,10 @@ char ixgbe_driver_name[] = "ixgbe";
+ static const char ixgbe_driver_string[] =
+ 			      "Intel(R) 10 Gigabit PCI Express Network Driver";
+ #define MAJ 3
+-#define MIN 3
++#define MIN 4
+ #define BUILD 8
+-#define KFIX 2
+ #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
+-	__stringify(BUILD) "-k" __stringify(KFIX)
++	__stringify(BUILD) "-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+ 				"Copyright (c) 1999-2011 Intel Corporation.";
+@@ -7718,7 +7717,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
  
- 	spin_unlock(&adapter->fdir_perfect_lock);
+ 	/* Inform firmware of driver version */
+ 	if (hw->mac.ops.set_fw_drv_ver)
+-		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD, KFIX);
++		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD,
++					   FW_CEM_UNUSED_VER);
+ 
+ 	/* add san mac addr to netdev */
+ 	ixgbe_add_sanmac_netdev(netdev);
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 8b1abd4..1eefc0c 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -2143,7 +2143,8 @@ enum ixgbe_fdir_pballoc_type {
+ #define FW_CEM_HDR_LEN                0x4
+ #define FW_CEM_CMD_DRIVER_INFO        0xDD
+ #define FW_CEM_CMD_DRIVER_INFO_LEN    0x5
+-#define FW_CEM_CMD_RESERVED           0X0
++#define FW_CEM_CMD_RESERVED           0x0
++#define FW_CEM_UNUSED_VER             0x0
+ #define FW_CEM_MAX_RETRIES            3
+ #define FW_CEM_RESP_STATUS_SUCCESS    0x1
+ 
 -- 
 1.7.5.4
 
