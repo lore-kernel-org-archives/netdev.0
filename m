@@ -1,374 +1,228 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/12] ixgbe: add support for nfc addition and removal of filters
-Date: Wed, 22 Jun 2011 18:44:30 -0700
-Message-ID: <1308793476-11596-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/12] ixgbe: fix flags relating to perfect filters to support coexistence
+Date: Wed, 22 Jun 2011 18:44:26 -0700
+Message-ID: <1308793476-11596-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:56642 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:43939 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932287Ab1FWBon (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 21:44:43 -0400
+	id S932287Ab1FWBol (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 21:44:41 -0400
 In-Reply-To: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to allow for nfc to insert and remove filters in order
-to test the ethtool interface which includes it's own rules manager.
+I am removing the requirement that Ntuple filters have the same
+number of queues and requirements as ATR.  As a result this change will
+make it so that all the Ntuple flag does is disable ATR for now.
+
+This change fixes an issue in which we were incorrectly re-enabling ATR
+when we exited perfect filter mode.  This was due to the fact that the
+logic assumed RSS and DCB were mutually exclusive which is no longer the
+case.
+
+To correct this we just need to add a check to guarantee DCB is disabled
+before re-enabling ATR.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |  245 +++++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_main.c    |   45 +++++++
- 2 files changed, 290 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb_nl.c  |   13 ++++++-------
+ drivers/net/ixgbe/ixgbe_ethtool.c |   24 ++++++++++++------------
+ drivers/net/ixgbe/ixgbe_main.c    |   34 ++++++++++++----------------------
+ 3 files changed, 30 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 649e596..2965b6e 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2456,6 +2456,250 @@ static int ixgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
- 	return ret;
- }
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index 08c7aeb..bd2d752 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -114,11 +114,12 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 	u8 err = 0;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
  
-+static int ixgbe_update_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
-+					   struct ixgbe_fdir_filter *input,
-+					   u16 sw_idx)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct hlist_node *node, *node2, *parent;
-+	struct ixgbe_fdir_filter *rule;
-+	int err = -EINVAL;
-+
-+	parent = NULL;
-+	rule = NULL;
-+
-+	hlist_for_each_entry_safe(rule, node, node2,
-+				  &adapter->fdir_filter_list, fdir_node) {
-+		/* hash found, or no matching entry */
-+		if (rule->sw_idx >= sw_idx)
-+			break;
-+		parent = node;
-+	}
-+
-+	/* if there is an old rule occupying our place remove it */
-+	if (rule && (rule->sw_idx == sw_idx)) {
-+		if (!input || (rule->filter.formatted.bkt_hash !=
-+			       input->filter.formatted.bkt_hash)) {
-+			err = ixgbe_fdir_erase_perfect_filter_82599(hw,
-+								&rule->filter,
-+								sw_idx);
-+		}
-+
-+		hlist_del(&rule->fdir_node);
-+		kfree(rule);
-+		adapter->fdir_filter_count--;
-+	}
-+
-+	/*
-+	 * If no input this was a delete, err should be 0 if a rule was
-+	 * successfully found and removed from the list else -EINVAL
-+	 */
-+	if (!input)
++	/* verify there is something to do, if not then exit */
++	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
 +		return err;
 +
-+	/* initialize node and set software index */
-+	INIT_HLIST_NODE(&input->fdir_node);
-+
-+	/* add filter to the list */
-+	if (parent)
-+		hlist_add_after(parent, &input->fdir_node);
-+	else
-+		hlist_add_head(&input->fdir_node,
-+			       &adapter->fdir_filter_list);
-+
-+	/* update counts */
-+	adapter->fdir_filter_count++;
-+
-+	return 0;
-+}
-+
-+static int ixgbe_flowspec_to_flow_type(struct ethtool_rx_flow_spec *fsp,
-+				       u8 *flow_type)
-+{
-+	switch (fsp->flow_type & ~FLOW_EXT) {
-+	case TCP_V4_FLOW:
-+		*flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
-+		break;
-+	case UDP_V4_FLOW:
-+		*flow_type = IXGBE_ATR_FLOW_TYPE_UDPV4;
-+		break;
-+	case SCTP_V4_FLOW:
-+		*flow_type = IXGBE_ATR_FLOW_TYPE_SCTPV4;
-+		break;
-+	case IP_USER_FLOW:
-+		switch (fsp->h_u.usr_ip4_spec.proto) {
-+		case IPPROTO_TCP:
-+			*flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
-+			break;
-+		case IPPROTO_UDP:
-+			*flow_type = IXGBE_ATR_FLOW_TYPE_UDPV4;
-+			break;
-+		case IPPROTO_SCTP:
-+			*flow_type = IXGBE_ATR_FLOW_TYPE_SCTPV4;
-+			break;
-+		case 0:
-+			if (!fsp->m_u.usr_ip4_spec.proto) {
-+				*flow_type = IXGBE_ATR_FLOW_TYPE_IPV4;
-+				break;
-+			}
-+		default:
-+			return 0;
+ 	if (state > 0) {
+ 		/* Turn on DCB */
+-		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
+-			goto out;
+-
+ 		if (!(adapter->flags & IXGBE_FLAG_MSIX_ENABLED)) {
+ 			e_err(drv, "Enable failed, needs MSI-X\n");
+ 			err = 1;
+@@ -143,9 +144,6 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 		ixgbe_setup_tc(netdev, MAX_TRAFFIC_CLASS);
+ 	} else {
+ 		/* Turn off DCB */
+-		if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+-			goto out;
+-
+ 		adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
+ 		adapter->temp_dcb_cfg.pfc_mode_enable = false;
+ 		adapter->dcb_cfg.pfc_mode_enable = false;
+@@ -153,7 +151,8 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+ 		switch (adapter->hw.mac.type) {
+ 		case ixgbe_mac_82599EB:
+ 		case ixgbe_mac_X540:
+-			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
++			if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
++				adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 			break;
+ 		default:
+ 			break;
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index e41dd24..a2d8ed5 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -2310,20 +2310,20 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+ 	 * Check if Flow Director n-tuple support was enabled or disabled.  If
+ 	 * the state changed, we need to reset.
+ 	 */
+-	if ((adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE) &&
+-	    (!(data & ETH_FLAG_NTUPLE))) {
+-		/* turn off Flow Director perfect, set hash and reset */
++	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
++		/* turn off ATR, enable perfect filters and reset */
++		if (data & ETH_FLAG_NTUPLE) {
++			adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
++			adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
++			need_reset = true;
 +		}
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static int ixgbe_add_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
-+					struct ethtool_rxnfc *cmd)
-+{
-+	struct ethtool_rx_flow_spec *fsp =
-+		(struct ethtool_rx_flow_spec *)&cmd->fs;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct ixgbe_fdir_filter *input;
-+	union ixgbe_atr_input mask;
-+	int err;
-+
-+	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
-+		return -EOPNOTSUPP;
-+
-+	/*
-+	 * Don't allow programming if the action is a queue greater than
-+	 * the number of online Rx queues.
-+	 */
-+	if ((fsp->ring_cookie != RX_CLS_FLOW_DISC) &&
-+	    (fsp->ring_cookie >= adapter->num_rx_queues))
-+		return -EINVAL;
-+
-+	/* Don't allow indexes to exist outside of available space */
-+	if (fsp->location >= ((1024 << adapter->fdir_pballoc) - 2)) {
-+		e_err(drv, "Location out of range\n");
-+		return -EINVAL;
-+	}
-+
-+	input = kzalloc(sizeof(*input), GFP_ATOMIC);
-+	if (!input)
-+		return -ENOMEM;
-+
-+	memset(&mask, 0, sizeof(union ixgbe_atr_input));
-+
-+	/* set SW index */
-+	input->sw_idx = fsp->location;
-+
-+	/* record flow type */
-+	if (!ixgbe_flowspec_to_flow_type(fsp,
-+					 &input->filter.formatted.flow_type)) {
-+		e_err(drv, "Unrecognized flow type\n");
-+		goto err_out;
-+	}
-+
-+	mask.formatted.flow_type = IXGBE_ATR_L4TYPE_IPV6_MASK |
-+				   IXGBE_ATR_L4TYPE_MASK;
-+
-+	if (input->filter.formatted.flow_type == IXGBE_ATR_FLOW_TYPE_IPV4)
-+		mask.formatted.flow_type &= IXGBE_ATR_L4TYPE_IPV6_MASK;
-+
-+	/* Copy input into formatted structures */
-+	input->filter.formatted.src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
-+	mask.formatted.src_ip[0] = fsp->m_u.tcp_ip4_spec.ip4src;
-+	input->filter.formatted.dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
-+	mask.formatted.dst_ip[0] = fsp->m_u.tcp_ip4_spec.ip4dst;
-+	input->filter.formatted.src_port = fsp->h_u.tcp_ip4_spec.psrc;
-+	mask.formatted.src_port = fsp->m_u.tcp_ip4_spec.psrc;
-+	input->filter.formatted.dst_port = fsp->h_u.tcp_ip4_spec.pdst;
-+	mask.formatted.dst_port = fsp->m_u.tcp_ip4_spec.pdst;
-+
-+	if (fsp->flow_type & FLOW_EXT) {
-+		input->filter.formatted.vm_pool =
-+				(unsigned char)ntohl(fsp->h_ext.data[1]);
-+		mask.formatted.vm_pool =
-+				(unsigned char)ntohl(fsp->m_ext.data[1]);
-+		input->filter.formatted.vlan_id = fsp->h_ext.vlan_tci;
-+		mask.formatted.vlan_id = fsp->m_ext.vlan_tci;
-+		input->filter.formatted.flex_bytes =
-+						fsp->h_ext.vlan_etype;
-+		mask.formatted.flex_bytes = fsp->m_ext.vlan_etype;
-+	}
-+
-+	/* determine if we need to drop or route the packet */
-+	if (fsp->ring_cookie == RX_CLS_FLOW_DISC)
-+		input->action = IXGBE_FDIR_DROP_QUEUE;
-+	else
-+		input->action = fsp->ring_cookie;
-+
-+	spin_lock(&adapter->fdir_perfect_lock);
-+
-+	if (hlist_empty(&adapter->fdir_filter_list)) {
-+		/* save mask and program input mask into HW */
-+		memcpy(&adapter->fdir_mask, &mask, sizeof(mask));
-+		err = ixgbe_fdir_set_input_mask_82599(hw, &mask);
-+		if (err) {
-+			e_err(drv, "Error writing mask\n");
-+			goto err_out_w_lock;
-+		}
-+	} else if (memcmp(&adapter->fdir_mask, &mask, sizeof(mask))) {
-+		e_err(drv, "Only one mask supported per port\n");
-+		goto err_out_w_lock;
-+	}
-+
-+	/* apply mask and compute/store hash */
-+	ixgbe_atr_compute_perfect_hash_82599(&input->filter, &mask);
-+
-+	/* program filters to filter memory */
-+	err = ixgbe_fdir_write_perfect_filter_82599(hw,
-+				&input->filter, input->sw_idx,
-+				adapter->rx_ring[input->action]->reg_idx);
-+	if (err)
-+		goto err_out_w_lock;
-+
-+	ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
-+
-+	spin_unlock(&adapter->fdir_perfect_lock);
-+
-+	return err;
-+err_out_w_lock:
-+	spin_unlock(&adapter->fdir_perfect_lock);
-+err_out:
-+	kfree(input);
-+	return -EINVAL;
-+}
-+
-+static int ixgbe_del_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
-+					struct ethtool_rxnfc *cmd)
-+{
-+	struct ethtool_rx_flow_spec *fsp =
-+		(struct ethtool_rx_flow_spec *)&cmd->fs;
-+	int err;
-+
-+	spin_lock(&adapter->fdir_perfect_lock);
-+	err = ixgbe_update_ethtool_fdir_entry(adapter, NULL, fsp->location);
-+	spin_unlock(&adapter->fdir_perfect_lock);
-+
-+	return err;
-+}
-+
-+static int ixgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_SRXCLSRLINS:
-+		ret = ixgbe_add_ethtool_fdir_entry(adapter, cmd);
-+		break;
-+	case ETHTOOL_SRXCLSRLDEL:
-+		ret = ixgbe_del_ethtool_fdir_entry(adapter, cmd);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2492,6 +2736,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_flags              = ethtool_op_get_flags,
- 	.set_flags              = ixgbe_set_flags,
- 	.get_rxnfc		= ixgbe_get_rxnfc,
-+	.set_rxnfc		= ixgbe_set_rxnfc,
- };
++	} else if (!(data & ETH_FLAG_NTUPLE)) {
++		/* turn off Flow Director, set ATR and reset */
+ 		adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+-		adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+-		need_reset = true;
+-	} else if ((!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) &&
+-	           (data & ETH_FLAG_NTUPLE)) {
+-		/* turn off Flow Director hash, enable perfect and reset */
+-		adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+-		adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
++		if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
++		    !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
++			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 		need_reset = true;
+-	} else {
+-		/* no state change */
+ 	}
  
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
+ 	if (need_reset) {
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index e177b5d..2886dae 100644
+index 4cd66ae..5483b9c 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3741,6 +3741,28 @@ static void ixgbe_configure_pb(struct ixgbe_adapter *adapter)
- 	hw->mac.ops.set_rxpba(&adapter->hw, num_tc, hdrm, PBA_STRATEGY_EQUAL);
- }
+@@ -1555,9 +1555,8 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
+ 			q_vector->eitr = adapter->rx_eitr_param;
  
-+static void ixgbe_fdir_filter_restore(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct hlist_node *node, *node2;
-+	struct ixgbe_fdir_filter *filter;
-+
-+	spin_lock(&adapter->fdir_perfect_lock);
-+
-+	if (!hlist_empty(&adapter->fdir_filter_list))
-+		ixgbe_fdir_set_input_mask_82599(hw, &adapter->fdir_mask);
-+
-+	hlist_for_each_entry_safe(filter, node, node2,
-+				  &adapter->fdir_filter_list, fdir_node) {
-+		ixgbe_fdir_write_perfect_filter_82599(hw,
-+						      &filter->filter,
-+						      filter->sw_idx,
-+						      filter->action);
-+	}
-+
-+	spin_unlock(&adapter->fdir_perfect_lock);
-+}
-+
- static void ixgbe_configure(struct ixgbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -3765,6 +3787,10 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 		ixgbe_write_eitr(q_vector);
+-		/* If Flow Director is enabled, set interrupt affinity */
+-		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+-		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
++		/* If ATR is enabled, set interrupt affinity */
++		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+ 			/*
+ 			 * Allocate the affinity_hint cpumask, assign the mask
+ 			 * for this vector, and set our affinity_hint for
+@@ -2468,8 +2467,7 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
+ 	default:
+ 		break;
+ 	}
+-	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE ||
+-	    adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)
++	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+ 		mask |= IXGBE_EIMS_FLOW_DIR;
+ 
+ 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
+@@ -3767,8 +3765,6 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
  			adapter->tx_ring[i]->atr_sample_rate =
  						       adapter->atr_sample_rate;
  		ixgbe_init_fdir_signature_82599(hw, adapter->fdir_pballoc);
-+	} else if (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE) {
-+		ixgbe_init_fdir_perfect_82599(&adapter->hw,
-+					      adapter->fdir_pballoc);
-+		ixgbe_fdir_filter_restore(adapter);
+-	} else if (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE) {
+-		ixgbe_init_fdir_perfect_82599(hw, adapter->fdir_pballoc);
  	}
  	ixgbe_configure_virtualization(adapter);
  
-@@ -4141,6 +4167,23 @@ static void ixgbe_clean_all_tx_rings(struct ixgbe_adapter *adapter)
- 		ixgbe_clean_tx_ring(adapter->tx_ring[i]);
+@@ -4334,15 +4330,13 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
+ 	f_fdir->mask = 0;
+ 
+ 	/* Flow Director must have RSS enabled */
+-	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED &&
+-	    ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE ||
+-	     (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)))) {
++	if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
++	    (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)) {
+ 		adapter->num_tx_queues = f_fdir->indices;
+ 		adapter->num_rx_queues = f_fdir->indices;
+ 		ret = true;
+ 	} else {
+ 		adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+-		adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+ 	}
+ 	return ret;
  }
+@@ -4372,12 +4366,12 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
  
-+static void ixgbe_fdir_filter_exit(struct ixgbe_adapter *adapter)
-+{
-+	struct hlist_node *node, *node2;
-+	struct ixgbe_fdir_filter *filter;
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+ 		e_info(probe, "FCoE enabled with RSS\n");
+-		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+-		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
++		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+ 			ixgbe_set_fdir_queues(adapter);
+ 		else
+ 			ixgbe_set_rss_queues(adapter);
+ 	}
 +
-+	spin_lock(&adapter->fdir_perfect_lock);
-+
-+	hlist_for_each_entry_safe(filter, node, node2,
-+				  &adapter->fdir_filter_list, fdir_node) {
-+		hlist_del(&filter->fdir_node);
-+		kfree(filter);
-+	}
-+	adapter->fdir_filter_count = 0;
-+
-+	spin_unlock(&adapter->fdir_perfect_lock);
-+}
-+
- void ixgbe_down(struct ixgbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -5527,6 +5570,8 @@ static int ixgbe_close(struct net_device *netdev)
- 	ixgbe_down(adapter);
- 	ixgbe_free_irq(adapter);
+ 	/* adding FCoE rx rings to the end */
+ 	f->mask = adapter->num_rx_queues;
+ 	adapter->num_rx_queues += f->indices;
+@@ -4670,9 +4664,8 @@ static inline bool ixgbe_cache_ring_fdir(struct ixgbe_adapter *adapter)
+ 	int i;
+ 	bool ret = false;
  
-+	ixgbe_fdir_filter_exit(adapter);
-+
- 	ixgbe_free_all_tx_resources(adapter);
- 	ixgbe_free_all_rx_resources(adapter);
+-	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED &&
+-	    ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+-	     (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))) {
++	if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
++	    (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)) {
+ 		for (i = 0; i < adapter->num_rx_queues; i++)
+ 			adapter->rx_ring[i]->reg_idx = i;
+ 		for (i = 0; i < adapter->num_tx_queues; i++)
+@@ -4701,8 +4694,7 @@ static inline bool ixgbe_cache_ring_fcoe(struct ixgbe_adapter *adapter)
+ 		return false;
  
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-		if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) ||
+-		    (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
++		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+ 			ixgbe_cache_ring_fdir(adapter);
+ 		else
+ 			ixgbe_cache_ring_rss(adapter);
+@@ -4882,14 +4874,12 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 
+ 	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+ 	adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+-	if (adapter->flags & (IXGBE_FLAG_FDIR_HASH_CAPABLE |
+-			      IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
++	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+ 		e_err(probe,
+-		      "Flow Director is not supported while multiple "
++		      "ATR is not supported while multiple "
+ 		      "queues are disabled.  Disabling Flow Director\n");
+ 	}
+ 	adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+-	adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+ 	adapter->atr_sample_rate = 0;
+ 	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
+ 		ixgbe_disable_sriov(adapter);
 -- 
 1.7.5.4
 
