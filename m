@@ -1,90 +1,81 @@
-From: Marius Kotsbak <marius.kotsbak@gmail.com>
-Subject: Re: [PATCH] net/usb: kalmia: Various fixes for better support of
- non-x86 architectures.
-Date: Thu, 23 Jun 2011 22:56:24 +0200
-Message-ID: <4E03A878.2070105@gmail.com>
-References: <20110619.155755.1854488306547854947.davem@davemloft.net> <1308756376-9920-1-git-send-email-marius@kotsbak.com> <4E03198A.2060600@ru.mvista.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: unintended ipv4 broadcast policy change
+Date: Thu, 23 Jun 2011 17:01:37 -0400
+Message-ID: <20110623170137.69054c83@s6510.ftrdhcpuser.net>
+References: <20110622.163935.2248705300315908767.davem@davemloft.net>
+	<20110623081614.213a432f@nehalam.ftrdhcpuser.net>
+	<20110623.134504.1261579649197526589.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, "Marius B. Kotsbak" <marius@kotsbak.com>
-To: Sergei Shtylyov <sshtylyov@mvista.com>
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:46531 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933706Ab1FWU4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 16:56:30 -0400
-In-Reply-To: <4E03198A.2060600@ru.mvista.com>
+Received: from mail.vyatta.com ([76.74.103.46]:53658 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759822Ab1FWVBb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2011 17:01:31 -0400
+In-Reply-To: <20110623.134504.1261579649197526589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Den 23. juni 2011 12:46, skrev Sergei Shtylyov:
-> Hello.
->
-> On 22-06-2011 19:26, Marius B. Kotsbak wrote:
->
->> -Support for big endian.
->> -Do not use USB buffers at the stack.
->> -Safer/more efficient code for local constants.
->
->> Signed-off-by: Marius B. Kotsbak<marius@kotsbak.com>
->> ---
->>   drivers/net/usb/kalmia.c |   40 
->> ++++++++++++++++++++++++----------------
->>   1 files changed, 24 insertions(+), 16 deletions(-)
->
->
->> -    char receive_buf[28];
->> +    const static int buflen = 28;
->
->    Why declare it at all, when it's used only once?
->
->> +    char *usb_buf;
->>       int status;
->>
->> -    status = kalmia_send_init_packet(dev, init_msg_1, 
->> sizeof(init_msg_1)
->> -        / sizeof(init_msg_1[0]), receive_buf, 24);
->> +    usb_buf = kmalloc(buflen, GFP_DMA | GFP_KERNEL);
->> +    if (!usb_buf)
->> +        return -ENOMEM;
->> +
->> +    memcpy(usb_buf, init_msg_1, 12);
->
->    s/12/sizeof(init_msg_1)/
->
->> +    status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_1)
->> +        / sizeof(init_msg_1[0]), usb_buf, 24);
->
->    There's ARRAY_SIZE() macro to replace:
->
-> sizeof(init_msg_1) / sizeof(init_msg_1[0])
->
->    and why not use just sizeof(init_msg_1)?
->
->>       if (status != 0)
->>           return status;
->>
->> -    status = kalmia_send_init_packet(dev, init_msg_2, 
->> sizeof(init_msg_2)
->> -        / sizeof(init_msg_2[0]), receive_buf, 28);
->> +    memcpy(usb_buf, init_msg_2, 12);
->
->    s/12/sizeof(init_msg_2)/
->
->> +    status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_2)
->> +        / sizeof(init_msg_2[0]), usb_buf, 28);
->
->    The same comment here about:
->
-> sizeof(init_msg_2) / sizeof(init_msg_2[0])
->
+On Thu, 23 Jun 2011 13:45:04 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Thanks for the tips. I know some parts of the code are a bit ugly, but 
-the primary goal was to get it working despite the quirky state of the 
-current modem firmware. I have noted it for later fixing.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Thu, 23 Jun 2011 08:16:14 -0700
+> 
+> > On Wed, 22 Jun 2011 16:39:35 -0700 (PDT)
+> > David Miller <davem@davemloft.net> wrote:
+> > 
+> >> But debian definitely still has this bug.  On debian, as a result,
+> >> every packet received gets parsed.
+> > 
+> > Are you saying the DHCP client ends up parsing every packet?
+> > This doesn't appear to be true.
+> > 
+> > I checked and the dhclient spends its life waiting on select for DHCP port.
+> 
+> Which dhcp client do you have installed?  There are about 6 or 7 of
+> them available in debian.
+> 
+> Unless it closes the AF_PACKET socket after it gets a lease, it's
+> going to get every packet.  Because it uses a type argument of
+> "SOCK_PACKET" to the socket() call, the AF_PACKET layer will not use
+> the packet filter it installs during receive processing.
+> 
+> Check the source if you don't believe me, maybe whatever repo you're
+> using has different code in this area.
 
---
-Marius
+Standard Debian stable (Squeeze) installation.
+$ dpkg -S /sbin/dhclient
+isc-dhcp-client: /sbin/dhclient
 
+$ dpkg -l isc-dhcp-client
+Desired=Unknown/Install/Remove/Purge/Hold
+| Status=Not/Inst/Conf-files/Unpacked/halF-conf/Half-inst/trig-aWait/Trig-pend
+|/ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
+||/ Name           Version        Description
++++-==============-==============-============================================
+ii  isc-dhcp-clien 4.1.1-P1-15+sq ISC DHCP client
+
+If it did get every packet, I would see client wake up with strace and
+doing work, that is not what it shows...
+
+Maybe there is something else blocking it.
+
+# lsof -p $(pgrep dhclient)
+COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF    NODE NAME
+dhclient 1785 root  cwd    DIR                8,1     4096       2 /
+dhclient 1785 root  rtd    DIR                8,1     4096       2 /
+dhclient 1785 root  txt    REG                8,1   487696 3407973 /sbin/dhclient
+dhclient 1785 root  mem    REG                8,1    47616  917512 /lib/libnss_files-2.11.2.so
+dhclient 1785 root  mem    REG                8,1  1432968  917515 /lib/libc-2.11.2.so
+dhclient 1785 root  mem    REG                8,1   128744  917527 /lib/ld-2.11.2.so
+dhclient 1785 root    0u   CHR                1,3      0t0    2150 /dev/null
+dhclient 1785 root    1u   CHR                1,3      0t0    2150 /dev/null
+dhclient 1785 root    2u   CHR                1,3      0t0    2150 /dev/null
+dhclient 1785 root    3u  unix 0xffff880129b4cf00      0t0    5308 socket
+dhclient 1785 root    4r   REG                8,1     1569  536722 /var/lib/dhcp/dhclient-de7b6036-9282-4cec-83ea-ef32117a0c0d-eth0.lease
+dhclient 1785 root    5w  pack               6212      0t0     ALL type=SOCK_PACKET
+dhclient 1785 root    6u  IPv4               6214      0t0     UDP *:bootpc
