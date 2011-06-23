@@ -1,146 +1,86 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [RFT PATCH 0/9] Cleanup and extension of netdev features
-Date: Thu, 23 Jun 2011 10:42:58 -0700
-Message-ID: <BANLkTi=CdBvdJxK86R_U_XpJdSo45tEGOCeT_+p-65SU1qihvg@mail.gmail.com>
-References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: [RFT PATCH 7/9] ethtool: prepare for larger netdev_features_t type
+Date: Thu, 23 Jun 2011 10:50:59 -0700
+Message-ID: <BANLkTi=RB1MSR=c6GhXr4bsrPtFJVZnaZ8ZLCN=o339S_BE7iw@mail.gmail.com>
+References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl> <852a74b9068b3be7413a65023f6096f142dfd805.1308596963.git.mirq-linux@rere.qmqm.pl>
+ <1308604618.2701.189.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:57197 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:60691 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933139Ab1FWRnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 13:43:21 -0400
-Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
-	by smtp-out.google.com with ESMTP id p5NHhJld029936
-	for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 10:43:20 -0700
-Received: from bwz8 (bwz8.prod.google.com [10.188.26.8])
-	by hpaq2.eem.corp.google.com with ESMTP id p5NHhI8j001996
+	with ESMTP id S933126Ab1FWRvV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 13:51:21 -0400
+Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
+	by smtp-out.google.com with ESMTP id p5NHpKpQ013171
+	for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 10:51:20 -0700
+Received: from bwz1 (bwz1.prod.google.com [10.188.26.1])
+	by wpaz1.hot.corp.google.com with ESMTP id p5NHp3cS021980
 	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 10:43:18 -0700
-Received: by bwz8 with SMTP id 8so2985911bwz.35
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 10:43:18 -0700 (PDT)
-In-Reply-To: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
+	for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 10:51:19 -0700
+Received: by bwz1 with SMTP id 1so2950871bwz.22
+        for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 10:51:19 -0700 (PDT)
+In-Reply-To: <1308604618.2701.189.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKdW4gMjAsIDIwMTEgYXQgMTI6MTQgUE0sIE1pY2hhxYIgTWlyb3PFgmF3CjxtaXJx
-LWxpbnV4QHJlcmUucW1xbS5wbD4gd3JvdGU6Cj4KPiBUaGlzIGlzIGEgcHJldmlldyBvZiB0aGUg
-Y2xlYW51cHMgcGVuZGluZyBhZnRlciBnZXR0aW5nIHJpZCBvZiBvbGQKPiBldGh0b29sIG9wcyBm
-cm9tIHJlbWFpbmluZyBkcml2ZXJzLgo+Cj4gUGF0Y2hlcyBpbnNpZGU6Cj4gwqAxLiAocGxhY2Vo
-b2xkZXIgZm9yIEludGVsIHBhdGNoZXMpCj4gwqAyLiByZW1vdmFsIG9mIG9sZCBldGh0b29sIG9w
-cwo+IMKgIMKgIMKgIMKgKG1vc3QgZnVydGhlciBwYXRjaGVzIGRlcGVuZCBvbiB0aGlzIG9uZSkK
-PiDCoDMuIGJyZWFrIGFzc29jaWF0aW9uIG9mIEVUSF9GTEFHXyogd2l0aCBuZXRkZXYgZmVhdHVy
-ZXMKPiDCoCDCoCDCoCDCoHRoaXMgd2lsbCBhbGxvdyB0byBjaGFuZ2UgdGhlIHJlcHJlc2VudGF0
-aW9uIGFuZCBhY2Nlc3MgcGF0dGVybgo+IMKgIMKgIMKgIMKgb2YgdGhlIGZlYXR1cmUgc2V0cyBp
-ZiBsYXRlciBuZWVkZWQ7IGFzIGEgYm9udXMsIHRoZSBmZWF0dXJlcwo+IMKgIMKgIMKgIMKgY2Fu
-IGJlIChhbG1vc3QpIGZyZWVseSByZWFycmFuZ2VkCj4gwqA0LiBpbnRyb2R1Y2luZyBuZXRkZXZf
-ZmVhdHVyZXNfdAo+IMKgIMKgIMKgIMKgdXNlIG5ldyB0eXBlIHdoZXJldmVyIGZlYXR1cmVzIGFy
-ZSBwYXNzZWQgYXJvdW5kICh0aGlzIG5lZWRlZAo+IMKgIMKgIMKgIMKgbmV3IGluY2x1ZGUgLSBv
-dGhlcndpc2UgbGludXgvc2tidWZmLmggd291bGQgbmVlZCBsaW51eC9uZXRkZXZpY2UuaCkKPiDC
-oDUuIGNsZWFudXAgb2YgZmVhdHVyZSBiaXRzCj4gwqA2LiBjbGVhbnVwIG9mIGZlYXR1cmUgbmFt
-ZSB0YWJsZQo+IMKgIMKgIMKgIMKgKGRlcGVuZHMgb24gIzUpCj4gwqA3LiBwcmVwYXJlIGV0aHRv
-b2wgW0dTXUZFQVRVUkVTIGZvciBsYXJnZXIgbmV0ZGV2X2ZlYXR1cmVzX3QKPiDCoDguIHRhZGFh
-YTogNjQgYml0cyBmb3IgZmVhdHVyZXMKPiDCoDkuIGEgbG9uZSBjbGVhbnVwIHBhdGNoIGZvciBO
-T0NBQ0hFX0NPUFkgZmVhdHVyZQo+Cj4gQmVhciBpbiBtaW5kLCB0aGF0IEkgb25seSBjb21waWxl
-IHRlc3RlZCB0aGUgd2hvbGUgc2VyaWVzICh4ODYgYWxseWVzY29uZmlnKS4KPiBJJ2xsIGRvIHBl
-ci1wYXRjaCBidWlsZHMgYWZ0ZXIgYWxsIG5lZWRlZCBwYXRjaGVzIGFyZSBpbiBuZXQtbmV4dC4K
-Pgo+IE5vdGUgYWJvdXQgbmV0ZGV2X2ZlYXR1cmVzX3Q6IEkgZG9uJ3QgbGlrZSB0aGUgaWRlYSBv
-ZiBjb252ZXJ0aW5nIGl0IHRvCj4gYml0bWFwIHR5cGUgYW5kIGJ1aWxkaW5nIHdyYXBwZXJzIGFy
-b3VuZCwgc28gSSB3b24ndCBldmVuIHRyeSB0bwo+IGltcGxlbWVudCBpdC4gTmV2ZXJ0aGVsZXNz
-LCB0aGlzIHNlcmllcyB3aWxsIG1ha2UgdGhlIGNvbnZlcnNpb24gZWFzaWVyCj4gaWYgc29tZW9u
-ZSBldmVyIHdhbnRzIHRvIGdvIHRoYXQgd2F5Lgo+ClRoZSBpZGVhIGlzIHRvIG1ha2UgZmVhdHVy
-ZSB0eXBlIChieSBkZWZpbmluZyBuZXRkZXZfZmVhdHVyZV90KQpvcGFxdWUgYW5kIHNob3VsZCBo
-YW5kbGUgWFggYml0IGludGVnZXIgYXMgd2VsbCBhcyBiaXRtYXAgdHlwZXMuIFNvCm5ldGRldl9m
-ZWF0dXJlX3QgdHlwZWRlZi1lZCB0byB1NjQgaXMgT0sgYnV0IGNoYW5nZXMgdGhhdCB3ZSBtYWtl
-CnNob3VsZCBiZSBhYmxlIHRvIGhhbmRsZSBiaXRtYXBzIGFzIHdlbGwgdG8gbWluaW1pemUgZnV0
-dXJlIGNoYW5nZXMuCgotLW1haGVzaC4uCgo+IEJlc3QgUmVnYXJkcywKPiBNaWNoYcWCIE1pcm9z
-xYJhdwo+Cj4gLS0tCj4KPiBNaWNoYcWCIE1pcm9zxYJhdyAoOSk6Cj4gwqBbTk9UIFNFTlRdIElu
-dGVsIG5ldCBkcml2ZXJzOiBjb252ZXJ0IHRvIG5kb19maXhfZmVhdHVyZXMKPiDCoG5ldDogcmVt
-b3ZlIGxlZ2FjeSBldGh0b29sIG9wcwo+IMKgbmV0OiBldGh0b29sOiBicmVhayBhc3NvY2lhdGlv
-biBvZiBFVEhfRkxBR18qIHdpdGggTkVUSUZfRl8qCj4gwqBuZXQ6IGludHJvZHVjZSBhbmQgdXNl
-IG5ldGRldl9mZWF0dXJlc190IGZvciBkZXZpY2UgZmVhdHVyZXMgc2V0cwo+IMKgbmV0OiBEZWZp
-bmUgZW51bSBmb3IgbmV0IGRldmljZSBmZWF0dXJlcy4KPiDCoG5ldDogZXRodG9vbDogdXNlIEM5
-OSBhcnJheSBpbml0aWFsaXphdGlvbiBmb3IgZmVhdHVyZS1uYW1lcyB0YWJsZQo+IMKgZXRodG9v
-bDogcHJlcGFyZSBmb3IgbGFyZ2VyIG5ldGRldl9mZWF0dXJlc190IHR5cGUKPiDCoG5ldDogZXh0
-ZW5kIG5ldGRldl9mZWF0dXJlc190IHRvIDY0IGJpdHMKPiDCoG5ldDogbW92ZSBOT0NBQ0hFX0NP
-UFkgY2hlY2tzIHRvIG5ldGRldl9maXhfZmVhdHVyZXMoKQo+Cj4gwqBkcml2ZXJzL25ldC84MTM5
-Y3AuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqAyICstCj4gwqBkcml2ZXJzL25l
-dC9ibngyLmMgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB8IMKgIMKgNiArLQo+IMKgZHJp
-dmVycy9uZXQvYm54MngvYm54MnhfY21uLmMgwqAgwqAgwqAgwqAgfCDCoCDCoDUgKy0KPiDCoGRy
-aXZlcnMvbmV0L2JueDJ4L2JueDJ4X2Ntbi5oIMKgIMKgIMKgIMKgIHwgwqAgwqA1ICstCj4gwqBk
-cml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jIMKgIMKgIMKgIHwgwqAgwqA5ICstCj4gwqBk
-cml2ZXJzL25ldC9jeGdiNC9jeGdiNF9tYWluLmMgwqAgwqAgwqAgwqB8IMKgIDEyICstCj4gwqBk
-cml2ZXJzL25ldC9kbTkwMDAuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqAzICst
-Cj4gwqBkcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9ldGh0b29sLmMgwqAgwqAgfCDCoCA2OSAtLS0t
-Cj4gwqBkcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmMgwqAgwqAgwqAgwqB8IMKgIDMxICsr
-LQo+IMKgZHJpdmVycy9uZXQvZTEwMDBlL2V0aHRvb2wuYyDCoCDCoCDCoCDCoCDCoHwgwqAgODgg
-LS0tLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYyDCoCDCoCDCoCDCoCDCoCB8IMKg
-IDM1ICsrLQo+IMKgZHJpdmVycy9uZXQvZm9yY2VkZXRoLmMgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-fCDCoCDCoDcgKy0KPiDCoGRyaXZlcnMvbmV0L2dpYW5mYXIuaCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCB8IMKgIMKgMiArLQo+IMKgZHJpdmVycy9uZXQvZ2lhbmZhcl9ldGh0b29sLmMgwqAgwqAg
-wqAgwqAgfCDCoCDCoDQgKy0KPiDCoGRyaXZlcnMvbmV0L2libXZldGguYyDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCB8IMKgIMKgNiArLQo+IMKgZHJpdmVycy9uZXQvaWdiL2lnYl9ldGh0b29sLmMg
-wqAgwqAgwqAgwqAgfCDCoCA2NyAtLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2IvaWdiX21haW4uYyDC
-oCDCoCDCoCDCoCDCoCDCoHwgwqAgMzMgKystCj4gwqBkcml2ZXJzL25ldC9pZ2J2Zi9ldGh0b29s
-LmMgwqAgwqAgwqAgwqAgwqAgfCDCoCA1NyAtLS0tCj4gwqBkcml2ZXJzL25ldC9pZ2J2Zi9uZXRk
-ZXYuYyDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgMjUgKystCj4gwqBkcml2ZXJzL25ldC9peGdiL2l4
-Z2IuaCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB8IMKgIMKgMiArCj4gwqBkcml2ZXJzL25ldC9peGdi
-L2l4Z2JfZXRodG9vbC5jIMKgIMKgIMKgIHwgwqAgOTggKy0tLS0tLQo+IMKgZHJpdmVycy9uZXQv
-aXhnYi9peGdiX21haW4uYyDCoCDCoCDCoCDCoCDCoHwgwqAgNDQgKysrLQo+IMKgZHJpdmVycy9u
-ZXQvaXhnYmUvaXhnYmVfZXRodG9vbC5jIMKgIMKgIHwgwqAxODMgKysrKy0tLS0tLS0tCj4gwqBk
-cml2ZXJzL25ldC9peGdiZS9peGdiZV9tYWluLmMgwqAgwqAgwqAgwqB8IMKgIDQyICsrLQo+IMKg
-ZHJpdmVycy9uZXQvaXhnYmV2Zi9ldGh0b29sLmMgwqAgwqAgwqAgwqAgfCDCoCA0NiAtLS0KPiDC
-oGRyaXZlcnMvbmV0L2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMgwqAgwqB8IMKgIDI2ICsrLQo+IMKg
-ZHJpdmVycy9uZXQvam1lLmMgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfCDCoCDCoDgg
-Ky0KPiDCoGRyaXZlcnMvbmV0L2tzejg4NHguYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB8IMKg
-IMKgMyArLQo+IMKgZHJpdmVycy9uZXQvbXY2NDN4eF9ldGguYyDCoCDCoCDCoCDCoCDCoCDCoCB8
-IMKgIMKgMiArLQo+IMKgZHJpdmVycy9uZXQvbXlyaTEwZ2UvbXlyaTEwZ2UuYyDCoCDCoCDCoCB8
-IMKgIMKgMiArLQo+IMKgZHJpdmVycy9uZXQvbmV0eGVuL25ldHhlbl9uaWNfbWFpbi5jIMKgfCDC
-oCDCoDYgKy0KPiDCoGRyaXZlcnMvbmV0L3BjaF9nYmUvcGNoX2diZV9tYWluLmMgwqAgwqB8IMKg
-IMKgNSArLQo+IMKgZHJpdmVycy9uZXQvcWxjbmljL3FsY25pYy5oIMKgIMKgIMKgIMKgIMKgIHwg
-wqAgwqA1ICstCj4gwqBkcml2ZXJzL25ldC9xbGNuaWMvcWxjbmljX2h3LmMgwqAgwqAgwqAgwqB8
-IMKgIMKgOSArLQo+IMKgZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19tYWluLmMgwqAgwqAgwqB8
-IMKgIMKgMiArLQo+IMKgZHJpdmVycy9uZXQvcjgxNjkuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCB8IMKgIMKgNiArLQo+IMKgZHJpdmVycy9uZXQvczJpby5jIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgfCDCoCDCoDQgKy0KPiDCoGRyaXZlcnMvbmV0L3NmYy9lZnguYyDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCB8IMKgIMKgMiArLQo+IMKgZHJpdmVycy9uZXQvc2t5Mi5jIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfCDCoCDCoDUgKy0KPiDCoGRyaXZlcnMvbmV0L3RnMy5j
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHwgwqAgwqA3ICstCj4gwqBkcml2ZXJzL25l
-dC91c2Ivc21zYzc1eHguYyDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqAzICstCj4gwqBkcml2ZXJz
-L25ldC91c2Ivc21zYzk1eHguYyDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqAzICstCj4gwqBkcml2
-ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZXRodG9vbC5jIHwgwqAgwqA0ICstCj4gwqBkcml2ZXJz
-L25ldC92bXhuZXQzL3ZteG5ldDNfaW50LmggwqAgwqAgfCDCoCDCoDIgKy0KPiDCoGRyaXZlcnMv
-bmV0L3Z4Z2UvdnhnZS1tYWluLmMgwqAgwqAgwqAgwqAgwqB8IMKgIMKgOSArLQo+IMKgZHJpdmVy
-cy9uZXQveGVuLW5ldGZyb250LmMgwqAgwqAgwqAgwqAgwqAgwqB8IMKgIMKgOCArLQo+IMKgZHJp
-dmVycy9zMzkwL25ldC9xZXRoX2wzX21haW4uYyDCoCDCoCDCoCB8IMKgIMKgNiArLQo+IMKgaW5j
-bHVkZS9saW51eC9ldGh0b29sLmggwqAgwqAgwqAgwqAgwqAgwqAgwqAgfCDCoCA1MyAtLS0KPiDC
-oGluY2x1ZGUvbGludXgvbmV0ZGV2X2ZlYXR1cmVzLmggwqAgwqAgwqAgfCDCoDE1MiArKysrKysr
-KysKPiDCoGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggwqAgwqAgwqAgwqAgwqAgwqAgfCDCoDE0
-MSArKy0tLS0tLS0KPiDCoGluY2x1ZGUvbGludXgvc2tidWZmLmggwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqB8IMKgIMKgNCArLQo+IMKgaW5jbHVkZS9uZXQvcHJvdG9jb2wuaCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoHwgwqAgwqA0ICstCj4gwqBpbmNsdWRlL25ldC90Y3AuaCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCB8IMKgIMKgMyArLQo+IMKgaW5jbHVkZS9uZXQvdWRwLmggwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfCDCoCDCoDMgKy0KPiDCoG5ldC84MDIxcS92bGFuX2Rl
-di5jIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfCDCoCDCoDUgKy0KPiDCoG5ldC9icmlkZ2Uv
-YnJfaWYuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqA1ICstCj4gwqBuZXQv
-Y29yZS9kZXYuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgNzEgKyst
-LQo+IMKgbmV0L2NvcmUvZXRodG9vbC5jIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfCDC
-oDU2MyArKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IMKgbmV0L2NvcmUvbmV0LXN5
-c2ZzLmMgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB8IMKgIMKgMyArLQo+IMKgbmV0L2NvcmUv
-c2tidWZmLmMgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfCDCoCDCoDIgKy0KPiDCoG5l
-dC9pcHY0L2FmX2luZXQuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqAzICst
-Cj4gwqBuZXQvaXB2NC90Y3AuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwg
-wqAgwqAyICstCj4gwqBuZXQvaXB2NC91ZHAuYyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoHwgwqAgwqAzICstCj4gwqBuZXQvaXB2Ni9hZl9pbmV0Ni5jIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIHwgwqAgwqAzICstCj4gwqBuZXQvaXB2Ni91ZHAuYyDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoHwgwqAgwqAyICstCj4gwqA2NSBmaWxlcyBjaGFuZ2VkLCA2
-ODMgaW5zZXJ0aW9ucygrKSwgMTM0NyBkZWxldGlvbnMoLSkKPiDCoGNyZWF0ZSBtb2RlIDEwMDY0
-NCBpbmNsdWRlL2xpbnV4L25ldGRldl9mZWF0dXJlcy5oCj4KPiAtLQo+IDEuNy4yLjUKPgo+IC0t
-Cj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2Ny
-aWJlIG5ldGRldiIgaW4KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIu
-a2VybmVsLm9yZwo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgwqBodHRwOi8vdmdlci5rZXJuZWwu
-b3JnL21ham9yZG9tby1pbmZvLmh0bWwK
+On Mon, Jun 20, 2011 at 2:16 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+>
+> On Mon, 2011-06-20 at 21:14 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> [...]
+> > @@ -125,19 +131,26 @@ static int ethtool_set_features(struct net_de=
+vice *dev, void __user *useraddr)
+> > =C2=A0 =C2=A0 =C2=A0 if (copy_from_user(features, useraddr, sizeof(=
+features)))
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -EFAULT;
+> >
+> > - =C2=A0 =C2=A0 if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
+> > + =C2=A0 =C2=A0 /* I wonder if the compiler will be smart enough to=
+ loop-unroll
+> > + =C2=A0 =C2=A0 =C2=A0* and optimize this... (no worries if not) --=
+mq */
+> > + =C2=A0 =C2=A0 for (i =3D ETHTOOL_DEV_FEATURE_WORDS; i-- > 0; ) {
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 valid =3D (valid << 32)=
+|features[i].valid;
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wanted =3D (wanted << 3=
+2)|features[i].requested;
+> > + =C2=A0 =C2=A0 }
+> [...]
+>
+> I don't know (or care) about optimisation of this, but I would expect
+> gcc to complain about shifting a 32-bit value by 32 bits. =C2=A0I sug=
+gest you
+> write this as:
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORD=
+S; ++i) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0valid |=3D (ne=
+tdev_features_t)features[i].valid << 32 *i;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wanted |=3D (n=
+etdev_features_t)features[i].requested << 32 *i;
+
+It's a valid point but this type of typecast or similar usage would
+imply that netdev_feature_t is an int of XXX bits. That's not opaque
+and would hinder the way you can abstract the feature type.
+
+--mahesh..
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
