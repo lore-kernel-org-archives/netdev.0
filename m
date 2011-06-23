@@ -1,50 +1,54 @@
-From: Sergei Shtylyov <sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
-Subject: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
-Date: Thu, 23 Jun 2011 18:41:40 +0400
-Message-ID: <201106231841.40691.sshtylyov@ru.mvista.com>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH 2/2 resend] mlx4: use pci_dev->revision
+Date: Thu, 23 Jun 2011 18:44:30 +0400
+Message-ID: <201106231844.30905.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: yevgenyp@mellanox.co.il
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:50457 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751975Ab1FWOqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 10:46:13 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
-again) already converted this driver to using the 'revision' field of 'struct
-pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
-rev_id) later reverted that change for no reason. Now restore the change...
+Commit 725c89997e03d71b09ea3c17c997da0712b9d835 (mlx4_en: Reporting HW revision
+in ethtool -i) added code to read the revision ID from the PCI configuration
+register while it's already stored by PCI subsystem in the 'revision' field of
+'struct pci_dev'...
 
-Signed-off-by: Sergei Shtylyov <sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
+While at it, move the code being changed a bit in order to not break the
+initialization sequence.
+
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
 ---
 The patch is against the recent Linus' tree.
+It wasn't merged to Linux 3.0, hopefully it will be picked up for 3.1...
 
- drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/mlx4/main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
+Index: linux-2.6/drivers/net/mlx4/main.c
 ===================================================================
---- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
+--- linux-2.6.orig/drivers/net/mlx4/main.c
++++ linux-2.6/drivers/net/mlx4/main.c
+@@ -1230,11 +1230,11 @@ static int __mlx4_init_one(struct pci_de
+ 	INIT_LIST_HEAD(&priv->pgdir_list);
+ 	mutex_init(&priv->pgdir_mutex);
  
- static u32 iwl_hw_detect(struct iwl_priv *priv)
- {
--	u8 rev_id;
-+	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
-+		       priv->pci_dev->revision);
+-	pci_read_config_byte(pdev, PCI_REVISION_ID, &dev->rev_id);
+-
+ 	INIT_LIST_HEAD(&priv->bf_list);
+ 	mutex_init(&priv->bf_mutex);
  
--	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID, &rev_id);
--	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
- 	return iwl_read32(priv, CSR_HW_REV);
- }
- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++	dev->rev_id = pdev->revision;
++
+ 	/*
+ 	 * Now reset the HCA before we touch the PCI capabilities or
+ 	 * attempt a firmware command, since a boot ROM may have left
