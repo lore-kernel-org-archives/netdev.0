@@ -1,55 +1,76 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 0/8] 8390: Neatening
-Date: Thu, 23 Jun 2011 20:04:13 +0200
-Message-ID: <BANLkTinBoGpGEFmfDQ-JXAjFn-aRBSVEUw@mail.gmail.com>
-References: <cover.1308810463.git.joe@perches.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [net-2.6 PATCH 2/3] qlge:Fix printk priority so chip fatal errors are always reported.
+Date: Thu, 23 Jun 2011 10:52:23 -0700
+Message-ID: <1308851544-25719-2-git-send-email-ron.mercer@qlogic.com>
+References: <1308851544-25719-1-git-send-email-ron.mercer@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
+	<jitendra.kalsaria@qlogic.com>, <ameen.rahman@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:60270 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933497Ab1FWSEO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 14:04:14 -0400
-In-Reply-To: <cover.1308810463.git.joe@perches.com>
+Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:30759
+	"EHLO VA3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933366Ab1FWSLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 14:11:22 -0400
+In-Reply-To: <1308851544-25719-1-git-send-email-ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 23, 2011 at 08:38, Joe Perches <joe@perches.com> wrote:
-> Some updates requested by Geert Uytterhoeven
->
-> Joe Perches (8):
-> =C2=A0ariadne: Update style, neaten, restructure to eliminate prototy=
-pes
-> =C2=A0a2065: Use pr_fmt, pr_<level> and netdev_<level>
-> =C2=A0lib8390: Use pr_<level> and netdev_<level>
-> =C2=A0lib8390: Indent braces appropriately
-> =C2=A0lib8390: Normalize source code spacing
-> =C2=A0lib8390: Convert include <asm to include <linux
-> =C2=A0lib8390: Remove unnecessary extern
-> =C2=A0zorro8390: Restructure and eliminate prototypes
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Looks good. I had to make some minor adjustments to make it apply to my
-current tree, though.
+Precedence of the printk should be at higher level so chip
+	fatal errors are always reported.
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_main.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-Thanks!
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index 4fbefcf..66274ab 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -2170,7 +2170,7 @@ static void ql_process_chip_ae_intr(struct ql_adapter *qdev,
+ 		return;
+ 
+ 	case CAM_LOOKUP_ERR_EVENT:
+-		netif_err(qdev, link, qdev->ndev,
++		netif_err(qdev, drv, qdev->ndev,
+ 			  "Multiple CAM hits lookup occurred.\n");
+ 		netif_err(qdev, drv, qdev->ndev,
+ 			  "This event shouldn't occur.\n");
+@@ -2178,13 +2178,13 @@ static void ql_process_chip_ae_intr(struct ql_adapter *qdev,
+ 		return;
+ 
+ 	case SOFT_ECC_ERROR_EVENT:
+-		netif_err(qdev, rx_err, qdev->ndev,
++		netif_err(qdev, drv, qdev->ndev,
+ 			  "Soft ECC error detected.\n");
+ 		ql_queue_asic_error(qdev);
+ 		break;
+ 
+ 	case PCI_ERR_ANON_BUF_RD:
+-		netif_err(qdev, rx_err, qdev->ndev,
++		netif_err(qdev, drv, qdev->ndev,
+ 			  "PCI error occurred when reading anonymous buffers from rx_ring %d.\n",
+ 			  ib_ae_rsp->q_id);
+ 		ql_queue_asic_error(qdev);
+@@ -2441,10 +2441,10 @@ static irqreturn_t qlge_isr(int irq, void *dev_id)
+ 	 */
+ 	if (var & STS_FE) {
+ 		ql_queue_asic_error(qdev);
+-		netif_err(qdev, intr, qdev->ndev,
++		netif_err(qdev, drv, qdev->ndev,
+ 			  "Got fatal error, STS = %x.\n", var);
+ 		var = ql_read32(qdev, ERR_STS);
+-		netif_err(qdev, intr, qdev->ndev,
++		netif_err(qdev, drv, qdev->ndev,
+ 			  "Resetting chip. Error Status Register = 0x%x\n", var);
+ 		return IRQ_HANDLED;
+ 	}
+-- 
+1.6.0.2
 
-Gr{oetje,eeting}s,
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
