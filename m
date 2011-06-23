@@ -1,267 +1,551 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH] vmxnet3: Convert to new vlan model.
-Date: Thu, 23 Jun 2011 16:04:39 -0700
-Message-ID: <1308870279-30773-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, Shreyas Bhatewara <sbhatewara@vmware.com>,
-	VMware PV-Drivers <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:50527 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933959Ab1FWXEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 19:04:47 -0400
-Received: by pvg12 with SMTP id 12so1404817pvg.19
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 16:04:47 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 1/3] serial/imx: add device tree support
+Date: Thu, 23 Jun 2011 17:11:54 -0600
+Message-ID: <BANLkTi=8Mks6T85WnEyihmB21U1j7reHrQ@mail.gmail.com>
+References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
+ <1308410354-21387-2-git-send-email-shawn.guo@linaro.org> <20110618161934.GH8195@ponder.secretlab.ca>
+ <20110619073000.GA23171@S2100-06.ap.freescale.net> <20110621135558.GB9228@S2101-09.ap.freescale.net>
+ <BANLkTim4vunTm1176MRw3pqRZnunu4=9jg@mail.gmail.com> <20110623183821.GA19188@S2100-06.ap.freescale.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: patches@linaro.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Jason Liu <jason.hui@linaro.org>, linux-kernel@vger.kernel.org,
+	Jeremy Kerr <jeremy.kerr@canonical.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	linux-arm-kernel@lists.infradead.org,
+	David Gibson <david@gibson.dropbear.id.au>
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110623183821.GA19188@S2100-06.ap.freescale.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This converts the vmxnet3 driver to use the new vlan model.  In doing so
-it fixes missing tags in tcpdump and failure to do checksum offload when
-tx vlan offload is disabled.
+On Thu, Jun 23, 2011 at 12:38 PM, Shawn Guo <shawn.guo@freescale.com> w=
+rote:
+> On Tue, Jun 21, 2011 at 01:13:50PM -0600, Grant Likely wrote:
+> [...]
+>> >
+>> > =A0/**
+>> > + * =A0 =A0 of_get_device_index - Get device index by looking up "=
+aliases" node
+>> > + * =A0 =A0 @np: =A0 =A0Pointer to device node that asks for devic=
+e index
+>> > + * =A0 =A0 @name: =A0The device alias without index number
+>> > + *
+>> > + * =A0 =A0 Returns the device index if find it, else returns -ENO=
+DEV.
+>> > + */
+>> > +int of_get_device_index(struct device_node *np, const char *alias=
+)
+>> > +{
+>> > + =A0 =A0 =A0 struct device_node *aliases =3D of_find_node_by_name=
+(NULL, "aliases");
+>> > + =A0 =A0 =A0 struct property *prop;
+>> > + =A0 =A0 =A0 char name[32];
+>> > + =A0 =A0 =A0 int index =3D 0;
+>> > +
+>> > + =A0 =A0 =A0 if (!aliases)
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+>> > +
+>> > + =A0 =A0 =A0 while (1) {
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 snprintf(name, sizeof(name), "%s%d",=
+ alias, index);
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 prop =3D of_find_property(aliases, n=
+ame, NULL);
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!prop)
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (np =3D=3D of_find_node_by_path(p=
+rop->value))
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 index++;
+>> > + =A0 =A0 =A0 }
+>>
+>> Rather than parsing the alias strings everytime, it would probably b=
+e
+>> better to preprocess all the properties in the aliases node and crea=
+te
+>> a lookup table of alias->node references that can be walked quickly
+>> and trivially.
+>>
+>> Also, when obtaining an enumeration for a device, you'll need to be
+>> careful about what number gets returned. =A0If the node doesn't matc=
+h a
+>> given alias, but aliases do exist for other devices of like type, th=
+en
+>> you need to be careful not to assign a number already assigned to
+>> another device via an alias (this of course assumes the driver
+>> supports dynamics enumeration, which many drivers will). =A0It would=
+ be
+>>
+>
+> Grant, please take a look at the second shot below. =A0Please let me
+> know what you think.
 
-CC: Shreyas Bhatewara <sbhatewara@vmware.com>
-CC: VMware PV-Drivers <pv-drivers@vmware.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
- drivers/net/vmxnet3/vmxnet3_drv.c     |  111 +++++++++------------------------
- drivers/net/vmxnet3/vmxnet3_ethtool.c |    9 +++-
- drivers/net/vmxnet3/vmxnet3_int.h     |    3 +-
- 3 files changed, 40 insertions(+), 83 deletions(-)
+Hey Shawn, good progress.  Comments below.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 33097ec..c84b1dd 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -918,7 +918,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 	count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) +
- 		skb_shinfo(skb)->nr_frags + 1;
- 
--	ctx.ipv4 = (skb->protocol == cpu_to_be16(ETH_P_IP));
-+	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
- 
- 	ctx.mss = skb_shinfo(skb)->gso_size;
- 	if (ctx.mss) {
-@@ -1231,12 +1231,10 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 					(union Vmxnet3_GenericDesc *)rcd);
- 			skb->protocol = eth_type_trans(skb, adapter->netdev);
- 
--			if (unlikely(adapter->vlan_grp && rcd->ts)) {
--				vlan_hwaccel_receive_skb(skb,
--						adapter->vlan_grp, rcd->tci);
--			} else {
--				netif_receive_skb(skb);
--			}
-+			if (unlikely(rcd->ts))
-+				__vlan_hwaccel_put_tag(skb, rcd->tci);
-+
-+			netif_receive_skb(skb);
- 
- 			ctx->skb = NULL;
- 		}
-@@ -1856,79 +1854,18 @@ vmxnet3_free_irqs(struct vmxnet3_adapter *adapter)
- 	}
- }
- 
--static void
--vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
--{
--	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
--	struct Vmxnet3_DriverShared *shared = adapter->shared;
--	u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
--	unsigned long flags;
--
--	if (grp) {
--		/* add vlan rx stripping. */
--		if (adapter->netdev->features & NETIF_F_HW_VLAN_RX) {
--			int i;
--			adapter->vlan_grp = grp;
--
--			/*
--			 *  Clear entire vfTable; then enable untagged pkts.
--			 *  Note: setting one entry in vfTable to non-zero turns
--			 *  on VLAN rx filtering.
--			 */
--			for (i = 0; i < VMXNET3_VFT_SIZE; i++)
--				vfTable[i] = 0;
--
--			VMXNET3_SET_VFTABLE_ENTRY(vfTable, 0);
--			spin_lock_irqsave(&adapter->cmd_lock, flags);
--			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
--					       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
--			spin_unlock_irqrestore(&adapter->cmd_lock, flags);
--		} else {
--			printk(KERN_ERR "%s: vlan_rx_register when device has "
--			       "no NETIF_F_HW_VLAN_RX\n", netdev->name);
--		}
--	} else {
--		/* remove vlan rx stripping. */
--		struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
--		adapter->vlan_grp = NULL;
--
--		if (devRead->misc.uptFeatures & UPT1_F_RXVLAN) {
--			int i;
--
--			for (i = 0; i < VMXNET3_VFT_SIZE; i++) {
--				/* clear entire vfTable; this also disables
--				 * VLAN rx filtering
--				 */
--				vfTable[i] = 0;
--			}
--			spin_lock_irqsave(&adapter->cmd_lock, flags);
--			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
--					       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
--			spin_unlock_irqrestore(&adapter->cmd_lock, flags);
--		}
--	}
--}
--
- 
- static void
- vmxnet3_restore_vlan(struct vmxnet3_adapter *adapter)
- {
--	if (adapter->vlan_grp) {
--		u16 vid;
--		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
--		bool activeVlan = false;
-+	u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
-+	u16 vid;
- 
--		for (vid = 0; vid < VLAN_N_VID; vid++) {
--			if (vlan_group_get_device(adapter->vlan_grp, vid)) {
--				VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
--				activeVlan = true;
--			}
--		}
--		if (activeVlan) {
--			/* continue to allow untagged pkts */
--			VMXNET3_SET_VFTABLE_ENTRY(vfTable, 0);
--		}
--	}
-+	/* allow untagged pkts */
-+	VMXNET3_SET_VFTABLE_ENTRY(vfTable, 0);
-+
-+	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
-+		VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
- }
- 
- 
-@@ -1944,6 +1881,8 @@ vmxnet3_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
- 	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 			       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
- 	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-+
-+	set_bit(vid, adapter->active_vlans);
- }
- 
- 
-@@ -1959,6 +1898,8 @@ vmxnet3_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 			       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
- 	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-+
-+	clear_bit(vid, adapter->active_vlans);
- }
- 
- 
-@@ -1995,8 +1936,14 @@ vmxnet3_set_mc(struct net_device *netdev)
- 	u8 *new_table = NULL;
- 	u32 new_mode = VMXNET3_RXM_UCAST;
- 
--	if (netdev->flags & IFF_PROMISC)
-+	if (netdev->flags & IFF_PROMISC) {
-+		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
-+		memset(vfTable, 0, VMXNET3_VFT_SIZE * sizeof(*vfTable));
-+
- 		new_mode |= VMXNET3_RXM_PROMISC;
-+	} else {
-+		vmxnet3_restore_vlan(adapter);
-+	}
- 
- 	if (netdev->flags & IFF_BROADCAST)
- 		new_mode |= VMXNET3_RXM_BCAST;
-@@ -2030,6 +1977,8 @@ vmxnet3_set_mc(struct net_device *netdev)
- 		rxConf->rxMode = cpu_to_le32(new_mode);
- 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 				       VMXNET3_CMD_UPDATE_RX_MODE);
-+		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-+				       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
- 	}
- 
- 	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-@@ -2639,12 +2588,13 @@ vmxnet3_declare_features(struct vmxnet3_adapter *adapter, bool dma64)
- 
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
- 		NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_TX |
--		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_LRO;
-+		NETIF_F_HW_VLAN_RX | NETIF_F_TSO | NETIF_F_TSO6 |
-+		NETIF_F_LRO;
- 	if (dma64)
- 		netdev->features |= NETIF_F_HIGHDMA;
--	netdev->vlan_features = netdev->hw_features & ~NETIF_F_HW_VLAN_TX;
--	netdev->features = netdev->hw_features |
--		NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER;
-+	netdev->vlan_features = netdev->hw_features &
-+				~(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
-+	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_FILTER;
- 
- 	netdev_info(adapter->netdev,
- 		"features: sg csum vlan jf tso tsoIPv6 lro%s\n",
-@@ -2865,7 +2815,6 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 		.ndo_get_stats64 = vmxnet3_get_stats64,
- 		.ndo_tx_timeout = vmxnet3_tx_timeout,
- 		.ndo_set_multicast_list = vmxnet3_set_mc,
--		.ndo_vlan_rx_register = vmxnet3_vlan_rx_register,
- 		.ndo_vlan_rx_add_vid = vmxnet3_vlan_rx_add_vid,
- 		.ndo_vlan_rx_kill_vid = vmxnet3_vlan_rx_kill_vid,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index bba7c15..27400ed 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -268,7 +268,7 @@ int vmxnet3_set_features(struct net_device *netdev, u32 features)
- 	unsigned long flags;
- 	u32 changed = features ^ netdev->features;
- 
--	if (changed & (NETIF_F_RXCSUM|NETIF_F_LRO)) {
-+	if (changed & (NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_HW_VLAN_RX)) {
- 		if (features & NETIF_F_RXCSUM)
- 			adapter->shared->devRead.misc.uptFeatures |=
- 			UPT1_F_RXCSUM;
-@@ -284,6 +284,13 @@ int vmxnet3_set_features(struct net_device *netdev, u32 features)
- 			adapter->shared->devRead.misc.uptFeatures &=
- 							~UPT1_F_LRO;
- 
-+		if (features & NETIF_F_HW_VLAN_RX)
-+			adapter->shared->devRead.misc.uptFeatures |=
-+			UPT1_F_RXVLAN;
-+		else
-+			adapter->shared->devRead.misc.uptFeatures &=
-+			~UPT1_F_RXVLAN;
-+
- 		spin_lock_irqsave(&adapter->cmd_lock, flags);
- 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 				       VMXNET3_CMD_UPDATE_FEATURE);
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 0e567c24..2e37985 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -27,6 +27,7 @@
- #ifndef _VMXNET3_INT_H
- #define _VMXNET3_INT_H
- 
-+#include <linux/bitops.h>
- #include <linux/ethtool.h>
- #include <linux/delay.h>
- #include <linux/netdevice.h>
-@@ -315,7 +316,7 @@ struct vmxnet3_intr {
- struct vmxnet3_adapter {
- 	struct vmxnet3_tx_queue		tx_queue[VMXNET3_DEVICE_MAX_TX_QUEUES];
- 	struct vmxnet3_rx_queue		rx_queue[VMXNET3_DEVICE_MAX_RX_QUEUES];
--	struct vlan_group		*vlan_grp;
-+	unsigned long			active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	struct vmxnet3_intr		intr;
- 	spinlock_t			cmd_lock;
- 	struct Vmxnet3_DriverShared	*shared;
--- 
-1.7.4.1
+Also, once you've got this sorted out, you'll need to break the
+drivers/of/ bits out into a separate patch so I can apply it
+separately.
 
+g.
+
+>
+> diff --git a/arch/arm/boot/dts/imx51-babbage.dts b/arch/arm/boot/dts/=
+imx51-babbage.dts
+> index 7976932..f4a5c3c 100644
+> --- a/arch/arm/boot/dts/imx51-babbage.dts
+> +++ b/arch/arm/boot/dts/imx51-babbage.dts
+> @@ -18,6 +18,12 @@
+> =A0 =A0 =A0 =A0compatible =3D "fsl,imx51-babbage", "fsl,imx51";
+> =A0 =A0 =A0 =A0interrupt-parent =3D <&tzic>;
+>
+> + =A0 =A0 =A0 aliases {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial0 =3D &uart0;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial1 =3D &uart1;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 serial2 =3D &uart2;
+> + =A0 =A0 =A0 };
+> +
+> =A0 =A0 =A0 =A0chosen {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bootargs =3D "console=3Dttymxc0,115200=
+ root=3D/dev/mmcblk0p3 rootwait";
+> =A0 =A0 =A0 =A0};
+> @@ -47,29 +53,29 @@
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <0x70000000 0x=
+40000>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ranges;
+>
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart@7000c000 {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 compati=
+ble =3D "fsl,imx51-uart", "fsl,imx-uart";
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart2: uart@7000c000 {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 compati=
+ble =3D "fsl,imx51-uart", "fsl,imx21-uart";
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D=
+ <0x7000c000 0x4000>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0interr=
+upts =3D <33>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0id =3D=
+ <3>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fsl,ha=
+s-rts-cts;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+>
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart@73fbc000 {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "fsl,imx=
+51-uart", "fsl,imx-uart";
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart0: uart@73fbc000 {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "fsl,imx=
+51-uart", "fsl,imx21-uart";
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <0x73fbc000 0x=
+4000>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0interrupts =3D <31>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0id =3D <1>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fsl,has-rts-cts;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+>
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart@73fc0000 {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "fsl,imx=
+51-uart", "fsl,imx-uart";
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 uart1: uart@73fc0000 {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "fsl,imx=
+51-uart", "fsl,imx21-uart";
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reg =3D <0x73fc0000 0x=
+4000>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0interrupts =3D <32>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0id =3D <2>;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fsl,has-rts-cts;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0};
+> =A0 =A0 =A0 =A0};
+>
+> diff --git a/arch/arm/mach-mx5/imx51-dt.c b/arch/arm/mach-mx5/imx51-d=
+t.c
+> index 8bfdb91..e6c7298 100644
+> --- a/arch/arm/mach-mx5/imx51-dt.c
+> +++ b/arch/arm/mach-mx5/imx51-dt.c
+> @@ -40,6 +40,8 @@ static const struct of_device_id tzic_of_match[] __=
+initconst =3D {
+>
+> =A0static void __init imx51_dt_init(void)
+> =A0{
+> + =A0 =A0 =A0 of_scan_aliases();
+> +
+
+Instead of calling this from board code.  You can add the call
+directly to the bottom of unflatten_device_tree() in drivers/of/fdt.c
+
+> =A0 =A0 =A0 =A0irq_domain_generate_simple(tzic_of_match, MX51_TZIC_BA=
+SE_ADDR, 0);
+>
+> =A0 =A0 =A0 =A0of_platform_populate(NULL, of_default_bus_match_table,
+> diff --git a/drivers/of/base.c b/drivers/of/base.c
+> index 632ebae..90349a2 100644
+> --- a/drivers/of/base.c
+> +++ b/drivers/of/base.c
+> @@ -17,12 +17,27 @@
+> =A0* =A0 =A0 =A0as published by the Free Software Foundation; either =
+version
+> =A0* =A0 =A0 =A02 of the License, or (at your option) any later versi=
+on.
+> =A0*/
+> +#include <linux/ctype.h>
+> =A0#include <linux/module.h>
+> =A0#include <linux/of.h>
+> =A0#include <linux/spinlock.h>
+> =A0#include <linux/slab.h>
+> =A0#include <linux/proc_fs.h>
+>
+> +struct alias_devname {
+> + =A0 =A0 =A0 char devname[32];
+> + =A0 =A0 =A0 struct list_head link;
+> + =A0 =A0 =A0 struct list_head head;
+> +};
+> +
+> +struct alias_devid {
+> + =A0 =A0 =A0 int devid;
+> + =A0 =A0 =A0 struct device_node *node;
+> + =A0 =A0 =A0 struct list_head link;
+> +};
+
+Some LinuxDoc documentation on the meaning of these structures would
+be helpful.  I'm not convinced that a two level lookup table is really
+necessary.  A flat table containing alias, device_node pointer, and
+possibly decoded devname and id is probably sufficient to get started.
+ Also, I think it will still be useful to store a pointer to the
+actual alias name in the alias_devid record.
+
+> +
+> +static LIST_HEAD(aliases_lookup);
+> +
+> =A0struct device_node *allnodes;
+> =A0struct device_node *of_chosen;
+>
+> @@ -922,3 +937,170 @@ out_unlock:
+> =A0}
+> =A0#endif /* defined(CONFIG_OF_DYNAMIC) */
+>
+> +/*
+> + * get_alias_dev_name_id - Get device name and id from alias name
+> + *
+> + * an: The alias name passed in
+> + * dn: The pointer used to return device name
+
+There is actually little point in decoding an alias to the device
+name.  It is more useful to decode alias to the device_node pointer
+which can be found with of_find_node_by_path().  I'd like to have a
+lookup table generated which contains {const char *alias_name,
+device_node *np} pairs.  It would also be useful for that table to
+decode the 'id' from the end of the alias name when available.  Then,
+given an alias stem and id (like imxuart and 2) the code could match
+it to alias imxuart0 and look up the device_node associated with (I
+could see this used by console setup code).  Alternately, driver probe
+code could use its device_node pointer to lookup its alias, and if no
+alias exists, then use the table to find an unused id (and possibly
+even add an entry to the table when it allocates an id).
+
+> + *
+> + * Returns device id which should be the number at the end of alias
+> + * name, otherwise returns -1.
+> + */
+> +static int get_alias_name_id(char *an, char *dn)
+
+Even private static functions should have a prefix consistent with the
+file.  In this case, all the functions should probably be something in
+the form "of_alias_*()"
+
+> +{
+> + =A0 =A0 =A0 int len =3D strlen(an);
+> + =A0 =A0 =A0 char *end =3D an + len;
+> +
+> + =A0 =A0 =A0 while (isdigit(*--end))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 len--;
+
+Clever!  :-)
+
+> +
+> + =A0 =A0 =A0 end++;
+> + =A0 =A0 =A0 strncpy(dn, an, len);
+> + =A0 =A0 =A0 dn[len] =3D '\0';
+> +
+> + =A0 =A0 =A0 return strlen(end) ? simple_strtol(end, NULL, 10) : -1;
+
+Just to be pendantic: simple_strtoul()  :-)
+
+> +}
+> +
+> +/*
+> + * get_an_available_devid - Get an available devid for the given dev=
+name
+> + *
+> + * adn: =A0 =A0 =A0 =A0The pointer to the given alias_devname
+> + *
+> + * Returns the available devid
+> + */
+> +static int get_an_available_devid(struct alias_devname *adn)
+> +{
+> + =A0 =A0 =A0 int devid =3D 0;
+> + =A0 =A0 =A0 struct alias_devid *adi;
+> +
+> + =A0 =A0 =A0 while (1) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bool used =3D false;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_for_each_entry(adi, &adn->head, li=
+nk) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (adi->devid =3D=3D d=
+evid) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 used =3D=
+ true;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!used)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 devid++;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 return devid;
+> +}
+> +
+> +/*
+> + * of_scan_aliases - Scan all properties of aliases node and populat=
+e the
+> + * =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0global lookup table with the d=
+evice name and id info
+> + *
+> + * Returns the number of aliases properties found, or error code in =
+error case.
+> + */
+
+Use LinuxDoc format for documentation blocks.
+Documentation/kernel-doc-nano-HOWTO.txt
+
+> +int of_scan_aliases(void)
+> +{
+> + =A0 =A0 =A0 struct device_node *aliases =3D of_find_node_by_name(NU=
+LL, "aliases");
+
+Like the chosen node, it is useful to keep around a reference to the
+aliases node.  There is other code that will use it that I hope to
+merge soon.  You can add a global of_aliases pointer and initialized
+it in unflatten_device_tree()
+
+> + =A0 =A0 =A0 struct property *pp;
+> + =A0 =A0 =A0 struct alias_devname *adn;
+> + =A0 =A0 =A0 struct alias_devid *adi;
+> + =A0 =A0 =A0 int ret =3D 0;
+> +
+> + =A0 =A0 =A0 if (!aliases) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D -ENODEV;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+
+The function hasn't done anything that needs unwinding yet. Just
+return immediately.
+
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 for (pp =3D aliases->properties; pp !=3D NULL; pp =3D p=
+p->next) {
+
+A "for_each_property()" macro would be useful to have and use here.
+Can you add one to include/linux/of.h?
+
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bool found =3D false;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 char devname[32];
+
+Rather than a static sized string, I'd like this to be the actual size
+of the string.  You can do this by making the name the last element of
+the list and giving it a [0] length.  Then when memory is kzalloced
+for it, the size of the devname can be added to the end:
+
+struct alias_devname {
+ =A0 =A0 =A0 struct list_head link;
+       const char *alias;
+ =A0 =A0 =A0 struct device_node *node;
+ =A0 =A0 =A0 int alias_id;
+ =A0 =A0 =A0 char alias_stem[0];
+};
+
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 int devid =3D get_alias_name_id(pp->nam=
+e, devname);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* We do not want to proceed this senti=
+nel one */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcmp(pp->name, "name") && !strcm=
+p(pp->value, "aliases"))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+
+Skipping the 'name' property is good, but I don't think you need to
+check the value.  You should also skip the "phandle" property.
+
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* See if the devname already exists */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_for_each_entry(adn, &aliases_looku=
+p, link) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcmp(adn->devnam=
+e, devname)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 found =3D=
+ true;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Create the entry for this devname =
+if not found,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* and add it into aliases_lookup
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!found) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 adn =3D kzalloc(sizeof(=
+*adn), GFP_KERNEL);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!adn) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D=
+ -ENOMEM;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto ou=
+t;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 strcpy(adn->devname, de=
+vname);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 INIT_LIST_HEAD(&adn->he=
+ad);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_add_tail(&adn->lin=
+k, &aliases_lookup);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Save the devid as one entry of the=
+ list for this
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* specified devname
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adi =3D kzalloc(sizeof(*adi), GFP_KERNE=
+L);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!adi) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D -ENOMEM;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adi->devid =3D (devid =3D=3D -1) ? get_=
+an_available_devid(adn) :
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0devid;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 adi->node =3D of_find_node_by_path(pp->=
+value);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_add_tail(&adi->link, &adn->head);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret++;
+
+Going to a single level lookup table will certainly simplify this funct=
+ion.
+
+> + =A0 =A0 =A0 }
+> +
+> +out:
+> + =A0 =A0 =A0 return ret;
+> +}
+> +
+> +/**
+> + * =A0 =A0 of_get_device_id - Get device id by looking up "aliases" =
+node
+> + * =A0 =A0 @np: =A0 =A0Pointer to device node that asks for device i=
+d
+> + * =A0 =A0 @name: =A0The device alias name
+> + *
+> + * =A0 =A0 Returns the device id if find it, else returns -ENODEV.
+> + */
+> +int of_get_device_id(struct device_node *np, const char *name)
+> +{
+> + =A0 =A0 =A0 struct alias_devname *adn;
+> + =A0 =A0 =A0 struct alias_devid *adi;
+> + =A0 =A0 =A0 bool found =3D false;
+> + =A0 =A0 =A0 int ret;
+> +
+> + =A0 =A0 =A0 list_for_each_entry(adn, &aliases_lookup, link) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcmp(adn->devname, name)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 found =3D true;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 if (!found) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D -ENODEV;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 found =3D false;
+> + =A0 =A0 =A0 list_for_each_entry(adi, &adn->head, link) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (np =3D=3D adi->node) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 found =3D true;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 ret =3D found ? adi->devid : -ENODEV;
+> +out:
+> + =A0 =A0 =A0 return ret;
+> +}
+> +EXPORT_SYMBOL(of_get_device_id);
+> diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
+> index 2769353..062639e 100644
+> --- a/drivers/tty/serial/imx.c
+> +++ b/drivers/tty/serial/imx.c
+> @@ -1225,43 +1265,33 @@ static int serial_imx_resume(struct platform_=
+device *dev)
+> =A0 =A0 =A0 =A0return 0;
+> =A0}
+>
+> =A0static int serial_imx_probe_dt(struct imx_port *sport,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct platform_device *pdev)
+> =A0{
+> =A0 =A0 =A0 =A0struct device_node *node =3D pdev->dev.of_node;
+> - =A0 =A0 =A0 const __be32 *line;
+> + =A0 =A0 =A0 int line;
+>
+> =A0 =A0 =A0 =A0if (!node)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
+>
+> - =A0 =A0 =A0 line =3D of_get_property(node, "id", NULL);
+> - =A0 =A0 =A0 if (!line)
+> + =A0 =A0 =A0 line =3D of_get_device_id(node, "serial");
+> + =A0 =A0 =A0 if (IS_ERR_VALUE(line))
+
+if (line < 0) is a sufficient test.  I don't much like the IS_ERR_VALUE=
+() macro.
+
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
+>
+> - =A0 =A0 =A0 sport->port.line =3D be32_to_cpup(line) - 1;
+> + =A0 =A0 =A0 sport->port.line =3D line;
+>
+> diff --git a/include/linux/of.h b/include/linux/of.h
+> index bfc0ed1..270c671 100644
+> --- a/include/linux/of.h
+> +++ b/include/linux/of.h
+> @@ -213,6 +213,9 @@ extern int of_parse_phandles_with_args(struct dev=
+ice_node *np,
+> =A0 =A0 =A0 =A0const char *list_name, const char *cells_name, int ind=
+ex,
+> =A0 =A0 =A0 =A0struct device_node **out_node, const void **out_args);
+>
+> +extern int of_scan_aliases(void);
+> +extern int of_get_device_id(struct device_node *np, const char *name=
+);
+> +
+> =A0extern int of_machine_is_compatible(const char *compat);
+>
+> =A0extern int prom_add_property(struct device_node* np, struct proper=
+ty* prop);
+>
+> --
+> Regards,
+> Shawn
+>
+>
+
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
