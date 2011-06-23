@@ -1,48 +1,60 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH] ssb: use pci_dev->revision
-Date: Thu, 23 Jun 2011 17:32:04 +0200
-Message-ID: <20110623173204.00fbaed6@maggie>
-References: <201106231849.53030.sshtylyov@ru.mvista.com>
-	<20110623170908.1417f933@maggie>
-	<4E0357BF.7000408@mvista.com>
+From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Subject: Re: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
+Date: Thu, 23 Jun 2011 08:02:45 -0700
+Message-ID: <1308841365.13397.274.camel@wwguy-huron>
+References: <201106231841.40691.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@mvista.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bues.ch ([80.190.117.144]:55841 "EHLO bues.ch"
+Received: from mga01.intel.com ([192.55.52.88]:20085 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759615Ab1FWPcN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 11:32:13 -0400
-In-Reply-To: <4E0357BF.7000408@mvista.com>
+	id S1759670Ab1FWPeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2011 11:34:23 -0400
+In-Reply-To: <201106231841.40691.sshtylyov@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Jun 2011 19:11:59 +0400
-Sergei Shtylyov <sshtylyov@mvista.com> wrote:
+On Thu, 2011-06-23 at 07:41 -0700, Sergei Shtylyov wrote:
+> Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
+> again) already converted this driver to using the 'revision' field of 'struct
+> pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
+> rev_id) later reverted that change for no reason. Now restore the change...
+> 
+> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> 
+> ---
+> The patch is against the recent Linus' tree.
+> 
+>  drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
+> +++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
+> @@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
+>  
+>  static u32 iwl_hw_detect(struct iwl_priv *priv)
+>  {
+> -	u8 rev_id;
+> +	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
+> +		       priv->pci_dev->revision);
+>  
+> -	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID, &rev_id);
+> -	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
+>  	return iwl_read32(priv, CSR_HW_REV);
+>  }
+>  
+hmm, I believe it is merge sequence issue, the IWL_DEBUG_INFO line has
+benn remove all together in later patch. the information is being log in
+the calling function, no need to log in "iwl_hw_detect"
 
-> Hello.
->=20
-> Michael B=C3=BCsch wrote:
->=20
-> >> The bus scan code reads PCI revision ID from the PCI configuration=
- register
-> >> while it's already stored by PCI subsystem in the 'revision' field=
- of 'struct
-> >> pci_dev'...
->=20
-> >> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
->=20
-> >> ---
-> >> The patch is against the recent Linus' tree.
->=20
-> >> There's another place where the revision ID register is read but a=
-s 16-bit
-> >> entity (probably by mistake though), so I didn't convert it...
->=20
-> > Where is that?
->=20
->     drivers/ssb/pci.c, line 741.
+Wey
 
-Yes that probably is by mistake. Can you convert it as well, please?
+
