@@ -1,44 +1,59 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH 4/5] pm: move pm notifiers into suspend.h
-Date: Thu, 23 Jun 2011 14:04:11 +0200
-Message-ID: <201106231404.12311.rjw@sisk.pl>
-References: <1308724522-32461-1-git-send-email-amwang@redhat.com> <201106222149.28252.rjw@sisk.pl> <4E02C93A.7010601@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Only flood unregistered groups to routers
+Date: Thu, 23 Jun 2011 20:39:12 +0800
+Message-ID: <20110623123912.GA29381@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, Chris Ball <cjb@laptop.org>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Ohad Ben-Cohen" <ohad@wizery.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Philip Rakity <prakity@marvell.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	linux-mmc@vger.kernel.org, linux-pm@lists.linux-foundation.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <4E02C93A.7010601@redhat.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:43550 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759400Ab1FWMjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 08:39:15 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, June 23, 2011, Cong Wang wrote:
-> =E4=BA=8E 2011=E5=B9=B406=E6=9C=8823=E6=97=A5 03:49, Rafael J. Wysock=
-i =E5=86=99=E9=81=93:
-> >> +#ifdef CONFIG_PM
-> >> >  +#include<linux/suspend.h>
-> >> >  +#endif
-> > I don't think the #ifdef in necessary.  Any dependencies on CONFIG_=
-PM
-> > (or CONFIG_SUSPEND etc.) should be taken care of inside of suspend.=
-h.
-> > This file should be fixed if they aren't.
-> >
->=20
-> Ok, please check the updated version below.
+Hi:
 
-That's fine by me.  Please feel free to add my ACK to the patch.
+bridge: Only flood traffic for unregistered groups to routers
 
-Thanks,
-Rafael
+The bridge currently floods packets to groups that we have never
+seen before to all ports.  This is not required by RFC4541 and
+in fact it is not desirable in environment where traffic to
+unregistered group is always present.
+
+This patch changes the behaviour so that we only send traffic
+to unregistered groups to ports marked as routers.
+
+The user can always force flooding behaviour to any given port
+by marking it as a router.
+
+Note that this change does not apply to traffic to 224.0.0.X
+as traffic to those groups must always be flooded to all ports.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 29b9812..2d85ca7 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1379,8 +1379,11 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+ 		return -EINVAL;
+ 
+-	if (iph->protocol != IPPROTO_IGMP)
++	if (iph->protocol != IPPROTO_IGMP) {
++		if ((iph->daddr & IGMP_LOCAL_GROUP_MASK) != IGMP_LOCAL_GROUP)
++			BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+ 		return 0;
++	}
+ 
+ 	len = ntohs(iph->tot_len);
+ 	if (skb->len < len || len < ip_hdrlen(skb))
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
