@@ -1,188 +1,251 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/12] ixgbe: remove ntuple filtering
-Date: Wed, 22 Jun 2011 18:44:25 -0700
-Message-ID: <1308793476-11596-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/12] ixgbe: add support for modifying UDP RSS flow hash options
+Date: Wed, 22 Jun 2011 18:44:31 -0700
+Message-ID: <1308793476-11596-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:33253 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:56642 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932196Ab1FWBok (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 21:44:40 -0400
+	id S932352Ab1FWBoo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 21:44:44 -0400
 In-Reply-To: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Due to numerous issues in ntuple filters it has been decided to move the
-interface over to the network flow classification interface.  As a first
-step to achieving this I first need to remove the old ntuple interface.
+This patch adds the ability to add or remove the UDP source and destination
+ports from the flow hash generated for RSS.  Currently the UDP flow hash is
+always disabled.  By adding support for enabling the UDP flow hash we are
+now providing the option of generating an RSS hash based on the UDP source
+and destination port numbers.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Tested-by: Evan Swanson <evan.swanson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |  136 -------------------------------------
- 1 files changed, 0 insertions(+), 136 deletions(-)
+ drivers/net/ixgbe/ixgbe.h         |    2 +
+ drivers/net/ixgbe/ixgbe_ethtool.c |  152 +++++++++++++++++++++++++++++++++++++
+ drivers/net/ixgbe/ixgbe_main.c    |    5 +
+ 3 files changed, 159 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index d6bfb2f..1d80d77 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -382,6 +382,8 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG2_SFP_NEEDS_RESET             (u32)(1 << 5)
+ #define IXGBE_FLAG2_RESET_REQUESTED             (u32)(1 << 6)
+ #define IXGBE_FLAG2_FDIR_REQUIRES_REINIT        (u32)(1 << 7)
++#define IXGBE_FLAG2_RSS_FIELD_IPV4_UDP          (u32)(1 << 8)
++#define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP          (u32)(1 << 9)
+ 
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	u16 bd_number;
 diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 4950d03..e41dd24 100644
+index 2965b6e..b20609f 100644
 --- a/drivers/net/ixgbe/ixgbe_ethtool.c
 +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2336,141 +2336,6 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+@@ -2427,6 +2427,48 @@ static int ixgbe_get_ethtool_fdir_all(struct ixgbe_adapter *adapter,
  	return 0;
  }
  
--static int ixgbe_set_rx_ntuple(struct net_device *dev,
--                               struct ethtool_rx_ntuple *cmd)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	struct ethtool_rx_ntuple_flow_spec *fs = &cmd->fs;
--	union ixgbe_atr_input input_struct;
--	struct ixgbe_atr_input_masks input_masks;
--	int target_queue;
--	int err;
--
--	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
--		return -EOPNOTSUPP;
--
--	/*
--	 * Don't allow programming if the action is a queue greater than
--	 * the number of online Tx queues.
--	 */
--	if ((fs->action >= adapter->num_tx_queues) ||
--	    (fs->action < ETHTOOL_RXNTUPLE_ACTION_DROP))
--		return -EINVAL;
--
--	memset(&input_struct, 0, sizeof(union ixgbe_atr_input));
--	memset(&input_masks, 0, sizeof(struct ixgbe_atr_input_masks));
--
--	/* record flow type */
--	switch (fs->flow_type) {
--	case IPV4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_IPV4;
--		break;
--	case TCP_V4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
--		break;
--	case UDP_V4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_UDPV4;
--		break;
--	case SCTP_V4_FLOW:
--		input_struct.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_SCTPV4;
--		break;
--	default:
--		return -1;
--	}
--
--	/* copy vlan tag minus the CFI bit */
--	if ((fs->vlan_tag & 0xEFFF) || (~fs->vlan_tag_mask & 0xEFFF)) {
--		input_struct.formatted.vlan_id = htons(fs->vlan_tag & 0xEFFF);
--		if (!fs->vlan_tag_mask) {
--			input_masks.vlan_id_mask = htons(0xEFFF);
--		} else {
--			switch (~fs->vlan_tag_mask & 0xEFFF) {
--			/* all of these are valid vlan-mask values */
--			case 0xEFFF:
--			case 0xE000:
--			case 0x0FFF:
--			case 0x0000:
--				input_masks.vlan_id_mask =
--					htons(~fs->vlan_tag_mask);
--				break;
--			/* exit with error if vlan-mask is invalid */
--			default:
--				e_err(drv, "Partial VLAN ID or "
--				      "priority mask in vlan-mask is not "
--				      "supported by hardware\n");
--				return -1;
--			}
--		}
--	}
--
--	/* make sure we only use the first 2 bytes of user data */
--	if ((fs->data & 0xFFFF) || (~fs->data_mask & 0xFFFF)) {
--		input_struct.formatted.flex_bytes = htons(fs->data & 0xFFFF);
--		if (!(fs->data_mask & 0xFFFF)) {
--			input_masks.flex_mask = 0xFFFF;
--		} else if (~fs->data_mask & 0xFFFF) {
--			e_err(drv, "Partial user-def-mask is not "
--			      "supported by hardware\n");
--			return -1;
--		}
--	}
--
--	/*
--	 * Copy input into formatted structures
--	 *
--	 * These assignments are based on the following logic
--	 * If neither input or mask are set assume value is masked out.
--	 * If input is set, but mask is not mask should default to accept all.
--	 * If input is not set, but mask is set then mask likely results in 0.
--	 * If input is set and mask is set then assign both.
--	 */
--	if (fs->h_u.tcp_ip4_spec.ip4src || ~fs->m_u.tcp_ip4_spec.ip4src) {
--		input_struct.formatted.src_ip[0] = fs->h_u.tcp_ip4_spec.ip4src;
--		if (!fs->m_u.tcp_ip4_spec.ip4src)
--			input_masks.src_ip_mask[0] = 0xFFFFFFFF;
--		else
--			input_masks.src_ip_mask[0] =
--				~fs->m_u.tcp_ip4_spec.ip4src;
--	}
--	if (fs->h_u.tcp_ip4_spec.ip4dst || ~fs->m_u.tcp_ip4_spec.ip4dst) {
--		input_struct.formatted.dst_ip[0] = fs->h_u.tcp_ip4_spec.ip4dst;
--		if (!fs->m_u.tcp_ip4_spec.ip4dst)
--			input_masks.dst_ip_mask[0] = 0xFFFFFFFF;
--		else
--			input_masks.dst_ip_mask[0] =
--				~fs->m_u.tcp_ip4_spec.ip4dst;
--	}
--	if (fs->h_u.tcp_ip4_spec.psrc || ~fs->m_u.tcp_ip4_spec.psrc) {
--		input_struct.formatted.src_port = fs->h_u.tcp_ip4_spec.psrc;
--		if (!fs->m_u.tcp_ip4_spec.psrc)
--			input_masks.src_port_mask = 0xFFFF;
--		else
--			input_masks.src_port_mask = ~fs->m_u.tcp_ip4_spec.psrc;
--	}
--	if (fs->h_u.tcp_ip4_spec.pdst || ~fs->m_u.tcp_ip4_spec.pdst) {
--		input_struct.formatted.dst_port = fs->h_u.tcp_ip4_spec.pdst;
--		if (!fs->m_u.tcp_ip4_spec.pdst)
--			input_masks.dst_port_mask = 0xFFFF;
--		else
--			input_masks.dst_port_mask = ~fs->m_u.tcp_ip4_spec.pdst;
--	}
--
--	/* determine if we need to drop or route the packet */
--	if (fs->action == ETHTOOL_RXNTUPLE_ACTION_DROP)
--		target_queue = MAX_RX_QUEUES - 1;
--	else
--		target_queue = fs->action;
--
--	spin_lock(&adapter->fdir_perfect_lock);
--	err = ixgbe_fdir_add_perfect_filter_82599(&adapter->hw,
--						  &input_struct,
--						  &input_masks, 0,
--						  target_queue);
--	spin_unlock(&adapter->fdir_perfect_lock);
--
--	return err ? -1 : 0;
--}
--
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2506,7 +2371,6 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_coalesce           = ixgbe_set_coalesce,
- 	.get_flags              = ethtool_op_get_flags,
- 	.set_flags              = ixgbe_set_flags,
--	.set_rx_ntuple          = ixgbe_set_rx_ntuple,
- };
++static int ixgbe_get_rss_hash_opts(struct ixgbe_adapter *adapter,
++				   struct ethtool_rxnfc *cmd)
++{
++	cmd->data = 0;
++
++	/* if RSS is disabled then report no hashing */
++	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
++		return 0;
++
++	/* Report default options for RSS on ixgbe */
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case UDP_V4_FLOW:
++		if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV4_UDP)
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	case TCP_V6_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case UDP_V6_FLOW:
++		if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int ixgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 			   void *rule_locs)
+ {
+@@ -2449,6 +2491,9 @@ static int ixgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 		ret = ixgbe_get_ethtool_fdir_all(adapter, cmd,
+ 						 (u32 *)rule_locs);
+ 		break;
++	case ETHTOOL_GRXFH:
++		ret = ixgbe_get_rss_hash_opts(adapter, cmd);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -2681,6 +2726,110 @@ static int ixgbe_del_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
+ 	return err;
+ }
  
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
++#define UDP_RSS_FLAGS (IXGBE_FLAG2_RSS_FIELD_IPV4_UDP | \
++		       IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
++static int ixgbe_set_rss_hash_opt(struct ixgbe_adapter *adapter,
++				  struct ethtool_rxnfc *nfc)
++{
++	u32 flags2 = adapter->flags2;
++
++	/*
++	 * RSS does not support anything other than hashing
++	 * to queues on src and dst IPs and ports
++	 */
++	if (nfc->data & ~(RXH_IP_SRC | RXH_IP_DST |
++			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		return -EINVAL;
++
++	switch (nfc->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST) ||
++		    !(nfc->data & RXH_L4_B_0_1) ||
++		    !(nfc->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		break;
++	case UDP_V4_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST))
++			return -EINVAL;
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			flags2 &= ~IXGBE_FLAG2_RSS_FIELD_IPV4_UDP;
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			flags2 |= IXGBE_FLAG2_RSS_FIELD_IPV4_UDP;
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case UDP_V6_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST))
++			return -EINVAL;
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			flags2 &= ~IXGBE_FLAG2_RSS_FIELD_IPV6_UDP;
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			flags2 |= IXGBE_FLAG2_RSS_FIELD_IPV6_UDP;
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case SCTP_V4_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case SCTP_V6_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST))
++			return -EINVAL;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	/* if we changed something we need to update flags */
++	if (flags2 != adapter->flags2) {
++		struct ixgbe_hw *hw = &adapter->hw;
++		u32 mrqc = IXGBE_READ_REG(hw, IXGBE_MRQC);
++
++		if ((flags2 & UDP_RSS_FLAGS) &&
++		    !(adapter->flags2 & UDP_RSS_FLAGS))
++			netdev_warn(adapter->netdev,
++				"enabling UDP RSS: fragmented packets may "
++				"arrive out of order to the stack above\n");
++
++		adapter->flags2 = flags2;
++
++		/* Perform hash on these packet types */
++		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4
++		      | IXGBE_MRQC_RSS_FIELD_IPV4_TCP
++		      | IXGBE_MRQC_RSS_FIELD_IPV6
++		      | IXGBE_MRQC_RSS_FIELD_IPV6_TCP;
++
++		mrqc &= ~(IXGBE_MRQC_RSS_FIELD_IPV4_UDP |
++			  IXGBE_MRQC_RSS_FIELD_IPV6_UDP);
++
++		if (flags2 & IXGBE_FLAG2_RSS_FIELD_IPV4_UDP)
++			mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4_UDP;
++
++		if (flags2 & IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
++			mrqc |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
++
++		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
++	}
++
++	return 0;
++}
++
+ static int ixgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+@@ -2693,6 +2842,9 @@ static int ixgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
+ 	case ETHTOOL_SRXCLSRLDEL:
+ 		ret = ixgbe_del_ethtool_fdir_entry(adapter, cmd);
+ 		break;
++	case ETHTOOL_SRXFH:
++		ret = ixgbe_set_rss_hash_opt(adapter, cmd);
++		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 2886dae..c03b5cc 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2936,6 +2936,11 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ 	      | IXGBE_MRQC_RSS_FIELD_IPV6
+ 	      | IXGBE_MRQC_RSS_FIELD_IPV6_TCP;
+ 
++	if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV4_UDP)
++		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4_UDP;
++	if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
++		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
++
+ 	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
+ }
+ 
 -- 
 1.7.5.4
 
