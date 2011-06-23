@@ -1,54 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Update
-Date: Wed, 22 Jun 2011 18:44:24 -0700
-Message-ID: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 10/12] ixgbe: disable RSC when Rx checksum is off
+Date: Wed, 22 Jun 2011 18:44:34 -0700
+Message-ID: <1308793476-11596-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:33253 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:45487 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932181Ab1FWBoj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 21:44:39 -0400
+	id S932382Ab1FWBop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 21:44:45 -0400
+In-Reply-To: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to ixgbe.  There are 2 fixes, along
-with several cleanups from Alex and Emil.  In addition, nfc support was added
-as well as bumping the driver version.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The following are changes since commit 56f8a75c17abb854b5907f4a815dc4c3f186ba11:
-  ip: introduce ip_is_fragment helper inline function
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+Disabling Rx checksumming leads to performance degradation due to
+RSC causing packets to have incorrect checksums.
 
-Alexander Duyck (8):
-  ixgbe: remove ntuple filtering
-  ixgbe: fix flags relating to perfect filters to support coexistence
-  ixgbe: update perfect filter framework to support retaining filters
-  ixgbe: add basic support for setting and getting nfc controls
-  ixgbe: add support for displaying ntuple filters via the nfc
-    interface
-  ixgbe: add support for nfc addition and removal of filters
-  ixgbe: add support for modifying UDP RSS flow hash options
-  ixgbe: fix ring assignment issues for SR-IOV and drop cases
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Evan Swanson <evan.swanson@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_ethtool.c |   44 +++++++++++++++++++++++++++---------
+ 1 files changed, 33 insertions(+), 11 deletions(-)
 
-Don Skidmore (1):
-  ixgbe: update driver version string
-
-Emil Tantilov (3):
-  ixgbe: move setting RSC into a separate function
-  ixgbe: move reset code into a separate function
-  ixgbe: disable RSC when Rx checksum is off
-
- drivers/net/ixgbe/ixgbe.h         |   31 ++-
- drivers/net/ixgbe/ixgbe_82599.c   |  603 ++++++++++++++++++--------------
- drivers/net/ixgbe/ixgbe_dcb_nl.c  |   13 +-
- drivers/net/ixgbe/ixgbe_ethtool.c |  696 +++++++++++++++++++++++++++++--------
- drivers/net/ixgbe/ixgbe_main.c    |   94 ++++--
- drivers/net/ixgbe/ixgbe_type.h    |   28 +-
- 6 files changed, 1009 insertions(+), 456 deletions(-)
-
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index acf95ec..cb59359 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -458,17 +458,6 @@ static u32 ixgbe_get_rx_csum(struct net_device *netdev)
+ 	return adapter->flags & IXGBE_FLAG_RX_CSUM_ENABLED;
+ }
+ 
+-static int ixgbe_set_rx_csum(struct net_device *netdev, u32 data)
+-{
+-	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	if (data)
+-		adapter->flags |= IXGBE_FLAG_RX_CSUM_ENABLED;
+-	else
+-		adapter->flags &= ~IXGBE_FLAG_RX_CSUM_ENABLED;
+-
+-	return 0;
+-}
+-
+ static void ixgbe_set_rsc(struct ixgbe_adapter *adapter)
+ {
+ 	int i;
+@@ -484,6 +473,39 @@ static void ixgbe_set_rsc(struct ixgbe_adapter *adapter)
+ 	}
+ }
+ 
++static int ixgbe_set_rx_csum(struct net_device *netdev, u32 data)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	bool need_reset = false;
++
++	if (data) {
++		adapter->flags |= IXGBE_FLAG_RX_CSUM_ENABLED;
++	} else {
++		adapter->flags &= ~IXGBE_FLAG_RX_CSUM_ENABLED;
++
++		if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) {
++			adapter->flags2 &= ~IXGBE_FLAG2_RSC_ENABLED;
++			netdev->features &= ~NETIF_F_LRO;
++		}
++
++		switch (adapter->hw.mac.type) {
++		case ixgbe_mac_X540:
++			ixgbe_set_rsc(adapter);
++			break;
++		case ixgbe_mac_82599EB:
++			need_reset = true;
++			break;
++		default:
++			break;
++		}
++	}
++
++	if (need_reset)
++		ixgbe_do_reset(netdev);
++
++	return 0;
++}
++
+ static u32 ixgbe_get_tx_csum(struct net_device *netdev)
+ {
+ 	return (netdev->features & NETIF_F_IP_CSUM) != 0;
 -- 
 1.7.5.4
 
