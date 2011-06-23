@@ -1,29 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] dcb: use nlmsg_free() instead of kfree()
-Date: Thu, 23 Jun 2011 03:14:53 -0700 (PDT)
-Message-ID: <20110623.031453.2027432684696519466.davem@davemloft.net>
-References: <20110623055802.GN14591@shale.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch] net/usb/kalmia: signedness bug in kalmia_bind()
+Date: Thu, 23 Jun 2011 03:15:55 -0700 (PDT)
+Message-ID: <20110623.031555.1014071961808473736.davem@davemloft.net>
+References: <20110623055637.GL14591@shale.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, shmulikr@broadcom.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60272 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759194Ab1FWKPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 06:15:00 -0400
-In-Reply-To: <20110623055802.GN14591@shale.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-l3A5Bk7waGM@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110623055637.GL14591-z0WHZYlhLlzP0Z7Jsv878P8+0UxHXcjY@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Thu, 23 Jun 2011 08:58:02 +0300
+From: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 23 Jun 2011 08:56:37 +0300
 
-> These sk_buff structs were allocated with nlmsg_new() so they should
-> be freed with nlmsg_free().
+> "status" should be an int here for the error handling to work.
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Applied, thanks Dan.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
