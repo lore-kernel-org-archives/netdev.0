@@ -1,69 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/12] ixgbe: add basic support for setting and getting nfc controls
-Date: Wed, 22 Jun 2011 18:44:28 -0700
-Message-ID: <1308793476-11596-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/12] ixgbe: move setting RSC into a separate function
+Date: Wed, 22 Jun 2011 18:44:32 -0700
+Message-ID: <1308793476-11596-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:43939 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:60779 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932298Ab1FWBom (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2011 21:44:42 -0400
+	id S932298Ab1FWBoo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2011 21:44:44 -0400
 In-Reply-To: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This change adds basic support for the obtaining of RSS ring counts.
+Move setting RSC into a separate function to allow for reuse in other
+parts of the code.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   34 ++++++++++++++++++----------------
+ 1 files changed, 18 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index a2d8ed5..8373244 100644
+index b20609f..791b388 100644
 --- a/drivers/net/ixgbe/ixgbe_ethtool.c
 +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2336,6 +2336,24 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+@@ -459,6 +459,21 @@ static int ixgbe_set_rx_csum(struct net_device *netdev, u32 data)
  	return 0;
  }
  
-+static int ixgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			   void *rule_locs)
++static void ixgbe_set_rsc(struct ixgbe_adapter *adapter)
 +{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int ret = -EOPNOTSUPP;
++	int i;
 +
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = adapter->num_rx_queues;
-+		ret = 0;
-+		break;
-+	default:
-+		break;
++	for (i = 0; i < adapter->num_rx_queues; i++) {
++		struct ixgbe_ring *ring = adapter->rx_ring[i];
++		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
++			set_ring_rsc_enabled(ring);
++			ixgbe_configure_rscctl(adapter, ring);
++		} else {
++			ixgbe_clear_rscctl(adapter, ring);
++		}
 +	}
-+
-+	return ret;
 +}
 +
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2371,6 +2389,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_coalesce           = ixgbe_set_coalesce,
- 	.get_flags              = ethtool_op_get_flags,
- 	.set_flags              = ixgbe_set_flags,
-+	.get_rxnfc		= ixgbe_get_rxnfc,
- };
- 
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
+ static u32 ixgbe_get_tx_csum(struct net_device *netdev)
+ {
+ 	return (netdev->features & NETIF_F_IP_CSUM) != 0;
+@@ -2281,25 +2296,12 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+ 		} else {
+ 			adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
+ 			switch (adapter->hw.mac.type) {
++			case ixgbe_mac_X540:
++				ixgbe_set_rsc(adapter);
++				break;
+ 			case ixgbe_mac_82599EB:
+ 				need_reset = true;
+ 				break;
+-			case ixgbe_mac_X540: {
+-				int i;
+-				for (i = 0; i < adapter->num_rx_queues; i++) {
+-					struct ixgbe_ring *ring =
+-					                  adapter->rx_ring[i];
+-					if (adapter->flags2 &
+-					    IXGBE_FLAG2_RSC_ENABLED) {
+-						ixgbe_configure_rscctl(adapter,
+-						                       ring);
+-					} else {
+-						ixgbe_clear_rscctl(adapter,
+-						                   ring);
+-					}
+-				}
+-			}
+-				break;
+ 			default:
+ 				break;
+ 			}
 -- 
 1.7.5.4
 
