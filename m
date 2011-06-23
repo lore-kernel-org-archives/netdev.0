@@ -1,81 +1,84 @@
-From: Shawn Guo <shawn.guo-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH 1/3] serial/imx: add device tree support
-Date: Thu, 23 Jun 2011 08:12:35 +0800
-Message-ID: <20110623001234.GB25799@S2100-06.ap.freescale.net>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
-	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
-	<20110618161934.GH8195@ponder.secretlab.ca>
-	<20110619073000.GA23171@S2100-06.ap.freescale.net>
-	<20110621135558.GB9228@S2101-09.ap.freescale.net>
-	<BANLkTim4vunTm1176MRw3pqRZnunu4=9jg@mail.gmail.com>
-	<20110622153353.GA25799@S2100-06.ap.freescale.net>
-	<BANLkTimsk2eWKPi2hnHbaAn-vSMKmdYsGQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: unintended ipv4 broadcast policy change
+Date: Thu, 23 Jun 2011 08:41:34 +0800
+Message-ID: <20110623004134.GA22314@gondor.apana.org.au>
+References: <20110622.163935.2248705300315908767.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:40292 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758008Ab1FWAlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2011 20:41:37 -0400
 Content-Disposition: inline
-In-Reply-To: <BANLkTimsk2eWKPi2hnHbaAn-vSMKmdYsGQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110622.163935.2248705300315908767.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 22, 2011 at 09:52:11AM -0600, Grant Likely wrote:
-[...]
-> =
+On Wed, Jun 22, 2011 at 04:39:35PM -0700, David Miller wrote:
+> 
+> The context is that I'm looking into cleaning up up the mess we have
+> wrt. DHCP listening on packet sockets and (in some cases) seeing every
+> packet that hits the system.
+> 
+> Anyways, back in 2007 this commit was made:
+> 
+> commit 8030f54499925d073a88c09f30d5d844fb1b3190
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Thu Feb 22 01:53:47 2007 +0900
+> 
+>     [IPV4] devinet: Register inetdev earlier.
 
-> >> > - =A0 =A0 =A0 line =3D of_get_property(node, "id", NULL);
-> >> > - =A0 =A0 =A0 if (!line)
-> >> > + =A0 =A0 =A0 line =3D of_get_device_index(node, "serial");
-> >> > + =A0 =A0 =A0 if (IS_ERR_VALUE(line))
-> >> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENODEV;
-> >>
-> >> Personally, it an alias isn't present, then I'd dynamically assign a p=
-ort id.
-> >>
-> > We probably can not. =A0The driver works with being told the correct
-> > port id which is defined by soc. =A0Instead of dynamically assigning
-> > a port id, we have to tell the driver the exact hardware port id of
-> > the device that is being probed.
-> =
+It appears that the intention was to allow sysctl control prior
+to device open.
 
-> Are you sure?  It doesn't look like the driver behaviour uses id for
-> anything other than an index into the statically allocated serial port
-> instance table.  I don't see any change of behaviour based on the port
-> number anywhere.
-> =
+> So now every net device registered has inetdev_init() called on it.
+> 
+> This has a subtle policy side effect that has some interesting
+> implications.  The route input slow path has this check:
+> 
+> 	/* IP on this device is disabled. */
+> 
+> 	if (!in_dev)
+> 		goto out;
+> 
+> But now this will never, ever, be true.
 
-Sorry, I did not make this clear.  In serial_imx_probe(), the port
-gets created and then saved as below.
+If we ever wanted to disable IPv4 we could always add a sysctl
+for that, just like IPv6.
 
-	imx_ports[sport->port.line] =3D sport;
+> Which means that previously we would not accept even broadcast
+> or multicast packets on an interface that hasn't had at least
+> one IP address configured.
+>
+> Now we will.
 
-While in imx_console_setup(), it addresses the port as following.
+This indeed is an unintended side-effect.
 
-	sport =3D imx_ports[co->index];
+> I think we have a hard decision to make.  One option is to
+> fix the input routing check, by changing it to test if the
+> ipv4 address list is empty.
+> 
+> The second option is to remove the check entirely and keep the
+> new behavior.
 
-When users specify their console as ttymxc0, they mean they are
-using the first i.mx uart hardware port, in turn ttymxc1 for the
-second port ...
+We could also add a disable_ipv4 sysctl and then replace this
+check in the routing code with a disable_ipv4 check at the very
+top of the IPv4 receive path, just like IPv6.
 
-That said, imx_port[0] has to be the first hardware port, imx_port[1]
-has to be the second one ...  That's why port id sport->port.line
-can not be dynamically assigned, otherwise console may not work.
+> This subtle new behavior is interesting because it means that
+> a DHCP client could be implemented entirely with plain UDP
+> sockets.
 
--- =
+Yes this is indeed possible.  However, for compatibility purposes
+I'm not sure whether we can safely rely on this new behaviour.
+Maybe if we add the disable_ipv4 sysctl we can use it to signal
+the presence of this new behaviour.
 
-Regards,
-Shawn
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
