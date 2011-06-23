@@ -1,54 +1,64 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 4/5] pm: move pm notifiers into suspend.h
-Date: Thu, 23 Jun 2011 22:24:36 +0200
-Message-ID: <20110623202436.GB8514@elf.ucw.cz>
-References: <1308724522-32461-1-git-send-email-amwang@redhat.com>
- <1308724522-32461-5-git-send-email-amwang@redhat.com>
- <201106222149.28252.rjw@sisk.pl>
- <4E02C93A.7010601@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	Chris Ball <cjb@laptop.org>, Len Brown <len.brown@intel.com>,
-	Ohad Ben-Cohen <ohad@wizery.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Philip Rakity <prakity@marvell.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	linux-mmc@vger.kernel.org, linux-pm@lists.linux-foundation.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4E02C93A.7010601@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 1/2] can: bfin_can: simplify xmit id1 setup
+Date: Thu, 23 Jun 2011 16:36:19 -0400
+Message-ID: <1308861380-27485-1-git-send-email-vapier@gentoo.org>
+Cc: uclinux-dist-devel@blackfin.uclinux.org
+To: socketcan-core@lists.berlios.de,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:55042 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933927Ab1FWUgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2011 16:36:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 2011-06-23 13:03:54, Cong Wang wrote:
-> ??? 2011???06???23??? 03:49, Rafael J. Wysocki ??????:
-> >>+#ifdef CONFIG_PM
-> >>>  +#include<linux/suspend.h>
-> >>>  +#endif
-> >I don't think the #ifdef in necessary.  Any dependencies on CONFIG_PM
-> >(or CONFIG_SUSPEND etc.) should be taken care of inside of suspend.h.
-> >This file should be fixed if they aren't.
-> >
-> 
-> Ok, please check the updated version below.
-> 
-> Thanks.
-> 
+If we look closely, the 4 writes to TRANSMIT_CHL.id1 can be collapsed
+down into much simpler code.  So do just that.
 
-> Author: Amerigo Wang <amwang@redhat.com>
-> 
->     pm: move pm notifiers into suspend.h
-> 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
+This also fixes a build failure due to the I/O macros no longer
+getting pulled in.  Their minor (and accidental) usage here gets
+dropped as part of the unification.
 
-ACK.
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ drivers/net/can/bfin_can.c |   21 ++++++---------------
+ 1 files changed, 6 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index b6e890d..dc6ef4a 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -243,21 +243,12 @@ static int bfin_can_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* fill id */
+ 	if (id & CAN_EFF_FLAG) {
+ 		bfin_write16(&reg->chl[TRANSMIT_CHL].id0, id);
+-		if (id & CAN_RTR_FLAG)
+-			writew(((id & 0x1FFF0000) >> 16) | IDE | AME | RTR,
+-					&reg->chl[TRANSMIT_CHL].id1);
+-		else
+-			writew(((id & 0x1FFF0000) >> 16) | IDE | AME,
+-					&reg->chl[TRANSMIT_CHL].id1);
+-
+-	} else {
+-		if (id & CAN_RTR_FLAG)
+-			writew((id << 2) | AME | RTR,
+-				&reg->chl[TRANSMIT_CHL].id1);
+-		else
+-			bfin_write16(&reg->chl[TRANSMIT_CHL].id1,
+-					(id << 2) | AME);
+-	}
++		val = ((id & 0x1FFF0000) >> 16) | IDE;
++	} else
++		val = (id << 2);
++	if (id & CAN_RTR_FLAG)
++		val |= RTR;
++	bfin_write16(&reg->chl[TRANSMIT_CHL].id1, val | AME);
+ 
+ 	/* fill payload */
+ 	for (i = 0; i < 8; i += 2) {
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+1.7.5.3
+
