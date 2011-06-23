@@ -1,59 +1,23 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Only flood unregistered groups to routers
-Date: Thu, 23 Jun 2011 20:39:12 +0800
-Message-ID: <20110623123912.GA29381@gondor.apana.org.au>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: linux-next: build failure after merge of the final tree (net tree related)
+Date: Thu, 23 Jun 2011 16:04:13 +0300
+Message-ID: <BANLkTin+iCahNVJGKc-_26pb9zEERTc8_A@mail.gmail.com>
+References: <20110623152920.31b28b00.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:43550 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759400Ab1FWMjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 08:39:15 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110623152920.31b28b00.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+On Thu, Jun 23, 2011 at 8:29 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> After merging the final tree, today's linux-next build (powerpc
+> allyesconfig) failed like this:
 
-bridge: Only flood traffic for unregistered groups to routers
+I build on all powerpc defconfigs, somehow this driver is not pinned
+by any of them :^)
 
-The bridge currently floods packets to groups that we have never
-seen before to all ports.  This is not required by RFC4541 and
-in fact it is not desirable in environment where traffic to
-unregistered group is always present.
-
-This patch changes the behaviour so that we only send traffic
-to unregistered groups to ports marked as routers.
-
-The user can always force flooding behaviour to any given port
-by marking it as a router.
-
-Note that this change does not apply to traffic to 224.0.0.X
-as traffic to those groups must always be flooded to all ports.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 29b9812..2d85ca7 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1379,8 +1379,11 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
- 		return -EINVAL;
- 
--	if (iph->protocol != IPPROTO_IGMP)
-+	if (iph->protocol != IPPROTO_IGMP) {
-+		if ((iph->daddr & IGMP_LOCAL_GROUP_MASK) != IGMP_LOCAL_GROUP)
-+			BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
- 		return 0;
-+	}
- 
- 	len = ntohs(iph->tot_len);
- 	if (skb->len < len || len < ip_hdrlen(skb))
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> drivers/net/ll_temac_main.c:209:4: error: implicit declaration of function 'dma_unmap_single'
