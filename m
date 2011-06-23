@@ -1,47 +1,67 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] ssb: use pci_dev->revision
-Date: Thu, 23 Jun 2011 18:49:52 +0400
-Message-ID: <201106231849.53030.sshtylyov@ru.mvista.com>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH] net/usb: kalmia: Various fixes for better support of
+ non-x86 architectures.
+Date: Thu, 23 Jun 2011 18:55:12 +0400
+Message-ID: <4E0353D0.1060604@ru.mvista.com>
+References: <Pine.LNX.4.44L0.1106231025340.2033-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: mb@bu3sch.de, netdev@vger.kernel.org
+Cc: Sergei Shtylyov <sshtylyov@mvista.com>,
+	"Marius B. Kotsbak" <marius.kotsbak@gmail.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, "Marius B. Kotsbak" <marius@kotsbak.com>
+To: Alan Stern <stern@rowland.harvard.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:39479 "HELO
-	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1759225Ab1FWOvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 10:51:36 -0400
-Content-Disposition: inline
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:42862 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754899Ab1FWO5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 10:57:01 -0400
+In-Reply-To: <Pine.LNX.4.44L0.1106231025340.2033-100000@iolanthe.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bus scan code reads PCI revision ID from the PCI configuration register
-while it's already stored by PCI subsystem in the 'revision' field of 'struct
-pci_dev'...
+Alan Stern wrote:
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+>>> -Support for big endian.
+>>> -Do not use USB buffers at the stack.
+>>> -Safer/more efficient code for local constants.
 
----
-The patch is against the recent Linus' tree.
+>>> Signed-off-by: Marius B. Kotsbak<marius@kotsbak.com>
 
-There's another place where the revision ID register is read but as 16-bit
-entity (probably by mistake though), so I didn't convert it...
+>>> ---
+>>>   drivers/net/usb/kalmia.c |   40 ++++++++++++++++++++++++----------------
+>>>   1 files changed, 24 insertions(+), 16 deletions(-)
 
- drivers/ssb/scan.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+>>> diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+>>> index d965fb1..d4edeb2 100644
+>>> --- a/drivers/net/usb/kalmia.c
+>>> +++ b/drivers/net/usb/kalmia.c
+>>> @@ -100,27 +100,35 @@ kalmia_send_init_packet(struct usbnet *dev, u8 *init_msg, u8 init_msg_len,
+>>>   static int
+>>>   kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
+>>>   {
+>>> -	char init_msg_1[] =
+>>> +	const static char init_msg_1[] =
+>>>   		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
+>>>   		0x00, 0x00 };
+>>> -	char init_msg_2[] =
+>>> +	const static char init_msg_2[] =
+>>>   		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
+>>>   		0x00, 0x00 };
 
-Index: linux-2.6/drivers/ssb/scan.c
-===================================================================
---- linux-2.6.orig/drivers/ssb/scan.c
-+++ linux-2.6/drivers/ssb/scan.c
-@@ -310,8 +310,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
- 	} else {
- 		if (bus->bustype == SSB_BUSTYPE_PCI) {
- 			bus->chip_id = pcidev_to_chipid(bus->host_pci);
--			pci_read_config_byte(bus->host_pci, PCI_REVISION_ID,
--					     &bus->chip_rev);
-+			bus->chip_rev = bus->host_pci->revision;
- 			bus->chip_package = 0;
- 		} else {
- 			bus->chip_id = 0x4710;
+>>     Actually 'const' alone should've been enough for the variable to be placed 
+>> in the data section ISO stack.
+
+> I don't understand what "ISO stack" means here.
+
+    ISO == instead of.
+
+> I would think that "const" might or might not cause the array to be 
+> allocated statically.
+
+    At least with gcc, it will be allocated statically.
+
+> Alan Stern
+
+WBR, Sergei
