@@ -1,74 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFT PATCH 7/9] ethtool: prepare for larger netdev_features_t
- type
-Date: Thu, 23 Jun 2011 19:03:48 +0100
-Message-ID: <1308852228.2712.5.camel@bwh-desktop>
-References: <cover.1308596962.git.mirq-linux@rere.qmqm.pl>
-	 <852a74b9068b3be7413a65023f6096f142dfd805.1308596963.git.mirq-linux@rere.qmqm.pl>
-	 <1308604618.2701.189.camel@bwh-desktop>
-	 <BANLkTi=RB1MSR=c6GhXr4bsrPtFJVZnaZ8ZLCN=o339S_BE7iw@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 0/8] 8390: Neatening
+Date: Thu, 23 Jun 2011 20:04:13 +0200
+Message-ID: <BANLkTinBoGpGEFmfDQ-JXAjFn-aRBSVEUw@mail.gmail.com>
+References: <cover.1308810463.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8446 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933510Ab1FWSDw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 14:03:52 -0400
-In-Reply-To: <BANLkTi=RB1MSR=c6GhXr4bsrPtFJVZnaZ8ZLCN=o339S_BE7iw@mail.gmail.com>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:60270 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933497Ab1FWSEO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 14:04:14 -0400
+In-Reply-To: <cover.1308810463.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-06-23 at 10:50 -0700, Mahesh Bandewar wrote:
-> On Mon, Jun 20, 2011 at 2:16 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> >
-> > On Mon, 2011-06-20 at 21:14 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> > [...]
-> > > @@ -125,19 +131,26 @@ static int ethtool_set_features(struct net_=
-device *dev, void __user *useraddr)
-> > >       if (copy_from_user(features, useraddr, sizeof(features)))
-> > >               return -EFAULT;
-> > >
-> > > -     if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
-> > > +     /* I wonder if the compiler will be smart enough to loop-un=
-roll
-> > > +      * and optimize this... (no worries if not) --mq */
-> > > +     for (i =3D ETHTOOL_DEV_FEATURE_WORDS; i-- > 0; ) {
-> > > +             valid =3D (valid << 32)|features[i].valid;
-> > > +             wanted =3D (wanted << 32)|features[i].requested;
-> > > +     }
-> > [...]
-> >
-> > I don't know (or care) about optimisation of this, but I would expe=
-ct
-> > gcc to complain about shifting a 32-bit value by 32 bits.  I sugges=
-t you
-> > write this as:
-> >
-> >        for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
-> >                valid |=3D (netdev_features_t)features[i].valid << 3=
-2 *i;
-> >                wanted |=3D (netdev_features_t)features[i].requested=
- << 32 *i;
->=20
-> It's a valid point but this type of typecast or similar usage would
-> imply that netdev_feature_t is an int of XXX bits. That's not opaque
-> and would hinder the way you can abstract the feature type.
+On Thu, Jun 23, 2011 at 08:38, Joe Perches <joe@perches.com> wrote:
+> Some updates requested by Geert Uytterhoeven
+>
+> Joe Perches (8):
+> =C2=A0ariadne: Update style, neaten, restructure to eliminate prototy=
+pes
+> =C2=A0a2065: Use pr_fmt, pr_<level> and netdev_<level>
+> =C2=A0lib8390: Use pr_<level> and netdev_<level>
+> =C2=A0lib8390: Indent braces appropriately
+> =C2=A0lib8390: Normalize source code spacing
+> =C2=A0lib8390: Convert include <asm to include <linux
+> =C2=A0lib8390: Remove unnecessary extern
+> =C2=A0zorro8390: Restructure and eliminate prototypes
 
-Yes, ethtool_{get,set}_features() will have to be changed if and when
-the representation of netdev_features_t is changed significantly.  I
-don't think there's any way of avoiding that and I don't think it reall=
-y
-matters.
+Looks good. I had to make some minor adjustments to make it apply to my
+current tree, though.
 
-Ben.
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks!
 
+Gr{oetje,eeting}s,
+
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
