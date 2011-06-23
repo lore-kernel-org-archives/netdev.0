@@ -1,70 +1,64 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net tree
- related)
-Date: Thu, 23 Jun 2011 15:29:20 +1000
-Message-ID: <20110623152920.31b28b00.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: unintended ipv4 broadcast policy change
+Date: Wed, 22 Jun 2011 22:41:44 -0700 (PDT)
+Message-ID: <20110622.224144.671030256188122882.davem@davemloft.net>
+References: <20110622.163935.2248705300315908767.davem@davemloft.net>
+	<20110623004134.GA22314@gondor.apana.org.au>
+	<20110622.194158.820637934689036237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__23_Jun_2011_15_29_20_+1000_7hk2pSyZxG2640eb"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.hengli.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60862 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752368Ab1FWFmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 01:42:01 -0400
+In-Reply-To: <20110622.194158.820637934689036237.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__23_Jun_2011_15_29_20_+1000_7hk2pSyZxG2640eb
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: David Miller <davem@davemloft.net>
+Date: Wed, 22 Jun 2011 19:41:58 -0700 (PDT)
 
-Hi all,
+> From: Herbert Xu <herbert@gondor.hengli.com.au>
+> Date: Thu, 23 Jun 2011 08:41:34 +0800
+> 
+>> On Wed, Jun 22, 2011 at 04:39:35PM -0700, David Miller wrote:
+>>> This subtle new behavior is interesting because it means that
+>>> a DHCP client could be implemented entirely with plain UDP
+>>> sockets.
+>> 
+>> Yes this is indeed possible.  However, for compatibility purposes
+>> I'm not sure whether we can safely rely on this new behaviour.
+>> Maybe if we add the disable_ipv4 sysctl we can use it to signal
+>> the presence of this new behaviour.
+> 
+> The easiest thing to do is to have the DHCP server first go:
+> 
+> 	ip addr add 0.0.0.0/0 broadcast 255.255.255.255 dev $(DEVICE)
+> 
+> and in fact this is essentially what ISC DHCP does on NetBSD and
+> similar.
 
-After merging the final tree, today's linux-next build (powerpc
-allyesconfig) failed like this:
+Except that my experiments show that we don't allow this.
 
-drivers/net/ll_temac_main.c: In function 'temac_dma_bd_release':
-drivers/net/ll_temac_main.c:209:4: error: implicit declaration of function =
-'dma_unmap_single'
-drivers/net/ll_temac_main.c:215:3: error: implicit declaration of function =
-'dma_free_coherent'
-drivers/net/ll_temac_main.c: In function 'temac_dma_bd_init':
-drivers/net/ll_temac_main.c:243:2: error: implicit declaration of function =
-'dma_alloc_coherent'
-drivers/net/ll_temac_main.c:243:14: warning: assignment makes pointer from =
-integer without a cast
-drivers/net/ll_temac_main.c:251:14: warning: assignment makes pointer from =
-integer without a cast
-drivers/net/ll_temac_main.c:280:3: error: implicit declaration of function =
-'dma_map_single'
-drivers/net/ll_temac_main.c: In function 'temac_start_xmit_done':
-drivers/net/ll_temac_main.c:628:22: warning: cast to pointer from integer o=
-f different size
+In fact, it fails silently because of the code in __inet_insert_ifa()
+that goes:
 
-I suspect that this was caused by commit b7f080cfe223 ("net: remove mm.h
-inclusion from netdevice.h").
+	if (!ifa->ifa_local) {
+		inet_free_ifa(ifa);
+		return 0;
+	}
 
-I have left the build broken for now since it is also broken for other
-reasons.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Sigh...
 
---Signature=_Thu__23_Jun_2011_15_29_20_+1000_7hk2pSyZxG2640eb
-Content-Type: application/pgp-signature
+The only problematic case is receiving the initial broadcast
+responses.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Sends are easy because if you use SO_BINDTODEVICE and MSG_DONTROUTE we
+can convince the kernel to build us a route, even if no addresses and
+routes are configured on the interface.
 
-iQEcBAEBAgAGBQJOAs8wAAoJEDMEi1NhKgbs99wH/Rb4znjuvFlSqnV26JJhGrMF
-qh2AiutkLzs3EnDvbiEx9XHSrvziM27yOc7AiiwR0yx7tFcqteGm/sd9loSD8RCb
-TvQQ0XY6/To5vScGwcLty1a+NXZBQLpjZyVvZ97z27eJ5PC10o0R8j5SR2adCQgO
-evliMP623M9l5eaH6/V6jnaW4uI5M6UIoOB6EdtiI/T66ha1PLXemFgbtTnHt9On
-Uq2mte2tzMTeOJmavjCX2F1FmvgH70ihA1NcR5/HH70mJNzPwcDcspplL6tzFBNv
-asLVqsHSRHHAl+51JKhUp5eYD/H2Wd7t+5Hk+Y/Tf6H+5eK0/EopVxqX5zUqDQ4=
-=wIRf
------END PGP SIGNATURE-----
-
---Signature=_Thu__23_Jun_2011_15_29_20_+1000_7hk2pSyZxG2640eb--
+Will think about this some more.
