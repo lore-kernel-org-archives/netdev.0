@@ -1,97 +1,72 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 4/5] pm: move pm notifiers into suspend.h
-Date: Thu, 23 Jun 2011 13:03:54 +0800
-Message-ID: <4E02C93A.7010601@redhat.com>
-References: <1308724522-32461-1-git-send-email-amwang@redhat.com> <1308724522-32461-5-git-send-email-amwang@redhat.com> <201106222149.28252.rjw@sisk.pl>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Thu, 23 Jun 2011 15:25:35 +1000
+Message-ID: <20110623152535.e9ec4ad2.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040106060502030605060003"
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, Chris Ball <cjb@laptop.org>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	Ohad Ben-Cohen <ohad@wizery.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Philip Rakity <prakity@marvell.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Josh Triplett <josh@joshtriplett.org>,
-	linux-mmc@vger.kernel.org, linux-pm@lists.linux-foundation.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <201106222149.28252.rjw@sisk.pl>
-Sender: linux-mmc-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__23_Jun_2011_15_25_35_+1000_4YcWZ3hFGHKYhAl7"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040106060502030605060003
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+--Signature=_Thu__23_Jun_2011_15_25_35_+1000_4YcWZ3hFGHKYhAl7
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-于 2011年06月23日 03:49, Rafael J. Wysocki 写道:
->> +#ifdef CONFIG_PM
->> >  +#include<linux/suspend.h>
->> >  +#endif
-> I don't think the #ifdef in necessary.  Any dependencies on CONFIG_PM
-> (or CONFIG_SUSPEND etc.) should be taken care of inside of suspend.h.
-> This file should be fixed if they aren't.
->
+Hi all,
 
-Ok, please check the updated version below.
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
 
-Thanks.
+drivers/net/can/sja1000/sja1000_of_platform.c: In function 'sja1000_ofp_rea=
+d_reg':
+drivers/net/can/sja1000/sja1000_of_platform.c:61:2: error: implicit declara=
+tion of function 'in_8'
+drivers/net/can/sja1000/sja1000_of_platform.c: In function 'sja1000_ofp_wri=
+te_reg':
+drivers/net/can/sja1000/sja1000_of_platform.c:67:2: error: implicit declara=
+tion of function 'out_8'
+drivers/net/can/sja1000/sja1000_of_platform.c: In function 'sja1000_ofp_rem=
+ove':
+drivers/net/can/sja1000/sja1000_of_platform.c:81:2: error: implicit declara=
+tion of function 'iounmap'
+drivers/net/can/sja1000/sja1000_of_platform.c: In function 'sja1000_ofp_pro=
+be':
+drivers/net/can/sja1000/sja1000_of_platform.c:113:2: error: implicit declar=
+ation of function 'ioremap_nocache'
+drivers/net/can/sja1000/sja1000_of_platform.c:113:7: warning: assignment ma=
+kes pointer from integer without a cast
 
+Since this file has not been changed recently, I suspect that this was
+caused by commit b7f080cfe223 ("net: remove mm.h inclusion from
+netdevice.h").
 
---------------040106060502030605060003
-Content-Type: text/plain;
- name="pm-move-pm-notifiers-into-suspend.h.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="pm-move-pm-notifiers-into-suspend.h.patch"
+I have left the build broken for now since it is also broken for other
+reasons.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-QXV0aG9yOiBBbWVyaWdvIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29tPgoKICAgIHBtOiBtb3Zl
-IHBtIG5vdGlmaWVycyBpbnRvIHN1c3BlbmQuaAoKU2lnbmVkLW9mZi1ieTogV0FORyBDb25n
-IDxhbXdhbmdAcmVkaGF0LmNvbT4KCi0tLQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9tbWMvY29y
-ZS9jb3JlLmMgYi9kcml2ZXJzL21tYy9jb3JlL2NvcmUuYwppbmRleCA2ODA5MWRkLi41MDNk
-YmM5IDEwMDY0NAotLS0gYS9kcml2ZXJzL21tYy9jb3JlL2NvcmUuYworKysgYi9kcml2ZXJz
-L21tYy9jb3JlL2NvcmUuYwpAQCAtMjMsNiArMjMsNyBAQAogI2luY2x1ZGUgPGxpbnV4L2xv
-ZzIuaD4KICNpbmNsdWRlIDxsaW51eC9yZWd1bGF0b3IvY29uc3VtZXIuaD4KICNpbmNsdWRl
-IDxsaW51eC9wbV9ydW50aW1lLmg+CisjaW5jbHVkZSA8bGludXgvc3VzcGVuZC5oPgogCiAj
-aW5jbHVkZSA8bGludXgvbW1jL2NhcmQuaD4KICNpbmNsdWRlIDxsaW51eC9tbWMvaG9zdC5o
-PgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9ub3RpZmllci5oIGIvaW5jbHVkZS9saW51
-eC9ub3RpZmllci5oCmluZGV4IDE0NWM0MzYuLmFlOGY3ZDkgMTAwNjQ0Ci0tLSBhL2luY2x1
-ZGUvbGludXgvbm90aWZpZXIuaAorKysgYi9pbmNsdWRlL2xpbnV4L25vdGlmaWVyLmgKQEAg
-LTE5MSwxNSArMTkxLDkgQEAgc3RhdGljIGlubGluZSBpbnQgbm90aWZpZXJfdG9fZXJybm8o
-aW50IHJldCkKIAogLyogcmVib290IG5vdGlmaWVycyBhcmUgZGVmaW5lZCBpbiBpbmNsdWRl
-L2xpbnV4L3JlYm9vdC5oLiAqLwogCi0jZGVmaW5lIE5FVExJTktfVVJFTEVBU0UJMHgwMDAx
-CS8qIFVuaWNhc3QgbmV0bGluayBzb2NrZXQgcmVsZWFzZWQgKi8KKy8qIEhpYmVybmF0aW9u
-IGFuZCBzdXNwZW5kIGV2ZW50cyBhcmUgZGVmaW5lZCBpbiBpbmNsdWRlL2xpbnV4L3N1c3Bl
-bmQuaC4gKi8KIAotLyogSGliZXJuYXRpb24gYW5kIHN1c3BlbmQgZXZlbnRzICovCi0jZGVm
-aW5lIFBNX0hJQkVSTkFUSU9OX1BSRVBBUkUJMHgwMDAxIC8qIEdvaW5nIHRvIGhpYmVybmF0
-ZSAqLwotI2RlZmluZSBQTV9QT1NUX0hJQkVSTkFUSU9OCTB4MDAwMiAvKiBIaWJlcm5hdGlv
-biBmaW5pc2hlZCAqLwotI2RlZmluZSBQTV9TVVNQRU5EX1BSRVBBUkUJMHgwMDAzIC8qIEdv
-aW5nIHRvIHN1c3BlbmQgdGhlIHN5c3RlbSAqLwotI2RlZmluZSBQTV9QT1NUX1NVU1BFTkQJ
-CTB4MDAwNCAvKiBTdXNwZW5kIGZpbmlzaGVkICovCi0jZGVmaW5lIFBNX1JFU1RPUkVfUFJF
-UEFSRQkweDAwMDUgLyogR29pbmcgdG8gcmVzdG9yZSBhIHNhdmVkIGltYWdlICovCi0jZGVm
-aW5lIFBNX1BPU1RfUkVTVE9SRQkJMHgwMDA2IC8qIFJlc3RvcmUgZmFpbGVkICovCisjZGVm
-aW5lIE5FVExJTktfVVJFTEVBU0UJMHgwMDAxCS8qIFVuaWNhc3QgbmV0bGluayBzb2NrZXQg
-cmVsZWFzZWQgKi8KIAogLyogQ29uc29sZSBrZXlib2FyZCBldmVudHMuCiAgKiBOb3RlOiBL
-QkRfS0VZQ09ERSBpcyBhbHdheXMgc2VudCBiZWZvcmUgS0JEX1VOQk9VTkRfS0VZQ09ERSwg
-S0JEX1VOSUNPREUgYW5kCmRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3N1c3BlbmQuaCBi
-L2luY2x1ZGUvbGludXgvc3VzcGVuZC5oCmluZGV4IDA4M2ZmZWEuLjk1YmM4MWMgMTAwNjQ0
-Ci0tLSBhL2luY2x1ZGUvbGludXgvc3VzcGVuZC5oCisrKyBiL2luY2x1ZGUvbGludXgvc3Vz
-cGVuZC5oCkBAIC0yNjAsNiArMjYwLDE0IEBAIHN0YXRpYyBpbmxpbmUgaW50IGhpYmVybmF0
-ZSh2b2lkKSB7IHJldHVybiAtRU5PU1lTOyB9CiBzdGF0aWMgaW5saW5lIGJvb2wgc3lzdGVt
-X2VudGVyaW5nX2hpYmVybmF0aW9uKHZvaWQpIHsgcmV0dXJuIGZhbHNlOyB9CiAjZW5kaWYg
-LyogQ09ORklHX0hJQkVSTkFUSU9OICovCiAKKy8qIEhpYmVybmF0aW9uIGFuZCBzdXNwZW5k
-IGV2ZW50cyAqLworI2RlZmluZSBQTV9ISUJFUk5BVElPTl9QUkVQQVJFCTB4MDAwMSAvKiBH
-b2luZyB0byBoaWJlcm5hdGUgKi8KKyNkZWZpbmUgUE1fUE9TVF9ISUJFUk5BVElPTgkweDAw
-MDIgLyogSGliZXJuYXRpb24gZmluaXNoZWQgKi8KKyNkZWZpbmUgUE1fU1VTUEVORF9QUkVQ
-QVJFCTB4MDAwMyAvKiBHb2luZyB0byBzdXNwZW5kIHRoZSBzeXN0ZW0gKi8KKyNkZWZpbmUg
-UE1fUE9TVF9TVVNQRU5ECQkweDAwMDQgLyogU3VzcGVuZCBmaW5pc2hlZCAqLworI2RlZmlu
-ZSBQTV9SRVNUT1JFX1BSRVBBUkUJMHgwMDA1IC8qIEdvaW5nIHRvIHJlc3RvcmUgYSBzYXZl
-ZCBpbWFnZSAqLworI2RlZmluZSBQTV9QT1NUX1JFU1RPUkUJCTB4MDAwNiAvKiBSZXN0b3Jl
-IGZhaWxlZCAqLworCiAjaWZkZWYgQ09ORklHX1BNX1NMRUVQCiB2b2lkIHNhdmVfcHJvY2Vz
-c29yX3N0YXRlKHZvaWQpOwogdm9pZCByZXN0b3JlX3Byb2Nlc3Nvcl9zdGF0ZSh2b2lkKTsK
+--Signature=_Thu__23_Jun_2011_15_25_35_+1000_4YcWZ3hFGHKYhAl7
+Content-Type: application/pgp-signature
 
---------------040106060502030605060003--
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJOAs5PAAoJEDMEi1NhKgbsBjAH/1B9ibkttIMUXGf5GlbFfl/c
+tFj0OZCTO0elt3yt7FEK28/K+Fz6YS0AU4nFbAw/KR/opWBD2CoB5YEZW+SBWLe7
+L9VulRyyojEuRBcdxkcJhIGp2Pkal25T7l3tx+wzzLq958zgkpoYb/IkT2vxIvPE
+T7kSQk4O9UBIIJ1/5CObmZN4r//YyOA0U39ZOXu67ACxzMaZLw53smuoEZfgqXrq
+LnT1Atpyd+cZ5f2VWYkWtXQehC9bPS5DHqMLicWlnDYArNbA+3QvE1UPTS7agJ/M
+7CqKMT73MrYVyxbSBaj4hyCcEPc67pfMT1QxmFaxFJDPC75bsO/4+rFrFykGpjQ=
+=mGwc
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__23_Jun_2011_15_25_35_+1000_4YcWZ3hFGHKYhAl7--
