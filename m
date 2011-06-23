@@ -1,99 +1,44 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net/usb: kalmia: Various fixes for better support of
- non-x86 architectures.
-Date: Thu, 23 Jun 2011 14:46:34 +0400
-Message-ID: <4E03198A.2060600@ru.mvista.com>
-References: <20110619.155755.1854488306547854947.davem@davemloft.net> <1308756376-9920-1-git-send-email-marius@kotsbak.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH 4/5] pm: move pm notifiers into suspend.h
+Date: Thu, 23 Jun 2011 14:04:11 +0200
+Message-ID: <201106231404.12311.rjw@sisk.pl>
+References: <1308724522-32461-1-git-send-email-amwang@redhat.com> <201106222149.28252.rjw@sisk.pl> <4E02C93A.7010601@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-To: "Marius B. Kotsbak" <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1308756376-9920-1-git-send-email-marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, Chris Ball <cjb@laptop.org>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	"Ohad Ben-Cohen" <ohad@wizery.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Philip Rakity <prakity@marvell.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Josh Triplett <josh@joshtriplett.org>,
+	linux-mmc@vger.kernel.org, linux-pm@lists.linux-foundation.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <4E02C93A.7010601@redhat.com>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thursday, June 23, 2011, Cong Wang wrote:
+> =E4=BA=8E 2011=E5=B9=B406=E6=9C=8823=E6=97=A5 03:49, Rafael J. Wysock=
+i =E5=86=99=E9=81=93:
+> >> +#ifdef CONFIG_PM
+> >> >  +#include<linux/suspend.h>
+> >> >  +#endif
+> > I don't think the #ifdef in necessary.  Any dependencies on CONFIG_=
+PM
+> > (or CONFIG_SUSPEND etc.) should be taken care of inside of suspend.=
+h.
+> > This file should be fixed if they aren't.
+> >
+>=20
+> Ok, please check the updated version below.
 
-On 22-06-2011 19:26, Marius B. Kotsbak wrote:
+That's fine by me.  Please feel free to add my ACK to the patch.
 
-> -Support for big endian.
-> -Do not use USB buffers at the stack.
-> -Safer/more efficient code for local constants.
-
-> Signed-off-by: Marius B. Kotsbak<marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
-> ---
->   drivers/net/usb/kalmia.c |   40 ++++++++++++++++++++++++----------------
->   1 files changed, 24 insertions(+), 16 deletions(-)
-
-> diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
-> index d965fb1..d4edeb2 100644
-> --- a/drivers/net/usb/kalmia.c
-> +++ b/drivers/net/usb/kalmia.c
-> @@ -100,27 +100,35 @@ kalmia_send_init_packet(struct usbnet *dev, u8 *init_msg, u8 init_msg_len,
->   static int
->   kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
->   {
-> -	char init_msg_1[] =
-> +	const static char init_msg_1[] =
->   		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
->   		0x00, 0x00 };
-> -	char init_msg_2[] =
-> +	const static char init_msg_2[] =
->   		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
->   		0x00, 0x00 };
-
-    Actually 'const' alone should've been enough for the variable to be placed 
-in the data section ISO stack.
-
-> -	char receive_buf[28];
-> +	const static int buflen = 28;
-
-    Why declare it at all, when it's used only once?
-
-> +	char *usb_buf;
->   	int status;
->
-> -	status = kalmia_send_init_packet(dev, init_msg_1, sizeof(init_msg_1)
-> -		/ sizeof(init_msg_1[0]), receive_buf, 24);
-> +	usb_buf = kmalloc(buflen, GFP_DMA | GFP_KERNEL);
-> +	if (!usb_buf)
-> +		return -ENOMEM;
-> +
-> +	memcpy(usb_buf, init_msg_1, 12);
-
-    s/12/sizeof(init_msg_1)/
-
-> +	status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_1)
-> +		/ sizeof(init_msg_1[0]), usb_buf, 24);
-
-    There's ARRAY_SIZE() macro to replace:
-
-sizeof(init_msg_1) / sizeof(init_msg_1[0])
-
-    and why not use just sizeof(init_msg_1)?
-
->   	if (status != 0)
->   		return status;
->
-> -	status = kalmia_send_init_packet(dev, init_msg_2, sizeof(init_msg_2)
-> -		/ sizeof(init_msg_2[0]), receive_buf, 28);
-> +	memcpy(usb_buf, init_msg_2, 12);
-
-    s/12/sizeof(init_msg_2)/
-
-> +	status = kalmia_send_init_packet(dev, usb_buf, sizeof(init_msg_2)
-> +		/ sizeof(init_msg_2[0]), usb_buf, 28);
-
-    The same comment here about:
-
-sizeof(init_msg_2) / sizeof(init_msg_2[0])
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Rafael
