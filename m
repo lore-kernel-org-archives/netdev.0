@@ -1,55 +1,47 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
 Subject: Re: [PATCH] ssb: use pci_dev->revision
-Date: Thu, 23 Jun 2011 17:09:08 +0200
-Message-ID: <20110623170908.1417f933@maggie>
-References: <201106231849.53030.sshtylyov@ru.mvista.com>
+Date: Thu, 23 Jun 2011 19:11:59 +0400
+Message-ID: <4E0357BF.7000408@mvista.com>
+References: <201106231849.53030.sshtylyov@ru.mvista.com> <20110623170908.1417f933@maggie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Michael_B=FCsch?= <m@bues.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bues.ch ([80.190.117.144]:50064 "EHLO bues.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758983Ab1FWPJT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2011 11:09:19 -0400
-In-Reply-To: <201106231849.53030.sshtylyov@ru.mvista.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41077 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758347Ab1FWPNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 11:13:46 -0400
+Received: by wyb38 with SMTP id 38so1351357wyb.19
+        for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 08:13:44 -0700 (PDT)
+In-Reply-To: <20110623170908.1417f933@maggie>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 23 Jun 2011 18:49:52 +0400
-Sergei Shtylyov <sshtylyov@ru.mvista.com> wrote:
+Hello.
 
-> The bus scan code reads PCI revision ID from the PCI configuration register
-> while it's already stored by PCI subsystem in the 'revision' field of 'struct
-> pci_dev'...
-> 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-> 
-> ---
-> The patch is against the recent Linus' tree.
-> 
-> There's another place where the revision ID register is read but as 16-bit
-> entity (probably by mistake though), so I didn't convert it...
+Michael B=FCsch wrote:
 
-Where is that?
+>> The bus scan code reads PCI revision ID from the PCI configuration r=
+egister
+>> while it's already stored by PCI subsystem in the 'revision' field o=
+f 'struct
+>> pci_dev'...
 
->  drivers/ssb/scan.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> Index: linux-2.6/drivers/ssb/scan.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/ssb/scan.c
-> +++ linux-2.6/drivers/ssb/scan.c
-> @@ -310,8 +310,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
->  	} else {
->  		if (bus->bustype == SSB_BUSTYPE_PCI) {
->  			bus->chip_id = pcidev_to_chipid(bus->host_pci);
-> -			pci_read_config_byte(bus->host_pci, PCI_REVISION_ID,
-> -					     &bus->chip_rev);
-> +			bus->chip_rev = bus->host_pci->revision;
->  			bus->chip_package = 0;
->  		} else {
->  			bus->chip_id = 0x4710;
-> 
+>> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+
+>> ---
+>> The patch is against the recent Linus' tree.
+
+>> There's another place where the revision ID register is read but as =
+16-bit
+>> entity (probably by mistake though), so I didn't convert it...
+
+> Where is that?
+
+    drivers/ssb/pci.c, line 741.
+
+WBR, Sergei
 
