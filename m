@@ -1,81 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC] Moving files around in drivers/net
-Date: Thu, 23 Jun 2011 20:56:01 -0700
-Message-ID: <1308887762.995.10.camel@jtkirshe-mobl>
-References: <1306956602.32125.28.camel@Joe-Laptop>
-	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
-	 <1306958478.32125.32.camel@Joe-Laptop>
-	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
-	 <1308186619.12377.23.camel@Joe-Laptop>
-	 <BANLkTin0QzAscKcN0Yw6rc7fUh5d5q143w@mail.gmail.com>
-	 <4E033FE9.9060806@st.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+Subject: Re: [net-next 07/12] ixgbe: add support for modifying UDP RSS flow
+ hash options
+Date: Thu, 23 Jun 2011 20:57:51 -0700
+Message-ID: <BANLkTi=-DjyeT7-KMFpuGY=4MGVA-uSXQg@mail.gmail.com>
+References: <1308793476-11596-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1308793476-11596-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1308795900.3093.713.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-iDOrVxvqwZbvbJ4n1MoM"
-Cc: Jon Mason <jon.mason@myri.com>, Joe Perches <joe@perches.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Andrew Gallatin <gallatin@myri.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46691 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751563Ab1FXD4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2011 23:56:03 -0400
-In-Reply-To: <4E033FE9.9060806@st.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56823 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751563Ab1FXD5x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 23:57:53 -0400
+Received: by fxm17 with SMTP id 17so1640922fxm.19
+        for <netdev@vger.kernel.org>; Thu, 23 Jun 2011 20:57:51 -0700 (PDT)
+In-Reply-To: <1308795900.3093.713.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 22, 2011 at 19:25, Ben Hutchings <bhutchings@solarflare.com=
+> wrote:
+> On Wed, 2011-06-22 at 18:44 -0700, Jeff Kirsher wrote:
+>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>>
+>> This patch adds the ability to add or remove the UDP source and dest=
+ination
+>> ports from the flow hash generated for RSS. =C2=A0Currently the UDP =
+flow hash is
+>> always disabled. =C2=A0By adding support for enabling the UDP flow h=
+ash we are
+>> now providing the option of generating an RSS hash based on the UDP =
+source
+>> and destination port numbers.
+> [...]
+>> --- a/drivers/net/ixgbe/ixgbe_ethtool.c
+>> +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+> [...]
+>> @@ -2681,6 +2726,110 @@ static int ixgbe_del_ethtool_fdir_entry(stru=
+ct ixgbe_adapter *adapter,
+>> =C2=A0 =C2=A0 =C2=A0 return err;
+>> =C2=A0}
+>>
+>> +#define UDP_RSS_FLAGS (IXGBE_FLAG2_RSS_FIELD_IPV4_UDP | \
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
+>> +static int ixgbe_set_rss_hash_opt(struct ixgbe_adapter *adapter,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ethtool_rxnfc *nfc)
+>> +{
+>> + =C2=A0 =C2=A0 u32 flags2 =3D adapter->flags2;
+>> +
+>> + =C2=A0 =C2=A0 /*
+>> + =C2=A0 =C2=A0 =C2=A0* RSS does not support anything other than has=
+hing
+>> + =C2=A0 =C2=A0 =C2=A0* to queues on src and dst IPs and ports
+>> + =C2=A0 =C2=A0 =C2=A0*/
+>> + =C2=A0 =C2=A0 if (nfc->data & ~(RXH_IP_SRC | RXH_IP_DST |
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 RXH_L4_B_0_1 | RXH_L4_B_2_3))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -EINVAL;
+>> +
+>> + =C2=A0 =C2=A0 switch (nfc->flow_type) {
+>> + =C2=A0 =C2=A0 case TCP_V4_FLOW:
+>> + =C2=A0 =C2=A0 case TCP_V6_FLOW:
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!(nfc->data & RXH_IP=
+_SRC) ||
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 !(nfc->dat=
+a & RXH_IP_DST) ||
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 !(nfc->dat=
+a & RXH_L4_B_0_1) ||
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 !(nfc->dat=
+a & RXH_L4_B_2_3))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 return -EINVAL;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
+>
+> This can be written as a simple equality test.
+>
+>> + =C2=A0 =C2=A0 case UDP_V4_FLOW:
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!(nfc->data & RXH_IP=
+_SRC) ||
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 !(nfc->dat=
+a & RXH_IP_DST))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 return -EINVAL;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 switch (nfc->data & (RXH=
+_L4_B_0_1 | RXH_L4_B_2_3)) {
+>
+> You could just as well include all flags in the switch.
+>
+> [...]
+>> + =C2=A0 =C2=A0 case AH_ESP_V4_FLOW:
+>> + =C2=A0 =C2=A0 case AH_V4_FLOW:
+>> + =C2=A0 =C2=A0 case ESP_V4_FLOW:
+>> + =C2=A0 =C2=A0 case SCTP_V4_FLOW:
+>> + =C2=A0 =C2=A0 case AH_ESP_V6_FLOW:
+>> + =C2=A0 =C2=A0 case AH_V6_FLOW:
+>> + =C2=A0 =C2=A0 case ESP_V6_FLOW:
+>> + =C2=A0 =C2=A0 case SCTP_V6_FLOW:
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!(nfc->data & RXH_IP=
+_SRC) ||
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 !(nfc->dat=
+a & RXH_IP_DST))
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 return -EINVAL;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
+> [...]
+>
+> This should be written as an equality test, otherwise you will ignore=
+ a
+> request to include port numbers in the hash for these flow classes.
+>
+> Ben.
+>
+>
 
---=-iDOrVxvqwZbvbJ4n1MoM
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Alex is on vacation currently, so I will just pull this patch for now
+to give Alex time to respond when he returns next week.
 
-On Thu, 2011-06-23 at 06:30 -0700, Giuseppe CAVALLARO wrote:
-> On 6/16/2011 5:03 PM, Jon Mason wrote:
-> >> stmmac may not be a good name.  Maybe stmicro.
->=20
-> Hello and sorry for the delay of this reply.
->=20
-> concerning the stmmac, in the past, I had thought to rename it as
-> synmac
-> because the driver, although was initially designed to work on ST
-> platforms, today it runs on other platforms.
-> The driver indeed is generic enough and is for MAC 10/100/1000 core by
-> Synopsys.
-> This is just an idea.
->=20
-> Moreover, sorry if I'm missing some details of this thread, I can do
-> rework if you agree, so let me know how proceed.
-> IIUC new patches should be built against:
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize
->=20
-> Regards
-> Peppe=20
-
-I can make that change, I am almost finished re-working the patches with
-the suggested changes so far, so I will try to get it into the next
-update I post in the next couple of days.
-
---=-iDOrVxvqwZbvbJ4n1MoM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJOBArRAAoJECTsCADr/EWU2GsH/i9zCf7upBhq1vhG3Ja+E2rZ
-qkZNYX6npAOgjWu4hHFskxUgh+2e5LuqlQ+tiTAo4lHe2NqDxSg5AJoTn85mRz7n
-hCNUPLePBHHoGTtrrBeCMqM2yuxNXlEKnY4rxrZ/QS3ZA5ajT+kR6qqnBwJzOYUi
-6gqL4TzFU+B1Eh56c6HhNm9lDDHKn1z+e4teFTbkTTLSQNJJ9+hQ8OxLIluwo95j
-PeSIXwdI9nbo0p5a9rAJEkv3qgXVpp8sXGS032W6oMcJp/652zYJfWkSrUPI1zzV
-TqyqxVE/VFDJKdjSM5W5O59vLIvGe6+hqsqn6+oPB19VWUa+ZJ6L6xShd+ZKhPk=
-=uxZq
------END PGP SIGNATURE-----
-
---=-iDOrVxvqwZbvbJ4n1MoM--
-
+--=20
+Cheers,
+Jeff
