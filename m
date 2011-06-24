@@ -1,50 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] net:  Support RXFCS feature flag.
-Date: Fri, 24 Jun 2011 00:22:08 +0100
-Message-ID: <1308871328.3093.1020.camel@localhost>
-References: <1308870819-15938-1-git-send-email-greearb@candelatech.com>
-	 <1308870819-15938-2-git-send-email-greearb@candelatech.com>
+From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
+Date: Thu, 23 Jun 2011 20:25:42 -0400
+Message-ID: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:38507 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933471Ab1FWXWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 19:22:12 -0400
-In-Reply-To: <1308870819-15938-2-git-send-email-greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
+	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem@davemlo
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-06-23 at 16:13 -0700, greearb@candelatech.com wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> 
-> When set, this causes the Ethernet FCS to be appended
-> to the end of the skb.
-> 
-> Useful for sniffing packets.
-[...]
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -347,6 +347,7 @@ struct ethtool_perm_addr {
->   * flag differs from the read-only value.
->   */
->  enum ethtool_flags {
-> +	ETH_FLAG_RXFCS		= (1 << 0),	/* Append FCS to skb */
->  	ETH_FLAG_TXVLAN		= (1 << 7),	/* TX VLAN offload enabled */
->  	ETH_FLAG_RXVLAN		= (1 << 8),	/* RX VLAN offload enabled */
->  	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
-[...]
+The socketcan-core lists require subscription, so mark them as such.
 
-No, all new features should be accessed through the
-ETHTOOL_{G,S}FEATURES commands only.
+Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ MAINTAINERS |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Ben.
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index f0358cd..d3765e8 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1639,7 +1639,7 @@ CAN NETWORK LAYER
+ M:	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+ M:	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+ M:	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+-L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
++L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
+ L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ W:	http://developer.berlios.de/projects/socketcan/
+ S:	Maintained
+@@ -1651,7 +1651,7 @@ F:	include/linux/can/raw.h
+ 
+ CAN NETWORK DRIVERS
+ M:	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+-L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
++L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
+ L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ W:	http://developer.berlios.de/projects/socketcan/
+ S:	Maintained
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+1.7.5.3
