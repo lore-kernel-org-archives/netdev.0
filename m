@@ -1,76 +1,56 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: linux-next: Tree for June 23 (net)
-Date: Fri, 24 Jun 2011 08:38:52 -0700
-Message-ID: <4E04AF8C.6050007@oracle.com>
-References: <20110623155431.6bfe3b40.sfr@canb.auug.org.au>	<20110623091429.2d51b0f0.randy.dunlap@oracle.com> <20110623.212120.2043173528294538748.davem@davemloft.net>
+From: Sergei Shtylyov <sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
+Subject: [PATCH v2] iwlwifi: use pci_dev->revision, again
+Date: Fri, 24 Jun 2011 19:39:37 +0400
+Message-ID: <201106241939.37388.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110623.212120.2043173528294538748.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/23/11 21:21, David Miller wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Thu, 23 Jun 2011 09:14:29 -0700
-> 
->> On Thu, 23 Jun 2011 15:54:31 +1000 Stephen Rothwell wrote:
->>
->>> Hi all,
->>>
->>> Changes since 20110622:
->>>
->>> The powerpc allyesconfig (and probably others) is still broken because we
->>> now build the staging drivers and because of a commit in the net tree.
->>> The breakage in Linus' tree is fixed by one of Andrew's patches above.
->>>
->>> The net tree gained 2 build failures that I have left (see above).
->>
->>
->> When CONFIG_INET is not enabled:
->>
->> net/core/dev.c:2535: error: implicit declaration of function 'ip_is_fragment'
-> 
-> I'll fix this like so:
+Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
+again) already converted this driver to using the 'revision' field of 'struct
+pci_dev' but commit 084dd79172cb3aad11d2b7ee5628d57badca7c6e (iwlagn: move PCI
+related operations from probe and remove to PCI layer) has again added the code
+to read the PCI revision ID register...
 
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Sergei Shtylyov <sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
 
-Thanks.
+---
+The patch is against the iwlwifi-2.6.git...
 
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index d603cd3..9fa9416 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -236,6 +236,11 @@ extern void ipfrag_init(void);
->  
->  extern void ip_static_sysctl_init(void);
->  
-> +static inline bool ip_is_fragment(const struct iphdr *iph)
-> +{
-> +	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
-> +}
-> +
->  #ifdef CONFIG_INET
->  #include <net/dst.h>
->  
-> @@ -250,11 +255,6 @@ int ip_decrease_ttl(struct iphdr *iph)
->  	return --iph->ttl;
->  }
->  
-> -static inline bool ip_is_fragment(const struct iphdr *iph)
-> -{
-> -	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
-> -}
-> -
->  static inline
->  int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
->  {
+ drivers/net/wireless/iwlwifi/iwl-pci.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+Index: iwlwifi-2.6/drivers/net/wireless/iwlwifi/iwl-pci.c
+===================================================================
+--- iwlwifi-2.6.orig/drivers/net/wireless/iwlwifi/iwl-pci.c
++++ iwlwifi-2.6/drivers/net/wireless/iwlwifi/iwl-pci.c
+@@ -383,7 +383,6 @@ static int iwl_pci_probe(struct pci_dev 
+ {
+ 	struct iwl_cfg *cfg = (struct iwl_cfg *)(ent->driver_data);
+ 	struct iwl_pci_bus *bus;
+-	u8 rev_id;
+ 	u16 pci_cmd;
+ 	int err;
+ 
+@@ -440,8 +439,7 @@ static int iwl_pci_probe(struct pci_dev 
+ 		(unsigned long long) pci_resource_len(pdev, 0));
+ 	pr_info("pci_resource_base = %p\n", bus->hw_base);
+ 
+-	pci_read_config_byte(pdev, PCI_REVISION_ID, &rev_id);
+-	pr_info("HW Revision ID = 0x%X\n", rev_id);
++	pr_info("HW Revision ID = 0x%X\n", pdev->revision);
+ 
+ 	/* We disable the RETRY_TIMEOUT register (0x41) to keep
+ 	 * PCI Tx retries from interfering with C3 CPU state */
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
