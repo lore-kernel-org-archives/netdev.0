@@ -1,15 +1,15 @@
 From: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v2 4/5] net/fec: add device tree support
-Date: Sat, 25 Jun 2011 02:04:35 +0800
-Message-ID: <1308938676-31121-5-git-send-email-shawn.guo@linaro.org>
+Subject: [PATCH v2 5/5] ARM: mx5: add basic device tree support for imx51
+	babbage
+Date: Sat, 25 Jun 2011 02:04:36 +0800
+Message-ID: <1308938676-31121-6-git-send-email-shawn.guo@linaro.org>
 References: <1308938676-31121-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 In-Reply-To: <1308938676-31121-1-git-send-email-shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
@@ -24,186 +24,225 @@ Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06c
 Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It adds device tree data parsing support for fec driver.
+This patch adds the i.mx51 dt platform with uart and fec support.
+It also adds the dts file imx51 babbage, so that we can have a dt
+kernel on babbage booting into console with nfs root.
 
-Signed-off-by: Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 Signed-off-by: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- Documentation/devicetree/bindings/net/fsl-fec.txt |   22 ++++++
- drivers/net/fec.c                                 |   81 +++++++++++++++++++--
- 2 files changed, 98 insertions(+), 5 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/fsl-fec.txt
+ arch/arm/boot/dts/imx51-babbage.dts |   93 +++++++++++++++++++++++++++++++++++
+ arch/arm/mach-mx5/Kconfig           |    8 +++
+ arch/arm/mach-mx5/Makefile          |    1 +
+ arch/arm/mach-mx5/imx51-dt.c        |   70 ++++++++++++++++++++++++++
+ 4 files changed, 172 insertions(+), 0 deletions(-)
+ create mode 100644 arch/arm/boot/dts/imx51-babbage.dts
+ create mode 100644 arch/arm/mach-mx5/imx51-dt.c
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+diff --git a/arch/arm/boot/dts/imx51-babbage.dts b/arch/arm/boot/dts/imx51-babbage.dts
 new file mode 100644
-index 0000000..345ecb6
+index 0000000..402cc44
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -0,0 +1,22 @@
-+* Freescale Fast Ethernet Controller (FEC)
++++ b/arch/arm/boot/dts/imx51-babbage.dts
+@@ -0,0 +1,93 @@
++/*
++ * Copyright 2011 Freescale Semiconductor, Inc.
++ * Copyright 2011 Linaro Ltd.
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
 +
-+Required properties:
-+- compatible : should be "fsl,<soc>-fec"
-+- reg : address and length of the register set for the device
-+- interrupts : should contain fec interrupt
-+- phy-mode : string, operation mode of the PHY interface.
-+  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
-+  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi".
++/dts-v1/;
++/include/ "skeleton.dtsi"
 +
-+Optional properties:
-+- local-mac-address : 6 bytes, mac address
++/ {
++	model = "Freescale i.MX51 Babbage";
++	compatible = "fsl,imx51-babbage", "fsl,imx51";
++	interrupt-parent = <&tzic>;
 +
-+Example:
-+
-+fec@83fec000 {
-+	compatible = "fsl,imx51-fec", "fsl,imx27-fec";
-+	reg = <0x83fec000 0x4000>;
-+	interrupts = <87>;
-+	phy-mode = "mii";
-+	local-mac-address = [00 04 9F 01 1B B9];
-+};
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 885d8ba..16ac1dd 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -44,6 +44,8 @@
- #include <linux/platform_device.h>
- #include <linux/phy.h>
- #include <linux/fec.h>
-+#include <linux/of.h>
-+#include <linux/of_device.h>
- 
- #include <asm/cacheflush.h>
- 
-@@ -78,6 +80,12 @@ static struct platform_device_id fec_devtype[] = {
- 	{ }
- };
- 
-+static const struct of_device_id fec_dt_ids[] = {
-+	{ .compatible = "fsl,imx27-fec", .data = &fec_devtype[0], },
-+	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[1], },
-+	{},
-+};
-+
- static unsigned char macaddr[ETH_ALEN];
- module_param_array(macaddr, byte, NULL, 0);
- MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
-@@ -731,8 +739,23 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
- 	 */
- 	iap = macaddr;
- 
-+#ifdef CONFIG_OF
-+	/*
-+	 * 2) from device tree data
-+	 */
-+	if (!is_valid_ether_addr(iap)) {
-+		struct device_node *np = fep->pdev->dev.of_node;
-+		if (np) {
-+			const void *p = of_get_property(np,
-+						"local-mac-address", NULL);
-+			if (p)
-+				iap = (unsigned char *) p;
-+		}
-+	}
-+#endif
-+
- 	/*
--	 * 2) from flash or fuse (via platform data)
-+	 * 3) from flash or fuse (via platform data)
- 	 */
- 	if (!is_valid_ether_addr(iap)) {
- #ifdef CONFIG_M5272
-@@ -745,7 +768,7 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
- 	}
- 
- 	/*
--	 * 3) FEC mac registers set by bootloader
-+	 * 4) FEC mac registers set by bootloader
- 	 */
- 	if (!is_valid_ether_addr(iap)) {
- 		*((unsigned long *) &tmpaddr[0]) =
-@@ -1355,6 +1378,43 @@ static int fec_enet_init(struct net_device *ndev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_OF
-+static int __devinit fec_get_phy_mode_dt(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct device_node *np = fep->pdev->dev.of_node;
-+	const char *pm, *phy_modes[] = {
-+		[PHY_INTERFACE_MODE_MII]	= "mii",
-+		[PHY_INTERFACE_MODE_GMII]	= "gmii",
-+		[PHY_INTERFACE_MODE_SGMII]	= "sgmii",
-+		[PHY_INTERFACE_MODE_TBI]	= "tbi",
-+		[PHY_INTERFACE_MODE_RMII]	= "rmii",
-+		[PHY_INTERFACE_MODE_RGMII]	= "rgmii",
-+		[PHY_INTERFACE_MODE_RGMII_ID]	= "rgmii-id",
-+		[PHY_INTERFACE_MODE_RGMII_RXID]	= "rgmii-rxid",
-+		[PHY_INTERFACE_MODE_RGMII_TXID] = "rgmii-txid",
-+		[PHY_INTERFACE_MODE_RTBI]	= "rtbi",
++	aliases {
++		serial0 = &uart0;
++		serial1 = &uart1;
++		serial2 = &uart2;
 +	};
 +
-+	if (np) {
-+		pm = of_get_property(np, "phy-mode", NULL);
-+		if (pm) {
-+			int i;
-+			for (i = 0; i < ARRAY_SIZE(phy_modes); i++)
-+				if (!strcasecmp(pm, phy_modes[i]))
-+					return i;
-+		}
-+	}
++	chosen {
++		bootargs = "console=ttymxc0,115200 root=/dev/mmcblk0p3 rootwait";
++	};
 +
-+	return -ENODEV;
-+}
-+#else
-+static int __devinit fec_get_phy_mode_dt(struct net_device *ndev)
++	memory {
++		reg = <0x90000000 0x20000000>;
++	};
++
++	tzic: tz-interrupt-controller@e0000000 {
++		compatible = "fsl,imx51-tzic", "fsl,tzic";
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		reg = <0xe0000000 0x4000>;
++	};
++
++	aips@70000000 { /* aips-1 */
++		compatible = "fsl,aips-bus", "simple-bus";
++		#address-cells = <1>;
++		#size-cells = <1>;
++		reg = <0x70000000 0x10000000>;
++		ranges;
++
++		spba {
++			compatible = "fsl,spba-bus", "simple-bus";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			reg = <0x70000000 0x40000>;
++			ranges;
++
++			uart2: uart@7000c000 {
++				compatible = "fsl,imx51-uart", "fsl,imx21-uart";
++				reg = <0x7000c000 0x4000>;
++				interrupts = <33>;
++				fsl,uart-has-rtscts;
++			};
++		};
++
++		uart0: uart@73fbc000 {
++			compatible = "fsl,imx51-uart", "fsl,imx21-uart";
++			reg = <0x73fbc000 0x4000>;
++			interrupts = <31>;
++			fsl,uart-has-rtscts;
++		};
++
++		uart1: uart@73fc0000 {
++			compatible = "fsl,imx51-uart", "fsl,imx21-uart";
++			reg = <0x73fc0000 0x4000>;
++			interrupts = <32>;
++			fsl,uart-has-rtscts;
++		};
++	};
++
++	aips@80000000 {	/* aips-2 */
++		compatible = "fsl,aips-bus", "simple-bus";
++		#address-cells = <1>;
++		#size-cells = <1>;
++		reg = <0x80000000 0x10000000>;
++		ranges;
++
++		fec@83fec000 {
++			compatible = "fsl,imx51-fec", "fsl,imx27-fec";
++			reg = <0x83fec000 0x4000>;
++			interrupts = <87>;
++			phy-mode = "mii";
++		};
++	};
++};
+diff --git a/arch/arm/mach-mx5/Kconfig b/arch/arm/mach-mx5/Kconfig
+index 799fbc4..8bdd0c4 100644
+--- a/arch/arm/mach-mx5/Kconfig
++++ b/arch/arm/mach-mx5/Kconfig
+@@ -62,6 +62,14 @@ endif # ARCH_MX50_SUPPORTED
+ if ARCH_MX51
+ comment "i.MX51 machines:"
+ 
++config MACH_IMX51_DT
++	bool "Support i.MX51 platforms from device tree"
++	select SOC_IMX51
++	select USE_OF
++	help
++	  Include support for Freescale i.MX51 based platforms
++	  using the device tree for discovery
++
+ config MACH_MX51_BABBAGE
+ 	bool "Support MX51 BABBAGE platforms"
+ 	select SOC_IMX51
+diff --git a/arch/arm/mach-mx5/Makefile b/arch/arm/mach-mx5/Makefile
+index 0b9338c..47b483f 100644
+--- a/arch/arm/mach-mx5/Makefile
++++ b/arch/arm/mach-mx5/Makefile
+@@ -7,6 +7,7 @@ obj-y   := cpu.o mm.o clock-mx51-mx53.o devices.o ehci.o system.o
+ obj-$(CONFIG_SOC_IMX50) += mm-mx50.o
+ 
+ obj-$(CONFIG_CPU_FREQ_IMX)    += cpu_op-mx51.o
++obj-$(CONFIG_MACH_IMX51_DT) += imx51-dt.o
+ obj-$(CONFIG_MACH_MX51_BABBAGE) += board-mx51_babbage.o
+ obj-$(CONFIG_MACH_MX51_3DS) += board-mx51_3ds.o
+ obj-$(CONFIG_MACH_MX53_EVK) += board-mx53_evk.o
+diff --git a/arch/arm/mach-mx5/imx51-dt.c b/arch/arm/mach-mx5/imx51-dt.c
+new file mode 100644
+index 0000000..8bfdb91
+--- /dev/null
++++ b/arch/arm/mach-mx5/imx51-dt.c
+@@ -0,0 +1,70 @@
++/*
++ * Copyright 2011 Freescale Semiconductor, Inc. All Rights Reserved.
++ * Copyright 2011 Linaro Ltd.
++ *
++ * The code contained herein is licensed under the GNU General Public
++ * License. You may obtain a copy of the GNU General Public License
++ * Version 2 or later at the following locations:
++ *
++ * http://www.opensource.org/licenses/gpl-license.html
++ * http://www.gnu.org/copyleft/gpl.html
++ */
++
++#include <linux/irq.h>
++#include <linux/of_platform.h>
++
++#include <asm/mach/arch.h>
++#include <asm/mach/time.h>
++
++#include <mach/common.h>
++#include <mach/mx51.h>
++
++/*
++ * Lookup table for attaching a specific name and platform_data pointer to
++ * devices as they get created by of_platform_populate().  Ideally this table
++ * would not exist, but the current clock implementation depends on some devices
++ * having a specific name.
++ */
++static const struct of_dev_auxdata imx51_auxdata_lookup[] __initconst = {
++	OF_DEV_AUXDATA("fsl,imx51-uart", MX51_UART1_BASE_ADDR, "imx-uart.0", NULL),
++	OF_DEV_AUXDATA("fsl,imx51-uart", MX51_UART2_BASE_ADDR, "imx-uart.1", NULL),
++	OF_DEV_AUXDATA("fsl,imx51-uart", MX51_UART3_BASE_ADDR, "imx-uart.2", NULL),
++	OF_DEV_AUXDATA("fsl,imx51-fec", MX51_FEC_BASE_ADDR, "fec.0", NULL),
++	{}
++};
++
++static const struct of_device_id tzic_of_match[] __initconst = {
++	{ .compatible = "fsl,imx51-tzic", },
++	{}
++};
++
++static void __init imx51_dt_init(void)
 +{
-+	return -ENODEV;
++	irq_domain_generate_simple(tzic_of_match, MX51_TZIC_BASE_ADDR, 0);
++
++	of_platform_populate(NULL, of_default_bus_match_table,
++			     imx51_auxdata_lookup, NULL);
 +}
-+#endif
 +
- static int __devinit
- fec_probe(struct platform_device *pdev)
- {
-@@ -1363,6 +1423,11 @@ fec_probe(struct platform_device *pdev)
- 	struct net_device *ndev;
- 	int i, irq, ret = 0;
- 	struct resource *r;
-+	const struct of_device_id *of_id;
++static void __init imx51_timer_init(void)
++{
++	mx51_clocks_init(32768, 24000000, 22579200, 0);
++}
 +
-+	of_id = of_match_device(fec_dt_ids, &pdev->dev);
-+	if (of_id)
-+		pdev->id_entry = (struct platform_device_id *) of_id->data;
- 
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!r)
-@@ -1394,9 +1459,14 @@ fec_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, ndev);
- 
--	pdata = pdev->dev.platform_data;
--	if (pdata)
--		fep->phy_interface = pdata->phy;
-+	fep->phy_interface = fec_get_phy_mode_dt(ndev);
-+	if (fep->phy_interface == -ENODEV) {
-+		pdata = pdev->dev.platform_data;
-+		if (pdata)
-+			fep->phy_interface = pdata->phy;
-+		else
-+			fep->phy_interface = PHY_INTERFACE_MODE_MII;
-+	}
- 
- 	/* This device has up to three irqs on some platforms */
- 	for (i = 0; i < 3; i++) {
-@@ -1531,6 +1601,7 @@ static struct platform_driver fec_driver = {
- #ifdef CONFIG_PM
- 		.pm	= &fec_pm_ops,
- #endif
-+		.of_match_table = fec_dt_ids,
- 	},
- 	.id_table = fec_devtype,
- 	.probe	= fec_probe,
++static struct sys_timer imx51_timer = {
++	.init = imx51_timer_init,
++};
++
++static const char *imx51_dt_board_compat[] __initdata = {
++	"fsl,imx51-babbage",
++	NULL
++};
++
++DT_MACHINE_START(IMX51_DT, "Freescale i.MX51 (Device Tree Support)")
++	.map_io		= mx51_map_io,
++	.init_early	= imx51_init_early,
++	.init_irq	= mx51_init_irq,
++	.timer		= &imx51_timer,
++	.init_machine	= imx51_dt_init,
++	.dt_compat	= imx51_dt_board_compat,
++MACHINE_END
 -- 
 1.7.4.1
