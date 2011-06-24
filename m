@@ -1,34 +1,38 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [RFC PATCH 0/1] BPF JIT for PPC64
-Date: Sat, 25 Jun 2011 09:33:31 +1000
-Message-ID: <1308958411.32158.335.camel@pasglop>
-References: <4E042867.5020902@ozlabs.org>
-	 <750BF3E9-A788-4302-8AA1-4630614E20DC@kernel.crashing.org>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/2 v2] Fix ipv6 routing table entry limit.
+Date: Fri, 24 Jun 2011 16:47:06 -0700 (PDT)
+Message-ID: <20110624.164706.1200327249570461124.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matt Evans <matt@ozlabs.org>, netdev@vger.kernel.org,
-	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
-To: Kumar Gala <galak@kernel.crashing.org>
+Cc: sim@hostway.ca
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:35589 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754901Ab1FXXdm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2011 19:33:42 -0400
-In-Reply-To: <750BF3E9-A788-4302-8AA1-4630614E20DC@kernel.crashing.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:32852 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754918Ab1FXXrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 19:47:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-24 at 04:16 -0500, Kumar Gala wrote:
-> > Tested in-situ (tcpdump with varying complexity filters) and with a random BPF
-> > generator; I haven't verified loads from the fall back skb_copy_bits path.  Bug
-> > reports/testing would be very welcome.
-> 
-> Would be nice to get PPC32 support as well. 
 
-Patches welcome :-)
+As discussed in other threads, the routing table lives in the same
+data structure as cached routing entries.  This enforces a false
+limit on the number of routing table entries one can install
+on ipv6 and this is becomming a real problem for people.
 
-Cheers,
-Ben.
+Fix this by adding a DST_NOCOUNT flag and use it for ipv6 routing
+table entries.
 
+No special handling is necessary when cloning or copying since
+the flags are never directly copied by the clone/copy code in
+ipv6.
 
+This is a 2 patch series now in order to sanitize the dst->flags
+setting done in net/ipv6/route.c
+
+I've tested this by adding and removing ~16K ipv6 routes over
+and over again, the routing cache limit never got hit.
+
+Simon, you'll need to work out that crash you were seeing since
+I can't reproduce it on any of my machines.
