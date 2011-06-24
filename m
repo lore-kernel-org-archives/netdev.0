@@ -1,67 +1,55 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: Tree for June 23 (net/can & i/o)
-Date: Fri, 24 Jun 2011 11:04:09 +1000
-Message-ID: <20110624110409.10a6951c.sfr@canb.auug.org.au>
-References: <BANLkTi=ZxHDvhCs8Qki2ZrhCbfY6Mjx5+w@mail.gmail.com>
+From: John (Jay) Hernandez <jay@chelsio.com>
+Subject: [PATCH net-2.6] cxgb3: skb_record_rx_queue now records the queue
+	index relative to the net_device.
+Date: Thu, 23 Jun 2011 17:39:12 -0700
+Message-ID: <20110624003912.14349.62988.stgit@speedy5.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S"
-Cc: netdev <netdev@vger.kernel.org>, socketcan-core@lists.berlios.de,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BANLkTi=ZxHDvhCs8Qki2ZrhCbfY6Mjx5+w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, divy@chelsio.com, jay@chelsio.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:16057 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760005Ab1FXBaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 21:30:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: John (Jay) Hernandez <jay@chelsio.com>
 
-Hi Mike,
+Fixed call to skb_record_rx_queue where we were passing the queue index
+relative to the adapter when it should have been relative to the net_device.
 
-On Thu, 23 Jun 2011 16:38:56 -0400 Mike Frysinger <vapier.adi@gmail.com> wr=
-ote:
->
-> not sure where this is coming from, but some Blackfin boards now fail wit=
-h:
->=20
-> drivers/net/can/bfin_can.c: In function 'bfin_can_start_xmit':
-> drivers/net/can/bfin_can.c:247: error: implicit declaration of function '=
-writew'
-> make[3]: *** [drivers/net/can/bfin_can.o] Error 1
+Signed-off-by: John (Jay) Hernandez <jay@chelsio.com>
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
-yeah, caused by the removal of the inclusion of mm.h from netdevice.h
-(most probably).
+---
 
-> at any rate, the usage of writew() in this driver is wrong, so i sent
-> a patch to fix it.  but since nothing in this file nor in my Blackfin
-> tree changed, i wonder if whatever common code changed is going to
-> break other stuff ...
+ drivers/net/cxgb3/sge.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-It did indeed :-(
 
-ah, well, I guess that is what I am here for :-)
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 3f562ba..76bf589 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -2026,7 +2026,7 @@ static void rx_eth(struct adapter *adap, struct sge_rspq *rq,
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	} else
+ 		skb_checksum_none_assert(skb);
+-	skb_record_rx_queue(skb, qs - &adap->sge.qs[0]);
++	skb_record_rx_queue(skb, qs - &adap->sge.qs[pi->first_qset]);
+ 
+ 	if (unlikely(p->vlan_valid)) {
+ 		struct vlan_group *grp = pi->vlan_grp;
+@@ -2145,7 +2145,7 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
+ 	if (!complete)
+ 		return;
+ 
+-	skb_record_rx_queue(skb, qs - &adap->sge.qs[0]);
++	skb_record_rx_queue(skb, qs - &adap->sge.qs[pi->first_qset]);
+ 
+ 	if (unlikely(cpl->vlan_valid)) {
+ 		struct vlan_group *grp = pi->vlan_grp;
 
---Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOA+KJAAoJEDMEi1NhKgbsY1EH/2G+CGsfbArVAbzGOe6mf2G7
-iEIp6p7dF88WMfObMDcs/+lqmk5jhzQ1iCHctoPUBlvKnX7q43dSUFBw/UrmqPbC
-YuhMePBy3x2I6m3hzADP51qDSnmoqwwnXb6Ut6Xu12hUYcpnzSIm2gaVfUA/Mzfk
-VJNBkln1rXU4uhgKWZWQ8gMo0CyZ8Pbk3OCxcaKU5Wi1flUuRjV8n+cAsogL4+zB
-vnWgX1n8D0j4r52q3W1eiA0ggpMBy0EE6ZYK59Kuk8fPjgXChvrdh49O2u2dyzlQ
-xLsL6zERwTcQUb6BrQF94Y07XvLRudMAEtlI0oHiidXapMDSP1NHWizxFiqSQBA=
-=u2GL
------END PGP SIGNATURE-----
-
---Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S--
