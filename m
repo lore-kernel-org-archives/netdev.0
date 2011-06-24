@@ -1,38 +1,81 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
-Date: Fri, 24 Jun 2011 01:53:35 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F63F188EE61F@EXMAIL.ad.emulex.com>
-References: <913f4373-e01f-4aa9-b8c7-d041d70f0945@exht1.ad.emulex.com>
- <1308911520.2228.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [RFC PATCH 0/1] BPF JIT for PPC64
+Date: Fri, 24 Jun 2011 04:16:26 -0500
+Message-ID: <750BF3E9-A788-4302-8AA1-4630614E20DC@kernel.crashing.org>
+References: <4E042867.5020902@ozlabs.org>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
+To: Matt Evans <matt@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:23624 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751392Ab1FXIyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 04:54:07 -0400
-In-Reply-To: <1308911520.2228.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+Received: from gate.crashing.org ([63.228.1.57]:34500 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750998Ab1FXJQf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 05:16:35 -0400
+In-Reply-To: <4E042867.5020902@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86
-ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj5TZW50OiBGcmlkYXksIEp1bmUgMjQsIDIwMTEgNDow
-MiBQTQ0KPlRvOiBQZXJsYSwgU2F0aHlhDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj5T
-dWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0LTIuNiAxLzNdIGJlMm5ldDogZml4IG5ldGRldl9z
-dGF0c191cGRhdGUNCj4NCj5MZSB2ZW5kcmVkaSAyNCBqdWluIDIwMTEgw6AgMTM6NDMgKzA1MzAs
-IFNhdGh5YSBQZXJsYSBhIMOpY3JpdCA6DQo+PiBuZXRkZXZfc3RhdHNfdXBkYXRlKCkgcmVzZXRz
-IG5ldGRldi0+c3RhdHMgYW5kIHRoZW4gYWNjdW11bGF0ZXMgc3RhdHMgZnJvbQ0KPj4gdmFyaW91
-cyByaW5ncy4gVGhpcyBpcyB3cm9uZyBhcyBzdGF0cyByZWFkZXJzIGNhbiBzb21ldGltZXMgY2F0
-Y2ggemVybw0KPnZhbHVlcy4NCj4+IFVzZSB0ZW1wb3JhcnkgdmFyaWFibGVzIGluc3RlYWQgZm9y
-IGFjY3VtdWxhdGluZyBwZXItcmluZyB2YWx1ZXMuDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogU2F0
-aHlhIFBlcmxhIDxzYXRoeWEucGVybGFAZW11bGV4LmNvbT4NCj4+IC0tLQ0KDQo+DQo+DQo+SG1t
-LCBpc250IGl0IGEgcGF0Y2ggSSBwcm92aWRlZCAxMCBkYXlzIGFnbyA/DQo+DQo+SSBmaW5kIHZl
-cnkgc3RyYW5nZSBzbyBmZXcgcGVvcGxlIGFyZSBhYmxlIHRvIHByb3Blcmx5IGF0dHJpYnV0ZSB3
-b3JrDQo+dG9kYXkuLi4NCj4NCg0KWWVzLCB0aGlzIHBhdGNoIGlzIGluZGVlZCBiYXNlZCBvbiB5
-b3VyIHN1Z2dlc3RlZC1maXggcGF0Y2ggbGFzdCB3ZWVrLg0KU29ycnksIGFyZSB5b3UgcmVmZXJy
-aW5nIHRvIHRoZSBmYWN0IHRoYXQgSSBtaXNzZWQgYSAiU2lnbmVkLW9mZi1ieS1FcmljIj8NCklm
-IHNvLCBteSBiYWQsIEknbGwgcmVzZW5kIHRoaXMgcGF0Y2ggd2l0aCB0aGF0IGxpbmUuLi4NCg==
+
+On Jun 24, 2011, at 1:02 AM, Matt Evans wrote:
+
+> Hi,
+> 
+> 
+> Inspired by Eric Dumazet's x86-64 compiler for Berkeley Packet Filter programs,
+> I've written a BPF compiler for 64-bit PowerPC.  Although it hasn't finished its
+> strenuous testing regime, I'll have intermittent net access for a couple of
+> weeks so thought I'd post it for feedback now and submit a 'proper' version when
+> I'm back.
+> 
+> It's a fairly simple code generator, following a similar structure to the x86
+> version.  The filter programs are an array of opcode/constant/branch destination
+> structs, and can perform arithmetic/logical/comparison operations on two virtual
+> registers A and X, loads from packet headers/data and accesses to local
+> variables, M[].  Branching is also supported, but only forwards and only within
+> the extent of the program.
+> 
+> I would probably describe this as more of a "static template binary translator"
+> than a "JIT" but have kept naming consistent :)
+> 
+> 
+> Features include:
+> 
+> - Filter code is generated as an ABI-compliant function, stackframe &
+>  prologue/epilogue if necessary.
+> 
+> - Simple filters (e.g. RET nn) need no stackframe or save/restore code so
+>  generate into only an li/blr.
+> 
+> - Local variables, M[], live in registers
+> 
+> - I believe this supports all BPF opcodes, although "complicated" loads from
+>  negative packet offsets (e.g. SKF_LL_OFF) are not yet supported.
+> 
+> Caveats include:  :)
+> 
+> - Packet data loads call out to simple helper functions (bpf_jit.S) which
+>  themselves may fall back to a trampoline to skb_copy_bits.  I haven't decided
+>  whether (as per comments there) it would be better to generate the simple
+>  loads inline and only call out in the slow case.
+> 
+> - Branches currently generate to "bcc 1f; b <far dest>; 1:" or
+>  "bcc <near dest> ; nop" so either case is the same size.  Multiple passes of
+>  assembly are used (the first gets an idea of how big everything is and what
+>  features are required), the next generates everything at accurate size, the
+>  third generates everything with accurate branch destination addresses); I
+>  intend not to nop-pad the short branch case but changing code size may
+>  result in more passes and a 'settling-down period'.  Kept simple for now.
+> 
+> - Anyone running PPC64 little-endian is doing something both interesting and
+>  unsupported for this work :-)  (There are some trivial endian assumptions.)
+> 
+> Tested in-situ (tcpdump with varying complexity filters) and with a random BPF
+> generator; I haven't verified loads from the fall back skb_copy_bits path.  Bug
+> reports/testing would be very welcome.
+
+Would be nice to get PPC32 support as well.
+
+- k
