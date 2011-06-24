@@ -1,50 +1,26 @@
-From: Ivo Van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 1/2] rt2x00: Fix unspeficied typo
-Date: Fri, 24 Jun 2011 09:34:21 +0200
-Message-ID: <BANLkTinrzbuM6TvEJkMmQKkwdf=RTSCxuw@mail.gmail.com>
-References: <6002eb70809bb1c87c84f32ab4a4f034d2d1ffb5.1308868289.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Is File net/TUNABLE in kernel source still useful?
+Date: Fri, 24 Jun 2011 00:39:15 -0700 (PDT)
+Message-ID: <20110624.003915.1410960942189908490.davem@davemloft.net>
+References: <4E04376F.1040607@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gertjan van Wingerde <gwingerde@gmail.com>,
-	Helmut Schaa <helmut.schaa@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6002eb70809bb1c87c84f32ab4a4f034d2d1ffb5.1308868289.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shanwei@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58413 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752233Ab1FXHjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 03:39:24 -0400
+In-Reply-To: <4E04376F.1040607@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2011 at 12:35 AM, Joe Perches <joe@perches.com> wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Fri, 24 Jun 2011 15:06:23 +0800
 
-Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
+>  So many ones and seems no meaning.
+>  Directly send a patch to kill it, OK?
 
-> ---
-> =A0drivers/net/wireless/rt2x00/rt2x00queue.h | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/wireless/rt2x00/rt2x00queue.h b/drivers/net/=
-wireless/rt2x00/rt2x00queue.h
-> index 167d458..5900474 100644
-> --- a/drivers/net/wireless/rt2x00/rt2x00queue.h
-> +++ b/drivers/net/wireless/rt2x00/rt2x00queue.h
-> @@ -54,7 +54,7 @@
-> =A0* @QID_RX: RX queue
-> =A0* @QID_OTHER: None of the above (don't use, only present for compl=
-eteness)
-> =A0* @QID_BEACON: Beacon queue (value unspecified, don't send it to d=
-evice)
-> - * @QID_ATIM: Atim queue (value unspeficied, don't send it to device=
-)
-> + * @QID_ATIM: Atim queue (value unspecified, don't send it to device=
-)
-> =A0*/
-> =A0enum data_queue_qid {
-> =A0 =A0 =A0 =A0QID_AC_VO =3D 0,
-> --
-> 1.7.6.rc1
->
->
+Sure.
