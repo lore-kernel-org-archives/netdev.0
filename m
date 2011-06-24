@@ -1,55 +1,69 @@
-From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
-Date: Thu, 23 Jun 2011 20:25:42 -0400
-Message-ID: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as
+ subscribers-only
+Date: Fri, 24 Jun 2011 02:30:27 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1106240228440.17688@swampdragon.chaosbits.net>
+References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
-	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem@davemlo
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: socketcan-core@lists.berlios.de,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:26112 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933606Ab1FXAjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 20:39:22 -0400
+In-Reply-To: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The socketcan-core lists require subscription, so mark them as such.
+On Thu, 23 Jun 2011, Mike Frysinger wrote:
 
-Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
----
- MAINTAINERS |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> The socketcan-core lists require subscription, so mark them as such.
+> 
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> ---
+>  MAINTAINERS |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index f0358cd..d3765e8 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1639,7 +1639,7 @@ CAN NETWORK LAYER
+>  M:	Oliver Hartkopp <socketcan@hartkopp.net>
+>  M:	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+>  M:	Urs Thuermann <urs.thuermann@volkswagen.de>
+> -L:	socketcan-core@lists.berlios.de
+> +L:	socketcan-core@lists.berlios.de (subscribers-only)
+>  L:	netdev@vger.kernel.org
+>  W:	http://developer.berlios.de/projects/socketcan/
+>  S:	Maintained
+> @@ -1651,7 +1651,7 @@ F:	include/linux/can/raw.h
+>  
+>  CAN NETWORK DRIVERS
+>  M:	Wolfgang Grandegger <wg@grandegger.com>
+> -L:	socketcan-core@lists.berlios.de
+> +L:	socketcan-core@lists.berlios.de (subscribers-only)
+>  L:	netdev@vger.kernel.org
+>  W:	http://developer.berlios.de/projects/socketcan/
+>  S:	Maintained
+> 
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index f0358cd..d3765e8 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1639,7 +1639,7 @@ CAN NETWORK LAYER
- M:	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
- M:	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
- M:	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
--L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-+L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
- L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
- W:	http://developer.berlios.de/projects/socketcan/
- S:	Maintained
-@@ -1651,7 +1651,7 @@ F:	include/linux/can/raw.h
- 
- CAN NETWORK DRIVERS
- M:	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
--L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-+L:	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org (subscribers-only)
- L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
- W:	http://developer.berlios.de/projects/socketcan/
- S:	Maintained
+I just ran into this "subscribers only" policy recently - yeah, it should 
+at least be noted in MAINTAINERS.
+
+Patch looks good to me.
+
+Reviewed-by: Jesper Juhl <jj@chaosbits.net>
+
 -- 
-1.7.5.3
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
+
