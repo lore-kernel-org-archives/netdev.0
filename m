@@ -1,84 +1,88 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
-Date: Fri, 24 Jun 2011 14:44:47 +0400
-Message-ID: <4E046A9F.9020909@mvista.com>
-References: <201106231841.40691.sshtylyov@ru.mvista.com> <1308841365.13397.274.camel@wwguy-huron>
+From: Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+Subject: Re: [PATCH 1/2] can: bfin_can: simplify xmit
+	id1 setup
+Date: Fri, 24 Jun 2011 12:46:22 +0200
+Message-ID: <4E046AFE.5000109@volkswagen.de>
+References: <1308861380-27485-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: "Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1308841365.13397.274.camel@wwguy-huron>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
+To: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <1308861380-27485-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Am 23.06.2011 22:36, schrieb Mike Frysinger:
+> If we look closely, the 4 writes to TRANSMIT_CHL.id1 can be collapsed
+> down into much simpler code.  So do just that.
 
-On 23-06-2011 19:02, Guy, Wey-Yi wrote:
+Hello Mike,
 
->> Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
->> again) already converted this driver to using the 'revision' field of 'struct
->> pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
->> rev_id) later reverted that change for no reason. Now restore the change...
+unfortunately you addressed the wrong people to ack your patch.
 
->> Signed-off-by: Sergei Shtylyov<sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
+In MAINTAINERS there are entries for the CAN NETWORK LAYER and for CAN 
+NETWORK DRIVERS which addresses the code in drivers/net/can/...
 
->> ---
->> The patch is against the recent Linus' tree.
+Additionally you should address your patch to the author of the driver 
+(Barry Song <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>).
 
->>   drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
->>   1 file changed, 2 insertions(+), 3 deletions(-)
+Tnx & best regards,
+Oliver
 
->> Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
->> ===================================================================
->> --- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
->> +++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
->> @@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
->>
->>   static u32 iwl_hw_detect(struct iwl_priv *priv)
->>   {
->> -	u8 rev_id;
->> +	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
->> +		       priv->pci_dev->revision);
->>
->> -	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID,&rev_id);
->> -	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
->>   	return iwl_read32(priv, CSR_HW_REV);
->>   }
 
-> hmm, I believe it is merge sequence issue, the IWL_DEBUG_INFO line has
-> benn remove all together in later patch. the information is being log in
-> the calling function, no need to log in "iwl_hw_detect"
 
-    Hm, you probably mean this patch in the iwlwifi-2.6.git (of which I wasn't 
-aware):
-
-author	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
-	Tue, 31 May 2011 06:58:18 +0000 (09:58 +0300)
-committer	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
-	Sat, 18 Jun 2011 15:18:01 +0000 (08:18 -0700)
-commit	85aed7c48113dfcdc913008481c46346af0db69e
-tree	75831a2ec540039470c295a81c2059a24a4531f5
-parent	19707bac16129ccebc398dbff9d2b44b17b24fea
-
-iwlagn: don't read the PCI_REVISION_ID from iwl-agn.c
-
-The PCI_REVISION_ID is read and printed in iwl_pci_probe anyway using pr_info
-
-Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
-    Since iwl_pci_probe() still reads the PCI config. register, my patch 
-should be recast to modify iwl-pci.c instead...
-
-> Wey
-
-WBR, Sergei
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> This also fixes a build failure due to the I/O macros no longer
+> getting pulled in.  Their minor (and accidental) usage here gets
+> dropped as part of the unification.
+>
+> Signed-off-by: Mike Frysinger<vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> ---
+>   drivers/net/can/bfin_can.c |   21 ++++++---------------
+>   1 files changed, 6 insertions(+), 15 deletions(-)
+>
+> diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+> index b6e890d..dc6ef4a 100644
+> --- a/drivers/net/can/bfin_can.c
+> +++ b/drivers/net/can/bfin_can.c
+> @@ -243,21 +243,12 @@ static int bfin_can_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>   	/* fill id */
+>   	if (id&  CAN_EFF_FLAG) {
+>   		bfin_write16(&reg->chl[TRANSMIT_CHL].id0, id);
+> -		if (id&  CAN_RTR_FLAG)
+> -			writew(((id&  0x1FFF0000)>>  16) | IDE | AME | RTR,
+> -					&reg->chl[TRANSMIT_CHL].id1);
+> -		else
+> -			writew(((id&  0x1FFF0000)>>  16) | IDE | AME,
+> -					&reg->chl[TRANSMIT_CHL].id1);
+> -
+> -	} else {
+> -		if (id&  CAN_RTR_FLAG)
+> -			writew((id<<  2) | AME | RTR,
+> -				&reg->chl[TRANSMIT_CHL].id1);
+> -		else
+> -			bfin_write16(&reg->chl[TRANSMIT_CHL].id1,
+> -					(id<<  2) | AME);
+> -	}
+> +		val = ((id&  0x1FFF0000)>>  16) | IDE;
+> +	} else
+> +		val = (id<<  2);
+> +	if (id&  CAN_RTR_FLAG)
+> +		val |= RTR;
+> +	bfin_write16(&reg->chl[TRANSMIT_CHL].id1, val | AME);
+>
+>   	/* fill payload */
+>   	for (i = 0; i<  8; i += 2) {
