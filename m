@@ -1,102 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
-Date: Fri, 24 Jun 2011 12:32:00 +0200
-Message-ID: <1308911520.2228.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <913f4373-e01f-4aa9-b8c7-d041d70f0945@exht1.ad.emulex.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
+Date: Fri, 24 Jun 2011 10:48:11 +0200
+Message-ID: <4E044F4B.7010707@pengutronix.de>
+References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43626 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094Ab1FXIcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 04:32:03 -0400
-Received: by wwe5 with SMTP id 5so2657609wwe.1
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 01:32:01 -0700 (PDT)
-In-Reply-To: <913f4373-e01f-4aa9-b8c7-d041d70f0945@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============6267402732319693511=="
+Cc: Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1308875142-10429-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 24 juin 2011 =C3=A0 13:43 +0530, Sathya Perla a =C3=A9crit =
-:
-> netdev_stats_update() resets netdev->stats and then accumulates stats=
- from
-> various rings. This is wrong as stats readers can sometimes catch zer=
-o values.
-> Use temporary variables instead for accumulating per-ring values.
->=20
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ---
->  drivers/net/benet/be_main.c |   29 +++++++++++++++++------------
->  1 files changed, 17 insertions(+), 12 deletions(-)
->=20
-> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.=
-c
-> index c4f564c..5ca06b0 100644
-> --- a/drivers/net/benet/be_main.c
-> +++ b/drivers/net/benet/be_main.c
-> @@ -428,33 +428,38 @@ void netdev_stats_update(struct be_adapter *ada=
-pter)
->  	struct net_device_stats *dev_stats =3D &adapter->netdev->stats;
->  	struct be_rx_obj *rxo;
->  	struct be_tx_obj *txo;
-> +	unsigned long pkts =3D 0, bytes =3D 0, mcast =3D 0, drops =3D 0;
->  	int i;
-> =20
-> -	memset(dev_stats, 0, sizeof(*dev_stats));
->  	for_all_rx_queues(adapter, rxo, i) {
-> -		dev_stats->rx_packets +=3D rx_stats(rxo)->rx_pkts;
-> -		dev_stats->rx_bytes +=3D rx_stats(rxo)->rx_bytes;
-> -		dev_stats->multicast +=3D rx_stats(rxo)->rx_mcast_pkts;
-> +		pkts +=3D rx_stats(rxo)->rx_pkts;
-> +		bytes +=3D rx_stats(rxo)->rx_bytes;
-> +		mcast +=3D rx_stats(rxo)->rx_mcast_pkts;
->  		/*  no space in linux buffers: best possible approximation */
->  		if (adapter->generation =3D=3D BE_GEN3) {
->  			if (!(lancer_chip(adapter))) {
-> -				struct be_erx_stats_v1 *erx_stats =3D
-> +				struct be_erx_stats_v1 *erx =3D
->  					be_erx_stats_from_cmd(adapter);
-> -				dev_stats->rx_dropped +=3D
-> -				erx_stats->rx_drops_no_fragments[rxo->q.id];
-> +				drops +=3D erx->rx_drops_no_fragments[rxo->q.id];
->  			}
->  		} else {
-> -			struct be_erx_stats_v0 *erx_stats =3D
-> +			struct be_erx_stats_v0 *erx =3D
->  					be_erx_stats_from_cmd(adapter);
-> -			dev_stats->rx_dropped +=3D
-> -				erx_stats->rx_drops_no_fragments[rxo->q.id];
-> +			drops +=3D erx->rx_drops_no_fragments[rxo->q.id];
->  		}
->  	}
-> +	dev_stats->rx_packets =3D pkts;
-> +	dev_stats->rx_bytes =3D bytes;
-> +	dev_stats->multicast =3D mcast;
-> +	dev_stats->rx_dropped =3D drops;
-> =20
-> +	pkts =3D bytes =3D 0;
->  	for_all_tx_queues(adapter, txo, i) {
-> -		dev_stats->tx_packets +=3D tx_stats(txo)->be_tx_pkts;
-> -		dev_stats->tx_bytes +=3D tx_stats(txo)->be_tx_bytes;
-> +		pkts +=3D tx_stats(txo)->be_tx_pkts;
-> +		bytes +=3D tx_stats(txo)->be_tx_bytes;
->  	}
-> +	dev_stats->tx_packets =3D pkts;
-> +	dev_stats->tx_bytes =3D bytes;
-> =20
->  	/* bad pkts received */
->  	dev_stats->rx_errors =3D drvs->rx_crc_errors +
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============6267402732319693511==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigDAF16AD718726D20302FE28D"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigDAF16AD718726D20302FE28D
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 06/24/2011 02:25 AM, Mike Frysinger wrote:
+> The socketcan-core lists require subscription, so mark them as such.
+
+what about making this list open instead?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
+--------------enigDAF16AD718726D20302FE28D
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Hmm, isnt it a patch I provided 10 days ago ?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-I find very strange so few people are able to properly attribute work
-today...
+iEYEARECAAYFAk4ET0sACgkQjTAFq1RaXHNwSgCfYSfBu3wW8nAbUwEWSokZiUuD
+wyYAn3Kw2+cQ/BNVjlLPjyIBBzOHDNDV
+=fVkP
+-----END PGP SIGNATURE-----
 
+--------------enigDAF16AD718726D20302FE28D--
 
+--===============6267402732319693511==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
+--===============6267402732319693511==--
