@@ -1,248 +1,100 @@
-From: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v2 5/5] ARM: mx5: add basic device tree support for imx51
-	babbage
-Date: Sat, 25 Jun 2011 02:04:36 +0800
-Message-ID: <1308938676-31121-6-git-send-email-shawn.guo@linaro.org>
-References: <1308938676-31121-1-git-send-email-shawn.guo@linaro.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SKB paged fragment lifecycle on receive
+Date: Fri, 24 Jun 2011 19:56:23 +0200
+Message-ID: <1308938183.2532.8.camel@edumazet-laptop>
+References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
+	 <4E04C961.9010302@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1308938676-31121-1-git-send-email-shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, netdev@vger.kernel.org,
+	xen-devel <xen-devel@lists.xensource.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47070 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930Ab1FXR41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 13:56:27 -0400
+Received: by wyg8 with SMTP id 8so24955wyg.19
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 10:56:26 -0700 (PDT)
+In-Reply-To: <4E04C961.9010302@goop.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds the i.mx51 dt platform with uart and fec support.
-It also adds the dts file imx51 babbage, so that we can have a dt
-kernel on babbage booting into console with nfs root.
+Le vendredi 24 juin 2011 =C3=A0 10:29 -0700, Jeremy Fitzhardinge a =C3=A9=
+crit :
+> On 06/24/2011 08:43 AM, Ian Campbell wrote:
+> > We've previously looked into solutions using the skb destructor cal=
+lback
+> > but that falls over if the skb is cloned since you also need to kno=
+w
+> > when the clone is destroyed. Jeremy Fitzhardinge and I subsequently
+> > looked at the possibility of a no-clone skb flag (i.e. always forci=
+ng a
+> > copy instead of a clone) but IIRC honouring it universally turned i=
+nto a
+> > very twisty maze with a number of nasty corner cases etc. It also s=
+eemed
+> > that the proportion of SKBs which get cloned at least once appeared=
+ as
+> > if it could be quite high which would presumably make the performan=
+ce
+> > impact unacceptable when using the flag. Another issue with using t=
+he
+> > skb destructor is that functions such as __pskb_pull_tail will eat =
+(and
+> > free) pages from the start of the frag array such that by the time =
+the
+> > skb destructor is called they are no longer there.
+> >
+> > AIUI Rusty Russell had previously looked into a per-page destructor=
+ in
+> > the shinfo but found that it couldn't be made to work (I don't reme=
+mber
+> > why, or if I even knew at the time). Could that be an approach wort=
+h
+> > reinvestigating?
+> >
+> > I can't really think of any other solution which doesn't involve so=
+me
+> > sort of driver callback at the time a page is free()d.
+>=20
 
-Signed-off-by: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
- arch/arm/boot/dts/imx51-babbage.dts |   93 +++++++++++++++++++++++++++++++++++
- arch/arm/mach-mx5/Kconfig           |    8 +++
- arch/arm/mach-mx5/Makefile          |    1 +
- arch/arm/mach-mx5/imx51-dt.c        |   70 ++++++++++++++++++++++++++
- 4 files changed, 172 insertions(+), 0 deletions(-)
- create mode 100644 arch/arm/boot/dts/imx51-babbage.dts
- create mode 100644 arch/arm/mach-mx5/imx51-dt.c
+This reminds me the packet mmap (tx path) games we play with pages.
 
-diff --git a/arch/arm/boot/dts/imx51-babbage.dts b/arch/arm/boot/dts/imx51-babbage.dts
-new file mode 100644
-index 0000000..402cc44
---- /dev/null
-+++ b/arch/arm/boot/dts/imx51-babbage.dts
-@@ -0,0 +1,93 @@
-+/*
-+ * Copyright 2011 Freescale Semiconductor, Inc.
-+ * Copyright 2011 Linaro Ltd.
-+ *
-+ * The code contained herein is licensed under the GNU General Public
-+ * License. You may obtain a copy of the GNU General Public License
-+ * Version 2 or later at the following locations:
-+ *
-+ * http://www.opensource.org/licenses/gpl-license.html
-+ * http://www.gnu.org/copyleft/gpl.html
-+ */
-+
-+/dts-v1/;
-+/include/ "skeleton.dtsi"
-+
-+/ {
-+	model = "Freescale i.MX51 Babbage";
-+	compatible = "fsl,imx51-babbage", "fsl,imx51";
-+	interrupt-parent = <&tzic>;
-+
-+	aliases {
-+		serial0 = &uart0;
-+		serial1 = &uart1;
-+		serial2 = &uart2;
-+	};
-+
-+	chosen {
-+		bootargs = "console=ttymxc0,115200 root=/dev/mmcblk0p3 rootwait";
-+	};
-+
-+	memory {
-+		reg = <0x90000000 0x20000000>;
-+	};
-+
-+	tzic: tz-interrupt-controller@e0000000 {
-+		compatible = "fsl,imx51-tzic", "fsl,tzic";
-+		interrupt-controller;
-+		#interrupt-cells = <1>;
-+		reg = <0xe0000000 0x4000>;
-+	};
-+
-+	aips@70000000 { /* aips-1 */
-+		compatible = "fsl,aips-bus", "simple-bus";
-+		#address-cells = <1>;
-+		#size-cells = <1>;
-+		reg = <0x70000000 0x10000000>;
-+		ranges;
-+
-+		spba {
-+			compatible = "fsl,spba-bus", "simple-bus";
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			reg = <0x70000000 0x40000>;
-+			ranges;
-+
-+			uart2: uart@7000c000 {
-+				compatible = "fsl,imx51-uart", "fsl,imx21-uart";
-+				reg = <0x7000c000 0x4000>;
-+				interrupts = <33>;
-+				fsl,uart-has-rtscts;
-+			};
-+		};
-+
-+		uart0: uart@73fbc000 {
-+			compatible = "fsl,imx51-uart", "fsl,imx21-uart";
-+			reg = <0x73fbc000 0x4000>;
-+			interrupts = <31>;
-+			fsl,uart-has-rtscts;
-+		};
-+
-+		uart1: uart@73fc0000 {
-+			compatible = "fsl,imx51-uart", "fsl,imx21-uart";
-+			reg = <0x73fc0000 0x4000>;
-+			interrupts = <32>;
-+			fsl,uart-has-rtscts;
-+		};
-+	};
-+
-+	aips@80000000 {	/* aips-2 */
-+		compatible = "fsl,aips-bus", "simple-bus";
-+		#address-cells = <1>;
-+		#size-cells = <1>;
-+		reg = <0x80000000 0x10000000>;
-+		ranges;
-+
-+		fec@83fec000 {
-+			compatible = "fsl,imx51-fec", "fsl,imx27-fec";
-+			reg = <0x83fec000 0x4000>;
-+			interrupts = <87>;
-+			phy-mode = "mii";
-+		};
-+	};
-+};
-diff --git a/arch/arm/mach-mx5/Kconfig b/arch/arm/mach-mx5/Kconfig
-index 799fbc4..8bdd0c4 100644
---- a/arch/arm/mach-mx5/Kconfig
-+++ b/arch/arm/mach-mx5/Kconfig
-@@ -62,6 +62,14 @@ endif # ARCH_MX50_SUPPORTED
- if ARCH_MX51
- comment "i.MX51 machines:"
- 
-+config MACH_IMX51_DT
-+	bool "Support i.MX51 platforms from device tree"
-+	select SOC_IMX51
-+	select USE_OF
-+	help
-+	  Include support for Freescale i.MX51 based platforms
-+	  using the device tree for discovery
-+
- config MACH_MX51_BABBAGE
- 	bool "Support MX51 BABBAGE platforms"
- 	select SOC_IMX51
-diff --git a/arch/arm/mach-mx5/Makefile b/arch/arm/mach-mx5/Makefile
-index 0b9338c..47b483f 100644
---- a/arch/arm/mach-mx5/Makefile
-+++ b/arch/arm/mach-mx5/Makefile
-@@ -7,6 +7,7 @@ obj-y   := cpu.o mm.o clock-mx51-mx53.o devices.o ehci.o system.o
- obj-$(CONFIG_SOC_IMX50) += mm-mx50.o
- 
- obj-$(CONFIG_CPU_FREQ_IMX)    += cpu_op-mx51.o
-+obj-$(CONFIG_MACH_IMX51_DT) += imx51-dt.o
- obj-$(CONFIG_MACH_MX51_BABBAGE) += board-mx51_babbage.o
- obj-$(CONFIG_MACH_MX51_3DS) += board-mx51_3ds.o
- obj-$(CONFIG_MACH_MX53_EVK) += board-mx53_evk.o
-diff --git a/arch/arm/mach-mx5/imx51-dt.c b/arch/arm/mach-mx5/imx51-dt.c
-new file mode 100644
-index 0000000..8bfdb91
---- /dev/null
-+++ b/arch/arm/mach-mx5/imx51-dt.c
-@@ -0,0 +1,70 @@
-+/*
-+ * Copyright 2011 Freescale Semiconductor, Inc. All Rights Reserved.
-+ * Copyright 2011 Linaro Ltd.
-+ *
-+ * The code contained herein is licensed under the GNU General Public
-+ * License. You may obtain a copy of the GNU General Public License
-+ * Version 2 or later at the following locations:
-+ *
-+ * http://www.opensource.org/licenses/gpl-license.html
-+ * http://www.gnu.org/copyleft/gpl.html
-+ */
-+
-+#include <linux/irq.h>
-+#include <linux/of_platform.h>
-+
-+#include <asm/mach/arch.h>
-+#include <asm/mach/time.h>
-+
-+#include <mach/common.h>
-+#include <mach/mx51.h>
-+
-+/*
-+ * Lookup table for attaching a specific name and platform_data pointer to
-+ * devices as they get created by of_platform_populate().  Ideally this table
-+ * would not exist, but the current clock implementation depends on some devices
-+ * having a specific name.
-+ */
-+static const struct of_dev_auxdata imx51_auxdata_lookup[] __initconst = {
-+	OF_DEV_AUXDATA("fsl,imx51-uart", MX51_UART1_BASE_ADDR, "imx-uart.0", NULL),
-+	OF_DEV_AUXDATA("fsl,imx51-uart", MX51_UART2_BASE_ADDR, "imx-uart.1", NULL),
-+	OF_DEV_AUXDATA("fsl,imx51-uart", MX51_UART3_BASE_ADDR, "imx-uart.2", NULL),
-+	OF_DEV_AUXDATA("fsl,imx51-fec", MX51_FEC_BASE_ADDR, "fec.0", NULL),
-+	{}
-+};
-+
-+static const struct of_device_id tzic_of_match[] __initconst = {
-+	{ .compatible = "fsl,imx51-tzic", },
-+	{}
-+};
-+
-+static void __init imx51_dt_init(void)
-+{
-+	irq_domain_generate_simple(tzic_of_match, MX51_TZIC_BASE_ADDR, 0);
-+
-+	of_platform_populate(NULL, of_default_bus_match_table,
-+			     imx51_auxdata_lookup, NULL);
-+}
-+
-+static void __init imx51_timer_init(void)
-+{
-+	mx51_clocks_init(32768, 24000000, 22579200, 0);
-+}
-+
-+static struct sys_timer imx51_timer = {
-+	.init = imx51_timer_init,
-+};
-+
-+static const char *imx51_dt_board_compat[] __initdata = {
-+	"fsl,imx51-babbage",
-+	NULL
-+};
-+
-+DT_MACHINE_START(IMX51_DT, "Freescale i.MX51 (Device Tree Support)")
-+	.map_io		= mx51_map_io,
-+	.init_early	= imx51_init_early,
-+	.init_irq	= mx51_init_irq,
-+	.timer		= &imx51_timer,
-+	.init_machine	= imx51_dt_init,
-+	.dt_compat	= imx51_dt_board_compat,
-+MACHINE_END
--- 
-1.7.4.1
+net/packet/af_packet.c : tpacket_destruct_skb(), poking
+TP_STATUS_AVAILABLE back to user to tell him he can reuse space...
+
+> One simple approach would be to simply make sure that we retain a pag=
+e
+> reference on any granted pages so that the network stack's put pages
+> will never result in them being released back to the kernel.  We can
+> also install an skb destructor.  If it sees a page being released wit=
+h a
+> refcount of 1, then we know its our own reference and can free the pa=
+ge
+> immediately.  If the refcount is > 1 then we can add it to a queue of
+> pending pages, which can be periodically polled to free pages whose
+> other references have been dropped.
+>=20
+> However, the question is how large will this queue get?  If it remain=
+s
+> small then this scheme could be entirely practical.  But if almost ev=
+ery
+> page ends up having transient stray references, it could become very
+> awkward.
+>=20
+> So it comes down to "how useful is an skb destructor callback as a
+> heuristic for page free"?
+>=20
+
+Dangerous I would say. You could have a skb1 page transferred to anothe=
+r
+skb2, and call skb1 destructor way before page being released.
+
+TCP stack could do that in tcp_collapse() [ it currently doesnt play
+with pages ]
+
+
+
