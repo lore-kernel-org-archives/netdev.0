@@ -1,20 +1,14 @@
 From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
-Date: Fri, 24 Jun 2011 10:28:48 -0400
-Message-ID: <BANLkTi=a2GuWHB=+0teTe3972uPq4VvrQQ@mail.gmail.com>
-References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
-	<4E044F4B.7010707@pengutronix.de>
+Subject: [PATCH 1/2] can: bfin_can: simplify xmit id1 setup
+Date: Fri, 24 Jun 2011 10:33:01 -0400
+Message-ID: <1308925982-14645-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4E044F4B.7010707-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -26,12 +20,49 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 24, 2011 at 04:48, Marc Kleine-Budde wrote:
-> On 06/24/2011 02:25 AM, Mike Frysinger wrote:
->> The socketcan-core lists require subscription, so mark them as such.
->
-> what about making this list open instead?
+If we look closely, the 4 writes to TRANSMIT_CHL.id1 can be collapsed
+down into much simpler code.  So do just that.
 
-i have no problem with that, but i have nothing to do with the
-socket-can project, so it isnt my call.
--mike
+This also fixes a build failure due to the I/O macros no longer
+getting pulled in.  Their minor (and accidental) usage here gets
+dropped as part of the unification.
+
+Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/can/bfin_can.c |   21 ++++++---------------
+ 1 files changed, 6 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index b6e890d..dc6ef4a 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -243,21 +243,12 @@ static int bfin_can_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* fill id */
+ 	if (id & CAN_EFF_FLAG) {
+ 		bfin_write16(&reg->chl[TRANSMIT_CHL].id0, id);
+-		if (id & CAN_RTR_FLAG)
+-			writew(((id & 0x1FFF0000) >> 16) | IDE | AME | RTR,
+-					&reg->chl[TRANSMIT_CHL].id1);
+-		else
+-			writew(((id & 0x1FFF0000) >> 16) | IDE | AME,
+-					&reg->chl[TRANSMIT_CHL].id1);
+-
+-	} else {
+-		if (id & CAN_RTR_FLAG)
+-			writew((id << 2) | AME | RTR,
+-				&reg->chl[TRANSMIT_CHL].id1);
+-		else
+-			bfin_write16(&reg->chl[TRANSMIT_CHL].id1,
+-					(id << 2) | AME);
+-	}
++		val = ((id & 0x1FFF0000) >> 16) | IDE;
++	} else
++		val = (id << 2);
++	if (id & CAN_RTR_FLAG)
++		val |= RTR;
++	bfin_write16(&reg->chl[TRANSMIT_CHL].id1, val | AME);
+ 
+ 	/* fill payload */
+ 	for (i = 0; i < 8; i += 2) {
+-- 
+1.7.5.3
