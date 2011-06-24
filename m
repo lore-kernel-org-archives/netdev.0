@@ -1,94 +1,66 @@
 From: greearb@candelatech.com
-Subject: [RFC v2 2/2] e100:  Support RXFCS feature flag.
-Date: Fri, 24 Jun 2011 12:06:11 -0700
-Message-ID: <1308942371-12748-3-git-send-email-greearb@candelatech.com>
+Subject: [RFC v2 1/2] net:  Support RXFCS feature flag.
+Date: Fri, 24 Jun 2011 12:06:10 -0700
+Message-ID: <1308942371-12748-2-git-send-email-greearb@candelatech.com>
 References: <1308942371-12748-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53303 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:53300 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756081Ab1FXTGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 15:06:41 -0400
+	with ESMTP id S1756304Ab1FXTGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 15:06:25 -0400
 In-Reply-To: <1308942371-12748-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows e100 to be configured to append the
-Ethernet FCS to the skb.
+When set, this causes the Ethernet FCS to be appended
+to the end of the skb.
 
-Useful for sniffing networks.
+Useful for sniffing packets.
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 c1352c6... 761f6f5... M	drivers/net/e100.c
- drivers/net/e100.c |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
+:100644 100644 d0ab610... 55f359e... M	include/linux/netdev_features.h
+:100644 100644 80b88fe... 62f15e9... M	net/core/ethtool.c
+ include/linux/netdev_features.h |    2 ++
+ net/core/ethtool.c              |    1 +
+ 2 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index c1352c6..761f6f5 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- {
- 	struct config *config = &cb->u.config;
- 	u8 *c = (u8 *)config;
-+	struct net_device *netdev = nic->netdev;
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index d0ab610..55f359e 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -54,6 +54,7 @@ enum {
+ 	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
+ 	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
++	NETIF_F_RXFCS_BIT,		/* Append FCS to skb */
  
- 	cb->command = cpu_to_le16(cb_config);
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -98,6 +99,7 @@ enum {
+ #define NETIF_F_RXCSUM		__NETIF_F(RXCSUM)
+ #define NETIF_F_NOCACHE_COPY	__NETIF_F(NOCACHE_COPY)
+ #define NETIF_F_LOOPBACK	__NETIF_F(LOOPBACK)
++#define NETIF_F_RXFCS		__NETIF_F(RXFCS)
  
-@@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		config->promiscuous_mode = 0x1;		/* 1=on, 0=off */
- 	}
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 80b88fe..62f15e9 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -74,6 +74,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXCSUM_BIT] =           "rx-checksum",
+ 	[NETIF_F_NOCACHE_COPY_BIT] =     "tx-nocache-copy",
+ 	[NETIF_F_LOOPBACK_BIT] =         "loopback",
++	[NETIF_F_RXFCS_BIT] =            "rx-fcs",
+ };
  
-+	if (netdev->wanted_features & NETIF_F_RXFCS)
-+		config->rx_crc_transfer = 0x1;	/* 1=save, 0=discard */
-+
- 	if (nic->flags & multicast_all)
- 		config->multicast_all = 0x1;		/* 1=accept, 0=no */
- 
-@@ -1919,6 +1923,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	struct sk_buff *skb = rx->skb;
- 	struct rfd *rfd = (struct rfd *)skb->data;
- 	u16 rfd_status, actual_size;
-+	u16 fcs_pad = 0;
- 
- 	if (unlikely(work_done && *work_done >= work_to_do))
- 		return -EAGAIN;
-@@ -1951,9 +1956,11 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	}
- 
- 	/* Get actual data size */
-+	if (dev->wanted_features & NETIF_F_RXFCS)
-+		fcs_pad = 4;
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
--	if (unlikely(actual_size > RFD_BUF_LEN - sizeof(struct rfd)))
--		actual_size = RFD_BUF_LEN - sizeof(struct rfd);
-+	if (unlikely(actual_size > RFD_BUF_LEN + fcs_pad - sizeof(struct rfd)))
-+		actual_size = RFD_BUF_LEN + fcs_pad - sizeof(struct rfd);
- 
- 	/* Get data */
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
-@@ -1980,7 +1987,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
- 	if (unlikely(!(rfd_status & cb_ok))) {
- 		/* Don't indicate if hardware indicates errors */
- 		dev_kfree_skb_any(skb);
--	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN) {
-+	} else if (actual_size > ETH_DATA_LEN + VLAN_ETH_HLEN + fcs_pad) {
- 		/* Don't indicate oversized frames */
- 		nic->rx_over_length_errors++;
- 		dev_kfree_skb_any(skb);
-@@ -2761,6 +2768,8 @@ static int __devinit e100_probe(struct pci_dev *pdev,
- 		return -ENOMEM;
- 	}
- 
-+	netdev->hw_features |= NETIF_F_RXFCS;
-+
- 	netdev->netdev_ops = &e100_netdev_ops;
- 	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
- 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
 -- 
 1.7.3.4
 
