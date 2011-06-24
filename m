@@ -1,58 +1,89 @@
-From: John Haxby <john.haxby@oracle.com>
-Subject: Re: [PATCH]: Add Network Sysrq Support
-Date: Fri, 24 Jun 2011 15:37:14 +0100
-Message-ID: <4E04A11A.7000104@oracle.com>
-References: <20110621130040.12035.62533.sendpatchset@prarit.bos.redhat.com> <4E0115B3.2030802@redhat.com> <20110621225645.GD16021@Chamillionaire.breakpoint.cc> <20110621.155816.1840729860084652508.davem@davemloft.net> <4E01C34F.6050009@redhat.com> <20110622105434.GE16021@Chamillionaire.breakpoint.cc>
+From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
+Date: Fri, 24 Jun 2011 18:37:55 +0400
+Message-ID: <4E04A143.1090204@mvista.com>
+References: <201106231841.40691.sshtylyov@ru.mvista.com>	 <1308841365.13397.274.camel@wwguy-huron>  <4E046A9F.9020909@mvista.com> <1308924515.19001.2.camel@wwguy-ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Prarit Bhargava <prarit@redhat.com>,
-	David Miller <davem@davemloft.net>, fbl@redhat.com,
-	netdev@vger.kernel.org, agospoda@redhat.com, nhorman@redhat.com,
-	lwoodman@redhat.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:29395 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758274Ab1FXOho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 10:37:44 -0400
-In-Reply-To: <20110622105434.GE16021@Chamillionaire.breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: wwguy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1308924515.19001.2.camel@wwguy-ubuntu>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 22/06/11 11:54, Florian Westphal wrote:
-> Patrick McHardy suggested an alternative standalone method involving
-> encapsulation sockets; perhaps the reasons why this path was not chosen
-> have changed.
->
-> I think that a standalone module (i.e. not requiring netfilter) that
-> runs the sysreq handling after all netfilter hooks would be optimal,
-> but I don't see a simple method to implement that.
+Hello.
 
-Having just read the entire thread I have some different comments.
+wwguy wrote:
 
-I think I mentioned that the standalone module didn't fly because I was
-using an encapsulation socket: this preserved the ability to protect the
-sysrq with iptables and also kept things nice and simple.  Unfortunately
-that also meant I lost IPv6 ....
+>>>> Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
+>>>> again) already converted this driver to using the 'revision' field of 'struct
+>>>> pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
+>>>> rev_id) later reverted that change for no reason. Now restore the change...
+>>>> Signed-off-by: Sergei Shtylyov<sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
+>>>> ---
+>>>> The patch is against the recent Linus' tree.
+>>>>   drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
+>>>>   1 file changed, 2 insertions(+), 3 deletions(-)
+>>>> Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
+>>>> ===================================================================
+>>>> --- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
+>>>> +++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
+>>>> @@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
+>>>>
+>>>>   static u32 iwl_hw_detect(struct iwl_priv *priv)
+>>>>   {
+>>>> -	u8 rev_id;
+>>>> +	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
+>>>> +		       priv->pci_dev->revision);
+>>>>
+>>>> -	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID,&rev_id);
+>>>> -	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
+>>>>   	return iwl_read32(priv, CSR_HW_REV);
+>>>>   }
 
-One of the comments in the thread (sorry, I've lost the attribution, not
-to mention the exact quote) was that you would be crazy to run this in
-production.    Hmmm.   One of the principle use cases of this is
-precisely to run the code in production: machines in production do go
-AWOL for all kinds of reasons and being able to run sysrq-m, t, s and c
-is particularly useful.   It would be nice to be able to go up to the
-machine and type on its keyboard.  If only it was even on the same
-continent.   If only it a keyboard.  Or even a PS/2 keyboard socket
-(getting a USB keyboard to configure itself when the machine is wedged
-is, well, unlikely).
+>>> hmm, I believe it is merge sequence issue, the IWL_DEBUG_INFO line has
+>>> benn remove all together in later patch. the information is being log in
+>>> the calling function, no need to log in "iwl_hw_detect"
 
-The changes I made to the xt_SYSRQ hashing a while back to avoid things
-like replay were precisely because it needs to be run in a production
-environment.   I've just submitted a patch that makes replay to other
-machines that have the same password less likely to succeed, again, with
-a view to how this thing would be used in production.
+>>     Hm, you probably mean this patch in the iwlwifi-2.6.git (of which I wasn't 
+>> aware):
 
-Sorry if I've repeated some things that have already been said.
+>> author	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
+>> 	Tue, 31 May 2011 06:58:18 +0000 (09:58 +0300)
+>> committer	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
+>> 	Sat, 18 Jun 2011 15:18:01 +0000 (08:18 -0700)
+>> commit	85aed7c48113dfcdc913008481c46346af0db69e
+>> tree	75831a2ec540039470c295a81c2059a24a4531f5
+>> parent	19707bac16129ccebc398dbff9d2b44b17b24fea
 
-jch
+>> iwlagn: don't read the PCI_REVISION_ID from iwl-agn.c
+
+>> The PCI_REVISION_ID is read and printed in iwl_pci_probe anyway using pr_info
+
+>> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+>> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+
+>>     Since iwl_pci_probe() still reads the PCI config. register, my patch 
+>> should be recast to modify iwl-pci.c instead...
+
+> I don't believe this patch is needed since the "log" statement is move
+> to outside the function.
+
+    That's what I'm talking about -- it's not needed in its current form, but I 
+will redo the patch to modify iwl-pci,c where iwl_pci_probe() still reads 
+PCI_REVISION_ID.
+
+> Thanks
+> Wey
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
