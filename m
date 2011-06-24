@@ -1,88 +1,83 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH NET-NEXT] net: Kill unuseful net/TUNABLE doc in kernel source
-Date: Fri, 24 Jun 2011 15:53:48 +0800
-Message-ID: <4E04428C.9080703@cn.fujitsu.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
+Date: Fri, 24 Jun 2011 13:43:25 +0530
+Message-ID: <913f4373-e01f-4aa9-b8c7-d041d70f0945@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60572 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751778Ab1FXHwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2011 03:52:49 -0400
+Received: from exht1.emulex.com ([138.239.113.183]:15316 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753530Ab1FXIN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 04:13:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-File net/TUNABLE has never be updated since git age.
+netdev_stats_update() resets netdev->stats and then accumulates stats from
+various rings. This is wrong as stats readers can sometimes catch zero values.
+Use temporary variables instead for accumulating per-ring values.
 
-For some tunable parameters which user can control with proc file-system,
-They are all in ip-sysctl.txt doc.
-
-For tunable parameters that only at compile time, no meaning to note them.
-
-
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- net/TUNABLE |   50 --------------------------------------------------
- 1 files changed, 0 insertions(+), 50 deletions(-)
- delete mode 100644 net/TUNABLE
+ drivers/net/benet/be_main.c |   29 +++++++++++++++++------------
+ 1 files changed, 17 insertions(+), 12 deletions(-)
 
-diff --git a/net/TUNABLE b/net/TUNABLE
-deleted file mode 100644
-index 9913211..0000000
---- a/net/TUNABLE
-+++ /dev/null
-@@ -1,50 +0,0 @@
--The following parameters should be tunable at compile time. Some of them
--exist as sysctls too.
--
--This is far from complete
--
--Item			Description
------------------------------------------------------------------------------
--MAX_LINKS		Maximum number of netlink minor devices. (1-32)
--RIF_TABLE_SIZE		Token ring RIF cache size (tunable)
--AARP_HASH_SIZE		Size of Appletalk hash table (tunable)
--AX25_DEF_T1		AX.25 parameters. These are all tunable via
--AX25_DEF_T2		SIOCAX25SETPARMS
--AX25_DEF_T3		T1-T3,N2 have the meanings in the specification
--AX25_DEF_N2
--AX25_DEF_AXDEFMODE	8 = normal 128 is PE1CHL extended
--AX25_DEF_IPDEFMODE	'D' - datagram  'V' - virtual connection
--AX25_DEF_BACKOFF	'E'xponential 'L'inear
--AX25_DEF_NETROM		Allow netrom 1=Y
--AX25_DF_TEXT		Allow PID=Text 1=Y
--AX25_DEF_WINDOW		Window for normal mode
--AX25_DEF_EWINDOW	Window for PE1CHL mode
--AX25_DEF_DIGI		1 for inband 2 for cross band 3 for both
--AX25_DEF_CONMODE	Allow connected modes 1=Yes
--AX25_ROUTE_MAX		AX.25 route cache size - no currently tunable
--Unnamed (16)		Number of protocol hash slots (tunable)
--DEV_NUMBUFFS		Number of priority levels (not easily tunable)
--Unnamed (300)		Maximum packet backlog queue (tunable)
--MAX_IOVEC		Maximum number of iovecs in a message (tunable)
--MIN_WINDOW		Offered minimum window (tunable)
--MAX_WINDOW		Offered maximum window (tunable)
--MAX_HEADER		Largest physical header (tunable)
--MAX_ADDR_LEN		Largest physical address (tunable)
--SOCK_ARRAY_SIZE		IP socket array hash size (tunable)
--IP_MAX_MEMBERSHIPS	Largest number of groups per socket (BSD style) (tunable)
--16			Hard coded constant for amount of room allowed for
--			cache align and faster forwarding (tunable)
--IP_FRAG_TIME		Time we hold a fragment for. (tunable)
--PORT_MASQ_BEGIN		First port reserved for masquerade (tunable)
--PORT_MASQ_END		Last port used for masquerade	(tunable)
--MASQUERADE_EXPIRE_TCP_FIN	Time we keep a masquerade for after a FIN
--MASQUERADE_EXPIRE_UDP	Time we keep a UDP masquerade for (tunable)
--MAXVIFS			Maximum mrouted vifs (1-32)
--MFC_LINES		Lines in the multicast router cache (tunable)
--
--NetROM parameters are tunable via an ioctl passing a struct
--
--4000			Size a Unix domain socket malloc falls back to 
--			(tunable) should be 8K - a bit for 8K machines like
--			the ALPHA
--
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index c4f564c..5ca06b0 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -428,33 +428,38 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 	struct net_device_stats *dev_stats = &adapter->netdev->stats;
+ 	struct be_rx_obj *rxo;
+ 	struct be_tx_obj *txo;
++	unsigned long pkts = 0, bytes = 0, mcast = 0, drops = 0;
+ 	int i;
+ 
+-	memset(dev_stats, 0, sizeof(*dev_stats));
+ 	for_all_rx_queues(adapter, rxo, i) {
+-		dev_stats->rx_packets += rx_stats(rxo)->rx_pkts;
+-		dev_stats->rx_bytes += rx_stats(rxo)->rx_bytes;
+-		dev_stats->multicast += rx_stats(rxo)->rx_mcast_pkts;
++		pkts += rx_stats(rxo)->rx_pkts;
++		bytes += rx_stats(rxo)->rx_bytes;
++		mcast += rx_stats(rxo)->rx_mcast_pkts;
+ 		/*  no space in linux buffers: best possible approximation */
+ 		if (adapter->generation == BE_GEN3) {
+ 			if (!(lancer_chip(adapter))) {
+-				struct be_erx_stats_v1 *erx_stats =
++				struct be_erx_stats_v1 *erx =
+ 					be_erx_stats_from_cmd(adapter);
+-				dev_stats->rx_dropped +=
+-				erx_stats->rx_drops_no_fragments[rxo->q.id];
++				drops += erx->rx_drops_no_fragments[rxo->q.id];
+ 			}
+ 		} else {
+-			struct be_erx_stats_v0 *erx_stats =
++			struct be_erx_stats_v0 *erx =
+ 					be_erx_stats_from_cmd(adapter);
+-			dev_stats->rx_dropped +=
+-				erx_stats->rx_drops_no_fragments[rxo->q.id];
++			drops += erx->rx_drops_no_fragments[rxo->q.id];
+ 		}
+ 	}
++	dev_stats->rx_packets = pkts;
++	dev_stats->rx_bytes = bytes;
++	dev_stats->multicast = mcast;
++	dev_stats->rx_dropped = drops;
+ 
++	pkts = bytes = 0;
+ 	for_all_tx_queues(adapter, txo, i) {
+-		dev_stats->tx_packets += tx_stats(txo)->be_tx_pkts;
+-		dev_stats->tx_bytes += tx_stats(txo)->be_tx_bytes;
++		pkts += tx_stats(txo)->be_tx_pkts;
++		bytes += tx_stats(txo)->be_tx_bytes;
+ 	}
++	dev_stats->tx_packets = pkts;
++	dev_stats->tx_bytes = bytes;
+ 
+ 	/* bad pkts received */
+ 	dev_stats->rx_errors = drvs->rx_crc_errors +
 -- 
-1.7.4.1
+1.7.4
+
