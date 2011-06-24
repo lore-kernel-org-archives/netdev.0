@@ -1,47 +1,39 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH net-2.6] cxgb3: skb_record_rx_queue now records the queue
- index relative to the net_device.
-Date: Thu, 23 Jun 2011 22:27:18 -0700
-Message-ID: <4E042036.1060907@chelsio.com>
-References: <20110624003912.14349.62988.stgit@speedy5.asicdesigners.com> <1308891197.3000.2.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 02/11] ixgbe: fix flags relating to perfect filters
+ to support coexistence
+Date: Thu, 23 Jun 2011 23:40:41 -0700
+Message-ID: <1308897641.11000.11.camel@Joe-Laptop>
+References: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1308895397-23133-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Hernandez <jay@chelsio.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:5517 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574Ab1FXGaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 02:30:21 -0400
-In-Reply-To: <1308891197.3000.2.camel@edumazet-laptop>
+Received: from mail.perches.com ([173.55.12.10]:3196 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751852Ab1FXGkn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Jun 2011 02:40:43 -0400
+In-Reply-To: <1308895397-23133-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/23/2011 9:53 PM, Eric Dumazet wrote:
-> Le jeudi 23 juin 2011 =C3=A0 17:39 -0700, John Hernandez a =C3=A9crit=
- :
->> From: John (Jay) Hernandez<jay@chelsio.com>
->>
->> Fixed call to skb_record_rx_queue where we were passing the queue in=
-dex
->> relative to the adapter when it should have been relative to the net=
-_device.
->>
->> Signed-off-by: John (Jay) Hernandez<jay@chelsio.com>
->> Signed-off-by: Divy Le Ray<divy@chelsio.com>
->>
-> Hmm, wasnt this bug reported by Shawn Bohrer ?
+On Thu, 2011-06-23 at 23:03 -0700, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+[]
+> @@ -114,11 +114,12 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
+>  	u8 err = 0;
+>  	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+>  
+> +	/* verify there is something to do, if not then exit */
+> +	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+> +		return err;
 
-Yes, it was.
-> Reported-by: Shawn Bohrer<sbohrer@rgmadvisors.com>
->
-> Proper credits please ?
+That's a bit hard to read.  Maybe this is clearer?
 
-Thanks for fixing this.
+	if (!!state == !!(adapter->flags & IXGBE_FLAG_DCG_ENABLED))
 
-cheers,
-Divy
 
