@@ -1,89 +1,40 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
-Date: Fri, 24 Jun 2011 18:37:55 +0400
-Message-ID: <4E04A143.1090204@mvista.com>
-References: <201106231841.40691.sshtylyov@ru.mvista.com>	 <1308841365.13397.274.camel@wwguy-huron>  <4E046A9F.9020909@mvista.com> <1308924515.19001.2.camel@wwguy-ubuntu>
+From: James Carlson <carlsonj@workingcode.com>
+Subject: Re: ppp_deflate + kmalloc
+Date: Fri, 24 Jun 2011 10:02:40 -0400
+Message-ID: <4E049900.4080402@workingcode.com>
+References: <BANLkTi=+2dqr1LPwG8MHpcYOyzJH57iavw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: wwguy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1308924515.19001.2.camel@wwguy-ubuntu>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Martin Jackson <mjackson220.list@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <BANLkTi=+2dqr1LPwG8MHpcYOyzJH57iavw@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Martin Jackson wrote:
+> In our android froyo-based system (omap3 hardware), we are getting the
+> following problem where the ppp driver cannot kmalloc enough memory
+> for the decomp buffer in the ppp driver.
+> 
+> Trying to make a 4th-order kmalloc (I think that amounts to 64kB)
+> seems ambitious. I do not understand why vmalloc is not being used
+> here, like it is for the compression buffer. Is using vmalloc here an
+> acceptable solution?
 
-wwguy wrote:
+The code here shouldn't need contiguous pages, so vmalloc (even if
+"slower") shouldn't be a problem.
 
->>>> Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
->>>> again) already converted this driver to using the 'revision' field of 'struct
->>>> pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
->>>> rev_id) later reverted that change for no reason. Now restore the change...
->>>> Signed-off-by: Sergei Shtylyov<sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
->>>> ---
->>>> The patch is against the recent Linus' tree.
->>>>   drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
->>>>   1 file changed, 2 insertions(+), 3 deletions(-)
->>>> Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
->>>> ===================================================================
->>>> --- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
->>>> +++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
->>>> @@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
->>>>
->>>>   static u32 iwl_hw_detect(struct iwl_priv *priv)
->>>>   {
->>>> -	u8 rev_id;
->>>> +	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
->>>> +		       priv->pci_dev->revision);
->>>>
->>>> -	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID,&rev_id);
->>>> -	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
->>>>   	return iwl_read32(priv, CSR_HW_REV);
->>>>   }
+But a higher-level question might be why you're bothering with RFC 1979
+Deflate compression at all on this platform.  I'd expect that you're
+most likely going to end up talking to commercially-produced PPP servers
+(possibly 3GPP or similar) at the other end, and very, very few of them
+offer data compression with either RFC 1977 (BSD Compression) or RFC
+1979.  ("Very, very few" is probably being generous ...)
 
->>> hmm, I believe it is merge sequence issue, the IWL_DEBUG_INFO line has
->>> benn remove all together in later patch. the information is being log in
->>> the calling function, no need to log in "iwl_hw_detect"
+If it's always going to be negotiated away in practice, and if you're
+having trouble with memory constraints, why not just ditch the baggage?
 
->>     Hm, you probably mean this patch in the iwlwifi-2.6.git (of which I wasn't 
->> aware):
-
->> author	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
->> 	Tue, 31 May 2011 06:58:18 +0000 (09:58 +0300)
->> committer	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
->> 	Sat, 18 Jun 2011 15:18:01 +0000 (08:18 -0700)
->> commit	85aed7c48113dfcdc913008481c46346af0db69e
->> tree	75831a2ec540039470c295a81c2059a24a4531f5
->> parent	19707bac16129ccebc398dbff9d2b44b17b24fea
-
->> iwlagn: don't read the PCI_REVISION_ID from iwl-agn.c
-
->> The PCI_REVISION_ID is read and printed in iwl_pci_probe anyway using pr_info
-
->> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
->> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
->>     Since iwl_pci_probe() still reads the PCI config. register, my patch 
->> should be recast to modify iwl-pci.c instead...
-
-> I don't believe this patch is needed since the "log" statement is move
-> to outside the function.
-
-    That's what I'm talking about -- it's not needed in its current form, but I 
-will redo the patch to modify iwl-pci,c where iwl_pci_probe() still reads 
-PCI_REVISION_ID.
-
-> Thanks
-> Wey
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+James Carlson         42.703N 71.076W         <carlsonj@workingcode.com>
