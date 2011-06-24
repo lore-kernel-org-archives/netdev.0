@@ -1,194 +1,95 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: Re: RFT: virtio_net: limit xmit polling
-Date: Fri, 24 Jun 2011 05:50:33 -0700
-Message-ID: <CA29D629.2C9B1%roprabhu@cisco.com>
-References: <201106211023.24643.tahm@linux.vnet.ibm.com>
+From: Martin Jackson <mjackson220.list@gmail.com>
+Subject: ppp_deflate + kmalloc
+Date: Fri, 24 Jun 2011 15:41:21 +0200
+Message-ID: <BANLkTi=+2dqr1LPwG8MHpcYOyzJH57iavw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4127046239959269658=="
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, habanero@linux.vnet.ibm.com,
-        lguest@lists.ozlabs.org, Shirley Ma <xma@us.ibm.com>,
-        kvm@vger.kernel.org, Carsten Otte <cotte@de.ibm.com>,
-        linux-s390@vger.kernel.org, Heiko Carstens <heiko.carstens@de.ibm.com>,
-        linux-kernel@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, steved@us.ibm.com,
-        Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>, linux390@de.ibm.com
-To: Tom Lendacky <tahm@linux.vnet.ibm.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <201106211023.24643.tahm@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Mime-version: 1.0
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: paulus@samba.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+Hi,
 
---===============4127046239959269658==
-Content-type: multipart/alternative;
-	boundary="B_3391739433_7656829"
+In our android froyo-based system (omap3 hardware), we are getting the
+following problem where the ppp driver cannot kmalloc enough memory
+for the decomp buffer in the ppp driver.
 
-> This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+Trying to make a 4th-order kmalloc (I think that amounts to 64kB)
+seems ambitious. I do not understand why vmalloc is not being used
+here, like it is for the compression buffer. Is using vmalloc here an
+acceptable solution?
 
---B_3391739433_7656829
-Content-type: text/plain;
-	charset="US-ASCII"
-Content-transfer-encoding: 7bit
-
-Michael,  
-
-I am testing this too.
- I have finished one round of testing. But am running it again just to
-confirm.
-This time I will see if I can collect some exit stats too. Will post results
-sometime this weekend.
-I am just doing TCP_STREAM and TCP_MAERTS from guest to remote host.
-
-Thanks,
-Roopa
-
-
-On 6/21/11 8:23 AM, "Tom Lendacky" <tahm@linux.vnet.ibm.com> wrote:
-
-> On Sunday, June 19, 2011 05:27:00 AM Michael S. Tsirkin wrote:
->> > OK, different people seem to test different trees.  In the hope to get
->> > everyone on the same page, I created several variants of this patch so
->> > they can be compared. Whoever's interested, please check out the
->> > following, and tell me how these compare:
-> 
-> I'm in the process of testing these patches.  Base and v0 are complete
-> and v1 is near complete with v2 to follow.  I'm testing with a variety
-> of TCP_RR and TCP_STREAM/TCP_MAERTS tests involving local guest-to-guest
-> tests and remote host-to-guest tests.  I'll post the results in the next
-> day or two when the tests finish.
-> 
-> Thanks,
-> Tom
-> 
->> >
->> > kernel:
->> >
->> > git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
->> >
->> > virtio-net-limit-xmit-polling/base - this is net-next baseline to test
->> > against virtio-net-limit-xmit-polling/v0 - fixes checks on out of capacity
->> > virtio-net-limit-xmit-polling/v1 - previous revision of the patch
->> >               this does xmit,free,xmit,2*free,free
->> > virtio-net-limit-xmit-polling/v2 - new revision of the patch
->> >               this does free,xmit,2*free,free
->> >
->> > There's also this on top:
->> > virtio-net-limit-xmit-polling/v3 -> don't delay avail index update
->> > I don't think it's important to test this one, yet
->> >
->> > Userspace to use: event index work is not yet merged upstream
->> > so the revision to use is still this:
->> > git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git
->> > virtio-net-event-idx-v3
-> 
+pppd: page allocation failure. order:4, mode:0x44d0
+[<c016bc10>] (unwind_backtrace+0x0/0xdc) from [<c01fea80>]
+(__alloc_pages_nodemask+0x4c4/0x5a4)
+[<c01fea80>] (__alloc_pages_nodemask+0x4c4/0x5a4) from [<c01feb70>]
+(__get_free_pages+0x10/0x3c)
+[<c01feb70>] (__get_free_pages+0x10/0x3c) from [<c021cc24>]
+(__kmalloc+0x3c/0x220)
+[<c021cc24>] (__kmalloc+0x3c/0x220) from [<c03519d8>]
+(z_decomp_alloc+0x120/0x164)
+[<c03519d8>] (z_decomp_alloc+0x120/0x164) from [<c034de14>]
+(ppp_ioctl+0xae4/0xf18)
+[<c034de14>] (ppp_ioctl+0xae4/0xf18) from [<c022cd3c>] (vfs_ioctl+0x2c/0x8c)
+[<c022cd3c>] (vfs_ioctl+0x2c/0x8c) from [<c022d3e8>] (do_vfs_ioctl+0x55c/0x5a0)
+[<c022d3e8>] (do_vfs_ioctl+0x55c/0x5a0) from [<c022d478>] (sys_ioctl+0x4c/0x6c)
+[<c022d478>] (sys_ioctl+0x4c/0x6c) from [<c0166f80>] (ret_fast_syscall+0x0/0x38)
+Mem-info:
+Normal per-cpu:
+CPU    0: hi:   90, btch:  15 usd:   0
+active_anon:6829 inactive_anon:6914 isolated_anon:0
+ active_file:14397 inactive_file:14438 isolated_file:0
+ unevictable:0 dirty:12 writeback:0 unstable:0
+ free:901 slab_reclaimable:1040 slab_unreclaimable:1117
+ mapped:12160 shmem:64 pagetables:1576 bounce:0
+Normal free:3604kB min:2036kB low:2544kB high:3052kB
+active_anon:27316kB inactive_anon:27656kB active_file:57588kB
+inactive_file:57752kB unevictable:0kB isolated(anon):0kB
+isolated(file):0kB present:260096kB mlocked:0kB dirty:48kB
+writeback:0kB mapped:48640kB shmem:256kB slab_reclaimable:4160kB
+slab_unreclaimable:4468kB kernel_stack:2128kB pagetables:6304kB
+unstable:0kB bounce:0kB writeback_tmp:0kB pages_scanned:0
+all_unreclaimable? no
+lowmem_reserve[]: 0 0
+Normal: 359*4kB 183*8kB 42*16kB 1*32kB 0*64kB 0*128kB 0*256kB 0*512kB
+0*1024kB 0*2048kB 0*4096kB = 3604kB
+28899 total pagecache pages
+65536 pages of RAM
+1299 free pages
+13785 reserved pages
+1482 slab pages
+89904 pages shared
+0 pages swap cached
 
 
---B_3391739433_7656829
-Content-type: text/html;
-	charset="US-ASCII"
-Content-transfer-encoding: quoted-printable
-
-<HTML>
-<HEAD>
-<TITLE>Re: RFT: virtio_net: limit xmit polling</TITLE>
-</HEAD>
-<BODY>
-<FONT FACE=3D"Calibri, Verdana, Helvetica, Arial"><SPAN STYLE=3D'font-size:11pt=
-'>Michael, &nbsp;<BR>
-<BR>
-I am testing this too.<BR>
-&nbsp;I have finished one round of testing. But am running it again just to=
- confirm.<BR>
-This time I will see if I can collect some exit stats too. Will post result=
-s sometime this weekend. <BR>
-I am just doing TCP_STREAM and TCP_MAERTS from guest to remote host.<BR>
-<BR>
-Thanks,<BR>
-Roopa<BR>
-<BR>
-<BR>
-On 6/21/11 8:23 AM, &quot;Tom Lendacky&quot; &lt;<a href=3D"tahm@linux.vnet.i=
-bm.com">tahm@linux.vnet.ibm.com</a>&gt; wrote:<BR>
-<BR>
-</SPAN></FONT><BLOCKQUOTE><FONT FACE=3D"Calibri, Verdana, Helvetica, Arial"><=
-SPAN STYLE=3D'font-size:11pt'>On Sunday, June 19, 2011 05:27:00 AM Michael S. =
-Tsirkin wrote:<BR>
-&gt; OK, different people seem to test different trees. &nbsp;In the hope t=
-o get<BR>
-&gt; everyone on the same page, I created several variants of this patch so=
-<BR>
-&gt; they can be compared. Whoever's interested, please check out the<BR>
-&gt; following, and tell me how these compare:<BR>
-<BR>
-I'm in the process of testing these patches. &nbsp;Base and v0 are complete=
-<BR>
-and v1 is near complete with v2 to follow. &nbsp;I'm testing with a variety=
-<BR>
-of TCP_RR and TCP_STREAM/TCP_MAERTS tests involving local guest-to-guest<BR=
->
-tests and remote host-to-guest tests. &nbsp;I'll post the results in the ne=
-xt<BR>
-day or two when the tests finish.<BR>
-<BR>
-Thanks,<BR>
-Tom<BR>
-<BR>
-&gt;<BR>
-&gt; kernel:<BR>
-&gt;<BR>
-&gt; git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git<BR>
-&gt;<BR>
-&gt; virtio-net-limit-xmit-polling/base - this is net-next baseline to test=
-<BR>
-&gt; against virtio-net-limit-xmit-polling/v0 - fixes checks on out of capa=
-city<BR>
-&gt; virtio-net-limit-xmit-polling/v1 - previous revision of the patch<BR>
-&gt; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;this does xmit,free,xmit,2*free,free<BR>
-&gt; virtio-net-limit-xmit-polling/v2 - new revision of the patch<BR>
-&gt; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;this does free,xmit,2*free,free<BR>
-&gt;<BR>
-&gt; There's also this on top:<BR>
-&gt; virtio-net-limit-xmit-polling/v3 -&gt; don't delay avail index update<=
-BR>
-&gt; I don't think it's important to test this one, yet<BR>
-&gt;<BR>
-&gt; Userspace to use: event index work is not yet merged upstream<BR>
-&gt; so the revision to use is still this:<BR>
-&gt; git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git<BR>
-&gt; virtio-net-event-idx-v3<BR>
-<BR>
-</SPAN></FONT></BLOCKQUOTE>
-</BODY>
-</HTML>
+This is how I worked around it.
 
 
---B_3391739433_7656829--
+--- a/drivers/net/ppp_deflate.c
++++ b/drivers/net/ppp_deflate.c
+@@ -305,7 +305,7 @@ static void z_decomp_free(void *arg)
+
+        if (state) {
+                zlib_inflateEnd(&state->strm);
+-               kfree(state->strm.workspace);
++               vfree(state->strm.workspace);
+                kfree(state);
+        }
+ }
+@@ -345,8 +345,7 @@ static void *z_decomp_alloc(unsigned char
+*options, int opt_len)
+
+        state->w_size         = w_size;
+        state->strm.next_out  = NULL;
+-       state->strm.workspace = kmalloc(zlib_inflate_workspacesize(),
+-                                       GFP_KERNEL|__GFP_REPEAT);
++       state->strm.workspace = vmalloc(zlib_inflate_workspacesize());
+        if (state->strm.workspace == NULL)
+                goto out_free;
 
 
---===============4127046239959269658==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Best regards,
 
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linux-foundation.org/mailman/listinfo/virtualization
---===============4127046239959269658==--
+Martin Jackson
