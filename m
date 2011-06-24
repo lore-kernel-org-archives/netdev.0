@@ -1,47 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 00/35]: System Firmware and SMBIOS Support
-Date: Fri, 24 Jun 2011 15:40:57 +0200
-Message-ID: <201106241540.57952.arnd@arndb.de>
-References: <20110623172206.27602.34306.sendpatchset@prarit.bos.redhat.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: Reducing rwnd by sizeof(struct sk_buff) for each
+ CHUNK is too aggressive
+Date: Fri, 24 Jun 2011 09:48:51 -0400
+Message-ID: <4E0495C3.30102@hp.com>
+References: <20110624101535.GB9222@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
-	x86@kernel.org, linux-acpi@vger.kernel.org,
-	linux-ide@vger.kernel.org,
-	openipmi-developer@lists.sourceforge.net,
-	platform-driver-x86@vger.kernel.org, linux-crypto@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, lm-sensors@lm-sensors.org,
-	linux-i2c@vger.kernel.org, linux-input@vger.kernel.org,
-	linux-media@vger.kernel.org, linux-mmc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-	rtc-linux@googlegroups.com, evel@driverdev.osuosl.org,
-	linux-usb@vger.kernel.org,
-	device-drivers-devel@blackfin.uclinux.org,
-	linux-watchdog@vger.kernel.org, grant.likely@secretlab.ca,
-	dz@debian.org, rpurdie@rpsys.net, eric.piel@tremplin-utc.net,
-	abelay@mit.edu, johnpol@2ka.mipt.ru
-To: Prarit Bhargava <prarit@redhat.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20110623172206.27602.34306.sendpatchset@prarit.bos.redhat.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:17605 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174Ab1FXNs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 09:48:56 -0400
+In-Reply-To: <20110624101535.GB9222@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 23 June 2011 19:22:06 Prarit Bhargava wrote:
-> This new patchset reworks the existing DMI code into two separate layers.  It is
-> based off of the feedback I received previously when discussing the SMBIOS
-> version patch on LKML.
+On 06/24/2011 06:15 AM, Thomas Graf wrote:
+> Currently we subtract sizeof(struct sk_buff) of our view of the
+> receiver's rwnd for each DATA chunk appended to a sctp packet.
+> Reducing the rwnd by >200 bytes for each DATA chunk quickly
+> consumes the available window and prevents max MTU sized packets
+> (for large MTU values) from being generated in combination with
+> small DATA chunks. The sender has to wait for the next SACK to
+> be processed for the rwnd to be corrected.
+> 
+> Accounting for data structures required for rx is the responsibility
+> of the stack which is why we announce a rwnd of sk_rcvbuf/2.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index b4f3cf0..ceb55b2 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -700,13 +700,7 @@ static void sctp_packet_append_data(struct sctp_packet *packet,
+>  	/* Keep track of how many bytes are in flight to the receiver. */
+>  	asoc->outqueue.outstanding_bytes += datasize;
+>  
+> -	/* Update our view of the receiver's rwnd. Include sk_buff overhead
+> -	 * while updating peer.rwnd so that it reduces the chances of a
+> -	 * receiver running out of receive buffer space even when receive
+> -	 * window is still open. This can happen when a sender is sending
+> -	 * sending small messages.
+> -	 */
+> -	datasize += sizeof(struct sk_buff);
+> +	/* Update our view of the receiver's rwnd. */
+>  	if (datasize < rwnd)
+>  		rwnd -= datasize;
+>  	else
+> 
 
-Hi Prarit,
+Hi Thomas
 
-No objections to the patches, but when you send out a series as long as
-this one, please ensure that all patches are sent as replies to the
-introductory mail. Also, do not repeat the one-line patch summary in the
-body of the email.
+I believe there was work in progress to change how window is computed.  The issue with
+your current patch is that it is possible to consume all of the receive buffer space while
+still having an open receive window.  We've seen it in real life which is why the above band-aid
+was applied.
 
-When using "git send-email --thread --no-chain-reply", this works
-automatically. It will also let you put the Cc list into the
-patch description and work out where to send each patch.
+The correct patch should really something similar to TCP, where receive window is computed as
+a percentage of the available receive buffer space at every adjustment.  This should also take into
+account SWS on the sender side.
 
-	Arnd
+Someone started implementing that code, but I am not sure where it currently is.
+
+Thanks
+-vlad
