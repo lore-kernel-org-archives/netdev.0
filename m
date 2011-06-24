@@ -1,67 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for June 23 (net)
-Date: Thu, 23 Jun 2011 21:21:20 -0700 (PDT)
-Message-ID: <20110623.212120.2043173528294538748.davem@davemloft.net>
-References: <20110623155431.6bfe3b40.sfr@canb.auug.org.au>
-	<20110623091429.2d51b0f0.randy.dunlap@oracle.com>
+From: Freedom Tea <freedomtea@gmail.com>
+Subject: Bug#629604: linux-image-2.6.38-2-686: sky2 eth0 rx length errors (~5/second)
+Date: Fri, 24 Jun 2011 14:30:05 +1000
+Message-ID: <BANLkTinwUuwSEDcYD3+KieUDODrtjtQ73A@mail.gmail.com>
+References: <20110608015806.3543.25300.reportbug@nomad>
+	<1307503575.22348.495.camel@localhost>
+	<1307540756.22348.498.camel@localhost>
+Reply-To: Freedom Tea <freedomtea@gmail.com>, 629604@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: randy.dunlap@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110623091429.2d51b0f0.randy.dunlap@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/alternative; boundary=20cf30207532e6dac404a66da7b9
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>, netdev <netdev@vger.kernel.org>
+To: 629604@bugs.debian.org
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.629604.B629604.130888981211834@bugs.debian.org>
+In-Reply-To: <1307540756.22348.498.camel@localhost>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Thu, 23 Jun 2011 09:14:29 -0700
+--20cf30207532e6dac404a66da7b9
+Content-Type: text/plain; charset=ISO-8859-1
 
-> On Thu, 23 Jun 2011 15:54:31 +1000 Stephen Rothwell wrote:
-> 
->> Hi all,
->> 
->> Changes since 20110622:
->> 
->> The powerpc allyesconfig (and probably others) is still broken because we
->> now build the staging drivers and because of a commit in the net tree.
->> The breakage in Linus' tree is fixed by one of Andrew's patches above.
->> 
->> The net tree gained 2 build failures that I have left (see above).
-> 
-> 
-> When CONFIG_INET is not enabled:
-> 
-> net/core/dev.c:2535: error: implicit declaration of function 'ip_is_fragment'
+Problem persists in latest wheezy kernel, 2.6.39-2-686-pae
 
-I'll fix this like so:
+On Wed, Jun 8, 2011 at 11:45 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index d603cd3..9fa9416 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -236,6 +236,11 @@ extern void ipfrag_init(void);
- 
- extern void ip_static_sysctl_init(void);
- 
-+static inline bool ip_is_fragment(const struct iphdr *iph)
-+{
-+	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
-+}
-+
- #ifdef CONFIG_INET
- #include <net/dst.h>
- 
-@@ -250,11 +255,6 @@ int ip_decrease_ttl(struct iphdr *iph)
- 	return --iph->ttl;
- }
- 
--static inline bool ip_is_fragment(const struct iphdr *iph)
--{
--	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
--}
--
- static inline
- int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
- {
+> -------- Forwarded Message --------
+> From: Freedom Tea <freedomtea@gmail.com>
+> Reply-to: Freedom Tea <freedomtea@gmail.com>, 629604@bugs.debian.org
+> To: 629604@bugs.debian.org
+> Subject: Bug#629604: linux-image-2.6.38-2-686: sky2 eth0 rx length errors
+> (~5/second)
+> Date: Wed, 8 Jun 2011 13:38:52 +1000
+>
+> Sorry, yes I was on 2.6.32.  The 5 came from "2.6.32-5-686" (seen many
+> times in grub).
+>
+> kernel: [    1.084097] sky2 0000:02:00.0: Yukon-2 EC chip revision 2
+>
+>
+
+--20cf30207532e6dac404a66da7b9
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Problem persists in latest wheezy kernel, 2.6.39-2-686-pae<br><br><div clas=
+s=3D"gmail_quote">On Wed, Jun 8, 2011 at 11:45 PM, Ben Hutchings <span dir=
+=3D"ltr">&lt;<a href=3D"mailto:ben@decadent.org.uk">ben@decadent.org.uk</a>=
+&gt;</span> wrote:<br>
+<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
+x #ccc solid;padding-left:1ex;">-------- Forwarded Message --------<br>
+From: Freedom Tea &lt;<a href=3D"mailto:freedomtea@gmail.com">freedomtea@gm=
+ail.com</a>&gt;<br>
+Reply-to: Freedom Tea &lt;<a href=3D"mailto:freedomtea@gmail.com">freedomte=
+a@gmail.com</a>&gt;, <a href=3D"mailto:629604@bugs.debian.org">629604@bugs.=
+debian.org</a><br>
+To: <a href=3D"mailto:629604@bugs.debian.org">629604@bugs.debian.org</a><br=
+>
+Subject: Bug#629604: linux-image-2.6.38-2-686: sky2 eth0 rx length errors (=
+~5/second)<br>
+Date: Wed, 8 Jun 2011 13:38:52 +1000<br>
+<div class=3D"im"><br>
+Sorry, yes I was on 2.6.32. =A0The 5 came from &quot;2.6.32-5-686&quot; (se=
+en many times in grub).<br>
+<br>
+</div>kernel: [ =A0 =A01.084097] sky2 0000:02:00.0: Yukon-2 EC chip revisio=
+n 2<br>
+<br>
+</blockquote></div><br>
+
+--20cf30207532e6dac404a66da7b9--
