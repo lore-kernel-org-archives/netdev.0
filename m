@@ -1,197 +1,209 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH v2 3/5] serial/imx: add device tree support
-Date: Sat, 25 Jun 2011 02:04:34 +0800
-Message-ID: <1308938676-31121-4-git-send-email-shawn.guo@linaro.org>
+From: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v2 4/5] net/fec: add device tree support
+Date: Sat, 25 Jun 2011 02:04:35 +0800
+Message-ID: <1308938676-31121-5-git-send-email-shawn.guo@linaro.org>
 References: <1308938676-31121-1-git-send-email-shawn.guo@linaro.org>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-serial@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	patches@linaro.org, Shawn Guo <shawn.guo@linaro.org>,
-	Jeremy Kerr <jeremy.kerr@canonical.com>,
-	Jason Liu <jason.hui@linaro.org>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-serial-owner@vger.kernel.org>
-In-Reply-To: <1308938676-31121-1-git-send-email-shawn.guo@linaro.org>
-Sender: linux-serial-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1308938676-31121-1-git-send-email-shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It adds device tree data parsing support for imx tty/serial driver.
+It adds device tree data parsing support for fec driver.
 
-Signed-off-by: Jeremy Kerr <jeremy.kerr@canonical.com>
-Signed-off-by: Jason Liu <jason.hui@linaro.org>
-Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-Cc: Sascha Hauer <s.hauer@pengutronix.de>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Signed-off-by: Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- .../bindings/tty/serial/fsl-imx-uart.txt           |   20 +++++
- drivers/tty/serial/imx.c                           |   82 +++++++++++++++++---
- 2 files changed, 92 insertions(+), 10 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+ Documentation/devicetree/bindings/net/fsl-fec.txt |   22 ++++++
+ drivers/net/fec.c                                 |   81 +++++++++++++++++++--
+ 2 files changed, 98 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/fsl-fec.txt
 
-diff --git a/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
 new file mode 100644
-index 0000000..9aafe0a
+index 0000000..345ecb6
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/tty/serial/fsl-imx-uart.txt
-@@ -0,0 +1,20 @@
-+* Freescale i.MX Universal Asynchronous Receiver/Transmitter (UART)
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -0,0 +1,22 @@
++* Freescale Fast Ethernet Controller (FEC)
 +
 +Required properties:
-+- compatible : should be "fsl,<soc>-uart"
++- compatible : should be "fsl,<soc>-fec"
 +- reg : address and length of the register set for the device
-+- interrupts : should contain uart interrupt
-+- id : should be the port ID defined by soc
++- interrupts : should contain fec interrupt
++- phy-mode : string, operation mode of the PHY interface.
++  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
++  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi".
 +
 +Optional properties:
-+- fsl,uart-has-rtscts : indicate the uart has rts and cts
-+- fsl,irda-mode : support irda mode
++- local-mac-address : 6 bytes, mac address
 +
 +Example:
 +
-+uart@73fbc000 {
-+	compatible = "fsl,imx51-uart", "fsl,imx21-uart";
-+	reg = <0x73fbc000 0x4000>;
-+	interrupts = <31>;
-+	fsl,uart-has-rtscts;
++fec@83fec000 {
++	compatible = "fsl,imx51-fec", "fsl,imx27-fec";
++	reg = <0x83fec000 0x4000>;
++	interrupts = <87>;
++	phy-mode = "mii";
++	local-mac-address = [00 04 9F 01 1B B9];
 +};
-diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
-index 8a6f4e1..bef27b3 100644
---- a/drivers/tty/serial/imx.c
-+++ b/drivers/tty/serial/imx.c
-@@ -45,6 +45,8 @@
- #include <linux/delay.h>
- #include <linux/rational.h>
- #include <linux/slab.h>
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 885d8ba..16ac1dd 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -44,6 +44,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
+ #include <linux/fec.h>
 +#include <linux/of.h>
 +#include <linux/of_device.h>
  
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -227,6 +229,12 @@ static struct imx_uart_data imx_uart_devdata[] = {
- #define IS_IMX1_UART(sport) (sport->devdata->type == IMX1_UART)
- #define IS_IMX2_UART(sport) (sport->devdata->type == IMX2_UART)
+ #include <asm/cacheflush.h>
  
-+static struct of_device_id imx_uart_dt_ids[] = {
-+	{ .compatible = "fsl,imx1-uart", .data = &imx_uart_devdata[IMX1_UART], },
-+	{ .compatible = "fsl,imx21-uart", .data = &imx_uart_devdata[IMX2_UART], },
-+	{ /* sentinel */ },
+@@ -78,6 +80,12 @@ static struct platform_device_id fec_devtype[] = {
+ 	{ }
+ };
+ 
++static const struct of_device_id fec_dt_ids[] = {
++	{ .compatible = "fsl,imx27-fec", .data = &fec_devtype[0], },
++	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[1], },
++	{},
 +};
 +
- /*
-  * Handle any change of modem status signal since we were last called.
-  */
-@@ -1250,6 +1258,58 @@ static int serial_imx_resume(struct platform_device *dev)
+ static unsigned char macaddr[ETH_ALEN];
+ module_param_array(macaddr, byte, NULL, 0);
+ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+@@ -731,8 +739,23 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
+ 	 */
+ 	iap = macaddr;
+ 
++#ifdef CONFIG_OF
++	/*
++	 * 2) from device tree data
++	 */
++	if (!is_valid_ether_addr(iap)) {
++		struct device_node *np = fep->pdev->dev.of_node;
++		if (np) {
++			const void *p = of_get_property(np,
++						"local-mac-address", NULL);
++			if (p)
++				iap = (unsigned char *) p;
++		}
++	}
++#endif
++
+ 	/*
+-	 * 2) from flash or fuse (via platform data)
++	 * 3) from flash or fuse (via platform data)
+ 	 */
+ 	if (!is_valid_ether_addr(iap)) {
+ #ifdef CONFIG_M5272
+@@ -745,7 +768,7 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
+ 	}
+ 
+ 	/*
+-	 * 3) FEC mac registers set by bootloader
++	 * 4) FEC mac registers set by bootloader
+ 	 */
+ 	if (!is_valid_ether_addr(iap)) {
+ 		*((unsigned long *) &tmpaddr[0]) =
+@@ -1355,6 +1378,43 @@ static int fec_enet_init(struct net_device *ndev)
  	return 0;
  }
  
 +#ifdef CONFIG_OF
-+static int serial_imx_probe_dt(struct imx_port *sport,
-+		struct platform_device *pdev)
++static int __devinit fec_get_phy_mode_dt(struct net_device *ndev)
 +{
-+	struct device_node *node = pdev->dev.of_node;
-+	const struct of_device_id *of_id =
-+			of_match_device(imx_uart_dt_ids, &pdev->dev);
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	struct device_node *np = fep->pdev->dev.of_node;
++	const char *pm, *phy_modes[] = {
++		[PHY_INTERFACE_MODE_MII]	= "mii",
++		[PHY_INTERFACE_MODE_GMII]	= "gmii",
++		[PHY_INTERFACE_MODE_SGMII]	= "sgmii",
++		[PHY_INTERFACE_MODE_TBI]	= "tbi",
++		[PHY_INTERFACE_MODE_RMII]	= "rmii",
++		[PHY_INTERFACE_MODE_RGMII]	= "rgmii",
++		[PHY_INTERFACE_MODE_RGMII_ID]	= "rgmii-id",
++		[PHY_INTERFACE_MODE_RGMII_RXID]	= "rgmii-rxid",
++		[PHY_INTERFACE_MODE_RGMII_TXID] = "rgmii-txid",
++		[PHY_INTERFACE_MODE_RTBI]	= "rtbi",
++	};
 +
-+	if (!node)
-+		return -ENODEV;
++	if (np) {
++		pm = of_get_property(np, "phy-mode", NULL);
++		if (pm) {
++			int i;
++			for (i = 0; i < ARRAY_SIZE(phy_modes); i++)
++				if (!strcasecmp(pm, phy_modes[i]))
++					return i;
++		}
++	}
 +
-+	pdev->id = of_alias_get_id(node, "serial");
-+	if (pdev->id < 0)
-+		return -ENODEV;
-+
-+	if (of_get_property(node, "fsl,uart-has-rtscts", NULL))
-+		sport->have_rtscts = 1;
-+
-+	if (of_get_property(node, "fsl,irda-mode", NULL))
-+		sport->use_irda = 1;
-+
-+	sport->devdata = of_id->data;
-+
-+	return 0;
++	return -ENODEV;
 +}
 +#else
-+static int serial_imx_probe_dt(struct imx_port *sport,
-+		struct platform_device *pdev)
++static int __devinit fec_get_phy_mode_dt(struct net_device *ndev)
 +{
 +	return -ENODEV;
 +}
 +#endif
 +
-+static int serial_imx_probe_pdata(struct imx_port *sport,
-+		struct platform_device *pdev)
-+{
-+	struct imxuart_platform_data *pdata = pdev->dev.platform_data;
-+
-+	if (!pdata)
-+		return 0;
-+
-+	if (pdata->flags & IMXUART_HAVE_RTSCTS)
-+		sport->have_rtscts = 1;
-+
-+	if (pdata->flags & IMXUART_IRDA)
-+		sport->use_irda = 1;
-+
-+	sport->devdata = &imx_uart_devdata[pdev->id_entry->driver_data];
-+
-+	return 0;
-+}
-+
- static int serial_imx_probe(struct platform_device *pdev)
+ static int __devinit
+ fec_probe(struct platform_device *pdev)
  {
- 	struct imx_port *sport;
-@@ -1262,6 +1322,12 @@ static int serial_imx_probe(struct platform_device *pdev)
- 	if (!sport)
- 		return -ENOMEM;
- 
-+	ret = serial_imx_probe_dt(sport, pdev);
-+	if (ret == -ENODEV)
-+		ret = serial_imx_probe_pdata(sport, pdev);
-+	if (ret)
-+		goto free;
+@@ -1363,6 +1423,11 @@ fec_probe(struct platform_device *pdev)
+ 	struct net_device *ndev;
+ 	int i, irq, ret = 0;
+ 	struct resource *r;
++	const struct of_device_id *of_id;
 +
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!res) {
- 		ret = -ENODEV;
-@@ -1290,7 +1356,6 @@ static int serial_imx_probe(struct platform_device *pdev)
- 	init_timer(&sport->timer);
- 	sport->timer.function = imx_timeout;
- 	sport->timer.data     = (unsigned long)sport;
--	sport->devdata = &imx_uart_devdata[pdev->id_entry->driver_data];
++	of_id = of_match_device(fec_dt_ids, &pdev->dev);
++	if (of_id)
++		pdev->id_entry = (struct platform_device_id *) of_id->data;
  
- 	sport->clk = clk_get(&pdev->dev, "uart");
- 	if (IS_ERR(sport->clk)) {
-@@ -1301,17 +1366,13 @@ static int serial_imx_probe(struct platform_device *pdev)
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!r)
+@@ -1394,9 +1459,14 @@ fec_probe(struct platform_device *pdev)
  
- 	sport->port.uartclk = clk_get_rate(sport->clk);
+ 	platform_set_drvdata(pdev, ndev);
  
--	imx_ports[pdev->id] = sport;
-+	if (imx_ports[sport->port.line]) {
-+		ret = -EBUSY;
-+		goto clkput;
+-	pdata = pdev->dev.platform_data;
+-	if (pdata)
+-		fep->phy_interface = pdata->phy;
++	fep->phy_interface = fec_get_phy_mode_dt(ndev);
++	if (fep->phy_interface == -ENODEV) {
++		pdata = pdev->dev.platform_data;
++		if (pdata)
++			fep->phy_interface = pdata->phy;
++		else
++			fep->phy_interface = PHY_INTERFACE_MODE_MII;
 +	}
-+	imx_ports[sport->port.line] = sport;
  
- 	pdata = pdev->dev.platform_data;
--	if (pdata && (pdata->flags & IMXUART_HAVE_RTSCTS))
--		sport->have_rtscts = 1;
--
--#ifdef CONFIG_IRDA
--	if (pdata && (pdata->flags & IMXUART_IRDA))
--		sport->use_irda = 1;
--#endif
--
- 	if (pdata && pdata->init) {
- 		ret = pdata->init(pdev);
- 		if (ret)
-@@ -1386,6 +1447,7 @@ static struct platform_driver serial_imx_driver = {
- 	.driver		= {
- 		.name	= "imx-uart",
- 		.owner	= THIS_MODULE,
-+		.of_match_table = imx_uart_dt_ids,
+ 	/* This device has up to three irqs on some platforms */
+ 	for (i = 0; i < 3; i++) {
+@@ -1531,6 +1601,7 @@ static struct platform_driver fec_driver = {
+ #ifdef CONFIG_PM
+ 		.pm	= &fec_pm_ops,
+ #endif
++		.of_match_table = fec_dt_ids,
  	},
- };
- 
+ 	.id_table = fec_devtype,
+ 	.probe	= fec_probe,
 -- 
 1.7.4.1
-
