@@ -1,93 +1,73 @@
-From: wwguy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
-Date: Fri, 24 Jun 2011 08:21:40 -0700
-Message-ID: <1308928900.19001.3.camel@wwguy-ubuntu>
-References: <201106231841.40691.sshtylyov@ru.mvista.com>
-	 <1308841365.13397.274.camel@wwguy-huron>  <4E046A9F.9020909@mvista.com>
-	 <1308924515.19001.2.camel@wwguy-ubuntu>  <4E04A143.1090204@mvista.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: Reducing rwnd by sizeof(struct sk_buff) for each
+ CHUNK is too aggressive
+Date: Fri, 24 Jun 2011 11:21:11 -0400
+Message-ID: <4E04AB67.1040407@hp.com>
+References: <20110624101535.GB9222@canuck.infradead.org> <4E0495C3.30102@hp.com> <20110624144251.GC9222@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4E04A143.1090204-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:24627 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754210Ab1FXP1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 11:27:49 -0400
+In-Reply-To: <20110624144251.GC9222@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-06-24 at 07:37 -0700, Sergei Shtylyov wrote:
-> Hello.
-> 
-> wwguy wrote:
-> 
-> >>>> Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
-> >>>> again) already converted this driver to using the 'revision' field of 'struct
-> >>>> pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
-> >>>> rev_id) later reverted that change for no reason. Now restore the change...
-> >>>> Signed-off-by: Sergei Shtylyov<sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
-> >>>> ---
-> >>>> The patch is against the recent Linus' tree.
-> >>>>   drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
-> >>>>   1 file changed, 2 insertions(+), 3 deletions(-)
-> >>>> Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
-> >>>> ===================================================================
-> >>>> --- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
-> >>>> +++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
-> >>>> @@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
-> >>>>
-> >>>>   static u32 iwl_hw_detect(struct iwl_priv *priv)
-> >>>>   {
-> >>>> -	u8 rev_id;
-> >>>> +	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
-> >>>> +		       priv->pci_dev->revision);
-> >>>>
-> >>>> -	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID,&rev_id);
-> >>>> -	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
-> >>>>   	return iwl_read32(priv, CSR_HW_REV);
-> >>>>   }
-> 
-> >>> hmm, I believe it is merge sequence issue, the IWL_DEBUG_INFO line has
-> >>> benn remove all together in later patch. the information is being log in
-> >>> the calling function, no need to log in "iwl_hw_detect"
-> 
-> >>     Hm, you probably mean this patch in the iwlwifi-2.6.git (of which I wasn't 
-> >> aware):
-> 
-> >> author	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
-> >> 	Tue, 31 May 2011 06:58:18 +0000 (09:58 +0300)
-> >> committer	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
-> >> 	Sat, 18 Jun 2011 15:18:01 +0000 (08:18 -0700)
-> >> commit	85aed7c48113dfcdc913008481c46346af0db69e
-> >> tree	75831a2ec540039470c295a81c2059a24a4531f5
-> >> parent	19707bac16129ccebc398dbff9d2b44b17b24fea
-> 
-> >> iwlagn: don't read the PCI_REVISION_ID from iwl-agn.c
-> 
-> >> The PCI_REVISION_ID is read and printed in iwl_pci_probe anyway using pr_info
-> 
-> >> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> >> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
-> >>     Since iwl_pci_probe() still reads the PCI config. register, my patch 
-> >> should be recast to modify iwl-pci.c instead...
-> 
-> > I don't believe this patch is needed since the "log" statement is move
-> > to outside the function.
-> 
->     That's what I'm talking about -- it's not needed in its current form, but I 
-> will redo the patch to modify iwl-pci,c where iwl_pci_probe() still reads 
-> PCI_REVISION_ID.
+On 06/24/2011 10:42 AM, Thomas Graf wrote:
+> On Fri, Jun 24, 2011 at 09:48:51AM -0400, Vladislav Yasevich wrote:
+>> I believe there was work in progress to change how window is computed.  The issue with
+>> your current patch is that it is possible to consume all of the receive buffer space while
+>> still having an open receive window.  We've seen it in real life which is why the above band-aid
+>> was applied.
 > 
 
-ok, thanks
-Wey
+First, let me state that I mis-understood what the patch is attempting to do.
+Looking again, I understand this a little better, but still have reservations.
+
+> I don't understand this. The rwnd _announced_ is sk_rcvbuf/2 so we are
+> reserving half of sk_rcvbuf for structures like sk_buff. This means we
+> can use _all_ of rwnd for data. If the peer announces a a_rwnd of 1500
+> in the last SACK I expect that peer to be able to handle 1500 bytes of
+> data.
+> 
+> Regardless of that, why would we reserve a sk_buff for each chunk? We only
+> allocate an skb per packet which can have many chunks attached.
+> 
+> To me, this looks like a fix for broken sctp peers.
+
+Well, the rwnd announced is what the peer stated it is.  All we can do is
+try to estimate what it will be when this packet is received.
+We, instead of trying to underestimate the window size, try to over-estimate it.
+Almost every implementation has some kind of overhead and we don't know how
+that overhead will impact the window.  As such we try to temporarily account for this
+overhead.
+
+If we treat the window as strictly available data, then we may end up sending a lot more traffic
+then the window can take thus causing us to enter 0 window probe and potential retransmission
+issues that will trigger congestion control.  
+We'd like to avoid that so we put some overhead into our computations.  It may not be ideal
+since we do this on a per-chunk basis.  It could probably be done on per-packet basis instead.
+This way, we'll essentially over-estimate but under-subscribe our current view of the peers
+window.  So in one shot, we are not going to over-fill it and will get an updated view next
+time the SACK arrives.
+
+> 
+>> The correct patch should really something similar to TCP, where receive window is computed as
+>> a percentage of the available receive buffer space at every adjustment.  This should also take into
+>> account SWS on the sender side.
+> 
+> Can you elaborate this a little more? You want our view of the peer's receive
+> window to be computed as a percentage of the available receive buffer on our
+> side?
 > 
 
+As I said, I miss-understood what you were trying to do. Sorry for going off in another direction.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+-vlad
+
