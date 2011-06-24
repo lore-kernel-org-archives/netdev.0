@@ -1,82 +1,76 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/11] ixgbe: move reset code into a separate function
-Date: Thu, 23 Jun 2011 23:03:14 -0700
-Message-ID: <1308895397-23133-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/11] ixgbe: update driver version string
+Date: Thu, 23 Jun 2011 23:03:17 -0700
+Message-ID: <1308895397-23133-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21960 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:9660 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752776Ab1FXGDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752803Ab1FXGDh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 24 Jun 2011 02:03:37 -0400
 In-Reply-To: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Move reset code into a separate function to allow for reuse in other
-parts of the code.
+Update the ixgbe driver version string to better match the Source Driver
+with similar device support.  Likewise update to the current LAD Linux
+versioning scheme.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-of-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Evan Swanson <evan.swanson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |   26 ++++++++++++++------------
- 1 files changed, 14 insertions(+), 12 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    8 ++++----
+ drivers/net/ixgbe/ixgbe_type.h |    3 ++-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 405c5ba..bb8441e 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -442,6 +442,16 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
- 	return 0;
- }
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 916a2b6..2496a27 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -54,11 +54,10 @@ char ixgbe_driver_name[] = "ixgbe";
+ static const char ixgbe_driver_string[] =
+ 			      "Intel(R) 10 Gigabit PCI Express Network Driver";
+ #define MAJ 3
+-#define MIN 3
++#define MIN 4
+ #define BUILD 8
+-#define KFIX 2
+ #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
+-	__stringify(BUILD) "-k" __stringify(KFIX)
++	__stringify(BUILD) "-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+ 				"Copyright (c) 1999-2011 Intel Corporation.";
+@@ -7713,7 +7712,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
  
-+static void ixgbe_do_reset(struct net_device *netdev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	if (netif_running(netdev))
-+		ixgbe_reinit_locked(adapter);
-+	else
-+		ixgbe_reset(adapter);
-+}
-+
- static u32 ixgbe_get_rx_csum(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -2249,12 +2259,8 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- 	 * correctly w.r.t stopping tx, and changing TXDCTL.WTHRESH settings
- 	 * also locks in RSC enable/disable which requires reset
- 	 */
--	if (need_reset) {
--		if (netif_running(netdev))
--			ixgbe_reinit_locked(adapter);
--		else
--			ixgbe_reset(adapter);
--	}
-+	if (need_reset)
-+		ixgbe_do_reset(netdev);
+ 	/* Inform firmware of driver version */
+ 	if (hw->mac.ops.set_fw_drv_ver)
+-		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD, KFIX);
++		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD,
++					   FW_CEM_UNUSED_VER);
  
- 	return 0;
- }
-@@ -2328,12 +2334,8 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
- 		need_reset = true;
- 	}
+ 	/* add san mac addr to netdev */
+ 	ixgbe_add_sanmac_netdev(netdev);
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index 8b1abd4..1eefc0c 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -2143,7 +2143,8 @@ enum ixgbe_fdir_pballoc_type {
+ #define FW_CEM_HDR_LEN                0x4
+ #define FW_CEM_CMD_DRIVER_INFO        0xDD
+ #define FW_CEM_CMD_DRIVER_INFO_LEN    0x5
+-#define FW_CEM_CMD_RESERVED           0X0
++#define FW_CEM_CMD_RESERVED           0x0
++#define FW_CEM_UNUSED_VER             0x0
+ #define FW_CEM_MAX_RETRIES            3
+ #define FW_CEM_RESP_STATUS_SUCCESS    0x1
  
--	if (need_reset) {
--		if (netif_running(netdev))
--			ixgbe_reinit_locked(adapter);
--		else
--			ixgbe_reset(adapter);
--	}
-+	if (need_reset)
-+		ixgbe_do_reset(netdev);
- 
- 	return 0;
- }
 -- 
 1.7.5.4
 
