@@ -1,84 +1,78 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 00/20] misc tipc updates / enhancements
-Date: Fri, 24 Jun 2011 18:07:07 -0400
-Message-ID: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 03/20] tipc: Standardize exit logic for message rejection handling
+Date: Fri, 24 Jun 2011 18:07:10 -0400
+Message-ID: <1308953247-25266-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
+	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34336 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:34349 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754355Ab1FXWHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 18:07:39 -0400
+	with ESMTP id S1756947Ab1FXWHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 18:07:41 -0400
+In-Reply-To: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A bit more dead code removal, some collapsing of functions with
-too many arguments, and some cosmetic stuff with no real impact.
+From: Allan Stephens <allan.stephens@windriver.com>
 
-But I think the best part in this lot is getting rid of the internal
-(to tipc) duplication of "almost" linked list like code, and just
-having it use the normal shared kernel code for the task. 
-The diffstat summary reflects the net gain here:
+Modifies the routine that handles the rejection of payload messages
+so that it has a single exit point that frees up the rejected message,
+thereby eliminating some duplicated code.
 
-       12 files changed, 276 insertions(+), 381 deletions(-)
-
-All credit to Al for the work to get here.  I'm just an intermediate
-reviewer -- and happy to see my value-add in that role becoming smaller
-and smaller each time as tipc-2 leaves the SF tipc-1.7.x further behind.
-
-I've independently tested using the basic tipcTS/tipcTC tests between
-an x86-32 and an x86-64 host, in both directions.
-
-Thanks,
-Paul.
-
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/port.c |   19 +++++++++----------
+ 1 files changed, 9 insertions(+), 10 deletions(-)
 
-The following changes since commit 21e842579a5fd1ce746be4e34ac53ef67d6f0a6b:
-
-  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 (2011-06-23 23:39:33 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6.git tipc-Jun24-2011
-
-Allan Stephens (20):
-  tipc: Convert fatal broadcast sanity check to non-fatal check
-  tipc: Remove unused sanity test macro
-  tipc: Standardize exit logic for message rejection handling
-  tipc: Add sanity check to detect rejection of non-payload messages
-  tipc: Optimize routing of returned payload messages
-  tipc: Optimizations & corrections to message rejection
-  tipc: Eliminate message header routines for caching destination node
-  tipc: Eliminate redundant masking in message header routines
-  tipc: Partition name table instance array info into two parts
-  tipc: Convert name table publication lists to standard kernel lists
-  tipc: Eliminate checks for empty zone list during name translation
-  tipc: Correct typo in link statistics output
-  tipc: Eliminate unused field in bearer structure
-  tipc: Remove unnecessary includes in socket code
-  tipc: Eliminate useless check when creating internal message
-  tipc: Cleanup of message header size terminology
-  tipc: Optimize creation of FIN messages
-  tipc: Reject connection protocol message sent to unconnected port
-  tipc: Don't create payload message using connection protocol routine
-  tipc: Optimize creation of connection protocol messages
-
- net/tipc/bcast.c      |    6 +-
- net/tipc/bearer.c     |    1 -
- net/tipc/bearer.h     |    2 -
- net/tipc/core.h       |    6 -
- net/tipc/link.c       |    6 +-
- net/tipc/msg.c        |    6 +-
- net/tipc/msg.h        |   34 ++-----
- net/tipc/name_distr.c |    6 +-
- net/tipc/name_table.c |  289 ++++++++++++++++++++-----------------------------
- net/tipc/name_table.h |   14 ++--
- net/tipc/port.c       |  284 ++++++++++++++++++++++--------------------------
- net/tipc/socket.c     |    3 -
- 12 files changed, 276 insertions(+), 381 deletions(-)
-
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index c68dc95..3946b5b 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -367,10 +367,8 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
+ 		imp++;
+ 
+ 	/* discard rejected message if it shouldn't be returned to sender */
+-	if (msg_errcode(msg) || msg_dest_droppable(msg)) {
+-		buf_discard(buf);
+-		return data_sz;
+-	}
++	if (msg_errcode(msg) || msg_dest_droppable(msg))
++		goto exit;
+ 
+ 	/* construct rejected message */
+ 	if (msg_mcast(msg))
+@@ -378,10 +376,9 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
+ 	else
+ 		hdr_sz = LONG_H_SIZE;
+ 	rbuf = tipc_buf_acquire(data_sz + hdr_sz);
+-	if (rbuf == NULL) {
+-		buf_discard(buf);
+-		return data_sz;
+-	}
++	if (rbuf == NULL)
++		goto exit;
++
+ 	rmsg = buf_msg(rbuf);
+ 	tipc_msg_init(rmsg, imp, msg_type(msg), hdr_sz, msg_orignode(msg));
+ 	msg_set_errcode(rmsg, err);
+@@ -411,9 +408,11 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
+ 		tipc_net_route_msg(abuf);
+ 	}
+ 
+-	/* send rejected message */
+-	buf_discard(buf);
++	/* send returned message & dispose of rejected message */
++
+ 	tipc_net_route_msg(rbuf);
++exit:
++	buf_discard(buf);
+ 	return data_sz;
+ }
+ 
 -- 
 1.7.4.4
 
