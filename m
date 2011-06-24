@@ -1,54 +1,47 @@
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Subject: Re: [PATCH] ssb: use pci_dev->revision
-Date: Fri, 24 Jun 2011 15:20:11 +0400
-Message-ID: <4E0472EB.8060009@mvista.com>
-References: <201106231849.53030.sshtylyov@ru.mvista.com>	<20110623170908.1417f933@maggie>	<4E0357BF.7000408@mvista.com> <20110623173204.00fbaed6@maggie>
+From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] net/usb: kalmia: Various fixes for better support of
+ non-x86 architectures.
+Date: Fri, 24 Jun 2011 15:55:13 +0400
+Message-ID: <4E047B21.5080104@ru.mvista.com>
+References: <Pine.LNX.4.44L0.1106231025340.2033-100000@iolanthe.rowland.org> <4E0353D0.1060604@ru.mvista.com> <201106240742.38806.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sshtylyov@ru.mvista.com>, netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <m@bues.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34706 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753234Ab1FXLVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 07:21:19 -0400
-Received: by wyb38 with SMTP id 38so1852622wyb.19
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 04:21:17 -0700 (PDT)
-In-Reply-To: <20110623173204.00fbaed6@maggie>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	"Marius B. Kotsbak" <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Marius B. Kotsbak" <marius-iy5w9mehe2BBDgjK7y7TUQ@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201106240742.38806.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 23-06-2011 19:32, Michael B=C3=BCsch wrote:
+On 24-06-2011 9:42, Oliver Neukum wrote:
 
->>>> The bus scan code reads PCI revision ID from the PCI configuration=
- register
->>>> while it's already stored by PCI subsystem in the 'revision' field=
- of 'struct
->>>> pci_dev'...
+>>>>      Actually 'const' alone should've been enough for the variable to be placed
+>>>> in the data section ISO stack.
 
->>>> Signed-off-by: Sergei Shtylyov<sshtylyov@ru.mvista.com>
+>>> I don't understand what "ISO stack" means here.
 
->>>> ---
->>>> The patch is against the recent Linus' tree.
+>>      ISO == instead of.
 
->>>> There's another place where the revision ID register is read but a=
-s 16-bit
->>>> entity (probably by mistake though), so I didn't convert it...
+> That doesn't matter. If you are sufficiently unlucky it will land on
+> a page boundary. You must not do DMA on the data section either.
 
->>> Where is that?
+    Who said it was going to do DMA on the data section? The arrays got copied 
+to heap-allocated buffer before DMA. But allocating those arrays on stack was 
+not optimal anyway.
 
->>      drivers/ssb/pci.c, line 741.
-
-> Yes that probably is by mistake. Can you convert it as well, please?
-
-    Tnen that whole function needs to be converted, as it reads subsyst=
-rem ID=20
-from the PCI config. space, while it's aready stored by PCI core. That =
-is a=20
-matter of yet another patch.
+> 	Regards
+> 		Oliver
+>
 
 WBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
