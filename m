@@ -1,76 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/11] ixgbe: update driver version string
-Date: Thu, 23 Jun 2011 23:03:17 -0700
-Message-ID: <1308895397-23133-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/11] ixgbe: move setting RSC into a separate function
+Date: Thu, 23 Jun 2011 23:03:13 -0700
+Message-ID: <1308895397-23133-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:9660 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752803Ab1FXGDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752546Ab1FXGDh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 24 Jun 2011 02:03:37 -0400
 In-Reply-To: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Update the ixgbe driver version string to better match the Source Driver
-with similar device support.  Likewise update to the current LAD Linux
-versioning scheme.
+Move setting RSC into a separate function to allow for reuse in other
+parts of the code.
 
-Signed-of-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Evan Swanson <evan.swanson@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |    8 ++++----
- drivers/net/ixgbe/ixgbe_type.h |    3 ++-
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   34 ++++++++++++++++++----------------
+ 1 files changed, 18 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 916a2b6..2496a27 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -54,11 +54,10 @@ char ixgbe_driver_name[] = "ixgbe";
- static const char ixgbe_driver_string[] =
- 			      "Intel(R) 10 Gigabit PCI Express Network Driver";
- #define MAJ 3
--#define MIN 3
-+#define MIN 4
- #define BUILD 8
--#define KFIX 2
- #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
--	__stringify(BUILD) "-k" __stringify(KFIX)
-+	__stringify(BUILD) "-k"
- const char ixgbe_driver_version[] = DRV_VERSION;
- static const char ixgbe_copyright[] =
- 				"Copyright (c) 1999-2011 Intel Corporation.";
-@@ -7713,7 +7712,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 2965b6e..405c5ba 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -459,6 +459,21 @@ static int ixgbe_set_rx_csum(struct net_device *netdev, u32 data)
+ 	return 0;
+ }
  
- 	/* Inform firmware of driver version */
- 	if (hw->mac.ops.set_fw_drv_ver)
--		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD, KFIX);
-+		hw->mac.ops.set_fw_drv_ver(hw, MAJ, MIN, BUILD,
-+					   FW_CEM_UNUSED_VER);
- 
- 	/* add san mac addr to netdev */
- 	ixgbe_add_sanmac_netdev(netdev);
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 8b1abd4..1eefc0c 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2143,7 +2143,8 @@ enum ixgbe_fdir_pballoc_type {
- #define FW_CEM_HDR_LEN                0x4
- #define FW_CEM_CMD_DRIVER_INFO        0xDD
- #define FW_CEM_CMD_DRIVER_INFO_LEN    0x5
--#define FW_CEM_CMD_RESERVED           0X0
-+#define FW_CEM_CMD_RESERVED           0x0
-+#define FW_CEM_UNUSED_VER             0x0
- #define FW_CEM_MAX_RETRIES            3
- #define FW_CEM_RESP_STATUS_SUCCESS    0x1
- 
++static void ixgbe_set_rsc(struct ixgbe_adapter *adapter)
++{
++	int i;
++
++	for (i = 0; i < adapter->num_rx_queues; i++) {
++		struct ixgbe_ring *ring = adapter->rx_ring[i];
++		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
++			set_ring_rsc_enabled(ring);
++			ixgbe_configure_rscctl(adapter, ring);
++		} else {
++			ixgbe_clear_rscctl(adapter, ring);
++		}
++	}
++}
++
+ static u32 ixgbe_get_tx_csum(struct net_device *netdev)
+ {
+ 	return (netdev->features & NETIF_F_IP_CSUM) != 0;
+@@ -2281,25 +2296,12 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
+ 		} else {
+ 			adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
+ 			switch (adapter->hw.mac.type) {
++			case ixgbe_mac_X540:
++				ixgbe_set_rsc(adapter);
++				break;
+ 			case ixgbe_mac_82599EB:
+ 				need_reset = true;
+ 				break;
+-			case ixgbe_mac_X540: {
+-				int i;
+-				for (i = 0; i < adapter->num_rx_queues; i++) {
+-					struct ixgbe_ring *ring =
+-					                  adapter->rx_ring[i];
+-					if (adapter->flags2 &
+-					    IXGBE_FLAG2_RSC_ENABLED) {
+-						ixgbe_configure_rscctl(adapter,
+-						                       ring);
+-					} else {
+-						ixgbe_clear_rscctl(adapter,
+-						                   ring);
+-					}
+-				}
+-			}
+-				break;
+ 			default:
+ 				break;
+ 			}
 -- 
 1.7.5.4
 
