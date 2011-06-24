@@ -1,124 +1,84 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 06/20] tipc: Optimizations & corrections to message rejection
-Date: Fri, 24 Jun 2011 18:07:13 -0400
-Message-ID: <1308953247-25266-7-git-send-email-paul.gortmaker@windriver.com>
-References: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 00/20] misc tipc updates / enhancements
+Date: Fri, 24 Jun 2011 18:07:07 -0400
+Message-ID: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com,
-	Allan Stephens <allan.stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34371 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:34336 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757285Ab1FXWHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 18:07:44 -0400
-In-Reply-To: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1754355Ab1FXWHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 18:07:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
+A bit more dead code removal, some collapsing of functions with
+too many arguments, and some cosmetic stuff with no real impact.
 
-Optimizes the creation of a returned payload message by duplicating
-the original message and then updating the small number of fields
-that need to be adjusted, rather than building the new message header
-from scratch. In addition, certain operations that are not always
-required are relocated so that they are only done if needed.
+But I think the best part in this lot is getting rid of the internal
+(to tipc) duplication of "almost" linked list like code, and just
+having it use the normal shared kernel code for the task. 
+The diffstat summary reflects the net gain here:
 
-These optimizations also have the effect of addressing other issues
-that were present previously:
+       12 files changed, 276 insertions(+), 381 deletions(-)
 
-1) Fixes a bug that caused the socket send routines to return the
-size of the returned message, rather than the size of the sent
-message, when a returnable payload message was sent to a non-existent
-destination port.
+All credit to Al for the work to get here.  I'm just an intermediate
+reviewer -- and happy to see my value-add in that role becoming smaller
+and smaller each time as tipc-2 leaves the SF tipc-1.7.x further behind.
 
-2) The message header of the returned message now matches that of
-the original message more closely. The header is now always the same
-size as the original header, and some message header fields that
-weren't being initialized in the returned message header are now
-populated correctly -- namely the "d" and "s" bits, and the upper
-bound of a multicast name instance (where present).
+I've independently tested using the basic tipcTS/tipcTC tests between
+an x86-32 and an x86-64 host, in both directions.
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Thanks,
+Paul.
+
 ---
- net/tipc/port.c |   49 ++++++++++++++++++++++++-------------------------
- 1 files changed, 24 insertions(+), 25 deletions(-)
 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 70ecdfd..5311817 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -358,14 +358,10 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
- 	struct sk_buff *rbuf;
- 	struct tipc_msg *rmsg;
- 	int hdr_sz;
--	u32 imp = msg_importance(msg);
-+	u32 imp;
- 	u32 data_sz = msg_data_sz(msg);
- 	u32 src_node;
--
--	if (data_sz > MAX_REJECT_SIZE)
--		data_sz = MAX_REJECT_SIZE;
--	if (msg_connected(msg) && (imp < TIPC_CRITICAL_IMPORTANCE))
--		imp++;
-+	u32 rmsg_sz;
- 
- 	/* discard rejected message if it shouldn't be returned to sender */
- 
-@@ -377,30 +373,33 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
- 	if (msg_errcode(msg) || msg_dest_droppable(msg))
- 		goto exit;
- 
--	/* construct rejected message */
--	if (msg_mcast(msg))
--		hdr_sz = MCAST_H_SIZE;
--	else
--		hdr_sz = LONG_H_SIZE;
--	rbuf = tipc_buf_acquire(data_sz + hdr_sz);
-+	/*
-+	 * construct returned message by copying rejected message header and
-+	 * data (or subset), then updating header fields that need adjusting
-+	 */
-+
-+	hdr_sz = msg_hdr_sz(msg);
-+	rmsg_sz = hdr_sz + min_t(u32, data_sz, MAX_REJECT_SIZE);
-+
-+	rbuf = tipc_buf_acquire(rmsg_sz);
- 	if (rbuf == NULL)
- 		goto exit;
- 
- 	rmsg = buf_msg(rbuf);
--	tipc_msg_init(rmsg, imp, msg_type(msg), hdr_sz, msg_orignode(msg));
--	msg_set_errcode(rmsg, err);
--	msg_set_destport(rmsg, msg_origport(msg));
--	msg_set_origport(rmsg, msg_destport(msg));
--	if (msg_short(msg)) {
--		msg_set_orignode(rmsg, tipc_own_addr);
--		/* leave name type & instance as zeroes */
--	} else {
--		msg_set_orignode(rmsg, msg_destnode(msg));
--		msg_set_nametype(rmsg, msg_nametype(msg));
--		msg_set_nameinst(rmsg, msg_nameinst(msg));
-+	skb_copy_to_linear_data(rbuf, msg, rmsg_sz);
-+
-+	if (msg_connected(rmsg)) {
-+		imp = msg_importance(rmsg);
-+		if (imp < TIPC_CRITICAL_IMPORTANCE)
-+			msg_set_importance(rmsg, ++imp);
- 	}
--	msg_set_size(rmsg, data_sz + hdr_sz);
--	skb_copy_to_linear_data_offset(rbuf, hdr_sz, msg_data(msg), data_sz);
-+	msg_set_non_seq(rmsg, 0);
-+	msg_set_size(rmsg, rmsg_sz);
-+	msg_set_errcode(rmsg, err);
-+	msg_set_prevnode(rmsg, tipc_own_addr);
-+	msg_swap_words(rmsg, 4, 5);
-+	if (!msg_short(rmsg))
-+		msg_swap_words(rmsg, 6, 7);
- 
- 	/* send self-abort message when rejecting on a connected port */
- 	if (msg_connected(msg)) {
+The following changes since commit 21e842579a5fd1ce746be4e34ac53ef67d6f0a6b:
+
+  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 (2011-06-23 23:39:33 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6.git tipc-Jun24-2011
+
+Allan Stephens (20):
+  tipc: Convert fatal broadcast sanity check to non-fatal check
+  tipc: Remove unused sanity test macro
+  tipc: Standardize exit logic for message rejection handling
+  tipc: Add sanity check to detect rejection of non-payload messages
+  tipc: Optimize routing of returned payload messages
+  tipc: Optimizations & corrections to message rejection
+  tipc: Eliminate message header routines for caching destination node
+  tipc: Eliminate redundant masking in message header routines
+  tipc: Partition name table instance array info into two parts
+  tipc: Convert name table publication lists to standard kernel lists
+  tipc: Eliminate checks for empty zone list during name translation
+  tipc: Correct typo in link statistics output
+  tipc: Eliminate unused field in bearer structure
+  tipc: Remove unnecessary includes in socket code
+  tipc: Eliminate useless check when creating internal message
+  tipc: Cleanup of message header size terminology
+  tipc: Optimize creation of FIN messages
+  tipc: Reject connection protocol message sent to unconnected port
+  tipc: Don't create payload message using connection protocol routine
+  tipc: Optimize creation of connection protocol messages
+
+ net/tipc/bcast.c      |    6 +-
+ net/tipc/bearer.c     |    1 -
+ net/tipc/bearer.h     |    2 -
+ net/tipc/core.h       |    6 -
+ net/tipc/link.c       |    6 +-
+ net/tipc/msg.c        |    6 +-
+ net/tipc/msg.h        |   34 ++-----
+ net/tipc/name_distr.c |    6 +-
+ net/tipc/name_table.c |  289 ++++++++++++++++++++-----------------------------
+ net/tipc/name_table.h |   14 ++--
+ net/tipc/port.c       |  284 ++++++++++++++++++++++--------------------------
+ net/tipc/socket.c     |    3 -
+ 12 files changed, 276 insertions(+), 381 deletions(-)
+
 -- 
 1.7.4.4
 
