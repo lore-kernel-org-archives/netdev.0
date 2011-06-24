@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Fri, 24 Jun 2011 13:27:54 -0700 (PDT)
-Message-ID: <20110624.132754.1342293081627931354.davem@davemloft.net>
-References: <4E04D59B.8060301@goop.org>
-	<20110624.124624.1329947216240823992.davem@davemloft.net>
-	<4E04EF8F.6070900@goop.org>
+Subject: Re: pull request: wireless-2.6 2011-06-24
+Date: Fri, 24 Jun 2011 13:30:18 -0700 (PDT)
+Message-ID: <20110624.133018.633722812311589592.davem@davemloft.net>
+References: <20110624184949.GC4793@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, Ian.Campbell@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	rusty@rustcorp.com.au
-To: jeremy@goop.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36881 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403Ab1FXUaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 16:30:08 -0400
-In-Reply-To: <4E04EF8F.6070900@goop.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110624184949.GC4793@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Date: Fri, 24 Jun 2011 13:11:59 -0700
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 24 Jun 2011 14:49:49 -0400
 
-> Are the pages still attached to the first skb, or are they transferred
-> completely?
+> Dave,
+> 
+> Here is another batch of fixes intended for 3.0.  Included are too
+> rtlwifi fixes from Larry:  a regression that broke firmware loading for
+> rtl8292cu; and a fix to arbitrate between two devices that share the
+> same PCI ID but are handled by different drivers...yeah.
+> 
+> The rest are Bluetooth fixes -- quoth Gustavo:
+> 
+> 	Three regressions fix intended for 3.0. Two of them fix a
+> 	change made in our HCI security process for 3.0. The third
+> 	one fixes an issue with non-SSP devices.  All of them are
+> 	critical fixes. They should be in 3.0. Please pull!  Thanks.
+> 
+> Please let me know if there are problems!
 
-In this case they are transferred completely, the refcount isn't
-modified at all.
-
-There are cases where partial transfers occur, and in such cases
-the refcount is modified.  Just swim around in net/core/skbuff.c
-you'll find them :-)
-
-
+Pulled, thanks!
