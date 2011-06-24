@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2011-06-24
-Date: Fri, 24 Jun 2011 14:32:39 -0700 (PDT)
-Message-ID: <20110624.143239.977971513318466584.davem@davemloft.net>
-References: <20110624202249.GF4793@tuxdriver.com>
+Subject: Re: ipv6 hitting route max_size
+Date: Fri, 24 Jun 2011 14:35:20 -0700 (PDT)
+Message-ID: <20110624.143520.25597812164428056.davem@davemloft.net>
+References: <20110606231521.GB22559@hostway.ca>
+	<20110607.005645.1883989402770213985.davem@davemloft.net>
+	<20110609044042.GA32537@hostway.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: sim@hostway.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51494 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51531 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752895Ab1FXVdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 17:33:50 -0400
-In-Reply-To: <20110624202249.GF4793@tuxdriver.com>
+	with ESMTP id S1753701Ab1FXVg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 17:36:26 -0400
+In-Reply-To: <20110609044042.GA32537@hostway.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 24 Jun 2011 16:22:49 -0400
+From: Simon Kirby <sim@hostway.ca>
+Date: Wed, 8 Jun 2011 21:40:42 -0700
 
-> Here is a big batch of updates intended for 3.1.  This batch got a bit
-> bigger than I would have liked -- I guess I let the Bluetooth, ath9k,
-> and b43 stuff sneak up on me...
-> 
-> Anyway, this is more-or-less the usual stuff -- lots of driver updates,
-> etc.  The usual suspects like iwlagn and ath9k have a lot of activity,
-> as do b43, zd1211rw, rtlwifi, and a few others.  The Bluetooth folks
-> are makign a strong showing as well.
-> 
-> Please let me know if there are problems!
+> Didn't apply to 2.6.39, so I tried 3.0-rc2, but I get an Oops when
+> running the example reproduction case I gave before (
 
-Pulled, thanks John.
+I'll try to debug this.
