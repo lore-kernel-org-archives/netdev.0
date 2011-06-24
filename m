@@ -1,143 +1,81 @@
-From: Shawn Guo <shawn.guo-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH 1/3] serial/imx: add device tree support
-Date: Fri, 24 Jun 2011 11:49:00 +0800
-Message-ID: <20110624034859.GB19188@S2100-06.ap.freescale.net>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
-	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
-	<20110618161934.GH8195@ponder.secretlab.ca>
-	<20110619073000.GA23171@S2100-06.ap.freescale.net>
-	<20110621135558.GB9228@S2101-09.ap.freescale.net>
-	<BANLkTim4vunTm1176MRw3pqRZnunu4=9jg@mail.gmail.com>
-	<20110623183821.GA19188@S2100-06.ap.freescale.net>
-	<BANLkTi=8Mks6T85WnEyihmB21U1j7reHrQ@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFC] Moving files around in drivers/net
+Date: Thu, 23 Jun 2011 20:56:01 -0700
+Message-ID: <1308887762.995.10.camel@jtkirshe-mobl>
+References: <1306956602.32125.28.camel@Joe-Laptop>
+	 <1306957998.3076.18.camel@jtkirshe-MOBL1>
+	 <1306958478.32125.32.camel@Joe-Laptop>
+	 <BANLkTi=BAqKzZeLF2_uCYnr7PD3StGFgAg@mail.gmail.com>
+	 <1308186619.12377.23.camel@Joe-Laptop>
+	 <BANLkTin0QzAscKcN0Yw6rc7fUh5d5q143w@mail.gmail.com>
+	 <4E033FE9.9060806@st.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-iDOrVxvqwZbvbJ4n1MoM"
+Cc: Jon Mason <jon.mason@myri.com>, Joe Perches <joe@perches.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Andrew Gallatin <gallatin@myri.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:46691 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751563Ab1FXD4D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2011 23:56:03 -0400
+In-Reply-To: <4E033FE9.9060806@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-iDOrVxvqwZbvbJ4n1MoM
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <BANLkTi=8Mks6T85WnEyihmB21U1j7reHrQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 23, 2011 at 05:11:54PM -0600, Grant Likely wrote:
-[...]
-> > diff --git a/drivers/of/base.c b/drivers/of/base.c
-> > index 632ebae..90349a2 100644
-> > --- a/drivers/of/base.c
-> > +++ b/drivers/of/base.c
-> > @@ -17,12 +17,27 @@
-> > =A0* =A0 =A0 =A0as published by the Free Software Foundation; either ve=
-rsion
-> > =A0* =A0 =A0 =A02 of the License, or (at your option) any later version.
-> > =A0*/
-> > +#include <linux/ctype.h>
-> > =A0#include <linux/module.h>
-> > =A0#include <linux/of.h>
-> > =A0#include <linux/spinlock.h>
-> > =A0#include <linux/slab.h>
-> > =A0#include <linux/proc_fs.h>
-> >
-> > +struct alias_devname {
-> > + =A0 =A0 =A0 char devname[32];
-> > + =A0 =A0 =A0 struct list_head link;
-> > + =A0 =A0 =A0 struct list_head head;
-> > +};
-> > +
-> > +struct alias_devid {
-> > + =A0 =A0 =A0 int devid;
-> > + =A0 =A0 =A0 struct device_node *node;
-> > + =A0 =A0 =A0 struct list_head link;
-> > +};
-> =
+On Thu, 2011-06-23 at 06:30 -0700, Giuseppe CAVALLARO wrote:
+> On 6/16/2011 5:03 PM, Jon Mason wrote:
+> >> stmmac may not be a good name.  Maybe stmicro.
+>=20
+> Hello and sorry for the delay of this reply.
+>=20
+> concerning the stmmac, in the past, I had thought to rename it as
+> synmac
+> because the driver, although was initially designed to work on ST
+> platforms, today it runs on other platforms.
+> The driver indeed is generic enough and is for MAC 10/100/1000 core by
+> Synopsys.
+> This is just an idea.
+>=20
+> Moreover, sorry if I'm missing some details of this thread, I can do
+> rework if you agree, so let me know how proceed.
+> IIUC new patches should be built against:
+> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-organize
+>=20
+> Regards
+> Peppe=20
 
-> Some LinuxDoc documentation on the meaning of these structures would
-> be helpful.  I'm not convinced that a two level lookup table is really
-> necessary.  A flat table containing alias, device_node pointer, and
-> possibly decoded devname and id is probably sufficient to get started.
->  Also, I think it will still be useful to store a pointer to the
-> actual alias name in the alias_devid record.
-> =
+I can make that change, I am almost finished re-working the patches with
+the suggested changes so far, so I will try to get it into the next
+update I post in the next couple of days.
 
-I thought two level lookup with driver probe function passing in
-stem name will get the matching faster.  But I agree with you that
-a flat table may be sufficient to get started, since practically
-the alias number will not be that huge.
+--=-iDOrVxvqwZbvbJ4n1MoM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-> > +
-> > +static LIST_HEAD(aliases_lookup);
-> > +
-> > =A0struct device_node *allnodes;
-> > =A0struct device_node *of_chosen;
-> >
-> > @@ -922,3 +937,170 @@ out_unlock:
-> > =A0}
-> > =A0#endif /* defined(CONFIG_OF_DYNAMIC) */
-> >
-> > +/*
-> > + * get_alias_dev_name_id - Get device name and id from alias name
-> > + *
-> > + * an: The alias name passed in
-> > + * dn: The pointer used to return device name
-> =
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-> There is actually little point in decoding an alias to the device
-> name.  It is more useful to decode alias to the device_node pointer
-> which can be found with of_find_node_by_path().  I'd like to have a
-> lookup table generated which contains {const char *alias_name,
-> device_node *np} pairs.  It would also be useful for that table to
-> decode the 'id' from the end of the alias name when available.  Then,
-> given an alias stem and id (like imxuart and 2) the code could match
-> it to alias imxuart0 and look up the device_node associated with (I
-> could see this used by console setup code).  Alternately, driver probe
+iQEcBAABAgAGBQJOBArRAAoJECTsCADr/EWU2GsH/i9zCf7upBhq1vhG3Ja+E2rZ
+qkZNYX6npAOgjWu4hHFskxUgh+2e5LuqlQ+tiTAo4lHe2NqDxSg5AJoTn85mRz7n
+hCNUPLePBHHoGTtrrBeCMqM2yuxNXlEKnY4rxrZ/QS3ZA5ajT+kR6qqnBwJzOYUi
+6gqL4TzFU+B1Eh56c6HhNm9lDDHKn1z+e4teFTbkTTLSQNJJ9+hQ8OxLIluwo95j
+PeSIXwdI9nbo0p5a9rAJEkv3qgXVpp8sXGS032W6oMcJp/652zYJfWkSrUPI1zzV
+TqyqxVE/VFDJKdjSM5W5O59vLIvGe6+hqsqn6+oPB19VWUa+ZJ6L6xShd+ZKhPk=
+=uxZq
+-----END PGP SIGNATURE-----
 
-Yes, this is definitely one way to match.  But it's not as handy as
-the alternate one below, in terms of migrating the current platform
-drivers that use pdev->id everywhere to dt.  For the imx console
-setup example, we can get the device_node by matching alias stem and
-id, but we have to address the port we need with another two
-contains_of(), device_node -> dev -> port.
+--=-iDOrVxvqwZbvbJ4n1MoM--
 
-> code could use its device_node pointer to lookup its alias, and if no
-> alias exists, then use the table to find an unused id (and possibly
-> even add an entry to the table when it allocates an id).
-> =
-
-And this is easier for the current platform drivers to migrate to
-dt, so I would keep purchasing this one.
-
-[...]
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 int devid =3D get_alias_name_id(pp->name,=
- devname);
-> > +
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* We do not want to proceed this sentine=
-l one */
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcmp(pp->name, "name") && !strcmp(=
-pp->value, "aliases"))
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> =
-
-> Skipping the 'name' property is good, but I don't think you need to
-> check the value.  You should also skip the "phandle" property.
-> =
-
-Ok. I have not seen "phandle" property in aliases node though.  Can
-you give me an example, so that I can make one up for testing?
-
--- =
-
-Regards,
-Shawn
