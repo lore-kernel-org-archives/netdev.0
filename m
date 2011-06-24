@@ -1,58 +1,67 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH 1/3] serial/imx: add device tree support
-Date: Thu, 23 Jun 2011 22:05:00 -0600
-Message-ID: <BANLkTimXZvW16uMRGMeyH203e6MHxdNbSA@mail.gmail.com>
-References: <1308410354-21387-1-git-send-email-shawn.guo@linaro.org>
-	<1308410354-21387-2-git-send-email-shawn.guo@linaro.org>
-	<20110618161934.GH8195@ponder.secretlab.ca>
-	<20110619073000.GA23171@S2100-06.ap.freescale.net>
-	<20110621135558.GB9228@S2101-09.ap.freescale.net>
-	<BANLkTim4vunTm1176MRw3pqRZnunu4=9jg@mail.gmail.com>
-	<20110623183821.GA19188@S2100-06.ap.freescale.net>
-	<BANLkTi=8Mks6T85WnEyihmB21U1j7reHrQ@mail.gmail.com>
-	<20110624034859.GB19188@S2100-06.ap.freescale.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for June 23 (net)
+Date: Thu, 23 Jun 2011 21:21:20 -0700 (PDT)
+Message-ID: <20110623.212120.2043173528294538748.davem@davemloft.net>
+References: <20110623155431.6bfe3b40.sfr@canb.auug.org.au>
+	<20110623091429.2d51b0f0.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	Jason Liu <jason.hui-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jeremy Kerr <jeremy.kerr-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Shawn Guo <shawn.guo-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20110624034859.GB19188-+NayF8gZjK2ctlrPMvKcciBecyulp+rMXqFh9Ls21Oc@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110623091429.2d51b0f0.randy.dunlap@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 23, 2011 at 9:49 PM, Shawn Guo <shawn.guo-KZfg59tc24xl57MIdRCFDg@public.gmane.org> wrote:
-> On Thu, Jun 23, 2011 at 05:11:54PM -0600, Grant Likely wrote:
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 int devid =3D get_alias_name_id(pp->name=
-, devname);
->> > +
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* We do not want to proceed this sentin=
-el one */
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcmp(pp->name, "name") && !strcmp=
-(pp->value, "aliases"))
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
->>
->> Skipping the 'name' property is good, but I don't think you need to
->> check the value. =A0You should also skip the "phandle" property.
->>
-> Ok. I have not seen "phandle" property in aliases node though. =A0Can
-> you give me an example, so that I can make one up for testing?
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Thu, 23 Jun 2011 09:14:29 -0700
 
-It's a standard property that shows up automatically if any node
-happens to have a phandle reference to another node.  The name will be
-either "phandle" or "linux,phandle".  Search for "linux,phandle" in
-drivers/of/fdt.c to see how that property is processed.
+> On Thu, 23 Jun 2011 15:54:31 +1000 Stephen Rothwell wrote:
+> 
+>> Hi all,
+>> 
+>> Changes since 20110622:
+>> 
+>> The powerpc allyesconfig (and probably others) is still broken because we
+>> now build the staging drivers and because of a commit in the net tree.
+>> The breakage in Linus' tree is fixed by one of Andrew's patches above.
+>> 
+>> The net tree gained 2 build failures that I have left (see above).
+> 
+> 
+> When CONFIG_INET is not enabled:
+> 
+> net/core/dev.c:2535: error: implicit declaration of function 'ip_is_fragment'
 
-g.
+I'll fix this like so:
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index d603cd3..9fa9416 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -236,6 +236,11 @@ extern void ipfrag_init(void);
+ 
+ extern void ip_static_sysctl_init(void);
+ 
++static inline bool ip_is_fragment(const struct iphdr *iph)
++{
++	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
++}
++
+ #ifdef CONFIG_INET
+ #include <net/dst.h>
+ 
+@@ -250,11 +255,6 @@ int ip_decrease_ttl(struct iphdr *iph)
+ 	return --iph->ttl;
+ }
+ 
+-static inline bool ip_is_fragment(const struct iphdr *iph)
+-{
+-	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
+-}
+-
+ static inline
+ int ip_dont_fragment(struct sock *sk, struct dst_entry *dst)
+ {
