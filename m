@@ -1,91 +1,37 @@
-From: wwguy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2] iwlwifi: use pci_dev->revision, again
-Date: Fri, 24 Jun 2011 07:08:35 -0700
-Message-ID: <1308924515.19001.2.camel@wwguy-ubuntu>
-References: <201106231841.40691.sshtylyov@ru.mvista.com>
-	 <1308841365.13397.274.camel@wwguy-huron>  <4E046A9F.9020909@mvista.com>
+From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
+Date: Fri, 24 Jun 2011 10:28:48 -0400
+Message-ID: <BANLkTi=a2GuWHB=+0teTe3972uPq4VvrQQ@mail.gmail.com>
+References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
+	<4E044F4B.7010707@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4E046A9F.9020909-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4E044F4B.7010707-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-06-24 at 03:44 -0700, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 23-06-2011 19:02, Guy, Wey-Yi wrote:
-> 
-> >> Commit ff938e43d39e926de74b32a3656c190f979ab642 (net: use pci_dev->revision,
-> >> again) already converted this driver to using the 'revision' field of 'struct
-> >> pci_dev' but commit c2974a1d18832a9fffb2eb389c3878f5c4ed92f1 (iwlagn: remove
-> >> rev_id) later reverted that change for no reason. Now restore the change...
-> 
-> >> Signed-off-by: Sergei Shtylyov<sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
-> 
-> >> ---
-> >> The patch is against the recent Linus' tree.
-> 
-> >>   drivers/net/wireless/iwlwifi/iwl-agn.c |    5 ++---
-> >>   1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> >> Index: linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
-> >> ===================================================================
-> >> --- linux-2.6.orig/drivers/net/wireless/iwlwifi/iwl-agn.c
-> >> +++ linux-2.6/drivers/net/wireless/iwlwifi/iwl-agn.c
-> >> @@ -3275,10 +3275,9 @@ struct ieee80211_ops iwlagn_hw_ops = {
-> >>
-> >>   static u32 iwl_hw_detect(struct iwl_priv *priv)
-> >>   {
-> >> -	u8 rev_id;
-> >> +	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n",
-> >> +		       priv->pci_dev->revision);
-> >>
-> >> -	pci_read_config_byte(priv->pci_dev, PCI_REVISION_ID,&rev_id);
-> >> -	IWL_DEBUG_INFO(priv, "HW Revision ID = 0x%X\n", rev_id);
-> >>   	return iwl_read32(priv, CSR_HW_REV);
-> >>   }
-> 
-> > hmm, I believe it is merge sequence issue, the IWL_DEBUG_INFO line has
-> > benn remove all together in later patch. the information is being log in
-> > the calling function, no need to log in "iwl_hw_detect"
-> 
->     Hm, you probably mean this patch in the iwlwifi-2.6.git (of which I wasn't 
-> aware):
-> 
-> author	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
-> 	Tue, 31 May 2011 06:58:18 +0000 (09:58 +0300)
-> committer	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>	
-> 	Sat, 18 Jun 2011 15:18:01 +0000 (08:18 -0700)
-> commit	85aed7c48113dfcdc913008481c46346af0db69e
-> tree	75831a2ec540039470c295a81c2059a24a4531f5
-> parent	19707bac16129ccebc398dbff9d2b44b17b24fea
-> 
-> iwlagn: don't read the PCI_REVISION_ID from iwl-agn.c
-> 
-> The PCI_REVISION_ID is read and printed in iwl_pci_probe anyway using pr_info
-> 
-> Signed-off-by: Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
->     Since iwl_pci_probe() still reads the PCI config. register, my patch 
-> should be recast to modify iwl-pci.c instead...
-> 
-> > 
-I don't believe this patch is needed since the "log" statement is move
-to outside the function.
+On Fri, Jun 24, 2011 at 04:48, Marc Kleine-Budde wrote:
+> On 06/24/2011 02:25 AM, Mike Frysinger wrote:
+>> The socketcan-core lists require subscription, so mark them as such.
+>
+> what about making this list open instead?
 
-Thanks
-Wey
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+i have no problem with that, but i have nothing to do with the
+socket-can project, so it isnt my call.
+-mike
