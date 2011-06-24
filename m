@@ -1,41 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] caif: Fix recieve/receive typo
-Date: Fri, 24 Jun 2011 10:59:19 -0700
-Message-ID: <661bd38a1d84b746ad6879baf83b3a98c93676e6.1308938176.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sjur Braendeland <sjur.brandeland@stericsson.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] r8169: fix wrong register use.
+Date: Fri, 24 Jun 2011 19:49:44 +0200
+Message-ID: <20110624174944.GA3700@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3202 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751930Ab1FXR7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2011 13:59:20 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:53581 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983Ab1FXSDD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 14:03:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just spelling fixes.
+Please pull from branch 'davem.r8169' in repository
 
-Actually, a twofer with vaiables/variables as well.
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem.r8169
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-Remainder patch.  Jiri doesn't track -next.
+to get the change below.
 
- drivers/net/caif/caif_hsi.c |    2 +-
+@Hayes: version 8.023.00 of Realtek's r8168 driver has the same problem.
+
+Distance from 'davem' (5c18e80be9ff362f6523b097d495bb2e2f939946)
+----------------------------------------------------------------
+
+1e4e82baee8c2a8d753cbf6aa1a77326b71e59f0
+
+Diffstat
+--------
+
+ drivers/net/r8169.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index 7a8ce612..fda0b1f 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -988,8 +988,7 @@ int cfhsi_probe(struct platform_device *pdev)
- 		goto err_alloc_rx;
+Shortlog
+--------
+
+Francois Romieu (1):
+      r8169: fix wrong register use.
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 05d8178..5990621 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -742,7 +742,7 @@ static void rtl8168_oob_notify(struct rtl8169_private *tp, u8 cmd)
+ 	msleep(2);
+ 	for (i = 0; i < 5; i++) {
+ 		udelay(100);
+-		if (!(RTL_R32(ERIDR) & ERIAR_FLAG))
++		if (!(RTL_R32(ERIAR) & ERIAR_FLAG))
+ 			break;
  	}
  
--	/* Initialize recieve vaiables. */
-+	/* Initialize receive variables. */
- 	cfhsi->rx_ptr = cfhsi->rx_buf;
- 	cfhsi->rx_len = CFHSI_DESC_SZ;
- 
 -- 
-1.7.6.rc3
-
+Ueimor
