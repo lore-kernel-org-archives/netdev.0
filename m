@@ -1,79 +1,38 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
-Date: Fri, 24 Jun 2011 10:48:11 +0200
-Message-ID: <4E044F4B.7010707@pengutronix.de>
-References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
+Date: Fri, 24 Jun 2011 01:53:35 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F63F188EE61F@EXMAIL.ad.emulex.com>
+References: <913f4373-e01f-4aa9-b8c7-d041d70f0945@exht1.ad.emulex.com>
+ <1308911520.2228.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6267402732319693511=="
-Cc: Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1308875142-10429-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht2.emulex.com ([138.239.113.184]:23624 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751392Ab1FXIyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 04:54:07 -0400
+In-Reply-To: <1308911520.2228.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============6267402732319693511==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigDAF16AD718726D20302FE28D"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigDAF16AD718726D20302FE28D
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 06/24/2011 02:25 AM, Mike Frysinger wrote:
-> The socketcan-core lists require subscription, so mark them as such.
-
-what about making this list open instead?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigDAF16AD718726D20302FE28D
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk4ET0sACgkQjTAFq1RaXHNwSgCfYSfBu3wW8nAbUwEWSokZiUuD
-wyYAn3Kw2+cQ/BNVjlLPjyIBBzOHDNDV
-=fVkP
------END PGP SIGNATURE-----
-
---------------enigDAF16AD718726D20302FE28D--
-
---===============6267402732319693511==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============6267402732319693511==--
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86
+ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj5TZW50OiBGcmlkYXksIEp1bmUgMjQsIDIwMTEgNDow
+MiBQTQ0KPlRvOiBQZXJsYSwgU2F0aHlhDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj5T
+dWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0LTIuNiAxLzNdIGJlMm5ldDogZml4IG5ldGRldl9z
+dGF0c191cGRhdGUNCj4NCj5MZSB2ZW5kcmVkaSAyNCBqdWluIDIwMTEgw6AgMTM6NDMgKzA1MzAs
+IFNhdGh5YSBQZXJsYSBhIMOpY3JpdCA6DQo+PiBuZXRkZXZfc3RhdHNfdXBkYXRlKCkgcmVzZXRz
+IG5ldGRldi0+c3RhdHMgYW5kIHRoZW4gYWNjdW11bGF0ZXMgc3RhdHMgZnJvbQ0KPj4gdmFyaW91
+cyByaW5ncy4gVGhpcyBpcyB3cm9uZyBhcyBzdGF0cyByZWFkZXJzIGNhbiBzb21ldGltZXMgY2F0
+Y2ggemVybw0KPnZhbHVlcy4NCj4+IFVzZSB0ZW1wb3JhcnkgdmFyaWFibGVzIGluc3RlYWQgZm9y
+IGFjY3VtdWxhdGluZyBwZXItcmluZyB2YWx1ZXMuDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogU2F0
+aHlhIFBlcmxhIDxzYXRoeWEucGVybGFAZW11bGV4LmNvbT4NCj4+IC0tLQ0KDQo+DQo+DQo+SG1t
+LCBpc250IGl0IGEgcGF0Y2ggSSBwcm92aWRlZCAxMCBkYXlzIGFnbyA/DQo+DQo+SSBmaW5kIHZl
+cnkgc3RyYW5nZSBzbyBmZXcgcGVvcGxlIGFyZSBhYmxlIHRvIHByb3Blcmx5IGF0dHJpYnV0ZSB3
+b3JrDQo+dG9kYXkuLi4NCj4NCg0KWWVzLCB0aGlzIHBhdGNoIGlzIGluZGVlZCBiYXNlZCBvbiB5
+b3VyIHN1Z2dlc3RlZC1maXggcGF0Y2ggbGFzdCB3ZWVrLg0KU29ycnksIGFyZSB5b3UgcmVmZXJy
+aW5nIHRvIHRoZSBmYWN0IHRoYXQgSSBtaXNzZWQgYSAiU2lnbmVkLW9mZi1ieS1FcmljIj8NCklm
+IHNvLCBteSBiYWQsIEknbGwgcmVzZW5kIHRoaXMgcGF0Y2ggd2l0aCB0aGF0IGxpbmUuLi4NCg==
