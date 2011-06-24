@@ -1,69 +1,67 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as
- subscribers-only
-Date: Fri, 24 Jun 2011 02:30:27 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1106240228440.17688@swampdragon.chaosbits.net>
-References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: Tree for June 23 (net/can & i/o)
+Date: Fri, 24 Jun 2011 11:04:09 +1000
+Message-ID: <20110624110409.10a6951c.sfr@canb.auug.org.au>
+References: <BANLkTi=ZxHDvhCs8Qki2ZrhCbfY6Mjx5+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: socketcan-core@lists.berlios.de,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:26112 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933606Ab1FXAjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2011 20:39:22 -0400
-In-Reply-To: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S"
+Cc: netdev <netdev@vger.kernel.org>, socketcan-core@lists.berlios.de,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Mike Frysinger <vapier.adi@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BANLkTi=ZxHDvhCs8Qki2ZrhCbfY6Mjx5+w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Jun 2011, Mike Frysinger wrote:
+--Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> The socketcan-core lists require subscription, so mark them as such.
-> 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  MAINTAINERS |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index f0358cd..d3765e8 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -1639,7 +1639,7 @@ CAN NETWORK LAYER
->  M:	Oliver Hartkopp <socketcan@hartkopp.net>
->  M:	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
->  M:	Urs Thuermann <urs.thuermann@volkswagen.de>
-> -L:	socketcan-core@lists.berlios.de
-> +L:	socketcan-core@lists.berlios.de (subscribers-only)
->  L:	netdev@vger.kernel.org
->  W:	http://developer.berlios.de/projects/socketcan/
->  S:	Maintained
-> @@ -1651,7 +1651,7 @@ F:	include/linux/can/raw.h
->  
->  CAN NETWORK DRIVERS
->  M:	Wolfgang Grandegger <wg@grandegger.com>
-> -L:	socketcan-core@lists.berlios.de
-> +L:	socketcan-core@lists.berlios.de (subscribers-only)
->  L:	netdev@vger.kernel.org
->  W:	http://developer.berlios.de/projects/socketcan/
->  S:	Maintained
-> 
+Hi Mike,
 
-I just ran into this "subscribers only" policy recently - yeah, it should 
-at least be noted in MAINTAINERS.
+On Thu, 23 Jun 2011 16:38:56 -0400 Mike Frysinger <vapier.adi@gmail.com> wr=
+ote:
+>
+> not sure where this is coming from, but some Blackfin boards now fail wit=
+h:
+>=20
+> drivers/net/can/bfin_can.c: In function 'bfin_can_start_xmit':
+> drivers/net/can/bfin_can.c:247: error: implicit declaration of function '=
+writew'
+> make[3]: *** [drivers/net/can/bfin_can.o] Error 1
 
-Patch looks good to me.
+yeah, caused by the removal of the inclusion of mm.h from netdevice.h
+(most probably).
 
-Reviewed-by: Jesper Juhl <jj@chaosbits.net>
+> at any rate, the usage of writew() in this driver is wrong, so i sent
+> a patch to fix it.  but since nothing in this file nor in my Blackfin
+> tree changed, i wonder if whatever common code changed is going to
+> break other stuff ...
 
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+It did indeed :-(
 
+ah, well, I guess that is what I am here for :-)
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJOA+KJAAoJEDMEi1NhKgbsY1EH/2G+CGsfbArVAbzGOe6mf2G7
+iEIp6p7dF88WMfObMDcs/+lqmk5jhzQ1iCHctoPUBlvKnX7q43dSUFBw/UrmqPbC
+YuhMePBy3x2I6m3hzADP51qDSnmoqwwnXb6Ut6Xu12hUYcpnzSIm2gaVfUA/Mzfk
+VJNBkln1rXU4uhgKWZWQ8gMo0CyZ8Pbk3OCxcaKU5Wi1flUuRjV8n+cAsogL4+zB
+vnWgX1n8D0j4r52q3W1eiA0ggpMBy0EE6ZYK59Kuk8fPjgXChvrdh49O2u2dyzlQ
+xLsL6zERwTcQUb6BrQF94Y07XvLRudMAEtlI0oHiidXapMDSP1NHWizxFiqSQBA=
+=u2GL
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__24_Jun_2011_11_04_09_+1000_CQvg8Cv/hoqE8r4S--
