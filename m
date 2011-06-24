@@ -1,35 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Update
-Date: Thu, 23 Jun 2011 23:52:04 -0700 (PDT)
-Message-ID: <20110623.235204.552855265637768132.davem@davemloft.net>
-References: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Is File net/TUNABLE in kernel source still useful?
+Date: Fri, 24 Jun 2011 15:06:23 +0800
+Message-ID: <4E04376F.1040607@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?5Y2V5Y2r?= <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45205 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497Ab1FXGwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 02:52:18 -0400
-In-Reply-To: <1308895397-23133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:58887 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751736Ab1FXHF2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 03:05:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 23 Jun 2011 23:03:06 -0700
+Hi David=EF=BC=8C
 
-> The following series contains updates to ixgbe.  There are 2 fixes, along
-> with several cleanups from Alex and Emil.  In addition, nfc support was added
-> as well as bumping the driver version.
-> 
-> Dropped patch 7 (ixgbe: add support for modifying UDP RSS flow hash options)
-> from the previous submission based on comments from Ben H.
-> 
-> The following are changes since commit 4d054f2f1445aceedab3f9642692d55d2caa7ec6:
->   dcb: use nlmsg_free() instead of kfree()
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+ File net/TUNABLE has never be updated since git age.
+ For some tunable parameters which user can control with proc file-syst=
+em,
+ They are all in ip-sysctl.txt doc.
+ But for tunable parameters that only at compile time,
+ Do we really need this document to maintain them?
 
-Pulled, thanks Jeff.
+ So many ones and seems no meaning.
+ Directly send a patch to kill it, OK?
+
+--=20
+Best Regards
+-----
+Shan Wei
