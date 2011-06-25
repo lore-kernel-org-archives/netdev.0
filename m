@@ -1,47 +1,36 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC 34/72] skge/sky2: Move the SysKonnect Ethernet drivers
-Date: Sat, 25 Jun 2011 09:26:53 -0700
-Message-ID: <20110625092653.627fcc89@nehalam.ftrdhcpuser.net>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1309010363-22750-35-git-send-email-jeffrey.t.kirsher@intel.com>
-	<201106251649.13877.arnd@arndb.de>
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: Re: [AX25] inconsistent lock state
+Date: Sat, 25 Jun 2011 17:39:42 +0100
+Message-ID: <20110625163942.GB20976@linux-mips.org>
+References: <4B2CD772.1030106@upmc.fr>
+ <201106171536.15660.arnd@arndb.de>
+ <20110617135147.GA3470@linux-mips.org>
+ <201106171611.10655.arnd@arndb.de>
+ <4E06040B.7040309@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-hams@vger.kernel.org
+To: f6bvp <f6bvp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:41800 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751303Ab1FYQ1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:27:05 -0400
-In-Reply-To: <201106251649.13877.arnd@arndb.de>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:57819 "EHLO duck.linux-mips.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750951Ab1FYQjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 12:39:48 -0400
+Content-Disposition: inline
+In-Reply-To: <4E06040B.7040309@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Jun 2011 16:49:13 +0200
-Arnd Bergmann <arnd@arndb.de> wrote:
+On Sat, Jun 25, 2011 at 05:51:39PM +0200, f6bvp wrote:
 
-> On Saturday 25 June 2011, Jeff Kirsher wrote:
-> > Move the SysKonnect Ethernet drivers into drivers/net/ethernet/syskonnect/
-> > and make the necessary Kconfig and Makefile changes.
-> > 
-> > CC: Stephen Hemminger <shemminger@linux-foundation.org>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >  MAINTAINERS                                  |    3 +-
-> >  drivers/net/Kconfig                          |   58 --------------------
-> >  drivers/net/Makefile                         |    2 -
-> >  drivers/net/ethernet/Kconfig                 |    1 +
-> >  drivers/net/ethernet/Makefile                |    1 +
-> >  drivers/net/ethernet/syskonnect/Kconfig      |   74 ++++++++++++++++++++++++++
-> >  drivers/net/ethernet/syskonnect/Makefile     |    6 ++
-> >  drivers/net/{ => ethernet/syskonnect}/skge.c |    0
-> >  drivers/net/{ => ethernet/syskonnect}/skge.h |    0
-> >  drivers/net/{ => ethernet/syskonnect}/sky2.c |    0
-> >  drivers/net/{ => ethernet/syskonnect}/sky2.h |    0
-> 
-> Shouldn't these live together with the other Marvell drivers?
+> I applied the patch and since then I could not reproduce the
+> inconsistent lock state.
+> Thus mkiss patch fixed it.
 
-yes put them under Marvell.
+I also think the patch is the right thing, so
+
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+
+  Ralf
