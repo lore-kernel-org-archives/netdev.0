@@ -1,103 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 60/72] fealnx: Move the Myson driver
-Date: Sat, 25 Jun 2011 06:59:11 -0700
-Message-ID: <1309010363-22750-61-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 57/72] sc92031: Move the Silan driver
+Date: Sat, 25 Jun 2011 06:59:08 -0700
+Message-ID: <1309010363-22750-58-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Donald Becker <becker@scyld.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:41778 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:37764 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752566Ab1FYOAf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:35 -0400
+	id S1752486Ab1FYOA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:29 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Myson driver into drivers/net/ethernet/ and make the
+Move the Silan driver into drivers/net/ethernet/ and made the
 necessary Kconfig and Makefile changes.
 
-CC: Donald Becker <becker@scyld.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                 |    9 ---------
- drivers/net/Makefile                |    1 -
- drivers/net/ethernet/Kconfig        |   10 ++++++++++
- drivers/net/ethernet/Makefile       |    1 +
- drivers/net/{ => ethernet}/fealnx.c |    0
- 5 files changed, 11 insertions(+), 10 deletions(-)
- rename drivers/net/{ => ethernet}/fealnx.c (100%)
+ drivers/net/Kconfig                  |   12 ------------
+ drivers/net/Makefile                 |    1 -
+ drivers/net/ethernet/Kconfig         |   13 +++++++++++++
+ drivers/net/ethernet/Makefile        |    1 +
+ drivers/net/{ => ethernet}/sc92031.c |    0
+ 5 files changed, 14 insertions(+), 13 deletions(-)
+ rename drivers/net/{ => ethernet}/sc92031.c (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 463e4cf..4ec5d5e 100644
+index 7063b9c..20d1939 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -395,15 +395,6 @@ config FORCEDETH
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called forcedeth.
+@@ -437,18 +437,6 @@ config SUNDANCE_MMIO
  
--config FEALNX
--	tristate "Myson MTD-8xx PCI Ethernet support"
--	depends on NET_PCI && PCI
+ 	  If unsure, say N.
+ 
+-config SC92031
+-	tristate "Silan SC92031 PCI Fast Ethernet Adapter driver (EXPERIMENTAL)"
+-	depends on NET_PCI && PCI && EXPERIMENTAL
 -	select CRC32
--	select MII
--	help
--	  Say Y here to support the Myson MTD-800 family of PCI-based Ethernet 
--	  cards. <http://www.myson.com.tw/>
+-	---help---
+-	  This is a driver for the Fast Ethernet PCI network cards based on
+-	  the Silan SC92031 chip (sometimes also called Rsltek 8139D). If you
+-	  have one of these, say Y here.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called sc92031.  This is recommended.
 -
  config NET_POCKET
  	bool "Pocket and portable adapters"
  	depends on PARPORT
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index f57a0be..8b0a478 100644
+index a2a1e0a..d75080d 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -17,7 +17,6 @@ obj-$(CONFIG_PLIP) += plip.o
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
- 
- obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
--obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
- obj-$(CONFIG_RIONET) += rionet.o
+@@ -57,7 +57,6 @@ obj-$(CONFIG_MACVTAP) += macvtap.o
+ obj-$(CONFIG_DEFXX) += defxx.o
+ obj-$(CONFIG_AT1700) += at1700.o
+ obj-$(CONFIG_DEPCA) += depca.o
+-obj-$(CONFIG_SC92031) += sc92031.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 3c10879..45becd2 100644
+index e7c5f0b..aa5ded1 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -79,6 +79,16 @@ source "drivers/net/ethernet/micrel/Kconfig"
- source "drivers/net/ethernet/mips/Kconfig"
- source "drivers/net/ethernet/motorola/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
+@@ -114,6 +114,19 @@ config S6GMAC
+ source "drivers/net/ethernet/sis/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/sgi/Kconfig"
 +
-+config FEALNX
-+	tristate "Myson MTD-8xx PCI Ethernet support"
-+	depends on PCI
++config SC92031
++	tristate "Silan SC92031 PCI Fast Ethernet Adapter driver (EXPERIMENTAL)"
++	depends on PCI && EXPERIMENTAL
 +	select CRC32
-+	select MII
 +	---help---
-+	  Say Y here to support the Myson MTD-800 family of PCI-based Ethernet
-+	  cards. <http://www.myson.com.tw/>
++	  This is a driver for the Fast Ethernet PCI network cards based on
++	  the Silan SC92031 chip (sometimes also called Rsltek 8139D). If you
++	  have one of these, say Y here.
 +
- source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/octeon/Kconfig"
++	  To compile this driver as a module, choose M here: the module
++	  will be called sc92031.  This is recommended.
++
+ source "drivers/net/ethernet/smc/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
+ source "drivers/net/ethernet/sony/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 537631b..c4284aa 100644
+index 6c69e98..0fe59f4 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -32,6 +32,7 @@ obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
- obj-$(CONFIG_NET_MIPS) += mips/
- obj-$(CONFIG_NET_VENDOR_MOTOROLA) += motorola/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
-+obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
- obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
- obj-$(CONFIG_NET_ISA) += isa/
-diff --git a/drivers/net/fealnx.c b/drivers/net/ethernet/fealnx.c
+@@ -46,6 +46,7 @@ obj-$(CONFIG_S6GMAC) += s6gmac.o
+ obj-$(CONFIG_NET_VENDOR_SIS) += sis/
+ obj-$(CONFIG_SFC) += sfc/
+ obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
++obj-$(CONFIG_SC92031) += sc92031.o
+ obj-$(CONFIG_NET_VENDOR_SMC) += smc/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+ obj-$(CONFIG_NET_VENDOR_SONY) += sony/
+diff --git a/drivers/net/sc92031.c b/drivers/net/ethernet/sc92031.c
 similarity index 100%
-rename from drivers/net/fealnx.c
-rename to drivers/net/ethernet/fealnx.c
+rename from drivers/net/sc92031.c
+rename to drivers/net/ethernet/sc92031.c
 -- 
 1.7.5.4
 
