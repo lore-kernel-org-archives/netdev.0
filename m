@@ -1,67 +1,71 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [RFC 26/72] arm: Move the ARM/ACORN drivers
-Date: Sat, 25 Jun 2011 17:12:27 +0100
-Message-ID: <20110625161227.GJ23234@n2100.arm.linux.org.uk>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <201106251648.03574.arnd@arndb.de> <20110625155356.GI23234@n2100.arm.linux.org.uk> <201106251803.53416.arnd@arndb.de>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [RFC 54/72] au1000_eth/mipsnet/tc35815: Move the MIPS drivers
+Date: Sat, 25 Jun 2011 17:13:53 +0100
+Message-ID: <20110625161353.GA20976@linux-mips.org>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1309010363-22750-55-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Sriram <srk@ti.com>,
-	Vinay Hegde <vinay.hegde@ti.com>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Wan ZongShun <mcuos.com@gmail.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Anant Gole <anantgole@ti.com>,
-	Chaithrika U S <chaithrika@ti.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:40588 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713Ab1FYQMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:12:42 -0400
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Matt Porter <mporter@kernel.crashing.org>,
+	Herbert Valerio Riedel <hvr@gnu.org>,
+	MontaVista Software <source@mvista.com>,
+	Kyle McMartin <kyle@mcmartin.ca>, Helge Deller <deller@gmx.de>,
+	"James E.J. Bottomley" <jejb@parisc-linux.org>,
+	linux-parisc@vger.kernel.org, Sam Creasey <sammy@sammy.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	linux-m68k@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-parisc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201106251803.53416.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1309010363-22750-55-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 25, 2011 at 06:03:53PM +0200, Arnd Bergmann wrote:
-> On Saturday 25 June 2011, Russell King - ARM Linux wrote:
-> > On Sat, Jun 25, 2011 at 04:48:03PM +0200, Arnd Bergmann wrote:
-> > > On Saturday 25 June 2011, Jeff Kirsher wrote:
-> > > > Move the ARM/ACORN drivers into drivers/net/ethernet/arm/ and make the
-> > > > necessary Kconfig and Makefile changes.
-> > > > There were 4 drivers (TI Davinci & ftmac100) not in the
-> > > > drivers/net/arm/ which should have been since they are only supported
-> > > > under ARM, so they were added to the new directory structure.
-> > > > 
-> > > > NOTE: There are no "maintainers" for the TI Davinci drivers, so I am
-> > > > CC'ing the last 3 major contributors from TI.
-> > > 
-> > > It doesn't seem logical to group drivers that are used on ARM under
-> > > the architecture when the hardware is not actually made by ARM Ltd.
-> > 
-> > ARM doesn't make any silicon hardware itself, so by that argument it
-> > shouldn't be in a directory called 'arm' at all.
-> > 
-> > However, what the 'arm' in drivers/net/arm is referring to is that
-> > the drivers are solely used with stuff associated with arch/arm, not
-> > that there's any connection with ARM Ltd.
-> 
-> Yes, I understand that about the current state, but Jeff's series
-> of patches moves all network drivers around to directories based on
-> manufacturer, so it's going to be less logical after all the other
-> drivers are moved, especially when he already creates drivers
-> for AMD, TI, atmel, cirrus and micrel.
+On Sat, Jun 25, 2011 at 06:59:05AM -0700, Jeff Kirsher wrote:
 
-How do you deal with NE2K or 8390 stuff, where you have a design which
-has been cloned by many different manufacturers?  Who's do you decide
-to put it in?
+> Move the MIPS drivers into drivers/net/ethernet/mips/ and
+> make the necessary Kconfig and Makefile changes.
 
-More interestingly, if you have one of the 8390 clones, which directory
-do you look in?  And shouldn't etherh.c live along side 8390's files
-as etherh is 8390-derived?
+NAck.
 
-ether1 is 82586, so presumably that should be Intel subdirectory.
+sni_82596.c is a driver for the same chip but used in particular Siemens-
+Nixdorf systems.  Lasi_82596 is an Intel NIC being used in PARISC systems.
+Not a good reason th throw PA-RISC drivers into the same directory after
+all PA-RISC has no relation to MIPS at all.  So maybe they should go into
+drivers/net/ethernet/i82596 or drivers/net/ethernet/intel.  And wherever
+they go, both drivers #include lib82596.c which your patch did not move
+around.
 
-ether3 is SEEQ8005, so that should be in the SEEQ subdirectory.
+It seems that lp486e should probably go into the same directory and I
+suspect ni52 and sun3_82586 are close enough that they should also in
+the faint hope that somebody will factor out the common code.
+
+MIPSnet is a driver for the emulated network card of MIPSsim, a software
+simulator by MIPS Technologies and the only net thingy in your patch that
+truely is "MIPS".
+
+The remaining happen to be used by particular systems that happen to be
+based on a MIPS processor but there is no technial communality.  MIPS is
+a processor architecture - not a system architecture and grouping things
+by processor architecture hasn't worked so well imho for other things in
+the past, see for example sound.
+
+If we're already moving things around maybe au1000_net.[ch] can be renamed
+to alchemy.[ch].
+
+Your patch moves the Makefile and Kconfig bits of lantiq_etop but doesn't
+move the actual lantiq_etop.c driver.
+
+> +++ b/drivers/net/ethernet/mips/Kconfig
+> @@ -0,0 +1,61 @@
+> +#
+> +# MIPS device configuration
+> +#
+> +
+> +config NET_MIPS
+> +	bool "MIPS/PS-RISC devices"
+
+It's speeled PA-RISC.
+
+  Ralf
