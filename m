@@ -1,279 +1,61 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: Re: RFT: virtio_net: limit xmit polling
-Date: Sat, 25 Jun 2011 12:44:50 -0700
-Message-ID: <CA2B88C2.2CBAC%roprabhu@cisco.com>
-References: <CA29D629.2C9B1%roprabhu@cisco.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] net, llc: Avoid undefined behaviour in
+ llc_conn_ac_inc_vr_by_1()
+Date: Sun, 26 Jun 2011 00:11:12 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1106260009530.23991@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5835043323597548260=="
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, habanero@linux.vnet.ibm.com,
-        lguest@lists.ozlabs.org, Shirley Ma <xma@us.ibm.com>,
-        kvm@vger.kernel.org, Carsten Otte <cotte@de.ibm.com>,
-        linux-s390@vger.kernel.org, Heiko Carstens <heiko.carstens@de.ibm.com>,
-        linux-kernel@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, steved@us.ibm.com,
-        Christian Borntraeger <borntraeger@de.ibm.com>, netdev@vger.kernel.org,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>, linux390@de.ibm.com
-To: Roopa Prabhu <roprabhu@cisco.com>, Tom Lendacky <tahm@linux.vnet.ibm.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CA29D629.2C9B1%roprabhu@cisco.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Mime-version: 1.0
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:18883 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700Ab1FYWUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 18:20:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+Introduce a sequence point (;) between two writes to llc_sk(sk)->vR in
+net/llc/llc_c_ac.c:llc_conn_ac_inc_vr_by_1() so that the order in
+which the writes happen become well defined.
 
---===============5835043323597548260==
-Content-type: multipart/alternative;
-	boundary="B_3391850690_10655769"
+While the code may work fine now it may break at any time with a
+different compiler, a new version of current compiler or even just a
+different optimization level of the current compiler. Much better to
+clearly express what's intended in a way that guarantees the result.
 
-> This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ net/llc/llc_c_ac.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
---B_3391850690_10655769
-Content-type: text/plain;
-	charset="ISO-8859-1"
-Content-transfer-encoding: quoted-printable
-
-
-Here are the results I am getting with a Cisco 10G VIC adapter.
-All tests are from the guest to an external host.
-
-virtio-net-limit-xmit-polling/base:
-TCP_STREAM: 8089Mbps
-TCP_MAERTS: 9334Mbps
-
-virtio-net-limit-xmit-polling/v0
-TCP_STREAM: 8004Mbps
-TCP_MAERTS: 9338Mbps
-
-virtio-net-limit-xmit-polling/v1
-TCP_STREAM: 8028Mbps
-TCP_MAERTS: 9339Mbps
-
-virtio-net-limit-xmit-polling/v2
-TCP_STREAM: 8045Mbps
-TCP_MAERTS: 9337Mbps
-
-For the TCP_STREAM tests I don=B9t get consistent results.
-Every run gives me slightly different results. But its always between
-7900Mbps to 8100Mbps.
-But I also see this with the base kernel so its not related to these
-patches.=20
-
-Thanks,
-Roopa
-
-On 6/24/11 5:50 AM, "Roopa Prabhu" <roprabhu@cisco.com> wrote:
-
-> Michael, =20
->=20
-> I am testing this too.
->  I have finished one round of testing. But am running it again just to
-> confirm.
-> This time I will see if I can collect some exit stats too. Will post resu=
-lts
-> sometime this weekend.
-> I am just doing TCP_STREAM and TCP_MAERTS from guest to remote host.
->=20
-> Thanks,
-> Roopa
->=20
->=20
-> On 6/21/11 8:23 AM, "Tom Lendacky" <tahm@linux.vnet.ibm.com> wrote:
->=20
->> On Sunday, June 19, 2011 05:27:00 AM Michael S. Tsirkin wrote:
->>> > OK, different people seem to test different trees.  In the hope to ge=
-t
->>> > everyone on the same page, I created several variants of this patch s=
-o
->>> > they can be compared. Whoever's interested, please check out the
->>> > following, and tell me how these compare:
->>=20
->> I'm in the process of testing these patches.  Base and v0 are complete
->> and v1 is near complete with v2 to follow.  I'm testing with a variety
->> of TCP_RR and TCP_STREAM/TCP_MAERTS tests involving local guest-to-guest
->> tests and remote host-to-guest tests.  I'll post the results in the next
->> day or two when the tests finish.
->>=20
->> Thanks,
->> Tom
->>=20
->>> >
->>> > kernel:
->>> >
->>> > git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git
->>> >
->>> > virtio-net-limit-xmit-polling/base - this is net-next baseline to tes=
-t
->>> > against virtio-net-limit-xmit-polling/v0 - fixes checks on out of cap=
-acity
->>> > virtio-net-limit-xmit-polling/v1 - previous revision of the patch
->>> >               this does xmit,free,xmit,2*free,free
->>> > virtio-net-limit-xmit-polling/v2 - new revision of the patch
->>> >               this does free,xmit,2*free,free
->>> >
->>> > There's also this on top:
->>> > virtio-net-limit-xmit-polling/v3 -> don't delay avail index update
->>> > I don't think it's important to test this one, yet
->>> >
->>> > Userspace to use: event index work is not yet merged upstream
->>> > so the revision to use is still this:
->>> > git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git
->>> > virtio-net-event-idx-v3
->>=20
->=20
->=20
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/virtualization
+diff --git a/net/llc/llc_c_ac.c b/net/llc/llc_c_ac.c
+index ea225bd..e535ca4 100644
+--- a/net/llc/llc_c_ac.c
++++ b/net/llc/llc_c_ac.c
+@@ -1296,7 +1296,14 @@ int llc_conn_ac_set_vr_0(struct sock *sk, struct sk_buff *skb)
+ 
+ int llc_conn_ac_inc_vr_by_1(struct sock *sk, struct sk_buff *skb)
+ {
+-	llc_sk(sk)->vR = PDU_GET_NEXT_Vr(llc_sk(sk)->vR);
++	/* Do not consolidate this on one line. Since the PDU_GET_NEXT_Vr
++	   macro increments its argument which is the same as what we are
++	   writing to, then we'll have two writes to the same variable
++	   without an intervening sequence point, which leads to the
++	   situation where we can't really know what gets stored as the
++	   result since the compiler is free to do those in any order. */
++	const u8 new_vr = PDU_GET_NEXT_Vr(llc_sk(sk)->vR);
++	llc_sk(sk)->vR = new_vr;
+ 	return 0;
+ }
+ 
+-- 
+1.7.5.2
 
 
---B_3391850690_10655769
-Content-type: text/html;
-	charset="ISO-8859-1"
-Content-transfer-encoding: quoted-printable
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
 
-<HTML>
-<HEAD>
-<TITLE>Re: RFT: virtio_net: limit xmit polling</TITLE>
-</HEAD>
-<BODY>
-<FONT FACE=3D"Calibri, Verdana, Helvetica, Arial"><SPAN STYLE=3D'font-size:11pt=
-'><BR>
-Here are the results I am getting with a Cisco 10G VIC adapter.<BR>
-All tests are from the guest to an external host. <BR>
-<BR>
-virtio-net-limit-xmit-polling/base:<BR>
-TCP_STREAM: 8089Mbps<BR>
-TCP_MAERTS: 9334Mbps<BR>
-<BR>
-virtio-net-limit-xmit-polling/v0<BR>
-TCP_STREAM: 8004Mbps<BR>
-TCP_MAERTS: 9338Mbps<BR>
-<BR>
-virtio-net-limit-xmit-polling/v1<BR>
-TCP_STREAM: 8028Mbps<BR>
-TCP_MAERTS: 9339Mbps<BR>
-<BR>
-virtio-net-limit-xmit-polling/v2<BR>
-TCP_STREAM: 8045Mbps<BR>
-TCP_MAERTS: 9337Mbps<BR>
-<BR>
-For the TCP_STREAM tests I don&#8217;t get consistent results. <BR>
-Every run gives me slightly different results. But its always between 7900M=
-bps to 8100Mbps.<BR>
-But I also see this with the base kernel so its not related to these patche=
-s. <BR>
-<BR>
-Thanks,<BR>
-Roopa<BR>
-<BR>
-On 6/24/11 5:50 AM, &quot;Roopa Prabhu&quot; &lt;<a href=3D"roprabhu@cisco.co=
-m">roprabhu@cisco.com</a>&gt; wrote:<BR>
-<BR>
-</SPAN></FONT><BLOCKQUOTE><FONT FACE=3D"Calibri, Verdana, Helvetica, Arial"><=
-SPAN STYLE=3D'font-size:11pt'>Michael, &nbsp;<BR>
-<BR>
-I am testing this too.<BR>
-&nbsp;I have finished one round of testing. But am running it again just to=
- confirm.<BR>
-This time I will see if I can collect some exit stats too. Will post result=
-s sometime this weekend. <BR>
-I am just doing TCP_STREAM and TCP_MAERTS from guest to remote host.<BR>
-<BR>
-Thanks,<BR>
-Roopa<BR>
-<BR>
-<BR>
-On 6/21/11 8:23 AM, &quot;Tom Lendacky&quot; &lt;<a href=3D"tahm@linux.vnet.i=
-bm.com">tahm@linux.vnet.ibm.com</a>&gt; wrote:<BR>
-<BR>
-</SPAN></FONT><BLOCKQUOTE><FONT FACE=3D"Calibri, Verdana, Helvetica, Arial"><=
-SPAN STYLE=3D'font-size:11pt'>On Sunday, June 19, 2011 05:27:00 AM Michael S. =
-Tsirkin wrote:<BR>
-&gt; OK, different people seem to test different trees. &nbsp;In the hope t=
-o get<BR>
-&gt; everyone on the same page, I created several variants of this patch so=
-<BR>
-&gt; they can be compared. Whoever's interested, please check out the<BR>
-&gt; following, and tell me how these compare:<BR>
-<BR>
-I'm in the process of testing these patches. &nbsp;Base and v0 are complete=
-<BR>
-and v1 is near complete with v2 to follow. &nbsp;I'm testing with a variety=
-<BR>
-of TCP_RR and TCP_STREAM/TCP_MAERTS tests involving local guest-to-guest<BR=
->
-tests and remote host-to-guest tests. &nbsp;I'll post the results in the ne=
-xt<BR>
-day or two when the tests finish.<BR>
-<BR>
-Thanks,<BR>
-Tom<BR>
-<BR>
-&gt;<BR>
-&gt; kernel:<BR>
-&gt;<BR>
-&gt; git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git<BR>
-&gt;<BR>
-&gt; virtio-net-limit-xmit-polling/base - this is net-next baseline to test=
-<BR>
-&gt; against virtio-net-limit-xmit-polling/v0 - fixes checks on out of capa=
-city<BR>
-&gt; virtio-net-limit-xmit-polling/v1 - previous revision of the patch<BR>
-&gt; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;this does xmit,free,xmit,2*free,free<BR>
-&gt; virtio-net-limit-xmit-polling/v2 - new revision of the patch<BR>
-&gt; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;this does free,xmit,2*free,free<BR>
-&gt;<BR>
-&gt; There's also this on top:<BR>
-&gt; virtio-net-limit-xmit-polling/v3 -&gt; don't delay avail index update<=
-BR>
-&gt; I don't think it's important to test this one, yet<BR>
-&gt;<BR>
-&gt; Userspace to use: event index work is not yet merged upstream<BR>
-&gt; so the revision to use is still this:<BR>
-&gt; git://git.kernel.org/pub/scm/linux/kernel/git/mst/qemu-kvm.git<BR>
-&gt; virtio-net-event-idx-v3<BR>
-<BR>
-</SPAN></FONT></BLOCKQUOTE><FONT FACE=3D"Calibri, Verdana, Helvetica, Arial">=
-<SPAN STYLE=3D'font-size:11pt'><BR>
-<HR ALIGN=3DCENTER SIZE=3D"3" WIDTH=3D"95%"></SPAN></FONT><FONT SIZE=3D"2"><FONT FA=
-CE=3D"Consolas, Courier New, Courier"><SPAN STYLE=3D'font-size:10pt'>___________=
-____________________________________<BR>
-Virtualization mailing list<BR>
-<a href=3D"Virtualization@lists.linux-foundation.org">Virtualization@lists.li=
-nux-foundation.org</a><BR>
-<a href=3D"https://lists.linux-foundation.org/mailman/listinfo/virtualization=
-">https://lists.linux-foundation.org/mailman/listinfo/virtualization</a><BR>
-</SPAN></FONT></FONT></BLOCKQUOTE>
-</BODY>
-</HTML>
-
-
---B_3391850690_10655769--
-
-
---===============5835043323597548260==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linux-foundation.org/mailman/listinfo/virtualization
---===============5835043323597548260==--
