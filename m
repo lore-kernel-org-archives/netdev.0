@@ -1,145 +1,200 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 67/72] greth: Move the Aeroflex Gaisler driver
-Date: Sat, 25 Jun 2011 06:59:18 -0700
-Message-ID: <1309010363-22750-68-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 72/72] drivers/net: Kconfig and Makefile cleanup
+Date: Sat, 25 Jun 2011 06:59:23 -0700
+Message-ID: <1309010363-22750-73-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Kristoffer Glembo <kristoffer@gaisler.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37787 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:41778 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752583Ab1FYOAi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:38 -0400
+	id S1752624Ab1FYOAk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:40 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mover the Aeroflex Gaisler driver into drivers/net/ethernet/aeroflex/
-and make the necessary Kconfig and Makefile changes.
+After the move of the Ethernet drivers into drivers/net/ethernet/
+there was some leftover cleanup to do in the Kconfig and Makefile.
 
-CC: Kristoffer Glembo <kristoffer@gaisler.com>
+Removed the 10/100, 1000, and 10GbE Kconfig menus.
+
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                 |    2 +-
- drivers/net/Kconfig                         |    8 --------
- drivers/net/Makefile                        |    1 -
- drivers/net/ethernet/Kconfig                |    1 +
- drivers/net/ethernet/Makefile               |    1 +
- drivers/net/ethernet/aeroflex/Kconfig       |   11 +++++++++++
- drivers/net/ethernet/aeroflex/Makefile      |    5 +++++
- drivers/net/{ => ethernet/aeroflex}/greth.c |    0
- drivers/net/{ => ethernet/aeroflex}/greth.h |    0
- 9 files changed, 19 insertions(+), 10 deletions(-)
- create mode 100644 drivers/net/ethernet/aeroflex/Kconfig
- create mode 100644 drivers/net/ethernet/aeroflex/Makefile
- rename drivers/net/{ => ethernet/aeroflex}/greth.c (100%)
- rename drivers/net/{ => ethernet/aeroflex}/greth.h (100%)
+ drivers/net/Kconfig          |  113 ------------------------------------------
+ drivers/net/Makefile         |    4 --
+ drivers/net/ethernet/Kconfig |    4 ++
+ 3 files changed, 4 insertions(+), 117 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index f4a46ef..b86d518 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2828,7 +2828,7 @@ GRETH 10/100/1G Ethernet MAC device driver
- M:	Kristoffer Glembo <kristoffer@gaisler.com>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/greth*
-+F:	drivers/net/ethernet/aeroflex/greth*
- 
- GSPCA FINEPIX SUBDRIVER
- M:	Frank Zago <frank@zago.net>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 043bbf5..70ff9cc 100644
+index 07e798e..71a0140 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -291,14 +291,6 @@ config ENC28J60_WRITEVERIFY
- 	  Enable the verify after the buffer write useful for debugging purpose.
- 	  If unsure, say N.
+@@ -192,119 +192,6 @@ source "drivers/net/phy/Kconfig"
  
--config GRETH
--	tristate "Aeroflex Gaisler GRETH Ethernet MAC support"
--	depends on SPARC
--	select PHYLIB
--	select CRC32
--	help
--	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
+ source "drivers/net/ethernet/Kconfig"
+ 
+-menuconfig NET_ETHERNET
+-	bool "Ethernet (10 or 100Mbit)"
+-	depends on !UML
+-	---help---
+-	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
+-	  type of Local Area Network (LAN) in universities and companies.
 -
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on ISA || EISA || PCI
+-	  Common varieties of Ethernet are: 10BASE-2 or Thinnet (10 Mbps over
+-	  coaxial cable, linking computers in a chain), 10BASE-T or twisted
+-	  pair (10 Mbps over twisted pair cable, linking computers to central
+-	  hubs), 10BASE-F (10 Mbps over optical fiber links, using hubs),
+-	  100BASE-TX (100 Mbps over two twisted pair cables, using hubs),
+-	  100BASE-T4 (100 Mbps over 4 standard voice-grade twisted pair
+-	  cables, using hubs), 100BASE-FX (100 Mbps over optical fiber links)
+-	  [the 100BASE varieties are also known as Fast Ethernet], and Gigabit
+-	  Ethernet (1 Gbps over optical fiber or short copper links).
+-
+-	  If your Linux machine will be connected to an Ethernet and you have
+-	  an Ethernet network interface card (NIC) installed in your computer,
+-	  say Y here and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>. You will then also have
+-	  to say Y to the driver for your particular NIC.
+-
+-	  Note that the answer to this question won't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about Ethernet network cards. If unsure, say N.
+-
+-if NET_ETHERNET
+-
+-config NET_PCI
+-	bool "EISA, VLB, PCI and on board controllers"
+-	depends on ISA || EISA || PCI
+-	help
+-	  This is another class of network cards which attach directly to the
+-	  bus. If you have one of those, say Y and read the Ethernet-HOWTO,
+-	  available from <http://www.tldp.org/docs.html#howto>.
+-
+-	  Note that the answer to this question doesn't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about this class of network cards. If you say Y, you
+-	  will be asked for your specific card in the following questions. If
+-	  you are unsure, say Y.
+-
+-config NET_POCKET
+-	bool "Pocket and portable adapters"
+-	depends on PARPORT
+-	---help---
+-	  Cute little network (Ethernet) devices which attach to the parallel
+-	  port ("pocket adapters"), commonly used with laptops. If you have
+-	  one of those, say Y and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
+-
+-	  If you want to plug a network (or some other) card into the PCMCIA
+-	  (or PC-card) slot of your laptop instead (PCMCIA is the standard for
+-	  credit card size extension cards used by all modern laptops), you
+-	  need the pcmcia-cs package (location contained in the file
+-	  <file:Documentation/Changes>) and you can say N here.
+-
+-	  Laptop users should read the Linux Laptop home page at
+-	  <http://www.linux-on-laptops.com/> or
+-	  Tuxmobil - Linux on Mobile Computers at <http://www.tuxmobil.org/>.
+-
+-	  Note that the answer to this question doesn't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about this class of network devices. If you say Y, you
+-	  will be asked for your specific device in the following questions.
+-
+-endif # NET_ETHERNET
+-
+-#
+-#	Gigabit Ethernet
+-#
+-
+-menuconfig NETDEV_1000
+-	bool "Ethernet (1000 Mbit)"
+-	depends on !UML
+-	default y
+-	---help---
+-	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
+-	  type of Local Area Network (LAN) in universities and companies.
+-
+-	  Say Y here to get to see options for Gigabit Ethernet drivers.
+-	  This option alone does not add any kernel code.
+-	  Note that drivers supporting both 100 and 1000 MBit may be listed
+-	  under "Ethernet (10 or 100MBit)" instead.
+-
+-	  If you say N, all options in this submenu will be skipped and disabled.
+-
+-if NETDEV_1000
+-
+-endif # NETDEV_1000
+-
+-#
+-#	10 Gigabit Ethernet
+-#
+-
+-menuconfig NETDEV_10000
+-	bool "Ethernet (10000 Mbit)"
+-	depends on !UML
+-	default y
+-	---help---
+-	  Say Y here to get to see options for 10 Gigabit Ethernet drivers.
+-	  This option alone does not add any kernel code.
+-
+-	  If you say N, all options in this submenu will be skipped and disabled.
+-
+-if NETDEV_10000
+-
+-config MDIO
+-	tristate
+-
+-endif # NETDEV_10000
+-
+ source "drivers/net/tokenring/Kconfig"
+ 
+ source "drivers/net/wireless/Kconfig"
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 67e25a4..9c9b2ea 100644
+index b9fc5a0..88831ed 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -55,7 +55,6 @@ obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
- obj-$(CONFIG_DM9000) += dm9000.o
- obj-$(CONFIG_ENC28J60) += enc28j60.o
--obj-$(CONFIG_GRETH) += greth.o
+@@ -13,9 +13,7 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ # link order important here
+ #
+ obj-$(CONFIG_PLIP) += plip.o
+-
+ obj-$(CONFIG_ROADRUNNER) += rrunner.o
+-
+ obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
+ obj-$(CONFIG_SKFP) += skfp/
+ obj-$(CONFIG_RIONET) += rionet.o
+@@ -26,7 +24,6 @@ obj-$(CONFIG_RIONET) += rionet.o
  
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
- obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+-
+ obj-$(CONFIG_PPP) += ppp_generic.o
+ obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
+ obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
+@@ -36,7 +33,6 @@ obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
+ obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+ obj-$(CONFIG_PPPOL2TP) += pppox.o
+ obj-$(CONFIG_PPTP) += pppox.o pptp.o
+-
+ obj-$(CONFIG_SLIP) += slip.o
+ obj-$(CONFIG_SLHC) += slhc.o
+ 
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 5645609..4c18328 100644
+index ab12ecd..2d311dc 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -38,6 +38,7 @@ config ADAPTEC_STARFIRE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called starfire.  This is recommended.
+@@ -159,6 +159,10 @@ config KORINA
  
-+source "drivers/net/ethernet/aeroflex/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- 
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 47d19fc..f2e36ba 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
- obj-$(CONFIG_NET_VENDOR_8390) += 8390/
- obj-$(CONFIG_A2065) += a2065.o
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
-+obj-$(CONFIG_GRETH) += aeroflex/
- obj-$(CONFIG_AT1700) += at1700.o
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
-diff --git a/drivers/net/ethernet/aeroflex/Kconfig b/drivers/net/ethernet/aeroflex/Kconfig
-new file mode 100644
-index 0000000..f109c8c
---- /dev/null
-+++ b/drivers/net/ethernet/aeroflex/Kconfig
-@@ -0,0 +1,11 @@
-+#
-+# Aeroflex Gaisler device configuration
-+#
+ source "drivers/net/ethernet/marvell/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
 +
-+config GRETH
-+	tristate "Aeroflex Gaisler GRETH Ethernet MAC support"
-+	depends on SPARC
-+	select PHYLIB
-+	select CRC32
-+	---help---
-+	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
-diff --git a/drivers/net/ethernet/aeroflex/Makefile b/drivers/net/ethernet/aeroflex/Makefile
-new file mode 100644
-index 0000000..701fcd0
---- /dev/null
-+++ b/drivers/net/ethernet/aeroflex/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Aeroflex Gaisler device drivers.
-+#
++config MDIO
++	tristate
 +
-+obj-$(CONFIG_GRETH) += greth.o
-diff --git a/drivers/net/greth.c b/drivers/net/ethernet/aeroflex/greth.c
-similarity index 100%
-rename from drivers/net/greth.c
-rename to drivers/net/ethernet/aeroflex/greth.c
-diff --git a/drivers/net/greth.h b/drivers/net/ethernet/aeroflex/greth.h
-similarity index 100%
-rename from drivers/net/greth.h
-rename to drivers/net/ethernet/aeroflex/greth.h
+ source "drivers/net/ethernet/micrel/Kconfig"
+ source "drivers/net/ethernet/mips/Kconfig"
+ source "drivers/net/ethernet/motorola/Kconfig"
 -- 
 1.7.5.4
 
