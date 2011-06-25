@@ -1,208 +1,349 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 16/72] myri*: Move the Myricom drivers
-Date: Sat, 25 Jun 2011 06:58:27 -0700
-Message-ID: <1309010363-22750-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 19/72] enic: Move the Cisco driver
+Date: Sat, 25 Jun 2011 06:58:30 -0700
+Message-ID: <1309010363-22750-20-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Andrew Gallatin <gallatin@myri.com>,
-	Brice Goglin <brice@myri.com>
+	Scott Feldman <scofeldm@cisco.com>,
+	Christian Benvenuti <benve@cisco.com>,
+	Vasanthy Kolluri <vkolluri@cisco.com>,
+	Roopa Prabhu <roprabhu@cisco.com>,
+	David Wang <dwang2@cisco.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:2034 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:61256 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751979Ab1FYOAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:05 -0400
+	id S1752042Ab1FYOAI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:08 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Myricom drivers into drivers/net/ethernet/myricom/ and make
-the necessary Kconfig and Makefile changes.
+Move the Cisco driver into drivers/net/ethernet/cisco/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Andrew Gallatin <gallatin@myri.com>
-CC: Brice Goglin <brice@myri.com>
+CC: Scott Feldman <scofeldm@cisco.com>
+CC: Christian Benvenuti <benve@cisco.com>
+CC: Vasanthy Kolluri <vkolluri@cisco.com>
+CC: Roopa Prabhu <roprabhu@cisco.com>
+CC: David Wang <dwang2@cisco.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
  MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |   26 ------------
+ drivers/net/Kconfig                                |    6 ------
  drivers/net/Makefile                               |    1 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/myricom/Kconfig               |   42 ++++++++++++++++++++
- drivers/net/ethernet/myricom/Makefile              |    5 ++
- .../net/{ => ethernet/myricom}/myri10ge/Makefile   |    0
- .../net/{ => ethernet/myricom}/myri10ge/myri10ge.c |    0
- .../{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h |    0
- .../myricom}/myri10ge/myri10ge_mcp_gen_header.h    |    0
- 11 files changed, 50 insertions(+), 28 deletions(-)
- create mode 100644 drivers/net/ethernet/myricom/Kconfig
- create mode 100644 drivers/net/ethernet/myricom/Makefile
- rename drivers/net/{ => ethernet/myricom}/myri10ge/Makefile (100%)
- rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge.c (100%)
- rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h (100%)
- rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp_gen_header.h (100%)
+ drivers/net/ethernet/cisco/Kconfig                 |   18 ++++++++++++++++++
+ drivers/net/ethernet/cisco/Makefile                |    5 +++++
+ drivers/net/ethernet/cisco/enic/Kconfig            |    9 +++++++++
+ drivers/net/{ => ethernet/cisco}/enic/Makefile     |    0
+ drivers/net/{ => ethernet/cisco}/enic/cq_desc.h    |    0
+ .../net/{ => ethernet/cisco}/enic/cq_enet_desc.h   |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic.h       |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_dev.c   |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_dev.h   |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_main.c  |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_pp.c    |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_pp.h    |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_res.c   |    0
+ drivers/net/{ => ethernet/cisco}/enic/enic_res.h   |    0
+ .../net/{ => ethernet/cisco}/enic/rq_enet_desc.h   |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_cq.c    |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_cq.h    |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_dev.c   |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_dev.h   |    0
+ .../net/{ => ethernet/cisco}/enic/vnic_devcmd.h    |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_enet.h  |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_intr.c  |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_intr.h  |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_nic.h   |    0
+ .../net/{ => ethernet/cisco}/enic/vnic_resource.h  |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_rq.c    |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_rq.h    |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_rss.h   |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_stats.h |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_vic.c   |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_vic.h   |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_wq.c    |    0
+ drivers/net/{ => ethernet/cisco}/enic/vnic_wq.h    |    0
+ .../net/{ => ethernet/cisco}/enic/wq_enet_desc.h   |    0
+ 39 files changed, 35 insertions(+), 8 deletions(-)
+ create mode 100644 drivers/net/ethernet/cisco/Kconfig
+ create mode 100644 drivers/net/ethernet/cisco/Makefile
+ create mode 100644 drivers/net/ethernet/cisco/enic/Kconfig
+ rename drivers/net/{ => ethernet/cisco}/enic/Makefile (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/cq_desc.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/cq_enet_desc.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_dev.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_dev.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_main.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_pp.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_pp.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_res.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/enic_res.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/rq_enet_desc.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_cq.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_cq.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_dev.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_dev.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_devcmd.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_enet.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_intr.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_intr.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_nic.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_resource.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_rq.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_rq.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_rss.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_stats.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_vic.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_vic.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_wq.c (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/vnic_wq.h (100%)
+ rename drivers/net/{ => ethernet/cisco}/enic/wq_enet_desc.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index b73e10b..81dfcff 100644
+index 0176793..5fd73ec 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4276,7 +4276,7 @@ M:	Brice Goglin <brice@myri.com>
- L:	netdev@vger.kernel.org
- W:	http://www.myri.com/scs/download-Myri10GE.html
+@@ -1735,7 +1735,7 @@ M:	Vasanthy Kolluri <vkolluri@cisco.com>
+ M:	Roopa Prabhu <roprabhu@cisco.com>
+ M:	David Wang <dwang2@cisco.com>
  S:	Supported
--F:	drivers/net/myri10ge/
-+F:	drivers/net/ethernet/myricom/myri10ge/
+-F:	drivers/net/enic/
++F:	drivers/net/ethernet/cisco/enic/
  
- NATSEMI ETHERNET DRIVER (DP8381x)
- M:	Tim Hockin <thockin@hockin.org>
+ CIRRUS LOGIC EP93XX ETHERNET DRIVER
+ M:	Hartley Sweeten <hsweeten@visionengravers.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 4e8b6c3..6b58ee3 100644
+index 7f28373..802e246 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1702,32 +1702,6 @@ config VXGE_DEBUG_TRACE_ALL
- 	  the vxge driver. By default only few debug trace statements are
- 	  enabled.
+@@ -1625,12 +1625,6 @@ if NETDEV_10000
+ config MDIO
+ 	tristate
  
--config MYRI10GE
--	tristate "Myricom Myri-10G Ethernet support"
+-config ENIC
+-	tristate "Cisco VIC Ethernet NIC Support"
 -	depends on PCI && INET
--	select FW_LOADER
--	select CRC32
--	select INET_LRO
--	---help---
--	  This driver supports Myricom Myri-10G Dual Protocol interface in
--	  Ethernet mode. If the eeprom on your board is not recent enough,
--	  you will need a newer firmware image.
--	  You may get this image or more information, at:
--
--	  <http://www.myri.com/scs/download-Myri10GE.html>
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called myri10ge.
--
--config MYRI10GE_DCA
--	bool "Direct Cache Access (DCA) Support"
--	default y
--	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
--	---help---
--	  Say Y here if you want to use Direct Cache Access (DCA) in the
--	  driver.  DCA is a method for warming the CPU cache before data
--	  is used, with the intent of lessening the impact of cache misses.
+-	help
+-	  This enables the support for the Cisco VIC Ethernet card.
 -
  config PASEMI_MAC
  	tristate "PA Semi 1/10Gbit MAC"
  	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 6c2eb60..15c3598 100644
+index f0efba2..6198d42 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -168,7 +168,6 @@ obj-$(CONFIG_R8169) += r8169.o
- obj-$(CONFIG_IBMVETH) += ibmveth.o
- obj-$(CONFIG_S2IO) += s2io.o
- obj-$(CONFIG_VXGE) += vxge/
--obj-$(CONFIG_MYRI10GE) += myri10ge/
- obj-$(CONFIG_SMC911X) += smc911x.o
- obj-$(CONFIG_SMSC911X) += smsc911x.o
- obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
+@@ -20,7 +20,6 @@ obj-$(CONFIG_ATL1C) += atl1c/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+ obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
+ obj-$(CONFIG_TEHUTI) += tehuti.o
+-obj-$(CONFIG_ENIC) += enic/
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ 
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 67b06b2..6149413 100644
+index 0fd163e..9b333a7 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -20,6 +20,7 @@ source "drivers/net/ethernet/chelsio/Kconfig"
+@@ -17,6 +17,7 @@ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
++source "drivers/net/ethernet/cisco/Kconfig"
  source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
-+source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/neterion/Kconfig"
+ source "drivers/net/ethernet/ibm/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index ecbe7fa..093b44f 100644
+index 43c912f..6f14a35 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -11,6 +11,7 @@ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+@@ -8,6 +8,7 @@ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
++obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
  obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-+obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_SFC) += sfc/
-diff --git a/drivers/net/ethernet/myricom/Kconfig b/drivers/net/ethernet/myricom/Kconfig
+ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+diff --git a/drivers/net/ethernet/cisco/Kconfig b/drivers/net/ethernet/cisco/Kconfig
 new file mode 100644
-index 0000000..1227005
+index 0000000..6d72c34
 --- /dev/null
-+++ b/drivers/net/ethernet/myricom/Kconfig
-@@ -0,0 +1,42 @@
++++ b/drivers/net/ethernet/cisco/Kconfig
+@@ -0,0 +1,18 @@
 +#
-+# Myricom device configuration
++# Cisco device configuration
 +#
 +
-+config NET_VENDOR_MYRI
-+	bool "Myricom network devices"
++config NET_VENDOR_CISCO
++	bool "Cisco devices"
 +	depends on PCI || INET
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say
-+	  Y and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Myricom cards. If you say Y, you will be asked for
++	  the questions about Cisco cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config MYRI10GE
-+	tristate "Myricom Myri-10G Ethernet support"
-+	depends on NET_VENDOR_MYRI && PCI && INET
-+	select FW_LOADER
-+	select CRC32
-+	select INET_LRO
-+	---help---
-+	  This driver supports Myricom Myri-10G Dual Protocol interface in
-+	  Ethernet mode. If the eeprom on your board is not recent enough,
-+	  you will need a newer firmware image.
-+	  You may get this image or more information, at:
-+
-+	  <http://www.myri.com/scs/download-Myri10GE.html>
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called myri10ge.
-+
-+config MYRI10GE_DCA
-+	bool "Direct Cache Access (DCA) Support"
-+	default y
-+	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
-+	---help---
-+	  Say Y here if you want to use Direct Cache Access (DCA) in the
-+	  driver.  DCA is a method for warming the CPU cache before data
-+	  is used, with the intent of lessening the impact of cache misses.
-diff --git a/drivers/net/ethernet/myricom/Makefile b/drivers/net/ethernet/myricom/Makefile
++source "drivers/net/ethernet/cisco/enic/Kconfig"
+diff --git a/drivers/net/ethernet/cisco/Makefile b/drivers/net/ethernet/cisco/Makefile
 new file mode 100644
-index 0000000..296c0a1
+index 0000000..6c7437b
 --- /dev/null
-+++ b/drivers/net/ethernet/myricom/Makefile
++++ b/drivers/net/ethernet/cisco/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Myricom network device drivers.
++# Makefile for the Cisco device drivers.
 +#
 +
-+obj-$(CONFIG_MYRI10GE) += myri10ge/
-diff --git a/drivers/net/myri10ge/Makefile b/drivers/net/ethernet/myricom/myri10ge/Makefile
++obj-$(CONFIG_ENIC) += enic/
+diff --git a/drivers/net/ethernet/cisco/enic/Kconfig b/drivers/net/ethernet/cisco/enic/Kconfig
+new file mode 100644
+index 0000000..dc137af
+--- /dev/null
++++ b/drivers/net/ethernet/cisco/enic/Kconfig
+@@ -0,0 +1,9 @@
++#
++# Cisco device configuration
++#
++
++config ENIC
++	tristate "Cisco VIC Ethernet NIC Support"
++	depends on NET_VENDOR_CISCO && PCI && INET
++	---help---
++	  This enables the support for the Cisco VIC Ethernet card.
+diff --git a/drivers/net/enic/Makefile b/drivers/net/ethernet/cisco/enic/Makefile
 similarity index 100%
-rename from drivers/net/myri10ge/Makefile
-rename to drivers/net/ethernet/myricom/myri10ge/Makefile
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+rename from drivers/net/enic/Makefile
+rename to drivers/net/ethernet/cisco/enic/Makefile
+diff --git a/drivers/net/enic/cq_desc.h b/drivers/net/ethernet/cisco/enic/cq_desc.h
 similarity index 100%
-rename from drivers/net/myri10ge/myri10ge.c
-rename to drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-diff --git a/drivers/net/myri10ge/myri10ge_mcp.h b/drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp.h
+rename from drivers/net/enic/cq_desc.h
+rename to drivers/net/ethernet/cisco/enic/cq_desc.h
+diff --git a/drivers/net/enic/cq_enet_desc.h b/drivers/net/ethernet/cisco/enic/cq_enet_desc.h
 similarity index 100%
-rename from drivers/net/myri10ge/myri10ge_mcp.h
-rename to drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp.h
-diff --git a/drivers/net/myri10ge/myri10ge_mcp_gen_header.h b/drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp_gen_header.h
+rename from drivers/net/enic/cq_enet_desc.h
+rename to drivers/net/ethernet/cisco/enic/cq_enet_desc.h
+diff --git a/drivers/net/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
 similarity index 100%
-rename from drivers/net/myri10ge/myri10ge_mcp_gen_header.h
-rename to drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp_gen_header.h
+rename from drivers/net/enic/enic.h
+rename to drivers/net/ethernet/cisco/enic/enic.h
+diff --git a/drivers/net/enic/enic_dev.c b/drivers/net/ethernet/cisco/enic/enic_dev.c
+similarity index 100%
+rename from drivers/net/enic/enic_dev.c
+rename to drivers/net/ethernet/cisco/enic/enic_dev.c
+diff --git a/drivers/net/enic/enic_dev.h b/drivers/net/ethernet/cisco/enic/enic_dev.h
+similarity index 100%
+rename from drivers/net/enic/enic_dev.h
+rename to drivers/net/ethernet/cisco/enic/enic_dev.h
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+similarity index 100%
+rename from drivers/net/enic/enic_main.c
+rename to drivers/net/ethernet/cisco/enic/enic_main.c
+diff --git a/drivers/net/enic/enic_pp.c b/drivers/net/ethernet/cisco/enic/enic_pp.c
+similarity index 100%
+rename from drivers/net/enic/enic_pp.c
+rename to drivers/net/ethernet/cisco/enic/enic_pp.c
+diff --git a/drivers/net/enic/enic_pp.h b/drivers/net/ethernet/cisco/enic/enic_pp.h
+similarity index 100%
+rename from drivers/net/enic/enic_pp.h
+rename to drivers/net/ethernet/cisco/enic/enic_pp.h
+diff --git a/drivers/net/enic/enic_res.c b/drivers/net/ethernet/cisco/enic/enic_res.c
+similarity index 100%
+rename from drivers/net/enic/enic_res.c
+rename to drivers/net/ethernet/cisco/enic/enic_res.c
+diff --git a/drivers/net/enic/enic_res.h b/drivers/net/ethernet/cisco/enic/enic_res.h
+similarity index 100%
+rename from drivers/net/enic/enic_res.h
+rename to drivers/net/ethernet/cisco/enic/enic_res.h
+diff --git a/drivers/net/enic/rq_enet_desc.h b/drivers/net/ethernet/cisco/enic/rq_enet_desc.h
+similarity index 100%
+rename from drivers/net/enic/rq_enet_desc.h
+rename to drivers/net/ethernet/cisco/enic/rq_enet_desc.h
+diff --git a/drivers/net/enic/vnic_cq.c b/drivers/net/ethernet/cisco/enic/vnic_cq.c
+similarity index 100%
+rename from drivers/net/enic/vnic_cq.c
+rename to drivers/net/ethernet/cisco/enic/vnic_cq.c
+diff --git a/drivers/net/enic/vnic_cq.h b/drivers/net/ethernet/cisco/enic/vnic_cq.h
+similarity index 100%
+rename from drivers/net/enic/vnic_cq.h
+rename to drivers/net/ethernet/cisco/enic/vnic_cq.h
+diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+similarity index 100%
+rename from drivers/net/enic/vnic_dev.c
+rename to drivers/net/ethernet/cisco/enic/vnic_dev.c
+diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
+similarity index 100%
+rename from drivers/net/enic/vnic_dev.h
+rename to drivers/net/ethernet/cisco/enic/vnic_dev.h
+diff --git a/drivers/net/enic/vnic_devcmd.h b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
+similarity index 100%
+rename from drivers/net/enic/vnic_devcmd.h
+rename to drivers/net/ethernet/cisco/enic/vnic_devcmd.h
+diff --git a/drivers/net/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+similarity index 100%
+rename from drivers/net/enic/vnic_enet.h
+rename to drivers/net/ethernet/cisco/enic/vnic_enet.h
+diff --git a/drivers/net/enic/vnic_intr.c b/drivers/net/ethernet/cisco/enic/vnic_intr.c
+similarity index 100%
+rename from drivers/net/enic/vnic_intr.c
+rename to drivers/net/ethernet/cisco/enic/vnic_intr.c
+diff --git a/drivers/net/enic/vnic_intr.h b/drivers/net/ethernet/cisco/enic/vnic_intr.h
+similarity index 100%
+rename from drivers/net/enic/vnic_intr.h
+rename to drivers/net/ethernet/cisco/enic/vnic_intr.h
+diff --git a/drivers/net/enic/vnic_nic.h b/drivers/net/ethernet/cisco/enic/vnic_nic.h
+similarity index 100%
+rename from drivers/net/enic/vnic_nic.h
+rename to drivers/net/ethernet/cisco/enic/vnic_nic.h
+diff --git a/drivers/net/enic/vnic_resource.h b/drivers/net/ethernet/cisco/enic/vnic_resource.h
+similarity index 100%
+rename from drivers/net/enic/vnic_resource.h
+rename to drivers/net/ethernet/cisco/enic/vnic_resource.h
+diff --git a/drivers/net/enic/vnic_rq.c b/drivers/net/ethernet/cisco/enic/vnic_rq.c
+similarity index 100%
+rename from drivers/net/enic/vnic_rq.c
+rename to drivers/net/ethernet/cisco/enic/vnic_rq.c
+diff --git a/drivers/net/enic/vnic_rq.h b/drivers/net/ethernet/cisco/enic/vnic_rq.h
+similarity index 100%
+rename from drivers/net/enic/vnic_rq.h
+rename to drivers/net/ethernet/cisco/enic/vnic_rq.h
+diff --git a/drivers/net/enic/vnic_rss.h b/drivers/net/ethernet/cisco/enic/vnic_rss.h
+similarity index 100%
+rename from drivers/net/enic/vnic_rss.h
+rename to drivers/net/ethernet/cisco/enic/vnic_rss.h
+diff --git a/drivers/net/enic/vnic_stats.h b/drivers/net/ethernet/cisco/enic/vnic_stats.h
+similarity index 100%
+rename from drivers/net/enic/vnic_stats.h
+rename to drivers/net/ethernet/cisco/enic/vnic_stats.h
+diff --git a/drivers/net/enic/vnic_vic.c b/drivers/net/ethernet/cisco/enic/vnic_vic.c
+similarity index 100%
+rename from drivers/net/enic/vnic_vic.c
+rename to drivers/net/ethernet/cisco/enic/vnic_vic.c
+diff --git a/drivers/net/enic/vnic_vic.h b/drivers/net/ethernet/cisco/enic/vnic_vic.h
+similarity index 100%
+rename from drivers/net/enic/vnic_vic.h
+rename to drivers/net/ethernet/cisco/enic/vnic_vic.h
+diff --git a/drivers/net/enic/vnic_wq.c b/drivers/net/ethernet/cisco/enic/vnic_wq.c
+similarity index 100%
+rename from drivers/net/enic/vnic_wq.c
+rename to drivers/net/ethernet/cisco/enic/vnic_wq.c
+diff --git a/drivers/net/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
+similarity index 100%
+rename from drivers/net/enic/vnic_wq.h
+rename to drivers/net/ethernet/cisco/enic/vnic_wq.h
+diff --git a/drivers/net/enic/wq_enet_desc.h b/drivers/net/ethernet/cisco/enic/wq_enet_desc.h
+similarity index 100%
+rename from drivers/net/enic/wq_enet_desc.h
+rename to drivers/net/ethernet/cisco/enic/wq_enet_desc.h
 -- 
 1.7.5.4
 
