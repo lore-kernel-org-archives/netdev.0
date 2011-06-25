@@ -1,45 +1,47 @@
-From: Geoff Levand <geoff@infradead.org>
-Subject: Re: [RFC 52/72] ps3_gelic*: Move the Sony (PS3) drivers
-Date: Sat, 25 Jun 2011 09:25:02 -0700
-Message-ID: <4E060BDE.9020004@infradead.org>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC 34/72] skge/sky2: Move the SysKonnect Ethernet drivers
+Date: Sat, 25 Jun 2011 09:26:53 -0700
+Message-ID: <20110625092653.627fcc89@nehalam.ftrdhcpuser.net>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1309010363-22750-35-git-send-email-jeffrey.t.kirsher@intel.com>
+	<201106251649.13877.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:46512
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751581Ab1FYQZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:25:03 -0400
-In-Reply-To: <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41800 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751303Ab1FYQ1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:27:05 -0400
+In-Reply-To: <201106251649.13877.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+On Sat, 25 Jun 2011 16:49:13 +0200
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-On 06/25/2011 06:59 AM, Jeff Kirsher wrote:
-> Move the Sony drivers into drivers/net/ethernet/sony/ and
-> make the necessary Kconfig and Makefile changes.
+> On Saturday 25 June 2011, Jeff Kirsher wrote:
+> > Move the SysKonnect Ethernet drivers into drivers/net/ethernet/syskonnect/
+> > and make the necessary Kconfig and Makefile changes.
+> > 
+> > CC: Stephen Hemminger <shemminger@linux-foundation.org>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >  MAINTAINERS                                  |    3 +-
+> >  drivers/net/Kconfig                          |   58 --------------------
+> >  drivers/net/Makefile                         |    2 -
+> >  drivers/net/ethernet/Kconfig                 |    1 +
+> >  drivers/net/ethernet/Makefile                |    1 +
+> >  drivers/net/ethernet/syskonnect/Kconfig      |   74 ++++++++++++++++++++++++++
+> >  drivers/net/ethernet/syskonnect/Makefile     |    6 ++
+> >  drivers/net/{ => ethernet/syskonnect}/skge.c |    0
+> >  drivers/net/{ => ethernet/syskonnect}/skge.h |    0
+> >  drivers/net/{ => ethernet/syskonnect}/sky2.c |    0
+> >  drivers/net/{ => ethernet/syskonnect}/sky2.h |    0
+> 
+> Shouldn't these live together with the other Marvell drivers?
 
-This looks OK, but as Arnd mentioned, it makes sense to put these
-with the toshiba spider_net drivers.
-
-> TODO: separate the wired and wireless drivers and relocate the wireless
-> dirver into drivers/net/wireless/
-
-I'm not sure if it makes sense to split this into separate drivers.
-
-The PS3 doesn't have separate wireless and Ethernet devices.  The wireless
-hardware is hooked up to the gelic Ethernet controller, and VLAN tags are
-used to route the packets.  The wireless support is more or less
-an extension of the base gelic device. 
-
-A little more info on it is here:
-
-  http://www.kernel.org/pub/linux/kernel/people/geoff/cell/ps3-linux-docs/ps3-linux-docs-latest/LinuxKernelOverview.html
-
-Let me know what you think.
-
--Geoff
+yes put them under Marvell.
