@@ -1,124 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/9] ixgbe: complete FCoE initialization from setapp() routine
-Date: Sat, 25 Jun 2011 00:22:24 -0700
-Message-ID: <1308986546-12964-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1308986546-12964-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:31485 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751498Ab1FYHWb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 03:22:31 -0400
-In-Reply-To: <1308986546-12964-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [RFC PATCH 1/1] BPF JIT for PPC64
+Date: Sat, 25 Jun 2011 09:33:46 +0200
+Message-ID: <m2boxmxt45.fsf@igel.home>
+References: <4E04288F.4090201@ozlabs.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
+To: Matt Evans <matt@ozlabs.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <4E04288F.4090201@ozlabs.org> (Matt Evans's message of "Fri, 24
+	Jun 2011 16:02:55 +1000")
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.r.fastabend@intel.com>
+Matt Evans <matt@ozlabs.org> writes:
 
-Commit,
+> +	stdu	r1, -128(r1);					\
 
-commit c8ca76ebc6e50752c5311b92bb9aef7edb324577
-Author: John Fastabend <john.r.fastabend@intel.com>
-Date:   Sat Mar 12 03:50:53 2011 +0000
+> +	addi	r5, r1, 128+BPF_PPC_STACK_BASIC+(2*8);		\
 
-    ixgbe: DCB, further cleanups to app configuration
+> +	addi	r1, r1, 128;					\
 
-Removed the getapp() routines from ixgbe because they are no
-longer needed. It also allowed the set hardware routines to
-use both IEEE 802.1Qaz app types and CEE app types. This
-added code to do bit shifting in the IEEE case.
+> +					PPC_STD(r_M + i, 1, -128 + (8*i));
 
-This patch reverts the checks and handles the IEEE case
-from the setapp entry point. I prefer this because it
-keeps the two paths from having to be aware of the DCB
-mode. This resolves a bug where I missed setting the
-selector bit in the IEEE spec value and left it in the
-CEE value. Now that they are separate routines these types
-of errors should not occur.
+> +					PPC_LD(r_M + i, 1, -128 + (8*i));
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ixgbe/ixgbe_dcb_nl.c |   38 +++++++++++++++++++++++++-------------
- 1 files changed, 25 insertions(+), 13 deletions(-)
+s/128/BPF_PPC_STACK_SAVE/?
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index bd2d752..db659df 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -330,24 +330,20 @@ static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
- static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	int ret;
-+#ifdef IXGBE_FCOE
- 	struct dcb_app app = {
- 			      .selector = DCB_APP_IDTYPE_ETHTYPE,
- 			      .protocol = ETH_P_FCOE,
- 			     };
- 	u8 up = dcb_getapp(netdev, &app);
--	int ret;
-+#endif
- 
- 	ret = ixgbe_copy_dcb_cfg(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
- 				 MAX_TRAFFIC_CLASS);
- 	if (ret)
- 		return DCB_NO_HW_CHG;
- 
--	/* In IEEE mode app data must be parsed into DCBX format for
--	 * hardware routines.
--	 */
--	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE)
--		up = (1 << up);
--
- #ifdef IXGBE_FCOE
- 	if (up && (up != (1 << adapter->fcoe.up)))
- 		adapter->dcb_set_bitmap |= BIT_APP_UPCHG;
-@@ -678,18 +674,34 @@ static int ixgbe_dcbnl_ieee_setapp(struct net_device *dev,
- 				   struct dcb_app *app)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int err = -EINVAL;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
--		return -EINVAL;
-+		return err;
- 
--	dcb_setapp(dev, app);
-+	err = dcb_ieee_setapp(dev, app);
- 
- #ifdef IXGBE_FCOE
--	if (app->selector == 1 && app->protocol == ETH_P_FCOE &&
--	    adapter->fcoe.tc == app->priority)
--		ixgbe_dcbnl_set_all(dev);
-+	if (!err && app->selector == IEEE_8021QAZ_APP_SEL_ETHERTYPE &&
-+	    app->protocol == ETH_P_FCOE) {
-+		u8 app_mask = dcb_ieee_getapp_mask(dev, app);
-+
-+		if (app_mask & (1 << adapter->fcoe.up))
-+			return err;
-+
-+		adapter->fcoe.up = app->priority;
-+
-+		if (netif_running(dev))
-+			dev->netdev_ops->ndo_stop(dev);
-+
-+		ixgbe_clear_interrupt_scheme(adapter);
-+		ixgbe_init_interrupt_scheme(adapter);
-+
-+		if (netif_running(dev))
-+			dev->netdev_ops->ndo_open(dev);
-+	}
- #endif
--	return 0;
-+	return err;
- }
- 
- static u8 ixgbe_dcbnl_getdcbx(struct net_device *dev)
+Andreas.
+
 -- 
-1.7.5.4
-
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
