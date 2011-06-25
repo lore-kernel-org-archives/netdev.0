@@ -1,52 +1,54 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Fri, 24 Jun 2011 15:48:21 -0700
-Message-ID: <4E051435.8080302@goop.org>
-References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>	
-	<4E04C961.9010302@goop.org>
-	<1308955477.5807.8.camel@dagon.hellion.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	xen-devel <xen-devel@lists.xensource.com>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <1308955477.5807.8.camel@dagon.hellion.org.uk>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+From: Barry Grussling <barry@grussling.com>
+Subject: [PATCH V3 1/1] DSA: Enable cascading in multi-chip 6131 configuration
+Date: Fri, 24 Jun 2011 22:53:51 -0700
+Message-ID: <1308981231-2561-1-git-send-email-barry@grussling.com>
+Cc: buytenh@wantstofly.org, Barry Grussling <barry@grussling.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:64274 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849Ab1FYFyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 01:54:04 -0400
+Received: by pvg12 with SMTP id 12so2070195pvg.19
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 22:54:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2011 03:44 PM, Ian Campbell wrote:
-> One problem with this is that some functions (__pskb_pull_tail) drop the
-> ref count and then remove the page from the skb's fraglist. So by the
-> time the destructor is called you have lost the page and cannot do the
-> refcount checking.
->
-> I suppose we could keep a queue of _all_ pages we ever put in an SKB
-> which we poll.
+From: Barry Grussling <barry@grussling.com>
 
-Right, that seems like the only way to make sure we don't lose anything.
+This patch enables the 6131 family of chips to forward DSA
+packets to other switch chips.  This is needed if multiple
+DSA chips are used in a device.  Without this patch the
+chip will drop any DSA packets not destined for it.
 
->  We could still check for pages with count==1 in the
-> destructor. Apart from the other issues with the destructor not being
-> copied over clone etc which would cause us to fall-back to polling the
-> queue more often than not I reckon.
+This patch only enables the forwarding of DSA packets if
+multiple chips are used in the switch configuration.
 
-Yeah, sounds like it.
+Signed-off-by: Barry Grussling <barry@grussling.com>
 
->> That said, I think an event-based rather than polling based mechanism
->> would be much more preferable.
-> Absolutely.
+---
 
->From what Eric and David were saying, it seems we don't really have any
-other workable options.
+diff --git a/net/dsa/mv88e6131.c b/net/dsa/mv88e6131.c
+index 45f7411..9bd1061 100644
+--- a/net/dsa/mv88e6131.c
++++ b/net/dsa/mv88e6131.c
+@@ -118,10 +118,14 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+ 	REG_WRITE(REG_GLOBAL, 0x1a, (dsa_upstream_port(ds) * 0x1100) | 0x00f0);
+ 
+ 	/*
+-	 * Disable cascade port functionality, and set the switch's
++	 * Disable cascade port functionality unless this device
++	 * is used in a cascade configuration, and set the switch's
+ 	 * DSA device number.
+ 	 */
+-	REG_WRITE(REG_GLOBAL, 0x1c, 0xe000 | (ds->index & 0x1f));
++	if (ds->dst->pd->nr_chips > 1)
++		REG_WRITE(REG_GLOBAL, 0x1c, 0xf000 | (ds->index & 0x1f));
++	else
++		REG_WRITE(REG_GLOBAL, 0x1c, 0xe000 | (ds->index & 0x1f));
+ 
+ 	/*
+ 	 * Send all frames with destination addresses matching
+-- 
+1.7.4.1
 
-    J
