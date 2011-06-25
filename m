@@ -1,208 +1,179 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 30/72] atl*: Move the Atheros drivers
-Date: Sat, 25 Jun 2011 06:58:41 -0700
-Message-ID: <1309010363-22750-31-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 14/72] bna: Move the Brocade driver
+Date: Sat, 25 Jun 2011 06:58:25 -0700
+Message-ID: <1309010363-22750-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37764 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:2034 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752072Ab1FYOAB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:01 -0400
+	id S1752070Ab1FYOAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:00 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Atheros drivers into drivers/net/ethernet/atheros/ and
-make the necessary Kconfig and Makefile changes.
+Moves the Brocade driver into drivers/net/ethernet/brocade/ and make
+the necessary Kconfig and Makefile changes.
 
-CC: Jay Cliburn <jcliburn@gmail.com>
-CC: Chris Snook <chris.snook@gmail.com>
-CC: Jie Yang <jie.yang@atheros.com>
+CC: Rasesh Mody <rmody@brocade.com>
+CC: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
  MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |   45 --------------
- drivers/net/Makefile                               |    4 -
+ drivers/net/Kconfig                                |   14 --------------
+ drivers/net/Makefile                               |    1 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/atheros/Kconfig               |   61 ++++++++++++++++++++
- drivers/net/ethernet/atheros/Makefile              |    8 +++
- drivers/net/{ => ethernet/atheros}/atl1c/Makefile  |    0
- drivers/net/{ => ethernet/atheros}/atl1c/atl1c.h   |    0
- .../{ => ethernet/atheros}/atl1c/atl1c_ethtool.c   |    0
- .../net/{ => ethernet/atheros}/atl1c/atl1c_hw.c    |    0
- .../net/{ => ethernet/atheros}/atl1c/atl1c_hw.h    |    0
- .../net/{ => ethernet/atheros}/atl1c/atl1c_main.c  |    0
- drivers/net/{ => ethernet/atheros}/atl1e/Makefile  |    0
- drivers/net/{ => ethernet/atheros}/atl1e/atl1e.h   |    0
- .../{ => ethernet/atheros}/atl1e/atl1e_ethtool.c   |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_hw.c    |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_hw.h    |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_main.c  |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_param.c |    0
- drivers/net/{ => ethernet/atheros}/atlx/Makefile   |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl1.c     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl1.h     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl2.c     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl2.h     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atlx.c     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atlx.h     |    0
- 27 files changed, 72 insertions(+), 50 deletions(-)
- create mode 100644 drivers/net/ethernet/atheros/Kconfig
- create mode 100644 drivers/net/ethernet/atheros/Makefile
- rename drivers/net/{ => ethernet/atheros}/atl1c/Makefile (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_ethtool.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_hw.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_hw.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_main.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/Makefile (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_ethtool.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_hw.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_hw.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_main.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_param.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/Makefile (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl1.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl1.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl2.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl2.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atlx.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atlx.h (100%)
+ drivers/net/ethernet/brocade/Kconfig               |   18 ++++++++++++++++++
+ drivers/net/ethernet/brocade/Makefile              |    5 +++++
+ drivers/net/ethernet/brocade/bna/Kconfig           |   17 +++++++++++++++++
+ drivers/net/{ => ethernet/brocade}/bna/Makefile    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h  |    0
+ .../net/{ => ethernet/brocade}/bna/bfa_defs_cna.h  |    0
+ .../{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h |    0
+ .../{ => ethernet/brocade}/bna/bfa_defs_status.h   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h   |    0
+ .../net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_sm.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_wc.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi.h       |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi_ctreg.h |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna.h       |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c  |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_hw.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c  |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_types.h |    0
+ drivers/net/{ => ethernet/brocade}/bna/bnad.c      |    0
+ drivers/net/{ => ethernet/brocade}/bna/bnad.h      |    0
+ .../net/{ => ethernet/brocade}/bna/bnad_ethtool.c  |    0
+ drivers/net/{ => ethernet/brocade}/bna/cna.h       |    0
+ drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c |    0
+ 34 files changed, 43 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/net/ethernet/brocade/Kconfig
+ create mode 100644 drivers/net/ethernet/brocade/Makefile
+ create mode 100644 drivers/net/ethernet/brocade/bna/Kconfig
+ rename drivers/net/{ => ethernet/brocade}/bna/Makefile (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_cna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_status.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_sm.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_wc.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi_ctreg.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_hw.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_types.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bnad.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bnad.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bnad_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/cna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index a0ccbea..f72a8bd 100644
+index 5bf6ae2..b73e10b 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1263,7 +1263,7 @@ L:	netdev@vger.kernel.org
- W:	http://sourceforge.net/projects/atl1
- W:	http://atl1.sourceforge.net
- S:	Maintained
--F:	drivers/net/atlx/
-+F:	drivers/net/ethernet/atheros/
+@@ -1550,7 +1550,7 @@ M:	Rasesh Mody <rmody@brocade.com>
+ M:	Debashis Dutt <ddutt@brocade.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+-F:	drivers/net/bna/
++F:	drivers/net/ethernet/brocade/bna/
  
- ATM
- M:	Chas Williams <chas@cmf.nrl.navy.mil>
+ BSG (block layer generic sg v4 driver)
+ M:	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 3961949..71efbe4 100644
+index 5218303..c3ab3e7 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -897,17 +897,6 @@ config FEC_MPC52xx_MDIO
- 	  If not sure, enable.
- 	  If compiled as module, it will be called fec_mpc52xx_phy.
+@@ -1767,20 +1767,6 @@ config TEHUTI
+ 	help
+ 	  Tehuti Networks 10G Ethernet NIC
  
--config ATL2
--	tristate "Atheros L2 Fast Ethernet support"
+-config BNA
+-	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
 -	depends on PCI
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros L2 fast ethernet adapter.
+-	---help---
+-	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
+-	  cards.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called bna.
 -
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl2.
+-	  For general information and support, go to the Brocade support
+-	  website at:
 -
- config XILINX_EMACLITE
- 	tristate "Xilinx 10/100 Ethernet Lite support"
- 	depends on PPC32 || MICROBLAZE
-@@ -1161,40 +1150,6 @@ config XILINX_LL_TEMAC
- 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
- 	  core used in Xilinx Spartan and Virtex FPGAs
+-	  <http://support.brocade.com>
+-
+ endif # NETDEV_10000
  
--config ATL1
--	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
--	depends on PCI
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros/Attansic L1 gigabit ethernet
--	  adapter.
--
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl1.
--
--config ATL1E
--	tristate "Atheros L1E Gigabit Ethernet support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros L1E gigabit ethernet adapter.
--
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl1e.
--
--config ATL1C
--	tristate "Atheros L1C Gigabit Ethernet support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros L1C gigabit ethernet adapter.
--
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl1c.
--
- config JME
- 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
- 	depends on PCI
+ source "drivers/net/tokenring/Kconfig"
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8cdf289..1ac4164 100644
+index 5e1ccb5..f480771 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -9,10 +9,6 @@ obj-$(CONFIG_PHYLIB) += phy/
- obj-$(CONFIG_IP1000) += ipg.o
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_BONDING) += bonding/
--obj-$(CONFIG_ATL1) += atlx/
--obj-$(CONFIG_ATL2) += atlx/
--obj-$(CONFIG_ATL1E) += atl1e/
--obj-$(CONFIG_ATL1C) += atl1c/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
+@@ -25,7 +25,6 @@ obj-$(CONFIG_TEHUTI) += tehuti.o
+ obj-$(CONFIG_ENIC) += enic/
  obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
+-obj-$(CONFIG_BNA) += bna/
+ 
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index b665c32..6fb1625 100644
+index 97a4b57..aae207a 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
 @@ -15,6 +15,7 @@ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
  source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- source "drivers/net/ethernet/arm/Kconfig"
-+source "drivers/net/ethernet/atheros/Kconfig"
  source "drivers/net/ethernet/broadcom/Kconfig"
- source "drivers/net/ethernet/brocade/Kconfig"
++source "drivers/net/ethernet/brocade/Kconfig"
  source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index e3c7243..1123a3d 100644
+index bf9b2e9..9494827 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -7,6 +7,7 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
  obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
- obj-$(CONFIG_NET_ARM) += arm/
-+obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
  obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
- obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
++obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
-diff --git a/drivers/net/ethernet/atheros/Kconfig b/drivers/net/ethernet/atheros/Kconfig
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+diff --git a/drivers/net/ethernet/brocade/Kconfig b/drivers/net/ethernet/brocade/Kconfig
 new file mode 100644
-index 0000000..94b436d
+index 0000000..8d8bff7
 --- /dev/null
-+++ b/drivers/net/ethernet/atheros/Kconfig
-@@ -0,0 +1,61 @@
++++ b/drivers/net/ethernet/brocade/Kconfig
+@@ -0,0 +1,18 @@
 +#
-+# Atheros device configuration
++# Brocade device configuration
 +#
 +
-+config NET_VENDOR_ATHEROS
-+	bool "Atheros devices"
++config NET_VENDOR_BROCADE
++	bool "Brocade devices"
 +	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
@@ -211,147 +182,148 @@ index 0000000..94b436d
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Atheros devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
++	  the questions about Brocade cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config ATL2
-+	tristate "Atheros L2 Fast Ethernet support"
-+	depends on NET_VENDOR_ATHEROS && PCI
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver supports the Atheros L2 fast ethernet adapter.
-+
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl2.
-+
-+config ATL1
-+	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
-+	depends on NET_VENDOR_ATHEROS && PCI
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver supports the Atheros/Attansic L1 gigabit ethernet
-+	  adapter.
-+
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl1.
-+
-+config ATL1E
-+	tristate "Atheros L1E Gigabit Ethernet support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_ATHEROS && PCI && EXPERIMENTAL
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver supports the Atheros L1E gigabit ethernet adapter.
-+
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl1e.
-+
-+config ATL1C
-+	tristate "Atheros L1C Gigabit Ethernet support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_ATHEROS && PCI && EXPERIMENTAL
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver supports the Atheros L1C gigabit ethernet adapter.
-+
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl1c.
-diff --git a/drivers/net/ethernet/atheros/Makefile b/drivers/net/ethernet/atheros/Makefile
++source "drivers/net/ethernet/brocade/bna/Kconfig"
+diff --git a/drivers/net/ethernet/brocade/Makefile b/drivers/net/ethernet/brocade/Makefile
 new file mode 100644
-index 0000000..e7e76fb
+index 0000000..b58238d
 --- /dev/null
-+++ b/drivers/net/ethernet/atheros/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/brocade/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the Atheros network device drivers.
++# Makefile for the Brocade device drivers.
 +#
 +
-+obj-$(CONFIG_ATL1) += atlx/
-+obj-$(CONFIG_ATL2) += atlx/
-+obj-$(CONFIG_ATL1E) += atl1e/
-+obj-$(CONFIG_ATL1C) += atl1c/
-diff --git a/drivers/net/atl1c/Makefile b/drivers/net/ethernet/atheros/atl1c/Makefile
++obj-$(CONFIG_BNA) += bna/
+diff --git a/drivers/net/ethernet/brocade/bna/Kconfig b/drivers/net/ethernet/brocade/bna/Kconfig
+new file mode 100644
+index 0000000..ba37af2
+--- /dev/null
++++ b/drivers/net/ethernet/brocade/bna/Kconfig
+@@ -0,0 +1,17 @@
++#
++# Brocade network device configuration
++#
++
++config BNA
++	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
++	depends on NET_VENDOR_BROCADE && PCI
++	---help---
++	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
++	  cards.
++	  To compile this driver as a module, choose M here: the module
++	  will be called bna.
++
++	  For general information and support, go to the Brocade support
++	  website at:
++
++	  <http://support.brocade.com>
+diff --git a/drivers/net/bna/Makefile b/drivers/net/ethernet/brocade/bna/Makefile
 similarity index 100%
-rename from drivers/net/atl1c/Makefile
-rename to drivers/net/ethernet/atheros/atl1c/Makefile
-diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+rename from drivers/net/bna/Makefile
+rename to drivers/net/ethernet/brocade/bna/Makefile
+diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/ethernet/brocade/bna/bfa_cee.c
 similarity index 100%
-rename from drivers/net/atl1c/atl1c.h
-rename to drivers/net/ethernet/atheros/atl1c/atl1c.h
-diff --git a/drivers/net/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+rename from drivers/net/bna/bfa_cee.c
+rename to drivers/net/ethernet/brocade/bna/bfa_cee.c
+diff --git a/drivers/net/bna/bfa_cee.h b/drivers/net/ethernet/brocade/bna/bfa_cee.h
 similarity index 100%
-rename from drivers/net/atl1c/atl1c_ethtool.c
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-diff --git a/drivers/net/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+rename from drivers/net/bna/bfa_cee.h
+rename to drivers/net/ethernet/brocade/bna/bfa_cee.h
+diff --git a/drivers/net/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
 similarity index 100%
-rename from drivers/net/atl1c/atl1c_hw.c
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-diff --git a/drivers/net/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+rename from drivers/net/bna/bfa_defs.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs.h
+diff --git a/drivers/net/bna/bfa_defs_cna.h b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
 similarity index 100%
-rename from drivers/net/atl1c/atl1c_hw.h
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+rename from drivers/net/bna/bfa_defs_cna.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+diff --git a/drivers/net/bna/bfa_defs_mfg_comm.h b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
 similarity index 100%
-rename from drivers/net/atl1c/atl1c_main.c
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-diff --git a/drivers/net/atl1e/Makefile b/drivers/net/ethernet/atheros/atl1e/Makefile
+rename from drivers/net/bna/bfa_defs_mfg_comm.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+diff --git a/drivers/net/bna/bfa_defs_status.h b/drivers/net/ethernet/brocade/bna/bfa_defs_status.h
 similarity index 100%
-rename from drivers/net/atl1e/Makefile
-rename to drivers/net/ethernet/atheros/atl1e/Makefile
-diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
+rename from drivers/net/bna/bfa_defs_status.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs_status.h
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
 similarity index 100%
-rename from drivers/net/atl1e/atl1e.h
-rename to drivers/net/ethernet/atheros/atl1e/atl1e.h
-diff --git a/drivers/net/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+rename from drivers/net/bna/bfa_ioc.c
+rename to drivers/net/ethernet/brocade/bna/bfa_ioc.c
+diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
 similarity index 100%
-rename from drivers/net/atl1e/atl1e_ethtool.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.c
+rename from drivers/net/bna/bfa_ioc.h
+rename to drivers/net/ethernet/brocade/bna/bfa_ioc.h
+diff --git a/drivers/net/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
 similarity index 100%
-rename from drivers/net/atl1e/atl1e_hw.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_hw.c
-diff --git a/drivers/net/atl1e/atl1e_hw.h b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
+rename from drivers/net/bna/bfa_ioc_ct.c
+rename to drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+diff --git a/drivers/net/bna/bfa_sm.h b/drivers/net/ethernet/brocade/bna/bfa_sm.h
 similarity index 100%
-rename from drivers/net/atl1e/atl1e_hw.h
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+rename from drivers/net/bna/bfa_sm.h
+rename to drivers/net/ethernet/brocade/bna/bfa_sm.h
+diff --git a/drivers/net/bna/bfa_wc.h b/drivers/net/ethernet/brocade/bna/bfa_wc.h
 similarity index 100%
-rename from drivers/net/atl1e/atl1e_main.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-diff --git a/drivers/net/atl1e/atl1e_param.c b/drivers/net/ethernet/atheros/atl1e/atl1e_param.c
+rename from drivers/net/bna/bfa_wc.h
+rename to drivers/net/ethernet/brocade/bna/bfa_wc.h
+diff --git a/drivers/net/bna/bfi.h b/drivers/net/ethernet/brocade/bna/bfi.h
 similarity index 100%
-rename from drivers/net/atl1e/atl1e_param.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_param.c
-diff --git a/drivers/net/atlx/Makefile b/drivers/net/ethernet/atheros/atlx/Makefile
+rename from drivers/net/bna/bfi.h
+rename to drivers/net/ethernet/brocade/bna/bfi.h
+diff --git a/drivers/net/bna/bfi_cna.h b/drivers/net/ethernet/brocade/bna/bfi_cna.h
 similarity index 100%
-rename from drivers/net/atlx/Makefile
-rename to drivers/net/ethernet/atheros/atlx/Makefile
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+rename from drivers/net/bna/bfi_cna.h
+rename to drivers/net/ethernet/brocade/bna/bfi_cna.h
+diff --git a/drivers/net/bna/bfi_ctreg.h b/drivers/net/ethernet/brocade/bna/bfi_ctreg.h
 similarity index 100%
-rename from drivers/net/atlx/atl1.c
-rename to drivers/net/ethernet/atheros/atlx/atl1.c
-diff --git a/drivers/net/atlx/atl1.h b/drivers/net/ethernet/atheros/atlx/atl1.h
+rename from drivers/net/bna/bfi_ctreg.h
+rename to drivers/net/ethernet/brocade/bna/bfi_ctreg.h
+diff --git a/drivers/net/bna/bfi_ll.h b/drivers/net/ethernet/brocade/bna/bfi_ll.h
 similarity index 100%
-rename from drivers/net/atlx/atl1.h
-rename to drivers/net/ethernet/atheros/atlx/atl1.h
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
+rename from drivers/net/bna/bfi_ll.h
+rename to drivers/net/ethernet/brocade/bna/bfi_ll.h
+diff --git a/drivers/net/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
 similarity index 100%
-rename from drivers/net/atlx/atl2.c
-rename to drivers/net/ethernet/atheros/atlx/atl2.c
-diff --git a/drivers/net/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
+rename from drivers/net/bna/bna.h
+rename to drivers/net/ethernet/brocade/bna/bna.h
+diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/ethernet/brocade/bna/bna_ctrl.c
 similarity index 100%
-rename from drivers/net/atlx/atl2.h
-rename to drivers/net/ethernet/atheros/atlx/atl2.h
-diff --git a/drivers/net/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
+rename from drivers/net/bna/bna_ctrl.c
+rename to drivers/net/ethernet/brocade/bna/bna_ctrl.c
+diff --git a/drivers/net/bna/bna_hw.h b/drivers/net/ethernet/brocade/bna/bna_hw.h
 similarity index 100%
-rename from drivers/net/atlx/atlx.c
-rename to drivers/net/ethernet/atheros/atlx/atlx.c
-diff --git a/drivers/net/atlx/atlx.h b/drivers/net/ethernet/atheros/atlx/atlx.h
+rename from drivers/net/bna/bna_hw.h
+rename to drivers/net/ethernet/brocade/bna/bna_hw.h
+diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/ethernet/brocade/bna/bna_txrx.c
 similarity index 100%
-rename from drivers/net/atlx/atlx.h
-rename to drivers/net/ethernet/atheros/atlx/atlx.h
+rename from drivers/net/bna/bna_txrx.c
+rename to drivers/net/ethernet/brocade/bna/bna_txrx.c
+diff --git a/drivers/net/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+similarity index 100%
+rename from drivers/net/bna/bna_types.h
+rename to drivers/net/ethernet/brocade/bna/bna_types.h
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+similarity index 100%
+rename from drivers/net/bna/bnad.c
+rename to drivers/net/ethernet/brocade/bna/bnad.c
+diff --git a/drivers/net/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+similarity index 100%
+rename from drivers/net/bna/bnad.h
+rename to drivers/net/ethernet/brocade/bna/bnad.h
+diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+similarity index 100%
+rename from drivers/net/bna/bnad_ethtool.c
+rename to drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+diff --git a/drivers/net/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
+similarity index 100%
+rename from drivers/net/bna/cna.h
+rename to drivers/net/ethernet/brocade/bna/cna.h
+diff --git a/drivers/net/bna/cna_fwimg.c b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
+similarity index 100%
+rename from drivers/net/bna/cna_fwimg.c
+rename to drivers/net/ethernet/brocade/bna/cna_fwimg.c
 -- 
 1.7.5.4
 
