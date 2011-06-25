@@ -1,61 +1,53 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] net, llc: Avoid undefined behaviour in
- llc_conn_ac_inc_vr_by_1()
-Date: Sun, 26 Jun 2011 00:11:12 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1106260009530.23991@swampdragon.chaosbits.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC 11/72] cassini/niu/sun*: Move the Sun drivers
+Date: Sat, 25 Jun 2011 16:56:39 -0700 (PDT)
+Message-ID: <20110625.165639.1842566865962804457.davem@davemloft.net>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1309010363-22750-12-git-send-email-jeffrey.t.kirsher@intel.com>
+	<4E05F4D3.9020407@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	sammy@sammy.net, asun@darksunrising.com, benh@kernel.crashing.org
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:18883 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700Ab1FYWUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 18:20:13 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:59949 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447Ab1FYX7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 19:59:51 -0400
+In-Reply-To: <4E05F4D3.9020407@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce a sequence point (;) between two writes to llc_sk(sk)->vR in
-net/llc/llc_c_ac.c:llc_conn_ac_inc_vr_by_1() so that the order in
-which the writes happen become well defined.
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Sat, 25 Jun 2011 16:46:43 +0200
 
-While the code may work fine now it may break at any time with a
-different compiler, a new version of current compiler or even just a
-different optimization level of the current compiler. Much better to
-clearly express what's intended in a way that guarantees the result.
+> On 25.06.2011 15:58, Jeff Kirsher wrote:
+>> Moves the Sun drivers into drivers/net/ethernet/sun/ and make
+>> the necessary Kconfig and Makefile changes.
+>> 
+> 
+> (..)
+> 
+>> ---
+>>  MAINTAINERS                                 |    1 +
+>>  drivers/net/Kconfig                         |   75 ----------------------
+>>  drivers/net/Makefile                        |   11 +---
+>>  drivers/net/ethernet/Kconfig                |    1 +
+>>  drivers/net/ethernet/Makefile               |    1 +
+>>  drivers/net/ethernet/sun/Kconfig            |   91 +++++++++++++++++++++++++++
+>>  drivers/net/ethernet/sun/Makefile           |   12 ++++
+>>  drivers/net/{ => ethernet/sun}/cassini.c    |    0
+>>  drivers/net/{ => ethernet/sun}/cassini.h    |    0
+>>  drivers/net/{ => ethernet/sun}/niu.c        |    0
+>>  drivers/net/{ => ethernet/sun}/niu.h        |    0
+>>  drivers/net/{ => ethernet/sun}/sun3_82586.c |    0
+>>  drivers/net/{ => ethernet/sun}/sun3_82586.h |    0
+> 
+> s/sun3_// in filenames?
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- net/llc/llc_c_ac.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+It's a special instance of the chip which only ever
+appears on the motherboard of m68k based sun3 systems.
 
-diff --git a/net/llc/llc_c_ac.c b/net/llc/llc_c_ac.c
-index ea225bd..e535ca4 100644
---- a/net/llc/llc_c_ac.c
-+++ b/net/llc/llc_c_ac.c
-@@ -1296,7 +1296,14 @@ int llc_conn_ac_set_vr_0(struct sock *sk, struct sk_buff *skb)
- 
- int llc_conn_ac_inc_vr_by_1(struct sock *sk, struct sk_buff *skb)
- {
--	llc_sk(sk)->vR = PDU_GET_NEXT_Vr(llc_sk(sk)->vR);
-+	/* Do not consolidate this on one line. Since the PDU_GET_NEXT_Vr
-+	   macro increments its argument which is the same as what we are
-+	   writing to, then we'll have two writes to the same variable
-+	   without an intervening sequence point, which leads to the
-+	   situation where we can't really know what gets stored as the
-+	   result since the compiler is free to do those in any order. */
-+	const u8 new_vr = PDU_GET_NEXT_Vr(llc_sk(sk)->vR);
-+	llc_sk(sk)->vR = new_vr;
- 	return 0;
- }
- 
--- 
-1.7.5.2
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
-
+The sun3 prefix is absolutely appropriate.
