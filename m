@@ -1,71 +1,45 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [RFC 54/72] au1000_eth/mipsnet/tc35815: Move the MIPS drivers
-Date: Sat, 25 Jun 2011 17:13:53 +0100
-Message-ID: <20110625161353.GA20976@linux-mips.org>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1309010363-22750-55-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Geoff Levand <geoff@infradead.org>
+Subject: Re: [RFC 52/72] ps3_gelic*: Move the Sony (PS3) drivers
+Date: Sat, 25 Jun 2011 09:25:02 -0700
+Message-ID: <4E060BDE.9020004@infradead.org>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Herbert Valerio Riedel <hvr@gnu.org>,
-	MontaVista Software <source@mvista.com>,
-	Kyle McMartin <kyle@mcmartin.ca>, Helge Deller <deller@gmx.de>,
-	"James E.J. Bottomley" <jejb@parisc-linux.org>,
-	linux-parisc@vger.kernel.org, Sam Creasey <sammy@sammy.net>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-m68k@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1309010363-22750-55-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:46512
+	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751581Ab1FYQZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:25:03 -0400
+In-Reply-To: <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 25, 2011 at 06:59:05AM -0700, Jeff Kirsher wrote:
+Hi Jeff,
 
-> Move the MIPS drivers into drivers/net/ethernet/mips/ and
+On 06/25/2011 06:59 AM, Jeff Kirsher wrote:
+> Move the Sony drivers into drivers/net/ethernet/sony/ and
 > make the necessary Kconfig and Makefile changes.
 
-NAck.
+This looks OK, but as Arnd mentioned, it makes sense to put these
+with the toshiba spider_net drivers.
 
-sni_82596.c is a driver for the same chip but used in particular Siemens-
-Nixdorf systems.  Lasi_82596 is an Intel NIC being used in PARISC systems.
-Not a good reason th throw PA-RISC drivers into the same directory after
-all PA-RISC has no relation to MIPS at all.  So maybe they should go into
-drivers/net/ethernet/i82596 or drivers/net/ethernet/intel.  And wherever
-they go, both drivers #include lib82596.c which your patch did not move
-around.
+> TODO: separate the wired and wireless drivers and relocate the wireless
+> dirver into drivers/net/wireless/
 
-It seems that lp486e should probably go into the same directory and I
-suspect ni52 and sun3_82586 are close enough that they should also in
-the faint hope that somebody will factor out the common code.
+I'm not sure if it makes sense to split this into separate drivers.
 
-MIPSnet is a driver for the emulated network card of MIPSsim, a software
-simulator by MIPS Technologies and the only net thingy in your patch that
-truely is "MIPS".
+The PS3 doesn't have separate wireless and Ethernet devices.  The wireless
+hardware is hooked up to the gelic Ethernet controller, and VLAN tags are
+used to route the packets.  The wireless support is more or less
+an extension of the base gelic device. 
 
-The remaining happen to be used by particular systems that happen to be
-based on a MIPS processor but there is no technial communality.  MIPS is
-a processor architecture - not a system architecture and grouping things
-by processor architecture hasn't worked so well imho for other things in
-the past, see for example sound.
+A little more info on it is here:
 
-If we're already moving things around maybe au1000_net.[ch] can be renamed
-to alchemy.[ch].
+  http://www.kernel.org/pub/linux/kernel/people/geoff/cell/ps3-linux-docs/ps3-linux-docs-latest/LinuxKernelOverview.html
 
-Your patch moves the Makefile and Kconfig bits of lantiq_etop but doesn't
-move the actual lantiq_etop.c driver.
+Let me know what you think.
 
-> +++ b/drivers/net/ethernet/mips/Kconfig
-> @@ -0,0 +1,61 @@
-> +#
-> +# MIPS device configuration
-> +#
-> +
-> +config NET_MIPS
-> +	bool "MIPS/PS-RISC devices"
-
-It's speeled PA-RISC.
-
-  Ralf
+-Geoff
