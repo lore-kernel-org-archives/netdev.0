@@ -1,206 +1,237 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 52/72] ps3_gelic*: Move the Sony (PS3) drivers
-Date: Sat, 25 Jun 2011 06:59:03 -0700
-Message-ID: <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 55/72] bfin_mac: Move the Blackfin driver
+Date: Sat, 25 Jun 2011 06:59:06 -0700
+Message-ID: <1309010363-22750-56-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Geoff Levand <geoff@infradead.org>
+	Michael Hennerich <michael.hennerich@analog.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:41778 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:37787 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752329Ab1FYOAV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:21 -0400
+	id S1752436Ab1FYOA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:27 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Sony drivers into drivers/net/ethernet/sony/ and
+Move the Blackfin driver into drivers/net/ethernet/blackfin/ and
 make the necessary Kconfig and Makefile changes.
 
-TODO: separate the wired and wireless drivers and relocate the wireless
-dirver into drivers/net/wireless/
-
-CC: Geoff Levand <geoff@infradead.org>
+CC: Michael Hennerich <michael.hennerich@analog.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |   23 ------------
- drivers/net/Makefile                               |    3 --
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/sony/Kconfig                  |   38 ++++++++++++++++++++
- drivers/net/ethernet/sony/Makefile                 |    7 ++++
- drivers/net/{ => ethernet/sony}/ps3_gelic_net.c    |    0
- drivers/net/{ => ethernet/sony}/ps3_gelic_net.h    |    0
- .../net/{ => ethernet/sony}/ps3_gelic_wireless.c   |    0
- .../net/{ => ethernet/sony}/ps3_gelic_wireless.h   |    0
- 11 files changed, 48 insertions(+), 27 deletions(-)
- create mode 100644 drivers/net/ethernet/sony/Kconfig
- create mode 100644 drivers/net/ethernet/sony/Makefile
- rename drivers/net/{ => ethernet/sony}/ps3_gelic_net.c (100%)
- rename drivers/net/{ => ethernet/sony}/ps3_gelic_net.h (100%)
- rename drivers/net/{ => ethernet/sony}/ps3_gelic_wireless.c (100%)
- rename drivers/net/{ => ethernet/sony}/ps3_gelic_wireless.h (100%)
+ MAINTAINERS                                    |    2 +-
+ drivers/net/Kconfig                            |   46 -----------------
+ drivers/net/Makefile                           |    1 -
+ drivers/net/ethernet/Kconfig                   |    1 +
+ drivers/net/ethernet/Makefile                  |    1 +
+ drivers/net/ethernet/blackfin/Kconfig          |   65 ++++++++++++++++++++++++
+ drivers/net/ethernet/blackfin/Makefile         |    5 ++
+ drivers/net/{ => ethernet/blackfin}/bfin_mac.c |    0
+ drivers/net/{ => ethernet/blackfin}/bfin_mac.h |    0
+ 9 files changed, 73 insertions(+), 48 deletions(-)
+ create mode 100644 drivers/net/ethernet/blackfin/Kconfig
+ create mode 100644 drivers/net/ethernet/blackfin/Makefile
+ rename drivers/net/{ => ethernet/blackfin}/bfin_mac.c (100%)
+ rename drivers/net/{ => ethernet/blackfin}/bfin_mac.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index a59a17a..53e2d11 100644
+index 53e2d11..506d4d0 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -5049,7 +5049,7 @@ M:	Geoff Levand <geoff@infradead.org>
- L:	netdev@vger.kernel.org
- L:	cbe-oss-dev@lists.ozlabs.org
- S:	Maintained
--F:	drivers/net/ps3_gelic_net.*
-+F:	drivers/net/ethernet/sony/ps3_gelic_net.*
+@@ -1426,7 +1426,7 @@ M:	Michael Hennerich <michael.hennerich@analog.com>
+ L:	uclinux-dist-devel@blackfin.uclinux.org
+ W:	http://blackfin.uclinux.org
+ S:	Supported
+-F:	drivers/net/bfin_mac.*
++F:	drivers/net/ethernet/blackfin/
  
- PS3 PLATFORM SUPPORT
- M:	Geoff Levand <geoff@infradead.org>
+ BLACKFIN RTC DRIVER
+ M:	Mike Frysinger <vapier.adi@gmail.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 366538b..211679e 100644
+index 29eca29..9709106 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -605,29 +605,6 @@ menuconfig NETDEV_1000
+@@ -250,52 +250,6 @@ config SH_ETH
+ 	  This driver supporting CPUs are:
+ 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
  
- if NETDEV_1000
- 
--config GELIC_NET
--	tristate "PS3 Gigabit Ethernet driver"
--	depends on PPC_PS3
--	select PS3_SYS_MANAGER
+-config BFIN_MAC
+-	tristate "Blackfin on-chip MAC support"
+-	depends on NET_ETHERNET && (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
+-	select CRC32
+-	select MII
+-	select PHYLIB
+-	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
 -	help
--	  This driver supports the network device on the PS3 game
--	  console.  This driver has built-in support for Ethernet.
+-	  This is the driver for Blackfin on-chip mac device. Say Y if you want it
+-	  compiled into the kernel. This driver is also available as a module
+-	  ( = code which can be inserted in and removed from the running kernel
+-	  whenever you want). The module will be called bfin_mac.
 -
--	  To compile this driver as a module, choose M here: the
--	  module will be called ps3_gelic.
--
--config GELIC_WIRELESS
--	bool "PS3 Wireless support"
--	depends on WLAN
--	depends on GELIC_NET
--	select WIRELESS_EXT
+-config BFIN_MAC_USE_L1
+-	bool "Use L1 memory for rx/tx packets"
+-	depends on BFIN_MAC && (BF527 || BF537)
+-	default y
 -	help
--	  This option adds the support for the wireless feature of PS3.
--	  If you have the wireless-less model of PS3 or have no plan to
--	  use wireless feature, disabling this option saves memory.  As
--	  the driver automatically distinguishes the models, you can
--	  safely enable this option even if you have a wireless-less model.
+-	  To get maximum network performance, you should use L1 memory as rx/tx buffers.
+-	  Say N here if you want to reserve L1 memory for other uses.
 -
- endif # NETDEV_1000
- 
- #
+-config BFIN_TX_DESC_NUM
+-	int "Number of transmit buffer packets"
+-	depends on BFIN_MAC
+-	range 6 10 if BFIN_MAC_USE_L1
+-	range 10 100
+-	default "10"
+-	help
+-	  Set the number of buffer packets used in driver.
+-
+-config BFIN_RX_DESC_NUM
+-	int "Number of receive buffer packets"
+-	depends on BFIN_MAC
+-	range 20 100 if BFIN_MAC_USE_L1
+-	range 20 800
+-	default "20"
+-	help
+-	  Set the number of buffer packets used in driver.
+-
+-config BFIN_MAC_USE_HWSTAMP
+-	bool "Use IEEE 1588 hwstamp"
+-	depends on BFIN_MAC && BF518
+-	default y
+-	help
+-	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+-
+ config NET_NETX
+ 	tristate "NetX Ethernet support"
+ 	select MII
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index b5e25f1..5413c17 100644
+index 4315328..5c189ab 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -19,9 +19,6 @@ obj-$(CONFIG_ROADRUNNER) += rrunner.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
- obj-$(CONFIG_FEALNX) += fealnx.o
--obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
--gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
--ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
- obj-$(CONFIG_TC35815) += tc35815.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+@@ -62,7 +62,6 @@ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
+-obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 4bafe48..fda90fc 100644
+index ef622d2..fede911 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -106,6 +106,7 @@ source "drivers/net/ethernet/sfc/Kconfig"
- source "drivers/net/ethernet/sgi/Kconfig"
- source "drivers/net/ethernet/smc/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
-+source "drivers/net/ethernet/sony/Kconfig"
- source "drivers/net/ethernet/stmicro/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
- source "drivers/net/ethernet/syskonnect/Kconfig"
+@@ -39,6 +39,7 @@ config ARIADNE
+ 
+ source "drivers/net/ethernet/arm/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
++source "drivers/net/ethernet/blackfin/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 0b6ffde..3588c50 100644
+index 1ab5f1f..b8cc6ef 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -44,6 +44,7 @@ obj-$(CONFIG_SFC) += sfc/
- obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
- obj-$(CONFIG_NET_VENDOR_SMC) += smc/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
-+obj-$(CONFIG_NET_VENDOR_SONY) += sony/
- obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
- obj-$(CONFIG_NET_VENDOR_SYSKONNECT) += syskonnect/
-diff --git a/drivers/net/ethernet/sony/Kconfig b/drivers/net/ethernet/sony/Kconfig
+@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_ARIADNE) += ariadne.o
+ obj-$(CONFIG_NET_ARM) += arm/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
++obj-$(CONFIG_NET_BFIN) += blackfin/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+diff --git a/drivers/net/ethernet/blackfin/Kconfig b/drivers/net/ethernet/blackfin/Kconfig
 new file mode 100644
-index 0000000..183ddf0
+index 0000000..a2c8a3b
 --- /dev/null
-+++ b/drivers/net/ethernet/sony/Kconfig
-@@ -0,0 +1,38 @@
++++ b/drivers/net/ethernet/blackfin/Kconfig
+@@ -0,0 +1,65 @@
 +#
-+# Sony (PS3) device configuration
++# Blackfin device configuration
 +#
 +
-+config NET_VENDOR_SONY
-+	bool "Sony (PS3) devices"
-+	depends on PPC_PS3
++config NET_BFIN
++	bool "Blackfin devices"
++	depends on BF516 || BF518 || BF526 || BF527 || BF536 || BF537
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  If you have a network (Ethernet) card belonging to this class, say Y.
++	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
++	  available from <http://www.tldp.org/docs.html#howto>.
++
++	  If unsure, say Y.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Sony devices. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the remaining Blackfin card questions. If you say Y, you will be
++	  asked for your specific card in the following questions.
 +
-+config GELIC_NET
-+	tristate "PS3 Gigabit Ethernet driver"
-+	depends on NET_VENDOR_SONY && PPC_PS3
-+	select PS3_SYS_MANAGER
++config BFIN_MAC
++	tristate "Blackfin on-chip MAC support"
++	depends on NET_BFIN && (BF516 || BF518 || BF526 || BF527 || \
++		 BF536 || BF537)
++	select CRC32
++	select MII
++	select PHYLIB
++	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
 +	---help---
-+	  This driver supports the network device on the PS3 game
-+	  console.  This driver has built-in support for Ethernet.
++	  This is the driver for Blackfin on-chip mac device. Say Y if you want
++	  it compiled into the kernel. This driver is also available as a
++	  module ( = code which can be inserted in and removed from the running
++	  kernel whenever you want). The module will be called bfin_mac.
 +
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called ps3_gelic.
-+
-+config GELIC_WIRELESS
-+	bool "PS3 Wireless support"
-+	depends on NET_VENDOR_SONY && GELIC_NET && WLAN
-+	select WIRELESS_EXT
++config BFIN_MAC_USE_L1
++	bool "Use L1 memory for rx/tx packets"
++	depends on BFIN_MAC && (BF527 || BF537)
++	default y
 +	---help---
-+	  This option adds the support for the wireless feature of PS3.
-+	  If you have the wireless-less model of PS3 or have no plan to
-+	  use wireless feature, disabling this option saves memory.  As
-+	  the driver automatically distinguishes the models, you can
-+	  safely enable this option even if you have a wireless-less model.
-diff --git a/drivers/net/ethernet/sony/Makefile b/drivers/net/ethernet/sony/Makefile
++	  To get maximum network performance, you should use L1 memory as rx/tx
++	  buffers. Say N here if you want to reserve L1 memory for other uses.
++
++config BFIN_TX_DESC_NUM
++	int "Number of transmit buffer packets"
++	depends on BFIN_MAC
++	range 6 10 if BFIN_MAC_USE_L1
++	range 10 100
++	default "10"
++	---help---
++	  Set the number of buffer packets used in driver.
++
++config BFIN_RX_DESC_NUM
++	int "Number of receive buffer packets"
++	depends on BFIN_MAC
++	range 20 100 if BFIN_MAC_USE_L1
++	range 20 800
++	default "20"
++	---help---
++	  Set the number of buffer packets used in driver.
++
++config BFIN_MAC_USE_HWSTAMP
++	bool "Use IEEE 1588 hwstamp"
++	depends on BFIN_MAC && BF518
++	default y
++	---help---
++	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+diff --git a/drivers/net/ethernet/blackfin/Makefile b/drivers/net/ethernet/blackfin/Makefile
 new file mode 100644
-index 0000000..2c6f934
+index 0000000..b1fbe19
 --- /dev/null
-+++ b/drivers/net/ethernet/sony/Makefile
-@@ -0,0 +1,7 @@
++++ b/drivers/net/ethernet/blackfin/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the Sony (PS3) network devices.
++# Makefile for the Blackfin device drivers.
 +#
 +
-+obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-+gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
-+ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
-diff --git a/drivers/net/ps3_gelic_net.c b/drivers/net/ethernet/sony/ps3_gelic_net.c
++obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/ethernet/blackfin/bfin_mac.c
 similarity index 100%
-rename from drivers/net/ps3_gelic_net.c
-rename to drivers/net/ethernet/sony/ps3_gelic_net.c
-diff --git a/drivers/net/ps3_gelic_net.h b/drivers/net/ethernet/sony/ps3_gelic_net.h
+rename from drivers/net/bfin_mac.c
+rename to drivers/net/ethernet/blackfin/bfin_mac.c
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/ethernet/blackfin/bfin_mac.h
 similarity index 100%
-rename from drivers/net/ps3_gelic_net.h
-rename to drivers/net/ethernet/sony/ps3_gelic_net.h
-diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ethernet/sony/ps3_gelic_wireless.c
-similarity index 100%
-rename from drivers/net/ps3_gelic_wireless.c
-rename to drivers/net/ethernet/sony/ps3_gelic_wireless.c
-diff --git a/drivers/net/ps3_gelic_wireless.h b/drivers/net/ethernet/sony/ps3_gelic_wireless.h
-similarity index 100%
-rename from drivers/net/ps3_gelic_wireless.h
-rename to drivers/net/ethernet/sony/ps3_gelic_wireless.h
+rename from drivers/net/bfin_mac.h
+rename to drivers/net/ethernet/blackfin/bfin_mac.h
 -- 
 1.7.5.4
 
