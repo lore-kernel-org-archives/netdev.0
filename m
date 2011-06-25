@@ -1,39 +1,36 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 26/72] arm: Move the ARM/ACORN drivers
-Date: Sat, 25 Jun 2011 16:50:43 +0200
-Message-ID: <201106251650.43541.arnd@arndb.de>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-27-git-send-email-jeffrey.t.kirsher@intel.com> <201106251648.03574.arnd@arndb.de>
+Subject: Re: [RFC 52/72] ps3_gelic*: Move the Sony (PS3) drivers
+Date: Sat, 25 Jun 2011 16:54:53 +0200
+Message-ID: <201106251654.53606.arnd@arndb.de>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, Sriram <srk@ti.com>,
-	Vinay Hegde <vinay.hegde@ti.com>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Wan ZongShun <mcuos.com@gmail.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Anant Gole <anantgole@ti.com>,
-	Chaithrika U S <chaithrika@ti.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Geoff Levand <geoff@infradead.org>
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:64327 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.9]:62629 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751933Ab1FYOut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 10:50:49 -0400
-In-Reply-To: <201106251648.03574.arnd@arndb.de>
+	with ESMTP id S1751038Ab1FYOzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 10:55:04 -0400
+In-Reply-To: <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 25 June 2011, Arnd Bergmann wrote:
-> >  drivers/net/{ => ethernet}/arm/ks8695net.c     |    0
-> >  drivers/net/{ => ethernet}/arm/ks8695net.h     |    0
-> >  drivers/net/{ => ethernet}/arm/w90p910_ether.c |    0
+On Saturday 25 June 2011, Jeff Kirsher wrote:
 > 
-> not sure about these.
+> Move the Sony drivers into drivers/net/ethernet/sony/ and
+> make the necessary Kconfig and Makefile changes.
+> 
+> TODO: separate the wired and wireless drivers and relocate the wireless
+> dirver into drivers/net/wireless/
+> 
+> CC: Geoff Levand <geoff@infradead.org>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Actually, you do have a directory for Micrel, so you you put
-ks8695net.c together with ks88*.c.
+This one is the same hardware as spider_net, just with the PS3 hypervisor
+layer inbetween. I'd suggest moving that to a Toshiba directory as well.
 
 	Arnd
