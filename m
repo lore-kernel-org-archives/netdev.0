@@ -1,49 +1,39 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 42/72] 82586.c/fec*: Move the Motorola drivers
-Date: Sat, 25 Jun 2011 18:53:59 +0200
-Message-ID: <201106251854.00096.arnd@arndb.de>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-43-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] NET: TC35815: Only build driver on Toshiba eval boards.
+Date: Sat, 25 Jun 2011 17:54:09 +0100
+Message-ID: <20110625165409.GA1760@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Dan Malek <dmalek@jlc.net>, Sylvain Munaut <tnt@246tnt.com>,
-	Richard Hirst <richard@sleepie.demon.co.uk>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:60297 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412Ab1FYQyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:54:09 -0400
-In-Reply-To: <1309010363-22750-43-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:53471 "EHLO duck.linux-mips.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751617Ab1FYQyV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 12:54:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 25 June 2011, Jeff Kirsher wrote:
-> Move the Motorola drivers into drivers/net/ethernet/motorola/ and
-> make the necessary Kconfig and Makefile changes
-> 
-> CC: Dan Malek <dmalek@jlc.net>
-> CC: Sylvain Munaut <tnt@246tNt.com>
-> CC: Richard Hirst <richard@sleepie.demon.co.uk>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/Kconfig                                |   69 ---------------
->  drivers/net/Makefile                               |    9 --
->  drivers/net/ethernet/Kconfig                       |    1 +
->  drivers/net/ethernet/Makefile                      |    1 +
->  drivers/net/{ => ethernet/motorola}/82596.c        |    0
->  drivers/net/ethernet/motorola/Kconfig              |   88 ++++++++++++++++++++
->  drivers/net/ethernet/motorola/Makefile             |   13 +++
->  drivers/net/{ => ethernet/motorola}/fec.c          |    0
->  drivers/net/{ => ethernet/motorola}/fec.h          |    0
->  drivers/net/{ => ethernet/motorola}/fec_mpc52xx.c  |    0
->  drivers/net/{ => ethernet/motorola}/fec_mpc52xx.h  |    0
->  .../net/{ => ethernet/motorola}/fec_mpc52xx_phy.c  |    0
->  12 files changed, 103 insertions(+), 78 deletions(-)
+That's the only place where the TC35815 is known to be used.
 
-The part of Motorola that made these originally is now known as
-Freescale, so put these together with the other freescale parts.
+  Ralf
 
-	Arnd
+ drivers/net/Kconfig |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index be25e92..2b4ebfb 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1516,7 +1516,8 @@ config CS89x0_NONISA_IRQ
+ 
+ config TC35815
+ 	tristate "TOSHIBA TC35815 Ethernet support"
+-	depends on NET_PCI && PCI && MIPS
++	depends on NET_PCI && PCI && MACH_TXX9
++	default y
+ 	select PHYLIB
+ 
+ config E100
