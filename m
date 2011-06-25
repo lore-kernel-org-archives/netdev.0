@@ -1,36 +1,49 @@
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: Re: [AX25] inconsistent lock state
-Date: Sat, 25 Jun 2011 17:39:42 +0100
-Message-ID: <20110625163942.GB20976@linux-mips.org>
-References: <4B2CD772.1030106@upmc.fr>
- <201106171536.15660.arnd@arndb.de>
- <20110617135147.GA3470@linux-mips.org>
- <201106171611.10655.arnd@arndb.de>
- <4E06040B.7040309@free.fr>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC 42/72] 82586.c/fec*: Move the Motorola drivers
+Date: Sat, 25 Jun 2011 18:53:59 +0200
+Message-ID: <201106251854.00096.arnd@arndb.de>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-43-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams@vger.kernel.org
-To: f6bvp <f6bvp@free.fr>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dan Malek <dmalek@jlc.net>, Sylvain Munaut <tnt@246tnt.com>,
+	Richard Hirst <richard@sleepie.demon.co.uk>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:57819 "EHLO duck.linux-mips.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750951Ab1FYQjs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 12:39:48 -0400
-Content-Disposition: inline
-In-Reply-To: <4E06040B.7040309@free.fr>
+Received: from moutng.kundenserver.de ([212.227.126.171]:60297 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412Ab1FYQyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 12:54:09 -0400
+In-Reply-To: <1309010363-22750-43-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 25, 2011 at 05:51:39PM +0200, f6bvp wrote:
+On Saturday 25 June 2011, Jeff Kirsher wrote:
+> Move the Motorola drivers into drivers/net/ethernet/motorola/ and
+> make the necessary Kconfig and Makefile changes
+> 
+> CC: Dan Malek <dmalek@jlc.net>
+> CC: Sylvain Munaut <tnt@246tNt.com>
+> CC: Richard Hirst <richard@sleepie.demon.co.uk>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/Kconfig                                |   69 ---------------
+>  drivers/net/Makefile                               |    9 --
+>  drivers/net/ethernet/Kconfig                       |    1 +
+>  drivers/net/ethernet/Makefile                      |    1 +
+>  drivers/net/{ => ethernet/motorola}/82596.c        |    0
+>  drivers/net/ethernet/motorola/Kconfig              |   88 ++++++++++++++++++++
+>  drivers/net/ethernet/motorola/Makefile             |   13 +++
+>  drivers/net/{ => ethernet/motorola}/fec.c          |    0
+>  drivers/net/{ => ethernet/motorola}/fec.h          |    0
+>  drivers/net/{ => ethernet/motorola}/fec_mpc52xx.c  |    0
+>  drivers/net/{ => ethernet/motorola}/fec_mpc52xx.h  |    0
+>  .../net/{ => ethernet/motorola}/fec_mpc52xx_phy.c  |    0
+>  12 files changed, 103 insertions(+), 78 deletions(-)
 
-> I applied the patch and since then I could not reproduce the
-> inconsistent lock state.
-> Thus mkiss patch fixed it.
+The part of Motorola that made these originally is now known as
+Freescale, so put these together with the other freescale parts.
 
-I also think the patch is the right thing, so
-
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
-
-  Ralf
+	Arnd
