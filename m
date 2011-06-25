@@ -1,58 +1,53 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH v2] vmxnet3: Enable GRO support.
-Date: Fri, 24 Jun 2011 17:24:35 -0700
-Message-ID: <1308961475-25055-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, Shreyas Bhatewara <sbhatewara@vmware.com>,
-	Scott Goldman <scottjg@vmware.com>,
-	VMware PV-Drivers <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
+Subject: Re: [Pv-drivers] [PATCH] vmxnet3: Enable GRO support.
+Date: Fri, 24 Jun 2011 17:25:52 -0700
+Message-ID: <BANLkTi=MeFB8xvz22pNcgWU7SHcABsm7tA@mail.gmail.com>
+References: <1308947605-4300-1-git-send-email-jesse@nicira.com>
+ <03E840D17E263A48A5766AD576E0423A0129262BB5@exch-mbx-111.vmware.com>
+ <BANLkTi=OJSnGQ99cG-QaaxxMp1od3KGCKQ@mail.gmail.com> <03E840D17E263A48A5766AD576E0423A0129262C0A@exch-mbx-111.vmware.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Scott Goldman <scottjg@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:35457 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411Ab1FYAYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 20:24:43 -0400
-Received: by mail-pz0-f46.google.com with SMTP id 9so2060171pzk.19
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 17:24:42 -0700 (PDT)
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:36043 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752128Ab1FYA0N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 20:26:13 -0400
+Received: by vxb39 with SMTP id 39so2321747vxb.19
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 17:26:12 -0700 (PDT)
+In-Reply-To: <03E840D17E263A48A5766AD576E0423A0129262C0A@exch-mbx-111.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When receiving packets from another guest on the same hypervisor, it's
-generally possible to receive large packets because no segmentation is
-necessary and these packets are handled by LRO.  However, when doing
-routing or bridging we must disable LRO and lose this benefit.  In
-these cases GRO can still be used and it is very effective because the
-packets which are segmented in the hypervisor are received very close
-together and can easily be merged.
+On Fri, Jun 24, 2011 at 4:23 PM, Scott Goldman <scottjg@vmware.com> wro=
+te:
+>> As an aside, in many cases the hypervisor actually has all of the
+>> information that is necessary to keep LRO on but does not provide it
+>> to the guest. =C2=A0For example, in the VM-to-VM case the MSS is pro=
+vided
+>> by the sender as part of the TSO descriptor and if given to the
+>> receiver we could generate a GSO frame and avoid the need to do GRO =
+in
+>> the first place. =C2=A0Do you know if it is possible to do this?
+>
+> I think that sounds like a pretty good idea, but if I understand corr=
+ectly, that change needs to go in the hypervisor, not just the driver. =
+The device emulation backend needs to populate that MSS somewhere in th=
+e receive descriptor. I will file an internal bug about it, but just to=
+ set expectations, ESX 5.0 is about to be released, so realistically at=
+ the earliest, this change may not be publically available for another =
+year.
 
-CC: Shreyas Bhatewara <sbhatewara@vmware.com>
-CC: Scott Goldman <scottjg@vmware.com>
-CC: VMware PV-Drivers <pv-drivers@vmware.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
-This applies on top of my previous vmxnet3 patch
-"vmxnet3: Convert to new vlan model."
+I had hoped that maybe the information was already being populated by
+the hypervisor but not used by the driver.  However, from what I have
+gathered that's not the case.
 
-v2: Only use GRO when LRO is not active as suggested by Scott Goldman.
----
- drivers/net/vmxnet3/vmxnet3_drv.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+> P.S. Ronghua, the vmxnet3 mastermind, works at Nicira now. If you see=
+ him, tell him I said hi.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index c84b1dd..2c14736 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1234,7 +1234,10 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 			if (unlikely(rcd->ts))
- 				__vlan_hwaccel_put_tag(skb, rcd->tci);
- 
--			netif_receive_skb(skb);
-+			if (adapter->netdev->features & NETIF_F_LRO)
-+				netif_receive_skb(skb);
-+			else
-+				napi_gro_receive(&rq->napi, skb);
- 
- 			ctx->skb = NULL;
- 		}
--- 
-1.7.4.1
-
+Sure, I'll say hi next time I see him.
