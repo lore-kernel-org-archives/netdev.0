@@ -1,231 +1,286 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 38/72] ks8*/ksz8*: Move the Micrel drivers
-Date: Sat, 25 Jun 2011 06:58:49 -0700
-Message-ID: <1309010363-22750-39-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 17/72] s2io/vxge: Move the Exar drivers
+Date: Sat, 25 Jun 2011 06:58:28 -0700
+Message-ID: <1309010363-22750-18-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Ben Dooks <ben@simtec.co.uk>,
-	Tristram Ha <Tristram.Ha@micrel.com>
+	Jon Mason <jdmason@kudzu.us>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37770 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:13697 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752148Ab1FYOAH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752149Ab1FYOAH (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 25 Jun 2011 10:00:07 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Micrel drivers into drivers/net/ethernet/micrel/ and
-make the necessary Kconfig and Makefile changes.
+Move the Exar drivers into drivers/net/ethernet/neterion/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Ben Dooks <ben@simtec.co.uk>
-CC: Tristram Ha <Tristram.Ha@micrel.com>
+CC: Jon Mason <jdmason@kudzu.us>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                            |   35 ----------------
- drivers/net/Makefile                           |    4 --
- drivers/net/ethernet/Kconfig                   |    1 +
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/ethernet/micrel/Kconfig            |   51 ++++++++++++++++++++++++
- drivers/net/ethernet/micrel/Makefile           |    8 ++++
- drivers/net/{ => ethernet/micrel}/ks8842.c     |    0
- drivers/net/{ => ethernet/micrel}/ks8851.c     |    0
- drivers/net/{ => ethernet/micrel}/ks8851.h     |    0
- drivers/net/{ => ethernet/micrel}/ks8851_mll.c |    0
- drivers/net/{ => ethernet/micrel}/ksz884x.c    |    0
- 11 files changed, 61 insertions(+), 39 deletions(-)
- create mode 100644 drivers/net/ethernet/micrel/Kconfig
- create mode 100644 drivers/net/ethernet/micrel/Makefile
- rename drivers/net/{ => ethernet/micrel}/ks8842.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851.h (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851_mll.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ksz884x.c (100%)
+ MAINTAINERS                                        |    3 +-
+ drivers/net/Kconfig                                |   34 -------------
+ drivers/net/Makefile                               |    2 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/neterion/Kconfig              |   50 ++++++++++++++++++++
+ drivers/net/ethernet/neterion/Makefile             |    6 ++
+ drivers/net/{ => ethernet/neterion}/s2io-regs.h    |    0
+ drivers/net/{ => ethernet/neterion}/s2io.c         |    0
+ drivers/net/{ => ethernet/neterion}/s2io.h         |    0
+ drivers/net/{ => ethernet/neterion}/vxge/Makefile  |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-config.c |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-config.h |    0
+ .../{ => ethernet/neterion}/vxge/vxge-ethtool.c    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-ethtool.h    |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-main.c   |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-main.h   |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-reg.h    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-traffic.c    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-traffic.h    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-version.h    |    0
+ 21 files changed, 59 insertions(+), 38 deletions(-)
+ create mode 100644 drivers/net/ethernet/neterion/Kconfig
+ create mode 100644 drivers/net/ethernet/neterion/Makefile
+ rename drivers/net/{ => ethernet/neterion}/s2io-regs.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/s2io.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/s2io.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/Makefile (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-reg.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-version.h (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 81dfcff..816c665 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4321,9 +4321,8 @@ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
+ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
+ S:	Supported
+ F:	Documentation/networking/s2io.txt
+-F:	drivers/net/s2io*
+ F:	Documentation/networking/vxge.txt
+-F:	drivers/net/vxge/
++F:	drivers/net/ethernet/neterion/
+ 
+ NETFILTER/IPTABLES/IPCHAINS
+ P:	Rusty Russell
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 71efe31..be261ec 100644
+index 6b58ee3..6294de0 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -531,17 +531,6 @@ config ADAPTEC_STARFIRE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called starfire.  This is recommended.
+@@ -1668,40 +1668,6 @@ config ENIC
+ 	help
+ 	  This enables the support for the Cisco VIC Ethernet card.
  
--config KSZ884X_PCI
--	tristate "Micrel KSZ8841/2 PCI"
--	depends on NET_PCI && PCI
--	select MII
--	select CRC32
--	help
--	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
+-config S2IO
+-	tristate "Exar Xframe 10Gb Ethernet Adapter"
+-	depends on PCI
+-	---help---
+-	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
+-
+-	  More specific information on configuring the driver is in 
+-	  <file:Documentation/networking/s2io.txt>.
 -
 -	  To compile this driver as a module, choose M here. The module
--	  will be called ksz884x.
+-	  will be called s2io.
 -
- config APRICOT
- 	tristate "Apricot Xen-II on board Ethernet"
- 	depends on NET_PCI && ISA
-@@ -645,30 +634,6 @@ config TLAN
- 
- 	  Please email feedback to <torben.mathiasen@compaq.com>.
- 
--config KS8842
--	tristate "Micrel KSZ8841/42 with generic bus interface"
--	depends on HAS_IOMEM && DMA_ENGINE
--	help
--	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
--	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
--	  Timberdale(FPGA).
+-config VXGE
+-	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
+-	depends on PCI && INET
+-	---help---
+-	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
+-	  I/O Virtualized Server Adapter.
 -
--config KS8851
--	tristate "Micrel KS8851 SPI"
--	depends on SPI
--	select MII
--	select CRC32
--	help
--	  SPI driver for Micrel KS8851 SPI attached network chip.
+-	  More specific information on configuring the driver is in
+-	  <file:Documentation/networking/vxge.txt>.
 -
--config KS8851_MLL
--	tristate "Micrel KS8851 MLL"
--	depends on HAS_IOMEM
--	select MII
--	help
--	  This platform driver is for Micrel KS8851 Address/data bus
--	  multiplexed network chip.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called vxge.
 -
- config SC92031
- 	tristate "Silan SC92031 PCI Fast Ethernet Adapter driver (EXPERIMENTAL)"
- 	depends on NET_PCI && PCI && EXPERIMENTAL
+-config VXGE_DEBUG_TRACE_ALL
+-	bool "Enabling All Debug trace statments in driver"
+-	default n
+-	depends on VXGE
+-	---help---
+-	  Say Y here if you want to enabling all the debug trace statements in
+-	  the vxge driver. By default only few debug trace statements are
+-	  enabled.
+-
+ config PASEMI_MAC
+ 	tristate "PA Semi 1/10Gbit MAC"
+ 	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 0b1c240..c68cdea 100644
+index 15c3598..5241d6e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -32,10 +32,6 @@ gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
- ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
- obj-$(CONFIG_TC35815) += tc35815.o
- obj-$(CONFIG_SKFP) += skfp/
--obj-$(CONFIG_KS8842)	+= ks8842.o
--obj-$(CONFIG_KS8851)	+= ks8851.o
--obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
--obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_SH_ETH) += sh_eth.o
+@@ -166,8 +166,6 @@ obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_DL2K) += dl2k.o
+ obj-$(CONFIG_R8169) += r8169.o
+ obj-$(CONFIG_IBMVETH) += ibmveth.o
+-obj-$(CONFIG_S2IO) += s2io.o
+-obj-$(CONFIG_VXGE) += vxge/
+ obj-$(CONFIG_SMC911X) += smc911x.o
+ obj-$(CONFIG_SMSC911X) += smsc911x.o
+ obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 8654b69..f434fc8 100644
+index 6149413..a23ea19 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -28,6 +28,7 @@ source "drivers/net/ethernet/freescale/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
+@@ -18,6 +18,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
++source "drivers/net/ethernet/neterion/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/mellanox/Kconfig"
-+source "drivers/net/ethernet/micrel/Kconfig"
  source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index a09193f..3a9f47d 100644
+index 093b44f..690421d 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+@@ -9,6 +9,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
++obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-+obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
  obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
- obj-$(CONFIG_NET_ISA) += isa/
-diff --git a/drivers/net/ethernet/micrel/Kconfig b/drivers/net/ethernet/micrel/Kconfig
+diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
 new file mode 100644
-index 0000000..c315bff
+index 0000000..c79fbe9
 --- /dev/null
-+++ b/drivers/net/ethernet/micrel/Kconfig
-@@ -0,0 +1,51 @@
++++ b/drivers/net/ethernet/neterion/Kconfig
+@@ -0,0 +1,50 @@
 +#
-+# Micrel device configuration
++# Exar device configuration
 +#
 +
-+config NET_VENDOR_MICREL
-+	bool "Micrel devices"
-+	depends on HAS_IOMEM || DMA_ENGINE || SPI || PCI
++config NET_VENDOR_EXAR
++	bool "Exar network devices"
++	depends on PCI
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say
++	  Y and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Micrel devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
++	  the questions about Exar cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config KS8842
-+	tristate "Micrel KSZ8841/42 with generic bus interface"
-+	depends on NET_VENDOR_MICREL && HAS_IOMEM && DMA_ENGINE
++config S2IO
++	tristate "Exar Xframe 10Gb Ethernet Adapter"
++	depends on NET_VENDOR_EXAR && PCI
 +	---help---
-+	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
-+	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
-+	  Timberdale(FPGA).
++	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
 +
-+config KS8851
-+	tristate "Micrel KS8851 SPI"
-+	depends on NET_VENDOR_MICREL && SPI
-+	select MII
-+	select CRC32
-+	---help---
-+	  SPI driver for Micrel KS8851 SPI attached network chip.
-+
-+config KS8851_MLL
-+	tristate "Micrel KS8851 MLL"
-+	depends on NET_VENDOR_MICREL && HAS_IOMEM
-+	select MII
-+	---help---
-+	  This platform driver is for Micrel KS8851 Address/data bus
-+	  multiplexed network chip.
-+
-+config KSZ884X_PCI
-+	tristate "Micrel KSZ8841/2 PCI"
-+	depends on NET_VENDOR_MICREL && PCI
-+	select MII
-+	select CRC32
-+	---help---
-+	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/s2io.txt>.
 +
 +	  To compile this driver as a module, choose M here. The module
-+	  will be called ksz884x.
-diff --git a/drivers/net/ethernet/micrel/Makefile b/drivers/net/ethernet/micrel/Makefile
++	  will be called s2io.
++
++config VXGE
++	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
++	depends on NET_VENDOR_EXAR && PCI && INET
++	---help---
++	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
++	  I/O Virtualized Server Adapter.
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/vxge.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called vxge.
++
++config VXGE_DEBUG_TRACE_ALL
++	bool "Enabling All Debug trace statments in driver"
++	default n
++	depends on VXGE
++	---help---
++	  Say Y here if you want to enabling all the debug trace statements in
++	  the vxge driver. By default only few debug trace statements are
++	  enabled.
+diff --git a/drivers/net/ethernet/neterion/Makefile b/drivers/net/ethernet/neterion/Makefile
 new file mode 100644
-index 0000000..c050942
+index 0000000..70c8058
 --- /dev/null
-+++ b/drivers/net/ethernet/micrel/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/neterion/Makefile
+@@ -0,0 +1,6 @@
 +#
-+# Makefile for the Micrel network device drivers.
++# Makefile for the Exar network device drivers.
 +#
 +
-+obj-$(CONFIG_KS8842) += ks8842.o
-+obj-$(CONFIG_KS8851) += ks8851.o
-+obj-$(CONFIG_KS8851_MLL) += ks8851_mll.o
-+obj-$(CONFIG_KSZ884X_PCI) += ksz884x.o
-diff --git a/drivers/net/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
++obj-$(CONFIG_S2IO) += s2io.o
++obj-$(CONFIG_VXGE) += vxge/
+diff --git a/drivers/net/s2io-regs.h b/drivers/net/ethernet/neterion/s2io-regs.h
 similarity index 100%
-rename from drivers/net/ks8842.c
-rename to drivers/net/ethernet/micrel/ks8842.c
-diff --git a/drivers/net/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+rename from drivers/net/s2io-regs.h
+rename to drivers/net/ethernet/neterion/s2io-regs.h
+diff --git a/drivers/net/s2io.c b/drivers/net/ethernet/neterion/s2io.c
 similarity index 100%
-rename from drivers/net/ks8851.c
-rename to drivers/net/ethernet/micrel/ks8851.c
-diff --git a/drivers/net/ks8851.h b/drivers/net/ethernet/micrel/ks8851.h
+rename from drivers/net/s2io.c
+rename to drivers/net/ethernet/neterion/s2io.c
+diff --git a/drivers/net/s2io.h b/drivers/net/ethernet/neterion/s2io.h
 similarity index 100%
-rename from drivers/net/ks8851.h
-rename to drivers/net/ethernet/micrel/ks8851.h
-diff --git a/drivers/net/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+rename from drivers/net/s2io.h
+rename to drivers/net/ethernet/neterion/s2io.h
+diff --git a/drivers/net/vxge/Makefile b/drivers/net/ethernet/neterion/vxge/Makefile
 similarity index 100%
-rename from drivers/net/ks8851_mll.c
-rename to drivers/net/ethernet/micrel/ks8851_mll.c
-diff --git a/drivers/net/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+rename from drivers/net/vxge/Makefile
+rename to drivers/net/ethernet/neterion/vxge/Makefile
+diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
 similarity index 100%
-rename from drivers/net/ksz884x.c
-rename to drivers/net/ethernet/micrel/ksz884x.c
+rename from drivers/net/vxge/vxge-config.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-config.c
+diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/ethernet/neterion/vxge/vxge-config.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-config.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-config.h
+diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-ethtool.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+diff --git a/drivers/net/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-ethtool.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-main.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-main.c
+diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-main.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-main.h
+diff --git a/drivers/net/vxge/vxge-reg.h b/drivers/net/ethernet/neterion/vxge/vxge-reg.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-reg.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-reg.h
+diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-traffic.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+diff --git a/drivers/net/vxge/vxge-traffic.h b/drivers/net/ethernet/neterion/vxge/vxge-traffic.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-traffic.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.h
+diff --git a/drivers/net/vxge/vxge-version.h b/drivers/net/ethernet/neterion/vxge/vxge-version.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-version.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-version.h
 -- 
 1.7.5.4
 
