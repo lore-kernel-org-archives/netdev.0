@@ -1,59 +1,47 @@
-From: f6bvp <f6bvp@free.fr>
-Subject: Re: [AX25] inconsistent lock state
-Date: Sat, 25 Jun 2011 17:51:39 +0200
-Message-ID: <4E06040B.7040309@free.fr>
-References: <4B2CD772.1030106@upmc.fr> <201106171536.15660.arnd@arndb.de> <20110617135147.GA3470@linux-mips.org> <201106171611.10655.arnd@arndb.de>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [RFC 26/72] arm: Move the ARM/ACORN drivers
+Date: Sat, 25 Jun 2011 16:53:56 +0100
+Message-ID: <20110625155356.GI23234@n2100.arm.linux.org.uk>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-27-git-send-email-jeffrey.t.kirsher@intel.com> <201106251648.03574.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Sriram <srk@ti.com>,
+	Vinay Hegde <vinay.hegde@ti.com>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Wan ZongShun <mcuos.com@gmail.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Anant Gole <anantgole@ti.com>,
+	Chaithrika U S <chaithrika@ti.com>
 To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <201106171611.10655.arnd@arndb.de>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:38336 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751917Ab1FYPyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 11:54:17 -0400
+Content-Disposition: inline
+In-Reply-To: <201106251648.03574.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sat, Jun 25, 2011 at 04:48:03PM +0200, Arnd Bergmann wrote:
+> On Saturday 25 June 2011, Jeff Kirsher wrote:
+> > Move the ARM/ACORN drivers into drivers/net/ethernet/arm/ and make the
+> > necessary Kconfig and Makefile changes.
+> > There were 4 drivers (TI Davinci & ftmac100) not in the
+> > drivers/net/arm/ which should have been since they are only supported
+> > under ARM, so they were added to the new directory structure.
+> > 
+> > NOTE: There are no "maintainers" for the TI Davinci drivers, so I am
+> > CC'ing the last 3 major contributors from TI.
+> 
+> It doesn't seem logical to group drivers that are used on ARM under
+> the architecture when the hardware is not actually made by ARM Ltd.
 
-I applied the patch and since then I could not reproduce the
-inconsistent lock state.
-Thus mkiss patch fixed it.
+ARM doesn't make any silicon hardware itself, so by that argument it
+shouldn't be in a directory called 'arm' at all.
 
-Thanks,
-
-Bernard
-
-Le 17/06/2011 16:11, Arnd Bergmann a =E9crit :
-> On Friday 17 June 2011 15:51:48 Ralf Baechle wrote:
->> On Fri, Jun 17, 2011 at 03:36:15PM +0200, Arnd Bergmann wrote:
->>
->> (Removed Jarek from cc; his email bounces.)
->>
->>> The message hints that disc_data_lock is aquired with softirqs disa=
-bled,
->>> but does not itself disable softirqs, which can in rare circumstanc=
-es
->>> lead to a deadlock.
->>>
->>> Does this fix it?
->> If so, drivers/net/hamradio.c, function sp_get() would probably need=
- the
->> equivalent fix.  Same for drivers/net/ppp_async.c:ap_get() and sp_ge=
-t() in
->> drivers/net/ppp_synctty.c.
-> It seems that ppp_synctty.c is ok, it uses write_lock_irq() already,
-> sixpack.c looks like it has the same bug as mkiss. I also realized
-> after sending out the patch that only the write_lock needs to be
-> changed to write_lock_bh, while read_lock can leave softirqs enabled
-> because it can be called recursively.
->
-> 	Arnd
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+However, what the 'arm' in drivers/net/arm is referring to is that
+the drivers are solely used with stuff associated with arch/arm, not
+that there's any connection with ARM Ltd.
