@@ -1,40 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/20] misc tipc updates / enhancements
-Date: Fri, 24 Jun 2011 16:55:02 -0700 (PDT)
-Message-ID: <20110624.165502.1719843876101837058.davem@davemloft.net>
-References: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Allan.Stephens@windriver.com
-To: paul.gortmaker@windriver.com
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH v2] vmxnet3: Enable GRO support.
+Date: Fri, 24 Jun 2011 17:24:35 -0700
+Message-ID: <1308961475-25055-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Shreyas Bhatewara <sbhatewara@vmware.com>,
+	Scott Goldman <scottjg@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36510 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754626Ab1FXXzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 19:55:03 -0400
-In-Reply-To: <1308953247-25266-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:35457 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411Ab1FYAYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 20:24:43 -0400
+Received: by mail-pz0-f46.google.com with SMTP id 9so2060171pzk.19
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2011 17:24:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri, 24 Jun 2011 18:07:07 -0400
+When receiving packets from another guest on the same hypervisor, it's
+generally possible to receive large packets because no segmentation is
+necessary and these packets are handled by LRO.  However, when doing
+routing or bridging we must disable LRO and lose this benefit.  In
+these cases GRO can still be used and it is very effective because the
+packets which are segmented in the hypervisor are received very close
+together and can easily be merged.
 
-> A bit more dead code removal, some collapsing of functions with
-> too many arguments, and some cosmetic stuff with no real impact.
-> 
-> But I think the best part in this lot is getting rid of the internal
-> (to tipc) duplication of "almost" linked list like code, and just
-> having it use the normal shared kernel code for the task. 
-> The diffstat summary reflects the net gain here:
-> 
->        12 files changed, 276 insertions(+), 381 deletions(-)
-> 
-> All credit to Al for the work to get here.  I'm just an intermediate
-> reviewer -- and happy to see my value-add in that role becoming smaller
-> and smaller each time as tipc-2 leaves the SF tipc-1.7.x further behind.
-> 
-> I've independently tested using the basic tipcTS/tipcTC tests between
-> an x86-32 and an x86-64 host, in both directions.
+CC: Shreyas Bhatewara <sbhatewara@vmware.com>
+CC: Scott Goldman <scottjg@vmware.com>
+CC: VMware PV-Drivers <pv-drivers@vmware.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+This applies on top of my previous vmxnet3 patch
+"vmxnet3: Convert to new vlan model."
 
-Pulled, thanks a lot.
+v2: Only use GRO when LRO is not active as suggested by Scott Goldman.
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index c84b1dd..2c14736 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1234,7 +1234,10 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 			if (unlikely(rcd->ts))
+ 				__vlan_hwaccel_put_tag(skb, rcd->tci);
+ 
+-			netif_receive_skb(skb);
++			if (adapter->netdev->features & NETIF_F_LRO)
++				netif_receive_skb(skb);
++			else
++				napi_gro_receive(&rq->napi, skb);
+ 
+ 			ctx->skb = NULL;
+ 		}
+-- 
+1.7.4.1
+
