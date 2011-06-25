@@ -1,76 +1,36 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC 54/72] au1000_eth/mipsnet/tc35815: Move the MIPS drivers
-Date: Sat, 25 Jun 2011 11:11:21 -0700
-Message-ID: <1309025482.2454.90.camel@jtkirshe-mobl>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1309010363-22750-55-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110625161353.GA20976@linux-mips.org>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Chris Snook <chris.snook@gmail.com>
+Subject: Re: [RFC 30/72] atl*: Move the Atheros drivers
+Date: Sat, 25 Jun 2011 14:16:18 -0400
+Message-ID: <BANLkTikLFOV=YTPKyutC4Soe9emaxM27rQ@mail.gmail.com>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-31-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-BqP0rTRzPe22vc5yVcBs"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Herbert Valerio Riedel <hvr@gnu.org>,
-	MontaVista Software <source@mvista.com>,
-	Kyle McMartin <kyle@mcmartin.ca>, Helge Deller <deller@gmx.de>,
-	"James E.J. Bottomley" <jejb@parisc-linux.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	Sam Creasey <sammy@sammy.net>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	"linux-m68k@vger.kernel.org" <linux-m68k@vger.kernel.org>
-To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20110625161353.GA20976@linux-mips.org>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jay Cliburn <jcliburn@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:36740 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab1FYSQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 14:16:39 -0400
+Received: by vxb39 with SMTP id 39so2598375vxb.19
+        for <netdev@vger.kernel.org>; Sat, 25 Jun 2011 11:16:38 -0700 (PDT)
+In-Reply-To: <1309010363-22750-31-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Jun 25, 2011 at 9:58 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> Move the Atheros drivers into drivers/net/ethernet/atheros/ and
+> make the necessary Kconfig and Makefile changes.
+>
+> CC: Jay Cliburn <jcliburn@gmail.com>
+> CC: Chris Snook <chris.snook@gmail.com>
+> CC: Jie Yang <jie.yang@atheros.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
---=-BqP0rTRzPe22vc5yVcBs
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I'm fine with this as long as the other ethernet maintainers are fine
+with the whole series. I don't want to be making changes like this
+unless it's to a new standard that's applied consistently.
 
-On Sat, 2011-06-25 at 09:13 -0700, Ralf Baechle wrote:
-> On Sat, Jun 25, 2011 at 06:59:05AM -0700, Jeff Kirsher wrote:
->=20
-> > Move the MIPS drivers into drivers/net/ethernet/mips/ and
-> > make the necessary Kconfig and Makefile changes.
->=20
-> NAck.
->=20
-> sni_82596.c is a driver for the same chip but used in particular
-> Siemens-
-> Nixdorf systems.  Lasi_82596 is an Intel NIC being used in PARISC
-> systems.
-> Not a good reason th throw PA-RISC drivers into the same directory
-> after
-> all PA-RISC has no relation to MIPS at all.  So maybe they should go
-> into
-> drivers/net/ethernet/i82596 or drivers/net/ethernet/intel.  And
-> wherever
-> they go, both drivers #include lib82596.c which your patch did not
-> move
-> around.=20
-
-My bad, I had grouped these drivers because they both used lib82596.c
-and had thought I had moved that file as well.
-
---=-BqP0rTRzPe22vc5yVcBs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJOBiTJAAoJECTsCADr/EWUUicH/iWVNtJdmOkrW7NNOdzV83ao
-xowwQBCpvdAk9TrM5JbJRYHQftSHry4viHyMfO+RDC0VT8d1LGlgqHCJ3Y+1oQob
-ibIG8uUGdSX1XdF3/LWdDXkLNSfsboV5wEnlYMW5zY0Wp3ETXdO4SN5Vp5O37EVl
-YnUfkUR64dEot+8t5tKqAdjfXLcDZIex02lzfjtpDub5TAqoEGBNjAY1vTSakDBt
-9ZlEluDAKJ1HU6+a9DcpW1r/BBCaFsQVOcRqOxi/mStbsCkvIajlj4qIbJP0U7ng
-741GoMqR31oZkR5nqcqvGcJm8/WZEATj8y4Zk/+CTzamkTSN5i/hUsR2TuTaTe0=
-=+nyO
------END PGP SIGNATURE-----
-
---=-BqP0rTRzPe22vc5yVcBs--
+-- Chris
