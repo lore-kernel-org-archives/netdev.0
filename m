@@ -1,33 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] MAINTAINERS: mark socketcan-core lists as subscribers-only
-Date: Fri, 24 Jun 2011 17:42:41 -0700 (PDT)
-Message-ID: <20110624.174241.1274455400148628403.davem@davemloft.net>
-References: <1308875142-10429-1-git-send-email-vapier@gentoo.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 1/1] Allow cascading to work with 6131 chip
+Date: Fri, 24 Jun 2011 17:48:06 -0700 (PDT)
+Message-ID: <20110624.174806.2272025733836100524.davem@davemloft.net>
+References: <cover.1308667895.git.barry@grussling.com>
+	<b6da54aefab1d3349001b59911e877c494124adc.1308667895.git.barry@grussling.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-To: vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1308875142-10429-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, buytenh@wantstofly.org
+To: barry@grussling.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51277 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751782Ab1FYAsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2011 20:48:09 -0400
+In-Reply-To: <b6da54aefab1d3349001b59911e877c494124adc.1308667895.git.barry@grussling.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Date: Thu, 23 Jun 2011 20:25:42 -0400
+From: Barry Grussling <barry@grussling.com>
+Date: Tue, 21 Jun 2011 07:55:56 -0700
 
-> The socketcan-core lists require subscription, so mark them as such.
-> 
-> Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> ---
+>  net/dsa/mv88e6131.c |    8 ++++++--
+>  1 files changed, 6 insertions(+), 2 deletions(-)
 
-Applied.
+No commit log message, no signoff...
+
+Please read Documentation/SubmittingPatches, in particular sections
+2 "Describe your changes" and 12 "Sign your work".
