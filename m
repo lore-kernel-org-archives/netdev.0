@@ -1,266 +1,146 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 24/72] *sonic/natsemi/ns83829: Move the National Semi-conductor drivers
-Date: Sat, 25 Jun 2011 06:58:35 -0700
-Message-ID: <1309010363-22750-25-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 52/72] ps3_gelic*: Move the Sony (PS3) drivers
+Date: Sat, 25 Jun 2011 06:59:03 -0700
+Message-ID: <1309010363-22750-53-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	Harald Welte <laforge@gnumonks.org>,
-	Tim Hockin <thockin@hockin.org>, <linux-ns83820@kvack.org>,
-	Kevin Chea <kchea@yahoo.com>,
-	Marc Gauthier <marc@linux-xtensa.org>,
-	Chris Zankel <chris@zankel.net>
+	Geoff Levand <geoff@infradead.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:13697 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:41778 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751711Ab1FYOAU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:20 -0400
+	id S1752329Ab1FYOAV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:21 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the National Semi-conductor drivers into drivers/net/ethernet/natsemi/
-and make the necessary Kconfig and Makefile changes.  Also moved the 8390
-(National Semi-conductor) devices as a sub-menu of National Semi-conductor
-devices.
+Move the Sony drivers into drivers/net/ethernet/sony/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-CC: Harald Welte <laforge@gnumonks.org>
-CC: Tim Hockin <thockin@hockin.org>
-CC: <linux-ns83820@kvack.org>
-CC: Kevin Chea <kchea@yahoo.com>
-CC: Marc Gauthier <marc@linux-xtensa.org>
-CC: Chris Zankel <chris@zankel.net>
+TODO: separate the wired and wireless drivers and relocate the wireless
+dirver into drivers/net/wireless/
+
+CC: Geoff Levand <geoff@infradead.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                    |    4 +-
- drivers/net/Kconfig                            |   47 ------------------
- drivers/net/Makefile                           |    6 --
- drivers/net/ethernet/8390/Kconfig              |    7 ++-
- drivers/net/ethernet/Kconfig                   |    3 +-
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/ethernet/natsemi/Kconfig           |   63 ++++++++++++++++++++++++
- drivers/net/ethernet/natsemi/Makefile          |    9 +++
- drivers/net/{ => ethernet/natsemi}/jazzsonic.c |    0
- drivers/net/{ => ethernet/natsemi}/macsonic.c  |    0
- drivers/net/{ => ethernet/natsemi}/natsemi.c   |    0
- drivers/net/{ => ethernet/natsemi}/ns83820.c   |    0
- drivers/net/{ => ethernet/natsemi}/sonic.c     |    0
- drivers/net/{ => ethernet/natsemi}/sonic.h     |    0
- drivers/net/{ => ethernet/natsemi}/xtsonic.c   |    0
- 15 files changed, 81 insertions(+), 59 deletions(-)
- create mode 100644 drivers/net/ethernet/natsemi/Kconfig
- create mode 100644 drivers/net/ethernet/natsemi/Makefile
- rename drivers/net/{ => ethernet/natsemi}/jazzsonic.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/macsonic.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/natsemi.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/ns83820.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/sonic.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/sonic.h (100%)
- rename drivers/net/{ => ethernet/natsemi}/xtsonic.c (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   23 ------------
+ drivers/net/Makefile                               |    3 --
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/sony/Kconfig                  |   38 ++++++++++++++++++++
+ drivers/net/ethernet/sony/Makefile                 |    7 ++++
+ drivers/net/{ => ethernet/sony}/ps3_gelic_net.c    |    0
+ drivers/net/{ => ethernet/sony}/ps3_gelic_net.h    |    0
+ .../net/{ => ethernet/sony}/ps3_gelic_wireless.c   |    0
+ .../net/{ => ethernet/sony}/ps3_gelic_wireless.h   |    0
+ 11 files changed, 48 insertions(+), 27 deletions(-)
+ create mode 100644 drivers/net/ethernet/sony/Kconfig
+ create mode 100644 drivers/net/ethernet/sony/Makefile
+ rename drivers/net/{ => ethernet/sony}/ps3_gelic_net.c (100%)
+ rename drivers/net/{ => ethernet/sony}/ps3_gelic_net.h (100%)
+ rename drivers/net/{ => ethernet/sony}/ps3_gelic_wireless.c (100%)
+ rename drivers/net/{ => ethernet/sony}/ps3_gelic_wireless.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 6f822c6..76e60e4 100644
+index a59a17a..53e2d11 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4281,7 +4281,7 @@ F:	drivers/net/ethernet/myricom/myri10ge/
- NATSEMI ETHERNET DRIVER (DP8381x)
- M:	Tim Hockin <thockin@hockin.org>
- S:	Maintained
--F:	drivers/net/natsemi.c
-+F:	drivers/net/ethernet/natsemi/natsemi.c
- 
- NATIVE INSTRUMENTS USB SOUND INTERFACE DRIVER
- M:	Daniel Mack <zonque@gmail.com>
-@@ -5852,7 +5852,7 @@ SONIC NETWORK DRIVER
- M:	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+@@ -5049,7 +5049,7 @@ M:	Geoff Levand <geoff@infradead.org>
  L:	netdev@vger.kernel.org
+ L:	cbe-oss-dev@lists.ozlabs.org
  S:	Maintained
--F:	drivers/net/sonic.*
-+F:	drivers/net/ethernet/natsemi/sonic.*
+-F:	drivers/net/ps3_gelic_net.*
++F:	drivers/net/ethernet/sony/ps3_gelic_net.*
  
- SONICS SILICON BACKPLANE DRIVER (SSB)
- M:	Michael Buesch <mb@bu3sch.de>
+ PS3 PLATFORM SUPPORT
+ M:	Geoff Levand <geoff@infradead.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 56c963a..305b8b9 100644
+index 366538b..211679e 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -258,19 +258,6 @@ config A2065
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called a2065.
+@@ -605,29 +605,6 @@ menuconfig NETDEV_1000
  
--config MACSONIC
--	tristate "Macintosh SONIC based ethernet (onboard, NuBus, LC, CS)"
--	depends on MAC
--	---help---
--	  Support for NatSemi SONIC based Ethernet devices.  This includes
--	  the onboard Ethernet in many Quadras as well as some LC-PDS,
--	  a few Nubus and all known Comm Slot Ethernet cards.  If you have
--	  one of these say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. This module will
--	  be called macsonic.
--
- config MVME16x_NET
- 	tristate "MVME16x Ethernet support"
- 	depends on MVME16x
-@@ -310,19 +297,6 @@ config KORINA
- 	  If you have a Mikrotik RouterBoard 500 or IDT RC32434
- 	  based system say Y. Otherwise say N.
+ if NETDEV_1000
  
--config MIPS_JAZZ_SONIC
--	tristate "MIPS JAZZ onboard SONIC Ethernet support"
--	depends on MACH_JAZZ
+-config GELIC_NET
+-	tristate "PS3 Gigabit Ethernet driver"
+-	depends on PPC_PS3
+-	select PS3_SYS_MANAGER
 -	help
--	  This is the driver for the onboard card of MIPS Magnum 4000,
--	  Acer PICA, Olivetti M700-10 and a few other identical OEM systems.
+-	  This driver supports the network device on the PS3 game
+-	  console.  This driver has built-in support for Ethernet.
 -
--config XTENSA_XT2000_SONIC
--	tristate "Xtensa XT2000 onboard SONIC Ethernet support"
--	depends on XTENSA_PLATFORM_XT2000
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called ps3_gelic.
+-
+-config GELIC_WIRELESS
+-	bool "PS3 Wireless support"
+-	depends on WLAN
+-	depends on GELIC_NET
+-	select WIRELESS_EXT
 -	help
--	  This is the driver for the onboard card of the Xtensa XT2000 board.
+-	  This option adds the support for the wireless feature of PS3.
+-	  If you have the wireless-less model of PS3 or have no plan to
+-	  use wireless feature, disabling this option saves memory.  As
+-	  the driver automatically distinguishes the models, you can
+-	  safely enable this option even if you have a wireless-less model.
 -
- config MIPS_AU1X00_ENET
- 	tristate "MIPS AU1000 Ethernet support"
- 	depends on MIPS_ALCHEMY
-@@ -789,17 +763,6 @@ config FEALNX
- 	  Say Y here to support the Myson MTD-800 family of PCI-based Ethernet 
- 	  cards. <http://www.myson.com.tw/>
+ endif # NETDEV_1000
  
--config NATSEMI
--	tristate "National Semiconductor DP8381x series PCI Ethernet support"
--	depends on NET_PCI && PCI
--	select CRC32
--	help
--	  This driver is for the National Semiconductor DP83810 series,
--	  which is used in cards from PureData, NetGear, Linksys
--	  and others, including the 83815 chip.
--	  More specific information and updates are available from
--	  <http://www.scyld.com/network/natsemi.html>.
--
- config 8139CP
- 	tristate "RealTek RTL-8139 C+ PCI Fast Ethernet Adapter support (EXPERIMENTAL)"
- 	depends on NET_PCI && PCI && EXPERIMENTAL
-@@ -1220,16 +1183,6 @@ config IP1000
- 
- source "drivers/net/ixp2000/Kconfig"
- 
--config NS83820
--	tristate "National Semiconductor DP83820 support"
--	depends on PCI
--	help
--	  This is a driver for the National Semiconductor DP83820 series
--	  of gigabit ethernet MACs.  Cards using this chipset include
--	  the D-Link DGE-500T, PureData's PDP8023Z-TG, SMC's SMC9462TX,
--	  SOHO-GA2000T, SOHO-GA2500T.  The driver supports the use of
--	  zero copy.
--
- config HAMACHI
- 	tristate "Packet Engines Hamachi GNIC-II support"
- 	depends on PCI
+ #
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 9ac99cd..04d7613 100644
+index b5e25f1..5413c17 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -45,8 +45,6 @@ obj-$(CONFIG_SIS900) += sis900.o
+@@ -19,9 +19,6 @@ obj-$(CONFIG_ROADRUNNER) += rrunner.o
  obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
  obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
--obj-$(CONFIG_NATSEMI) += natsemi.o
--obj-$(CONFIG_NS83820) += ns83820.o
  obj-$(CONFIG_FEALNX) += fealnx.o
- spidernet-y += spider_net.o spider_net_ethtool.o
- obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
-@@ -141,13 +139,11 @@ obj-$(CONFIG_LP486E) += lp486e.o
- obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
--obj-$(CONFIG_MIPS_JAZZ_SONIC) += jazzsonic.o
- obj-$(CONFIG_MIPS_AU1X00_ENET) += au1000_eth.o
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
- obj-$(CONFIG_A2065) += a2065.o
- obj-$(CONFIG_ARIADNE) += ariadne.o
--obj-$(CONFIG_MACSONIC) += macsonic.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
-@@ -163,8 +159,6 @@ obj-$(CONFIG_ETHOC) += ethoc.o
- obj-$(CONFIG_GRETH) += greth.o
- obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
- 
--obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
--
- obj-$(CONFIG_DNET) += dnet.o
- obj-$(CONFIG_MACB) += macb.o
- obj-$(CONFIG_S6GMAC) += s6gmac.o
-diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
-index db03f52..0d82137 100644
---- a/drivers/net/ethernet/8390/Kconfig
-+++ b/drivers/net/ethernet/8390/Kconfig
-@@ -4,9 +4,10 @@
- 
- config NET_VENDOR_8390
- 	bool "National Semi-conductor 8390 devices"
--	depends on AMIGA_PCMCIA || PCI || SUPERH || ISA || MCA || EISA ||  \
--		   MAC || M32R || MACH_TX49XX || MCA_LEGACY || H8300 ||  \
--		   ARM || MIPS || ZORRO || PCMCIA || EXPERIMENTAL
-+	depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH || \
-+		   ISA || MCA || EISA || MAC || M32R || MACH_TX49XX || \
-+		   MCA_LEGACY || H8300 || ARM || MIPS || ZORRO || PCMCIA || \
-+		   EXPERIMENTAL)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
+-obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+-gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
+-ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+ obj-$(CONFIG_TC35815) += tc35815.o
+ obj-$(CONFIG_SKFP) += skfp/
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 28b473b..704e664 100644
+index 4bafe48..fda90fc 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -12,7 +12,6 @@ menuconfig ETHERNET
- if ETHERNET
- 
- source "drivers/net/ethernet/3com/Kconfig"
--source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
-@@ -25,6 +24,8 @@ source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
-+source "drivers/net/ethernet/natsemi/Kconfig"
-+source "drivers/net/ethernet/8390/Kconfig"
- 
- config PASEMI_MAC
- 	tristate "PA Semi 1/10Gbit MAC"
+@@ -106,6 +106,7 @@ source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/sgi/Kconfig"
+ source "drivers/net/ethernet/smc/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
++source "drivers/net/ethernet/sony/Kconfig"
+ source "drivers/net/ethernet/stmicro/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
+ source "drivers/net/ethernet/syskonnect/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 40dded7..e5c02d9 100644
+index 0b6ffde..3588c50 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
-+obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
- obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o pasemi_mac_ethtool.o
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
-diff --git a/drivers/net/ethernet/natsemi/Kconfig b/drivers/net/ethernet/natsemi/Kconfig
+@@ -44,6 +44,7 @@ obj-$(CONFIG_SFC) += sfc/
+ obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
+ obj-$(CONFIG_NET_VENDOR_SMC) += smc/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
++obj-$(CONFIG_NET_VENDOR_SONY) += sony/
+ obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+ obj-$(CONFIG_NET_VENDOR_SYSKONNECT) += syskonnect/
+diff --git a/drivers/net/ethernet/sony/Kconfig b/drivers/net/ethernet/sony/Kconfig
 new file mode 100644
-index 0000000..dc1852b
+index 0000000..183ddf0
 --- /dev/null
-+++ b/drivers/net/ethernet/natsemi/Kconfig
-@@ -0,0 +1,63 @@
++++ b/drivers/net/ethernet/sony/Kconfig
+@@ -0,0 +1,38 @@
 +#
-+# National Semi-conductor device configuration
++# Sony (PS3) device configuration
 +#
 +
-+config NET_VENDOR_NATSEMI
-+	bool "National Semi-conductor devices"
-+	depends on MAC || MACH_JAZZ || PCI || XTENSA_PLATFORM_XT2000
++config NET_VENDOR_SONY
++	bool "Sony (PS3) devices"
++	depends on PPC_PS3
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -268,98 +148,59 @@ index 0000000..dc1852b
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about National Semi-conductor devices. If you say Y,
-+	  you will be asked for your specific card in the following questions.
++	  the questions about Sony devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config MACSONIC
-+	tristate "Macintosh SONIC based ethernet (onboard, NuBus, LC, CS)"
-+	depends on NET_VENDOR_NATSEMI && MAC
++config GELIC_NET
++	tristate "PS3 Gigabit Ethernet driver"
++	depends on NET_VENDOR_SONY && PPC_PS3
++	select PS3_SYS_MANAGER
 +	---help---
-+	  Support for NatSemi SONIC based Ethernet devices.  This includes
-+	  the onboard Ethernet in many Quadras as well as some LC-PDS,
-+	  a few Nubus and all known Comm Slot Ethernet cards.  If you have
-+	  one of these say Y and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This driver supports the network device on the PS3 game
++	  console.  This driver has built-in support for Ethernet.
 +
-+	  To compile this driver as a module, choose M here. This module will
-+	  be called macsonic.
++	  To compile this driver as a module, choose M here: the
++	  module will be called ps3_gelic.
 +
-+config MIPS_JAZZ_SONIC
-+	tristate "MIPS JAZZ onboard SONIC Ethernet support"
-+	depends on NET_VENDOR_NATSEMI && MACH_JAZZ
++config GELIC_WIRELESS
++	bool "PS3 Wireless support"
++	depends on NET_VENDOR_SONY && GELIC_NET && WLAN
++	select WIRELESS_EXT
 +	---help---
-+	  This is the driver for the onboard card of MIPS Magnum 4000,
-+	  Acer PICA, Olivetti M700-10 and a few other identical OEM systems.
-+
-+config NATSEMI
-+	tristate "National Semiconductor DP8381x series PCI Ethernet support"
-+	depends on NET_VENDOR_NATSEMI && PCI
-+	select CRC32
-+	---help---
-+	  This driver is for the National Semiconductor DP83810 series,
-+	  which is used in cards from PureData, NetGear, Linksys
-+	  and others, including the 83815 chip.
-+	  More specific information and updates are available from
-+	  <http://www.scyld.com/network/natsemi.html>.
-+
-+config NS83820
-+	tristate "National Semiconductor DP83820 support"
-+	depends on NET_VENDOR_NATSEMI && PCI
-+	---help---
-+	  This is a driver for the National Semiconductor DP83820 series
-+	  of gigabit ethernet MACs.  Cards using this chipset include
-+	  the D-Link DGE-500T, PureData's PDP8023Z-TG, SMC's SMC9462TX,
-+	  SOHO-GA2000T, SOHO-GA2500T.  The driver supports the use of
-+	  zero copy.
-+
-+config XTENSA_XT2000_SONIC
-+	tristate "Xtensa XT2000 onboard SONIC Ethernet support"
-+	depends on NET_VENDOR_NATSEMI && XTENSA_PLATFORM_XT2000
-+	---help---
-+	  This is the driver for the onboard card of the Xtensa XT2000 board.
-diff --git a/drivers/net/ethernet/natsemi/Makefile b/drivers/net/ethernet/natsemi/Makefile
++	  This option adds the support for the wireless feature of PS3.
++	  If you have the wireless-less model of PS3 or have no plan to
++	  use wireless feature, disabling this option saves memory.  As
++	  the driver automatically distinguishes the models, you can
++	  safely enable this option even if you have a wireless-less model.
+diff --git a/drivers/net/ethernet/sony/Makefile b/drivers/net/ethernet/sony/Makefile
 new file mode 100644
-index 0000000..764c532
+index 0000000..2c6f934
 --- /dev/null
-+++ b/drivers/net/ethernet/natsemi/Makefile
-@@ -0,0 +1,9 @@
++++ b/drivers/net/ethernet/sony/Makefile
+@@ -0,0 +1,7 @@
 +#
-+# Makefile for the National Semi-conductor Sonic devices.
++# Makefile for the Sony (PS3) network devices.
 +#
 +
-+obj-$(CONFIG_MACSONIC) += macsonic.o
-+obj-$(CONFIG_MIPS_JAZZ_SONIC) += jazzsonic.o
-+obj-$(CONFIG_NATSEMI) += natsemi.o
-+obj-$(CONFIG_NS83820) += ns83820.o
-+obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
-diff --git a/drivers/net/jazzsonic.c b/drivers/net/ethernet/natsemi/jazzsonic.c
++obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
++gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
++ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+diff --git a/drivers/net/ps3_gelic_net.c b/drivers/net/ethernet/sony/ps3_gelic_net.c
 similarity index 100%
-rename from drivers/net/jazzsonic.c
-rename to drivers/net/ethernet/natsemi/jazzsonic.c
-diff --git a/drivers/net/macsonic.c b/drivers/net/ethernet/natsemi/macsonic.c
+rename from drivers/net/ps3_gelic_net.c
+rename to drivers/net/ethernet/sony/ps3_gelic_net.c
+diff --git a/drivers/net/ps3_gelic_net.h b/drivers/net/ethernet/sony/ps3_gelic_net.h
 similarity index 100%
-rename from drivers/net/macsonic.c
-rename to drivers/net/ethernet/natsemi/macsonic.c
-diff --git a/drivers/net/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+rename from drivers/net/ps3_gelic_net.h
+rename to drivers/net/ethernet/sony/ps3_gelic_net.h
+diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ethernet/sony/ps3_gelic_wireless.c
 similarity index 100%
-rename from drivers/net/natsemi.c
-rename to drivers/net/ethernet/natsemi/natsemi.c
-diff --git a/drivers/net/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
+rename from drivers/net/ps3_gelic_wireless.c
+rename to drivers/net/ethernet/sony/ps3_gelic_wireless.c
+diff --git a/drivers/net/ps3_gelic_wireless.h b/drivers/net/ethernet/sony/ps3_gelic_wireless.h
 similarity index 100%
-rename from drivers/net/ns83820.c
-rename to drivers/net/ethernet/natsemi/ns83820.c
-diff --git a/drivers/net/sonic.c b/drivers/net/ethernet/natsemi/sonic.c
-similarity index 100%
-rename from drivers/net/sonic.c
-rename to drivers/net/ethernet/natsemi/sonic.c
-diff --git a/drivers/net/sonic.h b/drivers/net/ethernet/natsemi/sonic.h
-similarity index 100%
-rename from drivers/net/sonic.h
-rename to drivers/net/ethernet/natsemi/sonic.h
-diff --git a/drivers/net/xtsonic.c b/drivers/net/ethernet/natsemi/xtsonic.c
-similarity index 100%
-rename from drivers/net/xtsonic.c
-rename to drivers/net/ethernet/natsemi/xtsonic.c
+rename from drivers/net/ps3_gelic_wireless.h
+rename to drivers/net/ethernet/sony/ps3_gelic_wireless.h
 -- 
 1.7.5.4
 
