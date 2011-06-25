@@ -1,175 +1,146 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 17/72] s2io/vxge: Move the Exar drivers
-Date: Sat, 25 Jun 2011 06:58:28 -0700
-Message-ID: <1309010363-22750-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 16/72] myri*: Move the Myricom drivers
+Date: Sat, 25 Jun 2011 06:58:27 -0700
+Message-ID: <1309010363-22750-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Jon Mason <jdmason@kudzu.us>
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:13697 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:2034 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752149Ab1FYOAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 10:00:07 -0400
+	id S1751979Ab1FYOAF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:05 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Exar drivers into drivers/net/ethernet/neterion/ and make the
-necessary Kconfig and Makefile changes.
+Move the Myricom drivers into drivers/net/ethernet/myricom/ and make
+the necessary Kconfig and Makefile changes.
 
-CC: Jon Mason <jdmason@kudzu.us>
+CC: Andrew Gallatin <gallatin@myri.com>
+CC: Brice Goglin <brice@myri.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    3 +-
- drivers/net/Kconfig                                |   34 -------------
- drivers/net/Makefile                               |    2 -
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   26 ------------
+ drivers/net/Makefile                               |    1 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/neterion/Kconfig              |   50 ++++++++++++++++++++
- drivers/net/ethernet/neterion/Makefile             |    6 ++
- drivers/net/{ => ethernet/neterion}/s2io-regs.h    |    0
- drivers/net/{ => ethernet/neterion}/s2io.c         |    0
- drivers/net/{ => ethernet/neterion}/s2io.h         |    0
- drivers/net/{ => ethernet/neterion}/vxge/Makefile  |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-config.c |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-config.h |    0
- .../{ => ethernet/neterion}/vxge/vxge-ethtool.c    |    0
- .../{ => ethernet/neterion}/vxge/vxge-ethtool.h    |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-main.c   |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-main.h   |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-reg.h    |    0
- .../{ => ethernet/neterion}/vxge/vxge-traffic.c    |    0
- .../{ => ethernet/neterion}/vxge/vxge-traffic.h    |    0
- .../{ => ethernet/neterion}/vxge/vxge-version.h    |    0
- 21 files changed, 59 insertions(+), 38 deletions(-)
- create mode 100644 drivers/net/ethernet/neterion/Kconfig
- create mode 100644 drivers/net/ethernet/neterion/Makefile
- rename drivers/net/{ => ethernet/neterion}/s2io-regs.h (100%)
- rename drivers/net/{ => ethernet/neterion}/s2io.c (100%)
- rename drivers/net/{ => ethernet/neterion}/s2io.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/Makefile (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-reg.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-version.h (100%)
+ drivers/net/ethernet/myricom/Kconfig               |   42 ++++++++++++++++++++
+ drivers/net/ethernet/myricom/Makefile              |    5 ++
+ .../net/{ => ethernet/myricom}/myri10ge/Makefile   |    0
+ .../net/{ => ethernet/myricom}/myri10ge/myri10ge.c |    0
+ .../{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h |    0
+ .../myricom}/myri10ge/myri10ge_mcp_gen_header.h    |    0
+ 11 files changed, 50 insertions(+), 28 deletions(-)
+ create mode 100644 drivers/net/ethernet/myricom/Kconfig
+ create mode 100644 drivers/net/ethernet/myricom/Makefile
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/Makefile (100%)
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge.c (100%)
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h (100%)
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp_gen_header.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 81dfcff..816c665 100644
+index b73e10b..81dfcff 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4321,9 +4321,8 @@ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
- W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
+@@ -4276,7 +4276,7 @@ M:	Brice Goglin <brice@myri.com>
+ L:	netdev@vger.kernel.org
+ W:	http://www.myri.com/scs/download-Myri10GE.html
  S:	Supported
- F:	Documentation/networking/s2io.txt
--F:	drivers/net/s2io*
- F:	Documentation/networking/vxge.txt
--F:	drivers/net/vxge/
-+F:	drivers/net/ethernet/neterion/
+-F:	drivers/net/myri10ge/
++F:	drivers/net/ethernet/myricom/myri10ge/
  
- NETFILTER/IPTABLES/IPCHAINS
- P:	Rusty Russell
+ NATSEMI ETHERNET DRIVER (DP8381x)
+ M:	Tim Hockin <thockin@hockin.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 6b58ee3..6294de0 100644
+index 4e8b6c3..6b58ee3 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1668,40 +1668,6 @@ config ENIC
- 	help
- 	  This enables the support for the Cisco VIC Ethernet card.
+@@ -1702,32 +1702,6 @@ config VXGE_DEBUG_TRACE_ALL
+ 	  the vxge driver. By default only few debug trace statements are
+ 	  enabled.
  
--config S2IO
--	tristate "Exar Xframe 10Gb Ethernet Adapter"
--	depends on PCI
--	---help---
--	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
--
--	  More specific information on configuring the driver is in 
--	  <file:Documentation/networking/s2io.txt>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called s2io.
--
--config VXGE
--	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
+-config MYRI10GE
+-	tristate "Myricom Myri-10G Ethernet support"
 -	depends on PCI && INET
+-	select FW_LOADER
+-	select CRC32
+-	select INET_LRO
 -	---help---
--	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
--	  I/O Virtualized Server Adapter.
+-	  This driver supports Myricom Myri-10G Dual Protocol interface in
+-	  Ethernet mode. If the eeprom on your board is not recent enough,
+-	  you will need a newer firmware image.
+-	  You may get this image or more information, at:
 -
--	  More specific information on configuring the driver is in
--	  <file:Documentation/networking/vxge.txt>.
+-	  <http://www.myri.com/scs/download-Myri10GE.html>
 -
 -	  To compile this driver as a module, choose M here. The module
--	  will be called vxge.
+-	  will be called myri10ge.
 -
--config VXGE_DEBUG_TRACE_ALL
--	bool "Enabling All Debug trace statments in driver"
--	default n
--	depends on VXGE
+-config MYRI10GE_DCA
+-	bool "Direct Cache Access (DCA) Support"
+-	default y
+-	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
 -	---help---
--	  Say Y here if you want to enabling all the debug trace statements in
--	  the vxge driver. By default only few debug trace statements are
--	  enabled.
+-	  Say Y here if you want to use Direct Cache Access (DCA) in the
+-	  driver.  DCA is a method for warming the CPU cache before data
+-	  is used, with the intent of lessening the impact of cache misses.
 -
  config PASEMI_MAC
  	tristate "PA Semi 1/10Gbit MAC"
  	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 15c3598..5241d6e 100644
+index 6c2eb60..15c3598 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -166,8 +166,6 @@ obj-$(CONFIG_NET_NETX) += netx-eth.o
- obj-$(CONFIG_DL2K) += dl2k.o
- obj-$(CONFIG_R8169) += r8169.o
+@@ -168,7 +168,6 @@ obj-$(CONFIG_R8169) += r8169.o
  obj-$(CONFIG_IBMVETH) += ibmveth.o
--obj-$(CONFIG_S2IO) += s2io.o
--obj-$(CONFIG_VXGE) += vxge/
+ obj-$(CONFIG_S2IO) += s2io.o
+ obj-$(CONFIG_VXGE) += vxge/
+-obj-$(CONFIG_MYRI10GE) += myri10ge/
  obj-$(CONFIG_SMC911X) += smc911x.o
  obj-$(CONFIG_SMSC911X) += smsc911x.o
  obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 6149413..a23ea19 100644
+index 67b06b2..6149413 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -18,6 +18,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
- source "drivers/net/ethernet/brocade/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
+@@ -20,6 +20,7 @@ source "drivers/net/ethernet/chelsio/Kconfig"
  source "drivers/net/ethernet/emulex/Kconfig"
-+source "drivers/net/ethernet/neterion/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
++source "drivers/net/ethernet/myricom/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 093b44f..690421d 100644
+index ecbe7fa..093b44f 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -9,6 +9,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
- obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+@@ -11,6 +11,7 @@ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
  obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
-+obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
-diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
++obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_SFC) += sfc/
+diff --git a/drivers/net/ethernet/myricom/Kconfig b/drivers/net/ethernet/myricom/Kconfig
 new file mode 100644
-index 0000000..c79fbe9
+index 0000000..1227005
 --- /dev/null
-+++ b/drivers/net/ethernet/neterion/Kconfig
-@@ -0,0 +1,50 @@
++++ b/drivers/net/ethernet/myricom/Kconfig
+@@ -0,0 +1,42 @@
 +#
-+# Exar device configuration
++# Myricom device configuration
 +#
 +
-+config NET_VENDOR_EXAR
-+	bool "Exar network devices"
-+	depends on PCI
++config NET_VENDOR_MYRI
++	bool "Myricom network devices"
++	depends on PCI || INET
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say
 +	  Y and read the Ethernet-HOWTO, available from
@@ -177,110 +148,61 @@ index 0000000..c79fbe9
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Exar cards. If you say Y, you will be asked for
++	  the questions about Myricom cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config S2IO
-+	tristate "Exar Xframe 10Gb Ethernet Adapter"
-+	depends on NET_VENDOR_EXAR && PCI
++config MYRI10GE
++	tristate "Myricom Myri-10G Ethernet support"
++	depends on NET_VENDOR_MYRI && PCI && INET
++	select FW_LOADER
++	select CRC32
++	select INET_LRO
 +	---help---
-+	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
++	  This driver supports Myricom Myri-10G Dual Protocol interface in
++	  Ethernet mode. If the eeprom on your board is not recent enough,
++	  you will need a newer firmware image.
++	  You may get this image or more information, at:
 +
-+	  More specific information on configuring the driver is in
-+	  <file:Documentation/networking/s2io.txt>.
++	  <http://www.myri.com/scs/download-Myri10GE.html>
 +
 +	  To compile this driver as a module, choose M here. The module
-+	  will be called s2io.
++	  will be called myri10ge.
 +
-+config VXGE
-+	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
-+	depends on NET_VENDOR_EXAR && PCI && INET
++config MYRI10GE_DCA
++	bool "Direct Cache Access (DCA) Support"
++	default y
++	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
 +	---help---
-+	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
-+	  I/O Virtualized Server Adapter.
-+
-+	  More specific information on configuring the driver is in
-+	  <file:Documentation/networking/vxge.txt>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called vxge.
-+
-+config VXGE_DEBUG_TRACE_ALL
-+	bool "Enabling All Debug trace statments in driver"
-+	default n
-+	depends on VXGE
-+	---help---
-+	  Say Y here if you want to enabling all the debug trace statements in
-+	  the vxge driver. By default only few debug trace statements are
-+	  enabled.
-diff --git a/drivers/net/ethernet/neterion/Makefile b/drivers/net/ethernet/neterion/Makefile
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
+diff --git a/drivers/net/ethernet/myricom/Makefile b/drivers/net/ethernet/myricom/Makefile
 new file mode 100644
-index 0000000..70c8058
+index 0000000..296c0a1
 --- /dev/null
-+++ b/drivers/net/ethernet/neterion/Makefile
-@@ -0,0 +1,6 @@
++++ b/drivers/net/ethernet/myricom/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the Exar network device drivers.
++# Makefile for the Myricom network device drivers.
 +#
 +
-+obj-$(CONFIG_S2IO) += s2io.o
-+obj-$(CONFIG_VXGE) += vxge/
-diff --git a/drivers/net/s2io-regs.h b/drivers/net/ethernet/neterion/s2io-regs.h
++obj-$(CONFIG_MYRI10GE) += myri10ge/
+diff --git a/drivers/net/myri10ge/Makefile b/drivers/net/ethernet/myricom/myri10ge/Makefile
 similarity index 100%
-rename from drivers/net/s2io-regs.h
-rename to drivers/net/ethernet/neterion/s2io-regs.h
-diff --git a/drivers/net/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+rename from drivers/net/myri10ge/Makefile
+rename to drivers/net/ethernet/myricom/myri10ge/Makefile
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
 similarity index 100%
-rename from drivers/net/s2io.c
-rename to drivers/net/ethernet/neterion/s2io.c
-diff --git a/drivers/net/s2io.h b/drivers/net/ethernet/neterion/s2io.h
+rename from drivers/net/myri10ge/myri10ge.c
+rename to drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+diff --git a/drivers/net/myri10ge/myri10ge_mcp.h b/drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp.h
 similarity index 100%
-rename from drivers/net/s2io.h
-rename to drivers/net/ethernet/neterion/s2io.h
-diff --git a/drivers/net/vxge/Makefile b/drivers/net/ethernet/neterion/vxge/Makefile
+rename from drivers/net/myri10ge/myri10ge_mcp.h
+rename to drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp.h
+diff --git a/drivers/net/myri10ge/myri10ge_mcp_gen_header.h b/drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp_gen_header.h
 similarity index 100%
-rename from drivers/net/vxge/Makefile
-rename to drivers/net/ethernet/neterion/vxge/Makefile
-diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
-similarity index 100%
-rename from drivers/net/vxge/vxge-config.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-config.c
-diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/ethernet/neterion/vxge/vxge-config.h
-similarity index 100%
-rename from drivers/net/vxge/vxge-config.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-config.h
-diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-similarity index 100%
-rename from drivers/net/vxge/vxge-ethtool.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-diff --git a/drivers/net/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
-similarity index 100%
-rename from drivers/net/vxge/vxge-ethtool.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-similarity index 100%
-rename from drivers/net/vxge/vxge-main.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-main.c
-diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
-similarity index 100%
-rename from drivers/net/vxge/vxge-main.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-main.h
-diff --git a/drivers/net/vxge/vxge-reg.h b/drivers/net/ethernet/neterion/vxge/vxge-reg.h
-similarity index 100%
-rename from drivers/net/vxge/vxge-reg.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-reg.h
-diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-similarity index 100%
-rename from drivers/net/vxge/vxge-traffic.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-diff --git a/drivers/net/vxge/vxge-traffic.h b/drivers/net/ethernet/neterion/vxge/vxge-traffic.h
-similarity index 100%
-rename from drivers/net/vxge/vxge-traffic.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.h
-diff --git a/drivers/net/vxge/vxge-version.h b/drivers/net/ethernet/neterion/vxge/vxge-version.h
-similarity index 100%
-rename from drivers/net/vxge/vxge-version.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-version.h
+rename from drivers/net/myri10ge/myri10ge_mcp_gen_header.h
+rename to drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp_gen_header.h
 -- 
 1.7.5.4
 
