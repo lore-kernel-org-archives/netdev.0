@@ -1,16 +1,16 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC PATCH 1/1] BPF JIT for PPC64
-Date: Sat, 25 Jun 2011 09:33:46 +0200
-Message-ID: <m2boxmxt45.fsf@igel.home>
-References: <4E04288F.4090201@ozlabs.org>
+Date: Sat, 25 Jun 2011 09:49:40 +0200
+Message-ID: <1308988180.2532.27.camel@edumazet-laptop>
+References: <4E04288F.4090201@ozlabs.org>  <m2boxmxt45.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
-To: Matt Evans <matt@ozlabs.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	Matt Evans <matt@ozlabs.org>
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <4E04288F.4090201@ozlabs.org> (Matt Evans's message of "Fri, 24
-	Jun 2011 16:02:55 +1000")
+In-Reply-To: <m2boxmxt45.fsf@igel.home>
 List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
 	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
@@ -22,23 +22,33 @@ Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozla
 Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Matt Evans <matt@ozlabs.org> writes:
-
-> +	stdu	r1, -128(r1);					\
-
-> +	addi	r5, r1, 128+BPF_PPC_STACK_BASIC+(2*8);		\
-
-> +	addi	r1, r1, 128;					\
-
-> +					PPC_STD(r_M + i, 1, -128 + (8*i));
-
-> +					PPC_LD(r_M + i, 1, -128 + (8*i));
-
-s/128/BPF_PPC_STACK_SAVE/?
-
-Andreas.
-
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+TGUgc2FtZWRpIDI1IGp1aW4gMjAxMSDDoCAwOTozMyArMDIwMCwgQW5kcmVhcyBTY2h3YWIgYSDD
+qWNyaXQgOgo+IE1hdHQgRXZhbnMgPG1hdHRAb3psYWJzLm9yZz4gd3JpdGVzOgo+IAo+ID4gKwlz
+dGR1CXIxLCAtMTI4KHIxKTsJCQkJCVwKPiAKPiA+ICsJYWRkaQlyNSwgcjEsIDEyOCtCUEZfUFBD
+X1NUQUNLX0JBU0lDKygyKjgpOwkJXAo+IAo+ID4gKwlhZGRpCXIxLCByMSwgMTI4OwkJCQkJXAo+
+IAo+ID4gKwkJCQkJUFBDX1NURChyX00gKyBpLCAxLCAtMTI4ICsgKDgqaSkpOwo+IAo+ID4gKwkJ
+CQkJUFBDX0xEKHJfTSArIGksIDEsIC0xMjggKyAoOCppKSk7Cj4gCj4gcy8xMjgvQlBGX1BQQ19T
+VEFDS19TQVZFLz8KPiAKCkkgYW0gbm90IHN1cmUgdXNpbmcgcmVnaXN0ZXJzIHRvIGhvbGQgTUVN
+W10gaXMgYSB3aW4gaWYgTUVNW2lkeF0gaXMgdXNlZApvbmNlIGluIHRoZSBmaWx0ZXIKCiMgdGNw
+ZHVtcCAidGNwWzIwXSt0Y3BbMjFdPTAiIC1kCigwMDApIGxkaCAgICAgIFsxMl0KKDAwMSkgamVx
+ICAgICAgIzB4ODAwICAgICAgICAgICBqdCAyCWpmIDE1CigwMDIpIGxkYiAgICAgIFsyM10KKDAw
+MykgamVxICAgICAgIzB4NiAgICAgICAgICAgICBqdCA0CWpmIDE1CigwMDQpIGxkaCAgICAgIFsy
+MF0KKDAwNSkganNldCAgICAgIzB4MWZmZiAgICAgICAgICBqdCAxNQlqZiA2CigwMDYpIGxkeGIg
+ICAgIDQqKFsxNF0mMHhmKQooMDA3KSBsZGIgICAgICBbeCArIDM0XQooMDA4KSBzdCAgICAgICBN
+WzFdCigwMDkpIGxkYiAgICAgIFt4ICsgMzVdCigwMTApIHRheCAgICAgIAooMDExKSBsZCAgICAg
+ICBNWzFdCigwMTIpIGFkZCAgICAgIHgKKDAxMykgamVxICAgICAgIzB4MCAgICAgICAgICAgICBq
+dCAxNAlqZiAxNQooMDE0KSByZXQgICAgICAjNjU1MzUKKDAxNSkgcmV0ICAgICAgIzAKCkluIHRo
+aXMgc2FtcGxlLCB3ZSB1c2UgTVsxXSBvbmNlICggb25lIHN0b3JlLCBvbmUgbG9hZCkKClNvIHNh
+dmluZyBwcmV2aW91cyByZWdpc3RlciBjb250ZW50IG9uIHN0YWNrIGluIHByb2xvZ3VlLCBhbmQg
+cmVzdG9yaW5nCml0IGluIGVwaWxvZ3VlIGFjdHVhbGx5IHNsb3cgZG93biB0aGUgY29kZSwgYW5k
+IGFkZHMgdHdvIGluc3RydWN0aW9ucyBpbiBmaWx0ZXIgYXNtIGNvZGUuCgpUaGlzIGFsc28gbWFr
+ZXMgZXBpbG9ndWUgY29kZSBub3QgZWFzeSAobm90IHBvc3NpYmxlIGFzIGEgbWF0dGVyIG9mIGZh
+Y3QpCnRvIHVud2luZCBpbiBoZWxwZXIgZnVuY3Rpb24KCkluIHg4Nl82NCBpbXBsZW1lbnRhdGlv
+biwgSSBjaG9zZSBicGZfZXJyb3IgYmUgYWJsZSB0byBmb3JjZQphbiBleGNlcHRpb24sIG5vdCBy
+ZXR1cm5pbmcgdG8gSklUIGNvZGUgYnV0IGRpcmVjdGx5IHRvIGJwZl9mdW5jKCkgY2FsbGVyCgpi
+cGZfZXJyb3I6CiMgZm9yY2UgYSByZXR1cm4gMCBmcm9tIGppdCBoYW5kbGVyCiAgICAgICAgeG9y
+ICAgICAgICAgICAgICVlYXgsJWVheAogICAgICAgIG1vdiAgICAgICAgICAgICAtOCglcmJwKSwl
+cmJ4CiAgICAgICAgbGVhdmVxCiAgICAgICAgcmV0CgoKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBw
+Yy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8v
+bGludXhwcGMtZGV2
