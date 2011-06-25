@@ -1,123 +1,78 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] NET: AX88796: Tighten up Kconfig dependencies
-Date: Sat, 25 Jun 2011 19:00:50 +0100
-Message-ID: <20110625180050.GA9620@linux-mips.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFC 26/72] arm: Move the ARM/ACORN drivers
+Date: Sat, 25 Jun 2011 11:02:42 -0700
+Message-ID: <1309024963.2454.85.camel@jtkirshe-mobl>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <201106251803.53416.arnd@arndb.de>
+	 <20110625161227.GJ23234@n2100.arm.linux.org.uk>
+	 <201106251859.38963.arnd@arndb.de>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-I6mZ/TXxoQUEe7DY6MD/"
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sriram <srk@ti.com>, Vinay Hegde <vinay.hegde@ti.com>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Wan ZongShun <mcuos.com@gmail.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Anant Gole <anantgole@ti.com>,
+	Chaithrika U S <chaithrika@ti.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:27644 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751953Ab1FYSCo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 14:02:44 -0400
+In-Reply-To: <201106251859.38963.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-I6mZ/TXxoQUEe7DY6MD/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, 2011-06-25 at 09:59 -0700, Arnd Bergmann wrote:
+>=20
+> > ether1 is 82586, so presumably that should be Intel subdirectory.
+>=20
+> Yes, according to the new layout, it should at least live together
+> with the other 82586-based drivers (eexpress.c, ni52.c, sun3_82586.c),
+> which could be either a directory for all of these, or the
+> generic intel directory.=20
+
+My personal preference is that these drivers that were not created by
+Intel or maintained by Intel, not be in the Intel sub-directory.
+
+While many of the drivers were organized in a layout that matches
+drivers/net/ethernet/<company>, I tried to organize the drivers in the
+most logical way possible (i.e. 8390/ all the drivers that used the 8390
+shared files).
+
+I do like all the suggestions made, except for the suggestion to move
+eexpress.c, eepro.c, sun3_82596.c, etc. in to the intel sub-directory.
+I am open to suggestions on a way to better to organize these drivers
+that use an Intel part but were created and maintained by someone else.
+
+--=-I6mZ/TXxoQUEe7DY6MD/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-sh@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>, Eric Miao <eric.y.miao@gmail.com>,
-	Russell King <linux@arm.linux.org.uk>, Ben Dooks <ben-linux@fluff.org>,
-	Paul Mundt <lethal@linux-sh.org>, J
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
 
-In def47c5095d53814512bb0c62ec02dfdec769db1 the AX88796 driver got
-restricted to just be build for ARM and MIPS on the sole merrit that it
-was written for some ARM sytems and the driver had the missfortune to
-just build on MIPS, so MIPS was throw into the dependency for a good
-measure.  Later 8687991a734a67f1638782c968f46fff0f94bb1f added SH but
-only one in-tree SH system actually has an AX88796.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-Tighten up dependencies by using an auxilliary config sysmbol
-HAS_NET_AX88796 which is selected only by the platforms that actually
-have or may have an AX88796.  This also means the driver won't be built
-anymore for any MIPS platform.
+iQEbBAABAgAGBQJOBiLCAAoJECTsCADr/EWUcr4H93ZOx3EwzTmF5s2Rvqd8AsT0
+ffpO15Ex6wX/WgobLWr5WpA09QKPzF++coQXNSG/EXqEt1ZoL0YXJEU9Bv0+Qa4P
+R0Hdy13zNDCyJyjNgeF7bKs+HE9c4ik9cpUwk64LpXFeG93SvhTlfeHXc6NcYYez
+5+7Z1x3DmkAXoFIUPYF1L6sgGvYKgodyB16zRcKhOmSOJa+KJv13eQoP68xzPGsc
+gtOQUvzmIW2flx1TuiHLbLUK0VZIRbuJYOyCaCXoXhkKQBIktVhKuju43qBIAIRS
+6p19IcXnyj3YqyaslKTVkQgd0IiTc9Y26pEhBABUBP+FwI0tv3+hg33JYLke8A==
+=tB5x
+-----END PGP SIGNATURE-----
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
----
- arch/arm/mach-pxa/Kconfig     |    2 ++
- arch/arm/mach-s3c2410/Kconfig |    1 +
- arch/arm/mach-s3c2440/Kconfig |    1 +
- arch/sh/boards/Kconfig        |    1 +
- drivers/net/Kconfig           |    5 ++++-
- 5 files changed, 9 insertions(+), 1 deletions(-)
+--=-I6mZ/TXxoQUEe7DY6MD/--
 
-diff --git a/arch/arm/mach-pxa/Kconfig b/arch/arm/mach-pxa/Kconfig
-index cd19309..37ce06f 100644
---- a/arch/arm/mach-pxa/Kconfig
-+++ b/arch/arm/mach-pxa/Kconfig
-@@ -247,11 +247,13 @@ config MACH_COLIBRI300
- 	select PXA3xx
- 	select CPU_PXA300
- 	select CPU_PXA310
-+	select HAS_NET_AX88796
- 
- config MACH_COLIBRI320
- 	bool "Toradex Colibri PXA320"
- 	select PXA3xx
- 	select CPU_PXA320
-+	select HAS_NET_AX88796
- 
- config MACH_COLIBRI_EVALBOARD
- 	bool "Toradex Colibri Evaluation Carrier Board support"
-diff --git a/arch/arm/mach-s3c2410/Kconfig b/arch/arm/mach-s3c2410/Kconfig
-index 7245a55..d665f92 100644
---- a/arch/arm/mach-s3c2410/Kconfig
-+++ b/arch/arm/mach-s3c2410/Kconfig
-@@ -122,6 +122,7 @@ config ARCH_BAST
- 	select S3C_DEV_HWMON
- 	select S3C_DEV_USB_HOST
- 	select S3C_DEV_NAND
-+	select HAS_NET_AX88796
- 	help
- 	  Say Y here if you are using the Simtec Electronics EB2410ITX
- 	  development board (also known as BAST)
-diff --git a/arch/arm/mach-s3c2440/Kconfig b/arch/arm/mach-s3c2440/Kconfig
-index 50825a3..7ddbd22 100644
---- a/arch/arm/mach-s3c2440/Kconfig
-+++ b/arch/arm/mach-s3c2440/Kconfig
-@@ -86,6 +86,7 @@ config MACH_ANUBIS
- 	select S3C24XX_GPIO_EXTRA64
- 	select S3C2440_XTAL_12000000
- 	select S3C_DEV_USB_HOST
-+	select HAS_NET_AX88796
- 	help
- 	  Say Y here if you are using the Simtec Electronics ANUBIS
- 	  development system
-diff --git a/arch/sh/boards/Kconfig b/arch/sh/boards/Kconfig
-index d893411..f23f332 100644
---- a/arch/sh/boards/Kconfig
-+++ b/arch/sh/boards/Kconfig
-@@ -162,6 +162,7 @@ config SH_HIGHLANDER
- 	depends on CPU_SUBTYPE_SH7780 || CPU_SUBTYPE_SH7785
- 	select SYS_SUPPORTS_PCI
- 	select IO_TRAPPED if MMU
-+	select HAS_NET_AX88796
- 
- config SH_SH7757LCR
- 	bool "SH7757LCR"
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index be25e92..85d18c4 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -237,13 +237,16 @@ source "drivers/net/arm/Kconfig"
- 
- config AX88796
- 	tristate "ASIX AX88796 NE2000 clone support"
--	depends on ARM || MIPS || SUPERH
-+	depends on HAS_NET_AX88796
- 	select PHYLIB
- 	select MDIO_BITBANG
- 	help
- 	  AX88796 driver, using platform bus to provide
- 	  chip detection and resources
- 
-+config HAS_NET_AX88796
-+	bool
-+
- config AX88796_93CX6
- 	bool "ASIX AX88796 external 93CX6 eeprom support"
- 	depends on AX88796
