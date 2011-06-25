@@ -1,335 +1,208 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 31/72] tulip: Move the tulip drivers
-Date: Sat, 25 Jun 2011 06:58:42 -0700
-Message-ID: <1309010363-22750-32-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 13/72] be2net: Move the Emulex driver
+Date: Sat, 25 Jun 2011 06:58:24 -0700
+Message-ID: <1309010363-22750-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Tobias Ringstrom <tori@unhappy.mine.nu>,
-	Grant Grundler <grundler@parisc-linux.org>
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37770 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:13697 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751514Ab1FYOAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751986Ab1FYOAD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 25 Jun 2011 10:00:03 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the tulip driver into drivers/net/ethernet/tulip/ and make
-the necessary Kconfig and Makefile changes.
+Moves the Emulex driver into drivers/net/ethernet/emulex/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Tobias Ringstrom <tori@unhappy.mine.nu>
-CC: Grant Grundler <grundler@parisc-linux.org>
+CC: Sathya Perla <sathya.perla@emulex.com>
+CC: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+CC: Ajit Khaparde <ajit.khaparde@emulex.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                    |    4 +-
- drivers/net/Kconfig                            |    2 -
- drivers/net/Makefile                           |    1 -
- drivers/net/ethernet/Kconfig                   |    2 +
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/{ => ethernet}/tulip/21142.c       |    0
- drivers/net/{ => ethernet}/tulip/Kconfig       |   34 ++++++++++-------------
- drivers/net/{ => ethernet}/tulip/Makefile      |    0
- drivers/net/{ => ethernet}/tulip/de2104x.c     |    0
- drivers/net/{ => ethernet}/tulip/de4x5.c       |    0
- drivers/net/{ => ethernet}/tulip/de4x5.h       |    0
- drivers/net/{ => ethernet}/tulip/dmfe.c        |    0
- drivers/net/{ => ethernet}/tulip/eeprom.c      |    0
- drivers/net/{ => ethernet}/tulip/interrupt.c   |    0
- drivers/net/{ => ethernet}/tulip/media.c       |    0
- drivers/net/{ => ethernet}/tulip/pnic.c        |    0
- drivers/net/{ => ethernet}/tulip/pnic2.c       |    0
- drivers/net/{ => ethernet}/tulip/timer.c       |    0
- drivers/net/{ => ethernet}/tulip/tulip.h       |    0
- drivers/net/{ => ethernet}/tulip/tulip_core.c  |    0
- drivers/net/{ => ethernet}/tulip/uli526x.c     |    0
- drivers/net/{ => ethernet}/tulip/winbond-840.c |    0
- drivers/net/{ => ethernet}/tulip/xircom_cb.c   |    0
- 23 files changed, 20 insertions(+), 24 deletions(-)
- rename drivers/net/{ => ethernet}/tulip/21142.c (100%)
- rename drivers/net/{ => ethernet}/tulip/Kconfig (93%)
- rename drivers/net/{ => ethernet}/tulip/Makefile (100%)
- rename drivers/net/{ => ethernet}/tulip/de2104x.c (100%)
- rename drivers/net/{ => ethernet}/tulip/de4x5.c (100%)
- rename drivers/net/{ => ethernet}/tulip/de4x5.h (100%)
- rename drivers/net/{ => ethernet}/tulip/dmfe.c (100%)
- rename drivers/net/{ => ethernet}/tulip/eeprom.c (100%)
- rename drivers/net/{ => ethernet}/tulip/interrupt.c (100%)
- rename drivers/net/{ => ethernet}/tulip/media.c (100%)
- rename drivers/net/{ => ethernet}/tulip/pnic.c (100%)
- rename drivers/net/{ => ethernet}/tulip/pnic2.c (100%)
- rename drivers/net/{ => ethernet}/tulip/timer.c (100%)
- rename drivers/net/{ => ethernet}/tulip/tulip.h (100%)
- rename drivers/net/{ => ethernet}/tulip/tulip_core.c (100%)
- rename drivers/net/{ => ethernet}/tulip/uli526x.c (100%)
- rename drivers/net/{ => ethernet}/tulip/winbond-840.c (100%)
- rename drivers/net/{ => ethernet}/tulip/xircom_cb.c (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |    2 --
+ drivers/net/Makefile                               |    1 -
+ drivers/net/benet/Kconfig                          |    6 ------
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/emulex/Kconfig                |   18 ++++++++++++++++++
+ drivers/net/ethernet/emulex/Makefile               |    5 +++++
+ drivers/net/ethernet/emulex/benet/Kconfig          |    6 ++++++
+ drivers/net/{ => ethernet/emulex}/benet/Makefile   |    0
+ drivers/net/{ => ethernet/emulex}/benet/be.h       |    0
+ drivers/net/{ => ethernet/emulex}/benet/be_cmds.c  |    0
+ drivers/net/{ => ethernet/emulex}/benet/be_cmds.h  |    0
+ .../net/{ => ethernet/emulex}/benet/be_ethtool.c   |    0
+ drivers/net/{ => ethernet/emulex}/benet/be_hw.h    |    0
+ drivers/net/{ => ethernet/emulex}/benet/be_main.c  |    0
+ 16 files changed, 32 insertions(+), 10 deletions(-)
+ delete mode 100644 drivers/net/benet/Kconfig
+ create mode 100644 drivers/net/ethernet/emulex/Kconfig
+ create mode 100644 drivers/net/ethernet/emulex/Makefile
+ create mode 100644 drivers/net/ethernet/emulex/benet/Kconfig
+ rename drivers/net/{ => ethernet/emulex}/benet/Makefile (100%)
+ rename drivers/net/{ => ethernet/emulex}/benet/be.h (100%)
+ rename drivers/net/{ => ethernet/emulex}/benet/be_cmds.c (100%)
+ rename drivers/net/{ => ethernet/emulex}/benet/be_cmds.h (100%)
+ rename drivers/net/{ => ethernet/emulex}/benet/be_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/emulex}/benet/be_hw.h (100%)
+ rename drivers/net/{ => ethernet/emulex}/benet/be_main.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index f72a8bd..26d1029 100644
+index cc16a52f..5bf6ae2 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -2040,7 +2040,7 @@ DAVICOM FAST ETHERNET (DMFE) NETWORK DRIVER
+@@ -5655,7 +5655,7 @@ M:	Ajit Khaparde <ajit.khaparde@emulex.com>
  L:	netdev@vger.kernel.org
- S:	Orphan
- F:	Documentation/networking/dmfe.txt
--F:	drivers/net/tulip/dmfe.c
-+F:	drivers/net/ethernet/tulip/dmfe.c
+ W:	http://www.emulex.com
+ S:	Supported
+-F:	drivers/net/benet/
++F:	drivers/net/ethernet/emulex/benet/
  
- DC390/AM53C974 SCSI driver
- M:	Kurt Garloff <garloff@suse.de>
-@@ -6278,7 +6278,7 @@ TULIP NETWORK DRIVERS
- M:	Grant Grundler <grundler@parisc-linux.org>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/tulip/
-+F:	drivers/net/ethernet/tulip/
- 
- TUN/TAP driver
- M:	Maxim Krasnyansky <maxk@qualcomm.com>
+ SFC NETWORK DRIVER
+ M:	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 71efbe4..0846518 100644
+index 51dbdb5..5218303 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -481,8 +481,6 @@ config DNET
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called dnet.
+@@ -1781,8 +1781,6 @@ config BNA
  
--source "drivers/net/tulip/Kconfig"
+ 	  <http://support.brocade.com>
+ 
+-source "drivers/net/benet/Kconfig"
 -
- config AT1700
- 	tristate "AT1700/1720 support (EXPERIMENTAL)"
- 	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
+ endif # NETDEV_10000
+ 
+ source "drivers/net/tokenring/Kconfig"
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 1ac4164..ec07331 100644
+index b616154..5e1ccb5 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -160,7 +160,6 @@ obj-$(CONFIG_USB_ZD1201)        += usb/
- obj-$(CONFIG_USB_IPHETH)        += usb/
+@@ -24,7 +24,6 @@ obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
+ obj-$(CONFIG_TEHUTI) += tehuti.o
+ obj-$(CONFIG_ENIC) += enic/
+ obj-$(CONFIG_JME) += jme.o
+-obj-$(CONFIG_BE2NET) += benet/
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ obj-$(CONFIG_BNA) += bna/
  
- obj-$(CONFIG_WLAN) += wireless/
--obj-$(CONFIG_NET_TULIP) += tulip/
- obj-$(CONFIG_HAMRADIO) += hamradio/
- obj-$(CONFIG_IRDA) += irda/
- obj-$(CONFIG_ETRAX_ETHERNET) += cris/
+diff --git a/drivers/net/benet/Kconfig b/drivers/net/benet/Kconfig
+deleted file mode 100644
+index 1a41a49..0000000
+--- a/drivers/net/benet/Kconfig
++++ /dev/null
+@@ -1,6 +0,0 @@
+-config BE2NET
+-	tristate "ServerEngines' 10Gbps NIC - BladeEngine"
+-	depends on PCI && INET
+-	help
+-	This driver implements the NIC functionality for ServerEngines'
+-	10Gbps network adapter - BladeEngine.
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 6fb1625..369f5bb 100644
+index 37819a1..97a4b57 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -55,4 +55,6 @@ config TEHUTI
- 	---help---
- 	  Tehuti Networks 10G Ethernet NIC
- 
-+source "drivers/net/ethernet/tulip/Kconfig"
-+
- endif # ETHERNET
+@@ -16,6 +16,7 @@ source "drivers/net/ethernet/8390/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
++source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 1123a3d..189d112 100644
+index 917131c..bf9b2e9 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -31,3 +31,4 @@ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
- obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
- obj-$(CONFIG_TEHUTI) += tehuti.o
-+obj-$(CONFIG_NET_TULIP) += tulip/
-diff --git a/drivers/net/tulip/21142.c b/drivers/net/ethernet/tulip/21142.c
-similarity index 100%
-rename from drivers/net/tulip/21142.c
-rename to drivers/net/ethernet/tulip/21142.c
-diff --git a/drivers/net/tulip/Kconfig b/drivers/net/ethernet/tulip/Kconfig
-similarity index 93%
-rename from drivers/net/tulip/Kconfig
-rename to drivers/net/ethernet/tulip/Kconfig
-index 1f8d4a8..c298a08 100644
---- a/drivers/net/tulip/Kconfig
-+++ b/drivers/net/ethernet/tulip/Kconfig
-@@ -2,17 +2,15 @@
- # Tulip family network device configuration
- #
- 
--menuconfig NET_TULIP
--	bool "\"Tulip\" family network device support"
-+config NET_TULIP
-+	bool "\"Tulip\" family network devices"
- 	depends on PCI || EISA || CARDBUS
--	help
+@@ -7,6 +7,7 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
++obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+diff --git a/drivers/net/ethernet/emulex/Kconfig b/drivers/net/ethernet/emulex/Kconfig
+new file mode 100644
+index 0000000..f8a68ce
+--- /dev/null
++++ b/drivers/net/ethernet/emulex/Kconfig
+@@ -0,0 +1,18 @@
++#
++# Emulex driver configuration
++#
++
++config NET_VENDOR_EMULEX
++	bool "Emulex devices"
++	depends on PCI || INET
 +	---help---
- 	  This selects the "Tulip" family of EISA/PCI network cards.
- 
--if NET_TULIP
--
- config DE2104X
- 	tristate "Early DECchip Tulip (dc2104x) PCI support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is developed for the SMC EtherPower series Ethernet
-@@ -32,7 +30,7 @@ config DE2104X_DSL
- 	depends on DE2104X
- 	range 0 31
- 	default 0
--	help
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about Emulex cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
++
++source "drivers/net/ethernet/emulex/benet/Kconfig"
+diff --git a/drivers/net/ethernet/emulex/Makefile b/drivers/net/ethernet/emulex/Makefile
+new file mode 100644
+index 0000000..ea8ec57
+--- /dev/null
++++ b/drivers/net/ethernet/emulex/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the Emulex device drivers.
++#
++
++obj-$(CONFIG_BE2NET) += benet/
+diff --git a/drivers/net/ethernet/emulex/benet/Kconfig b/drivers/net/ethernet/emulex/benet/Kconfig
+new file mode 100644
+index 0000000..ca2c28e
+--- /dev/null
++++ b/drivers/net/ethernet/emulex/benet/Kconfig
+@@ -0,0 +1,6 @@
++config BE2NET
++	tristate "ServerEngines' 10Gbps NIC - BladeEngine"
++	depends on NET_VENDOR_EMULEX && PCI && INET
 +	---help---
- 	  Setting this value allows to align ring buffer descriptors into their
- 	  own cache lines. Value of 4 corresponds to the typical 32 byte line
- 	  (the descriptor is 16 bytes). This is necessary on systems that lack
-@@ -41,7 +39,7 @@ config DE2104X_DSL
- 
- config TULIP
- 	tristate "DECchip Tulip (dc2114x) PCI support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is developed for the SMC EtherPower series Ethernet
-@@ -59,7 +57,7 @@ config TULIP
- config TULIP_MWI
- 	bool "New bus configuration (EXPERIMENTAL)"
- 	depends on TULIP && EXPERIMENTAL
--	help
-+	---help---
- 	  This configures your Tulip card specifically for the card and
- 	  system cache line size type you are using.
- 
-@@ -70,7 +68,7 @@ config TULIP_MWI
- config TULIP_MMIO
- 	bool "Use PCI shared mem for NIC registers"
- 	depends on TULIP
--	help
-+	---help---
- 	  Use PCI shared memory for the NIC registers, rather than going through
- 	  the Tulip's PIO (programmed I/O ports).  Faster, but could produce
- 	  obscure bugs if your mainboard has memory controller timing issues.
-@@ -79,7 +77,7 @@ config TULIP_MMIO
- config TULIP_NAPI
- 	bool "Use RX polling (NAPI)"
- 	depends on TULIP
--	help
-+	---help---
- 	  NAPI is a new driver API designed to reduce CPU and interrupt load
- 	  when the driver is receiving lots of packets from the card. It is
- 	  still somewhat experimental and thus not yet enabled by default.
-@@ -107,7 +105,7 @@ config TULIP_DM910X
- 
- config DE4X5
- 	tristate "Generic DECchip & DIGITAL EtherWORKS PCI/EISA"
--	depends on PCI || EISA
-+	depends on NET_TULIP && (PCI || EISA)
- 	select CRC32
- 	---help---
- 	  This is support for the DIGITAL series of PCI/EISA Ethernet cards.
-@@ -123,10 +121,10 @@ config DE4X5
- 
- config WINBOND_840
- 	tristate "Winbond W89c840 Ethernet support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	select MII
--	help
-+	---help---
- 	  This driver is for the Winbond W89c840 chip.  It also works with 
- 	  the TX9882 chip on the Compex RL100-ATX board.
- 	  More specific information and updates are available from
-@@ -134,7 +132,7 @@ config WINBOND_840
- 
- config DM9102
- 	tristate "Davicom DM910x/DM980x support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is for DM9102(A)/DM9132/DM9801 compatible PCI cards from
-@@ -147,7 +145,7 @@ config DM9102
- 
- config ULI526X
- 	tristate "ULi M526x controller support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is for ULi M5261/M5263 10/100M Ethernet Controller
-@@ -158,7 +156,7 @@ config ULI526X
- 	  
- config PCMCIA_XIRCOM
- 	tristate "Xircom CardBus support"
--	depends on CARDBUS
-+	depends on NET_TULIP && CARDBUS
- 	---help---
- 	  This driver is for the Digital "Tulip" Ethernet CardBus adapters.
- 	  It should work with most DEC 21*4*-based chips/ethercards, as well
-@@ -167,5 +165,3 @@ config PCMCIA_XIRCOM
- 
- 	  To compile this driver as a module, choose M here. The module will
- 	  be called xircom_cb.  If unsure, say N.
--
--endif # NET_TULIP
-diff --git a/drivers/net/tulip/Makefile b/drivers/net/ethernet/tulip/Makefile
++	  This driver implements the NIC functionality for ServerEngines'
++	  10Gbps network adapter - BladeEngine.
+diff --git a/drivers/net/benet/Makefile b/drivers/net/ethernet/emulex/benet/Makefile
 similarity index 100%
-rename from drivers/net/tulip/Makefile
-rename to drivers/net/ethernet/tulip/Makefile
-diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/ethernet/tulip/de2104x.c
+rename from drivers/net/benet/Makefile
+rename to drivers/net/ethernet/emulex/benet/Makefile
+diff --git a/drivers/net/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
 similarity index 100%
-rename from drivers/net/tulip/de2104x.c
-rename to drivers/net/ethernet/tulip/de2104x.c
-diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/ethernet/tulip/de4x5.c
+rename from drivers/net/benet/be.h
+rename to drivers/net/ethernet/emulex/benet/be.h
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
 similarity index 100%
-rename from drivers/net/tulip/de4x5.c
-rename to drivers/net/ethernet/tulip/de4x5.c
-diff --git a/drivers/net/tulip/de4x5.h b/drivers/net/ethernet/tulip/de4x5.h
+rename from drivers/net/benet/be_cmds.c
+rename to drivers/net/ethernet/emulex/benet/be_cmds.c
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
 similarity index 100%
-rename from drivers/net/tulip/de4x5.h
-rename to drivers/net/ethernet/tulip/de4x5.h
-diff --git a/drivers/net/tulip/dmfe.c b/drivers/net/ethernet/tulip/dmfe.c
+rename from drivers/net/benet/be_cmds.h
+rename to drivers/net/ethernet/emulex/benet/be_cmds.h
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
 similarity index 100%
-rename from drivers/net/tulip/dmfe.c
-rename to drivers/net/ethernet/tulip/dmfe.c
-diff --git a/drivers/net/tulip/eeprom.c b/drivers/net/ethernet/tulip/eeprom.c
+rename from drivers/net/benet/be_ethtool.c
+rename to drivers/net/ethernet/emulex/benet/be_ethtool.c
+diff --git a/drivers/net/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
 similarity index 100%
-rename from drivers/net/tulip/eeprom.c
-rename to drivers/net/ethernet/tulip/eeprom.c
-diff --git a/drivers/net/tulip/interrupt.c b/drivers/net/ethernet/tulip/interrupt.c
+rename from drivers/net/benet/be_hw.h
+rename to drivers/net/ethernet/emulex/benet/be_hw.h
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
 similarity index 100%
-rename from drivers/net/tulip/interrupt.c
-rename to drivers/net/ethernet/tulip/interrupt.c
-diff --git a/drivers/net/tulip/media.c b/drivers/net/ethernet/tulip/media.c
-similarity index 100%
-rename from drivers/net/tulip/media.c
-rename to drivers/net/ethernet/tulip/media.c
-diff --git a/drivers/net/tulip/pnic.c b/drivers/net/ethernet/tulip/pnic.c
-similarity index 100%
-rename from drivers/net/tulip/pnic.c
-rename to drivers/net/ethernet/tulip/pnic.c
-diff --git a/drivers/net/tulip/pnic2.c b/drivers/net/ethernet/tulip/pnic2.c
-similarity index 100%
-rename from drivers/net/tulip/pnic2.c
-rename to drivers/net/ethernet/tulip/pnic2.c
-diff --git a/drivers/net/tulip/timer.c b/drivers/net/ethernet/tulip/timer.c
-similarity index 100%
-rename from drivers/net/tulip/timer.c
-rename to drivers/net/ethernet/tulip/timer.c
-diff --git a/drivers/net/tulip/tulip.h b/drivers/net/ethernet/tulip/tulip.h
-similarity index 100%
-rename from drivers/net/tulip/tulip.h
-rename to drivers/net/ethernet/tulip/tulip.h
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/ethernet/tulip/tulip_core.c
-similarity index 100%
-rename from drivers/net/tulip/tulip_core.c
-rename to drivers/net/ethernet/tulip/tulip_core.c
-diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/ethernet/tulip/uli526x.c
-similarity index 100%
-rename from drivers/net/tulip/uli526x.c
-rename to drivers/net/ethernet/tulip/uli526x.c
-diff --git a/drivers/net/tulip/winbond-840.c b/drivers/net/ethernet/tulip/winbond-840.c
-similarity index 100%
-rename from drivers/net/tulip/winbond-840.c
-rename to drivers/net/ethernet/tulip/winbond-840.c
-diff --git a/drivers/net/tulip/xircom_cb.c b/drivers/net/ethernet/tulip/xircom_cb.c
-similarity index 100%
-rename from drivers/net/tulip/xircom_cb.c
-rename to drivers/net/ethernet/tulip/xircom_cb.c
+rename from drivers/net/benet/be_main.c
+rename to drivers/net/ethernet/emulex/benet/be_main.c
 -- 
 1.7.5.4
 
