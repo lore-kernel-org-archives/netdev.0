@@ -1,222 +1,148 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC 33/72] pch_gbe: Move the OKI driver
-Date: Sat, 25 Jun 2011 06:58:44 -0700
-Message-ID: <1309010363-22750-34-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [RFC 40/72] spider_net: Move the spider_net (IBM) driver
+Date: Sat, 25 Jun 2011 06:58:51 -0700
+Message-ID: <1309010363-22750-41-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	Tomoya <tomoya-linux@dsn.okisemi.com>,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+	Utz Bacher <utz.bacher@de.ibm.com>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37764 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:41778 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752042Ab1FYN75 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2011 09:59:57 -0400
+	id S1752128Ab1FYOAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 10:00:06 -0400
 In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the OKI driver into driver/net/ethernet/oki/ and make the
-necessary Kconfig and Makefile changes.
+Move the spider_net (IBM) driver into drivers/net/ethernet/ibm/ and
+make the necessary Kconfig and Makefile changes
 
-Note: there is no documented maintainer for this driver, so I CC'd
-the last 2 major contributors.
-
-CC: Tomoya <tomoya-linux@dsn.okisemi.com>
-CC: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+CC: Utz Bacher <utz.bacher@de.ibm.com>
+CC: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
+CC: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                                |   19 -------------------
- drivers/net/Makefile                               |    1 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/oki/Kconfig                   |   18 ++++++++++++++++++
- drivers/net/ethernet/oki/Makefile                  |    5 +++++
- drivers/net/ethernet/oki/pch_gbe/Kconfig           |   20 ++++++++++++++++++++
- drivers/net/{ => ethernet/oki}/pch_gbe/Makefile    |    0
- drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe.h   |    0
- .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_api.c   |    0
- .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_api.h   |    0
- .../{ => ethernet/oki}/pch_gbe/pch_gbe_ethtool.c   |    0
- .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_main.c  |    0
- .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_param.c |    0
- .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_phy.c   |    0
- .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_phy.h   |    0
- 16 files changed, 45 insertions(+), 20 deletions(-)
- create mode 100644 drivers/net/ethernet/oki/Kconfig
- create mode 100644 drivers/net/ethernet/oki/Makefile
- create mode 100644 drivers/net/ethernet/oki/pch_gbe/Kconfig
- rename drivers/net/{ => ethernet/oki}/pch_gbe/Makefile (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe.h (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_api.c (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_api.h (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_ethtool.c (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_main.c (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_param.c (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_phy.c (100%)
- rename drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe_phy.h (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |    8 --------
+ drivers/net/Makefile                               |    2 --
+ drivers/net/ethernet/ibm/Kconfig                   |   11 ++++++++++-
+ drivers/net/ethernet/ibm/Makefile                  |    2 ++
+ drivers/net/{ => ethernet/ibm}/spider_net.c        |    0
+ drivers/net/{ => ethernet/ibm}/spider_net.h        |    2 +-
+ .../net/{ => ethernet/ibm}/spider_net_ethtool.c    |    0
+ 8 files changed, 14 insertions(+), 13 deletions(-)
+ rename drivers/net/{ => ethernet/ibm}/spider_net.c (100%)
+ rename drivers/net/{ => ethernet/ibm}/spider_net.h (99%)
+ rename drivers/net/{ => ethernet/ibm}/spider_net_ethtool.c (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 27bb4a2..7fa33bd 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5992,7 +5992,7 @@ M:	Jens Osterkamp <jens@de.ibm.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	Documentation/networking/spider_net.txt
+-F:	drivers/net/spider_net*
++F:	drivers/net/ethernet/ibm/spider_net*
+ 
+ SPU FILE SYSTEM
+ M:	Jeremy Kerr <jk@ozlabs.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 17db195..27e18b9 100644
+index 4bfd5e3..b8894ad 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1150,25 +1150,6 @@ config S6GMAC
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called s6gmac.
+@@ -797,14 +797,6 @@ config SIS190
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called sis190.  This is recommended.
  
--config PCH_GBE
--	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
--	depends on PCI
--	select MII
--	---help---
--	  This is a gigabit ethernet driver for EG20T PCH.
--	  EG20T PCH is the platform controller hub that is used in Intel's
--	  general embedded platform.
--	  EG20T PCH has Gigabit Ethernet interface.
--	  Using this interface, it is able to access system devices connected
--	  to Gigabit Ethernet.
--	  This driver enables Gigabit Ethernet function.
+-config SPIDER_NET
+-	tristate "Spider Gigabit Ethernet driver"
+-	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
+-	select FW_LOADER
+-	help
+-	  This driver supports the Gigabit Ethernet chips present on the
+-	  Cell Processor-Based Blades from IBM.
 -
--	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
--	  Output Hub), ML7223.
--	  ML7223 IOH is for MP(Media Phone) use.
--	  ML7223 is companion chip for Intel Atom E6xx series.
--	  ML7223 is completely compatible for Intel EG20T PCH.
--
- endif # NETDEV_1000
- 
- #
+ config TSI108_ETH
+ 	tristate "Tundra TSI108 gigabit Ethernet support"
+ 	depends on TSI108_BRIDGE
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 24d89c0..fee2851 100644
+index 3aca65c..fe9b44c 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -172,5 +172,4 @@ obj-$(CONFIG_WIMAX) += wimax/
- obj-$(CONFIG_CAIF) += caif/
+@@ -25,8 +25,6 @@ obj-$(CONFIG_R6040) += r6040.o
+ obj-$(CONFIG_YELLOWFIN) += yellowfin.o
+ obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+-spidernet-y += spider_net.o spider_net_ethtool.o
+-obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
+ obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+ gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
+ ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+diff --git a/drivers/net/ethernet/ibm/Kconfig b/drivers/net/ethernet/ibm/Kconfig
+index ac755a3..54fcdcb 100644
+--- a/drivers/net/ethernet/ibm/Kconfig
++++ b/drivers/net/ethernet/ibm/Kconfig
+@@ -4,7 +4,8 @@
  
- obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
--obj-$(CONFIG_PCH_GBE) += pch_gbe/
- obj-$(CONFIG_TILE_NET) += tile/
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 0c4ba94..cd3fd17 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -30,6 +30,7 @@ source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
-+source "drivers/net/ethernet/oki/Kconfig"
+ config NET_VENDOR_IBM
+ 	bool "IBM devices"
+-	depends on MCA || PPC_PSERIES || PPC_DCR || IBMEBUS
++	depends on MCA || PPC_PSERIES || PPC_DCR || IBMEBUS || (PCI && \
++		  (PPC_IBM_CELL_BLADE || PPC_CELLEB))
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -51,3 +52,11 @@ config EHEA
  
- config PASEMI_MAC
- 	tristate "PA Semi 1/10Gbit MAC"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 5a27837..f4b36b6 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -21,6 +21,7 @@ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-+obj-$(CONFIG_NET_VENDOR_OKI) += oki/
- obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o pasemi_mac_ethtool.o
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
-diff --git a/drivers/net/ethernet/oki/Kconfig b/drivers/net/ethernet/oki/Kconfig
-new file mode 100644
-index 0000000..a20f442
---- /dev/null
-+++ b/drivers/net/ethernet/oki/Kconfig
-@@ -0,0 +1,18 @@
-+#
-+# OKI Semiconductor device configuration
-+#
+ 	  To compile the driver as a module, choose M here. The module
+ 	  will be called ehea.
 +
-+config NET_VENDOR_OKI
-+	bool "OKI Semiconductor devices"
-+	depends on PCI
++config SPIDER_NET
++	tristate "Spider Gigabit Ethernet driver"
++	depends on NET_VENDOR_IBM && PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
++	select FW_LOADER
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about OKI Semiconductor cards. If you say Y, you will
-+	  be asked for your specific card in the following questions.
-+
-+source "drivers/net/ethernet/oki/pch_gbe/Kconfig"
-diff --git a/drivers/net/ethernet/oki/Makefile b/drivers/net/ethernet/oki/Makefile
-new file mode 100644
-index 0000000..b6780c8
---- /dev/null
-+++ b/drivers/net/ethernet/oki/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the OKI Semiconductor device drivers.
-+#
-+
-+obj-$(CONFIG_PCH_GBE) += pch_gbe/
-diff --git a/drivers/net/ethernet/oki/pch_gbe/Kconfig b/drivers/net/ethernet/oki/pch_gbe/Kconfig
-new file mode 100644
-index 0000000..f66fefa
---- /dev/null
-+++ b/drivers/net/ethernet/oki/pch_gbe/Kconfig
-@@ -0,0 +1,20 @@
-+#
-+# OKI Semiconductor device configuration
-+#
-+
-+config PCH_GBE
-+	tristate "OKI SEMICONDUCTOR ML7223 IOH GbE (Intel EG20T PCH)"
-+	depends on NET_VENDOR_OKI && PCI
-+	select MII
-+	---help---
-+	  This is a gigabit ethernet driver for EG20T PCH.
-+	  EG20T PCH is the platform controller hub that is used in Intel's
-+	  general embedded platform.  EG20T PCH has Gigabit Ethernet interface.
-+	  Using this interface, it is able to access system devices connected
-+	  to Gigabit Ethernet.  This driver enables Gigabit Ethernet function.
-+
-+	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
-+	  Output Hub), ML7223.
-+	  ML7223 IOH is for MP(Media Phone) use.
-+	  ML7223 is companion chip for Intel Atom E6xx series.
-+	  ML7223 is completely compatible for Intel EG20T PCH.
-diff --git a/drivers/net/pch_gbe/Makefile b/drivers/net/ethernet/oki/pch_gbe/Makefile
++	  This driver supports the Gigabit Ethernet chips present on the
++	  Cell Processor-Based Blades from IBM.
+diff --git a/drivers/net/ethernet/ibm/Makefile b/drivers/net/ethernet/ibm/Makefile
+index a63a8c3..76c1646 100644
+--- a/drivers/net/ethernet/ibm/Makefile
++++ b/drivers/net/ethernet/ibm/Makefile
+@@ -6,3 +6,5 @@ obj-$(CONFIG_IBMLANA) += ibmlana.o
+ obj-$(CONFIG_IBMVETH) += ibmveth.o
+ obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
+ obj-$(CONFIG_EHEA) += ehea/
++spidernet-y += spider_net.o spider_net_ethtool.o
++obj-$(CONFIG_SPIDER_NET) += spidernet.o ../sun/sungem_phy.o
+diff --git a/drivers/net/spider_net.c b/drivers/net/ethernet/ibm/spider_net.c
 similarity index 100%
-rename from drivers/net/pch_gbe/Makefile
-rename to drivers/net/ethernet/oki/pch_gbe/Makefile
-diff --git a/drivers/net/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki/pch_gbe/pch_gbe.h
+rename from drivers/net/spider_net.c
+rename to drivers/net/ethernet/ibm/spider_net.c
+diff --git a/drivers/net/spider_net.h b/drivers/net/ethernet/ibm/spider_net.h
+similarity index 99%
+rename from drivers/net/spider_net.h
+rename to drivers/net/ethernet/ibm/spider_net.h
+index a891ad0..9bfce7c 100644
+--- a/drivers/net/spider_net.h
++++ b/drivers/net/ethernet/ibm/spider_net.h
+@@ -27,7 +27,7 @@
+ 
+ #define VERSION "2.0 B"
+ 
+-#include "./ethernet/sun/sungem_phy.h"
++#include "../sun/sungem_phy.h"
+ 
+ extern int spider_net_stop(struct net_device *netdev);
+ extern int spider_net_open(struct net_device *netdev);
+diff --git a/drivers/net/spider_net_ethtool.c b/drivers/net/ethernet/ibm/spider_net_ethtool.c
 similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe.h
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe.h
-diff --git a/drivers/net/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_api.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_api.c
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_api.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_api.h b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_api.h
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_api.h
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_api.h
-diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_ethtool.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_ethtool.c
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_ethtool.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_main.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_main.c
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_main.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_param.c b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_param.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_param.c
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_param.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_phy.c b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_phy.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_phy.c
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_phy.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_phy.h b/drivers/net/ethernet/oki/pch_gbe/pch_gbe_phy.h
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_phy.h
-rename to drivers/net/ethernet/oki/pch_gbe/pch_gbe_phy.h
+rename from drivers/net/spider_net_ethtool.c
+rename to drivers/net/ethernet/ibm/spider_net_ethtool.c
 -- 
 1.7.5.4
 
