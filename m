@@ -1,50 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC 26/72] arm: Move the ARM/ACORN drivers
-Date: Sat, 25 Jun 2011 23:38:17 -0700
-Message-ID: <1309070297.23211.16.camel@Joe-Laptop>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [RFC 00/72] Organize/Move of the Ethernet drivers in
+ drivers/net/
+Date: Sun, 26 Jun 2011 03:54:43 -0400
+Message-ID: <20110626035443.754ae57d.billfink@mindspring.com>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <201106251803.53416.arnd@arndb.de>
-	 <20110625161227.GJ23234@n2100.arm.linux.org.uk>
-	 <201106251859.38963.arnd@arndb.de> <1309025217.2454.89.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sriram <srk@ti.com>, Vinay Hegde <vinay.hegde@ti.com>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Wan ZongShun <mcuos.com@gmail.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Anant Gole <anantgole@ti.com>,
-	Chaithrika U S <chaithrika@ti.com>
-To: jeffrey.t.kirsher@intel.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3210 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751036Ab1FZGiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jun 2011 02:38:19 -0400
-In-Reply-To: <1309025217.2454.89.camel@jtkirshe-mobl>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:44985 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751070Ab1FZIF2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 04:05:28 -0400
+In-Reply-To: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-06-25 at 11:06 -0700, Jeff Kirsher wrote:
-> On Sat, 2011-06-25 at 09:59 -0700, Arnd Bergmann wrote:
-> > Jeff created a drivers/net/ethernet/8390/ directory for all of those,
-> > which sounds sensible to me, but apparently he missed some of the
-> > nonobvious ones.
-> I was trying to keep the drivers that use the 8390 common files grouped
-> together.
+On Sat, 25 Jun 2011, Jeff Kirsher wrote:
 
-Please move a2065, ariadne and zorro8390 too.
+> The following series is the first attempt to organize the drivers/net
+> directory.  This process was started a year ago, and the emphasis was
+> on making the drivers/net/ easier to maintain and to group similar
+> drivers into the appropriate sub-directory.
+> 
+> The next steps are to move all the FIDDI drivers into drivers/net/fiddi,
+> and like so.  In addition, look at splitting the PS3 driver so that the
+> wireless portion can be moved into /drivers/net/wireless.
 
-> I know that there are other instances like this (for instance drivers
-> derived from the lance.c driver) yet these derived drivers do not use
-> the common files that other lance drivers use.  Because they are
-> derived, yet do not use the common code, should they still be grouped
-> together?
+That should be FDDI, not FIDDI.
 
-IMO, yes.
-
+		-Bill
