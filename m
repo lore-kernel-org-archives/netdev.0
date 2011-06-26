@@ -1,30 +1,50 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [RFC 20/72] pasemic_mac*: Move the PA Semi driver
-Date: Sat, 25 Jun 2011 18:34:36 -0700
-Message-ID: <BANLkTi=U+fMVg9cyH0mJ=ruQjSYj-kG6m-a23+4sWt4kECwAOg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC 26/72] arm: Move the ARM/ACORN drivers
+Date: Sat, 25 Jun 2011 23:38:17 -0700
+Message-ID: <1309070297.23211.16.camel@Joe-Laptop>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1309010363-22750-21-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <201106251803.53416.arnd@arndb.de>
+	 <20110625161227.GJ23234@n2100.arm.linux.org.uk>
+	 <201106251859.38963.arnd@arndb.de> <1309025217.2454.89.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sriram <srk@ti.com>, Vinay Hegde <vinay.hegde@ti.com>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Wan ZongShun <mcuos.com@gmail.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Anant Gole <anantgole@ti.com>,
+	Chaithrika U S <chaithrika@ti.com>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:53640 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752166Ab1FZBei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 21:34:38 -0400
-Received: by bwd5 with SMTP id 5so540376bwd.19
-        for <netdev@vger.kernel.org>; Sat, 25 Jun 2011 18:34:37 -0700 (PDT)
-In-Reply-To: <1309010363-22750-21-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.perches.com ([173.55.12.10]:3210 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751036Ab1FZGiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Jun 2011 02:38:19 -0400
+In-Reply-To: <1309025217.2454.89.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 25, 2011 at 6:58 AM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> Move the PA Semi driver into drivers/net/ethernet/ and make the
-> necessary Kconfig and Makefile changes.
->
-> CC: Olof Johansson <olof@lixom.net>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Sat, 2011-06-25 at 11:06 -0700, Jeff Kirsher wrote:
+> On Sat, 2011-06-25 at 09:59 -0700, Arnd Bergmann wrote:
+> > Jeff created a drivers/net/ethernet/8390/ directory for all of those,
+> > which sounds sensible to me, but apparently he missed some of the
+> > nonobvious ones.
+> I was trying to keep the drivers that use the 8390 common files grouped
+> together.
 
-Acked-by: Olof Johansson <olof@lixom.net>
+Please move a2065, ariadne and zorro8390 too.
+
+> I know that there are other instances like this (for instance drivers
+> derived from the lance.c driver) yet these derived drivers do not use
+> the common files that other lance drivers use.  Because they are
+> derived, yet do not use the common code, should they still be grouped
+> together?
+
+IMO, yes.
+
