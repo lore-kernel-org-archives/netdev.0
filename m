@@ -1,8 +1,9 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 1/2] can: bfin_can: simplify xmit id1 setup
-Date: Sun, 26 Jun 2011 16:14:53 +0200
-Message-ID: <4E073EDD.1050905@grandegger.com>
+Subject: Re: [PATCH 2/2] can: bfin_can: auto-calculate accessor sizes
+Date: Sun, 26 Jun 2011 16:15:22 +0200
+Message-ID: <4E073EFA.7060203@grandegger.com>
 References: <1308925982-14645-1-git-send-email-vapier@gentoo.org>
+	<1308925982-14645-2-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +12,7 @@ Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76
 	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
 To: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1308925982-14645-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <1308925982-14645-2-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -24,12 +25,11 @@ Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On 06/24/2011 04:33 PM, Mike Frysinger wrote:
-> If we look closely, the 4 writes to TRANSMIT_CHL.id1 can be collapsed
-> down into much simpler code.  So do just that.
+> Since we have a struct that defines the sizes of the registers, we don't
+> need to explicitly use the 16bit read/write helpers.  Let the code figure
+> out which size access to make based on the size of the C type.
 > 
-> This also fixes a build failure due to the I/O macros no longer
-> getting pulled in.  Their minor (and accidental) usage here gets
-> dropped as part of the unification.
+> There should be no functional changes here.
 > 
 > Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 
