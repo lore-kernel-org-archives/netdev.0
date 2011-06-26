@@ -1,48 +1,43 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] net_sched: fix dequeuer fairness
-Date: Sun, 26 Jun 2011 12:38:37 -0400
-Message-ID: <1309106317.5134.56.camel@mojatatu>
+Date: Sun, 26 Jun 2011 14:13:54 -0400
+Message-ID: <1309112034.5134.66.camel@mojatatu>
 References: <1309097254.5134.24.camel@mojatatu>
 	 <1309100994.2532.35.camel@edumazet-laptop>
 	 <1309102334.5134.31.camel@mojatatu>  <1309104215.5134.37.camel@mojatatu>
 	 <1309105599.2532.50.camel@edumazet-laptop>
+	 <1309106317.5134.56.camel@mojatatu>
 Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-RXhvoVOQjcdO33LctKn7"
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, adi <adi@postpi.com>,
+	Joe Perches <joe@perches.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52373 "EHLO
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:65505 "EHLO
 	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754430Ab1FZQik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 12:38:40 -0400
-Received: by iwn6 with SMTP id 6so3536995iwn.19
-        for <netdev@vger.kernel.org>; Sun, 26 Jun 2011 09:38:40 -0700 (PDT)
-In-Reply-To: <1309105599.2532.50.camel@edumazet-laptop>
+	with ESMTP id S1754167Ab1FZSN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 14:13:59 -0400
+Received: by iwn6 with SMTP id 6so3572112iwn.19
+        for <netdev@vger.kernel.org>; Sun, 26 Jun 2011 11:13:58 -0700 (PDT)
+In-Reply-To: <1309106317.5134.56.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-RXhvoVOQjcdO33LctKn7
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Sigh. One more change (should have heeded the compile warning)
+thanks to adi <adi@postpi.com> for pointing it out.
+Thanks to Joe Perches <joe@perches.com> for the tip on
+inlining with Evolution (seems to work when i sent to myself).
 
+----
 
-Updated version with latest comment from Eric.
-
-cheers,
-jamal
-
---=-RXhvoVOQjcdO33LctKn7
-Content-Disposition: attachment; filename="pns-4"
-Content-Type: text/plain; name="pns-4"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-commit bd01154eff66964f516ba0914473b1ef49edcc33
+commit a4e964941428bdf58741702e2808d2f813dac1fd
 Author: Jamal Hadi Salim <jhs@mojatatu.com>
-Date:   Sun Jun 26 12:36:33 2011 -0400
+Date:   Sun Jun 26 14:06:29 2011 -0400
 
     [PATCH] net_sched: fix dequeuer fairness
     
@@ -108,13 +103,14 @@ Date:   Sun Jun 26 12:36:33 2011 -0400
     Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index b4c6809..1006450 100644
+index b4c6809..d253c16 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -190,14 +190,17 @@ static inline int qdisc_restart(struct Qdisc *q)
+@@ -189,15 +189,17 @@ static inline int qdisc_restart(struct Qdisc *q)
+ 
  void __qdisc_run(struct Qdisc *q)
  {
- 	unsigned long start_time = jiffies;
+-	unsigned long start_time = jiffies;
 +	int quota = weight_p;
 +	int work = 0;
  
@@ -134,5 +130,4 @@ index b4c6809..1006450 100644
  			break;
  		}
 
---=-RXhvoVOQjcdO33LctKn7--
 
