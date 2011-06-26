@@ -1,57 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Sun, 26 Jun 2011 13:25:44 +0300
-Message-ID: <20110626102543.GA4961@redhat.com>
-References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
+From: Fabio Coatti <fabio.coatti@gmail.com>
+Subject: Re: 2.6.39.2 BUG: unable to handle kernel NULL pointer dereference
+Date: Sun, 26 Jun 2011 13:34:57 +0200
+Message-ID: <BANLkTikhGVYAFEZGS-AZf3CyS4yVN+Acvg@mail.gmail.com>
+References: <BANLkTing9LWO6AjbdzOJzkJ9aoJhn_TLnw@mail.gmail.com>
+	<1309082172.2532.31.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Rusty Russell <rusty@rustcorp.com.au>, mashirle@us.ibm.com
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45073 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753127Ab1FZKZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jun 2011 06:25:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:51471 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298Ab1FZLe6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 07:34:58 -0400
+In-Reply-To: <1309082172.2532.31.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2011 at 04:43:22PM +0100, Ian Campbell wrote:
-> In this mode guest data pages ("foreign pages") were mapped into the
-> backend domain (using Xen grant-table functionality) and placed into the
-> skb's paged frag list (skb_shinfo(skb)->frags, I hope I am using the
-> right term). Once the page is finished with netback unmaps it in order
-> to return it to the guest (we really want to avoid returning such pages
-> to the general allocation pool!).
+2011/6/26 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le dimanche 26 juin 2011 =E0 10:28 +0200, Fabio Coatti a =E9crit :
+>> I'm trying to boot with 2.6.39.2 but the process stops somewhere in
+>> network stack, with a BUG: report.
+>> I've been able to capture the kernel messages usign netconsole, so b=
+e
+>> patient with poor alignment :)
 
-Are the pages writeable by the source guest while netback processes
-them?  If yes, firewalling becomes unreliable as the packet can be
-modified after it's checked, right?
-Also, for guest to guest communication, do you wait for
-the destination to stop looking at the packet in order
-to return it to the source? If yes, can source guest
-networking be disrupted by a slow destination?
+>
+> Hi Fabio
+>
+> Could you test following patch :
+>
+> http://git2.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=
+=3Dcommitdiff;h=3D6407d74c5106bb362b4087693688afd34942b094
+>
+>
+> This should be included in 2.6.39.3, if you confirm this fixes the
+> problem.
+>
+
+Yes, I can confirm that your patch fixes the problem, now running
+2.6.39.2 just fine. Many thanks!
 
 
-> Jeremy Fitzhardinge and I subsequently
-> looked at the possibility of a no-clone skb flag (i.e. always forcing a
-> copy instead of a clone)
 
-I think this is the approach that the patchset
-'macvtap/vhost TX zero-copy support' takes.
-
-> but IIRC honouring it universally turned into a
-> very twisty maze with a number of nasty corner cases etc.
-
-Any examples? Are they covered by the patchset above?
-
-> FWIW I proposed a session on the subject for LPC this year.
-We also plan to discuss this on kvm forum 2011
-(colocated with linuxcon 2011).
-http://www.linux-kvm.org/page/KVM_Forum_2011
-
--- 
-MST
+--=20
+=46abio
