@@ -1,36 +1,109 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 :  always copying the rx buffer to new skb
-Date: Tue, 28 Jun 2011 09:55:14 +0200
-Message-ID: <20110628075514.GA4089@electric-eye.fr.zoreil.com>
-References: <COL116-W30238D0821823E764BBB53A3570@phx.gbl>
+From: Yinglin Luan <synmyth@gmail.com>
+Subject: [PATCH]rionet: fix NULL pointer dereference in rionet_remove
+Date: Sun, 26 Jun 2011 12:12:12 +0800
+Message-ID: <4e098bf5.87f62a0a.4c71.571a@mx.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: John Lumby <johnlumby@hotmail.com>
+Cc: davem@davemloft.net, mporter@kernel.crashing.org, jj@chaosbits.net,
+	cmdkhh@gmail.com, synmyth@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57863 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756441Ab1F1IIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 04:08:39 -0400
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:33268 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754806Ab1F1IIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 04:08:23 -0400
+Received: by iwn6 with SMTP id 6so4763409iwn.19
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2011 01:08:22 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <COL116-W30238D0821823E764BBB53A3570@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John, please ask your mail user agent to avoid really, really long lines.
+Function rionet_remove initializes local variable 'ndev' to NULL
+and do nothing changes before the call to unregister_netdev(ndev),
+this could cause a NULL pointer dereference.
 
-John Lumby <johnlumby@hotmail.com> :
-[...]
-> I don't plan to do any more on this but can provide my patch (currently
-> one monolithic one based on DaveM 3.0.0-rc1netnext-110615) and detailed
-> results if anyone wants.
+Reported-by: Jesper Juhl <jj@chaosbits.net>
+Signed-off-by: Yinglin Luan <synmyth@gmail.com>
+---
+ drivers/net/rionet.c |   28 +++++++++++++++-------------
+ 1 files changed, 15 insertions(+), 13 deletions(-)
 
-If you want your work to stand a chance to be of any use, you should
-send it. Please read the "12) Sign your work" part of
-"Documentation/SubmittingPatches" - even if it's a giant pile of mildly
-standard code - so that I can store it at kernel.org.
-
-Thanks.
-
+diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+index 77c5092..5d3436d 100644
+--- a/drivers/net/rionet.c
++++ b/drivers/net/rionet.c
+@@ -378,7 +378,7 @@ static int rionet_close(struct net_device *ndev)
+ 
+ static void rionet_remove(struct rio_dev *rdev)
+ {
+-	struct net_device *ndev = NULL;
++	struct net_device *ndev = rio_get_drvdata(rdev);
+ 	struct rionet_peer *peer, *tmp;
+ 
+ 	free_pages((unsigned long)rionet_active, rdev->net->hport->sys_size ?
+@@ -433,22 +433,12 @@ static const struct net_device_ops rionet_netdev_ops = {
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ };
+ 
+-static int rionet_setup_netdev(struct rio_mport *mport)
++static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+ {
+ 	int rc = 0;
+-	struct net_device *ndev = NULL;
+ 	struct rionet_private *rnet;
+ 	u16 device_id;
+ 
+-	/* Allocate our net_device structure */
+-	ndev = alloc_etherdev(sizeof(struct rionet_private));
+-	if (ndev == NULL) {
+-		printk(KERN_INFO "%s: could not allocate ethernet device.\n",
+-		       DRV_NAME);
+-		rc = -ENOMEM;
+-		goto out;
+-	}
+-
+ 	rionet_active = (struct rio_dev **)__get_free_pages(GFP_KERNEL,
+ 			mport->sys_size ? __fls(sizeof(void *)) + 4 : 0);
+ 	if (!rionet_active) {
+@@ -504,11 +494,21 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
+ 	int rc = -ENODEV;
+ 	u32 lpef, lsrc_ops, ldst_ops;
+ 	struct rionet_peer *peer;
++	struct net_device *ndev = NULL;
+ 
+ 	/* If local device is not rionet capable, give up quickly */
+ 	if (!rionet_capable)
+ 		goto out;
+ 
++	/* Allocate our net_device structure */
++	ndev = alloc_etherdev(sizeof(struct rionet_private));
++	if (ndev == NULL) {
++		printk(KERN_INFO "%s: could not allocate ethernet device.\n",
++		       DRV_NAME);
++		rc = -ENOMEM;
++		goto out;
++	}
++
+ 	/*
+ 	 * First time through, make sure local device is rionet
+ 	 * capable, setup netdev,  and set flags so this is skipped
+@@ -529,7 +529,7 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
+ 			goto out;
+ 		}
+ 
+-		rc = rionet_setup_netdev(rdev->net->hport);
++		rc = rionet_setup_netdev(rdev->net->hport, ndev);
+ 		rionet_check = 1;
+ 	}
+ 
+@@ -546,6 +546,8 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
+ 		list_add_tail(&peer->node, &rionet_peers);
+ 	}
+ 
++	rio_set_drvdata(rdev, ndev);
++
+       out:
+ 	return rc;
+ }
 -- 
-Ueimor
+1.7.0.4
