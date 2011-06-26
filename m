@@ -1,39 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/9] myri10ge: rework parity error check and cleanup
-Date: Mon, 27 Jun 2011 16:27:18 +0100
-Message-ID: <1309188438.2744.5.camel@bwh-desktop>
-References: <1309187108-12715-1-git-send-email-mason@myri.com>
-	 <1309187108-12715-3-git-send-email-mason@myri.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Andrew Gallatin <gallatin@myri.com>
-To: Jon Mason <mason@myri.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH 02/12] NET: 3c509: Fix section mismatch
+Date: Sun, 26 Jun 2011 12:21:31 +0100
+Message-ID: <ab495fabda7fe6b70a76e5592fb3a0c1180b325b.1309182743.git.ralf@linux-mips.org>
+References: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:27664 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750718Ab1F0P1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 11:27:22 -0400
-In-Reply-To: <1309187108-12715-3-git-send-email-mason@myri.com>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:40646 "EHLO duck.linux-mips.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750994Ab1F0PiF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2011 11:38:05 -0400
+In-Reply-To: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-06-27 at 10:05 -0500, Jon Mason wrote:
-> Clean up watchdog reset code:
->  - move code that checks for stuck slice to a common routine
->  - unless there is a confirmed h/w fault, verify that a stuck
->    slice is still stuck in the watchdog worker; if the slice is no
->    longer stuck, abort the reset.
->  - this removes an egregarious 2000ms pause in the watchdog worker that
-[...]
+WARNING: drivers/net/3c509.o(.data+0x190): Section mismatch in reference from the variable el3_eisa_driver to the function .init.text:el3_eisa_probe()
+The variable el3_eisa_driver references
+the function __init el3_eisa_probe()
+If the reference is valid then annotate the
+variable with __init* or __refdata (see linux/init.h) or name the variable:
+*_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console
 
-Egregious & gregarious?  Or maybe just egregious?
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-mips@linux-mips.org
+---
+ drivers/net/3c509.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/3c509.c b/drivers/net/3c509.c
+index 44b28b2..dc4bf07 100644
+--- a/drivers/net/3c509.c
++++ b/drivers/net/3c509.c
+@@ -671,7 +671,7 @@ static int __init el3_mca_probe(struct device *device)
+ #endif /* CONFIG_MCA */
+ 
+ #ifdef CONFIG_EISA
+-static int __init el3_eisa_probe (struct device *device)
++static int __devinit el3_eisa_probe(struct device *device)
+ {
+ 	short i;
+ 	int ioaddr, irq, if_port;
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.4.4
 
