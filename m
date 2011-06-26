@@ -1,54 +1,39 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: [PATCH] net, llc: Avoid undefined behaviour in
- llc_conn_ac_inc_vr_by_1()
-Date: Sun, 26 Jun 2011 02:01:05 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1106260158450.23991@swampdragon.chaosbits.net>
-References: <alpine.LNX.2.00.1106260009530.23991@swampdragon.chaosbits.net> <20110625.170445.957364657527336185.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [RFC 18/72] ehea/ibm*: Move the IBM drivers
+Date: Sun, 26 Jun 2011 10:37:01 +1000
+Message-ID: <1309048621.32158.341.camel@pasglop>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1309010363-22750-19-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <4E05F320.1080202@hartkopp.net>  <201106251704.22561.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Alfred Arnold <alfred.arnold@lancom.de>,
+	Santiago Leon <santil@linux.vnet.ibm.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:42700 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752075Ab1FZAKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 20:10:06 -0400
-In-Reply-To: <20110625.170445.957364657527336185.davem@davemloft.net>
+Received: from gate.crashing.org ([63.228.1.57]:51792 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752075Ab1FZAh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2011 20:37:59 -0400
+In-Reply-To: <201106251704.22561.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Jun 2011, David Miller wrote:
-
-> From: Jesper Juhl <jj@chaosbits.net>
-> Date: Sun, 26 Jun 2011 00:11:12 +0200 (CEST)
+On Sat, 2011-06-25 at 17:04 +0200, Arnd Bergmann wrote:
+> You can probably rename to just emac now, since the "old" emac driver
+> has been gone for some time.
 > 
-> > Introduce a sequence point (;) between two writes to llc_sk(sk)->vR in
-> > net/llc/llc_c_ac.c:llc_conn_ac_inc_vr_by_1() so that the order in
-> > which the writes happen become well defined.
-> > 
-> > While the code may work fine now it may break at any time with a
-> > different compiler, a new version of current compiler or even just a
-> > different optimization level of the current compiler. Much better to
-> > clearly express what's intended in a way that guarantees the result.
-> > 
-> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> 
-> How about fixing the macro so that it doesn't have side effects
-> like this?
-> 
-> That's much better than a 6 line (improperly formatted, BTW) comment
-> every time someone tried to use that macros with an lvalue that isn't
-> a local variable.
+> The "new" part of the name does not refer to the hardware, just to
+> the driver.
 
-Sure, that's also a way to go - better probably.
-I just thought that I would fix up the one call site I found that was 
-problematic...
-But gimme a couple of days (I don't have much free time) and I'll cook up 
-a different patch.
+Right. Agreed.
 
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Cheers,
+Ben.
+
 
