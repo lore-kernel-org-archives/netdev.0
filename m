@@ -1,53 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 11/72] cassini/niu/sun*: Move the Sun drivers
-Date: Sat, 25 Jun 2011 16:56:39 -0700 (PDT)
-Message-ID: <20110625.165639.1842566865962804457.davem@davemloft.net>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1309010363-22750-12-git-send-email-jeffrey.t.kirsher@intel.com>
-	<4E05F4D3.9020407@hartkopp.net>
+Subject: Re: [PATCH] net, llc: Avoid undefined behaviour in
+ llc_conn_ac_inc_vr_by_1()
+Date: Sat, 25 Jun 2011 17:04:45 -0700 (PDT)
+Message-ID: <20110625.170445.957364657527336185.davem@davemloft.net>
+References: <alpine.LNX.2.00.1106260009530.23991@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	sammy@sammy.net, asun@darksunrising.com, benh@kernel.crashing.org
-To: socketcan@hartkopp.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59949 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447Ab1FYX7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2011 19:59:51 -0400
-In-Reply-To: <4E05F4D3.9020407@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jj@chaosbits.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1106260009530.23991@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Sat, 25 Jun 2011 16:46:43 +0200
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Sun, 26 Jun 2011 00:11:12 +0200 (CEST)
 
-> On 25.06.2011 15:58, Jeff Kirsher wrote:
->> Moves the Sun drivers into drivers/net/ethernet/sun/ and make
->> the necessary Kconfig and Makefile changes.
->> 
+> Introduce a sequence point (;) between two writes to llc_sk(sk)->vR in
+> net/llc/llc_c_ac.c:llc_conn_ac_inc_vr_by_1() so that the order in
+> which the writes happen become well defined.
 > 
-> (..)
+> While the code may work fine now it may break at any time with a
+> different compiler, a new version of current compiler or even just a
+> different optimization level of the current compiler. Much better to
+> clearly express what's intended in a way that guarantees the result.
 > 
->> ---
->>  MAINTAINERS                                 |    1 +
->>  drivers/net/Kconfig                         |   75 ----------------------
->>  drivers/net/Makefile                        |   11 +---
->>  drivers/net/ethernet/Kconfig                |    1 +
->>  drivers/net/ethernet/Makefile               |    1 +
->>  drivers/net/ethernet/sun/Kconfig            |   91 +++++++++++++++++++++++++++
->>  drivers/net/ethernet/sun/Makefile           |   12 ++++
->>  drivers/net/{ => ethernet/sun}/cassini.c    |    0
->>  drivers/net/{ => ethernet/sun}/cassini.h    |    0
->>  drivers/net/{ => ethernet/sun}/niu.c        |    0
->>  drivers/net/{ => ethernet/sun}/niu.h        |    0
->>  drivers/net/{ => ethernet/sun}/sun3_82586.c |    0
->>  drivers/net/{ => ethernet/sun}/sun3_82586.h |    0
-> 
-> s/sun3_// in filenames?
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-It's a special instance of the chip which only ever
-appears on the motherboard of m68k based sun3 systems.
+How about fixing the macro so that it doesn't have side effects
+like this?
 
-The sun3 prefix is absolutely appropriate.
+That's much better than a 6 line (improperly formatted, BTW) comment
+every time someone tried to use that macros with an lvalue that isn't
+a local variable.
