@@ -1,64 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] net_sched: fix dequeuer fairness
-Date: Sun, 26 Jun 2011 15:53:53 +0100
-Message-ID: <1309100033.3093.1499.camel@localhost>
+Date: Sun, 26 Jun 2011 17:09:54 +0200
+Message-ID: <1309100994.2532.35.camel@edumazet-laptop>
 References: <1309097254.5134.24.camel@mojatatu>
-	 <1309097862.5134.26.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	netdev@vger.kernel.org
 To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:41364 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919Ab1FZOx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 10:53:57 -0400
-In-Reply-To: <1309097862.5134.26.camel@mojatatu>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63003 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926Ab1FZPKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 11:10:03 -0400
+Received: by wwe5 with SMTP id 5so4093839wwe.1
+        for <netdev@vger.kernel.org>; Sun, 26 Jun 2011 08:10:01 -0700 (PDT)
+In-Reply-To: <1309097254.5134.24.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-06-26 at 10:17 -0400, jamal wrote:
-[...]
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index b4c6809..578269e 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -190,14 +190,18 @@ static inline int qdisc_restart(struct Qdisc *q)
->  void __qdisc_run(struct Qdisc *q)
->  {
->         unsigned long start_time = jiffies;
-> +       int quota = 0;
-> +       int work = weight_p;
+Le dimanche 26 juin 2011 =C3=A0 10:07 -0400, jamal a =C3=A9crit :
+> Got the 10G intel cards installed finally and repeated
+> the tests on both dummy and Ixgbe. The unfairness was much=20
+> higher with 10G than with dummy. The logs contain the results.
+>=20
+> I could send another patch with stats gathering.=20
+> The best place seems to be in net/softnet_stat re-using
+> the fast route entries.
+>=20
 
-These variable names seem to be the wrong way round, i.e. the weight is
-our 'quota' and the number of packets dequeued is the 'work' we've done.
+Hi Jamal
 
-Ben.
+I would just remove the jiffies break, now we have a 64 packets limit..=
+=2E
 
->         while (qdisc_restart(q)) {
-> +               quota++;
->                 /*
-> -                * Postpone processing if
-> -                * 1. another process needs the CPU;
-> -                * 2. we've been doing it for too long.
-> +                * Ordered by possible occurrence: Postpone processing if
-> +                * 1. we've exceeded packet quota
-> +                * 2. another process needs the CPU;
-> +                * 3. we've been doing it for too long.
->                  */
-> -               if (need_resched() || jiffies != start_time) {
-> +               if (quota >= work || need_resched() || jiffies != start_time) {
->                         __netif_schedule(q);
->                         break;
->                 }
-> 
+if (quota >=3D work || need_resched()) {
+	...
+}
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
 
