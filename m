@@ -1,164 +1,174 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: [PATCH 15/19 v2] tg3: remove unnecessary read of PCI_CAP_ID_EXP
-Date: Mon, 27 Jun 2011 17:56:50 -0500
-Message-ID: <20110627225649.GA20786@kudzu.us>
-References: <1309196854-16232-1-git-send-email-jdmason@kudzu.us>
+From: John Lumby <johnlumby@hotmail.com>
+Subject: r8169 :  always copying the rx buffer to new skb
+Date: Mon, 27 Jun 2011 18:54:11 -0400
+Message-ID: <COL116-W30238D0821823E764BBB53A3570@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:42292 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755209Ab1F0W44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 18:56:56 -0400
-Received: by pwj7 with SMTP id 7so3229018pwj.19
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 15:56:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1309196854-16232-1-git-send-email-jdmason@kudzu.us>
+Received: from col0-omc1-s10.col0.hotmail.com ([65.55.34.20]:29018 "EHLO
+	col0-omc1-s10.col0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754792Ab1F0W7n convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2011 18:59:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PCIE capability offset is saved during PCI bus walking.  Use the
-value from pci_dev instead of checking in the driver and saving it off
-the the driver specific structure.  It will remove an unnecessary search
-in the PCI configuration space if this value is referenced instead of
-reacquiring it.
 
-v2 of the patch re-adds the PCI_EXPRESS flag and adds comments
-describing why it is necessary.
+Summary of some results since previous posts in April :
 
-Signed-off-by: Jon Mason <jdmason@kudzu.us>
----
- drivers/net/tg3.c |   25 ++++++++++++++-----------
- drivers/net/tg3.h |    5 +----
- 2 files changed, 15 insertions(+), 15 deletions(-)
+Previously I suggested re-introducing the rx_copybreak parameter to pro=
+vide the option of un-hooking the receive buffer rather than copying it=
+,=A0 in order to save the overhead of the memcpy,=A0=A0 which shows as =
+the highest tick-count in oprofile.=A0 All buffer memcpy'ing is done on=
+ CPU0 on my system.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 97cd02d..a555efd 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -2679,11 +2679,11 @@ static int tg3_power_down_prepare(struct tg3 *tp)
- 		u16 lnkctl;
- 
- 		pci_read_config_word(tp->pdev,
--				     tp->pcie_cap + PCI_EXP_LNKCTL,
-+				     tp->pdev->pcie_cap + PCI_EXP_LNKCTL,
- 				     &lnkctl);
- 		lnkctl |= PCI_EXP_LNKCTL_CLKREQ_EN;
- 		pci_write_config_word(tp->pdev,
--				      tp->pcie_cap + PCI_EXP_LNKCTL,
-+				      tp->pdev->pcie_cap + PCI_EXP_LNKCTL,
- 				      lnkctl);
- 	}
- 
-@@ -3485,7 +3485,7 @@ relink:
- 		u16 oldlnkctl, newlnkctl;
- 
- 		pci_read_config_word(tp->pdev,
--				     tp->pcie_cap + PCI_EXP_LNKCTL,
-+				     tp->pdev->pcie_cap + PCI_EXP_LNKCTL,
- 				     &oldlnkctl);
- 		if (tp->link_config.active_speed == SPEED_100 ||
- 		    tp->link_config.active_speed == SPEED_10)
-@@ -3494,7 +3494,7 @@ relink:
- 			newlnkctl = oldlnkctl | PCI_EXP_LNKCTL_CLKREQ_EN;
- 		if (newlnkctl != oldlnkctl)
- 			pci_write_config_word(tp->pdev,
--					      tp->pcie_cap + PCI_EXP_LNKCTL,
-+					      tp->pdev->pcie_cap + PCI_EXP_LNKCTL,
- 					      newlnkctl);
- 	}
- 
-@@ -7226,7 +7226,7 @@ static int tg3_chip_reset(struct tg3 *tp)
- 
- 	udelay(120);
- 
--	if (tg3_flag(tp, PCI_EXPRESS) && tp->pcie_cap) {
-+	if (tg3_flag(tp, PCI_EXPRESS) && pci_pcie_cap(tp->pdev)) {
- 		u16 val16;
- 
- 		if (tp->pci_chip_rev_id == CHIPREV_ID_5750_A0) {
-@@ -7244,7 +7244,7 @@ static int tg3_chip_reset(struct tg3 *tp)
- 
- 		/* Clear the "no snoop" and "relaxed ordering" bits. */
- 		pci_read_config_word(tp->pdev,
--				     tp->pcie_cap + PCI_EXP_DEVCTL,
-+				     tp->pdev->pcie_cap + PCI_EXP_DEVCTL,
- 				     &val16);
- 		val16 &= ~(PCI_EXP_DEVCTL_RELAX_EN |
- 			   PCI_EXP_DEVCTL_NOSNOOP_EN);
-@@ -7255,14 +7255,14 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		if (!tg3_flag(tp, CPMU_PRESENT))
- 			val16 &= ~PCI_EXP_DEVCTL_PAYLOAD;
- 		pci_write_config_word(tp->pdev,
--				      tp->pcie_cap + PCI_EXP_DEVCTL,
-+				      tp->pdev->pcie_cap + PCI_EXP_DEVCTL,
- 				      val16);
- 
- 		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
- 
- 		/* Clear error status */
- 		pci_write_config_word(tp->pdev,
--				      tp->pcie_cap + PCI_EXP_DEVSTA,
-+				      tp->pdev->pcie_cap + PCI_EXP_DEVSTA,
- 				      PCI_EXP_DEVSTA_CED |
- 				      PCI_EXP_DEVSTA_NFED |
- 				      PCI_EXP_DEVSTA_FED |
-@@ -13777,8 +13777,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	pci_read_config_dword(tp->pdev, TG3PCI_PCISTATE,
- 			      &pci_state_reg);
- 
--	tp->pcie_cap = pci_find_capability(tp->pdev, PCI_CAP_ID_EXP);
--	if (tp->pcie_cap != 0) {
-+	if (pci_is_pcie(tp->pdev)) {
- 		u16 lnkctl;
- 
- 		tg3_flag_set(tp, PCI_EXPRESS);
-@@ -13791,7 +13790,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		pcie_set_readrq(tp->pdev, tp->pcie_readrq);
- 
- 		pci_read_config_word(tp->pdev,
--				     tp->pcie_cap + PCI_EXP_LNKCTL,
-+				     tp->pdev->pcie_cap + PCI_EXP_LNKCTL,
- 				     &lnkctl);
- 		if (lnkctl & PCI_EXP_LNKCTL_CLKREQ_EN) {
- 			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
-@@ -13808,6 +13807,10 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 			tg3_flag_set(tp, L1PLLPD_EN);
- 		}
- 	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785) {
-+		/* BCM5785 devices are effectively PCIe devices, and should
-+		 * follow PCIe codepaths, but do not have a PCIe capabilities
-+		 * section.
-+		*/
- 		tg3_flag_set(tp, PCI_EXPRESS);
- 	} else if (!tg3_flag(tp, 5705_PLUS) ||
- 		   tg3_flag(tp, 5780_CLASS)) {
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index bedc3b4..5f250ae 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2857,7 +2857,7 @@ enum TG3_FLAGS {
- 	TG3_FLAG_IS_5788,
- 	TG3_FLAG_MAX_RXPEND_64,
- 	TG3_FLAG_TSO_CAPABLE,
--	TG3_FLAG_PCI_EXPRESS,
-+	TG3_FLAG_PCI_EXPRESS, /* BCM5785 + pci_is_pcie() */
- 	TG3_FLAG_ASF_NEW_HANDSHAKE,
- 	TG3_FLAG_HW_AUTONEG,
- 	TG3_FLAG_IS_NIC,
-@@ -3022,10 +3022,7 @@ struct tg3 {
- 
- 	int				pm_cap;
- 	int				msi_cap;
--	union {
- 	int				pcix_cap;
--	int				pcie_cap;
--	};
- 	int				pcie_readrq;
- 
- 	struct mii_bus			*mdio_bus;
--- 
-1.7.5.4
+I then found that,=A0 without the memcpy,=A0 the driver and net stack c=
+onsume other overhead elsewhere,=A0 particularly in too-frequent pollin=
+g/interrupting.
 
+Eric D pointed out that :
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Doing the copy of data and building a=
+n exact size skb has benefit of
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 providing 'right' skb->truesize (migh=
+t reduce RCVBUF contention and
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 avoid backlog drops) and already cach=
+ed data (hot in cpu caches).
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Next 'copy' is almost free (L1 cache =
+access)
+
+There was also some discussion off-line about using larger MTU size.
+
+Since then,=A0 I have explored some ideas for dealing with the too-freq=
+uent polling/interrupting and the cache aspect,=A0 with some success on=
+ the first and no success on the second.=A0=A0 In summary of results:
+=A0=A0 .=A0 With MTU of 1500 and "normal" workload,=A0=A0 I see an impr=
+ovement of between 4% - 6% in throughput,=A0 depending on kernel releas=
+e and kernel .config.=A0=A0=A0 Specifically,=A0 with the heaviest workl=
+oad and most tuned kernel .config:
+=A0=A0=A0=A0=A0=A0 no changes=A0 -=A0 ~=A0 1440 Megabits/sec bi-directi=
+onal
+=A0=A0=A0=A0 with changes=A0 -=A0 ~=A0 1530 Megabits/sec bi-directional
+=A0=A0 (same .config for each of course)
+=A0=A0=A0=A0=A0 All 4 of my atom 330's (2 physical x 2SMt per physical)=
+ were at 100% on both without and with changes for this workload,=A0 bu=
+t with very different profiles.
+=A0=A0=A0=A0=A0 These throughput numbers are higher than I reported bef=
+ore,=A0=A0 and % improvement lower,=A0 because of the tuning to the bas=
+e system and workload.
+
+=A0=A0 .=A0 With MTU of 6144,=A0 I see a more dramatic effect=A0 -=A0 t=
+he same workload runs at 1725 Megabit/sec on both kernels,=A0 (which ma=
+y be a practical hardware limit on one of the adapters,=A0 since it hit=
+s exactly this rate almost every time no matter what else I change),=A0=
+ but overall CPU utilization drops from ~ 80% without changes to ~60% w=
+ith changes.=A0=A0=A0 I feel this is significant but of course its use =
+limited to networks that can support this segment size everywhere.
+
+Notes on the changes:
+
+=A0Too-frequent polling/interrupting:
+=A0These two are highly interrelated by NAPI.
+=A0=A0=A0=A0 Too-frequent polling:
+=A0=A0=A0=A0=A0=A0=A0=A0 The NAPI weight is a double-duty parameter,=A0=
+ controlling both the dynamic choice between continuing a NAPI polling =
+session versus leaving and resuming interrupts,=A0 and also the maximum=
+ number of receive buffers to be passed up per poll.=A0=A0 It's also no=
+t configurable (set to 64).=A0=A0=A0 I split it into two numbers,=A0 on=
+e for each purpose,=A0 and made them configurable,=A0 and tried tuning =
+them.=A0=A0=A0 A good value for the poll/int choice was 16,=A0=A0 while=
+ the max-size number was best left at 64.=A0=A0=A0 This helps a bit,=A0=
+ but polling is still too frequent.
+=A0=A0=A0=A0=A0=A0=A0=A0 I then made an interface up into the softirqd =
+to let the driver tell the softirqd :
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 "keep my napi session alive but=
+ sched_yield to other runnable processes before running another poll"
+=A0=A0=A0=A0=A0=A0=A0=A0 I added a check to __do_softirq that if the *o=
+nly* pending softirq is NET_RX_SOFTIRQ and the rx_action routine reques=
+ted this, then it exits and tells the deamon to yield.
+=A0=A0=A0=A0=A0=A0=A0=A0 I borrowed a bit in local_softirq_pending for =
+this.=A0 This helped a lot for certain workloads.=A0=A0=A0 I saw consid=
+erable drop in system CPU% on CPU0 and higher user CPU% there.
+
+=A0=A0=A0=A0 Too-frequent interrupting:
+=A0=A0=A0=A0=A0=A0=A0=A0 I made use of the r8169's Interrupt Mitigation=
+ feature,=A0=A0 setting it to the maximum multiplied by a factor betwee=
+n 0-1 based inversely on tx queue size=A0 (large qsize,=A0 short delay =
+and vice versa).=A0=A0=A0=A0 This also helped a lot.=A0 The current dri=
+ver sets these registers but only once per "up" session,=A0 during rtl8=
+169_open of the NIC;=A0 But Hayes explained that the regs must be set o=
+n each enabling of interrupts.=A0=A0=A0 This is the one case where (I t=
+hink) I corrected a bug present in the current driver.=A0=A0 Harmless b=
+ut not doing what was intended.
+
+=A0=A0=A0=A0=A0 The effect of these two changes was to reduce the rate =
+of hardware interrupts down to less than 1/20 of before,=A0 and also ho=
+ld the polling rate down (around 4-5 packets per poll on average on a t=
+ypical run,=A0 sometimes much higher).
+
+
+=A0 memory and caching:
+=A0 Here I failed to achieve anything.=A0=A0=A0 Based on Eric's point a=
+bout memcpy giving a "free" next copy, I thought possibly memory prefet=
+ching might provide something equivalent.=A0=A0 Specifically,=A0 prefet=
+ch the skb and its databuff immediately after un-dma'ing.
+=A0 For example,=A0=A0 with my changes and no memcpy,=A0 I see eth_type=
+_trans() high in oprofile tick score on CPU0.
+=A0 This small function does very little work but is the first (I think=
+) to access a field in the skb->data buffer - the ethernet header.=A0 P=
+refetching ought to do better than memcpy'ing since only one copy of th=
+e data will enter L1,=A0 not two.=A0=A0=A0 But my attempts at this achi=
+eved nothing or negative.
+=A0 Note=A0 -=A0 the current driver does issue a prefetch of the origin=
+al buffer prior to the memcpy.=A0 But,=A0 on my system (atom CPUs),=A0 =
+gdb of the object file r8169.o indicates no prefetch instructions are g=
+enerated,=A0=A0 only lea of the address to be prefetched.=A0=A0=A0=A0 I=
+ tried changing the prefetch call to an asm generated prefetcht0/prefet=
+chnta instruction with disappointing results.=A0=A0 I noticed some disc=
+ussion of memory prefetch in this list earlier and maybe it is not usef=
+ul.
+
+=A0 I tried to explore Eric's other point about skb->truesize but ran o=
+ut of time researching.=A0=A0=A0=A0 I guess my current results are nega=
+tively impacted by these memory and skb issues that Eric mentions,=A0 b=
+ut I could not find any answer.
+
+
+=A0 There was a question of how this changed driver handles memory pres=
+sure :
+=A0 Along with the rx_copybreak change,=A0 I made the number of rx and =
+tx ring buffers configurable and dynamically replenishable.=A0=A0=A0 Th=
+e changed driver can tolerate occasional or even bursty alloc failures =
+without exposing any effects outside itself,=A0=A0=A0 whereas the curre=
+nt driver drops packets.=A0=A0 However,=A0 under extreme consecutive fa=
+ilures,=A0 the changed driver will eventually run too low and stop comp=
+letely,=A0 whereas the current driver will (I assume) stay up.=A0=A0=A0=
+=A0 I was unable to cause either of these in my tests.=A0=A0=A0 Measure=
+ments with concurrent memory hogs confirmed this but did show heavy dro=
+p in throughput for the changed driver.
+
+
+=A0 I've tried these changes out on all kernel release levels from 2.6.=
+36 to 3.0-rc3 and see roughly comparable deltas on all,=A0 but with sli=
+ghtly different tuning required to hit the optimum,=A0 and some variabi=
+lity on all after 2.6.37.=A0=A0=A0=A0 2.6.37 seemed to be slightly the =
+"best".=A0=A0 Not sure why although I see some relevant changes to the =
+scheduler between 2.6.37 - 38.=A0=A0=A0 There is also a strange effect =
+with the old RTC in 3.0=A0 -=A0 I had to remove it from the kernel to g=
+et good results,=A0=A0=A0 whereas it was a module in 2.6 levels (which =
+I did not load for the tests).=A0=A0=A0=A0 I don't need it on my system=
+ except for one ancient utility.=A0=A0=A0=A0 I also found major impact =
+from iptables and cleared all tables for the tests.=A0=A0=A0 That is th=
+e one item that would normally be needed in a production setup that I t=
+urned off.=A0 The overhead of iptables is presumably highly dependent o=
+n how many rules in the filter chains.=A0=A0=A0 (I have rather a lot in=
+ INPUT)
+
+
+I don't plan to do any more on this but can provide my patch (currently=
+ one monolithic one based on DaveM 3.0.0-rc1netnext-110615) and detaile=
+d results if anyone wants.
+
+Cheers,=A0=A0 John Lumby
+ 		 	   		  
