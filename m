@@ -1,93 +1,187 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Mon, 27 Jun 2011 10:41:35 +0100
-Message-ID: <1309167695.32717.181.camel@zakaz.uk.xensource.com>
-References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
-	<20110626102543.GA4961@redhat.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [RFC 69/72] dm9000: Move the Davicom driver
+Date: Mon, 27 Jun 2011 11:45:42 +0200
+Message-ID: <20110627094542.GY6069@pengutronix.de>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1309010363-22750-70-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mashirle@us.ibm.com" <mashirle@us.ibm.com>,
-	Russell <rusty@rustcorp.com.au>, Rusty
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20110626102543.GA4961@redhat.com>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Ben Dooks <ben@simtec.co.uk>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:51883 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982Ab1F0Jpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 05:45:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1309010363-22750-70-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-06-26 at 11:25 +0100, Michael S. Tsirkin wrote:
-> On Fri, Jun 24, 2011 at 04:43:22PM +0100, Ian Campbell wrote:
-> > In this mode guest data pages ("foreign pages") were mapped into the
-> > backend domain (using Xen grant-table functionality) and placed into the
-> > skb's paged frag list (skb_shinfo(skb)->frags, I hope I am using the
-> > right term). Once the page is finished with netback unmaps it in order
-> > to return it to the guest (we really want to avoid returning such pages
-> > to the general allocation pool!).
+On Sat, Jun 25, 2011 at 06:59:20AM -0700, Jeff Kirsher wrote:
+> Move the Davicom driver into drivers/net/ethernet/davicom/ and
+> make the necessary Kconfig and Makefile changes.
 > 
-> Are the pages writeable by the source guest while netback processes
-> them?  If yes, firewalling becomes unreliable as the packet can be
-> modified after it's checked, right?
+> CC: Ben Dooks <ben@simtec.co.uk>
+> CC: Sascha Hauer <s.hauer@pengutronix.de>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-We only map the paged frags, the linear area is always copied (enough to
-cover maximally sized TCP/IP, including options), for this reason.
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
 
-> Also, for guest to guest communication, do you wait for
-> the destination to stop looking at the packet in order
-> to return it to the source? If yes, can source guest
-> networking be disrupted by a slow destination?
-
-There is a timeout which ultimately does a copy into dom0 memory and
-frees up the domain grant for return to the sending guest.
-
-> > Jeremy Fitzhardinge and I subsequently
-> > looked at the possibility of a no-clone skb flag (i.e. always forcing a
-> > copy instead of a clone)
+> ---
+>  drivers/net/Kconfig                         |   28 ------------------------
+>  drivers/net/Makefile                        |    1 -
+>  drivers/net/ethernet/Kconfig                |    1 +
+>  drivers/net/ethernet/Makefile               |    1 +
+>  drivers/net/ethernet/davicom/Kconfig        |   31 +++++++++++++++++++++++++++
+>  drivers/net/ethernet/davicom/Makefile       |    5 ++++
+>  drivers/net/{ => ethernet/davicom}/dm9000.c |    0
+>  drivers/net/{ => ethernet/davicom}/dm9000.h |    0
+>  8 files changed, 38 insertions(+), 29 deletions(-)
+>  create mode 100644 drivers/net/ethernet/davicom/Kconfig
+>  create mode 100644 drivers/net/ethernet/davicom/Makefile
+>  rename drivers/net/{ => ethernet/davicom}/dm9000.c (100%)
+>  rename drivers/net/{ => ethernet/davicom}/dm9000.h (100%)
 > 
-> I think this is the approach that the patchset
-> 'macvtap/vhost TX zero-copy support' takes.
-
-That's TX from the guests PoV, the same as I am looking at here,
-correct?
-
-I should definitely check this work out, thanks for the pointer. Is V7
-(http://marc.info/?l=linux-kernel&m=130661128431312&w=2) the most recent
-posting?
-
-I suppose one difference with this is that it deals with data from
-"dom0" userspace buffers rather than (what looks like) kernel memory,
-although I don't know if that matters yet. Also it hangs off of struct
-sock which netback doesn't have. Anyway I'll check it out.
-
-> > but IIRC honouring it universally turned into a
-> > very twisty maze with a number of nasty corner cases etc.
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index d1bcd23..4ddc389 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -246,34 +246,6 @@ config NET_NETX
+>  	  To compile this driver as a module, choose M here. The module
+>  	  will be called netx-eth.
+>  
+> -config DM9000
+> -	tristate "DM9000 support"
+> -	depends on ARM || BLACKFIN || MIPS
+> -	select CRC32
+> -	select MII
+> -	---help---
+> -	  Support for DM9000 chipset.
+> -
+> -	  To compile this driver as a module, choose M here.  The module
+> -	  will be called dm9000.
+> -
+> -config DM9000_DEBUGLEVEL
+> -	int "DM9000 maximum debug level"
+> -	depends on DM9000
+> -	default 4
+> -	help
+> -	  The maximum level of debugging code compiled into the DM9000
+> -	  driver.
+> -
+> -config DM9000_FORCE_SIMPLE_PHY_POLL
+> -	bool "Force simple NSR based PHY polling"
+> -	depends on DM9000
+> -	---help---
+> -	  This configuration forces the DM9000 to use the NSR's LinkStatus
+> -	  bit to determine if the link is up or down instead of the more
+> -	  costly MII PHY reads. Note, this will not work if the chip is
+> -	  operating with an external PHY.
+> -
+>  config NET_PCI
+>  	bool "EISA, VLB, PCI and on board controllers"
+>  	depends on ISA || EISA || PCI
+> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+> index b647529..83075d4 100644
+> --- a/drivers/net/Makefile
+> +++ b/drivers/net/Makefile
+> @@ -53,7 +53,6 @@ obj-$(CONFIG_EQUALIZER) += eql.o
+>  obj-$(CONFIG_TUN) += tun.o
+>  obj-$(CONFIG_VETH) += veth.o
+>  obj-$(CONFIG_NET_NETX) += netx-eth.o
+> -obj-$(CONFIG_DM9000) += dm9000.o
+>  
+>  obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+>  obj-$(CONFIG_ETHERNET) += ethernet/
+> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+> index ac88e7c..3ec1903 100644
+> --- a/drivers/net/ethernet/Kconfig
+> +++ b/drivers/net/ethernet/Kconfig
+> @@ -73,6 +73,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
+>  source "drivers/net/ethernet/brocade/Kconfig"
+>  source "drivers/net/ethernet/chelsio/Kconfig"
+>  source "drivers/net/ethernet/cisco/Kconfig"
+> +source "drivers/net/ethernet/davicom/Kconfig"
+>  
+>  config DNET
+>  	tristate "Dave ethernet support (DNET)"
+> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+> index afbb0ff..3b2a35a 100644
+> --- a/drivers/net/ethernet/Makefile
+> +++ b/drivers/net/ethernet/Makefile
+> @@ -19,6 +19,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+>  obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+>  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+>  obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
+> +obj-$(CONFIG_DM9000) += davicom/
+>  obj-$(CONFIG_DNET) += dnet.o
+>  obj-$(CONFIG_DEPCA) += depca.o
+>  obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+> diff --git a/drivers/net/ethernet/davicom/Kconfig b/drivers/net/ethernet/davicom/Kconfig
+> new file mode 100644
+> index 0000000..0a03b0b
+> --- /dev/null
+> +++ b/drivers/net/ethernet/davicom/Kconfig
+> @@ -0,0 +1,31 @@
+> +#
+> +# Davicom device configuration
+> +#
+> +
+> +config DM9000
+> +	tristate "DM9000 support"
+> +	depends on ARM || BLACKFIN || MIPS
+> +	select CRC32
+> +	select MII
+> +	---help---
+> +	  Support for DM9000 chipset.
+> +
+> +	  To compile this driver as a module, choose M here.  The module
+> +	  will be called dm9000.
+> +
+> +config DM9000_DEBUGLEVEL
+> +	int "DM9000 maximum debug level"
+> +	depends on DM9000
+> +	default 4
+> +	help
+> +	  The maximum level of debugging code compiled into the DM9000
+> +	  driver.
+> +
+> +config DM9000_FORCE_SIMPLE_PHY_POLL
+> +	bool "Force simple NSR based PHY polling"
+> +	depends on DM9000
+> +	---help---
+> +	  This configuration forces the DM9000 to use the NSR's LinkStatus
+> +	  bit to determine if the link is up or down instead of the more
+> +	  costly MII PHY reads. Note, this will not work if the chip is
+> +	  operating with an external PHY.
+> diff --git a/drivers/net/ethernet/davicom/Makefile b/drivers/net/ethernet/davicom/Makefile
+> new file mode 100644
+> index 0000000..74b31f0
+> --- /dev/null
+> +++ b/drivers/net/ethernet/davicom/Makefile
+> @@ -0,0 +1,5 @@
+> +#
+> +# Makefile for the Davicom device drivers.
+> +#
+> +
+> +obj-$(CONFIG_DM9000) += dm9000.o
+> diff --git a/drivers/net/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+> similarity index 100%
+> rename from drivers/net/dm9000.c
+> rename to drivers/net/ethernet/davicom/dm9000.c
+> diff --git a/drivers/net/dm9000.h b/drivers/net/ethernet/davicom/dm9000.h
+> similarity index 100%
+> rename from drivers/net/dm9000.h
+> rename to drivers/net/ethernet/davicom/dm9000.h
+> -- 
+> 1.7.5.4
 > 
-> Any examples? Are they covered by the patchset above?
+> 
 
-It was quite a while ago so I don't remember many of the specifics.
-Jeremy might remember better but for example any broadcast traffic
-hitting a bridge (a very interesting case for Xen), seems like a likely
-case? pcap was another one which I do remember, but that's obviously
-less critical.
-
-I presume with the TX zero-copy support the "copying due to attempted
-clone" rate is low?
-
-> > FWIW I proposed a session on the subject for LPC this year.
-> We also plan to discuss this on kvm forum 2011
-> (colocated with linuxcon 2011).
-> http://www.linux-kvm.org/page/KVM_Forum_2011
-
-I had already considered coming to LinuxCon for other reasons but
-unfortunately I have family commitments around then :-(
-
-Ian.
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
