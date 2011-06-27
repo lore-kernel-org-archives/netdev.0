@@ -1,43 +1,57 @@
-From: "Gole, Anant" <anantgole@ti.com>
-Subject: RE: [RFC 26/72] arm: Move the ARM/ACORN drivers
-Date: Mon, 27 Jun 2011 08:40:20 +0530
-Message-ID: <2A3DCF3DA181AD40BDE86A3150B27B6B037558A181@dbde02.ent.ti.com>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1309010363-22750-27-git-send-email-jeffrey.t.kirsher@intel.com>
- <201106251648.03574.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>,
-	"Hegde, Vinay" <vinay.hegde@ti.com>,
-	"Chemparathy, Cyril" <cyril@ti.com>,
-	Wan ZongShun <mcuos.com@gmail.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Chaithrika U S <chaithrika@ti.com>
-To: Arnd Bergmann <arnd@arndb.de>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Russell King <linux@arm.linux.org.uk>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/8] wan: Use current logging forms
+Date: Sun, 26 Jun 2011 22:01:27 -0700
+Message-ID: <cover.1309150683.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:37275 "EHLO comal.ext.ti.com"
+Received: from mail.perches.com ([173.55.12.10]:3215 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755066Ab1F0DKx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 23:10:53 -0400
-In-Reply-To: <201106251648.03574.arnd@arndb.de>
-Content-Language: en-US
+	id S1756228Ab1F0FBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2011 01:01:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->It doesn't seem logical to group drivers that are used on ARM under
->the architecture when the hardware is not actually made by ARM Ltd.
->
->TI also produces chips with the C6x architecture, which will be
->supported
->in Linux in the future. It could well be that there is a version that
->uses the davinci ethernet mac. You also have a TI directory.
->
+Joe Perches (8):
+  generic_hdlc: Update to current logging forms
+  cosa: Update to current logging forms
+  cyclom: Update to current logging forms
+  frame relay dlci/frad: Update to current logging forms
+  dscc4: Update to current logging forms
+  farsync: Update to current logging forms
+  ixp4xx_hss: Update to current logging forms
+  wan: Update to current logging forms
 
-IMO davinci_emac driver should go under /ethernet/ti/
+ drivers/net/wan/c101.c         |   30 +++---
+ drivers/net/wan/cosa.c         |  226 +++++++++++++++++++---------------------
+ drivers/net/wan/cycx_drv.c     |   81 +++++++--------
+ drivers/net/wan/cycx_main.c    |   31 +++---
+ drivers/net/wan/cycx_x25.c     |  177 +++++++++++++++-----------------
+ drivers/net/wan/dlci.c         |   22 +++--
+ drivers/net/wan/dscc4.c        |   80 +++++++--------
+ drivers/net/wan/farsync.c      |    7 +-
+ drivers/net/wan/hd64570.c      |    8 +-
+ drivers/net/wan/hd64572.c      |    8 +-
+ drivers/net/wan/hdlc.c         |   16 ++--
+ drivers/net/wan/hdlc_cisco.c   |   21 ++---
+ drivers/net/wan/hdlc_fr.c      |   96 ++++++++----------
+ drivers/net/wan/hdlc_ppp.c     |    9 +-
+ drivers/net/wan/hdlc_x25.c     |   12 +--
+ drivers/net/wan/hostess_sv11.c |   11 +-
+ drivers/net/wan/ixp4xx_hss.c   |   28 +++---
+ drivers/net/wan/lapbether.c    |   18 ++--
+ drivers/net/wan/n2.c           |   42 ++++----
+ drivers/net/wan/pc300_drv.c    |    4 +-
+ drivers/net/wan/pc300too.c     |   36 +++----
+ drivers/net/wan/pci200syn.c    |   29 +++---
+ drivers/net/wan/sbni.c         |   67 ++++++------
+ drivers/net/wan/sdla.c         |   52 ++++++----
+ drivers/net/wan/sealevel.c     |   11 +-
+ drivers/net/wan/wanxl.c        |   90 ++++++++---------
+ drivers/net/wan/x25_asy.c      |   47 ++++----
+ drivers/net/wan/z85230.c       |   34 +++---
+ 28 files changed, 620 insertions(+), 673 deletions(-)
+
+-- 
+1.7.6.rc1
 
