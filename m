@@ -1,56 +1,43 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH] net/can: activate bit-timing
- calculation and netlink based drivers by default
-Date: Mon, 27 Jun 2011 15:50:44 +0200
-Message-ID: <20110627135044.GF318@e-circ.dyndns.org>
-References: <1309160391-22486-1-git-send-email-mkl@pengutronix.de>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
+Date: Mon, 27 Jun 2011 16:21:59 +0200
+Message-ID: <20110627142159.GB26244@rere.qmqm.pl>
+References: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
+ <4E0276A0.8010802@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:60241 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751104Ab1F0OWB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2011 10:22:01 -0400
 Content-Disposition: inline
-In-Reply-To: <1309160391-22486-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4E0276A0.8010802@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Is this modification then also the right thing to do?
+On Wed, Jun 22, 2011 at 04:11:28PM -0700, Ben Greear wrote:
+> On 06/22/2011 09:04 AM, Micha=C5=82 Miros=C5=82aw wrote:
+> >v3 of a feature handling cleanup and extension series. For testing, =
+you
+> >might want user-space ethtool patched with:
+> >
+> >http://patchwork.ozlabs.org/patch/96374/
+> There is a typo in one of those patches:
+>   CC      fs/quota/netlink.o
+> /home/greearb/git/net-next-2.6/net/core/dev.c: In function =E2=80=98_=
+_netdev_update_features=E2=80=99:
+> /home/greearb/git/net-next-2.6/net/core/dev.c:5288: warning: too many=
+ arguments for format
+>   CC      net/core/ethtool.o
+> 	netdev_dbg(dev, "Features changed: %pNF -> pNF\n",
+> 		&dev->features, &features);
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index 1d699e3..ac48574 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -4,7 +4,6 @@ menu "CAN Device Drivers"
- config CAN_VCAN
- 	tristate "Virtual Local CAN Interface (vcan)"
- 	depends on CAN
--	default N
- 	---help---
- 	  Similar to the network loopback devices, vcan offers a
- 	  virtual local CAN interface.
-@@ -15,7 +14,6 @@ config CAN_VCAN
- config CAN_SLCAN
- 	tristate "Serial / USB serial CAN Adaptors (slcan)"
- 	depends on CAN
--	default N
- 	---help---
- 	  CAN driver for several 'low cost' CAN interfaces that are attached
- 	  via serial lines or via USB-to-serial adapters using the LAWICEL
-@@ -124,7 +122,6 @@ source "drivers/net/can/softing/Kconfig"
- config CAN_DEBUG_DEVICES
- 	bool "CAN devices debugging messages"
- 	depends on CAN
--	default N
- 	---help---
- 	  Say Y here if you want the CAN device drivers to produce a bunch of
- 	  debug messages to the system log.  Select this if you are having
+Noted for next version.
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw=20
