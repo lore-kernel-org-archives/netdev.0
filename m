@@ -1,121 +1,121 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Mon, 27 Jun 2011 11:54:02 +0100
-Message-ID: <1309172042.32717.199.camel@zakaz.uk.xensource.com>
-References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
-	<20110626102543.GA4961@redhat.com>
-	<1309167695.32717.181.camel@zakaz.uk.xensource.com>
-	<20110627102129.GB12978@redhat.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH v2] NET: AX88796: Tighten up Kconfig dependencies
+Date: Mon, 27 Jun 2011 12:13:00 +0100
+Message-ID: <20110627111259.GA13620@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mashirle@us.ibm.com" <mashirle@us.ibm.com>,
-	Russell <rusty@rustcorp.com.au>, Rusty
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20110627102129.GB12978@redhat.com>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        linux-sh@vger.kernel.org, netdev@vger.kernel.org,
+        linux-mips@linux-mips.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Eric Miao <eric.y.miao@gmail.com>,
+        Russell King <linux@arm.linux.org.uk>,
+        Ben Dooks <ben-linux@fluff.org>,
+        Pa
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-06-27 at 11:21 +0100, Michael S. Tsirkin wrote:
-> On Mon, Jun 27, 2011 at 10:41:35AM +0100, Ian Campbell wrote:
-> > On Sun, 2011-06-26 at 11:25 +0100, Michael S. Tsirkin wrote:
-> > > On Fri, Jun 24, 2011 at 04:43:22PM +0100, Ian Campbell wrote:
-> > > > In this mode guest data pages ("foreign pages") were mapped into the
-> > > > backend domain (using Xen grant-table functionality) and placed into the
-> > > > skb's paged frag list (skb_shinfo(skb)->frags, I hope I am using the
-> > > > right term). Once the page is finished with netback unmaps it in order
-> > > > to return it to the guest (we really want to avoid returning such pages
-> > > > to the general allocation pool!).
-> > > 
-> > > Are the pages writeable by the source guest while netback processes
-> > > them?  If yes, firewalling becomes unreliable as the packet can be
-> > > modified after it's checked, right?
-> > 
-> > We only map the paged frags, the linear area is always copied (enough to
-> > cover maximally sized TCP/IP, including options), for this reason.
-> 
-> Hmm. That'll cover the most common scenarios
-> (such as port filtering) but not deep inspection.
+In def47c5095d53814512bb0c62ec02dfdec769db1 [[netdrvr] Fix dependencies for
+ax88796 ne2k clone driver] the AX88796 driver got restricted to just be
+build for ARM and MIPS on the sole merrit that it was written for some ARM
+sytems and the driver had the misfortune to just build on MIPS, so MIPS was
+throw into the dependency for a good measure.  Later
+8687991a734a67f1638782c968f46fff0f94bb1f [ax88796: add superh to kconfig
+dependencies] added SH but only one in-tree SH system actually has an
+AX88796.
 
-Right.
+Tighten up dependencies by using an auxilliary config sysmbol
+HAS_NET_AX88796 which is selected only by the platforms that actually
+have or may have an AX88796.  This also means the driver won't be built
+anymore for any MIPS platform.
 
-> Not sure how important that is.
-> 
-> > > Also, for guest to guest communication, do you wait for
-> > > the destination to stop looking at the packet in order
-> > > to return it to the source? If yes, can source guest
-> > > networking be disrupted by a slow destination?
-> > 
-> > There is a timeout which ultimately does a copy into dom0 memory and
-> > frees up the domain grant for return to the sending guest.
-> 
-> Interesting. How long's the timeout?
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+v2: fixed Sergei's complaints about the log message
 
-1 second IIRC.
+ arch/arm/mach-pxa/Kconfig     |    2 ++
+ arch/arm/mach-s3c2410/Kconfig |    1 +
+ arch/arm/mach-s3c2440/Kconfig |    1 +
+ arch/sh/boards/Kconfig        |    1 +
+ drivers/net/Kconfig           |    5 ++++-
+ 5 files changed, 9 insertions(+), 1 deletions(-)
 
-> > I suppose one difference with this is that it deals with data from
-> > "dom0" userspace buffers rather than (what looks like) kernel memory,
-> > although I don't know if that matters yet. Also it hangs off of struct
-> > sock which netback doesn't have. Anyway I'll check it out.
-> 
-> I think the most important detail is the copy on clone approach.
-> We can make it controlled by an skb flag if necessary.
-> 
-> > > > but IIRC honouring it universally turned into a
-> > > > very twisty maze with a number of nasty corner cases etc.
-> > > 
-> > > Any examples? Are they covered by the patchset above?
-> > 
-> > It was quite a while ago so I don't remember many of the specifics.
-> > Jeremy might remember better but for example any broadcast traffic
-> > hitting a bridge (a very interesting case for Xen), seems like a likely
-> > case? pcap was another one which I do remember, but that's obviously
-> > less critical.
-> 
-> Last I looked I thought these clone the skb, so if a copy happens on
-> clone things will work correctly?
-
-Things should be correct, but won't necessarily perform well.
-
-In particular if the clones (which become copies with this flag) are
-frequent enough then there is no advantage to doing mapping instead of
-just copying upfront, in fact it probably hurts overall.
-
-Taking a quick look at the callers of skb_clone I also see skb_segment
-in there. Since Xen tries to pass around large skbs (using LRO/GSO over
-the PV interface) in order to amortise costs it is quite common for
-things to undergo GSO as they hit the physical device. I'm not sure if
-these commonly hit the specific code path which causes a clone though.
-
-> > I presume with the TX zero-copy support the "copying due to attempted
-> > clone" rate is low?
-> 
-> Yes. My understanding is that this version targets a non-bridged setup
-> (guest connected to a macvlan on a physical dev) as the first step.
-
-OK.
-
-> > > > FWIW I proposed a session on the subject for LPC this year.
-> > > We also plan to discuss this on kvm forum 2011
-> > > (colocated with linuxcon 2011).
-> > > http://www.linux-kvm.org/page/KVM_Forum_2011
-> > 
-> > I had already considered coming to LinuxCon for other reasons but
-> > unfortunately I have family commitments around then :-(
-
-> And I'm not coming to LPC this year :(
-
-That's a shame.
-
-Ian.
+diff --git a/arch/arm/mach-pxa/Kconfig b/arch/arm/mach-pxa/Kconfig
+index cd19309..37ce06f 100644
+--- a/arch/arm/mach-pxa/Kconfig
++++ b/arch/arm/mach-pxa/Kconfig
+@@ -247,11 +247,13 @@ config MACH_COLIBRI300
+ 	select PXA3xx
+ 	select CPU_PXA300
+ 	select CPU_PXA310
++	select HAS_NET_AX88796
+ 
+ config MACH_COLIBRI320
+ 	bool "Toradex Colibri PXA320"
+ 	select PXA3xx
+ 	select CPU_PXA320
++	select HAS_NET_AX88796
+ 
+ config MACH_COLIBRI_EVALBOARD
+ 	bool "Toradex Colibri Evaluation Carrier Board support"
+diff --git a/arch/arm/mach-s3c2410/Kconfig b/arch/arm/mach-s3c2410/Kconfig
+index 7245a55..d665f92 100644
+--- a/arch/arm/mach-s3c2410/Kconfig
++++ b/arch/arm/mach-s3c2410/Kconfig
+@@ -122,6 +122,7 @@ config ARCH_BAST
+ 	select S3C_DEV_HWMON
+ 	select S3C_DEV_USB_HOST
+ 	select S3C_DEV_NAND
++	select HAS_NET_AX88796
+ 	help
+ 	  Say Y here if you are using the Simtec Electronics EB2410ITX
+ 	  development board (also known as BAST)
+diff --git a/arch/arm/mach-s3c2440/Kconfig b/arch/arm/mach-s3c2440/Kconfig
+index 50825a3..7ddbd22 100644
+--- a/arch/arm/mach-s3c2440/Kconfig
++++ b/arch/arm/mach-s3c2440/Kconfig
+@@ -86,6 +86,7 @@ config MACH_ANUBIS
+ 	select S3C24XX_GPIO_EXTRA64
+ 	select S3C2440_XTAL_12000000
+ 	select S3C_DEV_USB_HOST
++	select HAS_NET_AX88796
+ 	help
+ 	  Say Y here if you are using the Simtec Electronics ANUBIS
+ 	  development system
+diff --git a/arch/sh/boards/Kconfig b/arch/sh/boards/Kconfig
+index d893411..f23f332 100644
+--- a/arch/sh/boards/Kconfig
++++ b/arch/sh/boards/Kconfig
+@@ -162,6 +162,7 @@ config SH_HIGHLANDER
+ 	depends on CPU_SUBTYPE_SH7780 || CPU_SUBTYPE_SH7785
+ 	select SYS_SUPPORTS_PCI
+ 	select IO_TRAPPED if MMU
++	select HAS_NET_AX88796
+ 
+ config SH_SH7757LCR
+ 	bool "SH7757LCR"
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index be25e92..85d18c4 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -237,13 +237,16 @@ source "drivers/net/arm/Kconfig"
+ 
+ config AX88796
+ 	tristate "ASIX AX88796 NE2000 clone support"
+-	depends on ARM || MIPS || SUPERH
++	depends on HAS_NET_AX88796
+ 	select PHYLIB
+ 	select MDIO_BITBANG
+ 	help
+ 	  AX88796 driver, using platform bus to provide
+ 	  chip detection and resources
+ 
++config HAS_NET_AX88796
++	bool
++
+ config AX88796_93CX6
+ 	bool "ASIX AX88796 external 93CX6 eeprom support"
+ 	depends on AX88796
