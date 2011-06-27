@@ -1,49 +1,53 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next-2.6 2/3] be2net: get rid of multi_rxq module param
-Date: Mon, 27 Jun 2011 12:11:25 +0530
-Message-ID: <737fdf75-9b60-476b-b5a5-bf8adac5501a@exht1.ad.emulex.com>
+Subject: [PATCH net-next-2.6 3/3] be2net: fix initialization of vlan_prio_bmap
+Date: Mon, 27 Jun 2011 12:11:53 +0530
+Message-ID: <9126f0fa-e344-4bf8-afe2-270985b37d75@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sathya Perla <sathya.perla@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:48989 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:48991 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756718Ab1F0GlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 02:41:14 -0400
+	with ESMTP id S1753762Ab1F0Gle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 02:41:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Initialization of this field to "all priorities" must be done before MCC queue
+creation. As soon as the MCC queue is created, an event modifying this value
+may be received.
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/benet/be_main.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
+ drivers/net/benet/be_main.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 5ca06b0..2373d39 100644
+index 2373d39..ae281de 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -33,10 +33,6 @@ module_param(num_vfs, uint, S_IRUGO);
- MODULE_PARM_DESC(rx_frag_size, "Size of a fragment that holds rcvd data.");
- MODULE_PARM_DESC(num_vfs, "Number of PCI VFs to initialize");
+@@ -2554,6 +2554,9 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (status != 0)
+ 		goto tx_qs_destroy;
  
--static bool multi_rxq = true;
--module_param(multi_rxq, bool, S_IRUGO | S_IWUSR);
--MODULE_PARM_DESC(multi_rxq, "Multi Rx Queue support. Enabled by default");
--
- static DEFINE_PCI_DEVICE_TABLE(be_dev_ids) = {
- 	{ PCI_DEVICE(BE_VENDOR_ID, BE_DEVICE_ID1) },
- 	{ PCI_DEVICE(BE_VENDOR_ID, BE_DEVICE_ID2) },
-@@ -1785,7 +1781,7 @@ static void be_rx_queues_destroy(struct be_adapter *adapter)
++	/* Allow all priorities by default. A GRP5 evt may modify this */
++	adapter->vlan_prio_bmap = 0xff;
++
+ 	status = be_mcc_queues_create(adapter);
+ 	if (status != 0)
+ 		goto rx_qs_destroy;
+@@ -3419,10 +3422,6 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	}
  
- static u32 be_num_rxqs_want(struct be_adapter *adapter)
- {
--	if (multi_rxq && (adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
-+	if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
- 		!adapter->sriov_enabled && !(adapter->function_mode & 0x400)) {
- 		return 1 + MAX_RSS_QS; /* one default non-RSS queue */
- 	} else {
+ 	dev_info(&pdev->dev, "%s port %d\n", nic_name(pdev), adapter->port_num);
+-	/* By default all priorities are enabled.
+-	 * Needed in case of no GRP5 evt support
+-	 */
+-	adapter->vlan_prio_bmap = 0xff;
+ 
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ 	return 0;
 -- 
 1.7.4
 
