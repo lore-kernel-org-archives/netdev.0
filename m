@@ -1,191 +1,152 @@
 From: Jon Mason <mason@myri.com>
-Subject: [PATCH 3/9 v2] myri10ge: rework parity error check and cleanup
-Date: Mon, 27 Jun 2011 15:54:34 -0500
-Message-ID: <20110627205432.GA18978@myri.com>
+Subject: [PATCH 7/9 v2] myri10ge: misc style cleanups
+Date: Mon, 27 Jun 2011 15:56:41 -0500
+Message-ID: <20110627205640.GB18978@myri.com>
 References: <1309187108-12715-1-git-send-email-mason@myri.com>
- <1309187108-12715-3-git-send-email-mason@myri.com>
+ <1309187108-12715-7-git-send-email-mason@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:50160 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754505Ab1F0Uyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 16:54:38 -0400
-Received: by pzk9 with SMTP id 9so3200052pzk.19
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 13:54:38 -0700 (PDT)
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:63627 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754397Ab1F0U4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 16:56:45 -0400
+Received: by pwj7 with SMTP id 7so3179255pwj.19
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 13:56:45 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1309187108-12715-3-git-send-email-mason@myri.com>
+In-Reply-To: <1309187108-12715-7-git-send-email-mason@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clean up watchdog reset code:
- - move code that checks for stuck slice to a common routine
- - unless there is a confirmed h/w fault, verify that a stuck
-   slice is still stuck in the watchdog worker; if the slice is no
-   longer stuck, abort the reset.
- - this removes an egregious 2000ms pause in the watchdog worker that
-   was a diagnostic aid (to look for spurious resets) the snuck into
-   production code.
+Miscellaneous white space, style, and other cleanups
 
-v2 includes corrections from Ben Hutchings and Joe Perches
+v2 includes corrections from Joe Perches
 
 Signed-off-by: Jon Mason <mason@myri.com>
 ---
- drivers/net/myri10ge/myri10ge.c |  100 +++++++++++++++++++++++---------------
- 1 files changed, 60 insertions(+), 40 deletions(-)
+ drivers/net/myri10ge/myri10ge.c |   32 ++++++++++++++------------------
+ 1 files changed, 14 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index 0f0f83d..c2574c5 100644
+index b9b80c0..90c8330 100644
 --- a/drivers/net/myri10ge/myri10ge.c
 +++ b/drivers/net/myri10ge/myri10ge.c
-@@ -193,6 +193,7 @@ struct myri10ge_slice_state {
- 	int watchdog_tx_done;
- 	int watchdog_tx_req;
- 	int watchdog_rx_done;
-+	int stuck;
- #ifdef CONFIG_MYRI10GE_DCA
- 	int cached_dca_tag;
- 	int cpu;
-@@ -3442,6 +3443,42 @@ static u32 myri10ge_read_reboot(struct myri10ge_priv *mgp)
- 	return reboot;
+@@ -1086,6 +1086,9 @@ static int myri10ge_toggle_relaxed(struct pci_dev *pdev, int on)
+ 		return 0;
+ 
+ 	err = pci_read_config_word(pdev, cap + PCI_EXP_DEVCTL, &ctl);
++	if (err)
++		return 0;
++
+ 	ret = (ctl & PCI_EXP_DEVCTL_RELAX_EN) >> 4;
+ 	if (ret != on) {
+ 		ctl &= ~PCI_EXP_DEVCTL_RELAX_EN;
+@@ -1140,20 +1143,19 @@ static void myri10ge_setup_dca(struct myri10ge_priv *mgp)
+ 		mgp->ss[i].cpu = -1;
+ 		mgp->ss[i].cached_dca_tag = -1;
+ 		myri10ge_update_dca(&mgp->ss[i]);
+-	 }
++	}
  }
  
-+static void
-+myri10ge_check_slice(struct myri10ge_slice_state *ss, int *reset_needed,
-+		     int *busy_slice_cnt, u32 rx_pause_cnt)
-+{
-+	struct myri10ge_priv *mgp = ss->mgp;
-+	int slice = ss - mgp->ss;
-+
-+	if (ss->tx.req != ss->tx.done &&
-+	    ss->tx.done == ss->watchdog_tx_done &&
-+	    ss->watchdog_tx_req != ss->watchdog_tx_done) {
-+		/* nic seems like it might be stuck.. */
-+		if (rx_pause_cnt != mgp->watchdog_pause) {
-+			if (net_ratelimit())
-+				netdev_warn(mgp->dev, "slice %d: TX paused, "
-+					    "check link partner\n", slice);
-+		} else {
-+			netdev_warn(mgp->dev,
-+				    "slice %d: TX stuck %d %d %d %d %d %d\n",
-+				    slice, ss->tx.queue_active, ss->tx.req,
-+				    ss->tx.done, ss->tx.pkt_start,
-+				    ss->tx.pkt_done,
-+				    (int)ntohl(mgp->ss[slice].fw_stats->
-+					       send_done_count));
-+			*reset_needed = 1;
-+			ss->stuck = 1;
-+		}
-+	}
-+	if (ss->watchdog_tx_done != ss->tx.done ||
-+	    ss->watchdog_rx_done != ss->rx_done.cnt) {
-+		*busy_slice_cnt += 1;
-+	}
-+	ss->watchdog_tx_done = ss->tx.done;
-+	ss->watchdog_tx_req = ss->tx.req;
-+	ss->watchdog_rx_done = ss->rx_done.cnt;
-+}
-+
- /*
-  * This watchdog is used to check whether the board has suffered
-  * from a parity error and needs to be recovered.
-@@ -3450,10 +3487,12 @@ static void myri10ge_watchdog(struct work_struct *work)
+ static void myri10ge_teardown_dca(struct myri10ge_priv *mgp)
  {
- 	struct myri10ge_priv *mgp =
- 	    container_of(work, struct myri10ge_priv, watchdog_work);
--	struct myri10ge_tx_buf *tx;
--	u32 reboot;
-+	struct myri10ge_slice_state *ss;
-+	u32 reboot, rx_pause_cnt;
- 	int status, rebooted;
- 	int i;
-+	int reset_needed = 0;
-+	int busy_slice_cnt = 0;
- 	u16 cmd, vendor;
+ 	struct pci_dev *pdev = mgp->pdev;
+-	int err;
  
- 	mgp->watchdog_resets++;
-@@ -3465,8 +3504,7 @@ static void myri10ge_watchdog(struct work_struct *work)
- 		 * For now, just report it */
- 		reboot = myri10ge_read_reboot(mgp);
- 		netdev_err(mgp->dev, "NIC rebooted (0x%x),%s resetting\n",
--			   reboot,
--			   myri10ge_reset_recover ? "" : " not");
-+			   reboot, myri10ge_reset_recover ? " " : " not");
- 		if (myri10ge_reset_recover == 0)
- 			return;
- 		rtnl_lock();
-@@ -3498,23 +3536,24 @@ static void myri10ge_watchdog(struct work_struct *work)
- 				return;
+ 	if (!mgp->dca_enabled)
+ 		return;
+ 	mgp->dca_enabled = 0;
+ 	if (mgp->relaxed_order)
+ 		myri10ge_toggle_relaxed(pdev, 1);
+-	err = dca_remove_requester(&pdev->dev);
++	dca_remove_requester(&pdev->dev);
+ }
+ 
+ static int myri10ge_notify_dca_device(struct device *dev, void *data)
+@@ -1314,7 +1316,7 @@ myri10ge_unmap_rx_page(struct pci_dev *pdev,
+ 
+ static inline int
+ myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum,
+-		 int lro_enabled)
++		 bool lro_enabled)
+ {
+ 	struct myri10ge_priv *mgp = ss->mgp;
+ 	struct sk_buff *skb;
+@@ -1474,11 +1476,9 @@ myri10ge_clean_rx_done(struct myri10ge_slice_state *ss, int budget)
+ {
+ 	struct myri10ge_rx_done *rx_done = &ss->rx_done;
+ 	struct myri10ge_priv *mgp = ss->mgp;
+-
+ 	unsigned long rx_bytes = 0;
+ 	unsigned long rx_packets = 0;
+ 	unsigned long rx_ok;
+-
+ 	int idx = rx_done->idx;
+ 	int cnt = rx_done->cnt;
+ 	int work_done = 0;
+@@ -1531,16 +1531,14 @@ static inline void myri10ge_check_statblock(struct myri10ge_priv *mgp)
+ 			mgp->link_state = link_up;
+ 
+ 			if (mgp->link_state == MXGEFW_LINK_UP) {
+-				if (netif_msg_link(mgp))
+-					netdev_info(mgp->dev, "link up\n");
++				netif_info(mgp, link, mgp->dev, "link up\n");
+ 				netif_carrier_on(mgp->dev);
+ 				mgp->link_changes++;
+ 			} else {
+-				if (netif_msg_link(mgp))
+-					netdev_info(mgp->dev, "link %s\n",
+-					    link_up == MXGEFW_LINK_MYRINET ?
++				netif_info(mgp, link, mgp->dev, "link %s\n",
++					   (link_up == MXGEFW_LINK_MYRINET ?
+ 					    "mismatch (Myrinet detected)" :
+-					    "down");
++					    "down"));
+ 				netif_carrier_off(mgp->dev);
+ 				mgp->link_changes++;
  			}
+@@ -1621,7 +1619,7 @@ static irqreturn_t myri10ge_intr(int irq, void *arg)
+ 		if (send_done_count != tx->pkt_done)
+ 			myri10ge_tx_done(ss, (int)send_done_count);
+ 		if (unlikely(i > myri10ge_max_irq_loops)) {
+-			netdev_err(mgp->dev, "irq stuck?\n");
++			netdev_warn(mgp->dev, "irq stuck?\n");
+ 			stats->valid = 0;
+ 			schedule_work(&mgp->watchdog_work);
  		}
--		/* Perhaps it is a software error.  Try to reset */
--
--		netdev_err(mgp->dev, "device timeout, resetting\n");
-+		/* Perhaps it is a software error. See if stuck slice
-+		 * has recovered, reset if not */
-+		rx_pause_cnt = ntohl(mgp->ss[0].fw_stats->dropped_pause);
- 		for (i = 0; i < mgp->num_slices; i++) {
--			tx = &mgp->ss[i].tx;
--			netdev_err(mgp->dev, "(%d): %d %d %d %d %d %d\n",
--				   i, tx->queue_active, tx->req,
--				   tx->done, tx->pkt_start, tx->pkt_done,
--				   (int)ntohl(mgp->ss[i].fw_stats->
--					      send_done_count));
--			msleep(2000);
--			netdev_info(mgp->dev, "(%d): %d %d %d %d %d %d\n",
--				    i, tx->queue_active, tx->req,
--				    tx->done, tx->pkt_start, tx->pkt_done,
--				    (int)ntohl(mgp->ss[i].fw_stats->
--					       send_done_count));
-+			ss = mgp->ss;
-+			if (ss->stuck) {
-+				myri10ge_check_slice(ss, &reset_needed,
-+						     &busy_slice_cnt,
-+						     rx_pause_cnt);
-+				ss->stuck = 0;
-+			}
- 		}
-+		if (!reset_needed) {
-+			netdev_dbg(mgp->dev, "not resetting\n");
-+			return;
-+		}
-+
-+		netdev_err(mgp->dev, "device timeout, resetting\n");
- 	}
+@@ -1785,9 +1783,8 @@ static const char myri10ge_gstrings_slice_stats[][ETH_GSTRING_LEN] = {
+ 	"----------- slice ---------",
+ 	"tx_pkt_start", "tx_pkt_done", "tx_req", "tx_done",
+ 	"rx_small_cnt", "rx_big_cnt",
+-	"wake_queue", "stop_queue", "tx_linearized", "LRO aggregated",
+-	    "LRO flushed",
+-	"LRO avg aggr", "LRO no_desc"
++	"wake_queue", "stop_queue", "tx_linearized",
++	"LRO aggregated", "LRO flushed", "LRO avg aggr", "LRO no_desc",
+ };
  
- 	if (!rebooted) {
-@@ -3567,27 +3606,8 @@ static void myri10ge_watchdog_timer(unsigned long arg)
- 			    myri10ge_fill_thresh)
- 				ss->rx_big.watchdog_needed = 0;
- 		}
+ #define MYRI10GE_NET_STATS_LEN      21
+@@ -3329,7 +3326,6 @@ abort:
+ 	/* fall back to using the unaligned firmware */
+ 	mgp->tx_boundary = 2048;
+ 	set_fw_name(mgp, myri10ge_fw_unaligned, false);
 -
--		if (ss->tx.req != ss->tx.done &&
--		    ss->tx.done == ss->watchdog_tx_done &&
--		    ss->watchdog_tx_req != ss->watchdog_tx_done) {
--			/* nic seems like it might be stuck.. */
--			if (rx_pause_cnt != mgp->watchdog_pause) {
--				if (net_ratelimit())
--					netdev_err(mgp->dev, "slice %d: TX paused, check link partner\n",
--						   i);
--			} else {
--				netdev_warn(mgp->dev, "slice %d stuck:", i);
--				reset_needed = 1;
--			}
--		}
--		if (ss->watchdog_tx_done != ss->tx.done ||
--		    ss->watchdog_rx_done != ss->rx_done.cnt) {
--			busy_slice_cnt++;
--		}
--		ss->watchdog_tx_done = ss->tx.done;
--		ss->watchdog_tx_req = ss->tx.req;
--		ss->watchdog_rx_done = ss->rx_done.cnt;
-+		myri10ge_check_slice(ss, &reset_needed, &busy_slice_cnt,
-+				     rx_pause_cnt);
+ }
+ 
+ static void myri10ge_select_firmware(struct myri10ge_priv *mgp)
+@@ -3715,8 +3711,8 @@ static void myri10ge_free_slices(struct myri10ge_priv *mgp)
+ 			dma_free_coherent(&pdev->dev, bytes,
+ 					  ss->fw_stats, ss->fw_stats_bus);
+ 			ss->fw_stats = NULL;
+-			netif_napi_del(&ss->napi);
+ 		}
++		netif_napi_del(&ss->napi);
  	}
- 	/* if we've sent or received no traffic, poll the NIC to
- 	 * ensure it is still there.  Otherwise, we risk not noticing
+ 	kfree(mgp->ss);
+ 	mgp->ss = NULL;
 -- 
 1.7.5.4
 
