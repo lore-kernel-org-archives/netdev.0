@@ -1,7 +1,7 @@
 From: Jon Mason <jdmason@kudzu.us>
-Subject: [PATCH 1/5] ixgb: use PCI_VENDOR_ID_*
-Date: Mon, 27 Jun 2011 13:03:23 -0500
-Message-ID: <1309197803-16724-1-git-send-email-jdmason@kudzu.us>
+Subject: [PATCH 2/5] ixgbe: remove unused #define
+Date: Mon, 27 Jun 2011 13:03:32 -0500
+Message-ID: <1309197812-16759-1-git-send-email-jdmason@kudzu.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,92 +18,27 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Use PCI_VENDOR_ID_* from pci_ids.h instead of creating #define locally.
+Remove unused IXGBE_INTEL_VENDOR_ID #define
 
 Signed-off-by: Jon Mason <jdmason@kudzu.us>
 ---
- drivers/net/ixgb/ixgb_hw.c   |    5 +++--
- drivers/net/ixgb/ixgb_ids.h  |    5 -----
- drivers/net/ixgb/ixgb_main.c |   10 +++++-----
- 3 files changed, 8 insertions(+), 12 deletions(-)
+ drivers/net/ixgbe/ixgbe_type.h |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
-index 6cb2e42..f32e25b 100644
---- a/drivers/net/ixgb/ixgb_hw.c
-+++ b/drivers/net/ixgb/ixgb_hw.c
-@@ -32,6 +32,7 @@
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index e0d970e..b5bf2e1 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -32,9 +32,6 @@
+ #include <linux/mdio.h>
+ #include <linux/netdevice.h>
  
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/pci_ids.h>
- #include "ixgb_hw.h"
- #include "ixgb_ids.h"
- 
-@@ -96,7 +97,7 @@ static u32 ixgb_mac_reset(struct ixgb_hw *hw)
- 	ASSERT(!(ctrl_reg & IXGB_CTRL0_RST));
- #endif
- 
--	if (hw->subsystem_vendor_id == SUN_SUBVENDOR_ID) {
-+	if (hw->subsystem_vendor_id == PCI_VENDOR_ID_SUN) {
- 		ctrl_reg =  /* Enable interrupt from XFP and SerDes */
- 			   IXGB_CTRL1_GPI0_EN |
- 			   IXGB_CTRL1_SDP6_DIR |
-@@ -270,7 +271,7 @@ ixgb_identify_phy(struct ixgb_hw *hw)
- 	}
- 
- 	/* update phy type for sun specific board */
--	if (hw->subsystem_vendor_id == SUN_SUBVENDOR_ID)
-+	if (hw->subsystem_vendor_id == PCI_VENDOR_ID_SUN)
- 		phy_type = ixgb_phy_type_bcm;
- 
- 	return phy_type;
-diff --git a/drivers/net/ixgb/ixgb_ids.h b/drivers/net/ixgb/ixgb_ids.h
-index 2a58847..32c1b30 100644
---- a/drivers/net/ixgb/ixgb_ids.h
-+++ b/drivers/net/ixgb/ixgb_ids.h
-@@ -33,11 +33,6 @@
- ** The Device and Vendor IDs for 10 Gigabit MACs
- **********************************************************************/
- 
--#define INTEL_VENDOR_ID             0x8086
--#define INTEL_SUBVENDOR_ID          0x8086
--#define SUN_VENDOR_ID               0x108E
--#define SUN_SUBVENDOR_ID            0x108E
+-/* Vendor ID */
+-#define IXGBE_INTEL_VENDOR_ID   0x8086
 -
- #define IXGB_DEVICE_ID_82597EX      0x1048
- #define IXGB_DEVICE_ID_82597EX_SR   0x1A48
- #define IXGB_DEVICE_ID_82597EX_LR   0x1B48
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 6a130eb..7dd4f8b 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -54,13 +54,13 @@ MODULE_PARM_DESC(copybreak,
-  *   Class, Class Mask, private data (not used) }
-  */
- static DEFINE_PCI_DEVICE_TABLE(ixgb_pci_tbl) = {
--	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX,
-+	{PCI_VENDOR_ID_INTEL, IXGB_DEVICE_ID_82597EX,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
--	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_CX4,
-+	{PCI_VENDOR_ID_INTEL, IXGB_DEVICE_ID_82597EX_CX4,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
--	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_SR,
-+	{PCI_VENDOR_ID_INTEL, IXGB_DEVICE_ID_82597EX_SR,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
--	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_LR,
-+	{PCI_VENDOR_ID_INTEL, IXGB_DEVICE_ID_82597EX_LR,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 
- 	/* required last entry */
-@@ -195,7 +195,7 @@ ixgb_irq_enable(struct ixgb_adapter *adapter)
- {
- 	u32 val = IXGB_INT_RXT0 | IXGB_INT_RXDMT0 |
- 		  IXGB_INT_TXDW | IXGB_INT_LSC;
--	if (adapter->hw.subsystem_vendor_id == SUN_SUBVENDOR_ID)
-+	if (adapter->hw.subsystem_vendor_id == PCI_VENDOR_ID_SUN)
- 		val |= IXGB_INT_GPI0;
- 	IXGB_WRITE_REG(&adapter->hw, IMS, val);
- 	IXGB_WRITE_FLUSH(&adapter->hw);
+ /* Device IDs */
+ #define IXGBE_DEV_ID_82598               0x10B6
+ #define IXGBE_DEV_ID_82598_BX            0x1508
 -- 
 1.7.5.4
 
