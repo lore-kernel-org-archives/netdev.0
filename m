@@ -1,64 +1,60 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH] sctp: Reducing rwnd by sizeof(struct sk_buff) for each
- CHUNK is too aggressive
-Date: Mon, 27 Jun 2011 05:11:36 -0400
-Message-ID: <20110627091136.GA10085@canuck.infradead.org>
-References: <20110624101535.GB9222@canuck.infradead.org>
- <4E0495C3.30102@hp.com>
- <20110624144251.GC9222@canuck.infradead.org>
- <4E04AB67.1040407@hp.com>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH] NET: AX88796: Tighten up Kconfig dependencies
+Date: Mon, 27 Jun 2011 13:17:54 +0400
+Message-ID: <4E084AC2.5060908@mvista.com>
+References: <20110625180050.GA9620@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:53099 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757339Ab1F0JLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 05:11:50 -0400
-Content-Disposition: inline
-In-Reply-To: <4E04AB67.1040407@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, Russell King <linux@arm.linux.org.uk>,
+	Jeff Garzik <jeff@garzik.org>, linux-sh@vger.kernel.org,
+	netdev@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
+	linux-kernel@vger.kernel.org, Paul Mundt <lethal@linux-sh.org>,
+	Ben Dooks <ben-linux@fluff.org>, Eric Miao <eric.y.miao@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20110625180050.GA9620@linux-mips.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 24, 2011 at 11:21:11AM -0400, Vladislav Yasevich wrote:
-> We, instead of trying to underestimate the window size, try to over-estimate it.
-> Almost every implementation has some kind of overhead and we don't know how
-> that overhead will impact the window.  As such we try to temporarily account for this
-> overhead.
+Hello.
 
-I looked into this some more and it turns out that adding per-packet
-overhead is difficult because when we mark chunks for retransmissions
-we have to add its data size to the peer rwnd again but we have no
-idea how many packets were used for the initial transmission. Therefore
-if we add an overhead, we can only do so per chunk.
+On 25-06-2011 22:00, Ralf Baechle wrote:
 
-> If we treat the window as strictly available data, then we may end up sending a lot more traffic
-> then the window can take thus causing us to enter 0 window probe and potential retransmission
-> issues that will trigger congestion control.  
-> We'd like to avoid that so we put some overhead into our computations.  It may not be ideal
-> since we do this on a per-chunk basis.  It could probably be done on per-packet basis instead.
-> This way, we'll essentially over-estimate but under-subscribe our current view of the peers
-> window.  So in one shot, we are not going to over-fill it and will get an updated view next
-> time the SACK arrives.
+> In def47c5095d53814512bb0c62ec02dfdec769db1 the AX88796 driver got
 
-What kind of configuration showed this behaviour? Did you observe that
-issue with Linux peers? If a peer announces an a_rwnd which it cannot
-handle then that is a implementation bug of the receiver and not of the
-sender.
+    Please also specify the summary of that commit.
 
-We won't go into zero window probe mode that easily, remember it's only
-one packet allowed in flight while rwnd is 0. We always take into
-account outstanding bytes when updating rwnd with a_rwnd so our view of
-the peer's rwnd is very accurate.
+> restricted to just be build for ARM and MIPS on the sole merrit that it
 
-In fact the RFC clearly states when and how to update the peer rwnd:
+    Merit?
 
-   B) Any time a DATA chunk is transmitted (or retransmitted) to a peer,
-      the endpoint subtracts the data size of the chunk from the rwnd of
-      that peer.
+> was written for some ARM sytems and the driver had the missfortune to
 
-I would like to try and reproduce the behaviour you have observed and
-fix it without cutting our ability to produce pmtu maxed packets with
-small data chunks.
+    Misfortune?
+
+> just build on MIPS, so MIPS was throw into the dependency for a good
+> measure.  Later 8687991a734a67f1638782c968f46fff0f94bb1f added SH but
+
+    Summary here too, please.
+
+> only one in-tree SH system actually has an AX88796.
+
+> Tighten up dependencies by using an auxilliary config sysmbol
+> HAS_NET_AX88796 which is selected only by the platforms that actually
+> have or may have an AX88796.  This also means the driver won't be built
+> anymore for any MIPS platform.
+
+> Signed-off-by: Ralf Baechle<ralf@linux-mips.org>
+
+WBR, Sergei
