@@ -1,47 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
-Date: Mon, 27 Jun 2011 19:20:41 +0200
-Message-ID: <1309195241.2532.79.camel@edumazet-laptop>
-References: <4da4117c-a24a-4512-9b79-fbed126e03bc@exht1.ad.emulex.com>
-	 <20110627094337.5108b5f6@nehalam.ftrdhcpuser.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sathya Perla <sathya.perla@emulex.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Jon Mason <jdmason@kudzu.us>
+Subject: [PATCH 06/19] mlx4: remove unnecessary read of PCI_CAP_ID_EXP
+Date: Mon, 27 Jun 2011 12:42:17 -0500
+Message-ID: <1309196537-15879-1-git-send-email-jdmason@kudzu.us>
+Cc: netdev@vger.kernel.org
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:52476 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753084Ab1F0RUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 13:20:45 -0400
-Received: by wyg8 with SMTP id 8so1229515wyg.19
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 10:20:44 -0700 (PDT)
-In-Reply-To: <20110627094337.5108b5f6@nehalam.ftrdhcpuser.net>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:38395 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751115Ab1F0RmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 13:42:22 -0400
+Received: by pzk9 with SMTP id 9so3102676pzk.19
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 10:42:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 27 juin 2011 =C3=A0 09:43 -0700, Stephen Hemminger a =C3=A9cri=
-t :
-> On Mon, 27 Jun 2011 12:10:48 +0530
-> Sathya Perla <sathya.perla@emulex.com> wrote:
->=20
-> > Problem initially reproted and fixed by Eric Dumazet <eric.dumazet@=
-gmail.com>
-> >=20
-> > netdev_stats_update() resets netdev->stats and then accumulates sta=
-ts from
-> > various rings. This is wrong as stats readers can sometimes catch z=
-ero values.
-> > Use temporary variables instead for accumulating per-ring values.
-> >=20
-> > Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
->=20
-> Should also use u64_stats_sync to ensure correct rollover or 32 bit S=
-MP
-> platform.
+The PCIE capability offset is saved during PCI bus walking.  It will
+remove an unnecessary search in the PCI configuration space if this
+value is referenced instead of reacquiring it.
 
-These are "unsigned long" fields, you dont need u64_stats_sync.
+Signed-off-by: Jon Mason <jdmason@kudzu.us>
+---
+ drivers/net/mlx4/reset.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-
+diff --git a/drivers/net/mlx4/reset.c b/drivers/net/mlx4/reset.c
+index e5741da..11e7c1c 100644
+--- a/drivers/net/mlx4/reset.c
++++ b/drivers/net/mlx4/reset.c
+@@ -77,7 +77,7 @@ int mlx4_reset(struct mlx4_dev *dev)
+ 		goto out;
+ 	}
+ 
+-	pcie_cap = pci_find_capability(dev->pdev, PCI_CAP_ID_EXP);
++	pcie_cap = pci_pcie_cap(dev->pdev);
+ 
+ 	for (i = 0; i < 64; ++i) {
+ 		if (i == 22 || i == 23)
+-- 
+1.7.5.4
 
