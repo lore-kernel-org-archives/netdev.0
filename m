@@ -1,57 +1,43 @@
-From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
-Subject: Re: [RFC 33/72] pch_gbe: Move the OKI driver
-Date: Mon, 27 Jun 2011 10:53:57 +0900
-Message-ID: <3B25EA73F6D1497783379086E3A18D6A@hacdom.okisemi.com>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com> <1309010363-22750-34-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Gole, Anant" <anantgole@ti.com>
+Subject: RE: [RFC 26/72] arm: Move the ARM/ACORN drivers
+Date: Mon, 27 Jun 2011 08:40:20 +0530
+Message-ID: <2A3DCF3DA181AD40BDE86A3150B27B6B037558A181@dbde02.ent.ti.com>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1309010363-22750-27-git-send-email-jeffrey.t.kirsher@intel.com>
+ <201106251648.03574.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Cc: "Tomoya" <tomoya-linux@dsn.okisemi.com>, <netdev@vger.kernel.org>,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: <davem@davemloft.net>, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Govindarajan, Sriramakrishnan" <srk@ti.com>,
+	"Hegde, Vinay" <vinay.hegde@ti.com>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	Wan ZongShun <mcuos.com@gmail.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Chaithrika U S <chaithrika@ti.com>
+To: Arnd Bergmann <arnd@arndb.de>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Russell King <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:14379 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755336Ab1F0ByG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 21:54:06 -0400
+Received: from comal.ext.ti.com ([198.47.26.152]:37275 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755066Ab1F0DKx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2011 23:10:53 -0400
+In-Reply-To: <201106251648.03574.arnd@arndb.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Jun 2011 06:58:44 -0700
->Move the OKI driver into driver/net/ethernet/oki/ and make the
->necessary Kconfig and Makefile changes.
+>It doesn't seem logical to group drivers that are used on ARM under
+>the architecture when the hardware is not actually made by ARM Ltd.
 >
->Note: there is no documented maintainer for this driver, so I CC'd
->the last 2 major contributors.
+>TI also produces chips with the C6x architecture, which will be
+>supported
+>in Linux in the future. It could well be that there is a version that
+>uses the davinci ethernet mac. You also have a TI directory.
 >
->CC: Tomoya <tomoya-linux@dsn.okisemi.com>
->CC: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
->Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->---
-> drivers/net/Kconfig                                | 
->   19 -------------------
-> drivers/net/Makefile                               |    1 -
-> drivers/net/ethernet/Kconfig                       |    1 +
-> drivers/net/ethernet/Makefile                      |    1 +
-> drivers/net/ethernet/oki/Kconfig                   |   18 
-> ++++++++++++++++++
-> drivers/net/ethernet/oki/Makefile                  |    5 +++++
-> drivers/net/ethernet/oki/pch_gbe/Kconfig           |   20 
-> ++++++++++++++++++++
-> drivers/net/{ => ethernet/oki}/pch_gbe/Makefile    |    0
-> drivers/net/{ => ethernet/oki}/pch_gbe/pch_gbe.h   |    0
-> .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_api.c   |    0
-> .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_api.h   |    0
-> .../{ => ethernet/oki}/pch_gbe/pch_gbe_ethtool.c   |    0
-> .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_main.c  |    0
-> .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_param.c |    0
-> .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_phy.c   |    0
-> .../net/{ => ethernet/oki}/pch_gbe/pch_gbe_phy.h   |    0
 
-OKi semiconductor is a different company from OKI Groups.
-Therefor please use not "/oki" but "/oki-semi"
-
-Best Regards
-Toshiharu Okada 
+IMO davinci_emac driver should go under /ethernet/ti/
 
