@@ -1,28 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
-Date: Sun, 26 Jun 2011 23:11:41 -0700 (PDT)
-Message-ID: <20110626.231141.681850439580186327.davem@davemloft.net>
-References: <1308911520.2228.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110624.125905.362177986003856504.davem@davemloft.net>
-	<3367B80B08154D42A3B2BC708B5D41F63F188EE7A3@EXMAIL.ad.emulex.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next-2.6 1/3] be2net: fix netdev_stats_update
+Date: Mon, 27 Jun 2011 12:10:48 +0530
+Message-ID: <4da4117c-a24a-4512-9b79-fbed126e03bc@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Sathya.Perla@Emulex.Com
+Content-Type: text/plain
+Cc: Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60692 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755805Ab1F0GLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 02:11:49 -0400
-In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F63F188EE7A3@EXMAIL.ad.emulex.com>
+Received: from exht1.emulex.com ([138.239.113.183]:48984 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756522Ab1F0Gkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 02:40:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Sathya.Perla@Emulex.Com>
-Date: Sun, 26 Jun 2011 22:19:13 -0700
+Problem initially reproted and fixed by Eric Dumazet <eric.dumazet@gmail.com>
 
-> Dave, Sure, I'm fine with that. Could you apply this patch by replacing
-> my name with Eric's? Or should I do the same and send you another one...
+netdev_stats_update() resets netdev->stats and then accumulates stats from
+various rings. This is wrong as stats readers can sometimes catch zero values.
+Use temporary variables instead for accumulating per-ring values.
 
-Please resubmit the entire series with everything fixed, thanks.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/benet/be_main.c |   29 +++++++++++++++++------------
+ 1 files changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index c4f564c..5ca06b0 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -428,33 +428,38 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 	struct net_device_stats *dev_stats = &adapter->netdev->stats;
+ 	struct be_rx_obj *rxo;
+ 	struct be_tx_obj *txo;
++	unsigned long pkts = 0, bytes = 0, mcast = 0, drops = 0;
+ 	int i;
+ 
+-	memset(dev_stats, 0, sizeof(*dev_stats));
+ 	for_all_rx_queues(adapter, rxo, i) {
+-		dev_stats->rx_packets += rx_stats(rxo)->rx_pkts;
+-		dev_stats->rx_bytes += rx_stats(rxo)->rx_bytes;
+-		dev_stats->multicast += rx_stats(rxo)->rx_mcast_pkts;
++		pkts += rx_stats(rxo)->rx_pkts;
++		bytes += rx_stats(rxo)->rx_bytes;
++		mcast += rx_stats(rxo)->rx_mcast_pkts;
+ 		/*  no space in linux buffers: best possible approximation */
+ 		if (adapter->generation == BE_GEN3) {
+ 			if (!(lancer_chip(adapter))) {
+-				struct be_erx_stats_v1 *erx_stats =
++				struct be_erx_stats_v1 *erx =
+ 					be_erx_stats_from_cmd(adapter);
+-				dev_stats->rx_dropped +=
+-				erx_stats->rx_drops_no_fragments[rxo->q.id];
++				drops += erx->rx_drops_no_fragments[rxo->q.id];
+ 			}
+ 		} else {
+-			struct be_erx_stats_v0 *erx_stats =
++			struct be_erx_stats_v0 *erx =
+ 					be_erx_stats_from_cmd(adapter);
+-			dev_stats->rx_dropped +=
+-				erx_stats->rx_drops_no_fragments[rxo->q.id];
++			drops += erx->rx_drops_no_fragments[rxo->q.id];
+ 		}
+ 	}
++	dev_stats->rx_packets = pkts;
++	dev_stats->rx_bytes = bytes;
++	dev_stats->multicast = mcast;
++	dev_stats->rx_dropped = drops;
+ 
++	pkts = bytes = 0;
+ 	for_all_tx_queues(adapter, txo, i) {
+-		dev_stats->tx_packets += tx_stats(txo)->be_tx_pkts;
+-		dev_stats->tx_bytes += tx_stats(txo)->be_tx_bytes;
++		pkts += tx_stats(txo)->be_tx_pkts;
++		bytes += tx_stats(txo)->be_tx_bytes;
+ 	}
++	dev_stats->tx_packets = pkts;
++	dev_stats->tx_bytes = bytes;
+ 
+ 	/* bad pkts received */
+ 	dev_stats->rx_errors = drvs->rx_crc_errors +
+-- 
+1.7.4
+
