@@ -1,103 +1,111 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Mon, 27 Jun 2011 15:42:04 +0100
-Message-ID: <1309185724.32717.241.camel@zakaz.uk.xensource.com>
-References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
-	 <4E04C961.9010302@goop.org>  <1308938183.2532.8.camel@edumazet-laptop>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] net/can: activate bit-timing
+ calculation and netlink based drivers by default
+Date: Mon, 27 Jun 2011 16:49:03 +0200
+Message-ID: <4E08985F.2090300@pengutronix.de>
+References: <1309160391-22486-1-git-send-email-mkl@pengutronix.de>
+	<20110627135044.GF318@e-circ.dyndns.org>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============7006492234954952297=="
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110627135044.GF318-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
+List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
+	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============7006492234954952297==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigDA6811319EEE1EF54A98C63A"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigDA6811319EEE1EF54A98C63A
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	"Rusty Russell" <rusty@rustcorp.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:27069 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765Ab1F0Ome (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 10:42:34 -0400
-In-Reply-To: <1308938183.2532.8.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2011-06-24 at 18:56 +0100, Eric Dumazet wrote:
-> Le vendredi 24 juin 2011 =C3=A0 10:29 -0700, Jeremy Fitzhardinge a =C3=
-=A9crit :
-> > On 06/24/2011 08:43 AM, Ian Campbell wrote:
-> > > We've previously looked into solutions using the skb destructor c=
-allback
-> > > but that falls over if the skb is cloned since you also need to k=
-now
-> > > when the clone is destroyed. Jeremy Fitzhardinge and I subsequent=
-ly
-> > > looked at the possibility of a no-clone skb flag (i.e. always for=
-cing a
-> > > copy instead of a clone) but IIRC honouring it universally turned=
- into a
-> > > very twisty maze with a number of nasty corner cases etc. It also=
- seemed
-> > > that the proportion of SKBs which get cloned at least once appear=
-ed as
-> > > if it could be quite high which would presumably make the perform=
-ance
-> > > impact unacceptable when using the flag. Another issue with using=
- the
-> > > skb destructor is that functions such as __pskb_pull_tail will ea=
-t (and
-> > > free) pages from the start of the frag array such that by the tim=
-e the
-> > > skb destructor is called they are no longer there.
-> > >
-> > > AIUI Rusty Russell had previously looked into a per-page destruct=
-or in
-> > > the shinfo but found that it couldn't be made to work (I don't re=
-member
-> > > why, or if I even knew at the time). Could that be an approach wo=
-rth
-> > > reinvestigating?
-> > >
-> > > I can't really think of any other solution which doesn't involve =
-some
-> > > sort of driver callback at the time a page is free()d.
-> >=20
->=20
-> This reminds me the packet mmap (tx path) games we play with pages.
->=20
-> net/packet/af_packet.c : tpacket_destruct_skb(), poking
-> TP_STATUS_AVAILABLE back to user to tell him he can reuse space...
+On 06/27/2011 03:50 PM, Kurt Van Dijck wrote:
+> Is this modification then also the right thing to do?
 
-This is OK because af_packet involves no kernel side protocol and hence
-there can be no retransmits etc? Otherwise you would suffer from the
-same sorts of issues as I described with NFS at [0]?
+yes - there's no need for "default N' (or 'default n') as it's default.
 
-However it seems like this might still have a problem if your SKBs are
-ever cloned. What happens in this case, e.g if a user of AF_PACKET send=
-s
-a broadcast via a device associated with a bridge[1] (where it would be
-flooded)?
+> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+> index 1d699e3..ac48574 100644
+> --- a/drivers/net/can/Kconfig
+> +++ b/drivers/net/can/Kconfig
+> @@ -4,7 +4,6 @@ menu "CAN Device Drivers"
+>  config CAN_VCAN
+>  	tristate "Virtual Local CAN Interface (vcan)"
+>  	depends on CAN
+> -	default N
+>  	---help---
+>  	  Similar to the network loopback devices, vcan offers a
+>  	  virtual local CAN interface.
+> @@ -15,7 +14,6 @@ config CAN_VCAN
+>  config CAN_SLCAN
+>  	tristate "Serial / USB serial CAN Adaptors (slcan)"
+>  	depends on CAN
+> -	default N
+>  	---help---
+>  	  CAN driver for several 'low cost' CAN interfaces that are attached
+>  	  via serial lines or via USB-to-serial adapters using the LAWICEL
+> @@ -124,7 +122,6 @@ source "drivers/net/can/softing/Kconfig"
+>  config CAN_DEBUG_DEVICES
+>  	bool "CAN devices debugging messages"
+>  	depends on CAN
+> -	default N
+>  	---help---
+>  	  Say Y here if you want the CAN device drivers to produce a bunch of=
 
-Wouldn't you get into the situation where the destructor of the initial
-skb is called before one or more of the clones going to a different
-destination were sent. So you would send TP_STATUS_AVAILABLE to
-userspace before the stack was really finished with the page and run th=
-e
-risk of userspace reusing the buffer, leading to incorrect bytes going
-to some destinations?
+>  	  debug messages to the system log.  Select this if you are having
 
-It looks to me that anything which does any zero-copy type thing to the
-network stack will have problems with one or both of protocol retransmi=
-t
-or SKB clone. There's simply no mechanism to know when the stack is
-really finished with a page.
+If you make a patch from it...
 
-Ian.
+Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-[0] http://marc.info/?l=3Dlinux-nfs&m=3D122424132729720&w=3D2
-[1] Since dhcp clients typically use AF_PACKET and you typically put th=
-e
-IP address on the bridge itself in these configurations this won't be
-that unusual.
+Marc
 
-Ian.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
+
+--------------enigDA6811319EEE1EF54A98C63A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk4ImGIACgkQjTAFq1RaXHOYnwCeKW+wXZFJFSy0QhuLqZoQlVXM
+y+wAoIMg6CEJ9LSg93Ubcr5yxxGPCW9a
+=RAkZ
+-----END PGP SIGNATURE-----
+
+--------------enigDA6811319EEE1EF54A98C63A--
+
+--===============7006492234954952297==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-users mailing list
+Socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-users
+
+--===============7006492234954952297==--
