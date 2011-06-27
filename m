@@ -1,34 +1,43 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH] net/can: activate bit-timing
- calculation and netlink based drivers by default
-Date: Mon, 27 Jun 2011 17:00:52 +0200
-Message-ID: <20110627150052.GC1874@e-circ.dyndns.org>
-References: <1309160391-22486-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1309160391-22486-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-users>
-List-Post: <mailto:socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-users>,
-	<mailto:socketcan-users-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-users-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jon Mason <mason@myri.com>
+Subject: [PATCH 1/9] myri10ge: ensure tx queues remain stopped
+Date: Mon, 27 Jun 2011 10:05:00 -0500
+Message-ID: <1309187108-12715-1-git-send-email-mason@myri.com>
+Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:45826 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751118Ab1F0PFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 11:05:14 -0400
+Received: by pzk9 with SMTP id 9so3015778pzk.19
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 08:05:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 27, 2011 at 09:39:51AM +0200, Marc Kleine-Budde wrote:
-> The two options "CAN bit-timing calculation" and
-> "Platform CAN drivers with Netlink support" have a "default Y". In order to
-> activate them by default, change to "default y".
-> 
-> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Ensure that our tx queues remain stopped when we stop them in
+myri10ge_close().  Not doing so can potentially lead to traffic being
+transmitted when the interface is removed, which can lead to NULL
+pointer dereferences.
 
-Acked-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Signed-off-by: Jon Mason <mason@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 3ed5f35..a8ae641 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -1461,7 +1461,8 @@ myri10ge_tx_done(struct myri10ge_slice_state *ss, int mcp_index)
+ 
+ 	/* start the queue if we've stopped it */
+ 	if (netif_tx_queue_stopped(dev_queue) &&
+-	    tx->req - tx->done < (tx->mask >> 1)) {
++	    tx->req - tx->done < (tx->mask >> 1) &&
++	    ss->mgp->running == MYRI10GE_ETH_RUNNING) {
+ 		tx->wake_queue++;
+ 		netif_tx_wake_queue(dev_queue);
+ 	}
+-- 
+1.7.5.4
+
