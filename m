@@ -1,118 +1,119 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [RFC 70/72] netx: Move the netx driver
-Date: Mon, 27 Jun 2011 11:45:52 +0200
-Message-ID: <20110627094552.GZ6069@pengutronix.de>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1309010363-22750-71-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: SKB paged fragment lifecycle on receive
+Date: Mon, 27 Jun 2011 13:21:29 +0300
+Message-ID: <20110627102129.GB12978@redhat.com>
+References: <1308930202.32717.144.camel@zakaz.uk.xensource.com>
+	<20110626102543.GA4961@redhat.com>
+	<1309167695.32717.181.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51889 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757645Ab1F0Jpy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 05:45:54 -0400
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	xen-devel <xen-devel@lists.xensource.com>,
+	"mashirle@us.ibm.com" <mashirle@us.ibm.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Return-path: <xen-devel-bounces@lists.xensource.com>
 Content-Disposition: inline
-In-Reply-To: <1309010363-22750-71-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1309167695.32717.181.camel@zakaz.uk.xensource.com>
+List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 25, 2011 at 06:59:21AM -0700, Jeff Kirsher wrote:
-> Move the netx driver into drivers/net/ethernet/ and make the
-> necessary Kconfig and Makefile changes.
+On Mon, Jun 27, 2011 at 10:41:35AM +0100, Ian Campbell wrote:
+> On Sun, 2011-06-26 at 11:25 +0100, Michael S. Tsirkin wrote:
+> > On Fri, Jun 24, 2011 at 04:43:22PM +0100, Ian Campbell wrote:
+> > > In this mode guest data pages ("foreign pages") were mapped into the
+> > > backend domain (using Xen grant-table functionality) and placed into the
+> > > skb's paged frag list (skb_shinfo(skb)->frags, I hope I am using the
+> > > right term). Once the page is finished with netback unmaps it in order
+> > > to return it to the guest (we really want to avoid returning such pages
+> > > to the general allocation pool!).
+> > 
+> > Are the pages writeable by the source guest while netback processes
+> > them?  If yes, firewalling becomes unreliable as the packet can be
+> > modified after it's checked, right?
 > 
-> CC: Sascha Hauer <s.hauer@pengutronix.de>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> We only map the paged frags, the linear area is always copied (enough to
+> cover maximally sized TCP/IP, including options), for this reason.
 
-Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
+Hmm. That'll cover the most common scenarios
+(such as port filtering) but not deep inspection.
+Not sure how important that is.
 
-> ---
->  drivers/net/Kconfig                   |   10 ----------
->  drivers/net/Makefile                  |    1 -
->  drivers/net/ethernet/Kconfig          |   10 ++++++++++
->  drivers/net/ethernet/Makefile         |    1 +
->  drivers/net/{ => ethernet}/netx-eth.c |    0
->  5 files changed, 11 insertions(+), 11 deletions(-)
->  rename drivers/net/{ => ethernet}/netx-eth.c (100%)
+> > Also, for guest to guest communication, do you wait for
+> > the destination to stop looking at the packet in order
+> > to return it to the source? If yes, can source guest
+> > networking be disrupted by a slow destination?
 > 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 4ddc389..dfae2ec 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -236,16 +236,6 @@ config SH_ETH
->  	  This driver supporting CPUs are:
->  		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
->  
-> -config NET_NETX
-> -	tristate "NetX Ethernet support"
-> -	select MII
-> -	depends on ARCH_NETX
-> -	help
-> -	  This is support for the Hilscher netX builtin Ethernet ports
-> -
-> -	  To compile this driver as a module, choose M here. The module
-> -	  will be called netx-eth.
-> -
->  config NET_PCI
->  	bool "EISA, VLB, PCI and on board controllers"
->  	depends on ISA || EISA || PCI
-> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-> index 83075d4..c24b5ef 100644
-> --- a/drivers/net/Makefile
-> +++ b/drivers/net/Makefile
-> @@ -52,7 +52,6 @@ obj-$(CONFIG_DEFXX) += defxx.o
->  obj-$(CONFIG_EQUALIZER) += eql.o
->  obj-$(CONFIG_TUN) += tun.o
->  obj-$(CONFIG_VETH) += veth.o
-> -obj-$(CONFIG_NET_NETX) += netx-eth.o
->  
->  obj-$(CONFIG_DEV_APPLETALK) += appletalk/
->  obj-$(CONFIG_ETHERNET) += ethernet/
-> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-> index 3ec1903..b7d8d9b 100644
-> --- a/drivers/net/ethernet/Kconfig
-> +++ b/drivers/net/ethernet/Kconfig
-> @@ -176,6 +176,16 @@ config FEALNX
->  source "drivers/net/ethernet/natsemi/Kconfig"
->  source "drivers/net/ethernet/8390/Kconfig"
->  
-> +config NET_NETX
-> +	tristate "NetX Ethernet support"
-> +	depends on ARCH_NETX
-> +	select MII
-> +	---help---
-> +	  This is support for the Hilscher netX builtin Ethernet ports
-> +
-> +	  To compile this driver as a module, choose M here. The module
-> +	  will be called netx-eth.
-> +
->  config FORCEDETH
->  	tristate "nForce Ethernet support"
->  	depends on PCI
-> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-> index 3b2a35a..c1a1c61 100644
-> --- a/drivers/net/ethernet/Makefile
-> +++ b/drivers/net/ethernet/Makefile
-> @@ -42,6 +42,7 @@ obj-$(CONFIG_NET_VENDOR_MOTOROLA) += motorola/
->  obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
->  obj-$(CONFIG_FEALNX) += fealnx.o
->  obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-> +obj-$(CONFIG_NET_NETX) += netx-eth.o
->  obj-$(CONFIG_FORCEDETH) += forcedeth.o
->  obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
->  obj-$(CONFIG_ETHOC) += ethoc.o
-> diff --git a/drivers/net/netx-eth.c b/drivers/net/ethernet/netx-eth.c
-> similarity index 100%
-> rename from drivers/net/netx-eth.c
-> rename to drivers/net/ethernet/netx-eth.c
-> -- 
-> 1.7.5.4
+> There is a timeout which ultimately does a copy into dom0 memory and
+> frees up the domain grant for return to the sending guest.
+
+Interesting. How long's the timeout?
+
+> > > Jeremy Fitzhardinge and I subsequently
+> > > looked at the possibility of a no-clone skb flag (i.e. always forcing a
+> > > copy instead of a clone)
+> > 
+> > I think this is the approach that the patchset
+> > 'macvtap/vhost TX zero-copy support' takes.
 > 
+> That's TX from the guests PoV, the same as I am looking at here,
+> correct?
+
+Right.
+
+> I should definitely check this work out, thanks for the pointer. Is V7
+> (http://marc.info/?l=linux-kernel&m=130661128431312&w=2) the most recent
+> posting?
+
+I think so.
+
+> I suppose one difference with this is that it deals with data from
+> "dom0" userspace buffers rather than (what looks like) kernel memory,
+> although I don't know if that matters yet. Also it hangs off of struct
+> sock which netback doesn't have. Anyway I'll check it out.
+
+I think the most important detail is the copy on clone approach.
+We can make it controlled by an skb flag if necessary.
+
+> > > but IIRC honouring it universally turned into a
+> > > very twisty maze with a number of nasty corner cases etc.
+> > 
+> > Any examples? Are they covered by the patchset above?
 > 
+> It was quite a while ago so I don't remember many of the specifics.
+> Jeremy might remember better but for example any broadcast traffic
+> hitting a bridge (a very interesting case for Xen), seems like a likely
+> case? pcap was another one which I do remember, but that's obviously
+> less critical.
+
+Last I looked I thought these clone the skb, so if a copy happens on
+clone things will work correctly?
+
+> I presume with the TX zero-copy support the "copying due to attempted
+> clone" rate is low?
+
+Yes. My understanding is that this version targets a non-bridged setup
+(guest connected to a macvlan on a physical dev) as the first step.
+
+> > > FWIW I proposed a session on the subject for LPC this year.
+> > We also plan to discuss this on kvm forum 2011
+> > (colocated with linuxcon 2011).
+> > http://www.linux-kvm.org/page/KVM_Forum_2011
+> 
+> I had already considered coming to LinuxCon for other reasons but
+> unfortunately I have family commitments around then :-(
+> 
+> Ian.
+
+And I'm not coming to LPC this year :(
 
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+MST
