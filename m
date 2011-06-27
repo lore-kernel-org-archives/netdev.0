@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Mon, 27 Jun 2011 15:49:21 -0700 (PDT)
-Message-ID: <20110627.154921.1544030815492828408.davem@davemloft.net>
-References: <4E04C961.9010302@goop.org>
-	<1308938183.2532.8.camel@edumazet-laptop>
-	<1309185724.32717.241.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH V7 2/4 net-next] skbuff: Add userspace zero-copy
+ buffers in skb
+Date: Mon, 27 Jun 2011 15:54:26 -0700 (PDT)
+Message-ID: <20110627.155426.51839633424542723.davem@davemloft.net>
+References: <1306610588.5180.87.camel@localhost.localdomain>
+	<1309189510.21764.1.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeremy@goop.org, xen-devel@lists.xensource.com,
-	eric.dumazet@gmail.com, rusty@rustcorp.com.au
-To: Ian.Campbell@eu.citrix.com
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <1309185724.32717.241.camel@zakaz.uk.xensource.com>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+Cc: mst@redhat.com, eric.dumazet@gmail.com, avi@redhat.com,
+	arnd@arndb.de, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mashirle@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:39873 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755262Ab1F0Wye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 18:54:34 -0400
+In-Reply-To: <1309189510.21764.1.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Mon, 27 Jun 2011 15:42:04 +0100
+From: Shirley Ma <mashirle@us.ibm.com>
+Date: Mon, 27 Jun 2011 08:45:10 -0700
 
-> However it seems like this might still have a problem if your SKBs are
-> ever cloned. What happens in this case, e.g if a user of AF_PACKET sends
-> a broadcast via a device associated with a bridge[1] (where it would be
-> flooded)?
+> To support skb zero-copy, a pointer is needed to add to skb share info.
+> Do you agree with this approach? If not, do you have any other
+> suggestions?
 
-You don't need a bridge to get a clone on transmit, the packet
-scheduler can do clones.  Just grep for skb_clone in the packet
-action handlers net/sched/act_*.c
+I really can't form an opinion unless I am shown the complete
+implementation, what this give us in return, what the impact is, etc.
