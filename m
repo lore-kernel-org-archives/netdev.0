@@ -1,50 +1,42 @@
 From: Jon Mason <mason@myri.com>
-Subject: [PATCH 8/9] myri10ge: update version
-Date: Mon, 27 Jun 2011 10:05:07 -0500
-Message-ID: <1309187108-12715-8-git-send-email-mason@myri.com>
+Subject: [PATCH 9/9] myri10ge: Update MAINTAINERS
+Date: Mon, 27 Jun 2011 10:05:08 -0500
+Message-ID: <1309187108-12715-9-git-send-email-mason@myri.com>
 References: <1309187108-12715-1-git-send-email-mason@myri.com>
 Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:39466 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752136Ab1F0PFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 11:05:48 -0400
-Received: by mail-pv0-f174.google.com with SMTP id 12so2905334pvg.19
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 08:05:48 -0700 (PDT)
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:55670 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752759Ab1F0PFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 11:05:54 -0400
+Received: by pwj7 with SMTP id 7so2997627pwj.19
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 08:05:54 -0700 (PDT)
 In-Reply-To: <1309187108-12715-1-git-send-email-mason@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update version and copyright
+Update MAINTAINERS to refelect new people working on myri10ge
 
 Signed-off-by: Jon Mason <mason@myri.com>
 ---
- drivers/net/myri10ge/myri10ge.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ MAINTAINERS |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index 1e1681b..aae5de1 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -1,7 +1,7 @@
- /*************************************************************************
-  * myri10ge.c: Myricom Myri-10G Ethernet driver.
-  *
-- * Copyright (C) 2005 - 2009 Myricom, Inc.
-+ * Copyright (C) 2005 - 2011 Myricom, Inc.
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -79,7 +79,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
+diff --git a/MAINTAINERS b/MAINTAINERS
+index f0358cd..f3b5b65 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4279,8 +4279,8 @@ S:	Maintained
+ F:	drivers/usb/musb/
  
--#define MYRI10GE_VERSION_STR "1.5.2-1.459"
-+#define MYRI10GE_VERSION_STR "1.5.3-1.534"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
+ MYRICOM MYRI-10G 10GbE DRIVER (MYRI10GE)
++M:	Jon Mason <mason@myri.com>
+ M:	Andrew Gallatin <gallatin@myri.com>
+-M:	Brice Goglin <brice@myri.com>
+ L:	netdev@vger.kernel.org
+ W:	http://www.myri.com/scs/download-Myri10GE.html
+ S:	Supported
 -- 
 1.7.5.4
 
