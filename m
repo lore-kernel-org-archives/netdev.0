@@ -1,76 +1,191 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: SKB paged fragment lifecycle on receive
-Date: Mon, 27 Jun 2011 21:51:53 +0100
-Message-ID: <4E08ED69.3010709@goop.org>
-References: <4E04C961.9010302@goop.org>	
-	<1308938183.2532.8.camel@edumazet-laptop>	<4E04D59B.8060301@goop.org>	
-	<20110624.124624.1329947216240823992.davem@davemloft.net>	
-	<4E04EF8F.6070900@goop.org>
-	<1309003121.5807.20.camel@dagon.hellion.org.uk>
+From: Jon Mason <mason@myri.com>
+Subject: [PATCH 3/9 v2] myri10ge: rework parity error check and cleanup
+Date: Mon, 27 Jun 2011 15:54:34 -0500
+Message-ID: <20110627205432.GA18978@myri.com>
+References: <1309187108-12715-1-git-send-email-mason@myri.com>
+ <1309187108-12715-3-git-send-email-mason@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	xen-devel@lists.xensource.com,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <1309003121.5807.20.camel@dagon.hellion.org.uk>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:50160 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754505Ab1F0Uyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2011 16:54:38 -0400
+Received: by pzk9 with SMTP id 9so3200052pzk.19
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2011 13:54:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1309187108-12715-3-git-send-email-mason@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/25/2011 12:58 PM, Ian Campbell wrote:
-> On Fri, 2011-06-24 at 13:11 -0700, Jeremy Fitzhardinge wrote:
->> On 06/24/2011 12:46 PM, David Miller wrote:
->>> Pages get transferred between different SKBs all the time.
->>>
->>> For example, GRO makes extensive use of this technique.
->>> See net/core/skbuff.c:skb_gro_receive().
->>>
->>> It is just one example.
->> I see, and the new skb doesn't get a destructor copied from the
->> original, so there'd be no second callback.
-> What about if we were to have a per-shinfo destructor (called once for
-> each page as its refcount goes 1->0, from whichever skb ends up with the
-> last ref) as well as the skb-destructors.
+Clean up watchdog reset code:
+ - move code that checks for stuck slice to a common routine
+ - unless there is a confirmed h/w fault, verify that a stuck
+   slice is still stuck in the watchdog worker; if the slice is no
+   longer stuck, abort the reset.
+ - this removes an egregious 2000ms pause in the watchdog worker that
+   was a diagnostic aid (to look for spurious resets) the snuck into
+   production code.
 
-We never want the refcount for granted pages to go from 1 -> 0.  The
-safest thing is to make sure we always elevate the refcount to make sure
-that nothing else can ever drop the last ref.
+v2 includes corrections from Ben Hutchings and Joe Perches
 
-If we can trust the network stack to always do the last release (and not
-hand it off to something else to do it), then we could have a destructor
-which gets called before the last ref drop (or leaves the ref drop to
-the destructor to do), and do everything required that way.  But it
-seems pretty fragile.  At the very least it would need a thorough code
-audit to make sure that everything handles page lifetimes in the
-expected way - but then I'd still worry about out-of-tree patches
-breaking something in subtle ways.
+Signed-off-by: Jon Mason <mason@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |  100 +++++++++++++++++++++++---------------
+ 1 files changed, 60 insertions(+), 40 deletions(-)
 
->  This already handles the
-> cloning case but when pages are moved between shinfo then would it make
-> sense for that to be propagated between skb's under these circumstances
-> and/or require them to be the same? Since in the case of something like
-> skb_gro_receive the skbs (and hence the frag array pages) are all from
-> the same 'owner' (even if the skb is actually created by the stack on
-> their behalf) I suspect this could work?
->
-> But I bet this assumption isn't valid in all cases.
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 0f0f83d..c2574c5 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -193,6 +193,7 @@ struct myri10ge_slice_state {
+ 	int watchdog_tx_done;
+ 	int watchdog_tx_req;
+ 	int watchdog_rx_done;
++	int stuck;
+ #ifdef CONFIG_MYRI10GE_DCA
+ 	int cached_dca_tag;
+ 	int cpu;
+@@ -3442,6 +3443,42 @@ static u32 myri10ge_read_reboot(struct myri10ge_priv *mgp)
+ 	return reboot;
+ }
+ 
++static void
++myri10ge_check_slice(struct myri10ge_slice_state *ss, int *reset_needed,
++		     int *busy_slice_cnt, u32 rx_pause_cnt)
++{
++	struct myri10ge_priv *mgp = ss->mgp;
++	int slice = ss - mgp->ss;
++
++	if (ss->tx.req != ss->tx.done &&
++	    ss->tx.done == ss->watchdog_tx_done &&
++	    ss->watchdog_tx_req != ss->watchdog_tx_done) {
++		/* nic seems like it might be stuck.. */
++		if (rx_pause_cnt != mgp->watchdog_pause) {
++			if (net_ratelimit())
++				netdev_warn(mgp->dev, "slice %d: TX paused, "
++					    "check link partner\n", slice);
++		} else {
++			netdev_warn(mgp->dev,
++				    "slice %d: TX stuck %d %d %d %d %d %d\n",
++				    slice, ss->tx.queue_active, ss->tx.req,
++				    ss->tx.done, ss->tx.pkt_start,
++				    ss->tx.pkt_done,
++				    (int)ntohl(mgp->ss[slice].fw_stats->
++					       send_done_count));
++			*reset_needed = 1;
++			ss->stuck = 1;
++		}
++	}
++	if (ss->watchdog_tx_done != ss->tx.done ||
++	    ss->watchdog_rx_done != ss->rx_done.cnt) {
++		*busy_slice_cnt += 1;
++	}
++	ss->watchdog_tx_done = ss->tx.done;
++	ss->watchdog_tx_req = ss->tx.req;
++	ss->watchdog_rx_done = ss->rx_done.cnt;
++}
++
+ /*
+  * This watchdog is used to check whether the board has suffered
+  * from a parity error and needs to be recovered.
+@@ -3450,10 +3487,12 @@ static void myri10ge_watchdog(struct work_struct *work)
+ {
+ 	struct myri10ge_priv *mgp =
+ 	    container_of(work, struct myri10ge_priv, watchdog_work);
+-	struct myri10ge_tx_buf *tx;
+-	u32 reboot;
++	struct myri10ge_slice_state *ss;
++	u32 reboot, rx_pause_cnt;
+ 	int status, rebooted;
+ 	int i;
++	int reset_needed = 0;
++	int busy_slice_cnt = 0;
+ 	u16 cmd, vendor;
+ 
+ 	mgp->watchdog_resets++;
+@@ -3465,8 +3504,7 @@ static void myri10ge_watchdog(struct work_struct *work)
+ 		 * For now, just report it */
+ 		reboot = myri10ge_read_reboot(mgp);
+ 		netdev_err(mgp->dev, "NIC rebooted (0x%x),%s resetting\n",
+-			   reboot,
+-			   myri10ge_reset_recover ? "" : " not");
++			   reboot, myri10ge_reset_recover ? " " : " not");
+ 		if (myri10ge_reset_recover == 0)
+ 			return;
+ 		rtnl_lock();
+@@ -3498,23 +3536,24 @@ static void myri10ge_watchdog(struct work_struct *work)
+ 				return;
+ 			}
+ 		}
+-		/* Perhaps it is a software error.  Try to reset */
+-
+-		netdev_err(mgp->dev, "device timeout, resetting\n");
++		/* Perhaps it is a software error. See if stuck slice
++		 * has recovered, reset if not */
++		rx_pause_cnt = ntohl(mgp->ss[0].fw_stats->dropped_pause);
+ 		for (i = 0; i < mgp->num_slices; i++) {
+-			tx = &mgp->ss[i].tx;
+-			netdev_err(mgp->dev, "(%d): %d %d %d %d %d %d\n",
+-				   i, tx->queue_active, tx->req,
+-				   tx->done, tx->pkt_start, tx->pkt_done,
+-				   (int)ntohl(mgp->ss[i].fw_stats->
+-					      send_done_count));
+-			msleep(2000);
+-			netdev_info(mgp->dev, "(%d): %d %d %d %d %d %d\n",
+-				    i, tx->queue_active, tx->req,
+-				    tx->done, tx->pkt_start, tx->pkt_done,
+-				    (int)ntohl(mgp->ss[i].fw_stats->
+-					       send_done_count));
++			ss = mgp->ss;
++			if (ss->stuck) {
++				myri10ge_check_slice(ss, &reset_needed,
++						     &busy_slice_cnt,
++						     rx_pause_cnt);
++				ss->stuck = 0;
++			}
+ 		}
++		if (!reset_needed) {
++			netdev_dbg(mgp->dev, "not resetting\n");
++			return;
++		}
++
++		netdev_err(mgp->dev, "device timeout, resetting\n");
+ 	}
+ 
+ 	if (!rebooted) {
+@@ -3567,27 +3606,8 @@ static void myri10ge_watchdog_timer(unsigned long arg)
+ 			    myri10ge_fill_thresh)
+ 				ss->rx_big.watchdog_needed = 0;
+ 		}
+-
+-		if (ss->tx.req != ss->tx.done &&
+-		    ss->tx.done == ss->watchdog_tx_done &&
+-		    ss->watchdog_tx_req != ss->watchdog_tx_done) {
+-			/* nic seems like it might be stuck.. */
+-			if (rx_pause_cnt != mgp->watchdog_pause) {
+-				if (net_ratelimit())
+-					netdev_err(mgp->dev, "slice %d: TX paused, check link partner\n",
+-						   i);
+-			} else {
+-				netdev_warn(mgp->dev, "slice %d stuck:", i);
+-				reset_needed = 1;
+-			}
+-		}
+-		if (ss->watchdog_tx_done != ss->tx.done ||
+-		    ss->watchdog_rx_done != ss->rx_done.cnt) {
+-			busy_slice_cnt++;
+-		}
+-		ss->watchdog_tx_done = ss->tx.done;
+-		ss->watchdog_tx_req = ss->tx.req;
+-		ss->watchdog_rx_done = ss->rx_done.cnt;
++		myri10ge_check_slice(ss, &reset_needed, &busy_slice_cnt,
++				     rx_pause_cnt);
+ 	}
+ 	/* if we've sent or received no traffic, poll the NIC to
+ 	 * ensure it is still there.  Otherwise, we risk not noticing
+-- 
+1.7.5.4
 
-Hm.
-
-> In which case I end up wondering about a destructor per page in the frag
-> array. At which point we might as well consider it as a part of the core
-> mm stuff rather than something net specific?
-
-Doing it generically still needs some kind of marker that the page has a
-special-case destructor (and the destructor pointer itself).
-
-    J
