@@ -1,42 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] Fix various section mismatches and build errors.
-Date: Mon, 27 Jun 2011 22:12:57 -0700 (PDT)
-Message-ID: <20110627.221257.1290251511587162468.davem@davemloft.net>
-References: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, alan@linux.intel.com, bcasavan@sgi.com,
-        airlied@linux.ie, grundler@parisc-linux.org,
-        JBottomley@parallels.com, perex@perex.cz, rpurdie@rpsys.net,
-        klassert@mathematik.tu-chemnitz.de, tj@kernel.org,
-        dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
-        linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
-        linux-serial@vger.kernel.org, netdev@vger.kernel.org
-To: ralf@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: [PATCH net-2.6] jme: Fix compile warning introduced by new pm macro
+Date: Tue, 28 Jun 2011 13:12:45 +0800
+Message-ID: <1309237965-25102-1-git-send-email-cooldavid@cooldavid.org>
+Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
+	"linux-netdev" <netdev@vger.kernel.org>,
+	"Aries Lee" <arieslee@jmicron.com>,
+	"Devinchiu" <devinchiu@jmicron.com>, <stable@kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cooldavid.org ([114.33.45.68]:51886 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755856Ab1F1FMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2011 01:12:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-See commit:
+SIMPLE_DEV_PM_OPS is using SET_SYSTEM_SLEEP_PM_OPS
+and SET_SYSTEM_SLEEP_PM_OPS is empty when CONFIG_PM_SLEEP
+is not defined.
 
-commit 948252cb9e01d65a89ecadf67be5018351eee15e
-Author: David S. Miller <davem@davemloft.net>
-Date:   Tue May 31 19:27:48 2011 -0700
+Switching #ifdef CONFIG_PM to #ifdef CONFIG_PM_SLEEP
 
-    Revert "net: fix section mismatches"
-    
-    This reverts commit e5cb966c0838e4da43a3b0751bdcac7fe719f7b4.
-    
-    It causes new build regressions with gcc-4.2 which is
-    pretty common on non-x86 platforms.
-    
-    Reported-by: James Bottomley <James.Bottomley@HansenPartnership.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Cc: stable@kernel.org
+---
+ drivers/net/jme.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-and postings that led to this revert including:
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index b5b174a..2ce9339 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -3135,7 +3135,7 @@ jme_shutdown(struct pci_dev *pdev)
+ 	pci_pme_active(pdev, true);
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int jme_suspend(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+-- 
+1.7.3.4
 
-http://marc.info/?l=linux-netdev&m=130653748205263&w=2
