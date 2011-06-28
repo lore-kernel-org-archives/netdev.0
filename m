@@ -1,33 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] NET: AX88796: Tighten up Kconfig dependencies
-Date: Mon, 27 Jun 2011 18:38:44 -0700 (PDT)
-Message-ID: <20110627.183844.146129637361136342.davem@davemloft.net>
-References: <20110627111259.GA13620@linux-mips.org>
-        <BANLkTikDxsOJKpiJs0NpMXbjVOFMHL7RZw@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 3/9 v2] myri10ge: rework parity error check and cleanup
+Date: Mon, 27 Jun 2011 19:17:15 -0700
+Message-ID: <1309227435.3344.20.camel@Joe-Laptop>
+References: <1309187108-12715-1-git-send-email-mason@myri.com>
+	 <1309187108-12715-3-git-send-email-mason@myri.com>
+	 <20110627205432.GA18978@myri.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, eric.y.miao@gmail.com, linux@arm.linux.org.uk,
-        ben-linux@fluff.org, lethal@linux-sh.org, jeff@garzik.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        linux-sh@vger.kernel.org, netdev@vger.kernel.org,
-        linux-mips@linux-mips.org
-To: magnus.damm@gmail.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <BANLkTikDxsOJKpiJs0NpMXbjVOFMHL7RZw@mail.gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Andrew Gallatin <gallatin@myri.com>
+To: Jon Mason <mason@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:3248 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755404Ab1F1CRS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2011 22:17:18 -0400
+In-Reply-To: <20110627205432.GA18978@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Magnus Damm <magnus.damm@gmail.com>
-Date: Tue, 28 Jun 2011 09:40:56 +0900
+On Mon, 2011-06-27 at 15:54 -0500, Jon Mason wrote:
+> Clean up watchdog reset code:
+>  - move code that checks for stuck slice to a common routine
+>  - unless there is a confirmed h/w fault, verify that a stuck
+>    slice is still stuck in the watchdog worker; if the slice is no
+>    longer stuck, abort the reset.
+>  - this removes an egregious 2000ms pause in the watchdog worker that
+>    was a diagnostic aid (to look for spurious resets) the snuck into
+>    production code.
+> v2 includes corrections from Ben Hutchings and Joe Perches
 
-> As for SH and SH-Mobile ARM, unless explicitly requested we usually
-> don't restrict our platform drivers. Allowing them to build on any
-> system helps to catch compile errors.
+Here's some more trivia:
 
-I totally agree with Magnus, drivers should build on as many systems
-as possible.  Even on those for which the hardware never appears.
+> diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+[]
+> @@ -3442,6 +3443,42 @@ static u32 myri10ge_read_reboot(struct myri10ge_priv *mgp)
+>  	return reboot;
+>  }
+>  
+> +static void
+> +myri10ge_check_slice(struct myri10ge_slice_state *ss, int *reset_needed,
+> +		     int *busy_slice_cnt, u32 rx_pause_cnt)
+> +{
+[]
+> +		/* nic seems like it might be stuck.. */
+> +		if (rx_pause_cnt != mgp->watchdog_pause) {
+> +			if (net_ratelimit())
+> +				netdev_warn(mgp->dev, "slice %d: TX paused, "
+> +					    "check link partner\n", slice);
 
-Ralf, unless these drivers have unfixable build errors on MIPS I
-do not want to add the new restrictions.
+I think this would be better if the format weren't split.
+
+				netdev_warn(mgp->dev, "slice %d: TX paused, check link partner\n",
+					    slice);
+or
+				netdev_warn(mgp->dev,
+					    "slice %d: TX paused, check link partner\n",
+					    slice);
+or if you really must split it because exceeding 80 columns
+makes you itchy:
+				netdev_warn(mgp->dev, "slice %d: "
+					    "TX paused, check link partner\n",
+					    slice);
+
+> @@ -3465,8 +3504,7 @@ static void myri10ge_watchdog(struct work_struct *work)
+>  		 * For now, just report it */
+>  		reboot = myri10ge_read_reboot(mgp);
+>  		netdev_err(mgp->dev, "NIC rebooted (0x%x),%s resetting\n",
+> -			   reboot,
+> -			   myri10ge_reset_recover ? "" : " not");
+> +			   reboot, myri10ge_reset_recover ? " " : " not");
+
+I think this was correct before you changed it.
+
+Maybe:
+			   reboot, myri10ge_reset_recover ? "" : " not");
+
+
