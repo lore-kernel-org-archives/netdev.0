@@ -1,58 +1,64 @@
-From: <Shyam_Iyer@Dell.com>
-Subject: RE: [PATCH] [net][bna] Fix call trace when interrupts are disabled
- while sleeping function  kzalloc is called
-Date: Tue, 28 Jun 2011 09:32:56 -0700
-Message-ID: <DBFB1B45AF80394ABD1C807E9F28D1570453626FF1@BLRX7MCDC203.AMER.DELL.COM>
-References: <1309206092-23064-1-git-send-email-shyam_iyer@dell.com>
- <E5313AF6F2BFD14293E5FD0F94750F86A82D66F4FF@HQ1-EXCH01.corp.brocade.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V7 2/4 net-next] skbuff: Add userspace zero-copy
+ buffers in skb
+Date: Tue, 28 Jun 2011 09:51:32 -0700
+Message-ID: <1309279892.3559.6.camel@localhost.localdomain>
+References: <1306610588.5180.87.camel@localhost.localdomain>
+	 <1309189510.21764.1.camel@localhost.localdomain>
+	 <20110627.155426.51839633424542723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <ddutt@brocade.com>, <huangj@Brocade.COM>
-To: <rmody@brocade.com>, <shyam.iyer.t@gmail.com>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:38691 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754116Ab1F1QeZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 12:34:25 -0400
-In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A82D66F4FF@HQ1-EXCH01.corp.brocade.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, eric.dumazet@gmail.com, avi@redhat.com,
+	arnd@arndb.de, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110627.155426.51839633424542723.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(Resending the reply for this as well.)
+On Mon, 2011-06-27 at 15:54 -0700, David Miller wrote:
+> From: Shirley Ma <mashirle@us.ibm.com>
+> Date: Mon, 27 Jun 2011 08:45:10 -0700
+> 
+> > To support skb zero-copy, a pointer is needed to add to skb share
+> info.
+> > Do you agree with this approach? If not, do you have any other
+> > suggestions?
+> 
+> I really can't form an opinion unless I am shown the complete
+> implementation, what this give us in return, what the impact is, etc. 
 
-> -----Original Message-----
-> From: Rasesh Mody [mailto:rmody@brocade.com]
-> Sent: Monday, June 27, 2011 8:51 PM
-> To: Shyam Iyer; netdev@vger.kernel.org
-> Cc: ddutt@brocadel.com; Iyer, Shyam; Jing Huang
-> Subject: RE: [PATCH] [net][bna] Fix call trace when interrupts are
-> disabled while sleeping function kzalloc is called
-> 
-> 
-> >From: Shyam Iyer [mailto:shyam.iyer.t@gmail.com]
-> >Sent: Monday, June 27, 2011 1:22 PM
-> >Subject: [PATCH] [net][bna] Fix call trace when interrupts are
-> disabled
-> >while sleeping function kzalloc is called
-> >
-> >The kzalloc sleeps and disabling interrupts(spin_lock_irqsave) causes
-> >oops like the one.
-> 
-> Hi Shyam,
-> 
-> We are not calling any sleeping function while holding the lock in
-> bnad_mbox_irq_alloc(). How would your patch fix the call trace? Also
-> can you tell which conditions led to this trace.
-> 
-> Thanks,
-> --Rasesh
+zero-copy skb buffers can save significant CPUs. Right now, I only
+implements macvtap/vhost zero-copy between KVM guest and host. The
+performance is as follow:
 
-Hi Rasesh,
+Single TCP_STREAM 120 secs test results 2.6.39-rc3 over ixgbe 10Gb NIC
+results:
 
-Please review my reply/patch2 to Dave. I guess the condition to reproduce is to simply insmod/modprobe the driver on the Brocade 1020 CNA . I don't have cables attached to the card if that helps.
+Message BW(Gb/s)qemu-kvm (NumCPU)vhost-net(NumCPU) PerfTop irq/s
+4K      7408.57         92.1%           22.6%           1229
+4K(Orig)4913.17         118.1%          84.1%           2086    
 
-Thanks,
-Shyam
+8K      9129.90         89.3%           23.3%           1141
+8K(Orig)7094.55         115.9%          84.7%           2157
+
+16K     9178.81         89.1%           23.3%           1139
+16K(Orig)8927.1         118.7%          83.4%           2262
+
+64K     9171.43         88.4%           24.9%           1253
+64K(Orig)9085.85        115.9%          82.4%           2229
+
+You can see the overall CPU saved 50% w/i zero-copy.
+
+The impact is every skb allocation consumed one more pointer in skb
+share info, and a pointer check in skb release when last reference is
+gone.
+
+For skb clone, skb expand private head and skb copy, it still keeps copy
+the buffers to kernel, so we can avoid user application, like tcpdump to
+hold the user-space buffers too long.
+
+Thanks
+Shirley
