@@ -1,17 +1,17 @@
 From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: [PATCH net-2.6] jme: Fix compile warning introduced by new pm macro
-Date: Tue, 28 Jun 2011 13:12:45 +0800
-Message-ID: <1309237965-25102-1-git-send-email-cooldavid@cooldavid.org>
+Subject: [PATCH net-next-2.6 1/2] jme: Fix compile warning introduced by new pm macro
+Date: Tue, 28 Jun 2011 13:23:34 +0800
+Message-ID: <1309238615-25590-1-git-send-email-cooldavid@cooldavid.org>
 Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
 	"linux-netdev" <netdev@vger.kernel.org>,
 	"Aries Lee" <arieslee@jmicron.com>,
-	"Devinchiu" <devinchiu@jmicron.com>, <stable@kernel.org>
+	"Devinchiu" <devinchiu@jmicron.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([114.33.45.68]:51886 "EHLO cooldavid.org"
+Received: from cooldavid.org ([114.33.45.68]:42197 "EHLO cooldavid.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755856Ab1F1FMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 01:12:49 -0400
+	id S1755577Ab1F1FXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2011 01:23:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,7 +24,6 @@ is not defined.
 Switching #ifdef CONFIG_PM to #ifdef CONFIG_PM_SLEEP
 
 Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
-Cc: stable@kernel.org
 ---
  drivers/net/jme.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
