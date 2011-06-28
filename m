@@ -1,56 +1,84 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net/core: Convert to current logging forms
-Date: Tue, 28 Jun 2011 13:31:08 -0700
-Message-ID: <1309293068.29598.14.camel@Joe-Laptop>
-References: <385ebf7e98e377e6e6c384beb961b65d4a95fb18.1309289792.git.joe@perches.com>
-	 <1309292501.2771.48.camel@bwh-desktop>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [RFC 43/72] a2065/ariadne: Move the a2065/ariadne drivers
+Date: Tue, 28 Jun 2011 22:33:58 +0200
+Message-ID: <BANLkTin_SRhrd4dnfBH48b1aTikw5-mjtg@mail.gmail.com>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1309010363-22750-44-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3267 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751296Ab1F1UbK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 16:31:10 -0400
-In-Reply-To: <1309292501.2771.48.camel@bwh-desktop>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:61783 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708Ab1F1UeB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 16:34:01 -0400
+Received: by iyb12 with SMTP id 12so469234iyb.19
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2011 13:34:00 -0700 (PDT)
+In-Reply-To: <1309010363-22750-44-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-06-28 at 21:21 +0100, Ben Hutchings wrote:
-> On Tue, 2011-06-28 at 12:40 -0700, Joe Perches wrote:
-> > Use pr_fmt, pr_<level>, and netdev_<level> as appropriate.
-> > Coalesce long formats.
-> [...]
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -72,6 +72,8 @@
-> > +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> [...]
-> KBUILD_MODNAME is presumably going to be "dev".
+On Sat, Jun 25, 2011 at 15:58, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
+m> wrote:
+> --- a/drivers/net/ethernet/Kconfig
+> +++ b/drivers/net/ethernet/Kconfig
+> @@ -12,8 +12,31 @@ menuconfig ETHERNET
+> =C2=A0if ETHERNET
+>
+> =C2=A0source "drivers/net/ethernet/3com/Kconfig"
+> +
+> +config A2065
+> + =C2=A0 =C2=A0 =C2=A0 tristate "A2065 support"
+> + =C2=A0 =C2=A0 =C2=A0 depends on ZORRO
+> + =C2=A0 =C2=A0 =C2=A0 select CRC32
+> + =C2=A0 =C2=A0 =C2=A0 ---help---
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 If you have a Commodore A2065 Ethernet =
+adapter, say Y. Otherwise,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 say N.
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 To compile this driver as a module, cho=
+ose M here: the module
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 will be called a2065.
+> +
+> =C2=A0source "drivers/net/ethernet/amd/Kconfig"
+> =C2=A0source "drivers/net/ethernet/apple/Kconfig"
+> +
+> +config ARIADNE
+> + =C2=A0 =C2=A0 =C2=A0 tristate "Ariadne support"
+> + =C2=A0 =C2=A0 =C2=A0 depends on ZORRO
+> + =C2=A0 =C2=A0 =C2=A0 ---help---
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 If you have a Village Tronic Ariadne Et=
+hernet adapter, say Y.
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 Otherwise, say N.
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 To compile this driver as a module, cho=
+ose M here: the module
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 will be called ariadne.
+> +
+> =C2=A0source "drivers/net/ethernet/arm/Kconfig"
+> =C2=A0source "drivers/net/ethernet/atheros/Kconfig"
 
-'tis.
+What's the rationale behind this "restructuring"?
+=46WIW, both the A2065 and Ariadne drivers are for AMD LANCE variants
+(that is Am7990 and Am79C960)?
 
-> That's not very meaningful.
+And (in some other patch) 82596.c is an Intel driver, not a Motorola dr=
+iver.
 
-I think it's not useless though.
+Gr{oetje,eeting}s,
 
-Anything else you think it should be?
-Maybe "net_core_device:" or some such like that?
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
 
-Here are the format strings now prefaced by "dev:"
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
 
-$ strings net/core/built-in.o |grep "^<.>dev:"
-<6>dev: netif_stop_queue() cannot be called before register_netdev()
-<4>dev: dev_remove_pack: %p not found
-<3>dev: Loading kernel module for a network device with CAP_SYS_MODULE (deprecated)
-<0>dev: %s: failed to move %s to init_net: %d
-<3>dev: alloc_netdev: Unable to allocate device with zero queues
-<3>dev: alloc_netdev: Unable to allocate device with zero RX queues
-<3>dev: alloc_netdev: Unable to allocate device
-
-
-
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
