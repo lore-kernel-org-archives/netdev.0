@@ -1,31 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/19] r8169: remove unnecessary read of PCI_CAP_ID_EXP
-Date: Mon, 27 Jun 2011 21:41:40 -0700 (PDT)
-Message-ID: <20110627.214140.344048444882489906.davem@davemloft.net>
-References: <1309196791-16157-1-git-send-email-jdmason@kudzu.us>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net+crypto: Use vmalloc for zlib inflate buffers.
+Date: Tue, 28 Jun 2011 12:57:27 +0800
+Message-ID: <20110628045727.GA22502@gondor.apana.org.au>
+References: <20110627.212618.657750275676567934.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nic_swsd@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: jdmason@kudzu.us
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eilong@broadcom.com,
+	mjackson220.list@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57256 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756172Ab1F1Elu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 00:41:50 -0400
-In-Reply-To: <1309196791-16157-1-git-send-email-jdmason@kudzu.us>
+Received: from helcar.apana.org.au ([209.40.204.226]:34168 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755122Ab1F1E5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 00:57:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20110627.212618.657750275676567934.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jdmason@kudzu.us>
-Date: Mon, 27 Jun 2011 12:46:31 -0500
-
-> The PCIE capability offset is saved during PCI bus walking.  Use the
-> value from pci_dev instead of checking in the driver and saving it off
-> the the driver specific structure.  Also, it will remove an unnecessary
-> search in the PCI configuration space if this value is referenced
-> instead of reacquiring it.
+On Mon, Jun 27, 2011 at 09:26:18PM -0700, David Miller wrote:
 > 
-> Signed-off-by: Jon Mason <jdmason@kudzu.us>
+> They are 64K and result in order-4 allocations, even with SLUB.
+> 
+> Therefore, just like we always have for the deflate buffers, use
+> vmalloc.
+> 
+> Reported-by: Martin Jackson <mjackson220.list@gmail.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Applied.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
