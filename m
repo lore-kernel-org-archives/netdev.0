@@ -1,168 +1,135 @@
-From: amit.salecha@qlogic.com
-Subject: [PATCH NEXT 2/2] qlcnic: add external loopback support
-Date: Mon, 27 Jun 2011 23:40:47 -0700
-Message-ID: <1309243247-15950-3-git-send-email-amit.salecha@qlogic.com>
-References: <1309243247-15950-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-To: davem@davemloft.net
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next]  benet: convert to 64 bit stats
+Date: Tue, 28 Jun 2011 00:37:14 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F63F188EE930@EXMAIL.ad.emulex.com>
+References: <4da4117c-a24a-4512-9b79-fbed126e03bc@exht1.ad.emulex.com>
+	<20110627094337.5108b5f6@nehalam.ftrdhcpuser.net>
+ <20110627114313.1d1b9680@nehalam.ftrdhcpuser.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <shemminger@vyatta.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:36881 "HELO mx.mv.qlogic.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756262Ab1F1GtG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 02:49:06 -0400
-In-Reply-To: <1309243247-15950-1-git-send-email-amit.salecha@qlogic.com>
+Received: from exht1.emulex.com ([138.239.113.183]:4133 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755824Ab1F1Hhf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 03:37:35 -0400
+In-Reply-To: <20110627114313.1d1b9680@nehalam.ftrdhcpuser.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+>-----Original Message-----
+>From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+>Sent: Tuesday, June 28, 2011 12:13 AM
+>To: David Miller
+>Cc: Perla, Sathya; netdev@vger.kernel.org
+>Subject: [PATCH net-next] benet: convert to 64 bit stats
+>
+>This changes how the benet driver does statistics:
+>  * use 64 bit statistics interface (old api was only 32 bit on 32 bit
+>platform)
+>  * use u64_stats_sync to ensure atomic 64 bit on 32 bit SMP
+>  * only update statistics when needed
+>
+>Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+>---
+>
+> drivers/net/benet/be.h      |    4 -
+> drivers/net/benet/be_cmds.c |    1
+> drivers/net/benet/be_main.c |  161 ++++++++++++++++++++++++----------------
+>----
+> 3 files changed, 93 insertions(+), 73 deletions(-)
 
-o Add external loopback test in self test:
-  - Send set external loopback mode request to fw.
-     To quiscent other storage functions.
-  - Perform test
-  - Send unset loopback mode request to fw.
+Thanks for the patch!
+be_ethtool.c:be_get_ethtool_stats() currently accesses old netdev->stats. This needs to be fixed.
+I guess it would be OK to drop netdev stats from being reported via ethtool.
+The routine also accesses per-ring rx_bytes/rx_pkts. I'm OK with dropping these too in ethtool for
+the scope of this patch as the aggregates are reported in netdev stats.
 
-o Rename ilb to lb.
-o Update driver version 5.0.20.
+Can you incorporate the following changes...
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h         |    5 +++--
- drivers/net/qlcnic/qlcnic_ethtool.c |   25 ++++++++++++++++---------
- drivers/net/qlcnic/qlcnic_init.c    |    3 ++-
- 3 files changed, 21 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index e545450..9899a79 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -36,8 +36,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 19
--#define QLCNIC_LINUX_VERSIONID  "5.0.19"
-+#define _QLCNIC_LINUX_SUBVERSION 20
-+#define QLCNIC_LINUX_VERSIONID  "5.0.20"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
-@@ -782,6 +782,7 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_IP_DOWN		3
- 
- #define QLCNIC_ILB_MODE		0x1
-+#define QLCNIC_ELB_MODE		0x2
- 
- #define QLCNIC_LINKEVENT	0x1
- #define QLCNIC_LB_RESPONSE	0x2
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 743035e..821d8a7 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -85,7 +85,8 @@ static const char qlcnic_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Register_Test_on_offline",
- 	"Link_Test_on_offline",
- 	"Interrupt_Test_offline",
--	"Loopback_Test_offline"
-+	"Internal_Loopback_offline",
-+	"External_Loopback_offline"
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index 30c1386..9a89caa 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -26,13 +26,9 @@ struct be_ethtool_stat {
+ 	int offset;
  };
  
- #define QLCNIC_TEST_LEN	ARRAY_SIZE(qlcnic_gstrings_test)
-@@ -709,7 +710,7 @@ int qlcnic_check_loopback_buff(unsigned char *data, u8 mac[])
- 	return memcmp(data, buff, QLCNIC_ILB_PKT_SIZE);
- }
+-enum {NETSTAT, DRVSTAT_TX, DRVSTAT_RX, ERXSTAT,
+-			DRVSTAT};
++enum {DRVSTAT_TX, DRVSTAT_RX, ERXSTAT, DRVSTAT};
+ #define FIELDINFO(_struct, field) FIELD_SIZEOF(_struct, field), \
+ 					offsetof(_struct, field)
+-#define NETSTAT_INFO(field) 	#field, NETSTAT,\
+-					FIELDINFO(struct net_device_stats,\
+-						field)
+ #define DRVSTAT_TX_INFO(field)	#field, DRVSTAT_TX,\
+ 					FIELDINFO(struct be_tx_stats, field)
+ #define DRVSTAT_RX_INFO(field)	#field, DRVSTAT_RX,\
+@@ -44,14 +40,6 @@ enum {NETSTAT, DRVSTAT_TX, DRVSTAT_RX, ERXSTAT,
+ 						field)
  
--static int qlcnic_do_ilb_test(struct qlcnic_adapter *adapter)
-+static int qlcnic_do_lb_test(struct qlcnic_adapter *adapter)
- {
- 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
- 	struct qlcnic_host_sds_ring *sds_ring = &recv_ctx->sds_rings[0];
-@@ -735,19 +736,19 @@ static int qlcnic_do_ilb_test(struct qlcnic_adapter *adapter)
- 		dev_kfree_skb_any(skb);
+ static const struct be_ethtool_stat et_stats[] = {
+-	{NETSTAT_INFO(rx_packets)},
+-	{NETSTAT_INFO(tx_packets)},
+-	{NETSTAT_INFO(rx_bytes)},
+-	{NETSTAT_INFO(tx_bytes)},
+-	{NETSTAT_INFO(rx_errors)},
+-	{NETSTAT_INFO(tx_errors)},
+-	{NETSTAT_INFO(rx_dropped)},
+-	{NETSTAT_INFO(tx_dropped)},
+ 	{DRVSTAT_INFO(be_tx_events)},
+ 	{DRVSTAT_INFO(rx_crc_errors)},
+ 	{DRVSTAT_INFO(rx_alignment_symbol_errors)},
+@@ -94,8 +82,6 @@ static const struct be_ethtool_stat et_stats[] = {
  
- 		if (!adapter->diag_cnt)
--			dev_warn(&adapter->pdev->dev, "ILB Test: %dth packet"
-+			dev_warn(&adapter->pdev->dev, "LB Test: %dth packet"
- 				" not recevied\n", i + 1);
- 		else
- 			cnt++;
+ /* Stats related to multi RX queues */
+ static const struct be_ethtool_stat et_rx_stats[] = {
+-	{DRVSTAT_RX_INFO(rx_bytes)},
+-	{DRVSTAT_RX_INFO(rx_pkts)},
+ 	{DRVSTAT_RX_INFO(rx_rate)},
+ 	{DRVSTAT_RX_INFO(rx_polls)},
+ 	{DRVSTAT_RX_INFO(rx_events)},
+@@ -263,16 +249,7 @@ be_get_ethtool_stats(struct net_device *netdev,
+ 	int i, j, base;
+ 
+ 	for (i = 0; i < ETHTOOL_STATS_NUM; i++) {
+-		switch (et_stats[i].type) {
+-		case NETSTAT:
+-			p = &netdev->stats;
+-			break;
+-		case DRVSTAT:
+-			p = &adapter->drv_stats;
+-			break;
+-		}
+-
+-		p = (u8 *)p + et_stats[i].offset;
++		p = (u8 *)&adapter->drv_stats + et_stats[i].offset;
+ 		data[i] = (et_stats[i].size == sizeof(u64)) ?
+ 				*(u64 *)p: *(u32 *)p;
  	}
- 	if (cnt != i) {
--		dev_warn(&adapter->pdev->dev, "ILB Test failed\n");
-+		dev_warn(&adapter->pdev->dev, "LB Test failed\n");
- 		return -1;
- 	}
- 	return 0;
- }
- 
--static int qlcnic_iloopback_test(struct net_device *netdev)
-+static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	int max_sds_rings = adapter->max_sds_rings;
-@@ -755,7 +756,8 @@ static int qlcnic_iloopback_test(struct net_device *netdev)
- 	int loop = 0;
- 	int ret;
- 
--	netdev_info(netdev, "%s:  in progress\n", __func__);
-+	netdev_info(netdev, "%s loopback test in progress\n",
-+		   mode == QLCNIC_ILB_MODE ? "internal" : "external");
- 	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
- 		netdev_warn(netdev, "Loopback test not supported for non "
- 				"privilege function\n");
-@@ -772,7 +774,7 @@ static int qlcnic_iloopback_test(struct net_device *netdev)
- 
- 	sds_ring = &adapter->recv_ctx->sds_rings[0];
- 
--	ret = qlcnic_set_lb_mode(adapter, QLCNIC_ILB_MODE);
-+	ret = qlcnic_set_lb_mode(adapter, mode);
- 	if (ret)
- 		goto free_res;
- 
-@@ -790,7 +792,7 @@ static int qlcnic_iloopback_test(struct net_device *netdev)
- 		goto free_res;
- 	}
- 
--	ret = qlcnic_do_ilb_test(adapter);
-+	ret = qlcnic_do_lb_test(adapter);
- 
- 	qlcnic_clear_lb_mode(adapter);
- 
-@@ -822,10 +824,15 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 		if (data[2])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		data[3] = qlcnic_iloopback_test(dev);
-+		data[3] = qlcnic_loopback_test(dev, QLCNIC_ILB_MODE);
- 		if (data[3])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-+		if (eth_test->flags & ETH_TEST_FL_EXTERNAL_LB) {
-+			data[4] = qlcnic_loopback_test(dev, QLCNIC_ELB_MODE);
-+			if (data[4])
-+				eth_test->flags |= ETH_TEST_FL_FAILED;
-+		}
- 	}
- }
- 
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 9d5bee0..6ec1baa 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1303,7 +1303,8 @@ qlcnic_handle_linkevent(struct qlcnic_adapter *adapter,
- 		dev_info(&netdev->dev, "unsupported cable length %d\n",
- 				cable_len);
- 
--	if (!link_status && (lb_status == 1))
-+	if (!link_status && (lb_status == QLCNIC_ILB_MODE ||
-+	    lb_status == QLCNIC_ELB_MODE))
- 		adapter->ahw->loopback_state |= QLCNIC_LINKEVENT;
- 
- 	qlcnic_advert_link_change(adapter, link_status);
--- 
-1.7.3.3
+@@ -282,7 +259,7 @@ be_get_ethtool_stats(struct net_device *netdev,
+ 		for (i = 0; i < ETHTOOL_RXSTATS_NUM; i++) {
+ 			switch (et_rx_stats[i].type) {
+ 			case DRVSTAT_RX:
+-				p = (u8 *)&rxo->stats + et_rx_stats[i].offset;
++				p = (u8 *)rx_stats(rxo) + et_rx_stats[i].offset;
+ 				break;
+ 			case ERXSTAT:
+ 				p = (u32 *)be_erx_stats_from_cmd(adapter) +
+@@ -298,7 +275,7 @@ be_get_ethtool_stats(struct net_device *netdev,
+ 	base = ETHTOOL_STATS_NUM + adapter->num_rx_qs * ETHTOOL_RXSTATS_NUM;
+ 	for_all_tx_queues(adapter, txo, j) {
+ 		for (i = 0; i < ETHTOOL_TXSTATS_NUM; i++) {
+-			p = (u8 *)&txo->stats + et_tx_stats[i].offset;
++			p = (u8 *)tx_stats(txo) + et_tx_stats[i].offset;
+ 			data[base + j * ETHTOOL_TXSTATS_NUM + i] =
+ 				(et_tx_stats[i].size == sizeof(u64)) ?
+ 					*(u64 *)p: *(u32 *)p;
+
+
 
