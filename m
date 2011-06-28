@@ -1,41 +1,51 @@
-From: alex.bluesman.smirnov@gmail.com
-Subject: [PATCH] Exclude duplicated checking for iface-up. This flags is checked in 'is_skb_forwardable' function, which is subroutine of 'dev_forward_skb'.
-Date: Tue, 28 Jun 2011 17:30:44 +0400
-Message-ID: <1309267844-29334-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: lost gARP after live migration
+Date: Tue, 28 Jun 2011 15:14:15 +0100
+Message-ID: <1309270455.3093.1579.camel@localhost>
+References: <4E09D0A0.1080107@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34077 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757863Ab1F1Nco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 09:32:44 -0400
-Received: by wwe5 with SMTP id 5so212288wwe.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2011 06:32:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Paolo Bonzini <pbonzini@redhat.com>
+To: Laszlo Ersek <lersek@redhat.com>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <4E09D0A0.1080107@redhat.com>
+List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+On Tue, 2011-06-28 at 15:01 +0200, Laszlo Ersek wrote:
+[...]
+> When the guest waits for about half a second before sending (queueing), 
+> the very first gARP packet successfully appears on the host bridge.
+> 
+> I suspect it's a timing race against the netback vif being added to the 
+> host bridge. What would be a good countermeasure?
+> 
+> - Adding two modparams to xen-netfront (gARP requeue count & number of 
+> msecs to wait between queueing the gARPs).
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
----
- drivers/net/veth.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+Note that peer notifications are indirected through netdev notifiers and
+now include IPv6 NAs as well as ARPs.  If repeated notifications are
+commonly necessary then this should probably be handled in the protocol
+(or in the networking core).  However this sounds like a workaround
+whereas your other option would be a proper fix:
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 3b99f64..fb2fd37 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -163,9 +163,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	stats = this_cpu_ptr(priv->stats);
- 	rcv_stats = this_cpu_ptr(rcv_priv->stats);
- 
--	if (!(rcv->flags & IFF_UP))
--		goto tx_drop;
--
- 	/* don't change ip_summed == CHECKSUM_PARTIAL, as that
- 	   will cause bad checksum on forwarded packets */
- 	if (skb->ip_summed == CHECKSUM_NONE)
+> - (Paolo's idea:) watching the "hotplug-status" xenstore node and 
+> sending a single gARP when the watch fires with "connected". This node 
+> belongs to the backend xenstore subtree, thus watching it from the guest 
+> doesn't please the architecture astronaut in me.
+[...]
+
 -- 
-1.7.2.3
-
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
