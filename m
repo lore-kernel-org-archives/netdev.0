@@ -1,109 +1,88 @@
-From: Yinglin Luan <synmyth@gmail.com>
-Subject: [PATCH]rionet: fix NULL pointer dereference in rionet_remove
-Date: Sun, 26 Jun 2011 12:12:12 +0800
-Message-ID: <4e098bf5.87f62a0a.4c71.571a@mx.google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: what's causing "ip_rt_bug"?
+Date: Tue, 28 Jun 2011 11:13:25 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1106281029490.1880@ja.ssi.bg>
+References: <alpine.LFD.2.00.1106180227400.1583@ja.ssi.bg> <4DFC627F.7040007@wpkg.org> <alpine.LFD.2.00.1106182036001.1425@ja.ssi.bg> <20110627.205544.111681152997205782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, mporter@kernel.crashing.org, jj@chaosbits.net,
-	cmdkhh@gmail.com, synmyth@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: mangoo@wpkg.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	bazsi@balabit.hu, hidden@balabit.hu
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:33268 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754806Ab1F1IIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 04:08:23 -0400
-Received: by iwn6 with SMTP id 6so4763409iwn.19
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2011 01:08:22 -0700 (PDT)
-Content-Disposition: inline
+Received: from ja.ssi.bg ([178.16.129.10]:37388 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756687Ab1F1IKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2011 04:10:32 -0400
+In-Reply-To: <20110627.205544.111681152997205782.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Function rionet_remove initializes local variable 'ndev' to NULL
-and do nothing changes before the call to unregister_netdev(ndev),
-this could cause a NULL pointer dereference.
 
-Reported-by: Jesper Juhl <jj@chaosbits.net>
-Signed-off-by: Yinglin Luan <synmyth@gmail.com>
----
- drivers/net/rionet.c |   28 +++++++++++++++-------------
- 1 files changed, 15 insertions(+), 13 deletions(-)
+	Hello,
 
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index 77c5092..5d3436d 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -378,7 +378,7 @@ static int rionet_close(struct net_device *ndev)
- 
- static void rionet_remove(struct rio_dev *rdev)
- {
--	struct net_device *ndev = NULL;
-+	struct net_device *ndev = rio_get_drvdata(rdev);
- 	struct rionet_peer *peer, *tmp;
- 
- 	free_pages((unsigned long)rionet_active, rdev->net->hport->sys_size ?
-@@ -433,22 +433,12 @@ static const struct net_device_ops rionet_netdev_ops = {
- 	.ndo_set_mac_address	= eth_mac_addr,
- };
- 
--static int rionet_setup_netdev(struct rio_mport *mport)
-+static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
- {
- 	int rc = 0;
--	struct net_device *ndev = NULL;
- 	struct rionet_private *rnet;
- 	u16 device_id;
- 
--	/* Allocate our net_device structure */
--	ndev = alloc_etherdev(sizeof(struct rionet_private));
--	if (ndev == NULL) {
--		printk(KERN_INFO "%s: could not allocate ethernet device.\n",
--		       DRV_NAME);
--		rc = -ENOMEM;
--		goto out;
--	}
--
- 	rionet_active = (struct rio_dev **)__get_free_pages(GFP_KERNEL,
- 			mport->sys_size ? __fls(sizeof(void *)) + 4 : 0);
- 	if (!rionet_active) {
-@@ -504,11 +494,21 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
- 	int rc = -ENODEV;
- 	u32 lpef, lsrc_ops, ldst_ops;
- 	struct rionet_peer *peer;
-+	struct net_device *ndev = NULL;
- 
- 	/* If local device is not rionet capable, give up quickly */
- 	if (!rionet_capable)
- 		goto out;
- 
-+	/* Allocate our net_device structure */
-+	ndev = alloc_etherdev(sizeof(struct rionet_private));
-+	if (ndev == NULL) {
-+		printk(KERN_INFO "%s: could not allocate ethernet device.\n",
-+		       DRV_NAME);
-+		rc = -ENOMEM;
-+		goto out;
-+	}
-+
- 	/*
- 	 * First time through, make sure local device is rionet
- 	 * capable, setup netdev,  and set flags so this is skipped
-@@ -529,7 +529,7 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
- 			goto out;
- 		}
- 
--		rc = rionet_setup_netdev(rdev->net->hport);
-+		rc = rionet_setup_netdev(rdev->net->hport, ndev);
- 		rionet_check = 1;
- 	}
- 
-@@ -546,6 +546,8 @@ static int rionet_probe(struct rio_dev *rdev, const struct rio_device_id *id)
- 		list_add_tail(&peer->node, &rionet_peers);
- 	}
- 
-+	rio_set_drvdata(rdev, ndev);
-+
-       out:
- 	return rc;
- }
--- 
-1.7.0.4
+On Mon, 27 Jun 2011, David Miller wrote:
+
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Sat, 18 Jun 2011 20:53:59 +0300 (EEST)
+> 
+> > 	Hm, if it happens "sometimes", can it be some
+> > problem with tproxy and TIME_WAIT sockets? I see that
+> > tproxy_sk_is_transparent has special treatment for TW
+> > sockets while ip_route_me_harder is different. As result,
+> > may be input route is assigned for TW packets.
+> > 
+> > 	May be inet_sk_flowi_flags() needs fixing, not
+> > sure. But following patch is first step to fix this
+> > problem. I don't have setup to test this patch.
+> 
+> TPROXY has special code to make sure that time-wait sockets
+> are not assigned to skb->sk, as explained in commit
+> d503b30bd648b3cb4e5f50b65d27e389960cc6d9, that would cause
+> all kinds of crashes in nfnetlink_log etc.
+> 
+> Therefore we would see skb->sk==NULL at ip_route_me_harder()
+> in that case.
+
+	Aha, after this clarification other changes should not
+be needed. If saddr is translated, now we will use
+FLOWI_FLAG_ANYSRC. As result, if SNAT happens one day in
+LOCAL_OUT, the new saddr can be unicast because RTN_UNSPEC
+is provided for addr_type. If saddr is not changed, it
+should be already validated when the first route for skb is
+performed, so TPROXY should work.
+
+> > ===========================================================
+> > 
+> > 	Avoid creating input routes with ip_route_me_harder.
+> > It does not work for locally generated packets. Instead,
+> > restrict sockets to provide valid saddr for output route (or
+> > unicast saddr for transparent proxy). For other traffic
+> > allow saddr to be unicast or local but if callers forget
+> > to check saddr type use 0 for the output route.
+> > 
+> > 	The resulting handling should be:
+> > 
+> > - REJECT TCP:
+> > 	- in INPUT we can provide addr_type = RTN_LOCAL but
+> > 	better allow rejecting traffic delivered with
+> > 	local route (no IP address => use RTN_UNSPEC to
+> > 	allow also RTN_UNICAST).
+> > 	- FORWARD: RTN_UNSPEC => allow RTN_LOCAL/RTN_UNICAST
+> > 	saddr, add fix to ignore RTN_BROADCAST and RTN_MULTICAST
+> > 	- OUTPUT: RTN_UNSPEC
+> > 
+> > - NAT, mangle, ip_queue, nf_ip_reroute: RTN_UNSPEC in LOCAL_OUT
+> > 
+> > - IPVS:
+> > 	- use RTN_LOCAL in LOCAL_OUT and FORWARD after SNAT
+> > 	to restrict saddr to be local
+> > 
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> 
+> Unless someone gives some negative feedback soon I'm going to
+> apply this.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
