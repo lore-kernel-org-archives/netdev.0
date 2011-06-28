@@ -1,88 +1,49 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: what's causing "ip_rt_bug"?
-Date: Tue, 28 Jun 2011 11:13:25 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1106281029490.1880@ja.ssi.bg>
-References: <alpine.LFD.2.00.1106180227400.1583@ja.ssi.bg> <4DFC627F.7040007@wpkg.org> <alpine.LFD.2.00.1106182036001.1425@ja.ssi.bg> <20110627.205544.111681152997205782.davem@davemloft.net>
+From: Alan Cox <alan@linux.intel.com>
+Subject: Re: [RFC 02/72] 3c*/acenic/typhoon: Move 3Com Ethernet drivers
+Date: Tue, 28 Jun 2011 09:22:12 +0100
+Message-ID: <20110628092212.37708ca7@bob.linux.org.uk>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1309010363-22750-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: mangoo@wpkg.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	bazsi@balabit.hu, hidden@balabit.hu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Philip Blundell <philb@gnu.org>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	David Dillow <dave@thedillows.org>,
+	Jes Sorensen <jes@trained-monkey.org>,
+	Donald Becker <becker@scyld.com>,
+	Craig Southeren <craigs@ineluki.apana.org.au>,
+	David Hinds <dahinds@users.sourceforge.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:37388 "EHLO ja.ssi.bg"
+Received: from mga02.intel.com ([134.134.136.20]:4510 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756687Ab1F1IKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 04:10:32 -0400
-In-Reply-To: <20110627.205544.111681152997205782.davem@davemloft.net>
+	id S1756729Ab1F1IWg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2011 04:22:36 -0400
+In-Reply-To: <1309010363-22750-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 25 Jun 2011 06:58:13 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-	Hello,
+> Moves the 3Com drivers into drivers/net/ethernet/3com/ and the
+> necessary Kconfig and Makefile changes.
 
-On Mon, 27 Jun 2011, David Miller wrote:
+This seems a bizarre way to carve stuff up.
 
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Sat, 18 Jun 2011 20:53:59 +0300 (EEST)
-> 
-> > 	Hm, if it happens "sometimes", can it be some
-> > problem with tproxy and TIME_WAIT sockets? I see that
-> > tproxy_sk_is_transparent has special treatment for TW
-> > sockets while ip_route_me_harder is different. As result,
-> > may be input route is assigned for TW packets.
-> > 
-> > 	May be inet_sk_flowi_flags() needs fixing, not
-> > sure. But following patch is first step to fix this
-> > problem. I don't have setup to test this patch.
-> 
-> TPROXY has special code to make sure that time-wait sockets
-> are not assigned to skb->sk, as explained in commit
-> d503b30bd648b3cb4e5f50b65d27e389960cc6d9, that would cause
-> all kinds of crashes in nfnetlink_log etc.
-> 
-> Therefore we would see skb->sk==NULL at ip_route_me_harder()
-> in that case.
+To start with several of the things you put in 3com are just branded
+items, or are boards using non 3com devices which are currently with
+the other drivers that do so, some even use shared midlayers that you
+move them away from.
 
-	Aha, after this clarification other changes should not
-be needed. If saddr is translated, now we will use
-FLOWI_FLAG_ANYSRC. As result, if SNAT happens one day in
-LOCAL_OUT, the new saddr can be unicast because RTN_UNSPEC
-is provided for addr_type. If saddr is not changed, it
-should be already validated when the first route for skb is
-performed, so TPROXY should work.
+You also pull stuff out of pcmcia which makes it harder to scan stuff
+grouped logically.
 
-> > ===========================================================
-> > 
-> > 	Avoid creating input routes with ip_route_me_harder.
-> > It does not work for locally generated packets. Instead,
-> > restrict sockets to provide valid saddr for output route (or
-> > unicast saddr for transparent proxy). For other traffic
-> > allow saddr to be unicast or local but if callers forget
-> > to check saddr type use 0 for the output route.
-> > 
-> > 	The resulting handling should be:
-> > 
-> > - REJECT TCP:
-> > 	- in INPUT we can provide addr_type = RTN_LOCAL but
-> > 	better allow rejecting traffic delivered with
-> > 	local route (no IP address => use RTN_UNSPEC to
-> > 	allow also RTN_UNICAST).
-> > 	- FORWARD: RTN_UNSPEC => allow RTN_LOCAL/RTN_UNICAST
-> > 	saddr, add fix to ignore RTN_BROADCAST and RTN_MULTICAST
-> > 	- OUTPUT: RTN_UNSPEC
-> > 
-> > - NAT, mangle, ip_queue, nf_ip_reroute: RTN_UNSPEC in LOCAL_OUT
-> > 
-> > - IPVS:
-> > 	- use RTN_LOCAL in LOCAL_OUT and FORWARD after SNAT
-> > 	to restrict saddr to be local
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> 
-> Unless someone gives some negative feedback soon I'm going to
-> apply this.
+So this all seems a bit daft to me.
 
-Regards
+Surely it would make sense to put all the Intel 825xx stuff together,
+all the 8390 stuff together and so on.
 
---
-Julian Anastasov <ja@ssi.bg>
+Alan
