@@ -1,67 +1,57 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH v2] bridge: ignore pause & bonding frames
-Date: Wed, 29 Jun 2011 00:10:48 +0200
-Message-ID: <1309299048-11619-1-git-send-email-equinox@diac24.net>
-References: <1309298599-11266-1-git-send-email-equinox@diac24.net>
-Cc: Nick Carter <ncarter100@gmail.com>,
-	David Lamparter <equinox@diac24.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH] [v3][net][bna] Fix call trace when interrupts are
+ disabled while sleeping function kzalloc is called
+Date: Tue, 28 Jun 2011 16:32:58 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A82D66F782@HQ1-EXCH01.corp.brocade.com>
+References: <1309287485-6077-1-git-send-email-shyam_iyer@dell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Debashis Dutt <ddutt@Brocade.COM>, Jing Huang <huangj@Brocade.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Shyam Iyer <shyam_iyer@dell.com>
+To: Shyam Iyer <shyam.iyer.t@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:55558 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753257Ab1F1WLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 18:11:04 -0400
-In-Reply-To: <1309298599-11266-1-git-send-email-equinox@diac24.net>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:52637 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751854Ab1F1XdL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2011 19:33:11 -0400
+In-Reply-To: <1309287485-6077-1-git-send-email-shyam_iyer@dell.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this patch adds bonding frames to the special treatment party and has
-both pause and bonding frames delivered on the underlying bridge member
-device. we thus become 802.1AX section 5.2.1 compliant which quite
-clearly has the link aggregation directly on top of the MAC layer, below
-any bridging.
+>From: Shyam Iyer [mailto:shyam.iyer.t@gmail.com]
+>Sent: Tuesday, June 28, 2011 11:58 AM
+>
+>request_threaded irq will call kzalloc that can sleep. Initializing the
+>flags variable outside of spin_lock_irqsave/restore in
+>bnad_mbox_irq_alloc will avoid call traces like below.
+>
+>@@ -1125,18 +1125,17 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+> 	if (bnad->cfg_flags & BNAD_CF_MSIX) {
+> 		irq_handler = (irq_handler_t)bnad_msix_mbox_handler;
+> 		irq = bnad->msix_table[bnad->msix_num - 1].vector;
+>-		flags = 0;
+> 		intr_info->intr_type = BNA_INTR_T_MSIX;
+> 		intr_info->idl[0].vector = bnad->msix_num - 1;
+> 	} else {
+> 		irq_handler = (irq_handler_t)bnad_isr;
+> 		irq = bnad->pcidev->irq;
+>-		flags = IRQF_SHARED;
+>+		irq_flags = IRQF_SHARED;
+> 		intr_info->intr_type = BNA_INTR_T_INTX;
+> 		/* intr_info->idl.vector = 0 ? */
+> 	}
+> 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+>-
+>+	flags = irq_flags;
+> 	sprintf(bnad->mbox_irq_name, "%s", BNAD_NAME);
+>
+> 	/*
 
-the matching is changed to mimic hardware switches, which match
-802.3x/pause and 802.3ad/lacp by the hardware address (keep in mind the
-existence of LLC/SNAP headers).
+Patch looks fine.
 
-Signed-off-by: David Lamparter <equinox@diac24.net>
----
-[v2:] ... and obviously i forget the "*pskb = skb;" - it's getting late.
-
-note: this should actually fix some issues i was having with bridging
-screwing up my bonding. i've resolved those by "brouting" LACP frames
-in ebtables... (which this patch will also result in)
-
-compile-tested only
-
- net/bridge/br_input.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index f3ac1e8..3ef2861 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -160,9 +160,14 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 	p = br_port_get_rcu(skb->dev);
- 
- 	if (unlikely(is_link_local(dest))) {
--		/* Pause frames shouldn't be passed up by driver anyway */
--		if (skb->protocol == htons(ETH_P_PAUSE))
--			goto drop;
-+		/* Pause/3x frames shouldn't be passed up by driver anyway
-+		 * LACP/3ad can never be allowed to cross even a dumb hub
-+		 *
-+		 * both are usually matched by group address */
-+		if (dest[5] == 0x01 || dest[5] == 0x02) {
-+			*pskb = skb;
-+			return RX_HANDLER_PASS;
-+		}
- 
- 		/* If STP is turned off, then forward */
- 		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
--- 
-1.7.5.3
-
+Acked-by: Rasesh Mody <rmody@brocade.com>
