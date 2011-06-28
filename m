@@ -1,52 +1,51 @@
-From: Tomasz Chmielewski <mangoo@wpkg.org>
+From: Julian Anastasov <ja@ssi.bg>
 Subject: Re: what's causing "ip_rt_bug"?
-Date: Tue, 28 Jun 2011 10:30:11 +0200
-Message-ID: <4E099113.6000801@wpkg.org>
-References: <alpine.LFD.2.00.1106180227400.1583@ja.ssi.bg>	<4DFC627F.7040007@wpkg.org>	<alpine.LFD.2.00.1106182036001.1425@ja.ssi.bg> <20110627.205544.111681152997205782.davem@davemloft.net>
+Date: Tue, 28 Jun 2011 12:05:37 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1106281156180.2233@ja.ssi.bg>
+References: <alpine.LFD.2.00.1106182036001.1425@ja.ssi.bg> <20110627.205544.111681152997205782.davem@davemloft.net> <alpine.LFD.2.00.1106281029490.1880@ja.ssi.bg> <20110628.014117.92807428115239742.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: mangoo@wpkg.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
 	bazsi@balabit.hu, hidden@balabit.hu
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.virtall.com ([178.63.195.102]:33718 "EHLO mail.virtall.com"
+Received: from ja.ssi.bg ([178.16.129.10]:45986 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756053Ab1F1Iag (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 04:30:36 -0400
-In-Reply-To: <20110627.205544.111681152997205782.davem@davemloft.net>
+	id S1756692Ab1F1JCl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2011 05:02:41 -0400
+In-Reply-To: <20110628.014117.92807428115239742.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28.06.2011 05:55, David Miller wrote:
 
->> 	The resulting handling should be:
->>
->> - REJECT TCP:
->> 	- in INPUT we can provide addr_type = RTN_LOCAL but
->> 	better allow rejecting traffic delivered with
->> 	local route (no IP address =>  use RTN_UNSPEC to
->> 	allow also RTN_UNICAST).
->> 	- FORWARD: RTN_UNSPEC =>  allow RTN_LOCAL/RTN_UNICAST
->> 	saddr, add fix to ignore RTN_BROADCAST and RTN_MULTICAST
->> 	- OUTPUT: RTN_UNSPEC
->>
->> - NAT, mangle, ip_queue, nf_ip_reroute: RTN_UNSPEC in LOCAL_OUT
->>
->> - IPVS:
->> 	- use RTN_LOCAL in LOCAL_OUT and FORWARD after SNAT
->> 	to restrict saddr to be local
->>
->> Signed-off-by: Julian Anastasov<ja@ssi.bg>
->
-> Unless someone gives some negative feedback soon I'm going to
-> apply this.
+	Hello,
 
-Can you tell me where it will be pushed?
+On Tue, 28 Jun 2011, David Miller wrote:
 
-I.e. 3.x kernels only, or does it have a chance to go into 2.6.39.x?
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Tue, 28 Jun 2011 11:13:25 +0300 (EEST)
+> 
+> > On Mon, 27 Jun 2011, David Miller wrote:
+> > 
+> >> TPROXY has special code to make sure that time-wait sockets
+> >> are not assigned to skb->sk, as explained in commit
+> >> d503b30bd648b3cb4e5f50b65d27e389960cc6d9, that would cause
+> >> all kinds of crashes in nfnetlink_log etc.
+> >> 
+> >> Therefore we would see skb->sk==NULL at ip_route_me_harder()
+> >> in that case.
+> > 
+> > 	Aha, after this clarification other changes should not
+> > be needed.
+> 
+> By this do you mean that you think your patch in this thread
+> is completely sufficient?
 
+	Yes. My worry was for the skb->sk != NULL not being
+handled by inet_sk_flowi_flags for TW sockets. But it seems
+it is not needed, so the patch in this form should be ok.
 
--- 
-Tomasz Chmielewski
-http://wpkg.org
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
