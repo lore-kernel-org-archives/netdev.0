@@ -1,49 +1,30 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: [RFC 02/72] 3c*/acenic/typhoon: Move 3Com Ethernet drivers
-Date: Tue, 28 Jun 2011 09:22:12 +0100
-Message-ID: <20110628092212.37708ca7@bob.linux.org.uk>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1309010363-22750-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: what's causing "ip_rt_bug"?
+Date: Tue, 28 Jun 2011 01:40:37 -0700 (PDT)
+Message-ID: <20110628.014037.1182738430053461203.davem@davemloft.net>
+References: <alpine.LFD.2.00.1106182036001.1425@ja.ssi.bg>
+	<20110627.205544.111681152997205782.davem@davemloft.net>
+	<4E099113.6000801@wpkg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Philip Blundell <philb@gnu.org>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	David Dillow <dave@thedillows.org>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Donald Becker <becker@scyld.com>,
-	Craig Southeren <craigs@ineluki.apana.org.au>,
-	David Hinds <dahinds@users.sourceforge.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: ja@ssi.bg, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	bazsi@balabit.hu, hidden@balabit.hu
+To: mangoo@wpkg.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4510 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756729Ab1F1IWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2011 04:22:36 -0400
-In-Reply-To: <1309010363-22750-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34145 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756736Ab1F1Ik5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 04:40:57 -0400
+In-Reply-To: <4E099113.6000801@wpkg.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 25 Jun 2011 06:58:13 -0700
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+From: Tomasz Chmielewski <mangoo@wpkg.org>
+Date: Tue, 28 Jun 2011 10:30:11 +0200
 
-> Moves the 3Com drivers into drivers/net/ethernet/3com/ and the
-> necessary Kconfig and Makefile changes.
+> Can you tell me where it will be pushed?
+> 
+> I.e. 3.x kernels only, or does it have a chance to go into 2.6.39.x?
 
-This seems a bizarre way to carve stuff up.
-
-To start with several of the things you put in 3com are just branded
-items, or are boards using non 3com devices which are currently with
-the other drivers that do so, some even use shared midlayers that you
-move them away from.
-
-You also pull stuff out of pcmcia which makes it harder to scan stuff
-grouped logically.
-
-So this all seems a bit daft to me.
-
-Surely it would make sense to put all the Intel 825xx stuff together,
-all the 8390 stuff together and so on.
-
-Alan
+I'll apply it for 3.0.0 and also queue it up for -stable.
