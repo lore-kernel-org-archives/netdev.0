@@ -1,51 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: lost gARP after live migration
-Date: Tue, 28 Jun 2011 15:14:15 +0100
-Message-ID: <1309270455.3093.1579.camel@localhost>
-References: <4E09D0A0.1080107@redhat.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] bridge: Forward EAPOL Kconfig option BRIDGE_PAE_FORWARD
+Date: Tue, 28 Jun 2011 08:10:15 -0700
+Message-ID: <20110628081015.1b06a3f0@nehalam.ftrdhcpuser.net>
+References: <BANLkTim2G7_pnv5W10Q7kHHCnc2v126fZw@mail.gmail.com>
+	<20110623152929.3f94b3e7@nehalam.ftrdhcpuser.net>
+	<BANLkTi==Ho+6nCX=0hFEQgNAoNE34g35UA@mail.gmail.com>
+	<20110624120859.3c43bbcb@nehalam.ftrdhcpuser.net>
+	<BANLkTin4XOCmpFaETsjkYb2kk+psZUBKcA@mail.gmail.com>
+	<BANLkTimD+fvhrhpc+kPXt1qMnQvVi2dw=Q@mail.gmail.com>
+	<20110628150257.GB126252@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Paolo Bonzini <pbonzini@redhat.com>
-To: Laszlo Ersek <lersek@redhat.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <4E09D0A0.1080107@redhat.com>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+Cc: Nick Carter <ncarter100@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: David Lamparter <equinox@diac24.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:47247 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758067Ab1F1PLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 11:11:40 -0400
+In-Reply-To: <20110628150257.GB126252@jupiter.n2.diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-06-28 at 15:01 +0200, Laszlo Ersek wrote:
-[...]
-> When the guest waits for about half a second before sending (queueing), 
-> the very first gARP packet successfully appears on the host bridge.
+On Tue, 28 Jun 2011 17:02:57 +0200
+David Lamparter <equinox@diac24.net> wrote:
+
+> On Sat, Jun 25, 2011 at 12:33:05AM +0100, Nick Carter wrote:
+> > @@ -98,6 +98,14 @@ int br_handle_frame_finish(struct sk_buff *skb)
+> >  	}
+> > 
+> >  	if (skb) {
+> > +		/* Prevent Crosstalk where a Supplicant on one Port attempts to
+> > +		 * interfere with authentications occurring on another Port.
+> > +		 * (IEEE Std 802.1X-2001 C.3.3)
+> > +		 */
+> > +		if (unlikely(!br->pae_forward &&
+> > +		    skb->protocol == htons(ETH_P_PAE)))
+> > +			goto drop;
+> > +
+> >  		if (dst)
+> >  			br_forward(dst->dst, skb, skb2);
+> >  		else
+> > @@ -166,6 +174,10 @@ struct sk_buff *br_handle_frame(struct sk_buff *skb)
+> >  		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
+> >  			goto forward;
+> > 
+> > +		/* Check if PAE frame should be forwarded */
+> > +		if (p->br->pae_forward && skb->protocol == htons(ETH_P_PAE))
+> > +			goto forward;
+> > +
+> >  		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+> >  			    NULL, br_handle_local_finish))
+> >  			return NULL;	/* frame consumed by filter */
 > 
-> I suspect it's a timing race against the netback vif being added to the 
-> host bridge. What would be a good countermeasure?
+> No, please don't.
 > 
-> - Adding two modparams to xen-netfront (gARP requeue count & number of 
-> msecs to wait between queueing the gARPs).
+> Linux bridging has two "grand" modes: dumb and STP enabled.
+> 
+> If we're running a dumb bridge, we behave like an ethernet hub without
+> any intelligence, and in that case we should absolutely forward 802.1X
+> frames. We may have (e.g. VM) client(s) that want to authenticate with a
+> physical switch.
+> (For the spec, this counts as "repeater", not "bridge"/"switch")
+> 
+> If we're running with STP enabled, then 802.1X traffic should already be
+> caught by the general ethernet link-local multicast drop (which applies
+> to 01:80:c2:/24 and therefore catches 802.1X too.)
 
-Note that peer notifications are indirected through netdev notifiers and
-now include IPv6 NAs as well as ARPs.  If repeated notifications are
-commonly necessary then this should probably be handled in the protocol
-(or in the networking core).  However this sounds like a workaround
-whereas your other option would be a proper fix:
-
-> - (Paolo's idea:) watching the "hotplug-status" xenstore node and 
-> sending a single gARP when the watch fires with "connected". This node 
-> belongs to the backend xenstore subtree, thus watching it from the guest 
-> doesn't please the architecture astronaut in me.
-[...]
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The problem is that STP is not enabled by default, and most people don't
+know how to enable it.
