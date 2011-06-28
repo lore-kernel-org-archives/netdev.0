@@ -1,31 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sh_eth: tidyup compile warning
-Date: Mon, 27 Jun 2011 21:03:38 -0700 (PDT)
-Message-ID: <20110627.210338.1356810919488149764.davem@davemloft.net>
-References: <87pqm40yx3.wl%kuninori.morimoto.gx@gmail.com>
+Subject: Re: ppp_deflate + kmalloc
+Date: Mon, 27 Jun 2011 21:15:58 -0700 (PDT)
+Message-ID: <20110627.211558.640845527643065916.davem@davemloft.net>
+References: <BANLkTi=+2dqr1LPwG8MHpcYOyzJH57iavw@mail.gmail.com>
+	<4E049900.4080402@workingcode.com>
+	<BANLkTinMNb65nyo+Y8xhpTP2RC6x06ZJqQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: kuninori.morimoto.gx@renesas.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36240 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756443Ab1F1EDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 00:03:43 -0400
-In-Reply-To: <87pqm40yx3.wl%kuninori.morimoto.gx@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: carlsonj@workingcode.com, paulus@samba.org,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: mjackson220.list@gmail.com
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <BANLkTinMNb65nyo+Y8xhpTP2RC6x06ZJqQ@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
-Date: Thu, 23 Jun 2011 19:02:38 -0700 (PDT)
+From: Martin Jackson <mjackson220.list@gmail.com>
+Date: Sun, 26 Jun 2011 23:17:54 +0200
 
-> This patch tidyup below warning
+> Thanks for the advice. Hopefully we can indeed remove these obscure
+> PPP options from our configuration - I'll look into that.
 > 
-> ${LINUX}/drivers/net/sh_eth.c:1773: warning:
-> 'mdp' may be used uninitialized in this function
-> 
-> Cc: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-> Signed-off-by: Kuninori Morimoto <morimoto.kuninori@renesas.com>
+> However, the point still stands that a 4th order kmalloc is likely to
+> fail (even our "embedded" device has 256MB RAM and slub allocator,
+> after all), and the page allocation code regards anything above order
+> 3 as unrealistic and doesn't invoke the OOM to try to satisfy it, so
+> my view remains that this should be changed to vmalloc.
 
-Applied, thanks.
+PPP is not the only place in the tree where we potentially have
+this problem.
+
+crypto/deflate.c:	stream->workspace = kzalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
+crypto/zlib.c:	stream->workspace = kzalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
+drivers/net/bnx2x/bnx2x_main.c:	bp->strm->workspace = kmalloc(zlib_inflate_workspacesize(),
+drivers/net/ppp_deflate.c:	state->strm.workspace = kmalloc(zlib_inflate_workspacesize(),
+fs/binfmt_flat.c:	strm.workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
+lib/zlib_inflate/infutil.c:	strm->workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
+
+A particularly problematic case is binfmt_flat.c since this is used on
+systems which lack an MMU, and therefore for which vmalloc() is not
+applicable.
+
+What I'll do for now is transform all of the networking cases, but
+someone should think seriously about the remaining cases.
