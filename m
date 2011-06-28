@@ -1,72 +1,46 @@
-From: BLACKBERRY 2011 EMAIL AWARDS <Info@blackberry.co.uk>
-Subject: UNCLAIMED 1,650,000.00MILLION GBP  STERLINGS!
-Date: Tue, 28 Jun 2011 16:09:11 -0300
-Message-ID: <20110628160911.1348510fcum3bniv@webmail.sociales.uba.ar>
-Reply-To: www-blackberry2011@live.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net/core: Convert to current logging forms
+Date: Tue, 28 Jun 2011 21:21:41 +0100
+Message-ID: <1309292501.2771.48.camel@bwh-desktop>
+References: <385ebf7e98e377e6e6c384beb961b65d4a95fb18.1309289792.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gadamer.sociales.uba.ar ([157.92.168.13]:52377 "EHLO
-	gadamer.sociales.uba.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013Ab1F1UUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 16:20:14 -0400
-Content-Disposition: inline
+Received: from mail.solarflare.com ([216.237.3.220]:10293 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752169Ab1F1UVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2011 16:21:45 -0400
+In-Reply-To: <385ebf7e98e377e6e6c384beb961b65d4a95fb18.1309289792.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Claims Agent/Lottery Attorney,
-Barr. Mike Brown,
-BlackBerry=AE Prize Claims Unit,
-Regent Mayfair Building,
-4th Floor, 153-155 Street,
-London W1B 4JE, UK
-Email:www-BlackBerry2011@live.com
-phone: +44-70-4573-9682
+On Tue, 2011-06-28 at 12:40 -0700, Joe Perches wrote:
+> Use pr_fmt, pr_<level>, and netdev_<level> as appropriate.
+> 
+> Coalesce long formats.
+[...]
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -72,6 +72,8 @@
+>   *				        - netif_rx() feedback
+>   */
+>  
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+[...]
 
-Congratulations Dear Winner from the BLACKBERRY=AE Management and Staff=
-=2E
+KBUILD_MODNAME is presumably going to be "dev".  That's not very
+meaningful.
 
-Your email address was randomly selected by the BlackBerry Smart =20
-Device (RASK) from an
-Exclusive List of 21,000,000 Million internet users' e-mail addresses o=
-f
-individuals and corporate entities cutting accross the globe, on 28th =20
-June, 2011.
+Ben.
 
-Your email address has been awarded the star-prize of
-1,650,000.00 Million GBP(1 Million-6-Hundred-And-Fifty-Great Britain =20
-Pounds Sterlings)
-among the other consolation prize-winners.
-
-Note:No tickets were sold! Your Winning No is: UK-094517-BB; Bonus NO =20
-is: BB-0446-MP, Ticket No is :BB5050
-
-=46ile for your Claims today by forwarding the below details to: =20
-www-blackberry2011@live.com to process your winning funds:::
-
-=46ull Name.....................
-Sex...........................
-Winning Number................UK-094517-BB
-Age.......................
-Occupation....................
-Mobile No.....................
-Email Address.......
-Residential Contact...........
-Marital Status................
-State and Nationality.........
-
-=2E..Congratulations from the BLACKBERRY=AE LOTTERY PRIZE PAYMENT UNIT,=
-UK...
-=2E..Terms and Conditions apply...
-CopyRight =A9 2011 BLACKBERRY=AE CORPORATION
-
-
-
-
-
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
