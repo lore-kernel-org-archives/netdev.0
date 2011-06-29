@@ -1,81 +1,74 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [PATCH 00/12] Fix various section mismatches and build errors.
-Date: Wed, 29 Jun 2011 08:58:19 -0500
-Message-ID: <1309355899.2551.4.camel@mulgrave>
-References: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
-	 <20110627.221257.1290251511587162468.davem@davemloft.net>
-	 <20110629130711.GA15649@linux-mips.org>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: Reducing rwnd by sizeof(struct sk_buff) for each
+ CHUNK is too aggressive
+Date: Wed, 29 Jun 2011 10:09:18 -0400
+Message-ID: <4E0B320E.4040309@hp.com>
+References: <20110624101535.GB9222@canuck.infradead.org> <4E0495C3.30102@hp.com> <20110624144251.GC9222@canuck.infradead.org> <4E04AB67.1040407@hp.com> <20110627091136.GA10085@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	alan@linux.intel.com, bcasavan@sgi.com, airlied@linux.ie,
-	grundler@parisc-linux.org, perex@perex.cz, rpurdie@rpsys.net,
-	klassert@mathematik.tu-chemnitz.de, tj@kernel.org,
-	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
-	linux-serial@vger.kernel.org, netdev@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bedivere.hansenpartnership.com ([66.63.167.143]:50702 "EHLO
-	bedivere.hansenpartnership.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752182Ab1F2N6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 09:58:23 -0400
-In-Reply-To: <20110629130711.GA15649@linux-mips.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:17322 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182Ab1F2OJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 10:09:24 -0400
+In-Reply-To: <20110627091136.GA10085@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-06-29 at 14:07 +0100, Ralf Baechle wrote:
-> On Mon, Jun 27, 2011 at 10:12:57PM -0700, David Miller wrote:
->=20
-> > commit 948252cb9e01d65a89ecadf67be5018351eee15e
-> > Author: David S. Miller <davem@davemloft.net>
-> > Date:   Tue May 31 19:27:48 2011 -0700
-> >=20
-> >     Revert "net: fix section mismatches"
-> >    =20
-> >     This reverts commit e5cb966c0838e4da43a3b0751bdcac7fe719f7b4.
-> >    =20
-> >     It causes new build regressions with gcc-4.2 which is
-> >     pretty common on non-x86 platforms.
-> >    =20
-> >     Reported-by: James Bottomley <James.Bottomley@HansenPartnership=
-=2Ecom>
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >=20
-> > and postings that led to this revert including:
-> >=20
-> > http://marc.info/?l=3Dlinux-netdev&m=3D130653748205263&w=3D2
->=20
-> Thanks for the pointers; I looked into it a bit deeper and found that=
- the
-> construct which hppa64-linux-gcc 4.2.4 doesn't like is the combinatio=
-n of
-> const and __devinitconst __devinitdata.
->=20
-> My patches are minimalistic and don't do any constification and seem =
-to
-> work fine for PA-RISC.
->=20
-> A possible alternative to allow the use of Micha=C5=82's reverted pat=
-ch would
-> be to conditionalize the definition of __devinitconst.  There is no
-> user of __devexitconst so I left that unchanged.
+On 06/27/2011 05:11 AM, Thomas Graf wrote:
+> On Fri, Jun 24, 2011 at 11:21:11AM -0400, Vladislav Yasevich wrote:
+>> We, instead of trying to underestimate the window size, try to over-estimate it.
+>> Almost every implementation has some kind of overhead and we don't know how
+>> that overhead will impact the window.  As such we try to temporarily account for this
+>> overhead.
+> 
+> I looked into this some more and it turns out that adding per-packet
+> overhead is difficult because when we mark chunks for retransmissions
+> we have to add its data size to the peer rwnd again but we have no
+> idea how many packets were used for the initial transmission. Therefore
+> if we add an overhead, we can only do so per chunk.
+> 
 
-To be honest, my own take on this is that, apart from the compiler
-cockups trying to do read only annotations, which affect various
-versions of gcc not just the parisc ones, the _devX annotations are
-pretty pointless.  They only really do something in the non-hotplug
-case, so since 95% of the world seems to use hotplug now and the other
-5% doesn't care that much about the odd page of memory (which you rarel=
-y
-get, since modules sections are accumulated per module, not aggregate),
-I'd just favour stripping __init and __exit where there's a problem.
+Good point.
 
-I think we should simply concentrate on __init and __exit; that's where
-most of the discard value lies and stop expending huge efforts on the
-__devX stuff which adds huge complexity for no real gain.
+>> If we treat the window as strictly available data, then we may end up sending a lot more traffic
+>> then the window can take thus causing us to enter 0 window probe and potential retransmission
+>> issues that will trigger congestion control.  
+>> We'd like to avoid that so we put some overhead into our computations.  It may not be ideal
+>> since we do this on a per-chunk basis.  It could probably be done on per-packet basis instead.
+>> This way, we'll essentially over-estimate but under-subscribe our current view of the peers
+>> window.  So in one shot, we are not going to over-fill it and will get an updated view next
+>> time the SACK arrives.
+> 
+> What kind of configuration showed this behaviour? Did you observe that
+> issue with Linux peers?
 
-James
+Yes, this was observed with linux peers.
 
+> If a peer announces an a_rwnd which it cannot
+> handle then that is a implementation bug of the receiver and not of the
+> sender.
+> 
+> We won't go into zero window probe mode that easily, remember it's only
+> one packet allowed in flight while rwnd is 0. We always take into
+> account outstanding bytes when updating rwnd with a_rwnd so our view of
+> the peer's rwnd is very accurate.
+> 
+> In fact the RFC clearly states when and how to update the peer rwnd:
+> 
+>    B) Any time a DATA chunk is transmitted (or retransmitted) to a peer,
+>       the endpoint subtracts the data size of the chunk from the rwnd of
+>       that peer.
+> 
+> I would like to try and reproduce the behaviour you have observed and
+> fix it without cutting our ability to produce pmtu maxed packets with
+> small data chunks.
+> 
 
+This was easily reproducible with sctp_darn tool using 1 byte payload.
+This was a while ago, and I dont' know if anyone has tried it recently.
+
+-vlad
