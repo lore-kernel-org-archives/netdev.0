@@ -1,107 +1,81 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: [PATCH] sctp: Enforce maximum retransmissions during shutdown
-Date: Wed, 29 Jun 2011 09:57:04 -0400
-Message-ID: <20110629135704.GB10085@canuck.infradead.org>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [PATCH 00/12] Fix various section mismatches and build errors.
+Date: Wed, 29 Jun 2011 08:58:19 -0500
+Message-ID: <1309355899.2551.4.camel@mulgrave>
+References: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
+	 <20110627.221257.1290251511587162468.davem@davemloft.net>
+	 <20110629130711.GA15649@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	alan@linux.intel.com, bcasavan@sgi.com, airlied@linux.ie,
+	grundler@parisc-linux.org, perex@perex.cz, rpurdie@rpsys.net,
+	klassert@mathematik.tu-chemnitz.de, tj@kernel.org,
+	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:57772 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182Ab1F2N5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 09:57:07 -0400
-Content-Disposition: inline
+Received: from bedivere.hansenpartnership.com ([66.63.167.143]:50702 "EHLO
+	bedivere.hansenpartnership.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752182Ab1F2N6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 09:58:23 -0400
+In-Reply-To: <20110629130711.GA15649@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When initiating a graceful shutdown while having data chunks
-on the retransmission queue with a peer which is in zero
-window mode the shutdown is never completed because the
-retransmission error count is reset periodically by the
-following two rules:
+On Wed, 2011-06-29 at 14:07 +0100, Ralf Baechle wrote:
+> On Mon, Jun 27, 2011 at 10:12:57PM -0700, David Miller wrote:
+>=20
+> > commit 948252cb9e01d65a89ecadf67be5018351eee15e
+> > Author: David S. Miller <davem@davemloft.net>
+> > Date:   Tue May 31 19:27:48 2011 -0700
+> >=20
+> >     Revert "net: fix section mismatches"
+> >    =20
+> >     This reverts commit e5cb966c0838e4da43a3b0751bdcac7fe719f7b4.
+> >    =20
+> >     It causes new build regressions with gcc-4.2 which is
+> >     pretty common on non-x86 platforms.
+> >    =20
+> >     Reported-by: James Bottomley <James.Bottomley@HansenPartnership=
+=2Ecom>
+> >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> >=20
+> > and postings that led to this revert including:
+> >=20
+> > http://marc.info/?l=3Dlinux-netdev&m=3D130653748205263&w=3D2
+>=20
+> Thanks for the pointers; I looked into it a bit deeper and found that=
+ the
+> construct which hppa64-linux-gcc 4.2.4 doesn't like is the combinatio=
+n of
+> const and __devinitconst __devinitdata.
+>=20
+> My patches are minimalistic and don't do any constification and seem =
+to
+> work fine for PA-RISC.
+>=20
+> A possible alternative to allow the use of Micha=C5=82's reverted pat=
+ch would
+> be to conditionalize the definition of __devinitconst.  There is no
+> user of __devexitconst so I left that unchanged.
 
- - Do not timeout association while doing zero window probe.
- - Reset overall error count when a heartbeat request has
-   been acknowledged.
+To be honest, my own take on this is that, apart from the compiler
+cockups trying to do read only annotations, which affect various
+versions of gcc not just the parisc ones, the _devX annotations are
+pretty pointless.  They only really do something in the non-hotplug
+case, so since 95% of the world seems to use hotplug now and the other
+5% doesn't care that much about the odd page of memory (which you rarel=
+y
+get, since modules sections are accumulated per module, not aggregate),
+I'd just favour stripping __init and __exit where there's a problem.
 
-The graceful shutdown will wait for all outstanding TSN to be
-acknowledged before sending the SHUTDOWN request. This never
-happens due to the peer's zero window not acknowledging the
-continuously retransmitted data chunks. Although the error
-counter is incremented for each failed retransmission done
-via the T3-rtx timer, the receiving of the SACK sent in return
-to the retransmission, announcing the zero window, clears the
-error count again immediately.
+I think we should simply concentrate on __init and __exit; that's where
+most of the discard value lies and stop expending huge efforts on the
+__devX stuff which adds huge complexity for no real gain.
 
-Also heartbeat requests continue to be sent periodically. The
-peer acknowledges these requests causing the error counter to
-be reset as well.
+James
 
-This patch changes behaviour to only reset the overall error
-counter for the above rules while not in shutdown. This means
-that if already queued data can't be transmitted in max_retrans
-attempts we ABORT because a graceful shutdown is obviously not
-possible.
 
-The issue can be easily reproduced by establishing a sctp
-association over the loopback device, constantly queueing data
-at the sender while not reading any at the receiver.  Wait for
-the window to reach zero, then initiate a shutdown by killing
-both processes simultaneously. The association will never be
-freed and the chunks on the retransmission queue will be
-retransmitted indefinitely.
-
-Signed-off-by: Thomas Graf <tgraf@infradead.org>
-
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 1c88c89..14a5295 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1629,10 +1629,15 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 			 * A sender is doing zero window probing when the
- 			 * receiver's advertised window is zero, and there is
- 			 * only one data chunk in flight to the receiver.
-+			 *
-+			 * Allow the association to timeout if SHUTDOWN is
-+			 * pending. We have no interest in keeping the
-+			 * association around forever.
- 			 */
- 			if (!q->asoc->peer.rwnd &&
- 			    !list_empty(&tlist) &&
--			    (sack_ctsn+2 == q->asoc->next_tsn)) {
-+			    (sack_ctsn+2 == q->asoc->next_tsn) &&
-+			    !(q->asoc->state >= SCTP_STATE_SHUTDOWN_PENDING)) {
- 				SCTP_DEBUG_PRINTK("%s: SACK received for zero "
- 						  "window probe: %u\n",
- 						  __func__, sack_ctsn);
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 534c2e5..fa92f4d6 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -670,10 +670,21 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 	/* 8.3 Upon the receipt of the HEARTBEAT ACK, the sender of the
- 	 * HEARTBEAT should clear the error counter of the destination
- 	 * transport address to which the HEARTBEAT was sent.
--	 * The association's overall error count is also cleared.
- 	 */
- 	t->error_count = 0;
--	t->asoc->overall_error_count = 0;
-+
-+	/*
-+	 * Although RFC2960 and RFC4460 specify that the overall error
-+	 * count must be cleared when a HEARTBEAT ACK is received this
-+	 * behaviour may prevent the maximum retransmission count from
-+	 * being reached while in SHUTDOWN. If the peer keeps its window
-+	 * closed not acknowledging any outstanding TSN we may rely on
-+	 * reaching the max_retrans limit via the T3-rtx timer to close
-+	 * the association which will never happen if the error count is
-+	 * reset every heartbeat interval.
-+	 */
-+	if (!(t->asoc->state >= SCTP_STATE_SHUTDOWN_PENDING))
-+		t->asoc->overall_error_count = 0;
- 
- 	/* Clear the hb_sent flag to signal that we had a good
- 	 * acknowledgement.
