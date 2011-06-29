@@ -1,121 +1,122 @@
-From: Nick Carter <ncarter100@gmail.com>
-Subject: [PATCH] bridge: Forward EAPOL when sysfs bridge/pae_forward is set
-Date: Thu, 30 Jun 2011 00:02:36 +0100
-Message-ID: <BANLkTikcEpxPdoB9ALSjAu_tSyLCwatV2A@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 2.6.39
+Date: Wed, 29 Jun 2011 16:27:22 -0700
+Message-ID: <20110629162722.2db2a8cd@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net
-To: David Lamparter <equinox@diac24.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:62594 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752849Ab1F2XCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 19:02:37 -0400
-Received: by pzk9 with SMTP id 9so1222171pzk.19
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2011 16:02:36 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:58440 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751584Ab1F2X10 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 19:27:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Control the forwarding of 802.1x EAPOL frames destined for the 802.1x
-PAE group mac address.
+This version of iproute2 utilities intended for use with 2.6.39 or
+later kernel, but should be backward compatible with older releases.
+It is mostly small bug fixes, but there is also support for the
+new queuing disciplines in 2.6.39.
 
-These diffs do not change the current forwarding behaviour of
-bridge.ko.  If the sysfs bridge/pae_forward attribute is set, then
-frames destined to the 802.1x PAE group address will be forwarded.
+Source: (note old developer.osdl.org address works as well)
+  http://devresources.linuxfoundation.org/dev/iproute2/download/iproute=
+2-2.6.39.tar.gz
 
-This functionality is required so that virtual machines running an
-802.1x Supplicant can authenticate to an external 802.1x
-Authenticator.
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 
-Signed-off-by: Nick Carter <ncarter100@gmail.com>
+=46or more info on iproute2 see:
+  http://www.linuxfoundation.org/collaborate/workgroups/networking/ipro=
+ute2
 
-diff based off linux-next
- net/bridge/br_device.c   |    1 +
- net/bridge/br_input.c    |    4 ++++
- net/bridge/br_private.h  |    1 +
- net/bridge/br_sysfs_br.c |   23 +++++++++++++++++++++++
- 4 files changed, 29 insertions(+), 0 deletions(-)
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
+ list.
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index c188c80..1efd9bf 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -364,6 +364,7 @@ void br_dev_setup(struct net_device *dev)
- 	br->bridge_hello_time = br->hello_time = 2 * HZ;
- 	br->bridge_forward_delay = br->forward_delay = 15 * HZ;
- 	br->ageing_time = 300 * HZ;
-+	br->pae_forward = false;
+Changelog:
+Brandon Philips (2):
+      ip: fix memory leak in ipmaddr.c
+      doc: add pdf targets
 
- 	br_netfilter_rtable_init(br);
- 	br_stp_timer_init(br);
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index f3ac1e8..94a9715 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -168,6 +168,10 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
- 			goto forward;
+Diego Elio Petten=F2 (1):
+      Remove -L flags from link
 
-+		/* Check if PAE frame should be forwarded */
-+		if (p->br->pae_forward && dest[5] == 3)
-+			goto forward;
-+
- 		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
- 			    NULL, br_handle_local_finish)) {
- 			return RX_HANDLER_CONSUMED; /* consumed by filter */
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 54578f2..2c298f3 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -215,6 +215,7 @@ struct net_bridge
+Eric Dumazet (3):
+      sfq: add divisor support
+      ip: Support IFLA_TXQLEN in ip link command
+      ss: fix autobound filter
 
- 	unsigned char			topology_change;
- 	unsigned char			topology_change_detected;
-+	bool				pae_forward;
+Gerrit Renker (6):
+      utils: get_jiffies always uses base=3D0
+      iproute: fix unit conversion of rtt/rttvar/rto_min
+      iproute: rename 'get_jiffies' since it uses msecs
+      utils: get_jiffies always uses base=3D0
+      iproute: fix unit conversion of rtt/rttvar/rto_min
+      iproute: rename 'get_jiffies' since it uses msecs
 
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	unsigned char			multicast_router;
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 68b893e..534323a 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -646,6 +646,28 @@ static DEVICE_ATTR(nf_call_arptables, S_IRUGO | S_IWUSR,
- 		   show_nf_call_arptables, store_nf_call_arptables);
- #endif
+Jiri Pirko (1):
+      iplink: implement setting of master devic
 
-+static ssize_t show_pae_forward(struct device *d, struct
-device_attribute *attr,
-+				char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->pae_forward);
-+}
-+
-+static int set_pae_forward(struct net_bridge *br, unsigned long val)
-+{
-+	br->pae_forward = val ? true : false;
-+	return 0;
-+}
-+
-+static ssize_t store_pae_forward(struct device *d,
-+				 struct device_attribute *attr, const char *buf,
-+				 size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_pae_forward);
-+}
-+static DEVICE_ATTR(pae_forward, S_IRUGO | S_IWUSR, show_pae_forward,
-+		   store_pae_forward);
-+
- static struct attribute *bridge_attrs[] = {
- 	&dev_attr_forward_delay.attr,
- 	&dev_attr_hello_time.attr,
-@@ -665,6 +687,7 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_gc_timer.attr,
- 	&dev_attr_group_addr.attr,
- 	&dev_attr_flush.attr,
-+	&dev_attr_pae_forward.attr,
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	&dev_attr_multicast_router.attr,
- 	&dev_attr_multicast_snooping.attr,
+John Fastabend (2):
+      iproute2: tc add mqprio qdisc support
+      iproute2: improve mqprio inputs for queue offsets and counts
+
+Joy Latten (6):
+      xfrm security context support
+      xfrm security context support
+      xfrm security context support
+      xfrm security context support
+      xfrm security context support
+      xfrm security context support
+
+Juliusz Chroboczek (1):
+      tc : SFB flow scheduler
+
+Nicolas Dichtel (3):
+      iproute2: allow to specify truncation bits on auth algo
+      iproute2: add support of flag XFRM_STATE_ALIGN4
+      iproute2: allow to specify truncation bits on auth algo
+
+Sridhar Samudrala (1):
+      macvlan/macvtap: support 'passthru' mode
+
+Stephen Hemminger (26):
+      CHOKe scheduler
+      Merge branch 'master' into choke
+      update to net-next (2.6.39) headers
+      Merge branch 'choke' into net-next
+      Remove #ifdef's
+      v2.6.38.1
+      update to 2.6.39-rc3 headers
+      Add no-strict-aliasing to genl
+      Add checks for fgets() when reading proc
+      Fix snprintf with non format
+      Fix warning in u32 from assignment in conditional
+      Update email address of netem
+      Add README.devel
+      Update README information
+      Use INIT_NETDEV_GROUP
+      Merge branch 'for-2.6.39' of /home/shemminger/iproute2-net-next
+      tc filter: fix dport/sport in pretty print output
+      ip: addrlabel fix set never used warning
+      ip: iproute fix set never used warning
+      tc: fix set never used warning in red
+      libnetlink: fix set never used warning
+      Fix set-never-used warning in ifstat
+      ss: check result of readlink
+      skbedit: fix set-never-used warning
+      xt match: fix set-never-used warning
+      v2.6.39
+
+Ulrich Weber (1):
+      iproute2: parse flag XFRM_POLICY_ICMP
+
+Vlad Dogaru (6):
+      iproute2: support listing devices by group
+      iproute2: support device group semantics
+      iproute2: support device group semantics
+      iproute2: fix man page whitespace
+      iproute2: fix man page whitespace
+      iproute2: support listing devices by group
+
