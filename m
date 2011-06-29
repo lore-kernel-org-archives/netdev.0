@@ -1,63 +1,44 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: Enforce maximum retransmissions during shutdown
-Date: Wed, 29 Jun 2011 12:14:41 -0400
-Message-ID: <4E0B4F71.4020108@hp.com>
-References: <20110629135704.GB10085@canuck.infradead.org> <4E0B3491.1060603@hp.com> <20110629143649.GC10085@canuck.infradead.org> <4E0B3DA1.9060200@hp.com> <20110629154814.GD10085@canuck.infradead.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 00/12] Fix various section mismatches and build errors.
+Date: Wed, 29 Jun 2011 17:19:21 +0100
+Message-ID: <20110629161921.GA25833@linux-mips.org>
+References: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
+ <20110627.221257.1290251511587162468.davem@davemloft.net>
+ <20110629130711.GA15649@linux-mips.org>
+ <1309355899.2551.4.camel@mulgrave>
+ <20110629151424.GD18023@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:32525 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429Ab1F2QOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 12:14:46 -0400
-In-Reply-To: <20110629154814.GD10085@canuck.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	alan@linux.intel.com, bcasavan@sgi.com, airlied@linux.ie,
+	grundler@parisc-linux.org, perex@perex.cz, rpurdie@rpsys.net,
+	klassert@mathematik.tu-chemnitz.de, tj@kernel.org,
+	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110629151424.GD18023@kroah.com>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/29/2011 11:48 AM, Thomas Graf wrote:
-> On Wed, Jun 29, 2011 at 10:58:41AM -0400, Vladislav Yasevich wrote:
->> But what you are proposing violates the protocol.  Zero-window probes do
->> not count against max retransmissions, even when you are in shutdown pending
->> state.
->>
->> You'll come out of this one of 2 ways:
->>   1) receiver wakes up and processes data.  This will allow for graceful termination.
->>   2) receiver dies.  Since receive window is full, we have data queued, and this will
->>      trigger an ABORT to be sent to the sender.
-> 
-> If by die you mean kill the process then this is exactly what I do to trigger
-> the issue. I simulatenously kill both processes. Not sure what you mean by
-> trigger an ABORT but I don't see that happen. I also don't see the rwnd reopen
-> after the socket is closed on the receiver side but that's a separate issue.
-
-Right.  The lack of ABORT from the receive of data is a bug.  I was trying to point out
-that instead of modified the sender of data to send the ABORT, you modify the receiver
-to send the ABORT when it is being closed while having data queued.
+On Wed, Jun 29, 2011 at 08:14:24AM -0700, Greg KH wrote:
 
 > 
->> What you patch is doing is taking a perfectly valid scenario and putting a time limit
->> on it in violation of the spec.
+> On Wed, Jun 29, 2011 at 08:58:19AM -0500, James Bottomley wrote:
+> > I think we should simply concentrate on __init and __exit; that's where
+> > most of the discard value lies and stop expending huge efforts on the
+> > __devX stuff which adds huge complexity for no real gain.
 > 
-> We also violate the spec by not doing so. The spec says that the number of
-> SHUTDOWN retransmissions has to be limited by Max.Retrans which we also
-> can't enforce because of the above.
+> I have long felt that those __devX markings should just go away as they
+> cause nothing but problems and have no real gain as you point out.
 
-But we don't even get to sending the SHUTDOWN, so from the wire protocol, we
-do not violated it.  We have bad behavior in that when both sender and receiver
-are dead, the association is hung.
+The suggestion to do that has been floated around before but seems to
+have missed sufficient thrust.  I'm all for it; the manual tagging with
+__devX has not been very efficient on developer time.  I just want to see
+meaningful warnings again over all that noise the current mechanisn may
+produce.
 
-> 
-> The scenario is closed sockets on both sides, endpoints on both sides gone
-> already and retransmissions + heartbeat requests forever.
-> 
-> Any alternative suggestion how to fix this?
-> 
-
-The receiver, on sctp_close() checks to see if it has queued data and if it does, the
-ABORT is triggered.  This is the same behavior as tcp_close().
-
--vlad
+  Ralf
