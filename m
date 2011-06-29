@@ -1,50 +1,42 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH] sctp: Enforce maximum retransmissions during shutdown
-Date: Wed, 29 Jun 2011 11:48:14 -0400
-Message-ID: <20110629154814.GD10085@canuck.infradead.org>
-References: <20110629135704.GB10085@canuck.infradead.org>
- <4E0B3491.1060603@hp.com>
- <20110629143649.GC10085@canuck.infradead.org>
- <4E0B3DA1.9060200@hp.com>
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Subject: Re: [RFC 37/72] fsl_*/gianfar*/ucc_*: Move the Freescale drivers
+Date: Wed, 29 Jun 2011 15:39:51 +0000
+Message-ID: <BANLkTikrLzkXCjzBBOwHUQZEdnzTSZv9bA@mail.gmail.com>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1309010363-22750-38-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
-To: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sandeep Gopalpet <sandeep.kumar@freescale.com>,
+	Fleming Andy-AFLEMING <afleming@freescale.com>,
+	Gridish Shlomi-RM96313 <RM96313@freescale.com>,
+	Li Yang-R58472 <r58472@freescale.com>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:60095 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754842Ab1F2PsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 11:48:17 -0400
-Content-Disposition: inline
-In-Reply-To: <4E0B3DA1.9060200@hp.com>
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:8933 "EHLO
+	VA3EHSOBE010.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754842Ab1F2P4N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 11:56:13 -0400
+In-Reply-To: <1309010363-22750-38-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
+Content-ID: <77D58844782949459C4E0F502C792A50@freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2011 at 10:58:41AM -0400, Vladislav Yasevich wrote:
-> But what you are proposing violates the protocol.  Zero-window probes do
-> not count against max retransmissions, even when you are in shutdown pending
-> state.
-> 
-> You'll come out of this one of 2 ways:
->   1) receiver wakes up and processes data.  This will allow for graceful termination.
->   2) receiver dies.  Since receive window is full, we have data queued, and this will
->      trigger an ABORT to be sent to the sender.
+On Sat, Jun 25, 2011 at 8:58 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> Move the Freescale driver into drivers/net/ethernet/freescale/ and
+> make the necessary Kconfig and Makefile changes.
 
-If by die you mean kill the process then this is exactly what I do to trigger
-the issue. I simulatenously kill both processes. Not sure what you mean by
-trigger an ABORT but I don't see that happen. I also don't see the rwnd reopen
-after the socket is closed on the receiver side but that's a separate issue.
+I don't have an actual objection to this, but I just don't understand
+why it's necessary.  Is this a new trend for drivers/net, to have all
+drivers grouped by manufacturer?  Or is there something special about
+Freescale?
 
-> What you patch is doing is taking a perfectly valid scenario and putting a time limit
-> on it in violation of the spec.
-
-We also violate the spec by not doing so. The spec says that the number of
-SHUTDOWN retransmissions has to be limited by Max.Retrans which we also
-can't enforce because of the above.
-
-The scenario is closed sockets on both sides, endpoints on both sides gone
-already and retransmissions + heartbeat requests forever.
-
-Any alternative suggestion how to fix this?
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
