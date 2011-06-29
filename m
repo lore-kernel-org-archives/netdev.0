@@ -1,26 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/core: Convert to current logging forms
-Date: Wed, 29 Jun 2011 04:55:09 -0700 (PDT)
-Message-ID: <20110629.045509.830216204231419781.davem@davemloft.net>
-References: <385ebf7e98e377e6e6c384beb961b65d4a95fb18.1309289792.git.joe@perches.com>
-	<20110629111109.GA1613@hmsreliant.think-freely.org>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net-next] net: am79c961a: Omit check for multicast bit in
+	netdev_for_each_mc_addr
+Date: Wed, 29 Jun 2011 14:14:46 +0200
+Message-ID: <1309349686-1506-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110629111109.GA1613@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+There is no need to check for the address being a multicast address in
+the netdev_for_each_mc_addr loop, so remove it.
 
-Neil, please do not quote a entire large patch just to comment on one
-or two hunks of it.  Just quote the patch hunks you want to provide
-feedback on.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/arm/am79c961a.c |   14 ++++++--------
+ 1 files changed, 6 insertions(+), 8 deletions(-)
 
-What you're doing makes it completely unmanageable when I review the
-feedback a patch gets, both in my mailbox and in patchwork.
-
-Thanks.
+diff --git a/drivers/net/arm/am79c961a.c b/drivers/net/arm/am79c961a.c
+index 7b3e23f..52fe21e 100644
+--- a/drivers/net/arm/am79c961a.c
++++ b/drivers/net/arm/am79c961a.c
+@@ -199,17 +199,15 @@ am79c961_ramtest(struct net_device *dev, unsigned int val)
+ 
+ static void am79c961_mc_hash(char *addr, u16 *hash)
+ {
+-	if (addr[0] & 0x01) {
+-		int idx, bit;
+-		u32 crc;
++	int idx, bit;
++	u32 crc;
+ 
+-		crc = ether_crc_le(ETH_ALEN, addr);
++	crc = ether_crc_le(ETH_ALEN, addr);
+ 
+-		idx = crc >> 30;
+-		bit = (crc >> 26) & 15;
++	idx = crc >> 30;
++	bit = (crc >> 26) & 15;
+ 
+-		hash[idx] |= 1 << bit;
+-	}
++	hash[idx] |= 1 << bit;
+ }
+ 
+ static unsigned int am79c961_get_rx_mode(struct net_device *dev, u16 *hash)
+-- 
+1.7.5.4
