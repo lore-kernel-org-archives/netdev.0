@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]rionet: fix NULL pointer dereference in rionet_remove
-Date: Wed, 29 Jun 2011 05:57:59 -0700 (PDT)
-Message-ID: <20110629.055759.1556521651128595877.davem@davemloft.net>
-References: <4e098bf5.87f62a0a.4c71.571a@mx.google.com>
+Subject: Re: [PATCH] net/can: activate bit-timing calculation and netlink
+ based drivers by default
+Date: Wed, 29 Jun 2011 05:58:55 -0700 (PDT)
+Message-ID: <20110629.055855.2052735868060031598.davem@davemloft.net>
+References: <1309160391-22486-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mporter@kernel.crashing.org,
-	jj@chaosbits.net, cmdkhh@gmail.com
-To: synmyth@gmail.com
+Cc: socketcan-users@lists.berlios.de, wg@grandegger.com,
+	netdev@vger.kernel.org
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50433 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:50467 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755727Ab1F2M6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 08:58:08 -0400
-In-Reply-To: <4e098bf5.87f62a0a.4c71.571a@mx.google.com>
+	with ESMTP id S1752009Ab1F2NAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 09:00:06 -0400
+In-Reply-To: <1309160391-22486-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yinglin Luan <synmyth@gmail.com>
-Date: Sun, 26 Jun 2011 12:12:12 +0800
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon, 27 Jun 2011 09:39:51 +0200
 
-> Function rionet_remove initializes local variable 'ndev' to NULL
-> and do nothing changes before the call to unregister_netdev(ndev),
-> this could cause a NULL pointer dereference.
+> The two options "CAN bit-timing calculation" and
+> "Platform CAN drivers with Netlink support" have a "default Y". In order to
+> activate them by default, change to "default y".
 > 
-> Reported-by: Jesper Juhl <jj@chaosbits.net>
-> Signed-off-by: Yinglin Luan <synmyth@gmail.com>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
 Applied.
