@@ -1,90 +1,38 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [RFC v2 2/2] e100: Support RXFCS feature flag.
-Date: Wed, 29 Jun 2011 17:06:05 +0200
-Message-ID: <BANLkTi=-ibpBiWBZ=AANybmWMWfMVGfe4Q@mail.gmail.com>
-References: <1308942371-12748-1-git-send-email-greearb@candelatech.com>
- <1308942371-12748-3-git-send-email-greearb@candelatech.com>
- <BANLkTiknCV1HknVpEdK97yU8eJwaJ5Y5Ag@mail.gmail.com> <4E0B3510.2080202@candelatech.com>
- <BANLkTikaJNa2+jbW6HWwc+tEE-ciNxvkLg@mail.gmail.com> <4E0B383E.8020807@candelatech.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 00/12] Fix various section mismatches and build errors.
+Date: Wed, 29 Jun 2011 08:14:24 -0700
+Message-ID: <20110629151424.GD18023@kroah.com>
+References: <17dd5038b15d7135791aadbe80464a13c80758d3.1309182742.git.ralf@linux-mips.org>
+ <20110627.221257.1290251511587162468.davem@davemloft.net>
+ <20110629130711.GA15649@linux-mips.org>
+ <1309355899.2551.4.camel@mulgrave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	alan@linux.intel.com, bcasavan@sgi.com, airlied@linux.ie,
+	grundler@parisc-linux.org, perex@perex.cz, rpurdie@rpsys.net,
+	klassert@mathematik.tu-chemnitz.de, tj@kernel.org,
+	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
+	linux-serial@vger.kernel.org, netdev@vger.kernel.org
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:52438 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753907Ab1F2PG0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 11:06:26 -0400
-Received: by qwk3 with SMTP id 3so656663qwk.19
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2011 08:06:26 -0700 (PDT)
-In-Reply-To: <4E0B383E.8020807@candelatech.com>
+Received: from out4.smtp.messagingengine.com ([66.111.4.28]:52517 "EHLO
+	out4.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755346Ab1F2PQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 11:16:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1309355899.2551.4.camel@mulgrave>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 29 czerwca 2011 16:35 u=BFytkownik Ben Greear
-<greearb@candelatech.com> napisa=B3:
-> On 06/29/2011 07:33 AM, Micha=B3 Miros=B3aw wrote:
->> W dniu 29 czerwca 2011 16:22 u=BFytkownik Ben Greear
->> <greearb@candelatech.com> =A0napisa=B3:
->>> On 06/29/2011 04:37 AM, Micha=B3 Miros=B3aw wrote:
->>>> 2011/6/24<greearb@candelatech.com>:
->>>>> From: Ben Greear<greearb@candelatech.com>
->>>>>
->>>>> This allows e100 to be configured to append the
->>>>> Ethernet FCS to the skb.
->>>>>
->>>>> Useful for sniffing networks.
->>>>>
->>>>> Signed-off-by: Ben Greear<greearb@candelatech.com>
->>>>> ---
->>>>> :100644 100644 c1352c6... 761f6f5... M =A0drivers/net/e100.c
->>>>> =A0drivers/net/e100.c | =A0 15 ++++++++++++---
->>>>> =A01 files changed, 12 insertions(+), 3 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
->>>>> index c1352c6..761f6f5 100644
->>>>> --- a/drivers/net/e100.c
->>>>> +++ b/drivers/net/e100.c
->>>>> @@ -1089,6 +1089,7 @@ static void e100_configure(struct nic *nic,
->>>>> struct
->>>>> cb *cb, struct sk_buff *skb)
->>>>> =A0{
->>>>> =A0 =A0 =A0 =A0struct config *config =3D&cb->u.config;
->>>>> =A0 =A0 =A0 =A0u8 *c =3D (u8 *)config;
->>>>> + =A0 =A0 =A0 struct net_device *netdev =3D nic->netdev;
->>>>>
->>>>> =A0 =A0 =A0 =A0cb->command =3D cpu_to_le16(cb_config);
->>>>>
->>>>> @@ -1132,6 +1133,9 @@ static void e100_configure(struct nic *nic,
->>>>> struct
->>>>> cb *cb, struct sk_buff *skb)
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0config->promiscuous_mode =3D 0x1; =
-=A0 =A0 =A0 =A0 /* 1=3Don, 0=3Doff
->>>>> */
->>>>> =A0 =A0 =A0 =A0}
->>>>>
->>>>> + =A0 =A0 =A0 if (netdev->wanted_features& =A0 =A0NETIF_F_RXFCS)
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 config->rx_crc_transfer =3D 0x1; =A0=
-/* 1=3Dsave, 0=3Ddiscard */
->>>>> +
->>>>
->>>> You should check netdev->features here.
->>>
->>> I thought 'features' was what the NIC could support, and wanted_fea=
-tures
->>> was what the NIC was currently configured to support? =A0I don't wa=
-nt
->>> to rx the CRC all the time, just when users enable it...
->>
->> hw_features is what device could support, and features is what devic=
-e
->> has currently turned on.
-> Ok, thanks for that correction.
-> What does wanted_features mean, then?
+On Wed, Jun 29, 2011 at 08:58:19AM -0500, James Bottomley wrote:
+> I think we should simply concentrate on __init and __exit; that's where
+> most of the discard value lies and stop expending huge efforts on the
+> __devX stuff which adds huge complexity for no real gain.
 
-What user wants to be active. It should be more clear to you if you
-read the implemetation: netdev_update_features() and friends.
+I have long felt that those __devX markings should just go away as they
+cause nothing but problems and have no real gain as you point out.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+greg k-h
