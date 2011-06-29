@@ -1,92 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Wed, 29 Jun 2011 16:09:01 +1000
-Message-ID: <20110629160901.2d3cd6da.sfr@canb.auug.org.au>
-References: <20110623152920.31b28b00.sfr@canb.auug.org.au>
-	<BANLkTin+iCahNVJGKc-_26pb9zEERTc8_A@mail.gmail.com>
-	<20110627152927.943c34dc.sfr@canb.auug.org.au>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] wanxl: remove a stray irq enable
+Date: Wed, 29 Jun 2011 09:29:51 +0300
+Message-ID: <20110629062951.GD14591@shale.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Krzysztof Halasa <khc@pm.waw.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:37764 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097Ab1F2GJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2011 02:09:05 -0400
-In-Reply-To: <20110627152927.943c34dc.sfr@canb.auug.org.au>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:46791 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974Ab1F2Gax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 02:30:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This is error path calls unlock_irq() where we haven't disabled the
+IRQs.  The comment says that this error path can never happen.
 
-On Mon, 27 Jun 2011 15:29:27 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->
-> On Thu, 23 Jun 2011 16:04:13 +0300 Alexey Dobriyan <adobriyan@gmail.com> wrote:
-> >
-> > On Thu, Jun 23, 2011 at 8:29 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > > After merging the final tree, today's linux-next build (powerpc
-> > > allyesconfig) failed like this:
-> > 
-> > I build on all powerpc defconfigs, somehow this driver is not pinned
-> > by any of them :^)
-> 
-> Well, yes, but an allmodconfig or allyesconfig build will get the error.
-> 
-> > > drivers/net/ll_temac_main.c:209:4: error: implicit declaration of function 'dma_unmap_single'
-> 
-> Is there a fix?
-
-Again, this has taken some time to fix ...
-
-Dave, I think you have raised my expectations too far ;-)
-
-I have added the following patch for today:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 29 Jun 2011 16:03:18 +1000
-Subject: [PATCH] net: include dma-mapping.h for dma_map_single etc
-
-fixes thses build errors:
-
-drivers/net/ll_temac_main.c: In function 'temac_dma_bd_release':
-drivers/net/ll_temac_main.c:209:4: error: implicit declaration of function 'dma_unmap_single'
-drivers/net/ll_temac_main.c:215:3: error: implicit declaration of function 'dma_free_coherent'
-drivers/net/ll_temac_main.c: In function 'temac_dma_bd_init':
-drivers/net/ll_temac_main.c:243:2: error: implicit declaration of function 'dma_alloc_coherent'
-drivers/net/ll_temac_main.c:243:14: warning: assignment makes pointer from integer without a cast
-drivers/net/ll_temac_main.c:251:14: warning: assignment makes pointer from integer without a cast
-drivers/net/ll_temac_main.c:280:3: error: implicit declaration of function 'dma_map_single'
-drivers/net/ll_temac_main.c: In function 'temac_start_xmit_done':
-drivers/net/ll_temac_main.c:628:22: warning: cast to pointer from integer of different size
-
-Caused by commit commit b7f080cfe223 ("net: remove mm.h inclusion from
-netdevice.h").
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 ---
- drivers/net/ll_temac_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+This is a static checker fix and I don't have the hardware to test.
 
-diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-index e3f1925..728fe41 100644
---- a/drivers/net/ll_temac_main.c
-+++ b/drivers/net/ll_temac_main.c
-@@ -49,6 +49,7 @@
- #include <linux/ip.h>
- #include <linux/slab.h>
- #include <linux/interrupt.h>
-+#include <linux/dma-mapping.h>
+diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
+index 8d7aa43..44b7071 100644
+--- a/drivers/net/wan/wanxl.c
++++ b/drivers/net/wan/wanxl.c
+@@ -284,7 +284,7 @@ static netdev_tx_t wanxl_xmit(struct sk_buff *skb, struct net_device *dev)
+                 printk(KERN_DEBUG "%s: transmitter buffer full\n", dev->name);
+ #endif
+ 		netif_stop_queue(dev);
+-		spin_unlock_irq(&port->lock);
++		spin_unlock(&port->lock);
+ 		return NETDEV_TX_BUSY;       /* request packet to be queued */
+ 	}
  
- #include "ll_temac.h"
- 
--- 
-1.7.5.4
-
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
