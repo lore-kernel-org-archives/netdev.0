@@ -1,30 +1,93 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next-2.6 0/3] be2net fixes
-Date: Thu, 30 Jun 2011 15:01:41 +0530
-Message-ID: <1309426301-15783-1-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next-2.6 1/3] be2net: fix certain cmd failure logging
+Date: Thu, 30 Jun 2011 15:02:56 +0530
+Message-ID: <1309426376-15852-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:15836 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:15844 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750892Ab1F3Jbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 05:31:40 -0400
+	with ESMTP id S1751803Ab1F3Jcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 05:32:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pls apply.
+Some (older)versions of cards/fw may not recognize certain cmds and
+return illegal/unsupported errors. As long as the driver can handle
+this gracefully there is no need to log an error msg.
+Also finetuned 2 existing error log messages.
 
-Sathya Perla (3):
-  be2net: fix certain cmd failure logging
-  be2net: create/destroy rx-queues on interface open/close
-  be2net: clear intr bit in be_probe()
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/benet/be_cmds.c |   24 +++++++++++++++++-------
+ drivers/net/benet/be_cmds.h |   17 ++++++-----------
+ 2 files changed, 23 insertions(+), 18 deletions(-)
 
- drivers/net/benet/be_cmds.c |   74 +++++++++++++++++++++++------
- drivers/net/benet/be_cmds.h |   19 +++----
- drivers/net/benet/be_main.c |  111 ++++++++++++++++++++++++++++--------------
- 3 files changed, 141 insertions(+), 63 deletions(-)
-
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 30719f5..7e7ea51 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -106,14 +106,24 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 			netdev_stats_update(adapter);
+ 			adapter->stats_cmd_sent = false;
+ 		}
+-	} else if ((compl_status != MCC_STATUS_NOT_SUPPORTED) &&
+-		   (compl->tag0 != OPCODE_COMMON_NTWK_MAC_QUERY)) {
+-		extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
+-				CQE_STATUS_EXTD_MASK;
+-		dev_warn(&adapter->pdev->dev,
+-		"Error in cmd completion - opcode %d, compl %d, extd %d\n",
+-			compl->tag0, compl_status, extd_status);
++	} else {
++	 	if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
++			compl_status == MCC_STATUS_ILLEGAL_REQUEST)
++			goto done;
++
++		if (compl_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
++			dev_warn(&adapter->pdev->dev, "This domain(VM) is not "
++				"permitted to execute this cmd (opcode %d)\n",
++				compl->tag0);
++		} else {
++			extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
++					CQE_STATUS_EXTD_MASK;
++			dev_err(&adapter->pdev->dev, "Cmd (opcode %d) failed:"
++				"status %d, extd-status %d\n",
++				compl->tag0, compl_status, extd_status);
++		}
+ 	}
++done:
+ 	return compl_status;
+ }
+ 
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index d08289e..f0d7457 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -51,17 +51,12 @@ struct be_mcc_wrb {
+ 
+ /* Completion Status */
+ enum {
+-	MCC_STATUS_SUCCESS = 0x0,
+-/* The client does not have sufficient privileges to execute the command */
+-	MCC_STATUS_INSUFFICIENT_PRIVILEGES = 0x1,
+-/* A parameter in the command was invalid. */
+-	MCC_STATUS_INVALID_PARAMETER = 0x2,
+-/* There are insufficient chip resources to execute the command */
+-	MCC_STATUS_INSUFFICIENT_RESOURCES = 0x3,
+-/* The command is completing because the queue was getting flushed */
+-	MCC_STATUS_QUEUE_FLUSHING = 0x4,
+-/* The command is completing with a DMA error */
+-	MCC_STATUS_DMA_FAILED = 0x5,
++	MCC_STATUS_SUCCESS = 0,
++	MCC_STATUS_FAILED = 1,
++	MCC_STATUS_ILLEGAL_REQUEST = 2,
++	MCC_STATUS_ILLEGAL_FIELD = 3,
++	MCC_STATUS_INSUFFICIENT_BUFFER = 4,
++	MCC_STATUS_UNAUTHORIZED_REQUEST = 5,
+ 	MCC_STATUS_NOT_SUPPORTED = 66
+ };
+ 
 -- 
 1.7.4
 
