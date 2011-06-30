@@ -1,88 +1,83 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH 2/5] ieee802154: support specifying hw address for created devices
-Date: Thu, 30 Jun 2011 16:37:45 +0400
-Message-ID: <1309437468-31021-3-git-send-email-dbaryshkov@gmail.com>
-References: <1309437468-31021-1-git-send-email-dbaryshkov@gmail.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv2 NEXT 1/2] net: add external loopback test in ethtool
+ self test
+Date: Thu, 30 Jun 2011 14:25:50 +0100
+Message-ID: <1309440351.3093.1628.camel@localhost>
+References: <1309413650-15952-1-git-send-email-amit.salecha@qlogic.com>
+	 <1309413650-15952-2-git-send-email-amit.salecha@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, sucheta.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37174 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751363Ab1F3MiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 08:38:08 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 8so1510445wyg.19
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2011 05:38:07 -0700 (PDT)
-In-Reply-To: <1309437468-31021-1-git-send-email-dbaryshkov@gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:7708 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096Ab1F3NZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 09:25:57 -0400
+In-Reply-To: <1309413650-15952-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
----
- net/ieee802154/nl-phy.c |   31 +++++++++++++++++++++++++++++++
- 1 files changed, 31 insertions(+), 0 deletions(-)
+On Wed, 2011-06-29 at 23:00 -0700, amit.salecha@qlogic.com wrote:
+> From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> 
+> External loopback test can be performed by application without any driver
+> support on normal Ethernet cards.
+> But on CNA devices, where multiple functions share same physical port.
+> Here internal loopback test and external loopback test can be initiated by
+> multiple functions at same time. To co exist all functions, firmware need
+> to regulate what test can be run by which function. So before performing external
+> loopback test, command need to send to firmware, which will quiescent other functions.
+> 
+> User may not want to run external loopback test always. As special cable need to be
+> connected for this test.
+> So adding explicit flag in ethtool self test, which will specify interface
+> to perform external loopback test.
+>  ETH_TEST_FL_EXTERNAL_LB: Application set to request external loopback test
+>  ETH_TEST_FL_EXTERNAL_LB_DONE: Driver ack if test performed
+> 
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
-index 02548b2..c64a38d 100644
---- a/net/ieee802154/nl-phy.c
-+++ b/net/ieee802154/nl-phy.c
-@@ -24,6 +24,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/slab.h>
-+#include <linux/if_arp.h>
- #include <net/netlink.h>
- #include <net/genetlink.h>
- #include <net/wpan-phy.h>
-@@ -213,12 +214,37 @@ static int ieee802154_add_iface(struct sk_buff *skb,
- 		goto nla_put_failure;
- 	}
- 
-+	if (info->attrs[IEEE802154_ATTR_HW_ADDR] &&
-+	    nla_len(info->attrs[IEEE802154_ATTR_HW_ADDR]) !=
-+			IEEE802154_ADDR_LEN) {
-+		rc = -EINVAL;
-+		goto nla_put_failure;
-+	}
-+
- 	dev = phy->add_iface(phy, devname);
- 	if (IS_ERR(dev)) {
- 		rc = PTR_ERR(dev);
- 		goto nla_put_failure;
- 	}
- 
-+	if (info->attrs[IEEE802154_ATTR_HW_ADDR]) {
-+		struct sockaddr addr;
-+
-+		addr.sa_family = ARPHRD_IEEE802154;
-+		nla_memcpy(&addr.sa_data, info->attrs[IEEE802154_ATTR_HW_ADDR],
-+				IEEE802154_ADDR_LEN);
-+
-+		/*
-+		 * strangely enough, some callbacks (inetdev_event) from
-+		 * dev_set_mac_address require RTNL_LOCK
-+		 */
-+		rtnl_lock();
-+		rc = dev_set_mac_address(dev, &addr);
-+		rtnl_unlock();
-+		if (rc)
-+			goto dev_unregister;
-+	}
-+
- 	NLA_PUT_STRING(msg, IEEE802154_ATTR_PHY_NAME, wpan_phy_name(phy));
- 	NLA_PUT_STRING(msg, IEEE802154_ATTR_DEV_NAME, dev->name);
- 
-@@ -228,6 +254,11 @@ static int ieee802154_add_iface(struct sk_buff *skb,
- 
- 	return ieee802154_nl_reply(msg, info);
- 
-+dev_unregister:
-+	rtnl_lock(); /* del_iface must be called with RTNL lock */
-+	phy->del_iface(phy, dev);
-+	dev_put(dev);
-+	rtnl_unlock();
- nla_put_failure:
- 	nlmsg_free(msg);
- out_dev:
+Ben.
+
+> ---
+>  include/linux/ethtool.h |   16 ++++++++++++++--
+>  1 files changed, 14 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index 048d0fa..c6e427a 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -310,9 +310,21 @@ struct ethtool_sset_info {
+>  				   __u32's, etc. */
+>  };
+>  
+> +/**
+> + * enum ethtool_test_flags - flags definition of ethtool_test
+> + * @ETH_TEST_FL_OFFLINE: if set perform online and offline tests, otherwise
+> + *	only online tests.
+> + * @ETH_TEST_FL_FAILED: Driver set this flag if test fails.
+> + * @ETH_TEST_FL_EXTERNAL_LB: Application request to perform external loopback
+> + *	test.
+> + * @ETH_TEST_FL_EXTERNAL_LB_DONE: Driver performed the external loopback test
+> + */
+> +
+>  enum ethtool_test_flags {
+> -	ETH_TEST_FL_OFFLINE	= (1 << 0),	/* online / offline */
+> -	ETH_TEST_FL_FAILED	= (1 << 1),	/* test passed / failed */
+> +	ETH_TEST_FL_OFFLINE	= (1 << 0),
+> +	ETH_TEST_FL_FAILED	= (1 << 1),
+> +	ETH_TEST_FL_EXTERNAL_LB	= (1 << 2),
+> +	ETH_TEST_FL_EXTERNAL_LB_DONE	= (1 << 3),
+>  };
+>  
+>  /* for requesting NIC test and getting results*/
+
 -- 
-1.7.5.4
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
