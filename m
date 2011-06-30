@@ -1,51 +1,60 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH] sctp: Enforce maximum retransmissions during shutdown
-Date: Thu, 30 Jun 2011 04:49:33 -0400
-Message-ID: <20110630084933.GA24074@canuck.infradead.org>
-References: <20110629135704.GB10085@canuck.infradead.org>
- <4E0B3491.1060603@hp.com>
- <20110629143649.GC10085@canuck.infradead.org>
- <4E0B3DA1.9060200@hp.com>
- <20110629154814.GD10085@canuck.infradead.org>
- <4E0B4F71.4020108@hp.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 2/3] ipv4: Fix packet size calculation for IPsec
+ packets in __ip_append_data
+Date: Thu, 30 Jun 2011 11:06:23 +0200
+Message-ID: <20110630090623.GA13201@secunet.com>
+References: <20110608053020.GA6489@secunet.com>
+ <20110609.144704.1705676110990397845.davem@davemloft.net>
+ <20110622110219.GF6489@secunet.com>
+ <20110627.203938.1899202479649578621.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
-To: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Cc: eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:57456 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757381Ab1F3Itg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 04:49:36 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:57165 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751431Ab1F3JFq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2011 05:05:46 -0400
 Content-Disposition: inline
-In-Reply-To: <4E0B4F71.4020108@hp.com>
+In-Reply-To: <20110627.203938.1899202479649578621.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2011 at 12:14:41PM -0400, Vladislav Yasevich wrote:
-> Right.  The lack of ABORT from the receive of data is a bug.  I was trying to point out
-> that instead of modified the sender of data to send the ABORT, you modify the receiver
-> to send the ABORT when it is being closed while having data queued.
+On Mon, Jun 27, 2011 at 08:39:38PM -0700, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Wed, 22 Jun 2011 13:02:19 +0200
+> 
+> > While reading through the code of __ip_append_data() I noticed that we
+> > might use ip_ufo_append_data() for packets that will be IPsec transformed
+> > later, is this ok? I don't know how ufo handling works, but I would guess
+> > that it expects an udp header and not an IPsec header as the packets
+> > transport header.
+> 
+> Indeed, it could be a real problem.
 
-Agreed. This makes a good procedure if there is data is on
-sk_receive_queue and gets us in line with TCP although I don't see this
-in the spec at all :-)
+Ok, so I'll send a patch to fix it up.
 
-> But we don't even get to sending the SHUTDOWN, so from the wire protocol, we
-> do not violated it.  We have bad behavior in that when both sender and receiver
-> are dead, the association is hung.
+> 
+> > The IPsec mtu is 1438 here, so the first packet is too big.
+> > xfrm4_tunnel_check_size() notices this and sends a ICMP_FRAG_NEEDED
+> > packet that announces a mtu of 1438 to the original sender of the ping
+> > packet. Unfortunately the sender is a local address, it's the IPsec
+> > tunnel entry point. So we update the mtu for this connection to 1438.
+> > Now, with the next packet xfrm_bundle_ok() notices that the path mtu has
+> > changed, so it subtracts the IPsec overhead from the mtu a second time
+> > and we end up with a mtu of 1374. This game goes until we reach a minimal
+> > mtu of 494.
+> > 
+> > Unfortunately I don't know how to fix this. Any ideas?
+> 
+> If the generic PMTU handling in net/ipv4/route.c is adjusting the MTU
+> for the IPSEC path's route, that would be the problem.
+> 
 
-So how do we get out if ...
+Yes, this is exactly what happens. We use icmp_send() to notify about
+message size errors even for locally generated packets, this leads to
+an incorrect pmtu update. Changing this to use ip_local_error() if we
+have socket context fixes the problem. I'll send a patch for this too.
 
-1) there is nothing queued on sk_receive_queue but the window still
-   remains 0 forver?
-   
-2) the receiver is an older Linux without the above fix or another stack
-   that does not ABORT?
-
-I agree that using ABORT on the receiver is the ideal way whenver
-possible but we still need to fix this if the receiver does not do so.
-
-What sideeffects are you worried about resulting from my proposal?
