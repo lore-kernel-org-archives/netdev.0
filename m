@@ -1,54 +1,36 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 4/4] xen/netback: Add module alias for autoloading
-Date: Thu, 30 Jun 2011 12:39:54 -0400
-Message-ID: <20110630163954.GE5771__14421.9124144458$1309452086$gmane$org@dumpdata.com>
-References: <20110629124132.GD31038@wavehammer.waldi.eu.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: possible bridge regression in "bridge: implement
+ [add/del]_slave ops"?
+Date: Thu, 30 Jun 2011 10:03:22 -0700
+Message-ID: <20110630100322.21c7b28a@nehalam.ftrdhcpuser.net>
+References: <201106301033.23997.alexander.stein@systec-electronic.com>
+	<201106301527.19539.alexander.stein@systec-electronic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Bastian Blank <waldi@debian.org>, xen-devel@lists.xensource.com,
-	virtualization@lists.linux-foundation.org,
-	Jens Axboe <axboe@kernel.dk>, linux-kernel@vger.kernel.org,
-	netdev@vger.ker
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Stein <alexander.stein@systec-electronic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:19405 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883Ab1F3QlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 12:41:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20110629124132.GD31038@wavehammer.waldi.eu.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:33029 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750976Ab1F3RDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 13:03:31 -0400
+In-Reply-To: <201106301527.19539.alexander.stein@systec-electronic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2011 at 02:41:32PM +0200, Bastian Blank wrote:
-> Add xen-backend:vif module alias to the xen-netback module. This allows
-> automatic loading of the module.
+On Thu, 30 Jun 2011 15:27:19 +0200
+Alexander Stein <alexander.stein@systec-electronic.com> wrote:
 
-Dave,
-
-Could you queue this up for 3.1 please? I've the other two patches in my
-tree for 3.1 and the block patch ready for Jens.
-
+> On Thursday 30 June 2011 10:33:23 Alexander Stein wrote:
+> > BTW: I noticed that in 2.6.39.2 independently from this patch revert this
+> > bridge didn't show up RUNNING ifconfg. Is this intended? Another bridge I
+> > have, which doesn't use (R)STP, is shown as RUNNING like before.
 > 
-> Signed-off-by: Bastian Blank <waldi@debian.org>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> ---
->  drivers/net/xen-netback/netback.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 0e4851b..fd00f25 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1743,3 +1743,4 @@ failed_init:
->  module_init(netback_init);
->  
->  MODULE_LICENSE("Dual BSD/GPL");
-> +MODULE_ALIAS("xen-backend:vif");
-> -- 
-> 1.7.5.4
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> This change was caused by commit 1faa4356a3bd89ea11fb92752d897cff3a20ec0e 
+> "bridge: control carrier based on ports online". It prevents the bridge from 
+> actually receiving/sending packets. Reverting restores the old behavior.
+
+It is really a bug in RSTP, I will fix it there.
