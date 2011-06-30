@@ -1,104 +1,51 @@
-From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.belden@googlemail.com>
-Subject: [PATCH] ethtool : NFC corrections again
-Date: Thu, 30 Jun 2011 10:41:20 +0200
-Message-ID: <1309423280.15040.2.camel@DENEC1DT0191>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCH] sctp: Enforce maximum retransmissions during shutdown
+Date: Thu, 30 Jun 2011 04:49:33 -0400
+Message-ID: <20110630084933.GA24074@canuck.infradead.org>
+References: <20110629135704.GB10085@canuck.infradead.org>
+ <4E0B3491.1060603@hp.com>
+ <20110629143649.GC10085@canuck.infradead.org>
+ <4E0B3DA1.9060200@hp.com>
+ <20110629154814.GD10085@canuck.infradead.org>
+ <4E0B4F71.4020108@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@belden.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Linux Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+To: Vladislav Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:52964 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754539Ab1F3Il3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 04:41:29 -0400
-Received: by gwaa18 with SMTP id a18so773246gwa.19
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2011 01:41:28 -0700 (PDT)
+Received: from merlin.infradead.org ([205.233.59.134]:57456 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757381Ab1F3Itg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 04:49:36 -0400
+Content-Disposition: inline
+In-Reply-To: <4E0B4F71.4020108@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch:
-# Adds an alias for ip4 called l4data pointing to spi (first 4 Layer 4
-bytes)
-# [TRIVIAL] Corrects the permutation of dst and src for ethernet
-# Suggests to always set the ip_ver field of usr_ip to ETH_RX_NFC_IP4 at
-least as long there is no opportunity to use others than IPv4 and there
-is no frontend option to enter ip_ver.
+On Wed, Jun 29, 2011 at 12:14:41PM -0400, Vladislav Yasevich wrote:
+> Right.  The lack of ABORT from the receive of data is a bug.  I was trying to point out
+> that instead of modified the sender of data to send the ABORT, you modify the receiver
+> to send the ABORT when it is being closed while having data queued.
 
-Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
----
+Agreed. This makes a good procedure if there is data is on
+sk_receive_queue and gets us in line with TCP although I don't see this
+in the spec at all :-)
 
- ethtool.8.in |    5 +++++
- rxclass.c    |   11 ++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+> But we don't even get to sending the SHUTDOWN, so from the wire protocol, we
+> do not violated it.  We have bad behavior in that when both sender and receiver
+> are dead, the association is hung.
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 7b1cdf5..0a64d75 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -296,6 +296,7 @@ ethtool \- query or control network driver and
-hardware settings
- .BM src\-port
- .BM dst\-port
- .BM spi
-+.BM l4data
- .BM vlan\-etype
- .BM vlan
- .BM user\-def
-@@ -718,6 +719,10 @@ Specify the value of the security parameter index
-field (applicable to
- AH/ESP packets)in the incoming packet to match along with an optional
- mask.  Valid for flow-types ip4, ah4, and esp4.
- .TP
-+.BI l4data \ N \\fR\ [\\fPm \ N \\fR]\\fP
-+Specify the value of the first 4 Bytes of Layer 4 in the incoming
-packet to
-+match along with an optional mask.  Valid for ip4 flow-type.
-+.TP
- .BI vlan\-etype \ N \\fR\ [\\fPm \ N \\fR]\\fP
- Includes the VLAN tag Ethertype and an optional mask.
- .TP
-diff --git a/rxclass.c b/rxclass.c
-index ee486f7..b227901 100644
---- a/rxclass.c
-+++ b/rxclass.c
-@@ -622,6 +622,9 @@ static struct rule_opts rule_nfc_usr_ip4[] = {
- 	{ "l4proto", OPT_U8, NFC_FLAG_PROTO,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.proto),
- 	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip4_spec.proto) },
-+	{ "l4data", OPT_BE32, NFC_FLAG_SPI,
-+	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.l4_4_bytes),
-+	  offsetof(struct ethtool_rx_flow_spec,
-m_u.usr_ip4_spec.l4_4_bytes) },
- 	{ "spi", OPT_BE32, NFC_FLAG_SPI,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.l4_4_bytes),
- 	  offsetof(struct ethtool_rx_flow_spec,
-m_u.usr_ip4_spec.l4_4_bytes) },
-@@ -648,11 +651,11 @@ static struct rule_opts rule_nfc_usr_ip4[] = {
- 
- static struct rule_opts rule_nfc_ether[] = {
- 	{ "src", OPT_MAC, NFC_FLAG_SADDR,
--	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_dest),
--	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_dest) },
--	{ "dst", OPT_MAC, NFC_FLAG_DADDR,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_source),
- 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_source) },
-+	{ "dst", OPT_MAC, NFC_FLAG_DADDR,
-+	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_dest),
-+	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_dest) },
- 	{ "proto", OPT_BE16, NFC_FLAG_PROTO,
- 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_proto),
- 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_proto) },
-@@ -1062,6 +1065,8 @@ int rxclass_parse_ruleopts(char **argp, int argc,
- 		}
- 	}
- 
-+	if (flow_type == IP_USER_FLOW)
-+		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
- 	if (flags & (NTUPLE_FLAG_VLAN | NTUPLE_FLAG_UDEF | NTUPLE_FLAG_VETH))
- 		fsp->flow_type |= FLOW_EXT;
- 
+So how do we get out if ...
 
+1) there is nothing queued on sk_receive_queue but the window still
+   remains 0 forver?
+   
+2) the receiver is an older Linux without the above fix or another stack
+   that does not ABORT?
 
+I agree that using ABORT on the receiver is the ideal way whenver
+possible but we still need to fix this if the receiver does not do so.
 
+What sideeffects are you worried about resulting from my proposal?
