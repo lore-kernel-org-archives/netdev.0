@@ -1,40 +1,80 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] bridge: Forward EAPOL Kconfig option BRIDGE_PAE_FORWARD
-Date: Wed, 29 Jun 2011 16:34:23 -0700
-Message-ID: <20110629163423.1d73b0ef@nehalam.ftrdhcpuser.net>
-References: <20110628150257.GB126252@jupiter.n2.diac24.net>
-	<20110628081015.1b06a3f0@nehalam.ftrdhcpuser.net>
-	<20110628160018.GC126252@jupiter.n2.diac24.net>
-	<BANLkTikDqjErqBmfwrN6SJPgPjmmMfJw7g@mail.gmail.com>
-	<20110628185811.GA2121496@jupiter.n2.diac24.net>
-	<BANLkTi=goXU4SpP6dxX9C+YeLcVMEkcKHw@mail.gmail.com>
-	<20110628202200.GB2121496@jupiter.n2.diac24.net>
-	<BANLkTim1owW7iMS3hgKhm7DzTzE4X-jxHA@mail.gmail.com>
-	<20110628210434.GD2121496@jupiter.n2.diac24.net>
-	<BANLkTikN_TPPcyywVT5W9CrGAFJX8qQiyQ@mail.gmail.com>
-	<20110628214637.GE2121496@jupiter.n2.diac24.net>
-	<BANLkTi=4-xYNyaBOzeL04VioK8D0Q8secg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Nick Carter <ncarter100@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:56056 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756566Ab1F2XfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2011 19:35:23 -0400
-In-Reply-To: <BANLkTi=4-xYNyaBOzeL04VioK8D0Q8secg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 0/2] bluetooth: Use current logging styles
+Date: Wed, 29 Jun 2011 18:18:28 -0700
+Message-ID: <cover.1309396408.git.joe@perches.com>
+References: <1309370457.2208.48.camel@aeonflux>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1309370457.2208.48.camel@aeonflux>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The problem is that the damn 802.1 committees keep loading up protocols
-on the same multicast address range. Trying to solve a design committee 
-problem in the kernel is not going to make anybody happy.
+On Wed, 2011-06-29 at 11:00 -0700, Marcel Holtmann wrote:
+> I did not know that. Then we might should go ahead and also cleanup the
+> Bluetooth subsystem.
+> 
+> We do use an implied "Bluetooth: " prefix when calling BT_INFO, but that
+> can be easily changed to bt_info() as well since I do not care about
+> that part. 
+> 
+> The Bluetooth subsystem has a Linux 2.4 legacy history and a lot of
+> things can be done a lot nicer these days.
 
-I am happy with the simple solution of:
-  no STP == Hub
-  STP    == Bridge
-These are both well know configurations and are blessed by standards.
+Here you go Marcel.
 
+It reduces code/text a couple/few percent too.
+ 
+Joe Perches (2):
+  bluetooth: Rename function bt_err to bt_to_errno
+  bluetooth: Add bt_printk, convert logging macros to lower case
+
+ drivers/bluetooth/ath3k.c          |   48 ++++----
+ drivers/bluetooth/bcm203x.c        |   38 +++---
+ drivers/bluetooth/bfusb.c          |   94 +++++++-------
+ drivers/bluetooth/bluecard_cs.c    |   18 ++--
+ drivers/bluetooth/bpa10x.c         |   38 +++---
+ drivers/bluetooth/bt3c_cs.c        |   34 +++---
+ drivers/bluetooth/btmrvl_debugfs.c |    2 +-
+ drivers/bluetooth/btmrvl_main.c    |   74 ++++++------
+ drivers/bluetooth/btmrvl_sdio.c    |  112 +++++++++---------
+ drivers/bluetooth/btsdio.c         |   26 ++--
+ drivers/bluetooth/btuart_cs.c      |   24 ++--
+ drivers/bluetooth/btusb.c          |   64 +++++-----
+ drivers/bluetooth/btwilink.c       |   34 +++---
+ drivers/bluetooth/dtl1_cs.c        |   20 ++--
+ drivers/bluetooth/hci_ath.c        |   14 +-
+ drivers/bluetooth/hci_bcsp.c       |   58 +++++-----
+ drivers/bluetooth/hci_h4.c         |   18 ++--
+ drivers/bluetooth/hci_ldisc.c      |   36 +++---
+ drivers/bluetooth/hci_ll.c         |   76 ++++++------
+ drivers/bluetooth/hci_vhci.c       |    8 +-
+ include/net/bluetooth/bluetooth.h  |   11 +-
+ net/bluetooth/af_bluetooth.c       |   20 ++--
+ net/bluetooth/bnep/core.c          |   26 ++--
+ net/bluetooth/bnep/netdev.c        |   14 +-
+ net/bluetooth/bnep/sock.c          |   10 +-
+ net/bluetooth/cmtp/capi.c          |   46 ++++----
+ net/bluetooth/cmtp/core.c          |   30 +++---
+ net/bluetooth/cmtp/sock.c          |   10 +-
+ net/bluetooth/hci_conn.c           |   52 ++++----
+ net/bluetooth/hci_core.c           |  142 +++++++++++-----------
+ net/bluetooth/hci_event.c          |  234 ++++++++++++++++++------------------
+ net/bluetooth/hci_sock.c           |   26 ++--
+ net/bluetooth/hci_sysfs.c          |   12 +-
+ net/bluetooth/hidp/core.c          |   50 ++++----
+ net/bluetooth/hidp/sock.c          |   10 +-
+ net/bluetooth/l2cap_core.c         |  172 +++++++++++++-------------
+ net/bluetooth/l2cap_sock.c         |   40 +++---
+ net/bluetooth/lib.c                |   23 ++++-
+ net/bluetooth/mgmt.c               |   80 ++++++------
+ net/bluetooth/rfcomm/core.c        |  152 ++++++++++++------------
+ net/bluetooth/rfcomm/sock.c        |   56 +++++-----
+ net/bluetooth/rfcomm/tty.c         |  100 ++++++++--------
+ net/bluetooth/sco.c                |   84 +++++++-------
+ net/bluetooth/smp.c                |   30 +++---
+ 44 files changed, 1144 insertions(+), 1122 deletions(-)
+
+-- 
+1.7.6.rc1
