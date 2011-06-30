@@ -1,169 +1,103 @@
-From: amit.salecha@qlogic.com
-Subject: [PATCHv2 NEXT 2/2] qlcnic: add external loopback support
-Date: Wed, 29 Jun 2011 23:00:50 -0700
-Message-ID: <1309413650-15952-3-git-send-email-amit.salecha@qlogic.com>
-References: <1309413650-15952-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	sucheta.chakraborty@qlogic.com,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>
-To: davem@davemloft.net, bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:53599 "HELO mx.mv.qlogic.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753497Ab1F3GJO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2011 02:09:14 -0400
-In-Reply-To: <1309413650-15952-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] bluetooth: Add bt_printk
+Date: Thu, 30 Jun 2011 00:19:51 -0700
+Message-ID: <f06f1d8f4185db431a038c328c42caf4fe270dd0.1309418368.git.joe@perches.com>
+References: <20110630033119.GA3438@joana>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110630033119.GA3438@joana>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Add a local logging function to emit bluetooth specific
+messages.  Using vsprintf extension %pV saves code/text
+space.
 
-o Add external loopback test in self test:
-  - Send set external loopback mode request to fw.
-     To quiscent other storage functions.
-  - Perform test
-  - Send unset loopback mode request to fw.
+Convert the current BT_INFO and BT_ERR macros to use bt_printk.
+Remove __func__ from BT_ERR macro (and the uses).
+Prefix "Bluetooth: " to BT_ERR
+Remove __func__ from BT_DBG as function can be prefixed when
+using dynamic_debug.
 
-o Rename ilb to lb.
-o Update driver version 5.0.20.
+With allyesconfig:
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+   text	   data	    bss	    dec	    hex	filename
+ 129956	   8632	  36096	 174684	  2aa5c	drivers/bluetooth/built-in.o.new2
+ 134402	   8632	  36064	 179098	  2bb9a	drivers/bluetooth/built-in.o.old
+  14778	   1012	   3408	  19198	   4afe	net/bluetooth/bnep/built-in.o.new2
+  15067	   1012	   3408	  19487	   4c1f	net/bluetooth/bnep/built-in.o.old
+ 346595	  19163	  86080	 451838	  6e4fe	net/bluetooth/built-in.o.new2
+ 353751	  19163	  86064	 458978	  700e2	net/bluetooth/built-in.o.old
+  18483	   1172	   4264	  23919	   5d6f	net/bluetooth/cmtp/built-in.o.new2
+  18927	   1172	   4264	  24363	   5f2b	net/bluetooth/cmtp/built-in.o.old
+  19237	   1172	   5152	  25561	   63d9	net/bluetooth/hidp/built-in.o.new2
+  19581	   1172	   5152	  25905	   6531	net/bluetooth/hidp/built-in.o.old
+  59461	   3884	  14464	  77809	  12ff1	net/bluetooth/rfcomm/built-in.o.new2
+  61206	   3884	  14464	  79554	  136c2	net/bluetooth/rfcomm/built-in.o.old
+
+with x86 defconfig (and just bluetooth):
+
+$ size net/bluetooth/built-in.o.defconfig.*
+   text	   data	    bss	    dec	    hex	filename
+  66358	    933	    100	  67391	  1073f	net/bluetooth/built-in.o.defconfig.new
+  66643	    933	    100	  67676	  1085c	net/bluetooth/built-in.o.defconfig.old
+
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/qlcnic/qlcnic.h         |    5 +++--
- drivers/net/qlcnic/qlcnic_ethtool.c |   26 +++++++++++++++++---------
- drivers/net/qlcnic/qlcnic_init.c    |    3 ++-
- 3 files changed, 22 insertions(+), 12 deletions(-)
+ include/net/bluetooth/bluetooth.h |    9 ++++++---
+ net/bluetooth/lib.c               |   19 +++++++++++++++++++
+ 2 files changed, 25 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index e545450..9899a79 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -36,8 +36,8 @@
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 7bccaf9..042591c 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -76,9 +76,12 @@ struct bt_power {
+ #define BT_POWER_FORCE_ACTIVE_OFF 0
+ #define BT_POWER_FORCE_ACTIVE_ON  1
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 19
--#define QLCNIC_LINUX_VERSIONID  "5.0.19"
-+#define _QLCNIC_LINUX_SUBVERSION 20
-+#define QLCNIC_LINUX_VERSIONID  "5.0.20"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
-@@ -782,6 +782,7 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_IP_DOWN		3
+-#define BT_INFO(fmt, arg...) printk(KERN_INFO "Bluetooth: " fmt "\n" , ## arg)
+-#define BT_ERR(fmt, arg...)  printk(KERN_ERR "%s: " fmt "\n" , __func__ , ## arg)
+-#define BT_DBG(fmt, arg...)  pr_debug("%s: " fmt "\n" , __func__ , ## arg)
++__attribute__((format (printf, 2, 3)))
++int bt_printk(const char *level, const char *fmt, ...);
++
++#define BT_INFO(fmt, arg...)	bt_printk(KERN_INFO, pr_fmt(fmt), ##arg)
++#define BT_ERR(fmt, arg...)	bt_printk(KERN_ERR, pr_fmt(fmt), ##arg)
++#define BT_DBG(fmt, arg...)	pr_debug(fmt "\n", ##arg)
  
- #define QLCNIC_ILB_MODE		0x1
-+#define QLCNIC_ELB_MODE		0x2
- 
- #define QLCNIC_LINKEVENT	0x1
- #define QLCNIC_LB_RESPONSE	0x2
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 743035e..3ea04e7 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -85,7 +85,8 @@ static const char qlcnic_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Register_Test_on_offline",
- 	"Link_Test_on_offline",
- 	"Interrupt_Test_offline",
--	"Loopback_Test_offline"
-+	"Internal_Loopback_offline",
-+	"External_Loopback_offline"
- };
- 
- #define QLCNIC_TEST_LEN	ARRAY_SIZE(qlcnic_gstrings_test)
-@@ -709,7 +710,7 @@ int qlcnic_check_loopback_buff(unsigned char *data, u8 mac[])
- 	return memcmp(data, buff, QLCNIC_ILB_PKT_SIZE);
- }
- 
--static int qlcnic_do_ilb_test(struct qlcnic_adapter *adapter)
-+static int qlcnic_do_lb_test(struct qlcnic_adapter *adapter)
- {
- 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
- 	struct qlcnic_host_sds_ring *sds_ring = &recv_ctx->sds_rings[0];
-@@ -735,19 +736,19 @@ static int qlcnic_do_ilb_test(struct qlcnic_adapter *adapter)
- 		dev_kfree_skb_any(skb);
- 
- 		if (!adapter->diag_cnt)
--			dev_warn(&adapter->pdev->dev, "ILB Test: %dth packet"
-+			dev_warn(&adapter->pdev->dev, "LB Test: %dth packet"
- 				" not recevied\n", i + 1);
- 		else
- 			cnt++;
- 	}
- 	if (cnt != i) {
--		dev_warn(&adapter->pdev->dev, "ILB Test failed\n");
-+		dev_warn(&adapter->pdev->dev, "LB Test failed\n");
- 		return -1;
- 	}
- 	return 0;
- }
- 
--static int qlcnic_iloopback_test(struct net_device *netdev)
-+static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	int max_sds_rings = adapter->max_sds_rings;
-@@ -755,7 +756,8 @@ static int qlcnic_iloopback_test(struct net_device *netdev)
- 	int loop = 0;
- 	int ret;
- 
--	netdev_info(netdev, "%s:  in progress\n", __func__);
-+	netdev_info(netdev, "%s loopback test in progress\n",
-+		   mode == QLCNIC_ILB_MODE ? "internal" : "external");
- 	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
- 		netdev_warn(netdev, "Loopback test not supported for non "
- 				"privilege function\n");
-@@ -772,7 +774,7 @@ static int qlcnic_iloopback_test(struct net_device *netdev)
- 
- 	sds_ring = &adapter->recv_ctx->sds_rings[0];
- 
--	ret = qlcnic_set_lb_mode(adapter, QLCNIC_ILB_MODE);
-+	ret = qlcnic_set_lb_mode(adapter, mode);
- 	if (ret)
- 		goto free_res;
- 
-@@ -790,7 +792,7 @@ static int qlcnic_iloopback_test(struct net_device *netdev)
- 		goto free_res;
- 	}
- 
--	ret = qlcnic_do_ilb_test(adapter);
-+	ret = qlcnic_do_lb_test(adapter);
- 
- 	qlcnic_clear_lb_mode(adapter);
- 
-@@ -822,10 +824,16 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 		if (data[2])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		data[3] = qlcnic_iloopback_test(dev);
-+		data[3] = qlcnic_loopback_test(dev, QLCNIC_ILB_MODE);
- 		if (data[3])
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-+		if (eth_test->flags & ETH_TEST_FL_EXTERNAL_LB) {
-+			data[4] = qlcnic_loopback_test(dev, QLCNIC_ELB_MODE);
-+			if (data[4])
-+				eth_test->flags |= ETH_TEST_FL_FAILED;
-+			eth_test->flags |= ETH_TEST_FL_EXTERNAL_LB_DONE;
-+		}
+ /* Connection and socket states */
+ enum {
+diff --git a/net/bluetooth/lib.c b/net/bluetooth/lib.c
+index b826d1b..fdb3ec3 100644
+--- a/net/bluetooth/lib.c
++++ b/net/bluetooth/lib.c
+@@ -150,3 +150,22 @@ int bt_err(__u16 code)
  	}
  }
- 
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 9d5bee0..6ec1baa 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1303,7 +1303,8 @@ qlcnic_handle_linkevent(struct qlcnic_adapter *adapter,
- 		dev_info(&netdev->dev, "unsupported cable length %d\n",
- 				cable_len);
- 
--	if (!link_status && (lb_status == 1))
-+	if (!link_status && (lb_status == QLCNIC_ILB_MODE ||
-+	    lb_status == QLCNIC_ELB_MODE))
- 		adapter->ahw->loopback_state |= QLCNIC_LINKEVENT;
- 
- 	qlcnic_advert_link_change(adapter, link_status);
+ EXPORT_SYMBOL(bt_err);
++
++int bt_printk(const char *level, const char *format, ...)
++{
++	struct va_format vaf;
++	va_list args;
++	int r;
++
++	va_start(args, format);
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	r = printk("%sbluetooth: %pV\n", level, &vaf);
++
++	va_end(args);
++
++	return r;
++}
++EXPORT_SYMBOL(bt_printk);
 -- 
-1.7.3.3
-
+1.7.6.rc1
