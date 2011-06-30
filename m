@@ -1,7 +1,7 @@
 From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 1/3] qlge:Fix crash caused by mailbox execution on wedged chip.
-Date: Thu, 30 Jun 2011 13:02:05 -0700
-Message-ID: <1309464127-14797-1-git-send-email-ron.mercer@qlogic.com>
+Subject: [net-2.6 PATCH 2/3] qlge: Fix printk priority so chip fatal errors are always reported.
+Date: Thu, 30 Jun 2011 13:02:06 -0700
+Message-ID: <1309464127-14797-2-git-send-email-ron.mercer@qlogic.com>
 References: <1308855049.6688.19.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,75 +9,73 @@ Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
 	<jitendra.kalsaria@qlogic.com>, <ameen.rahman@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:12067
-	"EHLO CH1EHSOBE017.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751097Ab1F3USw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 16:18:52 -0400
+Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:1275
+	"EHLO CH1EHSOBE015.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751097Ab1F3UTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 16:19:50 -0400
 In-Reply-To: <1308855049.6688.19.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-When we are in a recover process from a chip fatal error,
-	driver should skip over execution of mailbox commands during
-	resetting chip.
+Precedence of the printk should be at higher level so chip fatal
+errors are always reported.
 
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 ---
- drivers/net/qlge/qlge.h      |    1 +
- drivers/net/qlge/qlge_main.c |   20 +++++++++++++++-----
- 2 files changed, 16 insertions(+), 5 deletions(-)
+ drivers/net/qlge/qlge_main.c |   22 +++++++++-------------
+ 1 files changed, 9 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index d328507..b2c8612 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -1996,6 +1996,7 @@ enum {
- 	QL_LB_LINK_UP = 10,
- 	QL_FRC_COREDUMP = 11,
- 	QL_EEH_FATAL = 12,
-+	QL_ASIC_RECOVERY = 14, /* We are in ascic recovery. */
- };
- 
- /* link_status bit definitions */
 diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 930ae45..4fbefcf 100644
+index 4fbefcf..6b4ff97 100644
 --- a/drivers/net/qlge/qlge_main.c
 +++ b/drivers/net/qlge/qlge_main.c
-@@ -2152,6 +2152,10 @@ void ql_queue_asic_error(struct ql_adapter *qdev)
- 	 * thread
+@@ -2170,23 +2170,20 @@ static void ql_process_chip_ae_intr(struct ql_adapter *qdev,
+ 		return;
+ 
+ 	case CAM_LOOKUP_ERR_EVENT:
+-		netif_err(qdev, link, qdev->ndev,
+-			  "Multiple CAM hits lookup occurred.\n");
+-		netif_err(qdev, drv, qdev->ndev,
+-			  "This event shouldn't occur.\n");
++		netdev_err(qdev->ndev, "Multiple CAM hits lookup occurred.\n");
++		netdev_err(qdev->ndev, "This event shouldn't occur.\n");
+ 		ql_queue_asic_error(qdev);
+ 		return;
+ 
+ 	case SOFT_ECC_ERROR_EVENT:
+-		netif_err(qdev, rx_err, qdev->ndev,
+-			  "Soft ECC error detected.\n");
++		netdev_err(qdev->ndev, "Soft ECC error detected.\n");
+ 		ql_queue_asic_error(qdev);
+ 		break;
+ 
+ 	case PCI_ERR_ANON_BUF_RD:
+-		netif_err(qdev, rx_err, qdev->ndev,
+-			  "PCI error occurred when reading anonymous buffers from rx_ring %d.\n",
+-			  ib_ae_rsp->q_id);
++		netdev_err(qdev->ndev, "PCI error occurred when reading "
++					"anonymous buffers from rx_ring %d.\n",
++					ib_ae_rsp->q_id);
+ 		ql_queue_asic_error(qdev);
+ 		break;
+ 
+@@ -2441,11 +2438,10 @@ static irqreturn_t qlge_isr(int irq, void *dev_id)
  	 */
- 	clear_bit(QL_ADAPTER_UP, &qdev->flags);
-+	/* Set asic recovery bit to indicate reset process that we are
-+	 * in fatal error recovery process rather than normal close
-+	 */
-+	set_bit(QL_ASIC_RECOVERY, &qdev->flags);
- 	queue_delayed_work(qdev->workqueue, &qdev->asic_reset_work, 0);
- }
- 
-@@ -3818,11 +3822,17 @@ static int ql_adapter_reset(struct ql_adapter *qdev)
- 	end_jiffies = jiffies +
- 		max((unsigned long)1, usecs_to_jiffies(30));
- 
--	/* Stop management traffic. */
--	ql_mb_set_mgmnt_traffic_ctl(qdev, MB_SET_MPI_TFK_STOP);
-+	/* Check if bit is set then skip the mailbox command and
-+	 * clear the bit, else we are in normal reset process.
-+	 */
-+	if (!test_bit(QL_ASIC_RECOVERY, &qdev->flags)) {
-+		/* Stop management traffic. */
-+		ql_mb_set_mgmnt_traffic_ctl(qdev, MB_SET_MPI_TFK_STOP);
- 
--	/* Wait for the NIC and MGMNT FIFOs to empty. */
--	ql_wait_fifo_empty(qdev);
-+		/* Wait for the NIC and MGMNT FIFOs to empty. */
-+		ql_wait_fifo_empty(qdev);
-+	} else
-+		clear_bit(QL_ASIC_RECOVERY, &qdev->flags);
- 
- 	ql_write32(qdev, RST_FO, (RST_FO_FR << 16) | RST_FO_FR);
+ 	if (var & STS_FE) {
+ 		ql_queue_asic_error(qdev);
+-		netif_err(qdev, intr, qdev->ndev,
+-			  "Got fatal error, STS = %x.\n", var);
++		netdev_err(qdev->ndev, "Got fatal error, STS = %x.\n", var);
+ 		var = ql_read32(qdev, ERR_STS);
+-		netif_err(qdev, intr, qdev->ndev,
+-			  "Resetting chip. Error Status Register = 0x%x\n", var);
++		netdev_err(qdev->ndev, "Resetting chip. "
++					"Error Status Register = 0x%x\n", var);
+ 		return IRQ_HANDLED;
+ 	}
  
 -- 
 1.6.0.2
