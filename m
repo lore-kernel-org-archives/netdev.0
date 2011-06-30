@@ -1,67 +1,104 @@
-From: Josh Lehan <linux@krellan.com>
-Subject: Re: Skipping past TCP lost packet in userspace
-Date: Thu, 30 Jun 2011 01:38:12 -0700
-Message-ID: <4E0C35F4.6050901@krellan.com>
-References: <4DE44218.4070306@krellan.com>	 <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>	 <4DE5F3E3.2080609@krellan.com> <1306949723.8149.2202.camel@tardy> <4E04A609.7010206@fandm.edu>
+From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.belden@googlemail.com>
+Subject: [PATCH] ethtool : NFC corrections again
+Date: Thu, 30 Jun 2011 10:41:20 +0200
+Message-ID: <1309423280.15040.2.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Janardhan Iyengar <jana.iyengar@gmail.com>, rick.jones2@hp.com,
-	Josh Lehan <linux@krellan.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	netdev <netdev@vger.kernel.org>, Bryan Ford <bryan.ford@yale.edu>
-To: janardhan.iyengar@fandm.edu
+Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@belden.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Linux Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server4.hostdango.com ([70.86.37.74]:32934 "EHLO
-	server4.hostdango.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754126Ab1F3IiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 04:38:17 -0400
-In-Reply-To: <4E04A609.7010206@fandm.edu>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:52964 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754539Ab1F3Il3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 04:41:29 -0400
+Received: by gwaa18 with SMTP id a18so773246gwa.19
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2011 01:41:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2011 07:58 AM, Janardhan Iyengar wrote:
-> Thanks for your note.  I agree that it does seem like we're simply
-> adding to the metaphorical pile.  And my first knee-jerk response would
-> be that there's not much else one can do in the modern IPv4 Internet :-)
+This patch:
+# Adds an alias for ip4 called l4data pointing to spi (first 4 Layer 4
+bytes)
+# [TRIVIAL] Corrects the permutation of dst and src for ethernet
+# Suggests to always set the ip_ver field of usr_ip to ETH_RX_NFC_IP4 at
+least as long there is no opportunity to use others than IPv4 and there
+is no frontend option to enter ip_ver.
 
-Thanks, I also appreciate you reviving this thread.  I was surprised at
-the hostility here, towards an idea that we both think is necessary and
-practical, given the realities of today's Internet.
+Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+---
 
-TCP is at the middle of the hourglass, as you said.  Even UDP isn't
-universally allowed (it's not all that uncommon to see UDP blocked,
-except for DNS packets to whitelisted DNS servers).  At least one ISP,
-"AT&T U-Verse", no longer allows the customer their choice of Internet
-router, and the ISP's mandated router will filter all traffic in both
-directions, so if the packet isn't recognized by its simple little
-stateful firewall, into the bit bucket it goes.  Have fun trying to pass
-SCTP or DCCP through that!
+ ethtool.8.in |    5 +++++
+ rxclass.c    |   11 ++++++++---
+ 2 files changed, 13 insertions(+), 3 deletions(-)
 
-> Changes to the API, which is what we're proposing, is not a modification
-> to the transport layer protocol per se.  In other words, we are changing
-> the service that TCP offers to apps, and not the protocol.
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 7b1cdf5..0a64d75 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -296,6 +296,7 @@ ethtool \- query or control network driver and
+hardware settings
+ .BM src\-port
+ .BM dst\-port
+ .BM spi
++.BM l4data
+ .BM vlan\-etype
+ .BM vlan
+ .BM user\-def
+@@ -718,6 +719,10 @@ Specify the value of the security parameter index
+field (applicable to
+ AH/ESP packets)in the incoming packet to match along with an optional
+ mask.  Valid for flow-types ip4, ah4, and esp4.
+ .TP
++.BI l4data \ N \\fR\ [\\fPm \ N \\fR]\\fP
++Specify the value of the first 4 Bytes of Layer 4 in the incoming
+packet to
++match along with an optional mask.  Valid for ip4 flow-type.
++.TP
+ .BI vlan\-etype \ N \\fR\ [\\fPm \ N \\fR]\\fP
+ Includes the VLAN tag Ethertype and an optional mask.
+ .TP
+diff --git a/rxclass.c b/rxclass.c
+index ee486f7..b227901 100644
+--- a/rxclass.c
++++ b/rxclass.c
+@@ -622,6 +622,9 @@ static struct rule_opts rule_nfc_usr_ip4[] = {
+ 	{ "l4proto", OPT_U8, NFC_FLAG_PROTO,
+ 	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.proto),
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.usr_ip4_spec.proto) },
++	{ "l4data", OPT_BE32, NFC_FLAG_SPI,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.l4_4_bytes),
++	  offsetof(struct ethtool_rx_flow_spec,
+m_u.usr_ip4_spec.l4_4_bytes) },
+ 	{ "spi", OPT_BE32, NFC_FLAG_SPI,
+ 	  offsetof(struct ethtool_rx_flow_spec, h_u.usr_ip4_spec.l4_4_bytes),
+ 	  offsetof(struct ethtool_rx_flow_spec,
+m_u.usr_ip4_spec.l4_4_bytes) },
+@@ -648,11 +651,11 @@ static struct rule_opts rule_nfc_usr_ip4[] = {
+ 
+ static struct rule_opts rule_nfc_ether[] = {
+ 	{ "src", OPT_MAC, NFC_FLAG_SADDR,
+-	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_dest),
+-	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_dest) },
+-	{ "dst", OPT_MAC, NFC_FLAG_DADDR,
+ 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_source),
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_source) },
++	{ "dst", OPT_MAC, NFC_FLAG_DADDR,
++	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_dest),
++	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_dest) },
+ 	{ "proto", OPT_BE16, NFC_FLAG_PROTO,
+ 	  offsetof(struct ethtool_rx_flow_spec, h_u.ether_spec.h_proto),
+ 	  offsetof(struct ethtool_rx_flow_spec, m_u.ether_spec.h_proto) },
+@@ -1062,6 +1065,8 @@ int rxclass_parse_ruleopts(char **argp, int argc,
+ 		}
+ 	}
+ 
++	if (flow_type == IP_USER_FLOW)
++		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
+ 	if (flags & (NTUPLE_FLAG_VLAN | NTUPLE_FLAG_UDEF | NTUPLE_FLAG_VETH))
+ 		fsp->flow_type |= FLOW_EXT;
+ 
 
-Agreed, and the freedom of Linux to do this is what makes it great.  API
-compatibility with other OS's is not an issue, since as you said the app
-can always fall back to classical TCP behavior, and since nothing on the
-wire changes, it won't break the other OS on the other side of the wire.
 
-> Note:  I'm talking largely about the v4 Internet.  The v6 Internet will
-> hopefully have fewer devices that interpose on the transport layer, esp.
-> NAPTs;  however, I expect fully that firewalls and PEPs will still use
-> transport layer information, requiring them to be able to
-> read/understand transport header information.
 
-Like IPv4, most (all?) IPv6 firewalls are stateful, so the firewall has
-to be aware of the transport protocol in order to know which packets to
-allow back through as replies.  And, for servers behind the firewall,
-the firewall must offer a way to punch a hole through it without opening
-too wide of a hole, and keep state for incoming connections, so
-transport protocol awareness is important there as well.
-
-So, even though we're vastly outnumbered on this mailing list, I remain
-interested in your "Minion" paper and its ideas for providing a richer
-API to make TCP more versatile to suit a wide variety of needs.
-
-Josh Lehan
