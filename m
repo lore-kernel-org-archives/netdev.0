@@ -1,40 +1,42 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH V7 4/4 net-next] vhost: vhost TX zero-copy support
-Date: Thu, 30 Jun 2011 09:05:22 -0700
-Message-ID: <1309449922.4561.0.camel@localhost.localdomain>
-References: <1306611267.5180.97.camel@localhost.localdomain>
-	 <20110629091300.GC14627@redhat.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: ABORT if receive queue is not empty while closing
+ socket
+Date: Thu, 30 Jun 2011 12:27:10 -0400
+Message-ID: <4E0CA3DE.7010205@hp.com>
+References: <20110629135704.GB10085@canuck.infradead.org> <4E0B3491.1060603@hp.com> <20110629143649.GC10085@canuck.infradead.org> <4E0B3DA1.9060200@hp.com> <20110629154814.GD10085@canuck.infradead.org> <4E0B4F71.4020108@hp.com> <20110630133122.GB24074@canuck.infradead.org> <4E0C83FA.2090909@hp.com> <20110630161938.GD24074@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110629091300.GC14627@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:46443 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752292Ab1F3Q1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 12:27:16 -0400
+In-Reply-To: <20110630161938.GD24074@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-06-29 at 12:13 +0300, Michael S. Tsirkin wrote:
-> Assuming you mean vhost_zerocopy_signal_used, here's how I would do
-> it:
-> add a kref and a completion, signal completion in kref_put
-> callback, when backend is set - kref_get, on cleanup,
-> kref_put and then wait_for_completion_interruptible.
-> Where's the need for another thread coming from?
+On 06/30/2011 12:19 PM, Thomas Graf wrote:
+> On Thu, Jun 30, 2011 at 10:11:06AM -0400, Vladislav Yasevich wrote:
+>> On 06/30/2011 09:31 AM, Thomas Graf wrote:
+>>> On Wed, Jun 29, 2011 at 12:14:41PM -0400, Vladislav Yasevich wrote:
+>>>> Right.  The lack of ABORT from the receive of data is a bug.  I was trying to point out
+>>>> that instead of modified the sender of data to send the ABORT, you modify the receiver
+>>>> to send the ABORT when it is being closed while having data queued.
+>>>
+>>> Is this what you had in mind?
+>>
+>> Almost.  It could really be a simple true/false condition about recvqueue or inqueue
+>> being non-empty.  If that's the case, trigger abort.
 > 
-> If you like, post a patch with busywait + a FIXME comment,
-> and I can write up a patch on top.
+> What would be the advantage of that?
 > 
-> (BTW, ideally the function that does the signalling should be
-> in core networking bits so that it's still around
-> even if the vhost module gets removed). 
 
-OK, I will modify the patch.
+Wrt to true/false, it's simpler to test for non-empty then it is to go through and count
+the data (but I perfectly ok with either way).  WRT to testing the inqueue, as you stated,
+not everything may be in receive queue.
 
-Thanks
-Shirley
-
+-vlad
