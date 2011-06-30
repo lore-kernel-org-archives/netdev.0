@@ -1,77 +1,58 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: RE: [RFC 2/2] ethtool: Add support for DMA Coalescing feature
  config to ethtool.
-Date: Thu, 30 Jun 2011 10:52:42 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F016F8D2A76@orsmsx508.amr.corp.intel.com>
+Date: Thu, 30 Jun 2011 19:06:19 +0100
+Message-ID: <1309457179.2701.6.camel@bwh-desktop>
 References: <1308071606-6333-1-git-send-email-carolyn.wyborny@intel.com>
 	 <20110616.233354.508986372720173787.davem@davemloft.net>
 	 <EDC0E76513226749BFBC9C3FB031318F016EEF8A6E@orsmsx508.amr.corp.intel.com>
 	 <20110617.145420.866989290749857501.davem@davemloft.net>
 	 <EDC0E76513226749BFBC9C3FB031318F016F501D8D@orsmsx508.amr.corp.intel.com>
- <1308677893.2743.24.camel@bwh-desktop>
+	 <1308677893.2743.24.camel@bwh-desktop>
+	 <EDC0E76513226749BFBC9C3FB031318F016F8D2A76@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:26622 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751027Ab1F3Rwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2011 13:52:44 -0400
-In-Reply-To: <1308677893.2743.24.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:36839 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930Ab1F3SGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 14:06:22 -0400
+In-Reply-To: <EDC0E76513226749BFBC9C3FB031318F016F8D2A76@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEJlbiBIdXRjaGluZ3MgW21h
-aWx0bzpiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tXQ0KPlNlbnQ6IFR1ZXNkYXksIEp1bmUgMjEs
-IDIwMTEgMTA6MzggQU0NCj5UbzogV3lib3JueSwgQ2Fyb2x5bg0KPkNjOiBEYXZpZCBNaWxsZXI7
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj5TdWJqZWN0OiBSRTogW1JGQyAyLzJdIGV0aHRvb2w6
-IEFkZCBzdXBwb3J0IGZvciBETUEgQ29hbGVzY2luZyBmZWF0dXJlDQo+Y29uZmlnIHRvIGV0aHRv
-b2wuDQo+DQo+T24gVHVlLCAyMDExLTA2LTIxIGF0IDEwOjIzIC0wNzAwLCBXeWJvcm55LCBDYXJv
-bHluIHdyb3RlOg0KPj4NCj4+ID4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPj4gPkZyb206
-IERhdmlkIE1pbGxlciBbbWFpbHRvOmRhdmVtQGRhdmVtbG9mdC5uZXRdDQo+PiA+U2VudDogRnJp
-ZGF5LCBKdW5lIDE3LCAyMDExIDExOjU0IEFNDQo+PiA+VG86IFd5Ym9ybnksIENhcm9seW4NCj4+
-ID5DYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgYmh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbQ0K
-Pj4gPlN1YmplY3Q6IFJlOiBbUkZDIDIvMl0gZXRodG9vbDogQWRkIHN1cHBvcnQgZm9yIERNQSBD
-b2FsZXNjaW5nDQo+ZmVhdHVyZQ0KPj4gPmNvbmZpZyB0byBldGh0b29sLg0KPj4gPg0KPj4gPkZy
-b206ICJXeWJvcm55LCBDYXJvbHluIiA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4NCj4+ID5E
-YXRlOiBGcmksIDE3IEp1biAyMDExIDA4OjUwOjExIC0wNzAwDQo+PiA+DQo+PiA+PiBJIHdpbGwg
-YWRkIGEgZnVsbGVyIGRlc2NyaXB0aW9uIG9mIHRoZSBmZWF0dXJlIGluIG15IHVwZGF0ZWQgcGF0
-Y2guDQo+PiA+PiBJIHRob3VnaHQgdGhlIGZlYXR1cmUgd2FzIG1vcmUgd2VsbCBrbm93bi4gUXVp
-Y2sgZGVzY3JpcHRpb24gaXMNCj50aGF0DQo+PiA+PiBpdCdzIGEgcG93ZXIgc2F2aW5nIGZlYXR1
-cmUgdGhhdCBjYXVzZXMgdGhlIGFkYXB0ZXIgdG8gY29hbGVzY2UgaXRzDQo+PiA+PiBETUEgd3Jp
-dGVzIGF0IGxvdyB0cmFmZmljIHRpbWVzIHRvIHNhdmUgcG93ZXIgb24gdGhlIHBsYXRmb3JtIGJ5
-DQo+PiA+PiByZWR1Y2luZyB3YWtldXBzLiAgVGhlIHBhcmFtZXRlciBpcyBpbnRlbmRlZCBhcyBh
-IHNpbXBsZSB1MzIgdmFsdWUsDQo+PiA+PiBub3QganVzdCBhbiBvbiBvciBvZmYsIGJ1dCBhbHNv
-IHRvIGFsbG93IGEgdmFyaWV0eSBvZiBjb25maWd1cmF0aW9uDQo+PiA+PiBieSBhZGFwdGVyIHZl
-bmRvcnMsIHdpdGggdmFsaWRhdGlvbiBvZiB0aGUgaW5wdXQgb24gdGhlIGRyaXZlcg0KPnNpZGUu
-DQo+PiA+PiBTaW5jZSBJIGxlZnQgb3V0IHRoZSBpbXBsZW1lbnRhdGlvbiBpbiBteSBwYXRjaCwg
-dGhpcyB3YXNuJ3QgY2xlYXIuDQo+PiA+PiBJIHdpbGwgYWxzbyBmaXggdGhpcyBpbiBteSBuZXh0
-IHN1Ym1pc3Npb24uDQo+PiA+DQo+PiA+VGhlIHZhbHVlIGNhbm5vdCBoYXZlIGFkYXB0ZXIgc3Bl
-Y2lmaWMgbWVhbmluZywgeW91IG11c3QgZGVmaW5lIGl0DQo+PiA+cHJlY2lzZWx5IGFuZCBpbiBh
-IGdlbmVyaWMgbWFubmVyLCBzdWNoIHRoYXQgdGhlIHVzZXIgY2FuIHNwZWNpZnkgdGhlDQo+PiA+
-c2FtZSBzZXR0aW5nIGFjcm9zcyBkaWZmZXJlbnQgY2FyZCB0eXBlcy4NCj4+DQo+PiBPaywgZ29v
-ZCBwb2ludC4gIEkgd2lsbCByZWZpbmUgdGhlIGRlZmluaXRpb24gb2YgdGhlIHBhcmFtZXRlciBp
-biB0aGUNCj4+IG5leHQgc3VibWlzc2lvbiwgb25jZSB0aGUgZHVzdCBjbGVhcnMgb24gdGhlIG1h
-am9yIHJldmlzaW9ucyBpbg0KPj4gcHJvZ3Jlc3MuDQo+DQo+WW91IG1heSB3aXNoIHRvIHByb3Bv
-c2UgYSBuZXcgY29tbWFuZCBzdHJ1Y3R1cmUgdGhhdCBjb3ZlcnMgYm90aCBJUlEgYW5kDQo+RE1B
-IG1vZGVyYXRpb24uICBUaGV5IHNlZW0gdG8gYmUgcmVsYXRlZCwgc2luY2UgRE1BIGNhbm5vdCBi
-ZSBkZWxheWVkDQo+bG9uZ2VyIHRoYW4gdGhlIGNvcnJlc3BvbmRpbmcgSVJRLiAgV2UgYXJlIGN1
-cnJlbnRseSBsYWNraW5nIGEgd2F5IHRvDQo+c3BlY2lmeSBkaWZmZXJlbnQgSVJRIG1vZGVyYXRp
-b24gZm9yIG11bHRpcXVldWUgZGV2aWNlcyB3aGVyZSB0aGUgcXVldWVzDQo+YXJlIG5vdCBhbGwg
-dXNlZCBpbiB0aGUgc2FtZSB3YXkuDQo+DQo+QmVuLg0KPg0KPi0tDQo+QmVuIEh1dGNoaW5ncywg
-U2VuaW9yIFNvZnR3YXJlIEVuZ2luZWVyLCBTb2xhcmZsYXJlDQo+Tm90IHNwZWFraW5nIGZvciBt
-eSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj5UaGV5
-IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRl
-bWFya2VkLg0KDQpJIHdpbGwgdHJ5IHRvIGRvIHRoaXMuICBDb25maXJtaW5nIHlvdSBhcmUgc3Vn
-Z2VzdGluZyBhIHJlcGxhY2VtZW50IG9yIGFuIGFsdGVybmF0ZSBmb3IgdGhlIGN1cnJlbnQgLWMv
-LUMgY29hbGVzY2Ugc2V0dGluZ3Mgd2l0aCBwZXJoYXBzIHNvbWUgcm9vbSByZXNlcnZlZCBmb3Ig
-c29tZSBmdXR1cmUgY29hbGVzY2luZyB0eXBlIGZlYXR1cmVzIGFuZCBlbmFibGUgc2V0dGluZ3Mg
-cGVyIHF1ZXVlPyAgSSBhZ3JlZSB0aGV5IGFyZSByZWxhdGVkIGFuZCBpbml0aWFsbHkgY29uc2lk
-ZXJlZCB0cnlpbmcgdG8gYWRkIERNQUMgdG8gdGhlIGN1cnJlbnQgY29hbGVzY2luZyBzZXR0aW5n
-cywgYnV0IHRoZXkgYXJlIGZ1bGwuDQoNCkNhcm9seW4NCg0KQ2Fyb2x5biBXeWJvcm55DQpMaW51
-eCBEZXZlbG9wbWVudA0KTEFOIEFjY2VzcyBEaXZpc2lvbg0KSW50ZWwgQ29ycG9yYXRpb24NCg0K
-DQoNCg==
+On Thu, 2011-06-30 at 10:52 -0700, Wyborny, Carolyn wrote:
+[...]
+> >You may wish to propose a new command structure that covers both IRQ and
+> >DMA moderation.  They seem to be related, since DMA cannot be delayed
+> >longer than the corresponding IRQ.  We are currently lacking a way to
+> >specify different IRQ moderation for multiqueue devices where the queues
+> >are not all used in the same way.
+> >
+> >Ben.
+> >
+> >--
+> >Ben Hutchings, Senior Software Engineer, Solarflare
+> >Not speaking for my employer; that's the marketing department's job.
+> >They asked us to note that Solarflare product names are trademarked.
+> 
+> I will try to do this.  Confirming you are suggesting a replacement or
+> an alternate for the current -c/-C coalesce settings with perhaps some
+> room reserved for some future coalescing type features and enable
+> settings per queue?
+[...]
+
+Yes.  I'm not insisting that you must do this instead of just defining
+the operations for DMA coalescing, but it would be helpful.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
