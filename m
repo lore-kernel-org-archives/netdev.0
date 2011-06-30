@@ -1,130 +1,57 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: ABORT if receive queue is not empty while closing
- socket
-Date: Thu, 30 Jun 2011 10:11:06 -0400
-Message-ID: <4E0C83FA.2090909@hp.com>
-References: <20110629135704.GB10085@canuck.infradead.org> <4E0B3491.1060603@hp.com> <20110629143649.GC10085@canuck.infradead.org> <4E0B3DA1.9060200@hp.com> <20110629154814.GD10085@canuck.infradead.org> <4E0B4F71.4020108@hp.com> <20110630133122.GB24074@canuck.infradead.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Skipping past TCP lost packet in userspace
+Date: Thu, 30 Jun 2011 10:36:14 -0400
+Message-ID: <20110630143614.GA4392@shamino.rdu.redhat.com>
+References: <4DE44218.4070306@krellan.com>
+ <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com>
+ <4DE5F3E3.2080609@krellan.com>
+ <1306949723.8149.2202.camel@tardy>
+ <4E04A609.7010206@fandm.edu>
+ <4E0C35F4.6050901@krellan.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: janardhan.iyengar@fandm.edu,
+	Janardhan Iyengar <jana.iyengar@gmail.com>, rick.jones2@hp.com,
+	Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>, Bryan Ford <bryan.ford@yale.edu>
+To: Josh Lehan <linux@krellan.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:6021 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752014Ab1F3OLK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 10:11:10 -0400
-In-Reply-To: <20110630133122.GB24074@canuck.infradead.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39103 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750852Ab1F3Ogh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 10:36:37 -0400
+Content-Disposition: inline
+In-Reply-To: <4E0C35F4.6050901@krellan.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/30/2011 09:31 AM, Thomas Graf wrote:
-> On Wed, Jun 29, 2011 at 12:14:41PM -0400, Vladislav Yasevich wrote:
->> Right.  The lack of ABORT from the receive of data is a bug.  I was trying to point out
->> that instead of modified the sender of data to send the ABORT, you modify the receiver
->> to send the ABORT when it is being closed while having data queued.
+On Thu, Jun 30, 2011 at 01:38:12AM -0700, Josh Lehan wrote:
+> On 06/24/2011 07:58 AM, Janardhan Iyengar wrote:
+> > Thanks for your note.  I agree that it does seem like we're simply
+> > adding to the metaphorical pile.  And my first knee-jerk response would
+> > be that there's not much else one can do in the modern IPv4 Internet :-)
 > 
-> Is this what you had in mind?
-
-Almost.  It could really be a simple true/false condition about recvqueue or inqueue
-being non-empty.  If that's the case, trigger abort.
-
--vlad
-
+> Thanks, I also appreciate you reviving this thread.  I was surprised at
+> the hostility here, towards an idea that we both think is necessary and
+> practical, given the realities of today's Internet.
 > 
-> Trigger user ABORT when a socket is closed which has skbs sitting on
-> the receive queue. If data was lost, there is no point in doing a
-> graceful shutdown. This is consistent with TCP behaviour.
+> TCP is at the middle of the hourglass, as you said.  Even UDP isn't
+> universally allowed (it's not all that uncommon to see UDP blocked,
+> except for DNS packets to whitelisted DNS servers).  At least one ISP,
+> "AT&T U-Verse", no longer allows the customer their choice of Internet
+> router, and the ISP's mandated router will filter all traffic in both
+> directions, so if the packet isn't recognized by its simple little
+> stateful firewall, into the bit bucket it goes.  Have fun trying to pass
+> SCTP or DCCP through that!
 > 
-> This also resolves the situation when a receiver cannot reopen its rwnd
-> and the sender continues retransmission attempts indefinitely before
-> initiating the shutdown.
-> 
-> Signed-off-by: Thomas Graf <tgraf@infradead.org>
-> 
-> diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
-> index 99b027b..ca4693b 100644
-> --- a/include/net/sctp/ulpevent.h
-> +++ b/include/net/sctp/ulpevent.h
-> @@ -80,7 +80,7 @@ static inline struct sctp_ulpevent *sctp_skb2event(struct sk_buff *skb)
->  
->  void sctp_ulpevent_free(struct sctp_ulpevent *);
->  int sctp_ulpevent_is_notification(const struct sctp_ulpevent *);
-> -void sctp_queue_purge_ulpevents(struct sk_buff_head *list);
-> +unsigned int sctp_queue_purge_ulpevents(struct sk_buff_head *list);
->  
->  struct sctp_ulpevent *sctp_ulpevent_make_assoc_change(
->  	const struct sctp_association *asoc,
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 6766913..958253a 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1384,6 +1384,7 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
->  	struct sctp_endpoint *ep;
->  	struct sctp_association *asoc;
->  	struct list_head *pos, *temp;
-> +	unsigned int data_was_unread;
->  
->  	SCTP_DEBUG_PRINTK("sctp_close(sk: 0x%p, timeout:%ld)\n", sk, timeout);
->  
-> @@ -1393,6 +1394,10 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
->  
->  	ep = sctp_sk(sk)->ep;
->  
-> +	/* Clean up any skbs sitting on the receive queue.  */
-> +	data_was_unread = sctp_queue_purge_ulpevents(&sk->sk_receive_queue);
-> +	data_was_unread += sctp_queue_purge_ulpevents(&sctp_sk(sk)->pd_lobby);
-> +
->  	/* Walk all associations on an endpoint.  */
->  	list_for_each_safe(pos, temp, &ep->asocs) {
->  		asoc = list_entry(pos, struct sctp_association, asocs);
-> @@ -1410,7 +1415,8 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
->  			}
->  		}
->  
-> -		if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime) {
-> +		if (data_was_unread ||
-> +		    (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime)) {
->  			struct sctp_chunk *chunk;
->  
->  			chunk = sctp_make_abort_user(asoc, NULL, 0);
-> @@ -1420,10 +1426,6 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
->  			sctp_primitive_SHUTDOWN(asoc, NULL);
->  	}
->  
-> -	/* Clean up any skbs sitting on the receive queue.  */
-> -	sctp_queue_purge_ulpevents(&sk->sk_receive_queue);
-> -	sctp_queue_purge_ulpevents(&sctp_sk(sk)->pd_lobby);
-> -
->  	/* On a TCP-style socket, block for at most linger_time if set. */
->  	if (sctp_style(sk, TCP) && timeout)
->  		sctp_wait_for_close(sk, timeout);
-> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-> index e70e5fc..aab3184 100644
-> --- a/net/sctp/ulpevent.c
-> +++ b/net/sctp/ulpevent.c
-> @@ -1081,9 +1081,19 @@ void sctp_ulpevent_free(struct sctp_ulpevent *event)
->  }
->  
->  /* Purge the skb lists holding ulpevents. */
-> -void sctp_queue_purge_ulpevents(struct sk_buff_head *list)
-> +unsigned int sctp_queue_purge_ulpevents(struct sk_buff_head *list)
->  {
->  	struct sk_buff *skb;
-> -	while ((skb = skb_dequeue(list)) != NULL)
-> +	unsigned int data_unread = 0;
-> +
-> +	while ((skb = skb_dequeue(list)) != NULL) {
-> +		struct sctp_ulpevent *event = sctp_skb2event(skb);
-> +
-> +		if (!sctp_ulpevent_is_notification(event))
-> +			data_unread += skb->len;
-> +
->  		sctp_ulpevent_free(sctp_skb2event(skb));
-> +	}
-> +
-> +	return data_unread;
->  }
-> 
+I'll leave the rest of this alone, since its pretty obvious that no one is going
+to break TCP for you, but just so that you're aware, The only reason you have to
+use the 2-Wire gateway that AT&T provides is because there are no commercially
+available routers that support the uplink interface (which I expect will change
+eventually).  In the time being, if you want to use a different router, place
+the RG in bridge mode by selecting a host as your DMZ device.  That will assign
+the wan address to that connected device via DHCP and allow you to pass whatever
+traffic you want through it.  I use it to pass SCTP and IPv6 traffice all the
+time, works great.
+Neil
 
