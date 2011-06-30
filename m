@@ -1,308 +1,43 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next-2.6 2/3] be2net: create/destroy rx-queues on interface open/close
-Date: Thu, 30 Jun 2011 15:03:17 +0530
-Message-ID: <1309426397-15892-1-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next-2.6 3/3] be2net: clear intr bit in be_probe()
+Date: Thu, 30 Jun 2011 15:03:37 +0530
+Message-ID: <1309426417-15931-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:15853 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:15856 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751803Ab1F3JdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 05:33:11 -0400
+	with ESMTP id S1753685Ab1F3Jdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2011 05:33:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some skews, the BE card sends pause frames (and not drop pkts) if there are
-no more posted buffers available for packet reception.  This behaviour has a
-side effect: When an interface is disabled, buffers are no longer posted on the
-corresponding RX rings. All broadcast and multicast traffic being received on
-the port will quickly fill up the PMEM and cause pause push back. As the PMEM
-is shared by both the ports, all traffic being received on the other (enabled)
-port also gets stalled.
-The fix is to destroy RX rings when the interface is disabled. If there is no
-RX ring match in the RXF lookup, the packets are discarded and so don't hog the
-PMEM.
-The RXQ creation cmd must now use MCC instead of MBOX as they are are called
-post MCC queue creation.
- 
+It may be set in the card while the driver is probed by kdump kernel after a
+crash.
+
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/benet/be_cmds.c |   50 +++++++++++++++++---
- drivers/net/benet/be_cmds.h |    2 +
- drivers/net/benet/be_main.c |  105 ++++++++++++++++++++++++++++---------------
- 3 files changed, 112 insertions(+), 45 deletions(-)
+ drivers/net/benet/be_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 7e7ea51..0d9bd5b 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -984,7 +984,7 @@ int be_cmd_txq_create(struct be_adapter *adapter,
- 	return status;
- }
- 
--/* Uses mbox */
-+/* Uses MCC */
- int be_cmd_rxq_create(struct be_adapter *adapter,
- 		struct be_queue_info *rxq, u16 cq_id, u16 frag_size,
- 		u16 max_frame_size, u32 if_id, u32 rss, u8 *rss_id)
-@@ -994,10 +994,13 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
- 	struct be_dma_mem *q_mem = &rxq->dma_mem;
- 	int status;
- 
--	if (mutex_lock_interruptible(&adapter->mbox_lock))
--		return -1;
-+	spin_lock_bh(&adapter->mcc_lock);
- 
--	wrb = wrb_from_mbox(adapter);
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
- 	req = embedded_payload(wrb);
- 
- 	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0,
-@@ -1014,7 +1017,7 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
- 	req->max_frame_size = cpu_to_le16(max_frame_size);
- 	req->rss_queue = cpu_to_le32(rss);
- 
--	status = be_mbox_notify_wait(adapter);
-+	status = be_mcc_notify_wait(adapter);
- 	if (!status) {
- 		struct be_cmd_resp_eth_rx_create *resp = embedded_payload(wrb);
- 		rxq->id = le16_to_cpu(resp->id);
-@@ -1022,8 +1025,8 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
- 		*rss_id = resp->rss_id;
- 	}
- 
--	mutex_unlock(&adapter->mbox_lock);
--
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
- 
-@@ -1078,9 +1081,40 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 	req->id = cpu_to_le16(q->id);
- 
- 	status = be_mbox_notify_wait(adapter);
--
-+	if (!status)
-+		q->created = false;
-+		
- 	mutex_unlock(&adapter->mbox_lock);
-+	return status;
-+}
-+
-+/* Uses MCC */
-+int be_cmd_rxq_destroy(struct be_adapter *adapter, struct be_queue_info *q)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_q_destroy *req;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
- 
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0, OPCODE_ETH_RX_DESTROY);
-+	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH, OPCODE_ETH_RX_DESTROY,
-+		sizeof(*req));
-+	req->id = cpu_to_le16(q->id);
-+
-+	status = be_mcc_notify_wait(adapter);
-+	if (!status)
-+		q->created = false;
-+
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
- 
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index f0d7457..1151df6 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -1482,6 +1482,8 @@ extern int be_cmd_rxq_create(struct be_adapter *adapter,
- 			u32 rss, u8 *rss_id);
- extern int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 			int type);
-+extern int be_cmd_rxq_destroy(struct be_adapter *adapter,
-+			struct be_queue_info *q);
- extern int be_cmd_link_status_query(struct be_adapter *adapter,
- 			bool *link_up, u8 *mac_speed, u16 *link_speed, u32 dom);
- extern int be_cmd_reset(struct be_adapter *adapter);
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index ae281de..5b319d7 100644
+index 5b319d7..375924f 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -1572,6 +1572,7 @@ static void be_rx_q_clean(struct be_adapter *adapter, struct be_rx_obj *rxo)
- 		memset(page_info, 0, sizeof(*page_info));
- 	}
- 	BUG_ON(atomic_read(&rxq->used));
-+	rxq->tail = rxq->head = 0;
- }
+@@ -3417,6 +3417,12 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	if (status)
+ 		goto stats_clean;
  
- static void be_tx_compl_clean(struct be_adapter *adapter,
-@@ -1752,29 +1753,16 @@ static void be_rx_queues_destroy(struct be_adapter *adapter)
- 	int i;
- 
- 	for_all_rx_queues(adapter, rxo, i) {
--		q = &rxo->q;
--		if (q->created) {
--			be_cmd_q_destroy(adapter, q, QTYPE_RXQ);
--			/* After the rxq is invalidated, wait for a grace time
--			 * of 1ms for all dma to end and the flush compl to
--			 * arrive
--			 */
--			mdelay(1);
--			be_rx_q_clean(adapter, rxo);
--		}
--		be_queue_free(adapter, q);
-+		be_queue_free(adapter, &rxo->q);
- 
- 		q = &rxo->cq;
- 		if (q->created)
- 			be_cmd_q_destroy(adapter, q, QTYPE_CQ);
- 		be_queue_free(adapter, q);
- 
--		/* Clear any residual events */
- 		q = &rxo->rx_eq.q;
--		if (q->created) {
--			be_eq_clean(adapter, &rxo->rx_eq);
-+		if (q->created)
- 			be_cmd_q_destroy(adapter, q, QTYPE_EQ);
--		}
- 		be_queue_free(adapter, q);
- 	}
- }
-@@ -1833,30 +1821,14 @@ static int be_rx_queues_create(struct be_adapter *adapter)
- 		rc = be_cmd_cq_create(adapter, cq, eq, false, false, 3);
- 		if (rc)
- 			goto err;
--		/* Rx Q */
++	/* The INTR bit may be set in the card when probed by a kdump kernel
++	 * after a crash.
++ 	 */ 
++	if (!lancer_chip(adapter))
++		be_intr_set(adapter, false);
 +
-+		/* Rx Q - will be created in be_open() */
- 		q = &rxo->q;
- 		rc = be_queue_alloc(adapter, q, RX_Q_LEN,
- 				sizeof(struct be_eth_rx_d));
- 		if (rc)
- 			goto err;
+ 	be_msix_enable(adapter);
  
--		rc = be_cmd_rxq_create(adapter, q, cq->id, rx_frag_size,
--			BE_MAX_JUMBO_FRAME_SIZE, adapter->if_handle,
--			(i > 0) ? 1 : 0/* rss enable */, &rxo->rss_id);
--		if (rc)
--			goto err;
--	}
--
--	if (be_multi_rxq(adapter)) {
--		u8 rsstable[MAX_RSS_QS];
--
--		for_all_rss_queues(adapter, rxo, i)
--			rsstable[i] = rxo->rss_id;
--
--		rc = be_cmd_rss_config(adapter, rsstable,
--			adapter->num_rx_qs - 1);
--		if (rc)
--			goto err;
- 	}
- 
- 	return 0;
-@@ -2302,6 +2274,31 @@ done:
- 	adapter->isr_registered = false;
- }
- 
-+static void be_rx_queues_clear(struct be_adapter *adapter)
-+{
-+	struct be_queue_info *q;
-+	struct be_rx_obj *rxo;
-+	int i;
-+
-+	for_all_rx_queues(adapter, rxo, i) {
-+		q = &rxo->q;
-+		if (q->created) {
-+			be_cmd_rxq_destroy(adapter, q);
-+			/* After the rxq is invalidated, wait for a grace time
-+			 * of 1ms for all dma to end and the flush compl to
-+			 * arrive
-+			 */
-+			mdelay(1);
-+			be_rx_q_clean(adapter, rxo);
-+		}
-+
-+		/* Clear any residual events */
-+		q = &rxo->rx_eq.q;
-+		if (q->created)
-+			be_eq_clean(adapter, &rxo->rx_eq);
-+	}
-+}
-+
- static int be_close(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-@@ -2350,6 +2347,40 @@ static int be_close(struct net_device *netdev)
- 	for_all_tx_queues(adapter, txo, i)
- 		be_tx_compl_clean(adapter, txo);
- 
-+	be_rx_queues_clear(adapter);
-+	return 0;
-+}
-+
-+static int be_rx_queues_setup(struct be_adapter *adapter)
-+{
-+	struct be_rx_obj *rxo;
-+	int rc, i;
-+	u8 rsstable[MAX_RSS_QS];
-+
-+	for_all_rx_queues(adapter, rxo, i) {
-+		rc = be_cmd_rxq_create(adapter, &rxo->q, rxo->cq.id,
-+			rx_frag_size, BE_MAX_JUMBO_FRAME_SIZE,
-+			adapter->if_handle,
-+			(i > 0) ? 1 : 0/* rss enable */, &rxo->rss_id);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	if (be_multi_rxq(adapter)) {
-+		for_all_rss_queues(adapter, rxo, i)
-+			rsstable[i] = rxo->rss_id;
-+
-+		rc = be_cmd_rss_config(adapter, rsstable,
-+			adapter->num_rx_qs - 1);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	/* First time posting */
-+	for_all_rx_queues(adapter, rxo, i) {
-+		be_post_rx_frags(rxo, GFP_KERNEL);
-+		napi_enable(&rxo->rx_eq.napi);
-+	}
- 	return 0;
- }
- 
-@@ -2363,10 +2394,10 @@ static int be_open(struct net_device *netdev)
- 	u8 mac_speed;
- 	u16 link_speed;
- 
--	for_all_rx_queues(adapter, rxo, i) {
--		be_post_rx_frags(rxo, GFP_KERNEL);
--		napi_enable(&rxo->rx_eq.napi);
--	}
-+	status = be_rx_queues_setup(adapter);
-+	if (status)
-+		goto err;
-+
- 	napi_enable(&tx_eq->napi);
- 
- 	be_irq_register(adapter);
+ 	INIT_DELAYED_WORK(&adapter->work, be_worker);
 -- 
 1.7.4
 
