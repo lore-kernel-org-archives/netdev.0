@@ -1,80 +1,117 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 0/2] bluetooth: Use current logging styles
-Date: Wed, 29 Jun 2011 18:18:28 -0700
-Message-ID: <cover.1309396408.git.joe@perches.com>
-References: <1309370457.2208.48.camel@aeonflux>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1309370457.2208.48.camel@aeonflux>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 1/2] bluetooth: Rename function bt_err to bt_to_errno
+Date: Wed, 29 Jun 2011 18:18:29 -0700
+Message-ID: <895bc01e49b93b9498ca05cfa1bd9cf58cf30df8.1309396408.git.joe@perches.com>
+References: <1309370457.2208.48.camel@aeonflux> <cover.1309396408.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1309396408.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-06-29 at 11:00 -0700, Marcel Holtmann wrote:
-> I did not know that. Then we might should go ahead and also cleanup the
-> Bluetooth subsystem.
-> 
-> We do use an implied "Bluetooth: " prefix when calling BT_INFO, but that
-> can be easily changed to bt_info() as well since I do not care about
-> that part. 
-> 
-> The Bluetooth subsystem has a Linux 2.4 legacy history and a lot of
-> things can be done a lot nicer these days.
+Make it easier to use more normal logging styles later.
 
-Here you go Marcel.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/net/bluetooth/bluetooth.h |    2 +-
+ net/bluetooth/hci_core.c          |    2 +-
+ net/bluetooth/l2cap_core.c        |    4 ++--
+ net/bluetooth/lib.c               |    4 ++--
+ net/bluetooth/sco.c               |    4 ++--
+ 5 files changed, 8 insertions(+), 8 deletions(-)
 
-It reduces code/text a couple/few percent too.
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 7bccaf9..7d77545f 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -204,7 +204,7 @@ out:
+ 	return NULL;
+ }
  
-Joe Perches (2):
-  bluetooth: Rename function bt_err to bt_to_errno
-  bluetooth: Add bt_printk, convert logging macros to lower case
-
- drivers/bluetooth/ath3k.c          |   48 ++++----
- drivers/bluetooth/bcm203x.c        |   38 +++---
- drivers/bluetooth/bfusb.c          |   94 +++++++-------
- drivers/bluetooth/bluecard_cs.c    |   18 ++--
- drivers/bluetooth/bpa10x.c         |   38 +++---
- drivers/bluetooth/bt3c_cs.c        |   34 +++---
- drivers/bluetooth/btmrvl_debugfs.c |    2 +-
- drivers/bluetooth/btmrvl_main.c    |   74 ++++++------
- drivers/bluetooth/btmrvl_sdio.c    |  112 +++++++++---------
- drivers/bluetooth/btsdio.c         |   26 ++--
- drivers/bluetooth/btuart_cs.c      |   24 ++--
- drivers/bluetooth/btusb.c          |   64 +++++-----
- drivers/bluetooth/btwilink.c       |   34 +++---
- drivers/bluetooth/dtl1_cs.c        |   20 ++--
- drivers/bluetooth/hci_ath.c        |   14 +-
- drivers/bluetooth/hci_bcsp.c       |   58 +++++-----
- drivers/bluetooth/hci_h4.c         |   18 ++--
- drivers/bluetooth/hci_ldisc.c      |   36 +++---
- drivers/bluetooth/hci_ll.c         |   76 ++++++------
- drivers/bluetooth/hci_vhci.c       |    8 +-
- include/net/bluetooth/bluetooth.h  |   11 +-
- net/bluetooth/af_bluetooth.c       |   20 ++--
- net/bluetooth/bnep/core.c          |   26 ++--
- net/bluetooth/bnep/netdev.c        |   14 +-
- net/bluetooth/bnep/sock.c          |   10 +-
- net/bluetooth/cmtp/capi.c          |   46 ++++----
- net/bluetooth/cmtp/core.c          |   30 +++---
- net/bluetooth/cmtp/sock.c          |   10 +-
- net/bluetooth/hci_conn.c           |   52 ++++----
- net/bluetooth/hci_core.c           |  142 +++++++++++-----------
- net/bluetooth/hci_event.c          |  234 ++++++++++++++++++------------------
- net/bluetooth/hci_sock.c           |   26 ++--
- net/bluetooth/hci_sysfs.c          |   12 +-
- net/bluetooth/hidp/core.c          |   50 ++++----
- net/bluetooth/hidp/sock.c          |   10 +-
- net/bluetooth/l2cap_core.c         |  172 +++++++++++++-------------
- net/bluetooth/l2cap_sock.c         |   40 +++---
- net/bluetooth/lib.c                |   23 ++++-
- net/bluetooth/mgmt.c               |   80 ++++++------
- net/bluetooth/rfcomm/core.c        |  152 ++++++++++++------------
- net/bluetooth/rfcomm/sock.c        |   56 +++++-----
- net/bluetooth/rfcomm/tty.c         |  100 ++++++++--------
- net/bluetooth/sco.c                |   84 +++++++-------
- net/bluetooth/smp.c                |   30 +++---
- 44 files changed, 1144 insertions(+), 1122 deletions(-)
-
+-int bt_err(__u16 code);
++int bt_to_errno(__u16 code);
+ 
+ extern int hci_sock_init(void);
+ extern void hci_sock_cleanup(void);
+diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+index b18db56..ec34c5a 100644
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -148,7 +148,7 @@ static int __hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *hdev,
+ 
+ 	switch (hdev->req_status) {
+ 	case HCI_REQ_DONE:
+-		err = -bt_err(hdev->req_result);
++		err = -bt_to_errno(hdev->req_result);
+ 		break;
+ 
+ 	case HCI_REQ_CANCELED:
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index 9ec9c8c..2a27428 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -4107,7 +4107,7 @@ static int l2cap_connect_cfm(struct hci_conn *hcon, u8 status)
+ 		if (conn)
+ 			l2cap_conn_ready(conn);
+ 	} else
+-		l2cap_conn_del(hcon, bt_err(status));
++		l2cap_conn_del(hcon, bt_to_errno(status));
+ 
+ 	return 0;
+ }
+@@ -4131,7 +4131,7 @@ static int l2cap_disconn_cfm(struct hci_conn *hcon, u8 reason)
+ 	if (!(hcon->type == ACL_LINK || hcon->type == LE_LINK))
+ 		return -EINVAL;
+ 
+-	l2cap_conn_del(hcon, bt_err(reason));
++	l2cap_conn_del(hcon, bt_to_errno(reason));
+ 
+ 	return 0;
+ }
+diff --git a/net/bluetooth/lib.c b/net/bluetooth/lib.c
+index b826d1b..4e7cf8b 100644
+--- a/net/bluetooth/lib.c
++++ b/net/bluetooth/lib.c
+@@ -59,7 +59,7 @@ char *batostr(bdaddr_t *ba)
+ EXPORT_SYMBOL(batostr);
+ 
+ /* Bluetooth error codes to Unix errno mapping */
+-int bt_err(__u16 code)
++int bt_to_errno(__u16 code)
+ {
+ 	switch (code) {
+ 	case 0:
+@@ -149,4 +149,4 @@ int bt_err(__u16 code)
+ 		return ENOSYS;
+ 	}
+ }
+-EXPORT_SYMBOL(bt_err);
++EXPORT_SYMBOL(bt_to_errno);
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+index cb4fb78..4c3621b 100644
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -932,7 +932,7 @@ static int sco_connect_cfm(struct hci_conn *hcon, __u8 status)
+ 		if (conn)
+ 			sco_conn_ready(conn);
+ 	} else
+-		sco_conn_del(hcon, bt_err(status));
++		sco_conn_del(hcon, bt_to_errno(status));
+ 
+ 	return 0;
+ }
+@@ -944,7 +944,7 @@ static int sco_disconn_cfm(struct hci_conn *hcon, __u8 reason)
+ 	if (hcon->type != SCO_LINK && hcon->type != ESCO_LINK)
+ 		return -EINVAL;
+ 
+-	sco_conn_del(hcon, bt_err(reason));
++	sco_conn_del(hcon, bt_to_errno(reason));
+ 
+ 	return 0;
+ }
 -- 
 1.7.6.rc1
