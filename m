@@ -1,55 +1,72 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] Disable router anycast address for /127 prefixes
-Date: Fri, 01 Jul 2011 15:09:57 -0400
-Message-ID: <4E0E1B85.1080906@hp.com>
-References: <20110630104713.52e085dd@nehalam.ftrdhcpuser.net>	<1309519330-16649-1-git-send-email-bjorn@mork.no>	<4E0DDDA5.20401@hp.com> <87y60hsvr2.fsf@nemi.mork.no>
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: Re: [PATCH] bluetooth: Add bt_printk
+Date: Fri, 1 Jul 2011 16:36:20 -0300
+Message-ID: <20110701193620.GI23683@joana>
+References: <20110630033119.GA3438@joana>
+ <f06f1d8f4185db431a038c328c42caf4fe270dd0.1309418368.git.joe@perches.com>
+ <20110701190327.GD23683@joana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:2813 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755316Ab1GATRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 15:17:05 -0400
-In-Reply-To: <87y60hsvr2.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110701190327.GD23683@joana>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/01/2011 02:26 PM, Bj=C3=B8rn Mork wrote:
-> Brian Haley <brian.haley@hp.com> writes:
->> On 07/01/2011 07:22 AM, Bj=C3=B8rn Mork wrote:
->>> RFC 6164 requires that routers MUST disable Subnet-Router anycast
->>> for the prefix when /127 prefixes are used.
->>>
->>> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
->>> ---
->>
->>> @@ -1479,6 +1481,8 @@ static void addrconf_join_anycast(struct inet=
-6_ifaddr *ifp)
->>>  static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
->>>  {
->>>  	struct in6_addr addr;
->>> +	if (ifp->prefix_len =3D=3D 127) /* RFC 6164 */
->>> +		return;
->>>  	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
->>>  	if (ipv6_addr_any(&addr))
->>>  		return;
->>
->> I'm not sure you'd need this part as there shouldn't be a /127 in th=
-e list to remove.
->=20
-> I don't understand exactly what you mean here....=20
+* Gustavo F. Padovan <padovan@profusion.mobi> [2011-07-01 16:03:27 -0300]:
 
-If you never add an anycast address when the prefix length is 127, the =
-address
-wouldn't be there when you went to remove it.  In other words, the call=
- to
-__ipv6_dev_ac_dec() would return -ENOENT, which is ignored anyways.
+> Hi Joe,
+> 
+> * Joe Perches <joe@perches.com> [2011-06-30 00:19:51 -0700]:
+> 
+> > Add a local logging function to emit bluetooth specific
+> > messages.  Using vsprintf extension %pV saves code/text
+> > space.
+> > 
+> > Convert the current BT_INFO and BT_ERR macros to use bt_printk.
+> > Remove __func__ from BT_ERR macro (and the uses).
+> > Prefix "Bluetooth: " to BT_ERR
+> > Remove __func__ from BT_DBG as function can be prefixed when
+> > using dynamic_debug.
+> > 
+> > With allyesconfig:
+> > 
+> >    text	   data	    bss	    dec	    hex	filename
+> >  129956	   8632	  36096	 174684	  2aa5c	drivers/bluetooth/built-in.o.new2
+> >  134402	   8632	  36064	 179098	  2bb9a	drivers/bluetooth/built-in.o.old
+> >   14778	   1012	   3408	  19198	   4afe	net/bluetooth/bnep/built-in.o.new2
+> >   15067	   1012	   3408	  19487	   4c1f	net/bluetooth/bnep/built-in.o.old
+> >  346595	  19163	  86080	 451838	  6e4fe	net/bluetooth/built-in.o.new2
+> >  353751	  19163	  86064	 458978	  700e2	net/bluetooth/built-in.o.old
+> >   18483	   1172	   4264	  23919	   5d6f	net/bluetooth/cmtp/built-in.o.new2
+> >   18927	   1172	   4264	  24363	   5f2b	net/bluetooth/cmtp/built-in.o.old
+> >   19237	   1172	   5152	  25561	   63d9	net/bluetooth/hidp/built-in.o.new2
+> >   19581	   1172	   5152	  25905	   6531	net/bluetooth/hidp/built-in.o.old
+> >   59461	   3884	  14464	  77809	  12ff1	net/bluetooth/rfcomm/built-in.o.new2
+> >   61206	   3884	  14464	  79554	  136c2	net/bluetooth/rfcomm/built-in.o.old
+> > 
+> > with x86 defconfig (and just bluetooth):
+> > 
+> > $ size net/bluetooth/built-in.o.defconfig.*
+> >    text	   data	    bss	    dec	    hex	filename
+> >   66358	    933	    100	  67391	  1073f	net/bluetooth/built-in.o.defconfig.new
+> >   66643	    933	    100	  67676	  1085c	net/bluetooth/built-in.o.defconfig.old
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> 
+> I applied this patch with a minimal change in the print format. I changed
+> 'bluetooth' to 'Bluetooth'. Thanks a lot for the patch. ;)
 
-It's not a common codepath so the two lines of code wouldn't hurt anyth=
-ing
-I guess...
+Ah, and in the case someone want to add the function name to debug messages
+after this patch. It is easy. Just run
 
--Brian
+echo -n "module bluetooth +pf" > /sys/kernel/debug/dynamic_debug/control
+
+And debug with funcion names will be enabled. ;)
+
+	Gustavo
