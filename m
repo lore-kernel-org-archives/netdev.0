@@ -1,55 +1,59 @@
 From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH 1/3] ssb: PCI revision ID register is 8-bit wide
-Date: Fri, 1 Jul 2011 22:31:59 +0400
-Message-ID: <201107012231.59532.sshtylyov@ru.mvista.com>
+Subject: [PATCH 2/3 v2] ssb: use pci_dev->revision
+Date: Fri, 1 Jul 2011 22:33:08 +0400
+Message-ID: <201107012233.08489.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 To: mb@bu3sch.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:47190 "HELO
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:47196 "HELO
 	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1757570Ab1GASdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 14:33:49 -0400
+	with SMTP id S1753679Ab1GASew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 14:34:52 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SSB code reads PCI revision ID register as 16-bit entity while the register
-is actually 8-bit only (the next 8 bits are the programming interface register).
-Fix the read and make the 'rev' field of 'struct ssb_boardinfo' 8-bit as well,
-to match the register size.
+The SSB code reads PCI revision ID from the PCI configuration register while
+it's already stored by the PCI subsystem in the 'revision' field  of 'struct
+pci_dev'...
 
 Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
- drivers/ssb/pci.c       |    2 +-
- include/linux/ssb/ssb.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+---
+The patch is against the recent Linus' tree.
+
+ drivers/ssb/pci.c  |    3 +--
+ drivers/ssb/scan.c |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
 Index: linux-2.6/drivers/ssb/pci.c
 ===================================================================
 --- linux-2.6.orig/drivers/ssb/pci.c
 +++ linux-2.6/drivers/ssb/pci.c
-@@ -738,7 +738,7 @@ static void ssb_pci_get_boardinfo(struct
+@@ -738,8 +738,7 @@ static void ssb_pci_get_boardinfo(struct
  			     &bi->vendor);
  	pci_read_config_word(bus->host_pci, PCI_SUBSYSTEM_ID,
  			     &bi->type);
--	pci_read_config_word(bus->host_pci, PCI_REVISION_ID,
-+	pci_read_config_byte(bus->host_pci, PCI_REVISION_ID,
- 			     &bi->rev);
+-	pci_read_config_byte(bus->host_pci, PCI_REVISION_ID,
+-			     &bi->rev);
++	bi->rev = bus->host_pci->revision;
  }
  
-Index: linux-2.6/include/linux/ssb/ssb.h
+ int ssb_pci_get_invariants(struct ssb_bus *bus,
+Index: linux-2.6/drivers/ssb/scan.c
 ===================================================================
---- linux-2.6.orig/include/linux/ssb/ssb.h
-+++ linux-2.6/include/linux/ssb/ssb.h
-@@ -99,7 +99,7 @@ struct ssb_sprom {
- struct ssb_boardinfo {
- 	u16 vendor;
- 	u16 type;
--	u16 rev;
-+	u8  rev;
- };
- 
- 
+--- linux-2.6.orig/drivers/ssb/scan.c
++++ linux-2.6/drivers/ssb/scan.c
+@@ -310,8 +310,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 	} else {
+ 		if (bus->bustype == SSB_BUSTYPE_PCI) {
+ 			bus->chip_id = pcidev_to_chipid(bus->host_pci);
+-			pci_read_config_byte(bus->host_pci, PCI_REVISION_ID,
+-					     &bus->chip_rev);
++			bus->chip_rev = bus->host_pci->revision;
+ 			bus->chip_package = 0;
+ 		} else {
+ 			bus->chip_id = 0x4710;
