@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] net switch/case reformatting
-Date: Fri, 01 Jul 2011 16:15:50 -0700 (PDT)
-Message-ID: <20110701.161550.1316844563798183164.davem@davemloft.net>
-References: <cover.1309549243.git.joe@perches.com>
+Subject: Re: [NEXT][PATCH 0/5] Updates for net-next for IEEE 802.15.4 code
+Date: Fri, 01 Jul 2011 16:17:07 -0700 (PDT)
+Message-ID: <20110701.161707.391655139219237772.davem@davemloft.net>
+References: <1309437468-31021-1-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-decnet-user@lists.sourceforge.net,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-x25@vger.kernel.org, linux-hams@vger.kernel.org,
-	linux-sctp@vger.kernel.org, linux-nfs@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <cover.1309549243.git.joe@perches.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dbaryshkov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52762 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932127Ab1GAXRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 19:17:09 -0400
+In-Reply-To: <1309437468-31021-1-git-send-email-dbaryshkov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri,  1 Jul 2011 12:43:01 -0700
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Date: Thu, 30 Jun 2011 16:37:43 +0400
 
-> Just whitespace cleanups with a couple trivial corrections
+> The following changes since commit 1049f6413f6e52572a768ca1590fa479ef0a48e8:
+> 
+>   myri10ge: Update MAINTAINERS (2011-06-29 06:02:05 -0700)
+> 
+> are available in the git repository at:
+>   git://git2.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git for-next
 
-All applied, thanks Joe.
+Pulled, thanks Dmitry.
