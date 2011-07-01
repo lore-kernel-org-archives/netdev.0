@@ -1,32 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] can: remove useless defaults in Kconfig
-Date: Thu, 30 Jun 2011 23:54:26 -0700 (PDT)
-Message-ID: <20110630.235426.1848410907180343646.davem@davemloft.net>
-References: <20110627150013.GB1874@e-circ.dyndns.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Exclude duplicated checking for iface-up. This flags
+ is checked in 'is_skb_forwardable' function, which is subroutine of
+ 'dev_forward_skb'.
+Date: Thu, 30 Jun 2011 23:55:57 -0700 (PDT)
+Message-ID: <20110630.235557.509225031839678013.davem@davemloft.net>
+References: <1309267844-29334-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kurt.van.dijck-/BeEPy95v10@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110627150013.GB1874-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54054 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754940Ab1GAG4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:56:01 -0400
+In-Reply-To: <1309267844-29334-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Date: Mon, 27 Jun 2011 17:00:13 +0200
+From: alex.bluesman.smirnov@gmail.com
+Date: Tue, 28 Jun 2011 17:30:44 +0400
 
-> There's no need for "default N' (or 'default n') as it's default.
+> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 > 
-> Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-Applied to net-next-2.6
+Applied.
+
+Please put the verbose patch description in the body of your
+email message, right before the signoffs, not in the subject.
+
+The subject provides a "summary" not the entire description.
