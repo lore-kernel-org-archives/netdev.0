@@ -1,59 +1,60 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Regarding sumbiting a new NIC driver to kernel.
-Date: Fri, 1 Jul 2011 13:33:48 +0200
-Message-ID: <20110701113348.GA4618@electric-eye.fr.zoreil.com>
-References: <6349D7A510622448B1BA0967850A843801163B91@nasanexd02d.na.qualcomm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: coding style question on indentation
+Date: Fri, 01 Jul 2011 12:52:38 +0100
+Message-ID: <1309521158.3093.1670.camel@localhost>
+References: <3367B80B08154D42A3B2BC708B5D41F63F87EF145E@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'davem@davemloft.net'" <'davem@davemloft.net'>,
-	"Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sathya.Perla@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:44850 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755265Ab1GALrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 07:47:31 -0400
-Content-Disposition: inline
-In-Reply-To: <6349D7A510622448B1BA0967850A843801163B91@nasanexd02d.na.qualcomm.com>
+Received: from mail.solarflare.com ([216.237.3.220]:50960 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753516Ab1GALwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 07:52:41 -0400
+In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F63F87EF145E@EXMAIL.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(insert the usual "only speaking on behalf of myself" here)
+On Fri, 2011-07-01 at 04:20 -0700, Sathya.Perla@Emulex.Com wrote:
+> Hi,
+> Which of the following styling is preferable when a function
+> invocation spans more than one line:
+> 
+> a) Aligning the next line with the first argument by inserting a few
+> spaces after the tabs - as in:
+> 
+> 	dma_unmap_page(&adapter->pdev->dev,
+> 			   dma_unmap_addr(rx_page_info, bus),
+> 			   adapter->big_page_size, DMA_FROM_DEVICE);
 
-Ren, Cloud <cjren@qca.qualcomm.com> :
-[...]
-> Would you have any advices to us ?  If this is possible, how do I submit the
-> new driver and remove the old driver? Can you give me a doc how to submit
-> the driver to kernel or any hints ?
+My preference, for what it's worth.
 
-Advices:
-- publish early for review and comments. Code is reviewed here, on netdev.
-- work with the current atl* in-kernel drivers maintainers.
-- provide a big-bang free migration path.
-- read netdev. http://vger.kernel.org/vger-lists.html lists some archive.
-- don't expect the convenience on maintenance to materialize immediately.
+> Documentation/CodingStyle says "spaces are never used for indentation", but I see
+> scripts/Lindent inserting spaces after tabs for alignment.
 
-(old farts may appreciate shorter lines - somewhere between 72 and 80
-chars - too)
+I think that's meant to apply to indentation at the start of a statement
+or declaration, not when wrapping.
 
-If you have not done so yet, please consider reading:
-- Documentation/CodingStyle
-- Documentation/SubmittingPatches
+> OR
+> 
+> b) Just using tabs without needing to align as above:
+> 
+> 	dma_unmap_page(&adapter->pdev->dev,
+> 			dma_unmap_addr(rx_page_info, bus),
+> 			adapter->big_page_size, DMA_FROM_DEVICE);
 
-Documentation/SubmittingDrivers is imho irrelevant here.
+Popular but ugly in my opinion.
 
-> Btw, why do we need to develop the new driver?
-> The most important reason is for convenience on maintenance 1. we need to
-> make HW operations uniform on all supported OS, such as WinXP, Win7 and Linux.
-> 2. As our company is continuous to release new NICs, there are more and more
-> drivers to support those NICs. It's a pity to develop and maintain so many
-> drivers. So we have developed the driver, "alx". We will use it to support
-> as many NICs as possible, including NICs released in future.
+Some people also use a single extra tab to indent after wrapping,
+whether or not the line break is within a parenthesised expression or
+argument list.
 
-Platform neutral does not necessarily bode good things... :o/ 
-
-Don't be shy, show the code.
+Ben.
 
 -- 
-Ueimor
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
