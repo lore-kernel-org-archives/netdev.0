@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: am79c961a: Omit check for multicast bit
- in netdev_for_each_mc_addr
-Date: Thu, 30 Jun 2011 23:56:47 -0700 (PDT)
-Message-ID: <20110630.235647.1768047465126096152.davem@davemloft.net>
-References: <1309349686-1506-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH net-next-2.6 0/3] be2net fixes
+Date: Thu, 30 Jun 2011 23:59:36 -0700 (PDT)
+Message-ID: <20110630.235936.992101019508675854.davem@davemloft.net>
+References: <1309426301-15783-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-To: tklauser@distanz.ch
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36300 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36312 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755049Ab1GAG7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:59:06 -0400
-In-Reply-To: <1309349686-1506-1-git-send-email-tklauser@distanz.ch>
+	with ESMTP id S1755035Ab1GAG7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:59:39 -0400
+In-Reply-To: <1309426301-15783-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Wed, 29 Jun 2011 14:14:46 +0200
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Thu, 30 Jun 2011 15:01:41 +0530
 
-> There is no need to check for the address being a multicast address in
-> the netdev_for_each_mc_addr loop, so remove it.
+> Pls apply.
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Sathya Perla (3):
+>   be2net: fix certain cmd failure logging
+>   be2net: create/destroy rx-queues on interface open/close
+>   be2net: clear intr bit in be_probe()
 
-Applied.
+Applied, but I had to fix up many whitespace problems.
+
+Some of your lines began with mixes of spaces and tabs.
+
+Some of your lines had trailing whitespace.
