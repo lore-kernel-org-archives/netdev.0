@@ -1,158 +1,112 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 11/12] sunrpc: Reduce switch/case indent
-Date: Fri,  1 Jul 2011 12:43:12 -0700
-Message-ID: <c0a6d5adc9030bc97bf905b92a4406bdcd638810.1309549244.git.joe@perches.com>
+Subject: [PATCH 10/12] sctp: Reduce switch/case indent
+Date: Fri,  1 Jul 2011 12:43:11 -0700
+Message-ID: <4f9993c78618082b8ac4e1d9c55d6c1e23c7bd6b.1309549244.git.joe@perches.com>
 References: <cover.1309549243.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3478 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932178Ab1GATnx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2011 15:43:53 -0400
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1309549243.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Make the case labels the same indent as the switch.
 
-git diff -w shows 80 column line reflowing.
+git diff -w shows useless break;s removed after returns
+and a comment added to an unnecessary default: break;
+because of a dubious gcc warning.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sunrpc/auth_gss/auth_gss.c |   46 +++++++++++++++++++--------------------
- net/sunrpc/clnt.c              |   25 ++++++++++-----------
- net/sunrpc/rpc_pipe.c          |   14 ++++++------
- 3 files changed, 41 insertions(+), 44 deletions(-)
+ net/sctp/sm_statefuns.c |   51 ++++++++++++++++++++++++-----------------------
+ net/sctp/socket.c       |   10 ++++----
+ 2 files changed, 31 insertions(+), 30 deletions(-)
 
-diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index 339ba64..16177d2 100644
---- a/net/sunrpc/auth_gss/auth_gss.c
-+++ b/net/sunrpc/auth_gss/auth_gss.c
-@@ -1421,18 +1421,16 @@ gss_wrap_req(struct rpc_task *task,
- 		goto out;
- 	}
- 	switch (gss_cred->gc_service) {
--		case RPC_GSS_SVC_NONE:
--			gss_wrap_req_encode(encode, rqstp, p, obj);
--			status = 0;
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index a297283..7d00b17 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -4008,31 +4008,32 @@ sctp_disposition_t sctp_sf_eat_auth(const struct sctp_endpoint *ep,
+ 	auth_hdr = (struct sctp_authhdr *)chunk->skb->data;
+ 	error = sctp_sf_authenticate(ep, asoc, type, chunk);
+ 	switch (error) {
+-		case SCTP_IERROR_AUTH_BAD_HMAC:
+-			/* Generate the ERROR chunk and discard the rest
+-			 * of the packet
+-			 */
+-			err_chunk = sctp_make_op_error(asoc, chunk,
+-							SCTP_ERROR_UNSUP_HMAC,
+-							&auth_hdr->hmac_id,
+-							sizeof(__u16), 0);
+-			if (err_chunk) {
+-				sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+-						SCTP_CHUNK(err_chunk));
+-			}
+-			/* Fall Through */
+-		case SCTP_IERROR_AUTH_BAD_KEYID:
+-		case SCTP_IERROR_BAD_SIG:
+-			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
 -			break;
--		case RPC_GSS_SVC_INTEGRITY:
--			status = gss_wrap_req_integ(cred, ctx, encode,
--								rqstp, p, obj);
+-		case SCTP_IERROR_PROTO_VIOLATION:
+-			return sctp_sf_violation_chunklen(ep, asoc, type, arg,
+-							  commands);
 -			break;
--		case RPC_GSS_SVC_PRIVACY:
--			status = gss_wrap_req_priv(cred, ctx, encode,
--					rqstp, p, obj);
--			break;
-+	case RPC_GSS_SVC_NONE:
-+		gss_wrap_req_encode(encode, rqstp, p, obj);
-+		status = 0;
-+		break;
-+	case RPC_GSS_SVC_INTEGRITY:
-+		status = gss_wrap_req_integ(cred, ctx, encode, rqstp, p, obj);
-+		break;
-+	case RPC_GSS_SVC_PRIVACY:
-+		status = gss_wrap_req_priv(cred, ctx, encode, rqstp, p, obj);
-+		break;
- 	}
- out:
- 	gss_put_ctx(ctx);
-@@ -1531,18 +1529,18 @@ gss_unwrap_resp(struct rpc_task *task,
- 	if (ctx->gc_proc != RPC_GSS_PROC_DATA)
- 		goto out_decode;
- 	switch (gss_cred->gc_service) {
--		case RPC_GSS_SVC_NONE:
--			break;
--		case RPC_GSS_SVC_INTEGRITY:
--			status = gss_unwrap_resp_integ(cred, ctx, rqstp, &p);
--			if (status)
--				goto out;
--			break;
--		case RPC_GSS_SVC_PRIVACY:
--			status = gss_unwrap_resp_priv(cred, ctx, rqstp, &p);
--			if (status)
--				goto out;
--			break;
-+	case RPC_GSS_SVC_NONE:
-+		break;
-+	case RPC_GSS_SVC_INTEGRITY:
-+		status = gss_unwrap_resp_integ(cred, ctx, rqstp, &p);
-+		if (status)
-+			goto out;
-+		break;
-+	case RPC_GSS_SVC_PRIVACY:
-+		status = gss_unwrap_resp_priv(cred, ctx, rqstp, &p);
-+		if (status)
-+			goto out;
-+		break;
- 	}
- 	/* take into account extra slack for integrity and privacy cases: */
- 	cred->cr_auth->au_rslack = cred->cr_auth->au_verfsize + (p - savedp)
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index b84d739..2c1ffb9 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -1663,19 +1663,18 @@ rpc_verify_header(struct rpc_task *task)
- 		if (--len < 0)
- 			goto out_overflow;
- 		switch ((n = ntohl(*p++))) {
--			case RPC_AUTH_ERROR:
--				break;
--			case RPC_MISMATCH:
--				dprintk("RPC: %5u %s: RPC call version "
--						"mismatch!\n",
--						task->tk_pid, __func__);
--				error = -EPROTONOSUPPORT;
--				goto out_err;
--			default:
--				dprintk("RPC: %5u %s: RPC call rejected, "
--						"unknown error: %x\n",
--						task->tk_pid, __func__, n);
--				goto out_eio;
-+		case RPC_AUTH_ERROR:
-+			break;
-+		case RPC_MISMATCH:
-+			dprintk("RPC: %5u %s: RPC call version mismatch!\n",
-+				task->tk_pid, __func__);
-+			error = -EPROTONOSUPPORT;
-+			goto out_err;
-+		default:
-+			dprintk("RPC: %5u %s: RPC call rejected, "
-+				"unknown error: %x\n",
-+				task->tk_pid, __func__, n);
-+			goto out_eio;
- 		}
- 		if (--len < 0)
- 			goto out_overflow;
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 72bc536..b181e34 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -456,13 +456,13 @@ rpc_get_inode(struct super_block *sb, umode_t mode)
- 	inode->i_ino = get_next_ino();
- 	inode->i_mode = mode;
- 	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
--	switch(mode & S_IFMT) {
--		case S_IFDIR:
--			inode->i_fop = &simple_dir_operations;
--			inode->i_op = &simple_dir_inode_operations;
--			inc_nlink(inode);
+-		case SCTP_IERROR_NOMEM:
+-			return SCTP_DISPOSITION_NOMEM;
 -		default:
 -			break;
-+	switch (mode & S_IFMT) {
-+	case S_IFDIR:
-+		inode->i_fop = &simple_dir_operations;
-+		inode->i_op = &simple_dir_inode_operations;
-+		inc_nlink(inode);
-+	default:
++	case SCTP_IERROR_AUTH_BAD_HMAC:
++		/* Generate the ERROR chunk and discard the rest
++		 * of the packet
++		 */
++		err_chunk = sctp_make_op_error(asoc, chunk,
++					       SCTP_ERROR_UNSUP_HMAC,
++					       &auth_hdr->hmac_id,
++					       sizeof(__u16), 0);
++		if (err_chunk) {
++			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++					SCTP_CHUNK(err_chunk));
++		}
++		/* Fall Through */
++	case SCTP_IERROR_AUTH_BAD_KEYID:
++	case SCTP_IERROR_BAD_SIG:
++		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
++
++	case SCTP_IERROR_PROTO_VIOLATION:
++		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
++						  commands);
++
++	case SCTP_IERROR_NOMEM:
++		return SCTP_DISPOSITION_NOMEM;
++
++	default:			/* Prevent gcc warnings */
 +		break;
  	}
- 	return inode;
- }
+ 
+ 	if (asoc->active_key_id != ntohs(auth_hdr->shkey_id)) {
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index fd31b36..1c6aec1 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3257,11 +3257,11 @@ static int sctp_setsockopt_auth_chunk(struct sock *sk,
+ 		return -EFAULT;
+ 
+ 	switch (val.sauth_chunk) {
+-		case SCTP_CID_INIT:
+-		case SCTP_CID_INIT_ACK:
+-		case SCTP_CID_SHUTDOWN_COMPLETE:
+-		case SCTP_CID_AUTH:
+-			return -EINVAL;
++	case SCTP_CID_INIT:
++	case SCTP_CID_INIT_ACK:
++	case SCTP_CID_SHUTDOWN_COMPLETE:
++	case SCTP_CID_AUTH:
++		return -EINVAL;
+ 	}
+ 
+ 	/* add this chunk id to the endpoint */
 -- 
 1.7.6.rc1
-
