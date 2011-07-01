@@ -1,56 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next af-packet 1/2] Enhance af-packet to provide
- (near zero)lossless packet capture functionality.
-Date: Fri, 01 Jul 2011 15:36:33 -0700 (PDT)
-Message-ID: <20110701.153633.267893668051099806.davem@davemloft.net>
-References: <1308708650-25509-1-git-send-email-loke.chetan@gmail.com>
-	<1308708650-25509-2-git-send-email-loke.chetan@gmail.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
+ groups
+Date: Sat, 2 Jul 2011 00:37:56 +0200
+Message-ID: <20110701223756.GG2613105@jupiter.n2.diac24.net>
+References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, joe@perches.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	linux-kernel@vger.kernel.org
-To: loke.chetan@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1308708650-25509-2-git-send-email-loke.chetan@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	David Lamparter <equinox@diac24.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	davem@davemloft.net
+To: Nick Carter <ncarter100@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:51424 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757676Ab1GAWiF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2011 18:38:05 -0400
+Content-Disposition: inline
+In-Reply-To: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chetan Loke <loke.chetan@gmail.com>
-Date: Tue, 21 Jun 2011 22:10:49 -0400
+On Fri, Jul 01, 2011 at 10:21:44PM +0100, Nick Carter wrote:
+> Introduce sysfs ../bridge/group_fwd_mask attribute so users can
+> configure which group mac addresses are forwarded.
+> 
+> These diffs do not change the default behaviour of bridge.ko.  By
+> changing the group_fwd_mask value users can select any combination of
+> the 01-80-C2-00-00-00 - 01-80-C2-00-00-0F addresses to be forwarded.
+> 
+> Signed-off-by: Nick Carter <ncarter100@gmail.com>
 
-> +struct bd_v1 {
- -
-> +	__u32	block_status;
-> +	__u32	num_pkts;
-> +	__u32	offset_to_first_pkt;
- -
-> +	__u32	blk_len;
- -
-> +	__u64	seq_num;
- ...
-> +	union {
-> +		struct {
-> +			__u32	words[4];
-> +			__u64	dword;
-> +		} __attribute__ ((__packed__));
-> +		struct bd_v1 bd1;
- ...
-> +#define BLOCK_STATUS(x)	((x)->words[0])
-> +#define BLOCK_NUM_PKTS(x)	((x)->words[1])
-> +#define BLOCK_O2FP(x)		((x)->words[2])
-> +#define BLOCK_LEN(x)		((x)->words[3])
-> +#define BLOCK_SNUM(x)		((x)->dword)
+Hm. Makes it very easy to shoot yourself in the foot, but...
 
-This BLOCK_SNUM definition is buggy.  It modifies the
-first 64-bit word in the block descriptor.
+> +	br->group_fwd_mask = 0;
 
-But the sequence number lives 16 bytes into the descriptor.
+... but the default is safe, so we're following the unix philosophy of
+handing out the gun to shoot yourself :)
 
-This value is only written to once and never used by anything.
-I would just remove it entirely.
+Reviewed-by: David Lamparter <equinox@diac24.net>
 
-Next, having this overlay thing is entirely pointless.  Just refer to
-the block descriptor members directly!  You certainly wouldn't have
-had this sequence number bug if you had done that.
+
+PS:
+> @@ -166,6 +166,9 @@ struct sk_buff *br_handle_frame(struct sk_buff *skb)
+>  		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
+>  			goto forward;
+
+Not sure if we still need the STP one when we have the mask, it should
+probably go away for consistency. It would change existing behaviour
+though... either way it can be a separate patch.
+
+> +		if (p->br->group_fwd_mask & (1 << dest[5]))
+> +			goto forward;
+> +
+>  		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+>  			    NULL, br_handle_local_finish))
+>  			return NULL;	/* frame consumed by filter */
