@@ -1,83 +1,78 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] 6pack,mkiss: fix lock inconsistency
-Date: Fri, 1 Jul 2011 23:28:46 +0200
-Message-ID: <201107012328.46256.arnd@arndb.de>
-References: <4B2CD772.1030106@upmc.fr> <20110625163942.GB20976@linux-mips.org> <4E0DC4F3.6010203@free.fr>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/2] netpoll: Trivial updates
+Date: Fri, 01 Jul 2011 15:18:23 -0700
+Message-ID: <1309558703.7277.78.camel@Joe-Laptop>
+References: <4E0D3E80.5080209@redhat.com>
+	 <1309491349.7277.22.camel@Joe-Laptop> <4E0D43C3.5090502@redhat.com>
+	 <20110701.000646.268663722441785795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle DL5RB <ralf@linux-mips.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-hams@vger.kernel.org
-To: Bernard F6BVP <f6bvp@free.fr>, David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <4E0DC4F3.6010203@free.fr>
-Sender: linux-hams-owner@vger.kernel.org
+Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110701.000646.268663722441785795.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lockdep found a locking inconsistency in the mkiss_close function:
+On Fri, 2011-07-01 at 00:06 -0700, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> >>> BTW, you can kill the export of netpoll_send_skb_on_dev() too.
+> >> Not too sure about that.
+> >> It's used in netpoll.h by netpoll_send_skb.
+> >> It could be called from anywhere.
+> >> It's currently called/used by bonding.h.
+> > % git grep netpoll_send_skb_on_dev .
+[]
+> > No modules use it...
+> Right, this is a relic that bonding was using at one point
+> in the past but it no longer does.
 
-> kernel: [ INFO: inconsistent lock state ]
-> kernel: 2.6.39.1 #3
-> kernel: ---------------------------------
-> kernel: inconsistent {IN-SOFTIRQ-R} -> {SOFTIRQ-ON-W} usage.
-> kernel: ax25ipd/2813 [HC0[0]:SC0[0]:HE1:SE1] takes:
-> kernel: (disc_data_lock){+++?.-}, at: [<ffffffffa018552b>] mkiss_close+0x1b/0x90 [mkiss]
-> kernel: {IN-SOFTIRQ-R} state was registered at:
+Are you sure?
 
-The message hints that disc_data_lock is aquired with softirqs disabled,
-but does not itself disable softirqs, which can in rare circumstances
-lead to a deadlock. 
-The same problem is present in the 6pack driver, this patch fixes both
-by using write_lock_bh instead of write_lock.
+netpoll.h:
 
-Reported-by: Bernard F6BVP <f6bvp@free.fr>
-Tested-by: Bernard F6BVP <f6bvp@free.fr>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: Ralf Baechle<ralf@linux-mips.org>
-Cc: stable@kernel.org
----
-On Friday 01 July 2011 15:00:35 Bernard F6BVP wrote:
-> 
-> Now, who is going to commit this mkiss patch and the equivalent one for 
-> sixpack.c ?
+void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+			     struct net_device *dev);
+static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+{
+	netpoll_send_skb_on_dev(np, skb, np->dev);
+}
 
-Here's a formal patch with all the right tags, I assume that David Miller
-will apply that to the netdev tree.
+$ grep -rP --include=*.[ch] -w netpoll_send_skb *
+drivers/net/bonding/bonding.h:		netpoll_send_skb(np, skb);
+include/linux/netpoll.h:static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+net/bridge/br_private.h:		netpoll_send_skb(np, skb);
+net/core/netpoll.c:			"netpoll_send_skb(): %s enabled interrupts in poll (%pF)\n",
+net/core/netpoll.c:	netpoll_send_skb(np, skb);
+net/core/netpoll.c:		netpoll_send_skb(np, send_skb);
 
-diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
-index 9624cbf..fea7cb4 100644
---- a/drivers/net/hamradio/6pack.c
-+++ b/drivers/net/hamradio/6pack.c
-@@ -694,10 +694,10 @@ static void sixpack_close(struct tty_struct *tty)
- {
- 	struct sixpack *sp;
- 
--	write_lock(&disc_data_lock);
-+	write_lock_bh(&disc_data_lock);
- 	sp = tty->disc_data;
- 	tty->disc_data = NULL;
--	write_unlock(&disc_data_lock);
-+	write_unlock_bh(&disc_data_lock);
- 	if (!sp)
- 		return;
- 
-diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-index 9f84c83..324f7bf 100644
---- a/drivers/net/hamradio/mkiss.c
-+++ b/drivers/net/hamradio/mkiss.c
-@@ -813,10 +813,10 @@ static void mkiss_close(struct tty_struct *tty)
- {
- 	struct mkiss *ax;
- 
--	write_lock(&disc_data_lock);
-+	write_lock_bh(&disc_data_lock);
- 	ax = tty->disc_data;
- 	tty->disc_data = NULL;
--	write_unlock(&disc_data_lock);
-+	write_unlock_bh(&disc_data_lock);
- 
- 	if (!ax)
- 		return;
+from bonding.h
+
+#ifdef CONFIG_NET_POLL_CONTROLLER
+static inline void bond_netpoll_send_skb(const struct slave *slave,
+					 struct sk_buff *skb)
+{
+	struct netpoll *np = slave->np;
+
+	if (np)
+		netpoll_send_skb(np, skb);
+}
+
+and br_private.h
+
+static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+				       struct sk_buff *skb)
+{
+	struct netpoll *np = p->np;
+
+	if (np)
+		netpoll_send_skb(np, skb);
+}
+
+These are inlined and dependent on CONFIG_NET_POLL_CONTROLLER
+in drivers/net/Kconfig so doesn't netpoll_send_skb_on_dev need
+to be SYMBOL_EXPORTed?
+
+cheers, Joe
