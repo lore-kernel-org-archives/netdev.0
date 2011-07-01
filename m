@@ -1,59 +1,54 @@
-From: "Zainur Binta  Zakaria" <adm@aa.nctu.edu.tw>
-Subject: HELLO
-Date: Fri, 1 Jul 2011 03:12:27 -0300
-Message-ID: <201107010612.p616CDOq012845@aa.nctu.edu.tw>
-Reply-To: <zakaria2010@w.cn>
+From: Josh Lehan <linux@krellan.com>
+Subject: Re: Skipping past TCP lost packet in userspace
+Date: Fri, 01 Jul 2011 01:39:18 -0700
+Message-ID: <4E0D87B6.8090108@krellan.com>
+References: <4DE44218.4070306@krellan.com> <BANLkTinKORbHHZ7dAqfiFOg5rqB77DcJY8D7AxmP-xwhwmOgGg@mail.gmail.com> <4DE5F3E3.2080609@krellan.com> <1306949723.8149.2202.camel@tardy> <4E04A609.7010206@fandm.edu> <4E0C35F4.6050901@krellan.com> <20110630143614.GA4392@shamino.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: Josh Lehan <linux@krellan.com>, janardhan.iyengar@fandm.edu,
+	Janardhan Iyengar <jana.iyengar@gmail.com>, rick.jones2@hp.com,
+	Yuchung Cheng <ycheng@google.com>,
+	netdev <netdev@vger.kernel.org>, Bryan Ford <bryan.ford@yale.edu>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam.aa.nctu.edu.tw ([140.113.24.72]:35702 "EHLO
-	spam.aa.nctu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754902Ab1GAISe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 04:18:34 -0400
+Received: from server4.hostdango.com ([70.86.37.74]:43942 "EHLO
+	server4.hostdango.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754881Ab1GAIjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 04:39:36 -0400
+In-Reply-To: <20110630143614.GA4392@shamino.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Zainur Binta  Zakaria Advocate & solicitor
-No. 18 & 20 1st Floor 
-Jalan Kampung Nyabor 
-96000 Sibu,Malaysia
+On 06/30/2011 07:36 AM, Neil Horman wrote:
+> I'll leave the rest of this alone, since its pretty obvious that no one is going
+> to break TCP for you, but just so that you're aware, The only reason you have to
 
-Dear Friend,
+That's the fundamental disconnect we've been trying to communicate: TCP
+*won't break*.  None of the rules of TCP are broken, from the wire's
+point of view.  The OS merely gets a richer API, from the application's
+point of view, to optimize the TCP protocol implementation to serve a
+wider variety of needs.
 
-I am Barrister Zainur Bin Zakaria, an attorney at law. A deceased client of 
-mine, that shares the same last name as yours, died as a result of His heart 
-condition, due to the death of all the members of his family in the tsunami 
-disaster on the 26th December 2004 in Sumatra Indonesia. As reported by 
-http://en.wikipedia.org/wiki/2004_Indian_Ocean_earthquake. 
- 
-I have contacted you to assist in distributing the money left behind by my 
-client before it is confiscated or declared unserviceable by the bank where this 
-deposit valued at Five Million, Six Hundred Thousand United States Dollars 
-(US$5.6 Million). This bank has issued me a notice to contact the next of kin, 
-or the account will be confiscated.
- 
-My proposition to you is to seek your consent to present you as the next-of-kin 
-and beneficiary of my named client, since you have the same last name, so that 
-the proceeds of this account can be paid to you.  Then we can share the amount 
-on a mutually agreed-upon percentage. All legal documents to back up your claim 
-as my client's next-of-kin will be provided. All I require is your honest 
-cooperation to enable us see this transaction through. 
- 
- This will be executed under a legitimate arrangement that will protect you from 
-many breach of the law.  If this business proposition offends your moral values, 
-do accept my apology. I must use this opportunity to implore you to exercise the 
-utmost indulgence to keep this matter extraordinary confidential, whatever your 
-decision, while I await your prompt response. Please contact me at once to 
-indicate your interest. I will like you to acknowledge the receipt of this 
-e-mail as soon as possible via my private Email: zakaria2010@w.cn
- 
-And treats with absolute confidentiality and sincerity. I look forward to your 
-quick reply.
+> use the 2-Wire gateway that AT&T provides is because there are no commercially
+> available routers that support the uplink interface (which I expect will change
 
-Best regards, 
+That would be good to give the customer a choice of access devices with
+which to get on the network, and let the market device what is best,
+instead of AT&T dictating what's allowed.  I'm getting deja vu of a
+famous legal case from 27 years ago.
 
-Zainur Bin Zakaria
- Attorney at Law
+> eventually).  In the time being, if you want to use a different router, place
+> the RG in bridge mode by selecting a host as your DMZ device.  That will assign
+> the wan address to that connected device via DHCP and allow you to pass whatever
+> traffic you want through it.  I use it to pass SCTP and IPv6 traffice all the
+> time, works great.
+
+Wow, that's news to me, that it allows this.
+
+http://www.ka9q.net/Uverse/
+
+Have the limitations in these documents been addressed?  If so, kudos to
+AT&T.
+
+Josh Lehan
