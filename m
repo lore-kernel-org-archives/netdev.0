@@ -1,51 +1,41 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next v2] net: de4x5: Omit check for multicast bit in netdev_for_each_mc_addr
-Date: Fri,  1 Jul 2011 09:37:52 +0200
-Message-ID: <1309505872-28090-1-git-send-email-tklauser@distanz.ch>
-References: <1309349760-1776-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Grant Grundler <grundler@parisc-linux.org>
+From: "Satendra..." <satendra.pratap@gmail.com>
+Subject: Re: IEEE 802.1ag / 802.1x / Y1731
+Date: Fri, 1 Jul 2011 13:46:58 +0530
+Message-ID: <BANLkTimHM0ydiD5eEc2hzk+AQ1WBQQB97g@mail.gmail.com>
+References: <BANLkTingLv9XxLqU7nQSct8wqhyvkq=LqA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:34268 "EHLO mx1.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755275Ab1GAHhy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2011 03:37:54 -0400
-In-Reply-To: <1309349760-1776-1-git-send-email-tklauser@distanz.ch>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:54492 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754902Ab1GAIQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 04:16:59 -0400
+Received: by gyh3 with SMTP id 3so1215462gyh.19
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2011 01:16:58 -0700 (PDT)
+In-Reply-To: <BANLkTingLv9XxLqU7nQSct8wqhyvkq=LqA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to check for the address being a multicast address in
-the netdev_for_each_mc_addr loop, so remove it.
+Hello All,
+Could anyone please tell me whether there is any support in Linux
+networking stack
+for 802.1ag ? If yes please mention the linux version.
+What I need to do is to use CFM OAM (802.1ag) open source client on
+our routers running linux
+on them. Open source client to be used is dot1ag utils.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/tulip/de4x5.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+Thanks,
+Satendra
 
-diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
-index efaa1d6..d8db2b6 100644
---- a/drivers/net/tulip/de4x5.c
-+++ b/drivers/net/tulip/de4x5.c
-@@ -1964,9 +1964,7 @@ SetMulticastFilter(struct net_device *dev)
- 	omr |= OMR_PM;                       /* Pass all multicasts */
-     } else if (lp->setup_f == HASH_PERF) {   /* Hash Filtering */
- 	netdev_for_each_mc_addr(ha, dev) {
--	    addrs = ha->addr;
--	    if ((*addrs & 0x01) == 1) {      /* multicast address? */
--		crc = ether_crc_le(ETH_ALEN, addrs);
-+		crc = ether_crc_le(ETH_ALEN, ha->addr);
- 		hashcode = crc & HASH_BITS;  /* hashcode is 9 LSb of CRC */
- 
- 		byte = hashcode >> 3;        /* bit[3-8] -> byte in filter */
-@@ -1977,7 +1975,6 @@ SetMulticastFilter(struct net_device *dev)
- 		    byte -= 1;
- 		}
- 		lp->setup_frame[byte] |= bit;
--	    }
- 	}
-     } else {                                 /* Perfect filtering */
- 	netdev_for_each_mc_addr(ha, dev) {
--- 
-1.7.5.4
-
+On 24 June 2011 17:36, Satendra... <satendra.pratap@gmail.com> wrote:
+> Hi,
+> Could someone please tell me which version of linux has got support
+> for below (all three) protocols:
+> - IEEE 802.1ag
+> - 802.1x
+> - Y1731
+>
+> Thanks,
+> Satendra
+>
