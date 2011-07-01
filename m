@@ -1,51 +1,42 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 1/2] nfnetlink: add RCU in nfnetlink_rcv_msg()
-Date: Fri, 1 Jul 2011 16:11:25 +0200
-Message-ID: <20110701141125.GS16021@Chamillionaire.breakpoint.cc>
-References: <1309433652.1994.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4E0C651A.1000300@trash.net>
- <1309446900.1994.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4E0C8902.8070303@earthlink.net>
- <4E0C8D7F.3000902@trash.net>
- <1309453730.5846.31.camel@tiger.regit.org>
- <1309455919.2515.3.camel@edumazet-laptop>
- <1309503610.2515.18.camel@edumazet-laptop>
- <20110701074936.GR16021@Chamillionaire.breakpoint.cc>
- <1309534078.2599.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] Disable router anycast address for /127 prefixes
+Date: Fri, 01 Jul 2011 10:45:57 -0400
+Message-ID: <4E0DDDA5.20401@hp.com>
+References: <20110630104713.52e085dd@nehalam.ftrdhcpuser.net> <1309519330-16649-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Westphal <fw@strlen.de>, Patrick McHardy <kaber@trash.net>,
-	Eric Leblond <eric@regit.org>, sclark46@earthlink.net,
-	Kuzin Andrey <kuzinandrey@yandex.ru>,
-	Anders Nilsson Plymoth <lanilsson@gmail.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1309534078.2599.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:20309 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756621Ab1GAOp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 10:45:59 -0400
+In-Reply-To: <1309519330-16649-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Le vendredi 01 juillet 2011 =E0 09:49 +0200, Florian Westphal a =E9cr=
-it :
-> > But I guess even having to grab a refcount would be
-> > a huge win as opposed to holding on to the nfnl mutex...
-> >=20
-> > We'd also need to audit all ->call implementations; most
-> > of them assume the nfnl_mutex is being hold.
+On 07/01/2011 07:22 AM, Bj=C3=B8rn Mork wrote:
+> RFC 6164 requires that routers MUST disable Subnet-Router anycast
+> for the prefix when /127 prefixes are used.
 >=20
-> We can do another way : Introduce a new ->call_rcu() implementation
-> and convert places where we prefer not holding nfnf_mutex.
-> If/when all places are converted, remove the ->call() field for good.
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+> ---
 
-Sounds reasonable to me.
+> @@ -1479,6 +1481,8 @@ static void addrconf_join_anycast(struct inet6_=
+ifaddr *ifp)
+>  static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+>  {
+>  	struct in6_addr addr;
+> +	if (ifp->prefix_len =3D=3D 127) /* RFC 6164 */
+> +		return;
+>  	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
+>  	if (ipv6_addr_any(&addr))
+>  		return;
 
-Both patches look great, thanks a lot for doing this Eric!
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm not sure you'd need this part as there shouldn't be a /127 in the l=
+ist to remove.
+
+-Brian
