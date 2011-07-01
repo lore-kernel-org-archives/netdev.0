@@ -1,60 +1,59 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] Disable router anycast address for /127 prefixes
-Date: Fri,  1 Jul 2011 13:22:10 +0200
-Message-ID: <1309519330-16649-1-git-send-email-bjorn@mork.no>
-References: <20110630104713.52e085dd@nehalam.ftrdhcpuser.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Regarding sumbiting a new NIC driver to kernel.
+Date: Fri, 1 Jul 2011 13:33:48 +0200
+Message-ID: <20110701113348.GA4618@electric-eye.fr.zoreil.com>
+References: <6349D7A510622448B1BA0967850A843801163B91@nasanexd02d.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'davem@davemloft.net'" <'davem@davemloft.net'>,
+	"Huang, Xiong" <xiong@qca.qualcomm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ren, Cloud" <cjren@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:48741 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755104Ab1GALmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2011 07:42:07 -0400
-In-Reply-To: <20110630104713.52e085dd@nehalam.ftrdhcpuser.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:44850 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755265Ab1GALrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 07:47:31 -0400
+Content-Disposition: inline
+In-Reply-To: <6349D7A510622448B1BA0967850A843801163B91@nasanexd02d.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 6164 requires that routers MUST disable Subnet-Router anycast
-for the prefix when /127 prefixes are used.
+(insert the usual "only speaking on behalf of myself" here)
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
+Ren, Cloud <cjren@qca.qualcomm.com> :
+[...]
+> Would you have any advices to us ?  If this is possible, how do I submit the
+> new driver and remove the old driver? Can you give me a doc how to submit
+> the driver to kernel or any hints ?
 
-How about something like this?
+Advices:
+- publish early for review and comments. Code is reviewed here, on netdev.
+- work with the current atl* in-kernel drivers maintainers.
+- provide a big-bang free migration path.
+- read netdev. http://vger.kernel.org/vger-lists.html lists some archive.
+- don't expect the convenience on maintenance to materialize immediately.
 
+(old farts may appreciate shorter lines - somewhere between 72 and 80
+chars - too)
 
- net/ipv6/addrconf.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+If you have not done so yet, please consider reading:
+- Documentation/CodingStyle
+- Documentation/SubmittingPatches
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 498b927..179c0f4 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1470,6 +1470,8 @@ void addrconf_leave_solict(struct inet6_dev *idev=
-, const struct in6_addr *addr)
- static void addrconf_join_anycast(struct inet6_ifaddr *ifp)
- {
- 	struct in6_addr addr;
-+	if (ifp->prefix_len =3D=3D 127) /* RFC 6164 */
-+		return;
- 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
- 	if (ipv6_addr_any(&addr))
- 		return;
-@@ -1479,6 +1481,8 @@ static void addrconf_join_anycast(struct inet6_if=
-addr *ifp)
- static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
- {
- 	struct in6_addr addr;
-+	if (ifp->prefix_len =3D=3D 127) /* RFC 6164 */
-+		return;
- 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
- 	if (ipv6_addr_any(&addr))
- 		return;
---=20
-1.7.2.5
+Documentation/SubmittingDrivers is imho irrelevant here.
 
+> Btw, why do we need to develop the new driver?
+> The most important reason is for convenience on maintenance 1. we need to
+> make HW operations uniform on all supported OS, such as WinXP, Win7 and Linux.
+> 2. As our company is continuous to release new NICs, there are more and more
+> drivers to support those NICs. It's a pity to develop and maintain so many
+> drivers. So we have developed the driver, "alx". We will use it to support
+> as many NICs as possible, including NICs released in future.
+
+Platform neutral does not necessarily bode good things... :o/ 
+
+Don't be shy, show the code.
+
+-- 
+Ueimor
