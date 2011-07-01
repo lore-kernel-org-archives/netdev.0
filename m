@@ -1,41 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: de4x5: Omit check for multicast bit in
- netdev_for_each_mc_addr
-Date: Thu, 30 Jun 2011 23:57:30 -0700 (PDT)
-Message-ID: <20110630.235730.726339338074212677.davem@davemloft.net>
-References: <1309349760-1776-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCHv2 NEXT 1/2] net: add external loopback test in ethtool
+ self test
+Date: Thu, 30 Jun 2011 23:58:47 -0700 (PDT)
+Message-ID: <20110630.235847.1364630282954525785.davem@davemloft.net>
+References: <1309413650-15952-1-git-send-email-amit.salecha@qlogic.com>
+	<1309413650-15952-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, netdev@vger.kernel.org
-To: tklauser@distanz.ch
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, sucheta.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36269 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36293 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755002Ab1GAG5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:57:40 -0400
-In-Reply-To: <1309349760-1776-1-git-send-email-tklauser@distanz.ch>
+	with ESMTP id S1755011Ab1GAG64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:58:56 -0400
+In-Reply-To: <1309413650-15952-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Wed, 29 Jun 2011 14:16:00 +0200
+From: amit.salecha@qlogic.com
+Date: Wed, 29 Jun 2011 23:00:49 -0700
 
-> There is no need to check for the address being a multicast address in
-> the netdev_for_each_mc_addr loop, so remove it.
+> From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> External loopback test can be performed by application without any driver
+> support on normal Ethernet cards.
+> But on CNA devices, where multiple functions share same physical port.
+> Here internal loopback test and external loopback test can be initiated by
+> multiple functions at same time. To co exist all functions, firmware need
+> to regulate what test can be run by which function. So before performing external
+> loopback test, command need to send to firmware, which will quiescent other functions.
+> 
+> User may not want to run external loopback test always. As special cable need to be
+> connected for this test.
+> So adding explicit flag in ethtool self test, which will specify interface
+> to perform external loopback test.
+>  ETH_TEST_FL_EXTERNAL_LB: Application set to request external loopback test
+>  ETH_TEST_FL_EXTERNAL_LB_DONE: Driver ack if test performed
+> 
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Please build test your patches!
-
-> @@ -1954,7 +1954,6 @@ SetMulticastFilter(struct net_device *dev)
->      u16 hashcode;
->      u32 omr, crc;
->      char *pa;
-> -    unsigned char *addrs;
->  
->      omr = inl(DE4X5_OMR);
->      omr &= ~(OMR_PR | OMR_PM);
-
-You removed this local variable 'addrs' but you did not remove
-all uses of that variable, so the build will fail.
+Applied.
