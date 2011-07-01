@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ucc_geth: Omit check for multicast bit
- in netdev_for_each_mc_addr
-Date: Thu, 30 Jun 2011 23:57:38 -0700 (PDT)
-Message-ID: <20110630.235738.1921750709257462142.davem@davemloft.net>
-References: <1309349793-1864-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH 0/2] netpoll: Trivial updates
+Date: Fri, 01 Jul 2011 00:06:46 -0700 (PDT)
+Message-ID: <20110701.000646.268663722441785795.davem@davemloft.net>
+References: <4E0D3E80.5080209@redhat.com>
+	<1309491349.7277.22.camel@Joe-Laptop>
+	<4E0D43C3.5090502@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: leoli@freescale.com, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36317 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755067Ab1GAG7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:59:49 -0400
-In-Reply-To: <1309349793-1864-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: amwang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E0D43C3.5090502@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Wed, 29 Jun 2011 14:16:33 +0200
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 01 Jul 2011 11:49:23 +0800
 
-> There is no need to check for the address being a multicast address in
-> the netdev_for_each_mc_addr loop, so remove it.
+> 于 2011年07月01日 11:35, Joe Perches 写道:
+>>
+>>> BTW, you can kill the export of netpoll_send_skb_on_dev() too.
+>>
+>> Not too sure about that.
+>>
+>> It's used in netpoll.h by netpoll_send_skb.
+>> It could be called from anywhere.
+>> It's currently called/used by bonding.h.
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> % git grep netpoll_send_skb_on_dev .
+> include/linux/netpoll.h:void netpoll_send_skb_on_dev(struct netpoll
+> *np, struct sk_buff *skb,
+> include/linux/netpoll.h: netpoll_send_skb_on_dev(np, skb, np->dev);
+> net/core/netpoll.c:void netpoll_send_skb_on_dev(struct netpoll *np,
+> struct sk_buff *skb,
+> net/core/netpoll.c:EXPORT_SYMBOL(netpoll_send_skb_on_dev);
+> 
+> No modules use it...
 
-Applied.
+Right, this is a relic that bonding was using at one point
+in the past but it no longer does.
