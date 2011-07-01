@@ -1,65 +1,34 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH] net: sh_eth: remove __flush_purge_region
-Date: Fri, 01 Jul 2011 17:52:13 +0900
-Message-ID: <4E0D8ABD.9030102@renesas.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2011-06-30
+Date: Fri, 01 Jul 2011 01:52:27 -0700 (PDT)
+Message-ID: <20110701.015227.1310214485297198560.davem@davemloft.net>
+References: <20110630173223.GA12963@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, SH-Linux <linux-sh@vger.kernel.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor3.renesas.com ([210.160.252.173]:51949 "EHLO
-	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755542Ab1GAIwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 04:52:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110630173223.GA12963@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is a function of SuperH architecture. There is no good to use
-the function on a driver generally. So, the driver uses
-dma_map_single() instead of __flush_purge_region.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 30 Jun 2011 13:32:25 -0400
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- drivers/net/sh_eth.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+> Here is a batch of fixes intended for 3.0.  Arik gives us a fix for a
+> potential NULL dereference in mac80211.  Emmanuel gives us a fix for a
+> regression introduced by "iwlagn: support multiple TBs per command" that
+> can corrupt memory.  Eugene (and Bob) gives a memory leak fix for ath5k.
+> Evgeni gives us a preprocessor-related fix that makes modinfo output
+> make more sense for iwlagn.  Johannes gives us a trio of fixes, all
+> isolated to the bowels of iwlagn.  I overlayed a fixup on top of one of
+> Johannes's patches, since there was some confusion between DMA and PCI
+> API usage.  Finally, Rajkumar gives us an ath9k fix to ensure the chip
+> is properly awakened even if there is no active interface when the
+> resume occurs.
+> 
+> Please let me know if there are problems!
 
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 8a72a97..09b5aa8 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -33,7 +33,6 @@
- #include <linux/pm_runtime.h>
- #include <linux/slab.h>
- #include <linux/ethtool.h>
--#include <asm/cacheflush.h>
-
- #include "sh_eth.h"
-
-@@ -864,6 +863,8 @@ static int sh_eth_txfree(struct net_device *ndev)
- 			break;
- 		/* Free the original skb. */
- 		if (mdp->tx_skbuff[entry]) {
-+			dma_unmap_single(&ndev->dev, txdesc->addr,
-+					 txdesc->buffer_length, DMA_TO_DEVICE);
- 			dev_kfree_skb_irq(mdp->tx_skbuff[entry]);
- 			mdp->tx_skbuff[entry] = NULL;
- 			freeNum++;
-@@ -1487,13 +1488,12 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	entry = mdp->cur_tx % TX_RING_SIZE;
- 	mdp->tx_skbuff[entry] = skb;
- 	txdesc = &mdp->tx_ring[entry];
--	txdesc->addr = virt_to_phys(skb->data);
- 	/* soft swap. */
- 	if (!mdp->cd->hw_swap)
- 		sh_eth_soft_swap(phys_to_virt(ALIGN(txdesc->addr, 4)),
- 				 skb->len + 2);
--	/* write back */
--	__flush_purge_region(skb->data, skb->len);
-+	txdesc->addr = dma_map_single(&ndev->dev, skb->data, skb->len,
-+				      DMA_TO_DEVICE);
- 	if (skb->len < ETHERSMALL)
- 		txdesc->buffer_length = ETHERSMALL;
- 	else
--- 
-1.7.1
+Pulled, thanks John.
