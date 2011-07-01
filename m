@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] jme: Cleanup PM operations after using
- new PM API
-Date: Thu, 30 Jun 2011 23:55:07 -0700 (PDT)
-Message-ID: <20110630.235507.62437463109542898.davem@davemloft.net>
-References: <1309261110-11883-1-git-send-email-cooldavid@cooldavid.org>
+Subject: Re: [PATCH net-next] net: depca: Omit check for multicast bit in
+ netdev_for_each_mc_addr
+Date: Thu, 30 Jun 2011 23:56:54 -0700 (PDT)
+Message-ID: <20110630.235654.735429029819684526.davem@davemloft.net>
+References: <1309349715-1604-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arieslee@jmicron.com, devinchiu@jmicron.com
-To: cooldavid@cooldavid.org
+Cc: netdev@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54063 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54075 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754967Ab1GAG4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:56:13 -0400
-In-Reply-To: <1309261110-11883-1-git-send-email-cooldavid@cooldavid.org>
+	with ESMTP id S1754970Ab1GAG5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 02:57:00 -0400
+In-Reply-To: <1309349715-1604-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Date: Tue, 28 Jun 2011 19:38:30 +0800
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Wed, 29 Jun 2011 14:15:15 +0200
 
-> From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+> There is no need to check for the address being a multicast address in
+> the netdev_for_each_mc_addr loop, so remove it.
 > 
-> 	1. Using enum name instead of numeric value.
-> 	2. device_set_wakeup_enable expect bool argument
-> 	   adding !!() to the argument to be passed.
-> 	3. Remove non-jme-hardware related operations from
-> 	   jme_clear_pm()
-> 	4. Reuse jme_clear_pm() in jme_resume() and jme_powersave_phy()
-> 
-> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
 Applied.
