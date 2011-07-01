@@ -1,81 +1,69 @@
 From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [RFC patch net-next-2.6] net: allow multiple rx_handler registration
-Date: Fri, 1 Jul 2011 19:50:47 +0200
-Message-ID: <BANLkTi=1Q83SA3M3CDa-AamYNqmzfkrzKA@mail.gmail.com>
-References: <1309447009-8898-1-git-send-email-jpirko@redhat.com>
- <20110630092712.17eb292f@nehalam.ftrdhcpuser.net> <20110630172257.GB2056@minipsycho>
- <BANLkTik6mj=8zvYPN-NNvHP-GPcTNHo31Q@mail.gmail.com> <4E0DE043.4030701@gmail.com>
- <BANLkTi=j03qATuV+a9OHnjcGsK6kB4zo6Q@mail.gmail.com> <4E0DF9C6.703@gmail.com>
+Subject: Re: bridge vs. bonding/pause frames (was: Forward EAPOL...)
+Date: Fri, 1 Jul 2011 19:59:29 +0200
+Message-ID: <BANLkTin_rCS1bJFRhAEGhE0+skFxbrE5_Q@mail.gmail.com>
+References: <BANLkTi=goXU4SpP6dxX9C+YeLcVMEkcKHw@mail.gmail.com>
+ <20110628202200.GB2121496@jupiter.n2.diac24.net> <BANLkTim1owW7iMS3hgKhm7DzTzE4X-jxHA@mail.gmail.com>
+ <20110628210434.GD2121496@jupiter.n2.diac24.net> <BANLkTikN_TPPcyywVT5W9CrGAFJX8qQiyQ@mail.gmail.com>
+ <20110628214637.GE2121496@jupiter.n2.diac24.net> <BANLkTi=4-xYNyaBOzeL04VioK8D0Q8secg@mail.gmail.com>
+ <20110629163423.1d73b0ef@nehalam.ftrdhcpuser.net> <20110701101625.GB3988422@jupiter.n2.diac24.net>
+ <BANLkTimjnP87CAA7JVAe5hqeP08Hd7766g@mail.gmail.com> <20110701151626.GC2613105@jupiter.n2.diac24.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	fubar@us.ibm.com, eric.dumazet@gmail.com, andy@greyhouse.net
-To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Nick Carter <ncarter100@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:60967 "EHLO
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:46952 "EHLO
 	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754794Ab1GARvI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 13:51:08 -0400
-Received: by qwk3 with SMTP id 3so1706006qwk.19
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2011 10:51:07 -0700 (PDT)
-In-Reply-To: <4E0DF9C6.703@gmail.com>
+	with ESMTP id S1756486Ab1GAR7u convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 13:59:50 -0400
+Received: by qwk3 with SMTP id 3so1709130qwk.19
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2011 10:59:49 -0700 (PDT)
+In-Reply-To: <20110701151626.GC2613105@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 1 lipca 2011 18:45 u=BFytkownik Nicolas de Peslo=FCan
-<nicolas.2p.debian@gmail.com> napisa=B3:
-> Le 01/07/2011 17:01, Micha=B3 Miros=B3aw a =E9crit :
->>>> We could introduce a catch-all macvlan/vlan device that would take
->>>> addresses/VLANs which are not covered by other configured
->>>> macvlans/vlans. This would allow clearer configuration and would m=
-ake
->>>> the evaluation order explicit. As a bonus, this will give another
->>>> device to put tcpdump on. ;-)
->>>
->>> 'Sounds like what I had in mind in
->>> http://marc.info/?l=3Dlinux-netdev&m=3D130622112921245&w=3D2 .
->> Almost. My idea assumes that eth0.any won't strip VLAN headers (so i=
-ts
->> just looks like a filtered eth0).
-> I originally thought unstripped packets should go to eth0.
-> But, if eth0.any get untagged packets, we face two problems:
+W dniu 1 lipca 2011 17:16 u=BFytkownik David Lamparter
+<equinox@diac24.net> napisa=B3:
+> On Fri, Jul 01, 2011 at 04:58:56PM +0200, Micha=B3 Miros=B3aw wrote:
+> [...]
+>> > We _MUST_NOT_ pass bonding frames in any case, but we
+>> > currently do that if STP is off. (cf. my earlier patch 1/2)
+>>
+>> If you use linux box as a (invisible) L2 network tap, then you want =
+to
+>> pass everything in the hub mode (including LACP/whatever).
 >
-> 1/ We need a way to retrieve the original tag.
-> 2/ We need a way to force the tag on output (or we consider eth0.any =
-a pure
-> tcpdump device, which is less useful).
+> We must not do that by default, this breaks bridges with bonding devi=
+ces
+> as ports. I'm actively band-aiding that problem with ebtables on one =
+of
+> my boxes currently.
 >
-> But if eth0.any get the exact same packets as those delivered to eth0=
-, this
-> seems useless.
+> How about I change "stp_forward_802local" to "forward_802local" and i=
+t
+> gets 3 values like:
+> - 0 (default) behave like a switch, if STP is on then drop all 16
+> =A0groups, if STP is off then drop :01 and :02
+> - 1 forward regular groups - drop :01 and :02, forward everything els=
+e
+> - 2 forward everything ("invisible tap mode")
+> optional:
+> - -1 drop all 16 groups even if STP is off (not needed, can be done w=
+ith
+> =A0ebtables...)
 >
-> Or maybe, eth0.any should get only packets that weren't delivered to =
-any
-> eth0.XXXX devices... and should be named eth0.unmatched instead of et=
-h0.any
-> :-)
->
-> Do we need eth0.untagged too (which would only get packets that were
-> originally *not* tagged)?
->
-> eth0 - Get everything, untouched. (I know several people except tagge=
-d
-> packets to be untagged here, but I disagree with this part. eth0 is t=
-he raw
-> device and should deliver raw packets, possibly retagging packets tha=
-t were
-> untagged by hw-accel).
-> eth0.100 - Get VLAN 100 packet, untagged.
-> eth0.untagged - Get only non-tagged packets, untouched.
-> eth0.unmatched - Get only tagged packets, untouched.
+> btw, since the drivers should eat up pause frames, you're not a fully
+> invisible L2 tap anyway.
 
-eth0.any in my idea is exactly eth0.untagged + eth0.unmatched in your
-proposition (assuming it gets only filtered VIDs/MACs that don't
-belong to other subdevices).
+If -1 can be done with ebtables what is different for 0 and 1 cases?
+
+Another idea: you could make this a 16-bit bitmap (bit per group) x2
+(STP vs non-STP) - that would cover all uses with the same amount of
+code.
 
 Best Regards,
 Micha=B3 Miros=B3aw
