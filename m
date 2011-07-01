@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rds: fix const array syntax
-Date: Fri, 01 Jul 2011 16:16:27 -0700 (PDT)
-Message-ID: <20110701.161627.480935317086519859.davem@davemloft.net>
-References: <1309560635-17514-1-git-send-email-Gregory.Dietsche@cuw.edu>
+Subject: Re: [PATCH 00/12] net switch/case reformatting
+Date: Fri, 01 Jul 2011 16:15:50 -0700 (PDT)
+Message-ID: <20110701.161550.1316844563798183164.davem@davemloft.net>
+References: <cover.1309549243.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, netdev@vger.kernel.org,
-	rds-devel@oss.oracle.com, kernel-janitors@vger.kernel.org
-To: Gregory.Dietsche@cuw.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52745 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757689Ab1GAXQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2011 19:16:32 -0400
-In-Reply-To: <1309560635-17514-1-git-send-email-Gregory.Dietsche@cuw.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-decnet-user@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-x25@vger.kernel.org, linux-hams@vger.kernel.org,
+	linux-sctp@vger.kernel.org, linux-nfs@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <cover.1309549243.git.joe@perches.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Date: Fri,  1 Jul 2011 17:50:35 -0500
+From: Joe Perches <joe@perches.com>
+Date: Fri,  1 Jul 2011 12:43:01 -0700
 
-> Correct the syntax so that both array and pointer are const.
-> 
-> Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
+> Just whitespace cleanups with a couple trivial corrections
 
-Applied.
+All applied, thanks Joe.
