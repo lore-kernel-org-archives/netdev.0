@@ -1,36 +1,19 @@
 From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH net-next] net: de4x5: Omit check for multicast bit in
-	netdev_for_each_mc_addr
-Date: Fri, 1 Jul 2011 09:25:33 +0200
-Message-ID: <20110701072533.GY28247@distanz.ch>
-References: <1309349760-1776-1-git-send-email-tklauser@distanz.ch> <20110630.235730.726339338074212677.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: grundler@parisc-linux.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next v2] net: de4x5: Omit check for multicast bit in netdev_for_each_mc_addr
+Date: Fri,  1 Jul 2011 09:37:52 +0200
+Message-ID: <1309505872-28090-1-git-send-email-tklauser@distanz.ch>
+References: <1309349760-1776-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from symlink.to.noone.org ([85.10.207.172]:53064 "EHLO sym.noone.org"
+Received: from mx1.zhaw.ch ([160.85.104.50]:34268 "EHLO mx1.zhaw.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755254Ab1GAHfS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2011 03:35:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20110630.235730.726339338074212677.davem@davemloft.net>
+	id S1755275Ab1GAHhy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2011 03:37:54 -0400
+In-Reply-To: <1309349760-1776-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-On 2011-07-01 at 08:57:30 +0200, David Miller <davem@davemloft.net> wrote:
-> From: Tobias Klauser <tklauser@distanz.ch>
-> Date: Wed, 29 Jun 2011 14:16:00 +0200
-> 
-> > There is no need to check for the address being a multicast address in
-> > the netdev_for_each_mc_addr loop, so remove it.
-> > 
-> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> 
-> Please build test your patches!
-
-Sorry for the mess. Here's an updated patch, not removing the addrs
-local variable.
 
 There is no need to check for the address being a multicast address in
 the netdev_for_each_mc_addr loop, so remove it.
