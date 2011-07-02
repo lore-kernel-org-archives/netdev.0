@@ -1,43 +1,79 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: 8139too: Initial necessary vlan_features to support vlan
-Date: Sat, 2 Jul 2011 11:51:38 +0200
-Message-ID: <20110702095138.GA4736@electric-eye.fr.zoreil.com>
-References: <4E0ED194.2030103@cn.fujitsu.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] sctp: fix missing send up SCTP_SENDER_DRY_EVENT when subscribe
+ it
+Date: Sun, 03 Jul 2011 03:18:56 +0800
+Message-ID: <4E0F6F20.5020505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>, tj@kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	=?ISO-8859-1?Q?Michael_T=FCxen?= <Michael.Tuexen@lurchi.franken.de>,
+	Robin Seggelmann <seggelmann@fh-muenster.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:48712 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006Ab1GBKIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2011 06:08:11 -0400
-Content-Disposition: inline
-In-Reply-To: <4E0ED194.2030103@cn.fujitsu.com>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:64404 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006Ab1GBLTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2011 07:19:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shan Wei <shanwei@cn.fujitsu.com> :
-> Offload setting of vlan device requires
-> vlan_features to be initialed.
-[...]
-> @@ -993,6 +993,7 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
->  	 * features
->  	 */
->  	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
-> +	dev->vlan_features = dev->features;
+=46rom: Wei Yongjun<yjwei@cn.fujitsu.com>
 
-        /* note: the hardware is not capable of sg/csum/highdma, however
-         * through the use of skb_copy_and_csum_dev we enable these
-         * features
-         */
+We forgot to send up SCTP_SENDER_DRY_EVENT notification when
+user app subscribes to this event, and there is no data to be
+sent or retransmit.
 
-The commit message is a bit misleading wrt hardware capabilities but the
-patch makes sense.
+This is required by the Socket API and used by the DTLS/SCTP
+implementation.
 
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Reported-by: Michael T=FCxen<Michael.Tuexen@lurchi.franken.de>
+Signed-off-by: Wei Yongjun<yjwei@cn.fujitsu.com>
+Tested-by: Robin Seggelmann<seggelmann@fh-muenster.de>
 
---
-Ueimor
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 6766913..99e25de 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2073,10 +2073,33 @@ static int sctp_setsockopt_disable_fragments(st=
+ruct sock *sk,
+  static int sctp_setsockopt_events(struct sock *sk, char __user *optva=
+l,
+  				  unsigned int optlen)
+  {
++	struct sctp_association *asoc;
++	struct sctp_ulpevent *event;
++
+  	if (optlen>  sizeof(struct sctp_event_subscribe))
+  		return -EINVAL;
+  	if (copy_from_user(&sctp_sk(sk)->subscribe, optval, optlen))
+  		return -EFAULT;
++
++	/*
++	 * At the time when a user app subscribes to SCTP_SENDER_DRY_EVENT,
++	 * if there is no data to be sent or retransmit, the stack will
++	 * immediately send up this notification.
++	 */
++	if (sctp_ulpevent_type_enabled(SCTP_SENDER_DRY_EVENT,
++				&sctp_sk(sk)->subscribe)) {
++		asoc =3D sctp_id2assoc(sk, 0);
++
++		if (asoc&&  sctp_outq_is_empty(&asoc->outqueue)) {
++			event =3D sctp_ulpevent_make_sender_dry_event(asoc,
++					GFP_ATOMIC);
++			if (!event)
++				return -ENOMEM;
++
++			sctp_ulpq_tail_event(&asoc->ulpq, event);
++		}
++	}
++
+  	return 0;
+  }
+
+--=20
+1.7.5.1
+
+
+
