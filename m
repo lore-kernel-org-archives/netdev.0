@@ -1,48 +1,44 @@
-From: Greg Dietsche <gregory.dietsche@cuw.edu>
-Subject: Re: [PATCH] net: rds: fix const array syntax
-Date: Fri, 01 Jul 2011 18:12:43 -0500
-Message-ID: <4E0E546B.3000106@cuw.edu>
-References: <1309560635-17514-1-git-send-email-Gregory.Dietsche@cuw.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 6pack,mkiss: fix lock inconsistency
+Date: Fri, 01 Jul 2011 17:30:57 -0700 (PDT)
+Message-ID: <20110701.173057.2255930046909364966.davem@davemloft.net>
+References: <20110625163942.GB20976@linux-mips.org>
+	<4E0DC4F3.6010203@free.fr>
+	<201107012328.46256.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, davem@davemloft.net,
-	netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	kernel-janitors@vger.kernel.org
-To: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from que11.charter.net ([209.225.8.21]:48985 "EHLO que11.charter.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757689Ab1GAXUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2011 19:20:48 -0400
-In-Reply-To: <1309560635-17514-1-git-send-email-Gregory.Dietsche@cuw.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f6bvp@free.fr, ralf@linux-mips.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-hams@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <201107012328.46256.arnd@arndb.de>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/01/2011 05:50 PM, Greg Dietsche wrote:
-> Correct the syntax so that both array and pointer are const.
->
-> Signed-off-by: Greg Dietsche<Gregory.Dietsche@cuw.edu>
-> ---
->   net/rds/tcp_stats.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/rds/tcp_stats.c b/net/rds/tcp_stats.c
-> index d5898d0..f8a7954 100644
-> --- a/net/rds/tcp_stats.c
-> +++ b/net/rds/tcp_stats.c
-> @@ -40,7 +40,7 @@
->   DEFINE_PER_CPU(struct rds_tcp_statistics, rds_tcp_stats)
->   	____cacheline_aligned;
->
-> -static const char const *rds_tcp_stat_names[] = {
-> +static const char * const rds_tcp_stat_names[] = {
->   	"tcp_data_ready_calls",
->   	"tcp_write_space_calls",
->   	"tcp_sndbuf_full",
->    
-Andy's email is bouncing (Recipient unknown)... if someone else could 
-pick this up, that'd be great!
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 1 Jul 2011 23:28:46 +0200
 
-Greg
+> Lockdep found a locking inconsistency in the mkiss_close function:
+> 
+>> kernel: [ INFO: inconsistent lock state ]
+>> kernel: 2.6.39.1 #3
+>> kernel: ---------------------------------
+>> kernel: inconsistent {IN-SOFTIRQ-R} -> {SOFTIRQ-ON-W} usage.
+>> kernel: ax25ipd/2813 [HC0[0]:SC0[0]:HE1:SE1] takes:
+>> kernel: (disc_data_lock){+++?.-}, at: [<ffffffffa018552b>] mkiss_close+0x1b/0x90 [mkiss]
+>> kernel: {IN-SOFTIRQ-R} state was registered at:
+> 
+> The message hints that disc_data_lock is aquired with softirqs disabled,
+> but does not itself disable softirqs, which can in rare circumstances
+> lead to a deadlock. 
+> The same problem is present in the 6pack driver, this patch fixes both
+> by using write_lock_bh instead of write_lock.
+> 
+> Reported-by: Bernard F6BVP <f6bvp@free.fr>
+> Tested-by: Bernard F6BVP <f6bvp@free.fr>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Ralf Baechle<ralf@linux-mips.org>
+> Cc: stable@kernel.org
 
+Applied, thanks!
