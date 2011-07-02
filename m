@@ -1,57 +1,43 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] Disable router anycast address for /127 prefixes
-Date: Sat, 02 Jul 2011 11:38:19 +0200
-Message-ID: <87r569rpis.fsf@nemi.mork.no>
-References: <20110630104713.52e085dd@nehalam.ftrdhcpuser.net>
-	<1309519330-16649-1-git-send-email-bjorn@mork.no>
-	<4E0DDDA5.20401@hp.com> <87y60hsvr2.fsf@nemi.mork.no>
-	<4E0E1B85.1080906@hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: 8139too: Initial necessary vlan_features to support vlan
+Date: Sat, 2 Jul 2011 11:51:38 +0200
+Message-ID: <20110702095138.GA4736@electric-eye.fr.zoreil.com>
+References: <4E0ED194.2030103@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@gmail.com>, tj@kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:42308 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753040Ab1GBJi1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2011 05:38:27 -0400
-In-Reply-To: <4E0E1B85.1080906@hp.com> (Brian Haley's message of "Fri, 01 Jul
-	2011 15:09:57 -0400")
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48712 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006Ab1GBKIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2011 06:08:11 -0400
+Content-Disposition: inline
+In-Reply-To: <4E0ED194.2030103@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brian Haley <brian.haley@hp.com> writes:
-> On 07/01/2011 02:26 PM, Bj=C3=B8rn Mork wrote:
->> Brian Haley <brian.haley@hp.com> writes:
->>
->>> I'm not sure you'd need this part as there shouldn't be a /127 in t=
-he list to remove.
->>=20
->> I don't understand exactly what you mean here....=20
->
-> If you never add an anycast address when the prefix length is 127, th=
-e address
-> wouldn't be there when you went to remove it.  In other words, the ca=
-ll to
-> __ipv6_dev_ac_dec() would return -ENOENT, which is ignored anyways.
+Shan Wei <shanwei@cn.fujitsu.com> :
+> Offload setting of vlan device requires
+> vlan_features to be initialed.
+[...]
+> @@ -993,6 +993,7 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
+>  	 * features
+>  	 */
+>  	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
+> +	dev->vlan_features = dev->features;
 
-Doh!  Of course.  Sorry for being that slow...
+        /* note: the hardware is not capable of sg/csum/highdma, however
+         * through the use of skb_copy_and_csum_dev we enable these
+         * features
+         */
 
-And thanks for taking the time to feed it to me with a small enough
-spoon :-)
+The commit message is a bit misleading wrt hardware capabilities but the
+patch makes sense.
 
-> It's not a common codepath so the two lines of code wouldn't hurt any=
-thing
-> I guess...
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Personally I prefer "symmetric" coding because it leaves fewer question=
-s
-unanswered (necessary for the slow among us, as demonstrated above).
-
-But I think that's for those actually maintaining this code to decide.
-I can post an updated patch if required, or feel free to apply only the
-first hunk.
-
-
-Bj=C3=B8rn
+--
+Ueimor
