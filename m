@@ -1,48 +1,94 @@
-From: Adam Katz <adamkatz0@gmail.com>
-Subject: libpcap and tc filters
-Date: Sun, 3 Jul 2011 15:49:59 +0300
-Message-ID: <CAA0qwj7qG7pyn4V+DVTzN7iPTnwGRJHQOdaDxiMkzrE=0AA5AA@mail.gmail.com>
-References: <CAA0qwj5Ktxi=v3XDAdTpKS_pWa+HjFL5XcN2qsK5m57JJ5G2Bg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
+ overwritten
+Date: Sun, 03 Jul 2011 17:46:11 +0200
+Message-ID: <1309707971.2523.20.camel@edumazet-laptop>
+References: <bug-38102-10286@https.bugzilla.kernel.org/>
+	 <20110629145135.5179fb0c.akpm@linux-foundation.org>
+	 <BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
+	 <CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Alexey Zaytsev <alexey.zaytsev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:55134 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003Ab1GCMuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2011 08:50:00 -0400
-Received: by iwn6 with SMTP id 6so3848123iwn.19
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2011 05:49:59 -0700 (PDT)
-In-Reply-To: <CAA0qwj5Ktxi=v3XDAdTpKS_pWa+HjFL5XcN2qsK5m57JJ5G2Bg@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45932 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753944Ab1GCPqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2011 11:46:18 -0400
+Received: by wyg8 with SMTP id 8so2991546wyg.19
+        for <netdev@vger.kernel.org>; Sun, 03 Jul 2011 08:46:17 -0700 (PDT)
+In-Reply-To: <CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Everyone!
+Le dimanche 03 juillet 2011 =C3=A0 01:25 +0400, Alexey Zaytsev a =C3=A9=
+crit :
+> On Fri, Jul 1, 2011 at 10:01, Alexey Zaytsev <alexey.zaytsev@gmail.co=
+m> wrote:
+> > On Thu, Jun 30, 2011 at 01:51, Andrew Morton <akpm@linux-foundation=
+=2Eorg> wrote:
+> >>
+> >> (switched to email.  Please respond via emailed reply-to-all, not =
+via the
+> >> bugzilla web interface).
+> >>
+> >> On Thu, 23 Jun 2011 17:33:54 GMT
+> >> bugzilla-daemon@bugzilla.kernel.org wrote:
+> >>
+> >>> https://bugzilla.kernel.org/show_bug.cgi?id=3D38102
+> >>>
+> >>>            Summary: BUG kmalloc-2048: Poison overwritten
+> >>>            Product: Drivers
+> >>>            Version: 2.5
+> >>>     Kernel Version: 3.0.0-rc4
+> >>
+> >> Looks like a 2.6.38->2.6.39 regression, perhaps a memory scribble =
+in b44.
+> >
+> > Actually, not sure about the version. 39 was the first one I've bee=
+n
+> > using in the scenario. Checking older versions now.
+> > And git-log does not show a lot of changes to the b44 driver, so it
+> > might be something unrelated.
+> >
+>=20
+> I've checked back as far as 2.6.27, and the problem is still there.
+> I've also looked through the allocation-related code, and it seemed
+> sane. I'm not sure I understand the 1GB dma workaround, but this path
+> is never hit in my case. So adding the driver authors to CC. This
+> could be something different, but I've been unable to reproduce using
+> an other machine with an rtl8139 nic.
 
-I'm attempting to use tc to shape traffic sent using libpcap (more
-precisely tcpreplay, based on libpcap). I'm doing this for a research
-project.
+Hmm, looking at b44 code, I believe there is a race there.
 
-Ii have a prio scheduler with a default band 2:
+Could you try following patch ?
 
-tc qdisc add dev eth0 root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2
-2 2 2 2 2 2
+Thanks
 
-with two filters attached to it:
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index a69331e..80f2fdc 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -689,9 +689,9 @@ static int b44_alloc_rx_skb(struct b44 *bp, int src=
+_idx, u32 dest_idx_unmasked)
+ 		ctrl |=3D DESC_CTRL_EOT;
+=20
+ 	dp =3D &bp->rx_ring[dest_idx];
+-	dp->ctrl =3D cpu_to_le32(ctrl);
+ 	dp->addr =3D cpu_to_le32((u32) mapping + bp->dma_offset);
+-
++	wmb();
++	dp->ctrl =3D cpu_to_le32(ctrl);
+ 	if (bp->flags & B44_FLAG_RX_RING_HACK)
+ 		b44_sync_dma_desc_for_device(bp->sdev, bp->rx_ring_dma,
+ 			                    dest_idx * sizeof(*dp),
 
-tc filter add dev eth0 protocol ip parent 1: prio 1 u32 match ip dport
-80 0xffff flowid 1:1
-tc filter add dev eth0 protocol ip parent 1: prio 2 u32 match ip dport
-443 0xffff flowid 1:2
 
-(disregard the port numbers, they're here just as an example)
-
-When sending actual traffic, the filters work and I see the
-appropriate traffic entering the right class. BUT when replaying
-captured traffic (with the appropriate port numbers) over eth0 using
-tcpreplay, all packets end up in the default band 2 as if the filters
-simply refuse to work.
-
-Can anyone suggest a solution?
-
-Thanks!
