@@ -1,247 +1,160 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH] net/fec: add device tree probe support
-Date: Sun,  3 Jul 2011 16:06:41 +0800
-Message-ID: <1309680401-22904-1-git-send-email-shawn.guo@linaro.org>
-Cc: linux-arm-kernel@lists.infradead.org,
-	devicetree-discuss@lists.ozlabs.org, patches@linaro.org,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Jason Liu <jason.hui@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH next] netfilter: nfqueue: batch verdict support
+Date: Sun, 03 Jul 2011 12:24:15 +0200
+Message-ID: <1309688655.2523.16.camel@edumazet-laptop>
+References: <1307657659-30266-1-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>, Eric Leblond <eric@regit.org>
+To: Florian Westphal <fw@strlen.de>, Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:59464 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082Ab1GCH4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2011 03:56:19 -0400
-Received: by iyb12 with SMTP id 12so3773868iyb.19
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2011 00:56:18 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44871 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755296Ab1GCKYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2011 06:24:23 -0400
+In-Reply-To: <1307657659-30266-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It adds device tree probe support for fec driver.
+Le vendredi 10 juin 2011 =C3=A0 00:14 +0200, Florian Westphal a =C3=A9c=
+rit :
+> Introduces a new nfnetlink type that applies a given
+> verdict to all queued packets with an id <=3D the id in the verdict
+> message.
+>=20
+> If a mark is provided it is applied to all matched packets.
+>=20
+> This reduces the number of verdicts that have to be sent.
+> Applications that make use of this feature need to maintain
+> a timeout to send a batchverdict periodically to avoid starvation.
+>=20
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Jason Liu <jason.hui@linaro.org>
-Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Grant Likely <grant.likely@secretlab.ca>
+The real question hidden here is : "Should packet ids be monotonic" in
+current implementation and all future ones ?
+
+Before we accept this patch, we should make sure packets id are
+monotonic, and I am afraid its not the case right now.
+
+I suggest following patch then.
+
+[PATCH] netfilter: nfqueue: assert monotonic packet ids
+
+Packet identifier is currently setup in nfqnl_build_packet_message(),
+using one atomic_inc_return().
+
+Problem is that since several cpus might concurrently call
+nfqnl_enqueue_packet() for the same queue, we can deliver packets to
+consumer in non monotonic way (packet N+1 being delivered after packet
+N)
+
+This patch moves the packet id setup from nfqnl_build_packet_message()
+to nfqnl_enqueue_packet() to guarantee correct delivery order.
+
+This also removes one atomic operation.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Florian Westphal <fw@strlen.de>
+CC: Pablo Neira Ayuso <pablo@netfilter.org>
+CC: Eric Leblond <eric@regit.org>
 ---
- Documentation/devicetree/bindings/net/fsl-fec.txt |   24 ++++
- drivers/net/fec.c                                 |  120 ++++++++++++++++++++-
- 2 files changed, 139 insertions(+), 5 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/fsl-fec.txt
+ net/netfilter/nfnetlink_queue.c |   26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-new file mode 100644
-index 0000000..1dad888
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -0,0 +1,24 @@
-+* Freescale Fast Ethernet Controller (FEC)
-+
-+Required properties:
-+- compatible : Should be "fsl,<soc>-fec"
-+- reg : Address and length of the register set for the device
-+- interrupts : Should contain fec interrupt
-+- phy-mode : String, operation mode of the PHY interface.
-+  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
-+  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi".
-+- gpios : Should specify the gpio for phy reset
-+
-+Optional properties:
-+- local-mac-address : 6 bytes, mac address
-+
-+Example:
-+
-+fec@83fec000 {
-+	compatible = "fsl,imx51-fec", "fsl,imx27-fec";
-+	reg = <0x83fec000 0x4000>;
-+	interrupts = <87>;
-+	phy-mode = "mii";
-+	gpios = <&gpio1 14 0>; /* phy-reset, GPIO2_14 */
-+	local-mac-address = [00 04 9F 01 1B B9];
-+};
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 7ae3f28..3ee05ff 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -44,6 +44,9 @@
- #include <linux/platform_device.h>
- #include <linux/phy.h>
- #include <linux/fec.h>
-+#include <linux/of.h>
-+#include <linux/of_device.h>
-+#include <linux/of_gpio.h>
- 
- #include <asm/cacheflush.h>
- 
-@@ -78,6 +81,17 @@ static struct platform_device_id fec_devtype[] = {
- 	{ }
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_=
+queue.c
+index fdd2faf..bccaf3b 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -58,7 +58,7 @@ struct nfqnl_instance {
+  */
+ 	spinlock_t	lock;
+ 	unsigned int	queue_total;
+-	atomic_t	id_sequence;		/* 'sequence' of pkt ids */
++	unsigned int	id_sequence;		/* 'sequence' of pkt ids */
+ 	struct list_head queue_list;		/* packets in queue */
  };
- 
-+enum fec_type {
-+	IMX27_FEC,
-+	IMX28_FEC,
-+};
-+
-+static const struct of_device_id fec_dt_ids[] = {
-+	{ .compatible = "fsl,imx27-fec", .data = &fec_devtype[IMX27_FEC], },
-+	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
-+	{ /* sentinel */ },
-+};
-+
- static unsigned char macaddr[ETH_ALEN];
- module_param_array(macaddr, byte, NULL, 0);
- MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
-@@ -734,8 +748,25 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
- 	 */
- 	iap = macaddr;
- 
-+#ifdef CONFIG_OF
-+	/*
-+	 * 2) from device tree data
-+	 */
-+	if (!is_valid_ether_addr(iap)) {
-+		struct device_node *np = fep->pdev->dev.of_node;
-+		if (np) {
-+			const char *mac;
-+			int err;
-+			err = of_property_read_string(np,
-+					"local-mac-address", &mac);
-+			if (err)
-+				iap = (unsigned char *) mac;
-+		}
-+	}
-+#endif
-+
- 	/*
--	 * 2) from flash or fuse (via platform data)
-+	 * 3) from flash or fuse (via platform data)
- 	 */
- 	if (!is_valid_ether_addr(iap)) {
- #ifdef CONFIG_M5272
-@@ -748,7 +779,7 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
- 	}
- 
- 	/*
--	 * 3) FEC mac registers set by bootloader
-+	 * 4) FEC mac registers set by bootloader
- 	 */
- 	if (!is_valid_ether_addr(iap)) {
- 		*((unsigned long *) &tmpaddr[0]) =
-@@ -1358,6 +1389,72 @@ static int fec_enet_init(struct net_device *ndev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_OF
-+static int __devinit fec_get_phy_mode_dt(struct platform_device *pdev)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	int err, i;
-+	const char *pm, *phy_modes[] = {
-+		[PHY_INTERFACE_MODE_MII]	= "mii",
-+		[PHY_INTERFACE_MODE_GMII]	= "gmii",
-+		[PHY_INTERFACE_MODE_SGMII]	= "sgmii",
-+		[PHY_INTERFACE_MODE_TBI]	= "tbi",
-+		[PHY_INTERFACE_MODE_RMII]	= "rmii",
-+		[PHY_INTERFACE_MODE_RGMII]	= "rgmii",
-+		[PHY_INTERFACE_MODE_RGMII_ID]	= "rgmii-id",
-+		[PHY_INTERFACE_MODE_RGMII_RXID]	= "rgmii-rxid",
-+		[PHY_INTERFACE_MODE_RGMII_TXID] = "rgmii-txid",
-+		[PHY_INTERFACE_MODE_RTBI]	= "rtbi",
-+	};
-+
-+	if (np) {
-+		err = of_property_read_string(np, "phy-mode", &pm);
-+		if (err)
-+			return err;
-+		for (i = 0; i < ARRAY_SIZE(phy_modes); i++)
-+			if (!strcasecmp(pm, phy_modes[i]))
-+				return i;
-+	}
-+
-+	return -ENODEV;
-+}
-+
-+static int __devinit fec_reset_phy(struct platform_device *pdev)
-+{
-+	int err, phy_reset;
-+	struct device_node *np = pdev->dev.of_node;
-+
-+	if (!np)
-+		return -ENODEV;
-+
-+	phy_reset = of_get_gpio(np, 0);
-+	err = gpio_request_one(phy_reset, GPIOF_OUT_INIT_LOW, "phy-reset");
-+	if (err) {
-+		pr_warn("FEC: failed to get gpio phy-reset: %d\n", err);
-+		return err;
-+	}
-+
-+	msleep(1);
-+	gpio_set_value(phy_reset, 1);
-+
-+	return 0;
-+}
-+#else /* CONFIG_OF */
-+static inline int fec_get_phy_mode_dt(struct platform_device *pdev)
-+{
-+	return -ENODEV;
-+}
-+
-+static inline int fec_reset_phy(struct platform_device *pdev)
-+{
-+	/*
-+	 * In case of platform probe, the reset has been done
-+	 * by machine code.
-+	 */
-+	return 0;
-+}
-+#endif /* CONFIG_OF */
-+
- static int __devinit
- fec_probe(struct platform_device *pdev)
+=20
+@@ -213,13 +213,15 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_c=
+mpfn cmpfn, unsigned long data)
+=20
+ static struct sk_buff *
+ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+-			   struct nf_queue_entry *entry)
++			   struct nf_queue_entry *entry,
++			   __be32 **packet_id_ptr)
  {
-@@ -1366,6 +1463,11 @@ fec_probe(struct platform_device *pdev)
- 	struct net_device *ndev;
- 	int i, irq, ret = 0;
- 	struct resource *r;
-+	const struct of_device_id *of_id;
-+
-+	of_id = of_match_device(fec_dt_ids, &pdev->dev);
-+	if (of_id)
-+		pdev->id_entry = (struct platform_device_id *) of_id->data;
- 
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!r)
-@@ -1397,9 +1499,16 @@ fec_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, ndev);
- 
--	pdata = pdev->dev.platform_data;
--	if (pdata)
--		fep->phy_interface = pdata->phy;
-+	fep->phy_interface = fec_get_phy_mode_dt(pdev);
-+	if (fep->phy_interface == -ENODEV) {
-+		pdata = pdev->dev.platform_data;
-+		if (pdata)
-+			fep->phy_interface = pdata->phy;
-+		else
-+			fep->phy_interface = PHY_INTERFACE_MODE_MII;
-+	}
-+
-+	fec_reset_phy(pdev);
- 
- 	/* This device has up to three irqs on some platforms */
- 	for (i = 0; i < 3; i++) {
-@@ -1534,6 +1643,7 @@ static struct platform_driver fec_driver = {
- #ifdef CONFIG_PM
- 		.pm	= &fec_pm_ops,
- #endif
-+		.of_match_table = fec_dt_ids,
- 	},
- 	.id_table = fec_devtype,
- 	.probe	= fec_probe,
--- 
-1.7.4.1
+ 	sk_buff_data_t old_tail;
+ 	size_t size;
+ 	size_t data_len =3D 0;
+ 	struct sk_buff *skb;
+-	struct nfqnl_msg_packet_hdr pmsg;
++	struct nlattr *nla;
++	struct nfqnl_msg_packet_hdr *pmsg;
+ 	struct nlmsghdr *nlh;
+ 	struct nfgenmsg *nfmsg;
+ 	struct sk_buff *entskb =3D entry->skb;
+@@ -272,12 +274,11 @@ nfqnl_build_packet_message(struct nfqnl_instance =
+*queue,
+ 	nfmsg->version =3D NFNETLINK_V0;
+ 	nfmsg->res_id =3D htons(queue->queue_num);
+=20
+-	entry->id =3D atomic_inc_return(&queue->id_sequence);
+-	pmsg.packet_id 		=3D htonl(entry->id);
+-	pmsg.hw_protocol	=3D entskb->protocol;
+-	pmsg.hook		=3D entry->hook;
+-
+-	NLA_PUT(skb, NFQA_PACKET_HDR, sizeof(pmsg), &pmsg);
++	nla =3D __nla_reserve(skb, NFQA_PACKET_HDR, sizeof(*pmsg));
++	pmsg =3D nla_data(nla);
++	pmsg->hw_protocol	=3D entskb->protocol;
++	pmsg->hook		=3D entry->hook;
++	*packet_id_ptr		=3D &pmsg->packet_id;
+=20
+ 	indev =3D entry->indev;
+ 	if (indev) {
+@@ -389,6 +390,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, =
+unsigned int queuenum)
+ 	struct sk_buff *nskb;
+ 	struct nfqnl_instance *queue;
+ 	int err =3D -ENOBUFS;
++	__be32 *packet_id_ptr;
+=20
+ 	/* rcu_read_lock()ed by nf_hook_slow() */
+ 	queue =3D instance_lookup(queuenum);
+@@ -402,7 +404,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, =
+unsigned int queuenum)
+ 		goto err_out;
+ 	}
+=20
+-	nskb =3D nfqnl_build_packet_message(queue, entry);
++	nskb =3D nfqnl_build_packet_message(queue, entry, &packet_id_ptr);
+ 	if (nskb =3D=3D NULL) {
+ 		err =3D -ENOMEM;
+ 		goto err_out;
+@@ -421,6 +423,8 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, =
+unsigned int queuenum)
+ 				 queue->queue_total);
+ 		goto err_out_free_nskb;
+ 	}
++	entry->id =3D ++queue->id_sequence;
++	*packet_id_ptr =3D htonl(entry->id);
+=20
+ 	/* nfnetlink_unicast will either free the nskb or add it to a socket =
+*/
+ 	err =3D nfnetlink_unicast(nskb, &init_net, queue->peer_pid, MSG_DONTW=
+AIT);
+@@ -870,7 +874,7 @@ static int seq_show(struct seq_file *s, void *v)
+ 			  inst->peer_pid, inst->queue_total,
+ 			  inst->copy_mode, inst->copy_range,
+ 			  inst->queue_dropped, inst->queue_user_dropped,
+-			  atomic_read(&inst->id_sequence), 1);
++			  inst->id_sequence, 1);
+ }
+=20
+ static const struct seq_operations nfqnl_seq_ops =3D {
+
 
