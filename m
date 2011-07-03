@@ -1,94 +1,143 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
- overwritten
-Date: Sun, 03 Jul 2011 17:46:11 +0200
-Message-ID: <1309707971.2523.20.camel@edumazet-laptop>
-References: <bug-38102-10286@https.bugzilla.kernel.org/>
-	 <20110629145135.5179fb0c.akpm@linux-foundation.org>
-	 <BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
-	 <CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next PATCH 1/2] dcbnl: Aggregated CEE GET operation
+Date: Sun, 03 Jul 2011 11:09:00 -0700
+Message-ID: <4E10B03C.1070803@intel.com>
+References: <1309624423.15528.43.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Alexey Zaytsev <alexey.zaytsev@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shmulik Ravid <shmulikr@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45932 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753944Ab1GCPqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2011 11:46:18 -0400
-Received: by wyg8 with SMTP id 8so2991546wyg.19
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2011 08:46:17 -0700 (PDT)
-In-Reply-To: <CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:57501 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751857Ab1GCSJB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jul 2011 14:09:01 -0400
+In-Reply-To: <1309624423.15528.43.camel@lb-tlvb-shmulik.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 03 juillet 2011 =C3=A0 01:25 +0400, Alexey Zaytsev a =C3=A9=
-crit :
-> On Fri, Jul 1, 2011 at 10:01, Alexey Zaytsev <alexey.zaytsev@gmail.co=
-m> wrote:
-> > On Thu, Jun 30, 2011 at 01:51, Andrew Morton <akpm@linux-foundation=
-=2Eorg> wrote:
-> >>
-> >> (switched to email.  Please respond via emailed reply-to-all, not =
-via the
-> >> bugzilla web interface).
-> >>
-> >> On Thu, 23 Jun 2011 17:33:54 GMT
-> >> bugzilla-daemon@bugzilla.kernel.org wrote:
-> >>
-> >>> https://bugzilla.kernel.org/show_bug.cgi?id=3D38102
-> >>>
-> >>>            Summary: BUG kmalloc-2048: Poison overwritten
-> >>>            Product: Drivers
-> >>>            Version: 2.5
-> >>>     Kernel Version: 3.0.0-rc4
-> >>
-> >> Looks like a 2.6.38->2.6.39 regression, perhaps a memory scribble =
-in b44.
-> >
-> > Actually, not sure about the version. 39 was the first one I've bee=
-n
-> > using in the scenario. Checking older versions now.
-> > And git-log does not show a lot of changes to the b44 driver, so it
-> > might be something unrelated.
-> >
->=20
-> I've checked back as far as 2.6.27, and the problem is still there.
-> I've also looked through the allocation-related code, and it seemed
-> sane. I'm not sure I understand the 1GB dma workaround, but this path
-> is never hit in my case. So adding the driver authors to CC. This
-> could be something different, but I've been unable to reproduce using
-> an other machine with an rtl8139 nic.
+On 7/2/2011 9:33 AM, Shmulik Ravid wrote:
+> The following couple of patches add dcbnl an unsolicited notification of
+> the the DCB configuration for the CEE flavor of the DCBX protocol. This
+> is useful when the user-mode DCB client is not responsible for
+> conducting and resolving the DCBX negotiation (either because the DCBX
+> stack is embedded in the HW or the negotiation is handled by another
+> agent in he host), but still needs to get the negotiated parameters.
+> This functionality already exists for the IEEE flavor of the DCBX
+> protocol and these patches add it to the older CEE flavor.
+> 
+> The first patch extends the CEE attribute GET operation to include not
+> only the peer information, but also all the pertinent local
+> configuration (negotiated parameters). The second patch adds and export
+> a CEE specific notification routine.
+> 
+> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
+> ---
+>  include/linux/dcbnl.h |   20 ++++++-
+>  net/dcb/dcbnl.c       |  156 ++++++++++++++++++++++++++++++++++++++++++++++--
+>  2 files changed, 168 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+> index 66a6723..c875244 100644
+> --- a/include/linux/dcbnl.h
+> +++ b/include/linux/dcbnl.h
+> @@ -333,15 +333,26 @@ enum ieee_attrs_app {
+>  #define DCB_ATTR_IEEE_APP_MAX (__DCB_ATTR_IEEE_APP_MAX - 1)
+>  
+>  /**
+> - * enum cee_attrs - CEE DCBX get attributes
+> + * enum cee_attrs - CEE DCBX get attributes. An aggregated collection of the
+> + * cee std negotiated parameters
+>   *
+>   * @DCB_ATTR_CEE_UNSPEC: unspecified
+> + * @DCB_ATTR_CEE_FEAT: DCBX features flags (DCB_CMD_GFEATCFG)
+> + * @DCB_ATTR_CEE_RX_PG: RX PG configuration (DCB_CMD_PGRX_GCFG)
+> + * @DCB_ATTR_CEE_TX_PG: TX PG configuration (DCB_CMD_PGTX_GCFG)
+> + * @DCB_ATTR_CEE_PFC: PFC configuration (DCB_CMD_PFC_GCFG)
+> + * @DCB_ATTR_CEE_APP_TABLE: APP configuration (multi DCB_CMD_GAPP)
+>   * @DCB_ATTR_CEE_PEER_PG: peer PG configuration - get only
+>   * @DCB_ATTR_CEE_PEER_PFC: peer PFC configuration - get only
+>   * @DCB_ATTR_CEE_PEER_APP: peer APP tlv - get only
+>   */
+>  enum cee_attrs {
+>  	DCB_ATTR_CEE_UNSPEC,
+> +	DCB_ATTR_CEE_TX_PG,
+> +	DCB_ATTR_CEE_RX_PG,
+> +	DCB_ATTR_CEE_PFC,
+> +	DCB_ATTR_CEE_APP_TABLE,
+> +	DCB_ATTR_CEE_FEAT,
+>  	DCB_ATTR_CEE_PEER_PG,
+>  	DCB_ATTR_CEE_PEER_PFC,
+>  	DCB_ATTR_CEE_PEER_APP_TABLE,
 
-Hmm, looking at b44 code, I believe there is a race there.
+PEER_PG, PEER_PFC, and PEER_APP_TABLE are already in kernel and user
+space. So we shouldn't change their enum'd value. Put the new values
+below them.
 
-Could you try following patch ?
+> @@ -357,6 +368,13 @@ enum peer_app_attr {
+>  };
+>  #define DCB_ATTR_CEE_PEER_APP_MAX (__DCB_ATTR_CEE_PEER_APP_MAX - 1)
+>  
+> +enum cee_attrs_app {
+> +	DCB_ATTR_CEE_APP_UNSPEC,
+> +	DCB_ATTR_CEE_APP,
+> +	__DCB_ATTR_CEE_APP_MAX
+> +};
+> +#define DCB_ATTR_CEE_APP_MAX (__DCB_ATTR_CEE_APP_MAX - 1)
+> +
+>  /**
+>   * enum dcbnl_pfc_attrs - DCB Priority Flow Control user priority nested attrs
+>   *
+> diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+> index fc56e85..5b75ed7 100644
+> --- a/net/dcb/dcbnl.c
+> +++ b/net/dcb/dcbnl.c
+> @@ -1642,6 +1642,58 @@ err:
+>  	return ret;
+>  }
+>  
+> +static int dcbnl_cee_pg_fill(struct sk_buff *skb, struct net_device *dev,
+> +			     int dir)
 
-Thanks
+Why the 'dir'? Could you just pack both tx and rx together? It looks like all
+cases pack TX then pack RX. Did I miss something?
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index a69331e..80f2fdc 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -689,9 +689,9 @@ static int b44_alloc_rx_skb(struct b44 *bp, int src=
-_idx, u32 dest_idx_unmasked)
- 		ctrl |=3D DESC_CTRL_EOT;
-=20
- 	dp =3D &bp->rx_ring[dest_idx];
--	dp->ctrl =3D cpu_to_le32(ctrl);
- 	dp->addr =3D cpu_to_le32((u32) mapping + bp->dma_offset);
--
-+	wmb();
-+	dp->ctrl =3D cpu_to_le32(ctrl);
- 	if (bp->flags & B44_FLAG_RX_RING_HACK)
- 		b44_sync_dma_desc_for_device(bp->sdev, bp->rx_ring_dma,
- 			                    dest_idx * sizeof(*dp),
+> +{
+> +	u8 pgid, up_map, prio, tc_pct;
+> +	const struct dcbnl_rtnl_ops *ops = dev->dcbnl_ops;
+> +	int i = dir ? DCB_ATTR_CEE_TX_PG : DCB_ATTR_CEE_RX_PG;
+> +	struct nlattr *pg = nla_nest_start(skb, i);
+
+I believe its preferred to put an empty line here. At least I prefer it.
+
+> +	if (!pg)
+> +		goto nla_put_failure;
+> +
+> +	for (i = DCB_PG_ATTR_TC_0; i <= DCB_PG_ATTR_TC_7; i++) {
+> +		struct nlattr *tc_nest = nla_nest_start(skb, i);
+
+same here.
+
+> +		if (!tc_nest)
+> +			goto nla_put_failure;
+> +
+> +		pgid = DCB_ATTR_VALUE_UNDEFINED;
+> +		prio = DCB_ATTR_VALUE_UNDEFINED;
+> +		tc_pct = DCB_ATTR_VALUE_UNDEFINED;
+> +		up_map = DCB_ATTR_VALUE_UNDEFINED;
+> +
+> +		if (!dir)
+> +			ops->getpgtccfgrx(dev, i - DCB_PG_ATTR_TC_0,
+> +					  &prio, &pgid, &tc_pct, &up_map);
+> +		else
+> +			ops->getpgtccfgtx(dev, i - DCB_PG_ATTR_TC_0,
+> +					  &prio, &pgid, &tc_pct, &up_map);
+> +
 
 
+Thanks for doing this. We should be able to get firmware CEE DCBX agents
+working correctly with this.
+
+//John
