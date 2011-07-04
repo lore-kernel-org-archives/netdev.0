@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: 8139too: Initial necessary vlan_features to
- support vlan
-Date: Sun, 03 Jul 2011 19:54:23 -0700 (PDT)
-Message-ID: <20110703.195423.1809799333507901972.davem@davemloft.net>
-References: <4E0ED194.2030103@cn.fujitsu.com>
-	<20110702095138.GA4736@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 1/2] netpoll: Remove unused EXPORT_SYMBOLs of
+ netpoll_poll and netpoll_poll_dev
+Date: Sun, 03 Jul 2011 20:02:24 -0700 (PDT)
+Message-ID: <20110703.200224.1596548736594048749.davem@davemloft.net>
+References: <cover.1309482314.git.joe@perches.com>
+	<282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shanwei@cn.fujitsu.com, netdev@vger.kernel.org,
-	adobriyan@gmail.com, tj@kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37281 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753172Ab1GDDAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2011 23:00:53 -0400
-In-Reply-To: <20110702095138.GA4736@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, amwang@redhat.com,
+	netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 2 Jul 2011 11:51:38 +0200
+From: Joe Perches <joe@perches.com>
+Date: Thu, 30 Jun 2011 18:08:57 -0700
 
-> Shan Wei <shanwei@cn.fujitsu.com> :
->> Offload setting of vlan device requires
->> vlan_features to be initialed.
-> [...]
->> @@ -993,6 +993,7 @@ static int __devinit rtl8139_init_one (struct pci_dev *pdev,
->>  	 * features
->>  	 */
->>  	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA;
->> +	dev->vlan_features = dev->features;
+> Unused symbols waste space.
 > 
->         /* note: the hardware is not capable of sg/csum/highdma, however
->          * through the use of skb_copy_and_csum_dev we enable these
->          * features
->          */
+> Commit 0e34e93177fb
+> "(netpoll: add generic support for bridge and bonding devices)"
+> added the symbol more than a year ago with the promise of "future use".
 > 
-> The commit message is a bit misleading wrt hardware capabilities but the
-> patch makes sense.
+> Because it is so far unused, remove it for now.
+> It can be easily readded if or when it actually needs to be used.
 > 
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> cc: WANG Cong <amwang@redhat.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied.
