@@ -1,47 +1,95 @@
-From: Alexander Stein <alexander.stein@systec-electronic.com>
-Subject: Re: possible bridge regression in "bridge: implement [add/del]_slave ops"?
-Date: Mon, 4 Jul 2011 08:46:44 +0200
-Message-ID: <201107040846.45016.alexander.stein@systec-electronic.com>
-References: <201106301033.23997.alexander.stein@systec-electronic.com> <20110630100819.0e4b536f@nehalam.ftrdhcpuser.net>
+From: Harry Wei <jiaweiwei.xiyou@gmail.com>
+Subject: Re: [PATCH 1/2] netpoll: Remove unused EXPORT_SYMBOLs of
+ netpoll_poll and netpoll_poll_dev
+Date: Mon, 4 Jul 2011 14:53:22 +0800
+Message-ID: <20110704065320.GA2588@gmail.com>
+References: <cover.1309482314.git.joe@perches.com>
+ <282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=gb2312
+Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 61-96-236-77.server-home.net ([77.236.96.61]:40024 "EHLO
-	webbox1416.server-home.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752667Ab1GDGwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 02:52:51 -0400
-In-Reply-To: <20110630100819.0e4b536f@nehalam.ftrdhcpuser.net>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:48421 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457Ab1GDGxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 02:53:39 -0400
+Content-Disposition: inline
+In-Reply-To: <282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 30 June 2011 19:08:19 Stephen Hemminger wrote:
-> On Thu, 30 Jun 2011 10:33:23 +0200
+On Thu, Jun 30, 2011 at 06:08:57PM -0700, Joe Perches wrote:
+> Unused symbols waste space.
 > 
-> Alexander Stein <alexander.stein@systec-electronic.com> wrote:
-> > * echo $(pgrep rstpd) > /var/run/rstpd.pid
-> > * brctl addbr br1
-> > * echo 1 > /sys/class/net/br1/bridge/stp_state
+> Commit 0e34e93177fb
+> "(netpoll: add generic support for bridge and bonding devices)"
+> added the symbol more than a year ago with the promise of "future use".
 > 
-> This bogus. You are running both kernel and spanning
-> tree daemon at the same time!
+> Because it is so far unused, remove it for now.
+> It can be easily readded if or when it actually needs to be used.
 > 
-> Doing the echo of 1 to stp_state forces kernel spanning
-> tree. You want 2 which is what is supposed to be use for user
-> mode spanning tree.
+> cc: WANG Cong <amwang@redhat.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  include/linux/netpoll.h |    2 --
+>  net/core/netpoll.c      |    6 ++----
+>  2 files changed, 2 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+> index 79358bb..5dfa091 100644
+> --- a/include/linux/netpoll.h
+> +++ b/include/linux/netpoll.h
+> @@ -40,8 +40,6 @@ struct netpoll_info {
+>  	struct netpoll *netpoll;
+>  };
+>  
+> -void netpoll_poll_dev(struct net_device *dev);
+> -void netpoll_poll(struct netpoll *np);
+>  void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+>  void netpoll_print_options(struct netpoll *np);
+>  int netpoll_parse_options(struct netpoll *np, char *opt);
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 18d9cbd..4ce595e 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -177,7 +177,7 @@ static void service_arp_queue(struct netpoll_info *npi)
+>  	}
+>  }
+>  
+> -void netpoll_poll_dev(struct net_device *dev)
+> +static void netpoll_poll_dev(struct net_device *dev)
+Hi Joe,
+You have removed the function declaration in include/linux/netpoll.h.
+And you changed the function like 
+static void netpoll_poll_dev(...)
+{
+	...
+}
+But i don't know its usage.
+The 'static' before this function just says the active area of 'netpoll_poll_dev'
+is in the file net/core/netpoll.c. What is the purpose? Could you please tell me?
 
-Well, at first sight you're right. But looking at the code at 
-br_stp_set_enabled() in br_stp_if.c it doesn't matter which value you echo 
-into stp_state, it just have to be non-zero
-The detection of usermode oder kernelmode STP is done using the usermode 
-helper (see br_stp_start). I tried echoing 1, 2 or even 5 into stp_state, with 
-a working /sbin/bridge-stp I get 2 from stp_state each time.
+Thanks in advance.
 
-Maybe it is valuable to change this odd behavior.
-
-Regards,
-Alexander
+>  {
+>  	const struct net_device_ops *ops;
+>  
+> @@ -208,13 +208,11 @@ void netpoll_poll_dev(struct net_device *dev)
+>  
+>  	zap_completion_queue();
+>  }
+> -EXPORT_SYMBOL(netpoll_poll_dev);
+>  
+> -void netpoll_poll(struct netpoll *np)
+> +static void netpoll_poll(struct netpoll *np)
+>  {
+>  	netpoll_poll_dev(np->dev);
+>  }
+> -EXPORT_SYMBOL(netpoll_poll);
+>  
+>  static void refill_skbs(void)
+>  {
+> -- 
+> 1.7.6.rc1
