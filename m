@@ -1,35 +1,63 @@
-From: TB <lkml@techboom.com>
-Subject: Re: divide error: 0000, in bictcp_cong_avoid, kernel 2.6.39
-Date: Mon, 04 Jul 2011 14:10:16 -0400
-Message-ID: <4E120208.2090500@techboom.com>
-References: <4E11CCC4.2010404@techboom.com> <20110704103622.6294f9ed@nehalam.ftrdhcpuser.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/6] dccp ccid-2: move rfc 3390 function into header file
+Date: Mon,  4 Jul 2011 13:01:17 -0600
+Message-ID: <1309806079-21604-5-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <test_tree_patch_set_update_2011-07-04>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s040.panelboxmanager.com ([72.55.186.60]:58430 "EHLO
-	s040.panelboxmanager.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711Ab1GDSLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 14:11:13 -0400
-In-Reply-To: <20110704103622.6294f9ed@nehalam.ftrdhcpuser.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53735 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750860Ab1GDTUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2011 15:20:44 -0400
+In-Reply-To: <test_tree_patch_set_update_2011-07-04>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-07-04 01:36 PM, Stephen Hemminger wrote:
-> Any data about the type of connection, kernel configuration or other
-> information that might be useful in reproducing the problem?
-> 
-> Also please try 2.6.39.2
+This moves CCID-2's initial window function into the header file, since several
+parts throughout the CCID-2 code need to call it (CCID-2 still uses RFC 3390).
 
-We haven't found a sure way of reproducing it.
-It happened on 1.2% of our servers over the weekend and seems random.
-Both are connected with 2 gigabit ports using bonding. Traffic tends to
-be heavy, but doesn't seem to be a factor.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Acked-by: Leandro Melo de Sales <leandro@ic.ufal.br>
+---
+ net/dccp/ccids/ccid2.c |    9 ---------
+ net/dccp/ccids/ccid2.h |    9 +++++++++
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-Would a .config help ?
-
-Only the very basic filter module for iptables is compiled in.
-
-We will try 2.6.39.2 soon
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -583,15 +583,6 @@ done:
+ 	dccp_ackvec_parsed_cleanup(&hc->tx_av_chunks);
+ }
+ 
+-/*
+- * Convert RFC 3390 larger initial window into an equivalent number of packets.
+- * This is based on the numbers specified in RFC 5681, 3.1.
+- */
+-static inline u32 rfc3390_bytes_to_packets(const u32 smss)
+-{
+-	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
+-}
+-
+ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+ {
+ 	struct ccid2_hc_tx_sock *hc = ccid_priv(ccid);
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -88,6 +88,15 @@ static inline bool ccid2_cwnd_network_limited(struct ccid2_hc_tx_sock *hc)
+ 	return hc->tx_pipe >= hc->tx_cwnd;
+ }
+ 
++/*
++ * Convert RFC 3390 larger initial window into an equivalent number of packets.
++ * This is based on the numbers specified in RFC 5681, 3.1.
++ */
++static inline u32 rfc3390_bytes_to_packets(const u32 smss)
++{
++	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
++}
++
+ struct ccid2_hc_rx_sock {
+ 	int	rx_data;
+ };
