@@ -1,82 +1,38 @@
-From: Alexey Zaytsev <alexey.zaytsev@gmail.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
-Date: Tue, 5 Jul 2011 02:29:13 +0400
-Message-ID: <CAB9v_DFFX6cHAFBSOGDJRniehJ6pYD7Z5XG6ygTGHy8j=z+U0g@mail.gmail.com>
-References: <bug-38102-10286@https.bugzilla.kernel.org/>
-	<20110629145135.5179fb0c.akpm@linux-foundation.org>
-	<BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
-	<CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
-	<1309707971.2523.20.camel@edumazet-laptop>
-	<CAB9v_DG7e8vDE+4PDwuOR2DYG1FEvUM1fxa+e4a=swwTYGJ9nQ@mail.gmail.com>
-	<20110704130531.37cf876e@Nokia-N900>
-	<1309787822.2247.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110704162726.4072e715@maggie>
-	<20110704164351.338dc12e@maggie>
-	<1309792323.2247.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAB9v_DHHmeFtQ4jrtVRSGWBvB=W_=QBHCvMi-u25e0nPBQ1jAA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/core: Make urgent data inline by default
+Date: Mon, 04 Jul 2011 16:38:38 -0700 (PDT)
+Message-ID: <20110704.163838.1746904172195321123.davem@davemloft.net>
+References: <op.vx3hzgtw6ywr33@esapekka-pc.rad1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: esa-pekka.pyokkimies@stonesoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:42699 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752435Ab1GDW3O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 18:29:14 -0400
-Received: by vxb39 with SMTP id 39so3829298vxb.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 15:29:13 -0700 (PDT)
-In-Reply-To: <CAB9v_DHHmeFtQ4jrtVRSGWBvB=W_=QBHCvMi-u25e0nPBQ1jAA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38830 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752560Ab1GDXjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 19:39:02 -0400
+In-Reply-To: <op.vx3hzgtw6ywr33@esapekka-pc.rad1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 5, 2011 at 00:25, Alexey Zaytsev <alexey.zaytsev@gmail.com>=
- wrote:
-> On Mon, Jul 4, 2011 at 19:12, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
->> Le lundi 04 juillet 2011 =C3=A0 16:43 +0200, Michael B=C3=BCsch a =C3=
-=A9crit :
->>> On Mon, 4 Jul 2011 16:27:26 +0200
->>> Michael B=C3=BCsch <m@bues.ch> wrote:
->>> > We do this in b43, which has exactly the same DMA engine.
->>>
->>> (Ok, it turns out we don't do this in b43 (We only do it on the TX =
-side).
->>> =C2=A0But that's a bug. We should do a wmb() on the RX side before =
-advancing the
->>> =C2=A0descriptor ring pointer.)
->>
->> I am wondering what happens if RX ring is set to 64, and we receive
->> exactly 64 buffers in one round, B44_DMARX_PTR wont change at all ?
->>
->> Alexey, could you try this patch please ?
->
-> Sorry, did not help.
->
+From: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
+Date: Mon, 4 Jul 2011 15:51:06 +0300
 
-Ran a few rounds of tcpdump. Seeing a significant number or duplicate
-ACKs from the problematic machine. Not seeing them when testing
-between this machine and an other linux box. Or the illumos machine
-and the other linux box.
+> Make urgent data inline by default. As explained in RFC 6093, urgent
+> data should never be handled out-of-band.
+> 
+> "The TCP urgent mechanism is NOT a mechanism for sending "out-of-band"
+>  data: the so-called "urgent data" should be delivered "in-line" to
+>  the TCP user."
+> 
+> Signed-off-by: Esa-Pekka Pyokkimies
+> <esa-pekka.pyokkimies@stonesoft.com>
 
-Dumps are available here:
+There is no way we can make this change, we've had the default
+we currently have for 18+ years.  Breaking applications is a
+very real possibility.
 
-http://zaytsev.su/tmp/caps/
+It doesn't matter what some RFC says.
 
-dump1-3 - between the problematic machine an the illumos box,
-collected on illumos side. All show dups.
-dump5 - between an other linux box and the illumos machine, no dups.
-Collcted on the illumos side.
-dump-linux - between 2 linux machines, collected on the
-non-problematic side. No dups, no corruptions.
-
-192.168.0.33 - the problematic machine.
-192.168.0.72 - the illumos machine.
-192.168.0.122 - an other linux machine.
