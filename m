@@ -1,65 +1,93 @@
-From: Adam Katz <adamkatz0@gmail.com>
-Subject: Re: libpcap and tc filters
-Date: Mon, 4 Jul 2011 17:16:19 +0300
-Message-ID: <CAA0qwj4FUpfdux73WCxFcjX0xp-zNtMwncRRmN7ea1Kr9FX3Kw@mail.gmail.com>
-References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
-	<1309777908.26180.1.camel@mojatatu>
-	<CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
-	<CAA0qwj7cH8Ah69fBMkXpGkwG77TH_ZqMhKwj-Cc8Vc=F5c9SSw@mail.gmail.com>
-	<1309784740.26180.21.camel@mojatatu>
-	<CAA0qwj4=bOU3LDsRk591AtBWx2c_6uFwk0M4-AGrnxCPKjbbrw@mail.gmail.com>
-	<1309788416.26180.63.camel@mojatatu>
+From: Martin Wilck <martin.wilck@ts.fujitsu.com>
+Subject: [PATCH] fix WOL on 2nd port on i350
+Date: Mon, 04 Jul 2011 16:17:43 +0200
+Message-ID: <4E11CB87.5040806@ts.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:41799 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753797Ab1GDOQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 10:16:20 -0400
-Received: by iwn6 with SMTP id 6so4471086iwn.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 07:16:20 -0700 (PDT)
-In-Reply-To: <1309788416.26180.63.camel@mojatatu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="------------070904030301060002000805"
+Cc: "Uhe, Rudolf" <rudolf.uhe@ts.fujitsu.com>
+To: alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-thanks a lot
-I can tell you I'm not the first one to have this problem, but it
-doesn't seem to be common... but that's probably because people
-usually don't try to shape traffic sent using libpcap.
+This is a multi-part message in MIME format.
+--------------070904030301060002000805
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-I found this post from 2003 on lartc with the exact same problem but
-with no replies:
-http://mailman.ds9a.nl/pipermail/lartc/2003q4/011004.html
+WOL fails on second port of a i350 network adapter with the latest
+upstream kernel driver. It works with the sf.net driver 3.0.19. The
+following patch seems to be missing upstream.
+
+Regards,
+Martin
+
+-- 
+Dr. Martin Wilck
+PRIMERGY System Software Engineer
+x86 Server Engineering
+
+FUJITSU
+Fujitsu Technology Solutions GmbH
+Heinz-Nixdorf-Ring 1
+33106 Paderborn, Germany
+Phone:			++49 5251 525 2796
+Fax:			++49 5251 525 2820
+Email:			martin.wilck@ts.fujitsu.com
+Internet:		http://ts.fujitsu.com
+Company Details:	http://ts.fujitsu.com/imprint
 
 
-On Mon, Jul 4, 2011 at 5:06 PM, jamal <hadi@cyberus.ca> wrote:
-> On Mon, 2011-07-04 at 16:24 +0300, Adam Katz wrote:
->> ok, I checked now and the packets sent by tcpreplay are identical to
->> the ones captured originally by wireshark.
->
-> Ok - thanks for removing that variable.
->
->> I'm using the stock ubuntu 10.04 kernel that wasn't compiled with
->> CONFIG_CLS_U32_PERF so sudo tc -s filter ls dev eth1 shows nothing
->> useful (and i'm not sure that recompiling the entire kernel is worth
->> it to tell me what I already know - that these packets missed the
->> filters... but i'm willing to do it if you think that'll help).
->
-> Not necessary as long as you can tell where the packets end up.
->
->> Anyway, I suspect the problem to be something else - I suspect that
->> the packets sent using tcpreplay simply skip the filters in the kernel
->> and are being injected somewhere afterwards. But this theory is
->> problematic since I find it strange that the packets do end up in the
->> default queue after all - hence they ARE seen by tc and they don't
->> skip tc entirely.
->
-> I am not sure off top of my head why that would happen. I will try later
-> to install tcpreplay and reproduce your test.
->
-> cheers,
-> jamal
->
->
+--------------070904030301060002000805
+Content-Type: text/plain;
+ name="igb_i350_wol.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="igb_i350_wol.diff"
+
+--- linus/drivers/net/igb/igb_main.c	2011-06-13 00:17:28.000000000 +0200
++++ linus/drivers/net/igb/igb_main.c.new	2011-07-04 14:24:00.000000000 +0200
+@@ -1985,7 +1985,7 @@ static int __devinit igb_probe(struct pc
+ 
+ 	if (hw->bus.func == 0)
+ 		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
+-	else if (hw->mac.type == e1000_82580)
++	else if (hw->mac.type >= e1000_82580)
+ 		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A +
+ 		                 NVM_82580_LAN_FUNC_OFFSET(hw->bus.func), 1,
+ 		                 &eeprom_data);
+
+
+--------------070904030301060002000805
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+All of the data generated in your IT infrastructure is seriously valuable.
+Why? It contains a definitive record of application performance, security 
+threats, fraudulent activity, and more. Splunk takes this data and makes 
+sense of it. IT sense. And common sense.
+http://p.sf.net/sfu/splunk-d2d-c2
+--------------070904030301060002000805
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--------------070904030301060002000805--
