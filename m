@@ -1,170 +1,47 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] net/fec: add device tree probe support
-Date: Mon, 4 Jul 2011 00:38:50 -0600
-Message-ID: <20110704063850.GK15152@ponder.secretlab.ca>
-References: <1309680401-22904-1-git-send-email-shawn.guo@linaro.org>
- <20110703212312.GD13742@ponder.secretlab.ca>
- <20110704055021.GC10245@S2100-06.ap.freescale.net>
- <20110704055956.GD15152@ponder.secretlab.ca>
- <20110704062521.GD10245@S2100-06.ap.freescale.net>
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Subject: Re: possible bridge regression in "bridge: implement [add/del]_slave ops"?
+Date: Mon, 4 Jul 2011 08:46:44 +0200
+Message-ID: <201107040846.45016.alexander.stein@systec-electronic.com>
+References: <201106301033.23997.alexander.stein@systec-electronic.com> <20110630100819.0e4b536f@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shawn Guo <shawn.guo@linaro.org>, patches@linaro.org,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Jason Liu <jason.hui@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:37784 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753038Ab1GDGix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 02:38:53 -0400
-Received: by pvg12 with SMTP id 12so4107044pvg.19
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2011 23:38:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110704062521.GD10245@S2100-06.ap.freescale.net>
+Received: from 61-96-236-77.server-home.net ([77.236.96.61]:40024 "EHLO
+	webbox1416.server-home.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752667Ab1GDGwv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 02:52:51 -0400
+In-Reply-To: <20110630100819.0e4b536f@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 04, 2011 at 02:25:22PM +0800, Shawn Guo wrote:
-> On Sun, Jul 03, 2011 at 11:59:56PM -0600, Grant Likely wrote:
-> > On Mon, Jul 04, 2011 at 01:50:22PM +0800, Shawn Guo wrote:
-> > > On Sun, Jul 03, 2011 at 03:23:12PM -0600, Grant Likely wrote:
-> > > > On Sun, Jul 03, 2011 at 04:06:41PM +0800, Shawn Guo wrote:
-> > > > > It adds device tree probe support for fec driver.
-> > > > > 
-> > > > > Signed-off-by: Jason Liu <jason.hui@linaro.org>
-> > > > > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> > > > > Cc: David S. Miller <davem@davemloft.net>
-> > > > > Cc: Grant Likely <grant.likely@secretlab.ca>
-> > > > 
-> > > > Minor comments below.  After addressing them you can add my:
-> > > > 
-> > > > Acked-by: Grant Likely <grant.likely@secretlab.ca>
-> > > > 
-> > > > I don't see any reason not to merge this one in v3.1
-> > > > 
-> > > > g.
-> > > > 
-> > > > > ---
-> > > > >  Documentation/devicetree/bindings/net/fsl-fec.txt |   24 ++++
-> > > > >  drivers/net/fec.c                                 |  120 ++++++++++++++++++++-
-> > > > >  2 files changed, 139 insertions(+), 5 deletions(-)
-> > > > >  create mode 100644 Documentation/devicetree/bindings/net/fsl-fec.txt
-> > > > > 
-> > > > > diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> > > > > new file mode 100644
-> > > > > index 0000000..1dad888
-> > > > > --- /dev/null
-> > > > > +++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-> > > > > @@ -0,0 +1,24 @@
-> > > > > +* Freescale Fast Ethernet Controller (FEC)
-> > > > > +
-> > > > > +Required properties:
-> > > > > +- compatible : Should be "fsl,<soc>-fec"
-> > > > > +- reg : Address and length of the register set for the device
-> > > > > +- interrupts : Should contain fec interrupt
-> > > > > +- phy-mode : String, operation mode of the PHY interface.
-> > > > > +  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
-> > > > > +  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi".
-> > > > 
-> > > > We don't have a common binding for this yet.  Should be
-> > > > "fsl,phy-mode".
-> > > > 
-> > > There is nothing really fsl specific.
-> > 
-> > That's not really the point.  It might be that phy-mode as you're
-> > defining it here will not be sufficient for other ethernet devices.
+On Thursday 30 June 2011 19:08:19 Stephen Hemminger wrote:
+> On Thu, 30 Jun 2011 10:33:23 +0200
 > 
-> I'm not defining the phy mode.  Instead, it's just a direct mapping
-> of 'enum phy_interface_t' found in include/linux/phy.h, which is
-> something common and generic, I think?
+> Alexander Stein <alexander.stein@systec-electronic.com> wrote:
+> > * echo $(pgrep rstpd) > /var/run/rstpd.pid
+> > * brctl addbr br1
+> > * echo 1 > /sys/class/net/br1/bridge/stp_state
 > 
-> > You should avoid creating 'generic' property definitions, unless
-> > you're doing the leg work of figuring out which devices would use this
-> > property and creating multiple users.
-> > 
+> This bogus. You are running both kernel and spanning
+> tree daemon at the same time!
 > 
-> Any net device driver currently referring to 'enum phy_interface_t'
-> is going to need this property when migrating to dt, I guess.
-> 
-> > So, you may be right that this isn't fsl specific, but it is still
-> > good practise to use that "fsl," prefix.
-> > 
-> > 
-> > > How does thn following patch
-> > > look to you?
-> > > 
-> > > ---8<---------
-> > > diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
-> > > index 86f334a..cc117db 100644
-> > > --- a/drivers/of/of_net.c
-> > > +++ b/drivers/of/of_net.c
-> > > @@ -8,6 +8,49 @@
-> > >  #include <linux/etherdevice.h>
-> > >  #include <linux/kernel.h>
-> > >  #include <linux/of_net.h>
-> > > +#include <linux/phy.h>
-> > > +
-> > > +/**
-> > > + * It maps 'enum phy_interface_t' found in include/linux/phy.h
-> > > + * into the device tree binding of 'phy-mode', so that Ethernet
-> > > + * device driver can get phy interface from device tree.
-> > > + */
-> > > +static const char *phy_modes[] = {
-> > > +       [PHY_INTERFACE_MODE_MII]        = "mii",
-> > > +       [PHY_INTERFACE_MODE_GMII]       = "gmii",
-> > > +       [PHY_INTERFACE_MODE_SGMII]      = "sgmii",
-> > > +       [PHY_INTERFACE_MODE_TBI]        = "tbi",
-> > > +       [PHY_INTERFACE_MODE_RMII]       = "rmii",
-> > > +       [PHY_INTERFACE_MODE_RGMII]      = "rgmii",
-> > > +       [PHY_INTERFACE_MODE_RGMII_ID]   = "rgmii-id",
-> > > +       [PHY_INTERFACE_MODE_RGMII_RXID] = "rgmii-rxid",
-> > > +       [PHY_INTERFACE_MODE_RGMII_TXID] = "rgmii-txid",
-> > > +       [PHY_INTERFACE_MODE_RTBI]       = "rtbi",
-> > > +};
-> > > +
-> > > +/**
-> > > + * of_get_phy_mode - Get phy mode for given device_node
-> > > + * @np:        Pointer to the given device_node
-> > > + *
-> > > + * The function gets phy interface string from property 'phy-mode',
-> > > + * and return its index in phy_modes table, or errno in error case.
-> > > + */
-> > > +const int of_get_phy_mode(struct device_node *np)
-> > > +{
-> > > +       const char *pm;
-> > > +       int err, i;
-> > > +
-> > > +       err = of_property_read_string(np, "phy-mode", &pm);
-> > > +       if (err < 0)
-> > > +               return err;
-> > > +
-> > > +       for (i = 0; i < ARRAY_SIZE(phy_modes); i++)
-> > > +               if (!strcasecmp(pm, phy_modes[i]))
-> > > +                       return i;
-> > > +
-> > > +       return -ENODEV;
-> > > +}
-> > > +EXPORT_SYMBOL_GPL(of_get_phy_mode);
-> > 
-> > The code looks fine, but I'm just not keen on this until I see
-> > multiple users.  What are the other DT-aware network drivers doing
-> > right now?
-> > 
-> You can find a bunch of examples using 'phy-mode' in this way with
-> the grep below.
-> 
-> $ grep phy-mode arch/powerpc/boot/dts/*
-> 
-> The code I can find is drivers/net/ibm_newemac/core.c, function
-> emac_init_config.  And I think it should use 'enum phy_interface_t'
-> than defining its own PHY_MODE_*.
+> Doing the echo of 1 to stp_state forces kernel spanning
+> tree. You want 2 which is what is supposed to be use for user
+> mode spanning tree.
 
-Fair enough.  Go ahead and create the common definition.  Can you
-craft a patch to convert the ibm_newemac driver to use your common
-function too?
+Well, at first sight you're right. But looking at the code at 
+br_stp_set_enabled() in br_stp_if.c it doesn't matter which value you echo 
+into stp_state, it just have to be non-zero
+The detection of usermode oder kernelmode STP is done using the usermode 
+helper (see br_stp_start). I tried echoing 1, 2 or even 5 into stp_state, with 
+a working /sbin/bridge-stp I get 2 from stp_state each time.
 
-g.
+Maybe it is valuable to change this odd behavior.
 
+Regards,
+Alexander
