@@ -1,218 +1,129 @@
-From: MaoXiaoyun <tinnycloud@hotmail.com>
-Subject: RE: bnx2: FTQ dump on heavy workload(bnx2-2.0.23b + kernel
- 2.6.32.36)
-Date: Mon, 4 Jul 2011 20:20:39 +0800
-Message-ID: <blu157-w30B8D4FBD571396FC81A04DA5C0@phx.gbl>
-References: <S1752689Ab1GDHSa/20110704071830Z+4842@vger.kernel.org>,<BLU157-w63DCDB99F9F311C7BF326EDA5C0@phx.gbl>,<BLU157-w1411DC0D9D19FE3A6935F5DA5C0@phx.gbl>
+From: Adam Katz <adamkatz0@gmail.com>
+Subject: Re: libpcap and tc filters
+Date: Mon, 4 Jul 2011 15:37:17 +0300
+Message-ID: <CAA0qwj7cH8Ah69fBMkXpGkwG77TH_ZqMhKwj-Cc8Vc=F5c9SSw@mail.gmail.com>
+References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
+	<1309777908.26180.1.camel@mojatatu>
+	<CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: 8bit
-Cc: <mchan@broadcom.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blu0-omc1-s4.blu0.hotmail.com ([65.55.116.15]:21301 "EHLO
-	blu0-omc1-s4.blu0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755463Ab1GDMUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 08:20:40 -0400
-In-Reply-To: <BLU157-w1411DC0D9D19FE3A6935F5DA5C0@phx.gbl>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:40746 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860Ab1GDMhS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 08:37:18 -0400
+Received: by iwn6 with SMTP id 6so4410945iwn.19
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 05:37:17 -0700 (PDT)
+In-Reply-To: <CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+here's a more concrete example:
 
-Could it be caused by the similar timeout as http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=c441b8d2cb2194b05550a558d6d95d8944e56a84.
- 
-Maybe timeout still happens in my test scenerino.
- 
-Well, from the patch, BNX2_MISC_ECO_HW_CTL is defined 0x000008cc. But I cannot find 
-the defines in programmer reference Guide.(NetXtremeII-PG203-R.pdf). Could some help
-to point out for me or is the doc is out of date.
- 
-Also, is there a way to comfirm whether the timeout really happen? (which regisiter 
-shall I read?) Or is there a bigger timeout I can set?
- 
-thanks.
+An example configuration:
 
-----------------------------------------
-> From: tinnycloud@hotmail.com
-> To: netdev@vger.kernel.org
-> Subject: bnx2: FTQ dump on heavy workload(bnx2-2.0.23b + kernel 2.6.32.36)
-> Date: Mon, 4 Jul 2011 15:40:01 +0800
+	sudo tc qdisc add dev eth1 root handle 1: prio priomap 2 2 2 2 2 2 2
+2 2 2 2 2 2 2 2 2
+	sudo tc qdisc add dev eth1 parent 1:1 handle 10: pfifo =09
+	sudo tc qdisc add dev eth1 parent 1:2 handle 20: pfifo
+	sudo tc qdisc add dev eth1 parent 1:3 handle 30: pfifo
+
+	sudo tc filter add dev eth1 protocol ip parent 1: prio 1 u32 match ip
+dport 22 0xffff flowid 1:1
+	sudo tc filter add dev eth1 protocol ip parent 1: prio 1 u32 match ip
+sport 22 0xffff flowid 1:1
+	sudo tc filter add dev eth1 protocol ip parent 1: prio 2 u32 match ip
+dport 80 0xffff flowid 1:2
+	sudo tc filter add dev eth1 protocol ip parent 1: prio 2 u32 match ip
+sport 80 0xffff flowid 1:2
+
+I then used scp to copy a small file between computers while capturing
+with wireshark:
+
+http://dl.dropbox.com/u/3237005/port22example.pcap
+
+and later I replayed the same capture using tcpreplay.
+When using scp, the packets once again ended up where they should be
+(1:1 in this configuration). With tcpreplay they ended up in the
+default 1:3
+
+On Mon, Jul 4, 2011 at 3:06 PM, jamal <hadi@cyberus.ca> wrote:
+> On Mon, 2011-07-04 at 15:00 +0300, Adam Katz wrote:
+>> Ok, I just tried this:
+>>
+>> I've opened www.example.com using a browser while capturing with
+>> wireshark. TC placed all port 80 packets into the 1:1 as required. I
+>> then physically plugged the nic to a different socket, one that isn'=
+t
+>> connected to the internet (i did this so I wont get any server
+>> responses to the packets i'm sending) and then I replayed the captur=
+e
+>> of me opening www.example.com
+>>
+>> The second time, none of the packets ended up in 1:1 - they all went
+>> to the default class despite being the EXACT same traffic.
+>>
+>
+> Please post a small sample of the tcpdumps and the tc rules you used.
+>
+> cheers,
+> jamal
 >
 >
-> Hi:
+
+
+
+On Mon, Jul 4, 2011 at 3:01 PM, Adam Katz <adamkatz0@gmail.com> wrote:
+> Ok, I just tried this:
 >
-> I met bnx2 FTQ dump over and over again during my testing on Xen live migration which generate
-> heavy network workload.
+> I've opened www.example.com using a browser while capturing with
+> wireshark. TC placed all port 80 packets into the 1:1 as required. I
+> then physically plugged the nic to a different socket, one that isn't
+> connected to the internet (i did this so I wont get any server
+> responses to the packets i'm sending) and then I replayed the capture
+> of me opening www.example.com
 >
-> I have two physcial machine, both have xen 4.0.1 installed, and kernel 2.6.32.36, bnx2 2.0.23b.
-> I start 15 Virtual Machines totoally, and doing migration between the host over and over again,
-> about 16hours, the network will not work, and sometimes, it can reset successfully, sometimes, it
-> cause kernel crash.
+> The second time, none of the packets ended up in 1:1 - they all went
+> to the default class despite being the EXACT same traffic.
 >
-> I've tried debug some, add code in the driver. below is the code when FTQ happened.
-> It looks like the NIC is stop transmit the packets, and cause timeout.
+> On Mon, Jul 4, 2011 at 2:11 PM, jamal <hadi@cyberus.ca> wrote:
+>>
+>> Capture tcpdump for both scenario that works and one
+>> that doesnt.
+>> Make sure the filters match your failing scenario.
+>>
+>> cheers,
+>> jamal
+>>
+>> On Mon, 2011-07-04 at 10:38 +0300, Adam Katz wrote:
+>>> Hi Everyone
+>>>
+>>> I'm sorry for littering the mailing list with this question, but no
+>>> other place could help me..
+>>>
+>>> I'm attempting to use tc to shape traffic sent using libpcap, I'm
+>>> doing this for a research project. I have a classful scheduler with
+>>> several classes, to this scheduler I attach a few filters based on
+>>> destination tcp ports.
+>>>
+>>> My problem is this: When sending packets using a normal userland
+>>> socket, the filters work and I see the appropriate traffic entering
+>>> the right class. BUT when sending packets with libpcap, all packets
+>>> end up in the scheduler's default band as if the filters simply ref=
+use
+>>> to work.
+>>>
+>>> Can anyone suggest a solution?
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
+n
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.htm=
+l
+>>
+>>
+>>
 >
-> BTW, cpu max_cstate=1 in my grub.
->
-> Thanks.
->
-> --------------
-> static void
-> bnx2_tx_timeout(struct net_device *dev)
-> {
-> struct bnx2 *bp = netdev_priv(dev);
-> struct bnx2_napi *bnapi = &bp->bnx2_napi[0];
-> struct bnx2_tx_ring_info *txr = &bnapi->tx_ring;
-> struct bnx2_rx_ring_info *rxr = &bnapi->rx_ring;
-> int i ;
-> bnx2_dump_ftq(bp);
-> bnx2_dump_state(bp);
-> if (stop_on_tx_timeout) {
-> printk(KERN_WARNING PFX
-> "%s: prevent chip reset during tx timeout\n",
-> bp->dev->name);
-> smp_rmb();
-> printk("last status idx %d \n", bnapi->last_status_idx);
-> printk("hw_tx_cons %d, txr->hw_tx_conds %d txr->tx_prod %d txr->tx_cons %d\n",
-> bnx2_get_hw_tx_cons(bnapi), txr->hw_tx_cons, txr->tx_prod, txr->tx_cons);
-> printk("hw_rx_cons %d, txr->hw_rx_conds %d\n", bnx2_get_hw_rx_cons(bnapi), rxr->rx_cons);
-> printk("sblk->status_attn_bits %d\n",bnapi->status_blk.msi->status_attn_bits);
-> printk("sblk->status_attn_bits_ack %d\n",bnapi->status_blk.msi->status_attn_bits_ack);
-> printk("bnx2_tx_avail %d \n",(bnx2_tx_avail(bp, txr)));
-> printk("sblk->status_tx_quick_consumer_index0 %d\n",bnapi->status_blk.msi->status_tx_quick_consumer_index0);
-> printk("sblk->status_tx_quick_consumer_index1 %d\n",bnapi->status_blk.msi->status_tx_quick_consumer_index1);
-> printk("sblk->status_tx_quick_consumer_index2 %d\n",bnapi->status_blk.msi->status_tx_quick_consumer_index2);
-> printk("sblk->status_tx_quick_consumer_index3 %d\n",bnapi->status_blk.msi->status_tx_quick_consumer_index3);
-> printk("sblk->status_rx_quick_consumer_index0 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index0);
-> printk("sblk->status_rx_quick_consumer_index1 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index1);
-> printk("sblk->status_rx_quick_consumer_index2 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index2);
-> printk("sblk->status_rx_quick_consumer_index3 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index3);
-> printk("sblk->status_rx_quick_consumer_index4 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index4);
-> printk("sblk->status_rx_quick_consumer_index5 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index5);
-> printk("sblk->status_rx_quick_consumer_index6 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index6);
-> printk("sblk->status_rx_quick_consumer_index7 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index7);
-> printk("sblk->status_rx_quick_consumer_index8 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index8);
-> printk("sblk->status_rx_quick_consumer_index9 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index9);
-> printk("sblk->status_rx_quick_consumer_index10 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index10);
-> printk("sblk->status_rx_quick_consumer_index11 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index11);
-> printk("sblk->status_rx_quick_consumer_index12 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index12);
-> printk("sblk->status_rx_quick_consumer_index13 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index13);
-> printk("sblk->status_rx_quick_consumer_index14 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index14);
-> printk("sblk->status_rx_quick_consumer_index15 %d\n",bnapi->status_blk.msi->status_rx_quick_consumer_index15);
-> printk("sblk->status_completion_producer_index %d\n",bnapi->status_blk.msi->status_completion_producer_index);
-> printk("sblk->status_cmd_consumer_index %d\n",bnapi->status_blk.msi->status_cmd_consumer_index);
-> printk("sblk->status_idx %d\n",bnapi->status_blk.msi->status_idx);
-> printk("sblk->status_unused %d\n",bnapi->status_blk.msi->status_unused);
-> printk("sblk->status_blk_num %d\n",bnapi->status_blk.msi->status_blk_num);
-> is_timedout = 1;
-> for (i = 0; i < bp->irq_nvecs; i++) {
-> bnapi = &bp->bnx2_napi[i];
-> bnx2_tx_int(bp, bnapi, 0);
-> }
-> return;
-> }
-> -----------------
->
-> -------------FTQ log in /var/log/message
-> ------------[ cut here ]------------
-> WARNING: at net/sched/sch_generic.c:261 dev_watchdog+0x105/0x16a()
-> Hardware name: Tecal RH2285
-> Modules linked in: iptable_filter ip_tables nfs fscache nfs_acl auth_rpcgss bridge stp llc autofs4 ipmi_devintf ipmi_si ipmi_msghandler lockd sunrpc ipv6 xenfs dm_multipath fuse xen_netback xen_blkback blktap blkback_pagemap loop nbd video output sbs sbshc parport_pc lp parport snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss bnx2 serio_raw snd_pcm snd_timer snd soundcore snd_page_alloc i2c_i801 iTCO_wdt iTCO_vendor_support i2c_core pata_acpi ata_generic pcspkr ata_piix shpchp mptsas mptscsih mptbase [last unloaded: freq_table]
-> Pid: 0, comm: swapper Not tainted 2.6.32.36xen #1
-> Call Trace:
-> <IRQ> [<ffffffff813ba154>] ? dev_watchdog+0x105/0x16a
-> [<ffffffff81056666>] warn_slowpath_common+0x7c/0x94
-> [<ffffffff81056738>] warn_slowpath_fmt+0xa4/0xa6
-> [<ffffffff81080bfa>] ? clockevents_program_event+0x78/0x81
-> [<ffffffff81081fce>] ? tick_program_event+0x2a/0x2c
-> [<ffffffff813b951d>] ? __netif_tx_lock+0x1b/0x24
-> [<ffffffff813b95a8>] ? netif_tx_lock+0x46/0x6e
-> [<ffffffff813a3ed1>] ? netdev_drivername+0x48/0x4f
-> [<ffffffff813ba154>] dev_watchdog+0x105/0x16a
-> [<ffffffff81063d98>] run_timer_softirq+0x156/0x1f8
-> [<ffffffff813ba04f>] ? dev_watchdog+0x0/0x16a
-> [<ffffffff8105d6f0>] __do_softirq+0xd7/0x19e
-> [<ffffffff81013eac>] call_softirq+0x1c/0x30
-> [<ffffffff8101564b>] do_softirq+0x46/0x87
-> [<ffffffff8105d575>] irq_exit+0x3b/0x7a
-> [<ffffffff8128dcfe>] xen_evtchn_do_upcall+0x38/0x46
-> [<ffffffff81013efe>] xen_do_hypervisor_callback+0x1e/0x30
-> <EOI> [<ffffffff8103f642>] ? pick_next_task_idle+0x18/0x22
-> [<ffffffff810093aa>] ? hypercall_page+0x3aa/0x1000
-> [<ffffffff810093aa>] ? hypercall_page+0x3aa/0x1000
-> [<ffffffff8100f1bb>] ? xen_safe_halt+0x10/0x1a
-> [<ffffffff81019e14>] ? default_idle+0x39/0x56
-> [<ffffffff81011cd0>] ? cpu_idle+0x5d/0x8c
-> [<ffffffff8143375d>] ? cpu_bringup_and_idle+0x13/0x15
-> ---[ end trace 867bb8f6cd959b03 ]---
-> bnx2: <--- start FTQ dump on peth0 --->
-> bnx2: peth0: BNX2_RV2P_PFTQ_CTL 10000
-> bnx2: peth0: BNX2_RV2P_TFTQ_CTL 20000
-> bnx2: peth0: BNX2_RV2P_MFTQ_CTL 4000
-> bnx2: peth0: BNX2_TBDR_FTQ_CTL 1004002
-> bnx2: peth0: BNX2_TDMA_FTQ_CTL 4010002
-> bnx2: peth0: BNX2_TXP_FTQ_CTL 2410002
-> bnx2: peth0: BNX2_TPAT_FTQ_CTL 10002
-> bnx2: peth0: BNX2_RXP_CFTQ_CTL 8000
-> bnx2: peth0: BNX2_RXP_FTQ_CTL 100000
-> bnx2: peth0: BNX2_COM_COMXQ_FTQ_CTL 10000
-> bnx2: peth0: BNX2_COM_COMTQ_FTQ_CTL 20000
-> bnx2: peth0: BNX2_COM_COMQ_FTQ_CTL 10000
-> bnx2: peth0: BNX2_CP_CPQ_FTQ_CTL 4000
-> bnx2: peth0: TXP mode b84c state 80005000 evt_mask 500 pc 8000d60 pc 8000d60 instr 8f860000
-> bnx2: peth0: TPAT mode b84c state 80009000 evt_mask 500 pc 8000a5c pc 8000a5c instr 10400016
-> bnx2: peth0: RXP mode b84c state 80001000 evt_mask 500 pc 8004c14 pc 8004c14 instr 10e00088
-> bnx2: peth0: COM mode b8cc state 80000000 evt_mask 500 pc 8000b28 pc 8000a9c instr 8c530000
-> bnx2: peth0: CP mode b8cc state 80000000 evt_mask 500 pc 8000c50 pc 8000c58 instr 8ca50020
-> bnx2: <--- end FTQ dump on peth0 --->
-> bnx2: peth0 DEBUG: intr_sem[0]
-> bnx2: peth0 DEBUG: intr_sem[0] PCI_CMD[20100406]
-> bnx2: peth0 DEBUG: PCI_PM[19002008] PCI_MISC_CFG[92000088]
-> bnx2: peth0 DEBUG: EMAC_TX_STATUS[00000008] EMAC_RX_STATUS[00000000]
-> bnx2: peth0 RPM_MGMT_PKT_CTRL[40000088]
-> bnx2: peth0 DEBUG: MCP_STATE_P0[0007e10e] MCP_STATE_P1[0003e00e]
-> bnx2: peth0 DEBUG: HC_STATS_INTERRUPT_STATUS[01ff0000]
-> bnx2: peth0 DEBUG: PBA[00000000]
-> BNX2_PCICFG_INT_ACK_CMD[00013ce1]
-> bnx2: peth0: prevent chip reset during tx timeout
-> last status idx 2426
-> hw_tx_cons 32474, txr->hw_tx_conds 32474 txr->tx_prod 32641 txr->tx_cons 32474
-> hw_rx_cons 19665, txr->hw_rx_conds 19665
-> sblk->status_attn_bits 1
-> sblk->status_attn_bits_ack 1
-> bnx2_tx_avail 88
-> sblk->status_tx_quick_consumer_index0 32474
-> sblk->status_tx_quick_consumer_index1 0
-> sblk->status_tx_quick_consumer_index2 0
-> sblk->status_tx_quick_consumer_index3 0
-> sblk->status_rx_quick_consumer_index0 19665
-> sblk->status_rx_quick_consumer_index1 0
-> sblk->status_rx_quick_consumer_index2 0
-> sblk->status_rx_quick_consumer_index3 0
-> sblk->status_rx_quick_consumer_index4 0
-> sblk->status_rx_quick_consumer_index5 0
-> sblk->status_rx_quick_consumer_index6 0
-> sblk->status_rx_quick_consumer_index7 0
-> sblk->status_rx_quick_consumer_index8 0
-> sblk->status_rx_quick_consumer_index9 0
-> sblk->status_rx_quick_consumer_index10 0
-> sblk->status_rx_quick_consumer_index11 0
-> sblk->status_rx_quick_consumer_index12 0
-> sblk->status_rx_quick_consumer_index13 0
-> sblk->status_rx_quick_consumer_index14 0
-> sblk->status_rx_quick_consumer_index15 0
-> sblk->status_completion_producer_index 0
-> sblk->status_cmd_consumer_index 0
-> sblk->status_idx 2426
-> sblk->status_unused 0
-> sblk->status_blk_num 0
-> hw_cons 32474 sw_cons 32474 ffff8801d27f85c0 bnapi
-> return hw_cons 32474 sw_cons 32474 ffff8801d27f85c0 bnapi
-> hw_cons 3628 sw_cons 3625 ffff8801d27f8bc0 bnapi
-> return hw_cons 3628 sw_cons 3625 ffff8801d27f8bc0 bnapi
-> hw_cons 62094 sw_cons 62090 ffff8801d27f91c0 bnapi
-> return hw_cons 62094 sw_cons 62090 ffff8801d27f91c0 bnapi
-> hw_cons 3184 sw_cons 3173 ffff8801d27f97c0 bnapi
-> return hw_cons 3184 sw_cons 3173 ffff8801d27f97c0 bnapi
-> hw_cons 0 sw_cons 0 ffff8801d27f9dc0 bnapi
-> return hw_cons 0 sw_cons 0 ffff8801d27f9dc0 bnapi 		 	   		  
