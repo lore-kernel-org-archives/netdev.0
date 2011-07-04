@@ -1,56 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
- overwritten
-Date: Mon, 04 Jul 2011 16:53:52 +0200
-Message-ID: <1309791232.2247.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <bug-38102-10286@https.bugzilla.kernel.org/>
-	 <20110629145135.5179fb0c.akpm@linux-foundation.org>
-	 <BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
-	 <CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
-	 <1309707971.2523.20.camel@edumazet-laptop>
-	 <CAB9v_DG7e8vDE+4PDwuOR2DYG1FEvUM1fxa+e4a=swwTYGJ9nQ@mail.gmail.com>
-	 <20110704130531.37cf876e@Nokia-N900>
-	 <1309787822.2247.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110704162726.4072e715@maggie>  <20110704164351.338dc12e@maggie>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] Update description of net.sctp.sctp_rmem and
+ net.sctp.sctp_wmem tunables
+Date: Mon, 4 Jul 2011 10:54:54 -0400
+Message-ID: <20110704145454.GA10310@hmsreliant.think-freely.org>
+References: <20110704083605.AF9C28156C57@regina.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Max Matveev <makc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49198 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755628Ab1GDOyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 10:54:07 -0400
-Received: by wyg8 with SMTP id 8so3452781wyg.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 07:54:06 -0700 (PDT)
-In-Reply-To: <20110704164351.338dc12e@maggie>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54903 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753974Ab1GDOzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 10:55:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20110704083605.AF9C28156C57@regina.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 04 juillet 2011 =C3=A0 16:43 +0200, Michael B=C3=BCsch a =C3=A9=
-crit :
-> On Mon, 4 Jul 2011 16:27:26 +0200
-> Michael B=C3=BCsch <m@bues.ch> wrote:
-> > We do this in b43, which has exactly the same DMA engine.
->=20
-> (Ok, it turns out we don't do this in b43 (We only do it on the TX si=
-de).
->  But that's a bug. We should do a wmb() on the RX side before advanci=
-ng the
->  descriptor ring pointer.)
+On Mon, Jun 20, 2011 at 06:08:10PM +1000, Max Matveev wrote:
+> sctp does not use second and third ("default" and "max") values
+> of sctp_(r|w)mem tunables. The format is the same and tcp_(r|w)mem
+> but the meaning is different so make the documentation explicit to
+> avoid confusion.
+> 
+> Signed-off-by: Max Matveev <makc@redhat.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt |   11 +++++++++--
+>  1 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index d3d653a..f37d374 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1465,10 +1465,17 @@ sctp_mem - vector of 3 INTEGERs: min, pressure, max
+>  	Default is calculated at boot time from amount of available memory.
+>  
+>  sctp_rmem - vector of 3 INTEGERs: min, default, max
+> -	See tcp_rmem for a description.
+> +	Only the first value ("min") is used, "default" and "max" are
+> +	ignored and may be removed in the future versions.
+> +
+Its accurate to say that only the first value is usd currently, but because of
+the way this sysctl is contructed (its used by the sysctl_rmem pointer in the
+sctp_prot struct, which expects an array of three integers in the commong
+__sk_mem_schedule function), we wont' be removing the other two values.  Drop
+that bit and its an ack from me.
+Neil
 
-
-Also it appears rx_ring (or tx_ring ) are not necessarily 4K aligned if
-kzalloc() path is taken.
-
-(SL?B DEBUG -> kzalloc(4096) might not be 4K aligned)
-
-
+> +	min: Minimal size of receive buffer used by SCTP socket.
+> +	It is guaranteed to each STCP socket (but not association) even 
+> +	under moderate memory pressure.
+> +
+> +	Default: 1 page
+>  
+>  sctp_wmem  - vector of 3 INTEGERs: min, default, max
+> -	See tcp_wmem for a description.
+> +	Currently this tunable has no effect.
+>  
+>  addr_scope_policy - INTEGER
+>  	Control IPv4 address scoping - draft-stewart-tsvwg-sctp-ipv4-00
+> -- 
+> 1.7.3.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
