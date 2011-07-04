@@ -1,27 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_econet: Use current logging styles and neatening
-Date: Sun, 03 Jul 2011 20:05:27 -0700 (PDT)
-Message-ID: <20110703.200527.2004595152778358649.davem@davemloft.net>
-References: <8e47a6e010a39bd35d3544311dd451abda8b7fb3.1309717580.git.joe@perches.com>
+Subject: Re: [PATCH] net: sh_eth: remove __flush_purge_region
+Date: Sun, 03 Jul 2011 20:10:57 -0700 (PDT)
+Message-ID: <20110703.201057.720436216770672101.davem@davemloft.net>
+References: <4E0D8ABD.9030102@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, philb@gnu.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8e47a6e010a39bd35d3544311dd451abda8b7fb3.1309717580.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: yoshihiro.shimoda.uh@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4E0D8ABD.9030102@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sun,  3 Jul 2011 11:28:33 -0700
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Date: Fri, 01 Jul 2011 17:52:13 +0900
 
-> Use pr_fmt() without KBUILD_MODNAME to allow AUN and econet prefixes.
-> Convert printks with KERN_DEBUG to pr_debug.
-> Hoist assigns from if.
-> 80 column wrapping.
-> Move open braces to end of line.
+> It is a function of SuperH architecture. There is no good to use
+> the function on a driver generally. So, the driver uses
+> dma_map_single() instead of __flush_purge_region.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-Applied, thanks.
+Applied.
