@@ -1,41 +1,66 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] iproute2: Fix building xt module against xtables version
- 6
-Date: Mon, 4 Jul 2011 18:11:35 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1107041752390.8555@frira.zrqbmnf.qr>
-References: <20110704151742.GA6819@amd64.fatal.se>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] Update description of net.sctp.sctp_rmem and
+ net.sctp.sctp_wmem tunables
+Date: Mon, 04 Jul 2011 17:11:57 +0100
+Message-ID: <1309795917.2729.0.camel@bwh-desktop>
+References: <20110704083605.AF9C28156C57@regina.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Max Matveev <makc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seven.medozas.de ([188.40.89.202]:51887 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758141Ab1GDQLh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jul 2011 12:11:37 -0400
-In-Reply-To: <20110704151742.GA6819@amd64.fatal.se>
+Received: from exchange.solarflare.com ([216.237.3.220]:30484 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842Ab1GDQMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 12:12:01 -0400
+In-Reply-To: <20110704083605.AF9C28156C57@regina.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 2011-07-04 17:17, Andreas Henriksson wrote:
+On Mon, 2011-06-20 at 18:08 +1000, Max Matveev wrote:
+> sctp does not use second and third ("default" and "max") values
+> of sctp_(r|w)mem tunables. The format is the same and tcp_(r|w)mem
+> but the meaning is different so make the documentation explicit to
+> avoid confusion.
+> 
+> Signed-off-by: Max Matveev <makc@redhat.com>
+> ---
+>  Documentation/networking/ip-sysctl.txt |   11 +++++++++--
+>  1 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index d3d653a..f37d374 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -1465,10 +1465,17 @@ sctp_mem - vector of 3 INTEGERs: min, pressure, max
+>  	Default is calculated at boot time from amount of available memory.
+>  
+>  sctp_rmem - vector of 3 INTEGERs: min, default, max
+> -	See tcp_rmem for a description.
+> +	Only the first value ("min") is used, "default" and "max" are
+> +	ignored and may be removed in the future versions.
+> +
+> +	min: Minimal size of receive buffer used by SCTP socket.
+> +	It is guaranteed to each STCP socket (but not association) even 
 
->iptables/xtables apparently changed API again.... Now you need to pass
->and extra parameter (orig_opts) which was not needed before.
->
->Sprinkle some lovely pre-processor magic to be compatible with both older
->and new versions. In the beginning of times XTABLES_VERSION_CODE didn't
->exist. Then it was (0x10000 * major + 0x100 * minor + patch) when it was
->first introduced (according to git), but now it's at 6...
->Don't know what official iptables releases has defined it to over time.
+Typo: 'STCP' should be 'SCTP'.
 
-It reflects the soversion, IOW, the ABI (if the developer feels like it, 
-also API). This increases only when needed rather than at every release. 
-It also won't reach versions >=0x10000 anytime soon because of that. 
-More importantly though, the API drafting was just finalized for 1.4.3 
-(XTABLES_VERSION_CODE=1), so anything before that is a very blurry 
-construct anyway.
+Ben.
 
+> +	under moderate memory pressure.
+> +
+> +	Default: 1 page
+>  
+>  sctp_wmem  - vector of 3 INTEGERs: min, default, max
+> -	See tcp_wmem for a description.
+> +	Currently this tunable has no effect.
+>  
+>  addr_scope_policy - INTEGER
+>  	Control IPv4 address scoping - draft-stewart-tsvwg-sctp-ipv4-00
 
->Lets just hope none of the older versions with is has the define
->higher then 6 is still around.... so only the "current" versioning
->scheme is supported.... lets see how long this lasts now.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
