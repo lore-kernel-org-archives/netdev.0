@@ -1,77 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/2] netpoll: Remove unused EXPORT_SYMBOLs of
- netpoll_poll and netpoll_poll_dev
-Date: Mon, 04 Jul 2011 00:46:29 -0700
-Message-ID: <1309765589.18925.42.camel@Joe-Laptop>
-References: <cover.1309482314.git.joe@perches.com>
-	 <282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
-	 <20110704065320.GA2588@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: libpcap and tc filters
+Date: Mon, 04 Jul 2011 12:20:09 +0200
+Message-ID: <1309774809.2247.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Harry Wei <jiaweiwei.xiyou@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110704065320.GA2588@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Adam Katz <adamkatz0@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33149 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178Ab1GDIUI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 04:20:08 -0400
+Received: by wyg8 with SMTP id 8so3242951wyg.19
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 01:20:07 -0700 (PDT)
+In-Reply-To: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-07-04 at 14:53 +0800, Harry Wei wrote:
-> On Thu, Jun 30, 2011 at 06:08:57PM -0700, Joe Perches wrote:
-> > Unused symbols waste space.
-> > Commit 0e34e93177fb
-> > "(netpoll: add generic support for bridge and bonding devices)"
-> > added the symbol more than a year ago with the promise of "future use".
-> > Because it is so far unused, remove it for now.
-> > It can be easily readded if or when it actually needs to be used.
-> > cc: WANG Cong <amwang@redhat.com>
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> > ---
-> >  include/linux/netpoll.h |    2 --
-> >  net/core/netpoll.c      |    6 ++----
-> >  2 files changed, 2 insertions(+), 6 deletions(-)
-> > diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-[]
-> > @@ -40,8 +40,6 @@ struct netpoll_info {
-> >  	struct netpoll *netpoll;
-> >  };
-> >  
-> > -void netpoll_poll_dev(struct net_device *dev);
-> > -void netpoll_poll(struct netpoll *np);
-> >  void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
-> >  void netpoll_print_options(struct netpoll *np);
-> >  int netpoll_parse_options(struct netpoll *np, char *opt);
-> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> > index 18d9cbd..4ce595e 100644
-> > --- a/net/core/netpoll.c
-> > +++ b/net/core/netpoll.c
-> > @@ -177,7 +177,7 @@ static void service_arp_queue(struct netpoll_info *npi)
-> >  	}
-> >  }
-> >  
-> > -void netpoll_poll_dev(struct net_device *dev)
-> > +static void netpoll_poll_dev(struct net_device *dev)
-> You have removed the function declaration in include/linux/netpoll.h.
+Le lundi 04 juillet 2011 =C3=A0 10:38 +0300, Adam Katz a =C3=A9crit :
+> Hi Everyone
+>=20
+> I'm sorry for littering the mailing list with this question, but no
+> other place could help me..
+>=20
+> I'm attempting to use tc to shape traffic sent using libpcap, I'm
+> doing this for a research project. I have a classful scheduler with
+> several classes, to this scheduler I attach a few filters based on
+> destination tcp ports.
+>=20
+> My problem is this: When sending packets using a normal userland
+> socket, the filters work and I see the appropriate traffic entering
+> the right class. BUT when sending packets with libpcap, all packets
+> end up in the scheduler's default band as if the filters simply refus=
+e
+> to work.
+>=20
+> Can anyone suggest a solution?
+> --
 
-Because it's unused by anything in the tree
-but netpoll.c
+You already asked this yesterday.
 
-> And you changed the function like 
-> static void netpoll_poll_dev(...)
-> {
-> 	...
-> }
-> But i don't know its usage.
+No need to repost.
 
-It's now a local function to netpoll.c
+4th July is not the day many people will answer you...
 
-> The 'static' before this function just says the active area of 'netpoll_poll_dev'
-> is in the file net/core/netpoll.c. What is the purpose? Could you please tell me?
+What gives :
 
-It prods the device to perform network work.
+tc -s -d filter show dev eth0
 
-	/* Process pending work on NIC */
-	ops->ndo_poll_controller(dev);
 
-	poll_napi(dev);
+
