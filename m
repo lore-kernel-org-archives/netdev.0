@@ -1,95 +1,259 @@
-From: Harry Wei <jiaweiwei.xiyou@gmail.com>
-Subject: Re: [PATCH 1/2] netpoll: Remove unused EXPORT_SYMBOLs of
- netpoll_poll and netpoll_poll_dev
-Date: Mon, 4 Jul 2011 14:53:22 +0800
-Message-ID: <20110704065320.GA2588@gmail.com>
-References: <cover.1309482314.git.joe@perches.com>
- <282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
+Date: Mon, 4 Jul 2011 08:55:23 +0200
+Message-ID: <20110704065523.GX6069@pengutronix.de>
+References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
+ <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gb2312
-Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	u.kleine-koenig@pengutronix.de, LW@KARO-electronics.de,
+	Troy Kisky <troy.kisky@boundarydevices.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:48421 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457Ab1GDGxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 02:53:39 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:52462 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751380Ab1GDGz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 02:55:27 -0400
 Content-Disposition: inline
-In-Reply-To: <282ce7d68b97c4dbfb759c1c0752e6cbddfeeafc.1309482314.git.joe@perches.com>
+In-Reply-To: <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 30, 2011 at 06:08:57PM -0700, Joe Perches wrote:
-> Unused symbols waste space.
+David,
+
+On Fri, Jul 01, 2011 at 06:11:22PM +0800, Shawn Guo wrote:
+> On the recent i.mx (mx25/50/53), there is a gasket inside fec
+> controller which needs to be enabled no matter phy works in MII
+> or RMII mode.
 > 
-> Commit 0e34e93177fb
-> "(netpoll: add generic support for bridge and bonding devices)"
-> added the symbol more than a year ago with the promise of "future use".
+> The current code enables the gasket only when phy interface is RMII.
+> It's broken when the driver works with a MII phy.  The patch uses
+> platform_device_id to distinguish the SoCs that have the gasket and
+> enables it on these SoCs for both MII and RMII mode.
 > 
-> Because it is so far unused, remove it for now.
-> It can be easily readded if or when it actually needs to be used.
-> 
-> cc: WANG Cong <amwang@redhat.com>
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Sascha Hauer <s.hauer@pengutronix.de>
 > ---
->  include/linux/netpoll.h |    2 --
->  net/core/netpoll.c      |    6 ++----
->  2 files changed, 2 insertions(+), 6 deletions(-)
+>  arch/arm/mach-imx/clock-imx25.c                 |    2 +-
+>  arch/arm/mach-imx/clock-imx27.c                 |    2 +-
+>  arch/arm/mach-imx/clock-imx35.c                 |    2 +-
+>  arch/arm/mach-mx5/clock-mx51-mx53.c             |    4 +-
+>  arch/arm/plat-mxc/devices/platform-fec.c        |   17 ++++++++-------
+>  arch/arm/plat-mxc/include/mach/devices-common.h |    1 +
+>  drivers/net/fec.c                               |   26 ++++++++++++++++++++--
+
+I either need your Ack for this or we need to split this up into two
+patches. Pushing this through the net tree is probably not a good idea.
+
+Sascha
+
+>  7 files changed, 38 insertions(+), 16 deletions(-)
 > 
-> diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-> index 79358bb..5dfa091 100644
-> --- a/include/linux/netpoll.h
-> +++ b/include/linux/netpoll.h
-> @@ -40,8 +40,6 @@ struct netpoll_info {
->  	struct netpoll *netpoll;
->  };
+> diff --git a/arch/arm/mach-imx/clock-imx25.c b/arch/arm/mach-imx/clock-imx25.c
+> index a65838f..5527fff 100644
+> --- a/arch/arm/mach-imx/clock-imx25.c
+> +++ b/arch/arm/mach-imx/clock-imx25.c
+> @@ -294,7 +294,7 @@ static struct clk_lookup lookups[] = {
+>  	_REGISTER_CLOCK("imx-i2c.0", NULL, i2c_clk)
+>  	_REGISTER_CLOCK("imx-i2c.1", NULL, i2c_clk)
+>  	_REGISTER_CLOCK("imx-i2c.2", NULL, i2c_clk)
+> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx25-fec.0", NULL, fec_clk)
+>  	_REGISTER_CLOCK("imxdi_rtc.0", NULL, dryice_clk)
+>  	_REGISTER_CLOCK("imx-fb.0", NULL, lcdc_clk)
+>  	_REGISTER_CLOCK("imx2-wdt.0", NULL, wdt_clk)
+> diff --git a/arch/arm/mach-imx/clock-imx27.c b/arch/arm/mach-imx/clock-imx27.c
+> index 583f251..d197df2 100644
+> --- a/arch/arm/mach-imx/clock-imx27.c
+> +++ b/arch/arm/mach-imx/clock-imx27.c
+> @@ -662,7 +662,7 @@ static struct clk_lookup lookups[] = {
+>  	_REGISTER_CLOCK(NULL, "brom", brom_clk)
+>  	_REGISTER_CLOCK(NULL, "emma", emma_clk)
+>  	_REGISTER_CLOCK(NULL, "slcdc", slcdc_clk)
+> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx27-fec.0", NULL, fec_clk)
+>  	_REGISTER_CLOCK(NULL, "emi", emi_clk)
+>  	_REGISTER_CLOCK(NULL, "sahara2", sahara2_clk)
+>  	_REGISTER_CLOCK(NULL, "ata", ata_clk)
+> diff --git a/arch/arm/mach-imx/clock-imx35.c b/arch/arm/mach-imx/clock-imx35.c
+> index 5a4cc1e..fb4007b 100644
+> --- a/arch/arm/mach-imx/clock-imx35.c
+> +++ b/arch/arm/mach-imx/clock-imx35.c
+> @@ -461,7 +461,7 @@ static struct clk_lookup lookups[] = {
+>  	_REGISTER_CLOCK("sdhci-esdhc-imx.0", NULL, esdhc1_clk)
+>  	_REGISTER_CLOCK("sdhci-esdhc-imx.1", NULL, esdhc2_clk)
+>  	_REGISTER_CLOCK("sdhci-esdhc-imx.2", NULL, esdhc3_clk)
+> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx35-fec.0", NULL, fec_clk)
+>  	_REGISTER_CLOCK(NULL, "gpio", gpio1_clk)
+>  	_REGISTER_CLOCK(NULL, "gpio", gpio2_clk)
+>  	_REGISTER_CLOCK(NULL, "gpio", gpio3_clk)
+> diff --git a/arch/arm/mach-mx5/clock-mx51-mx53.c b/arch/arm/mach-mx5/clock-mx51-mx53.c
+> index 699b0d2..04c5a01 100644
+> --- a/arch/arm/mach-mx5/clock-mx51-mx53.c
+> +++ b/arch/arm/mach-mx5/clock-mx51-mx53.c
+> @@ -1426,7 +1426,7 @@ static struct clk_lookup mx51_lookups[] = {
+>  	_REGISTER_CLOCK("imx-uart.1", NULL, uart2_clk)
+>  	_REGISTER_CLOCK("imx-uart.2", NULL, uart3_clk)
+>  	_REGISTER_CLOCK(NULL, "gpt", gpt_clk)
+> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx51-fec.0", NULL, fec_clk)
+>  	_REGISTER_CLOCK("mxc_pwm.0", "pwm", pwm1_clk)
+>  	_REGISTER_CLOCK("mxc_pwm.1", "pwm", pwm2_clk)
+>  	_REGISTER_CLOCK("imx-i2c.0", NULL, i2c1_clk)
+> @@ -1475,7 +1475,7 @@ static struct clk_lookup mx53_lookups[] = {
+>  	_REGISTER_CLOCK("imx-uart.3", NULL, uart4_clk)
+>  	_REGISTER_CLOCK("imx-uart.4", NULL, uart5_clk)
+>  	_REGISTER_CLOCK(NULL, "gpt", gpt_clk)
+> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx53-fec.0", NULL, fec_clk)
+>  	_REGISTER_CLOCK(NULL, "iim_clk", iim_clk)
+>  	_REGISTER_CLOCK("imx-i2c.0", NULL, i2c1_clk)
+>  	_REGISTER_CLOCK("imx-i2c.1", NULL, i2c2_clk)
+> diff --git a/arch/arm/plat-mxc/devices/platform-fec.c b/arch/arm/plat-mxc/devices/platform-fec.c
+> index ccc789e..3790c59 100644
+> --- a/arch/arm/plat-mxc/devices/platform-fec.c
+> +++ b/arch/arm/plat-mxc/devices/platform-fec.c
+> @@ -10,40 +10,41 @@
+>  #include <mach/hardware.h>
+>  #include <mach/devices-common.h>
 >  
-> -void netpoll_poll_dev(struct net_device *dev);
-> -void netpoll_poll(struct netpoll *np);
->  void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
->  void netpoll_print_options(struct netpoll *np);
->  int netpoll_parse_options(struct netpoll *np, char *opt);
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 18d9cbd..4ce595e 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -177,7 +177,7 @@ static void service_arp_queue(struct netpoll_info *npi)
+> -#define imx_fec_data_entry_single(soc)					\
+> +#define imx_fec_data_entry_single(soc, _devid)				\
+>  	{								\
+> +		.devid = _devid,					\
+>  		.iobase = soc ## _FEC_BASE_ADDR,			\
+>  		.irq = soc ## _INT_FEC,					\
 >  	}
+>  
+>  #ifdef CONFIG_SOC_IMX25
+>  const struct imx_fec_data imx25_fec_data __initconst =
+> -	imx_fec_data_entry_single(MX25);
+> +	imx_fec_data_entry_single(MX25, "imx25-fec");
+>  #endif /* ifdef CONFIG_SOC_IMX25 */
+>  
+>  #ifdef CONFIG_SOC_IMX27
+>  const struct imx_fec_data imx27_fec_data __initconst =
+> -	imx_fec_data_entry_single(MX27);
+> +	imx_fec_data_entry_single(MX27, "imx27-fec");
+>  #endif /* ifdef CONFIG_SOC_IMX27 */
+>  
+>  #ifdef CONFIG_SOC_IMX35
+>  const struct imx_fec_data imx35_fec_data __initconst =
+> -	imx_fec_data_entry_single(MX35);
+> +	imx_fec_data_entry_single(MX35, "imx35-fec");
+>  #endif
+>  
+>  #ifdef CONFIG_SOC_IMX50
+>  const struct imx_fec_data imx50_fec_data __initconst =
+> -	imx_fec_data_entry_single(MX50);
+> +	imx_fec_data_entry_single(MX50, "imx50-fec");
+>  #endif
+>  
+>  #ifdef CONFIG_SOC_IMX51
+>  const struct imx_fec_data imx51_fec_data __initconst =
+> -	imx_fec_data_entry_single(MX51);
+> +	imx_fec_data_entry_single(MX51, "imx51-fec");
+>  #endif
+>  
+>  #ifdef CONFIG_SOC_IMX53
+>  const struct imx_fec_data imx53_fec_data __initconst =
+> -	imx_fec_data_entry_single(MX53);
+> +	imx_fec_data_entry_single(MX53, "imx53-fec");
+>  #endif
+>  
+>  struct platform_device *__init imx_add_fec(
+> @@ -62,7 +63,7 @@ struct platform_device *__init imx_add_fec(
+>  		},
+>  	};
+>  
+> -	return imx_add_platform_device_dmamask("fec", 0,
+> +	return imx_add_platform_device_dmamask(data->devid, 0,
+>  			res, ARRAY_SIZE(res),
+>  			pdata, sizeof(*pdata), DMA_BIT_MASK(32));
 >  }
+> diff --git a/arch/arm/plat-mxc/include/mach/devices-common.h b/arch/arm/plat-mxc/include/mach/devices-common.h
+> index bf93820..6ac2450 100644
+> --- a/arch/arm/plat-mxc/include/mach/devices-common.h
+> +++ b/arch/arm/plat-mxc/include/mach/devices-common.h
+> @@ -30,6 +30,7 @@ static inline struct platform_device *imx_add_platform_device(
 >  
-> -void netpoll_poll_dev(struct net_device *dev)
-> +static void netpoll_poll_dev(struct net_device *dev)
-Hi Joe,
-You have removed the function declaration in include/linux/netpoll.h.
-And you changed the function like 
-static void netpoll_poll_dev(...)
-{
-	...
-}
-But i don't know its usage.
-The 'static' before this function just says the active area of 'netpoll_poll_dev'
-is in the file net/core/netpoll.c. What is the purpose? Could you please tell me?
-
-Thanks in advance.
-
->  {
->  	const struct net_device_ops *ops;
+>  #include <linux/fec.h>
+>  struct imx_fec_data {
+> +	const char *devid;
+>  	resource_size_t iobase;
+>  	resource_size_t irq;
+>  };
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 885d8ba..9161a82 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -66,14 +66,31 @@
+>  #define FEC_QUIRK_ENET_MAC		(1 << 0)
+>  /* Controller needs driver to swap frame */
+>  #define FEC_QUIRK_SWAP_FRAME		(1 << 1)
+> +/* Controller uses gasket */
+> +#define FEC_QUIRK_USE_GASKET		(1 << 2)
 >  
-> @@ -208,13 +208,11 @@ void netpoll_poll_dev(struct net_device *dev)
+>  static struct platform_device_id fec_devtype[] = {
+>  	{
+> -		.name = DRIVER_NAME,
+> +		.name = "imx25-fec",
+> +		.driver_data = FEC_QUIRK_USE_GASKET,
+> +	}, {
+> +		.name = "imx27-fec",
+>  		.driver_data = 0,
+>  	}, {
+>  		.name = "imx28-fec",
+>  		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
+> +	}, {
+> +		.name = "imx35-fec",
+> +		.driver_data = 0,
+> +	}, {
+> +		.name = "imx50-fec",
+> +		.driver_data = FEC_QUIRK_USE_GASKET,
+> +	}, {
+> +		.name = "imx51-fec",
+> +		.driver_data = 0,
+> +	}, {
+> +		.name = "imx53-fec",
+> +		.driver_data = FEC_QUIRK_USE_GASKET,
+>  	},
+>  	{ }
+>  };
+> @@ -425,7 +442,7 @@ fec_restart(struct net_device *ndev, int duplex)
 >  
->  	zap_completion_queue();
->  }
-> -EXPORT_SYMBOL(netpoll_poll_dev);
+>  	} else {
+>  #ifdef FEC_MIIGSK_ENR
+> -		if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
+> +		if (id_entry->driver_data & FEC_QUIRK_USE_GASKET) {
+>  			/* disable the gasket and wait */
+>  			writel(0, fep->hwp + FEC_MIIGSK_ENR);
+>  			while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
+> @@ -434,8 +451,11 @@ fec_restart(struct net_device *ndev, int duplex)
+>  			/*
+>  			 * configure the gasket:
+>  			 *   RMII, 50 MHz, no loopback, no echo
+> +			 *   MII, 25 MHz, no loopback, no echo
+>  			 */
+> -			writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+> +			writel((fep->phy_interface == PHY_INTERFACE_MODE_RMII) ?
+> +					1 : 0, fep->hwp + FEC_MIIGSK_CFGR);
+> +
 >  
-> -void netpoll_poll(struct netpoll *np)
-> +static void netpoll_poll(struct netpoll *np)
->  {
->  	netpoll_poll_dev(np->dev);
->  }
-> -EXPORT_SYMBOL(netpoll_poll);
->  
->  static void refill_skbs(void)
->  {
+>  			/* re-enable the gasket */
+>  			writel(2, fep->hwp + FEC_MIIGSK_ENR);
 > -- 
-> 1.7.6.rc1
+> 1.7.4.1
+> 
+> 
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
