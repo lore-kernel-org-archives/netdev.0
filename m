@@ -1,72 +1,65 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 2/2] Update documented default values for various
- TCP/UDP tunables
-Date: Tue, 5 Jul 2011 09:21:47 -0400
-Message-ID: <20110705132147.GB2959@hmsreliant.think-freely.org>
-References: <20110705015729.91CD5815DBB1@regina.usersys.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] nfnetlink: add RCU in nfnetlink_rcv_msg()
+Date: Tue, 05 Jul 2011 15:22:33 +0200
+Message-ID: <4E131019.8020200@trash.net>
+References: <1309416426.2532.119.camel@edumazet-laptop>	 <4E0C278B.7010403@yandex.ru>	 <1309433652.1994.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4E0C651A.1000300@trash.net>	 <1309446900.1994.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4E0C8902.8070303@earthlink.net> <4E0C8D7F.3000902@trash.net>	 <1309453730.5846.31.camel@tiger.regit.org>	 <1309455919.2515.3.camel@edumazet-laptop>	 <1309503610.2515.18.camel@edumazet-laptop>	 <20110701074936.GR16021@Chamillionaire.breakpoint.cc> <1309534078.2599.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Max Matveev <makc@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Westphal <fw@strlen.de>, Eric Leblond <eric@regit.org>,
+	sclark46@earthlink.net, Kuzin Andrey <kuzinandrey@yandex.ru>,
+	Anders Nilsson Plymoth <lanilsson@gmail.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48065 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932186Ab1GENV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:21:57 -0400
-Content-Disposition: inline
-In-Reply-To: <20110705015729.91CD5815DBB1@regina.usersys.redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:39479 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932186Ab1GENWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:22:35 -0400
+In-Reply-To: <1309534078.2599.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 22, 2011 at 05:18:13PM +1000, Max Matveev wrote:
-> tcp_rmem and tcp_wmem use 1 page as default value for the minimum
-> amount of memory to be used, same as udp_wmem_min and udp_rmem_min.
-> Pages are different size on different architectures - use the right
-> units when describing the defaults.
-> 
-> Reviewed-by: Shan Wei <shanwei@cn.fujitsu.com>
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Max Matveev <makc@redhat.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index ce09f83..940a404 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -394,7 +394,7 @@ tcp_rmem - vector of 3 INTEGERs: min, default, max
->  	min: Minimal size of receive buffer used by TCP sockets.
->  	It is guaranteed to each TCP socket, even under moderate memory
->  	pressure.
-> -	Default: 8K
-> +	Default: 1 page
->  
->  	default: initial size of receive buffer used by TCP sockets.
->  	This value overrides net.core.rmem_default used by other protocols.
-> @@ -483,7 +483,7 @@ tcp_window_scaling - BOOLEAN
->  tcp_wmem - vector of 3 INTEGERs: min, default, max
->  	min: Amount of memory reserved for send buffers for TCP sockets.
->  	Each TCP socket has rights to use it due to fact of its birth.
-> -	Default: 4K
-> +	Default: 1 page
->  
->  	default: initial size of send buffer used by TCP sockets.  This
->  	value overrides net.core.wmem_default used by other protocols.
-> @@ -553,13 +553,13 @@ udp_rmem_min - INTEGER
->  	Minimal size of receive buffer used by UDP sockets in moderation.
->  	Each UDP socket is able to use the size for receiving data, even if
->  	total pages of UDP sockets exceed udp_mem pressure. The unit is byte.
-> -	Default: 4096
-> +	Default: 1 page
->  
->  udp_wmem_min - INTEGER
->  	Minimal size of send buffer used by UDP sockets in moderation.
->  	Each UDP socket is able to use the size for sending data, even if
->  	total pages of UDP sockets exceed udp_mem pressure. The unit is byte.
-> -	Default: 4096
-> +	Default: 1 page
->  
->  CIPSOv4 Variables:
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On 01.07.2011 17:27, Eric Dumazet wrote:
+> Le vendredi 01 juillet 2011 =E0 09:49 +0200, Florian Westphal a =E9cr=
+it :
+>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> Number one offender is the nfnl_lock mutex hold each time we give a
+>>> verdict.
+>>
+>> Yes, the nfnl mutex is fairly annoying for nfqueue.
+>>
+>> Unfortunately it is not possible to just remove it
+>> completely since it also protects against module removal.
+>>
+>=20
+> I believe it can, just add appropriate synchronization points.
+>=20
+>> But I guess even having to grab a refcount would be
+>> a huge win as opposed to holding on to the nfnl mutex...
+>>
+>> We'd also need to audit all ->call implementations; most
+>> of them assume the nfnl_mutex is being hold.
+>=20
+> CC netdev
+>=20
+> We can do another way : Introduce a new ->call_rcu() implementation
+> and convert places where we prefer not holding nfnf_mutex.
+>=20
+> If/when all places are converted, remove the ->call() field for good.
 
+We've talked about this a few times, but we have some pretty deep
+call chains especially in ctnetlink, which are using sleeping
+allocations. Not sure whether we really want to convert those.
+An alternative would be to push locking down one level and have
+the subsystem decide whether to use RCU or the mutex. However that
+would require taking a reference to the subsystem in nfnetlink to
+avoid module unloda races.
+
+> With following two patches, I was able to reach more than 2.000.000 p=
+ps
+> without losses on my setup (limited by my lab setup), instead of less
+> than 500.000 pps
+
+That sounds pretty impressive.
