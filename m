@@ -1,34 +1,44 @@
-From: "Leung Cheung" <Racksugdh6@gmail.com>
-Subject: I need your assistance
-Date: Tue, 5 Jul 2011 17:35:10 +0100
-Message-ID: <20110705163503.6238B1C04423@mwinf3412.me.freeserve.com>
-Reply-To: <leungcheung11@helixnet.cn>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+Date: Tue, 5 Jul 2011 12:36:43 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com>
+References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Konrad Wilk" <konrad.wilk@oracle.com>,
+	"linux-mm" <linux-mm@kvack.org>
+To: "Dan Magenheimer" <dan.magenheimer@oracle.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.252.22.159] ([193.252.22.159]:10136 "EHLO
-	smtp5.freeserve.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753617Ab1GEQgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:36:32 -0400
+Received: from exprod6og114.obsmtp.com ([64.18.1.33]:46913 "HELO
+	exprod6og114.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753617Ab1GEQgq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:36:46 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hello,
 
-Compliment of the day to you. I am sending this brief letter to solicit 
-your partnership to transfer $22,500,000.00 US Dollars from Hong Kong to 
-your country. You will be entitled to 40% after compliting the transaction 
-while I will be entitled to 60% as the sole initiator of this mutual 
-proposal. I shall send you more information and procedures when I receive 
-a positive response from you.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Dan Magenheimer
+> Sent: July 05, 2011 11:54 AM
+> To: netdev@vger.kernel.org
+> Cc: Konrad Wilk; linux-mm
+> Subject: [RFC] non-preemptible kernel socket for RAMster
+> 
+> In working on a kernel project called RAMster* (where RAM on a
+> remote system may be used for clean page cache pages and for swap
+> pages), I found I have need for a kernel socket to be used when
 
-Best Regards,
 
-Mr. Leung Cheung
-Email: leungcheung11@helixnet.cn
+How is RAMster+swap different than NBD's (pending etc?)support for SWAP
+over NBD?
 
+
+Chetan Loke
 
