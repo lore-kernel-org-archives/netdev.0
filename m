@@ -1,205 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] packet: Add helpers to register/unregister ->prot_hook
-Date: Mon, 04 Jul 2011 21:20:10 -0700 (PDT)
-Message-ID: <20110704.212010.2137450415634841498.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
+ overwritten
+Date: Tue, 05 Jul 2011 06:21:03 +0200
+Message-ID: <1309839663.2720.21.camel@edumazet-laptop>
+References: <bug-38102-10286@https.bugzilla.kernel.org/>
+	 <20110629145135.5179fb0c.akpm@linux-foundation.org>
+	 <BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
+	 <CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
+	 <1309707971.2523.20.camel@edumazet-laptop>
+	 <CAB9v_DG7e8vDE+4PDwuOR2DYG1FEvUM1fxa+e4a=swwTYGJ9nQ@mail.gmail.com>
+	 <20110704130531.37cf876e@Nokia-N900>
+	 <1309787822.2247.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110704162726.4072e715@maggie> <20110704164351.338dc12e@maggie>
+	 <1309792323.2247.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAB9v_DHHmeFtQ4jrtVRSGWBvB=W_=QBHCvMi-u25e0nPBQ1jAA@mail.gmail.com>
+	 <CAB9v_DFFX6cHAFBSOGDJRniehJ6pYD7Z5XG6ygTGHy8j=z+U0g@mail.gmail.com>
+	 <1309837443.2720.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: victor@inliniac.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Alexey Zaytsev <alexey.zaytsev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34075 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751093Ab1GEEUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:20:15 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53629 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812Ab1GEEVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:21:08 -0400
+Received: by wyg8 with SMTP id 8so3727832wyg.19
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 21:21:07 -0700 (PDT)
+In-Reply-To: <1309837443.2720.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 05 juillet 2011 =C3=A0 05:44 +0200, Eric Dumazet a =C3=A9crit =
+:
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/packet/af_packet.c |  103 +++++++++++++++++++++++++++--------------------
- 1 files changed, 59 insertions(+), 44 deletions(-)
+> Maybe we should do instead a fast dequeue of packets (recycling them
+> instead of pushing them to upper stack) in case too many packets are
+> ready to be delivered, and always make sure NIC has a reserve of
+> available buffers for DMA accesses, before it can assert ISTAT_RFO
+>=20
+>=20
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 461b16f..bb281bf 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -222,6 +222,55 @@ struct packet_skb_cb {
- 
- #define PACKET_SKB_CB(__skb)	((struct packet_skb_cb *)((__skb)->cb))
- 
-+static inline struct packet_sock *pkt_sk(struct sock *sk)
-+{
-+	return (struct packet_sock *)sk;
-+}
-+
-+/* register_prot_hook must be invoked with the po->bind_lock held,
-+ * or from a context in which asynchronous accesses to the packet
-+ * socket is not possible (packet_create()).
-+ */
-+static void register_prot_hook(struct sock *sk)
-+{
-+	struct packet_sock *po = pkt_sk(sk);
-+	if (!po->running) {
-+		dev_add_pack(&po->prot_hook);
-+		sock_hold(sk);
-+		po->running = 1;
-+	}
-+}
-+
-+/* {,__}unregister_prot_hook() must be invoked with the po->bind_lock
-+ * held.   If the sync parameter is true, we will temporarily drop
-+ * the po->bind_lock and do a synchronize_net to make sure no
-+ * asynchronous packet processing paths still refer to the elements
-+ * of po->prot_hook.  If the sync parameter is false, it is the
-+ * callers responsibility to take care of this.
-+ */
-+static void __unregister_prot_hook(struct sock *sk, bool sync)
-+{
-+	struct packet_sock *po = pkt_sk(sk);
-+
-+	po->running = 0;
-+	__dev_remove_pack(&po->prot_hook);
-+	__sock_put(sk);
-+
-+	if (sync) {
-+		spin_unlock(&po->bind_lock);
-+		synchronize_net();
-+		spin_lock(&po->bind_lock);
-+	}
-+}
-+
-+static void unregister_prot_hook(struct sock *sk, bool sync)
-+{
-+	struct packet_sock *po = pkt_sk(sk);
-+
-+	if (po->running)
-+		__unregister_prot_hook(sk, sync);
-+}
-+
- static inline __pure struct page *pgv_to_page(void *addr)
- {
- 	if (is_vmalloc_addr(addr))
-@@ -324,11 +373,6 @@ static inline void packet_increment_head(struct packet_ring_buffer *buff)
- 	buff->head = buff->head != buff->frame_max ? buff->head+1 : 0;
- }
- 
--static inline struct packet_sock *pkt_sk(struct sock *sk)
--{
--	return (struct packet_sock *)sk;
--}
--
- static void packet_sock_destruct(struct sock *sk)
- {
- 	skb_queue_purge(&sk->sk_error_queue);
-@@ -1337,15 +1381,7 @@ static int packet_release(struct socket *sock)
- 	spin_unlock_bh(&net->packet.sklist_lock);
- 
- 	spin_lock(&po->bind_lock);
--	if (po->running) {
--		/*
--		 * Remove from protocol table
--		 */
--		po->running = 0;
--		po->num = 0;
--		__dev_remove_pack(&po->prot_hook);
--		__sock_put(sk);
--	}
-+	unregister_prot_hook(sk, false);
- 	if (po->prot_hook.dev) {
- 		dev_put(po->prot_hook.dev);
- 		po->prot_hook.dev = NULL;
-@@ -1392,15 +1428,7 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protoc
- 	lock_sock(sk);
- 
- 	spin_lock(&po->bind_lock);
--	if (po->running) {
--		__sock_put(sk);
--		po->running = 0;
--		po->num = 0;
--		spin_unlock(&po->bind_lock);
--		dev_remove_pack(&po->prot_hook);
--		spin_lock(&po->bind_lock);
--	}
--
-+	unregister_prot_hook(sk, true);
- 	po->num = protocol;
- 	po->prot_hook.type = protocol;
- 	if (po->prot_hook.dev)
-@@ -1413,9 +1441,7 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protoc
- 		goto out_unlock;
- 
- 	if (!dev || (dev->flags & IFF_UP)) {
--		dev_add_pack(&po->prot_hook);
--		sock_hold(sk);
--		po->running = 1;
-+		register_prot_hook(sk);
- 	} else {
- 		sk->sk_err = ENETDOWN;
- 		if (!sock_flag(sk, SOCK_DEAD))
-@@ -1542,9 +1568,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 
- 	if (proto) {
- 		po->prot_hook.type = proto;
--		dev_add_pack(&po->prot_hook);
--		sock_hold(sk);
--		po->running = 1;
-+		register_prot_hook(sk);
- 	}
- 
- 	spin_lock_bh(&net->packet.sklist_lock);
-@@ -2240,9 +2264,7 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
- 			if (dev->ifindex == po->ifindex) {
- 				spin_lock(&po->bind_lock);
- 				if (po->running) {
--					__dev_remove_pack(&po->prot_hook);
--					__sock_put(sk);
--					po->running = 0;
-+					__unregister_prot_hook(sk, false);
- 					sk->sk_err = ENETDOWN;
- 					if (!sock_flag(sk, SOCK_DEAD))
- 						sk->sk_error_report(sk);
-@@ -2259,11 +2281,8 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
- 		case NETDEV_UP:
- 			if (dev->ifindex == po->ifindex) {
- 				spin_lock(&po->bind_lock);
--				if (po->num && !po->running) {
--					dev_add_pack(&po->prot_hook);
--					sock_hold(sk);
--					po->running = 1;
--				}
-+				if (po->num)
-+					register_prot_hook(sk);
- 				spin_unlock(&po->bind_lock);
- 			}
- 			break;
-@@ -2530,10 +2549,8 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
- 	was_running = po->running;
- 	num = po->num;
- 	if (was_running) {
--		__dev_remove_pack(&po->prot_hook);
- 		po->num = 0;
--		po->running = 0;
--		__sock_put(sk);
-+		__unregister_prot_hook(sk, false);
- 	}
- 	spin_unlock(&po->bind_lock);
- 
-@@ -2564,11 +2581,9 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
- 	mutex_unlock(&po->pg_vec_lock);
- 
- 	spin_lock(&po->bind_lock);
--	if (was_running && !po->running) {
--		sock_hold(sk);
--		po->running = 1;
-+	if (was_running) {
- 		po->num = num;
--		dev_add_pack(&po->prot_hook);
-+		register_prot_hook(sk);
- 	}
- 	spin_unlock(&po->bind_lock);
- 
--- 
-1.7.5.4
+Another way would be to add Explicit Congestion Notification when too
+many packets are received in a burst, but unfortunately not enough TCP
+flows are ECN ready :)
+
+
 
