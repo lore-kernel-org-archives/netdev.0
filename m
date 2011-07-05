@@ -1,82 +1,82 @@
-From: Adam Katz <adamkatz0@gmail.com>
-Subject: Re: libpcap and tc filters
-Date: Tue, 5 Jul 2011 23:07:43 +0300
-Message-ID: <CAA0qwj5snv-Wz99Z7va19PZCyCew5SN48Et4c8Q1bJtGiJX_3g@mail.gmail.com>
-References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
-	<1309777908.26180.1.camel@mojatatu>
-	<CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
-	<CAA0qwj7cH8Ah69fBMkXpGkwG77TH_ZqMhKwj-Cc8Vc=F5c9SSw@mail.gmail.com>
-	<1309784740.26180.21.camel@mojatatu>
-	<CAA0qwj4=bOU3LDsRk591AtBWx2c_6uFwk0M4-AGrnxCPKjbbrw@mail.gmail.com>
-	<1309788416.26180.63.camel@mojatatu>
-	<CAA0qwj4FUpfdux73WCxFcjX0xp-zNtMwncRRmN7ea1Kr9FX3Kw@mail.gmail.com>
-	<1309863403.1765.0.camel@mojatatu>
-	<1309870021.1765.41.camel@mojatatu>
-	<CAA0qwj5aBWrsqHGddW9FBV2srdGwVMzJKe84BTyRH0Dkr6KgVQ@mail.gmail.com>
-	<1309874213.1765.45.camel@mojatatu>
-	<CAA0qwj74cvZmkkmA8zBFuXeHdidMco2=de7Li9rDN5Wcp=-G7w@mail.gmail.com>
-	<1309876868.1765.53.camel@mojatatu>
-	<CAA0qwj49XzNa-nY82X3d_eZ95seS15qELbJDYCNfRkg03OJosQ@mail.gmail.com>
-	<1309882485.2271.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAA0qwj6Wanp45ntTm0FK+fM37b_N8+T72VJfr9Et8oVb9LqOrg@mail.gmail.com>
-	<1309893553.1733.41.camel@mojatatu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
+ overwritten
+Date: Tue, 05 Jul 2011 22:15:40 +0200
+Message-ID: <1309896940.2545.34.camel@edumazet-laptop>
+References: <1309844009.2720.39.camel@edumazet-laptop>
+	 <1309845573.2720.41.camel@edumazet-laptop>
+	 <20110705160531.GC2959@hmsreliant.think-freely.org>
+	 <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110705164202.GD2959@hmsreliant.think-freely.org>
+	 <1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110705180650.GF2959@hmsreliant.think-freely.org>
+	 <1309889634.2545.2.camel@edumazet-laptop>
+	 <1309890775.2545.17.camel@edumazet-laptop>
+	 <1309891516.2545.23.camel@edumazet-laptop>
+	 <20110705195353.GG2959@hmsreliant.think-freely.org>
+	 <1309896147.2545.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: jhs@mojatatu.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
+	Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52905 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753930Ab1GEUHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 16:07:44 -0400
-Received: by iwn6 with SMTP id 6so5495466iwn.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 13:07:43 -0700 (PDT)
-In-Reply-To: <1309893553.1733.41.camel@mojatatu>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44928 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754220Ab1GEUPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 16:15:46 -0400
+Received: by wwe5 with SMTP id 5so6281657wwe.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 13:15:45 -0700 (PDT)
+In-Reply-To: <1309896147.2545.28.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I don't think so. I tried different versions of tcpreplay.
+Le mardi 05 juillet 2011 =C3=A0 22:02 +0200, Eric Dumazet a =C3=A9crit =
+:
+> Le mardi 05 juillet 2011 =C3=A0 15:53 -0400, Neil Horman a =C3=A9crit=
+ :
+> > I think this is a goo idea, at least for testing.  It seems odd to =
+me that we
+> > have the B44_DMARX_PTR value which indicates (ostensibly) the point=
+er to the
+> > descriptor to be processed next (the documentation isnt' very verbo=
+se on the
+> > subject), along with the EOT bit on a descriptor.  It seems like bo=
+th the
+> > register and the bit are capable of conveying the same (or at least=
+ overlapping)
+> > information.
+> >=20
+> > I think what I'm having the most trouble with is understanding when=
+ the hw looks
+> > at the EOT bit in the descriptor.  If it completes a DMA and sees t=
+he EOT bit
+> > set, does the next DMA occur to the descriptor pointed to by the DM=
+ARX_ADDR
+> > register?  Of does it stall until such time as the DMARX_PTR regist=
+er is rotated
+> > around?  What if it doesn't see the EOT bit set?  Does it just keep=
+ going with
+> > the next descriptor? =20
 
-The solution didn't work on 3 different ubuntu 10.04 machines with
-2.6.32-32 (actually one of them had 2.6.32-31) but it DID work on a
-fedora core 15 virtual machine with a newer kernel as well as a second
-virtual machine with on which I installed stock ubuntu 11.04 just for
-this test. It has 2.6.38 i think. On the last three machines (the
-third ubuntu 10.04 as well as fc15 and ubuntu 11.04 tcpreplay came
-straight from the repository).
+Since there is no OWN bit (at least not on the online doc I got : it
+says the rx_ring is read only by the NIC), I would say we really need t=
+o
+advance DMARX_PTR to signal NIC a new entry is available for following
+incoming frames.
 
-Just to make myself clear - earlier, I tried the solution on a 10.04
-physical box with various versions of tcpreplay, libpcap, and
-iproute2. nothing worked.
+This is the reason rx_pending max value is B44_RX_RING_SIZE - 1, or els=
+e
+chip could loop on a circular rx_ring.
 
 
-On Tue, Jul 5, 2011 at 10:19 PM, jamal <hadi@cyberus.ca> wrote:
-> On Tue, 2011-07-05 at 19:54 +0300, Adam Katz wrote:
->
->>
->> unless someone suggests a better solution, it seems like i'll be
->> adhering to the first law of engineering - "if it works, don't fix it"
->> and simply replace install fedora core 15 instead of ubuntu.
->
-> My feeling is it has nothing to do with distro. Probably
-> your tcpreplay?
->
-> I am running ubuntu 10.04, but own compiled kernel (3.0-rc4).
-> tcpreplay is older than Eric's version:
-> --
-> tcpreplay version: 3.4.3 (build 2375)
-> Copyright 2001-2009 by Aaron Turner <aturner at synfin dot net>
-> Cache file supported: 04
-> Not compiled with libdnet.
-> Compiled against libpcap: 1.0.0
-> 64 bit packet counters: enabled
-> Verbose printing via tcpdump: enabled
-> Packet editing: disabled
-> Fragroute engine: disabled
-> Injection method: PF_PACKET send()
-> ---
->
-> cheers,
-> jamal
->
->
+
+
