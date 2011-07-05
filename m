@@ -1,65 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] nfnetlink: add RCU in nfnetlink_rcv_msg()
-Date: Tue, 05 Jul 2011 15:22:33 +0200
-Message-ID: <4E131019.8020200@trash.net>
-References: <1309416426.2532.119.camel@edumazet-laptop>	 <4E0C278B.7010403@yandex.ru>	 <1309433652.1994.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4E0C651A.1000300@trash.net>	 <1309446900.1994.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4E0C8902.8070303@earthlink.net> <4E0C8D7F.3000902@trash.net>	 <1309453730.5846.31.camel@tiger.regit.org>	 <1309455919.2515.3.camel@edumazet-laptop>	 <1309503610.2515.18.camel@edumazet-laptop>	 <20110701074936.GR16021@Chamillionaire.breakpoint.cc> <1309534078.2599.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Westphal <fw@strlen.de>, Eric Leblond <eric@regit.org>,
-	sclark46@earthlink.net, Kuzin Andrey <kuzinandrey@yandex.ru>,
-	Anders Nilsson Plymoth <lanilsson@gmail.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39479 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932186Ab1GENWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:22:35 -0400
-In-Reply-To: <1309534078.2599.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2011-07-05
+Date: Tue,  5 Jul 2011 15:43:54 +0200
+Message-ID: <1309873440-11704-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01.07.2011 17:27, Eric Dumazet wrote:
-> Le vendredi 01 juillet 2011 =E0 09:49 +0200, Florian Westphal a =E9cr=
-it :
->> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>> Number one offender is the nfnl_lock mutex hold each time we give a
->>> verdict.
->>
->> Yes, the nfnl mutex is fairly annoying for nfqueue.
->>
->> Unfortunately it is not possible to just remove it
->> completely since it also protects against module removal.
->>
->=20
-> I believe it can, just add appropriate synchronization points.
->=20
->> But I guess even having to grab a refcount would be
->> a huge win as opposed to holding on to the nfnl mutex...
->>
->> We'd also need to audit all ->call implementations; most
->> of them assume the nfnl_mutex is being hold.
->=20
-> CC netdev
->=20
-> We can do another way : Introduce a new ->call_rcu() implementation
-> and convert places where we prefer not holding nfnf_mutex.
->=20
-> If/when all places are converted, remove the ->call() field for good.
+Hi,
+   
+I'd like to get the following patches pulled into net-next-2.6/3.1.          
+This patchset contains a mix of cleanup code (patch 1-3) for the protocol
+changes we sent you with our last pull request, 2 bug fixes and an
+improved version handling patch.
 
-We've talked about this a few times, but we have some pretty deep
-call chains especially in ctnetlink, which are using sleeping
-allocations. Not sure whether we really want to convert those.
-An alternative would be to push locking down one level and have
-the subsystem decide whether to use RCU or the mutex. However that
-would require taking a reference to the subsystem in nfnetlink to
-avoid module unloda races.
+Thanks,
+Marek
 
-> With following two patches, I was able to reach more than 2.000.000 p=
-ps
-> without losses on my setup (limited by my lab setup), instead of less
-> than 500.000 pps
+PS: This is my first pull request - have mercy on my soul and let me know
+if does not meet your expectations.
 
-That sounds pretty impressive.
+The following changes since commit 43676ab590c3f8686fd047d34c3e33803eef71f0:
+
+  batman-adv: improved gateway tq-based selection (2011-06-20 11:37:41 +0200)
+
+are available in the git repository at:
+  git://git.open-mesh.org/linux-merge.git batman-adv/next
+
+Antonio Quartulli (3):
+      batman-adv: unify flags for tt_change/tt_local_entry/tt_global_entry
+      batman-adv: add_bcast_packet_to_list() takes the sending delay as parameter
+      batman-adv: pass a unique flag arg instead of a sequence of bool ones
+
+Marek Lindner (2):
+      batman-adv: broadcast primary OGM on all active hard-interfaces
+      batman-adv: aggregation checks should use the primary_if pointer
+
+Sven Eckelmann (1):
+      batman-adv: Replace version info instead of appending them
+
+ net/batman-adv/aggregation.c       |   25 ++++++++++++++++++++-----
+ net/batman-adv/gateway_client.c    |    5 ++---
+ net/batman-adv/main.c              |    9 ++-------
+ net/batman-adv/main.h              |   11 +++--------
+ net/batman-adv/originator.c        |    5 ++---
+ net/batman-adv/packet.h            |   11 +++++++----
+ net/batman-adv/routing.c           |    2 +-
+ net/batman-adv/send.c              |   21 +++++++++++++++------
+ net/batman-adv/send.h              |    2 +-
+ net/batman-adv/soft-interface.c    |    2 +-
+ net/batman-adv/translation-table.c |   30 ++++++++++++++----------------
+ net/batman-adv/translation-table.h |    3 +--
+ net/batman-adv/types.h             |    4 ++--
+ 13 files changed, 71 insertions(+), 59 deletions(-)
+ 
