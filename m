@@ -1,65 +1,37 @@
-From: Dan Magenheimer <dan.magenheimer@oracle.com>
-Subject: [RFC] non-preemptible kernel socket for RAMster
-Date: Tue, 5 Jul 2011 08:54:06 -0700 (PDT)
-Message-ID: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [PATCH 2/2] packet: Add fanout support.
+Date: Tue, 5 Jul 2011 12:03:29 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
+References: <20110704.212014.236340473910292460.davem@davemloft.net> <1309846875.2720.43.camel@edumazet-laptop>  <4E12B5A6.2020802@inliniac.net> <1309849214.2720.45.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Konrad Wilk <konrad.wilk@oracle.com>, linux-mm <linux-mm@kvack.org>
-To: netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Victor Julien" <victor@inliniac.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod6og101.obsmtp.com ([64.18.1.181]:53607 "HELO
+	exprod6og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753318Ab1GEQDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:03:32 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1309849214.2720.45.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In working on a kernel project called RAMster* (where RAM on a
-remote system may be used for clean page cache pages and for swap
-pages), I found I have need for a kernel socket to be used when
-in non-preemptible state.  I admit to being a networking idiot,
-but I have been successfully using the following small patch.
-I'm not sure whether I am lucky so far... perhaps more
-sockets or larger/different loads will require a lot more
-changes (or maybe even make my objective impossible).
-So I thought I'd post it for comment.  I'd appreciate
-any thoughts or suggestions.
-
-Thanks,
-Dan
-
-* http://events.linuxfoundation.org/events/linuxcon/magenheimer=20
-
-diff -Napur linux-2.6.37/net/core/sock.c linux-2.6.37-ramster/net/core/sock=
-.c
---- linux-2.6.37/net/core/sock.c=092011-07-03 19:14:52.267853088 -0600
-+++ linux-2.6.37-ramster/net/core/sock.c=092011-07-03 19:10:04.340980799 -0=
-600
-@@ -1587,6 +1587,14 @@ static void __lock_sock(struct sock *sk)
- =09__acquires(&sk->sk_lock.slock)
- {
- =09DEFINE_WAIT(wait);
-+=09if (!preemptible()) {
-+=09=09while (sock_owned_by_user(sk)) {
-+=09=09=09spin_unlock_bh(&sk->sk_lock.slock);
-+=09=09=09cpu_relax();
-+=09=09=09spin_lock_bh(&sk->sk_lock.slock);
-+=09=09}
-+=09=09return;
-+=09}
-=20
- =09for (;;) {
- =09=09prepare_to_wait_exclusive(&sk->sk_lock.wq, &wait,
-@@ -1623,7 +1631,8 @@ static void __release_sock(struct sock *
- =09=09=09 * This is safe to do because we've taken the backlog
- =09=09=09 * queue private:
- =09=09=09 */
--=09=09=09cond_resched_softirq();
-+=09=09=09if (preemptible())
-+=09=09=09=09cond_resched_softirq();
- =09=09=09skb =3D next;
- =09=09} while (skb !=3D NULL);
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogSnVseSAwNSwgMjAxMSAzOjAwIEFNDQo+IFRv
+OiBWaWN0b3IgSnVsaWVuDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzJdIHBhY2tldDogQWRkIGZhbm91dCBzdXBwb3J0
+Lg0KPiANCj4gTGUgbWFyZGkgMDUganVpbGxldCAyMDExIMOgIDA4OjU2ICswMjAwLCBWaWN0b3Ig
+SnVsaWVuIGEgw6ljcml0IDoNCj4gDQo+ID4gSXMgdGhpcyBzdGlsbCBhbHNvIHRydWUgZm9yIElQ
+IGZyYWdtZW50cz8NCj4gPg0KPiANCj4gVGhpcyBwb2ludCB3YXMgYWxyZWFkeSByYWlzZWQuIElQ
+IGZyYWdtZW50cyBoYXZlIHJ4aGFzaCA9IDAsIG9idmlvdXNseSwNCj4gc2luY2Ugd2UgZG9udCBo
+YXZlIGZ1bGwgaW5mb3JtYXRpb24gKHNvdXJjZSAvIGRlc3RpbmF0aW9uIHBvcnRzIGZvcg0KPiBl
+eGFtcGxlKQ0KDQpDYW4gd2Ugbm90IGRvIHNvbWV0aGluZyBsaWtlOg0KDQphID0gc3JjX2lwX2Fk
+ZHI7DQpiID0gZHN0X2lwX2FkZHI7DQoNCmlmIChpcF9pc19mcmFnbWVudChpcF9oZHIoc2tiKSkp
+DQoJYyA9IGlwX2hkci0+aWQ7DQplbHNlDQoJYyA9IHNyY19wb3J0IHwgZGVzdF9wb3J0IDsgLyog
+cG9ydF8zMiBldGMgLSBTaW1pbGFyIHRvIHdoYXQgd2UgaGF2ZSB0b2RheSAqLw0KDQovKiBzd2Fw
+IGEvYiBldGMgKi8NCmpoYXNoM193b3JkcyhhLGIsYyk7DQoNCg0KDQpDaGV0YW4gTG9rZQ0K
