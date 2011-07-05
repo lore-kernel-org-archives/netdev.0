@@ -1,62 +1,121 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: [PATCH 2/2] packet: Add fanout support.
-Date: Tue, 5 Jul 2011 13:35:13 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257D6E1@nsmail.netscout.com>
-References: <20110704.212014.236340473910292460.davem@davemloft.net> <1309846875.2720.43.camel@edumazet-laptop>  <4E12B5A6.2020802@inliniac.net> <1309849214.2720.45.camel@edumazet-laptop> <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com> <1309882577.2271.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH v2 1/3] dt/net: add helper function of_get_phy_mode
+Date: Tue, 5 Jul 2011 11:35:12 -0600
+Message-ID: <CACxGe6sA5XRJXpJTYC_ZrFUM_YrQOtzJbXK6ANg5W_E3fi0vEg@mail.gmail.com>
+References: <1309878839-25743-1-git-send-email-shawn.guo@linaro.org> <1309878839-25743-2-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Victor Julien" <victor@inliniac.net>,
-	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org, patches@linaro.org,
+	David Miller <davem@davemloft.net>
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og108.obsmtp.com ([64.18.1.21]:44650 "HELO
-	exprod6og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750749Ab1GERfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 13:35:15 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1309882577.2271.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:33434 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751124Ab1GERfe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 13:35:34 -0400
+Received: by yxi11 with SMTP id 11so1979330yxi.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 10:35:34 -0700 (PDT)
+In-Reply-To: <1309878839-25743-2-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBKdWx5IDA1LCAyMDExIDEyOjE2IFBN
-DQo+IFRvOiBMb2tlLCBDaGV0YW4NCj4gQ2M6IFZpY3RvciBKdWxpZW47IERhdmlkIE1pbGxlcjsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSRTogW1BBVENIIDIvMl0gcGFja2V0
-OiBBZGQgZmFub3V0IHN1cHBvcnQuDQo+IA0KPiBMZSBtYXJkaSAwNSBqdWlsbGV0IDIwMTEgw6Ag
-MTI6MDMgLTA0MDAsIExva2UsIENoZXRhbiBhIMOpY3JpdCA6DQo+ID4gPiAtLS0tLU9yaWdpbmFs
-IE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBb
-bWFpbHRvOm5ldGRldi0NCj4gPiA+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9m
-IEVyaWMgRHVtYXpldA0KPiA+ID4gU2VudDogSnVseSAwNSwgMjAxMSAzOjAwIEFNDQo+ID4gPiBU
-bzogVmljdG9yIEp1bGllbg0KPiA+ID4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZw0KPiA+ID4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzJdIHBhY2tldDogQWRkIGZhbm91
-dCBzdXBwb3J0Lg0KPiA+ID4NCj4gPiA+IExlIG1hcmRpIDA1IGp1aWxsZXQgMjAxMSDDoCAwODo1
-NiArMDIwMCwgVmljdG9yIEp1bGllbiBhIMOpY3JpdCA6DQo+ID4gPg0KPiA+ID4gPiBJcyB0aGlz
-IHN0aWxsIGFsc28gdHJ1ZSBmb3IgSVAgZnJhZ21lbnRzPw0KPiA+ID4gPg0KPiA+ID4NCj4gPiA+
-IFRoaXMgcG9pbnQgd2FzIGFscmVhZHkgcmFpc2VkLiBJUCBmcmFnbWVudHMgaGF2ZSByeGhhc2gg
-PSAwLA0KPiBvYnZpb3VzbHksDQo+ID4gPiBzaW5jZSB3ZSBkb250IGhhdmUgZnVsbCBpbmZvcm1h
-dGlvbiAoc291cmNlIC8gZGVzdGluYXRpb24gcG9ydHMgZm9yDQo+ID4gPiBleGFtcGxlKQ0KPiA+
-DQo+ID4gQ2FuIHdlIG5vdCBkbyBzb21ldGhpbmcgbGlrZToNCj4gPg0KPiA+IGEgPSBzcmNfaXBf
-YWRkcjsNCj4gPiBiID0gZHN0X2lwX2FkZHI7DQo+ID4NCj4gPiBpZiAoaXBfaXNfZnJhZ21lbnQo
-aXBfaGRyKHNrYikpKQ0KPiA+IAljID0gaXBfaGRyLT5pZDsNCj4gPiBlbHNlDQo+ID4gCWMgPSBz
-cmNfcG9ydCB8IGRlc3RfcG9ydCA7IC8qIHBvcnRfMzIgZXRjIC0gU2ltaWxhciB0byB3aGF0IHdl
-DQo+IGhhdmUgdG9kYXkgKi8NCj4gPg0KPiA+IC8qIHN3YXAgYS9iIGV0YyAqLw0KPiA+IGpoYXNo
-M193b3JkcyhhLGIsYyk7DQo+ID4NCj4gPg0KPiA+DQo+IA0KPiBTdXJlLCBidXQgbm9uIGZyYWdt
-ZW50ZWQgcGFja2V0cyB3aWxsIHRoZW4gZ2V0IGEgZGlmZmVyZW50IHJ4aGFzaC4NCj4gDQo+IFJl
-bWVtYmVyLCBnb2FsIGlzIHRoYXQgX2FsbF8gcGFja2V0cyBvZiBhIGdpdmVuIGZsb3cgZW5kIGlu
-IHNhbWUgcXVldWUuDQo+IA0KPiANCg0KU3VyZSwgYSBsb29rdXAgaXMgbmVlZGVkKHRvIHN0ZWVy
-IHdoYXQgSSBjYWxsIC0gSG90L0NvbGQgZmxvd3MpIGFuZCB3YXMgcHJvcG9zZWQgYnkgbWUgb24g
-dGhlIG9pc2YgbWFpbGluZyBsaXN0LiBBbHdheXMsIHVzZSB0aGUgaXBfaWQgYml0IHRoZW4/IEFu
-b3RoZXIgcHJvYmxlbSB0aGF0IG5lZWRzIHRvIGJlIHNvbHZlZCBpcywgd2hhdCBpZiBzb21lIGRl
-Y29kZXJzIGFyZSBvdmVybG9hZGVkLCB0aGVuIHdoYXQ/IEhvdyB3aWxsIHRoaXMgc2NoZW1lIHdv
-cms/IEhvdyB3aWxsIHdlIHV0aWxpemUgb3RoZXIgQ1BVcz8gUlBTIGlzIG5lZWRlZCBmb3Igc3Vy
-ZS4NCg0KSWYgd2UgbWFpbnRhaW4gYSBpKSBwZXIgcG9ydCBsb29rdXAtdGFibGUgaWkpIDJeMjAg
-Zmxvd3MvdGFibGUgYW5kIGlpaSkgMTYgYnl0ZXMvZmxvdyhvbmUgY2FuIGFsc28gc3F1ZWV6ZSBp
-dCBkb3duIHRvIDggYnl0ZXMpIHRoZW4gd2Ugd2lsbCBuZWVkIGFyb3VuZCAzMk1CIHdvcnRoIG1l
-bW9yeS9wb3J0LiBJdCdzIG5vdCBhIGh1Z2UgbWVtb3J5IHByZXNzdXJlIGZvciBmb2xrcyB3aG8g
-d2FudCB0byB1c2UgbGludXggZm9yIGRvaW5nIElQUy9JRFMgc29ydCBvZiBzdHVmZi4NCg0KVXNl
-ci1zcGFjZSBkZWNvZGVycyBlbmQgdXAgY29weWluZyB0aGUgcGFja2V0IGFueXdheXMuIFNvIGZh
-bm91dCBjYW4gYmUgaW1wbGVtZW50ZWQgaW4gdXNlci1zcGFjZSB0byBhY2hpZXZlIGVmZmVjdGl2
-ZSBDUFUgdXRpbGl6YXRpb24uDQpBcyBsb25nIGFzIHdlIGRvbid0IGJvdW5jZSBvbiBkaWZmZXJl
-bnQgQ1BVLXNvY2tldCB3ZSBjb3VsZCBiZSBvay4NCg0KDQpDaGV0YW4gTG9rZQ0K
+On Tue, Jul 5, 2011 at 9:13 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
+> It adds the helper function of_get_phy_mode getting phy interface
+> from device tree.
+>
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+
+Acked-by: Grant Likely <grant.likely@secretlab.ca>
+
+Dave, this should probably get merged via your tree since the rest of
+this series depends on it.
+
+g.
+
+> ---
+> =A0drivers/of/of_net.c =A0 =A0| =A0 43 ++++++++++++++++++++++++++++++=
++++++++++++++
+> =A0include/linux/of_net.h | =A0 =A01 +
+> =A02 files changed, 44 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
+> index 86f334a..cc117db 100644
+> --- a/drivers/of/of_net.c
+> +++ b/drivers/of/of_net.c
+> @@ -8,6 +8,49 @@
+> =A0#include <linux/etherdevice.h>
+> =A0#include <linux/kernel.h>
+> =A0#include <linux/of_net.h>
+> +#include <linux/phy.h>
+> +
+> +/**
+> + * It maps 'enum phy_interface_t' found in include/linux/phy.h
+> + * into the device tree binding of 'phy-mode', so that Ethernet
+> + * device driver can get phy interface from device tree.
+> + */
+> +static const char *phy_modes[] =3D {
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_MII] =A0 =A0 =A0 =A0=3D "mii",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_GMII] =A0 =A0 =A0 =3D "gmii",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_SGMII] =A0 =A0 =A0=3D "sgmii",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_TBI] =A0 =A0 =A0 =A0=3D "tbi",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_RMII] =A0 =A0 =A0 =3D "rmii",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_RGMII] =A0 =A0 =A0=3D "rgmii",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_RGMII_ID] =A0 =3D "rgmii-id",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_RGMII_RXID] =3D "rgmii-rxid",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_RGMII_TXID] =3D "rgmii-txid",
+> + =A0 =A0 =A0 [PHY_INTERFACE_MODE_RTBI] =A0 =A0 =A0 =3D "rtbi",
+> +};
+> +
+> +/**
+> + * of_get_phy_mode - Get phy mode for given device_node
+> + * @np: =A0 =A0 =A0 =A0Pointer to the given device_node
+> + *
+> + * The function gets phy interface string from property 'phy-mode',
+> + * and return its index in phy_modes table, or errno in error case.
+> + */
+> +const int of_get_phy_mode(struct device_node *np)
+> +{
+> + =A0 =A0 =A0 const char *pm;
+> + =A0 =A0 =A0 int err, i;
+> +
+> + =A0 =A0 =A0 err =3D of_property_read_string(np, "phy-mode", &pm);
+> + =A0 =A0 =A0 if (err < 0)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
+> +
+> + =A0 =A0 =A0 for (i =3D 0; i < ARRAY_SIZE(phy_modes); i++)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!strcasecmp(pm, phy_modes[i]))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return i;
+> +
+> + =A0 =A0 =A0 return -ENODEV;
+> +}
+> +EXPORT_SYMBOL_GPL(of_get_phy_mode);
+>
+> =A0/**
+> =A0* Search the device tree for the best MAC address to use. =A0'mac-=
+address' is
+> diff --git a/include/linux/of_net.h b/include/linux/of_net.h
+> index e913081..f474641 100644
+> --- a/include/linux/of_net.h
+> +++ b/include/linux/of_net.h
+> @@ -9,6 +9,7 @@
+>
+> =A0#ifdef CONFIG_OF_NET
+> =A0#include <linux/of.h>
+> +extern const int of_get_phy_mode(struct device_node *np);
+> =A0extern const void *of_get_mac_address(struct device_node *np);
+> =A0#endif
+>
+> --
+> 1.7.4.1
+>
+>
+>
+
+
+
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
