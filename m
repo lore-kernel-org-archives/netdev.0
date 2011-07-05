@@ -1,58 +1,69 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: libpcap and tc filters
-Date: Tue, 05 Jul 2011 18:14:45 +0200
-Message-ID: <1309882485.2271.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
-	 <1309777908.26180.1.camel@mojatatu>
-	 <CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
-	 <CAA0qwj7cH8Ah69fBMkXpGkwG77TH_ZqMhKwj-Cc8Vc=F5c9SSw@mail.gmail.com>
-	 <1309784740.26180.21.camel@mojatatu>
-	 <CAA0qwj4=bOU3LDsRk591AtBWx2c_6uFwk0M4-AGrnxCPKjbbrw@mail.gmail.com>
-	 <1309788416.26180.63.camel@mojatatu>
-	 <CAA0qwj4FUpfdux73WCxFcjX0xp-zNtMwncRRmN7ea1Kr9FX3Kw@mail.gmail.com>
-	 <1309863403.1765.0.camel@mojatatu> <1309870021.1765.41.camel@mojatatu>
-	 <CAA0qwj5aBWrsqHGddW9FBV2srdGwVMzJKe84BTyRH0Dkr6KgVQ@mail.gmail.com>
-	 <1309874213.1765.45.camel@mojatatu>
-	 <CAA0qwj74cvZmkkmA8zBFuXeHdidMco2=de7Li9rDN5Wcp=-G7w@mail.gmail.com>
-	 <1309876868.1765.53.camel@mojatatu>
-	 <CAA0qwj49XzNa-nY82X3d_eZ95seS15qELbJDYCNfRkg03OJosQ@mail.gmail.com>
+Subject: RE: [PATCH 2/2] packet: Add fanout support.
+Date: Tue, 05 Jul 2011 18:16:17 +0200
+Message-ID: <1309882577.2271.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110704.212014.236340473910292460.davem@davemloft.net>
+	 <1309846875.2720.43.camel@edumazet-laptop>  <4E12B5A6.2020802@inliniac.net>
+	 <1309849214.2720.45.camel@edumazet-laptop>
+	 <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: Adam Katz <adamkatz0@gmail.com>
+Cc: Victor Julien <victor@inliniac.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Loke, Chetan" <Chetan.Loke@netscout.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58165 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753703Ab1GEQO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:14:59 -0400
-Received: by wyg8 with SMTP id 8so4107241wyg.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 09:14:58 -0700 (PDT)
-In-Reply-To: <CAA0qwj49XzNa-nY82X3d_eZ95seS15qELbJDYCNfRkg03OJosQ@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:37839 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753732Ab1GEQQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:16:31 -0400
+Received: by wwe5 with SMTP id 5so6098904wwe.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 09:16:29 -0700 (PDT)
+In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 05 juillet 2011 =C3=A0 18:16 +0300, Adam Katz a =C3=A9crit :
-> strange.
-> I've now tried the exact same configuration and it simply refuses to
-> work. Maybe your tcpreplay is configured differently...
+Le mardi 05 juillet 2011 =C3=A0 12:03 -0400, Loke, Chetan a =C3=A9crit =
+:
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-
+> > owner@vger.kernel.org] On Behalf Of Eric Dumazet
+> > Sent: July 05, 2011 3:00 AM
+> > To: Victor Julien
+> > Cc: David Miller; netdev@vger.kernel.org
+> > Subject: Re: [PATCH 2/2] packet: Add fanout support.
+> >=20
+> > Le mardi 05 juillet 2011 =C3=A0 08:56 +0200, Victor Julien a =C3=A9=
+crit :
+> >=20
+> > > Is this still also true for IP fragments?
+> > >
+> >=20
+> > This point was already raised. IP fragments have rxhash =3D 0, obvi=
+ously,
+> > since we dont have full information (source / destination ports for
+> > example)
 >=20
-> What distro are you using? What kernel? What version of libpcap?
+> Can we not do something like:
+>=20
+> a =3D src_ip_addr;
+> b =3D dst_ip_addr;
+>=20
+> if (ip_is_fragment(ip_hdr(skb)))
+> 	c =3D ip_hdr->id;
+> else
+> 	c =3D src_port | dest_port ; /* port_32 etc - Similar to what we hav=
+e today */
+>=20
+> /* swap a/b etc */
+> jhash3_words(a,b,c);
+>=20
+>=20
+>=20
 
-I did the same tests here and it works correctly for me.
+Sure, but non fragmented packets will then get a different rxhash.
 
-latest kernel 3.0-rc6
+Remember, goal is that _all_ packets of a given flow end in same queue.
 
-# /usr/local/bin/tcpreplay -V
-tcpreplay version: 3.4.4 (build 2450)
-Copyright 2000-2010 by Aaron Turner <aturner at synfin dot net>
-Cache file supported: 04
-Not compiled with libdnet.
-Compiled against libpcap: 1.1.1
-64 bit packet counters: enabled
-Verbose printing via tcpdump: enabled
-Packet editing: disabled
-=46ragroute engine: disabled
-Injection method: PF_PACKET send()
 
 
