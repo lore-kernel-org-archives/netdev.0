@@ -1,76 +1,86 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-Date: Tue, 5 Jul 2011 18:27:22 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257DCA8@nsmail.netscout.com>
-References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default> <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com> <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com> <704d094e-7b81-480f-8363-327218d1b0ea@default>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [BUG] bd4265fe36 bridge: Only flood unreg groups... breaks
+	DHCP setup
+Date: Wed, 6 Jul 2011 07:58:33 +0800
+Message-ID: <20110705235833.GA5599@gondor.apana.org.au>
+References: <20110705204200@it-loops.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Konrad Wilk" <konrad.wilk@oracle.com>,
-	"linux-mm" <linux-mm@kvack.org>
-To: "Dan Magenheimer" <dan.magenheimer@oracle.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Michael Guntsche <mike@it-loops.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og115.obsmtp.com ([64.18.1.35]:42676 "HELO
-	exprod6og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754227Ab1GEW10 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 18:27:26 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <704d094e-7b81-480f-8363-327218d1b0ea@default>
+Received: from helcar.apana.org.au ([209.40.204.226]:49944 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753080Ab1GEX6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 19:58:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20110705204200@it-loops.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
-> Sent: July 05, 2011 3:19 PM
-> To: Loke, Chetan; netdev@vger.kernel.org
-> Cc: Konrad Wilk; linux-mm
-> Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+Michael Guntsche <mike@it-loops.com> wrote:
+>
+> Looking at the changes between rc5 and rc6 I noticed commit
 > 
+> bd4265fe365c0f3945d: bridge: Only flood unregistered groups to routers
 
-> Actually, RAMster is using a much more flexible type of
-> RAM-drive; it is built on top of Transcendent Memory
-> and on top of zcache (and thus on top of cleancache and
-> frontswap).  A RAM-drive is fixed size so is not very suitable
-> for the flexibility required for RAMster.  For example,
-> suppose you have two machines A and B.  At one point in
-> time A is overcommitted and needs to swap and B is relatively
-> idle.  Then later, B is overcommitted and needs to swap and
-> A is relatively idle.  RAMster can handle this entirely
-> dynamically, a RAM-drive cannot.
+Oops, that was definitely my fault.  This patch should fix your
+problem.
 
+bridge: Always flood broadcast packets
 
-Again, iff NBD works with a ram-drive then you really wouldn't need to
-do anything. How often are you going to re-size your remote-SWAP?  Plus,
-you can make nbd-server listen on multiple ports - Google(Linux NBD)
-returned: http://www.fi.muni.cz/~kripac/orac-nbd/ . Look at the
-nbd-server code to see if it launches multiple kernel-threads for
-servicing different ports. If not, one can enhance it and scale that way
-too. But nbd-server today can service multiple-ports(that is effectively
-servicing multiple clients). So why not add NBD-filesystem-filters to
-make it point to local/remote swap?
+As is_multicast_ether_addr returns true on broadcast packets as
+well, we need to explicitly exclude broadcast packets so that
+they're always flooded.  This wasn't an issue before as broadcast
+packets were considered to be an unregistered multicast group,
+which were always flooded.  However, as we now only flood such
+packets to router ports, this is no longer acceptable.
 
+Reported-by: Michael Guntsche <mike@it-loops.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> 
-> Thanks.  Could you provide a pointer for this?  I found
-> the SCST sourceforge page but no obvious references to
-> scst-in-ram-mode.  (But also, since it appears to be
-> SCSI-related, I wonder if it also assumes a fixed size
-> target device, RAM or disk or ??)
-> 
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index c188c80..32b8f9f 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -49,7 +49,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_pull(skb, ETH_HLEN);
+ 
+ 	rcu_read_lock();
+-	if (is_multicast_ether_addr(dest)) {
++	if (is_broadcast_ether_addr(dest))
++		br_flood_deliver(br, skb);
++	else if (is_multicast_ether_addr(dest)) {
+ 		if (unlikely(netpoll_tx_running(dev))) {
+ 			br_flood_deliver(br, skb);
+ 			goto out;
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index f3ac1e8..f06ee39 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -60,7 +60,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	br = p->br;
+ 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
+ 
+-	if (is_multicast_ether_addr(dest) &&
++	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
+ 	    br_multicast_rcv(br, p, skb))
+ 		goto drop;
+ 
+@@ -77,7 +77,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 
+ 	dst = NULL;
+ 
+-	if (is_multicast_ether_addr(dest)) {
++	if (is_broadcast_ether_addr(dest))
++		skb2 = skb;
++	else if (is_multicast_ether_addr(dest)) {
+ 		mdst = br_mdb_get(br, skb);
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
+ 			if ((mdst && mdst->mglist) ||
 
-Yes, it is SCSI. You should be looking for SCST I/O modes. Read some
-docs and then send an email to the scst-mailing-list. If you speak about
-block-IO-performance then FC(in its class of price/performance factor)
-is more than capable of handling any workload. FC is a protocol designed
-for storage. No exotic fabric other than FC is needed.
-Folks who start with ethernet for block-IO, always start with bare
-minimal code and then for squeezing block-IO performance(aka version 2
-of the product), keep hacking repeatedly or go for a link-speed upgrade.
-Start with FC, period.
-
-
-> Dan
-
-Chetan Loke
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
