@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
  overwritten
-Date: Tue, 05 Jul 2011 06:21:03 +0200
-Message-ID: <1309839663.2720.21.camel@edumazet-laptop>
+Date: Tue, 05 Jul 2011 06:25:28 +0200
+Message-ID: <1309839928.2720.23.camel@edumazet-laptop>
 References: <bug-38102-10286@https.bugzilla.kernel.org/>
 	 <20110629145135.5179fb0c.akpm@linux-foundation.org>
 	 <BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
@@ -16,6 +16,10 @@ References: <bug-38102-10286@https.bugzilla.kernel.org/>
 	 <CAB9v_DHHmeFtQ4jrtVRSGWBvB=W_=QBHCvMi-u25e0nPBQ1jAA@mail.gmail.com>
 	 <CAB9v_DFFX6cHAFBSOGDJRniehJ6pYD7Z5XG6ygTGHy8j=z+U0g@mail.gmail.com>
 	 <1309837443.2720.8.camel@edumazet-laptop>
+	 <CAB9v_DFYGyYiXGfMCXn_WDeGTKz8BZPYBCuaDj_a+5VAG3Jn=g@mail.gmail.com>
+	 <1309839068.2720.15.camel@edumazet-laptop>
+	 <1309839258.2720.17.camel@edumazet-laptop>
+	 <CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -29,29 +33,27 @@ Cc: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>,
 	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
 To: Alexey Zaytsev <alexey.zaytsev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53629 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812Ab1GEEVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:21:08 -0400
-Received: by wyg8 with SMTP id 8so3727832wyg.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 21:21:07 -0700 (PDT)
-In-Reply-To: <1309837443.2720.8.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50489 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751093Ab1GEEZd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:25:33 -0400
+Received: by wwe5 with SMTP id 5so5542667wwe.1
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 21:25:32 -0700 (PDT)
+In-Reply-To: <CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 05 juillet 2011 =C3=A0 05:44 +0200, Eric Dumazet a =C3=A9crit =
-:
+Le mardi 05 juillet 2011 =C3=A0 08:17 +0400, Alexey Zaytsev a =C3=A9cri=
+t :
+> >
+> Check out starting at packet 302893. 383 _identical_ ACKs were sent
+> out by the b44 machine within 30 milliseconds.
 
-> Maybe we should do instead a fast dequeue of packets (recycling them
-> instead of pushing them to upper stack) in case too many packets are
-> ready to be delivered, and always make sure NIC has a reserve of
-> available buffers for DMA accesses, before it can assert ISTAT_RFO
->=20
->=20
 
-Another way would be to add Explicit Congestion Notification when too
-many packets are received in a burst, but unfortunately not enough TCP
-flows are ECN ready :)
+As I said, b44 driver lost at least 200 consecutive frames (source says
+recovery takes about 20 ms)
+
+TCP then do its normal job.
 
 
 
