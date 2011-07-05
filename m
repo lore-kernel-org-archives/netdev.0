@@ -1,104 +1,39 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
-Date: Tue, 5 Jul 2011 12:05:31 -0400
-Message-ID: <20110705160531.GC2959@hmsreliant.think-freely.org>
-References: <1309839258.2720.17.camel@edumazet-laptop>
- <CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
- <1309839928.2720.23.camel@edumazet-laptop>
- <CAB9v_DEOhZh37aqx1qrLnrz5+tqjcjgBx-DP6M_0NkygZ1LjcQ@mail.gmail.com>
- <1309840708.2720.31.camel@edumazet-laptop>
- <CAB9v_DFM8PcujUB-YzcK49DS7T6Bz2FLDtkVdEYt8an1oPYVFw@mail.gmail.com>
- <1309842642.2720.36.camel@edumazet-laptop>
- <CAB9v_DEiPFzQt-TgeVC3r3Y7YFwApLK_NHkDahFOKpibtABrZg@mail.gmail.com>
- <1309844009.2720.39.camel@edumazet-laptop>
- <1309845573.2720.41.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] packet: Add fanout support.
+Date: Tue, 05 Jul 2011 09:08:09 -0700 (PDT)
+Message-ID: <20110705.090809.1320878912859271524.davem@davemloft.net>
+References: <4E12B5A6.2020802@inliniac.net>
+	<1309849214.2720.45.camel@edumazet-laptop>
+	<D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	Michael =?iso-8859-1?Q?B=FCsch?= <m@bues.ch>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, victor@inliniac.net, netdev@vger.kernel.org
+To: Chetan.Loke@netscout.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41593 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754526Ab1GEQGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:06:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1309845573.2720.41.camel@edumazet-laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57591 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754146Ab1GEQIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:08:24 -0400
+In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 05, 2011 at 07:59:33AM +0200, Eric Dumazet wrote:
-> Le mardi 05 juillet 2011 =E0 07:33 +0200, Eric Dumazet a =E9crit :
-> > Le mardi 05 juillet 2011 =E0 09:18 +0400, Alexey Zaytsev a =E9crit =
-:
-> >=20
-> > > Actually, I've added a trace to show b44_init_rings and b44_free_=
-rings
-> > > calls, and they are only called once, right after the driver is
-> > > loaded. So it can't be related to START_RFO. Will attach the diff=
- and
-> > > dmesg.
-> >=20
-> > Thanks
-> >=20
-> > I was wondering if DMA could be faster if providing word aligned
-> > addresses, could you try :
-> >=20
-> > -#define RX_PKT_OFFSET          (RX_HEADER_LEN + 2)
-> > +#define RX_PKT_OFFSET          (RX_HEADER_LEN + NET_IP_ALIGN)
-> >=20
-> > (On x86, we now have NET_IP_ALIGN =3D 0 since commit ea812ca1)
-> >=20
->=20
-> I suspect a hardware bug.
->=20
-I'm not sure if this helps, but I've been reading over this bug, and it=
- seems
-that the rx path never checks the status of a buffers rx header prior t=
-o
-unmapping it or otherwise modifying it in hardware.  If we were to star=
-t munging
-pointers in the rx channel while a dma was active in it still, it sems =
-like the
-observed corruption might be the result.  The docs aren't super clear o=
-n this,
-but I think a descriptor needs to be in the idle wait or stopped state =
-prior to
-being acessed.  This patch might help out there (although I don't have =
-hardware
-to test)
-Neil
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Date: Tue, 5 Jul 2011 12:03:29 -0400
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 3d247f3..48540ad 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -769,7 +769,19 @@ static int b44_rx(struct b44 *bp, int budget)
- 		dma_addr_t map =3D rp->mapping;
- 		struct rx_header *rh;
- 		u16 len;
--
-+		u32 state =3D br32(bp, B44_DMARX_STAT) & DMARX_STAT_SMASK;
-+		state >>=3D 12;
-+
-+		/*
-+ 		 * I _think_ descriptors need to be in the idle or stopped state
-+ 		 * before its safe to access them.  If the current buffer
-+ 		 * pointed to by the dma channel is in state 1 or lower (active
-+ 		 * or disabled), then we should just stop receving until the
-+ 		 * next interrupt kicks us again (I think)
-+ 		 */
-+		if (state < 2)
-+			return;
-+=20
- 		dma_sync_single_for_cpu(bp->sdev->dev, map,
- 					    RX_PKT_BUF_SZ,
- 					    DMA_FROM_DEVICE);
+> Can we not do something like:
+> 
+> a = src_ip_addr;
+> b = dst_ip_addr;
+> 
+> if (ip_is_fragment(ip_hdr(skb)))
+> 	c = ip_hdr->id;
+> else
+> 	c = src_port | dest_port ; /* port_32 etc - Similar to what we have today 
+
+A UDP flow can be composed of fragmented and non-fragmented
+parts, we want all of the packets from that flow to land
+on the same hash.
+
+Your scheme does not provide that essential property.
