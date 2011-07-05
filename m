@@ -1,54 +1,43 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/2] packet: Add fanout support.
-Date: Tue, 05 Jul 2011 00:48:51 -0700 (PDT)
-Message-ID: <20110705.004851.1206054353953628931.davem@davemloft.net>
-References: <20110704.212014.236340473910292460.davem@davemloft.net>
-	<1309846875.2720.43.camel@edumazet-laptop>
+Date: Tue, 05 Jul 2011 00:50:11 -0700 (PDT)
+Message-ID: <20110705.005011.1268380726966376331.davem@davemloft.net>
+References: <1309846875.2720.43.camel@edumazet-laptop>
 	<4E12B5A6.2020802@inliniac.net>
+	<1309849214.2720.45.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: victor@inliniac.net
+Cc: victor@inliniac.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42735 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42772 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879Ab1GEHs5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 03:48:57 -0400
-In-Reply-To: <4E12B5A6.2020802@inliniac.net>
+	with ESMTP id S1753879Ab1GEHuR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 03:50:17 -0400
+In-Reply-To: <1309849214.2720.45.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Victor Julien <victor@inliniac.net>
-Date: Tue, 05 Jul 2011 08:56:38 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 05 Jul 2011 09:00:14 +0200
 
-> On 07/05/2011 08:21 AM, Eric Dumazet wrote:
->> Le lundi 04 juillet 2011 =E0 21:20 -0700, David Miller a =E9crit :
->>> Fanouts allow packet capturing to be demuxed to a set of AF_PACKET
->>> sockets.  Two fanout policies are implemented:
->>>
->>> 1) Hashing based upon skb->rxhash
->>=20
->> ...
->>=20
->>> +
->>> +static struct sock *fanout_demux_hash(struct packet_fanout *f, str=
-uct sk_buff *skb)
->>> +{
->>> +	u32 idx, hash =3D skb->rxhash;
->>> +
->>> +	idx =3D ((u64)hash * f->num_members) >> 32;
->>> +
->>> +	return f->arr[idx];
->>> +}
->>> +
->>=20
->> rxhash is 0 unless skb_get_rxhash() was called, or some NIC set it i=
-n RX
->> path.
+> Le mardi 05 juillet 2011 =E0 08:56 +0200, Victor Julien a =E9crit :
+>=20
+>> Is this still also true for IP fragments?
 >>=20
 >=20
-> Is this still also true for IP fragments?
+> This point was already raised. IP fragments have rxhash =3D 0, obviou=
+sly,
+> since we dont have full information (source / destination ports for
+> example)
 
-I have a plan to fix this.  But what I've posted will work as you want
-it to for everything else.
+I will fix this.
+
+I will add an option to the fanout, as a flag bit to the setsockopt,
+that will cause the fanout to act as a ip_defrag() agent and rehash
+the packet once all the fragments arrive.
+
+Since this will operate internally on the clones passed to AF_PACKET,
+it will not have any effect on the original packets traversing through
+the machine.
