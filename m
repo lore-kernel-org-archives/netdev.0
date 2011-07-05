@@ -1,67 +1,63 @@
-From: Dan Magenheimer <dan.magenheimer@oracle.com>
-Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-Date: Tue, 5 Jul 2011 12:07:10 -0700 (PDT)
-Message-ID: <d3199429-87d1-4917-bf1d-be1fbbc1e64f@default>
-References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
- <1309883430.2271.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <918f7b76-4904-41cc-9f55-c07adafb34b4@default
- 1309890239.2545.10.camel@edumazet-laptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 1/6] r8169: adjust some registers
+Date: Tue, 5 Jul 2011 20:53:47 +0200
+Message-ID: <20110705185347.GA5105@electric-eye.fr.zoreil.com>
+References: <1309859095-32031-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Konrad Wilk <konrad.wilk@oracle.com>,
-	linux-mm <linux-mm@kvack.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:39558 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124Ab1GETHg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 15:07:36 -0400
-In-Reply-To: <1309890239.2545.10.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1309859095-32031-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > > > +++ linux-2.6.37-ramster/net/core/sock.c	2011-07-03 19:10:04.340980799 -0600
-> > > > @@ -1587,6 +1587,14 @@ static void __lock_sock(struct sock *sk)
-> > > >  	__acquires(&sk->sk_lock.slock)
-> > > >  {
-> > > >  	DEFINE_WAIT(wait);
-> > > > +	if (!preemptible()) {
-> > > > +		while (sock_owned_by_user(sk)) {
-> > > > +			spin_unlock_bh(&sk->sk_lock.slock);
-> > > > +			cpu_relax();
-> > > > +			spin_lock_bh(&sk->sk_lock.slock);
-> > > > +		}
-> > > > +		return;
-> > > > +	}
-> > >
-> > > Hmm, was this tested on UP machine ?
-> >
-> > Hi Eric --
-> >
-> > Thanks for the reply!
-> >
-> > I hadn't tested UP in awhile so am testing now, and it seems to
-> > work OK so far.  However, I am just testing my socket, *not* testing
-> > sockets in general.  Are you implying that this patch will
-> > break (kernel) sockets in general on a UP machine?  If so,
-> > could you be more specific as to why?  (Again, I said
-> > I am a networking idiot. ;-)  I played a bit with adding
-> > a new SOCK_ flag and triggering off of that, but this
-> > version of the patch seemed much simpler.
+Hayes Wang <hayeswang@realtek.com> :
+> Define new registers and modify some existing ones.
 > 
-> Say you have two processes and socket S
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
+>  drivers/net/r8169.c |   30 +++++++++++++++++++++++-------
+>  1 files changed, 23 insertions(+), 7 deletions(-)
 > 
-> One process locks socket S, and is preempted by another process.
-> 
-> This second process is non preemptible and try to lock same socket.
-> 
-> -> deadlock, since P1 never releases socket S
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index fbd6838..701ab6b 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -327,7 +327,7 @@ enum rtl8168_8101_registers {
+>  #define	EPHYAR_REG_SHIFT		16
+>  #define	EPHYAR_DATA_MASK		0xffff
+>  	DLLPR			= 0xd0,
+> -#define	PM_SWITCH			(1 << 6)
+> +#define	PFM_EN				(1 << 6)
+>  	DBG_REG			= 0xd1,
+>  #define	FIX_NAK_1			(1 << 4)
+>  #define	FIX_NAK_2			(1 << 3)
+> @@ -335,6 +335,7 @@ enum rtl8168_8101_registers {
+>  	MCU			= 0xd3,
+>  #define	EN_NDP				(1 << 3)
+>  #define	EN_OOB_RESET			(1 << 2)
+> +#define NOW_IS_OOB			(1 << 7)
+         ^^^ there should be a tab, not a space.
 
-Oh, OK.  My use model is that a socket that is used non-preemptible
-must always be used non-preemptible.  In other words, this kind
-of socket is an extreme form of non-blocking.  Doesn't that seem
-like a reasonable constraint? 
+Nit : 3, 2, 7 is a bit surprizing. 7, 3, 2 ?
 
-Thanks,
-Dan
+@@ -345,18 +346,31 @@ enum rtl8168_8101_registers {
+ };
+ 
+ enum rtl8168_registers {
++	LED_FREQ		= 0x1a,
++	EEE_LED			= 0x1b,
++
++	/* TxConfig */
++#define AUTO_FIFO			(1 << 7)
++#define TX_EMPTY			(1 << 11)
+
+Eventually move these close to the existing TxConfig register as :
+
++#define TXCFG_AUTO_FIFO		(1 <<  7) /* 8168e (?) */
++#define TXCFG_EMPTY			(1 << 11) /* 8168e (?) */
+
+-- 
+Ueimor
