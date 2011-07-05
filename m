@@ -1,68 +1,93 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 2/2] packet: Add fanout support.
-Date: Tue, 05 Jul 2011 20:20:32 +0200
-Message-ID: <1309890032.2545.8.camel@edumazet-laptop>
-References: <20110704.212014.236340473910292460.davem@davemloft.net>
-	 <1309846875.2720.43.camel@edumazet-laptop>  <4E12B5A6.2020802@inliniac.net>
-	 <1309849214.2720.45.camel@edumazet-laptop>
-	 <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
-	 <1309882577.2271.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <D3F292ADF945FB49B35E96C94C2061B91257D6E1@nsmail.netscout.com>
+Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+Date: Tue, 05 Jul 2011 20:23:59 +0200
+Message-ID: <1309890239.2545.10.camel@edumazet-laptop>
+References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default 1309883430.2271.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <918f7b76-4904-41cc-9f55-c07adafb34b4@default>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Victor Julien <victor@inliniac.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Cc: netdev@vger.kernel.org, Konrad Wilk <konrad.wilk@oracle.com>,
+	linux-mm <linux-mm@kvack.org>
+To: Dan Magenheimer <dan.magenheimer@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46436 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39255 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320Ab1GESUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 14:20:35 -0400
-Received: by wyg8 with SMTP id 8so4181155wyg.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 11:20:34 -0700 (PDT)
-In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B91257D6E1@nsmail.netscout.com>
+	with ESMTP id S1751354Ab1GESYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 14:24:04 -0400
+Received: by wyg8 with SMTP id 8so4183011wyg.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 11:24:02 -0700 (PDT)
+In-Reply-To: <918f7b76-4904-41cc-9f55-c07adafb34b4@default>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 05 juillet 2011 =C3=A0 13:35 -0400, Loke, Chetan a =C3=A9crit =
-:
-
-> Sure, a lookup is needed(to steer what I call - Hot/Cold flows) and
-> was proposed by me on the oisf mailing list. Always, use the ip_id bi=
-t
-> then? Another problem that needs to be solved is, what if some
-> decoders are overloaded, then what? How will this scheme work? How
-> will we utilize other CPUs? RPS is needed for sure.
+Le mardi 05 juillet 2011 =C3=A0 10:25 -0700, Dan Magenheimer a =C3=A9cr=
+it :
+> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > Sent: Tuesday, July 05, 2011 10:31 AM
+> > To: Dan Magenheimer
+> > Cc: netdev@vger.kernel.org; Konrad Wilk; linux-mm
+> > Subject: Re: [RFC] non-preemptible kernel socket for RAMster
+> >=20
+> > Le mardi 05 juillet 2011 =C3=A0 08:54 -0700, Dan Magenheimer a =C3=A9=
+crit :
+> > > In working on a kernel project called RAMster* (where RAM on a
+> > > remote system may be used for clean page cache pages and for swap
+> > > pages), I found I have need for a kernel socket to be used when
+> > > in non-preemptible state.  I admit to being a networking idiot,
+> > > but I have been successfully using the following small patch.
+> > > I'm not sure whether I am lucky so far... perhaps more
+> > > sockets or larger/different loads will require a lot more
+> > > changes (or maybe even make my objective impossible).
+> > > So I thought I'd post it for comment.  I'd appreciate
+> > > any thoughts or suggestions.
+> > >
+> > > Thanks,
+> > > Dan
+> > >
+> > > * http://events.linuxfoundation.org/events/linuxcon/magenheimer
+> > >
+> > > diff -Napur linux-2.6.37/net/core/sock.c linux-2.6.37-ramster/net=
+/core/sock.c
+> > > --- linux-2.6.37/net/core/sock.c	2011-07-03 19:14:52.267853088 -0=
+600
+> > > +++ linux-2.6.37-ramster/net/core/sock.c	2011-07-03 19:10:04.3409=
+80799 -0600
+> > > @@ -1587,6 +1587,14 @@ static void __lock_sock(struct sock *sk)
+> > >  	__acquires(&sk->sk_lock.slock)
+> > >  {
+> > >  	DEFINE_WAIT(wait);
+> > > +	if (!preemptible()) {
+> > > +		while (sock_owned_by_user(sk)) {
+> > > +			spin_unlock_bh(&sk->sk_lock.slock);
+> > > +			cpu_relax();
+> > > +			spin_lock_bh(&sk->sk_lock.slock);
+> > > +		}
+> > > +		return;
+> > > +	}
+> >=20
+> > Hmm, was this tested on UP machine ?
 >=20
-> If we maintain a i) per port lookup-table ii) 2^20 flows/table and
-> iii) 16 bytes/flow(one can also squeeze it down to 8 bytes) then we
-> will need around 32MB worth memory/port. It's not a huge memory
-> pressure for folks who want to use linux for doing IPS/IDS sort of
-> stuff.
+> Hi Eric --
 >=20
-> User-space decoders end up copying the packet anyways. So fanout can
-> be implemented in user-space to achieve effective CPU utilization.
-> As long as we don't bounce on different CPU-socket we could be ok.
+> Thanks for the reply!
+>=20
+> I hadn't tested UP in awhile so am testing now, and it seems to
+> work OK so far.  However, I am just testing my socket, *not* testing
+> sockets in general.  Are you implying that this patch will
+> break (kernel) sockets in general on a UP machine?  If so,
+> could you be more specific as to why?  (Again, I said
+> I am a networking idiot. ;-)  I played a bit with adding
+> a new SOCK_ flag and triggering off of that, but this
+> version of the patch seemed much simpler.
 
-This is the problem we want to address.
+Say you have two processes and socket S
 
-Going into user-space to perform the fanout is what you already have
-today, with one socket, one thread doing the fanout to worker threads.
+One process locks socket S, and is preempted by another process.
 
-David patch is non adaptative : its a hash on N queue, with a fixed has=
-h
-function.
+This second process is non preemptible and try to lock same socket.
 
-What you want is to add another 'control queue' where new flows are
-directed. Then user application is able to reinject into kernel flow
-director the "This flow should go to queue X" information.
-
-Or, let the kernel do a mix of rxhash and loadbalance : Be able to
-select a queue for a new flow without user land control, using a Flow
-hash table.
-
-
+-> deadlock, since P1 never releases socket S
 
 
 
