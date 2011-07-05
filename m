@@ -1,63 +1,293 @@
-From: Adam Katz <adamkatz0@gmail.com>
-Subject: Re: libpcap and tc filters
-Date: Tue, 5 Jul 2011 17:21:21 +0300
-Message-ID: <CAA0qwj74cvZmkkmA8zBFuXeHdidMco2=de7Li9rDN5Wcp=-G7w@mail.gmail.com>
-References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
-	<1309777908.26180.1.camel@mojatatu>
-	<CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
-	<CAA0qwj7cH8Ah69fBMkXpGkwG77TH_ZqMhKwj-Cc8Vc=F5c9SSw@mail.gmail.com>
-	<1309784740.26180.21.camel@mojatatu>
-	<CAA0qwj4=bOU3LDsRk591AtBWx2c_6uFwk0M4-AGrnxCPKjbbrw@mail.gmail.com>
-	<1309788416.26180.63.camel@mojatatu>
-	<CAA0qwj4FUpfdux73WCxFcjX0xp-zNtMwncRRmN7ea1Kr9FX3Kw@mail.gmail.com>
-	<1309863403.1765.0.camel@mojatatu>
-	<1309870021.1765.41.camel@mojatatu>
-	<CAA0qwj5aBWrsqHGddW9FBV2srdGwVMzJKe84BTyRH0Dkr6KgVQ@mail.gmail.com>
-	<1309874213.1765.45.camel@mojatatu>
+From: "Shmulik Ravid" <shmulikr@broadcom.com>
+Subject: [net-next PATCH v2 1/2] dcbnl: Aggregated CEE GET operation
+Date: Tue, 5 Jul 2011 19:16:22 +0300
+Message-ID: <1309882582.22577.8.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "John Fastabend" <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:40879 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752095Ab1GEOVW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 10:21:22 -0400
-Received: by iwn6 with SMTP id 6so5232530iwn.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 07:21:21 -0700 (PDT)
-In-Reply-To: <1309874213.1765.45.camel@mojatatu>
+Received: from mms2.broadcom.com ([216.31.210.18]:3332 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752872Ab1GEO1o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2011 10:27:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes. I understand the difference between ETH_P_ALL and ETH_P_IP...
+The following couple of patches add dcbnl an unsolicited notification of
+the the DCB configuration for the CEE flavor of the DCBX protocol. This
+is useful when the user-mode DCB client is not responsible for
+conducting and resolving the DCBX negotiation (either because the DCBX
+stack is embedded in the HW or the negotiation is handled by another
+agent in he host), but still needs to get the negotiated parameters.
+This functionality already exists for the IEEE flavor of the DCBX
+protocol and these patches add it to the older CEE flavor.
 
-Jamal, I've now tested both solutions - changing the rule to "protocol
-all" and patching tcpreplay to use ETH_P_IP and both produced the
-exact same problem as before...
+The first patch extends the CEE attribute GET operation to include not
+only the peer information, but also all the pertinent local
+configuration (negotiated parameters). The second patch adds and export
+a CEE specific notification routine.
+
+Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
+---
+ include/linux/dcbnl.h |   23 +++++++-
+ net/dcb/dcbnl.c       |  159 ++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 173 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+index 66a6723..65a2562 100644
+--- a/include/linux/dcbnl.h
++++ b/include/linux/dcbnl.h
+@@ -333,18 +333,30 @@ enum ieee_attrs_app {
+ #define DCB_ATTR_IEEE_APP_MAX (__DCB_ATTR_IEEE_APP_MAX - 1)
+ 
+ /**
+- * enum cee_attrs - CEE DCBX get attributes
++ * enum cee_attrs - CEE DCBX get attributes.
+  *
+  * @DCB_ATTR_CEE_UNSPEC: unspecified
+  * @DCB_ATTR_CEE_PEER_PG: peer PG configuration - get only
+  * @DCB_ATTR_CEE_PEER_PFC: peer PFC configuration - get only
+- * @DCB_ATTR_CEE_PEER_APP: peer APP tlv - get only
++ * @DCB_ATTR_CEE_PEER_APP_TABLE: peer APP tlv - get only
++ * @DCB_ATTR_CEE_TX_PG: TX PG configuration (DCB_CMD_PGTX_GCFG)
++ * @DCB_ATTR_CEE_RX_PG: RX PG configuration (DCB_CMD_PGRX_GCFG)
++ * @DCB_ATTR_CEE_PFC: PFC configuration (DCB_CMD_PFC_GCFG)
++ * @DCB_ATTR_CEE_APP_TABLE: APP configuration (multi DCB_CMD_GAPP)
++ * @DCB_ATTR_CEE_FEAT: DCBX features flags (DCB_CMD_GFEATCFG)
++ *
++ * An aggregated collection of the cee std negotiated parameters.
+  */
+ enum cee_attrs {
+ 	DCB_ATTR_CEE_UNSPEC,
+ 	DCB_ATTR_CEE_PEER_PG,
+ 	DCB_ATTR_CEE_PEER_PFC,
+ 	DCB_ATTR_CEE_PEER_APP_TABLE,
++	DCB_ATTR_CEE_TX_PG,
++	DCB_ATTR_CEE_RX_PG,
++	DCB_ATTR_CEE_PFC,
++	DCB_ATTR_CEE_APP_TABLE,
++	DCB_ATTR_CEE_FEAT,
+ 	__DCB_ATTR_CEE_MAX
+ };
+ #define DCB_ATTR_CEE_MAX (__DCB_ATTR_CEE_MAX - 1)
+@@ -357,6 +369,13 @@ enum peer_app_attr {
+ };
+ #define DCB_ATTR_CEE_PEER_APP_MAX (__DCB_ATTR_CEE_PEER_APP_MAX - 1)
+ 
++enum cee_attrs_app {
++	DCB_ATTR_CEE_APP_UNSPEC,
++	DCB_ATTR_CEE_APP,
++	__DCB_ATTR_CEE_APP_MAX
++};
++#define DCB_ATTR_CEE_APP_MAX (__DCB_ATTR_CEE_APP_MAX - 1)
++
+ /**
+  * enum dcbnl_pfc_attrs - DCB Priority Flow Control user priority nested attrs
+  *
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index fc56e85..d5b45a2 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1642,6 +1642,60 @@ err:
+ 	return ret;
+ }
+ 
++static int dcbnl_cee_pg_fill(struct sk_buff *skb, struct net_device *dev,
++			     int dir)
++{
++	u8 pgid, up_map, prio, tc_pct;
++	const struct dcbnl_rtnl_ops *ops = dev->dcbnl_ops;
++	int i = dir ? DCB_ATTR_CEE_TX_PG : DCB_ATTR_CEE_RX_PG;
++	struct nlattr *pg = nla_nest_start(skb, i);
++
++	if (!pg)
++		goto nla_put_failure;
++
++	for (i = DCB_PG_ATTR_TC_0; i <= DCB_PG_ATTR_TC_7; i++) {
++		struct nlattr *tc_nest = nla_nest_start(skb, i);
++
++		if (!tc_nest)
++			goto nla_put_failure;
++
++		pgid = DCB_ATTR_VALUE_UNDEFINED;
++		prio = DCB_ATTR_VALUE_UNDEFINED;
++		tc_pct = DCB_ATTR_VALUE_UNDEFINED;
++		up_map = DCB_ATTR_VALUE_UNDEFINED;
++
++		if (!dir)
++			ops->getpgtccfgrx(dev, i - DCB_PG_ATTR_TC_0,
++					  &prio, &pgid, &tc_pct, &up_map);
++		else
++			ops->getpgtccfgtx(dev, i - DCB_PG_ATTR_TC_0,
++					  &prio, &pgid, &tc_pct, &up_map);
++
++		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_PGID, pgid);
++		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_UP_MAPPING, up_map);
++		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_STRICT_PRIO, prio);
++		NLA_PUT_U8(skb, DCB_TC_ATTR_PARAM_BW_PCT, tc_pct);
++		nla_nest_end(skb, tc_nest);
++	}
++
++	for (i = DCB_PG_ATTR_BW_ID_0; i <= DCB_PG_ATTR_BW_ID_7; i++) {
++		tc_pct = DCB_ATTR_VALUE_UNDEFINED;
++
++		if (!dir)
++			ops->getpgbwgcfgrx(dev, i - DCB_PG_ATTR_BW_ID_0,
++					   &tc_pct);
++		else
++			ops->getpgbwgcfgtx(dev, i - DCB_PG_ATTR_BW_ID_0,
++					   &tc_pct);
++		NLA_PUT_U8(skb, i, tc_pct);
++	}
++	nla_nest_end(skb, pg);
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
++}
++
+ /* Handle CEE DCBX GET commands. */
+ static int dcbnl_cee_get(struct net_device *netdev, struct nlattr **tb,
+ 			 u32 pid, u32 seq, u16 flags)
+@@ -1649,9 +1703,11 @@ static int dcbnl_cee_get(struct net_device *netdev, struct nlattr **tb,
+ 	struct sk_buff *skb;
+ 	struct nlmsghdr *nlh;
+ 	struct dcbmsg *dcb;
+-	struct nlattr *cee;
++	struct nlattr *cee, *app;
++	struct dcb_app_type *itr;
+ 	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
+-	int err;
++	int dcbx, i, err = -EMSGSIZE;
++	u8 value;
+ 
+ 	if (!ops)
+ 		return -EOPNOTSUPP;
+@@ -1672,7 +1728,88 @@ static int dcbnl_cee_get(struct net_device *netdev, struct nlattr **tb,
+ 	if (!cee)
+ 		goto nla_put_failure;
+ 
+-	/* get peer info if available */
++	/* local pg */
++	if (ops->getpgtccfgtx && ops->getpgbwgcfgtx) {
++		err = dcbnl_cee_pg_fill(skb, netdev, 1);
++		if (err)
++			goto nla_put_failure;
++	}
++
++	if (ops->getpgtccfgrx && ops->getpgbwgcfgrx) {
++		err = dcbnl_cee_pg_fill(skb, netdev, 0);
++		if (err)
++			goto nla_put_failure;
++	}
++
++	/* local pfc */
++	if (ops->getpfccfg) {
++		struct nlattr *pfc_nest = nla_nest_start(skb, DCB_ATTR_CEE_PFC);
++
++		if (!pfc_nest)
++			goto nla_put_failure;
++
++		for (i = DCB_PFC_UP_ATTR_0; i <= DCB_PFC_UP_ATTR_7; i++) {
++			ops->getpfccfg(netdev, i - DCB_PFC_UP_ATTR_0, &value);
++			NLA_PUT_U8(skb, i, value);
++		}
++		nla_nest_end(skb, pfc_nest);
++	}
++
++	/* local app */
++	spin_lock(&dcb_lock);
++	app = nla_nest_start(skb, DCB_ATTR_CEE_APP_TABLE);
++	if (!app)
++		goto nla_put_failure;
++
++	list_for_each_entry(itr, &dcb_app_list, list) {
++		if (strncmp(itr->name, netdev->name, IFNAMSIZ) == 0) {
++			struct nlattr *app_nest = nla_nest_start(skb,
++								 DCB_ATTR_APP);
++			if (!app_nest)
++				goto dcb_unlock;
++
++			err = nla_put_u8(skb, DCB_APP_ATTR_IDTYPE,
++					 itr->app.selector);
++			if (err)
++				goto dcb_unlock;
++
++			err = nla_put_u16(skb, DCB_APP_ATTR_ID,
++					  itr->app.protocol);
++			if (err)
++				goto dcb_unlock;
++
++			err = nla_put_u8(skb, DCB_APP_ATTR_PRIORITY,
++					 itr->app.priority);
++			if (err)
++				goto dcb_unlock;
++
++			nla_nest_end(skb, app_nest);
++		}
++	}
++	nla_nest_end(skb, app);
++
++	if (netdev->dcbnl_ops->getdcbx)
++		dcbx = netdev->dcbnl_ops->getdcbx(netdev);
++	else
++		dcbx = -EOPNOTSUPP;
++
++	spin_unlock(&dcb_lock);
++
++	/* features flags */
++	if (ops->getfeatcfg) {
++		struct nlattr *feat = nla_nest_start(skb, DCB_ATTR_CEE_FEAT);
++		if (!feat)
++			goto nla_put_failure;
++
++		for (i = DCB_FEATCFG_ATTR_ALL + 1; i <= DCB_FEATCFG_ATTR_MAX;
++		     i++)
++			if (!ops->getfeatcfg(netdev, i, &value))
++				NLA_PUT_U8(skb, i, value);
++
++		nla_nest_end(skb, feat);
++	}
++
++	/* peer info if available */
+ 	if (ops->cee_peer_getpg) {
+ 		struct cee_pg pg;
+ 		err = ops->cee_peer_getpg(netdev, &pg);
+@@ -1695,16 +1832,24 @@ static int dcbnl_cee_get(struct net_device *netdev, struct nlattr **tb,
+ 		if (err)
+ 			goto nla_put_failure;
+ 	}
+-
+ 	nla_nest_end(skb, cee);
+-	nlmsg_end(skb, nlh);
+ 
++	/* DCBX state */
++	if (dcbx >= 0) {
++		err = nla_put_u8(skb, DCB_ATTR_DCBX, dcbx);
++		if (err)
++			goto nla_put_failure;
++	}
++	nlmsg_end(skb, nlh);
+ 	return rtnl_unicast(skb, &init_net, pid);
++
++dcb_unlock:
++	spin_unlock(&dcb_lock);
+ nla_put_failure:
+ 	nlmsg_cancel(skb, nlh);
+ nlmsg_failure:
+-	kfree_skb(skb);
+-	return -1;
++	nlmsg_free(skb);
++	return err;
+ }
+ 
+ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+-- 
+1.7.3.5
 
 
-On Tue, Jul 5, 2011 at 4:56 PM, jamal <hadi@cyberus.ca> wrote:
-> On Tue, 2011-07-05 at 16:07 +0300, Adam Katz wrote:
->
->> second, I just took at the libpcap source code and it seems it's usi=
-ng
->> the same ETH_P_ALL option when binding to an interface. So based on
->> what you're saying, the same solution of patching libpcap and
->> replacing ETH_P_ALL with =A0ETH_P_IP should also make these rules wo=
-rk
->> with traffic sent using pure libpcap or any libpcap - based
->> application.
->
-> ETH_P_ALL makes sense if you are unsure it is going to be IP. So i wo=
-uld
-> change/optimize apps only for IP if they are intended to deal with IP
-> only (same for ARP etc).
-> In your case, it seems it is tcp only - which runs on top of IP. So
-> it makes sense to do it for that specific use case etc.
->
-> cheers,
-> jamal
->
->
->
+
+
