@@ -1,41 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: e1000e: Use
- is_multicast_ether_addr helper
-Date: Mon, 04 Jul 2011 20:30:59 -0700 (PDT)
-Message-ID: <20110704.203059.1858347214152040557.davem@davemloft.net>
-References: <1309772824-22157-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH net-next] net: depca: Use helpers from
+ linux/etherdevice.h
+Date: Mon, 04 Jul 2011 20:31:29 -0700 (PDT)
+Message-ID: <20110704.203129.74526853616476969.davem@davemloft.net>
+References: <1309773353-26210-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: tklauser@distanz.ch
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1309772824-22157-1-git-send-email-tklauser@distanz.ch>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:32926 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808Ab1GEDbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 23:31:33 -0400
+In-Reply-To: <1309773353-26210-1-git-send-email-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Tobias Klauser <tklauser@distanz.ch>
-Date: Mon,  4 Jul 2011 11:47:04 +0200
+Date: Mon,  4 Jul 2011 11:55:53 +0200
 
 > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
 Applied.
-
-------------------------------------------------------------------------------
-All of the data generated in your IT infrastructure is seriously valuable.
-Why? It contains a definitive record of application performance, security 
-threats, fraudulent activity, and more. Splunk takes this data and makes 
-sense of it. IT sense. And common sense.
-http://p.sf.net/sfu/splunk-d2d-c2
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
