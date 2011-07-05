@@ -1,64 +1,62 @@
-From: Dan Magenheimer <dan.magenheimer@oracle.com>
-Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-Date: Tue, 5 Jul 2011 10:25:21 -0700 (PDT)
-Message-ID: <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default>
-References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default
- D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [PATCH 2/2] packet: Add fanout support.
+Date: Tue, 5 Jul 2011 13:35:13 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257D6E1@nsmail.netscout.com>
+References: <20110704.212014.236340473910292460.davem@davemloft.net> <1309846875.2720.43.camel@edumazet-laptop>  <4E12B5A6.2020802@inliniac.net> <1309849214.2720.45.camel@edumazet-laptop> <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com> <1309882577.2271.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Konrad Wilk <konrad.wilk@oracle.com>, linux-mm <linux-mm@kvack.org>
-To: "Loke, Chetan" <Chetan.Loke@netscout.com>, netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Victor Julien" <victor@inliniac.net>,
+	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod6og108.obsmtp.com ([64.18.1.21]:44650 "HELO
+	exprod6og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750749Ab1GERfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 13:35:15 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1309882577.2271.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
-> Sent: Tuesday, July 05, 2011 10:37 AM
-> To: Dan Magenheimer; netdev@vger.kernel.org
-> Cc: Konrad Wilk; linux-mm
-> Subject: RE: [RFC] non-preemptible kernel socket for RAMster
->=20
-> > In working on a kernel project called RAMster* (where RAM on a
-> > remote system may be used for clean page cache pages and for swap
-> > pages), I found I have need for a kernel socket to be used when
->=20
-> How is RAMster+swap different than NBD's (pending etc?)support for SWAP
-> over NBD?
-
-Hi Chetan --
-
-Thanks for your question.
-
-I may be ignorant of details about NBD, but did some quick
-research using google.  If I understand correctly, swap over
-NBD is still writing to a configured swap disk on the remote
-machine.  RAMster is swapping to *RAM* on the remote machine.
-The idea is that most machines are very overprovisioned in
-RAM, and are rarely using all of their RAM, especially when
-a machine is (mostly) idle.  In other words, the "max of
-the sums" of RAM usage on a group of machines is much lower
-than the "sum of the max" of RAM usage.
-
-So if the network is sufficiently faster than disk for
-moving a page of data, RAMster provides a significant
-performance improvement.  OR RAMster may allow a significant
-reduction in the total amount of RAM across a data center.
-
-The version of RAMster I am working on now is really
-a proof-of-concept that works over sockets, using the
-ocfs2 cluster layer.  One can easily envision a future
-"exo-fabric" which allows one machine to write to the
-RAM of another machine... for this future hardware,
-RAMster becomes much more interesting.
-
-Thanks,
-Dan
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBKdWx5IDA1LCAyMDExIDEyOjE2IFBN
+DQo+IFRvOiBMb2tlLCBDaGV0YW4NCj4gQ2M6IFZpY3RvciBKdWxpZW47IERhdmlkIE1pbGxlcjsg
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSRTogW1BBVENIIDIvMl0gcGFja2V0
+OiBBZGQgZmFub3V0IHN1cHBvcnQuDQo+IA0KPiBMZSBtYXJkaSAwNSBqdWlsbGV0IDIwMTEgw6Ag
+MTI6MDMgLTA0MDAsIExva2UsIENoZXRhbiBhIMOpY3JpdCA6DQo+ID4gPiAtLS0tLU9yaWdpbmFs
+IE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBb
+bWFpbHRvOm5ldGRldi0NCj4gPiA+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9m
+IEVyaWMgRHVtYXpldA0KPiA+ID4gU2VudDogSnVseSAwNSwgMjAxMSAzOjAwIEFNDQo+ID4gPiBU
+bzogVmljdG9yIEp1bGllbg0KPiA+ID4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZw0KPiA+ID4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzJdIHBhY2tldDogQWRkIGZhbm91
+dCBzdXBwb3J0Lg0KPiA+ID4NCj4gPiA+IExlIG1hcmRpIDA1IGp1aWxsZXQgMjAxMSDDoCAwODo1
+NiArMDIwMCwgVmljdG9yIEp1bGllbiBhIMOpY3JpdCA6DQo+ID4gPg0KPiA+ID4gPiBJcyB0aGlz
+IHN0aWxsIGFsc28gdHJ1ZSBmb3IgSVAgZnJhZ21lbnRzPw0KPiA+ID4gPg0KPiA+ID4NCj4gPiA+
+IFRoaXMgcG9pbnQgd2FzIGFscmVhZHkgcmFpc2VkLiBJUCBmcmFnbWVudHMgaGF2ZSByeGhhc2gg
+PSAwLA0KPiBvYnZpb3VzbHksDQo+ID4gPiBzaW5jZSB3ZSBkb250IGhhdmUgZnVsbCBpbmZvcm1h
+dGlvbiAoc291cmNlIC8gZGVzdGluYXRpb24gcG9ydHMgZm9yDQo+ID4gPiBleGFtcGxlKQ0KPiA+
+DQo+ID4gQ2FuIHdlIG5vdCBkbyBzb21ldGhpbmcgbGlrZToNCj4gPg0KPiA+IGEgPSBzcmNfaXBf
+YWRkcjsNCj4gPiBiID0gZHN0X2lwX2FkZHI7DQo+ID4NCj4gPiBpZiAoaXBfaXNfZnJhZ21lbnQo
+aXBfaGRyKHNrYikpKQ0KPiA+IAljID0gaXBfaGRyLT5pZDsNCj4gPiBlbHNlDQo+ID4gCWMgPSBz
+cmNfcG9ydCB8IGRlc3RfcG9ydCA7IC8qIHBvcnRfMzIgZXRjIC0gU2ltaWxhciB0byB3aGF0IHdl
+DQo+IGhhdmUgdG9kYXkgKi8NCj4gPg0KPiA+IC8qIHN3YXAgYS9iIGV0YyAqLw0KPiA+IGpoYXNo
+M193b3JkcyhhLGIsYyk7DQo+ID4NCj4gPg0KPiA+DQo+IA0KPiBTdXJlLCBidXQgbm9uIGZyYWdt
+ZW50ZWQgcGFja2V0cyB3aWxsIHRoZW4gZ2V0IGEgZGlmZmVyZW50IHJ4aGFzaC4NCj4gDQo+IFJl
+bWVtYmVyLCBnb2FsIGlzIHRoYXQgX2FsbF8gcGFja2V0cyBvZiBhIGdpdmVuIGZsb3cgZW5kIGlu
+IHNhbWUgcXVldWUuDQo+IA0KPiANCg0KU3VyZSwgYSBsb29rdXAgaXMgbmVlZGVkKHRvIHN0ZWVy
+IHdoYXQgSSBjYWxsIC0gSG90L0NvbGQgZmxvd3MpIGFuZCB3YXMgcHJvcG9zZWQgYnkgbWUgb24g
+dGhlIG9pc2YgbWFpbGluZyBsaXN0LiBBbHdheXMsIHVzZSB0aGUgaXBfaWQgYml0IHRoZW4/IEFu
+b3RoZXIgcHJvYmxlbSB0aGF0IG5lZWRzIHRvIGJlIHNvbHZlZCBpcywgd2hhdCBpZiBzb21lIGRl
+Y29kZXJzIGFyZSBvdmVybG9hZGVkLCB0aGVuIHdoYXQ/IEhvdyB3aWxsIHRoaXMgc2NoZW1lIHdv
+cms/IEhvdyB3aWxsIHdlIHV0aWxpemUgb3RoZXIgQ1BVcz8gUlBTIGlzIG5lZWRlZCBmb3Igc3Vy
+ZS4NCg0KSWYgd2UgbWFpbnRhaW4gYSBpKSBwZXIgcG9ydCBsb29rdXAtdGFibGUgaWkpIDJeMjAg
+Zmxvd3MvdGFibGUgYW5kIGlpaSkgMTYgYnl0ZXMvZmxvdyhvbmUgY2FuIGFsc28gc3F1ZWV6ZSBp
+dCBkb3duIHRvIDggYnl0ZXMpIHRoZW4gd2Ugd2lsbCBuZWVkIGFyb3VuZCAzMk1CIHdvcnRoIG1l
+bW9yeS9wb3J0LiBJdCdzIG5vdCBhIGh1Z2UgbWVtb3J5IHByZXNzdXJlIGZvciBmb2xrcyB3aG8g
+d2FudCB0byB1c2UgbGludXggZm9yIGRvaW5nIElQUy9JRFMgc29ydCBvZiBzdHVmZi4NCg0KVXNl
+ci1zcGFjZSBkZWNvZGVycyBlbmQgdXAgY29weWluZyB0aGUgcGFja2V0IGFueXdheXMuIFNvIGZh
+bm91dCBjYW4gYmUgaW1wbGVtZW50ZWQgaW4gdXNlci1zcGFjZSB0byBhY2hpZXZlIGVmZmVjdGl2
+ZSBDUFUgdXRpbGl6YXRpb24uDQpBcyBsb25nIGFzIHdlIGRvbid0IGJvdW5jZSBvbiBkaWZmZXJl
+bnQgQ1BVLXNvY2tldCB3ZSBjb3VsZCBiZSBvay4NCg0KDQpDaGV0YW4gTG9rZQ0K
