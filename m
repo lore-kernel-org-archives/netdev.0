@@ -1,28 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] b44: use dev_kfree_skb() in b44_tx()
-Date: Mon, 04 Jul 2011 17:57:22 -0700 (PDT)
-Message-ID: <20110704.175722.549994766636319487.davem@davemloft.net>
-References: <1309794113.2247.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] Update description of net.sctp.sctp_rmem and net.sctp.sctp_wmem
+ tunables
+Date: Tue, 05 Jul 2011 09:34:22 +0800
+Message-ID: <4E126A1E.7070300@cn.fujitsu.com>
+References: <20110704083605.AF9C28156C57@regina.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Max Matveev <makc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42765 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949Ab1GEA50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2011 20:57:26 -0400
-In-Reply-To: <1309794113.2247.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from cn.fujitsu.com ([222.73.24.84]:52065 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752165Ab1GEBdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2011 21:33:16 -0400
+In-Reply-To: <20110704083605.AF9C28156C57@regina.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 04 Jul 2011 17:41:53 +0200
+Max Matveev wrote, at 06/20/2011 04:08 PM:
+> sctp does not use second and third ("default" and "max") values
+> of sctp_(r|w)mem tunables. 
 
-> b44_tx() is run from softirq handler, it can use dev_kfree_skb() instead
-> of dev_kfree_skb_irq()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Avoid confusion, but you introduced new confusion.
+Hope that you also can correct your changelog in next version. 
 
-Applied, thanks Eric.
+
+-- 
+Best Regards
+-----
+Shan Wei
