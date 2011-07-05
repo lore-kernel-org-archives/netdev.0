@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] packet: Add pre-defragmentation support for ipv4
- fanouts.
-Date: Tue, 05 Jul 2011 03:06:39 -0700 (PDT)
-Message-ID: <20110705.030639.1088590555237733790.davem@davemloft.net>
-References: <20110705.020426.1881513648974221645.davem@davemloft.net>
-	<4E12DAED.3070408@inliniac.net>
+Subject: Re: [PATCH 2/2] packet: Add fanout support.
+Date: Tue, 05 Jul 2011 03:07:07 -0700 (PDT)
+Message-ID: <20110705.030707.1975572017092435300.davem@davemloft.net>
+References: <1309846875.2720.43.camel@edumazet-laptop>
+	<20110705.004640.2280047904273455681.davem@davemloft.net>
+	<1309859424.2271.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: victor@inliniac.net
+Cc: victor@inliniac.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37673 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:37684 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753395Ab1GEKG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 06:06:57 -0400
-In-Reply-To: <4E12DAED.3070408@inliniac.net>
+	with ESMTP id S1755194Ab1GEKHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 06:07:14 -0400
+In-Reply-To: <1309859424.2271.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Victor Julien <victor@inliniac.net>
-Date: Tue, 05 Jul 2011 11:35:41 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 05 Jul 2011 11:50:24 +0200
 
-> On 07/05/2011 11:04 AM, David Miller wrote:
->> 
->> The skb->rxhash cannot be properly computed if the
->> packet is a fragment.  To alleviate this, allow the
->> AF_PACKET client to ask for defragmentation to be
->> done at demux time.
+> You really have to call skb_get_rxhash() yourself to make sure rxhash is
+> set (if not already done)
 > 
-> Does the same limitation exist for IPv6 packets?
+> Just replace   skb->rxhash by skb_get_rxhash(skb)
 
-Yes.
-
-> If I read the patch correctly the defrag is only done for IPv4.
-
-Right, one thing at a time :-)
+Read v2 of my patch :-)
