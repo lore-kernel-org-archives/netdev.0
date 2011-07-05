@@ -1,105 +1,125 @@
 From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: [PATCH 5/6] batman-adv: aggregation checks should use the primary_if pointer
-Date: Tue,  5 Jul 2011 15:43:59 +0200
-Message-ID: <1309873440-11704-6-git-send-email-lindner_marek@yahoo.de>
+Subject: [PATCH 6/6] batman-adv: Replace version info instead of appending them
+Date: Tue,  5 Jul 2011 15:44:00 +0200
+Message-ID: <1309873440-11704-7-git-send-email-lindner_marek@yahoo.de>
 References: <1309873440-11704-1-git-send-email-lindner_marek@yahoo.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm9.bullet.mail.ukl.yahoo.com ([217.146.182.250]:24343 "HELO
-	nm9.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751725Ab1GENo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:44:26 -0400
+Received: from nm7.bullet.mail.ukl.yahoo.com ([217.146.182.248]:39954 "HELO
+	nm7.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751372Ab1GENo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:44:29 -0400
 In-Reply-To: <1309873440-11704-1-git-send-email-lindner_marek@yahoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The packet aggregation needs to ensure that only compatible packets
-are aggregated. Some of the checks are based on the interface number
-while assuming that the first interface also is the primary interface
-which is not always the case.
-This patch addresses the issue by using the primary_if pointer.
+From: Sven Eckelmann <sven@narfation.org>
 
-Reported-by: Antonio Quartulli <ordex@autistici.org>
+The version number of modules build outside of the tree can get revision
+numbers added. This is useful to give hints about the revision of a
+distribution package and the used patchset. The prepended source number or
+branch name doesn't add any additional information which would help to identify
+problems and can therefore be omitted.
+
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/aggregation.c |   25 ++++++++++++++++++++-----
- 1 files changed, 20 insertions(+), 5 deletions(-)
+ net/batman-adv/gateway_client.c |    5 ++---
+ net/batman-adv/main.c           |    9 ++-------
+ net/batman-adv/main.h           |   11 +++--------
+ net/batman-adv/originator.c     |    5 ++---
+ 4 files changed, 9 insertions(+), 21 deletions(-)
 
-diff --git a/net/batman-adv/aggregation.c b/net/batman-adv/aggregation.c
-index c583e04..69467fe 100644
---- a/net/batman-adv/aggregation.c
-+++ b/net/batman-adv/aggregation.c
-@@ -28,6 +28,7 @@
- 
- /* return true if new_packet can be aggregated with forw_packet */
- static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
-+			       struct bat_priv *bat_priv,
- 			       int packet_len,
- 			       unsigned long send_time,
- 			       bool directlink,
-@@ -37,6 +38,8 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
- 	struct batman_packet *batman_packet =
- 		(struct batman_packet *)forw_packet->skb->data;
- 	int aggregated_bytes = forw_packet->packet_len + packet_len;
-+	struct hard_iface *primary_if = NULL;
-+	bool res = false;
- 
- 	/**
- 	 * we can aggregate the current packet to this aggregated packet
-@@ -61,6 +64,10 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
- 		 *    packet
- 		 */
- 
-+		primary_if = primary_if_get_selected(bat_priv);
-+		if (!primary_if)
-+			goto out;
-+
- 		/* packets without direct link flag and high TTL
- 		 * are flooded through the net  */
- 		if ((!directlink) &&
-@@ -70,8 +77,10 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
- 		    /* own packets originating non-primary
- 		     * interfaces leave only that interface */
- 		    ((!forw_packet->own) ||
--		     (forw_packet->if_incoming->if_num == 0)))
--			return true;
-+		     (forw_packet->if_incoming == primary_if))) {
-+			res = true;
-+			goto out;
-+		}
- 
- 		/* if the incoming packet is sent via this one
- 		 * interface only - we still can aggregate */
-@@ -84,11 +93,16 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
- 		     * (= secondary interface packets in general) */
- 		    (batman_packet->flags & DIRECTLINK ||
- 		     (forw_packet->own &&
--		      forw_packet->if_incoming->if_num != 0)))
--			return true;
-+		      forw_packet->if_incoming != primary_if))) {
-+			res = true;
-+			goto out;
-+		}
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 8b25b52..056180e 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -487,10 +487,9 @@ int gw_client_seq_print_text(struct seq_file *seq, void *offset)
  	}
  
--	return false;
-+out:
-+	if (primary_if)
-+		hardif_free_ref(primary_if);
-+	return res;
- }
+ 	seq_printf(seq, "      %-12s (%s/%i) %17s [%10s]: gw_class ... "
+-		   "[B.A.T.M.A.N. adv %s%s, MainIF/MAC: %s/%pM (%s)]\n",
++		   "[B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
+ 		   "Gateway", "#", TQ_MAX_VALUE, "Nexthop",
+-		   "outgoingIF", SOURCE_VERSION, REVISION_VERSION_STR,
+-		   primary_if->net_dev->name,
++		   "outgoingIF", SOURCE_VERSION, primary_if->net_dev->name,
+ 		   primary_if->net_dev->dev_addr, net_dev->name);
  
- /* create a new aggregated packet and add this packet to it */
-@@ -210,6 +224,7 @@ void add_bat_packet_to_list(struct bat_priv *bat_priv,
- 		hlist_for_each_entry(forw_packet_pos, tmp_node,
- 				     &bat_priv->forw_bat_list, list) {
- 			if (can_aggregate_with(batman_packet,
-+					       bat_priv,
- 					       packet_len,
- 					       send_time,
- 					       direct_link,
+ 	rcu_read_lock();
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index e367e69..b0f9068 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -58,9 +58,8 @@ static int __init batman_init(void)
+ 
+ 	register_netdevice_notifier(&hard_if_notifier);
+ 
+-	pr_info("B.A.T.M.A.N. advanced %s%s (compatibility version %i) "
+-		"loaded\n", SOURCE_VERSION, REVISION_VERSION_STR,
+-		COMPAT_VERSION);
++	pr_info("B.A.T.M.A.N. advanced %s (compatibility version %i) "
++		"loaded\n", SOURCE_VERSION, COMPAT_VERSION);
+ 
+ 	return 0;
+ }
+@@ -184,8 +183,4 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR(DRIVER_AUTHOR);
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_SUPPORTED_DEVICE(DRIVER_DEVICE);
+-#ifdef REVISION_VERSION
+-MODULE_VERSION(SOURCE_VERSION "-" REVISION_VERSION);
+-#else
+ MODULE_VERSION(SOURCE_VERSION);
+-#endif
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 4f293b5..a6df61a 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -27,8 +27,9 @@
+ #define DRIVER_DESC   "B.A.T.M.A.N. advanced"
+ #define DRIVER_DEVICE "batman-adv"
+ 
+-#define SOURCE_VERSION "next"
+-
++#ifndef SOURCE_VERSION
++#define SOURCE_VERSION "2011.3.0"
++#endif
+ 
+ /* B.A.T.M.A.N. parameters */
+ 
+@@ -144,12 +145,6 @@ enum dbg_level {
+ #include <linux/seq_file.h>
+ #include "types.h"
+ 
+-#ifndef REVISION_VERSION
+-#define REVISION_VERSION_STR ""
+-#else
+-#define REVISION_VERSION_STR " "REVISION_VERSION
+-#endif
+-
+ extern struct list_head hardif_list;
+ 
+ extern unsigned char broadcast_addr[];
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 338b3c5..4cc94d4 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -430,9 +430,8 @@ int orig_seq_print_text(struct seq_file *seq, void *offset)
+ 		goto out;
+ 	}
+ 
+-	seq_printf(seq, "[B.A.T.M.A.N. adv %s%s, MainIF/MAC: %s/%pM (%s)]\n",
+-		   SOURCE_VERSION, REVISION_VERSION_STR,
+-		   primary_if->net_dev->name,
++	seq_printf(seq, "[B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
++		   SOURCE_VERSION, primary_if->net_dev->name,
+ 		   primary_if->net_dev->dev_addr, net_dev->name);
+ 	seq_printf(seq, "  %-15s %s (%s/%i) %17s [%10s]: %20s ...\n",
+ 		   "Originator", "last-seen", "#", TQ_MAX_VALUE, "Nexthop",
 -- 
 1.7.5.3
 
