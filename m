@@ -1,122 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
-Date: Tue, 5 Jul 2011 18:06:44 -0400
-Message-ID: <20110705220644.GB12118@hmsreliant.think-freely.org>
-References: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110705164202.GD2959@hmsreliant.think-freely.org>
- <1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110705180650.GF2959@hmsreliant.think-freely.org>
- <1309889634.2545.2.camel@edumazet-laptop>
- <1309890775.2545.17.camel@edumazet-laptop>
- <1309891516.2545.23.camel@edumazet-laptop>
- <20110705195353.GG2959@hmsreliant.think-freely.org>
- <1309896147.2545.28.camel@edumazet-laptop>
- <1309896940.2545.34.camel@edumazet-laptop>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+Date: Tue, 5 Jul 2011 18:27:22 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257DCA8@nsmail.netscout.com>
+References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default> <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com> <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com> <704d094e-7b81-480f-8363-327218d1b0ea@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	Michael =?iso-8859-1?Q?B=FCsch?= <m@bues.ch>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Konrad Wilk" <konrad.wilk@oracle.com>,
+	"linux-mm" <linux-mm@kvack.org>
+To: "Dan Magenheimer" <dan.magenheimer@oracle.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:34073 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751608Ab1GEWHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 18:07:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1309896940.2545.34.camel@edumazet-laptop>
+Received: from exprod6og115.obsmtp.com ([64.18.1.35]:42676 "HELO
+	exprod6og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754227Ab1GEW10 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 18:27:26 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <704d094e-7b81-480f-8363-327218d1b0ea@default>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 05, 2011 at 10:15:40PM +0200, Eric Dumazet wrote:
-> Le mardi 05 juillet 2011 =E0 22:02 +0200, Eric Dumazet a =E9crit :
-> > Le mardi 05 juillet 2011 =E0 15:53 -0400, Neil Horman a =E9crit :
-> > > I think this is a goo idea, at least for testing.  It seems odd t=
-o me that we
-> > > have the B44_DMARX_PTR value which indicates (ostensibly) the poi=
-nter to the
-> > > descriptor to be processed next (the documentation isnt' very ver=
-bose on the
-> > > subject), along with the EOT bit on a descriptor.  It seems like =
-both the
-> > > register and the bit are capable of conveying the same (or at lea=
-st overlapping)
-> > > information.
-> > >=20
-> > > I think what I'm having the most trouble with is understanding wh=
-en the hw looks
-> > > at the EOT bit in the descriptor.  If it completes a DMA and sees=
- the EOT bit
-> > > set, does the next DMA occur to the descriptor pointed to by the =
-DMARX_ADDR
-> > > register?  Of does it stall until such time as the DMARX_PTR regi=
-ster is rotated
-> > > around?  What if it doesn't see the EOT bit set?  Does it just ke=
-ep going with
-> > > the next descriptor? =20
->=20
-> Since there is no OWN bit (at least not on the online doc I got : it
-> says the rx_ring is read only by the NIC), I would say we really need=
- to
-> advance DMARX_PTR to signal NIC a new entry is available for followin=
-g
-> incoming frames.
->=20
-> This is the reason rx_pending max value is B44_RX_RING_SIZE - 1, or e=
-lse
-> chip could loop on a circular rx_ring.
->=20
-Agree, although that still leaves open the question of what exactly sho=
-uld get
-written into the DMARX_PTR.  Is it an index of the descriptor number, o=
-r a byte
-offset.
+> -----Original Message-----
+> From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
+> Sent: July 05, 2011 3:19 PM
+> To: Loke, Chetan; netdev@vger.kernel.org
+> Cc: Konrad Wilk; linux-mm
+> Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+> 
 
-Regardless, I think we ned to fix up the looping so as to prevent an EO=
-T reset
-jumping outside of our valid ring window.  Alexey, theres better ways t=
-o do
-this, but if in the interim, you could please try this patch, it makes =
-the valid
-receive window for b44 cover the entire ring, so as to avoid this probl=
-em.  It
-will at least help support or refute this theory.  Note its not exactly=
- the same
-as my previous patch.  If you set the default ring pending to 512, the =
-math in
-the b44_alloc_rx_skb path is wrong, we skip the EOT bit as well as the =
-first
-entry in the ring.  At 511 it should work out properly.
-
-Thanks
-Neil
+> Actually, RAMster is using a much more flexible type of
+> RAM-drive; it is built on top of Transcendent Memory
+> and on top of zcache (and thus on top of cleancache and
+> frontswap).  A RAM-drive is fixed size so is not very suitable
+> for the flexibility required for RAMster.  For example,
+> suppose you have two machines A and B.  At one point in
+> time A is overcommitted and needs to swap and B is relatively
+> idle.  Then later, B is overcommitted and needs to swap and
+> A is relatively idle.  RAMster can handle this entirely
+> dynamically, a RAM-drive cannot.
 
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 3d247f3..b7f5ed1 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -57,7 +57,7 @@
- #define B44_MAX_MTU			1500
-=20
- #define B44_RX_RING_SIZE		512
--#define B44_DEF_RX_RING_PENDING		200
-+#define B44_DEF_RX_RING_PENDING		511
- #define B44_RX_RING_BYTES	(sizeof(struct dma_desc) * \
- 				 B44_RX_RING_SIZE)
- #define B44_TX_RING_SIZE		512
->=20
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+Again, iff NBD works with a ram-drive then you really wouldn't need to
+do anything. How often are you going to re-size your remote-SWAP?  Plus,
+you can make nbd-server listen on multiple ports - Google(Linux NBD)
+returned: http://www.fi.muni.cz/~kripac/orac-nbd/ . Look at the
+nbd-server code to see if it launches multiple kernel-threads for
+servicing different ports. If not, one can enhance it and scale that way
+too. But nbd-server today can service multiple-ports(that is effectively
+servicing multiple clients). So why not add NBD-filesystem-filters to
+make it point to local/remote swap?
+
+
+> 
+> Thanks.  Could you provide a pointer for this?  I found
+> the SCST sourceforge page but no obvious references to
+> scst-in-ram-mode.  (But also, since it appears to be
+> SCSI-related, I wonder if it also assumes a fixed size
+> target device, RAM or disk or ??)
+> 
+
+Yes, it is SCSI. You should be looking for SCST I/O modes. Read some
+docs and then send an email to the scst-mailing-list. If you speak about
+block-IO-performance then FC(in its class of price/performance factor)
+is more than capable of handling any workload. FC is a protocol designed
+for storage. No exotic fabric other than FC is needed.
+Folks who start with ethernet for block-IO, always start with bare
+minimal code and then for squeezing block-IO performance(aka version 2
+of the product), keep hacking repeatedly or go for a link-speed upgrade.
+Start with FC, period.
+
+
+> Dan
+
+Chetan Loke
