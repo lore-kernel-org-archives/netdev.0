@@ -1,44 +1,45 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: A GRO question
-Date: Tue, 05 Jul 2011 13:41:00 +0800
-Message-ID: <4E12A3EC.7010803@gmail.com>
+From: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
+Subject: Re: [PATCH] net/core: Make urgent data inline by default
+Date: Tue, 5 Jul 2011 08:41:50 +0300
+Message-ID: <op.vx4sr0o86ywr33@esapekka-pc.rad1>
+References: <op.vx3hzgtw6ywr33@esapekka-pc.rad1>
+ <20110704.163838.1746904172195321123.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="utf-8"; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:37961 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab1GEFlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 01:41:14 -0400
-Received: by iyb12 with SMTP id 12so4926935iyb.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 22:41:13 -0700 (PDT)
+Received: from hki-smtp-1b.stonesoft.com ([84.34.144.100]:41726 "EHLO
+	hki-smtp-1b.stonesoft.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753413Ab1GEFly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 01:41:54 -0400
+In-Reply-To: <20110704.163838.1746904172195321123.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, 05 Jul 2011 02:38:38 +0300, David Miller <davem@davemloft.net>  
+wrote:
 
-	I have a question about GRO implementation, this indeed confuses me.
+> There is no way we can make this change, we've had the default
+> we currently have for 18+ years.  Breaking applications is a
+> very real possibility.
+>
+> It doesn't matter what some RFC says.
 
-	I found that we assume that NAPI_GRO_CB(skb)->frag0 starts 
-with a mac/L2 header in compare_ether_header(), which is called in
-__napi_gro_receive()
+I understand. However urgent pointer is a very niche feature and I don't  
+think
+it would really break much. FTP and telnet both want the urgent data inline
+anyway. I haven't found any application which uses the "1-byte" urgent  
+data,
+which can by some change be overwritten by the next urgent data if you  
+didn't
+read it in time. The reason I would want this change is that attack  
+detection
+is very difficult when there can be a byte missing due to URG flag being  
+set,
+and the damage done by crackers is more than the damage to applications I  
+think.
+But I guess you decide. Atleast I tried.
 
-	However, in further dev_gro_receive() -> ptype->gro_receive [inet_gro_receive],
-we use same address as IPv4/L3 header, like below:
-
-        off = skb_gro_offset(skb); //it should keep zero until now, in my words.
-        hlen = off + sizeof(*iph);      
-        iph = skb_gro_header_fast(skb, off);  //just return NAPI_GRO_CB(skb)->frag0 + 0
-
-	So we forget that updating NAPI_GRO_CB(skb)->data_offset here, or I miss sth?
-
-	And, in my understanding against igb source code, if rx_ring->rx_buffer_len < 1024 
-(if we used large MTU), then igb driver use header split mode, in such case, the mac header
-should be saved in skb->data : skb_put(skb, igb_get_hlen(rx_ring, rx_desc)), the rest data
-is loaded by below skb_fill_page_desc() call. so NAPI_GRO_CB(skb)->frag0 should start with
-L3 header. 
-
-	Thanks.
-
-Yu
+Esa-Pekka
