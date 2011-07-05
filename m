@@ -1,88 +1,63 @@
-From: Chris Fries <qcf001@motorola.com>
-Subject: Fwd: usbnet suspend issue
-Date: Tue, 5 Jul 2011 13:43:17 -0500
-Message-ID: <CADuEq9DosCUpw9CnLrgQPXFojeCqEy-BHfZd1_BgvRJdFFQ9Ow@mail.gmail.com>
-References: <CADuEq9DkdMixSyOAHNvJa5z4uuasekr=9xkE2jHnE-vpMvj3-Q@mail.gmail.com>
- <201107051149.59963.oliver@neukum.org> <CADuEq9BkW8iHQjacohGJUZzwh--ZrqVEKYa4DzftH9XnMc=JNw@mail.gmail.com>
-Reply-To: C.Fries@Motorola.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
+ overwritten
+Date: Tue, 05 Jul 2011 20:45:16 +0200
+Message-ID: <1309891516.2545.23.camel@edumazet-laptop>
+References: <1309840708.2720.31.camel@edumazet-laptop>
+	 <CAB9v_DFM8PcujUB-YzcK49DS7T6Bz2FLDtkVdEYt8an1oPYVFw@mail.gmail.com>
+	 <1309842642.2720.36.camel@edumazet-laptop>
+	 <CAB9v_DEiPFzQt-TgeVC3r3Y7YFwApLK_NHkDahFOKpibtABrZg@mail.gmail.com>
+	 <1309844009.2720.39.camel@edumazet-laptop>
+	 <1309845573.2720.41.camel@edumazet-laptop>
+	 <20110705160531.GC2959@hmsreliant.think-freely.org>
+	 <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110705164202.GD2959@hmsreliant.think-freely.org>
+	 <1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110705180650.GF2959@hmsreliant.think-freely.org>
+	 <1309889634.2545.2.camel@edumazet-laptop>
+	 <1309890775.2545.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=000e0cd25e220c1c7604a756df9d
-To: netdev@vger.kernel.org, stable@kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
+	Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og113.obsmtp.com ([64.18.0.26]:56802 "EHLO
-	exprod5og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252Ab1GESoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 14:44:20 -0400
-Received: from il93mgrg01.am.mot-mobility.com ([10.176.129.42])
-	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p65IfITL025768
-	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 14:41:18 -0400 (EDT)
-Received: from mail-pv0-f170.google.com (mail-pv0-f170.google.com [74.125.83.170])
-	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p65IWuba021323
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 14:41:18 -0400 (EDT)
-Received: by mail-pv0-f170.google.com with SMTP id 10so7108900pvh.15
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 11:44:18 -0700 (PDT)
-In-Reply-To: <CADuEq9BkW8iHQjacohGJUZzwh--ZrqVEKYa4DzftH9XnMc=JNw@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:42511 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752435Ab1GESpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 14:45:21 -0400
+Received: by wyg8 with SMTP id 8so4194373wyg.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 11:45:20 -0700 (PDT)
+In-Reply-To: <1309890775.2545.17.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---000e0cd25e220c1c7604a756df9d
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Le mardi 05 juillet 2011 =C3=A0 20:32 +0200, Eric Dumazet a =C3=A9crit =
+:
 
-(Plain text)
+> Then, maybe the driver model is completely wrong, and should really
+> setup 512 buffers, or use less descs but set EOT on last one.
+>=20
+> Currently it uses a 200 sliding window out of the 512 descs.
+>=20
+>=20
 
-Hi David, Netdev, Stable,
+One thing we could do would be to allocate a special guard buffer and
+set all 'out of window' descriptors to point to this guard buffer, and
+periodically check if buffer is dirtied by the card.
 
-Please evaluate the attached usbnet patch for inclusion to the kernel.
+(first word would be enough)
 
-Thanks,
-Chris
+(instead of setting desc->addr to NULL, set to
+dma_map_single(guard_buffer))
 
 
 
-On Tue, Jul 5, 2011 at 4:49 AM, Oliver Neukum <oliver@neukum.org> wrote:
->
-> Am Dienstag, 5. Juli 2011, 04:25:39 schrieb Chris Fries:
-> > Hi Oliver,
-> >
-> > I noticed a bug in usbnet suspend, that's been around for a while and s=
-eems
-> > to be still present in 3.0. =A0It causes some nasty behavior on ARM (Te=
-gra)
-> > when suspend/resume stops working due to a lost suspend count.
-> > ...
->
-> Thank you. That is a very good catch. Please resend to David Miller
-> and netdev@vger.kernel.org and stable@kernel.org. Also please include
-> your Signed-off-by: <mail> line. That way it'll be included fastest.
->
-> =A0 =A0 =A0 =A0Regards
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Oliver
-
---000e0cd25e220c1c7604a756df9d
-Content-Type: application/octet-stream; name="usbnet-suspend.patch"
-Content-Disposition: attachment; filename="usbnet-suspend.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gpr6603e0
-
-RnJvbSA5NjMzNjBiOTU1YmFlNTg5NjMzOTkxMjRiNGE1NDI4MjdmMzI3MmVhIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBDaHJpcyBGcmllcyA8Qy5Gcmllc0Btb3Rvcm9sYS5jb20+CkRh
-dGU6IEZyaSwgMSBKdWwgMjAxMSAxNToyODo1OCAtMDUwMApTdWJqZWN0OiBbUEFUQ0hdIHVzYjog
-dXNibmV0OiBzdXNwZW5kIGNvdW50IGdldHMgbG9zdCB3aGVuIC1FQlVTWQoKV2hlbiBzdXNwZW5k
-IGlzIHJlZnVzZWQgZHVlIHRvIHBlbmRpbmcgdHJhbnNtaXRzLCB0aGUKYnVzeSBjb3VudGVyIGdl
-dHMgb3V0IG9mIHN5bmMsIGFuZCBzdXNwZW5kIHdpbGwgc3RvcAp3b3JraW5nIGNvcnJlY3RseS4K
-CkNoYW5nZS1JZDogSTg5ZDMxZDY1ODRlODkxNDE5MjMxNTY3MWM4MDMxYTljNzY1OGNhMjIKU2ln
-bmVkLW9mZi1ieTogQ2hyaXMgRnJpZXMgPEMuRnJpZXNAbW90b3JvbGEuY29tPgotLS0KIGRyaXZl
-cnMvbmV0L3VzYi91c2JuZXQuYyB8ICAgIDEgKwogMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlv
-bnMoKyksIDAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdXNiL3VzYm5l
-dC5jIGIvZHJpdmVycy9uZXQvdXNiL3VzYm5ldC5jCmluZGV4IGNjOTVhYWQuLjliY2MzZTMgMTAw
-NjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi91c2JuZXQuYworKysgYi9kcml2ZXJzL25ldC91c2Iv
-dXNibmV0LmMKQEAgLTE0NTEsNiArMTQ1MSw3IEBAIGludCB1c2JuZXRfc3VzcGVuZCAoc3RydWN0
-IHVzYl9pbnRlcmZhY2UgKmludGYsIHBtX21lc3NhZ2VfdCBtZXNzYWdlKQogCQkvKiBkb24ndCBh
-dXRvc3VzcGVuZCB3aGlsZSB0cmFuc21pdHRpbmcgKi8KIAkJaWYgKGRldi0+dHhxLnFsZW4gJiYg
-KG1lc3NhZ2UuZXZlbnQgJiBQTV9FVkVOVF9BVVRPKSkgewogCQkJc3Bpbl91bmxvY2tfaXJxKCZk
-ZXYtPnR4cS5sb2NrKTsKKwkJCWRldi0+c3VzcGVuZF9jb3VudC0tOwogCQkJcmV0dXJuIC1FQlVT
-WTsKIAkJfSBlbHNlIHsKIAkJCXNldF9iaXQoRVZFTlRfREVWX0FTTEVFUCwgJmRldi0+ZmxhZ3Mp
-OwotLSAKMS43LjAuNAoK
---000e0cd25e220c1c7604a756df9d--
