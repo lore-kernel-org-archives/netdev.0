@@ -1,90 +1,105 @@
 From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: [PATCH 4/6] batman-adv: broadcast primary OGM on all active hard-interfaces
-Date: Tue,  5 Jul 2011 15:43:58 +0200
-Message-ID: <1309873440-11704-5-git-send-email-lindner_marek@yahoo.de>
+Subject: [PATCH 5/6] batman-adv: aggregation checks should use the primary_if pointer
+Date: Tue,  5 Jul 2011 15:43:59 +0200
+Message-ID: <1309873440-11704-6-git-send-email-lindner_marek@yahoo.de>
 References: <1309873440-11704-1-git-send-email-lindner_marek@yahoo.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm11.bullet.mail.ukl.yahoo.com ([217.146.183.185]:24526 "HELO
-	nm11.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751725Ab1GENoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:44:23 -0400
+Received: from nm9.bullet.mail.ukl.yahoo.com ([217.146.182.250]:24343 "HELO
+	nm9.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751725Ab1GENo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 09:44:26 -0400
 In-Reply-To: <1309873440-11704-1-git-send-email-lindner_marek@yahoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The primary interface OGM has to be broadcasted on all hard-interfaces
-even if the primary interface is not the first interface (if_num = 0).
-Therefore the code has to compare the originating interface with the
-primary interface instead of checking the if_num.
+The packet aggregation needs to ensure that only compatible packets
+are aggregated. Some of the checks are based on the interface number
+while assuming that the first interface also is the primary interface
+which is not always the case.
+This patch addresses the issue by using the primary_if pointer.
 
-Reported-by: Linus Luessing <linus.luessing@web.de>
+Reported-by: Antonio Quartulli <ordex@autistici.org>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/send.c |   17 +++++++++++++----
- 1 files changed, 13 insertions(+), 4 deletions(-)
+ net/batman-adv/aggregation.c |   25 ++++++++++++++++++++-----
+ 1 files changed, 20 insertions(+), 5 deletions(-)
 
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index 2f62b2e..4b8e11b 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -163,6 +163,7 @@ static void send_packet(struct forw_packet *forw_packet)
- 	struct hard_iface *hard_iface;
- 	struct net_device *soft_iface;
- 	struct bat_priv *bat_priv;
-+	struct hard_iface *primary_if = NULL;
+diff --git a/net/batman-adv/aggregation.c b/net/batman-adv/aggregation.c
+index c583e04..69467fe 100644
+--- a/net/batman-adv/aggregation.c
++++ b/net/batman-adv/aggregation.c
+@@ -28,6 +28,7 @@
+ 
+ /* return true if new_packet can be aggregated with forw_packet */
+ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
++			       struct bat_priv *bat_priv,
+ 			       int packet_len,
+ 			       unsigned long send_time,
+ 			       bool directlink,
+@@ -37,6 +38,8 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
  	struct batman_packet *batman_packet =
- 		(struct batman_packet *)(forw_packet->skb->data);
- 	int directlink = (batman_packet->flags & DIRECTLINK ? 1 : 0);
-@@ -170,19 +171,23 @@ static void send_packet(struct forw_packet *forw_packet)
- 	if (!forw_packet->if_incoming) {
- 		pr_err("Error - can't forward packet: incoming iface not "
- 		       "specified\n");
--		return;
-+		goto out;
- 	}
+ 		(struct batman_packet *)forw_packet->skb->data;
+ 	int aggregated_bytes = forw_packet->packet_len + packet_len;
++	struct hard_iface *primary_if = NULL;
++	bool res = false;
  
- 	soft_iface = forw_packet->if_incoming->soft_iface;
- 	bat_priv = netdev_priv(soft_iface);
+ 	/**
+ 	 * we can aggregate the current packet to this aggregated packet
+@@ -61,6 +64,10 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
+ 		 *    packet
+ 		 */
  
- 	if (forw_packet->if_incoming->if_status != IF_ACTIVE)
--		return;
-+		goto out;
++		primary_if = primary_if_get_selected(bat_priv);
++		if (!primary_if)
++			goto out;
 +
-+	primary_if = primary_if_get_selected(bat_priv);
-+	if (!primary_if)
-+		goto out;
+ 		/* packets without direct link flag and high TTL
+ 		 * are flooded through the net  */
+ 		if ((!directlink) &&
+@@ -70,8 +77,10 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
+ 		    /* own packets originating non-primary
+ 		     * interfaces leave only that interface */
+ 		    ((!forw_packet->own) ||
+-		     (forw_packet->if_incoming->if_num == 0)))
+-			return true;
++		     (forw_packet->if_incoming == primary_if))) {
++			res = true;
++			goto out;
++		}
  
- 	/* multihomed peer assumed */
- 	/* non-primary OGMs are only broadcasted on their interface */
- 	if ((directlink && (batman_packet->ttl == 1)) ||
--	    (forw_packet->own && (forw_packet->if_incoming->if_num > 0))) {
-+	    (forw_packet->own && (forw_packet->if_incoming != primary_if))) {
- 
- 		/* FIXME: what about aggregated packets ? */
- 		bat_dbg(DBG_BATMAN, bat_priv,
-@@ -199,7 +204,7 @@ static void send_packet(struct forw_packet *forw_packet)
- 				broadcast_addr);
- 		forw_packet->skb = NULL;
- 
--		return;
-+		goto out;
+ 		/* if the incoming packet is sent via this one
+ 		 * interface only - we still can aggregate */
+@@ -84,11 +93,16 @@ static bool can_aggregate_with(const struct batman_packet *new_batman_packet,
+ 		     * (= secondary interface packets in general) */
+ 		    (batman_packet->flags & DIRECTLINK ||
+ 		     (forw_packet->own &&
+-		      forw_packet->if_incoming->if_num != 0)))
+-			return true;
++		      forw_packet->if_incoming != primary_if))) {
++			res = true;
++			goto out;
++		}
  	}
  
- 	/* broadcast on every interface */
-@@ -211,6 +216,10 @@ static void send_packet(struct forw_packet *forw_packet)
- 		send_packet_to_if(forw_packet, hard_iface);
- 	}
- 	rcu_read_unlock();
-+
+-	return false;
 +out:
 +	if (primary_if)
 +		hardif_free_ref(primary_if);
++	return res;
  }
  
- static void realloc_packet_buffer(struct hard_iface *hard_iface,
+ /* create a new aggregated packet and add this packet to it */
+@@ -210,6 +224,7 @@ void add_bat_packet_to_list(struct bat_priv *bat_priv,
+ 		hlist_for_each_entry(forw_packet_pos, tmp_node,
+ 				     &bat_priv->forw_bat_list, list) {
+ 			if (can_aggregate_with(batman_packet,
++					       bat_priv,
+ 					       packet_len,
+ 					       send_time,
+ 					       direct_link,
 -- 
 1.7.5.3
 
