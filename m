@@ -1,35 +1,29 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [PATCH 2/2] Update documented default values for various TCP/UDP
- tunables
-Date: Tue, 05 Jul 2011 09:36:29 +0800
-Message-ID: <4E126A9D.3060507@cn.fujitsu.com>
-References: <20110704083616.43F2C8156C57@regina.usersys.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Max Matveev <makc@redhat.com>
+From: Max Matveev <makc@redhat.com>
+Subject: [PATCHv2 0/2] Minor documentation updates for ip-related tunables
+Date: Tue,  5 Jul 2011 11:57:18 +1000 (EST)
+Message-ID: <20110705015718.32777815DBB1@regina.usersys.redhat.com>
+Cc: netdev@vger.kernel.org
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52358 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752350Ab1GEBfX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jul 2011 21:35:23 -0400
-In-Reply-To: <20110704083616.43F2C8156C57@regina.usersys.redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29341 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752391Ab1GEB5V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2011 21:57:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Max Matveev wrote, at 06/22/2011 03:18 PM:
-> tcp_rmem and tcp_wmem use 1 page as default value for the minimum
-> amount of memory to be used, same as udp_wmem_min and udp_rmem_min.
-> Pages are different size on different architectures - use the right
-> units when describing the defaults.
-> 
-> Signed-off-by: Max Matveev <makc@redhat.com>
+Confusion about the way SCTP uses its rmem and wmem tunables
+prompted a documentation revision.
 
-Reviewed-by: Shan Wei <shanwei@cn.fujitsu.com>
+v2: incorporate suggestions by Shan Wei and Neil Horman.
 
+Max Matveev (2):
+  Update description of net.sctp.sctp_rmem and net.sctp.sctp_wmem tunables
+  Update documented default values for various TCP/UDP tunables
+
+ Documentation/networking/ip-sysctl.txt |   19 +++++++++++++------
+ 1 files changed, 13 insertions(+), 6 deletions(-)
 
 -- 
-Best Regards
------
-Shan Wei
+1.7.3.3
+
