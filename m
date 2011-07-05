@@ -1,8 +1,8 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 5/8] bnx2x: Fix false link indication at link
- partner when DAC is used
-Date: Tue, 5 Jul 2011 14:06:53 +0300
-Message-ID: <1309864013.4050.84.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 4/8] bnx2x: Reset PHY due to fan failure for
+ 578xx
+Date: Tue, 5 Jul 2011 14:06:48 +0300
+Message-ID: <1309864008.4050.83.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -10,143 +10,174 @@ Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4107 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3865 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755943Ab1GELHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755929Ab1GELHE (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Jul 2011 07:07:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When driver is unloaded, disable PMD in addition to TX laser, provided that the management firmware will be able to enable it back.
+Add hardware PHY reset action for BCM578xx when fan failure occur.
+The new bnx2x_warpcore_hw_reset warps bnx2x_warpcore_power_module to fit the .hw_reset function template of the phy structure.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_hsi.h  |    1 +
- drivers/net/bnx2x/bnx2x_link.c |   35 +++++++++++++++++++++++++++++++++++
- drivers/net/bnx2x/bnx2x_link.h |    1 +
- drivers/net/bnx2x/bnx2x_main.c |    4 ++++
- drivers/net/bnx2x/bnx2x_reg.h  |    1 +
- 5 files changed, 42 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |   80 ++++++++++++++++++++++++++++++++-------
+ 1 files changed, 65 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index e6f816d..52c190f 100644
---- a/drivers/net/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -1236,6 +1236,7 @@ struct drv_func_mb {
- 	#define REQ_BC_VER_4_VRFY_FIRST_PHY_OPT_MDL     0x00050006
- 	#define DRV_MSG_CODE_VRFY_SPECIFIC_PHY_OPT_MDL  0xa1000000
- 	#define REQ_BC_VER_4_VRFY_SPECIFIC_PHY_OPT_MDL  0x00050234
-+	#define REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED   0x00070014
- 
- 	#define DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG         0xb0000000
- 	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index a04fa13..144cfae 100644
+index 270a2f7..a04fa13 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -7195,6 +7195,30 @@ static u8 bnx2x_8705_read_status(struct bnx2x_phy *phy,
- /******************************************************************/
- /*			SFP+ module Section			  */
- /******************************************************************/
-+static void bnx2x_set_disable_pmd_transmit(struct link_params *params,
-+					   struct bnx2x_phy *phy,
-+					   u8 pmd_dis)
+@@ -7904,6 +7904,9 @@ static void bnx2x_warpcore_power_module(struct link_params *params,
+ 			dev_info.port_hw_config[params->port].e3_sfp_ctrl)) &
+ 			PORT_HW_CFG_E3_PWR_DIS_MASK) >>
+ 			PORT_HW_CFG_E3_PWR_DIS_SHIFT;
++
++	if (pin_cfg == PIN_CFG_NA)
++		return;
+ 	DP(NETIF_MSG_LINK, "Setting SFP+ module power to %d using pin cfg %d\n",
+ 		       power, pin_cfg);
+ 	/*
+@@ -7913,6 +7916,12 @@ static void bnx2x_warpcore_power_module(struct link_params *params,
+ 	bnx2x_set_cfg_pin(bp, pin_cfg, power ^ 1);
+ }
+ 
++static void bnx2x_warpcore_hw_reset(struct bnx2x_phy *phy,
++				    struct link_params *params)
 +{
-+	struct bnx2x *bp = params->bp;
-+	/*
-+	 * Disable transmitter only for bootcodes which can enable it afterwards
-+	 * (for D3 link)
-+	 */
-+	if (pmd_dis) {
-+		if (params->feature_config_flags &
-+		     FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED)
-+			DP(NETIF_MSG_LINK, "Disabling PMD transmitter\n");
-+		else {
-+			DP(NETIF_MSG_LINK, "NOT disabling PMD transmitter\n");
-+			return;
-+		}
-+	} else
-+		DP(NETIF_MSG_LINK, "Enabling PMD transmitter\n");
-+	bnx2x_cl45_write(bp, phy,
-+			 MDIO_PMA_DEVAD,
-+			 MDIO_PMA_REG_TX_DISABLE, pmd_dis);
++	bnx2x_warpcore_power_module(params, phy, 0);
 +}
 +
- static u8 bnx2x_get_gpio_port(struct link_params *params)
- {
- 	u8 gpio_port;
-@@ -8598,6 +8622,9 @@ static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
- 			 MDIO_PMA_DEVAD, MDIO_PMA_REG_PHY_IDENTIFIER, mod_abs);
+ static void bnx2x_power_sfp_module(struct link_params *params,
+ 				   struct bnx2x_phy *phy,
+ 				   u8 power)
+@@ -9294,9 +9303,9 @@ static int bnx2x_84833_pair_swap_cfg(struct bnx2x_phy *phy,
+ }
  
 
-+	/* Enable/Disable PHY transmitter output */
-+	bnx2x_set_disable_pmd_transmit(params, phy, 0);
-+
- 	/* Make MOD_ABS give interrupt on change */
- 	bnx2x_cl45_read(bp, phy, MDIO_PMA_DEVAD, MDIO_PMA_REG_8727_PCS_OPT_CTRL,
- 			&val);
-@@ -8972,6 +8999,10 @@ static void bnx2x_8727_link_reset(struct bnx2x_phy *phy,
- 				  struct link_params *params)
+-static int bnx2x_84833_common_init_phy(struct bnx2x *bp,
+-						u32 shmem_base_path[],
+-						u32 chip_id)
++static u8 bnx2x_84833_get_reset_gpios(struct bnx2x *bp,
++				      u32 shmem_base_path[],
++				      u32 chip_id)
  {
- 	struct bnx2x *bp = params->bp;
-+
-+	/* Enable/Disable PHY transmitter output */
-+	bnx2x_set_disable_pmd_transmit(params, phy, 1);
-+
- 	/* Disable Transmitter */
- 	bnx2x_sfp_set_transmitter(params, phy, 0);
- 	/* Clear LASI */
-@@ -11895,6 +11926,10 @@ static int bnx2x_8727_common_init_phy(struct bnx2x *bp,
- 		if (bnx2x_8073_8727_external_rom_boot(bp, phy_blk[port],
- 						      port_of_path))
- 			return -EINVAL;
-+		/* Disable PHY transmitter output */
-+		bnx2x_cl45_write(bp, phy_blk[port],
-+				 MDIO_PMA_DEVAD,
-+				 MDIO_PMA_REG_TX_DISABLE, 1);
- 
+ 	u32 reset_pin[2];
+ 	u32 idx;
+@@ -9329,6 +9338,41 @@ static int bnx2x_84833_common_init_phy(struct bnx2x *bp,
+ 		reset_gpios = (u8)(reset_pin[0] | reset_pin[1]);
  	}
- 	return 0;
-diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/bnx2x/bnx2x_link.h
-index 6f299c2..ba4d1f7 100644
---- a/drivers/net/bnx2x/bnx2x_link.h
-+++ b/drivers/net/bnx2x/bnx2x_link.h
-@@ -250,6 +250,7 @@ struct link_params {
- #define FEATURE_CONFIG_PFC_ENABLED			(1<<1)
- #define FEATURE_CONFIG_BC_SUPPORTS_OPT_MDL_VRFY		(1<<2)
- #define FEATURE_CONFIG_BC_SUPPORTS_DUAL_PHY_OPT_MDL_VRFY	(1<<3)
-+#define FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED		(1<<10)
- 	/* Will be populated during common init */
- 	struct bnx2x_phy phy[MAX_PHYS];
  
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index b6f82eb..9860435 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -8349,6 +8349,10 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- 		(val >= REQ_BC_VER_4_VRFY_SPECIFIC_PHY_OPT_MDL) ?
- 		FEATURE_CONFIG_BC_SUPPORTS_DUAL_PHY_OPT_MDL_VRFY : 0;
- 
-+	bp->link_params.feature_config_flags |=
-+		(val >= REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED) ?
-+		FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED : 0;
++	return reset_gpios;
++}
 +
- 	pci_read_config_word(bp->pdev, bp->pm_cap + PCI_PM_PMC, &pmc);
- 	bp->flags |= (pmc & PCI_PM_CAP_PME_D3cold) ? 0 : NO_WOL_FLAG;
++static int bnx2x_84833_hw_reset_phy(struct bnx2x_phy *phy,
++				struct link_params *params)
++{
++	struct bnx2x *bp = params->bp;
++	u8 reset_gpios;
++	u32 other_shmem_base_addr = REG_RD(bp, params->shmem2_base +
++				offsetof(struct shmem2_region,
++				other_shmem_base_addr));
++
++	u32 shmem_base_path[2];
++	shmem_base_path[0] = params->shmem_base;
++	shmem_base_path[1] = other_shmem_base_addr;
++
++	reset_gpios = bnx2x_84833_get_reset_gpios(bp, shmem_base_path,
++						  params->chip_id);
++
++	bnx2x_set_mult_gpio(bp, reset_gpios, MISC_REGISTERS_GPIO_OUTPUT_LOW);
++	udelay(10);
++	DP(NETIF_MSG_LINK, "84833 hw reset on pin values 0x%x\n",
++		reset_gpios);
++
++	return 0;
++}
++
++static int bnx2x_84833_common_init_phy(struct bnx2x *bp,
++						u32 shmem_base_path[],
++						u32 chip_id)
++{
++	u8 reset_gpios;
++
++	reset_gpios = bnx2x_84833_get_reset_gpios(bp, shmem_base_path, chip_id);
++
+ 	bnx2x_set_mult_gpio(bp, reset_gpios, MISC_REGISTERS_GPIO_OUTPUT_LOW);
+ 	udelay(10);
+ 	bnx2x_set_mult_gpio(bp, reset_gpios, MISC_REGISTERS_GPIO_OUTPUT_HIGH);
+@@ -9362,17 +9406,11 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
+ 			       MISC_REGISTERS_GPIO_OUTPUT_HIGH,
+ 			       port);
+ 	} else {
++		/* MDIO reset */
+ 		bnx2x_cl45_write(bp, phy,
+ 				MDIO_PMA_DEVAD,
+ 				MDIO_PMA_REG_CTRL, 0x8000);
+-	}
+-
+-	bnx2x_wait_reset_complete(bp, phy, params);
+-	/* Wait for GPHY to come out of reset */
+-	msleep(50);
+-
+-	/* Bring PHY out of super isolate mode */
+-	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
++		/* Bring PHY out of super isolate mode */
+ 		bnx2x_cl45_read(bp, phy,
+ 				MDIO_CTL_DEVAD,
+ 				MDIO_84833_TOP_CFG_XGPHY_STRAP1, &val);
+@@ -9380,9 +9418,13 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
+ 		bnx2x_cl45_write(bp, phy,
+ 				MDIO_CTL_DEVAD,
+ 				MDIO_84833_TOP_CFG_XGPHY_STRAP1, val);
+-		bnx2x_wait_reset_complete(bp, phy, params);
+ 	}
  
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index c97ce37..3c7702e 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -6618,6 +6618,7 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_PMA_REG_CTRL		0x0
- #define MDIO_PMA_REG_STATUS		0x1
- #define MDIO_PMA_REG_10G_CTRL2		0x7
-+#define MDIO_PMA_REG_TX_DISABLE		0x0009
- #define MDIO_PMA_REG_RX_SD		0xa
- /*bcm*/
- #define MDIO_PMA_REG_BCM_CTRL		0x0096
++	bnx2x_wait_reset_complete(bp, phy, params);
++
++	/* Wait for GPHY to come out of reset */
++	msleep(50);
++
+ 	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833)
+ 		bnx2x_84833_pair_swap_cfg(phy, params, vars);
+ 
+@@ -10448,7 +10490,7 @@ static struct bnx2x_phy phy_warpcore = {
+ 	.link_reset	= (link_reset_t)bnx2x_warpcore_link_reset,
+ 	.config_loopback = (config_loopback_t)bnx2x_set_warpcore_loopback,
+ 	.format_fw_ver	= (format_fw_ver_t)NULL,
+-	.hw_reset	= (hw_reset_t)NULL,
++	.hw_reset	= (hw_reset_t)bnx2x_warpcore_hw_reset,
+ 	.set_link_led	= (set_link_led_t)NULL,
+ 	.phy_specific_func = (phy_specific_func_t)NULL
+ };
+@@ -10736,7 +10778,7 @@ static struct bnx2x_phy phy_84833 = {
+ 	.link_reset	= (link_reset_t)bnx2x_848x3_link_reset,
+ 	.config_loopback = (config_loopback_t)NULL,
+ 	.format_fw_ver	= (format_fw_ver_t)bnx2x_848xx_format_ver,
+-	.hw_reset	= (hw_reset_t)NULL,
++	.hw_reset	= (hw_reset_t)bnx2x_84833_hw_reset_phy,
+ 	.set_link_led	= (set_link_led_t)bnx2x_848xx_set_link_led,
+ 	.phy_specific_func = (phy_specific_func_t)NULL
+ };
+@@ -12122,7 +12164,15 @@ u8 bnx2x_fan_failure_det_req(struct bnx2x *bp,
+ void bnx2x_hw_reset_phy(struct link_params *params)
+ {
+ 	u8 phy_index;
+-	for (phy_index = EXT_PHY1; phy_index < MAX_PHYS;
++	struct bnx2x *bp = params->bp;
++	bnx2x_update_mng(params, 0);
++	bnx2x_bits_dis(bp, NIG_REG_MASK_INTERRUPT_PORT0 + params->port*4,
++		       (NIG_MASK_XGXS0_LINK_STATUS |
++			NIG_MASK_XGXS0_LINK10G |
++			NIG_MASK_SERDES0_LINK_STATUS |
++			NIG_MASK_MI_INT));
++
++	for (phy_index = INT_PHY; phy_index < MAX_PHYS;
+ 	      phy_index++) {
+ 		if (params->phy[phy_index].hw_reset) {
+ 			params->phy[phy_index].hw_reset(
 -- 
 1.7.1
 
