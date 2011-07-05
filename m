@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] packet: Add fanout support.
-Date: Tue, 05 Jul 2011 03:07:07 -0700 (PDT)
-Message-ID: <20110705.030707.1975572017092435300.davem@davemloft.net>
-References: <1309846875.2720.43.camel@edumazet-laptop>
-	<20110705.004640.2280047904273455681.davem@davemloft.net>
-	<1309859424.2271.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [RFC][PATCH 1/2] net: vlan: enable GSO by default
+Date: Tue, 05 Jul 2011 03:08:01 -0700 (PDT)
+Message-ID: <20110705.030801.1372654396487674636.davem@davemloft.net>
+References: <4E0406C4.6060004@cn.fujitsu.com>
+	<4E12DAE3.8050904@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: victor@inliniac.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: kaber@trash.net, netdev@vger.kernel.org, mirq-linux@rere.qmqm.pl,
+	bhutchings@solarflare.com
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37684 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34843 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755194Ab1GEKHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 06:07:14 -0400
-In-Reply-To: <1309859424.2271.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	with ESMTP id S1755194Ab1GEKJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 06:09:14 -0400
+In-Reply-To: <4E12DAE3.8050904@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 05 Jul 2011 11:50:24 +0200
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Tue, 05 Jul 2011 17:35:31 +0800
 
-> You really have to call skb_get_rxhash() yourself to make sure rxhash is
-> set (if not already done)
-> 
-> Just replace   skb->rxhash by skb_get_rxhash(skb)
+> Ping....
 
-Read v2 of my patch :-)
+I hope you're not waiting for something from me.  If you mean for me
+to seriously review and apply this patch, resubmit it without "RFC" in
+subject.
