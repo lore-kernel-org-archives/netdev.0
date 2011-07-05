@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
  overwritten
-Date: Tue, 05 Jul 2011 06:11:08 +0200
-Message-ID: <1309839068.2720.15.camel@edumazet-laptop>
+Date: Tue, 05 Jul 2011 06:14:18 +0200
+Message-ID: <1309839258.2720.17.camel@edumazet-laptop>
 References: <bug-38102-10286@https.bugzilla.kernel.org/>
 	 <20110629145135.5179fb0c.akpm@linux-foundation.org>
 	 <BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
@@ -17,6 +17,7 @@ References: <bug-38102-10286@https.bugzilla.kernel.org/>
 	 <CAB9v_DFFX6cHAFBSOGDJRniehJ6pYD7Z5XG6ygTGHy8j=z+U0g@mail.gmail.com>
 	 <1309837443.2720.8.camel@edumazet-laptop>
 	 <CAB9v_DFYGyYiXGfMCXn_WDeGTKz8BZPYBCuaDj_a+5VAG3Jn=g@mail.gmail.com>
+	 <1309839068.2720.15.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -30,62 +31,55 @@ Cc: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>,
 	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
 To: Alexey Zaytsev <alexey.zaytsev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62309 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53582 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781Ab1GEELP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:11:15 -0400
-Received: by wwe5 with SMTP id 5so5535857wwe.1
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 21:11:14 -0700 (PDT)
-In-Reply-To: <CAB9v_DFYGyYiXGfMCXn_WDeGTKz8BZPYBCuaDj_a+5VAG3Jn=g@mail.gmail.com>
+	with ESMTP id S1751002Ab1GEEOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:14:23 -0400
+Received: by wwe5 with SMTP id 5so5537462wwe.1
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 21:14:22 -0700 (PDT)
+In-Reply-To: <1309839068.2720.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 05 juillet 2011 =C3=A0 07:56 +0400, Alexey Zaytsev a =C3=A9cri=
-t :
-> On Tue, Jul 5, 2011 at 07:44, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> >
-> > I dont care about duplicate acks at this point.
-> >
-> > Thats a separate issue (TCP layer)
-> >
+Le mardi 05 juillet 2011 =C3=A0 06:11 +0200, Eric Dumazet a =C3=A9crit =
+:
+> Le mardi 05 juillet 2011 =C3=A0 07:56 +0400, Alexey Zaytsev a =C3=A9c=
+rit :
+> > On Tue, Jul 5, 2011 at 07:44, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> > >
+> > > I dont care about duplicate acks at this point.
+> > >
+> > > Thats a separate issue (TCP layer)
+> > >
+> >=20
+> > Maybe some tx packets are just sent out more then once? Or a single
+> > packet is sent out instead of some other packets?
+> > The delays between two dups is short, and they come in bursts, up t=
+o a
+> > few hundreds of duplicate packets at a time.
+> >=20
 >=20
-> Maybe some tx packets are just sent out more then once? Or a single
-> packet is sent out instead of some other packets?
-> The delays between two dups is short, and they come in bursts, up to =
-a
-> few hundreds of duplicate packets at a time.
+> Thats a completely different problem. SSH is very expensive for your
+> receiver (your dump1 file has small packets (560 bytes)), and it cann=
+ot
+> cope with the stress.
 >=20
-
-Thats a completely different problem. SSH is very expensive for your
-receiver (your dump1 file has small packets (560 bytes)), and it cannot
-cope with the stress.
-
-You're filling the b44 rx ring, and b44 driver has no choice to zap 200
-packets at once. This sure is a problem for tcp, as it stalls the thing=
-=2E
-
-You could avoid this by doing this at b44 machine (the receiver)
-
-echo "4096 32768 87380" >/proc/sys/net/ipv4/tcp_rmem
-
-So that sender wont be able to push so many packets
-
-> > Do you still have memory scribbles ?
-> Yes.
-
-OK
-
+> You're filling the b44 rx ring, and b44 driver has no choice to zap 2=
+00
+> packets at once. This sure is a problem for tcp, as it stalls the thi=
+ng.
 >=20
-> >
-> > I wonder if the problem is not coming from the "fast recovery" adde=
-d in
-> > commit 32737e934a952c (PATCH: b44 Handle RX FIFO overflow better
-> > (simplified))
-> >
+> You could avoid this by doing this at b44 machine (the receiver)
 >=20
-> I've tested back to 2.6.27. I did not test all releases of course, so
-> maybe this was fixed, and then broken again.
+> echo "4096 32768 87380" >/proc/sys/net/ipv4/tcp_rmem
+>=20
+> So that sender wont be able to push so many packets
+
+You can also try using more packets in rx ring : (default is 200
+packets, limit ~511)
+
+ethtool -G eth0 rx 400
 
 
 
