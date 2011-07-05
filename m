@@ -1,96 +1,170 @@
-From: Alexey Zaytsev <alexey.zaytsev@gmail.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
-Date: Tue, 5 Jul 2011 08:18:27 +0400
-Message-ID: <CAB9v_DHuFkymU1a-tfVcpT62y2anWw-HWPtK8WF4T5Wr+-C8mg@mail.gmail.com>
-References: <bug-38102-10286@https.bugzilla.kernel.org/>
-	<20110629145135.5179fb0c.akpm@linux-foundation.org>
-	<BANLkTi=PxH8V58k-VycsM=1ZiE9hPqCN4Q@mail.gmail.com>
-	<CAB9v_DHXB6n07sEY_=HZ8S4zMO01Vs8B78dGyEWrm-hyRP82XA@mail.gmail.com>
-	<1309707971.2523.20.camel@edumazet-laptop>
-	<CAB9v_DG7e8vDE+4PDwuOR2DYG1FEvUM1fxa+e4a=swwTYGJ9nQ@mail.gmail.com>
-	<20110704130531.37cf876e@Nokia-N900>
-	<1309787822.2247.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110704162726.4072e715@maggie>
-	<20110704164351.338dc12e@maggie>
-	<1309792323.2247.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAB9v_DHHmeFtQ4jrtVRSGWBvB=W_=QBHCvMi-u25e0nPBQ1jAA@mail.gmail.com>
-	<CAB9v_DFFX6cHAFBSOGDJRniehJ6pYD7Z5XG6ygTGHy8j=z+U0g@mail.gmail.com>
-	<1309837443.2720.8.camel@edumazet-laptop>
-	<CAB9v_DFYGyYiXGfMCXn_WDeGTKz8BZPYBCuaDj_a+5VAG3Jn=g@mail.gmail.com>
-	<1309839068.2720.15.camel@edumazet-laptop>
-	<1309839258.2720.17.camel@edumazet-laptop>
-	<CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/2] AF_PACKET fanout support
+Date: Mon, 04 Jul 2011 21:20:02 -0700 (PDT)
+Message-ID: <20110704.212002.1680758539791986198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: victor@inliniac.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:35412 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931Ab1GEES2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:18:28 -0400
-Received: by vxb39 with SMTP id 39so3929237vxb.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2011 21:18:27 -0700 (PDT)
-In-Reply-To: <CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34073 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757Ab1GEEUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 00:20:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 5, 2011 at 08:17, Alexey Zaytsev <alexey.zaytsev@gmail.com>=
- wrote:
-> On Tue, Jul 5, 2011 at 08:14, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
->> Le mardi 05 juillet 2011 =C3=A0 06:11 +0200, Eric Dumazet a =C3=A9cr=
-it :
->>> Le mardi 05 juillet 2011 =C3=A0 07:56 +0400, Alexey Zaytsev a =C3=A9=
-crit :
->>> > On Tue, Jul 5, 2011 at 07:44, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->>> > >
->>> > > I dont care about duplicate acks at this point.
->>> > >
->>> > > Thats a separate issue (TCP layer)
->>> > >
->>> >
->>> > Maybe some tx packets are just sent out more then once? Or a sing=
-le
->>> > packet is sent out instead of some other packets?
->>> > The delays between two dups is short, and they come in bursts, up=
- to a
->>> > few hundreds of duplicate packets at a time.
->>> >
->>>
->>> Thats a completely different problem. SSH is very expensive for you=
-r
->>> receiver (your dump1 file has small packets (560 bytes)), and it ca=
-nnot
->>> cope with the stress.
->>>
->>> You're filling the b44 rx ring, and b44 driver has no choice to zap=
- 200
->>> packets at once. This sure is a problem for tcp, as it stalls the t=
-hing.
->>>
->>> You could avoid this by doing this at b44 machine (the receiver)
->>>
->>> echo "4096 32768 87380" >/proc/sys/net/ipv4/tcp_rmem
->>>
->>> So that sender wont be able to push so many packets
->>
->> You can also try using more packets in rx ring : (default is 200
->> packets, limit ~511)
->>
->> ethtool -G eth0 rx 400
->>
->>
-> Check out starting at packet 302893. 383 _identical_ ACKs were sent
-> out by the b44 machine within 30 milliseconds.
 
-In dump1.pcap, that is.
+This is a fully functional version, I've tested both hash and
+load-balance modes successfully.  I plan to commit this to
+net-next-2.6 very soon.
+
+Below is a test program that other people can play with
+if they want.  It basically creates 4 threads, and creates
+an AF_PACKET fanout amongst them.  Each thread prints out
+it's pid in parentheses every time it receives 10 packets.
+After each thread processes 10,000 packets, it exits.
+
+Try things like "./test eth0 hash", "./test eth0 lb", etc.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+--------------------
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+
+#include <unistd.h>
+
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
+
+#include <net/if.h>
+
+static const char *device_name;
+static int fanout_type;
+static int fanout_id;
+
+#ifndef PACKET_FANOUT
+#define PACKET_FANOUT		18
+#define PACKET_FANOUT_HASH		0
+#define PACKET_FANOUT_LB		1
+#endif
+
+static int setup_socket(void)
+{
+	int err, fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+	struct sockaddr_ll ll;
+	struct ifreq ifr;
+	int fanout_arg;
+
+	if (fd < 0) {
+		perror("socket");
+		return EXIT_FAILURE;
+	}
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, device_name);
+	err = ioctl(fd, SIOCGIFINDEX, &ifr);
+	if (err < 0) {
+		perror("SIOCGIFINDEX");
+		return EXIT_FAILURE;
+	}
+
+	memset(&ll, 0, sizeof(ll));
+	ll.sll_family = AF_PACKET;
+	ll.sll_ifindex = ifr.ifr_ifindex;
+	err = bind(fd, (struct sockaddr *) &ll, sizeof(ll));
+	if (err < 0) {
+		perror("bind");
+		return EXIT_FAILURE;
+	}
+
+	fanout_arg = (fanout_id | (fanout_type << 16));
+	err = setsockopt(fd, SOL_PACKET, PACKET_FANOUT,
+			 &fanout_arg, sizeof(fanout_arg));
+	if (err) {
+		perror("setsockopt");
+		return EXIT_FAILURE;
+	}
+
+	return fd;
+}
+
+static void fanout_thread(void)
+{
+	int fd = setup_socket();
+	int limit = 10000;
+
+	if (fd < 0)
+		exit(fd);
+
+	while (limit-- > 0) {
+		char buf[1600];
+		int err;
+
+		err = read(fd, buf, sizeof(buf));
+		if (err < 0) {
+			perror("read");
+			exit(EXIT_FAILURE);
+		}
+		if ((limit % 10) == 0)
+			fprintf(stdout, "(%d) \n", getpid());
+	}
+
+	fprintf(stdout, "%d: Received 10000 packets\n", getpid());
+
+	close(fd);
+	exit(0);
+}
+
+int main(int argc, char **argp)
+{
+	int fd, err;
+	int i;
+
+	if (argc != 3) {
+		fprintf(stderr, "Usage: %s INTERFACE {hash|lb}\n", argp[0]);
+		return EXIT_FAILURE;
+	}
+
+	if (!strcmp(argp[2], "hash"))
+		fanout_type = PACKET_FANOUT_HASH;
+	else if (!strcmp(argp[2], "lb"))
+		fanout_type = PACKET_FANOUT_LB;
+	else {
+		fprintf(stderr, "Unknown fanout type [%s]\n", argp[2]);
+		exit(EXIT_FAILURE);
+	}
+
+	device_name = argp[1];
+	fanout_id = getpid() & 0xffff;
+
+	for (i = 0; i < 4; i++) {
+		pid_t pid = fork();
+
+		switch (pid) {
+		case 0:
+			fanout_thread();
+
+		case -1:
+			perror("fork");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	for (i = 0; i < 4; i++) {
+		int status;
+
+		wait(&status);
+	}
+
+	return 0;
+}
