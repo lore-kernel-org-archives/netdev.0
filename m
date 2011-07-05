@@ -1,96 +1,65 @@
-From: Dan Magenheimer <dan.magenheimer@oracle.com>
-Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-Date: Tue, 5 Jul 2011 12:18:36 -0700 (PDT)
-Message-ID: <704d094e-7b81-480f-8363-327218d1b0ea@default>
-References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
- <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com>
- <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default
- D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: libpcap and tc filters
+Date: Tue, 05 Jul 2011 15:19:13 -0400
+Message-ID: <1309893553.1733.41.camel@mojatatu>
+References: <CAA0qwj6fWJFVCDW9M9jZhvQnSTy=Pnyp0AhWFYT8FOiroq7C=Q@mail.gmail.com>
+	 <1309777908.26180.1.camel@mojatatu>
+	 <CAA0qwj70-qUQ+6NL=2LP05TyMN99MdL1BF8tko+v=DhdyjZjJQ@mail.gmail.com>
+	 <CAA0qwj7cH8Ah69fBMkXpGkwG77TH_ZqMhKwj-Cc8Vc=F5c9SSw@mail.gmail.com>
+	 <1309784740.26180.21.camel@mojatatu>
+	 <CAA0qwj4=bOU3LDsRk591AtBWx2c_6uFwk0M4-AGrnxCPKjbbrw@mail.gmail.com>
+	 <1309788416.26180.63.camel@mojatatu>
+	 <CAA0qwj4FUpfdux73WCxFcjX0xp-zNtMwncRRmN7ea1Kr9FX3Kw@mail.gmail.com>
+	 <1309863403.1765.0.camel@mojatatu> <1309870021.1765.41.camel@mojatatu>
+	 <CAA0qwj5aBWrsqHGddW9FBV2srdGwVMzJKe84BTyRH0Dkr6KgVQ@mail.gmail.com>
+	 <1309874213.1765.45.camel@mojatatu>
+	 <CAA0qwj74cvZmkkmA8zBFuXeHdidMco2=de7Li9rDN5Wcp=-G7w@mail.gmail.com>
+	 <1309876868.1765.53.camel@mojatatu>
+	 <CAA0qwj49XzNa-nY82X3d_eZ95seS15qELbJDYCNfRkg03OJosQ@mail.gmail.com>
+	 <1309882485.2271.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAA0qwj6Wanp45ntTm0FK+fM37b_N8+T72VJfr9Et8oVb9LqOrg@mail.gmail.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Konrad Wilk <konrad.wilk@oracle.com>, linux-mm <linux-mm@kvack.org>
-To: "Loke, Chetan" <Chetan.Loke@netscout.com>, netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Adam Katz <adamkatz0@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:33044 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752029Ab1GETTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 15:19:18 -0400
+Received: by vxb39 with SMTP id 39so4412492vxb.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 12:19:18 -0700 (PDT)
+In-Reply-To: <CAA0qwj6Wanp45ntTm0FK+fM37b_N8+T72VJfr9Et8oVb9LqOrg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
-> > From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
-> > Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-> >
-> > > From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
-> > > Sent: Tuesday, July 05, 2011 10:37 AM
-> > > To: Dan Magenheimer; netdev@vger.kernel.org
-> > > Cc: Konrad Wilk; linux-mm
-> > > Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-> > >
-> > > > In working on a kernel project called RAMster* (where RAM on a
-> > > > remote system may be used for clean page cache pages and for swap
-> > > > pages), I found I have need for a kernel socket to be used when
-> > >
-> > > How is RAMster+swap different than NBD's (pending etc?)support for
-> > > SWAP over NBD?
-> >
-> > I may be ignorant of details about NBD, but did some quick
-> > research using google.  If I understand correctly, swap over
-> > NBD is still writing to a configured swap disk on the remote
->=20
-> Hi - I thought NBD-server needs a backing store(a file).
-> Now the file itself could reside on a RAM-drive or disk-drive etc.
-> And so a remote NBD(disk or RAM) can be mounted locally as a swap
-> device.
-> The local client should still see it as a block device.
->=20
-> I haven't used the RAM-drive feature myself but you may want to check if
-> it
-> works or even borrow that logic in your code.
+On Tue, 2011-07-05 at 19:54 +0300, Adam Katz wrote:
 
-Actually, RAMster is using a much more flexible type of
-RAM-drive; it is built on top of Transcendent Memory
-and on top of zcache (and thus on top of cleancache and
-frontswap).  A RAM-drive is fixed size so is not very suitable
-for the flexibility required for RAMster.  For example,
-suppose you have two machines A and B.  At one point in
-time A is overcommitted and needs to swap and B is relatively
-idle.  Then later, B is overcommitted and needs to swap and
-A is relatively idle.  RAMster can handle this entirely
-dynamically, a RAM-drive cannot.
+> 
+> unless someone suggests a better solution, it seems like i'll be
+> adhering to the first law of engineering - "if it works, don't fix it"
+> and simply replace install fedora core 15 instead of ubuntu.
 
-> > machine.  RAMster is swapping to *RAM* on the remote machine.
-> > The idea is that most machines are very overprovisioned in
-> > RAM, and are rarely using all of their RAM, especially when
-> > a machine is (mostly) idle.  In other words, the "max of
-> > the sums" of RAM usage on a group of machines is much lower
-> > than the "sum of the max" of RAM usage.
-> >
-> > So if the network is sufficiently faster than disk for
-> > moving a page of data, RAMster provides a significant
-> > performance improvement.  OR RAMster may allow a significant
-> > reduction in the total amount of RAM across a data center.
-> >
-> > The version of RAMster I am working on now is really
-> > a proof-of-concept that works over sockets, using the
-> > ocfs2 cluster layer.  One can easily envision a future
-> > "exo-fabric" which allows one machine to write to the
-> > RAM of another machine... for this future hardware,
-> > RAMster becomes much more interesting.
->=20
-> Or you can also try scst-in-RAM mode(if you want to experiment with
-> different fabrics).
+My feeling is it has nothing to do with distro. Probably
+your tcpreplay?
 
-Thanks.  Could you provide a pointer for this?  I found
-the SCST sourceforge page but no obvious references to
-scst-in-ram-mode.  (But also, since it appears to be
-SCSI-related, I wonder if it also assumes a fixed size
-target device, RAM or disk or ??)
-
-Dan
-
+I am running ubuntu 10.04, but own compiled kernel (3.0-rc4). 
+tcpreplay is older than Eric's version:
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+tcpreplay version: 3.4.3 (build 2375)
+Copyright 2001-2009 by Aaron Turner <aturner at synfin dot net>
+Cache file supported: 04
+Not compiled with libdnet.
+Compiled against libpcap: 1.0.0
+64 bit packet counters: enabled
+Verbose printing via tcpdump: enabled
+Packet editing: disabled
+Fragroute engine: disabled
+Injection method: PF_PACKET send()
+---
+
+cheers,
+jamal
+
