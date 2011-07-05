@@ -1,57 +1,75 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
- overwritten
-Date: Tue, 5 Jul 2011 18:27:03 +0200
-Message-ID: <20110705182703.0bb9eb33@maggie>
-References: <1309839258.2720.17.camel@edumazet-laptop>
-	<CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
-	<1309839928.2720.23.camel@edumazet-laptop>
-	<CAB9v_DEOhZh37aqx1qrLnrz5+tqjcjgBx-DP6M_0NkygZ1LjcQ@mail.gmail.com>
-	<1309840708.2720.31.camel@edumazet-laptop>
-	<CAB9v_DFM8PcujUB-YzcK49DS7T6Bz2FLDtkVdEYt8an1oPYVFw@mail.gmail.com>
-	<1309842642.2720.36.camel@edumazet-laptop>
-	<CAB9v_DEiPFzQt-TgeVC3r3Y7YFwApLK_NHkDahFOKpibtABrZg@mail.gmail.com>
-	<1309844009.2720.39.camel@edumazet-laptop>
-	<1309845573.2720.41.camel@edumazet-laptop>
-	<20110705160531.GC2959@hmsreliant.think-freely.org>
-	<1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] non-preemptible kernel socket for RAMster
+Date: Tue, 05 Jul 2011 18:30:30 +0200
+Message-ID: <1309883430.2271.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bues.ch ([80.190.117.144]:49508 "EHLO bues.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754542Ab1GEQ12 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2011 12:27:28 -0400
-In-Reply-To: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, Konrad Wilk <konrad.wilk@oracle.com>, linux-mm
+ <linux-mm@kvack.org>
+To: Dan Magenheimer <dan.magenheimer@oracle.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 05 Jul 2011 18:12:32 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Hmm... We are in a NAPI handler... There wont be a new interrupt.
-> 
-> Plus, we do at start of b44_rx() :
-> 
-> prod  = br32(bp, B44_DMARX_STAT) & DMARX_STAT_CDMASK;
-> 
-> So all descriptors before prod are guaranteed to be ready for host
-> consume... Fact that a dma access is running on 'next descriptor' should
-> be irrelevant.
-> 
-> IMHO Peeking B44_DMARX_STAT for each packet would be a waste of time.
+Le mardi 05 juillet 2011 =C3=A0 08:54 -0700, Dan Magenheimer a =C3=A9crit=
+ :
+> In working on a kernel project called RAMster* (where RAM on a
+> remote system may be used for clean page cache pages and for swap
+> pages), I found I have need for a kernel socket to be used when
+> in non-preemptible state.  I admit to being a networking idiot,
+> but I have been successfully using the following small patch.
+> I'm not sure whether I am lucky so far... perhaps more
+> sockets or larger/different loads will require a lot more
+> changes (or maybe even make my objective impossible).
+> So I thought I'd post it for comment.  I'd appreciate
+> any thoughts or suggestions.
+>=20
+> Thanks,
+> Dan
+>=20
+> * http://events.linuxfoundation.org/events/linuxcon/magenheimer=20
+>=20
+> diff -Napur linux-2.6.37/net/core/sock.c linux-2.6.37-ramster/net/core/=
+sock.c
+> --- linux-2.6.37/net/core/sock.c	2011-07-03 19:14:52.267853088 -0600
+> +++ linux-2.6.37-ramster/net/core/sock.c	2011-07-03 19:10:04.340980799 =
+-0600
+> @@ -1587,6 +1587,14 @@ static void __lock_sock(struct sock *sk)
+>  	__acquires(&sk->sk_lock.slock)
+>  {
+>  	DEFINE_WAIT(wait);
+> +	if (!preemptible()) {
+> +		while (sock_owned_by_user(sk)) {
+> +			spin_unlock_bh(&sk->sk_lock.slock);
+> +			cpu_relax();
+> +			spin_lock_bh(&sk->sk_lock.slock);
+> +		}
+> +		return;
+> +	}
 
-Yeah I think so, too. We don't need to wait for the _whole_ DMA engine
-to go idle, before we can access a buffer in the ring. We just need to make sure
-that the device is finished with that buffer. And we do this by reading the current
-descriptor pointer.
+Hmm, was this tested on UP machine ?
+
+> =20
+>  	for (;;) {
+>  		prepare_to_wait_exclusive(&sk->sk_lock.wq, &wait,
+> @@ -1623,7 +1631,8 @@ static void __release_sock(struct sock *
+>  			 * This is safe to do because we've taken the backlog
+>  			 * queue private:
+>  			 */
+> -			cond_resched_softirq();
+> +			if (preemptible())
+> +				cond_resched_softirq();
+>  			skb =3D next;
+>  		} while (skb !=3D NULL);
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
