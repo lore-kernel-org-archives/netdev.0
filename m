@@ -1,37 +1,109 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: [PATCH 2/2] packet: Add fanout support.
-Date: Tue, 5 Jul 2011 12:03:29 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B91257D61B@nsmail.netscout.com>
-References: <20110704.212014.236340473910292460.davem@davemloft.net> <1309846875.2720.43.camel@edumazet-laptop>  <4E12B5A6.2020802@inliniac.net> <1309849214.2720.45.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 2/4] packet: Add fanout support.
+Date: Tue, 05 Jul 2011 18:04:00 +0200
+Message-ID: <1309881840.2271.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110705.020419.1998951566353182397.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Victor Julien" <victor@inliniac.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: victor@inliniac.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og101.obsmtp.com ([64.18.1.181]:53607 "HELO
-	exprod6og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753318Ab1GEQDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:03:32 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1309849214.2720.45.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:62934 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752538Ab1GEQEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:04:15 -0400
+Received: by wyg8 with SMTP id 8so4099023wyg.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 09:04:14 -0700 (PDT)
+In-Reply-To: <20110705.020419.1998951566353182397.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogSnVseSAwNSwgMjAxMSAzOjAwIEFNDQo+IFRv
-OiBWaWN0b3IgSnVsaWVuDQo+IENjOiBEYXZpZCBNaWxsZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzJdIHBhY2tldDogQWRkIGZhbm91dCBzdXBwb3J0
-Lg0KPiANCj4gTGUgbWFyZGkgMDUganVpbGxldCAyMDExIMOgIDA4OjU2ICswMjAwLCBWaWN0b3Ig
-SnVsaWVuIGEgw6ljcml0IDoNCj4gDQo+ID4gSXMgdGhpcyBzdGlsbCBhbHNvIHRydWUgZm9yIElQ
-IGZyYWdtZW50cz8NCj4gPg0KPiANCj4gVGhpcyBwb2ludCB3YXMgYWxyZWFkeSByYWlzZWQuIElQ
-IGZyYWdtZW50cyBoYXZlIHJ4aGFzaCA9IDAsIG9idmlvdXNseSwNCj4gc2luY2Ugd2UgZG9udCBo
-YXZlIGZ1bGwgaW5mb3JtYXRpb24gKHNvdXJjZSAvIGRlc3RpbmF0aW9uIHBvcnRzIGZvcg0KPiBl
-eGFtcGxlKQ0KDQpDYW4gd2Ugbm90IGRvIHNvbWV0aGluZyBsaWtlOg0KDQphID0gc3JjX2lwX2Fk
-ZHI7DQpiID0gZHN0X2lwX2FkZHI7DQoNCmlmIChpcF9pc19mcmFnbWVudChpcF9oZHIoc2tiKSkp
-DQoJYyA9IGlwX2hkci0+aWQ7DQplbHNlDQoJYyA9IHNyY19wb3J0IHwgZGVzdF9wb3J0IDsgLyog
-cG9ydF8zMiBldGMgLSBTaW1pbGFyIHRvIHdoYXQgd2UgaGF2ZSB0b2RheSAqLw0KDQovKiBzd2Fw
-IGEvYiBldGMgKi8NCmpoYXNoM193b3JkcyhhLGIsYyk7DQoNCg0KDQpDaGV0YW4gTG9rZQ0K
+Le mardi 05 juillet 2011 =C3=A0 02:04 -0700, David Miller a =C3=A9crit =
+:
+
+
+> +static int fanout_add(struct sock *sk, u16 id, u8 type)
+> +{
+> +	struct packet_sock *po =3D pkt_sk(sk);
+> +	struct packet_fanout *f, *match;
+> +	int err;
+> +
+> +	switch (type) {
+> +	case PACKET_FANOUT_HASH:
+> +	case PACKET_FANOUT_LB:
+> +		break;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (!po->running)
+> +		return -EINVAL;
+> +
+> +	if (po->fanout)
+> +		return -EALREADY;
+> +
+> +	mutex_lock(&fanout_mutex);
+> +	match =3D NULL;
+> +	list_for_each_entry(f, &fanout_list, list) {
+> +		if (f->id =3D=3D id &&
+> +		    read_pnet(&f->net) =3D=3D sock_net(sk)) {
+> +			match =3D f;
+> +			break;
+> +		}
+> +	}
+> +	if (!match) {
+> +		match =3D kzalloc(sizeof(*match), GFP_KERNEL);
+> +		if (match) {
+> +			write_pnet(&match->net, sock_net(sk));
+> +			match->id =3D id;
+> +			match->type =3D type;
+> +			atomic_set(&match->rr_cur, 0);
+> +			INIT_LIST_HEAD(&match->list);
+> +			spin_lock_init(&match->lock);
+> +			atomic_set(&match->sk_ref, 0);
+> +			match->prot_hook.type =3D po->prot_hook.type;
+> +			match->prot_hook.dev =3D po->prot_hook.dev;
+> +			switch (type) {
+> +			case PACKET_FANOUT_HASH:
+> +				match->prot_hook.func =3D packet_rcv_fanout_hash;
+> +				break;
+> +			case PACKET_FANOUT_LB:
+> +				match->prot_hook.func =3D packet_rcv_fanout_lb;
+> +				break;
+> +			}
+> +			match->prot_hook.af_packet_priv =3D match;
+> +			dev_add_pack(&match->prot_hook);
+
+There is a small window where __fanout_link(sk, po) is not yet called,
+but packets can be received on other cpus since dev_add_pack() was
+called.
+
+There is no divide by 0, but fanout_demux_hash() can return a NULL sk,
+thus we can crash...
+
+> +			list_add(&match->list, &fanout_list);
+> +		}
+> +	}
+> +	err =3D -ENOMEM;
+> +	if (match) {
+> +		err =3D -EINVAL;
+> +		if (match->type =3D=3D type &&
+> +		    match->prot_hook.type =3D=3D po->prot_hook.type &&
+> +		    match->prot_hook.dev =3D=3D po->prot_hook.dev) {
+> +			err =3D -ENOSPC;
+> +			if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
+> +				__dev_remove_pack(&po->prot_hook);
+> +				po->fanout =3D match;
+> +				atomic_inc(&match->sk_ref);
+> +				__fanout_link(sk, po);
+> +				err =3D 0;
+> +			}
+> +		}
+> +	}
+> +	mutex_unlock(&fanout_mutex);
+> +	return err;
+> +}
+> +
+
+
