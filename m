@@ -1,109 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 2/4] packet: Add fanout support.
-Date: Tue, 05 Jul 2011 18:04:00 +0200
-Message-ID: <1309881840.2271.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20110705.020419.1998951566353182397.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
+Date: Tue, 5 Jul 2011 12:05:31 -0400
+Message-ID: <20110705160531.GC2959@hmsreliant.think-freely.org>
+References: <1309839258.2720.17.camel@edumazet-laptop>
+ <CAB9v_DGSFAG9V0jqem+tDP3G-N8v6Z+_6oKdPwL-ZwhfhCOZnw@mail.gmail.com>
+ <1309839928.2720.23.camel@edumazet-laptop>
+ <CAB9v_DEOhZh37aqx1qrLnrz5+tqjcjgBx-DP6M_0NkygZ1LjcQ@mail.gmail.com>
+ <1309840708.2720.31.camel@edumazet-laptop>
+ <CAB9v_DFM8PcujUB-YzcK49DS7T6Bz2FLDtkVdEYt8an1oPYVFw@mail.gmail.com>
+ <1309842642.2720.36.camel@edumazet-laptop>
+ <CAB9v_DEiPFzQt-TgeVC3r3Y7YFwApLK_NHkDahFOKpibtABrZg@mail.gmail.com>
+ <1309844009.2720.39.camel@edumazet-laptop>
+ <1309845573.2720.41.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: victor@inliniac.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
+	Michael =?iso-8859-1?Q?B=FCsch?= <m@bues.ch>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62934 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752538Ab1GEQEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:04:15 -0400
-Received: by wyg8 with SMTP id 8so4099023wyg.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 09:04:14 -0700 (PDT)
-In-Reply-To: <20110705.020419.1998951566353182397.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41593 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754526Ab1GEQGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:06:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1309845573.2720.41.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 05 juillet 2011 =C3=A0 02:04 -0700, David Miller a =C3=A9crit =
+On Tue, Jul 05, 2011 at 07:59:33AM +0200, Eric Dumazet wrote:
+> Le mardi 05 juillet 2011 =E0 07:33 +0200, Eric Dumazet a =E9crit :
+> > Le mardi 05 juillet 2011 =E0 09:18 +0400, Alexey Zaytsev a =E9crit =
 :
+> >=20
+> > > Actually, I've added a trace to show b44_init_rings and b44_free_=
+rings
+> > > calls, and they are only called once, right after the driver is
+> > > loaded. So it can't be related to START_RFO. Will attach the diff=
+ and
+> > > dmesg.
+> >=20
+> > Thanks
+> >=20
+> > I was wondering if DMA could be faster if providing word aligned
+> > addresses, could you try :
+> >=20
+> > -#define RX_PKT_OFFSET          (RX_HEADER_LEN + 2)
+> > +#define RX_PKT_OFFSET          (RX_HEADER_LEN + NET_IP_ALIGN)
+> >=20
+> > (On x86, we now have NET_IP_ALIGN =3D 0 since commit ea812ca1)
+> >=20
+>=20
+> I suspect a hardware bug.
+>=20
+I'm not sure if this helps, but I've been reading over this bug, and it=
+ seems
+that the rx path never checks the status of a buffers rx header prior t=
+o
+unmapping it or otherwise modifying it in hardware.  If we were to star=
+t munging
+pointers in the rx channel while a dma was active in it still, it sems =
+like the
+observed corruption might be the result.  The docs aren't super clear o=
+n this,
+but I think a descriptor needs to be in the idle wait or stopped state =
+prior to
+being acessed.  This patch might help out there (although I don't have =
+hardware
+to test)
+Neil
 
-
-> +static int fanout_add(struct sock *sk, u16 id, u8 type)
-> +{
-> +	struct packet_sock *po =3D pkt_sk(sk);
-> +	struct packet_fanout *f, *match;
-> +	int err;
-> +
-> +	switch (type) {
-> +	case PACKET_FANOUT_HASH:
-> +	case PACKET_FANOUT_LB:
-> +		break;
-> +	default:
-> +		return -EINVAL;
-> +	}
-> +
-> +	if (!po->running)
-> +		return -EINVAL;
-> +
-> +	if (po->fanout)
-> +		return -EALREADY;
-> +
-> +	mutex_lock(&fanout_mutex);
-> +	match =3D NULL;
-> +	list_for_each_entry(f, &fanout_list, list) {
-> +		if (f->id =3D=3D id &&
-> +		    read_pnet(&f->net) =3D=3D sock_net(sk)) {
-> +			match =3D f;
-> +			break;
-> +		}
-> +	}
-> +	if (!match) {
-> +		match =3D kzalloc(sizeof(*match), GFP_KERNEL);
-> +		if (match) {
-> +			write_pnet(&match->net, sock_net(sk));
-> +			match->id =3D id;
-> +			match->type =3D type;
-> +			atomic_set(&match->rr_cur, 0);
-> +			INIT_LIST_HEAD(&match->list);
-> +			spin_lock_init(&match->lock);
-> +			atomic_set(&match->sk_ref, 0);
-> +			match->prot_hook.type =3D po->prot_hook.type;
-> +			match->prot_hook.dev =3D po->prot_hook.dev;
-> +			switch (type) {
-> +			case PACKET_FANOUT_HASH:
-> +				match->prot_hook.func =3D packet_rcv_fanout_hash;
-> +				break;
-> +			case PACKET_FANOUT_LB:
-> +				match->prot_hook.func =3D packet_rcv_fanout_lb;
-> +				break;
-> +			}
-> +			match->prot_hook.af_packet_priv =3D match;
-> +			dev_add_pack(&match->prot_hook);
-
-There is a small window where __fanout_link(sk, po) is not yet called,
-but packets can be received on other cpus since dev_add_pack() was
-called.
-
-There is no divide by 0, but fanout_demux_hash() can return a NULL sk,
-thus we can crash...
-
-> +			list_add(&match->list, &fanout_list);
-> +		}
-> +	}
-> +	err =3D -ENOMEM;
-> +	if (match) {
-> +		err =3D -EINVAL;
-> +		if (match->type =3D=3D type &&
-> +		    match->prot_hook.type =3D=3D po->prot_hook.type &&
-> +		    match->prot_hook.dev =3D=3D po->prot_hook.dev) {
-> +			err =3D -ENOSPC;
-> +			if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
-> +				__dev_remove_pack(&po->prot_hook);
-> +				po->fanout =3D match;
-> +				atomic_inc(&match->sk_ref);
-> +				__fanout_link(sk, po);
-> +				err =3D 0;
-> +			}
-> +		}
-> +	}
-> +	mutex_unlock(&fanout_mutex);
-> +	return err;
-> +}
-> +
-
-
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 3d247f3..48540ad 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -769,7 +769,19 @@ static int b44_rx(struct b44 *bp, int budget)
+ 		dma_addr_t map =3D rp->mapping;
+ 		struct rx_header *rh;
+ 		u16 len;
+-
++		u32 state =3D br32(bp, B44_DMARX_STAT) & DMARX_STAT_SMASK;
++		state >>=3D 12;
++
++		/*
++ 		 * I _think_ descriptors need to be in the idle or stopped state
++ 		 * before its safe to access them.  If the current buffer
++ 		 * pointed to by the dma channel is in state 1 or lower (active
++ 		 * or disabled), then we should just stop receving until the
++ 		 * next interrupt kicks us again (I think)
++ 		 */
++		if (state < 2)
++			return;
++=20
+ 		dma_sync_single_for_cpu(bp->sdev->dev, map,
+ 					    RX_PKT_BUF_SZ,
+ 					    DMA_FROM_DEVICE);
