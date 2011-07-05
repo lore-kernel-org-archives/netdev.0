@@ -1,383 +1,147 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: sched: constify tcf_proto and tc_action
-Date: Tue, 05 Jul 2011 18:36:47 +0200
-Message-ID: <1309883807.2271.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
+Date: Tue, 5 Jul 2011 12:42:02 -0400
+Message-ID: <20110705164202.GD2959@hmsreliant.think-freely.org>
+References: <1309839928.2720.23.camel@edumazet-laptop>
+ <CAB9v_DEOhZh37aqx1qrLnrz5+tqjcjgBx-DP6M_0NkygZ1LjcQ@mail.gmail.com>
+ <1309840708.2720.31.camel@edumazet-laptop>
+ <CAB9v_DFM8PcujUB-YzcK49DS7T6Bz2FLDtkVdEYt8an1oPYVFw@mail.gmail.com>
+ <1309842642.2720.36.camel@edumazet-laptop>
+ <CAB9v_DEiPFzQt-TgeVC3r3Y7YFwApLK_NHkDahFOKpibtABrZg@mail.gmail.com>
+ <1309844009.2720.39.camel@edumazet-laptop>
+ <1309845573.2720.41.camel@edumazet-laptop>
+ <20110705160531.GC2959@hmsreliant.think-freely.org>
+ <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Zaytsev <alexey.zaytsev@gmail.com>,
+	Michael =?iso-8859-1?Q?B=FCsch?= <m@bues.ch>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45001 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753922Ab1GEQhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:37:01 -0400
-Received: by wyg8 with SMTP id 8so4121166wyg.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 09:37:00 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44052 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753909Ab1GEQmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 12:42:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/act_api.h     |    6 +++---
- include/net/pkt_sched.h   |    4 ++--
- include/net/sch_generic.h |   12 +++++++-----
- net/sched/act_api.c       |    4 ++--
- net/sched/act_gact.c      |    3 ++-
- net/sched/act_mirred.c    |    2 +-
- net/sched/act_nat.c       |    2 +-
- net/sched/act_pedit.c     |    2 +-
- net/sched/act_police.c    |    2 +-
- net/sched/act_simple.c    |    3 ++-
- net/sched/act_skbedit.c   |    2 +-
- net/sched/cls_api.c       |    6 +++---
- net/sched/cls_basic.c     |    2 +-
- net/sched/cls_flow.c      |    2 +-
- net/sched/cls_fw.c        |    2 +-
- net/sched/cls_route.c     |    2 +-
- net/sched/cls_rsvp.h      |    2 +-
- net/sched/cls_tcindex.c   |    2 +-
- net/sched/cls_u32.c       |    2 +-
- net/sched/sch_api.c       |    6 +++---
- 20 files changed, 36 insertions(+), 32 deletions(-)
+On Tue, Jul 05, 2011 at 06:12:32PM +0200, Eric Dumazet wrote:
+> Le mardi 05 juillet 2011 =E0 12:05 -0400, Neil Horman a =E9crit :
+> > On Tue, Jul 05, 2011 at 07:59:33AM +0200, Eric Dumazet wrote:
+> > > Le mardi 05 juillet 2011 =E0 07:33 +0200, Eric Dumazet a =E9crit =
+:
+> > > > Le mardi 05 juillet 2011 =E0 09:18 +0400, Alexey Zaytsev a =E9c=
+rit :
+> > > >=20
+> > > > > Actually, I've added a trace to show b44_init_rings and b44_f=
+ree_rings
+> > > > > calls, and they are only called once, right after the driver =
+is
+> > > > > loaded. So it can't be related to START_RFO. Will attach the =
+diff and
+> > > > > dmesg.
+> > > >=20
+> > > > Thanks
+> > > >=20
+> > > > I was wondering if DMA could be faster if providing word aligne=
+d
+> > > > addresses, could you try :
+> > > >=20
+> > > > -#define RX_PKT_OFFSET          (RX_HEADER_LEN + 2)
+> > > > +#define RX_PKT_OFFSET          (RX_HEADER_LEN + NET_IP_ALIGN)
+> > > >=20
+> > > > (On x86, we now have NET_IP_ALIGN =3D 0 since commit ea812ca1)
+> > > >=20
+> > >=20
+> > > I suspect a hardware bug.
+> > >=20
+> > I'm not sure if this helps, but I've been reading over this bug, an=
+d it seems
+> > that the rx path never checks the status of a buffers rx header pri=
+or to
+> > unmapping it or otherwise modifying it in hardware.  If we were to =
+start munging
+> > pointers in the rx channel while a dma was active in it still, it s=
+ems like the
+> > observed corruption might be the result.  The docs aren't super cle=
+ar on this,
+> > but I think a descriptor needs to be in the idle wait or stopped st=
+ate prior to
+> > being acessed.  This patch might help out there (although I don't h=
+ave hardware
+> > to test)
+> > Neil
+> >=20
+> > diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> > index 3d247f3..48540ad 100644
+> > --- a/drivers/net/b44.c
+> > +++ b/drivers/net/b44.c
+> > @@ -769,7 +769,19 @@ static int b44_rx(struct b44 *bp, int budget)
+> >  		dma_addr_t map =3D rp->mapping;
+> >  		struct rx_header *rh;
+> >  		u16 len;
+> > -
+> > +		u32 state =3D br32(bp, B44_DMARX_STAT) & DMARX_STAT_SMASK;
+> > +		state >>=3D 12;
+> > +
+> > +		/*
+> > + 		 * I _think_ descriptors need to be in the idle or stopped stat=
+e
+> > + 		 * before its safe to access them.  If the current buffer
+> > + 		 * pointed to by the dma channel is in state 1 or lower (active
+> > + 		 * or disabled), then we should just stop receving until the
+> > + 		 * next interrupt kicks us again (I think)
+> > + 		 */
+> > +		if (state < 2)
+> > +			return;
+> > +=20
+> >  		dma_sync_single_for_cpu(bp->sdev->dev, map,
+> >  					    RX_PKT_BUF_SZ,
+> >  					    DMA_FROM_DEVICE);
+>=20
+> Hmm... We are in a NAPI handler... There wont be a new interrupt.
+>=20
+Not until we're done with the napi handler, no.  But if we encounter a =
+dma
+descriptor that isn't idle, then we know that either we're clearing out=
+ the ring
+(ie. for a shutdown), or we'll get another interrupt when the descripto=
+r we
+failed on completes.
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index bab385f..c739531 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -72,7 +72,7 @@ struct tcf_act_hdr {
- 
- struct tc_action {
- 	void			*priv;
--	struct tc_action_ops	*ops;
-+	const struct tc_action_ops	*ops;
- 	__u32			type; /* for backward compat(TCA_OLD_COMPAT) */
- 	__u32			order;
- 	struct tc_action	*next;
-@@ -86,7 +86,7 @@ struct tc_action_ops {
- 	__u32   type; /* TBD to match kind */
- 	__u32 	capab;  /* capabilities includes 4 bit version */
- 	struct module		*owner;
--	int     (*act)(struct sk_buff *, struct tc_action *, struct tcf_result *);
-+	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
- 	int     (*get_stats)(struct sk_buff *, struct tc_action *);
- 	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
- 	int     (*cleanup)(struct tc_action *, int bind);
-@@ -115,7 +115,7 @@ extern void tcf_hash_insert(struct tcf_common *p, struct tcf_hashinfo *hinfo);
- extern int tcf_register_action(struct tc_action_ops *a);
- extern int tcf_unregister_action(struct tc_action_ops *a);
- extern void tcf_action_destroy(struct tc_action *a, int bind);
--extern int tcf_action_exec(struct sk_buff *skb, struct tc_action *a, struct tcf_result *res);
-+extern int tcf_action_exec(struct sk_buff *skb, const struct tc_action *a, struct tcf_result *res);
- extern struct tc_action *tcf_action_init(struct nlattr *nla, struct nlattr *est, char *n, int ovr, int bind);
- extern struct tc_action *tcf_action_init_1(struct nlattr *nla, struct nlattr *est, char *n, int ovr, int bind);
- extern int tcf_action_dump(struct sk_buff *skb, struct tc_action *a, int, int);
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 65afc49..fffdc60 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -99,9 +99,9 @@ static inline void qdisc_run(struct Qdisc *q)
- 		__qdisc_run(q);
- }
- 
--extern int tc_classify_compat(struct sk_buff *skb, struct tcf_proto *tp,
-+extern int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
- 			      struct tcf_result *res);
--extern int tc_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+extern int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		       struct tcf_result *res);
- 
- /* Calculate maximal size of packet seen by hard_start_xmit
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index b931f02..626177b 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -181,8 +181,9 @@ struct tcf_proto_ops {
- 	struct tcf_proto_ops	*next;
- 	char			kind[IFNAMSIZ];
- 
--	int			(*classify)(struct sk_buff*, struct tcf_proto*,
--					struct tcf_result *);
-+	int			(*classify)(struct sk_buff *,
-+					    const struct tcf_proto*,
-+					    struct tcf_result *);
- 	int			(*init)(struct tcf_proto*);
- 	void			(*destroy)(struct tcf_proto*);
- 
-@@ -205,8 +206,9 @@ struct tcf_proto {
- 	/* Fast access part */
- 	struct tcf_proto	*next;
- 	void			*root;
--	int			(*classify)(struct sk_buff*, struct tcf_proto*,
--					struct tcf_result *);
-+	int			(*classify)(struct sk_buff *,
-+					    const struct tcf_proto *,
-+					    struct tcf_result *);
- 	__be16			protocol;
- 
- 	/* All the rest */
-@@ -214,7 +216,7 @@ struct tcf_proto {
- 	u32			classid;
- 	struct Qdisc		*q;
- 	void			*data;
--	struct tcf_proto_ops	*ops;
-+	const struct tcf_proto_ops	*ops;
- };
- 
- struct qdisc_skb_cb {
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 2f64262..f2fb67e 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -365,10 +365,10 @@ static struct tc_action_ops *tc_lookup_action_id(u32 type)
- }
- #endif
- 
--int tcf_action_exec(struct sk_buff *skb, struct tc_action *act,
-+int tcf_action_exec(struct sk_buff *skb, const struct tc_action *act,
- 		    struct tcf_result *res)
- {
--	struct tc_action *a;
-+	const struct tc_action *a;
- 	int ret = -1;
- 
- 	if (skb->tc_verd & TC_NCLS) {
-diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index 2b4ab4b..b77f5a0 100644
---- a/net/sched/act_gact.c
-+++ b/net/sched/act_gact.c
-@@ -125,7 +125,8 @@ static int tcf_gact_cleanup(struct tc_action *a, int bind)
- 	return 0;
- }
- 
--static int tcf_gact(struct sk_buff *skb, struct tc_action *a, struct tcf_result *res)
-+static int tcf_gact(struct sk_buff *skb, const struct tc_action *a,
-+		    struct tcf_result *res)
- {
- 	struct tcf_gact *gact = a->priv;
- 	int action = TC_ACT_SHOT;
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 961386e..102fc21 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -154,7 +154,7 @@ static int tcf_mirred_cleanup(struct tc_action *a, int bind)
- 	return 0;
- }
- 
--static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
-+static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 		      struct tcf_result *res)
- {
- 	struct tcf_mirred *m = a->priv;
-diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
-index 762b027..001d1b3 100644
---- a/net/sched/act_nat.c
-+++ b/net/sched/act_nat.c
-@@ -102,7 +102,7 @@ static int tcf_nat_cleanup(struct tc_action *a, int bind)
- 	return tcf_hash_release(&p->common, bind, &nat_hash_info);
- }
- 
--static int tcf_nat(struct sk_buff *skb, struct tc_action *a,
-+static int tcf_nat(struct sk_buff *skb, const struct tc_action *a,
- 		   struct tcf_result *res)
- {
- 	struct tcf_nat *p = a->priv;
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 7affe9a..10d3aed 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -120,7 +120,7 @@ static int tcf_pedit_cleanup(struct tc_action *a, int bind)
- 	return 0;
- }
- 
--static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
-+static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 		     struct tcf_result *res)
- {
- 	struct tcf_pedit *p = a->priv;
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index b3b9b32..6fb3f5a 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -282,7 +282,7 @@ static int tcf_act_police_cleanup(struct tc_action *a, int bind)
- 	return ret;
- }
- 
--static int tcf_act_police(struct sk_buff *skb, struct tc_action *a,
-+static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
- 			  struct tcf_result *res)
- {
- 	struct tcf_police *police = a->priv;
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index a34a22d..73e0a3a 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -36,7 +36,8 @@ static struct tcf_hashinfo simp_hash_info = {
- };
- 
- #define SIMP_MAX_DATA	32
--static int tcf_simp(struct sk_buff *skb, struct tc_action *a, struct tcf_result *res)
-+static int tcf_simp(struct sk_buff *skb, const struct tc_action *a,
-+		    struct tcf_result *res)
- {
- 	struct tcf_defact *d = a->priv;
- 
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 5f6f0c7..35dbbe9 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -39,7 +39,7 @@ static struct tcf_hashinfo skbedit_hash_info = {
- 	.lock	=	&skbedit_lock,
- };
- 
--static int tcf_skbedit(struct sk_buff *skb, struct tc_action *a,
-+static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
- 		       struct tcf_result *res)
- {
- 	struct tcf_skbedit *d = a->priv;
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 9563887..a69d44f 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -40,9 +40,9 @@ static DEFINE_RWLOCK(cls_mod_lock);
- 
- /* Find classifier type by string name */
- 
--static struct tcf_proto_ops *tcf_proto_lookup_ops(struct nlattr *kind)
-+static const struct tcf_proto_ops *tcf_proto_lookup_ops(struct nlattr *kind)
- {
--	struct tcf_proto_ops *t = NULL;
-+	const struct tcf_proto_ops *t = NULL;
- 
- 	if (kind) {
- 		read_lock(&cls_mod_lock);
-@@ -132,7 +132,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	struct Qdisc  *q;
- 	struct tcf_proto **back, **chain;
- 	struct tcf_proto *tp;
--	struct tcf_proto_ops *tp_ops;
-+	const struct tcf_proto_ops *tp_ops;
- 	const struct Qdisc_class_ops *cops;
- 	unsigned long cl;
- 	unsigned long fh;
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index 8be8872..ea1f70b 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -39,7 +39,7 @@ static const struct tcf_ext_map basic_ext_map = {
- 	.police = TCA_BASIC_POLICE
- };
- 
--static int basic_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+static int basic_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			  struct tcf_result *res)
- {
- 	int r;
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 34533a5..6994214 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -356,7 +356,7 @@ static u32 flow_key_get(struct sk_buff *skb, int key)
- 	}
- }
- 
--static int flow_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+static int flow_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			 struct tcf_result *res)
- {
- 	struct flow_head *head = tp->root;
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 26e7bc4..389af15 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -77,7 +77,7 @@ static inline int fw_hash(u32 handle)
- 		return handle & (HTSIZE - 1);
- }
- 
--static int fw_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			  struct tcf_result *res)
- {
- 	struct fw_head *head = (struct fw_head *)tp->root;
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index a9079053..13ab66e 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -125,7 +125,7 @@ static inline int route4_hash_wild(void)
- 	return 0;						\
- }
- 
--static int route4_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+static int route4_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			   struct tcf_result *res)
- {
- 	struct route4_head *head = (struct route4_head *)tp->root;
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index ed691b1..be4505e 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -130,7 +130,7 @@ static struct tcf_ext_map rsvp_ext_map = {
- 		return r;				\
- }
- 
--static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+static int rsvp_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			 struct tcf_result *res)
- {
- 	struct rsvp_session **sht = ((struct rsvp_head *)tp->root)->ht;
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 36667fa..dbe1992 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -79,7 +79,7 @@ tcindex_lookup(struct tcindex_data *p, u16 key)
- }
- 
- 
--static int tcindex_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			    struct tcf_result *res)
- {
- 	struct tcindex_data *p = PRIV(tp);
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 3b93fc0..939b627 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -93,7 +93,7 @@ static inline unsigned int u32_hash_fold(__be32 key,
- 	return h;
- }
- 
--static int u32_classify(struct sk_buff *skb, struct tcf_proto *tp, struct tcf_result *res)
-+static int u32_classify(struct sk_buff *skb, const struct tcf_proto *tp, struct tcf_result *res)
- {
- 	struct {
- 		struct tc_u_knode *knode;
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 8182aef..dca6c1a 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1644,7 +1644,7 @@ done:
-  * to this qdisc, (optionally) tests for protocol and asks
-  * specific classifiers.
-  */
--int tc_classify_compat(struct sk_buff *skb, struct tcf_proto *tp,
-+int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
- 		       struct tcf_result *res)
- {
- 	__be16 protocol = skb->protocol;
-@@ -1668,12 +1668,12 @@ int tc_classify_compat(struct sk_buff *skb, struct tcf_proto *tp,
- }
- EXPORT_SYMBOL(tc_classify_compat);
- 
--int tc_classify(struct sk_buff *skb, struct tcf_proto *tp,
-+int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		struct tcf_result *res)
- {
- 	int err = 0;
- #ifdef CONFIG_NET_CLS_ACT
--	struct tcf_proto *otp = tp;
-+	const struct tcf_proto *otp = tp;
- reclassify:
- #endif
- 
+> Plus, we do at start of b44_rx() :
+>=20
+> prod  =3D br32(bp, B44_DMARX_STAT) & DMARX_STAT_CDMASK;
+>=20
+Yes, that just tells us which is the current dma index.  After that we =
+loop
+through subsequent dma descriptor incrementing the index each time.
 
+> So all descriptors before prod are guaranteed to be ready for host
+> consume... Fact that a dma access is running on 'next descriptor' sho=
+uld
+> be irrelevant.
+>=20
+But we handle more than one descriptor per b44_rx call - theres a while=
+ loop in
+there where we do advance to the next descriptor.
 
+> IMHO Peeking B44_DMARX_STAT for each packet would be a waste of time.
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
