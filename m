@@ -1,16 +1,16 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: igb: Use
-	is_multicast_ether_addr helper
-Date: Mon, 04 Jul 2011 20:31:12 -0700 (PDT)
-Message-ID: <20110704.203112.695091115074837502.davem@davemloft.net>
-References: <1309773015-23598-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH net-next] net: e1000e: Use
+ is_multicast_ether_addr helper
+Date: Mon, 04 Jul 2011 20:30:59 -0700 (PDT)
+Message-ID: <20110704.203059.1858347214152040557.davem@davemloft.net>
+References: <1309772824-22157-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: tklauser@distanz.ch
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1309773015-23598-1-git-send-email-tklauser@distanz.ch>
+In-Reply-To: <1309772824-22157-1-git-send-email-tklauser@distanz.ch>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -22,7 +22,7 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 From: Tobias Klauser <tklauser@distanz.ch>
-Date: Mon,  4 Jul 2011 11:50:15 +0200
+Date: Mon,  4 Jul 2011 11:47:04 +0200
 
 > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
