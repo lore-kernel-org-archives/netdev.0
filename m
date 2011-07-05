@@ -1,17 +1,17 @@
 From: "Dulce Cupen" <ducu@mail.cmacpiura.com.pe>
 Subject: Hello
-Date: Tue, 5 Jul 2011 15:47:51 -0400
-Message-ID: <20110705194751.M20080@mail.cmacpiura.com.pe>
+Date: Tue, 5 Jul 2011 15:10:11 -0400
+Message-ID: <20110705191011.M78059@mail.cmacpiura.com.pe>
 Reply-To: wumt.solodavid.uk@msnzone.cn
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=iso-8859-1
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.cmacpiura.com.pe ([200.60.59.243]:34767 "EHLO
+Received: from mail.cmacpiura.com.pe ([200.60.59.243]:36947 "EHLO
 	mail.cmacpiura.com.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444Ab1GEVlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 17:41:03 -0400
+	with ESMTP id S1755028Ab1GEWES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 18:04:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
