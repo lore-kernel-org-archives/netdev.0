@@ -1,48 +1,42 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: IPv6 destination cache in Linux kernel
-Date: Tue, 05 Jul 2011 13:58:58 -0600
-Message-ID: <4E136D02.3060302@genband.com>
-References: <CF5C0F47-9A82-44CF-8441-AC23C26E476B@gmail.com> <20110704.174619.1196575558517508080.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: coding style question on indentation
+Date: Tue, 05 Jul 2011 13:01:20 -0700
+Message-ID: <1309896081.18925.73.camel@Joe-Laptop>
+References: <3367B80B08154D42A3B2BC708B5D41F63F87EF145E@EXMAIL.ad.emulex.com>
+	 <1309533793.7277.51.camel@Joe-Laptop>  <4E136C0C.8010806@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mparemm@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Sathya.Perla@Emulex.Com, netdev@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og103.obsmtp.com ([64.18.2.159]:55132 "EHLO
-	exprod7og103.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487Ab1GET7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 15:59:03 -0400
-In-Reply-To: <20110704.174619.1196575558517508080.davem@davemloft.net>
+Received: from mail.perches.com ([173.55.12.10]:3595 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753262Ab1GEUBX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2011 16:01:23 -0400
+In-Reply-To: <4E136C0C.8010806@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/04/2011 06:46 PM, David Miller wrote:
-> From: Mikhail Paremski<mparemm@gmail.com>
-> Date: Mon, 4 Jul 2011 17:35:04 -0700
->
->> 1. What are the reasons to rout datagrams differently fromIPv4?
->
-> It was just a design decision made when the ipv6 routing code
-> was implemented.
+On Tue, 2011-07-05 at 13:54 -0600, Chris Friesen wrote:
+> On 07/01/2011 09:23 AM, Joe Perches wrote:
+> > I think this better:
+> >           1         2         3         4         5         6         7         8
+> > 12345678901234567890123456789012345678901234567890123456789012345678901234567890
+> > 	dma_unmap_page(&adapter->pdev->dev, dma_unmap_addr(rx_page_info, bus),
+> > 		       adapter->big_page_size, DMA_FROM_DEVICE);
+> > maximally fill to 80 cols, then wrap with maximal tabs using spaces
+> > if necessary to align args after opening parenthesis.
+> > In this case, 2 tabs, 7 spaces.
+> I think the most flexible is to use hard tabs to align the continued 
+> line to the same level of indentation as the parent line, then use 
+> spaces for "pretty" alignment.  That way, it all lines up regardless of 
+> how many spaces the viewer has set for the equivalent size of hard tabs.
 
-Presumably there was some rationale for doing it differently than the 
-existing IPv4 code.  Or was it just for fun?
+True, but none of the common editing tools do this.
 
->> 2. Where I could get details how IPv6 stack routes datagrams?
->
-> By reading the source code.
+You could produce and publish emacs/vi modes for this
+and then teach checkpatch to understand this mode and
+not complain about the spacing if it matters that much
+to you.
 
-While the source code has the final say, for someone new to a given part 
-of the kernel it is helpful to have a high-level view of the overall 
-flow.  It's a lot easier to understand something if you can place it in 
-the overall scheme of of things.
-
-Chris
-
--- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
