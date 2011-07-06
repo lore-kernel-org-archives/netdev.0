@@ -1,207 +1,106 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 0/2] AF_PACKET fanout support
-Date: Tue, 5 Jul 2011 17:46:36 -0700
-Message-ID: <CA+mtBx_MtQGqNT6iungW7eyStpvLEGYsgXQ8=mYq_JR8jw3=DQ@mail.gmail.com>
-References: <20110704.212002.1680758539791986198.davem@davemloft.net>
+From: Dan Magenheimer <dan.magenheimer@oracle.com>
+Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+Date: Tue, 5 Jul 2011 18:05:53 -0700 (PDT)
+Message-ID: <d19811cc-a722-4d30-8a43-aedb1cd978c9@default>
+References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
+ <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com>
+ <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default>
+ <D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com>
+ <704d094e-7b81-480f-8363-327218d1b0ea@default
+ D3F292ADF945FB49B35E96C94C2061B91257DCA8@nsmail.netscout.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: victor@inliniac.net, netdev@vger.kernel.org,
-	Willem Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:54484 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755046Ab1GFAql convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 20:46:41 -0400
-Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
-	by smtp-out.google.com with ESMTP id p660keJG015089
-	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 17:46:40 -0700
-Received: from pvg12 (pvg12.prod.google.com [10.241.210.140])
-	by hpaq7.eem.corp.google.com with ESMTP id p660kagh006313
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 17:46:38 -0700
-Received: by pvg12 with SMTP id 12so5603826pvg.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 17:46:36 -0700 (PDT)
-In-Reply-To: <20110704.212002.1680758539791986198.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: Konrad Wilk <konrad.wilk@oracle.com>, linux-mm <linux-mm@kvack.org>
+To: "Loke, Chetan" <Chetan.Loke@netscout.com>, netdev@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B91257DCA8@nsmail.netscout.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+> From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
+> Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+>=20
+> > From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
+>=20
+> > Actually, RAMster is using a much more flexible type of
+> > RAM-drive; it is built on top of Transcendent Memory
+> > and on top of zcache (and thus on top of cleancache and
+> > frontswap).  A RAM-drive is fixed size so is not very suitable
+> > for the flexibility required for RAMster.  For example,
+> > suppose you have two machines A and B.  At one point in
+> > time A is overcommitted and needs to swap and B is relatively
+> > idle.  Then later, B is overcommitted and needs to swap and
+> > A is relatively idle.  RAMster can handle this entirely
+> > dynamically, a RAM-drive cannot.
+>=20
+> Again, iff NBD works with a ram-drive then you really wouldn't need to
+> do anything. How often are you going to re-size your remote-SWAP?  Plus,
+> you can make nbd-server listen on multiple ports - Google(Linux NBD)
+> returned: http://www.fi.muni.cz/~kripac/orac-nbd/ . Look at the
+> nbd-server code to see if it launches multiple kernel-threads for
+> servicing different ports. If not, one can enhance it and scale that way
+> too. But nbd-server today can service multiple-ports(that is effectively
+> servicing multiple clients). So why not add NBD-filesystem-filters to
+> make it point to local/remote swap?
 
-Thanks for these patches!  Is it possible you could use an alternative
-term than "fanout"?  I think this may be more often associated with a
-transmit operation (e.g. multicast fanout).
+Well, we may be talking past each other, but the RAMster answer to:
 
-Also, another useful mode of steering would be to steer packets to a
-socket which was recently processed by a thread running on the same
-CPU; somewhat analogous to RFS (cc'ed WIllem Bruijn who is already
-working on this I believe).
+> How often are you going to re-size your remote-SWAP?
 
-Tom
+is "as often as the working set changes on any machine in the
+cluster", meaning *constantly*, entirely dynamically!  How
+about a more specific example:  Suppose you have 2 machines,
+each with 8GB of memory.  99% of the time each machine is
+chugging along just fine and doesn't really need more than 4GB,
+and may even use less than 1GB a large part of the time.
+But very now and then, one of the machines randomly needs
+9GB, 10GB, maybe even 12GB  of memory.  This would normally
+result in swapping.  (Most system administrators won't even
+have this much information... they'll just know they are
+seeing swapping and decide they need to buy more RAM.)
 
-On Mon, Jul 4, 2011 at 9:20 PM, David Miller <davem@davemloft.net> wrot=
-e:
->
-> This is a fully functional version, I've tested both hash and
-> load-balance modes successfully. =A0I plan to commit this to
-> net-next-2.6 very soon.
->
-> Below is a test program that other people can play with
-> if they want. =A0It basically creates 4 threads, and creates
-> an AF_PACKET fanout amongst them. =A0Each thread prints out
-> it's pid in parentheses every time it receives 10 packets.
-> After each thread processes 10,000 packets, it exits.
->
-> Try things like "./test eth0 hash", "./test eth0 lb", etc.
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> --------------------
-> #include <stddef.h>
-> #include <stdlib.h>
-> #include <stdio.h>
-> #include <string.h>
->
-> #include <sys/types.h>
-> #include <sys/wait.h>
-> #include <sys/socket.h>
-> #include <sys/ioctl.h>
->
-> #include <unistd.h>
->
-> #include <linux/if_ether.h>
-> #include <linux/if_packet.h>
->
-> #include <net/if.h>
->
-> static const char *device_name;
-> static int fanout_type;
-> static int fanout_id;
->
-> #ifndef PACKET_FANOUT
-> #define PACKET_FANOUT =A0 =A0 =A0 =A0 =A0 18
-> #define PACKET_FANOUT_HASH =A0 =A0 =A0 =A0 =A0 =A0 =A00
-> #define PACKET_FANOUT_LB =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A01
-> #endif
->
-> static int setup_socket(void)
-> {
-> =A0 =A0 =A0 =A0int err, fd =3D socket(AF_PACKET, SOCK_RAW, htons(ETH_=
-P_IP));
-> =A0 =A0 =A0 =A0struct sockaddr_ll ll;
-> =A0 =A0 =A0 =A0struct ifreq ifr;
-> =A0 =A0 =A0 =A0int fanout_arg;
->
-> =A0 =A0 =A0 =A0if (fd < 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("socket");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0memset(&ifr, 0, sizeof(ifr));
-> =A0 =A0 =A0 =A0strcpy(ifr.ifr_name, device_name);
-> =A0 =A0 =A0 =A0err =3D ioctl(fd, SIOCGIFINDEX, &ifr);
-> =A0 =A0 =A0 =A0if (err < 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("SIOCGIFINDEX");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0memset(&ll, 0, sizeof(ll));
-> =A0 =A0 =A0 =A0ll.sll_family =3D AF_PACKET;
-> =A0 =A0 =A0 =A0ll.sll_ifindex =3D ifr.ifr_ifindex;
-> =A0 =A0 =A0 =A0err =3D bind(fd, (struct sockaddr *) &ll, sizeof(ll));
-> =A0 =A0 =A0 =A0if (err < 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("bind");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0fanout_arg =3D (fanout_id | (fanout_type << 16));
-> =A0 =A0 =A0 =A0err =3D setsockopt(fd, SOL_PACKET, PACKET_FANOUT,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &fanout_arg, sizeof(f=
-anout_arg));
-> =A0 =A0 =A0 =A0if (err) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("setsockopt");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0return fd;
-> }
->
-> static void fanout_thread(void)
-> {
-> =A0 =A0 =A0 =A0int fd =3D setup_socket();
-> =A0 =A0 =A0 =A0int limit =3D 10000;
->
-> =A0 =A0 =A0 =A0if (fd < 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(fd);
->
-> =A0 =A0 =A0 =A0while (limit-- > 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0char buf[1600];
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int err;
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0err =3D read(fd, buf, sizeof(buf));
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (err < 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("read");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(EXIT_FAILURE);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((limit % 10) =3D=3D 0)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fprintf(stdout, "(%d) =
-\n", getpid());
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0fprintf(stdout, "%d: Received 10000 packets\n", getpid=
-());
->
-> =A0 =A0 =A0 =A0close(fd);
-> =A0 =A0 =A0 =A0exit(0);
-> }
->
-> int main(int argc, char **argp)
-> {
-> =A0 =A0 =A0 =A0int fd, err;
-> =A0 =A0 =A0 =A0int i;
->
-> =A0 =A0 =A0 =A0if (argc !=3D 3) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fprintf(stderr, "Usage: %s INTERFACE {=
-hash|lb}\n", argp[0]);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0if (!strcmp(argp[2], "hash"))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fanout_type =3D PACKET_FANOUT_HASH;
-> =A0 =A0 =A0 =A0else if (!strcmp(argp[2], "lb"))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fanout_type =3D PACKET_FANOUT_LB;
-> =A0 =A0 =A0 =A0else {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fprintf(stderr, "Unknown fanout type [=
-%s]\n", argp[2]);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(EXIT_FAILURE);
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0device_name =3D argp[1];
-> =A0 =A0 =A0 =A0fanout_id =3D getpid() & 0xffff;
->
-> =A0 =A0 =A0 =A0for (i =3D 0; i < 4; i++) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pid_t pid =3D fork();
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0switch (pid) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case 0:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fanout_thread();
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case -1:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("fork");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(EXIT_FAILURE);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0for (i =3D 0; i < 4; i++) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int status;
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0wait(&status);
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0return 0;
-> }
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+With NBD to a ram-drive, each machine would need to pre-allocate
+4GB of RAM for the RAM-drive, leaving only 4GB of RAM for
+the "local" RAM.  The result will actually be MORE swapping
+because a fixed amount of RAM has been pre-reserved for the
+other machine's swap.   With RAMster, everything is done dynamically,
+so all that matters is the maximum of the sum of the RAM
+used.  You may even be able to *remove* ~2GB of RAM from each
+of the systems and still never see any swapping to disk.
+
+> > Thanks.  Could you provide a pointer for this?  I found
+> > the SCST sourceforge page but no obvious references to
+> > scst-in-ram-mode.  (But also, since it appears to be
+> > SCSI-related, I wonder if it also assumes a fixed size
+> > target device, RAM or disk or ??)
+>=20
+> Yes, it is SCSI. You should be looking for SCST I/O modes. Read some
+> docs and then send an email to the scst-mailing-list. If you speak about
+> block-IO-performance then FC(in its class of price/performance factor)
+> is more than capable of handling any workload. FC is a protocol designed
+> for storage. No exotic fabric other than FC is needed.
+> Folks who start with ethernet for block-IO, always start with bare
+> minimal code and then for squeezing block-IO performance(aka version 2
+> of the product), keep hacking repeatedly or go for a link-speed upgrade.
+> Start with FC, period.
+
+My point was that block I/O devices (AFAIK) always present a fixed
+"size" to the kernel, and if this is also true of scst-in-ram-mode,
+the same problem as swap-over-NBD occurs... it's not dynamic.
+RAMster does not present a block-I/O storage-like interface;
+it's using the Transcendent Memory interface, which is designed
+for "slow RAM" of an unknown-and-dynamic size.
+
+I'm not a storage expert either, but I do wonder if "no exotic
+fabric other than FC" isn't an oxymoron ;-)  FC is certainly
+too exotic for me.
+
+Dan
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
