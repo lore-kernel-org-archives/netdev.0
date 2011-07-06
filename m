@@ -1,61 +1,52 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
-Date: Wed, 6 Jul 2011 13:14:07 +0800
-Message-ID: <20110706051406.GA26324@S2100-06.ap.freescale.net>
-References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
- <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
- <20110704065523.GX6069@pengutronix.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [BUG] bd4265fe36 bridge: Only flood unreg groups... breaks
+	DHCP setup
+Date: Wed, 6 Jul 2011 13:08:48 +0800
+Message-ID: <20110706050848.GA7564@gondor.apana.org.au>
+References: <20110705204200@it-loops.com> <20110705235833.GA5599@gondor.apana.org.au> <20110705.184044.1261486363010308552.davem@davemloft.net> <20110705220636.6afeb81c@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Shawn Guo <shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<u.kleine-koenig@pengutronix.de>, <LW@KARO-electronics.de>,
-	Troy Kisky <troy.kisky@boundarydevices.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, mike@it-loops.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:29687
-	"EHLO VA3EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750738Ab1GFFH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 01:07:57 -0400
+Received: from helcar.apana.org.au ([209.40.204.226]:55868 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750738Ab1GFFIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 01:08:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20110704065523.GX6069@pengutronix.de>
+In-Reply-To: <20110705220636.6afeb81c@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 04, 2011 at 08:55:23AM +0200, Sascha Hauer wrote:
-> David,
+On Tue, Jul 05, 2011 at 10:06:36PM -0700, Stephen Hemminger wrote:
+> On Tue, 05 Jul 2011 18:40:44 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> On Fri, Jul 01, 2011 at 06:11:22PM +0800, Shawn Guo wrote:
-> > On the recent i.mx (mx25/50/53), there is a gasket inside fec
-> > controller which needs to be enabled no matter phy works in MII
-> > or RMII mode.
+> > From: Herbert Xu <herbert@gondor.hengli.com.au>
+> > Date: Wed, 6 Jul 2011 07:58:33 +0800
 > > 
-> > The current code enables the gasket only when phy interface is RMII.
-> > It's broken when the driver works with a MII phy.  The patch uses
-> > platform_device_id to distinguish the SoCs that have the gasket and
-> > enables it on these SoCs for both MII and RMII mode.
+> > > bridge: Always flood broadcast packets
+> > > 
+> > > As is_multicast_ether_addr returns true on broadcast packets as
+> > > well, we need to explicitly exclude broadcast packets so that
+> > > they're always flooded.  This wasn't an issue before as broadcast
+> > > packets were considered to be an unregistered multicast group,
+> > > which were always flooded.  However, as we now only flood such
+> > > packets to router ports, this is no longer acceptable.
+> > > 
+> > > Reported-by: Michael Guntsche <mike@it-loops.com>
+> > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > > 
-> > Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Cc: Sascha Hauer <s.hauer@pengutronix.de>
-> > ---
-> >  arch/arm/mach-imx/clock-imx25.c                 |    2 +-
-> >  arch/arm/mach-imx/clock-imx27.c                 |    2 +-
-> >  arch/arm/mach-imx/clock-imx35.c                 |    2 +-
-> >  arch/arm/mach-mx5/clock-mx51-mx53.c             |    4 +-
-> >  arch/arm/plat-mxc/devices/platform-fec.c        |   17 ++++++++-------
-> >  arch/arm/plat-mxc/include/mach/devices-common.h |    1 +
-> >  drivers/net/fec.c                               |   26 ++++++++++++++++++++--
+> > Applied.
 > 
-> I either need your Ack for this or we need to split this up into two
-> patches. Pushing this through the net tree is probably not a good idea.
-> 
-I need to do another rebase on 'next' as David just applied the dt
-series.
+> Obviously needs to go to stable as well.
 
+I don't think the buggy patch has made it to a release kernel
+yet.
+
+Thanks,
 -- 
-Regards,
-Shawn
-
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
