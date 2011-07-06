@@ -1,42 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: instant oops with AF_ROSE
-Date: Wed, 06 Jul 2011 03:57:35 -0700 (PDT)
-Message-ID: <20110706.035735.1271031398642349034.davem@davemloft.net>
+From: Gustavo Padovan <padovan@profusion.mobi>
+Subject: Re: linux-next: manual merge of the net tree with the
+ wireless-current tree
+Date: Wed, 6 Jul 2011 08:07:30 -0300
+Message-ID: <20110706110730.GA5895@joana>
+References: <20110706125329.6e5bdd1a.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, linux-hams@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110706125329.6e5bdd1a.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Stephen Rothwell <sfr@canb.auug.org.au> [2011-07-06 12:53:29 +1000]:
 
-The support for ipv4 over rose devices has been broken for as long as
-the code has existed (I went back to 2.0.x just to make sure).  Try
-this:
+> Hi all,
+> 
+> Today's linux-next merge of the net tree got a conflict in
+> net/bluetooth/l2cap_core.c between commit 9fa7e4f76f36 ("Bluetooth: Fix
+> regression with incoming L2CAP connections") from the wireless-current
+> tree and commit 89bc500e41fc ("Bluetooth: Add state tracking to struct
+> l2cap_chan") from the net tree.
+> 
+> I fixed it up (I think - see below) and can carry the fix as necessary.
+> -- 
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+> 
+> diff --cc net/bluetooth/l2cap_core.c
+> index ebff14c,9ec9c8c..0000000
+> --- a/net/bluetooth/l2cap_core.c
+> +++ b/net/bluetooth/l2cap_core.c
+> @@@ -2323,8 -2530,7 +2530,8 @@@ static inline int l2cap_config_req(stru
+>   
+>   	sk = chan->sk;
+>   
+> - 	if ((bt_sk(sk)->defer_setup && sk->sk_state != BT_CONNECT2) ||
+> - 		 (!bt_sk(sk)->defer_setup && sk->sk_state != BT_CONFIG)) {
+>  -	if (chan->state != BT_CONFIG) {
+> ++	if ((bt_sk(sk)->defer_setup && chan->state != BT_CONNECT2) ||
+> ++		 (!bt_sk(sk)->defer_setup && chan->state != BT_CONFIG)) {
 
-modprobe rose
-ip link set rose0 up
-ip addr add 11.0.0.3/8 dev rose0
-ping -b 11.255.255.255
+Seems I need to merge my own trees. I'll do that. Thanks, Stephen.
+And the fix is right ;)
 
-That should crash your box pretty well.
-
-The immediate reason is that rose_rebuild_header() calls
-rose_route_frame() with second arg NULL.
-
-The first thing rose_route_frame() does is take that second arg and
-dereference it in order to find the appropriate rose neighbour to use.
-
-Again, it has "worked" this way since day one.  Ie. it never worked.
-
-Since this has never worked, I think the thing to do is to simply
-remove all of the rose device code.  It's only used to provide support
-for ipv4 over ROSE and it simply never worked.
-
-If someone wants to resurrect this, that's fine, but they'll have
-to implement proper header_ops and a real transmit function instead
-of the hacky thing it does now where it does the transmit in the
-header building routines :-/
-
+	Gustavo
