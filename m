@@ -1,78 +1,73 @@
-From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Subject: 3.0.0rc6: ethtool not working without a cable
-Date: Wed, 6 Jul 2011 13:38:08 +0200
-Message-ID: <201107061338.08573.a.miskiewicz@gmail.com>
+From: Chuck Hast <wchast@gmail.com>
+Subject: Re: instant oops with AF_ROSE
+Date: Wed, 6 Jul 2011 07:42:32 -0400
+Message-ID: <CADNfBV_i6st5PD_7bJta2rUwGjzt6eBckeeEGTt4osjr_P_R+g@mail.gmail.com>
+References: <20110706.035735.1271031398642349034.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f52.google.com ([209.85.161.52]:36893 "EHLO
-	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074Ab1GFLiM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 07:38:12 -0400
-Received: by fxd18 with SMTP id 18so7129055fxd.11
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2011 04:38:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
+	linux-hams@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20110706.035735.1271031398642349034.davem@davemloft.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Wed, Jul 6, 2011 at 06:57, David Miller <davem@davemloft.net> wrote:
+>
+> The support for ipv4 over rose devices has been broken for as long as
+> the code has existed (I went back to 2.0.x just to make sure). =A0Try
+> this:
+>
+> modprobe rose
+> ip link set rose0 up
+> ip addr add 11.0.0.3/8 dev rose0
+> ping -b 11.255.255.255
+>
+> That should crash your box pretty well.
+>
+----- Text cut for bandwidth reduction-----------
+
+It has been a while, and we were (still are I just am not active)  usin=
+g FPAC
+we have run a lot of IP through it, and never seemed to have a issue, b=
+ut
+perhaps this is not quite in that area.
+
+I  am sure Bernard will see this and pitch in with more info. I am
+just trying to
+figure out if we are taking two different pieces here.
+
+Here in FL I have ran both NetRom and IP over ROSE through FPAC boxes
+with no issues that I can remember. FPAC is a wrapper around the rose p=
+iece.
+We probably have people still doing IP inside ROSE through FPAC boxes a=
+round
+the state, not sure who or where, but it would not be a surprise to me =
+because
+some use SMTP between their BBS devices.
 
 
-3.0.0rc6, thinkpad t400 notebook.
-
-If there is no cable then ethtool reports no device. It wasn't that bef=
-ore=20
-AFAIK.
-
-ethtool version 2.6.36
-
-
-cable disconnected:
-
-[root@t400 ~]# ethtool eth0
-Settings for eth0:
-Cannot get device settings: No such device
-Cannot get wake-on-lan settings: No such device
-Cannot get message level: No such device
-Cannot get link status: No such device
-No data available
-zsh: exit 75    ethtool eth0
-[root@t400 ~]# ethtool -i eth0
-Cannot get driver information: No such device
-zsh: exit 71    ethtool -i eth0
-
-cable connected:
-
-[root@t400 ~]# ethtool -i eth0
-driver: e1000e
-version: 1.3.10-k2
-firmware-version: 1.8-3
-bus-info: 0000:00:19.0
-[root@t400 ~]# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 2
-        Transceiver: internal
-        Auto-negotiation: on
-        MDI-X: off
-        Supports Wake-on: pumbg
-        Wake-on: d
-        Current message level: 0x00000001 (1)
-                               drv
-        Link detected: yes
-
-
+Bernard, any comments?
 --=20
-Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
-arekm / maven.pl            http://ftp.pld-linux.org/
+
+Chuck Hast =A0-- KP4DJT --
+To paraphrase my flight instructor;
+"the only dumb question is the one you DID NOT ask resulting in my goin=
+g
+out and having to identify your bits and pieces in the midst of torn
+and twisted metal."
+---
+Home web site:
+www.wchast.com
+
+ZoneMinder Demo and test site
+www.wchast.com/zm
+Login =3D guest
+pwd=A0 =A0=3D guest
+--
+To unsubscribe from this list: send the line "unsubscribe linux-hams" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
