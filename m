@@ -1,55 +1,36 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH net-next v2] net: Add GSO to vlan_features initialization
-Date: Wed, 06 Jul 2011 10:09:08 +0800
-Message-ID: <4E13C3C4.40809@cn.fujitsu.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-07-05
+Date: Tue, 05 Jul 2011 19:46:40 -0700 (PDT)
+Message-ID: <20110705.194640.687565722412124324.davem@davemloft.net>
+References: <1309873440-11704-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	=?UTF-8?B?5Y2V5Y2r?= <shanwei@cn.fujitsu.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59049 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755838Ab1GFCH6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2011 22:07:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1309873440-11704-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Just add GSO to vlan_features initialization, and update comments.
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Tue,  5 Jul 2011 15:43:54 +0200
 
-When we set offload features, vlan_dev_fix_features() will do more check.
-In vlan_dev_fix_features(), final features is decided by
-features of real device and vlan_features of real device.
+> The following changes since commit 43676ab590c3f8686fd047d34c3e33803eef71f0:
+> 
+>   batman-adv: improved gateway tq-based selection (2011-06-20 11:37:41 +0200)
+> 
+> are available in the git repository at:
+>   git://git.open-mesh.org/linux-merge.git batman-adv/next
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
-v2: update changelog.
-
----
- net/core/dev.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4577e67..9ca1514 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5488,11 +5488,12 @@ int register_netdevice(struct net_device *dev)
- 		dev->features |= NETIF_F_NOCACHE_COPY;
- 	}
- 
--	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
--	 * vlan_dev_init() will do the dev->features check, so these features
--	 * are enabled only if supported by underlying device.
-+	/* Enable GSO, GRO and NETIF_F_HIGHDMA for vlans by default,
-+	 * vlan_dev_fix_features() will do the features check,
-+	 * so NETIF_F_HIGHDMA feature is enabled only if supported
-+	 * by underlying device.
- 	 */
--	dev->vlan_features |= (NETIF_F_GRO | NETIF_F_HIGHDMA);
-+	dev->vlan_features |= (NETIF_F_SOFT_FEATURES | NETIF_F_HIGHDMA);
- 
- 	ret = call_netdevice_notifiers(NETDEV_POST_INIT, dev);
- 	ret = notifier_to_errno(ret);
--- 
-1.7.4.1
+Pulled, thanks.
