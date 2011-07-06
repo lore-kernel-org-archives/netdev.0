@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] bd4265fe36 bridge: Only flood unreg groups... breaks
- DHCP setup
-Date: Tue, 05 Jul 2011 18:40:44 -0700 (PDT)
-Message-ID: <20110705.184044.1261486363010308552.davem@davemloft.net>
-References: <20110705204200@it-loops.com>
-	<20110705235833.GA5599@gondor.apana.org.au>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH bug-fix v2] net: vlan: enable soft features regardless of
+ underlying device
+Date: Wed, 06 Jul 2011 10:08:44 +0800
+Message-ID: <4E13C3AC.3050407@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mike@it-loops.com, netdev@vger.kernel.org
-To: herbert@gondor.hengli.com.au
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Miller <davem@davemloft.net>,
+	=?UTF-8?B?5Y2V5Y2r?= <shanwei@cn.fujitsu.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51038 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755654Ab1GFBkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:40:53 -0400
-In-Reply-To: <20110705235833.GA5599@gondor.apana.org.au>
+Received: from cn.fujitsu.com ([222.73.24.84]:62728 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752691Ab1GFCHf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 22:07:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Wed, 6 Jul 2011 07:58:33 +0800
+If gso/gro feature of underlying device is turned off=EF=BC=8C
+then new created vlan device never can turn gso/gro on.=20
 
-> bridge: Always flood broadcast packets
-> 
-> As is_multicast_ether_addr returns true on broadcast packets as
-> well, we need to explicitly exclude broadcast packets so that
-> they're always flooded.  This wasn't an issue before as broadcast
-> packets were considered to be an unregistered multicast group,
-> which were always flooded.  However, as we now only flood such
-> packets to router ports, this is no longer acceptable.
-> 
-> Reported-by: Michael Guntsche <mike@it-loops.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Although underlying device don't support TSO, we still
+should use software segments for vlan device.
 
-Applied.
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+v2: only update changelog and title.
+---
+ net/8021q/vlan_dev.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 1c9aa8c..d8f45ba 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -588,9 +588,14 @@ static void vlan_dev_uninit(struct net_device *dev=
+)
+ static u32 vlan_dev_fix_features(struct net_device *dev, u32 features)
+ {
+ 	struct net_device *real_dev =3D vlan_dev_info(dev)->real_dev;
++	u32 old_features =3D features;
+=20
+ 	features &=3D real_dev->features;
+ 	features &=3D real_dev->vlan_features;
++
++	if (old_features & NETIF_F_SOFT_FEATURES)
++		features |=3D old_features & NETIF_F_SOFT_FEATURES;
++
+ 	if (dev_ethtool_get_rx_csum(real_dev))
+ 		features |=3D NETIF_F_RXCSUM;
+ 	features |=3D NETIF_F_LLTX;
+--=20
+1.7.4.1
