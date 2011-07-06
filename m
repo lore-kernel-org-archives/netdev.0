@@ -1,61 +1,66 @@
-From: Jim Cromie <jim.cromie@gmail.com>
-Subject: Re: [PATCH 00/10] dynamic_debug: various fixes
-Date: Wed, 6 Jul 2011 11:57:21 -0600
-Message-ID: <CAJfuBxyfA=Hjr8HEp47mKyr9fSdRGhppKr_-755vHQqn_RB=8Q@mail.gmail.com>
-References: <cover.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+Date: Wed, 6 Jul 2011 14:12:04 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B912622709@nsmail.netscout.com>
+References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default> <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com> <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default> <D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com> <704d094e-7b81-480f-8363-327218d1b0ea@default D3F292ADF945FB49B35E96C94C2061B91257DCA8@nsmail.netscout.com> <d19811cc-a722-4d30-8a43-aedb1cd978c9@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregkh@suse.de, joe@perches.com, bvanassche@acm.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
-To: Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Konrad Wilk" <konrad.wilk@oracle.com>,
+	"linux-mm" <linux-mm@kvack.org>
+To: "Dan Magenheimer" <dan.magenheimer@oracle.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod6og112.obsmtp.com ([64.18.1.29]:51465 "HELO
+	exprod6og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751987Ab1GFSMH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 14:12:07 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <d19811cc-a722-4d30-8a43-aedb1cd978c9@default>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 6, 2011 at 11:24 AM, Jason Baron <jbaron@redhat.com> wrote:
-> Hi,
->
-> Various dynamic debug fixes and cleanups, and a patch to add myself a=
-s
-> maintainer. Hopefully, nobody will object too loudly :)
->
+> -----Original Message-----
+> From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
+> Sent: July 05, 2011 9:06 PM
+> To: Loke, Chetan; netdev@vger.kernel.org
+> Cc: Konrad Wilk; linux-mm
+> Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+> 
+> > From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
+> > Subject: RE: [RFC] non-preemptible kernel socket for RAMster
+> >
+> > > From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
+> 
+> > How often are you going to re-size your remote-SWAP?
+> 
+> is "as often as the working set changes on any machine in the
+> cluster", meaning *constantly*, entirely dynamically!  How
+> about a more specific example:  Suppose you have 2 machines,
+> each with 8GB of memory.  99% of the time each machine is
+> chugging along just fine and doesn't really need more than 4GB,
+> and may even use less than 1GB a large part of the time.
+> But very now and then, one of the machines randomly needs
+> 9GB, 10GB, maybe even 12GB  of memory.  This would normally
+> result in swapping.  (Most system administrators won't even
+> have this much information... they'll just know they are
+> seeing swapping and decide they need to buy more RAM.)
+> 
 
-do you have this in a git-tree somewhere I can pull ?
+Ok, I understand there is interest in implementing
+'remote-volatile-ballooning-variant' but how do you pick a remote
+candidate(hypervisor)? Let's say, memory could be available on remote
+system but what if the remote-p{NIC,CPU} is overloaded? Sure, sysadmins
+won't have this info because this so dynamic(and it's quite possible as
+you mentioned above). But does the trans-remote-API know about this
+resource-availability before opening a remote-channel?
 
-> Thanks,
->
-> -Jason
->
->
-> Joe Perches (4):
-> =A0dynamic_debug: Add __dynamic_dev_dbg
-> =A0dynamic_debug: Consolidate prefix output to single routine
-> =A0dynamic_debug: Remove uses of KERN_CONT in dynamic_emit_prefix
-> =A0dynamic_debug: Convert printks to pr_<level>
->
-> Jason Baron (6):
-> =A0dynamic_debug: remove unused control variables
-> =A0dynamic_debug: add myslef as maintainer
-> =A0dynamic_debug: make netdev_dbg() call __netdev_printk()
-> =A0dynamic_debug: make netif_dbg() call __netdev_printk()
-> =A0dynamic_debug: consolidate repetitive struct _ddebug descriptor
-> =A0 =A0definitions
-> =A0dynamic_debug: remove num_enabled accounting
->
-> =A0MAINTAINERS =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A06 ++
-> =A0drivers/base/core.c =A0 =A0 =A0 =A0 =A0 | =A0 =A05 +-
-> =A0include/linux/device.h =A0 =A0 =A0 =A0| =A0 =A05 +
-> =A0include/linux/dynamic_debug.h | =A0 58 ++++++++++-----
-> =A0include/linux/netdevice.h =A0 =A0 | =A0 12 ++--
-> =A0lib/dynamic_debug.c =A0 =A0 =A0 =A0 =A0 | =A0165 +++++++++++++++++=
-+++++++++++-------------
-> =A0net/core/dev.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A03 +-
-> =A07 files changed, 172 insertions(+), 82 deletions(-)
->
-> --
-> 1.7.5.4
->
->
+Stressing the remote-p{NIC/CPU} might trick hypervisor-vmotion-plugin to
+vmotion VM[s] to another hypervisor. How is trans-remote-API integrating
+with remote/global vmotion policies to avoid this false vmotion?
+
+
+> Dan
+
+Chetan Loke
