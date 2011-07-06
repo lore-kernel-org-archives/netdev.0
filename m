@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] AF_PACKET fanout support
-Date: Tue, 05 Jul 2011 18:20:41 -0700 (PDT)
-Message-ID: <20110705.182041.1392492274453963565.davem@davemloft.net>
-References: <20110704.212002.1680758539791986198.davem@davemloft.net>
-	<CA+mtBx_MtQGqNT6iungW7eyStpvLEGYsgXQ8=mYq_JR8jw3=DQ@mail.gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2011-07-05
+Date: Tue, 05 Jul 2011 18:29:47 -0700 (PDT)
+Message-ID: <20110705.182947.1948569712783653700.davem@davemloft.net>
+References: <20110705204106.GG7540@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: victor@inliniac.net, netdev@vger.kernel.org, willemb@google.com
-To: therbert@google.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43838 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48357 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754498Ab1GFBUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:20:49 -0400
-In-Reply-To: <CA+mtBx_MtQGqNT6iungW7eyStpvLEGYsgXQ8=mYq_JR8jw3=DQ@mail.gmail.com>
+	with ESMTP id S1752461Ab1GFBax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:30:53 -0400
+In-Reply-To: <20110705204106.GG7540@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 5 Jul 2011 17:46:36 -0700
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 5 Jul 2011 16:41:07 -0400
 
-> Thanks for these patches!  Is it possible you could use an alternative
-> term than "fanout"?  I think this may be more often associated with a
-> transmit operation (e.g. multicast fanout).
+> Here is another big batch of changed intended for 3.1.  This looks
+> bigger than it is, as it also contains a wireless-2.6 pull to resolve
+> some build conflicts.
+> 
+> The most noteworth item is yet another rtlwifi-based driver (rtl8192de).
+> There is also some HT-phy work for b43, plus the usual contributions
+> from the ath9k and iwlwifi crews and a variety of other bits here and
+> there.
+> 
+> Please let me know if there are problems!
 
-I've never heard such terminology myself.
-
-Sorry, the fanout name is staying :-)
-
-> Also, another useful mode of steering would be to steer packets to a
-> socket which was recently processed by a thread running on the same
-> CPU; somewhat analogous to RFS (cc'ed WIllem Bruijn who is already
-> working on this I believe).
-
-This sounds like a good way to overload a local socket and prevent
-pushing the work to lesser used sockets on other cpus.
+Pulled, thanks John.
