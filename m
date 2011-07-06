@@ -1,44 +1,31 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: build failure after merge of the staging tree
-Date: Wed, 6 Jul 2011 08:12:44 -0700
-Message-ID: <20110706151244.GC7465@kroah.com>
-References: <20110706150249.f2c67b43.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 4/4] packet: Add pre-defragmentation support for ipv4
+Date: Wed, 06 Jul 2011 08:20:40 -0700 (PDT)
+Message-ID: <20110706.082040.1487690721120263418.davem@davemloft.net>
+References: <1A61D8EA6755AF458F06EA669A4EC8182F05BCB0@JKLMAIL02.ixonos.local>
+	<1309965489.2292.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110706150249.f2c67b43.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mika.penttila@ixonos.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45408 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753754Ab1GFPUp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 11:20:45 -0400
+In-Reply-To: <1309965489.2292.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 06, 2011 at 03:02:49PM +1000, Stephen Rothwell wrote:
-> Hi Greg,
-> 
-> After merging the staging tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
-> 
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:599:24: error: field 'tasklet' has incomplete type
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_bus_stop':
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:3068:3: error: implicit declaration of function 'tasklet_kill'
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_probe':
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:5376:3: error: implicit declaration of function 'tasklet_init'
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_probe_attach':
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:5505:14: warning: cast to pointer from integer of different size
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_chip_recognition':
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:6056:19: warning: cast from pointer to integer of different size
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_dpc_tasklet':
-> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:6593:4: error: implicit declaration of function 'tasklet_schedule'
-> 
-> Caused by commit a6b7a407865a ("net: remove interrupt.h inclusion from netdevice.h") from the net tree interacting with commit  ("") from the atsging tree.
-> 
-> I have applied the following merge fixup patch for today (it should be
-> applicable to the staging tree directly).
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 06 Jul 2011 17:18:09 +0200
 
-Ok, I'll go queue this up right now so this doesn't cause a problem in
-the future.
+> [PATCH] packet: fix a leak in fanout_check_defrag()
+>=20
+> Reported-by: Penttil=E4 Mika <mika.penttila@ixonos.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-greg k-h
+Eric, see what I commited, it's much simpler than all
+of this code movement you added, ala skb_share_check()
+:-)
