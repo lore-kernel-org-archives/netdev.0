@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH bug-fix v2] net: vlan: enable soft features regardless
- of underlying device
-Date: Tue, 05 Jul 2011 20:43:36 -0700 (PDT)
-Message-ID: <20110705.204336.1114459637899394110.davem@davemloft.net>
-References: <4E13C3AC.3050407@cn.fujitsu.com>
+Subject: Re: [PATCH net-next v2] net: Add GSO to vlan_features
+ initialization
+Date: Tue, 05 Jul 2011 20:44:31 -0700 (PDT)
+Message-ID: <20110705.204431.1883807425791102260.davem@davemloft.net>
+References: <4E13C3C4.40809@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35179 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35195 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755987Ab1GFDnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 23:43:42 -0400
-In-Reply-To: <4E13C3AC.3050407@cn.fujitsu.com>
+	with ESMTP id S1755958Ab1GFDoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 23:44:34 -0400
+In-Reply-To: <4E13C3C4.40809@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Wed, 06 Jul 2011 10:08:44 +0800
+Date: Wed, 06 Jul 2011 10:09:08 +0800
 
-> If gso/gro feature of underlying device is turned off，
-> then new created vlan device never can turn gso/gro on. 
+> Just add GSO to vlan_features initialization, and update comments.
 > 
-> Although underlying device don't support TSO, we still
-> should use software segments for vlan device.
+> When we set offload features, vlan_dev_fix_features() will do more check.
+> In vlan_dev_fix_features(), final features is decided by
+> features of real device and vlan_features of real device.
 > 
 > Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
-Applied to net-2.6, thanks.
+Applied to net-next-2.6
