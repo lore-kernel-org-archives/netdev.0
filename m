@@ -1,101 +1,232 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
- overwritten
-Date: Wed, 6 Jul 2011 18:12:58 +0200
-Message-ID: <20110706181258.57b3c112@maggie>
-References: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110705164202.GD2959@hmsreliant.think-freely.org>
-	<1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110705180650.GF2959@hmsreliant.think-freely.org>
-	<1309889634.2545.2.camel@edumazet-laptop>
-	<1309890775.2545.17.camel@edumazet-laptop>
-	<1309891516.2545.23.camel@edumazet-laptop>
-	<20110705195353.GG2959@hmsreliant.think-freely.org>
-	<1309896147.2545.28.camel@edumazet-laptop>
-	<1309896940.2545.34.camel@edumazet-laptop>
-	<20110705220644.GB12118@hmsreliant.think-freely.org>
-	<20110706173243.404d8599@maggie>
-	<1309968019.2292.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH RESEND v2 3/3] net/fec: add device tree probe support
+Date: Thu, 7 Jul 2011 00:22:33 +0800
+Message-ID: <1309969353-13128-1-git-send-email-shawn.guo@linaro.org>
+References: <1309878839-25743-4-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Alexey Zaytsev <alexey.zaytsev@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
+Content-Type: text/plain
+Cc: <devicetree-discuss@lists.ozlabs.org>,
+	<linux-arm-kernel@lists.infradead.org>, <patches@linaro.org>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Jason Liu <jason.hui@linaro.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Grant Likely <grant.likely@secretlab.ca>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bues.ch ([80.190.117.144]:57459 "EHLO bues.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751406Ab1GFQNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jul 2011 12:13:16 -0400
-In-Reply-To: <1309968019.2292.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:16214 "EHLO
+	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751203Ab1GFQQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 12:16:24 -0400
+In-Reply-To: <1309878839-25743-4-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 06 Jul 2011 18:00:19 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Not exactly :
-> 
-> If we read one skb at descriptor 0, we prepare a new buffer on slot 200,
-> and advance DMARX_PTR to 201*sizeof(descriptor).
+It adds device tree probe support for fec driver.
 
-I don't think so. Why do you think this is the case?
-We allocate a new descriptor buffer for the consumed buffer at exactly
-the same place (which is "cons").
-(Alternatively, we leave the buffer in place, and just copy the data to a new buffer).
-And DMARX_PTR is updated to the last "cons", which is one beyond
-the last buffer that we consumed (and pushed up the net stack).
+Signed-off-by: Jason Liu <jason.hui@linaro.org>
+Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Acked-by: Grant Likely <grant.likely@secretlab.ca>
+---
+Resend with changes:
+ * use of_get_named_gpio for phy-reset-gpios
 
-(Note that "beyond" always means "beyond" in the sense of a DMA _ring_,
-which honors the EOT bit. This is done by masking cons with RX_RING_SIZE-1,
-which is thus assumed to be a power of two).
+ Documentation/devicetree/bindings/net/fsl-fec.txt |   24 +++++
+ drivers/net/fec.c                                 |   98 +++++++++++++++++++-
+ 2 files changed, 117 insertions(+), 5 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/fsl-fec.txt
 
-> > I don't know why b44 sets the DMARX_PTR to 200 initially (which is 40
-> > descriptors, as this is a byte pointer). This seems kind of arbitrary.
-> > In b43 we set it to (NR_OF_DESCRIPTORS - 1) * sizeof(descriptor).
-> > But I don't think it really matters. It only limits the usable DMA
-> > area before the first interrupt (or poll) occurs. After the final
-> > B44_DMARX_PTR write in b44_rx(), the full descriptor range (well, minus one)
-> > will be usable.
-> 
-> Yes, this is probably a small bug, we should fix it for correctness.
+diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
+new file mode 100644
+index 0000000..de43951
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
+@@ -0,0 +1,24 @@
++* Freescale Fast Ethernet Controller (FEC)
++
++Required properties:
++- compatible : Should be "fsl,<soc>-fec"
++- reg : Address and length of the register set for the device
++- interrupts : Should contain fec interrupt
++- phy-mode : String, operation mode of the PHY interface.
++  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
++  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi", "smii".
++- phy-reset-gpios : Should specify the gpio for phy reset
++
++Optional properties:
++- local-mac-address : 6 bytes, mac address
++
++Example:
++
++fec@83fec000 {
++	compatible = "fsl,imx51-fec", "fsl,imx27-fec";
++	reg = <0x83fec000 0x4000>;
++	interrupts = <87>;
++	phy-mode = "mii";
++	phy-reset-gpios = <&gpio1 14 0>; /* GPIO2_14 */
++	local-mac-address = [00 04 9F 01 1B B9];
++};
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 7ae3f28..720aa63 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -44,6 +44,10 @@
+ #include <linux/platform_device.h>
+ #include <linux/phy.h>
+ #include <linux/fec.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_gpio.h>
++#include <linux/of_net.h>
+ 
+ #include <asm/cacheflush.h>
+ 
+@@ -78,6 +82,17 @@ static struct platform_device_id fec_devtype[] = {
+ 	{ }
+ };
+ 
++enum fec_type {
++	IMX27_FEC,
++	IMX28_FEC,
++};
++
++static const struct of_device_id fec_dt_ids[] = {
++	{ .compatible = "fsl,imx27-fec", .data = &fec_devtype[IMX27_FEC], },
++	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
++	{ /* sentinel */ }
++};
++
+ static unsigned char macaddr[ETH_ALEN];
+ module_param_array(macaddr, byte, NULL, 0);
+ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+@@ -734,8 +749,22 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
+ 	 */
+ 	iap = macaddr;
+ 
++#ifdef CONFIG_OF
++	/*
++	 * 2) from device tree data
++	 */
++	if (!is_valid_ether_addr(iap)) {
++		struct device_node *np = fep->pdev->dev.of_node;
++		if (np) {
++			const char *mac = of_get_mac_address(np);
++			if (mac)
++				iap = (unsigned char *) mac;
++		}
++	}
++#endif
++
+ 	/*
+-	 * 2) from flash or fuse (via platform data)
++	 * 3) from flash or fuse (via platform data)
+ 	 */
+ 	if (!is_valid_ether_addr(iap)) {
+ #ifdef CONFIG_M5272
+@@ -748,7 +777,7 @@ static void __inline__ fec_get_mac(struct net_device *ndev)
+ 	}
+ 
+ 	/*
+-	 * 3) FEC mac registers set by bootloader
++	 * 4) FEC mac registers set by bootloader
+ 	 */
+ 	if (!is_valid_ether_addr(iap)) {
+ 		*((unsigned long *) &tmpaddr[0]) =
+@@ -1358,6 +1387,52 @@ static int fec_enet_init(struct net_device *ndev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
++static int __devinit fec_get_phy_mode_dt(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++
++	if (np)
++		return of_get_phy_mode(np);
++
++	return -ENODEV;
++}
++
++static int __devinit fec_reset_phy(struct platform_device *pdev)
++{
++	int err, phy_reset;
++	struct device_node *np = pdev->dev.of_node;
++
++	if (!np)
++		return -ENODEV;
++
++	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
++	err = gpio_request_one(phy_reset, GPIOF_OUT_INIT_LOW, "phy-reset");
++	if (err) {
++		pr_warn("FEC: failed to get gpio phy-reset: %d\n", err);
++		return err;
++	}
++
++	gpio_set_value(phy_reset, 1);
++
++	return 0;
++}
++#else /* CONFIG_OF */
++static inline int fec_get_phy_mode_dt(struct platform_device *pdev)
++{
++	return -ENODEV;
++}
++
++static inline int fec_reset_phy(struct platform_device *pdev)
++{
++	/*
++	 * In case of platform probe, the reset has been done
++	 * by machine code.
++	 */
++	return 0;
++}
++#endif /* CONFIG_OF */
++
+ static int __devinit
+ fec_probe(struct platform_device *pdev)
+ {
+@@ -1366,6 +1441,11 @@ fec_probe(struct platform_device *pdev)
+ 	struct net_device *ndev;
+ 	int i, irq, ret = 0;
+ 	struct resource *r;
++	const struct of_device_id *of_id;
++
++	of_id = of_match_device(fec_dt_ids, &pdev->dev);
++	if (of_id)
++		pdev->id_entry = of_id->data;
+ 
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!r)
+@@ -1397,9 +1477,16 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, ndev);
+ 
+-	pdata = pdev->dev.platform_data;
+-	if (pdata)
+-		fep->phy_interface = pdata->phy;
++	fep->phy_interface = fec_get_phy_mode_dt(pdev);
++	if (fep->phy_interface < 0) {
++		pdata = pdev->dev.platform_data;
++		if (pdata)
++			fep->phy_interface = pdata->phy;
++		else
++			fep->phy_interface = PHY_INTERFACE_MODE_MII;
++	}
++
++	fec_reset_phy(pdev);
+ 
+ 	/* This device has up to three irqs on some platforms */
+ 	for (i = 0; i < 3; i++) {
+@@ -1534,6 +1621,7 @@ static struct platform_driver fec_driver = {
+ #ifdef CONFIG_PM
+ 		.pm	= &fec_pm_ops,
+ #endif
++		.of_match_table = fec_dt_ids,
+ 	},
+ 	.id_table = fec_devtype,
+ 	.probe	= fec_probe,
+-- 
+1.7.4.1
 
-I wouldn't call this a bug.
 
-> > Summary: I don't see where the DMA engine code is broken (except for
-> > the minor missing wmb(), which doesn't trigger this memory corruption, though)
-> > 
-> > I hope that helps to clear up stuff...
-> 
-> Well, you describe (nicely, thanks !) your understanding of how work the
-> driver and chip.
-> 
-> Problem is we suspect a wrong statement or wrong hardware ;)
->
-> Another problem is Alexey doesnt answer anymore, and I dont have this
-> (old) hardware...
-
-I do really think that either
-1) His device is broken. Chips break. I already saw several devices
-with HND DMA engine that broke down after some time of use.
-or
-2) The bug is at another place, but not in the lowlevel DMA handling.
-
-Could this possibly be some kind of context issue? threaded IRQs?
-The net subsys was rather picky about context, last time I looked
-into it. see the .._ni() style functions.
-
-> Other point : Do you know why b44_get_ringparam() doesnt  set
-> ering->tx_max_pending and ering->tx_pending
-> 
-> The comment seems wrong :
-> /* XXX ethtool lacks a tx_max_pending, oops... */
-
-Well, I _guess_ that ering->tx_max_pending was added later? (I didn't
-even check if it's there _now_, though.)
