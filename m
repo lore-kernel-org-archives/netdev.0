@@ -1,260 +1,207 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: Re: [PATCH] vmxnet3: fix starving rx ring whenoc_skb kb fails
-Date: Tue, 5 Jul 2011 17:34:05 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1107051721230.32629@sbhatewara-dev1.eng.vmware.com>
-References: <03E840D17E263A48A5766AD576E0423A012911782E@exch-mbx-111.vmware.com> <20110617.005356.180809929241094878.davem@davemloft.net> <1308312860.11457.56.camel@localhost> <20110617.120900.550060204741705506.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/2] AF_PACKET fanout support
+Date: Tue, 5 Jul 2011 17:46:36 -0700
+Message-ID: <CA+mtBx_MtQGqNT6iungW7eyStpvLEGYsgXQ8=mYq_JR8jw3=DQ@mail.gmail.com>
+References: <20110704.212002.1680758539791986198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	scottjg@vmware.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: victor@inliniac.net, netdev@vger.kernel.org,
+	Willem Bruijn <willemb@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:9077 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754730Ab1GFAeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 20:34:03 -0400
-In-Reply-To: <20110617.120900.550060204741705506.davem@davemloft.net>
+Received: from smtp-out.google.com ([216.239.44.51]:54484 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755046Ab1GFAql convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 20:46:41 -0400
+Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
+	by smtp-out.google.com with ESMTP id p660keJG015089
+	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 17:46:40 -0700
+Received: from pvg12 (pvg12.prod.google.com [10.241.210.140])
+	by hpaq7.eem.corp.google.com with ESMTP id p660kagh006313
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 17:46:38 -0700
+Received: by pvg12 with SMTP id 12so5603826pvg.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 17:46:36 -0700 (PDT)
+In-Reply-To: <20110704.212002.1680758539791986198.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dave,
 
-If the rx ring is completely empty, then the device may never fire an rx 
-interrupt. Unfortunately, the rx interrupt is what triggers populating the 
-rx ring with fresh buffers, so this will cause networking to lock up.
+Thanks for these patches!  Is it possible you could use an alternative
+term than "fanout"?  I think this may be more often associated with a
+transmit operation (e.g. multicast fanout).
 
-This patch replenishes the skb in recv descriptor as soon as it is 
-peeled off while processing rx completions. If the skb/buffer 
-allocation fails, existing one is recycled and the packet in hand is 
-dropped. This way none of the RX desc is ever left empty, thus avoiding 
-starvation
+Also, another useful mode of steering would be to steer packets to a
+socket which was recently processed by a thread running on the same
+CPU; somewhat analogous to RFS (cc'ed WIllem Bruijn who is already
+working on this I believe).
 
-Signed-off-by: Scott J. Goldman <scottjg@vmware.com>
-Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
----
+Tom
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 2c14736..fabcded 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -573,7 +573,7 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
- 	struct vmxnet3_cmd_ring *ring = &rq->rx_ring[ring_idx];
- 	u32 val;
- 
--	while (num_allocated < num_to_alloc) {
-+	while (num_allocated <= num_to_alloc) {
- 		struct vmxnet3_rx_buf_info *rbi;
- 		union Vmxnet3_GenericDesc *gd;
- 
-@@ -619,9 +619,15 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
- 
- 		BUG_ON(rbi->dma_addr == 0);
- 		gd->rxd.addr = cpu_to_le64(rbi->dma_addr);
--		gd->dword[2] = cpu_to_le32((ring->gen << VMXNET3_RXD_GEN_SHIFT)
-+		gd->dword[2] = cpu_to_le32((!ring->gen << VMXNET3_RXD_GEN_SHIFT)
- 					   | val | rbi->len);
- 
-+		/* Fill the last buffer but dont mark it ready, or else the
-+		 * device will think that the queue is full */
-+		if (num_allocated == num_to_alloc)
-+			break;
-+
-+		gd->dword[2] |= cpu_to_le32(ring->gen << VMXNET3_RXD_GEN_SHIFT);
- 		num_allocated++;
- 		vmxnet3_cmd_ring_adv_next2fill(ring);
- 	}
-@@ -1138,6 +1144,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 		VMXNET3_REG_RXPROD, VMXNET3_REG_RXPROD2
- 	};
- 	u32 num_rxd = 0;
-+	bool skip_page_frags = false;
- 	struct Vmxnet3_RxCompDesc *rcd;
- 	struct vmxnet3_rx_ctx *ctx = &rq->rx_ctx;
- #ifdef __BIG_ENDIAN_BITFIELD
-@@ -1148,11 +1155,12 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 			  &rxComp);
- 	while (rcd->gen == rq->comp_ring.gen) {
- 		struct vmxnet3_rx_buf_info *rbi;
--		struct sk_buff *skb;
-+		struct sk_buff *skb, *new_skb = NULL;
-+		struct page *new_page = NULL;
- 		int num_to_alloc;
- 		struct Vmxnet3_RxDesc *rxd;
- 		u32 idx, ring_idx;
--
-+		struct vmxnet3_cmd_ring	*ring = NULL;
- 		if (num_rxd >= quota) {
- 			/* we may stop even before we see the EOP desc of
- 			 * the current pkt
-@@ -1163,6 +1171,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 		BUG_ON(rcd->rqID != rq->qid && rcd->rqID != rq->qid2);
- 		idx = rcd->rxdIdx;
- 		ring_idx = rcd->rqID < adapter->num_rx_queues ? 0 : 1;
-+		ring = rq->rx_ring + ring_idx;
- 		vmxnet3_getRxDesc(rxd, &rq->rx_ring[ring_idx].base[idx].rxd,
- 				  &rxCmdDesc);
- 		rbi = rq->buf_info[ring_idx] + idx;
-@@ -1191,37 +1200,80 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 				goto rcd_done;
- 			}
- 
-+			skip_page_frags = false;
- 			ctx->skb = rbi->skb;
--			rbi->skb = NULL;
-+			new_skb = dev_alloc_skb(rbi->len + NET_IP_ALIGN);
-+			if (new_skb == NULL) {
-+				/* Skb allocation failed, do not handover this
-+				 * skb to stack. Reuse it. Drop the existing pkt
-+				 */
-+				rq->stats.rx_buf_alloc_failure++;
-+				ctx->skb = NULL;
-+				rq->stats.drop_total++;
-+				skip_page_frags = true;
-+				goto rcd_done;
-+			}
- 
- 			pci_unmap_single(adapter->pdev, rbi->dma_addr, rbi->len,
- 					 PCI_DMA_FROMDEVICE);
- 
- 			skb_put(ctx->skb, rcd->len);
-+
-+			/* Immediate refill */
-+			new_skb->dev = adapter->netdev;
-+			skb_reserve(new_skb, NET_IP_ALIGN);
-+			rbi->skb = new_skb;
-+			rbi->dma_addr = pci_map_single(adapter->pdev,
-+					rbi->skb->data, rbi->len,
-+					PCI_DMA_FROMDEVICE);
-+			rxd->addr = cpu_to_le64(rbi->dma_addr);
-+			rxd->len = rbi->len;
-+
- 		} else {
--			BUG_ON(ctx->skb == NULL);
-+			BUG_ON(ctx->skb == NULL && !skip_page_frags);
-+
- 			/* non SOP buffer must be type 1 in most cases */
--			if (rbi->buf_type == VMXNET3_RX_BUF_PAGE) {
--				BUG_ON(rxd->btype != VMXNET3_RXD_BTYPE_BODY);
-+			BUG_ON(rbi->buf_type != VMXNET3_RX_BUF_PAGE);
-+			BUG_ON(rxd->btype != VMXNET3_RXD_BTYPE_BODY);
- 
--				if (rcd->len) {
--					pci_unmap_page(adapter->pdev,
--						       rbi->dma_addr, rbi->len,
--						       PCI_DMA_FROMDEVICE);
-+			/* If an sop buffer was dropped, skip all
-+			 * following non-sop fragments. They will be reused.
-+			 */
-+			if (skip_page_frags)
-+				goto rcd_done;
- 
--					vmxnet3_append_frag(ctx->skb, rcd, rbi);
--					rbi->page = NULL;
--				}
--			} else {
--				/*
--				 * The only time a non-SOP buffer is type 0 is
--				 * when it's EOP and error flag is raised, which
--				 * has already been handled.
-+			new_page = alloc_page(GFP_ATOMIC);
-+			if (unlikely(new_page == NULL)) {
-+				/* Replacement page frag could not be allocated.
-+				 * Reuse this page. Drop the pkt and free the
-+				 * skb which contained this page as a frag. Skip
-+				 * processing all the following non-sop frags.
- 				 */
--				BUG_ON(true);
-+				rq->stats.rx_buf_alloc_failure++;
-+				dev_kfree_skb(ctx->skb);
-+				ctx->skb = NULL;
-+				skip_page_frags = true;
-+				goto rcd_done;
-+			}
-+
-+			if (rcd->len) {
-+				pci_unmap_page(adapter->pdev,
-+					       rbi->dma_addr, rbi->len,
-+					       PCI_DMA_FROMDEVICE);
-+
-+				vmxnet3_append_frag(ctx->skb, rcd, rbi);
- 			}
-+
-+			/* Immediate refill */
-+			rbi->page = new_page;
-+			rbi->dma_addr = pci_map_page(adapter->pdev, rbi->page,
-+						     0, PAGE_SIZE,
-+						     PCI_DMA_FROMDEVICE);
-+			rxd->addr = cpu_to_le64(rbi->dma_addr);
-+			rxd->len = rbi->len;
- 		}
- 
-+
- 		skb = ctx->skb;
- 		if (rcd->eop) {
- 			skb->len += skb->data_len;
-@@ -1243,26 +1295,27 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 		}
- 
- rcd_done:
--		/* device may skip some rx descs */
--		rq->rx_ring[ring_idx].next2comp = idx;
--		VMXNET3_INC_RING_IDX_ONLY(rq->rx_ring[ring_idx].next2comp,
--					  rq->rx_ring[ring_idx].size);
--
--		/* refill rx buffers frequently to avoid starving the h/w */
--		num_to_alloc = vmxnet3_cmd_ring_desc_avail(rq->rx_ring +
--							   ring_idx);
--		if (unlikely(num_to_alloc > VMXNET3_RX_ALLOC_THRESHOLD(rq,
--							ring_idx, adapter))) {
--			vmxnet3_rq_alloc_rx_buf(rq, ring_idx, num_to_alloc,
--						adapter);
--
--			/* if needed, update the register */
--			if (unlikely(rq->shared->updateRxProd)) {
--				VMXNET3_WRITE_BAR0_REG(adapter,
--					rxprod_reg[ring_idx] + rq->qid * 8,
--					rq->rx_ring[ring_idx].next2fill);
--				rq->uncommitted[ring_idx] = 0;
--			}
-+		/* device may have skipped some rx descs */
-+		ring->next2comp = idx;
-+		num_to_alloc = vmxnet3_cmd_ring_desc_avail(ring);
-+		ring = rq->rx_ring + ring_idx;
-+		while (num_to_alloc) {
-+			vmxnet3_getRxDesc(rxd, &ring->base[ring->next2fill].rxd,
-+					  &rxCmdDesc);
-+			BUG_ON(!rxd->addr);
-+
-+			/* Recv desc is ready to be used by the device */
-+			rxd->gen = ring->gen;
-+			vmxnet3_cmd_ring_adv_next2fill(ring);
-+			num_to_alloc--;
-+		}
-+
-+		/* if needed, update the register */
-+		if (unlikely(rq->shared->updateRxProd)) {
-+			VMXNET3_WRITE_BAR0_REG(adapter,
-+				rxprod_reg[ring_idx] + rq->qid * 8,
-+				ring->next2fill);
-+			rq->uncommitted[ring_idx] = 0;
- 		}
- 
- 		vmxnet3_comp_ring_adv_next2proc(&rq->comp_ring);
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 2e37985..a9cb3fa 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.1.9.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.1.14.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01010900
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01010E00
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
+On Mon, Jul 4, 2011 at 9:20 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>
+> This is a fully functional version, I've tested both hash and
+> load-balance modes successfully. =A0I plan to commit this to
+> net-next-2.6 very soon.
+>
+> Below is a test program that other people can play with
+> if they want. =A0It basically creates 4 threads, and creates
+> an AF_PACKET fanout amongst them. =A0Each thread prints out
+> it's pid in parentheses every time it receives 10 packets.
+> After each thread processes 10,000 packets, it exits.
+>
+> Try things like "./test eth0 hash", "./test eth0 lb", etc.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> --------------------
+> #include <stddef.h>
+> #include <stdlib.h>
+> #include <stdio.h>
+> #include <string.h>
+>
+> #include <sys/types.h>
+> #include <sys/wait.h>
+> #include <sys/socket.h>
+> #include <sys/ioctl.h>
+>
+> #include <unistd.h>
+>
+> #include <linux/if_ether.h>
+> #include <linux/if_packet.h>
+>
+> #include <net/if.h>
+>
+> static const char *device_name;
+> static int fanout_type;
+> static int fanout_id;
+>
+> #ifndef PACKET_FANOUT
+> #define PACKET_FANOUT =A0 =A0 =A0 =A0 =A0 18
+> #define PACKET_FANOUT_HASH =A0 =A0 =A0 =A0 =A0 =A0 =A00
+> #define PACKET_FANOUT_LB =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A01
+> #endif
+>
+> static int setup_socket(void)
+> {
+> =A0 =A0 =A0 =A0int err, fd =3D socket(AF_PACKET, SOCK_RAW, htons(ETH_=
+P_IP));
+> =A0 =A0 =A0 =A0struct sockaddr_ll ll;
+> =A0 =A0 =A0 =A0struct ifreq ifr;
+> =A0 =A0 =A0 =A0int fanout_arg;
+>
+> =A0 =A0 =A0 =A0if (fd < 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("socket");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0memset(&ifr, 0, sizeof(ifr));
+> =A0 =A0 =A0 =A0strcpy(ifr.ifr_name, device_name);
+> =A0 =A0 =A0 =A0err =3D ioctl(fd, SIOCGIFINDEX, &ifr);
+> =A0 =A0 =A0 =A0if (err < 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("SIOCGIFINDEX");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0memset(&ll, 0, sizeof(ll));
+> =A0 =A0 =A0 =A0ll.sll_family =3D AF_PACKET;
+> =A0 =A0 =A0 =A0ll.sll_ifindex =3D ifr.ifr_ifindex;
+> =A0 =A0 =A0 =A0err =3D bind(fd, (struct sockaddr *) &ll, sizeof(ll));
+> =A0 =A0 =A0 =A0if (err < 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("bind");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0fanout_arg =3D (fanout_id | (fanout_type << 16));
+> =A0 =A0 =A0 =A0err =3D setsockopt(fd, SOL_PACKET, PACKET_FANOUT,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 &fanout_arg, sizeof(f=
+anout_arg));
+> =A0 =A0 =A0 =A0if (err) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("setsockopt");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0return fd;
+> }
+>
+> static void fanout_thread(void)
+> {
+> =A0 =A0 =A0 =A0int fd =3D setup_socket();
+> =A0 =A0 =A0 =A0int limit =3D 10000;
+>
+> =A0 =A0 =A0 =A0if (fd < 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(fd);
+>
+> =A0 =A0 =A0 =A0while (limit-- > 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0char buf[1600];
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int err;
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0err =3D read(fd, buf, sizeof(buf));
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (err < 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("read");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(EXIT_FAILURE);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((limit % 10) =3D=3D 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fprintf(stdout, "(%d) =
+\n", getpid());
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0fprintf(stdout, "%d: Received 10000 packets\n", getpid=
+());
+>
+> =A0 =A0 =A0 =A0close(fd);
+> =A0 =A0 =A0 =A0exit(0);
+> }
+>
+> int main(int argc, char **argp)
+> {
+> =A0 =A0 =A0 =A0int fd, err;
+> =A0 =A0 =A0 =A0int i;
+>
+> =A0 =A0 =A0 =A0if (argc !=3D 3) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fprintf(stderr, "Usage: %s INTERFACE {=
+hash|lb}\n", argp[0]);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return EXIT_FAILURE;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0if (!strcmp(argp[2], "hash"))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fanout_type =3D PACKET_FANOUT_HASH;
+> =A0 =A0 =A0 =A0else if (!strcmp(argp[2], "lb"))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fanout_type =3D PACKET_FANOUT_LB;
+> =A0 =A0 =A0 =A0else {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fprintf(stderr, "Unknown fanout type [=
+%s]\n", argp[2]);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(EXIT_FAILURE);
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0device_name =3D argp[1];
+> =A0 =A0 =A0 =A0fanout_id =3D getpid() & 0xffff;
+>
+> =A0 =A0 =A0 =A0for (i =3D 0; i < 4; i++) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pid_t pid =3D fork();
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0switch (pid) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case 0:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fanout_thread();
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case -1:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0perror("fork");
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0exit(EXIT_FAILURE);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0for (i =3D 0; i < 4; i++) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int status;
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0wait(&status);
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0return 0;
+> }
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
