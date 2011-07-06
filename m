@@ -1,26 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: sched: constify tcf_proto and tc_action
-Date: Tue, 05 Jul 2011 22:36:35 -0700 (PDT)
-Message-ID: <20110705.223635.2008814218347412648.davem@davemloft.net>
-References: <1309883807.2271.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1309926765.2545.53.camel@edumazet-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [BUG] bd4265fe36 bridge: Only flood unreg groups... breaks
+	DHCP setup
+Date: Wed, 6 Jul 2011 13:45:05 +0800
+Message-ID: <20110706054504.GA7786@gondor.apana.org.au>
+References: <20110705204200@it-loops.com> <20110705235833.GA5599@gondor.apana.org.au> <20110705.184044.1261486363010308552.davem@davemloft.net> <20110705220636.6afeb81c@nehalam.ftrdhcpuser.net> <20110706050848.GA7564@gondor.apana.org.au> <20110705223551.5e1053af@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, mike@it-loops.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36632 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752444Ab1GFFgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 01:36:37 -0400
-In-Reply-To: <1309926765.2545.53.camel@edumazet-laptop>
+Received: from helcar.apana.org.au ([209.40.204.226]:43470 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217Ab1GFFpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 01:45:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20110705223551.5e1053af@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 06 Jul 2011 06:32:45 +0200
+On Tue, Jul 05, 2011 at 10:35:51PM -0700, Stephen Hemminger wrote:
+>
+> The bisected commit bd4265fe36 is in 3.0-rc4 but the input code
+> path still treats multicast and broadcast the same which means
+> there are some other possible cases where broadcast doesn't get
+> forwarded.
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+AFAIK it worked properly prior to bd4265fe36 because broadcast
+addresses simply get treated as an unregistered multicast group
+and ends up being flooded.
 
-Applied.
+So while yes we do do an extra mdb lookup I don't think there is
+any visible problem in stable.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
