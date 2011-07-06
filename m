@@ -1,31 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 4/4] packet: Add pre-defragmentation support for ipv4
-Date: Wed, 06 Jul 2011 08:20:40 -0700 (PDT)
-Message-ID: <20110706.082040.1487690721120263418.davem@davemloft.net>
-References: <1A61D8EA6755AF458F06EA669A4EC8182F05BCB0@JKLMAIL02.ixonos.local>
-	<1309965489.2292.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: 3.0.0rc6: ethtool not working without a cable
+Date: Wed, 06 Jul 2011 16:26:50 +0100
+Message-ID: <1309966010.2712.4.camel@bwh-desktop>
+References: <201107061338.08573.a.miskiewicz@gmail.com>
+	 <1309962484.4280.25.camel@localhost>
+	 <201107061653.04689.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mika.penttila@ixonos.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753754Ab1GFPUp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 11:20:45 -0400
-In-Reply-To: <1309965489.2292.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from exchange.solarflare.com ([216.237.3.220]:2143 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752979Ab1GFP0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 11:26:54 -0400
+In-Reply-To: <201107061653.04689.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 06 Jul 2011 17:18:09 +0200
+On Wed, 2011-07-06 at 16:53 +0200, Arkadiusz Miskiewicz wrote:
+> On Wednesday 06 of July 2011, Ben Hutchings wrote:
+> > On Wed, 2011-07-06 at 13:38 +0200, Arkadiusz Miskiewicz wrote:
+> > > 3.0.0rc6, thinkpad t400 notebook.
+> > > 
+> > > If there is no cable then ethtool reports no device. It wasn't that
+> > > before AFAIK.
+> > > 
+> > > ethtool version 2.6.36
+> > > 
+> > > 
+> > > cable disconnected:
+> > > 
+> > > [root@t400 ~]# ethtool eth0
+> > > Settings for eth0:
+> > > Cannot get device settings: No such device
+> > > Cannot get wake-on-lan settings: No such device
+> > > Cannot get message level: No such device
+> > > Cannot get link status: No such device
+> > > No data available
+> > > zsh: exit 75    ethtool eth0
+> > > [root@t400 ~]# ethtool -i eth0
+> > > Cannot get driver information: No such device
+> > > zsh: exit 71    ethtool -i eth0
+> > 
+> > [...]
+> > 
+> > Then there really isn't a device under that name.  Maybe the driver is
+> > getting a bogus MAC address, so that the device is renamed by udev.
+> 
+> No, no, device exists:
+> 
+> [arekm@t400 ~]$ ip l
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> 2: eth0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state 
+> DOWN qlen 1000
+>     link/ether 00:21:86:a2:19:06 brd ff:ff:ff:ff:ff:ff
+> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc sfq state UP qlen 
+> 1000
+>     link/ether 00:16:eb:05:5d:08 brd ff:ff:ff:ff:ff:ff
+> [arekm@t400 ~]$ ethtool eth0
+> Settings for eth0:
+> Cannot get device settings: No such device
+> Cannot get wake-on-lan settings: No such device
+> Cannot get message level: No such device
+> Cannot get link status: No such device
+> No data available
+> zsh: exit 75    ethtool eth0
+> [arekm@t400 ~]$
 
-> [PATCH] packet: fix a leak in fanout_check_defrag()
->=20
-> Reported-by: Penttil=E4 Mika <mika.penttila@ixonos.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Then the only other explanation I can think of is that the driver has
+'detached' the device due to some kind of error.  The ethtool core does
+have a check for that.
 
-Eric, see what I commited, it's much simpler than all
-of this code movement you added, ala skb_share_check()
-:-)
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
