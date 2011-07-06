@@ -1,26 +1,32 @@
-From: "M.L" <ml@yahoo.com>
-Subject: Opportunity
-Date: Wed, 6 Jul 2011 02:38:38 +0100
-Message-ID: <20110706013833.32B5A3000518@mwinf3j09.me.freeserve.com>
-Reply-To: <mlu24333@aol.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] usb: usbnet: suspend count gets lost when -EBUSY
+Date: Tue, 05 Jul 2011 18:40:26 -0700 (PDT)
+Message-ID: <20110705.184026.248634180411066869.davem@davemloft.net>
+References: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: C.Fries@motorola.com, qcf001@motorola.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp7.freeserve.com ([80.12.242.2]:46808 "EHLO
-	smtp6.freeserve.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752036Ab1GFBis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:38:48 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:51026 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755224Ab1GFBkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:40:32 -0400
+In-Reply-To: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello I am contacting you with regards to a business transaction I want us to execute, it is in respect to a dormant account which belongs to my late client.
+From: Chris Fries <qcf001@motorola.com>
+Date: Tue, 5 Jul 2011 20:35:05 -0500
 
-I believe we may be able to make good of this situation for ourselves. Please indicate your interest and I will give you more information.
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -1451,6 +1451,7 @@ int usbnet_suspend (struct usb_interface *intf,
+> pm_message_t message)
 
-Kind regards
-M.L.
+Your email client has mangled your patch, please read
+"Documentation/email-clients.txt" on how to fix this.
 
-
+Once you've fixed it, email the patch to yourself and
+verify that you yourself can successfully apply the
+patch you receive.
