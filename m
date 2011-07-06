@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: sched: constify tcf_proto and
- tc_action
-Date: Tue, 05 Jul 2011 18:33:23 -0700 (PDT)
-Message-ID: <20110705.183323.553222320326544913.davem@davemloft.net>
-References: <1309883807.2271.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110705.183234.1710750208514203200.davem@davemloft.net>
+From: Chris Fries <qcf001@motorola.com>
+Subject: [PATCH] usb: usbnet: suspend count gets lost when -EBUSY
+Date: Tue, 5 Jul 2011 20:35:05 -0500
+Message-ID: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
+Reply-To: C.Fries@Motorola.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43372 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120Ab1GFBd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:33:26 -0400
-In-Reply-To: <20110705.183234.1710750208514203200.davem@davemloft.net>
+Received: from exprod5og105.obsmtp.com ([64.18.0.180]:37729 "EHLO
+	exprod5og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755224Ab1GFBfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 21:35:30 -0400
+Received: from DE01MGRG01.AM.MOT-MOBILITY.COM ([10.22.94.168])
+	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p661a6Os019830
+	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 21:36:07 -0400 (EDT)
+Received: from mail-pz0-f42.google.com (mail-pz0-f42.google.com [209.85.210.42])
+	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p661a5Mv019817
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 5 Jul 2011 21:36:06 -0400 (EDT)
+Received: by pzk37 with SMTP id 37so3239519pzk.15
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 18:35:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAwNSBK
-dWwgMjAxMSAxODozMjozNCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJp
-Yy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gRGF0ZTogVHVlLCAwNSBKdWwgMjAxMSAxODozNjo0NyAr
-MDIwMA0KPiANCj4+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdt
-YWlsLmNvbT4NCj4gDQo+IEFwcGxpZWQsIHRoYW5rcyBFcmljLg0KDQpBY3R1YWxseSwgSSdtIHJl
-dmVydGluZzoNCg0KbmV0L3NjaGVkL2FjdF9pcHQuYzoyOTQ6Mjogd2FybmluZzogaW5pdGlhbGl6
-YXRpb24gZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRd
-DQpuZXQvc2NoZWQvYWN0X2lwdC5jOjI5NDoyOiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlv
-biBmb3IgoWFjdF9pcHRfb3BzLmFjdKIpIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpuZXQvc2NoZWQv
-YWN0X2NzdW0uYzo1NzI6Mjogd2FybmluZzogaW5pdGlhbGl6YXRpb24gZnJvbSBpbmNvbXBhdGli
-bGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpuZXQvc2NoZWQvYWN0X2NzdW0u
-Yzo1NzI6Mjogd2FybmluZzogKG5lYXIgaW5pdGlhbGl6YXRpb24gZm9yIKFhY3RfY3N1bV9vcHMu
-YWN0oikgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCg==
+When suspend is refused due to pending transmits, the
+busy counter gets out of sync, and suspend will stop
+working correctly.
+
+Signed-off-by: Chris Fries <C.Fries@motorola.com>
+---
+ drivers/net/usb/usbnet.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index cc95aad..9bcc3e3 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1451,6 +1451,7 @@ int usbnet_suspend (struct usb_interface *intf,
+pm_message_t message)
+ 		/* don't autosuspend while transmitting */
+ 		if (dev->txq.qlen && (message.event & PM_EVENT_AUTO)) {
+ 			spin_unlock_irq(&dev->txq.lock);
++			dev->suspend_count--;
+ 			return -EBUSY;
+ 		} else {
+ 			set_bit(EVENT_DEV_ASLEEP, &dev->flags);
+-- 
+1.7.0.4
