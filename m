@@ -1,77 +1,52 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 38032] New: default values of
- /proc/sys/net/ipv4/udp_mem does not consider huge page allocatio
-Date: Wed, 6 Jul 2011 16:03:18 -0700
-Message-ID: <20110706160318.2c604ae9.akpm@linux-foundation.org>
-References: <bug-38032-10286@https.bugzilla.kernel.org/>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH V8 2/4 net-next] skbuff: skb supports zero-copy buffers
+Date: Wed, 06 Jul 2011 16:24:14 -0700
+Message-ID: <1309994654.10209.29.camel@localhost.localdomain>
+References: <1309990932.10209.19.camel@localhost.localdomain>
+	 <4E14E939.5040904@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, starlight@binnacle.cx,
-        Rafael Aquini
- <aquini@linux.com>
-To: linux-mm@kvack.org, netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <bug-38032-10286@https.bugzilla.kernel.org/>
-Sender: owner-linux-mm@kvack.org
+Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
+	netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Zan Lynx <zlynx@acm.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E14E939.5040904@acm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-(cc's added)
-
-On Tue, 21 Jun 2011 00:35:22 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> https://bugzilla.kernel.org/show_bug.cgi?id=38032
+On Wed, 2011-07-06 at 17:01 -0600, Zan Lynx wrote:
+> On 7/6/2011 4:22 PM, Shirley Ma wrote:
+> > This patch adds userspace buffers support in skb shared info. A new 
+> > struct skb_ubuf_info is needed to maintain the userspace buffers
+> > argument and index, a callback is used to notify userspace to
+> release
+> > the buffers once lower device has done DMA (Last reference to that
+> skb
+> > has gone).
+> > 
+> > If there is any userspace apps to reference these userspace buffers,
+> > then these userspaces buffers will be copied into kernel. This way
+> we
+> > can prevent userspace apps from holding these userspace buffers too
+> long.
+> > 
+> > Use destructor_arg to point to the userspace buffer info; a new tx
+> flags
+> > SKBTX_DEV_ZEROCOPY is added for zero-copy buffer check.
+> > 
+> > Signed-off-by: Shirley Ma <xma@...ibm.com>
 > 
->            Summary: default values of /proc/sys/net/ipv4/udp_mem does not
->                     consider huge page allocatio
->            Product: Memory Management
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: akpm@linux-foundation.org
->         ReportedBy: starlight@binnacle.cx
->         Regression: No
+> I was just reading this patch and noticed that you check if
+> uarg->callback is set before calling it in skb_release_data, but you
+> do
+> not check before calling it in skb_copy_ubufs.
 > 
-> 
-> In the RHEL 5.5 back-port of this tunable we ran into trouble locking up
-> systems because the boot-time default is set based on physical memory does not
-> account for the hugepages= in the boot parameters.  So the UDP socket buffer
-> limit can exceed phyisical memory.  Don't know if this is an issue in mainline
-> kernels but it seems likely so reporting this as a courtsey.  Seems like it
-> would be easy to fix the default to account for the memory reserved by
-> hugepages which is not available for slab allocations.
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=714833
-> 
+> I was only skimming so I have probably missed something...
 
-Yes, we've made similar mistakes in other places.
+It is a redundant check. The userspace buffer info always has a callback
+to release the buffers. I should have removed it after using tx_flags.
 
-I don't think we really have an official formula for what callers
-should be doing here.  net/ipv4/udp.c:udp_init() does
-
-        nr_pages = totalram_pages - totalhigh_pages;                            
-
-which assumes that totalram_pages does not include the pages which were
-lost to hugepage allocations.
-
-I *think* that this is now the case, but it wasn't always the case - we
-made relatively recent fixes to the totalram_pages maintenance.
-
-Perhaps UDP should be using the misnamed nr_free_buffer_pages() here.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks
+Shirley
