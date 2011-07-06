@@ -1,44 +1,38 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 2/6] r8169: modify the flow hw reset
-Date: Wed, 6 Jul 2011 15:48:51 +0800
-Message-ID: <EF32BED7323642F29CF5AA3EA7048C78@realtek.com.tw>
-References: <1309859095-32031-1-git-send-email-hayeswang@realtek.com> <1309859095-32031-2-git-send-email-hayeswang@realtek.com> <20110705185515.GB5105@electric-eye.fr.zoreil.com>
+From: Michael Guntsche <mike@it-loops.com>
+Subject: Re: [BUG] bd4265fe36 bridge: Only flood unreg groups... breaks DHCP
+ setup
+Date: Wed, 6 Jul 2011 09:57:21 +0200
+Message-ID: <20110706095603@it-loops.com>
+References: <20110705204200@it-loops.com>
+ <20110705235833.GA5599@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110705185515.GB5105@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lvps87-230-0-242.dedicated.hosteurope.de ([87.230.0.242]:54344
+	"EHLO lvps87-230-0-242.dedicated.hosteurope.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750930Ab1GFH5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 03:57:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20110705235833.GA5599@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 
+On 06 Jul 11 07:58, Herbert Xu wrote:
+> Michael Guntsche <mike@it-loops.com> wrote:
+> >
+> > Looking at the changes between rc5 and rc6 I noticed commit
+> > 
+> > bd4265fe365c0f3945d: bridge: Only flood unregistered groups to routers
+> 
+> Oops, that was definitely my fault.  This patch should fix your
+> problem.
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Wednesday, July 06, 2011 2:55 AM
-> To: Hayeswang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next 2/6] r8169: modify the flow hw reset
-> 
-> >  
-> > +static void rtl_rx_close(struct rtl8169_private *tp) {
-> > +	void __iomem *ioaddr = tp->mmio_addr;
-> > +	u32 rxcfg = RTL_R32(RxConfig);
-> > +
-> > +	rxcfg &= ~(AcceptBroadcast | AcceptMulticast |
-> > +		   AcceptMyPhys | AcceptAllPhys);
-> > +	RTL_W32(RxConfig, rxcfg);
-> > +}
-> > +
-> 
-> Should not error and runt packets be considered too ?
-> 
-> <shot in the dark>
-> Is there any relationship with commit 
-> ca52efd5490f97f396d3c5863ba714624f272033 ?
-> </shot in the dark>
-> 
+Good morning,
 
-No, there is no relationship about that.
+I can confirm that this fixes the issues I am seeing. The Bridge sees
+the DHCP packets again.
+
+Thank you very much for the quick fix,
+Michael
