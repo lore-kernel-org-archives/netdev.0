@@ -1,111 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: FW: Re: [PATCH v3 4/4] packet: Add pre-defragmentation support
- for ipv4
-Date: Wed, 06 Jul 2011 17:18:09 +0200
-Message-ID: <1309965489.2292.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1A61D8EA6755AF458F06EA669A4EC8182F05BCB0@JKLMAIL02.ixonos.local>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: build failure after merge of the staging tree
+Date: Wed, 6 Jul 2011 08:12:44 -0700
+Message-ID: <20110706151244.GC7465@kroah.com>
+References: <20110706150249.f2c67b43.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Penttil=E4?= Mika <mika.penttila@ixonos.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59864 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572Ab1GFPSW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 11:18:22 -0400
-Received: by wyg8 with SMTP id 8so23563wyg.19
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2011 08:18:21 -0700 (PDT)
-In-Reply-To: <1A61D8EA6755AF458F06EA669A4EC8182F05BCB0@JKLMAIL02.ixonos.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110706150249.f2c67b43.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 06 juillet 2011 =C3=A0 14:06 +0000, Penttil=C3=A4 Mika a =C3=
-=A9crit :
->=20
-> > +static struct sk_buff *fanout_check_defrag(struct sk_buff *skb)
-> > +{
-> > +	const struct iphdr *iph;
-> > +	u32 len;
-> > +
-> > +	if (skb->protocol !=3D htons(ETH_P_IP))
-> > +		return skb;
-> > +
-> > +	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-> > +		return skb;
-> > +
-> > +	iph =3D ip_hdr(skb);
-> > +	if (iph->ihl < 5 || iph->version !=3D 4)
-> > +		return skb;
-> > +	if (!pskb_may_pull(skb, iph->ihl*4))
-> > +		return skb;
-> > +	iph =3D ip_hdr(skb);
-> > +	len =3D ntohs(iph->tot_len);
-> > +	if (skb->len < len || len < (iph->ihl * 4))
-> > +		return skb;
-> > +
-> > +	if (ip_is_fragment(ip_hdr(skb))) {
-> > +		skb =3D skb_clone(skb, GFP_ATOMIC);
->=20
-> Isn't this leaking the original skb?
+On Wed, Jul 06, 2011 at 03:02:49PM +1000, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> After merging the staging tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+> 
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:599:24: error: field 'tasklet' has incomplete type
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_bus_stop':
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:3068:3: error: implicit declaration of function 'tasklet_kill'
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_probe':
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:5376:3: error: implicit declaration of function 'tasklet_init'
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_probe_attach':
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:5505:14: warning: cast to pointer from integer of different size
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_chip_recognition':
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:6056:19: warning: cast from pointer to integer of different size
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_dpc_tasklet':
+> drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:6593:4: error: implicit declaration of function 'tasklet_schedule'
+> 
+> Caused by commit a6b7a407865a ("net: remove interrupt.h inclusion from netdevice.h") from the net tree interacting with commit  ("") from the atsging tree.
+> 
+> I have applied the following merge fixup patch for today (it should be
+> applicable to the staging tree directly).
 
-Yes, there are several problems here.
+Ok, I'll go queue this up right now so this doesn't cause a problem in
+the future.
 
-More fundamentally, there is a problem if two (or more) applications us=
-e
-=46ANOUT sockets.
-
-Only one will get the defragmented packet.
-
-We probably need to have separate frag lists, or adding/using skb->sk a=
-s
-a key.
-
-Thanks
-
-
-[PATCH] packet: fix a leak in fanout_check_defrag()
-
-Reported-by: Penttil=C3=A4 Mika <mika.penttila@ixonos.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/packet/af_packet.c |   21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 41f0489..69238f6 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -476,15 +476,20 @@ static struct sk_buff *fanout_check_defrag(struct=
- sk_buff *skb)
- 		return skb;
-=20
- 	if (ip_is_fragment(ip_hdr(skb))) {
--		skb =3D skb_clone(skb, GFP_ATOMIC);
--		if (skb) {
--			if (pskb_trim_rcsum(skb, len))
--				return skb;
--			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
--			if (ip_defrag(skb, IP_DEFRAG_AF_PACKET))
--				return NULL;
--			skb->rxhash =3D 0;
-+		struct sk_buff *nskb =3D skb_clone(skb, GFP_ATOMIC);
-+
-+		if (!nskb)
-+			return skb;
-+		if (pskb_trim_rcsum(nskb, len)) {
-+			kfree_skb(nskb);
-+			return skb;
- 		}
-+		kfree_skb(skb);
-+		skb =3D nskb;
-+		memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+		if (ip_defrag(skb, IP_DEFRAG_AF_PACKET))
-+			return NULL;
-+		skb->rxhash =3D 0;
- 	}
- 	return skb;
- }
-
-
+greg k-h
