@@ -1,45 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 2/4] packet: Add fanout support.
-Date: Wed, 06 Jul 2011 06:48:58 +0200
-Message-ID: <1309927738.2545.55.camel@edumazet-laptop>
-References: <20110705.203957.1530606132453742271.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the staging tree
+Date: Wed, 6 Jul 2011 15:02:49 +1000
+Message-ID: <20110706150249.f2c67b43.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, victor@inliniac.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53355 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783Ab1GFEtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 00:49:03 -0400
-Received: by wyg8 with SMTP id 8so4411050wyg.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2011 21:49:02 -0700 (PDT)
-In-Reply-To: <20110705.203957.1530606132453742271.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 05 juillet 2011 =C3=A0 20:39 -0700, David Miller a =C3=A9crit =
-:
-> Fanouts allow packet capturing to be demuxed to a set of AF_PACKET
-> sockets.  Two fanout policies are implemented:
->=20
-> 1) Hashing based upon skb->rxhash
->=20
-> 2) Pure round-robin
->=20
-> An AF_PACKET socket must be fully bound before it tries to add itself
-> to a fanout.  All AF_PACKET sockets trying to join the same fanout
-> must all have the same bind settings.
->=20
-> Fanouts are identified (within a network namespace) by a 16-bit ID.
-> The first socket to try to add itself to a fanout with a particular
-> ID, creates that fanout.  When the last socket leaves the fanout
-> (which happens only when the socket is closed), that fanout is
-> destroyed.
->=20
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+Hi Greg,
 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+After merging the staging tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:599:24: error: field 'tasklet' has incomplete type
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_bus_stop':
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:3068:3: error: implicit declaration of function 'tasklet_kill'
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_probe':
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:5376:3: error: implicit declaration of function 'tasklet_init'
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_probe_attach':
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:5505:14: warning: cast to pointer from integer of different size
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_chip_recognition':
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:6056:19: warning: cast from pointer to integer of different size
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c: In function 'brcmf_sdbrcm_dpc_tasklet':
+drivers/staging/brcm80211/brcmfmac/dhd_sdio.c:6593:4: error: implicit declaration of function 'tasklet_schedule'
 
+Caused by commit a6b7a407865a ("net: remove interrupt.h inclusion from netdevice.h") from the net tree interacting with commit  ("") from the atsging tree.
+
+I have applied the following merge fixup patch for today (it should be
+applicable to the staging tree directly).
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 6 Jul 2011 14:54:48 +1000
+Subject: [PATCH] staging: use of tasklets requires including interrupt.h
+
+The implicit include of linux/interrupt.h is being removed from
+netdevice.h.
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/staging/brcm80211/brcmfmac/dhd_sdio.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/staging/brcm80211/brcmfmac/dhd_sdio.c b/drivers/staging/brcm80211/brcmfmac/dhd_sdio.c
+index da5a2ff..78a6a0c 100644
+--- a/drivers/staging/brcm80211/brcmfmac/dhd_sdio.c
++++ b/drivers/staging/brcm80211/brcmfmac/dhd_sdio.c
+@@ -20,6 +20,7 @@
+ #include <linux/printk.h>
+ #include <linux/pci_ids.h>
+ #include <linux/netdevice.h>
++#include <linux/interrupt.h>
+ #include <linux/sched.h>
+ #include <linux/mmc/sdio.h>
+ #include <linux/mmc/sdio_func.h>
+-- 
+1.7.5.4
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
