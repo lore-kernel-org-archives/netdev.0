@@ -1,206 +1,143 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH v3 1/4] packet: Add helpers to register/unregister
- ->prot_hook
-Date: Tue, 05 Jul 2011 20:39:54 -0700 (PDT)
-Message-ID: <20110705.203954.1973681312122686509.davem@davemloft.net>
+Subject: [PATCH v3 4/4] packet: Add pre-defragmentation support for ipv4
+ fanouts.
+Date: Tue, 05 Jul 2011 20:40:01 -0700 (PDT)
+Message-ID: <20110705.204001.480210178073443842.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: victor@inliniac.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58504 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58511 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751968Ab1GFDj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 23:39:59 -0400
+	with ESMTP id S1756173Ab1GFDkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2011 23:40:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+The skb->rxhash cannot be properly computed if the
+packet is a fragment.  To alleviate this, allow the
+AF_PACKET client to ask for defragmentation to be
+done at demux time.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/packet/af_packet.c |  103 +++++++++++++++++++++++++++--------------------
- 1 files changed, 59 insertions(+), 44 deletions(-)
+ include/linux/if_packet.h |    1 +
+ net/packet/af_packet.c    |   50 +++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 49 insertions(+), 2 deletions(-)
 
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index 1efa1cb..84e684e 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -53,6 +53,7 @@ struct sockaddr_ll {
+ 
+ #define PACKET_FANOUT_HASH		0
+ #define PACKET_FANOUT_LB		1
++#define PACKET_FANOUT_FLAG_DEFRAG	0x8000
+ 
+ struct tpacket_stats {
+ 	unsigned int	tp_packets;
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 461b16f..bb281bf 100644
+index 3350f1d..7ba6871 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -222,6 +222,55 @@ struct packet_skb_cb {
- 
- #define PACKET_SKB_CB(__skb)	((struct packet_skb_cb *)((__skb)->cb))
- 
-+static inline struct packet_sock *pkt_sk(struct sock *sk)
-+{
-+	return (struct packet_sock *)sk;
-+}
-+
-+/* register_prot_hook must be invoked with the po->bind_lock held,
-+ * or from a context in which asynchronous accesses to the packet
-+ * socket is not possible (packet_create()).
-+ */
-+static void register_prot_hook(struct sock *sk)
-+{
-+	struct packet_sock *po = pkt_sk(sk);
-+	if (!po->running) {
-+		dev_add_pack(&po->prot_hook);
-+		sock_hold(sk);
-+		po->running = 1;
-+	}
-+}
-+
-+/* {,__}unregister_prot_hook() must be invoked with the po->bind_lock
-+ * held.   If the sync parameter is true, we will temporarily drop
-+ * the po->bind_lock and do a synchronize_net to make sure no
-+ * asynchronous packet processing paths still refer to the elements
-+ * of po->prot_hook.  If the sync parameter is false, it is the
-+ * callers responsibility to take care of this.
-+ */
-+static void __unregister_prot_hook(struct sock *sk, bool sync)
-+{
-+	struct packet_sock *po = pkt_sk(sk);
-+
-+	po->running = 0;
-+	__dev_remove_pack(&po->prot_hook);
-+	__sock_put(sk);
-+
-+	if (sync) {
-+		spin_unlock(&po->bind_lock);
-+		synchronize_net();
-+		spin_lock(&po->bind_lock);
-+	}
-+}
-+
-+static void unregister_prot_hook(struct sock *sk, bool sync)
-+{
-+	struct packet_sock *po = pkt_sk(sk);
-+
-+	if (po->running)
-+		__unregister_prot_hook(sk, sync);
-+}
-+
- static inline __pure struct page *pgv_to_page(void *addr)
- {
- 	if (is_vmalloc_addr(addr))
-@@ -324,11 +373,6 @@ static inline void packet_increment_head(struct packet_ring_buffer *buff)
- 	buff->head = buff->head != buff->frame_max ? buff->head+1 : 0;
+@@ -223,7 +223,7 @@ struct packet_fanout {
+ 	unsigned int		num_members;
+ 	u16			id;
+ 	u8			type;
+-	u8			pad;
++	u8			defrag;
+ 	atomic_t		rr_cur;
+ 	struct list_head	list;
+ 	struct sock		*arr[PACKET_FANOUT_MAX];
+@@ -447,6 +447,41 @@ static struct sock *fanout_demux_lb(struct packet_fanout *f, struct sk_buff *skb
+ 	return f->arr[cur];
  }
  
--static inline struct packet_sock *pkt_sk(struct sock *sk)
--{
--	return (struct packet_sock *)sk;
--}
--
- static void packet_sock_destruct(struct sock *sk)
++static struct sk_buff *fanout_check_defrag(struct sk_buff *skb)
++{
++	const struct iphdr *iph;
++	u32 len;
++
++	if (skb->protocol != htons(ETH_P_IP))
++		return skb;
++
++	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++		return skb;
++
++	iph = ip_hdr(skb);
++	if (iph->ihl < 5 || iph->version != 4)
++		return skb;
++	if (!pskb_may_pull(skb, iph->ihl*4))
++		return skb;
++	iph = ip_hdr(skb);
++	len = ntohs(iph->tot_len);
++	if (skb->len < len || len < (iph->ihl * 4))
++		return skb;
++
++	if (ip_is_fragment(ip_hdr(skb))) {
++		skb = skb_clone(skb, GFP_ATOMIC);
++		if (skb) {
++			if (pskb_trim_rcsum(skb, len))
++				return skb;
++			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
++			if (ip_defrag(skb, IP_DEFRAG_AF_PACKET))
++				return NULL;
++			skb->rxhash = 0;
++		}
++	}
++	return skb;
++}
++
+ static int packet_rcv_fanout_hash(struct sk_buff *skb, struct net_device *dev,
+ 				  struct packet_type *pt, struct net_device *orig_dev)
  {
- 	skb_queue_purge(&sk->sk_error_queue);
-@@ -1337,15 +1381,7 @@ static int packet_release(struct socket *sock)
- 	spin_unlock_bh(&net->packet.sklist_lock);
- 
- 	spin_lock(&po->bind_lock);
--	if (po->running) {
--		/*
--		 * Remove from protocol table
--		 */
--		po->running = 0;
--		po->num = 0;
--		__dev_remove_pack(&po->prot_hook);
--		__sock_put(sk);
--	}
-+	unregister_prot_hook(sk, false);
- 	if (po->prot_hook.dev) {
- 		dev_put(po->prot_hook.dev);
- 		po->prot_hook.dev = NULL;
-@@ -1392,15 +1428,7 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protoc
- 	lock_sock(sk);
- 
- 	spin_lock(&po->bind_lock);
--	if (po->running) {
--		__sock_put(sk);
--		po->running = 0;
--		po->num = 0;
--		spin_unlock(&po->bind_lock);
--		dev_remove_pack(&po->prot_hook);
--		spin_lock(&po->bind_lock);
--	}
--
-+	unregister_prot_hook(sk, true);
- 	po->num = protocol;
- 	po->prot_hook.type = protocol;
- 	if (po->prot_hook.dev)
-@@ -1413,9 +1441,7 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protoc
- 		goto out_unlock;
- 
- 	if (!dev || (dev->flags & IFF_UP)) {
--		dev_add_pack(&po->prot_hook);
--		sock_hold(sk);
--		po->running = 1;
-+		register_prot_hook(sk);
- 	} else {
- 		sk->sk_err = ENETDOWN;
- 		if (!sock_flag(sk, SOCK_DEAD))
-@@ -1542,9 +1568,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 
- 	if (proto) {
- 		po->prot_hook.type = proto;
--		dev_add_pack(&po->prot_hook);
--		sock_hold(sk);
--		po->running = 1;
-+		register_prot_hook(sk);
+@@ -461,6 +496,12 @@ static int packet_rcv_fanout_hash(struct sk_buff *skb, struct net_device *dev,
+ 		return 0;
  	}
  
- 	spin_lock_bh(&net->packet.sklist_lock);
-@@ -2240,9 +2264,7 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
- 			if (dev->ifindex == po->ifindex) {
- 				spin_lock(&po->bind_lock);
- 				if (po->running) {
--					__dev_remove_pack(&po->prot_hook);
--					__sock_put(sk);
--					po->running = 0;
-+					__unregister_prot_hook(sk, false);
- 					sk->sk_err = ENETDOWN;
- 					if (!sock_flag(sk, SOCK_DEAD))
- 						sk->sk_error_report(sk);
-@@ -2259,11 +2281,8 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
- 		case NETDEV_UP:
- 			if (dev->ifindex == po->ifindex) {
- 				spin_lock(&po->bind_lock);
--				if (po->num && !po->running) {
--					dev_add_pack(&po->prot_hook);
--					sock_hold(sk);
--					po->running = 1;
--				}
-+				if (po->num)
-+					register_prot_hook(sk);
- 				spin_unlock(&po->bind_lock);
- 			}
++	if (f->defrag) {
++		skb = fanout_check_defrag(skb);
++		if (!skb)
++			return 0;
++	}
++
+ 	skb_get_rxhash(skb);
+ 
+ 	sk = fanout_demux_hash(f, skb, num);
+@@ -519,10 +560,12 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
+ 	spin_unlock(&f->lock);
+ }
+ 
+-static int fanout_add(struct sock *sk, u16 id, u8 type)
++static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ {
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	struct packet_fanout *f, *match;
++	u8 type = type_flags & 0xff;
++	u8 defrag = (type_flags & PACKET_FANOUT_FLAG_DEFRAG) ? 1 : 0;
+ 	int err;
+ 
+ 	switch (type) {
+@@ -548,12 +591,15 @@ static int fanout_add(struct sock *sk, u16 id, u8 type)
  			break;
-@@ -2530,10 +2549,8 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
- 	was_running = po->running;
- 	num = po->num;
- 	if (was_running) {
--		__dev_remove_pack(&po->prot_hook);
- 		po->num = 0;
--		po->running = 0;
--		__sock_put(sk);
-+		__unregister_prot_hook(sk, false);
+ 		}
  	}
- 	spin_unlock(&po->bind_lock);
- 
-@@ -2564,11 +2581,9 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req,
- 	mutex_unlock(&po->pg_vec_lock);
- 
- 	spin_lock(&po->bind_lock);
--	if (was_running && !po->running) {
--		sock_hold(sk);
--		po->running = 1;
-+	if (was_running) {
- 		po->num = num;
--		dev_add_pack(&po->prot_hook);
-+		register_prot_hook(sk);
- 	}
- 	spin_unlock(&po->bind_lock);
- 
++	if (match && match->defrag != defrag)
++		return -EINVAL;
+ 	if (!match) {
+ 		match = kzalloc(sizeof(*match), GFP_KERNEL);
+ 		if (match) {
+ 			write_pnet(&match->net, sock_net(sk));
+ 			match->id = id;
+ 			match->type = type;
++			match->defrag = defrag;
+ 			atomic_set(&match->rr_cur, 0);
+ 			INIT_LIST_HEAD(&match->list);
+ 			spin_lock_init(&match->lock);
 -- 
 1.7.5.4
 
