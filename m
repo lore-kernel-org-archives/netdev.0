@@ -1,86 +1,88 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 08/10] dynamic_debug: make netif_dbg() call
- __netdev_printk()
-Date: Wed, 06 Jul 2011 14:59:03 -0700
-Message-ID: <1309989543.1710.19.camel@Joe-Laptop>
-References: <cover.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
-	 <889f3300a96f381aee1239ea775014fff26d93c9.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 38862] New: No support for DGE-530T Rev C1
+Date: Wed, 6 Jul 2011 15:07:42 -0700
+Message-ID: <20110706150742.2f8afc28@nehalam.ftrdhcpuser.net>
+References: <bug-38862-10286@https.bugzilla.kernel.org/>
+	<20110706143709.0f5ab7d6.akpm@linux-foundation.org>
+	<4E14D83C.1090506@ruggedcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, jim.cromie@gmail.com, bvanassche@acm.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
-To: Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <889f3300a96f381aee1239ea775014fff26d93c9.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: James Henderson <JamesHenderson@ruggedcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58509 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751568Ab1GFWIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 18:08:18 -0400
+In-Reply-To: <4E14D83C.1090506@ruggedcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-07-06 at 13:25 -0400, Jason Baron wrote:
-> From: Jason Baron <jbaron@redhat.com>
-> 
-> Previously, netif_dbg() was using dynamic_dev_dbg() to perform
-> the underlying printk. Fix it to use __netdev_printk(), instead.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Jason Baron <jbaron@redhat.com>
-> ---
->  include/linux/dynamic_debug.h |   12 ++++++++++++
->  include/linux/netdevice.h     |    6 ++----
->  2 files changed, 14 insertions(+), 4 deletions(-)
-> 
-> diff --git a/include/linux/dynamic_debug.h b/include/linux/dynamic_debug.h
-[]
-> +#define dynamic_netif_dbg(dev, cond, fmt, ...) do {			\
-> +	static struct _ddebug descriptor				\
-> +	__used								\
-> +	__attribute__((section("__verbose"), aligned(8))) =		\
-> +	{ KBUILD_MODNAME, __func__, __FILE__, fmt, __LINE__,		\
-> +		_DPRINTK_FLAGS_DEFAULT };				\
-> +	if (unlikely(descriptor.enabled)) {				\
-> +		if (cond)						\
-> +			__dynamic_netdev_dbg(&descriptor, dev, fmt, ##__VA_ARGS__);\
-> +	}								\
-> +	} while (0)
-> +
+On Wed, 6 Jul 2011 17:48:44 -0400
+James Henderson <JamesHenderson@ruggedcom.com> wrote:
 
-Just nits:
+> Andrew Morton wrote:
+> > (switched to email.  Please respond via emailed reply-to-all, not via the
+> > bugzilla web interface).
+> >
+> > On Wed, 6 Jul 2011 16:05:36 GMT
+> > bugzilla-daemon@bugzilla.kernel.org wrote:
+> >
+> >   
+> >> https://bugzilla.kernel.org/show_bug.cgi?id=38862
+> >>
+> >>            Summary: No support for DGE-530T Rev C1
+> >>            Product: Drivers
+> >>            Version: 2.5
+> >>     Kernel Version: 2.6.39.2
+> >>           Platform: All
+> >>         OS/Version: Linux
+> >>               Tree: Mainline
+> >>             Status: NEW
+> >>           Severity: normal
+> >>           Priority: P1
+> >>          Component: Network
+> >>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+> >>         ReportedBy: jameshenderson@ruggedcom.com
+> >>         Regression: No
+> >>
+> >>
+> >> The kernel support DGE-530T REV B2 through the skge driver.  The PCI device id
+> >> of REV-B2 is 1186:4302.  Rev C1 has a PCI device id of 1186:4302.  No driver in
+> >> the current kernel supports this device id/vendor combination.  Furthermore,
+> >> this device is not even listed in the device database ->
+> >> http://www.pcidatabase.com/vendor_details.php?id=921 .
+> >>
+> >> On the chip is the following information:
+> >> D-Link
+> >> DLG10028C
+> >> A8A34A1
+> >> GA50 TAIWAN
+> >>
+> >> A sticker on the card reads:
+> >> DGE-530T Rev C1
+> >>
+> >> I am including a picture I took of the card.
+> >>
+> >>     
+> >
+> > Did you test simply adding that device to the driver?
+> >
+> > --- a/drivers/net/skge.c~a
+> > +++ a/drivers/net/skge.c
+> > @@ -89,6 +89,7 @@ static DEFINE_PCI_DEVICE_TABLE(skge_id_t
+> >  	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_YU) },
+> >  	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE510T) },
+> >  	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, 0x4b01) },	/* DGE-530T */
+> > +	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, 0x4302) },	/* DGE-530T Rev C1 */
+> >  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4320) },
+> >  	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x5005) }, /* Belkin */
+> >  	{ PCI_DEVICE(PCI_VENDOR_ID_CNET, PCI_DEVICE_ID_CNET_GIGACARD) },
+> > _
 
-I think it'd be better to use
-#define dynamic_netif_dbg(etc)						\
-do {									\
-	etc...
-} while (0)
+I will go look at the Marvell Syskonnect driver, they occasionally
+up date it with new ID's.
 
-so that there aren't 2 consecutive close braces at the same indent level.
-
-and maybe just use one test
-
-	if (unlikely(descriptor.enabled) && cond)
-		__dynamic_netdev_dbg(&descriptor, dev, fmt, ##__VA_ARGS__);
-
-
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 9b132ef..99c358f 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2731,10 +2731,8 @@ do {								\
->  #elif defined(CONFIG_DYNAMIC_DEBUG)
->  #define netif_dbg(priv, type, netdev, format, args...)		\
->  do {								\
-> -	if (netif_msg_##type(priv))				\
-> -		dynamic_dev_dbg((netdev)->dev.parent,		\
-> -				"%s: " format,			\
-> -				netdev_name(netdev), ##args);	\
-> +	dynamic_netif_dbg(netdev, (netif_msg_##type(priv)),	\
-> +				  format, ##args);		\
-
-Because you've already added dynamic_netdev_dbg,
-maybe this should be:
-
-#define netif_dbg(priv, type, netdev, format, args...)		\
-do {								\
-	if (netif_msg_##type(priv))				\
-		dynamic_netdev_dbg(netdev, format, ##args);	\
-} while (0)
