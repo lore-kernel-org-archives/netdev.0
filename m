@@ -1,104 +1,77 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCHv2] sctp: Enforce retransmission limit during shutdown
-Date: Wed, 06 Jul 2011 10:31:56 -0400
-Message-ID: <4E1471DC.2090407@hp.com>
-References: <20110629135704.GB10085@canuck.infradead.org> <4E0B3491.1060603@hp.com> <20110629143649.GC10085@canuck.infradead.org> <4E0B3DA1.9060200@hp.com> <20110629154814.GD10085@canuck.infradead.org> <4E0B4F71.4020108@hp.com> <20110630084933.GA24074@canuck.infradead.org> <4E0C8368.5090502@hp.com> <20110704135019.GA801@canuck.infradead.org> <4E146652.7010205@hp.com> <20110706141808.GA17652@canuck.infradead.org>
+From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Subject: Re: 3.0.0rc6: ethtool not working without a cable
+Date: Wed, 6 Jul 2011 16:53:04 +0200
+Message-ID: <201107061653.04689.a.miskiewicz@gmail.com>
+References: <201107061338.08573.a.miskiewicz@gmail.com> <1309962484.4280.25.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:3491 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148Ab1GFOcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 10:32:03 -0400
-In-Reply-To: <20110706141808.GA17652@canuck.infradead.org>
+Received: from mail-fx0-f52.google.com ([209.85.161.52]:59521 "EHLO
+	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753145Ab1GFOxJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 10:53:09 -0400
+Received: by fxd18 with SMTP id 18so161971fxd.11
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2011 07:53:07 -0700 (PDT)
+In-Reply-To: <1309962484.4280.25.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/06/2011 10:18 AM, Thomas Graf wrote:
-> On Wed, Jul 06, 2011 at 09:42:42AM -0400, Vladislav Yasevich wrote:
->> On a related note, were you going to re-submit the receiver patch as well?
-> 
-> Yes
-> 
->> On 07/04/2011 09:50 AM, Thomas Graf wrote:
->>> +			 * retransmission limit. Stop that timer as soon
->>> +			 * as the receiver acknowledged any data.
->>> +			 */
->>> +			t = &asoc->timers[SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD];
->>> +			if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING &&
->>> +			    timer_pending(t) && del_timer(t))
->>> +				sctp_association_put(asoc);
->>> +
->>
->> I believe 'state' and 'timers' are in different cache lines, so might be able to optimize it
->> a little by checking the state prior to referencing timers array.
-> 
-> gcc should do that but I'm fine with changing it.
-> 
->>> +			 *
->>> +			 * Allow the association to timeout if SHUTDOWN is
->>> +			 * pending in case the receiver stays in zero window
->>> +			 * mode forever.
->>>  			 */
->>>  			if (!q->asoc->peer.rwnd &&
->>>  			    !list_empty(&tlist) &&
->>> -			    (sack_ctsn+2 == q->asoc->next_tsn)) {
->>> +			    (sack_ctsn+2 == q->asoc->next_tsn) &&
->>> +			    !(q->asoc->state >= SCTP_STATE_SHUTDOWN_PENDING)) {
->>
->> Would a test for (q->asoc->state != SCTP_STATE_SHUTDOWN_PENDING) be clearer?  We only
->> care about the PENDING state here.
-> 
-> I think SHUTDOWN_RECEIVED should also be included. We continue to transmit and
-> process SACKs after receiving a SHUTDOWN.
+On Wednesday 06 of July 2011, Ben Hutchings wrote:
+> On Wed, 2011-07-06 at 13:38 +0200, Arkadiusz Miskiewicz wrote:
+> > 3.0.0rc6, thinkpad t400 notebook.
+> >=20
+> > If there is no cable then ethtool reports no device. It wasn't that
+> > before AFAIK.
+> >=20
+> > ethtool version 2.6.36
+> >=20
+> >=20
+> > cable disconnected:
+> >=20
+> > [root@t400 ~]# ethtool eth0
+> > Settings for eth0:
+> > Cannot get device settings: No such device
+> > Cannot get wake-on-lan settings: No such device
+> > Cannot get message level: No such device
+> > Cannot get link status: No such device
+> > No data available
+> > zsh: exit 75    ethtool eth0
+> > [root@t400 ~]# ethtool -i eth0
+> > Cannot get driver information: No such device
+> > zsh: exit 71    ethtool -i eth0
+>=20
+> [...]
+>=20
+> Then there really isn't a device under that name.  Maybe the driver i=
+s
+> getting a bogus MAC address, so that the device is renamed by udev.
 
-I am not sure about SHUTDOWN_RECEIVED.  If we received shutdown, then we are not in
-a 0 window situation.  Additionally, the sender of the SHUTDOWN started the GUARD timer
-and will abort after it expires.  So there is no special handling on our part.
+No, no, device exists:
 
--vlad
+[arekm@t400 ~]$ ip l
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast =
+state=20
+DOWN qlen 1000
+    link/ether 00:21:86:a2:19:06 brd ff:ff:ff:ff:ff:ff
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc sfq state UP =
+qlen=20
+1000
+    link/ether 00:16:eb:05:5d:08 brd ff:ff:ff:ff:ff:ff
+[arekm@t400 ~]$ ethtool eth0
+Settings for eth0:
+Cannot get device settings: No such device
+Cannot get wake-on-lan settings: No such device
+Cannot get message level: No such device
+Cannot get link status: No such device
+No data available
+zsh: exit 75    ethtool eth0
+[arekm@t400 ~]$
 
-> 
->>> +	 * Although RFC2960 and RFC4460 specify that the overall error
->>> +	 * count must be cleared when a HEARTBEAT ACK is received this
->>> +	 * behaviour may prevent the maximum retransmission count from
->>> +	 * being reached while in SHUTDOWN. If the peer keeps its window
->>> +	 * closed not acknowledging any outstanding TSN we may rely on
->>> +	 * reaching the max_retrans limit via the T3-rtx timer to close
->>> +	 * the association which will never happen if the error count is
->>> +	 * reset every heartbeat interval.
->>> +	 */
->>> +	if (!(t->asoc->state >= SCTP_STATE_SHUTDOWN_PENDING))
->>> +		t->asoc->overall_error_count = 0;
->>
->> Same here.  We only care about the PENDING state. Also, please fix the comment to reflect
->> the code.
-> 
-> Agreed.
-> 
->>> +		if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING) {
->>> +			/*
->>> +			 * We are here likely because the receiver had its rwnd
->>> +			 * closed for a while and we have not been able to
->>> +			 * transmit the locally queued data within the maximum
->>> +			 * retransmission attempts limit.  Start the T5
->>> +			 * shutdown guard timer to give the receiver one last
->>> +			 * chance and some additional time to recover before
->>> +			 * aborting.
->>> +			 */
->>> +			sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
->>> +				SCTP_TO(SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD));
->>
->> This is bug.  You don't want to restart the timer every time you hit a T3-timeout.  Remember, since you fall
->> through here, you do another retransmission and schedule another timeout.  So next time the timeout happens,
->> you'll restart the SHUTDOWN_GUARD, which is not what you want.
->>
->> We want to start it once if it isn't pending, and leave it running without restart if it is already pending.
-> 
-> Doh, absolutely. The timer_pending() check got lost between testing and submission.
-> 
 
+--=20
+Arkadiusz Mi=C5=9Bkiewicz
