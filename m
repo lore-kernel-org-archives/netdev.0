@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V8 0/4 net-next] macvtap/vhost TX zero-copy support
-Date: Thu, 07 Jul 2011 04:08:40 -0700 (PDT)
-Message-ID: <20110707.040840.809661052978541081.davem@davemloft.net>
-References: <1309990525.10209.12.camel@localhost.localdomain>
+Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
+Date: Thu, 07 Jul 2011 04:12:57 -0700 (PDT)
+Message-ID: <20110707.041257.670268148869400054.davem@davemloft.net>
+References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
+	<1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mashirle@us.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1309990525.10209.12.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	troy.kisky@boundarydevices.com, u.kleine-koenig@pengutronix.de,
+	linux-arm-kernel@lists.infradead.org, LW@KARO-electronics.de
+To: shawn.guo@linaro.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Shirley Ma <mashirle@us.ibm.com>
-Date: Wed, 06 Jul 2011 15:15:25 -0700
+From: Shawn Guo <shawn.guo@linaro.org>
+Date: Fri,  1 Jul 2011 18:11:22 +0800
 
-> This patchset add supports for TX zero-copy between guest and host
-> kernel through vhost. It significantly reduces CPU utilization on the
-> local host on which the guest is located (It reduced about 50% CPU usage
-> for single stream test on the host, while 4K message size BW has
-> increased about 50%). The patchset is based on previous submission and
-> comments from the community regarding when/how to handle guest kernel
-> buffers to be released. This is the simplest approach I can think of
-> after comparing with several other solutions.
+> On the recent i.mx (mx25/50/53), there is a gasket inside fec
+> controller which needs to be enabled no matter phy works in MII
+> or RMII mode.
 > 
-> This patchset has integrated V3 review comments from community: 
+> The current code enables the gasket only when phy interface is RMII.
+> It's broken when the driver works with a MII phy.  The patch uses
+> platform_device_id to distinguish the SoCs that have the gasket and
+> enables it on these SoCs for both MII and RMII mode.
+> 
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 
-I'm personally fine with this patch set.  Unless there are others
-who object, please fix the use-after-free bug I reported, respin
-the patch set, and I'll apply it.
-
-Thanks.
+Acked-by: David S. Miller <davem@davemloft.net>
