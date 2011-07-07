@@ -1,18 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 0/4] skge: driver update
-Date: Wed, 06 Jul 2011 22:00:04 -0700
-Message-ID: <20110707050003.998140428@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:42591 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751349Ab1GGFBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2011 01:01:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net tree
+Date: Thu, 7 Jul 2011 15:28:57 +1000
+Message-ID: <20110707152857.83d48e1d1c175f811b255952@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jesper Juhl <jj@chaosbits.net>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add one pci id, and cleanup table.
-Make support for really old hardware optional.
+Hi Greg,
 
+Today's linux-next merge of the staging tree got a conflict in
+drivers/staging/rtl8187se/ieee80211/ieee80211_softmac.c between commit
+219eb47e6f35 ("net/staging: add needed interrupt.h and hardirq.h
+includes") from the net tree and commit 41134db17a7d ("Remove unneeded
+version.h includes from drivers/staging/rtl*/") from the staging tree.
 
+I fixed it up (see below) and can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/staging/rtl8187se/ieee80211/ieee80211_softmac.c
+index 00ee02f,52a7386..0000000
+--- a/drivers/staging/rtl8187se/ieee80211/ieee80211_softmac.c
++++ b/drivers/staging/rtl8187se/ieee80211/ieee80211_softmac.c
+@@@ -19,8 -19,6 +19,7 @@@
+  #include <linux/random.h>
+  #include <linux/delay.h>
+  #include <linux/slab.h>
+- #include <linux/version.h>
+ +#include <linux/interrupt.h>
+  #include <asm/uaccess.h>
+  
+  #include "dot11d.h"
