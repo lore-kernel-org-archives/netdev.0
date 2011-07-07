@@ -1,84 +1,177 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: linux-next: Tree for July 7 (net/af_packet)
-Date: Thu, 7 Jul 2011 08:40:08 -0700
-Message-ID: <20110707084008.586fa694.randy.dunlap@oracle.com>
-References: <20110707172544.867b980a1196db005b577c14@canb.auug.org.au>
-	<20110707081202.6dddcbce.randy.dunlap@oracle.com>
-	<20110707.081839.2119597618388053074.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 08/10] dynamic_debug: make netif_dbg() call
+ __netdev_printk()
+Date: Thu, 07 Jul 2011 09:29:21 -0700
+Message-ID: <1310056161.27526.47.camel@Joe-Laptop>
+References: <cover.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
+	 <889f3300a96f381aee1239ea775014fff26d93c9.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
+	 <1309989543.1710.19.camel@Joe-Laptop>  <20110707141259.GA2536@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110707.081839.2119597618388053074.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Cc: gregkh@suse.de, jim.cromie@gmail.com, bvanassche@acm.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
+To: Jason Baron <jbaron@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110707141259.GA2536@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 07 Jul 2011 08:18:39 -0700 (PDT) David Miller wrote:
+On Thu, 2011-07-07 at 10:13 -0400, Jason Baron wrote:
+> On Wed, Jul 06, 2011 at 02:59:03PM -0700, Joe Perches wrote:
+> > > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > > @@ -2731,10 +2731,8 @@ do {								\
+> > >  #elif defined(CONFIG_DYNAMIC_DEBUG)
+> > >  #define netif_dbg(priv, type, netdev, format, args...)		\
+> > >  do {								\
+> > > -	if (netif_msg_##type(priv))				\
+> > > -		dynamic_dev_dbg((netdev)->dev.parent,		\
+> > > -				"%s: " format,			\
+> > > -				netdev_name(netdev), ##args);	\
+> > > +	dynamic_netif_dbg(netdev, (netif_msg_##type(priv)),	\
+> > > +				  format, ##args);		\
+> > Because you've already added dynamic_netdev_dbg,
+> > maybe this should be:
+> > #define netif_dbg(priv, type, netdev, format, args...)		\
+> > do {								\
+> > 	if (netif_msg_##type(priv))				\
+> > 		dynamic_netdev_dbg(netdev, format, ##args);	\
+> > } while (0)
+> The reason I didn't add it this way is b/c I plan on converting the
+> outer 'ifs' to the jump label infrastructure - which makes the disabled
+> case just a no-op and moves the printk and tests out of line.
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Thu, 7 Jul 2011 08:12:02 -0700
-> 
-> > On Thu, 7 Jul 2011 17:25:44 +1000 Stephen Rothwell wrote:
-> > 
-> >> Hi all,
-> >> 
-> >> The next linux-next release will (probably) be next-20110718.
-> >> 
-> >> Changes since 20110706:
-> > 
-> > 
-> > When CONFIG_INET is not enabled:
-> > 
-> > af_packet.c:(.text+0x3d130): undefined reference to `ip_defrag'
-> > or
-> > ERROR: "ip_defrag" [net/packet/af_packet.ko] undefined!
-> 
-> Sorry about that, fixed thusly:
-> 
-> --------------------
-> packet: Fix build with INET disabled.
-> 
-> af_packet.c:(.text+0x3d130): undefined reference to `ip_defrag'
-> or
-> ERROR: "ip_defrag" [net/packet/af_packet.ko] undefined!
-> 
-> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+Perhaps you needn't do that.
 
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+I think there's little to be gained to move the test
+outwards and not perform the netif_msg##type(priv)
 
-Thanks.
+> Until that is done, i could see coding it as you've suggested, but I'd
+> prefer to leave it as is (and leave future churn to within the dynamic
+> debug code as opposed to the netdevice.h header).
 
-> ---
->  net/packet/af_packet.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index aa4c73a..d2294ad 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -456,6 +456,7 @@ static struct sock *fanout_demux_cpu(struct packet_fanout *f, struct sk_buff *sk
->  
->  static struct sk_buff *fanout_check_defrag(struct sk_buff *skb)
->  {
-> +#ifdef CONFIG_INET
->  	const struct iphdr *iph;
->  	u32 len;
->  
-> @@ -486,6 +487,7 @@ static struct sk_buff *fanout_check_defrag(struct sk_buff *skb)
->  			skb->rxhash = 0;
->  		}
->  	}
-> +#endif
->  	return skb;
->  }
->  
-> -- 
+Shrug.  I think that dynamic_debug will have continuing
+impacts on various subsystems unless there's some generic
+__dynamic_dbg() and _prefix() mechanism introduced into
+more generic <foo>_dbg style.
 
+Anything logging message that uses <foo>_dbg or <foo>_vdbg
+is a candidate for dynamic_debug uses, but there's no
+current generic mechanism to avoid subsystem specific needs.
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+Any of these could need some dynamic_debug consideration:
+
+$ grep -rPoh --include=*.[ch] "[a-z_]+_[v]?dbg\(" * | sort | uniq
+acpi_ut_allocate_object_desc_dbg(
+acpi_ut_create_internal_object_dbg(
+adc_dbg(
+add_dyn_dbg(
+airo_print_dbg(
+ata_dev_dbg(
+ata_link_dbg(
+ata_port_dbg(
+ath_dbg(
+atm_dbg(
+bat_dbg(
+bit_dbg(
+cafe_dev_dbg(
+cam_dbg(
+c_freq_dbg(
+chan_dbg(
+chan_reg_rule_print_dbg(
+cmm_dbg(
+c_pm_dbg(
+ctrl_dbg(
+__dbg(
+desc_dbg(
+dev_dbg(
+dev_vdbg(
+dma_request_channel_dbg(
+__dump_desc_dbg(
+dump_desc_dbg(
+dump_pq_desc_dbg(
+dynamic_dev_dbg(
+e_dbg(
+ehca_dbg(
+ehca_gen_dbg(
+ehci_dbg(
+ehci_vdbg(
+en_dbg(
+ep_dbg(
+ep_vdbg(
+fhci_dbg(
+fhci_vdbg(
+fit_dbg(
+gig_dbg(
+gpio_dbg(
+gru_dbg(
+hgpk_dbg(
+hid_dbg(
+hw_dbg(
+ibmvfc_dbg(
+ipath_dbg(
+ipoib_dbg(
+ipr_dbg(
+iser_dbg(
+isp_isr_dbg(
+itd_dbg(
+ite_dbg(
+l_dbg(
+lg_dbg(
+mce_dbg(
+memblock_dbg(
+mhwmp_dbg(
+mpeg_dbg(
+mpl_dbg(
+msg_dbg(
+mthca_dbg(
+netdev_dbg(
+netdev_vdbg(
+netif_dbg(
+netif_vdbg(
+nfc_dbg(
+nfc_dev_dbg(
+nsp_dbg(
+nvt_dbg(
+ohci_dbg(
+ohci_vdbg(
+oxu_dbg(
+oxu_vdbg(
+pch_dbg(
+pch_pci_dbg(
+pm_dev_dbg(
+pnp_dbg(
+pop_dbg(
+prep_dma_pq_dbg(
+prep_dma_pqzero_sum_dbg(
+prep_dma_xor_dbg(
+_print_dbg(
+print_dbg(
+pwm_dbg(
+rdev_dbg(
+reg_dbg(
+sh_keysc_map_dbg(
+slice_dbg(
+smsc_dbg(
+start_dbg(
+stop_dbg(
+sysrq_handle_dbg(
+tda_dbg(
+tgt_dbg(
+tipc_msg_dbg(
+__tuner_dbg(
+tuner_dbg(
+tveeprom_dbg(
+tx_dbg(
+uea_dbg(
+uea_vdbg(
+ugeth_dbg(
+ugeth_vdbg(
+urb_dbg(
+usb_dbg(
+vpif_dbg(
+wiphy_dbg(
+wiphy_vdbg(
+xhci_dbg(
+x_show_dbg(
