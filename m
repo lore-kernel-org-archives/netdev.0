@@ -1,61 +1,85 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: [heads-up] bridge in kernel 3.0~ and dhcp from kvm guest on tap device
-Date: Thu, 07 Jul 2011 13:44:57 +0400
-Message-ID: <4E158019.9040604@msgid.tls.msk.ru>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 00/14] Swap-over-NBD without deadlocking v5
+Date: Thu, 7 Jul 2011 10:47:37 +0100
+Message-ID: <20110707094737.GG15285@suse.de>
+References: <1308575540-25219-1-git-send-email-mgorman@suse.de>
+ <20110706165146.be7ab61b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, KVM list <kvm@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:51288 "EHLO isrv.corpit.ru"
+Received: from cantor2.suse.de ([195.135.220.15]:45707 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754123Ab1GGJo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2011 05:44:59 -0400
+	id S1754655Ab1GGJrn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2011 05:47:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20110706165146.be7ab61b.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The combination in $subject apparently stopped working --
-I'm running 3.0-rc6 kernel on host where it doesn't work.
+On Wed, Jul 06, 2011 at 04:51:46PM -0700, Andrew Morton wrote:
+> On Mon, 20 Jun 2011 14:12:06 +0100
+> Mel Gorman <mgorman@suse.de> wrote:
+> 
+> > Swapping over NBD is something that is technically possible but not
+> > often advised. While there are number of guides on the internet
+> > on how to configure it and nbd-client supports a -swap switch to
+> > "prevent deadlocks", the fact of the matter is a machine using NBD
+> > for swap can be locked up within minutes if swap is used intensively.
+> > 
+> > The problem is that network block devices do not use mempools like
+> > normal block devices do. As the host cannot control where they receive
+> > packets from, they cannot reliably work out in advance how much memory
+> > they might need.
+> > 
+> > Some years ago, Peter Ziljstra developed a series of patches that
+> > supported swap over an NFS that some distributions are carrying in
+> > their kernels. This patch series borrows very heavily from Peter's work
+> > to support swapping over NBD (the relatively straight-forward case)
+> > and uses throttling instead of dynamically resized memory reserves
+> > so the series is not too unwieldy for review.
+> 
+> I have to say, I look over these patches and my mind wants to turn to
+> things like puppies.  And ice cream.
+> 
 
-The setup is -- a bridge, br0, to which host eth0 and guest
-tap devices are connected.
+People do love puppies and ice cream!
 
-When KVM guest boots, it tries to send DHCP requests to
-its ethernet device (it does not matter which device it
-uses - be it virtio or e1000 or rtl8139, all work the
-same).  These requests appears (can be seen) on the tap
-device, but they never propagate to bridge.
+> There's quite some complexity added here in areas which are already
+> reliably unreliable and afaik swap-over-NBD is not a thing which a lot
+> of people want to do. I can see that swap-over-NFS would be useful to
+> some people, and the fact that distros are carrying swap-over-NFS
+> patches has weight.
+> 
+> Do these patches lead on to swap-over-NFS?  If so, how much more
+> additional complexity are we buying into for that?
 
-Example of a packet as seen on the tap device from a
-windows7 guest:
+Swap-over-NFS is the primary motivation. As you say, distributions are
+carrying this and have been for some time. Based on my asking about the
+background, the primary user is clusters of blades that are diskless
+or have extremely limited storage with no possibility of expansion (be
+it due to physical dimensions or maintenance overhead). They require
+an amount of infrequently used swap for their workloads. They are
+connected to some sort of SAN that may or may not be running Linux
+but that exports NFS so they want to stick a swapfile on it.
 
-# tcpdump -npvi tap-kvm port bootpc
-tcpdump: WARNING: tap-kvm: no IPv4 address assigned
-tcpdump: listening on tap-kvm, link-type EN10MB (Ethernet), capture size 65535 bytes
-13:38:21.435032 IP (tos 0x0, ttl 128, id 109, offset 0, flags [none], proto UDP (17), length 328)
-    0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 52:54:00:12:34:56, length 300, xid 0xdc8f28b1, secs 7168, Flags [Broadcast]
-	  Client-Ethernet-Address 52:54:00:12:34:56
-	  Vendor-rfc1048 Extensions
-	    Magic Cookie 0x63825363
-	    DHCP-Message Option 53, length 1: Discover
-	    Client-ID Option 61, length 7: ether 52:54:00:12:34:56
-	    Hostname Option 12, length 7: "mjt-006"
-	    Vendor-Class Option 60, length 8: "MSFT 5.0"
-	    Parameter-Request Option 55, length 12:
-	      Subnet-Mask, Domain-Name, Default-Gateway, Domain-Name-Server
-	      Netbios-Name-Server, Netbios-Node, Netbios-Scope, Router-Discovery
-	      Static-Route, Classless-Static-Route, Classless-Static-Route-Microsoft, Vendor-Option
+Swap-over-NBD is the simplier case that can be used if the SAN
+is running Linux. Almost all of the compexity required to support
+swap-over-NBD is reused for swap-over-NFS (obviously the NBD-specific
+bits are not reused).
 
-Exactly the same thing happens with 4 different DHCP
-clients: it's ipxe boot rom (network booting of a KVM
-guest), win7 built-in DHCP client, udhcpc and dhcp3.
+Additional complexity is required for swap-over-NFS but affects the
+core kernel far less than this series. I do not have a series prepared
+but from what's in a distro kernel, supporting NFS requires extending
+address_space_operations for swapfile activation/deactivation with
+some minor helpers and the bulk of the remaining complexity within
+NFS itself.
 
-All other traffic - so far anyway - works correcty.
-
-Right now I don't have time to debug the issue, will try
-to bisect later.  But if anyone have pointers or thoughts,
-please shot away ;)
-
-Thanks!
-
-/mjt
+-- 
+Mel Gorman
+SUSE Labs
