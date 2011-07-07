@@ -1,63 +1,60 @@
-From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: [PATCH 3/4] batman-adv: keep global table consistency in case of roaming
-Date: Fri,  8 Jul 2011 00:33:42 +0200
-Message-ID: <1310078023-28958-4-git-send-email-lindner_marek@yahoo.de>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: [PATCH 4/4] batman-adv: request the full table if
+	tt_crc doesn't match
+Date: Fri,  8 Jul 2011 00:35:46 +0200
+Message-ID: <1310078146-29537-1-git-send-email-lindner_marek@yahoo.de>
 References: <1310078023-28958-1-git-send-email-lindner_marek@yahoo.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm15-vm0.bullet.mail.ukl.yahoo.com ([217.146.183.252]:40050
-	"HELO nm15-vm0.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753338Ab1GGWeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 18:34:07 -0400
-In-Reply-To: <1310078023-28958-1-git-send-email-lindner_marek@yahoo.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1310078023-28958-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex@autistici.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
-To keep consistency of other originator tables, new clients detected as
-roamed, are kept in the global table but are marked as TT_CLIENT_PENDING
-They are purged only when the new ttvn is received by the corresponding
-originator. Moreover they need to be considered as removed in case of global
-transtable lookup.
+In case of tt_crc mismatching for a certain orig_node after applying the
+changes, the node must request the full table immediately.
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 ---
- net/batman-adv/translation-table.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+ net/batman-adv/routing.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 7cc67c0..fb6931d 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -230,8 +230,9 @@ void tt_local_add(struct net_device *soft_iface, const uint8_t *addr)
- 	if (tt_global_entry) {
- 		/* This node is probably going to update its tt table */
- 		tt_global_entry->orig_node->tt_poss_change = true;
--		_tt_global_del(bat_priv, tt_global_entry,
--			       "local tt received");
-+		/* The global entry has to be marked as PENDING and has to be
-+		 * kept for consistency purpose */
-+		tt_global_entry->flags |= TT_CLIENT_PENDING;
- 		send_roam_adv(bat_priv, tt_global_entry->addr,
- 			      tt_global_entry->orig_node);
- 	}
-@@ -787,6 +788,11 @@ struct orig_node *transtable_search(struct bat_priv *bat_priv,
- 	if (!atomic_inc_not_zero(&tt_global_entry->orig_node->refcount))
- 		goto free_tt;
- 
-+	/* A global client marked as PENDING has already moved from that
-+	 * originator */
-+	if (tt_global_entry->flags & TT_CLIENT_PENDING)
-+		goto free_tt;
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 2cb98be..0f32c81 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -91,6 +91,18 @@ static void update_transtable(struct bat_priv *bat_priv,
+ 		 * to recompute it to spot any possible inconsistency
+ 		 * in the global table */
+ 		orig_node->tt_crc = tt_global_crc(bat_priv, orig_node);
 +
- 	orig_node = tt_global_entry->orig_node;
- 
- free_tt:
++		/* The ttvn alone is not enough to guarantee consistency
++		 * because a single value could repesent different states
++		 * (due to the wrap around). Thus a node has to check whether
++		 * the resulting table (after applying the changes) is still
++		 * consistent or not. E.g. a node could disconnect while its
++		 * ttvn is X and reconnect on ttvn = X + TTVN_MAX: in this case
++		 * checking the CRC value is mandatory to detect the
++		 * inconsistency */
++		if (orig_node->tt_crc != tt_crc)
++			goto request_table;
++
+ 		/* Roaming phase is over: tables are in sync again. I can
+ 		 * unset the flag */
+ 		orig_node->tt_poss_change = false;
 -- 
 1.7.5.3
-
