@@ -1,107 +1,108 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next 1/5] sky2: force receive checksum when using
- RSS on some hardware
-Date: Thu, 7 Jul 2011 10:13:22 -0700
-Message-ID: <20110707101322.784409eb@nehalam.ftrdhcpuser.net>
-References: <20110707155056.939223264@vyatta.com>
-	<20110707155212.000920741@vyatta.com>
-	<CAHXqBF+Ha9XaMDB0x1XBD633mj2b6Jxmg9U_JSokrov90gPA-g@mail.gmail.com>
+From: Marc MERLIN <marc@merlins.org>
+Subject: Re: Getting the correct asix AX88178 usb gige driver in mainline?
+Date: Thu, 7 Jul 2011 10:23:50 -0700
+Message-ID: <20110707172350.GD13683@merlins.org>
+References: <E1Qes7I-0004Rx-88@myth-lvr.svh.merlins.org> <20110629033025.GA32153@merlins.org> <201107062209.05794.arnd@arndb.de> <20110706210857.GH22090@merlins.org> <201107071455.36975.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?ISO-8859-2?B?TWljaGGzIE1pcm9zs2F3?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, greg@kroah.com
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49265 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752852Ab1GGRNX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 13:13:23 -0400
-In-Reply-To: <CAHXqBF+Ha9XaMDB0x1XBD633mj2b6Jxmg9U_JSokrov90gPA-g@mail.gmail.com>
+Received: from magic.merlins.org ([209.81.13.136]:36609 "EHLO
+	mail1.merlins.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755125Ab1GGRX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 13:23:56 -0400
+Content-Disposition: inline
+In-Reply-To: <E1Qes7I-0004Rx-88@myth-lvr.svh.merlins.org> <201107071455.36975.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Jul 2011 19:04:46 +0200
-Micha=B3 Miros=B3aw <mirqus@gmail.com> wrote:
+On Thu, Jul 07, 2011 at 02:55:36PM +0200, Arnd Bergmann wrote:
+> On Wednesday 06 July 2011, Marc MERLIN wrote:
+> > > The patch I mentioned was merged back in 2006, for 2.6.19. Either that
+> > > patch was never complete and is missing support for your hardware, or
+> > > it broke since then. You should probably try an old kernel to see if it's
+> > > actually a regression.
+> > 
+> > Thanks for the details Arnd, I'll see if I can boot 2.6.19 on that laptop
+> > and report back.
+> 
+> I would perhaps try something less ancient first, 2.6.27-longterm would be
+> a good candidate. If it was working at some point but broken later, chances
+> are that it wasn't broken until a few years ago, rather than shortly after
+> it was merged.
 
-> 2011/7/7 Stephen Hemminger <shemminger@vyatta.com>:
-> > Found when reviewing the vendor driver. Apparently some chip versio=
-ns
-> > require receive checksumming to be enabled in order for RSS to work=
-=2E
-> > Rather than silently enabling checksumming which is what the vendor
-> > driver does, return an error to the user instead.
-> >
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >
-> >
-> > --- a/drivers/net/sky2.c =A0 =A0 =A0 =A02011-07-07 08:36:10.7480033=
-69 -0700
-> > +++ b/drivers/net/sky2.c =A0 =A0 =A0 =A02011-07-07 08:36:37.3720045=
-95 -0700
-> > @@ -2996,7 +2996,8 @@ static int __devinit sky2_init(struct sk
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0hw->flags =3D SKY2_HW_GIGABIT
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_NEWER_PHY
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_NEW_LE
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | SKY2_HW_ADV_POWER_C=
-TL;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | SKY2_HW_ADV_POWER_C=
-TL
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | SKY2_HW_RSS_CHKSUM;
-> >
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* New transmit checksum */
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (hw->chip_rev !=3D CHIP_REV_YU_EX=
-_B0)
-> > @@ -3024,7 +3025,7 @@ static int __devinit sky2_init(struct sk
-> >
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* The workaround for status conflic=
-ts VLAN tag detection. */
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (hw->chip_rev =3D=3D CHIP_REV_YU_=
-=46E2_A0)
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw->flags |=3D SKY2_H=
-W_VLAN_BROKEN;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw->flags |=3D SKY2_H=
-W_VLAN_BROKEN | SKY2_HW_RSS_CHKSUM;
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
-> >
-> > =A0 =A0 =A0 =A0case CHIP_ID_YUKON_SUPR:
-> > @@ -3033,6 +3034,9 @@ static int __devinit sky2_init(struct sk
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_NEW_LE
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_AUTO_TX_SU=
-M
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_ADV_POWER_=
-CTL;
-> > +
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (hw->chip_rev =3D=3D CHIP_REV_YU_S=
-U_A0)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw->flags |=3D SKY2_H=
-W_RSS_CHKSUM;
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
-> >
-> > =A0 =A0 =A0 =A0case CHIP_ID_YUKON_UL_2:
-> > @@ -4187,6 +4191,11 @@ static int sky2_set_features(struct net_
-> > =A0 =A0 =A0 =A0struct sky2_port *sky2 =3D netdev_priv(dev);
-> > =A0 =A0 =A0 =A0u32 changed =3D dev->features ^ features;
-> >
-> > + =A0 =A0 =A0 /* Some hardware requires receive checksum for RSS to=
- work. */
-> > + =A0 =A0 =A0 if ( (features & (NETIF_F_RXHASH|NETIF_F_RXCSUM)) =3D=
-=3D NETIF_F_RXHASH &&
-> > + =A0 =A0 =A0 =A0 =A0 =A0(sky2->hw->flags & SKY2_HW_RSS_CHKSUM))
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
-> > +
-> > =A0 =A0 =A0 =A0if (changed & NETIF_F_RXCSUM) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u32 on =3D features & NETIF_F_RXCSUM=
-;
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sky2_write32(sky2->hw, Q_ADDR(rxqadd=
-r[sky2->port], Q_CSR),
->=20
-> Nah. This won't work as the error is not passed to user (except via
-> dmesg) as there is no way to do it. Failing ndo_set_features() withou=
-t
-> updating dev->features will also prevent other unrelated changes to
-> features set.
+So, it was problematic to build and boot old kernels for that system, but I
+tried my USB adapter in older systems with older kernels.
 
-I think this needs to be fixed in the netdev core then.
-There are bound to be hardware types that can support only some combina=
-tions
-of features. It should be passed back like all other errors.
+2.6.20 and 2.6.22.1 both were able to bring the interface up and DHCP.
+2.6.24.3 was NOT able to.
+Neither was 2.6.34.1.
+
+Mind you, those were not exactly the same kernels with the compile options
+on the same machine, but those were the tests I was reasonably able to do
+for now.
+
+
+
+
+Linux polgara.svh.merlins.org 2.6.20-16-generic #2 SMP Thu Jun 7 20:19:32 UTC 2007 i686 GNU/Linux
+usb 1-5: new high speed USB device using ehci_hcd and address 3
+usb 1-5: configuration #1 chosen from 1 choice
+eth0: register 'asix' at usb-0000:00:1a.7-5, ASIX AX88178 USB 2.0 Ethernet, 00:0e:c6:88:7c:ae
+usbcore: registered new interface driver asix
+eth2: link down
+ADDRCONF(NETDEV_UP): eth2: link is not ready
+ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
+eth2: link up, 1000Mbps, full-duplex, lpa 0xC5E1
+eth2: no IPv6 routers present
+eth1: no IPv6 routers present
+-> OK
+
+
+2.6.22.1-libata-tj-20070803-p4smp-preempt-1khz-marc4
+eth0: register 'asix' at usb-0000:00:1a.7-5, ASIX AX88178 USB 2.0 Ethernet, 00:0e:c6:88:7c:ae
+usbcore: registered new interface driver asix
+eth2: link down
+ADDRCONF(NETDEV_UP): eth2: link is not ready
+ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
+eth2: link up, 1000Mbps, full-duplex, lpa 0xC5E1
+eth2: no IPv6 routers present
+eth1: no IPv6 routers present
+-> OK
+
+
+2.6.24.3-slub-k8up-preempt-noticks-marc1 (different machine)
+usb 1-4: new high speed USB device using ehci_hcd and address 4
+usb 1-4: configuration #1 chosen from 1 choice
+eth1: register 'asix' at usb-0000:00:02.2-4, ASIX AX88178 USB 2.0 Ethernet, 00:0e:c6:88:7c:ae
+usbcore: registered new interface driver asix
+udev: renamed network interface eth1 to eth3
+eth3: link up, 1000Mbps, full-duplex, lpa 0xCDE1
+eth3: link up, 1000Mbps, full-duplex, lpa 0xCDE1
+eth3: no IPv6 routers present
+-> NOT OK
+ 
+Linux polgara.svh.merlins.org 2.6.34.1-core2smp-1khznohz-preempt-notcks-noide-hm64-20100724 #2 SMP Sat Jul 24 16:02:09 PDT 2010 i686 GNU/Linux
+usb 1-5: new high speed USB device using ehci_hcd and address 4
+usb 1-5: New USB device found, idVendor=0b95, idProduct=1780
+usb 1-5: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+usb 1-5: Product: AX88178 
+usb 1-5: Manufacturer: ASIX Elec. Corp.
+usb 1-5: SerialNumber: 000002
+asix 1-5:1.0: eth1: register 'asix' at usb-0000:00:1a.7-5, ASIX AX88178 USB
+2.0 Ethernet, 00:0e:c6:88:7c:ae
+usbcore: registered new interface driver asix
+eth1: link down
+ADDRCONF(NETDEV_UP): eth1: link is not ready
+ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+eth1: link up, 1000Mbps, full-duplex, lpa 0xC5E1
+eth1: no IPv6 routers present
+->  NOT OK
+
+Marc
+-- 
+"A mouse is a device used to point at the xterm you want to type in" - A.S.R.
+Microsoft is to operating systems ....
+                                      .... what McDonalds is to gourmet cooking
+Home page: http://marc.merlins.org/  
