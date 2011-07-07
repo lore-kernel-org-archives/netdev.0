@@ -1,177 +1,97 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 08/10] dynamic_debug: make netif_dbg() call
- __netdev_printk()
-Date: Thu, 07 Jul 2011 09:29:21 -0700
-Message-ID: <1310056161.27526.47.camel@Joe-Laptop>
-References: <cover.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
-	 <889f3300a96f381aee1239ea775014fff26d93c9.1309967232.git.root@dhcp-100-18-164.bos.redhat.com>
-	 <1309989543.1710.19.camel@Joe-Laptop>  <20110707141259.GA2536@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, jim.cromie@gmail.com, bvanassche@acm.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
-To: Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110707141259.GA2536@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next 2/5] sky2: use correct Inter Packet Gap at 10/100mbit
+Date: Thu, 07 Jul 2011 08:50:58 -0700
+Message-ID: <20110707155212.086061402@vyatta.com>
+References: <20110707155056.939223264@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:56594 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752736Ab1GGQnn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2011 12:43:43 -0400
+Content-Disposition: inline; filename=sky2-100mbit-ipg.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-07-07 at 10:13 -0400, Jason Baron wrote:
-> On Wed, Jul 06, 2011 at 02:59:03PM -0700, Joe Perches wrote:
-> > > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > > @@ -2731,10 +2731,8 @@ do {								\
-> > >  #elif defined(CONFIG_DYNAMIC_DEBUG)
-> > >  #define netif_dbg(priv, type, netdev, format, args...)		\
-> > >  do {								\
-> > > -	if (netif_msg_##type(priv))				\
-> > > -		dynamic_dev_dbg((netdev)->dev.parent,		\
-> > > -				"%s: " format,			\
-> > > -				netdev_name(netdev), ##args);	\
-> > > +	dynamic_netif_dbg(netdev, (netif_msg_##type(priv)),	\
-> > > +				  format, ##args);		\
-> > Because you've already added dynamic_netdev_dbg,
-> > maybe this should be:
-> > #define netif_dbg(priv, type, netdev, format, args...)		\
-> > do {								\
-> > 	if (netif_msg_##type(priv))				\
-> > 		dynamic_netdev_dbg(netdev, format, ##args);	\
-> > } while (0)
-> The reason I didn't add it this way is b/c I plan on converting the
-> outer 'ifs' to the jump label infrastructure - which makes the disabled
-> case just a no-op and moves the printk and tests out of line.
+This is another fix picked out of the vendor driver. The IPG value
+in the serial mode register is supposed to be programmed differently
+at lower speeds.
 
-Perhaps you needn't do that.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I think there's little to be gained to move the test
-outwards and not perform the netif_msg##type(priv)
 
-> Until that is done, i could see coding it as you've suggested, but I'd
-> prefer to leave it as is (and leave future churn to within the dynamic
-> debug code as opposed to the netdevice.h header).
+--- a/drivers/net/sky2.c	2011-07-07 08:36:37.372004595 -0700
++++ b/drivers/net/sky2.c	2011-07-07 08:36:42.420004801 -0700
+@@ -714,6 +714,20 @@ static void sky2_phy_power_down(struct s
+ 	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
+ }
+ 
++/* configure IPG according to used link speed */
++static void sky2_set_ipg(struct sky2_port *sky2)
++{
++	u16 reg;
++
++	reg = gma_read16(sky2->hw, sky2->port, GM_SERIAL_MODE);
++	reg &= ~GM_SMOD_IPG_MSK;
++	if (sky2->speed > SPEED_100)
++		reg |= IPG_DATA_VAL(IPG_DATA_DEF_1000);
++	else
++		reg |= IPG_DATA_VAL(IPG_DATA_DEF_10_100);
++	gma_write16(sky2->hw, sky2->port, GM_SERIAL_MODE, reg);
++}
++
+ /* Enable Rx/Tx */
+ static void sky2_enable_rx_tx(struct sky2_port *sky2)
+ {
+@@ -882,7 +896,7 @@ static void sky2_mac_init(struct sky2_hw
+ 
+ 	/* serial mode register */
+ 	reg = DATA_BLIND_VAL(DATA_BLIND_DEF) |
+-		GM_SMOD_VLAN_ENA | IPG_DATA_VAL(IPG_DATA_DEF);
++		GM_SMOD_VLAN_ENA | IPG_DATA_VAL(IPG_DATA_DEF_1000);
+ 
+ 	if (hw->dev[port]->mtu > ETH_DATA_LEN)
+ 		reg |= GM_SMOD_JUMBO_ENA;
+@@ -2053,6 +2067,8 @@ static void sky2_link_up(struct sky2_por
+ 		[FC_BOTH]	= "both",
+ 	};
+ 
++	sky2_set_ipg(sky2);
++
+ 	sky2_enable_rx_tx(sky2);
+ 
+ 	gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_DEF_MSK);
+@@ -2290,8 +2306,11 @@ static int sky2_change_mtu(struct net_de
+ 	dev->mtu = new_mtu;
+ 	netdev_update_features(dev);
+ 
+-	mode = DATA_BLIND_VAL(DATA_BLIND_DEF) |
+-		GM_SMOD_VLAN_ENA | IPG_DATA_VAL(IPG_DATA_DEF);
++	mode = DATA_BLIND_VAL(DATA_BLIND_DEF) |	GM_SMOD_VLAN_ENA;
++	if (sky2->speed > SPEED_100)
++		mode |= IPG_DATA_VAL(IPG_DATA_DEF_1000);
++	else
++		mode |= IPG_DATA_VAL(IPG_DATA_DEF_10_100);
+ 
+ 	if (dev->mtu > ETH_DATA_LEN)
+ 		mode |= GM_SMOD_JUMBO_ENA;
+--- a/drivers/net/sky2.h	2011-07-07 08:36:37.372004595 -0700
++++ b/drivers/net/sky2.h	2011-07-07 08:36:42.420004801 -0700
+@@ -1807,10 +1807,11 @@ enum {
+ };
+ 
+ #define DATA_BLIND_VAL(x)	(((x)<<11) & GM_SMOD_DATABL_MSK)
+-#define DATA_BLIND_DEF		0x04
+-
+ #define IPG_DATA_VAL(x)		(x & GM_SMOD_IPG_MSK)
+-#define IPG_DATA_DEF		0x1e
++
++#define DATA_BLIND_DEF		0x04
++#define IPG_DATA_DEF_1000	0x1e
++#define IPG_DATA_DEF_10_100	0x18
+ 
+ /*	GM_SMI_CTRL			16 bit r/w	SMI Control Register */
+ enum {
 
-Shrug.  I think that dynamic_debug will have continuing
-impacts on various subsystems unless there's some generic
-__dynamic_dbg() and _prefix() mechanism introduced into
-more generic <foo>_dbg style.
 
-Anything logging message that uses <foo>_dbg or <foo>_vdbg
-is a candidate for dynamic_debug uses, but there's no
-current generic mechanism to avoid subsystem specific needs.
-
-Any of these could need some dynamic_debug consideration:
-
-$ grep -rPoh --include=*.[ch] "[a-z_]+_[v]?dbg\(" * | sort | uniq
-acpi_ut_allocate_object_desc_dbg(
-acpi_ut_create_internal_object_dbg(
-adc_dbg(
-add_dyn_dbg(
-airo_print_dbg(
-ata_dev_dbg(
-ata_link_dbg(
-ata_port_dbg(
-ath_dbg(
-atm_dbg(
-bat_dbg(
-bit_dbg(
-cafe_dev_dbg(
-cam_dbg(
-c_freq_dbg(
-chan_dbg(
-chan_reg_rule_print_dbg(
-cmm_dbg(
-c_pm_dbg(
-ctrl_dbg(
-__dbg(
-desc_dbg(
-dev_dbg(
-dev_vdbg(
-dma_request_channel_dbg(
-__dump_desc_dbg(
-dump_desc_dbg(
-dump_pq_desc_dbg(
-dynamic_dev_dbg(
-e_dbg(
-ehca_dbg(
-ehca_gen_dbg(
-ehci_dbg(
-ehci_vdbg(
-en_dbg(
-ep_dbg(
-ep_vdbg(
-fhci_dbg(
-fhci_vdbg(
-fit_dbg(
-gig_dbg(
-gpio_dbg(
-gru_dbg(
-hgpk_dbg(
-hid_dbg(
-hw_dbg(
-ibmvfc_dbg(
-ipath_dbg(
-ipoib_dbg(
-ipr_dbg(
-iser_dbg(
-isp_isr_dbg(
-itd_dbg(
-ite_dbg(
-l_dbg(
-lg_dbg(
-mce_dbg(
-memblock_dbg(
-mhwmp_dbg(
-mpeg_dbg(
-mpl_dbg(
-msg_dbg(
-mthca_dbg(
-netdev_dbg(
-netdev_vdbg(
-netif_dbg(
-netif_vdbg(
-nfc_dbg(
-nfc_dev_dbg(
-nsp_dbg(
-nvt_dbg(
-ohci_dbg(
-ohci_vdbg(
-oxu_dbg(
-oxu_vdbg(
-pch_dbg(
-pch_pci_dbg(
-pm_dev_dbg(
-pnp_dbg(
-pop_dbg(
-prep_dma_pq_dbg(
-prep_dma_pqzero_sum_dbg(
-prep_dma_xor_dbg(
-_print_dbg(
-print_dbg(
-pwm_dbg(
-rdev_dbg(
-reg_dbg(
-sh_keysc_map_dbg(
-slice_dbg(
-smsc_dbg(
-start_dbg(
-stop_dbg(
-sysrq_handle_dbg(
-tda_dbg(
-tgt_dbg(
-tipc_msg_dbg(
-__tuner_dbg(
-tuner_dbg(
-tveeprom_dbg(
-tx_dbg(
-uea_dbg(
-uea_vdbg(
-ugeth_dbg(
-ugeth_vdbg(
-urb_dbg(
-usb_dbg(
-vpif_dbg(
-wiphy_dbg(
-wiphy_vdbg(
-xhci_dbg(
-x_show_dbg(
