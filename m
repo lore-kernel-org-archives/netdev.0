@@ -1,108 +1,46 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH net-next] net: doc: fix compile warning of no format arguments
- in ifenslave.c
-Date: Thu, 07 Jul 2011 15:04:31 +0800
-Message-ID: <4E155A7F.6050008@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next af-packet 1/2] Enhance af-packet to provide
+ (near zero)lossless packet capture functionality.
+Date: Thu, 07 Jul 2011 00:13:01 -0700 (PDT)
+Message-ID: <20110707.001301.1054777374178479078.davem@davemloft.net>
+References: <CAAsGZS5vvmb_qX+cG507=hU_+kwnowEEojXGNMt5ShEZ9+ZeAA@mail.gmail.com>
+	<20110705.080123.2174577714045488116.davem@davemloft.net>
+	<CAAsGZS67G8H5NLBxQTY88+T1cRQ3aiwBXK5qa8SJ_TbQ7xqvhw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: rdunlap@xenotime.net, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-doc@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, joe@perches.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	linux-kernel@vger.kernel.org
+To: loke.chetan@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAsGZS67G8H5NLBxQTY88+T1cRQ3aiwBXK5qa8SJ_TbQ7xqvhw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix following warning in ifenslave.c with gcc version 4.5.2 (Ubuntu/Linaro 4.5.2-8ubuntu4).
+From: chetan loke <loke.chetan@gmail.com>
+Date: Wed, 6 Jul 2011 17:45:20 -0400
 
-Documentation/networking/ifenslave.c:263:4: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:271:3: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:277:3: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:285:3: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:291:3: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:292:3: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:312:4: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:323:3: warning: format not a string literal and no format arguments
-Documentation/networking/ifenslave.c:342:4: warning: format not a string literal and no format arguments
+> new format:
+> 
+> union bd_header_u {
+>        /* renamed struct bd_v1 to hdr_v1 */
+>        struct hdr_v1 h1;
+> } __attribute__ ((__packed__));
+> 
+> struct block_desc {
+>        __u16 version;
+>        __u16 offset_to_priv;
+>        union bd_header_u hdr;
+> } __attribute__ ((__packed__));
+> 
+> Is this ok with you?
 
+Get rid of __packed__, it's going to kill performance on RISC
+platforms.  If you use __packed__, regardless of the actual alignment,
+the compiler must assume that each part of the struct "might" be
+unaligned.  So on architectures such as sparc where alignment matters,
+a word is going to be accessed by a sequence of byte loads/stores.
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- Documentation/networking/ifenslave.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/Documentation/networking/ifenslave.c b/Documentation/networking/ifenslave.c
-index 2bac961..65968fb 100644
---- a/Documentation/networking/ifenslave.c
-+++ b/Documentation/networking/ifenslave.c
-@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
- 		case 'V': opt_V++; exclusive++; break;
- 
- 		case '?':
--			fprintf(stderr, usage_msg);
-+			fprintf(stderr, "%s", usage_msg);
- 			res = 2;
- 			goto out;
- 		}
-@@ -268,13 +268,13 @@ int main(int argc, char *argv[])
- 
- 	/* options check */
- 	if (exclusive > 1) {
--		fprintf(stderr, usage_msg);
-+		fprintf(stderr, "%s", usage_msg);
- 		res = 2;
- 		goto out;
- 	}
- 
- 	if (opt_v || opt_V) {
--		printf(version);
-+		printf("%s", version);
- 		if (opt_V) {
- 			res = 0;
- 			goto out;
-@@ -282,14 +282,14 @@ int main(int argc, char *argv[])
- 	}
- 
- 	if (opt_u) {
--		printf(usage_msg);
-+		printf("%s", usage_msg);
- 		res = 0;
- 		goto out;
- 	}
- 
- 	if (opt_h) {
--		printf(usage_msg);
--		printf(help_msg);
-+		printf("%s", usage_msg);
-+		printf("%s", help_msg);
- 		res = 0;
- 		goto out;
- 	}
-@@ -309,7 +309,7 @@ int main(int argc, char *argv[])
- 			goto out;
- 		} else {
- 			/* Just show usage */
--			fprintf(stderr, usage_msg);
-+			fprintf(stderr, "%s", usage_msg);
- 			res = 2;
- 			goto out;
- 		}
-@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
- 	master_ifname = *spp++;
- 
- 	if (master_ifname == NULL) {
--		fprintf(stderr, usage_msg);
-+		fprintf(stderr, "%s", usage_msg);
- 		res = 2;
- 		goto out;
- 	}
-@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
- 
- 	if (slave_ifname == NULL) {
- 		if (opt_d || opt_c) {
--			fprintf(stderr, usage_msg);
-+			fprintf(stderr, "%s", usage_msg);
- 			res = 2;
- 			goto out;
- 		}
--- 
-1.7.4.1
+Do not use packed unless absolutely enforced by a protocol or hardware
+data structure, it's evil.
