@@ -1,109 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] af_packet: lock imbalance
-Date: Thu, 07 Jul 2011 15:33:07 +0200
-Message-ID: <1310045587.2127.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
+Date: Thu, 7 Jul 2011 21:41:58 +0800
+Message-ID: <20110707134157.GA12722@S2100-06.ap.freescale.net>
+References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
+ <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
+ <20110707.041257.670268148869400054.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<u.kleine-koenig@pengutronix.de>, <LW@KARO-electronics.de>,
+	<troy.kisky@boundarydevices.com>, <s.hauer@pengutronix.de>,
+	Grant Likely <grant.likely@secretlab.ca>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45613 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754823Ab1GGNdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 09:33:20 -0400
-Received: by wwe5 with SMTP id 5so964107wwe.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 06:33:19 -0700 (PDT)
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:41670
+	"EHLO CH1EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756559Ab1GGNff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 09:35:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20110707.041257.670268148869400054.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fanout_add() might return with fanout_mutex held.
+On Thu, Jul 07, 2011 at 04:12:57AM -0700, David Miller wrote:
+> From: Shawn Guo <shawn.guo@linaro.org>
+> Date: Fri,  1 Jul 2011 18:11:22 +0800
+> 
+> > On the recent i.mx (mx25/50/53), there is a gasket inside fec
+> > controller which needs to be enabled no matter phy works in MII
+> > or RMII mode.
+> > 
+> > The current code enables the gasket only when phy interface is RMII.
+> > It's broken when the driver works with a MII phy.  The patch uses
+> > platform_device_id to distinguish the SoCs that have the gasket and
+> > enables it on these SoCs for both MII and RMII mode.
+> > 
+> > Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
+> --
 
-Reduce indentation level while we are at it
+Thanks, David.  I will try to get it through Sascha's tree after
+the rebase again dt series.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/packet/af_packet.c |   62 +++++++++++++++++++--------------------
- 1 file changed, 31 insertions(+), 31 deletions(-)
+Hi Sascha,
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index aec50a1..caa9fba 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -589,43 +589,43 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 			break;
- 		}
- 	}
-+	err = -EINVAL;
- 	if (match && match->defrag != defrag)
--		return -EINVAL;
-+		goto out;
- 	if (!match) {
-+		err = -ENOMEM;
- 		match = kzalloc(sizeof(*match), GFP_KERNEL);
--		if (match) {
--			write_pnet(&match->net, sock_net(sk));
--			match->id = id;
--			match->type = type;
--			match->defrag = defrag;
--			atomic_set(&match->rr_cur, 0);
--			INIT_LIST_HEAD(&match->list);
--			spin_lock_init(&match->lock);
--			atomic_set(&match->sk_ref, 0);
--			match->prot_hook.type = po->prot_hook.type;
--			match->prot_hook.dev = po->prot_hook.dev;
--			match->prot_hook.func = packet_rcv_fanout;
--			match->prot_hook.af_packet_priv = match;
--			dev_add_pack(&match->prot_hook);
--			list_add(&match->list, &fanout_list);
--		}
-+		if (!match)
-+			goto out;
-+		write_pnet(&match->net, sock_net(sk));
-+		match->id = id;
-+		match->type = type;
-+		match->defrag = defrag;
-+		atomic_set(&match->rr_cur, 0);
-+		INIT_LIST_HEAD(&match->list);
-+		spin_lock_init(&match->lock);
-+		atomic_set(&match->sk_ref, 0);
-+		match->prot_hook.type = po->prot_hook.type;
-+		match->prot_hook.dev = po->prot_hook.dev;
-+		match->prot_hook.func = packet_rcv_fanout;
-+		match->prot_hook.af_packet_priv = match;
-+		dev_add_pack(&match->prot_hook);
-+		list_add(&match->list, &fanout_list);
- 	}
--	err = -ENOMEM;
--	if (match) {
--		err = -EINVAL;
--		if (match->type == type &&
--		    match->prot_hook.type == po->prot_hook.type &&
--		    match->prot_hook.dev == po->prot_hook.dev) {
--			err = -ENOSPC;
--			if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
--				__dev_remove_pack(&po->prot_hook);
--				po->fanout = match;
--				atomic_inc(&match->sk_ref);
--				__fanout_link(sk, po);
--				err = 0;
--			}
-+	err = -EINVAL;
-+	if (match->type == type &&
-+	    match->prot_hook.type == po->prot_hook.type &&
-+	    match->prot_hook.dev == po->prot_hook.dev) {
-+		err = -ENOSPC;
-+		if (atomic_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
-+			__dev_remove_pack(&po->prot_hook);
-+			po->fanout = match;
-+			atomic_inc(&match->sk_ref);
-+			__fanout_link(sk, po);
-+			err = 0;
- 		}
- 	}
-+out:
- 	mutex_unlock(&fanout_mutex);
- 	return err;
- }
+How should we proceed?  It seems Grant will take the fec-dt series
+on his tree.  Would you then merge that tree into yours, so that I
+can rebase this patch on your tree and get it go through there?
 
+-- 
+Regards,
+Shawn
 
