@@ -1,90 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [heads-up] bridge in kernel 3.0~ and dhcp from kvm guest on
- tap device
-Date: Thu, 07 Jul 2011 02:49:06 -0700 (PDT)
-Message-ID: <20110707.024906.763895385840201032.davem@davemloft.net>
-References: <4E158019.9040604@msgid.tls.msk.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison
+ overwritten
+Date: Thu, 07 Jul 2011 11:52:11 +0200
+Message-ID: <1310032331.2127.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110705164202.GD2959@hmsreliant.think-freely.org>
+	 <1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110705180650.GF2959@hmsreliant.think-freely.org>
+	 <1309889634.2545.2.camel@edumazet-laptop>
+	 <1309890775.2545.17.camel@edumazet-laptop>
+	 <1309891516.2545.23.camel@edumazet-laptop>
+	 <20110705195353.GG2959@hmsreliant.think-freely.org>
+	 <1309896147.2545.28.camel@edumazet-laptop>
+	 <1309896940.2545.34.camel@edumazet-laptop>
+	 <20110705220644.GB12118@hmsreliant.think-freely.org>
+	 <20110706173243.404d8599@maggie>
+	 <1309971379.2292.64.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAB9v_DFmXS7_0Sx7VgVzViMSqOTtpaqiKrBABcfARigZabr5fA@mail.gmail.com>
+	 <1310021286.2481.36.camel@edumazet-laptop>
+	 <CAB9v_DF1-q31Y57CUzinXOfGtNejoCAEJVc7u2ECWNLDj97ZPQ@mail.gmail.com>
+	 <1310030439.2127.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CAB9v_DEYbPztDMr9m0B6A-a-q1gvECzX8g=B31xUp+D1_d5fZA@mail.gmail.com>
+	 <CAB9v_DEfe6XnavbDB8Jj9XmSXt4MSs6sVUD4F1C8w8wsdqJjPA@mail.gmail.com>
+	 <CAB9v_DFcdEFRdW-qmjr2TWwM3jtru=R+89LpaPKJ8XG_iXT3UQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org
-To: mjt@tls.msk.ru
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael =?ISO-8859-1?Q?B=FCsch?= <m@bues.ch>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Alexey Zaytsev <alexey.zaytsev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41543 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753363Ab1GGJtW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 05:49:22 -0400
-In-Reply-To: <4E158019.9040604@msgid.tls.msk.ru>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47055 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456Ab1GGJwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 05:52:24 -0400
+Received: by wwe5 with SMTP id 5so775659wwe.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 02:52:23 -0700 (PDT)
+In-Reply-To: <CAB9v_DFcdEFRdW-qmjr2TWwM3jtru=R+89LpaPKJ8XG_iXT3UQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Tokarev <mjt@tls.msk.ru>
-Date: Thu, 07 Jul 2011 13:44:57 +0400
+Le jeudi 07 juillet 2011 =C3=A0 13:43 +0400, Alexey Zaytsev a =C3=A9cri=
+t :
 
-> The combination in $subject apparently stopped working --
-> I'm running 3.0-rc6 kernel on host where it doesn't work.
+> Ok, I've wrongly fixed this part in the clean b44.c, and got stalls.
+> Then fixed the patched one after applying the stash, and still got th=
+e
+> stalls.
 
-Already fixed in net-2.6:
+So, filling NULL to 'should not be used slots' definitely removes the
+memory corruption, but also stalls the NIC.
 
->From 44661462ee1ee3c922754fc1f246867f0d01e7ea Mon Sep 17 00:00:00 2001
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 5 Jul 2011 13:58:33 +0000
-Subject: [PATCH 24/30] bridge: Always flood broadcast packets
+Driver model is completely wrong. Without full hardware specs, this wil=
+l
+be hard to guess appropriate fixes.
 
-As is_multicast_ether_addr returns true on broadcast packets as
-well, we need to explicitly exclude broadcast packets so that
-they're always flooded.  This wasn't an issue before as broadcast
-packets were considered to be an unregistered multicast group,
-which were always flooded.  However, as we now only flood such
-packets to router ports, this is no longer acceptable.
 
-Reported-by: Michael Guntsche <mike@it-loops.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/bridge/br_device.c |    4 +++-
- net/bridge/br_input.c  |    6 ++++--
- 2 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index c188c80..32b8f9f 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -49,7 +49,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_pull(skb, ETH_HLEN);
- 
- 	rcu_read_lock();
--	if (is_multicast_ether_addr(dest)) {
-+	if (is_broadcast_ether_addr(dest))
-+		br_flood_deliver(br, skb);
-+	else if (is_multicast_ether_addr(dest)) {
- 		if (unlikely(netpoll_tx_running(dev))) {
- 			br_flood_deliver(br, skb);
- 			goto out;
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index f3ac1e8..f06ee39 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -60,7 +60,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	br = p->br;
- 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
- 
--	if (is_multicast_ether_addr(dest) &&
-+	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
- 	    br_multicast_rcv(br, p, skb))
- 		goto drop;
- 
-@@ -77,7 +77,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 
- 	dst = NULL;
- 
--	if (is_multicast_ether_addr(dest)) {
-+	if (is_broadcast_ether_addr(dest))
-+		skb2 = skb;
-+	else if (is_multicast_ether_addr(dest)) {
- 		mdst = br_mdb_get(br, skb);
- 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
- 			if ((mdst && mdst->mglist) ||
--- 
-1.7.6
 
