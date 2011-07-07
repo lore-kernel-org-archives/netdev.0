@@ -1,34 +1,37 @@
-From: "leung  cheung" <Racksugdh67@gmail.com>
-Subject: I need your assistance
-Date: Thu, 7 Jul 2011 20:47:03 +0100
-Message-ID: <20110707194658.B16151C01599@mwinf3516.me.freeserve.com>
-Reply-To: <leungcheung18@helixnet.cn>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] usb: usbnet: suspend count gets lost when -EBUSY
+Date: Thu, 7 Jul 2011 13:50:36 -0700
+Message-ID: <20110707205036.GB13006@kroah.com>
+References: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@kernel.org
+To: C.Fries@motorola.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.252.22.151] ([193.252.22.151]:3587 "EHLO
-	smtp6.freeserve.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751700Ab1GGTrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 15:47:08 -0400
+Received: from out5.smtp.messagingengine.com ([66.111.4.29]:33244 "EHLO
+	out5.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750958Ab1GGUv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 16:51:59 -0400
+Content-Disposition: inline
+In-Reply-To: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jul 05, 2011 at 08:35:05PM -0500, Chris Fries wrote:
+> When suspend is refused due to pending transmits, the
+> busy counter gets out of sync, and suspend will stop
+> working correctly.
+> 
+> Signed-off-by: Chris Fries <C.Fries@motorola.com>
+> ---
+>  drivers/net/usb/usbnet.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
 
-Hello,
+<formletter>
 
-Compliment of the day to you. I am sending this brief letter to solicit 
-your partnership to transfer $22,500,000.00 US Dollars from Hong Kong to 
-your country. You will be entitled to 40% after compliting the transaction 
-while I will be entitled to 60% as the sole initiator of this mutual 
-proposal. I shall send you more information and procedures when I receive 
-a positive response from you.
+This is not the correct way to submit patches for inclusion in the
+stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
+for how to do this properly.
 
-Best Regards,
-
-Mr. Leung Cheung
-Email: leungcheung18@helixnet.cn
-
-
+</formletter>
