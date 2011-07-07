@@ -1,96 +1,56 @@
-From: starlight@binnacle.cx
-Subject: Re: [Bugme-new] [Bug 38032] New: default values of
-  /proc/sys/net/ipv4/udp_mem does not consider huge page
-  allocation
-Date: Wed, 06 Jul 2011 21:31:15 -0400
-Message-ID: <6.2.5.6.2.20110706212254.05bff4c8@binnacle.cx>
-References: <bug-38032-10286@https.bugzilla.kernel.org/>
- <20110706160318.2c604ae9.akpm@linux-foundation.org>
+From: Yong Wang <yongwang@vmware.com>
+Subject: RE: [Pv-drivers] [PATCH] vmxnet3: round down # of queues to power
+ of two
+Date: Wed, 6 Jul 2011 18:53:57 -0700
+Message-ID: <A66AA49650CD894E9943A431D2F0B1E9026DAEC5DC@exch-mbx-111.vmware.com>
+References: <alpine.LRH.2.00.1107061751120.3509@sbhatewara-dev1.eng.vmware.com>
+ <201107061808.39918.dtor@vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: bugme-daemon@bugzilla.kernel.org, Rafael Aquini <aquini@linux.com>
-To: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
-        netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110706160318.2c604ae9.akpm@linux-foundation.org>
-References: <bug-38032-10286@https.bugzilla.kernel.org/>
- <20110706160318.2c604ae9.akpm@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dmitry Torokhov <dtor@vmware.com>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:45620 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752916Ab1GGBx7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jul 2011 21:53:59 -0400
+Received: from mailhost3.vmware.com (mailhost3.vmware.com [10.16.27.45])
+	by smtp-outbound-1.vmware.com (Postfix) with ESMTP id A15711C003
+	for <netdev@vger.kernel.org>; Wed,  6 Jul 2011 18:53:59 -0700 (PDT)
+In-Reply-To: <201107061808.39918.dtor@vmware.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For anyone who may not have read the bugzilla, a
-possibly larger concern subsequently discovered is
-that actual kernel memory consumption is double the
-total of the values reported by 'netstat -nau', at
-least when mostly small packets are received and
-a RHEL 5 kernel is in use.  The tunable enforces based
-on the 'netstat' value rather than the actual value
-in the RH kernel.  Maybe not an issue in the
-mainline, but it took a few additional system
-hangs in the lab before we figured this out
-and divided the 'udm_mem' maximum value in half.
+I just want to point out that rounddown_pow_of_two() returns 0 when (1) the input is 1; and (2) the __buildin_constant_p(n) path is taken.  In the vmxnet3 case, even if num_rx_queues is 1, we are safe as its value is not known to be constant at compile time and 1 will be returned by taking the other path (1UL << (fls_long(n) - 1)). The original check of power_of_two is there just to be on the safe side.
 
+Related to this, I wonder if we should always return 1 when the input is 1 (1 is also a power of two as 2^0). I don't have the history of this API though and curious if there are any users of this API that depend on this behavior?
 
-At 04:03 PM 7/6/2011 -0700, Andrew Morton wrote:
->
->(switched to email.  Please respond via emailed reply-to-all, 
->not via the bugzilla web interface).
->
->(cc's added)
->
->On Tue, 21 Jun 2011 00:35:22 GMT
->bugzilla-daemon@bugzilla.kernel.org wrote:
->
->> https://bugzilla.kernel.org/show_bug.cgi?id=38032
->> 
->>            Summary: default values of 
->/proc/sys/net/ipv4/udp_mem does not
->>                     consider huge page allocatio
->>            Product: Memory Management
->>            Version: 2.5
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: normal
->>           Priority: P1
->>          Component: Other
->>         AssignedTo: akpm@linux-foundation.org
->>         ReportedBy: starlight@binnacle.cx
->>         Regression: No
->> 
->> 
->> In the RHEL 5.5 back-port of this tunable we ran into trouble locking up
->> systems because the boot-time default is set based on physical memory does not
->> account for the hugepages= in the boot parameters.  So the UDP socket buffer
->> limit can exceed phyisical memory.  Don't know if this is an issue in mainline
->> kernels but it seems likely so reporting this as a courtesy.  Seems like it
->> would be easy to fix the default to account for the memory reserved by
->> hugepages which is not available for slab allocations.
->> 
->> https://bugzilla.redhat.com/show_bug.cgi?id=714833
->> 
->
->Yes, we've made similar mistakes in other places.
->
->I don't think we really have an official formula for what callers
->should be doing here.  net/ipv4/udp.c:udp_init() does
->
->        nr_pages = totalram_pages - totalhigh_pages;             
->               
->
->which assumes that totalram_pages does not include the pages which were
->lost to hugepage allocations.
->
->I *think* that this is now the case, but it wasn't always the case - we
->made relatively recent fixes to the totalram_pages maintenance.
->
->Perhaps UDP should be using the misnamed nr_free_buffer_pages() 
->here.
+Thanks,
+Yong
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> -----Original Message-----
+> From: Dmitry Torokhov [mailto:dtor@vmware.com]
+> Sent: Wednesday, July 06, 2011 6:09 PM
+> To: pv-drivers@vmware.com
+> Cc: Shreyas Bhatewara; netdev@vger.kernel.org; Yong Wang
+> Subject: Re: [Pv-drivers] [PATCH] vmxnet3: round down # of queues to power of
+> two
+> 
+> On Wednesday, July 06, 2011 05:58:51 PM Shreyas Bhatewara wrote:
+> 
+> >
+> > +	if (!is_power_of_2(num_rx_queues))
+> > +		num_rx_queues = rounddown_pow_of_two(num_rx_queues);
+> > +
+> 
+> No need to do the check, just do:
+> 
+> 	num_rx_queues = rounddown_pow_of_two(num_rx_queues);
+> 
+> Thanks,
+> Dmitry
