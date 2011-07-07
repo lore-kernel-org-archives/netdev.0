@@ -1,37 +1,37 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH] usb: usbnet: suspend count gets lost when -EBUSY
-Date: Thu, 7 Jul 2011 13:50:36 -0700
-Message-ID: <20110707205036.GB13006@kroah.com>
-References: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3] sctp: Enforce retransmission limit during shutdown
+Date: Thu, 07 Jul 2011 14:09:04 -0700 (PDT)
+Message-ID: <20110707.140904.252541509664898900.davem@davemloft.net>
+References: <4E148C16.8090505@hp.com>
+	<20110707102835.GA6277@canuck.infradead.org>
+	<4E15B65A.3010209@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	stable@kernel.org
-To: C.Fries@motorola.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yjwei@cn.fujitsu.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5.smtp.messagingengine.com ([66.111.4.29]:33244 "EHLO
-	out5.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750958Ab1GGUv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 16:51:59 -0400
-Content-Disposition: inline
-In-Reply-To: <CADuEq9BQX2BFBY3pF=CEEymfK4JPwMP7By+JZFdaLqxs+GhtJQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49758 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932Ab1GGVJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 17:09:19 -0400
+In-Reply-To: <4E15B65A.3010209@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 05, 2011 at 08:35:05PM -0500, Chris Fries wrote:
-> When suspend is refused due to pending transmits, the
-> busy counter gets out of sync, and suspend will stop
-> working correctly.
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Date: Thu, 07 Jul 2011 09:36:26 -0400
+
+> On 07/07/2011 06:28 AM, Thomas Graf wrote:
+>> When initiating a graceful shutdown while having data chunks
+>> on the retransmission queue with a peer which is in zero
+>> window mode the shutdown is never completed because the
+>> retransmission error count is reset periodically by the
+>> following two rules:
+ ...
+>> Signed-off-by: Thomas Graf <tgraf@infradead.org>
 > 
-> Signed-off-by: Chris Fries <C.Fries@motorola.com>
-> ---
->  drivers/net/usb/usbnet.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-<formletter>
-
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
-
-</formletter>
+Applied.
