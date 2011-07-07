@@ -1,68 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] rose: Delete commented out references to ancient
- firewalling code.
-Date: Thu, 07 Jul 2011 02:42:28 -0700 (PDT)
-Message-ID: <20110707.024228.289834005545134231.davem@davemloft.net>
+From: Alexey Zaytsev <alexey.zaytsev@gmail.com>
+Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
+Date: Thu, 7 Jul 2011 13:43:48 +0400
+Message-ID: <CAB9v_DFcdEFRdW-qmjr2TWwM3jtru=R+89LpaPKJ8XG_iXT3UQ@mail.gmail.com>
+References: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20110705164202.GD2959@hmsreliant.think-freely.org>
+	<1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20110705180650.GF2959@hmsreliant.think-freely.org>
+	<1309889634.2545.2.camel@edumazet-laptop>
+	<1309890775.2545.17.camel@edumazet-laptop>
+	<1309891516.2545.23.camel@edumazet-laptop>
+	<20110705195353.GG2959@hmsreliant.think-freely.org>
+	<1309896147.2545.28.camel@edumazet-laptop>
+	<1309896940.2545.34.camel@edumazet-laptop>
+	<20110705220644.GB12118@hmsreliant.think-freely.org>
+	<20110706173243.404d8599@maggie>
+	<1309971379.2292.64.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAB9v_DFmXS7_0Sx7VgVzViMSqOTtpaqiKrBABcfARigZabr5fA@mail.gmail.com>
+	<1310021286.2481.36.camel@edumazet-laptop>
+	<CAB9v_DF1-q31Y57CUzinXOfGtNejoCAEJVc7u2ECWNLDj97ZPQ@mail.gmail.com>
+	<1310030439.2127.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAB9v_DEYbPztDMr9m0B6A-a-q1gvECzX8g=B31xUp+D1_d5fZA@mail.gmail.com>
+	<CAB9v_DEfe6XnavbDB8Jj9XmSXt4MSs6sVUD4F1C8w8wsdqJjPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
+	bugme-daemon@bugzilla.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Pekka Pietikainen <pp@ee.oulu.fi>,
+	Florian Schirmer <jolt@tuxbox.org>,
+	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32994 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104Ab1GGJmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 05:42:31 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p679gSi6002951
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 7 Jul 2011 02:42:30 -0700
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:56545 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752104Ab1GGJnt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 05:43:49 -0400
+Received: by vws1 with SMTP id 1so586504vws.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 02:43:49 -0700 (PDT)
+In-Reply-To: <CAB9v_DEfe6XnavbDB8Jj9XmSXt4MSs6sVUD4F1C8w8wsdqJjPA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-These intefaces haven't existed since 2.2.x
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/rose/rose_link.c  |    7 -------
- net/rose/rose_route.c |    5 -----
- 2 files changed, 0 insertions(+), 12 deletions(-)
-
-diff --git a/net/rose/rose_link.c b/net/rose/rose_link.c
-index fa5f564..7a02bd1 100644
---- a/net/rose/rose_link.c
-+++ b/net/rose/rose_link.c
-@@ -266,13 +266,6 @@ void rose_transmit_link(struct sk_buff *skb, struct rose_neigh *neigh)
- {
- 	unsigned char *dptr;
- 
--#if 0
--	if (call_fw_firewall(PF_ROSE, skb->dev, skb->data, NULL, &skb) != FW_ACCEPT) {
--		kfree_skb(skb);
--		return;
--	}
--#endif
--
- 	if (neigh->loopback) {
- 		rose_loopback_queue(skb, neigh);
- 		return;
-diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
-index 479cae5..d389de1 100644
---- a/net/rose/rose_route.c
-+++ b/net/rose/rose_route.c
-@@ -864,11 +864,6 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
- 	int res = 0;
- 	char buf[11];
- 
--#if 0
--	if (call_in_firewall(PF_ROSE, skb->dev, skb->data, NULL, &skb) != FW_ACCEPT)
--		return res;
--#endif
--
- 	if (skb->len < ROSE_MIN_LEN)
- 		return res;
- 	frametype = skb->data[2];
--- 
-1.7.6
-
+On Thu, Jul 7, 2011 at 13:37, Alexey Zaytsev <alexey.zaytsev@gmail.com>=
+ wrote:
+> On Thu, Jul 7, 2011 at 13:34, Alexey Zaytsev <alexey.zaytsev@gmail.co=
+m> wrote:
+>> On Thu, Jul 7, 2011 at 13:20, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+>>> Le jeudi 07 juillet 2011 =C3=A0 11:45 +0400, Alexey Zaytsev a =C3=A9=
+crit :
+>>>> On Thu, Jul 7, 2011 at 10:48, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+>>>> > Le jeudi 07 juillet 2011 =C3=A0 10:32 +0400, Alexey Zaytsev a =C3=
+=A9crit :
+>>>> >> Sorry, been busy for the last couple days. Any patches I should=
+ test?
+>>>> >
+>>>> > Please try :
+>>>> >
+>>>>
+>>>> Thanks. Seems to fail to initialize, getting this in dmesg:
+>>>>
+>>>> [ =C2=A0103.421577] b44 0000:02:0e.0: PCI INT A -> GSI 16 (level, =
+low) -> IRQ 16
+>>>> [ =C2=A0103.440139] ssb: Core 0 found: Fast Ethernet (cc 0x806, re=
+v 0x07,
+>>>> vendor 0x4243)
+>>>> [ =C2=A0103.440159] ssb: Core 1 found: V90 (cc 0x807, rev 0x03, ve=
+ndor 0x4243)
+>>>> [ =C2=A0103.440177] ssb: Core 2 found: PCI (cc 0x804, rev 0x0A, ve=
+ndor 0x4243)
+>>>> [ =C2=A0103.481128] ssb: Sonics Silicon Backplane found on PCI dev=
+ice 0000:02:0e.0
+>>>> [ =C2=A0103.481532] b44: b44.c:v2.0
+>>>> [ =C2=A0103.502185] b44 ssb1:0: eth0: Broadcom 44xx/47xx 10/100Bas=
+eT
+>>>> Ethernet 00:17:a4:dd:4e:93
+>>>> [ =C2=A0109.405071] b44 ssb1:0: eth0: powering down PHY
+>>>> [ =C2=A0112.816456] b44 ssb1:0: eth0: Link is up at 100 Mbps, full=
+ duplex
+>>>> [ =C2=A0112.816470] b44 ssb1:0: eth0: Flow control is off for TX a=
+nd off for RX
+>>>> [ =C2=A0112.952073] b44 ssb1:0: eth0: powering down PHY
+>>>> [ =C2=A0113.816148] b44 ssb1:0: eth0: Link is down
+>>>> [ =C2=A0114.953717] b44 ssb1:0: eth0: powering down PHY
+>>>> [ =C2=A0117.816246] b44 ssb1:0: eth0: Link is up at 100 Mbps, full=
+ duplex
+>>>> [ =C2=A0117.816260] b44 ssb1:0: eth0: Flow control is off for TX a=
+nd off for RX
+>>>> [ =C2=A0117.963238] b44 ssb1:0: eth0: powering down PHY
+>>>> [ =C2=A0118.816128] b44 ssb1:0: eth0: Link is down
+>>>> [ =C2=A0119.962817] b44 ssb1:0: eth0: powering down PHY
+>>>
+>>> Maybe this is the b44_init_hw() change :
+>>>
+>>> bw32(bp, B44_DMARX_PTR, 0);
+>>>
+>>> So please change this part
+>>>
+>>> Updated patch :
+>>
+>> Initializes fine now, but the transfer would stall every few seconds=
+=2E
+>>
+> Err, wait a sec, patches the wrong version.
+>
+Ok, I've wrongly fixed this part in the clean b44.c, and got stalls.
+Then fixed the patched one after applying the stash, and still got the
+stalls.
