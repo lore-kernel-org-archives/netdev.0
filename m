@@ -1,218 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 3/5] sky2: support for new Optima chipsets (EXPERIMENTAL)
-Date: Thu, 07 Jul 2011 08:50:59 -0700
-Message-ID: <20110707155212.173452596@vyatta.com>
-References: <20110707155056.939223264@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Subject: Re: 3.0.0rc6: ethtool not working without a cable
+Date: Thu, 7 Jul 2011 18:47:14 +0200
+Message-ID: <201107071847.14362.a.miskiewicz@gmail.com>
+References: <201107061338.08573.a.miskiewicz@gmail.com> <1309971146.6217.0.camel@jbrandeb-mobl.amr.corp.intel.com> <201107061857.21206.a.miskiewicz@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel" <e1000-devel@lists.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:56595 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753841Ab1GGQno (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2011 12:43:44 -0400
-Content-Disposition: inline; filename=sky2-op2.patch
+Received: from mail-fx0-f52.google.com ([209.85.161.52]:64348 "EHLO
+	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530Ab1GGQrT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 12:47:19 -0400
+Received: by fxd18 with SMTP id 18so1258612fxd.11
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 09:47:18 -0700 (PDT)
+In-Reply-To: <201107061857.21206.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a backport from the vendor driver of support for the newer Optima
-(Prime and 2) chipsets. It also includes some setup changes for the 
-current Optima chip as well. The code and comments intentionally
-mirror the vendor sk98lin driver to allow for easier maintenance.
+On Wednesday 06 of July 2011, Arkadiusz Miskiewicz wrote:
+> On Wednesday 06 of July 2011, Brandeburg, Jesse wrote:
+> > On Wed, 2011-07-06 at 08:26 -0700, Ben Hutchings wrote:
+> > > On Wed, 2011-07-06 at 16:53 +0200, Arkadiusz Miskiewicz wrote:
+> > > > On Wednesday 06 of July 2011, Ben Hutchings wrote:
+> > > > > On Wed, 2011-07-06 at 13:38 +0200, Arkadiusz Miskiewicz wrote=
+:
+> > > > > > 3.0.0rc6, thinkpad t400 notebook.
+> > > > > >=20
+> > > > > > If there is no cable then ethtool reports no device. It was=
+n't
+> > > > > > that before AFAIK.
+> > > > > >=20
+> > > > > > ethtool version 2.6.36
+> >=20
+> > snip
+> >=20
+> > > Then the only other explanation I can think of is that the driver=
+ has
+> > > 'detached' the device due to some kind of error.  The ethtool cor=
+e does
+> > > have a check for that.
+> >=20
+> > could it be that aspm is enabled
+>=20
+> I have CONFIG_PCIEASPM=3Dy
+>=20
+> > or that you've enabled runtime power
+> > management?
+>=20
+> In e1000e? no (unless it's default somehow).
 
-Although this adds support for new chip id's, these chip id's are not
-used by any of the current PCI device id's listed in the driver.
-The patch is just to get initial infrastructure in place to handle them
-when they come.
+And if this is normal behaviour (when apsm is enabled) then maybe ethto=
+ol=20
+could disable apsm/power management for device for time of querying?
 
-I don't have access to any of this hardware to actually test it yet.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
---- a/drivers/net/sky2.c	2011-07-07 08:36:42.420004801 -0700
-+++ b/drivers/net/sky2.c	2011-07-07 08:36:44.988004931 -0700
-@@ -365,6 +365,17 @@ static void sky2_phy_init(struct sky2_hw
- 				gm_phy_write(hw, port, PHY_MARV_FE_SPEC_2, spec);
- 			}
- 		} else {
-+			if (hw->chip_id >= CHIP_ID_YUKON_OPT) {
-+				u16 ctrl2 = gm_phy_read(hw, port, PHY_MARV_EXT_CTRL_2);
-+
-+				/* enable PHY Reverse Auto-Negotiation */
-+				ctrl2 |= 1u << 13;
-+
-+				/* Write PHY changes (SW-reset must follow) */
-+				gm_phy_write(hw, port, PHY_MARV_EXT_CTRL_2, ctrl2);
-+			}
-+
-+
- 			/* disable energy detect */
- 			ctrl &= ~PHY_M_PC_EN_DET_MSK;
- 
-@@ -626,6 +637,63 @@ static void sky2_phy_init(struct sky2_hw
- 		if (ledover)
- 			gm_phy_write(hw, port, PHY_MARV_LED_OVER, ledover);
- 
-+	} else if (hw->chip_id == CHIP_ID_YUKON_PRM &&
-+		   (sky2_read8(hw, B2_MAC_CFG) & 0xf) == 0x7) {
-+		int i;
-+		/* This a phy register setup workaround copied from vendor driver. */
-+		static const struct {
-+			u16 reg, val;
-+		} eee_afe[] = {
-+			{ 0x156, 0x58ce },
-+			{ 0x153, 0x99eb },
-+			{ 0x141, 0x8064 },
-+			/* { 0x155, 0x130b },*/
-+			{ 0x000, 0x0000 },
-+			{ 0x151, 0x8433 },
-+			{ 0x14b, 0x8c44 },
-+			{ 0x14c, 0x0f90 },
-+			{ 0x14f, 0x39aa },
-+			/* { 0x154, 0x2f39 },*/
-+			{ 0x14d, 0xba33 },
-+			{ 0x144, 0x0048 },
-+			{ 0x152, 0x2010 },
-+			/* { 0x158, 0x1223 },*/
-+			{ 0x140, 0x4444 },
-+			{ 0x154, 0x2f3b },
-+			{ 0x158, 0xb203 },
-+			{ 0x157, 0x2029 },
-+		};
-+
-+		/* Start Workaround for OptimaEEE Rev.Z0 */
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0x00fb);
-+
-+		gm_phy_write(hw, port,  1, 0x4099);
-+		gm_phy_write(hw, port,  3, 0x1120);
-+		gm_phy_write(hw, port, 11, 0x113c);
-+		gm_phy_write(hw, port, 14, 0x8100);
-+		gm_phy_write(hw, port, 15, 0x112a);
-+		gm_phy_write(hw, port, 17, 0x1008);
-+
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0x00fc);
-+		gm_phy_write(hw, port,  1, 0x20b0);
-+
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0x00ff);
-+
-+		for (i = 0; i < ARRAY_SIZE(eee_afe); i++) {
-+			/* apply AFE settings */
-+			gm_phy_write(hw, port, 17, eee_afe[i].val);
-+			gm_phy_write(hw, port, 16, eee_afe[i].reg | 1u<<13);
-+		}
-+
-+		/* End Workaround for OptimaEEE */
-+		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-+
-+		/* Enable 10Base-Te (EEE) */
-+		if (hw->chip_id >= CHIP_ID_YUKON_PRM) {
-+			reg = gm_phy_read(hw, port, PHY_MARV_EXT_CTRL);
-+			gm_phy_write(hw, port, PHY_MARV_EXT_CTRL,
-+				     reg | PHY_M_10B_TE_ENABLE);
-+		}
- 	}
- 
- 	/* Enable phy interrupt on auto-negotiation complete (or link up) */
-@@ -2959,6 +3027,8 @@ static u32 sky2_mhz(const struct sky2_hw
- 	case CHIP_ID_YUKON_SUPR:
- 	case CHIP_ID_YUKON_UL_2:
- 	case CHIP_ID_YUKON_OPT:
-+	case CHIP_ID_YUKON_PRM:
-+	case CHIP_ID_YUKON_OP_2:
- 		return 125;
- 
- 	case CHIP_ID_YUKON_FE:
-@@ -3064,6 +3134,8 @@ static int __devinit sky2_init(struct sk
- 		break;
- 
- 	case CHIP_ID_YUKON_OPT:
-+	case CHIP_ID_YUKON_PRM:
-+	case CHIP_ID_YUKON_OP_2:
- 		hw->flags = SKY2_HW_GIGABIT
- 			| SKY2_HW_NEW_LE
- 			| SKY2_HW_ADV_POWER_CTL;
-@@ -3163,30 +3235,33 @@ static void sky2_reset(struct sky2_hw *h
- 		sky2_pci_write32(hw, PCI_DEV_REG3, P_CLK_MACSEC_DIS);
- 	}
- 
--	if (hw->chip_id == CHIP_ID_YUKON_OPT) {
-+	if (hw->chip_id == CHIP_ID_YUKON_OPT ||
-+	    hw->chip_id == CHIP_ID_YUKON_PRM ||
-+	    hw->chip_id == CHIP_ID_YUKON_OP_2) {
- 		u16 reg;
- 		u32 msk;
- 
--		if (hw->chip_rev == 0) {
-+		if (hw->chip_id == CHIP_ID_YUKON_OPT && hw->chip_rev == 0) {
- 			/* disable PCI-E PHY power down (set PHY reg 0x80, bit 7 */
- 			sky2_write32(hw, Y2_PEX_PHY_DATA, (0x80UL << 16) | (1 << 7));
- 
- 			/* set PHY Link Detect Timer to 1.1 second (11x 100ms) */
- 			reg = 10;
-+
-+			/* re-enable PEX PM in PEX PHY debug reg. 8 (clear bit 12) */
-+			sky2_write32(hw, Y2_PEX_PHY_DATA, PEX_DB_ACCESS | (0x08UL << 16));
- 		} else {
- 			/* set PHY Link Detect Timer to 0.4 second (4x 100ms) */
- 			reg = 3;
- 		}
- 
- 		reg <<= PSM_CONFIG_REG4_TIMER_PHY_LINK_DETECT_BASE;
-+		reg |= PSM_CONFIG_REG4_RST_PHY_LINK_DETECT;
- 
- 		/* reset PHY Link Detect */
- 		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
--		sky2_pci_write16(hw, PSM_CONFIG_REG4,
--				 reg | PSM_CONFIG_REG4_RST_PHY_LINK_DETECT);
- 		sky2_pci_write16(hw, PSM_CONFIG_REG4, reg);
- 
--
- 		/* enable PHY Quick Link */
- 		msk = sky2_read32(hw, B0_IMSK);
- 		msk |= Y2_IS_PHY_QLNK;
-@@ -4705,9 +4780,11 @@ static const char *sky2_name(u8 chipid,
- 		"UL 2",		/* 0xba */
- 		"Unknown",	/* 0xbb */
- 		"Optima",	/* 0xbc */
-+		"Optima Prime", /* 0xbd */
-+		"Optima 2",	/* 0xbe */
- 	};
- 
--	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OPT)
-+	if (chipid >= CHIP_ID_YUKON_XL && chipid <= CHIP_ID_YUKON_OP_2)
- 		strncpy(buf, name[chipid - CHIP_ID_YUKON_XL], sz);
- 	else
- 		snprintf(buf, sz, "(chip %#x)", chipid);
---- a/drivers/net/sky2.h	2011-07-07 08:36:42.420004801 -0700
-+++ b/drivers/net/sky2.h	2011-07-07 08:36:44.992004932 -0700
-@@ -412,7 +412,7 @@ enum {
- 	Y2_IS_HW_ERR	= 1<<31,	/* Interrupt HW Error */
- 	Y2_IS_STAT_BMU	= 1<<30,	/* Status BMU Interrupt */
- 	Y2_IS_ASF	= 1<<29,	/* ASF subsystem Interrupt */
--
-+	Y2_IS_CPU_TO	= 1<<28,	/* CPU Timeout */
- 	Y2_IS_POLL_CHK	= 1<<27,	/* Check IRQ from polling unit */
- 	Y2_IS_TWSI_RDY	= 1<<26,	/* IRQ on end of TWSI Tx */
- 	Y2_IS_IRQ_SW	= 1<<25,	/* SW forced IRQ	*/
-@@ -547,6 +547,8 @@ enum {
- 	CHIP_ID_YUKON_SUPR = 0xb9, /* YUKON-2 Supreme */
- 	CHIP_ID_YUKON_UL_2 = 0xba, /* YUKON-2 Ultra 2 */
- 	CHIP_ID_YUKON_OPT  = 0xbc, /* YUKON-2 Optima */
-+	CHIP_ID_YUKON_PRM  = 0xbd, /* YUKON-2 Optima Prime */
-+	CHIP_ID_YUKON_OP_2 = 0xbe, /* YUKON-2 Optima 2 */
- };
- 
- enum yukon_xl_rev {
-@@ -1420,8 +1422,10 @@ enum {
- 	PHY_M_EC_FIB_AN_ENA = 1<<3, /* Fiber Auto-Neg. Enable (88E1011S only) */
- 	PHY_M_EC_DTE_D_ENA  = 1<<2, /* DTE Detect Enable (88E1111 only) */
- 	PHY_M_EC_TX_TIM_CT  = 1<<1, /* RGMII Tx Timing Control */
--	PHY_M_EC_TRANS_DIS  = 1<<0, /* Transmitter Disable (88E1111 only) */};
-+	PHY_M_EC_TRANS_DIS  = 1<<0, /* Transmitter Disable (88E1111 only) */
- 
-+	PHY_M_10B_TE_ENABLE = 1<<7, /* 10Base-Te Enable (88E8079 and above) */
-+};
- #define PHY_M_EC_M_DSC(x)	((u16)(x)<<10 & PHY_M_EC_M_DSC_MSK)
- 					/* 00=1x; 01=2x; 10=3x; 11=4x */
- #define PHY_M_EC_S_DSC(x)	((u16)(x)<<8 & PHY_M_EC_S_DSC_MSK)
-
-
+--=20
+Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
