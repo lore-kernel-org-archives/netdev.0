@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next af-packet 1/2] Enhance af-packet to provide
- (near zero)lossless packet capture functionality.
-Date: Thu, 07 Jul 2011 00:13:01 -0700 (PDT)
-Message-ID: <20110707.001301.1054777374178479078.davem@davemloft.net>
-References: <CAAsGZS5vvmb_qX+cG507=hU_+kwnowEEojXGNMt5ShEZ9+ZeAA@mail.gmail.com>
-	<20110705.080123.2174577714045488116.davem@davemloft.net>
-	<CAAsGZS67G8H5NLBxQTY88+T1cRQ3aiwBXK5qa8SJ_TbQ7xqvhw@mail.gmail.com>
+Subject: Re: [PATCH v3 4/4] packet: Add pre-defragmentation support for ipv4
+Date: Thu, 07 Jul 2011 00:25:03 -0700 (PDT)
+Message-ID: <20110707.002503.951663853832906838.davem@davemloft.net>
+References: <1309965489.2292.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20110706.082040.1487690721120263418.davem@davemloft.net>
+	<1309966077.2292.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, joe@perches.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	linux-kernel@vger.kernel.org
-To: loke.chetan@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAsGZS67G8H5NLBxQTY88+T1cRQ3aiwBXK5qa8SJ_TbQ7xqvhw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mika.penttila@ixonos.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52916 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751741Ab1GGHZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 03:25:10 -0400
+In-Reply-To: <1309966077.2292.30.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: chetan loke <loke.chetan@gmail.com>
-Date: Wed, 6 Jul 2011 17:45:20 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 06 Jul 2011 17:27:57 +0200
 
-> new format:
-> 
-> union bd_header_u {
->        /* renamed struct bd_v1 to hdr_v1 */
->        struct hdr_v1 h1;
-> } __attribute__ ((__packed__));
-> 
-> struct block_desc {
->        __u16 version;
->        __u16 offset_to_priv;
->        union bd_header_u hdr;
-> } __attribute__ ((__packed__));
-> 
-> Is this ok with you?
+> We probably need to add some atomic_inc(&sk->sk_drops) to at least
+> warn the application.
 
-Get rid of __packed__, it's going to kill performance on RISC
-platforms.  If you use __packed__, regardless of the actual alignment,
-the compiler must assume that each part of the struct "might" be
-unaligned.  So on architectures such as sparc where alignment matters,
-a word is going to be accessed by a sequence of byte loads/stores.
-
-Do not use packed unless absolutely enforced by a protocol or hardware
-data structure, it's evil.
+I fully support adding some kind of statistics support to AF_PACKET
+sockets.
