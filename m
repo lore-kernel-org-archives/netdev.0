@@ -1,47 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 38032] New: default values of
- /proc/sys/net/ipv4/udp_mem does not consider huge page allocation
-Date: Thu, 07 Jul 2011 00:27:17 -0700 (PDT)
-Message-ID: <20110707.002717.1495810845761908702.davem@davemloft.net>
-References: <6.2.5.6.2.20110706212254.05bff4c8@binnacle.cx>
-	<1310011173.2481.20.camel@edumazet-laptop>
-	<1310013490.2481.35.camel@edumazet-laptop>
+Subject: Re: [PATCH 0/4] skge: driver update
+Date: Thu, 07 Jul 2011 00:30:35 -0700 (PDT)
+Message-ID: <20110707.003035.717446616195099888.davem@davemloft.net>
+References: <20110707050003.998140428@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: starlight@binnacle.cx, akpm@linux-foundation.org, linux-mm@kvack.org,
-        netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-        aquini@linux.com
-To: eric.dumazet@gmail.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1310013490.2481.35.camel@edumazet-laptop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50974 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752968Ab1GGHag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 03:30:36 -0400
+In-Reply-To: <20110707050003.998140428@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Jul 2011 06:38:10 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 06 Jul 2011 22:00:04 -0700
 
-> [PATCH] net: refine {udp|tcp|sctp}_mem limits
-> 
-> Current tcp/udp/sctp global memory limits are not taking into account
-> hugepages allocations, and allow 50% of ram to be used by buffers of a
-> single protocol [ not counting space used by sockets / inodes ...]
-> 
-> Lets use nr_free_buffer_pages() and allow a default of 1/8 of kernel ram
-> per protocol, and a minimum of 128 pages.
-> Heavy duty machines sysadmins probably need to tweak limits anyway.
-> 
-> 
-> References: https://bugzilla.stlinux.com/show_bug.cgi?id=38032
-> Reported-by: starlight <starlight@binnacle.cx>
-> Suggested-by: Andrew Morton <akpm@linux-foundation.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Add one pci id, and cleanup table.
+> Make support for really old hardware optional.
 
-Applied.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+All applied to net-next-2.6
