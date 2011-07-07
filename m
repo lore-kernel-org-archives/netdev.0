@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lib/checksum.c: optimize do_csum a bit
-Date: Thu, 07 Jul 2011 04:29:25 -0700 (PDT)
-Message-ID: <20110707.042925.1609726410655229616.davem@davemloft.net>
-References: <1310037529-30854-1-git-send-email-abbotti@mev.co.uk>
+Subject: Re: [PATCH] gianfar v2: code cleanups
+Date: Thu, 07 Jul 2011 04:30:51 -0700 (PDT)
+Message-ID: <20110707.043051.2019130264710492034.davem@davemloft.net>
+References: <1310037749.3410.5.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org
-To: abbotti@mev.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1310037529-30854-1-git-send-email-abbotti@mev.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sebastian.poehn@belden.com
+To: sebastian.belden@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50961 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755742Ab1GGLaz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 07:30:55 -0400
+In-Reply-To: <1310037749.3410.5.camel@DENEC1DT0191>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Abbott <abbotti@mev.co.uk>
-Date: Thu, 7 Jul 2011 12:18:49 +0100
+=46rom: "Sebastian P=F6hn" <sebastian.belden@googlemail.com>
+Date: Thu, 07 Jul 2011 13:22:29 +0200
 
-> Reduce the number of variables modified by the loop in do_csum() by 1,
-> which seems like a good idea.  On Nios II (a RISC CPU with 3-operand
-> instruction set) it reduces the loop from 7 to 6 instructions, including
-> the conditional branch.
-> 
-> Signed-off-by: Ian Abbott <abbotti@mev.co.uk>
+> This patch:
+> # improves readability of some gianfar nfc code
+>=20
+>> Your email client has corrupted this patch, breaking up long
+>> lines, etc.
+> Sorry for that!
+>=20
+> Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
 
-I think you'll overshoot past the end of the buffer when there are
-trailing bytes to handle.
-
-The whole reason we need the count variable is to handle those
-kinds of cases.
+Applied, thanks.
