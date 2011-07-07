@@ -1,70 +1,34 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
-Date: Thu, 7 Jul 2011 12:44:09 -0600
-Message-ID: <20110707184409.GH2824@ponder.secretlab.ca>
-References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
- <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
- <20110707.041257.670268148869400054.davem@davemloft.net>
- <20110707134157.GA12722@S2100-06.ap.freescale.net>
+From: "leung  cheung" <Racksugdh67@gmail.com>
+Subject: I need your assistance
+Date: Thu, 7 Jul 2011 20:47:03 +0100
+Message-ID: <20110707194658.B16151C01599@mwinf3516.me.freeserve.com>
+Reply-To: <leungcheung18@helixnet.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, troy.kisky@boundarydevices.com,
-	u.kleine-koenig@pengutronix.de, shawn.guo@linaro.org,
-	linux-arm-kernel@lists.infradead.org, LW@KARO-electronics.de
-To: Shawn Guo <shawn.guo@freescale.com>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:41136 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754248Ab1GGSoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 14:44:12 -0400
-Received: by pvg12 with SMTP id 12so640857pvg.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 11:44:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110707134157.GA12722@S2100-06.ap.freescale.net>
+Received: from [193.252.22.151] ([193.252.22.151]:3587 "EHLO
+	smtp6.freeserve.com" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751700Ab1GGTrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 15:47:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 07, 2011 at 09:41:58PM +0800, Shawn Guo wrote:
-> On Thu, Jul 07, 2011 at 04:12:57AM -0700, David Miller wrote:
-> > From: Shawn Guo <shawn.guo@linaro.org>
-> > Date: Fri,  1 Jul 2011 18:11:22 +0800
-> > 
-> > > On the recent i.mx (mx25/50/53), there is a gasket inside fec
-> > > controller which needs to be enabled no matter phy works in MII
-> > > or RMII mode.
-> > > 
-> > > The current code enables the gasket only when phy interface is RMII.
-> > > It's broken when the driver works with a MII phy.  The patch uses
-> > > platform_device_id to distinguish the SoCs that have the gasket and
-> > > enables it on these SoCs for both MII and RMII mode.
-> > > 
-> > > Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> > > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> > 
-> > Acked-by: David S. Miller <davem@davemloft.net>
-> > --
-> 
-> Thanks, David.  I will try to get it through Sascha's tree after
-> the rebase again dt series.
-> 
-> Hi Sascha,
-> 
-> How should we proceed?  It seems Grant will take the fec-dt series
-> on his tree.  Would you then merge that tree into yours, so that I
-> can rebase this patch on your tree and get it go through there?
 
-I should probably just take the lot.
+Hello,
 
-g.
+Compliment of the day to you. I am sending this brief letter to solicit 
+your partnership to transfer $22,500,000.00 US Dollars from Hong Kong to 
+your country. You will be entitled to 40% after compliting the transaction 
+while I will be entitled to 60% as the sole initiator of this mutual 
+proposal. I shall send you more information and procedures when I receive 
+a positive response from you.
 
-> 
-> -- 
-> Regards,
-> Shawn
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Best Regards,
+
+Mr. Leung Cheung
+Email: leungcheung18@helixnet.cn
+
+
