@@ -1,50 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lib/checksum.c: optimize do_csum a bit
-Date: Thu, 07 Jul 2011 04:52:34 -0700 (PDT)
-Message-ID: <20110707.045234.2227056347170192540.davem@davemloft.net>
-References: <20110707.042925.1609726410655229616.davem@davemloft.net>
-	<4E15995D.6040405@mev.co.uk>
-	<20110707.043625.856190521365086318.davem@davemloft.net>
+Subject: Re: [PATCH] ATM: Fix wrong usage of INIT_WORK
+Date: Thu, 07 Jul 2011 04:51:59 -0700 (PDT)
+Message-ID: <20110707.045159.735589070219101177.davem@davemloft.net>
+References: <1310039512-17579-1-git-send-email-wangshaoyan.pt@taobao.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ian.abbott@mev.co.uk, netdev@vger.kernel.org, arnd@arndb.de,
-	linux-kernel@vger.kernel.org
-To: abbotti@mev.co.uk
+Cc: netdev@vger.kernel.org, wangshaoyan.pt@taobao.com,
+	chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net
+To: stufever@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49900 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49934 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755339Ab1GGLwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 07:52:41 -0400
-In-Reply-To: <20110707.043625.856190521365086318.davem@davemloft.net>
+	with ESMTP id S1755696Ab1GGLyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 07:54:12 -0400
+In-Reply-To: <1310039512-17579-1-git-send-email-wangshaoyan.pt@taobao.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 07 Jul 2011 04:36:25 -0700 (PDT)
+From: stufever@gmail.com
+Date: Thu,  7 Jul 2011 19:51:52 +0800
 
-> From: Ian Abbott <abbotti@mev.co.uk>
-> Date: Thu, 7 Jul 2011 12:32:45 +0100
+> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
 > 
->> On 07/07/11 12:29, David Miller wrote:
->>> From: Ian Abbott <abbotti@mev.co.uk>
->>> Date: Thu, 7 Jul 2011 12:18:49 +0100
->>> 
->>>> Reduce the number of variables modified by the loop in do_csum() by 1,
->>>> which seems like a good idea.  On Nios II (a RISC CPU with 3-operand
->>>> instruction set) it reduces the loop from 7 to 6 instructions, including
->>>> the conditional branch.
->>>>
->>>> Signed-off-by: Ian Abbott <abbotti@mev.co.uk>
->>> 
->>> I think you'll overshoot past the end of the buffer when there are
->>> trailing bytes to handle.
->>> 
->>> The whole reason we need the count variable is to handle those
->>> kinds of cases.
->> 
->> I don't think it does.  That's what the & ~3 was for.
+> If we define FILL_RX_POOLS_IN_BH, the compiler will report error such as
+>   drivers/atm/ambassador.c:2159:64: error: macro "INIT_WORK" passed 3 arguments, but takes just 2
+> because the function INIT_WORK() don't accept "data" now, it only has
+> two arguments, so use the right way to initialise work queue.
 > 
-> Aha, yes that indeed makes it work.
+> Cc: Chas Williams <chas@cmf.nrl.navy.mil> (maintainer:ATM)
+> Cc: linux-atm-general@lists.sourceforge.net (open list:ATM)
+> Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
 
-I've applied this to net-next-2.6, thanks.
+This just makes the driver a bigger CPP mess.
+
+Unconditionally provide the dev->bh member, and unconditionally pass
+it into the worker function.
+
