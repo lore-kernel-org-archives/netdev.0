@@ -1,57 +1,87 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 00/14] Swap-over-NBD without deadlocking v5
-Date: Wed, 6 Jul 2011 16:51:46 -0700
-Message-ID: <20110706165146.be7ab61b.akpm@linux-foundation.org>
-References: <1308575540-25219-1-git-send-email-mgorman@suse.de>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: [PATCH] vmxnet3: round down # of queues to power of two
+Date: Wed, 6 Jul 2011 17:58:51 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1107061751120.3509@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1308575540-25219-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: yongwang@vmware.com
+To: "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:3281 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754298Ab1GGA6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2011 20:58:49 -0400
+Received: from mailhost2.vmware.com (mailhost2.vmware.com [10.16.67.167])
+	by smtp-outbound-2.vmware.com (Postfix) with ESMTP id 0F4DA51006
+	for <netdev@vger.kernel.org>; Wed,  6 Jul 2011 17:58:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Jun 2011 14:12:06 +0100
-Mel Gorman <mgorman@suse.de> wrote:
 
-> Swapping over NBD is something that is technically possible but not
-> often advised. While there are number of guides on the internet
-> on how to configure it and nbd-client supports a -swap switch to
-> "prevent deadlocks", the fact of the matter is a machine using NBD
-> for swap can be locked up within minutes if swap is used intensively.
-> 
-> The problem is that network block devices do not use mempools like
-> normal block devices do. As the host cannot control where they receive
-> packets from, they cannot reliably work out in advance how much memory
-> they might need.
-> 
-> Some years ago, Peter Ziljstra developed a series of patches that
-> supported swap over an NFS that some distributions are carrying in
-> their kernels. This patch series borrows very heavily from Peter's work
-> to support swapping over NBD (the relatively straight-forward case)
-> and uses throttling instead of dynamically resized memory reserves
-> so the series is not too unwieldy for review.
+vmxnet3 device supports only power-of-two number of queues. The driver
+therefore needs to check this and rounds down the number of queues to the
+nearest power of two.
 
-I have to say, I look over these patches and my mind wants to turn to
-things like puppies.  And ice cream.
-
-There's quite some complexity added here in areas which are already
-reliably unreliable and afaik swap-over-NBD is not a thing which a lot
-of people want to do.  I can see that swap-over-NFS would be useful to
-some people, and the fact that distros are carrying swap-over-NFS
-patches has weight.
-
-Do these patches lead on to swap-over-NFS?  If so, how much more
-additional complexity are we buying into for that?
-
+Signed-off-by: Yong Wang <yongwang@vmware.com>
+Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index fabcded..4ee7750 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2898,12 +2898,18 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ #endif
+ 		num_rx_queues = 1;
+ 
++	if (!is_power_of_2(num_rx_queues))
++		num_rx_queues = rounddown_pow_of_two(num_rx_queues);
++
+ 	if (enable_mq)
+ 		num_tx_queues = min(VMXNET3_DEVICE_MAX_TX_QUEUES,
+ 				    (int)num_online_cpus());
+ 	else
+ 		num_tx_queues = 1;
+ 
++	if (!is_power_of_2(num_tx_queues))
++		num_tx_queues = rounddown_pow_of_two(num_tx_queues);
++
+ 	netdev = alloc_etherdev_mq(sizeof(struct vmxnet3_adapter),
+ 				   max(num_tx_queues, num_rx_queues));
+ 	printk(KERN_INFO "# of Tx queues : %d, # of Rx queues : %d\n",
+@@ -3089,6 +3095,9 @@ vmxnet3_remove_device(struct pci_dev *pdev)
+ #endif
+ 		num_rx_queues = 1;
+ 
++	if (!is_power_of_2(num_rx_queues))
++		num_rx_queues = rounddown_pow_of_two(num_rx_queues);
++
+ 	cancel_work_sync(&adapter->work);
+ 
+ 	unregister_netdev(netdev);
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index a9cb3fa..b18eac1 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -56,6 +56,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/if_arp.h>
+ #include <linux/inetdevice.h>
++#include <linux/log2.h>
+ 
+ #include "vmxnet3_defs.h"
+ 
+@@ -69,10 +70,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.1.14.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.1.18.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01010E00
++#define VMXNET3_DRIVER_VERSION_NUM      0x01011200
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
