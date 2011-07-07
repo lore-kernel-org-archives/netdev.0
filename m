@@ -1,25 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V8 2/4 net-next] skbuff: skb supports zero-copy buffers
-Date: Thu, 07 Jul 2011 11:39:39 -0700 (PDT)
-Message-ID: <20110707.113939.1108700369645229770.davem@davemloft.net>
-References: <1309990932.10209.19.camel@localhost.localdomain>
-	<20110707.040149.441417258943576903.davem@davemloft.net>
-	<1310063545.10209.30.camel@localhost.localdomain>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
+Date: Thu, 7 Jul 2011 12:44:09 -0600
+Message-ID: <20110707184409.GH2824@ponder.secretlab.ca>
+References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
+ <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
+ <20110707.041257.670268148869400054.davem@davemloft.net>
+ <20110707134157.GA12722@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mashirle@us.ibm.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1310063545.10209.30.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de, troy.kisky@boundarydevices.com,
+	u.kleine-koenig@pengutronix.de, shawn.guo@linaro.org,
+	linux-arm-kernel@lists.infradead.org, LW@KARO-electronics.de
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:41136 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754248Ab1GGSoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 14:44:12 -0400
+Received: by pvg12 with SMTP id 12so640857pvg.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 11:44:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110707134157.GA12722@S2100-06.ap.freescale.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shirley Ma <mashirle@us.ibm.com>
-Date: Thu, 07 Jul 2011 11:32:25 -0700
+On Thu, Jul 07, 2011 at 09:41:58PM +0800, Shawn Guo wrote:
+> On Thu, Jul 07, 2011 at 04:12:57AM -0700, David Miller wrote:
+> > From: Shawn Guo <shawn.guo@linaro.org>
+> > Date: Fri,  1 Jul 2011 18:11:22 +0800
+> > 
+> > > On the recent i.mx (mx25/50/53), there is a gasket inside fec
+> > > controller which needs to be enabled no matter phy works in MII
+> > > or RMII mode.
+> > > 
+> > > The current code enables the gasket only when phy interface is RMII.
+> > > It's broken when the driver works with a MII phy.  The patch uses
+> > > platform_device_id to distinguish the SoCs that have the gasket and
+> > > enables it on these SoCs for both MII and RMII mode.
+> > > 
+> > > Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> > > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> > 
+> > Acked-by: David S. Miller <davem@davemloft.net>
+> > --
+> 
+> Thanks, David.  I will try to get it through Sascha's tree after
+> the rebase again dt series.
+> 
+> Hi Sascha,
+> 
+> How should we proceed?  It seems Grant will take the fec-dt series
+> on his tree.  Would you then merge that tree into yours, so that I
+> can rebase this patch on your tree and get it go through there?
 
-> You are right, will fix it.
+I should probably just take the lot.
 
-You don't need to, I fixed it when I committed the patch
-to net-next-2.6
+g.
+
+> 
+> -- 
+> Regards,
+> Shawn
+> 
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
