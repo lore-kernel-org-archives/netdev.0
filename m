@@ -1,93 +1,84 @@
-From: Dan Magenheimer <dan.magenheimer@oracle.com>
-Subject: RE: [RFC] non-preemptible kernel socket for RAMster
-Date: Thu, 7 Jul 2011 08:34:09 -0700 (PDT)
-Message-ID: <61fd635c-d01c-46c1-ba89-2915a6ddb9f1@default>
-References: <4232c4b6-15be-42d8-be42-6e27f9188ce2@default>
- <D3F292ADF945FB49B35E96C94C2061B91257D65C@nsmail.netscout.com>
- <6147447c-ecab-43ea-9b4a-1ff64b2089f0@default>
- <D3F292ADF945FB49B35E96C94C2061B91257D6FD@nsmail.netscout.com>
- <704d094e-7b81-480f-8363-327218d1b0ea@default>
- <D3F292ADF945FB49B35E96C94C2061B91257DCA8@nsmail.netscout.com>
- <d19811cc-a722-4d30-8a43-aedb1cd978c9@default
- D3F292ADF945FB49B35E96C94C2061B912622709@nsmail.netscout.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: linux-next: Tree for July 7 (net/af_packet)
+Date: Thu, 7 Jul 2011 08:40:08 -0700
+Message-ID: <20110707084008.586fa694.randy.dunlap@oracle.com>
+References: <20110707172544.867b980a1196db005b577c14@canb.auug.org.au>
+	<20110707081202.6dddcbce.randy.dunlap@oracle.com>
+	<20110707.081839.2119597618388053074.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Konrad Wilk <konrad.wilk@oracle.com>, linux-mm <linux-mm@kvack.org>
-To: "Loke, Chetan" <Chetan.Loke@netscout.com>, netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B912622709@nsmail.netscout.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110707.081839.2119597618388053074.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
-> Subject: RE: [RFC] non-preemptible kernel socket for RAMster
->=20
-> > -----Original Message-----
-> > From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
-> >
-> > > From: Loke, Chetan [mailto:Chetan.Loke@netscout.com]
-> > >
-> > > > From: Dan Magenheimer [mailto:dan.magenheimer@oracle.com]
-> >
-> > > How often are you going to re-size your remote-SWAP?
-> >
-> > is "as often as the working set changes on any machine in the
-> > cluster", meaning *constantly*, entirely dynamically!  How
-> > about a more specific example:  Suppose you have 2 machines,
-> > each with 8GB of memory.  99% of the time each machine is
-> > chugging along just fine and doesn't really need more than 4GB,
-> > and may even use less than 1GB a large part of the time.
-> > But very now and then, one of the machines randomly needs
-> > 9GB, 10GB, maybe even 12GB  of memory.  This would normally
-> > result in swapping.  (Most system administrators won't even
-> > have this much information... they'll just know they are
-> > seeing swapping and decide they need to buy more RAM.)
-> >
->=20
-> Ok, I understand there is interest in implementing
-> 'remote-volatile-ballooning-variant' but how do you pick a remote
-> candidate(hypervisor)? Let's say, memory could be available on remote
-> system but what if the remote-p{NIC,CPU} is overloaded? Sure, sysadmins
-> won't have this info because this so dynamic(and it's quite possible as
-> you mentioned above). But does the trans-remote-API know about this
-> resource-availability before opening a remote-channel?
->=20
-> Stressing the remote-p{NIC/CPU} might trick hypervisor-vmotion-plugin to
-> vmotion VM[s] to another hypervisor. How is trans-remote-API integrating
-> with remote/global vmotion policies to avoid this false vmotion?
+On Thu, 07 Jul 2011 08:18:39 -0700 (PDT) David Miller wrote:
 
-Hi Chetan --
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> Date: Thu, 7 Jul 2011 08:12:02 -0700
+> 
+> > On Thu, 7 Jul 2011 17:25:44 +1000 Stephen Rothwell wrote:
+> > 
+> >> Hi all,
+> >> 
+> >> The next linux-next release will (probably) be next-20110718.
+> >> 
+> >> Changes since 20110706:
+> > 
+> > 
+> > When CONFIG_INET is not enabled:
+> > 
+> > af_packet.c:(.text+0x3d130): undefined reference to `ip_defrag'
+> > or
+> > ERROR: "ip_defrag" [net/packet/af_packet.ko] undefined!
+> 
+> Sorry about that, fixed thusly:
+> 
+> --------------------
+> packet: Fix build with INET disabled.
+> 
+> af_packet.c:(.text+0x3d130): undefined reference to `ip_defrag'
+> or
+> ERROR: "ip_defrag" [net/packet/af_packet.ko] undefined!
+> 
+> Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Thanks for the continued discussion.
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-First, let me clarify that RAMster does not depend on virtualization.
-At some time in the future, it may be a nice addition for KVM*,
-but the version I am developing currently only works on a
-cluster of physical machines.  So vmotion/migration is not
-an issue right now
+Thanks.
+
+> ---
+>  net/packet/af_packet.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index aa4c73a..d2294ad 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -456,6 +456,7 @@ static struct sock *fanout_demux_cpu(struct packet_fanout *f, struct sk_buff *sk
+>  
+>  static struct sk_buff *fanout_check_defrag(struct sk_buff *skb)
+>  {
+> +#ifdef CONFIG_INET
+>  	const struct iphdr *iph;
+>  	u32 len;
+>  
+> @@ -486,6 +487,7 @@ static struct sk_buff *fanout_check_defrag(struct sk_buff *skb)
+>  			skb->rxhash = 0;
+>  		}
+>  	}
+> +#endif
+>  	return skb;
+>  }
+>  
+> -- 
 
 
-As for choosing the remote machine, another key feature of
-the Transcendent Memory mechanism is that any and every page
-can be rejected.  If rejected, the page remains local.  In
-essence, on *every* page-to-be-swapped, machine A *asks*
-machine B, "can you take this page"?  If the answer is no,
-machine A can choose another machine (C), or may choose to
-swap the page to its own slow swap disk.  (Currently,
-only the latter is implemented, but more complicated
-policy could certainly be implemented.)
-
-Dan
-
-* Xen doesn't have drivers so RAMster-over-network is not an option
-for Xen.  A future RAMster-over-exofabric might work with Xen though.)
-And, by the way, the Transcendent Memory implementation on Xen
-does handle vmotion/migration so it is a solvable problem.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
