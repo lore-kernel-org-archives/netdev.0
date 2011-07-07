@@ -1,125 +1,52 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next 1/5] sky2: force receive checksum when using RSS
- on some hardware
-Date: Thu, 7 Jul 2011 19:40:10 +0200
-Message-ID: <CAHXqBFJGYW5GeZ0jwLN_OLV+7+KFtBKGqMYB93_4ODVD8mdgNA@mail.gmail.com>
-References: <20110707155056.939223264@vyatta.com>
-	<20110707155212.000920741@vyatta.com>
-	<CAHXqBF+Ha9XaMDB0x1XBD633mj2b6Jxmg9U_JSokrov90gPA-g@mail.gmail.com>
-	<20110707101322.784409eb@nehalam.ftrdhcpuser.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Getting the correct asix AX88178 usb gige driver in mainline?
+Date: Thu, 7 Jul 2011 19:43:10 +0200
+Message-ID: <201107071943.10479.arnd@arndb.de>
+References: <E1Qes7I-0004Rx-88@myth-lvr.svh.merlins.org> <201107071455.36975.arnd@arndb.de> <20110707172350.GD13683@merlins.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, greg@kroah.com
+To: Marc MERLIN <marc@merlins.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:59190 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752518Ab1GGRkL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 13:40:11 -0400
-Received: by qyk9 with SMTP id 9so688666qyk.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 10:40:10 -0700 (PDT)
-In-Reply-To: <20110707101322.784409eb@nehalam.ftrdhcpuser.net>
+Received: from moutng.kundenserver.de ([212.227.17.8]:51673 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880Ab1GGRnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 13:43:51 -0400
+In-Reply-To: <20110707172350.GD13683@merlins.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 7 lipca 2011 19:13 u=BFytkownik Stephen Hemminger
-<shemminger@vyatta.com> napisa=B3:
-> On Thu, 7 Jul 2011 19:04:46 +0200
-> Micha=B3 Miros=B3aw <mirqus@gmail.com> wrote:
->
->> 2011/7/7 Stephen Hemminger <shemminger@vyatta.com>:
->> > Found when reviewing the vendor driver. Apparently some chip versi=
-ons
->> > require receive checksumming to be enabled in order for RSS to wor=
-k.
->> > Rather than silently enabling checksumming which is what the vendo=
-r
->> > driver does, return an error to the user instead.
->> >
->> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->> >
->> >
->> > --- a/drivers/net/sky2.c =A0 =A0 =A0 =A02011-07-07 08:36:10.748003=
-369 -0700
->> > +++ b/drivers/net/sky2.c =A0 =A0 =A0 =A02011-07-07 08:36:37.372004=
-595 -0700
->> > @@ -2996,7 +2996,8 @@ static int __devinit sky2_init(struct sk
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0hw->flags =3D SKY2_HW_GIGABIT
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_NEWER_PHY
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_NEW_LE
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | SKY2_HW_ADV_POWER_=
-CTL;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | SKY2_HW_ADV_POWER_=
-CTL
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | SKY2_HW_RSS_CHKSUM=
-;
->> >
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* New transmit checksum */
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (hw->chip_rev !=3D CHIP_REV_YU_E=
-X_B0)
->> > @@ -3024,7 +3025,7 @@ static int __devinit sky2_init(struct sk
->> >
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* The workaround for status confli=
-cts VLAN tag detection. */
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (hw->chip_rev =3D=3D CHIP_REV_YU=
-_FE2_A0)
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw->flags |=3D SKY2_=
-HW_VLAN_BROKEN;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw->flags |=3D SKY2_=
-HW_VLAN_BROKEN | SKY2_HW_RSS_CHKSUM;
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
->> >
->> > =A0 =A0 =A0 =A0case CHIP_ID_YUKON_SUPR:
->> > @@ -3033,6 +3034,9 @@ static int __devinit sky2_init(struct sk
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_NEW_LE
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_AUTO_TX_S=
-UM
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| SKY2_HW_ADV_POWER=
-_CTL;
->> > +
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (hw->chip_rev =3D=3D CHIP_REV_YU_=
-SU_A0)
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 hw->flags |=3D SKY2_=
-HW_RSS_CHKSUM;
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
->> >
->> > =A0 =A0 =A0 =A0case CHIP_ID_YUKON_UL_2:
->> > @@ -4187,6 +4191,11 @@ static int sky2_set_features(struct net_
->> > =A0 =A0 =A0 =A0struct sky2_port *sky2 =3D netdev_priv(dev);
->> > =A0 =A0 =A0 =A0u32 changed =3D dev->features ^ features;
->> >
->> > + =A0 =A0 =A0 /* Some hardware requires receive checksum for RSS t=
-o work. */
->> > + =A0 =A0 =A0 if ( (features & (NETIF_F_RXHASH|NETIF_F_RXCSUM)) =3D=
-=3D NETIF_F_RXHASH &&
->> > + =A0 =A0 =A0 =A0 =A0 =A0(sky2->hw->flags & SKY2_HW_RSS_CHKSUM))
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
->> > +
->> > =A0 =A0 =A0 =A0if (changed & NETIF_F_RXCSUM) {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u32 on =3D features & NETIF_F_RXCSU=
-M;
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sky2_write32(sky2->hw, Q_ADDR(rxqad=
-dr[sky2->port], Q_CSR),
->>
->> Nah. This won't work as the error is not passed to user (except via
->> dmesg) as there is no way to do it. Failing ndo_set_features() witho=
-ut
->> updating dev->features will also prevent other unrelated changes to
->> features set.
->
-> I think this needs to be fixed in the netdev core then.
-> There are bound to be hardware types that can support only some combi=
-nations
-> of features. It should be passed back like all other errors.
+On Thursday 07 July 2011 19:23:50 Marc MERLIN wrote:
+> On Thu, Jul 07, 2011 at 02:55:36PM +0200, Arnd Bergmann wrote:
+> > On Wednesday 06 July 2011, Marc MERLIN wrote:
+> > > > The patch I mentioned was merged back in 2006, for 2.6.19. Either that
+> > > > patch was never complete and is missing support for your hardware, or
+> > > > it broke since then. You should probably try an old kernel to see if it's
+> > > > actually a regression.
+> > > 
+> > > Thanks for the details Arnd, I'll see if I can boot 2.6.19 on that laptop
+> > > and report back.
+> > 
+> > I would perhaps try something less ancient first, 2.6.27-longterm would be
+> > a good candidate. If it was working at some point but broken later, chances
+> > are that it wasn't broken until a few years ago, rather than shortly after
+> > it was merged.
+> 
+> So, it was problematic to build and boot old kernels for that system, but I
+> tried my USB adapter in older systems with older kernels.
+> 
+> 2.6.20 and 2.6.22.1 both were able to bring the interface up and DHCP.
+> 2.6.24.3 was NOT able to.
+> Neither was 2.6.34.1.
 
-This is what ndo_fix_features callback is for - it should alter passed
-feature set to what combinations are permitted for the device's
-current state.
+Not a lot has changed int hat driver between 2.6.22 and 2.6.24, so you could
+try
 
-Updating of the features is not always initiated by user (it might be
-because, e.g. link speed changed) - in those cases the error has no
-place to go.
+git diff v2.6.22..v2.6.24 drivers/net/usb/asix.c  | patch -Rp1 
 
-Best Regards,
-Micha=B3 Miros=B3aw
+on the latest version and see if that helps. There are some rejects, but
+those all look harmless.
+
+	Arnd
