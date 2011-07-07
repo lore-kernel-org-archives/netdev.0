@@ -1,132 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 38032] New: default values of
- /proc/sys/net/ipv4/udp_mem does not consider huge page allocation
-Date: Thu, 07 Jul 2011 06:38:10 +0200
-Message-ID: <1310013490.2481.35.camel@edumazet-laptop>
-References: <bug-38032-10286@https.bugzilla.kernel.org/>
-	 <20110706160318.2c604ae9.akpm@linux-foundation.org>
-	 <6.2.5.6.2.20110706212254.05bff4c8@binnacle.cx>
-	 <1310011173.2481.20.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
- netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org, Rafael Aquini
- <aquini@linux.com>
-To: starlight@binnacle.cx, David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1310011173.2481.20.camel@edumazet-laptop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 4/4] skge: update version
+Date: Wed, 06 Jul 2011 22:00:08 -0700
+Message-ID: <20110707050049.178974636@vyatta.com>
+References: <20110707050003.998140428@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from suva.vyatta.com ([76.74.103.44]:42592 "EHLO suva.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751284Ab1GGFBP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2011 01:01:15 -0400
+Content-Disposition: inline; filename=skge-version.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Lets use following patch ?
+Update version number, and take "New" off the config information
+since old sk98lin has been gone for a couple years.
 
-[PATCH] net: refine {udp|tcp|sctp}_mem limits
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Current tcp/udp/sctp global memory limits are not taking into account
-hugepages allocations, and allow 50% of ram to be used by buffers of a
-single protocol [ not counting space used by sockets / inodes ...]
-
-Lets use nr_free_buffer_pages() and allow a default of 1/8 of kernel ram
-per protocol, and a minimum of 128 pages.
-Heavy duty machines sysadmins probably need to tweak limits anyway.
-
-
-References: https://bugzilla.stlinux.com/show_bug.cgi?id=38032
-Reported-by: starlight <starlight@binnacle.cx>
-Suggested-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp.c      |   10 ++--------
- net/ipv4/udp.c      |   10 ++--------
- net/sctp/protocol.c |   11 +----------
- 3 files changed, 5 insertions(+), 26 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 054a59d..46febca 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3220,7 +3220,7 @@ __setup("thash_entries=", set_thash_entries);
- void __init tcp_init(void)
- {
- 	struct sk_buff *skb = NULL;
--	unsigned long nr_pages, limit;
-+	unsigned long limit;
- 	int i, max_share, cnt;
- 	unsigned long jiffy = jiffies;
+--- a/drivers/net/Kconfig	2011-07-06 21:58:12.139686271 -0700
++++ b/drivers/net/Kconfig	2011-07-06 21:58:30.071682326 -0700
+@@ -2272,7 +2272,7 @@ config SIS190
+ 	  will be called sis190.  This is recommended.
  
-@@ -3277,13 +3277,7 @@ void __init tcp_init(void)
- 	sysctl_tcp_max_orphans = cnt / 2;
- 	sysctl_max_syn_backlog = max(128, cnt / 256);
+ config SKGE
+-	tristate "New SysKonnect GigaEthernet support"
++	tristate "SysKonnect GigaEthernet support"
+ 	depends on PCI
+ 	select CRC32
+ 	---help---
+--- a/drivers/net/skge.c	2011-07-06 21:57:53.915690195 -0700
++++ b/drivers/net/skge.c	2011-07-06 21:58:06.675686411 -0700
+@@ -50,7 +50,7 @@
+ #include "skge.h"
  
--	/* Set the pressure threshold to be a fraction of global memory that
--	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
--	 * memory, with a floor of 128 pages.
--	 */
--	nr_pages = totalram_pages - totalhigh_pages;
--	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
--	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
-+	limit = nr_free_buffer_pages() / 8;
- 	limit = max(limit, 128UL);
- 	sysctl_tcp_mem[0] = limit / 4 * 3;
- 	sysctl_tcp_mem[1] = limit;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 48cd88e..198f75b 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2209,16 +2209,10 @@ void __init udp_table_init(struct udp_table *table, const char *name)
+ #define DRV_NAME		"skge"
+-#define DRV_VERSION		"1.13"
++#define DRV_VERSION		"1.14"
  
- void __init udp_init(void)
- {
--	unsigned long nr_pages, limit;
-+	unsigned long limit;
- 
- 	udp_table_init(&udp_table, "UDP");
--	/* Set the pressure threshold up by the same strategy of TCP. It is a
--	 * fraction of global memory that is up to 1/2 at 256 MB, decreasing
--	 * toward zero with the amount of memory, with a floor of 128 pages.
--	 */
--	nr_pages = totalram_pages - totalhigh_pages;
--	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
--	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
-+	limit = nr_free_buffer_pages() / 8;
- 	limit = max(limit, 128UL);
- 	sysctl_udp_mem[0] = limit / 4 * 3;
- 	sysctl_udp_mem[1] = limit;
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 67380a2..207175b 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1058,7 +1058,6 @@ SCTP_STATIC __init int sctp_init(void)
- 	int status = -EINVAL;
- 	unsigned long goal;
- 	unsigned long limit;
--	unsigned long nr_pages;
- 	int max_share;
- 	int order;
- 
-@@ -1148,15 +1147,7 @@ SCTP_STATIC __init int sctp_init(void)
- 	/* Initialize handle used for association ids. */
- 	idr_init(&sctp_assocs_id);
- 
--	/* Set the pressure threshold to be a fraction of global memory that
--	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
--	 * memory, with a floor of 128 pages.
--	 * Note this initializes the data in sctpv6_prot too
--	 * Unabashedly stolen from tcp_init
--	 */
--	nr_pages = totalram_pages - totalhigh_pages;
--	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
--	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
-+	limit = nr_free_buffer_pages() / 8;
- 	limit = max(limit, 128UL);
- 	sysctl_sctp_mem[0] = limit / 4 * 3;
- 	sysctl_sctp_mem[1] = limit;
+ #define DEFAULT_TX_RING_SIZE	128
+ #define DEFAULT_RX_RING_SIZE	512
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
