@@ -1,35 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Disable router anycast address for /127 prefixes
-Date: Thu, 07 Jul 2011 04:15:50 -0700 (PDT)
-Message-ID: <20110707.041550.755359452689118458.davem@davemloft.net>
-References: <4E0E1B85.1080906@hp.com>
-	<87r569rpis.fsf@nemi.mork.no>
-	<1309943053-21437-1-git-send-email-bjorn@mork.no>
+From: Ian Abbott <abbotti@mev.co.uk>
+Subject: [PATCH] lib/checksum.c: optimize do_csum a bit
+Date: Thu, 7 Jul 2011 12:18:49 +0100
+Message-ID: <1310037529-30854-1-git-send-email-abbotti@mev.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	herbert@gondor.hengli.com.au, brian.haley@hp.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59143 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755650Ab1GGLRJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 07:17:09 -0400
-In-Reply-To: <1309943053-21437-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Ian Abbott <abbotti@mev.co.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>, <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Wed,  6 Jul 2011 11:04:13 +0200
+Reduce the number of variables modified by the loop in do_csum() by 1,
+which seems like a good idea.  On Nios II (a RISC CPU with 3-operand
+instruction set) it reduces the loop from 7 to 6 instructions, including
+the conditional branch.
 
-> RFC 6164 requires that routers MUST disable Subnet-Router anycast
-> for the prefix when /127 prefixes are used.
->=20
-> No need for matching code in addrconf_leave_anycast() as it
-> will silently ignore any attempt to leave an unknown anycast
-> address.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+Signed-off-by: Ian Abbott <abbotti@mev.co.uk>
+---
+ lib/checksum.c |   13 +++++--------
+ 1 files changed, 5 insertions(+), 8 deletions(-)
 
-Applied to net-next-2.6, thanks.
+diff --git a/lib/checksum.c b/lib/checksum.c
+index 0975087..8df2f91 100644
+--- a/lib/checksum.c
++++ b/lib/checksum.c
+@@ -49,7 +49,7 @@ static inline unsigned short from32to16(unsigned int x)
+ 
+ static unsigned int do_csum(const unsigned char *buff, int len)
+ {
+-	int odd, count;
++	int odd;
+ 	unsigned int result = 0;
+ 
+ 	if (len <= 0)
+@@ -64,25 +64,22 @@ static unsigned int do_csum(const unsigned char *buff, int len)
+ 		len--;
+ 		buff++;
+ 	}
+-	count = len >> 1;		/* nr of 16-bit words.. */
+-	if (count) {
++	if (len >= 2) {
+ 		if (2 & (unsigned long) buff) {
+ 			result += *(unsigned short *) buff;
+-			count--;
+ 			len -= 2;
+ 			buff += 2;
+ 		}
+-		count >>= 1;		/* nr of 32-bit words.. */
+-		if (count) {
++		if (len >= 4) {
++			const unsigned char *end = buff + ((unsigned)len & ~3);
+ 			unsigned int carry = 0;
+ 			do {
+ 				unsigned int w = *(unsigned int *) buff;
+-				count--;
+ 				buff += 4;
+ 				result += carry;
+ 				result += w;
+ 				carry = (w > result);
+-			} while (count);
++			} while (buff < end);
+ 			result += carry;
+ 			result = (result & 0xffff) + (result >> 16);
+ 		}
+-- 
+1.7.6
