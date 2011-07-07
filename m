@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] af_packet: lock imbalance
-Date: Thu, 07 Jul 2011 06:41:59 -0700 (PDT)
-Message-ID: <20110707.064159.353179211742855614.davem@davemloft.net>
-References: <1310045587.2127.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging tree with the net tree
+Date: Thu, 7 Jul 2011 06:43:16 -0700
+Message-ID: <20110707134316.GC26939@kroah.com>
+References: <20110707152857.83d48e1d1c175f811b255952@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52774 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756249Ab1GGNmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 09:42:03 -0400
-In-Reply-To: <1310045587.2127.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jesper Juhl <jj@chaosbits.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110707152857.83d48e1d1c175f811b255952@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Jul 2011 15:33:07 +0200
-
-> fanout_add() might return with fanout_mutex held.
+On Thu, Jul 07, 2011 at 03:28:57PM +1000, Stephen Rothwell wrote:
+> Hi Greg,
 > 
-> Reduce indentation level while we are at it
+> Today's linux-next merge of the staging tree got a conflict in
+> drivers/staging/rtl8187se/ieee80211/ieee80211_softmac.c between commit
+> 219eb47e6f35 ("net/staging: add needed interrupt.h and hardirq.h
+> includes") from the net tree and commit 41134db17a7d ("Remove unneeded
+> version.h includes from drivers/staging/rtl*/") from the staging tree.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I fixed it up (see below) and can carry the fix as necessary.
 
-Applied, thanks for fixing this Eric.
+Looks correct, thanks.
+
+greg k-h
