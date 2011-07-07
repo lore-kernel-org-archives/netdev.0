@@ -1,85 +1,90 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 00/14] Swap-over-NBD without deadlocking v5
-Date: Thu, 7 Jul 2011 10:47:37 +0100
-Message-ID: <20110707094737.GG15285@suse.de>
-References: <1308575540-25219-1-git-send-email-mgorman@suse.de>
- <20110706165146.be7ab61b.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [heads-up] bridge in kernel 3.0~ and dhcp from kvm guest on
+ tap device
+Date: Thu, 07 Jul 2011 02:49:06 -0700 (PDT)
+Message-ID: <20110707.024906.763895385840201032.davem@davemloft.net>
+References: <4E158019.9040604@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org
+To: mjt@tls.msk.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:45707 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754655Ab1GGJrn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2011 05:47:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20110706165146.be7ab61b.akpm@linux-foundation.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41543 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753363Ab1GGJtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 05:49:22 -0400
+In-Reply-To: <4E158019.9040604@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 06, 2011 at 04:51:46PM -0700, Andrew Morton wrote:
-> On Mon, 20 Jun 2011 14:12:06 +0100
-> Mel Gorman <mgorman@suse.de> wrote:
-> 
-> > Swapping over NBD is something that is technically possible but not
-> > often advised. While there are number of guides on the internet
-> > on how to configure it and nbd-client supports a -swap switch to
-> > "prevent deadlocks", the fact of the matter is a machine using NBD
-> > for swap can be locked up within minutes if swap is used intensively.
-> > 
-> > The problem is that network block devices do not use mempools like
-> > normal block devices do. As the host cannot control where they receive
-> > packets from, they cannot reliably work out in advance how much memory
-> > they might need.
-> > 
-> > Some years ago, Peter Ziljstra developed a series of patches that
-> > supported swap over an NFS that some distributions are carrying in
-> > their kernels. This patch series borrows very heavily from Peter's work
-> > to support swapping over NBD (the relatively straight-forward case)
-> > and uses throttling instead of dynamically resized memory reserves
-> > so the series is not too unwieldy for review.
-> 
-> I have to say, I look over these patches and my mind wants to turn to
-> things like puppies.  And ice cream.
-> 
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Thu, 07 Jul 2011 13:44:57 +0400
 
-People do love puppies and ice cream!
+> The combination in $subject apparently stopped working --
+> I'm running 3.0-rc6 kernel on host where it doesn't work.
 
-> There's quite some complexity added here in areas which are already
-> reliably unreliable and afaik swap-over-NBD is not a thing which a lot
-> of people want to do. I can see that swap-over-NFS would be useful to
-> some people, and the fact that distros are carrying swap-over-NFS
-> patches has weight.
-> 
-> Do these patches lead on to swap-over-NFS?  If so, how much more
-> additional complexity are we buying into for that?
+Already fixed in net-2.6:
 
-Swap-over-NFS is the primary motivation. As you say, distributions are
-carrying this and have been for some time. Based on my asking about the
-background, the primary user is clusters of blades that are diskless
-or have extremely limited storage with no possibility of expansion (be
-it due to physical dimensions or maintenance overhead). They require
-an amount of infrequently used swap for their workloads. They are
-connected to some sort of SAN that may or may not be running Linux
-but that exports NFS so they want to stick a swapfile on it.
+>From 44661462ee1ee3c922754fc1f246867f0d01e7ea Mon Sep 17 00:00:00 2001
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 5 Jul 2011 13:58:33 +0000
+Subject: [PATCH 24/30] bridge: Always flood broadcast packets
 
-Swap-over-NBD is the simplier case that can be used if the SAN
-is running Linux. Almost all of the compexity required to support
-swap-over-NBD is reused for swap-over-NFS (obviously the NBD-specific
-bits are not reused).
+As is_multicast_ether_addr returns true on broadcast packets as
+well, we need to explicitly exclude broadcast packets so that
+they're always flooded.  This wasn't an issue before as broadcast
+packets were considered to be an unregistered multicast group,
+which were always flooded.  However, as we now only flood such
+packets to router ports, this is no longer acceptable.
 
-Additional complexity is required for swap-over-NFS but affects the
-core kernel far less than this series. I do not have a series prepared
-but from what's in a distro kernel, supporting NFS requires extending
-address_space_operations for swapfile activation/deactivation with
-some minor helpers and the bulk of the remaining complexity within
-NFS itself.
+Reported-by: Michael Guntsche <mike@it-loops.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/bridge/br_device.c |    4 +++-
+ net/bridge/br_input.c  |    6 ++++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index c188c80..32b8f9f 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -49,7 +49,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_pull(skb, ETH_HLEN);
+ 
+ 	rcu_read_lock();
+-	if (is_multicast_ether_addr(dest)) {
++	if (is_broadcast_ether_addr(dest))
++		br_flood_deliver(br, skb);
++	else if (is_multicast_ether_addr(dest)) {
+ 		if (unlikely(netpoll_tx_running(dev))) {
+ 			br_flood_deliver(br, skb);
+ 			goto out;
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index f3ac1e8..f06ee39 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -60,7 +60,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	br = p->br;
+ 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
+ 
+-	if (is_multicast_ether_addr(dest) &&
++	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
+ 	    br_multicast_rcv(br, p, skb))
+ 		goto drop;
+ 
+@@ -77,7 +77,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 
+ 	dst = NULL;
+ 
+-	if (is_multicast_ether_addr(dest)) {
++	if (is_broadcast_ether_addr(dest))
++		skb2 = skb;
++	else if (is_multicast_ether_addr(dest)) {
+ 		mdst = br_mdb_get(br, skb);
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
+ 			if ((mdst && mdst->mglist) ||
 -- 
-Mel Gorman
-SUSE Labs
+1.7.6
+
