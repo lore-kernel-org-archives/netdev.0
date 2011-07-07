@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
-Date: Thu, 07 Jul 2011 04:12:57 -0700 (PDT)
-Message-ID: <20110707.041257.670268148869400054.davem@davemloft.net>
-References: <20110630161935.GA7977@S2100-06.ap.freescale.net>
-	<1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
+Subject: Re: [PATCH v2] Disable router anycast address for /127 prefixes
+Date: Thu, 07 Jul 2011 04:15:50 -0700 (PDT)
+Message-ID: <20110707.041550.755359452689118458.davem@davemloft.net>
+References: <4E0E1B85.1080906@hp.com>
+	<87r569rpis.fsf@nemi.mork.no>
+	<1309943053-21437-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
-	troy.kisky@boundarydevices.com, u.kleine-koenig@pengutronix.de,
-	linux-arm-kernel@lists.infradead.org, LW@KARO-electronics.de
-To: shawn.guo@linaro.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1309515082-7386-1-git-send-email-shawn.guo@linaro.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	herbert@gondor.hengli.com.au, brian.haley@hp.com
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59143 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755650Ab1GGLRJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 07:17:09 -0400
+In-Reply-To: <1309943053-21437-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Guo <shawn.guo@linaro.org>
-Date: Fri,  1 Jul 2011 18:11:22 +0800
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Wed,  6 Jul 2011 11:04:13 +0200
 
-> On the recent i.mx (mx25/50/53), there is a gasket inside fec
-> controller which needs to be enabled no matter phy works in MII
-> or RMII mode.
-> 
-> The current code enables the gasket only when phy interface is RMII.
-> It's broken when the driver works with a MII phy.  The patch uses
-> platform_device_id to distinguish the SoCs that have the gasket and
-> enables it on these SoCs for both MII and RMII mode.
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> RFC 6164 requires that routers MUST disable Subnet-Router anycast
+> for the prefix when /127 prefixes are used.
+>=20
+> No need for matching code in addrconf_leave_anycast() as it
+> will silently ignore any attempt to leave an unknown anycast
+> address.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied to net-next-2.6, thanks.
