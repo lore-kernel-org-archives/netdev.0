@@ -1,151 +1,97 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [PATCH] [v3][net][bna] Fix call trace when interrupts are
- disabled while sleeping function kzalloc is called
-Date: Thu, 7 Jul 2011 15:20:17 -0700
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A82D670007@HQ1-EXCH01.corp.brocade.com>
-References: <1309287485-6077-1-git-send-email-shyam_iyer@dell.com>
- <1310051634.4392.29.camel@ceranb.intra.cera.cz>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next 1/5] sky2: force receive checksum when using RSS on
+ some hardware (v2)
+Date: Thu, 7 Jul 2011 16:40:00 -0700
+Message-ID: <20110707164000.6f3f58f4@nehalam.ftrdhcpuser.net>
+References: <20110707155056.939223264@vyatta.com>
+	<20110707155212.000920741@vyatta.com>
+	<CAHXqBF+Ha9XaMDB0x1XBD633mj2b6Jxmg9U_JSokrov90gPA-g@mail.gmail.com>
+	<20110707101322.784409eb@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Debashis Dutt <ddutt@Brocade.COM>,
-	Jing Huang <huangj@Brocade.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Shyam Iyer <shyam_iyer@dell.com>
-To: Ivan Vecera <ivecera@redhat.com>,
-	Shyam Iyer <shyam.iyer.t@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-2?B?TWljaGGzIE1pcm9zs2F3?= <mirqus@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38535 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750798Ab1GGWpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 18:45:30 -0400
-In-Reply-To: <1310051634.4392.29.camel@ceranb.intra.cera.cz>
-Content-Language: en-US
+Received: from mail.vyatta.com ([76.74.103.46]:45468 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751356Ab1GGXkC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2011 19:40:02 -0400
+In-Reply-To: <20110707101322.784409eb@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SXZhbiwNCg0KSSBhZ3JlZSB3aXRoIHlvdSByZWdhcmRpbmcgdXNlIG9mIGZsYWdzIHZhcmlibGUg
-dXNlZCBmb3IgdHdvIGRpZmZlcmVudCBwdXJwb3Nlcy4gSXQgaXMgY3JlYXRpbmcgc29tZSBjb25m
-dXNpb24uIFdlIGNhbiBoYXZlIHJlcXVlc3RfaXJxIGZ1bmN0aW9uIHVzZSBpcnFfZmxhZ3MgdmFy
-aWJsZS4gVGhpcyB3aWxsIGVuc3VyZSBmbGFncyB2YXJpYmxlIGlzIGV4Y2x1c2l2ZWx5IHVzZWQg
-Zm9yIGVuYWJsaW5nL2Rpc2FibGluZyBJUlFzLg0KDQpUaGFua3MsDQpSYXNlc2gNCg0KPi0tLS0t
-T3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogSXZhbiBWZWNlcmEgW21haWx0bzppdmVjZXJh
-QHJlZGhhdC5jb21dDQo+U2VudDogVGh1cnNkYXksIEp1bHkgMDcsIDIwMTEgODoxNCBBTQ0KPlRv
-OiBTaHlhbSBJeWVyDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFJhc2VzaCBNb2R5OyBE
-ZWJhc2hpcyBEdXR0OyBKaW5nIEh1YW5nOw0KPmRhdmVtQGRhdmVtbG9mdC5uZXQ7IFNoeWFtIEl5
-ZXINCj5TdWJqZWN0OiBSZTogW1BBVENIXSBbdjNdW25ldF1bYm5hXSBGaXggY2FsbCB0cmFjZSB3
-aGVuIGludGVycnVwdHMgYXJlDQo+ZGlzYWJsZWQgd2hpbGUgc2xlZXBpbmcgZnVuY3Rpb24ga3ph
-bGxvYyBpcyBjYWxsZWQNCj4NCj5TbWFsbCBub3RlLCB0aGUgcm9vdCBvZiB0aGUgcHJvYmxlbSB3
-YXMgdGhhdCBub24tYXRvbWljIGFsbG9jYXRpb24gd2FzDQo+cmVxdWVzdGVkIHdpdGggSVJRcyBk
-aXNhYmxlZC4gWW91ciBwYXRjaCBkZXNjcmlwdGlvbiBkb2VzIG5vdCBjb250YWluDQo+d2h5IHdl
-cmUgdGhlIElSUXMgZGlzYWJsZWQuDQo+VGhlIGZ1bmN0aW9uIGJuYWRfbWJveF9pcnFfYWxsb2Mg
-aW5jb3JyZWN0bHkgdXNlcyAnZmxhZ3MnIHZhciBmb3IgdHdvDQo+ZGlmZmVyZW50IHRoaW5ncywg
-MSkgdG8gc2F2ZSBjdXJyZW50IENQVSBmbGFncyBhbmQgMikgZm9yIHJlcXVlc3RfaXJxDQo+Y2Fs
-bC4NCj5GaXJzdCB0aGUgc3Bpbl9sb2NrX2lycXNhdmUgZGlzYWJsZXMgdGhlIElSUXMgYW5kIHNh
-dmVzIF9hbGxfIENQVSBmbGFncw0KPihpbmNsdWRpbmcgb25lIHRoYXQgZW5hYmxlcy9kaXNhYmxl
-cyBpbnRlcnJ1cHRzKSB0byAnZmxhZ3MnLiBUaGVuIHRoZQ0KPidmbGFncycgaXMgb3ZlcndyaXR0
-ZW4gYnkgMCBvciAweDgwIChJUlFGX1NIQVJFRCkuIEZpbmFsbHkgdGhlDQo+c3Bpbl91bmxvY2tf
-aXJxcmVzdG9yZSBzaG91bGQgcmVzdG9yZSBzYXZlZCBmbGFncywgYnV0IHRoZXNlIGZsYWdzIGFy
-ZQ0KPm5vdyBlaXRoZXIgMHgwMCBvciAweDgwLiBUaGUgaW50ZXJydXB0IGJpdCB2YWx1ZSBpbiBm
-bGFncyByZWdpc3RlciBvbg0KPng4NiBhcmNoIGlzIDB4MTAwLg0KPlRoaXMgbWVhbnMgdGhhdCB0
-aGUgaW50ZXJydXB0IGJpdCBpcyB6ZXJvIChJUlFzIGRpc2FibGVkKSBhZnRlcg0KPnNwaW5fdW5s
-b2NrX2lycXJlc3RvcmUgc28gdGhlIHJlcXVlc3RfaXJxIGZ1bmN0aW9uIGlzIGNhbGxlZCB3aXRo
-DQo+ZGlzYWJsZWQgaW50ZXJydXB0cy4NCj4NCj5SYXNlc2gsIHRoaXMgaXMgbm90IGEgZ29vZCBp
-ZGVhIHRvIHVzZSBvbmUgdmFyaWFibGUgZm9yIHR3byBkaWZmZXJlbnQNCj5wdXJwb3NlcyBpbiBw
-YXJhbGxlbC4NCj4NCj5SZWdhcmRzLA0KPkl2YW4NCj4NCj5PbiBUdWUsIDIwMTEtMDYtMjggYXQg
-MTQ6NTggLTA0MDAsIFNoeWFtIEl5ZXIgd3JvdGU6DQo+PiByZXF1ZXN0X3RocmVhZGVkIGlycSB3
-aWxsIGNhbGwga3phbGxvYyB0aGF0IGNhbiBzbGVlcC4gSW5pdGlhbGl6aW5nDQo+dGhlIGZsYWdz
-IHZhcmlhYmxlIG91dHNpZGUgb2Ygc3Bpbl9sb2NrX2lycXNhdmUvcmVzdG9yZSBpbg0KPmJuYWRf
-bWJveF9pcnFfYWxsb2Mgd2lsbCBhdm9pZCBjYWxsIHRyYWNlcyBsaWtlIGJlbG93Lg0KPj4NCj4+
-IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM0NTUwXSBCcm9jYWRl
-IDEwRyBFdGhlcm5ldA0KPmRyaXZlcg0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJu
-ZWw6IFsxMTczNS42MzQ1OTBdIGJuYWRfcGNpX3Byb2JlIDoNCj4oMHhmZmZmODgwNDI3ZjNkMDAw
-LCAweGZmZmZmZmZmYTAyMGYzZTApIFBDSSBGdW5jIDogKDIpDQo+PiBKdW4gMjcgMDg6MTU6MjQg
-aG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYzNzY3N10gYm5hIDAwMDA6ODI6MDAuMjogUENJDQo+
-SU5UIEEgLT4gR1NJIDY2IChsZXZlbCwgbG93KSAtPiBJUlEgNjYNCj4+IEp1biAyNyAwODoxNToy
-NCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4MjkwXSBiYXIwIG1hcHBlZCB0bw0KPmZmZmZj
-OTAwMTQ5ODAwMDAsIGxlbiAyNjIxNDQNCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2Vy
-bmVsOiBbMTE3MzUuNjM4NzMyXSBCVUc6IHNsZWVwaW5nDQo+ZnVuY3Rpb24gY2FsbGVkIGZyb20g
-aW52YWxpZCBjb250ZXh0IGF0IG1tL3NsdWIuYzo4NDcNCj4+IEp1biAyNyAwODoxNToyNCBob21l
-LXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4NzM2XSBpbl9hdG9taWMoKTogMCwNCj5pcnFzX2Rpc2Fi
-bGVkKCk6IDEsIHBpZDogMTEyNDMsIG5hbWU6IGluc21vZA0KPj4gSnVuIDI3IDA4OjE1OjI0IGhv
-bWUtdDcxMCBrZXJuZWw6IFsxMTczNS42Mzg3NDBdIFBpZDogMTEyNDMsIGNvbW06DQo+aW5zbW9k
-IE5vdCB0YWludGVkIDMuMC4wLXJjNCsgIzYNCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAg
-a2VybmVsOiBbMTE3MzUuNjM4NzQzXSBDYWxsIFRyYWNlOg0KPj4gSnVuIDI3IDA4OjE1OjI0IGhv
-bWUtdDcxMCBrZXJuZWw6IFsxMTczNS42Mzg3NTVdICBbPGZmZmZmZmZmODEwNDY0Mjc+XQ0KPl9f
-bWlnaHRfc2xlZXArMHhlYi8weGYwDQo+PiBKdW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5l
-bDogWzExNzM1LjYzODc2Nl0gIFs8ZmZmZmZmZmZhMDFmZTQ2OT5dDQo+PyBuZXRpZl93YWtlX3F1
-ZXVlKzB4M2QvMHgzZCBbYm5hXQ0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJuZWw6
-IFsxMTczNS42Mzg3NzNdICBbPGZmZmZmZmZmODExMTIwMWM+XQ0KPmttZW1fY2FjaGVfYWxsb2Nf
-dHJhY2UrMHg0My8weGQ4DQo+PiBKdW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzEx
-NzM1LjYzODc4Ml0gIFs8ZmZmZmZmZmZhMDFmZTQ2OT5dDQo+PyBuZXRpZl93YWtlX3F1ZXVlKzB4
-M2QvMHgzZCBbYm5hXQ0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJuZWw6IFsxMTcz
-NS42Mzg3ODddICBbPGZmZmZmZmZmODEwYWI3OTE+XQ0KPnJlcXVlc3RfdGhyZWFkZWRfaXJxKzB4
-YTEvMHgxMTMNCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4
-Nzk4XSAgWzxmZmZmZmZmZmEwMjBmMGMwPl0NCj5ibmFkX3BjaV9wcm9iZSsweDYxMi8weDhlNSBb
-Ym5hXQ0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJuZWw6IFsxMTczNS42Mzg4MDdd
-ICBbPGZmZmZmZmZmYTAxZmU0Njk+XQ0KPj8gbmV0aWZfd2FrZV9xdWV1ZSsweDNkLzB4M2QgW2Ju
-YV0NCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4ODE2XSAg
-WzxmZmZmZmZmZjgxNDgyZWY0Pl0NCj4/IF9yYXdfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSsweDE3
-LzB4MTkNCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4ODIy
-XSAgWzxmZmZmZmZmZjgxMjRkMTdhPl0NCj5sb2NhbF9wY2lfcHJvYmUrMHg0NC8weDc1DQo+PiBK
-dW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYzODgyNl0gIFs8ZmZmZmZm
-ZmY4MTI0ZGMwNj5dDQo+cGNpX2RldmljZV9wcm9iZSsweGQwLzB4ZmYNCj4+IEp1biAyNyAwODox
-NToyNCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4ODMyXSAgWzxmZmZmZmZmZjgxMmVmOGFi
-Pl0NCj5kcml2ZXJfcHJvYmVfZGV2aWNlKzB4MTMxLzB4MjEzDQo+PiBKdW4gMjcgMDg6MTU6MjQg
-aG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYzODgzNl0gIFs8ZmZmZmZmZmY4MTJlZjllNz5dDQo+
-X19kcml2ZXJfYXR0YWNoKzB4NWEvMHg3ZQ0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBr
-ZXJuZWw6IFsxMTczNS42Mzg4NDBdICBbPGZmZmZmZmZmODEyZWY5OGQ+XQ0KPj8gZHJpdmVyX3By
-b2JlX2RldmljZSsweDIxMy8weDIxMw0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJu
-ZWw6IFsxMTczNS42Mzg4NDRdICBbPGZmZmZmZmZmODEyZWU5MzM+XQ0KPmJ1c19mb3JfZWFjaF9k
-ZXYrMHg1My8weDg5DQo+PiBKdW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzExNzM1
-LjYzODg0OF0gIFs8ZmZmZmZmZmY4MTJlZjQ4YT5dDQo+ZHJpdmVyX2F0dGFjaCsweDFlLzB4MjAN
-Cj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4ODUyXSAgWzxm
-ZmZmZmZmZjgxMmVmMGFlPl0NCj5idXNfYWRkX2RyaXZlcisweGQxLzB4MjI0DQo+PiBKdW4gMjcg
-MDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYzODg1OF0gIFs8ZmZmZmZmZmZhMDFi
-ODAwMD5dDQo+PyAweGZmZmZmZmZmYTAxYjdmZmYNCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3
-MTAga2VybmVsOiBbMTE3MzUuNjM4ODYyXSAgWzxmZmZmZmZmZjgxMmVmZTU3Pl0NCj5kcml2ZXJf
-cmVnaXN0ZXIrMHg5OC8weDEwNQ0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJuZWw6
-IFsxMTczNS42Mzg4NjZdICBbPGZmZmZmZmZmYTAxYjgwMDA+XQ0KPj8gMHhmZmZmZmZmZmEwMWI3
-ZmZmDQo+PiBKdW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYzODg3MV0g
-IFs8ZmZmZmZmZmY4MTI0ZTRjOT5dDQo+X19wY2lfcmVnaXN0ZXJfZHJpdmVyKzB4NTYvMHhjMQ0K
-Pj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBrZXJuZWw6IFsxMTczNS42Mzg4NzVdICBbPGZm
-ZmZmZmZmYTAxYjgwMDA+XQ0KPj8gMHhmZmZmZmZmZmEwMWI3ZmZmDQo+PiBKdW4gMjcgMDg6MTU6
-MjQgaG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYzODg4NF0gIFs8ZmZmZmZmZmZhMDFiODA0MD5d
-DQo+Ym5hZF9tb2R1bGVfaW5pdCsweDQwLzB4NjAgW2JuYV0NCj4+IEp1biAyNyAwODoxNToyNCBo
-b21lLXQ3MTAga2VybmVsOiBbMTE3MzUuNjM4ODkyXSAgWzxmZmZmZmZmZjgxMDAyMDk5Pl0NCj5k
-b19vbmVfaW5pdGNhbGwrMHg3Zi8weDEzNg0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBr
-ZXJuZWw6IFsxMTczNS42Mzg4OTldICBbPGZmZmZmZmZmODEwODYwOGI+XQ0KPnN5c19pbml0X21v
-ZHVsZSsweDg4LzB4MWQwDQo+PiBKdW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzEx
-NzM1LjYzODkwNl0gIFs8ZmZmZmZmZmY4MTQ4OTY4Mj5dDQo+c3lzdGVtX2NhbGxfZmFzdHBhdGgr
-MHgxNi8weDFiDQo+PiBKdW4gMjcgMDg6MTU6MjQgaG9tZS10NzEwIGtlcm5lbDogWzExNzM1LjYz
-OTY0Ml0gYm5hZF9wY2lfcHJvYmUgOg0KPigweGZmZmY4ODA0MjdmM2UwMDAsIDB4ZmZmZmZmZmZh
-MDIwZjNlMCkgUENJIEZ1bmMgOiAoMykNCj4+IEp1biAyNyAwODoxNToyNCBob21lLXQ3MTAga2Vy
-bmVsOiBbMTE3MzUuNjM5NjY1XSBibmEgMDAwMDo4MjowMC4zOiBQQ0kNCj5JTlQgQSAtPiBHU0kg
-NjYgKGxldmVsLCBsb3cpIC0+IElSUSA2Ng0KPj4gSnVuIDI3IDA4OjE1OjI0IGhvbWUtdDcxMCBr
-ZXJuZWw6IFsxMTczNS42Mzk3MzVdIGJhcjAgbWFwcGVkIHRvDQo+ZmZmZmM5MDAxNDQwMDAwMCwg
-bGVuIDI2MjE0NA0KPj4NCj4+IFNpZ25lZC1vZmYtYnk6IFNoeWFtIEl5ZXIgPHNoeWFtX2l5ZXJA
-ZGVsbC5jb20+DQo+PiAtLS0NCj4+ICBkcml2ZXJzL25ldC9ibmEvYm5hZC5jIHwgICAgNyArKyst
-LS0tDQo+PiAgMSBmaWxlcyBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25zKC0p
-DQo+Pg0KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JuYS9ibmFkLmMgYi9kcml2ZXJzL25l
-dC9ibmEvYm5hZC5jDQo+PiBpbmRleCA3ZDI1YTk3Li40NGUyMTljIDEwMDY0NA0KPj4gLS0tIGEv
-ZHJpdmVycy9uZXQvYm5hL2JuYWQuYw0KPj4gKysrIGIvZHJpdmVycy9uZXQvYm5hL2JuYWQuYw0K
-Pj4gQEAgLTExMTEsNyArMTExMSw3IEBAIGJuYWRfbWJveF9pcnFfYWxsb2Moc3RydWN0IGJuYWQg
-KmJuYWQsDQo+PiAgCQkgICAgc3RydWN0IGJuYV9pbnRyX2luZm8gKmludHJfaW5mbykNCj4+ICB7
-DQo+PiAgCWludCAJCWVyciA9IDA7DQo+PiAtCXVuc2lnbmVkIGxvbmcgCWZsYWdzOw0KPj4gKwl1
-bnNpZ25lZCBsb25nIAlpcnFfZmxhZ3MgPSAwLCBmbGFnczsNCj4+ICAJdTMyCWlycTsNCj4+ICAJ
-aXJxX2hhbmRsZXJfdCAJaXJxX2hhbmRsZXI7DQo+Pg0KPj4gQEAgLTExMjUsMTggKzExMjUsMTcg
-QEAgYm5hZF9tYm94X2lycV9hbGxvYyhzdHJ1Y3QgYm5hZCAqYm5hZCwNCj4+ICAJaWYgKGJuYWQt
-PmNmZ19mbGFncyAmIEJOQURfQ0ZfTVNJWCkgew0KPj4gIAkJaXJxX2hhbmRsZXIgPSAoaXJxX2hh
-bmRsZXJfdClibmFkX21zaXhfbWJveF9oYW5kbGVyOw0KPj4gIAkJaXJxID0gYm5hZC0+bXNpeF90
-YWJsZVtibmFkLT5tc2l4X251bSAtIDFdLnZlY3RvcjsNCj4+IC0JCWZsYWdzID0gMDsNCj4+ICAJ
-CWludHJfaW5mby0+aW50cl90eXBlID0gQk5BX0lOVFJfVF9NU0lYOw0KPj4gIAkJaW50cl9pbmZv
-LT5pZGxbMF0udmVjdG9yID0gYm5hZC0+bXNpeF9udW0gLSAxOw0KPj4gIAl9IGVsc2Ugew0KPj4g
-IAkJaXJxX2hhbmRsZXIgPSAoaXJxX2hhbmRsZXJfdClibmFkX2lzcjsNCj4+ICAJCWlycSA9IGJu
-YWQtPnBjaWRldi0+aXJxOw0KPj4gLQkJZmxhZ3MgPSBJUlFGX1NIQVJFRDsNCj4+ICsJCWlycV9m
-bGFncyA9IElSUUZfU0hBUkVEOw0KPj4gIAkJaW50cl9pbmZvLT5pbnRyX3R5cGUgPSBCTkFfSU5U
-Ul9UX0lOVFg7DQo+PiAgCQkvKiBpbnRyX2luZm8tPmlkbC52ZWN0b3IgPSAwID8gKi8NCj4+ICAJ
-fQ0KPj4gIAlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZibmFkLT5ibmFfbG9jaywgZmxhZ3MpOw0K
-Pj4gLQ0KPj4gKwlmbGFncyA9IGlycV9mbGFnczsNCj4+ICAJc3ByaW50ZihibmFkLT5tYm94X2ly
-cV9uYW1lLCAiJXMiLCBCTkFEX05BTUUpOw0KPj4NCj4+ICAJLyoNCj4NCj4NCg0K
+Found when reviewing the vendor driver. Apparently some chip versions
+require receive checksumming to be enabled in order for RSS to work.
+
+Also, if fix_features has to change some settings; put in message
+in log in similar manner to netdev_fix_features.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+v2 - enforce the requirement in fix_features rather than set features
+
+--- a/drivers/net/sky2.c	2011-07-07 13:56:03.575420273 -0700
++++ b/drivers/net/sky2.c	2011-07-07 14:03:17.775403938 -0700
+@@ -2996,7 +2996,8 @@ static int __devinit sky2_init(struct sk
+ 		hw->flags = SKY2_HW_GIGABIT
+ 			| SKY2_HW_NEWER_PHY
+ 			| SKY2_HW_NEW_LE
+-			| SKY2_HW_ADV_POWER_CTL;
++			| SKY2_HW_ADV_POWER_CTL
++			| SKY2_HW_RSS_CHKSUM;
+ 
+ 		/* New transmit checksum */
+ 		if (hw->chip_rev != CHIP_REV_YU_EX_B0)
+@@ -3024,7 +3025,7 @@ static int __devinit sky2_init(struct sk
+ 
+ 		/* The workaround for status conflicts VLAN tag detection. */
+ 		if (hw->chip_rev == CHIP_REV_YU_FE2_A0)
+-			hw->flags |= SKY2_HW_VLAN_BROKEN;
++			hw->flags |= SKY2_HW_VLAN_BROKEN | SKY2_HW_RSS_CHKSUM;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_SUPR:
+@@ -3033,6 +3034,9 @@ static int __devinit sky2_init(struct sk
+ 			| SKY2_HW_NEW_LE
+ 			| SKY2_HW_AUTO_TX_SUM
+ 			| SKY2_HW_ADV_POWER_CTL;
++
++		if (hw->chip_rev == CHIP_REV_YU_SU_A0)
++			hw->flags |= SKY2_HW_RSS_CHKSUM;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_UL_2:
+@@ -4176,8 +4180,18 @@ static u32 sky2_fix_features(struct net_
+ 	/* In order to do Jumbo packets on these chips, need to turn off the
+ 	 * transmit store/forward. Therefore checksum offload won't work.
+ 	 */
+-	if (dev->mtu > ETH_DATA_LEN && hw->chip_id == CHIP_ID_YUKON_EC_U)
++	if (dev->mtu > ETH_DATA_LEN && hw->chip_id == CHIP_ID_YUKON_EC_U) {
++		netdev_warn(dev, "checksum offload not possible with jumbo frames\n");
+ 		features &= ~(NETIF_F_TSO|NETIF_F_SG|NETIF_F_ALL_CSUM);
++	}
++
++	/* Some hardware requires receive checksum for RSS to work. */
++	if ( (features & NETIF_F_RXHASH) &&
++	     !(features & NETIF_F_RXCSUM) &&
++	     (sky2->hw->flags & SKY2_HW_RSS_CHKSUM)) {
++		netdev_warn(dev, "receive hashing forces receive checksum\n");
++		features |= NETIF_F_RXCSUM;
++	}
+ 
+ 	return features;
+ }
+--- a/drivers/net/sky2.h	2011-07-07 13:56:03.563420272 -0700
++++ b/drivers/net/sky2.h	2011-07-07 13:56:07.719420117 -0700
+@@ -2281,6 +2281,7 @@ struct sky2_hw {
+ #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
+ #define SKY2_HW_RSS_BROKEN	0x00000100
+ #define SKY2_HW_VLAN_BROKEN     0x00000200
++#define SKY2_HW_RSS_CHKSUM	0x00000400	/* RSS requires chksum */
+ 
+ 	u8	     	     chip_id;
+ 	u8		     chip_rev;
+
