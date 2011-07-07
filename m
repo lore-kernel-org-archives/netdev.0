@@ -1,114 +1,61 @@
-From: Alexey Zaytsev <alexey.zaytsev@gmail.com>
-Subject: Re: [Bugme-new] [Bug 38102] New: BUG kmalloc-2048: Poison overwritten
-Date: Thu, 7 Jul 2011 13:43:48 +0400
-Message-ID: <CAB9v_DFcdEFRdW-qmjr2TWwM3jtru=R+89LpaPKJ8XG_iXT3UQ@mail.gmail.com>
-References: <1309882352.2271.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110705164202.GD2959@hmsreliant.think-freely.org>
-	<1309884441.2271.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20110705180650.GF2959@hmsreliant.think-freely.org>
-	<1309889634.2545.2.camel@edumazet-laptop>
-	<1309890775.2545.17.camel@edumazet-laptop>
-	<1309891516.2545.23.camel@edumazet-laptop>
-	<20110705195353.GG2959@hmsreliant.think-freely.org>
-	<1309896147.2545.28.camel@edumazet-laptop>
-	<1309896940.2545.34.camel@edumazet-laptop>
-	<20110705220644.GB12118@hmsreliant.think-freely.org>
-	<20110706173243.404d8599@maggie>
-	<1309971379.2292.64.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAB9v_DFmXS7_0Sx7VgVzViMSqOTtpaqiKrBABcfARigZabr5fA@mail.gmail.com>
-	<1310021286.2481.36.camel@edumazet-laptop>
-	<CAB9v_DF1-q31Y57CUzinXOfGtNejoCAEJVc7u2ECWNLDj97ZPQ@mail.gmail.com>
-	<1310030439.2127.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<CAB9v_DEYbPztDMr9m0B6A-a-q1gvECzX8g=B31xUp+D1_d5fZA@mail.gmail.com>
-	<CAB9v_DEfe6XnavbDB8Jj9XmSXt4MSs6sVUD4F1C8w8wsdqJjPA@mail.gmail.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: [heads-up] bridge in kernel 3.0~ and dhcp from kvm guest on tap device
+Date: Thu, 07 Jul 2011 13:44:57 +0400
+Message-ID: <4E158019.9040604@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Michael_B=C3=BCsch?= <m@bues.ch>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Gary Zambrano <zambrano@broadcom.com>,
-	bugme-daemon@bugzilla.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Pekka Pietikainen <pp@ee.oulu.fi>,
-	Florian Schirmer <jolt@tuxbox.org>,
-	Felix Fietkau <nbd@openwrt.org>, Michael Buesch <mb@bu3sch.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>, KVM list <kvm@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:56545 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104Ab1GGJnt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 05:43:49 -0400
-Received: by vws1 with SMTP id 1so586504vws.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 02:43:49 -0700 (PDT)
-In-Reply-To: <CAB9v_DEfe6XnavbDB8Jj9XmSXt4MSs6sVUD4F1C8w8wsdqJjPA@mail.gmail.com>
+Received: from isrv.corpit.ru ([86.62.121.231]:51288 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754123Ab1GGJo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2011 05:44:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 7, 2011 at 13:37, Alexey Zaytsev <alexey.zaytsev@gmail.com>=
- wrote:
-> On Thu, Jul 7, 2011 at 13:34, Alexey Zaytsev <alexey.zaytsev@gmail.co=
-m> wrote:
->> On Thu, Jul 7, 2011 at 13:20, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->>> Le jeudi 07 juillet 2011 =C3=A0 11:45 +0400, Alexey Zaytsev a =C3=A9=
-crit :
->>>> On Thu, Jul 7, 2011 at 10:48, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
->>>> > Le jeudi 07 juillet 2011 =C3=A0 10:32 +0400, Alexey Zaytsev a =C3=
-=A9crit :
->>>> >> Sorry, been busy for the last couple days. Any patches I should=
- test?
->>>> >
->>>> > Please try :
->>>> >
->>>>
->>>> Thanks. Seems to fail to initialize, getting this in dmesg:
->>>>
->>>> [ =C2=A0103.421577] b44 0000:02:0e.0: PCI INT A -> GSI 16 (level, =
-low) -> IRQ 16
->>>> [ =C2=A0103.440139] ssb: Core 0 found: Fast Ethernet (cc 0x806, re=
-v 0x07,
->>>> vendor 0x4243)
->>>> [ =C2=A0103.440159] ssb: Core 1 found: V90 (cc 0x807, rev 0x03, ve=
-ndor 0x4243)
->>>> [ =C2=A0103.440177] ssb: Core 2 found: PCI (cc 0x804, rev 0x0A, ve=
-ndor 0x4243)
->>>> [ =C2=A0103.481128] ssb: Sonics Silicon Backplane found on PCI dev=
-ice 0000:02:0e.0
->>>> [ =C2=A0103.481532] b44: b44.c:v2.0
->>>> [ =C2=A0103.502185] b44 ssb1:0: eth0: Broadcom 44xx/47xx 10/100Bas=
-eT
->>>> Ethernet 00:17:a4:dd:4e:93
->>>> [ =C2=A0109.405071] b44 ssb1:0: eth0: powering down PHY
->>>> [ =C2=A0112.816456] b44 ssb1:0: eth0: Link is up at 100 Mbps, full=
- duplex
->>>> [ =C2=A0112.816470] b44 ssb1:0: eth0: Flow control is off for TX a=
-nd off for RX
->>>> [ =C2=A0112.952073] b44 ssb1:0: eth0: powering down PHY
->>>> [ =C2=A0113.816148] b44 ssb1:0: eth0: Link is down
->>>> [ =C2=A0114.953717] b44 ssb1:0: eth0: powering down PHY
->>>> [ =C2=A0117.816246] b44 ssb1:0: eth0: Link is up at 100 Mbps, full=
- duplex
->>>> [ =C2=A0117.816260] b44 ssb1:0: eth0: Flow control is off for TX a=
-nd off for RX
->>>> [ =C2=A0117.963238] b44 ssb1:0: eth0: powering down PHY
->>>> [ =C2=A0118.816128] b44 ssb1:0: eth0: Link is down
->>>> [ =C2=A0119.962817] b44 ssb1:0: eth0: powering down PHY
->>>
->>> Maybe this is the b44_init_hw() change :
->>>
->>> bw32(bp, B44_DMARX_PTR, 0);
->>>
->>> So please change this part
->>>
->>> Updated patch :
->>
->> Initializes fine now, but the transfer would stall every few seconds=
-=2E
->>
-> Err, wait a sec, patches the wrong version.
->
-Ok, I've wrongly fixed this part in the clean b44.c, and got stalls.
-Then fixed the patched one after applying the stash, and still got the
-stalls.
+The combination in $subject apparently stopped working --
+I'm running 3.0-rc6 kernel on host where it doesn't work.
+
+The setup is -- a bridge, br0, to which host eth0 and guest
+tap devices are connected.
+
+When KVM guest boots, it tries to send DHCP requests to
+its ethernet device (it does not matter which device it
+uses - be it virtio or e1000 or rtl8139, all work the
+same).  These requests appears (can be seen) on the tap
+device, but they never propagate to bridge.
+
+Example of a packet as seen on the tap device from a
+windows7 guest:
+
+# tcpdump -npvi tap-kvm port bootpc
+tcpdump: WARNING: tap-kvm: no IPv4 address assigned
+tcpdump: listening on tap-kvm, link-type EN10MB (Ethernet), capture size 65535 bytes
+13:38:21.435032 IP (tos 0x0, ttl 128, id 109, offset 0, flags [none], proto UDP (17), length 328)
+    0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request from 52:54:00:12:34:56, length 300, xid 0xdc8f28b1, secs 7168, Flags [Broadcast]
+	  Client-Ethernet-Address 52:54:00:12:34:56
+	  Vendor-rfc1048 Extensions
+	    Magic Cookie 0x63825363
+	    DHCP-Message Option 53, length 1: Discover
+	    Client-ID Option 61, length 7: ether 52:54:00:12:34:56
+	    Hostname Option 12, length 7: "mjt-006"
+	    Vendor-Class Option 60, length 8: "MSFT 5.0"
+	    Parameter-Request Option 55, length 12:
+	      Subnet-Mask, Domain-Name, Default-Gateway, Domain-Name-Server
+	      Netbios-Name-Server, Netbios-Node, Netbios-Scope, Router-Discovery
+	      Static-Route, Classless-Static-Route, Classless-Static-Route-Microsoft, Vendor-Option
+
+Exactly the same thing happens with 4 different DHCP
+clients: it's ipxe boot rom (network booting of a KVM
+guest), win7 built-in DHCP client, udhcpc and dhcp3.
+
+All other traffic - so far anyway - works correcty.
+
+Right now I don't have time to debug the issue, will try
+to bisect later.  But if anyone have pointers or thoughts,
+please shot away ;)
+
+Thanks!
+
+/mjt
