@@ -1,34 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] hso: fix a use after free condition
-Date: Fri, 08 Jul 2011 09:08:13 -0700 (PDT)
-Message-ID: <20110708.090813.1807341905527902786.davem@davemloft.net>
-References: <20110708134525.GA5069@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bna: use netdev_alloc_skb_ip_align()
+Date: Fri, 08 Jul 2011 09:09:29 -0700 (PDT)
+Message-ID: <20110708.090929.567660336601528818.davem@davemloft.net>
+References: <1310138970.2333.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110708134525.GA5069-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rmody@brocade.com, ddutt@brocade.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42550 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818Ab1GHQKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 12:10:42 -0400
+In-Reply-To: <1310138970.2333.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Date: Fri, 8 Jul 2011 06:45:25 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 08 Jul 2011 17:29:30 +0200
 
-> This needs to go to netdev:
+> Some workloads need some headroom (NET_SKB_PAD) to avoid expensive
+> reallocations.
 > 
-> From: Octavian Purdila <octavian.purdila-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Using netdev_alloc_skb_ip_align() instead of bare skb_alloc() brings the
+> NET_IP_ALIGN and the NET_SKB_PAD headroom.
 > 
-> In hso_free_net_device hso_net pointer is freed and then used to
-> cleanup urb pools. Catched with SLAB_DEBUG during S3 resume:
- ...
-> Signed-off-by: Octavian Purdila <octavian.purdila-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Alan Cox <alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Eric.
