@@ -1,98 +1,136 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] hso: fix a use after free condition
-Date: Fri, 8 Jul 2011 06:45:25 -0700
-Message-ID: <20110708134525.GA5069@kroah.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCHv2] sctp: ABORT if receive queue is not empty while closing
+ socket
+Date: Fri, 08 Jul 2011 09:49:52 -0400
+Message-ID: <4E170B00.9080406@hp.com>
+References: <20110629135704.GB10085@canuck.infradead.org> <4E0B3491.1060603@hp.com> <20110629143649.GC10085@canuck.infradead.org> <4E0B3DA1.9060200@hp.com> <20110629154814.GD10085@canuck.infradead.org> <4E0B4F71.4020108@hp.com> <20110630133122.GB24074@canuck.infradead.org> <4E0C83FA.2090909@hp.com> <20110708105705.GA14583@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:27577 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750Ab1GHNt6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 09:49:58 -0400
+In-Reply-To: <20110708105705.GA14583@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This needs to go to netdev:
+On 07/08/2011 06:57 AM, Thomas Graf wrote:
+> Trigger user ABORT if application closes a socket which has data
+> queued on the socket receive queue as this would imply data being
+> lost which defeats the point of a graceful shutdown.
+> 
+> This behavior is already practiced in TCP.
+> 
+> We do not check the input queue because that would mean to parse
+> all chunks on it to look for unacknowledged data which seems too
+> much of an effort. Control chunks or duplicated chunks may also
+> be in the input queue and should not be stopping a graceful
+> shutdown.
 
-From: Octavian Purdila <octavian.purdila-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+I think you need to check the ulpq as well.
 
-In hso_free_net_device hso_net pointer is freed and then used to
-cleanup urb pools. Catched with SLAB_DEBUG during S3 resume:
+It is possible to have a condition where you only have data
+in the ulpq (imagine a few lost out of order packets or a few lost
+fragments from very large messages).  In those circumstances, either fragmentation
+or ordering queues may consume all of the window (especially if the buffer was
+set small) and you would never trigger the abort.
 
-[   95.824442] Pid: 389, comm: khubd Tainted: G         C  2.6.36greenridge-01400-g423cf13-dirty #154 Type2 - Board Product Name1/OakTrail
-[   95.824442] EIP: 0060:[<c1151551>] EFLAGS: 00010202 CPU: 0
-[   95.824442] EIP is at kref_put+0x29/0x42
-[   95.824442] EAX: 6b6b6b6b EBX: 6b6b6b6b ECX: c2806b40 EDX: 00000037
-[   95.824442] ESI: c1258d56 EDI: edd3d128 EBP: ee8cde0c ESP: ee8cde04
-[   95.824442]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-[   95.824442] Process khubd (pid: 389, ti=ee8cc000 task=ee95ed10 task.ti=ee8cc000)
-[   95.824442] Stack:
-[   95.824442]  edd07020 00000000 ee8cde14 c1258b77 ee8cde38 ef933a44 ef93572b ef935dec
-[   95.824442] <0> 0000099a 6b6b6b6b 00000000 ee2da748 edd3e0c0 ee8cde54 ef933b9f ee3b53f8
-[   95.824442] <0> 00000002 ee2da748 ee2da764 ef936658 ee8cde60 ef933d0c ee2da748 ee8cde84
-[   95.824442] Call Trace:
-[   95.824442]  [<c1258b77>] ? usb_free_urb+0x11/0x13
-[   95.824442]  [<ef933a44>] ? hso_free_net_device+0x81/0xd8 [hso]
-[   95.824442]  [<ef933b9f>] ? hso_free_interface+0x104/0x111 [hso]
-[   95.824442]  [<ef933d0c>] ? hso_disconnect+0xb/0x18 [hso]
-[   95.824442]  [<c125b7f1>] ? usb_unbind_interface+0x44/0x14a
-[   95.824442]  [<c11e56e8>] ? __device_release_driver+0x6f/0xb1
-[   95.824442]  [<c11e57c7>] ? device_release_driver+0x18/0x23
-[   95.824442]  [<c11e4e92>] ? bus_remove_device+0x8a/0xa1
-[   95.824442]  [<c11e3970>] ? device_del+0x129/0x163
-[   95.824442]  [<c11e2dc0>] ? put_device+0xf/0x11
-[   95.824442]  [<c11e39bc>] ? device_unregister+0x12/0x15
-[   95.824442]  [<c125915f>] ? usb_disable_device+0x90/0xf0
-[   95.824442]  [<c125544f>] ? usb_disconnect+0x6d/0xf8
-[   95.824442]  [<c1255f91>] ? hub_thread+0x3fc/0xc57
-[   95.824442]  [<c1048526>] ? autoremove_wake_function+0x0/0x2f
-[   95.824442]  [<c102529d>] ? complete+0x34/0x3e
-[   95.824442]  [<c1255b95>] ? hub_thread+0x0/0xc57
-[   95.824442]  [<c10481fc>] ? kthread+0x63/0x68
-[   95.824442]  [<c1048199>] ? kthread+0x0/0x68
-[   95.824442]  [<c1002d76>] ? kernel_thread_helper+0x6/0x10
+Since there would never be any notifications in the ulpq (just data), you can
+simply use skb_queue_empty() call.
 
-Signed-off-by: Octavian Purdila <octavian.purdila-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Alan Cox <alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
----
+-vlad
 
- drivers/net/usb/hso.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+> 
+> Signed-off-by: Thomas Graf <tgraf@infradead.org>
+> 
+> diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
+> index 99b027b..ca4693b 100644
+> --- a/include/net/sctp/ulpevent.h
+> +++ b/include/net/sctp/ulpevent.h
+> @@ -80,7 +80,7 @@ static inline struct sctp_ulpevent *sctp_skb2event(struct sk_buff *skb)
+>  
+>  void sctp_ulpevent_free(struct sctp_ulpevent *);
+>  int sctp_ulpevent_is_notification(const struct sctp_ulpevent *);
+> -void sctp_queue_purge_ulpevents(struct sk_buff_head *list);
+> +unsigned int sctp_queue_purge_ulpevents(struct sk_buff_head *list);
+>  
+>  struct sctp_ulpevent *sctp_ulpevent_make_assoc_change(
+>  	const struct sctp_association *asoc,
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 08c6238..17cb3fc 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -1384,6 +1384,7 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
+>  	struct sctp_endpoint *ep;
+>  	struct sctp_association *asoc;
+>  	struct list_head *pos, *temp;
+> +	unsigned int data_was_unread;
+>  
+>  	SCTP_DEBUG_PRINTK("sctp_close(sk: 0x%p, timeout:%ld)\n", sk, timeout);
+>  
+> @@ -1393,6 +1394,10 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
+>  
+>  	ep = sctp_sk(sk)->ep;
+>  
+> +	/* Clean up any skbs sitting on the receive queue.  */
+> +	data_was_unread = sctp_queue_purge_ulpevents(&sk->sk_receive_queue);
+> +	data_was_unread += sctp_queue_purge_ulpevents(&sctp_sk(sk)->pd_lobby);
+> +
+>  	/* Walk all associations on an endpoint.  */
+>  	list_for_each_safe(pos, temp, &ep->asocs) {
+>  		asoc = list_entry(pos, struct sctp_association, asocs);
+> @@ -1410,7 +1415,8 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
+>  			}
+>  		}
+>  
+> -		if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime) {
+> +		if (data_was_unread ||
+> +		    (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime)) {
+>  			struct sctp_chunk *chunk;
+>  
+>  			chunk = sctp_make_abort_user(asoc, NULL, 0);
+> @@ -1420,10 +1426,6 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
+>  			sctp_primitive_SHUTDOWN(asoc, NULL);
+>  	}
+>  
+> -	/* Clean up any skbs sitting on the receive queue.  */
+> -	sctp_queue_purge_ulpevents(&sk->sk_receive_queue);
+> -	sctp_queue_purge_ulpevents(&sctp_sk(sk)->pd_lobby);
+> -
+>  	/* On a TCP-style socket, block for at most linger_time if set. */
+>  	if (sctp_style(sk, TCP) && timeout)
+>  		sctp_wait_for_close(sk, timeout);
+> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+> index e70e5fc..8a84017 100644
+> --- a/net/sctp/ulpevent.c
+> +++ b/net/sctp/ulpevent.c
+> @@ -1081,9 +1081,19 @@ void sctp_ulpevent_free(struct sctp_ulpevent *event)
+>  }
+>  
+>  /* Purge the skb lists holding ulpevents. */
+> -void sctp_queue_purge_ulpevents(struct sk_buff_head *list)
+> +unsigned int sctp_queue_purge_ulpevents(struct sk_buff_head *list)
+>  {
+>  	struct sk_buff *skb;
+> -	while ((skb = skb_dequeue(list)) != NULL)
+> -		sctp_ulpevent_free(sctp_skb2event(skb));
+> +	unsigned int data_unread = 0;
+> +
+> +	while ((skb = skb_dequeue(list)) != NULL) {
+> +		struct sctp_ulpevent *event = sctp_skb2event(skb);
+> +
+> +		if (!sctp_ulpevent_is_notification(event))
+> +			data_unread += skb->len;
+> +
+> +		sctp_ulpevent_free(event);
+> +	}
+> +
+> +	return data_unread;
+>  }
+> 
 
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 387ca43..304fe78 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2421,10 +2421,8 @@ static void hso_free_net_device(struct hso_device *hso_dev)
- 
- 	remove_net_device(hso_net->parent);
- 
--	if (hso_net->net) {
-+	if (hso_net->net)
- 		unregister_netdev(hso_net->net);
--		free_netdev(hso_net->net);
--	}
- 
- 	/* start freeing */
- 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
-@@ -2436,6 +2434,9 @@ static void hso_free_net_device(struct hso_device *hso_dev)
- 	kfree(hso_net->mux_bulk_tx_buf);
- 	hso_net->mux_bulk_tx_buf = NULL;
- 
-+	if (hso_net->net)
-+		free_netdev(hso_net->net);
-+
- 	kfree(hso_dev);
- }
- 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
------ End forwarded message -----
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
