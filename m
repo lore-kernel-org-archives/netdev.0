@@ -1,87 +1,77 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH 3/4] x86: Implement strict user copy checks for x86_64
-Date: Thu, 07 Jul 2011 18:15:52 -0700
-Message-ID: <4E165A48.9050003@codeaurora.org>
-References: <1306865673-20560-1-git-send-email-sboyd@codeaurora.org>	<1306865673-20560-4-git-send-email-sboyd@codeaurora.org> <20110707145413.90578915.akpm@linux-foundation.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH linux-firmware] bnx2x: Adding FW 7.0.23.0
+Date: Fri, 08 Jul 2011 02:31:52 +0100
+Message-ID: <1310088712.4280.67.camel@localhost>
+References: <1309795166.16026.17.camel@lb-tlvb-ariel.il.broadcom.com>
+	 <1309795666.16026.22.camel@lb-tlvb-ariel.il.broadcom.com>
+	 <1310021987.3746.0.camel@lb-tlvb-ariel.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110707145413.90578915.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 07/07/2011 02:54 PM, Andrew Morton wrote:
-> On Tue, 31 May 2011 11:14:32 -0700
-> Stephen Boyd <sboyd@codeaurora.org> wrote:
->
->> Strict user copy checks are only really supported on x86_32 even
->> though the config option is selectable on x86_64. Add the
->> necessary support to the 64 bit code to trigger copy_from_user()
->> warnings at compile time.
->
-> I'm still reluctant to go and throw a pile of warnings into many
-> people's faces without having made an attempt to fix them.
->
->
-
-I agree.
-
-> We get a screen full of these:
->
->     inlined from 'pktgen_if_write' at net/core/pktgen.c:877:
-> /usr/src/devel/arch/x86/include/asm/uaccess_64.h:64: warning: call to 'copy_from_user_overflow' declared with attribute warning: copy_from_user() buffer size is not provably correct
-> In function 'copy_from_user',
->     inlined from 'pktgen_if_write' at net/core/pktgen.c:1145:
-> /usr/src/devel/arch/x86/include/asm/uaccess_64.h:64: warning: call to 'copy_from_user_overflow' declared with attribute warning: copy_from_user() buffer size is not provably correct
-> In function 'copy_from_user',
-> ...
->
-> and I don't immediately see a way of suppressing them without adding
-> additional code.
->
-> Ideas?
-
-I think your compiler is newer than mine. I tried the 4.6.0 compilers
-from kernel.org and only got the mempolicy warning. Ugh. When I sent the
-series I was using a 4.4.1 gcc.
-
-What happens if you inline strn_len()? I believe gcc can't prove to
-itself that the function returns an int that is always less than the
-size of f (or buf). This in turn requires it to generate the code for a
-buffer overflow possibility (even though we can tell its never possible).
-
-That's the thing with these strict user copy checks. First off we're
-relying on aggressive dead code optimization. Second, the compiler can
-easily get confused about constraints when function calls aren't
-inlined. I'm tempted to say we should rewrite it from
-
-                char f[32];
-                memset(f, 0, 32);
-                len = strn_len(&user_buffer[i], sizeof(f) - 1);
-                if (len < 0)   
-                        return len;
-
-                if (copy_from_user(f, &user_buffer[i], len))
+Content-Type: multipart/signed; micalg="pgp-sha512"; protocol="application/pgp-signature"; boundary="=-oJNZLufNWUOuVQFHlVWO"
+Cc: dwmw2@infradead.org, eilong@broadcom.com, netdev@vger.kernel.org
+To: ariele@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60140 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752926Ab1GHBcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 21:32:00 -0400
+In-Reply-To: <1310021987.3746.0.camel@lb-tlvb-ariel.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-to
+--=-oJNZLufNWUOuVQFHlVWO
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-                int len = strn_len(&user_buffer[i], 31);
-                char f[len + 1];
-                memset(f, 0, sizeof(f));
-                if (len < 0)   
-                        return len;
+On Thu, 2011-07-07 at 09:59 +0300, Ariel Elior wrote:
+> On Mon, 2011-07-04 at 19:07 +0300, Ariel Elior wrote:
+> > On Mon, 2011-07-04 at 18:59 +0300, Ariel Elior wrote:
+> > > This FW supports multiple concurrent classes of service in network tr=
+affic.
+> > >=20
+> > > Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > > ---
+> > in case you need it, the patch is also available under
+> > http://linux.broadcom.com/eilong/FW-7.0.23.0/0001-bnx2x-Adding-FW-7.0.2=
+3.0.patch
+> > thanks,
+> > Ariel
+> David, were you able to obtain the FW?
+> Thanks,
+> Ariel
 
-                if (copy_from_user(f, &user_buffer[i], len))
+I also have commit rights to linux-firmware, so if you mail both David
+and me about new firmware then it may be added sooner.
 
+I've applied this now.
 
-so that gcc can easily see that f is always 1 more than len. But I can't
-convince myself that is better (and it's actually broken with regards to
-negative return values but you get the idea).
+Ben.
 
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
+--=20
+Ben Hutchings
+The two most common things in the universe are hydrogen and stupidity.
+
+--=-oJNZLufNWUOuVQFHlVWO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUAThZeA+e/yOyVhhEJAQo4ZhAAgihxvP7cjHZYgQq5OfGbcH7TD7jiCJ7a
+wgTkuYFvyXno+Tv65x+GrkU5xuP8RpZEv2sbm36QZmF5d8ojPPndPzj4u/bsRYXY
+y58nZDG2HL0dse5SRr/wjkcvf82lsFk0tBODgJv3soEgYO0WSPHsXPYw3aGLgmEh
+7pR6xuoDozgP+3ZNmlAKGeT5pprL1JaNrZsyIYsEaXZUz1B2zLAGQK6HvFUX+Z1j
+DvCiUSIUpXt+DAMxnLZp8yD0APPwmRxwy2VquQecZae07AqFWkTVDevSzNVwSwNC
+TUghznUjxYuLY7tuzQOypr2X8K5iJ0knUmJ1k4ayxIwX5rUs7FY6cTqfmDVpNDdT
+UCo0BE5KFi5aKyS9XEgxNrxW3gOnkVHPq2nW5w/LB+ukMWnoUoqXrjDSIi78wuy3
+2lxdfcILQzoXhb4D9LTdxzBJNS+K98l/nCIwdzFqt5F20OKXrsUkpf75A1K0Gylt
+9l9IeaQYYStGARXm+gqqVqfR40nYfMPTFiUsfhSWlCj4t+z9k7kInCKT6ZacdPD+
+g6bWXrdU6xiafD8mtxDGtSyXXYyjj4DBcGEOGjJKZjq29hMazIIJ4J5smvpqGGX4
++TOoRg0e7GxASrSKdGJO+rpsd8XHCf2ze/bLWqVwB4dxX9+CaOraf+zStvzestH2
+PzsFjfaoIrA=
+=+2FG
+-----END PGP SIGNATURE-----
+
+--=-oJNZLufNWUOuVQFHlVWO--
