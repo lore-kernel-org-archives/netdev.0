@@ -1,84 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: ipv4: Simplify ARP hash function.
-Date: Fri, 08 Jul 2011 10:10:56 -0700 (PDT)
-Message-ID: <20110708.101056.89960389404725087.davem@davemloft.net>
+From: Martin Mares <mj@ucw.cz>
+Subject: Re: ipv4: Simplify ARP hash function.
+Date: Fri, 8 Jul 2011 19:40:55 +0200
+Message-ID: <mj+md-20110708.173556.16517.nikam@ucw.cz>
+References: <20110708.101056.89960389404725087.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55899 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828Ab1GHRLB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 13:11:01 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p68HAuVe022065
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 8 Jul 2011 10:10:57 -0700
+Received: from nikam.ms.mff.cuni.cz ([195.113.20.16]:39250 "EHLO
+	nikam.ms.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393Ab1GHRqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 13:46:02 -0400
+Content-Disposition: inline
+In-Reply-To: <20110708.101056.89960389404725087.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
-Using Jenkins is over the top.
+> Using Jenkins is over the top.
+> 
+> If the premise is that the hash_rnd is a random unpredictable key,
+> then:
+> 
+> 	key ^ dev->ifindex ^ hash_rnd
+> 
+> results in an unpredictable hash result, even if an attacker
+> controls 'key' and 'dev->ifindex' completely.
+> 
+> Therefore, if this hash result is unpredictable, then the
+> final fold phase of:
+> 
+> 	(val >> 8) ^ (val >> 16) ^ (val >> 24)
+> 
+> is unpredictable as well.
 
-If the premise is that the hash_rnd is a random unpredictable key,
-then:
+If I understand the new hash function correctly, it should be very easy
+for an outside attacker to force arbitrary collisions.
 
-	key ^ dev->ifindex ^ hash_rnd
+The hash function is linear, so it can be reduced to:
 
-results in an unpredictable hash result, even if an attacker
-controls 'key' and 'dev->ifindex' completely.
+	a = key ^ dev->ifindex
+	return (a >> 8) ^ (a >> 16) ^ (a >> 24)				// (1)
+	     ^ (hash_rnd >> 8) ^ (hash_rnd >> 16) ^ (hash_rnd >> 24)	// (2)
 
-Therefore, if this hash result is unpredictable, then the
-final fold phase of:
+Where (1) is under control of the attacker and while (2) is not, the
+only effect of (2) is a random permutation on the hash buckets.
 
-	(val >> 8) ^ (val >> 16) ^ (val >> 24)
+I.e., the attacker can generate arbitrarily long collision chains,
+although he cannot pick the bucket where the collisions happen :)
 
-is unpredictable as well.
+Am I right?
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-Someone please check my logic :-) This sames ~100 cycles during a
-neigh_lookup() on my Niagara2 box.
-
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 91f0568..d570747 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -8,6 +8,13 @@
- 
- extern struct neigh_table arp_tbl;
- 
-+static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd)
-+{
-+	u32 val = key ^ dev->ifindex ^ hash_rnd;
-+
-+	return (val >> 8) ^ (val >> 16) ^ (val >> 24);
-+}
-+
- extern void	arp_init(void);
- extern int	arp_find(unsigned char *haddr, struct sk_buff *skb);
- extern int	arp_ioctl(struct net *net, unsigned int cmd, void __user *arg);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 1b74d3b..4412b57 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -97,7 +97,6 @@
- #include <linux/init.h>
- #include <linux/net.h>
- #include <linux/rcupdate.h>
--#include <linux/jhash.h>
- #include <linux/slab.h>
- #ifdef CONFIG_SYSCTL
- #include <linux/sysctl.h>
-@@ -232,7 +231,7 @@ static u32 arp_hash(const void *pkey,
- 		    const struct net_device *dev,
- 		    __u32 hash_rnd)
- {
--	return jhash_2words(*(u32 *)pkey, dev->ifindex, hash_rnd);
-+	return arp_hashfn(*(u32 *)pkey, dev, hash_rnd);
- }
- 
- static int arp_constructor(struct neighbour *neigh)
+				Have a nice fortnight
+-- 
+Martin `MJ' Mares                          <mj@ucw.cz>   http://mj.ucw.cz/
+Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
+If going to a church makes you a Christian, does going to a garage make you a car?
