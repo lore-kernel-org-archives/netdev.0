@@ -1,67 +1,75 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: ipv4: Simplify ARP hash function.
-Date: Fri, 8 Jul 2011 21:39:18 +0200
-Message-ID: <CAHXqBFKE_hLvFgL1_7F+k+pQ0+tEuhBqeRUOtgaM1yrjvXQQww@mail.gmail.com>
-References: <CABrhC0kaRCpvmKw=TdPZ+7dRFzdcrjF7hoc-VhbtAfXu=WBU_Q@mail.gmail.com>
-	<20110708.110659.1816173367050101549.davem@davemloft.net>
-	<CAL1RGDWbCi_nE8tRp9zyX3Z1yBHKP9ygxNV6TNKp4Up+0g2EPA@mail.gmail.com>
+Date: Fri, 08 Jul 2011 12:51:18 -0700 (PDT)
+Message-ID: <20110708.125118.886216418938741383.davem@davemloft.net>
+References: <CAL1RGDWbCi_nE8tRp9zyX3Z1yBHKP9ygxNV6TNKp4Up+0g2EPA@mail.gmail.com>
 	<20110708.122742.1006323245708104141.davem@davemloft.net>
+	<CAHXqBFKE_hLvFgL1_7F+k+pQ0+tEuhBqeRUOtgaM1yrjvXQQww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: roland@purestorage.com, johnwheffner@gmail.com, mj@ucw.cz,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: mirqus@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:47832 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab1GHTjT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 15:39:19 -0400
-Received: by qyk29 with SMTP id 29so463409qyk.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 12:39:18 -0700 (PDT)
-In-Reply-To: <20110708.122742.1006323245708104141.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752168Ab1GHTv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 15:51:26 -0400
+In-Reply-To: <CAHXqBFKE_hLvFgL1_7F+k+pQ0+tEuhBqeRUOtgaM1yrjvXQQww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/7/8 David Miller <davem@davemloft.net>:
-> From: Roland Dreier <roland@purestorage.com>
-> Date: Fri, 8 Jul 2011 12:26:17 -0700
->
->> On Fri, Jul 8, 2011 at 11:06 AM, David Miller <davem@davemloft.net> =
-wrote:
->>> Ok, there was also an unintended bug in my original patch,
->>> I lost the bottom 8 bits in the fold, the hash function
->>> should instead be:
->>>
->>> +static inline u32 arp_hashfn(u32 key, const struct net_device *dev=
-, u32 hash_rnd)
->>> +{
->>> + =A0 =A0 =A0 u32 val =3D key ^ dev->ifindex ^ hash_rnd;
->>> +
->>> + =A0 =A0 =A0 return val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24);
->>> +}
->>
->> Doesn't seem to matter much -- this is now equivalent to
->>
->> =A0 =A0 =A0 a =3D key ^ dev->ifindex
->> =A0 =A0 =A0 =A0return (a ^ (a >> 8) ^ (a >> 16) ^ (a >> 24)) =A0 =A0=
- =A0 =A0 =A0 // (1)
->> =A0 =A0 =A0 =A0 =A0 =A0 ^ (rnd ^ (rnd >> 8) ^ (rnd >> 16) ^ (rnd >> =
-24)) =A0 // (2)
->>
->> where again the attacker controls (1), and (2) is a constant.
->
-> Right, but how can you attack it? =A0Show me how you can grow
-> a hash chain of arbitrary length by modulating the key in
-> a deterministic way.
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirqus@gmail.com>
+Date: Fri, 8 Jul 2011 21:39:18 +0200
 
-=46or 256 buckets its easy:
+> With b[3] =3D b[0] ^ b[1] ^ b[2] you get 2^24 keys that hash to the s=
+ame bucket.
 
-hash_index =3D b[0] ^ b[1] ^ b[2] ^ b[3];
-(b[i] are bytes of the key)
+Ok, I'm convinced, thanks :-)
 
-With b[3] =3D b[0] ^ b[1] ^ b[2] you get 2^24 keys that hash to the sam=
-e bucket.
+--------------------
+#include <stdlib.h>
+#include <stdio.h>
 
-Best Regards,
-Micha=B3 Miros=B3aw
+int hashfn(unsigned int key, unsigned int rnd)
+{
+	unsigned int x =3D key ^ rnd;
+
+	x ^=3D (x >> 8) ^ (x >> 16) ^ (x >> 24);
+
+	return x & 0xff;
+}
+
+int count[256];
+
+unsigned int collide(unsigned int key)
+{
+	unsigned int b0 =3D key >> 24;
+	unsigned int b1 =3D (key >> 16) & 0xff;
+	unsigned int b2 =3D (key >> 8) & 0xff;
+
+	key &=3D ~0xff;
+	key |=3D (b0 ^ b1 ^ b2);
+
+	return key;
+}
+
+int main(int argc, char **argp)
+{
+	unsigned int rnd =3D atoi(argp[1]);
+	unsigned int i;
+
+	for (i =3D 0; i < (64 * 1024); i++) {
+		unsigned int key =3D i << 8;
+		unsigned int hash;
+
+		key =3D collide(key);
+		hash =3D hashfn(key, rnd);
+		printf("%u: %u\n", key, hash);
+		count[hash]++;
+	}
+	for (i =3D 0; i < 256; i++)
+		printf("COUNT[%3u]=3D%3u\n", i, count[i]);
+	return 0;
+}
