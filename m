@@ -1,63 +1,43 @@
-From: David Miller <davem@davemloft.net>
+From: John Heffner <johnwheffner@gmail.com>
 Subject: Re: ipv4: Simplify ARP hash function.
-Date: Fri, 08 Jul 2011 10:54:30 -0700 (PDT)
-Message-ID: <20110708.105430.2072718553430519147.davem@davemloft.net>
+Date: Fri, 8 Jul 2011 14:03:45 -0400
+Message-ID: <CABrhC0kaRCpvmKw=TdPZ+7dRFzdcrjF7hoc-VhbtAfXu=WBU_Q@mail.gmail.com>
 References: <20110708.101056.89960389404725087.davem@davemloft.net>
 	<mj+md-20110708.173556.16517.nikam@ucw.cz>
 	<20110708.104739.169518036069870432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mj@ucw.cz
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mj@ucw.cz, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46804 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757Ab1GHRye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 13:54:34 -0400
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:39044 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757Ab1GHSDr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 14:03:47 -0400
+Received: by eyx24 with SMTP id 24so746436eyx.19
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 11:03:46 -0700 (PDT)
 In-Reply-To: <20110708.104739.169518036069870432.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 08 Jul 2011 10:47:39 -0700 (PDT)
-
+On Fri, Jul 8, 2011 at 1:47 PM, David Miller <davem@davemloft.net> wrot=
+e:
 > From: Martin Mares <mj@ucw.cz>
 > Date: Fri, 8 Jul 2011 19:40:55 +0200
-> 
+>
 >> The hash function is linear, so it can be reduced to:
->> 
->> 	a = key ^ dev->ifindex
->> 	return (a >> 8) ^ (a >> 16) ^ (a >> 24)				// (1)
->> 	     ^ (hash_rnd >> 8) ^ (hash_rnd >> 16) ^ (hash_rnd >> 24)	// (2)
-> 
-> Is this really the same?  The inclusion of a full 32-bit xor
+>>
+>> =A0 =A0 =A0 a =3D key ^ dev->ifindex
+>> =A0 =A0 =A0 return (a >> 8) ^ (a >> 16) ^ (a >> 24) =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 // (1)
+>> =A0 =A0 =A0 =A0 =A0 =A0^ (hash_rnd >> 8) ^ (hash_rnd >> 16) ^ (hash_=
+rnd >> 24) =A0 =A0// (2)
+>
+> Is this really the same? =A0The inclusion of a full 32-bit xor
 > with hash_rnd before folding was intentional, so that the
 > final folding occurs on a completely "random" value.
 
-For example, try out this test program.  Run as "./x ${RANDOM_VALUE}",
-it shows that the attacker cannot simply just iterate by the number of
-hash table slots to create collisions, assuming a hash table size of
-256 slots:
+Martin's reduction looks exactly correct to me.
 
---------------------
-#include <stdlib.h>
-#include <stdio.h>
-
-int main(int argc, char **argp)
-{
-	int i, rnd;
-
-	rnd = atoi(argp[1]);
-	for (i = 1; i < (64 * 1024); i += 256) {
-		int x = (i ^ rnd);
-
-		x ^= (x >> 8) ^ (x << 16) ^ (x >> 24);
-
-		x &= 0xff;
-
-		printf("%d\n", x);
-	}
-	return 0;
-}
-
+  -John
