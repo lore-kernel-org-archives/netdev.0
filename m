@@ -1,49 +1,56 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: orphan sockets
-Date: Fri, 08 Jul 2011 18:13:14 +0300
-Message-ID: <6fa7e62e85e1e2fd069aa9cbf307737a@visp.net.lb>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bna: use netdev_alloc_skb_ip_align()
+Date: Fri, 08 Jul 2011 17:29:30 +0200
+Message-ID: <1310138970.2333.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:42992 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751794Ab1GHPSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 11:18:41 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:65306 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753360Ab1GHP3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 11:29:43 -0400
+Received: by wyg8 with SMTP id 8so1388470wyg.19
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 08:29:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Hi
+Some workloads need some headroom (NET_SKB_PAD) to avoid expensive
+reallocations.
 
- Just after digging orphan sockets problem, that was causing "Address 
- already in use" for bind(),i found that in documentation is mentioned:
+Using netdev_alloc_skb_ip_align() instead of bare skb_alloc() brings the
+NET_IP_ALIGN and the NET_SKB_PAD headroom.
 
- tcp_orphan_retries - INTEGER
-         This value influences the timeout of a locally closed TCP 
- connection,
-         when RTO retransmissions remain unacknowledged.
-         See tcp_retries2 for more details.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Rasesh Mody <rmody@brocade.com>
+CC: Debashis Dutt <ddutt@brocade.com>
+---
+ drivers/net/bna/bnad.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-         The default value is 7.
-         If your machine is a loaded WEB server,
-         you should think about lowering this value, such sockets
-         may consume significant resources. Cf. tcp_max_orphans.
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index 44e219c..795b93b 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -386,14 +386,12 @@ bnad_alloc_n_post_rxbufs(struct bnad *bnad, struct bna_rcb *rcb)
+ 			BNA_RXQ_QPGE_PTR_GET(unmap_prod, rcb->sw_qpt, rxent,
+ 					     wi_range);
+ 		}
+-		skb = alloc_skb(rcb->rxq->buffer_size + NET_IP_ALIGN,
+-				     GFP_ATOMIC);
++		skb = netdev_alloc_skb_ip_align(bnad->netdev,
++						rcb->rxq->buffer_size);
+ 		if (unlikely(!skb)) {
+ 			BNAD_UPDATE_CTR(bnad, rxbuf_alloc_failed);
+ 			goto finishing;
+ 		}
+-		skb->dev = bnad->netdev;
+-		skb_reserve(skb, NET_IP_ALIGN);
+ 		unmap_array[unmap_prod].skb = skb;
+ 		dma_addr = dma_map_single(&bnad->pcidev->dev, skb->data,
+ 					  rcb->rxq->buffer_size,
 
-
- But all servers i have, i notice that  tcp_orphan_retries = 0 by 
- default, i check in code, and found that:
-         if (retries == 0 && alive)
-                 retries = 8;
- is a bit confusing, that tcp_orphan_retries = 0, is in fact = 8, or to 
- be more exact is 8 if socket has rto < RTO_MAX. But nothing like 7 
- mentioned in documentation, i guess it is wrong?. My english too bad to 
- edit that, but maybe someone will take a look :-)
-
-
- ---
- System administrator
- Denys Fedoryshchenko
- Virtual ISP S.A.L.
 
