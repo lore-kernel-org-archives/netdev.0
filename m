@@ -1,38 +1,52 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] dcbnl: unlock on an error path in dcbnl_cee_fill()
-Date: Fri, 8 Jul 2011 10:27:24 +0300
-Message-ID: <20110708072724.GW18655@shale.localdomain>
+Subject: [patch] packet: add an unlock on error in fanout_add()
+Date: Fri, 8 Jul 2011 10:28:12 +0300
+Message-ID: <20110708072812.GX18655@shale.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Shmulik Ravid <shmulikr@broadcom.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
 	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
 	kernel-janitors@vger.kernel.org
-To: Shmulik Ravid <shmulikr@broadcom.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:64561 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab1GHH2k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 03:28:40 -0400
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:40272 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106Ab1GHH32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 03:29:28 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to release "dcb_lock" which we took on the previous line.
+We need to release the "fanout_mutex" here.
 
 Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 6a015f2..3cb56af 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -1409,7 +1409,7 @@ static int dcbnl_cee_fill(struct sk_buff *skb, struct net_device *netdev)
- 	spin_lock(&dcb_lock);
- 	app = nla_nest_start(skb, DCB_ATTR_CEE_APP_TABLE);
- 	if (!app)
--		goto nla_put_failure;
-+		goto dcb_unlock;
- 
- 	list_for_each_entry(itr, &dcb_app_list, list) {
- 		if (strncmp(itr->name, netdev->name, IFNAMSIZ) == 0) {
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index aec50a1..3cbe950 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -589,8 +589,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 			break;
+ 		}
+ 	}
+-	if (match && match->defrag != defrag)
+-		return -EINVAL;
++	if (match && match->defrag != defrag) {
++		err = -EINVAL;
++		goto out_unlock;
++	}
+ 	if (!match) {
+ 		match = kzalloc(sizeof(*match), GFP_KERNEL);
+ 		if (match) {
+@@ -626,6 +628,8 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 			}
+ 		}
+ 	}
++
++out_unlock:
+ 	mutex_unlock(&fanout_mutex);
+ 	return err;
+ }
