@@ -1,49 +1,58 @@
-From: Tushar Gohad <tgohad@mvista.com>
-Subject: [PATCH] XFRM: Fix memory leak in xfrm_state_update
-Date: Thu, 7 Jul 2011 18:38:52 -0700 (MST)
-Message-ID: <alpine.LFD.1.10.1107071820060.7677@net-test1.az.mvista.com>
+From: Bill F <falcigno@juno.com>
+Subject: trying to set skb->tstamp before =?utf-8?b?bmV0aWZfcng=?= did not work in tun/tap driver, 2.6.27
+Date: Fri, 8 Jul 2011 02:33:59 +0000 (UTC)
+Message-ID: <loom.20110708T042440-631@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org, tusharsg@gmail.com
-To: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:53415 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658Ab1GHBs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2011 21:48:26 -0400
-Received: by pwj7 with SMTP id 7so838052pwj.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2011 18:48:26 -0700 (PDT)
+Received: from lo.gmane.org ([80.91.229.12]:33103 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750757Ab1GHCkL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2011 22:40:11 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Qf0z8-0005tn-Fb
+	for netdev@vger.kernel.org; Fri, 08 Jul 2011 04:40:06 +0200
+Received: from pool-173-73-26-13.washdc.fios.verizon.net ([173.73.26.13])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 04:40:06 +0200
+Received: from falcigno by pool-173-73-26-13.washdc.fios.verizon.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 04:40:06 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Upon "ip xfrm state update ..", xfrm_add_sa() takes an extra reference on 
-the user-supplied SA and forgets to drop the reference when 
-xfrm_state_update() returns 0.  This leads to a memory leak as the 
-parameter SA is never freed.  This change attempts to fix the leak by 
-calling __xfrm_state_put() when xfrm_state_update() updates a valid SA 
-(err = 0).  The parameter SA is added to the gc list when the final 
-reference is dropped by xfrm_add_sa() upon completion.
-
-Signed-off-by: Tushar Gohad <tgohad@mvista.com>
----
-  net/xfrm/xfrm_state.c |    2 ++
-  1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index d70f85e..9414b9c 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1345,6 +1345,8 @@ out:
-  			xfrm_state_check_expire(x1);
-
-  		err = 0;
-+		x->km.state = XFRM_STATE_DEAD;
-+		__xfrm_state_put(x);
-  	}
-  	spin_unlock_bh(&x1->lock);
-
--- 
-1.6.3.3.202.g91879
+Hi all,
+ 
+I am trying to set the receive timestamp for a packet in the tun/tap device
+driver before sending it into the network stack (by calling netif_rx_ni). On the 
+application side I'm using recvmsg() to receive the timestamp along with the 
+received packet.
+ 
+I expected that any non-zero skb->tstamp I set would be the value my 
+application would see when it used recvmsg(), but a corrupted value is 
+coming out.
+* If I hardcode skb->tstamp.tv64 to x7777777766666666 
+        then recvmsg() always gets x011afd371a82fcc0.
+* If I hardcode x4de684b100000000, 
+        then recvmsg always gets x4f5f96640f2d1608.
+* If I set a timestamp that a different process gave to the tun/tap driver
+        (this is the goal), then recvmsg gets a corrupted version of that 
+        timestamp.
+* If I hardcode a zero tstamp, 
+        then an accurate timestamp comes out (but not precise enough for my 
+        project).
+ 
+The kernel build is 2.6.27.7, the architecture is MIPS, 64bit. Shouldn't this 
+work? Do I need to apply any known patches?
+ 
+This arrangement worked last month in a similar setup: an e1000 driver 
+setting tstamp before calling netif_receive_skb() in a 2.6.24 kernel and a 
+686 architecture, 32 bit.
+ 
+Thanks in advance.
+Bill
 
