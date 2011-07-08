@@ -1,79 +1,51 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next 1/5] sky2: force receive checksum when using RSS
- on some hardware (v2)
-Date: Fri, 8 Jul 2011 10:45:33 +0200
-Message-ID: <CAHXqBF+XfArvVDXQ+JBGQ1hEne=w7u6eFTf=SQciLr48BD7h8w@mail.gmail.com>
-References: <20110707155056.939223264@vyatta.com>
-	<20110707155212.000920741@vyatta.com>
-	<CAHXqBF+Ha9XaMDB0x1XBD633mj2b6Jxmg9U_JSokrov90gPA-g@mail.gmail.com>
-	<20110707101322.784409eb@nehalam.ftrdhcpuser.net>
-	<20110707164000.6f3f58f4@nehalam.ftrdhcpuser.net>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] net/natsemi: Fix module parameter permissions
+Date: Fri, 8 Jul 2011 11:01:28 +0200
+Message-ID: <201107081101.28812.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Tim Hockin <thockin@hockin.org>,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:53300 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753458Ab1GHIpe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 04:45:34 -0400
-Received: by qwk3 with SMTP id 3so841744qwk.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 01:45:33 -0700 (PDT)
-In-Reply-To: <20110707164000.6f3f58f4@nehalam.ftrdhcpuser.net>
+Received: from cantor2.suse.de ([195.135.220.15]:53638 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754287Ab1GHJBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jul 2011 05:01:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/7/8 Stephen Hemminger <shemminger@vyatta.com>:
-> Found when reviewing the vendor driver. Apparently some chip versions
-> require receive checksumming to be enabled in order for RSS to work.
->
-> Also, if fix_features has to change some settings; put in message
-> in log in similar manner to netdev_fix_features.
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
-> ---
-> v2 - enforce the requirement in fix_features rather than set features
->
-> --- a/drivers/net/sky2.c =A0 =A0 =A0 =A02011-07-07 13:56:03.575420273=
- -0700
-> +++ b/drivers/net/sky2.c =A0 =A0 =A0 =A02011-07-07 14:03:17.775403938=
- -0700
-[...]
-> @@ -4176,8 +4180,18 @@ static u32 sky2_fix_features(struct net_
-> =A0 =A0 =A0 =A0/* In order to do Jumbo packets on these chips, need t=
-o turn off the
-> =A0 =A0 =A0 =A0 * transmit store/forward. Therefore checksum offload =
-won't work.
-> =A0 =A0 =A0 =A0 */
-> - =A0 =A0 =A0 if (dev->mtu > ETH_DATA_LEN && hw->chip_id =3D=3D CHIP_=
-ID_YUKON_EC_U)
-> + =A0 =A0 =A0 if (dev->mtu > ETH_DATA_LEN && hw->chip_id =3D=3D CHIP_=
-ID_YUKON_EC_U) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_warn(dev, "checksum offload not =
-possible with jumbo frames\n");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0features &=3D ~(NETIF_F_TSO|NETIF_F_SG=
-|NETIF_F_ALL_CSUM);
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 /* Some hardware requires receive checksum for RSS to w=
-ork. */
-> + =A0 =A0 =A0 if ( (features & NETIF_F_RXHASH) &&
-> + =A0 =A0 =A0 =A0 =A0 =A0!(features & NETIF_F_RXCSUM) &&
-> + =A0 =A0 =A0 =A0 =A0 =A0(sky2->hw->flags & SKY2_HW_RSS_CHKSUM)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_warn(dev, "receive hashing force=
-s receive checksum\n");
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 features |=3D NETIF_F_RXCSUM;
-> + =A0 =A0 =A0 }
->
-> =A0 =A0 =A0 =A0return features;
-> =A0}
+The third parameter of module_param is supposed to represent sysfs
+file permissions. A value of "1" leads to the following:
 
-I suggest using netdev_dbg() instead of netdev_warn() so it won't spam
-dmesg on every features update.
+$ ls -l /sys/module/natsemi/parameters/
+total 0
+---------x 1 root root 4096 Jul  8 09:46 dspcfg_workaround
 
-Otherwise, looks good.
+I am changing it to "0" to align with the other module parameters in
+this driver.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Tim Hockin <thockin@hockin.org>
+Cc: Mark Brown <broonie@opensource.wolfsonmicro.com>
+---
+ drivers/net/natsemi.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-3.0-rc6.orig/drivers/net/natsemi.c	2011-05-30 20:45:13.000000000 +0200
++++ linux-3.0-rc6/drivers/net/natsemi.c	2011-07-08 09:57:47.000000000 +0200
+@@ -140,7 +140,7 @@ MODULE_LICENSE("GPL");
+ module_param(mtu, int, 0);
+ module_param(debug, int, 0);
+ module_param(rx_copybreak, int, 0);
+-module_param(dspcfg_workaround, int, 1);
++module_param(dspcfg_workaround, int, 0);
+ module_param_array(options, int, NULL, 0);
+ module_param_array(full_duplex, int, NULL, 0);
+ MODULE_PARM_DESC(mtu, "DP8381x MTU (all boards)");
+
+-- 
+Jean Delvare
+Suse L3
