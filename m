@@ -1,59 +1,31 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: ipv4: Simplify ARP hash function.
-Date: Fri, 8 Jul 2011 22:34:22 +0200
-Message-ID: <CAHXqBFKKRXFjr7y+v12ApuWTpjf-G3H5iBtfQg1gzC5iPfRO=g@mail.gmail.com>
-References: <20110708.122742.1006323245708104141.davem@davemloft.net>
-	<CAHXqBFKE_hLvFgL1_7F+k+pQ0+tEuhBqeRUOtgaM1yrjvXQQww@mail.gmail.com>
-	<20110708.125118.886216418938741383.davem@davemloft.net>
-	<20110708.125912.1535057393082512441.davem@davemloft.net>
+Date: Fri, 08 Jul 2011 13:35:36 -0700 (PDT)
+Message-ID: <20110708.133536.2096604131639797895.davem@davemloft.net>
+References: <20110708.125912.1535057393082512441.davem@davemloft.net>
 	<CAHXqBFL6fT2V0iFTN1mJmQjEVUEfGEAQVOS=Y46BREUr_KWoow@mail.gmail.com>
+	<CAHXqBFKKRXFjr7y+v12ApuWTpjf-G3H5iBtfQg1gzC5iPfRO=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: roland@purestorage.com, johnwheffner@gmail.com, mj@ucw.cz,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: mirqus@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:47120 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754002Ab1GHUeX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 16:34:23 -0400
-Received: by pwj7 with SMTP id 7so1357689pwj.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 13:34:22 -0700 (PDT)
-In-Reply-To: <CAHXqBFL6fT2V0iFTN1mJmQjEVUEfGEAQVOS=Y46BREUr_KWoow@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45601 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755085Ab1GHUfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 16:35:47 -0400
+In-Reply-To: <CAHXqBFKKRXFjr7y+v12ApuWTpjf-G3H5iBtfQg1gzC5iPfRO=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 8 lipca 2011 22:10 u=BFytkownik Micha=B3 Miros=B3aw <mirqus@gmai=
-l.com> napisa=B3:
-> 2011/7/8 David Miller <davem@davemloft.net>:
->> From: David Miller <davem@davemloft.net>
->> Date: Fri, 08 Jul 2011 12:51:18 -0700 (PDT)
->>
->>> From: Micha=B3 Miros=B3aw <mirqus@gmail.com>
->>> Date: Fri, 8 Jul 2011 21:39:18 +0200
->>>
->>>> With b[3] =3D b[0] ^ b[1] ^ b[2] you get 2^24 keys that hash to th=
-e same bucket.
->>>
->>> Ok, I'm convinced, thanks :-)
->>
->> Although, actually it's not this simple. =A0The attack doesn't work.
->>
->> As they "attack" us, the ARP hash table grows and thus the hash mask
->> changes to match. =A0Then his old collisions won't collide any more.
->>
->> We could even adjust the fold shifts as the table grows to make this
->> effect even more pronounced.
->
-> There will still be 2^32/n_buckets known values that hash to the same
-> bucket for every n_buckets. So if the attacker knows when and how the
-> hash size changes, he can adapt accordingly. It should be easier to
-> see when you get rid of the XOR [random, but] constant part.
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirqus@gmail.com>
+Date: Fri, 8 Jul 2011 22:34:22 +0200
 
-BTW, am I correct, that neighbour hash tables never shrink? Looking at
-net/core/neighbour.c it seems that after the table reaches gc_thresh3
-capacity, it is never reallocated again.
+> BTW, am I correct, that neighbour hash tables never shrink? Looking a=
+t
+> net/core/neighbour.c it seems that after the table reaches gc_thresh3
+> capacity, it is never reallocated again.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Currently, yes, but I plan to remove that limit.
