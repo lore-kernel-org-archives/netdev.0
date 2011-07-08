@@ -1,59 +1,44 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH] net/fec: gasket needs to be enabled for some i.mx
-Date: Fri, 08 Jul 2011 11:38:09 -0700
-Message-ID: <4E174E91.2090609@boundarydevices.com>
-References: <20110630161935.GA7977@S2100-06.ap.freescale.net> <1309515082-7386-1-git-send-email-shawn.guo@linaro.org> <20110708101810.GE6069@pengutronix.de>
+From: Roland Dreier <roland@purestorage.com>
+Subject: Re: ipv4: Simplify ARP hash function.
+Date: Fri, 8 Jul 2011 12:26:17 -0700
+Message-ID: <CAL1RGDWbCi_nE8tRp9zyX3Z1yBHKP9ygxNV6TNKp4Up+0g2EPA@mail.gmail.com>
+References: <mj+md-20110708.173556.16517.nikam@ucw.cz> <20110708.104739.169518036069870432.davem@davemloft.net>
+ <CABrhC0kaRCpvmKw=TdPZ+7dRFzdcrjF7hoc-VhbtAfXu=WBU_Q@mail.gmail.com> <20110708.110659.1816173367050101549.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	u.kleine-koenig@pengutronix.de, LW@KARO-electronics.de,
-	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <shawn.guo@linaro.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: johnwheffner@gmail.com, mj@ucw.cz, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oproxy7-pub.bluehost.com ([67.222.55.9]:33956 "HELO
-	oproxy7-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751951Ab1GHSiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 14:38:17 -0400
-In-Reply-To: <20110708101810.GE6069@pengutronix.de>
+Received: from na3sys010aog106.obsmtp.com ([74.125.245.80]:43902 "HELO
+	na3sys010aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752168Ab1GHT0i convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jul 2011 15:26:38 -0400
+Received: by mail-qw0-f50.google.com with SMTP id 5so1353464qwe.37
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 12:26:37 -0700 (PDT)
+In-Reply-To: <20110708.110659.1816173367050101549.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/8/2011 3:18 AM, Sascha Hauer wrote:
-> On Fri, Jul 01, 2011 at 06:11:22PM +0800, Shawn Guo wrote:
->> On the recent i.mx (mx25/50/53), there is a gasket inside fec
->> controller which needs to be enabled no matter phy works in MII
->> or RMII mode.
->>
->> The current code enables the gasket only when phy interface is RMII.
->> It's broken when the driver works with a MII phy.  The patch uses
->> platform_device_id to distinguish the SoCs that have the gasket and
->> enables it on these SoCs for both MII and RMII mode.
->>
->> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+On Fri, Jul 8, 2011 at 11:06 AM, David Miller <davem@davemloft.net> wro=
+te:
+> Ok, there was also an unintended bug in my original patch,
+> I lost the bottom 8 bits in the fold, the hash function
+> should instead be:
+>
+> +static inline u32 arp_hashfn(u32 key, const struct net_device *dev, =
+u32 hash_rnd)
+> +{
+> + =A0 =A0 =A0 u32 val =3D key ^ dev->ifindex ^ hash_rnd;
+> +
+> + =A0 =A0 =A0 return val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24);
+> +}
 
-While you're making changes, you can change this to
-Reported-by: Troy Kisky
+Doesn't seem to matter much -- this is now equivalent to
 
-Thanks
+      a =3D key ^ dev->ifindex
+       return (a ^ (a >> 8) ^ (a >> 16) ^ (a >> 24))           // (1)
+            ^ (rnd ^ (rnd >> 8) ^ (rnd >> 16) ^ (rnd >> 24))   // (2)
 
->> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Sascha Hauer <s.hauer@pengutronix.de>
->> ---
->>  arch/arm/mach-imx/clock-imx25.c                 |    2 +-
->>  arch/arm/mach-imx/clock-imx27.c                 |    2 +-
->>  arch/arm/mach-imx/clock-imx35.c                 |    2 +-
->>  arch/arm/mach-mx5/clock-mx51-mx53.c             |    4 +-
->>  arch/arm/plat-mxc/devices/platform-fec.c        |   17 ++++++++-------
->>  arch/arm/plat-mxc/include/mach/devices-common.h |    1 +
->>  drivers/net/fec.c                               |   26 ++++++++++++++++++++--
->>  7 files changed, 38 insertions(+), 16 deletions(-)
-> 
-> Just realized that this change breaks m68k support. You shouldn't remove
-> DRIVER_NAME from fec_devtype[]
-> 
-> 
-> Sascha
-> 
+where again the attacker controls (1), and (2) is a constant.
