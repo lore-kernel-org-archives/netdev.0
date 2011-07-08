@@ -1,36 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/natsemi: Fix module parameter permissions
-Date: Fri, 08 Jul 2011 09:05:56 -0700 (PDT)
-Message-ID: <20110708.090556.1065709849750465470.davem@davemloft.net>
-References: <201107081101.28812.jdelvare@suse.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] hso: fix a use after free condition
+Date: Fri, 08 Jul 2011 09:08:13 -0700 (PDT)
+Message-ID: <20110708.090813.1807341905527902786.davem@davemloft.net>
+References: <20110708134525.GA5069@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thockin@hockin.org,
-	broonie@opensource.wolfsonmicro.com
-To: jdelvare@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33359 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828Ab1GHQGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 12:06:07 -0400
-In-Reply-To: <201107081101.28812.jdelvare@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110708134525.GA5069-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Fri, 8 Jul 2011 11:01:28 +0200
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Date: Fri, 8 Jul 2011 06:45:25 -0700
 
-> The third parameter of module_param is supposed to represent sysfs
-> file permissions. A value of "1" leads to the following:
+> This needs to go to netdev:
 > 
-> $ ls -l /sys/module/natsemi/parameters/
-> total 0
-> ---------x 1 root root 4096 Jul  8 09:46 dspcfg_workaround
+> From: Octavian Purdila <octavian.purdila-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > 
-> I am changing it to "0" to align with the other module parameters in
-> this driver.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> In hso_free_net_device hso_net pointer is freed and then used to
+> cleanup urb pools. Catched with SLAB_DEBUG during S3 resume:
+ ...
+> Signed-off-by: Octavian Purdila <octavian.purdila-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Alan Cox <alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 
 Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
