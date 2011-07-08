@@ -1,46 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-07-08
-Date: Fri, 08 Jul 2011 08:46:42 -0700 (PDT)
-Message-ID: <20110708.084642.1953457077503391470.davem@davemloft.net>
-References: <1310078023-28958-1-git-send-email-lindner_marek@yahoo.de>
-	<201107080039.05143.lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/5] sky2: force receive checksum when using
+ RSS on some hardware (v2)
+Date: Fri, 08 Jul 2011 08:54:25 -0700 (PDT)
+Message-ID: <20110708.085425.2223360541061693097.davem@davemloft.net>
+References: <CAHXqBF+Ha9XaMDB0x1XBD633mj2b6Jxmg9U_JSokrov90gPA-g@mail.gmail.com>
+	<20110707101322.784409eb@nehalam.ftrdhcpuser.net>
+	<20110707164000.6f3f58f4@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: lindner_marek-LWAfsSFWpa4@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <201107080039.05143.lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mirqus@gmail.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56432 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908Ab1GHPy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 11:54:28 -0400
+In-Reply-To: <20110707164000.6f3f58f4@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Date: Fri, 8 Jul 2011 00:39:04 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 7 Jul 2011 16:40:00 -0700
 
-> The following changes since commit 44c4349a2a117b22a5c4087f2ac9faf10c575e17:
+> Found when reviewing the vendor driver. Apparently some chip versions
+> require receive checksumming to be enabled in order for RSS to work.
 > 
->   batman-adv: Replace version info instead of appending them (2011-07-05 14:48:56 +0200)
+> Also, if fix_features has to change some settings; put in message
+> in log in similar manner to netdev_fix_features.
 > 
-> are available in the git repository at:
->   git://git.open-mesh.org/linux-merge.git batman-adv/next
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> Antonio Quartulli (4):
->       batman-adv: initialise last_ttvn and tt_crc for the orig_node structure
->       batman-adv: keep local table consistency for further TT_RESPONSE
->       batman-adv: keep global table consistency in case of roaming
->       batman-adv: request the full table if tt_crc doesn't match
+> ---
+> v2 - enforce the requirement in fix_features rather than set features
 
-Pulled.
-
-You may want to make the tt_response_fill_table() callback return
-'bool' if it's just returning what amounts to true/false values.
+All 5 patches applied, I changed this patch #1 to use netdev_info()
+as per the discussion.
