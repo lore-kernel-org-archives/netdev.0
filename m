@@ -1,31 +1,50 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: orphan sockets
-Date: Fri, 8 Jul 2011 19:33:32 +0300
-Message-ID: <CAEnQRZBA2qYp5AgZa8igSThRxKnNMUqeb4cBH7ka3F7us6eAgQ@mail.gmail.com>
-References: <6fa7e62e85e1e2fd069aa9cbf307737a@visp.net.lb>
-	<CAEnQRZDWZzCCeL3auoLJ=sK5V9yi_Zxs+HgtPoeLFRUV8b0m-Q@mail.gmail.com>
-	<20110708.093155.1103063166626789067.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2011-07-08
+Date: Fri, 08 Jul 2011 09:33:57 -0700 (PDT)
+Message-ID: <20110708.093357.1592862635180925238.davem@davemloft.net>
+References: <20110708162144.GA15143@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:46024 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764Ab1GHQdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2011 12:33:33 -0400
-Received: by qyk29 with SMTP id 29so376248qyk.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2011 09:33:32 -0700 (PDT)
-In-Reply-To: <20110708.093155.1103063166626789067.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110708162144.GA15143-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 8, 2011 at 7:31 PM, David Miller <davem@davemloft.net> wrote:
-> From: Daniel Baluta <daniel.baluta@gmail.com>
-> Date: Fri, 8 Jul 2011 19:28:27 +0300
->
->> I can try to make a patch for this if you want.
+=46rom: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 8 Jul 2011 12:21:44 -0400
 
-thanks David.
+> Here is a final(?) batch of wireless-related fixes intended for 3.0.
+> Included are a fix for a TKIP replay vulnerability from Johannes, a
+> locking fix related to rfkill and a memory corruption fix from Luca,
+> an SSB initialization fix from Rafa=A9=A9, an ath9k performance regre=
+ssion
+> fix from Rajkumar, and some fixes from Pavel for sysfs bad pointer
+> accesses in ath5k.
+>=20
+> Also included are some Bluetooth fixes.  Gustavo described them thusl=
+y:
+>=20
+> 	There are here two regression fixes, a hidp deadlock hang up
+> 	of the system fix from Peter Hurley. As the commit messages
+> 	says it is a partial revert from a commit that adds kthread
+> 	to hidp. And L2CAP incoming connection request fix that
+> 	was breaking one test in the PTS suit, that is, breaking
+> 	interop. Patch is based on code from Ilia Kolomisnky.  Also,
+> 	a buffer overflow fix by Dan Rosenberg and finally Tomas
+> 	Targownik fixed a memory leak on failed connections attempts
+> 	that seems to be around since 2006!!
+>=20
+> I also included a couple of device ID additions -- I hope that's OK.
+>=20
+> Please let me know if there are problems!
 
-Daniel.
+Pulled, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
