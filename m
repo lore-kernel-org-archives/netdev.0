@@ -1,84 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC 02/72] 3c*/acenic/typhoon: Move 3Com Ethernet drivers
-Date: Sat, 09 Jul 2011 08:27:43 -0700
-Message-ID: <1310225264.26989.32.camel@jtkirshe-mobl>
+Subject: Re: [RFC 46/72] ixp2000: Move the Radisys driver
+Date: Sat, 09 Jul 2011 08:58:56 -0700
+Message-ID: <1310227137.26989.43.camel@jtkirshe-mobl>
 References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1309010363-22750-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110628092212.37708ca7@bob.linux.org.uk>
+	 <1309010363-22750-47-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20110626114721.GA19500@wantstofly.org>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-UutNWgiYassj6kNSh6zE"
+	boundary="=-H7ZL6I49djnerNAZzcat"
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Philip Blundell <philb@gnu.org>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	David Dillow <dave@thedillows.org>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Donald Becker <becker@scyld.com>,
-	Craig Southeren <craigs@ineluki.apana.org.au>,
-	David Hinds <dahinds@users.sourceforge.net>
-To: Alan Cox <alan@linux.intel.com>
+	Lennert Buytenhek <kernel@wantstofly.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27142 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:45577 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754002Ab1GIP1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 11:27:45 -0400
-In-Reply-To: <20110628092212.37708ca7@bob.linux.org.uk>
+	id S1751971Ab1GIP7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2011 11:59:02 -0400
+In-Reply-To: <20110626114721.GA19500@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-UutNWgiYassj6kNSh6zE
+--=-H7ZL6I49djnerNAZzcat
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2011-06-28 at 01:22 -0700, Alan Cox wrote:
-> On Sat, 25 Jun 2011 06:58:13 -0700
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+On Sun, 2011-06-26 at 04:47 -0700, Lennert Buytenhek wrote:
+> On Sat, Jun 25, 2011 at 06:58:57AM -0700, Jeff Kirsher wrote:
 >=20
-> > Moves the 3Com drivers into drivers/net/ethernet/3com/ and the
-> > necessary Kconfig and Makefile changes.
+> > Move the Radisys driver into drivers/net/ethernet/radisys/ and
+> > make the necessary Kconfig and Makefile changes
+> >=20
+> > CC: Lennert Buytenhek <kernel@wantstofly.org>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >  MAINTAINERS                                        |    2 +-
+> >  drivers/net/Kconfig                                |    2 --
+> >  drivers/net/Makefile                               |    1 -
+> >  drivers/net/ethernet/Kconfig                       |    1 +
+> >  drivers/net/ethernet/Makefile                      |    1 +
+> >  drivers/net/ethernet/radisys/Kconfig               |   16 ++++++++++++=
+++++
+> >  drivers/net/ethernet/radisys/Makefile              |    5 +++++
+> >  drivers/net/{ =3D> ethernet/radisys}/ixp2000/Kconfig |    2 +-
+> >  .../net/{ =3D> ethernet/radisys}/ixp2000/Makefile    |    0
 >=20
-> This seems a bizarre way to carve stuff up.
->=20
-> To start with several of the things you put in 3com are just branded
-> items, or are boards using non 3com devices which are currently with
-> the other drivers that do so, some even use shared midlayers that you
-> move them away from.
+> The ixp2000 is a series of Intel ARM SoCs, and the ENP2611 is a Radisys
+> PCI board based on the ixp2000 series (ixp2400), so it doesn't make
+> sense to put everything in the radisys/ directory.
 
-When I first started the process of organizing drivers/net/ I thought it
-made sense to group the 3Com drivers together, even though one of the
-drivers (3c503) used the 8390 common code.  Looking back, it does make
-sense to keep the 3c503 driver in drivers/net/ethernet/8390/ along with
-the other 8390 drivers.
+It was suggested earlier that it probably should be in either ixp/ or
+radisys/, and someone suggested that ixp/ might be confusing.  If you
+would like to keep it under drivers/net/ethernet/ixp2000, I am fine with
+that as well.
 
 >=20
-> You also pull stuff out of pcmcia which makes it harder to scan stuff
-> grouped logically.
+> If you insist on moving all drivers into vendor directories (I don't
+> like that idea at all -- are we going to rename directories and shuffle
+> stuff around every time vendor A buys vendor B or takes over one of
+> vendor B's products?), at least the core ixp2000 code should be under
+> intel/.
 
-The logic behind this was to have all the Ethernet drivers in
-drivers/net/ethernet/.  Since the drivers in drivers/net/pcmcia/ are not
-sharing any special network common code or library, it did not seem to
-make sense to me to keep them in drivers/net/pcmcia.  Eventually, there
-would not be a drivers/net/pcmcia directory since all the drivers in
-that directory would be moved into the appropriate
-drivers/net/<technology>/ directory (i.e. ethernet, token-ring,fddi,
-wireless, etc).  If there were a number of PCMCIA Ethernet drivers,
-which all shared a common library or code, then it would make sense to
-place them in drivers/net/ethernet/pcmcia/
+It was not my preference to place drivers into vendor specific
+directories because of that very reason, as I did the work, it just
+tended to work out that way.
 
+The reason (as stated before) that it was not moved into intel/
+directory is because the driver was not written (and supported) by
+Intel.
 
-> So this all seems a bit daft to me.
->=20
-> Surely it would make sense to put all the Intel 825xx stuff together,
-> all the 8390 stuff together and so on.
->=20
-> Alan
-
-
-
---=-UutNWgiYassj6kNSh6zE
+--=-H7ZL6I49djnerNAZzcat
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -86,14 +79,14 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJOGHNvAAoJECTsCADr/EWUxloH/3kSiDnTZD4b5ToKjQjQ/P5D
-uHNAhdp2/52V/rWygruE9AzEwpkabiqOTlBRKI8WSBqmiDol6EdnXZAf9dGLZaGO
-3PfLniaiKHc4OTwbHyQIjIsaFUyz9LOrAUPH7V6qvj8N5OyoYUygMAJJ0qb/3SCL
-hXUiM315fkn+7BCgTlSzMfntHs1wCyKL0JRSmvaNpXf9xhl8/QInvEuv0l44ZnqQ
-dUXOUnpjuP2pB00duKqm5gYFhwcCiXmPzCtbopbGWmg8PAjchyKlK4yIL8v6tn2d
-xYalGM2MuS4k+k5eOF/dTgg20rwidhtJi6J61TQpL6n3ZEVfCIliVohh6w2+Y5w=
-=dFoB
+iQEcBAABAgAGBQJOGHrAAAoJECTsCADr/EWU3pwH/3q/5+hr0VwUrPNtWf8QGqNG
+pIa39zh5lvHsUuHB7OPGnE3bSZDE4LxH4T0A38SkTvczhSvfJQ8Imms8ebe5DOTg
+d9fNbqO9jzFshQG3RNo9Tsh66KrZ6vYAVblD1ybhsMSDBfZxgp637URq04ESBVKV
+K8HRdrp1roxj1sHHKv1V76Fn9UwF9Vc+K5oSUYKEYAWIvX/jxZUeJLIBLJVHnINR
+vsmK3Hz9nwVXO3o1oSu17fZsP2uh4nnvBtqsVpbz3lujwS8dDbqroazbrq9ccDXS
+n3mENj2RY2tLXEmAQ6Cmn/5BJh2NX+v3EWlpHBQL7lfrdfmj6t28XtfEORLnBxU=
+=M7E+
 -----END PGP SIGNATURE-----
 
---=-UutNWgiYassj6kNSh6zE--
+--=-H7ZL6I49djnerNAZzcat--
 
