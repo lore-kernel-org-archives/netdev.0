@@ -1,269 +1,201 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/5] igb: Update copyright on all igb driver files.
-Date: Sat,  9 Jul 2011 04:50:37 -0700
-Message-ID: <1310212240-24623-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Michal Miroslaw <mirq-linux@rere.qmqm.pl>
+Subject: Re: [net-next 5/5] ixgbe: convert to ndo_fix_features
+Date: Sat, 9 Jul 2011 14:11:08 +0200
+Message-ID: <20110709121108.GA7720@rere.qmqm.pl>
 References: <1310212240-24623-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+ <1310212240-24623-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, Don Skidmore <donald.c.skidmore@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:29537 "EHLO mga01.intel.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:33142 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753397Ab1GILuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 07:50:44 -0400
-In-Reply-To: <1310212240-24623-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753348Ab1GIMLK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2011 08:11:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1310212240-24623-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On Sat, Jul 09, 2011 at 04:50:40AM -0700, Jeff Kirsher wrote:
+> From: Don Skidmore <donald.c.skidmore@intel.com>
+>=20
+> Private rx_csum flags are now duplicate of netdev->features &
+> NETIF_F_RXCSUM.  We remove those duplicates and now use the net_devic=
+e_ops
+> ndo_set_features.  This was based on the original patch submitted by
+> Michal Miroslaw <mirq-linux@rere.qmqm.pl>.  I also removed the specia=
+l
+> case not requiring a reset for X540 hardware.  It is needed just as i=
+t is
+> in 82599 hardware.
+[...]
+> --- a/drivers/net/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> @@ -7188,6 +7188,88 @@ int ixgbe_setup_tc(struct net_device *dev, u8 =
+tc)
+[...]
+> +static int ixgbe_set_features(struct net_device *netdev, u32 data)
+> +{
+> +	struct ixgbe_adapter *adapter =3D netdev_priv(netdev);
+> +	bool need_reset =3D false;
+> +
+> +#ifdef CONFIG_DCB
+> +	if ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
+> +	    !(data &  NETIF_F_HW_VLAN_RX))
+> +		return -EINVAL;
+> +#endif
+> +	/* return error if RXHASH is being enabled when RSS is not supporte=
+d */
+> +	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
+> +	     (data &  NETIF_F_RXHASH))
+> +		return -EINVAL;
+> +
+> +	/* If Rx checksum is disabled, then RSC/LRO should also be disabled=
+ */
+> +	if (!(data & NETIF_F_RXCSUM)) {
+> +		data &=3D ~NETIF_F_LRO;
+> +		adapter->flags &=3D ~IXGBE_FLAG_RX_CSUM_ENABLED;
+> +	} else {
+> +		adapter->flags |=3D IXGBE_FLAG_RX_CSUM_ENABLED;
+> +	}
 
-This patch updates the copyright on the igb driver files to 2011.
+The checks above should be done in ndo_fix_features callback. The check=
+ for
+RSS_ENABLED for RXHASH is redundant, as the feature is removed in probe=
+()
+in this case (see [MARK] below).
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown  <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/igb/Makefile        |    2 +-
- drivers/net/igb/e1000_82575.c   |    2 +-
- drivers/net/igb/e1000_82575.h   |    2 +-
- drivers/net/igb/e1000_defines.h |    2 +-
- drivers/net/igb/e1000_hw.h      |    2 +-
- drivers/net/igb/e1000_mac.c     |    2 +-
- drivers/net/igb/e1000_mac.h     |    2 +-
- drivers/net/igb/e1000_mbx.c     |    2 +-
- drivers/net/igb/e1000_mbx.h     |    2 +-
- drivers/net/igb/e1000_nvm.c     |    2 +-
- drivers/net/igb/e1000_nvm.h     |    2 +-
- drivers/net/igb/e1000_phy.c     |    2 +-
- drivers/net/igb/e1000_phy.h     |    2 +-
- drivers/net/igb/e1000_regs.h    |    2 +-
- drivers/net/igb/igb.h           |    2 +-
- drivers/net/igb/igb_ethtool.c   |    2 +-
- drivers/net/igb/igb_main.c      |    2 +-
- 17 files changed, 17 insertions(+), 17 deletions(-)
+> +
+> +	/* if state changes we need to update adapter->flags and reset */
+> +	if ((adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) &&
+> +	    (!!(data & NETIF_F_LRO) !=3D
+> +	     !!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))) {
+> +		if ((data &  NETIF_F_LRO) &&
+> +		    adapter->rx_itr_setting !=3D 1 &&
+> +		    adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE) {
+> +			e_info(probe, "rx-usecs set too low, "
+> +			       "not enabling RSC\n");
+> +		} else {
+> +			adapter->flags2 ^=3D IXGBE_FLAG2_RSC_ENABLED;
+> +			switch (adapter->hw.mac.type) {
+> +			case ixgbe_mac_X540:
+> +			case ixgbe_mac_82599EB:
+> +				need_reset =3D true;
+> +				break;
+> +			default:
+> +				break;
+> +			}
+> +		}
+> +	}
+> +
+> +	/*
+> +	 * Check if Flow Director n-tuple support was enabled or disabled. =
+ If
+> +	 * the state changed, we need to reset.
+> +	 */
+> +	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
+> +		/* turn off ATR, enable perfect filters and reset */
+> +		if (data & NETIF_F_NTUPLE) {
+> +			adapter->flags &=3D ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+> +			adapter->flags |=3D IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+> +			need_reset =3D true;
+> +		}
+> +	} else if (!(data & NETIF_F_NTUPLE)) {
+> +		/* turn off Flow Director, set ATR and reset */
+> +		adapter->flags &=3D ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+> +		if ((adapter->flags &  IXGBE_FLAG_RSS_ENABLED) &&
+> +		    !(adapter->flags &  IXGBE_FLAG_DCB_ENABLED))
+> +			adapter->flags |=3D IXGBE_FLAG_FDIR_HASH_CAPABLE;
+> +		need_reset =3D true;
+> +	}
 
-diff --git a/drivers/net/igb/Makefile b/drivers/net/igb/Makefile
-index 8372cb9..c6e4621 100644
---- a/drivers/net/igb/Makefile
-+++ b/drivers/net/igb/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel 82575 PCI-Express Ethernet Linux driver
--# Copyright(c) 1999 - 2009 Intel Corporation.
-+# Copyright(c) 1999 - 2011 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 493e331..7b7e157 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
-index dd6df34..fd28d62 100644
---- a/drivers/net/igb/e1000_82575.h
-+++ b/drivers/net/igb/e1000_82575.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
-index 6b80d40..446eb5c 100644
---- a/drivers/net/igb/e1000_defines.h
-+++ b/drivers/net/igb/e1000_defines.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/igb/e1000_hw.h
-index 27153e8..4519a13 100644
---- a/drivers/net/igb/e1000_hw.h
-+++ b/drivers/net/igb/e1000_hw.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
-index c822904..2b5ef76 100644
---- a/drivers/net/igb/e1000_mac.c
-+++ b/drivers/net/igb/e1000_mac.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_mac.h b/drivers/net/igb/e1000_mac.h
-index 601be99..4927f61 100644
---- a/drivers/net/igb/e1000_mac.h
-+++ b/drivers/net/igb/e1000_mac.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
-index 78d48c7..74f2f11 100644
---- a/drivers/net/igb/e1000_mbx.c
-+++ b/drivers/net/igb/e1000_mbx.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_mbx.h b/drivers/net/igb/e1000_mbx.h
-index bb112fb..eddb0f8 100644
---- a/drivers/net/igb/e1000_mbx.h
-+++ b/drivers/net/igb/e1000_mbx.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_nvm.c b/drivers/net/igb/e1000_nvm.c
-index 75bf36a..7dcd65c 100644
---- a/drivers/net/igb/e1000_nvm.c
-+++ b/drivers/net/igb/e1000_nvm.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_nvm.h b/drivers/net/igb/e1000_nvm.h
-index 7f43564..a2a7ca9 100644
---- a/drivers/net/igb/e1000_nvm.h
-+++ b/drivers/net/igb/e1000_nvm.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007 Intel Corporation.
-+  Copyright(c) 2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_phy.c b/drivers/net/igb/e1000_phy.c
-index d639706..e662554 100644
---- a/drivers/net/igb/e1000_phy.c
-+++ b/drivers/net/igb/e1000_phy.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_phy.h b/drivers/net/igb/e1000_phy.h
-index 2cc1177..8510797 100644
---- a/drivers/net/igb/e1000_phy.h
-+++ b/drivers/net/igb/e1000_phy.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
-index 958ca3b..0990f6d 100644
---- a/drivers/net/igb/e1000_regs.h
-+++ b/drivers/net/igb/e1000_regs.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
-index f4fa4b1..0389ff6 100644
---- a/drivers/net/igb/igb.h
-+++ b/drivers/net/igb/igb.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/igb/igb_ethtool.c
-index 1862c97..ed63ff4 100644
---- a/drivers/net/igb/igb_ethtool.c
-+++ b/drivers/net/igb/igb_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index d6c4bd8..f4d82b2 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2009 Intel Corporation.
-+  Copyright(c) 2007-2011 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
--- 
-1.7.6
+Part of the checks above should be in ndo_fix_features, too. ndo_set_fe=
+atures
+should just enable what it has been passed. What ndo_fix_features callb=
+ack
+returns is further limited by generic checks, and then (if the resultin=
+g set
+is different than current dev->features) ndo_set_features is called.
 
+> +
+> +	if (need_reset)
+> +		ixgbe_do_reset(netdev);
+> +
+> +	return 0;
+> +
+> +}
+> +
+>  static const struct net_device_ops ixgbe_netdev_ops =3D {
+>  	.ndo_open		=3D ixgbe_open,
+>  	.ndo_stop		=3D ixgbe_close,
+> @@ -7219,6 +7301,7 @@ static const struct net_device_ops ixgbe_netdev=
+_ops =3D {
+>  	.ndo_fcoe_disable =3D ixgbe_fcoe_disable,
+>  	.ndo_fcoe_get_wwn =3D ixgbe_fcoe_get_wwn,
+>  #endif /* IXGBE_FCOE */
+> +	.ndo_set_features =3D ixgbe_set_features,
+>  };
+> =20
+>  static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
+> @@ -7486,20 +7569,24 @@ static int __devinit ixgbe_probe(struct pci_d=
+ev *pdev,
+> =20
+>  	netdev->features =3D NETIF_F_SG |
+>  			   NETIF_F_IP_CSUM |
+> +			   NETIF_F_IPV6_CSUM |
+>  			   NETIF_F_HW_VLAN_TX |
+>  			   NETIF_F_HW_VLAN_RX |
+> -			   NETIF_F_HW_VLAN_FILTER;
+> +			   NETIF_F_HW_VLAN_FILTER |
+> +			   NETIF_F_TSO |
+> +			   NETIF_F_TSO6 |
+> +			   NETIF_F_GRO |
+> +			   NETIF_F_RXHASH |
+> +			   NETIF_F_RXCSUM;
+> =20
+> -	netdev->features |=3D NETIF_F_IPV6_CSUM;
+> -	netdev->features |=3D NETIF_F_TSO;
+> -	netdev->features |=3D NETIF_F_TSO6;
+> -	netdev->features |=3D NETIF_F_GRO;
+> -	netdev->features |=3D NETIF_F_RXHASH;
+> +	netdev->hw_features =3D netdev->features;
+> =20
+>  	switch (adapter->hw.mac.type) {
+>  	case ixgbe_mac_82599EB:
+>  	case ixgbe_mac_X540:
+>  		netdev->features |=3D NETIF_F_SCTP_CSUM;
+> +		netdev->hw_features |=3D NETIF_F_SCTP_CSUM |
+> +				       NETIF_F_NTUPLE;
+>  		break;
+>  	default:
+>  		break;
+> @@ -7538,6 +7625,8 @@ static int __devinit ixgbe_probe(struct pci_dev=
+ *pdev,
+>  		netdev->vlan_features |=3D NETIF_F_HIGHDMA;
+>  	}
+> =20
+> +	if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)
+> +		netdev->hw_features |=3D NETIF_F_LRO;
+>  	if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
+>  		netdev->features |=3D NETIF_F_LRO;
+> =20
+> @@ -7574,8 +7663,10 @@ static int __devinit ixgbe_probe(struct pci_de=
+v *pdev,
+>  	if (err)
+>  		goto err_sw_init;
+> =20
+> -	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
+> +	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED)) {
+> +		netdev->hw_features &=3D ~NETIF_F_RXHASH;
+>  		netdev->features &=3D ~NETIF_F_RXHASH;
+> +	}
+> =20
+
+[MARK here]
+
+Best Regards,
+Micha=B3 Miros=B3aw
