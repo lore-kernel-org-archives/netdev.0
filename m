@@ -1,168 +1,138 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 16/21] net: tulip/interrupt.c: use common rx_copybreak handling
+Subject: [PATCH 20/21] net: via-velocity: use common rx_copybreak handling
 Date: Sat,  9 Jul 2011 19:17:53 +0200 (CEST)
-Message-ID: <14a1560aa41b0a21d9c20fdcdde79fff93114f30.1310229312.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <fde4e58b4575124aaa9878ea2329dcb3445c50f0.1310229312.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Grant Grundler <grundler@parisc-linux.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51946 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:51962 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754262Ab1GIRR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754273Ab1GIRR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 9 Jul 2011 13:17:56 -0400
 In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note:
-The driver has NAPI and non-NAPI versions that look the same.
+This also fixes a bug, where FCS was not stripped from copied packets.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/tulip/interrupt.c |   77 ++++++++-------------------------=
+ drivers/net/via-velocity.c |   59 +++++++-----------------------------=
 -------
- 1 files changed, 16 insertions(+), 61 deletions(-)
+ 1 files changed, 10 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/tulip/interrupt.c b/drivers/net/tulip/interrup=
-t.c
-index 5350d75..990f2a7 100644
---- a/drivers/net/tulip/interrupt.c
-+++ b/drivers/net/tulip/interrupt.c
-@@ -200,32 +200,14 @@ int tulip_poll(struct napi_struct *napi, int budg=
-et)
- 						dev->stats.rx_fifo_errors++;
-                                }
-                        } else {
--                               struct sk_buff *skb;
--
--                               /* Check if the packet is long enough t=
-o accept without copying
--                                  to a minimally-sized skbuff. */
--                               if (pkt_len < tulip_rx_copybreak &&
--                                   (skb =3D dev_alloc_skb(pkt_len + 2)=
-) !=3D NULL) {
--                                       skb_reserve(skb, 2);    /* 16 b=
-yte align the IP header */
--                                       pci_dma_sync_single_for_cpu(tp-=
->pdev,
--								   tp->rx_buffers[entry].mapping,
--								   pkt_len, PCI_DMA_FROMDEVICE);
--#if ! defined(__alpha__)
--                                       skb_copy_to_linear_data(skb, tp=
-->rx_buffers[entry].skb->data,
--                                                        pkt_len);
--                                       skb_put(skb, pkt_len);
--#else
--                                       memcpy(skb_put(skb, pkt_len),
--                                              tp->rx_buffers[entry].sk=
-b->data,
--                                              pkt_len);
--#endif
--                                       pci_dma_sync_single_for_device(=
-tp->pdev,
--								      tp->rx_buffers[entry].mapping,
--								      pkt_len, PCI_DMA_FROMDEVICE);
--                               } else {        /* Pass up the skb alre=
-ady on the Rx ring. */
--                                       char *temp =3D skb_put(skb =3D =
-tp->rx_buffers[entry].skb,
--                                                            pkt_len);
-+				struct sk_buff *skb =3D dev_skb_finish_rx_dma(
-+					&tp->rx_buffers[entry].skb,
-+					pkt_len, tulip_rx_copybreak,
-+					&tp->pdev->dev,
-+					tp->rx_buffers[entry].mapping,
-+					PKT_BUF_SZ);
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index f929242..cdc51de 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1987,37 +1987,6 @@ static inline void velocity_rx_csum(struct rx_de=
+sc *rd, struct sk_buff *skb)
+ }
 =20
-+				if (!tp->rx_buffers[entry].skb) {
- #ifndef final_version
-                                        if (tp->rx_buffers[entry].mappi=
-ng !=3D
-                                            le32_to_cpu(tp->rx_ring[ent=
-ry].buffer1)) {
-@@ -233,14 +215,9 @@ int tulip_poll(struct napi_struct *napi, int budge=
-t)
- 						       "Internal fault: The skbuff addresses do not match in tul=
-ip_rx: %08x vs. %08llx %p / %p\n",
- 						       le32_to_cpu(tp->rx_ring[entry].buffer1),
- 						       (unsigned long long)tp->rx_buffers[entry].mapping,
--						       skb->head, temp);
-+						       skb->head, skb->data);
-                                        }
- #endif
+ /**
+- *	velocity_rx_copy	-	in place Rx copy for small packets
+- *	@rx_skb: network layer packet buffer candidate
+- *	@pkt_size: received data size
+- *	@rd: receive packet descriptor
+- *	@dev: network device
+- *
+- *	Replace the current skb that is scheduled for Rx processing by a
+- *	shorter, immediately allocated skb, if the received packet is small
+- *	enough. This function returns a negative value if the received
+- *	packet is too big or if memory is exhausted.
+- */
+-static int velocity_rx_copy(struct sk_buff **rx_skb, int pkt_size,
+-			    struct velocity_info *vptr)
+-{
+-	int ret =3D -1;
+-	if (pkt_size < rx_copybreak) {
+-		struct sk_buff *new_skb;
 -
--                                       pci_unmap_single(tp->pdev, tp->=
-rx_buffers[entry].mapping,
--                                                        PKT_BUF_SZ, PC=
-I_DMA_FROMDEVICE);
+-		new_skb =3D netdev_alloc_skb_ip_align(vptr->dev, pkt_size);
+-		if (new_skb) {
+-			new_skb->ip_summed =3D rx_skb[0]->ip_summed;
+-			skb_copy_from_linear_data(*rx_skb, new_skb->data, pkt_size);
+-			*rx_skb =3D new_skb;
+-			ret =3D 0;
+-		}
 -
--                                       tp->rx_buffers[entry].skb =3D N=
-ULL;
-                                        tp->rx_buffers[entry].mapping =3D=
- 0;
-                                }
-                                skb->protocol =3D eth_type_trans(skb, d=
-ev);
-@@ -426,32 +403,14 @@ static int tulip_rx(struct net_device *dev)
- 					dev->stats.rx_fifo_errors++;
- 			}
- 		} else {
--			struct sk_buff *skb;
+-	}
+-	return ret;
+-}
 -
--			/* Check if the packet is long enough to accept without copying
--			   to a minimally-sized skbuff. */
--			if (pkt_len < tulip_rx_copybreak &&
--			    (skb =3D dev_alloc_skb(pkt_len + 2)) !=3D NULL) {
--				skb_reserve(skb, 2);	/* 16 byte align the IP header */
--				pci_dma_sync_single_for_cpu(tp->pdev,
--							    tp->rx_buffers[entry].mapping,
--							    pkt_len, PCI_DMA_FROMDEVICE);
--#if ! defined(__alpha__)
--				skb_copy_to_linear_data(skb, tp->rx_buffers[entry].skb->data,
--						 pkt_len);
--				skb_put(skb, pkt_len);
--#else
--				memcpy(skb_put(skb, pkt_len),
--				       tp->rx_buffers[entry].skb->data,
--				       pkt_len);
--#endif
--				pci_dma_sync_single_for_device(tp->pdev,
--							       tp->rx_buffers[entry].mapping,
--							       pkt_len, PCI_DMA_FROMDEVICE);
--			} else { 	/* Pass up the skb already on the Rx ring. */
--				char *temp =3D skb_put(skb =3D tp->rx_buffers[entry].skb,
--						     pkt_len);
-+			struct sk_buff *skb =3D dev_skb_finish_rx_dma(
-+				&tp->rx_buffers[entry].skb,
-+				pkt_len, tulip_rx_copybreak,
-+				&tp->pdev->dev,
-+				tp->rx_buffers[entry].mapping,
-+				PKT_BUF_SZ);
+-/**
+  *	velocity_iph_realign	-	IP header alignment
+  *	@vptr: velocity we are handling
+  *	@skb: network layer packet buffer
+@@ -2027,10 +1996,10 @@ static int velocity_rx_copy(struct sk_buff **rx=
+_skb, int pkt_size,
+  *	configured by the user.
+  */
+ static inline void velocity_iph_realign(struct velocity_info *vptr,
+-					struct sk_buff *skb, int pkt_size)
++					struct sk_buff *skb)
+ {
+ 	if (vptr->flags & VELOCITY_FLAGS_IP_ALIGN) {
+-		memmove(skb->data + 2, skb->data, pkt_size);
++		memmove(skb->data + 2, skb->data, skb->len);
+ 		skb_reserve(skb, 2);
+ 	}
+ }
+@@ -2064,9 +2033,6 @@ static int velocity_receive_frame(struct velocity=
+_info *vptr, int idx)
 =20
-+			if (!tp->rx_buffers[entry].skb) {
- #ifndef final_version
- 				if (tp->rx_buffers[entry].mapping !=3D
- 				    le32_to_cpu(tp->rx_ring[entry].buffer1)) {
-@@ -459,14 +418,10 @@ static int tulip_rx(struct net_device *dev)
- 						"Internal fault: The skbuff addresses do not match in tulip_rx: =
-%08x vs. %Lx %p / %p\n",
- 						le32_to_cpu(tp->rx_ring[entry].buffer1),
- 						(long long)tp->rx_buffers[entry].mapping,
--						skb->head, temp);
-+						skb->head, skb->data);
- 				}
- #endif
+ 	skb =3D rd_info->skb;
 =20
--				pci_unmap_single(tp->pdev, tp->rx_buffers[entry].mapping,
--						 PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
+-	pci_dma_sync_single_for_cpu(vptr->pdev, rd_info->skb_dma,
+-				    vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
 -
--				tp->rx_buffers[entry].skb =3D NULL;
- 				tp->rx_buffers[entry].mapping =3D 0;
- 			}
- 			skb->protocol =3D eth_type_trans(skb, dev);
+ 	/*
+ 	 *	Drop frame not meeting IEEE 802.3
+ 	 */
+@@ -2078,30 +2044,25 @@ static int velocity_receive_frame(struct veloci=
+ty_info *vptr, int idx)
+ 		}
+ 	}
+=20
+-	pci_action =3D pci_dma_sync_single_for_device;
++	skb =3D dev_skb_finish_rx_dma(&rd_info->skb,
++		pkt_len - ETH_FCS_LEN, rx_copybreak,
++		&vptr->pdev->dev, rd_info->skb_dma, vptr->rx.buf_sz);
++	if (!skb)
++		/* not copied */
++		velocity_iph_realign(vptr, skb);
+=20
+ 	velocity_rx_csum(rd, skb);
+=20
+-	if (velocity_rx_copy(&skb, pkt_len, vptr) < 0) {
+-		velocity_iph_realign(vptr, skb, pkt_len);
+-		pci_action =3D pci_unmap_single;
+-		rd_info->skb =3D NULL;
+-	}
+-
+-	pci_action(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
+-		   PCI_DMA_FROMDEVICE);
+-
+-	skb_put(skb, pkt_len - 4);
+ 	skb->protocol =3D eth_type_trans(skb, vptr->dev);
+=20
++	stats->rx_bytes +=3D skb->len;
++
+ 	if (vptr->vlgrp && (rd->rdesc0.RSR & RSR_DETAG)) {
+ 		vlan_hwaccel_rx(skb, vptr->vlgrp,
+ 				swab16(le16_to_cpu(rd->rdesc1.PQTAG)));
+ 	} else
+ 		netif_rx(skb);
+=20
+-	stats->rx_bytes +=3D pkt_len;
+-
+ 	return 0;
+ }
+=20
 --=20
 1.7.5.4
 
