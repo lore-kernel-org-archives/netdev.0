@@ -1,92 +1,90 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 00/21] clean up rx_copybreak handling [split version]
+Subject: [PATCH 05/21] net: hamachi: use common rx_copybreak handling
 Date: Sat,  9 Jul 2011 19:17:51 +0200 (CEST)
-Message-ID: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <a05b6f349fd9a71ec475ccf7cec8bc1425ebd758.1310229312.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	Tim Hockin <thockin@hockin.org>,
-	Don Fry <pcnet32@frontier.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Ion Badulescu <ionut@badula.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	David Dillow <dave@thedillows.org>,
-	Roger Luethi <rl@hellgate.ch>,
-	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:37398 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:51946 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754060Ab1GIRRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 13:17:53 -0400
+	id S1754131Ab1GIRRy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2011 13:17:54 -0400
+In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Split version of rx_copybreak cleanup patch.
-
-Drivers marked with "[strict refill!]" are dropping packets from
-rx queue's head when under memory pressure.
-
-[Patch 1 is the same as the one I sent yesterday]
-[Driver patches Cc limited to relevant maintainers, as found in MAINTAI=
-NERS]
-
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
+ drivers/net/hamachi.c |   43 ++++++++---------------------------------=
+--
+ 1 files changed, 8 insertions(+), 35 deletions(-)
 
-Micha=C5=82 Miros=C5=82aw (21):
-  net: wrap common patterns of rx handler code
-  net: 3c59x: use common rx_copybreak handling
-  net: epic100: use common rx_copybreak handling
-  net: fealnx: use common rx_copybreak handling
-  net: hamachi: use common rx_copybreak handling
-  net: ibmveth: make rx_copybreak threshold consistent with other
-    drivers
-  net: lib82596: use common rx_copybreak handling [strict refill!]
-  net: natsemi: use common rx_copybreak handling
-  net: pcnet32: use common rx_copybreak handling [strict refill!]
-  net: sgiseeq: use common rx_copybreak handling [strict refill!]
-  net: sis190: use common rx_copybreak handling
-  net: starfire: use common rx_copybreak handling
-  net: sundance: use common rx_copybreak handling
-  net: tg3: mark bad rx handler behaviour [strict refill!]
-  net: tulip/de2104x: use common rx_copybreak handling [strict refill!]
-  net: tulip/interrupt: use common rx_copybreak handling
-  net: tulip/winbond-840: use common rx_copybreak handling
-  net: typhoon: use common rx_copybreak handling
-  net: via-rhine: use common rx_copybreak handling
-  net: via-velocity: use common rx_copybreak handling
-  net: yellowfin: use common rx_copybreak handling
-
- drivers/net/3c59x.c             |   23 ++-----
- drivers/net/epic100.c           |   32 +++-------
- drivers/net/fealnx.c            |   39 ++----------
- drivers/net/hamachi.c           |   43 +++-----------
- drivers/net/ibmveth.c           |    2 +-
- drivers/net/lib82596.c          |   66 ++++----------------
- drivers/net/natsemi.c           |   30 ++--------
- drivers/net/pcnet32.c           |   52 +++-------------
- drivers/net/sgiseeq.c           |   66 ++++++++------------
- drivers/net/sis190.c            |   38 ++----------
- drivers/net/starfire.c          |   27 +++------
- drivers/net/sundance.c          |   26 ++------
- drivers/net/tg3.c               |    2 +
- drivers/net/tulip/de2104x.c     |   38 +++---------
- drivers/net/tulip/interrupt.c   |   77 +++++------------------
- drivers/net/tulip/winbond-840.c |   25 ++------
- drivers/net/typhoon.c           |   26 ++------
- drivers/net/via-rhine.c         |   37 ++----------
- drivers/net/via-velocity.c      |   59 +++---------------
- drivers/net/yellowfin.c         |   27 ++------
- include/linux/skbuff.h          |  129 +++++++++++++++++++++++++++++++=
-++++++++
- 21 files changed, 291 insertions(+), 573 deletions(-)
-
+diff --git a/drivers/net/hamachi.c b/drivers/net/hamachi.c
+index c274b3d..68ee914 100644
+--- a/drivers/net/hamachi.c
++++ b/drivers/net/hamachi.c
+@@ -1465,7 +1465,7 @@ static int hamachi_rx(struct net_device *dev)
+ 		} else {
+ 			struct sk_buff *skb;
+ 			/* Omit CRC */
+-			u16 pkt_len =3D (frame_status & 0x07ff) - 4;
++			u16 pkt_len =3D (frame_status & 0x07ff) - ETH_FCS_LEN;
+ #ifdef RX_CHECKSUM
+ 			u32 pfck =3D *(u32 *) &buf_addr[data_size - 8];
+ #endif
+@@ -1485,42 +1485,15 @@ static int hamachi_rx(struct net_device *dev)
+ 					   *(s32*)&(buf_addr[data_size - 8]),
+ 					   *(s32*)&(buf_addr[data_size - 4]));
+ #endif
+-			/* Check if the packet is long enough to accept without copying
+-			   to a minimally-sized skbuff. */
+-			if (pkt_len < rx_copybreak &&
+-			    (skb =3D dev_alloc_skb(pkt_len + 2)) !=3D NULL) {
+-#ifdef RX_CHECKSUM
+-				printk(KERN_ERR "%s: rx_copybreak non-zero "
+-				  "not good with RX_CHECKSUM\n", dev->name);
+-#endif
+-				skb_reserve(skb, 2);	/* 16 byte align the IP header */
+-				pci_dma_sync_single_for_cpu(hmp->pci_dev,
+-							    leXX_to_cpu(hmp->rx_ring[entry].addr),
+-							    hmp->rx_buf_sz,
+-							    PCI_DMA_FROMDEVICE);
+-				/* Call copy + cksum if available. */
+-#if 1 || USE_IP_COPYSUM
+-				skb_copy_to_linear_data(skb,
+-					hmp->rx_skbuff[entry]->data, pkt_len);
+-				skb_put(skb, pkt_len);
+-#else
+-				memcpy(skb_put(skb, pkt_len), hmp->rx_ring_dma
+-					+ entry*sizeof(*desc), pkt_len);
+-#endif
+-				pci_dma_sync_single_for_device(hmp->pci_dev,
+-							       leXX_to_cpu(hmp->rx_ring[entry].addr),
+-							       hmp->rx_buf_sz,
+-							       PCI_DMA_FROMDEVICE);
+-			} else {
+-				pci_unmap_single(hmp->pci_dev,
+-						 leXX_to_cpu(hmp->rx_ring[entry].addr),
+-						 hmp->rx_buf_sz, PCI_DMA_FROMDEVICE);
+-				skb_put(skb =3D hmp->rx_skbuff[entry], pkt_len);
+-				hmp->rx_skbuff[entry] =3D NULL;
+-			}
++
++			skb =3D dev_skb_finish_rx_dma(&hmp->rx_skbuff[entry],
++				pkt_len, rx_copybreak,
++				&hmp->pci_dev->dev,
++				leXX_to_cpu(hmp->rx_ring[entry].addr),
++				hmp->rx_buf_sz);
++
+ 			skb->protocol =3D eth_type_trans(skb, dev);
+=20
+-
+ #ifdef RX_CHECKSUM
+ 			/* TCP or UDP on ipv4, DIX encoding */
+ 			if (pfck>>24 =3D=3D 0x91 || pfck>>24 =3D=3D 0x51) {
 --=20
 1.7.5.4
 
