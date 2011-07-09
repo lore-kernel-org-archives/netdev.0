@@ -1,63 +1,46 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 13/21] net: sundance: use common rx_copybreak handling
+Subject: [PATCH 14/21] net: tg3: mark bad rx handler behaviour [strict
+ refill!]
 Date: Sat,  9 Jul 2011 19:17:52 +0200 (CEST)
-Message-ID: <bd07a0287d0bff554c4eaf3f3d306471facac515.1310229312.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <9325e72a4729d61dbd1368fec1d1be92c20f1236.1310229312.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51955 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:51956 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754221Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754222Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 9 Jul 2011 13:17:55 -0400
 In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This could use common rx handler code, but the code is too complex for
+a simple conversion. Just warn about its behaviour.
+
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/sundance.c |   26 ++++++--------------------
- 1 files changed, 6 insertions(+), 20 deletions(-)
+ drivers/net/tg3.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 4793df8..0a16798 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -1355,26 +1355,12 @@ static void rx_poll(unsigned long data)
- 					   ", bogus_cnt %d.\n",
- 					   pkt_len, boguscnt);
- #endif
--			/* Check if the packet is long enough to accept without copying
--			   to a minimally-sized skbuff. */
--			if (pkt_len < rx_copybreak &&
--			    (skb =3D dev_alloc_skb(pkt_len + 2)) !=3D NULL) {
--				skb_reserve(skb, 2);	/* 16 byte align the IP header */
--				dma_sync_single_for_cpu(&np->pci_dev->dev,
--						le32_to_cpu(desc->frag[0].addr),
--						np->rx_buf_sz, DMA_FROM_DEVICE);
--				skb_copy_to_linear_data(skb, np->rx_skbuff[entry]->data, pkt_len);
--				dma_sync_single_for_device(&np->pci_dev->dev,
--						le32_to_cpu(desc->frag[0].addr),
--						np->rx_buf_sz, DMA_FROM_DEVICE);
--				skb_put(skb, pkt_len);
--			} else {
--				dma_unmap_single(&np->pci_dev->dev,
--					le32_to_cpu(desc->frag[0].addr),
--					np->rx_buf_sz, DMA_FROM_DEVICE);
--				skb_put(skb =3D np->rx_skbuff[entry], pkt_len);
--				np->rx_skbuff[entry] =3D NULL;
--			}
-+			skb =3D dev_skb_finish_rx_dma(&np->rx_skbuff[entry],
-+				pkt_len, rx_copybreak,
-+				&np->pci_dev->dev,
-+				le32_to_cpu(desc->frag[0].addr),
-+				np->rx_buf_sz);
-+
- 			skb->protocol =3D eth_type_trans(skb, dev);
- 			/* Note: checksum -> skb->ip_summed =3D CHECKSUM_UNNECESSARY; */
- 			netif_rx(skb);
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 8211b9a..c64b403 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -4973,6 +4973,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int bud=
+get)
+=20
+ 			skb_size =3D tg3_alloc_rx_skb(tp, tpr, opaque_key,
+ 						    *post_ptr);
++#warning drops packets from rx queue head on memory pressure
++#warning (like dev_skb_finish_rx_dma_refill() users)
+ 			if (skb_size < 0)
+ 				goto drop_it;
+=20
 --=20
 1.7.5.4
 
