@@ -1,130 +1,134 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 10/21] net: sgiseeq: use common rx_copybreak handling [strict
+Subject: [PATCH 09/21] net: pcnet32: use common rx_copybreak handling [strict
  refill!]
 Date: Sat,  9 Jul 2011 19:17:52 +0200 (CEST)
-Message-ID: <8a0643e9affb5355fff01f3c45d44e6da8d34e76.1310229312.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <0f270b4469acf1db6e18025c7097f6e4e338ad5d.1310229312.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Don Fry <pcnet32@frontier.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51951 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:51952 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754211Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754194Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 9 Jul 2011 13:17:55 -0400
 In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Does this card really loop back transmitted packets? The code can be
-cleaned up further if it isn't.
-
-Because buffer status is written in it, there is additional pair of
-DMA sync to cpu/device before the common path. If it turns out to be
-big performance hit this patch should be reverted.
+Also use netdev_alloc_skb_ip_align() to make code correct (skb->dev
+is needed in new common path) and easier to follow.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/sgiseeq.c |   66 ++++++++++++++++++-----------------------=
+ drivers/net/pcnet32.c |   52 ++++++++---------------------------------=
 -------
- 1 files changed, 25 insertions(+), 41 deletions(-)
+ 1 files changed, 9 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
-index 52fb7ed..a4c6d93 100644
---- a/drivers/net/sgiseeq.c
-+++ b/drivers/net/sgiseeq.c
-@@ -340,9 +340,8 @@ static inline void sgiseeq_rx(struct net_device *de=
-v, struct sgiseeq_private *sp
- {
- 	struct sgiseeq_rx_desc *rd;
- 	struct sk_buff *skb =3D NULL;
--	struct sk_buff *newskb;
- 	unsigned char pkt_status;
--	int len =3D 0;
-+	int packet_ok, len =3D 0;
- 	unsigned int orig_end =3D PREV_RX(sp->rx_new);
-=20
- 	/* Service every received packet. */
-@@ -350,53 +349,38 @@ static inline void sgiseeq_rx(struct net_device *=
-dev, struct sgiseeq_private *sp
- 	dma_sync_desc_cpu(dev, rd);
- 	while (!(rd->rdma.cntinfo & HPCDMA_OWN)) {
- 		len =3D PKT_BUF_SZ - (rd->rdma.cntinfo & HPCDMA_BCNT) - 3;
--		dma_unmap_single(dev->dev.parent, rd->rdma.pbuf,
-+		dma_sync_single_for_cpu(dev->dev.parent, rd->rdma.pbuf,
- 				 PKT_BUF_SZ, DMA_FROM_DEVICE);
- 		pkt_status =3D rd->skb->data[len];
- 		if (pkt_status & SEEQ_RSTAT_FIG) {
- 			/* Packet is OK. */
- 			/* We don't want to receive our own packets */
--			if (memcmp(rd->skb->data + 6, dev->dev_addr, ETH_ALEN)) {
--				if (len > rx_copybreak) {
--					skb =3D rd->skb;
--					newskb =3D netdev_alloc_skb(dev, PKT_BUF_SZ);
--					if (!newskb) {
--						newskb =3D skb;
--						skb =3D NULL;
--						goto memory_squeeze;
--					}
--					skb_reserve(newskb, 2);
--				} else {
--					skb =3D netdev_alloc_skb_ip_align(dev, len);
--					if (skb)
--						skb_copy_to_linear_data(skb, rd->skb->data, len);
--
--					newskb =3D rd->skb;
--				}
--memory_squeeze:
--				if (skb) {
--					skb_put(skb, len);
--					skb->protocol =3D eth_type_trans(skb, dev);
--					netif_rx(skb);
--					dev->stats.rx_packets++;
--					dev->stats.rx_bytes +=3D len;
--				} else {
--					printk(KERN_NOTICE "%s: Memory squeeze, deferring packet.\n",
--						dev->name);
--					dev->stats.rx_dropped++;
--				}
--			} else {
--				/* Silently drop my own packets */
--				newskb =3D rd->skb;
--			}
-+			packet_ok =3D memcmp(rd->skb->data + 6, dev->dev_addr, ETH_ALEN);
- 		} else {
- 			record_rx_errors(dev, pkt_status);
--			newskb =3D rd->skb;
-+			packet_ok =3D 0;
-+		}
-+		dma_sync_single_for_device(dev->dev.parent, rd->rdma.pbuf,
-+			PKT_BUF_SZ, DMA_FROM_DEVICE);
-+
-+		if (packet_ok) {
-+			dma_addr_t dma =3D rd->rdma.pbuf;
-+			skb =3D dev_skb_finish_rx_dma_refill(&rd->skb,
-+				len, rx_copybreak, 0, 2,
-+				dev->dev.parent, &dma, PKT_BUF_SZ);
-+			rd->rdma.pbuf =3D dma;
-+
-+			if (likely(skb)) {
-+				skb->protocol =3D eth_type_trans(skb, dev);
-+				netif_rx(skb);
-+				dev->stats.rx_packets++;
-+				dev->stats.rx_bytes +=3D len;
-+			} else {
-+				printk(KERN_NOTICE "%s: Memory squeeze, dropping packet.\n",
-+					dev->name);
-+				dev->stats.rx_dropped++;
-+			}
+diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
+index 8b3090d..baae404 100644
+--- a/drivers/net/pcnet32.c
++++ b/drivers/net/pcnet32.c
+@@ -588,7 +588,7 @@ static void pcnet32_realloc_rx_ring(struct net_devi=
+ce *dev,
+ 	/* now allocate any new buffers needed */
+ 	for (; new < size; new++) {
+ 		struct sk_buff *rx_skbuff;
+-		new_skb_list[new] =3D dev_alloc_skb(PKT_BUF_SKB);
++		new_skb_list[new] =3D netdev_alloc_skb_ip_align(dev, PKT_BUF_SKB);
+ 		rx_skbuff =3D new_skb_list[new];
+ 		if (!rx_skbuff) {
+ 			/* keep the original lists and buffers */
+@@ -596,7 +596,6 @@ static void pcnet32_realloc_rx_ring(struct net_devi=
+ce *dev,
+ 				  __func__);
+ 			goto free_all_new;
  		}
--		rd->skb =3D newskb;
--		rd->rdma.pbuf =3D dma_map_single(dev->dev.parent,
--					       newskb->data - 2,
--					       PKT_BUF_SZ, DMA_FROM_DEVICE);
+-		skb_reserve(rx_skbuff, NET_IP_ALIGN);
 =20
- 		/* Return the entry to the ring pool. */
- 		rd->rdma.cntinfo =3D RCNTINFO_INIT;
+ 		new_dma_addr_list[new] =3D
+ 			    pci_map_single(lp->pci_dev, rx_skbuff->data,
+@@ -1147,51 +1146,18 @@ static void pcnet32_rx_entry(struct net_device =
+*dev,
+ 		return;
+ 	}
+=20
+-	if (pkt_len > rx_copybreak) {
+-		struct sk_buff *newskb;
+-
+-		newskb =3D dev_alloc_skb(PKT_BUF_SKB);
+-		if (newskb) {
+-			skb_reserve(newskb, NET_IP_ALIGN);
+-			skb =3D lp->rx_skbuff[entry];
+-			pci_unmap_single(lp->pci_dev,
+-					 lp->rx_dma_addr[entry],
+-					 PKT_BUF_SIZE,
+-					 PCI_DMA_FROMDEVICE);
+-			skb_put(skb, pkt_len);
+-			lp->rx_skbuff[entry] =3D newskb;
+-			lp->rx_dma_addr[entry] =3D
+-					    pci_map_single(lp->pci_dev,
+-							   newskb->data,
+-							   PKT_BUF_SIZE,
+-							   PCI_DMA_FROMDEVICE);
+-			rxp->base =3D cpu_to_le32(lp->rx_dma_addr[entry]);
+-			rx_in_place =3D 1;
+-		} else
+-			skb =3D NULL;
+-	} else
+-		skb =3D dev_alloc_skb(pkt_len + NET_IP_ALIGN);
++	skb =3D dev_skb_finish_rx_dma_refill(&lp->rx_skbuff[entry],
++		pkt_len, rx_copybreak, NET_IP_ALIGN, 0,
++		&lp->pci_dev->dev, &lp->rx_dma_addr[entry],
++		PKT_BUF_SIZE);
++	rxp->base =3D cpu_to_le32(lp->rx_dma_addr[entry]);
+=20
+ 	if (skb =3D=3D NULL) {
+ 		netif_err(lp, drv, dev, "Memory squeeze, dropping packet\n");
+ 		dev->stats.rx_dropped++;
+ 		return;
+ 	}
+-	if (!rx_in_place) {
+-		skb_reserve(skb, NET_IP_ALIGN);
+-		skb_put(skb, pkt_len);	/* Make room */
+-		pci_dma_sync_single_for_cpu(lp->pci_dev,
+-					    lp->rx_dma_addr[entry],
+-					    pkt_len,
+-					    PCI_DMA_FROMDEVICE);
+-		skb_copy_to_linear_data(skb,
+-				 (unsigned char *)(lp->rx_skbuff[entry]->data),
+-				 pkt_len);
+-		pci_dma_sync_single_for_device(lp->pci_dev,
+-					       lp->rx_dma_addr[entry],
+-					       pkt_len,
+-					       PCI_DMA_FROMDEVICE);
+-	}
++
+ 	dev->stats.rx_bytes +=3D skb->len;
+ 	skb->protocol =3D eth_type_trans(skb, dev);
+ 	netif_receive_skb(skb);
+@@ -2271,7 +2237,8 @@ static int pcnet32_init_ring(struct net_device *d=
+ev)
+ 	for (i =3D 0; i < lp->rx_ring_size; i++) {
+ 		struct sk_buff *rx_skbuff =3D lp->rx_skbuff[i];
+ 		if (rx_skbuff =3D=3D NULL) {
+-			lp->rx_skbuff[i] =3D dev_alloc_skb(PKT_BUF_SKB);
++			lp->rx_skbuff[i] =3D
++				netdev_alloc_skb_ip_align(dev, PKT_BUF_SKB);
+ 			rx_skbuff =3D lp->rx_skbuff[i];
+ 			if (!rx_skbuff) {
+ 				/* there is not much we can do at this point */
+@@ -2279,7 +2246,6 @@ static int pcnet32_init_ring(struct net_device *d=
+ev)
+ 					  __func__);
+ 				return -1;
+ 			}
+-			skb_reserve(rx_skbuff, NET_IP_ALIGN);
+ 		}
+=20
+ 		rmb();
 --=20
 1.7.5.4
 
