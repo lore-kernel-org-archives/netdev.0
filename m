@@ -1,138 +1,63 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 20/21] net: via-velocity: use common rx_copybreak handling
-Date: Sat,  9 Jul 2011 19:17:53 +0200 (CEST)
-Message-ID: <fde4e58b4575124aaa9878ea2329dcb3445c50f0.1310229312.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH 13/21] net: sundance: use common rx_copybreak handling
+Date: Sat,  9 Jul 2011 19:17:52 +0200 (CEST)
+Message-ID: <bd07a0287d0bff554c4eaf3f3d306471facac515.1310229312.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51962 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:51955 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754273Ab1GIRR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 13:17:56 -0400
+	id S1754221Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2011 13:17:55 -0400
 In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This also fixes a bug, where FCS was not stripped from copied packets.
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/via-velocity.c |   59 +++++++-----------------------------=
--------
- 1 files changed, 10 insertions(+), 49 deletions(-)
+ drivers/net/sundance.c |   26 ++++++--------------------
+ 1 files changed, 6 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index f929242..cdc51de 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1987,37 +1987,6 @@ static inline void velocity_rx_csum(struct rx_de=
-sc *rd, struct sk_buff *skb)
- }
-=20
- /**
-- *	velocity_rx_copy	-	in place Rx copy for small packets
-- *	@rx_skb: network layer packet buffer candidate
-- *	@pkt_size: received data size
-- *	@rd: receive packet descriptor
-- *	@dev: network device
-- *
-- *	Replace the current skb that is scheduled for Rx processing by a
-- *	shorter, immediately allocated skb, if the received packet is small
-- *	enough. This function returns a negative value if the received
-- *	packet is too big or if memory is exhausted.
-- */
--static int velocity_rx_copy(struct sk_buff **rx_skb, int pkt_size,
--			    struct velocity_info *vptr)
--{
--	int ret =3D -1;
--	if (pkt_size < rx_copybreak) {
--		struct sk_buff *new_skb;
--
--		new_skb =3D netdev_alloc_skb_ip_align(vptr->dev, pkt_size);
--		if (new_skb) {
--			new_skb->ip_summed =3D rx_skb[0]->ip_summed;
--			skb_copy_from_linear_data(*rx_skb, new_skb->data, pkt_size);
--			*rx_skb =3D new_skb;
--			ret =3D 0;
--		}
--
--	}
--	return ret;
--}
--
--/**
-  *	velocity_iph_realign	-	IP header alignment
-  *	@vptr: velocity we are handling
-  *	@skb: network layer packet buffer
-@@ -2027,10 +1996,10 @@ static int velocity_rx_copy(struct sk_buff **rx=
-_skb, int pkt_size,
-  *	configured by the user.
-  */
- static inline void velocity_iph_realign(struct velocity_info *vptr,
--					struct sk_buff *skb, int pkt_size)
-+					struct sk_buff *skb)
- {
- 	if (vptr->flags & VELOCITY_FLAGS_IP_ALIGN) {
--		memmove(skb->data + 2, skb->data, pkt_size);
-+		memmove(skb->data + 2, skb->data, skb->len);
- 		skb_reserve(skb, 2);
- 	}
- }
-@@ -2064,9 +2033,6 @@ static int velocity_receive_frame(struct velocity=
-_info *vptr, int idx)
-=20
- 	skb =3D rd_info->skb;
-=20
--	pci_dma_sync_single_for_cpu(vptr->pdev, rd_info->skb_dma,
--				    vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
--
- 	/*
- 	 *	Drop frame not meeting IEEE 802.3
- 	 */
-@@ -2078,30 +2044,25 @@ static int velocity_receive_frame(struct veloci=
-ty_info *vptr, int idx)
- 		}
- 	}
-=20
--	pci_action =3D pci_dma_sync_single_for_device;
-+	skb =3D dev_skb_finish_rx_dma(&rd_info->skb,
-+		pkt_len - ETH_FCS_LEN, rx_copybreak,
-+		&vptr->pdev->dev, rd_info->skb_dma, vptr->rx.buf_sz);
-+	if (!skb)
-+		/* not copied */
-+		velocity_iph_realign(vptr, skb);
-=20
- 	velocity_rx_csum(rd, skb);
-=20
--	if (velocity_rx_copy(&skb, pkt_len, vptr) < 0) {
--		velocity_iph_realign(vptr, skb, pkt_len);
--		pci_action =3D pci_unmap_single;
--		rd_info->skb =3D NULL;
--	}
--
--	pci_action(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
--		   PCI_DMA_FROMDEVICE);
--
--	skb_put(skb, pkt_len - 4);
- 	skb->protocol =3D eth_type_trans(skb, vptr->dev);
-=20
-+	stats->rx_bytes +=3D skb->len;
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+index 4793df8..0a16798 100644
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -1355,26 +1355,12 @@ static void rx_poll(unsigned long data)
+ 					   ", bogus_cnt %d.\n",
+ 					   pkt_len, boguscnt);
+ #endif
+-			/* Check if the packet is long enough to accept without copying
+-			   to a minimally-sized skbuff. */
+-			if (pkt_len < rx_copybreak &&
+-			    (skb =3D dev_alloc_skb(pkt_len + 2)) !=3D NULL) {
+-				skb_reserve(skb, 2);	/* 16 byte align the IP header */
+-				dma_sync_single_for_cpu(&np->pci_dev->dev,
+-						le32_to_cpu(desc->frag[0].addr),
+-						np->rx_buf_sz, DMA_FROM_DEVICE);
+-				skb_copy_to_linear_data(skb, np->rx_skbuff[entry]->data, pkt_len);
+-				dma_sync_single_for_device(&np->pci_dev->dev,
+-						le32_to_cpu(desc->frag[0].addr),
+-						np->rx_buf_sz, DMA_FROM_DEVICE);
+-				skb_put(skb, pkt_len);
+-			} else {
+-				dma_unmap_single(&np->pci_dev->dev,
+-					le32_to_cpu(desc->frag[0].addr),
+-					np->rx_buf_sz, DMA_FROM_DEVICE);
+-				skb_put(skb =3D np->rx_skbuff[entry], pkt_len);
+-				np->rx_skbuff[entry] =3D NULL;
+-			}
++			skb =3D dev_skb_finish_rx_dma(&np->rx_skbuff[entry],
++				pkt_len, rx_copybreak,
++				&np->pci_dev->dev,
++				le32_to_cpu(desc->frag[0].addr),
++				np->rx_buf_sz);
 +
- 	if (vptr->vlgrp && (rd->rdesc0.RSR & RSR_DETAG)) {
- 		vlan_hwaccel_rx(skb, vptr->vlgrp,
- 				swab16(le16_to_cpu(rd->rdesc1.PQTAG)));
- 	} else
- 		netif_rx(skb);
-=20
--	stats->rx_bytes +=3D pkt_len;
--
- 	return 0;
- }
-=20
+ 			skb->protocol =3D eth_type_trans(skb, dev);
+ 			/* Note: checksum -> skb->ip_summed =3D CHECKSUM_UNNECESSARY; */
+ 			netif_rx(skb);
 --=20
 1.7.5.4
 
