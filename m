@@ -1,90 +1,67 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 11/21] net: sis190: use common rx_copybreak handling
-Date: Sat,  9 Jul 2011 19:17:52 +0200 (CEST)
-Message-ID: <70c7510f0dc4c0bb8ccedea45efed70260f0b7f4.1310229312.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH 02/21] net: 3c59x: use common rx_copybreak handling
+Date: Sat,  9 Jul 2011 19:17:51 +0200 (CEST)
+Message-ID: <5a242c5dbd6222d87b77a22b9c6fe6cdfa0351f3.1310229312.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51953 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:37397 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754218Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 13:17:55 -0400
+	id S1753779Ab1GIRRx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2011 13:17:53 -0400
 In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/sis190.c |   38 +++++---------------------------------
- 1 files changed, 5 insertions(+), 33 deletions(-)
+ drivers/net/3c59x.c |   23 ++++++-----------------
+ 1 files changed, 6 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
-index 8ad7bfb..6836e0d 100644
---- a/drivers/net/sis190.c
-+++ b/drivers/net/sis190.c
-@@ -530,29 +530,6 @@ static u32 sis190_rx_fill(struct sis190_private *t=
-p, struct net_device *dev,
- 	return cur - start;
- }
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 8cc2256..456726c 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -2576,25 +2576,14 @@ boomerang_rx(struct net_device *dev)
+ 				pr_debug("Receiving packet size %d status %4.4x.\n",
+ 					   pkt_len, rx_status);
 =20
--static bool sis190_try_rx_copy(struct sis190_private *tp,
--			       struct sk_buff **sk_buff, int pkt_size,
--			       dma_addr_t addr)
--{
--	struct sk_buff *skb;
--	bool done =3D false;
--
--	if (pkt_size >=3D rx_copybreak)
--		goto out;
--
--	skb =3D netdev_alloc_skb_ip_align(tp->dev, pkt_size);
--	if (!skb)
--		goto out;
--
--	pci_dma_sync_single_for_cpu(tp->pci_dev, addr, tp->rx_buf_sz,
--				PCI_DMA_FROMDEVICE);
--	skb_copy_to_linear_data(skb, sk_buff[0]->data, pkt_size);
--	*sk_buff =3D skb;
--	done =3D true;
--out:
--	return done;
--}
--
- static inline int sis190_rx_pkt_err(u32 status, struct net_device_stat=
-s *stats)
- {
- #define ErrMask	(OVRUN | SHORT | LIMIT | MIIER | NIBON | COLON | ABORT=
-)
-@@ -612,19 +589,14 @@ static int sis190_rx_interrupt(struct net_device =
-*dev,
- 				continue;
- 			}
-=20
--
--			if (sis190_try_rx_copy(tp, &skb, pkt_size, addr)) {
--				pci_dma_sync_single_for_device(pdev, addr,
--					tp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-+			skb =3D dev_skb_finish_rx_dma(&tp->Rx_skbuff[entry],
-+				pkt_size, rx_copybreak,
-+				&pdev->dev, addr, tp->rx_buf_sz);
-+			if (tp->Rx_skbuff[entry])	/* copied */
- 				sis190_give_to_asic(desc, tp->rx_buf_sz);
+-			/* Check if the packet is long enough to just accept without
+-			   copying to a properly sized skbuff. */
+-			if (pkt_len < rx_copybreak && (skb =3D dev_alloc_skb(pkt_len + 2)) =
+!=3D NULL) {
+-				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+-				pci_dma_sync_single_for_cpu(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PCI_D=
+MA_FROMDEVICE);
+-				/* 'skb_put()' points to the start of sk_buff data area. */
+-				memcpy(skb_put(skb, pkt_len),
+-					   vp->rx_skbuff[entry]->data,
+-					   pkt_len);
+-				pci_dma_sync_single_for_device(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PC=
+I_DMA_FROMDEVICE);
++			skb =3D dev_skb_finish_rx_dma(&vp->rx_skbuff[entry],
++				pkt_len, rx_copybreak,
++				&VORTEX_PCI(vp)->dev, dma, PKT_BUF_SZ);
++			if (skb)
+ 				vp->rx_copy++;
 -			} else {
--				pci_unmap_single(pdev, addr, tp->rx_buf_sz,
--						 PCI_DMA_FROMDEVICE);
--				tp->Rx_skbuff[entry] =3D NULL;
+-				/* Pass up the skbuff already on the Rx ring. */
+-				skb =3D vp->rx_skbuff[entry];
+-				vp->rx_skbuff[entry] =3D NULL;
+-				skb_put(skb, pkt_len);
+-				pci_unmap_single(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PCI_DMA_FROMDEVI=
+CE);
 +			else
- 				sis190_make_unusable_by_asic(desc);
+ 				vp->rx_nocopy++;
 -			}
-=20
--			skb_put(skb, pkt_size);
++
  			skb->protocol =3D eth_type_trans(skb, dev);
-=20
- 			sis190_rx_skb(skb);
+ 			{					/* Use hardware checksum info. */
+ 				int csum_bits =3D rx_status & 0xee000000;
 --=20
 1.7.5.4
 
