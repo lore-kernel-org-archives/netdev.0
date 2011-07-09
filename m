@@ -1,58 +1,109 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 00/21] clean up rx_copybreak handling [split version]
-Date: Sat, 09 Jul 2011 11:20:32 -0700
-Message-ID: <1310235632.3848.13.camel@Joe-Laptop>
-References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
+From: Jim Cromie <jim.cromie@gmail.com>
+Subject: Re: [PATCH] natsemi: silence dma-debug warnings
+Date: Sat, 9 Jul 2011 14:11:25 -0600
+Message-ID: <CAJfuBxxKYNvaw5t4jWMP4+hYcw42SkwLiiahVdeezpfh6AsLBA@mail.gmail.com>
+References: <20110704142153O.fujita.tomonori@lab.ntt.co.jp> <20110703.223448.458910310802724750.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	Tim Hockin <thockin@hockin.org>,
-	Don Fry <pcnet32@frontier.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Ion Badulescu <ionut@badula.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	David Dillow <dave@thedillows.org>,
-	Roger Luethi <rl@hellgate.ch>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: multipart/mixed; boundary=000e0cd1736cc30c5e04a7a88f6f
+Cc: fujita.tomonori@lab.ntt.co.jp, thockin@hockin.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3704 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753925Ab1GISUe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 14:20:34 -0400
-In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:40681 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754384Ab1GIULz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 16:11:55 -0400
+Received: by pzk9 with SMTP id 9so2100723pzk.19
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2011 13:11:55 -0700 (PDT)
+In-Reply-To: <20110703.223448.458910310802724750.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-07-09 at 19:17 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> Split version of rx_copybreak cleanup patch.
+--000e0cd1736cc30c5e04a7a88f6f
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Hello Micha=C5=82.
+On Sun, Jul 3, 2011 at 11:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Date: Mon, 4 Jul 2011 14:30:19 +0900
+>
+>> This silences dma-debug warnings:
+>>
+>> https://lkml.org/lkml/2011/6/30/341
+> =A0...
+>> Reported-by: Jim Cromie <jim.cromie@gmail.com>
+>> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+>> Tested-by: Jim Cromie <jim.cromie@gmail.com>
+>
+> Applied, thanks!
+>
 
-Looks good, thanks for doing this work.
+I have since seen a similar warning on shutdown,
+heres a patch for it.
 
-One style quibble.
+theres one other callsite, but I havent seen the warning from it,
+will try to tickle it at some point.
 
-You use this style:
+--000e0cd1736cc30c5e04a7a88f6f
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0001-natsemi-fix-another-dma-debug-report.patch"
+Content-Disposition: attachment;
+	filename="0001-natsemi-fix-another-dma-debug-report.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gpx0d0zh0
 
-+			skb =3D dev_skb_finish_rx_dma(&np->rx_skbuff[entry],
-+				pkt_len, rx_copybreak,
-+				&np->pci_dev->dev,
-+				le32_to_cpu(desc->frag[0].addr),
-+				np->rx_buf_sz);
-
-where almost all other uses throughout drivers/net
-align arguments to open parenthesis instead.
-
-+			skb =3D dev_skb_finish_rx_dma(&np->rx_skbuff[entry],
-+						    pkt_len, rx_copybreak,
-+						    &np->pci_dev->dev,
-+						    le32_to_cpu(desc->frag[0].addr),
-+						    np->rx_buf_sz);
-
-
+RnJvbSAyZDgxYjI4NjQ1YjIyMTAwMjcxYmRiZTJkNjg1OWNiNDlhNDkxNjZkIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBKaW0gQ3JvbWllIDxqaW0uY3JvbWllQGdtYWlsLmNvbT4KRGF0
+ZTogU2F0LCA5IEp1bCAyMDExIDExOjQ0OjM4IC0wNjAwClN1YmplY3Q6IFtQQVRDSCAxLzNdIG5h
+dHNlbWk6IGZpeCBhbm90aGVyIGRtYS1kZWJ1ZyByZXBvcnQKCmNvbW1pdCAyZmI4M2NkNjE4YmUz
+NDU0NmZiNTI2YTkwNTFlY2VhYTk1NTE3MDI2CkF1dGhvcjogRlVKSVRBIFRvbW9ub3JpIDxmdWpp
+dGEudG9tb25vcmlAbGFiLm50dC5jby5qcD4KRGF0ZTogICBTdW4gSnVsIDMgMjI6MzQ6MjkgMjAx
+MSAtMDcwMAoKQWJvdmUgY29tbWl0IGZpeGVkIHByZXZpb3VzbHkgcmVwb3J0ZWQgd2FybmluZywg
+YnV0IEkgbGF0ZXIKbm90aWNlZCBhbm90aGVyIG9uZSBhdCBzaHV0ZG93bi4gIFRoaXMgY29tbWl0
+IGZpeGVzIGl0LgoKVGhlcmVzIG9uZSBvdGhlciBjYWxsc2l0ZSB0byBwY2lfdW5tYXBfc2luZ2xl
+LCBidXQgSSBoYXZlbnQgc2VlbgppdCByZXBvcnQgYSBwcm9ibGVtLCBzbyBoYXZlbnQgaW5jbHVk
+ZWQgaXQgaGVyZS4KCi0tLS0tLS0tLS0tLVsgY3V0IGhlcmUgXS0tLS0tLS0tLS0tLQpXQVJOSU5H
+OiBhdCAvaG9tZS9qaW1jL3Byb2plY3RzL2x4L2xpbnV4LTIuNi9saWIvZG1hLWRlYnVnLmM6ODIw
+IGNoZWNrX3VubWFwKzB4MWZlLzB4NTZjKCkKbmF0c2VtaSAwMDAwOjAwOjA2LjA6IERNQS1BUEk6
+IGRldmljZSBkcml2ZXIgZnJlZXMgRE1BIG1lbW9yeSB3aXRoIGRpZmZlcmVudCBzaXplIFtkZXZp
+Y2UgYWRkcmVzcz0weDAwMDAwMDAwMDczNTY4NDBdIFttYXAgc2l6ZT0xNTM4IGJ5dGVzXSBbdW5t
+YXAgc2l6ZT0xNTIyIGJ5dGVzXQpNb2R1bGVzIGxpbmtlZCBpbjogYnJpZGdlIHN0cCBsbGMgeF90
+YWJsZXMgaXB2NiBwYzg3MzYwIGh3bW9uX3ZpZCBzY3gyMDBfaHJ0IHBjODczNnhfZ3BpbyBzY3gy
+MDBfZ3BpbyBuc2NfZ3BpbyBzY3gyMDBfYWNiIGkyY19jb3JlIGFyYzQgcnRsODE4MCBtYWM4MDIx
+MSBlZXByb21fOTNjeDYgY2ZnODAyMTEgcGNzcGtyIHNjeDIwMCByZmtpbGwgaWRlX2dkX21vZCBp
+ZGVfcGNpX2dlbmVyaWMgb2hjaV9oY2QgdXNiY29yZSBzYzEyMDAgaWRlX2NvcmUgW2xhc3QgdW5s
+b2FkZWQ6IGVidGFibGVzXQpQaWQ6IDM5OTYsIGNvbW06IGlmY29uZmlnIE5vdCB0YWludGVkIDMu
+MC4wLXJjNi1za2MtZHluZGJnKyAjMTA0CkNhbGwgVHJhY2U6CiBbPGMwMTFjYTk3Pl0gd2Fybl9z
+bG93cGF0aF9jb21tb24rMHg0YS8weDVmCiBbPGMwMjYxY2E1Pl0gPyBjaGVja191bm1hcCsweDFm
+ZS8weDU2YwogWzxjMDExY2IxMD5dIHdhcm5fc2xvd3BhdGhfZm10KzB4MjYvMHgyYQogWzxjMDI2
+MWNhNT5dIGNoZWNrX3VubWFwKzB4MWZlLzB4NTZjCiBbPGMwMTE2NTA1Pl0gPyBjaGVja19wcmVl
+bXB0X2N1cnIrMHg1YS8weDZhCiBbPGMwMjYyMTg2Pl0gZGVidWdfZG1hX3VubWFwX3BhZ2UrMHg1
+My8weDViCiBbPGMwMmFhYWY5Pl0gcGNpX3VubWFwX3NpbmdsZSsweDRkLzB4NTcKIFs8YzAyYWFi
+NTE+XSBkcmFpbl9yeCsweDRlLzB4NzQKIFs8YzAyYWNjNmU+XSBuZXRkZXZfY2xvc2UrMHgxMDMv
+MHgxYjgKIFs8YzAyZjA5N2U+XSA/IHNwaW5fdW5sb2NrX2JoLmNsb25lLjMwKzB4MTIvMHgxNAog
+WzxjMDJmMTBhYT5dID8gZGV2X2RlYWN0aXZhdGVfbWFueSsweGMxLzB4ZWYKIFs8YzAyZTA1ZTk+
+XSBfX2Rldl9jbG9zZV9tYW55KzB4NjkvMHg4NgogWzxjMDJlMDYyNT5dIF9fZGV2X2Nsb3NlKzB4
+MWYvMHgyYwogWzxjMDJlMzIwMD5dIF9fZGV2X2NoYW5nZV9mbGFncysweDkyLzB4MTA3CiBbPGMw
+MmUzMmRiPl0gZGV2X2NoYW5nZV9mbGFncysweDEzLzB4M2YKIFs8YzAzMWU3ZWE+XSBkZXZpbmV0
+X2lvY3RsKzB4MjQ4LzB4NGIzCiBbPGMwMmUzYTllPl0gPyBkZXZfaW9jdGwrMHg1MGEvMHg1NGMK
+IFs8YzAzMWY1MDk+XSBpbmV0X2lvY3RsKzB4OGUvMHhhNwogWzxjMDJkNTA2Zj5dIHNvY2tfaW9j
+dGwrMHgxYjYvMHgxZGEKIFs8YzAyZDRlYjk+XSA/IHNvY2tfZmFzeW5jKzB4NjEvMHg2MQogWzxj
+MDE4M2RiND5dIGRvX3Zmc19pb2N0bCsweDQ0ZC8weDQ3ZgogWzxjMDExM2NkYj5dID8gZG9fcGFn
+ZV9mYXVsdCsweDI2OC8weDI5OQogWzxjMDEzMzlkMD5dID8gX19wdXRfY3JlZCsweDM0LzB4MzYK
+IFs8YzAxNzdkODM+XSA/IHN5c19mYWNjZXNzYXQrMHgxM2UvMHgxNGIKIFs8YzAxODNlMTQ+XSBz
+eXNfaW9jdGwrMHgyZS8weDRhCiBbPGMwMzViYzk1Pl0gc3lzY2FsbF9jYWxsKzB4Ny8weGIKLS0t
+WyBlbmQgdHJhY2UgNzAxM2ExYmRhYzQwM2U1NiBdLS0tCgpTaWduZWQtb2ZmLWJ5OiBKaW0gQ3Jv
+bWllIDxqaW0uY3JvbWllQGdtYWlsLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9uYXRzZW1pLmMgfCAg
+ICA0ICsrLS0KIDEgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygt
+KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L25hdHNlbWkuYyBiL2RyaXZlcnMvbmV0L25hdHNl
+bWkuYwppbmRleCA4ZjhiNjVhLi5lNGJkMjAyIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9uYXRz
+ZW1pLmMKKysrIGIvZHJpdmVycy9uZXQvbmF0c2VtaS5jCkBAIC0yMDI4LDggKzIwMjgsOCBAQCBz
+dGF0aWMgdm9pZCBkcmFpbl9yeChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQlucC0+cnhfcmlu
+Z1tpXS5jbWRfc3RhdHVzID0gMDsKIAkJbnAtPnJ4X3JpbmdbaV0uYWRkciA9IGNwdV90b19sZTMy
+KDB4QkFERjAwRDApOyAvKiBBbiBpbnZhbGlkIGFkZHJlc3MuICovCiAJCWlmIChucC0+cnhfc2ti
+dWZmW2ldKSB7Ci0JCQlwY2lfdW5tYXBfc2luZ2xlKG5wLT5wY2lfZGV2LAotCQkJCW5wLT5yeF9k
+bWFbaV0sIGJ1ZmxlbiwKKwkJCXBjaV91bm1hcF9zaW5nbGUobnAtPnBjaV9kZXYsIG5wLT5yeF9k
+bWFbaV0sCisJCQkJYnVmbGVuICsgTkFUU0VNSV9QQURESU5HLAogCQkJCVBDSV9ETUFfRlJPTURF
+VklDRSk7CiAJCQlkZXZfa2ZyZWVfc2tiKG5wLT5yeF9za2J1ZmZbaV0pOwogCQl9Ci0tIAoxLjcu
+NC4xCgo=
+--000e0cd1736cc30c5e04a7a88f6f--
