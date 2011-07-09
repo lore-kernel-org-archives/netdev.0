@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] benet: Add missing comma between constant string
- array
-Date: Sat, 09 Jul 2011 02:57:05 -0700 (PDT)
-Message-ID: <20110709.025705.727560311771106736.davem@davemloft.net>
-References: <cover.1310187270.git.joe@perches.com>
-	<8c2d9b2ff796489a39408fade30fc93ed6040b3c.1310187270.git.joe@perches.com>
+Subject: Re: [RFC PATCH] net: clean up rx_copybreak handling
+Date: Sat, 09 Jul 2011 02:57:29 -0700 (PDT)
+Message-ID: <20110709.025729.1469467150725305489.davem@davemloft.net>
+References: <f73b8ed0717151cd2c72e5c23d275cc0de28d277.1310167326.git.mirq-linux@rere.qmqm.pl>
+	<1310175469.26320.9.camel@obelisk.thedillows.org>
+	<20110709085444.GA5522@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8c2d9b2ff796489a39408fade30fc93ed6040b3c.1310187270.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dave@thedillows.org, netdev@vger.kernel.org
+To: mirq-linux@rere.qmqm.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43027 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752653Ab1GIJ7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 05:59:36 -0400
+In-Reply-To: <20110709085444.GA5522@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri,  8 Jul 2011 23:20:23 -0700
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Sat, 9 Jul 2011 10:54:44 +0200
 
-> Multiple quoted strings are concatenated without comma separators.
-> 
-> Make the arrays const while there.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> What about the patch's general idea?
 
-Applied, thanks Joe.
+I fully support the idea behind your changes.
