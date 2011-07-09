@@ -1,109 +1,88 @@
-From: Jim Cromie <jim.cromie@gmail.com>
-Subject: Re: [PATCH] natsemi: silence dma-debug warnings
-Date: Sat, 9 Jul 2011 14:11:25 -0600
-Message-ID: <CAJfuBxxKYNvaw5t4jWMP4+hYcw42SkwLiiahVdeezpfh6AsLBA@mail.gmail.com>
-References: <20110704142153O.fujita.tomonori@lab.ntt.co.jp> <20110703.223448.458910310802724750.davem@davemloft.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH 7/7] drivers/net: static should be at beginning of
+ declaration
+Date: Sat, 9 Jul 2011 23:24:43 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1107092322320.25516@swampdragon.chaosbits.net>
+References: <alpine.LNX.2.00.1107092304160.25516@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=000e0cd1736cc30c5e04a7a88f6f
-Cc: fujita.tomonori@lab.ntt.co.jp, thockin@hockin.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-693533701-1310246683=:25516"
+Cc: trivial@kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Marius Bjoernstad Kotsbak <marius@kotsbak.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:40681 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754384Ab1GIULz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 16:11:55 -0400
-Received: by pzk9 with SMTP id 9so2100723pzk.19
-        for <netdev@vger.kernel.org>; Sat, 09 Jul 2011 13:11:55 -0700 (PDT)
-In-Reply-To: <20110703.223448.458910310802724750.davem@davemloft.net>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:13457 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754991Ab1GIVeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 17:34:19 -0400
+In-Reply-To: <alpine.LNX.2.00.1107092304160.25516@swampdragon.chaosbits.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---000e0cd1736cc30c5e04a7a88f6f
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Sun, Jul 3, 2011 at 11:34 PM, David Miller <davem@davemloft.net> wrote:
-> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Date: Mon, 4 Jul 2011 14:30:19 +0900
->
->> This silences dma-debug warnings:
->>
->> https://lkml.org/lkml/2011/6/30/341
-> =A0...
->> Reported-by: Jim Cromie <jim.cromie@gmail.com>
->> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
->> Tested-by: Jim Cromie <jim.cromie@gmail.com>
->
-> Applied, thanks!
->
+--8323328-693533701-1310246683=:25516
+Content-Type: TEXT/PLAIN; charset=ISO-8859-7
+Content-Transfer-Encoding: 8BIT
 
-I have since seen a similar warning on shutdown,
-heres a patch for it.
+Make sure that the 'static' keywork is at the beginning of declaration
+for drivers/net/usb/kalmia.c
 
-theres one other callsite, but I havent seen the warning from it,
-will try to tickle it at some point.
+This gets rid of warnings like
+  warning: ¡static¢ is not at beginning of declaration
+when building with -Wold-style-declaration (and/or -Wextra which also
+enables it).
 
---000e0cd1736cc30c5e04a7a88f6f
-Content-Type: text/x-patch; charset=US-ASCII;
-	name="0001-natsemi-fix-another-dma-debug-report.patch"
-Content-Disposition: attachment;
-	filename="0001-natsemi-fix-another-dma-debug-report.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gpx0d0zh0
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/usb/kalmia.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-RnJvbSAyZDgxYjI4NjQ1YjIyMTAwMjcxYmRiZTJkNjg1OWNiNDlhNDkxNjZkIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBKaW0gQ3JvbWllIDxqaW0uY3JvbWllQGdtYWlsLmNvbT4KRGF0
-ZTogU2F0LCA5IEp1bCAyMDExIDExOjQ0OjM4IC0wNjAwClN1YmplY3Q6IFtQQVRDSCAxLzNdIG5h
-dHNlbWk6IGZpeCBhbm90aGVyIGRtYS1kZWJ1ZyByZXBvcnQKCmNvbW1pdCAyZmI4M2NkNjE4YmUz
-NDU0NmZiNTI2YTkwNTFlY2VhYTk1NTE3MDI2CkF1dGhvcjogRlVKSVRBIFRvbW9ub3JpIDxmdWpp
-dGEudG9tb25vcmlAbGFiLm50dC5jby5qcD4KRGF0ZTogICBTdW4gSnVsIDMgMjI6MzQ6MjkgMjAx
-MSAtMDcwMAoKQWJvdmUgY29tbWl0IGZpeGVkIHByZXZpb3VzbHkgcmVwb3J0ZWQgd2FybmluZywg
-YnV0IEkgbGF0ZXIKbm90aWNlZCBhbm90aGVyIG9uZSBhdCBzaHV0ZG93bi4gIFRoaXMgY29tbWl0
-IGZpeGVzIGl0LgoKVGhlcmVzIG9uZSBvdGhlciBjYWxsc2l0ZSB0byBwY2lfdW5tYXBfc2luZ2xl
-LCBidXQgSSBoYXZlbnQgc2VlbgppdCByZXBvcnQgYSBwcm9ibGVtLCBzbyBoYXZlbnQgaW5jbHVk
-ZWQgaXQgaGVyZS4KCi0tLS0tLS0tLS0tLVsgY3V0IGhlcmUgXS0tLS0tLS0tLS0tLQpXQVJOSU5H
-OiBhdCAvaG9tZS9qaW1jL3Byb2plY3RzL2x4L2xpbnV4LTIuNi9saWIvZG1hLWRlYnVnLmM6ODIw
-IGNoZWNrX3VubWFwKzB4MWZlLzB4NTZjKCkKbmF0c2VtaSAwMDAwOjAwOjA2LjA6IERNQS1BUEk6
-IGRldmljZSBkcml2ZXIgZnJlZXMgRE1BIG1lbW9yeSB3aXRoIGRpZmZlcmVudCBzaXplIFtkZXZp
-Y2UgYWRkcmVzcz0weDAwMDAwMDAwMDczNTY4NDBdIFttYXAgc2l6ZT0xNTM4IGJ5dGVzXSBbdW5t
-YXAgc2l6ZT0xNTIyIGJ5dGVzXQpNb2R1bGVzIGxpbmtlZCBpbjogYnJpZGdlIHN0cCBsbGMgeF90
-YWJsZXMgaXB2NiBwYzg3MzYwIGh3bW9uX3ZpZCBzY3gyMDBfaHJ0IHBjODczNnhfZ3BpbyBzY3gy
-MDBfZ3BpbyBuc2NfZ3BpbyBzY3gyMDBfYWNiIGkyY19jb3JlIGFyYzQgcnRsODE4MCBtYWM4MDIx
-MSBlZXByb21fOTNjeDYgY2ZnODAyMTEgcGNzcGtyIHNjeDIwMCByZmtpbGwgaWRlX2dkX21vZCBp
-ZGVfcGNpX2dlbmVyaWMgb2hjaV9oY2QgdXNiY29yZSBzYzEyMDAgaWRlX2NvcmUgW2xhc3QgdW5s
-b2FkZWQ6IGVidGFibGVzXQpQaWQ6IDM5OTYsIGNvbW06IGlmY29uZmlnIE5vdCB0YWludGVkIDMu
-MC4wLXJjNi1za2MtZHluZGJnKyAjMTA0CkNhbGwgVHJhY2U6CiBbPGMwMTFjYTk3Pl0gd2Fybl9z
-bG93cGF0aF9jb21tb24rMHg0YS8weDVmCiBbPGMwMjYxY2E1Pl0gPyBjaGVja191bm1hcCsweDFm
-ZS8weDU2YwogWzxjMDExY2IxMD5dIHdhcm5fc2xvd3BhdGhfZm10KzB4MjYvMHgyYQogWzxjMDI2
-MWNhNT5dIGNoZWNrX3VubWFwKzB4MWZlLzB4NTZjCiBbPGMwMTE2NTA1Pl0gPyBjaGVja19wcmVl
-bXB0X2N1cnIrMHg1YS8weDZhCiBbPGMwMjYyMTg2Pl0gZGVidWdfZG1hX3VubWFwX3BhZ2UrMHg1
-My8weDViCiBbPGMwMmFhYWY5Pl0gcGNpX3VubWFwX3NpbmdsZSsweDRkLzB4NTcKIFs8YzAyYWFi
-NTE+XSBkcmFpbl9yeCsweDRlLzB4NzQKIFs8YzAyYWNjNmU+XSBuZXRkZXZfY2xvc2UrMHgxMDMv
-MHgxYjgKIFs8YzAyZjA5N2U+XSA/IHNwaW5fdW5sb2NrX2JoLmNsb25lLjMwKzB4MTIvMHgxNAog
-WzxjMDJmMTBhYT5dID8gZGV2X2RlYWN0aXZhdGVfbWFueSsweGMxLzB4ZWYKIFs8YzAyZTA1ZTk+
-XSBfX2Rldl9jbG9zZV9tYW55KzB4NjkvMHg4NgogWzxjMDJlMDYyNT5dIF9fZGV2X2Nsb3NlKzB4
-MWYvMHgyYwogWzxjMDJlMzIwMD5dIF9fZGV2X2NoYW5nZV9mbGFncysweDkyLzB4MTA3CiBbPGMw
-MmUzMmRiPl0gZGV2X2NoYW5nZV9mbGFncysweDEzLzB4M2YKIFs8YzAzMWU3ZWE+XSBkZXZpbmV0
-X2lvY3RsKzB4MjQ4LzB4NGIzCiBbPGMwMmUzYTllPl0gPyBkZXZfaW9jdGwrMHg1MGEvMHg1NGMK
-IFs8YzAzMWY1MDk+XSBpbmV0X2lvY3RsKzB4OGUvMHhhNwogWzxjMDJkNTA2Zj5dIHNvY2tfaW9j
-dGwrMHgxYjYvMHgxZGEKIFs8YzAyZDRlYjk+XSA/IHNvY2tfZmFzeW5jKzB4NjEvMHg2MQogWzxj
-MDE4M2RiND5dIGRvX3Zmc19pb2N0bCsweDQ0ZC8weDQ3ZgogWzxjMDExM2NkYj5dID8gZG9fcGFn
-ZV9mYXVsdCsweDI2OC8weDI5OQogWzxjMDEzMzlkMD5dID8gX19wdXRfY3JlZCsweDM0LzB4MzYK
-IFs8YzAxNzdkODM+XSA/IHN5c19mYWNjZXNzYXQrMHgxM2UvMHgxNGIKIFs8YzAxODNlMTQ+XSBz
-eXNfaW9jdGwrMHgyZS8weDRhCiBbPGMwMzViYzk1Pl0gc3lzY2FsbF9jYWxsKzB4Ny8weGIKLS0t
-WyBlbmQgdHJhY2UgNzAxM2ExYmRhYzQwM2U1NiBdLS0tCgpTaWduZWQtb2ZmLWJ5OiBKaW0gQ3Jv
-bWllIDxqaW0uY3JvbWllQGdtYWlsLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9uYXRzZW1pLmMgfCAg
-ICA0ICsrLS0KIDEgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygt
-KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L25hdHNlbWkuYyBiL2RyaXZlcnMvbmV0L25hdHNl
-bWkuYwppbmRleCA4ZjhiNjVhLi5lNGJkMjAyIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9uYXRz
-ZW1pLmMKKysrIGIvZHJpdmVycy9uZXQvbmF0c2VtaS5jCkBAIC0yMDI4LDggKzIwMjgsOCBAQCBz
-dGF0aWMgdm9pZCBkcmFpbl9yeChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQlucC0+cnhfcmlu
-Z1tpXS5jbWRfc3RhdHVzID0gMDsKIAkJbnAtPnJ4X3JpbmdbaV0uYWRkciA9IGNwdV90b19sZTMy
-KDB4QkFERjAwRDApOyAvKiBBbiBpbnZhbGlkIGFkZHJlc3MuICovCiAJCWlmIChucC0+cnhfc2ti
-dWZmW2ldKSB7Ci0JCQlwY2lfdW5tYXBfc2luZ2xlKG5wLT5wY2lfZGV2LAotCQkJCW5wLT5yeF9k
-bWFbaV0sIGJ1ZmxlbiwKKwkJCXBjaV91bm1hcF9zaW5nbGUobnAtPnBjaV9kZXYsIG5wLT5yeF9k
-bWFbaV0sCisJCQkJYnVmbGVuICsgTkFUU0VNSV9QQURESU5HLAogCQkJCVBDSV9ETUFfRlJPTURF
-VklDRSk7CiAJCQlkZXZfa2ZyZWVfc2tiKG5wLT5yeF9za2J1ZmZbaV0pOwogCQl9Ci0tIAoxLjcu
-NC4xCgo=
---000e0cd1736cc30c5e04a7a88f6f--
+diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+index a9b6c63..5a6d0f8 100644
+--- a/drivers/net/usb/kalmia.c
++++ b/drivers/net/usb/kalmia.c
+@@ -100,13 +100,13 @@ kalmia_send_init_packet(struct usbnet *dev, u8 *init_msg, u8 init_msg_len,
+ static int
+ kalmia_init_and_get_ethernet_addr(struct usbnet *dev, u8 *ethernet_addr)
+ {
+-	const static char init_msg_1[] =
++	static const char init_msg_1[] =
+ 		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00,
+ 		0x00, 0x00 };
+-	const static char init_msg_2[] =
++	static const char init_msg_2[] =
+ 		{ 0x57, 0x50, 0x04, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xf4,
+ 		0x00, 0x00 };
+-	const static int buflen = 28;
++	static const int buflen = 28;
+ 	char *usb_buf;
+ 	int status;
+ 
+@@ -239,11 +239,11 @@ kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 	 * Our task here is to strip off framing, leaving skb with one
+ 	 * data frame for the usbnet framework code to process.
+ 	 */
+-	const static u8 HEADER_END_OF_USB_PACKET[] =
++	static const u8 HEADER_END_OF_USB_PACKET[] =
+ 		{ 0x57, 0x5a, 0x00, 0x00, 0x08, 0x00 };
+-	const static u8 EXPECTED_UNKNOWN_HEADER_1[] =
++	static const u8 EXPECTED_UNKNOWN_HEADER_1[] =
+ 		{ 0x57, 0x43, 0x1e, 0x00, 0x15, 0x02 };
+-	const static u8 EXPECTED_UNKNOWN_HEADER_2[] =
++	static const u8 EXPECTED_UNKNOWN_HEADER_2[] =
+ 		{ 0x57, 0x50, 0x0e, 0x00, 0x00, 0x00 };
+ 	int i = 0;
+ 
+-- 
+1.7.6
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
+
+--8323328-693533701-1310246683=:25516--
