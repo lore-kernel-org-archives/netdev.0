@@ -1,59 +1,37 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 20/21] net: via-velocity: use common rx_copybreak handling
-Date: Sun, 10 Jul 2011 00:19:16 +0200
-Message-ID: <20110709221916.GA5609@electric-eye.fr.zoreil.com>
-References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl> <fde4e58b4575124aaa9878ea2329dcb3445c50f0.1310229312.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH 02/21] net: 3c59x: use common rx_copybreak handling
+Date: Sun, 10 Jul 2011 00:22:58 +0200
+Message-ID: <20110709222258.GA5642@electric-eye.fr.zoreil.com>
+References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl> <5a242c5dbd6222d87b77a22b9c6fe6cdfa0351f3.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56158 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:40547 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754875Ab1GIWdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 18:33:37 -0400
+	with ESMTP id S1752309Ab1GIWhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 18:37:20 -0400
 Content-Disposition: inline
-In-Reply-To: <fde4e58b4575124aaa9878ea2329dcb3445c50f0.1310229312.git.mirq-linux@rere.qmqm.pl>
+In-Reply-To: <5a242c5dbd6222d87b77a22b9c6fe6cdfa0351f3.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> :
 [...]
-> diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-> index f929242..cdc51de 100644
-> --- a/drivers/net/via-velocity.c
-> +++ b/drivers/net/via-velocity.c
+> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+> index 8cc2256..456726c 100644
+> --- a/drivers/net/3c59x.c
+> +++ b/drivers/net/3c59x.c
 [...]
-> @@ -2027,10 +1996,10 @@ static int velocity_rx_copy(struct sk_buff **=
-rx_skb, int pkt_size,
->   *	configured by the user.
->   */
->  static inline void velocity_iph_realign(struct velocity_info *vptr,
-> -					struct sk_buff *skb, int pkt_size)
-> +					struct sk_buff *skb)
->  {
->  	if (vptr->flags & VELOCITY_FLAGS_IP_ALIGN) {
-> -		memmove(skb->data + 2, skb->data, pkt_size);
-> +		memmove(skb->data + 2, skb->data, skb->len);
->  		skb_reserve(skb, 2);
->  	}
->  }
-[...]
-> @@ -2078,30 +2044,25 @@ static int velocity_receive_frame(struct velo=
-city_info *vptr, int idx)
->  		}
->  	}
-> =20
-> -	pci_action =3D pci_dma_sync_single_for_device;
-> +	skb =3D dev_skb_finish_rx_dma(&rd_info->skb,
-> +		pkt_len - ETH_FCS_LEN, rx_copybreak,
-> +		&vptr->pdev->dev, rd_info->skb_dma, vptr->rx.buf_sz);
-> +	if (!skb)
-> +		/* not copied */
-> +		velocity_iph_realign(vptr, skb);
+> +			skb =3D dev_skb_finish_rx_dma(&vp->rx_skbuff[entry],
+> +				pkt_len, rx_copybreak,
+> +				&VORTEX_PCI(vp)->dev, dma, PKT_BUF_SZ);
+> +			if (skb)
 
-s/if (!skb)/if (!rd_info->skb)/ ?
+s/if (skb)/if (vp->rx_skbuff[entry])/ probably
 
 --=20
 Ueimor
