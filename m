@@ -1,134 +1,70 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 09/21] net: pcnet32: use common rx_copybreak handling [strict
- refill!]
+Subject: [PATCH 12/21] net: starfire: use common rx_copybreak handling
 Date: Sat,  9 Jul 2011 19:17:52 +0200 (CEST)
-Message-ID: <0f270b4469acf1db6e18025c7097f6e4e338ad5d.1310229312.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <1a8ac3bda6c5ff6442758db58c151e681ce31395.1310229312.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Don Fry <pcnet32@frontier.com>
+Cc: Ion Badulescu <ionut@badula.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:51952 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:51947 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754194Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754236Ab1GIRRz (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 9 Jul 2011 13:17:55 -0400
 In-Reply-To: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also use netdev_alloc_skb_ip_align() to make code correct (skb->dev
-is needed in new common path) and easier to follow.
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/pcnet32.c |   52 ++++++++---------------------------------=
--------
- 1 files changed, 9 insertions(+), 43 deletions(-)
+ drivers/net/starfire.c |   27 ++++++++-------------------
+ 1 files changed, 8 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-index 8b3090d..baae404 100644
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -588,7 +588,7 @@ static void pcnet32_realloc_rx_ring(struct net_devi=
-ce *dev,
- 	/* now allocate any new buffers needed */
- 	for (; new < size; new++) {
- 		struct sk_buff *rx_skbuff;
--		new_skb_list[new] =3D dev_alloc_skb(PKT_BUF_SKB);
-+		new_skb_list[new] =3D netdev_alloc_skb_ip_align(dev, PKT_BUF_SKB);
- 		rx_skbuff =3D new_skb_list[new];
- 		if (!rx_skbuff) {
- 			/* keep the original lists and buffers */
-@@ -596,7 +596,6 @@ static void pcnet32_realloc_rx_ring(struct net_devi=
-ce *dev,
- 				  __func__);
- 			goto free_all_new;
- 		}
--		skb_reserve(rx_skbuff, NET_IP_ALIGN);
+diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
+index 860a508..1664f25 100644
+--- a/drivers/net/starfire.c
++++ b/drivers/net/starfire.c
+@@ -1475,26 +1475,15 @@ static int __netdev_rx(struct net_device *dev, =
+int *quota)
 =20
- 		new_dma_addr_list[new] =3D
- 			    pci_map_single(lp->pci_dev, rx_skbuff->data,
-@@ -1147,51 +1146,18 @@ static void pcnet32_rx_entry(struct net_device =
-*dev,
- 		return;
- 	}
-=20
--	if (pkt_len > rx_copybreak) {
--		struct sk_buff *newskb;
--
--		newskb =3D dev_alloc_skb(PKT_BUF_SKB);
--		if (newskb) {
--			skb_reserve(newskb, NET_IP_ALIGN);
--			skb =3D lp->rx_skbuff[entry];
--			pci_unmap_single(lp->pci_dev,
--					 lp->rx_dma_addr[entry],
--					 PKT_BUF_SIZE,
--					 PCI_DMA_FROMDEVICE);
+ 		if (debug > 4)
+ 			printk(KERN_DEBUG "  netdev_rx() normal Rx pkt length %d, quota %d.=
+\n", pkt_len, *quota);
+-		/* Check if the packet is long enough to accept without copying
+-		   to a minimally-sized skbuff. */
+-		if (pkt_len < rx_copybreak &&
+-		    (skb =3D dev_alloc_skb(pkt_len + 2)) !=3D NULL) {
+-			skb_reserve(skb, 2);	/* 16 byte align the IP header */
+-			pci_dma_sync_single_for_cpu(np->pci_dev,
+-						    np->rx_info[entry].mapping,
+-						    pkt_len, PCI_DMA_FROMDEVICE);
+-			skb_copy_to_linear_data(skb, np->rx_info[entry].skb->data, pkt_len)=
+;
+-			pci_dma_sync_single_for_device(np->pci_dev,
+-						       np->rx_info[entry].mapping,
+-						       pkt_len, PCI_DMA_FROMDEVICE);
 -			skb_put(skb, pkt_len);
--			lp->rx_skbuff[entry] =3D newskb;
--			lp->rx_dma_addr[entry] =3D
--					    pci_map_single(lp->pci_dev,
--							   newskb->data,
--							   PKT_BUF_SIZE,
--							   PCI_DMA_FROMDEVICE);
--			rxp->base =3D cpu_to_le32(lp->rx_dma_addr[entry]);
--			rx_in_place =3D 1;
--		} else
--			skb =3D NULL;
--	} else
--		skb =3D dev_alloc_skb(pkt_len + NET_IP_ALIGN);
-+	skb =3D dev_skb_finish_rx_dma_refill(&lp->rx_skbuff[entry],
-+		pkt_len, rx_copybreak, NET_IP_ALIGN, 0,
-+		&lp->pci_dev->dev, &lp->rx_dma_addr[entry],
-+		PKT_BUF_SIZE);
-+	rxp->base =3D cpu_to_le32(lp->rx_dma_addr[entry]);
-=20
- 	if (skb =3D=3D NULL) {
- 		netif_err(lp, drv, dev, "Memory squeeze, dropping packet\n");
- 		dev->stats.rx_dropped++;
- 		return;
- 	}
--	if (!rx_in_place) {
--		skb_reserve(skb, NET_IP_ALIGN);
--		skb_put(skb, pkt_len);	/* Make room */
--		pci_dma_sync_single_for_cpu(lp->pci_dev,
--					    lp->rx_dma_addr[entry],
--					    pkt_len,
--					    PCI_DMA_FROMDEVICE);
--		skb_copy_to_linear_data(skb,
--				 (unsigned char *)(lp->rx_skbuff[entry]->data),
--				 pkt_len);
--		pci_dma_sync_single_for_device(lp->pci_dev,
--					       lp->rx_dma_addr[entry],
--					       pkt_len,
--					       PCI_DMA_FROMDEVICE);
--	}
+-		} else {
+-			pci_unmap_single(np->pci_dev, np->rx_info[entry].mapping, np->rx_bu=
+f_sz, PCI_DMA_FROMDEVICE);
+-			skb =3D np->rx_info[entry].skb;
+-			skb_put(skb, pkt_len);
+-			np->rx_info[entry].skb =3D NULL;
 +
- 	dev->stats.rx_bytes +=3D skb->len;
- 	skb->protocol =3D eth_type_trans(skb, dev);
- 	netif_receive_skb(skb);
-@@ -2271,7 +2237,8 @@ static int pcnet32_init_ring(struct net_device *d=
-ev)
- 	for (i =3D 0; i < lp->rx_ring_size; i++) {
- 		struct sk_buff *rx_skbuff =3D lp->rx_skbuff[i];
- 		if (rx_skbuff =3D=3D NULL) {
--			lp->rx_skbuff[i] =3D dev_alloc_skb(PKT_BUF_SKB);
-+			lp->rx_skbuff[i] =3D
-+				netdev_alloc_skb_ip_align(dev, PKT_BUF_SKB);
- 			rx_skbuff =3D lp->rx_skbuff[i];
- 			if (!rx_skbuff) {
- 				/* there is not much we can do at this point */
-@@ -2279,7 +2246,6 @@ static int pcnet32_init_ring(struct net_device *d=
-ev)
- 					  __func__);
- 				return -1;
- 			}
--			skb_reserve(rx_skbuff, NET_IP_ALIGN);
- 		}
-=20
- 		rmb();
++		skb =3D dev_skb_finish_rx_dma(&np->rx_info[entry].skb,
++			pkt_len, rx_copybreak,
++			&np->pci_dev->dev, np->rx_info[entry].mapping,
++			np->rx_buf_sz);
++
++		if (!np->rx_info[entry].skb)	/* not copied */
+ 			np->rx_info[entry].mapping =3D 0;
+-		}
++
+ #ifndef final_version			/* Remove after testing. */
+ 		/* You will want this info for the initial debug. */
+ 		if (debug > 5) {
 --=20
 1.7.5.4
 
