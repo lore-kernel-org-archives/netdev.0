@@ -1,68 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 00/21] clean up rx_copybreak handling [split version]
-Date: Sun, 10 Jul 2011 08:11:20 -0700
-Message-ID: <1310310680.3848.29.camel@Joe-Laptop>
-References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
-	 <1310235632.3848.13.camel@Joe-Laptop> <20110710112818.GA24325@rere.qmqm.pl>
-	 <20110710115206.GA24395@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	Tim Hockin <thockin@hockin.org>,
-	Don Fry <pcnet32@frontier.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Ion Badulescu <ionut@badula.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	David Dillow <dave@thedillows.org>,
-	Roger Luethi <rl@hellgate.ch>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+From: Gilles Espinasse <g.esp@free.fr>
+Subject: [PATCH] iproute2: fix minor typo in comments
+Date: Sun, 10 Jul 2011 17:45:37 +0200
+Message-ID: <1310312737-2296-1-git-send-email-g.esp@free.fr>
+Cc: Gilles Espinasse <g.esp@free.fr>
+To: netdev@vger.kernel.org, shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3776 "EHLO mail.perches.com"
+Received: from smtp3-g21.free.fr ([212.27.42.3]:39404 "EHLO smtp3-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753794Ab1GJPLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jul 2011 11:11:22 -0400
-In-Reply-To: <20110710115206.GA24395@rere.qmqm.pl>
+	id S1755627Ab1GJPgn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2011 11:36:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-07-10 at 13:52 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> On Sun, Jul 10, 2011 at 01:28:18PM +0200, Micha=C5=82 Miros=C5=82aw w=
-rote:
-> > On Sat, Jul 09, 2011 at 11:20:32AM -0700, Joe Perches wrote:
-> > > where almost all other uses throughout drivers/net
-> > > align arguments to open parenthesis instead.
-> > > +			skb =3D dev_skb_finish_rx_dma(&np->rx_skbuff[entry],
-> > > +						    pkt_len, rx_copybreak,
-> > > +						    &np->pci_dev->dev,
-> > > +						    le32_to_cpu(desc->frag[0].addr),
-> > > +						    np->rx_buf_sz);
-> > I'll fix that in v2 where the style differs.
-> I modified patches where surrounding code had been consistent. I'm no=
-w
-> convinced I don't like this style, especially when combined with 80-c=
-olumn
-> limit and no limit on indentation levels.
+Signed-off-by: Gilles Espinasse <g.esp@free.fr>
+---
+ README       |    2 +-
+ README.devel |    2 +-
+ configure    |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-Heh.
-
-It truly can be a bad form when combined with
-long variable or function names or multiple
-indirections or string constants, etc.
-
-I chose to ignore 80 columns on the
-"le32_to_cpu(desc->frag[0].addr)," argument to
-dev_skb_finish_rx_dma.
-
-It can look hideous when slavish to 80 columns.
-
-=46eel free to ignore those checkpatch warnings
-when you think appropriate.
-
-cheers, Joe
+diff --git a/README b/README
+index 0ed0372..528b539 100644
+--- a/README
++++ b/README
+@@ -21,7 +21,7 @@ database routines.  Often this is in the db-devel package.
+ 
+ 2. make
+ 
+-The makefile will automatically build a file Config which
++The makefile will automatically build a Config file which
+ contains whether or not ATM is available, etc.
+ 
+ 3. To make documentation, cd to doc/ directory , then
+diff --git a/README.devel b/README.devel
+index 2022869..9b7d11e 100644
+--- a/README.devel
++++ b/README.devel
+@@ -1,7 +1,7 @@
+ Iproute2 development is closely tied to Linux kernel networking
+ development. Most new features require a kernel and a utility component.
+ 
+-Please submit both the the Linux networking mailing list
++Please submit both to the Linux networking mailing list
+    <netdev@vger.kernel.org>
+ 
+ The current source is in the git repository:
+diff --git a/configure b/configure
+index 600fa96..69797ab 100755
+--- a/configure
++++ b/configure
+@@ -65,7 +65,7 @@ then
+ 	return
+ fi
+ 
+-#check if we need dont our internal header ..
++#check if we dont need our internal header ..
+ cat >/tmp/ipttest.c <<EOF
+ #include <xtables.h>
+ char *lib_dir;
+-- 
+1.5.6.5
 
