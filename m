@@ -1,43 +1,66 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH 02/21] net: 3c59x: use common rx_copybreak handling
-Date: Sun, 10 Jul 2011 01:23:39 +0200
-Message-ID: <20110709232339.GA15588@rere.qmqm.pl>
-References: <cover.1310229312.git.mirq-linux@rere.qmqm.pl>
- <5a242c5dbd6222d87b77a22b9c6fe6cdfa0351f3.1310229312.git.mirq-linux@rere.qmqm.pl>
- <20110709222258.GA5642@electric-eye.fr.zoreil.com>
+From: Jim Cromie <jim.cromie@gmail.com>
+Subject: Re: [PATCH] natsemi: silence dma-debug warnings
+Date: Sat, 9 Jul 2011 19:45:22 -0600
+Message-ID: <CAJfuBxxs=CEBV+v+8GkYyabVobhwiXKYc5qHhZE-ZKFxywkQaQ@mail.gmail.com>
+References: <20110704142153O.fujita.tomonori@lab.ntt.co.jp>
+ <20110703.223448.458910310802724750.davem@davemloft.net> <CAJfuBxxKYNvaw5t4jWMP4+hYcw42SkwLiiahVdeezpfh6AsLBA@mail.gmail.com>
+ <20110710.102039.1305564732068163396.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: davem@davemloft.net, thockin@hockin.org, netdev@vger.kernel.org
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:59198 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371Ab1GIXXl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2011 19:23:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20110709222258.GA5642@electric-eye.fr.zoreil.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:36989 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755100Ab1GJBpw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2011 21:45:52 -0400
+Received: by pwj7 with SMTP id 7so1886821pwj.19
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2011 18:45:52 -0700 (PDT)
+In-Reply-To: <20110710.102039.1305564732068163396.fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 10, 2011 at 12:22:58AM +0200, Francois Romieu wrote:
-> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> :
-> [...]
-> > diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-> > index 8cc2256..456726c 100644
-> > --- a/drivers/net/3c59x.c
-> > +++ b/drivers/net/3c59x.c
-> [...]
-> > +			skb =3D dev_skb_finish_rx_dma(&vp->rx_skbuff[entry],
-> > +				pkt_len, rx_copybreak,
-> > +				&VORTEX_PCI(vp)->dev, dma, PKT_BUF_SZ);
-> > +			if (skb)
-> s/if (skb)/if (vp->rx_skbuff[entry])/ probably
+On Sat, Jul 9, 2011 at 7:20 PM, FUJITA Tomonori
+<fujita.tomonori@lab.ntt.co.jp> wrote:
+> On Sat, 9 Jul 2011 14:11:25 -0600
+> Jim Cromie <jim.cromie@gmail.com> wrote:
+>
+>> On Sun, Jul 3, 2011 at 11:34 PM, David Miller <davem@davemloft.net> =
+wrote:
+>>> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+>>> Date: Mon, 4 Jul 2011 14:30:19 +0900
+>>>
+>>>> This silences dma-debug warnings:
+>>>>
+>>>> https://lkml.org/lkml/2011/6/30/341
+>>> =A0...
+>>>> Reported-by: Jim Cromie <jim.cromie@gmail.com>
+>>>> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+>>>> Tested-by: Jim Cromie <jim.cromie@gmail.com>
+>>>
+>>> Applied, thanks!
+>>>
+>>
+>> I have since seen a similar warning on shutdown,
+>> heres a patch for it.
+>
+> Oops, I noticed this too but I forgot to send a patch.
+>
+> The patch looks good to me.
+>
+>
+>> theres one other callsite, but I havent seen the warning from it,
+>> will try to tickle it at some point.
+>
+> Which pci_unmap_single are you talking about?
+>
 
-=46or this driver and via-velocity - you're right (fixed). For others n=
-o -
-they always refill the rx ring, possibly discarding the packet.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+   2131 static void netdev_tx_done(struct net_device *dev)
+   2132 {
+=2E..
+   2160                 pci_unmap_single(np->pci_dev,np->tx_dma[entry],
+   2161                                         np->tx_skbuff[entry]->l=
+en,
+   2162                                         PCI_DMA_TODEVICE);
