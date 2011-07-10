@@ -1,40 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] slip: fix wrong SLIP6 ifdef-endif placing
-Date: Sun, 10 Jul 2011 11:37:41 -0700 (PDT)
-Message-ID: <20110710.113741.2147626275846755476.davem@davemloft.net>
-References: <CAKh5nabf9OBG7yb5r=v0bhJLjNJgVrw-hVx9quJ9cwcOXSva=Q@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: irlap_frame.c: Duplicate set?
+Date: Sun, 10 Jul 2011 11:43:41 -0700
+Message-ID: <1310323421.3848.43.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: matvejchikov@gmail.com
+Cc: netdev <netdev@vger.kernel.org>
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42613 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756450Ab1GJShs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2011 14:37:48 -0400
-In-Reply-To: <CAKh5nabf9OBG7yb5r=v0bhJLjNJgVrw-hVx9quJ9cwcOXSva=Q@mail.gmail.com>
+Received: from mail.perches.com ([173.55.12.10]:3803 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756454Ab1GJSnm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2011 14:43:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matvejchikov Ilya <matvejchikov@gmail.com>
-Date: Sun, 10 Jul 2011 22:32:55 +0400
+frame->caddr is consecutively set to multiple values.
+The first set can probably be removed.
 
-> SLIP6 have nothing to do with CSLIP so placing a block of
-> SLIP6-related code within a CSLIP ifdef-endif block is incorrect.
-> 
-> Signed-off-by: Ilya Matvejchikov <matvejchikov@gmail.com>
- ...
-> @@ -194,8 +194,7 @@ static int sl_alloc_bufs(struct slip *sl, int mtu)
->  err_exit:
->  #ifdef SL_INCLUDE_CSLIP
->  	kfree(cbuff);
-> -	if (slcomp)
-> -		slhc_free(slcomp);
-> +	slhc_free(slcomp);
->  #endif
+net/irda/irlap_frame.c
+[...]
+void irlap_send_rd_frame(struct irlap_cb *self)
+{
+	struct sk_buff *tx_skb;
+	struct rd_frame *frame;
 
-The change in this hunk has nothing to do with what you
-claim to be doing in your commit message.
+	tx_skb = alloc_skb(sizeof(struct rd_frame), GFP_ATOMIC);
+	if (!tx_skb)
+		return;
 
-Don't mix unrelated changes together.
+	frame = (struct rd_frame *)skb_put(tx_skb, 2);
+
+	frame->caddr = self->caddr;
+	frame->caddr = RD_RSP | PF_BIT;
+
+	irlap_queue_xmit(self, tx_skb);
+}
+
+
