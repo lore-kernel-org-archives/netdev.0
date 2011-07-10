@@ -1,49 +1,36 @@
-From: Matvejchikov Ilya <matvejchikov@gmail.com>
-Subject: Re: [PATCH] slip: fix wrong SLIP6 ifdef-endif placing
-Date: Sun, 10 Jul 2011 22:49:26 +0400
-Message-ID: <CAKh5nabjFq9RF-CQ_fZd1DG1Ptk7CCtmbknp7Kq6f6HvHmrnxg@mail.gmail.com>
-References: <CAKh5nabf9OBG7yb5r=v0bhJLjNJgVrw-hVx9quJ9cwcOXSva=Q@mail.gmail.com>
- <20110710.113741.2147626275846755476.davem@davemloft.net>
-Reply-To: matvejchikov@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv4: Simplify ARP hash function.
+Date: Sun, 10 Jul 2011 12:07:32 -0700 (PDT)
+Message-ID: <20110710.120732.419322076297775729.davem@davemloft.net>
+References: <CAL1RGDWTfchzBSv9rbgfg5DWvqB-Gi-RBpzDPGRUg96fNcf4Bw@mail.gmail.com>
+	<20110708.153258.1997707802176810939.davem@davemloft.net>
+	<CAL1RGDUzN_B0of0Ly6PxxaHM+A+E_1ZA0NTcC6jMmcrcoy0DxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnwheffner@gmail.com, mj@ucw.cz, netdev@vger.kernel.org
+To: roland@purestorage.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:36043 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756483Ab1GJStr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2011 14:49:47 -0400
-Received: by qyk29 with SMTP id 29so1043033qyk.19
-        for <netdev@vger.kernel.org>; Sun, 10 Jul 2011 11:49:46 -0700 (PDT)
-In-Reply-To: <20110710.113741.2147626275846755476.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54782 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756289Ab1GJTHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2011 15:07:44 -0400
+In-Reply-To: <CAL1RGDUzN_B0of0Ly6PxxaHM+A+E_1ZA0NTcC6jMmcrcoy0DxQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SLIP6 have nothing to do with CSLIP so placing a block of
-SLIP6-related code within a CSLIP ifdef-endif block is incorrect.
+From: Roland Dreier <roland@purestorage.com>
+Date: Fri, 8 Jul 2011 16:11:00 -0700
 
-Signed-off-by: Ilya Matvejchikov <matvejchikov@gmail.com>
----
- drivers/net/slip.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Maybe * of hash key with a random odd value is good enough?
 
-diff --git a/drivers/net/slip.c b/drivers/net/slip.c
-index 8ec1a9a..2f110fb 100644
---- a/drivers/net/slip.c
-+++ b/drivers/net/slip.c
-@@ -182,11 +182,11 @@ static int sl_alloc_bufs(struct slip *sl, int mtu)
- #ifdef SL_INCLUDE_CSLIP
- 	cbuff = xchg(&sl->cbuff, cbuff);
- 	slcomp = xchg(&sl->slcomp, slcomp);
-+#endif
- #ifdef CONFIG_SLIP_MODE_SLIP6
- 	sl->xdata    = 0;
- 	sl->xbits    = 0;
- #endif
--#endif
- 	spin_unlock_bh(&sl->lock);
- 	err = 0;
+Yes, from what I've read over the past few days it should
+be.  More precisely:
 
--- 
-1.7.4.1
+	(key * hash_rnd) >> (32 - hash_table_size_log2)
+
+where "hash_rnd" is odd.
+
+The reason we want the top bits is because multiplies intrinsically
+work such that bits in the inputs can only effect the same or higher
+bits in the result.
