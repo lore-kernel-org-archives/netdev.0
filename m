@@ -1,241 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] neigh: Store hash shift instead of mask.
-Date: Mon, 11 Jul 2011 01:48:41 -0700 (PDT)
-Message-ID: <20110711.014841.1004194674075047305.davem@davemloft.net>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v2 00/46] Clean up RX copybreak and DMA handling
+Date: Mon, 11 Jul 2011 11:16:49 +0200
+Message-ID: <20110711091649.GA6380@rere.qmqm.pl>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
+ <20110710.235458.1549578255936886669.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnwheffner@gmail.com, mj@ucw.cz, netdev@vger.kernel.org
-To: roland@purestorage.com
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55706 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757456Ab1GKItA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 04:49:00 -0400
+Received: from rere.qmqm.pl ([89.167.52.164]:50684 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750721Ab1GKJQu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2011 05:16:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20110710.235458.1549578255936886669.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Jul 10, 2011 at 11:54:58PM -0700, David Miller wrote:
+> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Date: Mon, 11 Jul 2011 02:52:46 +0200 (CEST)
+>=20
+> >   1. under packet storm and memory pressure NIC keeps generating in=
+terrupts
+> >      (if non-NAPI) and indicating new buffers because it always has=
+ free
+> >      RX buffers --- this only wastes CPU and bus bandwidth transfer=
+ring
+> >      data that is going to be immediately discarded;
+> Actually, this is exactly how I, and others advise people to implemen=
+t
+> drivers.  It is the right thing to do.
+>=20
+> The worst thing that can happen is to let the RX ring empty of
+> buffers.  Some cards hang as a result of this, and also it causes hea=
+d
+> of line blocking on multiqueue cards, etc.
+>=20
+> So the first thing the driver should do is try to allocate a
+> replacement buffer.
+>=20
+> And if that fails, it should give the RX packet right back to the
+> card, and not pass it up the stack.
 
-And mask the hash function result by simply shifting
-down the "->hash_shift" most significant bits.
+=46or now, lets ignore those badly broken cards which can't cope with
+insufficient receive buffers. (BTW, are there that many of them?
+Some examples, please?)
 
-Currently which bits we use is arbitrary since jhash
-produces entropy evenly across the whole hash function
-result.
+Lets compare the two cases (replacing buffers immediately vs replacing
+later) under the hostile conditions. Keep in mind that the strategy
+doesn't matter much when the buffers can be allocated right away --- th=
+e
+discussion is about the corner case when memory runs out.
 
-But soon we'll be using universal hashing functions,
-and in those cases more entropy exists in the higher
-bits than the lower bits, because they use multiplies.
+1. replacing buffers immediately
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/neighbour.h |    2 +-
- net/core/neighbour.c    |   47 +++++++++++++++++++++++------------------------
- 2 files changed, 24 insertions(+), 25 deletions(-)
+Packet is indicated in queue N, theres no memory for new skb, so its
+dropped, and the buffer goes back to free list. In parallel, queue M
+(!=3D N) indicates new packet. Still, there's no memory for new skb so
+its also dropped and its buffer is reused. The effect is that all
+packets are dropped, whatever queue they appear on.
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 4014b62..6fe8c2c 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -142,7 +142,7 @@ struct pneigh_entry {
- 
- struct neigh_hash_table {
- 	struct neighbour __rcu	**hash_buckets;
--	unsigned int		hash_mask;
-+	unsigned int		hash_shift;
- 	__u32			hash_rnd;
- 	struct rcu_head		rcu;
- };
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ceb505b..4d5fc94 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -137,7 +137,7 @@ static int neigh_forced_gc(struct neigh_table *tbl)
- 	write_lock_bh(&tbl->lock);
- 	nht = rcu_dereference_protected(tbl->nht,
- 					lockdep_is_held(&tbl->lock));
--	for (i = 0; i <= nht->hash_mask; i++) {
-+	for (i = 0; i < (1 << nht->hash_shift); i++) {
- 		struct neighbour *n;
- 		struct neighbour __rcu **np;
- 
-@@ -210,7 +210,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
- 	nht = rcu_dereference_protected(tbl->nht,
- 					lockdep_is_held(&tbl->lock));
- 
--	for (i = 0; i <= nht->hash_mask; i++) {
-+	for (i = 0; i < (1 << nht->hash_shift); i++) {
- 		struct neighbour *n;
- 		struct neighbour __rcu **np = &nht->hash_buckets[i];
- 
-@@ -312,9 +312,9 @@ out_entries:
- 	goto out;
- }
- 
--static struct neigh_hash_table *neigh_hash_alloc(unsigned int entries)
-+static struct neigh_hash_table *neigh_hash_alloc(unsigned int shift)
- {
--	size_t size = entries * sizeof(struct neighbour *);
-+	size_t size = (1 << shift) * sizeof(struct neighbour *);
- 	struct neigh_hash_table *ret;
- 	struct neighbour __rcu **buckets;
- 
-@@ -332,7 +332,7 @@ static struct neigh_hash_table *neigh_hash_alloc(unsigned int entries)
- 		return NULL;
- 	}
- 	ret->hash_buckets = buckets;
--	ret->hash_mask = entries - 1;
-+	ret->hash_shift = shift;
- 	get_random_bytes(&ret->hash_rnd, sizeof(ret->hash_rnd));
- 	return ret;
- }
-@@ -342,7 +342,7 @@ static void neigh_hash_free_rcu(struct rcu_head *head)
- 	struct neigh_hash_table *nht = container_of(head,
- 						    struct neigh_hash_table,
- 						    rcu);
--	size_t size = (nht->hash_mask + 1) * sizeof(struct neighbour *);
-+	size_t size = (1 << nht->hash_shift) * sizeof(struct neighbour *);
- 	struct neighbour __rcu **buckets = nht->hash_buckets;
- 
- 	if (size <= PAGE_SIZE)
-@@ -353,21 +353,20 @@ static void neigh_hash_free_rcu(struct rcu_head *head)
- }
- 
- static struct neigh_hash_table *neigh_hash_grow(struct neigh_table *tbl,
--						unsigned long new_entries)
-+						unsigned long new_shift)
- {
- 	unsigned int i, hash;
- 	struct neigh_hash_table *new_nht, *old_nht;
- 
- 	NEIGH_CACHE_STAT_INC(tbl, hash_grows);
- 
--	BUG_ON(!is_power_of_2(new_entries));
- 	old_nht = rcu_dereference_protected(tbl->nht,
- 					    lockdep_is_held(&tbl->lock));
--	new_nht = neigh_hash_alloc(new_entries);
-+	new_nht = neigh_hash_alloc(new_shift);
- 	if (!new_nht)
- 		return old_nht;
- 
--	for (i = 0; i <= old_nht->hash_mask; i++) {
-+	for (i = 0; i < (1 << old_nht->hash_shift); i++) {
- 		struct neighbour *n, *next;
- 
- 		for (n = rcu_dereference_protected(old_nht->hash_buckets[i],
-@@ -377,7 +376,7 @@ static struct neigh_hash_table *neigh_hash_grow(struct neigh_table *tbl,
- 			hash = tbl->hash(n->primary_key, n->dev,
- 					 new_nht->hash_rnd);
- 
--			hash &= new_nht->hash_mask;
-+			hash >>= (32 - new_nht->hash_shift);
- 			next = rcu_dereference_protected(n->next,
- 						lockdep_is_held(&tbl->lock));
- 
-@@ -406,7 +405,7 @@ struct neighbour *neigh_lookup(struct neigh_table *tbl, const void *pkey,
- 
- 	rcu_read_lock_bh();
- 	nht = rcu_dereference_bh(tbl->nht);
--	hash_val = tbl->hash(pkey, dev, nht->hash_rnd) & nht->hash_mask;
-+	hash_val = tbl->hash(pkey, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
- 
- 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
- 	     n != NULL;
-@@ -436,7 +435,7 @@ struct neighbour *neigh_lookup_nodev(struct neigh_table *tbl, struct net *net,
- 
- 	rcu_read_lock_bh();
- 	nht = rcu_dereference_bh(tbl->nht);
--	hash_val = tbl->hash(pkey, NULL, nht->hash_rnd) & nht->hash_mask;
-+	hash_val = tbl->hash(pkey, NULL, nht->hash_rnd) >> (32 - nht->hash_shift);
- 
- 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
- 	     n != NULL;
-@@ -492,10 +491,10 @@ struct neighbour *neigh_create(struct neigh_table *tbl, const void *pkey,
- 	nht = rcu_dereference_protected(tbl->nht,
- 					lockdep_is_held(&tbl->lock));
- 
--	if (atomic_read(&tbl->entries) > (nht->hash_mask + 1))
--		nht = neigh_hash_grow(tbl, (nht->hash_mask + 1) << 1);
-+	if (atomic_read(&tbl->entries) > (1 << nht->hash_shift))
-+		nht = neigh_hash_grow(tbl, nht->hash_shift + 1);
- 
--	hash_val = tbl->hash(pkey, dev, nht->hash_rnd) & nht->hash_mask;
-+	hash_val = tbl->hash(pkey, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
- 
- 	if (n->parms->dead) {
- 		rc = ERR_PTR(-EINVAL);
-@@ -784,7 +783,7 @@ static void neigh_periodic_work(struct work_struct *work)
- 				neigh_rand_reach_time(p->base_reachable_time);
- 	}
- 
--	for (i = 0 ; i <= nht->hash_mask; i++) {
-+	for (i = 0 ; i < (1 << nht->hash_shift); i++) {
- 		np = &nht->hash_buckets[i];
- 
- 		while ((n = rcu_dereference_protected(*np,
-@@ -1540,7 +1539,7 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
- 		panic("cannot create neighbour proc dir entry");
- #endif
- 
--	RCU_INIT_POINTER(tbl->nht, neigh_hash_alloc(8));
-+	RCU_INIT_POINTER(tbl->nht, neigh_hash_alloc(3));
- 
- 	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
- 	tbl->phash_buckets = kzalloc(phsize, GFP_KERNEL);
-@@ -1857,7 +1856,7 @@ static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
- 		rcu_read_lock_bh();
- 		nht = rcu_dereference_bh(tbl->nht);
- 		ndc.ndtc_hash_rnd = nht->hash_rnd;
--		ndc.ndtc_hash_mask = nht->hash_mask;
-+		ndc.ndtc_hash_mask = ((1 << nht->hash_shift) - 1);
- 		rcu_read_unlock_bh();
- 
- 		NLA_PUT(skb, NDTA_CONFIG, sizeof(ndc), &ndc);
-@@ -2200,7 +2199,7 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
- 	rcu_read_lock_bh();
- 	nht = rcu_dereference_bh(tbl->nht);
- 
--	for (h = 0; h <= nht->hash_mask; h++) {
-+	for (h = 0; h < (1 << nht->hash_shift); h++) {
- 		if (h < s_h)
- 			continue;
- 		if (h > s_h)
-@@ -2264,7 +2263,7 @@ void neigh_for_each(struct neigh_table *tbl, void (*cb)(struct neighbour *, void
- 	nht = rcu_dereference_bh(tbl->nht);
- 
- 	read_lock(&tbl->lock); /* avoid resizes */
--	for (chain = 0; chain <= nht->hash_mask; chain++) {
-+	for (chain = 0; chain < (1 << nht->hash_shift); chain++) {
- 		struct neighbour *n;
- 
- 		for (n = rcu_dereference_bh(nht->hash_buckets[chain]);
-@@ -2286,7 +2285,7 @@ void __neigh_for_each_release(struct neigh_table *tbl,
- 
- 	nht = rcu_dereference_protected(tbl->nht,
- 					lockdep_is_held(&tbl->lock));
--	for (chain = 0; chain <= nht->hash_mask; chain++) {
-+	for (chain = 0; chain < (1 << nht->hash_shift); chain++) {
- 		struct neighbour *n;
- 		struct neighbour __rcu **np;
- 
-@@ -2323,7 +2322,7 @@ static struct neighbour *neigh_get_first(struct seq_file *seq)
- 	int bucket = state->bucket;
- 
- 	state->flags &= ~NEIGH_SEQ_IS_PNEIGH;
--	for (bucket = 0; bucket <= nht->hash_mask; bucket++) {
-+	for (bucket = 0; bucket < (1 << nht->hash_shift); bucket++) {
- 		n = rcu_dereference_bh(nht->hash_buckets[bucket]);
- 
- 		while (n) {
-@@ -2390,7 +2389,7 @@ next:
- 		if (n)
- 			break;
- 
--		if (++state->bucket > nht->hash_mask)
-+		if (++state->bucket >= (1 << nht->hash_shift))
- 			break;
- 
- 		n = rcu_dereference_bh(nht->hash_buckets[state->bucket]);
--- 
-1.7.6
+2. replacing buffers later
 
+Packet is indicated in queue N, its delivered up the stack. No new buff=
+er
+is available, so after a while queue stalls and the packets are dropped
+by the card. If the queues share free buffer list, then all get stalled
+at the same time, if not they run out independently. Net effect is the
+same as above --- all packets are dropped.
+
+The differences are:
+ - where the packets are dropped:
+   1. in driver core after transfer
+   2. in the card
+ - where accounting happens:
+   1. in driver: rx_dropped
+   2. in card: rx discards
+ - memory usage:
+   1. memory is held in empty rx ring buffers
+   2. memory is held in packets waiting to be processed
+ - CPU usage:
+   1. >0% - queues are cleared repeatedly, card 'thinks' everything is =
+ok
+   2. 0% - queues are stalled, no more rx indications
+ - hardware throttling (or pause frame generation):
+   1. broken --- card always sees full free rx ring, so does not try to
+      throttle (unless driver also indicates congestion to the card)
+   2. hardware throttling is possible as the card sees only really free
+      rx buffers
+
+The HOL blocking does not matter here, because there's only one head --=
+-
+the system memory. If I misunderstood this point, please explain it fur=
+ther.
+
+Scheme #1 has the potential use when combined with small emergency buff=
+er
+pool if the driver looks for specific packets or indications that come
+in the same queue as other packets. These are rare cases, though.
+
+Best Regards,
+Micha=B3 Miros=B3aw
