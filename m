@@ -1,44 +1,92 @@
-From: Nick Kossifidis <mickflemm@gmail.com>
-Subject: Re: [PATCH 3/5] ath5k: Add missing breaks in switch/case
-Date: Tue, 12 Jul 2011 00:24:05 +0300
-Message-ID: <CAFtRNNwx0=8VnqRuHaOetCk2em78pOZ_rr74SpCNCxKuh1surw@mail.gmail.com>
-References: <cover.1310289795.git.joe@perches.com>
-	<e554bed5c753a3fe85d3be34983a15e6110a6e35.1310289795.git.joe@perches.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Bridging behavior apparently changed around the Fedora 14 time
+Date: Mon, 11 Jul 2011 14:24:49 -0700
+Message-ID: <20110711142449.1f957af5@nehalam.ftrdhcpuser.net>
+References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com>
+	<20110711130729.607d461e@nehalam.ftrdhcpuser.net>
+	<925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com>
+	<20110711134938.5178797c@nehalam.ftrdhcpuser.net>
+	<925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com>
+	<20110711141028.19f0de46@nehalam.ftrdhcpuser.net>
+	<925A849792280C4E80C5461017A4B8A2A040F7@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e554bed5c753a3fe85d3be34983a15e6110a6e35.1310289795.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	"Lynn Hanson" <LynnHanson@eaganhills.org>,
+	"Joe Whalen" <JoeWhalen@eaganhills.org>
+To: "Greg Scott" <GregScott@Infrasupport.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:39264 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750870Ab1GKVYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2011 17:24:53 -0400
+In-Reply-To: <925A849792280C4E80C5461017A4B8A2A040F7@mail733.InfraSupportEtc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MjAxMS83LzEwIEpvZSBQZXJjaGVzIDxqb2VAcGVyY2hlcy5jb20+Ogo+IFNpZ25lZC1vZmYtYnk6
-IEpvZSBQZXJjaGVzIDxqb2VAcGVyY2hlcy5jb20+Cj4gLS0tCj4gwqBkcml2ZXJzL25ldC93aXJl
-bGVzcy9hdGgvYXRoNWsvZGVzYy5jIHwgwqAgwqAzICsrKwo+IMKgMSBmaWxlcyBjaGFuZ2VkLCAz
-IGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
-ZXQvd2lyZWxlc3MvYXRoL2F0aDVrL2Rlc2MuYyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9h
-dGg1ay9kZXNjLmMKPiBpbmRleCA2MjE3MmQ1Li5mODIzODNiIDEwMDY0NAo+IC0tLSBhL2RyaXZl
-cnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg1ay9kZXNjLmMKPiArKysgYi9kcml2ZXJzL25ldC93aXJl
-bGVzcy9hdGgvYXRoNWsvZGVzYy5jCj4gQEAgLTEwNywxMCArMTA3LDEzIEBAIGF0aDVrX2h3X3Nl
-dHVwXzJ3b3JkX3R4X2Rlc2Moc3RydWN0IGF0aDVrX2h3ICphaCwgc3RydWN0IGF0aDVrX2Rlc2Mg
-KmRlc2MsCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBjYXNlIEFSNUtfUEtUX1RZUEVfQkVBQ09O
-Ogo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgY2FzZSBBUjVLX1BLVF9UWVBFX1BST0JFX1JFU1A6
-Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBmcmFtZV90eXBlID0gQVI1S19B
-UjUyMTBfVFhfREVTQ19GUkFNRV9UWVBFX05PX0RFTEFZOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgYnJlYWs7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBjYXNlIEFSNUtf
-UEtUX1RZUEVfUElGUzoKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGZyYW1l
-X3R5cGUgPSBBUjVLX0FSNTIxMF9UWF9ERVNDX0ZSQU1FX1RZUEVfUElGUzsKPiArIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGJyZWFrOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-ZGVmYXVsdDoKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGZyYW1lX3R5cGUg
-PSB0eXBlOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYnJlYWs7Cj4gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqB9Cj4KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHR4X2N0bC0+
-dHhfY29udHJvbF8wIHw9CgpBY2tlZC1ieTogTmljayBLb3NzaWZpZGlzIDxtaWNrZmxlbW1AZ21h
-aWwuY29tPgoKCgotLSAKR1BHIElEOiAweEQyMURCMkRCCkFzIHlvdSByZWFkIHRoaXMgcG9zdCBn
-bG9iYWwgZW50cm9weSByaXNlcy4gSGF2ZSBGdW4gOy0pCk5pY2sK
+On Mon, 11 Jul 2011 16:16:40 -0500
+"Greg Scott" <GregScott@Infrasupport.com> wrote:
+
+> > The bridge code calls dev_set_promiscuity() which should
+> > be changing device mode. But it could be that netdev core is 
+> > resetting/changing/breaking that.
+> 
+> Is it supposed to change the physical ethnn devices or the br device?
+
+The physical device ethnn.
+
+> Here is what I do to set up the bridging. I do it myself right in the
+> script so I can control all the details.
+> 
+> .
+> .
+> .
+> #
+> # Setup bridging
+> #
+> 
+> echo "Setting up bridge $BR_IFACE to bridge $INET_IFACE with
+> $TRUSTED1_IFACE"
+> 
+> $BRCTL addbr $BR_IFACE
+> $BRCTL addif $BR_IFACE $INET_IFACE
+> $BRCTL addif $BR_IFACE $TRUSTED1_IFACE
+> 
+> echo "  Adding $BR_IP_SLASH and $TRUSTED1_IP_SLASH IP Addresses to
+> $BR_IFACE"
+> /sbin/ip addr add $BR_IP_SLASH broadcast $BR_BCAST_ADDRESS dev $BR_IFACE
+> /sbin/ip addr add $TRUSTED1_IP_SLASH broadcast $TRUSTED1_BCAST_ADDRESS
+> dev $BR_IFACE
+> /sbin/ip link set $BR_IFACE up
+> 
+> echo "  Removing $INET_IP_SLASH and $TRUSTED1_IP_SLASH from $INET_IFACE
+> and $TRUSTED1_IFACE"
+> /sbin/ip addr del $INET_IP_SLASH dev $INET_IFACE
+> /sbin/ip addr del $INET_IP_SLASH dev $INET_IFACE
+> /sbin/ip addr del $TRUSTED1_IP_SLASH dev $TRUSTED1_IFACE
+> /sbin/ip addr del $TRUSTED1_IP_SLASH dev $TRUSTED1_IFACE
+> 
+> echo "  Putting $BR_IFACE into promiscuous mode"
+> # This fixes a bug forwarding packets bound for external IP Addresses
+> # from the private LAN.
+> 
+> ip link set $BR_IFACE promisc on
+> 
+
+What is supposed to happen is that the bridge adds all the interface
+MAC addresses to the forwarding table as permanent entries. To show the
+forwarding table:
+  # brctl showmacs br0
+
+port no	mac addr		is local?	ageing timer
+  1	c6:eb:2a:0c:12:eb	yes		   0.00
+
+Then when packet arrives with that mac address it is handed up to
+netfilter, then if not firewalled, it goes on to the IP stack.
+
+There maybe protections against packet going back out the same interface
+that are getting tripped by all the rewriting.
+
+
+
