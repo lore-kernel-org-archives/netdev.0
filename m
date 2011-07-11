@@ -1,54 +1,129 @@
-From: Cyril Hrubis <chrubis@suse.cz>
-Subject: Re: [LTP] Update for CAN LTP tests
-Date: Mon, 11 Jul 2011 18:15:13 +0200
-Message-ID: <20110711161513.GB31575@saboteur.suse.cz>
-References: <20090512094631.26592.81609.sendpatchset@subratamodak.linux.ibm.com>
- <4E19987B.2030507@hartkopp.net>
+From: Andreas O <andreas2025@gmail.com>
+Subject: "tm->when" at /proc/net/tcp shows some negative numbers.
+Date: Mon, 11 Jul 2011 17:47:18 +0100
+Message-ID: <CAAVaN8wcu+=p9sD76s7m3=M6hqPScOsq3WPJmAN5TBp4fAoLGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Subrata Modak <subrata@linux.vnet.ibm.com>,
-	ltp-list <ltp-list@lists.sf.net>,
-	socketcan-users@lists.berlios.de,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:50851 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757955Ab1GKQNr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 12:13:47 -0400
-Content-Disposition: inline
-In-Reply-To: <4E19987B.2030507@hartkopp.net>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:39558 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758138Ab1GKQrT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 12:47:19 -0400
+Received: by pvg12 with SMTP id 12so2988682pvg.19
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 09:47:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-> > Would you also like to send a patch to update the testcases for CAN in LTP
-> > (http://ltp.cvs.sourceforge.net/viewvc/ltp/ltp/testcases/network/can/filter-tests/) ?
-> > These tests were originally picked up from:
-> > http://svn.berlios.de/wsvn/socketcan/trunk/test/?rev=877&amp;sc=1
-> 
-> Dear Subrata,
-> 
-> attached you'll find a major update for the LTP tests dealing with CAN filters
-> and the CAN frame flow down to the CAN netdevice and vice versa.
-> 
-> The patch removes all the obsolete stuff from the source code directory you
-> originally picked the tests from. I added two new tools that also reside on
-> the referenced SVN:
-> 
-> tst-filter: New filter test tool in *one* programm (easy to use & handle)
-> tst-rcv-own-msgs: Checks the CAN frame flow inside the networking stack
-> 
-> Additionally the virtual CAN driver needs to be loaded with a special
-> commandline option to perform the CAN frame flow test correctly.
-> 
-> The tests & the scripts are much clearer to me now. If it meets your
-> requirements consider to apply this patch to the LTP repository.
+Dear devnet list,
 
-Could you pretty please create signed patch(es) (git could create them
-for you) so we could commit them into LTP repository.
+I am doing some performance improvements on=A0 linux-2.6.33.15 with
+real-time support. When my tests fails I observe that "tm->when" at
+/proc/net/tcp shows
+some negative numbers. That negative number is the difference=A0 of
+"timer_expires - jeffies" and in this case timer_expires is smaller
+than jiffies.
+Does this negative number indicates a bug in the stack?
 
--- 
-Cyril Hrubis
-chrubis@suse.cz
+
+from /proc/net/tcp
+
+=A0 sl=A0 local_address rem_address=A0=A0 st tx_queue rx_queue tr tm->w=
+hen
+retrnsmt=A0=A0 uid=A0 timeout inode
+
+=A0=A0 0: 0100007F:09A4 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 11905 1 ffff88057b9df9c0 300 =
+0 0 2 -1
+=A0=A0 1: 00000000:1BC7 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14746 1 ffff880579bfac80 300 =
+0 0 2 -1
+=A0=A0 2: 0100007F:00C7 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0=A0=A0 0=A0=A0=A0=A0=A0=A0=A0 0 11734 1 ffff88097a7980c0 =
+300 0 0 2 -1
+=A0=A0 3: 00000000:078F 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14733 1 ffff880974e9acc0 300 =
+0 0 2 -1
+=A0=A0 4: 00000000:2710 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14748 1 ffff88097385e740 300 =
+0 0 2 -1
+=A0=A0 5: 00000000:0050 00000000:0000 0A 00000000:00000000 02:0000000E
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14732 2 ffff88097933d980 300 =
+0 0 2 -1
+=A0=A0 6: 14041AAC:0050 FE081AAC:93FD 03 00000000:00000000
+01:FFFFFFFFFFFFFFE2 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804dc549dc0
+=A0=A0 7: 14041AAC:0050 FA081AAC:B0E0 03 00000000:00000000
+01:FFFFFFFFFFFFFFE2 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+80524d79e40
+=A0=A0 8: 14041AAC:0050 F2011AAC:E53F 03 00000000:00000000
+01:FFFFFFFFFFFFFFE4 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+80524d7ccc0
+=A0=A0 9: 14041AAC:0050 F2011AAC:C73F 03 00000000:00000000
+01:FFFFFFFFFFFFFFE5 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+80524d5ba40
+=A0 10: 14041AAC:0050 FB011AAC:D89A 03 00000000:00000000
+01:FFFFFFFFFFFFFFE1 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804a9290b40
+=A0 11: 14041AAC:0050 F2011AAC:C9CD 03 00000000:00000000
+01:FFFFFFFFFFFFFFE4 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804e6c9af40
+=A0 12: 14041AAC:0050 FE081AAC:8EC9 03 00000000:00000000
+01:FFFFFFFFFFFFFFE2 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804dc59d940
+=A0 13: 14041AAC:0050 FE081AAC:E7C0 03 00000000:00000000
+01:FFFFFFFFFFFFFFE2 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804dc798840
+
+=A0 sl=A0 local_address rem_address=A0=A0 st tx_queue rx_queue tr tm->w=
+hen
+retrnsmt=A0=A0 uid=A0 timeout inode
+=A0=A0 0: 0100007F:09A4 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 11905 1 ffff88057b9df9c0 300 =
+0 0 2 -1
+=A0=A0 1: 00000000:1BC7 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14746 1 ffff880579bfac80 300 =
+0 0 2 -1
+=A0=A0 2: 0100007F:00C7 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0=A0=A0 0=A0=A0=A0=A0=A0=A0=A0 0 11734 1 ffff88097a7980c0 =
+300 0 0 2 -1
+=A0=A0 3: 00000000:078F 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14733 1 ffff880974e9acc0 300 =
+0 0 2 -1
+=A0=A0 4: 00000000:2710 00000000:0000 0A 00000000:00000000 00:00000000
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14748 1 ffff88097385e740 300 =
+0 0 2 -1
+=A0=A0 5: 00000000:0050 00000000:0000 0A 00000000:00000000 02:00000009
+00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 14732 2 ffff88097933d980 300 =
+0 0 2 -1
+=A0=A0 6: 14041AAC:0050 FE081AAC:93FD 03 00000000:00000000
+01:FFFFFFFFFFFFFFB5 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804dc549dc0
+=A0=A0 7: 14041AAC:0050 FA081AAC:B0E0 03 00000000:00000000
+01:FFFFFFFFFFFFFFB5 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+80524d79e40
+=A0=A0 8: 14041AAC:0050 F2011AAC:E53F 03 00000000:00000000
+01:FFFFFFFFFFFFFFB7 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+80524d7ccc0
+=A0=A0 9: 14041AAC:0050 F2011AAC:C73F 03 00000000:00000000
+01:FFFFFFFFFFFFFFB8 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+80524d5ba40
+=A0 10: 14041AAC:0050 FB011AAC:D89A 03 00000000:00000000
+01:FFFFFFFFFFFFFFB4 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804a9290b40
+=A0 11: 14041AAC:0050 F2011AAC:C9CD 03 00000000:00000000
+01:FFFFFFFFFFFFFFB7 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804e6c9af40
+=A0 12: 14041AAC:0050 FE081AAC:8EC9 03 00000000:00000000
+01:FFFFFFFFFFFFFFB5 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804dc59d940
+=A0 13: 14041AAC:0050 F2081AAC:E7BF 03 00000000:00000000
+01:FFFFFFFFFFFFFFB7 00000000=A0=A0 499=A0=A0=A0=A0=A0=A0=A0 0 0 2 ffff8=
+804ce339c40
+
+
+Any ideas?
+
+Kind regards
+Andreas
