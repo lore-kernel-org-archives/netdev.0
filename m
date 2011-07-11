@@ -1,48 +1,44 @@
-From: Dave Jones <davej@redhat.com>
-Subject: sch_generic warn_on (timed out)
-Date: Mon, 11 Jul 2011 16:48:34 -0400
-Message-ID: <20110711204834.GA4950@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Bridging behavior apparently changed around the Fedora 14 time
+Date: Mon, 11 Jul 2011 13:49:38 -0700
+Message-ID: <20110711134938.5178797c@nehalam.ftrdhcpuser.net>
+References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com>
+	<20110711130729.607d461e@nehalam.ftrdhcpuser.net>
+	<925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	"Lynn Hanson" <LynnHanson@eaganhills.org>,
+	"Joe Whalen" <JoeWhalen@eaganhills.org>
+To: "Greg Scott" <GregScott@Infrasupport.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3233 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:45097 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753165Ab1GKUsh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 16:48:37 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p6BKmar3018298
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 16:48:36 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-98.phx2.redhat.com [10.3.113.98])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id p6BKmZeQ001440
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 16:48:36 -0400
-Received: from gelk.kernelslacker.org (gelk [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.5/8.14.4) with ESMTP id p6BKmZjx005950
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 16:48:35 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id p6BKmYW1005949
-	for netdev@vger.kernel.org; Mon, 11 Jul 2011 16:48:34 -0400
-Content-Disposition: inline
+	id S1750901Ab1GKUtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2011 16:49:41 -0400
+In-Reply-To: <925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've recieved quite a few bug reports in Fedora recently concerning this warning in
-sch_generic..
+On Mon, 11 Jul 2011 15:41:35 -0500
+"Greg Scott" <GregScott@Infrasupport.com> wrote:
 
-            WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
-                      dev->name, netdev_drivername(dev, drivername, 64), i);
+> The NICs are 3Com 3C905B's.  The iptables config is complex - I'll paste
+> in the relevant pieces.  Note that it all works as expected when I put
+> the br0 device into promiscuous mode.  I included all the layer 2 MAC
+> address info in the original email.  
+> 
+> > Do you have reverse path filtering enabled/disabled?  
+> 
+> rp_filter doesn't seem to effect the behavior one way or the other.
+> I've tried with rp_filter set to both 0 and 1 on eth0, eth1, and br0
+> with no change in behavior.  
 
-https://bugzilla.redhat.com/show_bug.cgi?id=702723 is our 'master bug' that we're
-duping all others against. It seems to be showing up on a variety of different
-hardware (r8169, atl1c, ipheth, e1000e, 8139too). Do all these drivers need
-fixing ? or is it just 'crap hardware' ?
+What about console dmesg output.
+Because you can fix by putting in promiscuous mode, I suspect the
+problem is outside of the bridge itself, could be the drivers.
+The bridge itself puts the device into promiscuous mode already.
 
-note that I've only been looking through fedora 15 bugs so far (which is still on 2.6.38),
-but looking at the commit log for sch_generic, it doesn't seem that there's anything
-obvious that needs backporting.
-
-thanks,
-
-	Dave
+Lastly, the Fedora and upstream kernels are not exactly the same.
+Please retest with a standard upstream kernel (like 2.6.39.2).
