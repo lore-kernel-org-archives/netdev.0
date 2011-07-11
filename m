@@ -1,41 +1,53 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next-2.6 1/2] net: introduce __netdev_alloc_skb_ip_align
-Date: Tue, 12 Jul 2011 01:12:21 +0200
-Message-ID: <CAHXqBFJBt54ksT4D0iee_9GrORzQYkPhmr4ztOH3wxk9rqaJXA@mail.gmail.com>
-References: <1310421164.2860.21.camel@edumazet-laptop> <1310425028.2707.12.camel@bwh-desktop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next-2.6 2/2] e1000e: use GFP_KERNEL allocations at
+ init time
+Date: Mon, 11 Jul 2011 16:51:23 -0700
+Message-ID: <CAL3LdT7WNrkDk2WrTnDnwYJ2raoNJdG5v4q=gk4o8hc2KR1Q_w@mail.gmail.com>
+References: <1310421182.2860.22.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:47173 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758345Ab1GKXMm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 19:12:42 -0400
-Received: by qwk3 with SMTP id 3so2109748qwk.19
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 16:12:41 -0700 (PDT)
-In-Reply-To: <1310425028.2707.12.camel@bwh-desktop>
+Received: from mail-fx0-f52.google.com ([209.85.161.52]:64875 "EHLO
+	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612Ab1GKXvZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 19:51:25 -0400
+Received: by fxd18 with SMTP id 18so4422761fxd.11
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 16:51:24 -0700 (PDT)
+In-Reply-To: <1310421182.2860.22.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/7/12 Ben Hutchings <bhutchings@solarflare.com>:
-> On Mon, 2011-07-11 at 23:52 +0200, Eric Dumazet wrote:
->> RX rings should use GFP_KERNEL allocations if possible, add
->> __netdev_alloc_skb_ip_align() helper to ease this.
-> [...]
-> When it is possible, other than when starting an interface? =C2=A0RX =
-refill
-> normally has to be done in NAPI context or at least synchronised with
-> NAPI, so GFP_ATOMIC is required. =C2=A0Not sure how much point there =
-is in
-> making a special case for the initial fill.
+On Mon, Jul 11, 2011 at 14:53, Eric Dumazet <eric.dumazet@gmail.com> wr=
+ote:
+> Note : This patch is untested, I dont have the hardware
+>
+> Thanks
+>
+> [PATCH net-next-2.6 2/2] e1000e: use GFP_KERNEL allocations at init t=
+ime
+>
+> In process and sleep allowed context, favor GFP_KERNEL allocations ov=
+er
+> GFP_ATOMIC ones.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Ben Greear <greearb@candelatech.com>
+> CC: Bruce Allan <bruce.w.allan@intel.com>
+> ---
+> =C2=A0drivers/net/e1000e/e1000.h =C2=A0| =C2=A0 =C2=A02 +-
+> =C2=A0drivers/net/e1000e/netdev.c | =C2=A0 33 +++++++++++++++++------=
+----------
+> =C2=A02 files changed, 18 insertions(+), 17 deletions(-)
+>
 
-Drivers can also refill buffers later, even from separate thread. Ring =
-refilling
-can be made lockless given proper access ordering is preserved.
+Thanks Eric!  I have added the patch to my queue.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+--=20
+Cheers,
+Jeff
