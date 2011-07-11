@@ -1,65 +1,64 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2 15/46] net/wireless: b43: use kfree_skb() for untouched
- skbs
-Date: Mon, 11 Jul 2011 02:52:50 +0200 (CEST)
-Message-ID: <08fc87f027ad07874b83b98786215c94a7acf8b9.1310339688.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v2 09/46] net: octeon_mgmt: fix DMA unmap size
+Date: Mon, 11 Jul 2011 02:52:49 +0200 (CEST)
+Message-ID: <be093b6dd643918406479b11667992ce5aacdd9f.1310339688.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stefano Brivio <stefano.brivio@polimi.it>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:43686 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:43669 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753652Ab1GKAwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jul 2011 20:52:54 -0400
+	id S1752594Ab1GKAwv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2011 20:52:51 -0400
 In-Reply-To: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Also: use netdev_alloc_skb_ip_align() for readability.
+
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/wireless/b43/dma.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/octeon/octeon_mgmt.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/b43/dma.c b/drivers/net/wireless/b43/=
-dma.c
-index 15b11f0..ed78f14 100644
---- a/drivers/net/wireless/b43/dma.c
-+++ b/drivers/net/wireless/b43/dma.c
-@@ -592,7 +592,7 @@ static int setup_rx_descbuffer(struct b43_dmaring *=
-ring,
- 		/* ugh. try to realloc in zone_dma */
- 		gfp_flags |=3D GFP_DMA;
+diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/octeon/octe=
+on_mgmt.c
+index 429e08c..dd4a57a 100644
+--- a/drivers/net/octeon/octeon_mgmt.c
++++ b/drivers/net/octeon/octeon_mgmt.c
+@@ -152,16 +152,15 @@ static void octeon_mgmt_rx_fill_ring(struct net_d=
+evice *netdev)
+ 		struct sk_buff *skb;
 =20
--		dev_kfree_skb_any(skb);
-+		kfree_skb(skb);
+ 		/* CN56XX pass 1 needs 8 bytes of padding.  */
+-		size =3D netdev->mtu + OCTEON_MGMT_RX_HEADROOM + 8 + NET_IP_ALIGN;
++		size =3D netdev->mtu + OCTEON_MGMT_RX_HEADROOM + 8;
 =20
- 		skb =3D __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
- 		if (unlikely(!skb))
-@@ -602,7 +602,7 @@ static int setup_rx_descbuffer(struct b43_dmaring *=
-ring,
- 					 ring->rx_buffersize, 0);
- 		if (b43_dma_mapping_error(ring, dmaaddr, ring->rx_buffersize, 0)) {
- 			b43err(ring->dev->wl, "RX DMA buffer allocation failed\n");
--			dev_kfree_skb_any(skb);
-+			kfree_skb(skb);
- 			return -EIO;
- 		}
- 	}
-@@ -645,7 +645,7 @@ static int alloc_initial_descbuffers(struct b43_dma=
-ring *ring)
- 		desc =3D ring->ops->idx2desc(ring, i, &meta);
+-		skb =3D netdev_alloc_skb(netdev, size);
++		skb =3D netdev_alloc_skb_ip_align(netdev, size);
+ 		if (!skb)
+ 			break;
+-		skb_reserve(skb, NET_IP_ALIGN);
+ 		__skb_queue_tail(&p->rx_list, skb);
 =20
- 		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize, 0);
--		dev_kfree_skb(meta->skb);
-+		kfree_skb(meta->skb);
- 	}
- 	goto out;
- }
+ 		re.d64 =3D 0;
+-		re.s.len =3D size;
++		re.s.len =3D size =3D skb_tailroom(skb);
+ 		re.s.addr =3D dma_map_single(p->dev, skb->data,
+ 					   size,
+ 					   DMA_FROM_DEVICE);
+@@ -297,7 +296,7 @@ static u64 octeon_mgmt_dequeue_rx_buffer(struct oct=
+eon_mgmt *p,
+ 	*pskb =3D __skb_dequeue(&p->rx_list);
+=20
+ 	dma_unmap_single(p->dev, re.s.addr,
+-			 ETH_FRAME_LEN + OCTEON_MGMT_RX_HEADROOM,
++			 skb_tailroom(*pskb),
+ 			 DMA_FROM_DEVICE);
+=20
+ 	return re.d64;
 --=20
 1.7.5.4
 
