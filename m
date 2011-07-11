@@ -1,52 +1,44 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH v2 46/46] net: mark drivers that drop packets from rx
- queue head under memory pressure
-Date: Mon, 11 Jul 2011 08:24:48 -0700
-Message-ID: <20110711082448.08607039@nehalam.ftrdhcpuser.net>
-References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
-	<c84a04a957128ae664f4a80da23fad4b9f71a85f.1310339689.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
+ groups
+Date: Mon, 11 Jul 2011 08:27:55 -0700
+Message-ID: <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
+	<CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
-	Hartley Sweeten <hsweeten@visionengravers.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Guo-Fu Tseng <cooldavid@cooldavid.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Jon Mason <jdmason@kudzu.us>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	David Lamparter <equinox@diac24.net>, davem@davemloft.net
+To: Nick Carter <ncarter100@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:32857 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38379 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757943Ab1GKPZR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 11:25:17 -0400
-In-Reply-To: <c84a04a957128ae664f4a80da23fad4b9f71a85f.1310339689.git.mirq-linux@rere.qmqm.pl>
+	by vger.kernel.org with ESMTP id S1757833Ab1GKP2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 11:28:48 -0400
+In-Reply-To: <CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Jul 2011 02:52:50 +0200 (CEST)
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+On Sun, 10 Jul 2011 17:04:30 +0100
+Nick Carter <ncarter100@gmail.com> wrote:
 
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
->  drivers/net/arm/ep93xx_eth.c    |    3 +++
->  drivers/net/bnx2.c              |    3 +++
->  drivers/net/bnx2x/bnx2x_cmn.c   |    3 +++
->  drivers/net/cassini.c           |    3 +++
->  drivers/net/jme.c               |    3 +++
->  drivers/net/mlx4/en_rx.c        |    6 ++++++
->  drivers/net/r8169.c             |    3 +++
->  drivers/net/skge.c              |    3 +++
->  drivers/net/sky2.c              |    2 ++
->  drivers/net/tg3.c               |    2 ++
->  drivers/net/tokenring/olympic.c |    2 ++
->  drivers/net/vxge/vxge-main.c    |    3 +++
->  12 files changed, 36 insertions(+), 0 deletions(-)
->=20
+> Updated diffs so they apply to net-next (Original diffs were based off 2.6.38).
+> 
+> Any chance of getting these diffs applied?  The default behaviour of
+> the bridge code is unchanged.  They solve the problem of
+> authenticating a virtual 802.1x supplicant machine against an external
+> 802.1X authenticator.  It is also a general solution that allows the
+> forwarding of any combination of the IEEE 802 local multicast groups.
+> 
+> Signed-off-by: Nick Carter <ncarter100@gmail.com>
+> Reviewed-by: David Lamparter <equinox@diac24.net>
 
-Nak. This is normal behavior and putting in a compile warning is just
-useless extra noise.
+I am still undecided on this. Understand the need, but don't like idea
+of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
+has any input.
+
+Also, don't want to build more knobs in with sysfs that are per-bridge.
+Eventually, the plan is to make all the setting per-port with sysctl's
+like IPv6.
