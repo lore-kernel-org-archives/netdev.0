@@ -1,105 +1,154 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Subject: [PATCH v2 07/46] net/wireless: ath9k: fix DMA API usage
-Date: Mon, 11 Jul 2011 02:52:47 +0200 (CEST)
-Message-ID: <280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v2 06/46] net/tokenring: 3c359: fix DMA API usage
+Date: Mon, 11 Jul 2011 02:52:46 +0200 (CEST)
+Message-ID: <24b2e6936782b494815165de6cc7863cee900a69.1310339688.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1310339688.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:43663 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753165Ab1GKAwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2011 20:52:50 -0400
+In-Reply-To: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Also constify buf_addr for ath9k_hw_process_rxdesc_edma() to verify
-assumptions --- dma_sync_single_for_device() call can be removed.
+TX/RX rings should be allocated from DMA coherent memory (driver does
+not sync the descriptors in any way).
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/wireless/ath/ath9k/ar9003_mac.c |    4 ++--
- drivers/net/wireless/ath/ath9k/ar9003_mac.h |    2 +-
- drivers/net/wireless/ath/ath9k/recv.c       |   10 +++-------
- 3 files changed, 6 insertions(+), 10 deletions(-)
+ drivers/net/tokenring/3c359.c |   49 +++++++++++++++++++++++++--------=
+--------
+ drivers/net/tokenring/3c359.h |    4 +-
+ 2 files changed, 32 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/ar9003_mac.c b/drivers/net/=
-wireless/ath/ath9k/ar9003_mac.c
-index 575e185..2d211b6 100644
---- a/drivers/net/wireless/ath/ath9k/ar9003_mac.c
-+++ b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
-@@ -524,9 +524,9 @@ void ath9k_hw_addrxbuf_edma(struct ath_hw *ah, u32 =
-rxdp,
- EXPORT_SYMBOL(ath9k_hw_addrxbuf_edma);
+diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c35=
+9.c
+index b6162fe..d321640 100644
+--- a/drivers/net/tokenring/3c359.c
++++ b/drivers/net/tokenring/3c359.c
+@@ -672,21 +672,25 @@ static int xl_open(struct net_device *dev)
+ 	 * Now to set up the Rx and Tx buffer structures
+ 	 */
+ 	/* These MUST be on 8 byte boundaries */
+-	xl_priv->xl_tx_ring =3D kzalloc((sizeof(struct xl_tx_desc) * XL_TX_RI=
+NG_SIZE) + 7, GFP_DMA | GFP_KERNEL);
++	xl_priv->xl_tx_ring =3D dma_alloc_coherent(&xl_priv->pdev->dev,
++		sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE,
++		&xl_priv->tx_ring_dma_addr, GFP_KERNEL);
+ 	if (xl_priv->xl_tx_ring =3D=3D NULL) {
+ 		printk(KERN_WARNING "%s: Not enough memory to allocate tx buffers.\n=
+",
+ 				     dev->name);
+-		free_irq(dev->irq,dev);
+-		return -ENOMEM;
++		goto err_free_irq;
+ 	}
+-	xl_priv->xl_rx_ring =3D kzalloc((sizeof(struct xl_rx_desc) * XL_RX_RI=
+NG_SIZE) +7, GFP_DMA | GFP_KERNEL);
++	xl_priv->xl_rx_ring =3D dma_alloc_coherent(&xl_priv->pdev->dev,
++		sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE,
++		&xl_priv->rx_ring_dma_addr, GFP_KERNEL);
+ 	if (xl_priv->xl_rx_ring =3D=3D NULL) {
+ 		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers.\n=
+",
+ 				     dev->name);
+-		free_irq(dev->irq,dev);
+-		kfree(xl_priv->xl_tx_ring);
+-		return -ENOMEM;
++		goto err_free_tx;
+ 	}
++	/* dma_alloc_coherent() should provide for the following */
++	BUG_ON(!IS_ALIGNED((unsigned long)xl_priv->xl_tx_ring, 8));
++	BUG_ON(!IS_ALIGNED((unsigned long)xl_priv->xl_rx_ring, 8));
 =20
- int ath9k_hw_process_rxdesc_edma(struct ath_hw *ah, struct ath_rx_stat=
-us *rxs,
--				 void *buf_addr)
-+				 const void *buf_addr)
- {
--	struct ar9003_rxs *rxsp =3D (struct ar9003_rxs *) buf_addr;
-+	const struct ar9003_rxs *rxsp =3D buf_addr;
- 	unsigned int phyerr;
+ 	 /* Setup Rx Ring */
+ 	 for (i=3D0 ; i < XL_RX_RING_SIZE ; i++) {=20
+@@ -704,10 +708,7 @@ static int xl_open(struct net_device *dev)
 =20
- 	/* TODO: byte swap on big endian for ar9300_10 */
-diff --git a/drivers/net/wireless/ath/ath9k/ar9003_mac.h b/drivers/net/=
-wireless/ath/ath9k/ar9003_mac.h
-index c504493..c310edc 100644
---- a/drivers/net/wireless/ath/ath9k/ar9003_mac.h
-+++ b/drivers/net/wireless/ath/ath9k/ar9003_mac.h
-@@ -114,7 +114,7 @@ void ath9k_hw_addrxbuf_edma(struct ath_hw *ah, u32 =
-rxdp,
+ 	if (i=3D=3D0) {=20
+ 		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers. A=
+dapter disabled\n",dev->name);
+-		free_irq(dev->irq,dev) ;=20
+-		kfree(xl_priv->xl_tx_ring);
+-		kfree(xl_priv->xl_rx_ring);
+-		return -EIO ;=20
++		goto err_free_rxtx;
+ 	}=20
 =20
- int ath9k_hw_process_rxdesc_edma(struct ath_hw *ah,
- 				 struct ath_rx_status *rxs,
--				 void *buf_addr);
-+				 const void *buf_addr);
- void ath9k_hw_reset_txstatus_ring(struct ath_hw *ah);
- void ath9k_hw_setup_statusring(struct ath_hw *ah, void *ts_start,
- 			       u32 ts_paddr_start,
-diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wirele=
-ss/ath/ath9k/recv.c
-index 70dc8ec..c5f46d5 100644
---- a/drivers/net/wireless/ath/ath9k/recv.c
-+++ b/drivers/net/wireless/ath/ath9k/recv.c
-@@ -156,7 +156,7 @@ static bool ath_rx_edma_buf_link(struct ath_softc *=
-sc,
- 	ATH_RXBUF_RESET(bf);
- 	memset(skb->data, 0, ah->caps.rx_status_len);
- 	dma_sync_single_for_device(sc->dev, bf->bf_buf_addr,
--				ah->caps.rx_status_len, DMA_TO_DEVICE);
-+				ah->caps.rx_status_len, DMA_BIDIRECTIONAL);
+ 	xl_priv->rx_ring_no =3D i ;=20
+@@ -722,8 +723,6 @@ static int xl_open(struct net_device *dev)
+ =09
+ 	/* Setup Tx Ring */
+ =09
+-	xl_priv->tx_ring_dma_addr =3D pci_map_single(xl_priv->pdev,xl_priv->x=
+l_tx_ring, sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE,PCI_DMA_TODEVICE=
+) ;=20
+-=09
+ 	xl_priv->tx_ring_head =3D 1 ;=20
+ 	xl_priv->tx_ring_tail =3D 255 ; /* Special marker for first packet */
+ 	xl_priv->free_ring_entries =3D XL_TX_RING_SIZE ;=20
+@@ -752,7 +751,18 @@ static int xl_open(struct net_device *dev)
 =20
- 	SKB_CB_ATHBUF(skb) =3D bf;
- 	ath9k_hw_addrxbuf_edma(ah, bf->bf_buf_addr, qtype);
-@@ -684,15 +684,11 @@ static bool ath_edma_get_buffers(struct ath_softc=
- *sc,
- 	BUG_ON(!bf);
+ 	netif_start_queue(dev) ; =09
+ 	return 0;
+-=09
++
++err_free_rxtx:
++	dma_free_coherent(&xl_priv->pdev->dev,
++		sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE,
++		xl_priv->xl_rx_ring, xl_priv->rx_ring_dma_addr);
++err_free_tx:
++	dma_free_coherent(&xl_priv->pdev->dev,
++		sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE,
++		xl_priv->xl_tx_ring, xl_priv->tx_ring_dma_addr);
++err_free_irq:
++	free_irq(dev->irq,dev);
++	return -ENOMEM;
+ }=09
 =20
- 	dma_sync_single_for_cpu(sc->dev, bf->bf_buf_addr,
--				common->rx_bufsize, DMA_FROM_DEVICE);
-+				common->rx_bufsize, DMA_BIDIRECTIONAL);
+ static int xl_open_hw(struct net_device *dev)=20
+@@ -1060,12 +1070,13 @@ static void xl_freemem(struct net_device *dev)
+ 	}=20
 =20
- 	ret =3D ath9k_hw_process_rxdesc_edma(ah, NULL, skb->data);
--	if (ret =3D=3D -EINPROGRESS) {
--		/*let device gain the buffer again*/
--		dma_sync_single_for_device(sc->dev, bf->bf_buf_addr,
--				common->rx_bufsize, DMA_FROM_DEVICE);
-+	if (ret =3D=3D -EINPROGRESS)
- 		return false;
--	}
+ 	/* unmap ring */
+-	pci_unmap_single(xl_priv->pdev,xl_priv->rx_ring_dma_addr, sizeof(stru=
+ct xl_rx_desc) * XL_RX_RING_SIZE, PCI_DMA_FROMDEVICE) ;=20
+-=09
+-	pci_unmap_single(xl_priv->pdev,xl_priv->tx_ring_dma_addr, sizeof(stru=
+ct xl_tx_desc) * XL_TX_RING_SIZE, PCI_DMA_TODEVICE) ;=20
++	dma_free_coherent(&xl_priv->pdev->dev,
++		sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE,
++		xl_priv->xl_rx_ring, xl_priv->rx_ring_dma_addr);
 =20
- 	__skb_unlink(skb, &rx_edma->rx_fifo);
- 	if (ret =3D=3D -EINVAL) {
+-	kfree(xl_priv->xl_rx_ring) ;=20
+-	kfree(xl_priv->xl_tx_ring) ;=20
++	dma_free_coherent(&xl_priv->pdev->dev,
++		sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE,
++		xl_priv->xl_tx_ring, xl_priv->tx_ring_dma_addr);
+=20
+ 	return  ;=20
+ }
+diff --git a/drivers/net/tokenring/3c359.h b/drivers/net/tokenring/3c35=
+9.h
+index bcb1a6b..baefdd3 100644
+--- a/drivers/net/tokenring/3c359.h
++++ b/drivers/net/tokenring/3c359.h
+@@ -282,8 +282,8 @@ struct xl_private {
+ 	unsigned char xl_functional_addr[4] ;=20
+ 	u16 xl_addr_table_addr, xl_parms_addr ;=20
+ 	u8 xl_laa[6] ;=20
+-	u32 rx_ring_dma_addr ;=20
+-	u32 tx_ring_dma_addr ;=20
++	dma_addr_t rx_ring_dma_addr;
++	dma_addr_t tx_ring_dma_addr;
+=20
+ 	/* firmware section */
+ 	const struct firmware *fw;
 --=20
 1.7.5.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
