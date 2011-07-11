@@ -1,63 +1,66 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [ath5k-devel] [PATCH 3/5] ath5k: Add missing breaks in switch/case
-Date: Mon, 11 Jul 2011 11:50:33 -0400
-Message-ID: <4E1B1BC9.3080601@gnu.org>
-References: <cover.1310289795.git.joe@perches.com> <e554bed5c753a3fe85d3be34983a15e6110a6e35.1310289795.git.joe@perches.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: recommended way to support duplicate IP addresses on different
+ VLANs?
+Date: Mon, 11 Jul 2011 08:56:06 -0700
+Message-ID: <4E1B1D16.7060803@candelatech.com>
+References: <4E1B0F86.2040508@mail.usask.ca> <201107111804.26500.remi@remlab.net> <4E1B1B33.5060300@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>, netdev@vger.kernel.org,
-	ath5k-devel@lists.ath5k.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>,
+	Chris Friesen <cbf123@mail.usask.ca>, netdev@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c60.cesmail.net ([216.154.195.49]:33020 "EHLO c60.cesmail.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757776Ab1GKPuf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 11:50:35 -0400
-In-Reply-To: <e554bed5c753a3fe85d3be34983a15e6110a6e35.1310289795.git.joe@perches.com>
+Received: from mail.candelatech.com ([208.74.158.172]:56734 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754014Ab1GKP4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 11:56:13 -0400
+In-Reply-To: <4E1B1B33.5060300@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/10/2011 05:28 AM, Joe Perches wrote:
-> Signed-off-by: Joe Perches<joe@perches.com>
-
-Acked-by: Pavel Roskin <proski@gnu.org>
-
-> ---
->   drivers/net/wireless/ath/ath5k/desc.c |    3 +++
->   1 files changed, 3 insertions(+), 0 deletions(-)
+On 07/11/2011 08:48 AM, Chris Friesen wrote:
+> On 07/11/2011 09:04 AM, R=E9mi Denis-Courmont wrote:
+>> Le lundi 11 juillet 2011 17:58:14 Chris Friesen, vous avez =E9crit :
+>>> Hi all,
+>>>
+>>> We've got a server that sits on multiple VLANs. Each VLAN is segreg=
+ated
+>>> and doesn't know about the others. The IP address ranges in each of=
+ the
+>>> VLANs may overlap, and the server may be assigned the same IP addre=
+ss in
+>>> multiple VLANs.
 >
-> diff --git a/drivers/net/wireless/ath/ath5k/desc.c b/drivers/net/wireless/ath/ath5k/desc.c
-> index 62172d5..f82383b 100644
-> --- a/drivers/net/wireless/ath/ath5k/desc.c
-> +++ b/drivers/net/wireless/ath/ath5k/desc.c
-> @@ -107,10 +107,13 @@ ath5k_hw_setup_2word_tx_desc(struct ath5k_hw *ah, struct ath5k_desc *desc,
->   		case AR5K_PKT_TYPE_BEACON:
->   		case AR5K_PKT_TYPE_PROBE_RESP:
->   			frame_type = AR5K_AR5210_TX_DESC_FRAME_TYPE_NO_DELAY;
-> +			break;
->   		case AR5K_PKT_TYPE_PIFS:
->   			frame_type = AR5K_AR5210_TX_DESC_FRAME_TYPE_PIFS;
-> +			break;
->   		default:
->   			frame_type = type;
-> +			break;
->   		}
+>>> Is there any other way to deal with this scenario?
+>
+>
+>> Or then binding sockets to devices (SO_BINDTODEVICE) might work.
+>
+> Hmm...SO_BINDTODEVICE looks interesting. I would imagine we'd still n=
+eed
+> to do some funky stuff around ARP handling.
 
-The intention here is to replace frame types from enum ath5k_pkt_type 
-with their AR5210-specific counterparts.  So the intention is definitely 
-to have breaks here.
+arp_filter should help.
 
-Unfortunately, AR5210 cards are extremely rare these days.  I have one, 
-but it only works with old motherboards.  It would take me half a day to 
-dust off that system, compile the kernel and check the patch.  But I 
-assume your patch is fine.  At least it's very unlikely to break anything.
+Also, you may want to use conn-trck tables.  This lets packets coming
+in one or more interfaces use a specific conn-track cache.  Might help
+keep the identical IPs from colliding in their conn tracking.
 
--- 
-Regards,
-Pavel Roskin
+iptables -t raw -A PREROUTING -i eth0.7 -j CT --zone 7
+
+Thanks,
+Ben
+
+>
+> Chris
+>
+>
+>
+
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
