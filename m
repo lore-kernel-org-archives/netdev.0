@@ -1,40 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] xfrm: Update documentation
-Date: Mon, 11 Jul 2011 10:19:54 -0700
-Message-ID: <20110711101954.1cce91a2@nehalam.ftrdhcpuser.net>
-References: <201106120405.p5C44N7I010008@outgoing.mit.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: "tm->when" at /proc/net/tcp shows some negative numbers.
+Date: Mon, 11 Jul 2011 19:28:20 +0200
+Message-ID: <1310405300.2860.1.camel@edumazet-laptop>
+References: <CAAVaN8wcu+=p9sD76s7m3=M6hqPScOsq3WPJmAN5TBp4fAoLGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: David Ward <david.ward@ll.mit.edu>
+To: Andreas O <andreas2025@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48118 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758147Ab1GKRTy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 13:19:54 -0400
-In-Reply-To: <201106120405.p5C44N7I010008@outgoing.mit.edu>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44227 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758235Ab1GKR20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 13:28:26 -0400
+Received: by wyg8 with SMTP id 8so2738102wyg.19
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 10:28:25 -0700 (PDT)
+In-Reply-To: <CAAVaN8wcu+=p9sD76s7m3=M6hqPScOsq3WPJmAN5TBp4fAoLGQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 11 Jun 2011 22:13:30 -0400
-David Ward <david.ward@ll.mit.edu> wrote:
+Le lundi 11 juillet 2011 =C3=A0 17:47 +0100, Andreas O a =C3=A9crit :
+> Dear devnet list,
+>=20
+> I am doing some performance improvements on  linux-2.6.33.15 with
+> real-time support. When my tests fails I observe that "tm->when" at
+> /proc/net/tcp shows
+> some negative numbers. That negative number is the difference  of
+> "timer_expires - jeffies" and in this case timer_expires is smaller
+> than jiffies.
+> Does this negative number indicates a bug in the stack?
+>=20
+>=20
 
-> The ip(8) man page and the "ip xfrm [ XFRM-OBJECT ] help" command output
-> are updated to include missing options, fix errors, and improve grammar.
-> There are no functional changes made.
-> 
-> The documentation for the ip command has many different meanings for the
-> same formatting symbols (which really needs to be fixed). This patch makes
-> consistent use of brackets [ ] to indicate optional parameters, pipes | to
-> mean "OR", braces { } to group things together, and dashes - instead of
-> underscores _ inside of parameter names. The parameters are listed in the
-> order in which they are parsed in the source code.
-> 
-> There are several parameters and options that are still not mentioned or
-> need to be described more thoroughly in the "COMMAND SYNTAX" section of
-> the ip(8) man page. I would appreciate help from the developers with this.
-> 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+Not necessarly.
 
-Applied
+If the thread handling timers is delayed (because of other more urgent
+RT things), the delay between timer is fired and handled could be long.
+
+
