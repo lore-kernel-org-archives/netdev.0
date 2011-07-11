@@ -1,109 +1,57 @@
-From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: Re: [PATCH v2 03/46] net drivers: remove unnecessary
- dma_sync_to_device(DMA_FROM_DEVICE)
-Date: Mon, 11 Jul 2011 12:46:57 +0300
-Message-ID: <201107111246.57780.vladz@broadcom.com>
-References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
-	<201107111130.39629.vladz@broadcom.com>
-	<20110711092909.GB6380@rere.qmqm.pl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v2 00/46] Clean up RX copybreak and DMA handling
+Date: Mon, 11 Jul 2011 13:17:57 +0200
+Message-ID: <20110711111757.GC7532@rere.qmqm.pl>
+References: <20110711091649.GA6380@rere.qmqm.pl>
+ <20110711.022403.532062888492669176.davem@davemloft.net>
+ <20110711094723.GC6380@rere.qmqm.pl>
+ <20110711.031128.635136897396133223.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Gary Zambrano <zambrano@broadcom.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	Matthew Carlson <mcarlson@broadcom.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, Michael Chan <mchan@broadcom.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Hartley Sweeten <hsweeten@visionengravers.com>,
-	John Ronciak <john.ronciak@intel.com>, Jon Mas
-To: =?utf-8?q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20110711092909.GB6380@rere.qmqm.pl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:46111 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754788Ab1GKLR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2011 07:17:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20110711.031128.635136897396133223.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uZGF5IDExIEp1bHkgMjAxMSAxMjoyOTowOSBNaWNoYcWCIE1pcm9zxYJhdyB3cm90ZToK
-PiBPbiBNb24sIEp1bCAxMSwgMjAxMSBhdCAxMTozMDozOUFNICswMzAwLCBWbGFkIFpvbG90YXJv
-diB3cm90ZToKPiA+ID4gICAgICAgICBwcm9kX3J4X2J1Zi0+c2tiID0gc2tiOwo+ID4gPiAKPiA+
-ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JueDJ4L2JueDJ4X2Ntbi5oCj4gPiA+IGIvZHJp
-dmVycy9uZXQvYm54MngvYm54MnhfY21uLmggaW5kZXggYzAxNmUyMC4uYzllNDlhMCAxMDA2NDQK
-PiA+ID4gLS0tIGEvZHJpdmVycy9uZXQvYm54MngvYm54MnhfY21uLmgKPiA+ID4gKysrIGIvZHJp
-dmVycy9uZXQvYm54MngvYm54MnhfY21uLmgKPiA+ID4gQEAgLTkyMywxNiArOTIzLDExIEBAIHN0
-YXRpYyBpbmxpbmUgaW50IGJueDJ4X2FsbG9jX3J4X3NrYihzdHJ1Y3QgYm54MngKPiA+ID4gKmJw
-LCBzdGF0aWMgaW5saW5lIHZvaWQgYm54MnhfcmV1c2Vfcnhfc2tiKHN0cnVjdCBibngyeF9mYXN0
-cGF0aCAqZnAsCj4gPiA+IAo+ID4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHUxNiBjb25zLCB1MTYgcHJvZCkKPiA+ID4gIAo+ID4gPiAgewo+ID4gPiAKPiA+ID4gLSAg
-ICAgICBzdHJ1Y3QgYm54MnggKmJwID0gZnAtPmJwOwo+ID4gPiAKPiA+ID4gICAgICAgICBzdHJ1
-Y3Qgc3dfcnhfYmQgKmNvbnNfcnhfYnVmID0gJmZwLT5yeF9idWZfcmluZ1tjb25zXTsKPiA+ID4g
-ICAgICAgICBzdHJ1Y3Qgc3dfcnhfYmQgKnByb2RfcnhfYnVmID0gJmZwLT5yeF9idWZfcmluZ1tw
-cm9kXTsKPiA+ID4gICAgICAgICBzdHJ1Y3QgZXRoX3J4X2JkICpjb25zX2JkID0gJmZwLT5yeF9k
-ZXNjX3JpbmdbY29uc107Cj4gPiA+ICAgICAgICAgc3RydWN0IGV0aF9yeF9iZCAqcHJvZF9iZCA9
-ICZmcC0+cnhfZGVzY19yaW5nW3Byb2RdOwo+ID4gPiAKPiA+ID4gLSAgICAgICBkbWFfc3luY19z
-aW5nbGVfZm9yX2RldmljZSgmYnAtPnBkZXYtPmRldiwKPiA+ID4gLSAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBkbWFfdW5tYXBfYWRkcihjb25zX3J4X2J1ZiwKPiA+ID4gbWFwcGlu
-ZyksIC0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgUlhfQ09QWV9USFJFU0gsCj4g
-PiA+IERNQV9GUk9NX0RFVklDRSk7IC0KPiA+ID4gCj4gPiA+ICAgICAgICAgZG1hX3VubWFwX2Fk
-ZHJfc2V0KHByb2RfcnhfYnVmLCBtYXBwaW5nLAo+ID4gPiAgICAgICAgIAo+ID4gPiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICBkbWFfdW5tYXBfYWRkcihjb25zX3J4X2J1ZiwgbWFwcGluZykp
-Owo+ID4gPiAgICAgICAgIAo+ID4gPiAgICAgICAgIHByb2RfcnhfYnVmLT5za2IgPSBjb25zX3J4
-X2J1Zi0+c2tiOwo+ID4gCj4gPiBNaWNoYWwsIHBscy4sIG5vdGUgdGhhdCB0aGlzIGZ1bmN0aW9u
-IGlzIG9ubHkgY2FsbGVkIGZvciBidWZmZXJzIHdoaWNoCj4gPiB3ZXJlIHByZXZpb3VzbHkgZG1h
-X3N5bmNlZCB0b3dhcmRzIENQVSAoeW91ciAiW1BBVENIIHYyIDA1LzQ2XSBuZXQ6Cj4gPiBibngy
-eDogZml4IERNQSBzeW5jIGRpcmVjdGlvbiIgcHJvcGVybHkgZml4ZXMgdGhlIGRpcmVjdGlvbiBv
-ZiB0aGUgZmlyc3QKPiA+IGNhbGwgd2hpY2ggd2FzIGluY29ycmVjdCkuIFRoZW4sIGFjY29yZGlu
-ZyB0byB0aGUgM2QgZWRpdGlvbiBvZiB0aGUKPiA+ICJMaW51eCBkZXZpY2UgZHJpdmVycyIgYm9v
-aywgY2hhcHRlciAxNSwgIlNldHRpbmcgdXAgc3RyZWFtaW5nIERNQQo+ID4gbWFwcGluZ3MiIGFy
-dGljbGUsIGVuZCBvZiB0aGUgcGFnZSA0NDksIHdoZW4gd2UgY2FsbCBmb3IKPiA+IGRtYV9zeWNf
-c2luZ2xlX2Zvcl9jcHUoKSB0aGUgYnVmZmVyIG93bmVyc2hpcCBnZXRzIHRvIHRoZSBDUFUgYW5k
-IENQVQo+ID4gbWF5IHNhZmVseSBhY2Nlc3MgdGhlIGJ1ZmZlciAoaW4gcGFydGljdWxhciwgd2Ug
-cmVhZCBpdCkuIFRoZW4gdGhlCj4gPiBhdXRob3Igc2F5czogIkJlZm9yZSB0aGUgZGV2aWNlIGFj
-Y2Vzc2VzIHRoZSBidWZmZXIsIGhvd2V2ZXIsIG93bmVyc2hpcAo+ID4gc2hvdWxkIGJlIHRyYW5z
-ZmVyZWQgYmFjayB0byBpdCB3aXRoOiBkbWFfc3luY19zaW5nbGVfZm9yX2RldmljZSgpLgo+ID4g
-Cj4gPiBUaGUgRE1BLUFQSS50eHQgZG9jdW1lbnQgdSd2ZSByZWZlcmVuY2VkIGRvZXNuJ3QgcmVm
-ZXIgdGhlIGFib3ZlCj4gPiBmdW5jdGlvbiwgc28sIGl0J3MgdW5jbGVhciBob3cgeW91ciBmaXgg
-bWF5IGJlIGJhc2VkIG9uIGl0LiBPbiB0aGUgb3RoZXIKPiA+IGhhbmQgaXQgY2xlYXJseSBjb250
-cmFkaWN0cyB0aGUgIkxpbnV4IGRldmljZSBkcml2ZXIiIGJvb2suCj4gCj4gRE1BLUFQSS50eHQg
-ZGVzY3JpYmVzIHdoYXQgc3luY2hyb25pemF0aW9uIHBvaW50cyBhcmUgbmVjZXNzYXJ5IGZvciB3
-aGF0Cj4gRE1BIG1hcHBpbmcgdHlwZXMgKGRpcmVjdGlvbikuIGRtYV9zeW5jX3NpbmdsZV9mb3Jf
-Y3B1L2RldmljZSgpIGFyZQo+IGZ1bmN0aW9ucyByZWFsaXNpbmcgdGhvc2UgcG9pbnRzLiBOb3Rl
-IHRoYXQgZXhhbXBsZSBETUEtQVBJLUhPV1RPLnR4dCBpcwo+IG1pc2xlYWRpbmcgYXMgaXQgaGFz
-IGRtYV9zeW5jX3NpbmdsZV9mb3JfZGV2aWNlKCkgd2hlcmUgaXRzIG5vdCByZXF1aXJlZAo+IGJ5
-IERNQS1BUEkudHh0Lgo+IAo+IEluIHRoaXMgY2FzZSwgeW91IGRvbid0IG5lZWQgdG8gc3luYyB0
-byBkZXZpY2UgZm9yIG1hcHBpbmdzIHRoYXQgaGF2ZW4ndAo+IGJlZW4gd3JpdHRlbiB0byBieSBD
-UFUuIENQVSBjYWNoZXMgd2lsbCBiZSBpbnZhbGlkYXRlZCBhbnl3YXkgYnkgbmV4dAo+IGRtYV9z
-eW5jX3NpbmdsZV9mb3JfY3B1KCkgb3IgZG1hX3VubWFwX3NpbmdsZSgpIGFuZCB0aGUgQ1BVIHNo
-b3VsZCBub3QKPiBldmVyIHdyaXRlIHRvIGNhY2hlbGluZXMgdGhhdCBiZWxvbmcgdG8gRlJPTV9E
-RVZJQ0UgbWFwcGluZ3MuCgpPa2F5LCBJIHNlZSB0aGUgc2VjdGlvbiBpbiB0aGUgZG9jIHUgciB0
-YWxraW5nIGFib3V0Li4uIEkgYWdyZWUuIFdlIG1heSBkcm9wIAp0aGVzZSBzeW5jX3NpbmdsZSgp
-IGluIHRoZSBibngyeF9yZXVzZV9yeF9za2IoKS4KCj4gCj4gVGhlIGJlc3Qgc291cmNlIGlzIHRo
-ZSBjb2RlLiAKCkhtbW0uLi4gVGhlIGNvZGUgaXMgYnVnIHByb25lLCBzbyBJJ2Qgc3RpY2sgdG8g
-dGhlIERvYy4uLjspCgpUaGFua3MsIE1pY2hhbC4KdmxhZAoKCi0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LQpBbGwgb2YgdGhlIGRhdGEgZ2VuZXJhdGVkIGluIHlvdXIgSVQgaW5mcmFzdHJ1Y3R1cmUgaXMg
-c2VyaW91c2x5IHZhbHVhYmxlLgpXaHk/IEl0IGNvbnRhaW5zIGEgZGVmaW5pdGl2ZSByZWNvcmQg
-b2YgYXBwbGljYXRpb24gcGVyZm9ybWFuY2UsIHNlY3VyaXR5IAp0aHJlYXRzLCBmcmF1ZHVsZW50
-IGFjdGl2aXR5LCBhbmQgbW9yZS4gU3BsdW5rIHRha2VzIHRoaXMgZGF0YSBhbmQgbWFrZXMgCnNl
-bnNlIG9mIGl0LiBJVCBzZW5zZS4gQW5kIGNvbW1vbiBzZW5zZS4KaHR0cDovL3Auc2YubmV0L3Nm
-dS9zcGx1bmstZDJkLWMyCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vm
-b3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEw
-MDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQg
-aHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+On Mon, Jul 11, 2011 at 03:11:28AM -0700, David Miller wrote:
+> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Date: Mon, 11 Jul 2011 11:47:23 +0200
+>=20
+> > Catch 22: The chips are not tested because they have always free bu=
+ffers,
+> > they are provided with endless rx buffers because they are not bein=
+g
+> > tested. I'd rather test them well rather than workaround a phantom =
+issue.
+> > Tripping on empty free rx buffer ring is still possible even with s=
+cheme
+> > #1 (eg. with lots of NICs receiving heavy traffic) --- just harder =
+to
+> > recognise and debug (if it breaks at all) when it happens.
+> I do not support taking this risk.
+
+The problem will be waiting, just pushed into dark corner. ;)
+The card+driver need to survive empty rx buffer list anyway.
+
+This issue will come back with people attacking bufferbloat issues
+(they will want to reduce queue sizes and so increase the frequency
+when free rx buffers run out).
+
+> Please do not submit patches which move away from the long
+> standing allocation failure handling scheme.
+
+Sure. In this series it's patch 16 --- because it was trivial to do. Pe=
+nding
+patches only wrap the existing behaviour (where clearly scheme #1 or #2
+is used).
+
+Best Regards,
+Micha=B3 Miros=B3aw
