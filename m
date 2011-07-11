@@ -1,48 +1,40 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: recommended way to support duplicate IP addresses on different VLANs?
-Date: Mon, 11 Jul 2011 18:04:25 +0300
-Message-ID: <201107111804.26500.remi@remlab.net>
-References: <4E1B0F86.2040508@mail.usask.ca>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: [PATCH v2 04/46] net/wireless: p54: remove useless dma_sync_single_for_device(DMA_FROM_DEVICE)
+Date: Mon, 11 Jul 2011 11:15:20 -0400
+Message-ID: <4E1B1388.4060500@gnu.org>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl> <86c8bde08b005ca7eb4806ea77aec1f3212d63fc.1310339688.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Chris Friesen <cbf123@mail.usask.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:38375 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757778Ab1GKPEb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 11:04:31 -0400
-In-Reply-To: <4E1B0F86.2040508@mail.usask.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <86c8bde08b005ca7eb4806ea77aec1f3212d63fc.1310339688.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 11 juillet 2011 17:58:14 Chris Friesen, vous avez =E9crit :
-> Hi all,
->=20
-> We've got a server that sits on multiple VLANs.  Each VLAN is segrega=
-ted
-> and doesn't know about the others.  The IP address ranges in each of =
-the
-> VLANs may overlap, and the server may be assigned the same IP address=
- in
-> multiple VLANs.
->=20
-> We've got a messy solution now involving unique internal addresses an=
-d
-> NATing between those and the duplicate external addresses, but I'm
-> wondering if there is a cleaner way to handle this.
->=20
-> It seems like network namespaces would work, but it would require
-> multiple instances of our software which is a dealbreaker.
->=20
-> Is there any other way to deal with this scenario?
+On 07/10/2011 08:52 PM, Micha=C5=82 Miros=C5=82aw wrote:
+> Also constify pointers used in frame parsers to verify assumptions.
 
-Namespace file descriptors if/when they get accepted.
+Cleanups are better done separately.
 
-Or then binding sockets to devices (SO_BINDTODEVICE) might work.
+> -	u16 type =3D le16_to_cpu(*((__le16 *)skb->data));
+> +	u16 type =3D le16_to_cpu(*(const __le16 *)skb->data);
+
+I think it would be more appropriate to use get_unaligned_le16() here.=20
+No casts should be needed then.
+
+That's not an objection, just a suggestion :)
 
 --=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
-http://fi.linkedin.com/in/remidenis
+Regards,
+Pavel Roskin
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
