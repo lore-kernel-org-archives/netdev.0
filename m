@@ -1,51 +1,63 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: recommended way to support duplicate IP addresses on different
- VLANs?
-Date: Mon, 11 Jul 2011 09:48:03 -0600
-Message-ID: <4E1B1B33.5060300@genband.com>
-References: <4E1B0F86.2040508@mail.usask.ca> <201107111804.26500.remi@remlab.net>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [ath5k-devel] [PATCH 3/5] ath5k: Add missing breaks in switch/case
+Date: Mon, 11 Jul 2011 11:50:33 -0400
+Message-ID: <4E1B1BC9.3080601@gnu.org>
+References: <cover.1310289795.git.joe@perches.com> <e554bed5c753a3fe85d3be34983a15e6110a6e35.1310289795.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Friesen <cbf123@mail.usask.ca>, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>, netdev@vger.kernel.org,
+	ath5k-devel@lists.ath5k.org, linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og104.obsmtp.com ([64.18.2.161]:59491 "EHLO
-	exprod7og104.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757860Ab1GKPs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 11:48:26 -0400
-In-Reply-To: <201107111804.26500.remi@remlab.net>
+Received: from c60.cesmail.net ([216.154.195.49]:33020 "EHLO c60.cesmail.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757776Ab1GKPuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2011 11:50:35 -0400
+In-Reply-To: <e554bed5c753a3fe85d3be34983a15e6110a6e35.1310289795.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2011 09:04 AM, R=E9mi Denis-Courmont wrote:
-> Le lundi 11 juillet 2011 17:58:14 Chris Friesen, vous avez =E9crit :
->> Hi all,
->>
->> We've got a server that sits on multiple VLANs.  Each VLAN is segreg=
-ated
->> and doesn't know about the others.  The IP address ranges in each of=
- the
->> VLANs may overlap, and the server may be assigned the same IP addres=
-s in
->> multiple VLANs.
+On 07/10/2011 05:28 AM, Joe Perches wrote:
+> Signed-off-by: Joe Perches<joe@perches.com>
 
->> Is there any other way to deal with this scenario?
+Acked-by: Pavel Roskin <proski@gnu.org>
 
+> ---
+>   drivers/net/wireless/ath/ath5k/desc.c |    3 +++
+>   1 files changed, 3 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath5k/desc.c b/drivers/net/wireless/ath/ath5k/desc.c
+> index 62172d5..f82383b 100644
+> --- a/drivers/net/wireless/ath/ath5k/desc.c
+> +++ b/drivers/net/wireless/ath/ath5k/desc.c
+> @@ -107,10 +107,13 @@ ath5k_hw_setup_2word_tx_desc(struct ath5k_hw *ah, struct ath5k_desc *desc,
+>   		case AR5K_PKT_TYPE_BEACON:
+>   		case AR5K_PKT_TYPE_PROBE_RESP:
+>   			frame_type = AR5K_AR5210_TX_DESC_FRAME_TYPE_NO_DELAY;
+> +			break;
+>   		case AR5K_PKT_TYPE_PIFS:
+>   			frame_type = AR5K_AR5210_TX_DESC_FRAME_TYPE_PIFS;
+> +			break;
+>   		default:
+>   			frame_type = type;
+> +			break;
+>   		}
 
-> Or then binding sockets to devices (SO_BINDTODEVICE) might work.
+The intention here is to replace frame types from enum ath5k_pkt_type 
+with their AR5210-specific counterparts.  So the intention is definitely 
+to have breaks here.
 
-Hmm...SO_BINDTODEVICE looks interesting.  I would imagine we'd still=20
-need to do some funky stuff around ARP handling.
+Unfortunately, AR5210 cards are extremely rare these days.  I have one, 
+but it only works with old motherboards.  It would take me half a day to 
+dust off that system, compile the kernel and check the patch.  But I 
+assume your patch is fine.  At least it's very unlikely to break anything.
 
-Chris
-
-
-
---=20
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+-- 
+Regards,
+Pavel Roskin
