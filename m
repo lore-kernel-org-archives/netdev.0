@@ -1,56 +1,76 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Bridging behavior apparently changed around the Fedora 14 time
-Date: Mon, 11 Jul 2011 14:16:22 -0700
-Message-ID: <4E1B6826.8090101@candelatech.com>
-References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com>	<20110711130729.607d461e@nehalam.ftrdhcpuser.net>	<925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com>	<20110711134938.5178797c@nehalam.ftrdhcpuser.net>	<925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com> <20110711141028.19f0de46@nehalam.ftrdhcpuser.net>
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: RE: Bridging behavior apparently changed around the Fedora 14 time
+Date: Mon, 11 Jul 2011 16:16:40 -0500
+Message-ID: <925A849792280C4E80C5461017A4B8A2A040F7@mail733.InfraSupportEtc.com>
+References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com><20110711130729.607d461e@nehalam.ftrdhcpuser.net><925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com><20110711134938.5178797c@nehalam.ftrdhcpuser.net><925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com> <20110711141028.19f0de46@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Scott <GregScott@Infrasupport.com>, netdev@vger.kernel.org,
-	Lynn Hanson <LynnHanson@eaganhills.org>,
-	Joe Whalen <JoeWhalen@eaganhills.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Lynn Hanson" <LynnHanson@eaganhills.org>,
+	"Joe Whalen" <JoeWhalen@eaganhills.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51371 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870Ab1GKVQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 17:16:28 -0400
-In-Reply-To: <20110711141028.19f0de46@nehalam.ftrdhcpuser.net>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:23100 "EHLO
+	mail.InfraSupportEtc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754499Ab1GKVQl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 17:16:41 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2011 02:10 PM, Stephen Hemminger wrote:
-> On Mon, 11 Jul 2011 16:08:14 -0500
-> "Greg Scott"<GregScott@Infrasupport.com>  wrote:
->
->>> What about console dmesg output.
->>
->> I should probably turn off all firewall logging so I don't fill the ring
->> buffer with my log messages in, like, the first couple minutes after a
->> boot.  :)
->>
->>> Please retest with a standard upstream kernel (like 2.6.39.2).
->>
->> That's gonna take a while to put together a whole test environment with
->> the latest kernel.org kernel.
->>
->>> The bridge itself puts the device into promiscuous mode already.
->
 > The bridge code calls dev_set_promiscuity() which should
-> be changing device mode. But it could be that netdev core is
+> be changing device mode. But it could be that netdev core is 
 > resetting/changing/breaking that.
 
-Last time I checked, 'ifconfig' and similar output didn't
-show promisc when NIC was actually promisc, unless the user
-specified the promisc-ness.
+Is it supposed to change the physical ethnn devices or the br device?
 
-You can read /sys/class/net/dev/eth0/flags and
-see if flag 0x100 is set..if so, it's promisc.
+Here is what I do to set up the bridging. I do it myself right in the
+script so I can control all the details.
 
-Thanks,
-Ben
+.
+.
+.
+#
+# Setup bridging
+#
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+echo "Setting up bridge $BR_IFACE to bridge $INET_IFACE with
+$TRUSTED1_IFACE"
+
+$BRCTL addbr $BR_IFACE
+$BRCTL addif $BR_IFACE $INET_IFACE
+$BRCTL addif $BR_IFACE $TRUSTED1_IFACE
+
+echo "  Adding $BR_IP_SLASH and $TRUSTED1_IP_SLASH IP Addresses to
+$BR_IFACE"
+/sbin/ip addr add $BR_IP_SLASH broadcast $BR_BCAST_ADDRESS dev $BR_IFACE
+/sbin/ip addr add $TRUSTED1_IP_SLASH broadcast $TRUSTED1_BCAST_ADDRESS
+dev $BR_IFACE
+/sbin/ip link set $BR_IFACE up
+
+echo "  Removing $INET_IP_SLASH and $TRUSTED1_IP_SLASH from $INET_IFACE
+and $TRUSTED1_IFACE"
+/sbin/ip addr del $INET_IP_SLASH dev $INET_IFACE
+/sbin/ip addr del $INET_IP_SLASH dev $INET_IFACE
+/sbin/ip addr del $TRUSTED1_IP_SLASH dev $TRUSTED1_IFACE
+/sbin/ip addr del $TRUSTED1_IP_SLASH dev $TRUSTED1_IFACE
+
+echo "  Putting $BR_IFACE into promiscuous mode"
+# This fixes a bug forwarding packets bound for external IP Addresses
+# from the private LAN.
+
+ip link set $BR_IFACE promisc on
+
+#
+# Set up aliases for public IP addresses
+#
+.
+.
+.
+
+
+- Greg
+
 
