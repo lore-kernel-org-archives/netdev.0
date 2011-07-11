@@ -1,76 +1,41 @@
-From: "Greg Scott" <GregScott@Infrasupport.com>
-Subject: RE: Bridging behavior apparently changed around the Fedora 14 time
-Date: Mon, 11 Jul 2011 16:16:40 -0500
-Message-ID: <925A849792280C4E80C5461017A4B8A2A040F7@mail733.InfraSupportEtc.com>
-References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com><20110711130729.607d461e@nehalam.ftrdhcpuser.net><925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com><20110711134938.5178797c@nehalam.ftrdhcpuser.net><925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com> <20110711141028.19f0de46@nehalam.ftrdhcpuser.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: sch_generic warn_on (timed out)
+Date: Mon, 11 Jul 2011 14:17:01 -0700 (PDT)
+Message-ID: <20110711.141701.1453197953333902027.davem@davemloft.net>
+References: <20110711204834.GA4950@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Lynn Hanson" <LynnHanson@eaganhills.org>,
-	"Joe Whalen" <JoeWhalen@eaganhills.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.infrasupportetc.com ([216.160.2.132]:23100 "EHLO
-	mail.InfraSupportEtc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754499Ab1GKVQl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 17:16:41 -0400
-Content-class: urn:content-classes:message
+Received: from shards.monkeyblade.net ([198.137.202.13]:57685 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752960Ab1GKVRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 17:17:07 -0400
+In-Reply-To: <20110711204834.GA4950@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The bridge code calls dev_set_promiscuity() which should
-> be changing device mode. But it could be that netdev core is 
-> resetting/changing/breaking that.
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 11 Jul 2011 16:48:34 -0400
 
-Is it supposed to change the physical ethnn devices or the br device?
+> We've recieved quite a few bug reports in Fedora recently concerning this warning in
+> sch_generic..
+> 
+>             WARN_ONCE(1, KERN_INFO "NETDEV WATCHDOG: %s (%s): transmit queue %u timed out\n",
+>                       dev->name, netdev_drivername(dev, drivername, 64), i);
+> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=702723 is our 'master bug' that we're
+> duping all others against. It seems to be showing up on a variety of different
+> hardware (r8169, atl1c, ipheth, e1000e, 8139too). Do all these drivers need
+> fixing ? or is it just 'crap hardware' ?
+> 
+> note that I've only been looking through fedora 15 bugs so far (which is still on 2.6.38),
+> but looking at the commit log for sch_generic, it doesn't seem that there's anything
+> obvious that needs backporting.
 
-Here is what I do to set up the bridging. I do it myself right in the
-script so I can control all the details.
+It means the transmitter stopped sending packets for several seconds.
 
-.
-.
-.
-#
-# Setup bridging
-#
-
-echo "Setting up bridge $BR_IFACE to bridge $INET_IFACE with
-$TRUSTED1_IFACE"
-
-$BRCTL addbr $BR_IFACE
-$BRCTL addif $BR_IFACE $INET_IFACE
-$BRCTL addif $BR_IFACE $TRUSTED1_IFACE
-
-echo "  Adding $BR_IP_SLASH and $TRUSTED1_IP_SLASH IP Addresses to
-$BR_IFACE"
-/sbin/ip addr add $BR_IP_SLASH broadcast $BR_BCAST_ADDRESS dev $BR_IFACE
-/sbin/ip addr add $TRUSTED1_IP_SLASH broadcast $TRUSTED1_BCAST_ADDRESS
-dev $BR_IFACE
-/sbin/ip link set $BR_IFACE up
-
-echo "  Removing $INET_IP_SLASH and $TRUSTED1_IP_SLASH from $INET_IFACE
-and $TRUSTED1_IFACE"
-/sbin/ip addr del $INET_IP_SLASH dev $INET_IFACE
-/sbin/ip addr del $INET_IP_SLASH dev $INET_IFACE
-/sbin/ip addr del $TRUSTED1_IP_SLASH dev $TRUSTED1_IFACE
-/sbin/ip addr del $TRUSTED1_IP_SLASH dev $TRUSTED1_IFACE
-
-echo "  Putting $BR_IFACE into promiscuous mode"
-# This fixes a bug forwarding packets bound for external IP Addresses
-# from the private LAN.
-
-ip link set $BR_IFACE promisc on
-
-#
-# Set up aliases for public IP addresses
-#
-.
-.
-.
-
-
-- Greg
-
-
+I would track this on a per-device basis if I were you, instead of
+combining them all into one super-bug.
