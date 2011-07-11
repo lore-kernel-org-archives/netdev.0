@@ -1,60 +1,69 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/2] neigh: Store hash shift instead of mask.
-Date: Mon, 11 Jul 2011 13:58:41 +0200
-Message-ID: <CAHXqBFLk5ze9y7htyO+9z7=qcznNjXeuJK5Rs1t2ym=vLqDy5Q@mail.gmail.com>
-References: <20110711.014841.1004194674075047305.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 00/46] Clean up RX copybreak and DMA handling
+Date: Mon, 11 Jul 2011 13:36:35 +0100
+Message-ID: <1310387795.8783.94.camel@localhost>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
+	 <20110710.235458.1549578255936886669.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roland@purestorage.com, johnwheffner@gmail.com, mj@ucw.cz,
-	netdev@vger.kernel.org
+Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:63714 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752964Ab1GKL7C convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 07:59:02 -0400
-Received: by qwk3 with SMTP id 3so1815386qwk.19
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 04:59:01 -0700 (PDT)
-In-Reply-To: <20110711.014841.1004194674075047305.davem@davemloft.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:44999 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1749667Ab1GKMgi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 08:36:38 -0400
+In-Reply-To: <20110710.235458.1549578255936886669.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/7/11 David Miller <davem@davemloft.net>:
-> And mask the hash function result by simply shifting
-> down the "->hash_shift" most significant bits.
->
-> Currently which bits we use is arbitrary since jhash
-> produces entropy evenly across the whole hash function
-> result.
->
-> But soon we'll be using universal hashing functions,
-> and in those cases more entropy exists in the higher
-> bits than the lower bits, because they use multiplies.
+On Sun, 2011-07-10 at 23:54 -0700, David Miller wrote:
+> From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> Date: Mon, 11 Jul 2011 02:52:46 +0200 (CEST)
+>=20
+> >   1. under packet storm and memory pressure NIC keeps generating in=
+terrupts
+> >      (if non-NAPI) and indicating new buffers because it always has=
+ free
+> >      RX buffers --- this only wastes CPU and bus bandwidth transfer=
+ring
+> >      data that is going to be immediately discarded;
+>=20
+> Actually, this is exactly how I, and others advise people to implemen=
+t
+> drivers.  It is the right thing to do.
+>=20
+> The worst thing that can happen is to let the RX ring empty of
+> buffers.  Some cards hang as a result of this, and also it causes hea=
+d
+> of line blocking on multiqueue cards, etc.
 
-You could use some evil shift tricks to cut some instructions if you li=
-ke. ;-)
-Examples below.
+The controllers you are familiar with might do head-of-line blocking
+when a single RX queue is empty.  But any multiqueue controller that is
+supposed to support untrusted queues (required for SR-IOV) had better
+not.  This is certainly not done on Solarflare controllers (packets for
+that queue just get dropped until it's refilled) and I doubt it's done
+on many others.
 
-[...]
-> - =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i <=3D nht->hash_mask; i++) {
-> + =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < (1 << nht->hash_shift); i++)=
- {
+I also think it's quite reasonable for the RX queue to stop interruptin=
+g
+when the host is already too busy to refill it.  Some drivers might not
+recover correctly, but this is not a hardware issue.
 
-for (i =3D 0; !(i >> nth->hash_shift); i++)
+> So the first thing the driver should do is try to allocate a
+> replacement buffer.
+>=20
+> And if that fails, it should give the RX packet right back to the
+> card, and not pass it up the stack.
 
-[...]
-> - =C2=A0 =C2=A0 =C2=A0 size_t size =3D entries * sizeof(struct neighb=
-our *);
-> + =C2=A0 =C2=A0 =C2=A0 size_t size =3D (1 << shift) * sizeof(struct n=
-eighbour *);
+I agree this is a reasonable and generic way to deal with empty RX
+queues.
 
-size_t size =3D sizeof(struct neighbour *) << shift;
+Ben.
 
-Or, since later get_order(size) is used:
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-unsinged int size_shift =3D shift + order_base_2(sizeof(struct neighbou=
-r *));
-
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
