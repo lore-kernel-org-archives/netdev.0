@@ -1,57 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/4] ixgbe: Make certain to initialize the fdir_perfect_lock in all cases
-Date: Mon, 11 Jul 2011 19:15:14 -0700
-Message-ID: <1310436914-4017-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/4] igb: Add support of SerDes Forced mode for certain hardware
+Date: Mon, 11 Jul 2011 19:15:13 -0700
+Message-ID: <1310436914-4017-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1310436914-4017-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:17366 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754277Ab1GLCPV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 22:15:21 -0400
+	id S1752938Ab1GLCPT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2011 22:15:19 -0400
 In-Reply-To: <1310436914-4017-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This fix makes it so that the fdir_perfect_lock is initialized in all
-cases.  This is necessary as the fdir_filter_exit routine will always
-attempt to take the lock before inspecting the filter table.
+This patch changes the serdes link code to support a forced mode for
+some hardware, based on bit set in EEPROM.
 
-Reported-by: Ben Greear <greearb@candelatech.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/igb/e1000_82575.c   |   19 +++++++++++++++++--
+ drivers/net/igb/e1000_82575.h   |    2 ++
+ drivers/net/igb/e1000_defines.h |    5 +++--
+ 3 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index fa671ae..de30796 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -5155,8 +5155,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
- 		if (hw->device_id == IXGBE_DEV_ID_82599_T3_LOM)
- 			adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_CAPABLE;
--		/* n-tuple support exists, always init our spinlock */
--		spin_lock_init(&adapter->fdir_perfect_lock);
- 		/* Flow Director hash filters enabled */
- 		adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
- 		adapter->atr_sample_rate = 20;
-@@ -5177,6 +5175,9 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		break;
- 	}
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 7b7e157..c0857bd 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1156,10 +1156,13 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ {
+ 	u32 ctrl_ext, ctrl_reg, reg;
+ 	bool pcs_autoneg;
++	s32 ret_val = E1000_SUCCESS;
++	u16 data;
  
-+	/* n-tuple support exists, always init our spinlock */
-+	spin_lock_init(&adapter->fdir_perfect_lock);
+ 	if ((hw->phy.media_type != e1000_media_type_internal_serdes) &&
+ 	    !igb_sgmii_active_82575(hw))
+-		return 0;
++		return ret_val;
 +
- #ifdef CONFIG_IXGBE_DCB
- 	/* Configure DCB traffic classes */
- 	for (j = 0; j < MAX_TRAFFIC_CLASS; j++) {
+ 
+ 	/*
+ 	 * On the 82575, SerDes loopback mode persists until it is
+@@ -1203,6 +1206,18 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ 		/* disable PCS autoneg and support parallel detect only */
+ 		pcs_autoneg = false;
+ 	default:
++		if (hw->mac.type == e1000_82575 ||
++		    hw->mac.type == e1000_82576) {
++			ret_val = hw->nvm.ops.read(hw, NVM_COMPAT, 1, &data);
++			if (ret_val) {
++				printk(KERN_DEBUG "NVM Read Error\n\n");
++				return ret_val;
++			}
++
++			if (data & E1000_EEPROM_PCS_AUTONEG_DISABLE_BIT)
++				pcs_autoneg = false;
++		}
++
+ 		/*
+ 		 * non-SGMII modes only supports a speed of 1000/Full for the
+ 		 * link so it is best to just force the MAC and let the pcs
+@@ -1250,7 +1265,7 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ 	if (!igb_sgmii_active_82575(hw))
+ 		igb_force_mac_fc(hw);
+ 
+-	return 0;
++	return ret_val;
+ }
+ 
+ /**
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index fd28d62..786e110 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -243,6 +243,8 @@ struct e1000_adv_tx_context_desc {
+ #define E1000_DTXCTL_MDP_EN     0x0020
+ #define E1000_DTXCTL_SPOOF_INT  0x0040
+ 
++#define E1000_EEPROM_PCS_AUTONEG_DISABLE_BIT	(1 << 14)
++
+ #define ALL_QUEUES   0xFFFF
+ 
+ /* RX packet buffer size defines */
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index 446eb5c..2cd4082 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -437,6 +437,7 @@
+ #define E1000_RAH_POOL_1 0x00040000
+ 
+ /* Error Codes */
++#define E1000_SUCCESS      0
+ #define E1000_ERR_NVM      1
+ #define E1000_ERR_PHY      2
+ #define E1000_ERR_CONFIG   3
+@@ -587,8 +588,8 @@
+ #define E1000_NVM_POLL_READ     0    /* Flag for polling for read complete */
+ 
+ /* NVM Word Offsets */
+-#define NVM_ID_LED_SETTINGS        0x0004
+-/* For SERDES output amplitude adjustment. */
++#define NVM_COMPAT                 0x0003
++#define NVM_ID_LED_SETTINGS        0x0004 /* SERDES output amplitude */
+ #define NVM_INIT_CONTROL2_REG      0x000F
+ #define NVM_INIT_CONTROL3_PORT_B   0x0014
+ #define NVM_INIT_CONTROL3_PORT_A   0x0024
 -- 
 1.7.6
 
