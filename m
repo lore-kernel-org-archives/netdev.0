@@ -1,78 +1,296 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: Bridging behavior apparently changed around the Fedora 14 time
-Date: Tue, 12 Jul 2011 02:02:42 +0200
-Message-ID: <20110712000242.GA616804@jupiter.n2.diac24.net>
-References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com>
- <20110711130729.607d461e@nehalam.ftrdhcpuser.net>
- <925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com>
- <20110711134938.5178797c@nehalam.ftrdhcpuser.net>
- <925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH RFC] vhost: address fixme in vhost TX zero-copy support
+Date: Mon, 11 Jul 2011 17:37:47 -0700
+Message-ID: <1310431067.28930.7.camel@localhost.localdomain>
+References: <1309991321.10209.26.camel@localhost.localdomain>
+	 <20110711220449.GA8346@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Lynn Hanson <LynnHanson@eaganhills.org>,
-	Joe Whalen <JoeWhalen@eaganhills.org>
-To: Greg Scott <GregScott@Infrasupport.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:40776 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753651Ab1GLACw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 20:02:52 -0400
-Content-Disposition: inline
-In-Reply-To: <925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110711220449.GA8346@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 11, 2011 at 04:08:14PM -0500, Greg Scott wrote:
-> Uhmmmm - no it didn't.  Remember, I put br0 into promiscuous mode myself
-> by hand - take a look at this.  Note eth0 and eth1 are not in
-> promiscuous mode.  I wonder how it would behave if I put the physical
-> devices into promiscuous mode and left br0 alone?  This I can easily
-> test during off hours.  
+On Tue, 2011-07-12 at 01:04 +0300, Michael S. Tsirkin wrote:
+> So the following should do it, on top of Shirleys's patch, I think.
+> I'm
+> a bit not sure about using vq->upend_idx - vq->done_idx to check the
+> number of outstanding DMA, Shirley, what do you think?
+
+Yes, you can use this to track # outstanding DMAs.
+
+> Untested.
 > 
-> [root@ehac-fw2011 gregs]# ip link show
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> 2: eth2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state
-> DOWN qlen 1000
->     link/ether 00:0e:7f:2d:d0:6e brd ff:ff:ff:ff:ff:ff
-> 3: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UP qlen 1000
->     link/ether 00:03:47:3a:59:79 brd ff:ff:ff:ff:ff:ff
-> 4: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UP qlen 1000
->     link/ether 00:0d:88:31:d8:24 brd ff:ff:ff:ff:ff:ff
-> 5: br0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc prio
-> state UNKNOWN
->     link/ether 00:03:47:3a:59:79 brd ff:ff:ff:ff:ff:ff
-> [root@ehac-fw2011 gregs]#
+> I'm also thinking about making the use of this conditinal
+> on a module parameter, off by default to reduce
+> stability risk while still enabling more people to
+> test the feature.
+> Thoughts?
 
-All bridge port devices should really be in promiscuous mode; either
-this is just not displayed or the code is broken somewhere. On my 2.6.38
-port both "ip" and "ifconfig" correctly show the devices as PROMISC
-without any userspace tool setting this, no idea if this changed
-recently.
+Agreed.
 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 7de0c6e..cf8deb3 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -156,8 +156,7 @@ static void handle_tx(struct vhost_net *net)
+> 
+>         for (;;) {
+>                 /* Release DMAs done buffers first */
+> -               if (atomic_read(&vq->refcnt) > VHOST_MAX_PEND)
+> -                       vhost_zerocopy_signal_used(vq);
+> +               vhost_zerocopy_signal_used(vq);
+> 
+>                 head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+>                                          ARRAY_SIZE(vq->iov),
+> @@ -175,7 +174,7 @@ static void handle_tx(struct vhost_net *net)
+>                                 break;
+>                         }
+>                         /* If more outstanding DMAs, queue the work */
+> -                       if (atomic_read(&vq->refcnt) > VHOST_MAX_PEND)
+> {
+> +                       if (vq->upend_idx - vq->done_idx >
+> VHOST_MAX_PEND) {
+>                                 tx_poll_start(net, sock);
+>                                 set_bit(SOCK_ASYNC_NOSPACE,
+> &sock->flags);
+>                                 break;
+> @@ -214,12 +213,12 @@ static void handle_tx(struct vhost_net *net)
+> 
+>                                 vq->heads[vq->upend_idx].len = len;
+>                                 ubuf->callback =
+> vhost_zerocopy_callback;
+> -                               ubuf->arg = vq;
+> +                               ubuf->arg = vq->ubufs;
+>                                 ubuf->desc = vq->upend_idx;
+>                                 msg.msg_control = ubuf;
+>                                 msg.msg_controllen = sizeof(ubuf);
+> +                               kref_get(&vq->ubufs->kref);
+>                         }
+> -                       atomic_inc(&vq->refcnt);
+>                         vq->upend_idx = (vq->upend_idx + 1) %
+> UIO_MAXIOV;
+>                 }
+>                 /* TODO: Check specific error and bomb out unless
+> ENOBUFS? */
+> @@ -646,6 +645,7 @@ static long vhost_net_set_backend(struct vhost_net
+> *n, unsigned index, int fd)
+>  {
+>         struct socket *sock, *oldsock;
+>         struct vhost_virtqueue *vq;
+> +       struct vhost_ubuf_ref *ubufs, *oldubufs = NULL;
+>         int r;
+> 
+>         mutex_lock(&n->dev.mutex);
+> @@ -675,6 +675,13 @@ static long vhost_net_set_backend(struct
+> vhost_net *n, unsigned index, int fd)
+>         oldsock = rcu_dereference_protected(vq->private_data,
+> 
+> lockdep_is_held(&vq->mutex));
+>         if (sock != oldsock) {
+> +               ubufs = vhost_ubuf_alloc(vq, sock);
+> +               if (IS_ERR(ubufs)) {
+> +                       r = PTR_ERR(ubufs);
+> +                       goto err_ubufs;
+> +               }
+> +               oldubufs = vq->ubufs;
+> +               vq->ubufs = ubufs;
+>                 vhost_net_disable_vq(n, vq);
+>                 rcu_assign_pointer(vq->private_data, sock);
+>                 vhost_net_enable_vq(n, vq);
+> @@ -682,6 +689,9 @@ static long vhost_net_set_backend(struct vhost_net
+> *n, unsigned index, int fd)
+> 
+>         mutex_unlock(&vq->mutex);
+> 
+> +       if (oldbufs)
+> +               vhost_ubuf_put_and_wait(oldbufs);
+> +
+>         if (oldsock) {
+>                 vhost_net_flush_vq(n, index);
+>                 fput(oldsock->file);
+> @@ -690,6 +700,8 @@ static long vhost_net_set_backend(struct vhost_net
+> *n, unsigned index, int fd)
+>         mutex_unlock(&n->dev.mutex);
+>         return 0;
+> 
+> +err_ubufs:
+> +       fput(sock);
+>  err_vq:
+>         mutex_unlock(&vq->mutex);
+>  err:
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index db242b1..81b1dd7 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -181,7 +181,7 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+>         vq->log_ctx = NULL;
+>         vq->upend_idx = 0;
+>         vq->done_idx = 0;
+> -       atomic_set(&vq->refcnt, 0);
+> +       vq->ubufs = NULL;
+>  }
+> 
+>  static int vhost_worker(void *data)
+> @@ -401,7 +401,7 @@ long vhost_dev_reset_owner(struct vhost_dev *dev)
+>   * of used idx. Once lower device DMA done contiguously, we will
+> signal KVM
+>   * guest used idx.
+>   */
+> -void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
+> +int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
+>  {
+>         int i, j = 0;
+> 
+> @@ -414,10 +414,9 @@ void vhost_zerocopy_signal_used(struct
+> vhost_virtqueue *vq)
+>                 } else
+>                         break;
+>         }
+> -       if (j) {
+> +       if (j)
+>                 vq->done_idx = i;
+> -               atomic_sub(j, &vq->refcnt);
+> -       }
+> +       return j;
+>  }
+> 
+>  /* Caller should have device mutex */
+> @@ -430,9 +429,13 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+>                         vhost_poll_stop(&dev->vqs[i].poll);
+>                         vhost_poll_flush(&dev->vqs[i].poll);
+>                 }
+> -               /* Wait for all lower device DMAs done (busywait
+> FIXME) */
+> -               while (atomic_read(&dev->vqs[i].refcnt))
+> -                       vhost_zerocopy_signal_used(&dev->vqs[i]);
+> +               /* Wait for all lower device DMAs done. */
+> +               if (dev->vqs[i].ubufs)
+> +                       vhost_ubuf_put_and_wait(dev->vqs[i].ubufs);
+> +
+> +               /* Signal guest as appropriate. */
+> +               vhost_zerocopy_signal_used(&dev->vqs[i]);
+> +
+>                 if (dev->vqs[i].error_ctx)
+>                         eventfd_ctx_put(dev->vqs[i].error_ctx);
+>                 if (dev->vqs[i].error)
+> @@ -645,11 +648,6 @@ static long vhost_set_vring(struct vhost_dev *d,
+> int ioctl, void __user *argp)
+> 
+>         mutex_lock(&vq->mutex);
+> 
+> -       /* clean up lower device outstanding DMAs, before setting ring
+> -          busywait FIXME */
+> -       while (atomic_read(&vq->refcnt))
+> -               vhost_zerocopy_signal_used(vq);
+> -
 
-However, I must say that your bug report sounds more like a 
-forwarding-back-to-source-device IP-level problem. If I understand
-your setup correctly, you have:
+We need to clear up outstanding DMAs here too when we set vring.
+Otherwise, KVM guest remove/reload virtio_net module vring would be out
+of sync with vhost.
 
-(servers)
- |
- +--------[eth0 <-br0-> eth1]------- internet
- |
-(clients)
-
-and what isn't working is the firewall forwarding packets that it
-received on eth0/br0 back out on eth0/br0 on the IP level including
-NATting? Or did I misunderstand?
-
-
--David
-
-
-P.S.: any reason why you are (a) not using proxyarp instead of the
-bridge and (b) not using a VLAN to put those servers with public IPs
-in? You have a bit of a Frankennet there :/
-
+>         switch (ioctl) {
+>         case VHOST_SET_VRING_NUM:
+>                 /* Resizing ring with an active backend?
+> @@ -1525,12 +1523,46 @@ void vhost_disable_notify(struct vhost_dev
+> *dev, struct vhost_virtqueue *vq)
+>         }
+>  }
+> 
+> +static void vhost_zerocopy_done_signal(struct kref *kref)
+> +{
+> +       struct vhost_ubuf_ref *ubufs = container_of(kref, struct
+> vhost_ubuf_ref,
+> +                                                   kref);
+> +       wake_up(&ubufs->wait);
+> +}
+> +
+> +struct vhost_ubuf_ref *vhost_ubuf_alloc(struct vhost_virtqueue *vq,
+> +                                       void * private_data)
+> +{
+> +       struct vhost_ubuf_ref *ubufs;
+> +       /* No backend? Nothing to count. */
+> +       if (!private_data)
+> +               return NULL;
+> +       ubufs = kmalloc(sizeof *ubufs, GFP_KERNEL);
+> +       if (!ubufs)
+> +               return ERR_PTR(-ENOMEM);
+> +       kref_init(&ubufs->kref);
+> +       kref_get(&ubufs->kref);
+> +       init_waitqueue_head(&ubufs->wait);
+> +       ubufs->vq = vq;
+> +       return ubufs;
+> +}
+> +
+> +void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
+> +{
+> +       kref_put(&ubufs->kref, vhost_zerocopy_done_signal); 
+> +       wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
+> +       kfree(ubufs);
+> +}
+> +
+>  void vhost_zerocopy_callback(void *arg)
+>  {
+>         struct ubuf_info *ubuf = (struct ubuf_info *)arg;
+> +       struct vhost_ubuf_ref *ubufs;
+>         struct vhost_virtqueue *vq;
+> 
+> -       vq = (struct vhost_virtqueue *)ubuf->arg;
+> +       ubufs = ubuf->arg;
+> +       vq = ubufs->vq;
+>         /* set len = 1 to mark this desc buffers done DMA */
+>         vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+> +       kref_put(&ubufs->kref, vhost_zerocopy_done_signal); 
+>  }
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index 883688c..b42b126 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -55,6 +55,17 @@ struct vhost_log {
+>         u64 len;
+>  };
+> 
+> +struct vhost_virtqueue;
+> +
+> +struct vhost_ubuf_ref {
+> +       struct kref kref;
+> +       wait_queue_t wait;
+> +       struct vhost_virtqueue *vq;
+> +};
+> +
+> +struct vhost_ubuf_ref *vhost_ubuf_alloc(struct vhost_virtqueue *,
+> void *);
+> +void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *);
+> +
+>  /* The virtqueue structure describes a queue attached to a device. */
+>  struct vhost_virtqueue {
+>         struct vhost_dev *dev;
+> @@ -127,6 +138,9 @@ struct vhost_virtqueue {
+>         int done_idx;
+>         /* an array of userspace buffers info */
+>         struct ubuf_info *ubuf_info;
+> +       /* Reference counting for outstanding ubufs.
+> +        * Protected by vq mutex. Writers must also take device mutex.
+> */
+> +       struct vhost_ubuf_ref *ubufs;
+>  };
+> 
+>  struct vhost_dev {
+> @@ -174,7 +188,7 @@ bool vhost_enable_notify(struct vhost_dev *,
+> struct vhost_virtqueue *);
+>  int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log
+> *log,
+>                     unsigned int log_num, u64 len);
+>  void vhost_zerocopy_callback(void *arg);
+> -void vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
+> +int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
+> 
+>  #define vq_err(vq, fmt, ...) do {                                  \
+>                 pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+> -- 
