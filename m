@@ -1,62 +1,55 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCH v2 07/46] net/wireless: ath9k: fix DMA API
- usage
-Date: Tue, 12 Jul 2011 12:36:06 +0800
-Message-ID: <4E1BCF36.2010506@openwrt.org>
-References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
-	<280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
+From: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH v2 04/46] net/wireless: p54: remove useless dma_sync_single_for_device(DMA_FROM_DEVICE)
+Date: Tue, 12 Jul 2011 12:50:20 +0800
+Message-ID: <4E1BD28C.2070704@openwrt.org>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl> <86c8bde08b005ca7eb4806ea77aec1f3212d63fc.1310339688.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	Jouni Malinen <jmalinen@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>,
-	ath9k-devel@lists.ath9k.org,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <86c8bde08b005ca7eb4806ea77aec1f3212d63fc.1310339688.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gMjAxMS0wNy0xMSA4OjUyIEFNLCBNaWNoYcWCIE1pcm9zxYJhdyB3cm90ZToKPiBBbHNvIGNv
-bnN0aWZ5IGJ1Zl9hZGRyIGZvciBhdGg5a19od19wcm9jZXNzX3J4ZGVzY19lZG1hKCkgdG8gdmVy
-aWZ5Cj4gYXNzdW1wdGlvbnMgLS0tIGRtYV9zeW5jX3NpbmdsZV9mb3JfZGV2aWNlKCkgY2FsbCBj
-YW4gYmUgcmVtb3ZlZC4KPgo+IFNpZ25lZC1vZmYtYnk6IE1pY2hhxYIgTWlyb3PFgmF3PG1pcnEt
-bGludXhAcmVyZS5xbXFtLnBsPgo+IC0tLQo+ICAgZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0
-aDlrL2FyOTAwM19tYWMuYyB8ICAgIDQgKystLQo+ICAgZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRo
-L2F0aDlrL2FyOTAwM19tYWMuaCB8ICAgIDIgKy0KPiAgIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0
-aC9hdGg5ay9yZWN2LmMgICAgICAgfCAgIDEwICsrKy0tLS0tLS0KPiAgIDMgZmlsZXMgY2hhbmdl
-ZCwgNiBpbnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvcmVjdi5jIGIvZHJpdmVycy9uZXQvd2lyZWxlc3Mv
-YXRoL2F0aDlrL3JlY3YuYwo+IGluZGV4IDcwZGM4ZWMuLmM1ZjQ2ZDUgMTAwNjQ0Cj4gLS0tIGEv
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL3JlY3YuYwo+ICsrKyBiL2RyaXZlcnMvbmV0
-L3dpcmVsZXNzL2F0aC9hdGg5ay9yZWN2LmMKPiBAQCAtNjg0LDE1ICs2ODQsMTEgQEAgc3RhdGlj
-IGJvb2wgYXRoX2VkbWFfZ2V0X2J1ZmZlcnMoc3RydWN0IGF0aF9zb2Z0YyAqc2MsCj4gICAJQlVH
-X09OKCFiZik7Cj4KPiAgIAlkbWFfc3luY19zaW5nbGVfZm9yX2NwdShzYy0+ZGV2LCBiZi0+YmZf
-YnVmX2FkZHIsCj4gLQkJCQljb21tb24tPnJ4X2J1ZnNpemUsIERNQV9GUk9NX0RFVklDRSk7Cj4g
-KwkJCQljb21tb24tPnJ4X2J1ZnNpemUsIERNQV9CSURJUkVDVElPTkFMKTsKPgo+ICAgCXJldCA9
-IGF0aDlrX2h3X3Byb2Nlc3NfcnhkZXNjX2VkbWEoYWgsIE5VTEwsIHNrYi0+ZGF0YSk7Cj4gLQlp
-ZiAocmV0ID09IC1FSU5QUk9HUkVTUykgewo+IC0JCS8qbGV0IGRldmljZSBnYWluIHRoZSBidWZm
-ZXIgYWdhaW4qLwo+IC0JCWRtYV9zeW5jX3NpbmdsZV9mb3JfZGV2aWNlKHNjLT5kZXYsIGJmLT5i
-Zl9idWZfYWRkciwKPiAtCQkJCWNvbW1vbi0+cnhfYnVmc2l6ZSwgRE1BX0ZST01fREVWSUNFKTsK
-PiArCWlmIChyZXQgPT0gLUVJTlBST0dSRVNTKQo+ICAgCQlyZXR1cm4gZmFsc2U7Cj4gLQl9Cj4K
-PiAgIAlfX3NrYl91bmxpbmsoc2tiLCZyeF9lZG1hLT5yeF9maWZvKTsKPiAgIAlpZiAocmV0ID09
-IC1FSU5WQUwpIHsKSSBoYXZlIHN0cm9uZyBkb3VidHMgYWJvdXQgdGhpcyBjaGFuZ2UuIE9uIG1v
-c3QgTUlQUyBkZXZpY2VzLCAKZG1hX3N5bmNfc2luZ2xlX2Zvcl9jcHUgaXMgYSBuby1vcCwgd2hl
-cmVhcyBkbWFfc3luY19zaW5nbGVfZm9yX2RldmljZSAKZmx1c2hlcyB0aGUgY2FjaGUgcmFuZ2Uu
-IFdpdGggdGhpcyBjaGFuZ2UsIHRoZSBDUFUgY291bGQgY2FjaGUgdGhlIERNQSAKc3RhdHVzIHBh
-cnQgYmVoaW5kIHNrYi0+ZGF0YSBhbmQgdGhhdCBjYWNoZSBlbnRyeSB3b3VsZCBub3QgYmUgZmx1
-c2hlZCAKaW5iZXR3ZWVuIGNhbGxzIHRvIHRoaXMgZnVuY3Rpb25zIG9uIHRoZSBzYW1lIGJ1ZmZl
-ciwgbGlrZWx5IGxlYWRpbmcgdG8gCnJ4IHN0YWxscy4KCi0gRmVsaXgKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KYXRoOWstZGV2ZWwgbWFpbGluZyBsaXN0
-CmF0aDlrLWRldmVsQGxpc3RzLmF0aDlrLm9yZwpodHRwczovL2xpc3RzLmF0aDlrLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL2F0aDlrLWRldmVsCg==
+On 2011-07-11 8:52 AM, Micha=C5=82 Miros=C5=82aw wrote:
+> Also constify pointers used in frame parsers to verify assumptions.
+>
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw<mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+> ---
+>   drivers/net/wireless/p54/p54pci.c |    2 --
+>   drivers/net/wireless/p54/txrx.c   |   22 +++++++++++-----------
+>   2 files changed, 11 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/wireless/p54/p54pci.c b/drivers/net/wireless=
+/p54/p54pci.c
+> index 1b75317..4491d33 100644
+> --- a/drivers/net/wireless/p54/p54pci.c
+> +++ b/drivers/net/wireless/p54/p54pci.c
+> @@ -229,8 +229,6 @@ static void p54p_check_rx_ring(struct ieee80211_h=
+w *dev, u32 *index,
+>   			desc->host_addr =3D cpu_to_le32(0);
+>   		} else {
+>   			skb_trim(skb, 0);
+> -			pci_dma_sync_single_for_device(priv->pdev, dma_addr,
+> -				priv->common.rx_mtu + 32, PCI_DMA_FROMDEVICE);
+>   			desc->len =3D cpu_to_le16(priv->common.rx_mtu + 32);
+>   		}
+>
+This part does not look correct to me - same issue as your ath9k change=
+,=20
+which I commented on earlier. I don't think this call to=20
+dma_sync_single_for_device is useless
+
+- Felix
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
