@@ -1,118 +1,38 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/4] igb: Add support of SerDes Forced mode for certain hardware
-Date: Mon, 11 Jul 2011 19:15:13 -0700
-Message-ID: <1310436914-4017-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1310436914-4017-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 1/2] net: introduce
+ __netdev_alloc_skb_ip_align
+Date: Mon, 11 Jul 2011 19:32:23 -0700 (PDT)
+Message-ID: <20110711.193223.1071104458616510178.davem@davemloft.net>
+References: <1310421164.2860.21.camel@edumazet-laptop>
+	<1310425028.2707.12.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17366 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752938Ab1GLCPT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2011 22:15:19 -0400
-In-Reply-To: <1310436914-4017-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59488 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753315Ab1GLCcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2011 22:32:32 -0400
+In-Reply-To: <1310425028.2707.12.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 11 Jul 2011 23:57:08 +0100
 
-This patch changes the serdes link code to support a forced mode for
-some hardware, based on bit set in EEPROM.
+> On Mon, 2011-07-11 at 23:52 +0200, Eric Dumazet wrote:
+>> RX rings should use GFP_KERNEL allocations if possible, add
+>> __netdev_alloc_skb_ip_align() helper to ease this.
+> [...]
+> 
+> When it is possible, other than when starting an interface?  RX refill
+> normally has to be done in NAPI context or at least synchronised with
+> NAPI, so GFP_ATOMIC is required.  Not sure how much point there is in
+> making a special case for the initial fill.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/igb/e1000_82575.c   |   19 +++++++++++++++++--
- drivers/net/igb/e1000_82575.h   |    2 ++
- drivers/net/igb/e1000_defines.h |    5 +++--
- 3 files changed, 22 insertions(+), 4 deletions(-)
+There is a point, because if this init case fails you lose the
+interface entirely.
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index 7b7e157..c0857bd 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -1156,10 +1156,13 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
- {
- 	u32 ctrl_ext, ctrl_reg, reg;
- 	bool pcs_autoneg;
-+	s32 ret_val = E1000_SUCCESS;
-+	u16 data;
- 
- 	if ((hw->phy.media_type != e1000_media_type_internal_serdes) &&
- 	    !igb_sgmii_active_82575(hw))
--		return 0;
-+		return ret_val;
-+
- 
- 	/*
- 	 * On the 82575, SerDes loopback mode persists until it is
-@@ -1203,6 +1206,18 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
- 		/* disable PCS autoneg and support parallel detect only */
- 		pcs_autoneg = false;
- 	default:
-+		if (hw->mac.type == e1000_82575 ||
-+		    hw->mac.type == e1000_82576) {
-+			ret_val = hw->nvm.ops.read(hw, NVM_COMPAT, 1, &data);
-+			if (ret_val) {
-+				printk(KERN_DEBUG "NVM Read Error\n\n");
-+				return ret_val;
-+			}
-+
-+			if (data & E1000_EEPROM_PCS_AUTONEG_DISABLE_BIT)
-+				pcs_autoneg = false;
-+		}
-+
- 		/*
- 		 * non-SGMII modes only supports a speed of 1000/Full for the
- 		 * link so it is best to just force the MAC and let the pcs
-@@ -1250,7 +1265,7 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
- 	if (!igb_sgmii_active_82575(hw))
- 		igb_force_mac_fc(hw);
- 
--	return 0;
-+	return ret_val;
- }
- 
- /**
-diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
-index fd28d62..786e110 100644
---- a/drivers/net/igb/e1000_82575.h
-+++ b/drivers/net/igb/e1000_82575.h
-@@ -243,6 +243,8 @@ struct e1000_adv_tx_context_desc {
- #define E1000_DTXCTL_MDP_EN     0x0020
- #define E1000_DTXCTL_SPOOF_INT  0x0040
- 
-+#define E1000_EEPROM_PCS_AUTONEG_DISABLE_BIT	(1 << 14)
-+
- #define ALL_QUEUES   0xFFFF
- 
- /* RX packet buffer size defines */
-diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
-index 446eb5c..2cd4082 100644
---- a/drivers/net/igb/e1000_defines.h
-+++ b/drivers/net/igb/e1000_defines.h
-@@ -437,6 +437,7 @@
- #define E1000_RAH_POOL_1 0x00040000
- 
- /* Error Codes */
-+#define E1000_SUCCESS      0
- #define E1000_ERR_NVM      1
- #define E1000_ERR_PHY      2
- #define E1000_ERR_CONFIG   3
-@@ -587,8 +588,8 @@
- #define E1000_NVM_POLL_READ     0    /* Flag for polling for read complete */
- 
- /* NVM Word Offsets */
--#define NVM_ID_LED_SETTINGS        0x0004
--/* For SERDES output amplitude adjustment. */
-+#define NVM_COMPAT                 0x0003
-+#define NVM_ID_LED_SETTINGS        0x0004 /* SERDES output amplitude */
- #define NVM_INIT_CONTROL2_REG      0x000F
- #define NVM_INIT_CONTROL3_PORT_B   0x0014
- #define NVM_INIT_CONTROL3_PORT_A   0x0024
--- 
-1.7.6
-
+Whereas the other cases only cause the loss of a few packets.
