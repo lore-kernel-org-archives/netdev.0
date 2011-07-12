@@ -1,148 +1,225 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/5] ipv4: Kill ip_route_input_noref().
-Date: Mon, 11 Jul 2011 22:30:06 -0700 (PDT)
-Message-ID: <20110711.223006.647272414141627558.davem@davemloft.net>
+Subject: [PATCH 3/5] ipv4: Remove rt_key_{src,dst,tos} from struct rtable.
+Date: Mon, 11 Jul 2011 22:30:09 -0700 (PDT)
+Message-ID: <20110711.223009.1200873846184449420.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34608 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34610 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678Ab1GLFaH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 01:30:07 -0400
+	with ESMTP id S1752846Ab1GLFaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 01:30:10 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
 	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p6C5U6Ru030538
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p6C5U9ng030567
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 22:30:07 -0700
+	for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 22:30:09 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The "noref" argument to ip_route_input_common() is now always ignored
-because we do not cache routes, and in that case we must always grab
-a reference to the resulting 'dst'.
+They are always used in contexts where they can be reconstituted,
+or where the finally resolved rt->rt_{src,dst} is semantically
+equivalent.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/route.h    |   16 ++--------------
- net/ipv4/arp.c         |    2 +-
- net/ipv4/ip_fragment.c |    4 ++--
- net/ipv4/ip_input.c    |    4 ++--
- net/ipv4/route.c       |    6 +++---
- net/ipv4/xfrm4_input.c |    4 ++--
- 6 files changed, 12 insertions(+), 24 deletions(-)
+ include/net/route.h     |    5 -----
+ net/ipv4/route.c        |   37 ++++++++-----------------------------
+ net/ipv4/xfrm4_policy.c |    3 ---
+ 3 files changed, 8 insertions(+), 37 deletions(-)
 
 diff --git a/include/net/route.h b/include/net/route.h
-index 8861144..34c9bc5 100644
+index 34c9bc5..d293db3 100644
 --- a/include/net/route.h
 +++ b/include/net/route.h
-@@ -165,20 +165,8 @@ static inline struct rtable *ip_route_output_gre(struct net *net, struct flowi4
- 	return ip_route_output_key(net, fl4);
- }
+@@ -45,14 +45,9 @@ struct fib_info;
+ struct rtable {
+ 	struct dst_entry	dst;
  
--extern int ip_route_input_common(struct sk_buff *skb, __be32 dst, __be32 src,
--				 u8 tos, struct net_device *devin, bool noref);
+-	/* Lookup key. */
+-	__be32			rt_key_dst;
+-	__be32			rt_key_src;
 -
--static inline int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
--				 u8 tos, struct net_device *devin)
--{
--	return ip_route_input_common(skb, dst, src, tos, devin, false);
--}
--
--static inline int ip_route_input_noref(struct sk_buff *skb, __be32 dst, __be32 src,
--				       u8 tos, struct net_device *devin)
--{
--	return ip_route_input_common(skb, dst, src, tos, devin, true);
--}
-+extern int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
-+			  u8 tos, struct net_device *devin);
+ 	int			rt_genid;
+ 	unsigned		rt_flags;
+ 	__u16			rt_type;
+-	__u8			rt_key_tos;
  
- extern unsigned short	ip_rt_frag_needed(struct net *net, const struct iphdr *iph,
- 					  unsigned short new_mtu, struct net_device *dev);
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 1b74d3b..ef44a91 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -875,7 +875,7 @@ static int arp_process(struct sk_buff *skb)
- 	}
- 
- 	if (arp->ar_op == htons(ARPOP_REQUEST) &&
--	    ip_route_input_noref(skb, tip, sip, 0, dev) == 0) {
-+	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
- 
- 		rt = skb_rtable(skb);
- 		addr_type = rt->rt_type;
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 0e0ab98..a77b8b1 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -252,8 +252,8 @@ static void ip_expire(unsigned long arg)
- 		/* skb dst is stale, drop it, and perform route lookup again */
- 		skb_dst_drop(head);
- 		iph = ip_hdr(head);
--		err = ip_route_input_noref(head, iph->daddr, iph->saddr,
--					   iph->tos, head->dev);
-+		err = ip_route_input(head, iph->daddr, iph->saddr,
-+				     iph->tos, head->dev);
- 		if (err)
- 			goto out_rcu_unlock;
- 
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 073a9b0..ee753c3 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -324,8 +324,8 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 	 *	how the packet travels inside Linux networking.
- 	 */
- 	if (skb_dst(skb) == NULL) {
--		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
--					       iph->tos, skb->dev);
-+		int err = ip_route_input(skb, iph->daddr, iph->saddr,
-+					 iph->tos, skb->dev);
- 		if (unlikely(err)) {
- 			if (err == -EHOSTUNREACH)
- 				IP_INC_STATS_BH(dev_net(skb->dev),
+ 	__be32			rt_dst;	/* Path destination	*/
+ 	__be32			rt_src;	/* Path source		*/
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c935853..3ecef57 100644
+index 3ecef57..2d9bece 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1548,8 +1548,8 @@ martian_source_keep_err:
- 	goto out;
- }
+@@ -1170,12 +1170,9 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ #endif
+ 	rth->dst.output = ip_rt_bug;
  
--int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
--			   u8 tos, struct net_device *dev, bool noref)
-+int ip_route_input(struct sk_buff *skb, __be32 daddr, __be32 saddr,
-+		   u8 tos, struct net_device *dev)
- {
- 	int res;
+-	rth->rt_key_dst	= daddr;
+-	rth->rt_key_src	= saddr;
+ 	rth->rt_genid	= rt_genid(dev_net(dev));
+ 	rth->rt_flags	= RTCF_MULTICAST;
+ 	rth->rt_type	= RTN_MULTICAST;
+-	rth->rt_key_tos	= tos;
+ 	rth->rt_dst	= daddr;
+ 	rth->rt_src	= saddr;
+ 	rth->rt_route_iif = dev->ifindex;
+@@ -1304,12 +1301,9 @@ static int __mkroute_input(struct sk_buff *skb,
+ 		goto cleanup;
+ 	}
  
-@@ -1592,7 +1592,7 @@ int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rcu_read_unlock();
- 	return res;
- }
--EXPORT_SYMBOL(ip_route_input_common);
-+EXPORT_SYMBOL(ip_route_input);
+-	rth->rt_key_dst	= daddr;
+-	rth->rt_key_src	= saddr;
+ 	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
+ 	rth->rt_flags = flags;
+ 	rth->rt_type = res->type;
+-	rth->rt_key_tos	= tos;
+ 	rth->rt_dst	= daddr;
+ 	rth->rt_src	= saddr;
+ 	rth->rt_route_iif = in_dev->dev->ifindex;
+@@ -1479,12 +1473,9 @@ local_input:
+ 	rth->dst.tclassid = itag;
+ #endif
  
+-	rth->rt_key_dst	= daddr;
+-	rth->rt_key_src	= saddr;
+ 	rth->rt_genid = rt_genid(net);
+ 	rth->rt_flags 	= flags|RTCF_LOCAL;
+ 	rth->rt_type	= res.type;
+-	rth->rt_key_tos	= tos;
+ 	rth->rt_dst	= daddr;
+ 	rth->rt_src	= saddr;
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+@@ -1597,12 +1588,10 @@ EXPORT_SYMBOL(ip_route_input);
  /* called with rcu_read_lock() */
  static struct rtable *__mkroute_output(const struct fib_result *res,
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index 06814b6..58d23a5 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -27,8 +27,8 @@ static inline int xfrm4_rcv_encap_finish(struct sk_buff *skb)
- 	if (skb_dst(skb) == NULL) {
- 		const struct iphdr *iph = ip_hdr(skb);
+ 				       const struct flowi4 *fl4,
+-				       __be32 orig_daddr, __be32 orig_saddr,
+ 				       int orig_oif, struct net_device *dev_out,
+ 				       unsigned int flags)
+ {
+ 	struct fib_info *fi = res->fi;
+-	u32 tos = RT_FL_TOS(fl4);
+ 	struct in_device *in_dev;
+ 	u16 type = res->type;
+ 	struct rtable *rth;
+@@ -1648,12 +1637,9 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
  
--		if (ip_route_input_noref(skb, iph->daddr, iph->saddr,
--					 iph->tos, skb->dev))
-+		if (ip_route_input(skb, iph->daddr, iph->saddr,
-+				   iph->tos, skb->dev))
- 			goto drop;
+ 	rth->dst.output = ip_output;
+ 
+-	rth->rt_key_dst	= orig_daddr;
+-	rth->rt_key_src	= orig_saddr;
+ 	rth->rt_genid = rt_genid(dev_net(dev_out));
+ 	rth->rt_flags	= flags;
+ 	rth->rt_type	= type;
+-	rth->rt_key_tos	= tos;
+ 	rth->rt_dst	= fl4->daddr;
+ 	rth->rt_src	= fl4->saddr;
+ 	rth->rt_route_iif = 0;
+@@ -1706,8 +1692,6 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 	unsigned int flags = 0;
+ 	struct fib_result res;
+ 	struct rtable *rth;
+-	__be32 orig_daddr;
+-	__be32 orig_saddr;
+ 	int orig_oif;
+ 
+ 	res.fi		= NULL;
+@@ -1715,8 +1699,6 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 	res.r		= NULL;
+ #endif
+ 
+-	orig_daddr = fl4->daddr;
+-	orig_saddr = fl4->saddr;
+ 	orig_oif = fl4->flowi4_oif;
+ 
+ 	fl4->flowi4_iif = net->loopback_dev->ifindex;
+@@ -1877,8 +1859,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 
+ 
+ make_route:
+-	rth = __mkroute_output(&res, fl4, orig_daddr, orig_saddr, orig_oif,
+-			       dev_out, flags);
++	rth = __mkroute_output(&res, fl4, orig_oif, dev_out, flags);
+ 	if (!IS_ERR(rth))
+ 		rth = rt_finalize(rth, NULL);
+ 
+@@ -1936,9 +1917,6 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+ 		if (new->dev)
+ 			dev_hold(new->dev);
+ 
+-		rt->rt_key_dst = ort->rt_key_dst;
+-		rt->rt_key_src = ort->rt_key_src;
+-		rt->rt_key_tos = ort->rt_key_tos;
+ 		rt->rt_route_iif = ort->rt_route_iif;
+ 		rt->rt_iif = ort->rt_iif;
+ 		rt->rt_oif = ort->rt_oif;
+@@ -1983,7 +1961,7 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
+ }
+ EXPORT_SYMBOL_GPL(ip_route_output_flow);
+ 
+-static int rt_fill_info(struct net *net,
++static int rt_fill_info(struct net *net,  __be32 src, u8 tos,
+ 			struct sk_buff *skb, u32 pid, u32 seq, int event,
+ 			int nowait, unsigned int flags)
+ {
+@@ -2002,7 +1980,7 @@ static int rt_fill_info(struct net *net,
+ 	r->rtm_family	 = AF_INET;
+ 	r->rtm_dst_len	= 32;
+ 	r->rtm_src_len	= 0;
+-	r->rtm_tos	= rt->rt_key_tos;
++	r->rtm_tos	= tos;
+ 	r->rtm_table	= RT_TABLE_MAIN;
+ 	NLA_PUT_U32(skb, RTA_TABLE, RT_TABLE_MAIN);
+ 	r->rtm_type	= rt->rt_type;
+@@ -2014,9 +1992,9 @@ static int rt_fill_info(struct net *net,
+ 
+ 	NLA_PUT_BE32(skb, RTA_DST, rt->rt_dst);
+ 
+-	if (rt->rt_key_src) {
++	if (src) {
+ 		r->rtm_src_len = 32;
+-		NLA_PUT_BE32(skb, RTA_SRC, rt->rt_key_src);
++		NLA_PUT_BE32(skb, RTA_SRC, src);
  	}
- 	return dst_input(skb);
+ 	if (rt->dst.dev)
+ 		NLA_PUT_U32(skb, RTA_OIF, rt->dst.dev->ifindex);
+@@ -2026,7 +2004,7 @@ static int rt_fill_info(struct net *net,
+ #endif
+ 	if (rt_is_input_route(rt))
+ 		NLA_PUT_BE32(skb, RTA_PREFSRC, rt->rt_spec_dst);
+-	else if (rt->rt_src != rt->rt_key_src)
++	else if (rt->rt_src != src)
+ 		NLA_PUT_BE32(skb, RTA_PREFSRC, rt->rt_src);
+ 
+ 	if (rt->rt_dst != rt->rt_gateway)
+@@ -2168,7 +2146,8 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	if (rtm->rtm_flags & RTM_F_NOTIFY)
+ 		rt->rt_flags |= RTCF_NOTIFY;
+ 
+-	err = rt_fill_info(net, skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
++	err = rt_fill_info(net, src, rtm->rtm_tos, skb,
++			   NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
+ 			   RTM_NEWROUTE, 0, 0);
+ 	if (err <= 0)
+ 		goto errout_free;
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index fc5368a..6b4a349 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -79,9 +79,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 	struct rtable *rt = (struct rtable *)xdst->route;
+ 	const struct flowi4 *fl4 = &fl->u.ip4;
+ 
+-	rt->rt_key_dst = fl4->daddr;
+-	rt->rt_key_src = fl4->saddr;
+-	rt->rt_key_tos = fl4->flowi4_tos;
+ 	rt->rt_route_iif = fl4->flowi4_iif;
+ 	rt->rt_iif = fl4->flowi4_iif;
+ 	rt->rt_oif = fl4->flowi4_oif;
 -- 
 1.7.5.4
 
