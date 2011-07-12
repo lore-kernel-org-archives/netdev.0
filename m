@@ -1,64 +1,89 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [RFC v2 2/2] e100: Support RXFCS feature flag.
-Date: Tue, 12 Jul 2011 17:49:49 +0200
-Message-ID: <CAHXqBFL-QgKvrvcrjtjSgDdeH9i7Ai86U2ujQ4xpo-vXLEkO5A@mail.gmail.com>
-References: <1308942371-12748-1-git-send-email-greearb@candelatech.com>
- <1308942371-12748-3-git-send-email-greearb@candelatech.com>
- <BANLkTiknCV1HknVpEdK97yU8eJwaJ5Y5Ag@mail.gmail.com> <4E0B3510.2080202@candelatech.com>
- <BANLkTikaJNa2+jbW6HWwc+tEE-ciNxvkLg@mail.gmail.com> <4E0B383E.8020807@candelatech.com>
- <BANLkTi=-ibpBiWBZ=AANybmWMWfMVGfe4Q@mail.gmail.com> <4E0B42CE.30400@candelatech.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH net-next-2.6] net: introduce build_skb()
+Date: Tue, 12 Jul 2011 17:54:05 +0200
+Message-ID: <20110712155404.GA10651@rere.qmqm.pl>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
+ <ae7b531c89a01a21e4374907b69f4d997c9d5d1b.1310339688.git.mirq-linux@rere.qmqm.pl>
+ <1310363206.2512.26.camel@edumazet-laptop>
+ <1310485216.2871.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:57117 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753680Ab1GLPuK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 11:50:10 -0400
-Received: by qyk29 with SMTP id 29so2046831qyk.19
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 08:50:09 -0700 (PDT)
-In-Reply-To: <4E0B42CE.30400@candelatech.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:42123 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259Ab1GLPyH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2011 11:54:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1310485216.2871.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 29 czerwca 2011 17:20 u=BFytkownik Ben Greear
-<greearb@candelatech.com> napisa=B3:
-> On 06/29/2011 08:06 AM, Micha=B3 Miros=B3aw wrote:
->> W dniu 29 czerwca 2011 16:35 u=BFytkownik Ben Greear
->> <greearb@candelatech.com> =A0napisa=B3:
->>> On 06/29/2011 07:33 AM, Micha=B3 Miros=B3aw wrote:
->>>>
->>>> W dniu 29 czerwca 2011 16:22 u=BFytkownik Ben Greear
->>>> <greearb@candelatech.com> =A0 =A0napisa=B3:
-[...]
->>>>> I thought 'features' was what the NIC could support, and
->>>>> wanted_features
->>>>> was what the NIC was currently configured to support? =A0I don't =
-want
->>>>> to rx the CRC all the time, just when users enable it...
->>>> hw_features is what device could support, and features is what dev=
-ice
->>>> has currently turned on.
->>> Ok, thanks for that correction.
->>> What does wanted_features mean, then?
->> What user wants to be active. It should be more clear to you if you
->> read the implemetation: netdev_update_features() and friends.
->
-> I read it. =A0Seems the code won't let you turn on something not supp=
-orted,
-> so if user wants RXFCS, then wanted_features will have it enabled. =A0=
-So,
-> I'm not sure why my e100 patch would be wrong in that case.
+On Tue, Jul 12, 2011 at 05:40:16PM +0200, Eric Dumazet wrote:
+> Le lundi 11 juillet 2011 =C3=A0 07:46 +0200, Eric Dumazet a =C3=A9cri=
+t :
+>=20
+> > [PATCH] net: introduce build_skb()
+> >=20
+> > One of the thing we discussed during netdev 2011 conference was the=
+ idea
+> > to change network drivers to allocate/populate their skb at RX
+> > completion time, right before feeding the skb to network stack.
+> >=20
+> > Right now, we allocate skbs when populating the RX ring, and thats =
+a
+> > waste of CPU cache, since allocating skb means a full memset() to c=
+lear
+> > the skb and its skb_shared_info portion. By the time NIC fills a fr=
+ame
+> > in data buffer and host can get it, cpu probably threw away the cac=
+he
+> > lines from its caches, because of huge RX ring sizes.
+> >=20
+> > So the deal would be to allocate only the data buffer for the NIC t=
+o
+> > populate its RX ring buffer. And use build_skb() at RX completion t=
+o
+> > attach a data buffer (now filled with an ethernet frame) to a new s=
+kb,
+> > initialize the skb_shared_info portion, and give the hot skb to net=
+work
+> > stack.
+>=20
+> Update :
+>=20
+> First results are impressive : About 15% of throughput increase with =
+igb
+> driver on my small desktop machine, and I am limited by the wire
+> speed :)
+>=20
+> (AMD Athlon(tm) II X2 B24 Processor, 3GHz, cache size : 1024K)
+>=20
+> setup : One dual port Intel card : Ethernet controller: Intel
+> Corporation 82576 Gigabit Network Connection (rev 01)
+>=20
+> eth1 direct attach on eth2, Gigabit speed.
+> eth2 RX ring set to 4096 slots (default is 256)
+>=20
+> CPU0 : pktgen sending on eth1, line rate (1488137pps)
+> CPU1 : receive eth2 interrupts, packets dropped into raw netfilter ta=
+ble
+> to bypass upper stacks.
+>=20
+> Before patch : 15% packet losses, ksoftirqd/1 using 100% of cpu
+> After patch : residual losses (less than 0.1 %), ksoftirqd not used, =
+80%
+> cpu used=20
+>=20
+> I'll do more tests with a 10Gb card (ixgbe driver) to not be wire
+> limited.
 
-wanted_features only reflects what is requested by user, this
-combination might be invalid. When conditions change this value
-combined with other bits in features are passed through
-ndo_fix_features callback and netdev_fix_features() to bring it to
-valid state, and then (if resulting set is different than current
-features) ndo_set_features() is called to reconfigure device for that
-new state change to it.
+I remember observing similar increase after switching from allocating s=
+kb
+to allocating pages and using napi_get_frags() + napi_gro_frags(). That
+was with sl351x driver posted for review some time ago.
 
 Best Regards,
-Micha=B3 Miros=B3aw
+Micha=C5=82 Miros=C5=82aw
