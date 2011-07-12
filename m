@@ -1,66 +1,79 @@
 From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
- groups
-Date: Tue, 12 Jul 2011 13:36:43 +0200
-Message-ID: <20110712113643.GC616804@jupiter.n2.diac24.net>
-References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
- <CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
- <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+Subject: Re: [patch net-next-2.6] net: allow multiple rx_handler registration
+Date: Tue, 12 Jul 2011 13:54:22 +0200
+Message-ID: <20110712115422.GD616804@jupiter.n2.diac24.net>
+References: <1310468761-2304-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nick Carter <ncarter100@gmail.com>, netdev@vger.kernel.org,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	David Lamparter <equinox@diac24.net>, davem@davemloft.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
+	andy@greyhouse.net, greearb@candelatech.com, mirqus@gmail.com,
+	equinox@diac24.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:52919 "EHLO spaceboyz.net"
+Received: from spaceboyz.net ([87.106.131.203]:50389 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752964Ab1GLLgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 07:36:55 -0400
+	id S1752964Ab1GLLye (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2011 07:54:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+In-Reply-To: <1310468761-2304-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
-> On Sun, 10 Jul 2011 17:04:30 +0100
-> Nick Carter <ncarter100@gmail.com> wrote:
-> 
-> > Updated diffs so they apply to net-next (Original diffs were based off 2.6.38).
-> > 
-> > Any chance of getting these diffs applied?  The default behaviour of
-> > the bridge code is unchanged.  They solve the problem of
-> > authenticating a virtual 802.1x supplicant machine against an external
-> > 802.1X authenticator.  It is also a general solution that allows the
-> > forwarding of any combination of the IEEE 802 local multicast groups.
-> > 
-> > Signed-off-by: Nick Carter <ncarter100@gmail.com>
-> > Reviewed-by: David Lamparter <equinox@diac24.net>
-> 
-> I am still undecided on this. Understand the need, but don't like idea
-> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
-> has any input.
+On Tue, Jul 12, 2011 at 01:06:01PM +0200, Jiri Pirko wrote:
+> For some net topos it is necessary to have multiple "soft-net-devices"
+> hooked on one netdev. For example very common is to have
+> eth<->(br+vlan). Vlan is not using rh_handler (yet) but it might be useful
+> for other setups.
 
-The patch doesn't make the bridge behave nonconformant. The default mask
-is 0, which just keeps the old behaviour.
+I disagree strongly, especially with the use cases you're enabling in
+this patch.
 
-If you set the lowest 3 bits, yes, you can break your network. But so
-does enabling proxy_arp in most cases. And there are reasonable use
-cases for it, both 802.1X forwarding and fully-transparent* packet
-capture bridges benefit from it. And the latter is something I wouldn't
-wish to move to userspace either.
+> +	res = netdev_rx_handler_register(slave_dev, &new_slave->rx_handler,
+> +					 bond_handle_frame,
+> +					 RX_HANDLER_PRIO_BOND);
 
-Maybe we should add a warning if the lowest 3 bits are set, like
-"you have enabled forwarding of STP/Pause/Bond frames. This can
-thoroughly break your network."
+> +	err = netdev_rx_handler_register(dev, &port->rx_handler,
+> +					 macvlan_handle_frame,
+> +					 RX_HANDLER_PRIO_MACVLAN);
 
-* excl. pause frames, sadly - those get eaten by hw/driver...
+> +	err = netdev_rx_handler_register(dev, &p->rx_handler, br_handle_frame,
+> +					 RX_HANDLER_PRIO_BRIDGE);
 
-> Also, don't want to build more knobs in with sysfs that are per-bridge.
-> Eventually, the plan is to make all the setting per-port with sysctl's
-> like IPv6.
+> +enum rx_handler_prio {
+> +	RX_HANDLER_PRIO_BRIDGE,
+> +	RX_HANDLER_PRIO_BOND,
+> +	RX_HANDLER_PRIO_MACVLAN,
+> +};
 
-This setting doesn't make sense per-port IMHO. Also, sysctl?!
+These are all incompatible with each other to a varying degree and/or
+don't make much sense. Let's look at them:
+
+a) a device simultaneously being a bridge member and a bond slave
+ -> Fully incompatible. Your bonding peer switch will start sending
+    the bridge's packets on other bond member devices.
+
+b) a device having macvlans and being a bond slave
+ -> Fully incompatible. Same as above, packets to the macvlan will end
+    up on other bond member devices.
+
+c) bridge + macvlan
+ -> Mostly useless. Add veth/tap devices to your bridge... as a bonus
+    you get a proper MAC table.
+
+This at least needs bonding support removed since bonding is essentially
+incompatible with anything else w/ the same reasoning as above. Bonds
+are as low-level as Pause frames. Never ever touch individual bond
+slaves.
+
+What does make sense is a device being member of multiple bridges, with
+ebtables as solicitor for which bridge gets the packet. But that's not
+possible with your patch...
++       if (netdev_rx_handler_get_by_prio(dev, prio))
+                return -EBUSY;
+
+I think your idea is good, but it needs WAY more proper consideration.
 
 
 -David
