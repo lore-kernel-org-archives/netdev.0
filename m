@@ -1,124 +1,120 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [net-next 5/5] ixgbe: convert to ndo_fix_features
-Date: Tue, 12 Jul 2011 15:11:52 -0700
-Message-ID: <C0716E470783B24A8178C9E38CD2F34505E768E5@orsmsx509.amr.corp.intel.com>
-References: <1310212240-24623-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1310212240-24623-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110709121108.GA7720@rere.qmqm.pl>
- <C0716E470783B24A8178C9E38CD2F34505DF1B3F@orsmsx509.amr.corp.intel.com>
- <20110712100932.GA6433@rere.qmqm.pl>
- <C0716E470783B24A8178C9E38CD2F34505E7682C@orsmsx509.amr.corp.intel.com>
- <20110712214445.GA14904@rere.qmqm.pl>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next] be2net: move to new vlan model
+Date: Tue, 12 Jul 2011 18:08:56 -0500
+Message-ID: <20110712230855.GA13833@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Michal Miroslaw <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:60881 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755451Ab1GLWMH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 18:12:07 -0400
-In-Reply-To: <20110712214445.GA14904@rere.qmqm.pl>
-Content-Language: en-US
+Received: from exht1.emulex.com ([138.239.113.183]:54794 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754932Ab1GLXJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 19:09:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/benet/be.h      |    1 -
+ drivers/net/benet/be_main.c |   34 +++++++++-------------------------
+ 2 files changed, 9 insertions(+), 26 deletions(-)
 
->-----Original Message-----
->From: Michal Miroslaw [mailto:mirq-linux@rere.qmqm.pl]
->Sent: Tuesday, July 12, 2011 2:45 PM
->To: Skidmore, Donald C
->Cc: Kirsher, Jeffrey T; davem@davemloft.net; netdev@vger.kernel.org;
->gospo@redhat.com
->Subject: Re: [net-next 5/5] ixgbe: convert to ndo_fix_features
->
->Good to see the idea converging. :) More hints below.
->
->On Tue, Jul 12, 2011 at 02:28:15PM -0700, Skidmore, Donald C wrote:
->[...]
->> The logic in this conditional is a little complex. I believe it woul=
-d
->> end up looking something like the following:
->>
->> in fix_features:
->>
->> 	/* Prevent change if not RSC capable or invalid ITR setting */
->> 	if (data & NETIF_F_LRO)
->
->That's not a fast path - you can drop (data & NETIF_F_LRO) check.
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 9aa1534..4d93ffb 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -332,7 +332,6 @@ struct be_adapter {
+ 	u8 eq_next_idx;
+ 	struct be_drv_stats drv_stats;
+ 
+-	struct vlan_group *vlan_grp;
+ 	u16 vlans_added;
+ 	u16 max_vlans;	/* Number of vlans supported */
+ 	u8 vlan_tag[VLAN_N_VID];
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 4ebd700..469de79 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -653,7 +653,7 @@ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
+ 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
+ 	}
+ 
+-	if (adapter->vlan_grp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan, hdr, 1);
+ 		vlan_tag = vlan_tx_tag_get(skb);
+ 		vlan_prio = (vlan_tag & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
+@@ -846,13 +846,6 @@ static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
+ 	return status;
+ }
+ 
+-static void be_vlan_register(struct net_device *netdev, struct vlan_group *grp)
+-{
+-	struct be_adapter *adapter = netdev_priv(netdev);
+-
+-	adapter->vlan_grp = grp;
+-}
+-
+ static void be_vlan_add_vid(struct net_device *netdev, u16 vid)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+@@ -871,7 +864,6 @@ static void be_vlan_rem_vid(struct net_device *netdev, u16 vid)
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
+ 	adapter->vlans_added--;
+-	vlan_group_set_device(adapter->vlan_grp, vid, NULL);
+ 
+ 	if (!be_physfn(adapter))
+ 		return;
+@@ -1200,16 +1192,10 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 		skb->rxhash = rxcp->rss_hash;
+ 
+ 
+-	if (unlikely(rxcp->vlanf)) {
+-		if (!adapter->vlan_grp || adapter->vlans_added == 0) {
+-			kfree_skb(skb);
+-			return;
+-		}
+-		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
+-					rxcp->vlan_tag);
+-	} else {
+-		netif_receive_skb(skb);
+-	}
++	if (unlikely(rxcp->vlanf))
++		__vlan_hwaccel_put_tag(skb, rxcp->vlan_tag);
++
++	netif_receive_skb(skb);
+ }
+ 
+ /* Process the RX completion indicated by rxcp when GRO is enabled */
+@@ -1263,11 +1249,10 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 	if (adapter->netdev->features & NETIF_F_RXHASH)
+ 		skb->rxhash = rxcp->rss_hash;
+ 
+-	if (likely(!rxcp->vlanf))
+-		napi_gro_frags(&eq_obj->napi);
+-	else
+-		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp,
+-				rxcp->vlan_tag);
++	if (unlikely(rxcp->vlanf))
++		__vlan_hwaccel_put_tag(skb, rxcp->vlan_tag);
++
++	napi_gro_frags(&eq_obj->napi);
+ }
+ 
+ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
+@@ -2950,7 +2935,6 @@ static struct net_device_ops be_netdev_ops = {
+ 	.ndo_set_mac_address	= be_mac_addr_set,
+ 	.ndo_change_mtu		= be_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_vlan_rx_register	= be_vlan_register,
+ 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
+ 	.ndo_set_vf_mac		= be_set_vf_mac,
+-- 
+1.7.4.1
 
-Nice - I was spending too much time looking at the old code didn't noti=
-ce this.
-
->
->> 		if (!(adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) {
->> 			data &=3D ~NETIF_F_LRO;
->> 		else if (!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) &&
->> 	    		   (adapter->rx_itr_setting !=3D 1 &&
->> 			    adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE))
->{
->> 				data &=3D ~NETIF_F_LRO;
->> 		}
->> 	}
->
->Same for !(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED). After this
->change,
->you might add a call to netdev_update_features() whenever the second
->part
->of the condition is changed by user and you get correctness all the ti=
-me
->'for free'.
-
-I like this too and makes much more sense to me.  This was a reflection=
- of the original code but really didn't matter since anytime RSC_ENABLE=
-D was set the ITR values would have been correct anyway.
-  =20
->
->> in set_feature:
->>
->> 	/* Make sure RSC matches LRO, reset if change */
->> 	if (!!(data & NETIF_F_LRO) !=3D
->> 	    !!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)) {
->> 		adapter->flags2 ^=3D IXGBE_FLAG2_RSC_ENABLED;
->> 		switch (adapter->hw.mac.type) {
->> 		case ixgbe_mac_X540:
->> 		case ixgbe_mac_82599EB:
->> 			need_reset =3D true;
->> 			break;
->> 		default:
->> 			break;
->> 		}
->> 	}
->
->Correct. Why would you need IXGBE_FLAG2_RSC_ENABLED now, when it just
->mirrors NETIF_F_LRO?
->
-
-We currently have a lot of checks for the IXGBE_FLAG2_RSC_ENABLED flag =
-all over the code.  I bet your next question is why not just using NETI=
-=46_F_LRO. :)  Well this same code base is used in our source forge dri=
-ver that has to be backward compatible with older kernels.  It might be=
- possible to do the kcompat magic to make it all work out but it won't =
-be trivial and I didn't want to include it in this patch.  I had planne=
-d on looking at it in the future to see if it was possible/worth doing.=
-=20
-
->[...]
->> Thanks again for the clarifications, the netdev-features.txt helped =
-a
->lot too.
->
->Nice to hear (read) that!
->
->Best Regards,
->Micha=B3 Miros=B3aw
-
-I'll try to get a patch out soon.
-
-Thanks again,
--Don Skidmore <donald.c.skidmore@intel.com>
