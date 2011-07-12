@@ -1,86 +1,113 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: [PATCH v2 07/46] net/wireless: ath9k: fix DMA API
-	usage
-Date: Tue, 12 Jul 2011 20:54:32 +0800
-Message-ID: <B4765EFC-B5C9-4E2D-BE00-ED5519D13A4E@nbd.name>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Subject: Re: [ath9k-devel] [PATCH v2 07/46] net/wireless: ath9k: fix DMA
+ API usage
+Date: Tue, 12 Jul 2011 15:03:16 +0200
+Message-ID: <20110712130316.GA8621@rere.qmqm.pl>
 References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
-	<280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
-	<4E1BCF36.2010506@openwrt.org> <20110712095541.GA6236@rere.qmqm.pl>
-Mime-Version: 1.0 (iPhone Mail 8H7)
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Ralf Baechle <ralf@linux-mips.org>, Jouni Malinen <jmalinen@atheros.com>,
-	Senthil Balasubramanian <senthilkumar@atheros.com>,
-	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-	Vasanthakumar Thiagarajan <vasanth@atheros.com>
-To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <20110712095541.GA6236@rere.qmqm.pl>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
+ <280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
+ <4E1BCF36.2010506@openwrt.org>
+ <20110712095541.GA6236@rere.qmqm.pl>
+ <B4765EFC-B5C9-4E2D-BE00-ED5519D13A4E@nbd.name>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	"ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org" <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
+	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	"linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org" <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
+To: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <B4765EFC-B5C9-4E2D-BE00-ED5519D13A4E-Vt+b4OUoWG0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gMTIuMDcuMjAxMSwgYXQgMTc6NTUsIE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxpbnV4QHJl
-cmUucW1xbS5wbD4gd3JvdGU6Cgo+IE9uIFR1ZSwgSnVsIDEyLCAyMDExIGF0IDEyOjM2OjA2UE0g
-KzA4MDAsIEZlbGl4IEZpZXRrYXUgd3JvdGU6Cj4+IE9uIDIwMTEtMDctMTEgODo1MiBBTSwgTWlj
-aGHFgiBNaXJvc8WCYXcgd3JvdGU6Cj4+PiBBbHNvIGNvbnN0aWZ5IGJ1Zl9hZGRyIGZvciBhdGg5
-a19od19wcm9jZXNzX3J4ZGVzY19lZG1hKCkgdG8gdmVyaWZ5Cj4+PiBhc3N1bXB0aW9ucyAtLS0g
-ZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2UoKSBjYWxsIGNhbiBiZSByZW1vdmVkLgo+Pj4gCj4+
-PiBTaWduZWQtb2ZmLWJ5OiBNaWNoYcWCIE1pcm9zxYJhdzxtaXJxLWxpbnV4QHJlcmUucW1xbS5w
-bD4KPj4+IC0tLQo+Pj4gZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2FyOTAwM19tYWMu
-YyB8ICAgIDQgKystLQo+Pj4gZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2FyOTAwM19t
-YWMuaCB8ICAgIDIgKy0KPj4+IGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9yZWN2LmMg
-ICAgICAgfCAgIDEwICsrKy0tLS0tLS0KPj4+IDMgZmlsZXMgY2hhbmdlZCwgNiBpbnNlcnRpb25z
-KCspLCAxMCBkZWxldGlvbnMoLSkKPj4+IAo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dp
-cmVsZXNzL2F0aC9hdGg5ay9yZWN2LmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsv
-cmVjdi5jCj4+PiBpbmRleCA3MGRjOGVjLi5jNWY0NmQ1IDEwMDY0NAo+Pj4gLS0tIGEvZHJpdmVy
-cy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL3JlY3YuYwo+Pj4gKysrIGIvZHJpdmVycy9uZXQvd2ly
-ZWxlc3MvYXRoL2F0aDlrL3JlY3YuYwo+Pj4gQEAgLTY4NCwxNSArNjg0LDExIEBAIHN0YXRpYyBi
-b29sIGF0aF9lZG1hX2dldF9idWZmZXJzKHN0cnVjdCBhdGhfc29mdGMgKnNjLAo+Pj4gICAgQlVH
-X09OKCFiZik7Cj4+PiAKPj4+ICAgIGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1KHNjLT5kZXYsIGJm
-LT5iZl9idWZfYWRkciwKPj4+IC0gICAgICAgICAgICAgICAgY29tbW9uLT5yeF9idWZzaXplLCBE
-TUFfRlJPTV9ERVZJQ0UpOwo+Pj4gKyAgICAgICAgICAgICAgICBjb21tb24tPnJ4X2J1ZnNpemUs
-IERNQV9CSURJUkVDVElPTkFMKTsKPj4+IAo+Pj4gICAgcmV0ID0gYXRoOWtfaHdfcHJvY2Vzc19y
-eGRlc2NfZWRtYShhaCwgTlVMTCwgc2tiLT5kYXRhKTsKPj4+IC0gICAgaWYgKHJldCA9PSAtRUlO
-UFJPR1JFU1MpIHsKPj4+IC0gICAgICAgIC8qbGV0IGRldmljZSBnYWluIHRoZSBidWZmZXIgYWdh
-aW4qLwo+Pj4gLSAgICAgICAgZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2Uoc2MtPmRldiwgYmYt
-PmJmX2J1Zl9hZGRyLAo+Pj4gLSAgICAgICAgICAgICAgICBjb21tb24tPnJ4X2J1ZnNpemUsIERN
-QV9GUk9NX0RFVklDRSk7Cj4+PiArICAgIGlmIChyZXQgPT0gLUVJTlBST0dSRVNTKQo+Pj4gICAg
-ICAgIHJldHVybiBmYWxzZTsKPj4+IC0gICAgfQo+Pj4gCj4+PiAgICBfX3NrYl91bmxpbmsoc2ti
-LCZyeF9lZG1hLT5yeF9maWZvKTsKPj4+ICAgIGlmIChyZXQgPT0gLUVJTlZBTCkgewo+PiBJIGhh
-dmUgc3Ryb25nIGRvdWJ0cyBhYm91dCB0aGlzIGNoYW5nZS4gT24gbW9zdCBNSVBTIGRldmljZXMs
-Cj4+IGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1IGlzIGEgbm8tb3AsIHdoZXJlYXMKPj4gZG1hX3N5
-bmNfc2luZ2xlX2Zvcl9kZXZpY2UgZmx1c2hlcyB0aGUgY2FjaGUgcmFuZ2UuIFdpdGggdGhpcwo+
-PiBjaGFuZ2UsIHRoZSBDUFUgY291bGQgY2FjaGUgdGhlIERNQSBzdGF0dXMgcGFydCBiZWhpbmQg
-c2tiLT5kYXRhIGFuZAo+PiB0aGF0IGNhY2hlIGVudHJ5IHdvdWxkIG5vdCBiZSBmbHVzaGVkIGlu
-YmV0d2VlbiBjYWxscyB0byB0aGlzCj4+IGZ1bmN0aW9ucyBvbiB0aGUgc2FtZSBidWZmZXIsIGxp
-a2VseSBsZWFkaW5nIHRvIHJ4IHN0YWxscy4KPiAKPiBZb3UncmUgc3VnZ2VzdGluZyBhIHBsYXRm
-b3JtIGltcGxlbWVudGF0aW9uIGJ1ZyB0aGVuLiBJZiB0aGUgcGxhdGZvcm0gaXMgbm90Cj4gY2Fj
-aGUtY29oZXJlbnQsIGl0IHNob3VsZCBpbnZhbGlkYXRlIHJlbGV2YW50IENQVSBjYWNoZSBsaW5l
-cyBmb3Igc3luY190b19jcHUKPiBhbmQgdW5tYXAgY2FzZXMuIERvIG90aGVyIGRldmljZXMgc2hv
-dyBzdWNoIHN5bXB0b21zIG9uIE1JUFMgc3lzdGVtcz8KPiAKPiBJJ20gbm90IGZhbWlsaWFyIHdp
-dGggdGhlIHBsYXRmb3JtIGludGVybmFscywgc28gd2Ugc2hvdWxkIGFzayBNSVBTIHBlb3BsZS4K
-SSBvbmx5IG1lbnRpb25lZCBNSVBTIHRvIGRlc2NyaWJlIHRoZSBwb3RlbnRpYWwgc2lkZSBlZmZl
-Y3Qgb2YgdGhpcyBjaGFuZ2UuIEZyb20gbXkgY3VycmVudCB1bmRlcnN0YW5kaW5nIG9mIHRoZSBE
-TUEgQVBJLCBpdCB3b3VsZCBiZSB3cm9uZyBvbiBvdGhlciBwbGF0Zm9ybXMgYXMgd2VsbC4gSSBi
-ZWxpZXZlIHRoZSBfZm9yX2RldmljZSBmdW5jdGlvbiBuZWVkcyB0byBiZSB1c2VkIHRvIHRyYW5z
-ZmVyIG93bmVyc2hpcCBvZiB0aGUgYnVmZmVyIGJhY2sgdG8gdGhlIGRldmljZSwgYmVmb3JlIGNh
-bGxpbmcgX2Zvcl9jcHUgYWdhaW4gbGF0ZXIgZm9yIGFub3RoZXIgcmVhZC4KVGhpcyBpcyBkZWZp
-bml0ZWx5IHJlcXVpcmVkIGluIHRoaXMgY2FzZSwgYmVjYXVzZSB3aGVuIHRoZSByZXR1cm4gY29k
-ZSBpcyAtRUlOUFJPR1JFU1MsIHRoZSBkcml2ZXIgd2FpdHMgZm9yIHRoZSBoYXJkd2FyZSB0byBj
-b21wbGV0ZSB0aGlzIGJ1ZmZlciwgYW5kIHRoZSBuZXh0IGNhbGwgaGFzIHRvIGZldGNoIHRoZSBt
-ZW1vcnkgYWdhaW4gYWZ0ZXIgdGhlIGRldmljZSBoYXMgdXBkYXRlZCBpdC4KVGhpcyBpcyBoYW5k
-bGVkIHByb3Blcmx5IGJ5IHRoZSBjdXJyZW50IGNvZGUgd2l0aG91dCB5b3VyIGNoYW5nZS4KCi0g
-RmVsaXgKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KYXRo
-OWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0aDlrLWRldmVsQGxpc3RzLmF0aDlrLm9yZwpodHRwczov
-L2xpc3RzLmF0aDlrLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2F0aDlrLWRldmVsCg==
+On Tue, Jul 12, 2011 at 08:54:32PM +0800, Felix Fietkau wrote:
+> On 12.07.2011, at 17:55, Micha=B3 Miros=B3aw <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org=
+> wrote:
+>=20
+> > On Tue, Jul 12, 2011 at 12:36:06PM +0800, Felix Fietkau wrote:
+> >> On 2011-07-11 8:52 AM, Micha=B3 Miros=B3aw wrote:
+> >>> Also constify buf_addr for ath9k_hw_process_rxdesc_edma() to veri=
+fy
+> >>> assumptions --- dma_sync_single_for_device() call can be removed.
+> >>>=20
+> >>> Signed-off-by: Micha=B3 Miros=B3aw<mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+> >>> ---
+> >>> drivers/net/wireless/ath/ath9k/ar9003_mac.c |    4 ++--
+> >>> drivers/net/wireless/ath/ath9k/ar9003_mac.h |    2 +-
+> >>> drivers/net/wireless/ath/ath9k/recv.c       |   10 +++-------
+> >>> 3 files changed, 6 insertions(+), 10 deletions(-)
+> >>>=20
+> >>> diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/=
+wireless/ath/ath9k/recv.c
+> >>> index 70dc8ec..c5f46d5 100644
+> >>> --- a/drivers/net/wireless/ath/ath9k/recv.c
+> >>> +++ b/drivers/net/wireless/ath/ath9k/recv.c
+> >>> @@ -684,15 +684,11 @@ static bool ath_edma_get_buffers(struct ath=
+_softc *sc,
+> >>>    BUG_ON(!bf);
+> >>>=20
+> >>>    dma_sync_single_for_cpu(sc->dev, bf->bf_buf_addr,
+> >>> -                common->rx_bufsize, DMA_FROM_DEVICE);
+> >>> +                common->rx_bufsize, DMA_BIDIRECTIONAL);
+> >>>=20
+> >>>    ret =3D ath9k_hw_process_rxdesc_edma(ah, NULL, skb->data);
+> >>> -    if (ret =3D=3D -EINPROGRESS) {
+> >>> -        /*let device gain the buffer again*/
+> >>> -        dma_sync_single_for_device(sc->dev, bf->bf_buf_addr,
+> >>> -                common->rx_bufsize, DMA_FROM_DEVICE);
+> >>> +    if (ret =3D=3D -EINPROGRESS)
+> >>>        return false;
+> >>> -    }
+> >>>=20
+> >>>    __skb_unlink(skb,&rx_edma->rx_fifo);
+> >>>    if (ret =3D=3D -EINVAL) {
+> >> I have strong doubts about this change. On most MIPS devices,
+> >> dma_sync_single_for_cpu is a no-op, whereas
+> >> dma_sync_single_for_device flushes the cache range. With this
+> >> change, the CPU could cache the DMA status part behind skb->data a=
+nd
+> >> that cache entry would not be flushed inbetween calls to this
+> >> functions on the same buffer, likely leading to rx stalls.
+> >=20
+> > You're suggesting a platform implementation bug then. If the platfo=
+rm is not
+> > cache-coherent, it should invalidate relevant CPU cache lines for s=
+ync_to_cpu
+> > and unmap cases. Do other devices show such symptoms on MIPS system=
+s?
+> >=20
+> > I'm not familiar with the platform internals, so we should ask MIPS=
+ people.
+> I only mentioned MIPS to describe the potential side effect of this c=
+hange. From my current understanding of the DMA API, it would be wrong =
+on other platforms as well. I believe the _for_device function needs to=
+ be used to transfer ownership of the buffer back to the device, before=
+ calling _for_cpu again later for another read.
+
+What you're saying reminds the wording in DMA-API-HOWTO.txt that I find
+wrong (or at least misleading) compared to what DMA-API.txt describes.
+DMA sync calls do not transfer the ownership of the buffer - they are
+cache synchronization points, ownership passing is handled entirely by
+the driver.
+
+> This is definitely required in this case, because when the return cod=
+e is -EINPROGRESS, the driver waits for the hardware to complete this b=
+uffer, and the next call has to fetch the memory again after the device=
+ has updated it.
+
+Correctness of this access should be provided by sync_to_cpu() call.
+
+Best Regards,
+Micha=B3 Miros=B3aw
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
