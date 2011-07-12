@@ -1,175 +1,109 @@
-From: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-Subject: [PATCH] connector: add an event for monitoring process tracers
-Date: Tue, 12 Jul 2011 23:32:37 +0300
-Message-ID: <1310502757-32103-1-git-send-email-vzapolskiy@gmail.com>
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Roland McGrath <roland@redhat.com>, netdev@vger.kernel.org,
-	Vladimir Zapolskiy <vzapolskiy@gmail.com>
-To: Evgeniy Polyakov <zbr@ioremap.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:36573 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751488Ab1GLUja (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 16:39:30 -0400
-Received: by bwd5 with SMTP id 5so4333577bwd.19
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 13:39:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Subject: Re: [ath9k-devel] [PATCH v2 07/46] net/wireless: ath9k: fix DMA
+ API usage
+Date: Tue, 12 Jul 2011 22:53:16 +0200
+Message-ID: <20110712205316.GA13503@rere.qmqm.pl>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
+ <280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
+ <4E1BCF36.2010506@openwrt.org>
+ <20110712193204.GB13413@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	ath9k-devel-juf53994utBLZpfksSYvnA@public.gmane.org,
+	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+To: Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110712193204.GB13413-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This change adds a procfs connector event, which is emitted on every
-successful process tracer attach or detach.
+On Tue, Jul 12, 2011 at 08:32:04PM +0100, Ralf Baechle wrote:
+> On Tue, Jul 12, 2011 at 12:36:06PM +0800, Felix Fietkau wrote:
+>=20
+> > >diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/w=
+ireless/ath/ath9k/recv.c
+> > >index 70dc8ec..c5f46d5 100644
+> > >--- a/drivers/net/wireless/ath/ath9k/recv.c
+> > >+++ b/drivers/net/wireless/ath/ath9k/recv.c
+> > >@@ -684,15 +684,11 @@ static bool ath_edma_get_buffers(struct ath_=
+softc *sc,
+> > >  	BUG_ON(!bf);
+> > >
+> > >  	dma_sync_single_for_cpu(sc->dev, bf->bf_buf_addr,
+> > >-				common->rx_bufsize, DMA_FROM_DEVICE);
+> > >+				common->rx_bufsize, DMA_BIDIRECTIONAL);
+> > >
+> > >  	ret =3D ath9k_hw_process_rxdesc_edma(ah, NULL, skb->data);
+> > >-	if (ret =3D=3D -EINPROGRESS) {
+> > >-		/*let device gain the buffer again*/
+> > >-		dma_sync_single_for_device(sc->dev, bf->bf_buf_addr,
+> > >-				common->rx_bufsize, DMA_FROM_DEVICE);
+> > >+	if (ret =3D=3D -EINPROGRESS)
+> > >  		return false;
+> > >-	}
+> > >
+> > >  	__skb_unlink(skb,&rx_edma->rx_fifo);
+> > >  	if (ret =3D=3D -EINVAL) {
+> > I have strong doubts about this change. On most MIPS devices,
+> > dma_sync_single_for_cpu is a no-op, whereas
+> > dma_sync_single_for_device flushes the cache range. With this
+> > change, the CPU could cache the DMA status part behind skb->data an=
+d
+> > that cache entry would not be flushed inbetween calls to this
+> > functions on the same buffer, likely leading to rx stalls.
+>=20
+> The code was already broken before.  By the time dma_sync_single_for_=
+cpu
+> and ath9k_hw_process_rxdesc_edma are called, the DMA engine may still=
+ be
+> active in the buffer,  yet the driver is looking at it.
+>=20
+> dma_sync_single_for_cpu() is part of changing the buffer ownership fr=
+om
+> the device to the CPU.  When it is being called, DMA into the buffer =
+should
+> already have been completed ...  or else the shit may hit the jet eng=
+ine.
 
-If some process connects to other one, kernelspace connector reports
-process id and thread group id of both these involved processes. On
-disconnection null process id is returned.
+Let's get rid of the "buffer ownership" misunderstanding from the pictu=
+re.
+Ownership is about who is expected to be writing (or is assured the dat=
+a
+is not being changed under his foot). This has nothing to do with DMA A=
+PI.
 
-Such an event allows to create a simple automated userspace mechanism
-to be aware about processes connecting to others, therefore predefined
-process policies can be applied to them if needed.
+DMA API is there for two purposes: to make part of memory visible to
+both CPU and device (map/unmap) and to ensure memory consistency in
+presence of caches (sync; implicitly done in map/unmap).
 
-Note, a detach signal is not emitted, if a tracer process terminates
-without explicit PTRACE_DETACH request. Such cases can be covered
-listening to PROC_EVENT_EXIT connector events.
+In the case we're analysing, the ownership is on the device's side
+until it stops writing the buffer. sync_to_cpu doesn't change that.
+It only allows the CPU to see more recent data (in case the CPU cached
+something earlier).
 
-Signed-off-by: Vladimir Zapolskiy <vzapolskiy@gmail.com>
----
- drivers/connector/cn_proc.c |   38 ++++++++++++++++++++++++++++++++++++++
- include/linux/cn_proc.h     |   12 ++++++++++++
- kernel/ptrace.c             |    6 ++++++
- 3 files changed, 56 insertions(+), 0 deletions(-)
+> Imagine what would happen on a hypothetic cache architecture which do=
+es not
+> have a dirty bit, that is which would have to write back every cache =
+line -
+> even clean lines - to memory in order to evict it.  Corruption.
 
-diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
-index 2b46a7e..44f9881 100644
---- a/drivers/connector/cn_proc.c
-+++ b/drivers/connector/cn_proc.c
-@@ -28,6 +28,7 @@
- #include <linux/init.h>
- #include <linux/connector.h>
- #include <linux/gfp.h>
-+#include <linux/tracehook.h>
- #include <asm/atomic.h>
- #include <asm/unaligned.h>
- 
-@@ -166,6 +167,43 @@ void proc_sid_connector(struct task_struct *task)
- 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
- }
- 
-+void proc_ptrace_connector(struct task_struct *task)
-+{
-+	struct cn_msg *msg;
-+	struct proc_event *ev;
-+	struct timespec ts;
-+	__u8 buffer[CN_PROC_MSG_SIZE];
-+	struct task_struct *tracer;
-+
-+	if (atomic_read(&proc_event_num_listeners) < 1)
-+		return;
-+
-+	msg = (struct cn_msg *)buffer;
-+	ev = (struct proc_event *)msg->data;
-+	get_seq(&msg->seq, &ev->cpu);
-+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
-+	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
-+	ev->what = PROC_EVENT_PTRACE;
-+	ev->event_data.ptrace.process_pid  = task->pid;
-+	ev->event_data.ptrace.process_tgid = task->tgid;
-+
-+	rcu_read_lock();
-+	tracer = tracehook_tracer_task(task);
-+	if (tracer) {
-+		ev->event_data.ptrace.tracer_pid  = tracer->pid;
-+		ev->event_data.ptrace.tracer_tgid = tracer->tgid;
-+	} else {
-+		ev->event_data.ptrace.tracer_pid  = 0;
-+		ev->event_data.ptrace.tracer_tgid = 0;
-+	}
-+	rcu_read_unlock();
-+
-+	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-+	msg->ack = 0; /* not used */
-+	msg->len = sizeof(*ev);
-+	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
-+}
-+
- void proc_exit_connector(struct task_struct *task)
- {
- 	struct cn_msg *msg;
-diff --git a/include/linux/cn_proc.h b/include/linux/cn_proc.h
-index 47dac5e..03013ad 100644
---- a/include/linux/cn_proc.h
-+++ b/include/linux/cn_proc.h
-@@ -53,6 +53,7 @@ struct proc_event {
- 		PROC_EVENT_UID  = 0x00000004,
- 		PROC_EVENT_GID  = 0x00000040,
- 		PROC_EVENT_SID  = 0x00000080,
-+		PROC_EVENT_PTRACE = 0x00000100,
- 		/* "next" should be 0x00000400 */
- 		/* "last" is the last process event: exit */
- 		PROC_EVENT_EXIT = 0x80000000
-@@ -95,6 +96,13 @@ struct proc_event {
- 			__kernel_pid_t process_tgid;
- 		} sid;
- 
-+		struct ptrace_proc_event {
-+			__kernel_pid_t process_pid;
-+			__kernel_pid_t process_tgid;
-+			__kernel_pid_t tracer_pid;
-+			__kernel_pid_t tracer_tgid;
-+		} ptrace;
-+
- 		struct exit_proc_event {
- 			__kernel_pid_t process_pid;
- 			__kernel_pid_t process_tgid;
-@@ -109,6 +117,7 @@ void proc_fork_connector(struct task_struct *task);
- void proc_exec_connector(struct task_struct *task);
- void proc_id_connector(struct task_struct *task, int which_id);
- void proc_sid_connector(struct task_struct *task);
-+void proc_ptrace_connector(struct task_struct *task);
- void proc_exit_connector(struct task_struct *task);
- #else
- static inline void proc_fork_connector(struct task_struct *task)
-@@ -124,6 +133,9 @@ static inline void proc_id_connector(struct task_struct *task,
- static inline void proc_sid_connector(struct task_struct *task)
- {}
- 
-+static inline void proc_ptrace_connector(struct task_struct *task)
-+{}
-+
- static inline void proc_exit_connector(struct task_struct *task)
- {}
- #endif	/* CONFIG_PROC_EVENTS */
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 2df1157..9238b5d 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -23,6 +23,7 @@
- #include <linux/uaccess.h>
- #include <linux/regset.h>
- #include <linux/hw_breakpoint.h>
-+#include <linux/cn_proc.h>
- 
- 
- /*
-@@ -260,6 +261,9 @@ out:
- 	if (wait_trap)
- 		wait_event(current->signal->wait_chldexit,
- 			   !(task->group_stop & GROUP_STOP_TRAPPING));
-+	if (!retval)
-+		proc_ptrace_connector(task);
-+
- 	return retval;
- }
- 
-@@ -365,6 +369,8 @@ static int ptrace_detach(struct task_struct *child, unsigned int data)
- 	}
- 	write_unlock_irq(&tasklist_lock);
- 
-+	proc_ptrace_connector(child);
-+
- 	if (unlikely(dead))
- 		release_task(child);
- 
--- 
-1.7.5.1
+dma_map_whatever() would mark the memory uncachable on such an architec=
+ture.
+Otherwise this would violate assumptions on DMA_FROM_DEVICE mappings (o=
+r
+"device owned buffers") that the CPU does not write to the mapped memor=
+y.
 
+Best Regards,
+Micha=B3 Miros=B3aw
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
