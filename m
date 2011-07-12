@@ -1,231 +1,122 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2] net: Add documentation for netdev features handling
-Date: Tue, 12 Jul 2011 21:41:29 +0200 (CEST)
-Message-ID: <6c65d5e3927e36cbb356d406494f8b9843523769.1310499566.git.mirq-linux@rere.qmqm.pl>
-References: <f95d92bfa1d8760db6ae0dbff67bb0e85eb77a2d.1310496866.git.mirq-linux@rere.qmqm.pl>
+From: Ronny Meeus <ronny.meeus@gmail.com>
+Subject: Re: softirqs are invoked while bottom halves are masked (was: Re:
+ [PATCH] [PATCH] Fix deadlock in af_packet while stressing raw ethernet socket interface)
+Date: Tue, 12 Jul 2011 21:52:04 +0200
+Message-ID: <CAMJ=MEcQUiE3DCRGS--C8apk994L_eE+x_tAPn1ewTYBe3kGYw@mail.gmail.com>
+References: <CAAXf6LXHeiCT+n=Wpdf=QfUXUHUSd7fmx9y3kB7te8N3ON1fTg@mail.gmail.com>
+	<1310465411.3314.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAMJ=MEeC1hoqufs7AfFRn3yJoC8mdw7v+14N+7e=wQuJefm4_w@mail.gmail.com>
+	<1310484474.2871.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Donald Skidmore <donald.c.skidmore@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Randy Dunlap <rdunlap@xenotime.net>
-To: netdev@vger.kernel.org
+Cc: Thomas De Schampheleire <patrickdepinguin+linuxppc@gmail.com>,
+	linuxppc-dev <linuxppc-dev@ozlabs.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	afleming@freescale.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:35311 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755066Ab1GLTlb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 15:41:31 -0400
-In-Reply-To: <f95d92bfa1d8760db6ae0dbff67bb0e85eb77a2d.1310496866.git.mirq-linux@rere.qmqm.pl>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:57119 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754960Ab1GLTwF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 15:52:05 -0400
+Received: by yxi11 with SMTP id 11so2101737yxi.19
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 12:52:04 -0700 (PDT)
+In-Reply-To: <1310484474.2871.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2: incorporated suggestions from Randy=C2=A0Dunlap
+On Tue, Jul 12, 2011 at 5:27 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mardi 12 juillet 2011 =E0 14:03 +0200, Ronny Meeus a =E9crit :
+>
+>> Sorry for not mentioning we were using a patched kernel.
+>> I was not aware that the code involved was patched by the FreeScale
+>> patches we applied. The code found in the stack dumps is not
+>> implemented in FSL specific files.
+>>
+>> While reading the code of af_packet I saw that the spin_lock_bh is
+>> used in several places while this is not the case in the tpacket_rcv
+>> function. Since we had a locking issue in that code, I thought that =
+my
+>> patch would be OK.
+>> I was not aware that for that specific function (tpacket_rcv) a
+>> different lock primitive must be used. A suggestion for improvement:
+>> it would be better to document this pre-condition in the code.
+>>
+>> After doing the change you proposed our code now looks like:
+>>
+>> >---if (dev->features & NETIF_F_HW_QDISC) {
+>> >--->---txq =3D dev_pick_tx(dev, skb);
+>> >--->---local_bh_disable();
+>> >--->---rc =3D dev_hard_start_xmit(skb, dev, txq);
+>> >--->---local_bh_enable();
+>> >--->---return rc;
+>> >---}
+>>
+>> >---/* Disable soft irqs for various locks below. Also
+>> >--- * stops preemption for RCU.
+>> >--- */
+>> >---rcu_read_lock_bh();
+>>
+>> but we still see the issue "BUG: sleeping function called from inval=
+id context":
+>
+> Of course you are if this is the only change you did.
+>
+>>
+>> [ =A0 91.015989] BUG: sleeping function called from invalid context =
+at
+>> include/linux/skbuff.h:786
+>> [ =A0 91.117096] in_atomic(): 1, irqs_disabled(): 0, pid: 1865, name=
+: NMTX_T1842
+>> [ =A0 91.200461] Call Trace:
+>> [ =A0 91.229672] [ec58bbd0] [c000789c] show_stack+0x78/0x18c (unreli=
+able)
+>> [ =A0 91.305791] [ec58bc10] [c0022900] __might_sleep+0x100/0x118
+>> [ =A0 91.372524] [ec58bc20] [c029f8d8] dpa_tx+0x128/0x758
+>
+>
+> Please read again my mail :
+>
+> I said : "doing GFP_KERNEL allocations in dpa_tx() is wrong, for sure=
+=2E"
+>
+> I dont have this code, but I suspect it's using : skb_copy(skb,
+> GFP_KERNEL)
+>
+> Just say no, use GFP_ATOMIC instead.
+>
+> Real question is : why skb_copy() is done, since its slow as hell.
+>
+>> [ =A0 91.431957] [ec58bc80] [c02d78ec] dev_hard_start_xmit+0x424/0x5=
+88
+>> [ =A0 91.504952] [ec58bcc0] [c02d7ab0] dev_queue_xmit+0x60/0x3ac
+>> [ =A0 91.571692] [ec58bcf0] [c0338d54] packet_sendmsg+0x8c4/0x988
+>> [ =A0 91.639457] [ec58bd70] [c02c3838] sock_sendmsg+0x90/0xb4
+>> [ =A0 91.703066] [ec58be40] [c02c4420] sys_sendto+0xdc/0x120
+>> [ =A0 91.765646] [ec58bf10] [c02c57d0] sys_socketcall+0x148/0x210
+>> [ =A0 91.833420] [ec58bf40] [c001084c] ret_from_syscall+0x0/0x3c
+>> [ =A0 91.900153] --- Exception: c01 at 0x4824df00
+>> [ =A0 91.900157] =A0 =A0 LR =3D 0x4828a030
+>>
+>
+>
+>
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- Documentation/networking/netdev-features.txt |  155 ++++++++++++++++++=
-++++++++
- 1 files changed, 155 insertions(+), 0 deletions(-)
+I have identified the piece of code, it was a call to skb_unshare. I
+have changed it into GFP_ATOMIC.
 
-diff --git a/Documentation/networking/netdev-features.txt b/Documentati=
-on/networking/netdev-features.txt
-new file mode 100644
-index 0000000..1ade16c
---- /dev/null
-+++ b/Documentation/networking/netdev-features.txt
-@@ -0,0 +1,155 @@
-+Netdev features mess and how to get out from it alive
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D
-+
-+Author:
-+	Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-+
-+
-+
-+ Part I: Feature sets
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+Long gone are the days when a network card would just take and give pa=
-ckets
-+verbatim.  Today's devices add multiple features and bugs (read: offlo=
-ads)
-+that relieve an OS of various tasks like generating and checking check=
-sums,
-+splitting packets, classifying them.  Those capabilities and their sta=
-te
-+are commonly referred to as netdev features in Linux kernel world.
-+
-+There are currently three sets of features relevant to the driver, and
-+one used internally by network core:
-+
-+ 1. netdev->hw_features set contains features whose state may possibly
-+    be changed (enabled or disabled) for a particular device by user's
-+    request.  This set should be initialized in ndo_init callback and =
-not
-+    changed later.
-+
-+ 2. netdev->features set contains features which are currently enabled
-+    for a device.  This should be changed only by network core or in
-+    error paths of ndo_set_features callback.
-+
-+ 3. netdev->vlan_features set contains features whose state is inherit=
-ed
-+    by child VLAN devices (limits netdev->features set).  This is curr=
-ently
-+    used for all VLAN devices whether tags are stripped or inserted in
-+    hardware or software.
-+
-+ 4. netdev->wanted_features set contains feature set requested by user=
-=2E
-+    This set is filtered by ndo_fix_features callback whenever it or
-+    some device-specific conditions change. This set is internal to
-+    networking core and should not be referenced in drivers.
-+
-+
-+
-+ Part II: Controlling enabled features
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+When current feature set (netdev->features) is to be changed, new set
-+is calculated and filtered by calling ndo_fix_features callback
-+and netdev_fix_features(). If the resulting set differs from current
-+set, it is passed to ndo_set_features callback and (if the callback
-+returns success) replaces value stored in netdev->features.
-+NETDEV_FEAT_CHANGE notification is issued after that whenever current
-+set might have changed.
-+
-+The following events trigger recalculation:
-+ 1. device's registration, after ndo_init returned success
-+ 2. user requested changes in features state
-+ 3. netdev_update_features() is called
-+
-+ndo_*_features callbacks are called with rtnl_lock held. Missing callb=
-acks
-+are treated as always returning success.
-+
-+A driver that wants to trigger recalculation must do so by calling
-+netdev_update_features() while holding rtnl_lock. This should not be d=
-one
-+from ndo_*_features callbacks. netdev->features should not be modified=
- by
-+driver except by means of ndo_fix_features callback.
-+
-+
-+
-+ Part III: Implementation hints
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+ * ndo_fix_features:
-+
-+All dependencies between features should be resolved here. The resulti=
-ng
-+set can be reduced further by networking core imposed limitations (as =
-coded
-+in netdev_fix_features()). For this reason it is safer to disable a fe=
-ature
-+when its dependencies are not met instead of forcing the dependency on=
-=2E
-+
-+This callback should not modify hardware nor driver state (should be
-+stateless).  It can be called multiple times between successive
-+ndo_set_features calls.
-+
-+Callback must not alter features contained in NETIF_F_SOFT_FEATURES or
-+NETIF_F_NEVER_CHANGE sets. The exception is NETIF_F_VLAN_CHALLENGED bu=
-t
-+care must be taken as the change won't affect already configured VLANs=
-=2E
-+
-+ * ndo_set_features:
-+
-+Hardware should be reconfigured to match passed feature set. The set
-+should not be altered unless some error condition happens that can't
-+be reliably detected in ndo_fix_features. In this case, the callback
-+should update netdev->features to match resulting hardware state.
-+Errors returned are not (and cannot be) propagated anywhere except dme=
-sg.
-+(Note: successful return is zero, >0 means silent error.)=20
-+
-+
-+
-+ Part IV: Features
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+For current list of features, see include/linux/netdev_features.h.
-+This section describes semantics of some of them.
-+
-+ * Transmit checksumming
-+
-+For complete description, see comments near the top of include/linux/s=
-kbuff.h.
-+
-+Note: NETIF_F_HW_CSUM is a superset of NETIF_F_IP_CSUM + NETIF_F_IPV6_=
-CSUM.
-+It means that device can fill TCP/UDP-like checksum anywhere in the pa=
-ckets
-+whatever headers there might be.
-+
-+ * Transmit TCP segmentation offload
-+
-+NETIF_F_TSO_ECN means that hardware can properly split packets with CW=
-R bit
-+set, be it TCPv4 (when NETIF_F_TSO is enabled) or TCPv6 (NETIF_F_TSO6)=
-=2E
-+
-+ * Transmit DMA from high memory
-+
-+On platforms where this is relevant, NETIF_F_HIGHDMA signals that
-+ndo_start_xmit can handle skbs with frags in high memory.
-+
-+ * Transmit scatter-gather
-+
-+Those features say that ndo_start_xmit can handle fragmented skbs:
-+NETIF_F_SG --- paged skbs (skb_shinfo()->frags), NETIF_F_FRAGLIST ---
-+chained skbs (skb->next/prev list).
-+
-+ * Software features
-+
-+Features contained in NETIF_F_SOFT_FEATURES are features of networking
-+stack. Driver should not change behaviour based on them.
-+
-+ * LLTX driver (deprecated for hardware drivers)
-+
-+NETIF_F_LLTX should be set in drivers that implement their own locking=
- in
-+transmit path or don't need locking at all (e.g. software tunnels).
-+In ndo_start_xmit, it is recommended to use a try_lock and return
-+NETDEV_TX_LOCKED when the spin lock fails.  The locking should also pr=
-operly
-+protect against other callbacks (the rules you need to find out).
-+
-+Don't use it for new drivers.
-+
-+ * netns-local device
-+
-+NETIF_F_NETNS_LOCAL is set for devices that are not allowed to move be=
-tween
-+network namespaces (e.g. loopback).
-+
-+Don't use it in drivers.
-+
-+ * VLAN challenged
-+
-+NETIF_F_VLAN_CHALLENGED should be set for devices which can't cope wit=
-h VLAN
-+headers. Some drivers set this because the cards can't handle the bigg=
-er MTU.
-+[FIXME: Those cases could be fixed in VLAN code by allowing only reduc=
-ed-MTU
-+VLANs. This may be not useful, though.]
-+
---=20
-1.7.5.4
+>---if (skb_cloned(skb))
+>--->---skb =3D skb_unshare(skb, GFP_ATOMIC);
 
+After doing this change, I do not see the issue anymore. At least not
+for the test I'm doing right now.
+After seeing all your comments today, it might be that other issues pop=
+up later.
+
+BTW Are there any good sites (or books) that document this part of the
+Linux kernel?
+
+Best regards,
+Ronny
