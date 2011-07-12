@@ -1,65 +1,35 @@
-From: Tomasz Chmielewski <mangoo@wpkg.org>
-Subject: Re: bonding and IPv6 "doesn't work"?
-Date: Tue, 12 Jul 2011 18:25:16 +0200
-Message-ID: <4E1C756C.2010700@wpkg.org>
-References: <4E1C70D5.6060806@wpkg.org> <20110712161455.GD909183@jupiter.n2.diac24.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v2 3/7] r8169: adjust the settings about RxConfig
+Date: Tue, 12 Jul 2011 18:12:58 +0200
+Message-ID: <20110712161258.GA6157@electric-eye.fr.zoreil.com>
+References: <1309939088-31994-1-git-send-email-hayeswang@realtek.com> <1309939088-31994-3-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.virtall.com ([178.63.195.102]:35446 "EHLO mail.virtall.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753829Ab1GLQZT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 12:25:19 -0400
-In-Reply-To: <20110712161455.GD909183@jupiter.n2.diac24.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48818 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753808Ab1GLQ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 12:27:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1309939088-31994-3-git-send-email-hayeswang@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12.07.2011 18:14, David Lamparter wrote:
-> On Tue, Jul 12, 2011 at 06:05:41PM +0200, Tomasz Chmielewski wrote:
->> I make a bond0 of two interfaces, eth0 and eth1.
->
-> What kind of device do you have on the other side of those links?
+Hayes Wang <hayeswang@realtek.com> :
+> Set the init value before reset in probe function. And then just
+> modify the relative bits and keep the init settings.
 
-It's a virtual machine.
-So, a bridge of the host.
+It breaks my old PCI Netgear 8110s (RTL_GIGA_MAC_VER_03/XID 04000000). Once
+the device is up, RxConfig is changed from 0x0000e70e to 0x0000000e (missed
+write ?).
 
-I know it doesn't make much sense to set up bonding in a virtual 
-machine, but I'm trying to determine what possible problems I might have 
-in a production environment (and got stuck at the very beginning).
+Is there any side effect / objection if this patch is removed from the
+series and scheduled for a later time ?
 
-IPv4 bonding works fine in this setup.
-
-
->> bond0: IPv6 duplicate address 2a01:4f8:120:14c4::1247 detected!
-> [...]
->> However if I start bonding with just one interface, add IPv6 address to
->> it, then use ifenslave to add a second interface, I'm able to reach the
->> hosts in the internet.
->
-> Yeah, when you add the IPv6 address, IPv6 ND does its job and announces
-> your presence/does DAD.
-
-Shouldn't this disable DAD? Or am I confusing something here?
-
-net.ipv6.conf.eth0.accept_dad = 0
-net.ipv6.conf.eth1.accept_dad = 0
-
-
-> Your bonding peer is probably looping those
-> packets back on the other link, most likely because...
->
->> Bonding Mode: load balancing (round-robin)
->
-> ... most likely because you maybe have a switch on the other side, and
-> that switch expects you to do 802.3ad?
-
-It's a virtual machine, so the host shouldn't know or care much about 
-802.3ad (I think!).
-
+If the current working code is kept as is, the 8168c/cp would still see its
+RxConfig:bit 13 (RxHalfRefetch) enabled.
 
 -- 
-Tomasz Chmielewski
-http://wpkg.org
+Ueimor
