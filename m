@@ -1,56 +1,86 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: RE: [PATCH] [v3][net][bna] Fix call trace when interrupts are
- disabled while sleeping function kzalloc is called
-Date: Tue, 12 Jul 2011 14:42:36 +0200
-Message-ID: <1310474556.28711.0.camel@ceranb.brq.redhat.com>
-References: <1309287485-6077-1-git-send-email-shyam_iyer@dell.com>
-	 <1310051634.4392.29.camel@ceranb.intra.cera.cz>
-	 <DBFB1B45AF80394ABD1C807E9F28D157063779959F@BLRX7MCDC203.AMER.DELL.COM>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shyam.iyer.t@gmail.com, netdev@vger.kernel.org, rmody@brocade.com,
-	ddutt@brocade.com, huangj@brocade.com, davem@davemloft.net
-To: Shyam_Iyer@Dell.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41774 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753012Ab1GLMmn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 08:42:43 -0400
-In-Reply-To: <DBFB1B45AF80394ABD1C807E9F28D157063779959F@BLRX7MCDC203.AMER.DELL.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felix Fietkau <nbd@nbd.name>
+Subject: Re: [PATCH v2 07/46] net/wireless: ath9k: fix DMA API
+	usage
+Date: Tue, 12 Jul 2011 20:54:32 +0800
+Message-ID: <B4765EFC-B5C9-4E2D-BE00-ED5519D13A4E@nbd.name>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl>
+	<280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl>
+	<4E1BCF36.2010506@openwrt.org> <20110712095541.GA6236@rere.qmqm.pl>
+Mime-Version: 1.0 (iPhone Mail 8H7)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Ralf Baechle <ralf@linux-mips.org>, Jouni Malinen <jmalinen@atheros.com>,
+	Senthil Balasubramanian <senthilkumar@atheros.com>,
+	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
+	Vasanthakumar Thiagarajan <vasanth@atheros.com>
+To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+In-Reply-To: <20110712095541.GA6236@rere.qmqm.pl>
+List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
+List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
+List-Post: <mailto:ath9k-devel@lists.ath9k.org>
+List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
+List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
+Sender: ath9k-devel-bounces@lists.ath9k.org
+Errors-To: ath9k-devel-bounces@lists.ath9k.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-07-08 at 03:23 +0530, Shyam_Iyer@Dell.com wrote:
-> 
-> > -----Original Message-----
-> > From: Ivan Vecera [mailto:ivecera@redhat.com]
-> > Sent: Thursday, July 07, 2011 11:14 AM
-> > To: Shyam Iyer
-> > Cc: netdev@vger.kernel.org; rmody@brocade.com; ddutt@brocade.com;
-> > huangj@brocade.com; davem@davemloft.net; Iyer, Shyam
-> > Subject: Re: [PATCH] [v3][net][bna] Fix call trace when interrupts are
-> > disabled while sleeping function kzalloc is called
-> > 
-> > Small note, the root of the problem was that non-atomic allocation was
-> > requested with IRQs disabled. Your patch description does not contain
-> > why were the IRQs disabled.
-> > The function bnad_mbox_irq_alloc incorrectly uses 'flags' var for two
-> > different things, 1) to save current CPU flags and 2) for request_irq
-> > call.
-> > First the spin_lock_irqsave disables the IRQs and saves _all_ CPU flags
-> > (including one that enables/disables interrupts) to 'flags'. Then the
-> > 'flags' is overwritten by 0 or 0x80 (IRQF_SHARED). Finally the
-> > spin_unlock_irqrestore should restore saved flags, but these flags are
-> > now either 0x00 or 0x80. The interrupt bit value in flags register on
-> > x86 arch is 0x100.
-> > This means that the interrupt bit is zero (IRQs disabled) after
-> > spin_unlock_irqrestore so the request_irq function is called with
-> > disabled interrupts.
-> 
-> That seems to make a lot more sense.. and that way I don't have to initialize the flags variable outside of the spin_lock_irqsave/restore bracket to preserve the irqs not being disabled when allocating in request_irq
-> 
-> Would the below patch make sense instead...? (Note that since davem has accepted the earlier one this is on top of the already committed patch)
-> 
-Yes, this is much cleaner...
-
+T24gMTIuMDcuMjAxMSwgYXQgMTc6NTUsIE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxpbnV4QHJl
+cmUucW1xbS5wbD4gd3JvdGU6Cgo+IE9uIFR1ZSwgSnVsIDEyLCAyMDExIGF0IDEyOjM2OjA2UE0g
+KzA4MDAsIEZlbGl4IEZpZXRrYXUgd3JvdGU6Cj4+IE9uIDIwMTEtMDctMTEgODo1MiBBTSwgTWlj
+aGHFgiBNaXJvc8WCYXcgd3JvdGU6Cj4+PiBBbHNvIGNvbnN0aWZ5IGJ1Zl9hZGRyIGZvciBhdGg5
+a19od19wcm9jZXNzX3J4ZGVzY19lZG1hKCkgdG8gdmVyaWZ5Cj4+PiBhc3N1bXB0aW9ucyAtLS0g
+ZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2UoKSBjYWxsIGNhbiBiZSByZW1vdmVkLgo+Pj4gCj4+
+PiBTaWduZWQtb2ZmLWJ5OiBNaWNoYcWCIE1pcm9zxYJhdzxtaXJxLWxpbnV4QHJlcmUucW1xbS5w
+bD4KPj4+IC0tLQo+Pj4gZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2FyOTAwM19tYWMu
+YyB8ICAgIDQgKystLQo+Pj4gZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2FyOTAwM19t
+YWMuaCB8ICAgIDIgKy0KPj4+IGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9yZWN2LmMg
+ICAgICAgfCAgIDEwICsrKy0tLS0tLS0KPj4+IDMgZmlsZXMgY2hhbmdlZCwgNiBpbnNlcnRpb25z
+KCspLCAxMCBkZWxldGlvbnMoLSkKPj4+IAo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dp
+cmVsZXNzL2F0aC9hdGg5ay9yZWN2LmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsv
+cmVjdi5jCj4+PiBpbmRleCA3MGRjOGVjLi5jNWY0NmQ1IDEwMDY0NAo+Pj4gLS0tIGEvZHJpdmVy
+cy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL3JlY3YuYwo+Pj4gKysrIGIvZHJpdmVycy9uZXQvd2ly
+ZWxlc3MvYXRoL2F0aDlrL3JlY3YuYwo+Pj4gQEAgLTY4NCwxNSArNjg0LDExIEBAIHN0YXRpYyBi
+b29sIGF0aF9lZG1hX2dldF9idWZmZXJzKHN0cnVjdCBhdGhfc29mdGMgKnNjLAo+Pj4gICAgQlVH
+X09OKCFiZik7Cj4+PiAKPj4+ICAgIGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1KHNjLT5kZXYsIGJm
+LT5iZl9idWZfYWRkciwKPj4+IC0gICAgICAgICAgICAgICAgY29tbW9uLT5yeF9idWZzaXplLCBE
+TUFfRlJPTV9ERVZJQ0UpOwo+Pj4gKyAgICAgICAgICAgICAgICBjb21tb24tPnJ4X2J1ZnNpemUs
+IERNQV9CSURJUkVDVElPTkFMKTsKPj4+IAo+Pj4gICAgcmV0ID0gYXRoOWtfaHdfcHJvY2Vzc19y
+eGRlc2NfZWRtYShhaCwgTlVMTCwgc2tiLT5kYXRhKTsKPj4+IC0gICAgaWYgKHJldCA9PSAtRUlO
+UFJPR1JFU1MpIHsKPj4+IC0gICAgICAgIC8qbGV0IGRldmljZSBnYWluIHRoZSBidWZmZXIgYWdh
+aW4qLwo+Pj4gLSAgICAgICAgZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2Uoc2MtPmRldiwgYmYt
+PmJmX2J1Zl9hZGRyLAo+Pj4gLSAgICAgICAgICAgICAgICBjb21tb24tPnJ4X2J1ZnNpemUsIERN
+QV9GUk9NX0RFVklDRSk7Cj4+PiArICAgIGlmIChyZXQgPT0gLUVJTlBST0dSRVNTKQo+Pj4gICAg
+ICAgIHJldHVybiBmYWxzZTsKPj4+IC0gICAgfQo+Pj4gCj4+PiAgICBfX3NrYl91bmxpbmsoc2ti
+LCZyeF9lZG1hLT5yeF9maWZvKTsKPj4+ICAgIGlmIChyZXQgPT0gLUVJTlZBTCkgewo+PiBJIGhh
+dmUgc3Ryb25nIGRvdWJ0cyBhYm91dCB0aGlzIGNoYW5nZS4gT24gbW9zdCBNSVBTIGRldmljZXMs
+Cj4+IGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1IGlzIGEgbm8tb3AsIHdoZXJlYXMKPj4gZG1hX3N5
+bmNfc2luZ2xlX2Zvcl9kZXZpY2UgZmx1c2hlcyB0aGUgY2FjaGUgcmFuZ2UuIFdpdGggdGhpcwo+
+PiBjaGFuZ2UsIHRoZSBDUFUgY291bGQgY2FjaGUgdGhlIERNQSBzdGF0dXMgcGFydCBiZWhpbmQg
+c2tiLT5kYXRhIGFuZAo+PiB0aGF0IGNhY2hlIGVudHJ5IHdvdWxkIG5vdCBiZSBmbHVzaGVkIGlu
+YmV0d2VlbiBjYWxscyB0byB0aGlzCj4+IGZ1bmN0aW9ucyBvbiB0aGUgc2FtZSBidWZmZXIsIGxp
+a2VseSBsZWFkaW5nIHRvIHJ4IHN0YWxscy4KPiAKPiBZb3UncmUgc3VnZ2VzdGluZyBhIHBsYXRm
+b3JtIGltcGxlbWVudGF0aW9uIGJ1ZyB0aGVuLiBJZiB0aGUgcGxhdGZvcm0gaXMgbm90Cj4gY2Fj
+aGUtY29oZXJlbnQsIGl0IHNob3VsZCBpbnZhbGlkYXRlIHJlbGV2YW50IENQVSBjYWNoZSBsaW5l
+cyBmb3Igc3luY190b19jcHUKPiBhbmQgdW5tYXAgY2FzZXMuIERvIG90aGVyIGRldmljZXMgc2hv
+dyBzdWNoIHN5bXB0b21zIG9uIE1JUFMgc3lzdGVtcz8KPiAKPiBJJ20gbm90IGZhbWlsaWFyIHdp
+dGggdGhlIHBsYXRmb3JtIGludGVybmFscywgc28gd2Ugc2hvdWxkIGFzayBNSVBTIHBlb3BsZS4K
+SSBvbmx5IG1lbnRpb25lZCBNSVBTIHRvIGRlc2NyaWJlIHRoZSBwb3RlbnRpYWwgc2lkZSBlZmZl
+Y3Qgb2YgdGhpcyBjaGFuZ2UuIEZyb20gbXkgY3VycmVudCB1bmRlcnN0YW5kaW5nIG9mIHRoZSBE
+TUEgQVBJLCBpdCB3b3VsZCBiZSB3cm9uZyBvbiBvdGhlciBwbGF0Zm9ybXMgYXMgd2VsbC4gSSBi
+ZWxpZXZlIHRoZSBfZm9yX2RldmljZSBmdW5jdGlvbiBuZWVkcyB0byBiZSB1c2VkIHRvIHRyYW5z
+ZmVyIG93bmVyc2hpcCBvZiB0aGUgYnVmZmVyIGJhY2sgdG8gdGhlIGRldmljZSwgYmVmb3JlIGNh
+bGxpbmcgX2Zvcl9jcHUgYWdhaW4gbGF0ZXIgZm9yIGFub3RoZXIgcmVhZC4KVGhpcyBpcyBkZWZp
+bml0ZWx5IHJlcXVpcmVkIGluIHRoaXMgY2FzZSwgYmVjYXVzZSB3aGVuIHRoZSByZXR1cm4gY29k
+ZSBpcyAtRUlOUFJPR1JFU1MsIHRoZSBkcml2ZXIgd2FpdHMgZm9yIHRoZSBoYXJkd2FyZSB0byBj
+b21wbGV0ZSB0aGlzIGJ1ZmZlciwgYW5kIHRoZSBuZXh0IGNhbGwgaGFzIHRvIGZldGNoIHRoZSBt
+ZW1vcnkgYWdhaW4gYWZ0ZXIgdGhlIGRldmljZSBoYXMgdXBkYXRlZCBpdC4KVGhpcyBpcyBoYW5k
+bGVkIHByb3Blcmx5IGJ5IHRoZSBjdXJyZW50IGNvZGUgd2l0aG91dCB5b3VyIGNoYW5nZS4KCi0g
+RmVsaXgKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KYXRo
+OWstZGV2ZWwgbWFpbGluZyBsaXN0CmF0aDlrLWRldmVsQGxpc3RzLmF0aDlrLm9yZwpodHRwczov
+L2xpc3RzLmF0aDlrLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2F0aDlrLWRldmVsCg==
