@@ -1,43 +1,62 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: bonding and IPv6 "doesn't work"?
-Date: Tue, 12 Jul 2011 18:14:56 +0200
-Message-ID: <20110712161455.GD909183@jupiter.n2.diac24.net>
-References: <4E1C70D5.6060806@wpkg.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC v2 2/2] e100: Support RXFCS feature flag.
+Date: Tue, 12 Jul 2011 17:23:36 +0100
+Message-ID: <1310487816.2732.13.camel@bwh-desktop>
+References: <1308942371-12748-1-git-send-email-greearb@candelatech.com>
+	 <1308942371-12748-3-git-send-email-greearb@candelatech.com>
+	 <BANLkTiknCV1HknVpEdK97yU8eJwaJ5Y5Ag@mail.gmail.com>
+	 <4E0B3510.2080202@candelatech.com>
+	 <BANLkTikaJNa2+jbW6HWwc+tEE-ciNxvkLg@mail.gmail.com>
+	 <4E0B383E.8020807@candelatech.com>
+	 <BANLkTi=-ibpBiWBZ=AANybmWMWfMVGfe4Q@mail.gmail.com>
+	 <4E0B42CE.30400@candelatech.com>
+	 <CAHXqBFL-QgKvrvcrjtjSgDdeH9i7Ai86U2ujQ4xpo-vXLEkO5A@mail.gmail.com>
+	 <20110712090000.29c17c20@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tomasz Chmielewski <mangoo@wpkg.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:52888 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753972Ab1GLQPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 12:15:03 -0400
-Content-Disposition: inline
-In-Reply-To: <4E1C70D5.6060806@wpkg.org>
+Received: from mail.solarflare.com ([216.237.3.220]:3352 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753854Ab1GLQXj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 12:23:39 -0400
+In-Reply-To: <20110712090000.29c17c20@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 12, 2011 at 06:05:41PM +0200, Tomasz Chmielewski wrote:
-> I make a bond0 of two interfaces, eth0 and eth1.
+On Tue, 2011-07-12 at 09:00 -0700, Stephen Hemminger wrote:
+> On Tue, 12 Jul 2011 17:49:49 +0200
+> Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com> wrote:
+>=20
+> > wanted_features only reflects what is requested by user, this
+> > combination might be invalid. When conditions change this value
+> > combined with other bits in features are passed through
+> > ndo_fix_features callback and netdev_fix_features() to bring it to
+> > valid state, and then (if resulting set is different than current
+> > features) ndo_set_features() is called to reconfigure device for th=
+at
+> > new state change to it.
+>=20
+> Since this semantic is more complicated than most other parts
+> of network device interface API; could you please put a detailed
+> documentation into Documentation/networking/netdevices.txt
+>=20
+> The whole netdevices.txt document could use some extending and
+> rewriting as well.
 
-What kind of device do you have on the other side of those links?
+Given that it has missed the last 3 years of API changes (and many
+before that) I think it would be better to convert it into kernel-doc
+comments in netdevice.h.  That would make it more obvious to driver
+authors trying to understand the API, and to those changing the driver
+API.
 
-> bond0: IPv6 duplicate address 2a01:4f8:120:14c4::1247 detected!
-[...]
-> However if I start bonding with just one interface, add IPv6 address to 
-> it, then use ifenslave to add a second interface, I'm able to reach the 
-> hosts in the internet.
+Ben.
 
-Yeah, when you add the IPv6 address, IPv6 ND does its job and announces
-your presence/does DAD. Your bonding peer is probably looping those
-packets back on the other link, most likely because...
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> Bonding Mode: load balancing (round-robin)
-
-... most likely because you maybe have a switch on the other side, and
-that switch expects you to do 802.3ad?
-
-Just guessing,
-
-
--David
