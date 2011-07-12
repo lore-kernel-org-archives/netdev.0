@@ -1,202 +1,109 @@
-From: Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-Subject: Re: [net-next 5/5] ixgbe: convert to ndo_fix_features
-Date: Tue, 12 Jul 2011 12:09:32 +0200
-Message-ID: <20110712100932.GA6433@rere.qmqm.pl>
-References: <1310212240-24623-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1310212240-24623-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110709121108.GA7720@rere.qmqm.pl>
- <C0716E470783B24A8178C9E38CD2F34505DF1B3F@orsmsx509.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: softirqs are invoked while bottom halves are masked (was: Re:
+ [PATCH] [PATCH] Fix deadlock in af_packet while stressing raw ethernet
+ socket interface)
+Date: Tue, 12 Jul 2011 12:10:11 +0200
+Message-ID: <1310465411.3314.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CAAXf6LXHeiCT+n=Wpdf=QfUXUHUSd7fmx9y3kB7te8N3ON1fTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Cc: linuxppc-dev <linuxppc-dev@ozlabs.org>,
+	Ronny Meeus <ronny.meeus@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas De Schampheleire <patrickdepinguin+linuxppc@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:43932 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752052Ab1GLKJd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 06:09:33 -0400
-Content-Disposition: inline
-In-Reply-To: <C0716E470783B24A8178C9E38CD2F34505DF1B3F@orsmsx509.amr.corp.intel.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43251 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241Ab1GLKKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 06:10:23 -0400
+Received: by wyg8 with SMTP id 8so3142701wyg.19
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 03:10:21 -0700 (PDT)
+In-Reply-To: <CAAXf6LXHeiCT+n=Wpdf=QfUXUHUSd7fmx9y3kB7te8N3ON1fTg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2011 at 04:53:57PM -0700, Skidmore, Donald C wrote:
-> >-----Original Message-----
-> >From: Michal Miroslaw [mailto:mirq-linux@rere.qmqm.pl]
-> >Sent: Saturday, July 09, 2011 5:11 AM
-> >To: Kirsher, Jeffrey T
-> >Cc: davem@davemloft.net; Skidmore, Donald C; netdev@vger.kernel.org;
-> >gospo@redhat.com
-> >Subject: Re: [net-next 5/5] ixgbe: convert to ndo_fix_features
-> >
-> >On Sat, Jul 09, 2011 at 04:50:40AM -0700, Jeff Kirsher wrote:
-> >> From: Don Skidmore <donald.c.skidmore@intel.com>
-> >>
-> >> Private rx_csum flags are now duplicate of netdev->features &
-> >> NETIF_F_RXCSUM.  We remove those duplicates and now use the
-> >net_device_ops
-> >> ndo_set_features.  This was based on the original patch submitted =
-by
-> >> Michal Miroslaw <mirq-linux@rere.qmqm.pl>.  I also removed the spe=
-cial
-> >> case not requiring a reset for X540 hardware.  It is needed just a=
-s it
-> >is
-> >> in 82599 hardware.
-> >[...]
-> >> --- a/drivers/net/ixgbe/ixgbe_main.c
-> >> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> >> @@ -7188,6 +7188,88 @@ int ixgbe_setup_tc(struct net_device *dev, =
-u8
-> >tc)
-> >[...]
-> >> +static int ixgbe_set_features(struct net_device *netdev, u32 data=
-)
-> >> +{
-> >> +	struct ixgbe_adapter *adapter =3D netdev_priv(netdev);
-> >> +	bool need_reset =3D false;
-> >> +
-> >> +#ifdef CONFIG_DCB
-> >> +	if ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
-> >> +	    !(data &  NETIF_F_HW_VLAN_RX))
-> >> +		return -EINVAL;
-> >> +#endif
-> >> +	/* return error if RXHASH is being enabled when RSS is not
-> >supported */
-> >> +	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
-> >> +	     (data &  NETIF_F_RXHASH))
-> >> +		return -EINVAL;
-> >> +
-> >> +	/* If Rx checksum is disabled, then RSC/LRO should also be
-> >disabled */
-> >> +	if (!(data & NETIF_F_RXCSUM)) {
-> >> +		data &=3D ~NETIF_F_LRO;
-> >> +		adapter->flags &=3D ~IXGBE_FLAG_RX_CSUM_ENABLED;
-> >> +	} else {
-> >> +		adapter->flags |=3D IXGBE_FLAG_RX_CSUM_ENABLED;
-> >> +	}
-> >
-> >The checks above should be done in ndo_fix_features callback. The ch=
-eck
-> >for
-> >RSS_ENABLED for RXHASH is redundant, as the feature is removed in
-> >probe()
-> >in this case (see [MARK] below).
-> Thanks for the comments Michal, it clears up a lot in my mind. :)
+Le mardi 12 juillet 2011 =C3=A0 11:23 +0200, Thomas De Schampheleire a
+=C3=A9crit :
+> Hi,
 >=20
-> So in ndo_fix_features we would just turn off feature flags rather th=
-an return an error?  For example:
+> I'm adding the linuxppc-dev mailing list since this may be pointing t=
+o
+> an irq/softirq problem in the powerpc architecture-specific code...
+
 >=20
-> 	if (!(data & NETIF_F_RXCSUM))=20
-> 		data &=3D ~NETIF_F_LRO;
-
-Exactly.
-
-> As for RSS_ENABLED/RXHASH check it was to cover the cases where RSS_E=
-NABLED might have changed since probe.  This could happen with a resume=
- were we don't get enough MSI-X vectors.  There are also paths in FCoE =
-and DCB that get into code that could clear IXGBE_FLAG_RSS_ENABLED.
-
-That makes sense now. The checks should be in ndo_fix_features and clea=
-r
-features whenever they are unavailable.
-
-> >> +
-> >> +	/* if state changes we need to update adapter->flags and reset *=
-/
-> >> +	if ((adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) &&
-> >> +	    (!!(data & NETIF_F_LRO) !=3D
-> >> +	     !!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))) {
-
-ndo_fix_features() should prevent the change if
-!(adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) is true.
-
-> >> +		if ((data &  NETIF_F_LRO) &&
-> >> +		    adapter->rx_itr_setting !=3D 1 &&
-> >> +		    adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE) {
-> >> +			e_info(probe, "rx-usecs set too low, "
-> >> +			       "not enabling RSC\n");
-
-And should clear NETIF_F_LRO when above condition is met.
-
-> >> +		} else {
-> >> +			adapter->flags2 ^=3D IXGBE_FLAG2_RSC_ENABLED;
-> >> +			switch (adapter->hw.mac.type) {
-> >> +			case ixgbe_mac_X540:
-> >> +			case ixgbe_mac_82599EB:
-> >> +				need_reset =3D true;
-> >> +				break;
-> >> +			default:
-> >> +				break;
-> >> +			}
-> >> +		}
-> >> +	}
-> >> +
-> >> +	/*
-> >> +	 * Check if Flow Director n-tuple support was enabled or disable=
-d.
-> >If
-> >> +	 * the state changed, we need to reset.
-> >> +	 */
-> >> +	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
-> >> +		/* turn off ATR, enable perfect filters and reset */
-> >> +		if (data & NETIF_F_NTUPLE) {
-> >> +			adapter->flags &=3D ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
-> >> +			adapter->flags |=3D IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-> >> +			need_reset =3D true;
-> >> +		}
-> >> +	} else if (!(data & NETIF_F_NTUPLE)) {
-> >> +		/* turn off Flow Director, set ATR and reset */
-> >> +		adapter->flags &=3D ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-> >> +		if ((adapter->flags &  IXGBE_FLAG_RSS_ENABLED) &&
-> >> +		    !(adapter->flags &  IXGBE_FLAG_DCB_ENABLED))
-> >> +			adapter->flags |=3D IXGBE_FLAG_FDIR_HASH_CAPABLE;
-> >> +		need_reset =3D true;
-> >> +	}
-> >
-> >Part of the checks above should be in ndo_fix_features, too.
-> >ndo_set_features
-> >should just enable what it has been passed. What ndo_fix_features
-> >callback
-> >returns is further limited by generic checks, and then (if the resul=
-ting
-> >set
-> >is different than current dev->features) ndo_set_features is called.
+> Note that the reason we are seeing this problem, may be because the
+> kernel we are using contains some patches from Freescale.
+> Specifically, in dev_queue_xmit(), support is added for hardware queu=
+e
+> handling, just before entering the rcu_read_lock_bh():
 >=20
-> I'm a little confused here.  From your comments I get the idea that n=
-do_fix_features() just modifies and error checks our feature set.  The =
-result of this would then be just a change to the feature set (data var=
-iable in my case above).  Is that a correct assumption?  If so I'm conf=
-used as none of the two checks above change the feature set.  They do c=
-hange driver flags to indicate the new state and mark whether we need a=
- reset.  I don't believe we would want to do the reset until ndo_set_fe=
-ature is called and if we broke up the setting of the driver flags into=
- ndo_fix_features we would lose some state (i.e. if the IXGBE_FLAG2_RSC=
-_ENABLED changed) that we need to decide if a reset is needed in ndo_se=
-t_features. =20
+
+Oh well, what a mess.
+
+>         if (dev->features & NETIF_F_HW_QDISC) {
+>                 txq =3D dev_pick_tx(dev, skb);
+
+
+
+>                 return dev_hard_start_xmit(skb, dev, txq);
+	This need to be :
+		local_bh_disable();
+		rc =3D dev_hard_start_xmit(skb, dev, txq);
+		local_bh_enable();
+		return rc;
+
+
+>         }
 >=20
-> Am I just missing something here?
+>         /* Disable soft irqs for various locks below. Also
+>          * stops preemption for RCU.
+>          */
+>         rcu_read_lock_bh();
+>=20
+> We just tried moving the escaping to dev_hard_start_xmit() after
+> taking the lock, but this gives a large number of other problems, e.g=
+=2E
+>=20
+> [   78.662428] BUG: sleeping function called from invalid context at
+> mm/slab.c:3101
+> [   78.751004] in_atomic(): 1, irqs_disabled(): 0, pid: 1908, name:
+> send_eth_socket
+> [   78.839582] Call Trace:
+> [   78.868784] [ec537b70] [c000789c] show_stack+0x78/0x18c (unreliabl=
+e)
+> [   78.944905] [ec537bb0] [c0022900] __might_sleep+0x100/0x118
+> [   79.011636] [ec537bc0] [c00facc4] kmem_cache_alloc+0x48/0x118
+> [   79.080446] [ec537be0] [c02cd0e8] __alloc_skb+0x50/0x130
+> [   79.144047] [ec537c00] [c02cdf5c] skb_copy+0x44/0xc8
+> [   79.203478] [ec537c20] [c029f904] dpa_tx+0x154/0x758
 
-I see that this changes only driver internal state, so your right in pu=
-tting
-this in ndo_set_features callback.
+doing GFP_KERNEL allocations in dpa_tx() is wrong, for sure.
 
-Can you draw a map of the relevant bits and what state should result fr=
-om
-them (a truth table if you will)? I have a hard time understanding the =
-idea.
-This changes _CAPABLE bits depending on _ENABLED which adds to confusio=
-n.
 
-I would expect that:
- _CAPABLE are set whenever a config is possible, disregarding dependenc=
-ies
- _ENABLED are set whenever a config is requested and possible
-But it looks like what I described is reversed or just wrong.
+> [   79.262907] [ec537c80] [c02d78ec] dev_hard_start_xmit+0x424/0x588
+> [   79.335878] [ec537cc0] [c02d7aac] dev_queue_xmit+0x5c/0x3a4
+> [   79.402602] [ec537cf0] [c0338d4c] packet_sendmsg+0x8c4/0x988
+> [   79.470363] [ec537d70] [c02c3838] sock_sendmsg+0x90/0xb4
+> [   79.533960] [ec537e40] [c02c4420] sys_sendto+0xdc/0x120
+> [   79.596514] [ec537f10] [c02c57d0] sys_socketcall+0x148/0x210
+> [   79.664287] [ec537f40] [c001084c] ret_from_syscall+0x0/0x3c
+> [   79.731015] --- Exception: c01 at 0x48051f00
+> [   79.731019]     LR =3D 0x4808e030
+>=20
+>=20
+> Note that this may just be the cause for us seeing this problem. If
+> indeed the main problem is irq_exit() invoking softirqs in a locked
+> context, then this patch adding hardware queue support is not really
+> relevant.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+irq_exit() is fine. This is because BH are not masked because of the
+=46reescale patches.
+
+Really, suggesting an af_packet patch to solve a problem introduced in
+an out of tree patch is insane.
+
+You guys hould have clearly stated you were using an alien kernel.
+
+
+
