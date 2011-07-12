@@ -1,119 +1,116 @@
-From: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
-Subject: Re: [ath9k-devel] [PATCH v2 07/46] net/wireless: ath9k: fix DMA API usage
-Date: Tue, 12 Jul 2011 22:21:05 +0800
-Message-ID: <EC2F82D7-9206-4139-9539-F5DDE38A5629@nbd.name>
-References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl> <280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl> <4E1BCF36.2010506@openwrt.org> <20110712095541.GA6236@rere.qmqm.pl> <B4765EFC-B5C9-4E2D-BE00-ED5519D13A4E@nbd.name> <20110712130316.GA8621@rere.qmqm.pl>
-Mime-Version: 1.0 (iPhone Mail 8H7)
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	"ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org" <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
-	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-	"linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org" <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
-To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110712130316.GA8621-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [patch net-next-2.6] net: allow multiple rx_handler registration
+Date: Tue, 12 Jul 2011 16:29:38 +0200
+Message-ID: <20110712142937.GA909183@jupiter.n2.diac24.net>
+References: <1310468761-2304-1-git-send-email-jpirko@redhat.com>
+ <20110712115422.GD616804@jupiter.n2.diac24.net>
+ <20110712132005.GA2300@minipsycho.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net,
+	greearb@candelatech.com, mirqus@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:53922 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751009Ab1GLOaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2011 10:30:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20110712132005.GA2300@minipsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12.07.2011, at 21:03, Micha=C5=82 Miros=C5=82aw <mirq-linux-CoA6ZxLDdyE@public.gmane.org=
-m.pl> wrote:
+On Tue, Jul 12, 2011 at 03:20:08PM +0200, Jiri Pirko wrote:
+> Tue, Jul 12, 2011 at 01:54:22PM CEST, equinox@diac24.net wrote:
+> >On Tue, Jul 12, 2011 at 01:06:01PM +0200, Jiri Pirko wrote:
+> >> For some net topos it is necessary to have multiple "soft-net-devices"
+> >> hooked on one netdev. For example very common is to have
+> >> eth<->(br+vlan). Vlan is not using rh_handler (yet) but it might be useful
+> >> for other setups.
+> >
+> >I disagree strongly, especially with the use cases you're enabling in
+> >this patch.
+> >
+> >> +	res = netdev_rx_handler_register(slave_dev, &new_slave->rx_handler,
+> >> +					 bond_handle_frame,
+> >> +					 RX_HANDLER_PRIO_BOND);
+> >
+> >> +	err = netdev_rx_handler_register(dev, &port->rx_handler,
+> >> +					 macvlan_handle_frame,
+> >> +					 RX_HANDLER_PRIO_MACVLAN);
+> >
+> >> +	err = netdev_rx_handler_register(dev, &p->rx_handler, br_handle_frame,
+> >> +					 RX_HANDLER_PRIO_BRIDGE);
+> >
+> >> +enum rx_handler_prio {
+> >> +	RX_HANDLER_PRIO_BRIDGE,
+> >> +	RX_HANDLER_PRIO_BOND,
+> >> +	RX_HANDLER_PRIO_MACVLAN,
+> >> +};
+> >
+> >These are all incompatible with each other to a varying degree and/or
+> >don't make much sense. Let's look at them:
+> >
+> >a) a device simultaneously being a bridge member and a bond slave
+> > -> Fully incompatible. Your bonding peer switch will start sending
+> >    the bridge's packets on other bond member devices.
+> 
+> Not possible. See netdev_set_master(). Anyway, before rx_handler was
+> introduced, this was possible and no one cared.
 
-> On Tue, Jul 12, 2011 at 08:54:32PM +0800, Felix Fietkau wrote:
->> On 12.07.2011, at 17:55, Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.=
-qmqm.pl> wrote:
->>=20
->>> On Tue, Jul 12, 2011 at 12:36:06PM +0800, Felix Fietkau wrote:
->>>> On 2011-07-11 8:52 AM, Micha=C5=82 Miros=C5=82aw wrote:
->>>>> Also constify buf_addr for ath9k_hw_process_rxdesc_edma() to veri=
-fy
->>>>> assumptions --- dma_sync_single_for_device() call can be removed.
->>>>>=20
->>>>> Signed-off-by: Micha=C5=82 Miros=C5=82aw<mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
->>>>> ---
->>>>> drivers/net/wireless/ath/ath9k/ar9003_mac.c |    4 ++--
->>>>> drivers/net/wireless/ath/ath9k/ar9003_mac.h |    2 +-
->>>>> drivers/net/wireless/ath/ath9k/recv.c       |   10 +++-------
->>>>> 3 files changed, 6 insertions(+), 10 deletions(-)
->>>>>=20
->>>>> diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/=
-wireless/ath/ath9k/recv.c
->>>>> index 70dc8ec..c5f46d5 100644
->>>>> --- a/drivers/net/wireless/ath/ath9k/recv.c
->>>>> +++ b/drivers/net/wireless/ath/ath9k/recv.c
->>>>> @@ -684,15 +684,11 @@ static bool ath_edma_get_buffers(struct ath=
-_softc *sc,
->>>>>   BUG_ON(!bf);
->>>>>=20
->>>>>   dma_sync_single_for_cpu(sc->dev, bf->bf_buf_addr,
->>>>> -                common->rx_bufsize, DMA_FROM_DEVICE);
->>>>> +                common->rx_bufsize, DMA_BIDIRECTIONAL);
->>>>>=20
->>>>>   ret =3D ath9k_hw_process_rxdesc_edma(ah, NULL, skb->data);
->>>>> -    if (ret =3D=3D -EINPROGRESS) {
->>>>> -        /*let device gain the buffer again*/
->>>>> -        dma_sync_single_for_device(sc->dev, bf->bf_buf_addr,
->>>>> -                common->rx_bufsize, DMA_FROM_DEVICE);
->>>>> +    if (ret =3D=3D -EINPROGRESS)
->>>>>       return false;
->>>>> -    }
->>>>>=20
->>>>>   __skb_unlink(skb,&rx_edma->rx_fifo);
->>>>>   if (ret =3D=3D -EINVAL) {
->>>> I have strong doubts about this change. On most MIPS devices,
->>>> dma_sync_single_for_cpu is a no-op, whereas
->>>> dma_sync_single_for_device flushes the cache range. With this
->>>> change, the CPU could cache the DMA status part behind skb->data a=
-nd
->>>> that cache entry would not be flushed inbetween calls to this
->>>> functions on the same buffer, likely leading to rx stalls.
->>>=20
->>> You're suggesting a platform implementation bug then. If the platfo=
-rm is not
->>> cache-coherent, it should invalidate relevant CPU cache lines for s=
-ync_to_cpu
->>> and unmap cases. Do other devices show such symptoms on MIPS system=
-s?
->>>=20
->>> I'm not familiar with the platform internals, so we should ask MIPS=
- people.
->> I only mentioned MIPS to describe the potential side effect of this =
-change. From my current understanding of the DMA API, it would be wrong=
- on other platforms as well. I believe the _for_device function needs t=
-o be used to transfer ownership of the buffer back to the device, befor=
-e calling _for_cpu again later for another read.
->=20
-> What you're saying reminds the wording in DMA-API-HOWTO.txt that I fi=
-nd
-> wrong (or at least misleading) compared to what DMA-API.txt describes=
-=2E
-> DMA sync calls do not transfer the ownership of the buffer - they are
-> cache synchronization points, ownership passing is handled entirely b=
-y
-> the driver.
-What I meant was that the DMA sync calls reflect the ownership transfer=
- of the memory regions. In this case ownership is transferred between d=
-evice and CPU multiple times and the code reflects that.
+I don't see how this is related. I'm talking about the other end of your
+bond. Like for example the 802.3ad capable switch you're bonding to.
 
->=20
->> This is definitely required in this case, because when the return co=
-de is -EINPROGRESS, the driver waits for the hardware to complete this =
-buffer, and the next call has to fetch the memory again after the devic=
-e has updated it.
->=20
-> Correctness of this access should be provided by sync_to_cpu() call.
-At least in MIPS I'm sure it isn't. If I remember correctly, it also is=
-n't on ARM, so I'm pretty sure that either your understanding of the AP=
-I is incorrect, or arch code does not implement it properly. In either =
-case, this change (and probably also the p54 one) should not be merged.
+> >b) a device having macvlans and being a bond slave
+> > -> Fully incompatible. Same as above, packets to the macvlan will end
+> >    up on other bond member devices.
+> >
+> >c) bridge + macvlan
+> > -> Mostly useless. Add veth/tap devices to your bridge... as a bonus
+> >    you get a proper MAC table.
+> >
+> >This at least needs bonding support removed since bonding is essentially
+> >incompatible with anything else w/ the same reasoning as above. Bonds
+> >are as low-level as Pause frames. Never ever touch individual bond
+> >slaves.
+> >
+> >What does make sense is a device being member of multiple bridges, with
+> >ebtables as solicitor for which bridge gets the packet. But that's not
+> >possible with your patch...
+> >+       if (netdev_rx_handler_get_by_prio(dev, prio))
+> >                return -EBUSY;
+> >
+> >I think your idea is good, but it needs WAY more proper consideration.
+> 
+> This patch doen't introduce anything new which wasn't possible before
+> rx_handler times. Anyway removing bond from using rx_handler as you
+> suggested pushes us back.
 
-- Felix--
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I would actually consider this a regression, if the clashing rx_handler
+is the only thing that gets bonding an 'exclusive' hold of the device.
+
+> The rationale of this patch is to have all in one place, clean
+> architecture. The rest of problems, like what can be
+> used with what in one time etc can be easily sorted out by follow-up
+> patches.
+
+Yes, I see what you're trying to do. But if your patch goes back to
+allowing broken combinations, I think we need to have those follow-up
+patches right here with this patch.
+
+> And to your idea about multi-bridge support, br co needs to be
+> adjusted as well. And in relation with PRIO, my idea (inspired from RFC
+> of this patch comments) is to allow users to change priorities
+> dynamically from userspace. Also then it could be a range of prios for
+> bridge for example.
+
+Hoping I can convey my point,
+
+
+-David
+
+
+P.S.: Could you please provide some sample usage cases for this feature?
