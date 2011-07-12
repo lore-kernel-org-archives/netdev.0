@@ -1,186 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 4/5] ipv4: Kill 'rt_src' from 'struct rtable'
-Date: Mon, 11 Jul 2011 22:30:12 -0700 (PDT)
-Message-ID: <20110711.223012.369391522951861127.davem@davemloft.net>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: [ath9k-devel] [PATCH v2 07/46] net/wireless: ath9k: fix DMA API
+ usage
+Date: Mon, 11 Jul 2011 22:30:23 -0700
+Message-ID: <4E1BDBEF.1090505@candelatech.com>
+References: <cover.1310339688.git.mirq-linux@rere.qmqm.pl> <280ad9176e6532f231e054b38b952b20580874c5.1310339688.git.mirq-linux@rere.qmqm.pl> <4E1BCF36.2010506@openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34612 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678Ab1GLFaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 01:30:13 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(authenticated bits=0)
-	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p6C5UCte030597
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2011 22:30:12 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jouni Malinen <jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>,
+	ath9k-devel-juf53994utBLZpfksSYvnA@public.gmane.org,
+	Vasanthakumar Thiagarajan <vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4E1BCF36.2010506-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On 07/11/2011 09:36 PM, Felix Fietkau wrote:
+> On 2011-07-11 8:52 AM, Micha=C5=82 Miros=C5=82aw wrote:
+>> Also constify buf_addr for ath9k_hw_process_rxdesc_edma() to verify
+>> assumptions --- dma_sync_single_for_device() call can be removed.
+>>
+>> Signed-off-by: Micha=C5=82 Miros=C5=82aw<mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+>> ---
+>> drivers/net/wireless/ath/ath9k/ar9003_mac.c | 4 ++--
+>> drivers/net/wireless/ath/ath9k/ar9003_mac.h | 2 +-
+>> drivers/net/wireless/ath/ath9k/recv.c | 10 +++-------
+>> 3 files changed, 6 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wir=
+eless/ath/ath9k/recv.c
+>> index 70dc8ec..c5f46d5 100644
+>> --- a/drivers/net/wireless/ath/ath9k/recv.c
+>> +++ b/drivers/net/wireless/ath/ath9k/recv.c
+>> @@ -684,15 +684,11 @@ static bool ath_edma_get_buffers(struct ath_so=
+ftc *sc,
+>> BUG_ON(!bf);
+>>
+>> dma_sync_single_for_cpu(sc->dev, bf->bf_buf_addr,
+>> - common->rx_bufsize, DMA_FROM_DEVICE);
+>> + common->rx_bufsize, DMA_BIDIRECTIONAL);
+>>
+>> ret =3D ath9k_hw_process_rxdesc_edma(ah, NULL, skb->data);
+>> - if (ret =3D=3D -EINPROGRESS) {
+>> - /*let device gain the buffer again*/
+>> - dma_sync_single_for_device(sc->dev, bf->bf_buf_addr,
+>> - common->rx_bufsize, DMA_FROM_DEVICE);
+>> + if (ret =3D=3D -EINPROGRESS)
+>> return false;
+>> - }
+>>
+>> __skb_unlink(skb,&rx_edma->rx_fifo);
+>> if (ret =3D=3D -EINVAL) {
+> I have strong doubts about this change. On most MIPS devices, dma_syn=
+c_single_for_cpu is a no-op, whereas dma_sync_single_for_device flushes=
+ the cache range.
+> With this change, the CPU could cache the DMA status part behind skb-=
+>data and that cache entry would not be flushed inbetween calls to this=
+ functions on the
+> same buffer, likely leading to rx stalls.
+
+At the very least, it would need heavy testing.  It took a very long ti=
+me to get
+the ath9k DMA issues (mostly?) resolved...so we shouldn't go mucking in=
+ this
+code on theory...
+
+Thanks,
+Ben
+
+>
+> - Felix
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
 
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/route.h     |    1 -
- net/ipv4/route.c        |   34 +++++++++++++++-------------------
- net/ipv4/xfrm4_policy.c |    1 -
- 3 files changed, 15 insertions(+), 21 deletions(-)
-
-diff --git a/include/net/route.h b/include/net/route.h
-index d293db3..40e9713 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -50,7 +50,6 @@ struct rtable {
- 	__u16			rt_type;
- 
- 	__be32			rt_dst;	/* Path destination	*/
--	__be32			rt_src;	/* Path source		*/
- 	int			rt_route_iif;
- 	int			rt_iif;
- 	int			rt_oif;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 2d9bece..9c34ca8 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1174,7 +1174,6 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rth->rt_flags	= RTCF_MULTICAST;
- 	rth->rt_type	= RTN_MULTICAST;
- 	rth->rt_dst	= daddr;
--	rth->rt_src	= saddr;
- 	rth->rt_route_iif = dev->ifindex;
- 	rth->rt_iif	= dev->ifindex;
- 	rth->rt_oif	= 0;
-@@ -1305,7 +1304,6 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->rt_flags = flags;
- 	rth->rt_type = res->type;
- 	rth->rt_dst	= daddr;
--	rth->rt_src	= saddr;
- 	rth->rt_route_iif = in_dev->dev->ifindex;
- 	rth->rt_iif 	= in_dev->dev->ifindex;
- 	rth->rt_oif 	= 0;
-@@ -1477,7 +1475,6 @@ local_input:
- 	rth->rt_flags 	= flags|RTCF_LOCAL;
- 	rth->rt_type	= res.type;
- 	rth->rt_dst	= daddr;
--	rth->rt_src	= saddr;
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	rth->dst.tclassid = itag;
- #endif
-@@ -1641,7 +1638,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	rth->rt_flags	= flags;
- 	rth->rt_type	= type;
- 	rth->rt_dst	= fl4->daddr;
--	rth->rt_src	= fl4->saddr;
- 	rth->rt_route_iif = 0;
- 	rth->rt_iif	= orig_oif ? : dev_out->ifindex;
- 	rth->rt_oif	= orig_oif;
-@@ -1926,7 +1922,6 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
- 		rt->rt_flags = ort->rt_flags;
- 		rt->rt_type = ort->rt_type;
- 		rt->rt_dst = ort->rt_dst;
--		rt->rt_src = ort->rt_src;
- 		rt->rt_gateway = ort->rt_gateway;
- 		rt->rt_spec_dst = ort->rt_spec_dst;
- 		rt->peer = ort->peer;
-@@ -1961,7 +1956,7 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
- }
- EXPORT_SYMBOL_GPL(ip_route_output_flow);
- 
--static int rt_fill_info(struct net *net,  __be32 src, u8 tos,
-+static int rt_fill_info(struct net *net,  __be32 src, struct flowi4 *fl4,
- 			struct sk_buff *skb, u32 pid, u32 seq, int event,
- 			int nowait, unsigned int flags)
- {
-@@ -1980,7 +1975,7 @@ static int rt_fill_info(struct net *net,  __be32 src, u8 tos,
- 	r->rtm_family	 = AF_INET;
- 	r->rtm_dst_len	= 32;
- 	r->rtm_src_len	= 0;
--	r->rtm_tos	= tos;
-+	r->rtm_tos	= fl4->flowi4_tos;
- 	r->rtm_table	= RT_TABLE_MAIN;
- 	NLA_PUT_U32(skb, RTA_TABLE, RT_TABLE_MAIN);
- 	r->rtm_type	= rt->rt_type;
-@@ -2004,10 +1999,10 @@ static int rt_fill_info(struct net *net,  __be32 src, u8 tos,
- #endif
- 	if (rt_is_input_route(rt))
- 		NLA_PUT_BE32(skb, RTA_PREFSRC, rt->rt_spec_dst);
--	else if (rt->rt_src != src)
--		NLA_PUT_BE32(skb, RTA_PREFSRC, rt->rt_src);
-+	else if (fl4->saddr != src)
-+		NLA_PUT_BE32(skb, RTA_PREFSRC, fl4->saddr);
- 
--	if (rt->rt_dst != rt->rt_gateway)
-+	if (fl4->daddr != rt->rt_gateway)
- 		NLA_PUT_BE32(skb, RTA_GATEWAY, rt->rt_gateway);
- 
- 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
-@@ -2036,7 +2031,7 @@ static int rt_fill_info(struct net *net,  __be32 src, u8 tos,
- 		if (ipv4_is_multicast(dst) && !ipv4_is_local_multicast(dst) &&
- 		    IPV4_DEVCONF_ALL(net, MC_FORWARDING)) {
- 			int err = ipmr_get_route(net, skb,
--						 rt->rt_src, rt->rt_dst,
-+						 fl4->saddr, fl4->daddr,
- 						 r, nowait);
- 			if (err <= 0) {
- 				if (!nowait) {
-@@ -2071,6 +2066,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	struct rtmsg *rtm;
- 	struct nlattr *tb[RTA_MAX+1];
- 	struct rtable *rt = NULL;
-+	struct flowi4 fl4;
- 	__be32 dst = 0;
- 	__be32 src = 0;
- 	u32 iif;
-@@ -2105,6 +2101,13 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	iif = tb[RTA_IIF] ? nla_get_u32(tb[RTA_IIF]) : 0;
- 	mark = tb[RTA_MARK] ? nla_get_u32(tb[RTA_MARK]) : 0;
- 
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.daddr = dst;
-+	fl4.saddr = src;
-+	fl4.flowi4_tos = rtm->rtm_tos;
-+	fl4.flowi4_oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0;
-+	fl4.flowi4_mark = mark;
-+
- 	if (iif) {
- 		struct net_device *dev;
- 
-@@ -2125,13 +2128,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 		if (err == 0 && rt->dst.error)
- 			err = -rt->dst.error;
- 	} else {
--		struct flowi4 fl4 = {
--			.daddr = dst,
--			.saddr = src,
--			.flowi4_tos = rtm->rtm_tos,
--			.flowi4_oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0,
--			.flowi4_mark = mark,
--		};
- 		rt = ip_route_output_key(net, &fl4);
- 
- 		err = 0;
-@@ -2146,7 +2142,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	if (rtm->rtm_flags & RTM_F_NOTIFY)
- 		rt->rt_flags |= RTCF_NOTIFY;
- 
--	err = rt_fill_info(net, src, rtm->rtm_tos, skb,
-+	err = rt_fill_info(net, src, &fl4, skb,
- 			   NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
- 			   RTM_NEWROUTE, 0, 0);
- 	if (err <= 0)
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 6b4a349..518e5cc 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -96,7 +96,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
- 	xdst->u.rt.rt_flags = rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST |
- 					      RTCF_LOCAL);
- 	xdst->u.rt.rt_type = rt->rt_type;
--	xdst->u.rt.rt_src = rt->rt_src;
- 	xdst->u.rt.rt_dst = rt->rt_dst;
- 	xdst->u.rt.rt_gateway = rt->rt_gateway;
- 	xdst->u.rt.rt_spec_dst = rt->rt_spec_dst;
--- 
-1.7.5.4
-
+--=20
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
