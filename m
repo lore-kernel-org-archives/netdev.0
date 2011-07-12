@@ -1,86 +1,63 @@
-From: Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-Subject: Re: [net-next 5/5] ixgbe: convert to ndo_fix_features
-Date: Tue, 12 Jul 2011 23:44:45 +0200
-Message-ID: <20110712214445.GA14904@rere.qmqm.pl>
-References: <1310212240-24623-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1310212240-24623-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110709121108.GA7720@rere.qmqm.pl>
- <C0716E470783B24A8178C9E38CD2F34505DF1B3F@orsmsx509.amr.corp.intel.com>
- <20110712100932.GA6433@rere.qmqm.pl>
- <C0716E470783B24A8178C9E38CD2F34505E7682C@orsmsx509.amr.corp.intel.com>
+From: "Stefan (metze) Metzmacher" <metze@samba.org>
+Subject: [IPv6] Why does IPV6_ROUTE_INFO still depends on EXPERIMENTAL?
+Date: Wed, 13 Jul 2011 00:03:21 +0200
+Message-ID: <4E1CC4A9.5000204@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigE0D8ABB161F60B72774EDB34"
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:33209 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751488Ab1GLVor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2011 17:44:47 -0400
-Content-Disposition: inline
-In-Reply-To: <C0716E470783B24A8178C9E38CD2F34505E7682C@orsmsx509.amr.corp.intel.com>
+Received: from mo-p05-ob.rzone.de ([81.169.146.180]:15561 "EHLO
+	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755451Ab1GLWD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 18:03:27 -0400
+Received: from [IPv6:2001:470:9f11:11e2:b73e:2c81:77fd:3603]
+	([2001:470:9f11:11e2:b73e:2c81:77fd:3603])
+	by smtp.strato.de (klopstock mo44) (RZmta 26.0)
+	with ESMTPA id j06da8n6CLUBeG for <netdev@vger.kernel.org>;
+	Wed, 13 Jul 2011 00:03:25 +0200 (MEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good to see the idea converging. :) More hints below.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigE0D8ABB161F60B72774EDB34
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, Jul 12, 2011 at 02:28:15PM -0700, Skidmore, Donald C wrote:
-[...]
-> The logic in this conditional is a little complex. I believe it would
-> end up looking something like the following:
->=20
-> in fix_features:
->=20
-> 	/* Prevent change if not RSC capable or invalid ITR setting */
-> 	if (data & NETIF_F_LRO)
+Hi,
 
-That's not a fast path - you can drop (data & NETIF_F_LRO) check.
+I'm wondering why IPV6_ROUTE_INFO still depends on EXPERIMENTAL about
+5 years after the initial implementation?
 
-> 		if (!(adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) {
-> 			data &=3D ~NETIF_F_LRO;
-> 		else if (!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) &&
-> 	    		   (adapter->rx_itr_setting !=3D 1 &&
-> 			    adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE)) {
-> 				data &=3D ~NETIF_F_LRO;
-> 		}
-> 	}=20
+I'm also wondering why IPV6_PRIVACY, IPV6_ROUTER_PREF, IPV6_ROUTE_INFO
+are compile time switches at all, while there're runtime switches which
+are of
+by default.
 
-Same for !(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED). After this chang=
-e,
-you might add a call to netdev_update_features() whenever the second pa=
-rt
-of the condition is changed by user and you get correctness all the tim=
-e
-'for free'.
+It would be nice to have more IPv6 features enabled (at compile time) by
+default,
+so that features can be turned (at runtime) with default distribution
+kernels.
 
-> in set_feature:
->=20
-> 	/* Make sure RSC matches LRO, reset if change */
-> 	if (!!(data & NETIF_F_LRO) !=3D=20
-> 	    !!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)) {
-> 		adapter->flags2 ^=3D IXGBE_FLAG2_RSC_ENABLED;
-> 		switch (adapter->hw.mac.type) {
-> 		case ixgbe_mac_X540:
-> 		case ixgbe_mac_82599EB:
-> 			need_reset =3D true;
-> 			break;
-> 		default:
-> 			break;=09
-> 		}
-> 	}
+Is there a chance get patches accepted, which remove some compile time
+switches?
 
-Correct. Why would you need IXGBE_FLAG2_RSC_ENABLED now, when it just
-mirrors NETIF_F_LRO?
+metze
 
-[...]
-> Thanks again for the clarifications, the netdev-features.txt helped a=
- lot too.=20
 
-Nice to hear (read) that!
+--------------enigE0D8ABB161F60B72774EDB34
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Best Regards,
-Micha=B3 Miros=B3aw
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk4cxKkACgkQm70gjA5TCD/QvwCgxfRetglogQc1mWmYnhnn4pRa
+0SYAn1Ivg/j7vyhvWJA9tTbNulzHXSQ/
+=lP6C
+-----END PGP SIGNATURE-----
+
+--------------enigE0D8ABB161F60B72774EDB34--
