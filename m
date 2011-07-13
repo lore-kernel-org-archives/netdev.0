@@ -1,69 +1,39 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH] bnx2: do not start the interface if reset fails
-Date: Wed, 13 Jul 2011 14:54:50 -0300
-Message-ID: <1310579690-24622-1-git-send-email-fbl@redhat.com>
-Cc: Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
+From: Roland Dreier <roland@purestorage.com>
+Subject: Re: [PATCH 2/2] ipv4: Use universal hash for ARP.
+Date: Wed, 13 Jul 2011 10:59:08 -0700
+Message-ID: <CAL1RGDWXqnL4zzcfV_kj=R2P148JcVB2X2QUV90__+e5zUH-cQ@mail.gmail.com>
+References: <20110711.014845.1009062692530385177.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: johnwheffner@gmail.com, mj@ucw.cz, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31652 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932320Ab1GMRzF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2011 13:55:05 -0400
+Received: from na3sys010aog101.obsmtp.com ([74.125.245.70]:40144 "HELO
+	na3sys010aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754661Ab1GMR73 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2011 13:59:29 -0400
+Received: by ywm21 with SMTP id 21so2901123ywm.12
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 10:59:28 -0700 (PDT)
+In-Reply-To: <20110711.014845.1009062692530385177.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When bnx2_reset_task() is called, it will stop,
-(re)initialize and start the interface to restore
-the working condition.
+On Mon, Jul 11, 2011 at 1:48 AM, David Miller <davem@davemloft.net> wro=
+te:
+> +static inline u32 arp_hashfn(u32 key, const struct net_device *dev, =
+u32 hash_rnd)
+> +{
+> + =A0 =A0 =A0 u32 val =3D key ^ dev->ifindex;
+> +
+> + =A0 =A0 =A0 return val * hash_rnd;
+> +}
 
-The bnx2_init_nic() calls bnx2_reset_nic() which will
-reset the chip and then call bnx2_free_skbs() to free
-all the skbs.
+OK, I suggested this, and there's nothing obviously wrong with it.
 
-The problem happens when bnx2_init_chip() fails because
-bnx2_reset_nic() will just return skipping the ring
-initializations at bnx2_init_all_rings(). Later, the
-reset task starts the interface again and the system
-crashes due a NULL pointer access (no skb in the ring).
+But I would hope that someone actually vetted that this provides
+enough variation between different hash_rnd values to avoid hash
+chain attacks.
 
-This patch just check the return code and if an error is
-reported, warn the user and abort. It's better to have a
-non working interface than a crash.
-
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
- drivers/net/bnx2.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 7915d14..7fb71fc 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6296,6 +6296,7 @@ static void
- bnx2_reset_task(struct work_struct *work)
- {
- 	struct bnx2 *bp = container_of(work, struct bnx2, reset_task);
-+	int rc;
- 
- 	rtnl_lock();
- 	if (!netif_running(bp->dev)) {
-@@ -6305,10 +6306,15 @@ bnx2_reset_task(struct work_struct *work)
- 
- 	bnx2_netif_stop(bp, true);
- 
--	bnx2_init_nic(bp, 1);
-+	rc = bnx2_init_nic(bp, 1);
-+	if (rc) {
-+		netdev_err(bp->dev, "failed to reset the NIC, aborting\n");
-+		goto out;
-+	}
- 
- 	atomic_set(&bp->intr_sem, 1);
- 	bnx2_netif_start(bp, true);
-+out:
- 	rtnl_unlock();
- }
- 
--- 
-1.7.6
-
+ - R.
