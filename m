@@ -1,45 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: any way to let host act as TCP server OR client on same
- IP/port?
-Date: Wed, 13 Jul 2011 19:52:00 +0200
-Message-ID: <1310579520.2509.17.camel@edumazet-laptop>
-References: <4E1DC83C.3020506@genband.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Chris Friesen <chris.friesen@genband.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH] bnx2: do not start the interface if reset fails
+Date: Wed, 13 Jul 2011 14:54:50 -0300
+Message-ID: <1310579690-24622-1-git-send-email-fbl@redhat.com>
+Cc: Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55704 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932230Ab1GMRwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 13:52:06 -0400
-Received: by wwe5 with SMTP id 5so6227046wwe.1
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 10:52:05 -0700 (PDT)
-In-Reply-To: <4E1DC83C.3020506@genband.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31652 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932320Ab1GMRzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2011 13:55:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 13 juillet 2011 =C3=A0 10:30 -0600, Chris Friesen a =C3=A9c=
-rit :
-> I've been asked an interesting question about TCP.  We have some peop=
-le=20
-> that want to set up a TCP socket that can listen for connections on a=
-=20
-> given IP/port, but also initiate connections from that same IP/port.=20
-> (Only one at a time, of course.)
->=20
-> The TCP state machine seems to allow this (moving from LISTEN to=20
-> SYN_SENT) but it's not a normal transition.
->=20
-> Is there any way to do this using the socket API?
->=20
-> I thought up a hack whereby we could use NFQUEUE to detect an incomin=
-g=20
-> SYN and delay it while we call listen() on the socket.  Is there any=20
-> better way to do this?
+When bnx2_reset_task() is called, it will stop,
+(re)initialize and start the interface to restore
+the working condition.
 
-Could you try SO_REUSEADDR, on both listener and connect attempt ?
+The bnx2_init_nic() calls bnx2_reset_nic() which will
+reset the chip and then call bnx2_free_skbs() to free
+all the skbs.
 
+The problem happens when bnx2_init_chip() fails because
+bnx2_reset_nic() will just return skipping the ring
+initializations at bnx2_init_all_rings(). Later, the
+reset task starts the interface again and the system
+crashes due a NULL pointer access (no skb in the ring).
 
+This patch just check the return code and if an error is
+reported, warn the user and abort. It's better to have a
+non working interface than a crash.
+
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+---
+ drivers/net/bnx2.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 7915d14..7fb71fc 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6296,6 +6296,7 @@ static void
+ bnx2_reset_task(struct work_struct *work)
+ {
+ 	struct bnx2 *bp = container_of(work, struct bnx2, reset_task);
++	int rc;
+ 
+ 	rtnl_lock();
+ 	if (!netif_running(bp->dev)) {
+@@ -6305,10 +6306,15 @@ bnx2_reset_task(struct work_struct *work)
+ 
+ 	bnx2_netif_stop(bp, true);
+ 
+-	bnx2_init_nic(bp, 1);
++	rc = bnx2_init_nic(bp, 1);
++	if (rc) {
++		netdev_err(bp->dev, "failed to reset the NIC, aborting\n");
++		goto out;
++	}
+ 
+ 	atomic_set(&bp->intr_sem, 1);
+ 	bnx2_netif_start(bp, true);
++out:
+ 	rtnl_unlock();
+ }
+ 
+-- 
+1.7.6
 
