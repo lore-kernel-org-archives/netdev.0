@@ -1,118 +1,225 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 7/7] tg3: Match power source to driver state
-Date: Wed, 13 Jul 2011 12:27:33 -0700
-Message-ID: <1310585253-4817-8-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 6/7] tg3: Add function status reporting
+Date: Wed, 13 Jul 2011 12:27:32 -0700
+Message-ID: <1310585253-4817-7-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1746 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3270 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2011 15:28:03 -0400
+	id S1751019Ab1GMT2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2011 15:28:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the driver state (and power source) is being more intensely
-scrutinized, we need to make sure it is correct 100% of the time.  This
-patch finds and fixes all dangling power state transitions.
+This patch adds code to update the status of the function to a common
+location to the critical section added in the previous patch.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   24 ++++++++++++++++--------
- 1 files changed, 16 insertions(+), 8 deletions(-)
+ drivers/net/tg3.c |  111 +++++++++++++++++++++++++++++++++++++++++-----------
+ drivers/net/tg3.h |    4 ++
+ 2 files changed, 91 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 0d1b0c0..a5ff82d 100644
+index 4137e4e..0d1b0c0 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -2357,7 +2357,7 @@ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
- 	}
+@@ -2192,18 +2192,66 @@ out:
+ 	return 0;
  }
  
--static void tg3_frob_aux_power_5717(struct tg3 *tp)
-+static void tg3_frob_aux_power_5717(struct tg3 *tp, bool wol_enable)
++#define TG3_GPIO_MSG_DRVR_PRES		 0x00000001
++#define TG3_GPIO_MSG_NEED_VAUX		 0x00000002
++#define TG3_GPIO_MSG_MASK		 (TG3_GPIO_MSG_DRVR_PRES | \
++					  TG3_GPIO_MSG_NEED_VAUX)
++#define TG3_GPIO_MSG_ALL_DRVR_PRES_MASK \
++	((TG3_GPIO_MSG_DRVR_PRES << 0) | \
++	 (TG3_GPIO_MSG_DRVR_PRES << 4) | \
++	 (TG3_GPIO_MSG_DRVR_PRES << 8) | \
++	 (TG3_GPIO_MSG_DRVR_PRES << 12))
++
++#define TG3_GPIO_MSG_ALL_NEED_VAUX_MASK \
++	((TG3_GPIO_MSG_NEED_VAUX << 0) | \
++	 (TG3_GPIO_MSG_NEED_VAUX << 4) | \
++	 (TG3_GPIO_MSG_NEED_VAUX << 8) | \
++	 (TG3_GPIO_MSG_NEED_VAUX << 12))
++
++static inline u32 tg3_set_function_status(struct tg3 *tp, u32 newstat)
++{
++	u32 status, shift;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++		status = tg3_ape_read32(tp, TG3_APE_GPIO_MSG);
++	else
++		status = tr32(TG3_CPMU_DRV_STATUS);
++
++	shift = TG3_APE_GPIO_MSG_SHIFT + 4 * tp->pci_fn;
++	status &= ~(TG3_GPIO_MSG_MASK << shift);
++	status |= (newstat << shift);
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++		tg3_ape_write32(tp, TG3_APE_GPIO_MSG, status);
++	else
++		tw32(TG3_CPMU_DRV_STATUS, status);
++
++	return status >> TG3_APE_GPIO_MSG_SHIFT;
++}
++
+ static inline int tg3_pwrsrc_switch_to_vmain(struct tg3 *tp)
  {
- 	u32 msg = 0;
+ 	if (!tg3_flag(tp, IS_NIC))
+-		return;
+-
+-	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
+ 		return 0;
  
-@@ -2365,8 +2365,7 @@ static void tg3_frob_aux_power_5717(struct tg3 *tp)
- 	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
+-	tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl,
+-		    TG3_GRC_LCLCTL_PWRSW_DELAY);
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
++		if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
++			return -EIO;
+ 
+-	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
++		tg3_set_function_status(tp, TG3_GPIO_MSG_DRVR_PRES);
++
++		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++
++		tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
++	} else {
++		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl,
++			    TG3_GRC_LCLCTL_PWRSW_DELAY);
++	}
+ 
+ 	return 0;
+ }
+@@ -2217,10 +2265,6 @@ static void tg3_pwrsrc_die_with_vmain(struct tg3 *tp)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
  		return;
  
--	if (tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) ||
--	    tg3_flag(tp, WOL_ENABLE))
-+	if (tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) || wol_enable)
- 		msg = TG3_GPIO_MSG_NEED_VAUX;
+-
+-	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
+-		return;
+-
+ 	grc_local_ctrl = tp->grc_local_ctrl | GRC_LCLCTRL_GPIO_OE1;
  
- 	msg = tg3_set_function_status(tp, msg);
-@@ -2383,7 +2382,7 @@ done:
+ 	tw32_wait_f(GRC_LOCAL_CTRL,
+@@ -2234,8 +2278,6 @@ static void tg3_pwrsrc_die_with_vmain(struct tg3 *tp)
+ 	tw32_wait_f(GRC_LOCAL_CTRL,
+ 		    grc_local_ctrl | GRC_LCLCTRL_GPIO_OUTPUT1,
+ 		    TG3_GRC_LCLCTL_PWRSW_DELAY);
+-
+-	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
+ }
+ 
+ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
+@@ -2243,9 +2285,6 @@ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
+ 	if (!tg3_flag(tp, IS_NIC))
+ 		return;
+ 
+-	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
+-		return;
+-
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
+ 		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
+@@ -2316,7 +2355,31 @@ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
+ 				    TG3_GRC_LCLCTL_PWRSW_DELAY);
+ 		}
+ 	}
++}
++
++static void tg3_frob_aux_power_5717(struct tg3 *tp)
++{
++	u32 msg = 0;
++
++	/* Serialize power state transitions */
++	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
++		return;
++
++	if (tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) ||
++	    tg3_flag(tp, WOL_ENABLE))
++		msg = TG3_GPIO_MSG_NEED_VAUX;
++
++	msg = tg3_set_function_status(tp, msg);
++
++	if (msg & TG3_GPIO_MSG_ALL_DRVR_PRES_MASK)
++		goto done;
+ 
++	if (msg & TG3_GPIO_MSG_ALL_NEED_VAUX_MASK)
++		tg3_pwrsrc_switch_to_vaux(tp);
++	else
++		tg3_pwrsrc_die_with_vmain(tp);
++
++done:
  	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
  }
  
--static void tg3_frob_aux_power(struct tg3 *tp)
-+static void tg3_frob_aux_power(struct tg3 *tp, bool include_wol)
- {
- 	bool need_vaux = false;
+@@ -2326,15 +2389,17 @@ static void tg3_frob_aux_power(struct tg3 *tp)
  
-@@ -2395,7 +2394,8 @@ static void tg3_frob_aux_power(struct tg3 *tp)
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
--		tg3_frob_aux_power_5717(tp);
-+		tg3_frob_aux_power_5717(tp, include_wol ?
-+					tg3_flag(tp, WOL_ENABLE) != 0 : 0);
+ 	/* The GPIOs do something completely different on 57765. */
+ 	if (!tg3_flag(tp, IS_NIC) ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765)
  		return;
- 	}
  
-@@ -2411,13 +2411,14 @@ static void tg3_frob_aux_power(struct tg3 *tp)
- 			if (tg3_flag(tp_peer, INIT_COMPLETE))
- 				return;
- 
--			if (tg3_flag(tp_peer, WOL_ENABLE) ||
-+			if ((include_wol && tg3_flag(tp_peer, WOL_ENABLE)) ||
- 			    tg3_flag(tp_peer, ENABLE_ASF))
- 				need_vaux = true;
- 		}
- 	}
- 
--	if (tg3_flag(tp, WOL_ENABLE) || tg3_flag(tp, ENABLE_ASF))
-+	if ((include_wol && tg3_flag(tp, WOL_ENABLE)) ||
-+	    tg3_flag(tp, ENABLE_ASF))
- 		need_vaux = true;
- 
- 	if (need_vaux)
-@@ -3000,7 +3001,7 @@ static int tg3_power_down_prepare(struct tg3 *tp)
- 	if (!(device_should_wake) && !tg3_flag(tp, ENABLE_ASF))
- 		tg3_power_down_phy(tp, do_low_power);
- 
--	tg3_frob_aux_power(tp);
-+	tg3_frob_aux_power(tp, true);
- 
- 	/* Workaround for unstable PLL clock */
- 	if ((GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_AX) ||
-@@ -9556,6 +9557,8 @@ err_out2:
- 
- err_out1:
- 	tg3_ints_fini(tp);
-+	tg3_frob_aux_power(tp, false);
-+	pci_set_power_state(tp->pdev, PCI_D3hot);
- 	return err;
- }
- 
-@@ -15400,6 +15403,11 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 
- 	pci_set_drvdata(pdev, dev);
- 
-+	if (tg3_flag(tp, 5717_PLUS)) {
-+		/* Resume a low-power mode */
-+		tg3_frob_aux_power(tp, false);
+-	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
+-	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
+-	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+-	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) &&
+-	    tp->pdev_peer != tp->pdev) {
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
++		tg3_frob_aux_power_5717(tp);
++		return;
 +	}
 +
- 	err = register_netdev(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Cannot register net device, aborting\n");
++	if (tp->pdev_peer && tp->pdev_peer != tp->pdev) {
+ 		struct net_device *dev_peer;
+ 
+ 		dev_peer = pci_get_drvdata(tp->pdev_peer);
+@@ -13692,9 +13757,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	}
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714)
+ 		tp->pdev_peer = tg3_find_peer(tp);
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index e444469..6a43fc5 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -1065,6 +1065,8 @@
+ #define  RCVLSC_STATUS_ERROR_ATTN	 0x00000004
+ /* 0x3408 --> 0x3600 unused */
+ 
++#define TG3_CPMU_DRV_STATUS		0x0000344c
++
+ /* CPMU registers */
+ #define TG3_CPMU_CTRL			0x00003600
+ #define  CPMU_CTRL_LINK_IDLE_MODE	 0x00000200
+@@ -2277,6 +2279,8 @@
+ 
+ 
+ /* APE registers.  Accessible through BAR1 */
++#define TG3_APE_GPIO_MSG		0x0008
++#define TG3_APE_GPIO_MSG_SHIFT		4
+ #define TG3_APE_EVENT			0x000c
+ #define  APE_EVENT_1			 0x00000001
+ #define TG3_APE_LOCK_REQ		0x002c
 -- 
 1.7.3.4
 
