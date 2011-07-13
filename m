@@ -1,32 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: iproute2 for 3.0
-Date: Wed, 13 Jul 2011 12:49:46 -0700
-Message-ID: <20110713124946.4a33190e@nehalam.ftrdhcpuser.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 4/7] tg3: Determine PCI function number in one
+ place
+Date: Wed, 13 Jul 2011 21:13:27 +0100
+Message-ID: <1310588008.2756.7.camel@bwh-desktop>
+References: <1310585253-4817-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34781 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750997Ab1GMTtq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2011 15:49:46 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id BD61E18299C5
-	for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 12:49:45 -0700 (PDT)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id nQgerWTL5V3D for <netdev@vger.kernel.org>;
-	Wed, 13 Jul 2011 12:49:45 -0700 (PDT)
-Received: from nehalam.ftrdhcpuser.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
-	by mail.vyatta.com (Postfix) with ESMTPSA id 132FC18299C3
-	for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 12:49:45 -0700 (PDT)
+Received: from exchange.solarflare.com ([216.237.3.220]:41479 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231Ab1GMUNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 16:13:33 -0400
+In-Reply-To: <1310585253-4817-5-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If anyone has any patches for the 3.0 version of iproute2
-now would be a good time to send them.
+On Wed, 2011-07-13 at 12:27 -0700, Matt Carlson wrote:
+> tg3 devices will need to know exactly what function number they are so
+> that they can communicate their status to the other functions.  In a KVM
+> environment, the function number of a device presented by the kernel
+> might not be the true function number, so an alternative method to
+> determine the function number is needed.
+> 
+> This patch used to contain an implementation for the alternative method,
+> but recently we discovered a hardware bug that renders it incorrect.
+> While new method is not yet known, it is still useful to consolidate the
+> code that determines the PCI function to one location and use the
+> results throughout the code.
+[...]
 
-I still have to but my netem CLG and QFQ scheduler bits, but
-there maybe other stuff that people have stashed in their distro
-patch pile.
+Having run into (and thankfully fixed) a similar problem in sfc, I
+wonder whether it would always be worthwhile to ask the hypervisor
+maintainers to keep function numbers stable when passing-through
+physical functions.  Any driver using PCI_FUNC() is likely to be broken
+by function number changes, and 'git grep' shows there are quite a few
+of them.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
