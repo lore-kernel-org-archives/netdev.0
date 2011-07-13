@@ -1,81 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] be2net: account for skb allocation failures
-Date: Wed, 13 Jul 2011 03:31:43 +0200
-Message-ID: <1310520703.2634.5.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
-To: David Miller <davem@davemloft.net>
+From: Chetan Loke <loke.chetan@gmail.com>
+Subject: [PATCH net-next 1/1] af-packet: fix - avoid reading stale data
+Date: Tue, 12 Jul 2011 21:42:19 -0400
+Message-ID: <1310521339-1115-1-git-send-email-loke.chetan@gmail.com>
+Cc: lokechetan@gmail.com, Chetan Loke <loke.chetan@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46253 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756467Ab1GMBbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 21:31:47 -0400
-Received: by wwe5 with SMTP id 5so5485955wwe.1
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 18:31:46 -0700 (PDT)
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:33985 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755008Ab1GMBmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 21:42:35 -0400
+Received: by vxb39 with SMTP id 39so3873069vxb.19
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 18:42:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we cannot allocate new skbs in RX completion handler, we should
-increase netdevice rx_dropped counter, not spam console messages.
+Currently we flush tp_status and then flush the remainder of the header+payload.
+tp_status should be flushed in the end to avoid stale data being read by user-space.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Ajit Khaparde <ajit.khaparde@emulex.com>
+
+Signed-off-by: Chetan Loke <loke.chetan@gmail.com>
 ---
-Note: This driver uses u64 fields without proper synch on 32bit arches.
+ net/packet/af_packet.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
- drivers/net/benet/be.h         |    1 +
- drivers/net/benet/be_ethtool.c |    1 +
- drivers/net/benet/be_main.c    |    4 ++--
- 3 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 9aa1534..72ec00f 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -199,6 +199,7 @@ struct be_rx_stats {
- 	u32 rx_polls;	/* number of times NAPI called poll function */
- 	u32 rx_events;	/* number of ucast rx completion events  */
- 	u32 rx_compl;	/* number of rx completion entries processed */
-+	ulong rx_dropped; /* number of skb allocation errors */
- 	ulong rx_jiffies;
- 	u64 rx_bytes;
- 	u64 rx_bytes_prev;
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 30c1386..7fd8130 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -102,6 +102,7 @@ static const struct be_ethtool_stat et_rx_stats[] = {
- 	{DRVSTAT_RX_INFO(rx_compl)},
- 	{DRVSTAT_RX_INFO(rx_mcast_pkts)},
- 	{DRVSTAT_RX_INFO(rx_post_fail)},
-+	{DRVSTAT_RX_INFO(rx_dropped)},
- 	{ERXSTAT_INFO(rx_drops_no_fragments)}
- };
- #define ETHTOOL_RXSTATS_NUM (ARRAY_SIZE(et_rx_stats))
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 4ebd700..f7d6d9d 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -431,6 +431,7 @@ void netdev_stats_update(struct be_adapter *adapter)
- 		pkts += rx_stats(rxo)->rx_pkts;
- 		bytes += rx_stats(rxo)->rx_bytes;
- 		mcast += rx_stats(rxo)->rx_mcast_pkts;
-+		drops += rx_stats(rxo)->rx_dropped;
- 		/*  no space in linux buffers: best possible approximation */
- 		if (adapter->generation == BE_GEN3) {
- 			if (!(lancer_chip(adapter))) {
-@@ -1181,8 +1182,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index d2294ad..f7be71f 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1129,8 +1129,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	else
+ 		sll->sll_ifindex = dev->ifindex;
  
- 	skb = netdev_alloc_skb_ip_align(netdev, BE_HDR_LEN);
- 	if (unlikely(!skb)) {
--		if (net_ratelimit())
--			dev_warn(&adapter->pdev->dev, "skb alloc failed\n");
-+		rxo->stats.rx_dropped++;
- 		be_rx_compl_discard(adapter, rxo, rxcp);
- 		return;
+-	__packet_set_status(po, h.raw, status);
+-	smp_mb();
+ #if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE == 1
+ 	{
+ 		u8 *start, *end;
+@@ -1140,6 +1138,8 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 			flush_dcache_page(pgv_to_page(start));
  	}
-
+ #endif
++	smp_mb();
++	__packet_set_status(po, h.raw, status);
+ 
+ 	sk->sk_data_ready(sk, 0);
+ 
+-- 
+1.7.5.2
 
