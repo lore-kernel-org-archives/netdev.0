@@ -1,120 +1,81 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next] be2net: move to new vlan model
-Date: Tue, 12 Jul 2011 18:08:56 -0500
-Message-ID: <20110712230855.GA13833@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] be2net: account for skb allocation failures
+Date: Wed, 13 Jul 2011 03:31:43 +0200
+Message-ID: <1310520703.2634.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:54794 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754932Ab1GLXJT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 19:09:19 -0400
-Content-Disposition: inline
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46253 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756467Ab1GMBbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2011 21:31:47 -0400
+Received: by wwe5 with SMTP id 5so5485955wwe.1
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2011 18:31:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If we cannot allocate new skbs in RX completion handler, we should
+increase netdevice rx_dropped counter, not spam console messages.
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/benet/be.h      |    1 -
- drivers/net/benet/be_main.c |   34 +++++++++-------------------------
- 2 files changed, 9 insertions(+), 26 deletions(-)
+Note: This driver uses u64 fields without proper synch on 32bit arches.
+
+ drivers/net/benet/be.h         |    1 +
+ drivers/net/benet/be_ethtool.c |    1 +
+ drivers/net/benet/be_main.c    |    4 ++--
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 9aa1534..4d93ffb 100644
+index 9aa1534..72ec00f 100644
 --- a/drivers/net/benet/be.h
 +++ b/drivers/net/benet/be.h
-@@ -332,7 +332,6 @@ struct be_adapter {
- 	u8 eq_next_idx;
- 	struct be_drv_stats drv_stats;
- 
--	struct vlan_group *vlan_grp;
- 	u16 vlans_added;
- 	u16 max_vlans;	/* Number of vlans supported */
- 	u8 vlan_tag[VLAN_N_VID];
+@@ -199,6 +199,7 @@ struct be_rx_stats {
+ 	u32 rx_polls;	/* number of times NAPI called poll function */
+ 	u32 rx_events;	/* number of ucast rx completion events  */
+ 	u32 rx_compl;	/* number of rx completion entries processed */
++	ulong rx_dropped; /* number of skb allocation errors */
+ 	ulong rx_jiffies;
+ 	u64 rx_bytes;
+ 	u64 rx_bytes_prev;
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index 30c1386..7fd8130 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -102,6 +102,7 @@ static const struct be_ethtool_stat et_rx_stats[] = {
+ 	{DRVSTAT_RX_INFO(rx_compl)},
+ 	{DRVSTAT_RX_INFO(rx_mcast_pkts)},
+ 	{DRVSTAT_RX_INFO(rx_post_fail)},
++	{DRVSTAT_RX_INFO(rx_dropped)},
+ 	{ERXSTAT_INFO(rx_drops_no_fragments)}
+ };
+ #define ETHTOOL_RXSTATS_NUM (ARRAY_SIZE(et_rx_stats))
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 4ebd700..469de79 100644
+index 4ebd700..f7d6d9d 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -653,7 +653,7 @@ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
- 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
- 	}
+@@ -431,6 +431,7 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 		pkts += rx_stats(rxo)->rx_pkts;
+ 		bytes += rx_stats(rxo)->rx_bytes;
+ 		mcast += rx_stats(rxo)->rx_mcast_pkts;
++		drops += rx_stats(rxo)->rx_dropped;
+ 		/*  no space in linux buffers: best possible approximation */
+ 		if (adapter->generation == BE_GEN3) {
+ 			if (!(lancer_chip(adapter))) {
+@@ -1181,8 +1182,7 @@ static void be_rx_compl_process(struct be_adapter *adapter,
  
--	if (adapter->vlan_grp && vlan_tx_tag_present(skb)) {
-+	if (vlan_tx_tag_present(skb)) {
- 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, vlan, hdr, 1);
- 		vlan_tag = vlan_tx_tag_get(skb);
- 		vlan_prio = (vlan_tag & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
-@@ -846,13 +846,6 @@ static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
- 	return status;
- }
- 
--static void be_vlan_register(struct net_device *netdev, struct vlan_group *grp)
--{
--	struct be_adapter *adapter = netdev_priv(netdev);
--
--	adapter->vlan_grp = grp;
--}
--
- static void be_vlan_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-@@ -871,7 +864,6 @@ static void be_vlan_rem_vid(struct net_device *netdev, u16 vid)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
- 	adapter->vlans_added--;
--	vlan_group_set_device(adapter->vlan_grp, vid, NULL);
- 
- 	if (!be_physfn(adapter))
+ 	skb = netdev_alloc_skb_ip_align(netdev, BE_HDR_LEN);
+ 	if (unlikely(!skb)) {
+-		if (net_ratelimit())
+-			dev_warn(&adapter->pdev->dev, "skb alloc failed\n");
++		rxo->stats.rx_dropped++;
+ 		be_rx_compl_discard(adapter, rxo, rxcp);
  		return;
-@@ -1200,16 +1192,10 @@ static void be_rx_compl_process(struct be_adapter *adapter,
- 		skb->rxhash = rxcp->rss_hash;
- 
- 
--	if (unlikely(rxcp->vlanf)) {
--		if (!adapter->vlan_grp || adapter->vlans_added == 0) {
--			kfree_skb(skb);
--			return;
--		}
--		vlan_hwaccel_receive_skb(skb, adapter->vlan_grp,
--					rxcp->vlan_tag);
--	} else {
--		netif_receive_skb(skb);
--	}
-+	if (unlikely(rxcp->vlanf))
-+		__vlan_hwaccel_put_tag(skb, rxcp->vlan_tag);
-+
-+	netif_receive_skb(skb);
- }
- 
- /* Process the RX completion indicated by rxcp when GRO is enabled */
-@@ -1263,11 +1249,10 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 	if (adapter->netdev->features & NETIF_F_RXHASH)
- 		skb->rxhash = rxcp->rss_hash;
- 
--	if (likely(!rxcp->vlanf))
--		napi_gro_frags(&eq_obj->napi);
--	else
--		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp,
--				rxcp->vlan_tag);
-+	if (unlikely(rxcp->vlanf))
-+		__vlan_hwaccel_put_tag(skb, rxcp->vlan_tag);
-+
-+	napi_gro_frags(&eq_obj->napi);
- }
- 
- static void be_parse_rx_compl_v1(struct be_adapter *adapter,
-@@ -2950,7 +2935,6 @@ static struct net_device_ops be_netdev_ops = {
- 	.ndo_set_mac_address	= be_mac_addr_set,
- 	.ndo_change_mtu		= be_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_vlan_rx_register	= be_vlan_register,
- 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
- 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
- 	.ndo_set_vf_mac		= be_set_vf_mac,
--- 
-1.7.4.1
+ 	}
+
 
