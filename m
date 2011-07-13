@@ -1,104 +1,80 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] net: allow multiple rx_handler registration
-Date: Wed, 13 Jul 2011 07:28:48 +0200
-Message-ID: <20110713052848.GB1799@minipsycho>
-References: <1310468761-2304-1-git-send-email-jpirko@redhat.com>
- <20110712115422.GD616804@jupiter.n2.diac24.net>
- <20110712132005.GA2300@minipsycho.brq.redhat.com>
- <20110712142937.GA909183@jupiter.n2.diac24.net>
- <20110712150120.GB2300@minipsycho.brq.redhat.com>
- <20110712160330.GC909183@jupiter.n2.diac24.net>
+From: Thomas De Schampheleire <patrickdepinguin+linuxppc@gmail.com>
+Subject: Re: softirqs are invoked while bottom halves are masked
+Date: Wed, 13 Jul 2011 09:20:47 +0200
+Message-ID: <CAAXf6LXddZUHEz738DDTi-XqENRYT7dTODw+1C4RTYsCdyro7g@mail.gmail.com>
+References: <1310465411.3314.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAMJ=MEeC1hoqufs7AfFRn3yJoC8mdw7v+14N+7e=wQuJefm4_w@mail.gmail.com>
+	<20110712.050817.1253941735409335652.davem@davemloft.net>
+	<20110712.051316.1963034055315982365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
-	andy@greyhouse.net, greearb@candelatech.com, mirqus@gmail.com
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ronny.meeus@gmail.com, eric.dumazet@gmail.com,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	afleming@freescale.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27840 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751773Ab1GMFaF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2011 01:30:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20110712160330.GC909183@jupiter.n2.diac24.net>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:46637 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856Ab1GMHUs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 03:20:48 -0400
+Received: by qyk29 with SMTP id 29so141703qyk.19
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 00:20:48 -0700 (PDT)
+In-Reply-To: <20110712.051316.1963034055315982365.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jul 12, 2011 at 06:03:30PM CEST, equinox@diac24.net wrote:
->On Tue, Jul 12, 2011 at 05:01:22PM +0200, Jiri Pirko wrote:
->> Tue, Jul 12, 2011 at 04:29:38PM CEST, equinox@diac24.net wrote:
->> >On Tue, Jul 12, 2011 at 03:20:08PM +0200, Jiri Pirko wrote:
->> >> Not possible. See netdev_set_master(). Anyway, before rx_handler was
->> >> introduced, this was possible and no one cared.
->> >
->> >I don't see how this is related. I'm talking about the other end of your
->> >bond. Like for example the 802.3ad capable switch you're bonding to.
->> 
->> Well it is related in way that you cannot have one device in br an bond
->> in same time....
+On Tue, Jul 12, 2011 at 2:13 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 12 Jul 2011 05:08:17 -0700 (PDT)
 >
->Grah, I was looking at our production kernel tree, which doesn't have
->the netdev_set_master calls from the bridging code. Sorry, my fault.
+>> From: Ronny Meeus <ronny.meeus@gmail.com>
+>> Date: Tue, 12 Jul 2011 14:03:04 +0200
+>>
+>>> but we still see the issue "BUG: sleeping function called from inva=
+lid context":
+>>>
+>>> [ =A0 91.015989] BUG: sleeping function called from invalid context=
+ at
+>>> include/linux/skbuff.h:786
+>>> [ =A0 91.117096] in_atomic(): 1, irqs_disabled(): 0, pid: 1865, nam=
+e: NMTX_T1842
+>>> [ =A0 91.200461] Call Trace:
+>>> [ =A0 91.229672] [ec58bbd0] [c000789c] show_stack+0x78/0x18c (unrel=
+iable)
+>>> [ =A0 91.305791] [ec58bc10] [c0022900] __might_sleep+0x100/0x118
+>>> [ =A0 91.372524] [ec58bc20] [c029f8d8] dpa_tx+0x128/0x758
+>>
+>> Because this dpa driver's transmit method is doing something else th=
+at
+>> is not allowed in software interrupt context.
+>>
+>> You must remove all things that might sleep in this driver's
+>> ->ndo_start_xmit method, and I do mean everything.
 >
->> >> >b) a device having macvlans and being a bond slave
->> >> > -> Fully incompatible. Same as above, packets to the macvlan will end
->> >> >    up on other bond member devices.
+> Also this whole HW QOS feature bit facility is beyond bogus.
 >
->But case b) is still up & alive, macvlan doesn't use netdev_set_master.
+> What if the user enables a qdisc that the hardware can't handle, or a
+> configuration of a hw supported qdisc that the hardware can't support=
+?
 >
->> >> This patch doen't introduce anything new which wasn't possible before
->> >> rx_handler times. Anyway removing bond from using rx_handler as you
->> >> suggested pushes us back.
->> >
->> >I would actually consider this a regression, if the clashing rx_handler
->> >is the only thing that gets bonding an 'exclusive' hold of the device.
->> 
->> No regression. Regression it would be if something wouldn't work on same
->> setup. But this is not the case!
+> What if I have packet classification and packet actions enabled in th=
+e
+> packet scheduler?
 >
->Your patch allows a setup (bond+macvlan) that is not only a violation of
->the specification's letters, but will also wreak rather big havoc and
->may cause parts of itself to become non-functioning.
+> These changes are terrible, and we really need you guys to sort out
+> your problems with these changes yoursleves because your wounds are
+> entirely self-inflicted and totally not our problem.
 >
->What happens when the user does this?:
-> eth0 -> bond0
->    -> macvlan0 -> bond1
->
->My complaint is primary centering on the inclusion of bonding code into
->this. There might be bonding modes where this is acceptable, but in
->802.3ad mode this royally breaks things.
 
-Well as I pointed out, this is not a regression. User should not
-configure this. And as I said, I plan to cook some follow up patches to
-make this configs not possible in future. But anyway, user should be
-responsible for his config and if it's wrong he should not expect it to
-work. I can imagine a large set of screwed up configs which are not
-forbidden. Forbidding all wrong configs is not the right way I think.
+Of course, you make very valid points.
 
->
->> >> And to your idea about multi-bridge support, br co needs to be
->> >> adjusted as well. And in relation with PRIO, my idea (inspired from RFC
->> >> of this patch comments) is to allow users to change priorities
->> >> dynamically from userspace. Also then it could be a range of prios for
->> >> bridge for example.
->> >
->> >Hoping I can convey my point,
->> >
->> >
->> >-David
->> >
->> >
->> >P.S.: Could you please provide some sample usage cases for this feature?
->> 
->> Converting vlan to rx_handler needs this at least.
->
->Hm, yes. I guess this patch is needed to pave the way. I uphold my fears
->about including bonding (read: 802.3ad) in this though. Maybe I should
->cook up some code to give 802.3ad an exclusive grip on the slaves?
+I just want to mention that, although you seem to think that we
+shouldn't have created this thread in the first place, your and Eric's
+remarks have actually helped us in identifying the problem and
+increasing our understanding.
 
-Sure you can. But I was thinking about some more generic way.
+So, thanks for that.
 
->
->
->-David
+Thomas
