@@ -1,65 +1,75 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: hypothetical vlan rx path question
-Date: Wed, 13 Jul 2011 14:11:27 -0700
-Message-ID: <20110713141127.23703590@nehalam.ftrdhcpuser.net>
-References: <20110713204945.GA1833@minipsycho>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: any way to let host act as TCP server OR client on same IP/port?
+Date: Wed, 13 Jul 2011 16:28:11 -0600
+Message-ID: <4E1E1BFB.7040801@genband.com>
+References: <4E1DC83C.3020506@genband.com>	<1310579520.2509.17.camel@edumazet-laptop>	<4E1DDE62.3080503@hp.com> <4E1DEEF9.7040901@genband.com> <4E1E01BF.3040201@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
-	andy@greyhouse.net, greearb@candelatech.com, mirqus@gmail.com,
-	bhutchings@solarflare.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45933 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750872Ab1GMVLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 17:11:37 -0400
-In-Reply-To: <20110713204945.GA1833@minipsycho>
+Received: from exprod7og102.obsmtp.com ([64.18.2.157]:51463 "EHLO
+	exprod7og102.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877Ab1GMW20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 18:28:26 -0400
+In-Reply-To: <4E1E01BF.3040201@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Jul 2011 22:49:46 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+On 07/13/2011 02:36 PM, Rick Jones wrote:
+>>>
+>>> I was thinking the same thing, but it appears to not work under:
+>>
+>> <snip>
+>>
+>>> if (bind(listener,
+>>> (struct sockaddr *)&me,
+>>> sizeof(me))< 0) {
+>>> perror("bind listener");
+>>> exit(-1);
+>>> }
+>>>
+>>> if (listen(listener,128)< 0) {
+>>> perror("listen listener");
+>>> exit(-1);
+>>> }
+>>>
+>>> /* connect something to it */
+>>> if (connect(client,(struct sockaddr *)&me,sizeof(me))< 0) {
+>>> perror("connect client");
+>>> exit(-1);
+>>
+>> In our case we don't need to actually be connected, just be listening
+>> and ready to either accept() a connection or connect() to someone else.
+>
+> If one calls listen() against a socket, TCP connections can be
+> established at any time, before the accept() calls are made. As for what
+> might happen when one calls connect() on a listen socket when there are
+> queued connections awaiting accept() I've no idea.
 
-> Hi guys.
-> 
-> Consider following code taken from 8139cp.c
-> 
-> 
-> static inline void cp_rx_skb (struct cp_private *cp, struct sk_buff *skb,
-> 			      struct cp_desc *desc)
-> {
-> 	skb->protocol = eth_type_trans (skb, cp->dev);
-> 
-> 	cp->dev->stats.rx_packets++;
-> 	cp->dev->stats.rx_bytes += skb->len;
-> 
-> #if CP_VLAN_TAG_USED
-> 	if (cp->vlgrp && (desc->opts2 & cpu_to_le32(RxVlanTagged))) {
-> 		vlan_hwaccel_receive_skb(skb, cp->vlgrp,
-> 					 swab16(le32_to_cpu(desc->opts2) & 0xffff));
-> 	} else
-> #endif
-> 		netif_receive_skb(skb);
-> }
-> 
-> 
-> Now my question is why the check for cp->vlgrp is needed here. Because
-> in hypothetical case it might be possible to receive vlan packet as
-> non-vlan packet (vlan tag would be lost).
-> 
-> This is present in many drivers.
-> 
-> How about to kill this check entirely and let the later code to deside
-> what to do with the packet?
-> 
-> Thanks.
-> 
-> Jirka
+In Linux at least it appears that you aren't allowed to call listen() 
+and then connect().  See below, however.
 
-All this is moot with new vlan model. It should always just put
-tagged packet up.
+> If your application's sematics are OK with pending connections being
+> dumped, and there is no issue with something else binding to IP,port and
+> putting it into the LISTEN state, and if I've read between the lines of
+> what you've written correctly, you could simply close() the listen
+> socket and create a fresh socket with which to do the connect()?
 
-I think all drivers with .ndo_vlan_rx_register need to be still converted.
+Ah, of course.  It actually looks like a shutdown() might be sufficient 
+to reset the state of the socket enough to allow me to then call 
+connect() without needing to create a new socket and bind it.
+
+I'll see what the application guys say.
+
+Thanks,
+Chris
+
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
