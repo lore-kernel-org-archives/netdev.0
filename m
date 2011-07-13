@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] slip: remove redundant check slip_devs for NULL
-Date: Wed, 13 Jul 2011 02:32:32 -0700 (PDT)
-Message-ID: <20110713.023232.62732068177679052.davem@davemloft.net>
-References: <CAKh5naa_ARaJvZFOMva9V22YCTkVyPMw1+-x=GTtx-niwpOFSg@mail.gmail.com>
+Subject: Re: [PATCH 4/4] slip: remove dead code within the slip
+ initialization
+Date: Wed, 13 Jul 2011 02:32:42 -0700 (PDT)
+Message-ID: <20110713.023242.858769644416598710.davem@davemloft.net>
+References: <CAKh5naaqpjwaUUwJEkpN4g9iyQeUtZFn+XnCED4R=Ovo_hJ59A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: matvejchikov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57117 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:57122 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965169Ab1GMJce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 05:32:34 -0400
-In-Reply-To: <CAKh5naa_ARaJvZFOMva9V22YCTkVyPMw1+-x=GTtx-niwpOFSg@mail.gmail.com>
+	with ESMTP id S965169Ab1GMJco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 05:32:44 -0400
+In-Reply-To: <CAKh5naaqpjwaUUwJEkpN4g9iyQeUtZFn+XnCED4R=Ovo_hJ59A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matvejchikov Ilya <matvejchikov@gmail.com>
-Date: Wed, 13 Jul 2011 11:46:57 +0400
+Date: Wed, 13 Jul 2011 11:47:38 +0400
 
-> As slip_devs is initialized on module load stage there is no reason to
-> check it for NULL anywhere instead of the deinitialization routine because
-> if we can't get enough memory on startup we don't run at all.
+> This following code contains a dead "if (dev).." block:
+...
+> The reason is that the code starting with "if (dev).." is never called as
+> when we found an empty slot (dev == NULL) we break the loop and "if (dev).."
+> not works eiter the loop ends and we get out with "i >= slip_maxdev".
 > 
 > Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
 
