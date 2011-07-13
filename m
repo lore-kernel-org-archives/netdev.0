@@ -1,93 +1,41 @@
-From: Matvejchikov Ilya <matvejchikov@gmail.com>
-Subject: [PATCH 4/4] slip: remove dead code within the slip initialization
-Date: Wed, 13 Jul 2011 11:47:38 +0400
-Message-ID: <CAKh5naaqpjwaUUwJEkpN4g9iyQeUtZFn+XnCED4R=Ovo_hJ59A@mail.gmail.com>
-Reply-To: matvejchikov@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/2] Get rid of "multi-hh_cache" capability.
+Date: Wed, 13 Jul 2011 01:52:10 -0700 (PDT)
+Message-ID: <20110713.015210.1765961853698948606.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: matvejchikov@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:47387 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980Ab1GMHr6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 03:47:58 -0400
-Received: by qyk9 with SMTP id 9so3248563qyk.19
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 00:47:58 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:48473 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965064Ab1GMIwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 04:52:13 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p6D8qAk1016934
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 01:52:12 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This following code contains a dead "if (dev).." block:
-        ...
-        for (i = 0; i < slip_maxdev; i++) {
-                dev = slip_devs[i];
-                if (dev == NULL)
-                        break;
-        }
-        /* Sorry, too many, all slots in use */
-        if (i >= slip_maxdev)
-                return NULL;
 
-        if (dev) {
-                sl = netdev_priv(dev);
-                if (test_bit(SLF_INUSE, &sl->flags)) {
-                        unregister_netdevice(dev);
-                        dev = NULL;
-                        slip_devs[i] = NULL;
-                }
-         }
-        ...
-The reason is that the code starting with "if (dev).." is never called as
-when we found an empty slot (dev == NULL) we break the loop and "if (dev).."
-not works eiter the loop ends and we get out with "i >= slip_maxdev".
+We support having multiple hh_cache entries in a list hung off
+of a neighbour entry, one per unique ->hh_type protocol value.
 
-Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
----
- drivers/net/slip.c |   24 ++++++------------------
- 1 files changed, 6 insertions(+), 18 deletions(-)
+Problem is, nobody uses this.
 
-diff --git a/drivers/net/slip.c b/drivers/net/slip.c
-index 6f97c59..11c9ab3 100644
---- a/drivers/net/slip.c
-+++ b/drivers/net/slip.c
-@@ -723,6 +723,7 @@ static void sl_sync(void)
- static struct slip *sl_alloc(dev_t line)
- {
- 	int i;
-+	char name[IFNAMSIZ];
- 	struct net_device *dev = NULL;
- 	struct slip       *sl;
+Neighbour entries are for one protocol type only (which determines the
+type of the key), whose protocol is "dst_ops->protocol".
 
-@@ -735,25 +736,12 @@ static struct slip *sl_alloc(dev_t line)
- 	if (i >= slip_maxdev)
- 		return NULL;
+Kill all of this noise, which dates back to before Alexey Kuznetsov
+added the neighbour layer.  He just blinded copied over this
+capability into the generic layer.
 
--	if (dev) {
--		sl = netdev_priv(dev);
--		if (test_bit(SLF_INUSE, &sl->flags)) {
--			unregister_netdevice(dev);
--			dev = NULL;
--			slip_devs[i] = NULL;
--		}
--	}
--
--	if (!dev) {
--		char name[IFNAMSIZ];
--		sprintf(name, "sl%d", i);
--
--		dev = alloc_netdev(sizeof(*sl), name, sl_setup);
--		if (!dev)
--			return NULL;
--		dev->base_addr  = i;
--	}
-+	sprintf(name, "sl%d", i);
-+	dev = alloc_netdev(sizeof(*sl), name, sl_setup);
-+	if (!dev)
-+		return NULL;
+The next step will be to embed "struct hh_cache" directly into "struct
+neighbour".  Validity will be indicated by a non-zero hh_len.
 
-+	dev->base_addr  = i;
- 	sl = netdev_priv(dev);
+Then we can get rid of all of this extra memory allocations, funky
+refcounting, and SMP memory barriers.
 
- 	/* Initialize channel control data */
--- 
-1.7.6
+And finally, move to refcount-less neigh entry usage in ip_finish_output2()
