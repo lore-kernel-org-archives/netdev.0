@@ -1,8 +1,7 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 5/7] tg3: Create critical section around GPIO
- toggling
-Date: Wed, 13 Jul 2011 12:27:31 -0700
-Message-ID: <1310585253-4817-6-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 3/7] tg3: Check transitions to D0 power state
+Date: Wed, 13 Jul 2011 12:27:29 -0700
+Message-ID: <1310585253-4817-4-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -11,202 +10,80 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:3272 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016Ab1GMT2F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2011 15:28:05 -0400
+	id S1750964Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2011 15:28:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code that performs the power source switching will need to consider
-the status of the other devices before making any switches.  The status
-updates and power source switching will need to be an atomic operation,
-so a critical section will be needed.  This patch establishes the
-critical section through a CPMU mutex.
+Currently pci_set_power_state() does not return useful return codes for
+transitions to the D0 power state.  If a device refuses to go into D0,
+the PCI layer issues a warning but returns success.
+
+Entering into D0 is a requirement for correct operation of tg3 devices
+though.  If the PCI layer should be changed to return an error code for
+this type of failure, the tg3 driver would be interested in catching it
+and reacting to it.  This patch makes the necessary modifications.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   63 +++++++++++++++++++++++++++++++++++++++++++---------
- drivers/net/tg3.h |    1 +
- 2 files changed, 53 insertions(+), 11 deletions(-)
+ drivers/net/tg3.c |   27 +++++++++++++++++----------
+ 1 files changed, 17 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 6f1f36c..4137e4e 100644
+index ecbc10f..5d4283e 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -608,7 +608,7 @@ static void tg3_read_mem(struct tg3 *tp, u32 off, u32 *val)
- static void tg3_ape_lock_init(struct tg3 *tp)
+@@ -2657,14 +2657,19 @@ static void tg3_enable_register_access(struct tg3 *tp)
+ 
+ static int tg3_power_up(struct tg3 *tp)
  {
- 	int i;
--	u32 regbase;
-+	u32 regbase, bit;
+-	tg3_enable_register_access(tp);
++	int err;
  
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
- 		regbase = TG3_APE_LOCK_GRANT;
-@@ -616,20 +616,34 @@ static void tg3_ape_lock_init(struct tg3 *tp)
- 		regbase = TG3_APE_PER_LOCK_GRANT;
+-	pci_set_power_state(tp->pdev, PCI_D0);
++	tg3_enable_register_access(tp);
  
- 	/* Make sure the driver hasn't any stale locks. */
--	for (i = 0; i < 8; i++)
-+	for (i = 0; i < 8; i++) {
-+		if (i == TG3_APE_LOCK_GPIO)
-+			continue;
- 		tg3_ape_write32(tp, regbase + 4 * i, APE_LOCK_GRANT_DRIVER);
+-	/* Switch out of Vaux if it is a NIC */
+-	tg3_pwrsrc_switch_to_vmain(tp);
++	err = pci_set_power_state(tp->pdev, PCI_D0);
++	if (!err) {
++		/* Switch out of Vaux if it is a NIC */
++		tg3_pwrsrc_switch_to_vmain(tp);
++	} else {
++		netdev_err(tp->dev, "Transition to D0 failed\n");
 +	}
-+
-+	/* Clear the correct bit of the GPIO lock too. */
-+	if (!tp->pci_fn)
-+		bit = APE_LOCK_GRANT_DRIVER;
-+	else
-+		bit = 1 << tp->pci_fn;
-+
-+	tg3_ape_write32(tp, regbase + 4 * TG3_APE_LOCK_GPIO, bit);
+ 
+-	return 0;
++	return err;
  }
  
- static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ static int tg3_power_down_prepare(struct tg3 *tp)
+@@ -11433,8 +11438,12 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
  {
- 	int i, off;
- 	int ret = 0;
--	u32 status, req, gnt;
-+	u32 status, req, gnt, bit;
+ 	struct tg3 *tp = netdev_priv(dev);
  
- 	if (!tg3_flag(tp, ENABLE_APE))
- 		return 0;
+-	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+-		tg3_power_up(tp);
++	if ((tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) &&
++	    tg3_power_up(tp)) {
++		etest->flags |= ETH_TEST_FL_FAILED;
++		memset(data, 1, sizeof(u64) * TG3_NUM_TEST);
++		return;
++	}
  
- 	switch (locknum) {
-+	case TG3_APE_LOCK_GPIO:
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
-+			return 0;
- 	case TG3_APE_LOCK_GRC:
- 	case TG3_APE_LOCK_MEM:
- 		break;
-@@ -647,21 +661,24 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 	memset(data, 0, sizeof(u64) * TG3_NUM_TEST);
  
- 	off = 4 * locknum;
- 
--	tg3_ape_write32(tp, req + off, APE_LOCK_REQ_DRIVER);
-+	if (locknum != TG3_APE_LOCK_GPIO || !tp->pci_fn)
-+		bit = APE_LOCK_REQ_DRIVER;
-+	else
-+		bit = 1 << tp->pci_fn;
-+
-+	tg3_ape_write32(tp, req + off, bit);
- 
- 	/* Wait for up to 1 millisecond to acquire lock. */
- 	for (i = 0; i < 100; i++) {
- 		status = tg3_ape_read32(tp, gnt + off);
--		if (status == APE_LOCK_GRANT_DRIVER)
-+		if (status == bit)
- 			break;
- 		udelay(10);
+@@ -15571,10 +15580,8 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
  	}
  
--	if (status != APE_LOCK_GRANT_DRIVER) {
-+	if (status != bit) {
- 		/* Revoke the lock request. */
--		tg3_ape_write32(tp, gnt + off,
--				APE_LOCK_GRANT_DRIVER);
--
-+		tg3_ape_write32(tp, gnt + off, bit);
- 		ret = -EBUSY;
- 	}
+ 	err = tg3_power_up(tp);
+-	if (err) {
+-		netdev_err(netdev, "Failed to restore register access.\n");
++	if (err)
+ 		goto done;
+-	}
  
-@@ -670,12 +687,15 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
- 
- static void tg3_ape_unlock(struct tg3 *tp, int locknum)
- {
--	u32 gnt;
-+	u32 gnt, bit;
- 
- 	if (!tg3_flag(tp, ENABLE_APE))
- 		return;
- 
- 	switch (locknum) {
-+	case TG3_APE_LOCK_GPIO:
-+		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
-+			return;
- 	case TG3_APE_LOCK_GRC:
- 	case TG3_APE_LOCK_MEM:
- 		break;
-@@ -688,7 +708,12 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
- 	else
- 		gnt = TG3_APE_PER_LOCK_GRANT;
- 
--	tg3_ape_write32(tp, gnt + 4 * locknum, APE_LOCK_GRANT_DRIVER);
-+	if (locknum != TG3_APE_LOCK_GPIO || !tp->pci_fn)
-+		bit = APE_LOCK_GRANT_DRIVER;
-+	else
-+		bit = 1 << tp->pci_fn;
-+
-+	tg3_ape_write32(tp, gnt + 4 * locknum, bit);
- }
- 
- static void tg3_disable_ints(struct tg3 *tp)
-@@ -2170,11 +2195,16 @@ out:
- static inline int tg3_pwrsrc_switch_to_vmain(struct tg3 *tp)
- {
- 	if (!tg3_flag(tp, IS_NIC))
-+		return;
-+
-+	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
- 		return 0;
- 
- 	tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl,
- 		    TG3_GRC_LCLCTL_PWRSW_DELAY);
- 
-+	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
-+
- 	return 0;
- }
- 
-@@ -2187,6 +2217,10 @@ static void tg3_pwrsrc_die_with_vmain(struct tg3 *tp)
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)
- 		return;
- 
-+
-+	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
-+		return;
-+
- 	grc_local_ctrl = tp->grc_local_ctrl | GRC_LCLCTRL_GPIO_OE1;
- 
- 	tw32_wait_f(GRC_LOCAL_CTRL,
-@@ -2200,6 +2234,8 @@ static void tg3_pwrsrc_die_with_vmain(struct tg3 *tp)
- 	tw32_wait_f(GRC_LOCAL_CTRL,
- 		    grc_local_ctrl | GRC_LCLCTRL_GPIO_OUTPUT1,
- 		    TG3_GRC_LCLCTL_PWRSW_DELAY);
-+
-+	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
- }
- 
- static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
-@@ -2207,6 +2243,9 @@ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
- 	if (!tg3_flag(tp, IS_NIC))
- 		return;
- 
-+	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
-+		return;
-+
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) {
- 		tw32_wait_f(GRC_LOCAL_CTRL, tp->grc_local_ctrl |
-@@ -2277,6 +2316,8 @@ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
- 				    TG3_GRC_LCLCTL_PWRSW_DELAY);
- 		}
- 	}
-+
-+	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
- }
- 
- static void tg3_frob_aux_power(struct tg3 *tp)
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index b4c003d..e444469 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2339,6 +2339,7 @@
- /* APE convenience enumerations. */
- #define TG3_APE_LOCK_GRC                1
- #define TG3_APE_LOCK_MEM                4
-+#define TG3_APE_LOCK_GPIO               7
- 
- #define TG3_EEPROM_SB_F1R2_MBA_OFF	0x10
+ 	rc = PCI_ERS_RESULT_RECOVERED;
  
 -- 
 1.7.3.4
