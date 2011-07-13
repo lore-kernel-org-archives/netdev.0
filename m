@@ -1,99 +1,119 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: any way to let host act as TCP server OR client on same IP/port?
-Date: Wed, 13 Jul 2011 13:16:09 -0600
-Message-ID: <4E1DEEF9.7040901@genband.com>
-References: <4E1DC83C.3020506@genband.com> <1310579520.2509.17.camel@edumazet-laptop> <4E1DDE62.3080503@hp.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 7/7] tg3: Match power source to driver state
+Date: Wed, 13 Jul 2011 12:27:33 -0700
+Message-ID: <1310585253-4817-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og110.obsmtp.com ([64.18.2.173]:52059 "EHLO
-	exprod7og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722Ab1GMTQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 15:16:17 -0400
-In-Reply-To: <4E1DDE62.3080503@hp.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:1746 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2011 15:28:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/13/2011 12:05 PM, Rick Jones wrote:
-> On 07/13/2011 10:52 AM, Eric Dumazet wrote:
->> Le mercredi 13 juillet 2011 =E0 10:30 -0600, Chris Friesen a =E9crit=
- :
->>> I've been asked an interesting question about TCP. We have some peo=
-ple
->>> that want to set up a TCP socket that can listen for connections on=
- a
->>> given IP/port, but also initiate connections from that same IP/port=
-=2E
->>> (Only one at a time, of course.)
->>>
->>> The TCP state machine seems to allow this (moving from LISTEN to
->>> SYN_SENT) but it's not a normal transition.
->>>
->>> Is there any way to do this using the socket API?
->>>
->>> I thought up a hack whereby we could use NFQUEUE to detect an incom=
-ing
->>> SYN and delay it while we call listen() on the socket. Is there any
->>> better way to do this?
->>
->> Could you try SO_REUSEADDR, on both listener and connect attempt ?
->=20
-> I was thinking the same thing, but it appears to not work under:
+Now that the driver state (and power source) is being more intensely
+scrutinized, we need to make sure it is correct 100% of the time.  This
+patch finds and fixes all dangling power state transitions.
 
-<snip>
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+---
+ drivers/net/tg3.c |   24 ++++++++++++++++--------
+ 1 files changed, 16 insertions(+), 8 deletions(-)
 
-> if (bind(listener,
-> (struct sockaddr *)&me,
-> sizeof(me)) < 0) {
-> perror("bind listener");
-> exit(-1);
-> }
->=20
-> if (listen(listener,128) < 0) {
-> perror("listen listener");
-> exit(-1);
-> }
->=20
-> /* connect something to it */
-> if (connect(client,(struct sockaddr *)&me,sizeof(me)) < 0) {
-> perror("connect client");
-> exit(-1);
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 0d1b0c0..a5ff82d 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -2357,7 +2357,7 @@ static void tg3_pwrsrc_switch_to_vaux(struct tg3 *tp)
+ 	}
+ }
+ 
+-static void tg3_frob_aux_power_5717(struct tg3 *tp)
++static void tg3_frob_aux_power_5717(struct tg3 *tp, bool wol_enable)
+ {
+ 	u32 msg = 0;
+ 
+@@ -2365,8 +2365,7 @@ static void tg3_frob_aux_power_5717(struct tg3 *tp)
+ 	if (tg3_ape_lock(tp, TG3_APE_LOCK_GPIO))
+ 		return;
+ 
+-	if (tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) ||
+-	    tg3_flag(tp, WOL_ENABLE))
++	if (tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) || wol_enable)
+ 		msg = TG3_GPIO_MSG_NEED_VAUX;
+ 
+ 	msg = tg3_set_function_status(tp, msg);
+@@ -2383,7 +2382,7 @@ done:
+ 	tg3_ape_unlock(tp, TG3_APE_LOCK_GPIO);
+ }
+ 
+-static void tg3_frob_aux_power(struct tg3 *tp)
++static void tg3_frob_aux_power(struct tg3 *tp, bool include_wol)
+ {
+ 	bool need_vaux = false;
+ 
+@@ -2395,7 +2394,8 @@ static void tg3_frob_aux_power(struct tg3 *tp)
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
+-		tg3_frob_aux_power_5717(tp);
++		tg3_frob_aux_power_5717(tp, include_wol ?
++					tg3_flag(tp, WOL_ENABLE) != 0 : 0);
+ 		return;
+ 	}
+ 
+@@ -2411,13 +2411,14 @@ static void tg3_frob_aux_power(struct tg3 *tp)
+ 			if (tg3_flag(tp_peer, INIT_COMPLETE))
+ 				return;
+ 
+-			if (tg3_flag(tp_peer, WOL_ENABLE) ||
++			if ((include_wol && tg3_flag(tp_peer, WOL_ENABLE)) ||
+ 			    tg3_flag(tp_peer, ENABLE_ASF))
+ 				need_vaux = true;
+ 		}
+ 	}
+ 
+-	if (tg3_flag(tp, WOL_ENABLE) || tg3_flag(tp, ENABLE_ASF))
++	if ((include_wol && tg3_flag(tp, WOL_ENABLE)) ||
++	    tg3_flag(tp, ENABLE_ASF))
+ 		need_vaux = true;
+ 
+ 	if (need_vaux)
+@@ -3000,7 +3001,7 @@ static int tg3_power_down_prepare(struct tg3 *tp)
+ 	if (!(device_should_wake) && !tg3_flag(tp, ENABLE_ASF))
+ 		tg3_power_down_phy(tp, do_low_power);
+ 
+-	tg3_frob_aux_power(tp);
++	tg3_frob_aux_power(tp, true);
+ 
+ 	/* Workaround for unstable PLL clock */
+ 	if ((GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_AX) ||
+@@ -9556,6 +9557,8 @@ err_out2:
+ 
+ err_out1:
+ 	tg3_ints_fini(tp);
++	tg3_frob_aux_power(tp, false);
++	pci_set_power_state(tp->pdev, PCI_D3hot);
+ 	return err;
+ }
+ 
+@@ -15400,6 +15403,11 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
++	if (tg3_flag(tp, 5717_PLUS)) {
++		/* Resume a low-power mode */
++		tg3_frob_aux_power(tp, false);
++	}
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Cannot register net device, aborting\n");
+-- 
+1.7.3.4
 
-In our case we don't need to actually be connected, just be listening
-and ready to either accept() a connection or connect() to someone else.
 
-However, even after removing the connect() call I get:
-"bind active: Address already in use"
-
-
-The TCP state machine shows a single connection going from LISTEN to
-SYN_SENT via a "send" operation in the application.  Presumably this
-would logically map to a sendto/sendmsg but according to the man page
-those don't support specifying addresses for connection-oriented
-sockets.  I tried it anyways and got no errors but the following trace
-shows that it's dying with SIGPIPE:
-
-bind(3, {sa_family=3DAF_INET, sin_port=3Dhtons(23456), sin_addr=3Dinet_=
-addr("127.0.0.1")}, 16) =3D 0
-listen(3, 128)                          =3D 0
-sendto(3, "\1", 1, 0, {sa_family=3DAF_INET, sin_port=3Dhtons(9), sin_ad=
-dr=3Dinet_addr("127.0.0.1")}, 16) =3D -1 EPIPE (Broken pipe)
---- {si_signo=3DSIGPIPE, si_code=3DSI_USER, si_pid=3D20609, si_uid=3D83=
-82, si_value=3D{int=3D2722689790, ptr=3D0x3ca248f2fe}} (Broken pipe) --=
--
-+++ killed by SIGPIPE +++
-
-
-Chris
-
-
-
---=20
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
