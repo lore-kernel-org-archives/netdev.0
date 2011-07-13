@@ -1,41 +1,63 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] s6gmac: fix error return code in s6gmac_probe()
-Date: Fri, 22 Mar 2013 21:17:47 +0800
-Message-ID: <CAPgLHd87mx9eMA1O_Nr9uxtKq=uMvmVW=uzaUPwhcjrAe43eaw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, jim.cromie@gmail.com,
-	gregkh@linuxfoundation.org, jkosina@suse.cz, oskar@scara.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f45.google.com ([209.85.214.45]:40021 "EHLO
-	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876Ab3CVNRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Mar 2013 09:17:49 -0400
-Received: by mail-bk0-f45.google.com with SMTP id i18so1866420bkv.32
-        for <netdev@vger.kernel.org>; Fri, 22 Mar 2013 06:17:48 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH] net: Add support for handling queueing in hardware
+Date: Wed, 13 Jul 2011 08:52:04 -0500
+Message-ID: <E1UJ1fR-0004hs-4l@swissweb.swissdisk.com>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+The QDisc code does a bunch of locking which is unnecessary if
+you have hardware which handles all of the queueing. Add
+support for this, and skip over all of the queueing code if
+the feature is enabled on a given device, which breaks QDisc
+support on dpaa_eth, and also coopts the FCOE feature bit.
 
-Fix to return a negative error code from the error handling
-case instead of 0, as returned elsewhere in this function.
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+Signed-off-by: Ben Collins <ben.c@servergy.com>
+Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/s6gmac.c | 1 +
- 1 file changed, 1 insertion(+)
+ include/linux/netdev_features.h | 2 ++
+ net/core/dev.c                  | 6 ++++++
+ 2 files changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/s6gmac.c b/drivers/net/ethernet/s6gmac.c
-index cd5f4e2..b6739af 100644
---- a/drivers/net/ethernet/s6gmac.c
-+++ b/drivers/net/ethernet/s6gmac.c
-@@ -998,6 +998,7 @@ static int s6gmac_probe(struct platform_device *pdev)
- 	mb = mdiobus_alloc();
- 	if (!mb) {
- 		printk(KERN_ERR DRV_PRMT "error allocating mii bus\n");
-+		res = -ENOMEM;
- 		goto errmii;
- 	}
- 	mb->name = "s6gmac_mii";
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 3dd3934..ffb4587 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -56,6 +56,7 @@ enum {
+ 	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
+ 	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
+ 	NETIF_F_RXALL_BIT,		/* Receive errored frames too */
++	NETIF_F_HW_QDISC_BIT,		/* Supports hardware Qdisc */
+ 
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -80,6 +81,7 @@ enum {
+ #define NETIF_F_GSO_ROBUST	__NETIF_F(GSO_ROBUST)
+ #define NETIF_F_HIGHDMA		__NETIF_F(HIGHDMA)
+ #define NETIF_F_HW_CSUM		__NETIF_F(HW_CSUM)
++#define NETIF_F_HW_QDISC	__NETIF_F(HW_QDISC)
+ #define NETIF_F_HW_VLAN_FILTER	__NETIF_F(HW_VLAN_FILTER)
+ #define NETIF_F_HW_VLAN_RX	__NETIF_F(HW_VLAN_RX)
+ #define NETIF_F_HW_VLAN_TX	__NETIF_F(HW_VLAN_TX)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index dffbef7..6818b18 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2743,6 +2743,12 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 
+ 	skb_update_prio(skb);
+ 
++	if (dev->features & NETIF_F_HW_QDISC) {
++		txq = netdev_pick_tx(dev, skb);
++		rc = dev_hard_start_xmit(skb, dev, txq);
++		goto out;
++	}
++
+ 	txq = netdev_pick_tx(dev, skb);
+ 	q = rcu_dereference_bh(txq->qdisc);
+ 
+-- 
+1.8.1.2
