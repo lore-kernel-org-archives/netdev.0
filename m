@@ -1,136 +1,91 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/7] tg3: Detect APE enabled devs earlier
-Date: Wed, 13 Jul 2011 12:27:27 -0700
-Message-ID: <1310585253-4817-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 4/7] tg3: Determine PCI function number in one
+ place
+Date: Wed, 13 Jul 2011 12:27:30 -0700
+Message-ID: <1310585253-4817-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1747 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3271 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750745Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jul 2011 15:28:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch will require the driver to communicate with the APE
-much sooner than before.  This patch make sure the APE registers are
-memory mapped and that the ENABLE_APE bit is set before the first use.
+tg3 devices will need to know exactly what function number they are so
+that they can communicate their status to the other functions.  In a KVM
+environment, the function number of a device presented by the kernel
+might not be the true function number, so an alternative method to
+determine the function number is needed.
+
+This patch used to contain an implementation for the alternative method,
+but recently we discovered a hardware bug that renders it incorrect.
+While new method is not yet known, it is still useful to consolidate the
+code that determines the PCI function to one location and use the
+results throughout the code.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   52 +++++++++++++++++++++++++++++++---------------------
- 1 files changed, 31 insertions(+), 21 deletions(-)
+ drivers/net/tg3.c |   14 +++++++++++---
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 8211b9a..01d3a27 100644
+index 5d4283e..6f1f36c 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -13446,10 +13446,15 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
- 	else
- 		return;
+@@ -1170,7 +1170,7 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 	if (tg3_flag(tp, 5717_PLUS)) {
+ 		u32 is_serdes;
  
--	if (!tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) || vpd_vers)
-+	if (vpd_vers)
- 		goto done;
+-		tp->phy_addr = PCI_FUNC(tp->pdev->devfn) + 1;
++		tp->phy_addr = tp->pci_fn + 1;
  
--	tg3_read_mgmtfw_ver(tp);
-+	if (tg3_flag(tp, ENABLE_APE)) {
-+		if (tg3_flag(tp, ENABLE_ASF))
-+			tg3_read_dash_ver(tp);
-+	} else if (tg3_flag(tp, ENABLE_ASF)) {
-+		tg3_read_mgmtfw_ver(tp);
-+	}
+ 		if (tp->pci_chip_rev_id != CHIPREV_ID_5717_A0)
+ 			is_serdes = tr32(SG_DIG_STATUS) & SG_DIG_IS_SERDES;
+@@ -13951,6 +13951,14 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	val = tr32(MEMARB_MODE);
+ 	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
  
- done:
- 	tp->fw_ver[TG3_VER_SIZE - 1] = 0;
-@@ -13971,6 +13976,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 				 PCISTATE_ALLOW_APE_PSPACE_WR;
- 		pci_write_config_dword(tp->pdev, TG3PCI_PCISTATE,
- 				       pci_state_reg);
-+
-+		tg3_ape_lock_init(tp);
- 	}
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 ||
-@@ -15083,6 +15090,24 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_free_dev;
- 	}
- 
-+	if (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761 ||
-+	    tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761E ||
-+	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761S ||
-+	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761SE ||
-+	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5717 ||
-+	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 ||
-+	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5719 ||
-+	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5720) {
-+		tg3_flag_set(tp, ENABLE_APE);
-+		tp->aperegs = pci_ioremap_bar(pdev, BAR_2);
-+		if (!tp->aperegs) {
-+			dev_err(&pdev->dev,
-+				"Cannot map APE registers, aborting\n");
-+			err = -ENOMEM;
-+			goto err_out_iounmap;
-+		}
++	if (tg3_flag(tp, PCIX_MODE)) {
++		pci_read_config_dword(tp->pdev,
++				      tp->pcix_cap + PCI_X_STATUS, &val);
++		tp->pci_fn = val & 0x7;
++	} else {
++		tp->pci_fn = PCI_FUNC(tp->pdev->devfn) & 3;
 +	}
 +
- 	tp->rx_pending = TG3_DEF_RX_RING_PENDING;
- 	tp->rx_jumbo_pending = TG3_DEF_RX_JUMBO_RING_PENDING;
+ 	/* Get eeprom hw config before calling tg3_set_power_state().
+ 	 * In particular, the TG3_FLAG_IS_NIC flag must be
+ 	 * determined before calling tg3_set_power_state() so that
+@@ -14316,9 +14324,9 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
+ 		else
+ 			tg3_nvram_unlock(tp);
+ 	} else if (tg3_flag(tp, 5717_PLUS)) {
+-		if (PCI_FUNC(tp->pdev->devfn) & 1)
++		if (tp->pci_fn & 1)
+ 			mac_offset = 0xcc;
+-		if (PCI_FUNC(tp->pdev->devfn) > 1)
++		if (tp->pci_fn > 1)
+ 			mac_offset += 0x18c;
+ 	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
+ 		mac_offset = 0x10;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 5f250ae..b4c003d 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -3020,6 +3020,7 @@ struct tg3 {
+ 	u8				pci_cacheline_sz;
+ 	u8				pci_lat_timer;
  
-@@ -15095,7 +15120,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	if (err) {
- 		dev_err(&pdev->dev,
- 			"Problem fetching invariants of chip, aborting\n");
--		goto err_out_iounmap;
-+		goto err_out_apeunmap;
- 	}
- 
- 	/* The EPB bridge inside 5714, 5715, and 5780 and any
-@@ -15124,7 +15149,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 			if (err < 0) {
- 				dev_err(&pdev->dev, "Unable to obtain 64 bit "
- 					"DMA for consistent allocations\n");
--				goto err_out_iounmap;
-+				goto err_out_apeunmap;
- 			}
- 		}
- 	}
-@@ -15133,7 +15158,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		if (err) {
- 			dev_err(&pdev->dev,
- 				"No usable DMA configuration, aborting\n");
--			goto err_out_iounmap;
-+			goto err_out_apeunmap;
- 		}
- 	}
- 
-@@ -15198,22 +15223,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	if (err) {
- 		dev_err(&pdev->dev,
- 			"Could not obtain valid ethernet address, aborting\n");
--		goto err_out_iounmap;
--	}
--
--	if (tg3_flag(tp, ENABLE_APE)) {
--		tp->aperegs = pci_ioremap_bar(pdev, BAR_2);
--		if (!tp->aperegs) {
--			dev_err(&pdev->dev,
--				"Cannot map APE registers, aborting\n");
--			err = -ENOMEM;
--			goto err_out_iounmap;
--		}
--
--		tg3_ape_lock_init(tp);
--
--		if (tg3_flag(tp, ENABLE_ASF))
--			tg3_read_dash_ver(tp);
-+		goto err_out_apeunmap;
- 	}
- 
- 	/*
++	int				pci_fn;
+ 	int				pm_cap;
+ 	int				msi_cap;
+ 	int				pcix_cap;
 -- 
 1.7.3.4
 
