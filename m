@@ -1,183 +1,136 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 2/7] tg3: Move power state transitions to
- init_one
-Date: Wed, 13 Jul 2011 12:27:28 -0700
-Message-ID: <1310585253-4817-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 1/7] tg3: Detect APE enabled devs earlier
+Date: Wed, 13 Jul 2011 12:27:27 -0700
+Message-ID: <1310585253-4817-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3270 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1747 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750877Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750951Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jul 2011 15:28:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tg3 driver is going to require memory mapped register access much
-sooner than before.  This patch makes sure the device is in the D0 power
-state as soon as possible, and moves the code that enables the memory
-arbiter outside tg3_get_eeprom_hw_cfg() where it can be more easily
-monitored.
+The following patch will require the driver to communicate with the APE
+much sooner than before.  This patch make sure the APE registers are
+memory mapped and that the ENABLE_APE bit is set before the first use.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   77 +++++++++++++++++++++++-----------------------------
- 1 files changed, 34 insertions(+), 43 deletions(-)
+ drivers/net/tg3.c |   52 +++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 31 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 01d3a27..ecbc10f 100644
+index 8211b9a..01d3a27 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12678,29 +12678,6 @@ static struct subsys_tbl_ent * __devinit tg3_lookup_by_subsys(struct tg3 *tp)
- static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
- {
- 	u32 val;
--	u16 pmcsr;
--
--	/* On some early chips the SRAM cannot be accessed in D3hot state,
--	 * so need make sure we're in D0.
--	 */
--	pci_read_config_word(tp->pdev, tp->pm_cap + PCI_PM_CTRL, &pmcsr);
--	pmcsr &= ~PCI_PM_CTRL_STATE_MASK;
--	pci_write_config_word(tp->pdev, tp->pm_cap + PCI_PM_CTRL, pmcsr);
--	msleep(1);
--
--	/* Make sure register accesses (indirect or otherwise)
--	 * will function correctly.
--	 */
--	pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
--			       tp->misc_host_ctrl);
--
--	/* The memory arbiter has to be enabled in order for SRAM accesses
--	 * to succeed.  Normally on powerup the tg3 chip firmware will make
--	 * sure it is enabled, but other entities such as system netboot
--	 * code might disable it.
--	 */
--	val = tr32(MEMARB_MODE);
--	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
+@@ -13446,10 +13446,15 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
+ 	else
+ 		return;
  
- 	tp->phy_id = TG3_PHY_ID_INVALID;
- 	tp->led_ctrl = LED_CTRL_MODE_PHY_1;
-@@ -13498,14 +13475,17 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	pci_cmd &= ~PCI_COMMAND_INVALIDATE;
- 	pci_write_config_word(tp->pdev, PCI_COMMAND, pci_cmd);
+-	if (!tg3_flag(tp, ENABLE_ASF) || tg3_flag(tp, ENABLE_APE) || vpd_vers)
++	if (vpd_vers)
+ 		goto done;
  
--	/* It is absolutely critical that TG3PCI_MISC_HOST_CTRL
--	 * has the register indirect write enable bit set before
--	 * we try to access any of the MMIO registers.  It is also
--	 * critical that the PCI-X hw workaround situation is decided
--	 * before that as well.
-+	/* Important! -- Make sure register accesses are byteswapped
-+	 * correctly.  Also, for those chips that require it, make
-+	 * sure that indirect register accesses are enabled before
-+	 * the first operation.
- 	 */
- 	pci_read_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
- 			      &misc_ctrl_reg);
-+	tp->misc_host_ctrl |= (misc_ctrl_reg &
-+			       MISC_HOST_CTRL_CHIPREV);
-+	pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
-+			       tp->misc_host_ctrl);
+-	tg3_read_mgmtfw_ver(tp);
++	if (tg3_flag(tp, ENABLE_APE)) {
++		if (tg3_flag(tp, ENABLE_ASF))
++			tg3_read_dash_ver(tp);
++	} else if (tg3_flag(tp, ENABLE_ASF)) {
++		tg3_read_mgmtfw_ver(tp);
++	}
  
- 	tp->pci_chip_rev_id = (misc_ctrl_reg >>
- 			       MISC_HOST_CTRL_CHIPREV_SHIFT);
-@@ -13661,12 +13641,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		} while (bridge);
- 	}
- 
--	/* Initialize misc host control in PCI block. */
--	tp->misc_host_ctrl |= (misc_ctrl_reg &
--			       MISC_HOST_CTRL_CHIPREV);
--	pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
--			       tp->misc_host_ctrl);
--
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
-@@ -13851,6 +13825,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 				      tp->pci_lat_timer);
- 	}
- 
-+	/* Important! -- It is critical that the PCI-X hw workaround
-+	 * situation is decided before the first MMIO register access.
-+	 */
- 	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5700_BX) {
- 		/* 5700 BX chips need to have their TX producer index
- 		 * mailboxes written twice to workaround a bug.
-@@ -13957,6 +13934,14 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	      GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)))
- 		tg3_flag_set(tp, SRAM_USE_CONFIG);
- 
-+	/* The memory arbiter has to be enabled in order for SRAM accesses
-+	 * to succeed.  Normally on powerup the tg3 chip firmware will make
-+	 * sure it is enabled, but other entities such as system netboot
-+	 * code might disable it.
-+	 */
-+	val = tr32(MEMARB_MODE);
-+	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
+ done:
+ 	tp->fw_ver[TG3_VER_SIZE - 1] = 0;
+@@ -13971,6 +13976,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 				 PCISTATE_ALLOW_APE_PSPACE_WR;
+ 		pci_write_config_dword(tp->pdev, TG3PCI_PCISTATE,
+ 				       pci_state_reg);
 +
- 	/* Get eeprom hw config before calling tg3_set_power_state().
- 	 * In particular, the TG3_FLAG_IS_NIC flag must be
- 	 * determined before calling tg3_set_power_state() so that
-@@ -13987,8 +13972,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	    tg3_flag(tp, 57765_PLUS))
- 		tg3_flag_set(tp, CPMU_PRESENT);
- 
--	/* Set up tp->grc_local_ctrl before calling tg3_power_up().
--	 * GPIO1 driven high will bring 5700's external PHY out of reset.
-+	/* Set up tp->grc_local_ctrl before calling
-+	 * tg3_pwrsrc_switch_to_vmain().  GPIO1 driven high
-+	 * will bring 5700's external PHY out of reset.
- 	 * It is also used as eeprom write protect on LOMs.
- 	 */
- 	tp->grc_local_ctrl = GRC_LCLCTRL_INT_ON_ATTN | GRC_LCLCTRL_AUTO_SEEPROM;
-@@ -14017,12 +14003,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 					      GRC_LCLCTRL_GPIO_OUTPUT0;
++		tg3_ape_lock_init(tp);
  	}
  
--	/* Force the chip into D0. */
--	err = tg3_power_up(tp);
--	if (err) {
--		dev_err(&tp->pdev->dev, "Transition to D0 failed\n");
--		return err;
--	}
-+	/* Switch out of Vaux if it is a NIC */
-+	tg3_pwrsrc_switch_to_vmain(tp);
- 
- 	/* Derive initial jumbo mode from MTU assigned in
- 	 * ether_setup() via the alloc_etherdev() call
-@@ -15037,11 +15019,17 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 		goto err_out_free_res;
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 ||
+@@ -15083,6 +15090,24 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 		goto err_out_free_dev;
  	}
  
-+	err = pci_set_power_state(pdev, PCI_D0);
-+	if (err) {
-+		dev_err(&pdev->dev, "Transition to D0 failed, aborting\n");
-+		goto err_out_free_res;
++	if (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761 ||
++	    tp->pdev->device == PCI_DEVICE_ID_TIGON3_5761E ||
++	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761S ||
++	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5761SE ||
++	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5717 ||
++	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 ||
++	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5719 ||
++	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_5720) {
++		tg3_flag_set(tp, ENABLE_APE);
++		tp->aperegs = pci_ioremap_bar(pdev, BAR_2);
++		if (!tp->aperegs) {
++			dev_err(&pdev->dev,
++				"Cannot map APE registers, aborting\n");
++			err = -ENOMEM;
++			goto err_out_iounmap;
++		}
 +	}
 +
- 	dev = alloc_etherdev_mq(sizeof(*tp), TG3_IRQ_MAX_VECS);
- 	if (!dev) {
- 		dev_err(&pdev->dev, "Etherdev alloc failed, aborting\n");
- 		err = -ENOMEM;
--		goto err_out_free_res;
-+		goto err_out_power_down;
+ 	tp->rx_pending = TG3_DEF_RX_RING_PENDING;
+ 	tp->rx_jumbo_pending = TG3_DEF_RX_JUMBO_RING_PENDING;
+ 
+@@ -15095,7 +15120,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	if (err) {
+ 		dev_err(&pdev->dev,
+ 			"Problem fetching invariants of chip, aborting\n");
+-		goto err_out_iounmap;
++		goto err_out_apeunmap;
  	}
  
- 	SET_NETDEV_DEV(dev, &pdev->dev);
-@@ -15356,6 +15344,9 @@ err_out_iounmap:
- err_out_free_dev:
- 	free_netdev(dev);
+ 	/* The EPB bridge inside 5714, 5715, and 5780 and any
+@@ -15124,7 +15149,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 			if (err < 0) {
+ 				dev_err(&pdev->dev, "Unable to obtain 64 bit "
+ 					"DMA for consistent allocations\n");
+-				goto err_out_iounmap;
++				goto err_out_apeunmap;
+ 			}
+ 		}
+ 	}
+@@ -15133,7 +15158,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 		if (err) {
+ 			dev_err(&pdev->dev,
+ 				"No usable DMA configuration, aborting\n");
+-			goto err_out_iounmap;
++			goto err_out_apeunmap;
+ 		}
+ 	}
  
-+err_out_power_down:
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
- err_out_free_res:
- 	pci_release_regions(pdev);
+@@ -15198,22 +15223,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	if (err) {
+ 		dev_err(&pdev->dev,
+ 			"Could not obtain valid ethernet address, aborting\n");
+-		goto err_out_iounmap;
+-	}
+-
+-	if (tg3_flag(tp, ENABLE_APE)) {
+-		tp->aperegs = pci_ioremap_bar(pdev, BAR_2);
+-		if (!tp->aperegs) {
+-			dev_err(&pdev->dev,
+-				"Cannot map APE registers, aborting\n");
+-			err = -ENOMEM;
+-			goto err_out_iounmap;
+-		}
+-
+-		tg3_ape_lock_init(tp);
+-
+-		if (tg3_flag(tp, ENABLE_ASF))
+-			tg3_read_dash_ver(tp);
++		goto err_out_apeunmap;
+ 	}
  
+ 	/*
 -- 
 1.7.3.4
 
