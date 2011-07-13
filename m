@@ -1,89 +1,182 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 3/7] tg3: Check transitions to D0 power state
-Date: Wed, 13 Jul 2011 12:27:29 -0700
-Message-ID: <1310585253-4817-4-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 2/7] tg3: Move power state transitions to
+ init_one
+Date: Wed, 13 Jul 2011 12:27:28 -0700
+Message-ID: <1310585253-4817-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3272 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3270 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750964Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750877Ab1GMT2D (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jul 2011 15:28:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently pci_set_power_state() does not return useful return codes for
-transitions to the D0 power state.  If a device refuses to go into D0,
-the PCI layer issues a warning but returns success.
-
-Entering into D0 is a requirement for correct operation of tg3 devices
-though.  If the PCI layer should be changed to return an error code for
-this type of failure, the tg3 driver would be interested in catching it
-and reacting to it.  This patch makes the necessary modifications.
+The tg3 driver is going to require memory mapped register access much
+sooner than before.  This patch makes sure the device is in the D0 power
+state as soon as possible, and moves the code that enables the memory
+arbiter outside tg3_get_eeprom_hw_cfg() where it can be more easily
+monitored.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   27 +++++++++++++++++----------
- 1 files changed, 17 insertions(+), 10 deletions(-)
+ drivers/net/tg3.c |   77 +++++++++++++++++++++++-----------------------------
+ 1 files changed, 34 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index ecbc10f..5d4283e 100644
+index 01d3a27..ecbc10f 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -2657,14 +2657,19 @@ static void tg3_enable_register_access(struct tg3 *tp)
- 
- static int tg3_power_up(struct tg3 *tp)
+@@ -12678,29 +12678,6 @@ static struct subsys_tbl_ent * __devinit tg3_lookup_by_subsys(struct tg3 *tp)
+ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
  {
--	tg3_enable_register_access(tp);
-+	int err;
+ 	u32 val;
+-	u16 pmcsr;
+-
+-	/* On some early chips the SRAM cannot be accessed in D3hot state,
+-	 * so need make sure we're in D0.
+-	 */
+-	pci_read_config_word(tp->pdev, tp->pm_cap + PCI_PM_CTRL, &pmcsr);
+-	pmcsr &= ~PCI_PM_CTRL_STATE_MASK;
+-	pci_write_config_word(tp->pdev, tp->pm_cap + PCI_PM_CTRL, pmcsr);
+-	msleep(1);
+-
+-	/* Make sure register accesses (indirect or otherwise)
+-	 * will function correctly.
+-	 */
+-	pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
+-			       tp->misc_host_ctrl);
+-
+-	/* The memory arbiter has to be enabled in order for SRAM accesses
+-	 * to succeed.  Normally on powerup the tg3 chip firmware will make
+-	 * sure it is enabled, but other entities such as system netboot
+-	 * code might disable it.
+-	 */
+-	val = tr32(MEMARB_MODE);
+-	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
  
--	pci_set_power_state(tp->pdev, PCI_D0);
-+	tg3_enable_register_access(tp);
+ 	tp->phy_id = TG3_PHY_ID_INVALID;
+ 	tp->led_ctrl = LED_CTRL_MODE_PHY_1;
+@@ -13498,14 +13475,17 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	pci_cmd &= ~PCI_COMMAND_INVALIDATE;
+ 	pci_write_config_word(tp->pdev, PCI_COMMAND, pci_cmd);
  
--	/* Switch out of Vaux if it is a NIC */
--	tg3_pwrsrc_switch_to_vmain(tp);
-+	err = pci_set_power_state(tp->pdev, PCI_D0);
-+	if (!err) {
-+		/* Switch out of Vaux if it is a NIC */
-+		tg3_pwrsrc_switch_to_vmain(tp);
-+	} else {
-+		netdev_err(tp->dev, "Transition to D0 failed\n");
-+	}
+-	/* It is absolutely critical that TG3PCI_MISC_HOST_CTRL
+-	 * has the register indirect write enable bit set before
+-	 * we try to access any of the MMIO registers.  It is also
+-	 * critical that the PCI-X hw workaround situation is decided
+-	 * before that as well.
++	/* Important! -- Make sure register accesses are byteswapped
++	 * correctly.  Also, for those chips that require it, make
++	 * sure that indirect register accesses are enabled before
++	 * the first operation.
+ 	 */
+ 	pci_read_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
+ 			      &misc_ctrl_reg);
++	tp->misc_host_ctrl |= (misc_ctrl_reg &
++			       MISC_HOST_CTRL_CHIPREV);
++	pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
++			       tp->misc_host_ctrl);
  
--	return 0;
-+	return err;
- }
- 
- static int tg3_power_down_prepare(struct tg3 *tp)
-@@ -11433,8 +11438,12 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
- {
- 	struct tg3 *tp = netdev_priv(dev);
- 
--	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
--		tg3_power_up(tp);
-+	if ((tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) &&
-+	    tg3_power_up(tp)) {
-+		etest->flags |= ETH_TEST_FL_FAILED;
-+		memset(data, 1, sizeof(u64) * TG3_NUM_TEST);
-+		return;
-+	}
- 
- 	memset(data, 0, sizeof(u64) * TG3_NUM_TEST);
- 
-@@ -15571,10 +15580,8 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
+ 	tp->pci_chip_rev_id = (misc_ctrl_reg >>
+ 			       MISC_HOST_CTRL_CHIPREV_SHIFT);
+@@ -13661,12 +13641,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		} while (bridge);
  	}
  
- 	err = tg3_power_up(tp);
--	if (err) {
--		netdev_err(netdev, "Failed to restore register access.\n");
-+	if (err)
- 		goto done;
--	}
+-	/* Initialize misc host control in PCI block. */
+-	tp->misc_host_ctrl |= (misc_ctrl_reg &
+-			       MISC_HOST_CTRL_CHIPREV);
+-	pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
+-			       tp->misc_host_ctrl);
+-
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5714 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+@@ -13851,6 +13825,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 				      tp->pci_lat_timer);
+ 	}
  
- 	rc = PCI_ERS_RESULT_RECOVERED;
++	/* Important! -- It is critical that the PCI-X hw workaround
++	 * situation is decided before the first MMIO register access.
++	 */
+ 	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5700_BX) {
+ 		/* 5700 BX chips need to have their TX producer index
+ 		 * mailboxes written twice to workaround a bug.
+@@ -13957,6 +13934,14 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	      GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)))
+ 		tg3_flag_set(tp, SRAM_USE_CONFIG);
+ 
++	/* The memory arbiter has to be enabled in order for SRAM accesses
++	 * to succeed.  Normally on powerup the tg3 chip firmware will make
++	 * sure it is enabled, but other entities such as system netboot
++	 * code might disable it.
++	 */
++	val = tr32(MEMARB_MODE);
++	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
++
+ 	/* Get eeprom hw config before calling tg3_set_power_state().
+ 	 * In particular, the TG3_FLAG_IS_NIC flag must be
+ 	 * determined before calling tg3_set_power_state() so that
+@@ -13987,8 +13972,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	    tg3_flag(tp, 57765_PLUS))
+ 		tg3_flag_set(tp, CPMU_PRESENT);
+ 
+-	/* Set up tp->grc_local_ctrl before calling tg3_power_up().
+-	 * GPIO1 driven high will bring 5700's external PHY out of reset.
++	/* Set up tp->grc_local_ctrl before calling
++	 * tg3_pwrsrc_switch_to_vmain().  GPIO1 driven high
++	 * will bring 5700's external PHY out of reset.
+ 	 * It is also used as eeprom write protect on LOMs.
+ 	 */
+ 	tp->grc_local_ctrl = GRC_LCLCTRL_INT_ON_ATTN | GRC_LCLCTRL_AUTO_SEEPROM;
+@@ -14017,12 +14003,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 					      GRC_LCLCTRL_GPIO_OUTPUT0;
+ 	}
+ 
+-	/* Force the chip into D0. */
+-	err = tg3_power_up(tp);
+-	if (err) {
+-		dev_err(&tp->pdev->dev, "Transition to D0 failed\n");
+-		return err;
+-	}
++	/* Switch out of Vaux if it is a NIC */
++	tg3_pwrsrc_switch_to_vmain(tp);
+ 
+ 	/* Derive initial jumbo mode from MTU assigned in
+ 	 * ether_setup() via the alloc_etherdev() call
+@@ -15037,11 +15019,17 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 		goto err_out_free_res;
+ 	}
+ 
++	err = pci_set_power_state(pdev, PCI_D0);
++	if (err) {
++		dev_err(&pdev->dev, "Transition to D0 failed, aborting\n");
++		goto err_out_free_res;
++	}
++
+ 	dev = alloc_etherdev_mq(sizeof(*tp), TG3_IRQ_MAX_VECS);
+ 	if (!dev) {
+ 		dev_err(&pdev->dev, "Etherdev alloc failed, aborting\n");
+ 		err = -ENOMEM;
+-		goto err_out_free_res;
++		goto err_out_power_down;
+ 	}
+ 
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+@@ -15356,6 +15344,9 @@ err_out_iounmap:
+ err_out_free_dev:
+ 	free_netdev(dev);
+ 
++err_out_power_down:
++	pci_set_power_state(pdev, PCI_D3hot);
++
+ err_out_free_res:
+ 	pci_release_regions(pdev);
  
 -- 
 1.7.3.4
