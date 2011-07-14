@@ -1,45 +1,63 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH 07/10] net: remove NETIF_F_NO_CSUM feature
-Date: Thu, 14 Jul 2011 23:00:21 +0200
-Message-ID: <20110714210021.GE16759@rere.qmqm.pl>
-References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
- <aa24cb5cdd3bd082d038960efd7d5c9a2ba95d8e.1310601401.git.mirq-linux@rere.qmqm.pl>
- <1310603009.2756.8.camel@bwh-desktop>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: preempting while holding rtnl_lock
+Date: Thu, 14 Jul 2011 18:15:02 -0300
+Message-ID: <20110714181502.4a5602aa@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:48817 "EHLO rere.qmqm.pl"
+Received: from mx1.redhat.com ([209.132.183.28]:15383 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932140Ab1GNVAW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2011 17:00:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1310603009.2756.8.camel@bwh-desktop>
+	id S932231Ab1GNVPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2011 17:15:04 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p6ELF4AA013467
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 17:15:04 -0400
+Received: from asterix.rh (ovpn-113-118.phx2.redhat.com [10.3.113.118])
+	by int-mx02.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id p6ELF32W000942
+	for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 17:15:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 14, 2011 at 01:23:29AM +0100, Ben Hutchings wrote:
-> On Thu, 2011-07-14 at 02:10 +0200, Micha=B3 Miros=B3aw wrote:
-> > There are no explicit users, so this is now equivalent to NETIF_F_H=
-W_CSUM.
-> [...]
-> I think this is still a useful distinction, even the networking core
-> currently doesn't care about the difference.
 
-The problem is that all packets now can be redirected from NO_CSUM devi=
-ce
-to other (or userspace). If some protocols just ignore checksum marking
-altogether (like SCTP was doing) because of this flag, you get broken
-packets that are hard to debug. It costs little to stay on the safe sid=
-e
-and calculate this additional u32 with checksum information, even if it
-stays unused most of the time.
+Hi,
 
-That's why I propose to remove NO_CSUM flag - to prevent someone to wri=
-te
-such a quietly broken code in the future.
+I was reviewing driver sources and found that
+ethtool ops holds rtnl_lock() and there are few
+drivers (for example: tg3, bnx2) that use napi_disable()
+in this context.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+/**     
+ *      napi_disable - prevent NAPI from scheduling
+ *      @n: napi context
+ *              
+ * Stop NAPI from being scheduled on this context.
+ * Waits till any outstanding processing completes.
+ */
+static inline void napi_disable(struct napi_struct *n)
+{
+        set_bit(NAPI_STATE_DISABLE, &n->state);
+        while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+                msleep(1);
+        clear_bit(NAPI_STATE_DISABLE, &n->state);
+}
+
+The msleep() above will preempt.  I believe this is wrong.
+See the functions below as examples:
+bnx2_set_ringparam()
++ bnx2_change_ring_size()
+  + bnx2_netif_stop()
+    + bnx2_napi_disable()
+      + napi_disable()
+
+
++ tg3_change_mtu() = ndo_change_mtu
+  + tg3_netif_stop()
+    + tg3_napi_disable()
+      + napi_disable()
+
+What am I missing?
+thanks,
+fbl
