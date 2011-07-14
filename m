@@ -1,76 +1,207 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: any way to let host act as TCP server OR client on same IP/port?
-Date: Thu, 14 Jul 2011 11:33:59 -0600
-Message-ID: <4E1F2887.4040307@genband.com>
-References: <4E1DC83C.3020506@genband.com>	<1310579520.2509.17.camel@edumazet-laptop>	<4E1DDE62.3080503@hp.com> <4E1DEEF9.7040901@genband.com> <4E1F0345.8020108@genband.com> <4E1F1D3A.1030204@hp.com>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: [PATCH 1/2 net-next] bnx2x: Renaming the "reset_task" to
+ "sp_rtnl_task"
+Date: Thu, 14 Jul 2011 21:31:19 +0300
+Message-ID: <1310668279.16772.84.camel@lb-tlvb-ariel.il.broadcom.com>
+Reply-To: ariele@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Cc: eilong@broadcom.com
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og110.obsmtp.com ([64.18.2.173]:60957 "EHLO
-	exprod7og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932141Ab1GNReM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 13:34:12 -0400
-In-Reply-To: <4E1F1D3A.1030204@hp.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3286 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755400Ab1GNSY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2011 14:24:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> In our case we don't need to actually be connected, just be listening
->>> and ready to either accept() a connection or connect() to someone else.
->>
->> It turns out that the application people really do want the server side
->> to be able to listen() at the same time as calling connect() from the
->> same address/port, so Rick's testcase was accurate.
->
-> So, we are left asking "Why do the application people want that?" Does
-> the server connect() to pseudo-random places, or does it only ever
-> connect back to clients which have already connected to it?
+ Renaming the "reset_task" to a more general purpose name,
+ "sp_rtnl_task", as it is already used for another purpose
+ other than reset which is parity recovery, and since I
+ plan to add a third operation for this task, updating the
+ priority to traffic class and traffic class to transmission
+ queues mappings after dcbx negotiation takes place.
+ Signed-off-by: Ariel Elior <ariele@broadcom.com>
+ Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-I'm not an expert in the application domain, but here's what I know. 
-You can think of the situation as having a server, a gateway, and many 
-clients.  The goal is to map each client to a single unique port on the 
-server-facing side of the gateway, such that all traffic for that client 
-goes through that port.
+---
+ drivers/net/bnx2x/bnx2x.h      |   11 ++++++++-
+ drivers/net/bnx2x/bnx2x_cmn.c  |    7 +++++-
+ drivers/net/bnx2x/bnx2x_main.c |   48 ++++++++++++++++++++++++---------------
+ 3 files changed, 45 insertions(+), 21 deletions(-)
 
-The complicating factor is that traffic may be initiated by either the 
-client or the server.  With UDP this isn't a problem, but for TCP it's 
-tricky.
-
-For IPv4 the app team originally set it up so that the gateway listens 
-on a single port on the server side of the gateway, and when the server 
-opens a connection to a client's unique port (with an ephemeral port as 
-the source port) it gets NAT'd to that single port.  (The unique ports 
-on the server side ensure that there are no 4-tuple collisions.)  For 
-traffic originating from the client, the gateway binds a socket to the 
-client's unique port and uses it to open a connection to the server.
-
-IPv6 doesn't support NAT (at least not in the stock kernel), so they're 
-looking for alternatives.
-
-> If the desire is to have the same well-known port number involved in all
-> connections to/from the server (perhaps for simplistic firewall rules
-> involving serverip.magicport?)
-
-I suspect it's something like that.
-
-> then if the connections are back to the
-> clients, the clients could simply open listen endpoints bound to the
-> magic port number and the firewall rule become "server IP is source or
-> destination) AND (magic port is source or destination)" - assuming the
-> clients aren't bind()ing to the magic port number before connect()ing to
-> the server.
-
-We don't control the server, only the gateway.  Ephemeral source ports 
-are used for connections opened by the server, so a known port is needed 
-on the gateway side.
-
-Chris
-
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 0d4b981..16dc2c9 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -1046,6 +1046,12 @@ struct bnx2x_fw_stats_data {
+ 	struct per_queue_stats  queue_stats[1];
+ };
+ 
++/* Public slow path states */
++enum {
++	BNX2X_SP_RTNL_TX_TIMEOUT,
++};
++
++
+ struct bnx2x {
+ 	/* Fields used in the tx and intr/napi performance paths
+ 	 * are grouped together in the beginning of the structure
+@@ -1159,7 +1165,7 @@ struct bnx2x {
+ 	int			mrrs;
+ 
+ 	struct delayed_work	sp_task;
+-	struct delayed_work	reset_task;
++	struct delayed_work	sp_rtnl_task;
+ 
+ 	struct delayed_work	period_task;
+ 	struct timer_list	timer;
+@@ -1403,6 +1409,9 @@ struct bnx2x {
+ 
+ 	unsigned long				sp_state;
+ 
++	/* operation indication for the sp_rtnl task */
++	unsigned long				sp_rtnl_state;
++
+ 	/* DCBX Negotation results */
+ 	struct dcbx_features			dcbx_local_feat;
+ 	u32					dcbx_error;
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index bb75560..8763625 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -3233,8 +3233,13 @@ void bnx2x_tx_timeout(struct net_device *dev)
+ 	if (!bp->panic)
+ 		bnx2x_panic();
+ #endif
++
++	smp_mb__before_clear_bit();
++	set_bit(BNX2X_SP_RTNL_TX_TIMEOUT, &bp->sp_rtnl_state);
++	smp_mb__after_clear_bit();
++
+ 	/* This allows the netif to be shutdown gracefully before resetting */
+-	schedule_delayed_work(&bp->reset_task, 0);
++	schedule_delayed_work(&bp->sp_rtnl_task, 0);
+ }
+ 
+ int bnx2x_suspend(struct pci_dev *pdev, pm_message_t state)
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 5b4a8f3..53f4ec3 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -4020,7 +4020,7 @@ static void bnx2x_attn_int_deasserted(struct bnx2x *bp, u32 deasserted)
+ 	if (bnx2x_chk_parity_attn(bp, &global, true)) {
+ #ifndef BNX2X_STOP_ON_ERROR
+ 		bp->recovery_state = BNX2X_RECOVERY_INIT;
+-		schedule_delayed_work(&bp->reset_task, 0);
++		schedule_delayed_work(&bp->sp_rtnl_task, 0);
+ 		/* Disable HW interrupts */
+ 		bnx2x_int_disable(bp);
+ 		/* In case of parity errors don't handle attentions so that
+@@ -7963,7 +7963,7 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
+ 					/* Wait until all other functions get
+ 					 * down.
+ 					 */
+-					schedule_delayed_work(&bp->reset_task,
++					schedule_delayed_work(&bp->sp_rtnl_task,
+ 								HZ/10);
+ 					return;
+ 				} else {
+@@ -8000,7 +8000,7 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
+ 						break;
+ 					}
+ 
+-					schedule_delayed_work(&bp->reset_task,
++					schedule_delayed_work(&bp->sp_rtnl_task,
+ 								HZ/10);
+ 					return;
+ 
+@@ -8011,7 +8011,8 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
+ 					 */
+ 					if (bnx2x_reset_is_global(bp)) {
+ 						schedule_delayed_work(
+-							&bp->reset_task, HZ/10);
++							&bp->sp_rtnl_task,
++							HZ/10);
+ 						return;
+ 					}
+ 
+@@ -8035,30 +8036,39 @@ static void bnx2x_parity_recover(struct bnx2x *bp)
+ /* bnx2x_nic_unload() flushes the bnx2x_wq, thus reset task is
+  * scheduled on a general queue in order to prevent a dead lock.
+  */
+-static void bnx2x_reset_task(struct work_struct *work)
++static void bnx2x_sp_rtnl_task(struct work_struct *work)
+ {
+-	struct bnx2x *bp = container_of(work, struct bnx2x, reset_task.work);
+-
+-#ifdef BNX2X_STOP_ON_ERROR
+-	BNX2X_ERR("reset task called but STOP_ON_ERROR defined"
+-		  " so reset not done to allow debug dump,\n"
+-	 KERN_ERR " you will need to reboot when done\n");
+-	return;
+-#endif
++	struct bnx2x *bp = container_of(work, struct bnx2x, sp_rtnl_task.work);
+ 
+ 	rtnl_lock();
+ 
+ 	if (!netif_running(bp->dev))
+-		goto reset_task_exit;
++		goto sp_rtnl_exit;
++
++	/* if stop on error is defined no recovery flows should be executed */
++#ifdef BNX2X_STOP_ON_ERROR
++	BNX2X_ERR("recovery flow called but STOP_ON_ERROR defined "
++		  "so reset not done to allow debug dump,\n"
++		  "you will need to reboot when done\n");
++	goto sp_rtnl_exit;
++#endif
+ 
+-	if (unlikely(bp->recovery_state != BNX2X_RECOVERY_DONE))
++	if (unlikely(bp->recovery_state != BNX2X_RECOVERY_DONE)) {
++		/*
++		 * Clear TX_TIMEOUT bit as we are going to reset the function
++		 * anyway.
++		 */
++		smp_mb__before_clear_bit();
++		clear_bit(BNX2X_SP_RTNL_TX_TIMEOUT, &bp->sp_rtnl_state);
++		smp_mb__after_clear_bit();
+ 		bnx2x_parity_recover(bp);
+-	else {
++	} else if (test_and_clear_bit(BNX2X_SP_RTNL_TX_TIMEOUT,
++				    &bp->sp_rtnl_state)){
+ 		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+ 		bnx2x_nic_load(bp, LOAD_NORMAL);
+ 	}
+ 
+-reset_task_exit:
++sp_rtnl_exit:
+ 	rtnl_unlock();
+ }
+ 
+@@ -9291,7 +9301,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ #endif
+ 
+ 	INIT_DELAYED_WORK(&bp->sp_task, bnx2x_sp_task);
+-	INIT_DELAYED_WORK(&bp->reset_task, bnx2x_reset_task);
++	INIT_DELAYED_WORK(&bp->sp_rtnl_task, bnx2x_sp_rtnl_task);
+ 	INIT_DELAYED_WORK(&bp->period_task, bnx2x_period_task);
+ 	rc = bnx2x_get_hwinfo(bp);
+ 	if (rc)
+@@ -10342,7 +10352,7 @@ static void __devexit bnx2x_remove_one(struct pci_dev *pdev)
+ 	bnx2x_set_power_state(bp, PCI_D3hot);
+ 
+ 	/* Make sure RESET task is not scheduled before continuing */
+-	cancel_delayed_work_sync(&bp->reset_task);
++	cancel_delayed_work_sync(&bp->sp_rtnl_task);
+ 
+ 	if (bp->regview)
+ 		iounmap(bp->regview);
 -- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+1.7.1
+
+
+
+
