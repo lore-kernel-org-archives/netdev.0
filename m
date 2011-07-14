@@ -1,53 +1,48 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next] bonding: fix strlen errors in sysfs
-Date: Thu, 14 Jul 2011 09:02:06 -0700
-Message-ID: <9576.1310659326@death>
-References: <1310608665-12216-1-git-send-email-andy@greyhouse.net> <201107141115.35452.vitas@nppfactor.kiev.ua>
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	Takuma Umeya <tumeya@redhat.com>
-To: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:48522 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755271Ab1GNQEq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2011 12:04:46 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p6EFfPZD029452
-	for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 11:41:25 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6EG3Qen130080
-	for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 12:03:27 -0400
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6EG2F8w021629
-	for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 10:02:16 -0600
-In-reply-to: <201107141115.35452.vitas@nppfactor.kiev.ua>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Baron <jbaron@redhat.com>
+Subject: [PATCH 00/11] various fixes v2
+Date: Thu, 14 Jul 2011 12:09:06 -0400
+Message-ID: <cover.1310657068.git.jbaron@redhat.com>
+Cc: joe@perches.com, jim.cromie@gmail.com, bvanassche@acm.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
+To: gregkh@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
+Hi,
 
->On Thursday 14 July 2011 04:57:45 Andy Gospodarek wrote:
->> -			if (strnicmp
->> -			    (slave->dev->name, buf,
->> -			     strlen(slave->dev->name)) == 0) {
->> +			int max_len = max(strlen(slave->dev->name),
->> +					  strlen(buf) - 1);
->> +			if (strnicmp(slave->dev->name, buf, max_len) == 0) {
->
->As for me there is no sense in preventing "address out of range" errors in  
->strnicmp by calculating length with strlen first. If there is missing \0 at 
->the end of the string you just shift failure point from stricmp to the strlen 
->function call.
->IMHO "maximum length" argument in strnicmp should be some appropriate constant 
->instead. Alternatively we can use count:
+A bunch of dynamic debug fixes and cleanups. Since the last post I've
+incorporated review feedback, and added an additional patch, so that
+we no longer need to use KERN_CONT.
 
-	I agree about using a constant, and I nominate IFNAMSIZ for that
-constant.
+Thanks,
 
-	Also, should we really be using strnicmp?  I.e., case
-insensitive?  Aren't interface names case sensitive?
+-Jason
 
-	-J
+Joe Perches (4):
+  dynamic_debug: Add __dynamic_dev_dbg
+  dynamic_debug: Consolidate prefix output to single routine
+  dynamic_debug: Remove uses of KERN_CONT in dynamic_emit_prefix
+  dynamic_debug: Convert printks to pr_<level>
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Jason Baron (7):
+  dynamic_debug: remove unused control variables
+  dynamic_debug: add Jason Baron as maintainer
+  dynamic_debug: make netdev_dbg() call __netdev_printk()
+  dynamic_debug: make netif_dbg() call __netdev_printk()
+  dynamic_debug: consolidate repetitive struct _ddebug descriptor definitions
+  dynamic_debug: remove num_enabled accounting
+  dynamic_debug: use a single printk() to emit msgs
+
+ MAINTAINERS                   |    6 ++
+ drivers/base/core.c           |    5 +-
+ include/linux/device.h        |    5 +
+ include/linux/dynamic_debug.h |   51 +++++++-----
+ include/linux/netdevice.h     |   10 +-
+ lib/dynamic_debug.c           |  173 ++++++++++++++++++++++++++++-------------
+ net/core/dev.c                |    3 +-
+ 7 files changed, 171 insertions(+), 82 deletions(-)
+
+-- 
+1.7.5.4
