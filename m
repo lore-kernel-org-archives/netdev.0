@@ -1,45 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 net] net: fix bonding advertising offloads it can't
- support
-Date: Thu, 14 Jul 2011 15:37:53 -0700 (PDT)
-Message-ID: <20110714.153753.1058384459929570771.davem@davemloft.net>
-References: <20110714.145857.1611970250010658023.davem@davemloft.net>
-	<45ec1e78b1bf8934a84e68968a0bb8b747eec6bf.1310682766.git.mirq-linux@rere.qmqm.pl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH 07/10] net: remove NETIF_F_NO_CSUM feature
+Date: Fri, 15 Jul 2011 00:44:45 +0200
+Message-ID: <20110714224445.GA18237@rere.qmqm.pl>
+References: <1310603009.2756.8.camel@bwh-desktop>
+ <CA+mtBx9GXf_+DGB4EabS74Hf+16KKJ78Ty_zK6Y3tC+X634jtA@mail.gmail.com>
+ <20110714205623.GD16759@rere.qmqm.pl>
+ <20110714.143121.1603730405553208694.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	kaber@trash.net
-To: mirq-linux@rere.qmqm.pl
+Cc: therbert@google.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45125 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279Ab1GNWkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 18:40:05 -0400
-In-Reply-To: <45ec1e78b1bf8934a84e68968a0bb8b747eec6bf.1310682766.git.mirq-linux@rere.qmqm.pl>
+Received: from rere.qmqm.pl ([89.167.52.164]:35022 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932279Ab1GNWoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2011 18:44:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20110714.143121.1603730405553208694.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Fri, 15 Jul 2011 00:34:50 +0200 (CEST)
+On Thu, Jul 14, 2011 at 02:31:21PM -0700, David Miller wrote:
+> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Date: Thu, 14 Jul 2011 22:56:23 +0200
+> > That's why its turned off by default and should be enabled only whe=
+n user
+> > knows he will win some pps with it.
+> More people are going to lose than win by your change.
+>=20
+> The nocopy feature helps more real situations than it hurts, the
+> existing default is the best.
 
-> There is no software fallback implemented for SCTP or FCoE checksummi=
-ng,
-> and so it should not be passed on by software devices like bridge or
-> bonding.
->=20
-> For VLAN devices, this is different. First, the driver for underlying
-> device should be prepared to get offloaded packets even when the feat=
-ure
-> is disabled (especially if it advertises it in vlan_features). Second=
-,
-> devices under VLANs do not get replaced without tearing down the VLAN
-> first.
->=20
-> This fixes a mess I accidentally introduced while converting bonding =
-to
-> ndo_fix_features in b2a103e6d0.
->=20
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+I see. I still want to remove NO_CSUM (as I explained in other mail),
+so would you accept replacing it with something more specific to
+nocache-copy feature? READS_DATA maybe? That could be later added to
+sk_route_caps whenever it's known for a route there will be need to
+read packets' data.
 
-I already applied this, and the SCTP patch, to net-2.6
+Best Regards,
+Micha=B3 Miros=B3aw
