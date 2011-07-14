@@ -1,45 +1,146 @@
 From: amit.salecha@qlogic.com
-Subject: [PATCH NEXT 2/6] qlcnic: updated supported cards information
-Date: Thu, 14 Jul 2011 06:16:51 -0700
-Message-ID: <1310649415-14787-3-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 5/6] qlcnic: define error code for loopback test
+Date: Thu, 14 Jul 2011 06:16:54 -0700
+Message-ID: <1310649415-14787-6-git-send-email-amit.salecha@qlogic.com>
 References: <1310649415-14787-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com,
-	Sritej Velaga <sritej.velaga@qlogic.com>,
 	Amit Kumar Salecha <amit.salecha@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:44912 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:44911 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754886Ab1GNNZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754953Ab1GNNZt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 14 Jul 2011 09:25:49 -0400
 In-Reply-To: <1310649415-14787-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Added QME8242-k 10GbE Dual Port Mezzanine Card to supported card info.
+o Defined error code such as fw not responding, test already running and
+  cable not connected.
+o Check Fw capability before performing loopback test.
 
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/qlcnic/qlcnic.h         |    9 ++++++++-
+ drivers/net/qlcnic/qlcnic_ethtool.c |   27 ++++++++++++++++-----------
+ drivers/net/qlcnic/qlcnic_init.c    |    6 ++++++
+ 3 files changed, 30 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 9899a79..7c0d6ee 100644
+index 3ae2450..f6e54a8 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1510,6 +1510,8 @@ static const struct qlcnic_brdinfo qlcnic_boards[] = {
- 		"NC523SFP 10Gb 2-port Server Adapter"},
- 	{0x1077, 0x8020, 0x103c, 0x3346,
- 		"CN1000Q Dual Port Converged Network Adapter"},
-+	{0x1077, 0x8020, 0x1077, 0x210,
-+		"QME8242-k 10GbE Dual Port Mezzanine Card"},
- 	{0x1077, 0x8020, 0x0, 0x0, "cLOM8214 1/10GbE Controller"},
- };
+@@ -822,6 +822,7 @@ struct qlcnic_mac_list_s {
+ #define QLCNIC_FW_CAPABILITY_BDG		BIT_8
+ #define QLCNIC_FW_CAPABILITY_FVLANTX		BIT_9
+ #define QLCNIC_FW_CAPABILITY_HW_LRO		BIT_10
++#define QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK	BIT_27
  
+ /* module types */
+ #define LINKEVENT_MODULE_NOT_PRESENT			1
+@@ -936,6 +937,12 @@ struct qlcnic_ipaddr {
+ #define QLCNIC_READD_AGE	20
+ #define QLCNIC_LB_MAX_FILTERS	64
+ 
++/* QLCNIC Driver Error Code */
++#define QLCNIC_FW_NOT_RESPOND		51
++#define QLCNIC_TEST_IN_PROGRESS		52
++#define QLCNIC_UNDEFINED_ERROR		53
++#define QLCNIC_LB_CABLE_NOT_CONN	54
++
+ struct qlcnic_filter {
+ 	struct hlist_node fnode;
+ 	u8 faddr[ETH_ALEN];
+@@ -1007,7 +1014,7 @@ struct qlcnic_adapter {
+ 	u8 max_mac_filters;
+ 	u8 dev_state;
+ 	u8 diag_test;
+-	u8 diag_cnt;
++	char diag_cnt;
+ 	u8 reset_ack_timeo;
+ 	u8 dev_init_timeo;
+ 	u16 msg_enable;
+diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
+index 3ea04e7..72a723d 100644
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c
+@@ -756,6 +756,11 @@ static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
+ 	int loop = 0;
+ 	int ret;
+ 
++	if (!(adapter->capabilities & QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK)) {
++		netdev_info(netdev, "Firmware is not loopback test capable\n");
++		return -EOPNOTSUPP;
++	}
++
+ 	netdev_info(netdev, "%s loopback test in progress\n",
+ 		   mode == QLCNIC_ILB_MODE ? "internal" : "external");
+ 	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
+@@ -765,8 +770,7 @@ static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
+ 	}
+ 
+ 	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
+-		return -EIO;
+-
++		return -EBUSY;
+ 
+ 	ret = qlcnic_diag_alloc_res(netdev, QLCNIC_LOOPBACK_TEST);
+ 	if (ret)
+@@ -778,20 +782,21 @@ static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
+ 	if (ret)
+ 		goto free_res;
+ 
++	adapter->diag_cnt = 0;
+ 	do {
+ 		msleep(500);
+ 		qlcnic_process_rcv_ring_diag(sds_ring);
+-		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP)
+-			break;
++		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
++			netdev_info(netdev, "firmware didnt respond to loopback"
++				" configure request\n");
++			ret = -QLCNIC_FW_NOT_RESPOND;
++			goto free_res;
++		} else if (adapter->diag_cnt) {
++			ret = adapter->diag_cnt;
++			goto free_res;
++		}
+ 	} while (!QLCNIC_IS_LB_CONFIGURED(adapter->ahw->loopback_state));
+ 
+-	if (!QLCNIC_IS_LB_CONFIGURED(adapter->ahw->loopback_state)) {
+-		netdev_info(netdev, "firmware didnt respond to loopback "
+-				"configure request\n");
+-		ret = adapter->ahw->loopback_state;
+-		goto free_res;
+-	}
+-
+ 	ret = qlcnic_do_lb_test(adapter);
+ 
+ 	qlcnic_clear_lb_mode(adapter);
+diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
+index 6ec1baa..ee8a398 100644
+--- a/drivers/net/qlcnic/qlcnic_init.c
++++ b/drivers/net/qlcnic/qlcnic_init.c
+@@ -1354,10 +1354,16 @@ qlcnic_handle_fw_message(int desc_cnt, int index,
+ 			break;
+ 		case 1:
+ 			dev_info(dev, "loopback already in progress\n");
++			adapter->diag_cnt = -QLCNIC_TEST_IN_PROGRESS;
++			break;
++		case 2:
++			dev_info(dev, "loopback cable is not connected\n");
++			adapter->diag_cnt = -QLCNIC_LB_CABLE_NOT_CONN;
+ 			break;
+ 		default:
+ 			dev_info(dev, "loopback configure request failed,"
+ 					" ret %x\n", ret);
++			adapter->diag_cnt = -QLCNIC_UNDEFINED_ERROR;
+ 			break;
+ 		}
+ 		break;
 -- 
 1.7.3.3
 
