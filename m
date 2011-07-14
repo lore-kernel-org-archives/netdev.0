@@ -1,44 +1,54 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 09/10] net: remove /sys/class/net/*/features
-Date: Thu, 14 Jul 2011 02:03:59 +0100
-Message-ID: <1310605439.2756.17.camel@bwh-desktop>
-References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
-	 <ce3c2d463fa75fe00052658cf29e73375f965ab7.1310601401.git.mirq-linux@rere.qmqm.pl>
-	 <20110713175037.7cbf772a@nehalam.ftrdhcpuser.net>
+Subject: pull request: sfc-next 2011-07-14
+Date: Thu, 14 Jul 2011 02:14:50 +0100
+Message-ID: <1310606090.2756.23.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:10191 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:11021 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab1GNBEC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 21:04:02 -0400
-In-Reply-To: <20110713175037.7cbf772a@nehalam.ftrdhcpuser.net>
+	with ESMTP id S1750997Ab1GNBOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 21:14:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-07-13 at 17:50 -0700, Stephen Hemminger wrote:
-> On Thu, 14 Jul 2011 02:10:30 +0200 (CEST)
-> Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
->=20
-> > The same information and more can be obtained by using ethtool
-> > with ETHTOOL_GFEATURES.
-> >=20
-> > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
->=20
-> Changing user visible API has to go through a longer process
-> such as putting it in feature-removal-schedule.txt for a while
-> (at couple of releases) before removing.
+The following changes since commit e77aeb71f04ed236fffe5f347e208c8b0e92d48a:
 
-We already established that this ABI has been changed repeatedly by
-renumbering of features.
+  net: de4x5: Omit check for multicast bit in netdev_for_each_mc_addr (2011-07-01 01:51:03 -0700)
+
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git master
+
+A variety of fixes and cosmetic changes.
 
 Ben.
 
---=20
+Ben Hutchings (6):
+      sfc: Fix loop condition for efx_filter_search() when !for_insert
+      sfc: Allow resets to be upgraded; use atomic ops for safety
+      sfc: Fix mapping of reset reasons and flags to methods
+      sfc: Fix assertions in efx_filter_rfs()
+      sfc: Remove 'Solarstorm' from Kconfig descriptions
+      sfc: Remove 'Communications' after 'Solarflare' in references to hardware
+
+Steve Hodgson (1):
+      sfc: Fix Siena mac statistics on big endian platforms
+
+ drivers/net/sfc/Kconfig      |    7 ++---
+ drivers/net/sfc/efx.c        |   60 ++++++++++++++++--------------------------
+ drivers/net/sfc/enum.h       |    3 +-
+ drivers/net/sfc/ethtool.c    |   27 +++---------------
+ drivers/net/sfc/falcon.c     |   51 +++++++++++++++++++++++++++++++++--
+ drivers/net/sfc/filter.c     |   45 ++++++++++++++++++-------------
+ drivers/net/sfc/net_driver.h |   11 ++++---
+ drivers/net/sfc/siena.c      |   47 +++++++++++++++++++++++++++-----
+ 8 files changed, 152 insertions(+), 99 deletions(-)
+
+-- 
 Ben Hutchings, Senior Software Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
