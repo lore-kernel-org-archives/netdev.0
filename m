@@ -1,33 +1,52 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 10/10] net: remove SK_ROUTE_CAPS from meta ematch
-Date: Wed, 13 Jul 2011 20:59:26 -0400
-Message-ID: <1310605166.2416.0.camel@mojatatu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 07/10] net: remove NETIF_F_NO_CSUM feature
+Date: Thu, 14 Jul 2011 01:59:47 +0100
+Message-ID: <1310605187.2756.14.camel@bwh-desktop>
 References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
-	 <b06d1da00c5f333bb5d8d9f01aa306ff69b99df5.1310601401.git.mirq-linux@rere.qmqm.pl>
-Reply-To: jhs@mojatatu.com
+	 <aa24cb5cdd3bd082d038960efd7d5c9a2ba95d8e.1310601401.git.mirq-linux@rere.qmqm.pl>
+	 <1310603009.2756.8.camel@bwh-desktop>
+	 <20110713174849.41dd634d@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:61261 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab1GNA7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 20:59:30 -0400
-Received: by ywe9 with SMTP id 9so2656146ywe.19
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2011 17:59:29 -0700 (PDT)
-In-Reply-To: <b06d1da00c5f333bb5d8d9f01aa306ff69b99df5.1310601401.git.mirq-linux@rere.qmqm.pl>
+Received: from exchange.solarflare.com ([216.237.3.220]:9796 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751204Ab1GNA7v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 20:59:51 -0400
+In-Reply-To: <20110713174849.41dd634d@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-07-14 at 02:10 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> Remove it, as it indirectly exposes netdev features. It's not used in
-> iproute2 (2.6.38) - is anything else using its interface?
+On Wed, 2011-07-13 at 17:48 -0700, Stephen Hemminger wrote:
+> On Thu, 14 Jul 2011 01:23:29 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
 >=20
+> > On Thu, 2011-07-14 at 02:10 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+> > > There are no explicit users, so this is now equivalent to NETIF_F=
+_HW_CSUM.
+> > [...]
+> >=20
+> > I think this is still a useful distinction, even the networking cor=
+e
+> > currently doesn't care about the difference.
+> >=20
+> > Ben.
+>=20
+> It also is a kernel API change since this part is exposed
+> through ethtool calls.
 
-Breaks user ABI.
+Users of ETHTOOL_{G,S}FEATURES are supposed to use the corresponding
+string set to map names to bits (and vice versa).  It is OK to renumber
+features, and to remove them if they are no longer implemented.
 
-cheers,
-jamal
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
