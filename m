@@ -1,146 +1,77 @@
 From: amit.salecha@qlogic.com
-Subject: [PATCH NEXT 5/6] qlcnic: define error code for loopback test
-Date: Thu, 14 Jul 2011 06:16:54 -0700
-Message-ID: <1310649415-14787-6-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 6/6] qlcnic: change capture mask for FW dump
+Date: Thu, 14 Jul 2011 06:16:55 -0700
+Message-ID: <1310649415-14787-7-git-send-email-amit.salecha@qlogic.com>
 References: <1310649415-14787-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com,
 	Amit Kumar Salecha <amit.salecha@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vpn.pathscale.com ([198.186.3.75]:44911 "HELO mx.mv.qlogic.com"
+Received: from vpn.pathscale.com ([198.186.3.75]:44913 "HELO mx.mv.qlogic.com"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754953Ab1GNNZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754966Ab1GNNZt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 14 Jul 2011 09:25:49 -0400
 In-Reply-To: <1310649415-14787-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
-o Defined error code such as fw not responding, test already running and
-  cable not connected.
-o Check Fw capability before performing loopback test.
+o Change FW dump capture mask to a defult value, instead of using the recommended
+  value from the FW. This was done to keep the capture mask consistent with other
+  function drivers.
 
+o Update driver version to 5.0.21
+
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h         |    9 ++++++++-
- drivers/net/qlcnic/qlcnic_ethtool.c |   27 ++++++++++++++++-----------
- drivers/net/qlcnic/qlcnic_init.c    |    6 ++++++
- 3 files changed, 30 insertions(+), 12 deletions(-)
+ drivers/net/qlcnic/qlcnic.h     |    6 +++---
+ drivers/net/qlcnic/qlcnic_ctx.c |    6 +-----
+ 2 files changed, 4 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 3ae2450..f6e54a8 100644
+index f6e54a8..baf646d 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -822,6 +822,7 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_FW_CAPABILITY_BDG		BIT_8
- #define QLCNIC_FW_CAPABILITY_FVLANTX		BIT_9
- #define QLCNIC_FW_CAPABILITY_HW_LRO		BIT_10
-+#define QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK	BIT_27
+@@ -36,8 +36,8 @@
  
- /* module types */
- #define LINKEVENT_MODULE_NOT_PRESENT			1
-@@ -936,6 +937,12 @@ struct qlcnic_ipaddr {
- #define QLCNIC_READD_AGE	20
- #define QLCNIC_LB_MAX_FILTERS	64
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 0
+-#define _QLCNIC_LINUX_SUBVERSION 20
+-#define QLCNIC_LINUX_VERSIONID  "5.0.20"
++#define _QLCNIC_LINUX_SUBVERSION 21
++#define QLCNIC_LINUX_VERSIONID  "5.0.21"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+@@ -1339,7 +1339,7 @@ enum op_codes {
+ #define QLCNIC_DUMP_SKIP	BIT_7
  
-+/* QLCNIC Driver Error Code */
-+#define QLCNIC_FW_NOT_RESPOND		51
-+#define QLCNIC_TEST_IN_PROGRESS		52
-+#define QLCNIC_UNDEFINED_ERROR		53
-+#define QLCNIC_LB_CABLE_NOT_CONN	54
-+
- struct qlcnic_filter {
- 	struct hlist_node fnode;
- 	u8 faddr[ETH_ALEN];
-@@ -1007,7 +1014,7 @@ struct qlcnic_adapter {
- 	u8 max_mac_filters;
- 	u8 dev_state;
- 	u8 diag_test;
--	u8 diag_cnt;
-+	char diag_cnt;
- 	u8 reset_ack_timeo;
- 	u8 dev_init_timeo;
- 	u16 msg_enable;
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 3ea04e7..72a723d 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -756,6 +756,11 @@ static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
- 	int loop = 0;
- 	int ret;
+ #define QLCNIC_DUMP_MASK_MIN		3
+-#define QLCNIC_DUMP_MASK_DEF		0x7f
++#define QLCNIC_DUMP_MASK_DEF		0x1f
+ #define QLCNIC_DUMP_MASK_MAX		0xff
+ #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
+ #define QLCNIC_ENABLE_FW_DUMP		0xaddfeed
+diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
+index 33f5c8a..b0d32dd 100644
+--- a/drivers/net/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/qlcnic/qlcnic_ctx.c
+@@ -145,11 +145,7 @@ int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
+ 		*template++ = __le32_to_cpu(*tmp_buf++);
  
-+	if (!(adapter->capabilities & QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK)) {
-+		netdev_info(netdev, "Firmware is not loopback test capable\n");
-+		return -EOPNOTSUPP;
-+	}
-+
- 	netdev_info(netdev, "%s loopback test in progress\n",
- 		   mode == QLCNIC_ILB_MODE ? "internal" : "external");
- 	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
-@@ -765,8 +770,7 @@ static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
- 	}
- 
- 	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
--		return -EIO;
--
-+		return -EBUSY;
- 
- 	ret = qlcnic_diag_alloc_res(netdev, QLCNIC_LOOPBACK_TEST);
- 	if (ret)
-@@ -778,20 +782,21 @@ static int qlcnic_loopback_test(struct net_device *netdev, u8 mode)
- 	if (ret)
- 		goto free_res;
- 
-+	adapter->diag_cnt = 0;
- 	do {
- 		msleep(500);
- 		qlcnic_process_rcv_ring_diag(sds_ring);
--		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP)
--			break;
-+		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
-+			netdev_info(netdev, "firmware didnt respond to loopback"
-+				" configure request\n");
-+			ret = -QLCNIC_FW_NOT_RESPOND;
-+			goto free_res;
-+		} else if (adapter->diag_cnt) {
-+			ret = adapter->diag_cnt;
-+			goto free_res;
-+		}
- 	} while (!QLCNIC_IS_LB_CONFIGURED(adapter->ahw->loopback_state));
- 
--	if (!QLCNIC_IS_LB_CONFIGURED(adapter->ahw->loopback_state)) {
--		netdev_info(netdev, "firmware didnt respond to loopback "
--				"configure request\n");
--		ret = adapter->ahw->loopback_state;
--		goto free_res;
--	}
--
- 	ret = qlcnic_do_lb_test(adapter);
- 
- 	qlcnic_clear_lb_mode(adapter);
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 6ec1baa..ee8a398 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1354,10 +1354,16 @@ qlcnic_handle_fw_message(int desc_cnt, int index,
- 			break;
- 		case 1:
- 			dev_info(dev, "loopback already in progress\n");
-+			adapter->diag_cnt = -QLCNIC_TEST_IN_PROGRESS;
-+			break;
-+		case 2:
-+			dev_info(dev, "loopback cable is not connected\n");
-+			adapter->diag_cnt = -QLCNIC_LB_CABLE_NOT_CONN;
- 			break;
- 		default:
- 			dev_info(dev, "loopback configure request failed,"
- 					" ret %x\n", ret);
-+			adapter->diag_cnt = -QLCNIC_UNDEFINED_ERROR;
- 			break;
- 		}
- 		break;
+ 	tmpl_hdr = ahw->fw_dump.tmpl_hdr;
+-	if (tmpl_hdr->cap_mask > QLCNIC_DUMP_MASK_DEF &&
+-		tmpl_hdr->cap_mask <= QLCNIC_DUMP_MASK_MAX)
+-		tmpl_hdr->drv_cap_mask = tmpl_hdr->cap_mask;
+-	else
+-		tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
++	tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
+ 	ahw->fw_dump.enable = 1;
+ error:
+ 	dma_free_coherent(&adapter->pdev->dev, temp_size, tmp_addr, tmp_addr_t);
 -- 
 1.7.3.3
 
