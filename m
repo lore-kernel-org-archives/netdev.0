@@ -1,32 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net-next] bnx2x: Renaming the "reset_task" to
- "sp_rtnl_task"
-Date: Thu, 14 Jul 2011 16:02:41 -0700 (PDT)
-Message-ID: <20110714.160241.1297523308149870.davem@davemloft.net>
-References: <1310668279.16772.84.camel@lb-tlvb-ariel.il.broadcom.com>
+Subject: Re: [PATCH 2/2 net-next] bnx2x: Multiple concurrent l2 traffic
+ classes
+Date: Thu, 14 Jul 2011 16:02:55 -0700 (PDT)
+Message-ID: <20110714.160255.2277414883184091455.davem@davemloft.net>
+References: <1310668317.16772.87.camel@lb-tlvb-ariel.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53139 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53155 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932437Ab1GNXCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 19:02:43 -0400
-In-Reply-To: <1310668279.16772.84.camel@lb-tlvb-ariel.il.broadcom.com>
+	with ESMTP id S932437Ab1GNXC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 19:02:57 -0400
+In-Reply-To: <1310668317.16772.87.camel@lb-tlvb-ariel.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Ariel Elior" <ariele@broadcom.com>
-Date: Thu, 14 Jul 2011 21:31:19 +0300
+Date: Thu, 14 Jul 2011 21:31:57 +0300
 
->  Renaming the "reset_task" to a more general purpose name,
->  "sp_rtnl_task", as it is already used for another purpose
->  other than reset which is parity recovery, and since I
->  plan to add a third operation for this task, updating the
->  priority to traffic class and traffic class to transmission
->  queues mappings after dcbx negotiation takes place.
+>  Overview:
+>  Support mapping of priorities to traffic classes and
+>  traffic classes to transmission queues ranges in the net device.
+>  The queue ranges are (count, offset) pairs relating to the txq
+>  array.
+>  This can be done via DCBX negotiation or by kernel.
+>  As a result Enhanced Transmission Selection (ETS) and Priority Flow
+>  Control (PFC) are supported between L2 network traffic classes.
+>  
+>  Mapping:
+>  This patch uses the netdev_set_num_tc, netdev_set_prio_tc_map and
+>  netdev_set_tc_queue functions to map priorities to traffic classes
+>  and traffic classes to transmission queue ranges.
+>  This mapping is performed by bnx2x_setup_tc function which is
+>  connected to the ndo_setup_tc.
+>  This function is always called at nic load where by default it
+>  maps all priorities to tc 0, and it may also be called by the
+>  kernel or by the bnx2x upon DCBX negotiation to modify the mapping.
+>  
+>  rtnl lock:
+>  When the ndo_setup_tc is called at nic load or by kernel the rtnl
+>  lock is already taken. However, when DCBX negotiation takes place
+>  the lock is not taken. The work is therefore scheduled to be
+>  handled by the sp_rtnl task.
+>  
+>  Fastpath:
+>  The fastpath structure of the bnx2x which was previously used
+>  to hold the information of one tx queue and one rx queue was
+>  redesigned to represent multiple tx queues, one for each traffic
+>  class.
+>  The transmission queue supplied in the skb by the kernel can no
+>  longer be interpreted as a straightforward index into the fastpath
+>  structure array, but it must rather be decoded to the appropriate
+>  fastpath index and the tc within that fastpath.
+>  
+>  Slowpath:
+>  The bnx2x's queue object was redesigned to accommodate multiple
+>  transmission queues. The queue object's state machine was enhanced
+>  to allow opening multiple transmission-only connections on top of
+>  the regular tx-rx connection.
+>  
+>  Firmware:
+>  This feature relies on the tx-only queue feature introduced in the
+>  bnx2x 7.0.23 firmware and the FW likewise must have the bnx2x multi
+>  cos support.
+> 
 >  Signed-off-by: Ariel Elior <ariele@broadcom.com>
 >  Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
