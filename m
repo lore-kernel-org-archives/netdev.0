@@ -1,65 +1,56 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 08/10] net: unexport netdev_fix_features()
-Date: Thu, 14 Jul 2011 02:10:30 +0200 (CEST)
-Message-ID: <b2877ef353e9d00ea213ed1f03ee33fef63e3be5.1310601401.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH 05/10] net: Disable NOCACHE_COPY by default
+Date: Thu, 14 Jul 2011 02:10:29 +0200 (CEST)
+Message-ID: <245234f4964a304e6b427b7f1895d2c30d38aabd.1310601401.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:59824 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:59820 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752852Ab1GNAKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752758Ab1GNAKc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jul 2011 20:10:32 -0400
 In-Reply-To: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is not used anywhere except net/core/dev.c now.
+Disable NOCACHE_COPY by default as there's no reliable way to tell
+in advance what device(s) will take the packet. Also, allow the
+setting to be inherited by VLAN devices.
+
+This is the last use of NETIF_F_NO_CSUM.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- include/linux/netdevice.h |    1 -
- net/core/dev.c            |    3 +--
- 2 files changed, 1 insertions(+), 3 deletions(-)
+ net/core/dev.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ebace1b..c91c643 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2535,7 +2535,6 @@ static inline u32 netdev_get_wanted_features(stru=
-ct net_device *dev)
- 	return (dev->features & ~dev->hw_features) | dev->wanted_features;
- }
- u32 netdev_increment_features(u32 all, u32 one, u32 mask);
--u32 netdev_fix_features(struct net_device *dev, u32 features);
- int __netdev_update_features(struct net_device *dev);
- void netdev_update_features(struct net_device *dev);
- void netdev_change_features(struct net_device *dev);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 09ce52c..a2f58ea 100644
+index e57be02..7b9e2f4 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5209,7 +5209,7 @@ static void rollback_registered(struct net_device=
- *dev)
- 	list_del(&single);
- }
+@@ -5480,13 +5480,12 @@ int register_netdevice(struct net_device *dev)
+ 	dev->features |=3D NETIF_F_SOFT_FEATURES;
+ 	dev->wanted_features =3D dev->features & dev->hw_features;
 =20
--u32 netdev_fix_features(struct net_device *dev, u32 features)
-+static u32 netdev_fix_features(struct net_device *dev, u32 features)
- {
- 	/* Fix illegal checksum combinations */
- 	if ((features & NETIF_F_HW_CSUM) &&
-@@ -5262,7 +5262,6 @@ u32 netdev_fix_features(struct net_device *dev, u=
-32 features)
+-	/* Turn on no cache copy if HW is doing checksum */
++	/* Allow changing no-cache copy but disable it by default
++	 * as there's no reliable way to tell what device(s) will take
++	 * the packet. Allow the setting to be inherited to VLANs.
++	 */
+ 	dev->hw_features |=3D NETIF_F_NOCACHE_COPY;
+-	if ((dev->features & NETIF_F_ALL_CSUM) &&
+-	    !(dev->features & NETIF_F_NO_CSUM)) {
+-		dev->wanted_features |=3D NETIF_F_NOCACHE_COPY;
+-		dev->features |=3D NETIF_F_NOCACHE_COPY;
+-	}
++	dev->vlan_features |=3D NETIF_F_NOCACHE_COPY;
 =20
- 	return features;
- }
--EXPORT_SYMBOL(netdev_fix_features);
-=20
- int __netdev_update_features(struct net_device *dev)
- {
+ 	/* Make NETIF_F_HIGHDMA inheritable to VLAN devices.
+ 	 */
 --=20
 1.7.5.4
 
