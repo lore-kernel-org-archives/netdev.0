@@ -1,106 +1,76 @@
-From: Geoff Levand <geoff@infradead.org>
-Subject: [PATCH] net/ps3: Fix gelic RX DMA restart
-Date: Thu, 14 Jul 2011 10:15:26 -0700
-Message-ID: <4E1F242E.7070509@infradead.org>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: any way to let host act as TCP server OR client on same IP/port?
+Date: Thu, 14 Jul 2011 11:33:59 -0600
+Message-ID: <4E1F2887.4040307@genband.com>
+References: <4E1DC83C.3020506@genband.com>	<1310579520.2509.17.camel@edumazet-laptop>	<4E1DDE62.3080503@hp.com> <4E1DEEF9.7040901@genband.com> <4E1F0345.8020108@genband.com> <4E1F1D3A.1030204@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"cbe-oss-dev@lists.ozlabs.org" <cbe-oss-dev@lists.ozlabs.org>
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:8912
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932134Ab1GNRRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 13:17:30 -0400
+Received: from exprod7og110.obsmtp.com ([64.18.2.173]:60957 "EHLO
+	exprod7og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932141Ab1GNReM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 13:34:12 -0400
+In-Reply-To: <4E1F1D3A.1030204@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the condition where PS3 network RX hangs when no network
-TX is occurring by calling gelic_card_enable_rxdmac() during
-RX_DMA_CHAIN_END event processing.
+>>> In our case we don't need to actually be connected, just be listening
+>>> and ready to either accept() a connection or connect() to someone else.
+>>
+>> It turns out that the application people really do want the server side
+>> to be able to listen() at the same time as calling connect() from the
+>> same address/port, so Rick's testcase was accurate.
+>
+> So, we are left asking "Why do the application people want that?" Does
+> the server connect() to pseudo-random places, or does it only ever
+> connect back to clients which have already connected to it?
 
-The gelic hardware automatically clears its RX_DMA_EN flag when
-it detects an RX_DMA_CHAIN_END event.  In its processing of
-RX_DMA_CHAIN_END the gelic driver is required to set RX_DMA_EN
-(with a call to gelic_card_enable_rxdmac()) to restart RX DMA
-transfers.  The existing gelic driver code does not set
-RX_DMA_EN directly in its processing of the RX_DMA_CHAIN_END
-event, but uses a flag variable card->rx_dma_restart_required
-to schedule the setting of RX_DMA_EN until next inside the
-interrupt handler.
+I'm not an expert in the application domain, but here's what I know. 
+You can think of the situation as having a server, a gateway, and many 
+clients.  The goal is to map each client to a single unique port on the 
+server-facing side of the gateway, such that all traffic for that client 
+goes through that port.
 
-It seems this delayed setting of RX_DMA_EN causes the hang since
-the next RX interrupt after the RX_DMA_CHAIN_END event where
-RX_DMA_EN is scheduled to be set will not occur since RX_DMA_EN
-was not set.  In the case were network TX is occuring, RX_DMA_EN
-is set in the next TX interrupt and RX processing continues.
+The complicating factor is that traffic may be initiated by either the 
+client or the server.  With UDP this isn't a problem, but for TCP it's 
+tricky.
 
-Signed-off-by: Geoff Levand <geoff@infradead.org>
----
- drivers/net/ps3_gelic_net.c |   21 ++++++++-------------
- drivers/net/ps3_gelic_net.h |    1 -
- 2 files changed, 8 insertions(+), 14 deletions(-)
+For IPv4 the app team originally set it up so that the gateway listens 
+on a single port on the server side of the gateway, and when the server 
+opens a connection to a client's unique port (with an ephemeral port as 
+the source port) it gets NAT'd to that single port.  (The unique ports 
+on the server side ensure that there are no 4-tuple collisions.)  For 
+traffic originating from the client, the gateway binds a socket to the 
+client's unique port and uses it to open a connection to the server.
 
---- a/drivers/net/ps3_gelic_net.c
-+++ b/drivers/net/ps3_gelic_net.c
-@@ -986,10 +986,6 @@ static int gelic_card_decode_one_descr(s
- 	int dmac_chain_ended;
- 
- 	status = gelic_descr_get_status(descr);
--	/* is this descriptor terminated with next_descr == NULL? */
--	dmac_chain_ended =
--		be32_to_cpu(descr->dmac_cmd_status) &
--		GELIC_DESCR_RX_DMA_CHAIN_END;
- 
- 	if (status == GELIC_DESCR_DMA_CARDOWNED)
- 		return 0;
-@@ -1052,6 +1048,11 @@ static int gelic_card_decode_one_descr(s
- 	/* ok, we've got a packet in descr */
- 	gelic_net_pass_skb_up(descr, card, netdev);
- refill:
-+
-+	/* is the current descriptor terminated with next_descr == NULL? */
-+	dmac_chain_ended =
-+		be32_to_cpu(descr->dmac_cmd_status) &
-+		GELIC_DESCR_RX_DMA_CHAIN_END;
- 	/*
- 	 * So that always DMAC can see the end
- 	 * of the descriptor chain to avoid
-@@ -1080,10 +1081,9 @@ refill:
- 	 * If dmac chain was met, DMAC stopped.
- 	 * thus re-enable it
- 	 */
--	if (dmac_chain_ended) {
--		card->rx_dma_restart_required = 1;
--		dev_dbg(ctodev(card), "reenable rx dma scheduled\n");
--	}
-+
-+	if (dmac_chain_ended)
-+		gelic_card_enable_rxdmac(card);
- 
- 	return 1;
- }
-@@ -1149,11 +1149,6 @@ static irqreturn_t gelic_card_interrupt(
- 
- 	status &= card->irq_mask;
- 
--	if (card->rx_dma_restart_required) {
--		card->rx_dma_restart_required = 0;
--		gelic_card_enable_rxdmac(card);
--	}
--
- 	if (status & GELIC_CARD_RXINT) {
- 		gelic_card_rx_irq_off(card);
- 		napi_schedule(&card->napi);
---- a/drivers/net/ps3_gelic_net.h
-+++ b/drivers/net/ps3_gelic_net.h
-@@ -289,7 +289,6 @@ struct gelic_card {
- 
- 	struct gelic_descr_chain tx_chain;
- 	struct gelic_descr_chain rx_chain;
--	int rx_dma_restart_required;
- 	/*
- 	 * tx_lock guards tx descriptor list and
- 	 * tx_dma_progress.
+IPv6 doesn't support NAT (at least not in the stock kernel), so they're 
+looking for alternatives.
 
+> If the desire is to have the same well-known port number involved in all
+> connections to/from the server (perhaps for simplistic firewall rules
+> involving serverip.magicport?)
+
+I suspect it's something like that.
+
+> then if the connections are back to the
+> clients, the clients could simply open listen endpoints bound to the
+> magic port number and the firewall rule become "server IP is source or
+> destination) AND (magic port is source or destination)" - assuming the
+> clients aren't bind()ing to the magic port number before connect()ing to
+> the server.
+
+We don't control the server, only the gateway.  Ephemeral source ports 
+are used for connections opened by the server, so a known port is needed 
+on the gateway side.
+
+Chris
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
