@@ -1,154 +1,40 @@
-From: Jason Baron <jbaron@redhat.com>
-Subject: [PATCH 07/11] dynamic_debug: make netdev_dbg() call __netdev_printk()
-Date: Thu, 14 Jul 2011 12:09:40 -0400
-Message-ID: <01d7a8fab64058eba9d8325f153fcb5d26848b67.1310657068.git.jbaron@redhat.com>
-References: <cover.1310657068.git.jbaron@redhat.com>
-Cc: joe@perches.com, jim.cromie@gmail.com, bvanassche@acm.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
-To: gregkh@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1310657068.git.jbaron@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: any way to let host act as TCP server OR client on same IP/port?
+Date: Thu, 14 Jul 2011 09:45:46 -0700
+Message-ID: <4E1F1D3A.1030204@hp.com>
+References: <4E1DC83C.3020506@genband.com>	<1310579520.2509.17.camel@edumazet-laptop>	<4E1DDE62.3080503@hp.com> <4E1DEEF9.7040901@genband.com> <4E1F0345.8020108@genband.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:45257 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755316Ab1GNQps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 12:45:48 -0400
+In-Reply-To: <4E1F0345.8020108@genband.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@redhat.com>
+>> In our case we don't need to actually be connected, just be listening
+>> and ready to either accept() a connection or connect() to someone else.
+>
+> It turns out that the application people really do want the server side
+> to be able to listen() at the same time as calling connect() from the
+> same address/port, so Rick's testcase was accurate.
 
-Previously, if dynamic debug was enabled netdev_dbg() was using
-dynamic_dev_dbg() to print out the underlying msg. Fix this by making
-sure netdev_dbg() uses __netdev_printk().
+So, we are left asking "Why do the application people want that?"  Does 
+the server connect() to pseudo-random places, or does it only ever 
+connect back to clients which have already connected to it?
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jason Baron <jbaron@redhat.com>
----
- include/linux/dynamic_debug.h |   17 +++++++++++++++++
- include/linux/netdevice.h     |    6 ++++--
- lib/dynamic_debug.c           |   25 +++++++++++++++++++++++++
- net/core/dev.c                |    3 ++-
- 4 files changed, 48 insertions(+), 3 deletions(-)
+If the desire is to have the same well-known port number involved in all 
+connections to/from the server (perhaps for simplistic firewall rules 
+involving serverip.magicport?) then if the connections are back to the 
+clients, the clients could simply open listen endpoints bound to the 
+magic port number and the firewall rule become "server IP is source or 
+destination) AND (magic port is source or destination)" - assuming the 
+clients aren't bind()ing to the magic port number before connect()ing to 
+the server.
 
-diff --git a/include/linux/dynamic_debug.h b/include/linux/dynamic_debug.h
-index 843cb9e..feaac1e 100644
---- a/include/linux/dynamic_debug.h
-+++ b/include/linux/dynamic_debug.h
-@@ -47,6 +47,13 @@ extern int __dynamic_dev_dbg(struct _ddebug *descriptor,
- 			     const char *fmt, ...)
- 	__attribute__ ((format (printf, 3, 4)));
- 
-+struct net_device;
-+
-+extern int __dynamic_netdev_dbg(struct _ddebug *descriptor,
-+			     const struct net_device *dev,
-+			     const char *fmt, ...)
-+	__attribute__ ((format (printf, 3, 4)));
-+
- #define dynamic_pr_debug(fmt, ...) do {					\
- 	static struct _ddebug descriptor				\
- 	__used								\
-@@ -67,6 +74,16 @@ extern int __dynamic_dev_dbg(struct _ddebug *descriptor,
- 		__dynamic_dev_dbg(&descriptor, dev, fmt, ##__VA_ARGS__);	\
- 	} while (0)
- 
-+#define dynamic_netdev_dbg(dev, fmt, ...) do {				\
-+	static struct _ddebug descriptor				\
-+	__used								\
-+	__attribute__((section("__verbose"), aligned(8))) =		\
-+	{ KBUILD_MODNAME, __func__, __FILE__, fmt, __LINE__,		\
-+		_DPRINTK_FLAGS_DEFAULT };				\
-+	if (unlikely(descriptor.enabled))				\
-+		__dynamic_netdev_dbg(&descriptor, dev, fmt, ##__VA_ARGS__);\
-+	} while (0)
-+
- #else
- 
- static inline int ddebug_remove_module(const char *mod)
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 54b8b4d..9b132ef 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2635,6 +2635,9 @@ static inline const char *netdev_name(const struct net_device *dev)
- 	return dev->name;
- }
- 
-+extern int __netdev_printk(const char *level, const struct net_device *dev,
-+			struct va_format *vaf);
-+
- extern int netdev_printk(const char *level, const struct net_device *dev,
- 			 const char *format, ...)
- 	__attribute__ ((format (printf, 3, 4)));
-@@ -2662,8 +2665,7 @@ extern int netdev_info(const struct net_device *dev, const char *format, ...)
- #elif defined(CONFIG_DYNAMIC_DEBUG)
- #define netdev_dbg(__dev, format, args...)			\
- do {								\
--	dynamic_dev_dbg((__dev)->dev.parent, "%s: " format,	\
--			netdev_name(__dev), ##args);		\
-+	dynamic_netdev_dbg(__dev, format, ##args);		\
- } while (0)
- #else
- #define netdev_dbg(__dev, format, args...)			\
-diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-index 4fc03dd..ee3b9ba 100644
---- a/lib/dynamic_debug.c
-+++ b/lib/dynamic_debug.c
-@@ -33,6 +33,7 @@
- #include <linux/hardirq.h>
- #include <linux/sched.h>
- #include <linux/device.h>
-+#include <linux/netdevice.h>
- 
- extern struct _ddebug __start___verbose[];
- extern struct _ddebug __stop___verbose[];
-@@ -503,6 +504,30 @@ int __dynamic_dev_dbg(struct _ddebug *descriptor,
- }
- EXPORT_SYMBOL(__dynamic_dev_dbg);
- 
-+int __dynamic_netdev_dbg(struct _ddebug *descriptor,
-+		      const struct net_device *dev, const char *fmt, ...)
-+{
-+	struct va_format vaf;
-+	va_list args;
-+	int res;
-+
-+	BUG_ON(!descriptor);
-+	BUG_ON(!fmt);
-+
-+	va_start(args, fmt);
-+
-+	vaf.fmt = fmt;
-+	vaf.va = &args;
-+
-+	res = dynamic_emit_prefix(descriptor);
-+	res += __netdev_printk(KERN_CONT, dev, &vaf);
-+
-+	va_end(args);
-+
-+	return res;
-+}
-+EXPORT_SYMBOL(__dynamic_netdev_dbg);
-+
- static __initdata char ddebug_setup_string[1024];
- static __init int ddebug_setup_query(char *str)
- {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 9c58c1e..d6d48b2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6288,7 +6288,7 @@ const char *netdev_drivername(const struct net_device *dev)
- 	return empty;
- }
- 
--static int __netdev_printk(const char *level, const struct net_device *dev,
-+int __netdev_printk(const char *level, const struct net_device *dev,
- 			   struct va_format *vaf)
- {
- 	int r;
-@@ -6303,6 +6303,7 @@ static int __netdev_printk(const char *level, const struct net_device *dev,
- 
- 	return r;
- }
-+EXPORT_SYMBOL(__netdev_printk);
- 
- int netdev_printk(const char *level, const struct net_device *dev,
- 		  const char *format, ...)
--- 
-1.7.5.4
+rick jones
