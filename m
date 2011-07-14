@@ -1,44 +1,50 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 02/10] net: m68k/nfeth: Remove wrong usage of dev->flags
+Subject: [PATCH 04/10] net: cleanup vlan_features setting in register_netdev
 Date: Thu, 14 Jul 2011 02:10:29 +0200 (CEST)
-Message-ID: <4ce98e5d11f271278ef1ddf3e6186f31c7eef2aa.1310601401.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <27c1ec41217c615f63183b53bb1d5eccff08b9f8.1310601401.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-m68k@lists.linux-m68k.org
+Cc: Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:59812 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:59815 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752299Ab1GNAKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752347Ab1GNAKb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jul 2011 20:10:31 -0400
 In-Reply-To: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove wrong setting of dev->flags. NETIF_F_NO_CSUM maps to IFF_DEBUG
-there, so looks like a mistake.
+vlan_features contains features inherited from underlying device.
+NETIF_SOFT_FEATURES are not inherited but belong to the vlan device
+itself (ensured in vlan_dev_fix_features()).
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- arch/m68k/emu/nfeth.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ net/core/dev.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/arch/m68k/emu/nfeth.c b/arch/m68k/emu/nfeth.c
-index 3c55312..c5748bb 100644
---- a/arch/m68k/emu/nfeth.c
-+++ b/arch/m68k/emu/nfeth.c
-@@ -205,7 +205,6 @@ static struct net_device * __init nfeth_probe(int u=
-nit)
- 	dev->irq =3D nfEtherIRQ;
- 	dev->netdev_ops =3D &nfeth_netdev_ops;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9ca1514..e57be02 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5488,12 +5488,9 @@ int register_netdevice(struct net_device *dev)
+ 		dev->features |=3D NETIF_F_NOCACHE_COPY;
+ 	}
 =20
--	dev->flags |=3D NETIF_F_NO_CSUM;
- 	memcpy(dev->dev_addr, mac, ETH_ALEN);
+-	/* Enable GSO, GRO and NETIF_F_HIGHDMA for vlans by default,
+-	 * vlan_dev_fix_features() will do the features check,
+-	 * so NETIF_F_HIGHDMA feature is enabled only if supported
+-	 * by underlying device.
++	/* Make NETIF_F_HIGHDMA inheritable to VLAN devices.
+ 	 */
+-	dev->vlan_features |=3D (NETIF_F_SOFT_FEATURES | NETIF_F_HIGHDMA);
++	dev->vlan_features |=3D NETIF_F_HIGHDMA;
 =20
- 	priv =3D netdev_priv(dev);
+ 	ret =3D call_netdevice_notifiers(NETDEV_POST_INIT, dev);
+ 	ret =3D notifier_to_errno(ret);
 --=20
 1.7.5.4
 
