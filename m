@@ -1,47 +1,38 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 07/10] net: remove NETIF_F_NO_CSUM feature
-Date: Thu, 14 Jul 2011 01:59:47 +0100
-Message-ID: <1310605187.2756.14.camel@bwh-desktop>
-References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
-	 <aa24cb5cdd3bd082d038960efd7d5c9a2ba95d8e.1310601401.git.mirq-linux@rere.qmqm.pl>
-	 <1310603009.2756.8.camel@bwh-desktop>
-	 <20110713174849.41dd634d@nehalam.ftrdhcpuser.net>
+Subject: Re: [PATCH] ethtool : NFC corrections again
+Date: Thu, 14 Jul 2011 02:01:08 +0100
+Message-ID: <1310605268.2756.15.camel@bwh-desktop>
+References: <1309423280.15040.2.camel@DENEC1DT0191>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Linux Netdev <netdev@vger.kernel.org>,
+	Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@belden.com>
+To: Sebastian =?ISO-8859-1?Q?P=F6hn?=
+	<sebastian.belden@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:9796 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:10019 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab1GNA7v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 20:59:51 -0400
-In-Reply-To: <20110713174849.41dd634d@nehalam.ftrdhcpuser.net>
+	with ESMTP id S1751204Ab1GNBBM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 21:01:12 -0400
+In-Reply-To: <1309423280.15040.2.camel@DENEC1DT0191>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-07-13 at 17:48 -0700, Stephen Hemminger wrote:
-> On Thu, 14 Jul 2011 01:23:29 +0100
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
->=20
-> > On Thu, 2011-07-14 at 02:10 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> > > There are no explicit users, so this is now equivalent to NETIF_F=
-_HW_CSUM.
-> > [...]
-> >=20
-> > I think this is still a useful distinction, even the networking cor=
-e
-> > currently doesn't care about the difference.
-> >=20
-> > Ben.
->=20
-> It also is a kernel API change since this part is exposed
-> through ethtool calls.
+On Thu, 2011-06-30 at 10:41 +0200, Sebastian P=C3=B6hn wrote:
+> This patch:
+> # Adds an alias for ip4 called l4data pointing to spi (first 4 Layer =
+4
+> bytes)
+> # [TRIVIAL] Corrects the permutation of dst and src for ethernet
+> # Suggests to always set the ip_ver field of usr_ip to ETH_RX_NFC_IP4=
+ at
+> least as long there is no opportunity to use others than IPv4 and the=
+re
+> is no frontend option to enter ip_ver.
+[...]
 
-Users of ETHTOOL_{G,S}FEATURES are supposed to use the corresponding
-string set to map names to bits (and vice versa).  It is OK to renumber
-features, and to remove them if they are no longer implemented.
+Applied.  Sorry for the delay.
 
 Ben.
 
