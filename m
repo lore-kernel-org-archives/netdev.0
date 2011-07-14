@@ -1,41 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: preempting while holding rtnl_lock
-Date: Fri, 15 Jul 2011 00:06:31 +0100
-Message-ID: <1310684791.8783.261.camel@localhost>
-References: <20110714181502.4a5602aa@asterix.rh>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/ps3: Fix gelic RX DMA restart
+Date: Thu, 14 Jul 2011 16:03:40 -0700 (PDT)
+Message-ID: <20110714.160340.670777033431904110.davem@davemloft.net>
+References: <4E1F242E.7070509@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Flavio Leitner <fbl@redhat.com>
+Cc: netdev@vger.kernel.org, cbe-oss-dev@lists.ozlabs.org
+To: geoff@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:58441 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932437Ab1GNXGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 19:06:36 -0400
-In-Reply-To: <20110714181502.4a5602aa@asterix.rh>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53247 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932437Ab1GNXGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 19:06:51 -0400
+In-Reply-To: <4E1F242E.7070509@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-07-14 at 18:15 -0300, Flavio Leitner wrote:
-> Hi,
+From: Geoff Levand <geoff@infradead.org>
+Date: Thu, 14 Jul 2011 10:15:26 -0700
+
+> Fix the condition where PS3 network RX hangs when no network
+> TX is occurring by calling gelic_card_enable_rxdmac() during
+> RX_DMA_CHAIN_END event processing.
 > 
-> I was reviewing driver sources and found that
-> ethtool ops holds rtnl_lock() and there are few
-> drivers (for example: tg3, bnx2) that use napi_disable()
-> in this context.
-[...]
-> The msleep() above will preempt.  I believe this is wrong.
-[...]
-> What am I missing?
+> The gelic hardware automatically clears its RX_DMA_EN flag when
+> it detects an RX_DMA_CHAIN_END event.  In its processing of
+> RX_DMA_CHAIN_END the gelic driver is required to set RX_DMA_EN
+> (with a call to gelic_card_enable_rxdmac()) to restart RX DMA
+> transfers.  The existing gelic driver code does not set
+> RX_DMA_EN directly in its processing of the RX_DMA_CHAIN_END
+> event, but uses a flag variable card->rx_dma_restart_required
+> to schedule the setting of RX_DMA_EN until next inside the
+> interrupt handler.
+> 
+> It seems this delayed setting of RX_DMA_EN causes the hang since
+> the next RX interrupt after the RX_DMA_CHAIN_END event where
+> RX_DMA_EN is scheduled to be set will not occur since RX_DMA_EN
+> was not set.  In the case were network TX is occuring, RX_DMA_EN
+> is set in the next TX interrupt and RX processing continues.
+> 
+> Signed-off-by: Geoff Levand <geoff@infradead.org>
 
-The RTNL lock is a mutex so it's OK to sleep (but preferably not very
-long) while holding it.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Applied.
