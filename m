@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 4/7] sfc: Fix Siena mac statistics on big
- endian platforms
-Date: Thu, 14 Jul 2011 02:17:23 +0100
-Message-ID: <1310606243.2756.27.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 5/7] sfc: Fix assertions in efx_filter_rfs()
+Date: Thu, 14 Jul 2011 02:17:39 +0100
+Message-ID: <1310606259.2756.28.camel@bwh-desktop>
 References: <1310606090.2756.23.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,72 +9,43 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:11260 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:11288 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752852Ab1GNBR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 21:17:26 -0400
+	with ESMTP id S1753094Ab1GNBRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 21:17:42 -0400
 In-Reply-To: <1310606090.2756.23.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
+This function is intended to assert (when DEBUG is defined) that the
+skb header area includes the header fields it's looking at, which RFS
+should already have pulled.  But it uses pskb_may_pull(), which will
+attempt to pull more data if necesary.  It must instead compare
+skb_headlen() with the required length.
 
-[bwh: Use __force in the one place it's needed]
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/siena.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/sfc/filter.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
-index 442897b..5735e84 100644
---- a/drivers/net/sfc/siena.c
-+++ b/drivers/net/sfc/siena.c
-@@ -420,14 +420,13 @@ static void siena_remove_nic(struct efx_nic *efx)
- 	efx->nic_data = NULL;
- }
+diff --git a/drivers/net/sfc/filter.c b/drivers/net/sfc/filter.c
+index 054f0a3..2b9636f 100644
+--- a/drivers/net/sfc/filter.c
++++ b/drivers/net/sfc/filter.c
+@@ -657,11 +657,11 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
+ 		return -EPROTONOSUPPORT;
  
--#define STATS_GENERATION_INVALID ((u64)(-1))
-+#define STATS_GENERATION_INVALID ((__force __le64)(-1))
+ 	/* RFS must validate the IP header length before calling us */
+-	EFX_BUG_ON_PARANOID(!pskb_may_pull(skb, nhoff + sizeof(*ip)));
++	EFX_BUG_ON_PARANOID(skb_headlen(skb) < nhoff + sizeof(*ip));
+ 	ip = (const struct iphdr *)(skb->data + nhoff);
+ 	if (ip_is_fragment(ip))
+ 		return -EPROTONOSUPPORT;
+-	EFX_BUG_ON_PARANOID(!pskb_may_pull(skb, nhoff + 4 * ip->ihl + 4));
++	EFX_BUG_ON_PARANOID(skb_headlen(skb) < nhoff + 4 * ip->ihl + 4);
+ 	ports = (const __be16 *)(skb->data + nhoff + 4 * ip->ihl);
  
- static int siena_try_update_nic_stats(struct efx_nic *efx)
- {
--	u64 *dma_stats;
-+	__le64 *dma_stats;
- 	struct efx_mac_stats *mac_stats;
--	u64 generation_start;
--	u64 generation_end;
-+	__le64 generation_start, generation_end;
- 
- 	mac_stats = &efx->mac_stats;
- 	dma_stats = efx->stats_buffer.addr;
-@@ -438,7 +437,7 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
- 	rmb();
- 
- #define MAC_STAT(M, D) \
--	mac_stats->M = dma_stats[MC_CMD_MAC_ ## D]
-+	mac_stats->M = le64_to_cpu(dma_stats[MC_CMD_MAC_ ## D])
- 
- 	MAC_STAT(tx_bytes, TX_BYTES);
- 	MAC_STAT(tx_bad_bytes, TX_BAD_BYTES);
-@@ -508,7 +507,8 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
- 	MAC_STAT(rx_internal_error, RX_INTERNAL_ERROR_PKTS);
- 	mac_stats->rx_good_lt64 = 0;
- 
--	efx->n_rx_nodesc_drop_cnt = dma_stats[MC_CMD_MAC_RX_NODESC_DROPS];
-+	efx->n_rx_nodesc_drop_cnt =
-+		le64_to_cpu(dma_stats[MC_CMD_MAC_RX_NODESC_DROPS]);
- 
- #undef MAC_STAT
- 
-@@ -537,7 +537,7 @@ static void siena_update_nic_stats(struct efx_nic *efx)
- 
- static void siena_start_nic_stats(struct efx_nic *efx)
- {
--	u64 *dma_stats = (u64 *)efx->stats_buffer.addr;
-+	__le64 *dma_stats = efx->stats_buffer.addr;
- 
- 	dma_stats[MC_CMD_MAC_GENERATION_END] = STATS_GENERATION_INVALID;
- 
+ 	efx_filter_init_rx(&spec, EFX_FILTER_PRI_HINT, 0, rxq_index);
 -- 
 1.7.4.4
 
