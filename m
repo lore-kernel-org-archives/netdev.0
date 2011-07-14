@@ -1,44 +1,48 @@
-From: Andre Heider <a.heider@gmail.com>
-Subject: Re: [PATCH 0/3] ps3_gelic: Fix error paths when a tx dma fails
-Date: Thu, 14 Jul 2011 10:36:32 +0200
-Message-ID: <CAHsu+b89+SN8RE4Ce-evC97pw8bgZgjnOW_+z6NDXu6bGuRO+w@mail.gmail.com>
-References: <1310501606-829-1-git-send-email-a.heider@gmail.com>
-	<4E1E1CDE.2060504@infradead.org>
+From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Subject: Re: [PATCH net-next] bonding: fix strlen errors in sysfs
+Date: Thu, 14 Jul 2011 11:15:35 +0300
+Message-ID: <201107141115.35452.vitas@nppfactor.kiev.ua>
+References: <1310608665-12216-1-git-send-email-andy@greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, cbe-oss-dev@lists.ozlabs.org
-To: Geoff Levand <geoff@infradead.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Takuma Umeya <tumeya@redhat.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:56525 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903Ab1GNIge convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 04:36:34 -0400
-Received: by eyx24 with SMTP id 24so15406eyx.19
-        for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 01:36:32 -0700 (PDT)
-In-Reply-To: <4E1E1CDE.2060504@infradead.org>
+Received: from mx3.cyfra.ua ([62.80.160.182]:49081 "EHLO mx3.cyfra.ua"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751903Ab1GNIiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2011 04:38:16 -0400
+In-Reply-To: <1310608665-12216-1-git-send-email-andy@greyhouse.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey Geoff,
+On Thursday 14 July 2011 04:57:45 Andy Gospodarek wrote:
+> -			if (strnicmp
+> -			    (slave->dev->name, buf,
+> -			     strlen(slave->dev->name)) == 0) {
+> +			int max_len = max(strlen(slave->dev->name),
+> +					  strlen(buf) - 1);
+> +			if (strnicmp(slave->dev->name, buf, max_len) == 0) {
 
-On Thu, Jul 14, 2011 at 12:31 AM, Geoff Levand <geoff@infradead.org> wr=
-ote:
-> Hi Andre,
->
-> On 07/12/2011 01:13 PM, Andre Heider wrote:
->> This series fixes a few bugs for the error paths once a tx dma reque=
-st
->> fails. Without these I either ran into BUG_ON, the device got killed=
-,
->> or the kernel crashed.
->
-> Thanks for preparing the fixes. =A0I added them to my ps3-linux
-> tree and did some quick tests which didn't show any problems.
-> I'll try to do some more through testing with them sometime
-> soon.
+As for me there is no sense in preventing "address out of range" errors in  
+strnicmp by calculating length with strlen first. If there is missing \0 at 
+the end of the string you just shift failure point from stricmp to the strlen 
+function call.
+IMHO "maximum length" argument in strnicmp should be some appropriate constant 
+instead. Alternatively we can use count:
+ if (strnicmp(slave->dev->name, buf, count) == 0) {
 
-nice, thanks :)
+> -			if (strnicmp
+> -			    (slave->dev->name, buf,
+> -			     strlen(slave->dev->name)) == 0) {
+> +			int max_len = max(strlen(slave->dev->name),
+> +					  strlen(buf) - 1);
+> +			if (strnicmp(slave->dev->name, buf, max_len) == 0) {
 
-Regards,
-Andre
+Same here.
+
+-- 
+Vitalii
