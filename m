@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] tg3: Formalize power source switching
-Date: Thu, 14 Jul 2011 08:43:12 -0700 (PDT)
-Message-ID: <20110714.084312.460372417772119884.davem@davemloft.net>
-References: <1310585253-4817-1-git-send-email-mcarlson@broadcom.com>
+Subject: Re: pull request: sfc-next 2011-07-14
+Date: Thu, 14 Jul 2011 08:44:00 -0700 (PDT)
+Message-ID: <20110714.084400.1576224720756288815.davem@davemloft.net>
+References: <1310606090.2756.23.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38402 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38418 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754639Ab1GNPnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 11:43:16 -0400
-In-Reply-To: <1310585253-4817-1-git-send-email-mcarlson@broadcom.com>
+	with ESMTP id S1754639Ab1GNPoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 11:44:02 -0400
+In-Reply-To: <1310606090.2756.23.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Wed, 13 Jul 2011 12:27:26 -0700
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 14 Jul 2011 02:14:50 +0100
 
-> These patches make power source switching a more formal and
-> carefully controlled process.
+> The following changes since commit e77aeb71f04ed236fffe5f347e208c8b0e92d48a:
+> 
+>   net: de4x5: Omit check for multicast bit in netdev_for_each_mc_addr (2011-07-01 01:51:03 -0700)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git master
+> 
+> A variety of fixes and cosmetic changes.
 
-All applied, thanks Matt.
+Pulled, thanks Ben.
