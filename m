@@ -1,71 +1,183 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [RFC 46/72] ixp2000: Move the Radisys driver
-Date: Fri, 15 Jul 2011 02:08:19 +0200
-Message-ID: <20110715000819.GK951@wantstofly.org>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1309010363-22750-47-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110626114721.GA19500@wantstofly.org>
- <1310227137.26989.43.camel@jtkirshe-mobl>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 1/7] at91rm9200: emac move register header to drivers
+Date: Fri, 15 Jul 2011 01:51:59 +0200
+Message-ID: <1310687525-22486-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:51856 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932152Ab1GOAIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 20:08:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1310227137.26989.43.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 09, 2011 at 08:58:56AM -0700, Jeff Kirsher wrote:
+move from mach-at91/include/mach/at91rm9200_emac.h to drivers/net/arm/at91_ether.h
 
-> > > Move the Radisys driver into drivers/net/ethernet/radisys/ and
-> > > make the necessary Kconfig and Makefile changes
-> > > 
-> > > CC: Lennert Buytenhek <kernel@wantstofly.org>
-> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > ---
-> > >  MAINTAINERS                                        |    2 +-
-> > >  drivers/net/Kconfig                                |    2 --
-> > >  drivers/net/Makefile                               |    1 -
-> > >  drivers/net/ethernet/Kconfig                       |    1 +
-> > >  drivers/net/ethernet/Makefile                      |    1 +
-> > >  drivers/net/ethernet/radisys/Kconfig               |   16 ++++++++++++++++
-> > >  drivers/net/ethernet/radisys/Makefile              |    5 +++++
-> > >  drivers/net/{ => ethernet/radisys}/ixp2000/Kconfig |    2 +-
-> > >  .../net/{ => ethernet/radisys}/ixp2000/Makefile    |    0
-> > 
-> > The ixp2000 is a series of Intel ARM SoCs, and the ENP2611 is a Radisys
-> > PCI board based on the ixp2000 series (ixp2400), so it doesn't make
-> > sense to put everything in the radisys/ directory.
-> 
-> It was suggested earlier that it probably should be in either ixp/ or
-> radisys/, and someone suggested that ixp/ might be confusing.  If you
-> would like to keep it under drivers/net/ethernet/ixp2000, I am fine with
-> that as well.
-> 
-> > If you insist on moving all drivers into vendor directories (I don't
-> > like that idea at all -- are we going to rename directories and shuffle
-> > stuff around every time vendor A buys vendor B or takes over one of
-> > vendor B's products?), at least the core ixp2000 code should be under
-> > intel/.
-> 
-> It was not my preference to place drivers into vendor specific
-> directories because of that very reason, as I did the work, it just
-> tended to work out that way.
-> 
-> The reason (as stated before) that it was not moved into intel/
-> directory is because the driver was not written (and supported) by
-> Intel.
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/arm/at91_ether.c                       |    1 -
+ .../net/arm/at91_ether.h                           |  112 ++++++++++++++++++--
+ 2 files changed, 101 insertions(+), 12 deletions(-)
+ rename arch/arm/mach-at91/include/mach/at91rm9200_emac.h => drivers/net/arm/at91_ether.h (65%)
 
-I didn't follow the discussion, but that seems like a silly argument.
-Does that mean that any non-vendor supported driver can't go into
-drivers/net/$vendor/?  What if the vendor starts contributing to the
-driver later on, will the driver be moved then?
-
-It seems that what you're saying is that you don't want the ixp2000
-driver in "your" subdirectory.
+diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.c
+index e07b314..8f0b212 100644
+--- a/drivers/net/arm/at91_ether.c
++++ b/drivers/net/arm/at91_ether.c
+@@ -33,7 +33,6 @@
+ #include <asm/uaccess.h>
+ #include <asm/mach-types.h>
+ 
+-#include <mach/at91rm9200_emac.h>
+ #include <mach/gpio.h>
+ #include <mach/board.h>
+ 
+diff --git a/arch/arm/mach-at91/include/mach/at91rm9200_emac.h b/drivers/net/arm/at91_ether.h
+similarity index 65%
+rename from arch/arm/mach-at91/include/mach/at91rm9200_emac.h
+rename to drivers/net/arm/at91_ether.h
+index b8260cd..58aed66 100644
+--- a/arch/arm/mach-at91/include/mach/at91rm9200_emac.h
++++ b/drivers/net/arm/at91_ether.h
+@@ -1,21 +1,21 @@
+ /*
+- * arch/arm/mach-at91/include/mach/at91rm9200_emac.h
++ * Ethernet driver for the Atmel AT91RM9200 (Thunder)
+  *
+- * Copyright (C) 2005 Ivan Kokshaysky
+- * Copyright (C) SAN People
++ *  Copyright (C) SAN People (Pty) Ltd
+  *
+- * Ethernet MAC registers.
+- * Based on AT91RM9200 datasheet revision E.
++ * Based on an earlier Atmel EMAC macrocell driver by Atmel and Lineo Inc.
++ * Initial version by Rick Bronson.
+  *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
+  */
+ 
+-#ifndef AT91RM9200_EMAC_H
+-#define AT91RM9200_EMAC_H
++#ifndef AT91_ETHERNET
++#define AT91_ETHERNET
+ 
++/* registers */
+ #define	AT91_EMAC_CTL		0x00	/* Control Register */
+ #define		AT91_EMAC_LB		(1 <<  0)	/* Loopback */
+ #define		AT91_EMAC_LBL		(1 <<  1)	/* Loopback Local */
+@@ -135,4 +135,94 @@
+ #define AT91_EMAC_SA4L		0xb0	/* Specific Address 4 Low, bytes 0-3 */
+ #define AT91_EMAC_SA4H		0xb4	/* Specific Address 4 High, bytes 4-5 */
+ 
++/* Davicom 9161 PHY */
++#define MII_DM9161_ID		0x0181b880
++#define MII_DM9161A_ID		0x0181b8a0
++#define MII_DSCR_REG		16
++#define MII_DSCSR_REG		17
++#define MII_DSINTR_REG		21
++
++/* Intel LXT971A PHY */
++#define MII_LXT971A_ID		0x001378E0
++#define MII_ISINTE_REG		18
++#define MII_ISINTS_REG		19
++#define MII_LEDCTRL_REG		20
++
++/* Realtek RTL8201 PHY */
++#define MII_RTL8201_ID		0x00008200
++
++/* Broadcom BCM5221 PHY */
++#define MII_BCM5221_ID		0x004061e0
++#define MII_BCMINTR_REG		26
++
++/* National Semiconductor DP83847 */
++#define MII_DP83847_ID		0x20005c30
++
++/* National Semiconductor DP83848 */
++#define MII_DP83848_ID		0x20005c90
++#define MII_DPPHYSTS_REG	16
++#define MII_DPMICR_REG		17
++#define MII_DPMISR_REG		18
++
++/* Altima AC101L PHY */
++#define MII_AC101L_ID		0x00225520
++
++/* Micrel KS8721 PHY */
++#define MII_KS8721_ID		0x00221610
++
++/* Teridian 78Q2123/78Q2133 */
++#define MII_T78Q21x3_ID		0x000e7230
++#define MII_T78Q21INT_REG	17
++
++/* SMSC LAN83C185 */
++#define MII_LAN83C185_ID	0x0007C0A0
++
++/* ........................................................................ */
++
++#define MAX_RBUFF_SZ	0x600		/* 1518 rounded up */
++#define MAX_RX_DESCR	9		/* max number of receive buffers */
++
++#define EMAC_DESC_DONE	0x00000001	/* bit for if DMA is done */
++#define EMAC_DESC_WRAP	0x00000002	/* bit for wrap */
++
++#define EMAC_BROADCAST	0x80000000	/* broadcast address */
++#define EMAC_MULTICAST	0x40000000	/* multicast address */
++#define EMAC_UNICAST	0x20000000	/* unicast address */
++
++struct rbf_t
++{
++	unsigned int addr;
++	unsigned long size;
++};
++
++struct recv_desc_bufs
++{
++	struct rbf_t descriptors[MAX_RX_DESCR];		/* must be on sizeof (rbf_t) boundary */
++	char recv_buf[MAX_RX_DESCR][MAX_RBUFF_SZ];	/* must be on long boundary */
++};
++
++struct at91_private
++{
++	struct mii_if_info mii;			/* ethtool support */
++	struct at91_eth_data board_data;	/* board-specific configuration */
++	struct clk *ether_clk;			/* clock */
++
++	/* PHY */
++	unsigned long phy_type;			/* type of PHY (PHY_ID) */
++	spinlock_t lock;			/* lock for MDI interface */
++	short phy_media;			/* media interface type */
++	unsigned short phy_address;		/* 5-bit MDI address of PHY (0..31) */
++	struct timer_list check_timer;		/* Poll link status */
++
++	/* Transmit */
++	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
++	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
++	int skb_length;				/* saved skb length for pci_unmap_single */
++
++	/* Receive */
++	int rxBuffIndex;			/* index into receive descriptor list */
++	struct recv_desc_bufs *dlist;		/* descriptor list address */
++	struct recv_desc_bufs *dlist_phys;	/* descriptor list physical address */
++};
++
+ #endif
+-- 
+1.7.5.4
