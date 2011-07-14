@@ -1,92 +1,64 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 39252] New: [r8169] PPPoE connections don't
- work if a custom MAC address is assigned
-Date: Wed, 13 Jul 2011 16:13:45 -0700
-Message-ID: <20110713161345.82e254de.akpm@linux-foundation.org>
-References: <bug-39252-10286@https.bugzilla.kernel.org/>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH 00/10] net: random cleanups
+Date: Thu, 14 Jul 2011 02:10:29 +0200 (CEST)
+Message-ID: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, t.artem@mailcity.com,
-	Michal Ostrowski <mostrows@earthlink.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58040 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752109Ab1GMXNz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2011 19:13:55 -0400
-In-Reply-To: <bug-39252-10286@https.bugzilla.kernel.org/>
+Received: from rere.qmqm.pl ([89.167.52.164]:59811 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752448Ab1GNAKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2011 20:10:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a set of random cleanups accumulated while digging through the
+network device drivers. Only patches that don't depend on removing
+old ethtool ops are included here.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+The series consists of patches that can be applied independently from
+others from the set. The exception is patch #7 that depends on removing
+NETIF_F_NO_CSUM references in patches 1, 2 and 5.
 
-On Tue, 12 Jul 2011 22:51:16 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+---
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=39252
-> 
->            Summary: [r8169] PPPoE connections don't work if a custom MAC
->                     address is assigned
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 3.0
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: t.artem@mailcity.com
->         Regression: No
-> 
-> 
-> Description of problem: if I assign a custom MAC address to my onboard NIC,
-> then I cannot establish PPPoE connections, and even `pppoe -A` command doesn't
-> return any PPPoE access concentrators.
-> 
-> 
-> Version-Release number of selected component (if applicable): r8169 2.3LK-NAPI
-> 
-> 
-> How reproducible: always
-> 
-> 
-> Steps to Reproduce:
-> 1. Boot
-> 2. ifconfig eth0 hw ether MACADDRESS
-> 3. Try to establish PPPoE connection using eth0
-> 
-> Actual results: PPPoE connection cannot be established, no network packets
-> return
-> 
-> 
-> Expected results: PPPoE connections working
-> 
-> 
-> Additional info: if I put eth0 in the promiscuous mode, then PPPoE starts
-> working.
-> 
-> Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express
-> Gigabit Ethernet controller (rev 06)
->         Subsystem: ASUSTeK Computer Inc. Device 8432
->         Flags: bus master, fast devsel, latency 0, IRQ 47
->         I/O ports at e000 [size=256]
->         Memory at d0004000 (64-bit, prefetchable) [size=4K]
->         Memory at d0000000 (64-bit, prefetchable) [size=16K]
->         Capabilities: [40] Power Management version 3
->         Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
->         Capabilities: [70] Express Endpoint, MSI 01
->         Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
->         Capabilities: [d0] Vital Product Data
->         Capabilities: [100] Advanced Error Reporting
->         Capabilities: [140] Virtual Channel
->         Capabilities: [160] Device Serial Number 00-00-00-00-00-00-00-00
->         Kernel driver in use: r8169
->         Kernel modules: r8169
-> 
+Micha=C5=82 Miros=C5=82aw (10):
+  net: sctp: fix checksum marking for outgoing packets
+  net: m68k/nfeth: Remove wrong usage of dev->flags
+  net: vlan: remove reduntant check in ndo_fix_features callback
+  net: cleanup vlan_features setting in register_netdev
+  net: Disable NOCACHE_COPY by default
+  net: remove NETIF_F_ALL_TX_OFFLOADS
+  net: remove NETIF_F_NO_CSUM feature
+  net: unexport netdev_fix_features()
+  net: remove /sys/class/net/*/features
+  net: remove SK_ROUTE_CAPS from meta ematch
+
+ arch/m68k/emu/nfeth.c                |    1 -
+ drivers/ieee802154/fakehard.c        |    2 +-
+ drivers/misc/sgi-xp/xpnet.c          |    2 +-
+ drivers/net/bonding/bond_main.c      |    8 ++++----
+ drivers/net/can/dev.c                |    2 +-
+ drivers/net/can/slcan.c              |    2 +-
+ drivers/net/dummy.c                  |    2 +-
+ drivers/net/ifb.c                    |    2 +-
+ drivers/net/loopback.c               |    2 +-
+ drivers/net/veth.c                   |    2 +-
+ include/linux/netdevice.h            |   10 +---------
+ include/linux/skbuff.h               |    1 -
+ include/linux/tc_ematch/tc_em_meta.h |    2 +-
+ net/8021q/vlan_dev.c                 |   11 +++++++----
+ net/bridge/br_device.c               |    4 ++--
+ net/core/dev.c                       |   33 +++++++++-----------------=
+-------
+ net/core/ethtool.c                   |    2 +-
+ net/core/net-sysfs.c                 |    2 --
+ net/sched/em_meta.c                  |    7 -------
+ net/sctp/output.c                    |   19 ++++++++-----------
+ 20 files changed, 41 insertions(+), 75 deletions(-)
+
+--=20
+1.7.5.4
 
