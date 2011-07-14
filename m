@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: sfc-next 2011-07-14
-Date: Thu, 14 Jul 2011 08:44:00 -0700 (PDT)
-Message-ID: <20110714.084400.1576224720756288815.davem@davemloft.net>
-References: <1310606090.2756.23.camel@bwh-desktop>
+Subject: Re: [PATCH net-next 1/6] cnic: Replace get_random_bytes() with
+ random32()
+Date: Thu, 14 Jul 2011 08:46:20 -0700 (PDT)
+Message-ID: <20110714.084620.2270984529997791501.davem@davemloft.net>
+References: <1310613862-27497-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38418 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38463 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754639Ab1GNPoC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 11:44:02 -0400
-In-Reply-To: <1310606090.2756.23.camel@bwh-desktop>
+	with ESMTP id S1754639Ab1GNPqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 11:46:23 -0400
+In-Reply-To: <1310613862-27497-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 14 Jul 2011 02:14:50 +0100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 13 Jul 2011 20:24:17 -0700
 
-> The following changes since commit e77aeb71f04ed236fffe5f347e208c8b0e92d48a:
+> Suggested by Stephen Hemminger <shemminger@vyatta.com>
 > 
->   net: de4x5: Omit check for multicast bit in netdev_for_each_mc_addr (2011-07-01 01:51:03 -0700)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git master
-> 
-> A variety of fixes and cosmetic changes.
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Reviewed-by: Matt Carlson <mcarlson@broadcom.com>
 
-Pulled, thanks Ben.
+Applied.
