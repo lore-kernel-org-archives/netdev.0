@@ -1,76 +1,44 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 01/10] net: sctp: fix checksum marking for outgoing packets
+Subject: [PATCH 02/10] net: m68k/nfeth: Remove wrong usage of dev->flags
 Date: Thu, 14 Jul 2011 02:10:29 +0200 (CEST)
-Message-ID: <d67799da9624127ffabf05226c0f20090be4f785.1310601401.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <4ce98e5d11f271278ef1ddf3e6186f31c7eef2aa.1310601401.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	linux-m68k@lists.linux-m68k.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:59813 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:59812 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751623Ab1GNAKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752299Ab1GNAKb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jul 2011 20:10:31 -0400
 In-Reply-To: <cover.1310601401.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Packets to devices without NETIF_F_SCTP_CSUM (including NETIF_F_NO_CSUM=
-)
-should be properly checksummed because the packets can be diverted or
-rerouted after construction. This still leaves packets diverted from
-NETIF_F_SCTP_CSUM-enabled devices with broken checksums. Fixing this
-needs implementing software offload fallback in networking core.
-
-=46or users of sctp_checksum_disable, skb->ip_summed should be left as
-CHECKSUM_NONE and not CHECKSUM_UNNECESSARY as per include/linux/skbuff.=
-h.
+Remove wrong setting of dev->flags. NETIF_F_NO_CSUM maps to IFF_DEBUG
+there, so looks like a mistake.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- net/sctp/output.c |   19 ++++++++-----------
- 1 files changed, 8 insertions(+), 11 deletions(-)
+ arch/m68k/emu/nfeth.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index b4f3cf0..08b3cea 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -500,23 +500,20 @@ int sctp_packet_transmit(struct sctp_packet *pack=
-et)
- 	 * Note: Adler-32 is no longer applicable, as has been replaced
- 	 * by CRC32-C as described in <draft-ietf-tsvwg-sctpcsum-02.txt>.
- 	 */
--	if (!sctp_checksum_disable &&
--	    !(dst->dev->features & (NETIF_F_NO_CSUM | NETIF_F_SCTP_CSUM))) {
--		__u32 crc32 =3D sctp_start_cksum((__u8 *)sh, cksum_buf_len);
-+	if (!sctp_checksum_disable) {
-+		if (!(dst->dev->features & NETIF_F_SCTP_CSUM)) {
-+			__u32 crc32 =3D sctp_start_cksum((__u8 *)sh, cksum_buf_len);
+diff --git a/arch/m68k/emu/nfeth.c b/arch/m68k/emu/nfeth.c
+index 3c55312..c5748bb 100644
+--- a/arch/m68k/emu/nfeth.c
++++ b/arch/m68k/emu/nfeth.c
+@@ -205,7 +205,6 @@ static struct net_device * __init nfeth_probe(int u=
+nit)
+ 	dev->irq =3D nfEtherIRQ;
+ 	dev->netdev_ops =3D &nfeth_netdev_ops;
 =20
--		/* 3) Put the resultant value into the checksum field in the
--		 *    common header, and leave the rest of the bits unchanged.
--		 */
--		sh->checksum =3D sctp_end_cksum(crc32);
--	} else {
--		if (dst->dev->features & NETIF_F_SCTP_CSUM) {
-+			/* 3) Put the resultant value into the checksum field in the
-+			 *    common header, and leave the rest of the bits unchanged.
-+			 */
-+			sh->checksum =3D sctp_end_cksum(crc32);
-+		} else {
- 			/* no need to seed pseudo checksum for SCTP */
- 			nskb->ip_summed =3D CHECKSUM_PARTIAL;
- 			nskb->csum_start =3D (skb_transport_header(nskb) -
- 			                    nskb->head);
- 			nskb->csum_offset =3D offsetof(struct sctphdr, checksum);
--		} else {
--			nskb->ip_summed =3D CHECKSUM_UNNECESSARY;
- 		}
- 	}
+-	dev->flags |=3D NETIF_F_NO_CSUM;
+ 	memcpy(dev->dev_addr, mac, ETH_ALEN);
 =20
+ 	priv =3D netdev_priv(dev);
 --=20
 1.7.5.4
 
