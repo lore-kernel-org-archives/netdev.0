@@ -1,138 +1,117 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 16/21] s2io: do vlan cleanup
-Date: Fri, 15 Jul 2011 23:33:34 +0200
-Message-ID: <1310765619-27827-17-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 04/21] amd8111e: do vlan cleanup
+Date: Fri, 15 Jul 2011 23:33:22 +0200
+Message-ID: <1310765619-27827-5-git-send-email-jpirko@redhat.com>
 References: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com,
-	jdmason@kudzu.us
+	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45245 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37313 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753328Ab1GOVeS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2011 17:34:18 -0400
+	id S1753328Ab1GOVeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2011 17:34:22 -0400
 In-Reply-To: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 - unify vlan and nonvlan rx path
-- kill sp->vlgrp and s2io_vlan_rx_register and s2io_vlan_rx_kill_vid
-(which does nothing and is never called :))
+- kill lp->vlgrp and amd8111e_vlan_rx_register
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/s2io.c |   70 ++++-----------------------------------------------
- drivers/net/s2io.h |    1 -
- 2 files changed, 6 insertions(+), 65 deletions(-)
+ drivers/net/amd8111e.c |   34 ++++++----------------------------
+ drivers/net/amd8111e.h |    3 ---
+ 2 files changed, 6 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 043850b..277d48b 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -356,56 +356,6 @@ static void do_s2io_copy_mac_addr(struct s2io_nic *sp, int offset, u64 mac_addr)
- 	sp->def_mac_addr[offset].mac_addr[0] = (u8) (mac_addr >> 40);
- }
+diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
+index db6d2da..78002ef 100644
+--- a/drivers/net/amd8111e.c
++++ b/drivers/net/amd8111e.c
+@@ -661,15 +661,6 @@ static void amd8111e_free_ring(struct amd8111e_priv* lp)
+ 	}
  
--/* Add the vlan */
--static void s2io_vlan_rx_register(struct net_device *dev,
--				  struct vlan_group *grp)
+ }
+-#if AMD8111E_VLAN_TAG_USED
+-/*
+-This is the receive indication function for packets with vlan tag.
+-*/
+-static int amd8111e_vlan_rx(struct amd8111e_priv *lp, struct sk_buff *skb, u16 vlan_tag)
 -{
--	int i;
--	struct s2io_nic *nic = netdev_priv(dev);
--	unsigned long flags[MAX_TX_FIFOS];
--	struct config_param *config = &nic->config;
--	struct mac_info *mac_control = &nic->mac_control;
--
--	for (i = 0; i < config->tx_fifo_num; i++) {
--		struct fifo_info *fifo = &mac_control->fifos[i];
--
--		spin_lock_irqsave(&fifo->tx_lock, flags[i]);
--	}
--
--	nic->vlgrp = grp;
--
--	for (i = config->tx_fifo_num - 1; i >= 0; i--) {
--		struct fifo_info *fifo = &mac_control->fifos[i];
--
--		spin_unlock_irqrestore(&fifo->tx_lock, flags[i]);
--	}
+-	return vlan_hwaccel_receive_skb(skb, lp->vlgrp,vlan_tag);
 -}
--
--/* Unregister the vlan */
--static void s2io_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
--{
--	int i;
--	struct s2io_nic *nic = netdev_priv(dev);
--	unsigned long flags[MAX_TX_FIFOS];
--	struct config_param *config = &nic->config;
--	struct mac_info *mac_control = &nic->mac_control;
--
--	for (i = 0; i < config->tx_fifo_num; i++) {
--		struct fifo_info *fifo = &mac_control->fifos[i];
--
--		spin_lock_irqsave(&fifo->tx_lock, flags[i]);
--	}
--
--	if (nic->vlgrp)
--		vlan_group_set_device(nic->vlgrp, vid, NULL);
--
--	for (i = config->tx_fifo_num - 1; i >= 0; i--) {
--		struct fifo_info *fifo = &mac_control->fifos[i];
--
--		spin_unlock_irqrestore(&fifo->tx_lock, flags[i]);
--	}
--}
--
+-#endif
+ 
  /*
-  * Constants to be programmed into the Xena's registers, to configure
-  * the XAUI.
-@@ -7737,8 +7687,6 @@ static const struct net_device_ops s2io_netdev_ops = {
- 	.ndo_set_mac_address    = s2io_set_mac_addr,
- 	.ndo_change_mtu	   	= s2io_change_mtu,
- 	.ndo_set_features	= s2io_set_features,
--	.ndo_vlan_rx_register   = s2io_vlan_rx_register,
--	.ndo_vlan_rx_kill_vid   = s2io_vlan_rx_kill_vid,
- 	.ndo_tx_timeout	   	= s2io_tx_watchdog,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller    = s2io_netpoll,
-@@ -8617,18 +8565,12 @@ static void queue_rx_frame(struct sk_buff *skb, u16 vlan_tag)
- 	struct s2io_nic *sp = netdev_priv(dev);
+ This function will free all the transmit skbs that are actually transmitted by the device. It will check the ownership of the skb before freeing the skb.
+@@ -764,7 +755,7 @@ static int amd8111e_rx_poll(struct napi_struct *napi, int budget)
+ #if AMD8111E_VLAN_TAG_USED
+ 			vtag = status & TT_MASK;
+ 			/*MAC will strip vlan tag*/
+-			if(lp->vlgrp != NULL && vtag !=0)
++			if (vtag != 0)
+ 				min_pkt_len =MIN_PKT_LEN - 4;
+ 			else
+ #endif
+@@ -799,12 +790,12 @@ static int amd8111e_rx_poll(struct napi_struct *napi, int budget)
+ 			skb->protocol = eth_type_trans(skb, dev);
  
- 	skb->protocol = eth_type_trans(skb, dev);
--	if (sp->vlgrp && vlan_tag && (sp->vlan_strip_flag)) {
--		/* Queueing the vlan frame to the upper layer */
--		if (sp->config.napi)
--			vlan_hwaccel_receive_skb(skb, sp->vlgrp, vlan_tag);
--		else
--			vlan_hwaccel_rx(skb, sp->vlgrp, vlan_tag);
--	} else {
--		if (sp->config.napi)
--			netif_receive_skb(skb);
--		else
--			netif_rx(skb);
--	}
-+	if (vlan_tag && sp->vlan_strip_flag)
-+		__vlan_hwaccel_put_tag(skb, vlan_tag);
-+	if (sp->config.napi)
-+		netif_receive_skb(skb);
-+	else
-+		netif_rx(skb);
+ #if AMD8111E_VLAN_TAG_USED
+-			if(lp->vlgrp != NULL && (vtag == TT_VLAN_TAGGED)){
+-				amd8111e_vlan_rx(lp, skb,
+-					 le16_to_cpu(lp->rx_ring[rx_index].tag_ctrl_info));
+-			} else
++			if (vtag == TT_VLAN_TAGGED){
++				u16 vlan_tag = le16_to_cpu(lp->rx_ring[rx_index].tag_ctrl_info);
++				__vlan_hwaccel_put_tag(skb, vlan_tag);
++			}
+ #endif
+-				netif_receive_skb(skb);
++			netif_receive_skb(skb);
+ 			/*COAL update rx coalescing parameters*/
+ 			lp->coal_conf.rx_packets++;
+ 			lp->coal_conf.rx_bytes += pkt_len;
+@@ -1598,16 +1589,6 @@ static int amd8111e_change_mtu(struct net_device *dev, int new_mtu)
+ 	return err;
  }
  
- static void lro_append_pkt(struct s2io_nic *sp, struct lro *lro,
-diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-index 800b3a4..ae3c8e7 100644
---- a/drivers/net/s2io.h
-+++ b/drivers/net/s2io.h
-@@ -939,7 +939,6 @@ struct s2io_nic {
- 
- 	int task_flag;
- 	unsigned long long start_time;
--	struct vlan_group *vlgrp;
- 	int vlan_strip_flag;
- #define MSIX_FLG                0xA5
- 	int num_entries;
+-#if AMD8111E_VLAN_TAG_USED
+-static void amd8111e_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
+-{
+-	struct  amd8111e_priv *lp = netdev_priv(dev);
+-	spin_lock_irq(&lp->lock);
+-	lp->vlgrp = grp;
+-	spin_unlock_irq(&lp->lock);
+-}
+-#endif
+-
+ static int amd8111e_enable_magicpkt(struct amd8111e_priv* lp)
+ {
+ 	writel( VAL1|MPPLBA, lp->mmio + CMD3);
+@@ -1822,9 +1803,6 @@ static const struct net_device_ops amd8111e_netdev_ops = {
+ 	.ndo_set_mac_address	= amd8111e_set_mac_address,
+ 	.ndo_do_ioctl		= amd8111e_ioctl,
+ 	.ndo_change_mtu		= amd8111e_change_mtu,
+-#if AMD8111E_VLAN_TAG_USED
+-	.ndo_vlan_rx_register	= amd8111e_vlan_rx_register,
+-#endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	 = amd8111e_poll,
+ #endif
+diff --git a/drivers/net/amd8111e.h b/drivers/net/amd8111e.h
+index b5926af..2ff2e7a 100644
+--- a/drivers/net/amd8111e.h
++++ b/drivers/net/amd8111e.h
+@@ -783,9 +783,6 @@ struct amd8111e_priv{
+ 	struct net_device *next;
+ 	int mii;
+ 	struct mii_if_info mii_if;
+-#if AMD8111E_VLAN_TAG_USED
+-	struct vlan_group		*vlgrp;
+-#endif
+ 	char opened;
+ 	unsigned int drv_rx_errors;
+ 	struct amd8111e_coalesce_conf coal_conf;
 -- 
 1.7.6
 
