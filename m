@@ -1,144 +1,194 @@
 From: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-Subject: Re: [PATCH] connector: add an event for monitoring process tracers
-Date: Fri, 15 Jul 2011 20:41:59 +0300
-Message-ID: <CAMW3pwbr1N6Yc7K=up3mYNq2f6+_6xA4hSgh8K1hWwHPnj_d9g@mail.gmail.com>
-References: <1310502757-32103-1-git-send-email-vzapolskiy@gmail.com>
-	<20110713150942.GA4850@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Subject: [PATCH v2] connector: add an event for monitoring process tracers
+Date: Fri, 15 Jul 2011 20:45:18 +0300
+Message-ID: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
+Cc: netdev@vger.kernel.org, Vladimir Zapolskiy <vzapolskiy@gmail.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:50028 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754146Ab1GORmA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 13:42:00 -0400
-Received: by gwaa18 with SMTP id a18so631610gwa.19
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 10:41:59 -0700 (PDT)
-In-Reply-To: <20110713150942.GA4850@redhat.com>
+Received: from mail-fx0-f52.google.com ([209.85.161.52]:56283 "EHLO
+	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753497Ab1GORpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 13:45:42 -0400
+Received: by fxd18 with SMTP id 18so3142219fxd.11
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 10:45:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oleg,
+This change adds a procfs connector event, which is emitted on every
+successful process tracer attach or detach.
 
-first of all thank you for a good review, please see my comments below.
+If some process connects to other one, kernelspace connector reports
+process id and thread group id of both these involved processes. On
+disconnection null process id is returned.
 
-On Wed, Jul 13, 2011 at 6:09 PM, Oleg Nesterov <oleg@redhat.com> wrote:
-> On 07/12, Vladimir Zapolskiy wrote:
->>
->> Note, a detach signal is not emitted, if a tracer process terminates
->> without explicit PTRACE_DETACH request. Such cases can be covered
->> listening to PROC_EVENT_EXIT connector events.
->
-> Hmm. More and more reasons to make the implicit detach sleepable...
->
-> But. There is another case. The (dead) tracee can be detached via
-> do_wait(). Perhaps this falls into "covered listening to EXIT" too,
-> but imho makes sense to document in the changelog. Oh, and probably
-> we will add the ability to detach a zombie...
->
-> I don't really understand why do you need this, but I won't argue.
->
-I found that implicit ptrace detach codepath is quite mutable and
-vast, and I don't want to interfere in that changes without knowing
-even basic pitfalls. Somehow the sending a connector signal on
-explicit detach is quite sufficient at least for the most of the proc
-connector usecases I can imagine, because hopefully almost(?) all
-implicit detach cases are related to tracer or tracee thread
-completion, and that is supposed to be reported to userspace via
-do_exit()/proc_exit_connector() path.
+Such an event allows to create a simple automated userspace mechanism
+to be aware about processes connecting to others, therefore predefined
+process policies can be applied to them if needed.
 
-> As for the patch,
->
->> +void proc_ptrace_connector(struct task_struct *task)
->> +{
->> + =C2=A0 =C2=A0 struct cn_msg *msg;
->> + =C2=A0 =C2=A0 struct proc_event *ev;
->> + =C2=A0 =C2=A0 struct timespec ts;
->> + =C2=A0 =C2=A0 __u8 buffer[CN_PROC_MSG_SIZE];
->> + =C2=A0 =C2=A0 struct task_struct *tracer;
->> +
->> + =C2=A0 =C2=A0 if (atomic_read(&proc_event_num_listeners) < 1)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return;
->> +
->> + =C2=A0 =C2=A0 msg =3D (struct cn_msg *)buffer;
->> + =C2=A0 =C2=A0 ev =3D (struct proc_event *)msg->data;
->> + =C2=A0 =C2=A0 get_seq(&msg->seq, &ev->cpu);
->> + =C2=A0 =C2=A0 ktime_get_ts(&ts); /* get high res monotonic timesta=
-mp */
->> + =C2=A0 =C2=A0 put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->tim=
-estamp_ns);
->> + =C2=A0 =C2=A0 ev->what =3D PROC_EVENT_PTRACE;
->> + =C2=A0 =C2=A0 ev->event_data.ptrace.process_pid =C2=A0=3D task->pi=
-d;
->> + =C2=A0 =C2=A0 ev->event_data.ptrace.process_tgid =3D task->tgid;
->> +
->> + =C2=A0 =C2=A0 rcu_read_lock();
->> + =C2=A0 =C2=A0 tracer =3D tracehook_tracer_task(task);
->> + =C2=A0 =C2=A0 if (tracer) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ev->event_data.ptrace.tr=
-acer_pid =C2=A0=3D tracer->pid;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ev->event_data.ptrace.tr=
-acer_tgid =3D tracer->tgid;
->> + =C2=A0 =C2=A0 } else {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ev->event_data.ptrace.tr=
-acer_pid =C2=A0=3D 0;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ev->event_data.ptrace.tr=
-acer_tgid =3D 0;
->> + =C2=A0 =C2=A0 }
->
-> This doesn't look right. The code uses tracehook_tracer_task() to
-> figure out whether this task traced or not. But this is racy.
->
-> ptrace_attach:
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0...attach...
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* WINDOW */
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0proc_ptrace_connector(task);
->
-> The task can exit in between, and the caller's subthread can do
-> wait4() and release it. In this case proc_ptrace_connector() will
-> see tracehook_tracer_task() =3D=3D NULL and report "detach".
->
-> The similar race in ptrace_detach() path. Another tracer can attach
-> to this task before we proc_ptrace_connector().
->
-> I think proc_ptrace_connector() needs the explicit "task_struct *trac=
-er"
-> argument, NULL if ptrace_detach(). Or a simple boolean, the tracer is
-> current.
->
-> If you think this is fine - I won't argue.
->
-=46ixed in the second version of the change, thanks.
+Note, a detach signal is emitted only in case, if a tracer process
+explicitly executes PTRACE_DETACH request. In other cases like tracee
+or tracer exit detach event from proc connector is not reported.
 
->
->
-> But in any case, please rediff against
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0git://git.kernel.org/pub/scm/linux/kernel/=
-git/oleg/misc.git ptrace
->
-> tracehook_tracer_task() was removed, and
->
->> @@ -260,6 +261,9 @@ out:
->> =C2=A0 =C2=A0 =C2=A0 if (wait_trap)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wait_event(current-=
->signal->wait_chldexit,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0!(task->group_stop & GROUP_STOP_TRAPPING));
->> + =C2=A0 =C2=A0 if (!retval)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 proc_ptrace_connector(ta=
-sk);
->> +
->> =C2=A0 =C2=A0 =C2=A0 return retval;
->> =C2=A0}
->
-> this chunk probably should be updated.
-Rebased, thanks a lot.
+Signed-off-by: Vladimir Zapolskiy <vzapolskiy@gmail.com>
+Cc: Evgeniy Polyakov <zbr@ioremap.net>
+Cc: David S. Miller <davem@davemloft.net>
+---
 
-Vladimir
+Originally proposed change can be found here:
+* http://patchwork.ozlabs.org/patch/104434/
+
+This version of the change extends proc_ptrace_connector() argument
+list, so it becomes possible to specify a ptrace request eliminating
+process attach/detach race.
+
+Also tracehook_tracer_task() function was renamed to ptrace_parent(),
+but as far as proc_ptrace_connector(task, PTRACE_ATTACH) is called
+from a tracer process itself, it becomes possible to get rid of that
+call usage completely.
+
+Oleg, I've rebased the change, and if you don't have objections, I'd
+be glad, if you can apply this change upon your ptrace branch, thank
+you in advance.
+
+ drivers/connector/cn_proc.c |   35 +++++++++++++++++++++++++++++++++++
+ include/linux/cn_proc.h     |   13 +++++++++++++
+ kernel/ptrace.c             |    7 ++++++-
+ 3 files changed, 54 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
+index 2b46a7e..281902d 100644
+--- a/drivers/connector/cn_proc.c
++++ b/drivers/connector/cn_proc.c
+@@ -28,6 +28,7 @@
+ #include <linux/init.h>
+ #include <linux/connector.h>
+ #include <linux/gfp.h>
++#include <linux/ptrace.h>
+ #include <asm/atomic.h>
+ #include <asm/unaligned.h>
+ 
+@@ -166,6 +167,40 @@ void proc_sid_connector(struct task_struct *task)
+ 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
+ }
+ 
++void proc_ptrace_connector(struct task_struct *task, int ptrace_id)
++{
++	struct cn_msg *msg;
++	struct proc_event *ev;
++	struct timespec ts;
++	__u8 buffer[CN_PROC_MSG_SIZE];
++	struct task_struct *tracer;
++
++	if (atomic_read(&proc_event_num_listeners) < 1)
++		return;
++
++	msg = (struct cn_msg *)buffer;
++	ev = (struct proc_event *)msg->data;
++	get_seq(&msg->seq, &ev->cpu);
++	ktime_get_ts(&ts); /* get high res monotonic timestamp */
++	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
++	ev->what = PROC_EVENT_PTRACE;
++	ev->event_data.ptrace.process_pid  = task->pid;
++	ev->event_data.ptrace.process_tgid = task->tgid;
++	if (ptrace_id == PTRACE_ATTACH) {
++		ev->event_data.ptrace.tracer_pid  = current->pid;
++		ev->event_data.ptrace.tracer_tgid = current->tgid;
++	} else if (ptrace_id == PTRACE_DETACH) {
++		ev->event_data.ptrace.tracer_pid  = 0;
++		ev->event_data.ptrace.tracer_tgid = 0;
++	} else
++		return;
++
++	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
++	msg->ack = 0; /* not used */
++	msg->len = sizeof(*ev);
++	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
++}
++
+ void proc_exit_connector(struct task_struct *task)
+ {
+ 	struct cn_msg *msg;
+diff --git a/include/linux/cn_proc.h b/include/linux/cn_proc.h
+index 47dac5e..12c517b 100644
+--- a/include/linux/cn_proc.h
++++ b/include/linux/cn_proc.h
+@@ -53,6 +53,7 @@ struct proc_event {
+ 		PROC_EVENT_UID  = 0x00000004,
+ 		PROC_EVENT_GID  = 0x00000040,
+ 		PROC_EVENT_SID  = 0x00000080,
++		PROC_EVENT_PTRACE = 0x00000100,
+ 		/* "next" should be 0x00000400 */
+ 		/* "last" is the last process event: exit */
+ 		PROC_EVENT_EXIT = 0x80000000
+@@ -95,6 +96,13 @@ struct proc_event {
+ 			__kernel_pid_t process_tgid;
+ 		} sid;
+ 
++		struct ptrace_proc_event {
++			__kernel_pid_t process_pid;
++			__kernel_pid_t process_tgid;
++			__kernel_pid_t tracer_pid;
++			__kernel_pid_t tracer_tgid;
++		} ptrace;
++
+ 		struct exit_proc_event {
+ 			__kernel_pid_t process_pid;
+ 			__kernel_pid_t process_tgid;
+@@ -109,6 +117,7 @@ void proc_fork_connector(struct task_struct *task);
+ void proc_exec_connector(struct task_struct *task);
+ void proc_id_connector(struct task_struct *task, int which_id);
+ void proc_sid_connector(struct task_struct *task);
++void proc_ptrace_connector(struct task_struct *task, int which_id);
+ void proc_exit_connector(struct task_struct *task);
+ #else
+ static inline void proc_fork_connector(struct task_struct *task)
+@@ -124,6 +133,10 @@ static inline void proc_id_connector(struct task_struct *task,
+ static inline void proc_sid_connector(struct task_struct *task)
+ {}
+ 
++static inline void proc_ptrace_connector(struct task_struct *task,
++					 int ptrace_id)
++{}
++
+ static inline void proc_exit_connector(struct task_struct *task)
+ {}
+ #endif	/* CONFIG_PROC_EVENTS */
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index d7ccc79..9de3ecf 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -23,6 +23,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/regset.h>
+ #include <linux/hw_breakpoint.h>
++#include <linux/cn_proc.h>
+ 
+ 
+ static int ptrace_trapping_sleep_fn(void *flags)
+@@ -305,9 +306,12 @@ unlock_tasklist:
+ unlock_creds:
+ 	mutex_unlock(&task->signal->cred_guard_mutex);
+ out:
+-	if (!retval)
++	if (!retval) {
+ 		wait_on_bit(&task->jobctl, JOBCTL_TRAPPING_BIT,
+ 			    ptrace_trapping_sleep_fn, TASK_UNINTERRUPTIBLE);
++		proc_ptrace_connector(task, PTRACE_ATTACH);
++	}
++
+ 	return retval;
+ }
+ 
+@@ -415,6 +419,7 @@ static int ptrace_detach(struct task_struct *child, unsigned int data)
+ 	}
+ 	write_unlock_irq(&tasklist_lock);
+ 
++	proc_ptrace_connector(child, PTRACE_DETACH);
+ 	if (unlikely(dead))
+ 		release_task(child);
+ 
+-- 
+1.7.5.1
+
