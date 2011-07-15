@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix panic in virtnet_remove
-Date: Fri, 15 Jul 2011 08:19:09 -0700 (PDT)
-Message-ID: <20110715.081909.1693878001743345571.davem@davemloft.net>
-References: <20110715091650.23026.78221.sendpatchset@krkumar2.in.ibm.com>
+From: Ian Campbell <Ian.Campbell-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>
+Subject: Re: [PATCH 09/10] nfs: use sk fragment destructors to delay I/O
+ completion until page is released by network stack.
+Date: Fri, 15 Jul 2011 16:21:18 +0100
+Message-ID: <1310743278.20648.11.camel@zakaz.uk.xensource.com>
+References: <1310728006.20648.3.camel@zakaz.uk.xensource.com>
+	 <1310728031-19569-9-git-send-email-ian.campbell@citrix.com>
+	 <1310738489.4381.20.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: krkumar2@in.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60356 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752382Ab1GOPTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 11:19:14 -0400
-In-Reply-To: <20110715091650.23026.78221.sendpatchset@krkumar2.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1310738489.4381.20.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Date: Fri, 15 Jul 2011 14:46:50 +0530
-
-> modprobe -r virtio_net panics in free_netdev() as the
-> dev is already freed in the newly introduced virtnet_free
-> (commit 3fa2a1df9094). Since virtnet_remove doesn't require
-> dev after unregister, I am removing the free_netdev call
-> in virtnet_remove instead of in virtnet_free (which seems
-> to be the right place to free the dev). Confirmed that
-> the panic is fixed with this patch.
+On Fri, 2011-07-15 at 15:01 +0100, Trond Myklebust wrote:
+> On Fri, 2011-07-15 at 12:07 +0100, Ian Campbell wrote: 
+> > Thos prevents an issue where an ACK is delayed, a retransmit is queued (either
+> > at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+> > wire. If this happens then the write() system call and the userspace process
+> > can continue potentially modifying the data before the retransmission occurs.
+> > 
+> > NB: this only covers the O_DIRECT write() case. I expect other cases to need
+> > handling as well.
 > 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> That is why this belongs entirely in the RPC layer, and really should
+> not touch the NFS layer.
+> If you move your callback to the RPC layer and have it notify the
+> rpc_task when the pages have been sent, then it should be possible to
+> achieve the same thing.
+> 
+> IOW: Add an extra state machine step after call_decode() which checks if
+> all the page data has been transmitted and if not, puts the rpc_task on
+> a wait queue, and has it wait for the fragment destructor callback
+> before calling rpc_exit_task().
 
-I guess the virtio NET maintainers don't deserve to get CC:'d on a fix
-like this? :-(
+Make sense, I'll do that.
 
-Michael Tsirkin is who maintains this driver actively and is the one
-who will merge this kind of fix to me, therefore if you don't CC:
-him it might not get integrated at all.
+Thanks,
+Ian.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
