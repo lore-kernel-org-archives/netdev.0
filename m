@@ -1,117 +1,93 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 04/21] amd8111e: do vlan cleanup
-Date: Fri, 15 Jul 2011 23:33:22 +0200
-Message-ID: <1310765619-27827-5-git-send-email-jpirko@redhat.com>
-References: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 00/22] vlan cleanup round1
+Date: Fri, 15 Jul 2011 23:33:18 +0200
+Message-ID: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37313 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61826 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753328Ab1GOVeW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2011 17:34:22 -0400
-In-Reply-To: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
+	id S1753394Ab1GOVeV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2011 17:34:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- unify vlan and nonvlan rx path
-- kill lp->vlgrp and amd8111e_vlan_rx_register
+This patchset converts several drivers to new vlan model.
+Also kills several vlan helpers:
+vlan_hwaccel_receive_skb,
+lro_vlan_hwaccel_receive_frags,
+lro_vlan_hwaccel_receive_skb
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/amd8111e.c |   34 ++++++----------------------------
- drivers/net/amd8111e.h |    3 ---
- 2 files changed, 6 insertions(+), 31 deletions(-)
+note gianfar patch is dependent on "[PATCH] gianfar: rx parser"
 
-diff --git a/drivers/net/amd8111e.c b/drivers/net/amd8111e.c
-index db6d2da..78002ef 100644
---- a/drivers/net/amd8111e.c
-+++ b/drivers/net/amd8111e.c
-@@ -661,15 +661,6 @@ static void amd8111e_free_ring(struct amd8111e_priv* lp)
- 	}
- 
- }
--#if AMD8111E_VLAN_TAG_USED
--/*
--This is the receive indication function for packets with vlan tag.
--*/
--static int amd8111e_vlan_rx(struct amd8111e_priv *lp, struct sk_buff *skb, u16 vlan_tag)
--{
--	return vlan_hwaccel_receive_skb(skb, lp->vlgrp,vlan_tag);
--}
--#endif
- 
- /*
- This function will free all the transmit skbs that are actually transmitted by the device. It will check the ownership of the skb before freeing the skb.
-@@ -764,7 +755,7 @@ static int amd8111e_rx_poll(struct napi_struct *napi, int budget)
- #if AMD8111E_VLAN_TAG_USED
- 			vtag = status & TT_MASK;
- 			/*MAC will strip vlan tag*/
--			if(lp->vlgrp != NULL && vtag !=0)
-+			if (vtag != 0)
- 				min_pkt_len =MIN_PKT_LEN - 4;
- 			else
- #endif
-@@ -799,12 +790,12 @@ static int amd8111e_rx_poll(struct napi_struct *napi, int budget)
- 			skb->protocol = eth_type_trans(skb, dev);
- 
- #if AMD8111E_VLAN_TAG_USED
--			if(lp->vlgrp != NULL && (vtag == TT_VLAN_TAGGED)){
--				amd8111e_vlan_rx(lp, skb,
--					 le16_to_cpu(lp->rx_ring[rx_index].tag_ctrl_info));
--			} else
-+			if (vtag == TT_VLAN_TAGGED){
-+				u16 vlan_tag = le16_to_cpu(lp->rx_ring[rx_index].tag_ctrl_info);
-+				__vlan_hwaccel_put_tag(skb, vlan_tag);
-+			}
- #endif
--				netif_receive_skb(skb);
-+			netif_receive_skb(skb);
- 			/*COAL update rx coalescing parameters*/
- 			lp->coal_conf.rx_packets++;
- 			lp->coal_conf.rx_bytes += pkt_len;
-@@ -1598,16 +1589,6 @@ static int amd8111e_change_mtu(struct net_device *dev, int new_mtu)
- 	return err;
- }
- 
--#if AMD8111E_VLAN_TAG_USED
--static void amd8111e_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
--{
--	struct  amd8111e_priv *lp = netdev_priv(dev);
--	spin_lock_irq(&lp->lock);
--	lp->vlgrp = grp;
--	spin_unlock_irq(&lp->lock);
--}
--#endif
--
- static int amd8111e_enable_magicpkt(struct amd8111e_priv* lp)
- {
- 	writel( VAL1|MPPLBA, lp->mmio + CMD3);
-@@ -1822,9 +1803,6 @@ static const struct net_device_ops amd8111e_netdev_ops = {
- 	.ndo_set_mac_address	= amd8111e_set_mac_address,
- 	.ndo_do_ioctl		= amd8111e_ioctl,
- 	.ndo_change_mtu		= amd8111e_change_mtu,
--#if AMD8111E_VLAN_TAG_USED
--	.ndo_vlan_rx_register	= amd8111e_vlan_rx_register,
--#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	 = amd8111e_poll,
- #endif
-diff --git a/drivers/net/amd8111e.h b/drivers/net/amd8111e.h
-index b5926af..2ff2e7a 100644
---- a/drivers/net/amd8111e.h
-+++ b/drivers/net/amd8111e.h
-@@ -783,9 +783,6 @@ struct amd8111e_priv{
- 	struct net_device *next;
- 	int mii;
- 	struct mii_if_info mii_if;
--#if AMD8111E_VLAN_TAG_USED
--	struct vlan_group		*vlgrp;
--#endif
- 	char opened;
- 	unsigned int drv_rx_errors;
- 	struct amd8111e_coalesce_conf coal_conf;
+Jiri Pirko (22):
+  gianfar: rx parser
+  nes: do vlan cleanup
+  ehea: unify vlan and nonvlan rx path
+  kill lro_vlan_hwaccel_receive_skb
+  amd8111e: do vlan cleanup
+  atl1c: do vlan cleanup
+  atl1e: do vlan cleanup
+  bnad: do vlan cleanup
+  chelsio: do vlan cleanup
+  cxgb4vf: do vlan cleanup
+  enic: do vlan cleanup
+  gianfar: do vlan cleanup
+  igbvf: do vlan cleanup
+  jme: do vlan cleanup
+  mlx4: do vlan cleanup
+  qlge: do vlan cleanup
+  s2io: do vlan cleanup
+  spider_net: do not mention dying vlan_hwaccel_receive_skb
+  tehuti: do vlan cleanup
+  lro: unify vlan and nonvlan rx path
+  lro: kill lro_vlan_hwaccel_receive_frags
+  vlan: kill vlan_hwaccel_receive_skb
+
+ drivers/infiniband/hw/nes/nes_hw.c  |   19 ++---
+ drivers/infiniband/hw/nes/nes_hw.h  |    4 -
+ drivers/infiniband/hw/nes/nes_nic.c |   42 +++------
+ drivers/net/amd8111e.c              |   34 ++------
+ drivers/net/amd8111e.h              |    3 -
+ drivers/net/atl1c/atl1c.h           |    1 -
+ drivers/net/atl1c/atl1c_main.c      |   51 ++----------
+ drivers/net/atl1e/atl1e.h           |    1 -
+ drivers/net/atl1e/atl1e_main.c      |   49 ++---------
+ drivers/net/bna/bnad.c              |   55 ++++--------
+ drivers/net/bna/bnad.h              |    3 +-
+ drivers/net/chelsio/common.h        |    2 -
+ drivers/net/chelsio/cxgb2.c         |   19 +----
+ drivers/net/chelsio/sge.c           |   11 +--
+ drivers/net/cxgb4vf/adapter.h       |    1 -
+ drivers/net/cxgb4vf/cxgb4vf_main.c  |   18 +----
+ drivers/net/cxgb4vf/sge.c           |   34 ++------
+ drivers/net/ehea/ehea_main.c        |   22 ++---
+ drivers/net/enic/enic.h             |    1 -
+ drivers/net/enic/enic_main.c        |   32 ++------
+ drivers/net/gianfar.c               |   77 ++++++++++-------
+ drivers/net/gianfar.h               |    6 +-
+ drivers/net/gianfar_ethtool.c       |    3 +
+ drivers/net/igbvf/igbvf.h           |    4 +-
+ drivers/net/igbvf/netdev.c          |   51 +++++------
+ drivers/net/jme.c                   |   28 +-----
+ drivers/net/jme.h                   |    4 -
+ drivers/net/mlx4/en_netdev.c        |   49 +++--------
+ drivers/net/mlx4/en_port.c          |   23 ++---
+ drivers/net/mlx4/en_rx.c            |   24 +++---
+ drivers/net/mlx4/mlx4_en.h          |    6 +-
+ drivers/net/qlge/qlge.h             |    3 +-
+ drivers/net/qlge/qlge_main.c        |  164 +++++++++++++++++++----------------
+ drivers/net/s2io.c                  |   70 ++--------------
+ drivers/net/s2io.h                  |    1 -
+ drivers/net/spider_net.c            |    4 +-
+ drivers/net/tehuti.c                |   37 ++-------
+ drivers/net/tehuti.h                |    1 -
+ include/linux/if_vlan.h             |   13 ---
+ include/linux/inet_lro.h            |   17 ----
+ net/ipv4/inet_lro.c                 |   54 +-----------
+ 41 files changed, 313 insertions(+), 728 deletions(-)
+
 -- 
 1.7.6
 
