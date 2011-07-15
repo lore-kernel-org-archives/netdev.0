@@ -1,81 +1,58 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH net-next-2.6] slcan: remove obsolete code in slcan initialisation
-Date: Fri, 15 Jul 2011 09:49:19 +0200
-Message-ID: <4E1FF0FF.2020808@hartkopp.net>
+From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.belden@googlemail.com>
+Subject: RE: gianfar vlan
+Date: Fri, 15 Jul 2011 09:59:03 +0200
+Message-ID: <1310716743.1789.9.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Matvejchikov Ilya <matvejchikov@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@belden.com>
+To: sandeep.kumar@freescale.com, sandeep.kumar@freescale.com,
+	netdev@vger.kernel.org, jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:62198 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755198Ab1GOHtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 03:49:21 -0400
+Received: from mail-fx0-f52.google.com ([209.85.161.52]:53856 "EHLO
+	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964952Ab1GOH7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 03:59:10 -0400
+Received: by fxd18 with SMTP id 18so2429607fxd.11
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 00:59:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes obsolete code in the initialisation/creation of
-slcan devices.
+Hi Jirka!
 
-It follows the suggested cleanups from Ilya Matvejchikov in
-drivers/net/slip.c that where recently applied to net-next-2.6:
+The rx queue filer table also needs the RCTRL_PRSDEP_INIT to be set. So I would suggest to add FILREN to RCTRL_REQ_PARSER.
 
-- slip: remove dead code within the slip initialization
-- slip: remove redundant check slip_devs for NULL
+Further I guess the parser should only be enabled if it is necessary (because of VLAN, IP, TCP or FILREN acceleration modes).
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+What about putting the
 
----
+if (tempval & RCTRL_REQ_PARSER)
+	tempval |= RCTRL_PRSDEP_INIT;
+else
+	tempval &= ~RCTRL_PRSDEP_INIT;
 
-diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
-index 1b49df6..aa8ad73 100644
---- a/drivers/net/can/slcan.c
-+++ b/drivers/net/can/slcan.c
-@@ -473,12 +473,10 @@ static void slc_sync(void)
- static struct slcan *slc_alloc(dev_t line)
- {
- 	int i;
-+	char name[IFNAMSIZ];
- 	struct net_device *dev = NULL;
- 	struct slcan       *sl;
+in a dedicated routine and call it every time one of the four features is altered?
 
--	if (slcan_devs == NULL)
--		return NULL;	/* Master array missing ! */
--
- 	for (i = 0; i < maxdev; i++) {
- 		dev = slcan_devs[i];
- 		if (dev == NULL)
-@@ -490,25 +488,12 @@ static struct slcan *slc_alloc(dev_t line)
- 	if (i >= maxdev)
- 		return NULL;
+Greetings
+Sebastian
 
--	if (dev) {
--		sl = netdev_priv(dev);
--		if (test_bit(SLF_INUSE, &sl->flags)) {
--			unregister_netdevice(dev);
--			dev = NULL;
--			slcan_devs[i] = NULL;
--		}
--	}
--
--	if (!dev) {
--		char name[IFNAMSIZ];
--		sprintf(name, "slcan%d", i);
--
--		dev = alloc_netdev(sizeof(*sl), name, slc_setup);
--		if (!dev)
--			return NULL;
--		dev->base_addr  = i;
--	}
-+	sprintf(name, "slcan%d", i);
-+	dev = alloc_netdev(sizeof(*sl), name, slc_setup);
-+	if (!dev)
-+		return NULL;
-
-+	dev->base_addr  = i;
- 	sl = netdev_priv(dev);
-
- 	/* Initialize channel control data */
+> Hi Sandeep.
+> 
+> I'm trying to remove gfar_vlan_rx_register() and move the vlan accel
+> enabling/disabling to gfar_set_features() -> startup_gfar() ->
+> gfar_init_mac(). I'm not sure how to handle following lines in
+> gfar_vlan_rx_register():
+> 
+> /* If parse is no longer required, then disable parser */
+> if (tempval & RCTRL_REQ_PARSER)
+> tempval |= RCTRL_PRSDEP_INIT;
+> else
+> tempval &= ~RCTRL_PRSDEP_INIT;
+> 
+> Should this be done only on disabling vlan accel (both rx an tx)?
+> Or can I just do that always in startup_gfar() ?
+> 
+> Thanks.
+> 
+> Jirka
 
