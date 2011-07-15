@@ -1,41 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2011-07-15
-Date: Fri, 15 Jul 2011 08:54:46 -0700 (PDT)
-Message-ID: <20110715.085446.1466613576048740142.davem@davemloft.net>
-References: <20110715153435.GA2566@tuxdriver.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
+ groups
+Date: Fri, 15 Jul 2011 18:03:57 +0200
+Message-ID: <20110715160357.GC1407585@jupiter.n2.diac24.net>
+References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
+ <CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
+ <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+ <20110712113643.GC616804@jupiter.n2.diac24.net>
+ <CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	davem@davemloft.net
+To: Nick Carter <ncarter100@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57286 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111Ab1GOPzz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 11:55:55 -0400
-In-Reply-To: <20110715153435.GA2566@tuxdriver.com>
+Received: from spaceboyz.net ([87.106.131.203]:57891 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753018Ab1GOQEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2011 12:04:09 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 15 Jul 2011 11:34:36 -0400
+On Fri, Jul 15, 2011 at 04:44:50PM +0100, Nick Carter wrote:
+> On 12 July 2011 12:36, David Lamparter <equinox@diac24.net> wrote:
+> > On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
+> >> I am still undecided on this. Understand the need, but don't like idea
+> >> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
+> >> has any input.
+> >
+> > The patch doesn't make the bridge behave nonconformant. The default mask
+> > is 0, which just keeps the old behaviour.
+>
+> Also as David points out in his review, after these diffs are applied
+> we will be able to remove this
+> @@ -166,6 +166,9 @@ struct sk_buff *br_handle_frame(struct sk_buff *skb)
+>                if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
+>                        goto forward;
+> Which is non-standard.
 
-> Here is yet another batch of wireless networking changes intended
-> for 3.1, with probably a smidge more yet to come... :-)
-> 
-> This includes another Bluetooth pull, mostly some cleanups,
-> restructuring, and some minor fixes.  Along with the usual iwlagn and
-> ath9k updates, mwifiex, wl12xx, ath5k, and b43 all see significant
-> activity.  Johannes has done some housekeeping in mac80211 as well.
-> 
-> Please let me know if there are problems!
+Actually, no, we might not be able to remove this (sorry for stating the
+opposite earlier). If we remove this, we can cause loops if we are a
+STP-disabled bridge on a STP-enabled ethernet. We would form a STP
+blackhole, causing more than one switch to assume responsibility for
+forwarding packets to our segment...
 
-Pulled, thanks John.
+While we could shift the burden for making a correct configuration onto
+the admin or the userspace tools (by setting the mask to 1 on a no-STP
+bridge), this would be a major change from previous behaviour and
+(more or less) count as regression.
 
-It seems we have one more bluetooth regression straggler for
-3.0.0, please make sure I get that soon otherwise it might
-not make it in time:
+Either way I would consider removing that line a rather dangerous
+change. We didn't remove that line, let's stick with it and everything
+will stay as it used to be :)
 
-http://marc.info/?l=linux-kernel&m=131072468622609&w=2
+> So these diffs enable us to change the existing non-conforming
+> behaviour to a conforming one.
+>
+> > If you set the lowest 3 bits, yes, you can break your network.
 
-Thanks.
+Btw, a kernel warning for this would be useful i think, at least once.
+"You should only enable the lowest 3 bits for sniffing bridges." or so.
+
+
+-David
+
