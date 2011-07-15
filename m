@@ -1,399 +1,347 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 10/10] nfs: debugging for nfs destructor
-Date: Fri, 15 Jul 2011 12:07:11 +0100
-Message-ID: <1310728031-19569-10-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 07/10] net: add support for per-paged-fragment destructors
+Date: Fri, 15 Jul 2011 12:07:08 +0100
+Message-ID: <1310728031-19569-7-git-send-email-ian.campbell@citrix.com>
 References: <1310728006.20648.3.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: linux-nfs@vger.kernel.org, Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:41542 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:32675 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750964Ab1GOLQv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750977Ab1GOLQv (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 15 Jul 2011 07:16:51 -0400
 In-Reply-To: <1310728006.20648.3.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----
- fs/nfs/direct.c            |   57 +++++++++++++++++++++++++++++++++++++++++++-
- fs/nfs/nfs3xdr.c           |    2 +
- include/linux/mm.h         |    4 +++
- include/linux/page-flags.h |    2 +
- mm/swap.c                  |    6 ++++
- net/core/skbuff.c          |   14 ++++++++++-
- net/sunrpc/svcsock.c       |    7 +++++
- net/sunrpc/xdr.c           |   12 ++++++++-
- net/sunrpc/xprtsock.c      |    8 ++++++
- 9 files changed, 109 insertions(+), 3 deletions(-)
+Entities which care about the complete lifecycle of pages which they inject
+into the network stack via an skb paged fragment can choose to set this
+destructor in order to receive a callback when the stack is really finished
+with a page (including all clones, retransmits, pull-ups etc etc).
 
-diff --git a/fs/nfs/direct.c b/fs/nfs/direct.c
-index 4735fd9..9512f75 100644
---- a/fs/nfs/direct.c
-+++ b/fs/nfs/direct.c
-@@ -144,8 +144,12 @@ static void nfs_direct_dirty_pages(struct page **pages, unsigned int pgbase, siz
- static void nfs_direct_release_pages(struct page **pages, unsigned int npages)
- {
- 	unsigned int i;
--	for (i = 0; i < npages; i++)
-+	for (i = 0; i < npages; i++) {
-+		if (0) printk(KERN_CRIT "%s releasing %p (clearing debug)\n",
-+		       __func__, pages[i]);
-+		ClearPageDebug(pages[i]);
- 		page_cache_release(pages[i]);
-+	}
+This destructor will always be propagated alongside the struct page when
+copying skb_frag_t->page. This is the reason I chose to embed the destructor in
+a "struct { } page" within the skb_frag_t, rather than as a separate field,
+since it allows existing code which propagates ->frags[N].page to Just
+Work(tm).
+
+When the destructor is present the page reference counting is done slightly
+differently. No references are held by the network stack on the struct page (it
+is up to the caller to manage this as necessary) instead the network stack will
+track references via the count embedded in the destructor structure. When this
+reference count reaches zero then the destructor will be called and the caller
+can take the necesary steps to release the page (i.e. release the struct page
+reference itself).
+
+The intention is that callers can use this callback to delay completion to
+_their_ callers until the network stack has completely released the page, in
+order to prevent use-after-free or modification of data pages which are still
+in use by the stack.
+
+It is allowable (indeed expected) for a caller to share a single destructor
+instance between multiple pages injected into the stack e.g. a group of pages
+included in a single higher level operation might share a destructor which is
+used to complete that higher level operation.
+
+NB: a small number of drivers use skb_frag_t independently of struct sk_buff so
+this patch is slightly larger than necessary. I did consider leaving skb_frag_t
+alone and defining a new (but similar) structure to be used in the struct
+sk_buff itself. This would also have the advantage of more clearly separating
+the two uses, which is useful since there are now special reference counting
+accessors for skb_frag_t within a struct sk_buff but not (necessarily) for
+those used outside of an skb.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/cxgb4/sge.c       |   14 +++++++-------
+ drivers/net/cxgb4vf/sge.c     |   18 +++++++++---------
+ drivers/net/mlx4/en_rx.c      |    2 +-
+ drivers/scsi/cxgbi/libcxgbi.c |    2 +-
+ include/linux/skbuff.h        |   31 ++++++++++++++++++++++++++-----
+ net/core/skbuff.c             |   17 +++++++++++++++++
+ 6 files changed, 61 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+index f1813b5..3e7c4b3 100644
+--- a/drivers/net/cxgb4/sge.c
++++ b/drivers/net/cxgb4/sge.c
+@@ -1416,7 +1416,7 @@ static inline void copy_frags(struct sk_buff *skb,
+ 	unsigned int n;
+ 
+ 	/* usually there's just one frag */
+-	skb_frag_set_page(skb, 0, gl->frags[0].page);
++	skb_frag_set_page(skb, 0, gl->frags[0].page.p);	/* XXX */
+ 	ssi->frags[0].page_offset = gl->frags[0].page_offset + offset;
+ 	ssi->frags[0].size = gl->frags[0].size - offset;
+ 	ssi->nr_frags = gl->nfrags;
+@@ -1425,7 +1425,7 @@ static inline void copy_frags(struct sk_buff *skb,
+ 		memcpy(&ssi->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
+ 
+ 	/* get a reference to the last page, we don't own it */
+-	get_page(gl->frags[n].page);
++	get_page(gl->frags[n].page.p);	/* XXX */
  }
  
- static inline struct nfs_direct_req *nfs_direct_req_alloc(void)
-@@ -216,6 +220,8 @@ out:
-  */
- static void nfs_direct_complete(struct nfs_direct_req *dreq)
- {
-+	if (0) printk(KERN_CRIT "%s for dreq:%p count:%d\n",
-+	       __func__, dreq, atomic_read(&dreq->io_count));
- 	if (dreq->iocb) {
- 		long res = (long) dreq->error;
- 		if (!res)
-@@ -521,6 +527,8 @@ static void nfs_direct_write_reschedule(struct nfs_direct_req *dreq)
- 				(unsigned long long)data->args.offset);
- 	}
+ /**
+@@ -1482,7 +1482,7 @@ static void t4_pktgl_free(const struct pkt_gl *gl)
+ 	const skb_frag_t *p;
  
-+	if (0) printk(KERN_CRIT "%s for w:%p dreq:%p count:%d\n", __func__,
-+	       data, dreq, atomic_read(&dreq->io_count));
- 	if (put_dreq(dreq))
- 		nfs_direct_write_complete(dreq, inode);
- }
-@@ -549,6 +557,8 @@ static void nfs_direct_commit_release(void *calldata)
- 	}
- 
- 	dprintk("NFS: %5u commit returned %d\n", data->task.tk_pid, status);
-+	if (0) printk(KERN_CRIT "%s for w:%p dreq:%p count:%d\n", __func__,
-+	       data, dreq, atomic_read(&dreq->io_count));
- 	nfs_direct_write_complete(dreq, data->inode);
- 	nfs_commit_free(data);
- }
-@@ -609,20 +619,25 @@ static void nfs_direct_write_complete(struct nfs_direct_req *dreq, struct inode
- {
- 	int flags = dreq->flags;
- 
-+	if (0) printk(KERN_CRIT "%s for dreq:%p\n", __func__, dreq);
- 	dreq->flags = 0;
- 	switch (flags) {
- 		case NFS_ODIRECT_DO_COMMIT:
-+			if (0) printk(KERN_CRIT "%s: DO_COMMIT\n", __func__);
- 			nfs_direct_commit_schedule(dreq);
- 			break;
- 		case NFS_ODIRECT_RESCHED_WRITES:
-+			if (0) printk(KERN_CRIT "%s: RESCHED\n", __func__);
- 			nfs_direct_write_reschedule(dreq);
- 			break;
- 		default:
-+			if (0) printk(KERN_CRIT "%s: DONE\n", __func__);
- 			if (dreq->commit_data != NULL)
- 				nfs_commit_free(dreq->commit_data);
- 			nfs_direct_free_writedata(dreq);
- 			nfs_zap_mapping(inode, inode->i_mapping);
- 			nfs_direct_complete(dreq);
-+			//set_all_pages_debug(data->pagevec, data->npages);
- 	}
+ 	for (p = gl->frags, n = gl->nfrags - 1; n--; p++)
+-		put_page(p->page);
++		put_page(p->page.p); /* XXX */
  }
  
-@@ -661,6 +676,7 @@ static void nfs_direct_write_release(void *calldata)
- {
- 	struct nfs_write_data *data = calldata;
- 	struct nfs_direct_req *dreq = (struct nfs_direct_req *) data->req;
-+
- 	int status = data->task.tk_status;
- 
- 	spin_lock(&dreq->lock);
-@@ -691,6 +707,8 @@ static void nfs_direct_write_release(void *calldata)
- out_unlock:
- 	spin_unlock(&dreq->lock);
- 
-+	if (0) printk(KERN_CRIT "%s for w:%p dreq:%p count:%d\n", __func__,
-+	       data, dreq, atomic_read(&dreq->io_count));
- 	skb_frag_destructor_unref(data->args.pages_destructor);
- }
- 
-@@ -706,11 +724,29 @@ static int nfs_write_page_destroy(void *calldata)
- {
- 	struct nfs_write_data *data = calldata;
- 	struct nfs_direct_req *dreq = (struct nfs_direct_req *) data->req;
-+	//int i;
-+	if (0) printk(KERN_CRIT "%s for w:%p dreq:%p count:%d\n", __func__,
-+	       data, dreq,
-+	       atomic_read(&dreq->io_count));
-+	//for (i = 0; i < data->npages; i++)
-+	//	put_page(data->pagevec[i]);
-+
- 	if (put_dreq(dreq))
- 		nfs_direct_write_complete(dreq, data->inode);
- 	return 0;
- }
- 
-+static void set_all_pages_debug(struct page **pages, int npages)
-+{
-+	int i;
-+	return;
-+	for (i=0; i<npages; i++) {
-+		if (0) printk(KERN_CRIT "Marking page %p as debug current count:%d\n",
-+		       pages[i],page_count(pages[i]));
-+		SetPageDebug(pages[i]);
-+	}
-+}
-+
  /*
-  * For each wsize'd chunk of the user's buffer, dispatch an NFS WRITE
-  * operation.  If nfs_writedata_alloc() or get_user_pages() fails,
-@@ -754,6 +790,7 @@ static ssize_t nfs_direct_write_schedule_segment(struct nfs_direct_req *dreq,
- 		if (unlikely(!data))
- 			break;
+@@ -1635,7 +1635,7 @@ static void restore_rx_bufs(const struct pkt_gl *si, struct sge_fl *q,
+ 		else
+ 			q->cidx--;
+ 		d = &q->sdesc[q->cidx];
+-		d->page = si->frags[frags].page;
++		d->page = si->frags[frags].page.p; /* XXX */
+ 		d->dma_addr |= RX_UNMAPPED_BUF;
+ 		q->avail++;
+ 	}
+@@ -1717,7 +1717,7 @@ static int process_responses(struct sge_rspq *q, int budget)
+ 			for (frags = 0, fp = si.frags; ; frags++, fp++) {
+ 				rsd = &rxq->fl.sdesc[rxq->fl.cidx];
+ 				bufsz = get_buf_size(rsd);
+-				fp->page = rsd->page;
++				fp->page.p = rsd->page; /* XXX */
+ 				fp->page_offset = q->offset;
+ 				fp->size = min(bufsz, len);
+ 				len -= fp->size;
+@@ -1734,8 +1734,8 @@ static int process_responses(struct sge_rspq *q, int budget)
+ 						get_buf_addr(rsd),
+ 						fp->size, DMA_FROM_DEVICE);
  
-+		if (0) printk(KERN_CRIT "%s: getting user pages\n", __func__);
- 		down_read(&current->mm->mmap_sem);
- 		result = get_user_pages(current, current->mm, user_addr,
- 					data->npages, 0, 0, data->pagevec, NULL);
-@@ -773,6 +810,8 @@ static ssize_t nfs_direct_write_schedule_segment(struct nfs_direct_req *dreq,
- 			data->npages = result;
- 		}
+-			si.va = page_address(si.frags[0].page) +
+-				si.frags[0].page_offset;
++			si.va = page_address(si.frags[0].page.p) +
++				si.frags[0].page_offset; /* XXX */
  
-+		set_all_pages_debug(data->pagevec, data->npages);
-+
- 		get_dreq(dreq);
+ 			prefetch(si.va);
  
- 		list_move_tail(&data->pages, &dreq->rewrite_list);
-@@ -790,7 +829,11 @@ static ssize_t nfs_direct_write_schedule_segment(struct nfs_direct_req *dreq,
- 		data->args.offset = pos;
- 		data->args.pgbase = pgbase;
- 		data->args.pages = data->pagevec;
-+#if 1
- 		data->args.pages_destructor = &data->pagevec_destructor;
-+#else
-+		data->args.pages_destructor = NULL;
-+#endif
- 		data->args.count = bytes;
- 		data->args.stable = sync;
- 		data->res.fattr = &data->fattr;
-@@ -804,6 +847,16 @@ static ssize_t nfs_direct_write_schedule_segment(struct nfs_direct_req *dreq,
- 		msg.rpc_resp = &data->res;
- 		NFS_PROTO(inode)->write_setup(data, &msg);
+diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
+index f4c4480..0a0dda1 100644
+--- a/drivers/net/cxgb4vf/sge.c
++++ b/drivers/net/cxgb4vf/sge.c
+@@ -1397,7 +1397,7 @@ struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
+ 		skb_copy_to_linear_data(skb, gl->va, pull_len);
  
-+		if (0) printk(KERN_CRIT "%s scheduling w:%p dreq:%p count:%d. args %p pages:%d dest:%p %pf\n",
-+		       __func__, data, dreq,
-+		       atomic_read(&dreq->io_count),
-+		       &data->args, data->npages,
-+		       data->args.pages_destructor,
-+		       data->args.pages_destructor->destroy);
-+		if (0) printk(KERN_CRIT "%s page[0] is %p count:%d\n",
-+		       __func__, data->pagevec[0],
-+		       page_count(data->pagevec[0]));
-+
- 		task = rpc_run_task(&task_setup_data);
- 		if (IS_ERR(task))
- 			break;
-@@ -866,6 +919,8 @@ static ssize_t nfs_direct_write_schedule_iovec(struct nfs_direct_req *dreq,
- 		return result < 0 ? result : -EIO;
+ 		ssi = skb_shinfo(skb);
+-		skb_frag_set_page(skb, 0, gl->frags[0].page);
++		skb_frag_set_page(skb, 0, gl->frags[0].page.p); /* XXX */
+ 		ssi->frags[0].page_offset = gl->frags[0].page_offset + pull_len;
+ 		ssi->frags[0].size = gl->frags[0].size - pull_len;
+ 		if (gl->nfrags > 1)
+@@ -1410,7 +1410,7 @@ struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
+ 		skb->truesize += skb->data_len;
+ 
+ 		/* Get a reference for the last page, we don't own it */
+-		get_page(gl->frags[gl->nfrags - 1].page);
++		get_page(gl->frags[gl->nfrags - 1].page.p); /* XXX */
  	}
  
-+	if (0) printk(KERN_CRIT "%s for dreq:%p count:%d\n", __func__,
-+	       dreq, atomic_read(&dreq->io_count));
- 	if (put_dreq(dreq))
- 		nfs_direct_write_complete(dreq, dreq->inode);
- 	return 0;
-diff --git a/fs/nfs/nfs3xdr.c b/fs/nfs/nfs3xdr.c
-index f7a83a1..2137550 100644
---- a/fs/nfs/nfs3xdr.c
-+++ b/fs/nfs/nfs3xdr.c
-@@ -994,6 +994,8 @@ static void encode_write3args(struct xdr_stream *xdr,
- 	*p++ = cpu_to_be32(args->count);
- 	*p++ = cpu_to_be32(args->stable);
- 	*p = cpu_to_be32(args->count);
-+	if (0) printk(KERN_CRIT "%s xdr %p args %p destructor %pF\n",
-+	       __func__, xdr, args, args->pages_destructor->destroy);
- 	xdr_write_pages(xdr, args->pages, args->pages_destructor,
- 			args->pgbase, args->count);
+ out:
+@@ -1430,7 +1430,7 @@ void t4vf_pktgl_free(const struct pkt_gl *gl)
+ 
+ 	frag = gl->nfrags - 1;
+ 	while (frag--)
+-		put_page(gl->frags[frag].page);
++		put_page(gl->frags[frag].page.p); /* XXX */
  }
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 550ec8f..f992dfa 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -362,6 +362,10 @@ static inline int page_count(struct page *page)
  
- static inline void get_page(struct page *page)
- {
-+	if (PageDebug(page)) printk(KERN_CRIT "%s(%p) from %pF count %d\n",
-+				    __func__, page,
-+				    __builtin_return_address(0),
-+				    page_count(page));
- 	/*
- 	 * Getting a normal page or the head of a compound page
- 	 * requires to already have an elevated page->_count. Only if
-diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
-index 7d632cc..8434345 100644
---- a/include/linux/page-flags.h
-+++ b/include/linux/page-flags.h
-@@ -107,6 +107,7 @@ enum pageflags {
- #ifdef CONFIG_TRANSPARENT_HUGEPAGE
- 	PG_compound_lock,
- #endif
-+	PG_debug,
- 	__NR_PAGEFLAGS,
+ /**
+@@ -1450,7 +1450,7 @@ static inline void copy_frags(struct sk_buff *skb,
+ 	unsigned int n;
  
- 	/* Filesystems */
-@@ -209,6 +210,7 @@ PAGEFLAG(Pinned, pinned) TESTSCFLAG(Pinned, pinned)	/* Xen */
- PAGEFLAG(SavePinned, savepinned);			/* Xen */
- PAGEFLAG(Reserved, reserved) __CLEARPAGEFLAG(Reserved, reserved)
- PAGEFLAG(SwapBacked, swapbacked) __CLEARPAGEFLAG(SwapBacked, swapbacked)
-+PAGEFLAG(Debug, debug)
+ 	/* usually there's just one frag */
+-	skb_frag_set_page(skb, 0, gl->frags[0].page);
++	skb_frag_set_page(skb, 0, gl->frags[0].page.p);	/* XXX */
+ 	si->frags[0].page_offset = gl->frags[0].page_offset + offset;
+ 	si->frags[0].size = gl->frags[0].size - offset;
+ 	si->nr_frags = gl->nfrags;
+@@ -1460,7 +1460,7 @@ static inline void copy_frags(struct sk_buff *skb,
+ 		memcpy(&si->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
  
- __PAGEFLAG(SlobFree, slob_free)
- 
-diff --git a/mm/swap.c b/mm/swap.c
-index 3a442f1..4450105 100644
---- a/mm/swap.c
-+++ b/mm/swap.c
-@@ -61,6 +61,8 @@ static void __page_cache_release(struct page *page)
- 
- static void __put_single_page(struct page *page)
- {
-+	if (PageDebug(page)) printk(KERN_CRIT "%s(%p) from %pF\n", __func__, page, __builtin_return_address(0));
-+	ClearPageDebug(page);
- 	__page_cache_release(page);
- 	free_hot_cold_page(page, 0);
+ 	/* get a reference to the last page, we don't own it */
+-	get_page(gl->frags[n].page);
++	get_page(gl->frags[n].page.p); /* XXX */
  }
-@@ -153,6 +155,10 @@ static void put_compound_page(struct page *page)
  
- void put_page(struct page *page)
+ /**
+@@ -1633,7 +1633,7 @@ static void restore_rx_bufs(const struct pkt_gl *gl, struct sge_fl *fl,
+ 		else
+ 			fl->cidx--;
+ 		sdesc = &fl->sdesc[fl->cidx];
+-		sdesc->page = gl->frags[frags].page;
++		sdesc->page = gl->frags[frags].page.p; /* XXX */
+ 		sdesc->dma_addr |= RX_UNMAPPED_BUF;
+ 		fl->avail++;
+ 	}
+@@ -1721,7 +1721,7 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 				BUG_ON(rxq->fl.avail == 0);
+ 				sdesc = &rxq->fl.sdesc[rxq->fl.cidx];
+ 				bufsz = get_buf_size(sdesc);
+-				fp->page = sdesc->page;
++				fp->page.p = sdesc->page; /* XXX */
+ 				fp->page_offset = rspq->offset;
+ 				fp->size = min(bufsz, len);
+ 				len -= fp->size;
+@@ -1739,8 +1739,8 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 			dma_sync_single_for_cpu(rspq->adapter->pdev_dev,
+ 						get_buf_addr(sdesc),
+ 						fp->size, DMA_FROM_DEVICE);
+-			gl.va = (page_address(gl.frags[0].page) +
+-				 gl.frags[0].page_offset);
++			gl.va = (page_address(gl.frags[0].page.p) +
++				 gl.frags[0].page_offset); /* XXX */
+ 			prefetch(gl.va);
+ 
+ 			/*
+diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
+index 21a89e0..c5d01ce 100644
+--- a/drivers/net/mlx4/en_rx.c
++++ b/drivers/net/mlx4/en_rx.c
+@@ -418,7 +418,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 			break;
+ 
+ 		/* Save page reference in skb */
+-		__skb_frag_set_page(&skb_frags_rx[nr], skb_frags[nr].page);
++		__skb_frag_set_page(&skb_frags_rx[nr], skb_frags[nr].page.p); /* XXX */
+ 		skb_frags_rx[nr].size = skb_frags[nr].size;
+ 		skb_frags_rx[nr].page_offset = skb_frags[nr].page_offset;
+ 		dma = be64_to_cpu(rx_desc->data[nr].addr);
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index 949ee48..8d16a74 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -1823,7 +1823,7 @@ static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
+ 				return -EINVAL;
+ 			}
+ 
+-			frags[i].page = page;
++			frags[i].page.p = page;
+ 			frags[i].page_offset = sg->offset + sgoffset;
+ 			frags[i].size = copy;
+ 			i++;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 982c6a3..99b56e3 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -135,8 +135,17 @@ struct sk_buff;
+ 
+ typedef struct skb_frag_struct skb_frag_t;
+ 
++struct skb_frag_destructor {
++	atomic_t ref;
++	int (*destroy)(void *data);
++	void *data;
++};
++
+ struct skb_frag_struct {
+-	struct page *page;
++	struct {
++		struct page *p;
++		struct skb_frag_destructor *destructor;
++	} page;
+ #if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
+ 	__u32 page_offset;
+ 	__u32 size;
+@@ -1129,7 +1138,8 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
  {
-+	if (PageDebug(page)) printk(KERN_CRIT "%s(%p) from %pF count %d\n",
-+				    __func__, page,
-+				    __builtin_return_address(0),
-+				    page_count(page));
- 	if (unlikely(PageCompound(page)))
- 		put_compound_page(page);
- 	else if (put_page_testzero(page))
+ 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 
+-	frag->page		  = page;
++	frag->page.p		  = page;
++	frag->page.destructor     = NULL;
+ 	frag->page_offset	  = off;
+ 	frag->size		  = size;
+ }
+@@ -1648,7 +1658,7 @@ static inline void netdev_free_page(struct net_device *dev, struct page *page)
+  */
+ static inline struct page *__skb_frag_page(const skb_frag_t *frag)
+ {
+-	return frag->page;
++	return frag->page.p;
+ }
+ 
+ /**
+@@ -1659,9 +1669,12 @@ static inline struct page *__skb_frag_page(const skb_frag_t *frag)
+  */
+ static inline const struct page *skb_frag_page(const skb_frag_t *frag)
+ {
+-	return frag->page;
++	return frag->page.p;
+ }
+ 
++extern void skb_frag_destructor_ref(struct skb_frag_destructor *destroy);
++extern void skb_frag_destructor_unref(struct skb_frag_destructor *destroy);
++
+ /**
+  * __skb_frag_ref - take an addition reference on a paged fragment.
+  * @frag: the paged fragment
+@@ -1670,6 +1683,10 @@ static inline const struct page *skb_frag_page(const skb_frag_t *frag)
+  */
+ static inline void __skb_frag_ref(skb_frag_t *frag)
+ {
++	if (unlikely(frag->page.destructor)) {
++		skb_frag_destructor_ref(frag->page.destructor);
++		return;
++	}
+ 	get_page(__skb_frag_page(frag));
+ }
+ 
+@@ -1693,6 +1710,10 @@ static inline void skb_frag_ref(struct sk_buff *skb, int f)
+  */
+ static inline void __skb_frag_unref(skb_frag_t *frag)
+ {
++	if (unlikely(frag->page.destructor)) {
++		skb_frag_destructor_unref(frag->page.destructor);
++		return;
++	}
+ 	put_page(__skb_frag_page(frag));
+ }
+ 
+@@ -1745,7 +1766,7 @@ static inline void *skb_frag_address_safe(const skb_frag_t *frag)
+  */
+ static inline void __skb_frag_set_page(skb_frag_t *frag, struct page *page)
+ {
+-	frag->page = page;
++	frag->page.p = page;
+ 	__skb_frag_ref(frag);
+ }
+ 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index bdc6f6e..c3fdfb7 100644
+index 2133600..bdc6f6e 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -296,6 +296,9 @@ void skb_frag_destructor_ref(struct skb_frag_destructor *destroy)
+@@ -292,6 +292,23 @@ struct sk_buff *dev_alloc_skb(unsigned int length)
+ }
+ EXPORT_SYMBOL(dev_alloc_skb);
+ 
++void skb_frag_destructor_ref(struct skb_frag_destructor *destroy)
++{
++	BUG_ON(destroy == NULL);
++	atomic_inc(&destroy->ref);
++}
++EXPORT_SYMBOL(skb_frag_destructor_ref);
++
++void skb_frag_destructor_unref(struct skb_frag_destructor *destroy)
++{
++	if (destroy == NULL)
++		return;
++
++	if (atomic_dec_and_test(&destroy->ref))
++		destroy->destroy(destroy->data);
++}
++EXPORT_SYMBOL(skb_frag_destructor_unref);
++
+ static void skb_drop_list(struct sk_buff **listp)
  {
- 	BUG_ON(destroy == NULL);
- 	atomic_inc(&destroy->ref);
-+	if (0) printk(KERN_CRIT "%s from %pF: %d\n",
-+	       __func__, __builtin_return_address(0),
-+	       atomic_read(&destroy->ref));
- }
- EXPORT_SYMBOL(skb_frag_destructor_ref);
- 
-@@ -304,8 +307,17 @@ void skb_frag_destructor_unref(struct skb_frag_destructor *destroy)
- 	if (destroy == NULL)
- 		return;
- 
--	if (atomic_dec_and_test(&destroy->ref))
-+	if (atomic_dec_and_test(&destroy->ref)) {
-+		if (0) printk(KERN_CRIT "%s from %pF: calling destructor %p %pf(%p)\n",
-+		       __func__, __builtin_return_address(0),
-+		       destroy, destroy->destroy, destroy->data);
- 		destroy->destroy(destroy->data);
-+	} else {
-+		if (0) printk(KERN_CRIT "%s from %pF: destructor %p %pf(%p) not called %d remaining\n",
-+		       __func__, __builtin_return_address(0),
-+		       destroy, destroy->destroy, destroy->data,
-+		       atomic_read(&destroy->ref));
-+	}
- }
- EXPORT_SYMBOL(skb_frag_destructor_unref);
- 
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 40c2420..64ce9907 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -176,6 +176,10 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 	int		slen;
- 	int		len = 0;
- 
-+	if (xdr->destructor)
-+		if (0) printk(KERN_CRIT "%s sending xdr %p with destructor %pF\n",
-+		       __func__, xdr, xdr->destructor->destroy);
-+
- 	slen = xdr->len;
- 
- 	/* send head */
-@@ -194,6 +198,9 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 	while (pglen > 0) {
- 		if (slen == size)
- 			flags = 0;
-+		if (xdr->destructor)
-+			if (0) printk(KERN_CRIT "%s sending xdr %p page %p with destructor %pF\n",
-+			       __func__, xdr, *ppage, xdr->destructor);
- 		result = kernel_sendpage(sock, *ppage, xdr->destructor, base, size, flags);
- 		if (result > 0)
- 			len += result;
-diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
-index 9c7dded..fcaea6a 100644
---- a/net/sunrpc/xdr.c
-+++ b/net/sunrpc/xdr.c
-@@ -135,6 +135,10 @@ xdr_encode_pages(struct xdr_buf *xdr, struct page **pages, unsigned int base,
- 	struct kvec *tail = xdr->tail;
- 	u32 *p;
- 
-+	if (xdr->destructor)
-+		if (0) printk(KERN_CRIT "%s xdr %p with destructor %p\n",
-+		       __func__, xdr, xdr->destructor);
-+
- 	xdr->pages = pages;
- 	xdr->page_base = base;
- 	xdr->page_len = len;
-@@ -165,6 +169,11 @@ xdr_inline_pages(struct xdr_buf *xdr, unsigned int offset,
- 	char *buf = (char *)head->iov_base;
- 	unsigned int buflen = head->iov_len;
- 
-+
-+	if (xdr->destructor)
-+		if (0) printk(KERN_CRIT "%s xdr %p with destructor %p\n",
-+		       __func__, xdr, xdr->destructor);
-+
- 	head->iov_len  = offset;
- 
- 	xdr->pages = pages;
-@@ -535,7 +544,8 @@ void xdr_write_pages(struct xdr_stream *xdr, struct page **pages,
- 	buf->destructor = destroy;
- 	buf->page_base = base;
- 	buf->page_len = len;
--
-+	if (destroy)
-+		if (0) printk(KERN_CRIT "%s xdr %p %p destructor %p\n", __func__, xdr, buf, destroy);
- 	iov->iov_base = (char *)xdr->p;
- 	iov->iov_len  = 0;
- 	xdr->iov = iov;
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index aa31294..336d787 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -386,6 +386,10 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
- 	unsigned int remainder;
- 	int err, sent = 0;
- 
-+	if (xdr->destructor)
-+		if (0) printk(KERN_CRIT "%s sending xdr %p with destructor %pF\n",
-+		       __func__, xdr, xdr->destructor->destroy);
-+
- 	remainder = xdr->page_len - base;
- 	base += xdr->page_base;
- 	ppage = xdr->pages + (base >> PAGE_SHIFT);
-@@ -425,6 +429,10 @@ static int xs_sendpages(struct socket *sock, struct sockaddr *addr, int addrlen,
- 	unsigned int remainder = xdr->len - base;
- 	int err, sent = 0;
- 
-+	if (xdr->destructor)
-+		if (0) printk(KERN_CRIT "%s sending xdr %p with destructor %pF\n",
-+		       __func__, xdr, xdr->destructor->destroy);
-+
- 	if (unlikely(!sock))
- 		return -ENOTSOCK;
- 
+ 	struct sk_buff *list = *listp;
 -- 
 1.7.2.5
 
