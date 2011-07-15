@@ -1,52 +1,66 @@
 From: Dan McGee <dan@archlinux.org>
-Subject: [PATCH] ip route: don't implicitly filter address family
-Date: Fri, 15 Jul 2011 13:38:33 -0500
-Message-ID: <1310755113-32492-1-git-send-email-dan@archlinux.org>
+Subject: [PATCH] Make iproute2 configure script more flexible
+Date: Fri, 15 Jul 2011 13:52:24 -0500
+Message-ID: <1310755944-2420-1-git-send-email-dan@archlinux.org>
 Cc: Dan McGee <dan@archlinux.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:37763 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753604Ab1GOSih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 14:38:37 -0400
-Received: by gxk21 with SMTP id 21so655778gxk.19
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 11:38:37 -0700 (PDT)
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:33999 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754651Ab1GOSw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 14:52:28 -0400
+Received: by yxi11 with SMTP id 11so662767yxi.19
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 11:52:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When looking at the output of 'ip route show' on an IPv6 capable
-machine, the default output doesn't show IPv6 routes. This is unlike any
-other ip subcommand, which show all address families by default.
-Furthermore, the behavior is totally bogus for different permutations of
-the command:
-
-    ip route show : will show IPv4, not show IPv6
-	ip route show table all : will show IPv4 and IPv6
-	ip route -f link show : will show IPv4 and IPv6
-
-Rectify this behavior by removing some 2004 code that tries to munge the
-address family if it is unspecified and fails bad at guessing the user's
-intention.
+On Arch Linux, we still install the iptables shared libraries in
+/usr/lib/iptables/, even though the main library is installed to
+/usr/lib/libxtables.so. This change checks all available locations to
+correctly find the iptables library directory.
 
 Signed-off-by: Dan McGee <dan@archlinux.org>
 ---
- ip/iproute.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+ configure |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index ca09029..4458d9c 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -1236,9 +1236,6 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 		argc--; argv++;
- 	}
+diff --git a/configure b/configure
+index 69797ab..0795df8 100755
+--- a/configure
++++ b/configure
+@@ -3,8 +3,6 @@
+ #
+ INCLUDE=${1:-"$PWD/include"}
  
--	if (do_ipv6 == AF_UNSPEC && filter.tb)
--		do_ipv6 = AF_INET;
+-TABLES=
 -
- 	ll_init_map(&rth);
+ check_atm()
+ {
+ cat >/tmp/atmtest.c <<EOF
+@@ -141,9 +139,6 @@ check_ipt()
+ 	if ! grep TC_CONFIG_XT Config > /dev/null
+ 	then
+ 		echo "using iptables"
+-		TABLES="iptables"
+-	else
+-		TABLES="xtables"
+ 	fi
+ }
  
- 	if (id || od)  {
+@@ -152,10 +147,10 @@ check_ipt_lib_dir()
+ 	IPT_LIB_DIR=""
+ 	for dir in /lib /usr/lib /usr/local/lib
+ 	do
+-		for file in $dir/$TABLES/lib*t_*so ; do
++		for file in $dir/{xtables,iptables}/lib*t_*so ; do
+ 			if [ -f $file ]; then
+-				echo $dir/$TABLES
+-				echo "IPT_LIB_DIR:=$dir/$TABLES" >> Config
++				echo ${file%/*}
++				echo "IPT_LIB_DIR:=${file%/*}" >> Config
+ 				return
+ 			fi
+ 		done
 -- 
 1.7.6
 
