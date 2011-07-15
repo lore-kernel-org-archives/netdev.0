@@ -1,67 +1,77 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH 07/10] net: remove NETIF_F_NO_CSUM feature
-Date: Fri, 15 Jul 2011 02:28:42 +0200
-Message-ID: <20110715002842.GA19328@rere.qmqm.pl>
-References: <20110714205623.GD16759@rere.qmqm.pl>
- <20110714.143121.1603730405553208694.davem@davemloft.net>
- <20110714224445.GA18237@rere.qmqm.pl>
- <20110714.170506.1425372007221475085.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Shyam Iyer <shyam.iyer.t@gmail.com>
+Subject: [PATCH] [net][bna] Separate handling of irq type flags variable from the irq_flags request_irq variable
+Date: Thu, 14 Jul 2011 21:00:32 -0400
+Message-ID: <1310691632-22914-1-git-send-email-shyam_iyer@dell.com>
+Cc: rmody@brocade.com, ddutt@brocade.com, huangj@brocade.com,
+	davem@davemloft.net, ivecera@redhat.com,
+	Shyam Iyer <shyam_iyer@dell.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:53082 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932409Ab1GOA2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2011 20:28:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20110714.170506.1425372007221475085.davem@davemloft.net>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:35896 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503Ab1GOBAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 21:00:43 -0400
+Received: by qyk9 with SMTP id 9so489106qyk.19
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2011 18:00:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 14, 2011 at 05:05:06PM -0700, David Miller wrote:
-> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-> Date: Fri, 15 Jul 2011 00:44:45 +0200
->=20
-> > On Thu, Jul 14, 2011 at 02:31:21PM -0700, David Miller wrote:
-> >> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-> >> Date: Thu, 14 Jul 2011 22:56:23 +0200
-> >> > That's why its turned off by default and should be enabled only =
-when user
-> >> > knows he will win some pps with it.
-> >> More people are going to lose than win by your change.
-> >>=20
-> >> The nocopy feature helps more real situations than it hurts, the
-> >> existing default is the best.
-> >=20
-> > I see. I still want to remove NO_CSUM (as I explained in other mail=
-),
-> > so would you accept replacing it with something more specific to
-> > nocache-copy feature? READS_DATA maybe? That could be later added t=
-o
-> > sk_route_caps whenever it's known for a route there will be need to
-> > read packets' data.
->=20
-> I don't actually see what the problem is.
->=20
-> The code wants to conditionalize the nocache-copy feature based upon
-> whether hardware will checksum the packet or not.
->=20
-> And that's exactly what it's testing.
->=20
-> The reason, of course, is because it doesn't want to enable
-> nocache-copy if the cpu is just going to read the data back into it's
-> caches during the checksum.  But that's no reason to change the
-> flag name to have the word "read" instead of "checksum" in it.
+Commit 5f77898de17ff983ff0e2988b73a6bdf4b6f9f8b does not completely fix the problem of handling allocations with irqs disabled..
+The below patch on top of it fixes the problem completely.
 
-But the real condition is that CPU doesn't read the data. I doesn't mat=
-ter
-if reading is to calculate the checksum or parsing it. The change would
-make this obvious.
+Based on review by "Ivan Vecera" <ivecera@redhat.com>..
+"
+Small note, the root of the problem was that non-atomic allocation was requested with IRQs disabled. Your patch description does not contain wwhy were the IRQs disabled.
 
-BTW,=20
-Best Regards,
-Micha=B3 Miros=B3aw
+The function bnad_mbox_irq_alloc incorrectly uses 'flags' var for two different things, 1) to save current CPU flags and 2) for request_irq
+call.
+First the spin_lock_irqsave disables the IRQs and saves _all_ CPU flags (including one that enables/disables interrupts) to 'flags'. Then the 'flags' is overwritten by 0 or 0x80 (IRQF_SHARED). Finally the spin_unlock_irqrestore should restore saved flags, but these flags are now either 0x00 or 0x80. The interrupt bit value in flags register on x86 arch is 0x100.
+This means that the interrupt bit is zero (IRQs disabled) after spin_unlock_irqrestore so the request_irq function is called with disabled interrupts.
+"
+
+Signed-off-by: Shyam Iyer <shyam_iyer@dell.com>
+---
+ drivers/net/bna/bnad.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index 44e219c..ea13605 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -1111,7 +1111,7 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+ 		    struct bna_intr_info *intr_info)
+ {
+ 	int 		err = 0;
+-	unsigned long 	irq_flags = 0, flags;
++	unsigned long 	irq_flags, flags;
+ 	u32	irq;
+ 	irq_handler_t 	irq_handler;
+ 
+@@ -1125,6 +1125,7 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+ 	if (bnad->cfg_flags & BNAD_CF_MSIX) {
+ 		irq_handler = (irq_handler_t)bnad_msix_mbox_handler;
+ 		irq = bnad->msix_table[bnad->msix_num - 1].vector;
++		irq_flags = 0;
+ 		intr_info->intr_type = BNA_INTR_T_MSIX;
+ 		intr_info->idl[0].vector = bnad->msix_num - 1;
+ 	} else {
+@@ -1135,7 +1136,6 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+ 		/* intr_info->idl.vector = 0 ? */
+ 	}
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-	flags = irq_flags;
+ 	sprintf(bnad->mbox_irq_name, "%s", BNAD_NAME);
+ 
+ 	/*
+@@ -1146,7 +1146,7 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
+ 
+ 	BNAD_UPDATE_CTR(bnad, mbox_intr_disabled);
+ 
+-	err = request_irq(irq, irq_handler, flags,
++	err = request_irq(irq, irq_handler, irq_flags,
+ 			  bnad->mbox_irq_name, bnad);
+ 
+ 	if (err) {
+-- 
+1.7.5.4
+
