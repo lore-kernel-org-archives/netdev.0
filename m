@@ -1,183 +1,79 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: [PATCH 1/7] at91rm9200: emac move register header to drivers
-Date: Fri, 15 Jul 2011 01:51:59 +0200
-Message-ID: <1310687525-22486-1-git-send-email-plagnioj@jcrosoft.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] bnx2: do not start the interface if reset fails
+Date: Thu, 14 Jul 2011 17:13:25 -0700
+Message-ID: <1310688805.7032.1.camel@HP1>
+References: <1310579690-24622-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: "Flavio Leitner" <fbl@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3405 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753938Ab1GOAUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2011 20:20:18 -0400
+In-Reply-To: <1310579690-24622-1-git-send-email-fbl@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-move from mach-at91/include/mach/at91rm9200_emac.h to drivers/net/arm/at91_ether.h
 
-Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/arm/at91_ether.c                       |    1 -
- .../net/arm/at91_ether.h                           |  112 ++++++++++++++++++--
- 2 files changed, 101 insertions(+), 12 deletions(-)
- rename arch/arm/mach-at91/include/mach/at91rm9200_emac.h => drivers/net/arm/at91_ether.h (65%)
+On Wed, 2011-07-13 at 10:54 -0700, Flavio Leitner wrote:
+> When bnx2_reset_task() is called, it will stop,
+> (re)initialize and start the interface to restore
+> the working condition.
+> 
+> The bnx2_init_nic() calls bnx2_reset_nic() which will
+> reset the chip and then call bnx2_free_skbs() to free
+> all the skbs.
+> 
+> The problem happens when bnx2_init_chip() fails because
+> bnx2_reset_nic() will just return skipping the ring
+> initializations at bnx2_init_all_rings(). Later, the
+> reset task starts the interface again and the system
+> crashes due a NULL pointer access (no skb in the ring).
+> 
+> This patch just check the return code and if an error is
+> reported, warn the user and abort. It's better to have a
+> non working interface than a crash.
+> 
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> ---
+>  drivers/net/bnx2.c |    8 +++++++-
+>  1 files changed, 7 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 7915d14..7fb71fc 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -6296,6 +6296,7 @@ static void
+>  bnx2_reset_task(struct work_struct *work)
+>  {
+>  	struct bnx2 *bp = container_of(work, struct bnx2, reset_task);
+> +	int rc;
+>  
+>  	rtnl_lock();
+>  	if (!netif_running(bp->dev)) {
+> @@ -6305,10 +6306,15 @@ bnx2_reset_task(struct work_struct *work)
+>  
+>  	bnx2_netif_stop(bp, true);
+>  
+> -	bnx2_init_nic(bp, 1);
+> +	rc = bnx2_init_nic(bp, 1);
+> +	if (rc) {
+> +		netdev_err(bp->dev, "failed to reset the NIC, aborting\n");
+> +		goto out;
+> +	}
 
-diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/arm/at91_ether.c
-index e07b314..8f0b212 100644
---- a/drivers/net/arm/at91_ether.c
-+++ b/drivers/net/arm/at91_ether.c
-@@ -33,7 +33,6 @@
- #include <asm/uaccess.h>
- #include <asm/mach-types.h>
- 
--#include <mach/at91rm9200_emac.h>
- #include <mach/gpio.h>
- #include <mach/board.h>
- 
-diff --git a/arch/arm/mach-at91/include/mach/at91rm9200_emac.h b/drivers/net/arm/at91_ether.h
-similarity index 65%
-rename from arch/arm/mach-at91/include/mach/at91rm9200_emac.h
-rename to drivers/net/arm/at91_ether.h
-index b8260cd..58aed66 100644
---- a/arch/arm/mach-at91/include/mach/at91rm9200_emac.h
-+++ b/drivers/net/arm/at91_ether.h
-@@ -1,21 +1,21 @@
- /*
-- * arch/arm/mach-at91/include/mach/at91rm9200_emac.h
-+ * Ethernet driver for the Atmel AT91RM9200 (Thunder)
-  *
-- * Copyright (C) 2005 Ivan Kokshaysky
-- * Copyright (C) SAN People
-+ *  Copyright (C) SAN People (Pty) Ltd
-  *
-- * Ethernet MAC registers.
-- * Based on AT91RM9200 datasheet revision E.
-+ * Based on an earlier Atmel EMAC macrocell driver by Atmel and Lineo Inc.
-+ * Initial version by Rick Bronson.
-  *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License as published by
-- * the Free Software Foundation; either version 2 of the License, or
-- * (at your option) any later version.
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-  */
- 
--#ifndef AT91RM9200_EMAC_H
--#define AT91RM9200_EMAC_H
-+#ifndef AT91_ETHERNET
-+#define AT91_ETHERNET
- 
-+/* registers */
- #define	AT91_EMAC_CTL		0x00	/* Control Register */
- #define		AT91_EMAC_LB		(1 <<  0)	/* Loopback */
- #define		AT91_EMAC_LBL		(1 <<  1)	/* Loopback Local */
-@@ -135,4 +135,94 @@
- #define AT91_EMAC_SA4L		0xb0	/* Specific Address 4 Low, bytes 0-3 */
- #define AT91_EMAC_SA4H		0xb4	/* Specific Address 4 High, bytes 4-5 */
- 
-+/* Davicom 9161 PHY */
-+#define MII_DM9161_ID		0x0181b880
-+#define MII_DM9161A_ID		0x0181b8a0
-+#define MII_DSCR_REG		16
-+#define MII_DSCSR_REG		17
-+#define MII_DSINTR_REG		21
-+
-+/* Intel LXT971A PHY */
-+#define MII_LXT971A_ID		0x001378E0
-+#define MII_ISINTE_REG		18
-+#define MII_ISINTS_REG		19
-+#define MII_LEDCTRL_REG		20
-+
-+/* Realtek RTL8201 PHY */
-+#define MII_RTL8201_ID		0x00008200
-+
-+/* Broadcom BCM5221 PHY */
-+#define MII_BCM5221_ID		0x004061e0
-+#define MII_BCMINTR_REG		26
-+
-+/* National Semiconductor DP83847 */
-+#define MII_DP83847_ID		0x20005c30
-+
-+/* National Semiconductor DP83848 */
-+#define MII_DP83848_ID		0x20005c90
-+#define MII_DPPHYSTS_REG	16
-+#define MII_DPMICR_REG		17
-+#define MII_DPMISR_REG		18
-+
-+/* Altima AC101L PHY */
-+#define MII_AC101L_ID		0x00225520
-+
-+/* Micrel KS8721 PHY */
-+#define MII_KS8721_ID		0x00221610
-+
-+/* Teridian 78Q2123/78Q2133 */
-+#define MII_T78Q21x3_ID		0x000e7230
-+#define MII_T78Q21INT_REG	17
-+
-+/* SMSC LAN83C185 */
-+#define MII_LAN83C185_ID	0x0007C0A0
-+
-+/* ........................................................................ */
-+
-+#define MAX_RBUFF_SZ	0x600		/* 1518 rounded up */
-+#define MAX_RX_DESCR	9		/* max number of receive buffers */
-+
-+#define EMAC_DESC_DONE	0x00000001	/* bit for if DMA is done */
-+#define EMAC_DESC_WRAP	0x00000002	/* bit for wrap */
-+
-+#define EMAC_BROADCAST	0x80000000	/* broadcast address */
-+#define EMAC_MULTICAST	0x40000000	/* multicast address */
-+#define EMAC_UNICAST	0x20000000	/* unicast address */
-+
-+struct rbf_t
-+{
-+	unsigned int addr;
-+	unsigned long size;
-+};
-+
-+struct recv_desc_bufs
-+{
-+	struct rbf_t descriptors[MAX_RX_DESCR];		/* must be on sizeof (rbf_t) boundary */
-+	char recv_buf[MAX_RX_DESCR][MAX_RBUFF_SZ];	/* must be on long boundary */
-+};
-+
-+struct at91_private
-+{
-+	struct mii_if_info mii;			/* ethtool support */
-+	struct at91_eth_data board_data;	/* board-specific configuration */
-+	struct clk *ether_clk;			/* clock */
-+
-+	/* PHY */
-+	unsigned long phy_type;			/* type of PHY (PHY_ID) */
-+	spinlock_t lock;			/* lock for MDI interface */
-+	short phy_media;			/* media interface type */
-+	unsigned short phy_address;		/* 5-bit MDI address of PHY (0..31) */
-+	struct timer_list check_timer;		/* Poll link status */
-+
-+	/* Transmit */
-+	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
-+	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
-+	int skb_length;				/* saved skb length for pci_unmap_single */
-+
-+	/* Receive */
-+	int rxBuffIndex;			/* index into receive descriptor list */
-+	struct recv_desc_bufs *dlist;		/* descriptor list address */
-+	struct recv_desc_bufs *dlist_phys;	/* descriptor list physical address */
-+};
-+
- #endif
--- 
-1.7.5.4
+I think it is better to call dev_close() instead.  I'll post a patch
+soon.  Thanks.
+
+>  
+>  	atomic_set(&bp->intr_sem, 1);
+>  	bnx2_netif_start(bp, true);
+> +out:
+>  	rtnl_unlock();
+>  }
+>  
+
+
