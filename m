@@ -1,49 +1,88 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] Fix panic in virtnet_remove
-Date: Fri, 15 Jul 2011 14:46:50 +0530
-Message-ID: <20110715091650.23026.78221.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	Krishna Kumar <krkumar2@in.ibm.com>
-To: davem@davemloft.net
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [RFC 46/72] ixp2000: Move the Radisys driver
+Date: Fri, 15 Jul 2011 12:32:19 +0200
+Message-ID: <20110715103219.GQ951@wantstofly.org>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1309010363-22750-47-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20110626114721.GA19500@wantstofly.org>
+ <1310227137.26989.43.camel@jtkirshe-mobl>
+ <20110715000819.GK951@wantstofly.org>
+ <1310692758.2628.30.camel@jtkirshe-mobl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp07.au.ibm.com ([202.81.31.140]:59109 "EHLO
-	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965364Ab1GOJQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 05:16:55 -0400
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.31.245])
-	by e23smtp07.au.ibm.com (8.14.4/8.13.1) with ESMTP id p6F9Gr8D017861
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 19:16:53 +1000
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6F9Grv61187976
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 19:16:53 +1000
-Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6F9GqAF018623
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 19:16:53 +1000
+Received: from fw.wantstofly.org ([80.101.37.227]:57369 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964982Ab1GOKcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 06:32:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1310692758.2628.30.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-modprobe -r virtio_net panics in free_netdev() as the
-dev is already freed in the newly introduced virtnet_free
-(commit 3fa2a1df9094). Since virtnet_remove doesn't require
-dev after unregister, I am removing the free_netdev call
-in virtnet_remove instead of in virtnet_free (which seems
-to be the right place to free the dev). Confirmed that
-the panic is fixed with this patch.
+On Thu, Jul 14, 2011 at 06:19:17PM -0700, Jeff Kirsher wrote:
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/net/virtio_net.c |    2 --
- 1 file changed, 2 deletions(-)
+> > > > > Move the Radisys driver into drivers/net/ethernet/radisys/ and
+> > > > > make the necessary Kconfig and Makefile changes
+> > > > > 
+> > > > > CC: Lennert Buytenhek <kernel@wantstofly.org>
+> > > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > > > ---
+> > > > >  MAINTAINERS                                        |    2 +-
+> > > > >  drivers/net/Kconfig                                |    2 --
+> > > > >  drivers/net/Makefile                               |    1 -
+> > > > >  drivers/net/ethernet/Kconfig                       |    1 +
+> > > > >  drivers/net/ethernet/Makefile                      |    1 +
+> > > > >  drivers/net/ethernet/radisys/Kconfig               |   16 ++++++++++++++++
+> > > > >  drivers/net/ethernet/radisys/Makefile              |    5 +++++
+> > > > >  drivers/net/{ => ethernet/radisys}/ixp2000/Kconfig |    2 +-
+> > > > >  .../net/{ => ethernet/radisys}/ixp2000/Makefile    |    0
+> > > > 
+> > > > The ixp2000 is a series of Intel ARM SoCs, and the ENP2611 is a Radisys
+> > > > PCI board based on the ixp2000 series (ixp2400), so it doesn't make
+> > > > sense to put everything in the radisys/ directory.
+> > > 
+> > > It was suggested earlier that it probably should be in either ixp/ or
+> > > radisys/, and someone suggested that ixp/ might be confusing.  If you
+> > > would like to keep it under drivers/net/ethernet/ixp2000, I am fine with
+> > > that as well.
+> > > 
+> > > > If you insist on moving all drivers into vendor directories (I don't
+> > > > like that idea at all -- are we going to rename directories and shuffle
+> > > > stuff around every time vendor A buys vendor B or takes over one of
+> > > > vendor B's products?), at least the core ixp2000 code should be under
+> > > > intel/.
+> > > 
+> > > It was not my preference to place drivers into vendor specific
+> > > directories because of that very reason, as I did the work, it just
+> > > tended to work out that way.
+> > > 
+> > > The reason (as stated before) that it was not moved into intel/
+> > > directory is because the driver was not written (and supported) by
+> > > Intel.
+> > 
+> > I didn't follow the discussion, but that seems like a silly argument.
+> > Does that mean that any non-vendor supported driver can't go into
+> > drivers/net/$vendor/?  What if the vendor starts contributing to the
+> > driver later on, will the driver be moved then?
+> > 
+> > It seems that what you're saying is that you don't want the ixp2000
+> > driver in "your" subdirectory.
+> 
+> It is more that all the drivers that in intel/ are all very similar and
+> have "common" code which potentially code be shared.  We have been
+> looking at what possibilities there are for the common code between the
+> Intel supported drivers.  So it really did not make sense to throw a
+> driver into the intel/ directory just because it used an Intel chip, but
+> has nothing in common with the other drivers in that directory.  Sorry
+> if my previous explanation sounded like it I just did not want the
+> drivers in the intel/ because we did not write or support it.
+> 
+> After looking at ixp2000/ixp4xx drivers and the 82586/82596 drivers a
+> bit more, I came up with the solution of putting the IXP drivers in
+> xscale/ and the 82586/82596 drivers in i825xx/ directory.
 
-diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
---- org/drivers/net/virtio_net.c	2011-07-04 10:38:33.000000000 +0530
-+++ new/drivers/net/virtio_net.c	2011-07-15 14:27:48.000000000 +0530
-@@ -1121,8 +1121,6 @@ static void __devexit virtnet_remove(str
- 
- 	while (vi->pages)
- 		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
--
--	free_netdev(vi->dev);
- }
- 
- static struct virtio_device_id id_table[] = {
+That sounds fine with me.
