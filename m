@@ -1,45 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ps3: Fix gelic RX DMA restart
-Date: Thu, 14 Jul 2011 16:03:40 -0700 (PDT)
-Message-ID: <20110714.160340.670777033431904110.davem@davemloft.net>
-References: <4E1F242E.7070509@infradead.org>
+Subject: Re: [PATCH] bnx2: do not start the interface if reset fails
+Date: Thu, 14 Jul 2011 17:06:02 -0700 (PDT)
+Message-ID: <20110714.170602.913766899003751061.davem@davemloft.net>
+References: <1310579690-24622-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@lists.ozlabs.org
-To: geoff@infradead.org
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53247 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56885 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932437Ab1GNXGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 19:06:51 -0400
-In-Reply-To: <4E1F242E.7070509@infradead.org>
+	with ESMTP id S932359Ab1GOAGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 20:06:07 -0400
+In-Reply-To: <1310579690-24622-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geoff Levand <geoff@infradead.org>
-Date: Thu, 14 Jul 2011 10:15:26 -0700
+From: Flavio Leitner <fbl@redhat.com>
+Date: Wed, 13 Jul 2011 14:54:50 -0300
 
-> Fix the condition where PS3 network RX hangs when no network
-> TX is occurring by calling gelic_card_enable_rxdmac() during
-> RX_DMA_CHAIN_END event processing.
+> When bnx2_reset_task() is called, it will stop,
+> (re)initialize and start the interface to restore
+> the working condition.
 > 
-> The gelic hardware automatically clears its RX_DMA_EN flag when
-> it detects an RX_DMA_CHAIN_END event.  In its processing of
-> RX_DMA_CHAIN_END the gelic driver is required to set RX_DMA_EN
-> (with a call to gelic_card_enable_rxdmac()) to restart RX DMA
-> transfers.  The existing gelic driver code does not set
-> RX_DMA_EN directly in its processing of the RX_DMA_CHAIN_END
-> event, but uses a flag variable card->rx_dma_restart_required
-> to schedule the setting of RX_DMA_EN until next inside the
-> interrupt handler.
+> The bnx2_init_nic() calls bnx2_reset_nic() which will
+> reset the chip and then call bnx2_free_skbs() to free
+> all the skbs.
 > 
-> It seems this delayed setting of RX_DMA_EN causes the hang since
-> the next RX interrupt after the RX_DMA_CHAIN_END event where
-> RX_DMA_EN is scheduled to be set will not occur since RX_DMA_EN
-> was not set.  In the case were network TX is occuring, RX_DMA_EN
-> is set in the next TX interrupt and RX processing continues.
+> The problem happens when bnx2_init_chip() fails because
+> bnx2_reset_nic() will just return skipping the ring
+> initializations at bnx2_init_all_rings(). Later, the
+> reset task starts the interface again and the system
+> crashes due a NULL pointer access (no skb in the ring).
 > 
-> Signed-off-by: Geoff Levand <geoff@infradead.org>
+> This patch just check the return code and if an error is
+> reported, warn the user and abort. It's better to have a
+> non working interface than a crash.
+> 
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
 
-Applied.
+Broadcom folks?
