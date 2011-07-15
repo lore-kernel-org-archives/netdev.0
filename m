@@ -1,38 +1,33 @@
-From: "Mr. Vincent Cheng" <vincent@usc.es>
-Subject: (unknown)
-Date: Fri, 15 Jul 2011 16:31:33 +0200
-Message-ID: <20110715163133.5o6xanngnsw8o4o8__40282.8542785302$1310740907$gmane$org@correoweb.usc.es>
-Reply-To: choi_chu112@yahoo.co.jp
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gianfar: rx parser
+Date: Fri, 15 Jul 2011 08:06:10 -0700 (PDT)
+Message-ID: <20110715.080610.256697325487445331.davem@davemloft.net>
+References: <1310728141.28792.10.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jpirko@redhat.com,
+	sandeep.kumar@freescale.com
+To: sebastian.belden@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo1.usc.es ([193.144.75.21]:15597 "EHLO correo1.usc.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924Ab1GOOlX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2011 10:41:23 -0400
-Subject: 
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([198.137.202.13]:58512 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806Ab1GOPGX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 11:06:23 -0400
+In-Reply-To: <1310728141.28792.10.camel@DENEC1DT0191>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: "Sebastian P=F6hn" <sebastian.belden@googlemail.com>
+Date: Fri, 15 Jul 2011 13:09:01 +0200
 
-Good Day,
+> +	struct gfar __iomem *regs =3D NULL;
+> +	u32 tempval =3D 0;
+> +=09
+> +	regs =3D priv->gfargrp[0].regs;
 
-I have a business proposal of USD $22,500,000.00 only for you to transact with
-me from my bank to your country.
-Reply to address:choi_chu112@yahoo.co.jp and I will let you know what is
-required of you.
+There is no reason to initialize the variable 'regs' to NULL only to
+initialize it to something else 2 lines later.
 
-Best Regards,
-
-Mr. Vincent Cheng
-
-
-
-
-
+The initial 'tempval' initialization is also redundant, for the same
+reason.
