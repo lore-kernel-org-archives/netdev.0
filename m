@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: rx parser
-Date: Fri, 15 Jul 2011 16:00:37 -0700 (PDT)
-Message-ID: <20110715.160037.1647693804563597586.davem@davemloft.net>
-References: <1310728141.28792.10.camel@DENEC1DT0191>
-	<20110715.080610.256697325487445331.davem@davemloft.net>
-	<20110715195133.GA3499@minipsycho.orion>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 00/22] vlan cleanup round1
+Date: Sat, 16 Jul 2011 01:07:19 +0200
+Message-ID: <20110715230719.GB3499@minipsycho.orion>
+References: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
+ <CAHXqBFJiNx3N+Rs_dxMqSThN59kvmYauU=-mWvZEf9pUQ-MoZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sebastian.belden@googlemail.com, netdev@vger.kernel.org,
-	sandeep.kumar@freescale.com
-To: jpirko@redhat.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
+	greearb@candelatech.com
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980Ab1GOXAy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 19:00:54 -0400
-In-Reply-To: <20110715195133.GA3499@minipsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:56151 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753564Ab1GOXH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2011 19:07:28 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHXqBFJiNx3N+Rs_dxMqSThN59kvmYauU=-mWvZEf9pUQ-MoZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jiri Pirko <jpirko@redhat.com>
-Date: Fri, 15 Jul 2011 21:51:34 +0200
+Sat, Jul 16, 2011 at 12:15:42AM CEST, mirqus@gmail.com wrote:
+>2011/7/15 Jiri Pirko <jpirko@redhat.com>:
+>> This patchset converts several drivers to new vlan model.
+>> Also kills several vlan helpers:
+>> vlan_hwaccel_receive_skb,
+>> lro_vlan_hwaccel_receive_frags,
+>> lro_vlan_hwaccel_receive_skb
+>
+>It looks like most drivers that implement rx_add/kill_vid also need
+>bitmap recording all enabled VLANs. I think this could be done in
+>networking core for those devices in a generic way (set/clear before
+>corresponding rx_add/kill_vid call). The bitmap should be dynamically
+>allocated when needed (either on device registration time, or adding
+>first VLAN).
 
-> From: Sebastian P=F6hn <sebastian.belden@googlemail.com>
-> Subject: [patch net-next-2.6] gianfar: rx parser
->=20
-> Only let the rx parser be enabled if it is necessary (if VLAN extract=
-ion,
-> IP or TCP checksumming or the rx queue filer are enabled). Otherwise
-> disable it.
->=20
-> The new routine gfar_check_rx_parser_mode should be run after every
-> change on this features and will enable/disable the parser as necessa=
-ry.
->=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+Right, I'm going to think about it. I might repost this patchset after
+that, So Dave please do not apply right away, thanks.
 
-Applied, thanks.
+Jirka
+>
+>This might be out of scope for this cleanup, though.
+>
+>Looks good otherwise.
+>
+>Best Regards,
+>Micha=C5=82 Miros=C5=82aw
