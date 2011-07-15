@@ -1,116 +1,335 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC 46/72] ixp2000: Move the Radisys driver
-Date: Thu, 14 Jul 2011 18:19:17 -0700
-Message-ID: <1310692758.2628.30.camel@jtkirshe-mobl>
-References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1309010363-22750-47-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110626114721.GA19500@wantstofly.org>
-	 <1310227137.26989.43.camel@jtkirshe-mobl>
-	 <20110715000819.GK951@wantstofly.org>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH v2 1/5] dt: add of_alias_scan and of_alias_get_id
+Date: Thu, 14 Jul 2011 20:53:20 -0600
+Message-ID: <20110715025320.GE2927@ponder.secretlab.ca>
+References: <1308938676-31121-1-git-send-email-shawn.guo@linaro.org>
+ <1308938676-31121-2-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-dC083bFPj80eB4GrEkfX"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:4835 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932217Ab1GOBTT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2011 21:19:19 -0400
-In-Reply-To: <20110715000819.GK951@wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-serial@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, patches@linaro.org
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1308938676-31121-2-git-send-email-shawn.guo@linaro.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Sat, Jun 25, 2011 at 02:04:32AM +0800, Shawn Guo wrote:
+> The patch adds function of_alias_scan to populate a global lookup
+> table with the properties of 'aliases' node and function
+> of_alias_get_id for drivers to find alias id from the lookup table.
+> 
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+
+Hey Shawn,
+
+Comments below, but I've gone ahead and fixed them because I'm keen to
+get this patch merged.  I just wanted to let you know what I changed.
+I'll post the modified version so you can test it.
+
+> ---
+>  drivers/of/base.c  |  181 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/of/fdt.c   |    6 ++
+>  include/linux/of.h |    7 ++
+>  3 files changed, 194 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/of/base.c b/drivers/of/base.c
+> index 632ebae..89efd10 100644
+> --- a/drivers/of/base.c
+> +++ b/drivers/of/base.c
+> @@ -17,14 +17,38 @@
+>   *      as published by the Free Software Foundation; either version
+>   *      2 of the License, or (at your option) any later version.
+>   */
+> +#include <linux/bootmem.h>
+> +#include <linux/ctype.h>
+>  #include <linux/module.h>
+>  #include <linux/of.h>
+>  #include <linux/spinlock.h>
+>  #include <linux/slab.h>
+>  #include <linux/proc_fs.h>
+>  
+> +/**
+> + * struct alias_prop - Alias property in 'aliases' node
+> + * @link:	List node to link the structure in aliases_lookup list
+> + * @alias:	Alias property name
+> + * @np:		Pointer to device_node that the alias stands for
+> + * @alias_id:	Alias id decoded from alias
+> + * @alias_stem:	Alias stem name decoded from alias
+> + *
+> + * The structure represents one alias property of 'aliases' node as
+> + * an entry in aliases_lookup list.
+> + */
+> +struct alias_prop {
+> +	struct list_head link;
+> +	const char *alias;
+> +	struct device_node *np;
+> +	int alias_id;
+> +	char alias_stem[0];
+> +};
+> +
+> +static LIST_HEAD(aliases_lookup);
+> +
+>  struct device_node *allnodes;
+>  struct device_node *of_chosen;
+> +struct device_node *of_aliases;
+>  
+>  /* use when traversing tree through the allnext, child, sibling,
+>   * or parent members of struct device_node.
+> @@ -922,3 +946,160 @@ out_unlock:
+>  }
+>  #endif /* defined(CONFIG_OF_DYNAMIC) */
+>  
+> +/*
+> + * of_alias_find_available_id - Find an available id for the given device_node
+
+Nit: kerneldoc format is "/**" to start the comment, and function
+names should have '()' on it.
+
+> + * @np:		Pointer to the given device_node
+> + * @stem:	Alias stem of the given device_node
+> + *
+> + * The function travels the lookup table to find an available id for the
+> + * given device_node with given alias stem.  It returns the id found.
+> + */
+> +static int of_alias_find_available_id(struct device_node *np, const char *stem)
+> +{
+> +	struct alias_prop *app;
+> +	int id = 0;
+> +
+> +	while (1) {
+> +		bool used = false;
+> +		list_for_each_entry(app, &aliases_lookup, link) {
+> +			if (!strcmp(app->alias_stem, stem) &&
+> +			    app->alias_id == id) {
+> +				used = true;
+> +				break;
+> +			}
+> +		}
+> +
+> +		if (used)
+> +			id++;
+> +		else
+> +			return id;
+> +	}
+> +}
+
+I've simplified this somewhat to do the list_for_each_entry() only
+once, and to bump up the id to +1 the largest entry:
+
+	list_for_each_entry(app, &aliases_lookup, link)
+		if ((strcmp(app->stem, stem) == 0) && id <= app->id)
+			id = app->id + 1;
+
+.... actually, after looking further, I've rolled this code into the
+of_alias_get_id() function.
+
+> +
+> +/**
+> + * of_alias_lookup_add - Add alias into lookup table
+> + * @alias:	Alias name
+> + * @id:		Alias id
+> + * @stem:	Alias stem name
+> + * @np:		Pointer to device_node
+> + *
+> + * The function adds one alias into the lookup table and populate it
+> + * with the info passed in.  It returns 0 in sucess, or error code.
+> + */
+> +static int of_alias_lookup_add(char *alias, int id, const char *stem,
+> +			       struct device_node *np)
+> +{
+> +	struct alias_prop *app;
+> +	size_t sz = sizeof(*app) + strlen(stem) + 1;
+> +
+> +	app = kzalloc(sz, GFP_KERNEL);
+> +	if (!app) {
+> +		/*
+> +		 * It may fail due to being called by boot code,
+> +		 * so try alloc_bootmem before return error.
+> +		 */
+> +		app = alloc_bootmem(sz);
+> +		if (!app)
+> +			return -ENOMEM;
+> +	}
+
+I'm not too fond of this since we *know* when this is going to be
+called from early boot.  So, instead, I've changed the code to use the
+already existing dt_alloc functions as an argument to of_alias_lookup_add().
+
+Also, alloc_bootmem() doesn't work on all platforms.
+early_init_dt_alloc_memory_arch() needs to be used instead.
 
 
---=-dC083bFPj80eB4GrEkfX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> +
+> +	app->np = np;
+> +	app->alias = alias;
+> +	app->alias_id = id;
+> +	strcpy(app->alias_stem, stem);
+> +	list_add_tail(&app->link, &aliases_lookup);
+> +
+> +	return 0;
+> +}
+> +
+> +/**
+> + * of_alias_decode - Decode alias stem and id from alias name
+> + * @alias:	Alias name to be decoded
+> + * @stem:	Pointer used to return stem name
+> + *
+> + * The function decodes alias stem name and alias id from the given
+> + * alias name.  It returns stem name via parameter 'stem', and stem id
+> + * via the return value.  If no id is found in alias name, it returns 0
+> + * as the default.
+> + */
+> +static int of_alias_decode(char *alias, char *stem)
+> +{
+> +	int len = strlen(alias);
+> +	char *end = alias + len;
+> +
+> +	while (isdigit(*--end))
+> +		len--;
 
-On Thu, 2011-07-14 at 17:08 -0700, Lennert Buytenhek wrote:
-> On Sat, Jul 09, 2011 at 08:58:56AM -0700, Jeff Kirsher wrote:
->=20
-> > > > Move the Radisys driver into drivers/net/ethernet/radisys/ and
-> > > > make the necessary Kconfig and Makefile changes
-> > > >=20
-> > > > CC: Lennert Buytenhek <kernel@wantstofly.org>
-> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > ---
-> > > >  MAINTAINERS                                        |    2 +-
-> > > >  drivers/net/Kconfig                                |    2 --
-> > > >  drivers/net/Makefile                               |    1 -
-> > > >  drivers/net/ethernet/Kconfig                       |    1 +
-> > > >  drivers/net/ethernet/Makefile                      |    1 +
-> > > >  drivers/net/ethernet/radisys/Kconfig               |   16 ++++++++=
-++++++++
-> > > >  drivers/net/ethernet/radisys/Makefile              |    5 +++++
-> > > >  drivers/net/{ =3D> ethernet/radisys}/ixp2000/Kconfig |    2 +-
-> > > >  .../net/{ =3D> ethernet/radisys}/ixp2000/Makefile    |    0
-> > >=20
-> > > The ixp2000 is a series of Intel ARM SoCs, and the ENP2611 is a Radis=
-ys
-> > > PCI board based on the ixp2000 series (ixp2400), so it doesn't make
-> > > sense to put everything in the radisys/ directory.
-> >=20
-> > It was suggested earlier that it probably should be in either ixp/ or
-> > radisys/, and someone suggested that ixp/ might be confusing.  If you
-> > would like to keep it under drivers/net/ethernet/ixp2000, I am fine wit=
-h
-> > that as well.
-> >=20
-> > > If you insist on moving all drivers into vendor directories (I don't
-> > > like that idea at all -- are we going to rename directories and shuff=
-le
-> > > stuff around every time vendor A buys vendor B or takes over one of
-> > > vendor B's products?), at least the core ixp2000 code should be under
-> > > intel/.
-> >=20
-> > It was not my preference to place drivers into vendor specific
-> > directories because of that very reason, as I did the work, it just
-> > tended to work out that way.
-> >=20
-> > The reason (as stated before) that it was not moved into intel/
-> > directory is because the driver was not written (and supported) by
-> > Intel.
->=20
-> I didn't follow the discussion, but that seems like a silly argument.
-> Does that mean that any non-vendor supported driver can't go into
-> drivers/net/$vendor/?  What if the vendor starts contributing to the
-> driver later on, will the driver be moved then?
->=20
-> It seems that what you're saying is that you don't want the ixp2000
-> driver in "your" subdirectory.
+Need to protect against len < 0
 
-It is more that all the drivers that in intel/ are all very similar and
-have "common" code which potentially code be shared.  We have been
-looking at what possibilities there are for the common code between the
-Intel supported drivers.  So it really did not make sense to throw a
-driver into the intel/ directory just because it used an Intel chip, but
-has nothing in common with the other drivers in that directory.  Sorry
-if my previous explanation sounded like it I just did not want the
-drivers in the intel/ because we did not write or support it.
+> +
+> +	strncpy(stem, alias, len);
+> +	stem[len] = '\0';
+> +
+> +	return strlen(++end) ? simple_strtoul(end, NULL, 10) : 0;
+> +}
+> +
+> +/**
+> + * of_alias_scan - Scan all properties of 'aliases' node
+> + *
+> + * The function scans all the properties of 'aliases' node and populate
+> + * the the global lookup table with the properties.  It returns the
+> + * number of alias_prop found, or error code in error case.
+> + */
+> +int of_alias_scan(void)
 
-After looking at ixp2000/ixp4xx drivers and the 82586/82596 drivers a
-bit more, I came up with the solution of putting the IXP drivers in
-xscale/ and the 82586/82596 drivers in i825xx/ directory.
+Changed to '__init void of_aliases_scan(void)'.  There is no point in
+returning an error code since it is never checked, and there is no
+point in bailing on an error just in case it is a problem with only
+one alias.
 
---=-dC083bFPj80eB4GrEkfX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> +{
+> +	struct property *pp;
+> +	int ret, num = 0;
+> +
+> +	if (!of_aliases)
+> +		return -ENODEV;
+> +
+> +	for_each_property(pp, of_aliases->properties) {
+> +		char stem[32];
+> +		int id = of_alias_decode(pp->name, stem);
+> +
+> +		/* Skip those we do not want to proceed */
+> +		if (!strcmp(pp->name, "name") ||
+> +		    !strcmp(pp->name, "phandle") ||
+> +		    !strcmp(pp->name, "linux,phandle"))
+> +			continue;
+> +
+> +		ret = of_alias_lookup_add(pp->name, id, stem,
+> +					  of_find_node_by_path(pp->value));
+> +		if (ret < 0)
+> +			return ret;
+> +		else
+> +			num++;
+> +	}
+> +
+> +	return num;
+> +}
+> +
+> +/**
+> + * of_alias_get_id - Get alias id for the given device_node
+> + * @np:		Pointer to the given device_node
+> + * @stem:	Alias stem of the given device_node
+> + *
+> + * The function travels the lookup table to get alias id for the given
+> + * device_node and alias stem.  It returns the alias id if find it.
+> + * If not, dynamically creates one in the lookup table and returns it,
+> + * or returns error code if fail to create.
+> + */
+> +int of_alias_get_id(struct device_node *np, const char *stem)
+> +{
+> +	struct alias_prop *app;
+> +	int id = -1;
+> +
+> +	list_for_each_entry(app, &aliases_lookup, link) {
+> +		if (np == app->np) {
+> +			id = app->alias_id;
+> +			break;
+> +		}
+> +	}
+> +
+> +	if (id == -1) {
+> +		id = of_alias_find_available_id(np, stem);
+> +		if (of_alias_lookup_add(NULL, id, stem, np) < 0)
+> +			return -ENODEV;
+> +	}
+> +
+> +	return id;
+> +}
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+This whole function needs to be protected by a mutex.
 
-iQEcBAABAgAGBQJOH5WVAAoJECTsCADr/EWUmkUH/RFvIzwehucIzB1/68XWaq1a
-NZzV/8xRtQ9XhG+jRqWyI2Sdyu8RbWMdgF9j1ODognVlNUbT1WCOJ9r3oo+Pzmdj
-s2zC53T00xhrCg2BEzqgntpa516GMwKHlA66Fkmq46vk9tSCa4KHT1nm9JxctwvS
-UUS6iKkbR5QwSCyqjh04aCxRF83ZvxzKFDX7794Bw7v6Eqj5BrihPrf5e+zyzSY9
-9p47x9Xn6P63LBu7+ZYJanHLhpviffCJxkIcPgxMSFy2KvbcGHT04oznGSgYJBFO
-cFx8fDZdEJZK9cVCN9z+jH/Lx+1UgWQxdkjMjzw6Kqk5jh9AMNn2lLqQzeCeovw=
-=A2Yg
------END PGP SIGNATURE-----
+> +EXPORT_SYMBOL_GPL(of_alias_get_id);
+> diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
+> index 65200af..998dc63 100644
+> --- a/drivers/of/fdt.c
+> +++ b/drivers/of/fdt.c
+> @@ -711,6 +711,12 @@ void __init unflatten_device_tree(void)
+>  	of_chosen = of_find_node_by_path("/chosen");
+>  	if (of_chosen == NULL)
+>  		of_chosen = of_find_node_by_path("/chosen@0");
+> +
+> +	of_aliases = of_find_node_by_path("/aliases");
+> +	if (of_aliases == NULL)
+> +		of_aliases = of_find_node_by_path("/aliases@0");
 
---=-dC083bFPj80eB4GrEkfX--
+I don't think the /aliases@0 variant is necessary.  I've dropped it.
 
+g.
+
+> +
+> +	of_alias_scan();
+>  }
+>  
+>  #endif /* CONFIG_OF_EARLY_FLATTREE */
+> diff --git a/include/linux/of.h b/include/linux/of.h
+> index bfc0ed1..c35cc47 100644
+> --- a/include/linux/of.h
+> +++ b/include/linux/of.h
+> @@ -68,6 +68,7 @@ struct device_node {
+>  /* Pointer for first entry in chain of all nodes. */
+>  extern struct device_node *allnodes;
+>  extern struct device_node *of_chosen;
+> +extern struct device_node *of_aliases;
+>  extern rwlock_t devtree_lock;
+>  
+>  static inline bool of_have_populated_dt(void)
+> @@ -201,6 +202,9 @@ extern int of_device_is_available(const struct device_node *device);
+>  extern const void *of_get_property(const struct device_node *node,
+>  				const char *name,
+>  				int *lenp);
+> +#define for_each_property(pp, properties) \
+> +	for (pp = properties; pp != NULL; pp = pp->next)
+> +
+>  extern int of_n_addr_cells(struct device_node *np);
+>  extern int of_n_size_cells(struct device_node *np);
+>  extern const struct of_device_id *of_match_node(
+> @@ -213,6 +217,9 @@ extern int of_parse_phandles_with_args(struct device_node *np,
+>  	const char *list_name, const char *cells_name, int index,
+>  	struct device_node **out_node, const void **out_args);
+>  
+> +extern int of_alias_scan(void);
+> +extern int of_alias_get_id(struct device_node *np, const char *stem);
+> +
+>  extern int of_machine_is_compatible(const char *compat);
+>  
+>  extern int prom_add_property(struct device_node* np, struct property* prop);
+> -- 
+> 1.7.4.1
+> 
