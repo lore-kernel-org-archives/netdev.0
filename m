@@ -1,129 +1,159 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] gianfar: rx parser
-Date: Fri, 15 Jul 2011 21:51:34 +0200
-Message-ID: <20110715195133.GA3499@minipsycho.orion>
-References: <1310728141.28792.10.camel@DENEC1DT0191>
- <20110715.080610.256697325487445331.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sebastian.belden@googlemail.com, netdev@vger.kernel.org,
-	sandeep.kumar@freescale.com
-To: David Miller <davem@davemloft.net>
+From: Dan McGee <dan@archlinux.org>
+Subject: [PATCH] iproute2: fix several warnings emitted by clang scan-build
+Date: Fri, 15 Jul 2011 14:59:26 -0500
+Message-ID: <1310759966-10465-1-git-send-email-dan@archlinux.org>
+Cc: Dan McGee <dan@archlinux.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35611 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752157Ab1GOTvm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2011 15:51:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20110715.080610.256697325487445331.davem@davemloft.net>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:61666 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754691Ab1GOT7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 15:59:30 -0400
+Received: by yxi11 with SMTP id 11so687346yxi.19
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 12:59:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ri, Jul 15, 2011 at 05:06:10PM CEST, davem@davemloft.net wrote:
->From: "Sebastian P=F6hn" <sebastian.belden@googlemail.com>
->Date: Fri, 15 Jul 2011 13:09:01 +0200
->
->> +	struct gfar __iomem *regs =3D NULL;
->> +	u32 tempval =3D 0;
->> +=09
->> +	regs =3D priv->gfargrp[0].regs;
->
->There is no reason to initialize the variable 'regs' to NULL only to
->initialize it to something else 2 lines later.
->
->The initial 'tempval' initialization is also redundant, for the same
->reason.
+* genl/genl.c: remove unused basename logic, avoid dereference of
+  possibly NULL variable
+* ip/iptuntap.c: avoid double open and leak of file handle
+* misc/arpd.c: zero out socklen structure
+* misc/{ifstat,nstat,rtacct}.c: ensure uptime is initialized if
+  /proc/uptime cannot be opened
+* tc/m_xt.c: only unset fields if m is non-NULL
 
-
-fixed:
-
-=46rom: Sebastian P=F6hn <sebastian.belden@googlemail.com>
-Subject: [patch net-next-2.6] gianfar: rx parser
-
-Only let the rx parser be enabled if it is necessary (if VLAN extractio=
-n,
-IP or TCP checksumming or the rx queue filer are enabled). Otherwise
-disable it.
-
-The new routine gfar_check_rx_parser_mode should be run after every
-change on this features and will enable/disable the parser as necessary=
-=2E
-
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+Signed-off-by: Dan McGee <dan@archlinux.org>
 ---
- drivers/net/gianfar.c |   24 +++++++++++++++++++-----
- drivers/net/gianfar.h |    3 ++-
- 2 files changed, 21 insertions(+), 6 deletions(-)
+ genl/genl.c   |   11 ++---------
+ ip/iptuntap.c |    2 +-
+ misc/arpd.c   |    2 ++
+ misc/ifstat.c |    2 +-
+ misc/nstat.c  |    2 +-
+ misc/rtacct.c |    2 +-
+ tc/m_xt.c     |   15 ++++++++-------
+ 7 files changed, 16 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 3321d71..d265c6e 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -2287,6 +2287,23 @@ static int gfar_set_mac_address(struct net_devic=
-e *dev)
+diff --git a/genl/genl.c b/genl/genl.c
+index 7ec24eb..2bee1bf 100644
+--- a/genl/genl.c
++++ b/genl/genl.c
+@@ -109,14 +109,6 @@ static void usage(void)
+ 
+ int main(int argc, char **argv)
+ {
+-	char *basename;
+-
+-	basename = strrchr(argv[0], '/');
+-	if (basename == NULL)
+-		basename = argv[0];
+-	else
+-		basename++;
+-
+ 	while (argc > 1) {
+ 		if (argv[1][0] != '-')
+ 			break;
+@@ -144,8 +136,9 @@ int main(int argc, char **argv)
+ 		int ret;
+ 		struct genl_util *a = NULL;
+ 		a = get_genl_kind(argv[1]);
+-		if (NULL == a) {
++		if (!a) {
+ 			fprintf(stderr,"bad genl %s\n",argv[1]);
++			exit(-1);
+ 		}
+ 
+ 		ret = a->parse_genlopt(a, argc-1, argv+1);
+diff --git a/ip/iptuntap.c b/ip/iptuntap.c
+index 2a8aa7f..588926c 100644
+--- a/ip/iptuntap.c
++++ b/ip/iptuntap.c
+@@ -47,7 +47,7 @@ static void usage(void)
+ 
+ static int tap_add_ioctl(struct ifreq *ifr, uid_t uid, gid_t gid)
+ {
+-	int fd = open(TUNDEV, O_RDWR);
++	int fd;
+ 	int ret = -1;
+ 
+ #ifdef IFF_TUN_EXCL
+diff --git a/misc/arpd.c b/misc/arpd.c
+index 128c49d..647b197 100644
+--- a/misc/arpd.c
++++ b/misc/arpd.c
+@@ -485,6 +485,8 @@ void get_arp_pkt(void)
+ 	DBT dbkey, dbdat;
+ 	int n;
+ 
++	memset(&sll, 0, sizeof(sll));
++
+ 	n = recvfrom(pset[0].fd, buf, sizeof(buf), MSG_DONTWAIT,
+ 		     (struct sockaddr*)&sll, &sll_len);
+ 	if (n < 0) {
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index 1cd55c4..7d33f5e 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -708,7 +708,7 @@ int main(int argc, char *argv[])
+ 		}
+ 		if (!ignore_history) {
+ 			FILE *tfp;
+-			long uptime;
++			long uptime = -1;
+ 			if ((tfp = fopen("/proc/uptime", "r")) != NULL) {
+ 				if (fscanf(tfp, "%ld", &uptime) != 1)
+ 					uptime = -1;
+diff --git a/misc/nstat.c b/misc/nstat.c
+index 4f73c62..2f06ffd 100644
+--- a/misc/nstat.c
++++ b/misc/nstat.c
+@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
+ 		}
+ 		if (!ignore_history) {
+ 			FILE *tfp;
+-			long uptime;
++			long uptime = -1;
+ 			if ((tfp = fopen("/proc/uptime", "r")) != NULL) {
+ 				if (fscanf(tfp, "%ld", &uptime) != 1)
+ 					uptime = -1;
+diff --git a/misc/rtacct.c b/misc/rtacct.c
+index ab8fdbb..49168bd 100644
+--- a/misc/rtacct.c
++++ b/misc/rtacct.c
+@@ -580,7 +580,7 @@ int main(int argc, char *argv[])
+ 
+ 		if (!ignore_history) {
+ 			FILE *tfp;
+-			long uptime;
++			long uptime = -1;
+ 			if ((tfp = fopen("/proc/uptime", "r")) != NULL) {
+ 				if (fscanf(tfp, "%ld", &uptime) != 1)
+ 					uptime = -1;
+diff --git a/tc/m_xt.c b/tc/m_xt.c
+index 86e223b..b3fdc1d 100644
+--- a/tc/m_xt.c
++++ b/tc/m_xt.c
+@@ -252,13 +252,14 @@ static int parse_ipt(struct action_util *a,int *argc_p,
+ 
+ 	optind = 0;
+ 	xtables_free_opts(1);
+-	/* Clear flags if target will be used again */
+-        m->tflags=0;
+-        m->used=0;
+-	/* Free allocated memory */
+-        if (m->t)
+-            free(m->t);
+-
++	if (m) {
++		/* Clear flags if target will be used again */
++		m->tflags = 0;
++		m->used = 0;
++		/* Free allocated memory */
++		if (m->t)
++			free(m->t);
++	}
+ 
  	return 0;
- }
-=20
-+/* Check if rx parser should be activated */
-+void gfar_check_rx_parser_mode(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs;
-+	u32 tempval;
-+
-+	regs =3D priv->gfargrp[0].regs;
-+
-+	tempval =3D gfar_read(&regs->rctrl);
-+	/* If parse is no longer required, then disable parser */
-+	if (tempval & RCTRL_REQ_PARSER)
-+		tempval |=3D RCTRL_PRSDEP_INIT;
-+	else
-+		tempval &=3D ~RCTRL_PRSDEP_INIT;
-+	gfar_write(&regs->rctrl, tempval);
-+}
-+
-=20
- /* Enables and disables VLAN insertion/extraction */
- static void gfar_vlan_rx_register(struct net_device *dev,
-@@ -2323,12 +2340,9 @@ static void gfar_vlan_rx_register(struct net_dev=
-ice *dev,
- 		/* Disable VLAN tag extraction */
- 		tempval =3D gfar_read(&regs->rctrl);
- 		tempval &=3D ~RCTRL_VLEX;
--		/* If parse is no longer required, then disable parser */
--		if (tempval & RCTRL_REQ_PARSER)
--			tempval |=3D RCTRL_PRSDEP_INIT;
--		else
--			tempval &=3D ~RCTRL_PRSDEP_INIT;
- 		gfar_write(&regs->rctrl, tempval);
-+
-+		gfar_check_rx_parser_mode(priv);
- 	}
-=20
- 	gfar_change_mtu(dev, dev->mtu);
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 27499c6..87c1d86 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -286,7 +286,7 @@ extern const char gfar_driver_version[];
- #define RCTRL_PROM		0x00000008
- #define RCTRL_EMEN		0x00000002
- #define RCTRL_REQ_PARSER	(RCTRL_VLEX | RCTRL_IPCSEN | \
--				 RCTRL_TUCSEN)
-+				 RCTRL_TUCSEN | RCTRL_FILREN)
- #define RCTRL_CHECKSUMMING	(RCTRL_IPCSEN | RCTRL_TUCSEN | \
- 				RCTRL_PRSDEP_INIT)
- #define RCTRL_EXTHASH		(RCTRL_GHTX)
-@@ -1182,6 +1182,7 @@ extern void gfar_configure_coalescing(struct gfar=
-_private *priv,
- 		unsigned long tx_mask, unsigned long rx_mask);
- void gfar_init_sysfs(struct net_device *dev);
- int gfar_set_features(struct net_device *dev, u32 features);
-+extern void gfar_check_rx_parser_mode(struct gfar_private *priv);
-=20
- extern const struct ethtool_ops gfar_ethtool_ops;
-=20
---=20
+ 
+-- 
 1.7.6
 
