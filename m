@@ -1,54 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 07/10] net: remove NETIF_F_NO_CSUM feature
-Date: Thu, 14 Jul 2011 17:05:06 -0700 (PDT)
-Message-ID: <20110714.170506.1425372007221475085.davem@davemloft.net>
-References: <20110714205623.GD16759@rere.qmqm.pl>
-	<20110714.143121.1603730405553208694.davem@davemloft.net>
-	<20110714224445.GA18237@rere.qmqm.pl>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [RFC 46/72] ixp2000: Move the Radisys driver
+Date: Fri, 15 Jul 2011 02:08:19 +0200
+Message-ID: <20110715000819.GK951@wantstofly.org>
+References: <1309010363-22750-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1309010363-22750-47-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20110626114721.GA19500@wantstofly.org>
+ <1310227137.26989.43.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: mirq-linux@rere.qmqm.pl
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56892 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932359Ab1GOAGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 20:06:16 -0400
-In-Reply-To: <20110714224445.GA18237@rere.qmqm.pl>
+Received: from fw.wantstofly.org ([80.101.37.227]:51856 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932152Ab1GOAIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2011 20:08:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1310227137.26989.43.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Fri, 15 Jul 2011 00:44:45 +0200
+On Sat, Jul 09, 2011 at 08:58:56AM -0700, Jeff Kirsher wrote:
 
-> On Thu, Jul 14, 2011 at 02:31:21PM -0700, David Miller wrote:
->> From: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
->> Date: Thu, 14 Jul 2011 22:56:23 +0200
->> > That's why its turned off by default and should be enabled only wh=
-en user
->> > knows he will win some pps with it.
->> More people are going to lose than win by your change.
->>=20
->> The nocopy feature helps more real situations than it hurts, the
->> existing default is the best.
->=20
-> I see. I still want to remove NO_CSUM (as I explained in other mail),
-> so would you accept replacing it with something more specific to
-> nocache-copy feature? READS_DATA maybe? That could be later added to
-> sk_route_caps whenever it's known for a route there will be need to
-> read packets' data.
+> > > Move the Radisys driver into drivers/net/ethernet/radisys/ and
+> > > make the necessary Kconfig and Makefile changes
+> > > 
+> > > CC: Lennert Buytenhek <kernel@wantstofly.org>
+> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > ---
+> > >  MAINTAINERS                                        |    2 +-
+> > >  drivers/net/Kconfig                                |    2 --
+> > >  drivers/net/Makefile                               |    1 -
+> > >  drivers/net/ethernet/Kconfig                       |    1 +
+> > >  drivers/net/ethernet/Makefile                      |    1 +
+> > >  drivers/net/ethernet/radisys/Kconfig               |   16 ++++++++++++++++
+> > >  drivers/net/ethernet/radisys/Makefile              |    5 +++++
+> > >  drivers/net/{ => ethernet/radisys}/ixp2000/Kconfig |    2 +-
+> > >  .../net/{ => ethernet/radisys}/ixp2000/Makefile    |    0
+> > 
+> > The ixp2000 is a series of Intel ARM SoCs, and the ENP2611 is a Radisys
+> > PCI board based on the ixp2000 series (ixp2400), so it doesn't make
+> > sense to put everything in the radisys/ directory.
+> 
+> It was suggested earlier that it probably should be in either ixp/ or
+> radisys/, and someone suggested that ixp/ might be confusing.  If you
+> would like to keep it under drivers/net/ethernet/ixp2000, I am fine with
+> that as well.
+> 
+> > If you insist on moving all drivers into vendor directories (I don't
+> > like that idea at all -- are we going to rename directories and shuffle
+> > stuff around every time vendor A buys vendor B or takes over one of
+> > vendor B's products?), at least the core ixp2000 code should be under
+> > intel/.
+> 
+> It was not my preference to place drivers into vendor specific
+> directories because of that very reason, as I did the work, it just
+> tended to work out that way.
+> 
+> The reason (as stated before) that it was not moved into intel/
+> directory is because the driver was not written (and supported) by
+> Intel.
 
-I don't actually see what the problem is.
+I didn't follow the discussion, but that seems like a silly argument.
+Does that mean that any non-vendor supported driver can't go into
+drivers/net/$vendor/?  What if the vendor starts contributing to the
+driver later on, will the driver be moved then?
 
-The code wants to conditionalize the nocache-copy feature based upon
-whether hardware will checksum the packet or not.
-
-And that's exactly what it's testing.
-
-The reason, of course, is because it doesn't want to enable
-nocache-copy if the cpu is just going to read the data back into it's
-caches during the checksum.  But that's no reason to change the
-flag name to have the word "read" instead of "checksum" in it.
-
+It seems that what you're saying is that you don't want the ixp2000
+driver in "your" subdirectory.
