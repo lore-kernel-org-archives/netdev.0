@@ -1,51 +1,59 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 09/10] nfs: use sk fragment destructors to delay I/O
- completion until page is released by network stack.
-Date: Fri, 15 Jul 2011 10:01:29 -0400
-Message-ID: <1310738489.4381.20.camel@lade.trondhjem.org>
-References: <1310728006.20648.3.camel@zakaz.uk.xensource.com>
-	 <1310728031-19569-9-git-send-email-ian.campbell@citrix.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 00/14] Swap-over-NBD without deadlocking v5
+Date: Fri, 15 Jul 2011 15:10:21 +0100
+Message-ID: <20110715141021.GZ7529@suse.de>
+References: <1308575540-25219-1-git-send-email-mgorman@suse.de>
+ <20110706165146.be7ab61b.akpm@linux-foundation.org>
+ <20110707094737.GG15285@suse.de>
+ <20110707125831.GA15412@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1310728031-19569-9-git-send-email-ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20110707125831.GA15412@infradead.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-07-15 at 12:07 +0100, Ian Campbell wrote: 
-> Thos prevents an issue where an ACK is delayed, a retransmit is queued (either
-> at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-> wire. If this happens then the write() system call and the userspace process
-> can continue potentially modifying the data before the retransmission occurs.
+On Thu, Jul 07, 2011 at 08:58:31AM -0400, Christoph Hellwig wrote:
+> On Thu, Jul 07, 2011 at 10:47:37AM +0100, Mel Gorman wrote:
+> > Additional complexity is required for swap-over-NFS but affects the
+> > core kernel far less than this series. I do not have a series prepared
+> > but from what's in a distro kernel, supporting NFS requires extending
+> > address_space_operations for swapfile activation/deactivation with
+> > some minor helpers and the bulk of the remaining complexity within
+> > NFS itself.
 > 
-> NB: this only covers the O_DIRECT write() case. I expect other cases to need
-> handling as well.
+> The biggest addition for swap over NFS is to add proper support for
+> a filesystem interface to do I/O on random kernel pages instead of
+> the current nasty bmap hack the swapfile code is using. Splitting
+> that work from all the required VM infrastructure should make life
+> easier for everyone involved and allows merging it independeny as
+> both bits have other uses case as well.
+> 
 
-That is why this belongs entirely in the RPC layer, and really should
-not touch the NFS layer.
-If you move your callback to the RPC layer and have it notify the
-rpc_task when the pages have been sent, then it should be possible to
-achieve the same thing.
+The swap-over-nfs patches allows this possibility. There is a swapon
+interface added that could be used by the filesystem to ensure the
+underlying blocks are allocated and a swap_out/swap_in interface that
+takes a struct file, struct page and writeback_control. This would
+be an alternative to bmap being used to record the blocks backing
+each extent.
 
-IOW: Add an extra state machine step after call_decode() which checks if
-all the page data has been transmitted and if not, puts the rpc_task on
-a wait queue, and has it wait for the fragment destructor callback
-before calling rpc_exit_task().
+Any objection to the swap-over-NBD stuff going ahead to get part of the
+complexity out of the way?
 
-Cheers
-  Trond
 -- 
-Trond Myklebust
-Linux NFS client maintainer
-
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
+Mel Gorman
+SUSE Labs
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
