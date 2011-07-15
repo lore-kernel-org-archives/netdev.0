@@ -1,170 +1,151 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 07/21] bnad: do vlan cleanup
-Date: Fri, 15 Jul 2011 23:33:25 +0200
-Message-ID: <1310765619-27827-8-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 06/21] atl1e: do vlan cleanup
+Date: Fri, 15 Jul 2011 23:33:24 +0200
+Message-ID: <1310765619-27827-7-git-send-email-jpirko@redhat.com>
 References: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55549 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51907 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752605Ab1GOVeA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2011 17:34:00 -0400
+	id S1751762Ab1GOVd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2011 17:33:59 -0400
 In-Reply-To: <1310765619-27827-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 - unify vlan and nonvlan rx path
-- kill bnad->vlan_grp and bnad_vlan_rx_register
+- kill adapter->vlgrp and atl1e_vlan_rx_register
+- enable vlan hw accel always
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/bna/bnad.c |   55 ++++++++++++++---------------------------------
- drivers/net/bna/bnad.h |    3 +-
- 2 files changed, 19 insertions(+), 39 deletions(-)
+ drivers/net/atl1e/atl1e.h      |    1 -
+ drivers/net/atl1e/atl1e_main.c |   49 +++++-----------------------------------
+ 2 files changed, 6 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
-index fa997bf..c89c9b2 100644
---- a/drivers/net/bna/bnad.c
-+++ b/drivers/net/bna/bnad.c
-@@ -15,6 +15,7 @@
-  * All rights reserved
-  * www.brocade.com
-  */
-+#include <linux/bitops.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <linux/etherdevice.h>
-@@ -24,6 +25,7 @@
- #include <linux/if_ether.h>
- #include <linux/ip.h>
- #include <linux/prefetch.h>
-+#include <linux/if_vlan.h>
- 
- #include "bnad.h"
- #include "bna.h"
-@@ -514,24 +516,16 @@ bnad_poll_cq(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 		rcb->rxq->rx_bytes += skb->len;
- 		skb->protocol = eth_type_trans(skb, bnad->netdev);
- 
--		if (bnad->vlan_grp && (flags & BNA_CQ_EF_VLAN)) {
--			struct bnad_rx_ctrl *rx_ctrl =
--				(struct bnad_rx_ctrl *)ccb->ctrl;
--			if (skb->ip_summed == CHECKSUM_UNNECESSARY)
--				vlan_gro_receive(&rx_ctrl->napi, bnad->vlan_grp,
--						ntohs(cmpl->vlan_tag), skb);
--			else
--				vlan_hwaccel_receive_skb(skb,
--							 bnad->vlan_grp,
--							 ntohs(cmpl->vlan_tag));
--
--		} else { /* Not VLAN tagged/stripped */
--			struct bnad_rx_ctrl *rx_ctrl =
--				(struct bnad_rx_ctrl *)ccb->ctrl;
--			if (skb->ip_summed == CHECKSUM_UNNECESSARY)
--				napi_gro_receive(&rx_ctrl->napi, skb);
--			else
--				netif_receive_skb(skb);
-+		if (flags & BNA_CQ_EF_VLAN)
-+			__vlan_hwaccel_put_tag(skb, ntohs(cmpl->vlan_tag));
-+
-+		if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+			struct bnad_rx_ctrl *rx_ctrl;
-+
-+			rx_ctrl = (struct bnad_rx_ctrl *) ccb->ctrl;
-+			napi_gro_receive(&rx_ctrl->napi, skb);
-+		} else {
-+			netif_receive_skb(skb);
- 		}
- 
- next:
-@@ -1981,19 +1975,14 @@ bnad_enable_default_bcast(struct bnad *bnad)
- static void
- bnad_restore_vlans(struct bnad *bnad, u32 rx_id)
- {
--	u16 vlan_id;
-+	u16 vid;
- 	unsigned long flags;
- 
--	if (!bnad->vlan_grp)
--		return;
--
- 	BUG_ON(!(VLAN_N_VID == (BFI_MAX_VLAN + 1)));
- 
--	for (vlan_id = 0; vlan_id < VLAN_N_VID; vlan_id++) {
--		if (!vlan_group_get_device(bnad->vlan_grp, vlan_id))
--			continue;
-+	for_each_set_bit(vid, bnad->active_vlans, VLAN_N_VID) {
- 		spin_lock_irqsave(&bnad->bna_lock, flags);
--		bna_rx_vlan_add(bnad->rx_info[rx_id].rx, vlan_id);
-+		bna_rx_vlan_add(bnad->rx_info[rx_id].rx, vid);
- 		spin_unlock_irqrestore(&bnad->bna_lock, flags);
+diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/atl1e/atl1e.h
+index 8c8181b..829b5ad 100644
+--- a/drivers/net/atl1e/atl1e.h
++++ b/drivers/net/atl1e/atl1e.h
+@@ -433,7 +433,6 @@ struct atl1e_rx_ring {
+ struct atl1e_adapter {
+ 	struct net_device   *netdev;
+ 	struct pci_dev      *pdev;
+-	struct vlan_group   *vlgrp;
+ 	struct napi_struct  napi;
+ 	struct mii_if_info  mii;    /* MII interface info */
+ 	struct atl1e_hw        hw;
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index c3c5db1..c4c022a 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -313,36 +313,6 @@ static void atl1e_set_multi(struct net_device *netdev)
  	}
  }
-@@ -2796,17 +2785,6 @@ bnad_change_mtu(struct net_device *netdev, int new_mtu)
- }
  
- static void
--bnad_vlan_rx_register(struct net_device *netdev,
--				  struct vlan_group *vlan_grp)
+-static void atl1e_vlan_rx_register(struct net_device *netdev,
+-				   struct vlan_group *grp)
 -{
--	struct bnad *bnad = netdev_priv(netdev);
+-	struct atl1e_adapter *adapter = netdev_priv(netdev);
+-	u32 mac_ctrl_data = 0;
 -
--	mutex_lock(&bnad->conf_mutex);
--	bnad->vlan_grp = vlan_grp;
--	mutex_unlock(&bnad->conf_mutex);
+-	netdev_dbg(adapter->netdev, "%s\n", __func__);
+-
+-	atl1e_irq_disable(adapter);
+-
+-	adapter->vlgrp = grp;
+-	mac_ctrl_data = AT_READ_REG(&adapter->hw, REG_MAC_CTRL);
+-
+-	if (grp) {
+-		/* enable VLAN tag insert/strip */
+-		mac_ctrl_data |= MAC_CTRL_RMV_VLAN;
+-	} else {
+-		/* disable VLAN tag insert/strip */
+-		mac_ctrl_data &= ~MAC_CTRL_RMV_VLAN;
+-	}
+-
+-	AT_WRITE_REG(&adapter->hw, REG_MAC_CTRL, mac_ctrl_data);
+-	atl1e_irq_enable(adapter);
 -}
 -
--static void
- bnad_vlan_rx_add_vid(struct net_device *netdev,
- 				 unsigned short vid)
- {
-@@ -2820,6 +2798,7 @@ bnad_vlan_rx_add_vid(struct net_device *netdev,
+-static void atl1e_restore_vlan(struct atl1e_adapter *adapter)
+-{
+-	netdev_dbg(adapter->netdev, "%s\n", __func__);
+-	atl1e_vlan_rx_register(adapter->netdev, adapter->vlgrp);
+-}
+ /*
+  * atl1e_set_mac - Change the Ethernet Address of the NIC
+  * @netdev: network interface device structure
+@@ -1039,8 +1009,7 @@ static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
+ 	value |= (((u32)adapter->hw.preamble_len &
+ 		  MAC_CTRL_PRMLEN_MASK) << MAC_CTRL_PRMLEN_SHIFT);
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_vlan_add(bnad->rx_info[0].rx, vid);
-+	set_bit(vid, bnad->active_vlans);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-	if (adapter->vlgrp)
+-		value |= MAC_CTRL_RMV_VLAN;
++	value |= MAC_CTRL_RMV_VLAN;
  
- 	mutex_unlock(&bnad->conf_mutex);
-@@ -2838,6 +2817,7 @@ bnad_vlan_rx_kill_vid(struct net_device *netdev,
- 	mutex_lock(&bnad->conf_mutex);
+ 	value |= MAC_CTRL_BC_EN;
+ 	if (netdev->flags & IFF_PROMISC)
+@@ -1423,19 +1392,16 @@ static void atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que,
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 			atl1e_rx_checksum(adapter, skb, prrs);
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	clear_bit(vid, bnad->active_vlans);
- 	bna_rx_vlan_del(bnad->rx_info[0].rx, vid);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-			if (unlikely(adapter->vlgrp &&
+-				(prrs->pkt_flag & RRS_IS_VLAN_TAG))) {
++			if (prrs->pkt_flag & RRS_IS_VLAN_TAG) {
+ 				u16 vlan_tag = (prrs->vtag >> 4) |
+ 					       ((prrs->vtag & 7) << 13) |
+ 					       ((prrs->vtag & 8) << 9);
+ 				netdev_dbg(netdev,
+ 					   "RXD VLAN TAG<RRD>=0x%04x\n",
+ 					   prrs->vtag);
+-				vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+-							 vlan_tag);
+-			} else {
+-				netif_receive_skb(skb);
++				__vlan_hwaccel_put_tag(skb, vlan_tag);
+ 			}
++			netif_receive_skb(skb);
  
-@@ -2887,7 +2867,6 @@ static const struct net_device_ops bnad_netdev_ops = {
- 	.ndo_validate_addr      = eth_validate_addr,
- 	.ndo_set_mac_address    = bnad_set_mac_address,
- 	.ndo_change_mtu		= bnad_change_mtu,
--	.ndo_vlan_rx_register   = bnad_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid    = bnad_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid   = bnad_vlan_rx_kill_vid,
+ skip_pkt:
+ 	/* skip current packet whether it's ok or not. */
+@@ -1811,7 +1777,7 @@ static netdev_tx_t atl1e_xmit_frame(struct sk_buff *skb,
+ 
+ 	tpd = atl1e_get_tpd(adapter);
+ 
+-	if (unlikely(vlan_tx_tag_present(skb))) {
++	if (vlan_tx_tag_present(skb)) {
+ 		u16 vlan_tag = vlan_tx_tag_get(skb);
+ 		u16 atl1e_vlan_tag;
+ 
+@@ -1898,7 +1864,6 @@ int atl1e_up(struct atl1e_adapter *adapter)
+ 	}
+ 	atl1e_init_ring_ptrs(adapter);
+ 	atl1e_set_multi(netdev);
+-	atl1e_restore_vlan(adapter);
+ 
+ 	if (atl1e_configure(adapter)) {
+ 		err = -EIO;
+@@ -2093,8 +2058,7 @@ static int atl1e_suspend(struct pci_dev *pdev, pm_message_t state)
+ 				 MAC_CTRL_PRMLEN_MASK) <<
+ 				 MAC_CTRL_PRMLEN_SHIFT);
+ 
+-		if (adapter->vlgrp)
+-			mac_ctrl_data |= MAC_CTRL_RMV_VLAN;
++		mac_ctrl_data |= MAC_CTRL_RMV_VLAN;
+ 
+ 		/* magic packet maybe Broadcast&multicast&Unicast frame */
+ 		if (wufc & AT_WUFC_MAG)
+@@ -2198,7 +2162,6 @@ static const struct net_device_ops atl1e_netdev_ops = {
+ 	.ndo_change_mtu		= atl1e_change_mtu,
+ 	.ndo_do_ioctl		= atl1e_ioctl,
+ 	.ndo_tx_timeout		= atl1e_tx_timeout,
+-	.ndo_vlan_rx_register	= atl1e_vlan_rx_register,
  #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/bna/bnad.h b/drivers/net/bna/bnad.h
-index ccdabad..7aa550b 100644
---- a/drivers/net/bna/bnad.h
-+++ b/drivers/net/bna/bnad.h
-@@ -24,6 +24,7 @@
- #include <linux/etherdevice.h>
- #include <linux/mutex.h>
- #include <linux/firmware.h>
-+#include <linux/if_vlan.h>
- 
- /* Fix for IA64 */
- #include <asm/checksum.h>
-@@ -216,7 +217,7 @@ struct bnad {
- 	struct bnad_tx_info tx_info[BNAD_MAX_TXS];
- 	struct bnad_rx_info rx_info[BNAD_MAX_RXS];
- 
--	struct vlan_group	*vlan_grp;
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	/*
- 	 * These q numbers are global only because
- 	 * they are used to calculate MSIx vectors.
+ 	.ndo_poll_controller	= atl1e_netpoll,
+ #endif
 -- 
 1.7.6
 
