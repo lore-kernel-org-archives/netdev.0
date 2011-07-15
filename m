@@ -1,159 +1,178 @@
-From: Dan McGee <dan@archlinux.org>
-Subject: [PATCH] iproute2: fix several warnings emitted by clang scan-build
-Date: Fri, 15 Jul 2011 14:59:26 -0500
-Message-ID: <1310759966-10465-1-git-send-email-dan@archlinux.org>
-Cc: Dan McGee <dan@archlinux.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Does it matter that autotuning grows the socket buffers on a request/response
+ test?
+Date: Fri, 15 Jul 2011 14:20:08 -0700
+Message-ID: <4E20AF08.6010409@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:61666 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754691Ab1GOT7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 15:59:30 -0400
-Received: by yxi11 with SMTP id 11so687346yxi.19
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 12:59:30 -0700 (PDT)
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:20324 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429Ab1GOVUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 17:20:09 -0400
+Received: from g4t0009.houston.hp.com (g4t0009.houston.hp.com [16.234.32.26])
+	by g4t0017.houston.hp.com (Postfix) with ESMTP id 5037C387C2
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 21:20:09 +0000 (UTC)
+Received: from [16.89.244.213] (tardy.cup.hp.com [16.89.244.213])
+	by g4t0009.houston.hp.com (Postfix) with ESMTP id 1EE5CC084
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 21:20:09 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* genl/genl.c: remove unused basename logic, avoid dereference of
-  possibly NULL variable
-* ip/iptuntap.c: avoid double open and leak of file handle
-* misc/arpd.c: zero out socklen structure
-* misc/{ifstat,nstat,rtacct}.c: ensure uptime is initialized if
-  /proc/uptime cannot be opened
-* tc/m_xt.c: only unset fields if m is non-NULL
+I was getting ready to do some aggregate netperf request/response tests, 
+using the bits that will be the 2.5.0 release of netperf, where the 
+"omni" tests are the default.  This means that rather than seeing the 
+initial socket buffer sizes I started seeing the final socket buffer sizes.
 
-Signed-off-by: Dan McGee <dan@archlinux.org>
----
- genl/genl.c   |   11 ++---------
- ip/iptuntap.c |    2 +-
- misc/arpd.c   |    2 ++
- misc/ifstat.c |    2 +-
- misc/nstat.c  |    2 +-
- misc/rtacct.c |    2 +-
- tc/m_xt.c     |   15 ++++++++-------
- 7 files changed, 16 insertions(+), 20 deletions(-)
+Previously I'd explicitly looked at the final socket buffer sizes during 
+TCP_STREAM tests, and emails about that are burried in the archive.  But 
+I'd never looked explicitly for request/response tests.
 
-diff --git a/genl/genl.c b/genl/genl.c
-index 7ec24eb..2bee1bf 100644
---- a/genl/genl.c
-+++ b/genl/genl.c
-@@ -109,14 +109,6 @@ static void usage(void)
- 
- int main(int argc, char **argv)
- {
--	char *basename;
--
--	basename = strrchr(argv[0], '/');
--	if (basename == NULL)
--		basename = argv[0];
--	else
--		basename++;
--
- 	while (argc > 1) {
- 		if (argv[1][0] != '-')
- 			break;
-@@ -144,8 +136,9 @@ int main(int argc, char **argv)
- 		int ret;
- 		struct genl_util *a = NULL;
- 		a = get_genl_kind(argv[1]);
--		if (NULL == a) {
-+		if (!a) {
- 			fprintf(stderr,"bad genl %s\n",argv[1]);
-+			exit(-1);
- 		}
- 
- 		ret = a->parse_genlopt(a, argc-1, argv+1);
-diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-index 2a8aa7f..588926c 100644
---- a/ip/iptuntap.c
-+++ b/ip/iptuntap.c
-@@ -47,7 +47,7 @@ static void usage(void)
- 
- static int tap_add_ioctl(struct ifreq *ifr, uid_t uid, gid_t gid)
- {
--	int fd = open(TUNDEV, O_RDWR);
-+	int fd;
- 	int ret = -1;
- 
- #ifdef IFF_TUN_EXCL
-diff --git a/misc/arpd.c b/misc/arpd.c
-index 128c49d..647b197 100644
---- a/misc/arpd.c
-+++ b/misc/arpd.c
-@@ -485,6 +485,8 @@ void get_arp_pkt(void)
- 	DBT dbkey, dbdat;
- 	int n;
- 
-+	memset(&sll, 0, sizeof(sll));
-+
- 	n = recvfrom(pset[0].fd, buf, sizeof(buf), MSG_DONTWAIT,
- 		     (struct sockaddr*)&sll, &sll_len);
- 	if (n < 0) {
-diff --git a/misc/ifstat.c b/misc/ifstat.c
-index 1cd55c4..7d33f5e 100644
---- a/misc/ifstat.c
-+++ b/misc/ifstat.c
-@@ -708,7 +708,7 @@ int main(int argc, char *argv[])
- 		}
- 		if (!ignore_history) {
- 			FILE *tfp;
--			long uptime;
-+			long uptime = -1;
- 			if ((tfp = fopen("/proc/uptime", "r")) != NULL) {
- 				if (fscanf(tfp, "%ld", &uptime) != 1)
- 					uptime = -1;
-diff --git a/misc/nstat.c b/misc/nstat.c
-index 4f73c62..2f06ffd 100644
---- a/misc/nstat.c
-+++ b/misc/nstat.c
-@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
- 		}
- 		if (!ignore_history) {
- 			FILE *tfp;
--			long uptime;
-+			long uptime = -1;
- 			if ((tfp = fopen("/proc/uptime", "r")) != NULL) {
- 				if (fscanf(tfp, "%ld", &uptime) != 1)
- 					uptime = -1;
-diff --git a/misc/rtacct.c b/misc/rtacct.c
-index ab8fdbb..49168bd 100644
---- a/misc/rtacct.c
-+++ b/misc/rtacct.c
-@@ -580,7 +580,7 @@ int main(int argc, char *argv[])
- 
- 		if (!ignore_history) {
- 			FILE *tfp;
--			long uptime;
-+			long uptime = -1;
- 			if ((tfp = fopen("/proc/uptime", "r")) != NULL) {
- 				if (fscanf(tfp, "%ld", &uptime) != 1)
- 					uptime = -1;
-diff --git a/tc/m_xt.c b/tc/m_xt.c
-index 86e223b..b3fdc1d 100644
---- a/tc/m_xt.c
-+++ b/tc/m_xt.c
-@@ -252,13 +252,14 @@ static int parse_ipt(struct action_util *a,int *argc_p,
- 
- 	optind = 0;
- 	xtables_free_opts(1);
--	/* Clear flags if target will be used again */
--        m->tflags=0;
--        m->used=0;
--	/* Free allocated memory */
--        if (m->t)
--            free(m->t);
--
-+	if (m) {
-+		/* Clear flags if target will be used again */
-+		m->tflags = 0;
-+		m->used = 0;
-+		/* Free allocated memory */
-+		if (m->t)
-+			free(m->t);
-+	}
- 
- 	return 0;
- 
--- 
-1.7.6
+What surprised me was that a TCP request/response test with single-byte 
+requests and responses, and TCP_NODELAY set, could have its socket 
+buffers grown with say no more than 31 transactions outstanding at one 
+time - ie no more than 31 bytes outstanding on the connection in any one 
+direction at any one time.
 
+It does seem repeatable
+
+# HDR="-P 1";for b in 28 29 30 31; do netperf -t omni $HDR -H 
+15.184.3.62 -- -r 1 -b $b -D -O foo; HDR="-P 0"; done
+OMNI Send|Recv TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 15.184.3.62 
+(15.184.3.62) port 0 AF_INET : nodelay : histogram
+Local       Local       Remote      Remote      Request Response Initial 
+  Elapsed Throughput Throughput
+Send Socket Recv Socket Send Socket Recv Socket Size    Size     Burst 
+   Time               Units
+Size        Size        Size        Size        Bytes   Bytes 
+Requests (sec)
+Final       Final       Final       Final 
+
+16384       87380       16384       87380       1       1        28 
+   10.00   200464.51  Trans/s
+16384       87380       16384       87380       1       1        29 
+   10.00   204136.24  Trans/s
+121200      87380       121200      87380       1       1        30 
+   10.00   198229.08  Trans/s
+121200      87380       121200      87380       1       1        31 
+   10.00   196986.98  Trans/s
+
+
+# HDR="-P 1";for b in 28 29 30 31; do netperf -t omni $HDR -H 
+15.184.3.62 -- -r 1 -b $b -D -O foo; HDR="-P 0"; done
+OMNI Send|Recv TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 15.184.3.62 
+(15.184.3.62) port 0 AF_INET : nodelay : histogram
+Local       Local       Remote      Remote      Request Response Initial 
+  Elapsed Throughput Throughput
+Send Socket Recv Socket Send Socket Recv Socket Size    Size     Burst 
+   Time               Units
+Size        Size        Size        Size        Bytes   Bytes 
+Requests (sec)
+Final       Final       Final       Final 
+
+16384       87380       16384       87380       1       1        28 
+   10.00   202550.00  Trans/s
+16384       87380       16384       87380       1       1        29 
+   10.00   194460.50  Trans/s
+121200      87380       121200      87380       1       1        30 
+   10.00   199372.34  Trans/s
+121200      87380       121200      87380       1       1        31 
+   10.00   196089.33  Trans/s
+
+
+
+The initial burst code does try to "walk up" to the number of 
+outstanding requests to avoid getting things lumped together thanks to 
+cwnd (*).  Though, a tcpdump trace does show the occasional segment of 
+length > 1:
+
+# tcpdump -r /tmp/trans.pcap  tcp and not port 12865 | awk '{print $NF}' 
+| sort -n | uniq -c
+reading from file /tmp/trans.pcap, link-type EN10MB (Ethernet)
+      17 0
+1903752 1
+      28 2
+      29 3
+      10 4
+      11 5
+       9 6
+      14 7
+      18 8
+       9 9
+      12 10
+       3 11
+
+Still, should that have caused the socket buffers to grow?  FWIW, it 
+isn't all single-byte transactions for a burst size of 29 either:
+
+# tcpdump -r /tmp/trans_29.pcap  tcp and not port 12865 | awk '{print 
+$NF}' | sort -n | uniq -c
+reading from file /tmp/trans_29.pcap, link-type EN10MB (Ethernet)
+      13 0
+1771215 1
+       4 2
+       2 3
+       3 4
+       2 5
+       2 6
+       1 7
+       2 8
+       1 9
+       1 11
+
+but that does not seem to grow the socket buffers. 2.6.38-8-server on 
+both sides through a Mellanox MT26438 operating as 10GbE.
+
+rick jones
+
+* #ifdef WANT_FIRST_BURST
+	/* so, since we've gotten a response back, update the
+	   bookkeeping accordingly.  there is one less request
+	   outstanding and we can put one more out there than before. */
+	requests_outstanding -= 1;
+	if ((request_cwnd < first_burst_size) &&
+	    (NETPERF_IS_RR(direction))) {
+	  request_cwnd += 1;
+	  if (debug) {
+	    fprintf(where,
+		    "incr req_cwnd to %d first_burst %d reqs_outstndng %d\n",
+		    request_cwnd,
+		    first_burst_size,
+		    requests_outstanding);
+	  }
+	}
+#endif
+
+Also, some larger burst sizes also cause the receive socket buffer to 
+increase:
+
+# HDR="-P 1";for b in 0 1 2 4 16 64 128 256; do netperf -t omni $HDR -H 
+15.184.3.62 -- -r 1 -b $b -D -O foo; HDR="-P 0"; done
+OMNI Send|Recv TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 15.184.3.62 
+(15.184.3.62) port 0 AF_INET : nodelay : histogram
+Local       Local       Remote      Remote      Request Response Initial 
+  Elapsed Throughput Throughput
+Send Socket Recv Socket Send Socket Recv Socket Size    Size     Burst 
+   Time               Units
+Size        Size        Size        Size        Bytes   Bytes 
+Requests (sec)
+Final       Final       Final       Final 
+
+16384       87380       16384       87380       1       1        0 
+   10.00   20838.10   Trans/s
+16384       87380       16384       87380       1       1        1 
+   10.00   38204.89   Trans/s
+16384       87380       16384       87380       1       1        2 
+   10.00   52497.02   Trans/s
+16384       87380       16384       87380       1       1        4 
+   10.00   70641.97   Trans/s
+16384       87380       16384       87380       1       1        16 
+   10.00   136965.24  Trans/s
+121200      87380       121200      87380       1       1        64 
+   10.00   197037.63  Trans/s
+121200      87380       16384       87380       1       1        128 
+   10.00   203092.56  Trans/s
+121200      313248      121200      349392      1       1        256 
+   10.00   163766.32  Trans/s
