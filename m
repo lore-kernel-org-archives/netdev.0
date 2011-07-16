@@ -1,130 +1,61 @@
-From: Dan McGee <dan@archlinux.org>
-Subject: Re: [PATCH] Rename static setns() function
-Date: Fri, 15 Jul 2011 19:02:00 -0500
-Message-ID: <CAEik5nNiHdL8c9kBTNF41YBNut=L=F4Vv_QdYT3KzAh04nfe5A@mail.gmail.com>
-References: <1310755099-32438-1-git-send-email-dan@archlinux.org>
-	<m1d3hbm7s7.fsf@fess.ebiederm.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: recommended way to support duplicate IP addresses on different VLANs?
+Date: Fri, 15 Jul 2011 17:24:54 -0700
+Message-ID: <m1tyankr6x.fsf@fess.ebiederm.org>
+References: <4E1B0F86.2040508@mail.usask.ca>
+	<201107111804.26500.remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Chris Friesen <cbf123@mail.usask.ca>, netdev@vger.kernel.org
+To: =?utf-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:58549 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750934Ab1GPACA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 20:02:00 -0400
-Received: by pzk3 with SMTP id 3so2112175pzk.5
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2011 17:02:00 -0700 (PDT)
-In-Reply-To: <m1d3hbm7s7.fsf@fess.ebiederm.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:54528 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114Ab1GPAZA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 20:25:00 -0400
+In-Reply-To: <201107111804.26500.remi@remlab.net> (=?utf-8?Q?=22R=C3=A9mi?=
+ Denis-Courmont"'s
+	message of "Mon, 11 Jul 2011 18:04:25 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 15, 2011 at 6:41 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
->
-> Dan can you try this patch I think it does a better job at dealing
-> with libc defining setns but I don't have a brand new libc handy
-> to test with.
+"R=C3=A9mi Denis-Courmont" <remi@remlab.net> writes:
 
-Works perfectly (as long as one remembers to rerun ./configure first).
-It also works fine with my other configure patch I sent to the list.
+> Le lundi 11 juillet 2011 17:58:14 Chris Friesen, vous avez =C3=A9crit=
+ :
+>> Hi all,
+>>=20
+>> We've got a server that sits on multiple VLANs.  Each VLAN is segreg=
+ated
+>> and doesn't know about the others.  The IP address ranges in each of=
+ the
+>> VLANs may overlap, and the server may be assigned the same IP addres=
+s in
+>> multiple VLANs.
+>>=20
+>> We've got a messy solution now involving unique internal addresses a=
+nd
+>> NATing between those and the duplicate external addresses, but I'm
+>> wondering if there is a cleaner way to handle this.
+>>=20
+>> It seems like network namespaces would work, but it would require
+>> multiple instances of our software which is a dealbreaker.
+>>=20
+>> Is there any other way to deal with this scenario?
+>
+> Namespace file descriptors if/when they get accepted.
 
--Dan
+=46or reference.
 
-> From: "Eric W. Biederman" <ebiederm@xmission.com>
-> Date: Fri, 15 Jul 2011 16:36:33 -0700
-> Subject: [PATCH] iproute2: Auto-detect the presence of setns in libc
->
-> If libc has setns present use that version instead of
-> rolling the syscall wrapper by hand.
->
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
-> =C2=A0configure =C2=A0 =C2=A0| =C2=A0 24 ++++++++++++++++++++++++
-> =C2=A0ip/Makefile =C2=A0| =C2=A0 =C2=A06 ++++++
-> =C2=A0ip/ipnetns.c | =C2=A0 =C2=A02 ++
-> =C2=A03 files changed, 32 insertions(+), 0 deletions(-)
->
-> diff --git a/configure b/configure
-> index 69797ab..cfcc82a 100755
-> --- a/configure
-> +++ b/configure
-> @@ -163,6 +163,27 @@ check_ipt_lib_dir()
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0echo "not found!"
-> =C2=A0}
->
-> +check_setns()
-> +{
-> +cat >/tmp/setnstest.c <<EOF
-> +#include <sched.h>
-> +int main(int argc, char **argv)
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 (void)setns(0,0);
-> + =C2=A0 =C2=A0 =C2=A0 return 0;
-> +}
-> +EOF
-> +gcc -I$INCLUDE -o /tmp/setnstest /tmp/setnstest.c >/dev/null 2>&1
-> +if [ $? -eq 0 ]
-> +then
-> + =C2=A0 =C2=A0 =C2=A0 echo "IP_CONFIG_SETNS:=3Dy" >>Config
-> + =C2=A0 =C2=A0 =C2=A0 echo "yes"
-> +else
-> + =C2=A0 =C2=A0 =C2=A0 echo "no"
-> +fi
-> +rm -f /tmp/setnstest.c /tmp/setnstest
-> +}
-> +
-> =C2=A0echo "# Generated config based on" $INCLUDE >Config
->
-> =C2=A0echo "TC schedulers"
-> @@ -178,3 +199,6 @@ check_ipt
->
-> =C2=A0echo -n "iptables modules directory: "
-> =C2=A0check_ipt_lib_dir
-> +
-> +echo -n "libc has setns: "
-> +check_setns
-> diff --git a/ip/Makefile b/ip/Makefile
-> index 2ee4e7c..8d03993 100644
-> --- a/ip/Makefile
-> +++ b/ip/Makefile
-> @@ -7,6 +7,12 @@ IPOBJ=3Dip.o ipaddress.o ipaddrlabel.o iproute.o ipr=
-ule.o ipnetns.o \
->
-> =C2=A0RTMONOBJ=3Drtmon.o
->
-> +include ../Config
-> +
-> +ifeq ($(IP_CONFIG_SETNS),y)
-> + =C2=A0 =C2=A0 =C2=A0 CFLAGS +=3D -DHAVE_SETNS
-> +endif
-> +
-> =C2=A0ALLOBJ=3D$(IPOBJ) $(RTMONOBJ)
-> =C2=A0SCRIPTS=3Difcfg rtpr routel routef
-> =C2=A0TARGETS=3Dip rtmon
-> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-> index db7007c..dff3497 100644
-> --- a/ip/ipnetns.c
-> +++ b/ip/ipnetns.c
-> @@ -28,6 +28,7 @@
-> =C2=A0#define MNT_DETACH =C2=A0 =C2=A0 0x00000002 =C2=A0 =C2=A0 =C2=A0=
-/* Just detach from the tree */
-> =C2=A0#endif /* MNT_DETACH */
->
-> +#ifndef HAVE_SETNS
-> =C2=A0static int setns(int fd, int nstype)
-> =C2=A0{
-> =C2=A0#ifdef __NR_setns
-> @@ -37,6 +38,7 @@ static int setns(int fd, int nstype)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return -1;
-> =C2=A0#endif
-> =C2=A0}
-> +#endif /* HAVE_SETNS */
->
->
-> =C2=A0static int touch(const char *path, mode_t mode)
-> --
-> 1.7.5.1.217.g4e3aa
->
->
+The namespace file descriptor code is in 3.0.  setns is present in the
+latest glibc.  And the iproute support is just finishing up.
+
+What doesn't exist at the moment is a handy socketat library
+function to make it a userspace program that uses multiple network
+namespaces trivial.  But that is only a few lines of code.
+
+It sounds like you don't need the full generality of network
+namespaces but if you do the functionality is present.
+
+Eric
