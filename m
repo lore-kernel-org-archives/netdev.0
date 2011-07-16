@@ -1,61 +1,123 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: recommended way to support duplicate IP addresses on different VLANs?
-Date: Fri, 15 Jul 2011 17:24:54 -0700
-Message-ID: <m1tyankr6x.fsf@fess.ebiederm.org>
-References: <4E1B0F86.2040508@mail.usask.ca>
-	<201107111804.26500.remi@remlab.net>
+Subject: [PATCH] iproute2: Auto-detect the presence of setns in libc
+Date: Fri, 15 Jul 2011 17:26:59 -0700
+Message-ID: <m1mxgfkr3g.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Friesen <cbf123@mail.usask.ca>, netdev@vger.kernel.org
-To: =?utf-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Cc: <netdev@vger.kernel.org>, Dan McGee <dan@archlinux.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:54528 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751114Ab1GPAZA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 20:25:00 -0400
-In-Reply-To: <201107111804.26500.remi@remlab.net> (=?utf-8?Q?=22R=C3=A9mi?=
- Denis-Courmont"'s
-	message of "Mon, 11 Jul 2011 18:04:25 +0300")
+Received: from out01.mta.xmission.com ([166.70.13.231]:59900 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216Ab1GPA1F convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2011 20:27:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"R=C3=A9mi Denis-Courmont" <remi@remlab.net> writes:
 
-> Le lundi 11 juillet 2011 17:58:14 Chris Friesen, vous avez =C3=A9crit=
- :
->> Hi all,
->>=20
->> We've got a server that sits on multiple VLANs.  Each VLAN is segreg=
-ated
->> and doesn't know about the others.  The IP address ranges in each of=
- the
->> VLANs may overlap, and the server may be assigned the same IP addres=
-s in
->> multiple VLANs.
->>=20
->> We've got a messy solution now involving unique internal addresses a=
-nd
->> NATing between those and the duplicate external addresses, but I'm
->> wondering if there is a cleaner way to handle this.
->>=20
->> It seems like network namespaces would work, but it would require
->> multiple instances of our software which is a dealbreaker.
->>=20
->> Is there any other way to deal with this scenario?
->
-> Namespace file descriptors if/when they get accepted.
+If libc has setns present use that version instead of
+rolling the syscall wrapper by hand.
 
-=46or reference.
+Dan McGee found the following compile error:
 
-The namespace file descriptor code is in 3.0.  setns is present in the
-latest glibc.  And the iproute support is just finishing up.
+    gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include
+    -DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\"   -c -o ipnetns.o ipne=
+tns.c
+    ipnetns.c:31:12: error: static declaration of =E2=80=98setns=E2=80=99=
+ follows non-static
+    declaration
+    /usr/include/bits/sched.h:93:12: note: previous declaration of =E2=80=
+=98setns=E2=80=99
+    was here
+    make[1]: *** [ipnetns.o] Error 1
 
-What doesn't exist at the moment is a handy socketat library
-function to make it a userspace program that uses multiple network
-namespaces trivial.  But that is only a few lines of code.
+Reported-by:  Dan McGee <dan@archlinux.org>
+Tested-by:  Dan McGee <dan@archlinux.org>
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ configure    |   24 ++++++++++++++++++++++++
+ ip/Makefile  |    6 ++++++
+ ip/ipnetns.c |    2 ++
+ 3 files changed, 32 insertions(+), 0 deletions(-)
 
-It sounds like you don't need the full generality of network
-namespaces but if you do the functionality is present.
+diff --git a/configure b/configure
+index 69797ab..cfcc82a 100755
+--- a/configure
++++ b/configure
+@@ -163,6 +163,27 @@ check_ipt_lib_dir()
+ 	echo "not found!"
+ }
+=20
++check_setns()
++{
++cat >/tmp/setnstest.c <<EOF
++#include <sched.h>
++int main(int argc, char **argv)=20
++{
++	(void)setns(0,0);
++	return 0;
++}
++EOF
++gcc -I$INCLUDE -o /tmp/setnstest /tmp/setnstest.c >/dev/null 2>&1
++if [ $? -eq 0 ]
++then
++	echo "IP_CONFIG_SETNS:=3Dy" >>Config
++	echo "yes"
++else
++	echo "no"
++fi
++rm -f /tmp/setnstest.c /tmp/setnstest
++}
++
+ echo "# Generated config based on" $INCLUDE >Config
+=20
+ echo "TC schedulers"
+@@ -178,3 +199,6 @@ check_ipt
+=20
+ echo -n "iptables modules directory: "
+ check_ipt_lib_dir
++
++echo -n "libc has setns: "
++check_setns
+diff --git a/ip/Makefile b/ip/Makefile
+index 2ee4e7c..8d03993 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -7,6 +7,12 @@ IPOBJ=3Dip.o ipaddress.o ipaddrlabel.o iproute.o iprul=
+e.o ipnetns.o \
+=20
+ RTMONOBJ=3Drtmon.o
+=20
++include ../Config
++
++ifeq ($(IP_CONFIG_SETNS),y)
++	CFLAGS +=3D -DHAVE_SETNS
++endif
++
+ ALLOBJ=3D$(IPOBJ) $(RTMONOBJ)
+ SCRIPTS=3Difcfg rtpr routel routef
+ TARGETS=3Dip rtmon
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index db7007c..dff3497 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -28,6 +28,7 @@
+ #define MNT_DETACH	0x00000002	/* Just detach from the tree */
+ #endif /* MNT_DETACH */
+=20
++#ifndef HAVE_SETNS
+ static int setns(int fd, int nstype)
+ {
+ #ifdef __NR_setns
+@@ -37,6 +38,7 @@ static int setns(int fd, int nstype)
+ 	return -1;
+ #endif
+ }
++#endif /* HAVE_SETNS */
+=20
+=20
+ static int touch(const char *path, mode_t mode)
+--=20
+1.7.5.1.217.g4e3aa
 
-Eric
