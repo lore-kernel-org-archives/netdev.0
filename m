@@ -1,58 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2: Close device if tx_timeout reset fails
-Date: Sat, 16 Jul 2011 10:13:45 -0700 (PDT)
-Message-ID: <20110716.101345.747267784735513635.davem@davemloft.net>
-References: <1310748838-30877-1-git-send-email-mchan@broadcom.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2] Bluetooth: Fix regressions for 3.0
+Date: Sat, 16 Jul 2011 10:15:18 -0700 (PDT)
+Message-ID: <20110716.101518.1007939482226184514.davem@davemloft.net>
+References: <1310790621-28510-1-git-send-email-padovan@profusion.mobi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fbl@redhat.com
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47626 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689Ab1GPRNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2011 13:13:52 -0400
-In-Reply-To: <1310748838-30877-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1310790621-28510-1-git-send-email-padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 15 Jul 2011 09:53:58 -0700
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Date: Sat, 16 Jul 2011 01:30:19 -0300
 
-> Based on original patch and description from Flavio Leitner <fbl@redhat.com>
+> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
 > 
-> When bnx2_reset_task() is called, it will stop,
-> (re)initialize and start the interface to restore
-> the working condition.
+> Gustavo F. Padovan (1):
+>   Bluetooth: Fix regression in L2CAP connection procedure
 > 
-> The bnx2_init_nic() calls bnx2_reset_nic() which will
-> reset the chip and then calls bnx2_free_skbs() to free
-> all the skbs.
+> Ilia Kolomisnky (1):
+>   Bluetooth: Fix crash with incoming L2CAP connections
 > 
-> The problem happens when bnx2_init_chip() fails because
-> bnx2_reset_nic() will just return skipping the ring
-> initializations at bnx2_init_all_rings(). Later, the
-> reset task starts the interface again and the system
-> crashes due a NULL pointer access (no skb in the ring).
-> 
-> To fix it, we call dev_close() if bnx2_init_nic() fails.
-> One minor wrinkle to deal with is the cancel_work_sync()
-> call in bnx2_close() to cancel bnx2_reset_task().  The
-> call will wait forever because it is trying to cancel
-> itself and the workqueue will be stuck.
-> 
-> Since bnx2_reset_task() holds the rtnl_lock() and checks
-> for netif_running() before proceeding, there is no need
-> to cancel bnx2_reset_task() in bnx2_close() even if
-> bnx2_close() and bnx2_reset_task() are running concurrently.
-> The rtnl_lock() serializes the 2 calls.
-> 
-> We need to move the cancel_work_sync() call to
-> bnx2_remove_one() to make sure it is canceled before freeing
-> the netdev struct.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+>  net/bluetooth/l2cap_core.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
 
-Applied, thanks everyone.
+John I'm going to apply these directly so I can get them to
+Linus in time for 3.0-final.
+
+Thanks Gustavo.
