@@ -1,70 +1,44 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: linux-next: Tree for July 16 (net/bnx2x)
-Date: Sat, 16 Jul 2011 14:01:35 -0700
-Message-ID: <20110716140135.b471aa27.rdunlap@xenotime.net>
-References: <20110717000815.c83755be9598d34ac8431908@canb.auug.org.au>
-	<20110716121427.11760128.rdunlap@xenotime.net>
-	<1310847842.2826.1.camel@lb-tlvb-dmitry>
-	<20110716.132643.101780166611692580.davem@davemloft.net>
-	<1310848256.2826.3.camel@lb-tlvb-dmitry>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Use calculated 'neigh' instead of re-evaluating
+ dst->neighbour
+Date: Sat, 16 Jul 2011 14:26:22 -0700 (PDT)
+Message-ID: <20110716.142622.2055046891903048230.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: dmitry@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1310848256.2826.3.camel@lb-tlvb-dmitry>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Sat, 16 Jul 2011 23:30:56 +0300 Dmitry Kravkov wrote:
-
-> On Sat, 2011-07-16 at 13:26 -0700, David Miller wrote:
-> > From: "Dmitry Kravkov" <dmitry@broadcom.com>
-> > Date: Sat, 16 Jul 2011 23:24:02 +0300
-> > 
-> > > @@ -1403,8 +1403,8 @@ void bnx2x_netif_stop(struct bnx2x *bp, int
-> > > disable_hw)
-> > >  
-> > 
-> > Patch corrupted by your email client, this long line was chopped
-> > up into two lines.
-> > 
-> bnx2x: Fix compilation when CNIC is not selected in config
-> 
-> Reported-by:  Randy Dunlap <rdunlap@xenotime.net>
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
-
-Thanks.
-
-> ---
->  drivers/net/bnx2x/bnx2x_cmn.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-> index e5fac62..b05ce93 100644
-> --- a/drivers/net/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/bnx2x/bnx2x_cmn.c
-> @@ -1403,8 +1403,8 @@ void bnx2x_netif_stop(struct bnx2x *bp, int disable_hw)
->  
->  u16 bnx2x_select_queue(struct net_device *dev, struct sk_buff *skb)
->  {
-> -#ifdef BCM_CNIC
->  	struct bnx2x *bp = netdev_priv(dev);
-> +#ifdef BCM_CNIC
->  	if (NO_FCOE(bp))
->  		return skb_tx_hash(dev, skb);
->  	else {
-> -- 
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43609 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751534Ab1GPV0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2011 17:26:24 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p6GLQMEa015885
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sat, 16 Jul 2011 14:26:24 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+ net/ipv4/ip_output.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index a621b96..1ac674a 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -210,7 +210,7 @@ static inline int ip_finish_output2(struct sk_buff *skb)
+ 		if (hh->hh_len)
+ 			return neigh_hh_output(hh, skb);
+ 		else
+-			return dst->neighbour->output(skb);
++			return neigh->output(skb);
+ 	}
+ 	if (net_ratelimit())
+ 		printk(KERN_DEBUG "ip_finish_output2: No header cache and no neighbour!\n");
+-- 
+1.7.6
+
