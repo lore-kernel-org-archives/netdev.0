@@ -1,34 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/2] Bluetooth: Fix regressions for 3.0
-Date: Sat, 16 Jul 2011 10:15:18 -0700 (PDT)
-Message-ID: <20110716.101518.1007939482226184514.davem@davemloft.net>
-References: <1310790621-28510-1-git-send-email-padovan@profusion.mobi>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sat, 16 Jul 2011 10:43:25 -0700 (PDT)
+Message-ID: <20110716.104325.1217042780857481057.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1310790621-28510-1-git-send-email-padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35940 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946Ab1GPRnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2011 13:43:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Date: Sat, 16 Jul 2011 01:30:19 -0300
-
-> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> 
-> Gustavo F. Padovan (1):
->   Bluetooth: Fix regression in L2CAP connection procedure
-> 
-> Ilia Kolomisnky (1):
->   Bluetooth: Fix crash with incoming L2CAP connections
-> 
->  net/bluetooth/l2cap_core.c |    9 +++++----
->  1 files changed, 5 insertions(+), 4 deletions(-)
-
-John I'm going to apply these directly so I can get them to
-Linus in time for 3.0-final.
-
-Thanks Gustavo.
+DQpBIHNtYWxsIGJhdGNoIG9mIGZpeGVzOg0KDQoxKSBGaXggdHdvIHJlZ3Jlc3Npb25zIGluIGNo
+ZWNrc3VtIG9mZmxvYWQgaGFuZGxpbmcuDQogICBhKSBEbyBub3Qgc2V0IFNDVFAgcGFja2V0cyB0
+byBDSEVDS1NVTV9VTk5FQ0VTU0FSWSwgd2UgZG9uJ3QNCiAgICAgIGhhdmUgc29mdHdhcmUgZmFs
+bGJhY2tzIGluIHRoZSBUWCBwYXRoIGZvciBTQ1RQIGNoZWNrc3VtbWluZw0KICAgICAgYW5kIHRo
+ZXJlZm9yZSB3b24ndCBiZSBhYmxlIHRvIGhhbmRsZSBhIGRpdmVydCBvZiBhIHBhY2tldA0KICAg
+ICAgZnJvbSBhIGRldmljZSB0aGF0IGNhbiBkbyBTQ1RQIGNoZWNrc3VtcyB0byBvbmUgdGhhdCBj
+YW5ub3QuDQogICBiKSBXZSBwcm9wYWdhdGUgY2VydGFpbiBoYXJkd2FyZSBvZmZsb2FkcyB0cmFu
+c3BhcmVudGx5IHRocm91Z2gNCiAgICAgICJzb2Z0d2FyZSIgZGV2aWNlcyAobGlrZSB2bGFuIGFu
+ZCBib25kaW5nKSBidXQgd2UgY2Fubm90IGRvDQogICAgICB0aGF0IHdoZW4gd2UgbGFjayBzb2Z0
+d2FyZSBmYWxsYmFja3MgaW4gdGhlIFRYIHBhdGggYW5kIHRoaXMNCiAgICAgIGlzIHJlbGV2YW50
+IGZvciBTQ1RQIGFuZCBGQ29FIGNoZWNrc3VtbWluZy4gIEdldCByaWQgb2YgdGhlDQogICAgICBO
+RVRJRl9GX0FMTF9UWF9PRkZMT0FEUyBtYWNybyBzaW5jZSBpdCdzIG1pc3VzZSBpcyB3aGF0DQog
+ICAgICBpbnRyb2R1Y2VkIHRoaXMgcmVncmVzc2lvbi4NCg0KMikgTDJDQVAgYmx1ZXRvb3RoIGNv
+bm5lY3Rpb24gcHJvY2VkdXJlIHJlZ3Jlc3Npb24gZml4IGZyb20NCiAgIEd1c3Rhdm8gRi4gUGFk
+b3Zhbi4NCg0KMykgTDJDQVAgaW5jb21taW5nIGNvbm5lY3Rpb25zIGNhbiBjcmFzaCB3aXRoIGRl
+ZmVyX3NldHVwIGVuYWJsZWQNCiAgIGJlY2F1c2UgLT5wYXJlbnQgaXNuJ3Qgc2V0dXAgeWV0LCBo
+YW5kbGUgdGhhdCBwcm9wZXJseS4gIEFsc28NCiAgIGZyb20gR3VzdGF2by4NCg0KNCkgZ2lhbmZh
+ciBkcml2ZXIgbmVlZCB0byBiZSBtb3JlIHNlbGVjdGl2ZSBvZiB3aGVuIHRoZSBSWCBwYXJzZXIN
+CiAgIG9mIHRoZSBjaGlwIGlzIGVuYWJsZWQsIGZyb20gU2ViYXN0aWFuIFBvZWhuLg0KDQo1KSBy
+NjA0MCBOQVBJIGxvZ2ljIGhhcyBhIGJ1ZyB0aGF0IGNhbiBkaXNhYmxlZCBpbnRlcnJ1cHRzIGZv
+cmV2ZXIsDQogICBmaXggZnJvbSBNaWNoYWVsIFRoYWxtZWllci4NCg0KUGxlYXNlIHB1bGwsIHRo
+YW5rcyBhIGxvdCENCg0KVGhlIGZvbGxvd2luZyBjaGFuZ2VzIHNpbmNlIGNvbW1pdCAxNzY1YTM2
+N2EzYjVkNWU5NjkyOTQ5YjBjNWVjOTMzZWZmMmMwNzAxOg0KDQogIE1lcmdlIGJyYW5jaCAnZ3Bp
+by9tZXJnZScgb2YgZ2l0Oi8vZ2l0LnNlY3JldGxhYi5jYS9naXQvbGludXgtMi42ICgyMDExLTA3
+LTE1IDE4OjAzOjMwIC0wNzAwKQ0KDQphcmUgYXZhaWxhYmxlIGluIHRoZSBnaXQgcmVwb3NpdG9y
+eSBhdDoNCg0KICBtYXN0ZXIua2VybmVsLm9yZzovcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2Rh
+dmVtL25ldC0yLjYuZ2l0IG1hc3Rlcg0KDQpHdXN0YXZvIEYuIFBhZG92YW4gKDEpOg0KICAgICAg
+Qmx1ZXRvb3RoOiBGaXggcmVncmVzc2lvbiBpbiBMMkNBUCBjb25uZWN0aW9uIHByb2NlZHVyZQ0K
+DQpJbGlhIEtvbG9taXNua3kgKDEpOg0KICAgICAgQmx1ZXRvb3RoOiBGaXggY3Jhc2ggd2l0aCBp
+bmNvbWluZyBMMkNBUCBjb25uZWN0aW9ucw0KDQpNaWNoYWVsIFRoYWxtZWllciAoMSk6DQogICAg
+ICByNjA0MDogb25seSBkaXNhYmxlIFJYIGludGVycnVwdCBpZiBuYXBpX3NjaGVkdWxlX3ByZXAg
+aXMgc3VjY2Vzc2Z1bA0KDQpNaWNoYcWCIE1pcm9zxYJhdyAoMik6DQogICAgICBuZXQ6IHNjdHA6
+IGZpeCBjaGVja3N1bSBtYXJraW5nIGZvciBvdXRnb2luZyBwYWNrZXRzDQogICAgICBuZXQ6IHJl
+bW92ZSBORVRJRl9GX0FMTF9UWF9PRkZMT0FEUw0KDQpTZWJhc3RpYW4gUMO2aG4gKDEpOg0KICAg
+ICAgZ2lhbmZhcjogcnggcGFyc2VyDQoNCiBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5j
+IHwgICAgNiArKystLS0NCiBkcml2ZXJzL25ldC9naWFuZmFyLmMgICAgICAgICAgIHwgICAyNCAr
+KysrKysrKysrKysrKysrKysrLS0tLS0NCiBkcml2ZXJzL25ldC9naWFuZmFyLmggICAgICAgICAg
+IHwgICAgMyArKy0NCiBkcml2ZXJzL25ldC9yNjA0MC5jICAgICAgICAgICAgIHwgICAgOCArKysr
+Ky0tLQ0KIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggICAgICAgfCAgICA2IC0tLS0tLQ0KIG5l
+dC84MDIxcS92bGFuX2Rldi5jICAgICAgICAgICAgfCAgICA2ICsrKysrLQ0KIG5ldC9ibHVldG9v
+dGgvbDJjYXBfY29yZS5jICAgICAgfCAgICA5ICsrKysrLS0tLQ0KIG5ldC9zY3RwL291dHB1dC5j
+ICAgICAgICAgICAgICAgfCAgIDE5ICsrKysrKysrLS0tLS0tLS0tLS0NCiA4IGZpbGVzIGNoYW5n
+ZWQsIDQ3IGluc2VydGlvbnMoKyksIDM0IGRlbGV0aW9ucygtKQ0K
