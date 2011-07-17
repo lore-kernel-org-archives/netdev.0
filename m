@@ -1,47 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 0/2] ath6kl: more neatening
-Date: Sun, 17 Jul 2011 14:38:55 -0700
-Message-ID: <cover.1310938421.git.joe@perches.com>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 2/2] ath6kl: Remove trailing unpaired close paren from ath6kl_err uses
+Date: Sun, 17 Jul 2011 14:38:57 -0700
+Message-ID: <6a83ad0030e3b0495468d8fcc44bb6cd913baa9f.1310938421.git.joe@perches.com>
 References: <4E2349D4.4000204@qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gregkh@suse.de, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <4E2349D4.4000204@qca.qualcomm.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Sender: devel-bounces@linuxdriverproject.org
-Errors-To: devel-bounces@linuxdriverproject.org
+Cc: devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4E2349D4.4000204-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+In-Reply-To: <cover.1310938421.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+References: <cover.1310938421.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Great, thanks. I have now applied your patches to ath6kl-cleanup tree
-> and they will be included in patchset v3.
+Unpaired parentheses are unsightly.
 
-Here's a couple of more.
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/wireless/ath/ath6kl/sdio.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Joe Perches (2):
-  ath6kl: Remove __func__ uses from ath6kl_dbg
-  ath6kl: Remove trailing unpaired close paren from ath6kl_err uses
-
- drivers/net/wireless/ath/ath6kl/bmi.c      |    4 +-
- drivers/net/wireless/ath/ath6kl/cfg80211.c |  101 ++++++++++++---------------
- drivers/net/wireless/ath/ath6kl/debug.c    |   20 +++---
- drivers/net/wireless/ath/ath6kl/debug.h    |   27 ++++----
- drivers/net/wireless/ath/ath6kl/htc.c      |   11 ++--
- drivers/net/wireless/ath/ath6kl/init.c     |    8 +-
- drivers/net/wireless/ath/ath6kl/main.c     |   13 ++--
- drivers/net/wireless/ath/ath6kl/sdio.c     |   12 ++--
- drivers/net/wireless/ath/ath6kl/txrx.c     |   30 ++++-----
- drivers/net/wireless/ath/ath6kl/wmi.c      |    8 +--
- 10 files changed, 107 insertions(+), 127 deletions(-)
-
+diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c b/drivers/net/wireless/ath/ath6kl/sdio.c
+index c58a107..e399b17 100644
+--- a/drivers/net/wireless/ath/ath6kl/sdio.c
++++ b/drivers/net/wireless/ath/ath6kl/sdio.c
+@@ -511,7 +511,7 @@ static int ath6kl_sdio_power_on(struct ath6kl_sdio *ar_sdio)
+ 
+ 	ret = sdio_enable_func(func);
+ 	if (ret) {
+-		ath6kl_err("Unable to enable sdio func: %d)\n", ret);
++		ath6kl_err("Unable to enable sdio func: %d\n", ret);
+ 		sdio_release_host(func);
+ 		return ret;
+ 	}
+@@ -760,7 +760,7 @@ static int ath6kl_sdio_probe(struct sdio_func *func,
+ 
+ 	ret = sdio_set_block_size(func, HIF_MBOX_BLOCK_SIZE);
+ 	if (ret) {
+-		ath6kl_err("Set sdio block size %d failed: %d)\n",
++		ath6kl_err("Set sdio block size %d failed: %d\n",
+ 			   HIF_MBOX_BLOCK_SIZE, ret);
+ 		sdio_release_host(func);
+ 		goto err_off;
 -- 
 1.7.6.131.g99019
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
