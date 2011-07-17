@@ -1,47 +1,79 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: [Patch] include/linux/sdla.h: remove the prototype of sdla()
-Date: Sun, 17 Jul 2011 16:22:20 +0800
-Message-ID: <CAM_iQpWDrhHw8-Hf4q1miHR+rT33wQb=ZSb=ffsxaSak=UHPMw@mail.gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [patch net-next-2.6] vlan: introduce ndo_vlan_[enable/disable]
+Date: Sun, 17 Jul 2011 10:36:04 +0200
+Message-ID: <CAHXqBFL1s30DxxHk-1wEy1q48LvgbO+w4zXkOm0sAU61XONoVw@mail.gmail.com>
+References: <1310811359-4440-1-git-send-email-jpirko@redhat.com>
+ <CAHXqBFKZf3keVdC3t0xDu8SEEWR3Utoo-zBiqMVOWiSxzm3ieQ@mail.gmail.com> <20110717073022.GA2089@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001517740bf6d735a504a83f942f
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Michal Marek <mmarek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
+	greearb@candelatech.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:34306 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab1GQIgZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2011 04:36:25 -0400
+Received: by qwk3 with SMTP id 3so1121473qwk.19
+        for <netdev@vger.kernel.org>; Sun, 17 Jul 2011 01:36:24 -0700 (PDT)
+In-Reply-To: <20110717073022.GA2089@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---001517740bf6d735a504a83f942f
-Content-Type: text/plain; charset=UTF-8
+W dniu 17 lipca 2011 09:30 u=BFytkownik Jiri Pirko <jpirko@redhat.com> =
+napisa=B3:
+> Sat, Jul 16, 2011 at 04:14:36PM CEST, mirqus@gmail.com wrote:
+>>2011/7/16 Jiri Pirko <jpirko@redhat.com>:
+>>> Some devices are not able to enable/disable rx/tw vlan accel separa=
+tely.
+>>> they depend on ndo_vlan_rx_register to know if to enable of disable
+>>> hw accel. And since ndo_vlan_rx_register is going to die soon,
+>>> this must be resolved.
+>>>
+>>> One solution might be to enable accel on device start every time, e=
+ven
+>>> if there are no vlan up on. But this would change behaviour and mig=
+ht
+>>> lead to possible regression (on older devices).
+>>[...]
+>>
+>>Please describe the possible regression. As I see it, there won't be
+>>any user visible change of behaviour - network code takes care of
+>>reinserting VLAN tag when necessary. If you think that disabling tag
+>>stripping is beneficial for cases where no VLANs are configured, it's
+>>better to do that in netdev_fix_features() for devices which advertis=
+e
+>>NETIF_F_HW_VLAN_RX in hw_features.
+>
+> Well I just wanted to preserve current behaviour which is that in man=
+y
+> drivers vlan accel is enabled only if some vid is registered upon the
+> device and it's disabled again when no vid is registered. I can see
+> no way to do this with current code after removing ndo_vlan_rx_regist=
+er.
+>
+> I expect unexpected
 
-`make headers_check` complains that
+:-D
 
-linux-2.6/usr/include/linux/sdla.h:116: userspace cannot reference
-function or variable defined in the kernel
+> ... problems on old cards when vlan accel would be
+> enabled all the time, but maybe I'm wrong...
 
-this is due to that there is no such a kernel function,
+Device has no way of knowing how the system uses VLAN tags, stripped
+or not. Any problems would be driver problems and since you're making
+it all use generic code, bugs will hit all drivers simultaneously or
+(preferably) won't happen at all.
 
-void sdla(void *cfg_info, char *dev, struct frad_conf *conf, int quiet);
+> One idea is for device which do not support sepatate rx/tx vlan accel
+> enabling/disabling they can probably use ndo_fix_features force to
+> enable/disable rx/tx pair together. That would resolve the situation =
+as
+> well giving user possibility to turn off vlan accel in case of any is=
+sues.
 
-I don't know why we have it in a kernel header, so remove it.
+That is exactly the idea behind ndo_fix_features.
 
-Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
-
---001517740bf6d735a504a83f942f
-Content-Type: text/x-patch; charset=US-ASCII;
-	name="include-linux-sdla_h-fix-headers-check-warning.diff"
-Content-Disposition: attachment;
-	filename="include-linux-sdla_h-fix-headers-check-warning.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gq7qm20t0
-
-ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvc2RsYS5oIGIvaW5jbHVkZS9saW51eC9zZGxhLmgK
-aW5kZXggNTY0YWNkMy4uOTk5NWM3ZiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9zZGxhLmgK
-KysrIGIvaW5jbHVkZS9saW51eC9zZGxhLmgKQEAgLTExMiwxMSArMTEyLDcgQEAgc3RydWN0IHNk
-bGFfZGxjaV9jb25mIHsKICAgIHNob3J0IFRiX21heDsKIH07CiAKLSNpZm5kZWYgX19LRVJORUxf
-XwotCi12b2lkIHNkbGEodm9pZCAqY2ZnX2luZm8sIGNoYXIgKmRldiwgc3RydWN0IGZyYWRfY29u
-ZiAqY29uZiwgaW50IHF1aWV0KTsKLQotI2Vsc2UKKyNpZmRlZiBfX0tFUk5FTF9fCiAKIC8qIGlt
-cG9ydGFudCBaODAgd2luZG93IGFkZHJlc3NlcyAqLwogI2RlZmluZSBTRExBX0NPTlRST0xfV05E
-CQkweEUwMDAK
---001517740bf6d735a504a83f942f--
+Best Regards,
+Micha=B3 Miros=B3aw
