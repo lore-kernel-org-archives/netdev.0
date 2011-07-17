@@ -1,36 +1,47 @@
-From: "jiangtao.jit" <jiangtao.jit@gmail.com>
-Subject: Re: problem with function vlan_get_protocol()
-Date: Sun, 17 Jul 2011 16:15:51 +0800
-Message-ID: <201107171615491568697@gmail.com>
-References: <201107171253127340006@gmail.com>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: [Patch] include/linux/sdla.h: remove the prototype of sdla()
+Date: Sun, 17 Jul 2011 16:22:20 +0800
+Message-ID: <CAM_iQpWDrhHw8-Hf4q1miHR+rT33wQb=ZSb=ffsxaSak=UHPMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
+Content-Type: multipart/mixed; boundary=001517740bf6d735a504a83f942f
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Michal Marek <mmarek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--001517740bf6d735a504a83f942f
+Content-Type: text/plain; charset=UTF-8
+
+`make headers_check` complains that
+
+linux-2.6/usr/include/linux/sdla.h:116: userspace cannot reference
+function or variable defined in the kernel
+
+this is due to that there is no such a kernel function,
+
+void sdla(void *cfg_info, char *dev, struct frad_conf *conf, int quiet);
+
+I don't know why we have it in a kernel header, so remove it.
+
+Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+
+--001517740bf6d735a504a83f942f
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="include-linux-sdla_h-fix-headers-check-warning.diff"
+Content-Disposition: attachment;
+	filename="include-linux-sdla_h-fix-headers-check-warning.diff"
 Content-Transfer-Encoding: base64
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:65375 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752161Ab1GQIQR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2011 04:16:17 -0400
-Received: by iyb12 with SMTP id 12so2290560iyb.19
-        for <netdev@vger.kernel.org>; Sun, 17 Jul 2011 01:16:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+X-Attachment-Id: f_gq7qm20t0
 
-DQpUaGFua3MgYSBsb3QgRnJhbmNvaXMNCnRoYW5rIHlvdSBmb3IgeW91ciBleHBsYW5hdGlvbg0K
-DQotLQ0Kamlhbmd0YW8NCg0KDQoNCreivP7Iy6O6IEZyYW5jb2lzIFJvbWlldSANCreiy83Ksbzk
-o7ogMjAxMS0wNy0xNyAgMTU6NDk6MDAgDQrK1bz+yMujuiBqaWFuZ3Rhby5qaXQgDQqzrcvNo7og
-bmV0ZGV2IA0K1vfM4qO6IFJlOiBwcm9ibGVtIHdpdGggZnVuY3Rpb24gdmxhbl9nZXRfcHJvdG9j
-b2woKSANCiANCmppYW5ndGFvLmppdCA8amlhbmd0YW8uaml0QGdtYWlsLmNvbT4gOg0KWy4uLl0N
-Cj4gZG8gd2UgbmVlZCBhbiBlbHNlIGJyYW5jaCBvbiBwb2ludGVyIHByb3RvcCBmYWlsZWQgPyAg
-dGhyb3VnaCB0aGUgZWxzZSBpcyB1bmxpa2VseSANCj4gDQo+ICBpZiAobGlrZWx5KHByb3RvcCkp
-DQo+ICBwcm90b2NvbCA9ICpwcm90b3A7DQo+ICAgICBlbHNlDQo+ICBwcm90b2NvbCA9IHByb3Rv
-Ow0KPiANCj4gaXMgaXQgbmVjZXNzYXJ5ID8NClRoZSBlbHNlIGJyYW5jaCBzaWduYWxzIHRoYXQg
-c2tiX2hlYWRlcl9wb2ludGVyIHVuY2xvYWtlZCBhIHJlYWxseSB0aW55DQpldGhlcm5ldCBmcmFt
-ZSA6IHRoZSBjb250ZW50IG9mIHByb3RvIGlzIG5vdCBldmVuIGluaXRpYWxpemVkIChzdGFjaw0K
-YWxsb2NhdGlvbiksIHdoZW5jZSBpcnJlbGV2YW50LiBJbiBzdWNoIGNpcmN1bXN0YW5jZXMgdGhl
-IGRlZmF1bHQNCmluaXRpYWxpemF0aW9uIHZhbHVlIG9mIHByb3RvY29sICgwKSBkb2VzIG5vdCBz
-ZWVtIHRvbyBiYWQuDQotLSANClVlaW1vcg0K
-
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvc2RsYS5oIGIvaW5jbHVkZS9saW51eC9zZGxhLmgK
+aW5kZXggNTY0YWNkMy4uOTk5NWM3ZiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9saW51eC9zZGxhLmgK
+KysrIGIvaW5jbHVkZS9saW51eC9zZGxhLmgKQEAgLTExMiwxMSArMTEyLDcgQEAgc3RydWN0IHNk
+bGFfZGxjaV9jb25mIHsKICAgIHNob3J0IFRiX21heDsKIH07CiAKLSNpZm5kZWYgX19LRVJORUxf
+XwotCi12b2lkIHNkbGEodm9pZCAqY2ZnX2luZm8sIGNoYXIgKmRldiwgc3RydWN0IGZyYWRfY29u
+ZiAqY29uZiwgaW50IHF1aWV0KTsKLQotI2Vsc2UKKyNpZmRlZiBfX0tFUk5FTF9fCiAKIC8qIGlt
+cG9ydGFudCBaODAgd2luZG93IGFkZHJlc3NlcyAqLwogI2RlZmluZSBTRExBX0NPTlRST0xfV05E
+CQkweEUwMDAK
+--001517740bf6d735a504a83f942f--
