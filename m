@@ -1,310 +1,108 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 3/3] ath6kl: cfg80211: Add and use ath6kl_cfg80211_ready helper
-Date: Sun, 17 Jul 2011 11:43:44 -0700
-Message-ID: <46870c7654d2d0d10b44ee45097762c482eee1d0.1310927985.git.joe@perches.com>
-References: <cover.1310927985.git.joe@perches.com>
-Cc: devel@linuxdriverproject.org, gregkh@suse.de, error27@gmail.com,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>, linux-kernel@vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: [PATCH] net: vlan, qlcnic: make vlan_find_dev private
+Date: Sun, 17 Jul 2011 20:53:12 +0200
+Message-ID: <1310928792-3436326-1-git-send-email-equinox@diac24.net>
+Cc: David Lamparter <equinox@diac24.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	linux-driver@qlogic.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4074 "EHLO mail.perches.com"
+Received: from spaceboyz.net ([87.106.131.203]:35393 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab1GQSn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jul 2011 14:43:59 -0400
-In-Reply-To: <cover.1310927985.git.joe@perches.com>
+	id S1754714Ab1GQSx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jul 2011 14:53:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reduce code duplication by using a helper function to
-check if the device is ready.
+there is only one user of vlan_find_dev outside of the actual vlan code:
+qlcnic uses it to iterate over some VLANs it knows.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+let's just make vlan_find_dev private to the VLAN code and have the
+iteration in qlcnic be a bit more direct. (a few rcu dereferences less
+too)
+
+Signed-off-by: David Lamparter <equinox@diac24.net>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Cc: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Cc: linux-driver@qlogic.com
 ---
- drivers/net/wireless/ath/ath6kl/cfg80211.c |  150 ++++++----------------------
- 1 files changed, 30 insertions(+), 120 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |    7 ++++++-
+ include/linux/if_vlan.h          |   11 -----------
+ net/8021q/vlan.h                 |   12 ++++++++++++
+ 3 files changed, 18 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-index 34df184..71515bb 100644
---- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
-+++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
-@@ -217,6 +217,21 @@ static void ath6kl_set_key_mgmt(struct ath6kl *ar, u32 key_mgmt)
- 	}
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 006a693..3579229 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -4198,13 +4198,18 @@ static void
+ qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
++	struct vlan_group *grp;
+ 	struct net_device *dev;
+ 	u16 vid;
+ 
+ 	qlcnic_config_indev_addr(adapter, netdev, event);
+ 
++	grp = rcu_dereference_rtnl(netdev->vlgrp);
++	if (!grp)
++		return;
++
+ 	for_each_set_bit(vid, adapter->vlans, VLAN_N_VID) {
+-		dev = vlan_find_dev(netdev, vid);
++		dev = vlan_group_get_device(grp, vid);
+ 		if (!dev)
+ 			continue;
+ 		qlcnic_config_indev_addr(adapter, dev, event);
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index affa273..bc03e40 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -119,17 +119,6 @@ static inline int is_vlan_dev(struct net_device *dev)
+ #define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
+ 
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+-/* Must be invoked with rcu_read_lock or with RTNL. */
+-static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+-					       u16 vlan_id)
+-{
+-	struct vlan_group *grp = rcu_dereference_rtnl(real_dev->vlgrp);
+-
+-	if (grp)
+-		return vlan_group_get_device(grp, vlan_id);
+-
+-	return NULL;
+-}
+ 
+ extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
+ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+diff --git a/net/8021q/vlan.h b/net/8021q/vlan.h
+index 9da07e3..b132f54 100644
+--- a/net/8021q/vlan.h
++++ b/net/8021q/vlan.h
+@@ -74,6 +74,18 @@ static inline struct vlan_dev_info *vlan_dev_info(const struct net_device *dev)
+ 	return netdev_priv(dev);
  }
  
-+static bool ath6kl_cfg80211_ready(struct ath6kl *ar)
++/* Must be invoked with rcu_read_lock or with RTNL. */
++static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
++					       u16 vlan_id)
 +{
-+	if (!test_bit(WMI_READY, &ar->flag)) {
-+		ath6kl_err("wmi is not ready\n");
-+		return false;
-+	}
++	struct vlan_group *grp = rcu_dereference_rtnl(real_dev->vlgrp);
 +
-+	if (ar->wlan_state == WLAN_DISABLED) {
-+		ath6kl_err("wlan disabled\n");
-+		return false;
-+	}
++	if (grp)
++		return vlan_group_get_device(grp, vlan_id);
 +
-+	return true;
++	return NULL;
 +}
 +
- static int ath6kl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
- 				   struct cfg80211_connect_params *sme)
- {
-@@ -225,15 +240,8 @@ static int ath6kl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
- 
- 	ar->sme_state = SME_CONNECTING;
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready yet\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
--		return -EIO;
--	}
- 
- 	if (test_bit(DESTROY_IN_PROGRESS, &ar->flag)) {
- 		ath6kl_err("destroy in progress\n");
-@@ -575,15 +583,8 @@ static int ath6kl_cfg80211_disconnect(struct wiphy *wiphy,
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: reason=%u\n", __func__,
- 		   reason_code);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (test_bit(DESTROY_IN_PROGRESS, &ar->flag)) {
- 		ath6kl_err("busy, destroy in progress\n");
-@@ -781,15 +782,8 @@ static int ath6kl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
- 	int ret = 0;
- 	u32 force_fg_scan = 0;
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
--		return -EIO;
--	}
- 
- 	if (!ar->usr_bss_filter) {
- 		if (ath6kl_wmi_bssfilter_cmd(ar->wmi,
-@@ -866,15 +860,8 @@ static int ath6kl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
- 	u8 key_type;
- 	int status = 0;
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (key_index < WMI_MIN_KEY_INDEX || key_index > WMI_MAX_KEY_INDEX) {
- 		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
-@@ -951,15 +938,8 @@ static int ath6kl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *ndev,
- 
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: index %d\n", __func__, key_index);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (key_index < WMI_MIN_KEY_INDEX || key_index > WMI_MAX_KEY_INDEX) {
- 		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
-@@ -991,15 +971,8 @@ static int ath6kl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *ndev,
- 
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: index %d\n", __func__, key_index);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (key_index < WMI_MIN_KEY_INDEX || key_index > WMI_MAX_KEY_INDEX) {
- 		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
-@@ -1033,15 +1006,8 @@ static int ath6kl_cfg80211_set_default_key(struct wiphy *wiphy,
- 
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: index %d\n", __func__, key_index);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (key_index < WMI_MIN_KEY_INDEX || key_index > WMI_MAX_KEY_INDEX) {
- 		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
-@@ -1081,15 +1047,8 @@ static int ath6kl_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
- 
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: index %d\n", __func__, key_index);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
--		return -EIO;
--	}
- 
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: not supported\n", __func__);
- 	return -ENOTSUPP;
-@@ -1115,15 +1074,8 @@ static int ath6kl_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: changed 0x%x\n", __func__,
- 		   changed);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (changed & WIPHY_PARAM_RTS_THRESHOLD) {
- 		ret = ath6kl_wmi_set_rts_cmd(ar->wmi, wiphy->rts_threshold);
-@@ -1150,15 +1102,8 @@ static int ath6kl_cfg80211_set_txpower(struct wiphy *wiphy,
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: type 0x%x, dbm %d\n", __func__,
- 		   type, dbm);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	switch (type) {
- 	case NL80211_TX_POWER_AUTOMATIC:
-@@ -1181,15 +1126,8 @@ static int ath6kl_cfg80211_get_txpower(struct wiphy *wiphy, int *dbm)
- {
- 	struct ath6kl *ar = (struct ath6kl *)wiphy_priv(wiphy);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (test_bit(CONNECTED, &ar->flag)) {
- 		ar->tx_pwr = 0;
-@@ -1222,15 +1160,8 @@ static int ath6kl_cfg80211_set_power_mgmt(struct wiphy *wiphy,
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: pmgmt %d, timeout %d\n",
- 		   __func__, pmgmt, timeout);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (pmgmt) {
- 		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: max perf\n", __func__);
-@@ -1258,15 +1189,8 @@ static int ath6kl_cfg80211_change_iface(struct wiphy *wiphy,
- 
- 	ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "%s: type %u\n", __func__, type);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	switch (type) {
- 	case NL80211_IFTYPE_STATION:
-@@ -1292,15 +1216,8 @@ static int ath6kl_cfg80211_join_ibss(struct wiphy *wiphy,
- 	struct ath6kl *ar = ath6kl_priv(dev);
- 	int status;
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	if (!ibss_param->ssid_len ||
- 	    IEEE80211_MAX_SSID_LEN < ibss_param->ssid_len) {
-@@ -1367,15 +1284,8 @@ static int ath6kl_cfg80211_leave_ibss(struct wiphy *wiphy,
- {
- 	struct ath6kl *ar = (struct ath6kl *)ath6kl_priv(dev);
- 
--	if (!test_bit(WMI_READY, &ar->flag)) {
--		ath6kl_err("wmi is not ready\n");
--		return -EIO;
--	}
--
--	if (ar->wlan_state == WLAN_DISABLED) {
--		ath6kl_err("wlan disabled\n");
-+	if (!ath6kl_cfg80211_ready(ar))
- 		return -EIO;
--	}
- 
- 	ath6kl_disconnect(ar);
- 	memset(ar->ssid, 0, sizeof(ar->ssid));
+ /* found in vlan_dev.c */
+ void vlan_dev_set_ingress_priority(const struct net_device *dev,
+ 				   u32 skb_prio, u16 vlan_prio);
 -- 
-1.7.6.131.g99019
+1.7.5.3
 
