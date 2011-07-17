@@ -1,42 +1,96 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH 0/2] Bluetooth: Fix regressions for 3.0
-Date: Sun, 17 Jul 2011 12:46:31 -0400
-Message-ID: <20110717164631.GA18545@tuxdriver.com>
-References: <1310790621-28510-1-git-send-email-padovan@profusion.mobi>
- <20110716.101518.1007939482226184514.davem@davemloft.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH][RFC] netfilter: Fix small leak in
+ ipq_build_packet_message()
+Date: Sun, 17 Jul 2011 19:46:16 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1107171942400.32359@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110716.101518.1007939482226184514.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, coreteam@netfilter.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 16, 2011 at 10:15:18AM -0700, David Miller wrote:
-> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> Date: Sat, 16 Jul 2011 01:30:19 -0300
-> 
-> > From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> > 
-> > Gustavo F. Padovan (1):
-> >   Bluetooth: Fix regression in L2CAP connection procedure
-> > 
-> > Ilia Kolomisnky (1):
-> >   Bluetooth: Fix crash with incoming L2CAP connections
-> > 
-> >  net/bluetooth/l2cap_core.c |    9 +++++----
-> >  1 files changed, 5 insertions(+), 4 deletions(-)
-> 
-> John I'm going to apply these directly so I can get them to
-> Linus in time for 3.0-final.
-> 
-> Thanks Gustavo.
+ipq_build_packet_message() in net/ipv4/netfilter/ip_queue.c and
+net/ipv6/netfilter/ip6_queue.c contain a small potential mem leak as
+far as I can tell.
 
-Yup, looks great -- thanks!
+We allocate memory for 'skb' with alloc_skb() annd then call
+ nlh = NLMSG_PUT(skb, 0, 0, IPQM_PACKET, size - sizeof(*nlh));
+
+NLMSG_PUT is a macro
+ NLMSG_PUT(skb, pid, seq, type, len) \
+  		NLMSG_NEW(skb, pid, seq, type, len, 0)
+
+that expands to NLMSG_NEW, which is also a macro which expands to:
+ NLMSG_NEW(skb, pid, seq, type, len, flags) \
+  	({	if (unlikely(skb_tailroom(skb) < (int)NLMSG_SPACE(len))) \
+  			goto nlmsg_failure; \
+  		__nlmsg_put(skb, pid, seq, type, len, flags); })
+
+If we take the true branch of the 'if' statement and 'goto
+nlmsg_failure', then we'll, at that point, return from
+ipq_build_packet_message() without having assigned 'skb' to anything
+and we'll leak the memory we allocated for it when it goes out of
+scope.
+
+Fix this by placing a 'kfree(skb)' at 'nlmsg_failure'.
+
+I admit that I do not know how likely this to actually happen or even
+if there's something that guarantees that it will never happen - I'm
+not that familiar with this code, but if that is so, I've not been
+able to spot it.
+
+Please review and commit if you believe this is correct. Thanks.
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ net/ipv4/netfilter/ip_queue.c  |    1 +
+ net/ipv6/netfilter/ip6_queue.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+  Disclaimer: Patch is compile tested only.
+
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 5c9b9d9..48f7d5b 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -218,6 +218,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
+ 	return skb;
+ 
+ nlmsg_failure:
++	kfree_skb(skb);
+ 	*errp = -EINVAL;
+ 	printk(KERN_ERR "ip_queue: error creating packet message\n");
+ 	return NULL;
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 2493948..87b243a 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -218,6 +218,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
+ 	return skb;
+ 
+ nlmsg_failure:
++	kfree_skb(skb);
+ 	*errp = -EINVAL;
+ 	printk(KERN_ERR "ip6_queue: error creating packet message\n");
+ 	return NULL;
+-- 
+1.7.6
+
+
+PS. Please CC me on replies since I'm not subscribed to all the lists 
+copied on this mail.
 
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
+
