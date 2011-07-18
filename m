@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tulip: dmfe: Remove old log spamming pr_debugs
-Date: Mon, 18 Jul 2011 11:11:40 -0700 (PDT)
-Message-ID: <20110718.111140.1966973494764275906.davem@davemloft.net>
-References: <0a5f6c4c4c948dd5ff827bb5c5517294c9410bfc.1311000440.git.joe@perches.com>
-	<20110718.104537.546991191560526229.davem@davemloft.net>
-	<1311012332.2286.110.camel@Joe-Laptop>
+Subject: Re: [PATCH] net: can: remove custom hex_to_bin()
+Date: Mon, 18 Jul 2011 11:33:13 -0700 (PDT)
+Message-ID: <20110718.113313.1935490775869027443.davem@davemloft.net>
+References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	<4E243D09.9020800@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdelvare@suse.de, grundler@parisc-linux.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wg@grandegger.com
+To: socketcan@hartkopp.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1311012332.2286.110.camel@Joe-Laptop>
+In-Reply-To: <4E243D09.9020800@hartkopp.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 18 Jul 2011 11:05:32 -0700
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Mon, 18 Jul 2011 16:02:49 +0200
 
-> On Mon, 2011-07-18 at 10:45 -0700, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Mon, 18 Jul 2011 07:50:33 -0700
->> > Commit 726b65ad444d ("tulip: Convert uses of KERN_DEBUG") enabled
->> > some old previously inactive uses of pr_debug converted by
->> > commit dde7c8ef1679 ("tulip/dmfe.c: Use dev_<level> and pr_<level>").
->> > Remove these pr_debugs.
->> > Signed-off-by: Joe Perches <joe@perches.com>
->> Applied.
+> On 18.07.2011 10:26, Andy Shevchenko wrote:
+>> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+>> Cc: Wolfgang Grandegger <wg@grandegger.com>
 > 
-> I believe this should go into current if you push
-> one more to Linus or maybe stable for 3.0.
+> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-I know, that's why I added it to net-2.6
+Applied.
