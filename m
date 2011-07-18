@@ -1,42 +1,54 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH v2] connector: add an event for monitoring process
- tracers
-Date: Mon, 18 Jul 2011 20:15:58 +0400
-Message-ID: <20110718161558.GA366@ioremap.net>
-References: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: [PATCH -next] asm-generic/iomap.h: add stubs for pci iomap/iounmap
+Date: Mon, 18 Jul 2011 09:55:57 -0700
+Message-ID: <20110718095557.cd70fa01.rdunlap@xenotime.net>
+References: <20110718203501.232bd176e83ff65f056366e6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intermatrixgroup.ru ([195.178.208.66]:44288 "EHLO
-	tservice.net.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753150Ab1GRQQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 12:16:02 -0400
-Content-Disposition: inline
-In-Reply-To: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net, Jonas Bonn <jonas@southpole.se>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110718203501.232bd176e83ff65f056366e6@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-On Fri, Jul 15, 2011 at 08:45:18PM +0300, Vladimir Zapolskiy (vzapolskiy@gmail.com) wrote:
-> This version of the change extends proc_ptrace_connector() argument
-> list, so it becomes possible to specify a ptrace request eliminating
-> process attach/detach race.
-> 
-> Also tracehook_tracer_task() function was renamed to ptrace_parent(),
-> but as far as proc_ptrace_connector(task, PTRACE_ATTACH) is called
-> from a tracer process itself, it becomes possible to get rid of that
-> call usage completely.
-> 
-> Oleg, I've rebased the change, and if you don't have objections, I'd
-> be glad, if you can apply this change upon your ptrace branch, thank
-> you in advance.
+When CONFIG_PCI is not enabled, CONFIG_EISA=y, and CONFIG_GENERIC_IOMAP=y,
+drivers/net/3c59x.c build fails due to a recent small change to
+<asm-generic/iomap.h> that surrounds pci_iomap() and pci_iounmap()
+with #ifdef CONFIG_PCI/#endif.  Since that patch to iomap.h looks
+correct, add stubs for pci_iomap() and pci_iounmap() with CONFIG_PCI
+is not enabled to fix the build errors.
 
-I still ack this one :)
-Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
+drivers/net/3c59x.c:1026: error: implicit declaration of function 'pci_iomap'
+drivers/net/3c59x.c:1038: error: implicit declaration of function 'pci_iounmap'
 
--- 
-	Evgeniy Polyakov
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+Cc: Jonas Bonn <jonas@southpole.se>
+Cc: Arnd Bergmann <arnd@arndb.de>
+---
+ include/asm-generic/iomap.h |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+--- linux-next-20110718.orig/include/asm-generic/iomap.h
++++ linux-next-20110718/include/asm-generic/iomap.h
+@@ -71,6 +71,14 @@ extern void ioport_unmap(void __iomem *)
+ struct pci_dev;
+ extern void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long max);
+ extern void pci_iounmap(struct pci_dev *dev, void __iomem *);
++#else
++struct pci_dev;
++static inline void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long max)
++{
++	return NULL;
++}
++static inline void pci_iounmap(struct pci_dev *dev, void __iomem *addr)
++{ }
+ #endif
+ 
+ #endif
