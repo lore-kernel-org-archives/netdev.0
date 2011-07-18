@@ -1,101 +1,79 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: Re: [PATCH] Fix panic in virtnet_remove
-Date: Mon, 18 Jul 2011 09:27:30 +0530
-Message-ID: <20110718035730.16001.77240.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	Krishna Kumar <krkumar2@in.ibm.com>
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp07.au.ibm.com ([202.81.31.140]:47413 "EHLO
-	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756223Ab1GRD5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2011 23:57:44 -0400
-Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [202.81.31.247])
-	by e23smtp07.au.ibm.com (8.14.4/8.13.1) with ESMTP id p6I3vXSM007319
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 13:57:33 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6I3v30l1151138
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 13:57:03 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6I3vWoW004725
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 13:57:32 +1000
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with Linus' tree
+Date: Mon, 18 Jul 2011 14:41:38 +1000
+Message-ID: <20110718144138.d57ab0a2a806e06fabbcfc9b@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ilia Kolomisnky <iliak@ti.com>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 07/17/2011 03:42:15 PM:
+Hi all,
 
-> > modprobe -r virtio_net panics in free_netdev() as the
-> > dev is already freed in the newly introduced virtnet_free
-> > (commit 3fa2a1df9094).
-> 
-> Good catch, thanks!
-> 
-> > Since virtnet_remove doesn't require
-> > dev after unregister,
-> 
-> I'm not sure that true: vi used just above the line you remove
-> is I think the struct virtnet_info that is allocated
-> as part of that structure.
+Today's linux-next merge of the net tree got a conflict in
+net/bluetooth/l2cap_core.c between commit 9191e6ad897a ("Bluetooth: Fix
+regression in L2CAP connection procedure") from Linus' tree and commit
+e2fd318e3a92 ("Bluetooth: Fixes l2cap "command reject" reply according to
+spec") from the net tree.
 
-You are right, the dev cannot be freed in the destructor.
+I fixed it up (see below) and can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> > I am removing the free_netdev call
-> > in virtnet_remove instead of in virtnet_free (which seems
-> > to be the right place to free the dev). Confirmed that
-> > the panic is fixed with this patch.
-> 
-> This might be just because the memory isn't reused.
-> Try enabling slab poisoning, I think you'll observe some problems.
-> 
-> Do we absolutely have to have a destructor?
-> Can't we move the per cpu counter free from
-> virtnet_free to virtnet_remove, and get rid of
-> virtnet_free completely?
-
-I see some other drivers doing that, e.g. xennet_remove:
-	...
-	free_percpu(info->stats);
-	free_netdev(info->netdev);
-	...
-
-How about this patch (compile tested only)?
-
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/net/virtio_net.c |   10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
-
-diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
---- org/drivers/net/virtio_net.c	2011-07-18 09:14:02.000000000 +0530
-+++ new/drivers/net/virtio_net.c	2011-07-18 09:16:35.000000000 +0530
-@@ -705,14 +705,6 @@ static void virtnet_netpoll(struct net_d
- }
- #endif
- 
--static void virtnet_free(struct net_device *dev)
--{
--	struct virtnet_info *vi = netdev_priv(dev);
--
--	free_percpu(vi->stats);
--	free_netdev(dev);
--}
--
- static int virtnet_open(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -959,7 +951,6 @@ static int virtnet_probe(struct virtio_d
- 	/* Set up network device as normal. */
- 	dev->netdev_ops = &virtnet_netdev;
- 	dev->features = NETIF_F_HIGHDMA;
--	dev->destructor = virtnet_free;
- 
- 	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
- 	SET_NETDEV_DEV(dev, &vdev->dev);
-@@ -1122,6 +1113,7 @@ static void __devexit virtnet_remove(str
- 	while (vi->pages)
- 		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
- 
-+	free_percpu(vi->stats);
- 	free_netdev(vi->dev);
- }
- 
+diff --cc net/bluetooth/l2cap_core.c
+index 7705e26,f7f8e2c..0000000
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@@ -620,11 -763,10 +763,11 @@@ static void l2cap_conn_start(struct l2c
+  					struct sock *parent = bt_sk(sk)->parent;
+  					rsp.result = cpu_to_le16(L2CAP_CR_PEND);
+  					rsp.status = cpu_to_le16(L2CAP_CS_AUTHOR_PEND);
+ -					parent->sk_data_ready(parent, 0);
+ +					if (parent)
+ +						parent->sk_data_ready(parent, 0);
+  
+  				} else {
+- 					sk->sk_state = BT_CONFIG;
++ 					l2cap_state_change(chan, BT_CONFIG);
+  					rsp.result = cpu_to_le16(L2CAP_CR_SUCCESS);
+  					rsp.status = cpu_to_le16(L2CAP_CS_NO_INFO);
+  				}
+@@@ -2324,10 -2523,14 +2524,13 @@@ static inline int l2cap_config_req(stru
+  
+  	sk = chan->sk;
+  
+- 	if (sk->sk_state != BT_CONFIG && sk->sk_state != BT_CONNECT2) {
+- 		struct l2cap_cmd_rej rej;
+ -	if ((bt_sk(sk)->defer_setup && chan->state != BT_CONNECT2) ||
+ -		 (!bt_sk(sk)->defer_setup && chan->state != BT_CONFIG)) {
+++	if (chan->state != BT_CONFIG && chan->state != BT_CONNECT2) {
++ 		struct l2cap_cmd_rej_cid rej;
++ 
++ 		rej.reason = cpu_to_le16(L2CAP_REJ_INVALID_CID);
++ 		rej.scid = cpu_to_le16(chan->scid);
++ 		rej.dcid = cpu_to_le16(chan->dcid);
+  
+- 		rej.reason = cpu_to_le16(0x0002);
+  		l2cap_send_cmd(conn, cmd->ident, L2CAP_COMMAND_REJ,
+  				sizeof(rej), &rej);
+  		goto unlock;
+@@@ -4010,10 -4150,9 +4150,10 @@@ static int l2cap_security_cfm(struct hc
+  					struct sock *parent = bt_sk(sk)->parent;
+  					res = L2CAP_CR_PEND;
+  					stat = L2CAP_CS_AUTHOR_PEND;
+ -					parent->sk_data_ready(parent, 0);
+ +					if (parent)
+ +						parent->sk_data_ready(parent, 0);
+  				} else {
+- 					sk->sk_state = BT_CONFIG;
++ 					l2cap_state_change(chan, BT_CONFIG);
+  					res = L2CAP_CR_SUCCESS;
+  					stat = L2CAP_CS_NO_INFO;
+  				}
