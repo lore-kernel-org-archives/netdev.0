@@ -1,126 +1,62 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [PATCH] Add error check to hex2bin().
-Date: Mon, 18 Jul 2011 21:48:32 +0900
-Message-ID: <201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
-References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<201107182041.EHB78622.VOFSHFMOOFtLJQ@I-love.SAKURA.ne.jp>
-	<1310991796.3903.6.camel@smile>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH net-next v3 af-packet 1/2] Enhance af-packet to provide
+ (near zero)lossless packet capture functionality.
+Date: Mon, 18 Jul 2011 08:49:30 -0400
+Message-ID: <CAAsGZS5b9X5HW=_JjfahbXpi9f4H5iYGeY9-+wBjP+=c-MDj4w@mail.gmail.com>
+References: <1310959610-1688-1-git-send-email-loke.chetan@gmail.com>
+	<1310959610-1688-2-git-send-email-loke.chetan@gmail.com>
+	<1310971114.2509.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1310991796.3903.6.camel@smile>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:36153 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751666Ab1GRMtb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 08:49:31 -0400
+Received: by pvg12 with SMTP id 12so2951741pvg.19
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 05:49:30 -0700 (PDT)
+In-Reply-To: <1310971114.2509.25.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, security/keys/ is the only user of hex2bin().
-Should I keep hex2bin() unmodified in case of bad input?
-If so, I'd like to make it as hex2bin_safe().
-----------------------------------------
-[PATCH] Add error check to hex2bin().
+On Mon, Jul 18, 2011 at 2:38 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le dimanche 17 juillet 2011 =C3=A0 23:26 -0400, Chetan Loke a =C3=A9c=
+rit :
+>> Signed-off-by: Chetan Loke <loke.chetan@gmail.com>
+>> ---
+>> =C2=A0include/linux/if_packet.h | =C2=A0125 ++++++++++++++++++++++++=
++++++++++++++++++++++
+>> =C2=A01 files changed, 125 insertions(+), 0 deletions(-)
+>
+>>
+>> +struct tpacket3_hdr {
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_status;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_next_off=
+set;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_len;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_snaplen;
+>> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_mac;
+>> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_net;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_sec;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_nsec;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_rxhash;
+>> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_vlan_tci=
+;
+>> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_padding;
+>> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_next_off=
+set;
+>> +};
+>
+> Srange, I see tp_next_offset twice in tpacket3_hdr ?
 
-Since converting 2 hexadecimal letters into a byte with error checks is
-commonly used, we can replace multiple hex_to_bin() calls with single hex2bin()
-call by changing hex2bin() to do error checks.
+Sorry, I was trying some last minute fancy prefetch changes. So I
+bubbled up the field on my test box but somehow missed the cleanup on
+the dev-box.
+Will wait for a day to gather some more comments and then re-send the p=
+atch.
 
-Signed-off-by: Tetsuo Handa <penguin-kernel@I=love.SAKURA.ne.jp>
----
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 953352a..186e9fc 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -374,7 +374,7 @@ static inline char *pack_hex_byte(char *buf, u8 byte)
- }
- 
- extern int hex_to_bin(char ch);
--extern void hex2bin(u8 *dst, const char *src, size_t count);
-+extern bool hex2bin(u8 *dst, const char *src, size_t count);
- 
- /*
-  * General tracing related utility functions - trace_printk(),
-diff --git a/lib/hexdump.c b/lib/hexdump.c
-index f5fe6ba..1524002 100644
---- a/lib/hexdump.c
-+++ b/lib/hexdump.c
-@@ -38,14 +38,22 @@ EXPORT_SYMBOL(hex_to_bin);
-  * @dst: binary result
-  * @src: ascii hexadecimal string
-  * @count: result length
-+ *
-+ * Returns true on success, false in case of bad input.
-  */
--void hex2bin(u8 *dst, const char *src, size_t count)
-+bool hex2bin(u8 *dst, const char *src, size_t count)
- {
- 	while (count--) {
--		*dst = hex_to_bin(*src++) << 4;
--		*dst += hex_to_bin(*src++);
--		dst++;
-+		int c = hex_to_bin(*src++);
-+		int d;
-+		if (c < 0)
-+			return false;
-+		d = hex_to_bin(*src++);
-+		if (d < 0)
-+			return false;
-+		*dst++ = (c << 4) | d;
- 	}
-+	return true;
- }
- EXPORT_SYMBOL(hex2bin);
- 
-
-
-In message "Re: [PATCH] net: can: remove custom hex_to_bin()",
-Andy Shevchenko wrote:
-> On Mon, 2011-07-18 at 20:41 +0900, Tetsuo Handa wrote: 
-> > Andy Shevchenko wrote:
-> > >  	for (i = 0, dlc_pos++; i < cf.can_dlc; i++) {
-> > > -
-> > > -		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
-> > > -		if (tmp > 0x0F)
-> > > +		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
-> > > +		if (tmp < 0)
-> > >  			return;
-> > >  		cf.data[i] = (tmp << 4);
-> > > -		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
-> > > -		if (tmp > 0x0F)
-> > > +		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
-> > > +		if (tmp < 0)
-> > >  			return;
-> > >  		cf.data[i] |= tmp;
-> > >  	}
-> > 
-> > What about changing
-> > 
-> >   void hex2bin(u8 *dst, const char *src, size_t count)
-> > 
-> > to
-> > 
-> >   bool hex2bin(u8 *dst, const char *src, size_t count)
-> > 
-> > in order to do error checks like
-> > 
-> > bool hex2bin_with_validation(u8 *dst, const char *src, size_t count)
-> > {
-> > 	while (count--) {
-> > 		int c = hex_to_bin(*src++);
-> > 		int d;
-> > 		if (c < 0)
-> > 			return false;
-> > 		d = hex_to_bin(*src++)
-> > 		if (d < 0)
-> > 			return false;
-> > 		*dst++ = (c << 4) | d;
-> > 	}
-> > 	return true;
-> > }
-> > 
-> > and use hex2bin() rather than hex_to_bin()?
-> Perhaps, good idea. Could you submit a patch?
-> 
-> -- 
-> Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> Intel Finland Oy
+Chetan Loke
