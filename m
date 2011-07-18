@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv11] vhost: vhost TX zero-copy support
-Date: Mon, 18 Jul 2011 10:43:21 -0700 (PDT)
-Message-ID: <20110718.104321.439108421929344070.davem@davemloft.net>
-References: <20110718134846.GA7107@redhat.com>
+Subject: Re: [PATCH] tulip: dmfe: Remove old log spamming pr_debugs
+Date: Mon, 18 Jul 2011 10:45:37 -0700 (PDT)
+Message-ID: <20110718.104537.546991191560526229.davem@davemloft.net>
+References: <201107181440.35886.jdelvare@suse.de>
+	<0a5f6c4c4c948dd5ff827bb5c5517294c9410bfc.1311000440.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mashirle@us.ibm.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jj@chaosbits.net
-To: mst@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110718134846.GA7107@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jdelvare@suse.de, grundler@parisc-linux.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43567 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754495Ab1GRRpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 13:45:46 -0400
+In-Reply-To: <0a5f6c4c4c948dd5ff827bb5c5517294c9410bfc.1311000440.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 18 Jul 2011 16:48:46 +0300
+From: Joe Perches <joe@perches.com>
+Date: Mon, 18 Jul 2011 07:50:33 -0700
 
->>From: Shirley Ma <mashirle@us.ibm.com>
+> Commit 726b65ad444d ("tulip: Convert uses of KERN_DEBUG") enabled
+> some old previously inactive uses of pr_debug converted by
+> commit dde7c8ef1679 ("tulip/dmfe.c: Use dev_<level> and pr_<level>").
 > 
-> This adds experimental zero copy support in vhost-net,
-> disabled by default. To enable, set
-> experimental_zcopytx module option to 1.
+> Remove these pr_debugs.
 > 
-> This patch maintains the outstanding userspace buffers in the
-> sequence it is delivered to vhost. The outstanding userspace buffers
-> will be marked as done once the lower device buffers DMA has finished.
-> This is monitored through last reference of kfree_skb callback. Two
-> buffer indices are used for this purpose.
-> 
-> The vhost-net device passes the userspace buffers info to lower device
-> skb through message control. DMA done status check and guest
-> notification are handled by handle_tx: in the worst case is all buffers
-> in the vq are in pending/done status, so we need to notify guest to
-> release DMA done buffers first before we get any new buffers from the
-> vq.
-> 
-> One known problem is that if the guest stops submitting
-> buffers, buffers might never get used until some
-> further action, e.g. device reset. This does not
-> seem to affect linux guests.
-> 
-> Signed-off-by: Shirley <xma@us.ibm.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks!
+Applied.
