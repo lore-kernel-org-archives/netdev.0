@@ -1,36 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: vlan: 802.1ad S-VLAN support
-Date: Mon, 18 Jul 2011 11:37:31 -0700 (PDT)
-Message-ID: <20110718.113731.1384541339327086734.davem@davemloft.net>
-References: <1310936105-3494206-1-git-send-email-equinox@diac24.net>
+Subject: Re: [Bugme-new] [Bug 39252] New: [r8169] PPPoE connections don't
+ work if a custom MAC address is assigned
+Date: Mon, 18 Jul 2011 11:50:20 -0700 (PDT)
+Message-ID: <20110718.115020.1016628731150912638.davem@davemloft.net>
+References: <bug-39252-10286@https.bugzilla.kernel.org/>
+	<20110713161345.82e254de.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: equinox@diac24.net
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	t.artem@mailcity.com, mostrows@earthlink.net
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41614 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49110 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010Ab1GRSkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 14:40:15 -0400
-In-Reply-To: <1310936105-3494206-1-git-send-email-equinox@diac24.net>
+	with ESMTP id S1751258Ab1GRSuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 14:50:37 -0400
+In-Reply-To: <20110713161345.82e254de.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lamparter <equinox@diac24.net>
-Date: Sun, 17 Jul 2011 22:55:05 +0200
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 13 Jul 2011 16:13:45 -0700
 
->  - int vlan_pidx(u16 protocol)
->    do i do this with a table? that wastes a cacheline... as code it's
->    around 32 bytes on x86_64. it's not called for regular 802.1Q frames
->    from any hot paths btw, so maybe i shouldn't care?
+>> https://bugzilla.kernel.org/show_bug.cgi?id=39252
+>> 
+>>            Summary: [r8169] PPPoE connections don't work if a custom MAC
+>>                     address is assigned
+ ...
+>> Description of problem: if I assign a custom MAC address to my onboard NIC,
+>> then I cannot establish PPPoE connections, and even `pppoe -A` command doesn't
+>> return any PPPoE access concentrators.
 
-Don't worry about something you haven't seen on profiling output yet,
-unless it's something painfully obvious (f.e. using linked list of
-thousands of entries for lookups)
+Since you seem to be creating your PPPoE connections _after_ changing
+the MAC, the following shouldn't matter, but for the cases where
+PPPoE connections already exist we do need this kind of change.
 
-FWIW, the counter argument for your concern is that the function
-version takes up an I-cache line.
+Again, I don't expect this to fix the bug, and I believe that it's
+some r8169 specific issue.  Although, it might.
 
-Anyways, like I said, I'd just leave it alone and get rid of all of
-that #if 0 stuff.
+--------------------
+pppoe: Must flush connections when MAC address changes too.
+
+Kernel bugzilla: 39252
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/pppoe.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index 718879b..bc9a4bb 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -348,8 +348,9 @@ static int pppoe_device_event(struct notifier_block *this,
+ 
+ 	/* Only look at sockets that are using this specific device. */
+ 	switch (event) {
++	case NETDEV_CHANGEADDR:
+ 	case NETDEV_CHANGEMTU:
+-		/* A change in mtu is a bad thing, requiring
++		/* A change in mtu or address is a bad thing, requiring
+ 		 * LCP re-negotiation.
+ 		 */
+ 
+-- 
+1.7.6
+
