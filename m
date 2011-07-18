@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] include/linux/sdla.h: remove the prototype of sdla()
-Date: Mon, 18 Jul 2011 11:06:17 -0700 (PDT)
-Message-ID: <20110718.110617.207141326101677046.davem@davemloft.net>
-References: <CAM_iQpWDrhHw8-Hf4q1miHR+rT33wQb=ZSb=ffsxaSak=UHPMw@mail.gmail.com>
+Subject: Re: [PATCH] tulip: dmfe: Remove old log spamming pr_debugs
+Date: Mon, 18 Jul 2011 11:11:40 -0700 (PDT)
+Message-ID: <20110718.111140.1966973494764275906.davem@davemloft.net>
+References: <0a5f6c4c4c948dd5ff827bb5c5517294c9410bfc.1311000440.git.joe@perches.com>
+	<20110718.104537.546991191560526229.davem@davemloft.net>
+	<1311012332.2286.110.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mmarek@suse.cz, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jdelvare@suse.de, grundler@parisc-linux.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpWDrhHw8-Hf4q1miHR+rT33wQb=ZSb=ffsxaSak=UHPMw@mail.gmail.com>
+In-Reply-To: <1311012332.2286.110.camel@Joe-Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Am=E9rico Wang <xiyou.wangcong@gmail.com>
-Date: Sun, 17 Jul 2011 16:22:20 +0800
+From: Joe Perches <joe@perches.com>
+Date: Mon, 18 Jul 2011 11:05:32 -0700
 
-> `make headers_check` complains that
->=20
-> linux-2.6/usr/include/linux/sdla.h:116: userspace cannot reference
-> function or variable defined in the kernel
->=20
-> this is due to that there is no such a kernel function,
->=20
-> void sdla(void *cfg_info, char *dev, struct frad_conf *conf, int quie=
-t);
->=20
-> I don't know why we have it in a kernel header, so remove it.
->=20
-> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
+> On Mon, 2011-07-18 at 10:45 -0700, David Miller wrote:
+>> From: Joe Perches <joe@perches.com>
+>> Date: Mon, 18 Jul 2011 07:50:33 -0700
+>> > Commit 726b65ad444d ("tulip: Convert uses of KERN_DEBUG") enabled
+>> > some old previously inactive uses of pr_debug converted by
+>> > commit dde7c8ef1679 ("tulip/dmfe.c: Use dev_<level> and pr_<level>").
+>> > Remove these pr_debugs.
+>> > Signed-off-by: Joe Perches <joe@perches.com>
+>> Applied.
+> 
+> I believe this should go into current if you push
+> one more to Linus or maybe stable for 3.0.
 
-Applied, thanks.
+I know, that's why I added it to net-2.6
