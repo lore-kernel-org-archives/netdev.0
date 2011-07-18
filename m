@@ -1,65 +1,61 @@
-From: Steven Whitehouse <swhiteho@redhat.com>
-Subject: Re: [PATCH 0/4] More work towards neigh-less dsts.
-Date: Mon, 18 Jul 2011 10:11:28 +0100
-Message-ID: <1310980288.2691.2.camel@menhir>
-References: <20110718.012453.560423538801097033.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/24] bnx2x: New FW and support for 578xx
+Date: Mon, 18 Jul 2011 11:48:21 +0200
+Message-ID: <1310982501.5756.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <201106141213.34576.vladz@broadcom.com>
+	 <BD3F7F1EFBA6D54DB056C4FFA451400809D2C13864@SJEXCHCCR01.corp.ad.broadcom.com>
+	 <201106141432.32257.vladz@broadcom.com>
+	 <20110614.115402.426774711287563448.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: vladz@broadcom.com, mchan@broadcom.com, bprakash@broadcom.com,
+	eilong@broadcom.com, netdev@vger.kernel.org, dmitry@broadcom.com,
+	yaniv.rosner@broadcom.com, dwmw2@infradead.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17183 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754015Ab1GRJJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2011 05:09:08 -0400
-In-Reply-To: <20110718.012453.560423538801097033.davem@davemloft.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33031 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315Ab1GRJsd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 05:48:33 -0400
+Received: by wyg8 with SMTP id 8so1947939wyg.19
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 02:48:32 -0700 (PDT)
+In-Reply-To: <20110614.115402.426774711287563448.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le mardi 14 juin 2011 =C3=A0 11:54 -0400, David Miller a =C3=A9crit :
+> From: "Vlad Zolotarov" <vladz@broadcom.com>
+> Date: Tue, 14 Jun 2011 14:32:31 +0300
+>=20
+> > We also send the new FW files to David Woodhouse. It's the first ti=
+me we
+> > submit to the linux-firmware git so I hope we don't mess the things=
+ up: we
+> > DO NOT patch firmware/WHENCE and firmware/Makefile files in our net=
+-next
+> > patches and we patch the WHENCE file in the linux-firmware patch. D=
+ave,
+> > pls., confirm if it's a correct procedure.
+> >=20
+> > If it is, pls., note that the bnx2x driver will compile but won't w=
+ork
+> > until u integrate the new FW into the kernel tree.
+>=20
+> David Woodhouse, what do you think we should do here?
+>=20
+> I'm inclined to integrate the firmware into net-next-2.6 since this
+> is the only way to keep the driver working consistently.
+>=20
+> Otherwise people won't be able to git bisect properly, and that sucks=
+=2E
 
-On Mon, 2011-07-18 at 01:24 -0700, David Miller wrote:
-> This continues the effort to divorce neighbour from dst_entry as
-> much as possible.
-> 
-> When we remove the routing cache, route entries will be fully generic
-> and not specific to any particular keyed destination.  Therefore we'll
-> need to lookup neigh entries dynamically, and quickly, at packet
-> output time.
-> 
-> To that end, this series:
-> 
-> 1) Passes an explicit neighbour to packet out neigh_ops.
-> 
-> 2) Abstracts all dst->neighbour behind helpers to ease the
->    transition process.
-> 
-> 3) Adds a new dst_ops entry, ->neigh_lookup(), to provide a transition
->    scheme for dst->neighbour uses outside of the packet output path.
-> 
-> The next set of patches after this one will deal with all of
-> the dst_get_neighbour() code paths, converting them over to
-> dst_neigh_lookup()/neigh_release() sequences.
-> 
-> Then there will be a little bit of fiddling around in decnet since
-> it's usage of dst->neighbour is still too tight in the packet output
-> path.
-> 
-I've not actually tested the decnet changes, but I've read through them
-all and I think it looks good. Likewise the neigh simplification patch
-set.
 
-Acked-by: Steven Whitehouse <swhiteho@redhat.com>
+Hmm, I probably missed something obvious, but my dev machine (one HPG6
+blade in a distant datacenter) fails to init its bnx2x interfaces with
+current net-next-2.6
 
-Steve.
+Can't load firmware file bnx2x/bnx2x-e1h-7.0.23.0.fw
 
-> Finally, we can kill dst->neighbour and do RCU neigh lookups in the
-> packet output paths for all the protocols using the neighbour cache
-> (ipv4, ipv6, decnet).
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
