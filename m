@@ -1,138 +1,108 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: [RFC] iproute2, ifindex option
-Date: Mon, 18 Jul 2011 11:38:33 +0300
-Message-ID: <f91760b4ff170e4bdbd46f40822dd95e@visp.net.lb>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: filter: BPF 'JIT' compiler for PPC64
+Date: Mon, 18 Jul 2011 10:39:35 +0200
+Message-ID: <1310978375.5756.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E23E5C3.1070209@ozlabs.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="=_20bd5091df9049529b8673b100a3d80e"
-To: Stephen Hemminger <shemminger@vyatta.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
+To: Matt Evans <matt@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:33571 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752479Ab1GRIih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:38:37 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54229 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745Ab1GRIjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:39:45 -0400
+Received: by wyg8 with SMTP id 8so1910550wyg.19
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 01:39:44 -0700 (PDT)
+In-Reply-To: <4E23E5C3.1070209@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=_20bd5091df9049529b8673b100a3d80e
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Le lundi 18 juillet 2011 =C3=A0 17:50 +1000, Matt Evans a =C3=A9crit :
+> An implementation of a code generator for BPF programs to speed up pa=
+cket
+> filtering on PPC64, inspired by Eric Dumazet's x86-64 version.
+>=20
+> Filter code is generated as an ABI-compliant function in module_alloc=
+()'d mem
+> with stackframe & prologue/epilogue generated if required (simple fil=
+ters don't
+> need anything more than an li/blr).  The filter's local variables, M[=
+], live in
+> registers.  Supports all BPF opcodes, although "complicated" loads fr=
+om negative
+> packet offsets (e.g. SKF_LL_OFF) are not yet supported.
+>=20
+> There are a couple of further optimisations left for future work; man=
+y-pass
+> assembly with branch-reach reduction and a register allocator to push=
+ M[]
+> variables into volatile registers would improve the code quality furt=
+her.
+>=20
+> This currently supports big-endian 64-bit PowerPC only (but is fairly=
+ simple
+> to port to PPC32 or LE!).
+>=20
+> Enabled in the same way as x86-64:
+>=20
+> 	echo 1 > /proc/sys/net/core/bpf_jit_enable
+>=20
+> Or, enabled with extra debug output:
+>=20
+> 	echo 2 > /proc/sys/net/core/bpf_jit_enable
+>=20
+> Signed-off-by: Matt Evans <matt@ozlabs.org>
+> ---
+>=20
+> Since the RFC post, this has incorporated the bugfixes/tidies from re=
+view plus a
+> couple more found in further testing, plus some general/comment tidie=
+s.
 
- After battling with iproute2 interface name caching, i decided to try 
- to introduce ifindex option, where i can specify manually device index, 
- and avoid expensive device index lookups, especially during massive 
- changes for qdisc/class.
- In batch mode ll_map cache will cause problems on servers with ppp 
- interfaces (same name after while can have another index), and also if i 
- run command too often, each start it will retrieve list of all 
- interfaces, on 3k+ interfaces it will be CPU hog.
+Hi Matt
 
- This is sample of patch, just for qdisc/class/filter modify and show 
- operation.
+A small note about SEEN_XREG usage in PPC against x86_64 :
 
- Here is some changes in logic, because before qdisc code during _list 
- operation was not checking duplicate "dev" argument, as it done in 
- _modify code and class/filter list code.
+In x86_64, XREG is stored in EBX : I had to save/restore it in function
+prologue epilogue. And set it to zero in prologue to avoid leak of
+kernel information.
 
- Also maybe i need to change duparg to something else? Because:
- centaur iproute2-newifindex # tc/tc -s -d filter show ifindex 23 dev 
- sdf
- Error: duplicate "ifindex": "sdf" is the second value.
- Or it is ok like this?
+In PPC, you chose a scratch register, so you only have to zero it in
+function prologue, if X is ever read.
 
- I'm sorry that patch is not inline, seems my webmail can't do it now, i 
- will try to install normal mail client.
+So in PPC SEEN_XREG only is to be set of X is read, not if written.
 
- ---
- System administrator
- Denys Fedoryshchenko
- Virtual ISP S.A.L.
---=_20bd5091df9049529b8673b100a3d80e
-Content-Transfer-Encoding: base64
-Content-Type: text/x-diff;
- name=ifindex-option.diff
-Content-Disposition: attachment;
- filename=ifindex-option.diff
+So you dont have to set SEEN_XREG bit in this part :
 
-ZGlmZiAtTmF1ciBpcHJvdXRlMi90Yy90Y19jbGFzcy5jIGlwcm91dGUyLW5ld2lmaW5kZXgvdGMv
-dGNfY2xhc3MuYwotLS0gaXByb3V0ZTIvdGMvdGNfY2xhc3MuYwkyMDExLTA3LTE4IDExOjEwOjQx
-LjM5MDk3MzM5NyArMDMwMAorKysgaXByb3V0ZTItbmV3aWZpbmRleC90Yy90Y19jbGFzcy5jCTIw
-MTEtMDctMTggMTE6Mjk6NTAuMTc3NjExNTc2ICswMzAwCkBAIC02Nyw3ICs2NywxNiBAQAogCQkJ
-TkVYVF9BUkcoKTsKIAkJCWlmIChkWzBdKQogCQkJCWR1cGFyZygiZGV2IiwgKmFyZ3YpOworCQkJ
-aWYgKHJlcS50LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRleCIsICphcmd2KTsKIAkJ
-CXN0cm5jcHkoZCwgKmFyZ3YsIHNpemVvZihkKS0xKTsKKwkJfSBlbHNlIGlmIChzdHJjbXAoKmFy
-Z3YsICJpZmluZGV4IikgPT0gMCkgeworCQkJTkVYVF9BUkcoKTsKKwkJCWlmIChkWzBdKQorCQkJ
-CWR1cGFyZygiZGV2IiwgKmFyZ3YpOworCQkJaWYgKHJlcS50LnRjbV9pZmluZGV4KQorCQkJCWR1
-cGFyZygiaWZpbmRleCIsICphcmd2KTsKKwkJCXJlcS50LnRjbV9pZmluZGV4ID0gYXRvaSgqYXJn
-dik7CiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiY2xhc3NpZCIpID09IDApIHsKIAkJCV9f
-dTMyIGhhbmRsZTsKIAkJCU5FWFRfQVJHKCk7CkBAIC0yNDYsNyArMjU1LDE2IEBACiAJCQlORVhU
-X0FSRygpOwogCQkJaWYgKGRbMF0pCiAJCQkJZHVwYXJnKCJkZXYiLCAqYXJndik7CisJCQlpZiAo
-dC50Y21faWZpbmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CiAJCQlzdHJuY3B5
-KGQsICphcmd2LCBzaXplb2YoZCktMSk7CisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiaWZp
-bmRleCIpID09IDApIHsKKwkJCU5FWFRfQVJHKCk7CisJCQlpZiAoZFswXSkKKwkJCQlkdXBhcmco
-ImRldiIsICphcmd2KTsKKwkJCWlmICh0LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRl
-eCIsICphcmd2KTsKKwkJCXQudGNtX2lmaW5kZXggPSBhdG9pKCphcmd2KTsKIAkJfSBlbHNlIGlm
-IChzdHJjbXAoKmFyZ3YsICJxZGlzYyIpID09IDApIHsKIAkJCU5FWFRfQVJHKCk7CiAJCQlpZiAo
-ZmlsdGVyX3FkaXNjKQpAQCAtMjkwLDkgKzMwOCwxMCBAQAogCQkJZnByaW50ZihzdGRlcnIsICJD
-YW5ub3QgZmluZCBkZXZpY2UgXCIlc1wiXG4iLCBkKTsKIAkJCXJldHVybiAxOwogCQl9Ci0JCWZp
-bHRlcl9pZmluZGV4ID0gdC50Y21faWZpbmRleDsKIAl9CiAKKwlmaWx0ZXJfaWZpbmRleCA9IHQu
-dGNtX2lmaW5kZXg7CisKICAJaWYgKHJ0bmxfZHVtcF9yZXF1ZXN0KCZydGgsIFJUTV9HRVRUQ0xB
-U1MsICZ0LCBzaXplb2YodCkpIDwgMCkgewogCQlwZXJyb3IoIkNhbm5vdCBzZW5kIGR1bXAgcmVx
-dWVzdCIpOwogCQlyZXR1cm4gMTsKZGlmZiAtTmF1ciBpcHJvdXRlMi90Yy90Y19maWx0ZXIuYyBp
-cHJvdXRlMi1uZXdpZmluZGV4L3RjL3RjX2ZpbHRlci5jCi0tLSBpcHJvdXRlMi90Yy90Y19maWx0
-ZXIuYwkyMDExLTA3LTE4IDExOjEwOjQxLjM5MDk3MzM5NyArMDMwMAorKysgaXByb3V0ZTItbmV3
-aWZpbmRleC90Yy90Y19maWx0ZXIuYwkyMDExLTA3LTE4IDExOjI4OjE4LjA5Nzc2Mjc0NSArMDMw
-MApAQCAtODAsNyArODAsMTYgQEAKIAkJCU5FWFRfQVJHKCk7CiAJCQlpZiAoZFswXSkKIAkJCQlk
-dXBhcmcoImRldiIsICphcmd2KTsKKwkJCWlmIChyZXEudC50Y21faWZpbmRleCkKKwkJCQlkdXBh
-cmcoImlmaW5kZXgiLCAqYXJndik7CiAJCQlzdHJuY3B5KGQsICphcmd2LCBzaXplb2YoZCktMSk7
-CisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiaWZpbmRleCIpID09IDApIHsKKwkJCU5FWFRf
-QVJHKCk7CisJCQlpZiAoZFswXSkKKwkJCQlkdXBhcmcoImRldiIsICphcmd2KTsKKwkJCWlmIChy
-ZXEudC50Y21faWZpbmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CisJCQlyZXEu
-dC50Y21faWZpbmRleCA9IGF0b2koKmFyZ3YpOwogCQl9IGVsc2UgaWYgKHN0cmNtcCgqYXJndiwg
-InJvb3QiKSA9PSAwKSB7CiAJCQlpZiAocmVxLnQudGNtX3BhcmVudCkgewogCQkJCWZwcmludGYo
-c3RkZXJyLCAiRXJyb3I6IFwicm9vdFwiIGlzIGR1cGxpY2F0ZSBwYXJlbnQgSURcbiIpOwpAQCAt
-Mjc3LDcgKzI4NiwxNiBAQAogCQkJTkVYVF9BUkcoKTsKIAkJCWlmIChkWzBdKQogCQkJCWR1cGFy
-ZygiZGV2IiwgKmFyZ3YpOworCQkJaWYgKHQudGNtX2lmaW5kZXgpCisJCQkJZHVwYXJnKCJpZmlu
-ZGV4IiwgKmFyZ3YpOwogCQkJc3RybmNweShkLCAqYXJndiwgc2l6ZW9mKGQpLTEpOworCQl9IGVs
-c2UgaWYgKHN0cmNtcCgqYXJndiwgImlmaW5kZXgiKSA9PSAwKSB7CisJCQlORVhUX0FSRygpOwor
-CQkJaWYgKGRbMF0pCisJCQkJZHVwYXJnKCJkZXYiLCAqYXJndik7CisJCQlpZiAodC50Y21faWZp
-bmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CisJCQl0LnRjbV9pZmluZGV4ID0g
-YXRvaSgqYXJndik7CiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAicm9vdCIpID09IDApIHsK
-IAkJCWlmICh0LnRjbV9wYXJlbnQpIHsKIAkJCQlmcHJpbnRmKHN0ZGVyciwgIkVycm9yOiBcInJv
-b3RcIiBpcyBkdXBsaWNhdGUgcGFyZW50IElEXG4iKTsKQEAgLTMzMiwxMCArMzUwLDExIEBACiAJ
-CWlmICgodC50Y21faWZpbmRleCA9IGxsX25hbWVfdG9faW5kZXgoZCkpID09IDApIHsKIAkJCWZw
-cmludGYoc3RkZXJyLCAiQ2Fubm90IGZpbmQgZGV2aWNlIFwiJXNcIlxuIiwgZCk7CiAJCQlyZXR1
-cm4gMTsKLQkJfQotCQlmaWx0ZXJfaWZpbmRleCA9IHQudGNtX2lmaW5kZXg7CisJCX0JCQogCX0K
-IAorCWZpbHRlcl9pZmluZGV4ID0gdC50Y21faWZpbmRleDsKKwogIAlpZiAocnRubF9kdW1wX3Jl
-cXVlc3QoJnJ0aCwgUlRNX0dFVFRGSUxURVIsICZ0LCBzaXplb2YodCkpIDwgMCkgewogCQlwZXJy
-b3IoIkNhbm5vdCBzZW5kIGR1bXAgcmVxdWVzdCIpOwogCQlyZXR1cm4gMTsKZGlmZiAtTmF1ciBp
-cHJvdXRlMi90Yy90Y19xZGlzYy5jIGlwcm91dGUyLW5ld2lmaW5kZXgvdGMvdGNfcWRpc2MuYwot
-LS0gaXByb3V0ZTIvdGMvdGNfcWRpc2MuYwkyMDExLTA3LTE4IDExOjEwOjQxLjM5MDk3MzM5NyAr
-MDMwMAorKysgaXByb3V0ZTItbmV3aWZpbmRleC90Yy90Y19xZGlzYy5jCTIwMTEtMDctMTggMTE6
-Mjk6MDkuMzIyMTIyMzQ5ICswMzAwCkBAIC03Niw3ICs3NiwxNiBAQAogCQkJTkVYVF9BUkcoKTsK
-IAkJCWlmIChkWzBdKQogCQkJCWR1cGFyZygiZGV2IiwgKmFyZ3YpOworCQkJaWYgKHJlcS50LnRj
-bV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRleCIsICphcmd2KTsKIAkJCXN0cm5jcHkoZCwg
-KmFyZ3YsIHNpemVvZihkKS0xKTsKKwkJfSBlbHNlIGlmIChzdHJjbXAoKmFyZ3YsICJpZmluZGV4
-IikgPT0gMCkgeworCQkJTkVYVF9BUkcoKTsKKwkJCWlmIChkWzBdKQorCQkJCWR1cGFyZygiZGV2
-IiwgKmFyZ3YpOworCQkJaWYgKHJlcS50LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRl
-eCIsICphcmd2KTsKKwkJCXJlcS50LnRjbV9pZmluZGV4ID0gYXRvaSgqYXJndik7CiAJCX0gZWxz
-ZSBpZiAoc3RyY21wKCphcmd2LCAiaGFuZGxlIikgPT0gMCkgewogCQkJX191MzIgaGFuZGxlOwog
-CQkJaWYgKHJlcS50LnRjbV9oYW5kbGUpCkBAIC0yODksNyArMjk4LDE4IEBACiAJd2hpbGUgKGFy
-Z2MgPiAwKSB7CiAJCWlmIChzdHJjbXAoKmFyZ3YsICJkZXYiKSA9PSAwKSB7CiAJCQlORVhUX0FS
-RygpOworCQkJaWYgKGRbMF0pCisJCQkJZHVwYXJnKCJkZXYiLCAqYXJndik7CisJCQlpZiAodC50
-Y21faWZpbmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CiAJCQlzdHJuY3B5KGQs
-ICphcmd2LCBzaXplb2YoZCktMSk7CisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiaWZpbmRl
-eCIpID09IDApIHsKKwkJCU5FWFRfQVJHKCk7CisJCQlpZiAoZFswXSkKKwkJCQlkdXBhcmcoImRl
-diIsICphcmd2KTsKKwkJCWlmICh0LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRleCIs
-ICphcmd2KTsKKwkJCXQudGNtX2lmaW5kZXggPSBhdG9pKCphcmd2KTsKICNpZmRlZiBUQ19IX0lO
-R1JFU1MKICAgICAgICAgICAgICAgICB9IGVsc2UgaWYgKHN0cmNtcCgqYXJndiwgImluZ3Jlc3Mi
-KSA9PSAwKSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlmICh0LnRjbV9wYXJlbnQp
-IHsKQEAgLTMxNSw5ICszMzUsMTAgQEAKIAkJCWZwcmludGYoc3RkZXJyLCAiQ2Fubm90IGZpbmQg
-ZGV2aWNlIFwiJXNcIlxuIiwgZCk7CiAJCQlyZXR1cm4gMTsKIAkJfQotCQlmaWx0ZXJfaWZpbmRl
-eCA9IHQudGNtX2lmaW5kZXg7CiAJfQogCisJZmlsdGVyX2lmaW5kZXggPSB0LnRjbV9pZmluZGV4
-OworCiAgCWlmIChydG5sX2R1bXBfcmVxdWVzdCgmcnRoLCBSVE1fR0VUUURJU0MsICZ0LCBzaXpl
-b2YodCkpIDwgMCkgewogCQlwZXJyb3IoIkNhbm5vdCBzZW5kIGR1bXAgcmVxdWVzdCIpOwogCQly
-ZXR1cm4gMTsK
---=_20bd5091df9049529b8673b100a3d80e--
+> +		case BPF_S_MISC_TAX: /* X =3D A */
+> +			ctx->seen |=3D SEEN_XREG;
+> +			PPC_MR(r_X, r_A);
+> +			break;
+
+and in this part :
+
+> +		case BPF_S_LDX_IMM: /* X =3D K */
+> +			ctx->seen |=3D SEEN_XREG;
+> +			PPC_LI32(r_X, K);
+> +			break;
+
+and :
+
+> +		case BPF_S_LDX_MEM: /* X =3D mem[K] */
+> +			PPC_MR(r_X, r_M + (K & 0xf));
+> +			ctx->seen |=3D SEEN_XREG | SEEN_MEM | (1<<(K & 0xf));
+> +			break;
+
+and :
+
+> +		case BPF_S_LDX_W_LEN: /* X =3D skb->len; */
+> +			ctx->seen |=3D SEEN_XREG;
+> +			PPC_LWZ_OFFS(r_X, r_skb, offsetof(struct sk_buff, len));
+> +			break;
+> +
+
+
 
