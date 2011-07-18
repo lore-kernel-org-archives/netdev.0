@@ -1,36 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] stmmac: Allow SOCs to use Store forward mode
- eventhough tx_coe is 0. (V2)
-Date: Mon, 18 Jul 2011 10:47:45 -0700 (PDT)
-Message-ID: <20110718.104745.1448178149936567649.davem@davemloft.net>
-References: <1310972049-827-1-git-send-email-peppe.cavallaro@st.com>
-	<1310972049-827-2-git-send-email-peppe.cavallaro@st.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v2] connector: add an event for monitoring process
+	tracers
+Date: Mon, 18 Jul 2011 19:54:58 +0200
+Message-ID: <20110718175458.GA12840@redhat.com>
+References: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, srinivas.kandagatla@st.com
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Vladimir Zapolskiy <vzapolskiy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58385 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991Ab1GRRrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 13:47:51 -0400
-In-Reply-To: <1310972049-827-2-git-send-email-peppe.cavallaro@st.com>
+Received: from mx1.redhat.com ([209.132.183.28]:36798 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751097Ab1GRR5V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2011 13:57:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon, 18 Jul 2011 08:54:09 +0200
+On 07/15, Vladimir Zapolskiy wrote:
+>
+> Such an event allows to create a simple automated userspace mechanism
+> to be aware about processes connecting to others, therefore predefined
+> process policies can be applied to them if needed.
 
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> 
-> This patch adds new field 'force_sf_dma_mode' to plat_stmmacenet_data
-> struct to allow users to specify if they want to use force store forward
-> eventhough tx_coe is not available in hw.
-> without this flag stmmac driver will use cut-thru mode not use
-> store-forward mode.
-> 
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+I'd wish I could understand this ;) IOW, I still do not understand why
+this is useful, but this doesn't matter. Since Evgeniy acked this patch,
+I'll apply it to ptrace tree.
 
-Applied.
+
+
+Can't resist, a couple of very minor/cosmetics nits. Just because I am
+blighter ;)
+
+> +void proc_ptrace_connector(struct task_struct *task, int which_id);
+
+"which_id" doesn't match "ptrace_id" used elsewhere. And PTRACE_ATTACH
+instead of simple boolean looks as if you are going to add more ptrace
+events, but I guess this won't happen.
+
+> -	if (!retval)
+> +	if (!retval) {
+>  		wait_on_bit(&task->jobctl, JOBCTL_TRAPPING_BIT,
+>  			    ptrace_trapping_sleep_fn, TASK_UNINTERRUPTIBLE);
+> +		proc_ptrace_connector(task, PTRACE_ATTACH);
+> +	}
+
+OK, but it is a bit strange we are waiting for STOPPED/TRACED transition
+before we report PROC_EVENT_PTRACE. Perhaps it makes more sense to
+call proc_ptrace_connector() first, this also decreases the probability
+PTRACE_ATTACH will be reported after PROC_EVENT_EXIT.
+
+
+But once again, this is very minor and cosmetic. I am going to apply
+the patch as is unless you send v3 quickly.
+
+Oleg.
+
