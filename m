@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: can: remove custom hex_to_bin()
-Date: Mon, 18 Jul 2011 11:33:13 -0700 (PDT)
-Message-ID: <20110718.113313.1935490775869027443.davem@davemloft.net>
-References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	<4E243D09.9020800@hartkopp.net>
+Subject: Re: [RFC PATCH] net: vlan: 802.1ad S-VLAN support
+Date: Mon, 18 Jul 2011 11:37:31 -0700 (PDT)
+Message-ID: <20110718.113731.1384541339327086734.davem@davemloft.net>
+References: <1310936105-3494206-1-git-send-email-equinox@diac24.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, wg@grandegger.com
-To: socketcan@hartkopp.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E243D09.9020800@hartkopp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: equinox@diac24.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41614 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010Ab1GRSkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 14:40:15 -0400
+In-Reply-To: <1310936105-3494206-1-git-send-email-equinox@diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Mon, 18 Jul 2011 16:02:49 +0200
+From: David Lamparter <equinox@diac24.net>
+Date: Sun, 17 Jul 2011 22:55:05 +0200
 
-> On 18.07.2011 10:26, Andy Shevchenko wrote:
->> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
->> Cc: Wolfgang Grandegger <wg@grandegger.com>
-> 
-> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+>  - int vlan_pidx(u16 protocol)
+>    do i do this with a table? that wastes a cacheline... as code it's
+>    around 32 bytes on x86_64. it's not called for regular 802.1Q frames
+>    from any hot paths btw, so maybe i shouldn't care?
 
-Applied.
+Don't worry about something you haven't seen on profiling output yet,
+unless it's something painfully obvious (f.e. using linked list of
+thousands of entries for lookups)
+
+FWIW, the counter argument for your concern is that the function
+version takes up an I-cache line.
+
+Anyways, like I said, I'd just leave it alone and get rid of all of
+that #if 0 stuff.
