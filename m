@@ -1,60 +1,126 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: [PATCH] tulip: Disable debugging messages by default
-Date: Mon, 18 Jul 2011 14:40:35 +0200
-Message-ID: <201107181440.35886.jdelvare@suse.de>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH] Add error check to hex2bin().
+Date: Mon, 18 Jul 2011 21:48:32 +0900
+Message-ID: <201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
+References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	<201107182041.EHB78622.VOFSHFMOOFtLJQ@I-love.SAKURA.ne.jp>
+	<1310991796.3903.6.camel@smile>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:40059 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752102Ab1GRMki (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2011 08:40:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1310991796.3903.6.camel@smile>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With debugging messages enabled by default, one user complained [1]
-that his log was spammed with these messages:
+Currently, security/keys/ is the only user of hex2bin().
+Should I keep hex2bin() unmodified in case of bad input?
+If so, I'd like to make it as hex2bin_safe().
+----------------------------------------
+[PATCH] Add error check to hex2bin().
 
-[ 6233.528227] dmfe: tdes0=7fff0000
-[ 6237.651056] dmfe: tdes0=7fff0000
-[ 6237.651060] dmfe: tdes0=7fff0000
-[ 6237.696019] dmfe: tdes0=7fff0000
-[ 6237.696022] dmfe: tdes0=7fff0000
-[ 6238.028810] dmfe: tdes0=7fff0000
-[ 6238.028814] dmfe: tdes0=7fff0000
-[ 6238.073544] dmfe: tdes0=7fff0000
-[ 6238.073547] dmfe: tdes0=7fff0000
+Since converting 2 hexadecimal letters into a byte with error checks is
+commonly used, we can replace multiple hex_to_bin() calls with single hex2bin()
+call by changing hex2bin() to do error checks.
 
-With dynamic debugging available, I think it makes no sense to enable
-debugging messages by default, especially for such old drivers which
-aren't been actively developed any longer.
-
-[1] http://lists.opensuse.org/opensuse-kernel/2011-07/msg00060.html
-
-Signed-off-by: Jean Delvare <jdelvare@suse.de>
-Cc: Grant Grundler <grundler@parisc-linux.org>
-Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Tetsuo Handa <penguin-kernel@I=love.SAKURA.ne.jp>
 ---
- drivers/net/tulip/Makefile |    2 --
- 1 file changed, 2 deletions(-)
-
---- a/drivers/net/tulip/Makefile
-+++ b/drivers/net/tulip/Makefile
-@@ -2,8 +2,6 @@
- # Makefile for the Linux "Tulip" family network device drivers.
- #
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index 953352a..186e9fc 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -374,7 +374,7 @@ static inline char *pack_hex_byte(char *buf, u8 byte)
+ }
  
--ccflags-$(CONFIG_NET_TULIP)	:= -DDEBUG
--
- obj-$(CONFIG_PCMCIA_XIRCOM)	+= xircom_cb.o
- obj-$(CONFIG_DM9102)		+= dmfe.o
- obj-$(CONFIG_WINBOND_840)	+= winbond-840.o
+ extern int hex_to_bin(char ch);
+-extern void hex2bin(u8 *dst, const char *src, size_t count);
++extern bool hex2bin(u8 *dst, const char *src, size_t count);
+ 
+ /*
+  * General tracing related utility functions - trace_printk(),
+diff --git a/lib/hexdump.c b/lib/hexdump.c
+index f5fe6ba..1524002 100644
+--- a/lib/hexdump.c
++++ b/lib/hexdump.c
+@@ -38,14 +38,22 @@ EXPORT_SYMBOL(hex_to_bin);
+  * @dst: binary result
+  * @src: ascii hexadecimal string
+  * @count: result length
++ *
++ * Returns true on success, false in case of bad input.
+  */
+-void hex2bin(u8 *dst, const char *src, size_t count)
++bool hex2bin(u8 *dst, const char *src, size_t count)
+ {
+ 	while (count--) {
+-		*dst = hex_to_bin(*src++) << 4;
+-		*dst += hex_to_bin(*src++);
+-		dst++;
++		int c = hex_to_bin(*src++);
++		int d;
++		if (c < 0)
++			return false;
++		d = hex_to_bin(*src++);
++		if (d < 0)
++			return false;
++		*dst++ = (c << 4) | d;
+ 	}
++	return true;
+ }
+ EXPORT_SYMBOL(hex2bin);
+ 
 
--- 
-Jean Delvare
-Suse L3
+
+In message "Re: [PATCH] net: can: remove custom hex_to_bin()",
+Andy Shevchenko wrote:
+> On Mon, 2011-07-18 at 20:41 +0900, Tetsuo Handa wrote: 
+> > Andy Shevchenko wrote:
+> > >  	for (i = 0, dlc_pos++; i < cf.can_dlc; i++) {
+> > > -
+> > > -		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+> > > -		if (tmp > 0x0F)
+> > > +		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
+> > > +		if (tmp < 0)
+> > >  			return;
+> > >  		cf.data[i] = (tmp << 4);
+> > > -		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+> > > -		if (tmp > 0x0F)
+> > > +		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
+> > > +		if (tmp < 0)
+> > >  			return;
+> > >  		cf.data[i] |= tmp;
+> > >  	}
+> > 
+> > What about changing
+> > 
+> >   void hex2bin(u8 *dst, const char *src, size_t count)
+> > 
+> > to
+> > 
+> >   bool hex2bin(u8 *dst, const char *src, size_t count)
+> > 
+> > in order to do error checks like
+> > 
+> > bool hex2bin_with_validation(u8 *dst, const char *src, size_t count)
+> > {
+> > 	while (count--) {
+> > 		int c = hex_to_bin(*src++);
+> > 		int d;
+> > 		if (c < 0)
+> > 			return false;
+> > 		d = hex_to_bin(*src++)
+> > 		if (d < 0)
+> > 			return false;
+> > 		*dst++ = (c << 4) | d;
+> > 	}
+> > 	return true;
+> > }
+> > 
+> > and use hex2bin() rather than hex_to_bin()?
+> Perhaps, good idea. Could you submit a patch?
+> 
+> -- 
+> Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> Intel Finland Oy
