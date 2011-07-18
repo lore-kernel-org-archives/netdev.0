@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 03/45] bna: Change IOC Event Notification Call Back Mechanism
-Date: Mon, 18 Jul 2011 01:19:31 -0700
-Message-ID: <1310977178-312-4-git-send-email-rmody@brocade.com>
+Subject: [PATCH 04/45] bna: State Machine Fault Handling Cleanup
+Date: Mon, 18 Jul 2011 01:19:32 -0700
+Message-ID: <1310977178-312-5-git-send-email-rmody@brocade.com>
 References: <1310977178-312-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,332 +9,618 @@ Cc: <adapter_linux_open_src_team@brocade.com>, <dradovan@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37710 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753486Ab1GRIUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:20:25 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:48163 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753537Ab1GRIUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:20:30 -0400
 In-Reply-To: <1310977178-312-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - A generic event notification callback mechanism that receives
-   IOC enable, disable, failed events and notifies the registered
-   modules of these events.
+Chnage details:
+ - The module name is not used in case of state machine fault, hence no longer
+   passing the module name to the fault handler.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bfa_cee.c |   65 +++++++++++++++++++++++++++------------------
- drivers/net/bna/bfa_cee.h |    3 +-
- drivers/net/bna/bfa_ioc.c |   54 +++++++++++++++++++++++--------------
- drivers/net/bna/bfa_ioc.h |   31 ++++++++++++++++++---
- 4 files changed, 99 insertions(+), 54 deletions(-)
+ drivers/net/bna/bfa_ioc.c  |   46 ++++++++++++++++++++++----------------------
+ drivers/net/bna/bna_ctrl.c |   42 ++++++++++++++++++++--------------------
+ drivers/net/bna/bna_txrx.c |   38 ++++++++++++++++++------------------
+ drivers/net/bna/cna.h      |    2 +-
+ 4 files changed, 64 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/bna/bfa_cee.c
-index dcfbf08..39e5ab9 100644
---- a/drivers/net/bna/bfa_cee.c
-+++ b/drivers/net/bna/bfa_cee.c
-@@ -223,44 +223,56 @@ bfa_cee_isr(void *cbarg, struct bfi_mbmsg *m)
- }
- 
- /**
-- * bfa_cee_hbfail()
-+ * bfa_cee_notify()
-  *
-  * @brief CEE module heart-beat failure handler.
-+ * @brief CEE module IOC event handler.
-  *
-- * @param[in] Pointer to the CEE module data structure.
-+ * @param[in] IOC event type
-  *
-  * @return void
-  */
- 
- static void
--bfa_cee_hbfail(void *arg)
-+bfa_cee_notify(void *arg, enum bfa_ioc_event event)
- {
- 	struct bfa_cee *cee;
--	cee = arg;
-+	cee = (struct bfa_cee *) arg;
- 
--	if (cee->get_attr_pending == true) {
--		cee->get_attr_status = BFA_STATUS_FAILED;
--		cee->get_attr_pending  = false;
--		if (cee->cbfn.get_attr_cbfn) {
--			cee->cbfn.get_attr_cbfn(cee->cbfn.get_attr_cbarg,
--			    BFA_STATUS_FAILED);
-+	switch (event) {
-+	case BFA_IOC_E_DISABLED:
-+	case BFA_IOC_E_FAILED:
-+		if (cee->get_attr_pending == true) {
-+			cee->get_attr_status = BFA_STATUS_FAILED;
-+			cee->get_attr_pending  = false;
-+			if (cee->cbfn.get_attr_cbfn) {
-+				cee->cbfn.get_attr_cbfn(
-+					cee->cbfn.get_attr_cbarg,
-+					BFA_STATUS_FAILED);
-+			}
- 		}
--	}
--	if (cee->get_stats_pending == true) {
--		cee->get_stats_status = BFA_STATUS_FAILED;
--		cee->get_stats_pending  = false;
--		if (cee->cbfn.get_stats_cbfn) {
--			cee->cbfn.get_stats_cbfn(cee->cbfn.get_stats_cbarg,
--			    BFA_STATUS_FAILED);
-+		if (cee->get_stats_pending == true) {
-+			cee->get_stats_status = BFA_STATUS_FAILED;
-+			cee->get_stats_pending  = false;
-+			if (cee->cbfn.get_stats_cbfn) {
-+				cee->cbfn.get_stats_cbfn(
-+					cee->cbfn.get_stats_cbarg,
-+					BFA_STATUS_FAILED);
-+			}
- 		}
--	}
--	if (cee->reset_stats_pending == true) {
--		cee->reset_stats_status = BFA_STATUS_FAILED;
--		cee->reset_stats_pending  = false;
--		if (cee->cbfn.reset_stats_cbfn) {
--			cee->cbfn.reset_stats_cbfn(cee->cbfn.reset_stats_cbarg,
--			    BFA_STATUS_FAILED);
-+		if (cee->reset_stats_pending == true) {
-+			cee->reset_stats_status = BFA_STATUS_FAILED;
-+			cee->reset_stats_pending  = false;
-+			if (cee->cbfn.reset_stats_cbfn) {
-+				cee->cbfn.reset_stats_cbfn(
-+					cee->cbfn.reset_stats_cbarg,
-+					BFA_STATUS_FAILED);
-+			}
- 		}
-+		break;
-+
-+	default:
-+		break;
- 	}
- }
- 
-@@ -286,6 +298,7 @@ bfa_nw_cee_attach(struct bfa_cee *cee, struct bfa_ioc *ioc,
- 	cee->ioc = ioc;
- 
- 	bfa_nw_ioc_mbox_regisr(cee->ioc, BFI_MC_CEE, bfa_cee_isr, cee);
--	bfa_ioc_hbfail_init(&cee->hbfail, bfa_cee_hbfail, cee);
--	bfa_nw_ioc_hbfail_register(cee->ioc, &cee->hbfail);
-+	bfa_q_qe_init(&cee->ioc_notify);
-+	bfa_ioc_notify_init(&cee->ioc_notify, bfa_cee_notify, cee);
-+	bfa_nw_ioc_notify_register(cee->ioc, &cee->ioc_notify);
- }
-diff --git a/drivers/net/bna/bfa_cee.h b/drivers/net/bna/bfa_cee.h
-index 20543d1..58d54e9 100644
---- a/drivers/net/bna/bfa_cee.h
-+++ b/drivers/net/bna/bfa_cee.h
-@@ -25,7 +25,6 @@
- typedef void (*bfa_cee_get_attr_cbfn_t) (void *dev, enum bfa_status status);
- typedef void (*bfa_cee_get_stats_cbfn_t) (void *dev, enum bfa_status status);
- typedef void (*bfa_cee_reset_stats_cbfn_t) (void *dev, enum bfa_status status);
--typedef void (*bfa_cee_hbfail_cbfn_t) (void *dev, enum bfa_status status);
- 
- struct bfa_cee_cbfn {
- 	bfa_cee_get_attr_cbfn_t    get_attr_cbfn;
-@@ -45,7 +44,7 @@ struct bfa_cee {
- 	enum bfa_status get_stats_status;
- 	enum bfa_status reset_stats_status;
- 	struct bfa_cee_cbfn cbfn;
--	struct bfa_ioc_hbfail_notify hbfail;
-+	struct bfa_ioc_notify ioc_notify;
- 	struct bfa_cee_attr *attr;
- 	struct bfa_cee_stats *stats;
- 	struct bfa_dma attr_dma;
 diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
-index 04bfb29..c52ef63 100644
+index c52ef63..a13b4c5 100644
 --- a/drivers/net/bna/bfa_ioc.c
 +++ b/drivers/net/bna/bfa_ioc.c
-@@ -71,6 +71,7 @@ static void bfa_ioc_mbox_poll(struct bfa_ioc *ioc);
- static void bfa_ioc_mbox_hbfail(struct bfa_ioc *ioc);
- static void bfa_ioc_recover(struct bfa_ioc *ioc);
- static void bfa_ioc_check_attr_wwns(struct bfa_ioc *ioc);
-+static void bfa_ioc_event_notify(struct bfa_ioc *, enum bfa_ioc_event);
- static void bfa_ioc_disable_comp(struct bfa_ioc *ioc);
- static void bfa_ioc_lpu_stop(struct bfa_ioc *ioc);
- static void bfa_ioc_fail_notify(struct bfa_ioc *ioc);
-@@ -1123,23 +1124,28 @@ bfa_iocpf_sm_fail(struct bfa_iocpf *iocpf, enum iocpf_event event)
-  * BFA IOC private functions
-  */
+@@ -240,7 +240,7 @@ bfa_ioc_sm_uninit(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
  
-+/**
-+ * Notify common modules registered for notification.
-+ */
- static void
--bfa_ioc_disable_comp(struct bfa_ioc *ioc)
-+bfa_ioc_event_notify(struct bfa_ioc *ioc, enum bfa_ioc_event event)
- {
-+	struct bfa_ioc_notify *notify;
- 	struct list_head			*qe;
--	struct bfa_ioc_hbfail_notify *notify;
- 
--	ioc->cbfn->disable_cbfn(ioc->bfa);
--
--	/**
--	 * Notify common modules registered for notification.
--	 */
--	list_for_each(qe, &ioc->hb_notify_q) {
--		notify = (struct bfa_ioc_hbfail_notify *) qe;
--		notify->cbfn(notify->cbarg);
-+	list_for_each(qe, &ioc->notify_q) {
-+		notify = (struct bfa_ioc_notify *)qe;
-+		notify->cbfn(notify->cbarg, event);
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
  	}
  }
  
-+static void
-+bfa_ioc_disable_comp(struct bfa_ioc *ioc)
-+{
-+	ioc->cbfn->disable_cbfn(ioc->bfa);
-+	bfa_ioc_event_notify(ioc, BFA_IOC_E_DISABLED);
-+}
-+
- bool
- bfa_nw_ioc_sem_get(void __iomem *sem_reg)
- {
-@@ -1650,17 +1656,11 @@ bfa_ioc_mbox_hbfail(struct bfa_ioc *ioc)
- static void
- bfa_ioc_fail_notify(struct bfa_ioc *ioc)
- {
--	struct list_head		*qe;
--	struct bfa_ioc_hbfail_notify	*notify;
--
- 	/**
- 	 * Notify driver and common modules registered for notification.
+@@ -273,7 +273,7 @@ bfa_ioc_sm_reset(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -317,7 +317,7 @@ bfa_ioc_sm_enabling(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -365,7 +365,7 @@ bfa_ioc_sm_getattr(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -404,7 +404,7 @@ bfa_ioc_sm_op(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -435,7 +435,7 @@ bfa_ioc_sm_disabling(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -466,7 +466,7 @@ bfa_ioc_sm_disabled(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -513,7 +513,7 @@ bfa_ioc_sm_fail_retry(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -547,7 +547,7 @@ bfa_ioc_sm_fail(struct bfa_ioc *ioc, enum ioc_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -580,7 +580,7 @@ bfa_iocpf_sm_reset(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(iocpf->ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -632,7 +632,7 @@ bfa_iocpf_sm_fwcheck(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -676,7 +676,7 @@ bfa_iocpf_sm_mismatch(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -715,7 +715,7 @@ bfa_iocpf_sm_semwait(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -763,7 +763,7 @@ bfa_iocpf_sm_hwinit(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -814,7 +814,7 @@ bfa_iocpf_sm_enabling(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -857,7 +857,7 @@ bfa_iocpf_sm_ready(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -899,7 +899,7 @@ bfa_iocpf_sm_disabling(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -928,7 +928,7 @@ bfa_iocpf_sm_disabling_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -958,7 +958,7 @@ bfa_iocpf_sm_disabled(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1010,7 +1010,7 @@ bfa_iocpf_sm_initfail_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1039,7 +1039,7 @@ bfa_iocpf_sm_initfail(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1094,7 +1094,7 @@ bfa_iocpf_sm_fail_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1116,7 +1116,7 @@ bfa_iocpf_sm_fail(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(iocpf->ioc, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
+index 53b1416..7d9bc2f 100644
+--- a/drivers/net/bna/bna_ctrl.c
++++ b/drivers/net/bna/bna_ctrl.c
+@@ -380,7 +380,7 @@ bna_llport_sm_stopped(struct bna_llport *llport,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(llport->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -409,7 +409,7 @@ bna_llport_sm_down(struct bna_llport *llport,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(llport->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -455,7 +455,7 @@ bna_llport_sm_up_resp_wait(struct bna_llport *llport,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(llport->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -497,7 +497,7 @@ bna_llport_sm_down_resp_wait(struct bna_llport *llport,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(llport->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -526,7 +526,7 @@ bna_llport_sm_up(struct bna_llport *llport,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(llport->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -563,7 +563,7 @@ bna_llport_sm_last_resp_wait(struct bna_llport *llport,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(llport->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -916,7 +916,7 @@ bna_port_sm_stopped(struct bna_port *port, enum bna_port_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -956,7 +956,7 @@ bna_port_sm_mtu_init_wait(struct bna_port *port, enum bna_port_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1001,7 +1001,7 @@ bna_port_sm_pause_init_wait(struct bna_port *port,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1022,7 +1022,7 @@ bna_port_sm_last_resp_wait(struct bna_port *port,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1061,7 +1061,7 @@ bna_port_sm_started(struct bna_port *port,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1086,7 +1086,7 @@ bna_port_sm_pause_cfg_wait(struct bna_port *port,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1111,7 +1111,7 @@ bna_port_sm_rx_stop_wait(struct bna_port *port,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1136,7 +1136,7 @@ bna_port_sm_mtu_cfg_wait(struct bna_port *port, enum bna_port_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1161,7 +1161,7 @@ bna_port_sm_chld_stop_wait(struct bna_port *port,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(port->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1472,7 +1472,7 @@ bna_device_sm_stopped(struct bna_device *device,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(device->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1512,7 +1512,7 @@ bna_device_sm_ioc_ready_wait(struct bna_device *device,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(device->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1542,7 +1542,7 @@ bna_device_sm_ready(struct bna_device *device, enum bna_device_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(device->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1568,7 +1568,7 @@ bna_device_sm_port_stop_wait(struct bna_device *device,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(device->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1589,7 +1589,7 @@ bna_device_sm_ioc_disable_wait(struct bna_device *device,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(device->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -1622,7 +1622,7 @@ bna_device_sm_failed(struct bna_device *device,
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(device->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/bna/bna_txrx.c
+index 2c06e08..4d4f4d9 100644
+--- a/drivers/net/bna/bna_txrx.c
++++ b/drivers/net/bna/bna_txrx.c
+@@ -569,7 +569,7 @@ bna_rxf_sm_stopped(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -627,7 +627,7 @@ bna_rxf_sm_start_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -678,7 +678,7 @@ bna_rxf_sm_cam_fltr_mod_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -724,7 +724,7 @@ bna_rxf_sm_started(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -761,7 +761,7 @@ bna_rxf_sm_cam_fltr_clr_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -815,7 +815,7 @@ bna_rxf_sm_stop_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -851,7 +851,7 @@ bna_rxf_sm_pause_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 	 * any other event during these states
  	 */
- 	ioc->cbfn->hbfail_cbfn(ioc->bfa);
--	list_for_each(qe, &ioc->hb_notify_q) {
--		notify = (struct bfa_ioc_hbfail_notify *) qe;
--		notify->cbfn(notify->cbarg);
--	}
-+	bfa_ioc_event_notify(ioc, BFA_IOC_E_FAILED);
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
  }
  
- static void
-@@ -1839,7 +1839,7 @@ bfa_nw_ioc_attach(struct bfa_ioc *ioc, void *bfa, struct bfa_ioc_cbfn *cbfn)
- 	ioc->iocpf.ioc  = ioc;
- 
- 	bfa_ioc_mbox_attach(ioc);
--	INIT_LIST_HEAD(&ioc->hb_notify_q);
-+	INIT_LIST_HEAD(&ioc->notify_q);
- 
- 	bfa_fsm_set_state(ioc, bfa_ioc_sm_uninit);
- 	bfa_fsm_send_event(ioc, IOC_E_RESET);
-@@ -1969,6 +1969,8 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
- 	 * mailbox is free -- queue command to firmware
+@@ -887,7 +887,7 @@ bna_rxf_sm_resume_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 	 * any other event during these states
  	 */
- 	bfa_ioc_mbox_send(ioc, cmd->msg, sizeof(cmd->msg));
-+
-+	return;
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
  }
  
- /**
-@@ -2005,14 +2007,24 @@ bfa_nw_ioc_error_isr(struct bfa_ioc *ioc)
+@@ -907,7 +907,7 @@ bna_rxf_sm_stat_clr_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(rxf->rx->bna, event);
++		bfa_sm_fault(event);
+ 	}
  }
  
- /**
-+ * return true if IOC is disabled
-+ */
-+bool
-+bfa_nw_ioc_is_disabled(struct bfa_ioc *ioc)
-+{
-+	return bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabling) ||
-+		bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabled);
-+}
-+
-+/**
-  * Add to IOC heartbeat failure notification queue. To be used by common
-  * modules such as cee, port, diag.
-  */
- void
--bfa_nw_ioc_hbfail_register(struct bfa_ioc *ioc,
--			struct bfa_ioc_hbfail_notify *notify)
-+bfa_nw_ioc_notify_register(struct bfa_ioc *ioc,
-+			struct bfa_ioc_notify *notify)
- {
--	list_add_tail(&notify->qe, &ioc->hb_notify_q);
-+	list_add_tail(&notify->qe, &ioc->notify_q);
+@@ -1898,7 +1898,7 @@ static void bna_rx_sm_stopped(struct bna_rx *rx,
+ 		/* no-op */
+ 		break;
+ 	default:
+-		bfa_sm_fault(rx->bna, event);
++		bfa_sm_fault(event);
+ 		break;
+ 	}
+ 
+@@ -1946,7 +1946,7 @@ static void bna_rx_sm_rxf_start_wait(struct bna_rx *rx,
+ 		bfa_fsm_set_state(rx, bna_rx_sm_started);
+ 		break;
+ 	default:
+-		bfa_sm_fault(rx->bna, event);
++		bfa_sm_fault(event);
+ 		break;
+ 	}
+ }
+@@ -1981,7 +1981,7 @@ bna_rx_sm_started(struct bna_rx *rx, enum bna_rx_event event)
+ 		bfa_fsm_set_state(rx, bna_rx_sm_rxf_stop_wait);
+ 		break;
+ 	default:
+-		bfa_sm_fault(rx->bna, event);
++		bfa_sm_fault(event);
+ 		break;
+ 	}
+ }
+@@ -2011,7 +2011,7 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
+ 		bna_rxf_fail(&rx->rxf);
+ 		break;
+ 	default:
+-		bfa_sm_fault(rx->bna, event);
++		bfa_sm_fault(event);
+ 		break;
+ 	}
+ 
+@@ -2064,7 +2064,7 @@ bna_rx_sm_rxq_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
+ 		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
+ 		break;
+ 	default:
+-		bfa_sm_fault(rx->bna, event);
++		bfa_sm_fault(event);
+ 		break;
+ 	}
+ }
+@@ -3216,7 +3216,7 @@ bna_tx_sm_stopped(struct bna_tx *tx, enum bna_tx_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(tx->bna, event);
++		bfa_sm_fault(event);
+ 	}
  }
  
- #define BFA_MFG_NAME "Brocade"
-diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/bna/bfa_ioc.h
-index 8473c00..c6cf218 100644
---- a/drivers/net/bna/bfa_ioc.h
-+++ b/drivers/net/bna/bfa_ioc.h
-@@ -97,9 +97,12 @@ struct bfa_ioc_regs {
- /**
-  * IOC Mailbox structures
-  */
-+typedef void (*bfa_mbox_cmd_cbfn_t)(void *cbarg);
- struct bfa_mbox_cmd {
- 	struct list_head	qe;
--	u32			msg[BFI_IOC_MSGSZ];
-+	bfa_mbox_cmd_cbfn_t     cbfn;
-+	void		    *cbarg;
-+	u32     msg[BFI_IOC_MSGSZ];
- };
+@@ -3261,7 +3261,7 @@ bna_tx_sm_started(struct bna_tx *tx, enum bna_tx_event event)
+ 		break;
  
- /**
-@@ -130,6 +133,23 @@ struct bfa_ioc_cbfn {
- };
+ 	default:
+-		bfa_sm_fault(tx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
  
- /**
-+ * IOC event notification mechanism.
-+ */
-+enum bfa_ioc_event {
-+	BFA_IOC_E_ENABLED	= 1,
-+	BFA_IOC_E_DISABLED	= 2,
-+	BFA_IOC_E_FAILED	= 3,
-+};
-+
-+typedef void (*bfa_ioc_notify_cbfn_t)(void *, enum bfa_ioc_event);
-+
-+struct bfa_ioc_notify {
-+	struct list_head	qe;
-+	bfa_ioc_notify_cbfn_t	cbfn;
-+	void			*cbarg;
-+};
-+
-+/**
-  * Heartbeat failure notification queue element.
-  */
- struct bfa_ioc_hbfail_notify {
-@@ -141,7 +161,7 @@ struct bfa_ioc_hbfail_notify {
- /**
-  * Initialize a heartbeat failure notification structure
-  */
--#define bfa_ioc_hbfail_init(__notify, __cbfn, __cbarg) do {	\
-+#define bfa_ioc_notify_init(__notify, __cbfn, __cbarg) do {	\
- 	(__notify)->cbfn = (__cbfn);				\
- 	(__notify)->cbarg = (__cbarg);				\
+@@ -3294,7 +3294,7 @@ bna_tx_sm_txq_stop_wait(struct bna_tx *tx, enum bna_tx_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(tx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -3335,7 +3335,7 @@ bna_tx_sm_prio_stop_wait(struct bna_tx *tx, enum bna_tx_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(tx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+@@ -3355,7 +3355,7 @@ bna_tx_sm_stat_clr_wait(struct bna_tx *tx, enum bna_tx_event event)
+ 		break;
+ 
+ 	default:
+-		bfa_sm_fault(tx->bna, event);
++		bfa_sm_fault(event);
+ 	}
+ }
+ 
+diff --git a/drivers/net/bna/cna.h b/drivers/net/bna/cna.h
+index 01b4af7..a679e03 100644
+--- a/drivers/net/bna/cna.h
++++ b/drivers/net/bna/cna.h
+@@ -33,7 +33,7 @@
+ 
+ #include <linux/list.h>
+ 
+-#define bfa_sm_fault(__mod, __event)    do {                            \
++#define bfa_sm_fault(__event)    do {                            \
+ 	pr_err("SM Assertion failure: %s: %d: event = %d", __FILE__, __LINE__, \
+ 		__event); \
  } while (0)
-@@ -162,7 +182,7 @@ struct bfa_ioc {
- 	struct timer_list	sem_timer;
- 	struct timer_list	hb_timer;
- 	u32			hb_count;
--	struct list_head	hb_notify_q;
-+	struct list_head	notify_q;
- 	void			*dbg_fwsave;
- 	int			dbg_fwsave_len;
- 	bool			dbg_fwsave_once;
-@@ -263,9 +283,10 @@ void bfa_nw_ioc_enable(struct bfa_ioc *ioc);
- void bfa_nw_ioc_disable(struct bfa_ioc *ioc);
- 
- void bfa_nw_ioc_error_isr(struct bfa_ioc *ioc);
-+bool bfa_nw_ioc_is_disabled(struct bfa_ioc *ioc);
- void bfa_nw_ioc_get_attr(struct bfa_ioc *ioc, struct bfa_ioc_attr *ioc_attr);
--void bfa_nw_ioc_hbfail_register(struct bfa_ioc *ioc,
--	struct bfa_ioc_hbfail_notify *notify);
-+void bfa_nw_ioc_notify_register(struct bfa_ioc *ioc,
-+	struct bfa_ioc_notify *notify);
- bool bfa_nw_ioc_sem_get(void __iomem *sem_reg);
- void bfa_nw_ioc_sem_release(void __iomem *sem_reg);
- void bfa_nw_ioc_hw_sem_release(struct bfa_ioc *ioc);
 -- 
 1.7.1
 
