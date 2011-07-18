@@ -1,110 +1,515 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv4: save cpu cycles from check_leaf()
-Date: Mon, 18 Jul 2011 15:16:33 +0200
-Message-ID: <1310994993.5756.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20110717.122949.1167434585296050332.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv11] vhost: vhost TX zero-copy support
+Date: Mon, 18 Jul 2011 16:48:46 +0300
+Message-ID: <20110718134846.GA7107@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jj@chaosbits.net
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36189 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756835Ab1GRNQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 09:16:43 -0400
-Received: by wwe5 with SMTP id 5so3169191wwe.1
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 06:16:42 -0700 (PDT)
-In-Reply-To: <20110717.122949.1167434585296050332.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:23035 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750991Ab1GRNsg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2011 09:48:36 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 17 juillet 2011 =C3=A0 12:29 -0700, David Miller a =C3=A9cr=
-it :
+>From: Shirley Ma <mashirle@us.ibm.com>
 
-> I guess the indirection removal is a non-trivial improvement because
-> these changes knock a full 2 seconds off of my udpflood tests. :-)
+This adds experimental zero copy support in vhost-net,
+disabled by default. To enable, set
+experimental_zcopytx module option to 1.
 
-Excellent !
+This patch maintains the outstanding userspace buffers in the
+sequence it is delivered to vhost. The outstanding userspace buffers
+will be marked as done once the lower device buffers DMA has finished.
+This is monitored through last reference of kfree_skb callback. Two
+buffer indices are used for this purpose.
 
-One other improvement is to get rid of ntohl(inet_make_mask(plen)) stuf=
-f
-in check_leaf(), this saves 0.5 second on udpflood on my machine (27.25
-second -> 26.75)
+The vhost-net device passes the userspace buffers info to lower device
+skb through message control. DMA done status check and guest
+notification are handled by handle_tx: in the worst case is all buffers
+in the vq are in pending/done status, so we need to notify guest to
+release DMA done buffers first before we get any new buffers from the
+vq.
 
-[PATCH net-next-2.6] ipv4: save cpu cycles from check_leaf()
+One known problem is that if the guest stops submitting
+buffers, buffers might never get used until some
+further action, e.g. device reset. This does not
+seem to affect linux guests.
 
-Compiler is not smart enough to avoid double BSWAP instructions in
-ntohl(inet_make_mask(plen)).
-
-Lets cache this value in struct leaf_info, (fill a hole on 64bit arches=
-)
-
-With route cache disabled, this saves ~2% of cpu in udpflood bench on
-x86_64 machine.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Shirley <xma@us.ibm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/ipv4/fib_trie.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 58c25ea..de9e297 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -110,9 +110,10 @@ struct leaf {
-=20
- struct leaf_info {
- 	struct hlist_node hlist;
--	struct rcu_head rcu;
- 	int plen;
-+	u32 mask_plen; /* ntohl(inet_make_mask(plen)) */
- 	struct list_head falh;
-+	struct rcu_head rcu;
+I run some light tests and this seems to work fine for me.  Given that
+the new functionality is disabled by default, it seems a pretty safe
+patch to merge for 3.1.
+
+Changes from v10:
+	don't leak ubuf_info
+	don't allocate ubuf_info for non zero copy vqs
+Changes from v9:
+	coding style prettification suggested by Jesper Juhl
+
+ drivers/vhost/net.c   |   77 +++++++++++++++++++++++++++++-
+ drivers/vhost/vhost.c |  128 +++++++++++++++++++++++++++++++++++++++++++------
+ drivers/vhost/vhost.h |   31 ++++++++++++
+ 3 files changed, 220 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index e224a92..f0fd52c 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -12,6 +12,7 @@
+ #include <linux/virtio_net.h>
+ #include <linux/miscdevice.h>
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/mutex.h>
+ #include <linux/workqueue.h>
+ #include <linux/rcupdate.h>
+@@ -28,10 +29,18 @@
+ 
+ #include "vhost.h"
+ 
++static int experimental_zcopytx;
++module_param(experimental_zcopytx, int, 0444);
++MODULE_PARM_DESC(experimental_zcopytx, "Enable Experimental Zero Copy TX");
++
+ /* Max number of bytes transferred before requeueing the job.
+  * Using this limit prevents one virtqueue from starving others. */
+ #define VHOST_NET_WEIGHT 0x80000
+ 
++/* MAX number of TX used buffers for outstanding zerocopy */
++#define VHOST_MAX_PEND 128
++#define VHOST_GOODCOPY_LEN 256
++
+ enum {
+ 	VHOST_NET_VQ_RX = 0,
+ 	VHOST_NET_VQ_TX = 1,
+@@ -54,6 +63,12 @@ struct vhost_net {
+ 	enum vhost_net_poll_state tx_poll_state;
  };
-=20
- struct tnode {
-@@ -451,6 +452,7 @@ static struct leaf_info *leaf_info_new(int plen)
- 	struct leaf_info *li =3D kmalloc(sizeof(struct leaf_info),  GFP_KERNE=
-L);
- 	if (li) {
- 		li->plen =3D plen;
-+		li->mask_plen =3D ntohl(inet_make_mask(plen));
- 		INIT_LIST_HEAD(&li->falh);
- 	}
- 	return li;
-@@ -1359,10 +1361,8 @@ static int check_leaf(struct fib_table *tb, stru=
-ct trie *t, struct leaf *l,
-=20
- 	hlist_for_each_entry_rcu(li, node, hhead, hlist) {
- 		struct fib_alias *fa;
--		int plen =3D li->plen;
--		__be32 mask =3D inet_make_mask(plen);
-=20
--		if (l->key !=3D (key & ntohl(mask)))
-+		if (l->key !=3D (key & li->mask_plen))
- 			continue;
-=20
- 		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
-@@ -1394,7 +1394,7 @@ static int check_leaf(struct fib_table *tb, struc=
-t trie *t, struct leaf *l,
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 				t->stats.semantic_match_passed++;
- #endif
--				res->prefixlen =3D plen;
-+				res->prefixlen =3D li->plen;
- 				res->nh_sel =3D nhsel;
- 				res->type =3D fa->fa_type;
- 				res->scope =3D fa->fa_info->fib_scope;
-@@ -1402,7 +1402,7 @@ static int check_leaf(struct fib_table *tb, struc=
-t trie *t, struct leaf *l,
- 				res->table =3D tb;
- 				res->fa_head =3D &li->falh;
- 				if (!(fib_flags & FIB_LOOKUP_NOREF))
--					atomic_inc(&res->fi->fib_clntref);
-+					atomic_inc(&fi->fib_clntref);
- 				return 0;
+ 
++static bool vhost_sock_zcopy(struct socket *sock)
++{
++	return unlikely(experimental_zcopytx) &&
++		sock_flag(sock->sk, SOCK_ZEROCOPY);
++}
++
+ /* Pop first len bytes from iovec. Return number of segments used. */
+ static int move_iovec_hdr(struct iovec *from, struct iovec *to,
+ 			  size_t len, int iov_count)
+@@ -129,6 +144,8 @@ static void handle_tx(struct vhost_net *net)
+ 	int err, wmem;
+ 	size_t hdr_size;
+ 	struct socket *sock;
++	struct vhost_ubuf_ref *uninitialized_var(ubufs);
++	bool zcopy;
+ 
+ 	/* TODO: check that we are running from vhost_worker? */
+ 	sock = rcu_dereference_check(vq->private_data, 1);
+@@ -149,8 +166,13 @@ static void handle_tx(struct vhost_net *net)
+ 	if (wmem < sock->sk->sk_sndbuf / 2)
+ 		tx_poll_stop(net);
+ 	hdr_size = vq->vhost_hlen;
++	zcopy = vhost_sock_zcopy(sock);
+ 
+ 	for (;;) {
++		/* Release DMAs done buffers first */
++		if (zcopy)
++			vhost_zerocopy_signal_used(vq);
++
+ 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+ 					 &out, &in,
+@@ -166,6 +188,13 @@ static void handle_tx(struct vhost_net *net)
+ 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+ 				break;
  			}
++			/* If more outstanding DMAs, queue the work */
++			if (unlikely(vq->upend_idx - vq->done_idx >
++				     VHOST_MAX_PEND)) {
++				tx_poll_start(net, sock);
++				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
++				break;
++			}
+ 			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
+ 				vhost_disable_notify(&net->dev, vq);
+ 				continue;
+@@ -188,9 +217,39 @@ static void handle_tx(struct vhost_net *net)
+ 			       iov_length(vq->hdr, s), hdr_size);
+ 			break;
  		}
-
-
++		/* use msg_control to pass vhost zerocopy ubuf info to skb */
++		if (zcopy) {
++			vq->heads[vq->upend_idx].id = head;
++			if (len < VHOST_GOODCOPY_LEN) {
++				/* copy don't need to wait for DMA done */
++				vq->heads[vq->upend_idx].len =
++							VHOST_DMA_DONE_LEN;
++				msg.msg_control = NULL;
++				msg.msg_controllen = 0;
++				ubufs = NULL;
++			} else {
++				struct ubuf_info *ubuf = &vq->ubuf_info[head];
++
++				vq->heads[vq->upend_idx].len = len;
++				ubuf->callback = vhost_zerocopy_callback;
++				ubuf->arg = vq->ubufs;
++				ubuf->desc = vq->upend_idx;
++				msg.msg_control = ubuf;
++				msg.msg_controllen = sizeof(ubuf);
++				ubufs = vq->ubufs;
++				kref_get(&ubufs->kref);
++			}
++			vq->upend_idx = (vq->upend_idx + 1) % UIO_MAXIOV;
++		}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
++			if (zcopy) {
++				if (ubufs)
++					vhost_ubuf_put(ubufs);
++				vq->upend_idx = ((unsigned)vq->upend_idx - 1) %
++					UIO_MAXIOV;
++			}
+ 			vhost_discard_vq_desc(vq, 1);
+ 			tx_poll_start(net, sock);
+ 			break;
+@@ -198,7 +257,8 @@ static void handle_tx(struct vhost_net *net)
+ 		if (err != len)
+ 			pr_debug("Truncated TX packet: "
+ 				 " len %d != %zd\n", err, len);
+-		vhost_add_used_and_signal(&net->dev, vq, head, 0);
++		if (!zcopy)
++			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		total_len += len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+@@ -603,6 +663,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ {
+ 	struct socket *sock, *oldsock;
+ 	struct vhost_virtqueue *vq;
++	struct vhost_ubuf_ref *ubufs, *oldubufs = NULL;
+ 	int r;
+ 
+ 	mutex_lock(&n->dev.mutex);
+@@ -632,6 +693,13 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 	oldsock = rcu_dereference_protected(vq->private_data,
+ 					    lockdep_is_held(&vq->mutex));
+ 	if (sock != oldsock) {
++		ubufs = vhost_ubuf_alloc(vq, sock && vhost_sock_zcopy(sock));
++		if (IS_ERR(ubufs)) {
++			r = PTR_ERR(ubufs);
++			goto err_ubufs;
++		}
++		oldubufs = vq->ubufs;
++		vq->ubufs = ubufs;
+ 		vhost_net_disable_vq(n, vq);
+ 		rcu_assign_pointer(vq->private_data, sock);
+ 		vhost_net_enable_vq(n, vq);
+@@ -639,6 +707,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 
+ 	mutex_unlock(&vq->mutex);
+ 
++	if (oldubufs)
++		vhost_ubuf_put_and_wait(oldubufs);
++
+ 	if (oldsock) {
+ 		vhost_net_flush_vq(n, index);
+ 		fput(oldsock->file);
+@@ -647,6 +718,8 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 	mutex_unlock(&n->dev.mutex);
+ 	return 0;
+ 
++err_ubufs:
++	fput(sock->file);
+ err_vq:
+ 	mutex_unlock(&vq->mutex);
+ err:
+@@ -776,6 +849,8 @@ static struct miscdevice vhost_net_misc = {
+ 
+ static int vhost_net_init(void)
+ {
++	if (experimental_zcopytx)
++		vhost_enable_zcopy(VHOST_NET_VQ_TX);
+ 	return misc_register(&vhost_net_misc);
+ }
+ module_init(vhost_net_init);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index ea966b3..5ef2f62 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -37,6 +37,8 @@ enum {
+ 	VHOST_MEMORY_F_LOG = 0x1,
+ };
+ 
++static unsigned vhost_zcopy_mask __read_mostly;
++
+ #define vhost_used_event(vq) ((u16 __user *)&vq->avail->ring[vq->num])
+ #define vhost_avail_event(vq) ((u16 __user *)&vq->used->ring[vq->num])
+ 
+@@ -179,6 +181,9 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call_ctx = NULL;
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
++	vq->upend_idx = 0;
++	vq->done_idx = 0;
++	vq->ubufs = NULL;
+ }
+ 
+ static int vhost_worker(void *data)
+@@ -225,10 +230,28 @@ static int vhost_worker(void *data)
+ 	return 0;
+ }
+ 
++static void vhost_vq_free_iovecs(struct vhost_virtqueue *vq)
++{
++	kfree(vq->indirect);
++	vq->indirect = NULL;
++	kfree(vq->log);
++	vq->log = NULL;
++	kfree(vq->heads);
++	vq->heads = NULL;
++	kfree(vq->ubuf_info);
++	vq->ubuf_info = NULL;
++}
++
++void vhost_enable_zcopy(int vq)
++{
++	vhost_zcopy_mask |= 0x1 << vq;
++}
++
+ /* Helper to allocate iovec buffers for all vqs. */
+ static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
+ {
+ 	int i;
++	bool zcopy;
+ 
+ 	for (i = 0; i < dev->nvqs; ++i) {
+ 		dev->vqs[i].indirect = kmalloc(sizeof *dev->vqs[i].indirect *
+@@ -237,19 +260,21 @@ static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
+ 					  GFP_KERNEL);
+ 		dev->vqs[i].heads = kmalloc(sizeof *dev->vqs[i].heads *
+ 					    UIO_MAXIOV, GFP_KERNEL);
+-
++		zcopy = vhost_zcopy_mask & (0x1 << i);
++		if (zcopy)
++			dev->vqs[i].ubuf_info =
++				kmalloc(sizeof *dev->vqs[i].ubuf_info *
++					UIO_MAXIOV, GFP_KERNEL);
+ 		if (!dev->vqs[i].indirect || !dev->vqs[i].log ||
+-			!dev->vqs[i].heads)
++			!dev->vqs[i].heads ||
++			(zcopy && !dev->vqs[i].ubuf_info))
+ 			goto err_nomem;
+ 	}
+ 	return 0;
+ 
+ err_nomem:
+-	for (; i >= 0; --i) {
+-		kfree(dev->vqs[i].indirect);
+-		kfree(dev->vqs[i].log);
+-		kfree(dev->vqs[i].heads);
+-	}
++	for (; i >= 0; --i)
++		vhost_vq_free_iovecs(&dev->vqs[i]);
+ 	return -ENOMEM;
+ }
+ 
+@@ -257,14 +282,8 @@ static void vhost_dev_free_iovecs(struct vhost_dev *dev)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < dev->nvqs; ++i) {
+-		kfree(dev->vqs[i].indirect);
+-		dev->vqs[i].indirect = NULL;
+-		kfree(dev->vqs[i].log);
+-		dev->vqs[i].log = NULL;
+-		kfree(dev->vqs[i].heads);
+-		dev->vqs[i].heads = NULL;
+-	}
++	for (i = 0; i < dev->nvqs; ++i)
++		vhost_vq_free_iovecs(&dev->vqs[i]);
+ }
+ 
+ long vhost_dev_init(struct vhost_dev *dev,
+@@ -287,6 +306,7 @@ long vhost_dev_init(struct vhost_dev *dev,
+ 		dev->vqs[i].log = NULL;
+ 		dev->vqs[i].indirect = NULL;
+ 		dev->vqs[i].heads = NULL;
++		dev->vqs[i].ubuf_info = NULL;
+ 		dev->vqs[i].dev = dev;
+ 		mutex_init(&dev->vqs[i].mutex);
+ 		vhost_vq_reset(dev, dev->vqs + i);
+@@ -390,6 +410,30 @@ long vhost_dev_reset_owner(struct vhost_dev *dev)
+ 	return 0;
+ }
+ 
++/* In case of DMA done not in order in lower device driver for some reason.
++ * upend_idx is used to track end of used idx, done_idx is used to track head
++ * of used idx. Once lower device DMA done contiguously, we will signal KVM
++ * guest used idx.
++ */
++int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
++{
++	int i;
++	int j = 0;
++
++	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
++		if ((vq->heads[i].len == VHOST_DMA_DONE_LEN)) {
++			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
++			vhost_add_used_and_signal(vq->dev, vq,
++						  vq->heads[i].id, 0);
++			++j;
++		} else
++			break;
++	}
++	if (j)
++		vq->done_idx = i;
++	return j;
++}
++
+ /* Caller should have device mutex */
+ void vhost_dev_cleanup(struct vhost_dev *dev)
+ {
+@@ -400,6 +444,13 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+ 			vhost_poll_stop(&dev->vqs[i].poll);
+ 			vhost_poll_flush(&dev->vqs[i].poll);
+ 		}
++		/* Wait for all lower device DMAs done. */
++		if (dev->vqs[i].ubufs)
++			vhost_ubuf_put_and_wait(dev->vqs[i].ubufs);
++
++		/* Signal guest as appropriate. */
++		vhost_zerocopy_signal_used(&dev->vqs[i]);
++
+ 		if (dev->vqs[i].error_ctx)
+ 			eventfd_ctx_put(dev->vqs[i].error_ctx);
+ 		if (dev->vqs[i].error)
+@@ -1486,3 +1537,50 @@ void vhost_disable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ 			       &vq->used->flags, r);
+ 	}
+ }
++
++static void vhost_zerocopy_done_signal(struct kref *kref)
++{
++	struct vhost_ubuf_ref *ubufs = container_of(kref, struct vhost_ubuf_ref,
++						    kref);
++	wake_up(&ubufs->wait);
++}
++
++struct vhost_ubuf_ref *vhost_ubuf_alloc(struct vhost_virtqueue *vq,
++					bool zcopy)
++{
++	struct vhost_ubuf_ref *ubufs;
++	/* No zero copy backend? Nothing to count. */
++	if (!zcopy)
++		return NULL;
++	ubufs = kmalloc(sizeof *ubufs, GFP_KERNEL);
++	if (!ubufs)
++		return ERR_PTR(-ENOMEM);
++	kref_init(&ubufs->kref);
++	kref_get(&ubufs->kref);
++	init_waitqueue_head(&ubufs->wait);
++	ubufs->vq = vq;
++	return ubufs;
++}
++
++void vhost_ubuf_put(struct vhost_ubuf_ref *ubufs)
++{
++	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
++}
++
++void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
++{
++	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
++	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
++	kfree(ubufs);
++}
++
++void vhost_zerocopy_callback(void *arg)
++{
++	struct ubuf_info *ubuf = arg;
++	struct vhost_ubuf_ref *ubufs = ubuf->arg;
++	struct vhost_virtqueue *vq = ubufs->vq;
++
++	/* set len = 1 to mark this desc buffers done DMA */
++	vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
++	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
++}
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 8e03379..1544b78 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -13,6 +13,11 @@
+ #include <linux/virtio_ring.h>
+ #include <asm/atomic.h>
+ 
++/* This is for zerocopy, used buffer len is set to 1 when lower device DMA
++ * done */
++#define VHOST_DMA_DONE_LEN	1
++#define VHOST_DMA_CLEAR_LEN	0
++
+ struct vhost_device;
+ 
+ struct vhost_work;
+@@ -50,6 +55,18 @@ struct vhost_log {
+ 	u64 len;
+ };
+ 
++struct vhost_virtqueue;
++
++struct vhost_ubuf_ref {
++	struct kref kref;
++	wait_queue_head_t wait;
++	struct vhost_virtqueue *vq;
++};
++
++struct vhost_ubuf_ref *vhost_ubuf_alloc(struct vhost_virtqueue *, bool zcopy);
++void vhost_ubuf_put(struct vhost_ubuf_ref *);
++void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *);
++
+ /* The virtqueue structure describes a queue attached to a device. */
+ struct vhost_virtqueue {
+ 	struct vhost_dev *dev;
+@@ -114,6 +131,16 @@ struct vhost_virtqueue {
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+ 	struct vhost_log *log;
++	/* vhost zerocopy support fields below: */
++	/* last used idx for outstanding DMA zerocopy buffers */
++	int upend_idx;
++	/* first used idx for DMA done zerocopy buffers */
++	int done_idx;
++	/* an array of userspace buffers info */
++	struct ubuf_info *ubuf_info;
++	/* Reference counting for outstanding ubufs.
++	 * Protected by vq mutex. Writers must also take device mutex. */
++	struct vhost_ubuf_ref *ubufs;
+ };
+ 
+ struct vhost_dev {
+@@ -160,6 +187,8 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+ 
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
++void vhost_zerocopy_callback(void *arg);
++int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
+ 
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+@@ -186,4 +215,6 @@ static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
+ 	return acked_features & (1 << bit);
+ }
+ 
++void vhost_enable_zcopy(int vq);
++
+ #endif
+-- 
+1.7.5.53.gc233e
