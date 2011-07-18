@@ -1,27 +1,138 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/45] Update bna driver version to 3.0.2.0
-Date: Mon, 18 Jul 2011 01:26:39 -0700 (PDT)
-Message-ID: <20110718.012639.1253140864720328605.davem@davemloft.net>
-References: <1310977178-312-1-git-send-email-rmody@brocade.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: [RFC] iproute2, ifindex option
+Date: Mon, 18 Jul 2011 11:38:33 +0300
+Message-ID: <f91760b4ff170e4bdbd46f40822dd95e@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com,
-	dradovan@brocade.com
-To: rmody@brocade.com
+Content-Type: multipart/mixed;
+ boundary="=_20bd5091df9049529b8673b100a3d80e"
+To: Stephen Hemminger <shemminger@vyatta.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41838 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753418Ab1GRI1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:27:42 -0400
-In-Reply-To: <1310977178-312-1-git-send-email-rmody@brocade.com>
+Received: from hosting.visp.net.lb ([194.146.153.11]:33571 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479Ab1GRIih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:38:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--=_20bd5091df9049529b8673b100a3d80e
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 
-This is too many patche at once.
+ After battling with iproute2 interface name caching, i decided to try 
+ to introduce ifindex option, where i can specify manually device index, 
+ and avoid expensive device index lookups, especially during massive 
+ changes for qdisc/class.
+ In batch mode ll_map cache will cause problems on servers with ppp 
+ interfaces (same name after while can have another index), and also if i 
+ run command too often, each start it will retrieve list of all 
+ interfaces, on 3k+ interfaces it will be CPU hog.
 
-You need to submit patches more often, and in significantly smaller
-sets at a time.
+ This is sample of patch, just for qdisc/class/filter modify and show 
+ operation.
 
-I'm not going to look at these patches at all.
+ Here is some changes in logic, because before qdisc code during _list 
+ operation was not checking duplicate "dev" argument, as it done in 
+ _modify code and class/filter list code.
+
+ Also maybe i need to change duparg to something else? Because:
+ centaur iproute2-newifindex # tc/tc -s -d filter show ifindex 23 dev 
+ sdf
+ Error: duplicate "ifindex": "sdf" is the second value.
+ Or it is ok like this?
+
+ I'm sorry that patch is not inline, seems my webmail can't do it now, i 
+ will try to install normal mail client.
+
+ ---
+ System administrator
+ Denys Fedoryshchenko
+ Virtual ISP S.A.L.
+--=_20bd5091df9049529b8673b100a3d80e
+Content-Transfer-Encoding: base64
+Content-Type: text/x-diff;
+ name=ifindex-option.diff
+Content-Disposition: attachment;
+ filename=ifindex-option.diff
+
+ZGlmZiAtTmF1ciBpcHJvdXRlMi90Yy90Y19jbGFzcy5jIGlwcm91dGUyLW5ld2lmaW5kZXgvdGMv
+dGNfY2xhc3MuYwotLS0gaXByb3V0ZTIvdGMvdGNfY2xhc3MuYwkyMDExLTA3LTE4IDExOjEwOjQx
+LjM5MDk3MzM5NyArMDMwMAorKysgaXByb3V0ZTItbmV3aWZpbmRleC90Yy90Y19jbGFzcy5jCTIw
+MTEtMDctMTggMTE6Mjk6NTAuMTc3NjExNTc2ICswMzAwCkBAIC02Nyw3ICs2NywxNiBAQAogCQkJ
+TkVYVF9BUkcoKTsKIAkJCWlmIChkWzBdKQogCQkJCWR1cGFyZygiZGV2IiwgKmFyZ3YpOworCQkJ
+aWYgKHJlcS50LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRleCIsICphcmd2KTsKIAkJ
+CXN0cm5jcHkoZCwgKmFyZ3YsIHNpemVvZihkKS0xKTsKKwkJfSBlbHNlIGlmIChzdHJjbXAoKmFy
+Z3YsICJpZmluZGV4IikgPT0gMCkgeworCQkJTkVYVF9BUkcoKTsKKwkJCWlmIChkWzBdKQorCQkJ
+CWR1cGFyZygiZGV2IiwgKmFyZ3YpOworCQkJaWYgKHJlcS50LnRjbV9pZmluZGV4KQorCQkJCWR1
+cGFyZygiaWZpbmRleCIsICphcmd2KTsKKwkJCXJlcS50LnRjbV9pZmluZGV4ID0gYXRvaSgqYXJn
+dik7CiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiY2xhc3NpZCIpID09IDApIHsKIAkJCV9f
+dTMyIGhhbmRsZTsKIAkJCU5FWFRfQVJHKCk7CkBAIC0yNDYsNyArMjU1LDE2IEBACiAJCQlORVhU
+X0FSRygpOwogCQkJaWYgKGRbMF0pCiAJCQkJZHVwYXJnKCJkZXYiLCAqYXJndik7CisJCQlpZiAo
+dC50Y21faWZpbmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CiAJCQlzdHJuY3B5
+KGQsICphcmd2LCBzaXplb2YoZCktMSk7CisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiaWZp
+bmRleCIpID09IDApIHsKKwkJCU5FWFRfQVJHKCk7CisJCQlpZiAoZFswXSkKKwkJCQlkdXBhcmco
+ImRldiIsICphcmd2KTsKKwkJCWlmICh0LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRl
+eCIsICphcmd2KTsKKwkJCXQudGNtX2lmaW5kZXggPSBhdG9pKCphcmd2KTsKIAkJfSBlbHNlIGlm
+IChzdHJjbXAoKmFyZ3YsICJxZGlzYyIpID09IDApIHsKIAkJCU5FWFRfQVJHKCk7CiAJCQlpZiAo
+ZmlsdGVyX3FkaXNjKQpAQCAtMjkwLDkgKzMwOCwxMCBAQAogCQkJZnByaW50ZihzdGRlcnIsICJD
+YW5ub3QgZmluZCBkZXZpY2UgXCIlc1wiXG4iLCBkKTsKIAkJCXJldHVybiAxOwogCQl9Ci0JCWZp
+bHRlcl9pZmluZGV4ID0gdC50Y21faWZpbmRleDsKIAl9CiAKKwlmaWx0ZXJfaWZpbmRleCA9IHQu
+dGNtX2lmaW5kZXg7CisKICAJaWYgKHJ0bmxfZHVtcF9yZXF1ZXN0KCZydGgsIFJUTV9HRVRUQ0xB
+U1MsICZ0LCBzaXplb2YodCkpIDwgMCkgewogCQlwZXJyb3IoIkNhbm5vdCBzZW5kIGR1bXAgcmVx
+dWVzdCIpOwogCQlyZXR1cm4gMTsKZGlmZiAtTmF1ciBpcHJvdXRlMi90Yy90Y19maWx0ZXIuYyBp
+cHJvdXRlMi1uZXdpZmluZGV4L3RjL3RjX2ZpbHRlci5jCi0tLSBpcHJvdXRlMi90Yy90Y19maWx0
+ZXIuYwkyMDExLTA3LTE4IDExOjEwOjQxLjM5MDk3MzM5NyArMDMwMAorKysgaXByb3V0ZTItbmV3
+aWZpbmRleC90Yy90Y19maWx0ZXIuYwkyMDExLTA3LTE4IDExOjI4OjE4LjA5Nzc2Mjc0NSArMDMw
+MApAQCAtODAsNyArODAsMTYgQEAKIAkJCU5FWFRfQVJHKCk7CiAJCQlpZiAoZFswXSkKIAkJCQlk
+dXBhcmcoImRldiIsICphcmd2KTsKKwkJCWlmIChyZXEudC50Y21faWZpbmRleCkKKwkJCQlkdXBh
+cmcoImlmaW5kZXgiLCAqYXJndik7CiAJCQlzdHJuY3B5KGQsICphcmd2LCBzaXplb2YoZCktMSk7
+CisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiaWZpbmRleCIpID09IDApIHsKKwkJCU5FWFRf
+QVJHKCk7CisJCQlpZiAoZFswXSkKKwkJCQlkdXBhcmcoImRldiIsICphcmd2KTsKKwkJCWlmIChy
+ZXEudC50Y21faWZpbmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CisJCQlyZXEu
+dC50Y21faWZpbmRleCA9IGF0b2koKmFyZ3YpOwogCQl9IGVsc2UgaWYgKHN0cmNtcCgqYXJndiwg
+InJvb3QiKSA9PSAwKSB7CiAJCQlpZiAocmVxLnQudGNtX3BhcmVudCkgewogCQkJCWZwcmludGYo
+c3RkZXJyLCAiRXJyb3I6IFwicm9vdFwiIGlzIGR1cGxpY2F0ZSBwYXJlbnQgSURcbiIpOwpAQCAt
+Mjc3LDcgKzI4NiwxNiBAQAogCQkJTkVYVF9BUkcoKTsKIAkJCWlmIChkWzBdKQogCQkJCWR1cGFy
+ZygiZGV2IiwgKmFyZ3YpOworCQkJaWYgKHQudGNtX2lmaW5kZXgpCisJCQkJZHVwYXJnKCJpZmlu
+ZGV4IiwgKmFyZ3YpOwogCQkJc3RybmNweShkLCAqYXJndiwgc2l6ZW9mKGQpLTEpOworCQl9IGVs
+c2UgaWYgKHN0cmNtcCgqYXJndiwgImlmaW5kZXgiKSA9PSAwKSB7CisJCQlORVhUX0FSRygpOwor
+CQkJaWYgKGRbMF0pCisJCQkJZHVwYXJnKCJkZXYiLCAqYXJndik7CisJCQlpZiAodC50Y21faWZp
+bmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CisJCQl0LnRjbV9pZmluZGV4ID0g
+YXRvaSgqYXJndik7CiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAicm9vdCIpID09IDApIHsK
+IAkJCWlmICh0LnRjbV9wYXJlbnQpIHsKIAkJCQlmcHJpbnRmKHN0ZGVyciwgIkVycm9yOiBcInJv
+b3RcIiBpcyBkdXBsaWNhdGUgcGFyZW50IElEXG4iKTsKQEAgLTMzMiwxMCArMzUwLDExIEBACiAJ
+CWlmICgodC50Y21faWZpbmRleCA9IGxsX25hbWVfdG9faW5kZXgoZCkpID09IDApIHsKIAkJCWZw
+cmludGYoc3RkZXJyLCAiQ2Fubm90IGZpbmQgZGV2aWNlIFwiJXNcIlxuIiwgZCk7CiAJCQlyZXR1
+cm4gMTsKLQkJfQotCQlmaWx0ZXJfaWZpbmRleCA9IHQudGNtX2lmaW5kZXg7CisJCX0JCQogCX0K
+IAorCWZpbHRlcl9pZmluZGV4ID0gdC50Y21faWZpbmRleDsKKwogIAlpZiAocnRubF9kdW1wX3Jl
+cXVlc3QoJnJ0aCwgUlRNX0dFVFRGSUxURVIsICZ0LCBzaXplb2YodCkpIDwgMCkgewogCQlwZXJy
+b3IoIkNhbm5vdCBzZW5kIGR1bXAgcmVxdWVzdCIpOwogCQlyZXR1cm4gMTsKZGlmZiAtTmF1ciBp
+cHJvdXRlMi90Yy90Y19xZGlzYy5jIGlwcm91dGUyLW5ld2lmaW5kZXgvdGMvdGNfcWRpc2MuYwot
+LS0gaXByb3V0ZTIvdGMvdGNfcWRpc2MuYwkyMDExLTA3LTE4IDExOjEwOjQxLjM5MDk3MzM5NyAr
+MDMwMAorKysgaXByb3V0ZTItbmV3aWZpbmRleC90Yy90Y19xZGlzYy5jCTIwMTEtMDctMTggMTE6
+Mjk6MDkuMzIyMTIyMzQ5ICswMzAwCkBAIC03Niw3ICs3NiwxNiBAQAogCQkJTkVYVF9BUkcoKTsK
+IAkJCWlmIChkWzBdKQogCQkJCWR1cGFyZygiZGV2IiwgKmFyZ3YpOworCQkJaWYgKHJlcS50LnRj
+bV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRleCIsICphcmd2KTsKIAkJCXN0cm5jcHkoZCwg
+KmFyZ3YsIHNpemVvZihkKS0xKTsKKwkJfSBlbHNlIGlmIChzdHJjbXAoKmFyZ3YsICJpZmluZGV4
+IikgPT0gMCkgeworCQkJTkVYVF9BUkcoKTsKKwkJCWlmIChkWzBdKQorCQkJCWR1cGFyZygiZGV2
+IiwgKmFyZ3YpOworCQkJaWYgKHJlcS50LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRl
+eCIsICphcmd2KTsKKwkJCXJlcS50LnRjbV9pZmluZGV4ID0gYXRvaSgqYXJndik7CiAJCX0gZWxz
+ZSBpZiAoc3RyY21wKCphcmd2LCAiaGFuZGxlIikgPT0gMCkgewogCQkJX191MzIgaGFuZGxlOwog
+CQkJaWYgKHJlcS50LnRjbV9oYW5kbGUpCkBAIC0yODksNyArMjk4LDE4IEBACiAJd2hpbGUgKGFy
+Z2MgPiAwKSB7CiAJCWlmIChzdHJjbXAoKmFyZ3YsICJkZXYiKSA9PSAwKSB7CiAJCQlORVhUX0FS
+RygpOworCQkJaWYgKGRbMF0pCisJCQkJZHVwYXJnKCJkZXYiLCAqYXJndik7CisJCQlpZiAodC50
+Y21faWZpbmRleCkKKwkJCQlkdXBhcmcoImlmaW5kZXgiLCAqYXJndik7CiAJCQlzdHJuY3B5KGQs
+ICphcmd2LCBzaXplb2YoZCktMSk7CisJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAiaWZpbmRl
+eCIpID09IDApIHsKKwkJCU5FWFRfQVJHKCk7CisJCQlpZiAoZFswXSkKKwkJCQlkdXBhcmcoImRl
+diIsICphcmd2KTsKKwkJCWlmICh0LnRjbV9pZmluZGV4KQorCQkJCWR1cGFyZygiaWZpbmRleCIs
+ICphcmd2KTsKKwkJCXQudGNtX2lmaW5kZXggPSBhdG9pKCphcmd2KTsKICNpZmRlZiBUQ19IX0lO
+R1JFU1MKICAgICAgICAgICAgICAgICB9IGVsc2UgaWYgKHN0cmNtcCgqYXJndiwgImluZ3Jlc3Mi
+KSA9PSAwKSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlmICh0LnRjbV9wYXJlbnQp
+IHsKQEAgLTMxNSw5ICszMzUsMTAgQEAKIAkJCWZwcmludGYoc3RkZXJyLCAiQ2Fubm90IGZpbmQg
+ZGV2aWNlIFwiJXNcIlxuIiwgZCk7CiAJCQlyZXR1cm4gMTsKIAkJfQotCQlmaWx0ZXJfaWZpbmRl
+eCA9IHQudGNtX2lmaW5kZXg7CiAJfQogCisJZmlsdGVyX2lmaW5kZXggPSB0LnRjbV9pZmluZGV4
+OworCiAgCWlmIChydG5sX2R1bXBfcmVxdWVzdCgmcnRoLCBSVE1fR0VUUURJU0MsICZ0LCBzaXpl
+b2YodCkpIDwgMCkgewogCQlwZXJyb3IoIkNhbm5vdCBzZW5kIGR1bXAgcmVxdWVzdCIpOwogCQly
+ZXR1cm4gMTsK
+--=_20bd5091df9049529b8673b100a3d80e--
+
