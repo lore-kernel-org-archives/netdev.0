@@ -1,36 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ipv4: save cpu cycles from check_leaf()
-Date: Mon, 18 Jul 2011 10:42:03 -0700 (PDT)
-Message-ID: <20110718.104203.518080599243849290.davem@davemloft.net>
-References: <20110717.122949.1167434585296050332.davem@davemloft.net>
-	<1310994993.5756.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCHv11] vhost: vhost TX zero-copy support
+Date: Mon, 18 Jul 2011 10:43:21 -0700 (PDT)
+Message-ID: <20110718.104321.439108421929344070.davem@davemloft.net>
+References: <20110718134846.GA7107@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43477 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751666Ab1GRRmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 13:42:09 -0400
-In-Reply-To: <1310994993.5756.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mashirle@us.ibm.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jj@chaosbits.net
+To: mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110718134846.GA7107@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 18 Jul 2011 15:16:33 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 18 Jul 2011 16:48:46 +0300
 
-> [PATCH net-next-2.6] ipv4: save cpu cycles from check_leaf()
+>>From: Shirley Ma <mashirle@us.ibm.com>
 > 
-> Compiler is not smart enough to avoid double BSWAP instructions in
-> ntohl(inet_make_mask(plen)).
+> This adds experimental zero copy support in vhost-net,
+> disabled by default. To enable, set
+> experimental_zcopytx module option to 1.
 > 
-> Lets cache this value in struct leaf_info, (fill a hole on 64bit arches)
+> This patch maintains the outstanding userspace buffers in the
+> sequence it is delivered to vhost. The outstanding userspace buffers
+> will be marked as done once the lower device buffers DMA has finished.
+> This is monitored through last reference of kfree_skb callback. Two
+> buffer indices are used for this purpose.
 > 
-> With route cache disabled, this saves ~2% of cpu in udpflood bench on
-> x86_64 machine.
+> The vhost-net device passes the userspace buffers info to lower device
+> skb through message control. DMA done status check and guest
+> notification are handled by handle_tx: in the worst case is all buffers
+> in the vq are in pending/done status, so we need to notify guest to
+> release DMA done buffers first before we get any new buffers from the
+> vq.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> One known problem is that if the guest stops submitting
+> buffers, buffers might never get used until some
+> further action, e.g. device reset. This does not
+> seem to affect linux guests.
+> 
+> Signed-off-by: Shirley <xma@us.ibm.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Applied, thanks Eric.
+Applied, thanks!
