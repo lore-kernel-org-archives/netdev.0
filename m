@@ -1,62 +1,102 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net-next v3 af-packet 1/2] Enhance af-packet to provide
- (near zero)lossless packet capture functionality.
-Date: Mon, 18 Jul 2011 08:49:30 -0400
-Message-ID: <CAAsGZS5b9X5HW=_JjfahbXpi9f4H5iYGeY9-+wBjP+=c-MDj4w@mail.gmail.com>
-References: <1310959610-1688-1-git-send-email-loke.chetan@gmail.com>
-	<1310959610-1688-2-git-send-email-loke.chetan@gmail.com>
-	<1310971114.2509.25.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] Fix panic in virtnet_remove
+Date: Mon, 18 Jul 2011 16:03:59 +0300
+Message-ID: <20110718130359.GB6287@redhat.com>
+References: <20110718035730.16001.77240.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:36153 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751666Ab1GRMtb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 08:49:31 -0400
-Received: by pvg12 with SMTP id 12so2951741pvg.19
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 05:49:30 -0700 (PDT)
-In-Reply-To: <1310971114.2509.25.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:29167 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751018Ab1GRNDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2011 09:03:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20110718035730.16001.77240.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 18, 2011 at 2:38 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le dimanche 17 juillet 2011 =C3=A0 23:26 -0400, Chetan Loke a =C3=A9c=
-rit :
->> Signed-off-by: Chetan Loke <loke.chetan@gmail.com>
->> ---
->> =C2=A0include/linux/if_packet.h | =C2=A0125 ++++++++++++++++++++++++=
-+++++++++++++++++++++
->> =C2=A01 files changed, 125 insertions(+), 0 deletions(-)
->
->>
->> +struct tpacket3_hdr {
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_status;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_next_off=
-set;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_len;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_snaplen;
->> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_mac;
->> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_net;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_sec;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_nsec;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_rxhash;
->> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_vlan_tci=
-;
->> + =C2=A0 =C2=A0 __u16 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_padding;
->> + =C2=A0 =C2=A0 __u32 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 tp_next_off=
-set;
->> +};
->
-> Srange, I see tp_next_offset twice in tpacket3_hdr ?
+On Mon, Jul 18, 2011 at 09:27:30AM +0530, Krishna Kumar wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 07/17/2011 03:42:15 PM:
+> 
+> > > modprobe -r virtio_net panics in free_netdev() as the
+> > > dev is already freed in the newly introduced virtnet_free
+> > > (commit 3fa2a1df9094).
+> > 
+> > Good catch, thanks!
+> > 
+> > > Since virtnet_remove doesn't require
+> > > dev after unregister,
+> > 
+> > I'm not sure that true: vi used just above the line you remove
+> > is I think the struct virtnet_info that is allocated
+> > as part of that structure.
+> 
+> You are right, the dev cannot be freed in the destructor.
+> 
+> > > I am removing the free_netdev call
+> > > in virtnet_remove instead of in virtnet_free (which seems
+> > > to be the right place to free the dev). Confirmed that
+> > > the panic is fixed with this patch.
+> > 
+> > This might be just because the memory isn't reused.
+> > Try enabling slab poisoning, I think you'll observe some problems.
+> > 
+> > Do we absolutely have to have a destructor?
+> > Can't we move the per cpu counter free from
+> > virtnet_free to virtnet_remove, and get rid of
+> > virtnet_free completely?
+> 
+> I see some other drivers doing that, e.g. xennet_remove:
+> 	...
+> 	free_percpu(info->stats);
+> 	free_netdev(info->netdev);
+> 	...
+> 
+> How about this patch (compile tested only)?
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
-Sorry, I was trying some last minute fancy prefetch changes. So I
-bubbled up the field on my test box but somehow missed the cleanup on
-the dev-box.
-Will wait for a day to gather some more comments and then re-send the p=
-atch.
+This is what I had in mind. Pls test it and if OK resubmit
+with proper description etc.
 
-Chetan Loke
+
+> ---
+>  drivers/net/virtio_net.c |   10 +---------
+>  1 file changed, 1 insertion(+), 9 deletions(-)
+> 
+> diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
+> --- org/drivers/net/virtio_net.c	2011-07-18 09:14:02.000000000 +0530
+> +++ new/drivers/net/virtio_net.c	2011-07-18 09:16:35.000000000 +0530
+> @@ -705,14 +705,6 @@ static void virtnet_netpoll(struct net_d
+>  }
+>  #endif
+>  
+> -static void virtnet_free(struct net_device *dev)
+> -{
+> -	struct virtnet_info *vi = netdev_priv(dev);
+> -
+> -	free_percpu(vi->stats);
+> -	free_netdev(dev);
+> -}
+> -
+>  static int virtnet_open(struct net_device *dev)
+>  {
+>  	struct virtnet_info *vi = netdev_priv(dev);
+> @@ -959,7 +951,6 @@ static int virtnet_probe(struct virtio_d
+>  	/* Set up network device as normal. */
+>  	dev->netdev_ops = &virtnet_netdev;
+>  	dev->features = NETIF_F_HIGHDMA;
+> -	dev->destructor = virtnet_free;
+>  
+>  	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
+>  	SET_NETDEV_DEV(dev, &vdev->dev);
+> @@ -1122,6 +1113,7 @@ static void __devexit virtnet_remove(str
+>  	while (vi->pages)
+>  		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
+>  
+> +	free_percpu(vi->stats);
+>  	free_netdev(vi->dev);
+>  }
+>  
