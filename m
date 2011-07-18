@@ -1,51 +1,63 @@
-From: nick <nickfamilyiq@gmail.com>
-Subject: Confirm Your $0.00 Copy Of "Winning In The Online Home Business Arena" ($39.97 Value
-Date: Sun, 17 Jul 2011 19:48:36 -0400
-Message-ID: <E1Qib4e-000695-6Q@cyber1.clickithost.com>
-Reply-To: nickfamilyiq@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+From: Chetan Loke <loke.chetan@gmail.com>
+Subject: [PATCH net-next v3 af-packet 0/2] Enhance af-packet to provide (near zero)lossless packet capture functionality.
+Date: Sun, 17 Jul 2011 23:26:48 -0400
+Message-ID: <1310959610-1688-1-git-send-email-loke.chetan@gmail.com>
+Cc: Chetan Loke <loke.chetan@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 64-37-60-38.static.dimenoc.com ([64.37.60.38]:43770 "EHLO
-	cyber1.clickithost.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1754092Ab1GQXt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2011 19:49:28 -0400
-Received: from wwwnickl by cyber1.clickithost.com with local (Exim 4.69)
-	(envelope-from <wwwnickl@cyber1.clickithost.com>)
-	id 1Qib4e-000695-6Q
-	for netdev@vger.kernel.org; Sun, 17 Jul 2011 19:48:36 -0400
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:63378 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736Ab1GRD1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2011 23:27:06 -0400
+Received: by qyk9 with SMTP id 9so1614593qyk.19
+        for <netdev@vger.kernel.org>; Sun, 17 Jul 2011 20:27:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inside Of Your Free 8 Part DVD \\\"Winning
-In The Online Home Business Arena\\\"
-($39.97 Value)
 
-Go here now:
+Changes in v3:
+1) Stripped __packed__ attribute.			(Dave Miller)
+   Replaced with aligned_u64 and padding.
+2) Added 'feature_request_word'.
+3) Added rx_hash field to the v3-header.		(Chetan L)
 
-==> https://daegansmith.infusionsoft.com/go/freedvdbootcamp/a12144
+Changes in v2:
 
-You\\\'ll Discover . . .
+1) Aligned bdqc members, pr_err to WARN, sob email      (Joe Perches)
+2) Added tp_padding                                     (Eric Dumazet)
+3) Nuked useless ;) white space                         (Stephen H)
+4) Use __u types in headers                             (Ben Hutchings)
+5) Added field for creating private area                (Chetan Loke)
 
-What\\\'s Working Now! \\\"How To Get Up To 37
-Checks Per Month, Earn Upwards Of
-$4,954.55 While You Sleep At Night, And
-Recruit WITHOUT Ever Having To Pick Up The Phone\\\"
+This patch attempts to:
+1)Improve network capture visibility by increasing packet density
+2)Assist in analyzing multiple(aggregated) capture ports.
 
-Here\\\'s where to go:
+Benefits:
+  B1) ~15-20% reduction in cpu-usage.
+  B2) ~20% increase in packet capture rate.
+  B3) ~2x  increase in packet density.
+  B4) Port aggregation analysis.
+  B5) Non static frame size to capture entire packet payload.
 
-==> https://daegansmith.infusionsoft.com/go/freedvdbootcamp/a12144
+With the current af_packet->rx::mmap based approach, the element size
+in the block needs to be statically configured. Nothing wrong with this
+config/implementation. But the traffic profile cannot be known in advance.
+And so it would be nice if that configuration wasn't static. Normally,
+one would configure the element-size to be '2048' so that you can atleast
+capture the entire 'MTU-size'.But if the traffic profile varies then we
+would end up either i)wasting memory or ii) end up getting a sliced frame.
+In other words the packet density will be much less in the first case.
 
-To the top,
+Detailed description of the test-setup etc can be viewed at:
+http://thread.gmane.org/gmane.linux.kernel/1158216
 
-Nick
+Chetan Loke (2):
 
-Pick up now while it still costs zilch,
-before I start charing for it again.
-Make haste - Go here Now:
+ include/linux/if_packet.h |  125 ++++++
+ net/packet/af_packet.c    |  920 ++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 999 insertions(+), 46 deletions(-)
 
-==> https://daegansmith.infusionsoft.com/go/freedvdbootcamp/a12144
-
+-- 
+1.7.5.2
 
