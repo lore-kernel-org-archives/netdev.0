@@ -1,134 +1,110 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH 19/34] drivers/net changes for SMBIOS and System Firmware
-Date: Mon, 18 Jul 2011 09:08:33 -0400
-Message-ID: <1310994528-26276-20-git-send-email-prarit@redhat.com>
-References: <1310994528-26276-1-git-send-email-prarit@redhat.com>
-Cc: Prarit Bhargava <prarit@redhat.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1310994528-26276-1-git-send-email-prarit@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-As part of the new SMBIOS and System Firmware code:
-
-- Replace old dmi* structures and functions with new sysfw* and smbios*
-structures and functions in individual drivers
-- cleanup sysfw_id lookup tables
-- cleanup of includes for dmi.h and mod_devicetable.h which were included in
-some files that did not need them
-
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipv4: save cpu cycles from check_leaf()
+Date: Mon, 18 Jul 2011 15:16:33 +0200
+Message-ID: <1310994993.5756.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110717.122949.1167434585296050332.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
----
- drivers/net/skge.c                 |   11 ++++++-----
- drivers/net/via-rhine.c            |   18 ++++++++++--------
- drivers/net/wireless/wl1251/sdio.c |    1 -
- 3 files changed, 16 insertions(+), 14 deletions(-)
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:36189 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756835Ab1GRNQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 09:16:43 -0400
+Received: by wwe5 with SMTP id 5so3169191wwe.1
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 06:16:42 -0700 (PDT)
+In-Reply-To: <20110717.122949.1167434585296050332.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index f4be5c7..1200c53 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -43,7 +43,7 @@
- #include <linux/seq_file.h>
- #include <linux/mii.h>
- #include <linux/slab.h>
--#include <linux/dmi.h>
-+#include <linux/sysfw.h>
- #include <linux/prefetch.h>
- #include <asm/irq.h>
- 
-@@ -4089,12 +4089,13 @@ static struct pci_driver skge_driver = {
- 	.driver.pm =	SKGE_PM_OPS,
+Le dimanche 17 juillet 2011 =C3=A0 12:29 -0700, David Miller a =C3=A9cr=
+it :
+
+> I guess the indirection removal is a non-trivial improvement because
+> these changes knock a full 2 seconds off of my udpflood tests. :-)
+
+Excellent !
+
+One other improvement is to get rid of ntohl(inet_make_mask(plen)) stuf=
+f
+in check_leaf(), this saves 0.5 second on udpflood on my machine (27.25
+second -> 26.75)
+
+[PATCH net-next-2.6] ipv4: save cpu cycles from check_leaf()
+
+Compiler is not smart enough to avoid double BSWAP instructions in
+ntohl(inet_make_mask(plen)).
+
+Lets cache this value in struct leaf_info, (fill a hole on 64bit arches=
+)
+
+With route cache disabled, this saves ~2% of cpu in udpflood bench on
+x86_64 machine.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/fib_trie.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 58c25ea..de9e297 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -110,9 +110,10 @@ struct leaf {
+=20
+ struct leaf_info {
+ 	struct hlist_node hlist;
+-	struct rcu_head rcu;
+ 	int plen;
++	u32 mask_plen; /* ntohl(inet_make_mask(plen)) */
+ 	struct list_head falh;
++	struct rcu_head rcu;
  };
- 
--static struct dmi_system_id skge_32bit_dma_boards[] = {
-+static struct sysfw_id skge_32bit_dma_boards[] = {
- 	{
- 		.ident = "Gigabyte nForce boards",
- 		.matches = {
--			DMI_MATCH(DMI_BOARD_VENDOR, "Gigabyte Technology Co"),
--			DMI_MATCH(DMI_BOARD_NAME, "nForce"),
-+			SYSFW_MATCH(SYSFW_BOARD_VENDOR,
-+				     "Gigabyte Technology Co"),
-+			SYSFW_MATCH(SYSFW_BOARD_NAME, "nForce"),
- 		},
- 	},
- 	{}
-@@ -4102,7 +4103,7 @@ static struct dmi_system_id skge_32bit_dma_boards[] = {
- 
- static int __init skge_init_module(void)
- {
--	if (dmi_check_system(skge_32bit_dma_boards))
-+	if (sysfw_callback(skge_32bit_dma_boards))
- 		only_32bit_dma = 1;
- 	skge_debug_init();
- 	return pci_register_driver(&skge_driver);
-diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-index 7f23ab9..81725d5 100644
---- a/drivers/net/via-rhine.c
-+++ b/drivers/net/via-rhine.c
-@@ -110,7 +110,7 @@ static const int multicast_filter_limit = 32;
- #include <asm/io.h>
- #include <asm/irq.h>
- #include <asm/uaccess.h>
--#include <linux/dmi.h>
-+#include <linux/sysfw.h>
- 
- /* These identify the driver base version and may not be removed. */
- static const char version[] __devinitconst =
-@@ -2294,22 +2294,24 @@ static struct pci_driver rhine_driver = {
- 	.shutdown =	rhine_shutdown,
- };
- 
--static struct dmi_system_id __initdata rhine_dmi_table[] = {
-+static struct sysfw_id __initdata rhine_id_table[] = {
- 	{
- 		.ident = "EPIA-M",
- 		.matches = {
--			DMI_MATCH(DMI_BIOS_VENDOR, "Award Software International, Inc."),
--			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
-+			SYSFW_MATCH(SYSFW_BIOS_VENDOR,
-+				    "Award Software International, Inc."),
-+			SYSFW_MATCH(SYSFW_BIOS_VERSION, "6.00 PG"),
- 		},
- 	},
- 	{
- 		.ident = "KV7",
- 		.matches = {
--			DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies, LTD"),
--			DMI_MATCH(DMI_BIOS_VERSION, "6.00 PG"),
-+			SYSFW_MATCH(SYSFW_BIOS_VENDOR,
-+				    "Phoenix Technologies, LTD"),
-+			SYSFW_MATCH(SYSFW_BIOS_VERSION, "6.00 PG"),
- 		},
- 	},
--	{ NULL }
-+	{}
- };
- 
- static int __init rhine_init(void)
-@@ -2318,7 +2320,7 @@ static int __init rhine_init(void)
- #ifdef MODULE
- 	pr_info("%s\n", version);
+=20
+ struct tnode {
+@@ -451,6 +452,7 @@ static struct leaf_info *leaf_info_new(int plen)
+ 	struct leaf_info *li =3D kmalloc(sizeof(struct leaf_info),  GFP_KERNE=
+L);
+ 	if (li) {
+ 		li->plen =3D plen;
++		li->mask_plen =3D ntohl(inet_make_mask(plen));
+ 		INIT_LIST_HEAD(&li->falh);
+ 	}
+ 	return li;
+@@ -1359,10 +1361,8 @@ static int check_leaf(struct fib_table *tb, stru=
+ct trie *t, struct leaf *l,
+=20
+ 	hlist_for_each_entry_rcu(li, node, hhead, hlist) {
+ 		struct fib_alias *fa;
+-		int plen =3D li->plen;
+-		__be32 mask =3D inet_make_mask(plen);
+=20
+-		if (l->key !=3D (key & ntohl(mask)))
++		if (l->key !=3D (key & li->mask_plen))
+ 			continue;
+=20
+ 		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
+@@ -1394,7 +1394,7 @@ static int check_leaf(struct fib_table *tb, struc=
+t trie *t, struct leaf *l,
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 				t->stats.semantic_match_passed++;
  #endif
--	if (dmi_check_system(rhine_dmi_table)) {
-+	if (sysfw_callback(rhine_id_table)) {
- 		/* these BIOSes fail at PXE boot if chip is in D3 */
- 		avoid_D3 = 1;
- 		pr_warn("Broken BIOS detected, avoid_D3 enabled\n");
-diff --git a/drivers/net/wireless/wl1251/sdio.c b/drivers/net/wireless/wl1251/sdio.c
-index f51a024..68e36d7 100644
---- a/drivers/net/wireless/wl1251/sdio.c
-+++ b/drivers/net/wireless/wl1251/sdio.c
-@@ -20,7 +20,6 @@
-  * Copyright (C) 2009 Bob Copeland (me@bobcopeland.com)
-  */
- #include <linux/module.h>
--#include <linux/mod_devicetable.h>
- #include <linux/mmc/sdio_func.h>
- #include <linux/mmc/sdio_ids.h>
- #include <linux/platform_device.h>
--- 
-1.6.5.2
+-				res->prefixlen =3D plen;
++				res->prefixlen =3D li->plen;
+ 				res->nh_sel =3D nhsel;
+ 				res->type =3D fa->fa_type;
+ 				res->scope =3D fa->fa_info->fib_scope;
+@@ -1402,7 +1402,7 @@ static int check_leaf(struct fib_table *tb, struc=
+t trie *t, struct leaf *l,
+ 				res->table =3D tb;
+ 				res->fa_head =3D &li->falh;
+ 				if (!(fib_flags & FIB_LOOKUP_NOREF))
+-					atomic_inc(&res->fi->fib_clntref);
++					atomic_inc(&fi->fib_clntref);
+ 				return 0;
+ 			}
+ 		}
+
+
