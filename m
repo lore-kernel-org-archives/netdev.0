@@ -1,64 +1,51 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v2] connector: add an event for monitoring process
-	tracers
-Date: Mon, 18 Jul 2011 21:39:38 +0200
-Message-ID: <20110718193938.GA17629@redhat.com>
-References: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com> <20110718175458.GA12840@redhat.com> <CAMW3pwYvXqi4=e24kvQRdsHsFa5o1KL9PrekK0RCVyWTvhNx4A@mail.gmail.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH] Add error check to hex2bin().
+Date: Mon, 18 Jul 2011 22:44:29 +0300
+Message-ID: <CAHp75VeQSSoW6u-LGdhoNf_mh7WP5076bpzygf710Ro8aj1+Cg@mail.gmail.com>
+References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	<201107182041.EHB78622.VOFSHFMOOFtLJQ@I-love.SAKURA.ne.jp>
+	<1310991796.3903.6.camel@smile>
+	<201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
+	<1311012230.3193.35.camel@localhost.localdomain>
+	<CAHp75VcXNQKej_n4cOB8-gYDSL8MuGrv=Fs8=zdEKGp53DCtSA@mail.gmail.com>
+	<1311016856.3648.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38195 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755044Ab1GRTmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2011 15:42:07 -0400
-Content-Disposition: inline
-In-Reply-To: <CAMW3pwYvXqi4=e24kvQRdsHsFa5o1KL9PrekK0RCVyWTvhNx4A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	linux-security-module@vger.kernel.org,
+	andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mimi Zohar <zohar@linux.vnet.ibm.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1311016856.3648.15.camel@localhost.localdomain>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/18, Vladimir Zapolskiy wrote:
->
-> On Mon, Jul 18, 2011 at 8:54 PM, Oleg Nesterov <oleg@redhat.com> wrote:
->
-> > "which_id" doesn't match "ptrace_id" used elsewhere. And PTRACE_ATTACH
-> > instead of simple boolean looks as if you are going to add more ptrace
-> > events, but I guess this won't happen.
-> >
->^
-> I'd like to preserve that variant, in my opinion its just a bit more
-> undisguised version rather than bare true/false.
+On Mon, Jul 18, 2011 at 10:20 PM, Mimi Zohar <zohar@linux.vnet.ibm.com>=
+ wrote:
 
-OK. Although this "else return" in proc_ptrace_connector() looks like
-the "hide the potentional error" to me.
+>> > We probably don't need to define a separate 'safe' function.
+>> There is an opponent on any =C2=A0approach. Although, small and fast=
+ error
+>> route could be good.
 
-> >> -     if (!retval)
-> >> +     if (!retval) {
-> >>               wait_on_bit(&task->jobctl, JOBCTL_TRAPPING_BIT,
-> >>                           ptrace_trapping_sleep_fn, TASK_UNINTERRUPTIBLE);
-> >> +             proc_ptrace_connector(task, PTRACE_ATTACH);
-> >> +     }
-> >
-> > OK, but it is a bit strange we are waiting for STOPPED/TRACED transition
-> > before we report PROC_EVENT_PTRACE. Perhaps it makes more sense to
-> > call proc_ptrace_connector() first, this also decreases the probability
-> > PTRACE_ATTACH will be reported after PROC_EVENT_EXIT.
-> >
-> Yes, there is a difference. But as far as there is no guaranteed
-> serialization in proc connector event reports, user-space process
-> trackers should be designed to operate correctly having in mind
-> possible event reordering.
+> As nothing but trusted/encrypted keys is using hex2bin, it shouldn't =
+be
+> a problem. =C2=A0:-)
+The key word "until now". But people will start to use anything which
+has public API, won't they?
 
-Yes, but I didn't really mean the correctness. I meant, this looks
-confusing, as if this wait_on_bit() has something to do with attach.
-Likewise I do not understand why proc_exec_connector() is called
-after ptrace_event() which can sleep unpredictably long.
+> =C2=A0I'll update trusted/encrypted keys to check the return
+> code.
+Actually another question shall we add __must_check to the prototype or=
+ not?
 
-
-
-Nevermind, applied.
-
-Oleg.
-
+--=20
+With Best Regards,
+Andy Shevchenko
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
