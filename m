@@ -1,60 +1,161 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v2] connector: add an event for monitoring process
-	tracers
-Date: Mon, 18 Jul 2011 19:54:58 +0200
-Message-ID: <20110718175458.GA12840@redhat.com>
-References: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
+From: Mimi Zohar <zohar@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Add error check to hex2bin().
+Date: Mon, 18 Jul 2011 14:03:50 -0400
+Message-ID: <1311012230.3193.35.camel@localhost.localdomain>
+References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <201107182041.EHB78622.VOFSHFMOOFtLJQ@I-love.SAKURA.ne.jp>
+	 <1310991796.3903.6.camel@smile>
+	 <201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36798 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097Ab1GRR5V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2011 13:57:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1310751918-31579-1-git-send-email-vzapolskiy@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-security-module@vger.kernel.org,
+	andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/15, Vladimir Zapolskiy wrote:
->
-> Such an event allows to create a simple automated userspace mechanism
-> to be aware about processes connecting to others, therefore predefined
-> process policies can be applied to them if needed.
+On Mon, 2011-07-18 at 21:48 +0900, Tetsuo Handa wrote:
+> Currently, security/keys/ is the only user of hex2bin().
+> Should I keep hex2bin() unmodified in case of bad input?
+> If so, I'd like to make it as hex2bin_safe().
 
-I'd wish I could understand this ;) IOW, I still do not understand why
-this is useful, but this doesn't matter. Since Evgeniy acked this patch,
-I'll apply it to ptrace tree.
+> ----------------------------------------
+> [PATCH] Add error check to hex2bin().
+> 
+> Since converting 2 hexadecimal letters into a byte with error checks is
+> commonly used, we can replace multiple hex_to_bin() calls with single hex2bin()
+> call by changing hex2bin() to do error checks.
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I=love.SAKURA.ne.jp>
+> ---
+> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+> index 953352a..186e9fc 100644
+> --- a/include/linux/kernel.h
+> +++ b/include/linux/kernel.h
+> @@ -374,7 +374,7 @@ static inline char *pack_hex_byte(char *buf, u8 byte)
+>  }
+> 
+>  extern int hex_to_bin(char ch);
+> -extern void hex2bin(u8 *dst, const char *src, size_t count);
+> +extern bool hex2bin(u8 *dst, const char *src, size_t count);
+> 
+>  /*
+>   * General tracing related utility functions - trace_printk(),
+> diff --git a/lib/hexdump.c b/lib/hexdump.c
+> index f5fe6ba..1524002 100644
+> --- a/lib/hexdump.c
+> +++ b/lib/hexdump.c
+> @@ -38,14 +38,22 @@ EXPORT_SYMBOL(hex_to_bin);
+>   * @dst: binary result
+>   * @src: ascii hexadecimal string
+>   * @count: result length
+> + *
+> + * Returns true on success, false in case of bad input.
+>   */
+> -void hex2bin(u8 *dst, const char *src, size_t count)
+> +bool hex2bin(u8 *dst, const char *src, size_t count)
+>  {
+>  	while (count--) {
+> -		*dst = hex_to_bin(*src++) << 4;
+> -		*dst += hex_to_bin(*src++);
+> -		dst++;
+> +		int c = hex_to_bin(*src++);
+> +		int d;
 
+Missing blank line here.
 
+> +		if (c < 0)
+> +			return false;
+> +		d = hex_to_bin(*src++);
+> +		if (d < 0)
+> +			return false;
+> +		*dst++ = (c << 4) | d;
+>  	}
+> +	return true;
+>  }
+>  EXPORT_SYMBOL(hex2bin);
 
-Can't resist, a couple of very minor/cosmetics nits. Just because I am
-blighter ;)
+We probably don't need to define a separate 'safe' function.
 
-> +void proc_ptrace_connector(struct task_struct *task, int which_id);
+Instead of changing the existing code to short circuit out and return a
+value, does only adding the return value work?  Something like:
 
-"which_id" doesn't match "ptrace_id" used elsewhere. And PTRACE_ATTACH
-instead of simple boolean looks as if you are going to add more ptrace
-events, but I guess this won't happen.
+        bool ret = true;
+        int c, d;
 
-> -	if (!retval)
-> +	if (!retval) {
->  		wait_on_bit(&task->jobctl, JOBCTL_TRAPPING_BIT,
->  			    ptrace_trapping_sleep_fn, TASK_UNINTERRUPTIBLE);
-> +		proc_ptrace_connector(task, PTRACE_ATTACH);
-> +	}
+        while (count--) {
+                c = hex_to_bin(*src++);
+                d = hex_to_bin(*src++);
+                *dst++ = (c << 4) | d;
 
-OK, but it is a bit strange we are waiting for STOPPED/TRACED transition
-before we report PROC_EVENT_PTRACE. Perhaps it makes more sense to
-call proc_ptrace_connector() first, this also decreases the probability
-PTRACE_ATTACH will be reported after PROC_EVENT_EXIT.
+                if (c < 0 || d < 0)
+                        ret = false;
+        }
+        return ret;
 
+thanks,
 
-But once again, this is very minor and cosmetic. I am going to apply
-the patch as is unless you send v3 quickly.
+Mimi
 
-Oleg.
+> In message "Re: [PATCH] net: can: remove custom hex_to_bin()",
+> Andy Shevchenko wrote:
+> > On Mon, 2011-07-18 at 20:41 +0900, Tetsuo Handa wrote: 
+> > > Andy Shevchenko wrote:
+> > > >  	for (i = 0, dlc_pos++; i < cf.can_dlc; i++) {
+> > > > -
+> > > > -		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+> > > > -		if (tmp > 0x0F)
+> > > > +		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
+> > > > +		if (tmp < 0)
+> > > >  			return;
+> > > >  		cf.data[i] = (tmp << 4);
+> > > > -		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+> > > > -		if (tmp > 0x0F)
+> > > > +		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
+> > > > +		if (tmp < 0)
+> > > >  			return;
+> > > >  		cf.data[i] |= tmp;
+> > > >  	}
+> > > 
+> > > What about changing
+> > > 
+> > >   void hex2bin(u8 *dst, const char *src, size_t count)
+> > > 
+> > > to
+> > > 
+> > >   bool hex2bin(u8 *dst, const char *src, size_t count)
+> > > 
+> > > in order to do error checks like
+> > > 
+> > > bool hex2bin_with_validation(u8 *dst, const char *src, size_t count)
+> > > {
+> > > 	while (count--) {
+> > > 		int c = hex_to_bin(*src++);
+> > > 		int d;
+> > > 		if (c < 0)
+> > > 			return false;
+> > > 		d = hex_to_bin(*src++)
+> > > 		if (d < 0)
+> > > 			return false;
+> > > 		*dst++ = (c << 4) | d;
+> > > 	}
+> > > 	return true;
+> > > }
+> > > 
+> > > and use hex2bin() rather than hex_to_bin()?
+> > Perhaps, good idea. Could you submit a patch?
+> > 
+> > -- 
+> > Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> > Intel Finland Oy
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
 
