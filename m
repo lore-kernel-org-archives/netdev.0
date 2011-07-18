@@ -1,43 +1,76 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 20/45] bna: MBOX IRQ Sync Vector Num Fix
-Date: Mon, 18 Jul 2011 01:22:40 -0700
-Message-ID: <1310977385-5268-10-git-send-email-rmody@brocade.com>
-References: <1310977385-5268-1-git-send-email-rmody@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>, <dradovan@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:48232 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753418Ab1GRIX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:23:56 -0400
-In-Reply-To: <1310977385-5268-1-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] net: can: remove custom hex_to_bin()
+Date: Mon, 18 Jul 2011 11:26:37 +0300
+Message-ID: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change details:
- - Fixed the vector number used for syncing MBox IRQ
-
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
 ---
- drivers/net/bna/bnad.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/can/slcan.c |   26 +++++---------------------
+ 1 files changed, 5 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
-index cd2b921..076f398 100644
---- a/drivers/net/bna/bnad.c
-+++ b/drivers/net/bna/bnad.c
-@@ -2180,7 +2180,7 @@ bnad_mbox_irq_sync(struct bnad *bnad)
+diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
+index aa8ad73..65e54fd 100644
+--- a/drivers/net/can/slcan.c
++++ b/drivers/net/can/slcan.c
+@@ -56,6 +56,7 @@
+ #include <linux/sched.h>
+ #include <linux/delay.h>
+ #include <linux/init.h>
++#include <linux/kernel.h>
+ #include <linux/can.h>
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	if (bnad->cfg_flags & BNAD_CF_MSIX)
--		irq = bnad->msix_table[bnad->msix_num - 1].vector;
-+		irq = bnad->msix_table[BNAD_MAILBOX_MSIX_INDEX].vector;
- 	else
- 		irq = bnad->pcidev->irq;
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ static __initdata const char banner[] =
+@@ -142,21 +143,6 @@ static struct net_device **slcan_devs;
+   *			STANDARD SLCAN DECAPSULATION			 *
+   ************************************************************************/
+ 
+-static int asc2nibble(char c)
+-{
+-
+-	if ((c >= '0') && (c <= '9'))
+-		return c - '0';
+-
+-	if ((c >= 'A') && (c <= 'F'))
+-		return c - 'A' + 10;
+-
+-	if ((c >= 'a') && (c <= 'f'))
+-		return c - 'a' + 10;
+-
+-	return 16; /* error */
+-}
+-
+ /* Send one completely decapsulated can_frame to the network layer */
+ static void slc_bump(struct slcan *sl)
+ {
+@@ -195,18 +181,16 @@ static void slc_bump(struct slcan *sl)
+ 	*(u64 *) (&cf.data) = 0; /* clear payload */
+ 
+ 	for (i = 0, dlc_pos++; i < cf.can_dlc; i++) {
+-
+-		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+-		if (tmp > 0x0F)
++		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
++		if (tmp < 0)
+ 			return;
+ 		cf.data[i] = (tmp << 4);
+-		tmp = asc2nibble(sl->rbuff[dlc_pos++]);
+-		if (tmp > 0x0F)
++		tmp = hex_to_bin(sl->rbuff[dlc_pos++]);
++		if (tmp < 0)
+ 			return;
+ 		cf.data[i] |= tmp;
+ 	}
+ 
+-
+ 	skb = dev_alloc_skb(sizeof(struct can_frame));
+ 	if (!skb)
+ 		return;
 -- 
-1.7.1
-
+1.7.5.4
