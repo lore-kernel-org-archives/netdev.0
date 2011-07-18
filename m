@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 02/45] bna: Update ASIC Register Definition to Support New Hardware
-Date: Mon, 18 Jul 2011 01:19:30 -0700
-Message-ID: <1310977178-312-3-git-send-email-rmody@brocade.com>
+Subject: [PATCH 03/45] bna: Change IOC Event Notification Call Back Mechanism
+Date: Mon, 18 Jul 2011 01:19:31 -0700
+Message-ID: <1310977178-312-4-git-send-email-rmody@brocade.com>
 References: <1310977178-312-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,634 +9,332 @@ Cc: <adapter_linux_open_src_team@brocade.com>, <dradovan@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:48156 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753233Ab1GRIUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:20:19 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37710 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753486Ab1GRIUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:20:25 -0400
 In-Reply-To: <1310977178-312-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Introducing new file bfi_reg.h for new hardware registers. This file will
-   completely replace bfi_ctreg.h in a later patch.
+ - A generic event notification callback mechanism that receives
+   IOC enable, disable, failed events and notifies the registered
+   modules of these events.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bfa_ioc_ct.c |   78 ++++----
- drivers/net/bna/bfi_reg.h    |  452 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 492 insertions(+), 38 deletions(-)
- create mode 100644 drivers/net/bna/bfi_reg.h
+ drivers/net/bna/bfa_cee.c |   65 +++++++++++++++++++++++++++------------------
+ drivers/net/bna/bfa_cee.h |    3 +-
+ drivers/net/bna/bfa_ioc.c |   54 +++++++++++++++++++++++--------------
+ drivers/net/bna/bfa_ioc.h |   31 ++++++++++++++++++---
+ 4 files changed, 99 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/net/bna/bfa_ioc_ct.c b/drivers/net/bna/bfa_ioc_ct.c
-index 87aecdf..75ecf7a 100644
---- a/drivers/net/bna/bfa_ioc_ct.c
-+++ b/drivers/net/bna/bfa_ioc_ct.c
-@@ -19,7 +19,7 @@
- #include "bfa_ioc.h"
- #include "cna.h"
- #include "bfi.h"
--#include "bfi_ctreg.h"
-+#include "bfi_reg.h"
- #include "bfa_defs.h"
- 
- #define bfa_ioc_ct_sync_pos(__ioc)	\
-@@ -178,7 +178,7 @@ bfa_ioc_ct_notify_fail(struct bfa_ioc *ioc)
- 		readl(ioc->ioc_regs.ll_halt);
- 		readl(ioc->ioc_regs.alt_ll_halt);
- 	} else {
--		writel(__PSS_ERR_STATUS_SET, ioc->ioc_regs.err_set);
-+		writel(~0U, ioc->ioc_regs.err_set);
- 		readl(ioc->ioc_regs.err_set);
- 	}
+diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/bna/bfa_cee.c
+index dcfbf08..39e5ab9 100644
+--- a/drivers/net/bna/bfa_cee.c
++++ b/drivers/net/bna/bfa_cee.c
+@@ -223,44 +223,56 @@ bfa_cee_isr(void *cbarg, struct bfi_mbmsg *m)
  }
-@@ -196,21 +196,21 @@ static struct { u32 hfn_mbox, lpu_mbox, hfn_pgn; } iocreg_fnreg[] = {
- /**
-  * Host <-> LPU mailbox command/status registers - port 0
-  */
--static struct { u32 hfn, lpu; } iocreg_mbcmd_p0[] = {
--	{ HOSTFN0_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN0_MBOX0_CMD_STAT },
--	{ HOSTFN1_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN1_MBOX0_CMD_STAT },
--	{ HOSTFN2_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN2_MBOX0_CMD_STAT },
--	{ HOSTFN3_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN3_MBOX0_CMD_STAT }
-+static struct { u32 hfn, lpu; } ct_p0reg[] = {
-+	{ HOSTFN0_LPU0_CMD_STAT, LPU0_HOSTFN0_CMD_STAT },
-+	{ HOSTFN1_LPU0_CMD_STAT, LPU0_HOSTFN1_CMD_STAT },
-+	{ HOSTFN2_LPU0_CMD_STAT, LPU0_HOSTFN2_CMD_STAT },
-+	{ HOSTFN3_LPU0_CMD_STAT, LPU0_HOSTFN3_CMD_STAT }
- };
  
  /**
-  * Host <-> LPU mailbox command/status registers - port 1
+- * bfa_cee_hbfail()
++ * bfa_cee_notify()
+  *
+  * @brief CEE module heart-beat failure handler.
++ * @brief CEE module IOC event handler.
+  *
+- * @param[in] Pointer to the CEE module data structure.
++ * @param[in] IOC event type
+  *
+  * @return void
   */
--static struct { u32 hfn, lpu; } iocreg_mbcmd_p1[] = {
--	{ HOSTFN0_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN0_MBOX0_CMD_STAT },
--	{ HOSTFN1_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN1_MBOX0_CMD_STAT },
--	{ HOSTFN2_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN2_MBOX0_CMD_STAT },
--	{ HOSTFN3_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN3_MBOX0_CMD_STAT }
-+static struct { u32 hfn, lpu; } ct_p1reg[] = {
-+	{ HOSTFN0_LPU1_CMD_STAT, LPU1_HOSTFN0_CMD_STAT },
-+	{ HOSTFN1_LPU1_CMD_STAT, LPU1_HOSTFN1_CMD_STAT },
-+	{ HOSTFN2_LPU1_CMD_STAT, LPU1_HOSTFN2_CMD_STAT },
-+	{ HOSTFN3_LPU1_CMD_STAT, LPU1_HOSTFN3_CMD_STAT }
- };
  
  static void
-@@ -229,16 +229,16 @@ bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
- 		ioc->ioc_regs.heartbeat = rb + BFA_IOC0_HBEAT_REG;
- 		ioc->ioc_regs.ioc_fwstate = rb + BFA_IOC0_STATE_REG;
- 		ioc->ioc_regs.alt_ioc_fwstate = rb + BFA_IOC1_STATE_REG;
--		ioc->ioc_regs.hfn_mbox_cmd = rb + iocreg_mbcmd_p0[pcifn].hfn;
--		ioc->ioc_regs.lpu_mbox_cmd = rb + iocreg_mbcmd_p0[pcifn].lpu;
-+		ioc->ioc_regs.hfn_mbox_cmd = rb + ct_p0reg[pcifn].hfn;
-+		ioc->ioc_regs.lpu_mbox_cmd = rb + ct_p0reg[pcifn].lpu;
- 		ioc->ioc_regs.ll_halt = rb + FW_INIT_HALT_P0;
- 		ioc->ioc_regs.alt_ll_halt = rb + FW_INIT_HALT_P1;
- 	} else {
- 		ioc->ioc_regs.heartbeat = (rb + BFA_IOC1_HBEAT_REG);
- 		ioc->ioc_regs.ioc_fwstate = (rb + BFA_IOC1_STATE_REG);
- 		ioc->ioc_regs.alt_ioc_fwstate = rb + BFA_IOC0_STATE_REG;
--		ioc->ioc_regs.hfn_mbox_cmd = rb + iocreg_mbcmd_p1[pcifn].hfn;
--		ioc->ioc_regs.lpu_mbox_cmd = rb + iocreg_mbcmd_p1[pcifn].lpu;
-+		ioc->ioc_regs.hfn_mbox_cmd = rb + ct_p1reg[pcifn].hfn;
-+		ioc->ioc_regs.lpu_mbox_cmd = rb + ct_p1reg[pcifn].lpu;
- 		ioc->ioc_regs.ll_halt = rb + FW_INIT_HALT_P1;
- 		ioc->ioc_regs.alt_ll_halt = rb + FW_INIT_HALT_P0;
- 	}
-@@ -248,8 +248,8 @@ bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
- 	 */
- 	ioc->ioc_regs.pss_ctl_reg = (rb + PSS_CTL_REG);
- 	ioc->ioc_regs.pss_err_status_reg = (rb + PSS_ERR_STATUS_REG);
--	ioc->ioc_regs.app_pll_fast_ctl_reg = (rb + APP_PLL_425_CTL_REG);
--	ioc->ioc_regs.app_pll_slow_ctl_reg = (rb + APP_PLL_312_CTL_REG);
-+	ioc->ioc_regs.app_pll_fast_ctl_reg = (rb + APP_PLL_LCLK_CTL_REG);
-+	ioc->ioc_regs.app_pll_slow_ctl_reg = (rb + APP_PLL_SCLK_CTL_REG);
- 
- 	/*
- 	 * IOC semaphore registers and serialization
-@@ -446,14 +446,15 @@ bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode)
+-bfa_cee_hbfail(void *arg)
++bfa_cee_notify(void *arg, enum bfa_ioc_event event)
  {
- 	u32	pll_sclk, pll_fclk, r32;
+ 	struct bfa_cee *cee;
+-	cee = arg;
++	cee = (struct bfa_cee *) arg;
  
--	pll_sclk = __APP_PLL_312_LRESETN | __APP_PLL_312_ENARST |
--		__APP_PLL_312_RSEL200500 | __APP_PLL_312_P0_1(3U) |
--		__APP_PLL_312_JITLMT0_1(3U) |
--		__APP_PLL_312_CNTLMT0_1(1U);
--	pll_fclk = __APP_PLL_425_LRESETN | __APP_PLL_425_ENARST |
--		__APP_PLL_425_RSEL200500 | __APP_PLL_425_P0_1(3U) |
--		__APP_PLL_425_JITLMT0_1(3U) |
--		__APP_PLL_425_CNTLMT0_1(1U);
-+	pll_sclk = __APP_PLL_SCLK_LRESETN | __APP_PLL_SCLK_ENARST |
-+		__APP_PLL_SCLK_RSEL200500 | __APP_PLL_SCLK_P0_1(3U) |
-+		__APP_PLL_SCLK_JITLMT0_1(3U) |
-+		__APP_PLL_SCLK_CNTLMT0_1(1U);
-+	pll_fclk = __APP_PLL_LCLK_LRESETN | __APP_PLL_LCLK_ENARST |
-+		__APP_PLL_LCLK_RSEL200500 | __APP_PLL_LCLK_P0_1(3U) |
-+		__APP_PLL_LCLK_JITLMT0_1(3U) |
-+		__APP_PLL_LCLK_CNTLMT0_1(1U);
+-	if (cee->get_attr_pending == true) {
+-		cee->get_attr_status = BFA_STATUS_FAILED;
+-		cee->get_attr_pending  = false;
+-		if (cee->cbfn.get_attr_cbfn) {
+-			cee->cbfn.get_attr_cbfn(cee->cbfn.get_attr_cbarg,
+-			    BFA_STATUS_FAILED);
++	switch (event) {
++	case BFA_IOC_E_DISABLED:
++	case BFA_IOC_E_FAILED:
++		if (cee->get_attr_pending == true) {
++			cee->get_attr_status = BFA_STATUS_FAILED;
++			cee->get_attr_pending  = false;
++			if (cee->cbfn.get_attr_cbfn) {
++				cee->cbfn.get_attr_cbfn(
++					cee->cbfn.get_attr_cbarg,
++					BFA_STATUS_FAILED);
++			}
+ 		}
+-	}
+-	if (cee->get_stats_pending == true) {
+-		cee->get_stats_status = BFA_STATUS_FAILED;
+-		cee->get_stats_pending  = false;
+-		if (cee->cbfn.get_stats_cbfn) {
+-			cee->cbfn.get_stats_cbfn(cee->cbfn.get_stats_cbarg,
+-			    BFA_STATUS_FAILED);
++		if (cee->get_stats_pending == true) {
++			cee->get_stats_status = BFA_STATUS_FAILED;
++			cee->get_stats_pending  = false;
++			if (cee->cbfn.get_stats_cbfn) {
++				cee->cbfn.get_stats_cbfn(
++					cee->cbfn.get_stats_cbarg,
++					BFA_STATUS_FAILED);
++			}
+ 		}
+-	}
+-	if (cee->reset_stats_pending == true) {
+-		cee->reset_stats_status = BFA_STATUS_FAILED;
+-		cee->reset_stats_pending  = false;
+-		if (cee->cbfn.reset_stats_cbfn) {
+-			cee->cbfn.reset_stats_cbfn(cee->cbfn.reset_stats_cbarg,
+-			    BFA_STATUS_FAILED);
++		if (cee->reset_stats_pending == true) {
++			cee->reset_stats_status = BFA_STATUS_FAILED;
++			cee->reset_stats_pending  = false;
++			if (cee->cbfn.reset_stats_cbfn) {
++				cee->cbfn.reset_stats_cbfn(
++					cee->cbfn.reset_stats_cbarg,
++					BFA_STATUS_FAILED);
++			}
+ 		}
++		break;
 +
- 	if (fcmode) {
- 		writel(0, (rb + OP_MODE));
- 		writel(__APP_EMS_CMLCKSEL |
-@@ -474,27 +475,28 @@ bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode)
- 	writel(0xffffffffU, (rb + HOSTFN0_INT_MSK));
- 	writel(0xffffffffU, (rb + HOSTFN1_INT_MSK));
- 	writel(pll_sclk |
--		__APP_PLL_312_LOGIC_SOFT_RESET,
--		rb + APP_PLL_312_CTL_REG);
-+		__APP_PLL_SCLK_LOGIC_SOFT_RESET,
-+		rb + APP_PLL_SCLK_CTL_REG);
- 	writel(pll_fclk |
--		__APP_PLL_425_LOGIC_SOFT_RESET,
--		rb + APP_PLL_425_CTL_REG);
-+		__APP_PLL_LCLK_LOGIC_SOFT_RESET,
-+		rb + APP_PLL_LCLK_CTL_REG);
- 	writel(pll_sclk |
--		__APP_PLL_312_LOGIC_SOFT_RESET | __APP_PLL_312_ENABLE,
--		rb + APP_PLL_312_CTL_REG);
-+		__APP_PLL_SCLK_LOGIC_SOFT_RESET | __APP_PLL_SCLK_ENABLE,
-+		rb + APP_PLL_SCLK_CTL_REG);
- 	writel(pll_fclk |
--		__APP_PLL_425_LOGIC_SOFT_RESET | __APP_PLL_425_ENABLE,
--		rb + APP_PLL_425_CTL_REG);
-+		__APP_PLL_LCLK_LOGIC_SOFT_RESET | __APP_PLL_LCLK_ENABLE,
-+		rb + APP_PLL_LCLK_CTL_REG);
- 	readl(rb + HOSTFN0_INT_MSK);
- 	udelay(2000);
- 	writel(0xffffffffU, (rb + HOSTFN0_INT_STATUS));
- 	writel(0xffffffffU, (rb + HOSTFN1_INT_STATUS));
- 	writel(pll_sclk |
--		__APP_PLL_312_ENABLE,
--		rb + APP_PLL_312_CTL_REG);
-+		__APP_PLL_SCLK_ENABLE,
-+		rb + APP_PLL_SCLK_CTL_REG);
- 	writel(pll_fclk |
--		__APP_PLL_425_ENABLE,
--		rb + APP_PLL_425_CTL_REG);
-+		__APP_PLL_LCLK_ENABLE,
-+		rb + APP_PLL_LCLK_CTL_REG);
-+
- 	if (!fcmode) {
- 		writel(__PMM_1T_RESET_P, (rb + PMM_1T_RESET_REG_P0));
- 		writel(__PMM_1T_RESET_P, (rb + PMM_1T_RESET_REG_P1));
-diff --git a/drivers/net/bna/bfi_reg.h b/drivers/net/bna/bfi_reg.h
-new file mode 100644
-index 0000000..efacff3
---- /dev/null
-+++ b/drivers/net/bna/bfi_reg.h
-@@ -0,0 +1,452 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
++	default:
++		break;
+ 	}
+ }
+ 
+@@ -286,6 +298,7 @@ bfa_nw_cee_attach(struct bfa_cee *cee, struct bfa_ioc *ioc,
+ 	cee->ioc = ioc;
+ 
+ 	bfa_nw_ioc_mbox_regisr(cee->ioc, BFI_MC_CEE, bfa_cee_isr, cee);
+-	bfa_ioc_hbfail_init(&cee->hbfail, bfa_cee_hbfail, cee);
+-	bfa_nw_ioc_hbfail_register(cee->ioc, &cee->hbfail);
++	bfa_q_qe_init(&cee->ioc_notify);
++	bfa_ioc_notify_init(&cee->ioc_notify, bfa_cee_notify, cee);
++	bfa_nw_ioc_notify_register(cee->ioc, &cee->ioc_notify);
+ }
+diff --git a/drivers/net/bna/bfa_cee.h b/drivers/net/bna/bfa_cee.h
+index 20543d1..58d54e9 100644
+--- a/drivers/net/bna/bfa_cee.h
++++ b/drivers/net/bna/bfa_cee.h
+@@ -25,7 +25,6 @@
+ typedef void (*bfa_cee_get_attr_cbfn_t) (void *dev, enum bfa_status status);
+ typedef void (*bfa_cee_get_stats_cbfn_t) (void *dev, enum bfa_status status);
+ typedef void (*bfa_cee_reset_stats_cbfn_t) (void *dev, enum bfa_status status);
+-typedef void (*bfa_cee_hbfail_cbfn_t) (void *dev, enum bfa_status status);
+ 
+ struct bfa_cee_cbfn {
+ 	bfa_cee_get_attr_cbfn_t    get_attr_cbfn;
+@@ -45,7 +44,7 @@ struct bfa_cee {
+ 	enum bfa_status get_stats_status;
+ 	enum bfa_status reset_stats_status;
+ 	struct bfa_cee_cbfn cbfn;
+-	struct bfa_ioc_hbfail_notify hbfail;
++	struct bfa_ioc_notify ioc_notify;
+ 	struct bfa_cee_attr *attr;
+ 	struct bfa_cee_stats *stats;
+ 	struct bfa_dma attr_dma;
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
+index 04bfb29..c52ef63 100644
+--- a/drivers/net/bna/bfa_ioc.c
++++ b/drivers/net/bna/bfa_ioc.c
+@@ -71,6 +71,7 @@ static void bfa_ioc_mbox_poll(struct bfa_ioc *ioc);
+ static void bfa_ioc_mbox_hbfail(struct bfa_ioc *ioc);
+ static void bfa_ioc_recover(struct bfa_ioc *ioc);
+ static void bfa_ioc_check_attr_wwns(struct bfa_ioc *ioc);
++static void bfa_ioc_event_notify(struct bfa_ioc *, enum bfa_ioc_event);
+ static void bfa_ioc_disable_comp(struct bfa_ioc *ioc);
+ static void bfa_ioc_lpu_stop(struct bfa_ioc *ioc);
+ static void bfa_ioc_fail_notify(struct bfa_ioc *ioc);
+@@ -1123,23 +1124,28 @@ bfa_iocpf_sm_fail(struct bfa_iocpf *iocpf, enum iocpf_event event)
+  * BFA IOC private functions
+  */
+ 
++/**
++ * Notify common modules registered for notification.
 + */
-+/*
-+ * Copyright (c) 2005-2011 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
+ static void
+-bfa_ioc_disable_comp(struct bfa_ioc *ioc)
++bfa_ioc_event_notify(struct bfa_ioc *ioc, enum bfa_ioc_event event)
+ {
++	struct bfa_ioc_notify *notify;
+ 	struct list_head			*qe;
+-	struct bfa_ioc_hbfail_notify *notify;
+ 
+-	ioc->cbfn->disable_cbfn(ioc->bfa);
+-
+-	/**
+-	 * Notify common modules registered for notification.
+-	 */
+-	list_for_each(qe, &ioc->hb_notify_q) {
+-		notify = (struct bfa_ioc_hbfail_notify *) qe;
+-		notify->cbfn(notify->cbarg);
++	list_for_each(qe, &ioc->notify_q) {
++		notify = (struct bfa_ioc_notify *)qe;
++		notify->cbfn(notify->cbarg, event);
+ 	}
+ }
+ 
++static void
++bfa_ioc_disable_comp(struct bfa_ioc *ioc)
++{
++	ioc->cbfn->disable_cbfn(ioc->bfa);
++	bfa_ioc_event_notify(ioc, BFA_IOC_E_DISABLED);
++}
++
+ bool
+ bfa_nw_ioc_sem_get(void __iomem *sem_reg)
+ {
+@@ -1650,17 +1656,11 @@ bfa_ioc_mbox_hbfail(struct bfa_ioc *ioc)
+ static void
+ bfa_ioc_fail_notify(struct bfa_ioc *ioc)
+ {
+-	struct list_head		*qe;
+-	struct bfa_ioc_hbfail_notify	*notify;
+-
+ 	/**
+ 	 * Notify driver and common modules registered for notification.
+ 	 */
+ 	ioc->cbfn->hbfail_cbfn(ioc->bfa);
+-	list_for_each(qe, &ioc->hb_notify_q) {
+-		notify = (struct bfa_ioc_hbfail_notify *) qe;
+-		notify->cbfn(notify->cbarg);
+-	}
++	bfa_ioc_event_notify(ioc, BFA_IOC_E_FAILED);
+ }
+ 
+ static void
+@@ -1839,7 +1839,7 @@ bfa_nw_ioc_attach(struct bfa_ioc *ioc, void *bfa, struct bfa_ioc_cbfn *cbfn)
+ 	ioc->iocpf.ioc  = ioc;
+ 
+ 	bfa_ioc_mbox_attach(ioc);
+-	INIT_LIST_HEAD(&ioc->hb_notify_q);
++	INIT_LIST_HEAD(&ioc->notify_q);
+ 
+ 	bfa_fsm_set_state(ioc, bfa_ioc_sm_uninit);
+ 	bfa_fsm_send_event(ioc, IOC_E_RESET);
+@@ -1969,6 +1969,8 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
+ 	 * mailbox is free -- queue command to firmware
+ 	 */
+ 	bfa_ioc_mbox_send(ioc, cmd->msg, sizeof(cmd->msg));
++
++	return;
+ }
+ 
+ /**
+@@ -2005,14 +2007,24 @@ bfa_nw_ioc_error_isr(struct bfa_ioc *ioc)
+ }
+ 
+ /**
++ * return true if IOC is disabled
 + */
-+
-+/*
-+ * bfi_reg.h ASIC register defines for all Brocade adapter ASICs
-+ */
-+
-+#ifndef __BFI_REG_H__
-+#define __BFI_REG_H__
-+
-+#define HOSTFN0_INT_STATUS		0x00014000	/* cb/ct	*/
-+#define HOSTFN1_INT_STATUS		0x00014100	/* cb/ct	*/
-+#define HOSTFN2_INT_STATUS		0x00014300	/* ct		*/
-+#define HOSTFN3_INT_STATUS		0x00014400	/* ct		*/
-+#define HOSTFN0_INT_MSK			0x00014004	/* cb/ct	*/
-+#define HOSTFN1_INT_MSK			0x00014104	/* cb/ct	*/
-+#define HOSTFN2_INT_MSK			0x00014304	/* ct		*/
-+#define HOSTFN3_INT_MSK			0x00014404	/* ct		*/
-+
-+#define HOST_PAGE_NUM_FN0		0x00014008	/* cb/ct	*/
-+#define HOST_PAGE_NUM_FN1		0x00014108	/* cb/ct	*/
-+#define HOST_PAGE_NUM_FN2		0x00014308	/* ct		*/
-+#define HOST_PAGE_NUM_FN3		0x00014408	/* ct		*/
-+
-+#define APP_PLL_LCLK_CTL_REG		0x00014204	/* cb/ct	*/
-+#define __P_LCLK_PLL_LOCK		0x80000000
-+#define __APP_PLL_LCLK_SRAM_USE_100MHZ	0x00100000
-+#define __APP_PLL_LCLK_RESET_TIMER_MK	0x000e0000
-+#define __APP_PLL_LCLK_RESET_TIMER_SH	17
-+#define __APP_PLL_LCLK_RESET_TIMER(_v)	((_v) << __APP_PLL_LCLK_RESET_TIMER_SH)
-+#define __APP_PLL_LCLK_LOGIC_SOFT_RESET	0x00010000
-+#define __APP_PLL_LCLK_CNTLMT0_1_MK	0x0000c000
-+#define __APP_PLL_LCLK_CNTLMT0_1_SH	14
-+#define __APP_PLL_LCLK_CNTLMT0_1(_v)	((_v) << __APP_PLL_LCLK_CNTLMT0_1_SH)
-+#define __APP_PLL_LCLK_JITLMT0_1_MK	0x00003000
-+#define __APP_PLL_LCLK_JITLMT0_1_SH	12
-+#define __APP_PLL_LCLK_JITLMT0_1(_v)	((_v) << __APP_PLL_LCLK_JITLMT0_1_SH)
-+#define __APP_PLL_LCLK_HREF		0x00000800
-+#define __APP_PLL_LCLK_HDIV		0x00000400
-+#define __APP_PLL_LCLK_P0_1_MK		0x00000300
-+#define __APP_PLL_LCLK_P0_1_SH		8
-+#define __APP_PLL_LCLK_P0_1(_v)		((_v) << __APP_PLL_LCLK_P0_1_SH)
-+#define __APP_PLL_LCLK_Z0_2_MK		0x000000e0
-+#define __APP_PLL_LCLK_Z0_2_SH		5
-+#define __APP_PLL_LCLK_Z0_2(_v)		((_v) << __APP_PLL_LCLK_Z0_2_SH)
-+#define __APP_PLL_LCLK_RSEL200500	0x00000010
-+#define __APP_PLL_LCLK_ENARST		0x00000008
-+#define __APP_PLL_LCLK_BYPASS		0x00000004
-+#define __APP_PLL_LCLK_LRESETN		0x00000002
-+#define __APP_PLL_LCLK_ENABLE		0x00000001
-+#define APP_PLL_SCLK_CTL_REG		0x00014208	/* cb/ct	*/
-+#define __P_SCLK_PLL_LOCK		0x80000000
-+#define __APP_PLL_SCLK_RESET_TIMER_MK	0x000e0000
-+#define __APP_PLL_SCLK_RESET_TIMER_SH	17
-+#define __APP_PLL_SCLK_RESET_TIMER(_v)	((_v) << __APP_PLL_SCLK_RESET_TIMER_SH)
-+#define __APP_PLL_SCLK_LOGIC_SOFT_RESET	0x00010000
-+#define __APP_PLL_SCLK_CNTLMT0_1_MK	0x0000c000
-+#define __APP_PLL_SCLK_CNTLMT0_1_SH	14
-+#define __APP_PLL_SCLK_CNTLMT0_1(_v)	((_v) << __APP_PLL_SCLK_CNTLMT0_1_SH)
-+#define __APP_PLL_SCLK_JITLMT0_1_MK	0x00003000
-+#define __APP_PLL_SCLK_JITLMT0_1_SH	12
-+#define __APP_PLL_SCLK_JITLMT0_1(_v)	((_v) << __APP_PLL_SCLK_JITLMT0_1_SH)
-+#define __APP_PLL_SCLK_HREF		0x00000800
-+#define __APP_PLL_SCLK_HDIV		0x00000400
-+#define __APP_PLL_SCLK_P0_1_MK		0x00000300
-+#define __APP_PLL_SCLK_P0_1_SH		8
-+#define __APP_PLL_SCLK_P0_1(_v)		((_v) << __APP_PLL_SCLK_P0_1_SH)
-+#define __APP_PLL_SCLK_Z0_2_MK		0x000000e0
-+#define __APP_PLL_SCLK_Z0_2_SH		5
-+#define __APP_PLL_SCLK_Z0_2(_v)		((_v) << __APP_PLL_SCLK_Z0_2_SH)
-+#define __APP_PLL_SCLK_RSEL200500	0x00000010
-+#define __APP_PLL_SCLK_ENARST		0x00000008
-+#define __APP_PLL_SCLK_BYPASS		0x00000004
-+#define __APP_PLL_SCLK_LRESETN		0x00000002
-+#define __APP_PLL_SCLK_ENABLE		0x00000001
-+#define __ENABLE_MAC_AHB_1		0x00800000	/* ct		*/
-+#define __ENABLE_MAC_AHB_0		0x00400000	/* ct		*/
-+#define __ENABLE_MAC_1			0x00200000	/* ct		*/
-+#define __ENABLE_MAC_0			0x00100000	/* ct		*/
-+
-+#define HOST_SEM0_REG			0x00014230	/* cb/ct	*/
-+#define HOST_SEM1_REG			0x00014234	/* cb/ct	*/
-+#define HOST_SEM2_REG			0x00014238	/* cb/ct	*/
-+#define HOST_SEM3_REG			0x0001423c	/* cb/ct	*/
-+#define HOST_SEM4_REG			0x00014610	/* cb/ct	*/
-+#define HOST_SEM5_REG			0x00014614	/* cb/ct	*/
-+#define HOST_SEM6_REG			0x00014618	/* cb/ct	*/
-+#define HOST_SEM7_REG			0x0001461c	/* cb/ct	*/
-+#define HOST_SEM0_INFO_REG		0x00014240	/* cb/ct	*/
-+#define HOST_SEM1_INFO_REG		0x00014244	/* cb/ct	*/
-+#define HOST_SEM2_INFO_REG		0x00014248	/* cb/ct	*/
-+#define HOST_SEM3_INFO_REG		0x0001424c	/* cb/ct	*/
-+#define HOST_SEM4_INFO_REG		0x00014620	/* cb/ct	*/
-+#define HOST_SEM5_INFO_REG		0x00014624	/* cb/ct	*/
-+#define HOST_SEM6_INFO_REG		0x00014628	/* cb/ct	*/
-+#define HOST_SEM7_INFO_REG		0x0001462c	/* cb/ct	*/
-+
-+#define HOSTFN0_LPU0_CMD_STAT		0x00019000	/* cb/ct	*/
-+#define HOSTFN0_LPU1_CMD_STAT		0x00019004	/* cb/ct	*/
-+#define HOSTFN1_LPU0_CMD_STAT		0x00019010	/* cb/ct	*/
-+#define HOSTFN1_LPU1_CMD_STAT		0x00019014	/* cb/ct	*/
-+#define HOSTFN2_LPU0_CMD_STAT		0x00019150	/* ct		*/
-+#define HOSTFN2_LPU1_CMD_STAT		0x00019154	/* ct		*/
-+#define HOSTFN3_LPU0_CMD_STAT		0x00019160	/* ct		*/
-+#define HOSTFN3_LPU1_CMD_STAT		0x00019164	/* ct		*/
-+#define LPU0_HOSTFN0_CMD_STAT		0x00019008	/* cb/ct	*/
-+#define LPU1_HOSTFN0_CMD_STAT		0x0001900c	/* cb/ct	*/
-+#define LPU0_HOSTFN1_CMD_STAT		0x00019018	/* cb/ct	*/
-+#define LPU1_HOSTFN1_CMD_STAT		0x0001901c	/* cb/ct	*/
-+#define LPU0_HOSTFN2_CMD_STAT		0x00019158	/* ct		*/
-+#define LPU1_HOSTFN2_CMD_STAT		0x0001915c	/* ct		*/
-+#define LPU0_HOSTFN3_CMD_STAT		0x00019168	/* ct		*/
-+#define LPU1_HOSTFN3_CMD_STAT		0x0001916c	/* ct		*/
-+
-+#define PSS_CTL_REG			0x00018800	/* cb/ct	*/
-+#define __PSS_I2C_CLK_DIV_MK		0x007f0000
-+#define __PSS_I2C_CLK_DIV_SH		16
-+#define __PSS_I2C_CLK_DIV(_v)		((_v) << __PSS_I2C_CLK_DIV_SH)
-+#define __PSS_LMEM_INIT_DONE		0x00001000
-+#define __PSS_LMEM_RESET		0x00000200
-+#define __PSS_LMEM_INIT_EN		0x00000100
-+#define __PSS_LPU1_RESET		0x00000002
-+#define __PSS_LPU0_RESET		0x00000001
-+#define PSS_ERR_STATUS_REG		0x00018810	/* cb/ct	*/
-+#define ERR_SET_REG			0x00018818	/* cb/ct	*/
-+#define PSS_GPIO_OUT_REG		0x000188c0	/* cb/ct	*/
-+#define __PSS_GPIO_OUT_REG		0x00000fff
-+#define PSS_GPIO_OE_REG			0x000188c8	/* cb/ct	*/
-+#define __PSS_GPIO_OE_REG		0x000000ff
-+
-+#define HOSTFN0_LPU_MBOX0_0		0x00019200	/* cb/ct	*/
-+#define HOSTFN1_LPU_MBOX0_8		0x00019260	/* cb/ct	*/
-+#define LPU_HOSTFN0_MBOX0_0		0x00019280	/* cb/ct	*/
-+#define LPU_HOSTFN1_MBOX0_8		0x000192e0	/* cb/ct	*/
-+#define HOSTFN2_LPU_MBOX0_0		0x00019400	/* ct		*/
-+#define HOSTFN3_LPU_MBOX0_8		0x00019460	/* ct		*/
-+#define LPU_HOSTFN2_MBOX0_0		0x00019480	/* ct		*/
-+#define LPU_HOSTFN3_MBOX0_8		0x000194e0	/* ct		*/
-+
-+#define HOST_MSIX_ERR_INDEX_FN0		0x0001400c	/* ct		*/
-+#define HOST_MSIX_ERR_INDEX_FN1		0x0001410c	/* ct		*/
-+#define HOST_MSIX_ERR_INDEX_FN2		0x0001430c	/* ct		*/
-+#define HOST_MSIX_ERR_INDEX_FN3		0x0001440c	/* ct		*/
-+
-+#define MBIST_CTL_REG			0x00014220	/* ct		*/
-+#define __EDRAM_BISTR_START		0x00000004
-+#define MBIST_STAT_REG			0x00014224	/* ct		*/
-+#define ETH_MAC_SER_REG			0x00014288	/* ct		*/
-+#define __APP_EMS_CKBUFAMPIN		0x00000020
-+#define __APP_EMS_REFCLKSEL		0x00000010
-+#define __APP_EMS_CMLCKSEL		0x00000008
-+#define __APP_EMS_REFCKBUFEN2		0x00000004
-+#define __APP_EMS_REFCKBUFEN1		0x00000002
-+#define __APP_EMS_CHANNEL_SEL		0x00000001
-+#define FNC_PERS_REG			0x00014604	/* ct		*/
-+#define __F3_FUNCTION_ACTIVE		0x80000000
-+#define __F3_FUNCTION_MODE		0x40000000
-+#define __F3_PORT_MAP_MK		0x30000000
-+#define __F3_PORT_MAP_SH		28
-+#define __F3_PORT_MAP(_v)		((_v) << __F3_PORT_MAP_SH)
-+#define __F3_VM_MODE			0x08000000
-+#define __F3_INTX_STATUS_MK		0x07000000
-+#define __F3_INTX_STATUS_SH		24
-+#define __F3_INTX_STATUS(_v)		((_v) << __F3_INTX_STATUS_SH)
-+#define __F2_FUNCTION_ACTIVE		0x00800000
-+#define __F2_FUNCTION_MODE		0x00400000
-+#define __F2_PORT_MAP_MK		0x00300000
-+#define __F2_PORT_MAP_SH		20
-+#define __F2_PORT_MAP(_v)		((_v) << __F2_PORT_MAP_SH)
-+#define __F2_VM_MODE			0x00080000
-+#define __F2_INTX_STATUS_MK		0x00070000
-+#define __F2_INTX_STATUS_SH		16
-+#define __F2_INTX_STATUS(_v)		((_v) << __F2_INTX_STATUS_SH)
-+#define __F1_FUNCTION_ACTIVE		0x00008000
-+#define __F1_FUNCTION_MODE		0x00004000
-+#define __F1_PORT_MAP_MK		0x00003000
-+#define __F1_PORT_MAP_SH		12
-+#define __F1_PORT_MAP(_v)		((_v) << __F1_PORT_MAP_SH)
-+#define __F1_VM_MODE			0x00000800
-+#define __F1_INTX_STATUS_MK		0x00000700
-+#define __F1_INTX_STATUS_SH		8
-+#define __F1_INTX_STATUS(_v)		((_v) << __F1_INTX_STATUS_SH)
-+#define __F0_FUNCTION_ACTIVE		0x00000080
-+#define __F0_FUNCTION_MODE		0x00000040
-+#define __F0_PORT_MAP_MK		0x00000030
-+#define __F0_PORT_MAP_SH		4
-+#define __F0_PORT_MAP(_v)		((_v) << __F0_PORT_MAP_SH)
-+#define __F0_VM_MODE			0x00000008
-+#define __F0_INTX_STATUS		0x00000007
-+enum {
-+	__F0_INTX_STATUS_MSIX = 0x0,
-+	__F0_INTX_STATUS_INTA = 0x1,
-+	__F0_INTX_STATUS_INTB = 0x2,
-+	__F0_INTX_STATUS_INTC = 0x3,
-+	__F0_INTX_STATUS_INTD = 0x4,
-+};
-+
-+#define OP_MODE				0x0001460c
-+#define __APP_ETH_CLK_LOWSPEED		0x00000004
-+#define __GLOBAL_CORECLK_HALFSPEED	0x00000002
-+#define __GLOBAL_FCOE_MODE		0x00000001
-+#define FW_INIT_HALT_P0			0x000191ac
-+#define __FW_INIT_HALT_P		0x00000001
-+#define FW_INIT_HALT_P1			0x000191bc
-+#define PMM_1T_RESET_REG_P0		0x0002381c
-+#define __PMM_1T_RESET_P		0x00000001
-+#define PMM_1T_RESET_REG_P1		0x00023c1c
++bool
++bfa_nw_ioc_is_disabled(struct bfa_ioc *ioc)
++{
++	return bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabling) ||
++		bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabled);
++}
 +
 +/**
-+ * Brocade 1860 Adapter specific defines
+  * Add to IOC heartbeat failure notification queue. To be used by common
+  * modules such as cee, port, diag.
+  */
+ void
+-bfa_nw_ioc_hbfail_register(struct bfa_ioc *ioc,
+-			struct bfa_ioc_hbfail_notify *notify)
++bfa_nw_ioc_notify_register(struct bfa_ioc *ioc,
++			struct bfa_ioc_notify *notify)
+ {
+-	list_add_tail(&notify->qe, &ioc->hb_notify_q);
++	list_add_tail(&notify->qe, &ioc->notify_q);
+ }
+ 
+ #define BFA_MFG_NAME "Brocade"
+diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/bna/bfa_ioc.h
+index 8473c00..c6cf218 100644
+--- a/drivers/net/bna/bfa_ioc.h
++++ b/drivers/net/bna/bfa_ioc.h
+@@ -97,9 +97,12 @@ struct bfa_ioc_regs {
+ /**
+  * IOC Mailbox structures
+  */
++typedef void (*bfa_mbox_cmd_cbfn_t)(void *cbarg);
+ struct bfa_mbox_cmd {
+ 	struct list_head	qe;
+-	u32			msg[BFI_IOC_MSGSZ];
++	bfa_mbox_cmd_cbfn_t     cbfn;
++	void		    *cbarg;
++	u32     msg[BFI_IOC_MSGSZ];
+ };
+ 
+ /**
+@@ -130,6 +133,23 @@ struct bfa_ioc_cbfn {
+ };
+ 
+ /**
++ * IOC event notification mechanism.
 + */
-+#define CT2_PCI_CPQ_BASE		0x00030000
-+#define CT2_PCI_APP_BASE		0x00030100
-+#define CT2_PCI_ETH_BASE		0x00030400
-+
-+/*
-+ * APP block registers
-+ */
-+#define CT2_HOSTFN_INT_STATUS		(CT2_PCI_APP_BASE + 0x00)
-+#define CT2_HOSTFN_INTR_MASK		(CT2_PCI_APP_BASE + 0x04)
-+#define CT2_HOSTFN_PERSONALITY0		(CT2_PCI_APP_BASE + 0x08)
-+#define __PME_STATUS_			0x00200000
-+#define __PF_VF_BAR_SIZE_MODE__MK	0x00180000
-+#define __PF_VF_BAR_SIZE_MODE__SH	19
-+#define __PF_VF_BAR_SIZE_MODE_(_v)	((_v) << __PF_VF_BAR_SIZE_MODE__SH)
-+#define __FC_LL_PORT_MAP__MK		0x00060000
-+#define __FC_LL_PORT_MAP__SH		17
-+#define __FC_LL_PORT_MAP_(_v)		((_v) << __FC_LL_PORT_MAP__SH)
-+#define __PF_VF_ACTIVE_			0x00010000
-+#define __PF_VF_CFG_RDY_		0x00008000
-+#define __PF_VF_ENABLE_			0x00004000
-+#define __PF_DRIVER_ACTIVE_		0x00002000
-+#define __PF_PME_SEND_ENABLE_		0x00001000
-+#define __PF_EXROM_OFFSET__MK		0x00000ff0
-+#define __PF_EXROM_OFFSET__SH		4
-+#define __PF_EXROM_OFFSET_(_v)		((_v) << __PF_EXROM_OFFSET__SH)
-+#define __FC_LL_MODE_			0x00000008
-+#define __PF_INTX_PIN_			0x00000007
-+#define CT2_HOSTFN_PERSONALITY1		(CT2_PCI_APP_BASE + 0x0C)
-+#define __PF_NUM_QUEUES1__MK		0xff000000
-+#define __PF_NUM_QUEUES1__SH		24
-+#define __PF_NUM_QUEUES1_(_v)		((_v) << __PF_NUM_QUEUES1__SH)
-+#define __PF_VF_QUE_OFFSET1__MK		0x00ff0000
-+#define __PF_VF_QUE_OFFSET1__SH		16
-+#define __PF_VF_QUE_OFFSET1_(_v)	((_v) << __PF_VF_QUE_OFFSET1__SH)
-+#define __PF_VF_NUM_QUEUES__MK		0x0000ff00
-+#define __PF_VF_NUM_QUEUES__SH		8
-+#define __PF_VF_NUM_QUEUES_(_v)		((_v) << __PF_VF_NUM_QUEUES__SH)
-+#define __PF_VF_QUE_OFFSET_		0x000000ff
-+#define CT2_HOSTFN_PAGE_NUM		(CT2_PCI_APP_BASE + 0x18)
-+#define CT2_HOSTFN_MSIX_VT_INDEX_MBOX_ERR	(CT2_PCI_APP_BASE + 0x38)
-+
-+/*
-+ * Brocade 1860 adapter CPQ block registers
-+ */
-+#define CT2_HOSTFN_LPU0_MBOX0		(CT2_PCI_CPQ_BASE + 0x00)
-+#define CT2_HOSTFN_LPU1_MBOX0		(CT2_PCI_CPQ_BASE + 0x20)
-+#define CT2_LPU0_HOSTFN_MBOX0		(CT2_PCI_CPQ_BASE + 0x40)
-+#define CT2_LPU1_HOSTFN_MBOX0		(CT2_PCI_CPQ_BASE + 0x60)
-+#define CT2_HOSTFN_LPU0_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x80)
-+#define CT2_HOSTFN_LPU1_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x84)
-+#define CT2_LPU0_HOSTFN_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x88)
-+#define CT2_LPU1_HOSTFN_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x8c)
-+#define CT2_HOSTFN_LPU0_READ_STAT	(CT2_PCI_CPQ_BASE + 0x90)
-+#define CT2_HOSTFN_LPU1_READ_STAT	(CT2_PCI_CPQ_BASE + 0x94)
-+#define CT2_LPU0_HOSTFN_MBOX0_MSK	(CT2_PCI_CPQ_BASE + 0x98)
-+#define CT2_LPU1_HOSTFN_MBOX0_MSK	(CT2_PCI_CPQ_BASE + 0x9C)
-+#define CT2_HOST_SEM0_REG		0x000148f0
-+#define CT2_HOST_SEM1_REG		0x000148f4
-+#define CT2_HOST_SEM2_REG		0x000148f8
-+#define CT2_HOST_SEM3_REG		0x000148fc
-+#define CT2_HOST_SEM4_REG		0x00014900
-+#define CT2_HOST_SEM5_REG		0x00014904
-+#define CT2_HOST_SEM6_REG		0x00014908
-+#define CT2_HOST_SEM7_REG		0x0001490c
-+#define CT2_HOST_SEM0_INFO_REG		0x000148b0
-+#define CT2_HOST_SEM1_INFO_REG		0x000148b4
-+#define CT2_HOST_SEM2_INFO_REG		0x000148b8
-+#define CT2_HOST_SEM3_INFO_REG		0x000148bc
-+#define CT2_HOST_SEM4_INFO_REG		0x000148c0
-+#define CT2_HOST_SEM5_INFO_REG		0x000148c4
-+#define CT2_HOST_SEM6_INFO_REG		0x000148c8
-+#define CT2_HOST_SEM7_INFO_REG		0x000148cc
-+
-+#define CT2_APP_PLL_LCLK_CTL_REG	0x00014808
-+#define __APP_LPUCLK_HALFSPEED		0x40000000
-+#define __APP_PLL_LCLK_LOAD		0x20000000
-+#define __APP_PLL_LCLK_FBCNT_MK		0x1fe00000
-+#define __APP_PLL_LCLK_FBCNT_SH		21
-+#define __APP_PLL_LCLK_FBCNT(_v)	((_v) << __APP_PLL_SCLK_FBCNT_SH)
-+enum {
-+	__APP_PLL_LCLK_FBCNT_425_MHZ = 6,
-+	__APP_PLL_LCLK_FBCNT_468_MHZ = 4,
++enum bfa_ioc_event {
++	BFA_IOC_E_ENABLED	= 1,
++	BFA_IOC_E_DISABLED	= 2,
++	BFA_IOC_E_FAILED	= 3,
 +};
-+#define __APP_PLL_LCLK_EXTFB		0x00000800
-+#define __APP_PLL_LCLK_ENOUTS		0x00000400
-+#define __APP_PLL_LCLK_RATE		0x00000010
-+#define CT2_APP_PLL_SCLK_CTL_REG	0x0001480c
-+#define __P_SCLK_PLL_LOCK		0x80000000
-+#define __APP_PLL_SCLK_REFCLK_SEL	0x40000000
-+#define __APP_PLL_SCLK_CLK_DIV2		0x20000000
-+#define __APP_PLL_SCLK_LOAD		0x10000000
-+#define __APP_PLL_SCLK_FBCNT_MK		0x0ff00000
-+#define __APP_PLL_SCLK_FBCNT_SH		20
-+#define __APP_PLL_SCLK_FBCNT(_v)	((_v) << __APP_PLL_SCLK_FBCNT_SH)
-+enum {
-+	__APP_PLL_SCLK_FBCNT_NORM = 6,
-+	__APP_PLL_SCLK_FBCNT_10G_FC = 10,
++
++typedef void (*bfa_ioc_notify_cbfn_t)(void *, enum bfa_ioc_event);
++
++struct bfa_ioc_notify {
++	struct list_head	qe;
++	bfa_ioc_notify_cbfn_t	cbfn;
++	void			*cbarg;
 +};
-+#define __APP_PLL_SCLK_EXTFB		0x00000800
-+#define __APP_PLL_SCLK_ENOUTS		0x00000400
-+#define __APP_PLL_SCLK_RATE		0x00000010
-+#define CT2_PCIE_MISC_REG		0x00014804
-+#define __ETH_CLK_ENABLE_PORT1		0x00000010
-+#define CT2_CHIP_MISC_PRG		0x000148a4
-+#define __ETH_CLK_ENABLE_PORT0		0x00004000
-+#define __APP_LPU_SPEED			0x00000002
-+#define CT2_MBIST_STAT_REG		0x00014818
-+#define CT2_MBIST_CTL_REG		0x0001481c
-+#define CT2_PMM_1T_CONTROL_REG_P0	0x0002381c
-+#define __PMM_1T_PNDB_P			0x00000002
-+#define CT2_PMM_1T_CONTROL_REG_P1	0x00023c1c
-+#define CT2_WGN_STATUS			0x00014990
-+#define __A2T_AHB_LOAD			0x00000800
-+#define __WGN_READY			0x00000400
-+#define __GLBL_PF_VF_CFG_RDY		0x00000200
-+#define CT2_NFC_CSR_SET_REG		0x00027424
-+#define __HALT_NFC_CONTROLLER		0x00000002
-+#define __NFC_CONTROLLER_HALTED		0x00001000
 +
-+#define CT2_CSI_MAC0_CONTROL_REG	0x000270d0
-+#define __CSI_MAC_RESET			0x00000010
-+#define __CSI_MAC_AHB_RESET		0x00000008
-+#define CT2_CSI_MAC1_CONTROL_REG	0x000270d4
-+#define CT2_CSI_MAC_CONTROL_REG(__n) \
-+	(CT2_CSI_MAC0_CONTROL_REG + \
-+	(__n) * (CT2_CSI_MAC1_CONTROL_REG - CT2_CSI_MAC0_CONTROL_REG))
-+
-+/*
-+ * Name semaphore registers based on usage
-+ */
-+#define BFA_IOC0_HBEAT_REG		HOST_SEM0_INFO_REG
-+#define BFA_IOC0_STATE_REG		HOST_SEM1_INFO_REG
-+#define BFA_IOC1_HBEAT_REG		HOST_SEM2_INFO_REG
-+#define BFA_IOC1_STATE_REG		HOST_SEM3_INFO_REG
-+#define BFA_FW_USE_COUNT		HOST_SEM4_INFO_REG
-+#define BFA_IOC_FAIL_SYNC		HOST_SEM5_INFO_REG
-+
-+/*
-+ * CT2 semaphore register locations changed
-+ */
-+#define CT2_BFA_IOC0_HBEAT_REG		CT2_HOST_SEM0_INFO_REG
-+#define CT2_BFA_IOC0_STATE_REG		CT2_HOST_SEM1_INFO_REG
-+#define CT2_BFA_IOC1_HBEAT_REG		CT2_HOST_SEM2_INFO_REG
-+#define CT2_BFA_IOC1_STATE_REG		CT2_HOST_SEM3_INFO_REG
-+#define CT2_BFA_FW_USE_COUNT		CT2_HOST_SEM4_INFO_REG
-+#define CT2_BFA_IOC_FAIL_SYNC		CT2_HOST_SEM5_INFO_REG
-+
-+#define CPE_Q_NUM(__fn, __q)	(((__fn) << 2) + (__q))
-+#define RME_Q_NUM(__fn, __q)	(((__fn) << 2) + (__q))
-+
-+/*
-+ * And corresponding host interrupt status bit field defines
-+ */
-+#define __HFN_INT_CPE_Q0	0x00000001U
-+#define __HFN_INT_CPE_Q1	0x00000002U
-+#define __HFN_INT_CPE_Q2	0x00000004U
-+#define __HFN_INT_CPE_Q3	0x00000008U
-+#define __HFN_INT_CPE_Q4	0x00000010U
-+#define __HFN_INT_CPE_Q5	0x00000020U
-+#define __HFN_INT_CPE_Q6	0x00000040U
-+#define __HFN_INT_CPE_Q7	0x00000080U
-+#define __HFN_INT_RME_Q0	0x00000100U
-+#define __HFN_INT_RME_Q1	0x00000200U
-+#define __HFN_INT_RME_Q2	0x00000400U
-+#define __HFN_INT_RME_Q3	0x00000800U
-+#define __HFN_INT_RME_Q4	0x00001000U
-+#define __HFN_INT_RME_Q5	0x00002000U
-+#define __HFN_INT_RME_Q6	0x00004000U
-+#define __HFN_INT_RME_Q7	0x00008000U
-+#define __HFN_INT_ERR_EMC	0x00010000U
-+#define __HFN_INT_ERR_LPU0	0x00020000U
-+#define __HFN_INT_ERR_LPU1	0x00040000U
-+#define __HFN_INT_ERR_PSS	0x00080000U
-+#define __HFN_INT_MBOX_LPU0	0x00100000U
-+#define __HFN_INT_MBOX_LPU1	0x00200000U
-+#define __HFN_INT_MBOX1_LPU0	0x00400000U
-+#define __HFN_INT_MBOX1_LPU1	0x00800000U
-+#define __HFN_INT_LL_HALT	0x01000000U
-+#define __HFN_INT_CPE_MASK	0x000000ffU
-+#define __HFN_INT_RME_MASK	0x0000ff00U
-+#define __HFN_INT_ERR_MASK	\
-+	(__HFN_INT_ERR_EMC | __HFN_INT_ERR_LPU0 | __HFN_INT_ERR_LPU1 | \
-+	 __HFN_INT_ERR_PSS | __HFN_INT_LL_HALT)
-+#define __HFN_INT_FN0_MASK	\
-+	(__HFN_INT_CPE_Q0 | __HFN_INT_CPE_Q1 | __HFN_INT_CPE_Q2 | \
-+	 __HFN_INT_CPE_Q3 | __HFN_INT_RME_Q0 | __HFN_INT_RME_Q1 | \
-+	 __HFN_INT_RME_Q2 | __HFN_INT_RME_Q3 | __HFN_INT_MBOX_LPU0)
-+#define __HFN_INT_FN1_MASK	\
-+	(__HFN_INT_CPE_Q4 | __HFN_INT_CPE_Q5 | __HFN_INT_CPE_Q6 | \
-+	 __HFN_INT_CPE_Q7 | __HFN_INT_RME_Q4 | __HFN_INT_RME_Q5 | \
-+	 __HFN_INT_RME_Q6 | __HFN_INT_RME_Q7 | __HFN_INT_MBOX_LPU1)
-+
-+/*
-+ * Host interrupt status defines for 1860
-+ */
-+#define __HFN_INT_MBOX_LPU0_CT2	0x00010000U
-+#define __HFN_INT_MBOX_LPU1_CT2	0x00020000U
-+#define __HFN_INT_ERR_PSS_CT2	0x00040000U
-+#define __HFN_INT_ERR_LPU0_CT2	0x00080000U
-+#define __HFN_INT_ERR_LPU1_CT2	0x00100000U
-+#define __HFN_INT_CPQ_HALT_CT2	0x00200000U
-+#define __HFN_INT_ERR_WGN_CT2	0x00400000U
-+#define __HFN_INT_ERR_LEHRX_CT2	0x00800000U
-+#define __HFN_INT_ERR_LEHTX_CT2	0x01000000U
-+#define __HFN_INT_ERR_MASK_CT2	\
-+	(__HFN_INT_ERR_PSS_CT2 | __HFN_INT_ERR_LPU0_CT2 | \
-+	 __HFN_INT_ERR_LPU1_CT2 | __HFN_INT_CPQ_HALT_CT2 | \
-+	 __HFN_INT_ERR_WGN_CT2 | __HFN_INT_ERR_LEHRX_CT2 | \
-+	 __HFN_INT_ERR_LEHTX_CT2)
-+#define __HFN_INT_FN0_MASK_CT2	\
-+	(__HFN_INT_CPE_Q0 | __HFN_INT_CPE_Q1 | __HFN_INT_CPE_Q2 | \
-+	 __HFN_INT_CPE_Q3 | __HFN_INT_RME_Q0 | __HFN_INT_RME_Q1 | \
-+	 __HFN_INT_RME_Q2 | __HFN_INT_RME_Q3 | __HFN_INT_MBOX_LPU0_CT2)
-+#define __HFN_INT_FN1_MASK_CT2	\
-+	(__HFN_INT_CPE_Q4 | __HFN_INT_CPE_Q5 | __HFN_INT_CPE_Q6 | \
-+	 __HFN_INT_CPE_Q7 | __HFN_INT_RME_Q4 | __HFN_INT_RME_Q5 | \
-+	 __HFN_INT_RME_Q6 | __HFN_INT_RME_Q7 | __HFN_INT_MBOX_LPU1_CT2)
-+
-+/*
-+ * asic memory map.
-+ */
-+#define PSS_SMEM_PAGE_START		0x8000
-+#define PSS_SMEM_PGNUM(_pg0, _ma)	((_pg0) + ((_ma) >> 15))
-+#define PSS_SMEM_PGOFF(_ma)		((_ma) & 0x7fff)
-+
-+#endif /* __BFI_REG_H__ */
++/**
+  * Heartbeat failure notification queue element.
+  */
+ struct bfa_ioc_hbfail_notify {
+@@ -141,7 +161,7 @@ struct bfa_ioc_hbfail_notify {
+ /**
+  * Initialize a heartbeat failure notification structure
+  */
+-#define bfa_ioc_hbfail_init(__notify, __cbfn, __cbarg) do {	\
++#define bfa_ioc_notify_init(__notify, __cbfn, __cbarg) do {	\
+ 	(__notify)->cbfn = (__cbfn);				\
+ 	(__notify)->cbarg = (__cbarg);				\
+ } while (0)
+@@ -162,7 +182,7 @@ struct bfa_ioc {
+ 	struct timer_list	sem_timer;
+ 	struct timer_list	hb_timer;
+ 	u32			hb_count;
+-	struct list_head	hb_notify_q;
++	struct list_head	notify_q;
+ 	void			*dbg_fwsave;
+ 	int			dbg_fwsave_len;
+ 	bool			dbg_fwsave_once;
+@@ -263,9 +283,10 @@ void bfa_nw_ioc_enable(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_disable(struct bfa_ioc *ioc);
+ 
+ void bfa_nw_ioc_error_isr(struct bfa_ioc *ioc);
++bool bfa_nw_ioc_is_disabled(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_get_attr(struct bfa_ioc *ioc, struct bfa_ioc_attr *ioc_attr);
+-void bfa_nw_ioc_hbfail_register(struct bfa_ioc *ioc,
+-	struct bfa_ioc_hbfail_notify *notify);
++void bfa_nw_ioc_notify_register(struct bfa_ioc *ioc,
++	struct bfa_ioc_notify *notify);
+ bool bfa_nw_ioc_sem_get(void __iomem *sem_reg);
+ void bfa_nw_ioc_sem_release(void __iomem *sem_reg);
+ void bfa_nw_ioc_hw_sem_release(struct bfa_ioc *ioc);
 -- 
 1.7.1
 
