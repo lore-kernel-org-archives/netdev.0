@@ -1,230 +1,361 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 35/45] bna: Change TxQ Select Logic and Interrupt Handling
-Date: Mon, 18 Jul 2011 01:22:55 -0700
-Message-ID: <1310977385-5268-25-git-send-email-rmody@brocade.com>
-References: <1310977385-5268-1-git-send-email-rmody@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 1/4] neigh: Pass neighbour entry to output ops.
+Date: Mon, 18 Jul 2011 01:25:02 -0700 (PDT)
+Message-ID: <20110718.012502.1121009219176482476.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>, <dradovan@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37829 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753918Ab1GRIYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:24:55 -0400
-In-Reply-To: <1310977385-5268-1-git-send-email-rmody@brocade.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57606 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754772Ab1GRIZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2011 04:25:05 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id p6I8P2Ep028237
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 18 Jul 2011 01:25:03 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - Simplify the TxQ selection logic:
-   Macro BNAD_TXQ_ID_GET() calls bnad_tx_select_queue(), which returns priority.
-   While only a few packets during transition could have wrong priority, all
-   will be associated with a valid non-NULL tcb.
- - Add bnad pointer to rx_ctrl structure, so that bnad can be accessed directly
-   from rx_ctrl in the NAPI poll routines, even if ccb is NULL
- - Fix the order of init / uninit in Tx / Rx setup / teardown path:
-   Kill bnad tx free tasklet ahead of call to bna_tx_destroy().
-   Call NAPI disable only aftet call to Rx free_irq(). This makes sure Rx
-   interrupt does not schedule a poll when NAPI is already disabled.
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
+This will get us closer to being able to do "neigh stuff"
+completely independent of the underlying dst_entry for
+protocols (ipv4/ipv6) that wish to do so.
+
+We will also be able to make dst entries neigh-less.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/bna/bnad.c |   70 +++++++++++++++++++++++++++++++----------------
- drivers/net/bna/bnad.h |    1 +
- 2 files changed, 47 insertions(+), 24 deletions(-)
+ include/net/neighbour.h   |   19 ++++++++++---------
+ net/atm/clip.c            |    4 ++--
+ net/bridge/br_netfilter.c |    4 ++--
+ net/core/neighbour.c      |   25 ++++++++++++++-----------
+ net/decnet/dn_neigh.c     |   18 ++++++------------
+ net/decnet/dn_route.c     |   13 ++++++++++---
+ net/ipv4/arp.c            |    6 +++---
+ net/ipv6/ndisc.c          |    6 +++---
+ 8 files changed, 50 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
-index 8ca1b60..3f9ddbf 100644
---- a/drivers/net/bna/bnad.c
-+++ b/drivers/net/bna/bnad.c
-@@ -554,16 +554,11 @@ next:
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 334e92f..4ba8521 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -109,7 +109,7 @@ struct neighbour {
+ 	seqlock_t		ha_lock;
+ 	unsigned char		ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
+ 	struct hh_cache		hh;
+-	int			(*output)(struct sk_buff *skb);
++	int			(*output)(struct neighbour *, struct sk_buff *);
+ 	const struct neigh_ops	*ops;
+ 	struct rcu_head		rcu;
+ 	struct net_device	*dev;
+@@ -118,10 +118,10 @@ struct neighbour {
  
- 	BNA_QE_INDX_ADD(ccb->producer_index, wis, ccb->q_depth);
+ struct neigh_ops {
+ 	int			family;
+-	void			(*solicit)(struct neighbour *, struct sk_buff*);
+-	void			(*error_report)(struct neighbour *, struct sk_buff*);
+-	int			(*output)(struct sk_buff*);
+-	int			(*connected_output)(struct sk_buff*);
++	void			(*solicit)(struct neighbour *, struct sk_buff *);
++	void			(*error_report)(struct neighbour *, struct sk_buff *);
++	int			(*output)(struct neighbour *, struct sk_buff *);
++	int			(*connected_output)(struct neighbour *, struct sk_buff *);
+ };
  
--	if (likely(ccb)) {
--		if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
--			bna_ib_ack(ccb->i_dbell, packets);
--		bnad_refill_rxq(bnad, ccb->rcb[0]);
--		if (ccb->rcb[1])
--			bnad_refill_rxq(bnad, ccb->rcb[1]);
--	} else {
--		if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
--			bna_ib_ack(ccb->i_dbell, 0);
--	}
-+	if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
-+		bna_ib_ack(ccb->i_dbell, packets);
-+	bnad_refill_rxq(bnad, ccb->rcb[0]);
-+	if (ccb->rcb[1])
-+		bnad_refill_rxq(bnad, ccb->rcb[1]);
- 
- 	clear_bit(BNAD_FP_IN_RX_PATH, &rx_ctrl->flags);
- 
-@@ -613,7 +608,8 @@ bnad_msix_rx(int irq, void *data)
- 	struct bna_ccb *ccb = (struct bna_ccb *)data;
- 	struct bnad *bnad = ccb->bnad;
- 
--	bnad_netif_rx_schedule_poll(bnad, ccb);
-+	if (ccb)
-+		bnad_netif_rx_schedule_poll(bnad, ccb);
- 
- 	return IRQ_HANDLED;
+ struct pneigh_entry {
+@@ -203,9 +203,10 @@ extern int			neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 					     u32 flags);
+ extern void			neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ extern int			neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+-extern int			neigh_resolve_output(struct sk_buff *skb);
+-extern int			neigh_connected_output(struct sk_buff *skb);
+-extern int			neigh_compat_output(struct sk_buff *skb);
++extern int			neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb);
++extern int			neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb);
++extern int			neigh_compat_output(struct neighbour *neigh, struct sk_buff *skb);
++extern int			neigh_direct_output(struct neighbour *neigh, struct sk_buff *skb);
+ extern struct neighbour 	*neigh_event_ns(struct neigh_table *tbl,
+ 						u8 *lladdr, void *saddr,
+ 						struct net_device *dev);
+@@ -348,7 +349,7 @@ static inline int neigh_output(struct neighbour *n, struct sk_buff *skb)
+ 	if ((n->nud_state & NUD_CONNECTED) && hh->hh_len)
+ 		return neigh_hh_output(hh, skb);
+ 	else
+-		return n->output(skb);
++		return n->output(n, skb);
  }
-@@ -652,6 +648,7 @@ bnad_isr(int irq, void *data)
- 	struct bnad *bnad = (struct bnad *)data;
- 	struct bnad_rx_info *rx_info;
- 	struct bnad_rx_ctrl *rx_ctrl;
-+	struct bna_tcb *tcb = NULL;
  
- 	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags)))
- 		return IRQ_NONE;
-@@ -674,8 +671,11 @@ bnad_isr(int irq, void *data)
- 	/* Process data interrupts */
- 	/* Tx processing */
- 	for (i = 0; i < bnad->num_tx; i++) {
--		for (j = 0; j < bnad->num_txq_per_tx; j++)
--			bnad_tx(bnad, bnad->tx_info[i].tcb[j]);
-+		for (j = 0; j < bnad->num_txq_per_tx; j++) {
-+			tcb = bnad->tx_info[i].tcb[j];
-+			if (tcb && test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags))
-+				bnad_tx(bnad, bnad->tx_info[i].tcb[j]);
-+		}
+ static inline struct neighbour *
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 40d7368..c6cd531 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -271,8 +271,8 @@ static const struct neigh_ops clip_neigh_ops = {
+ 	.family =		AF_INET,
+ 	.solicit =		clip_neigh_solicit,
+ 	.error_report =		clip_neigh_error,
+-	.output =		dev_queue_xmit,
+-	.connected_output =	dev_queue_xmit,
++	.output =		neigh_direct_output,
++	.connected_output =	neigh_direct_output,
+ };
+ 
+ static int clip_constructor(struct neighbour *neigh)
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 75ee421..1fe43fd 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -355,14 +355,14 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
+ 		neigh_hh_bridge(&neigh->hh, skb);
+ 		skb->dev = nf_bridge->physindev;
+ 		return br_handle_frame_finish(skb);
+-	} else if (dst->neighbour) {
++	} else {
+ 		/* the neighbour function below overwrites the complete
+ 		 * MAC header, so we save the Ethernet source address and
+ 		 * protocol number. */
+ 		skb_copy_from_linear_data_offset(skb, -(ETH_HLEN-ETH_ALEN), skb->nf_bridge->data, ETH_HLEN-ETH_ALEN);
+ 		/* tell br_dev_xmit to continue with forwarding */
+ 		nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+-		return dst->neighbour->output(skb);
++		return neigh->output(neigh, skb);
  	}
- 	/* Rx processing */
- 	for (i = 0; i < bnad->num_rx; i++) {
-@@ -1773,6 +1773,9 @@ bnad_cleanup_tx(struct bnad *bnad, u32 tx_id)
- 		bnad_tx_msix_unregister(bnad, tx_info,
- 			bnad->num_txq_per_tx);
+ free_skb:
+ 	kfree_skb(skb);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index b031cf6..cefb8e5 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -98,7 +98,7 @@ static const struct file_operations neigh_stat_seq_fops;
  
-+	if (0 == tx_id)
-+		tasklet_kill(&bnad->tx_free_tasklet);
-+
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_tx_destroy(tx_info->tx);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-@@ -1780,9 +1783,6 @@ bnad_cleanup_tx(struct bnad *bnad, u32 tx_id)
- 	tx_info->tx = NULL;
- 	tx_info->tx_id = 0;
+ static DEFINE_RWLOCK(neigh_tbl_lock);
  
--	if (0 == tx_id)
--		tasklet_kill(&bnad->tx_free_tasklet);
--
- 	bnad_tx_res_free(bnad, res_info);
+-static int neigh_blackhole(struct sk_buff *skb)
++static int neigh_blackhole(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+ 	return -ENETDOWN;
+@@ -1158,7 +1158,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 			/* On shaper/eql skb->dst->neighbour != neigh :( */
+ 			if (skb_dst(skb) && skb_dst(skb)->neighbour)
+ 				n1 = skb_dst(skb)->neighbour;
+-			n1->output(skb);
++			n1->output(n1, skb);
+ 			write_lock_bh(&neigh->lock);
+ 		}
+ 		skb_queue_purge(&neigh->arp_queue);
+@@ -1214,7 +1214,7 @@ static void neigh_hh_init(struct neighbour *n, struct dst_entry *dst)
+  * but resolution is not made yet.
+  */
+ 
+-int neigh_compat_output(struct sk_buff *skb)
++int neigh_compat_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+ 
+@@ -1231,13 +1231,12 @@ EXPORT_SYMBOL(neigh_compat_output);
+ 
+ /* Slow and careful. */
+ 
+-int neigh_resolve_output(struct sk_buff *skb)
++int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+-	struct neighbour *neigh;
+ 	int rc = 0;
+ 
+-	if (!dst || !(neigh = dst->neighbour))
++	if (!dst)
+ 		goto discard;
+ 
+ 	__skb_pull(skb, skb_network_offset(skb));
+@@ -1265,7 +1264,7 @@ out:
+ 	return rc;
+ discard:
+ 	NEIGH_PRINTK1("neigh_resolve_output: dst=%p neigh=%p\n",
+-		      dst, dst ? dst->neighbour : NULL);
++		      dst, neigh);
+ out_kfree_skb:
+ 	rc = -EINVAL;
+ 	kfree_skb(skb);
+@@ -1275,13 +1274,11 @@ EXPORT_SYMBOL(neigh_resolve_output);
+ 
+ /* As fast as possible without hh cache */
+ 
+-int neigh_connected_output(struct sk_buff *skb)
++int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+-	int err;
+-	struct dst_entry *dst = skb_dst(skb);
+-	struct neighbour *neigh = dst->neighbour;
+ 	struct net_device *dev = neigh->dev;
+ 	unsigned int seq;
++	int err;
+ 
+ 	__skb_pull(skb, skb_network_offset(skb));
+ 
+@@ -1301,6 +1298,12 @@ int neigh_connected_output(struct sk_buff *skb)
  }
+ EXPORT_SYMBOL(neigh_connected_output);
  
-@@ -1918,6 +1918,16 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
- 	rx_config->vlan_strip_status = BNA_STATUS_T_ENABLED;
- }
- 
-+static void
-+bnad_rx_ctrl_init(struct bnad *bnad, u32 rx_id)
++int neigh_direct_output(struct neighbour *neigh, struct sk_buff *skb)
 +{
-+	struct bnad_rx_info *rx_info = &bnad->rx_info[rx_id];
-+	int i;
++	return dev_queue_xmit(skb);
++}
++EXPORT_SYMBOL(neigh_direct_output);
 +
-+	for (i = 0; i < bnad->num_rxp_per_rx; i++)
-+		rx_info->rx_ctrl[i].bnad = bnad;
+ static void neigh_proxy_process(unsigned long arg)
+ {
+ 	struct neigh_table *tbl = (struct neigh_table *)arg;
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index 84fee8a..5d61e89 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -51,9 +51,9 @@
+ static int dn_neigh_construct(struct neighbour *);
+ static void dn_long_error_report(struct neighbour *, struct sk_buff *);
+ static void dn_short_error_report(struct neighbour *, struct sk_buff *);
+-static int dn_long_output(struct sk_buff *);
+-static int dn_short_output(struct sk_buff *);
+-static int dn_phase3_output(struct sk_buff *);
++static int dn_long_output(struct neighbour *, struct sk_buff *);
++static int dn_short_output(struct neighbour *, struct sk_buff *);
++static int dn_phase3_output(struct neighbour *, struct sk_buff *);
+ 
+ 
+ /*
+@@ -218,10 +218,8 @@ static int dn_neigh_output_packet(struct sk_buff *skb)
+ 	return -EINVAL;
+ }
+ 
+-static int dn_long_output(struct sk_buff *skb)
++static int dn_long_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+-	struct dst_entry *dst = skb_dst(skb);
+-	struct neighbour *neigh = dst->neighbour;
+ 	struct net_device *dev = neigh->dev;
+ 	int headroom = dev->hard_header_len + sizeof(struct dn_long_packet) + 3;
+ 	unsigned char *data;
+@@ -265,10 +263,8 @@ static int dn_long_output(struct sk_buff *skb)
+ 		       neigh->dev, dn_neigh_output_packet);
+ }
+ 
+-static int dn_short_output(struct sk_buff *skb)
++static int dn_short_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+-	struct dst_entry *dst = skb_dst(skb);
+-	struct neighbour *neigh = dst->neighbour;
+ 	struct net_device *dev = neigh->dev;
+ 	int headroom = dev->hard_header_len + sizeof(struct dn_short_packet) + 2;
+ 	struct dn_short_packet *sp;
+@@ -309,10 +305,8 @@ static int dn_short_output(struct sk_buff *skb)
+  * Phase 3 output is the same is short output, execpt that
+  * it clears the area bits before transmission.
+  */
+-static int dn_phase3_output(struct sk_buff *skb)
++static int dn_phase3_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+-	struct dst_entry *dst = skb_dst(skb);
+-	struct neighbour *neigh = dst->neighbour;
+ 	struct net_device *dev = neigh->dev;
+ 	int headroom = dev->hard_header_len + sizeof(struct dn_short_packet) + 2;
+ 	struct dn_short_packet *sp;
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index fceb86c..3b6400d 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -705,6 +705,14 @@ out:
+ 	return NET_RX_DROP;
+ }
+ 
++static int dn_to_neigh_output(struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb_dst(skb);
++	struct neighbour *n = dst->neighbour;
++
++	return n->output(n, skb);
 +}
 +
- /* Called with mutex_lock(&bnad->conf_mutex) held */
- void
- bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
-@@ -1941,8 +1951,6 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
- 			del_timer_sync(&bnad->dim_timer);
- 	}
- 
--	bnad_napi_disable(bnad, rx_id);
--
- 	init_completion(&bnad->bnad_completions.rx_comp);
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_disable(rx_info->rx, BNA_HARD_CLEANUP, bnad_cb_rx_disabled);
-@@ -1952,6 +1960,8 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
- 	if (rx_info->rx_ctrl[0].ccb->intr_type == BNA_INTR_T_MSIX)
- 		bnad_rx_msix_unregister(bnad, rx_info, rx_config->num_paths);
- 
-+	bnad_napi_disable(bnad, rx_id);
-+
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_destroy(rx_info->rx);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-@@ -2005,6 +2015,8 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 	if (err)
- 		return err;
- 
-+	bnad_rx_ctrl_init(bnad, rx_id);
-+
- 	/* Ask BNA to create one Rx object, supplying required resources */
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	rx = bna_rx_create(&bnad->bna, bnad, rx_config, &rx_cbfn, res_info,
-@@ -2014,6 +2026,9 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 		goto err_return;
- 	rx_info->rx = rx;
- 
-+	/* Enable NAPI */
-+	bnad_napi_enable(bnad, rx_id);
-+
- 	/* Register ISR for the Rx object */
- 	if (intr_info->intr_type == BNA_INTR_T_MSIX) {
- 		err = bnad_rx_msix_register(bnad, rx_info, rx_id,
-@@ -2022,9 +2037,6 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 			goto err_return;
- 	}
- 
--	/* Enable NAPI */
--	bnad_napi_enable(bnad, rx_id);
--
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	if (0 == rx_id) {
- 		/* Set up Dynamic Interrupt Moderation Vector */
-@@ -2602,15 +2614,15 @@ static netdev_tx_t
- bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ static int dn_output(struct sk_buff *skb)
  {
- 	struct bnad *bnad = netdev_priv(netdev);
--	u32 txq_id = 0;
--	struct bna_tcb *tcb = bnad->tx_info[0].tcb[txq_id];
-+	struct bna_tcb *tcb = NULL;
-+	u32 txq_id;
-+	struct bnad_unmap_q *unmap_q;
+ 	struct dst_entry *dst = skb_dst(skb);
+@@ -733,7 +741,7 @@ static int dn_output(struct sk_buff *skb)
+ 	cb->hops = 0;
  
- 	u16		txq_prod, vlan_tag = 0;
- 	u32		unmap_prod, wis, wis_used, wi_range;
- 	u32		vectors, vect_id, i, acked;
- 	int			err;
+ 	return NF_HOOK(NFPROTO_DECNET, NF_DN_LOCAL_OUT, skb, NULL, dev,
+-		       neigh->output);
++		       dn_to_neigh_output);
  
--	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
- 	dma_addr_t		dma_addr;
- 	struct bna_txq_entry *txqent;
- 	u16	flags;
-@@ -2621,6 +2633,16 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_OK;
- 	}
+ error:
+ 	if (net_ratelimit())
+@@ -750,7 +758,6 @@ static int dn_forward(struct sk_buff *skb)
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct dn_dev *dn_db = rcu_dereference(dst->dev->dn_ptr);
+ 	struct dn_route *rt;
+-	struct neighbour *neigh = dst->neighbour;
+ 	int header_len;
+ #ifdef CONFIG_NETFILTER
+ 	struct net_device *dev = skb->dev;
+@@ -783,7 +790,7 @@ static int dn_forward(struct sk_buff *skb)
+ 		cb->rt_flags |= DN_RT_F_IE;
  
-+	txq_id = skb_get_queue_mapping(skb);
-+
-+	tcb = bnad->tx_info[0].tcb[txq_id];
-+
-+	if (unlikely(!tcb)) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	unmap_q = tcb->unmap_q;
- 	/*
- 	 * Takes care of the Tx that is scheduled between clearing the flag
- 	 * and the netif_stop_all_queue() call.
-diff --git a/drivers/net/bna/bnad.h b/drivers/net/bna/bnad.h
-index 1b87b27..4f9da1c 100644
---- a/drivers/net/bna/bnad.h
-+++ b/drivers/net/bna/bnad.h
-@@ -51,6 +51,7 @@
-  */
- struct bnad_rx_ctrl {
- 	struct bna_ccb *ccb;
-+	struct bnad *bnad;
- 	unsigned long  flags;
- 	struct napi_struct	napi;
+ 	return NF_HOOK(NFPROTO_DECNET, NF_DN_FORWARD, skb, dev, skb->dev,
+-		       neigh->output);
++		       dn_to_neigh_output);
+ 
+ drop:
+ 	kfree_skb(skb);
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 8a21403..96a164a 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -150,8 +150,8 @@ static const struct neigh_ops arp_hh_ops = {
+ 
+ static const struct neigh_ops arp_direct_ops = {
+ 	.family =		AF_INET,
+-	.output =		dev_queue_xmit,
+-	.connected_output =	dev_queue_xmit,
++	.output =		neigh_direct_output,
++	.connected_output =	neigh_direct_output,
  };
+ 
+ static const struct neigh_ops arp_broken_ops = {
+@@ -250,7 +250,7 @@ static int arp_constructor(struct neighbour *neigh)
+ 	if (!dev->header_ops) {
+ 		neigh->nud_state = NUD_NOARP;
+ 		neigh->ops = &arp_direct_ops;
+-		neigh->output = dev_queue_xmit;
++		neigh->output = neigh_direct_output;
+ 	} else {
+ 		/* Good devices (checked by reading texts, but only Ethernet is
+ 		   tested)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 482b970..e08ce55 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -120,8 +120,8 @@ static const struct neigh_ops ndisc_hh_ops = {
+ 
+ static const struct neigh_ops ndisc_direct_ops = {
+ 	.family =		AF_INET6,
+-	.output =		dev_queue_xmit,
+-	.connected_output =	dev_queue_xmit,
++	.output =		neigh_direct_output,
++	.connected_output =	neigh_direct_output,
+ };
+ 
+ struct neigh_table nd_tbl = {
+@@ -386,7 +386,7 @@ static int ndisc_constructor(struct neighbour *neigh)
+ 	if (!dev->header_ops) {
+ 		neigh->nud_state = NUD_NOARP;
+ 		neigh->ops = &ndisc_direct_ops;
+-		neigh->output = dev_queue_xmit;
++		neigh->output = neigh_direct_output;
+ 	} else {
+ 		if (is_multicast) {
+ 			neigh->nud_state = NUD_NOARP;
 -- 
-1.7.1
+1.7.6
 
