@@ -1,35 +1,48 @@
-From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch] bluetooth: make 3 functions in hci_conn.c static
-Date: Tue, 19 Jul 2011 15:29:38 +0800
-Message-ID: <CAM_iQpXSzrLCitF364MadxkQ3G-4botpydOmZhKxfhMbT7uweQ@mail.gmail.com>
-References: <CAM_iQpUHynJZBJ29qeu_fv4Rko0=7chE5BrhavOKVyzaTDf28A@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH v2] net: filter: BPF 'JIT' compiler for PPC64
+Date: Tue, 19 Jul 2011 17:55:35 +1000
+Message-ID: <1311062135.25044.409.camel@pasglop>
+References: <4E23E5C3.1070209@ozlabs.org>  <4E24E867.9050909@ozlabs.org>
+	 <1311058260.16961.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-bluetooth@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>,
-	Marcel Holtmann <marcel@holtmann.org>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Matt Evans <matt@ozlabs.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52396 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752177Ab1GSH3j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 03:29:39 -0400
-In-Reply-To: <CAM_iQpUHynJZBJ29qeu_fv4Rko0=7chE5BrhavOKVyzaTDf28A@mail.gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:34373 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752476Ab1GSHzp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 03:55:45 -0400
+In-Reply-To: <1311058260.16961.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2011 at 3:18 PM, Am=C3=A9rico Wang <xiyou.wangcong@gmai=
-l.com> wrote:
-> hci_acl_connect()
-> hci_add_sco()
-> hci_conn_enter_sniff_mode()
->
-> these three functions can become static as there are no callers outsi=
-de.
->
+On Tue, 2011-07-19 at 08:51 +0200, Eric Dumazet wrote:
 
-Self-NAK.
+> > +		case BPF_S_ANC_CPU:
+> > +#ifdef CONFIG_SMP
+> > +			/*
+> > +			 * PACA ptr is r13:
+> > +			 * raw_smp_processor_id() = local_paca->paca_index
+> > +			 */
+> 
+> This could break if one day linux supports more than 65536 cpus :)
+> 
+> > +			PPC_LHZ_OFFS(r_A, 13,
+> > +				     offsetof(struct paca_struct, paca_index));
+> > +#else
+> > +			PPC_LI(r_A, 0);
+> > +#endif
+> > +			break;
 
-Seems these 3 functions have no callers just accidentally.
+As would our implementation of raw_smp_processor_id() and our
+spinlocks :-) I don't think we need to fix that -now- but you are
+welcome to add something like a
+BUILD_BUG_ON(sizeof(local_paca->paca_index) != 2); as a reminder :-)
+
+Cheers,
+Ben.
+
+
