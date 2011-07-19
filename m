@@ -1,61 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Subject: Re: [PATCH v2] net: filter: BPF 'JIT' compiler for PPC64
-Date: Tue, 19 Jul 2011 11:06:08 +0200
-Message-ID: <1311066368.2375.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Tue, 19 Jul 2011 19:22:02 +1000
+Message-ID: <1311067322.25044.415.camel@pasglop>
 References: <4E23E5C3.1070209@ozlabs.org>  <4E24E867.9050909@ozlabs.org>
 	 <1311058260.16961.12.camel@edumazet-laptop>
 	 <1311062135.25044.409.camel@pasglop>
+	 <1311066368.2375.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Matt Evans <matt@ozlabs.org>, netdev@vger.kernel.org,
 	linuxppc-dev@lists.ozlabs.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:44972 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752456Ab1GSJGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 05:06:18 -0400
-Received: by wwe5 with SMTP id 5so3974874wwe.1
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 02:06:16 -0700 (PDT)
-In-Reply-To: <1311062135.25044.409.camel@pasglop>
+Received: from gate.crashing.org ([63.228.1.57]:52275 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752332Ab1GSJWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 05:22:13 -0400
+In-Reply-To: <1311066368.2375.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 19 juillet 2011 =C3=A0 17:55 +1000, Benjamin Herrenschmidt a =C3=
-=A9crit :
-> On Tue, 2011-07-19 at 08:51 +0200, Eric Dumazet wrote:
->=20
-> > > +		case BPF_S_ANC_CPU:
-> > > +#ifdef CONFIG_SMP
-> > > +			/*
-> > > +			 * PACA ptr is r13:
-> > > +			 * raw_smp_processor_id() =3D local_paca->paca_index
-> > > +			 */
-> >=20
-> > This could break if one day linux supports more than 65536 cpus :)
-> >=20
-> > > +			PPC_LHZ_OFFS(r_A, 13,
-> > > +				     offsetof(struct paca_struct, paca_index));
-> > > +#else
-> > > +			PPC_LI(r_A, 0);
-> > > +#endif
-> > > +			break;
->=20
-> As would our implementation of raw_smp_processor_id() and our
-> spinlocks :-) I don't think we need to fix that -now- but you are
-> welcome to add something like a
-> BUILD_BUG_ON(sizeof(local_paca->paca_index) !=3D 2); as a reminder :-=
-)
+On Tue, 2011-07-19 at 11:06 +0200, Eric Dumazet wrote:
+> Please Matt add to your next version this check. I dont think I have
+> to
+> submit a one line patch later...
+> 
+> On x86_64, cpu_number field is already 32bit, we have some time before
+> it becomes 64bit ;)
+> 
+> We probably should add some extra check to make sure segment doesnt
+> change (%gs on x86_64, r13 on ppc64) on a future linux version.
 
-Please Matt add to your next version this check. I dont think I have to
-submit a one line patch later...
+r13 isn't really a "segment" per-se, it can change if you aren't preempt
+disabled, it's the PACA pointer, which is basically a low level per-cpu
+data structure, so it will change if you migrate around (but if you are
+in softirq context like most of the network stack, then it won't
+change).
 
-On x86_64, cpu_number field is already 32bit, we have some time before
-it becomes 64bit ;)
+As for the CPU number being 16-bit, this is really due to how our
+spinlocks work, using that as a lock token within the same 32-bit word
+as the lock flag etc... We can easily fix that later if needed but I
+don't see any emergency for us.
 
-We probably should add some extra check to make sure segment doesnt
-change (%gs on x86_64, r13 on ppc64) on a future linux version.
-
+Cheers,
+Ben.
 
 
