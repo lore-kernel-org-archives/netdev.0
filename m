@@ -1,78 +1,81 @@
-From: Mohammed Shafi <shafi.wireless@gmail.com>
-Subject: Re: ath: Unable to reset channel (2412 MHz), reset status -5
-Date: Tue, 19 Jul 2011 21:19:40 +0530
-Message-ID: <CAD2nsn1xEB-e33_wrGqLETZ4MwFy12gtyawtg5XHLH0=-9vs2w@mail.gmail.com>
-References: <4E252076.1050309@gmail.com>
-	<CAD2nsn12vOXv-msWR+GF7edz3Q26P-pb4H-SO4rf2RHjC7mG+w@mail.gmail.com>
-	<4E2525BA.4090902@gmail.com>
-	<CAD2nsn3ifSMa_eFr2vQ0VVF9Ga-0VD3YB_beb28r+eoAHKv4kQ@mail.gmail.com>
-	<4E25A1E3.9080707@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] r8169: fix sticky accepts packet bits in RxConfig.
+Date: Tue, 19 Jul 2011 17:40:25 +0200
+Message-ID: <20110719154025.GA7667@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Justin P. Mattock" <justinmattock@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:61250 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751747Ab1GSPtm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 11:49:42 -0400
-In-Reply-To: <4E25A1E3.9080707@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:53202 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010Ab1GSPzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 11:55:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2011 at 8:55 PM, Justin P. Mattock
-<justinmattock@gmail.com> wrote:
-> On 07/18/2011 11:46 PM, Mohammed Shafi wrote:
->>
->> On Tue, Jul 19, 2011 at 12:05 PM, Justin P. Mattock
->> <justinmattock@gmail.com> =A0wrote:
->>>
->>> On 07/18/2011 11:25 PM, Mohammed Shafi wrote:
->>>>
->>>> On Tue, Jul 19, 2011 at 11:43 AM, Justin P. Mattock
->>>> <justinmattock@gmail.com> =A0 =A0wrote:
->>>>>
->>>>> seems with the latest Mainline I am getting the ath9k carpping ou=
-t
->>>>> after
->>>>> a
->>>>> while of streaming(dmesg below)..:
->>>>> http://fpaste.org/D7wM/
->>>>>
->>>>> will try a bisect if I have the time..
->>>>
->>>> I will try to recreate here with 3.0.0-rc7-wl, we can get more
->>>> information by ath9k debug=3D0xffffffff.
->>>> thanks.
->>>>
->>>
->>> cool!
->>> seems to fire off randomly over here.
->>
->> I have got AR5416, will try with that.
->>
->
-> I can try the bisect, but might take a while, since external
-> activities(job). Seems this is just starting i.g. with
-> 3.0.0-rc1 I never saw this, but with 3.0.0-rc7-00125-gf560f66
-> its making noise.
+Please pull from branch 'davem-next.r8169' in repository
 
-I am unable to get this problem in my AR5416 :( will also try
-tomorrow. I am using the card for browsing etc.
-recently there were patches for hardware code changes.
-just a guess, please check does this patch helps(or is it already
-there). i think this will be called via
-ath_set_channel->ath9k_hw_reset->ath9k_hw_init_bb and may be
-https://patchwork.kernel.org/patch/957902/
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem-next.r8169
 
->
-> Justin P. Mattock
->
+to get the change below.
 
+NB: it is related to but it does not solve BZ 39252.
 
+Distance from 'davem-next' (81fc70d86527a1450560709500ca5f52e661da1f)
+---------------------------------------------------------------------
 
---=20
-shafi
+1687b56679880a47164ae149530abee543f9d6b1
+
+Diffstat
+--------
+
+ drivers/net/r8169.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu (1):
+      r8169: fix sticky accepts packet bits in RxConfig.
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 3ddd339..40bcb82 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -435,6 +435,7 @@ enum rtl_register_content {
+ 	AcceptMulticast	= 0x04,
+ 	AcceptMyPhys	= 0x02,
+ 	AcceptAllPhys	= 0x01,
++#define RX_CONFIG_ACCEPT_MASK		0x3f
+ 
+ 	/* TxConfigBits */
+ 	TxInterFrameGapShift = 24,
+@@ -3943,11 +3944,8 @@ err_pm_runtime_put:
+ static void rtl_rx_close(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+-	u32 rxcfg = RTL_R32(RxConfig);
+ 
+-	rxcfg &= ~(AcceptErr | AcceptRunt | AcceptBroadcast | AcceptMulticast |
+-		   AcceptMyPhys | AcceptAllPhys);
+-	RTL_W32(RxConfig, rxcfg);
++	RTL_W32(RxConfig, RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK);
+ }
+ 
+ static void rtl8169_hw_reset(struct rtl8169_private *tp)
+@@ -5586,7 +5584,7 @@ static void rtl_set_rx_mode(struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&tp->lock, flags);
+ 
+-	tmp = RTL_R32(RxConfig) | rx_mode;
++	tmp = (RTL_R32(RxConfig) & ~RX_CONFIG_ACCEPT_MASK) | rx_mode;
+ 
+ 	if (tp->mac_version > RTL_GIGA_MAC_VER_06) {
+ 		u32 data = mc_filter[0];
+-- 
+Ueimor
