@@ -1,65 +1,136 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: IPv6: autoconfiguration and suspend/resume or link down/up
-Date: Tue, 19 Jul 2011 20:02:53 +0200
-Message-ID: <20110719180222.GA7509@midget.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] ipv6: all routes share same inetpeer
+Date: Tue, 19 Jul 2011 20:20:38 +0200
+Message-ID: <1311099638.3113.2.camel@edumazet-laptop>
+References: <1311096229.2375.49.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110719.103724.1461298517132188126.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	stephen hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:35060 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750987Ab1GSSC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2011 14:02:56 -0400
-Content-Disposition: inline
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57460 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874Ab1GSSUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 14:20:43 -0400
+Received: by wyg8 with SMTP id 8so2977601wyg.19
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 11:20:42 -0700 (PDT)
+In-Reply-To: <20110719.103724.1461298517132188126.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le mardi 19 juillet 2011 =C3=A0 10:37 -0700, David Miller a =C3=A9crit =
+:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 19 Jul 2011 19:23:49 +0200
+>=20
+> > Maybe you can find the bug before me ?
+>=20
+> I think when we add the route we cow the metrics almost immediately.
+> The daddr is, unfortunately, fully prefixed at that point.
 
-I came over a surprising behaviour with IPv6 autoconfiguration,
-which I think is a bug, but I would first like to hear other
-people's opinions before trying to fix this:
+Yes, we shall provide a second ip6_rt_copy() argument, with the
+destination address.
 
-Problem 1: all the address/route lifetimes are kept in jiffies
-and jiffies don't get incremented on resume. So when a
-route/address lifetime is 30 minutes and the system resumes after
-1 hour, the route/address should be considered expired, but it is
-not.
+I am testing :
 
-Problem 2: when a system is moved to a new network a RS is not
-sent. Thus, IPv6 does not autoconfigure until the router sends a
-periodic RA. This can occur both while the system is alive and
-while it is suspended. I think the autoconfigured state should be
-discarded when the kernel suspects the system could have been
-moved to a different network.
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ddef80f..2a6d70a 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -72,7 +72,7 @@
+ #define RT6_TRACE(x...) do { ; } while (0)
+ #endif
+=20
+-static struct rt6_info * ip6_rt_copy(struct rt6_info *ort);
++static struct rt6_info * ip6_rt_copy(struct rt6_info *ort, const struc=
+t in6_addr *dest);
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cook=
+ie);
+ static unsigned int	 ip6_default_advmss(const struct dst_entry *dst);
+ static unsigned int	 ip6_default_mtu(const struct dst_entry *dst);
+@@ -699,7 +699,7 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_in=
+fo *ort, const struct in6_add
+ 	 *	Clone the route.
+ 	 */
+=20
+-	rt =3D ip6_rt_copy(ort);
++	rt =3D ip6_rt_copy(ort, daddr);
+=20
+ 	if (rt) {
+ 		struct neighbour *neigh;
+@@ -712,7 +712,6 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_in=
+fo *ort, const struct in6_add
+ 			ipv6_addr_copy(&rt->rt6i_gateway, daddr);
+ 		}
+=20
+-		ipv6_addr_copy(&rt->rt6i_dst.addr, daddr);
+ 		rt->rt6i_dst.plen =3D 128;
+ 		rt->rt6i_flags |=3D RTF_CACHE;
+ 		rt->dst.flags |=3D DST_HOST;
+@@ -761,9 +760,9 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_in=
+fo *ort, const struct in6_add
+=20
+ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort, const st=
+ruct in6_addr *daddr)
+ {
+-	struct rt6_info *rt =3D ip6_rt_copy(ort);
++	struct rt6_info *rt =3D ip6_rt_copy(ort, daddr);
++
+ 	if (rt) {
+-		ipv6_addr_copy(&rt->rt6i_dst.addr, daddr);
+ 		rt->rt6i_dst.plen =3D 128;
+ 		rt->rt6i_flags |=3D RTF_CACHE;
+ 		rt->dst.flags |=3D DST_HOST;
+@@ -1584,7 +1583,7 @@ void rt6_redirect(const struct in6_addr *dest, co=
+nst struct in6_addr *src,
+ 	if (neigh =3D=3D dst_get_neighbour(&rt->dst))
+ 		goto out;
+=20
+-	nrt =3D ip6_rt_copy(rt);
++	nrt =3D ip6_rt_copy(rt, dest);
+ 	if (nrt =3D=3D NULL)
+ 		goto out;
+=20
+@@ -1592,7 +1591,6 @@ void rt6_redirect(const struct in6_addr *dest, co=
+nst struct in6_addr *src,
+ 	if (on_link)
+ 		nrt->rt6i_flags &=3D ~RTF_GATEWAY;
+=20
+-	ipv6_addr_copy(&nrt->rt6i_dst.addr, dest);
+ 	nrt->rt6i_dst.plen =3D 128;
+ 	nrt->dst.flags |=3D DST_HOST;
+=20
+@@ -1730,7 +1728,7 @@ void rt6_pmtu_discovery(const struct in6_addr *da=
+ddr, const struct in6_addr *sad
+  *	Misc support functions
+  */
+=20
+-static struct rt6_info * ip6_rt_copy(struct rt6_info *ort)
++static struct rt6_info * ip6_rt_copy(struct rt6_info *ort, const struc=
+t in6_addr *dest)
+ {
+ 	struct net *net =3D dev_net(ort->rt6i_dev);
+ 	struct rt6_info *rt =3D ip6_dst_alloc(&net->ipv6.ip6_dst_ops,
+@@ -1740,6 +1738,8 @@ static struct rt6_info * ip6_rt_copy(struct rt6_i=
+nfo *ort)
+ 		rt->dst.input =3D ort->dst.input;
+ 		rt->dst.output =3D ort->dst.output;
+=20
++		ipv6_addr_copy(&rt->rt6i_dst.addr, dest);
++		rt->rt6i_dst.plen =3D ort->rt6i_dst.plen;
+ 		dst_copy_metrics(&rt->dst, &ort->dst);
+ 		rt->dst.error =3D ort->dst.error;
+ 		rt->rt6i_idev =3D ort->rt6i_idev;
+@@ -1752,7 +1752,6 @@ static struct rt6_info * ip6_rt_copy(struct rt6_i=
+nfo *ort)
+ 		rt->rt6i_flags =3D ort->rt6i_flags & ~RTF_EXPIRES;
+ 		rt->rt6i_metric =3D 0;
+=20
+-		memcpy(&rt->rt6i_dst, &ort->rt6i_dst, sizeof(struct rt6key));
+ #ifdef CONFIG_IPV6_SUBTREES
+ 		memcpy(&rt->rt6i_src, &ort->rt6i_src, sizeof(struct rt6key));
+ #endif
 
-When the cable is unplugged and plugged in again, we already get
-notified through linkwatch -> netdev_state_change ->
-  -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
-However, if the device has already been autoconfigured,
-addrconf_notify() only handles this event by printing a
-message.
-
-So my idea was to:
-- handle link up/down in addrconf_notify() similarly to
-  NETDEV_UP/NETDEV_DOWN
-
-- on suspend, faking a link down event; on resume, faking a link up event
-  (or better, having a special event type for suspend/resume)
-
-This would cause autoconfiguration to be restarted on resume as
-well as cable plug/unplug, solving both the above problems.
-
-Or do we want to completely rely on userspace tools
-(networkmanager/ifplug) and expect them to do NETDEV_DOWN on
-unplug/suspend and NETDEV_UP on plug/resume?
-
-Any thoughts?
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
 
