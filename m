@@ -1,47 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL net-next] vhost-net fixes for 3.1
-Date: Tue, 19 Jul 2011 14:47:41 +0300
-Message-ID: <20110719114741.GA5827@redhat.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH 01/10] bnx2x: use correct dma_sync function
+Date: Tue, 19 Jul 2011 14:37:42 +0300
+Message-ID: <1311075462.30287.1.camel@lb-tlvb-dmitry>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, mashirle@us.ibm.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>
+To: davem@davemloft.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42172 "EHLO mx1.redhat.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4807 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751265Ab1GSLrW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2011 07:47:22 -0400
-Content-Disposition: inline
+	id S1751032Ab1GSLuS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 07:50:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here's Jason's fix for a theoretical event loss
-on migration (tweaked by me to update the test
-module as well), and a refcounting fix by me
-for a bug in the new zerocopy mode.
+From: Vladislav Zolotarov <vladz@broadcom.com>
 
-I thought hard about merging Jason's patches for 3.0
-as well, but in the end I think it's not worth
-the risk of breaking something at this stage.
 
-Please pull for 3.1, thanks a lot!
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_cmn.c     |    2 +-
+ drivers/net/bnx2x/bnx2x_ethtool.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-The following changes since commit 81fc70d86527a1450560709500ca5f52e661da1f:
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index b05ce93..150147a 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -676,7 +676,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 			/* non TPA */
+ 			len = le16_to_cpu(cqe_fp->pkt_len);
+ 			pad = cqe_fp->placement_offset;
+-			dma_sync_single_for_device(&bp->pdev->dev,
++			dma_sync_single_for_cpu(&bp->pdev->dev,
+ 					dma_unmap_addr(rx_buf, mapping),
+ 						       pad + RX_COPY_THRESH,
+ 						       DMA_FROM_DEVICE);
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
+index ac02231..eda0f7b 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -1752,7 +1752,7 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode)
+ 		goto test_loopback_rx_exit;
+ 
+ 	rx_buf = &fp_rx->rx_buf_ring[RX_BD(fp_rx->rx_bd_cons)];
+-	dma_sync_single_for_device(&bp->pdev->dev,
++	dma_sync_single_for_cpu(&bp->pdev->dev,
+ 				   dma_unmap_addr(rx_buf, mapping),
+ 				   fp_rx->rx_buf_size, DMA_FROM_DEVICE);
+ 	skb = rx_buf->skb;
+-- 
+1.7.2.2
 
-  net: can: remove custom hex_to_bin() (2011-07-18 11:31:43 -0700)
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
 
-Jason Wang (2):
-      vhost: init used ring after backend was set
-      vhost: set log when updating used flags or avail event
 
-Michael S. Tsirkin (1):
-      vhost: fix zcopy reference counting
-
- drivers/vhost/net.c   |    4 ++
- drivers/vhost/test.c  |    5 +++
- drivers/vhost/vhost.c |   87 ++++++++++++++++++++++++++++++------------------
- drivers/vhost/vhost.h |    1 +
- 4 files changed, 64 insertions(+), 33 deletions(-)
