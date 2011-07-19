@@ -1,118 +1,61 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 3/3] stmmac: remove warning when compile as built-in
-Date: Tue, 19 Jul 2011 10:38:04 +0200
-Message-ID: <1311064684-20246-3-git-send-email-peppe.cavallaro@st.com>
-References: <1311064684-20246-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: filter: BPF 'JIT' compiler for PPC64
+Date: Tue, 19 Jul 2011 11:06:08 +0200
+Message-ID: <1311066368.2375.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E23E5C3.1070209@ozlabs.org>  <4E24E867.9050909@ozlabs.org>
+	 <1311058260.16961.12.camel@edumazet-laptop>
+	 <1311062135.25044.409.camel@pasglop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Evans <matt@ozlabs.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:45479 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752386Ab1GSIjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 04:39:16 -0400
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4E9341B8
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 08:39:13 +0000 (GMT)
-Received: from mail7.sgp.st.com (unknown [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 131A127B6
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 08:39:13 +0000 (GMT)
-In-Reply-To: <1311064684-20246-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44972 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456Ab1GSJGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 05:06:18 -0400
+Received: by wwe5 with SMTP id 5so3974874wwe.1
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 02:06:16 -0700 (PDT)
+In-Reply-To: <1311062135.25044.409.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch removes the following serie of warnings
-when the driver is compiled as built-in:
+Le mardi 19 juillet 2011 =C3=A0 17:55 +1000, Benjamin Herrenschmidt a =C3=
+=A9crit :
+> On Tue, 2011-07-19 at 08:51 +0200, Eric Dumazet wrote:
+>=20
+> > > +		case BPF_S_ANC_CPU:
+> > > +#ifdef CONFIG_SMP
+> > > +			/*
+> > > +			 * PACA ptr is r13:
+> > > +			 * raw_smp_processor_id() =3D local_paca->paca_index
+> > > +			 */
+> >=20
+> > This could break if one day linux supports more than 65536 cpus :)
+> >=20
+> > > +			PPC_LHZ_OFFS(r_A, 13,
+> > > +				     offsetof(struct paca_struct, paca_index));
+> > > +#else
+> > > +			PPC_LI(r_A, 0);
+> > > +#endif
+> > > +			break;
+>=20
+> As would our implementation of raw_smp_processor_id() and our
+> spinlocks :-) I don't think we need to fix that -now- but you are
+> welcome to add something like a
+> BUILD_BUG_ON(sizeof(local_paca->paca_index) !=3D 2); as a reminder :-=
+)
 
-drivers/net/stmmac/stmmac_main.c: In function stmmac_cmdline_opt:
-drivers/net/stmmac/stmmac_main.c:1855:12: warning: ignoring return
-value of kstrtoul, declared with attribute warn_unused_result
-[snip]
+Please Matt add to your next version this check. I dont think I have to
+submit a one line patch later...
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/stmmac/stmmac_main.c |   65 ++++++++++++++++++++++++-------------
- 1 files changed, 42 insertions(+), 23 deletions(-)
+On x86_64, cpu_number field is already 32bit, we have some time before
+it becomes 64bit ;)
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index a11a339..2856d66 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -1851,33 +1851,52 @@ static int __init stmmac_cmdline_opt(char *str)
- 	if (!str || !*str)
- 		return -EINVAL;
- 	while ((opt = strsep(&str, ",")) != NULL) {
--		if (!strncmp(opt, "debug:", 6))
--			strict_strtoul(opt + 6, 0, (unsigned long *)&debug);
--		else if (!strncmp(opt, "phyaddr:", 8))
--			strict_strtoul(opt + 8, 0, (unsigned long *)&phyaddr);
--		else if (!strncmp(opt, "dma_txsize:", 11))
--			strict_strtoul(opt + 11, 0,
--				       (unsigned long *)&dma_txsize);
--		else if (!strncmp(opt, "dma_rxsize:", 11))
--			strict_strtoul(opt + 11, 0,
--				       (unsigned long *)&dma_rxsize);
--		else if (!strncmp(opt, "buf_sz:", 7))
--			strict_strtoul(opt + 7, 0, (unsigned long *)&buf_sz);
--		else if (!strncmp(opt, "tc:", 3))
--			strict_strtoul(opt + 3, 0, (unsigned long *)&tc);
--		else if (!strncmp(opt, "watchdog:", 9))
--			strict_strtoul(opt + 9, 0, (unsigned long *)&watchdog);
--		else if (!strncmp(opt, "flow_ctrl:", 10))
--			strict_strtoul(opt + 10, 0,
--				       (unsigned long *)&flow_ctrl);
--		else if (!strncmp(opt, "pause:", 6))
--			strict_strtoul(opt + 6, 0, (unsigned long *)&pause);
-+		if (!strncmp(opt, "debug:", 6)) {
-+			if (strict_strtoul(opt + 6, 0, (unsigned long *)&debug))
-+				goto err;
-+		} else if (!strncmp(opt, "phyaddr:", 8)) {
-+			if (strict_strtoul(opt + 8, 0,
-+					   (unsigned long *)&phyaddr))
-+				goto err;
-+		} else if (!strncmp(opt, "dma_txsize:", 11)) {
-+			if (strict_strtoul(opt + 11, 0,
-+					   (unsigned long *)&dma_txsize))
-+				goto err;
-+		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
-+			if (strict_strtoul(opt + 11, 0,
-+					   (unsigned long *)&dma_rxsize))
-+				goto err;
-+		} else if (!strncmp(opt, "buf_sz:", 7)) {
-+			if (strict_strtoul(opt + 7, 0,
-+					   (unsigned long *)&buf_sz))
-+				goto err;
-+		} else if (!strncmp(opt, "tc:", 3)) {
-+			if (strict_strtoul(opt + 3, 0, (unsigned long *)&tc))
-+				goto err;
-+		} else if (!strncmp(opt, "watchdog:", 9)) {
-+			if (strict_strtoul(opt + 9, 0,
-+					   (unsigned long *)&watchdog))
-+				goto err;
-+		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
-+			if (strict_strtoul(opt + 10, 0,
-+					   (unsigned long *)&flow_ctrl))
-+				goto err;
-+		} else if (!strncmp(opt, "pause:", 6)) {
-+			if (strict_strtoul(opt + 6, 0, (unsigned long *)&pause))
-+				goto err;
- #ifdef CONFIG_STMMAC_TIMER
--		else if (!strncmp(opt, "tmrate:", 7))
--			strict_strtoul(opt + 7, 0, (unsigned long *)&tmrate);
-+		} else if (!strncmp(opt, "tmrate:", 7)) {
-+			if (strict_strtoul(opt + 7, 0,
-+					   (unsigned long *)&tmrate))
-+				goto err;
- #endif
-+		}
- 	}
- 	return 0;
-+
-+err:
-+	pr_err("%s: ERROR broken module parameter conversion", __func__);
-+	return -EINVAL;
- }
- 
- __setup("stmmaceth=", stmmac_cmdline_opt);
--- 
-1.7.4.4
+We probably should add some extra check to make sure segment doesnt
+change (%gs on x86_64, r13 on ppc64) on a future linux version.
+
+
 
