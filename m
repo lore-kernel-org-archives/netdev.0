@@ -1,27 +1,54 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: software iwarp stack update
-Date: Mon, 18 Jul 2011 16:45:47 -0700
-Message-ID: <CAL1RGDW0gyQZAqR4XfCJTLrcmCD+h836vG=N1J_Emzhi8YEYHw@mail.gmail.com>
-References: <BANLkTimEGgKEMZd3qppOofN-Vj-u-PH-xA@mail.gmail.com>
- <OFB7458EEB.BFB8A4EE-ONC12578B1.004026D1-C12578B1.0041190E@ch.ibm.com>
- <BANLkTi=2woNzF=GL3cT3NB_hye5JHfodMA@mail.gmail.com> <BANLkTi=L057TZug2=nrFZTYdNoHLMvmBRA@mail.gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 00/45] Update bna driver version to 3.0.2.0
+Date: Mon, 18 Jul 2011 17:48:03 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A83BDF4A00@HQ1-EXCH01.corp.brocade.com>
+References: <1310977178-312-1-git-send-email-rmody@brocade.com>
+ <20110718.012639.1253140864720328605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <BANLkTi=L057TZug2=nrFZTYdNoHLMvmBRA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Adapter Linux Open SRC Team"
+	<adapter_linux_open_src_team@Brocade.COM>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:52449 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750868Ab1GSAsP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2011 20:48:15 -0400
+In-Reply-To: <20110718.012639.1253140864720328605.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> There seems to be disagreement about whether to return 0, -ENOSYS or
-> -EOPNOTSUPP for not supported functionality. Does the patch below make sense ?
-> Note: I don't have all the hardware necessary to test the patch below.
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Monday, July 18, 2011 1:27 AM
+>
+>This is too many patche at once.
+>
+>You need to submit patches more often, and in significantly smaller
+>sets at a time.
 
-This makes sense to me, so I went ahead and applied it for 3.1 (minus
-the siw part, of course).
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+David,
+
+This update to the BNA driver (release 3.0) is enabling new hardware with various virtualization and other capabilities e.g. new 1860 SRIOV capable Fabric Adapter (new ASIC), vNIC (PF based virtualization), architectural framework for SR-IOV, Multi-Tx priority queue support and iSCSI over DCB.
+
+The driver had to go through significant changes to enable these capabilities thus resulting in large delta. 
+
+We explored options to submit smaller incremental patches in last few months but quickly ran into following issues ...
+   - The driver was not functional between patches because of large developmental changes 
+   - There were iterative changes to many areas of code and that was resulting in many unnecessary patches.
+
+We wanted to avoid submitting developing code that could break upstream driver due to partial changes. 
+Hence we ended up submitting this driver update patch with consolidated changes after elaborate QA testing.
+
+We understand that it is still big and can think of following options to address the concern:
+1. Break this submission into 3 batches and split it into: 2.3 fixes, new features (which is still a big patch set - due to all the code reorganization), and bug fixes and cleanup.
+OR
+2. Submit patches as a new driver and would need your support in replacing the existing upstream BNA driver with this one.
+
+Please suggest on the next steps.
+
+Thanks,
+Rasesh
