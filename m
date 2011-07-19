@@ -1,269 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6: make fragment identifications less
- predictable
-Date: Tue, 19 Jul 2011 22:47:03 +0200
-Message-ID: <1311108423.3113.24.camel@edumazet-laptop>
-References: <4E24BE94.7010301@gont.com.ar>
-	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH] vhost: clean up outstanding buffers before setting
+ vring
+Date: Tue, 19 Jul 2011 13:50:53 -0700
+Message-ID: <1311108653.8573.25.camel@localhost.localdomain>
+References: <1311098546.8573.13.camel@localhost.localdomain>
+	 <20110719194956.GC8667@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: security@kernel.org, Eugene Teo <eugeneteo@kernel.sg>,
-	netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>
-To: Fernando Gont <fernando@gont.com.ar>,
-	David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jasowang@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52266 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477Ab1GSUrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 16:47:09 -0400
-Received: by wwe5 with SMTP id 5so4556121wwe.1
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 13:47:07 -0700 (PDT)
-In-Reply-To: <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:33819 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751668Ab1GSUu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 16:50:58 -0400
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by e9.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p6JKIiDM020621
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 16:18:45 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6JKovY4178050
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 16:50:57 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6JGoi9f015120
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 13:50:45 -0300
+In-Reply-To: <20110719194956.GC8667@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 fragment identification generation is way beyond what we use for
-IPv4 : It uses a single generator. Its not scalable and allows DOS
-attacks.
+On Tue, 2011-07-19 at 22:49 +0300, Michael S. Tsirkin wrote:
+> On Tue, Jul 19, 2011 at 11:02:26AM -0700, Shirley Ma wrote:
+> > The outstanding DMA buffers need to be clean up before setting vring
+> in
+> > vhost. Otherwise the vring would be out of sync.
+> > 
+> > Signed-off-by: Shirley Ma<xma@us.ibm.com>
+> 
+> I suspect what is missing is calling
+> vhost_zerocopy_signal_used then?
+> 
+> If yes we probably should do it after
+> changing the backend, not on vring set.
 
-Now inetpeer is IPv6 aware, we can use it to provide a more secure and
-scalable frag ident generator (per destination, instead of system wide)
+I think vhost_zerocopy_signal_used might not be sufficient. But we can
+test it out by remove/reloading the guest virtio_net module.
 
-This patch :
-1) defines a new secure_ipv6_id() helper
-2) extends inet_getid() to provide 32bit results
-3) extends ipv6_select_ident() with a new dest parameter
+> > ---
+> > 
+> >  drivers/vhost/vhost.c |   11 +++++++++--
+> >  1 files changed, 9 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> > index c14c42b..d6315b4 100644
+> > --- a/drivers/vhost/vhost.c
+> > +++ b/drivers/vhost/vhost.c
+> > @@ -445,8 +445,10 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+> >                       vhost_poll_flush(&dev->vqs[i].poll);
+> >               }
+> >               /* Wait for all lower device DMAs done. */
+> > -             if (dev->vqs[i].ubufs)
+> > +             if (dev->vqs[i].ubufs) {
+> >                       vhost_ubuf_put_and_wait(dev->vqs[i].ubufs);
+> > +                     kfree(dev->vqs[i].ubufs);
+> > +             }
+> >  
+> >               /* Signal guest as appropriate. */
+> >               vhost_zerocopy_signal_used(&dev->vqs[i]);
+> > @@ -651,6 +653,12 @@ static long vhost_set_vring(struct vhost_dev
+> *d, int ioctl, void __user *argp)
+> >       vq = d->vqs + idx;
+> >  
+> >       mutex_lock(&vq->mutex);
+> > +     /* Wait for all lower device DMAs done. */
+> > +     if (vq->ubufs)
+> > +             vhost_ubuf_put_and_wait(vq->ubufs);
+> 
+> Could you elaborate on the problem you observe please?
+> At least in theory, existing code flushes outstanding
+> requests when backend is changed.
+> And since vring set verifies no backend is active,
+> we should be fine?
 
-Reported-by: Fernando Gont <fernando@gont.com.ar>
-CC: Matt Mackall <mpm@selenic.com>
-CC: Eugene Teo <eugeneteo@kernel.sg>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/char/random.c  |   15 +++++++++++++++
- include/linux/random.h |    1 +
- include/net/inetpeer.h |   13 ++++++++++---
- include/net/ipv6.h     |   12 +-----------
- net/ipv4/inetpeer.c    |    7 +++++--
- net/ipv6/ip6_output.c  |   36 +++++++++++++++++++++++++++++++-----
- net/ipv6/udp.c         |    2 +-
- 7 files changed, 64 insertions(+), 22 deletions(-)
+The problem encounters when guest rmmod virtio_net module, then reload
+the module, and configure the interface, it complains about some ring id
+is not a head. With this patch, the problem is solved. 
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index d4ddeba..7292819 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -1523,6 +1523,21 @@ __u32 secure_ip_id(__be32 daddr)
- 	return half_md4_transform(hash, keyptr->secret);
- }
- 
-+__u32 secure_ipv6_id(const __be32 daddr[4])
-+{
-+	const struct keydata *keyptr;
-+	__u32 hash[4];
-+
-+	keyptr = get_keyptr();
-+
-+	hash[0] = (__force __u32)daddr[0];
-+	hash[1] = (__force __u32)daddr[1];
-+	hash[2] = (__force __u32)daddr[2];
-+	hash[3] = (__force __u32)daddr[3];
-+
-+	return half_md4_transform(hash, keyptr->secret);
-+}
-+
- #ifdef CONFIG_INET
- 
- __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
-diff --git a/include/linux/random.h b/include/linux/random.h
-index fb7ab9d..ce29a04 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -58,6 +58,7 @@ extern void get_random_bytes(void *buf, int nbytes);
- void generate_random_uuid(unsigned char uuid_out[16]);
- 
- extern __u32 secure_ip_id(__be32 daddr);
-+extern __u32 secure_ipv6_id(const __be32 daddr[4]);
- extern u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
- extern u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 				      __be16 dport);
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 39d1230..4233e6f 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -71,7 +71,7 @@ static inline bool inet_metrics_new(const struct inet_peer *p)
- }
- 
- /* can be called with or without local BH being disabled */
--struct inet_peer	*inet_getpeer(struct inetpeer_addr *daddr, int create);
-+struct inet_peer	*inet_getpeer(const struct inetpeer_addr *daddr, int create);
- 
- static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
- {
-@@ -106,11 +106,18 @@ static inline void inet_peer_refcheck(const struct inet_peer *p)
- 
- 
- /* can be called with or without local BH being disabled */
--static inline __u16	inet_getid(struct inet_peer *p, int more)
-+static inline int inet_getid(struct inet_peer *p, int more)
- {
-+	int old, new;
- 	more++;
- 	inet_peer_refcheck(p);
--	return atomic_add_return(more, &p->ip_id_count) - more;
-+	do {
-+		old = atomic_read(&p->ip_id_count);
-+		new = old + more;
-+		if (!new)
-+			new = 1;
-+	} while (atomic_cmpxchg(&p->ip_id_count, old, new) != old);
-+	return new;
- }
- 
- #endif /* _NET_INETPEER_H */
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index c033ed0..3b5ac1f 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -463,17 +463,7 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
- 
--static __inline__ void ipv6_select_ident(struct frag_hdr *fhdr)
--{
--	static u32 ipv6_fragmentation_id = 1;
--	static DEFINE_SPINLOCK(ip6_id_lock);
--
--	spin_lock_bh(&ip6_id_lock);
--	fhdr->identification = htonl(ipv6_fragmentation_id);
--	if (++ipv6_fragmentation_id == 0)
--		ipv6_fragmentation_id = 1;
--	spin_unlock_bh(&ip6_id_lock);
--}
-+extern void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
- 
- /*
-  *	Prototypes exported by ipv6
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 90c5f0d..e382138 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -391,7 +391,7 @@ static int inet_peer_gc(struct inet_peer_base *base,
- 	return cnt;
- }
- 
--struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
-+struct inet_peer *inet_getpeer(const struct inetpeer_addr *daddr, int create)
- {
- 	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
- 	struct inet_peer_base *base = family_to_base(daddr->family);
-@@ -436,7 +436,10 @@ relookup:
- 		p->daddr = *daddr;
- 		atomic_set(&p->refcnt, 1);
- 		atomic_set(&p->rid, 0);
--		atomic_set(&p->ip_id_count, secure_ip_id(daddr->addr.a4));
-+		atomic_set(&p->ip_id_count,
-+				(daddr->family == AF_INET) ?
-+					secure_ip_id(daddr->addr.a4) :
-+					secure_ipv6_id(daddr->addr.a6));
- 		p->tcp_ts_stamp = 0;
- 		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
- 		p->rate_tokens = 0;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 8db0e48..32e5339 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -596,6 +596,31 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
- 	return offset;
- }
- 
-+void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
-+{
-+	static atomic_t ipv6_fragmentation_id;
-+	int old, new;
-+
-+	if (rt) {
-+		struct inet_peer *peer;
-+
-+		if (!rt->rt6i_peer)
-+			rt6_bind_peer(rt, 1);
-+		peer = rt->rt6i_peer;
-+		if (peer) {
-+			fhdr->identification = htonl(inet_getid(peer, 0));
-+			return;
-+		}
-+	}
-+	do {
-+		old = atomic_read(&ipv6_fragmentation_id);
-+		new = old + 1;
-+		if (!new)
-+			new = 1;
-+	} while (atomic_cmpxchg(&ipv6_fragmentation_id, old, new) != old);
-+	fhdr->identification = htonl(new);
-+}
-+
- int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- {
- 	struct sk_buff *frag;
-@@ -680,7 +705,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 		skb_reset_network_header(skb);
- 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
- 
--		ipv6_select_ident(fh);
-+		ipv6_select_ident(fh, rt);
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		fh->frag_off = htons(IP6_MF);
-@@ -826,7 +851,7 @@ slow_path:
- 		fh->nexthdr = nexthdr;
- 		fh->reserved = 0;
- 		if (!frag_id) {
--			ipv6_select_ident(fh);
-+			ipv6_select_ident(fh, rt);
- 			frag_id = fh->identification;
- 		} else
- 			fh->identification = frag_id;
-@@ -1076,7 +1101,8 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 			int getfrag(void *from, char *to, int offset, int len,
- 			int odd, struct sk_buff *skb),
- 			void *from, int length, int hh_len, int fragheaderlen,
--			int transhdrlen, int mtu,unsigned int flags)
-+			int transhdrlen, int mtu,unsigned int flags,
-+			struct rt6_info *rt)
- 
- {
- 	struct sk_buff *skb;
-@@ -1120,7 +1146,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 		skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
- 					     sizeof(struct frag_hdr)) & ~7;
- 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--		ipv6_select_ident(&fhdr);
-+		ipv6_select_ident(&fhdr, rt);
- 		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
- 		__skb_queue_tail(&sk->sk_write_queue, skb);
- 
-@@ -1286,7 +1312,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 
- 			err = ip6_ufo_append_data(sk, getfrag, from, length,
- 						  hh_len, fragheaderlen,
--						  transhdrlen, mtu, flags);
-+						  transhdrlen, mtu, flags, rt);
- 			if (err)
- 				goto error;
- 			return 0;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 328985c..29213b5 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1359,7 +1359,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb, u32 features)
- 	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
- 	fptr->nexthdr = nexthdr;
- 	fptr->reserved = 0;
--	ipv6_select_ident(fptr);
-+	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
- 
- 	/* Fragment the skb. ipv6 header and the remaining fields of the
- 	 * fragment header are updated in ipv6_gso_segment()
+> 
+> > +
+> > +     /* Signal guest as appropriate. */
+> > +     vhost_zerocopy_signal_used(vq);
+> >  
+> >       switch (ioctl) {
+> >       case VHOST_SET_VRING_NUM:
+> > @@ -1592,7 +1600,6 @@ void vhost_ubuf_put_and_wait(struct
+> vhost_ubuf_ref *ubufs)
+> >  {
+> >       kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+> >       wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
+> > -     kfree(ubufs);
+> 
+> Won't this leak memory when ubufs are switched in
+> vhost_net_set_backend? 
+
+Right, I forgot to check net.c, whenever it calls
+vhot_ubuf_put_and_wait, it should call kfree(ubufs).
+
 
 
