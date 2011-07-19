@@ -1,49 +1,51 @@
-From: Mimi Zohar <zohar@linux.vnet.ibm.com>
-Subject: Re: [PATCH] Add error check to hex2bin().
-Date: Mon, 18 Jul 2011 21:00:54 -0400
-Message-ID: <1311037254.3648.209.camel@localhost.localdomain>
-References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
-	 <201107182041.EHB78622.VOFSHFMOOFtLJQ@I-love.SAKURA.ne.jp>
-	 <1310991796.3903.6.camel@smile>
-	 <201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
-	 <CAMuHMdVxR7AC7H_Yys8SiaGqM2JsNXLsRpujqojMYd_CXWxcAw@mail.gmail.com>
-	 <CAHp75VdTiMtmXdVSMq=6bAH2+rmSBHPPE9hQOLQN+Y3qPBEVFg@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] vhost: optimize interrupt enable/disable
+Date: Tue, 19 Jul 2011 18:04:34 +0300
+Message-ID: <20110719150434.GA3413@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	linux-security-module@vger.kernel.org,
-	andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VdTiMtmXdVSMq=6bAH2+rmSBHPPE9hQOLQN+Y3qPBEVFg@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(sorry for re-posting, but this doesn't seem to have been sent.)
+As we now only update used ring after enabling
+the backend, we can write flags with __put_user:
+as that's done on data path, it matters.
 
-On Tue, 2011-07-19 at 00:18 +0300, Andy Shevchenko wrote:
-> On Mon, Jul 18, 2011 at 11:49 PM, Geert Uytterhoeven
-> <geert@linux-m68k.org> wrote:
-> > What about making it return the number of unprocessed bytes left instead?
-> > Then the caller knows where the problem lies. And zero would mean success.
-> If I remember correctly it used to be src as return value in some
-> version of that patch. I don't know the details of that interim
-> solution. My current opinion is to return boolean and make an
-> additional parameter to return src value. However, it could make this
-> simple function fat.
-> P.S. Take into account that the user of it is only one so far, I would
-> like to hear a Mimi's opinion.
-> 
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-Trusted/encrypted keys are not in a critical code path. They're used for
-loading/storing key blobs from userspace. Once you change the API, short
-circuiting out and adding an error return, from a trusted/encrypted key
-perspective, it doesn't make a difference.
+It seems an obvious optimization so I queued this up
+already.
 
-thanks,
+ drivers/vhost/vhost.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Mimi
-
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index c16d225..c14c42b 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -998,7 +998,7 @@ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ {
+ 	void __user *used;
+-	if (put_user(vq->used_flags, &vq->used->flags) < 0)
++	if (__put_user(vq->used_flags, &vq->used->flags) < 0)
+ 		return -EFAULT;
+ 	if (unlikely(vq->log_used)) {
+ 		/* Make sure the flag is seen before log. */
+@@ -1016,7 +1016,7 @@ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ 
+ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+ {
+-	if (put_user(vq->avail_idx, vhost_avail_event(vq)))
++	if (__put_user(vq->avail_idx, vhost_avail_event(vq)))
+ 		return -EFAULT;
+ 	if (unlikely(vq->log_used)) {
+ 		void __user *used;
+-- 
+1.7.5.53.gc233e
