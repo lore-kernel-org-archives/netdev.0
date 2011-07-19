@@ -1,83 +1,112 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH v2] net: filter: BPF 'JIT' compiler for PPC64
-Date: Tue, 19 Jul 2011 02:17:31 -0500
-Message-ID: <CBA05A49-86F1-40FF-9244-0E4D29EBBA48@kernel.crashing.org>
-References: <4E23E5C3.1070209@ozlabs.org> <4E24E867.9050909@ozlabs.org> <51978BAA-10A1-483D-B551-CCC2B69C72EA@kernel.crashing.org> <4E252CFE.4070408@ozlabs.org>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Matt Evans <matt@ozlabs.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:55584 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174Ab1GSHRl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 03:17:41 -0400
-In-Reply-To: <4E252CFE.4070408@ozlabs.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [Patch] bluetooth: make 3 functions in hci_conn.c static
+Date: Tue, 19 Jul 2011 15:18:03 +0800
+Message-ID: <CAM_iQpUHynJZBJ29qeu_fv4Rko0=7chE5BrhavOKVyzaTDf28A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=00151773e5489badc004a866ead4
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+To: Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+--00151773e5489badc004a866ead4
+Content-Type: text/plain; charset=UTF-8
 
-On Jul 19, 2011, at 2:06 AM, Matt Evans wrote:
+hci_acl_connect()
+hci_add_sco()
+hci_conn_enter_sniff_mode()
 
-> On 19/07/11 16:59, Kumar Gala wrote:
->> 
->> On Jul 18, 2011, at 9:13 PM, Matt Evans wrote:
->> 
->>> An implementation of a code generator for BPF programs to speed up packet
->>> filtering on PPC64, inspired by Eric Dumazet's x86-64 version.
->>> 
->>> Filter code is generated as an ABI-compliant function in module_alloc()'d mem
->>> with stackframe & prologue/epilogue generated if required (simple filters don't
->>> need anything more than an li/blr).  The filter's local variables, M[], live in
->>> registers.  Supports all BPF opcodes, although "complicated" loads from negative
->>> packet offsets (e.g. SKF_LL_OFF) are not yet supported.
->>> 
->>> There are a couple of further optimisations left for future work; many-pass
->>> assembly with branch-reach reduction and a register allocator to push M[]
->>> variables into volatile registers would improve the code quality further.
->>> 
->>> This currently supports big-endian 64-bit PowerPC only (but is fairly simple
->>> to port to PPC32 or LE!).
->>> 
->>> Enabled in the same way as x86-64:
->>> 
->>> 	echo 1 > /proc/sys/net/core/bpf_jit_enable
->>> 
->>> Or, enabled with extra debug output:
->>> 
->>> 	echo 2 > /proc/sys/net/core/bpf_jit_enable
->>> 
->>> Signed-off-by: Matt Evans <matt@ozlabs.org>
->>> ---
->>> 
->>> V2: Removed some cut/paste woe in setting SEEN_X even on writes.
->>>   Merci for le review, Eric!
->>> 
->>> arch/powerpc/Kconfig                  |    1 +
->>> arch/powerpc/Makefile                 |    3 +-
->>> arch/powerpc/include/asm/ppc-opcode.h |   40 ++
->>> arch/powerpc/net/Makefile             |    4 +
->>> arch/powerpc/net/bpf_jit.S            |  138 +++++++
->> 
->> can we rename to bpf_jit_64.S, since this doesn't work on PPC32.
->> 
->>> arch/powerpc/net/bpf_jit.h            |  227 +++++++++++
->>> arch/powerpc/net/bpf_jit_comp.c       |  690 +++++++++++++++++++++++++++++++++
->> 
->> same here, or split between bpf_jit_comp.c (shared between ppc32 & ppc64) and
->> bpf_jit_comp_64.c
-> 
-> A reasonable suggestion -- bpf_jit_64.S certainly.  I think it may not be worth
-> splitting bpf_jit_comp.c until we support both tho?  (I'm thinking
-> bpf_jit_comp_{32,64}.c would just house the stackframe generation code which is
-> the main difference, plus compile-time switched macros for the odd LD vs LWZ.)
+these three functions can become static as there are no callers outside.
 
-If its most 64-bit specific than just go with bpf_jit_comp_64.c for now.  We can refactor later.
+--00151773e5489badc004a866ead4
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="net-bluetooth-hci_conn_c-make-static.diff"
+Content-Disposition: attachment;
+	filename="net-bluetooth-hci_conn_c-make-static.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gqaj6eeq0
 
-> 
-> Sorry it's not 32bit-friendly just yet (I knew you'd ask, hehe), I've postponed
-> that for when I get a mo :-)
-
-:)
-
+ClNpZ25lZC1vZmYtYnk6IFdBTkcgQ29uZyA8eGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tPgoKLS0t
+CmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9ibHVldG9vdGgvaGNpX2NvcmUuaCBiL2luY2x1ZGUv
+bmV0L2JsdWV0b290aC9oY2lfY29yZS5oCmluZGV4IDZjOTk0YzAuLjYwOGUyOGIgMTAwNjQ0Ci0t
+LSBhL2luY2x1ZGUvbmV0L2JsdWV0b290aC9oY2lfY29yZS5oCisrKyBiL2luY2x1ZGUvbmV0L2Js
+dWV0b290aC9oY2lfY29yZS5oCkBAIC00MDksOSArNDA5LDcgQEAgc3RhdGljIGlubGluZSBzdHJ1
+Y3QgaGNpX2Nvbm4gKmhjaV9jb25uX2hhc2hfbG9va3VwX3N0YXRlKHN0cnVjdCBoY2lfZGV2ICpo
+ZGV2LAogCXJldHVybiBOVUxMOwogfQogCi12b2lkIGhjaV9hY2xfY29ubmVjdChzdHJ1Y3QgaGNp
+X2Nvbm4gKmNvbm4pOwogdm9pZCBoY2lfYWNsX2Rpc2Nvbm4oc3RydWN0IGhjaV9jb25uICpjb25u
+LCBfX3U4IHJlYXNvbik7Ci12b2lkIGhjaV9hZGRfc2NvKHN0cnVjdCBoY2lfY29ubiAqY29ubiwg
+X191MTYgaGFuZGxlKTsKIHZvaWQgaGNpX3NldHVwX3N5bmMoc3RydWN0IGhjaV9jb25uICpjb25u
+LCBfX3UxNiBoYW5kbGUpOwogdm9pZCBoY2lfc2NvX3NldHVwKHN0cnVjdCBoY2lfY29ubiAqY29u
+biwgX191OCBzdGF0dXMpOwogCkBAIC00MjgsNyArNDI2LDYgQEAgaW50IGhjaV9jb25uX2NoYW5n
+ZV9saW5rX2tleShzdHJ1Y3QgaGNpX2Nvbm4gKmNvbm4pOwogaW50IGhjaV9jb25uX3N3aXRjaF9y
+b2xlKHN0cnVjdCBoY2lfY29ubiAqY29ubiwgX191OCByb2xlKTsKIAogdm9pZCBoY2lfY29ubl9l
+bnRlcl9hY3RpdmVfbW9kZShzdHJ1Y3QgaGNpX2Nvbm4gKmNvbm4pOwotdm9pZCBoY2lfY29ubl9l
+bnRlcl9zbmlmZl9tb2RlKHN0cnVjdCBoY2lfY29ubiAqY29ubik7CiAKIHZvaWQgaGNpX2Nvbm5f
+aG9sZF9kZXZpY2Uoc3RydWN0IGhjaV9jb25uICpjb25uKTsKIHZvaWQgaGNpX2Nvbm5fcHV0X2Rl
+dmljZShzdHJ1Y3QgaGNpX2Nvbm4gKmNvbm4pOwpkaWZmIC0tZ2l0IGEvbmV0L2JsdWV0b290aC9o
+Y2lfY29ubi5jIGIvbmV0L2JsdWV0b290aC9oY2lfY29ubi5jCmluZGV4IGJjZDE1OGYuLjk4M2Ez
+MzcgMTAwNjQ0Ci0tLSBhL25ldC9ibHVldG9vdGgvaGNpX2Nvbm4uYworKysgYi9uZXQvYmx1ZXRv
+b3RoL2hjaV9jb25uLmMKQEAgLTcyLDcgKzcyLDcgQEAgc3RhdGljIHZvaWQgaGNpX2xlX2Nvbm5l
+Y3RfY2FuY2VsKHN0cnVjdCBoY2lfY29ubiAqY29ubikKIAloY2lfc2VuZF9jbWQoY29ubi0+aGRl
+diwgSENJX09QX0xFX0NSRUFURV9DT05OX0NBTkNFTCwgMCwgTlVMTCk7CiB9CiAKLXZvaWQgaGNp
+X2FjbF9jb25uZWN0KHN0cnVjdCBoY2lfY29ubiAqY29ubikKK3N0YXRpYyB2b2lkIGhjaV9hY2xf
+Y29ubmVjdChzdHJ1Y3QgaGNpX2Nvbm4gKmNvbm4pCiB7CiAJc3RydWN0IGhjaV9kZXYgKmhkZXYg
+PSBjb25uLT5oZGV2OwogCXN0cnVjdCBpbnF1aXJ5X2VudHJ5ICppZTsKQEAgLTE0MSw3ICsxNDEs
+NyBAQCB2b2lkIGhjaV9hY2xfZGlzY29ubihzdHJ1Y3QgaGNpX2Nvbm4gKmNvbm4sIF9fdTggcmVh
+c29uKQogCWhjaV9zZW5kX2NtZChjb25uLT5oZGV2LCBIQ0lfT1BfRElTQ09OTkVDVCwgc2l6ZW9m
+KGNwKSwgJmNwKTsKIH0KIAotdm9pZCBoY2lfYWRkX3NjbyhzdHJ1Y3QgaGNpX2Nvbm4gKmNvbm4s
+IF9fdTE2IGhhbmRsZSkKK3N0YXRpYyB2b2lkIGhjaV9hZGRfc2NvKHN0cnVjdCBoY2lfY29ubiAq
+Y29ubiwgX191MTYgaGFuZGxlKQogewogCXN0cnVjdCBoY2lfZGV2ICpoZGV2ID0gY29ubi0+aGRl
+djsKIAlzdHJ1Y3QgaGNpX2NwX2FkZF9zY28gY3A7CkBAIC0yNjAsNiArMjYwLDQyIEBAIHN0YXRp
+YyB2b2lkIGhjaV9jb25uX3RpbWVvdXQodW5zaWduZWQgbG9uZyBhcmcpCiAJaGNpX2Rldl91bmxv
+Y2soaGRldik7CiB9CiAKKy8qIEVudGVyIHNuaWZmIG1vZGUgKi8KK3N0YXRpYyB2b2lkIGhjaV9j
+b25uX2VudGVyX3NuaWZmX21vZGUoc3RydWN0IGhjaV9jb25uICpjb25uKQoreworCXN0cnVjdCBo
+Y2lfZGV2ICpoZGV2ID0gY29ubi0+aGRldjsKKworCUJUX0RCRygiY29ubiAlcCBtb2RlICVkIiwg
+Y29ubiwgY29ubi0+bW9kZSk7CisKKwlpZiAodGVzdF9iaXQoSENJX1JBVywgJmhkZXYtPmZsYWdz
+KSkKKwkJcmV0dXJuOworCisJaWYgKCFsbXBfc25pZmZfY2FwYWJsZShoZGV2KSB8fCAhbG1wX3Nu
+aWZmX2NhcGFibGUoY29ubikpCisJCXJldHVybjsKKworCWlmIChjb25uLT5tb2RlICE9IEhDSV9D
+TV9BQ1RJVkUgfHwgIShjb25uLT5saW5rX3BvbGljeSAmIEhDSV9MUF9TTklGRikpCisJCXJldHVy
+bjsKKworCWlmIChsbXBfc25pZmZzdWJyX2NhcGFibGUoaGRldikgJiYgbG1wX3NuaWZmc3Vicl9j
+YXBhYmxlKGNvbm4pKSB7CisJCXN0cnVjdCBoY2lfY3Bfc25pZmZfc3VicmF0ZSBjcDsKKwkJY3Au
+aGFuZGxlICAgICAgICAgICAgID0gY3B1X3RvX2xlMTYoY29ubi0+aGFuZGxlKTsKKwkJY3AubWF4
+X2xhdGVuY3kgICAgICAgID0gY3B1X3RvX2xlMTYoMCk7CisJCWNwLm1pbl9yZW1vdGVfdGltZW91
+dCA9IGNwdV90b19sZTE2KDApOworCQljcC5taW5fbG9jYWxfdGltZW91dCAgPSBjcHVfdG9fbGUx
+NigwKTsKKwkJaGNpX3NlbmRfY21kKGhkZXYsIEhDSV9PUF9TTklGRl9TVUJSQVRFLCBzaXplb2Yo
+Y3ApLCAmY3ApOworCX0KKworCWlmICghdGVzdF9hbmRfc2V0X2JpdChIQ0lfQ09OTl9NT0RFX0NI
+QU5HRV9QRU5ELCAmY29ubi0+cGVuZCkpIHsKKwkJc3RydWN0IGhjaV9jcF9zbmlmZl9tb2RlIGNw
+OworCQljcC5oYW5kbGUgICAgICAgPSBjcHVfdG9fbGUxNihjb25uLT5oYW5kbGUpOworCQljcC5t
+YXhfaW50ZXJ2YWwgPSBjcHVfdG9fbGUxNihoZGV2LT5zbmlmZl9tYXhfaW50ZXJ2YWwpOworCQlj
+cC5taW5faW50ZXJ2YWwgPSBjcHVfdG9fbGUxNihoZGV2LT5zbmlmZl9taW5faW50ZXJ2YWwpOwor
+CQljcC5hdHRlbXB0ICAgICAgPSBjcHVfdG9fbGUxNig0KTsKKwkJY3AudGltZW91dCAgICAgID0g
+Y3B1X3RvX2xlMTYoMSk7CisJCWhjaV9zZW5kX2NtZChoZGV2LCBIQ0lfT1BfU05JRkZfTU9ERSwg
+c2l6ZW9mKGNwKSwgJmNwKTsKKwl9Cit9CisKIHN0YXRpYyB2b2lkIGhjaV9jb25uX2lkbGUodW5z
+aWduZWQgbG9uZyBhcmcpCiB7CiAJc3RydWN0IGhjaV9jb25uICpjb25uID0gKHZvaWQgKikgYXJn
+OwpAQCAtNzAzLDQyICs3MzksNiBAQCB0aW1lcjoKIAkJCWppZmZpZXMgKyBtc2Vjc190b19qaWZm
+aWVzKGhkZXYtPmlkbGVfdGltZW91dCkpOwogfQogCi0vKiBFbnRlciBzbmlmZiBtb2RlICovCi12
+b2lkIGhjaV9jb25uX2VudGVyX3NuaWZmX21vZGUoc3RydWN0IGhjaV9jb25uICpjb25uKQotewot
+CXN0cnVjdCBoY2lfZGV2ICpoZGV2ID0gY29ubi0+aGRldjsKLQotCUJUX0RCRygiY29ubiAlcCBt
+b2RlICVkIiwgY29ubiwgY29ubi0+bW9kZSk7Ci0KLQlpZiAodGVzdF9iaXQoSENJX1JBVywgJmhk
+ZXYtPmZsYWdzKSkKLQkJcmV0dXJuOwotCi0JaWYgKCFsbXBfc25pZmZfY2FwYWJsZShoZGV2KSB8
+fCAhbG1wX3NuaWZmX2NhcGFibGUoY29ubikpCi0JCXJldHVybjsKLQotCWlmIChjb25uLT5tb2Rl
+ICE9IEhDSV9DTV9BQ1RJVkUgfHwgIShjb25uLT5saW5rX3BvbGljeSAmIEhDSV9MUF9TTklGRikp
+Ci0JCXJldHVybjsKLQotCWlmIChsbXBfc25pZmZzdWJyX2NhcGFibGUoaGRldikgJiYgbG1wX3Nu
+aWZmc3Vicl9jYXBhYmxlKGNvbm4pKSB7Ci0JCXN0cnVjdCBoY2lfY3Bfc25pZmZfc3VicmF0ZSBj
+cDsKLQkJY3AuaGFuZGxlICAgICAgICAgICAgID0gY3B1X3RvX2xlMTYoY29ubi0+aGFuZGxlKTsK
+LQkJY3AubWF4X2xhdGVuY3kgICAgICAgID0gY3B1X3RvX2xlMTYoMCk7Ci0JCWNwLm1pbl9yZW1v
+dGVfdGltZW91dCA9IGNwdV90b19sZTE2KDApOwotCQljcC5taW5fbG9jYWxfdGltZW91dCAgPSBj
+cHVfdG9fbGUxNigwKTsKLQkJaGNpX3NlbmRfY21kKGhkZXYsIEhDSV9PUF9TTklGRl9TVUJSQVRF
+LCBzaXplb2YoY3ApLCAmY3ApOwotCX0KLQotCWlmICghdGVzdF9hbmRfc2V0X2JpdChIQ0lfQ09O
+Tl9NT0RFX0NIQU5HRV9QRU5ELCAmY29ubi0+cGVuZCkpIHsKLQkJc3RydWN0IGhjaV9jcF9zbmlm
+Zl9tb2RlIGNwOwotCQljcC5oYW5kbGUgICAgICAgPSBjcHVfdG9fbGUxNihjb25uLT5oYW5kbGUp
+OwotCQljcC5tYXhfaW50ZXJ2YWwgPSBjcHVfdG9fbGUxNihoZGV2LT5zbmlmZl9tYXhfaW50ZXJ2
+YWwpOwotCQljcC5taW5faW50ZXJ2YWwgPSBjcHVfdG9fbGUxNihoZGV2LT5zbmlmZl9taW5faW50
+ZXJ2YWwpOwotCQljcC5hdHRlbXB0ICAgICAgPSBjcHVfdG9fbGUxNig0KTsKLQkJY3AudGltZW91
+dCAgICAgID0gY3B1X3RvX2xlMTYoMSk7Ci0JCWhjaV9zZW5kX2NtZChoZGV2LCBIQ0lfT1BfU05J
+RkZfTU9ERSwgc2l6ZW9mKGNwKSwgJmNwKTsKLQl9Ci19Ci0KIC8qIERyb3AgYWxsIGNvbm5lY3Rp
+b24gb24gdGhlIGRldmljZSAqLwogdm9pZCBoY2lfY29ubl9oYXNoX2ZsdXNoKHN0cnVjdCBoY2lf
+ZGV2ICpoZGV2KQogewo=
+--00151773e5489badc004a866ead4--
