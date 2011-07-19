@@ -1,55 +1,61 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL net-next] vhost-net fixes for 3.1
-Date: Tue, 19 Jul 2011 21:58:13 +0300
-Message-ID: <20110719185813.GA8632@redhat.com>
-References: <20110719114741.GA5827@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] ipv6: all routes share same inetpeer
+Date: Tue, 19 Jul 2011 20:57:50 +0200
+Message-ID: <1311101870.3113.6.camel@edumazet-laptop>
+References: <1311096229.2375.49.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110719.103724.1461298517132188126.davem@davemloft.net>
+	 <1311099638.3113.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, mashirle@us.ibm.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22612 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750933Ab1GSS5t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2011 14:57:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20110719114741.GA5827@redhat.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:48828 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933Ab1GSS5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 14:57:55 -0400
+Received: by wyg8 with SMTP id 8so2999109wyg.19
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 11:57:54 -0700 (PDT)
+In-Reply-To: <1311099638.3113.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2011 at 02:47:41PM +0300, Michael S. Tsirkin wrote:
-> Here's Jason's fix for a theoretical event loss
-> on migration (tweaked by me to update the test
-> module as well), and a refcounting fix by me
-> for a bug in the new zerocopy mode.
-> 
-> I thought hard about merging Jason's patches for 3.0
-> as well, but in the end I think it's not worth
-> the risk of breaking something at this stage.
-> 
-> Please pull for 3.1, thanks a lot!
-> 
-> The following changes since commit 81fc70d86527a1450560709500ca5f52e661da1f:
-> 
->   net: can: remove custom hex_to_bin() (2011-07-18 11:31:43 -0700)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-> 
-> Jason Wang (2):
->       vhost: init used ring after backend was set
->       vhost: set log when updating used flags or avail event
-> 
-> Michael S. Tsirkin (1):
->       vhost: fix zcopy reference counting
+Le mardi 19 juillet 2011 =C3=A0 20:20 +0200, Eric Dumazet a =C3=A9crit =
+:
+> Le mardi 19 juillet 2011 =C3=A0 10:37 -0700, David Miller a =C3=A9cri=
+t :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Tue, 19 Jul 2011 19:23:49 +0200
+> >=20
+> > > Maybe you can find the bug before me ?
+> >=20
+> > I think when we add the route we cow the metrics almost immediately=
+=2E
+> > The daddr is, unfortunately, fully prefixed at that point.
+>=20
+> Yes, we shall provide a second ip6_rt_copy() argument, with the
+> destination address.
+>=20
 
-I have snuck in another one:
-	vhost: optimize interrupt enable/disable
+Hmm, or maybe just change the dst_copy_metrics(&rt->dst, &ort->dst);
+call done from ip6_rt_copy(), to avoid doing the COW if not really
+needed ?
 
-please don't be alarmed :)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ddef80f..5403cea 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1740,7 +1740,7 @@ static struct rt6_info * ip6_rt_copy(struct rt6_i=
+nfo *ort)
+ 		rt->dst.input =3D ort->dst.input;
+ 		rt->dst.output =3D ort->dst.output;
+=20
+-		dst_copy_metrics(&rt->dst, &ort->dst);
++		rt->dst._metrics =3D ort->dst._metrics;
+ 		rt->dst.error =3D ort->dst.error;
+ 		rt->rt6i_idev =3D ort->rt6i_idev;
+ 		if (rt->rt6i_idev)
 
->  drivers/vhost/net.c   |    4 ++
->  drivers/vhost/test.c  |    5 +++
->  drivers/vhost/vhost.c |   87 ++++++++++++++++++++++++++++++------------------
->  drivers/vhost/vhost.h |    1 +
->  4 files changed, 64 insertions(+), 33 deletions(-)
+
+
