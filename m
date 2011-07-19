@@ -1,49 +1,47 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH v2] net: filter: BPF 'JIT' compiler for PPC64
-Date: Tue, 19 Jul 2011 19:22:02 +1000
-Message-ID: <1311067322.25044.415.camel@pasglop>
-References: <4E23E5C3.1070209@ozlabs.org>  <4E24E867.9050909@ozlabs.org>
-	 <1311058260.16961.12.camel@edumazet-laptop>
-	 <1311062135.25044.409.camel@pasglop>
-	 <1311066368.2375.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH next] netfilter: nfqueue: batch verdict support
+Date: Tue, 19 Jul 2011 11:45:24 +0200
+Message-ID: <4E255234.3060408@trash.net>
+References: <1307657659-30266-1-git-send-email-fw@strlen.de> <1309688655.2523.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Matt Evans <matt@ozlabs.org>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>, Eric Leblond <eric@regit.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:52275 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752332Ab1GSJWN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2011 05:22:13 -0400
-In-Reply-To: <1311066368.2375.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1309688655.2523.16.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-07-19 at 11:06 +0200, Eric Dumazet wrote:
-> Please Matt add to your next version this check. I dont think I have
-> to
-> submit a one line patch later...
+On 03.07.2011 12:24, Eric Dumazet wrote:
+> The real question hidden here is : "Should packet ids be monotonic" in
+> current implementation and all future ones ?
 > 
-> On x86_64, cpu_number field is already 32bit, we have some time before
-> it becomes 64bit ;)
+> Before we accept this patch, we should make sure packets id are
+> monotonic, and I am afraid its not the case right now.
 > 
-> We probably should add some extra check to make sure segment doesnt
-> change (%gs on x86_64, r13 on ppc64) on a future linux version.
+> I suggest following patch then.
+> 
+> [PATCH] netfilter: nfqueue: assert monotonic packet ids
+> 
+> Packet identifier is currently setup in nfqnl_build_packet_message(),
+> using one atomic_inc_return().
+> 
+> Problem is that since several cpus might concurrently call
+> nfqnl_enqueue_packet() for the same queue, we can deliver packets to
+> consumer in non monotonic way (packet N+1 being delivered after packet
+> N)
+> 
+> This patch moves the packet id setup from nfqnl_build_packet_message()
+> to nfqnl_enqueue_packet() to guarantee correct delivery order.
+> 
+> This also removes one atomic operation.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Florian Westphal <fw@strlen.de>
+> CC: Pablo Neira Ayuso <pablo@netfilter.org>
+> CC: Eric Leblond <eric@regit.org>
 
-r13 isn't really a "segment" per-se, it can change if you aren't preempt
-disabled, it's the PACA pointer, which is basically a low level per-cpu
-data structure, so it will change if you migrate around (but if you are
-in softirq context like most of the network stack, then it won't
-change).
-
-As for the CPU number being 16-bit, this is really due to how our
-spinlocks work, using that as a lock token within the same 32-bit word
-as the lock flag etc... We can easily fix that later if needed but I
-don't see any emergency for us.
-
-Cheers,
-Ben.
-
-
+Applied, thanks Eric.
