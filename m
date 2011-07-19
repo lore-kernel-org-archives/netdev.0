@@ -1,47 +1,49 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: ping6
-Date: Tue, 19 Jul 2011 15:53:09 +0200
-Message-ID: <4E258C45.4040408@ans.pl>
-References: <fa4b41e8992b983d77dc2b57c72431e7.squirrel@charon> <CALJXSJqwiW0b-uM0YzNnPG1V3sR3q9J4M9_hhufK+ZFWW=Gdrg@mail.gmail.com> <CALJXSJpJmyLLDEs0aLxQ8-4r+mr6y9m+wuinQsxmn+1FNYUdLQ@mail.gmail.com>
+From: Mimi Zohar <zohar@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Add error check to hex2bin().
+Date: Mon, 18 Jul 2011 21:00:54 -0400
+Message-ID: <1311037254.3648.209.camel@localhost.localdomain>
+References: <1310977597-9666-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	 <201107182041.EHB78622.VOFSHFMOOFtLJQ@I-love.SAKURA.ne.jp>
+	 <1310991796.3903.6.camel@smile>
+	 <201107182148.AGD21306.FOLtJVMSOOFQHF@I-love.SAKURA.ne.jp>
+	 <CAMuHMdVxR7AC7H_Yys8SiaGqM2JsNXLsRpujqojMYd_CXWxcAw@mail.gmail.com>
+	 <CAHp75VdTiMtmXdVSMq=6bAH2+rmSBHPPE9hQOLQN+Y3qPBEVFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric@certus.bz, netdev@vger.kernel.org
-To: =?UTF-8?B?SsOpcsO0bWUgUG91bGlu?= <jeromepoulin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:53677 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159Ab1GSOPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 10:15:19 -0400
-In-Reply-To: <CALJXSJpJmyLLDEs0aLxQ8-4r+mr6y9m+wuinQsxmn+1FNYUdLQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	linux-security-module@vger.kernel.org,
+	andriy.shevchenko@linux.intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CAHp75VdTiMtmXdVSMq=6bAH2+rmSBHPPE9hQOLQN+Y3qPBEVFg@mail.gmail.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2011-07-19 04:06, J=C3=A9r=C3=B4me Poulin wrote:
-> On Mon, Jul 18, 2011 at 4:23 PM,<eric@certus.bz>  wrote:
->>
->> I've found what I think is a bug in the ping6 tool. Without the -n o=
-ption,
->> it puts the hostname inside the parenthesis instead of the resolved =
-ip
->
-> I guess this is on purpose as IPv6 has very long IP and hostnames
-> should be used when possible, also, it does not show the hostname you
-> typed but the resolved RDNS of the IP as in:
->
-> jerome@MobileCPU ~ $ ping6 www.google.ca
-> PING www.google.ca(iad04s01-in-x63.1e100.net) 56 data bytes
-> 64 bytes from iad04s01-in-x63.1e100.net: icmp_seq=3D1 ttl=3D55 time=3D=
-57.7 ms
+(sorry for re-posting, but this doesn't seem to have been sent.)
 
-Hello,
+On Tue, 2011-07-19 at 00:18 +0300, Andy Shevchenko wrote:
+> On Mon, Jul 18, 2011 at 11:49 PM, Geert Uytterhoeven
+> <geert@linux-m68k.org> wrote:
+> > What about making it return the number of unprocessed bytes left instead?
+> > Then the caller knows where the problem lies. And zero would mean success.
+> If I remember correctly it used to be src as return value in some
+> version of that patch. I don't know the details of that interim
+> solution. My current opinion is to return boolean and make an
+> additional parameter to return src value. However, it could make this
+> simple function fat.
+> P.S. Take into account that the user of it is only one so far, I would
+> like to hear a Mimi's opinion.
+> 
 
-Even if so it makes no sense to me. You end up without knowing which=20
-host you are pinging and a typical terminal is wide enough to display=20
-even longest IPv6 addresses.
+Trusted/encrypted keys are not in a critical code path. They're used for
+loading/storing key blobs from userspace. Once you change the API, short
+circuiting out and adding an error return, from a trusted/encrypted key
+perspective, it doesn't make a difference.
 
-Best regards,
+thanks,
 
+Mimi
 
-			Krzysztof Ol=C4=99dzki
