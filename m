@@ -1,42 +1,54 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Tue, 26 Jul 2011 01:43:17 +0900
-Message-ID: <201107260143.CGH18263.FOOSVMOQFJFLHt@I-love.SAKURA.ne.jp>
-References: <4E2A7273.7030504@msgid.tls.msk.ru>
-	<201107231939.FIF21882.QHOSOFtMFVLFOJ@I-love.SAKURA.ne.jp>
-	<20110725222010.0b284042@kryten>
-	<201107252215.GBG95887.OQVMFOOJLSFFHt@I-love.SAKURA.ne.jp>
-	<4E2D8F4D.2000009@schaufler-ca.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
+Date: Tue, 19 Jul 2011 12:42:09 -0700
+Message-ID: <79ahktw3gy268nl9yyk76cxe.1311104529189@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anton@samba.org, mjt@tls.msk.ru, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: casey@schaufler-ca.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4E2D8F4D.2000009@schaufler-ca.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	" David S. Miller" <davem@davemloft.net>,
+	stephen hemminger <shemminger@vyatta.com>
+To: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:59835 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750776Ab1GYQzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 12:55:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Casey Schaufler wrote:
-> > OK. Then, the question is how to reduce performance loss by redundant
-> > security_socket_sendmsg() calls.
-> 
-> Not to be splitting hairs, but if the packets are headed to
-> different destinations the calls to security_socket_sendmsg()
-> are not redundant, they are necessary and appropriate. What
-> you have with sendmmsg() is an optimization that sacrifices
-> correctness for performance.
+YnJpZGdlIGZvcndhcmRpbmcgdGFibGU7IHJvdXRlIGNhY2hlOyBhbmQgbmVpZ2hib3IgdGFibGUg
+Y291bGQgaGF2ZSBzYW1lIHByb2JsZW0uIEkgdGhvdWdodCBjYXJyaWVyIGlzIHN1cHBvc2VkIHRv
+IHRvZ2dsZSBvbiBzdXNwZW5kIG9yIGhpYmVybmF0ZQoKSmlyaSBCb2hhYyA8amJvaGFjQHN1c2Uu
+Y3o+IHdyb3RlOgoKPkhpLAo+Cj5JIGNhbWUgb3ZlciBhIHN1cnByaXNpbmcgYmVoYXZpb3VyIHdp
+dGggSVB2NiBhdXRvY29uZmlndXJhdGlvbiwKPndoaWNoIEkgdGhpbmsgaXMgYSBidWcsIGJ1dCBJ
+IHdvdWxkIGZpcnN0IGxpa2UgdG8gaGVhciBvdGhlcgo+cGVvcGxlJ3Mgb3BpbmlvbnMgYmVmb3Jl
+IHRyeWluZyB0byBmaXggdGhpczoKPgo+UHJvYmxlbSAxOiBhbGwgdGhlIGFkZHJlc3Mvcm91dGUg
+bGlmZXRpbWVzIGFyZSBrZXB0IGluIGppZmZpZXMKPmFuZCBqaWZmaWVzIGRvbid0IGdldCBpbmNy
+ZW1lbnRlZCBvbiByZXN1bWUuIFNvIHdoZW4gYQo+cm91dGUvYWRkcmVzcyBsaWZldGltZSBpcyAz
+MCBtaW51dGVzIGFuZCB0aGUgc3lzdGVtIHJlc3VtZXMgYWZ0ZXIKPjEgaG91ciwgdGhlIHJvdXRl
+L2FkZHJlc3Mgc2hvdWxkIGJlIGNvbnNpZGVyZWQgZXhwaXJlZCwgYnV0IGl0IGlzCj5ub3QuCj4K
+PlByb2JsZW0gMjogd2hlbiBhIHN5c3RlbSBpcyBtb3ZlZCB0byBhIG5ldyBuZXR3b3JrIGEgUlMg
+aXMgbm90Cj5zZW50LiBUaHVzLCBJUHY2IGRvZXMgbm90IGF1dG9jb25maWd1cmUgdW50aWwgdGhl
+IHJvdXRlciBzZW5kcyBhCj5wZXJpb2RpYyBSQS4gVGhpcyBjYW4gb2NjdXIgYm90aCB3aGlsZSB0
+aGUgc3lzdGVtIGlzIGFsaXZlIGFuZAo+d2hpbGUgaXQgaXMgc3VzcGVuZGVkLiBJIHRoaW5rIHRo
+ZSBhdXRvY29uZmlndXJlZCBzdGF0ZSBzaG91bGQgYmUKPmRpc2NhcmRlZCB3aGVuIHRoZSBrZXJu
+ZWwgc3VzcGVjdHMgdGhlIHN5c3RlbSBjb3VsZCBoYXZlIGJlZW4KPm1vdmVkIHRvIGEgZGlmZmVy
+ZW50IG5ldHdvcmsuCj4KPldoZW4gdGhlIGNhYmxlIGlzIHVucGx1Z2dlZCBhbmQgcGx1Z2dlZCBp
+biBhZ2Fpbiwgd2UgYWxyZWFkeSBnZXQKPm5vdGlmaWVkIHRocm91Z2ggbGlua3dhdGNoIC0+IG5l
+dGRldl9zdGF0ZV9jaGFuZ2UgLT4KPiAgLT4gY2FsbF9uZXRkZXZpY2Vfbm90aWZpZXJzKE5FVERF
+Vl9DSEFOR0UsIC4uLikKPkhvd2V2ZXIsIGlmIHRoZSBkZXZpY2UgaGFzIGFscmVhZHkgYmVlbiBh
+dXRvY29uZmlndXJlZCwKPmFkZHJjb25mX25vdGlmeSgpIG9ubHkgaGFuZGxlcyB0aGlzIGV2ZW50
+IGJ5IHByaW50aW5nIGEKPm1lc3NhZ2UuCj4KPlNvIG15IGlkZWEgd2FzIHRvOgo+LSBoYW5kbGUg
+bGluayB1cC9kb3duIGluIGFkZHJjb25mX25vdGlmeSgpIHNpbWlsYXJseSB0bwo+ICBORVRERVZf
+VVAvTkVUREVWX0RPV04KPgo+LSBvbiBzdXNwZW5kLCBmYWtpbmcgYSBsaW5rIGRvd24gZXZlbnQ7
+IG9uIHJlc3VtZSwgZmFraW5nIGEgbGluayB1cCBldmVudAo+ICAob3IgYmV0dGVyLCBoYXZpbmcg
+YSBzcGVjaWFsIGV2ZW50IHR5cGUgZm9yIHN1c3BlbmQvcmVzdW1lKQo+Cj5UaGlzIHdvdWxkIGNh
+dXNlIGF1dG9jb25maWd1cmF0aW9uIHRvIGJlIHJlc3RhcnRlZCBvbiByZXN1bWUgYXMKPndlbGwg
+YXMgY2FibGUgcGx1Zy91bnBsdWcsIHNvbHZpbmcgYm90aCB0aGUgYWJvdmUgcHJvYmxlbXMuCj4K
+Pk9yIGRvIHdlIHdhbnQgdG8gY29tcGxldGVseSByZWx5IG9uIHVzZXJzcGFjZSB0b29scwo+KG5l
+dHdvcmttYW5hZ2VyL2lmcGx1ZykgYW5kIGV4cGVjdCB0aGVtIHRvIGRvIE5FVERFVl9ET1dOIG9u
+Cj51bnBsdWcvc3VzcGVuZCBhbmQgTkVUREVWX1VQIG9uIHBsdWcvcmVzdW1lPwo+Cj5BbnkgdGhv
+dWdodHM/Cj4KPi0tIAo+SmlyaSBCb2hhYyA8amJvaGFjQHN1c2UuY3o+Cj5TVVNFIExhYnMsIFNV
+U0UgQ1oKPgo=
 
-Excuse me, but this thread is not trying to remove necessary and appropriate
-security_socket_sendmsg() calls. Linux 3.0 was released without necessary and
-appropriate security_socket_sendmsg() calls, and I'm trying to correct it (via
-msg11504.html or msg11510.html) for Linux 3.0.x stable release.
-
-> I fear that you are going to find that the work you have
-> to do to reduce the number of calls is going to outweigh
-> the benefits of your optimization, as has been pointed out
-> earlier.
-
-I fear it too. Unless many dozens (maybe some hundreds) of packets are sent by
-sendmmsg(), msg11504.html might show better performance than msg11510.html .
-But I don't have a machine to benchmark.
