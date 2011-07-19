@@ -1,220 +1,37 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 09/10] bnx2x: fix memory barriers
-Date: Tue, 19 Jul 2011 14:45:02 +0300
-Message-ID: <1311075902.30287.11.camel@lb-tlvb-dmitry>
+Subject: [PATCH 00/10] bnx2x series
+Date: Tue, 19 Jul 2011 14:49:07 +0300
+Message-ID: <1311076147.30287.16.camel@lb-tlvb-dmitry>
 Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1412 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4807 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752363Ab1GSLur (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2011 07:50:47 -0400
+	id S1751657Ab1GSLu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 07:50:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Zolotarov <vladz@broadcom.com>
+Hi Dave,
+
+Please consider applying following series to the net-next.
+
+Thanks,
+Dmitry
 
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_main.c |    8 +++-
- drivers/net/bnx2x/bnx2x_sp.c   |   86 ++++++++++++++++++++++++++++++++--------
- 2 files changed, 75 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 7a89182..e4dea11 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -2984,8 +2984,12 @@ static inline void bnx2x_sp_prod_update(struct bnx2x *bp)
- {
- 	int func = BP_FUNC(bp);
- 
--	/* Make sure that BD data is updated before writing the producer */
--	wmb();
-+	/*
-+	 * Make sure that BD data is updated before writing the producer:
-+	 * BD data is written to the memory, the producer is read from the
-+	 * memory, thus we need a full memory barrier to ensure the ordering.
-+	 */
-+	mb();
- 
- 	REG_WR16(bp, BAR_XSTRORM_INTMEM + XSTORM_SPQ_PROD_OFFSET(func),
- 		 bp->spq_prod_idx);
-diff --git a/drivers/net/bnx2x/bnx2x_sp.c b/drivers/net/bnx2x/bnx2x_sp.c
-index 5a213e4..cce87d5 100644
---- a/drivers/net/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/bnx2x/bnx2x_sp.c
-@@ -1563,8 +1563,13 @@ static int bnx2x_execute_vlan_mac(struct bnx2x *bp,
- 				idx++;
- 		}
- 
--		/* Commit the data writes towards the memory */
--		mb();
-+		/*
-+		 *  No need for an explicit memory barrier here as long we would
-+		 *  need to ensure the ordering of writing to the SPQ element
-+		 *  and updating of the SPQ producer which involves a memory
-+		 *  read and we will have to put a full memory barrier there
-+		 *  (inside bnx2x_sp_post()).
-+		 */
- 
- 		rc = bnx2x_sp_post(bp, o->ramrod_cmd, r->cid,
- 				   U64_HI(r->rdata_mapping),
-@@ -2224,8 +2229,13 @@ static int bnx2x_set_rx_mode_e2(struct bnx2x *bp,
- 			 data->header.rule_cnt, p->rx_accept_flags,
- 			 p->tx_accept_flags);
- 
--	/* Commit writes towards the memory before sending a ramrod */
--	mb();
-+	/*
-+	 *  No need for an explicit memory barrier here as long we would
-+	 *  need to ensure the ordering of writing to the SPQ element
-+	 *  and updating of the SPQ producer which involves a memory
-+	 *  read and we will have to put a full memory barrier there
-+	 *  (inside bnx2x_sp_post()).
-+	 */
- 
- 	/* Send a ramrod */
- 	rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_FILTER_RULES, p->cid,
-@@ -2918,16 +2928,22 @@ static int bnx2x_mcast_setup_e2(struct bnx2x *bp,
- 	if (!o->total_pending_num)
- 		bnx2x_mcast_refresh_registry_e2(bp, o);
- 
--	/* Commit writes towards the memory before sending a ramrod */
--	mb();
--
--	/* If CLEAR_ONLY was requested - don't send a ramrod and clear
-+	/*
-+	 * If CLEAR_ONLY was requested - don't send a ramrod and clear
- 	 * RAMROD_PENDING status immediately.
- 	 */
- 	if (test_bit(RAMROD_DRV_CLR_ONLY, &p->ramrod_flags)) {
- 		raw->clear_pending(raw);
- 		return 0;
- 	} else {
-+		/*
-+		 *  No need for an explicit memory barrier here as long we would
-+		 *  need to ensure the ordering of writing to the SPQ element
-+		 *  and updating of the SPQ producer which involves a memory
-+		 *  read and we will have to put a full memory barrier there
-+		 *  (inside bnx2x_sp_post()).
-+		 */
-+
- 		/* Send a ramrod */
- 		rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_MULTICAST_RULES,
- 				   raw->cid, U64_HI(raw->rdata_mapping),
-@@ -3404,16 +3420,22 @@ static int bnx2x_mcast_setup_e1(struct bnx2x *bp,
- 	if (rc)
- 		return rc;
- 
--	/* Commit writes towards the memory before sending a ramrod */
--	mb();
--
--	/* If CLEAR_ONLY was requested - don't send a ramrod and clear
-+	/*
-+	 * If CLEAR_ONLY was requested - don't send a ramrod and clear
- 	 * RAMROD_PENDING status immediately.
- 	 */
- 	if (test_bit(RAMROD_DRV_CLR_ONLY, &p->ramrod_flags)) {
- 		raw->clear_pending(raw);
- 		return 0;
- 	} else {
-+		/*
-+		 *  No need for an explicit memory barrier here as long we would
-+		 *  need to ensure the ordering of writing to the SPQ element
-+		 *  and updating of the SPQ producer which involves a memory
-+		 *  read and we will have to put a full memory barrier there
-+		 *  (inside bnx2x_sp_post()).
-+		 */
-+
- 		/* Send a ramrod */
- 		rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_SET_MAC, raw->cid,
- 				   U64_HI(raw->rdata_mapping),
-@@ -4038,8 +4060,13 @@ static int bnx2x_setup_rss(struct bnx2x *bp,
- 		data->capabilities |= ETH_RSS_UPDATE_RAMROD_DATA_UPDATE_RSS_KEY;
- 	}
- 
--	/* Commit writes towards the memory before sending a ramrod */
--	mb();
-+	/*
-+	 *  No need for an explicit memory barrier here as long we would
-+	 *  need to ensure the ordering of writing to the SPQ element
-+	 *  and updating of the SPQ producer which involves a memory
-+	 *  read and we will have to put a full memory barrier there
-+	 *  (inside bnx2x_sp_post()).
-+	 */
- 
- 	/* Send a ramrod */
- 	rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_RSS_UPDATE, r->cid,
-@@ -4505,7 +4532,13 @@ static inline int bnx2x_q_send_setup_e1x(struct bnx2x *bp,
- 	/* Fill the ramrod data */
- 	bnx2x_q_fill_setup_data_cmn(bp, params, rdata);
- 
--	mb();
-+	/*
-+	 *  No need for an explicit memory barrier here as long we would
-+	 *  need to ensure the ordering of writing to the SPQ element
-+	 *  and updating of the SPQ producer which involves a memory
-+	 *  read and we will have to put a full memory barrier there
-+	 *  (inside bnx2x_sp_post()).
-+	 */
- 
- 	return bnx2x_sp_post(bp, ramrod, o->cids[BNX2X_PRIMARY_CID_INDEX],
- 			     U64_HI(data_mapping),
-@@ -4528,6 +4561,13 @@ static inline int bnx2x_q_send_setup_e2(struct bnx2x *bp,
- 	bnx2x_q_fill_setup_data_cmn(bp, params, rdata);
- 	bnx2x_q_fill_setup_data_e2(bp, params, rdata);
- 
-+	/*
-+	 *  No need for an explicit memory barrier here as long we would
-+	 *  need to ensure the ordering of writing to the SPQ element
-+	 *  and updating of the SPQ producer which involves a memory
-+	 *  read and we will have to put a full memory barrier there
-+	 *  (inside bnx2x_sp_post()).
-+	 */
- 
- 	return bnx2x_sp_post(bp, ramrod, o->cids[BNX2X_PRIMARY_CID_INDEX],
- 			     U64_HI(data_mapping),
-@@ -4665,7 +4705,13 @@ static inline int bnx2x_q_send_update(struct bnx2x *bp,
- 	/* Fill the ramrod data */
- 	bnx2x_q_fill_update_data(bp, o, update_params, rdata);
- 
--	mb();
-+	/*
-+	 *  No need for an explicit memory barrier here as long we would
-+	 *  need to ensure the ordering of writing to the SPQ element
-+	 *  and updating of the SPQ producer which involves a memory
-+	 *  read and we will have to put a full memory barrier there
-+	 *  (inside bnx2x_sp_post()).
-+	 */
- 
- 	return bnx2x_sp_post(bp, RAMROD_CMD_ID_ETH_CLIENT_UPDATE,
- 			     o->cids[cid_index], U64_HI(data_mapping),
-@@ -5484,7 +5530,13 @@ static inline int bnx2x_func_send_start(struct bnx2x *bp,
- 	rdata->path_id       = BP_PATH(bp);
- 	rdata->network_cos_mode = start_params->network_cos_mode;
- 
--	mb();
-+	/*
-+	 *  No need for an explicit memory barrier here as long we would
-+	 *  need to ensure the ordering of writing to the SPQ element
-+	 *  and updating of the SPQ producer which involves a memory
-+	 *  read and we will have to put a full memory barrier there
-+	 *  (inside bnx2x_sp_post()).
-+	 */
- 
- 	return bnx2x_sp_post(bp, RAMROD_CMD_ID_COMMON_FUNCTION_START, 0,
- 			     U64_HI(data_mapping),
--- 
-1.7.2.2
+
+
+
+
 
 
 
