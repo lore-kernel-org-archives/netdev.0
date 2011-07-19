@@ -1,47 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH next] netfilter: nfqueue: batch verdict support
-Date: Tue, 19 Jul 2011 11:45:24 +0200
-Message-ID: <4E255234.3060408@trash.net>
-References: <1307657659-30266-1-git-send-email-fw@strlen.de> <1309688655.2523.16.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH RFC] vhost: fix zcopy reference counting
+Date: Tue, 19 Jul 2011 13:33:16 +0300
+Message-ID: <20110719103316.GA5376@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>, Eric Leblond <eric@regit.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1309688655.2523.16.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mashirle@us.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03.07.2011 12:24, Eric Dumazet wrote:
-> The real question hidden here is : "Should packet ids be monotonic" in
-> current implementation and all future ones ?
-> 
-> Before we accept this patch, we should make sure packets id are
-> monotonic, and I am afraid its not the case right now.
-> 
-> I suggest following patch then.
-> 
-> [PATCH] netfilter: nfqueue: assert monotonic packet ids
-> 
-> Packet identifier is currently setup in nfqnl_build_packet_message(),
-> using one atomic_inc_return().
-> 
-> Problem is that since several cpus might concurrently call
-> nfqnl_enqueue_packet() for the same queue, we can deliver packets to
-> consumer in non monotonic way (packet N+1 being delivered after packet
-> N)
-> 
-> This patch moves the packet id setup from nfqnl_build_packet_message()
-> to nfqnl_enqueue_packet() to guarantee correct delivery order.
-> 
-> This also removes one atomic operation.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Florian Westphal <fw@strlen.de>
-> CC: Pablo Neira Ayuso <pablo@netfilter.org>
-> CC: Eric Leblond <eric@regit.org>
+Fix get/put refcount imbalance with zero copy,
+which caused qemu to hang forever on guest driver unload.
 
-Applied, thanks Eric.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+
+Dave, I've put this on my tree so no need for you to bother.
+
+ drivers/vhost/vhost.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 46822c0..c16d225 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1578,7 +1578,6 @@ struct vhost_ubuf_ref *vhost_ubuf_alloc(struct vhost_virtqueue *vq,
+ 	if (!ubufs)
+ 		return ERR_PTR(-ENOMEM);
+ 	kref_init(&ubufs->kref);
+-	kref_get(&ubufs->kref);
+ 	init_waitqueue_head(&ubufs->wait);
+ 	ubufs->vq = vq;
+ 	return ubufs;
+-- 
+1.7.5.53.gc233e
