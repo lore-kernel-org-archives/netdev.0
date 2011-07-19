@@ -1,81 +1,278 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH net-next]vhost: fix condition check for # of
- outstanding dma buffers
-Date: Tue, 19 Jul 2011 13:56:25 -0700
-Message-ID: <1311108985.8573.30.camel@localhost.localdomain>
-References: <1311100678.8573.16.camel@localhost.localdomain>
-	 <20110719190945.GB8667@redhat.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
+ predictable
+Date: Tue, 19 Jul 2011 15:56:59 -0500
+Message-ID: <1311109019.14555.11.camel@calx>
+References: <4E24BE94.7010301@gont.com.ar>
+	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1311108423.3113.24.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jasowang@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Fernando Gont <fernando@gont.com.ar>,
+	David Miller <davem@davemloft.net>, security@kernel.org,
+	Eugene Teo <eugeneteo@kernel.sg>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:49802 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924Ab1GSU4d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 16:56:33 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e33.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p6JKmnDG011621
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 14:48:49 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p6JKuRkD189388
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 14:56:28 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6JKuR89013967
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 14:56:27 -0600
-In-Reply-To: <20110719190945.GB8667@redhat.com>
+Received: from waste.org ([173.11.57.241]:45395 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751924Ab1GSU5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 16:57:13 -0400
+In-Reply-To: <1311108423.3113.24.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-07-19 at 22:09 +0300, Michael S. Tsirkin wrote:
-> On Tue, Jul 19, 2011 at 11:37:58AM -0700, Shirley Ma wrote:
-> > Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> > ---
-> > 
-> >  drivers/vhost/net.c |    6 ++++--
-> >  1 files changed, 4 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > index 70ac604..83cb738 100644
-> > --- a/drivers/vhost/net.c
-> > +++ b/drivers/vhost/net.c
-> > @@ -189,8 +189,10 @@ static void handle_tx(struct vhost_net *net)
-> >                               break;
-> >                       }
-> >                       /* If more outstanding DMAs, queue the work */
-> > -                     if (unlikely(vq->upend_idx - vq->done_idx >
-> > -                                  VHOST_MAX_PEND)) {
-> > +                     if (unlikely((vq->upend_idx - vq->done_idx >
-> > +                                     VHOST_MAX_PEND) ||
-> > +                                  (vq->upend_idx - vq->done_idx >
-> > +                                      VHOST_MAX_PEND -
-> UIO_MAXIOV))) {
+On Tue, 2011-07-19 at 22:47 +0200, Eric Dumazet wrote:
+> IPv6 fragment identification generation is way beyond what we use for
+> IPv4 : It uses a single generator. Its not scalable and allows DOS
+> attacks.
 > 
-> Could you please explain why this makes sense please?
-> VHOST_MAX_PEND is 128 UIO_MAXIOV is 1024 so
-> the result is negative?
+> Now inetpeer is IPv6 aware, we can use it to provide a more secure and
+> scalable frag ident generator (per destination, instead of system wide)
 
-I thought it is equal to:
+This code really needs to get moved out of random.c and into net/. Other
+than that, looks fine to me.
 
-if (vq->upend_idx > vq->done_idx) 
-	check vq->upend_idx - vq->done_idx > VHOST_MAX_PEND
-if (vq->upend_idx < vq->done_idx)
-	check vq->upend_idx + UIO_MAXIOV - vq->done_idx > VHOST_MAX_PEND
-	
-
-> I thought upend_idx - done_idx is exactly the number
-> of buffers, so once we get too many we stop until
-> one gets freed?
-
-They are index, so in vhost zerocopy callback, we can get the idx right
-away.
-
+> This patch :
+> 1) defines a new secure_ipv6_id() helper
+> 2) extends inet_getid() to provide 32bit results
+> 3) extends ipv6_select_ident() with a new dest parameter
 > 
-> >                               tx_poll_start(net, sock);
-> >                               set_bit(SOCK_ASYNC_NOSPACE,
-> &sock->flags);
-> >                               break;
-> > 
+> Reported-by: Fernando Gont <fernando@gont.com.ar>
+> CC: Matt Mackall <mpm@selenic.com>
+> CC: Eugene Teo <eugeneteo@kernel.sg>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  drivers/char/random.c  |   15 +++++++++++++++
+>  include/linux/random.h |    1 +
+>  include/net/inetpeer.h |   13 ++++++++++---
+>  include/net/ipv6.h     |   12 +-----------
+>  net/ipv4/inetpeer.c    |    7 +++++--
+>  net/ipv6/ip6_output.c  |   36 +++++++++++++++++++++++++++++++-----
+>  net/ipv6/udp.c         |    2 +-
+>  7 files changed, 64 insertions(+), 22 deletions(-)
+> 
+> diff --git a/drivers/char/random.c b/drivers/char/random.c
+> index d4ddeba..7292819 100644
+> --- a/drivers/char/random.c
+> +++ b/drivers/char/random.c
+> @@ -1523,6 +1523,21 @@ __u32 secure_ip_id(__be32 daddr)
+>  	return half_md4_transform(hash, keyptr->secret);
+>  }
+>  
+> +__u32 secure_ipv6_id(const __be32 daddr[4])
+> +{
+> +	const struct keydata *keyptr;
+> +	__u32 hash[4];
+> +
+> +	keyptr = get_keyptr();
+> +
+> +	hash[0] = (__force __u32)daddr[0];
+> +	hash[1] = (__force __u32)daddr[1];
+> +	hash[2] = (__force __u32)daddr[2];
+> +	hash[3] = (__force __u32)daddr[3];
+> +
+> +	return half_md4_transform(hash, keyptr->secret);
+> +}
+> +
+>  #ifdef CONFIG_INET
+>  
+>  __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+> diff --git a/include/linux/random.h b/include/linux/random.h
+> index fb7ab9d..ce29a04 100644
+> --- a/include/linux/random.h
+> +++ b/include/linux/random.h
+> @@ -58,6 +58,7 @@ extern void get_random_bytes(void *buf, int nbytes);
+>  void generate_random_uuid(unsigned char uuid_out[16]);
+>  
+>  extern __u32 secure_ip_id(__be32 daddr);
+> +extern __u32 secure_ipv6_id(const __be32 daddr[4]);
+>  extern u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
+>  extern u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+>  				      __be16 dport);
+> diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+> index 39d1230..4233e6f 100644
+> --- a/include/net/inetpeer.h
+> +++ b/include/net/inetpeer.h
+> @@ -71,7 +71,7 @@ static inline bool inet_metrics_new(const struct inet_peer *p)
+>  }
+>  
+>  /* can be called with or without local BH being disabled */
+> -struct inet_peer	*inet_getpeer(struct inetpeer_addr *daddr, int create);
+> +struct inet_peer	*inet_getpeer(const struct inetpeer_addr *daddr, int create);
+>  
+>  static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
+>  {
+> @@ -106,11 +106,18 @@ static inline void inet_peer_refcheck(const struct inet_peer *p)
+>  
+> 
+>  /* can be called with or without local BH being disabled */
+> -static inline __u16	inet_getid(struct inet_peer *p, int more)
+> +static inline int inet_getid(struct inet_peer *p, int more)
+>  {
+> +	int old, new;
+>  	more++;
+>  	inet_peer_refcheck(p);
+> -	return atomic_add_return(more, &p->ip_id_count) - more;
+> +	do {
+> +		old = atomic_read(&p->ip_id_count);
+> +		new = old + more;
+> +		if (!new)
+> +			new = 1;
+> +	} while (atomic_cmpxchg(&p->ip_id_count, old, new) != old);
+> +	return new;
+>  }
+>  
+>  #endif /* _NET_INETPEER_H */
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index c033ed0..3b5ac1f 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -463,17 +463,7 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
+>  	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
+>  }
+>  
+> -static __inline__ void ipv6_select_ident(struct frag_hdr *fhdr)
+> -{
+> -	static u32 ipv6_fragmentation_id = 1;
+> -	static DEFINE_SPINLOCK(ip6_id_lock);
+> -
+> -	spin_lock_bh(&ip6_id_lock);
+> -	fhdr->identification = htonl(ipv6_fragmentation_id);
+> -	if (++ipv6_fragmentation_id == 0)
+> -		ipv6_fragmentation_id = 1;
+> -	spin_unlock_bh(&ip6_id_lock);
+> -}
+> +extern void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
+>  
+>  /*
+>   *	Prototypes exported by ipv6
+> diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+> index 90c5f0d..e382138 100644
+> --- a/net/ipv4/inetpeer.c
+> +++ b/net/ipv4/inetpeer.c
+> @@ -391,7 +391,7 @@ static int inet_peer_gc(struct inet_peer_base *base,
+>  	return cnt;
+>  }
+>  
+> -struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
+> +struct inet_peer *inet_getpeer(const struct inetpeer_addr *daddr, int create)
+>  {
+>  	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
+>  	struct inet_peer_base *base = family_to_base(daddr->family);
+> @@ -436,7 +436,10 @@ relookup:
+>  		p->daddr = *daddr;
+>  		atomic_set(&p->refcnt, 1);
+>  		atomic_set(&p->rid, 0);
+> -		atomic_set(&p->ip_id_count, secure_ip_id(daddr->addr.a4));
+> +		atomic_set(&p->ip_id_count,
+> +				(daddr->family == AF_INET) ?
+> +					secure_ip_id(daddr->addr.a4) :
+> +					secure_ipv6_id(daddr->addr.a6));
+>  		p->tcp_ts_stamp = 0;
+>  		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
+>  		p->rate_tokens = 0;
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 8db0e48..32e5339 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -596,6 +596,31 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+>  	return offset;
+>  }
+>  
+> +void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
+> +{
+> +	static atomic_t ipv6_fragmentation_id;
+> +	int old, new;
+> +
+> +	if (rt) {
+> +		struct inet_peer *peer;
+> +
+> +		if (!rt->rt6i_peer)
+> +			rt6_bind_peer(rt, 1);
+> +		peer = rt->rt6i_peer;
+> +		if (peer) {
+> +			fhdr->identification = htonl(inet_getid(peer, 0));
+> +			return;
+> +		}
+> +	}
+> +	do {
+> +		old = atomic_read(&ipv6_fragmentation_id);
+> +		new = old + 1;
+> +		if (!new)
+> +			new = 1;
+> +	} while (atomic_cmpxchg(&ipv6_fragmentation_id, old, new) != old);
+> +	fhdr->identification = htonl(new);
+> +}
+> +
+>  int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+>  {
+>  	struct sk_buff *frag;
+> @@ -680,7 +705,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+>  		skb_reset_network_header(skb);
+>  		memcpy(skb_network_header(skb), tmp_hdr, hlen);
+>  
+> -		ipv6_select_ident(fh);
+> +		ipv6_select_ident(fh, rt);
+>  		fh->nexthdr = nexthdr;
+>  		fh->reserved = 0;
+>  		fh->frag_off = htons(IP6_MF);
+> @@ -826,7 +851,7 @@ slow_path:
+>  		fh->nexthdr = nexthdr;
+>  		fh->reserved = 0;
+>  		if (!frag_id) {
+> -			ipv6_select_ident(fh);
+> +			ipv6_select_ident(fh, rt);
+>  			frag_id = fh->identification;
+>  		} else
+>  			fh->identification = frag_id;
+> @@ -1076,7 +1101,8 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+>  			int getfrag(void *from, char *to, int offset, int len,
+>  			int odd, struct sk_buff *skb),
+>  			void *from, int length, int hh_len, int fragheaderlen,
+> -			int transhdrlen, int mtu,unsigned int flags)
+> +			int transhdrlen, int mtu,unsigned int flags,
+> +			struct rt6_info *rt)
+>  
+>  {
+>  	struct sk_buff *skb;
+> @@ -1120,7 +1146,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+>  		skb_shinfo(skb)->gso_size = (mtu - fragheaderlen -
+>  					     sizeof(struct frag_hdr)) & ~7;
+>  		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+> -		ipv6_select_ident(&fhdr);
+> +		ipv6_select_ident(&fhdr, rt);
+>  		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
+>  		__skb_queue_tail(&sk->sk_write_queue, skb);
+>  
+> @@ -1286,7 +1312,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+>  
+>  			err = ip6_ufo_append_data(sk, getfrag, from, length,
+>  						  hh_len, fragheaderlen,
+> -						  transhdrlen, mtu, flags);
+> +						  transhdrlen, mtu, flags, rt);
+>  			if (err)
+>  				goto error;
+>  			return 0;
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 328985c..29213b5 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -1359,7 +1359,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb, u32 features)
+>  	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+>  	fptr->nexthdr = nexthdr;
+>  	fptr->reserved = 0;
+> -	ipv6_select_ident(fptr);
+> +	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
+>  
+>  	/* Fragment the skb. ipv6 header and the remaining fields of the
+>  	 * fragment header are updated in ipv6_gso_segment()
+> 
+
+
+-- 
+Mathematics is the supreme nostalgia of our time.
+
 
