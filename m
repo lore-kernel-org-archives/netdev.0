@@ -1,76 +1,65 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH] vhost: clean up outstanding buffers before setting vring
-Date: Tue, 19 Jul 2011 11:02:26 -0700
-Message-ID: <1311098546.8573.13.camel@localhost.localdomain>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: IPv6: autoconfiguration and suspend/resume or link down/up
+Date: Tue, 19 Jul 2011 20:02:53 +0200
+Message-ID: <20110719180222.GA7509@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jasowang@redhat.com
-To: David Miller <davem@davemloft.net>, mst@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	stephen hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:55931 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab1GSSCu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 14:02:50 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p6JHm2Da030138
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 11:48:02 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p6JI2iZq122010
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 12:02:45 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6JI2aIk018827
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 12:02:38 -0600
+Received: from cantor2.suse.de ([195.135.220.15]:35060 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750987Ab1GSSC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2011 14:02:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The outstanding DMA buffers need to be clean up before setting vring in
-vhost. Otherwise the vring would be out of sync.
+Hi,
 
-Signed-off-by: Shirley Ma<xma@us.ibm.com>
----
+I came over a surprising behaviour with IPv6 autoconfiguration,
+which I think is a bug, but I would first like to hear other
+people's opinions before trying to fix this:
 
- drivers/vhost/vhost.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+Problem 1: all the address/route lifetimes are kept in jiffies
+and jiffies don't get incremented on resume. So when a
+route/address lifetime is 30 minutes and the system resumes after
+1 hour, the route/address should be considered expired, but it is
+not.
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index c14c42b..d6315b4 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -445,8 +445,10 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
- 			vhost_poll_flush(&dev->vqs[i].poll);
- 		}
- 		/* Wait for all lower device DMAs done. */
--		if (dev->vqs[i].ubufs)
-+		if (dev->vqs[i].ubufs) {
- 			vhost_ubuf_put_and_wait(dev->vqs[i].ubufs);
-+			kfree(dev->vqs[i].ubufs);
-+		}
- 
- 		/* Signal guest as appropriate. */
- 		vhost_zerocopy_signal_used(&dev->vqs[i]);
-@@ -651,6 +653,12 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
- 	vq = d->vqs + idx;
- 
- 	mutex_lock(&vq->mutex);
-+	/* Wait for all lower device DMAs done. */
-+	if (vq->ubufs)
-+		vhost_ubuf_put_and_wait(vq->ubufs);
-+
-+	/* Signal guest as appropriate. */
-+	vhost_zerocopy_signal_used(vq);
- 
- 	switch (ioctl) {
- 	case VHOST_SET_VRING_NUM:
-@@ -1592,7 +1600,6 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
- {
- 	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
- 	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
--	kfree(ubufs);
- }
- 
- void vhost_zerocopy_callback(void *arg)
+Problem 2: when a system is moved to a new network a RS is not
+sent. Thus, IPv6 does not autoconfigure until the router sends a
+periodic RA. This can occur both while the system is alive and
+while it is suspended. I think the autoconfigured state should be
+discarded when the kernel suspects the system could have been
+moved to a different network.
 
+When the cable is unplugged and plugged in again, we already get
+notified through linkwatch -> netdev_state_change ->
+  -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
+However, if the device has already been autoconfigured,
+addrconf_notify() only handles this event by printing a
+message.
 
+So my idea was to:
+- handle link up/down in addrconf_notify() similarly to
+  NETDEV_UP/NETDEV_DOWN
 
+- on suspend, faking a link down event; on resume, faking a link up event
+  (or better, having a special event type for suspend/resume)
+
+This would cause autoconfiguration to be restarted on resume as
+well as cable plug/unplug, solving both the above problems.
+
+Or do we want to completely rely on userspace tools
+(networkmanager/ifplug) and expect them to do NETDEV_DOWN on
+unplug/suspend and NETDEV_UP on plug/resume?
+
+Any thoughts?
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
