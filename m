@@ -1,87 +1,99 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 03/47] vlan: introduce __vlan_find_dev_deep()
-Date: Wed, 20 Jul 2011 16:54:05 +0200
-Message-ID: <1311173689-17419-4-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 01/47] gianfar: rx parser
+Date: Wed, 20 Jul 2011 16:54:03 +0200
+Message-ID: <1311173689-17419-2-git-send-email-jpirko@redhat.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
+	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com,
+	Sebastian Poehn <sebastian.poehn@belden.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4039 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35250 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751545Ab1GTOzB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751543Ab1GTOzB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 20 Jul 2011 10:55:01 -0400
 In-Reply-To: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since vlan_group_get_device and vlan_group is not going to be accessible
-from device drivers, introduce function which substitutes it.
+Only let the rx parser be enabled if it is necessary (if VLAN extraction,
+IP or TCP checksumming or the rx queue filer are enabled). Otherwise
+disable it.
+
+The new routine gfar_check_rx_parser_mode should be run after every
+change on this features and will enable/disable the parser as necessary.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
 ---
- include/linux/if_vlan.h |    8 ++++++++
- net/8021q/vlan_core.c   |   21 +++++++++++++++++++++
- 2 files changed, 29 insertions(+), 0 deletions(-)
+ drivers/net/gianfar.c |   24 +++++++++++++++++++-----
+ drivers/net/gianfar.h |    3 ++-
+ 2 files changed, 21 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index cfb0cf2..69391cc 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -120,6 +120,8 @@ static inline int is_vlan_dev(struct net_device *dev)
- 
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- 
-+extern struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
-+					       u16 vlan_id);
- extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
- extern u16 vlan_dev_vlan_id(const struct net_device *dev);
- 
-@@ -135,6 +137,12 @@ vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
- 	       unsigned int vlan_tci);
- 
- #else
-+static inline struct net_device *
-+__vlan_find_dev_deep(struct net_device *real_dev, u16 vlan_id)
-+{
-+	return NULL;
-+}
-+
- static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
- {
- 	BUG();
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index fcc6846..5940366 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -63,6 +63,27 @@ bool vlan_do_receive(struct sk_buff **skbp)
- 	return true;
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 3321d71..d265c6e 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -2287,6 +2287,23 @@ static int gfar_set_mac_address(struct net_device *dev)
+ 	return 0;
  }
  
-+/* Must be invoked with rcu_read_lock or with RTNL. */
-+struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
-+					u16 vlan_id)
++/* Check if rx parser should be activated */
++void gfar_check_rx_parser_mode(struct gfar_private *priv)
 +{
-+	struct vlan_group *grp = rcu_dereference_rtnl(real_dev->vlgrp);
++	struct gfar __iomem *regs;
++	u32 tempval;
 +
-+	if (grp) {
-+		return vlan_group_get_device(grp, vlan_id);
-+	} else {
-+		/*
-+		 * Bonding slaves do not have grp assigned to themselves.
-+		 * Grp is assigned to bonding master instead.
-+		 */
-+		if (netif_is_bond_slave(real_dev))
-+			return __vlan_find_dev_deep(real_dev->master, vlan_id);
-+	}
++	regs = priv->gfargrp[0].regs;
 +
-+	return NULL;
++	tempval = gfar_read(&regs->rctrl);
++	/* If parse is no longer required, then disable parser */
++	if (tempval & RCTRL_REQ_PARSER)
++		tempval |= RCTRL_PRSDEP_INIT;
++	else
++		tempval &= ~RCTRL_PRSDEP_INIT;
++	gfar_write(&regs->rctrl, tempval);
 +}
-+EXPORT_SYMBOL(__vlan_find_dev_deep);
 +
- struct net_device *vlan_dev_real_dev(const struct net_device *dev)
- {
- 	return vlan_dev_info(dev)->real_dev;
+ 
+ /* Enables and disables VLAN insertion/extraction */
+ static void gfar_vlan_rx_register(struct net_device *dev,
+@@ -2323,12 +2340,9 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 		/* Disable VLAN tag extraction */
+ 		tempval = gfar_read(&regs->rctrl);
+ 		tempval &= ~RCTRL_VLEX;
+-		/* If parse is no longer required, then disable parser */
+-		if (tempval & RCTRL_REQ_PARSER)
+-			tempval |= RCTRL_PRSDEP_INIT;
+-		else
+-			tempval &= ~RCTRL_PRSDEP_INIT;
+ 		gfar_write(&regs->rctrl, tempval);
++
++		gfar_check_rx_parser_mode(priv);
+ 	}
+ 
+ 	gfar_change_mtu(dev, dev->mtu);
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index 27499c6..87c1d86 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -286,7 +286,7 @@ extern const char gfar_driver_version[];
+ #define RCTRL_PROM		0x00000008
+ #define RCTRL_EMEN		0x00000002
+ #define RCTRL_REQ_PARSER	(RCTRL_VLEX | RCTRL_IPCSEN | \
+-				 RCTRL_TUCSEN)
++				 RCTRL_TUCSEN | RCTRL_FILREN)
+ #define RCTRL_CHECKSUMMING	(RCTRL_IPCSEN | RCTRL_TUCSEN | \
+ 				RCTRL_PRSDEP_INIT)
+ #define RCTRL_EXTHASH		(RCTRL_GHTX)
+@@ -1182,6 +1182,7 @@ extern void gfar_configure_coalescing(struct gfar_private *priv,
+ 		unsigned long tx_mask, unsigned long rx_mask);
+ void gfar_init_sysfs(struct net_device *dev);
+ int gfar_set_features(struct net_device *dev, u32 features);
++extern void gfar_check_rx_parser_mode(struct gfar_private *priv);
+ 
+ extern const struct ethtool_ops gfar_ethtool_ops;
+ 
 -- 
 1.7.6
 
