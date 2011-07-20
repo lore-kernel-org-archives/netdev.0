@@ -1,88 +1,37 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH] iproute2: Remove "monitor" from "ip route help" output
-Date: Wed, 20 Jul 2011 17:08:14 +0200
-Message-ID: <20110720150814.GA12025@amd64.fatal.se>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [PATCH] pktgen: Clone skb to avoid corruption of skbs in ndo_start_xmit methods
+Date: Wed, 20 Jul 2011 11:17:01 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B912AC4058@nsmail.netscout.com>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com> <1311105738.3113.11.camel@edumazet-laptop> <20110719202922.GA2352@minipsycho> <1311108107.3113.22.camel@edumazet-laptop> <20110720001904.GA1992@neilslaptop.think-freely.org> <1311122593.3113.46.camel@edumazet-laptop> <4E2626E1.6030005@candelatech.com> <20110720020737.GB2692@neilslaptop.think-freely.org> <1311135855.3113.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, martin f krafft <madduck@debian.org>,
-	537681@bugs.debian.org
-To: shemminger@vyatta.com
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Ben Greear" <greearb@candelatech.com>,
+	"Jiri Pirko" <jpirko@redhat.com>, <netdev@vger.kernel.org>,
+	"Alexey Dobriyan" <adobriyan@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Neil Horman" <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b21.telenor.se ([195.54.99.212]:34946 "EHLO
-	smtprelay-b21.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980Ab1GTPHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 11:07:45 -0400
-Received: from ipb2.telenor.se (ipb2.telenor.se [195.54.127.165])
-	by smtprelay-b21.telenor.se (Postfix) with ESMTP id 78F55EAEF3
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 17:07:43 +0200 (CEST)
-Content-Disposition: inline
+Received: from exprod6og109.obsmtp.com ([64.18.1.23]:54136 "HELO
+	exprod6og109.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751006Ab1GTPRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 11:17:13 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1311135855.3113.66.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-$ ip route help 2>&1 | grep monitor
-ip route { add | del | change | append | replace | monitor } ROUTE
-$ ip route monitor
-Command "monitor" is unknown, try "ip route help".
-
-(I guess what was really intended is "ip monitor route", so just remove
-the argument from the help output.)
-
-Originally reported by martin f krafft at http://bugs.debian.org/537681
-
-While at it, also drop all non-existant (route,link,netns) monitor
-arguments from the ip(8) man page.
-
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index ca09029..21e1a4b 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -63,7 +63,7 @@ static void usage(void)
- 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
- 	fprintf(stderr, "                            [ oif STRING ]  [ tos TOS ]\n");
- 	fprintf(stderr, "                            [ mark NUMBER ]\n");
--	fprintf(stderr, "       ip route { add | del | change | append | replace | monitor } ROUTE\n");
-+	fprintf(stderr, "       ip route { add | del | change | append | replace } ROUTE\n");
- 	fprintf(stderr, "SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]\n");
- 	fprintf(stderr, "            [ table TABLE_ID ] [ proto RTPROTO ]\n");
- 	fprintf(stderr, "            [ type TYPE ] [ scope SCOPE ]\n");
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 8d2ab87..26cb17f 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -14,7 +14,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- .ti -8
- .IR OBJECT " := { "
- .BR link " | " addr " | " addrlabel " | " route " | " rule " | " neigh " | "\
-- tunnel " | " maddr " | "  mroute " | " monitor " }"
-+ tunnel " | " maddr " | "  mroute " }"
- .sp
- 
- .ti -8
-@@ -165,7 +165,7 @@ tentative " | " deprecated " | " dadfailed " | " temporary " ]"
- .BR "ip addrlabel" " { " list " | " flush " }"
- 
- .ti -8
--.BR "ip netns" " { " list " | " monitor " } "
-+.BR "ip netns" " { " list " } "
- 
- .ti -8
- .BR "ip netns" " { " add " | " delete " } "
-@@ -198,7 +198,7 @@ tentative " | " deprecated " | " dadfailed " | " temporary " ]"
- 
- .ti -8
- .BR "ip route" " { " add " | " del " | " change " | " append " | "\
--replace " | " monitor " } "
-+replace " } "
- .I  ROUTE
- 
- .ti -8
-@@ -2547,7 +2547,6 @@ bind mounting all of the per network namespace configure files into
- their traditional location in /etc.
- 
- .SS ip netns list - show all of the named network namespaces
--.SS ip netns monitor - report when network namespace names are created and destroyed
- .SS ip netns add NAME - create a new named network namespace
- .SS ip netns delete NAME - delete the name of a network namespace
- .SS ip netns exec NAME cmd ... - Run cmd in the named network namespace
+DQo+IFNvIHdoZW4gSSBzYWlkICJyZW1vdmUgcGt0Z2VuIiBmcm9tIGRpc3RybyBpdCB3YXMgbm90
+IGEgam9rZS4NCj4gTWF5YmUgaXRzIHRpbWUgdG8gYWRtaXQgcGt0Z2VuIGhhcyB0byBiZSByZW1v
+dmVkIGZyb20ga2VybmVsIHNvdXJjZXMuDQo+IA0KDQpQbGVhc2UsIGxldCdzIG5vdCByZW1vdmUg
+cGt0Z2VuIGZyb20ga2VybmVsIHNvdXJjZXMuIFdlIGNhbiBhZGQgYSBDT05GSUdfUEtUR0VOIGFz
+IHNvbWVvbmUgbWVudGlvbmVkIGluIHRoZSBlbWFpbCB0aHJlYWQuDQoNCg0KPiAkIHdjIG5ldC9j
+b3JlL3BrdGdlbi5jDQo+ICAzNzg4IDEwODgxIDkyNzcxIG5ldC9jb3JlL3BrdGdlbi5jDQo+IA0K
+PiBIbW1tLCAzNzg4IGxpbmVzLCBwYXRjaGVkIDE4MCB0aW1lcyBmb3IgYSB0aGluZyB0aGF0IG9u
+bHkgc2VuZHMgVURQDQo+IGZyYW1lcy4uLg0KDQpJdCByZWFsbHkgZG9lc24ndCBtYXR0ZXIgd2hh
+dCB0cmFmZmljIGl0IHNlbmRzLiBBcyBsb25nIGFzIEkgY2FuIGdldCBzb21lIGhpZ2ggc3BlZWQg
+dGhyb3VnaHB1dCBJIGFtIGdvb2QuDQpUaGVyZSBhcmUgcXVpdGUgYSBmZXcgdXNlLWNhc2VzIHdo
+ZXJlIG9uZSBkb2Vzbid0IHJlYWxseSBuZWVkIHRvIGtub3cgdGhlIHRyYWZmaWMgcHJvZmlsZS4N
+Cg==
