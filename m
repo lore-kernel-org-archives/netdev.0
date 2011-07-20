@@ -1,259 +1,207 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 20/47] mlx4: do vlan cleanup
-Date: Wed, 20 Jul 2011 16:54:22 +0200
-Message-ID: <1311173689-17419-21-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 17/47] gianfar: do vlan cleanup
+Date: Wed, 20 Jul 2011 16:54:19 +0200
+Message-ID: <1311173689-17419-18-git-send-email-jpirko@redhat.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
+	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com,
+	sebastian.belden@googlemail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47849 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35297 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751545Ab1GTOzj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 10:55:39 -0400
+	id S1751822Ab1GTOzY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 10:55:24 -0400
 In-Reply-To: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- unify vlan and nonvlan path
-- kill priv->vlgrp and mlx4_en_vlan_rx_register
+- unify vlan and nonvlan rx path
+- kill priv->vlgrp and gfar_vlan_rx_register
+- allow to turn on/off rx/tx vlan accel via ethtool
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/mlx4/en_netdev.c |   49 +++++++++--------------------------------
- drivers/net/mlx4/en_port.c   |   23 +++++++------------
- drivers/net/mlx4/en_rx.c     |   24 +++++++++++---------
- drivers/net/mlx4/mlx4_en.h   |    6 +++-
- 4 files changed, 37 insertions(+), 65 deletions(-)
+ drivers/net/gianfar.c         |   55 +++++++++++++++++++++-------------------
+ drivers/net/gianfar.h         |    3 +-
+ drivers/net/gianfar_ethtool.c |    3 ++
+ 3 files changed, 33 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
-index 61850ad..9d3f57e 100644
---- a/drivers/net/mlx4/en_netdev.c
-+++ b/drivers/net/mlx4/en_netdev.c
-@@ -45,25 +45,6 @@
- #include "mlx4_en.h"
- #include "en_port.h"
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index d265c6e..835cd25 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -140,8 +140,6 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
+ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
+ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 			      int amount_pull);
+-static void gfar_vlan_rx_register(struct net_device *netdev,
+-		                struct vlan_group *grp);
+ void gfar_halt(struct net_device *dev);
+ static void gfar_halt_nodisable(struct net_device *dev);
+ void gfar_start(struct net_device *dev);
+@@ -391,10 +389,11 @@ static void gfar_init_mac(struct net_device *ndev)
+ 		rctrl |= RCTRL_PRSDEP_INIT | RCTRL_TS_ENABLE;
  
--
--static void mlx4_en_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
--{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_en_dev *mdev = priv->mdev;
--	int err;
--
--	en_dbg(HW, priv, "Registering VLAN group:%p\n", grp);
--	priv->vlgrp = grp;
--
--	mutex_lock(&mdev->state_lock);
--	if (mdev->device_up && priv->port_up) {
--		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, grp);
--		if (err)
--			en_err(priv, "Failed configuring VLAN filter\n");
+ 	/* keep vlan related bits if it's enabled */
+-	if (priv->vlgrp) {
++	if (ndev->features & NETIF_F_HW_VLAN_TX)
+ 		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
++
++	if (ndev->features & NETIF_F_HW_VLAN_RX)
+ 		tctrl |= TCTRL_VLINS;
 -	}
--	mutex_unlock(&mdev->state_lock);
--}
--
- static void mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -71,16 +52,14 @@ static void mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
- 	int err;
- 	int idx;
  
--	if (!priv->vlgrp)
--		return;
-+	en_dbg(HW, priv, "adding VLAN:%d\n", vid);
- 
--	en_dbg(HW, priv, "adding VLAN:%d (vlgrp entry:%p)\n",
--	       vid, vlan_group_get_device(priv->vlgrp, vid));
-+	set_bit(vid, priv->active_vlans);
- 
- 	/* Add VID to port VLAN filter */
- 	mutex_lock(&mdev->state_lock);
- 	if (mdev->device_up && priv->port_up) {
--		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, priv->vlgrp);
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
- 		if (err)
- 			en_err(priv, "Failed configuring VLAN filter\n");
- 	}
-@@ -97,12 +76,9 @@ static void mlx4_en_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
- 	int err;
- 	int idx;
- 
--	if (!priv->vlgrp)
--		return;
-+	en_dbg(HW, priv, "Killing VID:%d\n", vid);
- 
--	en_dbg(HW, priv, "Killing VID:%d (vlgrp:%p vlgrp entry:%p)\n",
--	       vid, priv->vlgrp, vlan_group_get_device(priv->vlgrp, vid));
--	vlan_group_set_device(priv->vlgrp, vid, NULL);
-+	clear_bit(vid, priv->active_vlans);
- 
- 	/* Remove VID from port VLAN filter */
- 	mutex_lock(&mdev->state_lock);
-@@ -112,7 +88,7 @@ static void mlx4_en_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
- 		en_err(priv, "could not find vid %d in cache\n", vid);
- 
- 	if (mdev->device_up && priv->port_up) {
--		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, priv->vlgrp);
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
- 		if (err)
- 			en_err(priv, "Failed configuring VLAN filter\n");
- 	}
-@@ -265,12 +241,10 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 				priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
- 			}
- 
--			if (priv->vlgrp) {
--				/* Disable port VLAN filter */
--				err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, NULL);
--				if (err)
--					en_err(priv, "Failed disabling VLAN filter\n");
--			}
-+			/* Disable port VLAN filter */
-+			err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
-+			if (err)
-+				en_err(priv, "Failed disabling VLAN filter\n");
- 		}
- 		goto out;
- 	}
-@@ -304,7 +278,7 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 		}
- 
- 		/* Enable port VLAN filter */
--		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv->port, priv->vlgrp);
-+		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
- 		if (err)
- 			en_err(priv, "Failed enabling VLAN filter\n");
- 	}
-@@ -1046,7 +1020,6 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_change_mtu		= mlx4_en_change_mtu,
- 	.ndo_tx_timeout		= mlx4_en_tx_timeout,
--	.ndo_vlan_rx_register	= mlx4_en_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid	= mlx4_en_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= mlx4_en_vlan_rx_kill_vid,
+ 	/* Init rctrl based on our settings */
+ 	gfar_write(&regs->rctrl, rctrl);
+@@ -467,7 +466,6 @@ static const struct net_device_ops gfar_netdev_ops = {
+ 	.ndo_tx_timeout = gfar_timeout,
+ 	.ndo_do_ioctl = gfar_ioctl,
+ 	.ndo_get_stats = gfar_get_stats,
+-	.ndo_vlan_rx_register = gfar_vlan_rx_register,
+ 	.ndo_set_mac_address = eth_mac_addr,
+ 	.ndo_validate_addr = eth_validate_addr,
  #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
-index f2a4f5d..2a74bc8 100644
---- a/drivers/net/mlx4/en_port.c
-+++ b/drivers/net/mlx4/en_port.c
-@@ -48,7 +48,7 @@ int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port,
- 			MLX4_CMD_SET_MCAST_FLTR, MLX4_CMD_TIME_CLASS_B);
+@@ -507,10 +505,17 @@ void unlock_tx_qs(struct gfar_private *priv)
+ 		spin_unlock(&priv->tx_queue[i]->txlock);
  }
  
--int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
-+int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv)
++static bool gfar_is_vlan_on(struct gfar_private *priv)
++{
++	return (priv->ndev->features & NETIF_F_HW_VLAN_RX) ||
++	       (priv->ndev->features & NETIF_F_HW_VLAN_TX);
++}
++
+ /* Returns 1 if incoming frames use an FCB */
+ static inline int gfar_uses_fcb(struct gfar_private *priv)
  {
- 	struct mlx4_cmd_mailbox *mailbox;
- 	struct mlx4_set_vlan_fltr_mbox *filter;
-@@ -63,20 +63,15 @@ int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp)
- 		return PTR_ERR(mailbox);
+-	return priv->vlgrp || (priv->ndev->features & NETIF_F_RXCSUM) ||
++	return gfar_is_vlan_on(priv) ||
++		(priv->ndev->features & NETIF_F_RXCSUM) ||
+ 		(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER);
+ }
  
- 	filter = mailbox->buf;
--	if (grp) {
--		memset(filter, 0, sizeof *filter);
--		for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
--			entry = 0;
--			for (j = 0; j < 32; j++)
--				if (vlan_group_get_device(grp, index++))
--					entry |= 1 << j;
--			filter->entry[i] = cpu_to_be32(entry);
--		}
--	} else {
--		/* When no vlans are configured we block all vlans */
--		memset(filter, 0, sizeof(*filter));
-+	memset(filter, 0, sizeof(*filter));
-+	for (i = VLAN_FLTR_SIZE - 1; i >= 0; i--) {
-+		entry = 0;
-+		for (j = 0; j < 32; j++)
-+			if (test_bit(index++, priv->active_vlans))
-+				entry |= 1 << j;
-+		filter->entry[i] = cpu_to_be32(entry);
+@@ -1038,10 +1043,10 @@ static int gfar_probe(struct platform_device *ofdev)
+ 			NETIF_F_RXCSUM | NETIF_F_HIGHDMA;
  	}
--	err = mlx4_cmd(dev, mailbox->dma, port, 0, MLX4_CMD_SET_VLAN_FLTR,
-+	err = mlx4_cmd(dev, mailbox->dma, priv->port, 0, MLX4_CMD_SET_VLAN_FLTR,
- 		       MLX4_CMD_TIME_CLASS_B);
- 	mlx4_free_cmd_mailbox(dev, mailbox);
- 	return err;
-diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
-index 5197b50..37cc9e5 100644
---- a/drivers/net/mlx4/en_rx.c
-+++ b/drivers/net/mlx4/en_rx.c
-@@ -611,11 +611,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					gro_skb->truesize += length;
- 					gro_skb->ip_summed = CHECKSUM_UNNECESSARY;
  
--					if (priv->vlgrp && (cqe->vlan_my_qpn &
--							    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)))
--						vlan_gro_frags(&cq->napi, priv->vlgrp, be16_to_cpu(cqe->sl_vid));
--					else
--						napi_gro_frags(&cq->napi);
-+					if (cqe->vlan_my_qpn &
-+					    cpu_to_be32(MLX4_CQE_VLAN_PRESENT_MASK)) {
-+						u16 vid = be16_to_cpu(cqe->sl_vid);
+-	priv->vlgrp = NULL;
+-
+-	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
++	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN) {
++		dev->hw_features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+ 		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++	}
+ 
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
+ 		priv->extended_hash = 1;
+@@ -2304,10 +2309,8 @@ void gfar_check_rx_parser_mode(struct gfar_private *priv)
+ 	gfar_write(&regs->rctrl, tempval);
+ }
+ 
+-
+ /* Enables and disables VLAN insertion/extraction */
+-static void gfar_vlan_rx_register(struct net_device *dev,
+-		struct vlan_group *grp)
++void gfar_vlan_mode(struct net_device *dev, u32 features)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct gfar __iomem *regs = NULL;
+@@ -2318,25 +2321,24 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 	local_irq_save(flags);
+ 	lock_rx_qs(priv);
+ 
+-	priv->vlgrp = grp;
+-
+-	if (grp) {
++	if (features & NETIF_F_HW_VLAN_TX) {
+ 		/* Enable VLAN tag insertion */
+ 		tempval = gfar_read(&regs->tctrl);
+ 		tempval |= TCTRL_VLINS;
+-
+ 		gfar_write(&regs->tctrl, tempval);
+-
+-		/* Enable VLAN tag extraction */
+-		tempval = gfar_read(&regs->rctrl);
+-		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
+-		gfar_write(&regs->rctrl, tempval);
+ 	} else {
+ 		/* Disable VLAN tag insertion */
+ 		tempval = gfar_read(&regs->tctrl);
+ 		tempval &= ~TCTRL_VLINS;
+ 		gfar_write(&regs->tctrl, tempval);
++	}
+ 
++	if (features & NETIF_F_HW_VLAN_RX) {
++		/* Enable VLAN tag extraction */
++		tempval = gfar_read(&regs->rctrl);
++		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
++		gfar_write(&regs->rctrl, tempval);
++	} else {
+ 		/* Disable VLAN tag extraction */
+ 		tempval = gfar_read(&regs->rctrl);
+ 		tempval &= ~RCTRL_VLEX;
+@@ -2359,7 +2361,7 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+ 	int oldsize = priv->rx_buffer_size;
+ 	int frame_size = new_mtu + ETH_HLEN;
+ 
+-	if (priv->vlgrp)
++	if (gfar_is_vlan_on(priv))
+ 		frame_size += VLAN_HLEN;
+ 
+ 	if ((frame_size < 64) || (frame_size > JUMBO_FRAME_SIZE)) {
+@@ -2712,11 +2714,12 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
+ 	/* Tell the skb what kind of packet this is */
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
++	/* Set vlan tag */
++	if (fcb->flags & RXFCB_VLN)
++		__vlan_hwaccel_put_tag(skb, fcb->vlctl);
 +
-+						__vlan_hwaccel_put_tag(gro_skb, vid);
-+					}
-+
-+					napi_gro_frags(&cq->napi);
+ 	/* Send the packet up the stack */
+-	if (unlikely(priv->vlgrp && (fcb->flags & RXFCB_VLN)))
+-		ret = vlan_hwaccel_receive_skb(skb, priv->vlgrp, fcb->vlctl);
+-	else
+-		ret = netif_receive_skb(skb);
++	ret = netif_receive_skb(skb);
  
- 					goto next;
- 				}
-@@ -647,13 +650,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		skb->protocol = eth_type_trans(skb, dev);
- 		skb_record_rx_queue(skb, cq->ring);
+ 	if (NET_RX_DROP == ret)
+ 		priv->extra_stats.kernel_dropped++;
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index 87c1d86..9aa4377 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -1077,8 +1077,6 @@ struct gfar_private {
  
-+		if (be32_to_cpu(cqe->vlan_my_qpn) &
-+		    MLX4_CQE_VLAN_PRESENT_MASK)
-+			__vlan_hwaccel_put_tag(skb, be16_to_cpu(cqe->sl_vid));
-+
- 		/* Push it up the stack */
--		if (priv->vlgrp && (be32_to_cpu(cqe->vlan_my_qpn) &
--				    MLX4_CQE_VLAN_PRESENT_MASK)) {
--			vlan_hwaccel_receive_skb(skb, priv->vlgrp,
--						be16_to_cpu(cqe->sl_vid));
--		} else
--			netif_receive_skb(skb);
-+		netif_receive_skb(skb);
+ 	struct sk_buff_head rx_recycle;
  
- next:
- 		++cq->mcq.cons_index;
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 0b5150d..ed84811 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -34,10 +34,12 @@
- #ifndef _MLX4_EN_H_
- #define _MLX4_EN_H_
- 
-+#include <linux/bitops.h>
- #include <linux/compiler.h>
- #include <linux/list.h>
- #include <linux/mutex.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- 
- #include <linux/mlx4/device.h>
- #include <linux/mlx4/qp.h>
-@@ -418,7 +420,7 @@ struct mlx4_en_priv {
- 	struct mlx4_en_dev *mdev;
- 	struct mlx4_en_port_profile *prof;
- 	struct net_device *dev;
 -	struct vlan_group *vlgrp;
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	struct net_device_stats stats;
- 	struct net_device_stats ret_stats;
- 	struct mlx4_en_port_state port_state;
-@@ -553,7 +555,7 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring);
- void mlx4_en_rx_irq(struct mlx4_cq *mcq);
+-
+ 	/* RX queue filer rule set*/
+ 	struct ethtool_rx_list rx_list;
+ 	struct mutex rx_queue_access;
+@@ -1183,6 +1181,7 @@ extern void gfar_configure_coalescing(struct gfar_private *priv,
+ void gfar_init_sysfs(struct net_device *dev);
+ int gfar_set_features(struct net_device *dev, u32 features);
+ extern void gfar_check_rx_parser_mode(struct gfar_private *priv);
++extern void gfar_vlan_mode(struct net_device *dev, u32 features);
  
- int mlx4_SET_MCAST_FLTR(struct mlx4_dev *dev, u8 port, u64 mac, u64 clear, u8 mode);
--int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, u8 port, struct vlan_group *grp);
-+int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
- int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
- 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
- int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ extern const struct ethtool_ops gfar_ethtool_ops;
+ 
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+index 203369c..6e35069 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -526,6 +526,9 @@ int gfar_set_features(struct net_device *dev, u32 features)
+ 	int err = 0, i = 0;
+ 	u32 changed = dev->features ^ features;
+ 
++	if (changed & (NETIF_F_HW_VLAN_TX|NETIF_F_HW_VLAN_RX))
++		gfar_vlan_mode(dev, features);
++
+ 	if (!(changed & NETIF_F_RXCSUM))
+ 		return 0;
+ 
 -- 
 1.7.6
 
