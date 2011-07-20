@@ -1,205 +1,52 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] ipv6: all routes share same inetpeer
-Date: Wed, 20 Jul 2011 08:18:36 +0200
-Message-ID: <1311142716.3113.104.camel@edumazet-laptop>
-References: <20110719.103724.1461298517132188126.davem@davemloft.net>
-	 <1311099638.3113.2.camel@edumazet-laptop>
-	 <1311101870.3113.6.camel@edumazet-laptop>
-	 <20110719.115929.106510307852361614.davem@davemloft.net>
-	 <1311139774.3113.86.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
+ predictable
+Date: Wed, 20 Jul 2011 08:50:48 +0200
+Message-ID: <1311144648.3113.114.camel@edumazet-laptop>
+References: <4E24BE94.7010301@gont.com.ar>
+	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1311108423.3113.24.camel@edumazet-laptop> <1311109019.14555.11.camel@calx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Fernando Gont <fernando@gont.com.ar>,
+	David Miller <davem@davemloft.net>, security@kernel.org,
+	Eugene Teo <eugeneteo@kernel.sg>,
+	netdev <netdev@vger.kernel.org>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:44998 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326Ab1GTGSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 02:18:42 -0400
-Received: by wwe5 with SMTP id 5so4871590wwe.1
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 23:18:41 -0700 (PDT)
-In-Reply-To: <1311139774.3113.86.camel@edumazet-laptop>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:57023 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769Ab1GTGuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 02:50:54 -0400
+Received: by wwg11 with SMTP id 11so4456841wwg.1
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 23:50:52 -0700 (PDT)
+In-Reply-To: <1311109019.14555.11.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 20 juillet 2011 =C3=A0 07:29 +0200, Eric Dumazet a =C3=A9cr=
-it :
-
-> My first patch had an issue in rt6_alloc_cow(), line 710, where=20
-> ipv6_addr_equal(&rt->rt6i_dst.addr, daddr) becomes always true.
+Le mardi 19 juillet 2011 =C3=A0 15:56 -0500, Matt Mackall a =C3=A9crit =
+:
+> On Tue, 2011-07-19 at 22:47 +0200, Eric Dumazet wrote:
+> > IPv6 fragment identification generation is way beyond what we use f=
+or
+> > IPv4 : It uses a single generator. Its not scalable and allows DOS
+> > attacks.
+> >=20
+> > Now inetpeer is IPv6 aware, we can use it to provide a more secure =
+and
+> > scalable frag ident generator (per destination, instead of system w=
+ide)
 >=20
-> I guess I can replace it by ipv6_addr_equal(&ort->rt6i_dst.addr, dadd=
-r)
->=20
->=20
+> This code really needs to get moved out of random.c and into net/. Ot=
+her
+> than that, looks fine to me.
 
-Here the combo patch I tested :
+Sure. Can we agree to make this cleanup later ?
 
-I also had to solve the icmp6_dst_alloc() problem
-[it uses dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);]
+I added secure_ipv6_id() right after secure_ip_id() because it sounded
+the right place ;)
 
-Note : this is based on net-2.6, but I really tested it on net-next-2.6
-(with the frag ident patch applied too)
 
-[PATCH] ipv6: unshare inetpeers
-
-We currently cow metrics a bit too soon in IPv6 case : All routes are
-tied to a single inetpeer entry.
-
-Change ip6_rt_copy() to get destination address as second argument, so
-that we fill rt6i_dst before the dst_copy_metrics() call.
-
-icmp6_dst_alloc() must set rt6i_dst before calling dst_metric_set(), or
-else the cow is done while rt6i_dst is still NULL.
-
-If orig route points to readonly metrics, we can share the pointer
-instead of performing the memory allocation and copy.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/route.c |   33 ++++++++++++++++++++-------------
- 1 file changed, 20 insertions(+), 13 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0ef1f08..5b5a32d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -72,7 +72,8 @@
- #define RT6_TRACE(x...) do { ; } while (0)
- #endif
-=20
--static struct rt6_info * ip6_rt_copy(struct rt6_info *ort);
-+static struct rt6_info *ip6_rt_copy(const struct rt6_info *ort,
-+				    const struct in6_addr *dest);
- static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cook=
-ie);
- static unsigned int	 ip6_default_advmss(const struct dst_entry *dst);
- static unsigned int	 ip6_default_mtu(const struct dst_entry *dst);
-@@ -683,7 +684,8 @@ int ip6_ins_rt(struct rt6_info *rt)
- 	return __ip6_ins_rt(rt, &info);
- }
-=20
--static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, const stru=
-ct in6_addr *daddr,
-+static struct rt6_info *rt6_alloc_cow(const struct rt6_info *ort,
-+				      const struct in6_addr *daddr,
- 				      const struct in6_addr *saddr)
- {
- 	struct rt6_info *rt;
-@@ -692,7 +694,7 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_in=
-fo *ort, const struct in6_add
- 	 *	Clone the route.
- 	 */
-=20
--	rt =3D ip6_rt_copy(ort);
-+	rt =3D ip6_rt_copy(ort, daddr);
-=20
- 	if (rt) {
- 		struct neighbour *neigh;
-@@ -700,12 +702,11 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_=
-info *ort, const struct in6_add
-=20
- 		if (!(rt->rt6i_flags&RTF_GATEWAY)) {
- 			if (rt->rt6i_dst.plen !=3D 128 &&
--			    ipv6_addr_equal(&rt->rt6i_dst.addr, daddr))
-+			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
- 				rt->rt6i_flags |=3D RTF_ANYCAST;
- 			ipv6_addr_copy(&rt->rt6i_gateway, daddr);
- 		}
-=20
--		ipv6_addr_copy(&rt->rt6i_dst.addr, daddr);
- 		rt->rt6i_dst.plen =3D 128;
- 		rt->rt6i_flags |=3D RTF_CACHE;
- 		rt->dst.flags |=3D DST_HOST;
-@@ -752,11 +753,12 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_=
-info *ort, const struct in6_add
- 	return rt;
- }
-=20
--static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort, const st=
-ruct in6_addr *daddr)
-+static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
-+					const struct in6_addr *daddr)
- {
--	struct rt6_info *rt =3D ip6_rt_copy(ort);
-+	struct rt6_info *rt =3D ip6_rt_copy(ort, daddr);
-+
- 	if (rt) {
--		ipv6_addr_copy(&rt->rt6i_dst.addr, daddr);
- 		rt->rt6i_dst.plen =3D 128;
- 		rt->rt6i_flags |=3D RTF_CACHE;
- 		rt->dst.flags |=3D DST_HOST;
-@@ -900,7 +902,10 @@ struct dst_entry *ip6_blackhole_route(struct net *=
-net, struct dst_entry *dst_ori
- 		new->input =3D dst_discard;
- 		new->output =3D dst_discard;
-=20
--		dst_copy_metrics(new, &ort->dst);
-+		if (dst_metrics_read_only(&ort->dst))
-+			new->_metrics =3D ort->dst._metrics;
-+		else
-+			dst_copy_metrics(new, &ort->dst);
- 		rt->rt6i_idev =3D ort->rt6i_idev;
- 		if (rt->rt6i_idev)
- 			in6_dev_hold(rt->rt6i_idev);
-@@ -1060,6 +1065,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_devi=
-ce *dev,
- 	rt->rt6i_idev     =3D idev;
- 	rt->rt6i_nexthop  =3D neigh;
- 	atomic_set(&rt->dst.__refcnt, 1);
-+	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
- 	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
- 	rt->dst.output  =3D ip6_output;
-=20
-@@ -1577,7 +1583,7 @@ void rt6_redirect(const struct in6_addr *dest, co=
-nst struct in6_addr *src,
- 	if (neigh =3D=3D rt->dst.neighbour)
- 		goto out;
-=20
--	nrt =3D ip6_rt_copy(rt);
-+	nrt =3D ip6_rt_copy(rt, dest);
- 	if (nrt =3D=3D NULL)
- 		goto out;
-=20
-@@ -1585,7 +1591,6 @@ void rt6_redirect(const struct in6_addr *dest, co=
-nst struct in6_addr *src,
- 	if (on_link)
- 		nrt->rt6i_flags &=3D ~RTF_GATEWAY;
-=20
--	ipv6_addr_copy(&nrt->rt6i_dst.addr, dest);
- 	nrt->rt6i_dst.plen =3D 128;
- 	nrt->dst.flags |=3D DST_HOST;
-=20
-@@ -1723,7 +1728,8 @@ void rt6_pmtu_discovery(const struct in6_addr *da=
-ddr, const struct in6_addr *sad
-  *	Misc support functions
-  */
-=20
--static struct rt6_info * ip6_rt_copy(struct rt6_info *ort)
-+static struct rt6_info *ip6_rt_copy(const struct rt6_info *ort,
-+				    const struct in6_addr *dest)
- {
- 	struct net *net =3D dev_net(ort->rt6i_dev);
- 	struct rt6_info *rt =3D ip6_dst_alloc(&net->ipv6.ip6_dst_ops,
-@@ -1733,6 +1739,8 @@ static struct rt6_info * ip6_rt_copy(struct rt6_i=
-nfo *ort)
- 		rt->dst.input =3D ort->dst.input;
- 		rt->dst.output =3D ort->dst.output;
-=20
-+		ipv6_addr_copy(&rt->rt6i_dst.addr, dest);
-+		rt->rt6i_dst.plen =3D ort->rt6i_dst.plen;
- 		dst_copy_metrics(&rt->dst, &ort->dst);
- 		rt->dst.error =3D ort->dst.error;
- 		rt->rt6i_idev =3D ort->rt6i_idev;
-@@ -1745,7 +1753,6 @@ static struct rt6_info * ip6_rt_copy(struct rt6_i=
-nfo *ort)
- 		rt->rt6i_flags =3D ort->rt6i_flags & ~RTF_EXPIRES;
- 		rt->rt6i_metric =3D 0;
-=20
--		memcpy(&rt->rt6i_dst, &ort->rt6i_dst, sizeof(struct rt6key));
- #ifdef CONFIG_IPV6_SUBTREES
- 		memcpy(&rt->rt6i_src, &ort->rt6i_src, sizeof(struct rt6key));
- #endif
-=09
 
