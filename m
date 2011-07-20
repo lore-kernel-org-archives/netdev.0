@@ -1,70 +1,107 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 2/8] tg3: Fix link flap at 100Mbps with EEE
- enabled
-Date: Wed, 20 Jul 2011 13:20:51 -0700
-Message-ID: <1311193257-20531-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 3/8] tg3: Fix link down notify failure when EEE
+ disabled
+Date: Wed, 20 Jul 2011 13:20:52 -0700
+Message-ID: <1311193257-20531-4-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2265 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2264 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751699Ab1GTUTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751697Ab1GTUTf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 20 Jul 2011 16:19:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch increases the scope of the EEE interoperability workaround
-to include more asic revisions.  The workarond value is tuned to
-workaround a link flap issue at 100Mbps.
+Occasionally, when the network cable is removed after a successful
+autonegotiation, the device will not send a link down interrupt to the
+driver.  This happens because of a bad interaction of an EEE
+workaround.  The fix is to adjust the code so that the root cause
+condition does not happen.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    9 +++++----
- drivers/net/tg3.h |    2 +-
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/tg3.c |   38 +++++++++++++++++++++++++-------------
+ 1 files changed, 25 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 5bf7671..2a9ab99 100644
+index 2a9ab99..e0413bc 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -3131,15 +3131,16 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
+@@ -1858,6 +1858,12 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, u32 current_link_up)
+ 	}
+ 
+ 	if (!tp->setlpicnt) {
++		if (current_link_up == 1 &&
++		   !TG3_PHY_AUXCTL_SMDSP_ENABLE(tp)) {
++			tg3_phydsp_write(tp, MII_TG3_DSP_TAP26, 0x0000);
++			TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
++		}
++
+ 		val = tr32(TG3_CPMU_EEE_MODE);
+ 		tw32(TG3_CPMU_EEE_MODE, val & ~TG3_CPMU_EEEMD_LPI_ENABLE);
+ 	}
+@@ -1872,7 +1878,9 @@ static void tg3_phy_eee_enable(struct tg3 *tp)
+ 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
+ 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765) &&
+ 	    !TG3_PHY_AUXCTL_SMDSP_ENABLE(tp)) {
+-		tg3_phydsp_write(tp, MII_TG3_DSP_TAP26, 0x0003);
++		val = MII_TG3_DSP_TAP26_ALNOKO |
++		      MII_TG3_DSP_TAP26_RMRXSTO;
++		tg3_phydsp_write(tp, MII_TG3_DSP_TAP26, val);
+ 		TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
+ 	}
+ 
+@@ -3128,13 +3136,26 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
+ 	if (!err) {
+ 		u32 err2;
+ 
++		val = 0;
++		/* Advertise 100-BaseTX EEE ability */
++		if (advertise & ADVERTISED_100baseT_Full)
++			val |= MDIO_AN_EEE_ADV_100TX;
++		/* Advertise 1000-BaseT EEE ability */
++		if (advertise & ADVERTISED_1000baseT_Full)
++			val |= MDIO_AN_EEE_ADV_1000T;
++		err = tg3_phy_cl45_write(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
++		if (err)
++			val = 0;
++
  		switch (GET_ASIC_REV(tp->pci_chip_rev_id)) {
  		case ASIC_REV_5717:
  		case ASIC_REV_57765:
--			if (!tg3_phydsp_read(tp, MII_TG3_DSP_CH34TP2, &val))
--				tg3_phydsp_write(tp, MII_TG3_DSP_CH34TP2, val |
--						 MII_TG3_DSP_CH34TP2_HIBW01);
--			/* Fall through */
  		case ASIC_REV_5719:
- 			val = MII_TG3_DSP_TAP26_ALNOKO |
- 			      MII_TG3_DSP_TAP26_RMRXSTO |
- 			      MII_TG3_DSP_TAP26_OPCSINPT;
+-			val = MII_TG3_DSP_TAP26_ALNOKO |
+-			      MII_TG3_DSP_TAP26_RMRXSTO |
+-			      MII_TG3_DSP_TAP26_OPCSINPT;
++			/* If we advertised any eee advertisements above... */
++			if (val)
++				val = MII_TG3_DSP_TAP26_ALNOKO |
++				      MII_TG3_DSP_TAP26_RMRXSTO |
++				      MII_TG3_DSP_TAP26_OPCSINPT;
  			tg3_phydsp_write(tp, MII_TG3_DSP_TAP26, val);
-+			/* Fall through */
-+		case ASIC_REV_5720:
-+			if (!tg3_phydsp_read(tp, MII_TG3_DSP_CH34TP2, &val))
-+				tg3_phydsp_write(tp, MII_TG3_DSP_CH34TP2, val |
-+						 MII_TG3_DSP_CH34TP2_HIBW01);
+ 			/* Fall through */
+ 		case ASIC_REV_5720:
+@@ -3143,15 +3164,6 @@ static int tg3_phy_autoneg_cfg(struct tg3 *tp, u32 advertise, u32 flowctrl)
+ 						 MII_TG3_DSP_CH34TP2_HIBW01);
  		}
  
- 		val = 0;
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 6a43fc5..691539b 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2180,7 +2180,7 @@
- #define  MII_TG3_DSP_TAP26_OPCSINPT	0x0004
- #define MII_TG3_DSP_AADJ1CH0		0x001f
- #define MII_TG3_DSP_CH34TP2		0x4022
--#define MII_TG3_DSP_CH34TP2_HIBW01	0x017b
-+#define MII_TG3_DSP_CH34TP2_HIBW01	0x01ff
- #define MII_TG3_DSP_AADJ1CH3		0x601f
- #define  MII_TG3_DSP_AADJ1CH3_ADCCKADJ	0x0002
- #define MII_TG3_DSP_EXP1_INT_STAT	0x0f01
+-		val = 0;
+-		/* Advertise 100-BaseTX EEE ability */
+-		if (advertise & ADVERTISED_100baseT_Full)
+-			val |= MDIO_AN_EEE_ADV_100TX;
+-		/* Advertise 1000-BaseT EEE ability */
+-		if (advertise & ADVERTISED_1000baseT_Full)
+-			val |= MDIO_AN_EEE_ADV_1000T;
+-		err = tg3_phy_cl45_write(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
+-
+ 		err2 = TG3_PHY_AUXCTL_SMDSP_DISABLE(tp);
+ 		if (!err)
+ 			err = err2;
 -- 
 1.7.3.4
 
