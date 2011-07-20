@@ -1,74 +1,71 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: [PATCH net-2.6] ethtool: Allow zero-length register dumps again
-Date: Thu, 21 Jul 2011 19:54:00 +0200
-Message-ID: <1311270840.28569.34.camel@localhost>
-References: <20110720091850.32210.2059.stgit@localhost6.localdomain6>
-	 <1311161889.1041.11.camel@localhost> <4E26C2DC.8090208@qca.qualcomm.com>
-	 <20110720143611.GA18231@tuxdriver.com>
-	 <1311270409.28569.32.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1311270409.28569.32.camel@localhost>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] Fix panic in virtnet_remove
+Date: Wed, 20 Jul 2011 13:13:39 +0530
+Message-ID: <20110720074339.7842.72593.sendpatchset@krkumar2.in.ibm.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	Krishna Kumar <krkumar2@in.ibm.com>
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp08.in.ibm.com ([122.248.162.8]:52017 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751703Ab1GUD2H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 23:28:07 -0400
+Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
+	by e28smtp08.in.ibm.com (8.14.4/8.13.1) with ESMTP id p6K7Nr72015877
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 12:53:53 +0530
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6K7heI61421388
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 13:13:40 +0530
+Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6K7hdhF004674
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 17:43:40 +1000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some drivers (ab)use the ethtool_ops::get_regs operation to expose
-only a hardware revision ID.  Commit
-a77f5db361ed9953b5b749353ea2c7fed2bf8d93 ('ethtool: Allocate register
-dump buffer with vmalloc()') had the side-effect of breaking these, as
-vmalloc() returns a null pointer for size=0 whereas kmalloc() did not.
+Fix a panic in virtnet_remove. unregister_netdev has already
+freed up the netdev (and virtnet_info) due to dev->destructor
+being set, while virtnet_info is still required. Remove
+virtnet_free altogether, and move the freeing of the per-cpu
+statistics from virtnet_free to virtnet_remove.
 
-For backward-compatibility, allow zero-length dumps again.
+Tested patch below.
 
-Reported-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Signed-off-by: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org [2.6.37+]
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
-This is compile-tested only.  I'm on vacation, damnit.
+ drivers/net/virtio_net.c |   10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
 
-Ben.
-
- net/core/ethtool.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index fd14116..4fb7704 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1227,7 +1227,7 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
- 		regs.len = reglen;
+diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
+--- org/drivers/net/virtio_net.c	2011-07-18 09:14:02.000000000 +0530
++++ new/drivers/net/virtio_net.c	2011-07-18 09:16:35.000000000 +0530
+@@ -705,14 +705,6 @@ static void virtnet_netpoll(struct net_d
+ }
+ #endif
  
- 	regbuf = vzalloc(reglen);
--	if (!regbuf)
-+	if (reglen && !regbuf)
- 		return -ENOMEM;
+-static void virtnet_free(struct net_device *dev)
+-{
+-	struct virtnet_info *vi = netdev_priv(dev);
+-
+-	free_percpu(vi->stats);
+-	free_netdev(dev);
+-}
+-
+ static int virtnet_open(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+@@ -959,7 +951,6 @@ static int virtnet_probe(struct virtio_d
+ 	/* Set up network device as normal. */
+ 	dev->netdev_ops = &virtnet_netdev;
+ 	dev->features = NETIF_F_HIGHDMA;
+-	dev->destructor = virtnet_free;
  
- 	ops->get_regs(dev, &regs, regbuf);
-@@ -1236,7 +1236,7 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
- 	if (copy_to_user(useraddr, &regs, sizeof(regs)))
- 		goto out;
- 	useraddr += offsetof(struct ethtool_regs, data);
--	if (copy_to_user(useraddr, regbuf, regs.len))
-+	if (regbuf && copy_to_user(useraddr, regbuf, regs.len))
- 		goto out;
- 	ret = 0;
+ 	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
+ 	SET_NETDEV_DEV(dev, &vdev->dev);
+@@ -1122,6 +1113,7 @@ static void __devexit virtnet_remove(str
+ 	while (vi->pages)
+ 		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
  
--- 
-1.7.5.4
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+ 
