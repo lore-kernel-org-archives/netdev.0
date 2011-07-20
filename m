@@ -1,37 +1,225 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 43/47] staging: et131x: remove unused prototype et131x_vlan_rx_register
-Date: Wed, 20 Jul 2011 16:54:45 +0200
-Message-ID: <1311173689-17419-44-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 33/47] cxgb3: do vlan cleanup
+Date: Wed, 20 Jul 2011 16:54:35 +0200
+Message-ID: <1311173689-17419-34-git-send-email-jpirko@redhat.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com,
-	gregkh@suse.de
+	divy@chelsio.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32148 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:6258 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752310Ab1GTO4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 10:56:16 -0400
+	id S1752228Ab1GTOz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 10:55:59 -0400
 In-Reply-To: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+- unify vlan and nonvlan rx path
+- kill pi->vlan_grp and vlan_rx_register
+- allow to turn on/off rx/tx vlan accel via ethtool (set_features)
+
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/staging/et131x/et131x_netdev.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/cxgb3/adapter.h       |    2 -
+ drivers/net/cxgb3/cxgb3_main.c    |   51 +++++++++++++++++++++++++++++--------
+ drivers/net/cxgb3/cxgb3_offload.c |    9 ++----
+ drivers/net/cxgb3/sge.c           |   35 ++++---------------------
+ 4 files changed, 49 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/staging/et131x/et131x_netdev.c b/drivers/staging/et131x/et131x_netdev.c
-index b25bae2..95555d2 100644
---- a/drivers/staging/et131x/et131x_netdev.c
-+++ b/drivers/staging/et131x/et131x_netdev.c
-@@ -97,7 +97,6 @@ int et131x_tx(struct sk_buff *skb, struct net_device *netdev);
- void et131x_tx_timeout(struct net_device *netdev);
- int et131x_change_mtu(struct net_device *netdev, int new_mtu);
- int et131x_set_mac_addr(struct net_device *netdev, void *new_mac);
--void et131x_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp);
- void et131x_vlan_rx_add_vid(struct net_device *netdev, uint16_t vid);
- void et131x_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/cxgb3/adapter.h
+index 7300de5..8b395b5 100644
+--- a/drivers/net/cxgb3/adapter.h
++++ b/drivers/net/cxgb3/adapter.h
+@@ -45,7 +45,6 @@
+ #include "t3cdev.h"
+ #include <asm/io.h>
+ 
+-struct vlan_group;
+ struct adapter;
+ struct sge_qset;
+ struct port_info;
+@@ -66,7 +65,6 @@ struct iscsi_config {
+ 
+ struct port_info {
+ 	struct adapter *adapter;
+-	struct vlan_group *vlan_grp;
+ 	struct sge_qset *qs;
+ 	u8 port_id;
+ 	u8 nqsets;
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
+index 9081ce0..93b41a7 100644
+--- a/drivers/net/cxgb3/cxgb3_main.c
++++ b/drivers/net/cxgb3/cxgb3_main.c
+@@ -2532,25 +2532,51 @@ static void t3_synchronize_rx(struct adapter *adap, const struct port_info *p)
+ 	}
+ }
+ 
+-static void vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
++static void cxgb_vlan_mode(struct net_device *dev, u32 features)
+ {
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adapter = pi->adapter;
+ 
+-	pi->vlan_grp = grp;
+-	if (adapter->params.rev > 0)
+-		t3_set_vlan_accel(adapter, 1 << pi->port_id, grp != NULL);
+-	else {
++	if (adapter->params.rev > 0) {
++		t3_set_vlan_accel(adapter, 1 << pi->port_id,
++				  features & NETIF_F_HW_VLAN_RX);
++	} else {
+ 		/* single control for all ports */
+-		unsigned int i, have_vlans = 0;
++		unsigned int i, have_vlans = features & NETIF_F_HW_VLAN_RX;
++
+ 		for_each_port(adapter, i)
+-		    have_vlans |= adap2pinfo(adapter, i)->vlan_grp != NULL;
++			have_vlans |=
++				adapter->port[i]->features & NETIF_F_HW_VLAN_RX;
+ 
+ 		t3_set_vlan_accel(adapter, 1, have_vlans);
+ 	}
+ 	t3_synchronize_rx(adapter, pi);
+ }
+ 
++static u32 cxgb_fix_features(struct net_device *dev, u32 features)
++{
++	/*
++	 * Since there is no support for separate rx/tx vlan accel
++	 * enable/disable make sure tx flag is always in same state as rx.
++	 */
++	if (features & NETIF_F_HW_VLAN_RX)
++		features |= NETIF_F_HW_VLAN_TX;
++	else
++		features &= ~NETIF_F_HW_VLAN_TX;
++
++	return features;
++}
++
++static int cxgb_set_features(struct net_device *dev, u32 features)
++{
++	u32 changed = dev->features ^ features;
++
++	if (changed & NETIF_F_HW_VLAN_RX)
++		cxgb_vlan_mode(dev, features);
++
++	return 0;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void cxgb_netpoll(struct net_device *dev)
+ {
+@@ -3131,7 +3157,8 @@ static const struct net_device_ops cxgb_netdev_ops = {
+ 	.ndo_do_ioctl		= cxgb_ioctl,
+ 	.ndo_change_mtu		= cxgb_change_mtu,
+ 	.ndo_set_mac_address	= cxgb_set_mac_addr,
+-	.ndo_vlan_rx_register	= vlan_rx_register,
++	.ndo_fix_features	= cxgb_fix_features,
++	.ndo_set_features	= cxgb_set_features,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= cxgb_netpoll,
+ #endif
+@@ -3263,9 +3290,8 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		netdev->mem_start = mmio_start;
+ 		netdev->mem_end = mmio_start + mmio_len - 1;
+ 		netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
+-			NETIF_F_TSO | NETIF_F_RXCSUM;
+-		netdev->features |= netdev->hw_features |
+-			NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++			NETIF_F_TSO | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX;
++		netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_TX;
+ 		if (pci_using_dac)
+ 			netdev->features |= NETIF_F_HIGHDMA;
+ 
+@@ -3329,6 +3355,9 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 	err = sysfs_create_group(&adapter->port[0]->dev.kobj,
+ 				 &cxgb3_attr_group);
+ 
++	for_each_port(adapter, i)
++		cxgb_vlan_mode(adapter->port[i], adapter->port[i]->features);
++
+ 	print_port_info(adapter, ai);
+ 	return 0;
+ 
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index fa1b450..32636a1 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -176,16 +176,13 @@ static struct net_device *get_iff_from_mac(struct adapter *adapter,
+ 	int i;
+ 
+ 	for_each_port(adapter, i) {
+-		struct vlan_group *grp;
+ 		struct net_device *dev = adapter->port[i];
+-		const struct port_info *p = netdev_priv(dev);
+ 
+ 		if (!memcmp(dev->dev_addr, mac, ETH_ALEN)) {
+ 			if (vlan && vlan != VLAN_VID_MASK) {
+-				grp = p->vlan_grp;
+-				dev = NULL;
+-				if (grp)
+-					dev = vlan_group_get_device(grp, vlan);
++				rcu_read_lock();
++				dev = __vlan_find_dev_deep(dev, vlan);
++				rcu_read_unlock();
+ 			} else if (netif_is_bond_slave(dev)) {
+ 				while (dev->master)
+ 					dev = dev->master;
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index 76bf589..d6fa177 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -2028,28 +2028,11 @@ static void rx_eth(struct adapter *adap, struct sge_rspq *rq,
+ 		skb_checksum_none_assert(skb);
+ 	skb_record_rx_queue(skb, qs - &adap->sge.qs[pi->first_qset]);
+ 
+-	if (unlikely(p->vlan_valid)) {
+-		struct vlan_group *grp = pi->vlan_grp;
+-
++	if (p->vlan_valid) {
+ 		qs->port_stats[SGE_PSTAT_VLANEX]++;
+-		if (likely(grp))
+-			if (lro)
+-				vlan_gro_receive(&qs->napi, grp,
+-						 ntohs(p->vlan), skb);
+-			else {
+-				if (unlikely(pi->iscsic.flags)) {
+-					unsigned short vtag = ntohs(p->vlan) &
+-								VLAN_VID_MASK;
+-					skb->dev = vlan_group_get_device(grp,
+-									 vtag);
+-					cxgb3_process_iscsi_prov_pack(pi, skb);
+-				}
+-				__vlan_hwaccel_rx(skb, grp, ntohs(p->vlan),
+-					  	  rq->polling);
+-			}
+-		else
+-			dev_kfree_skb_any(skb);
+-	} else if (rq->polling) {
++		__vlan_hwaccel_put_tag(skb, ntohs(p->vlan));
++	}
++	if (rq->polling) {
+ 		if (lro)
+ 			napi_gro_receive(&qs->napi, skb);
+ 		else {
+@@ -2147,14 +2130,8 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
+ 
+ 	skb_record_rx_queue(skb, qs - &adap->sge.qs[pi->first_qset]);
+ 
+-	if (unlikely(cpl->vlan_valid)) {
+-		struct vlan_group *grp = pi->vlan_grp;
+-
+-		if (likely(grp != NULL)) {
+-			vlan_gro_frags(&qs->napi, grp, ntohs(cpl->vlan));
+-			return;
+-		}
+-	}
++	if (cpl->vlan_valid)
++		__vlan_hwaccel_put_tag(skb, ntohs(cpl->vlan));
+ 	napi_gro_frags(&qs->napi);
+ }
  
 -- 
 1.7.6
