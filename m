@@ -1,64 +1,79 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: icmp_route_lookup returns wrong source address information
-Date: Wed, 20 Jul 2011 21:22:58 +0200
-Message-ID: <20110720192258.GA21528@Chamillionaire.breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: davem@davemloft.net
+From: David Lamparter <equinox@diac24.net>
+Subject: [PATCH] net: vlan: fix compile breakage from 69ecca8
+Date: Wed, 20 Jul 2011 21:43:53 +0200
+Message-ID: <1311191033-714631-1-git-send-email-equinox@diac24.net>
+References: <0E5EAE44-204C-4F4D-926C-F4D973B0CDB1@qlogic.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Lamparter <equinox@diac24.net>, linux-driver@qlogic.com,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Randy Dunlap <rdunlap@xenotime.net>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:49123 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752017Ab1GTTW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 15:22:59 -0400
-Content-Disposition: inline
+Received: from spaceboyz.net ([87.106.131.203]:60523 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751695Ab1GTToi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 15:44:38 -0400
+In-Reply-To: <0E5EAE44-204C-4F4D-926C-F4D973B0CDB1@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+well, there was too much wood to see the tree and I messed up the
+configuration dependencies. let's make it work with unset
+CONFIG_VLAN_8021Q and remove the second definition of vlan_find_dev.
 
-With linux-2.6 and net-next trees, whenever an icmp error message is
-sent in response to a to-be-forwarded packet, the destination address
-of the original packet is used as the IP header source address.
+Signed-off-by: David Lamparter <equinox@diac24.net>
+Cc: linux-driver@qlogic.com
+Cc: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Randy Dunlap <rdunlap@xenotime.net>
+---
+sorry for the mess-up... compiled with CONFIG_VLAN_8021Q=n,m and y
+this time; don't have qlcnic hw to test.
 
-Example:
-$ traceroute breakpoint.cc
-traceroute to breakpoint.cc (85.10.199.196), 30 hops max, 40 byte packets
- 1  chamillionaire.breakpoint.cc (85.10.199.196)  0.476 ms  0.468 ms  0.793 ms
+ drivers/net/qlcnic/qlcnic_main.c |    4 +++-
+ include/linux/if_vlan.h          |    5 -----
+ 2 files changed, 3 insertions(+), 6 deletions(-)
 
-But the expected 1st hop is 192.168.20.7 in my setup.
-
-I bisected this down to 77968b78242ee25e2a4d759f0fca8dd52df6d479
-("ipv4: Pass flow keys down into datagram packet building engine.")
-
-Specifically, it is caused by this hunk:
-
--static struct rtable *icmp_route_lookup(struct net *net, struct sk_buff *skb_in,
-+static struct rtable *icmp_route_lookup(struct net *net,
-+					struct flowi4 *fl4,
-[..]
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 3579229..a2c39e9 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -4198,13 +4198,15 @@ static void
+ qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
  {
--	struct flowi4 fl4 = {
--		.daddr = (param->replyopts.opt.opt.srr ?
--			  param->replyopts.opt.opt.faddr : iph->saddr),
--		.saddr = saddr,
--		.flowi4_tos = RT_TOS(tos),
--		.flowi4_proto = IPPROTO_ICMP,
--		.fl4_icmp_type = type,
--		.fl4_icmp_code = code,
--	};
- 	struct rtable *rt, *rt2;
- 	int err;
-[..]
--	err = xfrm_decode_session_reverse(skb_in, flowi4_to_flowi(&fl4), AF_INET);
-+	err = xfrm_decode_session_reverse(skb_in, flowi4_to_flowi(fl4), AF_INET);
- 	if (err)
- 		goto relookup_failed;
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+-	struct vlan_group *grp;
++	struct vlan_group *grp = NULL;
+ 	struct net_device *dev;
+ 	u16 vid;
+ 
+ 	qlcnic_config_indev_addr(adapter, netdev, event);
+ 
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ 	grp = rcu_dereference_rtnl(netdev->vlgrp);
++#endif
+ 	if (!grp)
+ 		return;
+ 
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index bc03e40..dbe41dc 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -135,11 +135,6 @@ vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
+ 	       unsigned int vlan_tci);
+ 
+ #else
+-static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
+-					       u16 vlan_id)
+-{
+-	return NULL;
+-}
+ 
+ static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+ {
+-- 
+1.7.5.3
 
-Problem is that xfrm_decode_session_reverse() may rebuild fl4 from scratch.
-
-In my setup, "goto relookup_failed" will be hit a bit later on, and fl4->saddr will
-be set to iph->daddr...
-
-Thanks,
-Florian
