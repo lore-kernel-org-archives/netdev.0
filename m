@@ -1,65 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] ipv6: all routes share same inetpeer
-Date: Wed, 20 Jul 2011 07:29:34 +0200
-Message-ID: <1311139774.3113.86.camel@edumazet-laptop>
-References: <20110719.103724.1461298517132188126.davem@davemloft.net>
-	 <1311099638.3113.2.camel@edumazet-laptop>
-	 <1311101870.3113.6.camel@edumazet-laptop>
-	 <20110719.115929.106510307852361614.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/3] stmmac: unify MAC and PHY configuration parameters
+Date: Wed, 20 Jul 2011 07:33:16 +0200
+Message-ID: <4E26689C.1090502@st.com>
+References: <1311064684-20246-1-git-send-email-peppe.cavallaro@st.com> <20110719.115738.131562530013095617.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stuart.menefy@st.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40687 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777Ab1GTF3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 01:29:40 -0400
-Received: by wwe5 with SMTP id 5so4843502wwe.1
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 22:29:39 -0700 (PDT)
-In-Reply-To: <20110719.115929.106510307852361614.davem@davemloft.net>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:57417 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751619Ab1GTFdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 01:33:44 -0400
+In-Reply-To: <20110719.115738.131562530013095617.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 19 juillet 2011 =C3=A0 11:59 -0700, David Miller a =C3=A9crit =
-:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 19 Jul 2011 20:57:50 +0200
->=20
-> > Le mardi 19 juillet 2011 =C3=A0 20:20 +0200, Eric Dumazet a =C3=A9c=
-rit :
-> >> Le mardi 19 juillet 2011 =C3=A0 10:37 -0700, David Miller a =C3=A9=
-crit :
-> >> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> > Date: Tue, 19 Jul 2011 19:23:49 +0200
-> >> >=20
-> >> > > Maybe you can find the bug before me ?
-> >> >=20
-> >> > I think when we add the route we cow the metrics almost immediat=
-ely.
-> >> > The daddr is, unfortunately, fully prefixed at that point.
-> >>=20
-> >> Yes, we shall provide a second ip6_rt_copy() argument, with the
-> >> destination address.
-> >>=20
-> >=20
-> > Hmm, or maybe just change the dst_copy_metrics(&rt->dst, &ort->dst)=
-;
-> > call done from ip6_rt_copy(), to avoid doing the COW if not really
-> > needed ?
->=20
-> This is ok if it handles the case where ort's metrics point to
-> writable inetpeer memory.
+Hello David,
 
-OK but if ort's metrics are writeable we must perform the dst_copy_metr=
-ics()
-and therefore fill rt6i_dst before ?
+On 7/19/2011 8:57 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Tue, 19 Jul 2011 10:38:02 +0200
+> 
+>> Prior to this change, most PHY configuration parameters were passed
+>> into the STMMAC device as a separate PHY device. As well as being
+>> unusual, this made it difficult to make changes to the MAC/PHY
+>> relationship.
+>>
+>> This patch moves all the PHY parameters into the MAC configuration
+>> structure, mainly as a separate structure. This allows us to completly
+>> ignore the MDIO bus attached to a stmmac if desired, and not create
+>> the PHY bus. It also allows the stmmac driver to use a different PHY
+>> from the one it is connected to, for example a fixed PHY or bit banging
+>> PHY.
+>>
+>> Also derive the stmmac/PHY connection type (MII/RMII etc) from the
+>> mode can be passed into <platf>_configure_ethernet.
+>> STLinux kernel at git://git.stlinux.com/stm/linux-sh4-2.6.32.y.git
+>> provides several examples how to use this new infrastructure (that
+>> actually is easier to maintain and clearer).
+>>
+>> Signed-off-by: Stuart Menefy <stuart.menefy@st.com>
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> 
+> I find these changes confusing, because I can't see where these
+> platform data objects are created that end up being used by
+> the stmmac driver.
+> 
+> I'm concerned about this because if you're changing these data
+> structures, you'll need to update also the code that creates
+> these platform data objects.
 
-My first patch had an issue in rt6_alloc_cow(), line 710, where=20
-ipv6_addr_equal(&rt->rt6i_dst.addr, daddr) becomes always true.
+You are right and indeed I wanted to provide some other patches to show
+how to use the new infrastructure instead of adding the stlinux git
+where our platforms that already use that.
 
-I guess I can replace it by ipv6_addr_equal(&ort->rt6i_dst.addr, daddr)
+> Finally, this patch needs to update Documentation/networking/stmmac.txt
 
+Agree and sorry to have forgotten that.
+I'll update the driver's documentation trying to add a valid example how
+to use the new structures (taking as example stm devel).
+After that I'll send the patches again.
 
+At any rate, as I also do via email, I'm happy to support all guys that
+are starting to use in the driver on several architectures (arm, sh, ppc).
+
+This patch is useful because tidy-up the code and make easier the MDIO
+part (also in case we use fixed_link etc.).
+
+Thanks for your feedback.
+
+Regards
+Peppe
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
