@@ -1,77 +1,62 @@
-From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCH 3/3] wireless: mwifiex: print hw address via %pM
-Date: Wed, 20 Jul 2011 16:34:31 +0300
-Message-ID: <8f12d3ad71585e863084560b227534a4b9e4af54.1311162926.git.andriy.shevchenko@linux.intel.com>
-References: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-In-Reply-To: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-References: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH repost] Fix panic in virtnet_remove
+Date: Wed, 20 Jul 2011 19:26:02 +0530
+Message-ID: <20110720135602.18705.21405.sendpatchset@krkumar2.in.ibm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Krishna Kumar <krkumar2@in.ibm.com>,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Cc: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/wireless/mwifiex/debugfs.c |   33 +++++++------------------------
- 1 files changed, 8 insertions(+), 25 deletions(-)
+Fix a panic in virtnet_remove. unregister_netdev has already
+freed up the netdev (and virtnet_info) due to dev->destructor
+being set, while virtnet_info is still required. Remove
+virtnet_free altogether, and move the freeing of the per-cpu
+statistics from virtnet_free to virtnet_remove.
 
-diff --git a/drivers/net/wireless/mwifiex/debugfs.c b/drivers/net/wireless/mwifiex/debugfs.c
-index 1bcf9ea..d26a78b 100644
---- a/drivers/net/wireless/mwifiex/debugfs.c
-+++ b/drivers/net/wireless/mwifiex/debugfs.c
-@@ -216,28 +216,19 @@ mwifiex_info_read(struct file *file, char __user *ubuf,
- 	p += sprintf(p, "bss_mode=\"%s\"\n", bss_modes[info.bss_mode]);
- 	p += sprintf(p, "media_state=\"%s\"\n",
- 		     (!priv->media_connected ? "Disconnected" : "Connected"));
--	p += sprintf(p, "mac_address=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
--		     netdev->dev_addr[0], netdev->dev_addr[1],
--		     netdev->dev_addr[2], netdev->dev_addr[3],
--		     netdev->dev_addr[4], netdev->dev_addr[5]);
-+	p += sprintf(p, "mac_address=\"%pM\"\n", netdev->dev_addr);
+Tested patch below.
+
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+(Michael suggested me to re-post with copy to all maintainers)
+
+ drivers/net/virtio_net.c |   10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
+
+diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
+--- org/drivers/net/virtio_net.c	2011-07-18 09:14:02.000000000 +0530
++++ new/drivers/net/virtio_net.c	2011-07-18 09:16:35.000000000 +0530
+@@ -705,14 +705,6 @@ static void virtnet_netpoll(struct net_d
+ }
+ #endif
  
- 	if (GET_BSS_ROLE(priv) == MWIFIEX_BSS_ROLE_STA) {
- 		p += sprintf(p, "multicast_count=\"%d\"\n",
- 			     netdev_mc_count(netdev));
- 		p += sprintf(p, "essid=\"%s\"\n", info.ssid.ssid);
--		p += sprintf(p, "bssid=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
--			     info.bssid[0], info.bssid[1],
--			     info.bssid[2], info.bssid[3],
--			     info.bssid[4], info.bssid[5]);
-+		p += sprintf(p, "bssid=\"%pM\"\n", info.bssid);
- 		p += sprintf(p, "channel=\"%d\"\n", (int) info.bss_chan);
- 		p += sprintf(p, "region_code = \"%02x\"\n", info.region_code);
+-static void virtnet_free(struct net_device *dev)
+-{
+-	struct virtnet_info *vi = netdev_priv(dev);
+-
+-	free_percpu(vi->stats);
+-	free_netdev(dev);
+-}
+-
+ static int virtnet_open(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+@@ -959,7 +951,6 @@ static int virtnet_probe(struct virtio_d
+ 	/* Set up network device as normal. */
+ 	dev->netdev_ops = &virtnet_netdev;
+ 	dev->features = NETIF_F_HIGHDMA;
+-	dev->destructor = virtnet_free;
  
- 		netdev_for_each_mc_addr(ha, netdev)
--			p += sprintf(p, "multicast_address[%d]="
--				     "\"%02x:%02x:%02x:%02x:%02x:%02x\"\n", i++,
--				     ha->addr[0], ha->addr[1],
--				     ha->addr[2], ha->addr[3],
--				     ha->addr[4], ha->addr[5]);
-+			p += sprintf(p, "multicast_address[%d]=\"%pM\"\n",
-+					i++, ha->addr);
- 	}
+ 	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
+ 	SET_NETDEV_DEV(dev, &vdev->dev);
+@@ -1122,6 +1113,7 @@ static void __devexit virtnet_remove(str
+ 	while (vi->pages)
+ 		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
  
- 	p += sprintf(p, "num_tx_bytes = %lu\n", priv->stats.tx_bytes);
-@@ -451,26 +442,18 @@ mwifiex_debug_read(struct file *file, char __user *ubuf,
- 	if (info.tx_tbl_num) {
- 		p += sprintf(p, "Tx BA stream table:\n");
- 		for (i = 0; i < info.tx_tbl_num; i++)
--			p += sprintf(p, "tid = %d, "
--				     "ra = %02x:%02x:%02x:%02x:%02x:%02x\n",
--				     info.tx_tbl[i].tid, info.tx_tbl[i].ra[0],
--				     info.tx_tbl[i].ra[1], info.tx_tbl[i].ra[2],
--				     info.tx_tbl[i].ra[3], info.tx_tbl[i].ra[4],
--				     info.tx_tbl[i].ra[5]);
-+			p += sprintf(p, "tid = %d, ra = %pM\n",
-+				     info.tx_tbl[i].tid, info.tx_tbl[i].ra);
- 	}
++	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
  
- 	if (info.rx_tbl_num) {
- 		p += sprintf(p, "Rx reorder table:\n");
- 		for (i = 0; i < info.rx_tbl_num; i++) {
