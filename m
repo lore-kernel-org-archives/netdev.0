@@ -1,128 +1,162 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH] Constrain UFO fragment sizes to multiples of 8 bytes
-Date: Tue, 19 Jul 2011 18:30:22 -0700
-Message-ID: <CANP3RGdBTXf1+mwJXEW7Nv_jENE_SP00h2W4d05Ki6JT-5LpvQ@mail.gmail.com>
-References: <1311124953-32159-1-git-send-email-wsommerfeld@google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in
+ ndo_start_xmit methods
+Date: Tue, 19 Jul 2011 21:59:41 -0400
+Message-ID: <20110720015941.GA2692@neilslaptop.think-freely.org>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+ <1311105738.3113.11.camel@edumazet-laptop>
+ <20110719202922.GA2352@minipsycho>
+ <1311108107.3113.22.camel@edumazet-laptop>
+ <20110720001904.GA1992@neilslaptop.think-freely.org>
+ <1311122593.3113.46.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>
-To: Bill Sommerfeld <wsommerfeld@google.com>
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:45451 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752395Ab1GTBa0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 21:30:26 -0400
-Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
-	by smtp-out.google.com with ESMTP id p6K1UOKG001823
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 18:30:25 -0700
-Received: from pzk5 (pzk5.prod.google.com [10.243.19.133])
-	by wpaz37.hot.corp.google.com with ESMTP id p6K1UM0a010044
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 18:30:23 -0700
-Received: by pzk5 with SMTP id 5so7269505pzk.17
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2011 18:30:22 -0700 (PDT)
-In-Reply-To: <1311124953-32159-1-git-send-email-wsommerfeld@google.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43013 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509Ab1GTB7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 21:59:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1311122593.3113.46.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ack.
-This should probably make it into all manner of stable branches.
+On Wed, Jul 20, 2011 at 02:43:12AM +0200, Eric Dumazet wrote:
+> Le mardi 19 juillet 2011 =E0 20:19 -0400, Neil Horman a =E9crit :
+> > >=20
+> > You are correct Eric, this can cause a significant performance regr=
+ession, but I
+> > think that beats causing a panic or other unexpected behavior.  I r=
+ead your
+> > previous threads with others regarding fixing this with vlans, but =
+I don't think
+> > its fair to just say 'its fast, but it might cause oopses'.=20
+> >=20
+> > And its not sufficient to simply forbid soft drivers to make use of=
+ pktgen, its
+> > not just a soft driver problem, its systemic.  Any driver which ass=
+umes that it
+> > has exclusive access to an skb submitted for transmit is at risk fr=
+om pktgen in
+> > its current implementation.  That of course as a subset includes al=
+l the soft
+> > drivers, but others are also suceptible.  As examples (some of whic=
+h I noted in
+> > the origional post) virtio_net uses the skb->cb to hold vnet header=
+ information
+> > which will be corrupted on sucessive sends.  bnx2x linearizes skbs =
+under certain
+> > circumstances, which means pktgen, if it marshals a fragmented fram=
+e will not
+> > send a fragmented frame after the first iteration.  The PPP and Sli=
+p drivers
+> > skb_push the skb to prepend a header to the frame on send, meaning =
+sucessive
+> > uses, up until they get an skb_under_panic will get iteratively mor=
+e malformed
+> > frames on the wire as ppp headers get stacked on top of one another=
+=2E  These are
+> > ust a few of the examples I've found.
+> >=20
+> > The long and the short of it in my mind, is that we have a fundamen=
+tal
+> > disconnect between driver asumptions and pktgen.  If its ok to subm=
+it shared
+> > skbs to drivers, then we need to augment drivers that modify skbs o=
+n transmit to
+> > clone the skb (likey not an efficient solution), or if its not ok t=
+o do so, we
+> > need to change pktgen to not behave that way.
+> >=20
+>=20
+> Its a known problem, please check mail archives. Nobody felt a fix wa=
+s
+> needed.
+>=20
+As I said in my origional note, I said I read the archives, I didn't ag=
+ree with
+the conclusion that a fix was unnecessecary.  I'm sorry if you don't ca=
+re for
+dissenting opinions.
 
-On Tue, Jul 19, 2011 at 6:22 PM, Bill Sommerfeld <wsommerfeld@google.co=
-m> wrote:
-> Because the ip fragment offset field counts 8-byte chunks, ip
-> fragments other than the last must contain a multiple of 8 bytes of
-> payload. =C2=A0ip_ufo_append_data wasn't respecting this constraint a=
-nd,
-> depending on the MTU and ip option sizes, could create malformed
-> non-final fragments.
->
-> Google-Bug-Id: 5009328
-> Signed-off-by: Bill Sommerfeld <wsommerfeld@google.com>
-> ---
->
-> Note to reviewers: The first two hunks simply rename the "mtu"
-> parameter to "maxfraglen"; the real change is in the third hunk.
-> maxfraglen (the size of the largest non-final fragment which fits
-> inside mtu) is already computed for the non-UFO fragmentation path.
->
-> We saw this problem in a 2.6.34-based kernel with a bond device that
-> had UFO enabled (as a result of changeset d9f5950f90292f7c);
-> 1742f183fc218798 rewrote netdev_increment_features to no longer force
-> on UFO. =C2=A0The MTU on this bond device was set to 1470; fragmented
-> datagrams were mangled, causing the receiver to get errors of the
-> form:
->
-> [506259.362640] UDP: short packet: From x.x.x.x:nnnn 1471/1469 to y.y=
-=2Ey.y:nnnn
->
-> =C2=A0net/ipv4/ip_output.c | =C2=A0 =C2=A06 +++---
-> =C2=A01 files changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index be27e60..ccaaa85 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -734,7 +734,7 @@ static inline int ip_ufo_append_data(struct sock =
-*sk,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0int getfrag(void *from, char *to, int offset, int len,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 int odd, struct sk_buff *skb),
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0void *from, int length, int hh_len, int fragheaderlen,
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 int transhdrlen, int mtu, unsigned int flags)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 int transhdrlen, int maxfraglen, unsigned int flags)
-> =C2=A0{
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sk_buff *skb;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
-> @@ -767,7 +767,7 @@ static inline int ip_ufo_append_data(struct sock =
-*sk,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb->csum =3D =
-0;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* specify the=
- length of each IP datagram fragment */
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb_shinfo(skb)->g=
-so_size =3D mtu - fragheaderlen;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb_shinfo(skb)->g=
-so_size =3D maxfraglen - fragheaderlen;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb_shinfo(skb=
-)->gso_type =3D SKB_GSO_UDP;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0__skb_queue_ta=
-il(queue, skb);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> @@ -831,7 +831,7 @@ static int __ip_append_data(struct sock *sk,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0(rt->dst.dev->features & NET=
-IF_F_UFO) && !rt->dst.header_len) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D ip_ufo=
-_append_data(sk, queue, getfrag, from, length,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-hh_len, fragheaderlen, transhdrlen,
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0m=
-tu, flags);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0m=
-axfraglen, flags);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0goto error;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
-> --
-> 1.7.3.1
->
->
+> > > Note : a sysadmin has other ways to make a machine panic or reboo=
+t or
+> > > halt...
+> > Yes, predictable ways, that the sysadmin can see coming based on wh=
+at they're
+> > doing (i.e. no one should be shocked if they dd /dev/random to /dev=
+/kmem and get
+> > a hang or panic, or if they issue a sysrq-c, etc).  This case is di=
+fferent.  A
+> > sysadmin reasonably expects pktgen to send the frames they configur=
+e on the
+> > interface they specify.  While its arguably reasonable to forsee th=
+at it may not
+> > work with soft interfaces, pktgen just won't work with some hardwar=
+e drivers (as
+> > per the examples above).  And it won't always be an oops, it may be=
+ occasional
+> > random behvaior in the output data, and its highly dependent not ju=
+st on the use
+> > of pktgen, but rather the specific command(s) issued.
+> >=20
+> >=20
+> > I'm sensitive to the performance impact, but I would much rather se=
+e a lower
+> > performing pktgen that doesn't randomly crash, and bring the perfor=
+mance back up
+> > in a safe, reliable way.  To that end, I've been starting to think =
+about
+> > pre-allocating a ring buffer of skbs with a skb->users count biased=
+ up to
+> > prevent driver freeing.  That way we could detect 'unused skb's' by=
+ a user count
+> > that was at the bias level.  Thoughts?
+> >=20
+>=20
+> I dont know. I use pktgen maybe once per week and never got a single
+> crash like this. We probably are very few pktgen users in the world, =
+and
+> we use it exactly to avoid calling skb_clone() or other expensive per
+> xmit setup.
+Please re-read my origional post.  Lots of drivers work just fine, some=
+ don't.
+Some just behave differently.  Its the random results thats broken and =
+I feel
+needs fixing.  I get that performance is an issue, and I'm open to othe=
+r
+solutions, I'm not open to just saying 'its fine, mostly'.
 
+>=20
+> Just remove pktgen from RedHat kernels, if you dont trust sysadmins.
+> # CONFIG_PKTGEN is not set
+>=20
+You're twisting my words.  At what point in time did I say I
+don't trust sysadmins?  I want to give them a tool that works reliably =
+without
+them having to comb through their nic drivers xmit patch to ensure that=
+ pktgen
+works without crashing or causing other odd behavior.  I don't think th=
+ats too
+much to ask.
+=20
+> Alternatively, add a check to problematic drivers to _not_ mess skb i=
+f
+> skb_shared(skb) is true : eventually use skb_share_check()
+>=20
+The former isn't feasible, as many skb modifications are neccesitated b=
+y the
+nature of the hardware.  The latter is possible, but far less scalable =
+than just
+modifying pktgen.
 
-
---=20
-Maciej A. =C5=BBenczykowski
-Kernel Networking Developer @ Google
-1600 Amphitheatre Parkway, Mountain View, CA 94043
-tel: +1 (650) 253-0062
+=46WIW, I like Ben's solution, adding a flag to drivers noting that the=
+y can't
+handle multi-skb.  Then we can dynamically enforce a clone in pktgen wh=
+en needed
+(or buffer up additional skbs)
