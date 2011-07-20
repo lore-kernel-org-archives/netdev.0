@@ -1,48 +1,50 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [patch net-next-2.6 35/47] e1000: do vlan cleanup
-Date: Wed, 20 Jul 2011 10:48:32 -0700
-Message-ID: <CAEP_g=-XJaq6KSwXXUzeFcqAo3WVWHCLyuqGYjcriRQiKO56bw@mail.gmail.com>
-References: <1311173689-17419-1-git-send-email-jpirko@redhat.com> <1311173689-17419-36-git-send-email-jpirko@redhat.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: 3.0.0rc6: ethtool not working without a cable
+Date: Wed, 20 Jul 2011 10:53:23 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1107201050450.1084@JBRANDEB-DESK2.amr.corp.intel.com>
+References: <201107061338.08573.a.miskiewicz@gmail.com> <1309962484.4280.25.camel@localhost> <201107061653.04689.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
-	greearb@candelatech.com, mirqus@gmail.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:35875 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751418Ab1GTRsw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 13:48:52 -0400
-Received: by yxi11 with SMTP id 11so226294yxi.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:48:52 -0700 (PDT)
-In-Reply-To: <1311173689-17419-36-git-send-email-jpirko@redhat.com>
+Received: from mga09.intel.com ([134.134.136.24]:34998 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751997Ab1GTRxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 13:53:30 -0400
+In-Reply-To: <201107061653.04689.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 20, 2011 at 7:54 AM, Jiri Pirko <jpirko@redhat.com> wrote:
-> @@ -4532,9 +4539,8 @@ static void e1000_vlan_rx_register(struct net_d=
-evice *netdev,
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!test_bit(__E1000_DOWN, &adapter->flag=
-s))
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0e1000_irq_disa=
-ble(adapter);
-> - =C2=A0 =C2=A0 =C2=A0 adapter->vlgrp =3D grp;
->
-> - =C2=A0 =C2=A0 =C2=A0 if (grp) {
-> + =C2=A0 =C2=A0 =C2=A0 if (vlan_on) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* enable VLAN=
- tag insert/strip */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ctrl =3D er32(=
-CTRL);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ctrl |=3D E100=
-0_CTRL_VME;
 
-Same comment here as with the igb driver.
+
+On Wed, 6 Jul 2011, Arkadiusz Miskiewicz wrote:
+
+> On Wednesday 06 of July 2011, Ben Hutchings wrote:
+> > > If there is no cable then ethtool reports no device. It wasn't that
+> > > before AFAIK.
+> > > 
+> > > ethtool version 2.6.36
+> > > 
+> > > 
+> > > cable disconnected:
+> > > 
+> > > [root@t400 ~]# ethtool eth0
+> > > Settings for eth0:
+> > > Cannot get device settings: No such device
+> > > Cannot get wake-on-lan settings: No such device
+> > > Cannot get message level: No such device
+> > > Cannot get link status: No such device
+> > > No data available
+> > > zsh: exit 75    ethtool eth0
+> > > [root@t400 ~]# ethtool -i eth0
+> > > Cannot get driver information: No such device
+> > > zsh: exit 71    ethtool -i eth0
+
+please check lspci -vvv on your device when cable is unplugged.  I'm 
+wondering if OSPM (os power management) is kicking in (if enabled in your 
+kernel) and somehow interacting badly with ethtool.
+
+if the device is in D3, then most ethtool stuff won't work, since all the 
+registers in the device (except in config space) don't work when in D3.
