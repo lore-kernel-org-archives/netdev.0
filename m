@@ -1,73 +1,129 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/8] tg3: Fix io failures after chip reset
-Date: Wed, 20 Jul 2011 13:20:50 -0700
-Message-ID: <1311193257-20531-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 7/8] tg3: Return size from tg3_vpd_readblock()
+Date: Wed, 20 Jul 2011 13:20:56 -0700
+Message-ID: <1311193257-20531-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2241 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2272 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751695Ab1GTUTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751713Ab1GTUTf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 20 Jul 2011 16:19:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit f2096f94b514d88593355995d5dd276961e88af1, entitled
-"tg3: Add 5720 H2BMC support", needed to add code to preserve some bits
-set by firmware.  Unfortunately the new code causes throughput to stop
-after a chip reset because it enables state machines before they are
-ready.  This patch undoes the problematic code.  The bits will be
-restored later in the init sequence.
+Newer VPD datablocks can exceed the size the tg3 driver is traditionally
+used to.  This can cause some of the routines that operate on the VPD
+data to fail when in-fact they could have succeeded had they known the
+correct size.  This patch fixes the problem.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   18 ++++++------------
- 1 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/tg3.c |   25 +++++++++++++------------
+ 1 files changed, 13 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index a5ff82d..5bf7671 100644
+index f2b0839..bce0f226 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7412,16 +7412,11 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		tw32(TG3PCI_CLOCK_CTRL, tp->pci_clock_ctrl);
+@@ -10573,7 +10573,7 @@ static void tg3_get_ethtool_stats(struct net_device *dev,
+ 	memcpy(tmp_stats, tg3_get_estats(tp), sizeof(tp->estats));
+ }
+ 
+-static __be32 * tg3_vpd_readblock(struct tg3 *tp)
++static __be32 *tg3_vpd_readblock(struct tg3 *tp, u32 *vpdlen)
+ {
+ 	int i;
+ 	__be32 *buf;
+@@ -10640,6 +10640,8 @@ static __be32 * tg3_vpd_readblock(struct tg3 *tp)
+ 			goto error;
  	}
  
--	if (tg3_flag(tp, ENABLE_APE))
--		tp->mac_mode = MAC_MODE_APE_TX_EN |
--			       MAC_MODE_APE_RX_EN |
--			       MAC_MODE_TDE_ENABLE;
--
- 	if (tp->phy_flags & TG3_PHYFLG_PHY_SERDES) {
--		tp->mac_mode |= MAC_MODE_PORT_MODE_TBI;
-+		tp->mac_mode = MAC_MODE_PORT_MODE_TBI;
- 		val = tp->mac_mode;
- 	} else if (tp->phy_flags & TG3_PHYFLG_MII_SERDES) {
--		tp->mac_mode |= MAC_MODE_PORT_MODE_GMII;
-+		tp->mac_mode = MAC_MODE_PORT_MODE_GMII;
- 		val = tp->mac_mode;
- 	} else
- 		val = 0;
-@@ -8559,12 +8554,11 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		udelay(10);
++	*vpdlen = len;
++
+ 	return buf;
+ 
+ error:
+@@ -10659,7 +10661,7 @@ error:
+ 
+ static int tg3_test_nvram(struct tg3 *tp)
+ {
+-	u32 csum, magic;
++	u32 csum, magic, len;
+ 	__be32 *buf;
+ 	int i, j, k, err = 0, size;
+ 
+@@ -10800,18 +10802,17 @@ static int tg3_test_nvram(struct tg3 *tp)
+ 
+ 	kfree(buf);
+ 
+-	buf = tg3_vpd_readblock(tp);
++	buf = tg3_vpd_readblock(tp, &len);
+ 	if (!buf)
+ 		return -ENOMEM;
+ 
+-	i = pci_vpd_find_tag((u8 *)buf, 0, TG3_NVM_VPD_LEN,
+-			     PCI_VPD_LRDT_RO_DATA);
++	i = pci_vpd_find_tag((u8 *)buf, 0, len, PCI_VPD_LRDT_RO_DATA);
+ 	if (i > 0) {
+ 		j = pci_vpd_lrdt_size(&((u8 *)buf)[i]);
+ 		if (j < 0)
+ 			goto out;
+ 
+-		if (i + PCI_VPD_LRDT_TAG_SIZE + j > TG3_NVM_VPD_LEN)
++		if (i + PCI_VPD_LRDT_TAG_SIZE + j > len)
+ 			goto out;
+ 
+ 		i += PCI_VPD_LRDT_TAG_SIZE;
+@@ -13209,14 +13210,14 @@ static void __devinit tg3_read_vpd(struct tg3 *tp)
+ {
+ 	u8 *vpd_data;
+ 	unsigned int block_end, rosize, len;
++	u32 vpdlen;
+ 	int j, i = 0;
+ 
+-	vpd_data = (u8 *)tg3_vpd_readblock(tp);
++	vpd_data = (u8 *)tg3_vpd_readblock(tp, &vpdlen);
+ 	if (!vpd_data)
+ 		goto out_no_vpd;
+ 
+-	i = pci_vpd_find_tag(vpd_data, 0, TG3_NVM_VPD_LEN,
+-			     PCI_VPD_LRDT_RO_DATA);
++	i = pci_vpd_find_tag(vpd_data, 0, vpdlen, PCI_VPD_LRDT_RO_DATA);
+ 	if (i < 0)
+ 		goto out_not_found;
+ 
+@@ -13224,7 +13225,7 @@ static void __devinit tg3_read_vpd(struct tg3 *tp)
+ 	block_end = i + PCI_VPD_LRDT_TAG_SIZE + rosize;
+ 	i += PCI_VPD_LRDT_TAG_SIZE;
+ 
+-	if (block_end > TG3_NVM_VPD_LEN)
++	if (block_end > vpdlen)
+ 		goto out_not_found;
+ 
+ 	j = pci_vpd_find_info_keyword(vpd_data, i, rosize,
+@@ -13249,7 +13250,7 @@ static void __devinit tg3_read_vpd(struct tg3 *tp)
+ 			goto partno;
+ 
+ 		memcpy(tp->fw_ver, &vpd_data[j], len);
+-		strncat(tp->fw_ver, " bc ", TG3_NVM_VPD_LEN - len - 1);
++		strncat(tp->fw_ver, " bc ", vpdlen - len - 1);
  	}
  
--	if (tg3_flag(tp, ENABLE_APE))
--		tp->mac_mode = MAC_MODE_APE_TX_EN | MAC_MODE_APE_RX_EN;
--	else
--		tp->mac_mode = 0;
- 	tp->mac_mode |= MAC_MODE_TXSTAT_ENABLE | MAC_MODE_RXSTAT_ENABLE |
--		MAC_MODE_TDE_ENABLE | MAC_MODE_RDE_ENABLE | MAC_MODE_FHDE_ENABLE;
-+			MAC_MODE_TDE_ENABLE | MAC_MODE_RDE_ENABLE |
-+			MAC_MODE_FHDE_ENABLE;
-+	if (tg3_flag(tp, ENABLE_APE))
-+		tp->mac_mode |= MAC_MODE_APE_TX_EN | MAC_MODE_APE_RX_EN;
- 	if (!tg3_flag(tp, 5705_PLUS) &&
- 	    !(tp->phy_flags & TG3_PHYFLG_PHY_SERDES) &&
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700)
+ partno:
+@@ -13262,7 +13263,7 @@ partno:
+ 
+ 	i += PCI_VPD_INFO_FLD_HDR_SIZE;
+ 	if (len > TG3_BPN_SIZE ||
+-	    (len + i) > TG3_NVM_VPD_LEN)
++	    (len + i) > vpdlen)
+ 		goto out_not_found;
+ 
+ 	memcpy(tp->board_part_number, &vpd_data[i], len);
 -- 
 1.7.3.4
 
