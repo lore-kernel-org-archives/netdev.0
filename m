@@ -1,41 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] iproute2, ifindex option
-Date: Wed, 20 Jul 2011 08:58:42 -0700
-Message-ID: <20110720085842.03dd411c@nehalam.ftrdhcpuser.net>
-References: <f91760b4ff170e4bdbd46f40822dd95e@visp.net.lb>
-	<20110720083753.2b8de970@nehalam.ftrdhcpuser.net>
-	<8dcbf9cb55d19da1e7f849d11d8eb216@visp.net.lb>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [patch net-next-2.6 04/47] nes: do vlan cleanup
+Date: Wed, 20 Jul 2011 18:01:09 +0200
+Message-ID: <CAHXqBFJ3ERvHTcJcJLOGSGeYGbnE9XaRu7Dm_dRjAmR4PYq+VA@mail.gmail.com>
+References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
+ <1311173689-17419-5-git-send-email-jpirko@redhat.com> <CAHXqBFK6u1JqGjC3Wh8Bn7Y0VjsMOf8WL7eHadLRJafNLX0HXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
+	greearb@candelatech.com, faisal.latif@intel.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36414 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751538Ab1GTP6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 11:58:40 -0400
-In-Reply-To: <8dcbf9cb55d19da1e7f849d11d8eb216@visp.net.lb>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:43574 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584Ab1GTQB3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 12:01:29 -0400
+Received: by qyk29 with SMTP id 29so2750508qyk.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 09:01:29 -0700 (PDT)
+In-Reply-To: <CAHXqBFK6u1JqGjC3Wh8Bn7Y0VjsMOf8WL7eHadLRJafNLX0HXw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Jul 2011 18:54:44 +0300
-Denys Fedoryshchenko <denys@visp.net.lb> wrote:
+W dniu 20 lipca 2011 17:45 u=BFytkownik Micha=B3 Miros=B3aw
+<mirqus@gmail.com> napisa=B3:
+> 2011/7/20 Jiri Pirko <jpirko@redhat.com>:
+>> - unify vlan and nonvlan rx path
+>> - kill nesvnic->vlan_grp and nes_netdev_vlan_rx_register
+>> - allow to turn on/off rx/tx vlan accel via ethtool (set_features)
+> [...]
+>> =A0/**
+>> @@ -1656,7 +1679,7 @@ struct net_device *nes_netdev_init(struct nes_=
+device *nesdev,
+>> =A0 =A0 =A0 =A0netdev->ethtool_ops =3D &nes_ethtool_ops;
+>> =A0 =A0 =A0 =A0netif_napi_add(netdev, &nesvnic->napi, nes_netdev_pol=
+l, 128);
+>> =A0 =A0 =A0 =A0nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.=
+\n");
+>> - =A0 =A0 =A0 netdev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_=
+VLAN_RX;
+>> + =A0 =A0 =A0 netdev->features |=3D NETIF_F_HW_VLAN_TX;
+> Just remove this line - nes_fix_features() is controlling the flag an=
+yway.
 
->  On Wed, 20 Jul 2011 08:37:53 -0700, Stephen Hemminger wrote:
-> >
-> > If caching is a problem, I would rather just get rid of the cache 
-> > altogether.
-> > There are a number of other places where it is a problem as well.
->  It is good, but it must be controlled. Also people put some efforts to 
->  improve it...
->  Before i did custom patch to "trash" the cache, but after cache 
->  improved i should rewrite it. If required, i can make cache behavior 
->  changeable (on,off,flush ?).
->  Will it help for you too?
-> 
->  I think ifindex is good anyway, because sometimes it is better to refer 
->  to specific ppp interface by ifindex.
+=46orget it - it's good.
 
-The problem is that it is not possible to make a "safe" cache since
-it is possible for network device names to be changed at any time.
+I need to think about calling ndo_set_features callback at end of
+register_netdev() so the drivers won't need to duplicate the
+call/configuration in their ndo_init.
+
+Best Regards,
+Micha=B3 Miros=B3aw
