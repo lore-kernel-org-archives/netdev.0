@@ -1,89 +1,118 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net: vlan: fix compile breakage from 69ecca8
-Date: Wed, 20 Jul 2011 14:06:46 -0700
-Message-ID: <20110720140646.b66bd02b.rdunlap@xenotime.net>
-References: <0E5EAE44-204C-4F4D-926C-F4D973B0CDB1@qlogic.com>
-	<1311191033-714631-1-git-send-email-equinox@diac24.net>
+From: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH 3/3] wireless: mwifiex: print hw address via %pM
+Date: Wed, 20 Jul 2011 14:46:32 -0700
+Message-ID: <477F20668A386D41ADCC57781B1F704307FFBB2835@SC-VEXCH1.marvell.com>
+References: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko@linux.intel.com>
+ <8f12d3ad71585e863084560b227534a4b9e4af54.1311162926.git.andriy.shevchenko@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-driver@qlogic.com,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1311191033-714631-1-git-send-email-equinox@diac24.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+To: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Lin
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8f12d3ad71585e863084560b227534a4b9e4af54.1311162926.git.andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Jul 2011 21:43:53 +0200 David Lamparter wrote:
+Hi Andy,
 
-> well, there was too much wood to see the tree and I messed up the
-> configuration dependencies. let's make it work with unset
-> CONFIG_VLAN_8021Q and remove the second definition of vlan_find_dev.
+Thanks for the patch.
+
+> -----Original Message-----
+> From: Andy Shevchenko [mailto:andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org]
+> Sent: Wednesday, July 20, 2011 6:35 AM
+> To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; John W. Linville; linux-
+> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: Andy Shevchenko; Bing Zhao
+> Subject: [PATCH 3/3] wireless: mwifiex: print hw address via %pM
 > 
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> Cc: linux-driver@qlogic.com
-> Cc: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Randy Dunlap <rdunlap@xenotime.net>
+> Signed-off-by: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Cc: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
 
-Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+Acked-by: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
 
-Thanks.
+Thanks,
+Bing
 
 > ---
-> sorry for the mess-up... compiled with CONFIG_VLAN_8021Q=n,m and y
-> this time; don't have qlcnic hw to test.
+>  drivers/net/wireless/mwifiex/debugfs.c |   33 +++++++------------------------
+>  1 files changed, 8 insertions(+), 25 deletions(-)
 > 
->  drivers/net/qlcnic/qlcnic_main.c |    4 +++-
->  include/linux/if_vlan.h          |    5 -----
->  2 files changed, 3 insertions(+), 6 deletions(-)
+> diff --git a/drivers/net/wireless/mwifiex/debugfs.c b/drivers/net/wireless/mwifiex/debugfs.c
+> index 1bcf9ea..d26a78b 100644
+> --- a/drivers/net/wireless/mwifiex/debugfs.c
+> +++ b/drivers/net/wireless/mwifiex/debugfs.c
+> @@ -216,28 +216,19 @@ mwifiex_info_read(struct file *file, char __user *ubuf,
+>  	p += sprintf(p, "bss_mode=\"%s\"\n", bss_modes[info.bss_mode]);
+>  	p += sprintf(p, "media_state=\"%s\"\n",
+>  		     (!priv->media_connected ? "Disconnected" : "Connected"));
+> -	p += sprintf(p, "mac_address=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
+> -		     netdev->dev_addr[0], netdev->dev_addr[1],
+> -		     netdev->dev_addr[2], netdev->dev_addr[3],
+> -		     netdev->dev_addr[4], netdev->dev_addr[5]);
+> +	p += sprintf(p, "mac_address=\"%pM\"\n", netdev->dev_addr);
 > 
-> diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-> index 3579229..a2c39e9 100644
-> --- a/drivers/net/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/qlcnic/qlcnic_main.c
-> @@ -4198,13 +4198,15 @@ static void
->  qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
->  {
->  	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-> -	struct vlan_group *grp;
-> +	struct vlan_group *grp = NULL;
->  	struct net_device *dev;
->  	u16 vid;
->  
->  	qlcnic_config_indev_addr(adapter, netdev, event);
->  
-> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
->  	grp = rcu_dereference_rtnl(netdev->vlgrp);
-> +#endif
->  	if (!grp)
->  		return;
->  
-> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> index bc03e40..dbe41dc 100644
-> --- a/include/linux/if_vlan.h
-> +++ b/include/linux/if_vlan.h
-> @@ -135,11 +135,6 @@ vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
->  	       unsigned int vlan_tci);
->  
->  #else
-> -static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
-> -					       u16 vlan_id)
-> -{
-> -	return NULL;
-> -}
->  
->  static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
->  {
-> -- 
+>  	if (GET_BSS_ROLE(priv) == MWIFIEX_BSS_ROLE_STA) {
+>  		p += sprintf(p, "multicast_count=\"%d\"\n",
+>  			     netdev_mc_count(netdev));
+>  		p += sprintf(p, "essid=\"%s\"\n", info.ssid.ssid);
+> -		p += sprintf(p, "bssid=\"%02x:%02x:%02x:%02x:%02x:%02x\"\n",
+> -			     info.bssid[0], info.bssid[1],
+> -			     info.bssid[2], info.bssid[3],
+> -			     info.bssid[4], info.bssid[5]);
+> +		p += sprintf(p, "bssid=\"%pM\"\n", info.bssid);
+>  		p += sprintf(p, "channel=\"%d\"\n", (int) info.bss_chan);
+>  		p += sprintf(p, "region_code = \"%02x\"\n", info.region_code);
+> 
+>  		netdev_for_each_mc_addr(ha, netdev)
+> -			p += sprintf(p, "multicast_address[%d]="
+> -				     "\"%02x:%02x:%02x:%02x:%02x:%02x\"\n", i++,
+> -				     ha->addr[0], ha->addr[1],
+> -				     ha->addr[2], ha->addr[3],
+> -				     ha->addr[4], ha->addr[5]);
+> +			p += sprintf(p, "multicast_address[%d]=\"%pM\"\n",
+> +					i++, ha->addr);
+>  	}
+> 
+>  	p += sprintf(p, "num_tx_bytes = %lu\n", priv->stats.tx_bytes);
+> @@ -451,26 +442,18 @@ mwifiex_debug_read(struct file *file, char __user *ubuf,
+>  	if (info.tx_tbl_num) {
+>  		p += sprintf(p, "Tx BA stream table:\n");
+>  		for (i = 0; i < info.tx_tbl_num; i++)
+> -			p += sprintf(p, "tid = %d, "
+> -				     "ra = %02x:%02x:%02x:%02x:%02x:%02x\n",
+> -				     info.tx_tbl[i].tid, info.tx_tbl[i].ra[0],
+> -				     info.tx_tbl[i].ra[1], info.tx_tbl[i].ra[2],
+> -				     info.tx_tbl[i].ra[3], info.tx_tbl[i].ra[4],
+> -				     info.tx_tbl[i].ra[5]);
+> +			p += sprintf(p, "tid = %d, ra = %pM\n",
+> +				     info.tx_tbl[i].tid, info.tx_tbl[i].ra);
+>  	}
+> 
+>  	if (info.rx_tbl_num) {
+>  		p += sprintf(p, "Rx reorder table:\n");
+>  		for (i = 0; i < info.rx_tbl_num; i++) {
+> -
+> -			p += sprintf(p, "tid = %d, "
+> -				     "ta = %02x:%02x:%02x:%02x:%02x:%02x, "
+> +			p += sprintf(p, "tid = %d, ta = %pM, "
+>  				     "start_win = %d, "
+>  				     "win_size = %d, buffer: ",
+>  				     info.rx_tbl[i].tid,
+> -				     info.rx_tbl[i].ta[0], info.rx_tbl[i].ta[1],
+> -				     info.rx_tbl[i].ta[2], info.rx_tbl[i].ta[3],
+> -				     info.rx_tbl[i].ta[4], info.rx_tbl[i].ta[5],
+> +				     info.rx_tbl[i].ta,
+>  				     info.rx_tbl[i].start_win,
+>  				     info.rx_tbl[i].win_size);
+> 
+> --
+> 1.7.5.4
 
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
