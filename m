@@ -1,44 +1,75 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 02/47] vlan: finish removing vlan_find_dev from public header
-Date: Wed, 20 Jul 2011 16:54:04 +0200
-Message-ID: <1311173689-17419-3-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 07/47] lro: kill lro_vlan_hwaccel_receive_frags
+Date: Wed, 20 Jul 2011 16:54:09 +0200
+Message-ID: <1311173689-17419-8-git-send-email-jpirko@redhat.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57156 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16846 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751541Ab1GTOzA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 10:55:00 -0400
+	id S1751683Ab1GTOzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 10:55:08 -0400
 In-Reply-To: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-else case remained forgotten.
-
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- include/linux/if_vlan.h |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+ include/linux/inet_lro.h |    7 -------
+ net/ipv4/inet_lro.c      |   20 --------------------
+ 2 files changed, 0 insertions(+), 27 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index bc03e40..cfb0cf2 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -135,12 +135,6 @@ vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
- 	       unsigned int vlan_tci);
+diff --git a/include/linux/inet_lro.h b/include/linux/inet_lro.h
+index 940bbde..b27e773 100644
+--- a/include/linux/inet_lro.h
++++ b/include/linux/inet_lro.h
+@@ -155,13 +155,6 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+ 		       struct skb_frag_struct *frags,
+ 		       int len, int true_size, void *priv, __wsum sum);
  
- #else
--static inline struct net_device *vlan_find_dev(struct net_device *real_dev,
--					       u16 vlan_id)
--{
--	return NULL;
--}
+-void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
+-				    struct skb_frag_struct *frags,
+-				    int len, int true_size,
+-				    struct vlan_group *vgrp,
+-				    u16 vlan_tag,
+-				    void *priv, __wsum sum);
 -
- static inline struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+ /*
+  * Forward all aggregated SKBs held by lro_mgr to network stack
+  */
+diff --git a/net/ipv4/inet_lro.c b/net/ipv4/inet_lro.c
+index e54425d..5cf0759 100644
+--- a/net/ipv4/inet_lro.c
++++ b/net/ipv4/inet_lro.c
+@@ -541,26 +541,6 @@ void lro_receive_frags(struct net_lro_mgr *lro_mgr,
+ }
+ EXPORT_SYMBOL(lro_receive_frags);
+ 
+-void lro_vlan_hwaccel_receive_frags(struct net_lro_mgr *lro_mgr,
+-				    struct skb_frag_struct *frags,
+-				    int len, int true_size,
+-				    struct vlan_group *vgrp,
+-				    u16 vlan_tag, void *priv, __wsum sum)
+-{
+-	struct sk_buff *skb;
+-
+-	skb = __lro_proc_segment(lro_mgr, frags, len, true_size, vgrp,
+-				 vlan_tag, priv, sum);
+-	if (!skb)
+-		return;
+-
+-	if (lro_mgr->features & LRO_F_NAPI)
+-		vlan_hwaccel_receive_skb(skb, vgrp, vlan_tag);
+-	else
+-		vlan_hwaccel_rx(skb, vgrp, vlan_tag);
+-}
+-EXPORT_SYMBOL(lro_vlan_hwaccel_receive_frags);
+-
+ void lro_flush_all(struct net_lro_mgr *lro_mgr)
  {
- 	BUG();
+ 	int i;
 -- 
 1.7.6
 
