@@ -1,108 +1,119 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in
- ndo_start_xmit methods
-Date: Wed, 20 Jul 2011 11:40:57 -0400
-Message-ID: <20110720154057.GF12349@hmsreliant.think-freely.org>
-References: <1311105738.3113.11.camel@edumazet-laptop>
- <20110719202922.GA2352@minipsycho>
- <1311108107.3113.22.camel@edumazet-laptop>
- <20110720001904.GA1992@neilslaptop.think-freely.org>
- <1311122593.3113.46.camel@edumazet-laptop>
- <4E2626E1.6030005@candelatech.com>
- <20110720020737.GB2692@neilslaptop.think-freely.org>
- <1311135855.3113.66.camel@edumazet-laptop>
- <20110720151827.GD12349@hmsreliant.think-freely.org>
- <CAHXqBFKD1bD8uMYOwbhsutT0ZuEiw=7pUDM1hVGpCgrdnV6zAg@mail.gmail.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH net-next]vhost: fix condition check for # of
+ outstanding dma buffers
+Date: Wed, 20 Jul 2011 08:43:09 -0700
+Message-ID: <1311176589.8573.33.camel@localhost.localdomain>
+References: <1311100678.8573.16.camel@localhost.localdomain>
+	 <20110719190945.GB8667@redhat.com>
+	 <1311108985.8573.30.camel@localhost.localdomain>
+	 <20110720102831.GA5164@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, robert.olsson@its.uu.se
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jasowang@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59203 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577Ab1GTPlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 11:41:15 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHXqBFKD1bD8uMYOwbhsutT0ZuEiw=7pUDM1hVGpCgrdnV6zAg@mail.gmail.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:39085 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751712Ab1GTPnZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 11:43:25 -0400
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p6KFEIM3026122
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 11:14:18 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6KFhEeb108258
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 11:43:14 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6KBh1bl019297
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 08:43:01 -0300
+In-Reply-To: <20110720102831.GA5164@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 20, 2011 at 05:35:47PM +0200, Micha=C5=82 Miros=C5=82aw wro=
-te:
-> 2011/7/20 Neil Horman <nhorman@tuxdriver.com>:
-> > On Wed, Jul 20, 2011 at 06:24:15AM +0200, Eric Dumazet wrote:
-> >> Le mardi 19 juillet 2011 =C3=A0 22:07 -0400, Neil Horman a =C3=A9c=
-rit :
-> >> > >
-> >> > I think this is a good idea. =C2=A0It lets pktgen dynamically ma=
-ke the clone/share
-> >> > decision dynamically and only impacts performance for those syst=
-ems.
-> >> >
-> >>
-> >> Just let pktgen refuse to use clone_skb command for these devices.
-> >>
-> > copy that, This is by no means final, but what do you think of this=
-? =C2=A0If its
-> > agreeable to you, Ben, et al. I can add this to my local tree and s=
-tart auditing
-> > all the drivers that may need to have the flag set.
+On Wed, 2011-07-20 at 13:28 +0300, Michael S. Tsirkin wrote:
+> On Tue, Jul 19, 2011 at 01:56:25PM -0700, Shirley Ma wrote:
+> > On Tue, 2011-07-19 at 22:09 +0300, Michael S. Tsirkin wrote:
+> > > On Tue, Jul 19, 2011 at 11:37:58AM -0700, Shirley Ma wrote:
+> > > > Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> > > > ---
+> > > > 
+> > > >  drivers/vhost/net.c |    6 ++++--
+> > > >  1 files changed, 4 insertions(+), 2 deletions(-)
+> > > > 
+> > > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > > > index 70ac604..83cb738 100644
+> > > > --- a/drivers/vhost/net.c
+> > > > +++ b/drivers/vhost/net.c
+> > > > @@ -189,8 +189,10 @@ static void handle_tx(struct vhost_net
+> *net)
+> > > >                               break;
+> > > >                       }
+> > > >                       /* If more outstanding DMAs, queue the
+> work */
+> > > > -                     if (unlikely(vq->upend_idx - vq->done_idx
 > >
-> > Regards
-> > Neil
+> > > > -                                  VHOST_MAX_PEND)) {
+> > > > +                     if (unlikely((vq->upend_idx - vq->done_idx
 > >
+> > > > +                                     VHOST_MAX_PEND) ||
+> > > > +                                  (vq->upend_idx - vq->done_idx
 > >
-> > diff --git a/include/linux/if.h b/include/linux/if.h
-> > index 3bc63e6..ae904fe 100644
-> > --- a/include/linux/if.h
-> > +++ b/include/linux/if.h
-> > @@ -76,6 +76,7 @@
-> > =C2=A0#define IFF_BRIDGE_PORT =C2=A0 =C2=A0 =C2=A0 =C2=A00x4000 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* device used as bridge port */
-> > =C2=A0#define IFF_OVS_DATAPATH =C2=A0 =C2=A0 =C2=A0 0x8000 =C2=A0/*=
- device used as Open vSwitch
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-* datapath port */
-> > +#define IFF_CANT_SHARE_SKB =C2=A0 =C2=A0 0x10000 /* Device can't s=
-hare skbs in tx path */
-> >
-> > =C2=A0#define IF_GET_IFACE =C2=A0 0x0001 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0/* for querying only */
-> > =C2=A0#define IF_GET_PROTO =C2=A0 0x0002
-> > diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> > index f76079c..bf6d88d 100644
-> > --- a/net/core/pktgen.c
-> > +++ b/net/core/pktgen.c
-> > @@ -1071,6 +1071,9 @@ static ssize_t pktgen_if_write(struct file *f=
-ile,
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (len < 0)
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return len;
-> >
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (pkt_dev->pri=
-v_flags & IFF_CANT_SHARE_SKB)
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 return -EOPNOTSUPP;
-> > +
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0i +=3D len;
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pkt_dev->clo=
-ne_skb =3D value;
-> >
->=20
-> I would prefer that the flag be inclusive, i.e. it should mark driver=
-s
-> which can use shared skbs. And it might be better to clone the skb in
-> case the flag is disabled to keep functionality working.
->=20
-Ok, I can agree with that.  But you're ok with the general approach?
-Neil
+> > > > +                                      VHOST_MAX_PEND -
+> > > UIO_MAXIOV))) {
+> > > 
+> > > Could you please explain why this makes sense please?
+> > > VHOST_MAX_PEND is 128 UIO_MAXIOV is 1024 so
+> > > the result is negative?
+> > 
+> > I thought it is equal to:
+> > 
+> > if (vq->upend_idx > vq->done_idx) 
+> >       check vq->upend_idx - vq->done_idx > VHOST_MAX_PEND
+> > if (vq->upend_idx < vq->done_idx)
+> >       check vq->upend_idx + UIO_MAXIOV - vq->done_idx >
+> VHOST_MAX_PEND
+> >       
+> 
+> Check it out: upend_idx == done_idx == 0 does not satisfy the
+> above conditions but does trigger in your code, right?
 
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
->=20
+We don't hit upend_idx == done_idx == 0. Only upend_idx == done_idx ==
+UIO_MAXIOV could happen if the lower device has issue and never DMA any
+packets out.
+
+> Better keep it simple. Maybe:
+> 
+>         if (unlikely(vq->upend_idx - vq->done_idx > VHOST_MAX_PEND) ||
+>                 (unlikely(vq->upend_idx < vq->done_idx) &&
+>                 unlikely(vq->upend_idx + UIO_MAXIOV - vq->done_idx >
+>                          VHOST_MAX_PEND)))
+> 
+> ?
+> 
+> Also, please add commit log documenting what does the patch
+> fix: something like:
+>         'the test for # of outstanding buffers returned
+>          incorrect results when due to wrap around,
+>          upend_idx < done_idx'?
+
+Sure, will modify it and resubmit.
+
+> > > I thought upend_idx - done_idx is exactly the number
+> > > of buffers, so once we get too many we stop until
+> > > one gets freed?
+> > 
+> > They are index, so in vhost zerocopy callback, we can get the idx
+> right
+> > away.
+> > 
+> > > 
+> > > >                               tx_poll_start(net, sock);
+> > > >                               set_bit(SOCK_ASYNC_NOSPACE,
+> > > &sock->flags);
+> > > >                               break;
+> > > > 
+
+Thanks
+Shirley
+
