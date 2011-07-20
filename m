@@ -1,33 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: Auto-detect the presence of setns in libc
-Date: Wed, 20 Jul 2011 15:16:51 -0700
-Message-ID: <20110720151651.37895522@nehalam.ftrdhcpuser.net>
-References: <m1mxgfkr3g.fsf@fess.ebiederm.org>
-	<CAEik5nOO9KQoEdvPUGwLBDJqOP9OWgz=G-3KMyvwiu4nwoyb=g@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: Convert printks to pr_<level>
+Date: Wed, 20 Jul 2011 17:45:39 -0500
+Message-ID: <4E275A93.4050705@lwfinger.net>
+References: <b57f00fc1d0947443aa1830c11c288e78924af44.1311177059.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: Dan McGee <dan@archlinux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59467 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751691Ab1GTWQs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 18:16:48 -0400
-In-Reply-To: <CAEik5nOO9KQoEdvPUGwLBDJqOP9OWgz=G-3KMyvwiu4nwoyb=g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b57f00fc1d0947443aa1830c11c288e78924af44.1311177059.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Jul 2011 19:34:04 -0500
-Dan McGee <dan@archlinux.org> wrote:
+On 07/20/2011 10:51 AM, Joe Perches wrote:
+> Use the current logging styles.
+> Add pr_fmt where appropriate.
+> Remove now unnecessary prefixes from printks.
+> Convert hard coded prefix to __func__.
+> Add a missing "\n" to a format.
+>
+> Signed-off-by: Joe Perches<joe@perches.com>
+> ---
+>   drivers/net/wireless/rtlwifi/base.c               |    9 ++-
+>   drivers/net/wireless/rtlwifi/cam.c                |    4 +-
+>   drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c |    5 +-
+>   drivers/net/wireless/rtlwifi/rtl8192cu/hw.c       |   69 ++++++++------------
+>   drivers/net/wireless/rtlwifi/rtl8192cu/mac.c      |   11 ++-
+>   drivers/net/wireless/rtlwifi/rtl8192de/sw.c       |    8 +-
+>   drivers/net/wireless/rtlwifi/rtl8192se/hw.c       |   10 ++--
+>   drivers/net/wireless/rtlwifi/rtl8192se/phy.c      |    5 +-
+>   drivers/net/wireless/rtlwifi/rtl8192se/rf.c       |    4 +-
+>   drivers/net/wireless/rtlwifi/rtl8192se/sw.c       |    6 +-
+>   drivers/net/wireless/rtlwifi/usb.c                |   12 ++--
+>   11 files changed, 72 insertions(+), 71 deletions(-)
+>
+> diff --git a/drivers/net/wireless/rtlwifi/base.c b/drivers/net/wireless/rtlwifi/base.c
+> index bc13533..d88e405 100644
+> --- a/drivers/net/wireless/rtlwifi/base.c
+> +++ b/drivers/net/wireless/rtlwifi/base.c
+> @@ -27,6 +27,8 @@
+>    *
+>    *****************************************************************************/
 
-> On Fri, Jul 15, 2011 at 7:26 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
-> >
-> > If libc has setns present use that version instead of
-> > rolling the syscall wrapper by hand.
-> >
-
-I am more inclined to get rid of the wrapper completely
-and just not put setns support in if libc doesn't support it.
-
+ACKed-by: Larry Finger <Larry.Finger@lwfinger.net>
