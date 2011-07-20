@@ -1,61 +1,77 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: [RFC] iproute2, ifindex option
-Date: Wed, 20 Jul 2011 19:12:57 +0300
-Message-ID: <c64661bcbe0fc5bcedf2bb0ea4a44dde@visp.net.lb>
-References: <f91760b4ff170e4bdbd46f40822dd95e@visp.net.lb>
- <20110720083753.2b8de970@nehalam.ftrdhcpuser.net>
- <8dcbf9cb55d19da1e7f849d11d8eb216@visp.net.lb>
- <20110720085842.03dd411c@nehalam.ftrdhcpuser.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
+Date: Wed, 20 Jul 2011 09:15:56 -0700
+Message-ID: <20110720091556.619a0c14@nehalam.ftrdhcpuser.net>
+References: <20110719180222.GA7509@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:34031 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280Ab1GTQM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 12:12:59 -0400
-In-Reply-To: <20110720085842.03dd411c@nehalam.ftrdhcpuser.net>
+Received: from mail.vyatta.com ([76.74.103.46]:58527 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752341Ab1GTQP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 12:15:58 -0400
+In-Reply-To: <20110719180222.GA7509@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- On Wed, 20 Jul 2011 08:58:42 -0700, Stephen Hemminger wrote:
-> On Wed, 20 Jul 2011 18:54:44 +0300
-> Denys Fedoryshchenko <denys@visp.net.lb> wrote:
->
->>  On Wed, 20 Jul 2011 08:37:53 -0700, Stephen Hemminger wrote:
->> >
->> > If caching is a problem, I would rather just get rid of the cache
->> > altogether.
->> > There are a number of other places where it is a problem as well.
->>  It is good, but it must be controlled. Also people put some efforts 
->> to
->>  improve it...
->>  Before i did custom patch to "trash" the cache, but after cache
->>  improved i should rewrite it. If required, i can make cache 
->> behavior
->>  changeable (on,off,flush ?).
->>  Will it help for you too?
->>
->>  I think ifindex is good anyway, because sometimes it is better to 
->> refer
->>  to specific ppp interface by ifindex.
->
-> The problem is that it is not possible to make a "safe" cache since
-> it is possible for network device names to be changed at any time.
+On Tue, 19 Jul 2011 20:02:53 +0200
+Jiri Bohac <jbohac@suse.cz> wrote:
 
- Maybe then by removing cache, but using ifindex option, and maybe even 
- adding in output additional ifindex field (for show commands), we can 
- leave user to implement his own caching?
+> Hi,
+> 
+> I came over a surprising behaviour with IPv6 autoconfiguration,
+> which I think is a bug, but I would first like to hear other
+> people's opinions before trying to fix this:
+> 
+> Problem 1: all the address/route lifetimes are kept in jiffies
+> and jiffies don't get incremented on resume. So when a
+> route/address lifetime is 30 minutes and the system resumes after
+> 1 hour, the route/address should be considered expired, but it is
+> not.
+> 
+> Problem 2: when a system is moved to a new network a RS is not
+> sent. Thus, IPv6 does not autoconfigure until the router sends a
+> periodic RA. This can occur both while the system is alive and
+> while it is suspended. I think the autoconfigured state should be
+> discarded when the kernel suspects the system could have been
+> moved to a different network.
+> 
+> When the cable is unplugged and plugged in again, we already get
+> notified through linkwatch -> netdev_state_change ->
+>   -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
+> However, if the device has already been autoconfigured,
+> addrconf_notify() only handles this event by printing a
+> message.
+> 
+> So my idea was to:
+> - handle link up/down in addrconf_notify() similarly to
+>   NETDEV_UP/NETDEV_DOWN
+> 
+> - on suspend, faking a link down event; on resume, faking a link up event
+>   (or better, having a special event type for suspend/resume)
+> 
+> This would cause autoconfiguration to be restarted on resume as
+> well as cable plug/unplug, solving both the above problems.
+> 
+> Or do we want to completely rely on userspace tools
+> (networkmanager/ifplug) and expect them to do NETDEV_DOWN on
+> unplug/suspend and NETDEV_UP on plug/resume?
+> 
+> Any thoughts?
 
- Another thing, on tc -s -d qdisc show, if there is many interfaces, 
- without cache on each line ll_index_to_name() it will be CPU and netlink 
- hog to retrieve all interface names again and again, especially if there 
- is too many intefaces.
+What hardware?
 
- ---
- System administrator
- Denys Fedoryshchenko
- Virtual ISP S.A.L.
+I think the normal solution is to have the device drop the link
+during it's suspend and then attempt to renegotiate it on resume.
+This is needed for wired (autonegotiation) and wireless already.
+There maybe old drivers that don't do this. That is probably why
+Ubuntu and other distro's used to rmmod the drivers during suspend.
+
+If the driver drops the link during suspend then the necessary link
+events happen to keep bridging, ipv6, bonding and all the other possible
+network protocols happy.
+
