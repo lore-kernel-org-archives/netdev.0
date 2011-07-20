@@ -1,31 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: NIC driver r8168 with r8169 for RTL8111/8168B and DGE-528T
- together
-Date: Wed, 20 Jul 2011 12:22:06 -0700
-Message-ID: <20110720122206.73898673@nehalam.ftrdhcpuser.net>
-References: <4E26B198.4020606@telkomsa.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: icmp_route_lookup returns wrong source address information
+Date: Wed, 20 Jul 2011 21:22:58 +0200
+Message-ID: <20110720192258.GA21528@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Danie Wessels <dawessels@telkomsa.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34511 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752063Ab1GTTWI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 15:22:08 -0400
-In-Reply-To: <4E26B198.4020606@telkomsa.net>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:49123 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752017Ab1GTTW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 15:22:59 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Jul 2011 12:44:40 +0200
-Danie Wessels <dawessels@telkomsa.net> wrote:
+Hello David,
 
-> I would like to use my onboard NIC (eth0) with its r8168 driver from 
-> RealTek together with my D-Link NIC (eth4=eth1) with its r8169 default 
-> driver from the install.
+With linux-2.6 and net-next trees, whenever an icmp error message is
+sent in response to a to-be-forwarded packet, the destination address
+of the original packet is used as the IP header source address.
 
-The kernel developers do not support the use of out of tree
-vendor drivers. If there is some reason the default kernel driver does
-not work for your hardware, that is a bug that should be reported and
-it will get fixed.
+Example:
+$ traceroute breakpoint.cc
+traceroute to breakpoint.cc (85.10.199.196), 30 hops max, 40 byte packets
+ 1  chamillionaire.breakpoint.cc (85.10.199.196)  0.476 ms  0.468 ms  0.793 ms
+
+But the expected 1st hop is 192.168.20.7 in my setup.
+
+I bisected this down to 77968b78242ee25e2a4d759f0fca8dd52df6d479
+("ipv4: Pass flow keys down into datagram packet building engine.")
+
+Specifically, it is caused by this hunk:
+
+-static struct rtable *icmp_route_lookup(struct net *net, struct sk_buff *skb_in,
++static struct rtable *icmp_route_lookup(struct net *net,
++					struct flowi4 *fl4,
+[..]
+ {
+-	struct flowi4 fl4 = {
+-		.daddr = (param->replyopts.opt.opt.srr ?
+-			  param->replyopts.opt.opt.faddr : iph->saddr),
+-		.saddr = saddr,
+-		.flowi4_tos = RT_TOS(tos),
+-		.flowi4_proto = IPPROTO_ICMP,
+-		.fl4_icmp_type = type,
+-		.fl4_icmp_code = code,
+-	};
+ 	struct rtable *rt, *rt2;
+ 	int err;
+[..]
+-	err = xfrm_decode_session_reverse(skb_in, flowi4_to_flowi(&fl4), AF_INET);
++	err = xfrm_decode_session_reverse(skb_in, flowi4_to_flowi(fl4), AF_INET);
+ 	if (err)
+ 		goto relookup_failed;
+
+Problem is that xfrm_decode_session_reverse() may rebuild fl4 from scratch.
+
+In my setup, "goto relookup_failed" will be hit a bit later on, and fl4->saddr will
+be set to iph->daddr...
+
+Thanks,
+Florian
