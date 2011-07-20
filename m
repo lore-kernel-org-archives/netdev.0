@@ -1,59 +1,68 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 04/47] nes: do vlan cleanup
-Date: Wed, 20 Jul 2011 21:00:30 +0200
-Message-ID: <20110720190027.GA2688@minipsycho.redhat.com>
+Subject: Re: [patch net-next-2.6 18/47] igbvf: do vlan cleanup
+Date: Wed, 20 Jul 2011 21:07:06 +0200
+Message-ID: <20110720190704.GB2688@minipsycho.redhat.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
- <1311173689-17419-5-git-send-email-jpirko@redhat.com>
- <CAHXqBFK6u1JqGjC3Wh8Bn7Y0VjsMOf8WL7eHadLRJafNLX0HXw@mail.gmail.com>
- <CAHXqBFJ3ERvHTcJcJLOGSGeYGbnE9XaRu7Dm_dRjAmR4PYq+VA@mail.gmail.com>
+	<1311173689-17419-19-git-send-email-jpirko@redhat.com>
+	<CAEP_g=9D5CEUG7AVxoyW6Q0NUEaQ+vE3g+SPdU677Y+s65JRiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
-	greearb@candelatech.com, faisal.latif@intel.com
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21493 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751178Ab1GTTAk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 15:00:40 -0400
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	mirqus@gmail.com, john.ronciak@intel.com,
+	shemminger@linux-foundation.org, davem@davemloft.net
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <CAHXqBFJ3ERvHTcJcJLOGSGeYGbnE9XaRu7Dm_dRjAmR4PYq+VA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAEP_g=9D5CEUG7AVxoyW6Q0NUEaQ+vE3g+SPdU677Y+s65JRiA@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Wed, Jul 20, 2011 at 06:01:09PM CEST, mirqus@gmail.com wrote:
->W dniu 20 lipca 2011 17:45 u=C5=BCytkownik Micha=C5=82 Miros=C5=82aw
-><mirqus@gmail.com> napisa=C5=82:
->> 2011/7/20 Jiri Pirko <jpirko@redhat.com>:
->>> - unify vlan and nonvlan rx path
->>> - kill nesvnic->vlan_grp and nes_netdev_vlan_rx_register
->>> - allow to turn on/off rx/tx vlan accel via ethtool (set_features)
->> [...]
->>> =C2=A0/**
->>> @@ -1656,7 +1679,7 @@ struct net_device *nes_netdev_init(struct nes=
-_device *nesdev,
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev->ethtool_ops =3D &nes_ethtool_ops=
-;
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0netif_napi_add(netdev, &nesvnic->napi, n=
-es_netdev_poll, 128);
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0nes_debug(NES_DBG_INIT, "Enabling VLAN I=
-nsert/Delete.\n");
->>> - =C2=A0 =C2=A0 =C2=A0 netdev->features |=3D NETIF_F_HW_VLAN_TX | N=
-ETIF_F_HW_VLAN_RX;
->>> + =C2=A0 =C2=A0 =C2=A0 netdev->features |=3D NETIF_F_HW_VLAN_TX;
->> Just remove this line - nes_fix_features() is controlling the flag a=
-nyway.
+Wed, Jul 20, 2011 at 07:26:14PM CEST, jesse@nicira.com wrote:
+>On Wed, Jul 20, 2011 at 7:54 AM, Jiri Pirko <jpirko@redhat.com> wrote:
+>> @@ -1170,19 +1170,28 @@ static void igbvf_set_rlpml(struct igbvf_adapter=
+ *adapter)
+>> =A0 =A0 =A0 =A0int max_frame_size =3D adapter->max_frame_size;
+>> =A0 =A0 =A0 =A0struct e1000_hw *hw =3D &adapter->hw;
+>>
+>> - =A0 =A0 =A0 if (adapter->vlgrp)
+>> + =A0 =A0 =A0 if (adapter->netdev->features & NETIF_F_HW_VLAN_RX)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0max_frame_size +=3D VLAN_TAG_SIZE;
 >
->Forget it - it's good.
->
->I need to think about calling ndo_set_features callback at end of
->register_netdev() so the drivers won't need to duplicate the
->call/configuration in their ndo_init.
+>This is unconditionally true, right?  NETIF_F_HW_VLAN_RX never gets
+>toggled here.  In any case, I think we should be able to handle vlan
+>tagged packets even if stripping isn't enabled.
 
-Yep, this came up to my thinking as well.
+You are correct. This should be checked rather if any bit of
+adapter->active_vlans is set. I'll repost soon.
 
 >
->Best Regards,
->Micha=C5=82 Miros=C5=82aw
+>The Intel guys have expressed some concerns in the past about the MTU
+>in relation to the igb driver (the PF version) with vlan tags.  I'm
+>not quite sure what about this NIC is different from others in the
+>handling of MTU and vlans but here's one such thread:
+>http://patchwork.ozlabs.org/patch/82675/
+
+The intension is to make driver to bahave the same as before this patch.
+
+---------------------------------------------------------------------------=
+---
+10 Tips for Better Web Security
+Learn 10 ways to better secure your business today. Topics covered include:
+Web security, SSL, hacker attacks & Denial of Service (DoS), private keys,
+security Microsoft Exchange, secure Instant Messaging, and much more.
+http://www.accelacomm.com/jaw/sfnl/114/51426210/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
