@@ -1,91 +1,118 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next]vhost: fix condition check for # of outstanding
- dma buffers
-Date: Wed, 20 Jul 2011 13:28:31 +0300
-Message-ID: <20110720102831.GA5164@redhat.com>
-References: <1311100678.8573.16.camel@localhost.localdomain>
- <20110719190945.GB8667@redhat.com>
- <1311108985.8573.30.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jasowang@redhat.com
-To: Shirley Ma <mashirle@us.ibm.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH 2/4] stmmac: remove warning when compile as built-in (V2)
+Date: Wed, 20 Jul 2011 12:05:22 +0200
+Message-ID: <1311156324-23928-2-git-send-email-peppe.cavallaro@st.com>
+References: <1311156324-23928-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19875 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751229Ab1GTK2I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 06:28:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1311108985.8573.30.camel@localhost.localdomain>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:47876 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751229Ab1GTKeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 06:34:00 -0400
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 69759C3
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:06:57 +0000 (GMT)
+Received: from mail7.sgp.st.com (unknown [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0C6C01806
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:06:57 +0000 (GMT)
+In-Reply-To: <1311156324-23928-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2011 at 01:56:25PM -0700, Shirley Ma wrote:
-> On Tue, 2011-07-19 at 22:09 +0300, Michael S. Tsirkin wrote:
-> > On Tue, Jul 19, 2011 at 11:37:58AM -0700, Shirley Ma wrote:
-> > > Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> > > ---
-> > > 
-> > >  drivers/vhost/net.c |    6 ++++--
-> > >  1 files changed, 4 insertions(+), 2 deletions(-)
-> > > 
-> > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > > index 70ac604..83cb738 100644
-> > > --- a/drivers/vhost/net.c
-> > > +++ b/drivers/vhost/net.c
-> > > @@ -189,8 +189,10 @@ static void handle_tx(struct vhost_net *net)
-> > >                               break;
-> > >                       }
-> > >                       /* If more outstanding DMAs, queue the work */
-> > > -                     if (unlikely(vq->upend_idx - vq->done_idx >
-> > > -                                  VHOST_MAX_PEND)) {
-> > > +                     if (unlikely((vq->upend_idx - vq->done_idx >
-> > > +                                     VHOST_MAX_PEND) ||
-> > > +                                  (vq->upend_idx - vq->done_idx >
-> > > +                                      VHOST_MAX_PEND -
-> > UIO_MAXIOV))) {
-> > 
-> > Could you please explain why this makes sense please?
-> > VHOST_MAX_PEND is 128 UIO_MAXIOV is 1024 so
-> > the result is negative?
-> 
-> I thought it is equal to:
-> 
-> if (vq->upend_idx > vq->done_idx) 
-> 	check vq->upend_idx - vq->done_idx > VHOST_MAX_PEND
-> if (vq->upend_idx < vq->done_idx)
-> 	check vq->upend_idx + UIO_MAXIOV - vq->done_idx > VHOST_MAX_PEND
-> 	
+The patch removes the following serie of warnings
+when the driver is compiled as built-in:
 
-Check it out: upend_idx == done_idx == 0 does not satisfy the
-above conditions but does trigger in your code, right?
+drivers/net/stmmac/stmmac_main.c: In function stmmac_cmdline_opt:
+drivers/net/stmmac/stmmac_main.c:1855:12: warning: ignoring return
+value of kstrtoul, declared with attribute warn_unused_result
+[snip]
 
-Better keep it simple. Maybe:
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/stmmac/stmmac_main.c |   65 ++++++++++++++++++++++++-------------
+ 1 files changed, 42 insertions(+), 23 deletions(-)
 
-	if (unlikely(vq->upend_idx - vq->done_idx > VHOST_MAX_PEND) ||
-		(unlikely(vq->upend_idx < vq->done_idx) &&
-	 	unlikely(vq->upend_idx + UIO_MAXIOV - vq->done_idx >
-			 VHOST_MAX_PEND)))
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index 0e0134e..9e02bd4 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -1932,33 +1932,52 @@ static int __init stmmac_cmdline_opt(char *str)
+ 	if (!str || !*str)
+ 		return -EINVAL;
+ 	while ((opt = strsep(&str, ",")) != NULL) {
+-		if (!strncmp(opt, "debug:", 6))
+-			strict_strtoul(opt + 6, 0, (unsigned long *)&debug);
+-		else if (!strncmp(opt, "phyaddr:", 8))
+-			strict_strtoul(opt + 8, 0, (unsigned long *)&phyaddr);
+-		else if (!strncmp(opt, "dma_txsize:", 11))
+-			strict_strtoul(opt + 11, 0,
+-				       (unsigned long *)&dma_txsize);
+-		else if (!strncmp(opt, "dma_rxsize:", 11))
+-			strict_strtoul(opt + 11, 0,
+-				       (unsigned long *)&dma_rxsize);
+-		else if (!strncmp(opt, "buf_sz:", 7))
+-			strict_strtoul(opt + 7, 0, (unsigned long *)&buf_sz);
+-		else if (!strncmp(opt, "tc:", 3))
+-			strict_strtoul(opt + 3, 0, (unsigned long *)&tc);
+-		else if (!strncmp(opt, "watchdog:", 9))
+-			strict_strtoul(opt + 9, 0, (unsigned long *)&watchdog);
+-		else if (!strncmp(opt, "flow_ctrl:", 10))
+-			strict_strtoul(opt + 10, 0,
+-				       (unsigned long *)&flow_ctrl);
+-		else if (!strncmp(opt, "pause:", 6))
+-			strict_strtoul(opt + 6, 0, (unsigned long *)&pause);
++		if (!strncmp(opt, "debug:", 6)) {
++			if (strict_strtoul(opt + 6, 0, (unsigned long *)&debug))
++				goto err;
++		} else if (!strncmp(opt, "phyaddr:", 8)) {
++			if (strict_strtoul(opt + 8, 0,
++					   (unsigned long *)&phyaddr))
++				goto err;
++		} else if (!strncmp(opt, "dma_txsize:", 11)) {
++			if (strict_strtoul(opt + 11, 0,
++					   (unsigned long *)&dma_txsize))
++				goto err;
++		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
++			if (strict_strtoul(opt + 11, 0,
++					   (unsigned long *)&dma_rxsize))
++				goto err;
++		} else if (!strncmp(opt, "buf_sz:", 7)) {
++			if (strict_strtoul(opt + 7, 0,
++					   (unsigned long *)&buf_sz))
++				goto err;
++		} else if (!strncmp(opt, "tc:", 3)) {
++			if (strict_strtoul(opt + 3, 0, (unsigned long *)&tc))
++				goto err;
++		} else if (!strncmp(opt, "watchdog:", 9)) {
++			if (strict_strtoul(opt + 9, 0,
++					   (unsigned long *)&watchdog))
++				goto err;
++		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
++			if (strict_strtoul(opt + 10, 0,
++					   (unsigned long *)&flow_ctrl))
++				goto err;
++		} else if (!strncmp(opt, "pause:", 6)) {
++			if (strict_strtoul(opt + 6, 0, (unsigned long *)&pause))
++				goto err;
+ #ifdef CONFIG_STMMAC_TIMER
+-		else if (!strncmp(opt, "tmrate:", 7))
+-			strict_strtoul(opt + 7, 0, (unsigned long *)&tmrate);
++		} else if (!strncmp(opt, "tmrate:", 7)) {
++			if (strict_strtoul(opt + 7, 0,
++					   (unsigned long *)&tmrate))
++				goto err;
+ #endif
++		}
+ 	}
+ 	return 0;
++
++err:
++	pr_err("%s: ERROR broken module parameter conversion", __func__);
++	return -EINVAL;
+ }
+ 
+ __setup("stmmaceth=", stmmac_cmdline_opt);
+-- 
+1.7.4.4
 
-?
-
-Also, please add commit log documenting what does the patch
-fix: something like:
-	'the test for # of outstanding buffers returned
-	 incorrect results when due to wrap around,
-	 upend_idx < done_idx'?
-
-> > I thought upend_idx - done_idx is exactly the number
-> > of buffers, so once we get too many we stop until
-> > one gets freed?
-> 
-> They are index, so in vhost zerocopy callback, we can get the idx right
-> away.
-> 
-> > 
-> > >                               tx_poll_start(net, sock);
-> > >                               set_bit(SOCK_ASYNC_NOSPACE,
-> > &sock->flags);
-> > >                               break;
-> > > 
