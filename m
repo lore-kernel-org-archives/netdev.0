@@ -1,53 +1,37 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch net-next-2.6 04/47] nes: do vlan cleanup
-Date: Wed, 20 Jul 2011 18:01:09 +0200
-Message-ID: <CAHXqBFJ3ERvHTcJcJLOGSGeYGbnE9XaRu7Dm_dRjAmR4PYq+VA@mail.gmail.com>
-References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
- <1311173689-17419-5-git-send-email-jpirko@redhat.com> <CAHXqBFK6u1JqGjC3Wh8Bn7Y0VjsMOf8WL7eHadLRJafNLX0HXw@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/3] wireless: rtlwifi: throw away MAC_FMT and use %pM
+ instead
+Date: Wed, 20 Jul 2011 09:02:42 -0700
+Message-ID: <1311177762.1663.9.camel@Joe-Laptop>
+References: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko@linux.intel.com>
+	 <4E26F879.8010601@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
-	greearb@candelatech.com, faisal.latif@intel.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:43574 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751584Ab1GTQB3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 12:01:29 -0400
-Received: by qyk29 with SMTP id 29so2750508qyk.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 09:01:29 -0700 (PDT)
-In-Reply-To: <CAHXqBFK6u1JqGjC3Wh8Bn7Y0VjsMOf8WL7eHadLRJafNLX0HXw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E26F879.8010601@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 20 lipca 2011 17:45 u=BFytkownik Micha=B3 Miros=B3aw
-<mirqus@gmail.com> napisa=B3:
-> 2011/7/20 Jiri Pirko <jpirko@redhat.com>:
->> - unify vlan and nonvlan rx path
->> - kill nesvnic->vlan_grp and nes_netdev_vlan_rx_register
->> - allow to turn on/off rx/tx vlan accel via ethtool (set_features)
-> [...]
->> =A0/**
->> @@ -1656,7 +1679,7 @@ struct net_device *nes_netdev_init(struct nes_=
-device *nesdev,
->> =A0 =A0 =A0 =A0netdev->ethtool_ops =3D &nes_ethtool_ops;
->> =A0 =A0 =A0 =A0netif_napi_add(netdev, &nesvnic->napi, nes_netdev_pol=
-l, 128);
->> =A0 =A0 =A0 =A0nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.=
-\n");
->> - =A0 =A0 =A0 netdev->features |=3D NETIF_F_HW_VLAN_TX | NETIF_F_HW_=
-VLAN_RX;
->> + =A0 =A0 =A0 netdev->features |=3D NETIF_F_HW_VLAN_TX;
-> Just remove this line - nes_fix_features() is controlling the flag an=
-yway.
+On Wed, 2011-07-20 at 10:47 -0500, Larry Finger wrote:
+> Thanks for the patch.
 
-=46orget it - it's good.
+Hey Larry.
 
-I need to think about calling ndo_set_features callback at end of
-register_netdev() so the drivers won't need to duplicate the
-call/configuration in their ndo_init.
+rtlwifi has a CONFIG_BT_COEXIST which is currently
+unused/undefined by Kconfig.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Are there plans to enable this or should the code
+just be removed?
+
+There may be a few dependencies in rtlwifi for
+variables set in this block so it seems from
+superficial reading that removal might be a bit
+involved.  I didn't look much more than that,
+but struct btcoexist_priv doesn't seem to be
+specified by the code anywhere.
