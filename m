@@ -1,192 +1,213 @@
-From: <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 1/1] netxen: add fw version compatibility check
-Date: Wed, 20 Jul 2011 03:08:53 -0700
-Message-ID: <1311156533-24014-1-git-send-email-amit.salecha@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
+ predictable
+Date: Wed, 20 Jul 2011 12:27:28 +0200
+Message-ID: <1311157648.2338.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E24BE94.7010301@gont.com.ar>
+	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1311108423.3113.24.camel@edumazet-laptop>
+	 <1311150327.2338.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <ameen.rahman@qlogic.com>,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: security@kernel.org, Eugene Teo <eugeneteo@kernel.sg>,
+	netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>
+To: Fernando Gont <fernando@gont.com.ar>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:31866
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750936Ab1GTKRy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 06:17:54 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58888 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229Ab1GTK1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 06:27:38 -0400
+Received: by wyg8 with SMTP id 8so58391wyg.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 03:27:36 -0700 (PDT)
+In-Reply-To: <1311150327.2338.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Le mercredi 20 juillet 2011 =C3=A0 10:25 +0200, Eric Dumazet a =C3=A9cr=
+it :
 
-o Minimum fw version supported for P3 chip is 4.0.505
-o File Fw > 4.0.554 is not supported if flash fw < 4.0.554.
-o In mn firmware case, file fw older than flash fw is allowed.
-o Change variable names for readability
-o Update driver version 4.0.76
+> Please hold on, I'll make a different patch series to ease stable tea=
+ms
+> job. It appears inetpeer & ipv6 are really not an option for old
+> kernels.
+>=20
+> Common patch for all kernels :
+> 1) Fix the problem without inetpeer help
+> ---=20
+> Patches for next kernels
+> 2) random split as suggested by Matt Mackal
+> 3) Use inetpeer cache to scale identification generation
+>=20
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Here is the first patch, applicable on net-2.6 / linux-2.6 and stable
+kernels.
+
+Thanks
+
+[PATCH v2] ipv6: make fragment identifications less predictable
+
+=46ernando Gont reported current IPv6 fragment identification generatio=
+n
+was not secure, because using a very predictable system-wide generator,
+allowing various attacks.
+
+IPv4 uses inetpeer cache to address this problem and to get good
+performance. We'll use this mechanism when IPv6 inetpeer is stable
+enough in linux-3.1
+
+=46or the time being, we use jhash on destination address to provide le=
+ss
+predictable identifications. Also remove a spinlock and use cmpxchg() t=
+o
+get better SMP performance.
+
+Reported-by: Fernando Gont <fernando@gont.com.ar>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Matt Mackall <mpm@selenic.com>
+CC: Eugene Teo <eugeneteo@kernel.sg>
 ---
- drivers/net/netxen/netxen_nic.h      |    5 +-
- drivers/net/netxen/netxen_nic_init.c |   72 ++++++++++++++++++++++++++++-----
- drivers/net/netxen/netxen_nic_main.c |    4 ++
- 3 files changed, 68 insertions(+), 13 deletions(-)
+ include/net/ipv6.h    |   12 -----------
+ net/ipv6/ip6_output.c |   43 +++++++++++++++++++++++++++++++++++-----
+ net/ipv6/udp.c        |    2 -
+ 3 files changed, 40 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index 7722068..f744d29 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -53,8 +53,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 75
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.75"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 76
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.76"
- 
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
-@@ -1302,6 +1302,7 @@ int netxen_nic_wol_supported(struct netxen_adapter *adapter);
- int netxen_init_dummy_dma(struct netxen_adapter *adapter);
- void netxen_free_dummy_dma(struct netxen_adapter *adapter);
- 
-+int netxen_check_flash_fw_compatibility(struct netxen_adapter *adapter);
- int netxen_phantom_init(struct netxen_adapter *adapter, int pegtune_val);
- int netxen_load_firmware(struct netxen_adapter *adapter);
- int netxen_need_fw_reset(struct netxen_adapter *adapter);
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
-index ca59b4f..e8993a7 100644
---- a/drivers/net/netxen/netxen_nic_init.c
-+++ b/drivers/net/netxen/netxen_nic_init.c
-@@ -964,6 +964,35 @@ netxen_need_fw_reset(struct netxen_adapter *adapter)
- 	return 0;
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index c033ed0..3b5ac1f 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -463,17 +463,7 @@ static inline int ipv6_addr_diff(const struct in6_=
+addr *a1, const struct in6_add
+ 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
  }
- 
-+#define NETXEN_MIN_P3_FW_SUPP	NETXEN_VERSION_CODE(4, 0, 505)
+=20
+-static __inline__ void ipv6_select_ident(struct frag_hdr *fhdr)
+-{
+-	static u32 ipv6_fragmentation_id =3D 1;
+-	static DEFINE_SPINLOCK(ip6_id_lock);
+-
+-	spin_lock_bh(&ip6_id_lock);
+-	fhdr->identification =3D htonl(ipv6_fragmentation_id);
+-	if (++ipv6_fragmentation_id =3D=3D 0)
+-		ipv6_fragmentation_id =3D 1;
+-	spin_unlock_bh(&ip6_id_lock);
+-}
++extern void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *=
+rt);
+=20
+ /*
+  *	Prototypes exported by ipv6
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 9d4b165..8a444c8 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -596,6 +596,38 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **=
+nexthdr)
+ 	return offset;
+ }
+=20
++static u32 hashidentrnd __read_mostly;
++#define FID_HASH_SZ 16
++static u32 ipv6_fragmentation_id[FID_HASH_SZ];
 +
-+int
-+netxen_check_flash_fw_compatibility(struct netxen_adapter *adapter)
++static int __init initialize_hashidentrnd(void)
 +{
-+	u32 flash_fw_ver, min_fw_ver;
-+
-+	if (NX_IS_REVISION_P2(adapter->ahw.revision_id))
-+		return 0;
-+
-+	if (netxen_rom_fast_read(adapter,
-+			NX_FW_VERSION_OFFSET, (int *)&flash_fw_ver)) {
-+		dev_err(&adapter->pdev->dev, "Unable to read flash fw"
-+			"version\n");
-+		return -EIO;
-+	}
-+
-+	flash_fw_ver = NETXEN_DECODE_VERSION(flash_fw_ver);
-+	min_fw_ver = NETXEN_MIN_P3_FW_SUPP;
-+	if (flash_fw_ver >= min_fw_ver)
-+		return 0;
-+
-+	dev_info(&adapter->pdev->dev, "Flash fw[%d.%d.%d] is < min fw supported"
-+		"[4.0.505]. Please update firmware on flash\n",
-+		_major(flash_fw_ver), _minor(flash_fw_ver),
-+		_build(flash_fw_ver));
-+	return -EINVAL;
++	get_random_bytes(&hashidentrnd, sizeof(hashidentrnd));
++	return 0;
 +}
 +
- static char *fw_name[] = {
- 	NX_P2_MN_ROMIMAGE_NAME,
- 	NX_P3_CT_ROMIMAGE_NAME,
-@@ -1071,10 +1100,12 @@ static int
- netxen_validate_firmware(struct netxen_adapter *adapter)
++late_initcall_sync(initialize_hashidentrnd);
++
++static u32 __ipv6_select_ident(const struct in6_addr *addr)
++{
++	u32 newid, oldid, hash =3D jhash2((u32 *)addr, 4, hashidentrnd);
++	u32 *pid =3D &ipv6_fragmentation_id[hash % FID_HASH_SZ];
++
++	do {
++		oldid =3D *pid;
++		newid =3D oldid + 1;
++		if (!(hash + newid))
++			newid++;
++	} while (cmpxchg(pid, oldid, newid) !=3D oldid);
++
++	return hash + newid;
++}
++
++void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
++{
++	fhdr->identification =3D htonl(__ipv6_select_ident(&rt->rt6i_dst.addr=
+));
++}
++
+ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
  {
- 	__le32 val;
--	u32 ver, min_ver, bios;
-+	__le32 flash_fw_ver;
-+	u32 file_fw_ver, min_ver, bios;
- 	struct pci_dev *pdev = adapter->pdev;
- 	const struct firmware *fw = adapter->fw;
- 	u8 fw_type = adapter->fw_type;
-+	u32 crbinit_fix_fw;
- 
- 	if (fw_type == NX_UNIFIED_ROMIMAGE) {
- 		if (netxen_nic_validate_unified_romimage(adapter))
-@@ -1091,16 +1122,18 @@ netxen_validate_firmware(struct netxen_adapter *adapter)
- 	val = nx_get_fw_version(adapter);
- 
- 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
--		min_ver = NETXEN_VERSION_CODE(4, 0, 216);
-+		min_ver = NETXEN_MIN_P3_FW_SUPP;
- 	else
- 		min_ver = NETXEN_VERSION_CODE(3, 4, 216);
- 
--	ver = NETXEN_DECODE_VERSION(val);
-+	file_fw_ver = NETXEN_DECODE_VERSION(val);
- 
--	if ((_major(ver) > _NETXEN_NIC_LINUX_MAJOR) || (ver < min_ver)) {
-+	if ((_major(file_fw_ver) > _NETXEN_NIC_LINUX_MAJOR) ||
-+	    (file_fw_ver < min_ver)) {
- 		dev_err(&pdev->dev,
- 				"%s: firmware version %d.%d.%d unsupported\n",
--		fw_name[fw_type], _major(ver), _minor(ver), _build(ver));
-+		fw_name[fw_type], _major(file_fw_ver), _minor(file_fw_ver),
-+		 _build(file_fw_ver));
- 		return -EINVAL;
- 	}
- 
-@@ -1112,17 +1145,34 @@ netxen_validate_firmware(struct netxen_adapter *adapter)
- 		return -EINVAL;
- 	}
- 
--	/* check if flashed firmware is newer */
- 	if (netxen_rom_fast_read(adapter,
--			NX_FW_VERSION_OFFSET, (int *)&val))
-+			NX_FW_VERSION_OFFSET, (int *)&flash_fw_ver)) {
-+		dev_err(&pdev->dev, "Unable to read flash fw version\n");
- 		return -EIO;
--	val = NETXEN_DECODE_VERSION(val);
--	if (val > ver) {
--		dev_info(&pdev->dev, "%s: firmware is older than flash\n",
--				fw_name[fw_type]);
-+	}
-+	flash_fw_ver = NETXEN_DECODE_VERSION(flash_fw_ver);
-+
-+	/* New fw from file is not allowed, if fw on flash is < 4.0.554 */
-+	crbinit_fix_fw = NETXEN_VERSION_CODE(4, 0, 554);
-+	if (file_fw_ver >= crbinit_fix_fw && flash_fw_ver < crbinit_fix_fw &&
-+	    NX_IS_REVISION_P3(adapter->ahw.revision_id)) {
-+		dev_err(&pdev->dev, "Incompatibility detected between driver "
-+			"and firmware version on flash. This configuration "
-+			"is not recommended. Please update the firmware on "
-+			"flash immediately\n");
- 		return -EINVAL;
- 	}
- 
-+	/* check if flashed firmware is newer only for no-mn and P2 case*/
-+	if (!netxen_p3_has_mn(adapter) ||
-+	    NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
-+		if (flash_fw_ver > file_fw_ver) {
-+			dev_info(&pdev->dev, "%s: firmware is older than flash\n",
-+				fw_name[fw_type]);
-+			return -EINVAL;
-+		}
-+	}
-+
- 	NXWR32(adapter, NETXEN_CAM_RAM(0x1fc), NETXEN_BDINFO_MAGIC);
- 	return 0;
- }
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 30f41e6..f574edf 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -1388,6 +1388,10 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		break;
- 	}
- 
-+	err = netxen_check_flash_fw_compatibility(adapter);
-+	if (err)
-+		goto err_out_iounmap;
-+
- 	if (adapter->portnum == 0) {
- 		val = NXRD32(adapter, NX_CRB_DEV_REF_COUNT);
- 		if (val != 0xffffffff && val != 0) {
--- 
-1.7.3.3
+ 	struct sk_buff *frag;
+@@ -680,7 +712,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)=
+(struct sk_buff *))
+ 		skb_reset_network_header(skb);
+ 		memcpy(skb_network_header(skb), tmp_hdr, hlen);
+=20
+-		ipv6_select_ident(fh);
++		ipv6_select_ident(fh, rt);
+ 		fh->nexthdr =3D nexthdr;
+ 		fh->reserved =3D 0;
+ 		fh->frag_off =3D htons(IP6_MF);
+@@ -826,7 +858,7 @@ slow_path:
+ 		fh->nexthdr =3D nexthdr;
+ 		fh->reserved =3D 0;
+ 		if (!frag_id) {
+-			ipv6_select_ident(fh);
++			ipv6_select_ident(fh, rt);
+ 			frag_id =3D fh->identification;
+ 		} else
+ 			fh->identification =3D frag_id;
+@@ -1072,7 +1104,8 @@ static inline int ip6_ufo_append_data(struct sock=
+ *sk,
+ 			int getfrag(void *from, char *to, int offset, int len,
+ 			int odd, struct sk_buff *skb),
+ 			void *from, int length, int hh_len, int fragheaderlen,
+-			int transhdrlen, int mtu,unsigned int flags)
++			int transhdrlen, int mtu,unsigned int flags,
++			struct rt6_info *rt)
+=20
+ {
+ 	struct sk_buff *skb;
+@@ -1116,7 +1149,7 @@ static inline int ip6_ufo_append_data(struct sock=
+ *sk,
+ 		skb_shinfo(skb)->gso_size =3D (mtu - fragheaderlen -
+ 					     sizeof(struct frag_hdr)) & ~7;
+ 		skb_shinfo(skb)->gso_type =3D SKB_GSO_UDP;
+-		ipv6_select_ident(&fhdr);
++		ipv6_select_ident(&fhdr, rt);
+ 		skb_shinfo(skb)->ip6_frag_id =3D fhdr.identification;
+ 		__skb_queue_tail(&sk->sk_write_queue, skb);
+=20
+@@ -1282,7 +1315,7 @@ int ip6_append_data(struct sock *sk, int getfrag(=
+void *from, char *to,
+=20
+ 			err =3D ip6_ufo_append_data(sk, getfrag, from, length,
+ 						  hh_len, fragheaderlen,
+-						  transhdrlen, mtu, flags);
++						  transhdrlen, mtu, flags, rt);
+ 			if (err)
+ 				goto error;
+ 			return 0;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 328985c..29213b5 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1359,7 +1359,7 @@ static struct sk_buff *udp6_ufo_fragment(struct s=
+k_buff *skb, u32 features)
+ 	fptr =3D (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen=
+);
+ 	fptr->nexthdr =3D nexthdr;
+ 	fptr->reserved =3D 0;
+-	ipv6_select_ident(fptr);
++	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
+=20
+ 	/* Fragment the skb. ipv6 header and the remaining fields of the
+ 	 * fragment header are updated in ipv6_gso_segment()
 
 
