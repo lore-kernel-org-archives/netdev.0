@@ -1,35 +1,41 @@
-From: Marek Vasut <marek.vasut@gmail.com>
-Subject: [PATCH] ASIX: Add AX88772B USB ID
-Date: Wed, 20 Jul 2011 17:57:04 +0200
-Message-ID: <1311177424-19308-1-git-send-email-marek.vasut@gmail.com>
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, gregkh@suse.de,
-	Marek Vasut <marek.vasut@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] iproute2, ifindex option
+Date: Wed, 20 Jul 2011 08:58:42 -0700
+Message-ID: <20110720085842.03dd411c@nehalam.ftrdhcpuser.net>
+References: <f91760b4ff170e4bdbd46f40822dd95e@visp.net.lb>
+	<20110720083753.2b8de970@nehalam.ftrdhcpuser.net>
+	<8dcbf9cb55d19da1e7f849d11d8eb216@visp.net.lb>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36414 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751538Ab1GTP6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 11:58:40 -0400
+In-Reply-To: <8dcbf9cb55d19da1e7f849d11d8eb216@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This device can be found in Acer Iconia TAB W500 tablet dock.
+On Wed, 20 Jul 2011 18:54:44 +0300
+Denys Fedoryshchenko <denys@visp.net.lb> wrote:
 
-Signed-off-by: Marek Vasut <marek.vasut@gmail.com>
----
- drivers/net/usb/asix.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+>  On Wed, 20 Jul 2011 08:37:53 -0700, Stephen Hemminger wrote:
+> >
+> > If caching is a problem, I would rather just get rid of the cache 
+> > altogether.
+> > There are a number of other places where it is a problem as well.
+>  It is good, but it must be controlled. Also people put some efforts to 
+>  improve it...
+>  Before i did custom patch to "trash" the cache, but after cache 
+>  improved i should rewrite it. If required, i can make cache behavior 
+>  changeable (on,off,flush ?).
+>  Will it help for you too?
+> 
+>  I think ifindex is good anyway, because sometimes it is better to refer 
+>  to specific ppp interface by ifindex.
 
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 6998aa6..5250288 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -1502,6 +1502,10 @@ static const struct usb_device_id	products [] = {
- 	USB_DEVICE (0x04f1, 0x3008),
- 	.driver_info = (unsigned long) &ax8817x_info,
- }, {
-+	// ASIX AX88772B 10/100
-+	USB_DEVICE (0x0b95, 0x772b),
-+	.driver_info = (unsigned long) &ax88772_info,
-+}, {
- 	// ASIX AX88772 10/100
- 	USB_DEVICE (0x0b95, 0x7720),
- 	.driver_info = (unsigned long) &ax88772_info,
--- 
-1.7.5.3
+The problem is that it is not possible to make a "safe" cache since
+it is possible for network device names to be changed at any time.
