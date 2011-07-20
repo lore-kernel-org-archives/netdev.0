@@ -1,77 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost] Fix panic in virtnet_remove
-Date: Wed, 20 Jul 2011 17:31:15 +0300
-Message-ID: <20110720143115.GB6787@redhat.com>
-References: <20110720135602.18705.21405.sendpatchset@krkumar2.in.ibm.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] ethtool: fix ethtool_get_regs() to work with zero length
+ registers
+Date: Wed, 20 Jul 2011 10:36:12 -0400
+Message-ID: <20110720143611.GA18231@tuxdriver.com>
+References: <20110720091850.32210.2059.stgit@localhost6.localdomain6>
+ <1311161889.1041.11.camel@localhost>
+ <4E26C2DC.8090208@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, shemminger@vyatta.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20110720135602.18705.21405.sendpatchset@krkumar2.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4E26C2DC.8090208-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 20, 2011 at 07:26:02PM +0530, Krishna Kumar wrote:
-> Fix a panic in virtnet_remove. unregister_netdev has already
-> freed up the netdev (and virtnet_info) due to dev->destructor
-> being set, while virtnet_info is still required. Remove
-> virtnet_free altogether, and move the freeing of the per-cpu
-> statistics from virtnet_free to virtnet_remove.
-> 
-> Tested patch below.
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+On Wed, Jul 20, 2011 at 02:58:20PM +0300, Kalle Valo wrote:
+> On 07/20/2011 02:38 PM, Ben Hutchings wrote:
+> > On Wed, 2011-07-20 at 12:18 +0300, Kalle Valo wrote:
+> >> cfg80211 exports zero length register size as it currently only uses
+> >> struct ethtool_regs.version to export struct wiphy.hw_version.
+> > [...]
+> > 
+> > The ethtool_regs::version field represents the version of the register
+> > dump format.  This may or may not relate to a hardware version.
 
-Also note that the crash was apparently introduced by
-3fa2a1df909482cc234524906e4bd30dee3514df in net-next,
-so this is a net-next only patch.
+This seems like a strange claim to make...?
 
-Stephen, was there any special reason to free the memory
-in the destructor like you did?
+struct ethtool_regs {
+	__u32	cmd;
+	__u32	version; /* driver-specific, indicates different chips/revs */
+	__u32	len; /* bytes */
+	__u8	data[0];
+};
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+That "indicates different chips/revs" comment has been there at least
+as long as the kernel has been in git (back to the 2.6.12 era).
 
-> ---
-> (Michael suggested me to re-post with copy to all maintainers)
+> > If you don't actually provide a register dump then don't implement this
+> > operation.
 > 
->  drivers/net/virtio_net.c |   10 +---------
->  1 file changed, 1 insertion(+), 9 deletions(-)
+> Then we have a problem as cfg80211 exports the hw version without any
+> register dumps:
 > 
-> diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
-> --- org/drivers/net/virtio_net.c	2011-07-18 09:14:02.000000000 +0530
-> +++ new/drivers/net/virtio_net.c	2011-07-18 09:16:35.000000000 +0530
-> @@ -705,14 +705,6 @@ static void virtnet_netpoll(struct net_d
->  }
->  #endif
->  
-> -static void virtnet_free(struct net_device *dev)
-> -{
-> -	struct virtnet_info *vi = netdev_priv(dev);
-> -
-> -	free_percpu(vi->stats);
-> -	free_netdev(dev);
-> -}
-> -
->  static int virtnet_open(struct net_device *dev)
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
-> @@ -959,7 +951,6 @@ static int virtnet_probe(struct virtio_d
->  	/* Set up network device as normal. */
->  	dev->netdev_ops = &virtnet_netdev;
->  	dev->features = NETIF_F_HIGHDMA;
-> -	dev->destructor = virtnet_free;
->  
->  	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
->  	SET_NETDEV_DEV(dev, &vdev->dev);
-> @@ -1122,6 +1113,7 @@ static void __devexit virtnet_remove(str
->  	while (vi->pages)
->  		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
->  
-> +	free_percpu(vi->stats);
->  	free_netdev(vi->dev);
->  }
->  
+> static int cfg80211_get_regs_len(struct net_device *dev)
+> {
+> 	/* For now, return 0... */
+> 	return 0;
+> }
+> 
+> static void cfg80211_get_regs(struct net_device *dev, struct
+> ethtool_regs *regs,
+> 			void *data)
+> {
+> 	struct wireless_dev *wdev = dev->ieee80211_ptr;
+> 
+> 	regs->version = wdev->wiphy->hw_version;
+> 	regs->len = 0;
+> }
+> 
+> And this has been there a long time already. How cfg80211 should export
+> hw version if this is not a proper way?
+
+The ethool binary already has support for the at76c50x_usb driver,
+which uses this very mechanism in exactly this way.  I know this
+worked previously, although I don't know what might have changed to
+break it...?
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
