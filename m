@@ -1,72 +1,77 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in ndo_start_xmit
- methods
-Date: Tue, 19 Jul 2011 17:52:49 -0700
-Message-ID: <4E2626E1.6030005@candelatech.com>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>	 <1311105738.3113.11.camel@edumazet-laptop>	 <20110719202922.GA2352@minipsycho>	 <1311108107.3113.22.camel@edumazet-laptop>	 <20110720001904.GA1992@neilslaptop.think-freely.org> <1311122593.3113.46.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Bill Sommerfeld <wsommerfeld@google.com>
+Subject: [PATCH] Constrain UFO fragment sizes to multiples of 8 bytes
+Date: Tue, 19 Jul 2011 18:22:33 -0700
+Message-ID: <1311124953-32159-1-git-send-email-wsommerfeld@google.com>
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Bill Sommerfeld <wsommerfeld@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:59942 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262Ab1GTAxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 20:53:23 -0400
-In-Reply-To: <1311122593.3113.46.camel@edumazet-laptop>
+Received: from smtp-out.google.com ([74.125.121.67]:43097 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752595Ab1GTBXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2011 21:23:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/19/2011 05:43 PM, Eric Dumazet wrote:
-> Le mardi 19 juillet 2011 =C3=A0 20:19 -0400, Neil Horman a =C3=A9crit=
- :
+Because the ip fragment offset field counts 8-byte chunks, ip
+fragments other than the last must contain a multiple of 8 bytes of
+payload.  ip_ufo_append_data wasn't respecting this constraint and,
+depending on the MTU and ip option sizes, could create malformed
+non-final fragments.
 
->> I'm sensitive to the performance impact, but I would much rather see=
- a lower
->> performing pktgen that doesn't randomly crash, and bring the perform=
-ance back up
->> in a safe, reliable way.  To that end, I've been starting to think a=
-bout
->> pre-allocating a ring buffer of skbs with a skb->users count biased =
-up to
->> prevent driver freeing.  That way we could detect 'unused skb's' by =
-a user count
->> that was at the bias level.  Thoughts?
->>
->
-> I dont know. I use pktgen maybe once per week and never got a single
-> crash like this. We probably are very few pktgen users in the world, =
-and
-> we use it exactly to avoid calling skb_clone() or other expensive per
-> xmit setup.
->
-> Just remove pktgen from RedHat kernels, if you dont trust sysadmins.
-> # CONFIG_PKTGEN is not set
->
-> Alternatively, add a check to problematic drivers to _not_ mess skb i=
-f
-> skb_shared(skb) is true : eventually use skb_share_check()
+Google-Bug-Id: 5009328
+Signed-off-by: Bill Sommerfeld <wsommerfeld@google.com>
+---
 
-When the features-flags work gets completed so that we can start adding
-new flags, we could add a CANT_DO_MULTI_SKB flag to drivers with known
-issues and then restrict pktgen config accordingly.
+Note to reviewers: The first two hunks simply rename the "mtu"
+parameter to "maxfraglen"; the real change is in the third hunk.
+maxfraglen (the size of the largest non-final fragment which fits
+inside mtu) is already computed for the non-UFO fragmentation path.
 
-Upstream code already clears skb memory to avoid leaking kernel memory
-contents, so if you take away multi-skb too, pktgen is going to suck
-at what it is supposed to do:  run fast as possible.
+We saw this problem in a 2.6.34-based kernel with a bond device that
+had UFO enabled (as a result of changeset d9f5950f90292f7c);
+1742f183fc218798 rewrote netdev_increment_features to no longer force
+on UFO.  The MTU on this bond device was set to 1470; fragmented
+datagrams were mangled, causing the receiver to get errors of the
+form:
 
-If you want real fun, use pktgen on a wlan0 device...it will crash
-regardless of whether you use multi-skb or not because of xmit-queue
-number issues :P
+[506259.362640] UDP: short packet: From x.x.x.x:nnnn 1471/1469 to y.y.y.y:nnnn
 
-Thanks,
-Ben
+ net/ipv4/ip_output.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index be27e60..ccaaa85 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -734,7 +734,7 @@ static inline int ip_ufo_append_data(struct sock *sk,
+ 			int getfrag(void *from, char *to, int offset, int len,
+ 			       int odd, struct sk_buff *skb),
+ 			void *from, int length, int hh_len, int fragheaderlen,
+-			int transhdrlen, int mtu, unsigned int flags)
++			int transhdrlen, int maxfraglen, unsigned int flags)
+ {
+ 	struct sk_buff *skb;
+ 	int err;
+@@ -767,7 +767,7 @@ static inline int ip_ufo_append_data(struct sock *sk,
+ 		skb->csum = 0;
+ 
+ 		/* specify the length of each IP datagram fragment */
+-		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
++		skb_shinfo(skb)->gso_size = maxfraglen - fragheaderlen;
+ 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 		__skb_queue_tail(queue, skb);
+ 	}
+@@ -831,7 +831,7 @@ static int __ip_append_data(struct sock *sk,
+ 	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len) {
+ 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
+ 					 hh_len, fragheaderlen, transhdrlen,
+-					 mtu, flags);
++					 maxfraglen, flags);
+ 		if (err)
+ 			goto error;
+ 		return 0;
+-- 
+1.7.3.1
+
