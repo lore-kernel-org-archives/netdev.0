@@ -1,128 +1,170 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 05/47] ehea: do vlan cleanup
-Date: Wed, 20 Jul 2011 16:54:07 +0200
-Message-ID: <1311173689-17419-6-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 12/47] bnad: do vlan cleanup
+Date: Wed, 20 Jul 2011 16:54:14 +0200
+Message-ID: <1311173689-17419-13-git-send-email-jpirko@redhat.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com,
-	leitao@linux.vnet.ibm.com
+	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30016 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13978 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751508Ab1GTOzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 10:55:21 -0400
+	id S1751752Ab1GTOzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 10:55:16 -0400
 In-Reply-To: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 - unify vlan and nonvlan rx path
-- kill port->vgrp and ehea_vlan_rx_register
+- kill bnad->vlan_grp and bnad_vlan_rx_register
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/ehea/ehea.h      |    1 -
- drivers/net/ehea/ehea_main.c |   54 +++++------------------------------------
- 2 files changed, 7 insertions(+), 48 deletions(-)
+ drivers/net/bna/bnad.c |   55 ++++++++++++++---------------------------------
+ drivers/net/bna/bnad.h |    3 +-
+ 2 files changed, 19 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index 6c7257b..7dd5e6a 100644
---- a/drivers/net/ehea/ehea.h
-+++ b/drivers/net/ehea/ehea.h
-@@ -457,7 +457,6 @@ struct ehea_port {
- 	struct ehea_port_res port_res[EHEA_MAX_PORT_RES];
- 	struct platform_device  ofdev; /* Open Firmware Device */
- 	struct ehea_mc_list *mc_list;	 /* Multicast MAC addresses */
--	struct vlan_group *vgrp;
- 	struct ehea_eq *qp_eq;
- 	struct work_struct reset_task;
- 	struct mutex port_lock;
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 3fd5a24..be2cb4a 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -683,24 +683,13 @@ static int get_skb_hdr(struct sk_buff *skb, void **iphdr,
- static void ehea_proc_skb(struct ehea_port_res *pr, struct ehea_cqe *cqe,
- 			  struct sk_buff *skb)
- {
--	int vlan_extracted = ((cqe->status & EHEA_CQE_VLAN_TAG_XTRACT) &&
--			      pr->port->vgrp);
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index fa997bf..c89c9b2 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -15,6 +15,7 @@
+  * All rights reserved
+  * www.brocade.com
+  */
++#include <linux/bitops.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/etherdevice.h>
+@@ -24,6 +25,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/ip.h>
+ #include <linux/prefetch.h>
++#include <linux/if_vlan.h>
+ 
+ #include "bnad.h"
+ #include "bna.h"
+@@ -514,24 +516,16 @@ bnad_poll_cq(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 		rcb->rxq->rx_bytes += skb->len;
+ 		skb->protocol = eth_type_trans(skb, bnad->netdev);
+ 
+-		if (bnad->vlan_grp && (flags & BNA_CQ_EF_VLAN)) {
+-			struct bnad_rx_ctrl *rx_ctrl =
+-				(struct bnad_rx_ctrl *)ccb->ctrl;
+-			if (skb->ip_summed == CHECKSUM_UNNECESSARY)
+-				vlan_gro_receive(&rx_ctrl->napi, bnad->vlan_grp,
+-						ntohs(cmpl->vlan_tag), skb);
+-			else
+-				vlan_hwaccel_receive_skb(skb,
+-							 bnad->vlan_grp,
+-							 ntohs(cmpl->vlan_tag));
 -
--	if (skb->dev->features & NETIF_F_LRO) {
--		if (vlan_extracted)
--			lro_vlan_hwaccel_receive_skb(&pr->lro_mgr, skb,
--						     pr->port->vgrp,
--						     cqe->vlan_tag,
--						     cqe);
--		else
--			lro_receive_skb(&pr->lro_mgr, skb, cqe);
--	} else {
--		if (vlan_extracted)
--			vlan_hwaccel_receive_skb(skb, pr->port->vgrp,
--						 cqe->vlan_tag);
--		else
--			netif_receive_skb(skb);
--	}
-+	if (cqe->status & EHEA_CQE_VLAN_TAG_XTRACT)
-+		__vlan_hwaccel_put_tag(skb, cqe->vlan_tag);
+-		} else { /* Not VLAN tagged/stripped */
+-			struct bnad_rx_ctrl *rx_ctrl =
+-				(struct bnad_rx_ctrl *)ccb->ctrl;
+-			if (skb->ip_summed == CHECKSUM_UNNECESSARY)
+-				napi_gro_receive(&rx_ctrl->napi, skb);
+-			else
+-				netif_receive_skb(skb);
++		if (flags & BNA_CQ_EF_VLAN)
++			__vlan_hwaccel_put_tag(skb, ntohs(cmpl->vlan_tag));
 +
-+	if (skb->dev->features & NETIF_F_LRO)
-+		lro_receive_skb(&pr->lro_mgr, skb, cqe);
-+	else
-+		netif_receive_skb(skb);
++		if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
++			struct bnad_rx_ctrl *rx_ctrl;
++
++			rx_ctrl = (struct bnad_rx_ctrl *) ccb->ctrl;
++			napi_gro_receive(&rx_ctrl->napi, skb);
++		} else {
++			netif_receive_skb(skb);
+ 		}
+ 
+ next:
+@@ -1981,19 +1975,14 @@ bnad_enable_default_bcast(struct bnad *bnad)
+ static void
+ bnad_restore_vlans(struct bnad *bnad, u32 rx_id)
+ {
+-	u16 vlan_id;
++	u16 vid;
+ 	unsigned long flags;
+ 
+-	if (!bnad->vlan_grp)
+-		return;
+-
+ 	BUG_ON(!(VLAN_N_VID == (BFI_MAX_VLAN + 1)));
+ 
+-	for (vlan_id = 0; vlan_id < VLAN_N_VID; vlan_id++) {
+-		if (!vlan_group_get_device(bnad->vlan_grp, vlan_id))
+-			continue;
++	for_each_set_bit(vid, bnad->active_vlans, VLAN_N_VID) {
+ 		spin_lock_irqsave(&bnad->bna_lock, flags);
+-		bna_rx_vlan_add(bnad->rx_info[rx_id].rx, vlan_id);
++		bna_rx_vlan_add(bnad->rx_info[rx_id].rx, vid);
+ 		spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 	}
+ }
+@@ -2796,17 +2785,6 @@ bnad_change_mtu(struct net_device *netdev, int new_mtu)
  }
  
- static int ehea_proc_rwqes(struct net_device *dev,
-@@ -2339,32 +2328,6 @@ static int ehea_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
--static void ehea_vlan_rx_register(struct net_device *dev,
--				  struct vlan_group *grp)
+ static void
+-bnad_vlan_rx_register(struct net_device *netdev,
+-				  struct vlan_group *vlan_grp)
 -{
--	struct ehea_port *port = netdev_priv(dev);
--	struct ehea_adapter *adapter = port->adapter;
--	struct hcp_ehea_port_cb1 *cb1;
--	u64 hret;
+-	struct bnad *bnad = netdev_priv(netdev);
 -
--	port->vgrp = grp;
--
--	cb1 = (void *)get_zeroed_page(GFP_KERNEL);
--	if (!cb1) {
--		pr_err("no mem for cb1\n");
--		goto out;
--	}
--
--	hret = ehea_h_modify_ehea_port(adapter->handle, port->logical_port_id,
--				       H_PORT_CB1, H_PORT_CB1_ALL, cb1);
--	if (hret != H_SUCCESS)
--		pr_err("modify_ehea_port failed\n");
--
--	free_page((unsigned long)cb1);
--out:
--	return;
+-	mutex_lock(&bnad->conf_mutex);
+-	bnad->vlan_grp = vlan_grp;
+-	mutex_unlock(&bnad->conf_mutex);
 -}
 -
- static void ehea_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
+-static void
+ bnad_vlan_rx_add_vid(struct net_device *netdev,
+ 				 unsigned short vid)
  {
- 	struct ehea_port *port = netdev_priv(dev);
-@@ -2406,8 +2369,6 @@ static void ehea_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
- 	int index;
- 	u64 hret;
+@@ -2820,6 +2798,7 @@ bnad_vlan_rx_add_vid(struct net_device *netdev,
  
--	vlan_group_set_device(port->vgrp, vid, NULL);
--
- 	cb1 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb1) {
- 		pr_err("no mem for cb1\n");
-@@ -3202,7 +3163,6 @@ static const struct net_device_ops ehea_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_multicast_list	= ehea_set_multicast_list,
- 	.ndo_change_mtu		= ehea_change_mtu,
--	.ndo_vlan_rx_register	= ehea_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid	= ehea_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= ehea_vlan_rx_kill_vid,
- 	.ndo_tx_timeout		= ehea_tx_watchdog,
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bna_rx_vlan_add(bnad->rx_info[0].rx, vid);
++	set_bit(vid, bnad->active_vlans);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	mutex_unlock(&bnad->conf_mutex);
+@@ -2838,6 +2817,7 @@ bnad_vlan_rx_kill_vid(struct net_device *netdev,
+ 	mutex_lock(&bnad->conf_mutex);
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
++	clear_bit(vid, bnad->active_vlans);
+ 	bna_rx_vlan_del(bnad->rx_info[0].rx, vid);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+@@ -2887,7 +2867,6 @@ static const struct net_device_ops bnad_netdev_ops = {
+ 	.ndo_validate_addr      = eth_validate_addr,
+ 	.ndo_set_mac_address    = bnad_set_mac_address,
+ 	.ndo_change_mtu		= bnad_change_mtu,
+-	.ndo_vlan_rx_register   = bnad_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid    = bnad_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid   = bnad_vlan_rx_kill_vid,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+diff --git a/drivers/net/bna/bnad.h b/drivers/net/bna/bnad.h
+index ccdabad..7aa550b 100644
+--- a/drivers/net/bna/bnad.h
++++ b/drivers/net/bna/bnad.h
+@@ -24,6 +24,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/mutex.h>
+ #include <linux/firmware.h>
++#include <linux/if_vlan.h>
+ 
+ /* Fix for IA64 */
+ #include <asm/checksum.h>
+@@ -216,7 +217,7 @@ struct bnad {
+ 	struct bnad_tx_info tx_info[BNAD_MAX_TXS];
+ 	struct bnad_rx_info rx_info[BNAD_MAX_RXS];
+ 
+-	struct vlan_group	*vlan_grp;
++	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	/*
+ 	 * These q numbers are global only because
+ 	 * they are used to calculate MSIx vectors.
 -- 
 1.7.6
 
