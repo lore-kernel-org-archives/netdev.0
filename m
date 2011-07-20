@@ -1,61 +1,48 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: Re: [patch] skbuff: use kfree_skb() instead of kfree()
-Date: Wed, 20 Jul 2011 10:37:11 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1107201035270.24382@ask.diku.dk>
-References: <20110720072343.GF6445@shale.localdomain>
- <20110720072549.GG6445@shale.localdomain>  <1311147723.3113.116.camel@edumazet-laptop>
-  <20110720080109.GH6445@shale.localdomain> <1311150084.2338.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-1775040443-1311151031=:24382"
-Cc: Dan Carpenter <error27@gmail.com>, Shirley Ma <xma@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH] Fix error decoding router advertisements netlink messages
+Date: Wed, 20 Jul 2011 10:41:21 +0200
+Message-ID: <1311151281-25479-1-git-send-email-andreas@fatal.se>
+Cc: netdev@vger.kernel.org,
+	Christoph Biedl <debian.axhn@manchmal.in-ulm.de>,
+	Andreas Henriksson <andreas@fatal.se>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:40240 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750745Ab1GTIiE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 04:38:04 -0400
-In-Reply-To: <1311150084.2338.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from smtprelay-h21.telenor.se ([195.54.99.196]:55977 "EHLO
+	smtprelay-h21.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745Ab1GTImb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 04:42:31 -0400
+Received: from ipb4.telenor.se (ipb4.telenor.se [195.54.127.167])
+	by smtprelay-h21.telenor.se (Postfix) with ESMTP id 3C6BDEA0C8
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:42:28 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Christoph Biedl <debian.axhn@manchmal.in-ulm.de>
 
----511516320-1775040443-1311151031=:24382
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+The "ip monitor" command does properly decode the "preferred" and
+"valid" lifetime records in router advertisements from netlink
+messages.
 
-On Wed, 20 Jul 2011, Eric Dumazet wrote:
+For more details see http://bugs.debian.org/634170
 
-> Le mercredi 20 juillet 2011 à 11:01 +0300, Dan Carpenter a écrit :
-> > On Wed, Jul 20, 2011 at 09:42:03AM +0200, Eric Dumazet wrote:
-> > > Le mercredi 20 juillet 2011 à 10:25 +0300, Dan Carpenter a écrit :
-> > > > Crap.  Sorry, I shouldn't have sent that.  We shouldn't return the
-> > > > freed "n" here.  I'll send a v2 shortly.
-> > > 
-> > > Also, dont forget to say its a patch for net-next-2.6
-> > 
-> > If you're using linux-next, is there a way to tell which tree a
-> > patch came from?  Obviously in this case it's core networking, but
-> > in other cases how does that work?
-> 
-> In this particular case, David will know for sure since patch is very
-> recent, but I wanted to make a general advice.
-> 
-> Keep in mind David has to review dozens of patches _per_ day, so netdev
-> related patches need some extra cooperation from submitters to help the
-> maintainer.
-> 
-> This extra cooperation means to test the patch on either net-next-2.6 or
-> net-2.6 tree ;)
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+---
+ ip/ipprefix.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Maybe there is some way to integrate such a suggestion in get_maintainers 
-or checkpatch?  Otherwise, those who work on the code in a more breadth 
-first way don't have much chance of knowing or remembering this advice.
+diff --git a/ip/ipprefix.c b/ip/ipprefix.c
+index cb1f582..d8327be 100644
+--- a/ip/ipprefix.c
++++ b/ip/ipprefix.c
+@@ -92,7 +92,7 @@ int print_prefix(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 
+ 	if (tb[PREFIX_CACHEINFO]) {
+ 		struct prefix_cacheinfo *pc;
+-		pc = (struct prefix_cacheinfo *)tb[PREFIX_CACHEINFO];
++		pc = (struct prefix_cacheinfo *)RTA_DATA(tb[PREFIX_CACHEINFO]);
+ 
+ 		fprintf(fp, "valid %u ", pc->valid_time);
+ 		fprintf(fp, "preferred %u ", pc->preferred_time);
+-- 
+1.7.5.4
 
-julia
----511516320-1775040443-1311151031=:24382--
