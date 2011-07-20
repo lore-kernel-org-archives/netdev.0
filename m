@@ -1,35 +1,81 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Fix panic in virtnet_remove
-Date: Wed, 20 Jul 2011 08:17:33 -0700
-Message-ID: <20110720081733.5afa3f8c@nehalam.ftrdhcpuser.net>
-References: <20110720074339.7842.72593.sendpatchset@krkumar2.in.ibm.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in
+ ndo_start_xmit methods
+Date: Wed, 20 Jul 2011 11:18:27 -0400
+Message-ID: <20110720151827.GD12349@hmsreliant.think-freely.org>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+ <1311105738.3113.11.camel@edumazet-laptop>
+ <20110719202922.GA2352@minipsycho>
+ <1311108107.3113.22.camel@edumazet-laptop>
+ <20110720001904.GA1992@neilslaptop.think-freely.org>
+ <1311122593.3113.46.camel@edumazet-laptop>
+ <4E2626E1.6030005@candelatech.com>
+ <20110720020737.GB2692@neilslaptop.think-freely.org>
+ <1311135855.3113.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, robert.olsson@its.uu.se
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56339 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750980Ab1GTPRb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 11:17:31 -0400
-In-Reply-To: <20110720074339.7842.72593.sendpatchset@krkumar2.in.ibm.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40449 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006Ab1GTPSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 11:18:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1311135855.3113.66.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Jul 2011 13:13:39 +0530
-Krishna Kumar <krkumar2@in.ibm.com> wrote:
+On Wed, Jul 20, 2011 at 06:24:15AM +0200, Eric Dumazet wrote:
+> Le mardi 19 juillet 2011 =E0 22:07 -0400, Neil Horman a =E9crit :
+> > >=20
+> > I think this is a good idea.  It lets pktgen dynamically make the c=
+lone/share
+> > decision dynamically and only impacts performance for those systems=
+=2E
+> >=20
+>=20
+> Just let pktgen refuse to use clone_skb command for these devices.
+>=20
+copy that, This is by no means final, but what do you think of this?  I=
+f its
+agreeable to you, Ben, et al. I can add this to my local tree and start=
+ auditing
+all the drivers that may need to have the flag set.
 
-> Fix a panic in virtnet_remove. unregister_netdev has already
-> freed up the netdev (and virtnet_info) due to dev->destructor
-> being set, while virtnet_info is still required. Remove
-> virtnet_free altogether, and move the freeing of the per-cpu
-> statistics from virtnet_free to virtnet_remove.
-> 
-> Tested patch below.
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Regards
+Neil
 
-Need to check veth and xen for same problem.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 3bc63e6..ae904fe 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -76,6 +76,7 @@
+ #define IFF_BRIDGE_PORT	0x4000		/* device used as bridge port */
+ #define IFF_OVS_DATAPATH	0x8000	/* device used as Open vSwitch
+ 					 * datapath port */
++#define IFF_CANT_SHARE_SKB	0x10000	/* Device can't share skbs in tx pa=
+th */
+=20
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index f76079c..bf6d88d 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1071,6 +1071,9 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		if (len < 0)
+ 			return len;
+=20
++		if (pkt_dev->priv_flags & IFF_CANT_SHARE_SKB)
++			return -EOPNOTSUPP;
++
+ 		i +=3D len;
+ 		pkt_dev->clone_skb =3D value;
+=20
+
