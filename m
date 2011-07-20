@@ -1,78 +1,109 @@
-From: Mohammed Shafi <shafi.wireless@gmail.com>
-Subject: Re: [PATCH 2/3] wireless: ath9k: use %pM to print MAC
-Date: Wed, 20 Jul 2011 20:30:21 +0530
-Message-ID: <CAD2nsn2tOJTcOo=OcUp-agYCkBNT5Rt2j0D1+E1m1C56+QdQ-A@mail.gmail.com>
-References: <fddeabc04a1b81a5c1f51a4164d93366dccf5f8e.1311162926.git.andriy.shevchenko@linux.intel.com>
-	<e9d4e9e2edf4c51412c141140d51e9baf9ff13a3.1311162926.git.andriy.shevchenko@linux.intel.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 01/47] gianfar: rx parser
+Date: Wed, 20 Jul 2011 17:01:11 +0200
+Message-ID: <20110720150110.GA2250@minipsycho.brq.redhat.com>
+References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
+ <1311173689-17419-2-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <e9d4e9e2edf4c51412c141140d51e9baf9ff13a3.1311162926.git.andriy.shevchenko@linux.intel.com>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38850 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751541Ab1GTPBO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 11:01:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1311173689-17419-2-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 20, 2011 at 7:04 PM, Andy Shevchenko
-<andriy.shevchenko@linux.intel.com> wrote:
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-> Cc: ath9k-devel@lists.ath9k.org
-> ---
-> =A0drivers/net/wireless/ath/ath9k/htc_drv_debug.c | =A0 =A07 ++-----
-> =A01 files changed, 2 insertions(+), 5 deletions(-)
+Ugh this was already applied on net-2.6. Dave please sync and ignore
+this. Sorry.
+
+Thanks.
+
+Jirka
+
+Wed, Jul 20, 2011 at 04:54:03PM CEST, jpirko@redhat.com wrote:
+>Only let the rx parser be enabled if it is necessary (if VLAN extraction,
+>IP or TCP checksumming or the rx queue filer are enabled). Otherwise
+>disable it.
 >
-> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c b/drivers/net=
-/wireless/ath/ath9k/htc_drv_debug.c
-> index aa48b3a..d3ff33c 100644
-> --- a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
-> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
-> @@ -623,11 +623,8 @@ static ssize_t read_file_base_eeprom(struct file *fi=
-le, char __user *user_buf,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pBase9287-=
->openLoopPwrCntl);
-> =A0 =A0 =A0 =A0}
+>The new routine gfar_check_rx_parser_mode should be run after every
+>change on this features and will enable/disable the parser as necessary.
 >
-> - =A0 =A0 =A0 len +=3D snprintf(buf + len, size - len,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "%20s : %02X:%02X:%02X:%02X=
-:%02X:%02X\n",
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "MacAddress",
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pBase->macAddr[0], pBase->m=
-acAddr[1], pBase->macAddr[2],
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pBase->macAddr[3], pBase->m=
-acAddr[4], pBase->macAddr[5]);
-> + =A0 =A0 =A0 len +=3D snprintf(buf + len, size - len, "%20s : %pM\n", "M=
-acAddress",
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pBase->macAddr);
-> =A0 =A0 =A0 =A0if (len > size)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0len =3D size;
-
-thanks for the patch!
-
+>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+>---
+> drivers/net/gianfar.c |   24 +++++++++++++++++++-----
+> drivers/net/gianfar.h |    3 ++-
+> 2 files changed, 21 insertions(+), 6 deletions(-)
 >
-> --
-> 1.7.5.4
+>diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+>index 3321d71..d265c6e 100644
+>--- a/drivers/net/gianfar.c
+>+++ b/drivers/net/gianfar.c
+>@@ -2287,6 +2287,23 @@ static int gfar_set_mac_address(struct net_device *dev)
+> 	return 0;
+> }
+> 
+>+/* Check if rx parser should be activated */
+>+void gfar_check_rx_parser_mode(struct gfar_private *priv)
+>+{
+>+	struct gfar __iomem *regs;
+>+	u32 tempval;
+>+
+>+	regs = priv->gfargrp[0].regs;
+>+
+>+	tempval = gfar_read(&regs->rctrl);
+>+	/* If parse is no longer required, then disable parser */
+>+	if (tempval & RCTRL_REQ_PARSER)
+>+		tempval |= RCTRL_PRSDEP_INIT;
+>+	else
+>+		tempval &= ~RCTRL_PRSDEP_INIT;
+>+	gfar_write(&regs->rctrl, tempval);
+>+}
+>+
+> 
+> /* Enables and disables VLAN insertion/extraction */
+> static void gfar_vlan_rx_register(struct net_device *dev,
+>@@ -2323,12 +2340,9 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+> 		/* Disable VLAN tag extraction */
+> 		tempval = gfar_read(&regs->rctrl);
+> 		tempval &= ~RCTRL_VLEX;
+>-		/* If parse is no longer required, then disable parser */
+>-		if (tempval & RCTRL_REQ_PARSER)
+>-			tempval |= RCTRL_PRSDEP_INIT;
+>-		else
+>-			tempval &= ~RCTRL_PRSDEP_INIT;
+> 		gfar_write(&regs->rctrl, tempval);
+>+
+>+		gfar_check_rx_parser_mode(priv);
+> 	}
+> 
+> 	gfar_change_mtu(dev, dev->mtu);
+>diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+>index 27499c6..87c1d86 100644
+>--- a/drivers/net/gianfar.h
+>+++ b/drivers/net/gianfar.h
+>@@ -286,7 +286,7 @@ extern const char gfar_driver_version[];
+> #define RCTRL_PROM		0x00000008
+> #define RCTRL_EMEN		0x00000002
+> #define RCTRL_REQ_PARSER	(RCTRL_VLEX | RCTRL_IPCSEN | \
+>-				 RCTRL_TUCSEN)
+>+				 RCTRL_TUCSEN | RCTRL_FILREN)
+> #define RCTRL_CHECKSUMMING	(RCTRL_IPCSEN | RCTRL_TUCSEN | \
+> 				RCTRL_PRSDEP_INIT)
+> #define RCTRL_EXTHASH		(RCTRL_GHTX)
+>@@ -1182,6 +1182,7 @@ extern void gfar_configure_coalescing(struct gfar_private *priv,
+> 		unsigned long tx_mask, unsigned long rx_mask);
+> void gfar_init_sysfs(struct net_device *dev);
+> int gfar_set_features(struct net_device *dev, u32 features);
+>+extern void gfar_check_rx_parser_mode(struct gfar_private *priv);
+> 
+> extern const struct ethtool_ops gfar_ethtool_ops;
+> 
+>-- 
+>1.7.6
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
-
-
-
--- =
-
-shafi
