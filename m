@@ -1,62 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
- predictable
-Date: Wed, 20 Jul 2011 10:25:27 +0200
-Message-ID: <1311150327.2338.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E24BE94.7010301@gont.com.ar>
-	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1311108423.3113.24.camel@edumazet-laptop>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [patch] skbuff: use kfree_skb() instead of kfree()
+Date: Wed, 20 Jul 2011 10:37:11 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1107201035270.24382@ask.diku.dk>
+References: <20110720072343.GF6445@shale.localdomain>
+ <20110720072549.GG6445@shale.localdomain>  <1311147723.3113.116.camel@edumazet-laptop>
+  <20110720080109.GH6445@shale.localdomain> <1311150084.2338.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: security@kernel.org, Eugene Teo <eugeneteo@kernel.sg>,
-	netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>
-To: Fernando Gont <fernando@gont.com.ar>,
-	David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-1775040443-1311151031=:24382"
+Cc: Dan Carpenter <error27@gmail.com>, Shirley Ma <xma@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57376 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101Ab1GTIZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 04:25:36 -0400
-Received: by wyg8 with SMTP id 8so3306190wyg.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 01:25:35 -0700 (PDT)
-In-Reply-To: <1311108423.3113.24.camel@edumazet-laptop>
+Received: from mgw2.diku.dk ([130.225.96.92]:40240 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750745Ab1GTIiE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 04:38:04 -0400
+In-Reply-To: <1311150084.2338.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 19 juillet 2011 =C3=A0 22:47 +0200, Eric Dumazet a =C3=A9crit =
-:
-> IPv6 fragment identification generation is way beyond what we use for
-> IPv4 : It uses a single generator. Its not scalable and allows DOS
-> attacks.
->=20
-> Now inetpeer is IPv6 aware, we can use it to provide a more secure an=
-d
-> scalable frag ident generator (per destination, instead of system wid=
-e)
->=20
-> This patch :
-> 1) defines a new secure_ipv6_id() helper
-> 2) extends inet_getid() to provide 32bit results
-> 3) extends ipv6_select_ident() with a new dest parameter
->=20
-> Reported-by: Fernando Gont <fernando@gont.com.ar>
-> CC: Matt Mackall <mpm@selenic.com>
-> CC: Eugene Teo <eugeneteo@kernel.sg>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
+---511516320-1775040443-1311151031=:24382
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Please hold on, I'll make a different patch series to ease stable teams
-job. It appears inetpeer & ipv6 are really not an option for old
-kernels.
+On Wed, 20 Jul 2011, Eric Dumazet wrote:
 
-Common patch for all kernels :
-1) Fix the problem without inetpeer help
----=20
-Patches for next kernels
-2) random split as suggested by Matt Mackal
-3) Use inetpeer cache to scale identification generation
+> Le mercredi 20 juillet 2011 à 11:01 +0300, Dan Carpenter a écrit :
+> > On Wed, Jul 20, 2011 at 09:42:03AM +0200, Eric Dumazet wrote:
+> > > Le mercredi 20 juillet 2011 à 10:25 +0300, Dan Carpenter a écrit :
+> > > > Crap.  Sorry, I shouldn't have sent that.  We shouldn't return the
+> > > > freed "n" here.  I'll send a v2 shortly.
+> > > 
+> > > Also, dont forget to say its a patch for net-next-2.6
+> > 
+> > If you're using linux-next, is there a way to tell which tree a
+> > patch came from?  Obviously in this case it's core networking, but
+> > in other cases how does that work?
+> 
+> In this particular case, David will know for sure since patch is very
+> recent, but I wanted to make a general advice.
+> 
+> Keep in mind David has to review dozens of patches _per_ day, so netdev
+> related patches need some extra cooperation from submitters to help the
+> maintainer.
+> 
+> This extra cooperation means to test the patch on either net-next-2.6 or
+> net-2.6 tree ;)
 
+Maybe there is some way to integrate such a suggestion in get_maintainers 
+or checkpatch?  Otherwise, those who work on the code in a more breadth 
+first way don't have much chance of knowing or remembering this advice.
 
+julia
+---511516320-1775040443-1311151031=:24382--
