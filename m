@@ -1,118 +1,269 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 2/4] stmmac: remove warning when compile as built-in (V2)
-Date: Wed, 20 Jul 2011 12:05:22 +0200
-Message-ID: <1311156324-23928-2-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 4/4] stmmac: improve and up-to-date the documentation
+Date: Wed, 20 Jul 2011 12:05:24 +0200
+Message-ID: <1311156324-23928-4-git-send-email-peppe.cavallaro@st.com>
 References: <1311156324-23928-1-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:47876 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751229Ab1GTKeA (ORCPT
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:46032 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751351Ab1GTKeA (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 06:34:00 -0400
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 69759C3
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:06:57 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6E59673
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:06:13 +0000 (GMT)
 Received: from mail7.sgp.st.com (unknown [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0C6C01806
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:06:57 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 049A017D7
+	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 10:06:13 +0000 (GMT)
 In-Reply-To: <1311156324-23928-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch removes the following serie of warnings
-when the driver is compiled as built-in:
-
-drivers/net/stmmac/stmmac_main.c: In function stmmac_cmdline_opt:
-drivers/net/stmmac/stmmac_main.c:1855:12: warning: ignoring return
-value of kstrtoul, declared with attribute warn_unused_result
-[snip]
+This patch adds new information for the driver
+especially about its platform structure fields.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/stmmac_main.c |   65 ++++++++++++++++++++++++-------------
- 1 files changed, 42 insertions(+), 23 deletions(-)
+ Documentation/networking/stmmac.txt |  200 ++++++++++++++++++++++++-----------
+ 1 files changed, 136 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index 0e0134e..9e02bd4 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -1932,33 +1932,52 @@ static int __init stmmac_cmdline_opt(char *str)
- 	if (!str || !*str)
- 		return -EINVAL;
- 	while ((opt = strsep(&str, ",")) != NULL) {
--		if (!strncmp(opt, "debug:", 6))
--			strict_strtoul(opt + 6, 0, (unsigned long *)&debug);
--		else if (!strncmp(opt, "phyaddr:", 8))
--			strict_strtoul(opt + 8, 0, (unsigned long *)&phyaddr);
--		else if (!strncmp(opt, "dma_txsize:", 11))
--			strict_strtoul(opt + 11, 0,
--				       (unsigned long *)&dma_txsize);
--		else if (!strncmp(opt, "dma_rxsize:", 11))
--			strict_strtoul(opt + 11, 0,
--				       (unsigned long *)&dma_rxsize);
--		else if (!strncmp(opt, "buf_sz:", 7))
--			strict_strtoul(opt + 7, 0, (unsigned long *)&buf_sz);
--		else if (!strncmp(opt, "tc:", 3))
--			strict_strtoul(opt + 3, 0, (unsigned long *)&tc);
--		else if (!strncmp(opt, "watchdog:", 9))
--			strict_strtoul(opt + 9, 0, (unsigned long *)&watchdog);
--		else if (!strncmp(opt, "flow_ctrl:", 10))
--			strict_strtoul(opt + 10, 0,
--				       (unsigned long *)&flow_ctrl);
--		else if (!strncmp(opt, "pause:", 6))
--			strict_strtoul(opt + 6, 0, (unsigned long *)&pause);
-+		if (!strncmp(opt, "debug:", 6)) {
-+			if (strict_strtoul(opt + 6, 0, (unsigned long *)&debug))
-+				goto err;
-+		} else if (!strncmp(opt, "phyaddr:", 8)) {
-+			if (strict_strtoul(opt + 8, 0,
-+					   (unsigned long *)&phyaddr))
-+				goto err;
-+		} else if (!strncmp(opt, "dma_txsize:", 11)) {
-+			if (strict_strtoul(opt + 11, 0,
-+					   (unsigned long *)&dma_txsize))
-+				goto err;
-+		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
-+			if (strict_strtoul(opt + 11, 0,
-+					   (unsigned long *)&dma_rxsize))
-+				goto err;
-+		} else if (!strncmp(opt, "buf_sz:", 7)) {
-+			if (strict_strtoul(opt + 7, 0,
-+					   (unsigned long *)&buf_sz))
-+				goto err;
-+		} else if (!strncmp(opt, "tc:", 3)) {
-+			if (strict_strtoul(opt + 3, 0, (unsigned long *)&tc))
-+				goto err;
-+		} else if (!strncmp(opt, "watchdog:", 9)) {
-+			if (strict_strtoul(opt + 9, 0,
-+					   (unsigned long *)&watchdog))
-+				goto err;
-+		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
-+			if (strict_strtoul(opt + 10, 0,
-+					   (unsigned long *)&flow_ctrl))
-+				goto err;
-+		} else if (!strncmp(opt, "pause:", 6)) {
-+			if (strict_strtoul(opt + 6, 0, (unsigned long *)&pause))
-+				goto err;
- #ifdef CONFIG_STMMAC_TIMER
--		else if (!strncmp(opt, "tmrate:", 7))
--			strict_strtoul(opt + 7, 0, (unsigned long *)&tmrate);
-+		} else if (!strncmp(opt, "tmrate:", 7)) {
-+			if (strict_strtoul(opt + 7, 0,
-+					   (unsigned long *)&tmrate))
-+				goto err;
- #endif
-+		}
- 	}
- 	return 0;
-+
-+err:
-+	pr_err("%s: ERROR broken module parameter conversion", __func__);
-+	return -EINVAL;
- }
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 80a7a34..57a2410 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -7,7 +7,7 @@ This is the driver for the MAC 10/100/1000 on-chip Ethernet controllers
+ (Synopsys IP blocks); it has been fully tested on STLinux platforms.
  
- __setup("stmmaceth=", stmmac_cmdline_opt);
+ Currently this network device driver is for all STM embedded MAC/GMAC
+-(7xxx SoCs). Other platforms start using it i.e. ARM SPEAr.
++(i.e. 7xxx/5xxx SoCs) and it's known working on other platforms i.e. ARM SPEAr.
+ 
+ DWC Ether MAC 10/100/1000 Universal version 3.41a and DWC Ether MAC 10/100
+ Universal version 4.0 have been used for developing the first code
+@@ -71,7 +71,7 @@ Several performance tests on STM platforms showed this optimisation allows to sp
+ the CPU while having the maximum throughput.
+ 
+ 4.4) WOL
+-Wake up on Lan feature through Magic Frame is only supported for the GMAC
++Wake up on Lan feature through Magic and Unicast frames are supported for the GMAC
+ core.
+ 
+ 4.5) DMA descriptors
+@@ -91,11 +91,15 @@ LRO is not supported.
+ The driver is compatible with PAL to work with PHY and GPHY devices.
+ 
+ 4.9) Platform information
+-Several information came from the platform; please refer to the
+-driver's Header file in include/linux directory.
++Several driver's information can be passed through the platform
++These are included in the include/linux/stmmac.h header file
++and detailed below as well:
+ 
+-struct plat_stmmacenet_data {
++ struct plat_stmmacenet_data {
+ 	int bus_id;
++	int phy_addr;
++	int interface;
++	struct stmmac_mdio_bus_data *mdio_bus_data;
+ 	int pbl;
+ 	int clk_csr;
+ 	int has_gmac;
+@@ -103,67 +107,135 @@ struct plat_stmmacenet_data {
+ 	int tx_coe;
+ 	int bugged_jumbo;
+ 	int pmt;
+-        void (*fix_mac_speed)(void *priv, unsigned int speed);
+-        void (*bus_setup)(unsigned long ioaddr);
+-#ifdef CONFIG_STM_DRIVERS
+-        struct stm_pad_config *pad_config;
+-#endif
+-        void *bsp_priv;
+-};
++	int force_sf_dma_mode;
++	void (*fix_mac_speed)(void *priv, unsigned int speed);
++	void (*bus_setup)(void __iomem *ioaddr);
++	int (*init)(struct platform_device *pdev);
++	void (*exit)(struct platform_device *pdev);
++	void *bsp_priv;
++ };
+ 
+ Where:
+-- pbl (Programmable Burst Length) is maximum number of
+-  beats to be transferred in one DMA transaction.
+-  GMAC also enables the 4xPBL by default.
+-- fix_mac_speed and bus_setup are used to configure internal target
+-  registers (on STM platforms);
+-- has_gmac: GMAC core is on board (get it at run-time in the next step);
+-- bus_id: bus identifier.
+-- tx_coe: core is able to perform the tx csum in HW.
+-- enh_desc: if sets the MAC will use the enhanced descriptor structure.
+-- clk_csr: CSR Clock range selection.
+-- bugged_jumbo: some HWs are not able to perform the csum in HW for
+-  over-sized frames due to limited buffer sizes. Setting this
+-  flag the csum will be done in SW on JUMBO frames.
+-
+-struct plat_stmmacphy_data {
+-        int bus_id;
+-        int phy_addr;
+-        unsigned int phy_mask;
+-        int interface;
+-        int (*phy_reset)(void *priv);
+-        void *priv;
+-};
++ o bus_id: bus identifier.
++ o phy_addr: the physical address can be passed from the platform.
++	    If it is set to -1 the driver will automatically
++	    detect it at run-time by probing all the 32 addresses.
++ o interface: PHY device's interface.
++ o mdio_bus_data: specific platform fields for the MDIO bus.
++ o pbl: the Programmable Burst Length is maximum number of beats to
++       be transferred in one DMA transaction.
++       GMAC also enables the 4xPBL by default.
++ o clk_csr: CSR Clock range selection.
++ o has_gmac: uses the GMAC core.
++ o enh_desc: if sets the MAC will use the enhanced descriptor structure.
++ o tx_coe: core is able to perform the tx csum in HW.
++ o bugged_jumbo: some HWs are not able to perform the csum in HW for
++		over-sized frames due to limited buffer sizes.
++		Setting this flag the csum will be done in SW on
++		JUMBO frames.
++ o pmt: core has the embedded power module (optional).
++ o force_sf_dma_mode: force DMA to use the Store and Forward mode
++		     instead of the Threshold.
++ o fix_mac_speed: this callback is used for modifying some syscfg registers
++		 (on ST SoCs) according to the link speed negotiated by the
++		 physical layer .
++ o bus_setup: perform HW setup of the bus. For example, on some ST platforms
++	     this field is used to configure the AMBA  bridge to generate more
++	     efficient STBus traffic.
++ o init/exit: callbacks used for calling a custom initialisation;
++	     this is sometime necessary on some platforms (e.g. ST boxes)
++	     where the HW needs to have set some PIO lines or system cfg
++	     registers.
++ o custom_cfg: this is a custom configuration that can be passed while
++	      initialising the resources.
++
++The we have:
++
++ struct stmmac_mdio_bus_data {
++	int bus_id;
++	int (*phy_reset)(void *priv);
++	unsigned int phy_mask;
++	int *irqs;
++	int probed_phy_irq;
++ };
+ 
+ Where:
+-- bus_id: bus identifier;
+-- phy_addr: physical address used for the attached phy device;
+-            set it to -1 to get it at run-time;
+-- interface: physical MII interface mode;
+-- phy_reset: hook to reset HW function.
+-
+-SOURCES:
+-- Kconfig
+-- Makefile
+-- stmmac_main.c: main network device driver;
+-- stmmac_mdio.c: mdio functions;
+-- stmmac_ethtool.c: ethtool support;
+-- stmmac_timer.[ch]: timer code used for mitigating the driver dma interrupts
+-  Only tested on ST40 platforms based.
+-- stmmac.h: private driver structure;
+-- common.h: common definitions and VFTs;
+-- descs.h: descriptor structure definitions;
+-- dwmac1000_core.c: GMAC core functions;
+-- dwmac1000_dma.c:  dma functions for the GMAC chip;
+-- dwmac1000.h: specific header file for the GMAC;
+-- dwmac100_core: MAC 100 core and dma code;
+-- dwmac100_dma.c: dma funtions for the MAC chip;
+-- dwmac1000.h: specific header file for the MAC;
+-- dwmac_lib.c: generic DMA functions shared among chips
+-- enh_desc.c: functions for handling enhanced descriptors
+-- norm_desc.c: functions for handling normal descriptors
+-
+-TODO:
+-- XGMAC controller is not supported.
+-- Review the timer optimisation code to use an embedded device that seems to be
++ o bus_id: bus identifier;
++ o phy_reset: hook to reset the phy device attached to the bus.
++ o phy_mask: phy mask passed when register the MDIO bus within the driver.
++ o irqs: list of IRQs, one per PHY.
++ o probed_phy_irq: if irqs is NULL, use this for probed PHY.
++
++Below an example how the structures above are using on ST platforms.
++
++ static struct plat_stmmacenet_data stxYYY_ethernet_platform_data = {
++	.pbl = 32,
++	.has_gmac = 0,
++	.enh_desc = 0,
++	.fix_mac_speed = stxYYY_ethernet_fix_mac_speed,
++				|
++				|-> to write an internal syscfg
++				|   on this platform when the
++				|   link speed changes from 10 to
++				|   100 and viceversa
++	.init = &stmmac_claim_resource,
++				|
++				|-> On ST SoC this calls own "PAD"
++				|   manager framework to claim
++				|   all the resources necessary
++				|   (GPIO ...). The .custom_cfg field
++				|   is used to pass a custom config.
++};
++
++Below the usage of the stmmac_mdio_bus_data: on this SoC, in fact,
++there are two MAC cores: one MAC is for MDIO Bus/PHY emulation
++with fixed_link support.
++
++static struct stmmac_mdio_bus_data stmmac1_mdio_bus = {
++	.bus_id = 1,
++		|
++		|-> phy device on the bus_id 1
++	.phy_reset = phy_reset;
++		|
++		|-> function to provide the phy_reset on this board
++	.phy_mask = 0,
++};
++
++static struct fixed_phy_status stmmac0_fixed_phy_status = {
++	.link = 1,
++	.speed = 100,
++	.duplex = 1,
++};
++
++During the board's device_init we can configure the first
++MAC for fixed_link by calling:
++  fixed_phy_add(PHY_POLL, 1, &stmmac0_fixed_phy_status));)
++and the second one, with a real PHY device attached to the bus,
++by using the stmmac_mdio_bus_data structure (to provide the id, the
++reset procedure etc).
++
++4.10) List of source files:
++ o Kconfig
++ o Makefile
++ o stmmac_main.c: main network device driver;
++ o stmmac_mdio.c: mdio functions;
++ o stmmac_ethtool.c: ethtool support;
++ o stmmac_timer.[ch]: timer code used for mitigating the driver dma interrupts
++		      Only tested on ST40 platforms based.
++ o stmmac.h: private driver structure;
++ o common.h: common definitions and VFTs;
++ o descs.h: descriptor structure definitions;
++ o dwmac1000_core.c: GMAC core functions;
++ o dwmac1000_dma.c:  dma functions for the GMAC chip;
++ o dwmac1000.h: specific header file for the GMAC;
++ o dwmac100_core: MAC 100 core and dma code;
++ o dwmac100_dma.c: dma funtions for the MAC chip;
++ o dwmac1000.h: specific header file for the MAC;
++ o dwmac_lib.c: generic DMA functions shared among chips
++ o enh_desc.c: functions for handling enhanced descriptors
++ o norm_desc.c: functions for handling normal descriptors
++
++5) TODO:
++ o XGMAC is not supported.
++ o Review the timer optimisation code to use an embedded device that will be
+   available in new chip generations.
 -- 
 1.7.4.4
 
