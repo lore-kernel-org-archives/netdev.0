@@ -1,28 +1,48 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: linux-next: Tree for July 20 (qlcnic)
-Date: Wed, 20 Jul 2011 09:19:45 -0700
-Message-ID: <20110720091945.39f0a8a5.rdunlap@xenotime.net>
-References: <20110720180041.5774ca335e6697c17374dca5@canb.auug.org.au>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
+Date: Wed, 20 Jul 2011 18:29:53 +0200
+Message-ID: <20110720162953.GC11692@midget.suse.cz>
+References: <20110719180222.GA7509@midget.suse.cz>
+ <20110720091556.619a0c14@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-driver@qlogic.com
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110720180041.5774ca335e6697c17374dca5@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:36390 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751483Ab1GTQ3z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 12:29:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20110720091556.619a0c14@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Jul 2011 18:00:41 +1000 Stephen Rothwell wrote:
+On Wed, Jul 20, 2011 at 09:15:56AM -0700, Stephen Hemminger wrote:
+> > When the cable is unplugged and plugged in again, we already get
+> > notified through linkwatch -> netdev_state_change ->
+> >   -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
+> > However, if the device has already been autoconfigured,
+> > addrconf_notify() only handles this event by printing a
+> > message.
 
-> Hi all,
+...
 
-When CONFIG_VLAN_8021Q is not enabled:
+> If the driver drops the link during suspend then the necessary link
+> events happen to keep bridging, ipv6, bonding and all the other possible
+> network protocols happy.
 
-drivers/net/qlcnic/qlcnic_main.c:4207: error: 'struct net_device' has no member named 'vlgrp'
+OK, so maybe providing the link event on suspend/resume should be
+left to the drivers.
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+The main problem persists: IPv6 currently does nothing when the link goes
+down and returns. Shouldn't the kernel anticipate that the new
+network could be different, forget all the autoconfigured
+parameters and restart the autoconfiguration?
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
