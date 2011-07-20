@@ -1,64 +1,39 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 6/8] tg3: Fix int selftest for recent devices.
-Date: Wed, 20 Jul 2011 13:20:55 -0700
-Message-ID: <1311193257-20531-7-git-send-email-mcarlson@broadcom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: NIC driver r8168 with r8169 for RTL8111/8168B and DGE-528T together
+Date: Wed, 20 Jul 2011 22:30:41 +0200
+Message-ID: <20110720203041.GA10317@electric-eye.fr.zoreil.com>
+References: <4E26B198.4020606@telkomsa.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Danie Wessels <dawessels@telkomsa.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3699 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751400Ab1GTUTb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 16:19:31 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39798 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810Ab1GTUpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 16:45:55 -0400
+Content-Disposition: inline
+In-Reply-To: <4E26B198.4020606@telkomsa.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes interrupt selftest failures for recent devices (57765,
-5717, 5718. 5719, 5720) by disabling MSI one-shot mode and applying the
-status tag workaround to the selftest code.
+Danie Wessels <dawessels@telkomsa.net> :
+[...]
+> I would like to use my onboard NIC (eth0) with its r8168 driver from
+> RealTek together with my D-Link NIC (eth4=eth1) with its r8169
+> default driver from the install. Sepatately they seem to work...but
+> I would like a firewall set up with NAT and had it before I
+> "upgraded". ;^)
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/tg3.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+Remove the 8168 PCI IDs from the r8169 driver and you should be set.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index e5c1bc9..f2b0839 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -9183,7 +9183,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
- 	 * Turn off MSI one shot mode.  Otherwise this test has no
- 	 * observable way to know whether the interrupt was delivered.
- 	 */
--	if (tg3_flag(tp, 57765_PLUS) && tg3_flag(tp, USING_MSI)) {
-+	if (tg3_flag(tp, 57765_PLUS)) {
- 		val = tr32(MSGINT_MODE) | MSGINT_MODE_ONE_SHOT_DISABLE;
- 		tw32(MSGINT_MODE, val);
- 	}
-@@ -9211,6 +9211,10 @@ static int tg3_test_interrupt(struct tg3 *tp)
- 			break;
- 		}
- 
-+		if (tg3_flag(tp, 57765_PLUS) &&
-+		    tnapi->hw_status->status_tag != tnapi->last_tag)
-+			tw32_mailbox_f(tnapi->int_mbox, tnapi->last_tag << 24);
-+
- 		msleep(10);
- 	}
- 
-@@ -9225,7 +9229,7 @@ static int tg3_test_interrupt(struct tg3 *tp)
- 
- 	if (intr_ok) {
- 		/* Reenable MSI one shot mode. */
--		if (tg3_flag(tp, 57765_PLUS) && tg3_flag(tp, USING_MSI)) {
-+		if (tg3_flag(tp, 57765_PLUS)) {
- 			val = tr32(MSGINT_MODE) & ~MSGINT_MODE_ONE_SHOT_DISABLE;
- 			tw32(MSGINT_MODE, val);
- 		}
+[...]
+>    [ 1.486546] r8169 0000:03:00.0: eth0: RTL8168b/8111b at
+> 0xf8024000, 00:1c:c0:a7:03:49, XID 98500000 IRQ 43
+
+It ought to be supported by the kernel r8169 driver.
+
+Which problem(s) do you have with it ?
+
 -- 
-1.7.3.4
-
-
+Ueimor
