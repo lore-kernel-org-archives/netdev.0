@@ -1,277 +1,75 @@
-From: Ian Campbell <Ian.Campbell-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>
-Subject: Re: [PATCH 09/10] nfs: use sk fragment destructors to delay I/O
- completion until page is released by network stack.
-Date: Thu, 21 Jul 2011 14:18:50 +0100
-Message-ID: <1311254330.32010.151.camel@zakaz.uk.xensource.com>
-References: <1310728006.20648.3.camel@zakaz.uk.xensource.com>
-	 <1310728031-19569-9-git-send-email-ian.campbell@citrix.com>
-	 <1310738489.4381.20.camel@lade.trondhjem.org>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: ipvs oops in 3.0-rc7
+Date: Wed, 20 Jul 2011 20:50:19 -0700
+Message-ID: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1310738489.4381.20.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-07-15 at 15:01 +0100, Trond Myklebust wrote:
-> On Fri, 2011-07-15 at 12:07 +0100, Ian Campbell wrote: 
-> > Thos prevents an issue where an ACK is delayed, a retransmit is queued (either
-> > at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-> > wire. If this happens then the write() system call and the userspace process
-> > can continue potentially modifying the data before the retransmission occurs.
-> > 
-> > NB: this only covers the O_DIRECT write() case. I expect other cases to need
-> > handling as well.
-> 
-> That is why this belongs entirely in the RPC layer, and really should
-> not touch the NFS layer.
-> If you move your callback to the RPC layer and have it notify the
-> rpc_task when the pages have been sent, then it should be possible to
-> achieve the same thing.
-> 
-> IOW: Add an extra state machine step after call_decode() which checks if
-> all the page data has been transmitted and if not, puts the rpc_task on
-> a wait queue, and has it wait for the fragment destructor callback
-> before calling rpc_exit_task().
-> 
-> Cheers
+I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading and unloading
+modules.  Any chance this is already fixed?  I can test current git, but I
+wanted to ask first.
 
-Is this the sort of thing? I wasn't sure where best to put the
-destructor data structure to get the right lifecycle and ended up
-putting it in the struct rpc_rqst and initialising it at
-xprt_request_init time.
+Looks like it is on the second module load of ip_vs (i.e.,
+modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
 
-I changed everywhere which currently transitions to rpc_exit_task to
-transition to a new "call_complete" task, blocking on the pending wait
-queue. The SKB destructor wakes that queue and call_complete then
-transitions to rpc_exit_task.
 
-Several of the locations already block on that wait queue so I simply
-remove the wake up in those cases (since it will happen in the SKB frag
-destructor). Since we call unref at these points (to drop the initial
-refcount) in the common case we will be woken from the pending wait
-queue before we even sleep on it.
+Jul 20 17:15:05 chimera kernel: [ 3323.505527] IPVS: ipvs unloaded.
+Jul 20 17:15:06 chimera kernel: [ 3324.554297] BUG: unable to handle kernel paging request at ffffffffa1543820
+Jul 20 17:15:06 chimera kernel: [ 3324.554382] IP: [<ffffffff810a8d4f>] raw_notifier_chain_register+0x1f/0x4a
+Jul 20 17:15:06 chimera kernel: [ 3324.554445] PGD 1872067 PUD 1876063 PMD b653f067 PTE 0
+Jul 20 17:15:06 chimera kernel: [ 3324.554505] Oops: 0000 [#1] SMP 
+Jul 20 17:15:06 chimera kernel: [ 3324.554551] CPU 1 
+Jul 20 17:15:06 chimera kernel: [ 3324.554574] Modules linked in: ip_vs(+) nf_conntrack_sip nf_tproxy_core xt_RATEEST nf_conntrack_proto_gre nfnetlink_log nfnetlink nf_conntrack_broadcast l2tp_core can rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr atm kernelcapi fcrypt pcbc af_rxrpc xp gru macvtap tun isdnhdlc mISDNipac mISDN_core chipreg map_funcs macvlan ptp pps_core mdio_bitbang hdlcdrv ax25 mdio pppox gre inet_lro cycx_drv wanrouter hdlc lapb uio ppp_generic xenbus_probe_frontend configfs ecb rtl8192c_common ath9k_common ath9k_hw ath libertas atmel rt2x00pci rt2x00usb rt2x00lib rng_core orinoco wl12xx crc7 p54common arc4 hostap rndis_host eeprom_93cx6 libipw lib80211 mac80211 cfg80211 fddi crc32c libcrc32c dca com20020 arcnet psnap cdc_ether phonet usbnet sja1000 can_dev sir_dev ird
+ a crc_ccitt mtd zlib_deflate slhc virtio_ring virtio tr i2400m wimax mii usbserial leds_net5501 fuse af_packet ipt_MASQUERADE iptable_nat nf_nat nfsd lockd nfs_acl auth_rpcgss stp llc bnep bluetooth rfkill crc16 sunrpc ipt_REJEC
+Jul 20 17:15:06 chimera kernel: T nf_conntrack_ipv4 nf_defrag_ipv4 iptable_filter ip_tables ip6t_REJECT xt_tcpudp nf_conntrack_ipv6 nf_defrag_ipv6 xt_state nf_conntrack ip6table_filter ip6_tables x_tables ipv6 cpufreq_ondemand acpi_cpufreq freq_table mperf binfmt_misc dm_mirror dm_region_hash dm_log dm_multipath scsi_dh dm_mod kvm_intel kvm uinput mousedev sr_mod cdrom ppdev snd_hda_codec_idt snd_hda_intel snd_hda_codec snd_hwdep snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device ide_pci_generic snd_pcm_oss usbmouse ide_core snd_mixer_oss firewire_ohci usbhid snd_pcm firewire_core usb_storage hid usblp ata_generic i2c_i801 sg pcspkr snd_timer pata_acpi usb_libusual iTCO_wdt iTCO_vendor_support uas snd crc_itu_t soundcore pata_marvell snd_page_alloc parport_pc evdev process
+ or parport mac_hid rtc_cmos unix sd_mod crc_t10dif ext3 jbd mbcache uhci_hcd ohci_hcd ssb mmc_core pcmcia pcmcia_core firmware_class ehci_hcd usbcore i915 drm_kms_helper intel_agp button intel_gtt video thermal_sys hwmon [last unlo
+Jul 20 17:15:06 chimera kernel: aded: ip_vs]
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] 
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] Pid: 20884, comm: modprobe Not tainted 3.0.0-rc7 #6 Gateway GT5636E/DG965OT
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] RIP: 0010:[<ffffffff810a8d4f>]  [<ffffffff810a8d4f>] raw_notifier_chain_register+0x1f/0x4a
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] RSP: 0018:ffff8800b5169e88  EFLAGS: 00010202
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] RAX: ffffffffa1543810 RBX: ffffffffa18f3810 RCX: 0000000000000000
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] RDX: 0000000000000000 RSI: ffffffffa18f3810 RDI: ffffffffa125f9b8
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] RBP: ffff8800b5169e88 R08: ffffffff810aa3ee R09: 0000000000000000
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] R10: 0000000000000088 R11: ffffffff81b24258 R12: ffffffffa1908155
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] R13: 0000000000000000 R14: 000003060ede68d6 R15: 0000000000000000
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] FS:  00007f6e2d1856f0(0000) GS:ffff88011b400000(0000) knlGS:0000000000000000
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] CR2: ffffffffa1543820 CR3: 00000000b5241000 CR4: 00000000000006e0
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] Process modprobe (pid: 20884, threadinfo ffff8800b5168000, task ffff8800b818b000)
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] Stack:
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  ffff8800b5169ed8 ffffffff814932e7 ffff8800b5169ed8 ffffffff814c5248
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  ffff8800b5169eb8 0000000000000000 ffffffffa1908155 0000000000000000
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  000003060ede68d6 0000000000000000 ffff8800b5169ef8 ffffffffa190843f
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] Call Trace:
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff814932e7>] register_netdevice_notifier+0x3b/0x24b
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff814c5248>] ? genl_register_family_with_ops+0x50/0x9e
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908155>] ? ip_vs_conn_init+0x155/0x155 [ip_vs]
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa190843f>] ip_vs_control_init+0xeb/0x132 [ip_vs]
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908155>] ? ip_vs_conn_init+0x155/0x155 [ip_vs]
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908176>] ip_vs_init+0x21/0x1ff [ip_vs]
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908155>] ? ip_vs_conn_init+0x155/0x155 [ip_vs]
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff81002094>] do_one_initcall+0x6c/0x1c5
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff810cd572>] sys_init_module+0xe1/0x2b0
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff8157da02>] system_call_fastpath+0x16/0x1b
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] Code: 89 e5 e8 85 e3 04 00 c9 c3 90 90 90 55 48 89 e5 66 66 66 66 90 48 ff 05 f8 5b 00 01 48 8b 07 eb 1e 48 ff 05 fc 5b 00 01 8b 56 10 <3b> 50 10 7f 14 48 ff 05 e5 5b 00 01 48 8d 78 08 48 8b 40 08 48 
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] RIP  [<ffffffff810a8d4f>] raw_notifier_chain_register+0x1f/0x4a
+Jul 20 17:15:06 chimera kernel: [ 3324.556037]  RSP <ffff8800b5169e88>
+Jul 20 17:15:06 chimera kernel: [ 3324.556037] CR2: ffffffffa1543820
+Jul 20 17:15:06 chimera kernel: [ 3324.583800] ---[ end trace 1df4eeece34268d5 ]---
 
-Thanks,
-Ian.
 
->From 49d7d53d065bf0963fd4bb70405f4f1972f618c4 Mon Sep 17 00:00:00 2001
-From: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 11 Jul 2011 14:43:24 +0100
-Subject: [PATCH] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
 
-This prevents an issue where an ACK is delayed, a retransmit is queued (either
-at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-wire. If this happens to an NFS WRITE RPC then the write() system call
-completes and the userspace process can continue, potentially modifying data
-referenced by the retransmission before the retransmission occurs.
-
-Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
 ---
- include/linux/sunrpc/xdr.h  |    2 ++
- include/linux/sunrpc/xprt.h |    5 ++++-
- net/sunrpc/clnt.c           |   28 +++++++++++++++++++++++-----
- net/sunrpc/svcsock.c        |    2 +-
- net/sunrpc/xprt.c           |   13 +++++++++++++
- net/sunrpc/xprtsock.c       |    2 +-
- 6 files changed, 44 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
-index a20970e..172f81e 100644
---- a/include/linux/sunrpc/xdr.h
-+++ b/include/linux/sunrpc/xdr.h
-@@ -16,6 +16,7 @@
- #include <asm/byteorder.h>
- #include <asm/unaligned.h>
- #include <linux/scatterlist.h>
-+#include <linux/skbuff.h>
- 
- /*
-  * Buffer adjustment
-@@ -57,6 +58,7 @@ struct xdr_buf {
- 			tail[1];	/* Appended after page data */
- 
- 	struct page **	pages;		/* Array of contiguous pages */
-+	struct skb_frag_destructor *destructor;
- 	unsigned int	page_base,	/* Start of page data */
- 			page_len,	/* Length of page data */
- 			flags;		/* Flags for data disposition */
-diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-index 81cce3b..0de6bc3 100644
---- a/include/linux/sunrpc/xprt.h
-+++ b/include/linux/sunrpc/xprt.h
-@@ -91,7 +91,10 @@ struct rpc_rqst {
- 						/* A cookie used to track the
- 						   state of the transport
- 						   connection */
--	
-+	struct skb_frag_destructor destructor;	/* SKB paged fragment
-+						 * destructor for
-+						 * transmitted pages*/
-+
- 	/*
- 	 * Partial send handling
- 	 */
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 8c91415..0c85acb 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
- static void	call_reserveresult(struct rpc_task *task);
- static void	call_allocate(struct rpc_task *task);
- static void	call_decode(struct rpc_task *task);
-+static void	call_complete(struct rpc_task *task);
- static void	call_bind(struct rpc_task *task);
- static void	call_bind_status(struct rpc_task *task);
- static void	call_transmit(struct rpc_task *task);
-@@ -1114,6 +1115,8 @@ rpc_xdr_encode(struct rpc_task *task)
- 			 (char *)req->rq_buffer + req->rq_callsize,
- 			 req->rq_rcvsize);
- 
-+	req->rq_snd_buf.destructor = &req->destructor;
-+
- 	p = rpc_encode_header(task);
- 	if (p == NULL) {
- 		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
-@@ -1277,6 +1280,7 @@ call_connect_status(struct rpc_task *task)
- static void
- call_transmit(struct rpc_task *task)
- {
-+	struct rpc_rqst *req = task->tk_rqstp;
- 	dprint_status(task);
- 
- 	task->tk_action = call_status;
-@@ -1310,8 +1314,8 @@ call_transmit(struct rpc_task *task)
- 	call_transmit_status(task);
- 	if (rpc_reply_expected(task))
- 		return;
--	task->tk_action = rpc_exit_task;
--	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
- }
- 
- /*
-@@ -1384,7 +1388,8 @@ call_bc_transmit(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
- 	if (task->tk_status < 0) {
- 		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
- 			"error: %d\n", task->tk_status);
-@@ -1424,7 +1429,6 @@ call_bc_transmit(struct rpc_task *task)
- 			"error: %d\n", task->tk_status);
- 		break;
- 	}
--	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
- }
- #endif /* CONFIG_NFS_V4_1 */
- 
-@@ -1591,12 +1595,14 @@ call_decode(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
- 
- 	if (decode) {
- 		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
- 						      task->tk_msg.rpc_resp);
- 	}
-+	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
-+	skb_frag_destructor_unref(&req->destructor);
- 	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
- 			task->tk_status);
- 	return;
-@@ -1611,6 +1617,18 @@ out_retry:
- 	}
- }
- 
-+/*
-+ * 8.	Wait for pages to be released by the network stack.
-+ */
-+static void
-+call_complete(struct rpc_task *task)
-+{
-+	struct rpc_rqst	*req = task->tk_rqstp;
-+	dprintk("RPC: %5u call_complete result %d\n", task->tk_pid, task->tk_status);
-+	task->tk_action = rpc_exit_task;
-+	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
-+}
-+
- static __be32 *
- rpc_encode_header(struct rpc_task *task)
- {
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index a80b1d3..40c2420 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -194,7 +194,7 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 	while (pglen > 0) {
- 		if (slen == size)
- 			flags = 0;
--		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
-+		result = kernel_sendpage(sock, *ppage, xdr->destructor, base, size, flags);
- 		if (result > 0)
- 			len += result;
- 		if (result != size)
-diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index ce5eb68..62f52a3 100644
---- a/net/sunrpc/xprt.c
-+++ b/net/sunrpc/xprt.c
-@@ -1017,6 +1017,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
- 	xprt->xid = net_random();
- }
- 
-+static int xprt_complete_skb_pages(void *calldata)
-+{
-+	struct rpc_task *task = calldata;
-+	struct rpc_rqst	*req = task->tk_rqstp;
-+
-+	dprintk("RPC: %5u completing skb pages\n", task->tk_pid);
-+	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
-+	return 0;
-+}
-+
- static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- {
- 	struct rpc_rqst	*req = task->tk_rqstp;
-@@ -1028,6 +1038,9 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- 	req->rq_xid     = xprt_alloc_xid(xprt);
- 	req->rq_release_snd_buf = NULL;
- 	xprt_reset_majortimeo(req);
-+	atomic_set(&req->destructor.ref, 1);
-+	req->destructor.destroy = &xprt_complete_skb_pages;
-+	req->destructor.data = task;
- 	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
- 			req, ntohl(req->rq_xid));
- }
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index d027621..ca1643b 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -397,7 +397,7 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
- 		remainder -= len;
- 		if (remainder != 0 || more)
- 			flags |= MSG_MORE;
--		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
-+		err = sock->ops->sendpage(sock, *ppage, xdr->destructor, base, len, flags);
- 		if (remainder == 0 || err != len)
- 			break;
- 		sent += err;
--- 
-1.7.2.5
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
