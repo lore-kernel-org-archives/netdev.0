@@ -1,190 +1,150 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 18/47 V2] igbvf: do vlan cleanup
-Date: Thu, 21 Jul 2011 15:22:30 +0200
-Message-ID: <20110721132229.GC2107@minipsycho>
-References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
-	<1311173689-17419-19-git-send-email-jpirko@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/2] igb: Allow extra 4 bytes on RX for vlan tags.
+Date: Wed, 20 Jul 2011 23:35:34 -0700
+Message-ID: <CAKgT0UfaEEvRTSpu-U+0_oj0KnEkyx5hRAwZDiCAAdtY4YhQUQ@mail.gmail.com>
+References: <1297375149-18458-1-git-send-email-greearb@candelatech.com>
+	<AANLkTinsWRAJ2bepa1NjQ4f0Wz46DaxWO6f_nEbmBAB0@mail.gmail.com>
+	<4D5D5AD8.5000802@candelatech.com>
+	<CAEP_g=_o7nP2FCnPufyT44JZZ+Z+jkcVpSa8Qj3mjPn+MwRhXA@mail.gmail.com>
+	<4E277267.8090702@candelatech.com>
+	<1311211304.2401.9.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, e1000-devel@lists.sourceforge.net,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	mirqus@gmail.com, john.ronciak@intel.com,
-	shemminger@linux-foundation.org, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1311173689-17419-19-git-send-email-jpirko@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	Jesse Gross <jesse@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yi0-f46.google.com ([209.85.218.46]:48594 "EHLO
+	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099Ab1GUGff convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 02:35:35 -0400
+Received: by yia27 with SMTP id 27so503839yia.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 23:35:34 -0700 (PDT)
+In-Reply-To: <1311211304.2401.9.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-- unify vlan and nonvlan rx path
-- kill adapter->vlgrp and igbvf_vlan_rx_register
+On Wed, Jul 20, 2011 at 6:21 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> On Wed, 2011-07-20 at 17:27 -0700, Ben Greear wrote:
+>> On 07/20/2011 05:18 PM, Jesse Gross wrote:
+>> > On Thu, Feb 17, 2011 at 9:28 AM, Ben Greear<greearb@candelatech.co=
+m> =A0wrote:
+>> >> On 02/17/2011 03:04 AM, Jeff Kirsher wrote:
+>> >>>
+>> >>> On Thu, Feb 10, 2011 at 13:59,<greearb@candelatech.com> =A0 =A0w=
+rote:
+>> >>>>
+>> >>>> From: Ben Greear<greearb@candelatech.com>
+>> >>>>
+>> >>>> This allows the NIC to receive 1518 byte (not counting
+>> >>>> FCS) packets when MTU is 1500, thus allowing 1500 MTU
+>> >>>> VLAN frames to be received. =A0Please note that no VLANs
+>> >>>> were actually configured on the NIC...it was just acting
+>> >>>> as pass-through device.
+>> >>>>
+>> >>>> Signed-off-by: Ben Greear<greearb@candelatech.com>
+>> >>>> ---
+>> >>>> :100644 100644 58c665b... 30c9cc6... M =A0drivers/net/igb/igb_m=
+ain.c
+>> >>>> =A0 drivers/net/igb/igb_main.c | =A0 =A05 +++--
+>> >>>> =A0 1 files changed, 3 insertions(+), 2 deletions(-)
+>> >>>>
+>> >>>> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_m=
+ain.c
+>> >>>> index 58c665b..30c9cc6 100644
+>> >>>> --- a/drivers/net/igb/igb_main.c
+>> >>>> +++ b/drivers/net/igb/igb_main.c
+>> >>>> @@ -2281,7 +2281,8 @@ static int __devinit igb_sw_init(struct i=
+gb_adapter
+>> >>>> *adapter)
+>> >>>> =A0 =A0 =A0 =A0 adapter->rx_itr_setting =3D IGB_DEFAULT_ITR;
+>> >>>> =A0 =A0 =A0 =A0 adapter->tx_itr_setting =3D IGB_DEFAULT_ITR;
+>> >>>>
+>> >>>> - =A0 =A0 =A0 adapter->max_frame_size =3D netdev->mtu + ETH_HLE=
+N + ETH_FCS_LEN;
+>> >>>> + =A0 =A0 =A0 adapter->max_frame_size =3D (netdev->mtu + ETH_HL=
+EN + ETH_FCS_LEN
+>> >>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0+ VLAN_HLEN);
+>> >>>> =A0 =A0 =A0 =A0 adapter->min_frame_size =3D ETH_ZLEN + ETH_FCS_=
+LEN;
+>> >>>>
+>> >>>> =A0 =A0 =A0 =A0 spin_lock_init(&adapter->stats64_lock);
+>> >>>> @@ -4303,7 +4304,7 @@ static int igb_change_mtu(struct net_devi=
+ce
+>> >>>> *netdev, int new_mtu)
+>> >>>> =A0 {
+>> >>>> =A0 =A0 =A0 =A0 struct igb_adapter *adapter =3D netdev_priv(net=
+dev);
+>> >>>> =A0 =A0 =A0 =A0 struct pci_dev *pdev =3D adapter->pdev;
+>> >>>> - =A0 =A0 =A0 int max_frame =3D new_mtu + ETH_HLEN + ETH_FCS_LE=
+N;
+>> >>>> + =A0 =A0 =A0 int max_frame =3D new_mtu + ETH_HLEN + ETH_FCS_LE=
+N + VLAN_HLEN;
+>> >>>> =A0 =A0 =A0 =A0 u32 rx_buffer_len, i;
+>> >>>>
+>> >>>> =A0 =A0 =A0 =A0 if ((new_mtu< =A0 =A068) || (max_frame> =A0 =A0=
+MAX_JUMBO_FRAME_SIZE)) {
+>> >>>
+>> >>> While testing this patch, validation found that the patch reduce=
+s the
+>> >>> maximum mtu size
+>> >>> by 4 bytes (reduces it from 9216 to 9212). =A0This is not a desi=
+red side
+>> >>> effect of this patch.
+>> >>
+>> >> You could add handling for that case and have it act as it used t=
+o when
+>> >> new_mtu is greater than 9212?
+>> >>
+>> >> I tested e1000e and it worked w/out hacking at 1500 MTU, so maybe
+>> >> check how it does it?
+>> >
+>> > I just wanted to bring this up again to see if any progress had be=
+en
+>> > made. =A0We were looking at this driver and trying to figure out t=
+he
+>> > best way to convert it to use the new vlan model but I'm not famil=
+iar
+>>
+>> I've been watching :)
+>>
+>> > enough with the hardware to know. =A0It seems that all of the othe=
+r
+>> > Intel drivers unconditionally add space for the vlan tag to the
+>> > receive buffer (and would therefore have similar effects as this
+>> > patch), is there something different about this card?
+>> >
+>> > I believe that Alex was working on something in this area (in the
+>> > context of one of my patches from a long time ago) but I'm not sur=
+e
+>> > what came of that.
+>>
+>> Truth is, I don't really see why it's a problem to decrease the
+>> maximum MTU slightly in order to make it work with VLANs.
+>>
+>> I'm not sure if there is some way to make it work with VLANs
+>> and not decrease the maximum MTU.
+>
+> This was the reason this did not get accepted. =A0I was looking into =
+what
+> could be done so that we did not decease the maximum MTU, but I got
+> side-tracked and have not done anything on it in several months.
+>
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/igbvf/igbvf.h  |    4 +-
- drivers/net/igbvf/netdev.c |   55 +++++++++++++++++++------------------------
- 2 files changed, 26 insertions(+), 33 deletions(-)
+I can take a look at fixing this most likely tomorrow.  I have some
+work planned for igb anyway over the next few days.
 
-diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
-index d5dad5d..fd4a7b7 100644
---- a/drivers/net/igbvf/igbvf.h
-+++ b/drivers/net/igbvf/igbvf.h
-@@ -34,7 +34,7 @@
- #include <linux/timer.h>
- #include <linux/io.h>
- #include <linux/netdevice.h>
--
-+#include <linux/if_vlan.h>
- 
- #include "vf.h"
- 
-@@ -173,7 +173,7 @@ struct igbvf_adapter {
- 
- 	const struct igbvf_info *ei;
- 
--	struct vlan_group *vlgrp;
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	u32 bd_number;
- 	u32 rx_buffer_len;
- 	u32 polling_interval;
-diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
-index 64b47bf..d924b09 100644
---- a/drivers/net/igbvf/netdev.c
-+++ b/drivers/net/igbvf/netdev.c
-@@ -100,12 +100,12 @@ static void igbvf_receive_skb(struct igbvf_adapter *adapter,
-                               struct sk_buff *skb,
-                               u32 status, u16 vlan)
- {
--	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
--		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
--		                         le16_to_cpu(vlan) &
--		                         E1000_RXD_SPC_VLAN_MASK);
--	else
--		netif_receive_skb(skb);
-+	if (status & E1000_RXD_STAT_VP) {
-+		u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
-+
-+		__vlan_hwaccel_put_tag(skb, vid);
-+	}
-+	netif_receive_skb(skb);
- }
- 
- static inline void igbvf_rx_checksum_adv(struct igbvf_adapter *adapter,
-@@ -1167,22 +1167,29 @@ static int igbvf_poll(struct napi_struct *napi, int budget)
-  */
- static void igbvf_set_rlpml(struct igbvf_adapter *adapter)
- {
--	int max_frame_size = adapter->max_frame_size;
-+	int max_frame_size;
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	if (adapter->vlgrp)
--		max_frame_size += VLAN_TAG_SIZE;
--
-+	max_frame_size = adapter->max_frame_size + VLAN_TAG_SIZE;
- 	e1000_rlpml_set_vf(hw, max_frame_size);
- }
- 
--static void igbvf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
-+static bool __igbvf_vlan_rx_add_vid(struct igbvf_adapter *adapter, u16 vid)
- {
--	struct igbvf_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 
- 	if (hw->mac.ops.set_vfta(hw, vid, true))
- 		dev_err(&adapter->pdev->dev, "Failed to add vlan id %d\n", vid);
-+		return false;
-+	return true;
-+}
-+
-+static void igbvf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
-+{
-+	struct igbvf_adapter *adapter = netdev_priv(netdev);
-+
-+	if (__igbvf_vlan_rx_add_vid(adapter, vid))
-+		set_bit(vid, adapter->active_vlans);
- }
- 
- static void igbvf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
-@@ -1191,7 +1198,6 @@ static void igbvf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	struct e1000_hw *hw = &adapter->hw;
- 
- 	igbvf_irq_disable(adapter);
--	vlan_group_set_device(adapter->vlgrp, vid, NULL);
- 
- 	if (!test_bit(__IGBVF_DOWN, &adapter->state))
- 		igbvf_irq_enable(adapter);
-@@ -1199,28 +1205,16 @@ static void igbvf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	if (hw->mac.ops.set_vfta(hw, vid, false))
- 		dev_err(&adapter->pdev->dev,
- 		        "Failed to remove vlan id %d\n", vid);
--}
--
--static void igbvf_vlan_rx_register(struct net_device *netdev,
--                                   struct vlan_group *grp)
--{
--	struct igbvf_adapter *adapter = netdev_priv(netdev);
--
--	adapter->vlgrp = grp;
-+	else
-+		clear_bit(vid, adapter->active_vlans);
- }
- 
- static void igbvf_restore_vlan(struct igbvf_adapter *adapter)
- {
- 	u16 vid;
- 
--	if (!adapter->vlgrp)
--		return;
--
--	for (vid = 0; vid < VLAN_N_VID; vid++) {
--		if (!vlan_group_get_device(adapter->vlgrp, vid))
--			continue;
--		igbvf_vlan_rx_add_vid(adapter->netdev, vid);
--	}
-+	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
-+		__igbvf_vlan_rx_add_vid(adapter, vid);
- 
- 	igbvf_set_rlpml(adapter);
- }
-@@ -2203,7 +2197,7 @@ static netdev_tx_t igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
-+	if (vlan_tx_tag_present(skb)) {
- 		tx_flags |= IGBVF_TX_FLAGS_VLAN;
- 		tx_flags |= (vlan_tx_tag_get(skb) << IGBVF_TX_FLAGS_VLAN_SHIFT);
- 	}
-@@ -2556,7 +2550,6 @@ static const struct net_device_ops igbvf_netdev_ops = {
- 	.ndo_change_mtu                 = igbvf_change_mtu,
- 	.ndo_do_ioctl                   = igbvf_ioctl,
- 	.ndo_tx_timeout                 = igbvf_tx_timeout,
--	.ndo_vlan_rx_register           = igbvf_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid            = igbvf_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid           = igbvf_vlan_rx_kill_vid,
- #ifdef CONFIG_NET_POLL_CONTROLLER
--- 
-1.7.6
+Odds are it is just a matter of where the VLAN_HLEN is added.  As I
+recall for our drivers the correct spot is in the setting of
+rx_buffer_len since that is the area more concerned with maximum
+receive frame size versus the mtu section which is more concerned with
+the transmit side of things.
 
+Thanks,
 
-------------------------------------------------------------------------------
-5 Ways to Improve & Secure Unified Communications
-Unified Communications promises greater efficiencies for business. UC can 
-improve internal communications as well as offer faster, more efficient ways
-to interact with customers and streamline customer service. Learn more!
-http://www.accelacomm.com/jaw/sfnl/114/51426253/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Alex
