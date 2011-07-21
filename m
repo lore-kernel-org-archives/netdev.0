@@ -1,38 +1,40 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH 1/8] generic_hdlc: Update to current logging forms
-Date: Thu, 21 Jul 2011 21:18:04 +0200
-Message-ID: <m3d3h3e93n.fsf@intrepid.localdomain>
-References: <cover.1309150683.git.joe@perches.com>
-	<d9186716ad410d64b1e09b39408a2f232f178260.1309150684.git.joe@perches.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [Pv-drivers] [PATCH net-next] vmxnet3: set netdev parant device
+ before calling netdev_info
+Date: Wed, 20 Jul 2011 21:05:46 -0700
+Message-ID: <0975FDF228005340AA9C93B7681E5E8B13818C32F1@exch-mbx-112.vmware.com>
+References: <alpine.LRH.2.00.1107201834220.19334@sbhatewara-dev1.eng.vmware.com>
+	 <03E840D17E263A48A5766AD576E0423A03C5836359@exch-mbx-111.vmware.com>
+ <1311220141.1663.24.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d9186716ad410d64b1e09b39408a2f232f178260.1309150684.git.joe@perches.com>
-	(Joe Perches's message of "Sun, 26 Jun 2011 22:01:28 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+To: Joe Perches <joe@perches.com>, Scott Goldman <scottjg@vmware.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:45699 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750704Ab1GUEF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 00:05:58 -0400
+In-Reply-To: <1311220141.1663.24.camel@Joe-Laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> writes:
-
-> Use pr_fmt, pr_<level> and netdev_<level> as appropriate.
->
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/wan/c101.c       |   30 +++++++-------
->  drivers/net/wan/hd64570.c    |    8 ++--
->  drivers/net/wan/hd64572.c    |    8 ++--
->  drivers/net/wan/hdlc.c       |   16 ++++---
->  drivers/net/wan/hdlc_cisco.c |   21 ++++------
->  drivers/net/wan/hdlc_fr.c    |   96 +++++++++++++++++++-----------------------
->  drivers/net/wan/hdlc_ppp.c   |    9 ++--
->  drivers/net/wan/hdlc_x25.c   |   12 ++---
->  drivers/net/wan/n2.c         |   42 +++++++++---------
->  drivers/net/wan/pc300too.c   |   36 +++++++--------
->  drivers/net/wan/pci200syn.c  |   29 ++++++-------
->  drivers/net/wan/wanxl.c      |   90 ++++++++++++++++++---------------------
-
-Looks good. I'll do some tests and then pass upstream. Thanks.
--- 
-Krzysztof Halasa
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2UgUGVyY2hlcyBbbWFpbHRv
+OmpvZUBwZXJjaGVzLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdWx5IDIwLCAyMDExIDg6NDkg
+UE0NCj4gVG86IFNjb3R0IEdvbGRtYW4NCj4gQ2M6IFNocmV5YXMgQmhhdGV3YXJhOyBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnOyBwdi1kcml2ZXJzQHZtd2FyZS5jb20NCj4gU3ViamVjdDogUkU6IFtQ
+di1kcml2ZXJzXSBbUEFUQ0ggbmV0LW5leHRdIHZteG5ldDM6IHNldCBuZXRkZXYgcGFyYW50DQo+
+IGRldmljZSBiZWZvcmUgY2FsbGluZyBuZXRkZXZfaW5mbw0KPiANCj4gT24gV2VkLCAyMDExLTA3
+LTIwIGF0IDIwOjA2IC0wNzAwLCBTY290dCBHb2xkbWFuIHdyb3RlOg0KPiA+ID4gUGFyZW50IGRl
+dmljZSBmb3IgbmV0ZGV2IHNob3VsZCBiZSBzZXQgYmVmb3JlIG5ldGRldl9pbmZvKCkgY2FuIGJl
+DQo+IGNhbGxlZA0KPiA+ID4gb3RoZXJ3aXNlIHRoZXJlIGlzIGEgTlVMTCBwb2ludGVyIGRlcmVm
+ZXJlbmNlIGFuZCBwcm9iZSgpIGZhaWxzLg0KPiANCj4gSSBiZWxpZXZlIHRoaXMgaXMgbm90IHRy
+dWUuDQo+IEkgZG9uJ3Qgc2VlIGFueSBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2UgaGVyZS4NCj4g
+ZnVuY3Rpb25zIGFuZCBtYWNyb3MgcmVvcmRlcmVkIHRvcCB0byBib3R0b20uDQo+IA0KDQoNClRo
+YW5rcyBmb3IgbG9va2luZyBKb2UuDQpUaGlzIGhhcHBlbmVkIGluIDIuNi4zNi4gSSBzYXcgdGhl
+IHBhbmljIGluIDIuNi4zNCBhbmQgYXNzdW1lZCB0aGF0IGl0IHdvdWxkIGJlIHNhbWUNCmluIHRo
+ZSBsYXRlc3Qga2VybmVsLg0KSXQgd291bGQgbm90IHBhbmljIGluIDMuMCBidXQgaXQgaXMgZ29v
+ZCB0byBoYXZlIHRoZSBwYXJlbnQgZGV2aWNlIHNldCBlYXJseS4NCg==
