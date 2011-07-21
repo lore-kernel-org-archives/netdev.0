@@ -1,46 +1,95 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: Re: ipvs oops in 3.0-rc7
-Date: Thu, 21 Jul 2011 21:37:29 +0800
-Message-ID: <CA+v9cxbhpt3LSZ_m+OA_Kujt79mvDZ7VnGqjbbPQxS_gY6+pTA@mail.gmail.com>
-References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
-	<alpine.LFD.2.00.1107211202380.1660@ja.ssi.bg>
+From: cooldavid@cooldavid.org
+Subject: [PATCH net-2.6] jme: Fix unmap error (Causing system
+	freeze)
+Date: Thu, 21 Jul 2011 10:57:36 +0800
+Message-ID: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f52.google.com ([209.85.161.52]:35306 "EHLO
-	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750802Ab1GUNhb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 09:37:31 -0400
-In-Reply-To: <alpine.LFD.2.00.1107211202380.1660@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Lamb <jason@lambhome.org>, linux-netdev <netdev@vger.kernel.org>,
+        Guo-Fu Tseng <cooldavid@cooldavid.org>,
+        Jason Long <jason@octgsoftware.com>,
+        Marcus Becker <marcus.disi@gmail.com>,
+        Aries Lee <arieslee@jmicron.com>, Devinchiu <devinchiu@jmicron.com>,
+        Marc Schiffbauer <mschiff@gentoo.org>, stable@kernel.org
+To: "David Miller" <davem@davemloft.net>
+Return-path: <stable-bounces@linux.kernel.org>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2011/7/21 Julian Anastasov <ja@ssi.bg>:
->
-> =A0 =A0 =A0 =A0Hello,
->
-> On Wed, 20 Jul 2011, Randy Dunlap wrote:
->
->> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading and=
- unloading
->> modules. =A0Any chance this is already fixed? =A0I can test current =
-git, but I
->> wanted to ask first.
->>
->> Looks like it is on the second module load of ip_vs (i.e.,
->> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
->
-> =A0 =A0 =A0 =A0I think, this problem was fixed by this patch:
->
-> http://www.spinics.net/lists/lvs-devel/msg02051.html
->
-> =A0 =A0 =A0 =A0But it seems it was lost somewhere ...
->
+From: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-That's great, SB. can help to apply it again, thanks.
+
+This patch add the missing dma_unmap().
+Which solved the critical issue of system freeze on heavy load.
+
+Michal Miroslaw's rejected patch:
+[PATCH v2 10/46] net: jme: convert to generic DMA API
+Pointed out the issue also, thank you Michal.
+But the fix was incorrect. It would unmap needed address
+when low memory.
+
+Got lots of feedback from End user and Gentoo Bugzilla.
+https://bugs.gentoo.org/show_bug.cgi?id=373109
+Thank you all. :)
+
+Cc: stable@kernel.org
+Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+---
+ drivers/net/jme.c |   20 ++++++++++++++------
+ 1 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index b5b174a..1973814 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -753,20 +753,28 @@ jme_make_new_rx_buf(struct jme_adapter *jme, int i)
+ 	struct jme_ring *rxring = &(jme->rxring[0]);
+ 	struct jme_buffer_info *rxbi = rxring->bufinf + i;
+ 	struct sk_buff *skb;
++	dma_addr_t mapping;
+ 
+ 	skb = netdev_alloc_skb(jme->dev,
+ 		jme->dev->mtu + RX_EXTRA_LEN);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
++	mapping = pci_map_page(jme->pdev, virt_to_page(skb->data),
++			       offset_in_page(skb->data), skb_tailroom(skb),
++			       PCI_DMA_FROMDEVICE);
++	if (unlikely(pci_dma_mapping_error(jme->pdev, mapping))) {
++		dev_kfree_skb(skb);
++		return -ENOMEM;
++	}
++
++	if (likely(rxbi->mapping))
++		pci_unmap_page(jme->pdev, rxbi->mapping,
++			       rxbi->len, PCI_DMA_FROMDEVICE);
++
+ 	rxbi->skb = skb;
+ 	rxbi->len = skb_tailroom(skb);
+-	rxbi->mapping = pci_map_page(jme->pdev,
+-					virt_to_page(skb->data),
+-					offset_in_page(skb->data),
+-					rxbi->len,
+-					PCI_DMA_FROMDEVICE);
+-
++	rxbi->mapping = mapping;
+ 	return 0;
+ }
+ 
+-- 
+1.7.3.4
+
+_______________________________________________
+stable mailing list
+stable@linux.kernel.org
+http://linux.kernel.org/mailman/listinfo/stable
