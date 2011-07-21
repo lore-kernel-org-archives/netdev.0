@@ -1,38 +1,32 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: [PATCH net-next] vmxnet3: fix publicity of NETIF_F_HIGHDMA
-Date: Wed, 20 Jul 2011 20:21:51 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1107202019060.27135@sbhatewara-dev1.eng.vmware.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: ipvs oops in 3.0-rc7
+Date: Thu, 21 Jul 2011 14:40:33 +0900
+Message-ID: <20110721054033.GA8299@verge.net.au>
+References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: pv-drivers@vmware.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:38504 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751713Ab1GUDVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 23:21:48 -0400
-Received: from mailhost3.vmware.com (mailhost3.vmware.com [10.16.27.45])
-	by smtp-outbound-1.vmware.com (Postfix) with ESMTP id A5A3E38019
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 20:21:48 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:47553 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183Ab1GUFkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 01:40:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NETIF_F_HIGHDMA is being disabled even when dma64 is true. This patch fixes it.
+On Wed, Jul 20, 2011 at 08:50:19PM -0700, Randy Dunlap wrote:
+> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading and unloading
+> modules.  Any chance this is already fixed?  I can test current git, but I
+> wanted to ask first.
+> 
+> Looks like it is on the second module load of ip_vs (i.e.,
+> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
 
-CC: Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
---
+Hi Randy,
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 009277e..b46d101 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2647,7 +2647,7 @@ vmxnet3_declare_features(struct vmxnet3_adapter *adapter, bool dma64)
- 		NETIF_F_HW_VLAN_RX | NETIF_F_TSO | NETIF_F_TSO6 |
- 		NETIF_F_LRO;
- 	if (dma64)
--		netdev->features |= NETIF_F_HIGHDMA;
-+		netdev->hw_features |= NETIF_F_HIGHDMA;
- 	netdev->vlan_features = netdev->hw_features &
- 				~(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
- 	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_FILTER;
+I don't believe that this problem has been resolved (or observed before).
