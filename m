@@ -1,95 +1,63 @@
-From: cooldavid@cooldavid.org
-Subject: [PATCH net-2.6] jme: Fix unmap error (Causing system
-	freeze)
-Date: Thu, 21 Jul 2011 10:57:36 +0800
-Message-ID: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
+From: Richard Kennedy <richard@rsk.demon.co.uk>
+Subject: Re: v3.0-rc* intermittent network failure: how to debug?
+Date: Thu, 21 Jul 2011 16:18:44 +0100
+Message-ID: <1311261527.2980.26.camel@castor.rsk>
+References: <1311256194.2980.18.camel@castor.rsk>
+	 <20110721143218.GA10595@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Lamb <jason@lambhome.org>, linux-netdev <netdev@vger.kernel.org>,
-        Guo-Fu Tseng <cooldavid@cooldavid.org>,
-        Jason Long <jason@octgsoftware.com>,
-        Marcus Becker <marcus.disi@gmail.com>,
-        Aries Lee <arieslee@jmicron.com>, Devinchiu <devinchiu@jmicron.com>,
-        Marc Schiffbauer <mschiff@gentoo.org>, stable@kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <stable-bounces@linux.kernel.org>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lon1-post-3.mail.demon.net ([195.173.77.150]:41550 "EHLO
+	lon1-post-3.mail.demon.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752426Ab1GUPob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 11:44:31 -0400
+In-Reply-To: <20110721143218.GA10595@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+On Thu, 2011-07-21 at 16:32 +0200, Francois Romieu wrote:
+> Richard Kennedy <richard@rsk.demon.co.uk> :
+> > I keep seeing a total network failure on v3.0.0-rc* , it is highly
+> > intermittent, anything from 1 hour to 12+, and I don't have a reliable
+> > test case.
+> > When it fails I lose all network comms, but there are no errors in the
+> > system log, no hung tasks reported, nothing. But after it fails the
+> > machine hangs during shutdown, it just never turns off. So I guess
+> > something is getting stuck but I can't find it.
+> 
+> Assuming the kernel hangs late enough, you can try the "reboot=" kernel
+> parameter and see if a value in arch/x86/include/asm/emergency-restart.h
+> makes a difference.
+> 
+> > Can you suggest how to find out what going on? 
+> 
+> Switch into text mode before starting the reboot sequence then send a
+> magic sysrq T or W ?
+> 
+> > I'm going to add a serial console and see if that helps.
+> 
+> It will help, especially with the kilometer long output of sysrq.
+> 
+> > this is on a x86_64, via_velocity currently running 3.0.0-rc7 latest.
+> > 
+> > all suggestions gratefully received
+> 
+> Last via-velocity change in mainline dates back to may 25 (see
+> d10358de8d70aaeb965a974d56e9b72f6c6dbb3a). Were you previously fine
+> with a recent enough kernel to rule it out ?
+> 
 
+Thanks Francois,
+I'll try the reboot= tomorrow.
 
-This patch add the missing dma_unmap().
-Which solved the critical issue of system freeze on heavy load.
+I don't really know when my last know good was, it could be that
+via-velocity change, but the problem is so intermittent it's difficult
+to be sure. I've been trying to stress the network to make the problem
+happen sooner but I've had no luck yet.
 
-Michal Miroslaw's rejected patch:
-[PATCH v2 10/46] net: jme: convert to generic DMA API
-Pointed out the issue also, thank you Michal.
-But the fix was incorrect. It would unmap needed address
-when low memory.
+regards
+Richard  
 
-Got lots of feedback from End user and Gentoo Bugzilla.
-https://bugs.gentoo.org/show_bug.cgi?id=373109
-Thank you all. :)
-
-Cc: stable@kernel.org
-Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
----
- drivers/net/jme.c |   20 ++++++++++++++------
- 1 files changed, 14 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-index b5b174a..1973814 100644
---- a/drivers/net/jme.c
-+++ b/drivers/net/jme.c
-@@ -753,20 +753,28 @@ jme_make_new_rx_buf(struct jme_adapter *jme, int i)
- 	struct jme_ring *rxring = &(jme->rxring[0]);
- 	struct jme_buffer_info *rxbi = rxring->bufinf + i;
- 	struct sk_buff *skb;
-+	dma_addr_t mapping;
- 
- 	skb = netdev_alloc_skb(jme->dev,
- 		jme->dev->mtu + RX_EXTRA_LEN);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 
-+	mapping = pci_map_page(jme->pdev, virt_to_page(skb->data),
-+			       offset_in_page(skb->data), skb_tailroom(skb),
-+			       PCI_DMA_FROMDEVICE);
-+	if (unlikely(pci_dma_mapping_error(jme->pdev, mapping))) {
-+		dev_kfree_skb(skb);
-+		return -ENOMEM;
-+	}
-+
-+	if (likely(rxbi->mapping))
-+		pci_unmap_page(jme->pdev, rxbi->mapping,
-+			       rxbi->len, PCI_DMA_FROMDEVICE);
-+
- 	rxbi->skb = skb;
- 	rxbi->len = skb_tailroom(skb);
--	rxbi->mapping = pci_map_page(jme->pdev,
--					virt_to_page(skb->data),
--					offset_in_page(skb->data),
--					rxbi->len,
--					PCI_DMA_FROMDEVICE);
--
-+	rxbi->mapping = mapping;
- 	return 0;
- }
- 
--- 
-1.7.3.4
-
-_______________________________________________
-stable mailing list
-stable@linux.kernel.org
-http://linux.kernel.org/mailman/listinfo/stable
