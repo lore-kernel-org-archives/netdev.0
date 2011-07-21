@@ -1,51 +1,84 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: v3.0-rc* intermittent network failure: how to debug?
-Date: Thu, 21 Jul 2011 16:32:18 +0200
-Message-ID: <20110721143218.GA10595@electric-eye.fr.zoreil.com>
-References: <1311256194.2980.18.camel@castor.rsk>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: ipvs oops in 3.0-rc7
+Date: Thu, 21 Jul 2011 10:26:57 -0700
+Message-ID: <20110721102657.1c696e6b.rdunlap@xenotime.net>
+References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
+	<20110721054033.GA8299@verge.net.au>
+	<CA+v9cxYJtrpUSHWY5Z2R14kZjX1c5nd2yYrvTx2URLJz26d_Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Richard Kennedy <richard@rsk.demon.co.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Horman <horms@verge.net.au>, netdev <netdev@vger.kernel.org>,
+	lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Huajun Li <huajun.li.lee@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56268 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297Ab1GUOrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 10:47:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1311256194.2980.18.camel@castor.rsk>
+Received: from oproxy7-pub.bluehost.com ([67.222.55.9]:42782 "HELO
+	oproxy7-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751678Ab1GUR1A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 13:27:00 -0400
+In-Reply-To: <CA+v9cxYJtrpUSHWY5Z2R14kZjX1c5nd2yYrvTx2URLJz26d_Tw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Richard Kennedy <richard@rsk.demon.co.uk> :
-> I keep seeing a total network failure on v3.0.0-rc* , it is highly
-> intermittent, anything from 1 hour to 12+, and I don't have a reliable
-> test case.
-> When it fails I lose all network comms, but there are no errors in the
-> system log, no hung tasks reported, nothing. But after it fails the
-> machine hangs during shutdown, it just never turns off. So I guess
-> something is getting stuck but I can't find it.
+On Thu, 21 Jul 2011 16:42:17 +0800 Huajun Li wrote:
 
-Assuming the kernel hangs late enough, you can try the "reboot=" kernel
-parameter and see if a value in arch/x86/include/asm/emergency-restart.h
-makes a difference.
+> Hi Randy and Simon,
+>     I happened to meet the issue too, loading and unloading module of
+> ip_vs, then loading it again will cause Oops, the root cause may be
+> ip_vs_dst_notifier is not unregistered. Please try following patch, i=
+t
+> works for me.
+>=20
+>=20
+> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+> ---
+>  net/netfilter/ipvs/ip_vs_ctl.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_v=
+s_ctl.c
+> index 699c79a..a178cb3 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -3771,6 +3771,7 @@ err_sock:
+>  void ip_vs_control_cleanup(void)
+>  {
+>  	EnterFunction(2);
+> +	unregister_netdevice_notifier(&ip_vs_dst_notifier);
+>  	ip_vs_genl_unregister();
+>  	nf_unregister_sockopt(&ip_vs_sockopts);
+>  	LeaveFunction(2);
+> --=20
 
-> Can you suggest how to find out what going on? 
+Yes, this patch or the one here:  http://www.spinics.net/lists/lvs-deve=
+l/msg02051.html
 
-Switch into text mode before starting the reboot sequence then send a
-magic sysrq T or W ?
+works.  Thanks.
 
-> I'm going to add a serial console and see if that helps.
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
 
-It will help, especially with the kilometer long output of sysrq.
 
-> this is on a x86_64, via_velocity currently running 3.0.0-rc7 latest.
-> 
-> all suggestions gratefully received
+> 2011/7/21 Simon Horman <horms@verge.net.au>:
+> > On Wed, Jul 20, 2011 at 08:50:19PM -0700, Randy Dunlap wrote:
+> >> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading a=
+nd unloading
+> >> modules. =A0Any chance this is already fixed? =A0I can test curren=
+t git, but I
+> >> wanted to ask first.
+> >>
+> >> Looks like it is on the second module load of ip_vs (i.e.,
+> >> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
+> >
+> > Hi Randy,
+> >
+> > I don't believe that this problem has been resolved (or observed be=
+fore).
 
-Last via-velocity change in mainline dates back to may 25 (see
-d10358de8d70aaeb965a974d56e9b72f6c6dbb3a). Were you previously fine
-with a recent enough kernel to rule it out ?
 
--- 
-Ueimor
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your cod=
+e ***
