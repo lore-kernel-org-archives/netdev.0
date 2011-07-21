@@ -1,64 +1,73 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
-Date: Thu, 21 Jul 2011 00:30:53 -0500
-Message-ID: <1311226254.3140.52.camel@dcbw.foobar.com>
-References: <20110719180222.GA7509@midget.suse.cz>
-	 <1311178905.21004.9.camel@dcbw.foobar.com>
-	 <20110720163656.GD11692@midget.suse.cz>
+From: Huajun Li <huajun.li.lee@gmail.com>
+Subject: Re: ipvs oops in 3.0-rc7
+Date: Thu, 21 Jul 2011 16:42:17 +0800
+Message-ID: <CA+v9cxYJtrpUSHWY5Z2R14kZjX1c5nd2yYrvTx2URLJz26d_Tw@mail.gmail.com>
+References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
+	<20110721054033.GA8299@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	stephen hemminger <shemminger@vyatta.com>
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Randy Dunlap <rdunlap@xenotime.net>,
+	netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	huajun li <huajun.li.lee@gmail.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50136 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750804Ab1GUF1N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2011 01:27:13 -0400
-In-Reply-To: <20110720163656.GD11692@midget.suse.cz>
+Received: from mail-fx0-f52.google.com ([209.85.161.52]:39843 "EHLO
+	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751905Ab1GUImT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 04:42:19 -0400
+In-Reply-To: <20110721054033.GA8299@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-07-20 at 18:36 +0200, Jiri Bohac wrote:
-> On Wed, Jul 20, 2011 at 11:21:43AM -0500, Dan Williams wrote:
-> > ... and in the resume handler use that value to age anything
-> > that needs to know about time spent in suspend, and then do what needs
-> > to be done with that.  So something like that may work for IPv6
-> > addrconf; on suspend save current time, and on resume check the current
-> > time, subtract the time you saved on suspend, and magically add that to
-> > the lifetime counts and then run any expiry stuff.
-> 
-> IPv6 (by specification) does not send any RS when an IP address
-> or route expires. So only subtracting the supend time from the
-> lifetimes and possibly expiring the routes/IP addresses won't fix
-> the problem.
-
-Well, the prefix option of the RA includes the Valid Lifetime (in
-seconds, no less) so I'd assume the kernel starts a timer when it
-receives the RA and updates any addresses configured as a result of
-receiving that RA+prefix, such that when the timer expires, the
-autoconfigured address is deleted.  That timer can be used as a base for
-the expiry mechanism that I've noted above, no?  This fixes problem #1
-from your first mail.
-
-For problem #2, shouldn't a new RS be sent whenever the interface
-changes it's IFF_LOWER_UP bit?  IFF_LOWER_UP indicates a carrier on/off
-event and thus indicates possible disconnect/reconnect to a new network.
-I don't specifically know how it works now, but if RS isn't triggered
-from IFF_LOWER_UP, I'd imagine that either (a) something didn't get
-updated when IFF_LOWER_UP became how carrier was indicated in 2.6.17
-(commit b00055aacdb172c05067612278ba27265fcd05ce) or (b) there's a
-reason IFF_LOWER_UP isn't used as the trigger for sending an RS and I'm
-qualified to say why.
-
-Dan
-
-> When I move to a new network, I need to restart the
-> autoconfiguration. This does not currently happen - neither for
-> an alive system where the ethernet link goes down/up, nor for a
-> system that gets suspended, moved and then resumed.
-> 
+Hi Randy and Simon,
+    I happened to meet the issue too, loading and unloading module of
+ip_vs, then loading it again will cause Oops, the root cause may be
+ip_vs_dst_notifier is not unregistered. Please try following patch, it
+works for me.
 
 
+Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_=
+ctl.c
+index 699c79a..a178cb3 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3771,6 +3771,7 @@ err_sock:
+ void ip_vs_control_cleanup(void)
+ {
+ 	EnterFunction(2);
++	unregister_netdevice_notifier(&ip_vs_dst_notifier);
+ 	ip_vs_genl_unregister();
+ 	nf_unregister_sockopt(&ip_vs_sockopts);
+ 	LeaveFunction(2);
+--=20
+1.7.4.1
+
+
+2011/7/21 Simon Horman <horms@verge.net.au>:
+> On Wed, Jul 20, 2011 at 08:50:19PM -0700, Randy Dunlap wrote:
+>> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading and=
+ unloading
+>> modules. =A0Any chance this is already fixed? =A0I can test current =
+git, but I
+>> wanted to ask first.
+>>
+>> Looks like it is on the second module load of ip_vs (i.e.,
+>> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
+>
+> Hi Randy,
+>
+> I don't believe that this problem has been resolved (or observed befo=
+re).
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
