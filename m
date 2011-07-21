@@ -1,153 +1,132 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 18/47 V2] igbvf: do vlan cleanup
-Date: Thu, 21 Jul 2011 18:23:39 +0200
-Message-ID: <20110721162338.GH2107@minipsycho>
-References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
- <1311173689-17419-19-git-send-email-jpirko@redhat.com>
- <20110721132229.GC2107@minipsycho>
- <43F901BD926A4E43B106BF17856F0755019404FB53@orsmsx508.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"greearb@candelatech.com" <greearb@candelatech.com>,
-	"mirqus@gmail.com" <mirqus@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"jesse@nicira.com" <jesse@nicira.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+From: kaber@trash.net
+Subject: [PATCH 1/8] netfilter: add SELinux context support to AUDIT target
+Date: Thu, 21 Jul 2011 12:17:49 +0200
+Message-ID: <1311243476-18236-2-git-send-email-kaber@trash.net>
+References: <1311243476-18236-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55582 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753189Ab1GUQYb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2011 12:24:31 -0400
-Content-Disposition: inline
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755019404FB53@orsmsx508.amr.corp.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:34522 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751986Ab1GUKSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 06:18:02 -0400
+In-Reply-To: <1311243476-18236-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jul 21, 2011 at 05:57:08PM CEST, gregory.v.rose@intel.com wrote:
->> -----Original Message-----
->> From: Jiri Pirko [mailto:jpirko@redhat.com]
->> Sent: Thursday, July 21, 2011 6:23 AM
->> To: netdev@vger.kernel.org
->> Cc: davem@davemloft.net; shemminger@linux-foundation.org;
->> eric.dumazet@gmail.com; greearb@candelatech.com; mirqus@gmail.com;
->> Kirsher, Jeffrey T; Brandeburg, Jesse; Waskiewicz Jr, Peter P; Allan,
->> Bruce W; Wyborny, Carolyn; Skidmore, Donald C; Rose, Gregory V; Duyck,
->> Alexander H; Ronciak, John; e1000-devel@lists.sourceforge.net;
->> jesse@nicira.com
->> Subject: [patch net-next-2.6 18/47 V2] igbvf: do vlan cleanup
->> 
->> - unify vlan and nonvlan rx path
->> - kill adapter->vlgrp and igbvf_vlan_rx_register
->> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->>  drivers/net/igbvf/igbvf.h  |    4 +-
->>  drivers/net/igbvf/netdev.c |   55 +++++++++++++++++++--------------------
->> ----
->>  2 files changed, 26 insertions(+), 33 deletions(-)
->> 
->> diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
->> index d5dad5d..fd4a7b7 100644
->> --- a/drivers/net/igbvf/igbvf.h
->> +++ b/drivers/net/igbvf/igbvf.h
->> @@ -34,7 +34,7 @@
->>  #include <linux/timer.h>
->>  #include <linux/io.h>
->>  #include <linux/netdevice.h>
->> -
->> +#include <linux/if_vlan.h>
->> 
->>  #include "vf.h"
->> 
->> @@ -173,7 +173,7 @@ struct igbvf_adapter {
->> 
->>  	const struct igbvf_info *ei;
->> 
->> -	struct vlan_group *vlgrp;
->> +	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
->>  	u32 bd_number;
->>  	u32 rx_buffer_len;
->>  	u32 polling_interval;
->> diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
->> index 64b47bf..d924b09 100644
->> --- a/drivers/net/igbvf/netdev.c
->> +++ b/drivers/net/igbvf/netdev.c
->> @@ -100,12 +100,12 @@ static void igbvf_receive_skb(struct igbvf_adapter
->> *adapter,
->>                                struct sk_buff *skb,
->>                                u32 status, u16 vlan)
->>  {
->> -	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
->> -		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
->> -		                         le16_to_cpu(vlan) &
->> -		                         E1000_RXD_SPC_VLAN_MASK);
->> -	else
->> -		netif_receive_skb(skb);
->> +	if (status & E1000_RXD_STAT_VP) {
->> +		u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
->> +
->> +		__vlan_hwaccel_put_tag(skb, vid);
->> +	}
->> +	netif_receive_skb(skb);
->>  }
->> 
->>  static inline void igbvf_rx_checksum_adv(struct igbvf_adapter *adapter,
->> @@ -1167,22 +1167,29 @@ static int igbvf_poll(struct napi_struct *napi,
->> int budget)
->>   */
->>  static void igbvf_set_rlpml(struct igbvf_adapter *adapter)
->>  {
->> -	int max_frame_size = adapter->max_frame_size;
->> +	int max_frame_size;
->>  	struct e1000_hw *hw = &adapter->hw;
->> 
->> -	if (adapter->vlgrp)
->> -		max_frame_size += VLAN_TAG_SIZE;
->> -
->> +	max_frame_size = adapter->max_frame_size + VLAN_TAG_SIZE;
->>  	e1000_rlpml_set_vf(hw, max_frame_size);
->>  }
->> 
->> -static void igbvf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
->> +static bool __igbvf_vlan_rx_add_vid(struct igbvf_adapter *adapter, u16
->> vid)
->>  {
->> -	struct igbvf_adapter *adapter = netdev_priv(netdev);
->>  	struct e1000_hw *hw = &adapter->hw;
->> 
->>  	if (hw->mac.ops.set_vfta(hw, vid, true))
->>  		dev_err(&adapter->pdev->dev, "Failed to add vlan id %d\n",
->> vid);
->> +		return false;
->> +	return true;
->> +}
->
->I'm pretty sure you intended to put a curly brace after the if statement here.
+From: Mr Dash Four <mr.dash.four@googlemail.com>
 
-Right, missed that. Thanks.
+In this revision the conversion of secid to SELinux context and adding it
+to the audit log is moved from xt_AUDIT.c to audit.c with the aid of a
+separate helper function - audit_log_secctx - which does both the conversion
+and logging of SELinux context, thus also preventing internal secid number
+being leaked to userspace. If conversion is not successful an error is raised.
 
-Rsposting also with removing igbvf_set_rlpml call from
-igbvf_restore_vlan since it is called from igbvf_configure_rx
+With the introduction of this helper function the work done in xt_AUDIT.c is
+much more simplified. It also opens the possibility of this helper function
+being used by other modules (including auditd itself), if desired. With this
+addition, typical (raw auditd) output after applying the patch would be:
 
-Thanks
+type=NETFILTER_PKT msg=audit(1305852240.082:31012): action=0 hook=1 len=52 inif=? outif=eth0 saddr=10.1.1.7 daddr=10.1.2.1 ipid=16312 proto=6 sport=56150 dport=22 obj=system_u:object_r:ssh_client_packet_t:s0
+type=NETFILTER_PKT msg=audit(1306772064.079:56): action=0 hook=3 len=48 inif=eth0 outif=? smac=00:05:5d:7c:27:0b dmac=00:02:b3:0a:7f:81 macproto=0x0800 saddr=10.1.2.1 daddr=10.1.1.7 ipid=462 proto=6 sport=22 dport=3561 obj=system_u:object_r:ssh_server_packet_t:s0
 
-Jirka
->
->Other than that it seems fine.
->
->- Greg
->
->
+Acked-by: Eric Paris <eparis@redhat.com>
+Signed-off-by: Mr Dash Four <mr.dash.four@googlemail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/linux/audit.h    |    7 +++++++
+ kernel/audit.c           |   29 +++++++++++++++++++++++++++++
+ net/netfilter/xt_AUDIT.c |    5 +++++
+ 3 files changed, 41 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/audit.h b/include/linux/audit.h
+index 9d339eb..0c80061 100644
+--- a/include/linux/audit.h
++++ b/include/linux/audit.h
+@@ -613,6 +613,12 @@ extern void		    audit_log_d_path(struct audit_buffer *ab,
+ extern void		    audit_log_key(struct audit_buffer *ab,
+ 					  char *key);
+ extern void		    audit_log_lost(const char *message);
++#ifdef CONFIG_SECURITY
++extern void 		    audit_log_secctx(struct audit_buffer *ab, u32 secid);
++#else
++#define audit_log_secctx(b,s) do { ; } while (0)
++#endif
++
+ extern int		    audit_update_lsm_rules(void);
+ 
+ 				/* Private API (for audit.c only) */
+@@ -635,6 +641,7 @@ extern int audit_enabled;
+ #define audit_log_untrustedstring(a,s) do { ; } while (0)
+ #define audit_log_d_path(b, p, d) do { ; } while (0)
+ #define audit_log_key(b, k) do { ; } while (0)
++#define audit_log_secctx(b,s) do { ; } while (0)
+ #define audit_enabled 0
+ #endif
+ #endif
+diff --git a/kernel/audit.c b/kernel/audit.c
+index 9395003..52501b5 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -55,6 +55,9 @@
+ #include <net/sock.h>
+ #include <net/netlink.h>
+ #include <linux/skbuff.h>
++#ifdef CONFIG_SECURITY
++#include <linux/security.h>
++#endif
+ #include <linux/netlink.h>
+ #include <linux/freezer.h>
+ #include <linux/tty.h>
+@@ -1502,6 +1505,32 @@ void audit_log(struct audit_context *ctx, gfp_t gfp_mask, int type,
+ 	}
+ }
+ 
++#ifdef CONFIG_SECURITY
++/**
++ * audit_log_secctx - Converts and logs SELinux context
++ * @ab: audit_buffer
++ * @secid: security number
++ *
++ * This is a helper function that calls security_secid_to_secctx to convert
++ * secid to secctx and then adds the (converted) SELinux context to the audit
++ * log by calling audit_log_format, thus also preventing leak of internal secid
++ * to userspace. If secid cannot be converted audit_panic is called.
++ */
++void audit_log_secctx(struct audit_buffer *ab, u32 secid)
++{
++	u32 len;
++	char *secctx;
++
++	if (security_secid_to_secctx(secid, &secctx, &len)) {
++		audit_panic("Cannot convert secid to context");
++	} else {
++		audit_log_format(ab, " obj=%s", secctx);
++		security_release_secctx(secctx, len);
++	}
++}
++EXPORT_SYMBOL(audit_log_secctx);
++#endif
++
+ EXPORT_SYMBOL(audit_log_start);
+ EXPORT_SYMBOL(audit_log_end);
+ EXPORT_SYMBOL(audit_log_format);
+diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
+index 363a99e..4bca15a 100644
+--- a/net/netfilter/xt_AUDIT.c
++++ b/net/netfilter/xt_AUDIT.c
+@@ -163,6 +163,11 @@ audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 		break;
+ 	}
+ 
++#ifdef CONFIG_NETWORK_SECMARK
++	if (skb->secmark)
++		audit_log_secctx(ab, skb->secmark);
++#endif
++
+ 	audit_log_end(ab);
+ 
+ errout:
+-- 
+1.7.2.3
+
