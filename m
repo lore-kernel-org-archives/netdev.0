@@ -1,59 +1,38 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [PATCH net-2.6] jme: Fix unmap error (Causing system
-	freeze)
-Date: Thu, 21 Jul 2011 12:30:08 -0700
-Message-ID: <20110721193008.GC9766@sequoia.sous-sol.org>
-References: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
+From: "Mr. Vincent Cheng" <info@mat.unb.br>
+Subject: (unknown)
+Date: Thu, 21 Jul 2011 11:27:12 -0300
+Message-ID: <20110721112712.9aoni8ohkwgsg8sg__12331.8236590878$1311276821$gmane$org@webmail.mat.unb.br>
+Reply-To: choi_chu112@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Lamb <jason@lambhome.org>, linux-netdev <netdev@vger.kernel.org>,
-        Jason Long <jason@octgsoftware.com>, stable@kernel.org,
-        Marcus Becker <marcus.disi@gmail.com>,
-        Aries Lee <arieslee@jmicron.com>, Devinchiu <devinchiu@jmicron.com>,
-        Marc Schiffbauer <mschiff@gentoo.org>,
-        David Miller <davem@davemloft.net>
-To: cooldavid@cooldavid.org
-Return-path: <stable-bounces@linux.kernel.org>
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pequi.mat.unb.br ([164.41.38.3]:47134 "EHLO mail.mat.unb.br"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753481Ab1GUTdY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2011 15:33:24 -0400
+Subject: 
 Content-Disposition: inline
-In-Reply-To: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* cooldavid@cooldavid.org (cooldavid@cooldavid.org) wrote:
-> From: Guo-Fu Tseng <cooldavid@cooldavid.org>
-> 
-> This patch add the missing dma_unmap().
-> Which solved the critical issue of system freeze on heavy load.
-> 
-> Michal Miroslaw's rejected patch:
-> [PATCH v2 10/46] net: jme: convert to generic DMA API
-> Pointed out the issue also, thank you Michal.
-> But the fix was incorrect. It would unmap needed address
-> when low memory.
-> 
-> Got lots of feedback from End user and Gentoo Bugzilla.
-> https://bugs.gentoo.org/show_bug.cgi?id=373109
-> Thank you all. :)
 
-Also referred to in kernel bugzilla:
+Good Day,
 
-https://bugzilla.kernel.org/show_bug.cgi?id=39312
+I have a business proposal of USD $22,500,000.00 only for you to transact with
+me from my bank to your country.
+Reply to address:choi_chu112@yahoo.co.jp and I will let you know what is
+required of you.
 
-> Cc: stable@kernel.org
-> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
+Best Regards,
 
-Acked-by: Chris Wright <chrisw@sous-sol.org>
+Mr. Vincent Cheng
 
-_______________________________________________
-stable mailing list
-stable@linux.kernel.org
-http://linux.kernel.org/mailman/listinfo/stable
+
+
+
+
