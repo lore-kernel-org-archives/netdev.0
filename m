@@ -1,86 +1,107 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [patch net-next-2.6 37/47] igb: do vlan cleanup
-Date: Wed, 20 Jul 2011 16:58:10 -0700
-Message-ID: <CAEP_g=9j3=s74_VQ6RQxVRGOOs-mVR94s31ETXJ1S5P7aQV4iQ@mail.gmail.com>
-References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
- <1311173689-17419-38-git-send-email-jpirko@redhat.com> <CAEP_g=_0Ej09+KYbvEJz1+joYtms+S_67XSVVPMoG_hfJnmrBQ@mail.gmail.com>
- <20110720191045.GD2688@minipsycho.redhat.com>
+Subject: Re: [PATCH 1/2] igb: Allow extra 4 bytes on RX for vlan tags.
+Date: Wed, 20 Jul 2011 17:18:46 -0700
+Message-ID: <CAEP_g=_o7nP2FCnPufyT44JZZ+Z+jkcVpSa8Qj3mjPn+MwRhXA@mail.gmail.com>
+References: <1297375149-18458-1-git-send-email-greearb@candelatech.com>
+ <AANLkTinsWRAJ2bepa1NjQ4f0Wz46DaxWO6f_nEbmBAB0@mail.gmail.com> <4D5D5AD8.5000802@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
-	greearb@candelatech.com, mirqus@gmail.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:54533 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659Ab1GTX6a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 19:58:30 -0400
-Received: by yia27 with SMTP id 27so366625yia.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 16:58:30 -0700 (PDT)
-In-Reply-To: <20110720191045.GD2688@minipsycho.redhat.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:39814 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751701Ab1GUATJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 20:19:09 -0400
+Received: by gyh3 with SMTP id 3so373013gyh.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 17:19:08 -0700 (PDT)
+In-Reply-To: <4D5D5AD8.5000802@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 20, 2011 at 12:10 PM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Wed, Jul 20, 2011 at 07:35:33PM CEST, jesse@nicira.com wrote:
->>On Wed, Jul 20, 2011 at 7:54 AM, Jiri Pirko <jpirko@redhat.com> wrote=
-:
->>> @@ -2943,7 +2944,7 @@ static void igb_rlpml_set(struct igb_adapter =
-*adapter)
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct e1000_hw *hw =3D &adapter->hw;
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0u16 pf_id =3D adapter->vfs_allocated_cou=
-nt;
->>>
->>> - =C2=A0 =C2=A0 =C2=A0 if (adapter->vlgrp)
->>> + =C2=A0 =C2=A0 =C2=A0 if (igb_vlan_used(adapter))
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0max_frame_si=
-ze +=3D VLAN_TAG_SIZE;
+On Thu, Feb 17, 2011 at 9:28 AM, Ben Greear <greearb@candelatech.com> w=
+rote:
+> On 02/17/2011 03:04 AM, Jeff Kirsher wrote:
 >>
->>There are similar issues here as with the VF driver. =C2=A0I think yo=
-u're
->>also confusing vlan acceleration with vlan filtering. =C2=A0If no vla=
-n
->>filters are in use but the card is in promiscuous mode, the buffer
->>will be undersized and we lose tagged packets.
+>> On Thu, Feb 10, 2011 at 13:59,<greearb@candelatech.com> =C2=A0wrote:
+>>>
+>>> From: Ben Greear<greearb@candelatech.com>
+>>>
+>>> This allows the NIC to receive 1518 byte (not counting
+>>> FCS) packets when MTU is 1500, thus allowing 1500 MTU
+>>> VLAN frames to be received. =C2=A0Please note that no VLANs
+>>> were actually configured on the NIC...it was just acting
+>>> as pass-through device.
+>>>
+>>> Signed-off-by: Ben Greear<greearb@candelatech.com>
+>>> ---
+>>> :100644 100644 58c665b... 30c9cc6... M =C2=A0drivers/net/igb/igb_ma=
+in.c
+>>> =C2=A0drivers/net/igb/igb_main.c | =C2=A0 =C2=A05 +++--
+>>> =C2=A01 files changed, 3 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.=
+c
+>>> index 58c665b..30c9cc6 100644
+>>> --- a/drivers/net/igb/igb_main.c
+>>> +++ b/drivers/net/igb/igb_main.c
+>>> @@ -2281,7 +2281,8 @@ static int __devinit igb_sw_init(struct igb_a=
+dapter
+>>> *adapter)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->rx_itr_setting =3D IGB_DEFAULT_=
+ITR;
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->tx_itr_setting =3D IGB_DEFAULT_=
+ITR;
+>>>
+>>> - =C2=A0 =C2=A0 =C2=A0 adapter->max_frame_size =3D netdev->mtu + ET=
+H_HLEN + ETH_FCS_LEN;
+>>> + =C2=A0 =C2=A0 =C2=A0 adapter->max_frame_size =3D (netdev->mtu + E=
+TH_HLEN + ETH_FCS_LEN
+>>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0+ VLAN_HLEN);
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->min_frame_size =3D ETH_ZLEN + E=
+TH_FCS_LEN;
+>>>
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock_init(&adapter->stats64_lock);
+>>> @@ -4303,7 +4304,7 @@ static int igb_change_mtu(struct net_device
+>>> *netdev, int new_mtu)
+>>> =C2=A0{
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct igb_adapter *adapter =3D netdev_p=
+riv(netdev);
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct pci_dev *pdev =3D adapter->pdev;
+>>> - =C2=A0 =C2=A0 =C2=A0 int max_frame =3D new_mtu + ETH_HLEN + ETH_F=
+CS_LEN;
+>>> + =C2=A0 =C2=A0 =C2=A0 int max_frame =3D new_mtu + ETH_HLEN + ETH_F=
+CS_LEN + VLAN_HLEN;
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0u32 rx_buffer_len, i;
+>>>
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((new_mtu< =C2=A068) || (max_frame> =C2=
+=A0MAX_JUMBO_FRAME_SIZE)) {
+>>
+>> While testing this patch, validation found that the patch reduces th=
+e
+>> maximum mtu size
+>> by 4 bytes (reduces it from 9216 to 9212). =C2=A0This is not a desir=
+ed side
+>> effect of this patch.
 >
-> I'm certainly not confusing vlan accel and filtering. Here is the
-> intension is the behaviour remains intact as well. I believe it's tru=
-e.
+> You could add handling for that case and have it act as it used to wh=
+en
+> new_mtu is greater than 9212?
+>
+> I tested e1000e and it worked w/out hacking at 1500 MTU, so maybe
+> check how it does it?
 
-I believe the underlying issue for all three of these threads is the
-same, so I'll just respond to them all here.
+I just wanted to bring this up again to see if any progress had been
+made.  We were looking at this driver and trying to figure out the
+best way to convert it to use the new vlan model but I'm not familiar
+enough with the hardware to know.  It seems that all of the other
+Intel drivers unconditionally add space for the vlan tag to the
+receive buffer (and would therefore have similar effects as this
+patch), is there something different about this card?
 
-I agree that this doesn't change the behavior of the driver but I
-don't think that should be the goal.  When I originally designed this
-new vlan model my intention was to eliminate a whole class of driver
-bugs that I was repeatedly hitting in various forms.  In the example
-above, if you run tcpdump on this device without configuring a vlan
-group on it then you will see that MTU sized packets are missing
-because the receive buffer was undersized.
-
-The common theme for these problems is that they all occur in
-situations where vlans are not configured on the device and the driver
-does something different as a result of this.  The solution was to
-prevent drivers from changing their behavior in such situations by
-completely removing the concept of a vlan group from them and letting
-the networking core tell them when to make the changes instead of
-doing it implicitly.  That's why I don't see the fact that this change
-essentially emulates the knowledge of configuring a group to be a
-plus.  By the way, plenty of your other patches change the behavior of
-the drivers - on any of the NICs that always enable stripping, try
-running tcpdump on the interface without configuring a vlan group.
-Before the change you will see that tags have disappeared and
-afterwards the tags are intact.  So I think that changing the behavior
-of drivers in this regard is a positive thing.
-
-As an aside, thank you for taking the time to work on all of these
-drivers.  The only reason why I'm complaining about these few drivers
-is because I'd like to close the door on this class of problems, which
-is finally in reach thanks to your work.
+I believe that Alex was working on something in this area (in the
+context of one of my patches from a long time ago) but I'm not sure
+what came of that.
