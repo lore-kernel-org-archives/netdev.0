@@ -1,52 +1,59 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: sch_generic warn_on (timed out)
-Date: Thu, 21 Jul 2011 14:56:19 -0400
-Message-ID: <20110721185619.GL23856@redhat.com>
-References: <20110711204834.GA4950@redhat.com>
- <alpine.WNT.2.00.1107200931080.1084@JBRANDEB-DESK2.amr.corp.intel.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH net-2.6] jme: Fix unmap error (Causing system
+	freeze)
+Date: Thu, 21 Jul 2011 12:30:08 -0700
+Message-ID: <20110721193008.GC9766@sequoia.sous-sol.org>
+References: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54819 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753212Ab1GUS4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2011 14:56:22 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Lamb <jason@lambhome.org>, linux-netdev <netdev@vger.kernel.org>,
+        Jason Long <jason@octgsoftware.com>, stable@kernel.org,
+        Marcus Becker <marcus.disi@gmail.com>,
+        Aries Lee <arieslee@jmicron.com>, Devinchiu <devinchiu@jmicron.com>,
+        Marc Schiffbauer <mschiff@gentoo.org>,
+        David Miller <davem@davemloft.net>
+To: cooldavid@cooldavid.org
+Return-path: <stable-bounces@linux.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.WNT.2.00.1107200931080.1084@JBRANDEB-DESK2.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 20, 2011 at 09:38:32AM -0700, Brandeburg, Jesse wrote:
+* cooldavid@cooldavid.org (cooldavid@cooldavid.org) wrote:
+> From: Guo-Fu Tseng <cooldavid@cooldavid.org>
+> 
+> This patch add the missing dma_unmap().
+> Which solved the critical issue of system freeze on heavy load.
+> 
+> Michal Miroslaw's rejected patch:
+> [PATCH v2 10/46] net: jme: convert to generic DMA API
+> Pointed out the issue also, thank you Michal.
+> But the fix was incorrect. It would unmap needed address
+> when low memory.
+> 
+> Got lots of feedback from End user and Gentoo Bugzilla.
+> https://bugs.gentoo.org/show_bug.cgi?id=373109
+> Thank you all. :)
 
- > it used to just be a KERN_ERR printk, then it changed it to be a WARN_ONCE 
- > in order to trigger kerneloops reports so we knew how many people were 
- > getting tx hangs from their hardware.
+Also referred to in kernel bugzilla:
 
-That explains the uptick in reports we've got, as most of them
-seem to be coming in through abrt (Fedora's kerneloops-like thing). 
+https://bugzilla.kernel.org/show_bug.cgi?id=39312
 
- > If this is happening more frequently on F15 than F14 across multiple 
- > pieces of hardware, it may indicate that a kernel/stack change is starting 
- > to (ab)use a changed working model that is causing an issue, or that there 
- > is an actual kernel issue with locks or interrupts or tx completions that 
- > is causing an excessive delay in completion of transmits.
- > 
- > Dave can you query for F14 reports and/or isolate what kernel this started 
- > with?
+> Cc: stable@kernel.org
+> Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-Unfortunatly, F14 lagged behind rebasing for unrelated reasons, and is still stuck
-on 2.6.35, so we've got quite a delta between that and f15 right now.
+Acked-by: Chris Wright <chrisw@sous-sol.org>
 
-A quick search of the F14 bugs didn't show up any similar bugs, but due to the 4
-versions we jumped, that's probably not too helpful, as it's probably still
-just a printk in that old codebase.
-
-We have plans in progress to rebase both releases to something more current,
-so I'll keep an eye on this to see if it gets worse/better.
-
-thanks,
-
-        Dave
-
+_______________________________________________
+stable mailing list
+stable@linux.kernel.org
+http://linux.kernel.org/mailman/listinfo/stable
