@@ -1,462 +1,76 @@
-From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next 4/5] bnx2x: Parity errors recovery for 578xx
-Date: Thu, 21 Jul 2011 20:58:36 +0300
-Message-ID: <201107212058.36462.vladz@broadcom.com>
+From: Joe Perches <joe@perches.com>
+Subject: RE: [Pv-drivers] [PATCH net-next] vmxnet3: set netdev parant
+ device before calling netdev_info
+Date: Wed, 20 Jul 2011 20:49:01 -0700
+Message-ID: <1311220141.1663.24.camel@Joe-Laptop>
+References: <alpine.LRH.2.00.1107201834220.19334@sbhatewara-dev1.eng.vmware.com>
+	 <03E840D17E263A48A5766AD576E0423A03C5836359@exch-mbx-111.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Dave Miller" <davem@davemloft.net>
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
+To: Scott Goldman <scottjg@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3806 "EHLO mms2.broadcom.com"
+Received: from mail.perches.com ([173.55.12.10]:4217 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751419Ab1GUR7G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2011 13:59:06 -0400
+	id S1751951Ab1GUDtE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2011 23:49:04 -0400
+In-Reply-To: <03E840D17E263A48A5766AD576E0423A03C5836359@exch-mbx-111.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the parity errors recovery flow for 578xx:
-    - Add a separate column for the 578xx in the parity mask
-      registers DB.
-    - Fix the bnx2x_process_kill_chip_reset() to handle the blocks
-      newly introduced in the 578xx.
+On Wed, 2011-07-20 at 20:06 -0700, Scott Goldman wrote:
+> > Parent device for netdev should be set before netdev_info() can be called
+> > otherwise there is a NULL pointer dereference and probe() fails.
 
-Cover ATC and PGLUE_B blocks for 57712 and 578xx.
+I believe this is not true.
+I don't see any NULL pointer dereference here.
+functions and macros reordered top to bottom.
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x.h      |    3 +
- drivers/net/bnx2x/bnx2x_init.h |  101 +++++++++++++++++++---------------
- drivers/net/bnx2x/bnx2x_main.c |  119 +++++++++++++++++++++++++++++++--------
- drivers/net/bnx2x/bnx2x_reg.h  |   16 +++++-
- 4 files changed, 168 insertions(+), 71 deletions(-)
+define_netdev_printk_level(netdev_info, KERN_INFO);
 
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 4b255e5..c423504 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -1920,6 +1920,9 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
- 		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_UMP_TX_PARITY | \
- 		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_SCPAD_PARITY)
- 
-+#define HW_PRTY_ASSERT_SET_4 (AEU_INPUTS_ATTN_BITS_PGLUE_PARITY_ERROR | \
-+			      AEU_INPUTS_ATTN_BITS_ATC_PARITY_ERROR)
-+
- #define RSS_FLAGS(bp) \
- 		(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY | \
- 		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
-diff --git a/drivers/net/bnx2x/bnx2x_init.h b/drivers/net/bnx2x/bnx2x_init.h
-index 82795a8..4d748e7 100644
---- a/drivers/net/bnx2x/bnx2x_init.h
-+++ b/drivers/net/bnx2x/bnx2x_init.h
-@@ -326,25 +326,25 @@ struct src_ent {
- /****************************************************************************
- * Parity configuration
- ****************************************************************************/
--#define BLOCK_PRTY_INFO(block, en_mask, m1, m1h, m2) \
-+#define BLOCK_PRTY_INFO(block, en_mask, m1, m1h, m2, m3) \
- { \
- 	block##_REG_##block##_PRTY_MASK, \
- 	block##_REG_##block##_PRTY_STS_CLR, \
--	en_mask, {m1, m1h, m2}, #block \
-+	en_mask, {m1, m1h, m2, m3}, #block \
- }
- 
--#define BLOCK_PRTY_INFO_0(block, en_mask, m1, m1h, m2) \
-+#define BLOCK_PRTY_INFO_0(block, en_mask, m1, m1h, m2, m3) \
- { \
- 	block##_REG_##block##_PRTY_MASK_0, \
- 	block##_REG_##block##_PRTY_STS_CLR_0, \
--	en_mask, {m1, m1h, m2}, #block"_0" \
-+	en_mask, {m1, m1h, m2, m3}, #block"_0" \
- }
- 
--#define BLOCK_PRTY_INFO_1(block, en_mask, m1, m1h, m2) \
-+#define BLOCK_PRTY_INFO_1(block, en_mask, m1, m1h, m2, m3) \
- { \
- 	block##_REG_##block##_PRTY_MASK_1, \
- 	block##_REG_##block##_PRTY_STS_CLR_1, \
--	en_mask, {m1, m1h, m2}, #block"_1" \
-+	en_mask, {m1, m1h, m2, m3}, #block"_1" \
- }
- 
- static const struct {
-@@ -355,6 +355,7 @@ static const struct {
- 		u32 e1;		/* 57710 */
- 		u32 e1h;	/* 57711 */
- 		u32 e2;		/* 57712 */
-+		u32 e3;		/* 578xx */
- 	} reg_mask;		/* Register mask (all valid bits) */
- 	char name[7];		/* Block's longest name is 6 characters long
- 				 * (name + suffix)
-@@ -372,48 +373,56 @@ static const struct {
- 	/* Block IGU, MISC, PXP and PXP2 parity errors as long as we don't
- 	 * want to handle "system kill" flow at the moment.
- 	 */
--	BLOCK_PRTY_INFO(PXP, 0x7ffffff, 0x3ffffff, 0x3ffffff, 0x7ffffff),
--	BLOCK_PRTY_INFO_0(PXP2,	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff),
--	BLOCK_PRTY_INFO_1(PXP2,	0x7ff, 0x7f, 0x7f, 0x7ff),
--	BLOCK_PRTY_INFO(HC, 0x7, 0x7, 0x7, 0),
--	BLOCK_PRTY_INFO(NIG, 0xffffffff, 0x3fffffff, 0xffffffff, 0),
--	BLOCK_PRTY_INFO_0(NIG,	0xffffffff, 0, 0, 0xffffffff),
--	BLOCK_PRTY_INFO_1(NIG,	0xffff, 0, 0, 0xffff),
--	BLOCK_PRTY_INFO(IGU, 0x7ff, 0, 0, 0x7ff),
--	BLOCK_PRTY_INFO(MISC, 0x1, 0x1, 0x1, 0x1),
--	BLOCK_PRTY_INFO(QM, 0, 0x1ff, 0xfff, 0xfff),
--	BLOCK_PRTY_INFO(DORQ, 0, 0x3, 0x3, 0x3),
-+	BLOCK_PRTY_INFO(PXP, 0x7ffffff, 0x3ffffff, 0x3ffffff, 0x7ffffff,
-+			0x7ffffff),
-+	BLOCK_PRTY_INFO_0(PXP2,	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-+			  0xffffffff),
-+	BLOCK_PRTY_INFO_1(PXP2,	0x1ffffff, 0x7f, 0x7f, 0x7ff, 0x1ffffff),
-+	BLOCK_PRTY_INFO(HC, 0x7, 0x7, 0x7, 0, 0),
-+	BLOCK_PRTY_INFO(NIG, 0xffffffff, 0x3fffffff, 0xffffffff, 0, 0),
-+	BLOCK_PRTY_INFO_0(NIG,	0xffffffff, 0, 0, 0xffffffff, 0xffffffff),
-+	BLOCK_PRTY_INFO_1(NIG,	0xffff, 0, 0, 0xff, 0xffff),
-+	BLOCK_PRTY_INFO(IGU, 0x7ff, 0, 0, 0x7ff, 0x7ff),
-+	BLOCK_PRTY_INFO(MISC, 0x1, 0x1, 0x1, 0x1, 0x1),
-+	BLOCK_PRTY_INFO(QM, 0, 0x1ff, 0xfff, 0xfff, 0xfff),
-+	BLOCK_PRTY_INFO(ATC, 0x1f, 0, 0, 0x1f, 0x1f),
-+	BLOCK_PRTY_INFO(PGLUE_B, 0x3, 0, 0, 0x3, 0x3),
-+	BLOCK_PRTY_INFO(DORQ, 0, 0x3, 0x3, 0x3, 0x3),
- 	{GRCBASE_UPB + PB_REG_PB_PRTY_MASK,
- 		GRCBASE_UPB + PB_REG_PB_PRTY_STS_CLR, 0xf,
--		{0xf, 0xf, 0xf}, "UPB"},
-+		{0xf, 0xf, 0xf, 0xf}, "UPB"},
- 	{GRCBASE_XPB + PB_REG_PB_PRTY_MASK,
- 		GRCBASE_XPB + PB_REG_PB_PRTY_STS_CLR, 0,
--		{0xf, 0xf, 0xf}, "XPB"},
--	BLOCK_PRTY_INFO(SRC, 0x4, 0x7, 0x7, 0x7),
--	BLOCK_PRTY_INFO(CDU, 0, 0x1f, 0x1f, 0x1f),
--	BLOCK_PRTY_INFO(CFC, 0, 0xf, 0xf, 0xf),
--	BLOCK_PRTY_INFO(DBG, 0, 0x1, 0x1, 0x1),
--	BLOCK_PRTY_INFO(DMAE, 0, 0xf, 0xf, 0xf),
--	BLOCK_PRTY_INFO(BRB1, 0, 0xf, 0xf, 0xf),
--	BLOCK_PRTY_INFO(PRS, (1<<6), 0xff, 0xff, 0xff),
--	BLOCK_PRTY_INFO(PBF, 0, 0, 0x3ffff, 0xfffffff),
--	BLOCK_PRTY_INFO(TM, 0, 0, 0x7f, 0x7f),
--	BLOCK_PRTY_INFO(TSDM, 0x18, 0x7ff, 0x7ff, 0x7ff),
--	BLOCK_PRTY_INFO(CSDM, 0x8, 0x7ff, 0x7ff, 0x7ff),
--	BLOCK_PRTY_INFO(USDM, 0x38, 0x7ff, 0x7ff, 0x7ff),
--	BLOCK_PRTY_INFO(XSDM, 0x8, 0x7ff, 0x7ff, 0x7ff),
--	BLOCK_PRTY_INFO(TCM, 0, 0, 0x7ffffff, 0x7ffffff),
--	BLOCK_PRTY_INFO(CCM, 0, 0, 0x7ffffff, 0x7ffffff),
--	BLOCK_PRTY_INFO(UCM, 0, 0, 0x7ffffff, 0x7ffffff),
--	BLOCK_PRTY_INFO(XCM, 0, 0, 0x3fffffff, 0x3fffffff),
--	BLOCK_PRTY_INFO_0(TSEM, 0, 0xffffffff, 0xffffffff, 0xffffffff),
--	BLOCK_PRTY_INFO_1(TSEM, 0, 0x3, 0x1f, 0x3f),
--	BLOCK_PRTY_INFO_0(USEM, 0, 0xffffffff, 0xffffffff, 0xffffffff),
--	BLOCK_PRTY_INFO_1(USEM, 0, 0x3, 0x1f, 0x1f),
--	BLOCK_PRTY_INFO_0(CSEM, 0, 0xffffffff, 0xffffffff, 0xffffffff),
--	BLOCK_PRTY_INFO_1(CSEM, 0, 0x3, 0x1f, 0x1f),
--	BLOCK_PRTY_INFO_0(XSEM, 0, 0xffffffff, 0xffffffff, 0xffffffff),
--	BLOCK_PRTY_INFO_1(XSEM, 0, 0x3, 0x1f, 0x3f),
-+		{0xf, 0xf, 0xf, 0xf}, "XPB"},
-+	BLOCK_PRTY_INFO(SRC, 0x4, 0x7, 0x7, 0x7, 0x7),
-+	BLOCK_PRTY_INFO(CDU, 0, 0x1f, 0x1f, 0x1f, 0x1f),
-+	BLOCK_PRTY_INFO(CFC, 0, 0xf, 0xf, 0xf, 0x3f),
-+	BLOCK_PRTY_INFO(DBG, 0, 0x1, 0x1, 0x1, 0x1),
-+	BLOCK_PRTY_INFO(DMAE, 0, 0xf, 0xf, 0xf, 0xf),
-+	BLOCK_PRTY_INFO(BRB1, 0, 0xf, 0xf, 0xf, 0xf),
-+	BLOCK_PRTY_INFO(PRS, (1<<6), 0xff, 0xff, 0xff, 0xff),
-+	BLOCK_PRTY_INFO(PBF, 0, 0, 0x3ffff, 0xfffff, 0xfffffff),
-+	BLOCK_PRTY_INFO(TM, 0, 0, 0x7f, 0x7f, 0x7f),
-+	BLOCK_PRTY_INFO(TSDM, 0x18, 0x7ff, 0x7ff, 0x7ff, 0x7ff),
-+	BLOCK_PRTY_INFO(CSDM, 0x8, 0x7ff, 0x7ff, 0x7ff, 0x7ff),
-+	BLOCK_PRTY_INFO(USDM, 0x38, 0x7ff, 0x7ff, 0x7ff, 0x7ff),
-+	BLOCK_PRTY_INFO(XSDM, 0x8, 0x7ff, 0x7ff, 0x7ff, 0x7ff),
-+	BLOCK_PRTY_INFO(TCM, 0, 0, 0x7ffffff, 0x7ffffff, 0x7ffffff),
-+	BLOCK_PRTY_INFO(CCM, 0, 0, 0x7ffffff, 0x7ffffff, 0x7ffffff),
-+	BLOCK_PRTY_INFO(UCM, 0, 0, 0x7ffffff, 0x7ffffff, 0x7ffffff),
-+	BLOCK_PRTY_INFO(XCM, 0, 0, 0x3fffffff, 0x3fffffff, 0x3fffffff),
-+	BLOCK_PRTY_INFO_0(TSEM, 0, 0xffffffff, 0xffffffff, 0xffffffff,
-+			  0xffffffff),
-+	BLOCK_PRTY_INFO_1(TSEM, 0, 0x3, 0x1f, 0x3f, 0x3f),
-+	BLOCK_PRTY_INFO_0(USEM, 0, 0xffffffff, 0xffffffff, 0xffffffff,
-+			  0xffffffff),
-+	BLOCK_PRTY_INFO_1(USEM, 0, 0x3, 0x1f, 0x1f, 0x1f),
-+	BLOCK_PRTY_INFO_0(CSEM, 0, 0xffffffff, 0xffffffff, 0xffffffff,
-+			  0xffffffff),
-+	BLOCK_PRTY_INFO_1(CSEM, 0, 0x3, 0x1f, 0x1f, 0x1f),
-+	BLOCK_PRTY_INFO_0(XSEM, 0, 0xffffffff, 0xffffffff, 0xffffffff,
-+			  0xffffffff),
-+	BLOCK_PRTY_INFO_1(XSEM, 0, 0x3, 0x1f, 0x3f, 0x3f),
- };
- 
- 
-@@ -464,8 +473,10 @@ static inline u32 bnx2x_parity_reg_mask(struct bnx2x *bp, int idx)
- 		return bnx2x_blocks_parity_data[idx].reg_mask.e1;
- 	else if (CHIP_IS_E1H(bp))
- 		return bnx2x_blocks_parity_data[idx].reg_mask.e1h;
--	else
-+	else if (CHIP_IS_E2(bp))
- 		return bnx2x_blocks_parity_data[idx].reg_mask.e2;
-+	else /* CHIP_IS_E3 */
-+		return bnx2x_blocks_parity_data[idx].reg_mask.e3;
- }
- 
- static inline void bnx2x_disable_blocks_parity(struct bnx2x *bp)
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 6ee9fc8..e1ec1a3 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -3817,6 +3817,10 @@ static inline int bnx2x_check_blocks_with_parity1(u32 sig, int par_num,
- 				if (print)
- 					_print_next_block(par_num++, "USDM");
- 				break;
-+			case AEU_INPUTS_ATTN_BITS_UCM_PARITY_ERROR:
-+				if (print)
-+					_print_next_block(par_num++, "UCM");
-+				break;
- 			case AEU_INPUTS_ATTN_BITS_USEMI_PARITY_ERROR:
- 				if (print)
- 					_print_next_block(par_num++, "USEMI");
-@@ -3829,6 +3833,10 @@ static inline int bnx2x_check_blocks_with_parity1(u32 sig, int par_num,
- 				if (print)
- 					_print_next_block(par_num++, "CSDM");
- 				break;
-+			case AEU_INPUTS_ATTN_BITS_CCM_PARITY_ERROR:
-+				if (print)
-+					_print_next_block(par_num++, "CCM");
-+				break;
- 			}
- 
- 			/* Clear the bit */
-@@ -3933,32 +3941,67 @@ static inline int bnx2x_check_blocks_with_parity3(u32 sig, int par_num,
- 	return par_num;
- }
- 
-+static inline int bnx2x_check_blocks_with_parity4(u32 sig, int par_num,
-+						  bool print)
-+{
-+	int i = 0;
-+	u32 cur_bit = 0;
-+	for (i = 0; sig; i++) {
-+		cur_bit = ((u32)0x1 << i);
-+		if (sig & cur_bit) {
-+			switch (cur_bit) {
-+			case AEU_INPUTS_ATTN_BITS_PGLUE_PARITY_ERROR:
-+				if (print)
-+					_print_next_block(par_num++, "PGLUE_B");
-+				break;
-+			case AEU_INPUTS_ATTN_BITS_ATC_PARITY_ERROR:
-+				if (print)
-+					_print_next_block(par_num++, "ATC");
-+				break;
-+			}
-+
-+			/* Clear the bit */
-+			sig &= ~cur_bit;
-+		}
-+	}
-+
-+	return par_num;
-+}
-+
- static inline bool bnx2x_parity_attn(struct bnx2x *bp, bool *global, bool print,
--				     u32 sig0, u32 sig1, u32 sig2, u32 sig3)
-+				     u32 *sig)
- {
--	if ((sig0 & HW_PRTY_ASSERT_SET_0) || (sig1 & HW_PRTY_ASSERT_SET_1) ||
--	    (sig2 & HW_PRTY_ASSERT_SET_2) || (sig3 & HW_PRTY_ASSERT_SET_3)) {
-+	if ((sig[0] & HW_PRTY_ASSERT_SET_0) ||
-+	    (sig[1] & HW_PRTY_ASSERT_SET_1) ||
-+	    (sig[2] & HW_PRTY_ASSERT_SET_2) ||
-+	    (sig[3] & HW_PRTY_ASSERT_SET_3) ||
-+	    (sig[4] & HW_PRTY_ASSERT_SET_4)) {
- 		int par_num = 0;
- 		DP(NETIF_MSG_HW, "Was parity error: HW block parity attention: "
--			"[0]:0x%08x [1]:0x%08x "
--			"[2]:0x%08x [3]:0x%08x\n",
--			  sig0 & HW_PRTY_ASSERT_SET_0,
--			  sig1 & HW_PRTY_ASSERT_SET_1,
--			  sig2 & HW_PRTY_ASSERT_SET_2,
--			  sig3 & HW_PRTY_ASSERT_SET_3);
-+			"[0]:0x%08x [1]:0x%08x [2]:0x%08x [3]:0x%08x "
-+			"[4]:0x%08x\n",
-+			  sig[0] & HW_PRTY_ASSERT_SET_0,
-+			  sig[1] & HW_PRTY_ASSERT_SET_1,
-+			  sig[2] & HW_PRTY_ASSERT_SET_2,
-+			  sig[3] & HW_PRTY_ASSERT_SET_3,
-+			  sig[4] & HW_PRTY_ASSERT_SET_4);
- 		if (print)
- 			netdev_err(bp->dev,
- 				   "Parity errors detected in blocks: ");
- 		par_num = bnx2x_check_blocks_with_parity0(
--			sig0 & HW_PRTY_ASSERT_SET_0, par_num, print);
-+			sig[0] & HW_PRTY_ASSERT_SET_0, par_num, print);
- 		par_num = bnx2x_check_blocks_with_parity1(
--			sig1 & HW_PRTY_ASSERT_SET_1, par_num, global, print);
-+			sig[1] & HW_PRTY_ASSERT_SET_1, par_num, global, print);
- 		par_num = bnx2x_check_blocks_with_parity2(
--			sig2 & HW_PRTY_ASSERT_SET_2, par_num, print);
-+			sig[2] & HW_PRTY_ASSERT_SET_2, par_num, print);
- 		par_num = bnx2x_check_blocks_with_parity3(
--			sig3 & HW_PRTY_ASSERT_SET_3, par_num, global, print);
-+			sig[3] & HW_PRTY_ASSERT_SET_3, par_num, global, print);
-+		par_num = bnx2x_check_blocks_with_parity4(
-+			sig[4] & HW_PRTY_ASSERT_SET_4, par_num, print);
-+
- 		if (print)
- 			pr_cont("\n");
-+
- 		return true;
- 	} else
- 		return false;
-@@ -3973,7 +4016,7 @@ static inline bool bnx2x_parity_attn(struct bnx2x *bp, bool *global, bool print,
-  */
- bool bnx2x_chk_parity_attn(struct bnx2x *bp, bool *global, bool print)
- {
--	struct attn_route attn;
-+	struct attn_route attn = { {0} };
- 	int port = BP_PORT(bp);
- 
- 	attn.sig[0] = REG_RD(bp,
-@@ -3989,8 +4032,12 @@ bool bnx2x_chk_parity_attn(struct bnx2x *bp, bool *global, bool print)
- 		MISC_REG_AEU_AFTER_INVERT_4_FUNC_0 +
- 			     port*4);
- 
--	return bnx2x_parity_attn(bp, global, print, attn.sig[0], attn.sig[1],
--				 attn.sig[2], attn.sig[3]);
-+	if (!CHIP_IS_E1x(bp))
-+		attn.sig[4] = REG_RD(bp,
-+			MISC_REG_AEU_AFTER_INVERT_5_FUNC_0 +
-+				     port*4);
-+
-+	return bnx2x_parity_attn(bp, global, print, attn.sig);
- }
- 
- 
-@@ -7932,7 +7979,7 @@ static void bnx2x_pxp_prep(struct bnx2x *bp)
- static void bnx2x_process_kill_chip_reset(struct bnx2x *bp, bool global)
- {
- 	u32 not_reset_mask1, reset_mask1, not_reset_mask2, reset_mask2;
--	u32 global_bits2;
-+	u32 global_bits2, stay_reset2;
- 
- 	/*
- 	 * Bits that have to be set in reset_mask2 if we want to reset 'global'
-@@ -7942,6 +7989,7 @@ static void bnx2x_process_kill_chip_reset(struct bnx2x *bp, bool global)
- 		MISC_REGISTERS_RESET_REG_2_RST_MCP_N_RESET_CMN_CPU |
- 		MISC_REGISTERS_RESET_REG_2_RST_MCP_N_RESET_CMN_CORE;
- 
-+	/* Don't reset the following blocks */
- 	not_reset_mask1 =
- 		MISC_REGISTERS_RESET_REG_1_RST_HC |
- 		MISC_REGISTERS_RESET_REG_1_RST_PXPV |
-@@ -7955,19 +8003,35 @@ static void bnx2x_process_kill_chip_reset(struct bnx2x *bp, bool global)
- 		MISC_REGISTERS_RESET_REG_2_RST_RBCN |
- 		MISC_REGISTERS_RESET_REG_2_RST_GRC  |
- 		MISC_REGISTERS_RESET_REG_2_RST_MCP_N_RESET_REG_HARD_CORE |
--		MISC_REGISTERS_RESET_REG_2_RST_MCP_N_HARD_CORE_RST_B;
-+		MISC_REGISTERS_RESET_REG_2_RST_MCP_N_HARD_CORE_RST_B |
-+		MISC_REGISTERS_RESET_REG_2_RST_ATC |
-+		MISC_REGISTERS_RESET_REG_2_PGLC;
- 
-+	/*
-+	 * Keep the following blocks in reset:
-+	 *  - all xxMACs are handled by the bnx2x_link code.
-+	 */
-+	stay_reset2 =
-+		MISC_REGISTERS_RESET_REG_2_RST_BMAC0 |
-+		MISC_REGISTERS_RESET_REG_2_RST_BMAC1 |
-+		MISC_REGISTERS_RESET_REG_2_RST_EMAC0 |
-+		MISC_REGISTERS_RESET_REG_2_RST_EMAC1 |
-+		MISC_REGISTERS_RESET_REG_2_UMAC0 |
-+		MISC_REGISTERS_RESET_REG_2_UMAC1 |
-+		MISC_REGISTERS_RESET_REG_2_XMAC |
-+		MISC_REGISTERS_RESET_REG_2_XMAC_SOFT;
-+
-+	/* Full reset masks according to the chip */
- 	reset_mask1 = 0xffffffff;
- 
- 	if (CHIP_IS_E1(bp))
- 		reset_mask2 = 0xffff;
--	else
-+	else if (CHIP_IS_E1H(bp))
- 		reset_mask2 = 0x1ffff;
--
--	if (CHIP_IS_E3(bp)) {
--		reset_mask2 |= MISC_REGISTERS_RESET_REG_2_MSTAT0;
--		reset_mask2 |= MISC_REGISTERS_RESET_REG_2_MSTAT1;
--	}
-+	else if (CHIP_IS_E2(bp))
-+		reset_mask2 = 0xfffff;
-+	else /* CHIP_IS_E3 */
-+		reset_mask2 = 0x3ffffff;
- 
- 	/* Don't reset global blocks unless we need to */
- 	if (!global)
-@@ -7996,7 +8060,12 @@ static void bnx2x_process_kill_chip_reset(struct bnx2x *bp, bool global)
- 	barrier();
- 	mmiowb();
- 
--	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET, reset_mask2);
-+	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET,
-+	       reset_mask2 & (~stay_reset2));
-+
-+	barrier();
-+	mmiowb();
-+
- 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, reset_mask1);
- 	mmiowb();
- }
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 005c05a..1e6784b 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -32,7 +32,11 @@
- /* [R 1] ATC initalization done */
- #define ATC_REG_ATC_INIT_DONE					 0x1100bc
- /* [RC 6] Interrupt register #0 read clear */
--#define ATC_REG_ATC_INT_STS_CLR				 0x1101c0
-+#define ATC_REG_ATC_INT_STS_CLR					 0x1101c0
-+/* [RW 5] Parity mask register #0 read/write */
-+#define ATC_REG_ATC_PRTY_MASK					 0x1101d8
-+/* [RC 5] Parity register #0 read clear */
-+#define ATC_REG_ATC_PRTY_STS_CLR				 0x1101d0
- /* [RW 19] Interrupt mask register #0 read/write */
- #define BRB1_REG_BRB1_INT_MASK					 0x60128
- /* [R 19] Interrupt register #0 read */
-@@ -2676,8 +2680,12 @@
- #define PGLUE_B_REG_PGLUE_B_INT_STS				 0x9298
- /* [RC 9] Interrupt register #0 read clear */
- #define PGLUE_B_REG_PGLUE_B_INT_STS_CLR			 0x929c
-+/* [RW 2] Parity mask register #0 read/write */
-+#define PGLUE_B_REG_PGLUE_B_PRTY_MASK				 0x92b4
- /* [R 2] Parity register #0 read */
- #define PGLUE_B_REG_PGLUE_B_PRTY_STS				 0x92a8
-+/* [RC 2] Parity register #0 read clear */
-+#define PGLUE_B_REG_PGLUE_B_PRTY_STS_CLR			 0x92ac
- /* [R 13] Details of first request received with error. [2:0] - PFID. [3] -
-  * VF_VALID. [9:4] - VFID. [11:10] - Error Code - 0 - Indicates Completion
-  * Timeout of a User Tx non-posted request. 1 - unsupported request. 2 -
-@@ -5686,8 +5694,13 @@
- #define MISC_REGISTERS_RESET_REG_2_CLEAR			 0x598
- #define MISC_REGISTERS_RESET_REG_2_MSTAT0			 (0x1<<24)
- #define MISC_REGISTERS_RESET_REG_2_MSTAT1			 (0x1<<25)
-+#define MISC_REGISTERS_RESET_REG_2_PGLC				 (0x1<<19)
-+#define MISC_REGISTERS_RESET_REG_2_RST_ATC			 (0x1<<17)
- #define MISC_REGISTERS_RESET_REG_2_RST_BMAC0			 (0x1<<0)
-+#define MISC_REGISTERS_RESET_REG_2_RST_BMAC1			 (0x1<<1)
-+#define MISC_REGISTERS_RESET_REG_2_RST_EMAC0			 (0x1<<2)
- #define MISC_REGISTERS_RESET_REG_2_RST_EMAC0_HARD_CORE		 (0x1<<14)
-+#define MISC_REGISTERS_RESET_REG_2_RST_EMAC1			 (0x1<<3)
- #define MISC_REGISTERS_RESET_REG_2_RST_EMAC1_HARD_CORE		 (0x1<<15)
- #define MISC_REGISTERS_RESET_REG_2_RST_GRC			 (0x1<<4)
- #define MISC_REGISTERS_RESET_REG_2_RST_MCP_N_HARD_CORE_RST_B	 (0x1<<6)
-@@ -5700,6 +5713,7 @@
- #define MISC_REGISTERS_RESET_REG_2_RST_RBCN			 (0x1<<9)
- #define MISC_REGISTERS_RESET_REG_2_SET				 0x594
- #define MISC_REGISTERS_RESET_REG_2_UMAC0			 (0x1<<20)
-+#define MISC_REGISTERS_RESET_REG_2_UMAC1			 (0x1<<21)
- #define MISC_REGISTERS_RESET_REG_2_XMAC				 (0x1<<22)
- #define MISC_REGISTERS_RESET_REG_2_XMAC_SOFT			 (0x1<<23)
- #define MISC_REGISTERS_RESET_REG_3_CLEAR			 0x5a8
--- 
-1.7.4.1
+#define define_netdev_printk_level(func, level)			\
+int func(const struct net_device *dev, const char *fmt, ...)	\
+{								\
+	int r;							\
+	struct va_format vaf;					\
+	va_list args;						\
+								\
+	va_start(args, fmt);					\
+								\
+	vaf.fmt = fmt;						\
+	vaf.va = &args;						\
+								\
+	r = __netdev_printk(level, dev, &vaf);			\
+	va_end(args);						\
+								\
+	return r;						\
+}								\
+EXPORT_SYMBOL(func);
+
+static int __netdev_printk(const char *level, const struct net_device *dev,
+			   struct va_format *vaf)
+{
+	int r;
+
+	if (dev && dev->dev.parent)
+		r = dev_printk(level, dev->dev.parent, "%s: %pV",
+			       netdev_name(dev), vaf);
+	else if (dev)
+		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
+	else
+		r = printk("%s(NULL net_device): %pV", level, vaf);
+
+	return r;
+}
+
+static inline const char *netdev_name(const struct net_device *dev)
+{
+	if (dev->reg_state != NETREG_REGISTERED)
+		return "(unregistered net_device)";
+	return dev->name;
+}
 
 
