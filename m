@@ -1,23 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] netfilter: netfilter update for net-next
-Date: Thu, 21 Jul 2011 12:50:43 -0700 (PDT)
-Message-ID: <20110721.125043.1044194027957527420.davem@davemloft.net>
-References: <1311243476-18236-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH net-next 1/5] bnx2x: Implementation for
+ netdev->ndo_fcoe_get_wwn
+Date: Thu, 21 Jul 2011 13:01:02 -0700 (PDT)
+Message-ID: <20110721.130102.1200925101739495397.davem@davemloft.net>
+References: <201107212056.51510.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1311243476-18236-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: vladz@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57182 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002Ab1GUUBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 16:01:04 -0400
+In-Reply-To: <201107212056.51510.vladz@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Thu, 21 Jul 2011 12:17:48 +0200
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Date: Thu, 21 Jul 2011 20:56:51 +0300
 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Pulled, thanks!
+Applied.
