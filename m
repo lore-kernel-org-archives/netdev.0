@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] tg3: Misc bugfixes
-Date: Thu, 21 Jul 2011 12:46:51 -0700 (PDT)
-Message-ID: <20110721.124651.247220303023093087.davem@davemloft.net>
-References: <1311193257-20531-1-git-send-email-mcarlson@broadcom.com>
+Subject: Re: [PATCH 1/4 net-next] cnic: Fix Context ID space calculation
+Date: Thu, 21 Jul 2011 12:47:26 -0700 (PDT)
+Message-ID: <20110721.124726.8787778319098033.davem@davemloft.net>
+References: <1311209725-10414-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mcarlson@broadcom.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35788 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35799 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207Ab1GUTrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 15:47:04 -0400
-In-Reply-To: <1311193257-20531-1-git-send-email-mcarlson@broadcom.com>
+	with ESMTP id S1752770Ab1GUTr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 15:47:28 -0400
+In-Reply-To: <1311209725-10414-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Wed, 20 Jul 2011 13:20:49 -0700
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 20 Jul 2011 17:55:22 -0700
 
-> This patchset fixes a few random tg3 bugs.
+> Include FCoE CID space only for E2_PLUS devices.  Remove old CID
+> offset adjustments that are no longer needed.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Reviewed-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
 
-All applied, thanks.
+Applied.
