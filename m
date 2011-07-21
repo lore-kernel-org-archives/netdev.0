@@ -1,157 +1,190 @@
-From: kaber@trash.net
-Subject: [PATCH 2/8] netfilter: nfnetlink: add RCU in nfnetlink_rcv_msg()
-Date: Thu, 21 Jul 2011 12:17:50 +0200
-Message-ID: <1311243476-18236-3-git-send-email-kaber@trash.net>
-References: <1311243476-18236-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34510 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564Ab1GUKSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 06:18:01 -0400
-In-Reply-To: <1311243476-18236-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6 18/47 V2] igbvf: do vlan cleanup
+Date: Thu, 21 Jul 2011 15:22:30 +0200
+Message-ID: <20110721132229.GC2107@minipsycho>
+References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
+	<1311173689-17419-19-git-send-email-jpirko@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jesse@nicira.com, e1000-devel@lists.sourceforge.net,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	mirqus@gmail.com, john.ronciak@intel.com,
+	shemminger@linux-foundation.org, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <1311173689-17419-19-git-send-email-jpirko@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+- unify vlan and nonvlan rx path
+- kill adapter->vlgrp and igbvf_vlan_rx_register
 
-Goal of this patch is to permit nfnetlink providers not mandate
-nfnl_mutex being held while nfnetlink_rcv_msg() calls them.
-
-If struct nfnl_callback contains a non NULL call_rcu(), then
-nfnetlink_rcv_msg() will use it instead of call() field, holding
-rcu_read_lock instead of nfnl_mutex
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Florian Westphal <fw@strlen.de>
-CC: Eric Leblond <eric@regit.org>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- include/linux/netfilter/nfnetlink.h |    3 ++
- net/netfilter/nfnetlink.c           |   40 ++++++++++++++++++++++++++--------
- 2 files changed, 33 insertions(+), 10 deletions(-)
+ drivers/net/igbvf/igbvf.h  |    4 +-
+ drivers/net/igbvf/netdev.c |   55 +++++++++++++++++++------------------------
+ 2 files changed, 26 insertions(+), 33 deletions(-)
 
-diff --git a/include/linux/netfilter/nfnetlink.h b/include/linux/netfilter/nfnetlink.h
-index 2b11fc1..74d3386 100644
---- a/include/linux/netfilter/nfnetlink.h
-+++ b/include/linux/netfilter/nfnetlink.h
-@@ -60,6 +60,9 @@ struct nfnl_callback {
- 	int (*call)(struct sock *nl, struct sk_buff *skb, 
- 		    const struct nlmsghdr *nlh,
- 		    const struct nlattr * const cda[]);
-+	int (*call_rcu)(struct sock *nl, struct sk_buff *skb, 
-+		    const struct nlmsghdr *nlh,
-+		    const struct nlattr * const cda[]);
- 	const struct nla_policy *policy;	/* netlink attribute policy */
- 	const u_int16_t attr_count;		/* number of nlattr's */
- };
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index b4a4532..1905976 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -37,7 +37,7 @@ MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_NETFILTER);
- 
- static char __initdata nfversion[] = "0.30";
- 
--static const struct nfnetlink_subsystem *subsys_table[NFNL_SUBSYS_COUNT];
-+static const struct nfnetlink_subsystem __rcu *subsys_table[NFNL_SUBSYS_COUNT];
- static DEFINE_MUTEX(nfnl_mutex);
- 
- void nfnl_lock(void)
-@@ -59,7 +59,7 @@ int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n)
- 		nfnl_unlock();
- 		return -EBUSY;
- 	}
--	subsys_table[n->subsys_id] = n;
-+	rcu_assign_pointer(subsys_table[n->subsys_id], n);
- 	nfnl_unlock();
- 
- 	return 0;
-@@ -71,7 +71,7 @@ int nfnetlink_subsys_unregister(const struct nfnetlink_subsystem *n)
- 	nfnl_lock();
- 	subsys_table[n->subsys_id] = NULL;
- 	nfnl_unlock();
+diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
+index d5dad5d..fd4a7b7 100644
+--- a/drivers/net/igbvf/igbvf.h
++++ b/drivers/net/igbvf/igbvf.h
+@@ -34,7 +34,7 @@
+ #include <linux/timer.h>
+ #include <linux/io.h>
+ #include <linux/netdevice.h>
 -
-+	synchronize_rcu();
- 	return 0;
++#include <linux/if_vlan.h>
+ 
+ #include "vf.h"
+ 
+@@ -173,7 +173,7 @@ struct igbvf_adapter {
+ 
+ 	const struct igbvf_info *ei;
+ 
+-	struct vlan_group *vlgrp;
++	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	u32 bd_number;
+ 	u32 rx_buffer_len;
+ 	u32 polling_interval;
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 64b47bf..d924b09 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -100,12 +100,12 @@ static void igbvf_receive_skb(struct igbvf_adapter *adapter,
+                               struct sk_buff *skb,
+                               u32 status, u16 vlan)
+ {
+-	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
+-		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+-		                         le16_to_cpu(vlan) &
+-		                         E1000_RXD_SPC_VLAN_MASK);
+-	else
+-		netif_receive_skb(skb);
++	if (status & E1000_RXD_STAT_VP) {
++		u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
++
++		__vlan_hwaccel_put_tag(skb, vid);
++	}
++	netif_receive_skb(skb);
  }
- EXPORT_SYMBOL_GPL(nfnetlink_subsys_unregister);
-@@ -83,7 +83,7 @@ static inline const struct nfnetlink_subsystem *nfnetlink_get_subsys(u_int16_t t
- 	if (subsys_id >= NFNL_SUBSYS_COUNT)
- 		return NULL;
  
--	return subsys_table[subsys_id];
-+	return rcu_dereference(subsys_table[subsys_id]);
+ static inline void igbvf_rx_checksum_adv(struct igbvf_adapter *adapter,
+@@ -1167,22 +1167,29 @@ static int igbvf_poll(struct napi_struct *napi, int budget)
+  */
+ static void igbvf_set_rlpml(struct igbvf_adapter *adapter)
+ {
+-	int max_frame_size = adapter->max_frame_size;
++	int max_frame_size;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+-	if (adapter->vlgrp)
+-		max_frame_size += VLAN_TAG_SIZE;
+-
++	max_frame_size = adapter->max_frame_size + VLAN_TAG_SIZE;
+ 	e1000_rlpml_set_vf(hw, max_frame_size);
  }
  
- static inline const struct nfnl_callback *
-@@ -139,21 +139,27 @@ static int nfnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+-static void igbvf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
++static bool __igbvf_vlan_rx_add_vid(struct igbvf_adapter *adapter, u16 vid)
+ {
+-	struct igbvf_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
  
- 	type = nlh->nlmsg_type;
- replay:
-+	rcu_read_lock();
- 	ss = nfnetlink_get_subsys(type);
- 	if (!ss) {
- #ifdef CONFIG_MODULES
--		nfnl_unlock();
-+		rcu_read_unlock();
- 		request_module("nfnetlink-subsys-%d", NFNL_SUBSYS_ID(type));
--		nfnl_lock();
-+		rcu_read_lock();
- 		ss = nfnetlink_get_subsys(type);
- 		if (!ss)
- #endif
-+		{
-+			rcu_read_unlock();
- 			return -EINVAL;
-+		}
+ 	if (hw->mac.ops.set_vfta(hw, vid, true))
+ 		dev_err(&adapter->pdev->dev, "Failed to add vlan id %d\n", vid);
++		return false;
++	return true;
++}
++
++static void igbvf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
++{
++	struct igbvf_adapter *adapter = netdev_priv(netdev);
++
++	if (__igbvf_vlan_rx_add_vid(adapter, vid))
++		set_bit(vid, adapter->active_vlans);
+ }
+ 
+ static void igbvf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+@@ -1191,7 +1198,6 @@ static void igbvf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	igbvf_irq_disable(adapter);
+-	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+ 
+ 	if (!test_bit(__IGBVF_DOWN, &adapter->state))
+ 		igbvf_irq_enable(adapter);
+@@ -1199,28 +1205,16 @@ static void igbvf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	if (hw->mac.ops.set_vfta(hw, vid, false))
+ 		dev_err(&adapter->pdev->dev,
+ 		        "Failed to remove vlan id %d\n", vid);
+-}
+-
+-static void igbvf_vlan_rx_register(struct net_device *netdev,
+-                                   struct vlan_group *grp)
+-{
+-	struct igbvf_adapter *adapter = netdev_priv(netdev);
+-
+-	adapter->vlgrp = grp;
++	else
++		clear_bit(vid, adapter->active_vlans);
+ }
+ 
+ static void igbvf_restore_vlan(struct igbvf_adapter *adapter)
+ {
+ 	u16 vid;
+ 
+-	if (!adapter->vlgrp)
+-		return;
+-
+-	for (vid = 0; vid < VLAN_N_VID; vid++) {
+-		if (!vlan_group_get_device(adapter->vlgrp, vid))
+-			continue;
+-		igbvf_vlan_rx_add_vid(adapter->netdev, vid);
+-	}
++	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
++		__igbvf_vlan_rx_add_vid(adapter, vid);
+ 
+ 	igbvf_set_rlpml(adapter);
+ }
+@@ -2203,7 +2197,7 @@ static netdev_tx_t igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
+ 		return NETDEV_TX_BUSY;
  	}
  
- 	nc = nfnetlink_find_client(type, ss);
--	if (!nc)
-+	if (!nc) {
-+		rcu_read_unlock();
- 		return -EINVAL;
-+	}
- 
- 	{
- 		int min_len = NLMSG_SPACE(sizeof(struct nfgenmsg));
-@@ -167,7 +173,23 @@ replay:
- 		if (err < 0)
- 			return err;
- 
--		err = nc->call(net->nfnl, skb, nlh, (const struct nlattr **)cda);
-+		if (nc->call_rcu) {
-+			err = nc->call_rcu(net->nfnl, skb, nlh,
-+					   (const struct nlattr **)cda);
-+			rcu_read_unlock();
-+		} else {
-+			rcu_read_unlock();
-+			nfnl_lock();
-+			if (rcu_dereference_protected(
-+					subsys_table[NFNL_SUBSYS_ID(type)],
-+					lockdep_is_held(&nfnl_mutex)) != ss ||
-+			    nfnetlink_find_client(type, ss) != nc)
-+				err = -EAGAIN;
-+			else
-+				err = nc->call(net->nfnl, skb, nlh,
-+						   (const struct nlattr **)cda);
-+			nfnl_unlock();
-+		}
- 		if (err == -EAGAIN)
- 			goto replay;
- 		return err;
-@@ -176,9 +198,7 @@ replay:
- 
- static void nfnetlink_rcv(struct sk_buff *skb)
- {
--	nfnl_lock();
- 	netlink_rcv_skb(skb, &nfnetlink_rcv_msg);
--	nfnl_unlock();
- }
- 
- static int __net_init nfnetlink_net_init(struct net *net)
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= IGBVF_TX_FLAGS_VLAN;
+ 		tx_flags |= (vlan_tx_tag_get(skb) << IGBVF_TX_FLAGS_VLAN_SHIFT);
+ 	}
+@@ -2556,7 +2550,6 @@ static const struct net_device_ops igbvf_netdev_ops = {
+ 	.ndo_change_mtu                 = igbvf_change_mtu,
+ 	.ndo_do_ioctl                   = igbvf_ioctl,
+ 	.ndo_tx_timeout                 = igbvf_tx_timeout,
+-	.ndo_vlan_rx_register           = igbvf_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid            = igbvf_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid           = igbvf_vlan_rx_kill_vid,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
 -- 
-1.7.2.3
+1.7.6
 
+
+------------------------------------------------------------------------------
+5 Ways to Improve & Secure Unified Communications
+Unified Communications promises greater efficiencies for business. UC can 
+improve internal communications as well as offer faster, more efficient ways
+to interact with customers and streamline customer service. Learn more!
+http://www.accelacomm.com/jaw/sfnl/114/51426253/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
