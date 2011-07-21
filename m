@@ -1,375 +1,105 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 35/47 V2] e1000: do vlan cleanup
-Date: Thu, 21 Jul 2011 15:26:31 +0200
-Message-ID: <20110721132631.GF2107@minipsycho>
-References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
- <1311173689-17419-36-git-send-email-jpirko@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: ipvs oops in 3.0-rc7
+Date: Thu, 21 Jul 2011 12:04:35 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1107211202380.1660@ja.ssi.bg>
+References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	eric.dumazet@gmail.com, greearb@candelatech.com, mirqus@gmail.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
-	jesse@nicira.com
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-160619536-1311239076=:1660"
+Cc: netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4688 "EHLO mx1.redhat.com"
+Received: from ja.ssi.bg ([178.16.129.10]:53214 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799Ab1GUN1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2011 09:27:16 -0400
-Content-Disposition: inline
-In-Reply-To: <1311173689-17419-36-git-send-email-jpirko@redhat.com>
+	id S1752568Ab1GUJBK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2011 05:01:10 -0400
+In-Reply-To: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- unify vlan and nonvlan rx path
-- kill adapter->vlgrp and e1000_vlan_rx_register
-- allow to turn on/off rx/tx vlan accel via ethtool (set_features)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/e1000/e1000.h      |    2 +-
- drivers/net/e1000/e1000_main.c |  168 +++++++++++++++++++++++++---------------
- 2 files changed, 108 insertions(+), 62 deletions(-)
+---1463811672-160619536-1311239076=:1660
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
 
-diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
-index 8676899..24f41da 100644
---- a/drivers/net/e1000/e1000.h
-+++ b/drivers/net/e1000/e1000.h
-@@ -215,7 +215,7 @@ struct e1000_adapter {
- 	struct timer_list tx_fifo_stall_timer;
- 	struct timer_list watchdog_timer;
- 	struct timer_list phy_info_timer;
--	struct vlan_group *vlgrp;
-+	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	u16 mng_vlan_id;
- 	u32 bd_number;
- 	u32 rx_buffer_len;
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 188d99a..acaebec 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -30,6 +30,8 @@
- #include <net/ip6_checksum.h>
- #include <linux/io.h>
- #include <linux/prefetch.h>
-+#include <linux/bitops.h>
-+#include <linux/if_vlan.h>
- 
- /* Intel Media SOC GbE MDIO physical base address */
- static unsigned long ce4100_gbe_mdio_base_phy;
-@@ -166,7 +168,8 @@ static void e1000_smartspeed(struct e1000_adapter *adapter);
- static int e1000_82547_fifo_workaround(struct e1000_adapter *adapter,
-                                        struct sk_buff *skb);
- 
--static void e1000_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp);
-+static bool e1000_vlan_used(struct e1000_adapter *adapter);
-+static void e1000_vlan_mode(struct net_device *netdev, u32 features);
- static void e1000_vlan_rx_add_vid(struct net_device *netdev, u16 vid);
- static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid);
- static void e1000_restore_vlan(struct e1000_adapter *adapter);
-@@ -330,21 +333,24 @@ static void e1000_update_mng_vlan(struct e1000_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	u16 vid = hw->mng_cookie.vlan_id;
- 	u16 old_vid = adapter->mng_vlan_id;
--	if (adapter->vlgrp) {
--		if (!vlan_group_get_device(adapter->vlgrp, vid)) {
--			if (hw->mng_cookie.status &
--				E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT) {
--				e1000_vlan_rx_add_vid(netdev, vid);
--				adapter->mng_vlan_id = vid;
--			} else
--				adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
- 
--			if ((old_vid != (u16)E1000_MNG_VLAN_NONE) &&
--					(vid != old_vid) &&
--			    !vlan_group_get_device(adapter->vlgrp, old_vid))
--				e1000_vlan_rx_kill_vid(netdev, old_vid);
--		} else
-+	if (!e1000_vlan_used(adapter))
-+		return;
-+
-+	if (!test_bit(vid, adapter->active_vlans)) {
-+		if (hw->mng_cookie.status &
-+		    E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT) {
-+			e1000_vlan_rx_add_vid(netdev, vid);
- 			adapter->mng_vlan_id = vid;
-+		} else {
-+			adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
-+		}
-+		if ((old_vid != (u16)E1000_MNG_VLAN_NONE) &&
-+		    (vid != old_vid) &&
-+		    !test_bit(old_vid, adapter->active_vlans))
-+			e1000_vlan_rx_kill_vid(netdev, old_vid);
-+	} else {
-+		adapter->mng_vlan_id = vid;
- 	}
- }
- 
-@@ -797,11 +803,28 @@ static int e1000_is_need_ioport(struct pci_dev *pdev)
- 	}
- }
- 
-+static u32 e1000_fix_features(struct net_device *netdev, u32 features)
-+{
-+	/*
-+	 * Since there is no support for separate rx/tx vlan accel
-+	 * enable/disable make sure tx flag is always in same state as rx.
-+	 */
-+	if (features & NETIF_F_HW_VLAN_RX)
-+		features |= NETIF_F_HW_VLAN_TX;
-+	else
-+		features &= ~NETIF_F_HW_VLAN_TX;
-+
-+	return features;
-+}
-+
- static int e1000_set_features(struct net_device *netdev, u32 features)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	u32 changed = features ^ netdev->features;
- 
-+	if (changed & NETIF_F_HW_VLAN_RX)
-+		e1000_vlan_mode(netdev, features);
-+
- 	if (!(changed & NETIF_F_RXCSUM))
- 		return 0;
- 
-@@ -822,18 +845,17 @@ static const struct net_device_ops e1000_netdev_ops = {
- 	.ndo_get_stats		= e1000_get_stats,
- 	.ndo_set_rx_mode	= e1000_set_rx_mode,
- 	.ndo_set_mac_address	= e1000_set_mac,
--	.ndo_tx_timeout 	= e1000_tx_timeout,
-+	.ndo_tx_timeout		= e1000_tx_timeout,
- 	.ndo_change_mtu		= e1000_change_mtu,
- 	.ndo_do_ioctl		= e1000_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
--
--	.ndo_vlan_rx_register	= e1000_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid	= e1000_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= e1000_vlan_rx_kill_vid,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= e1000_netpoll,
- #endif
--	.ndo_set_features       = e1000_set_features,
-+	.ndo_fix_features	= e1000_fix_features,
-+	.ndo_set_features	= e1000_set_features,
- };
- 
- /**
-@@ -1036,9 +1058,9 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 
- 	if (hw->mac_type >= e1000_82543) {
- 		netdev->hw_features = NETIF_F_SG |
--				   NETIF_F_HW_CSUM;
-+				   NETIF_F_HW_CSUM |
-+				   NETIF_F_HW_VLAN_RX;
- 		netdev->features = NETIF_F_HW_VLAN_TX |
--				   NETIF_F_HW_VLAN_RX |
- 				   NETIF_F_HW_VLAN_FILTER;
- 	}
- 
-@@ -1197,6 +1219,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_register;
- 
-+	e1000_vlan_mode(netdev, netdev->features);
-+
- 	/* print bus type/speed/width info */
- 	e_info(probe, "(PCI%s:%dMHz:%d-bit) %pM\n",
- 	       ((hw->bus_type == e1000_bus_type_pcix) ? "-X" : ""),
-@@ -1441,8 +1465,7 @@ static int e1000_close(struct net_device *netdev)
- 	 * the same ID is registered on the host OS (let 8021q kill it) */
- 	if ((hw->mng_cookie.status &
- 			  E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT) &&
--	     !(adapter->vlgrp &&
--	       vlan_group_get_device(adapter->vlgrp, adapter->mng_vlan_id))) {
-+	     !test_bit(adapter->mng_vlan_id, adapter->active_vlans)) {
- 		e1000_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
- 	}
- 
-@@ -2233,7 +2256,7 @@ static void e1000_set_rx_mode(struct net_device *netdev)
- 		else
- 			rctl &= ~E1000_RCTL_MPE;
- 		/* Enable VLAN filter if there is a VLAN */
--		if (adapter->vlgrp)
-+		if (e1000_vlan_used(adapter))
- 			rctl |= E1000_RCTL_VFE;
- 	}
- 
-@@ -3180,7 +3203,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 		}
- 	}
- 
--	if (unlikely(vlan_tx_tag_present(skb))) {
-+	if (vlan_tx_tag_present(skb)) {
- 		tx_flags |= E1000_TX_FLAGS_VLAN;
- 		tx_flags |= (vlan_tx_tag_get(skb) << E1000_TX_FLAGS_VLAN_SHIFT);
- 	}
-@@ -3735,12 +3758,12 @@ static void e1000_receive_skb(struct e1000_adapter *adapter, u8 status,
- {
- 	skb->protocol = eth_type_trans(skb, adapter->netdev);
- 
--	if ((unlikely(adapter->vlgrp && (status & E1000_RXD_STAT_VP))))
--		vlan_gro_receive(&adapter->napi, adapter->vlgrp,
--				 le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK,
--				 skb);
--	else
--		napi_gro_receive(&adapter->napi, skb);
-+	if (status & E1000_RXD_STAT_VP) {
-+		u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
-+
-+		__vlan_hwaccel_put_tag(skb, vid);
-+	}
-+	napi_gro_receive(&adapter->napi, skb);
- }
- 
- /**
-@@ -4523,46 +4546,61 @@ void e1000_io_write(struct e1000_hw *hw, unsigned long port, u32 value)
- 	outl(value, port);
- }
- 
--static void e1000_vlan_rx_register(struct net_device *netdev,
--				   struct vlan_group *grp)
-+static bool e1000_vlan_used(struct e1000_adapter *adapter)
-+{
-+	u16 vid;
-+
-+	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
-+		return true;
-+	return false;
-+}
-+
-+static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
-+				     bool filter_on)
- {
--	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 ctrl, rctl;
-+	u32 rctl;
- 
- 	if (!test_bit(__E1000_DOWN, &adapter->flags))
- 		e1000_irq_disable(adapter);
--	adapter->vlgrp = grp;
--
--	if (grp) {
--		/* enable VLAN tag insert/strip */
--		ctrl = er32(CTRL);
--		ctrl |= E1000_CTRL_VME;
--		ew32(CTRL, ctrl);
- 
-+	if (filter_on) {
- 		/* enable VLAN receive filtering */
- 		rctl = er32(RCTL);
- 		rctl &= ~E1000_RCTL_CFIEN;
--		if (!(netdev->flags & IFF_PROMISC))
-+		if (!(adapter->netdev->flags & IFF_PROMISC))
- 			rctl |= E1000_RCTL_VFE;
- 		ew32(RCTL, rctl);
- 		e1000_update_mng_vlan(adapter);
- 	} else {
--		/* disable VLAN tag insert/strip */
--		ctrl = er32(CTRL);
--		ctrl &= ~E1000_CTRL_VME;
--		ew32(CTRL, ctrl);
--
- 		/* disable VLAN receive filtering */
- 		rctl = er32(RCTL);
- 		rctl &= ~E1000_RCTL_VFE;
- 		ew32(RCTL, rctl);
-+	}
- 
--		if (adapter->mng_vlan_id != (u16)E1000_MNG_VLAN_NONE) {
--			e1000_vlan_rx_kill_vid(netdev, adapter->mng_vlan_id);
--			adapter->mng_vlan_id = E1000_MNG_VLAN_NONE;
--		}
-+	if (!test_bit(__E1000_DOWN, &adapter->flags))
-+		e1000_irq_enable(adapter);
-+}
-+
-+static void e1000_vlan_mode(struct net_device *netdev, u32 features)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 ctrl;
-+
-+	if (!test_bit(__E1000_DOWN, &adapter->flags))
-+		e1000_irq_disable(adapter);
-+
-+	ctrl = er32(CTRL);
-+	if (features & NETIF_F_HW_VLAN_RX) {
-+		/* enable VLAN tag insert/strip */
-+		ctrl |= E1000_CTRL_VME;
-+	} else {
-+		/* disable VLAN tag insert/strip */
-+		ctrl &= ~E1000_CTRL_VME;
- 	}
-+	ew32(CTRL, ctrl);
- 
- 	if (!test_bit(__E1000_DOWN, &adapter->flags))
- 		e1000_irq_enable(adapter);
-@@ -4578,11 +4616,17 @@ static void e1000_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
- 	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN_SUPPORT) &&
- 	    (vid == adapter->mng_vlan_id))
- 		return;
-+
-+	if (!e1000_vlan_used(adapter))
-+		e1000_vlan_filter_on_off(adapter, true);
-+
- 	/* add VID to filter table */
- 	index = (vid >> 5) & 0x7F;
- 	vfta = E1000_READ_REG_ARRAY(hw, VFTA, index);
- 	vfta |= (1 << (vid & 0x1F));
- 	e1000_write_vfta(hw, index, vfta);
-+
-+	set_bit(vid, adapter->active_vlans);
- }
- 
- static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
-@@ -4593,7 +4637,6 @@ static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 
- 	if (!test_bit(__E1000_DOWN, &adapter->flags))
- 		e1000_irq_disable(adapter);
--	vlan_group_set_device(adapter->vlgrp, vid, NULL);
- 	if (!test_bit(__E1000_DOWN, &adapter->flags))
- 		e1000_irq_enable(adapter);
- 
-@@ -4602,20 +4645,23 @@ static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	vfta = E1000_READ_REG_ARRAY(hw, VFTA, index);
- 	vfta &= ~(1 << (vid & 0x1F));
- 	e1000_write_vfta(hw, index, vfta);
-+
-+	clear_bit(vid, adapter->active_vlans);
-+
-+	if (!e1000_vlan_used(adapter))
-+		e1000_vlan_filter_on_off(adapter, false);
- }
- 
- static void e1000_restore_vlan(struct e1000_adapter *adapter)
- {
--	e1000_vlan_rx_register(adapter->netdev, adapter->vlgrp);
-+	u16 vid;
- 
--	if (adapter->vlgrp) {
--		u16 vid;
--		for (vid = 0; vid < VLAN_N_VID; vid++) {
--			if (!vlan_group_get_device(adapter->vlgrp, vid))
--				continue;
--			e1000_vlan_rx_add_vid(adapter->netdev, vid);
--		}
--	}
-+	if (!e1000_vlan_used(adapter))
-+		return;
-+
-+	e1000_vlan_filter_on_off(adapter, true);
-+	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
-+		e1000_vlan_rx_add_vid(adapter->netdev, vid);
- }
- 
- int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
--- 
-1.7.6
 
+	Hello,
+
+On Wed, 20 Jul 2011, Randy Dunlap wrote:
+
+> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading and unloading
+> modules.  Any chance this is already fixed?  I can test current git, but I
+> wanted to ask first.
+> 
+> Looks like it is on the second module load of ip_vs (i.e.,
+> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
+
+	I think, this problem was fixed by this patch:
+
+http://www.spinics.net/lists/lvs-devel/msg02051.html
+
+	But it seems it was lost somewhere ...
+
+> Jul 20 17:15:05 chimera kernel: [ 3323.505527] IPVS: ipvs unloaded.
+> Jul 20 17:15:06 chimera kernel: [ 3324.554297] BUG: unable to handle kernel paging request at ffffffffa1543820
+> Jul 20 17:15:06 chimera kernel: [ 3324.554382] IP: [<ffffffff810a8d4f>] raw_notifier_chain_register+0x1f/0x4a
+> Jul 20 17:15:06 chimera kernel: [ 3324.554445] PGD 1872067 PUD 1876063 PMD b653f067 PTE 0
+> Jul 20 17:15:06 chimera kernel: [ 3324.554505] Oops: 0000 [#1] SMP 
+> Jul 20 17:15:06 chimera kernel: [ 3324.554551] CPU 1 
+> Jul 20 17:15:06 chimera kernel: [ 3324.554574] Modules linked in: ip_vs(+) nf_conntrack_sip nf_tproxy_core xt_RATEEST nf_conntrack_proto_gre nfnetlink_log nfnetlink nf_conntrack_broadcast l2tp_core can rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr atm kernelcapi fcrypt pcbc af_rxrpc xp gru macvtap tun isdnhdlc mISDNipac mISDN_core chipreg map_funcs macvlan ptp pps_core mdio_bitbang hdlcdrv ax25 mdio pppox gre inet_lro cycx_drv wanrouter hdlc lapb uio ppp_generic xenbus_probe_frontend configfs ecb rtl8192c_common ath9k_common ath9k_hw ath libertas atmel rt2x00pci rt2x00usb rt2x00lib rng_core orinoco wl12xx crc7 p54common arc4 hostap rndis_host eeprom_93cx6 libipw lib80211 mac80211 cfg80211 fddi crc32c libcrc32c dca com20020 arcnet psnap cdc_ether phonet usbnet sja1000 can_dev sir_dev i
+ rda crc_ccitt mtd zlib_deflate slhc virtio_ring virtio tr i2400m wimax mii usbserial leds_net5501 fuse af_packet ipt_MASQUERADE iptable_nat nf_nat nfsd lockd nfs_acl auth_rpcgss stp llc bne!
+ p bluetooth rfkill crc16 sunrpc ipt_REJEC
+> Jul 20 17:15:06 chimera kernel: T nf_conntrack_ipv4 nf_defrag_ipv4 iptable_filter ip_tables ip6t_REJECT xt_tcpudp nf_conntrack_ipv6 nf_defrag_ipv6 xt_state nf_conntrack ip6table_filter ip6_tables x_tables ipv6 cpufreq_ondemand acpi_cpufreq freq_table mperf binfmt_misc dm_mirror dm_region_hash dm_log dm_multipath scsi_dh dm_mod kvm_intel kvm uinput mousedev sr_mod cdrom ppdev snd_hda_codec_idt snd_hda_intel snd_hda_codec snd_hwdep snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device ide_pci_generic snd_pcm_oss usbmouse ide_core snd_mixer_oss firewire_ohci usbhid snd_pcm firewire_core usb_storage hid usblp ata_generic i2c_i801 sg pcspkr snd_timer pata_acpi usb_libusual iTCO_wdt iTCO_vendor_support uas snd crc_itu_t soundcore pata_marvell snd_page_alloc parport_pc evdev proce
+ ssor parport mac_hid rtc_cmos unix sd_mod crc_t10dif ext3 jbd mbcache uhci_hcd ohci_hcd ssb mmc_core pcmcia pcmcia_core firmware_class ehci_hcd usbcore i915 drm_kms_helper intel_agp button !
+ intel_gtt video thermal_sys hwmon [last unlo
+> Jul 20 17:15:06 chimera kernel: aded: ip_vs]
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] 
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] Pid: 20884, comm: modprobe Not tainted 3.0.0-rc7 #6 Gateway GT5636E/DG965OT
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] RIP: 0010:[<ffffffff810a8d4f>]  [<ffffffff810a8d4f>] raw_notifier_chain_register+0x1f/0x4a
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] RSP: 0018:ffff8800b5169e88  EFLAGS: 00010202
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] RAX: ffffffffa1543810 RBX: ffffffffa18f3810 RCX: 0000000000000000
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] RDX: 0000000000000000 RSI: ffffffffa18f3810 RDI: ffffffffa125f9b8
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] RBP: ffff8800b5169e88 R08: ffffffff810aa3ee R09: 0000000000000000
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] R10: 0000000000000088 R11: ffffffff81b24258 R12: ffffffffa1908155
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] R13: 0000000000000000 R14: 000003060ede68d6 R15: 0000000000000000
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] FS:  00007f6e2d1856f0(0000) GS:ffff88011b400000(0000) knlGS:0000000000000000
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] CR2: ffffffffa1543820 CR3: 00000000b5241000 CR4: 00000000000006e0
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] Process modprobe (pid: 20884, threadinfo ffff8800b5168000, task ffff8800b818b000)
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] Stack:
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  ffff8800b5169ed8 ffffffff814932e7 ffff8800b5169ed8 ffffffff814c5248
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  ffff8800b5169eb8 0000000000000000 ffffffffa1908155 0000000000000000
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  000003060ede68d6 0000000000000000 ffff8800b5169ef8 ffffffffa190843f
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] Call Trace:
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff814932e7>] register_netdevice_notifier+0x3b/0x24b
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff814c5248>] ? genl_register_family_with_ops+0x50/0x9e
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908155>] ? ip_vs_conn_init+0x155/0x155 [ip_vs]
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa190843f>] ip_vs_control_init+0xeb/0x132 [ip_vs]
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908155>] ? ip_vs_conn_init+0x155/0x155 [ip_vs]
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908176>] ip_vs_init+0x21/0x1ff [ip_vs]
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffffa1908155>] ? ip_vs_conn_init+0x155/0x155 [ip_vs]
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff81002094>] do_one_initcall+0x6c/0x1c5
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff810cd572>] sys_init_module+0xe1/0x2b0
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  [<ffffffff8157da02>] system_call_fastpath+0x16/0x1b
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] Code: 89 e5 e8 85 e3 04 00 c9 c3 90 90 90 55 48 89 e5 66 66 66 66 90 48 ff 05 f8 5b 00 01 48 8b 07 eb 1e 48 ff 05 fc 5b 00 01 8b 56 10 <3b> 50 10 7f 14 48 ff 05 e5 5b 00 01 48 8d 78 08 48 8b 40 08 48 
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] RIP  [<ffffffff810a8d4f>] raw_notifier_chain_register+0x1f/0x4a
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037]  RSP <ffff8800b5169e88>
+> Jul 20 17:15:06 chimera kernel: [ 3324.556037] CR2: ffffffffa1543820
+> Jul 20 17:15:06 chimera kernel: [ 3324.583800] ---[ end trace 1df4eeece34268d5 ]---
+> 
+> 
+> 
+> ---
+> ~Randy
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-160619536-1311239076=:1660--
