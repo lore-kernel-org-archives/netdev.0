@@ -1,76 +1,103 @@
-From: Joe Perches <joe@perches.com>
-Subject: RE: [Pv-drivers] [PATCH net-next] vmxnet3: set netdev parant
- device before calling netdev_info
-Date: Wed, 20 Jul 2011 20:49:01 -0700
-Message-ID: <1311220141.1663.24.camel@Joe-Laptop>
-References: <alpine.LRH.2.00.1107201834220.19334@sbhatewara-dev1.eng.vmware.com>
-	 <03E840D17E263A48A5766AD576E0423A03C5836359@exch-mbx-111.vmware.com>
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Subject: [PATCH net-next 5/5] bnx2x: Broken self-test in SF mode on
+ 578xx
+Date: Thu, 21 Jul 2011 20:58:54 +0300
+Message-ID: <201107212058.54522.vladz@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
-To: Scott Goldman <scottjg@vmware.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4217 "EHLO mail.perches.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3806 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951Ab1GUDtE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2011 23:49:04 -0400
-In-Reply-To: <03E840D17E263A48A5766AD576E0423A03C5836359@exch-mbx-111.vmware.com>
+	id S1751419Ab1GUR7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2011 13:59:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-07-20 at 20:06 -0700, Scott Goldman wrote:
-> > Parent device for netdev should be set before netdev_info() can be called
-> > otherwise there is a NULL pointer dereference and probe() fails.
+This patch fixes both the failure in the self-test on 578xx
+and a hole in a parity recovery flow that this failure
+has discovered: 
+ - internal 'pending' state in a VLAN_MAC object wasn't been cleared
+when the object state change was called with DRV_ONLY flag, which in
+particular happens when a parity error happens during the self-test.
+ - bp->sp_state wasn't cleared in the similar circumstances as described 
+above.
 
-I believe this is not true.
-I don't see any NULL pointer dereference here.
-functions and macros reordered top to bottom.
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_cmn.c |    3 +++
+ drivers/net/bnx2x/bnx2x_reg.h |    6 +++---
+ drivers/net/bnx2x/bnx2x_sp.c  |    6 ++++++
+ 3 files changed, 12 insertions(+), 3 deletions(-)
 
-define_netdev_printk_level(netdev_info, KERN_INFO);
-
-#define define_netdev_printk_level(func, level)			\
-int func(const struct net_device *dev, const char *fmt, ...)	\
-{								\
-	int r;							\
-	struct va_format vaf;					\
-	va_list args;						\
-								\
-	va_start(args, fmt);					\
-								\
-	vaf.fmt = fmt;						\
-	vaf.va = &args;						\
-								\
-	r = __netdev_printk(level, dev, &vaf);			\
-	va_end(args);						\
-								\
-	return r;						\
-}								\
-EXPORT_SYMBOL(func);
-
-static int __netdev_printk(const char *level, const struct net_device *dev,
-			   struct va_format *vaf)
-{
-	int r;
-
-	if (dev && dev->dev.parent)
-		r = dev_printk(level, dev->dev.parent, "%s: %pV",
-			       netdev_name(dev), vaf);
-	else if (dev)
-		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
-	else
-		r = printk("%s(NULL net_device): %pV", level, vaf);
-
-	return r;
-}
-
-static inline const char *netdev_name(const struct net_device *dev)
-{
-	if (dev->reg_state != NETREG_REGISTERED)
-		return "(unregistered net_device)";
-	return dev->name;
-}
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 3aadc30..5b0dba6 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -2042,6 +2042,9 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
+ 	 */
+ 	bnx2x_squeeze_objects(bp);
+ 
++	/* There should be no more pending SP commands at this stage */
++	bp->sp_state = 0;
++
+ 	bp->port.pmf = 0;
+ 
+ 	/* Free SKBs, SGEs, TPA pool and driver internals */
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index 1e6784b..02461fe 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -371,7 +371,7 @@
+    mechanism. The fields are: [5:0] - message length; [12:6] - message
+    pointer; 18:13] - next pointer. */
+ #define CCM_REG_XX_DESCR_TABLE					 0xd0300
+-#define CCM_REG_XX_DESCR_TABLE_SIZE				 36
++#define CCM_REG_XX_DESCR_TABLE_SIZE				 24
+ /* [R 7] Used to read the value of XX protection Free counter. */
+ #define CCM_REG_XX_FREE 					 0xd0184
+ /* [RW 6] Initial value for the credit counter; responsible for fulfilling
+@@ -4226,7 +4226,7 @@
+    mechanism. The fields are: [5:0] - length of the message; 15:6] - message
+    pointer; 20:16] - next pointer. */
+ #define TCM_REG_XX_DESCR_TABLE					 0x50280
+-#define TCM_REG_XX_DESCR_TABLE_SIZE				 32
++#define TCM_REG_XX_DESCR_TABLE_SIZE				 29
+ /* [R 6] Use to read the value of XX protection Free counter. */
+ #define TCM_REG_XX_FREE 					 0x50178
+ /* [RW 6] Initial value for the credit counter; responsible for fulfilling
+@@ -4754,7 +4754,7 @@
+    mechanism. The fields are:[5:0] - message length; 14:6] - message
+    pointer; 19:15] - next pointer. */
+ #define UCM_REG_XX_DESCR_TABLE					 0xe0280
+-#define UCM_REG_XX_DESCR_TABLE_SIZE				 32
++#define UCM_REG_XX_DESCR_TABLE_SIZE				 27
+ /* [R 6] Use to read the XX protection Free counter. */
+ #define UCM_REG_XX_FREE 					 0xe016c
+ /* [RW 6] Initial value for the credit counter; responsible for fulfilling
+diff --git a/drivers/net/bnx2x/bnx2x_sp.c b/drivers/net/bnx2x/bnx2x_sp.c
+index cce87d5..df52f11 100644
+--- a/drivers/net/bnx2x/bnx2x_sp.c
++++ b/drivers/net/bnx2x/bnx2x_sp.c
+@@ -1689,6 +1689,12 @@ int bnx2x_config_vlan_mac(
+ 	if (!bnx2x_exe_queue_empty(&o->exe_queue))
+ 		rc = 1;
+ 
++	if (test_bit(RAMROD_DRV_CLR_ONLY, ramrod_flags))  {
++		DP(BNX2X_MSG_SP, "RAMROD_DRV_CLR_ONLY requested: "
++				 "clearing a pending bit.\n");
++		raw->clear_pending(raw);
++	}
++
+ 	/* Execute commands if required */
+ 	if (cont || test_bit(RAMROD_EXEC, ramrod_flags) ||
+ 	    test_bit(RAMROD_COMP_WAIT, ramrod_flags)) {
+-- 
+1.7.4.1
 
 
