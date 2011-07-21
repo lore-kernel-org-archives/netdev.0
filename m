@@ -1,97 +1,143 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 37/47] igb: do vlan cleanup
-Date: Thu, 21 Jul 2011 08:57:22 +0200
-Message-ID: <20110721065721.GA2199@minipsycho>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [patch net-next-2.6 18/47 V2] igbvf: do vlan cleanup
+Date: Thu, 21 Jul 2011 08:57:08 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019404FB53@orsmsx508.amr.corp.intel.com>
 References: <1311173689-17419-1-git-send-email-jpirko@redhat.com>
- <1311173689-17419-38-git-send-email-jpirko@redhat.com>
- <CAEP_g=_0Ej09+KYbvEJz1+joYtms+S_67XSVVPMoG_hfJnmrBQ@mail.gmail.com>
- <20110720191045.GD2688@minipsycho.redhat.com>
- <CAEP_g=9j3=s74_VQ6RQxVRGOOs-mVR94s31ETXJ1S5P7aQV4iQ@mail.gmail.com>
+ <1311173689-17419-19-git-send-email-jpirko@redhat.com>
+ <20110721132229.GC2107@minipsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
-	greearb@candelatech.com, mirqus@gmail.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	peter.p.waskiewicz.jr@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"greearb@candelatech.com" <greearb@candelatech.com>,
+	"mirqus@gmail.com" <mirqus@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"jesse@nicira.com" <jesse@nicira.com>
+To: Jiri Pirko <jpirko@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44986 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:11419 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751003Ab1GUG5l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2011 02:57:41 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=9j3=s74_VQ6RQxVRGOOs-mVR94s31ETXJ1S5P7aQV4iQ@mail.gmail.com>
+	id S1751532Ab1GUP5S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 11:57:18 -0400
+In-Reply-To: <20110721132229.GC2107@minipsycho>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jul 21, 2011 at 01:58:10AM CEST, jesse@nicira.com wrote:
->On Wed, Jul 20, 2011 at 12:10 PM, Jiri Pirko <jpirko@redhat.com> wrote=
-:
->> Wed, Jul 20, 2011 at 07:35:33PM CEST, jesse@nicira.com wrote:
->>>On Wed, Jul 20, 2011 at 7:54 AM, Jiri Pirko <jpirko@redhat.com> wrot=
-e:
->>>> @@ -2943,7 +2944,7 @@ static void igb_rlpml_set(struct igb_adapter=
- *adapter)
->>>> =A0 =A0 =A0 =A0struct e1000_hw *hw =3D &adapter->hw;
->>>> =A0 =A0 =A0 =A0u16 pf_id =3D adapter->vfs_allocated_count;
->>>>
->>>> - =A0 =A0 =A0 if (adapter->vlgrp)
->>>> + =A0 =A0 =A0 if (igb_vlan_used(adapter))
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0max_frame_size +=3D VLAN_TAG_SIZE;
->>>
->>>There are similar issues here as with the VF driver. =A0I think you'=
-re
->>>also confusing vlan acceleration with vlan filtering. =A0If no vlan
->>>filters are in use but the card is in promiscuous mode, the buffer
->>>will be undersized and we lose tagged packets.
->>
->> I'm certainly not confusing vlan accel and filtering. Here is the
->> intension is the behaviour remains intact as well. I believe it's tr=
-ue.
->
->I believe the underlying issue for all three of these threads is the
->same, so I'll just respond to them all here.
->
->I agree that this doesn't change the behavior of the driver but I
->don't think that should be the goal.  When I originally designed this
->new vlan model my intention was to eliminate a whole class of driver
->bugs that I was repeatedly hitting in various forms.  In the example
->above, if you run tcpdump on this device without configuring a vlan
->group on it then you will see that MTU sized packets are missing
->because the receive buffer was undersized.
->
->The common theme for these problems is that they all occur in
->situations where vlans are not configured on the device and the driver
->does something different as a result of this.  The solution was to
->prevent drivers from changing their behavior in such situations by
->completely removing the concept of a vlan group from them and letting
->the networking core tell them when to make the changes instead of
->doing it implicitly.  That's why I don't see the fact that this change
->essentially emulates the knowledge of configuring a group to be a
->plus.  By the way, plenty of your other patches change the behavior of
->the drivers - on any of the NICs that always enable stripping, try
->running tcpdump on the interface without configuring a vlan group.
->Before the change you will see that tags have disappeared and
->afterwards the tags are intact.  So I think that changing the behavior
->of drivers in this regard is a positive thing.
->
->As an aside, thank you for taking the time to work on all of these
->drivers.  The only reason why I'm complaining about these few drivers
->is because I'd like to close the door on this class of problems, which
->is finally in reach thanks to your work.
+> -----Original Message-----
+> From: Jiri Pirko [mailto:jpirko@redhat.com]
+> Sent: Thursday, July 21, 2011 6:23 AM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; shemminger@linux-foundation.org;
+> eric.dumazet@gmail.com; greearb@candelatech.com; mirqus@gmail.com;
+> Kirsher, Jeffrey T; Brandeburg, Jesse; Waskiewicz Jr, Peter P; Allan,
+> Bruce W; Wyborny, Carolyn; Skidmore, Donald C; Rose, Gregory V; Duyck,
+> Alexander H; Ronciak, John; e1000-devel@lists.sourceforge.net;
+> jesse@nicira.com
+> Subject: [patch net-next-2.6 18/47 V2] igbvf: do vlan cleanup
+> 
+> - unify vlan and nonvlan rx path
+> - kill adapter->vlgrp and igbvf_vlan_rx_register
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+>  drivers/net/igbvf/igbvf.h  |    4 +-
+>  drivers/net/igbvf/netdev.c |   55 +++++++++++++++++++--------------------
+> ----
+>  2 files changed, 26 insertions(+), 33 deletions(-)
+> 
+> diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
+> index d5dad5d..fd4a7b7 100644
+> --- a/drivers/net/igbvf/igbvf.h
+> +++ b/drivers/net/igbvf/igbvf.h
+> @@ -34,7 +34,7 @@
+>  #include <linux/timer.h>
+>  #include <linux/io.h>
+>  #include <linux/netdevice.h>
+> -
+> +#include <linux/if_vlan.h>
+> 
+>  #include "vf.h"
+> 
+> @@ -173,7 +173,7 @@ struct igbvf_adapter {
+> 
+>  	const struct igbvf_info *ei;
+> 
+> -	struct vlan_group *vlgrp;
+> +	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+>  	u32 bd_number;
+>  	u32 rx_buffer_len;
+>  	u32 polling_interval;
+> diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+> index 64b47bf..d924b09 100644
+> --- a/drivers/net/igbvf/netdev.c
+> +++ b/drivers/net/igbvf/netdev.c
+> @@ -100,12 +100,12 @@ static void igbvf_receive_skb(struct igbvf_adapter
+> *adapter,
+>                                struct sk_buff *skb,
+>                                u32 status, u16 vlan)
+>  {
+> -	if (adapter->vlgrp && (status & E1000_RXD_STAT_VP))
+> -		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+> -		                         le16_to_cpu(vlan) &
+> -		                         E1000_RXD_SPC_VLAN_MASK);
+> -	else
+> -		netif_receive_skb(skb);
+> +	if (status & E1000_RXD_STAT_VP) {
+> +		u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
+> +
+> +		__vlan_hwaccel_put_tag(skb, vid);
+> +	}
+> +	netif_receive_skb(skb);
+>  }
+> 
+>  static inline void igbvf_rx_checksum_adv(struct igbvf_adapter *adapter,
+> @@ -1167,22 +1167,29 @@ static int igbvf_poll(struct napi_struct *napi,
+> int budget)
+>   */
+>  static void igbvf_set_rlpml(struct igbvf_adapter *adapter)
+>  {
+> -	int max_frame_size = adapter->max_frame_size;
+> +	int max_frame_size;
+>  	struct e1000_hw *hw = &adapter->hw;
+> 
+> -	if (adapter->vlgrp)
+> -		max_frame_size += VLAN_TAG_SIZE;
+> -
+> +	max_frame_size = adapter->max_frame_size + VLAN_TAG_SIZE;
+>  	e1000_rlpml_set_vf(hw, max_frame_size);
+>  }
+> 
+> -static void igbvf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+> +static bool __igbvf_vlan_rx_add_vid(struct igbvf_adapter *adapter, u16
+> vid)
+>  {
+> -	struct igbvf_adapter *adapter = netdev_priv(netdev);
+>  	struct e1000_hw *hw = &adapter->hw;
+> 
+>  	if (hw->mac.ops.set_vfta(hw, vid, true))
+>  		dev_err(&adapter->pdev->dev, "Failed to add vlan id %d\n",
+> vid);
+> +		return false;
+> +	return true;
+> +}
+
+I'm pretty sure you intended to put a curly brace after the if statement here.
+
+Other than that it seems fine.
+
+- Greg
 
 
-Okay now it's clear to me. I tried to stay with the code as much simila=
-r
-as unpatched. But I see your arguments. I will review and repost
-patches which are enabling/disabling vlan accel on add_vid/kill_vid and
-convert it to set_features.
-
-Thanks. Jesse.
-
-Jirka
