@@ -1,44 +1,63 @@
-From: jhbird.choi@samsung.com
-Subject: [PATCH] net: Kobj and queues_kset should be used when CONFIG_XPS is enabled
-Date: Thu, 21 Jul 2011 15:33:03 +0900
-Message-ID: <1311229983-6081-1-git-send-email-jhbird.choi@samsung.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Choi, Jong-Hwan" <jhbird.choi@samsung.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net: filter: BPF 'JIT' compiler for PPC64
+Date: Thu, 21 Jul 2011 07:00:19 +0200
+Message-ID: <1311224419.2570.6.camel@edumazet-laptop>
+References: <4E23E5C3.1070209@ozlabs.org> <4E24E867.9050909@ozlabs.org>
+	<4E278604.5080605@ozlabs.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Matt Evans <matt@ozlabs.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <4E278604.5080605@ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Choi, Jong-Hwan <jhbird.choi@samsung.com>
-
-Kobj and queues_kset are used with CONFIG_XPS=y.
-
-Signed-off-by: Choi, Jong-Hwan <jhbird.choi@samsung.com>
----
- include/linux/netdevice.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9e19477..8eb2f11 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -556,7 +556,7 @@ struct netdev_queue {
- 	struct Qdisc		*qdisc;
- 	unsigned long		state;
- 	struct Qdisc		*qdisc_sleeping;
--#ifdef CONFIG_RPS
-+#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
- 	struct kobject		kobj;
- #endif
- #if defined(CONFIG_XPS) && defined(CONFIG_NUMA)
-@@ -1214,7 +1214,7 @@ struct net_device {
- 
- 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
- 
--#ifdef CONFIG_RPS
-+#if defined(CONFIG_RPS) || defined(CONFIG_XPS)
- 	struct kset		*queues_kset;
- 
- 	struct netdev_rx_queue	*_rx;
--- 
-1.7.1
+TGUgamV1ZGkgMjEganVpbGxldCAyMDExIMOgIDExOjUxICsxMDAwLCBNYXR0IEV2YW5zIGEgw6lj
+cml0IDoKPiBBbiBpbXBsZW1lbnRhdGlvbiBvZiBhIGNvZGUgZ2VuZXJhdG9yIGZvciBCUEYgcHJv
+Z3JhbXMgdG8gc3BlZWQgdXAgcGFja2V0Cj4gZmlsdGVyaW5nIG9uIFBQQzY0LCBpbnNwaXJlZCBi
+eSBFcmljIER1bWF6ZXQncyB4ODYtNjQgdmVyc2lvbi4KPiAKPiBGaWx0ZXIgY29kZSBpcyBnZW5l
+cmF0ZWQgYXMgYW4gQUJJLWNvbXBsaWFudCBmdW5jdGlvbiBpbiBtb2R1bGVfYWxsb2MoKSdkIG1l
+bQo+IHdpdGggc3RhY2tmcmFtZSAmIHByb2xvZ3VlL2VwaWxvZ3VlIGdlbmVyYXRlZCBpZiByZXF1
+aXJlZCAoc2ltcGxlIGZpbHRlcnMgZG9uJ3QKPiBuZWVkIGFueXRoaW5nIG1vcmUgdGhhbiBhbiBs
+aS9ibHIpLiAgVGhlIGZpbHRlcidzIGxvY2FsIHZhcmlhYmxlcywgTVtdLCBsaXZlIGluCj4gcmVn
+aXN0ZXJzLiAgU3VwcG9ydHMgYWxsIEJQRiBvcGNvZGVzLCBhbHRob3VnaCAiY29tcGxpY2F0ZWQi
+IGxvYWRzIGZyb20gbmVnYXRpdmUKPiBwYWNrZXQgb2Zmc2V0cyAoZS5nLiBTS0ZfTExfT0ZGKSBh
+cmUgbm90IHlldCBzdXBwb3J0ZWQuCj4gCj4gVGhlcmUgYXJlIGEgY291cGxlIG9mIGZ1cnRoZXIg
+b3B0aW1pc2F0aW9ucyBsZWZ0IGZvciBmdXR1cmUgd29yazsgbWFueS1wYXNzCj4gYXNzZW1ibHkg
+d2l0aCBicmFuY2gtcmVhY2ggcmVkdWN0aW9uIGFuZCBhIHJlZ2lzdGVyIGFsbG9jYXRvciB0byBw
+dXNoIE1bXQo+IHZhcmlhYmxlcyBpbnRvIHZvbGF0aWxlIHJlZ2lzdGVycyB3b3VsZCBpbXByb3Zl
+IHRoZSBjb2RlIHF1YWxpdHkgZnVydGhlci4KPiAKPiBUaGlzIGN1cnJlbnRseSBzdXBwb3J0cyBi
+aWctZW5kaWFuIDY0LWJpdCBQb3dlclBDIG9ubHkgKGJ1dCBpcyBmYWlybHkgc2ltcGxlCj4gdG8g
+cG9ydCB0byBQUEMzMiBvciBMRSEpLgo+IAo+IEVuYWJsZWQgaW4gdGhlIHNhbWUgd2F5IGFzIHg4
+Ni02NDoKPiAKPiAJZWNobyAxID4gL3Byb2Mvc3lzL25ldC9jb3JlL2JwZl9qaXRfZW5hYmxlCj4g
+Cj4gT3IsIGVuYWJsZWQgd2l0aCBleHRyYSBkZWJ1ZyBvdXRwdXQ6Cj4gCj4gCWVjaG8gMiA+IC9w
+cm9jL3N5cy9uZXQvY29yZS9icGZfaml0X2VuYWJsZQo+IAo+IFNpZ25lZC1vZmYtYnk6IE1hdHQg
+RXZhbnMgPG1hdHRAb3psYWJzLm9yZz4KPiAtLS0KPiAKPiBWMzogQWRkZWQgQlVJTERfQlVHX09O
+IHRvIGFzc2VydCBQQUNBIENQVSBJRCBpcyAxNmJpdHMsIG1hZGUgYSBjb21tZW50IChpbgo+ICAg
+ICBMRF9NU0gpIGEgYml0IGNsZWFyZXIsIHJhdGVsaW1pdGVkICJVbmtub3duIG9wY29kZSIgZXJy
+b3IgYW5kIG1vdmVkCj4gICAgIGJwZl9qaXQuUyB0byBicGZfaml0XzY0LlMgKGl0IGRvZXNuJ3Qg
+bWFrZSBzZW5zZSB0byByZW5hbWUgYnBmX2ppdF9jb21wLmMgYXMKPiAgICAgc21hbGwgcG9ydGlv
+bnMgd2lsbCBldmVudHVhbGx5IGdldCBzcGxpdCBvdXQgaW50byBfMzIvXzY0LmMgZmlsZXMgd2hl
+biB3ZSBkbwo+ICAgICAzMmJpdCBzdXBwb3J0KS4KPiAKPiAgYXJjaC9wb3dlcnBjL0tjb25maWcg
+ICAgICAgICAgICAgICAgICB8ICAgIDEgKwo+ICBhcmNoL3Bvd2VycGMvTWFrZWZpbGUgICAgICAg
+ICAgICAgICAgIHwgICAgMyArLQo+ICBhcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vcHBjLW9wY29k
+ZS5oIHwgICA0MCArKwo+ICBhcmNoL3Bvd2VycGMvbmV0L01ha2VmaWxlICAgICAgICAgICAgIHwg
+ICAgNCArCj4gIGFyY2gvcG93ZXJwYy9uZXQvYnBmX2ppdC5oICAgICAgICAgICAgfCAgMjI3ICsr
+KysrKysrKysrCj4gIGFyY2gvcG93ZXJwYy9uZXQvYnBmX2ppdF82NC5TICAgICAgICAgfCAgMTM4
+ICsrKysrKysKPiAgYXJjaC9wb3dlcnBjL25ldC9icGZfaml0X2NvbXAuYyAgICAgICB8ICA2OTQg
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrCj4gIDcgZmlsZXMgY2hhbmdlZCwgMTEw
+NiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQoKTmljZSB3b3JrIE1hdHQgOykKCkFja2Vk
+LWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+CgpUaGFua3MKCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYg
+bWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMu
+b3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
