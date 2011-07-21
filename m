@@ -1,57 +1,176 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
- predictable
-Date: Wed, 20 Jul 2011 22:32:18 -0300
-Message-ID: <4E2781A2.8020905@gont.com.ar>
-References: <4E24BE94.7010301@gont.com.ar>	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <1311108423.3113.24.camel@edumazet-laptop>	 <1311150327.2338.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1311157648.2338.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Rustam Afanasyev <cpulinker@yandex.ru>
+Subject: Kernel 2.6.38.3 panic and hangs on network traffic
+Date: Thu, 21 Jul 2011 19:20:30 +0400
+Message-ID: <4E2843BE.608@yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, security@kernel.org,
-	Eugene Teo <eugeneteo@kernel.sg>,
-	netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------010507030300050309080304"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:42808 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425Ab1GUHpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 03:45:24 -0400
-Received: by ywe9 with SMTP id 9so531984ywe.19
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 00:45:23 -0700 (PDT)
-In-Reply-To: <1311157648.2338.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from forward4.mail.yandex.net ([77.88.46.9]:40613 "EHLO
+	forward4.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498Ab1GUPaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 11:30:15 -0400
+Received: from smtp4.mail.yandex.net (smtp4.mail.yandex.net [77.88.46.104])
+	by forward4.mail.yandex.net (Yandex) with ESMTP id 9B8035025DD
+	for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 19:20:31 +0400 (MSD)
+Received: from my1.home.rybnet.ru (unknown [46.47.9.0])
+	by smtp4.mail.yandex.net (Yandex) with ESMTPA id 2A1756498069
+	for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 19:20:31 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2011 07:27 AM, Eric Dumazet wrote:
-> Le mercredi 20 juillet 2011 =C3=A0 10:25 +0200, Eric Dumazet a =C3=A9=
-crit :
->=20
->> Please hold on, I'll make a different patch series to ease stable te=
-ams
->> job. It appears inetpeer & ipv6 are really not an option for old
->> kernels.
->>
->> Common patch for all kernels :
->> 1) Fix the problem without inetpeer help
->> ---=20
->> Patches for next kernels
->> 2) random split as suggested by Matt Mackal
->> 3) Use inetpeer cache to scale identification generation
->=20
-> Here is the first patch, applicable on net-2.6 / linux-2.6 and stable
-> kernels.
+This is a multi-part message in MIME format.
+--------------010507030300050309080304
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Does it make sense to go in this direction rather than simply randomize
-the IPv6 Fragment Identification?
+Hi!
+I starting up new server for the test. It's task is terminate L2TP&PPTP 
+users. And when i have opened server (NAS) for users - its crush quickly :(
+What it's could be?
+Hardware is Intel Q6600 with 4GB, Intel nic (igb from inel, latest, RSS 
+enabled 4 queue per RX,TX on both nic). Software is accel-ppp and 
+openl2tpd, ppp redirects to ifb(no ip is up on it, just shaping), ipset, 
+iptables.
+If need more info - i can give it. Strange is - sometimes (mostly) i see 
+panic, but sometime it's just hangs. Only reset helps...
+All IF'ses are IPV4. What on the users side - must be ipv4, but i think 
+not the only...
 
-Keep in mind that IPv6 routers don't perform fragmentation, that that
-the IPv6 identification is 32-bits long.
+--------------010507030300050309080304
+Content-Type: text/plain;
+ name="trap.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="trap.txt"
 
-Thanks,
---=20
-=46ernando Gont
-e-mail: fernando@gont.com.ar || fgont@acm.org
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
-
-
-
+WyA2MDg5LjM1ODUwMl0gQlVHOiB1bmFibGUgdG8gaGFuZGxlIGtlcm5lbCBOVUxMIHBvaW50
+ZXIgZGVyZWZlcmVuY2UgYXQgICAgICAgICAgIChudWxsKQpbIDYwODkuMzYyNDgyXSBJUDog
+WzxmZmZmZmZmZmEwMjY0ZTI0Pl0gX19uZl9jb25udHJhY2tfY29uZmlybSsweDJiNC8weDQ4
+MCBbbmZfY29ubnRyYWNrXQpbIDYwODkuMzYyNDgyXSBQR0QgMTE3ODIyMDY3IFBVRCAxMTc4
+MjMwNjcgUE1EIDAKWyA2MDg5LjM2MjQ4Ml0gT29wczogMDAwMiBbIzFdIFNNUApbIDYwODku
+MzYyNDgyXSBsYXN0IHN5c2ZzIGZpbGU6IC9zeXMvZGV2aWNlcy92aXJ0dWFsL25ldC9wcHA2
+L3VldmVudApbIDYwODkuMzYyNDgyXSBDUFUgMQpbIDYwODkuMzYyNDgyXSBNb2R1bGVzIGxp
+bmtlZCBpbjogYWN0X21pcnJlZCBhY3Rfc2tiZWRpdCBjbHNfdTMyIHNjaF9pbmdyZXNzIGFy
+YzQgZWNiIHBwcF9tcHBlIGwydHBfcHBwIGwydHBfbmV0bGluayBsMnRwZApbIDYwODkuMzYy
+NDgyXQpbIDYwODkuMzYyNDgyXSBQaWQ6IDAsIGNvbW06IGt3b3JrZXIvMDowIE5vdCB0YWlu
+dGVkIDIuNi4zOS1zdGQtZGVmLWFsdDMgIzEgQVNVUyBSUzEwMC1FNC9QSTIvUDVNMi1NL1JT
+MTAwLUU0ClsgNjA4OS4zNjI0ODJdIFJJUDogMDAxMDpbPGZmZmZmZmZmYTAyNjRlMjQ+XSAg
+WzxmZmZmZmZmZmEwMjY0ZTI0Pl0gX19uZl9jb25udHJhY2tfY29uZmlybSsweDJiNC8weDQ4
+MCBbbmZfY29ubnRyYWNrXQpbIDYwODkuMzYyNDgyXSBSU1A6IDAwMTg6ZmZmZjg4MDExZmM4
+M2E4MCAgRUZMQUdTOiAwMDAxMDIwMgpbIDYwODkuMzYyNDgyXSBSQVg6IDAwMDAwMDAwMDAw
+MDQ3Y2QgUkJYOiBmZmZmODgwMTFmYzk0NjIwIFJDWDogMDAwMDAwMDAwMDAwMDAwMApbIDYw
+ODkuMzYyNDgyXSBSRFg6IDAwMDAwMDAwMDAwMGZhMTAgUlNJOiAwMDAwMDAwMGQwMGRkNzE5
+IFJESTogZmZmZmZmZmZhMDI2ZjY4MApbIDYwODkuMzYyNDgyXSBSQlA6IGZmZmY4ODAxMWZj
+ODNhYzAgUjA4OiAwMDAwMDAwMGU3NTM4NDdhIFIwOTogZmZmZjg4MDExN2YwMDAwMApbIDYw
+ODkuMzYyNDgyXSBSMTA6IDAwMDAwMDAwMDAwMDQwMDAgUjExOiAwMDAwMDAwMDAwMDAwMDAx
+IFIxMjogMDAwMDAwMDAwMDAwMDAwMApbIDYwODkuMzYyNDgyXSBSMTM6IGZmZmY4ODAxMTZh
+OTUwODAgUjE0OiBmZmZmZmZmZjgxYTRlMWMwIFIxNTogMDAwMDAwMDAwMDAxMTRkOApbIDYw
+ODkuMzYyNDgyXSBGUzogIDAwMDAwMDAwMDAwMDAwMDAoMDAwMCkgR1M6ZmZmZjg4MDExZmM4
+MDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwClsgNjA4OS4zNjI0ODJdIENTOiAg
+MDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAwNTAwM2IKWyA2MDg5LjM2
+MjQ4Ml0gQ1IyOiAwMDAwMDAwMDAwMDAwMDAwIENSMzogMDAwMDAwMDExNzgyMTAwMCBDUjQ6
+IDAwMDAwMDAwMDAwMDA2ZTAKWyA2MDg5LjM2MjQ4Ml0gRFIwOiAwMDAwMDAwMDAwMDAwMDAw
+IERSMTogMDAwMDAwMDAwMDAwMDAwMCBEUjI6IDAwMDAwMDAwMDAwMDAwMDAKWyA2MDg5LjM2
+MjQ4Ml0gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6
+IDAwMDAwMDAwMDAwMDA0MDAKWyA2MDg5LjM2MjQ4Ml0gUHJvY2VzcyBrd29ya2VyLzA6MCAo
+cGlkOiAwLCB0aHJlYWRpbmZvIGZmZmY4ODAxMThlZjYwMDAsIHRhc2sgZmZmZjg4MDExOGVm
+NDJjMCkKWyA2MDg5LjM2MjQ4Ml0gU3RhY2s6ClsgNjA4OS4zNjI0ODJdICAwMDAwMDAwMDdk
+MDlkYTgwIDAwMDA0MDAwMTZiZDQ0MDAgMDAwMDAwMDExNmVhMjAwMCBmZmZmODgwMTE2YTk1
+MDgwClsgNjA4OS4zNjI0ODJdICAwMDAwMDAwMDAwMDAwMDAxIGZmZmY4ODAxMWZjOTQ2MjAg
+MDAwMDAwMDAwMDAwMDAwMiBmZmZmODgwMTE2ZWEyMDAwClsgNjA4OS4zNjI0ODJdICBmZmZm
+ODgwMTFmYzgzYjMwIGZmZmZmZmZmYTAyYjFkZDggZmZmZjg4MDExNmVhMjAwMCAwMDAwMDAw
+MDAwMDAwMDAwClsgNjA4OS4zNjI0ODJdIENhbGwgVHJhY2U6ClsgNjA4OS4zNjI0ODJdICA8
+SVJRPgpbIDYwODkuMzYyNDgyXSAgWzxmZmZmZmZmZmEwMmIxZGQ4Pl0gaXB2NF9jb25maXJt
+KzB4MTg4LzB4MWMwIFtuZl9jb25udHJhY2tfaXB2NF0KWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZm
+ZmZmZmY4MTM4MjAwND5dIG5mX2l0ZXJhdGUrMHg4NC8weGEwClsgNjA4OS4zNjI0ODJdICBb
+PGZmZmZmZmZmODEzODkzOTA+XSA/IGlwX3Jjdl9maW5pc2grMHgzOTAvMHgzOTAKWyA2MDg5
+LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM4MjA5Nj5dIG5mX2hvb2tfc2xvdysweDc2LzB4MTMw
+ClsgNjA4OS4zNjI0ODJdICBbPGZmZmZmZmZmODEzODkzOTA+XSA/IGlwX3Jjdl9maW5pc2gr
+MHgzOTAvMHgzOTAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM4OTdkNz5dIGlwX2xv
+Y2FsX2RlbGl2ZXIrMHg2Ny8weDkwClsgNjA4OS4zNjI0ODJdICBbPGZmZmZmZmZmODEzODkx
+MzU+XSBpcF9yY3ZfZmluaXNoKzB4MTM1LzB4MzkwClsgNjA4OS4zNjI0ODJdICBbPGZmZmZm
+ZmZmODEzODlhMWM+XSBpcF9yY3YrMHgyMWMvMHgyZTAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZm
+ZmZmZmY4MTM1NmY1YT5dIF9fbmV0aWZfcmVjZWl2ZV9za2IrMHg1MmEvMHg2OTAKWyA2MDg5
+LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM1NzJkMD5dIG5ldGlmX3JlY2VpdmVfc2tiKzB4NjAv
+MHg5MApbIDYwODkuMzYyNDgyXSAgWzxmZmZmZmZmZjgxMjRkZTljPl0gPyBpc19zd2lvdGxi
+X2J1ZmZlcisweDNjLzB4NTAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM1NzQ0MD5d
+IG5hcGlfc2tiX2ZpbmlzaCsweDUwLzB4NzAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4
+MTM1NzliZD5dIG5hcGlfZ3JvX3JlY2VpdmUrMHhiZC8weGQwClsgNjA4OS4zNjI0ODJdICBb
+PGZmZmZmZmZmYTAxMjEyOWI+XSBpZ2JfcG9sbCsweDZmYi8weGFlMCBbaWdiXQpbIDYwODku
+MzYyNDgyXSAgWzxmZmZmZmZmZjgxMDdmYjYxPl0gPyBlbnF1ZXVlX2hydGltZXIrMHgzMS8w
+eDgwClsgNjA5MC4zMDIzOTFdICBbPGZmZmZmZmZmODEzNTdiZTU+XSBuZXRfcnhfYWN0aW9u
+KzB4MTM1LzB4MjcwClsgNjA5MC4zMDIzOTFdICBbPGZmZmZmZmZmODEwNjI3MDU+XSBfX2Rv
+X3NvZnRpcnErMHhhNS8weDFkMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZmZmZmZjgxNDEzMDFj
+Pl0gY2FsbF9zb2Z0aXJxKzB4MWMvMHgzMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZmZmZmZjgx
+MDBkMzU1Pl0gZG9fc29mdGlycSsweDY1LzB4YTAKWyA2MDkwLjMwMjM5MV0gIFs8ZmZmZmZm
+ZmY4MTA2MmE5Nj5dIGlycV9leGl0KzB4ODYvMHhhMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZm
+ZmZmZjgxMDBjZjAxPl0gZG9fSVJRKzB4NjEvMHhlMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZm
+ZmZmZjgxNDBhNTkzPl0gY29tbW9uX2ludGVycnVwdCsweDEzLzB4MTMKWyA2MDkwLjMwMjM5
+MV0gIDxFT0k+ClsgNjA5MC4zMDIzOTFdICBbPGZmZmZmZmZmODEwMTJkZWI+XSA/IG13YWl0
+X2lkbGUrMHg5Yi8weDFkMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZmZmZmZjgxNDBkZTM1Pl0g
+PyBhdG9taWNfbm90aWZpZXJfY2FsbF9jaGFpbisweDE1LzB4MjAKWyA2MDkwLjMwMjM5MV0g
+IFs8ZmZmZmZmZmY4MTAwYTFlNj5dIGNwdV9pZGxlKzB4NTYvMHhhMApbIDYwOTAuMzAyMzkx
+XSAgWzxmZmZmZmZmZjgxNDAzNzI5Pl0gc3RhcnRfc2Vjb25kYXJ5KzB4MTk3LzB4MTljClsg
+NjA5MC4zMDIzOTFdIENvZGU6IGZmIDc0IDA5IDQwIDBmIGI2IGZmIDQxIDBmIGI3IDBjIDM4
+IDY2IDQxIDM5IGNjIDBmIDg0IGYxIGZlIGZmIGZmIDQ4IDhiIDAwIGE4IDAxIDBmIDg0IDUx
+IGZmIGZmIGZmIDQKWyA2MDkwLjMwMjM5MV0gIDg5IDAxIDc1IDA0IDQ4IDg5IDQ4IDA4IDQ4
+IDhiIDA1IDRjIDRhIDYwIGUxIDQ4IDAxIDgzIDk4IDAwClsgNjA5MC4zMDIzOTFdIFJJUCAg
+WzxmZmZmZmZmZmEwMjY0ZTI0Pl0gX19uZl9jb25udHJhY2tfY29uZmlybSsweDJiNC8weDQ4
+MCBbbmZfY29ubnRyYWNrXQpbIDYwOTAuMzAyMzkxXSAgUlNQIDxmZmZmODgwMTFmYzgzYTgw
+PgpbIDYwOTAuMzAyMzkxXSBDUjI6IDAwMDAwMDAwMDAwMDAwMDAKWyA2MDkwLjYxMTk5OV0g
+LS0tWyBlbmQgdHJhY2UgZGVkNjdjOGFmYjYyZjE2NCBdLS0tClsgNjA5MC42MjU5MTBdIEtl
+cm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBGYXRhbCBleGNlcHRpb24gaW4gaW50ZXJydXB0
+ClsgNjA5MC42NDUwMjJdIFBpZDogMCwgY29tbToga3dvcmtlci8wOjAgVGFpbnRlZDogRyAg
+ICAgIEQgICAgIDIuNi4zOS1zdGQtZGVmLWFsdDMgIzEKWyA2MDkwLjY2NzgyMl0gQ2FsbCBU
+cmFjZToKWyA2MDkwLjY3NTIzMl0gIDxJUlE+ICBbPGZmZmZmZmZmODE0MDcyODQ+XSBwYW5p
+YysweDhjLzB4MTk3ClsgNjA5MC42OTE1NjNdICBbPGZmZmZmZmZmODE0MGI0ZDI+XSBvb3Bz
+X2VuZCsweGUyLzB4ZjAKWyA2MDkwLjcwNjUxNF0gIFs8ZmZmZmZmZmY4MTAzOWFkMD5dIG5v
+X2NvbnRleHQrMHhmMC8weDI2MApbIDYwOTAuNzIyMjQyXSAgWzxmZmZmZmZmZjgxMzgyMDk2
+Pl0gPyBuZl9ob29rX3Nsb3crMHg3Ni8weDEzMApbIDYwOTAuNzM5MDEzXSAgWzxmZmZmZmZm
+ZjgxMzhlMGYwPl0gPyBpcF9mcmFnbWVudCsweDk2MC8weDk2MApbIDYwOTAuNzU1Nzg0XSAg
+WzxmZmZmZmZmZjgxMDM5ZDY1Pl0gX19iYWRfYXJlYV9ub3NlbWFwaG9yZSsweDEyNS8weDFl
+MApbIDYwOTAuNzc0ODk0XSAgWzxmZmZmZmZmZjgxMDM5ZTJlPl0gYmFkX2FyZWFfbm9zZW1h
+cGhvcmUrMHhlLzB4MTAKWyA2MDkwLjc5MjcwM10gIFs8ZmZmZmZmZmY4MTQwZGJmNj5dIGRv
+X3BhZ2VfZmF1bHQrMHgzMDYvMHg0YjAKWyA2MDkwLjgwOTQ3M10gIFs8ZmZmZmZmZmY4MTA2
+YjQ4ZT5dID8gbW9kX3RpbWVyKzB4MTVlLzB4MmMwClsgNjA5MC44MjU3MjVdICBbPGZmZmZm
+ZmZmODEzNDViNDc+XSA/IHNrX3Jlc2V0X3RpbWVyKzB4MTcvMHgzMApbIDYwOTAuODQyNzU0
+XSAgWzxmZmZmZmZmZjgxMzkzZWViPl0gPyBpbmV0X2Nza19yZXNldF9rZWVwYWxpdmVfdGlt
+ZXIrMHgxYi8weDIwClsgNjA5MC44NjM5NDVdICBbPGZmZmZmZmZmODEzOTNmZTc+XSA/IGlu
+ZXRfY3NrX3JlcXNrX3F1ZXVlX2hhc2hfYWRkKzB4ZjcvMHgxMTAKWyA2MDkwLjg4NTEzNV0g
+IFs8ZmZmZmZmZmY4MTQwYTg1NT5dIHBhZ2VfZmF1bHQrMHgyNS8weDMwClsgNjA5MC45MDA2
+MDhdICBbPGZmZmZmZmZmYTAyNjRlMjQ+XSA/IF9fbmZfY29ubnRyYWNrX2NvbmZpcm0rMHgy
+YjQvMHg0ODAgW25mX2Nvbm50cmFja10KWyA2MDkwLjkyNDE4OV0gIFs8ZmZmZmZmZmZhMDJi
+MWRkOD5dIGlwdjRfY29uZmlybSsweDE4OC8weDFjMCBbbmZfY29ubnRyYWNrX2lwdjRdClsg
+NjA5MC45NDU5NTBdICBbPGZmZmZmZmZmODEzODIwMDQ+XSBuZl9pdGVyYXRlKzB4ODQvMHhh
+MApbIDYwOTAuOTYxNDIwXSAgWzxmZmZmZmZmZjgxMzg5MzkwPl0gPyBpcF9yY3ZfZmluaXNo
+KzB4MzkwLzB4MzkwClsgNjA5MC45Nzg3MTBdICBbPGZmZmZmZmZmODEzODIwOTY+XSBuZl9o
+b29rX3Nsb3crMHg3Ni8weDEzMApbIDYwOTAuOTk0OTU5XSAgWzxmZmZmZmZmZjgxMzg5Mzkw
+Pl0gPyBpcF9yY3ZfZmluaXNoKzB4MzkwLzB4MzkwClsgNjA5MS4wMTIyNTBdICBbPGZmZmZm
+ZmZmODEzODk3ZDc+XSBpcF9sb2NhbF9kZWxpdmVyKzB4NjcvMHg5MApbIDYwOTEuMDI5Mjgx
+XSAgWzxmZmZmZmZmZjgxMzg5MTM1Pl0gaXBfcmN2X2ZpbmlzaCsweDEzNS8weDM5MApbIDYw
+OTEuMDQ2MDUyXSAgWzxmZmZmZmZmZjgxMzg5YTFjPl0gaXBfcmN2KzB4MjFjLzB4MmUwClsg
+NjA5MS4wNjEwMDBdICBbPGZmZmZmZmZmODEzNTZmNWE+XSBfX25ldGlmX3JlY2VpdmVfc2ti
+KzB4NTJhLzB4NjkwClsgNjA5MS4wNzkzMzJdICBbPGZmZmZmZmZmODEzNTcyZDA+XSBuZXRp
+Zl9yZWNlaXZlX3NrYisweDYwLzB4OTAKWyA2MDkxLjA5NjYyMl0gIFs8ZmZmZmZmZmY4MTI0
+ZGU5Yz5dID8gaXNfc3dpb3RsYl9idWZmZXIrMHgzYy8weDUwClsgNjA5MS4xMTQ0MzFdICBb
+PGZmZmZmZmZmODEzNTc0NDA+XSBuYXBpX3NrYl9maW5pc2grMHg1MC8weDcwClsgNjA5MS4x
+MzEyMDFdICBbPGZmZmZmZmZmODEzNTc5YmQ+XSBuYXBpX2dyb19yZWNlaXZlKzB4YmQvMHhk
+MApbIDYwOTEuMTQ4MjM0XSAgWzxmZmZmZmZmZmEwMTIxMjliPl0gaWdiX3BvbGwrMHg2ZmIv
+MHhhZTAgW2lnYl0KWyA2MDkxLjE2NTI2Ml0gIFs8ZmZmZmZmZmY4MTA3ZmI2MT5dID8gZW5x
+dWV1ZV9ocnRpbWVyKzB4MzEvMHg4MApbIDYwOTEuMTgyNTUzXSAgWzxmZmZmZmZmZjgxMzU3
+YmU1Pl0gbmV0X3J4X2FjdGlvbisweDEzNS8weDI3MApbIDYwOTEuMTk5MzIzXSAgWzxmZmZm
+ZmZmZjgxMDYyNzA1Pl0gX19kb19zb2Z0aXJxKzB4YTUvMHgxZDAKWyA2MDkxLjIxNTU3M10g
+IFs8ZmZmZmZmZmY4MTQxMzAxYz5dIGNhbGxfc29mdGlycSsweDFjLzB4MzAKWyA2MDkxLjIz
+MTU2Ml0gIFs8ZmZmZmZmZmY4MTAwZDM1NT5dIGRvX3NvZnRpcnErMHg2NS8weGEwClsgNjA5
+MS4yNDcwMzVdICBbPGZmZmZmZmZmODEwNjJhOTY+XSBpcnFfZXhpdCsweDg2LzB4YTAKWyA2
+MDkxLjI2MTk4M10gIFs8ZmZmZmZmZmY4MTAwY2YwMT5dIGRvX0lSUSsweDYxLzB4ZTAKWyA2
+MDkxLjI3NjQxM10gIFs8ZmZmZmZmZmY4MTQwYTU5Mz5dIGNvbW1vbl9pbnRlcnJ1cHQrMHgx
+My8weDEzClsgNjA5MS4yOTM0NDJdICA8RU9JPiAgWzxmZmZmZmZmZjgxMDEyZGViPl0gPyBt
+d2FpdF9pZGxlKzB4OWIvMHgxZDAKWyA2MDkxLjMxMTU5M10gIFs8ZmZmZmZmZmY4MTQwZGUz
+NT5dID8gYXRvbWljX25vdGlmaWVyX2NhbGxfY2hhaW4rMHgxNS8weDIwClsgNjA5MS4zMzE3
+NDJdICBbPGZmZmZmZmZmODEwMGExZTY+XSBjcHVfaWRsZSsweDU2LzB4YTAKWyA2MDkxLjM0
+NjY5Ml0gIFs8ZmZmZmZmZmY4MTQwMzcyOT5dIHN0YXJ0X3NlY29uZGFyeSsweDE5Ny8weDE5
+YwpbIDYwOTEuMzYzOTg2XSBSZWJvb3RpbmcgaW4gMzAgc2Vjb25kcy4u
+--------------010507030300050309080304--
