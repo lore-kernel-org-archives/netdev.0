@@ -1,73 +1,57 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: Re: ipvs oops in 3.0-rc7
-Date: Thu, 21 Jul 2011 16:42:17 +0800
-Message-ID: <CA+v9cxYJtrpUSHWY5Z2R14kZjX1c5nd2yYrvTx2URLJz26d_Tw@mail.gmail.com>
-References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
-	<20110721054033.GA8299@verge.net.au>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
+ predictable
+Date: Wed, 20 Jul 2011 22:32:18 -0300
+Message-ID: <4E2781A2.8020905@gont.com.ar>
+References: <4E24BE94.7010301@gont.com.ar>	 <1311082696.2375.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <1311089463.2375.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <1311108423.3113.24.camel@edumazet-laptop>	 <1311150327.2338.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1311157648.2338.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	huajun li <huajun.li.lee@gmail.com>
-To: Simon Horman <horms@verge.net.au>
+Cc: David Miller <davem@davemloft.net>, security@kernel.org,
+	Eugene Teo <eugeneteo@kernel.sg>,
+	netdev <netdev@vger.kernel.org>, Matt Mackall <mpm@selenic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f52.google.com ([209.85.161.52]:39843 "EHLO
-	mail-fx0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905Ab1GUImT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 04:42:19 -0400
-In-Reply-To: <20110721054033.GA8299@verge.net.au>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:42808 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751425Ab1GUHpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 03:45:24 -0400
+Received: by ywe9 with SMTP id 9so531984ywe.19
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 00:45:23 -0700 (PDT)
+In-Reply-To: <1311157648.2338.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Randy and Simon,
-    I happened to meet the issue too, loading and unloading module of
-ip_vs, then loading it again will cause Oops, the root cause may be
-ip_vs_dst_notifier is not unregistered. Please try following patch, it
-works for me.
-
-
-Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
----
- net/netfilter/ipvs/ip_vs_ctl.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_=
-ctl.c
-index 699c79a..a178cb3 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3771,6 +3771,7 @@ err_sock:
- void ip_vs_control_cleanup(void)
- {
- 	EnterFunction(2);
-+	unregister_netdevice_notifier(&ip_vs_dst_notifier);
- 	ip_vs_genl_unregister();
- 	nf_unregister_sockopt(&ip_vs_sockopts);
- 	LeaveFunction(2);
---=20
-1.7.4.1
-
-
-2011/7/21 Simon Horman <horms@verge.net.au>:
-> On Wed, Jul 20, 2011 at 08:50:19PM -0700, Randy Dunlap wrote:
->> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading and=
- unloading
->> modules. =A0Any chance this is already fixed? =A0I can test current =
-git, but I
->> wanted to ask first.
+On 07/20/2011 07:27 AM, Eric Dumazet wrote:
+> Le mercredi 20 juillet 2011 =C3=A0 10:25 +0200, Eric Dumazet a =C3=A9=
+crit :
+>=20
+>> Please hold on, I'll make a different patch series to ease stable te=
+ams
+>> job. It appears inetpeer & ipv6 are really not an option for old
+>> kernels.
 >>
->> Looks like it is on the second module load of ip_vs (i.e.,
->> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
->
-> Hi Randy,
->
-> I don't believe that this problem has been resolved (or observed befo=
-re).
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+>> Common patch for all kernels :
+>> 1) Fix the problem without inetpeer help
+>> ---=20
+>> Patches for next kernels
+>> 2) random split as suggested by Matt Mackal
+>> 3) Use inetpeer cache to scale identification generation
+>=20
+> Here is the first patch, applicable on net-2.6 / linux-2.6 and stable
+> kernels.
+
+Does it make sense to go in this direction rather than simply randomize
+the IPv6 Fragment Identification?
+
+Keep in mind that IPv6 routers don't perform fragmentation, that that
+the IPv6 identification is 32-bits long.
+
+Thanks,
+--=20
+=46ernando Gont
+e-mail: fernando@gont.com.ar || fgont@acm.org
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+
+
+
