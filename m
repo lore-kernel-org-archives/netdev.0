@@ -1,86 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in ndo_start_xmit
- methods
-Date: Thu, 21 Jul 2011 15:26:00 -0700
-Message-ID: <4E28A778.7050506@candelatech.com>
-References: <20110720151827.GD12349@hmsreliant.think-freely.org>	<20110721.150107.25773992475689131.davem@davemloft.net>	<4E28A4C8.8040707@candelatech.com> <20110721.151903.297506479006061401.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] ethtool: Allow zero-length register dumps again
+Date: Thu, 21 Jul 2011 15:25:59 -0700 (PDT)
+Message-ID: <20110721.152559.855176188727471095.davem@davemloft.net>
+References: <20110720143611.GA18231@tuxdriver.com>
+	<1311270409.28569.32.camel@localhost>
+	<1311270840.28569.34.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nhorman@tuxdriver.com, eric.dumazet@gmail.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, adobriyan@gmail.com,
-	robert.olsson@its.uu.se
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, kvalo@qca.qualcomm.com,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:42062 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752190Ab1GUW0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 18:26:11 -0400
-In-Reply-To: <20110721.151903.297506479006061401.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50569 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753185Ab1GUW1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 18:27:06 -0400
+In-Reply-To: <1311270840.28569.34.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/21/2011 03:19 PM, David Miller wrote:
-> From: Ben Greear<greearb@candelatech.com>
-> Date: Thu, 21 Jul 2011 15:14:32 -0700
->
->> On 07/21/2011 03:01 PM, David Miller wrote:
->>> From: Neil Horman<nhorman@tuxdriver.com>
->>> Date: Wed, 20 Jul 2011 11:18:27 -0400
->>>
->>>> On Wed, Jul 20, 2011 at 06:24:15AM +0200, Eric Dumazet wrote:
->>>>> Le mardi 19 juillet 2011 =E0 22:07 -0400, Neil Horman a =E9crit :
->>>>>>>
->>>>>> I think this is a good idea.  It lets pktgen dynamically make th=
-e
->>>>>> clone/share
->>>>>> decision dynamically and only impacts performance for those syst=
-ems.
->>>>>>
->>>>>
->>>>> Just let pktgen refuse to use clone_skb command for these devices=
-=2E
->>>>>
->>>> copy that, This is by no means final, but what do you think of thi=
-s?
->>>> If its
->>>> agreeable to you, Ben, et al. I can add this to my local tree and
->>>> start auditing
->>>> all the drivers that may need to have the flag set.
->>>
->>> I think there is a much simpler solution.
->>>
->>> Set a flag in the SKB when pktgen does SKB sharing.
->>>
->>> In dev_queue_xmit() (or perhaps, dev_hard_start_xmit()), check the
->>> flag
->>> and if it's set then we copy the SKB.
->>>
->>> If this works, then we fix the crash and no driver changes are
->>> necessary both now and in the future.
->>
->> Doesn't that make clone-skb in pktgen much less efficient
->> in all cases?
->
-> No, the copy only happens if we enter dev_queue_xmit() which pktgen
-> doesn't do, it calls the driver's ->ndo_start_xmit() method directly.
->
-> That's the whole idea.  Only these encapsulating software devices
-> will trigger the condition.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 21 Jul 2011 19:54:00 +0200
 
-It seems there may be some Ethernet drivers that have similar issues,
-though I don't know of any personally (many years ago, Chelsio 10G NICs=
- had
-this issue, but it may be fixed now.)
+> Some drivers (ab)use the ethtool_ops::get_regs operation to expose
+> only a hardware revision ID.  Commit
+> a77f5db361ed9953b5b749353ea2c7fed2bf8d93 ('ethtool: Allocate register
+> dump buffer with vmalloc()') had the side-effect of breaking these, as
+> vmalloc() returns a null pointer for size=0 whereas kmalloc() did not.
+> 
+> For backward-compatibility, allow zero-length dumps again.
+> 
+> Reported-by: Kalle Valo <kvalo@qca.qualcomm.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Cc: stable@kernel.org [2.6.37+]
 
-But, it should be no worse than what we have today, and now that I
-better understand what you suggest, it sounds OK to me.
+Applied to net-next-2.6, I left the CC: stable tag in there so
+-stable will pick it up once it hits Linus's tree during the
+merge window.
 
-Thanks,
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Thanks.
