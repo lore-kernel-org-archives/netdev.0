@@ -1,176 +1,99 @@
-From: Rustam Afanasyev <cpulinker@yandex.ru>
-Subject: Kernel 2.6.38.3 panic and hangs on network traffic
-Date: Thu, 21 Jul 2011 19:20:30 +0400
-Message-ID: <4E2843BE.608@yandex.ru>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ethtool: fix ethtool_get_regs() to work with zero
+ length registers
+Date: Thu, 21 Jul 2011 19:46:48 +0200
+Message-ID: <1311270409.28569.32.camel@localhost>
+References: <20110720091850.32210.2059.stgit@localhost6.localdomain6>
+	 <1311161889.1041.11.camel@localhost> <4E26C2DC.8090208@qca.qualcomm.com>
+	 <20110720143611.GA18231@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010507030300050309080304"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward4.mail.yandex.net ([77.88.46.9]:40613 "EHLO
-	forward4.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498Ab1GUPaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 11:30:15 -0400
-Received: from smtp4.mail.yandex.net (smtp4.mail.yandex.net [77.88.46.104])
-	by forward4.mail.yandex.net (Yandex) with ESMTP id 9B8035025DD
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 19:20:31 +0400 (MSD)
-Received: from my1.home.rybnet.ru (unknown [46.47.9.0])
-	by smtp4.mail.yandex.net (Yandex) with ESMTPA id 2A1756498069
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 19:20:31 +0400 (MSD)
+Received: from mail.solarflare.com ([216.237.3.220]:4287 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab1GURqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 13:46:55 -0400
+In-Reply-To: <20110720143611.GA18231@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010507030300050309080304
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 2011-07-20 at 10:36 -0400, John W. Linville wrote:
+> On Wed, Jul 20, 2011 at 02:58:20PM +0300, Kalle Valo wrote:
+> > On 07/20/2011 02:38 PM, Ben Hutchings wrote:
+> > > On Wed, 2011-07-20 at 12:18 +0300, Kalle Valo wrote:
+> > >> cfg80211 exports zero length register size as it currently only uses
+> > >> struct ethtool_regs.version to export struct wiphy.hw_version.
+> > > [...]
+> > > 
+> > > The ethtool_regs::version field represents the version of the register
+> > > dump format.  This may or may not relate to a hardware version.
+> 
+> This seems like a strange claim to make...?
+> 
+> struct ethtool_regs {
+> 	__u32	cmd;
+> 	__u32	version; /* driver-specific, indicates different chips/revs */
+> 	__u32	len; /* bytes */
+> 	__u8	data[0];
+> };
+> 
+> That "indicates different chips/revs" comment has been there at least
+> as long as the kernel has been in git (back to the 2.6.12 era).
 
-Hi!
-I starting up new server for the test. It's task is terminate L2TP&PPTP 
-users. And when i have opened server (NAS) for users - its crush quickly :(
-What it's could be?
-Hardware is Intel Q6600 with 4GB, Intel nic (igb from inel, latest, RSS 
-enabled 4 queue per RX,TX on both nic). Software is accel-ppp and 
-openl2tpd, ppp redirects to ifb(no ip is up on it, just shaping), ipset, 
-iptables.
-If need more info - i can give it. Strange is - sometimes (mostly) i see 
-panic, but sometime it's just hangs. Only reset helps...
-All IF'ses are IPV4. What on the users side - must be ipv4, but i think 
-not the only...
+Well, it is most importantly *driver-specific*.
 
---------------010507030300050309080304
-Content-Type: text/plain;
- name="trap.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="trap.txt"
+> > > If you don't actually provide a register dump then don't implement this
+> > > operation.
+> > 
+> > Then we have a problem as cfg80211 exports the hw version without any
+> > register dumps:
+> > 
+> > static int cfg80211_get_regs_len(struct net_device *dev)
+> > {
+> > 	/* For now, return 0... */
+> > 	return 0;
+> > }
+> > 
+> > static void cfg80211_get_regs(struct net_device *dev, struct
+> > ethtool_regs *regs,
+> > 			void *data)
+> > {
+> > 	struct wireless_dev *wdev = dev->ieee80211_ptr;
+> > 
+> > 	regs->version = wdev->wiphy->hw_version;
+> > 	regs->len = 0;
+> > }
+> > 
+> > And this has been there a long time already. How cfg80211 should export
+> > hw version if this is not a proper way?
+> 
+> The ethool binary already has support for the at76c50x_usb driver,
+> which uses this very mechanism in exactly this way.  I know this
+> worked previously, although I don't know what might have changed to
+> break it...?
 
-WyA2MDg5LjM1ODUwMl0gQlVHOiB1bmFibGUgdG8gaGFuZGxlIGtlcm5lbCBOVUxMIHBvaW50
-ZXIgZGVyZWZlcmVuY2UgYXQgICAgICAgICAgIChudWxsKQpbIDYwODkuMzYyNDgyXSBJUDog
-WzxmZmZmZmZmZmEwMjY0ZTI0Pl0gX19uZl9jb25udHJhY2tfY29uZmlybSsweDJiNC8weDQ4
-MCBbbmZfY29ubnRyYWNrXQpbIDYwODkuMzYyNDgyXSBQR0QgMTE3ODIyMDY3IFBVRCAxMTc4
-MjMwNjcgUE1EIDAKWyA2MDg5LjM2MjQ4Ml0gT29wczogMDAwMiBbIzFdIFNNUApbIDYwODku
-MzYyNDgyXSBsYXN0IHN5c2ZzIGZpbGU6IC9zeXMvZGV2aWNlcy92aXJ0dWFsL25ldC9wcHA2
-L3VldmVudApbIDYwODkuMzYyNDgyXSBDUFUgMQpbIDYwODkuMzYyNDgyXSBNb2R1bGVzIGxp
-bmtlZCBpbjogYWN0X21pcnJlZCBhY3Rfc2tiZWRpdCBjbHNfdTMyIHNjaF9pbmdyZXNzIGFy
-YzQgZWNiIHBwcF9tcHBlIGwydHBfcHBwIGwydHBfbmV0bGluayBsMnRwZApbIDYwODkuMzYy
-NDgyXQpbIDYwODkuMzYyNDgyXSBQaWQ6IDAsIGNvbW06IGt3b3JrZXIvMDowIE5vdCB0YWlu
-dGVkIDIuNi4zOS1zdGQtZGVmLWFsdDMgIzEgQVNVUyBSUzEwMC1FNC9QSTIvUDVNMi1NL1JT
-MTAwLUU0ClsgNjA4OS4zNjI0ODJdIFJJUDogMDAxMDpbPGZmZmZmZmZmYTAyNjRlMjQ+XSAg
-WzxmZmZmZmZmZmEwMjY0ZTI0Pl0gX19uZl9jb25udHJhY2tfY29uZmlybSsweDJiNC8weDQ4
-MCBbbmZfY29ubnRyYWNrXQpbIDYwODkuMzYyNDgyXSBSU1A6IDAwMTg6ZmZmZjg4MDExZmM4
-M2E4MCAgRUZMQUdTOiAwMDAxMDIwMgpbIDYwODkuMzYyNDgyXSBSQVg6IDAwMDAwMDAwMDAw
-MDQ3Y2QgUkJYOiBmZmZmODgwMTFmYzk0NjIwIFJDWDogMDAwMDAwMDAwMDAwMDAwMApbIDYw
-ODkuMzYyNDgyXSBSRFg6IDAwMDAwMDAwMDAwMGZhMTAgUlNJOiAwMDAwMDAwMGQwMGRkNzE5
-IFJESTogZmZmZmZmZmZhMDI2ZjY4MApbIDYwODkuMzYyNDgyXSBSQlA6IGZmZmY4ODAxMWZj
-ODNhYzAgUjA4OiAwMDAwMDAwMGU3NTM4NDdhIFIwOTogZmZmZjg4MDExN2YwMDAwMApbIDYw
-ODkuMzYyNDgyXSBSMTA6IDAwMDAwMDAwMDAwMDQwMDAgUjExOiAwMDAwMDAwMDAwMDAwMDAx
-IFIxMjogMDAwMDAwMDAwMDAwMDAwMApbIDYwODkuMzYyNDgyXSBSMTM6IGZmZmY4ODAxMTZh
-OTUwODAgUjE0OiBmZmZmZmZmZjgxYTRlMWMwIFIxNTogMDAwMDAwMDAwMDAxMTRkOApbIDYw
-ODkuMzYyNDgyXSBGUzogIDAwMDAwMDAwMDAwMDAwMDAoMDAwMCkgR1M6ZmZmZjg4MDExZmM4
-MDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwClsgNjA4OS4zNjI0ODJdIENTOiAg
-MDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAwNTAwM2IKWyA2MDg5LjM2
-MjQ4Ml0gQ1IyOiAwMDAwMDAwMDAwMDAwMDAwIENSMzogMDAwMDAwMDExNzgyMTAwMCBDUjQ6
-IDAwMDAwMDAwMDAwMDA2ZTAKWyA2MDg5LjM2MjQ4Ml0gRFIwOiAwMDAwMDAwMDAwMDAwMDAw
-IERSMTogMDAwMDAwMDAwMDAwMDAwMCBEUjI6IDAwMDAwMDAwMDAwMDAwMDAKWyA2MDg5LjM2
-MjQ4Ml0gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6
-IDAwMDAwMDAwMDAwMDA0MDAKWyA2MDg5LjM2MjQ4Ml0gUHJvY2VzcyBrd29ya2VyLzA6MCAo
-cGlkOiAwLCB0aHJlYWRpbmZvIGZmZmY4ODAxMThlZjYwMDAsIHRhc2sgZmZmZjg4MDExOGVm
-NDJjMCkKWyA2MDg5LjM2MjQ4Ml0gU3RhY2s6ClsgNjA4OS4zNjI0ODJdICAwMDAwMDAwMDdk
-MDlkYTgwIDAwMDA0MDAwMTZiZDQ0MDAgMDAwMDAwMDExNmVhMjAwMCBmZmZmODgwMTE2YTk1
-MDgwClsgNjA4OS4zNjI0ODJdICAwMDAwMDAwMDAwMDAwMDAxIGZmZmY4ODAxMWZjOTQ2MjAg
-MDAwMDAwMDAwMDAwMDAwMiBmZmZmODgwMTE2ZWEyMDAwClsgNjA4OS4zNjI0ODJdICBmZmZm
-ODgwMTFmYzgzYjMwIGZmZmZmZmZmYTAyYjFkZDggZmZmZjg4MDExNmVhMjAwMCAwMDAwMDAw
-MDAwMDAwMDAwClsgNjA4OS4zNjI0ODJdIENhbGwgVHJhY2U6ClsgNjA4OS4zNjI0ODJdICA8
-SVJRPgpbIDYwODkuMzYyNDgyXSAgWzxmZmZmZmZmZmEwMmIxZGQ4Pl0gaXB2NF9jb25maXJt
-KzB4MTg4LzB4MWMwIFtuZl9jb25udHJhY2tfaXB2NF0KWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZm
-ZmZmZmY4MTM4MjAwND5dIG5mX2l0ZXJhdGUrMHg4NC8weGEwClsgNjA4OS4zNjI0ODJdICBb
-PGZmZmZmZmZmODEzODkzOTA+XSA/IGlwX3Jjdl9maW5pc2grMHgzOTAvMHgzOTAKWyA2MDg5
-LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM4MjA5Nj5dIG5mX2hvb2tfc2xvdysweDc2LzB4MTMw
-ClsgNjA4OS4zNjI0ODJdICBbPGZmZmZmZmZmODEzODkzOTA+XSA/IGlwX3Jjdl9maW5pc2gr
-MHgzOTAvMHgzOTAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM4OTdkNz5dIGlwX2xv
-Y2FsX2RlbGl2ZXIrMHg2Ny8weDkwClsgNjA4OS4zNjI0ODJdICBbPGZmZmZmZmZmODEzODkx
-MzU+XSBpcF9yY3ZfZmluaXNoKzB4MTM1LzB4MzkwClsgNjA4OS4zNjI0ODJdICBbPGZmZmZm
-ZmZmODEzODlhMWM+XSBpcF9yY3YrMHgyMWMvMHgyZTAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZm
-ZmZmZmY4MTM1NmY1YT5dIF9fbmV0aWZfcmVjZWl2ZV9za2IrMHg1MmEvMHg2OTAKWyA2MDg5
-LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM1NzJkMD5dIG5ldGlmX3JlY2VpdmVfc2tiKzB4NjAv
-MHg5MApbIDYwODkuMzYyNDgyXSAgWzxmZmZmZmZmZjgxMjRkZTljPl0gPyBpc19zd2lvdGxi
-X2J1ZmZlcisweDNjLzB4NTAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4MTM1NzQ0MD5d
-IG5hcGlfc2tiX2ZpbmlzaCsweDUwLzB4NzAKWyA2MDg5LjM2MjQ4Ml0gIFs8ZmZmZmZmZmY4
-MTM1NzliZD5dIG5hcGlfZ3JvX3JlY2VpdmUrMHhiZC8weGQwClsgNjA4OS4zNjI0ODJdICBb
-PGZmZmZmZmZmYTAxMjEyOWI+XSBpZ2JfcG9sbCsweDZmYi8weGFlMCBbaWdiXQpbIDYwODku
-MzYyNDgyXSAgWzxmZmZmZmZmZjgxMDdmYjYxPl0gPyBlbnF1ZXVlX2hydGltZXIrMHgzMS8w
-eDgwClsgNjA5MC4zMDIzOTFdICBbPGZmZmZmZmZmODEzNTdiZTU+XSBuZXRfcnhfYWN0aW9u
-KzB4MTM1LzB4MjcwClsgNjA5MC4zMDIzOTFdICBbPGZmZmZmZmZmODEwNjI3MDU+XSBfX2Rv
-X3NvZnRpcnErMHhhNS8weDFkMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZmZmZmZjgxNDEzMDFj
-Pl0gY2FsbF9zb2Z0aXJxKzB4MWMvMHgzMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZmZmZmZjgx
-MDBkMzU1Pl0gZG9fc29mdGlycSsweDY1LzB4YTAKWyA2MDkwLjMwMjM5MV0gIFs8ZmZmZmZm
-ZmY4MTA2MmE5Nj5dIGlycV9leGl0KzB4ODYvMHhhMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZm
-ZmZmZjgxMDBjZjAxPl0gZG9fSVJRKzB4NjEvMHhlMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZm
-ZmZmZjgxNDBhNTkzPl0gY29tbW9uX2ludGVycnVwdCsweDEzLzB4MTMKWyA2MDkwLjMwMjM5
-MV0gIDxFT0k+ClsgNjA5MC4zMDIzOTFdICBbPGZmZmZmZmZmODEwMTJkZWI+XSA/IG13YWl0
-X2lkbGUrMHg5Yi8weDFkMApbIDYwOTAuMzAyMzkxXSAgWzxmZmZmZmZmZjgxNDBkZTM1Pl0g
-PyBhdG9taWNfbm90aWZpZXJfY2FsbF9jaGFpbisweDE1LzB4MjAKWyA2MDkwLjMwMjM5MV0g
-IFs8ZmZmZmZmZmY4MTAwYTFlNj5dIGNwdV9pZGxlKzB4NTYvMHhhMApbIDYwOTAuMzAyMzkx
-XSAgWzxmZmZmZmZmZjgxNDAzNzI5Pl0gc3RhcnRfc2Vjb25kYXJ5KzB4MTk3LzB4MTljClsg
-NjA5MC4zMDIzOTFdIENvZGU6IGZmIDc0IDA5IDQwIDBmIGI2IGZmIDQxIDBmIGI3IDBjIDM4
-IDY2IDQxIDM5IGNjIDBmIDg0IGYxIGZlIGZmIGZmIDQ4IDhiIDAwIGE4IDAxIDBmIDg0IDUx
-IGZmIGZmIGZmIDQKWyA2MDkwLjMwMjM5MV0gIDg5IDAxIDc1IDA0IDQ4IDg5IDQ4IDA4IDQ4
-IDhiIDA1IDRjIDRhIDYwIGUxIDQ4IDAxIDgzIDk4IDAwClsgNjA5MC4zMDIzOTFdIFJJUCAg
-WzxmZmZmZmZmZmEwMjY0ZTI0Pl0gX19uZl9jb25udHJhY2tfY29uZmlybSsweDJiNC8weDQ4
-MCBbbmZfY29ubnRyYWNrXQpbIDYwOTAuMzAyMzkxXSAgUlNQIDxmZmZmODgwMTFmYzgzYTgw
-PgpbIDYwOTAuMzAyMzkxXSBDUjI6IDAwMDAwMDAwMDAwMDAwMDAKWyA2MDkwLjYxMTk5OV0g
-LS0tWyBlbmQgdHJhY2UgZGVkNjdjOGFmYjYyZjE2NCBdLS0tClsgNjA5MC42MjU5MTBdIEtl
-cm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBGYXRhbCBleGNlcHRpb24gaW4gaW50ZXJydXB0
-ClsgNjA5MC42NDUwMjJdIFBpZDogMCwgY29tbToga3dvcmtlci8wOjAgVGFpbnRlZDogRyAg
-ICAgIEQgICAgIDIuNi4zOS1zdGQtZGVmLWFsdDMgIzEKWyA2MDkwLjY2NzgyMl0gQ2FsbCBU
-cmFjZToKWyA2MDkwLjY3NTIzMl0gIDxJUlE+ICBbPGZmZmZmZmZmODE0MDcyODQ+XSBwYW5p
-YysweDhjLzB4MTk3ClsgNjA5MC42OTE1NjNdICBbPGZmZmZmZmZmODE0MGI0ZDI+XSBvb3Bz
-X2VuZCsweGUyLzB4ZjAKWyA2MDkwLjcwNjUxNF0gIFs8ZmZmZmZmZmY4MTAzOWFkMD5dIG5v
-X2NvbnRleHQrMHhmMC8weDI2MApbIDYwOTAuNzIyMjQyXSAgWzxmZmZmZmZmZjgxMzgyMDk2
-Pl0gPyBuZl9ob29rX3Nsb3crMHg3Ni8weDEzMApbIDYwOTAuNzM5MDEzXSAgWzxmZmZmZmZm
-ZjgxMzhlMGYwPl0gPyBpcF9mcmFnbWVudCsweDk2MC8weDk2MApbIDYwOTAuNzU1Nzg0XSAg
-WzxmZmZmZmZmZjgxMDM5ZDY1Pl0gX19iYWRfYXJlYV9ub3NlbWFwaG9yZSsweDEyNS8weDFl
-MApbIDYwOTAuNzc0ODk0XSAgWzxmZmZmZmZmZjgxMDM5ZTJlPl0gYmFkX2FyZWFfbm9zZW1h
-cGhvcmUrMHhlLzB4MTAKWyA2MDkwLjc5MjcwM10gIFs8ZmZmZmZmZmY4MTQwZGJmNj5dIGRv
-X3BhZ2VfZmF1bHQrMHgzMDYvMHg0YjAKWyA2MDkwLjgwOTQ3M10gIFs8ZmZmZmZmZmY4MTA2
-YjQ4ZT5dID8gbW9kX3RpbWVyKzB4MTVlLzB4MmMwClsgNjA5MC44MjU3MjVdICBbPGZmZmZm
-ZmZmODEzNDViNDc+XSA/IHNrX3Jlc2V0X3RpbWVyKzB4MTcvMHgzMApbIDYwOTAuODQyNzU0
-XSAgWzxmZmZmZmZmZjgxMzkzZWViPl0gPyBpbmV0X2Nza19yZXNldF9rZWVwYWxpdmVfdGlt
-ZXIrMHgxYi8weDIwClsgNjA5MC44NjM5NDVdICBbPGZmZmZmZmZmODEzOTNmZTc+XSA/IGlu
-ZXRfY3NrX3JlcXNrX3F1ZXVlX2hhc2hfYWRkKzB4ZjcvMHgxMTAKWyA2MDkwLjg4NTEzNV0g
-IFs8ZmZmZmZmZmY4MTQwYTg1NT5dIHBhZ2VfZmF1bHQrMHgyNS8weDMwClsgNjA5MC45MDA2
-MDhdICBbPGZmZmZmZmZmYTAyNjRlMjQ+XSA/IF9fbmZfY29ubnRyYWNrX2NvbmZpcm0rMHgy
-YjQvMHg0ODAgW25mX2Nvbm50cmFja10KWyA2MDkwLjkyNDE4OV0gIFs8ZmZmZmZmZmZhMDJi
-MWRkOD5dIGlwdjRfY29uZmlybSsweDE4OC8weDFjMCBbbmZfY29ubnRyYWNrX2lwdjRdClsg
-NjA5MC45NDU5NTBdICBbPGZmZmZmZmZmODEzODIwMDQ+XSBuZl9pdGVyYXRlKzB4ODQvMHhh
-MApbIDYwOTAuOTYxNDIwXSAgWzxmZmZmZmZmZjgxMzg5MzkwPl0gPyBpcF9yY3ZfZmluaXNo
-KzB4MzkwLzB4MzkwClsgNjA5MC45Nzg3MTBdICBbPGZmZmZmZmZmODEzODIwOTY+XSBuZl9o
-b29rX3Nsb3crMHg3Ni8weDEzMApbIDYwOTAuOTk0OTU5XSAgWzxmZmZmZmZmZjgxMzg5Mzkw
-Pl0gPyBpcF9yY3ZfZmluaXNoKzB4MzkwLzB4MzkwClsgNjA5MS4wMTIyNTBdICBbPGZmZmZm
-ZmZmODEzODk3ZDc+XSBpcF9sb2NhbF9kZWxpdmVyKzB4NjcvMHg5MApbIDYwOTEuMDI5Mjgx
-XSAgWzxmZmZmZmZmZjgxMzg5MTM1Pl0gaXBfcmN2X2ZpbmlzaCsweDEzNS8weDM5MApbIDYw
-OTEuMDQ2MDUyXSAgWzxmZmZmZmZmZjgxMzg5YTFjPl0gaXBfcmN2KzB4MjFjLzB4MmUwClsg
-NjA5MS4wNjEwMDBdICBbPGZmZmZmZmZmODEzNTZmNWE+XSBfX25ldGlmX3JlY2VpdmVfc2ti
-KzB4NTJhLzB4NjkwClsgNjA5MS4wNzkzMzJdICBbPGZmZmZmZmZmODEzNTcyZDA+XSBuZXRp
-Zl9yZWNlaXZlX3NrYisweDYwLzB4OTAKWyA2MDkxLjA5NjYyMl0gIFs8ZmZmZmZmZmY4MTI0
-ZGU5Yz5dID8gaXNfc3dpb3RsYl9idWZmZXIrMHgzYy8weDUwClsgNjA5MS4xMTQ0MzFdICBb
-PGZmZmZmZmZmODEzNTc0NDA+XSBuYXBpX3NrYl9maW5pc2grMHg1MC8weDcwClsgNjA5MS4x
-MzEyMDFdICBbPGZmZmZmZmZmODEzNTc5YmQ+XSBuYXBpX2dyb19yZWNlaXZlKzB4YmQvMHhk
-MApbIDYwOTEuMTQ4MjM0XSAgWzxmZmZmZmZmZmEwMTIxMjliPl0gaWdiX3BvbGwrMHg2ZmIv
-MHhhZTAgW2lnYl0KWyA2MDkxLjE2NTI2Ml0gIFs8ZmZmZmZmZmY4MTA3ZmI2MT5dID8gZW5x
-dWV1ZV9ocnRpbWVyKzB4MzEvMHg4MApbIDYwOTEuMTgyNTUzXSAgWzxmZmZmZmZmZjgxMzU3
-YmU1Pl0gbmV0X3J4X2FjdGlvbisweDEzNS8weDI3MApbIDYwOTEuMTk5MzIzXSAgWzxmZmZm
-ZmZmZjgxMDYyNzA1Pl0gX19kb19zb2Z0aXJxKzB4YTUvMHgxZDAKWyA2MDkxLjIxNTU3M10g
-IFs8ZmZmZmZmZmY4MTQxMzAxYz5dIGNhbGxfc29mdGlycSsweDFjLzB4MzAKWyA2MDkxLjIz
-MTU2Ml0gIFs8ZmZmZmZmZmY4MTAwZDM1NT5dIGRvX3NvZnRpcnErMHg2NS8weGEwClsgNjA5
-MS4yNDcwMzVdICBbPGZmZmZmZmZmODEwNjJhOTY+XSBpcnFfZXhpdCsweDg2LzB4YTAKWyA2
-MDkxLjI2MTk4M10gIFs8ZmZmZmZmZmY4MTAwY2YwMT5dIGRvX0lSUSsweDYxLzB4ZTAKWyA2
-MDkxLjI3NjQxM10gIFs8ZmZmZmZmZmY4MTQwYTU5Mz5dIGNvbW1vbl9pbnRlcnJ1cHQrMHgx
-My8weDEzClsgNjA5MS4yOTM0NDJdICA8RU9JPiAgWzxmZmZmZmZmZjgxMDEyZGViPl0gPyBt
-d2FpdF9pZGxlKzB4OWIvMHgxZDAKWyA2MDkxLjMxMTU5M10gIFs8ZmZmZmZmZmY4MTQwZGUz
-NT5dID8gYXRvbWljX25vdGlmaWVyX2NhbGxfY2hhaW4rMHgxNS8weDIwClsgNjA5MS4zMzE3
-NDJdICBbPGZmZmZmZmZmODEwMGExZTY+XSBjcHVfaWRsZSsweDU2LzB4YTAKWyA2MDkxLjM0
-NjY5Ml0gIFs8ZmZmZmZmZmY4MTQwMzcyOT5dIHN0YXJ0X3NlY29uZGFyeSsweDE5Ny8weDE5
-YwpbIDYwOTEuMzYzOTg2XSBSZWJvb3RpbmcgaW4gMzAgc2Vjb25kcy4u
---------------010507030300050309080304--
+This is due to:
+
+commit a77f5db361ed9953b5b749353ea2c7fed2bf8d93
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Mon Sep 20 08:42:17 2010 +0000
+
+    ethtool: Allocate register dump buffer with vmalloc()
+
+kmalloc() returns a non-null pointer for size=0 but vmalloc() doesn't.
+
+I was unaware that some drivers would (ab)use this operation to export
+only hardware revision.  Given that they do, I suppose this must be made
+to work again - either using Kalle's fix or the one following this.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
