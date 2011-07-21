@@ -1,71 +1,196 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] Fix panic in virtnet_remove
-Date: Wed, 20 Jul 2011 13:13:39 +0530
-Message-ID: <20110720074339.7842.72593.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	Krishna Kumar <krkumar2@in.ibm.com>
-To: mst@redhat.com
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Subject: [PATCH net-next 1/5] bnx2x: Implementation for
+ netdev->ndo_fcoe_get_wwn
+Date: Thu, 21 Jul 2011 20:56:51 +0300
+Message-ID: <201107212056.51510.vladz@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp08.in.ibm.com ([122.248.162.8]:52017 "EHLO
-	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751703Ab1GUD2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2011 23:28:07 -0400
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp08.in.ibm.com (8.14.4/8.13.1) with ESMTP id p6K7Nr72015877
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 12:53:53 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6K7heI61421388
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 13:13:40 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6K7hdhF004674
-	for <netdev@vger.kernel.org>; Wed, 20 Jul 2011 17:43:40 +1000
+Received: from mms2.broadcom.com ([216.31.210.18]:3059 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751419Ab1GUR50 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2011 13:57:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a panic in virtnet_remove. unregister_netdev has already
-freed up the netdev (and virtnet_info) due to dev->destructor
-being set, while virtnet_info is still required. Remove
-virtnet_free altogether, and move the freeing of the per-cpu
-statistics from virtnet_free to virtnet_remove.
-
-Tested patch below.
-
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/virtio_net.c |   10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ drivers/net/bnx2x/bnx2x_cmn.c  |   23 +++++++++++++++
+ drivers/net/bnx2x/bnx2x_cmn.h  |   11 +++++++
+ drivers/net/bnx2x/bnx2x_main.c |   60 ++++++++++++++++++++++++++++++++++++++--
+ drivers/net/cnic_if.h          |    5 +++
+ 4 files changed, 96 insertions(+), 3 deletions(-)
 
-diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
---- org/drivers/net/virtio_net.c	2011-07-18 09:14:02.000000000 +0530
-+++ new/drivers/net/virtio_net.c	2011-07-18 09:16:35.000000000 +0530
-@@ -705,14 +705,6 @@ static void virtnet_netpoll(struct net_d
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 8b079dc..3aadc30 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -3327,6 +3327,29 @@ int bnx2x_get_link_cfg_idx(struct bnx2x *bp)
+ 	return LINK_CONFIG_IDX(sel_phy_idx);
  }
- #endif
  
--static void virtnet_free(struct net_device *dev)
--{
--	struct virtnet_info *vi = netdev_priv(dev);
--
--	free_percpu(vi->stats);
--	free_netdev(dev);
--}
--
- static int virtnet_open(struct net_device *dev)
++#if defined(NETDEV_FCOE_WWNN) && defined(BCM_CNIC)
++int bnx2x_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++
++	switch (type) {
++	case NETDEV_FCOE_WWNN:
++		*wwn = HILO_U64(cp->fcoe_wwn_node_name_hi,
++				cp->fcoe_wwn_node_name_lo);
++		break;
++	case NETDEV_FCOE_WWPN:
++		*wwn = HILO_U64(cp->fcoe_wwn_port_name_hi,
++				cp->fcoe_wwn_port_name_lo);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++#endif
++
+ /* called with rtnl_lock */
+ int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
  {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -959,7 +951,6 @@ static int virtnet_probe(struct virtio_d
- 	/* Set up network device as normal. */
- 	dev->netdev_ops = &virtnet_netdev;
- 	dev->features = NETIF_F_HIGHDMA;
--	dev->destructor = virtnet_free;
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
+index 83d7d1b..223bfee 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/bnx2x/bnx2x_cmn.h
+@@ -522,6 +522,17 @@ void bnx2x_free_mem_bp(struct bnx2x *bp);
+  */
+ int bnx2x_change_mtu(struct net_device *dev, int new_mtu);
  
- 	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
- 	SET_NETDEV_DEV(dev, &vdev->dev);
-@@ -1122,6 +1113,7 @@ static void __devexit virtnet_remove(str
- 	while (vi->pages)
- 		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
++#if defined(BCM_CNIC) && (defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE))
++/**
++ * bnx2x_fcoe_get_wwn - return the requested WWN value for this port
++ *
++ * @dev:	net_device
++ * @wwn:	output buffer
++ * @type:	WWN type: NETDEV_FCOE_WWNN (node) or NETDEV_FCOE_WWPN (port)
++ *
++ */
++int bnx2x_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type);
++#endif
+ u32 bnx2x_fix_features(struct net_device *dev, u32 features);
+ int bnx2x_set_features(struct net_device *dev, u32 features);
  
-+	free_percpu(vi->stats);
- 	free_netdev(vi->dev);
- }
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 28ef7fa..121df1f 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -9104,10 +9104,13 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
+ #ifdef BCM_CNIC
+ static void __devinit bnx2x_get_cnic_info(struct bnx2x *bp)
+ {
++	int port = BP_PORT(bp);
++	int func = BP_ABS_FUNC(bp);
++
+ 	u32 max_iscsi_conn = FW_ENCODE_32BIT_PATTERN ^ SHMEM_RD(bp,
+-				drv_lic_key[BP_PORT(bp)].max_iscsi_conn);
++				drv_lic_key[port].max_iscsi_conn);
+ 	u32 max_fcoe_conn = FW_ENCODE_32BIT_PATTERN ^ SHMEM_RD(bp,
+-				drv_lic_key[BP_PORT(bp)].max_fcoe_conn);
++				drv_lic_key[port].max_fcoe_conn);
  
+ 	/* Get the number of maximum allowed iSCSI and FCoE connections */
+ 	bp->cnic_eth_dev.max_iscsi_conn =
+@@ -9118,11 +9121,59 @@ static void __devinit bnx2x_get_cnic_info(struct bnx2x *bp)
+ 		(max_fcoe_conn & BNX2X_MAX_FCOE_INIT_CONN_MASK) >>
+ 		BNX2X_MAX_FCOE_INIT_CONN_SHIFT;
+ 
++	/* Read the WWN: */
++	if (!IS_MF(bp)) {
++		/* Port info */
++		bp->cnic_eth_dev.fcoe_wwn_port_name_hi =
++			SHMEM_RD(bp,
++				dev_info.port_hw_config[port].
++				 fcoe_wwn_port_name_upper);
++		bp->cnic_eth_dev.fcoe_wwn_port_name_lo =
++			SHMEM_RD(bp,
++				dev_info.port_hw_config[port].
++				 fcoe_wwn_port_name_lower);
++
++		/* Node info */
++		bp->cnic_eth_dev.fcoe_wwn_node_name_hi =
++			SHMEM_RD(bp,
++				dev_info.port_hw_config[port].
++				 fcoe_wwn_node_name_upper);
++		bp->cnic_eth_dev.fcoe_wwn_node_name_lo =
++			SHMEM_RD(bp,
++				dev_info.port_hw_config[port].
++				 fcoe_wwn_node_name_lower);
++	} else if (!IS_MF_SD(bp)) {
++		u32 cfg = MF_CFG_RD(bp, func_ext_config[func].func_cfg);
++
++		/*
++		 * Read the WWN info only if the FCoE feature is enabled for
++		 * this function.
++		 */
++		if (cfg & MACP_FUNC_CFG_FLAGS_FCOE_OFFLOAD) {
++			/* Port info */
++			bp->cnic_eth_dev.fcoe_wwn_port_name_hi =
++				MF_CFG_RD(bp, func_ext_config[func].
++						fcoe_wwn_port_name_upper);
++			bp->cnic_eth_dev.fcoe_wwn_port_name_lo =
++				MF_CFG_RD(bp, func_ext_config[func].
++						fcoe_wwn_port_name_lower);
++
++			/* Node info */
++			bp->cnic_eth_dev.fcoe_wwn_node_name_hi =
++				MF_CFG_RD(bp, func_ext_config[func].
++						fcoe_wwn_node_name_upper);
++			bp->cnic_eth_dev.fcoe_wwn_node_name_lo =
++				MF_CFG_RD(bp, func_ext_config[func].
++						fcoe_wwn_node_name_lower);
++		}
++	}
++
+ 	BNX2X_DEV_INFO("max_iscsi_conn 0x%x max_fcoe_conn 0x%x\n",
+ 		       bp->cnic_eth_dev.max_iscsi_conn,
+ 		       bp->cnic_eth_dev.max_fcoe_conn);
+ 
+-	/* If mamimum allowed number of connections is zero -
++	/*
++	 * If maximum allowed number of connections is zero -
+ 	 * disable the feature.
+ 	 */
+ 	if (!bp->cnic_eth_dev.max_iscsi_conn)
+@@ -9993,6 +10044,9 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #endif
+ 	.ndo_setup_tc		= bnx2x_setup_tc,
+ 
++#if defined(NETDEV_FCOE_WWNN) && defined(BCM_CNIC)
++	.ndo_fcoe_get_wwn	= bnx2x_fcoe_get_wwn,
++#endif
+ };
+ 
+ static inline int bnx2x_set_coherency_mask(struct bnx2x *bp)
+diff --git a/drivers/net/cnic_if.h b/drivers/net/cnic_if.h
+index 642b9d5..8a1ffbe 100644
+--- a/drivers/net/cnic_if.h
++++ b/drivers/net/cnic_if.h
+@@ -181,6 +181,11 @@ struct cnic_eth_dev {
+ 	u32		max_fcoe_conn;
+ 	u32		max_rdma_conn;
+ 	u32		fcoe_init_cid;
++	u32		fcoe_wwn_port_name_hi;
++	u32		fcoe_wwn_port_name_lo;
++	u32		fcoe_wwn_node_name_hi;
++	u32		fcoe_wwn_node_name_lo;
++
+ 	u16		iscsi_l2_client_id;
+ 	u16		iscsi_l2_cid;
+ 	u8		iscsi_mac[ETH_ALEN];
+-- 
+1.7.4.1
+
+
