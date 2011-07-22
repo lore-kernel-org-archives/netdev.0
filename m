@@ -1,219 +1,252 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] acenic: use netdev_alloc_skb_ip_align
-Date: Fri, 22 Jul 2011 09:31:12 -0700
-Message-ID: <20110722093112.4caa39e7@nehalam.ftrdhcpuser.net>
-References: <1311312533.3886.2.camel@edumazet-laptop>
-	<20110721.232501.1187843432422240228.davem@davemloft.net>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
+Date: Sat, 23 Jul 2011 02:42:01 +0900
+Message-ID: <201107230242.HJH39096.OSMOVQOLFFFHJt@I-love.SAKURA.ne.jp>
+References: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
+	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
+	<201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
+	<20110722.082224.688620059032914637.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50698 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751186Ab1GVQbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2011 12:31:09 -0400
-In-Reply-To: <20110721.232501.1187843432422240228.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: casey@schaufler-ca.com, anton@samba.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20110722.082224.688620059032914637.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Take Eric's patch one step further.
-Use netdev_skb_ip_align to do setup the receive skb.
-Compile tested only.
+David Miller wrote:
+> Ugh, this takes away a non-trivial part of the performance gain of
+> sendmmsg().
+> 
+> I would instead rather that you check ahead of time whether this
+> actually is a send to different addresses.  If they are all the
+> same, keep the nosec code path.
+> 
+OK. Something like this? Not tested at all.
+----------------------------------------
+[PATCH 1/3] net: Add "static" to sock_sendmsg_nosec().
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+sock_sendmsg_nosec() is called from only __sys_sendmsg().
 
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: stable <stable@kernel.org> [3.0+]
+---
+ net/socket.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
---- a/drivers/net/acenic.c	2011-07-22 09:15:26.103853123 -0700
-+++ b/drivers/net/acenic.c	2011-07-22 09:28:36.343823394 -0700
-@@ -1502,13 +1502,13 @@ static int __devinit ace_init(struct net
- 	 * firmware to wipe the ring without re-initializing it.
- 	 */
- 	if (!test_and_set_bit(0, &ap->std_refill_busy))
--		ace_load_std_rx_ring(ap, RX_RING_SIZE);
-+		ace_load_std_rx_ring(dev, RX_RING_SIZE);
- 	else
- 		printk(KERN_ERR "%s: Someone is busy refilling the RX ring\n",
- 		       ap->name);
- 	if (ap->version >= 2) {
- 		if (!test_and_set_bit(0, &ap->mini_refill_busy))
--			ace_load_mini_rx_ring(ap, RX_MINI_SIZE);
-+			ace_load_mini_rx_ring(dev, RX_MINI_SIZE);
- 		else
- 			printk(KERN_ERR "%s: Someone is busy refilling "
- 			       "the RX mini ring\n", ap->name);
-@@ -1584,9 +1584,10 @@ static void ace_watchdog(struct net_devi
+--- linux-3.0.orig/net/socket.c
++++ linux-3.0/net/socket.c
+@@ -580,7 +580,8 @@ int sock_sendmsg(struct socket *sock, st
  }
+ EXPORT_SYMBOL(sock_sendmsg);
  
- 
--static void ace_tasklet(unsigned long dev)
-+static void ace_tasklet(unsigned long arg)
+-int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg, size_t size)
++static int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg,
++			      size_t size)
  {
--	struct ace_private *ap = netdev_priv((struct net_device *)dev);
-+	struct net_device *dev = (struct net_device *) arg;
-+	struct ace_private *ap = netdev_priv(dev);
- 	int cur_size;
+ 	struct kiocb iocb;
+ 	struct sock_iocb siocb;
+
+----------------------------------------
+[PATCH 2/3] net: Introduce helper for copying msghdr struct.
+
+This patch introduces copy_msghdr_to_kenrel().
+This helper is used for avoiding race condition when comparing destination's
+addresses passed to sendmmsg().
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: stable <stable@kernel.org> [3.0+]
+---
+ net/socket.c |   50 ++++++++++++++++++++++++++++++++++----------------
+ 1 file changed, 34 insertions(+), 16 deletions(-)
+
+--- linux-3.0.orig/net/socket.c
++++ linux-3.0/net/socket.c
+@@ -1872,11 +1872,29 @@ SYSCALL_DEFINE2(shutdown, int, fd, int, 
+ #define COMPAT_NAMELEN(msg)	COMPAT_MSG(msg, msg_namelen)
+ #define COMPAT_FLAGS(msg)	COMPAT_MSG(msg, msg_flags)
  
- 	cur_size = atomic_read(&ap->cur_rx_bufs);
-@@ -1595,7 +1596,7 @@ static void ace_tasklet(unsigned long de
- #ifdef DEBUG
- 		printk("refilling buffers (current %i)\n", cur_size);
- #endif
--		ace_load_std_rx_ring(ap, RX_RING_SIZE - cur_size);
-+		ace_load_std_rx_ring(dev, RX_RING_SIZE - cur_size);
- 	}
+-static int __sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
+-			 struct msghdr *msg_sys, unsigned flags, int nosec)
++/**
++ * move_msghdr_to_kernel - copy a "struct msghdr" into kernel space
++ *
++ * @msg:     "struct msghdr" in user space
++ * @msg_sys: "struct msghdr" in kernel space
++ * @flags:   sendmsg() flags.
++ */
++static int copy_msghdr_to_kernel(struct msghdr __user *msg,
++				 struct msghdr *msg_sys, unsigned flags)
++{
++	if (MSG_CMSG_COMPAT & flags) {
++		struct compat_msghdr __user *msg_compat =
++			(struct compat_msghdr __user *) msg;
++		if (get_compat_msghdr(msg_sys, msg_compat))
++			return -EFAULT;
++	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
++		return -EFAULT;
++	return 0;
++}
++
++static int __sys_sendmsg(struct socket *sock, struct msghdr *msg_sys,
++			 unsigned flags, int nosec)
+ {
+-	struct compat_msghdr __user *msg_compat =
+-	    (struct compat_msghdr __user *)msg;
+ 	struct sockaddr_storage address;
+ 	struct iovec iovstack[UIO_FASTIOV], *iov = iovstack;
+ 	unsigned char ctl[sizeof(struct cmsghdr) + 20]
+@@ -1885,13 +1903,6 @@ static int __sys_sendmsg(struct socket *
+ 	unsigned char *ctl_buf = ctl;
+ 	int err, ctl_len, iov_size, total_len;
  
- 	if (ap->version >= 2) {
-@@ -1606,7 +1607,7 @@ static void ace_tasklet(unsigned long de
- 			printk("refilling mini buffers (current %i)\n",
- 			       cur_size);
- #endif
--			ace_load_mini_rx_ring(ap, RX_MINI_SIZE - cur_size);
-+			ace_load_mini_rx_ring(dev, RX_MINI_SIZE - cur_size);
+-	err = -EFAULT;
+-	if (MSG_CMSG_COMPAT & flags) {
+-		if (get_compat_msghdr(msg_sys, msg_compat))
+-			return -EFAULT;
+-	} else if (copy_from_user(msg_sys, msg, sizeof(struct msghdr)))
+-		return -EFAULT;
+-
+ 	/* do not move before msg_sys is valid */
+ 	err = -EMSGSIZE;
+ 	if (msg_sys->msg_iovlen > UIO_MAXIOV)
+@@ -1980,7 +1991,9 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct
+ 	if (!sock)
+ 		goto out;
+ 
+-	err = __sys_sendmsg(sock, msg, &msg_sys, flags, 0);
++	err = copy_msghdr_to_kernel(msg, &msg_sys, flags);
++	if (!err)
++		err = __sys_sendmsg(sock, &msg_sys, flags, 0);
+ 
+ 	fput_light(sock->file, fput_needed);
+ out:
+@@ -2018,15 +2031,20 @@ int __sys_sendmmsg(int fd, struct mmsghd
+ 		 * No need to ask LSM for more than the first datagram.
+ 		 */
+ 		if (MSG_CMSG_COMPAT & flags) {
+-			err = __sys_sendmsg(sock, (struct msghdr __user *)compat_entry,
+-					    &msg_sys, flags, datagrams);
++			err = copy_msghdr_to_kernel((struct msghdr __user *)
++						    compat_entry, &msg_sys,
++						    flags);
++			if (err)
++				break;
++			err = __sys_sendmsg(sock, &msg_sys, flags, datagrams);
+ 			if (err < 0)
+ 				break;
+ 			err = __put_user(err, &compat_entry->msg_len);
+ 			++compat_entry;
+ 		} else {
+-			err = __sys_sendmsg(sock, (struct msghdr __user *)entry,
+-					    &msg_sys, flags, datagrams);
++			err = copy_msghdr_to_kernel((struct msghdr __user *)
++						    entry, &msg_sys, flags);
++			err = __sys_sendmsg(sock, &msg_sys, flags, datagrams);
+ 			if (err < 0)
+ 				break;
+ 			err = put_user(err, &entry->msg_len);
+
+----------------------------------------
+[PATCH 3/3] net: Fix security_socket_sendmsg() bypass problem.
+
+The sendmmsg() introduced by commit 228e548e "net: Add sendmmsg socket system
+call" is capable of sending to multiple different destinations. However,
+security_socket_sendmsg() is called for only once even if multiple different
+destination's addresses are passed to sendmmsg().
+
+SMACK is using destination's address for checking sendmsg() permission.
+Therefore, we need to call security_socket_sendmsg() for each destination
+address rather than the first destination address.
+
+Fix this problem by calling security_socket_sendmsg() for each destination
+address.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: stable <stable@kernel.org> [3.0+]
+---
+ net/socket.c |   52 +++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 35 insertions(+), 17 deletions(-)
+
+--- linux-3.0.orig/net/socket.c
++++ linux-3.0/net/socket.c
+@@ -2011,7 +2011,7 @@ int __sys_sendmmsg(int fd, struct mmsghd
+ 	struct socket *sock;
+ 	struct mmsghdr __user *entry;
+ 	struct compat_mmsghdr __user *compat_entry;
+-	struct msghdr msg_sys;
++	struct msghdr *msg_tmp = NULL;
+ 
+ 	datagrams = 0;
+ 
+@@ -2026,27 +2026,44 @@ int __sys_sendmmsg(int fd, struct mmsghd
+ 	entry = mmsg;
+ 	compat_entry = (struct compat_mmsghdr __user *)mmsg;
+ 
++	/*
++	 * Remember all destination addresses to kernel memory because LSM
++	 * might check destination addresses.
++	 */
++	err = -ENOMEM;
++	msg_tmp = kmalloc(vlen * sizeof(*msg_tmp), GFP_KERNEL);
++	if (!msg_tmp || msg_tmp == ZERO_SIZE_PTR)
++		goto out_put;
+ 	while (datagrams < vlen) {
+-		/*
+-		 * No need to ask LSM for more than the first datagram.
+-		 */
++		struct msghdr *msg_sys = &msg_tmp[datagrams];
++		err = copy_msghdr_to_kernel((MSG_CMSG_COMPAT & flags) ?
++					    (struct msghdr __user *)
++					    compat_entry :
++					    (struct msghdr __user *) entry,
++					    &msg_tmp[datagrams], flags);
++		if (err)
++			goto out_put;
++		/* Ask LSM only once for each destination address. */
++		if (msg_sys->msg_namelen && msg_sys->msg_name)
++			for (err = 0; err < datagrams; err++) {
++				if (msg_tmp[err].msg_namelen ==
++				    msg_sys->msg_namelen &&
++				    msg_tmp[err].msg_name &&
++				    !memcmp(msg_tmp[err].msg_name,
++					    msg_sys->msg_name,
++					    msg_sys->msg_namelen))
++					break;
++			}
++		/* Ask LSM every time if destination address is not passed. */
++		else
++			err = datagrams;
++		err = __sys_sendmsg(sock, msg_sys, flags, err < datagrams);
++		if (err < 0)
++			break;
+ 		if (MSG_CMSG_COMPAT & flags) {
+-			err = copy_msghdr_to_kernel((struct msghdr __user *)
+-						    compat_entry, &msg_sys,
+-						    flags);
+-			if (err)
+-				break;
+-			err = __sys_sendmsg(sock, &msg_sys, flags, datagrams);
+-			if (err < 0)
+-				break;
+ 			err = __put_user(err, &compat_entry->msg_len);
+ 			++compat_entry;
+ 		} else {
+-			err = copy_msghdr_to_kernel((struct msghdr __user *)
+-						    entry, &msg_sys, flags);
+-			err = __sys_sendmsg(sock, &msg_sys, flags, datagrams);
+-			if (err < 0)
+-				break;
+ 			err = put_user(err, &entry->msg_len);
+ 			++entry;
  		}
- 	}
+@@ -2058,6 +2075,7 @@ int __sys_sendmmsg(int fd, struct mmsghd
  
-@@ -1616,7 +1617,7 @@ static void ace_tasklet(unsigned long de
- #ifdef DEBUG
- 		printk("refilling jumbo buffers (current %i)\n", cur_size);
- #endif
--		ace_load_jumbo_rx_ring(ap, RX_JUMBO_SIZE - cur_size);
-+		ace_load_jumbo_rx_ring(dev, RX_JUMBO_SIZE - cur_size);
- 	}
- 	ap->tasklet_pending = 0;
- }
-@@ -1642,8 +1643,9 @@ static void ace_dump_trace(struct ace_pr
-  * done only before the device is enabled, thus no interrupts are
-  * generated and by the interrupt handler/tasklet handler.
-  */
--static void ace_load_std_rx_ring(struct ace_private *ap, int nr_bufs)
-+static void ace_load_std_rx_ring(struct net_device *dev, int nr_bufs)
- {
-+	struct ace_private *ap = netdev_priv(dev);
- 	struct ace_regs __iomem *regs = ap->regs;
- 	short i, idx;
+ out_put:
+ 	fput_light(sock->file, fput_needed);
++	kfree(msg_tmp);
  
-@@ -1657,11 +1659,10 @@ static void ace_load_std_rx_ring(struct
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = dev_alloc_skb(ACE_STD_BUFSIZE + NET_IP_ALIGN);
-+		skb = netdev_alloc_skb_ip_align(dev, ACE_STD_BUFSIZE);
- 		if (!skb)
- 			break;
- 
--		skb_reserve(skb, NET_IP_ALIGN);
- 		mapping = pci_map_page(ap->pdev, virt_to_page(skb->data),
- 				       offset_in_page(skb->data),
- 				       ACE_STD_BUFSIZE,
-@@ -1705,8 +1706,9 @@ static void ace_load_std_rx_ring(struct
- }
- 
- 
--static void ace_load_mini_rx_ring(struct ace_private *ap, int nr_bufs)
-+static void ace_load_mini_rx_ring(struct net_device *dev, int nr_bufs)
- {
-+	struct ace_private *ap = netdev_priv(dev);
- 	struct ace_regs __iomem *regs = ap->regs;
- 	short i, idx;
- 
-@@ -1718,11 +1720,10 @@ static void ace_load_mini_rx_ring(struct
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = dev_alloc_skb(ACE_MINI_BUFSIZE + NET_IP_ALIGN);
-+		skb = netdev_alloc_skb_ip_align(dev, ACE_MINI_BUFSIZE);
- 		if (!skb)
- 			break;
- 
--		skb_reserve(skb, NET_IP_ALIGN);
- 		mapping = pci_map_page(ap->pdev, virt_to_page(skb->data),
- 				       offset_in_page(skb->data),
- 				       ACE_MINI_BUFSIZE,
-@@ -1762,8 +1763,9 @@ static void ace_load_mini_rx_ring(struct
-  * Load the jumbo rx ring, this may happen at any time if the MTU
-  * is changed to a value > 1500.
-  */
--static void ace_load_jumbo_rx_ring(struct ace_private *ap, int nr_bufs)
-+static void ace_load_jumbo_rx_ring(struct net_device *dev, int nr_bufs)
- {
-+	struct ace_private *ap = netdev_priv(dev);
- 	struct ace_regs __iomem *regs = ap->regs;
- 	short i, idx;
- 
-@@ -1774,11 +1776,10 @@ static void ace_load_jumbo_rx_ring(struc
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = dev_alloc_skb(ACE_JUMBO_BUFSIZE + NET_IP_ALIGN);
-+		skb = netdev_alloc_skb_ip_align(dev, ACE_JUMBO_BUFSIZE);
- 		if (!skb)
- 			break;
- 
--		skb_reserve(skb, NET_IP_ALIGN);
- 		mapping = pci_map_page(ap->pdev, virt_to_page(skb->data),
- 				       offset_in_page(skb->data),
- 				       ACE_JUMBO_BUFSIZE,
-@@ -2196,7 +2197,7 @@ static irqreturn_t ace_interrupt(int irq
- #ifdef DEBUG
- 				printk("low on std buffers %i\n", cur_size);
- #endif
--				ace_load_std_rx_ring(ap,
-+				ace_load_std_rx_ring(dev,
- 						     RX_RING_SIZE - cur_size);
- 			} else
- 				run_tasklet = 1;
-@@ -2212,7 +2213,8 @@ static irqreturn_t ace_interrupt(int irq
- 					printk("low on mini buffers %i\n",
- 					       cur_size);
- #endif
--					ace_load_mini_rx_ring(ap, RX_MINI_SIZE - cur_size);
-+					ace_load_mini_rx_ring(dev,
-+							      RX_MINI_SIZE - cur_size);
- 				} else
- 					run_tasklet = 1;
- 			}
-@@ -2228,7 +2230,8 @@ static irqreturn_t ace_interrupt(int irq
- 					printk("low on jumbo buffers %i\n",
- 					       cur_size);
- #endif
--					ace_load_jumbo_rx_ring(ap, RX_JUMBO_SIZE - cur_size);
-+					ace_load_jumbo_rx_ring(dev,
-+							       RX_JUMBO_SIZE - cur_size);
- 				} else
- 					run_tasklet = 1;
- 			}
-@@ -2267,7 +2270,7 @@ static int ace_open(struct net_device *d
- 
- 	if (ap->jumbo &&
- 	    !test_and_set_bit(0, &ap->jumbo_refill_busy))
--		ace_load_jumbo_rx_ring(ap, RX_JUMBO_SIZE);
-+		ace_load_jumbo_rx_ring(dev, RX_JUMBO_SIZE);
- 
- 	if (dev->flags & IFF_PROMISC) {
- 		cmd.evt = C_SET_PROMISC_MODE;
-@@ -2575,7 +2578,7 @@ static int ace_change_mtu(struct net_dev
- 			       "support\n", dev->name);
- 			ap->jumbo = 1;
- 			if (!test_and_set_bit(0, &ap->jumbo_refill_busy))
--				ace_load_jumbo_rx_ring(ap, RX_JUMBO_SIZE);
-+				ace_load_jumbo_rx_ring(dev, RX_JUMBO_SIZE);
- 			ace_set_rxtx_parms(dev, 1);
- 		}
- 	} else {
---- a/drivers/net/acenic.h	2011-07-22 09:23:55.087833975 -0700
-+++ b/drivers/net/acenic.h	2011-07-22 09:24:19.575833054 -0700
-@@ -766,9 +766,9 @@ static inline void ace_unmask_irq(struct
-  * Prototypes
-  */
- static int ace_init(struct net_device *dev);
--static void ace_load_std_rx_ring(struct ace_private *ap, int nr_bufs);
--static void ace_load_mini_rx_ring(struct ace_private *ap, int nr_bufs);
--static void ace_load_jumbo_rx_ring(struct ace_private *ap, int nr_bufs);
-+static void ace_load_std_rx_ring(struct net_device *dev, int nr_bufs);
-+static void ace_load_mini_rx_ring(struct net_device *dev, int nr_bufs);
-+static void ace_load_jumbo_rx_ring(struct net_device *dev, int nr_bufs);
- static irqreturn_t ace_interrupt(int irq, void *dev_id);
- static int ace_load_firmware(struct net_device *dev);
- static int ace_open(struct net_device *dev);
+ 	if (err == 0)
+ 		return datagrams;
