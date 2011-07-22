@@ -1,35 +1,34 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-Subject: [PATCH] can: make function can_get_bittiming static
-Date: Thu, 21 Jul 2011 23:22:31 -0300
-Message-ID: <1311301351-5298-1-git-send-email-cascardo@holoscopio.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	srcvale@holoscopio.com,
-	Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] Add device tree probe support for imx fec driver
+Date: Thu, 21 Jul 2011 20:19:26 -0700 (PDT)
+Message-ID: <20110721.201926.44234910493593303.davem@davemloft.net>
+References: <20110706061901.GH9978@ponder.secretlab.ca>
+	<20110705.232252.897826991160254269.davem@davemloft.net>
+	<20110722020818.GF26837@S2100-06.ap.freescale.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: patches@linaro.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: shawn.guo@freescale.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20110722020818.GF26837@S2100-06.ap.freescale.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The function can_get_bittiming is not used anywhere else, so it should be
-static.
+From: Shawn Guo <shawn.guo@freescale.com>
+Date: Fri, 22 Jul 2011 10:08:19 +0800
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
----
- drivers/net/can/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> David, I assume I can add your acks to all 3 patches, otherwise
+> please let me know.
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index d0f8c7e..9bf1116 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -208,7 +208,7 @@ static int can_fixup_bittiming(struct net_device *dev, struct can_bittiming *bt)
- 	return 0;
- }
- 
--int can_get_bittiming(struct net_device *dev, struct can_bittiming *bt)
-+static int can_get_bittiming(struct net_device *dev, struct can_bittiming *bt)
- {
- 	struct can_priv *priv = netdev_priv(dev);
- 	int err;
--- 
-1.7.5.4
+Yes, you can.
