@@ -1,17 +1,20 @@
 From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] sbni: use pci_dev->subsystem_device
-Date: Fri, 22 Jul 2011 19:50:25 +0400
-Message-ID: <201107221950.25960.sshtylyov@ru.mvista.com>
+Subject: [PATCH] ath9k: use pci_dev->subsystem_device
+Date: Fri, 22 Jul 2011 19:58:23 +0400
+Message-ID: <201107221958.23408.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: jmalinen@atheros.com, lrodriguez@atheros.com, vasanth@atheros.com,
+	senthilkumar@atheros.com
+To: netdev@vger.kernel.org, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:48557 "HELO
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:41202 "HELO
 	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751418Ab1GVPwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 11:52:15 -0400
+	with SMTP id S1750711Ab1GVQAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 12:00:12 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,29 +28,29 @@ Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 ---
 The patch is against the recent Linus' tree.
 
- drivers/net/wan/sbni.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/wireless/ath/ath9k/pci.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Index: linux-2.6/drivers/net/wan/sbni.c
+Index: linux-2.6/drivers/net/wireless/ath/ath9k/pci.c
 ===================================================================
---- linux-2.6.orig/drivers/net/wan/sbni.c
-+++ linux-2.6/drivers/net/wan/sbni.c
-@@ -303,7 +303,6 @@ sbni_pci_probe( struct net_device  *dev 
- 	       != NULL ) {
- 		int  pci_irq_line;
- 		unsigned long  pci_ioaddr;
--		u16  subsys;
+--- linux-2.6.orig/drivers/net/wireless/ath/ath9k/pci.c
++++ linux-2.6/drivers/net/wireless/ath/ath9k/pci.c
+@@ -129,7 +129,6 @@ static int ath_pci_probe(struct pci_dev 
+ 	struct ath_softc *sc;
+ 	struct ieee80211_hw *hw;
+ 	u8 csz;
+-	u16 subsysid;
+ 	u32 val;
+ 	int ret = 0;
+ 	char hw_name[64];
+@@ -223,8 +222,8 @@ static int ath_pci_probe(struct pci_dev 
  
- 		if( pdev->vendor != SBNI_PCI_VENDOR &&
- 		    pdev->device != SBNI_PCI_DEVICE )
-@@ -314,9 +313,7 @@ sbni_pci_probe( struct net_device  *dev 
+ 	sc->irq = pdev->irq;
  
- 		/* Avoid already found cards from previous calls */
- 		if( !request_region( pci_ioaddr, SBNI_IO_EXTENT, dev->name ) ) {
--			pci_read_config_word( pdev, PCI_SUBSYSTEM_ID, &subsys );
--
--			if (subsys != 2)
-+			if (pdev->subsystem_device != 2)
- 				continue;
- 
- 			/* Dual adapter is present */
+-	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &subsysid);
+-	ret = ath9k_init_device(id->device, sc, subsysid, &ath_pci_bus_ops);
++	ret = ath9k_init_device(id->device, sc, pdev->subsystem_device,
++				&ath_pci_bus_ops);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Failed to initialize device\n");
+ 		goto err_init;
