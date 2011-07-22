@@ -1,46 +1,58 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v2 0/3] Add device tree probe support for imx fec driver
-Date: Fri, 22 Jul 2011 10:08:19 +0800
-Message-ID: <20110722020818.GF26837@S2100-06.ap.freescale.net>
-References: <20110705.194854.1875695946300840388.davem@davemloft.net>
- <20110705.223045.738515407552627580.davem@davemloft.net>
- <20110706061901.GH9978@ponder.secretlab.ca>
- <20110705.232252.897826991160254269.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <grant.likely@secretlab.ca>, <netdev@vger.kernel.org>,
-	<devicetree-discuss@lists.ozlabs.org>, <shawn.guo@linaro.org>,
-	<linux-arm-kernel@lists.infradead.org>, <patches@linaro.org>
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10][pull request] Intel Wired LAN Driver Update
+Date: Thu, 21 Jul 2011 19:01:08 -0700
+Message-ID: <1311300078-12876-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:45766
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751587Ab1GVCBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 22:01:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20110705.232252.897826991160254269.davem@davemloft.net>
+Received: from mga11.intel.com ([192.55.52.93]:44276 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751587Ab1GVCBV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2011 22:01:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 05, 2011 at 11:22:52PM -0700, David Miller wrote:
-> From: Grant Likely <grant.likely@secretlab.ca>
-> Date: Wed, 6 Jul 2011 00:19:01 -0600
-> 
-> > Sorry about that, I missed the reference to that function which is
-> > currently in my devicetree/next branch.  I can either take the series
-> > via devicetree/next, or I can provide you with a topic branch
-> > containing the needed commit that you can merge.  Whichever you prefer.
-> 
-> Please just take the series, thanks.
-> 
-I think the easier way is that I repost the series after
-devicetree/next and i.mx tree get merged in the coming window, and
-let them go through i.mx tree.
+The following series contains updates to e1000, igb and ixgbe.
 
-David, I assume I can add your acks to all 3 patches, otherwise
-please let me know.
+The following are changes since commit 557e2a394de0d142ba930ff3cdb2909419414e06:
+  stmmac: improve and up-to-date the documentation
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+
+Alexander Duyck (5):
+  ixgbe: Update ATR to use recorded TX queues instead of CPU for
+    routing
+  ixgbe: inline the ixgbe_maybe_stop_tx function
+  ixgbe: add structure for containing RX/TX rings to q_vector
+  ixgbe: Move interrupt related values out of ring and into q_vector
+  ixgbe: Pass staterr instead of re-reading status and error bits from
+    descriptor
+
+Andy Gospodarek (1):
+  ixgbe: only enable WoL for magic packet by default
+
+Don Skidmore (1):
+  ixgbe: convert to ndo_fix_features
+
+Emil Tantilov (1):
+  ixgbe: remove ifdef check for non-existent define
+
+Nicolas Schichan (1):
+  e1000: always call e1000_check_for_link() on e1000_ce4100 MACs.
+
+Robert Healy (1):
+  igb: Fix for DH89xxCC near end loopback test
+
+ drivers/net/e1000/e1000_main.c    |   11 +-
+ drivers/net/igb/e1000_defines.h   |   10 +
+ drivers/net/igb/igb_ethtool.c     |   33 +++
+ drivers/net/ixgbe/ixgbe.h         |   50 ++--
+ drivers/net/ixgbe/ixgbe_ethtool.c |  200 +---------------
+ drivers/net/ixgbe/ixgbe_fcoe.c    |   35 +---
+ drivers/net/ixgbe/ixgbe_main.c    |  480 +++++++++++++++++++------------------
+ 7 files changed, 338 insertions(+), 481 deletions(-)
 
 -- 
-Regards,
-Shawn
+1.7.6
 
