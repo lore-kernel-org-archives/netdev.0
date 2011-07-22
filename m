@@ -1,45 +1,44 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-2.6] jme: Fix unmap error (Causing system freeze)
-Date: Fri, 22 Jul 2011 09:45:42 +0200
-Message-ID: <CAHXqBF+1aJ0O9WxrZTKfYMm57emysfPUnA-=M9DZN5kUGnhW8g@mail.gmail.com>
-References: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: icmp_route_lookup returns wrong source address information
+Date: Fri, 22 Jul 2011 00:59:04 -0700 (PDT)
+Message-ID: <20110722.005904.2234780049605106051.davem@davemloft.net>
+References: <20110720192258.GA21528@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Aries Lee <arieslee@jmicron.com>,
-	Devinchiu <devinchiu@jmicron.com>,
-	Jason Lamb <jason@lambhome.org>,
-	Marcus Becker <marcus.disi@gmail.com>,
-	Marc Schiffbauer <mschiff@gentoo.org>,
-	Jason Long <jason@octgsoftware.com>, stable@kernel.org
-To: cooldavid@cooldavid.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:52620 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163Ab1GVHqD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 03:46:03 -0400
-Received: by qyk9 with SMTP id 9so1149559qyk.19
-        for <netdev@vger.kernel.org>; Fri, 22 Jul 2011 00:46:02 -0700 (PDT)
-In-Reply-To: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38462 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755Ab1GVH7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 03:59:12 -0400
+In-Reply-To: <20110720192258.GA21528@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/7/21  <cooldavid@cooldavid.org>:
-> From: Guo-Fu Tseng <cooldavid@cooldavid.org>
->
-> This patch add the missing dma_unmap().
-> Which solved the critical issue of system freeze on heavy load.
->
-> Michal Miroslaw's rejected patch:
-> [PATCH v2 10/46] net: jme: convert to generic DMA API
-> Pointed out the issue also, thank you Michal.
-> But the fix was incorrect. It would unmap needed address
-> when low memory.
+From: Florian Westphal <fw@strlen.de>
+Date: Wed, 20 Jul 2011 21:22:58 +0200
 
-My patch also fixed another issue - from correctness point of view,
-you should not use virt_to_page+dma_map_page here, but dma_map_single.
+> With linux-2.6 and net-next trees, whenever an icmp error message is
+> sent in response to a to-be-forwarded packet, the destination address
+> of the original packet is used as the IP header source address.
+> 
+> Example:
+> $ traceroute breakpoint.cc
+> traceroute to breakpoint.cc (85.10.199.196), 30 hops max, 40 byte packets
+>  1  chamillionaire.breakpoint.cc (85.10.199.196)  0.476 ms  0.468 ms  0.793 ms
+> 
+> But the expected 1st hop is 192.168.20.7 in my setup.
+> 
+> I bisected this down to 77968b78242ee25e2a4d759f0fca8dd52df6d479
+> ("ipv4: Pass flow keys down into datagram packet building engine.")
+> 
+> Specifically, it is caused by this hunk:
+ ...
+> Problem is that xfrm_decode_session_reverse() may rebuild fl4 from scratch.
+> 
+> In my setup, "goto relookup_failed" will be hit a bit later on, and fl4->saddr will
+> be set to iph->daddr...
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Thanks for the detailed report Florian, I'll look into this.
