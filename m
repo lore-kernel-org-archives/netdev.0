@@ -1,51 +1,51 @@
-From: Pierre Louis Aublin <pierre-louis.aublin@inria.fr>
-Subject: tcp/udp checksum on loopback interface
-Date: Fri, 22 Jul 2011 10:01:21 +0200
-Message-ID: <4E292E51.4040802@inria.fr>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH net-2.6] jme: Fix unmap error (Causing system
+	freeze)
+Date: Fri, 22 Jul 2011 16:49:43 +0800
+Message-ID: <20110722083637.M71863@cooldavid.org>
+References: <1311217056-9073-1-git-send-email-cooldavid@cooldavid.org>
+	<CAHXqBF+1aJ0O9WxrZTKfYMm57emysfPUnA-=M9DZN5kUGnhW8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:27248
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752321Ab1GVILH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 04:11:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jason Lamb <jason@lambhome.org>, linux-netdev <netdev@vger.kernel.org>,
+        Jason Long <jason@octgsoftware.com>, stable@kernel.org,
+        Marcus Becker <marcus.disi@gmail.com>,
+        Aries Lee <arieslee@jmicron.com>, Devinchiu <devinchiu@jmicron.com>,
+        Marc Schiffbauer <mschiff@gentoo.org>,
+        David Miller <davem@davemloft.net>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw_?=<mirqus@gmail.com>
+Return-path: <stable-bounces@linux.kernel.org>
+In-Reply-To: <CAHXqBF+1aJ0O9WxrZTKfYMm57emysfPUnA-=M9DZN5kUGnhW8g@mail.gmail.com>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello everybody
-
-I am interested in the reliability of TCP and UDP using the loopback 
-interface.
-I found that there is no checksum verification on the body of packets 
-transmitted through the loopback interface : 
-http://kerneltrap.org/mailarchive/linux-netdev/2007/10/2/327241
-I ran a simple test using iperf and wireshark and I indeed found the 
-validation of the checksum is disabled at packets reception.
-
-At the reception, I guess the piece of code responsible for this 
-behaviour is (line 1196 of net/ipv4/udp.c, in udp_recvmsg() for UDP) :
-if (skb_csum_unnecessary(skb))
-     err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr), 
-msg->msg_iov, len);
-Is this the responsible piece of code? If yes, where does the 
-CHECKSUM_UNNECESSARY flag is set?
-
-However, I am not sure whether the checksum is computed on the whole 
-packet at emission.
-In __ip_append_data (net/ipv4/ip_output.c), I found the flag csummode is 
-at the beginning at CHECKSUM_NONE.
-Then, it is augmented using the dev->features flag of the network device 
-(e.g. the loopback interface).
-As the loopback interface has the NETIF_F_NO_CSUM flag, csummode stays 
-at CHECKSUM_NONE and the checksum is not computed on the body of the 
-message.
-Can you confirm the checksum is computed only on the header of the 
-packet when sending it through the loopback interface?
-
-Finally, why this behaviour? Is it because you assume message can not 
-get corrupted while staying on the same machine?
-
-Thank you in advance
-Pierre Louis Aublin
+T24gRnJpLCAyMiBKdWwgMjAxMSAwOTo0NTo0MiArMDIwMCwgTWljaGHFgiBNaXJvc8WCYXcgd3Jv
+dGUKPiAyMDExLzcvMjEgIDxjb29sZGF2aWRAY29vbGRhdmlkLm9yZz46Cj4gPiBGcm9tOiBHdW8t
+RnUgVHNlbmcgPGNvb2xkYXZpZEBjb29sZGF2aWQub3JnPgo+ID4KPiA+IFRoaXMgcGF0Y2ggYWRk
+IHRoZSBtaXNzaW5nIGRtYV91bm1hcCgpLgo+ID4gV2hpY2ggc29sdmVkIHRoZSBjcml0aWNhbCBp
+c3N1ZSBvZiBzeXN0ZW0gZnJlZXplIG9uIGhlYXZ5IGxvYWQuCj4gPgo+ID4gTWljaGFsIE1pcm9z
+bGF3J3MgcmVqZWN0ZWQgcGF0Y2g6Cj4gPiBbUEFUQ0ggdjIgMTAvNDZdIG5ldDogam1lOiBjb252
+ZXJ0IHRvIGdlbmVyaWMgRE1BIEFQSQo+ID4gUG9pbnRlZCBvdXQgdGhlIGlzc3VlIGFsc28sIHRo
+YW5rIHlvdSBNaWNoYWwuCj4gPiBCdXQgdGhlIGZpeCB3YXMgaW5jb3JyZWN0LiBJdCB3b3VsZCB1
+bm1hcCBuZWVkZWQgYWRkcmVzcwo+ID4gd2hlbiBsb3cgbWVtb3J5Lgo+IAo+IE15IHBhdGNoIGFs
+c28gZml4ZWQgYW5vdGhlciBpc3N1ZSAtIGZyb20gY29ycmVjdG5lc3MgcG9pbnQgb2YgdmlldywK
+PiB5b3Ugc2hvdWxkIG5vdCB1c2UgdmlydF90b19wYWdlK2RtYV9tYXBfcGFnZSBoZXJlLCBidXQg
+ZG1hX21hcF9zaW5nbGUuCj4gCj4gQmVzdCBSZWdhcmRzLAo+IE1pY2hhxYIgTWlyb3PFgmF3Ckhp
+IE1pY2hhxYI6CgpZZXMsIEkgZGlkIG5vdGljZWQgdGhhdC4gOikKCkFuZCBJIGFncmVlZCB0aGF0
+IHVzaW5nIHtkbWF8cGNpfV9tYXBfc2luZ2xlIGlzIGJldHRlciB0aGFuCmNhbGxpbmcgdmlydF90
+b19wYWdlIGluIGRyaXZlci4KCkl0J3MganVzdCB0aGF0IEknbSBub3Qgc3VyZSBpZiBpdCBpcyBy
+ZWFsbHkgcHJlZmVycmVkIHRvIHVzZQpkbWFfbWFwX3NpbmdsZSBvdmVyIHBjaV9tYXBfc2luZ2xl
+IGZvciBQQ0kgZGV2aWNlIGRyaXZlcj8KCllvdSBhcmUgdmVyeSB3ZWxjb21lIHRvIHNlbmQgYW5v
+dGhlciBwYXRjaCBmb3IgY29udmVydGluZyB0aGUKRE1BIEFQSSB1c2luZy4KCkd1by1GdSBUc2Vu
+ZwoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18Kc3RhYmxl
+IG1haWxpbmcgbGlzdApzdGFibGVAbGludXgua2VybmVsLm9yZwpodHRwOi8vbGludXgua2VybmVs
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL3N0YWJsZQo=
