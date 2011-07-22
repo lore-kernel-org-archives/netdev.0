@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
- predictable
-Date: Thu, 21 Jul 2011 17:07:03 -0700 (PDT)
-Message-ID: <20110721.170703.195266775134111762.davem@davemloft.net>
-References: <4E2781A2.8020905@gont.com.ar>
-	<20110721.151750.995903739612693126.davem@davemloft.net>
-	<4E28B84C.2090305@gont.com.ar>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: ipvs oops in 3.0-rc7
+Date: Fri, 22 Jul 2011 09:08:05 +0900
+Message-ID: <20110722000805.GB31867@verge.net.au>
+References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
+ <alpine.LFD.2.00.1107211202380.1660@ja.ssi.bg>
+ <CA+v9cxbhpt3LSZ_m+OA_Kujt79mvDZ7VnGqjbbPQxS_gY6+pTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, security@kernel.org, eugeneteo@kernel.sg,
-	netdev@vger.kernel.org, mpm@selenic.com
-To: fernando@gont.com.ar
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45732 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752976Ab1GVAHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 20:07:52 -0400
-In-Reply-To: <4E28B84C.2090305@gont.com.ar>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Julian Anastasov <ja@ssi.bg>, Randy Dunlap <rdunlap@xenotime.net>,
+	netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Huajun Li <huajun.li.lee@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+v9cxbhpt3LSZ_m+OA_Kujt79mvDZ7VnGqjbbPQxS_gY6+pTA@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fernando Gont <fernando@gont.com.ar>
-Date: Thu, 21 Jul 2011 20:37:48 -0300
+On Thu, Jul 21, 2011 at 09:37:29PM +0800, Huajun Li wrote:
+> 2011/7/21 Julian Anastasov <ja@ssi.bg>:
+> >
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Hello,
+> >
+> > On Wed, 20 Jul 2011, Randy Dunlap wrote:
+> >
+> >> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading a=
+nd unloading
+> >> modules. =C2=A0Any chance this is already fixed? =C2=A0I can test =
+current git, but I
+> >> wanted to ask first.
+> >>
+> >> Looks like it is on the second module load of ip_vs (i.e.,
+> >> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
+> >
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0I think, this problem was fixed by this =
+patch:
+> >
+> > http://www.spinics.net/lists/lvs-devel/msg02051.html
+> >
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0But it seems it was lost somewhere ...
+> >
+>=20
+> That's great, SB. can help to apply it again, thanks.
 
-> While I haven't had a chance to look at the patch yet, I was wondering
-> whether it defines both a separe "offset" and "counter" for each "flow".
-
-Why wonder, just take a look.
-
-If you aren't willing to even bother looking at the solution we came
-up with, why should we feel compelled to spend any time at all looking
-at your "anaylsis" and "concerns"?
+Sorry about that. For some reason I thought that would be / had been
+picked up. I'll send a pull request ASAP.
