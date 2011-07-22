@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 05/10] bna: Minor IRQ Index and Definition Change
-Date: Fri, 22 Jul 2011 11:07:44 -0700
-Message-ID: <1311358069-32067-6-git-send-email-rmody@brocade.com>
+Subject: [PATCH 07/10] bna: IOC Event Name Change
+Date: Fri, 22 Jul 2011 11:07:46 -0700
+Message-ID: <1311358069-32067-8-git-send-email-rmody@brocade.com>
 References: <1311358069-32067-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,113 +9,110 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37607 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37613 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754575Ab1GVSI3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 14:08:29 -0400
+	by vger.kernel.org with ESMTP id S1754575Ab1GVSIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 14:08:39 -0400
 In-Reply-To: <1311358069-32067-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Always set mbox irq index to zero and make corresponding changes in mbox
-   irq alloc/sync function and txrx irq index calculation. Add definition of
-   BNAD_INTX_TX_IB_BITMASK & BNAD_INTX_RX_IB_BITMASK and update
-   bnad_txrx_irq_alloc accordingly.
+ - Changed event name IOC_E_PFAILED to IOC_E_PFFAILED
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bnad.c |   19 ++++++++++---------
- drivers/net/bna/bnad.h |    3 +++
- 2 files changed, 13 insertions(+), 9 deletions(-)
+ drivers/net/bna/bfa_ioc.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
-index 2cc543d..194ca89 100644
---- a/drivers/net/bna/bnad.c
-+++ b/drivers/net/bna/bnad.c
-@@ -58,7 +58,7 @@ static const u8 bnad_bcast_addr[] =  {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
+index 889039c..da56c2f 100644
+--- a/drivers/net/bna/bfa_ioc.c
++++ b/drivers/net/bna/bfa_ioc.c
+@@ -108,7 +108,7 @@ enum ioc_event {
+ 	IOC_E_FWRSP_GETATTR	= 6,	/*!< IOC get attribute response	*/
+ 	IOC_E_DISABLED		= 7,	/*!< f/w disabled		*/
+ 	IOC_E_INITFAILED	= 8,	/*!< failure notice by iocpf sm	*/
+-	IOC_E_PFAILED		= 9,	/*!< failure notice by iocpf sm	*/
++	IOC_E_PFFAILED		= 9,	/*!< failure notice by iocpf sm	*/
+ 	IOC_E_HBFAIL		= 10,	/*!< heartbeat failure		*/
+ 	IOC_E_HWERROR		= 11,	/*!< hardware error interrupt	*/
+ 	IOC_E_TIMEOUT		= 12,	/*!< timeout			*/
+@@ -295,12 +295,12 @@ bfa_ioc_sm_enabling(struct bfa_ioc *ioc, enum ioc_event event)
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_getattr);
+ 		break;
  
- #define BNAD_GET_MBOX_IRQ(_bnad)				\
- 	(((_bnad)->cfg_flags & BNAD_CF_MSIX) ?			\
--	 ((_bnad)->msix_table[(_bnad)->msix_num - 1].vector) :	\
-+	 ((_bnad)->msix_table[BNAD_MAILBOX_MSIX_INDEX].vector) : \
- 	 ((_bnad)->pcidev->irq))
+-	case IOC_E_PFAILED:
++	case IOC_E_PFFAILED:
+ 		/* !!! fall through !!! */
+ 	case IOC_E_HWERROR:
+ 		ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_fail_retry);
+-		if (event != IOC_E_PFAILED)
++		if (event != IOC_E_PFFAILED)
+ 			bfa_iocpf_initfail(ioc);
+ 		break;
  
- #define BNAD_FILL_UNMAPQ_MEM_REQ(_res_info, _num, _depth)	\
-@@ -1122,17 +1122,17 @@ bnad_mbox_irq_alloc(struct bnad *bnad,
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	if (bnad->cfg_flags & BNAD_CF_MSIX) {
- 		irq_handler = (irq_handler_t)bnad_msix_mbox_handler;
--		irq = bnad->msix_table[bnad->msix_num - 1].vector;
-+		irq = bnad->msix_table[BNAD_MAILBOX_MSIX_INDEX].vector;
- 		irq_flags = 0;
- 		intr_info->intr_type = BNA_INTR_T_MSIX;
--		intr_info->idl[0].vector = bnad->msix_num - 1;
-+		intr_info->idl[0].vector = BNAD_MAILBOX_MSIX_INDEX;
- 	} else {
- 		irq_handler = (irq_handler_t)bnad_isr;
- 		irq = bnad->pcidev->irq;
- 		irq_flags = IRQF_SHARED;
- 		intr_info->intr_type = BNA_INTR_T_INTX;
--		/* intr_info->idl.vector = 0 ? */
- 	}
-+
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 	sprintf(bnad->mbox_irq_name, "%s", BNAD_NAME);
+@@ -345,14 +345,14 @@ bfa_ioc_sm_getattr(struct bfa_ioc *ioc, enum ioc_event event)
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_op);
+ 		break;
  
-@@ -1185,11 +1185,12 @@ bnad_txrx_irq_alloc(struct bnad *bnad, enum bnad_intr_source src,
+-	case IOC_E_PFAILED:
++	case IOC_E_PFFAILED:
+ 	case IOC_E_HWERROR:
+ 		del_timer(&ioc->ioc_timer);
+ 		/* fall through */
+ 	case IOC_E_TIMEOUT:
+ 		ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_fail_retry);
+-		if (event != IOC_E_PFAILED)
++		if (event != IOC_E_PFFAILED)
+ 			bfa_iocpf_getattrfail(ioc);
+ 		break;
  
- 		switch (src) {
- 		case BNAD_INTR_TX:
--			vector_start = txrx_id;
-+			vector_start = BNAD_MAILBOX_MSIX_VECTORS + txrx_id;
- 			break;
+@@ -388,7 +388,7 @@ bfa_ioc_sm_op(struct bfa_ioc *ioc, enum ioc_event event)
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabling);
+ 		break;
  
- 		case BNAD_INTR_RX:
--			vector_start = bnad->num_tx * bnad->num_txq_per_tx +
-+			vector_start = BNAD_MAILBOX_MSIX_VECTORS +
-+					(bnad->num_tx * bnad->num_txq_per_tx) +
- 					txrx_id;
- 			break;
+-	case IOC_E_PFAILED:
++	case IOC_E_PFFAILED:
+ 	case IOC_E_HWERROR:
+ 		bfa_ioc_hb_stop(ioc);
+ 		/* !!! fall through !!! */
+@@ -399,7 +399,7 @@ bfa_ioc_sm_op(struct bfa_ioc *ioc, enum ioc_event event)
+ 		else
+ 			bfa_fsm_set_state(ioc, bfa_ioc_sm_fail);
  
-@@ -1210,11 +1211,11 @@ bnad_txrx_irq_alloc(struct bnad *bnad, enum bnad_intr_source src,
+-		if (event != IOC_E_PFAILED)
++		if (event != IOC_E_PFFAILED)
+ 			bfa_iocpf_fail(ioc);
+ 		break;
  
- 		switch (src) {
- 		case BNAD_INTR_TX:
--			intr_info->idl[0].vector = 0x1; /* Bit mask : Tx IB */
-+			intr_info->idl[0].vector = BNAD_INTX_TX_IB_BITMASK;
- 			break;
+@@ -486,13 +486,13 @@ bfa_ioc_sm_fail_retry(struct bfa_ioc *ioc, enum ioc_event event)
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_getattr);
+ 		break;
  
- 		case BNAD_INTR_RX:
--			intr_info->idl[0].vector = 0x2; /* Bit mask : Rx IB */
-+			intr_info->idl[0].vector = BNAD_INTX_RX_IB_BITMASK;
- 			break;
- 		}
- 	}
-@@ -2086,7 +2087,7 @@ bnad_mbox_irq_sync(struct bnad *bnad)
+-	case IOC_E_PFAILED:
++	case IOC_E_PFFAILED:
+ 	case IOC_E_HWERROR:
+ 		/**
+ 		 * Initialization retry failed.
+ 		 */
+ 		ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
+-		if (event != IOC_E_PFAILED)
++		if (event != IOC_E_PFFAILED)
+ 			bfa_iocpf_initfail(ioc);
+ 		break;
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	if (bnad->cfg_flags & BNAD_CF_MSIX)
--		irq = bnad->msix_table[bnad->msix_num - 1].vector;
-+		irq = bnad->msix_table[BNAD_MAILBOX_MSIX_INDEX].vector;
- 	else
- 		irq = bnad->pcidev->irq;
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-diff --git a/drivers/net/bna/bnad.h b/drivers/net/bna/bnad.h
-index acf04b6..1bf593c 100644
---- a/drivers/net/bna/bnad.h
-+++ b/drivers/net/bna/bnad.h
-@@ -67,7 +67,10 @@ struct bnad_rx_ctrl {
+@@ -1685,7 +1685,7 @@ bfa_ioc_pf_initfailed(struct bfa_ioc *ioc)
+ static void
+ bfa_ioc_pf_failed(struct bfa_ioc *ioc)
+ {
+-	bfa_fsm_send_event(ioc, IOC_E_PFAILED);
++	bfa_fsm_send_event(ioc, IOC_E_PFFAILED);
+ }
  
- #define BNAD_VERSION			"2.3.2.3"
- 
-+#define BNAD_MAILBOX_MSIX_INDEX		0
- #define BNAD_MAILBOX_MSIX_VECTORS	1
-+#define BNAD_INTX_TX_IB_BITMASK		0x1
-+#define BNAD_INTX_RX_IB_BITMASK		0x2
- 
- #define BNAD_STATS_TIMER_FREQ		1000	/* in msecs */
- #define BNAD_DIM_TIMER_FREQ		1000	/* in msecs */
+ static void
 -- 
 1.7.1
 
