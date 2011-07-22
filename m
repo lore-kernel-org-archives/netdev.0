@@ -1,97 +1,296 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 01/13] mm: Make some struct page's const.
-Date: Fri, 22 Jul 2011 14:17:21 +0100
-Message-ID: <1311340653-19336-1-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 03/13] net: add APIs for manipulating skb page fragments.
+Date: Fri, 22 Jul 2011 14:17:23 +0100
+Message-ID: <1311340653-19336-3-git-send-email-ian.campbell@citrix.com>
 References: <1311340095.12772.57.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Ian Campbell <ian.campbell@citrix.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Rik van Riel <riel@redhat.com>, Andrea Arcangeli <aarcange@redhat.com>,
-        Mel Gorman <mel@csn.ul.ie>, Michel Lespinasse <walken@google.com>,
-        linux-mm@kvack.org, linux-kernel@vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: netdev@vger.kernel.org, linux-nfs@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:1493 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754329Ab1GVNRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jul 2011 09:17:46 -0400
 In-Reply-To: <1311340095.12772.57.camel@zakaz.uk.xensource.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These uses are read-only and in a subsequent patch I have a const struct page
-in my hand...
+The primary aim is to add skb_frag_(ref|unref) in order to remove the u=
+se of
+bare get/put_page on SKB pages fragments and to isolate users from subs=
+equent
+changes to the skb_frag_t data structure.
+
+The API also includes an accessor for the struct page itself. The defau=
+lt
+variant of this returns a *const* struct page in an attempt to catch ba=
+re uses
+of get/put_page (which take a non-const struct page).
+
+Also included are helper APIs for passing a paged fragment to kmap and
+dma_map_page since I was seeing the same pattern a lot. A helper for
+pci_map_page is ommitted due to Micha=C5=82 Miros=C5=82aw's recommendat=
+ion that users
+should transition to pci_map_page instead.
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Rik van Riel <riel@redhat.com>
-Cc: Andrea Arcangeli <aarcange@redhat.com>
-Cc: Mel Gorman <mel@csn.ul.ie>
-Cc: Michel Lespinasse <walken@google.com>
-Cc: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+Cc: netdev@vger.kernel.org
 ---
- include/linux/mm.h |   10 +++++-----
- mm/sparse.c        |    2 +-
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ include/linux/skbuff.h |  204 ++++++++++++++++++++++++++++++++++++++++=
++++++++-
+ 1 files changed, 202 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 9670f71..550ec8f 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -636,7 +636,7 @@ static inline pte_t maybe_mkwrite(pte_t pte, struct vm_area_struct *vma)
- #define SECTIONS_MASK		((1UL << SECTIONS_WIDTH) - 1)
- #define ZONEID_MASK		((1UL << ZONEID_SHIFT) - 1)
- 
--static inline enum zone_type page_zonenum(struct page *page)
-+static inline enum zone_type page_zonenum(const struct page *page)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c0a4f3a..f4034af 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -29,6 +29,8 @@
+ #include <linux/rcupdate.h>
+ #include <linux/dmaengine.h>
+ #include <linux/hrtimer.h>
++#include <linux/highmem.h>
++#include <linux/pci.h>
+=20
+ /* Don't change this without changing skb_csum_unnecessary! */
+ #define CHECKSUM_NONE 0
+@@ -1109,14 +1111,47 @@ static inline int skb_pagelen(const struct sk_b=
+uff *skb)
+ 	return len + skb_headlen(skb);
+ }
+=20
+-static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
+-				      struct page *page, int off, int size)
++/**
++ * __skb_fill_page_desc - initialise a paged fragment in an skb
++ * @skb: buffer containing fragment to be initialised
++ * @i: paged fragment index to initialise
++ * @page: the page to use for this fragment
++ * @off: the offset to the data with @page
++ * @size: the length of the data
++ *
++ * Initialises the @i'th fragment of @skb to point to &size bytes at
++ * offset @off within @page.
++ *
++ * Does not take any additional reference on the fragment.
++ */
++static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
++					struct page *page, int off, int size)
  {
- 	return (page->flags >> ZONES_PGSHIFT) & ZONES_MASK;
+ 	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+=20
+ 	frag->page		  =3D page;
+ 	frag->page_offset	  =3D off;
+ 	frag->size		  =3D size;
++}
++
++/**
++ * skb_fill_page_desc - initialise a paged fragment in an skb
++ * @skb: buffer containing fragment to be initialised
++ * @i: paged fragment index to initialise
++ * @page: the page to use for this fragment
++ * @off: the offset to the data with @page
++ * @size: the length of the data
++ *
++ * As per __skb_fill_page_desc() -- initialises the @i'th fragment of
++ * @skb to point to &size bytes at offset @off within @page. In
++ * addition updates @skb such that @i is the last fragment.
++ *
++ * Does not take any additional reference on the fragment.
++ */
++static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
++				      struct page *page, int off, int size)
++{
++	__skb_fill_page_desc(skb, i, page, off, size);
+ 	skb_shinfo(skb)->nr_frags =3D i + 1;
  }
-@@ -664,15 +664,15 @@ static inline int zone_to_nid(struct zone *zone)
+=20
+@@ -1605,6 +1640,171 @@ static inline void netdev_free_page(struct net_=
+device *dev, struct page *page)
  }
- 
- #ifdef NODE_NOT_IN_PAGE_FLAGS
--extern int page_to_nid(struct page *page);
-+extern int page_to_nid(const struct page *page);
- #else
--static inline int page_to_nid(struct page *page)
-+static inline int page_to_nid(const struct page *page)
- {
- 	return (page->flags >> NODES_PGSHIFT) & NODES_MASK;
- }
- #endif
- 
--static inline struct zone *page_zone(struct page *page)
-+static inline struct zone *page_zone(const struct page *page)
- {
- 	return &NODE_DATA(page_to_nid(page))->node_zones[page_zonenum(page)];
- }
-@@ -717,7 +717,7 @@ static inline void set_page_links(struct page *page, enum zone_type zone,
-  */
- #include <linux/vmstat.h>
- 
--static __always_inline void *lowmem_page_address(struct page *page)
-+static __always_inline void *lowmem_page_address(const struct page *page)
- {
- 	return __va(PFN_PHYS(page_to_pfn(page)));
- }
-diff --git a/mm/sparse.c b/mm/sparse.c
-index aa64b12..858e1df 100644
---- a/mm/sparse.c
-+++ b/mm/sparse.c
-@@ -40,7 +40,7 @@ static u8 section_to_node_table[NR_MEM_SECTIONS] __cacheline_aligned;
- static u16 section_to_node_table[NR_MEM_SECTIONS] __cacheline_aligned;
- #endif
- 
--int page_to_nid(struct page *page)
-+int page_to_nid(const struct page *page)
- {
- 	return section_to_node_table[page_to_section(page)];
- }
--- 
+=20
+ /**
++ * __skb_frag_page - retrieve the page refered to by a paged fragment
++ * @frag: the paged fragment
++ *
++ * Returns the &struct page associated with @frag. Where possible you
++ * should use skb_frag_page() which returns a const &struct page.
++ */
++static inline struct page *__skb_frag_page(const skb_frag_t *frag)
++{
++	return frag->page;
++}
++
++/**
++ * __skb_frag_page - retrieve the page refered to by a paged fragment
++ * @frag: the paged fragment
++ *
++ * Returns the &struct page associated with @frag as a const.
++ */
++static inline const struct page *skb_frag_page(const skb_frag_t *frag)
++{
++	return frag->page;
++}
++
++/**
++ * __skb_frag_ref - take an addition reference on a paged fragment.
++ * @frag: the paged fragment
++ *
++ * Takes an additional reference on the paged fragment @frag.
++ */
++static inline void __skb_frag_ref(skb_frag_t *frag)
++{
++	get_page(__skb_frag_page(frag));
++}
++
++/**
++ * skb_frag_ref - take an addition reference on a paged fragment of an=
+ skb.
++ * @skb: the buffer
++ * @f: the fragment offset.
++ *
++ * Takes an additional reference on the @f'th paged fragment of @skb.
++ */
++static inline void skb_frag_ref(struct sk_buff *skb, int f)
++{
++	__skb_frag_ref(&skb_shinfo(skb)->frags[f]);
++}
++
++/**
++ * __skb_frag_unref - release a reference on a paged fragment.
++ * @frag: the paged fragment
++ *
++ * Releases a reference on the paged fragment @frag.
++ */
++static inline void __skb_frag_unref(skb_frag_t *frag)
++{
++	put_page(__skb_frag_page(frag));
++}
++
++/**
++ * skb_frag_unref - release a reference on a paged fragment of an skb.
++ * @skb: the buffer
++ * @f: the fragment offset
++ *
++ * Releases a reference on the @f'th paged fragment of @skb.
++ */
++static inline void skb_frag_unref(struct sk_buff *skb, int f)
++{
++	__skb_frag_unref(&skb_shinfo(skb)->frags[f]);
++}
++
++/**
++ * skb_frag_address - gets the address of the data contained in a page=
+d fragment
++ * @frag: the paged fragment buffer
++ *
++ * Returns the address of the data within @frag. The page must already
++ * be mapped.
++ */
++static inline void *skb_frag_address(const skb_frag_t *frag)
++{
++	return page_address(skb_frag_page(frag)) + frag->page_offset;
++}
++
++/**
++ * skb_frag_address_safe - gets the address of the data contained in a=
+ paged fragment
++ * @frag: the paged fragment buffer
++ *
++ * Returns the address of the data within @frag. Checks that the page
++ * is mapped and returns %NULL otherwise.
++ */
++static inline void *skb_frag_address_safe(const skb_frag_t *frag)
++{
++	void *ptr =3D page_address(skb_frag_page(frag));
++	if (unlikely(!ptr))
++		return NULL;
++
++	return ptr + frag->page_offset;
++}
++
++/**
++ * __skb_frag_set_page - sets the page contained in a paged fragment
++ * @frag: the paged fragment
++ * @page: the page to set
++ *
++ * Sets the fragment @frag to contain @page.
++ */
++static inline void __skb_frag_set_page(skb_frag_t *frag, struct page *=
+page)
++{
++	frag->page =3D page;
++	__skb_frag_ref(frag);
++}
++
++/**
++ * skb_frag_set_page - sets the page contained in a paged fragment of =
+an skb
++ * @skb: the buffer
++ * @f: the fragment offset
++ * @page: the page to set
++ *
++ * Sets the @f'th fragment of @skb to contain @page.
++ */
++static inline void skb_frag_set_page(struct sk_buff *skb, int f,
++				     struct page *page)
++{
++	__skb_frag_set_page(&skb_shinfo(skb)->frags[f], page);
++}
++
++/**
++ * skb_frag_kmap - kmaps a paged fragment
++ * @frag: the paged fragment
++ *
++ * kmap()s the paged fragment @frag and returns the virtual address.
++ */
++static inline void *skb_frag_kmap(skb_frag_t *frag)
++{
++	return kmap(__skb_frag_page(frag));
++}
++
++/**
++ * skb_frag_kmap - kunmaps a paged fragment
++ * @frag: the paged fragment
++ *
++ * kunmap()s the paged fragment @frag.
++ */
++static inline void skb_frag_kunmap(skb_frag_t *frag)
++{
++	kunmap(__skb_frag_page(frag));
++}
++
++/**
++ * skb_frag_dma_map - maps a paged fragment via the DMA API
++ * @device: the device to map the fragment to
++ * @frag: the paged fragment to map
++ * @offset: the offset within the fragment (starting at the fragments =
+own offset)
++ * @size: the number of bytes to map
++ * @direction: the direction of the mapping (%PCI_DMA_*)
++ *
++ * Maps the page associated with @frag to @device.
++ */
++static inline dma_addr_t skb_frag_dma_map(struct device *dev,
++					  const skb_frag_t *frag,
++					  size_t offset, size_t size,
++					  enum dma_data_direction dir)
++{
++	return dma_map_page(dev, __skb_frag_page(frag),
++			    frag->page_offset + offset, size, dir);
++}
++
++/**
+  *	skb_clone_writable - is the header of a clone writable
+  *	@skb: buffer to check
+  *	@len: length up to which to write
+--=20
 1.7.2.5
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
