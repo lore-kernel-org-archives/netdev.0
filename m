@@ -1,37 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
-Date: Fri, 22 Jul 2011 17:21:59 +0800
-Message-ID: <20110722092159.GA20722@gondor.apana.org.au>
-References: <20110719180222.GA7509@midget.suse.cz> <20110722.010628.1678943945721626312.davem@davemloft.net>
+From: Dmitry Kozlov <xeb@mail.ru>
+Subject: [PATCH net-2.6] gre: fix improper error handling
+Date: Fri, 22 Jul 2011 13:26:10 +0400
+Message-ID: <201107221326.10597.xeb@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jbohac@suse.cz, netdev@vger.kernel.org, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:50574 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752301Ab1GVJWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 05:22:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20110722.010628.1678943945721626312.davem@davemloft.net>
+Received: from fallback8.mail.ru ([94.100.176.136]:60531 "EHLO
+	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752922Ab1GVJff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 05:35:35 -0400
+Received: from smtp12.mail.ru (smtp12.mail.ru [94.100.176.89])
+	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id CDA4713C2873
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2011 13:26:40 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 22, 2011 at 01:06:28AM -0700, David Miller wrote:
-> 
-> Suspend is even more important because while we were suspended we
-> could be on the same network but the routers present and available
-> might have changed completely.
+Fix improper protocol err_handler, current implementation is fully 
+unapplicable and may cause kernel crash due to double kfree_skb.
 
-Unfortunately virtual machine live migration also uses the suspend
-& resume mechanism.  In that case we don't wish to renegotiate
-everything, since the goal is to minimise the outage window.
+Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+--
+ net/ipv4/gre.c |   23 +++++++----------------
+ 1 files changed, 7 insertions(+), 16 deletions(-)
 
-This would suggest that putting the policy in user-space may be the
-best option.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+index c6933f2..a8126fe 100644
+--- a/net/ipv4/gre.c
++++ b/net/ipv4/gre.c
+@@ -15,6 +15,7 @@
+ #include <linux/kmod.h>
+ #include <linux/skbuff.h>
+ #include <linux/in.h>
++#include <linux/ip.h>
+ #include <linux/netdevice.h>
+ #include <linux/version.h>
+ #include <linux/spinlock.h>
+@@ -97,27 +98,17 @@ drop:
+ static void gre_err(struct sk_buff *skb, u32 info)
+ {
+        const struct gre_protocol *proto;
+-       u8 ver;
+-
+-       if (!pskb_may_pull(skb, 12))
+-               goto drop;
+-
+-       ver = skb->data[1]&0x7f;
++       const struct iphdr *iph = (const struct iphdr *)skb->data;
++       u8 ver = skb->data[(iph->ihl<<2) + 1]&0x7f;
++
+        if (ver >= GREPROTO_MAX)
+-               goto drop;
++               return;
+ 
+        rcu_read_lock();
+        proto = rcu_dereference(gre_proto[ver]);
+-       if (!proto || !proto->err_handler)
+-               goto drop_unlock;
+-       proto->err_handler(skb, info);
+-       rcu_read_unlock();
+-       return;
+-
+-drop_unlock:
++       if (proto && proto->err_handler)
++           proto->err_handler(skb, info);
+        rcu_read_unlock();
+-drop:
+-       kfree_skb(skb);
+ }
+ 
+ static const struct net_protocol net_gre_protocol = {
