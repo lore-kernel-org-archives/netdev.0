@@ -1,57 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the final tree
-Date: Thu, 21 Jul 2011 23:26:51 -0700 (PDT)
-Message-ID: <20110721.232651.1449248174820939714.davem@davemloft.net>
-References: <20110722162433.a280b3b71cff9c08fe18956f@canb.auug.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL net (try 2)] vhost-net: zercopy mode fixes
+Date: Fri, 22 Jul 2011 09:32:38 +0300
+Message-ID: <20110722063238.GB9637@redhat.com>
+References: <20110722060046.GA8876@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, matt@ozlabs.org
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110722162433.a280b3b71cff9c08fe18956f@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mashirle@us.ibm.com, xma@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110722060046.GA8876@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 22 Jul 2011 16:24:33 +1000
+Fixing a corrupted pull request sent earlier.
+Sorry about the noise!
 
-> warning: (PPC) selects HAVE_BPF_JIT which has unmet direct dependencies (NET)
-> 
-> Introduced by commit 0ca87f05ba8b ("net: filter: BPF 'JIT' compiler for
-> PPC64").
-> 
-> I suspect that the fix is to move the
-> 
-> config HAVE_BPF_JIT
->         bool
-> 
-> lines to outside the "if NET" in net/Kconfig.
+The following includes vhost-net fixes - both in the
+experimental zero copy mode.
+Please pull for 3.1.
+Thanks!
 
-I'm going to fix this the way it's dealt with in the x86_64 case
-for now, thanks for the report:
+The following changes since commit fd99beb9375b44309d5ed9c2b62063e23151610b:
 
---------------------
-net: Fix ppc64 BPF JIT dependencies.
+  Merge branch 'vhost-net-next' of git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost (2011-07-19 10:12:44 -0700)
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- arch/powerpc/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+are available in the git repository at:
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 39860fc..cdf7a0a 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -134,7 +134,7 @@ config PPC
- 	select GENERIC_IRQ_SHOW_LEVEL
- 	select HAVE_RCU_TABLE_FREE if SMP
- 	select HAVE_SYSCALL_TRACEPOINTS
--	select HAVE_BPF_JIT if PPC64
-+	select HAVE_BPF_JIT if (PPC64 && NET)
- 
- config EARLY_PRINTK
- 	bool
--- 
-1.7.6
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+
+Michael S. Tsirkin (1):
+      vhost-net: update used ring on backend change
+
+Shirley Ma (1):
+      vhost: handle wrap around in # of bufs math
+
+ drivers/vhost/net.c |   18 ++++++++++++++----
+ 1 files changed, 14 insertions(+), 4 deletions(-)
