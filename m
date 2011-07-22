@@ -1,55 +1,53 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linux 3.0 release
-Date: Fri, 22 Jul 2011 12:44:38 -0700
-Message-ID: <4E29D326.7070403@candelatech.com>
-References: <CA+55aFxakA2U+oMJ1T7awTYa+p6xp9N0aCbfrUqgkF7BJ8gnQw@mail.gmail.com> <4E29CB5B.4040408@unsolicited.net> <CA+55aFy1FnVGH4C_0T8fXwZPUdz5-SCczMwy1K8kydLwTx89RQ@mail.gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 10/13] net: add paged frag destructor to skb_fill_page_desc()
+Date: Fri, 22 Jul 2011 21:58:51 +0200
+Message-ID: <CAHXqBFLQFKqK=ORpDQx6s2ud8mWkx=YC_AT60GVS+4XK0H61pw@mail.gmail.com>
+References: <1311340095.12772.57.camel@zakaz.uk.xensource.com> <1311340653-19336-10-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David <david@unsolicited.net>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFy1FnVGH4C_0T8fXwZPUdz5-SCczMwy1K8kydLwTx89RQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	"Pekka Savola (ipv6)" <pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
+To: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1311340653-19336-10-git-send-email-ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 07/22/2011 12:21 PM, Linus Torvalds wrote:
-> On Fri, Jul 22, 2011 at 12:11 PM, David<david@unsolicited.net>  wrote:
->>
->> I'm getting the following warning at boot from 3.0, everything seems to be fine otherwise though.
->>
->> Jul 22 19:40:02 server kernel: [   15.526629] ------------[ cut here ]------------
->> Jul 22 19:40:02 server kernel: [   15.526635] WARNING: at kernel/timer.c:1011 del_timer_sync+0x4e/0x50()
->
-> Hmm. That looks like a real bug: you shouldn't do a "del_timer_sync()"
-> from an interrupt. It probably works, but it sounds like a really bad
-> idea.
->
->> Jul 22 19:40:02 server kernel: [   15.526677]  [<ffffffff81054b4e>] del_timer_sync+0x4e/0x50
->> Jul 22 19:40:02 server kernel: [   15.526679]  [<ffffffff8145e224>] linkwatch_schedule_work+0x84/0xa0
->> Jul 22 19:40:02 server kernel: [   15.526681]  [<ffffffff8145e2bc>] linkwatch_fire_event+0x7c/0x100
->> Jul 22 19:40:02 server kernel: [   15.526684]  [<ffffffff8146b1ed>] netif_carrier_on+0x2d/0x40
->> Jul 22 19:40:02 server kernel: [   15.526689]  [<ffffffffa006b6fb>] __rtl8169_check_link_status+0x4b/0xc0 [r8169]
->> Jul 22 19:40:02 server kernel: [   15.526693]  [<ffffffffa006c016>] rtl8169_interrupt+0x166/0x3a0 [r8169]
->> Jul 22 19:40:02 server kernel: [   15.526696]  [<ffffffff810a4385>] handle_irq_event_percpu+0x55/0x1f0
->> Jul 22 19:40:02 server kernel: [   15.526698]  [<ffffffff810a4551>] handle_irq_event+0x31/0x50
->
-> I'm not seeing a lot of changes in any of these areas, though. I
-> wonder what made it start happen.
-
-This has been around since at least 2.6.38.  I haven't tested recently
-on my rtl8169 system, but I don't recall seeing any attempts to fix
-it...
-
-http://permalink.gmane.org/gmane.linux.network/193565
-http://lists.openwall.net/netdev/2011/05/04/183
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+MjAxMS83LzIyIElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+Ogo+IGRpZmYg
+LS1naXQgYS9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oIGIvaW5jbHVkZS9saW51eC9za2J1ZmYuaAo+
+IGluZGV4IDk4MThmZTIuLmZhZWU4ZDMgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9saW51eC9za2J1
+ZmYuaAo+ICsrKyBiL2luY2x1ZGUvbGludXgvc2tidWZmLmgKPiBAQCAtMTEzNCwxMiArMTEzNCwx
+NCBAQCBzdGF0aWMgaW5saW5lIGludCBza2JfcGFnZWxlbihjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiKQo+IMKgKiBEb2VzIG5vdCB0YWtlIGFueSBhZGRpdGlvbmFsIHJlZmVyZW5jZSBvbiB0aGUg
+ZnJhZ21lbnQuCj4gwqAqLwo+IMKgc3RhdGljIGlubGluZSB2b2lkIF9fc2tiX2ZpbGxfcGFnZV9k
+ZXNjKHN0cnVjdCBza19idWZmICpza2IsIGludCBpLAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc3RydWN0IHBhZ2UgKnBhZ2UsIGlu
+dCBvZmYsIGludCBzaXplKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgc3RydWN0IHBhZ2UgKnBhZ2UsCj4gKyDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzdHJ1Y3Qgc2tiX2Zy
+YWdfZGVzdHJ1Y3RvciAqZGVzdHJveSwKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGludCBvZmYsIGludCBzaXplKQo+IMKgewo+IMKg
+IMKgIMKgIMKgc2tiX2ZyYWdfdCAqZnJhZyA9ICZza2Jfc2hpbmZvKHNrYiktPmZyYWdzW2ldOwo+
+Cj4gwqAgwqAgwqAgwqBmcmFnLT5wYWdlLnAgwqAgwqAgwqAgwqAgwqAgwqAgwqA9IHBhZ2U7Cj4g
+LSDCoCDCoCDCoCBmcmFnLT5wYWdlLmRlc3RydWN0b3IgwqAgwqAgPSBOVUxMOwo+ICsgwqAgwqAg
+wqAgZnJhZy0+cGFnZS5kZXN0cnVjdG9yIMKgIMKgID0gZGVzdHJveTsKPiDCoCDCoCDCoCDCoGZy
+YWctPnBhZ2Vfb2Zmc2V0IMKgIMKgIMKgIMKgID0gb2ZmOwo+IMKgIMKgIMKgIMKgZnJhZy0+c2l6
+ZSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoD0gc2l6ZTsKPiDCoH0KCllvdSBjb3VsZCBqdXN0IHJl
+bmFtZSB0aGlzIGZ1bmN0aW9uIHRvIGUuZy4KX19za2JfZmlsbF9mcmFnaWxlX3BhZ2VfZGVzYygp
+IChvciB3aGF0ZXZlciBuYW1lKSBhZGQgYW4gaW5saW5lCndyYXBwZXIgY2FsbGluZyBpdCB3aXRo
+IGRlc3Ryb3kgPT0gTlVMTC4gVGhpcyB3aWxsIGF2b2lkIHRvdWNoaW5nIGFsbAp0aG9zZSBkcml2
+ZXJzIHdoaWNoIHdvbid0IGV2ZXIgbmVlZCB0aGlzIGZ1bmN0aW9uYWxpdHkuCgpCZXN0IFJlZ2Fy
+ZHMsCk1pY2hhxYIgTWlyb3PFgmF3Cg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
