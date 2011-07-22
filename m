@@ -1,46 +1,41 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: Question regarding sendmmsg().
-Date: Fri, 22 Jul 2011 21:27:02 +0900
-Message-ID: <201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
-References: <201107110304.p6B34422036886@www262.sakura.ne.jp>
-	<201107191754.22391.paul.moore@hp.com>
-	<201107200142.p6K1gKYg077046@www262.sakura.ne.jp>
-	<201107211721.14511.paul.moore@hp.com>
-	<201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] gre: fix improper error handling
+Date: Fri, 22 Jul 2011 06:01:25 -0700 (PDT)
+Message-ID: <20110722.060125.445521078131142411.davem@davemloft.net>
+References: <201107221326.10597.xeb@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: casey@schaufler-ca.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xeb@mail.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46510 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753785Ab1GVNBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 09:01:32 -0400
+In-Reply-To: <201107221326.10597.xeb@mail.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tetsuo Handa wrote:
-> According to http://ozlabs.org/~anton/junkcode/sendmmsg_test.c , the sendmmsg()
-> introduced by commit 228e548e "net: Add sendmmsg socket system call" is capable
-> of sending to multiple different destinations with single sendmmsg(), isn't it?
+From: Dmitry Kozlov <xeb@mail.ru>
+Date: Fri, 22 Jul 2011 13:26:10 +0400
+
+> Fix improper protocol err_handler, current implementation is fully 
+> unapplicable and may cause kernel crash due to double kfree_skb.
 > 
-> If yes, my plan (restricting sendmsg() based on destination's address) became
-> impossible since security_socket_sendmsg() (which receives the destination's
-> address) is called for only once even if there are multiple different
-> destinations.
+> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
 
-It seems to me that sendmmsg() caused a regression for SMACK.
-SMACK implements security_socket_sendmsg() which uses destination address.
+Your patch has been corrupted by your email client.
 
-static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-                                int size)
-{
-        struct sockaddr_in *sip = (struct sockaddr_in *) msg->msg_name;
+For example, it has changed tab characters into sequences of spaces.
 
-        /*
-         * Perfectly reasonable for this to be NULL
-         */
-        if (sip == NULL || sip->sin_family != AF_INET)
-                return 0;
+This makes your patch unusable.
 
-        return smack_netlabel_send(sock->sk, sip);
-}
+Please read Documentation/email-clients.txt to learn how to fix this,
+and after fixing your setup send a test patch to yourself and try
+to apply it just as we would when you post it here.
 
-I think SMACK wants to know all destination addresses as with TOMOYO.
+Only after this self-test passes, should you try to resubmit your
+patch.
+
+Thank you.
