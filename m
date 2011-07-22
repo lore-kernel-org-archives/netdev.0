@@ -1,171 +1,70 @@
-From: Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-Subject: Re: [net-next 10/10] ixgbe: convert to ndo_fix_features
-Date: Fri, 22 Jul 2011 10:02:55 +0200
-Message-ID: <20110722080255.GA10125@rere.qmqm.pl>
-References: <1311314951-11142-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1311314951-11142-11-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
+Date: Fri, 22 Jul 2011 01:06:28 -0700 (PDT)
+Message-ID: <20110722.010628.1678943945721626312.davem@davemloft.net>
+References: <20110719180222.GA7509@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, Don Skidmore <donald.c.skidmore@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au,
+	shemminger@vyatta.com
+To: jbohac@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:60514 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751142Ab1GVIC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2011 04:02:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1311314951-11142-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147Ab1GVIGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 04:06:42 -0400
+In-Reply-To: <20110719180222.GA7509@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2011 at 11:09:11PM -0700, Jeff Kirsher wrote:
-> From: Don Skidmore <donald.c.skidmore@intel.com>
->=20
-> Private rx_csum flags are now duplicate of netdev->features &
-> NETIF_F_RXCSUM.  We remove those duplicates and now use the net_devic=
-e_ops
-> ndo_set_features.  This was based on the original patch submitted by
-> Michal Miroslaw <mirq-linux@rere.qmqm.pl>.  I also removed the specia=
-l
-> case not requiring a reset for X540 hardware.  It is needed just as i=
-t is
-> in 82599 hardware.
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Tue, 19 Jul 2011 20:02:53 +0200
 
-Looks mostly good now. Minor hints below.
+> When the cable is unplugged and plugged in again, we already get
+> notified through linkwatch -> netdev_state_change ->
+>   -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
+> However, if the device has already been autoconfigured,
+> addrconf_notify() only handles this event by printing a
+> message.
+> 
+> So my idea was to:
+> - handle link up/down in addrconf_notify() similarly to
+>   NETDEV_UP/NETDEV_DOWN
+> 
+> - on suspend, faking a link down event; on resume, faking a link up event
+>   (or better, having a special event type for suspend/resume)
+> 
+> This would cause autoconfiguration to be restarted on resume as
+> well as cable plug/unplug, solving both the above problems.
+> 
+> Or do we want to completely rely on userspace tools
+> (networkmanager/ifplug) and expect them to do NETDEV_DOWN on
+> unplug/suspend and NETDEV_UP on plug/resume?
+> 
+> Any thoughts?
 
-[...]
-> +static u32 ixgbe_fix_features(struct net_device *netdev, u32 data)
-> +{
-[...]
-> +	/* Turn off LRO if not RSC capable or invalid ITR settings */
-> +	if (!(adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)) {
-> +		data &=3D ~NETIF_F_LRO;
-> +	} else if (!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) &&
-> +		   (adapter->rx_itr_setting !=3D 1 &&
-> +		    adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE)) {
-> +		data &=3D ~NETIF_F_LRO;
-> +		e_info(probe, "rx-usecs set too low, not enabling RSC\n");
-> +	}
+This is an oft-reocurring discussion, what to do on link up/down
+events wrt. all sorts of autoconfiguration.
 
-Better:
+My gut instinct is that on any link state change (physical link down,
+suspend) we should be prepared to renegotiate everything and anything
+since as you state we could be on a different physical network.
 
-=2E.. else if (data & NETIF_F_LRO && adapter->rx_itr_setting !=3D 1 && =
-adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE) {
-	e_info(...)
-	data &=3D ~NETIF_F_LRO;
-}
+Suspend is even more important because while we were suspended we
+could be on the same network but the routers present and available
+might have changed completely.
 
-> +
-> +	return data;
-> +}
-> +
-> +static int ixgbe_set_features(struct net_device *netdev, u32 data)
-> +{
-> +	struct ixgbe_adapter *adapter =3D netdev_priv(netdev);
-> +	bool need_reset =3D false;
-> +
-> +	/* If Rx checksum is disabled, then RSC/LRO should also be disabled=
- */
-> +	if (!(data & NETIF_F_RXCSUM))
-> +		adapter->flags &=3D ~IXGBE_FLAG_RX_CSUM_ENABLED;
-> +	else
-> +		adapter->flags |=3D IXGBE_FLAG_RX_CSUM_ENABLED;
+In userspace I've noticed that we've grown an ecosystem of stupid
+tools and facilities, none (or very few) of which monitor link status
+in order to do handle things intelligently.  DHCP servers are a great
+example.  DHCP servers spit out broadcast discover packets before we
+even have a link up.
 
-This exactly mirrors NETIF_F_RXCSUM. Waiting for later cleanup?
+Filling this void is NetworkManager, which does listen on a netlink
+socket for device state changes, hotplug, etc.  And in response it
+explicitly tells various facilities to reprobe the network.
 
-[...]
-> +	/*
-> +	 * Check if Flow Director n-tuple support was enabled or disabled. =
- If
-> +	 * the state changed, we need to reset.
-> +	 */
-> +	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
-> +		/* turn off ATR, enable perfect filters and reset */
-> +		if (data & NETIF_F_NTUPLE) {
-> +			adapter->flags &=3D ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
-> +			adapter->flags |=3D IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-> +			need_reset =3D true;
-> +		}
-> +	} else if (!(data & NETIF_F_NTUPLE)) {
-> +		/* turn off Flow Director, set ATR and reset */
-> +		adapter->flags &=3D ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-> +		if ((adapter->flags &  IXGBE_FLAG_RSS_ENABLED) &&
-> +		    !(adapter->flags &  IXGBE_FLAG_DCB_ENABLED))
-> +			adapter->flags |=3D IXGBE_FLAG_FDIR_HASH_CAPABLE;
-> +		need_reset =3D true;
-> +	}
-
-You could make this more readable:
-
-old =3D adapter->flags;
-if (data & NETIF_F_NTUPLE) {
-	adapter->flags |=3D IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-	adapter->flags &=3D ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
-} else {
-	adapter->flags &=3D ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-	if ((adapter->flags &  IXGBE_FLAG_RSS_ENABLED) &&
-	    !(adapter->flags &  IXGBE_FLAG_DCB_ENABLED))
-		adapter->flags |=3D IXGBE_FLAG_FDIR_HASH_CAPABLE;
-}
-if (old !=3D adapter->flags)
-	need_reset =3D true;
-
-> +
-> +	if (need_reset)
-> +		ixgbe_do_reset(netdev);
-> +
-> +	return 0;
-> +
-> +}
-> +
->  static const struct net_device_ops ixgbe_netdev_ops =3D {
->  	.ndo_open		=3D ixgbe_open,
->  	.ndo_stop		=3D ixgbe_close,
-> @@ -7153,6 +7228,8 @@ static const struct net_device_ops ixgbe_netdev=
-_ops =3D {
->  	.ndo_fcoe_disable =3D ixgbe_fcoe_disable,
->  	.ndo_fcoe_get_wwn =3D ixgbe_fcoe_get_wwn,
->  #endif /* IXGBE_FCOE */
-> +	.ndo_set_features =3D ixgbe_set_features,
-> +	.ndo_fix_features =3D ixgbe_fix_features,
->  };
-> =20
->  static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
-> @@ -7420,20 +7497,24 @@ static int __devinit ixgbe_probe(struct pci_d=
-ev *pdev,
-> =20
->  	netdev->features =3D NETIF_F_SG |
->  			   NETIF_F_IP_CSUM |
-> +			   NETIF_F_IPV6_CSUM |
->  			   NETIF_F_HW_VLAN_TX |
->  			   NETIF_F_HW_VLAN_RX |
-> -			   NETIF_F_HW_VLAN_FILTER;
-> +			   NETIF_F_HW_VLAN_FILTER |
-> +			   NETIF_F_TSO |
-> +			   NETIF_F_TSO6 |
-> +			   NETIF_F_GRO |
-> +			   NETIF_F_RXHASH |
-> +			   NETIF_F_RXCSUM;
-
-Drop NETIF_F_GRO here, as its always set by network core now.
-
-> -	netdev->features |=3D NETIF_F_IPV6_CSUM;
-> -	netdev->features |=3D NETIF_F_TSO;
-> -	netdev->features |=3D NETIF_F_TSO6;
-> -	netdev->features |=3D NETIF_F_GRO;
-> -	netdev->features |=3D NETIF_F_RXHASH;
-> +	netdev->hw_features =3D netdev->features;
-> =20
->  	switch (adapter->hw.mac.type) {
->  	case ixgbe_mac_82599EB:
->  	case ixgbe_mac_X540:
->  		netdev->features |=3D NETIF_F_SCTP_CSUM;
-> +		netdev->hw_features |=3D NETIF_F_SCTP_CSUM |
-> +				       NETIF_F_NTUPLE;
-
-NTUPLE disabled by default. That's the idea?
-
-Best Regards,
-Micha=B3 Miros=B3aw
+This is why I'm reluctant to give NetworkManager a hard time, because
+whilst it's a huge beast, it is at least trying to do the right thing.
+:-)
