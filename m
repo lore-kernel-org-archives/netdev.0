@@ -1,39 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Fri, 22 Jul 2011 08:22:24 -0700 (PDT)
-Message-ID: <20110722.082224.688620059032914637.davem@davemloft.net>
-References: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
-	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
-	<201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] r8169: use pci_dev->subsystem_{vendor|device}
+Date: Fri, 22 Jul 2011 19:37:24 +0400
+Message-ID: <201107221937.24383.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: casey@schaufler-ca.com, anton@samba.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: penguin-kernel@I-love.SAKURA.ne.jp
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, nic_swsd@realtek.com, romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:60941 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754524Ab1GVPjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 11:39:14 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Sat, 23 Jul 2011 00:12:53 +0900
+The driver reads PCI subsystem IDs from the PCI configuration registers while
+they are already stored by the PCI subsystem in the 'subsystem_{vendor|device}'
+fields of 'struct pci_dev'...
 
-> I think the regression for SMACK can be fixed with below patch.
-> 
-> Should I pass nosec flags down to "struct security_operations"->sendmsg()
-> so that SELinux checks sock_has_perm() for only once when multiple different
-> destination's addresses are passed to sendmmsg()?
-> 
-> static int selinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-> 				  int size, int nosec)
-> {
-> 	return nosec ? 0 : sock_has_perm(current, sock->sk, SOCKET__WRITE);
-> }
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-Ugh, this takes away a non-trivial part of the performance gain of
-sendmmsg().
+---
+The patch is against the recent Linus' tree.
 
-I would instead rather that you check ahead of time whether this
-actually is a send to different addresses.  If they are all the
-same, keep the nosec code path.
+ drivers/net/r8169.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+Index: linux-2.6/drivers/net/r8169.c
+===================================================================
+--- linux-2.6.orig/drivers/net/r8169.c
++++ linux-2.6/drivers/net/r8169.c
+@@ -1982,12 +1982,9 @@ static void rtl8169sb_hw_phy_config(stru
+ static void rtl8169scd_hw_phy_config_quirk(struct rtl8169_private *tp)
+ {
+ 	struct pci_dev *pdev = tp->pci_dev;
+-	u16 vendor_id, device_id;
+ 
+-	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &vendor_id);
+-	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &device_id);
+-
+-	if ((vendor_id != PCI_VENDOR_ID_GIGABYTE) || (device_id != 0xe000))
++	if ((pdev->subsystem_vendor != PCI_VENDOR_ID_GIGABYTE) ||
++	    (pdev->subsystem_device != 0xe000))
+ 		return;
+ 
+ 	rtl_writephy(tp, 0x1f, 0x0001);
