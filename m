@@ -1,111 +1,57 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 11/13] net: only allow paged fragments with the same destructor to be coalesced.
-Date: Fri, 22 Jul 2011 14:17:31 +0100
-Message-ID: <1311340653-19336-11-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 02/13] mm: use const struct page for r/o page-flag accessor methods
+Date: Fri, 22 Jul 2011 14:17:22 +0100
+Message-ID: <1311340653-19336-2-git-send-email-ian.campbell@citrix.com>
 References: <1311340095.12772.57.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
 Cc: Ian Campbell <ian.campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andrea Arcangeli <aarcange@redhat.com>,
+	Rik van Riel <riel@redhat.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Michel Lespinasse <walken@google.com>,
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org, linux-nfs@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:23028 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754349Ab1GVNSF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 09:18:05 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1311340095.12772.57.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+In a subsquent patch I have a const struct page in my hand...
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
-Cc: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Andrea Arcangeli <aarcange@redhat.com>
+Cc: Rik van Riel <riel@redhat.com>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Michel Lespinasse <walken@google.com>
+Cc: linux-kernel@vger.kernel.org
 ---
- include/linux/skbuff.h |    7 +++++--
- net/core/skbuff.c      |    1 +
- net/ipv4/ip_output.c   |    2 +-
- net/ipv4/tcp.c         |    2 +-
- 4 files changed, 8 insertions(+), 4 deletions(-)
+ include/linux/page-flags.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index faee8d3..fb64a0e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1931,13 +1931,16 @@ static inline int skb_add_data(struct sk_buff *=
-skb,
- }
-=20
- static inline int skb_can_coalesce(struct sk_buff *skb, int i,
--				   const struct page *page, int off)
-+				   const struct page *page,
-+				   const struct skb_frag_destructor *destroy,
-+				   int off)
- {
- 	if (i) {
- 		struct skb_frag_struct *frag =3D &skb_shinfo(skb)->frags[i - 1];
-=20
- 		return page =3D=3D skb_frag_page(frag) &&
--		       off =3D=3D frag->page_offset + frag->size;
-+		       off =3D=3D frag->page_offset + frag->size &&
-+		       frag->page.destructor =3D=3D destroy;
- 	}
- 	return 0;
- }
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 101c9cc..3d89b1a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2152,6 +2152,7 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff=
- *skb, int shiftlen)
- 	 */
- 	if (!to ||
- 	    !skb_can_coalesce(tgt, to, skb_frag_page(fragfrom),
-+			      fragfrom->page.destructor,
- 			      fragfrom->page_offset)) {
- 		merge =3D -1;
- 	} else {
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 5946de2..c4326fb 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1224,7 +1224,7 @@ ssize_t	ip_append_page(struct sock *sk, struct fl=
-owi4 *fl4, struct page *page,
- 		i =3D skb_shinfo(skb)->nr_frags;
- 		if (len > size)
- 			len =3D size;
--		if (skb_can_coalesce(skb, i, page, offset)) {
-+		if (skb_can_coalesce(skb, i, page, NULL, offset)) {
- 			skb_shinfo(skb)->frags[i-1].size +=3D len;
- 		} else if (i < MAX_SKB_FRAGS) {
- 			get_page(page);
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 2f0e985..a1a0ccd 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1008,7 +1008,7 @@ new_segment:
- 				struct page *page =3D TCP_PAGE(sk);
- 				int off =3D TCP_OFF(sk);
-=20
--				if (skb_can_coalesce(skb, i, page, off) &&
-+				if (skb_can_coalesce(skb, i, page, NULL, off) &&
- 				    off !=3D PAGE_SIZE) {
- 					/* We can extend the last page
- 					 * fragment. */
---=20
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+index 6081493..7d632cc 100644
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -135,7 +135,7 @@ enum pageflags {
+  * Macros to create function definitions for page flags
+  */
+ #define TESTPAGEFLAG(uname, lname)					\
+-static inline int Page##uname(struct page *page) 			\
++static inline int Page##uname(const struct page *page) 			\
+ 			{ return test_bit(PG_##lname, &page->flags); }
+ 
+ #define SETPAGEFLAG(uname, lname)					\
+@@ -173,7 +173,7 @@ static inline int __TestClearPage##uname(struct page *page)		\
+ 	__SETPAGEFLAG(uname, lname)  __CLEARPAGEFLAG(uname, lname)
+ 
+ #define PAGEFLAG_FALSE(uname) 						\
+-static inline int Page##uname(struct page *page) 			\
++static inline int Page##uname(const struct page *page) 			\
+ 			{ return 0; }
+ 
+ #define TESTSCFLAG(uname, lname)					\
+-- 
 1.7.2.5
-
