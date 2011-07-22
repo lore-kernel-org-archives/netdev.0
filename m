@@ -1,69 +1,68 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Re: [PATCH net-next-2.6] ipv6: make fragment identifications less
- predictable
-Date: Thu, 21 Jul 2011 22:18:09 -0300
-Message-ID: <4E28CFD1.2030504@gont.com.ar>
-References: <1311150327.2338.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	<1311157648.2338.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	<4E2781A2.8020905@gont.com.ar>	<20110721.151750.995903739612693126.davem@davemloft.net> <4E28B84C.2090305@gont.com.ar> <4E28C58E.1080501@hp.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in
+ ndo_start_xmit methods
+Date: Thu, 21 Jul 2011 21:37:19 -0400
+Message-ID: <20110722013718.GA1993@neilslaptop.think-freely.org>
+References: <4E28A4C8.8040707@candelatech.com>
+ <20110721.151903.297506479006061401.davem@davemloft.net>
+ <20110721235049.GA29489@hmsreliant.think-freely.org>
+ <20110721.170855.1343650615466483577.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	security@kernel.org, eugeneteo@kernel.sg, netdev@vger.kernel.org,
-	mpm@selenic.com
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: greearb@candelatech.com, eric.dumazet@gmail.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, adobriyan@gmail.com,
+	robert.olsson@its.uu.se
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:46543 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343Ab1GVBST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 21:18:19 -0400
-Received: by yia27 with SMTP id 27so951086yia.19
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 18:18:18 -0700 (PDT)
-In-Reply-To: <4E28C58E.1080501@hp.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60256 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599Ab1GVBhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 21:37:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20110721.170855.1343650615466483577.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/21/2011 09:34 PM, Rick Jones wrote:
->> That scenario assumes packet reordering and/or packet loss.
+On Thu, Jul 21, 2011 at 05:08:55PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Thu, 21 Jul 2011 19:50:49 -0400
 > 
-> Isn't that a given?  
+> > I'm happy to go down this route Dave, and agree, its a more solid solution, but
+> > I think the problem with it (which Ben may have been alluding to previously) is
+> > that pktgen doesn't use dev_queue_xmit or dev_hard_start_xmit to send frames.
+> 
+> Neil, that's THE WHOLE POINT, and HOW MY IDEA WORKS.
+> 
+Dave, RELAX! I GET HOW YOUR IDEA SHOULD WORK!  CAPS ARENT NEEDED! :) 
 
-I mean that if these "collisions" of Identification numbers are of
-concern, then, then, at such bandwidth rates, fragmentation itself would
-be a concern.
+> Pktgen bypasses those functions, so it won't trigger the check and
+> therefore won't trigger making a copy of the SKB, since copying isn't
+> needed.
+> 
+But thats part of the problem, we can't just have pktgen bypass those calls
+entirely, assuming that the underlying driver will do so.  See the ppp driver as
+an example, it does an skb_pull to add a header to the skb, so multiple
+iterations of the multi-skb case will result in stacked header inadvertently.
+Another example is the virtio_net driver, which uses the skb->cb area to store
+information that would get corrupted in the process.  Neither of those would
+pass through the dev_hard_start_xmit path and would be left uncovered by this
+solution.
 
-Chances of collisions are proportional to reordering and losses. That
-means that at such bandwidths, you'd need to be able to queue a huge
-number of packets (which you might not be able to queue, becacuse of
-lack of resources), etc.
+We could fix that by:
 
+a) having pktgen call dev_hard_start_xmit for all frames, giving rise to the
+performance issue I was bringing up in my last note.
 
+b) augmenting each driver to check for the flag in the skb as you describe,
+which in my mind is no better than having a flag in the netdevice informing
+pktgen of weather or not it can use a shared skb approach.
 
-> And indeed, fragmentation is considered bad, and was considered bad
-> enough that the "revenge of the router guys" that is IPv6 punted it to
-> the end systems, and yes, one should use PMTUD. Which is all well and
-> good when 999 times out of 1 traffic is flowing over a transport that
-> does its own segmentation and reassembly.  
+> Only layering devices will end up eventually calling into those two
+> functions and trigger the "need to copy because this SKB is pktgen
+> shared" check.
+> 
+See above, that doesn't solve the entire problem.
 
-And provided that there's no ICMPv6 filtering out there (which there is)
--- at which point you need to implement some for of blackhole detection
-a la PLMPTUD.
-
-
-> And when IPv6 got spec'ed it
-> looked to all the world that UDP was on the way out - NFS was migrating
-> over to TCP, and DNS was "never" more than 512 byte messages. No problem
-> right?  But since then we've gotten things like EDNS which will be
-> sending DNS messages in UDP datagrams that will have to be fragmented,
-> PMTUD notwithstanding.
-
-Hopefully you won't have the aforementioned 40GB traffic rate between
-two DNS servers ;-)
-
-Thanks,
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@acm.org
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
-
-
+Regards
+Neil
 
