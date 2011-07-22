@@ -1,37 +1,62 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Sat, 23 Jul 2011 03:31:24 +0900
-Message-ID: <201107230331.GHE48423.QFHJMFOLtOOSVF@I-love.SAKURA.ne.jp>
-References: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
-	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
-	<201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
-	<20110722.082224.688620059032914637.davem@davemloft.net>
-	<201107230242.HJH39096.OSMOVQOLFFFHJt@I-love.SAKURA.ne.jp>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 13/13] sunrpc: use SKB fragment destructors to delay
+ completion until page is released by network stack.
+Date: Fri, 22 Jul 2011 14:39:16 -0400
+Message-ID: <1311359956.13553.8.camel@lade.trondhjem.org>
+References: <1311340095.12772.57.camel@zakaz.uk.xensource.com>
+	 <1311340653-19336-13-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: casey@schaufler-ca.com, anton@samba.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201107230242.HJH39096.OSMOVQOLFFFHJt@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+To: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1311340653-19336-13-git-send-email-ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Tetsuo Handa wrote:
-> David Miller wrote:
-> > Ugh, this takes away a non-trivial part of the performance gain of
-> > sendmmsg().
-> > 
-> > I would instead rather that you check ahead of time whether this
-> > actually is a send to different addresses.  If they are all the
-> > same, keep the nosec code path.
-> > 
-> OK. Something like this? Not tested at all.
+On Fri, 2011-07-22 at 14:17 +0100, Ian Campbell wrote: 
+> This prevents an issue where an ACK is delayed, a retransmit is queued (either
+> at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+> wire. If this happens to an NFS WRITE RPC then the write() system call
+> completes and the userspace process can continue, potentially modifying data
+> referenced by the retransmission before the retransmission occurs.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> [since v1:
+>   Push down from NFS layer into RPM layer
+> ]
+> ---
+>  include/linux/sunrpc/xdr.h  |    2 ++
+>  include/linux/sunrpc/xprt.h |    5 ++++-
+>  net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
+>  net/sunrpc/svcsock.c        |    2 +-
+>  net/sunrpc/xprt.c           |   13 +++++++++++++
+>  net/sunrpc/xprtsock.c       |    2 +-
+>  6 files changed, 43 insertions(+), 8 deletions(-)
 
-No. We can't compare destination address before entering __sys_sendmsg(), for
-it is copied to kernel memory by verify_iovec()/verify_compat_iovec().
+This looks good to me. Thanks, Ian!
 
-To be able to compare, we need to pass "struct sockaddr_storage address;" to
-__sys_sendmsg(). Also, the content the kernel has to hold is not array of
-"struct msghdr" but array of "struct sockaddr_storage".
-It needs larger modification than expected.
+Acked-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+
+-- 
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
