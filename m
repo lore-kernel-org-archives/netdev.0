@@ -1,70 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
-Date: Fri, 22 Jul 2011 01:06:28 -0700 (PDT)
-Message-ID: <20110722.010628.1678943945721626312.davem@davemloft.net>
-References: <20110719180222.GA7509@midget.suse.cz>
+From: Pierre Louis Aublin <pierre-louis.aublin@inria.fr>
+Subject: tcp/udp checksum on loopback interface
+Date: Fri, 22 Jul 2011 10:01:21 +0200
+Message-ID: <4E292E51.4040802@inria.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au,
-	shemminger@vyatta.com
-To: jbohac@suse.cz
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40504 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147Ab1GVIGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 04:06:42 -0400
-In-Reply-To: <20110719180222.GA7509@midget.suse.cz>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:27248
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752321Ab1GVILH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 04:11:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Bohac <jbohac@suse.cz>
-Date: Tue, 19 Jul 2011 20:02:53 +0200
+Hello everybody
 
-> When the cable is unplugged and plugged in again, we already get
-> notified through linkwatch -> netdev_state_change ->
->   -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
-> However, if the device has already been autoconfigured,
-> addrconf_notify() only handles this event by printing a
-> message.
-> 
-> So my idea was to:
-> - handle link up/down in addrconf_notify() similarly to
->   NETDEV_UP/NETDEV_DOWN
-> 
-> - on suspend, faking a link down event; on resume, faking a link up event
->   (or better, having a special event type for suspend/resume)
-> 
-> This would cause autoconfiguration to be restarted on resume as
-> well as cable plug/unplug, solving both the above problems.
-> 
-> Or do we want to completely rely on userspace tools
-> (networkmanager/ifplug) and expect them to do NETDEV_DOWN on
-> unplug/suspend and NETDEV_UP on plug/resume?
-> 
-> Any thoughts?
+I am interested in the reliability of TCP and UDP using the loopback 
+interface.
+I found that there is no checksum verification on the body of packets 
+transmitted through the loopback interface : 
+http://kerneltrap.org/mailarchive/linux-netdev/2007/10/2/327241
+I ran a simple test using iperf and wireshark and I indeed found the 
+validation of the checksum is disabled at packets reception.
 
-This is an oft-reocurring discussion, what to do on link up/down
-events wrt. all sorts of autoconfiguration.
+At the reception, I guess the piece of code responsible for this 
+behaviour is (line 1196 of net/ipv4/udp.c, in udp_recvmsg() for UDP) :
+if (skb_csum_unnecessary(skb))
+     err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr), 
+msg->msg_iov, len);
+Is this the responsible piece of code? If yes, where does the 
+CHECKSUM_UNNECESSARY flag is set?
 
-My gut instinct is that on any link state change (physical link down,
-suspend) we should be prepared to renegotiate everything and anything
-since as you state we could be on a different physical network.
+However, I am not sure whether the checksum is computed on the whole 
+packet at emission.
+In __ip_append_data (net/ipv4/ip_output.c), I found the flag csummode is 
+at the beginning at CHECKSUM_NONE.
+Then, it is augmented using the dev->features flag of the network device 
+(e.g. the loopback interface).
+As the loopback interface has the NETIF_F_NO_CSUM flag, csummode stays 
+at CHECKSUM_NONE and the checksum is not computed on the body of the 
+message.
+Can you confirm the checksum is computed only on the header of the 
+packet when sending it through the loopback interface?
 
-Suspend is even more important because while we were suspended we
-could be on the same network but the routers present and available
-might have changed completely.
+Finally, why this behaviour? Is it because you assume message can not 
+get corrupted while staying on the same machine?
 
-In userspace I've noticed that we've grown an ecosystem of stupid
-tools and facilities, none (or very few) of which monitor link status
-in order to do handle things intelligently.  DHCP servers are a great
-example.  DHCP servers spit out broadcast discover packets before we
-even have a link up.
-
-Filling this void is NetworkManager, which does listen on a netlink
-socket for device state changes, hotplug, etc.  And in response it
-explicitly tells various facilities to reprobe the network.
-
-This is why I'm reluctant to give NetworkManager a hard time, because
-whilst it's a huge beast, it is at least trying to do the right thing.
-:-)
+Thank you in advance
+Pierre Louis Aublin
