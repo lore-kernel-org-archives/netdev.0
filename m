@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 09/10] bna: HW Error Counter Fix
-Date: Fri, 22 Jul 2011 11:07:48 -0700
-Message-ID: <1311358069-32067-10-git-send-email-rmody@brocade.com>
+Subject: [PATCH 08/10] bna: Add HW Semaphore Unlock Logic
+Date: Fri, 22 Jul 2011 11:07:47 -0700
+Message-ID: <1311358069-32067-9-git-send-email-rmody@brocade.com>
 References: <1311358069-32067-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,71 +9,92 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39799 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:39797 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754632Ab1GVSIr (ORCPT
+	by vger.kernel.org with ESMTP id S1754575Ab1GVSIr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 14:08:47 -0400
 In-Reply-To: <1311358069-32067-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Heartbeat failure counter is not incrementing under some scenarios.
-   Update hbfails and hb_count stats during hwerror event.
+ - Added logic to unlock hw semaphore if the previos FW boot was from boot
+   code (flash based) and the current FW initialization attempt is from OS
+   driver.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bfa_defs.h |    1 +
- drivers/net/bna/bfa_ioc.c  |    3 +++
- drivers/net/bna/bfa_ioc.h  |    2 ++
- 3 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/bna/bfa_ioc.c |   25 +++++++++++++++++++++++++
+ drivers/net/bna/bfi.h     |    6 ++++++
+ 2 files changed, 31 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bna/bfa_defs.h b/drivers/net/bna/bfa_defs.h
-index fa81f3c..b080b36 100644
---- a/drivers/net/bna/bfa_defs.h
-+++ b/drivers/net/bna/bfa_defs.h
-@@ -153,6 +153,7 @@ struct bfa_ioc_drv_stats {
- 	u32	enable_reqs;
- 	u32	disable_replies;
- 	u32	enable_replies;
-+	u32	rsvd;
- };
- 
- /**
 diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
-index c3b62a3..126b0aa 100644
+index da56c2f..c3b62a3 100644
 --- a/drivers/net/bna/bfa_ioc.c
 +++ b/drivers/net/bna/bfa_ioc.c
-@@ -2029,6 +2029,8 @@ bfa_nw_ioc_mbox_isr(struct bfa_ioc *ioc)
- void
- bfa_nw_ioc_error_isr(struct bfa_ioc *ioc)
+@@ -58,6 +58,7 @@ static bool bfa_nw_auto_recover = true;
+ /*
+  * forward declarations
+  */
++static void bfa_ioc_hw_sem_init(struct bfa_ioc *ioc);
+ static void bfa_ioc_hw_sem_get(struct bfa_ioc *ioc);
+ static void bfa_ioc_hw_sem_get_cancel(struct bfa_ioc *ioc);
+ static void bfa_ioc_hwinit(struct bfa_ioc *ioc, bool force);
+@@ -590,6 +591,7 @@ bfa_iocpf_sm_reset(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ static void
+ bfa_iocpf_sm_fwcheck_entry(struct bfa_iocpf *iocpf)
  {
-+	bfa_ioc_stats(ioc, ioc_hbfails);
-+	bfa_ioc_stats_hb_count(ioc, ioc->hb_count);
- 	bfa_fsm_send_event(ioc, IOC_E_HWERROR);
++	bfa_ioc_hw_sem_init(iocpf->ioc);
+ 	bfa_ioc_hw_sem_get(iocpf->ioc);
  }
  
-@@ -2255,6 +2257,7 @@ bfa_ioc_recover(struct bfa_ioc *ioc)
- {
- 	pr_crit("Heart Beat of IOC has failed\n");
- 	bfa_ioc_stats(ioc, ioc_hbfails);
-+	bfa_ioc_stats_hb_count(ioc, ioc->hb_count);
- 	bfa_fsm_send_event(ioc, IOC_E_HBFAIL);
+@@ -1176,6 +1178,29 @@ bfa_nw_ioc_sem_release(void __iomem *sem_reg)
  }
  
-diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/bna/bfa_ioc.h
-index c6cf218..4b5dc98 100644
---- a/drivers/net/bna/bfa_ioc.h
-+++ b/drivers/net/bna/bfa_ioc.h
-@@ -237,6 +237,8 @@ struct bfa_ioc_hwif {
- 	BFI_ADAPTER_GETP(NPORTS, (__ioc)->attr->adapter_prop)
+ static void
++bfa_ioc_hw_sem_init(struct bfa_ioc *ioc)
++{
++	struct bfi_ioc_image_hdr fwhdr;
++	u32 fwstate = readl(ioc->ioc_regs.ioc_fwstate);
++
++	if (fwstate == BFI_IOC_UNINIT)
++		return;
++
++	bfa_nw_ioc_fwver_get(ioc, &fwhdr);
++
++	if (swab32(fwhdr.exec) == BFI_FWBOOT_TYPE_NORMAL)
++		return;
++
++	writel(BFI_IOC_UNINIT, ioc->ioc_regs.ioc_fwstate);
++
++	/*
++	 * Try to lock and then unlock the semaphore.
++	 */
++	readl(ioc->ioc_regs.ioc_sem_reg);
++	writel(1, ioc->ioc_regs.ioc_sem_reg);
++}
++
++static void
+ bfa_ioc_hw_sem_get(struct bfa_ioc *ioc)
+ {
+ 	u32	r32;
+diff --git a/drivers/net/bna/bfi.h b/drivers/net/bna/bfi.h
+index 683a7d7..088211c 100644
+--- a/drivers/net/bna/bfi.h
++++ b/drivers/net/bna/bfi.h
+@@ -289,6 +289,12 @@ struct bfi_ioc_image_hdr {
+ 	u32	md5sum[BFI_IOC_MD5SUM_SZ];
+ };
  
- #define bfa_ioc_stats(_ioc, _stats)	((_ioc)->stats._stats++)
-+#define bfa_ioc_stats_hb_count(_ioc, _hb_count)	\
-+	((_ioc)->stats.hb_count = (_hb_count))
- #define BFA_IOC_FWIMG_MINSZ	(16 * 1024)
- #define BFA_IOC_FWIMG_TYPE(__ioc)					\
- 	(((__ioc)->ctdev) ?						\
++enum bfi_fwboot_type {
++	BFI_FWBOOT_TYPE_NORMAL	= 0,
++	BFI_FWBOOT_TYPE_FLASH	= 1,
++	BFI_FWBOOT_TYPE_MEMTEST	= 2,
++};
++
+ /**
+  *  BFI_IOC_I2H_READY_EVENT message
+  */
 -- 
 1.7.1
 
