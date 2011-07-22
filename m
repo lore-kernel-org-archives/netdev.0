@@ -1,49 +1,53 @@
 From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] r8169: use pci_dev->subsystem_{vendor|device}
-Date: Fri, 22 Jul 2011 19:37:24 +0400
-Message-ID: <201107221937.24383.sshtylyov@ru.mvista.com>
+Subject: [PATCH] sbni: use pci_dev->subsystem_device
+Date: Fri, 22 Jul 2011 19:50:25 +0400
+Message-ID: <201107221950.25960.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, nic_swsd@realtek.com, romieu@fr.zoreil.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.dev.rtsoft.ru ([213.79.90.226]:60941 "HELO
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:48557 "HELO
 	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754524Ab1GVPjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 11:39:14 -0400
+	with SMTP id S1751418Ab1GVPwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 11:52:15 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver reads PCI subsystem IDs from the PCI configuration registers while
-they are already stored by the PCI subsystem in the 'subsystem_{vendor|device}'
-fields of 'struct pci_dev'...
+The driver reads PCI subsystem ID from the PCI configuration register while it's
+already stored by the PCI subsystem in the 'subsystem_device' field of 'struct
+pci_dev'...
 
 Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
 ---
 The patch is against the recent Linus' tree.
 
- drivers/net/r8169.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/wan/sbni.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Index: linux-2.6/drivers/net/r8169.c
+Index: linux-2.6/drivers/net/wan/sbni.c
 ===================================================================
---- linux-2.6.orig/drivers/net/r8169.c
-+++ linux-2.6/drivers/net/r8169.c
-@@ -1982,12 +1982,9 @@ static void rtl8169sb_hw_phy_config(stru
- static void rtl8169scd_hw_phy_config_quirk(struct rtl8169_private *tp)
- {
- 	struct pci_dev *pdev = tp->pci_dev;
--	u16 vendor_id, device_id;
+--- linux-2.6.orig/drivers/net/wan/sbni.c
++++ linux-2.6/drivers/net/wan/sbni.c
+@@ -303,7 +303,6 @@ sbni_pci_probe( struct net_device  *dev 
+ 	       != NULL ) {
+ 		int  pci_irq_line;
+ 		unsigned long  pci_ioaddr;
+-		u16  subsys;
  
--	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &vendor_id);
--	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &device_id);
+ 		if( pdev->vendor != SBNI_PCI_VENDOR &&
+ 		    pdev->device != SBNI_PCI_DEVICE )
+@@ -314,9 +313,7 @@ sbni_pci_probe( struct net_device  *dev 
+ 
+ 		/* Avoid already found cards from previous calls */
+ 		if( !request_region( pci_ioaddr, SBNI_IO_EXTENT, dev->name ) ) {
+-			pci_read_config_word( pdev, PCI_SUBSYSTEM_ID, &subsys );
 -
--	if ((vendor_id != PCI_VENDOR_ID_GIGABYTE) || (device_id != 0xe000))
-+	if ((pdev->subsystem_vendor != PCI_VENDOR_ID_GIGABYTE) ||
-+	    (pdev->subsystem_device != 0xe000))
- 		return;
+-			if (subsys != 2)
++			if (pdev->subsystem_device != 2)
+ 				continue;
  
- 	rtl_writephy(tp, 0x1f, 0x0001);
+ 			/* Dual adapter is present */
