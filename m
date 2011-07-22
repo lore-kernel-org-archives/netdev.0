@@ -1,96 +1,124 @@
-From: Danie Wessels <dawessels@telkomsa.net>
-Subject: Re: NIC driver r8168 with r8169 for RTL8111/8168B and DGE-528T together
-Date: Fri, 22 Jul 2011 16:52:29 +0200
-Message-ID: <4E298EAD.7000200@telkomsa.net>
-References: <4E26B198.4020606@telkomsa.net> <20110720122206.73898673@nehalam.ftrdhcpuser.net> <4E2752A2.3030208@telkomsa.net> <20110721102259.GA10481@electric-eye.fr.zoreil.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
+Date: Sat, 23 Jul 2011 00:12:53 +0900
+Message-ID: <201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
+References: <201107191754.22391.paul.moore@hp.com>
+	<201107200142.p6K1gKYg077046@www262.sakura.ne.jp>
+	<201107211721.14511.paul.moore@hp.com>
+	<201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
+	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrba-ip-smtp-1-2.saix.net ([196.25.240.239]:42889 "EHLO
-	rrba-ip-smtp-1-2.saix.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754669Ab1GVOve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 10:51:34 -0400
-In-Reply-To: <20110721102259.GA10481@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: casey@schaufler-ca.com, anton@samba.org, davem@davemloft.net
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/21/2011 12:22 PM, Francois Romieu wrote:
-> Danie Wessels<dawessels@telkomsa.net>  :
-> [...]
->> gr8. I can give that a try
-and ...
-> Search for rtl8169_pci_tbl and remove the 0x8168 line : the kernel r8169
-> driver will stop being used on the 8168s.
-I see the r8168 driver was based on the r8169 of kernel 2.6.18 ?
-{GPL of Copyrig.. with paten.. ??} see r8168-8.024.00.tar
+I think the regression for SMACK can be fixed with below patch.
 
-ht tp://152 
-.104.125.41/downloads/downloadsView.aspx?Langid=1&PNid=13&PFid=4&Level=5&Conn=4&DownTypeID=3&GetDown=false&Downloads=true
->>
->> .>It ought to be supported by the kernel r8169 driver.
->>
->> See bugs listed on Ubuntu:
->> https://bugs.launchpad.net/ubuntu/+source/linux-source-2.6.22/+bug/141343
->
-> Executive summary :
-> a. started in 2007
-> b. includes "kernel r8169 driver does not work, tried Realtek's r8168,
->     happy now"
-> c. includes b. +  "...wait a few days, Oops"
-> d. covers different devices (8168b, 8168c, plain 8169).
-> e. people still using old kernel (see post 2.6.26
->     77332894c21165404496c56763d7df6c15c4bb09 in #38 then mention of 2.6.22,
->     2.6.24)
-> f. usual "this is the same bug" (#141343 is the same bug as #141343
-??
-> e. one (1) dmesg attached to the whole thread (74 messages). Tons of lspci,
->     not a single XID.
-I think is is good summary!
->> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/221499
->
-> Trend (?) : recent kernels help. XID and up-to-date reports would be
-> welcome if they can be streamlined to a standard (for me :o) ) kernel.
-> See below.
->
->> https://bugs.launchpad.net/linux/+bug/347711
->
-> I wish I could filter out comments by author. Flat PR get really, really
-> messy with time.
-yes, I can understand
-:
->> .>  Which problem(s) do you have with it ?
->> No communication to outside devices. I can not ping my router
->> through it but can ping its IP.
->
-> So it is receiving packets either in promiscuous mode or (and)
-> as long as its peer knows its MAC address ?
-No. sorry, I think. What I meant is that I cannot ping any other IPs 
-other than the that of the card itself (on this onboard card) with the 
-r8169 driver.
-Further: When I then rebooted to Win 7 the card also does not work until 
-I disable the card and then re-enable the onboard card.
-Then when I rebooted to the previous Ubuntu (i.e. 10.10) the card might 
-work (if it was hot reboot..?)
->
-> No Tx at all (it may help if you can capture traffic on the remote
-> end) or just a few packets before it stops (and spits a NETDEV
-> WATCHDOG message) ?
-I will look into this.
->
-:
- > - What (specific)
->    One of Ubuntu's report suggests that you are experiencing a regression.
->     If so it would be nice to bissect it.
-Now even after a reboot (and disable/enable) from Win 7, Ubuntu 11.04 
-does not have the card enabled any more.
-> In the short run I can not do more as I must push something out for a mac
-> address change problem with the 8168evl.
-OK
+Should I pass nosec flags down to "struct security_operations"->sendmsg()
+so that SELinux checks sock_has_perm() for only once when multiple different
+destination's addresses are passed to sendmmsg()?
 
--- 
-Danie Wessels
+static int selinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
+				  int size, int nosec)
+{
+	return nosec ? 0 : sock_has_perm(current, sock->sk, SOCKET__WRITE);
+}
+----------------------------------------
+[PATCH] net: Fix security_socket_sendmsg() bypass problem.
 
+The sendmmsg() introduced by commit 228e548e "net: Add sendmmsg socket system
+call" is capable of sending to multiple different destinations. However,
+security_socket_sendmsg() is called for only once even if multiple different
+destination's addresses are passed to sendmmsg().
+
+SMACK is using destination's address for checking sendmsg() permission.
+Therefore, we need to call security_socket_sendmsg() for each destination
+address rather than only the first destination address.
+
+Fix this problem by removing nosec flags.
+Also, remove sock_sendmsg_nosec() because it is no longer used.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: stable <stable@kernel.org> [3.0+]
+---
+ net/socket.c |   28 +++++++---------------------
+ 1 file changed, 7 insertions(+), 21 deletions(-)
+
+--- linux-3.0.orig/net/socket.c
++++ linux-3.0/net/socket.c
+@@ -580,20 +580,6 @@ int sock_sendmsg(struct socket *sock, st
+ }
+ EXPORT_SYMBOL(sock_sendmsg);
+ 
+-int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg, size_t size)
+-{
+-	struct kiocb iocb;
+-	struct sock_iocb siocb;
+-	int ret;
+-
+-	init_sync_kiocb(&iocb, NULL);
+-	iocb.private = &siocb;
+-	ret = __sock_sendmsg_nosec(&iocb, sock, msg, size);
+-	if (-EIOCBQUEUED == ret)
+-		ret = wait_on_sync_kiocb(&iocb);
+-	return ret;
+-}
+-
+ int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ 		   struct kvec *vec, size_t num, size_t size)
+ {
+@@ -1872,7 +1858,7 @@ SYSCALL_DEFINE2(shutdown, int, fd, int, 
+ #define COMPAT_FLAGS(msg)	COMPAT_MSG(msg, msg_flags)
+ 
+ static int __sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
+-			 struct msghdr *msg_sys, unsigned flags, int nosec)
++			 struct msghdr *msg_sys, unsigned flags)
+ {
+ 	struct compat_msghdr __user *msg_compat =
+ 	    (struct compat_msghdr __user *)msg;
+@@ -1953,8 +1939,7 @@ static int __sys_sendmsg(struct socket *
+ 
+ 	if (sock->file->f_flags & O_NONBLOCK)
+ 		msg_sys->msg_flags |= MSG_DONTWAIT;
+-	err = (nosec ? sock_sendmsg_nosec : sock_sendmsg)(sock, msg_sys,
+-							  total_len);
++	err = sock_sendmsg(sock, msg_sys, total_len);
+ 
+ out_freectl:
+ 	if (ctl_buf != ctl)
+@@ -1979,7 +1964,7 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct
+ 	if (!sock)
+ 		goto out;
+ 
+-	err = __sys_sendmsg(sock, msg, &msg_sys, flags, 0);
++	err = __sys_sendmsg(sock, msg, &msg_sys, flags);
+ 
+ 	fput_light(sock->file, fput_needed);
+ out:
+@@ -2014,18 +1999,19 @@ int __sys_sendmmsg(int fd, struct mmsghd
+ 
+ 	while (datagrams < vlen) {
+ 		/*
+-		 * No need to ask LSM for more than the first datagram.
++		 * Need to ask LSM every time in case LSM might check
++		 * destination's address.
+ 		 */
+ 		if (MSG_CMSG_COMPAT & flags) {
+ 			err = __sys_sendmsg(sock, (struct msghdr __user *)compat_entry,
+-					    &msg_sys, flags, datagrams);
++					    &msg_sys, flags);
+ 			if (err < 0)
+ 				break;
+ 			err = __put_user(err, &compat_entry->msg_len);
+ 			++compat_entry;
+ 		} else {
+ 			err = __sys_sendmsg(sock, (struct msghdr __user *)entry,
+-					    &msg_sys, flags, datagrams);
++					    &msg_sys, flags);
+ 			if (err < 0)
+ 				break;
+ 			err = put_user(err, &entry->msg_len);
