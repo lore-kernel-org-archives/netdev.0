@@ -1,33 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 1/1] netxen: add fw version compatibility check
-Date: Thu, 21 Jul 2011 21:33:12 -0700 (PDT)
-Message-ID: <20110721.213312.792042323157822901.davem@davemloft.net>
-References: <1311156533-24014-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH] ASIX: Add AX88772B USB ID
+Date: Thu, 21 Jul 2011 21:34:15 -0700 (PDT)
+Message-ID: <20110721.213415.16355397137914956.davem@davemloft.net>
+References: <1311177424-19308-1-git-send-email-marek.vasut@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: amit.salecha@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48084 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085Ab1GVEdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 00:33:16 -0400
-In-Reply-To: <1311156533-24014-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, gregkh@suse.de
+To: marek.vasut@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1311177424-19308-1-git-send-email-marek.vasut@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <amit.salecha@qlogic.com>
-Date: Wed, 20 Jul 2011 03:08:53 -0700
+From: Marek Vasut <marek.vasut@gmail.com>
+Date: Wed, 20 Jul 2011 17:57:04 +0200
 
-> From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> This device can be found in Acer Iconia TAB W500 tablet dock.
 > 
-> o Minimum fw version supported for P3 chip is 4.0.505
-> o File Fw > 4.0.554 is not supported if flash fw < 4.0.554.
-> o In mn firmware case, file fw older than flash fw is allowed.
-> o Change variable names for readability
-> o Update driver version 4.0.76
-> 
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> Signed-off-by: Marek Vasut <marek.vasut@gmail.com>
 
 Applied.
