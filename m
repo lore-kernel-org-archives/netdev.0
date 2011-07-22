@@ -1,152 +1,72 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 5/5] bridge: minor cleanups
-Date: Fri, 22 Jul 2011 10:47:10 -0700
-Message-ID: <20110722174758.336432594@vyatta.com>
-References: <20110722174705.144993799@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davmeloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:46803 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753830Ab1GVRus (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2011 13:50:48 -0400
-Content-Disposition: inline; filename=bridge-deinline.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Morsing <daniel.morsing@gmail.com>
+Subject: [PATCH] dm9000: Make the driver follow the IRQF_SHARED contract
+Date: Fri, 22 Jul 2011 19:52:42 +0200
+Message-ID: <1311357162-16200-1-git-send-email-daniel.morsing@gmail.com>
+Cc: Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Morsing <daniel.morsing@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some minor cleanups that won't impact code:
-  1. Remove inline from non-critical functions; compiler will most
-     likely inline them anyway.
-  2. Make function args const where possible.
-  3. Whitespace cleanup
+The dm9000 driver requests a shared interrupt but doesn't return
+IRQ_NONE when the device didn't generate the interrupt. This could lead
+to the other devices sharing the irq never getting an interrupt. This
+patch makes the routine return IRQ_NONE for the path where no work was
+done.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
+Signed-off-by: Daniel Morsing <daniel.morsing@gmail.com>
+Cc: stable@kernel.org
 ---
- net/bridge/br_private_stp.h |    3 ++-
- net/bridge/br_stp.c         |   23 +++++++++++------------
- net/bridge/br_stp_bpdu.c    |    4 +---
- 3 files changed, 14 insertions(+), 16 deletions(-)
+ drivers/net/dm9000.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
---- a/net/bridge/br_stp.c	2011-07-22 08:23:29.059970391 -0700
-+++ b/net/bridge/br_stp.c	2011-07-22 08:32:55.347949086 -0700
-@@ -109,7 +109,6 @@ static void br_root_selection(struct net
- 	list_for_each_entry(p, &br->port_list, list) {
- 		if (br_should_become_root_port(p, root_port))
- 			root_port = p->port_no;
--
- 	}
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index ee597e6..d9a20c9 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -1042,6 +1042,7 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+ 	int int_status;
+ 	unsigned long flags;
+ 	u8 reg_save;
++	irqreturn_t ret = IRQ_NONE;
  
- 	br->root_port = root_port;
-@@ -145,7 +144,6 @@ void br_transmit_config(struct net_bridg
- 	struct br_config_bpdu bpdu;
- 	struct net_bridge *br;
+ 	dm9000_dbg(db, 3, "entering %s\n", __func__);
  
--
- 	if (timer_pending(&p->hold_timer)) {
- 		p->config_pending = 1;
- 		return;
-@@ -181,8 +179,8 @@ void br_transmit_config(struct net_bridg
- }
+@@ -1064,17 +1065,22 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+ 		dev_dbg(db->dev, "interrupt status %02x\n", int_status);
  
- /* called under bridge lock */
--static inline void br_record_config_information(struct net_bridge_port *p,
--						const struct br_config_bpdu *bpdu)
-+static void br_record_config_information(struct net_bridge_port *p,
-+					 const struct br_config_bpdu *bpdu)
- {
- 	p->designated_root = bpdu->root;
- 	p->designated_cost = bpdu->root_path_cost;
-@@ -195,7 +193,7 @@ static inline void br_record_config_info
- }
+ 	/* Received the coming packet */
+-	if (int_status & ISR_PRS)
++	if (int_status & ISR_PRS) {
+ 		dm9000_rx(dev);
++		ret = IRQ_HANDLED;
++	}
  
- /* called under bridge lock */
--static inline void br_record_config_timeout_values(struct net_bridge *br,
-+static void br_record_config_timeout_values(struct net_bridge *br,
- 					    const struct br_config_bpdu *bpdu)
- {
- 	br->max_age = bpdu->max_age;
-@@ -254,7 +252,8 @@ static void br_designated_port_selection
- }
+ 	/* Trnasmit Interrupt check */
+-	if (int_status & ISR_PTS)
++	if (int_status & ISR_PTS) {
+ 		dm9000_tx_done(dev, db);
++		ret = IRQ_HANDLED;
++	}
  
- /* called under bridge lock */
--static int br_supersedes_port_info(struct net_bridge_port *p, struct br_config_bpdu *bpdu)
-+static int br_supersedes_port_info(const struct net_bridge_port *p,
-+				   const struct br_config_bpdu *bpdu)
- {
- 	int t;
- 
-@@ -285,7 +284,7 @@ static int br_supersedes_port_info(struc
- }
- 
- /* called under bridge lock */
--static inline void br_topology_change_acknowledged(struct net_bridge *br)
-+static void br_topology_change_acknowledged(struct net_bridge *br)
- {
- 	br->topology_change_detected = 0;
- 	del_timer(&br->tcn_timer);
-@@ -327,7 +326,7 @@ void br_config_bpdu_generation(struct ne
- }
- 
- /* called under bridge lock */
--static inline void br_reply(struct net_bridge_port *p)
-+static void br_reply(struct net_bridge_port *p)
- {
- 	br_transmit_config(p);
- }
-@@ -381,8 +380,7 @@ static void br_make_forwarding(struct ne
- 		p->state = BR_STATE_FORWARDING;
- 		br_topology_change_detection(br);
- 		del_timer(&p->forward_delay_timer);
--	}
--	else if (br->stp_enabled == BR_KERNEL_STP)
-+	} else if (br->stp_enabled == BR_KERNEL_STP)
- 		p->state = BR_STATE_LISTENING;
- 	else
- 		p->state = BR_STATE_LEARNING;
-@@ -433,14 +431,15 @@ void br_port_state_selection(struct net_
- }
- 
- /* called under bridge lock */
--static inline void br_topology_change_acknowledge(struct net_bridge_port *p)
-+static void br_topology_change_acknowledge(struct net_bridge_port *p)
- {
- 	p->topology_change_ack = 1;
- 	br_transmit_config(p);
- }
- 
- /* called under bridge lock */
--void br_received_config_bpdu(struct net_bridge_port *p, struct br_config_bpdu *bpdu)
-+void br_received_config_bpdu(struct net_bridge_port *p,
-+			     const struct br_config_bpdu *bpdu)
- {
- 	struct net_bridge *br;
- 	int was_root;
---- a/net/bridge/br_stp_bpdu.c	2011-07-22 08:23:29.043970390 -0700
-+++ b/net/bridge/br_stp_bpdu.c	2011-07-22 08:31:50.571951522 -0700
-@@ -222,9 +222,7 @@ void br_stp_rcv(const struct stp_proto *
+ 	if (db->type != TYPE_DM9000E) {
+ 		if (int_status & ISR_LNKCHNG) {
+ 			/* fire a link-change request */
+ 			schedule_delayed_work(&db->phy_poll, 1);
++			ret = IRQ_HANDLED;
  		}
- 
- 		br_received_config_bpdu(p, &bpdu);
--	}
--
--	else if (buf[0] == BPDU_TYPE_TCN) {
-+	} else if (buf[0] == BPDU_TYPE_TCN) {
- 		br_received_tcn_bpdu(p);
  	}
-  out:
---- a/net/bridge/br_private_stp.h	2011-07-22 08:23:29.147970387 -0700
-+++ b/net/bridge/br_private_stp.h	2011-07-22 08:33:35.611947572 -0700
-@@ -56,7 +56,8 @@ extern void br_become_root_bridge(struct
- extern void br_config_bpdu_generation(struct net_bridge *);
- extern void br_configuration_update(struct net_bridge *);
- extern void br_port_state_selection(struct net_bridge *);
--extern void br_received_config_bpdu(struct net_bridge_port *p, struct br_config_bpdu *bpdu);
-+extern void br_received_config_bpdu(struct net_bridge_port *p,
-+				    const struct br_config_bpdu *bpdu);
- extern void br_received_tcn_bpdu(struct net_bridge_port *p);
- extern void br_transmit_config(struct net_bridge_port *p);
- extern void br_transmit_tcn(struct net_bridge *br);
-
-
+ 
+@@ -1086,7 +1092,7 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+ 
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ 
+-	return IRQ_HANDLED;
++	return ret;
+ }
+ 
+ static irqreturn_t dm9000_wol_interrupt(int irq, void *dev_id)
+-- 
+1.7.4.4
