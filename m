@@ -1,476 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] ixgbe: convert to ndo_fix_features
-Date: Thu, 21 Jul 2011 23:09:11 -0700
-Message-ID: <1311314951-11142-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1311314951-11142-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Michal Miroslaw <mirq-linux@rere.qmqm.pl>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: "Greg Scott" <GregScott@Infrasupport.com>
+Subject: RE: Bridging behavior apparently changed around the Fedora 14 time
+Date: Fri, 22 Jul 2011 01:20:13 -0500
+Message-ID: <925A849792280C4E80C5461017A4B8A2A0414B@mail733.InfraSupportEtc.com>
+References: <925A849792280C4E80C5461017A4B8A2A040F0@mail733.InfraSupportEtc.com> <20110711130729.607d461e@nehalam.ftrdhcpuser.net> <925A849792280C4E80C5461017A4B8A2A040F3@mail733.InfraSupportEtc.com> <20110711134938.5178797c@nehalam.ftrdhcpuser.net> <925A849792280C4E80C5461017A4B8A2A040F6@mail733.InfraSupportEtc.com> <20110712000242.GA616804@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A040F8@mail733.InfraSupportEtc.com> <20110712033943.GB616804@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A040FA@mail733.InfraSupportEtc.com> <20110712145438.GB909183@jupiter.n2.diac24.net> <925A849792280C4E80C5461017A4B8A2A040FB@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A04134@mail733.InfraSupportEtc.com> <925A849792280C4E80C5461017A4B8A2A0413A@mail733.InfraSupportE
+ tc.com> <925A849792280C4E80C5461017A4B8A2A04149@mail733.InfraSupportEtc.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Lynn Hanson" <LynnHanson@eaganhills.org>,
+	"Joe Whalen" <JoeWhalen@eaganhills.org>,
+	"Graham Parenteau" <adfgrahame1@gmail.com>,
+	"David Lamparter" <equinox@diac24.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:61288 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753456Ab1GVGJU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2011 02:09:20 -0400
-In-Reply-To: <1311314951-11142-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.infrasupportetc.com ([216.160.2.132]:44689 "EHLO
+	mail.InfraSupportEtc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752172Ab1GVGUO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 02:20:14 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+Hang on a second - David, I think you're trying to tell me I'm the
+problem.  Maybe so...
 
-Private rx_csum flags are now duplicate of netdev->features &
-NETIF_F_RXCSUM.  We remove those duplicates and now use the net_device_ops
-ndo_set_features.  This was based on the original patch submitted by
-Michal Miroslaw <mirq-linux@rere.qmqm.pl>.  I also removed the special
-case not requiring a reset for X540 hardware.  It is needed just as it is
-in 82599 hardware.
+I send a frame in on eth1/br0.  It traverses a bunch of ebtables and
+iptables DNAT and SNAT rules and then wants to come back out on
+eth1/br0.  But this is both a bridge and a router, and trying to
+remember my bridge basics - as I recall, bridges might not want to
+forward frames back out the same physical interface they came in on.  
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Cc:  Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ixgbe/ixgbe.h         |    5 +-
- drivers/net/ixgbe/ixgbe_ethtool.c |  188 -------------------------------------
- drivers/net/ixgbe/ixgbe_main.c    |  135 +++++++++++++++++++++-----
- 3 files changed, 111 insertions(+), 217 deletions(-)
+After running this frame/packet through a gauntlet of ebtables/iptables
+rules and NATing the snot out of the IP packet inside the frame, I
+wonder if it's still the same layer 2 frame when it gets ready to come
+back out on eth1?  Even though NAT changed the layer 3 routed packet IP
+info, I wonder if it's still the same layer 2 datalink frame?  So the
+bridge says, "No way Jose, that's the same physical interface you came
+in on" and drops it.  
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 0d610c7..e04a8e4 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -587,13 +587,10 @@ extern s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
- 						 u16 soft_id);
- extern void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
- 						 union ixgbe_atr_input *mask);
--extern void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
--                                   struct ixgbe_ring *ring);
--extern void ixgbe_clear_rscctl(struct ixgbe_adapter *adapter,
--                               struct ixgbe_ring *ring);
- extern void ixgbe_set_rx_mode(struct net_device *netdev);
- extern int ixgbe_setup_tc(struct net_device *dev, u8 tc);
- extern void ixgbe_tx_ctxtdesc(struct ixgbe_ring *, u32, u32, u32, u32);
-+extern void ixgbe_do_reset(struct net_device *netdev);
- #ifdef IXGBE_FCOE
- extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
- extern int ixgbe_fso(struct ixgbe_ring *tx_ring, struct sk_buff *skb,
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 6035cfa..dc64955 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -442,109 +442,6 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
- 	return 0;
- }
- 
--static void ixgbe_do_reset(struct net_device *netdev)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--
--	if (netif_running(netdev))
--		ixgbe_reinit_locked(adapter);
--	else
--		ixgbe_reset(adapter);
--}
--
--static u32 ixgbe_get_rx_csum(struct net_device *netdev)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	return adapter->flags & IXGBE_FLAG_RX_CSUM_ENABLED;
--}
--
--static void ixgbe_set_rsc(struct ixgbe_adapter *adapter)
--{
--	int i;
--
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		struct ixgbe_ring *ring = adapter->rx_ring[i];
--		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
--			set_ring_rsc_enabled(ring);
--			ixgbe_configure_rscctl(adapter, ring);
--		} else {
--			ixgbe_clear_rscctl(adapter, ring);
--		}
--	}
--}
--
--static int ixgbe_set_rx_csum(struct net_device *netdev, u32 data)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	bool need_reset = false;
--
--	if (data) {
--		adapter->flags |= IXGBE_FLAG_RX_CSUM_ENABLED;
--	} else {
--		adapter->flags &= ~IXGBE_FLAG_RX_CSUM_ENABLED;
--
--		if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) {
--			adapter->flags2 &= ~IXGBE_FLAG2_RSC_ENABLED;
--			netdev->features &= ~NETIF_F_LRO;
--		}
--
--		switch (adapter->hw.mac.type) {
--		case ixgbe_mac_X540:
--			ixgbe_set_rsc(adapter);
--			break;
--		case ixgbe_mac_82599EB:
--			need_reset = true;
--			break;
--		default:
--			break;
--		}
--	}
--
--	if (need_reset)
--		ixgbe_do_reset(netdev);
--
--	return 0;
--}
--
--static u32 ixgbe_get_tx_csum(struct net_device *netdev)
--{
--	return (netdev->features & NETIF_F_IP_CSUM) != 0;
--}
--
--static int ixgbe_set_tx_csum(struct net_device *netdev, u32 data)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	u32 feature_list;
--
--	feature_list = (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--		feature_list |= NETIF_F_SCTP_CSUM;
--		break;
--	default:
--		break;
--	}
--	if (data)
--		netdev->features |= feature_list;
--	else
--		netdev->features &= ~feature_list;
--
--	return 0;
--}
--
--static int ixgbe_set_tso(struct net_device *netdev, u32 data)
--{
--	if (data) {
--		netdev->features |= NETIF_F_TSO;
--		netdev->features |= NETIF_F_TSO6;
--	} else {
--		netdev->features &= ~NETIF_F_TSO;
--		netdev->features &= ~NETIF_F_TSO6;
--	}
--	return 0;
--}
--
- static u32 ixgbe_get_msglevel(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-@@ -2289,81 +2186,6 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- 	return 0;
- }
- 
--static int ixgbe_set_flags(struct net_device *netdev, u32 data)
--{
--	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	bool need_reset = false;
--	int rc;
--
--#ifdef CONFIG_IXGBE_DCB
--	if ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
--	    !(data & ETH_FLAG_RXVLAN))
--		return -EINVAL;
--#endif
--
--	need_reset = (data & ETH_FLAG_RXVLAN) !=
--		     (netdev->features & NETIF_F_HW_VLAN_RX);
--
--	if ((data & ETH_FLAG_RXHASH) &&
--	    !(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
--		return -EOPNOTSUPP;
--
--	rc = ethtool_op_set_flags(netdev, data, ETH_FLAG_LRO | ETH_FLAG_NTUPLE |
--				  ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN |
--				  ETH_FLAG_RXHASH);
--	if (rc)
--		return rc;
--
--	/* if state changes we need to update adapter->flags and reset */
--	if ((adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) &&
--	    (!!(data & ETH_FLAG_LRO) !=
--	     !!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))) {
--		if ((data & ETH_FLAG_LRO) &&
--		    (!adapter->rx_itr_setting ||
--		     (adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE))) {
--			e_info(probe, "rx-usecs set too low, "
--				      "not enabling RSC.\n");
--		} else {
--			adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
--			switch (adapter->hw.mac.type) {
--			case ixgbe_mac_X540:
--				ixgbe_set_rsc(adapter);
--				break;
--			case ixgbe_mac_82599EB:
--				need_reset = true;
--				break;
--			default:
--				break;
--			}
--		}
--	}
--
--	/*
--	 * Check if Flow Director n-tuple support was enabled or disabled.  If
--	 * the state changed, we need to reset.
--	 */
--	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
--		/* turn off ATR, enable perfect filters and reset */
--		if (data & ETH_FLAG_NTUPLE) {
--			adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
--			adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
--			need_reset = true;
--		}
--	} else if (!(data & ETH_FLAG_NTUPLE)) {
--		/* turn off Flow Director, set ATR and reset */
--		adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
--		if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
--		    !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
--			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
--		need_reset = true;
--	}
--
--	if (need_reset)
--		ixgbe_do_reset(netdev);
--
--	return 0;
--}
--
- static int ixgbe_get_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
- 					struct ethtool_rxnfc *cmd)
- {
-@@ -2746,16 +2568,8 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_ringparam          = ixgbe_set_ringparam,
- 	.get_pauseparam         = ixgbe_get_pauseparam,
- 	.set_pauseparam         = ixgbe_set_pauseparam,
--	.get_rx_csum            = ixgbe_get_rx_csum,
--	.set_rx_csum            = ixgbe_set_rx_csum,
--	.get_tx_csum            = ixgbe_get_tx_csum,
--	.set_tx_csum            = ixgbe_set_tx_csum,
--	.get_sg                 = ethtool_op_get_sg,
--	.set_sg                 = ethtool_op_set_sg,
- 	.get_msglevel           = ixgbe_get_msglevel,
- 	.set_msglevel           = ixgbe_set_msglevel,
--	.get_tso                = ethtool_op_get_tso,
--	.set_tso                = ixgbe_set_tso,
- 	.self_test              = ixgbe_diag_test,
- 	.get_strings            = ixgbe_get_strings,
- 	.set_phys_id            = ixgbe_set_phys_id,
-@@ -2763,8 +2577,6 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_ethtool_stats      = ixgbe_get_ethtool_stats,
- 	.get_coalesce           = ixgbe_get_coalesce,
- 	.set_coalesce           = ixgbe_set_coalesce,
--	.get_flags              = ethtool_op_get_flags,
--	.set_flags              = ixgbe_set_flags,
- 	.get_rxnfc		= ixgbe_get_rxnfc,
- 	.set_rxnfc		= ixgbe_set_rxnfc,
- };
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index c6fa9c7..1be6175 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2862,28 +2862,11 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- }
- 
- /**
-- * ixgbe_clear_rscctl - disable RSC for the indicated ring
-- * @adapter: address of board private structure
-- * @ring: structure containing ring specific data
-- **/
--void ixgbe_clear_rscctl(struct ixgbe_adapter *adapter,
--                        struct ixgbe_ring *ring)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	u32 rscctrl;
--	u8 reg_idx = ring->reg_idx;
--
--	rscctrl = IXGBE_READ_REG(hw, IXGBE_RSCCTL(reg_idx));
--	rscctrl &= ~IXGBE_RSCCTL_RSCEN;
--	IXGBE_WRITE_REG(hw, IXGBE_RSCCTL(reg_idx), rscctrl);
--}
--
--/**
-  * ixgbe_configure_rscctl - enable RSC for the indicated ring
-  * @adapter:    address of board private structure
-  * @index:      index of ring to set
-  **/
--void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
-+static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
- 				   struct ixgbe_ring *ring)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -7122,6 +7105,98 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	return 0;
- }
- 
-+void ixgbe_do_reset(struct net_device *netdev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	if (netif_running(netdev))
-+		ixgbe_reinit_locked(adapter);
-+	else
-+		ixgbe_reset(adapter);
-+}
-+
-+static u32 ixgbe_fix_features(struct net_device *netdev, u32 data)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+#ifdef CONFIG_DCB
-+	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED)
-+		data &= ~NETIF_F_HW_VLAN_RX;
-+#endif
-+
-+	/* return error if RXHASH is being enabled when RSS is not supported */
-+	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
-+		data &= ~NETIF_F_RXHASH;
-+
-+	/* If Rx checksum is disabled, then RSC/LRO should also be disabled */
-+	if (!(data & NETIF_F_RXCSUM))
-+		data &= ~NETIF_F_LRO;
-+
-+	/* Turn off LRO if not RSC capable or invalid ITR settings */
-+	if (!(adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)) {
-+		data &= ~NETIF_F_LRO;
-+	} else if (!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) &&
-+		   (adapter->rx_itr_setting != 1 &&
-+		    adapter->rx_itr_setting > IXGBE_MAX_RSC_INT_RATE)) {
-+		data &= ~NETIF_F_LRO;
-+		e_info(probe, "rx-usecs set too low, not enabling RSC\n");
-+	}
-+
-+	return data;
-+}
-+
-+static int ixgbe_set_features(struct net_device *netdev, u32 data)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	bool need_reset = false;
-+
-+	/* If Rx checksum is disabled, then RSC/LRO should also be disabled */
-+	if (!(data & NETIF_F_RXCSUM))
-+		adapter->flags &= ~IXGBE_FLAG_RX_CSUM_ENABLED;
-+	else
-+		adapter->flags |= IXGBE_FLAG_RX_CSUM_ENABLED;
-+
-+	/* Make sure RSC matches LRO, reset if change */
-+	if (!!(data & NETIF_F_LRO) !=
-+	     !!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)) {
-+		adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
-+		switch (adapter->hw.mac.type) {
-+		case ixgbe_mac_X540:
-+		case ixgbe_mac_82599EB:
-+			need_reset = true;
-+			break;
-+		default:
-+			break;
-+		}
-+	}
-+
-+	/*
-+	 * Check if Flow Director n-tuple support was enabled or disabled.  If
-+	 * the state changed, we need to reset.
-+	 */
-+	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)) {
-+		/* turn off ATR, enable perfect filters and reset */
-+		if (data & NETIF_F_NTUPLE) {
-+			adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
-+			adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-+			need_reset = true;
-+		}
-+	} else if (!(data & NETIF_F_NTUPLE)) {
-+		/* turn off Flow Director, set ATR and reset */
-+		adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-+		if ((adapter->flags &  IXGBE_FLAG_RSS_ENABLED) &&
-+		    !(adapter->flags &  IXGBE_FLAG_DCB_ENABLED))
-+			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
-+		need_reset = true;
-+	}
-+
-+	if (need_reset)
-+		ixgbe_do_reset(netdev);
-+
-+	return 0;
-+
-+}
-+
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7153,6 +7228,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_fcoe_disable = ixgbe_fcoe_disable,
- 	.ndo_fcoe_get_wwn = ixgbe_fcoe_get_wwn,
- #endif /* IXGBE_FCOE */
-+	.ndo_set_features = ixgbe_set_features,
-+	.ndo_fix_features = ixgbe_fix_features,
- };
- 
- static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
-@@ -7420,20 +7497,24 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 
- 	netdev->features = NETIF_F_SG |
- 			   NETIF_F_IP_CSUM |
-+			   NETIF_F_IPV6_CSUM |
- 			   NETIF_F_HW_VLAN_TX |
- 			   NETIF_F_HW_VLAN_RX |
--			   NETIF_F_HW_VLAN_FILTER;
-+			   NETIF_F_HW_VLAN_FILTER |
-+			   NETIF_F_TSO |
-+			   NETIF_F_TSO6 |
-+			   NETIF_F_GRO |
-+			   NETIF_F_RXHASH |
-+			   NETIF_F_RXCSUM;
- 
--	netdev->features |= NETIF_F_IPV6_CSUM;
--	netdev->features |= NETIF_F_TSO;
--	netdev->features |= NETIF_F_TSO6;
--	netdev->features |= NETIF_F_GRO;
--	netdev->features |= NETIF_F_RXHASH;
-+	netdev->hw_features = netdev->features;
- 
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
- 		netdev->features |= NETIF_F_SCTP_CSUM;
-+		netdev->hw_features |= NETIF_F_SCTP_CSUM |
-+				       NETIF_F_NTUPLE;
- 		break;
- 	default:
- 		break;
-@@ -7472,6 +7553,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 		netdev->vlan_features |= NETIF_F_HIGHDMA;
- 	}
- 
-+	if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)
-+		netdev->hw_features |= NETIF_F_LRO;
- 	if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
- 		netdev->features |= NETIF_F_LRO;
- 
-@@ -7508,8 +7591,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_sw_init;
- 
--	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
-+	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED)) {
-+		netdev->hw_features &= ~NETIF_F_RXHASH;
- 		netdev->features &= ~NETIF_F_RXHASH;
-+	}
- 
- 	switch (pdev->device) {
- 	case IXGBE_DEV_ID_82599_SFP:
--- 
-1.7.6
+And then turning on promisc mode makes the bridge less picky and it
+happily forwards all frames everywhere.  
+
+Is this what you've been trying to tell me and I'm too thickheaded to
+get it?
+
+If so, to work around the problem, I was reading about some ebtables
+broute ACCEPT/DROP targets that are apparently named badly - DROP
+apparently tells the bridge to route the packet instead of bridging the
+frame, while ACCEPT tells the bridge to bridge it.  Should I be looking
+in this direction?
+
+But thinking about this some more - there are cases, such as cascaded
+switches, or hubs behind a switch, where you want a bridge to forward
+frames back out the same interface.  Well . . . maybe.  There's still
+something about forwarding out the same interface a frame comes in on
+that's bugging me.
+
+- Greg
 
