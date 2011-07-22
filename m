@@ -1,105 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ANNOUNCE]: Release of iptables-1.4.12
-Date: Fri, 22 Jul 2011 15:02:18 +0200
-Message-ID: <4E2974DA.3050306@trash.net>
+From: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH/RFC v2 0/13] enable SKB paged fragment lifetime visibility
+Date: Fri, 22 Jul 2011 14:08:15 +0100
+Message-ID: <1311340095.12772.57.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080100030801070401010300"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org,
-	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>
-To: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080100030801070401010300
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Hi,
 
-The netfilter coreteam presents:
+This is v2 of my series to enable visibility into SKB paged fragment's
+lifecycles, v1 is at [0] and contains some more background and rational=
+e
+but basically the series allows entities which inject pages into the
+networking stack to receive a notification when the stack has really
+finished with those pages (i.e. including retransmissions, clones,
+pull-ups etc) and not just when the original skb is finished with, whic=
+h
+is beneficial to many subsystems which wish to inject pages into the
+network stack without giving up full ownership of those page's
+lifecycle. It implements something broadly along the lines of what was
+described in [1].
 
-    iptables version 1.4.12
+I have updated based on the feedback from last time. In particular:
+      * Added destructor directly to sendpage() protocol hooks instead
+        of inventing sendpage_destructor() (David Miller)
+      * Dropped skb_frag_pci_map in favour of skb_frag_dma_map on Micha=
+=C5=82
+        Miros=C5=82aw's advice
+      * Pushed the NFS fix down into the RPC layer. (Trond)
 
-the iptables release for the 3.0.0 kernel. Changes include:
+I also split out the patches to make protocols use the new interface
+into per-protocol patches. I held back on splitting up the patch to
+drivers/* (since that will cause an explosion in the series length) --
+I'll do this split for v3.
 
-- regression fixes for problems reported for the 1.4.11.1 release
+=46YI I'm travelling for the next two weeks, although I expect to have
+good access to mail next week I'm less sure about the following week.
 
-- more conversions to the guided option parser
+Cheers,
+Ian.
 
-- fixes for problems detected by the coverity scanner
+[0] http://marc.info/?l=3Dlinux-netdev&m=3D131072801125521&w=3D2
+[1] http://marc.info/?l=3Dlinux-netdev&m=3D130925719513084&w=3D2
 
-- documentation updates
-
-See the attached changelogs for the full list of changes.
-
-Version 1.4.12 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team,
-Happy firewalling!
-
---------------080100030801070401010300
-Content-Type: text/plain;
- name="changes-iptables-1.4.12.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="changes-iptables-1.4.12.txt"
-
-Fernando Luis Vazquez Cao (1):
-      doc: document IPv6 TOS mangling bug in old Linux kernels
-
-Jakub Zawadzki (1):
-      doc: fix group range in libxt_NFLOG's man
-
-Jan Engelhardt (23):
-      doc: include matches/targets in manpage again
-      libipt_LOG: fix ignoring all but last flags
-      libxt_RATEEST: use guided option parser
-      iptables: consolidate target/match init call
-      extensions: support for per-extension instance "global" variable space
-      libxt_rateest: abolish global variables
-      libxt_RATEEST: abolish global variables
-      libip6t_HL: fix option names from ttl -> hl
-      libxt_state: fix regression about inversion of main option
-      libxt_hashlimit: use a more obvious expiry value by default
-      build: bump soversion for recent data structure change
-      build: attempt to fix building under Linux 2.4
-      doc: mention multiple verbosity flags
-      build: install modules in arch-dependent location
-      doc: fix version string in ip6tables.8
-      doc: the -m option cannot be inverted
-      iptables: restore negation for -f
-      libxtables: properly reject empty hostnames
-      libxtables: ignore whitespace in the multiaddress argument parser
-      option: remove last traces of intrapositional negation
-      libxtables: set clone's initial data to NULL
-      libxt_conntrack: restore network-byte order for v1,v2
-      libxt_conntrack: move more data into the xt_option_entry
-
-Jiri Popelka (5):
-      iptables: Coverity: DEADCODE
-      iptables: Coverity: NEGATIVE_RETURNS
-      iptables: Coverity: REVERSE_INULL
-      iptables: Coverity: VARARGS
-      iptables: Coverity: RESOURCE_LEAK
-
-Martin F. Krafft (1):
-      iptables-apply: select default rule file depending on call name
-
-Massimo Maggi (1):
-      libxt_RATEEST: fix userspacesize field
-
-Patrick McHardy (4):
-      Merge branch 'master' of git://dev.medozas.de/iptables
-      Merge branch 'master' of git://dev.medozas.de/iptables
-      Merge branch 'master' of git://dev.medozas.de/iptables
-      Bump version to 1.4.12
-
-
---------------080100030801070401010300--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
