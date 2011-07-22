@@ -1,48 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: ipvs oops in 3.0-rc7
-Date: Fri, 22 Jul 2011 09:08:05 +0900
-Message-ID: <20110722000805.GB31867@verge.net.au>
-References: <20110720205019.9dfa30c3.rdunlap@xenotime.net>
- <alpine.LFD.2.00.1107211202380.1660@ja.ssi.bg>
- <CA+v9cxbhpt3LSZ_m+OA_Kujt79mvDZ7VnGqjbbPQxS_gY6+pTA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pktgen: Clone skb to avoid corruption of skbs in
+ ndo_start_xmit methods
+Date: Thu, 21 Jul 2011 17:08:55 -0700 (PDT)
+Message-ID: <20110721.170855.1343650615466483577.davem@davemloft.net>
+References: <4E28A4C8.8040707@candelatech.com>
+	<20110721.151903.297506479006061401.davem@davemloft.net>
+	<20110721235049.GA29489@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Julian Anastasov <ja@ssi.bg>, Randy Dunlap <rdunlap@xenotime.net>,
-	netdev <netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Huajun Li <huajun.li.lee@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+v9cxbhpt3LSZ_m+OA_Kujt79mvDZ7VnGqjbbPQxS_gY6+pTA@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, eric.dumazet@gmail.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, adobriyan@gmail.com,
+	robert.olsson@its.uu.se
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45772 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310Ab1GVAKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 20:10:07 -0400
+In-Reply-To: <20110721235049.GA29489@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2011 at 09:37:29PM +0800, Huajun Li wrote:
-> 2011/7/21 Julian Anastasov <ja@ssi.bg>:
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Hello,
-> >
-> > On Wed, 20 Jul 2011, Randy Dunlap wrote:
-> >
-> >> I'm seeing the following Oops in 3.0-rc7 on x86_64, just loading a=
-nd unloading
-> >> modules. =C2=A0Any chance this is already fixed? =C2=A0I can test =
-current git, but I
-> >> wanted to ask first.
-> >>
-> >> Looks like it is on the second module load of ip_vs (i.e.,
-> >> modprobe ip_vs; rmmod ip_vs; modprobe ip_vs).
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0I think, this problem was fixed by this =
-patch:
-> >
-> > http://www.spinics.net/lists/lvs-devel/msg02051.html
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0But it seems it was lost somewhere ...
-> >
->=20
-> That's great, SB. can help to apply it again, thanks.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 21 Jul 2011 19:50:49 -0400
 
-Sorry about that. For some reason I thought that would be / had been
-picked up. I'll send a pull request ASAP.
+> I'm happy to go down this route Dave, and agree, its a more solid solution, but
+> I think the problem with it (which Ben may have been alluding to previously) is
+> that pktgen doesn't use dev_queue_xmit or dev_hard_start_xmit to send frames.
+
+Neil, that's THE WHOLE POINT, and HOW MY IDEA WORKS.
+
+Pktgen bypasses those functions, so it won't trigger the check and
+therefore won't trigger making a copy of the SKB, since copying isn't
+needed.
+
+Only layering devices will end up eventually calling into those two
+functions and trigger the "need to copy because this SKB is pktgen
+shared" check.
