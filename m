@@ -1,60 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] acenic: include NET_SKB_PAD headroom to incoming skbs
-Date: Fri, 22 Jul 2011 07:28:53 +0200
-Message-ID: <1311312533.3886.2.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net tree
+Date: Fri, 22 Jul 2011 15:42:18 +1000
+Message-ID: <20110722154218.addf4f8105e4563cd90a4620@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58630 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827Ab1GVF26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 01:28:58 -0400
-Received: by wwe5 with SMTP id 5so1860661wwe.1
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2011 22:28:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__22_Jul_2011_15_42_18_+1000_C2RJN7HFYHRJEVRD"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Pirko <jpirko@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mark Einon <mark.einon@gmail.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some workloads need some headroom (NET_SKB_PAD) to avoid expensive
-reallocations.
+--Signature=_Fri__22_Jul_2011_15_42_18_+1000_C2RJN7HFYHRJEVRD
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/acenic.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Hi Greg,
 
-diff --git a/drivers/net/acenic.c b/drivers/net/acenic.c
-index 02fcb5c..536038b 100644
---- a/drivers/net/acenic.c
-+++ b/drivers/net/acenic.c
-@@ -1657,7 +1657,7 @@ static void ace_load_std_rx_ring(struct ace_private *ap, int nr_bufs)
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(ACE_STD_BUFSIZE + NET_IP_ALIGN, GFP_ATOMIC);
-+		skb = dev_alloc_skb(ACE_STD_BUFSIZE + NET_IP_ALIGN);
- 		if (!skb)
- 			break;
- 
-@@ -1718,7 +1718,7 @@ static void ace_load_mini_rx_ring(struct ace_private *ap, int nr_bufs)
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(ACE_MINI_BUFSIZE + NET_IP_ALIGN, GFP_ATOMIC);
-+		skb = dev_alloc_skb(ACE_MINI_BUFSIZE + NET_IP_ALIGN);
- 		if (!skb)
- 			break;
- 
-@@ -1774,7 +1774,7 @@ static void ace_load_jumbo_rx_ring(struct ace_private *ap, int nr_bufs)
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(ACE_JUMBO_BUFSIZE + NET_IP_ALIGN, GFP_ATOMIC);
-+		skb = dev_alloc_skb(ACE_JUMBO_BUFSIZE + NET_IP_ALIGN);
- 		if (!skb)
- 			break;
- 
+Today's linux-next merge of the staging tree got a conflict in
+drivers/staging/et131x/et131x_netdev.c between commit 9d846fec22db
+("staging: et131x: remove unused prototype et131x_vlan_rx_register") from
+the net tree and commit 2e861534ca09 ("staging: et131x: et131x_netdev.c
+checkpatch fixes") from the staging tree.
 
+The latter seems to be a superset of the former, so I used the latter.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Fri__22_Jul_2011_15_42_18_+1000_C2RJN7HFYHRJEVRD
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJOKQ26AAoJEDMEi1NhKgbsLZYH/RT/EwYesXzc6yI3c52DMbpS
+JpXj/981k6sx6qqj+tqQbAhbhbjZTuBIG46lmoARFVwiocX5nA77KgGMG05ifpRv
+t9/2ysCdYojljWT9lP/uyDVAPuNM768rkz5YdEr1lXTkGQEHZOAs7slH9pXUwVPh
+HjDywu/FE0QnJNAdnHUs34J8r6fG83VKvJYpf6aEKuwDo23+HvhF7cTiqa2PxRYm
+xO+fJEeCEvuFOu00v1mkMadAIrUQtwAU+p32gJHvil3g4nRN0wEPz5ddMNVtlbQt
+bfoOQ3WuajPEXp5g9bvmCOJJ4jdRxz/EI1goY97W/Bkr4VSCCQtmL1u9gYbHLlQ=
+=qNy3
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__22_Jul_2011_15_42_18_+1000_C2RJN7HFYHRJEVRD--
