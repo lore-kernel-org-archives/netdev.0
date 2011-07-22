@@ -1,30 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: GIT tree names 's/-2.6//'
-Date: Thu, 21 Jul 2011 20:26:43 -0700 (PDT)
-Message-ID: <20110721.202643.1084293436022974836.davem@davemloft.net>
+Subject: Re: [net-next 00/10][pull request] Intel Wired LAN Driver Update
+Date: Thu, 21 Jul 2011 20:39:21 -0700 (PDT)
+Message-ID: <20110721.203921.500337781144914240.davem@davemloft.net>
+References: <1311300078-12876-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48391 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47797 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751662Ab1GVD2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 23:28:49 -0400
+	with ESMTP id S1752278Ab1GVDjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2011 23:39:25 -0400
+In-Reply-To: <1311300078-12876-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-The GIT trees for network development will now just be
-called just plain "net.git" and "net-next.git"
-
-I have symlinks installed so the old net-2.6.git and
-net-next-2.6.git paths still work, but eventually I'd
-like to remove them.
-
-It's pretty easy to change the URL in .git/config of any
-trees you have checked out, or in any scripts you use to
-fetch from my trees.
-
-Thanks.
+DQpUaGlzIGJyZWFrcyB0aGUgYnVpbGQ6DQoNCmRyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX21haW4u
+YzogSW4gZnVuY3Rpb24goWl4Z2JlX2NsZWFuX3J4X2lycaI6DQpkcml2ZXJzL25ldC9peGdiZS9p
+eGdiZV9tYWluLmM6MTQ1ODozOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rp
+b24goXhnYmVfcnhfaXNfZmNvZaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRp
+b25dDQoNClRoZSBvbmx5IGZ1bmN0aW9uIHdpdGggYSBzaW1pbGFyIG5hbWUgaXMgaXhnYmVfcnhf
+aXNfZmNvZSgpLg0KDQpJIGNhbid0IHNlZSBob3cgdGhpcyB3YXMgYnVpbGQgdGVzdGVkLg0K
