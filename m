@@ -1,57 +1,401 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Linux 3.0 release
-Date: Fri, 22 Jul 2011 15:09:56 -0700
-Message-ID: <20110722150956.5b341488@nehalam.ftrdhcpuser.net>
-References: <CA+55aFxakA2U+oMJ1T7awTYa+p6xp9N0aCbfrUqgkF7BJ8gnQw@mail.gmail.com>
-	<4E29CB5B.4040408@unsolicited.net>
-	<CA+55aFy1FnVGH4C_0T8fXwZPUdz5-SCczMwy1K8kydLwTx89RQ@mail.gmail.com>
-	<4E29D326.7070403@candelatech.com>
-	<20110722133220.0baf2199@nehalam.ftrdhcpuser.net>
-	<20110722212629.GA10833@electric-eye.fr.zoreil.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-next-2.6 2011-07-22
+Date: Fri, 22 Jul 2011 18:23:09 -0400
+Message-ID: <20110722222308.GA3048@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David <david@unsolicited.net>, Tejun Heo <tj@kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110722212629.GA10833@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Jul 2011 23:26:29 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+Dave,
 
-> Stephen Hemminger <shemminger@vyatta.com> :
-> > This a regression which probably began with
-> > 
-> > commit e22bee782b3b00bd4534ae9b1c5fb2e8e6573c5c
-> > Author: Tejun Heo <tj@kernel.org>
-> > Date:   Tue Jun 29 10:07:14 2010 +0200
-> > 
-> >     workqueue: implement concurrency managed dynamic worker pool
-> > 
-> > Before that it was perfectly legal for link watch code to
-> > call schedule_delayed_work from IRQ. This should be allowable;
-> > the code to manage the worker pool should handle it.
-> 
-> I beg to differ: see Ben's first report
-> (http://lists.openwall.net/netdev/2011/05/04/183).
->                                        ^^
-> 
-> One of the code path in the netif_carrier code leads it to try and disable
-> a late workqueue to reenable it immediately (mod_workqueue anyone ?):
-> netif_carrier_on
-> -> linkwatch_fire_event
->    -> linkwatch_schedule_work
->       -> cancel_delayed_work
->          -> del_timer_sync
-> 
-> The del_timer_sync has been here for ages. Afaiks it is not a new pool code
-> nor a schedule_delayed_work only problem.
-> 
+Here is the last big pull request of new wireless bits intended
+for 3.1.  This includes the usual big batch of updates to iwlagn,
+a number of updates to ath9k, mwifiex, carl9170, libertas, and other
+drivers, and soem updates to mac80211 and cfg80211 from Johannes.
+The most noteworth bits are most of the final push from Rafa=C5=82 for
+supporting current Broadcom wireless hardware in b43.
 
-That path can be fixed by calling _cancel_delayed_work() instead.
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+The following changes since commit 415b3334a21aa67806c52d1acf4e72e14f7f=
+402f:
+
+  icmp: Fix regression in nexthop resolution during replies. (2011-07-2=
+2 06:22:10 -0700)
+
+are available in the git repository at:
+  ssh://master.kernel.org/pub/scm/linux/kernel/git/linville/wireless-ne=
+xt-2.6.git for-davem
+
+Amitkumar Karwar (3):
+      mwifiex: put multicast/broadcast packets to the same RA
+      mwifiex: check SDIO multi-port aggregation buffer room correctly
+      mwifiex: disable auto deep sleep before unloading the driver
+
+Andy Shevchenko (3):
+      wireless: rtlwifi: throw away MAC_FMT and use %pM instead
+      wireless: ath9k: use %pM to print MAC
+      wireless: mwifiex: print hw address via %pM
+
+Bing Zhao (1):
+      MAINTAINERS: add entry for Marvell mwifiex wireless driver
+
+Christian Lamparter (3):
+      carl9170 firmware: update firmware headers
+      carl9170: move beacon_update into tx.c
+      carl9170: set beacon xmit power to the max
+
+Daniel Drake (2):
+      libertas: mesh: misc cleanup
+      libertas: only enable mesh when interface is active
+
+Eliad Peller (3):
+      mac80211: reconfigure tx on device reconfiguration
+      cfg80211: enter psm when working as p2p_cli
+      mac80211: check sta_info_get() return value
+
+Emmanuel Grumbach (21):
+      iwlagn: move Tx datapath to transport layer
+      iwlagn: move the tasklet / irq to the transport layer
+      iwlagn: move sync_irq to transport layer
+      iwlagn: move the Rx dispatching to the upper layer
+      iwlagn: add comment to tx and get_tx_cmd in iwl_trans_ops
+      iwlagn: move rx transport functions to iwl-trans-rx-pcie.c
+      iwlagn: move tx transport functions to iwl-trans-tx-pcie.c
+      iwlagn: move iwlagn_stop_device to transport layer
+      iwlagn: move all the ICT related functions to iwl-trans-rx-pcie.c
+      iwlagn: add tx start API to transport layer
+      iwlagn: add kick_nic API to transport layer
+      iwlagn: kill iwlagn_rx_handler_setup
+      iwlagn: kill iwlagn_setup_deferred_work
+      iwlagn: SCD configuration for AMPDU moves to transport layer
+      iwlagn: move more functions from the start flow to the transport =
+layer
+      iwlagn: move iwl_prepare_card_hw to the transport layer
+      iwlagn: transport layer receives struct iwl_trans*
+      iwlagn: simplify the bus architecture
+      iwlagn: iwl_bus holds drv_data as void * instead of iwl_priv
+      iwlagn: add comment to warn about WoWLAN in resume / suspend flow=
+s
+      iwlagn: probe would crash with DEBUG_SHIRQ
+
+=46elix Fietkau (2):
+      ath9k: improve reliability of MIC error detection
+      ath9k_hw: validate and fix broken eeprom chainmask settings
+
+=46ry, Donald H (1):
+      iwlagn: remove indirection for iwlagn_hw_valid_rtc_data_addr
+
+Hsu, Kenny (1):
+      iwlagn: set default of uCode ownership to driver
+
+Joe Perches (1):
+      rtlwifi: Convert printks to pr_<level>
+
+Johannes Berg (15):
+      nl80211: advertise GTK rekey support, new triggers
+      mac80211: allow driver access to TKIP RX P1K
+      mac80211: let key iteration get keys in install order
+      mac80211: be more careful in suspend/resume
+      iwlagn: simplify TX flags assignments
+      cfg80211: allow userspace to control supported rates in scan
+      mac80211: implement scan supported rates
+      mac80211: sync driver before TX
+      cfg80211: fix scan crash on single-band cards
+      iwlagn: remove keyinfo cache
+      iwlagn: remove forgotten debugfs function
+      iwlagn: rewrite HW crypto
+      iwlagn: implement WoWLAN
+      iwlagn: track beacon interval sent to device
+      iwlagn: rename iwlagn_set_dynamic_key
+
+John W. Linville (2):
+      bcma: fix 'SSB_PCICORE_BFL_NOPCI' undeclared build breakage
+      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
+ss-next-2.6 into for-davem
+
+Kalle Valo (1):
+      ieee80211: add few wmm tspec values
+
+Luciano Coelho (3):
+      nl80211/cfg80211: add max_sched_scan_ssids in the hw description
+      nl80211/cfg80211: add max_sched_scan_ie_len in the hw description
+      MAINTAINERS: change maintainer of the wl1251 driver
+
+Pavel Roskin (11):
+      orinoco: minor fixes for problems found by checkpatch.pl
+      carl9170: fix formatting issues found by checkpatch
+      ath: use get_unaligned_le{16,32} in ath_hw_keysetmac()
+      ath9k: use get_unaligned_{b16, le16, le32} where possible
+      ath9k: remove defines in reg.h that exist in ../reg.h
+      ath9k: use ath_opmode_to_string()
+      ath5k: merge ath5k_hw and ath5k_softc
+      carl9170: fix sparse warnings enabled by CONFIG_SPARSE_RCU_POINTE=
+R
+      ath5k: merge ath5k_{init, deinit}_hw() with their thin wrappers
+      ath5k: remove ath5k_hw_get_capability(), don't use VEOL on AR5210
+      ath5k: use get_unaligned_le32() in ath5k_write_pwr_to_pdadc_table=
+()
+
+Rafa=C5=82 Mi=C5=82ecki (25):
+      ssb: SPROM: add LED duty cycle fields
+      bcma: cc: set GPIOTIMER register
+      bcma: extract SPROM rev 9 the same way as rev 8
+      b43: bus: drop inline from SSB functions
+      b43: use agent R/W ops for BCMA_IOCTL
+      b43: HT-PHY: switch to channel after enabling radio
+      b43: HT-PHY: find channel entry with regs data
+      b43: HT-PHY: fix typo in 0x2059 radio init
+      bcma: handle alternative SPROM location
+      bcma: define IO status register
+      b43: bcma: define 80211 core specific IO status bits
+      b43: bcma: read info about supported bands
+      b43: HT-PHY: fix masks in radio ctl
+      b43: correctly display longer chipsets ids
+      bcma: move define of BCMA_CLKCTLST register
+      bcma: trivial: add helpers for masking/setting
+      bcma: allow setting FAST clockmode for a core
+      bcma: allow enabling PLL
+      b43: bcma: implement full core reset
+      b43: disable parity check on BCMA devices
+      ssb: return correct translation bit for 64-bit DMA
+      bcma: inform drivers about translation bits needed for the core
+      b43: bcma: get DMA translation bits
+      b43: (un)initialize driver on the BCMA bus
+      b43legacy: dma: cache translation (routing bits)
+
+Rajkumar Manoharan (2):
+      ath9k: Fix sparse warnings
+      ath9k: Fix some smatch warnings
+
+Wey-Yi Guy (13):
+      iwlagn: remove un-necessary file
+      iwlagn: remove dual-indirect call to simply the code
+      iwlagn: another double indirect removed
+      iwlagn: comments for iwl_cfg
+      iwlagn: calibration bitmap
+      iwlagn: set correct calibration flag
+      iwlagn: remove legacy calibration command
+      iwlagn: define valid init calibration mask
+      iwlagn: radio sensor offset in le16 format
+      iwlagn: testmode fixed rate available for testmode only
+      iwlagn: remove un-necessary "_agn"
+      iwlagn: write iq invert register for 105/135 device
+      iwlagn: remove "disable otp refresh" W/A
+
+Yogesh Ashok Powar (1):
+      mwl8k: Fixing sta dereference when ieee80211_tx_info->control.sta=
+ is NULL
+
+ MAINTAINERS                                        |   10 +-
+ drivers/bcma/core.c                                |   72 ++
+ drivers/bcma/driver_chipcommon.c                   |   14 +
+ drivers/bcma/driver_pci.c                          |    2 +
+ drivers/bcma/sprom.c                               |   14 +-
+ drivers/net/wireless/ath/ath5k/ahb.c               |   44 +-
+ drivers/net/wireless/ath/ath5k/ani.c               |   84 +-
+ drivers/net/wireless/ath/ath5k/ath5k.h             |  272 ++++-
+ drivers/net/wireless/ath/ath5k/attach.c            |   31 +-
+ drivers/net/wireless/ath/ath5k/base.c              | 1138 ++++++++----=
+-----
+ drivers/net/wireless/ath/ath5k/base.h              |  205 +---
+ drivers/net/wireless/ath/ath5k/caps.c              |   45 -
+ drivers/net/wireless/ath/ath5k/debug.c             |  218 ++--
+ drivers/net/wireless/ath/ath5k/debug.h             |   21 +-
+ drivers/net/wireless/ath/ath5k/desc.c              |   10 +-
+ drivers/net/wireless/ath/ath5k/dma.c               |   12 +-
+ drivers/net/wireless/ath/ath5k/eeprom.c            |    4 +-
+ drivers/net/wireless/ath/ath5k/initvals.c          |    2 +-
+ drivers/net/wireless/ath/ath5k/led.c               |   68 +-
+ drivers/net/wireless/ath/ath5k/mac80211-ops.c      |  257 ++--
+ drivers/net/wireless/ath/ath5k/pci.c               |   38 +-
+ drivers/net/wireless/ath/ath5k/pcu.c               |   24 +-
+ drivers/net/wireless/ath/ath5k/phy.c               |   41 +-
+ drivers/net/wireless/ath/ath5k/qcu.c               |    9 +-
+ drivers/net/wireless/ath/ath5k/reset.c             |   44 +-
+ drivers/net/wireless/ath/ath5k/rfkill.c            |   65 +-
+ drivers/net/wireless/ath/ath5k/sysfs.c             |   32 +-
+ drivers/net/wireless/ath/ath5k/trace.h             |   12 +-
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.c     |   12 +-
+ drivers/net/wireless/ath/ath9k/btcoex.c            |    8 +-
+ drivers/net/wireless/ath/ath9k/debug.c             |   22 +-
+ drivers/net/wireless/ath/ath9k/eeprom_4k.c         |   12 +-
+ drivers/net/wireless/ath/ath9k/eeprom_9287.c       |   12 +-
+ drivers/net/wireless/ath/ath9k/eeprom_def.c        |   12 +-
+ drivers/net/wireless/ath/ath9k/hif_usb.c           |    9 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_debug.c     |    7 +-
+ drivers/net/wireless/ath/ath9k/hw.c                |   22 +
+ drivers/net/wireless/ath/ath9k/init.c              |   25 +-
+ drivers/net/wireless/ath/ath9k/recv.c              |   53 +-
+ drivers/net/wireless/ath/ath9k/reg.h               |   23 -
+ drivers/net/wireless/ath/ath9k/xmit.c              |    4 +
+ drivers/net/wireless/ath/carl9170/carl9170.h       |   10 +-
+ drivers/net/wireless/ath/carl9170/cmd.h            |    4 +-
+ drivers/net/wireless/ath/carl9170/debug.c          |    2 +-
+ drivers/net/wireless/ath/carl9170/fwdesc.h         |    3 +
+ drivers/net/wireless/ath/carl9170/hw.h             |   41 +-
+ drivers/net/wireless/ath/carl9170/led.c            |    2 +-
+ drivers/net/wireless/ath/carl9170/mac.c            |  129 --
+ drivers/net/wireless/ath/carl9170/main.c           |    2 +-
+ drivers/net/wireless/ath/carl9170/phy.c            |    6 +-
+ drivers/net/wireless/ath/carl9170/tx.c             |  290 ++++-
+ drivers/net/wireless/ath/key.c                     |    7 +-
+ drivers/net/wireless/b43/b43.h                     |    7 +
+ drivers/net/wireless/b43/bus.c                     |   27 +-
+ drivers/net/wireless/b43/dma.c                     |   27 +-
+ drivers/net/wireless/b43/dma.h                     |    4 +
+ drivers/net/wireless/b43/main.c                    |  106 ++-
+ drivers/net/wireless/b43/phy_ht.c                  |   21 +-
+ drivers/net/wireless/b43/phy_n.c                   |    4 +-
+ drivers/net/wireless/b43/radio_2059.c              |    9 +
+ drivers/net/wireless/b43legacy/b43legacy.h         |    2 +
+ drivers/net/wireless/b43legacy/dma.c               |    7 +-
+ drivers/net/wireless/iwlwifi/Makefile              |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-1000.c            |   11 +-
+ drivers/net/wireless/iwlwifi/iwl-2000.c            |   46 +-
+ drivers/net/wireless/iwlwifi/iwl-5000.c            |   22 +-
+ drivers/net/wireless/iwlwifi/iwl-6000.c            |   58 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-calib.c       |   65 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-hcmd.c        |  210 ----
+ drivers/net/wireless/iwlwifi/iwl-agn-ict.c         |  306 -----
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c         |  504 +-------
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.c          |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rxon.c        |  115 ++-
+ drivers/net/wireless/iwlwifi/iwl-agn-sta.c         |  380 +++----
+ drivers/net/wireless/iwlwifi/iwl-agn-tx.c          |  411 +------
+ drivers/net/wireless/iwlwifi/iwl-agn-ucode.c       |  179 +---
+ drivers/net/wireless/iwlwifi/iwl-agn.c             | 1234 ++++++++++--=
+-------
+ drivers/net/wireless/iwlwifi/iwl-agn.h             |   65 +-
+ .../net/wireless/iwlwifi/{iwl-pci.h =3D> iwl-bus.h}  |   70 +
+ drivers/net/wireless/iwlwifi/iwl-commands.h        |  180 +++-
+ drivers/net/wireless/iwlwifi/iwl-core.c            |   28 +-
+ drivers/net/wireless/iwlwifi/iwl-core.h            |   64 +-
+ drivers/net/wireless/iwlwifi/iwl-csr.h             |    1 +
+ drivers/net/wireless/iwlwifi/iwl-debug.h           |   10 +-
+ drivers/net/wireless/iwlwifi/iwl-debugfs.c         |   87 +-
+ drivers/net/wireless/iwlwifi/iwl-dev.h             |  197 +--
+ drivers/net/wireless/iwlwifi/iwl-eeprom.c          |   10 +-
+ drivers/net/wireless/iwlwifi/iwl-hcmd.c            |  271 ----
+ drivers/net/wireless/iwlwifi/iwl-io.h              |    7 +-
+ drivers/net/wireless/iwlwifi/iwl-led.c             |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-pci.c             |  101 +-
+ drivers/net/wireless/iwlwifi/iwl-power.c           |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-prph.h            |   82 +-
+ drivers/net/wireless/iwlwifi/iwl-rx.c              |  212 +---
+ drivers/net/wireless/iwlwifi/iwl-scan.c            |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-sta.c             |    8 +-
+ drivers/net/wireless/iwlwifi/iwl-sta.h             |    5 +-
+ drivers/net/wireless/iwlwifi/iwl-sv-open.c         |   10 +-
+ drivers/net/wireless/iwlwifi/iwl-trans-int-pcie.h  |   82 ++
+ drivers/net/wireless/iwlwifi/iwl-trans-rx-pcie.c   |  979 ++++++++++++=
++++
+ .../iwlwifi/{iwl-tx.c =3D> iwl-trans-tx-pcie.c}      |  484 +++++++-
+ drivers/net/wireless/iwlwifi/iwl-trans.c           |  643 +++++++++-
+ drivers/net/wireless/iwlwifi/iwl-trans.h           |  154 ++-
+ drivers/net/wireless/libertas/dev.h                |    2 -
+ drivers/net/wireless/libertas/main.c               |    2 +-
+ drivers/net/wireless/libertas/mesh.c               | 1320 +++++++++---=
+--------
+ drivers/net/wireless/libertas/mesh.h               |   31 -
+ drivers/net/wireless/libertas/tx.c                 |    2 +-
+ drivers/net/wireless/mwifiex/debugfs.c             |   33 +-
+ drivers/net/wireless/mwifiex/ioctl.h               |    1 +
+ drivers/net/wireless/mwifiex/main.h                |    1 +
+ drivers/net/wireless/mwifiex/sdio.c                |    5 +-
+ drivers/net/wireless/mwifiex/sta_ioctl.c           |   14 +
+ drivers/net/wireless/mwifiex/wmm.c                 |    2 +
+ drivers/net/wireless/mwl8k.c                       |    6 +-
+ drivers/net/wireless/orinoco/airport.c             |    9 +-
+ drivers/net/wireless/orinoco/cfg.c                 |    6 +-
+ drivers/net/wireless/orinoco/fw.c                  |    7 +-
+ drivers/net/wireless/orinoco/fw.h                  |    2 +-
+ drivers/net/wireless/orinoco/hermes.c              |   40 +-
+ drivers/net/wireless/orinoco/hermes.h              |   37 +-
+ drivers/net/wireless/orinoco/hermes_dld.c          |    8 +-
+ drivers/net/wireless/orinoco/hermes_dld.h          |   12 +-
+ drivers/net/wireless/orinoco/hw.c                  |   48 +-
+ drivers/net/wireless/orinoco/hw.h                  |    2 +-
+ drivers/net/wireless/orinoco/main.c                |   46 +-
+ drivers/net/wireless/orinoco/mic.c                 |    8 +-
+ drivers/net/wireless/orinoco/orinoco.h             |   16 +-
+ drivers/net/wireless/orinoco/orinoco_cs.c          |    6 +-
+ drivers/net/wireless/orinoco/orinoco_nortel.c      |    3 +-
+ drivers/net/wireless/orinoco/orinoco_pci.c         |    4 +-
+ drivers/net/wireless/orinoco/orinoco_plx.c         |    6 +-
+ drivers/net/wireless/orinoco/orinoco_tmd.c         |    2 +-
+ drivers/net/wireless/orinoco/orinoco_usb.c         |   23 +-
+ drivers/net/wireless/orinoco/spectrum_cs.c         |   10 +-
+ drivers/net/wireless/orinoco/wext.c                |   14 +-
+ drivers/net/wireless/rtlwifi/base.c                |   20 +-
+ drivers/net/wireless/rtlwifi/cam.c                 |    8 +-
+ drivers/net/wireless/rtlwifi/core.c                |    6 +-
+ drivers/net/wireless/rtlwifi/debug.h               |    5 -
+ drivers/net/wireless/rtlwifi/rtl8192c/fw_common.c  |    5 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c        |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c        |   69 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/mac.c       |   11 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/hw.c        |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/sw.c        |    8 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/hw.c        |   12 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/phy.c       |    5 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/rf.c        |    4 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/sw.c        |    6 +-
+ drivers/net/wireless/rtlwifi/usb.c                 |   12 +-
+ drivers/ssb/main.c                                 |    5 +-
+ include/linux/bcma/bcma.h                          |   21 +
+ include/linux/bcma/bcma_driver_chipcommon.h        |   13 +-
+ include/linux/bcma/bcma_regs.h                     |   27 +-
+ include/linux/ieee80211.h                          |   37 +
+ include/linux/nl80211.h                            |   33 +-
+ include/linux/ssb/ssb.h                            |    2 +
+ include/net/cfg80211.h                             |   33 +-
+ include/net/mac80211.h                             |   60 +
+ net/mac80211/agg-rx.c                              |   10 +-
+ net/mac80211/cfg.c                                 |    4 +
+ net/mac80211/driver-ops.h                          |   31 +
+ net/mac80211/driver-trace.h                        |   43 +
+ net/mac80211/ieee80211_i.h                         |    7 +-
+ net/mac80211/key.c                                 |    2 +-
+ net/mac80211/mlme.c                                |   30 +-
+ net/mac80211/pm.c                                  |    3 +
+ net/mac80211/scan.c                                |    6 +-
+ net/mac80211/tkip.c                                |   11 +
+ net/mac80211/util.c                                |   71 +-
+ net/mac80211/work.c                                |   28 +-
+ net/wireless/core.c                                |    7 +-
+ net/wireless/core.h                                |    4 +
+ net/wireless/nl80211.c                             |  109 ++-
+ net/wireless/scan.c                                |    4 +
+ net/wireless/util.c                                |   38 +
+ 177 files changed, 7327 insertions(+), 6261 deletions(-)
+ delete mode 100644 drivers/net/wireless/iwlwifi/iwl-agn-hcmd.c
+ delete mode 100644 drivers/net/wireless/iwlwifi/iwl-agn-ict.c
+ rename drivers/net/wireless/iwlwifi/{iwl-pci.h =3D> iwl-bus.h} (61%)
+ delete mode 100644 drivers/net/wireless/iwlwifi/iwl-hcmd.c
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-trans-int-pcie.h
+ create mode 100644 drivers/net/wireless/iwlwifi/iwl-trans-rx-pcie.c
+ rename drivers/net/wireless/iwlwifi/{iwl-tx.c =3D> iwl-trans-tx-pcie.c=
+} (53%)
+
+Omnibus patch is available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2=
+=2E6-2011-07-22.patch.bz2
+
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
