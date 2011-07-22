@@ -1,42 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH repost] Fix panic in virtnet_remove
-Date: Thu, 21 Jul 2011 21:29:50 -0700 (PDT)
-Message-ID: <20110721.212950.1991725607632413241.davem@davemloft.net>
-References: <20110720135602.18705.21405.sendpatchset@krkumar2.in.ibm.com>
-	<20110720143115.GB6787@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/10][pull request] Intel Wired LAN Driver Update
+Date: Thu, 21 Jul 2011 21:31:16 -0700
+Message-ID: <1311309077.2835.19.camel@jtkirshe-mobl>
+References: <1311300078-12876-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20110721.203921.500337781144914240.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-VteNcWVicQb4j0XwWanN"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:46657 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751085Ab1GVEbT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jul 2011 00:31:19 -0400
+In-Reply-To: <20110721.203921.500337781144914240.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-VteNcWVicQb4j0XwWanN
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2011-07-21 at 20:39 -0700, David Miller wrote:
+> This breaks the build:
+>=20
+> drivers/net/ixgbe/ixgbe_main.c: In function =E2=80=98ixgbe_clean_rx_irq=
+=E2=80=99:
+> drivers/net/ixgbe/ixgbe_main.c:1458:3: error: implicit declaration of fun=
+ction =E2=80=98xgbe_rx_is_fcoe=E2=80=99 [-Werror=3Dimplicit-function-declar=
+ation]
+>=20
+> The only function with a similar name is ixgbe_rx_is_fcoe().
+>=20
+> I can't see how this was build tested.
+
+This was my fault, while reviewing the patches to send, I accidentally
+deleted the "i" in ixgbe_rx_is_fcoe().  This was after I did my compile
+testing.
+
+
+--=-VteNcWVicQb4j0XwWanN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, rusty@rustcorp.com.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, shemminger@vyatta.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110720143115.GB6787@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 20 Jul 2011 17:31:15 +0300
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-> On Wed, Jul 20, 2011 at 07:26:02PM +0530, Krishna Kumar wrote:
->> Fix a panic in virtnet_remove. unregister_netdev has already
->> freed up the netdev (and virtnet_info) due to dev->destructor
->> being set, while virtnet_info is still required. Remove
->> virtnet_free altogether, and move the freeing of the per-cpu
->> statistics from virtnet_free to virtnet_remove.
->> 
->> Tested patch below.
->> 
->> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> 
-> Also note that the crash was apparently introduced by
-> 3fa2a1df909482cc234524906e4bd30dee3514df in net-next,
-> so this is a net-next only patch.
-> 
-> Stephen, was there any special reason to free the memory
-> in the destructor like you did?
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+iQEcBAABAgAGBQJOKP0UAAoJECTsCADr/EWU6u0H/RUaeBZcLUBXuCIlG4LRlJVW
++ryBNKM+S2ijR+WqGtSVxXgoyhbKPZQyp9oQ+5at2Y+BF0kNkfJcL2/DIRuhTMMm
+36ncLRDaaMDGzMEWwvuemv8yqyR3SMNd9ELGKDtP6OTepcUwJmDvC/tV70BmOxuq
+b+1F8Num4ZCPU5r3LKtVtE22a446Xv5eptRXzCQcmVJviPMyag7axW3bfbxaVoFN
+PC8qUKGQCOZXAvIi3iPJj+LKn7bVY5CggTnaPWeiFJu9MCDGSy4VCxdYM5BVPrMu
+0i0WH6Wlk5Z/eam9aqttw5i4uyCBS8VP7x7zLtsNKiCkCbrq5cD2pB2vfn40xtw=
+=orpB
+-----END PGP SIGNATURE-----
 
-Applied.
+--=-VteNcWVicQb4j0XwWanN--
+
