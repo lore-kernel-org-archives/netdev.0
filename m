@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dm9000: Make the driver follow the IRQF_SHARED contract
-Date: Fri, 22 Jul 2011 17:15:34 -0700 (PDT)
-Message-ID: <20110722.171534.202703728483982275.davem@davemloft.net>
-References: <1311357162-16200-1-git-send-email-daniel.morsing@gmail.com>
+Subject: Re: [PATCH] r8169: use pci_dev->subsystem_{vendor|device}
+Date: Fri, 22 Jul 2011 17:15:09 -0700 (PDT)
+Message-ID: <20110722.171509.936775923431019840.davem@davemloft.net>
+References: <201107221937.24383.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: broonie@opensource.wolfsonmicro.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: daniel.morsing@gmail.com
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com, romieu@fr.zoreil.com
+To: sshtylyov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59197 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59177 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755999Ab1GWAPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:15:41 -0400
-In-Reply-To: <1311357162-16200-1-git-send-email-daniel.morsing@gmail.com>
+	with ESMTP id S1756134Ab1GWAPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:15:20 -0400
+In-Reply-To: <201107221937.24383.sshtylyov@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Morsing <daniel.morsing@gmail.com>
-Date: Fri, 22 Jul 2011 19:52:42 +0200
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Date: Fri, 22 Jul 2011 19:37:24 +0400
 
-> The dm9000 driver requests a shared interrupt but doesn't return
-> IRQ_NONE when the device didn't generate the interrupt. This could lead
-> to the other devices sharing the irq never getting an interrupt. This
-> patch makes the routine return IRQ_NONE for the path where no work was
-> done.
+> The driver reads PCI subsystem IDs from the PCI configuration registers while
+> they are already stored by the PCI subsystem in the 'subsystem_{vendor|device}'
+> fields of 'struct pci_dev'...
 > 
-> Signed-off-by: Daniel Morsing <daniel.morsing@gmail.com>
-> Cc: stable@kernel.org
+> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
 Applied.
