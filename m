@@ -1,34 +1,39 @@
-From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: Re: [ath9k-devel] [PATCH] ath9k: use pci_dev->subsystem_device
-Date: Sat, 23 Jul 2011 03:53:32 -0400
-Message-ID: <4E2A7DFC.3060401@gnu.org>
-References: <201107221958.23408.sshtylyov@ru.mvista.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org, vasanth-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org, jmalinen-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org
-To: Sergei Shtylyov <sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201107221958.23408.sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Huang Weiyi <weiyi.huang@gmail.com>
+Subject: [PATCH] bnad: remove duplicated #include
+Date: Sat, 23 Jul 2011 16:19:12 +0800
+Message-ID: <1311409152-668-1-git-send-email-weiyi.huang@gmail.com>
+Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:46215 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751471Ab1GWITc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2011 04:19:32 -0400
+Received: by pzk37 with SMTP id 37so4899732pzk.1
+        for <netdev@vger.kernel.org>; Sat, 23 Jul 2011 01:19:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2011 11:58 AM, Sergei Shtylyov wrote:
-> The driver reads PCI subsystem ID from the PCI configuration register while it's
-> already stored by the PCI subsystem in the 'subsystem_device' field of 'struct
-> pci_dev'...
->
-> Signed-off-by: Sergei Shtylyov<sshtylyov-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
+Remove duplicated #include('s) in
+  drivers/net/bna/bnad.c
 
-subsysid doesn't appear to be used anywhere.  It can be removed easily. 
-  The patch will be sent separately.
+Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+---
+ drivers/net/bna/bnad.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index c89c9b2..b7e80ac 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -25,7 +25,6 @@
+ #include <linux/if_ether.h>
+ #include <linux/ip.h>
+ #include <linux/prefetch.h>
+-#include <linux/if_vlan.h>
+ 
+ #include "bnad.h"
+ #include "bna.h"
 -- 
-Regards,
-Pavel Roskin
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.5.6.4
+
