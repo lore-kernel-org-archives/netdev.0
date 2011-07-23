@@ -1,40 +1,46 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Sat, 23 Jul 2011 19:39:40 +0900
-Message-ID: <201107231939.FIF21882.QHOSOFtMFVLFOJ@I-love.SAKURA.ne.jp>
-References: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
-	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
-	<201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
-	<20110722.082224.688620059032914637.davem@davemloft.net>
-	<4E2A7273.7030504@msgid.tls.msk.ru>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] ipv4: use RT_TOS after some rt_tos conversions
+Date: Sat, 23 Jul 2011 15:00:41 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1107231455220.1537@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, casey@schaufler-ca.com, anton@samba.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: mjt@tls.msk.ru
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4E2A7273.7030504@msgid.tls.msk.ru>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:50504 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751730Ab1GWL5B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2011 07:57:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Tokarev wrote:
-> (I noticed samba.org address in the Cc list).
 
-That's because Anton Blanchard is author of sendmmsg() system call.
+rt_tos was changed to iph->tos but it must be filtered by RT_TOS
 
-> When I saw recvmmsg()/sendmmsg() here, my first thought was an
-> authoritative DNS server which can read several requests at a
-> time and answer them all at once too - this way it all will go
-> to different addresses.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-I don't know what application wants sendmmsg(). Since users can send up to
-UIO_MAXIOV (= 1024) "struct iovec" blocks using sendmsg(), they will use
-sendmsg() rather than sendmmsg() if the destination address are the same.
-
-Therefore, I guess users will use sendmmsg() for sending to multiple different
-destination addresses. If so, optimization based on destination address will do
-more harm than benefit; simply passing nosec flag down to LSM modules (so that
-SELinux will skip sock_has_perm() call and SMACK will not skip
-smack_netlabel_send() call) will be sufficient for 3.0.x stable release.
-
-Anton, how do you want to use sendmmsg()?
+diff -urp v3.0/linux/net/ipv4/ipmr.c linux/net/ipv4/ipmr.c
+--- v3.0/linux/net/ipv4/ipmr.c	2011-07-23 14:35:17.551351207 +0300
++++ linux/net/ipv4/ipmr.c	2011-07-23 14:36:05.293350956 +0300
+@@ -1796,7 +1796,7 @@ static struct mr_table *ipmr_rt_fib_look
+ 	struct flowi4 fl4 = {
+ 		.daddr = iph->daddr,
+ 		.saddr = iph->saddr,
+-		.flowi4_tos = iph->tos,
++		.flowi4_tos = RT_TOS(iph->tos),
+ 		.flowi4_oif = rt->rt_oif,
+ 		.flowi4_iif = rt->rt_iif,
+ 		.flowi4_mark = rt->rt_mark,
+diff -urp v3.0/linux/net/ipv4/route.c linux/net/ipv4/route.c
+--- v3.0/linux/net/ipv4/route.c	2011-07-23 14:35:17.183352539 +0300
++++ linux/net/ipv4/route.c	2011-07-23 14:36:18.488350045 +0300
+@@ -1740,7 +1740,7 @@ void ip_rt_get_source(u8 *addr, struct s
+ 		memset(&fl4, 0, sizeof(fl4));
+ 		fl4.daddr = iph->daddr;
+ 		fl4.saddr = iph->saddr;
+-		fl4.flowi4_tos = iph->tos;
++		fl4.flowi4_tos = RT_TOS(iph->tos);
+ 		fl4.flowi4_oif = rt->dst.dev->ifindex;
+ 		fl4.flowi4_iif = skb->dev->ifindex;
+ 		fl4.flowi4_mark = skb->mark;
