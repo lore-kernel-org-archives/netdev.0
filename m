@@ -1,46 +1,18 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] ipv4: use RT_TOS after some rt_tos conversions
-Date: Sat, 23 Jul 2011 15:00:41 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1107231455220.1537@ja.ssi.bg>
+From: Omar Said Ali Al Habsi <u089335@squ.edu.om>
+Subject: Contact ming-yang3@live.com
+Date: Sat, 23 Jul 2011 16:13:21 +0400
+Message-ID: <46E19A217CCAB7488AC7B4DD3D0D0844094056B9F656@CMS1.squ.edu.om>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50504 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751730Ab1GWL5B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2011 07:57:01 -0400
+Received: from mail.squ.edu.om ([62.231.244.31]:33715 "EHLO
+	squedge2.squ.edu.om" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752143Ab1GWMTI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2011 08:19:08 -0400
+Content-Language: es-UY
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-rt_tos was changed to iph->tos but it must be filtered by RT_TOS
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
-
-diff -urp v3.0/linux/net/ipv4/ipmr.c linux/net/ipv4/ipmr.c
---- v3.0/linux/net/ipv4/ipmr.c	2011-07-23 14:35:17.551351207 +0300
-+++ linux/net/ipv4/ipmr.c	2011-07-23 14:36:05.293350956 +0300
-@@ -1796,7 +1796,7 @@ static struct mr_table *ipmr_rt_fib_look
- 	struct flowi4 fl4 = {
- 		.daddr = iph->daddr,
- 		.saddr = iph->saddr,
--		.flowi4_tos = iph->tos,
-+		.flowi4_tos = RT_TOS(iph->tos),
- 		.flowi4_oif = rt->rt_oif,
- 		.flowi4_iif = rt->rt_iif,
- 		.flowi4_mark = rt->rt_mark,
-diff -urp v3.0/linux/net/ipv4/route.c linux/net/ipv4/route.c
---- v3.0/linux/net/ipv4/route.c	2011-07-23 14:35:17.183352539 +0300
-+++ linux/net/ipv4/route.c	2011-07-23 14:36:18.488350045 +0300
-@@ -1740,7 +1740,7 @@ void ip_rt_get_source(u8 *addr, struct s
- 		memset(&fl4, 0, sizeof(fl4));
- 		fl4.daddr = iph->daddr;
- 		fl4.saddr = iph->saddr;
--		fl4.flowi4_tos = iph->tos;
-+		fl4.flowi4_tos = RT_TOS(iph->tos);
- 		fl4.flowi4_oif = rt->dst.dev->ifindex;
- 		fl4.flowi4_iif = skb->dev->ifindex;
- 		fl4.flowi4_mark = skb->mark;
+I am Mr. Ming Yang,I have an obscured business suggestion for you.Your services will be paid for.Contact ming-yang3@live.com
