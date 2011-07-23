@@ -1,86 +1,57 @@
-From: xeb@mail.ru
-Subject: [PATCH net-2.6 v2] gre: fix improper error handling
-Date: Sat, 23 Jul 2011 10:49:40 +0400
-Message-ID: <201107231049.40603.xeb@mail.ru>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
+Date: Sat, 23 Jul 2011 11:04:19 +0400
+Message-ID: <4E2A7273.7030504@msgid.tls.msk.ru>
+References: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>	<201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp> <20110722.082224.688620059032914637.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_E8mKOiayJpGgTDg"
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp17.mail.ru ([94.100.176.154]:34709 "EHLO smtp17.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750857Ab1GWGto (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2011 02:49:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---Boundary-00=_E8mKOiayJpGgTDg
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, casey@schaufler-ca.com,
+	anton@samba.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20110722.082224.688620059032914637.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix improper protocol err_handler, current implementation is fully
-unapplicable and may cause kernel crash due to double kfree_skb.
+22.07.2011 19:22, David Miller wrote:
+> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Date: Sat, 23 Jul 2011 00:12:53 +0900
+> 
+>> I think the regression for SMACK can be fixed with below patch.
+>>
+>> Should I pass nosec flags down to "struct security_operations"->sendmsg()
+>> so that SELinux checks sock_has_perm() for only once when multiple different
+>> destination's addresses are passed to sendmmsg()?
+>>
+>> static int selinux_socket_sendmsg(struct socket *sock, struct msghdr *msg,
+>> 				  int size, int nosec)
+>> {
+>> 	return nosec ? 0 : sock_has_perm(current, sock->sk, SOCKET__WRITE);
+>> }
+> 
+> Ugh, this takes away a non-trivial part of the performance gain of
+> sendmmsg().
+> 
+> I would instead rather that you check ahead of time whether this
+> actually is a send to different addresses.  If they are all the
+> same, keep the nosec code path.
 
-Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
----
+Why to optimize for this case when destination addresses are the
+same?  How common this usage case is, or even where it _can_
+happen alot (I noticed samba.org address in the Cc list).
 
---Boundary-00=_E8mKOiayJpGgTDg
-Content-Type: text/plain;
-  charset="iso-8859-15";
-  name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="patch"
+When I saw recvmmsg()/sendmmsg() here, my first thought was an
+authoritative DNS server which can read several requests at a
+time and answer them all at once too - this way it all will go
+to different addresses.
 
- net/ipv4/gre.c |   21 ++++++---------------
- 1 files changed, 6 insertions(+), 15 deletions(-)
- 
-diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-index 9dbe108..dbfc21d 100644
---- a/net/ipv4/gre.c
-+++ b/net/ipv4/gre.c
-@@ -15,6 +15,7 @@
- #include <linux/kmod.h>
- #include <linux/skbuff.h>
- #include <linux/in.h>
-+#include <linux/ip.h>
- #include <linux/netdevice.h>
- #include <linux/spinlock.h>
- #include <net/protocol.h>
-@@ -96,27 +97,17 @@ drop:
- static void gre_err(struct sk_buff *skb, u32 info)
- {
- 	const struct gre_protocol *proto;
--	u8 ver;
--
--	if (!pskb_may_pull(skb, 12))
--		goto drop;
-+	const struct iphdr *iph = (const struct iphdr *)skb->data;
-+	u8 ver = skb->data[(iph->ihl<<2) + 1]&0x7f;
- 
--	ver = skb->data[1]&0x7f;
- 	if (ver >= GREPROTO_MAX)
--		goto drop;
-+		return;
- 
- 	rcu_read_lock();
- 	proto = rcu_dereference(gre_proto[ver]);
--	if (!proto || !proto->err_handler)
--		goto drop_unlock;
--	proto->err_handler(skb, info);
--	rcu_read_unlock();
--	return;
--
--drop_unlock:
-+	if (proto && proto->err_handler)
-+		proto->err_handler(skb, info);
- 	rcu_read_unlock();
--drop:
--	kfree_skb(skb);
- }
- 
- static const struct net_protocol net_gre_protocol = {
+I understand the initial change takes away good portion of
+performance improvement, but I think the optimisation should
+be performed in a different place than for a not-so-common
+cenario.
 
---Boundary-00=_E8mKOiayJpGgTDg--
+Thanks,
+
+/mjt
