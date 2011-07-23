@@ -1,55 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net: allow netif_carrier to be called safely from IRQ
-Date: Fri, 22 Jul 2011 15:53:56 -0700
-Message-ID: <20110722155356.5911225f@nehalam.ftrdhcpuser.net>
-References: <CA+55aFxakA2U+oMJ1T7awTYa+p6xp9N0aCbfrUqgkF7BJ8gnQw@mail.gmail.com>
-	<4E29CB5B.4040408@unsolicited.net>
-	<CA+55aFy1FnVGH4C_0T8fXwZPUdz5-SCczMwy1K8kydLwTx89RQ@mail.gmail.com>
-	<4E29D326.7070403@candelatech.com>
-	<20110722133220.0baf2199@nehalam.ftrdhcpuser.net>
-	<20110722212629.GA10833@electric-eye.fr.zoreil.com>
-	<20110722150956.5b341488@nehalam.ftrdhcpuser.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sbni: use pci_dev->subsystem_device
+Date: Fri, 22 Jul 2011 17:15:17 -0700 (PDT)
+Message-ID: <20110722.171517.1347031469291763996.davem@davemloft.net>
+References: <201107221950.25960.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David <david@unsolicited.net>, Tejun Heo <tj@kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110722150956.5b341488@nehalam.ftrdhcpuser.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: sshtylyov@ru.mvista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59176 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755950Ab1GWAPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:15:20 -0400
+In-Reply-To: <201107221950.25960.sshtylyov@ru.mvista.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As reported by Ben Greer and Froncois Romieu. The code path in 
-the netif_carrier code leads it to try and disable
-a late workqueue to reenable it immediately
-netif_carrier_on
--> linkwatch_fire_event
-   -> linkwatch_schedule_work
-      -> cancel_delayed_work
-         -> del_timer_sync  
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Date: Fri, 22 Jul 2011 19:50:25 +0400
 
-If __cancel_delayed_work is used instead then there is no
-problem of waiting for running linkwatch_event.
+> The driver reads PCI subsystem ID from the PCI configuration register while it's
+> already stored by the PCI subsystem in the 'subsystem_device' field of 'struct
+> pci_dev'...
+> 
+> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-There is a race between linkwatch_event running re-scheduling
-but it is harmless to schedule an extra scan of the linkwatch queue.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-
---- a/net/core/link_watch.c	2011-07-22 15:25:31.027533604 -0700
-+++ b/net/core/link_watch.c	2011-07-22 15:31:27.531520028 -0700
-@@ -126,7 +126,7 @@ static void linkwatch_schedule_work(int
- 		return;
- 
- 	/* It's already running which is good enough. */
--	if (!cancel_delayed_work(&linkwatch_work))
-+	if (!__cancel_delayed_work(&linkwatch_work))
- 		return;
- 
- 	/* Otherwise we reschedule it again for immediate execution. */
+Applied.
