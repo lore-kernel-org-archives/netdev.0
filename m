@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2011-07-22
-Date: Fri, 22 Jul 2011 17:16:35 -0700 (PDT)
-Message-ID: <20110722.171635.1154932336401179368.davem@davemloft.net>
-References: <20110722222308.GA3048@tuxdriver.com>
+Subject: Re: [PATCH] net: allow netif_carrier to be called safely from IRQ
+Date: Fri, 22 Jul 2011 17:16:42 -0700 (PDT)
+Message-ID: <20110722.171642.1498051921735569337.davem@davemloft.net>
+References: <20110722212629.GA10833@electric-eye.fr.zoreil.com>
+	<20110722150956.5b341488@nehalam.ftrdhcpuser.net>
+	<20110722155356.5911225f@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110722222308.GA3048@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, greearb@candelatech.com,
+	torvalds@linux-foundation.org, david@unsolicited.net,
+	tj@kernel.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36284 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756459Ab1GWARs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:17:48 -0400
+In-Reply-To: <20110722155356.5911225f@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 22 Jul 2011 18:23:09 -0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 22 Jul 2011 15:53:56 -0700
 
-> Here is the last big pull request of new wireless bits intended
-> for 3.1.  This includes the usual big batch of updates to iwlagn,
-> a number of updates to ath9k, mwifiex, carl9170, libertas, and other
-> drivers, and soem updates to mac80211 and cfg80211 from Johannes.
-> The most noteworth bits are most of the final push from Rafa=A9=A9 fo=
-r
-> supporting current Broadcom wireless hardware in b43.
->=20
-> Please let me know if there are problems!
+> As reported by Ben Greer and Froncois Romieu. The code path in 
+> the netif_carrier code leads it to try and disable
+> a late workqueue to reenable it immediately
+> netif_carrier_on
+> -> linkwatch_fire_event
+>    -> linkwatch_schedule_work
+>       -> cancel_delayed_work
+>          -> del_timer_sync  
+> 
+> If __cancel_delayed_work is used instead then there is no
+> problem of waiting for running linkwatch_event.
+> 
+> There is a race between linkwatch_event running re-scheduling
+> but it is harmless to schedule an extra scan of the linkwatch queue.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-A little late to be submitting this since the merge window is
-already open, but I pulled anyways.
-
-Thanks!
+Applied.
