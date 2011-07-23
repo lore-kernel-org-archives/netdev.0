@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sbni: use pci_dev->subsystem_device
-Date: Fri, 22 Jul 2011 17:15:17 -0700 (PDT)
-Message-ID: <20110722.171517.1347031469291763996.davem@davemloft.net>
-References: <201107221950.25960.sshtylyov@ru.mvista.com>
+Subject: Re: [PATCH 0/5] bridge patchs
+Date: Fri, 22 Jul 2011 17:15:28 -0700 (PDT)
+Message-ID: <20110722.171528.1379587022311922042.davem@davemloft.net>
+References: <20110722174705.144993799@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sshtylyov@ru.mvista.com
+Cc: davem@davmeloft.net, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59176 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59181 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755950Ab1GWAPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:15:20 -0400
-In-Reply-To: <201107221950.25960.sshtylyov@ru.mvista.com>
+	with ESMTP id S1756166Ab1GWAP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:15:29 -0400
+In-Reply-To: <20110722174705.144993799@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Date: Fri, 22 Jul 2011 19:50:25 +0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 22 Jul 2011 10:47:05 -0700
 
-> The driver reads PCI subsystem ID from the PCI configuration register while it's
-> already stored by the PCI subsystem in the 'subsystem_device' field of 'struct
-> pci_dev'...
-> 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> Bridge patches. These are order by urgency from important to trivial.
 
-Applied.
+All applied.
