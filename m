@@ -1,44 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: allow netif_carrier to be called safely from IRQ
-Date: Fri, 22 Jul 2011 17:16:42 -0700 (PDT)
-Message-ID: <20110722.171642.1498051921735569337.davem@davemloft.net>
-References: <20110722212629.GA10833@electric-eye.fr.zoreil.com>
-	<20110722150956.5b341488@nehalam.ftrdhcpuser.net>
-	<20110722155356.5911225f@nehalam.ftrdhcpuser.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: Linux 3.0 release
+Date: Sat, 23 Jul 2011 04:27:15 +0200
+Message-ID: <20110723022715.GB21089@mtj.dyndns.org>
+References: <CA+55aFxakA2U+oMJ1T7awTYa+p6xp9N0aCbfrUqgkF7BJ8gnQw@mail.gmail.com>
+ <4E29CB5B.4040408@unsolicited.net>
+ <CA+55aFy1FnVGH4C_0T8fXwZPUdz5-SCczMwy1K8kydLwTx89RQ@mail.gmail.com>
+ <4E29D326.7070403@candelatech.com>
+ <20110722133220.0baf2199@nehalam.ftrdhcpuser.net>
+ <CA+55aFwX55HhzyPsb5vx-=xkHpWJBH0481ZFWcXnNzH1M6zhdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, greearb@candelatech.com,
-	torvalds@linux-foundation.org, david@unsolicited.net,
-	tj@kernel.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36284 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756459Ab1GWARs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2011 20:17:48 -0400
-In-Reply-To: <20110722155356.5911225f@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Greear <greearb@candelatech.com>,
+	David <david@unsolicited.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFwX55HhzyPsb5vx-=xkHpWJBH0481ZFWcXnNzH1M6zhdg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 22 Jul 2011 15:53:56 -0700
+Hello, Stephen, Linus.
 
-> As reported by Ben Greer and Froncois Romieu. The code path in 
-> the netif_carrier code leads it to try and disable
-> a late workqueue to reenable it immediately
-> netif_carrier_on
-> -> linkwatch_fire_event
->    -> linkwatch_schedule_work
->       -> cancel_delayed_work
->          -> del_timer_sync  
+On Fri, Jul 22, 2011 at 01:35:16PM -0700, Linus Torvalds wrote:
+> On Fri, Jul 22, 2011 at 1:32 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+> >
+> > The workqueue code should have a fallback and not try and
+> > do anything if being called from IRQ.
 > 
-> If __cancel_delayed_work is used instead then there is no
-> problem of waiting for running linkwatch_event.
+> Fair enough. Especially since one of the *points* of workqueues is
+> indeed to schedule stuff from irqs and that cannot be done
+> immediately.
 > 
-> There is a race between linkwatch_event running re-scheduling
-> but it is harmless to schedule an extra scan of the linkwatch queue.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Tejun?
 
-Applied.
+It seems to have been already tracked down but, just to be clear.
+Nothing changed regarding synchronization requirements for all the
+queue, flush and cancel functions.  If it worked before cmwq, it
+should work with cmwq.
+
+While on the topic, we do have some workqueue API problems.  The
+delayed ones are a bit screwy.  e.g. requeueing an already pending
+delayed work item should probably update the timer but it doesn't andp
+we have a bunch of users doing cancel/requeue or using separate timers
+for that.  Also, the cancel/flush[_sync] variants are subtly different
+making using the correct one difficult, which has possibility of
+introducing bugs which are extremely difficult to reproduce.
+
+Again, most of these had accumulated well before cmwq came into the
+picture.  I think we need to make workqueue simpler and easier to use.
+
+Thanks.
+
+-- 
+tejun
