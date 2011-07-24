@@ -1,52 +1,56 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] iwlagn: wrap suspend/resume definitions in CONFIG_PM
- block
-Date: Sun, 24 Jul 2011 16:39:56 -0400
-Message-ID: <20110724203956.GA29630@tuxdriver.com>
-References: <20110724.030949.1727841105144911931.davem@davemloft.net>
- <1311535150-28686-1-git-send-email-linville@tuxdriver.com>
- <20110724.130840.1093555047179460794.davem@davemloft.net>
+From: Mary C Kuhns <Mary.Kuhns@abbott.com>
+Subject: LOAN UPDATE Email:fastwayloanlender@hotmail.com
+Date: Sun, 24 Jul 2011 15:33:58 -0500
+Message-ID: <OFB45ABBAB.B8A95519-ON862578D7.0070F910-862578D7.0070F96D@abbott.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes.berg@intel.com, wey-yi.w.guy@intel.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110724.130840.1093555047179460794.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from abtmx2.abbott.com ([130.36.44.92]:15151 "EHLO abtmx2.abbott.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752071Ab1GXUtP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2011 16:49:15 -0400
+MIME-Version: 1.0
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 24, 2011 at 01:08:40PM -0700, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Sun, 24 Jul 2011 15:19:10 -0400
-> 
-> > drivers/net/wireless/iwlwifi/iwl-agn.c:3464: error: unknown field 'suspend' specified in initializer
-> > drivers/net/wireless/iwlwifi/iwl-agn.c:3464: warning: initialization from incompatible pointer type
-> > drivers/net/wireless/iwlwifi/iwl-agn.c:3465: error: unknown field 'resume' specified in initializer
-> > drivers/net/wireless/iwlwifi/iwl-agn.c:3465: warning: initialization from incompatible pointer type
-> > 
-> > This was caused by commit c8ac61cf ("iwlagn: implement WoWLAN").
-> > 
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> 
-> Since I already minimally fixed up my build locally last night I know
-> that your patch leads to a set of warnings because the methods whose
-> hookup are now commented out become completely unused and they are all
-> marked "static".  And recursively functions that those methods use
-> become unused too.
-> 
-> Did you turn off CONFIG_PM and test the build of this file to see
-> what the compiler actually does with it?
-> 
-> I'm checking in the following, but I expect much better from you John.
+I am Patrick Fisher of the Fast Way Finance Company NIGERIA a Money 
 
-Sorry, Dave.  I confess that I was hoping for a quick fix on a Sunday afternoon. :-)
+Lending Firm for real estate and any kind of business financing. We 
 
-Thanks for making it better!
+offer Loan to individuals     person(s), Firms and cooperate bodies 
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+at 3% interest    rate per annum. The Minimum amount you can borrow 
+
+is $2,000.00 to $700.000,000.00 US Dollars.
+
+All replies should be forwarded to the Company's
+E-mails:fastwayloanlender@hotmail.com
+Contact Name: Mr Patrick Fisher 
+
+We are certified, trustworthy, reliable, efficient,
+Fast and dynamic. A trial will convince you.....    Provide us with 
+
+the
+following:
+
+* Name Of Applicant:.......
+* Address:.................
+* Country:.................
+* Phone Number:............
+* Amount Requested: .......
+* Loan Duration/years:.....
+* Occupation...............
+* Have you applied for a Loan ONLINE..
+
+In acknowledgment to this mail, we can start with the  processing of 
+
+your
+loan.
+  
+Contact us for more information via
+Email:fastwayloanlender@hotmail.com
+
+Mr.Patrick Fisher 
+Managing Director.
