@@ -1,38 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 v2] gre: fix improper error handling
-Date: Sat, 23 Jul 2011 20:06:14 -0700 (PDT)
-Message-ID: <20110723.200614.904511348785183565.davem@davemloft.net>
-References: <201107231049.40603.xeb@mail.ru>
-	<1311409964.6669.9.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xeb@mail.ru, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Wanlong Gao <wanlong.gao@gmail.com>
+Subject: [PATCH] drivers:connector:remove an unused variable *tracer*
+Date: Sun, 24 Jul 2011 11:06:29 +0800
+Message-ID: <1311476789-3858-1-git-send-email-wanlong.gao@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wanlong Gao <gaowanlong@cn.fujitsu.com>
+To: zbr@ioremap.net, Jiri Kosina <jkosina@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33015 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160Ab1GXDGU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2011 23:06:20 -0400
-In-Reply-To: <1311409964.6669.9.camel@edumazet-laptop>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:52006 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159Ab1GXDIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2011 23:08:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 23 Jul 2011 10:32:44 +0200
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
 
-> Le samedi 23 juillet 2011 =E0 10:49 +0400, xeb@mail.ru a =E9crit :
->> Fix improper protocol err_handler, current implementation is fully
->> unapplicable and may cause kernel crash due to double kfree_skb.
->>=20
->> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
->> ---
->> net/ipv4/gre.c |   21 ++++++---------------
->>  1 files changed, 6 insertions(+), 15 deletions(-)
->> =20
->=20
-> Good catch !
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+The variable 'tracer' never be used, so remove it.
+Added by f701e5b73a1a79ea62ffd45d9e2bed4c7d5c1fd2.
 
-Applied, thanks everyone.
+Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+---
+ drivers/connector/cn_proc.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
+index 281902d..0debc17 100644
+--- a/drivers/connector/cn_proc.c
++++ b/drivers/connector/cn_proc.c
+@@ -173,7 +173,6 @@ void proc_ptrace_connector(struct task_struct *task, int ptrace_id)
+ 	struct proc_event *ev;
+ 	struct timespec ts;
+ 	__u8 buffer[CN_PROC_MSG_SIZE];
+-	struct task_struct *tracer;
+ 
+ 	if (atomic_read(&proc_event_num_listeners) < 1)
+ 		return;
+-- 
+1.7.4.1
+
