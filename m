@@ -1,47 +1,55 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 6/6] bnx2x: use pci_pcie_cap()
-Date: Sun, 24 Jul 2011 16:58:38 +0300
-Message-ID: <1311515918.23243.9.camel@lb-tlvb-dmitry>
+Subject: [PATCH 4/6] bnx2x: enable internal target-read for 57712 and up
+ only
+Date: Sun, 24 Jul 2011 16:57:04 +0300
+Message-ID: <1311515824.23243.7.camel@lb-tlvb-dmitry>
 Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
+Cc: "Eilon Greenstein" <eilong@broadcom.com>, shmulikr@broadcom.com
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4917 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1790 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752834Ab1GXOLK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jul 2011 10:11:10 -0400
+	id S1752592Ab1GXOLD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jul 2011 10:11:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Zolotarov <vladz@broadcom.com>
-
+From: Shmulik Ravid <shmulikr@broadcom.com> 
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com> 
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/bnx2x/bnx2x_main.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 475f66f..b049fe1 100644
+index 9c146f7..9c62092 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -5652,7 +5652,7 @@ static void bnx2x_init_pxp(struct bnx2x *bp)
- 	int r_order, w_order;
+@@ -10242,11 +10242,14 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 	REG_WR(bp, PXP2_REG_PGL_ADDR_90_F0 + BP_PORT(bp)*16, 0);
+ 	REG_WR(bp, PXP2_REG_PGL_ADDR_94_F0 + BP_PORT(bp)*16, 0);
  
- 	pci_read_config_word(bp->pdev,
--			     bp->pdev->pcie_cap + PCI_EXP_DEVCTL, &devctl);
-+			     pci_pcie_cap(bp->pdev) + PCI_EXP_DEVCTL, &devctl);
- 	DP(NETIF_MSG_HW, "read 0x%x from devctl\n", devctl);
- 	w_order = ((devctl & PCI_EXP_DEVCTL_PAYLOAD) >> 5);
- 	if (bp->mrrs == -1)
+-	/**
++	/*
+ 	 * Enable internal target-read (in case we are probed after PF FLR).
+-	 * Must be done prior to any BAR read access
++	 * Must be done prior to any BAR read access. Only for 57712 and up
+ 	 */
+-	REG_WR(bp, PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ, 1);
++	if (board_type != BCM57710 &&
++	    board_type != BCM57711 &&
++	    board_type != BCM57711E)
++		REG_WR(bp, PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ, 1);
+ 
+ 	/* Reset the load counter */
+ 	bnx2x_clear_load_cnt(bp);
 -- 
 1.7.2.2
 
