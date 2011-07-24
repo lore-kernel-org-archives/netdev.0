@@ -1,58 +1,98 @@
-From: yoshfuji@linux-ipv6.org
-Subject: [PATCH] Do not leave router anycast address for /127 prefixes.
-Date: Mon, 25 Jul 2011 06:44:34 +0900
-Message-ID: <1311543874-16901-1-git-send-email-yoshfuji@linux-ipv6.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: Linux Kernel | Intel Driver Bug - please update
+Date: Sun, 24 Jul 2011 15:47:17 -0700
+Message-ID: <1311547638.2835.72.camel@jtkirshe-mobl>
+References: <0BE7A0BD7DFE4537AA0C03E333326E52@NOTENIKO>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Brian Haley <brian.haley@hp.com>
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-h4jpPqPBg2yq49W6NmJ0"
+Cc: "kristoffer@gaisler.com" <kristoffer@gaisler.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>, support@localhost.net.ar,
+	netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Nicol=E1s?= Sigal | LocalHost Soluciones
+	 Innovadoras <nicolas.sigal@localhost.net.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45335 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752200Ab1GXVuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2011 17:50:19 -0400
+Received: from mga14.intel.com ([143.182.124.37]:46238 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752503Ab1GXWrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jul 2011 18:47:19 -0400
+In-Reply-To: <0BE7A0BD7DFE4537AA0C03E333326E52@NOTENIKO>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Original commit 2bda8a0c8af... "Disable router anycast
-address for /127 prefixes" says:
+--=-h4jpPqPBg2yq49W6NmJ0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-|   No need for matching code in addrconf_leave_anycast() as it
-|   will silently ignore any attempt to leave an unknown anycast
-|   address.
+On Sun, 2011-07-24 at 13:28 -0700, Nicol=C3=A1s Sigal | LocalHost Solucione=
+s
+Innovadoras wrote:
+> Please, can you update the e1000e driver of the kernel to v1.4.4?
+> =20
+> http://downloadcenter.intel.com/Detail_Desc.aspx?agr=3DY&ProdId=3D3299&Dw=
+nldID=3D15817&ProductFamily=3DComponentes+Ethernet&ProductLine=3DControlado=
+res+Ethernet&ProductProduct=3DControlador+Intel%C2%AE+82579+Gigabit+Etherne=
+t&DownloadType=3DControladoresspa
+> =20
+> This version have an important bug fixed:
+> * 82579: Fix for Tx Hang on FTS ME Platform
+>=20
+> And we have this problem in all of our servers with this NIC and ME
+> on.
+> =20
+> Debug:
+> =20
+> Jul 24 14:23:27 [kernel] e1000e 0000:00:19.0: eth0: Detected Hardware
+> Unit Hang:
+> Jul 24 14:23:27 [kernel]   TDH                  <0>
+> Jul 24 14:23:27 [kernel]   TDT                  <16>
+> Jul 24 14:23:27 [kernel]   next_to_use          <16>
+> Jul 24 14:23:27 [kernel]   next_to_clean        <0>
+> Jul 24 14:23:27 [kernel] buffer_info[next_to_clean]:
+> Jul 24 14:23:27 [kernel]   time_stamp           <10282156f>
+> Jul 24 14:23:27 [kernel]   next_to_watch        <0>
+> Jul 24 14:23:27 [kernel]   jiffies              <102821aed>
+> Jul 24 14:23:27 [kernel]   next_to_watch.status <0>
+> Jul 24 14:23:27 [kernel] MAC Status             <80143>
+> Jul 24 14:23:27 [kernel] PHY Status             <796d>
+> Jul 24 14:23:27 [kernel] PHY 1000BASE-T Status  <0>
+> Jul 24 14:23:27 [kernel] PHY Extended Status    <3000>
+> Jul 24 14:23:27 [kernel] PCI Status             <10>
+> Jul 24 14:23:28 [kernel] e1000e 0000:00:19.0: eth0: Reset adapter
+> Jul 24 14:23:30 [kernel] e1000e: eth0 NIC Link is Up 100 Mbps Full
+> Duplex, Flow Control: Rx/Tx
+> Jul 24 14:23:30 [kernel] e1000e 0000:00:19.0: eth0: 10/100 speed:
+> disabling TSO
+> =20
 
-After analysis, because 1) we may add two or more prefixes on the
-same interface, or 2)user may have manually joined that anycast,
-we may hit chances to have anycast address which as if we had
-generated one by /127 prefix and we should not leave from subnet-
-router anycast address unconditionally.
 
-CC: Bj=C3=B8rn Mork <bjorn@mork.no>
-CC: Brian Haley <brian.haley@hp.com>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/addrconf.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+[removed ixgbe/igb Intel maintainers, and Linus from the email thread]
+Added a more appropriate mailing list (netdev)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a06c53c..a55500c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1481,6 +1481,8 @@ static void addrconf_join_anycast(struct inet6_if=
-addr *ifp)
- static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
- {
- 	struct in6_addr addr;
-+	if (ifp->prefix_len =3D=3D 127) /* RFC 6164 */
-+		return;
- 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
- 	if (ipv6_addr_any(&addr))
- 		return;
---=20
-1.7.0.4
+We currently have the kernel patches in review and testing to update the
+e1000e driver to v1.4.4.  I should be able to push some, if not all of
+the changes upstream later this week.
+
+--=-h4jpPqPBg2yq49W6NmJ0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJOLKD1AAoJECTsCADr/EWUsY8H/RnxaTsPAZRxrcYQUKxeUCJX
+Ktl91Ic8ZsjC2JlyM+22wucP5gmSmXZz6p8bfMCQzWWOeyXDN7fH5TyTKmnzYoda
+FwFFK9pSDlroPi/Eh3EtLwbodyqaZtKLp3tAw83ciSnzlYv+Un/WU8yASb8qZwlE
+7qgv9K0R4eAK7Vvtr58nq+BkP2W2LGJgIgUP0CwjC57DIbJAC1KwMlJrInNRfZ8y
+oDjwXEXZ6NIjnuUBcZzKdVYZCqibATRIQ6Wkpk2efPPGSzTLcR44Bt9VpMPlCe5z
+ntN3DxnVypok77iI35bixBjKs9ts1EqKoQWFHJqsxnih2rBxhd/tYws7gWcBIvg=
+=ylx1
+-----END PGP SIGNATURE-----
+
+--=-h4jpPqPBg2yq49W6NmJ0--
 
