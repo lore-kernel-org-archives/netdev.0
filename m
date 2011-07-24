@@ -1,27 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: use RT_TOS after some rt_tos conversions
-Date: Sat, 23 Jul 2011 20:05:14 -0700 (PDT)
-Message-ID: <20110723.200514.57681165749319604.davem@davemloft.net>
-References: <alpine.LFD.2.00.1107231455220.1537@ja.ssi.bg>
+Subject: Re: [PATCH net-2.6 v2] gre: fix improper error handling
+Date: Sat, 23 Jul 2011 20:06:14 -0700 (PDT)
+Message-ID: <20110723.200614.904511348785183565.davem@davemloft.net>
+References: <201107231049.40603.xeb@mail.ru>
+	<1311409964.6669.9.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xeb@mail.ru, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32996 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33015 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750832Ab1GXDFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2011 23:05:23 -0400
-In-Reply-To: <alpine.LFD.2.00.1107231455220.1537@ja.ssi.bg>
+	with ESMTP id S1751160Ab1GXDGU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2011 23:06:20 -0400
+In-Reply-To: <1311409964.6669.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sat, 23 Jul 2011 15:00:41 +0300 (EEST)
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 23 Jul 2011 10:32:44 +0200
 
-> rt_tos was changed to iph->tos but it must be filtered by RT_TOS
-> 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Le samedi 23 juillet 2011 =E0 10:49 +0400, xeb@mail.ru a =E9crit :
+>> Fix improper protocol err_handler, current implementation is fully
+>> unapplicable and may cause kernel crash due to double kfree_skb.
+>>=20
+>> Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+>> ---
+>> net/ipv4/gre.c |   21 ++++++---------------
+>>  1 files changed, 6 insertions(+), 15 deletions(-)
+>> =20
+>=20
+> Good catch !
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks Julian.
+Applied, thanks everyone.
