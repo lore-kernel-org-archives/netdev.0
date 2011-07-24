@@ -1,56 +1,58 @@
-From: Mary C Kuhns <Mary.Kuhns@abbott.com>
-Subject: LOAN UPDATE Email:fastwayloanlender@hotmail.com
-Date: Sun, 24 Jul 2011 15:33:58 -0500
-Message-ID: <OFB45ABBAB.B8A95519-ON862578D7.0070F910-862578D7.0070F96D@abbott.com>
+From: yoshfuji@linux-ipv6.org
+Subject: [PATCH] Do not leave router anycast address for /127 prefixes.
+Date: Mon, 25 Jul 2011 06:44:34 +0900
+Message-ID: <1311543874-16901-1-git-send-email-yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Brian Haley <brian.haley@hp.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from abtmx2.abbott.com ([130.36.44.92]:15151 "EHLO abtmx2.abbott.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752071Ab1GXUtP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2011 16:49:15 -0400
-MIME-Version: 1.0
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45335 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752200Ab1GXVuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2011 17:50:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am Patrick Fisher of the Fast Way Finance Company NIGERIA a Money 
+=46rom: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Lending Firm for real estate and any kind of business financing. We 
+Original commit 2bda8a0c8af... "Disable router anycast
+address for /127 prefixes" says:
 
-offer Loan to individuals     person(s), Firms and cooperate bodies 
+|   No need for matching code in addrconf_leave_anycast() as it
+|   will silently ignore any attempt to leave an unknown anycast
+|   address.
 
-at 3% interest    rate per annum. The Minimum amount you can borrow 
+After analysis, because 1) we may add two or more prefixes on the
+same interface, or 2)user may have manually joined that anycast,
+we may hit chances to have anycast address which as if we had
+generated one by /127 prefix and we should not leave from subnet-
+router anycast address unconditionally.
 
-is $2,000.00 to $700.000,000.00 US Dollars.
+CC: Bj=C3=B8rn Mork <bjorn@mork.no>
+CC: Brian Haley <brian.haley@hp.com>
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/addrconf.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-All replies should be forwarded to the Company's
-E-mails:fastwayloanlender@hotmail.com
-Contact Name: Mr Patrick Fisher 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a06c53c..a55500c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1481,6 +1481,8 @@ static void addrconf_join_anycast(struct inet6_if=
+addr *ifp)
+ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+ {
+ 	struct in6_addr addr;
++	if (ifp->prefix_len =3D=3D 127) /* RFC 6164 */
++		return;
+ 	ipv6_addr_prefix(&addr, &ifp->addr, ifp->prefix_len);
+ 	if (ipv6_addr_any(&addr))
+ 		return;
+--=20
+1.7.0.4
 
-We are certified, trustworthy, reliable, efficient,
-Fast and dynamic. A trial will convince you.....    Provide us with 
-
-the
-following:
-
-* Name Of Applicant:.......
-* Address:.................
-* Country:.................
-* Phone Number:............
-* Amount Requested: .......
-* Loan Duration/years:.....
-* Occupation...............
-* Have you applied for a Loan ONLINE..
-
-In acknowledgment to this mail, we can start with the  processing of 
-
-your
-loan.
-  
-Contact us for more information via
-Email:fastwayloanlender@hotmail.com
-
-Mr.Patrick Fisher 
-Managing Director.
