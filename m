@@ -1,59 +1,62 @@
-From: =?UTF-8?Q?Nicol=C3=A1s_Sigal_|_LocalHost_Soluci?=
-	 =?UTF-8?Q?ones_Innovadoras?= <nicolas.sigal@localhost.net.ar>
-Subject: Re: Linux Kernel | Intel Driver Bug - please update
-Date: Sun, 24 Jul 2011 20:21:28 -0300
-Message-ID: <9D12A81F463842B8B571602F1FB83CC9@NOTENIKO>
-References: <0BE7A0BD7DFE4537AA0C03E333326E52@NOTENIKO> <1311547638.2835.72.camel@jtkirshe-mobl>
-Reply-To: =?UTF-8?Q?Nicol=C3=A1s_Sigal_|_LocalHost_Soluci?=
-	   =?UTF-8?Q?ones_Innovadoras?= <nicolas.sigal@localhost.net.ar>
+From: "Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] iwlagn: wrap suspend/resume definitions in CONFIG_PM
+ block
+Date: Sun, 24 Jul 2011 16:01:07 -0700
+Message-ID: <1311548467.5579.119.camel@wwguy-huron>
+References: <20110724.030949.1727841105144911931.davem@davemloft.net>
+	 <1311535150-28686-1-git-send-email-linville@tuxdriver.com>
+	 <20110724.130840.1093555047179460794.davem@davemloft.net>
+	 <20110724203956.GA29630@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <kristoffer@gaisler.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"netdev" <netdev@vger.kernel.org>
-To: <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.localhost.net.ar ([200.43.192.6]:59078 "EHLO
-	mail.localhost.net.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576Ab1GXXeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2011 19:34:31 -0400
-In-Reply-To: <1311547638.2835.72.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110724203956.GA29630-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-really really thanks Jeff!
+On Sun, 2011-07-24 at 13:39 -0700, John W. Linville wrote:
+> On Sun, Jul 24, 2011 at 01:08:40PM -0700, David Miller wrote:
+> > From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> > Date: Sun, 24 Jul 2011 15:19:10 -0400
+> > 
+> > > drivers/net/wireless/iwlwifi/iwl-agn.c:3464: error: unknown field 'suspend' specified in initializer
+> > > drivers/net/wireless/iwlwifi/iwl-agn.c:3464: warning: initialization from incompatible pointer type
+> > > drivers/net/wireless/iwlwifi/iwl-agn.c:3465: error: unknown field 'resume' specified in initializer
+> > > drivers/net/wireless/iwlwifi/iwl-agn.c:3465: warning: initialization from incompatible pointer type
+> > > 
+> > > This was caused by commit c8ac61cf ("iwlagn: implement WoWLAN").
+> > > 
+> > > Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> > 
+> > Since I already minimally fixed up my build locally last night I know
+> > that your patch leads to a set of warnings because the methods whose
+> > hookup are now commented out become completely unused and they are all
+> > marked "static".  And recursively functions that those methods use
+> > become unused too.
+> > 
+> > Did you turn off CONFIG_PM and test the build of this file to see
+> > what the compiler actually does with it?
+> > 
+> > I'm checking in the following, but I expect much better from you John.
+> 
+> Sorry, Dave.  I confess that I was hoping for a quick fix on a Sunday afternoon. :-)
+> 
+> Thanks for making it better!
+> 
+> John
+My mistake to not catch this to begin with, sorry for cause all the
+trouble.
 
-we are fighting to this problem for a long time with the intel executiv=
-e=20
-series motherboards with amt that are failing for this bug in the drive=
-r..
+Wey
 
-Regards;
-
-=2E................................................
-Nicol=C3=A1s Sigal
-CEO :: LocalHost Soluciones Innovadoras
-Mendoza 2917 :: C1428DKY
-Ciudad Aut=C3=B3noma de Buenos Aires :: Argentina
-Tel/Fax: 0810 55 LOCALHOST :: (011) 4784.6993
-http://www.localhost.net.ar/
-nicolas.sigal@localhost.net.ar
-
-
-
------ Original Message -----=20
-=46rom: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: "Nicol=C3=A1s Sigal | LocalHost Soluciones Innovadoras"=20
-<nicolas.sigal@localhost.net.ar>
-Cc: <kristoffer@gaisler.com>; "Brandeburg, Jesse"=20
-<jesse.brandeburg@intel.com>; "Allan, Bruce W" <bruce.w.allan@intel.com=
->;=20
-"Ronciak, John" <john.ronciak@intel.com>; <support@localhost.net.ar>;=20
-"netdev" <netdev@vger.kernel.org>
-Sent: Sunday, July 24, 2011 7:47 PM
-Subject: Re: Linux Kernel | Intel Driver Bug - please update
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
