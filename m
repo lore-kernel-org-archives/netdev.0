@@ -1,71 +1,55 @@
-From: Richard Kennedy <richard@rsk.demon.co.uk>
-Subject: Re: v3.0-rc* intermittent network failure: Test case found!
-Date: Mon, 25 Jul 2011 13:01:52 +0100
-Message-ID: <4E2D5B30.30003@rsk.demon.co.uk>
-References: <1311256194.2980.18.camel@castor.rsk>  <20110721143218.GA10595@electric-eye.fr.zoreil.com> <1311261527.2980.26.camel@castor.rsk>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
+Date: Mon, 25 Jul 2011 22:20:10 +1000
+Message-ID: <20110725222010.0b284042@kryten>
+References: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
+	<201107222127.GBG51007.FStQFVOHOFOLJM@I-love.SAKURA.ne.jp>
+	<201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
+	<20110722.082224.688620059032914637.davem@davemloft.net>
+	<4E2A7273.7030504@msgid.tls.msk.ru>
+	<201107231939.FIF21882.QHOSOFtMFVLFOJ@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchor-post-2.mail.demon.net ([195.173.77.133]:45074 "EHLO
-	anchor-post-2.mail.demon.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750864Ab1GYMB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 08:01:59 -0400
-In-Reply-To: <1311261527.2980.26.camel@castor.rsk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 21/07/11 16:18, Richard Kennedy wrote:
->> Richard Kennedy<richard@rsk.demon.co.uk>  :
->>> I keep seeing a total network failure on v3.0.0-rc* , it is highly
->>> intermittent, anything from 1 hour to 12+, and I don't have a reliable
->>> test case.
->>> When it fails I lose all network comms, but there are no errors in the
->>> system log, no hung tasks reported, nothing. But after it fails the
->>> machine hangs during shutdown, it just never turns off. So I guess
->>> something is getting stuck but I can't find it.
->>
-
-I have found a reliable test case, I can instantly trigger my problem by 
-starting 2 instances of rsync at the same time. [this is on x86_64 AMDX2]
-
-e.g.
-rsync -a linux-2.6 server:t1 & ;rsync -a linux-2.6 server:t2 &
+Cc: mjt@tls.msk.ru, davem@davemloft.net, casey@schaufler-ca.com,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201107231939.FIF21882.QHOSOFtMFVLFOJ@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-If I have a ping running when I trigger the problem, it pauses then 
-errors with :-
+Hi,
 
-	ping: sendmsg: No buffer space available
+> > (I noticed samba.org address in the Cc list).
+> 
+> That's because Anton Blanchard is author of sendmmsg() system call.
 
-But if I start a ping after, it fails with
+Ignore the From address - I wasn't adding sendmmsg with samba in mind.
 
-...	Destination Host Unreachable
-.
+> > When I saw recvmmsg()/sendmmsg() here, my first thought was an
+> > authoritative DNS server which can read several requests at a
+> > time and answer them all at once too - this way it all will go
+> > to different addresses.
+> 
+> I don't know what application wants sendmmsg(). Since users can send
+> up to UIO_MAXIOV (= 1024) "struct iovec" blocks using sendmsg(), they
+> will use sendmsg() rather than sendmmsg() if the destination address
+> are the same.
 
-I have a serial console attached but don't really understand what it's 
-telling me.
-AFAICT -- I have no blocked tasks  - sysrq w shows :-
+But if an application needs to maintain packet boundaries, then sendmsg
+isn't going to help is it?
+ 
+> Therefore, I guess users will use sendmmsg() for sending to multiple
+> different destination addresses. If so, optimization based on
+> destination address will do more harm than benefit; simply passing
+> nosec flag down to LSM modules (so that SELinux will skip
+> sock_has_perm() call and SMACK will not skip smack_netlabel_send()
+> call) will be sufficient for 3.0.x stable release.
+> 
+> Anton, how do you want to use sendmmsg()?
 
+I was using it for packet generation, using raw sockets.
 
-SysRq : Show Blocked State
-   task                        PC stack   pid father
-Sched Debug Version: v0.10, 3.0.0 #46
-ktime                                   : 7129717.783042
-sched_clk                               : 7126380.221722
-cpu_clk                                 : 7129711.544071
-jiffies                                 : 4301797008
-sched_clock_stable                      : 0
-.....[lots more schedule & cpu info]
-
-But now I've got a reliable test case I can find a last know good kernel 
-and have a stab at bisecting this, unless anyone has got any better 
-suggestions?
-
-regards
-Richard
-
-
-
+Anton
