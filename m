@@ -1,55 +1,61 @@
-From: "WESTERN UNION OFFICE" <info@western.com>
-Subject: Pick Up Your $5000.00USD,
-Date: Mon, 25 Jul 2011 18:01:55 +0800
-Message-ID: <20110725100205.M61648@western.com>
-Reply-To: western-money677@hotmail.com
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
+Date: Mon, 25 Jul 2011 08:44:13 -0700
+Message-ID: <4E2D8F4D.2000009@schaufler-ca.com>
+References: <201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>	<20110722.082224.688620059032914637.davem@davemloft.net>	<4E2A7273.7030504@msgid.tls.msk.ru>	<201107231939.FIF21882.QHOSOFtMFVLFOJ@I-love.SAKURA.ne.jp>	<20110725222010.0b284042@kryten> <201107252215.GBG95887.OQVMFOOJLSFFHt@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=big5
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: anton@samba.org, mjt@tls.msk.ru, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.richfieldgroup.hk ([219.76.192.210]:60427 "EHLO
-	mailserver.richfieldgroup.hk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751585Ab1GYPnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 11:43:40 -0400
+Received: from nm23.bullet.mail.sp2.yahoo.com ([98.139.91.93]:46958 "HELO
+	nm23.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751668Ab1GYPoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 11:44:23 -0400
+In-Reply-To: <201107252215.GBG95887.OQVMFOOJLSFFHt@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 7/25/2011 6:15 AM, Tetsuo Handa wrote:
+> Anton Blanchard wrote:
+>>>> When I saw recvmmsg()/sendmmsg() here, my first thought was an
+>>>> authoritative DNS server which can read several requests at a
+>>>> time and answer them all at once too - this way it all will go
+>>>> to different addresses.
+>>> I don't know what application wants sendmmsg(). Since users can send
+>>> up to UIO_MAXIOV (= 1024) "struct iovec" blocks using sendmsg(), they
+>>> will use sendmsg() rather than sendmmsg() if the destination address
+>>> are the same.
+>> But if an application needs to maintain packet boundaries, then sendmsg
+>> isn't going to help is it?
+> Well, such application might want to use RDM or SeqPacket... but your point is
+> to maintain packet boundaries. You are assuming that sendmmsg() will be used
+> for sending as much data as possible while preserving packet boundaries.
+>
+> OK. Then, the question is how to reduce performance loss by redundant
+> security_socket_sendmsg() calls.
 
+Not to be splitting hairs, but if the packets are headed to
+different destinations the calls to security_socket_sendmsg()
+are not redundant, they are necessary and appropriate. What
+you have with sendmmsg() is an optimization that sacrifices
+correctness for performance.
 
-How are you today?
+> If sendmmsg() likely contains single (or few)
+> destination(s), trying to optimize security_socket_sendmsg() calls by comparing
+> destination address (as proposed at
+> http://www.spinics.net/linux/fedora/linux-security-module/msg11510.html
+> ) would help. Otherwise, no optimization (as proposed at
+> http://www.spinics.net/linux/fedora/linux-security-module/msg11504.html
+> ) would be better. Which approach do you like?
 
-
-I write to inform you that we have already sent you $5,000.00USD
-through Western union as we have been given the mandate to transfer
-your full compensation payment of  $1.800,000.00USD via western union
-by this government.
-
-I called to give you the information through phone as internet hackers
-were many but i cannot reach you yesterday even this morning,So I
-decided to email you the (MTCN) and sender name so that you can pick
-up this $5,000.00USD to enable us send another $5,000.00USD by
-tomorrow as you knows we will be sending you only $5,000.00USD per
-day.Please pick up this information and run to any western union
-(OUTLET) in your country and pick up this $5,000.00USD and send us an
-email back,so that we can send another $5,000.00USD by tomorrow.
-
-Manager: Mr Frank Amos
-email me on:western-money677@hotmail.com
-call us on: +234-7031908911
-once you picked up this $5000.00USD today.
-
-Here is the western union information to pick up the $5000.00USD,
-
-MTCN :___________MTCN 9500834460
-first name: ______Appoline
-Second Name: ______Ouedraoge
-Text Question: ___________When
-Answer: ___________________2Hours ago
-Amount:______________________ $5,000.00 United State Dollars
-
-I am waiting for your E-mail once you pick up $5000.00USD,
-
-Thanks
-Mr Frank Amos.
+I fear that you are going to find that the work you have
+to do to reduce the number of calls is going to outweigh
+the benefits of your optimization, as has been pointed out
+earlier. My recommendation is that the sendmmsg() interface
+is ill conceived and that you should look for alternative
+ways to improve the performance of the use case.
 
