@@ -1,55 +1,56 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [bisected regression] Partial breakage of forcedeth driver
-Date: Mon, 25 Jul 2011 16:36:24 +0200
-Message-ID: <20110725143623.GC2395@minipsycho.brq.redhat.com>
-References: <4E2CA683.4010005@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: walt <w41ter@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] net: Convert struct net_device uc_promisc to bool
+Date: Mon, 25 Jul 2011 07:41:26 -0700
+Message-ID: <813214b21d4db8d08a76c648ea1d3286b441b706.1311604594.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26644 "EHLO mx1.redhat.com"
+Received: from mail.perches.com ([173.55.12.10]:4259 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751321Ab1GYOg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jul 2011 10:36:27 -0400
-Content-Disposition: inline
-In-Reply-To: <4E2CA683.4010005@gmail.com>
+	id S1752431Ab1GYOl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 10:41:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jul 25, 2011 at 01:10:59AM CEST, w41ter@gmail.com wrote:
->Hi gang.
->
->commit 3326c784c9f492e988617d93f647ae0cfd4c8d09
->Author: Jiri Pirko <jpirko@>
->Date:   Wed Jul 20 04:54:38 2011 +0000
->
->    forcedeth: do vlan cleanup
->    
->    - unify vlan and nonvlan rx path
->    - kill np->vlangrp and nv_vlan_rx_register
->    - allow to turn on/off rx vlan accel via ethtool (set_features)
->    
->    Signed-off-by: Jiri Pirko <jpirko@>
->    Signed-off-by: David S. Miller <davem@>
->
->This commit causes networking trouble for my nForce-based motherboard.
->(Details happily supplied if needed.)
->
->I say 'partial' breakage because networking is not completely dead,
->just limping very slowly :)
->
->The simplest test is to ping any host (in my LAN or on the internet,
->makes no difference).  The replies to my ping come at very irregular
->intervals, ranging from normal to 5-10 seconds or so, seemingly at
->random AFAICT.
->
->I'm happy to try any patches, tests, whatever, to help fix this.
->
->Many thanks!
+No need to use int, its uses are boolean.
+May save a few bytes one day.
 
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/linux/netdevice.h |    2 +-
+ net/core/dev.c            |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Same is happening on machine I borrowed. ccing list.
-Will look at it very soon (no time today).
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 34f3abc..1d92acc 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1132,7 +1132,7 @@ struct net_device {
+ 	spinlock_t		addr_list_lock;
+ 	struct netdev_hw_addr_list	uc;	/* Unicast mac addresses */
+ 	struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
+-	int			uc_promisc;
++	bool			uc_promisc;
+ 	unsigned int		promiscuity;
+ 	unsigned int		allmulti;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9444c5c..17d67b5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4497,10 +4497,10 @@ void __dev_set_rx_mode(struct net_device *dev)
+ 		 */
+ 		if (!netdev_uc_empty(dev) && !dev->uc_promisc) {
+ 			__dev_set_promiscuity(dev, 1);
+-			dev->uc_promisc = 1;
++			dev->uc_promisc = true;
+ 		} else if (netdev_uc_empty(dev) && dev->uc_promisc) {
+ 			__dev_set_promiscuity(dev, -1);
+-			dev->uc_promisc = 0;
++			dev->uc_promisc = false;
+ 		}
+ 
+ 		if (ops->ndo_set_multicast_list)
+-- 
+1.7.6.131.g99019
 
-jirka
