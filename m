@@ -1,26 +1,31 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 0/7] More sane neigh infrastructure
-Date: Mon, 25 Jul 2011 15:49:39 -0700
-Message-ID: <CAL1RGDXkUj0N5M4c_bpgzC3qM2Ge9Y3n2C0TTRUksx3DeD7D3w@mail.gmail.com>
-References: <20110725.030109.1723861338142084129.davem@davemloft.net>
- <CAG4TOxOv1WsgfRXxrBWWq-+9ee3apEE0B_Onn+JB=tEEuOhhxg@mail.gmail.com> <20110725.141041.1092565620930748250.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] acenic: use netdev_alloc_skb_ip_align
+Date: Mon, 25 Jul 2011 16:16:10 -0700 (PDT)
+Message-ID: <20110725.161610.528107310628726787.davem@davemloft.net>
+References: <1311312533.3886.2.camel@edumazet-laptop>
+	<20110721.232501.1187843432422240228.davem@davemloft.net>
+	<20110722093112.4caa39e7@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110725.141041.1092565620930748250.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33443 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726Ab1GYXQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 19:16:13 -0400
+In-Reply-To: <20110722093112.4caa39e7@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 25, 2011 at 2:10 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> So call the normal ARP neigh solicit stuff in your neigh ops, and do
-> your local stuff there as well.
->
-> See if you can make it work.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 22 Jul 2011 09:31:12 -0700
 
-Makes sense, I'll poke at that.  Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Take Eric's patch one step further.
+> Use netdev_skb_ip_align to do setup the receive skb.
+> Compile tested only.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+Applied.
