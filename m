@@ -1,45 +1,52 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Mon, 25 Jul 2011 22:15:40 +0900
-Message-ID: <201107252215.GBG95887.OQVMFOOJLSFFHt@I-love.SAKURA.ne.jp>
-References: <201107230012.HED65612.JFVSFOOOMHtFLQ@I-love.SAKURA.ne.jp>
-	<20110722.082224.688620059032914637.davem@davemloft.net>
-	<4E2A7273.7030504@msgid.tls.msk.ru>
-	<201107231939.FIF21882.QHOSOFtMFVLFOJ@I-love.SAKURA.ne.jp>
-	<20110725222010.0b284042@kryten>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mjt@tls.msk.ru, davem@davemloft.net, casey@schaufler-ca.com,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: anton@samba.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20110725222010.0b284042@kryten>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: net-next-2.6 [PATCH 0/7] dccp: add support for dynamic parameter updates
+Date: Mon, 25 Jul 2011 07:36:29 -0600
+Message-ID: <1311600996-6712-1-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <test_tree_patch_set_update_2011-07-25>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38448 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751178Ab1GYNg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 09:36:58 -0400
+In-Reply-To: <test_tree_patch_set_update_2011-07-25>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Anton Blanchard wrote:
-> > > When I saw recvmmsg()/sendmmsg() here, my first thought was an
-> > > authoritative DNS server which can read several requests at a
-> > > time and answer them all at once too - this way it all will go
-> > > to different addresses.
-> > 
-> > I don't know what application wants sendmmsg(). Since users can send
-> > up to UIO_MAXIOV (= 1024) "struct iovec" blocks using sendmsg(), they
-> > will use sendmsg() rather than sendmmsg() if the destination address
-> > are the same.
-> 
-> But if an application needs to maintain packet boundaries, then sendmsg
-> isn't going to help is it?
+Hi Dave,
 
-Well, such application might want to use RDM or SeqPacket... but your point is
-to maintain packet boundaries. You are assuming that sendmmsg() will be used
-for sending as much data as possible while preserving packet boundaries.
+please find attached a 2-part patch set to implement features required by the RFCs:
 
-OK. Then, the question is how to reduce performance loss by redundant
-security_socket_sendmsg() calls. If sendmmsg() likely contains single (or few)
-destination(s), trying to optimize security_socket_sendmsg() calls by comparing
-destination address (as proposed at
-http://www.spinics.net/linux/fedora/linux-security-module/msg11510.html
-) would help. Otherwise, no optimization (as proposed at
-http://www.spinics.net/linux/fedora/linux-security-module/msg11504.html
-) would be better. Which approach do you like?
+ a) exchange of "non-negotiable" (NN) feature options (RFC 4340, 6.3.2), which are
+    used to dynamically update known parameters during an established connection;
+ b) use of this new API to improve the current state of the CCID-2 (RFC 4341)
+    implementation for updating Ack Ratio and Sequence Window features.
+
+Both sets are thanks to the good work done by Samuel Jero.    
+
+
+General DCCP part:
+ Patch #1: introduces sender-signalling part for exchange of NN options.
+ Patch #2: implements the receiver-side and activation part for NN options.
+ Patch #3: bug-fix to send Confirm options in the RFC-specified manner.
+
+CCID-2 part: 
+ Patch #4: adds initial code for CCID-2 Ack Ratio exchange.
+ Patch #5: fixes issues with cwnd/Sequence Window relationship in CCID-2. 
+ Patch #6: fixes a bug in incrementing the cwnd of CCID-2.
+ Patch #7: fixes a bug in updating Ack Ratio relative to cwnd in CCID-2.
+
+
+I have also placed this in into a fresh (today's) copy of net-next-2.6, on
+
+    git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+
+---
+ ccids/ccid2.c |   88 +++++++++++++++++++------
+ ccids/ccid2.h |    6 +
+ dccp.h        |    1 
+ feat.c        |  202 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ feat.h        |    1 
+ proto.c       |    1 
+ 6 files changed, 273 insertions(+), 26 deletions(-)
