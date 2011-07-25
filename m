@@ -1,61 +1,60 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/7] dccp ccid-2: use feature-negotiation to report Ack Ratio changes
-Date: Mon, 25 Jul 2011 07:36:33 -0600
-Message-ID: <1311600996-6712-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/7] dccp: send Confirm options only once
+Date: Mon, 25 Jul 2011 07:36:32 -0600
+Message-ID: <1311600996-6712-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <test_tree_patch_set_update_2011-07-25>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Samuel Jero <sj323707@ohio.edu>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38448 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38454 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751426Ab1GYNhA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jul 2011 09:37:00 -0400
+	id S1751557Ab1GYNhE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 09:37:04 -0400
 In-Reply-To: <test_tree_patch_set_update_2011-07-25>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This uses the new feature-negotiation framework to signal Ack Ratio changes,
-as required by RFC 4341, sec. 6.1.2.
+From: Samuel Jero <sj323707@ohio.edu>
 
-That raises some problems with CCID-2, which at the moment can not cope
-gracefully with Ack Ratios > 1. Since these issues are not directly related
-to feature negotiation, they are marked by a FIXME.
+If a connection is in the OPEN state, remove feature negotiation Confirm
+options from the list of options after sending them once; as such options
+are NOT supposed to be retransmitted and are ONLY supposed to be sent in
+response to a Change option (RFC 4340 6.2).
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Samuel Jero <sj323707@ohio.edu>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.uk>
+Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid2.c |   10 +++++++++-
- net/dccp/proto.c       |    1 -
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ net/dccp/feat.c |   21 ++++++++++++++++-----
+ 1 files changed, 16 insertions(+), 5 deletions(-)
 
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -184,7 +184,6 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
- 	dp->dccps_rate_last	= jiffies;
- 	dp->dccps_role		= DCCP_ROLE_UNDEFINED;
- 	dp->dccps_service	= DCCP_SERVICE_CODE_IS_ABSENT;
--	dp->dccps_l_ack_ratio	= dp->dccps_r_ack_ratio = 1;
- 	dp->dccps_tx_qlen	= sysctl_dccp_tx_qlen;
- 
- 	dccp_init_xmit_timers(sk);
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -494,8 +494,16 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 			if (hc->tx_rpdupack >= NUMDUPACK) {
- 				hc->tx_rpdupack = -1; /* XXX lame */
- 				hc->tx_rpseq    = 0;
--
-+#ifdef __CCID2_COPES_GRACEFULLY_WITH_ACK_CONGESTION_CONTROL__
-+				/*
-+				 * FIXME: Ack Congestion Control is broken; in
-+				 * the current state instabilities occurred with
-+				 * Ack Ratios greater than 1; causing hang-ups
-+				 * and long RTO timeouts. This needs to be fixed
-+				 * before opening up dynamic changes. -- gerrit
-+				 */
- 				ccid2_change_l_ack_ratio(sk, 2 * dp->dccps_l_ack_ratio);
-+#endif
- 			}
- 		}
+--- a/net/dccp/feat.c
++++ b/net/dccp/feat.c
+@@ -665,11 +665,22 @@ int dccp_feat_insert_opts(struct dccp_sock *dp, struct dccp_request_sock *dreq,
+ 			return -1;
+ 		if (pos->needs_mandatory && dccp_insert_option_mandatory(skb))
+ 			return -1;
+-		/*
+-		 * Enter CHANGING after transmitting the Change option (6.6.2).
+-		 */
+-		if (pos->state == FEAT_INITIALISING)
+-			pos->state = FEAT_CHANGING;
++
++		if (skb->sk->sk_state == DCCP_OPEN &&
++		    (opt == DCCPO_CONFIRM_R || opt == DCCPO_CONFIRM_L)) {
++			/*
++			 * Confirms don't get retransmitted (6.6.3) once the
++			 * connection is in state OPEN
++			 */
++			dccp_feat_list_pop(pos);
++		} else {
++			/*
++			 * Enter CHANGING after transmitting the Change
++			 * option (6.6.2).
++			 */
++			if (pos->state == FEAT_INITIALISING)
++				pos->state = FEAT_CHANGING;
++		}
  	}
+ 	return 0;
+ }
