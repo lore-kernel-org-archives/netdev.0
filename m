@@ -1,77 +1,43 @@
-From: Sven Anders <anders@anduras.de>
-Subject: Realtek 8139 Flow Control?
-Date: Mon, 25 Jul 2011 21:42:08 +0200
-Message-ID: <4E2DC710.5000100@anduras.de>
+From: Information Technology <technology@Information.com>
+Subject: Confirm Your E-Mail Details
+Date: Mon, 25 Jul 2011 15:06:00 -0400 (EDT)
+Message-ID: <201107251906.p6PJ60GQ044731@trip.webair.com>
+Reply-To: financialcons729@aol.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090705060909090300090202"
-Cc: becker@scyld.com, jgarzik@pobox.com
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailr01.anduras.de ([89.28.138.12]:46281 "EHLO
-	mailr01.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183Ab1GYTwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 15:52:14 -0400
+Received: from trip.webair.com ([216.130.161.100]:2243 "EHLO trip.webair.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751223Ab1GYT5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 15:57:40 -0400
+Received: from trip.webair.com (localhost.webair.com [127.0.0.1])
+	by trip.webair.com (8.13.6/8.12.11) with ESMTP id p6PJ60Rv044732
+	for <netdev@vger.kernel.org>; Mon, 25 Jul 2011 15:06:00 -0400 (EDT)
+	(envelope-from javaarray-www@trip.webair.com)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090705060909090300090202
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+Confirm Your E-Mail Details
+Update Your E-Mail Details Account
+Dear Email User
+This message is from Information Technology Services of This EMAIL to all our Staff. We are currently upgrading our database and e-mail center and this is our final notification to you.we have sent several messages to you without response.
+We are deleting all unused Mail account to create space for new accounts. In order not to be suspended, you will have to update your account by providing the information listed below:
 
-Hello!
+Confirm Your E-Mail Details..
+Email.......................
+User name: ..................
+Password:..............
+Re Confirm Password:.............
 
-I have just a short question.
+If you fail to confirm your continuous usage of our services by confirming your email password now, your account will be disable and you will not be able to access your email.
 
-We have appliances with Realtek 8139C/8139C+ (rev 10) chipsets (with the
-PCI IDs: 10ec:8139). We are using the 8139too driver (version: 0.9.28)
-According the datasheet the chipset supports Flow Control (IEEE 802.3x).
+You should immediately reply this email: upgrading2010@mail.md  and enter your password in the above password column.
+Thanks for your understanding.
 
-
-I want to know, if the support for enabling flow control is missing in
-the driver by purpose or is only not implemented due to missing time?
-
-
-Regards
- Sven
-
---=20
- Sven Anders <anders@anduras.de>                 () UTF-8 Ribbon Campaign=
-
-                                                 /\ Support plain text e-=
-mail
- ANDURAS intranet security AG
- Messestra=DFe 3 - 94036 Passau - Germany
- Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 5=
-0-55
-
-Rechtsform: Aktiengesellschaft - Sitz: Passau - Amtsgericht: Passau HRB 6=
-032
-Mitglieder des Vorstands: Dipl.-Inf. Sven Anders, Dipl.-Inf. Marcus Junke=
-r
-Vorsitzender des Aufsichtsrats: RA Mark Peters
-
---------------090705060909090300090202
-Content-Type: text/x-vcard; charset=utf-8;
- name="anders.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="anders.vcf"
-
-begin:vcard
-fn:Sven Anders
-n:Anders;Sven
-org:ANDURAS AG;Research and Development
-adr;quoted-printable:;;Messestra=C3=9Fe 3;Passau;Bavaria;94036;Germany
-email;internet:anders@anduras.de
-title:Dipl. Inf.
-tel;work:++49 (0)851 / 490 50 -0
-tel;fax:++49 (0)851 / 590 50 - 55
-x-mozilla-html:FALSE
-url:http://www.anduras.de
-version:2.1
-end:vcard
+Regard,
+IT Services
 
 
---------------090705060909090300090202--
+
