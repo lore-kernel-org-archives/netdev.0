@@ -1,147 +1,165 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/7] dccp: support for the exchange of NN options in established state 1/2
-Date: Mon, 25 Jul 2011 07:36:30 -0600
-Message-ID: <1311600996-6712-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/7] dccp: support for exchanging of NN options in established state 2/2
+Date: Mon, 25 Jul 2011 07:36:31 -0600
+Message-ID: <1311600996-6712-3-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <test_tree_patch_set_update_2011-07-25>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38448 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751178Ab1GYNhD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jul 2011 09:37:03 -0400
+	id S1751557Ab1GYNhH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 09:37:07 -0400
 In-Reply-To: <test_tree_patch_set_update_2011-07-25>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In contrast to static feature negotiation at the begin of a connection, this
-patch introduces support for exchange of dynamically changing options.
-
-Such an update/exchange is necessary in at least two cases:
- * CCID-2's Ack Ratio (RFC 4341, 6.1.2) which changes during the connection;
- * Sequence Window values that, as per RFC 4340, 7.5.2, should be sent "as
-   the connection progresses".
-
-Both are non-negotiable (NN) features, which means that no new capabilities
-are negotiated, but rather that changes in known parameters are brought
-up-to-date at either end.
-
-Thse characteristics are reflected by the implementation:
- * only NN options can be exchanged after connection setup;
- * an ack is scheduled directly after activation to speed up the update;
- * CCIDs may request changes to an NN feature even if a negotiation for that
-   feature is already underway: this is required by CCID-2, where changes in
-   cwnd necessitate Ack Ratio changes, such that the previous Ack Ratio (which
-   is still being negotiated) would cause irrecoverable RTO timeouts (thanks
-   to work by Samuel Jero).
+This patch adds the receiver side and the (fast-path) activation part for
+dynamic changes of non-negotiable (NN) parameters in (PART)OPEN state.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Signed-off-by: Samuel Jero <sj323707@ohio.edu>
 Acked-by: Ian McDonald <ian.mcdonald@jandi.co.uk>
 ---
- net/dccp/dccp.h |    1 +
- net/dccp/feat.c |   65 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/dccp/feat.h |    1 +
- 3 files changed, 67 insertions(+), 0 deletions(-)
+ net/dccp/feat.c |  116 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 116 insertions(+), 0 deletions(-)
 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -474,6 +474,7 @@ static inline int dccp_ack_pending(const struct sock *sk)
- 	return dccp_ackvec_pending(sk) || inet_csk_ack_scheduled(sk);
- }
- 
-+extern int  dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_val);
- extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
- extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
- extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
---- a/net/dccp/feat.h
-+++ b/net/dccp/feat.h
-@@ -129,6 +129,7 @@ extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
- 
- extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
- extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
-+extern u64  dccp_feat_nn_get(struct sock *sk, u8 feat);
- 
- extern int  dccp_insert_option_mandatory(struct sk_buff *skb);
- extern int  dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
 --- a/net/dccp/feat.c
 +++ b/net/dccp/feat.c
-@@ -12,6 +12,7 @@
-  *  -----------
-  *  o Feature negotiation is coordinated with connection setup (as in TCP), wild
-  *    changes of parameters of an established connection are not supported.
-+ *  o Changing non-negotiable (NN) values is supported in state OPEN/PARTOPEN.
-  *  o All currently known SP features have 1-byte quantities. If in the future
-  *    extensions of RFCs 4340..42 define features with item lengths larger than
-  *    one byte, a feature-specific extension of the code will be required.
-@@ -730,6 +731,70 @@ int dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
- 				  0, list, len);
+@@ -344,6 +344,20 @@ static int __dccp_feat_activate(struct sock *sk, const int idx,
+ 	return dccp_feat_table[idx].activation_hdlr(sk, val, rx);
  }
  
 +/**
-+ * dccp_feat_nn_get  -  Query current/pending value of NN feature
-+ * @sk: DCCP socket of an established connection
-+ * @feat: NN feature number from %dccp_feature_numbers
-+ * For a known NN feature, returns value currently being negotiated, or
-+ * current (confirmed) value if no negotiation is going on.
++ * dccp_feat_activate  -  Activate feature value on socket
++ * @sk: fully connected DCCP socket (after handshake is complete)
++ * @feat_num: feature to activate, one of %dccp_feature_numbers
++ * @local: whether local (1) or remote (0) @feat_num is meant
++ * @fval: the value (SP or NN) to activate, or NULL to use the default value
++ * For general use this function is preferable over __dccp_feat_activate().
 + */
-+u64 dccp_feat_nn_get(struct sock *sk, u8 feat)
++static int dccp_feat_activate(struct sock *sk, u8 feat_num, bool local,
++			      dccp_feat_val const *fval)
 +{
-+	if (dccp_feat_type(feat) == FEAT_NN) {
-+		struct dccp_sock *dp = dccp_sk(sk);
-+		struct dccp_feat_entry *entry;
-+
-+		entry = dccp_feat_list_lookup(&dp->dccps_featneg, feat, 1);
-+		if (entry != NULL)
-+			return entry->val.nn;
-+
-+		switch (feat) {
-+		case DCCPF_ACK_RATIO:
-+			return dp->dccps_l_ack_ratio;
-+		case DCCPF_SEQUENCE_WINDOW:
-+			return dp->dccps_l_seq_win;
-+		}
-+	}
-+	DCCP_BUG("attempt to look up unsupported feature %u", feat);
-+	return 0;
++	return __dccp_feat_activate(sk, dccp_feat_index(feat_num), local, fval);
 +}
-+EXPORT_SYMBOL_GPL(dccp_feat_nn_get);
 +
-+/**
-+ * dccp_feat_signal_nn_change  -  Update NN values for an established connection
-+ * @sk: DCCP socket of an established connection
-+ * @feat: NN feature number from %dccp_feature_numbers
-+ * @nn_val: the new value to use
-+ * This function is used to communicate NN updates out-of-band.
+ /* Test for "Req'd" feature (RFC 4340, 6.4) */
+ static inline int dccp_feat_must_be_understood(u8 feat_num)
+ {
+@@ -1252,6 +1266,100 @@ confirmation_failed:
+ }
+ 
+ /**
++ * dccp_feat_handle_nn_established  -  Fast-path reception of NN options
++ * @sk:		socket of an established DCCP connection
++ * @mandatory:	whether @opt was preceded by a Mandatory option
++ * @opt:	%DCCPO_CHANGE_L | %DCCPO_CONFIRM_R (NN only)
++ * @feat:	NN number, one of %dccp_feature_numbers
++ * @val:	NN value
++ * @len:	length of @val in bytes
++ * This function combines the functionality of change_recv/confirm_recv, with
++ * the following differences (reset codes are the same):
++ *    - cleanup after receiving the Confirm;
++ *    - values are directly activated after successful parsing;
++ *    - deliberately restricted to NN features.
++ * The restriction to NN features is essential since SP features can have non-
++ * predictable outcomes (depending on the remote configuration), and are inter-
++ * dependent (CCIDs for instance cause further dependencies).
 + */
-+int dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_val)
++static u8 dccp_feat_handle_nn_established(struct sock *sk, u8 mandatory, u8 opt,
++					  u8 feat, u8 *val, u8 len)
 +{
 +	struct list_head *fn = &dccp_sk(sk)->dccps_featneg;
-+	dccp_feat_val fval = { .nn = nn_val };
++	const bool local = (opt == DCCPO_CONFIRM_R);
 +	struct dccp_feat_entry *entry;
++	u8 type = dccp_feat_type(feat);
++	dccp_feat_val fval;
 +
-+	if (sk->sk_state != DCCP_OPEN && sk->sk_state != DCCP_PARTOPEN)
++	dccp_feat_print_opt(opt, feat, val, len, mandatory);
++
++	/* Ignore non-mandatory unknown and non-NN features */
++	if (type == FEAT_UNKNOWN) {
++		if (local && !mandatory)
++			return 0;
++		goto fast_path_unknown;
++	} else if (type != FEAT_NN) {
 +		return 0;
-+
-+	if (dccp_feat_type(feat) != FEAT_NN ||
-+	    !dccp_feat_is_valid_nn_val(feat, nn_val))
-+		return -EINVAL;
-+
-+	if (nn_val == dccp_feat_nn_get(sk, feat))
-+		return 0;	/* already set or negotiation under way */
-+
-+	entry = dccp_feat_list_lookup(fn, feat, 1);
-+	if (entry != NULL) {
-+		dccp_pr_debug("Clobbering existing NN entry %llu -> %llu\n",
-+			      (unsigned long long)entry->val.nn,
-+			      (unsigned long long)nn_val);
-+		dccp_feat_list_pop(entry);
 +	}
 +
-+	inet_csk_schedule_ack(sk);
-+	return dccp_feat_push_change(fn, feat, 1, 0, &fval);
++	/*
++	 * We don't accept empty Confirms, since in fast-path feature
++	 * negotiation the values are enabled immediately after sending
++	 * the Change option.
++	 * Empty Changes on the other hand are invalid (RFC 4340, 6.1).
++	 */
++	if (len == 0 || len > sizeof(fval.nn))
++		goto fast_path_unknown;
++
++	if (opt == DCCPO_CHANGE_L) {
++		fval.nn = dccp_decode_value_var(val, len);
++		if (!dccp_feat_is_valid_nn_val(feat, fval.nn))
++			goto fast_path_unknown;
++
++		if (dccp_feat_push_confirm(fn, feat, local, &fval) ||
++		    dccp_feat_activate(sk, feat, local, &fval))
++			return DCCP_RESET_CODE_TOO_BUSY;
++
++		/* set the `Ack Pending' flag to piggyback a Confirm */
++		inet_csk_schedule_ack(sk);
++
++	} else if (opt == DCCPO_CONFIRM_R) {
++		entry = dccp_feat_list_lookup(fn, feat, local);
++		if (entry == NULL || entry->state != FEAT_CHANGING)
++			return 0;
++
++		fval.nn = dccp_decode_value_var(val, len);
++		/*
++		 * Just ignore a value that doesn't match our current value.
++		 * If the option changes twice within two RTTs, then at least
++		 * one CONFIRM will be received for the old value after a
++		 * new CHANGE was sent.
++		 */
++		if (fval.nn != entry->val.nn)
++			return 0;
++
++		/* Only activate after receiving the Confirm option (6.6.1). */
++		dccp_feat_activate(sk, feat, local, &fval);
++
++		/* It has been confirmed - so remove the entry */
++		dccp_feat_list_pop(entry);
++
++	} else {
++		DCCP_WARN("Received illegal option %u\n", opt);
++		goto fast_path_failed;
++	}
++	return 0;
++
++fast_path_unknown:
++	if (!mandatory)
++		return dccp_push_empty_confirm(fn, feat, local);
++
++fast_path_failed:
++	return mandatory ? DCCP_RESET_CODE_MANDATORY_ERROR
++			 : DCCP_RESET_CODE_OPTION_ERROR;
 +}
-+EXPORT_SYMBOL_GPL(dccp_feat_signal_nn_change);
- 
- /*
-  *	Tracking features whose value depend on the choice of CCID
++
++/**
+  * dccp_feat_parse_options  -  Process Feature-Negotiation Options
+  * @sk: for general use and used by the client during connection setup
+  * @dreq: used by the server during connection setup
+@@ -1286,6 +1394,14 @@ int dccp_feat_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 			return dccp_feat_confirm_recv(fn, mandatory, opt, feat,
+ 						      val, len, server);
+ 		}
++		break;
++	/*
++	 *	Support for exchanging NN options on an established connection.
++	 */
++	case DCCP_OPEN:
++	case DCCP_PARTOPEN:
++		return dccp_feat_handle_nn_established(sk, mandatory, opt, feat,
++						       val, len);
+ 	}
+ 	return 0;	/* ignore FN options in all other states */
+ }
