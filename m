@@ -1,61 +1,36 @@
-From: MONEYGRAM CENTER <thalita.moraes.silva@usp.br>
-Subject: Attention
-Date: Mon, 25 Jul 2011 14:18:52 -0300
-Message-ID: <20110725141852.19956x2l585iaph8__25841.7268786163$1311614754$gmane$org@webmail.usp.br>
-Reply-To: center.moneygram@yahoo.com.my
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: write() udp socket
+Date: Mon, 25 Jul 2011 10:38:12 -0700
+Message-ID: <4E2DAA04.2070205@hp.com>
+References: <tencent_287F494544728EDB6DA9C8ED@qq.com> <CA+v9cxZAF27mXc6aCEPyOdqbeLved3_xibvDS4TQugHR=7owPg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: ZHOU Xiaobo <xb.zhou@qq.com>, netdev <netdev@vger.kernel.org>
+To: Huajun Li <huajun.li.lee@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sarigua.uspnet.usp.br ([200.144.190.149]:45025 "EHLO
-	sarigua.uspnet.usp.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453Ab1GYRZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 13:25:36 -0400
-Content-Disposition: inline
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:43950 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751647Ab1GYRiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 13:38:13 -0400
+In-Reply-To: <CA+v9cxZAF27mXc6aCEPyOdqbeLved3_xibvDS4TQugHR=7owPg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/24/2011 01:33 AM, Huajun Li wrote:
+> 2011/7/23 ZHOU Xiaobo<xb.zhou@qq.com>:
+>> question No1:
+>> When I call
+>> ssize_t write(int fd, const void *buf, size_t count);
+>>
+>>
+>> on a nonblocking UDP socket, is the return value  always equal to 'count'?
+>>
+>>
+>
+> I don't think so.  The function may be interrupt by signal or return
+> due to other reason, so the return value only represents the size it
+> writes successfully to the fd.
 
-
-
-My associate has helped me to send your first payment of $5000 USD to you
-as instructed by the Malaysian Government and Mr. David Cameron the United
-Kingdom prime minister after the last G20 meeting that was held in
-Malaysia, making you one of the beneficiaries.Here is the information
-below.
-
-MONEY TRANSFER REFERENCE: 2116-3297
-SENDER'S NAME: Patrick Lee Chun
-AMOUNT: US$5000
-
-We will keep sending you $5000 USD twice a week until the FULL payment of
-($820000.00 United State Dollars)is completed.
-
-A certificate will be made to change the Receivers Name to your name as
-stated by the Malaysian Government,reconfirm your {1}Full Names {2}address
-{3}Mobile Number
-
-via Email to: center.moneygram@yahoo.com.my to proceed.
-
-Note: You cannot pickup the money until the certificate is obtained by you.
-
-Best Regards
-
-Money Gram Agent
-Mr. Allan Davis.
-Tel: +(60)1-6240-6207
-For more info: www.g20.org
-
-I wrote to know if this is your valid email. Please, let me know if this
-email is valid.I have an information to pass to you.
-My valid Email is: center.moneygram@yahoo.com.my
-
-Money Gram Agent
-Mr. Allan Davis.
-Tel: +(60)1-6240-6207
-For more info: www.g20.org
-
+I believe it should either appaear to succeed or fail.  write() best not 
+be sending partial UDP datagrams.  That would be "bad."
