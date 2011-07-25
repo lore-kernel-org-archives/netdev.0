@@ -1,89 +1,55 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 7/7] dccp ccid-2: check Ack Ratio when reducing cwnd
-Date: Mon, 25 Jul 2011 07:36:36 -0600
-Message-ID: <1311600996-6712-8-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <test_tree_patch_set_update_2011-07-25>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Samuel Jero <sj323707@ohio.edu>
-To: davem@davemloft.net
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [bisected regression] Partial breakage of forcedeth driver
+Date: Mon, 25 Jul 2011 16:36:24 +0200
+Message-ID: <20110725143623.GC2395@minipsycho.brq.redhat.com>
+References: <4E2CA683.4010005@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: walt <w41ter@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38474 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751963Ab1GYNhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jul 2011 09:37:16 -0400
-In-Reply-To: <test_tree_patch_set_update_2011-07-25>
+Received: from mx1.redhat.com ([209.132.183.28]:26644 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751321Ab1GYOg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 10:36:27 -0400
+Content-Disposition: inline
+In-Reply-To: <4E2CA683.4010005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Jero <sj323707@ohio.edu>
+Mon, Jul 25, 2011 at 01:10:59AM CEST, w41ter@gmail.com wrote:
+>Hi gang.
+>
+>commit 3326c784c9f492e988617d93f647ae0cfd4c8d09
+>Author: Jiri Pirko <jpirko@>
+>Date:   Wed Jul 20 04:54:38 2011 +0000
+>
+>    forcedeth: do vlan cleanup
+>    
+>    - unify vlan and nonvlan rx path
+>    - kill np->vlangrp and nv_vlan_rx_register
+>    - allow to turn on/off rx vlan accel via ethtool (set_features)
+>    
+>    Signed-off-by: Jiri Pirko <jpirko@>
+>    Signed-off-by: David S. Miller <davem@>
+>
+>This commit causes networking trouble for my nForce-based motherboard.
+>(Details happily supplied if needed.)
+>
+>I say 'partial' breakage because networking is not completely dead,
+>just limping very slowly :)
+>
+>The simplest test is to ping any host (in my LAN or on the internet,
+>makes no difference).  The replies to my ping come at very irregular
+>intervals, ranging from normal to 5-10 seconds or so, seemingly at
+>random AFAICT.
+>
+>I'm happy to try any patches, tests, whatever, to help fix this.
+>
+>Many thanks!
 
-This patch causes CCID-2 to check the Ack Ratio after reducing the congestion
-window. If the Ack Ratio is greater than the congestion window, it is
-reduced. This prevents timeouts caused by an Ack Ratio larger than the
-congestion window.
 
-In this situation, we choose to set the Ack Ratio to half the congestion window
-(or one if that's zero) so that if we loose one ack we don't trigger a timeout.
+Same is happening on machine I borrowed. ccing list.
+Will look at it very soon (no time today).
 
-Signed-off-by: Samuel Jero <sj323707@ohio.edu>
-Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid2.c |   26 +++++++++++++++++++++++---
- 1 files changed, 23 insertions(+), 3 deletions(-)
-
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -101,6 +101,24 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
- 				   min_t(u32, val, DCCPF_ACK_RATIO_MAX));
- }
- 
-+static void ccid2_check_l_ack_ratio(struct sock *sk)
-+{
-+	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
-+
-+	/*
-+	 * After a loss, idle period, application limited period, or RTO we
-+	 * need to check that the ack ratio is still less than the congestion
-+	 * window. Otherwise, we will send an entire congestion window of
-+	 * packets and got no response because we haven't sent ack ratio
-+	 * packets yet.
-+	 * If the ack ratio does need to be reduced, we reduce it to half of
-+	 * the congestion window (or 1 if that's zero) instead of to the
-+	 * congestion window. This prevents problems if one ack is lost.
-+	 */
-+	if (dccp_feat_nn_get(sk, DCCPF_ACK_RATIO) > hc->tx_cwnd)
-+		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
-+}
-+
- static void ccid2_change_l_seq_window(struct sock *sk, u64 val)
- {
- 	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW,
-@@ -187,6 +205,8 @@ static void ccid2_cwnd_application_limited(struct sock *sk, const u32 now)
- 	}
- 	hc->tx_cwnd_used  = 0;
- 	hc->tx_cwnd_stamp = now;
-+
-+	ccid2_check_l_ack_ratio(sk);
- }
- 
- /* This borrows the code of tcp_cwnd_restart() */
-@@ -205,6 +225,8 @@ static void ccid2_cwnd_restart(struct sock *sk, const u32 now)
- 
- 	hc->tx_cwnd_stamp = now;
- 	hc->tx_cwnd_used  = 0;
-+
-+	ccid2_check_l_ack_ratio(sk);
- }
- 
- static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
-@@ -461,9 +483,7 @@ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
- 	hc->tx_cwnd      = hc->tx_cwnd / 2 ? : 1U;
- 	hc->tx_ssthresh  = max(hc->tx_cwnd, 2U);
- 
--	/* Avoid spurious timeouts resulting from Ack Ratio > cwnd */
--	if (dccp_sk(sk)->dccps_l_ack_ratio > hc->tx_cwnd)
--		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd);
-+	ccid2_check_l_ack_ratio(sk);
- }
- 
- static int ccid2_hc_tx_parse_options(struct sock *sk, u8 packet_type,
+jirka
