@@ -1,136 +1,89 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 5/7] dccp ccid-2: prevent cwnd > Sequence Window
-Date: Mon, 25 Jul 2011 07:36:34 -0600
-Message-ID: <1311600996-6712-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 7/7] dccp ccid-2: check Ack Ratio when reducing cwnd
+Date: Mon, 25 Jul 2011 07:36:36 -0600
+Message-ID: <1311600996-6712-8-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <test_tree_patch_set_update_2011-07-25>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Samuel Jero <sj323707@ohio.edu>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38471 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:38474 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751941Ab1GYNhO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jul 2011 09:37:14 -0400
+	id S1751963Ab1GYNhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 09:37:16 -0400
 In-Reply-To: <test_tree_patch_set_update_2011-07-25>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Samuel Jero <sj323707@ohio.edu>
 
-Add a check to prevent CCID-2 from increasing the cwnd greater than the
-Sequence Window.
+This patch causes CCID-2 to check the Ack Ratio after reducing the congestion
+window. If the Ack Ratio is greater than the congestion window, it is
+reduced. This prevents timeouts caused by an Ack Ratio larger than the
+congestion window.
 
-When the congestion window becomes bigger than the Sequence Window, CCID-2
-will attempt to keep more data in the network than the DCCP Sequence Window
-code considers possible. This results in the Sequence Window code issuing
-a Sync, thereby inducing needless overhead. Further, if this occurs at the
-sender, CCID-2 will never detect the problem because the Acks it receives
-will indicate no losses. I have seen this cause a drop of 1/3rd in throughput
-for a connection.
-
-Also add code to adjust the Sequence Window to be about 5 times the number of
-packets in the network (RFC 4340, 7.5.2) and to adjust the Ack Ratio so that
-the remote Sequence Window will hold about 5 times the number of packets in
-the network. This allows the congestion window to increase correctly without
-being limited by the Sequence Window.
+In this situation, we choose to set the Ack Ratio to half the congestion window
+(or one if that's zero) so that if we loose one ack we don't trigger a timeout.
 
 Signed-off-by: Samuel Jero <sj323707@ohio.edu>
 Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid2.c |   50 +++++++++++++++++++++++++++++++++--------------
- net/dccp/ccids/ccid2.h |    6 +++++
- 2 files changed, 41 insertions(+), 15 deletions(-)
+ net/dccp/ccids/ccid2.c |   26 +++++++++++++++++++++++---
+ 1 files changed, 23 insertions(+), 3 deletions(-)
 
---- a/net/dccp/ccids/ccid2.h
-+++ b/net/dccp/ccids/ccid2.h
-@@ -43,6 +43,12 @@ struct ccid2_seq {
- #define CCID2_SEQBUF_LEN 1024
- #define CCID2_SEQBUF_MAX 128
- 
-+/*
-+ * Multiple of congestion window to keep the sequence window at
-+ * (RFC 4340 7.5.2)
-+ */
-+#define CCID2_WIN_CHANGE_FACTOR 5
-+
- /**
-  * struct ccid2_hc_tx_sock - CCID2 TX half connection
-  * @tx_{cwnd,ssthresh,pipe}: as per RFC 4341, section 5
 --- a/net/dccp/ccids/ccid2.c
 +++ b/net/dccp/ccids/ccid2.c
-@@ -85,7 +85,6 @@ static int ccid2_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
- 
- static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
- {
--	struct dccp_sock *dp = dccp_sk(sk);
- 	u32 max_ratio = DIV_ROUND_UP(ccid2_hc_tx_sk(sk)->tx_cwnd, 2);
- 
- 	/*
-@@ -98,14 +97,15 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
- 		DCCP_WARN("Limiting Ack Ratio (%u) to %u\n", val, max_ratio);
- 		val = max_ratio;
- 	}
--	if (val > DCCPF_ACK_RATIO_MAX)
--		val = DCCPF_ACK_RATIO_MAX;
--
--	if (val == dp->dccps_l_ack_ratio)
--		return;
-+	dccp_feat_signal_nn_change(sk, DCCPF_ACK_RATIO,
-+				   min_t(u32, val, DCCPF_ACK_RATIO_MAX));
-+}
- 
--	ccid2_pr_debug("changing local ack ratio to %u\n", val);
--	dp->dccps_l_ack_ratio = val;
-+static void ccid2_change_l_seq_window(struct sock *sk, u64 val)
-+{
-+	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW,
-+				   clamp_val(val, DCCPF_SEQ_WMIN,
-+						  DCCPF_SEQ_WMAX));
+@@ -101,6 +101,24 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
+ 				   min_t(u32, val, DCCPF_ACK_RATIO_MAX));
  }
  
- static void ccid2_hc_tx_rto_expire(unsigned long data)
-@@ -405,17 +405,37 @@ static void ccid2_new_ack(struct sock *sk, struct ccid2_seq *seqp,
- 			  unsigned int *maxincr)
- {
- 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
--
--	if (hc->tx_cwnd < hc->tx_ssthresh) {
--		if (*maxincr > 0 && ++hc->tx_packets_acked == 2) {
-+	struct dccp_sock *dp = dccp_sk(sk);
-+	int r_seq_used = hc->tx_cwnd / dp->dccps_l_ack_ratio;
-+
-+	if (hc->tx_cwnd < dp->dccps_l_seq_win &&
-+	    r_seq_used < dp->dccps_r_seq_win) {
-+		if (hc->tx_cwnd < hc->tx_ssthresh) {
-+			if (*maxincr > 0 && ++hc->tx_packets_acked == 2) {
-+				hc->tx_cwnd += 1;
-+				*maxincr    -= 1;
-+				hc->tx_packets_acked = 0;
-+			}
-+		} else if (++hc->tx_packets_acked >= hc->tx_cwnd) {
- 			hc->tx_cwnd += 1;
--			*maxincr    -= 1;
- 			hc->tx_packets_acked = 0;
- 		}
--	} else if (++hc->tx_packets_acked >= hc->tx_cwnd) {
--			hc->tx_cwnd += 1;
--			hc->tx_packets_acked = 0;
- 	}
++static void ccid2_check_l_ack_ratio(struct sock *sk)
++{
++	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
 +
 +	/*
-+	 * Adjust the local sequence window and the ack ratio to allow about
-+	 * 5 times the number of packets in the network (RFC 4340 7.5.2)
++	 * After a loss, idle period, application limited period, or RTO we
++	 * need to check that the ack ratio is still less than the congestion
++	 * window. Otherwise, we will send an entire congestion window of
++	 * packets and got no response because we haven't sent ack ratio
++	 * packets yet.
++	 * If the ack ratio does need to be reduced, we reduce it to half of
++	 * the congestion window (or 1 if that's zero) instead of to the
++	 * congestion window. This prevents problems if one ack is lost.
 +	 */
-+	if (r_seq_used * CCID2_WIN_CHANGE_FACTOR >= dp->dccps_r_seq_win)
-+		ccid2_change_l_ack_ratio(sk, dp->dccps_l_ack_ratio * 2);
-+	else if (r_seq_used * CCID2_WIN_CHANGE_FACTOR < dp->dccps_r_seq_win/2)
-+		ccid2_change_l_ack_ratio(sk, dp->dccps_l_ack_ratio / 2 ? : 1U);
++	if (dccp_feat_nn_get(sk, DCCPF_ACK_RATIO) > hc->tx_cwnd)
++		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd/2 ? : 1U);
++}
 +
-+	if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR >= dp->dccps_l_seq_win)
-+		ccid2_change_l_seq_window(sk, dp->dccps_l_seq_win * 2);
-+	else if (hc->tx_cwnd * CCID2_WIN_CHANGE_FACTOR < dp->dccps_l_seq_win/2)
-+		ccid2_change_l_seq_window(sk, dp->dccps_l_seq_win / 2);
+ static void ccid2_change_l_seq_window(struct sock *sk, u64 val)
+ {
+ 	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW,
+@@ -187,6 +205,8 @@ static void ccid2_cwnd_application_limited(struct sock *sk, const u32 now)
+ 	}
+ 	hc->tx_cwnd_used  = 0;
+ 	hc->tx_cwnd_stamp = now;
 +
- 	/*
- 	 * FIXME: RTT is sampled several times per acknowledgment (for each
- 	 * entry in the Ack Vector), instead of once per Ack (as in TCP SACK).
++	ccid2_check_l_ack_ratio(sk);
+ }
+ 
+ /* This borrows the code of tcp_cwnd_restart() */
+@@ -205,6 +225,8 @@ static void ccid2_cwnd_restart(struct sock *sk, const u32 now)
+ 
+ 	hc->tx_cwnd_stamp = now;
+ 	hc->tx_cwnd_used  = 0;
++
++	ccid2_check_l_ack_ratio(sk);
+ }
+ 
+ static void ccid2_hc_tx_packet_sent(struct sock *sk, unsigned int len)
+@@ -461,9 +483,7 @@ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
+ 	hc->tx_cwnd      = hc->tx_cwnd / 2 ? : 1U;
+ 	hc->tx_ssthresh  = max(hc->tx_cwnd, 2U);
+ 
+-	/* Avoid spurious timeouts resulting from Ack Ratio > cwnd */
+-	if (dccp_sk(sk)->dccps_l_ack_ratio > hc->tx_cwnd)
+-		ccid2_change_l_ack_ratio(sk, hc->tx_cwnd);
++	ccid2_check_l_ack_ratio(sk);
+ }
+ 
+ static int ccid2_hc_tx_parse_options(struct sock *sk, u8 packet_type,
