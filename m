@@ -1,26 +1,103 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] skbuff: clear tx zero-copy flag
-Date: Mon, 25 Jul 2011 03:02:29 -0700 (PDT)
-Message-ID: <20110725.030229.1448266647053398033.davem@davemloft.net>
-References: <20110725084057.GA30311@gondor.apana.org.au>
-	<20110725094414.GA11776@redhat.com>
-	<20110725095711.GA30831@gondor.apana.org.au>
+Subject: [PATCH 2/7] neigh: Get rid of neigh_table->kmem_cachep
+Date: Mon, 25 Jul 2011 03:01:22 -0700 (PDT)
+Message-ID: <20110725.030122.44786633575073540.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, mashirle@us.ibm.com, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: herbert@gondor.hengli.com.au
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110725095711.GA30831@gondor.apana.org.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+To: roland@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45771 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751453Ab1GYKDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 06:03:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Mon, 25 Jul 2011 17:57:11 +0800
 
-> However, I think we should add a WARN_ON to the splice skb path
-> so that should a packet find its way through a path that we haven't
-> thought of then at least we'll know about it.
+We are going to alloc for device specific private areas for
+neighbour entries, and in order to do that we have to move
+away from the fixed allocation size enforced by using
+neigh_table->kmem_cachep
 
-Good idea.
+As a nice side effect we can now use kfree_rcu().
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/neighbour.h |    1 -
+ net/core/neighbour.c    |   18 ++----------------
+ 2 files changed, 2 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 8ff9143..cd113ed 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -172,7 +172,6 @@ struct neigh_table {
+ 	atomic_t		entries;
+ 	rwlock_t		lock;
+ 	unsigned long		last_rand;
+-	struct kmem_cache	*kmem_cachep;
+ 	struct neigh_statistics	__percpu *stats;
+ 	struct neigh_hash_table __rcu *nht;
+ 	struct pneigh_entry	**phash_buckets;
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 8fab9b0..493703c 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -287,7 +287,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl)
+ 			goto out_entries;
+ 	}
+ 
+-	n = kmem_cache_zalloc(tbl->kmem_cachep, GFP_ATOMIC);
++	n = kzalloc(tbl->entry_size, GFP_ATOMIC);
+ 	if (!n)
+ 		goto out_entries;
+ 
+@@ -677,12 +677,6 @@ static inline void neigh_parms_put(struct neigh_parms *parms)
+ 		neigh_parms_destroy(parms);
+ }
+ 
+-static void neigh_destroy_rcu(struct rcu_head *head)
+-{
+-	struct neighbour *neigh = container_of(head, struct neighbour, rcu);
+-
+-	kmem_cache_free(neigh->tbl->kmem_cachep, neigh);
+-}
+ /*
+  *	neighbour must already be out of the table;
+  *
+@@ -709,7 +703,7 @@ void neigh_destroy(struct neighbour *neigh)
+ 	NEIGH_PRINTK2("neigh %p is destroyed.\n", neigh);
+ 
+ 	atomic_dec(&neigh->tbl->entries);
+-	call_rcu(&neigh->rcu, neigh_destroy_rcu);
++	kfree_rcu(neigh, rcu);
+ }
+ EXPORT_SYMBOL(neigh_destroy);
+ 
+@@ -1461,11 +1455,6 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
+ 	tbl->parms.reachable_time =
+ 			  neigh_rand_reach_time(tbl->parms.base_reachable_time);
+ 
+-	if (!tbl->kmem_cachep)
+-		tbl->kmem_cachep =
+-			kmem_cache_create(tbl->id, tbl->entry_size, 0,
+-					  SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-					  NULL);
+ 	tbl->stats = alloc_percpu(struct neigh_statistics);
+ 	if (!tbl->stats)
+ 		panic("cannot create neighbour cache statistics");
+@@ -1550,9 +1539,6 @@ int neigh_table_clear(struct neigh_table *tbl)
+ 	free_percpu(tbl->stats);
+ 	tbl->stats = NULL;
+ 
+-	kmem_cache_destroy(tbl->kmem_cachep);
+-	tbl->kmem_cachep = NULL;
+-
+ 	return 0;
+ }
+ EXPORT_SYMBOL(neigh_table_clear);
+-- 
+1.7.6
+
