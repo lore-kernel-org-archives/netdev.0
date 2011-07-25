@@ -1,300 +1,74 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] net/smsc911x: add device tree probe support
-Date: Mon, 25 Jul 2011 15:37:23 -0600
-Message-ID: <20110725213723.GI26735@ponder.secretlab.ca>
-References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+From: Yinghai Lu <yhlu.kernel@gmail.com>
+Subject: ipoib crash when booting with ipautoconfig
+Date: Mon, 25 Jul 2011 14:39:00 -0700
+Message-ID: <CAE9FiQXAzUGu4JD5ZUwi1ZYsVY7fAWy-SsGnrz5spNuHeahOkQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org, patches@linaro.org,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <shawn.guo@linaro.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: David Miller <davem@davemloft.net>, NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:58973 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752012Ab1GYVh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 17:37:27 -0400
-Received: by gwaa18 with SMTP id a18so2884992gwa.19
-        for <netdev@vger.kernel.org>; Mon, 25 Jul 2011 14:37:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:36628 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751661Ab1GYVjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 17:39:01 -0400
+Received: by vxh35 with SMTP id 35so3194645vxh.19
+        for <netdev@vger.kernel.org>; Mon, 25 Jul 2011 14:39:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 25, 2011 at 05:44:00PM +0800, Shawn Guo wrote:
-> It adds device tree probe support for smsc911x driver.
-> 
-> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Cc: Steve Glendinning <steve.glendinning@smsc.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
->  Documentation/devicetree/bindings/net/smsc.txt |   34 +++++++
->  drivers/net/smsc911x.c                         |  123 +++++++++++++++++++-----
->  2 files changed, 132 insertions(+), 25 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/smsc.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/smsc.txt b/Documentation/devicetree/bindings/net/smsc.txt
-> new file mode 100644
-> index 0000000..1920695
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/smsc.txt
-> @@ -0,0 +1,34 @@
-> +* Smart Mixed-Signal Connectivity (SMSC) LAN Controller
-> +
-> +Required properties:
-> +- compatible : Should be "smsc,lan<model>""smsc,lan"
-
-Drop "smsc,lan".  That's far too generic.
-
-> +- reg : Address and length of the io space for SMSC LAN
-> +- smsc-int-gpios : Should specify the GPIO for SMSC LAN interrupt line
-
-This looks broken.  Shouldn't this be specified as a normal
-"interrupts" property?
-
-> +- phy-mode : String, operation mode of the PHY interface.
-> +  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
-> +  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi", "smii".
-> +
-> +Optional properties:
-> +- smsc,irq-active-high : Indicates the IRQ polarity is active-low
-> +- smsc,irq-push-pull : Indicates the IRQ type is push-pull
-> +- smsc,register-needs-shift : Indicates the register access needs shift
-> +- smsc,access-in-32bit : Indicates the access to controller is in 32-bit
-> +  mode
-
-Currently, reg-io-width and reg-shift are being used to manipulate
-register access on ns16550 serial ports.  The same thing can be used
-here.  See bindings/tty/serial/of-serial.txt
-
-
-> +- smsc,force-internal-phy : Forces SMSC LAN controller to use
-> +  internal PHY
-> +- smsc,force-external-phy : Forces SMSC LAN controller to use
-> +  external PHY
-
-I would expect using an external phy would also expect a phy-device
-property to connect to the phy node.
-
-> +- smsc,save-mac-address : Indicates that mac address needs to be saved
-> +  before resetting the controller
-> +- local-mac-address : 6 bytes, mac address
-> +
-> +Examples:
-> +
-> +lan9220@f4000000 {
-> +	compatible = "smsc,lan9220", "smsc,lan";
-> +	reg = <0xf4000000 0x2000000>;
-> +	phy-mode = "mii";
-> +	smsc-int-gpios = <&gpio1 31 0>; /* GPIO2_31 */
-> +	smsc,irq-push-pull;
-> +	smsc,access-in-32bit;
-> +};
-> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-> index b9016a3..0097048 100644
-> --- a/drivers/net/smsc911x.c
-> +++ b/drivers/net/smsc911x.c
-> @@ -53,6 +53,10 @@
->  #include <linux/phy.h>
->  #include <linux/smsc911x.h>
->  #include <linux/device.h>
-> +#include <linux/of.h>
-> +#include <linux/of_device.h>
-> +#include <linux/of_gpio.h>
-> +#include <linux/of_net.h>
->  #include "smsc911x.h"
->  
->  #define SMSC_CHIPNAME		"smsc911x"
-> @@ -2095,25 +2099,67 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
->  	.tx_writefifo = smsc911x_tx_writefifo_shift,
->  };
->  
-> +#ifdef CONFIG_OF
-> +static int __devinit smsc911x_probe_config_dt(
-> +				struct smsc911x_platform_config *config,
-> +				struct device_node *np)
-> +{
-> +	const char *mac;
-> +
-> +	if (!np)
-> +		return -ENODEV;
-> +
-> +	config->phy_interface = of_get_phy_mode(np);
-> +
-> +	mac = of_get_mac_address(np);
-> +	if (mac)
-> +		memcpy(config->mac, mac, ETH_ALEN);
-> +
-> +	if (of_get_property(np, "smsc,irq-active-high", NULL))
-> +		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
-> +
-> +	if (of_get_property(np, "smsc,irq-push-pull", NULL))
-> +		config->irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL;
-> +
-> +	if (of_get_property(np, "smsc,register-needs-shift", NULL))
-> +		config->shift = 1;
-> +
-> +	if (of_get_property(np, "smsc,access-in-32bit", NULL))
-> +		config->flags |= SMSC911X_USE_32BIT;
-> +
-> +	if (of_get_property(np, "smsc,force-internal-phy", NULL))
-> +		config->flags |= SMSC911X_FORCE_INTERNAL_PHY;
-> +
-> +	if (of_get_property(np, "smsc,force-external-phy", NULL))
-> +		config->flags |= SMSC911X_FORCE_EXTERNAL_PHY;
-> +
-> +	if (of_get_property(np, "smsc,save-mac-address", NULL))
-> +		config->flags |= SMSC911X_SAVE_MAC_ADDRESS;
-> +
-> +	return 0;
-> +}
-> +#else
-> +static inline int smsc911x_probe_config_dt(
-> +				struct smsc911x_platform_config *config,
-> +				struct device_node *np)
-> +{
-> +	return -ENODEV;
-> +}
-> +#endif /* CONFIG_OF */
-> +
->  static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
->  {
-> +	struct device_node *np = pdev->dev.of_node;
->  	struct net_device *dev;
->  	struct smsc911x_data *pdata;
->  	struct smsc911x_platform_config *config = pdev->dev.platform_data;
->  	struct resource *res, *irq_res;
->  	unsigned int intcfg = 0;
-> -	int res_size, irq_flags;
-> -	int retval;
-> +	int irq_gpio, res_size, irq_flags = 0;
-> +	int retval = 0;
->  
->  	pr_info("Driver version %s\n", SMSC_DRV_VERSION);
->  
-> -	/* platform data specifies irq & dynamic bus configuration */
-> -	if (!pdev->dev.platform_data) {
-> -		pr_warn("platform_data not provided\n");
-> -		retval = -ENODEV;
-> -		goto out_0;
-> -	}
-> -
->  	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
->  					   "smsc911x-memory");
->  	if (!res)
-> @@ -2125,13 +2171,6 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
->  	}
->  	res_size = resource_size(res);
->  
-> -	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> -	if (!irq_res) {
-> -		pr_warn("Could not allocate irq resource\n");
-> -		retval = -ENODEV;
-> -		goto out_0;
-> -	}
-> -
-
-This should still work for the device-tree situation.  Why remove it?
-
->  	if (!request_mem_region(res->start, res_size, SMSC_CHIPNAME)) {
->  		retval = -EBUSY;
->  		goto out_0;
-> @@ -2148,26 +2187,53 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
->  
->  	pdata = netdev_priv(dev);
->  
-> -	dev->irq = irq_res->start;
-> -	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
-> -	pdata->ioaddr = ioremap_nocache(res->start, res_size);
-> -
-> -	/* copy config parameters across to pdata */
-> -	memcpy(&pdata->config, config, sizeof(pdata->config));
-> +	if (np) {
-> +		irq_gpio = of_get_named_gpio(np, "smsc-int-gpios", 0);
-> +		retval = gpio_request_one(irq_gpio, GPIOF_IN, "smsc-int-gpio");
-> +		if (!retval)
-> +			dev->irq = gpio_to_irq(irq_gpio);
-
-Yeah, that's definitely the wrong way to handle this.  If the
-device it wired to a gpio controller, then the gpio controller also
-need to be an interrupt controller to ensure that it can map interrupt
-numbers.
-
-> +	} else {
-> +		irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> +		if (irq_res) {
-> +			dev->irq = irq_res->start;
-> +			irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
-> +		} else {
-> +			retval = -ENODEV;
-> +		}
-> +	}
->  
-> -	pdata->dev = dev;
-> -	pdata->msg_enable = ((1 << debug) - 1);
-> +	if (retval) {
-> +		SMSC_WARN(pdata, probe, "Error smsc911x irq not found");
-> +		retval = -EINVAL;
-> +		goto out_free_netdev_2;
-> +	}
->  
-> +	pdata->ioaddr = ioremap_nocache(res->start, res_size);
->  	if (pdata->ioaddr == NULL) {
->  		SMSC_WARN(pdata, probe, "Error smsc911x base address invalid");
->  		retval = -ENOMEM;
->  		goto out_free_netdev_2;
->  	}
->  
-> +	pdata->dev = dev;
-> +	pdata->msg_enable = ((1 << debug) - 1);
-> +
-> +	retval = smsc911x_probe_config_dt(&pdata->config, np);
-> +	if (retval && config) {
-> +		/* copy config parameters across to pdata */
-> +		memcpy(&pdata->config, config, sizeof(pdata->config));
-> +		retval = 0;
-> +	}
-> +
-> +	if (retval) {
-> +		SMSC_WARN(pdata, probe, "Error smsc911x config not found");
-> +		goto out_unmap_io_3;
-> +	}
-> +
->  	/* assume standard, non-shifted, access to HW registers */
->  	pdata->ops = &standard_smsc911x_ops;
->  	/* apply the right access if shifting is needed */
-> -	if (config->shift)
-> +	if (pdata->config.shift)
->  		pdata->ops = &shifted_smsc911x_ops;
->  
->  	retval = smsc911x_init(dev);
-> @@ -2314,6 +2380,12 @@ static const struct dev_pm_ops smsc911x_pm_ops = {
->  #define SMSC911X_PM_OPS NULL
->  #endif
->  
-> +static const struct of_device_id smsc_dt_ids[] = {
-> +	{ .compatible = "smsc,lan", },
-
-As mentioned above, "smsc,lan" is far too generic.
-
-> +	{ /* sentinel */ }
-> +};
-> +MODULE_DEVICE_TABLE(of, smsc_dt_ids);
-> +
->  static struct platform_driver smsc911x_driver = {
->  	.probe = smsc911x_drv_probe,
->  	.remove = __devexit_p(smsc911x_drv_remove),
-> @@ -2321,6 +2393,7 @@ static struct platform_driver smsc911x_driver = {
->  		.name	= SMSC_CHIPNAME,
->  		.owner	= THIS_MODULE,
->  		.pm	= SMSC911X_PM_OPS,
-> +		.of_match_table = smsc_dt_ids,
->  	},
->  };
->  
-> -- 
-> 1.7.4.1
-> 
-> 
+[   88.946112] BUG: unable to handle kernel NULL pointer dereference
+at 0000000000000040
+[   88.954153] IP: [<ffffffff81a61ee1>] ipoib_start_xmit+0x5c/0x31a
+[   88.960196] PGD 0
+[   88.962235] Oops: 0000 [#1] SMP
+[   88.965500] CPU 0
+[   88.967343] Modules linked in:
+[   88.970601]
+[   88.972094] Pid: 1, comm: swapper Not tainted
+3.0.0-tip-yh-04912-gf572f66-dirty #1148
+[   88.984053] RIP: 0010:[<ffffffff81a61ee1>]  [<ffffffff81a61ee1>]
+ipoib_start_xmit+0x5c/0x31a
+[   88.992497] RSP: 0018:ffff88046dd37cb0  EFLAGS: 00010246
+[   88.997805] RAX: 0000000000000000 RBX: ffff88045a5af380 RCX: 0000000060014c20
+[   89.004933] RDX: 0000000000000000 RSI: ffff880464768000 RDI: ffff88045a5af380
+[   89.012060] RBP: ffff88046dd37cf0 R08: 0000000000001d1c R09: 000000000039e295
+[   89.019188] R10: 0000000000000000 R11: ffff88046dd38708 R12: ffff880464768000
+[   89.026317] R13: 0000000000000000 R14: ffff8804647689c0 R15: ffff880464768000
+[   89.033447] FS:  0000000000000000(0000) GS:ffff88047de00000(0000)
+knlGS:0000000000000000
+[   89.041524] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[   89.047268] CR2: 0000000000000040 CR3: 00000000023fc000 CR4: 00000000000406f0
+[   89.054394] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[   89.061523] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[   89.068652] Process swapper (pid: 1, threadinfo ffff88046dd36000,
+task ffff88046dd38000)
+[   89.076729] Stack:
+[   89.078741]  0000000000000000 ffff88046dd38000 0000000000000246
+ffff88045a5af380
+[   89.086189]  0000000060014c23 0000000000000000 0000000000000258
+ffff880464768000
+[   89.093645]  ffff88046dd37d50 ffffffff81b15a31 ffff880670687e98
+ffff880670687e80
+[   89.101093] Call Trace:
+[   89.103549]  [<ffffffff81b15a31>] dev_hard_start_xmit+0x2a7/0x435
+[   89.109658]  [<ffffffff81b2984d>] sch_direct_xmit+0x74/0x207
+[   89.115317]  [<ffffffff81b15db9>] dev_queue_xmit+0x1fa/0x4aa
+[   89.120981]  [<ffffffff81b15bbf>] ? dev_hard_start_xmit+0x435/0x435
+[   89.127267]  [<ffffffff81b0abd2>] ? __alloc_skb+0x83/0x141
+[   89.132774]  [<ffffffff82754586>] ic_bootp_send_if+0x2b4/0x2d2
+[   89.138597]  [<ffffffff82754709>] ic_dynamic+0x165/0x315
+[   89.143913]  [<ffffffff8275508e>] ip_auto_config+0xf2/0x2c0
+[   89.149484]  [<ffffffff82754f9c>] ? root_nfs_parse_addr+0xb5/0xb5
+[   89.155604]  [<ffffffff810002cf>] do_one_initcall+0x57/0x134
+[   89.161278]  [<ffffffff82708f85>] kernel_init+0x11f/0x1a3
+[   89.166699]  [<ffffffff81c471d4>] kernel_thread_helper+0x4/0x10
+[   89.172640]  [<ffffffff81c3e61d>] ? retint_restore_args+0xe/0xe
+[   89.178550]  [<ffffffff82708e66>] ? start_kernel+0x3c9/0x3c9
+[   89.184212]  [<ffffffff81c471d0>] ? gs_change+0xb/0xb
+[   89.189261] Code: 1d 48 c7 c7 60 11 42 82 e8 e0 d7 64 ff 85 c0 75
+0d e8 91 5e 63 ff 85 c0 0f 84 89 02 00 00 48 8b 43 58 48 89 c2 48 83
+e2 fe a8 01 <4c> 8b 7a 40 74 26 e8 3c 5e 63 ff 85 c0 74 1d 48 c7 c7 60
+11 42
+[   89.209206] RIP  [<ffffffff81a61ee1>] ipoib_start_xmit+0x5c/0x31a
+[   89.215311]  RSP <ffff88046dd37cb0>
+[   89.218792] CR2: 0000000000000040
+[   89.222287] ---[ end trace 88d8b543880f18a5 ]---
