@@ -1,43 +1,38 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: tcp/udp checksum on loopback interface
-Date: Mon, 25 Jul 2011 18:04:18 -0600
-Message-ID: <4E2E0482.7030008@genband.com>
-References: <4E292E51.4040802@inria.fr>
+From: "WEBMAIL MANAGEMENT SERVICE!" <david@iitk.ac.in>
+Subject: (unknown)
+Date: Tue, 26 Jul 2011 05:36:41 +0530
+Message-ID: <948fed938c3e85569f21a4f089e7b807.squirrel@webmail.iitk.ac.in>
+Reply-To: fulgeanub@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pierre Louis Aublin <pierre-louis.aublin@inria.fr>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og109.obsmtp.com ([64.18.2.171]:32849 "EHLO
-	exprod7og109.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062Ab1GZAE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 20:04:57 -0400
-In-Reply-To: <4E292E51.4040802@inria.fr>
+Received: from mail4.iitk.ac.in ([202.3.77.189]:35052 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752169Ab1GZATz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jul 2011 20:19:55 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2011 02:01 AM, Pierre Louis Aublin wrote:
-> Hello everybody
->
-> I am interested in the reliability of TCP and UDP using the loopback
-> interface.
-> I found that there is no checksum verification on the body of packets
-> transmitted through the loopback interface :
 
-> Finally, why this behaviour? Is it because you assume message can not
-> get corrupted while staying on the same machine?
 
-That's correct.  We can save cpu time by not doing the checksum because 
-we assume that our own hardware won't introduce errors (or if it does 
-and we care about them we'll be monitoring the hardware for ECC errors 
-anyways).
 
-Chris
+Dear Webmail Subscribers,
 
--- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+webmail service has upgraded its security level to prevent hackers,
+viruses and spywares from getting into your mailbox.
+
+In order to complete this security update, We encourage you to clik on
+this link just to upgrad your webmail account
+
+https://spreadsheets.google.com/a/blumail.org/spreadsheet/viewform?formkey=dDBVM0lvTGxkcmotQm5JQ280T1VrVEE6MQ
+
+We hope you'll enjoy our approach to webemail service.
+
+Please don't reply directly to this automatically-generated e-mail message.
+
+Sincerely,
+
+WEBMAIL MANAGEMENT SERVICE!
