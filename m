@@ -1,373 +1,71 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next-2.6 2/2] be2net: use stats-sync to read/write 64-bit stats
-Date: Tue, 26 Jul 2011 10:40:15 +0530
-Message-ID: <1311657015-23465-3-git-send-email-sathya.perla@emulex.com>
-References: <1311657015-23465-1-git-send-email-sathya.perla@emulex.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
+Date: Mon, 25 Jul 2011 22:16:58 -0700
+Message-ID: <5FFF52B6-424D-4005-8658-B906797D0E5F@qlogic.com>
+References: <79ahktw3gy268nl9yyk76cxe.1311104529189@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Bohac <jbohac@suse.cz>, netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	stephen hemminger <shemminger@vyatta.com>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:33605 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751022Ab1GZFJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 01:09:04 -0400
-In-Reply-To: <1311657015-23465-1-git-send-email-sathya.perla@emulex.com>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:41770 "EHLO
+	TX2EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717Ab1GZFOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 01:14:38 -0400
+In-Reply-To: <79ahktw3gy268nl9yyk76cxe.1311104529189@email.android.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-64-bit stats in be2net are written/read as follows using the stats-sync
-interface for safe access in 32-bit archs:
-
-64-bit 		sync			writer			reader
-stats
-------------------------------------------------------------------------------
-tx_stats	tx_stats->sync		be_xmit			be_get_stats64,
-								ethtool
-tx-compl	tx_stats->sync_compl	tx-compl-processing	ethtool
-rx-stats	rx_stats->sync		rx-compl-processing	be_get_stats64,
-								ethtool,
-								eqd-update
-
-This patch is based on Stephen Hemminger's earlier patch on the same issue...
-
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/benet/be.h         |    5 ++-
- drivers/net/benet/be_cmds.c    |    1 -
- drivers/net/benet/be_ethtool.c |   61 +++++++++++++++++++++----------
- drivers/net/benet/be_main.c    |   77 +++++++++++++++++++++++++---------------
- 4 files changed, 93 insertions(+), 51 deletions(-)
-
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 68227fd..af57b51 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -29,6 +29,7 @@
- #include <linux/interrupt.h>
- #include <linux/firmware.h>
- #include <linux/slab.h>
-+#include <linux/u64_stats_sync.h>
- 
- #include "be_hw.h"
- 
-@@ -174,6 +175,8 @@ struct be_tx_stats {
- 	u64 tx_compl;
- 	ulong tx_jiffies;
- 	u32 tx_stops;
-+	struct u64_stats_sync sync;
-+	struct u64_stats_sync sync_compl;
- };
- 
- struct be_tx_obj {
-@@ -206,6 +209,7 @@ struct be_rx_stats {
- 	u32 rx_mcast_pkts;
- 	u32 rx_compl_err;	/* completions with err set */
- 	u32 rx_pps;		/* pkts per second */
-+	struct u64_stats_sync sync;
- };
- 
- struct be_rx_compl_info {
-@@ -518,7 +522,6 @@ static inline bool be_multi_rxq(const struct be_adapter *adapter)
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
- extern void be_link_status_update(struct be_adapter *adapter, bool link_up);
--extern void netdev_stats_update(struct be_adapter *adapter);
- extern void be_parse_stats(struct be_adapter *adapter);
- extern int be_load_fw(struct be_adapter *adapter, u8 *func);
- #endif				/* BE_H */
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index e15f06a..7dc4741 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -83,7 +83,6 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 			 (compl->tag0 == OPCODE_ETH_GET_PPORT_STATS)) &&
- 			(compl->tag1 == CMD_SUBSYSTEM_ETH)) {
- 			be_parse_stats(adapter);
--			netdev_stats_update(adapter);
- 			adapter->stats_cmd_sent = false;
- 		}
- 	} else {
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 0300b9d..e92a8d8 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -74,10 +74,12 @@ static const struct be_ethtool_stat et_stats[] = {
- };
- #define ETHTOOL_STATS_NUM ARRAY_SIZE(et_stats)
- 
--/* Stats related to multi RX queues */
-+/* Stats related to multi RX queues: get_stats routine assumes bytes, pkts
-+ * are first and second members respectively.
-+ */
- static const struct be_ethtool_stat et_rx_stats[] = {
--	{DRVSTAT_RX_INFO(rx_bytes)},
--	{DRVSTAT_RX_INFO(rx_pkts)},
-+	{DRVSTAT_RX_INFO(rx_bytes)},/* If moving this member see above note */
-+	{DRVSTAT_RX_INFO(rx_pkts)}, /* If moving this member see above note */
- 	{DRVSTAT_RX_INFO(rx_polls)},
- 	{DRVSTAT_RX_INFO(rx_events)},
- 	{DRVSTAT_RX_INFO(rx_compl)},
-@@ -88,8 +90,11 @@ static const struct be_ethtool_stat et_rx_stats[] = {
- };
- #define ETHTOOL_RXSTATS_NUM (ARRAY_SIZE(et_rx_stats))
- 
--/* Stats related to multi TX queues */
-+/* Stats related to multi TX queues: get_stats routine assumes compl is the
-+ * first member
-+ */
- static const struct be_ethtool_stat et_tx_stats[] = {
-+	{DRVSTAT_TX_INFO(tx_compl)}, /* If moving this member see above note */
- 	{DRVSTAT_TX_INFO(tx_bytes)},
- 	{DRVSTAT_TX_INFO(tx_pkts)},
- 	{DRVSTAT_TX_INFO(tx_reqs)},
-@@ -243,32 +248,48 @@ be_get_ethtool_stats(struct net_device *netdev,
- 	struct be_rx_obj *rxo;
- 	struct be_tx_obj *txo;
- 	void *p;
--	int i, j, base;
-+	unsigned int i, j, base = 0, start;
- 
- 	for (i = 0; i < ETHTOOL_STATS_NUM; i++) {
- 		p = (u8 *)&adapter->drv_stats + et_stats[i].offset;
--		data[i] = (et_stats[i].size == sizeof(u64)) ?
--				*(u64 *)p: *(u32 *)p;
-+		data[i] = *(u32 *)p;
- 	}
-+	base += ETHTOOL_STATS_NUM;
- 
--	base = ETHTOOL_STATS_NUM;
- 	for_all_rx_queues(adapter, rxo, j) {
--		for (i = 0; i < ETHTOOL_RXSTATS_NUM; i++) {
--			p = (u8 *)rx_stats(rxo) + et_rx_stats[i].offset;
--			data[base + j * ETHTOOL_RXSTATS_NUM + i] =
--				(et_rx_stats[i].size == sizeof(u64)) ?
--					*(u64 *)p: *(u32 *)p;
-+		struct be_rx_stats *stats = rx_stats(rxo);
-+
-+		do {
-+			start = u64_stats_fetch_begin_bh(&stats->sync);
-+			data[base] = stats->rx_bytes;
-+			data[base + 1] = stats->rx_pkts;
-+		} while (u64_stats_fetch_retry_bh(&stats->sync, start));
-+
-+		for (i = 2; i < ETHTOOL_RXSTATS_NUM; i++) {
-+			p = (u8 *)stats + et_rx_stats[i].offset;
-+			data[base + i] = *(u32 *)p;
- 		}
-+		base += ETHTOOL_RXSTATS_NUM;
- 	}
- 
--	base = ETHTOOL_STATS_NUM + adapter->num_rx_qs * ETHTOOL_RXSTATS_NUM;
- 	for_all_tx_queues(adapter, txo, j) {
--		for (i = 0; i < ETHTOOL_TXSTATS_NUM; i++) {
--			p = (u8 *)tx_stats(txo) + et_tx_stats[i].offset;
--			data[base + j * ETHTOOL_TXSTATS_NUM + i] =
--				(et_tx_stats[i].size == sizeof(u64)) ?
--					*(u64 *)p: *(u32 *)p;
--		}
-+		struct be_tx_stats *stats = tx_stats(txo);
-+
-+		do {
-+			start = u64_stats_fetch_begin_bh(&stats->sync_compl);
-+			data[base] = stats->tx_compl;
-+		} while (u64_stats_fetch_retry_bh(&stats->sync_compl, start));
-+
-+		do {
-+			start = u64_stats_fetch_begin_bh(&stats->sync);
-+			for (i = 1; i < ETHTOOL_TXSTATS_NUM; i++) {
-+				p = (u8 *)stats + et_tx_stats[i].offset;
-+				data[base + i] =
-+					(et_tx_stats[i].size == sizeof(u64)) ?
-+						*(u64 *)p : *(u32 *)p;
-+			}
-+		} while (u64_stats_fetch_retry_bh(&stats->sync, start));
-+		base += ETHTOOL_TXSTATS_NUM;
- 	}
- }
- 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 9cfbfdf..9f2f66c 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -396,36 +396,44 @@ void be_parse_stats(struct be_adapter *adapter)
- 			erx->rx_drops_no_fragments[rxo->q.id];
- }
- 
--void netdev_stats_update(struct be_adapter *adapter)
-+static struct rtnl_link_stats64 *be_get_stats64(struct net_device *netdev,
-+					struct rtnl_link_stats64 *stats)
- {
-+	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct be_drv_stats *drvs = &adapter->drv_stats;
--	struct net_device_stats *dev_stats = &adapter->netdev->stats;
- 	struct be_rx_obj *rxo;
- 	struct be_tx_obj *txo;
--	unsigned long pkts = 0, bytes = 0, mcast = 0, drops = 0;
-+	u64 pkts, bytes;
-+	unsigned int start;
- 	int i;
- 
- 	for_all_rx_queues(adapter, rxo, i) {
--		pkts += rx_stats(rxo)->rx_pkts;
--		bytes += rx_stats(rxo)->rx_bytes;
--		mcast += rx_stats(rxo)->rx_mcast_pkts;
--		drops += rx_stats(rxo)->rx_drops_no_skbs;
-+		const struct be_rx_stats *rx_stats = rx_stats(rxo);
-+		do {
-+			start = u64_stats_fetch_begin_bh(&rx_stats->sync);
-+			pkts = rx_stats(rxo)->rx_pkts;
-+			bytes = rx_stats(rxo)->rx_bytes;
-+		} while (u64_stats_fetch_retry_bh(&rx_stats->sync, start));
-+		stats->rx_packets += pkts;
-+		stats->rx_bytes += bytes;
-+		stats->multicast += rx_stats(rxo)->rx_mcast_pkts;
-+		stats->rx_dropped += rx_stats(rxo)->rx_drops_no_skbs +
-+					rx_stats(rxo)->rx_drops_no_frags;
- 	}
--	dev_stats->rx_packets = pkts;
--	dev_stats->rx_bytes = bytes;
--	dev_stats->multicast = mcast;
--	dev_stats->rx_dropped = drops;
- 
--	pkts = bytes = 0;
- 	for_all_tx_queues(adapter, txo, i) {
--		pkts += tx_stats(txo)->tx_pkts;
--		bytes += tx_stats(txo)->tx_bytes;
-+		const struct be_tx_stats *tx_stats = tx_stats(txo);
-+		do {
-+			start = u64_stats_fetch_begin_bh(&tx_stats->sync);
-+			pkts = tx_stats(txo)->tx_pkts;
-+			bytes = tx_stats(txo)->tx_bytes;
-+		} while (u64_stats_fetch_retry_bh(&tx_stats->sync, start));
-+		stats->tx_packets += pkts;
-+		stats->tx_bytes += bytes;
- 	}
--	dev_stats->tx_packets = pkts;
--	dev_stats->tx_bytes = bytes;
- 
- 	/* bad pkts received */
--	dev_stats->rx_errors = drvs->rx_crc_errors +
-+	stats->rx_errors = drvs->rx_crc_errors +
- 		drvs->rx_alignment_symbol_errors +
- 		drvs->rx_in_range_errors +
- 		drvs->rx_out_range_errors +
-@@ -434,26 +442,24 @@ void netdev_stats_update(struct be_adapter *adapter)
- 		drvs->rx_dropped_too_short +
- 		drvs->rx_dropped_header_too_small +
- 		drvs->rx_dropped_tcp_length +
--		drvs->rx_dropped_runt +
--		drvs->rx_tcp_checksum_errs +
--		drvs->rx_ip_checksum_errs +
--		drvs->rx_udp_checksum_errs;
-+		drvs->rx_dropped_runt;
- 
- 	/* detailed rx errors */
--	dev_stats->rx_length_errors = drvs->rx_in_range_errors +
-+	stats->rx_length_errors = drvs->rx_in_range_errors +
- 		drvs->rx_out_range_errors +
- 		drvs->rx_frame_too_long;
- 
--	dev_stats->rx_crc_errors = drvs->rx_crc_errors;
-+	stats->rx_crc_errors = drvs->rx_crc_errors;
- 
- 	/* frame alignment errors */
--	dev_stats->rx_frame_errors = drvs->rx_alignment_symbol_errors;
-+	stats->rx_frame_errors = drvs->rx_alignment_symbol_errors;
- 
- 	/* receiver fifo overrun */
- 	/* drops_no_pbuf is no per i/f, it's per BE card */
--	dev_stats->rx_fifo_errors = drvs->rxpp_fifo_overflow_drop +
-+	stats->rx_fifo_errors = drvs->rxpp_fifo_overflow_drop +
- 				drvs->rx_input_fifo_overflow_drop +
- 				drvs->rx_drops_no_pbuf;
-+	return stats;
- }
- 
- void be_link_status_update(struct be_adapter *adapter, bool link_up)
-@@ -479,12 +485,14 @@ static void be_tx_stats_update(struct be_tx_obj *txo,
- {
- 	struct be_tx_stats *stats = tx_stats(txo);
- 
-+	u64_stats_update_begin(&stats->sync);
- 	stats->tx_reqs++;
- 	stats->tx_wrbs += wrb_cnt;
- 	stats->tx_bytes += copied;
- 	stats->tx_pkts += (gso_segs ? gso_segs : 1);
- 	if (stopped)
- 		stats->tx_stops++;
-+	u64_stats_update_end(&stats->sync);
- }
- 
- /* Determine number of WRB entries needed to xmit data in an skb */
-@@ -905,7 +913,8 @@ static void be_rx_eqd_update(struct be_adapter *adapter, struct be_rx_obj *rxo)
- 	struct be_rx_stats *stats = rx_stats(rxo);
- 	ulong now = jiffies;
- 	ulong delta = now - stats->rx_jiffies;
--	u32 eqd;
-+	u64 pkts;
-+	unsigned int start, eqd;
- 
- 	if (!rx_eq->enable_aic)
- 		return;
-@@ -920,8 +929,13 @@ static void be_rx_eqd_update(struct be_adapter *adapter, struct be_rx_obj *rxo)
- 	if (delta < HZ)
- 		return;
- 
--	stats->rx_pps = (stats->rx_pkts - stats->rx_pkts_prev) / (delta / HZ);
--	stats->rx_pkts_prev = stats->rx_pkts;
-+	do {
-+		start = u64_stats_fetch_begin_bh(&stats->sync);
-+		pkts = stats->rx_pkts;
-+	} while (u64_stats_fetch_retry_bh(&stats->sync, start));
-+
-+	stats->rx_pps = (pkts - stats->rx_pkts_prev) / (delta / HZ);
-+	stats->rx_pkts_prev = pkts;
- 	stats->rx_jiffies = now;
- 	eqd = stats->rx_pps / 110000;
- 	eqd = eqd << 3;
-@@ -942,6 +956,7 @@ static void be_rx_stats_update(struct be_rx_obj *rxo,
- {
- 	struct be_rx_stats *stats = rx_stats(rxo);
- 
-+	u64_stats_update_begin(&stats->sync);
- 	stats->rx_compl++;
- 	stats->rx_bytes += rxcp->pkt_size;
- 	stats->rx_pkts++;
-@@ -949,6 +964,7 @@ static void be_rx_stats_update(struct be_rx_obj *rxo,
- 		stats->rx_mcast_pkts++;
- 	if (rxcp->err)
- 		stats->rx_compl_err++;
-+	u64_stats_update_end(&stats->sync);
- }
- 
- static inline bool csum_passed(struct be_rx_compl_info *rxcp)
-@@ -1878,8 +1894,9 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
- 				netif_wake_subqueue(adapter->netdev, i);
- 			}
- 
--			adapter->drv_stats.tx_events++;
-+			u64_stats_update_begin(&tx_stats(txo)->sync_compl);
- 			tx_stats(txo)->tx_compl += tx_compl;
-+			u64_stats_update_end(&tx_stats(txo)->sync_compl);
- 		}
- 	}
- 
-@@ -1893,6 +1910,7 @@ static int be_poll_tx_mcc(struct napi_struct *napi, int budget)
- 	napi_complete(napi);
- 
- 	be_eq_notify(adapter, tx_eq->q.id, true, false, 0);
-+	adapter->drv_stats.tx_events++;
- 	return 1;
- }
- 
-@@ -2843,6 +2861,7 @@ static struct net_device_ops be_netdev_ops = {
- 	.ndo_set_rx_mode	= be_set_multicast_list,
- 	.ndo_set_mac_address	= be_mac_addr_set,
- 	.ndo_change_mtu		= be_change_mtu,
-+	.ndo_get_stats64	= be_get_stats64,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
- 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
--- 
-1.7.4
+DQpPbiBKdWwgMTksIDIwMTEsIGF0IDEyOjQyIFBNLCBTdGVwaGVuIEhlbW1pbmdlciB3cm90ZToN
+Cg0KPiBicmlkZ2UgZm9yd2FyZGluZyB0YWJsZTsgcm91dGUgY2FjaGU7IGFuZCBuZWlnaGJvciB0
+YWJsZSBjb3VsZCBoYXZlIHNhbWUgcHJvYmxlbS4gSSB0aG91Z2h0IGNhcnJpZXIgaXMgc3VwcG9z
+ZWQgdG8gdG9nZ2xlIG9uIHN1c3BlbmQgb3IgaGliZXJuYXRlDQoNCkluIGNhc2Ugb2YgYSBWTSB1
+c2luZyBhIFZGIGFzIGEgTklDIGRldmljZSwgdGhlIFZGIHdvdWxkIG5vdCBrbm93IG9mIGEgc3Vz
+cGVuZCBldmVudCB1bmxlc3MgdGhlIGh5cGVydmlzb3Igc2VuZHMgc3VjaCBhIG5vdGlmaWNhdGlv
+biB0byB0aGUgUEYsDQp3aGljaCB0aGUgUEYgY291bGQgcmVsYXkgYmFjayB0byB0aGUgVkYuIERv
+ZXMgS1ZNIHNlbmQgc3VjaCBub3RpZmljYXRpb24gYXQgcHJlc2VudD8gT3RoZXIgb3B0aW9uIHdv
+dWxkIGJlIHRvIGJyaW5nIGRvd24gdGhlIGludGVyZmFjZSBpbiB0aGUNClZNLg0KDQotQW5pcmJh
+bg0KDQoNCg0KPiANCj4gSmlyaSBCb2hhYyA8amJvaGFjQHN1c2UuY3o+IHdyb3RlOg0KPiANCj4+
+IEhpLA0KPj4gDQo+PiBJIGNhbWUgb3ZlciBhIHN1cnByaXNpbmcgYmVoYXZpb3VyIHdpdGggSVB2
+NiBhdXRvY29uZmlndXJhdGlvbiwNCj4+IHdoaWNoIEkgdGhpbmsgaXMgYSBidWcsIGJ1dCBJIHdv
+dWxkIGZpcnN0IGxpa2UgdG8gaGVhciBvdGhlcg0KPj4gcGVvcGxlJ3Mgb3BpbmlvbnMgYmVmb3Jl
+IHRyeWluZyB0byBmaXggdGhpczoNCj4+IA0KPj4gUHJvYmxlbSAxOiBhbGwgdGhlIGFkZHJlc3Mv
+cm91dGUgbGlmZXRpbWVzIGFyZSBrZXB0IGluIGppZmZpZXMNCj4+IGFuZCBqaWZmaWVzIGRvbid0
+IGdldCBpbmNyZW1lbnRlZCBvbiByZXN1bWUuIFNvIHdoZW4gYQ0KPj4gcm91dGUvYWRkcmVzcyBs
+aWZldGltZSBpcyAzMCBtaW51dGVzIGFuZCB0aGUgc3lzdGVtIHJlc3VtZXMgYWZ0ZXINCj4+IDEg
+aG91ciwgdGhlIHJvdXRlL2FkZHJlc3Mgc2hvdWxkIGJlIGNvbnNpZGVyZWQgZXhwaXJlZCwgYnV0
+IGl0IGlzDQo+PiBub3QuDQo+PiANCj4+IFByb2JsZW0gMjogd2hlbiBhIHN5c3RlbSBpcyBtb3Zl
+ZCB0byBhIG5ldyBuZXR3b3JrIGEgUlMgaXMgbm90DQo+PiBzZW50LiBUaHVzLCBJUHY2IGRvZXMg
+bm90IGF1dG9jb25maWd1cmUgdW50aWwgdGhlIHJvdXRlciBzZW5kcyBhDQo+PiBwZXJpb2RpYyBS
+QS4gVGhpcyBjYW4gb2NjdXIgYm90aCB3aGlsZSB0aGUgc3lzdGVtIGlzIGFsaXZlIGFuZA0KPj4g
+d2hpbGUgaXQgaXMgc3VzcGVuZGVkLiBJIHRoaW5rIHRoZSBhdXRvY29uZmlndXJlZCBzdGF0ZSBz
+aG91bGQgYmUNCj4+IGRpc2NhcmRlZCB3aGVuIHRoZSBrZXJuZWwgc3VzcGVjdHMgdGhlIHN5c3Rl
+bSBjb3VsZCBoYXZlIGJlZW4NCj4+IG1vdmVkIHRvIGEgZGlmZmVyZW50IG5ldHdvcmsuDQo+PiAN
+Cj4+IFdoZW4gdGhlIGNhYmxlIGlzIHVucGx1Z2dlZCBhbmQgcGx1Z2dlZCBpbiBhZ2Fpbiwgd2Ug
+YWxyZWFkeSBnZXQNCj4+IG5vdGlmaWVkIHRocm91Z2ggbGlua3dhdGNoIC0+IG5ldGRldl9zdGF0
+ZV9jaGFuZ2UgLT4NCj4+IC0+IGNhbGxfbmV0ZGV2aWNlX25vdGlmaWVycyhORVRERVZfQ0hBTkdF
+LCAuLi4pDQo+PiBIb3dldmVyLCBpZiB0aGUgZGV2aWNlIGhhcyBhbHJlYWR5IGJlZW4gYXV0b2Nv
+bmZpZ3VyZWQsDQo+PiBhZGRyY29uZl9ub3RpZnkoKSBvbmx5IGhhbmRsZXMgdGhpcyBldmVudCBi
+eSBwcmludGluZyBhDQo+PiBtZXNzYWdlLg0KPj4gDQo+PiBTbyBteSBpZGVhIHdhcyB0bzoNCj4+
+IC0gaGFuZGxlIGxpbmsgdXAvZG93biBpbiBhZGRyY29uZl9ub3RpZnkoKSBzaW1pbGFybHkgdG8N
+Cj4+IE5FVERFVl9VUC9ORVRERVZfRE9XTg0KPj4gDQo+PiAtIG9uIHN1c3BlbmQsIGZha2luZyBh
+IGxpbmsgZG93biBldmVudDsgb24gcmVzdW1lLCBmYWtpbmcgYSBsaW5rIHVwIGV2ZW50DQo+PiAo
+b3IgYmV0dGVyLCBoYXZpbmcgYSBzcGVjaWFsIGV2ZW50IHR5cGUgZm9yIHN1c3BlbmQvcmVzdW1l
+KQ0KPj4gDQo+PiBUaGlzIHdvdWxkIGNhdXNlIGF1dG9jb25maWd1cmF0aW9uIHRvIGJlIHJlc3Rh
+cnRlZCBvbiByZXN1bWUgYXMNCj4+IHdlbGwgYXMgY2FibGUgcGx1Zy91bnBsdWcsIHNvbHZpbmcg
+Ym90aCB0aGUgYWJvdmUgcHJvYmxlbXMuDQo+PiANCj4+IE9yIGRvIHdlIHdhbnQgdG8gY29tcGxl
+dGVseSByZWx5IG9uIHVzZXJzcGFjZSB0b29scw0KPj4gKG5ldHdvcmttYW5hZ2VyL2lmcGx1Zykg
+YW5kIGV4cGVjdCB0aGVtIHRvIGRvIE5FVERFVl9ET1dOIG9uDQo+PiB1bnBsdWcvc3VzcGVuZCBh
+bmQgTkVUREVWX1VQIG9uIHBsdWcvcmVzdW1lPw0KPj4gDQo+PiBBbnkgdGhvdWdodHM/DQo+PiAN
+Cj4+IC0tIA0KPj4gSmlyaSBCb2hhYyA8amJvaGFjQHN1c2UuY3o+DQo+PiBTVVNFIExhYnMsIFNV
+U0UgQ1oNCj4+IA0KPiAT77+977+97Lm7HO+/vSbvv71+77+9Ju+/vRjvv73vv70rLe+/ve+/vd22
+F++/ve+/vXfvv73vv73Lm++/ve+/ve+/vW3vv73etdev77+9e2F577+9HcqH2pnvv70sagfvv73v
+v71m77+977+977+9aO+/ve+/ve+/vXrvv70e77+9d++/ve+/ve+/vQzvv73vv73vv71qOit277+9
+77+977+9d++/vWrvv71t77+977+977+977+9B++/ve+/ve+/ve+/vXpaK++/ve+/ve+/ve+/ve+/
+vd2iaiLvv73vv70h77+9aQ0KDQo=
 
