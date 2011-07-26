@@ -1,50 +1,46 @@
-From: Chris Clayton <chris2553@googlemail.com>
-Subject: Fwd: [PATCH] Fix cdc-phonet build
-Date: Tue, 26 Jul 2011 23:20:22 +0100
-Message-ID: <201107262320.22338.chris2553@googlemail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-next-2.6] bonding: reduce noise during init
+Date: Tue, 26 Jul 2011 17:35:07 -0400
+Message-ID: <1311716107-12328-1-git-send-email-andy@greyhouse.net>
+Cc: fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38064 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112Ab1GZVU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 17:20:27 -0400
-Received: by wyg8 with SMTP id 8so528547wyg.19
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2011 14:20:25 -0700 (PDT)
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:1034 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753844Ab1GZVcg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2011 17:32:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Try to send to correct address this time!
+Many are using sysfs to configure bonding rather than module options, so
+there is no need for bonding to throw this warning in normal cases.
 
-----------  Forwarded Message  ----------
+Keep the message around when debugging is enabled as it might be useful
+for someone desperate enough to enable debugging, but eliminate it
+otherwise.
 
-Subject: [PATCH] Fix cdc-phonet build
-Date: Saturday 23 Jul 2011
-From: Chris Clayton <chris2553@googlemail.com>
-To: linux-net@vger.kernel.org
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-cdc-phonet does not presently build on linux-3.0 because there is no entry for it in 
-drivers/net/Makefile. This patch adds that entry.
-
-Signed-off-by: Chris Clayton <chris2553@googlemail.com>
 ---
+ drivers/net/bonding/bond_main.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
---- linux-3.0/drivers/net/Makefile.orig 2011-07-23 22:07:45.000000000 +0100
-+++ linux-3.0/drivers/net/Makefile      2011-07-23 22:10:33.000000000 +0100
-@@ -283,6 +283,7 @@
- obj-$(CONFIG_USB_USBNET)        += usb/
- obj-$(CONFIG_USB_ZD1201)        += usb/
- obj-$(CONFIG_USB_IPHETH)        += usb/
-+obj-$(CONFIG_USB_CDC_PHONET)   += usb/
-
- obj-$(CONFIG_WLAN) += wireless/
- obj-$(CONFIG_NET_TULIP) += tulip/
-
--------------------------------------------------------
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 61265f7..5ca23b1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4745,7 +4745,10 @@ static int bond_check_params(struct bond_params *params)
+ 		/* miimon and arp_interval not set, we need one so things
+ 		 * work as expected, see bonding.txt for details
+ 		 */
+-		pr_warning("Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.\n");
++		pr_debug("Warning: either miimon or arp_interval and"
++			 " arp_ip_target module parameters must be specified,"
++			 " otherwise bonding will not detect link failures!"
++			 "  See bonding.txt for details.\n");
+ 	}
+ 
+ 	if (primary && !USES_PRIMARY(bond_mode)) {
 -- 
-The more I see, the more I know. The more I know, the less I understand. Changing Man - Paul Weller
+1.7.4.4
+
