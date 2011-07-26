@@ -1,44 +1,109 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in ndo_start_xmit methods (v3)
-Date: Tue, 26 Jul 2011 12:05:36 -0400
-Message-ID: <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+Subject: [PATCH 1/2] net: add IFF_SKB_TX_SHARED flag to priv_flags
+Date: Tue, 26 Jul 2011 12:05:37 -0400
+Message-ID: <1311696338-4739-2-git-send-email-nhorman@tuxdriver.com>
 References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+ <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Robert Olsson <robert.olsson@its.uu.se>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57649 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57670 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160Ab1GZQFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 12:05:53 -0400
-Received: from hmsreliant.think-freely.org ([2001:470:8:a08:7aac:c0ff:fec2:933b] helo=localhost)
-	by smtp.tuxdriver.com with esmtpsa (TLSv1:AES128-SHA:128)
-	(Exim 4.63)
-	(envelope-from <nhorman@tuxdriver.com>)
-	id 1Qlk8h-0005Ij-Ui
-	for netdev@vger.kernel.org; Tue, 26 Jul 2011 12:05:49 -0400
-In-Reply-To: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1751431Ab1GZQF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 12:05:59 -0400
+In-Reply-To: <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok, after considering all your comments, Dave suggested this as an alternate
-approach:
+Pktgen attempts to transmit shared skbs to net devices, which can't be used by
+some drivers as they keep state information in skbs.  This patch adds a flag
+marking drivers as being able to handle shared skbs in their tx path.  Drivers
+are defaulted to being unable to do so, but calling ether_setup enables this
+flag, as 90% of the drivers calling ether_setup touch real hardware and can
+handle shared skbs.  A subsequent patch will audit drivers to ensure that the
+flag is set properly
 
-1) We create a new priv_flag, IFF_SKB_TX_SHARED, to identify drivers capable of
-handling shared skbs.  Default is to not set this flag
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Jiri Pirko <jpirko@redhat.com>
+CC: Robert Olsson <robert.olsson@its.uu.se>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Alexey Dobriyan <adobriyan@gmail.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ include/linux/if.h |    2 ++
+ net/core/pktgen.c  |    8 +++++---
+ net/ethernet/eth.c |    1 +
+ 3 files changed, 8 insertions(+), 3 deletions(-)
 
-2) Modify ether_setup to enable this flag, under the assumption that any driver
-calling this  function is initalizing a real ethernet device and as such can
-handle shared skbs since they don't tend to store state in the skb struct.
-Pktgen can then query this flag when a user script attempts to issue the
-clone_skb command and decide if it is to be alowed or not.
-
-3) Audit the network drivers calling ether_setup to identify any code doing so
-that can't actualy handle shared skbs and manually disable the new flag.  There
-are about 10 drivers in this category.
-
-Change notes:
-v3) Fixed Erics note in which I tested the length of the passed in string rather
-than its converted value for beign > 0
-
-Thoughts/reviews aprpeciated.
-Neil
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 3bc63e6..03489ca 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -76,6 +76,8 @@
+ #define IFF_BRIDGE_PORT	0x4000		/* device used as bridge port */
+ #define IFF_OVS_DATAPATH	0x8000	/* device used as Open vSwitch
+ 					 * datapath port */
++#define IFF_TX_SKB_SHARING	0x10000	/* The interface supports sharing
++					 * skbs on transmit */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index f76079c..e35a6fb 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1070,7 +1070,9 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		len = num_arg(&user_buffer[i], 10, &value);
+ 		if (len < 0)
+ 			return len;
+-
++		if ((value > 0) &&
++		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
++			return -ENOTSUPP;
+ 		i += len;
+ 		pkt_dev->clone_skb = value;
+ 
+@@ -3555,7 +3557,6 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	pkt_dev->min_pkt_size = ETH_ZLEN;
+ 	pkt_dev->max_pkt_size = ETH_ZLEN;
+ 	pkt_dev->nfrags = 0;
+-	pkt_dev->clone_skb = pg_clone_skb_d;
+ 	pkt_dev->delay = pg_delay_d;
+ 	pkt_dev->count = pg_count_d;
+ 	pkt_dev->sofar = 0;
+@@ -3563,7 +3564,6 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	pkt_dev->udp_src_max = 9;
+ 	pkt_dev->udp_dst_min = 9;
+ 	pkt_dev->udp_dst_max = 9;
+-
+ 	pkt_dev->vlan_p = 0;
+ 	pkt_dev->vlan_cfi = 0;
+ 	pkt_dev->vlan_id = 0xffff;
+@@ -3575,6 +3575,8 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	err = pktgen_setup_dev(pkt_dev, ifname);
+ 	if (err)
+ 		goto out1;
++	if (pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)
++		pkt_dev->clone_skb = pg_clone_skb_d;
+ 
+ 	pkt_dev->entry = proc_create_data(ifname, 0600, pg_proc_dir,
+ 					  &pktgen_if_fops, pkt_dev);
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 5cffb63..4866330 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -339,6 +339,7 @@ void ether_setup(struct net_device *dev)
+ 	dev->addr_len		= ETH_ALEN;
+ 	dev->tx_queue_len	= 1000;	/* Ethernet wants good queues */
+ 	dev->flags		= IFF_BROADCAST|IFF_MULTICAST;
++	dev->priv_flags		= IFF_TX_SKB_SHARING;
+ 
+ 	memset(dev->broadcast, 0xFF, ETH_ALEN);
+ 
+-- 
+1.7.6
 
