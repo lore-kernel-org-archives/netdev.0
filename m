@@ -1,34 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] IPv4: Send gratuitous ARP for secondary IP
- addresses also
-Date: Mon, 25 Jul 2011 16:16:32 -0700 (PDT)
-Message-ID: <20110725.161632.432205077107811689.davem@davemloft.net>
-References: <1311548970-27522-1-git-send-email-schaman@sch.bme.hu>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: tcp/udp checksum on loopback interface
+Date: Mon, 25 Jul 2011 18:04:18 -0600
+Message-ID: <4E2E0482.7030008@genband.com>
+References: <4E292E51.4040802@inria.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: schaman@sch.bme.hu
+Cc: netdev@vger.kernel.org
+To: Pierre Louis Aublin <pierre-louis.aublin@inria.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46743 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751990Ab1GYXUg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 19:20:36 -0400
-In-Reply-To: <1311548970-27522-1-git-send-email-schaman@sch.bme.hu>
+Received: from exprod7og109.obsmtp.com ([64.18.2.171]:32849 "EHLO
+	exprod7og109.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062Ab1GZAE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2011 20:04:57 -0400
+In-Reply-To: <4E292E51.4040802@inria.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Zoltan, Kiss" <schaman@sch.bme.hu>
-Date: Mon, 25 Jul 2011 01:09:30 +0200
+On 07/22/2011 02:01 AM, Pierre Louis Aublin wrote:
+> Hello everybody
+>
+> I am interested in the reliability of TCP and UDP using the loopback
+> interface.
+> I found that there is no checksum verification on the body of packets
+> transmitted through the loopback interface :
 
-> From: Zoltan Kiss <schaman@sch.bme.hu>
-> 
-> If a device event generates gratuitous ARP messages, only primary
-> address is used for sending. This patch iterates through the whole
-> list. Tested with 2 IP addresses configuration on bonding interface.
-> 
-> Signed-off-by: Zoltan Kiss <schaman@sch.bme.hu>
+> Finally, why this behaviour? Is it because you assume message can not
+> get corrupted while staying on the same machine?
 
-Applied.
+That's correct.  We can save cpu time by not doing the checksum because 
+we assume that our own hardware won't introduce errors (or if it does 
+and we care about them we'll be monitoring the hardware for ECC errors 
+anyways).
+
+Chris
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
