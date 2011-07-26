@@ -1,11 +1,12 @@
 From: Serge Hallyn <serge@hallyn.com>
-Subject: [PATCH 05/14] userns: clamp down users of cap_raised
-Date: Tue, 26 Jul 2011 18:58:28 +0000
-Message-ID: <1311706717-7398-6-git-send-email-serge@hallyn.com>
+Subject: [PATCH 08/14] af_netlink.c: make netlink_capable userns-aware
+Date: Tue, 26 Jul 2011 18:58:31 +0000
+Message-ID: <1311706717-7398-9-git-send-email-serge@hallyn.com>
 References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
 Cc: dhowells@redhat.com, ebiederm@xmission.com,
 	containers@lists.linux-foundation.org, netdev@vger.kernel.org,
-	akpm@osdl.org, "Serge E. Hallyn" <serge.hallyn@canonical.com>
+	akpm@osdl.org, "Serge E. Hallyn" <serge.hallyn@canonical.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1311706717-7398-1-git-send-email-serge@hallyn.com>
@@ -14,76 +15,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Serge E. Hallyn <serge.hallyn@canonical.com>
 
-A few modules are using cap_raised(current_cap(), cap) to authorize
-actions, but the privilege should be applicable against the initial
-user namespace.  Refuse privilege if the caller is not in init_user_ns.
+netlink_capable should check for permissions against the user
+namespace owning the socket in question.
+
+Changelog:
+  Per Eric Dumazet advice, use sock_net(sk) instead of #ifdef.
 
 Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
 Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/block/drbd/drbd_nl.c           |    5 +++++
- drivers/md/dm-log-userspace-transfer.c |    3 +++
- drivers/staging/pohmelfs/config.c      |    3 +++
- drivers/video/uvesafb.c                |    3 +++
- 4 files changed, 14 insertions(+), 0 deletions(-)
+ net/netlink/af_netlink.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/block/drbd/drbd_nl.c b/drivers/block/drbd/drbd_nl.c
-index 515bcd9..7717f8a 100644
---- a/drivers/block/drbd/drbd_nl.c
-+++ b/drivers/block/drbd/drbd_nl.c
-@@ -2297,6 +2297,11 @@ static void drbd_connector_callback(struct cn_msg *req, struct netlink_skb_parms
- 		return;
- 	}
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 0a4db02..3cc0bbe 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -580,8 +580,9 @@ retry:
  
-+	if (current_user_ns() != &init_user_ns) {
-+		retcode = ERR_PERM;
-+		goto fail;
-+	}
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN)) {
- 		retcode = ERR_PERM;
- 		goto fail;
-diff --git a/drivers/md/dm-log-userspace-transfer.c b/drivers/md/dm-log-userspace-transfer.c
-index 1f23e04..140ca81 100644
---- a/drivers/md/dm-log-userspace-transfer.c
-+++ b/drivers/md/dm-log-userspace-transfer.c
-@@ -134,6 +134,9 @@ static void cn_ulog_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
+ static inline int netlink_capable(struct socket *sock, unsigned int flag)
  {
- 	struct dm_ulog_request *tfr = (struct dm_ulog_request *)(msg + 1);
+-	return (nl_table[sock->sk->sk_protocol].nl_nonroot & flag) ||
+-	       capable(CAP_NET_ADMIN);
++	if (nl_table[sock->sk->sk_protocol].nl_nonroot & flag)
++		return 1;
++	return ns_capable(sock_net(sock->sk)->user_ns, CAP_NET_ADMIN);
+ }
  
-+	if (current_user_ns() != &init_user_ns)
-+		return;
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
- 		return;
- 
-diff --git a/drivers/staging/pohmelfs/config.c b/drivers/staging/pohmelfs/config.c
-index b6c42cb..cd259d0 100644
---- a/drivers/staging/pohmelfs/config.c
-+++ b/drivers/staging/pohmelfs/config.c
-@@ -525,6 +525,9 @@ static void pohmelfs_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *n
- {
- 	int err;
- 
-+	if (current_user_ns() != &init_user_ns)
-+		return;
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
- 		return;
- 
-diff --git a/drivers/video/uvesafb.c b/drivers/video/uvesafb.c
-index 7f8472c..71dab8e 100644
---- a/drivers/video/uvesafb.c
-+++ b/drivers/video/uvesafb.c
-@@ -73,6 +73,9 @@ static void uvesafb_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *ns
- 	struct uvesafb_task *utask;
- 	struct uvesafb_ktask *task;
- 
-+	if (current_user_ns() != &init_user_ns)
-+		return;
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
- 		return;
- 
+ static void
 -- 
 1.7.4.1
