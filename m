@@ -1,7 +1,7 @@
 From: Serge Hallyn <serge@hallyn.com>
-Subject: [PATCH 06/14] user namespace: make each net (net_ns) belong to a user_ns
-Date: Tue, 26 Jul 2011 18:58:29 +0000
-Message-ID: <1311706717-7398-7-git-send-email-serge@hallyn.com>
+Subject: [PATCH 10/14] net/core/scm.c: target capable() calls to user_ns owning the net_ns
+Date: Tue, 26 Jul 2011 18:58:33 +0000
+Message-ID: <1311706717-7398-11-git-send-email-serge@hallyn.com>
 References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
 Cc: dhowells@redhat.com, ebiederm@xmission.com,
 	containers@lists.linux-foundation.org, netdev@vger.kernel.org,
@@ -14,80 +14,78 @@ List-Id: netdev.vger.kernel.org
 
 From: Serge E. Hallyn <serge.hallyn@canonical.com>
 
-This way we can target capabilites at the user_ns which created the
-net ns.
-
-Changelog:
-   jul 8: nsproxy: don't assign netns->userns if not cloning.
+The uid/gid comparisons don't have to be pulled out.  This just seemed
+more easily proved correct.
 
 Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
 Cc: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/net/net_namespace.h |    2 ++
- kernel/nsproxy.c            |    2 ++
- net/core/net_namespace.c    |    3 +++
- 3 files changed, 7 insertions(+), 0 deletions(-)
+ net/core/scm.c |   41 ++++++++++++++++++++++++++++++++++-------
+ 1 files changed, 34 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 1ab1aec..38a5154 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -29,6 +29,7 @@ struct ctl_table_header;
- struct net_generic;
- struct sock;
- struct netns_ipvs;
-+struct user_namespace;
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 4c1ef02..21b5d0b 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -43,17 +43,44 @@
+  *	setu(g)id.
+  */
  
+-static __inline__ int scm_check_creds(struct ucred *creds)
++static __inline__ bool uidequiv(struct cred *src, struct ucred *tgt,
++			       struct user_namespace *ns)
++{
++	if (src->user_ns != ns)
++		goto check_capable;
++	if (src->uid == tgt->uid || src->euid == tgt->uid ||
++	    src->suid == tgt->uid)
++		return true;
++check_capable:
++	if (ns_capable(ns, CAP_SETUID))
++		return true;
++	return false;
++}
++
++static __inline__ bool gidequiv(struct cred *src, struct ucred *tgt,
++			       struct user_namespace *ns)
++{
++	if (src->user_ns != ns)
++		goto check_capable;
++	if (src->gid == tgt->gid || src->egid == tgt->gid ||
++	    src->sgid == tgt->gid)
++		return true;
++check_capable:
++	if (ns_capable(ns, CAP_SETGID))
++		return true;
++	return false;
++}
++
++static __inline__ int scm_check_creds(struct ucred *creds, struct socket *sock)
+ {
+ 	const struct cred *cred = current_cred();
++	struct user_namespace *ns = sock_net(sock->sk)->user_ns;
  
- #define NETDEV_HASHBITS    8
-@@ -101,6 +102,7 @@ struct net {
- 	struct netns_xfrm	xfrm;
- #endif
- 	struct netns_ipvs	*ipvs;
-+	struct user_namespace	*user_ns;
- };
- 
- 
-diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-index f50542d..e616904 100644
---- a/kernel/nsproxy.c
-+++ b/kernel/nsproxy.c
-@@ -95,6 +95,8 @@ static struct nsproxy *create_new_namespaces(unsigned long flags,
- 		err = PTR_ERR(new_nsp->net_ns);
- 		goto out_net;
+-	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
+-	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
+-	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
+-	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
+-	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
++	if ((creds->pid == task_tgid_vnr(current) || ns_capable(ns, CAP_SYS_ADMIN)) &&
++	     uidequiv(cred, creds, ns) && gidequiv(cred, creds, ns)) {
+ 	       return 0;
  	}
-+	if (flags & CLONE_NEWNET)
-+		new_nsp->net_ns->user_ns = get_user_ns(task_cred_xxx(tsk, user_ns));
- 
- 	return new_nsp;
- 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 5bbdbf0..791c19c 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -10,6 +10,7 @@
- #include <linux/nsproxy.h>
- #include <linux/proc_fs.h>
- #include <linux/file.h>
-+#include <linux/user_namespace.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- 
-@@ -209,6 +210,7 @@ static void net_free(struct net *net)
- 	}
- #endif
- 	kfree(net->gen);
-+	put_user_ns(net->user_ns);
- 	kmem_cache_free(net_cachep, net);
++
+ 	return -EPERM;
  }
  
-@@ -389,6 +391,7 @@ static int __init net_ns_init(void)
- 	rcu_assign_pointer(init_net.gen, ng);
- 
- 	mutex_lock(&net_mutex);
-+	init_net.user_ns = &init_user_ns;
- 	if (setup_net(&init_net))
- 		panic("Could not setup the initial network namespace");
+@@ -169,7 +196,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
+ 				goto error;
+ 			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
+-			err = scm_check_creds(&p->creds);
++			err = scm_check_creds(&p->creds, sock);
+ 			if (err)
+ 				goto error;
  
 -- 
 1.7.4.1
