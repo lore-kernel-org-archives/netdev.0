@@ -1,52 +1,32 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: invalid requirement from ethtool?
-Date: Tue, 26 Jul 2011 15:42:22 +0300
-Message-ID: <20110726124222.GA4842@mtldesk30>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
+Date: Tue, 26 Jul 2011 09:58:04 -0400
+Message-ID: <CACLa4pvJ2+eTRf3SRzoXgiW8H+U=BDH-2DKVZ7pGRrPem=JYgg@mail.gmail.com>
+References: <20110725222010.0b284042@kryten>
+	<201107252215.GBG95887.OQVMFOOJLSFFHt@I-love.SAKURA.ne.jp>
+	<4E2D8F4D.2000009@schaufler-ca.com>
+	<201107260143.CGH18263.FOOSVMOQFJFLHt@I-love.SAKURA.ne.jp>
+	<20110726195557.5abcf96d@kryten>
+	<201107262021.FCC34304.HMOOFQJVSFLFOt@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38315 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048Ab1GZMm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 08:42:27 -0400
-Received: by wwe5 with SMTP id 5so473358wwe.1
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2011 05:42:26 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: anton@samba.org, casey@schaufler-ca.com, mjt@tls.msk.ru,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201107262021.FCC34304.HMOOFQJVSFLFOt@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-I see the following text in include/linux/ethtool.h and wonder what is
-the reasoning for requiring that both params cannot be zero. I could
-not track when and who inserted this text as it dates before git was
-used to track kernel code, but my feeling is that is related to a
-specific hardware limitation.
+On Tue, Jul 26, 2011 at 7:21 AM, Tetsuo Handa
+<penguin-kernel@i-love.sakura.ne.jp> wrote:
 
-        /* How many packets to delay an RX interrupt after
-         * a packet arrives.  If 0, only rx_coalesce_usecs is
-         * used.  It is illegal to set both usecs and max frames
-         * to zero as this would cause RX interrupts to never be
-         * generated.
-         */
-        __u32   rx_max_coalesced_frames;
+> Does SELinux want to receive nosec flag at selinux_socket_sendmsg() because
+> calling security_socket_sendmsg() more than once is meaningless for SELinux?
 
-        /* How many packets to delay a TX interrupt after
-         * a packet is sent.  If 0, only tx_coalesce_usecs is
-         * used.  It is illegal to set both usecs and max frames
-         * to zero as this would cause TX interrupts to never be
-         * generated.
-         */
-        __u32   tx_max_coalesced_frames;
+SELinux would not mind having a flag such that we could expedite the
+call on the 2nd or later.  Did we finally find the first place where
+SELinux is going to be the faster LSM!  Never thought I'd see the day!
 
-I found this in tg3 driver:
-         /* No rx interrupts will be generated if both are zero */
-        if ((ec->rx_coalesce_usecs == 0) &&
-            (ec->rx_max_coalesced_frames == 0))
-                return -EINVAL;
-
-However, bnx2 for example allows setting both to zero.
-
-I think both params zero should be allowed and mean coalescing is not
-operational, thus we can remove these comments from ethtool.h
+-Eric
