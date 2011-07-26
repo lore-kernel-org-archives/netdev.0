@@ -1,46 +1,219 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: Question regarding sendmmsg().
-Date: Tue, 26 Jul 2011 16:30:44 -0400
-Message-ID: <201107261630.44942.paul.moore@hp.com>
-References: <201107110304.p6B34422036886@www262.sakura.ne.jp> <201107211721.14511.paul.moore@hp.com> <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201107222041.FGG51092.OOQFFLOtMVFJHS@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-next v2] bonding: fix string comparison errors
+Date: Tue, 26 Jul 2011 16:51:38 -0400
+Message-ID: <1311713498-9021-1-git-send-email-andy@greyhouse.net>
+Cc: Vitalii Demianets <vitas@nppfactor.kiev.ua>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Takuma Umeya <tumeya@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53184 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459Ab1GZUt3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2011 16:49:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, July 22, 2011 7:41:20 AM Tetsuo Handa wrote:
-> TOMOYO was about to add support for permission checks for
-> PF_INET/PF_INET6/PF_UNIX socket's bind()/listen()/connect()/send()
-> operations (
-> http://www.spinics.net/linux/fedora/linux-security-module/msg11496.html ).
-> 
-> According to http://ozlabs.org/~anton/junkcode/sendmmsg_test.c , the
-> sendmmsg() introduced by commit 228e548e "net: Add sendmmsg socket system
-> call" is capable of sending to multiple different destinations with single
-> sendmmsg(), isn't it?
+When a bond contains a device where one name is the subset of another
+(eth1 and eth10, for example), one cannot properly set the primary
+device or the currently active device.
 
-I believe so, yes.
+This was reported and based on work by Takuma Umeya.  I also verified
+the problem and tested that this fix resolves it.
 
-> If yes, my plan (restricting sendmsg() based on destination's address)
-> became impossible since security_socket_sendmsg() (which receives the
-> destination's address) is called for only once even if there are multiple
-> different destinations.
+V2: A few did not like the the current code or my changes, so I
+re-factored bonding_store_primary and bonding_store_active_slave to be a
+bit cleaner, dropped the use of strnicmp since we did not really need
+the comparison to be case insensitive, and formatted the input string
+from sysfs so a comparison to IFNAMSIZ could be used.
 
-We could always change this behavior so that the sendmsg() LSM hook is called 
-for each msg sent, but there would be a performance impact associated with it. 
+I also discovered an error in bonding_store_active_slave that would
+modify bond->primary_slave rather than bond->curr_active_slave before
+forcing the bonding driver to choose a new active slave.
 
-We decided that it was unnecessary to do it this way earlier because there was 
-no need: SELinux and Smack both treat the socket as an endpoint (from a 
-implementation point of view only, from a high level design Smack doesn't care 
-about sockets) and AppArmor really doesn't have much in the way of network 
-access controls at present.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Reported-by: Takuma Umeya <tumeya@redhat.com>
 
---
-paul moore
-linux @ hp
+---
+ drivers/net/bonding/bond_sysfs.c |  130 ++++++++++++++++++++------------------
+ 1 files changed, 68 insertions(+), 62 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index b60835f..c178b1e 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1025,6 +1025,7 @@ static ssize_t bonding_store_primary(struct device *d,
+ 	int i;
+ 	struct slave *slave;
+ 	struct bonding *bond = to_bond(d);
++	char ifname[IFNAMSIZ];
+ 
+ 	if (!rtnl_trylock())
+ 		return restart_syscall();
+@@ -1035,32 +1036,33 @@ static ssize_t bonding_store_primary(struct device *d,
+ 	if (!USES_PRIMARY(bond->params.mode)) {
+ 		pr_info("%s: Unable to set primary slave; %s is in mode %d\n",
+ 			bond->dev->name, bond->dev->name, bond->params.mode);
+-	} else {
+-		bond_for_each_slave(bond, slave, i) {
+-			if (strnicmp
+-			    (slave->dev->name, buf,
+-			     strlen(slave->dev->name)) == 0) {
+-				pr_info("%s: Setting %s as primary slave.\n",
+-					bond->dev->name, slave->dev->name);
+-				bond->primary_slave = slave;
+-				strcpy(bond->params.primary, slave->dev->name);
+-				bond_select_active_slave(bond);
+-				goto out;
+-			}
+-		}
++		goto out;
++	}
+ 
+-		/* if we got here, then we didn't match the name of any slave */
++	sscanf(buf, "%16s", ifname); /* IFNAMSIZ */
+ 
+-		if (strlen(buf) == 0 || buf[0] == '\n') {
+-			pr_info("%s: Setting primary slave to None.\n",
+-				bond->dev->name);
+-			bond->primary_slave = NULL;
+-				bond_select_active_slave(bond);
+-		} else {
+-			pr_info("%s: Unable to set %.*s as primary slave as it is not a slave.\n",
+-				bond->dev->name, (int)strlen(buf) - 1, buf);
++	/* check to see if we are clearing primary */
++	if (!strlen(ifname) || buf[0] == '\n') {
++		pr_info("%s: Setting primary slave to None.\n",
++			bond->dev->name);
++		bond->primary_slave = NULL;
++		bond_select_active_slave(bond);
++		goto out;
++	}
++
++	bond_for_each_slave(bond, slave, i) {
++		if (strncmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
++			pr_info("%s: Setting %s as primary slave.\n",
++				bond->dev->name, slave->dev->name);
++			bond->primary_slave = slave;
++			strcpy(bond->params.primary, slave->dev->name);
++			bond_select_active_slave(bond);
++			goto out;
+ 		}
+ 	}
++
++	pr_info("%s: Unable to set %.*s as primary slave.\n",
++		bond->dev->name, (int)strlen(buf) - 1, buf);
+ out:
+ 	write_unlock_bh(&bond->curr_slave_lock);
+ 	read_unlock(&bond->lock);
+@@ -1195,6 +1197,7 @@ static ssize_t bonding_store_active_slave(struct device *d,
+ 	struct slave *old_active = NULL;
+ 	struct slave *new_active = NULL;
+ 	struct bonding *bond = to_bond(d);
++	char ifname[IFNAMSIZ];
+ 
+ 	if (!rtnl_trylock())
+ 		return restart_syscall();
+@@ -1203,56 +1206,59 @@ static ssize_t bonding_store_active_slave(struct device *d,
+ 	read_lock(&bond->lock);
+ 	write_lock_bh(&bond->curr_slave_lock);
+ 
+-	if (!USES_PRIMARY(bond->params.mode))
++	if (!USES_PRIMARY(bond->params.mode)) {
+ 		pr_info("%s: Unable to change active slave; %s is in mode %d\n",
+ 			bond->dev->name, bond->dev->name, bond->params.mode);
+-	else {
+-		bond_for_each_slave(bond, slave, i) {
+-			if (strnicmp
+-			    (slave->dev->name, buf,
+-			     strlen(slave->dev->name)) == 0) {
+-        			old_active = bond->curr_active_slave;
+-        			new_active = slave;
+-        			if (new_active == old_active) {
+-					/* do nothing */
+-					pr_info("%s: %s is already the current active slave.\n",
++		goto out;
++	}
++
++	sscanf(buf, "%16s", ifname); /* IFNAMSIZ */
++
++	/* check to see if we are clearing primary */
++	if (!strlen(ifname) || buf[0] == '\n') {
++		pr_info("%s: Cannot clear primary slave.\n", bond->dev->name);
++		goto out;
++	}
++
++	bond_for_each_slave(bond, slave, i) {
++		if (strncmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
++			old_active = bond->curr_active_slave;
++			new_active = slave;
++			if (new_active == old_active) {
++				/* do nothing */
++				pr_info("%s: %s is already the current"
++					" active slave.\n",
++					bond->dev->name,
++					slave->dev->name);
++				goto out;
++			}
++			else {
++				if ((new_active) &&
++				    (old_active) &&
++				    (new_active->link == BOND_LINK_UP) &&
++				    IS_UP(new_active->dev)) {
++					pr_info("%s: Setting %s as active"
++						" slave.\n",
+ 						bond->dev->name,
+ 						slave->dev->name);
+-					goto out;
++					bond_change_active_slave(bond,
++								 new_active);
+ 				}
+ 				else {
+-        				if ((new_active) &&
+-            				    (old_active) &&
+-				            (new_active->link == BOND_LINK_UP) &&
+-				            IS_UP(new_active->dev)) {
+-						pr_info("%s: Setting %s as active slave.\n",
+-							bond->dev->name,
+-							slave->dev->name);
+-							bond_change_active_slave(bond, new_active);
+-        				}
+-					else {
+-						pr_info("%s: Could not set %s as active slave; either %s is down or the link is down.\n",
+-							bond->dev->name,
+-							slave->dev->name,
+-							slave->dev->name);
+-					}
+-					goto out;
++					pr_info("%s: Could not set %s as"
++						" active slave; either %s is"
++						" down or the link is down.\n",
++						bond->dev->name,
++						slave->dev->name,
++						slave->dev->name);
+ 				}
++				goto out;
+ 			}
+ 		}
+-
+-		/* if we got here, then we didn't match the name of any slave */
+-
+-		if (strlen(buf) == 0 || buf[0] == '\n') {
+-			pr_info("%s: Setting active slave to None.\n",
+-				bond->dev->name);
+-			bond->primary_slave = NULL;
+-			bond_select_active_slave(bond);
+-		} else {
+-			pr_info("%s: Unable to set %.*s as active slave as it is not a slave.\n",
+-				bond->dev->name, (int)strlen(buf) - 1, buf);
+-		}
+ 	}
++
++	pr_info("%s: Unable to set %.*s as active slave.\n",
++		bond->dev->name, (int)strlen(buf) - 1, buf);
+  out:
+ 	write_unlock_bh(&bond->curr_slave_lock);
+ 	read_unlock(&bond->lock);
+-- 
+1.7.4.4
+
