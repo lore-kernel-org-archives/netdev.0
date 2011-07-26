@@ -1,16 +1,16 @@
 From: Andy Gospodarek <andy@greyhouse.net>
 Subject: [PATCH net-next v2] bonding: fix string comparison errors
-Date: Tue, 26 Jul 2011 16:51:38 -0400
-Message-ID: <1311713498-9021-1-git-send-email-andy@greyhouse.net>
+Date: Tue, 26 Jul 2011 17:07:59 -0400
+Message-ID: <1311714479-9260-1-git-send-email-andy@greyhouse.net>
 Cc: Vitalii Demianets <vitas@nppfactor.kiev.ua>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	Takuma Umeya <tumeya@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53184 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:62172 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751459Ab1GZUt3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2011 16:49:29 -0400
+	id S1751503Ab1GZVFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2011 17:05:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
