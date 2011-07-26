@@ -1,37 +1,59 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Tue, 26 Jul 2011 20:21:23 +0900
-Message-ID: <201107262021.FCC34304.HMOOFQJVSFLFOt@I-love.SAKURA.ne.jp>
-References: <20110725222010.0b284042@kryten>
-	<201107252215.GBG95887.OQVMFOOJLSFFHt@I-love.SAKURA.ne.jp>
-	<4E2D8F4D.2000009@schaufler-ca.com>
-	<201107260143.CGH18263.FOOSVMOQFJFLHt@I-love.SAKURA.ne.jp>
-	<20110726195557.5abcf96d@kryten>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] vfs: dont chain pipe/anon/socket on superblock s_inodes
+ list
+Date: Tue, 26 Jul 2011 07:49:06 -0400
+Message-ID: <20110726114906.GA19975@infradead.org>
+References: <20110723132411.GA22183@infradead.org>
+ <1311633550.2576.33.camel@schen9-DESK>
+ <20110725225154.GD22133@ZenIV.linux.org.uk>
+ <1311636178.2576.34.camel@schen9-DESK>
+ <1311660013.2996.6.camel@edumazet-laptop>
+ <1311668466.2355.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20110726090357.GA13013@infradead.org>
+ <1311672994.2355.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20110726094204.GA12086@infradead.org>
+ <1311677013.2355.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: casey@schaufler-ca.com, mjt@tls.msk.ru, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: anton@samba.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20110726195557.5abcf96d@kryten>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Tim Chen <tim.c.chen@linux.intel.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Anton Blanchard <anton@samba.org>, npiggin@kernel.dk,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1311677013.2355.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anton Blanchard wrote:
-> Not sure what happened to your email but the gains are evident at
-> just 2 packets.
+On Tue, Jul 26, 2011 at 12:43:33PM +0200, Eric Dumazet wrote:
+> BTW, we have one atomic op that could be avoided in new_inode()
+> 
+> spin_lock(&inode->i_lock);
+> inode->i_state = 0;
+> spin_unlock(&inode->i_lock);
+> 
+> can probably be changed to something less expensive...
+> 
+> inode->i_state = 0;
+> smp_wmb();
+> 
+> Not clear if we really need a memory barrier either....
 
-I know your benchmark result, but that result is based on calling
-security_socket_sendmsg() only once.
+I think we already had this in some of the earlier vfs/inode scale
+series, but it got lost when Al asked to just put the fundamental
+changes in.
 
-What we worry is that overhead by security_socket_sendmsg() kills the
-performance gain for batched case.
+For plain new_inode() the barrier shouldn't be needed as we take
+the sb list lock just a little later.  I'm not sure about your new
+variant, so I'll rather lave that to you.
 
-> I can help with testing - the commit included a microbenchmark for
-> the purposes of analysing its performance.
+There's a few other things missing from earlier iterations, most notable
+the non-atomic i_count, and the bucket locks for the inode hash, if
+you're eager enough to look into that area.
 
-Yes please. The patch in msg11510.html would want some more discussion, but
-the patch in msg11504.html is ready to benchmark on your environment.
-
-Does SELinux want to receive nosec flag at selinux_socket_sendmsg() because
-calling security_socket_sendmsg() more than once is meaningless for SELinux?
