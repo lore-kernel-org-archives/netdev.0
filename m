@@ -1,76 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vfs: dont chain pipe/anon/socket on superblock
- s_inodes list
-Date: Tue, 26 Jul 2011 12:43:33 +0200
-Message-ID: <1311677013.2355.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20110721204042.GB31405@ZenIV.linux.org.uk>
-	 <1311294452.2576.18.camel@schen9-DESK>
-	 <20110723132411.GA22183@infradead.org>
-	 <1311633550.2576.33.camel@schen9-DESK>
-	 <20110725225154.GD22133@ZenIV.linux.org.uk>
-	 <1311636178.2576.34.camel@schen9-DESK>
-	 <1311660013.2996.6.camel@edumazet-laptop>
-	 <1311668466.2355.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110726090357.GA13013@infradead.org>
-	 <1311672994.2355.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110726094204.GA12086@infradead.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] gianfar: fix bug caused by
+ 87c288c6e9aa31720b72e2bc2d665e24e1653c3e
+Date: Tue, 26 Jul 2011 12:46:00 +0200
+Message-ID: <20110726104559.GA2078@minipsycho.brq.redhat.com>
+References: <1311674593.17190.7.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tim Chen <tim.c.chen@linux.intel.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Anton Blanchard <anton@samba.org>, npiggin@kernel.dk,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20110726094204.GA12086@infradead.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: Sebastian =?iso-8859-1?Q?P=F6hn?=
+	<sebastian.belden@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30555 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751883Ab1GZKqD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2011 06:46:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1311674593.17190.7.camel@DENEC1DT0191>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 26 juillet 2011 =C3=A0 05:42 -0400, Christoph Hellwig a =C3=A9=
-crit :
-> On Tue, Jul 26, 2011 at 11:36:34AM +0200, Eric Dumazet wrote:
-> > [PATCH v2] vfs: dont chain pipe/anon/socket on superblock s_inodes =
-list
-> >=20
-> > Workloads using pipes and sockets hit inode_sb_list_lock contention=
-=2E
-> >=20
-> > superblock s_inodes list is needed for quota, dirty, pagecache and
-> > fsnotify management. pipe/anon/socket fs are clearly not candidates=
- for
-> > these.
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Looks good to me,
->=20
-> Reviewed-by: Christoph Hellwig <hch@lst.de>
->=20
+Tue, Jul 26, 2011 at 12:03:13PM CEST, sebastian.belden@googlemail.com wrote:
+>commit 87c288c6e9aa31720b72e2bc2d665e24e1653c3e "gianfar: do vlan cleanup" has two issues:
+># permutation of rx and tx flags
+># enabling vlan tag insertion by default (this leads to unusable connections on some configurations)
 
-Thanks !
+How so? What's causing that?
 
-BTW, we have one atomic op that could be avoided in new_inode()
+>
+>If VLAN insertion is requested (via ethtool) it will be set at an other point ...
+>
+>Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+>---
+>
+> drivers/net/gianfar.c |    6 +-----
+> 1 files changed, 1 insertions(+), 5 deletions(-)
+>
+>diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+>index 835cd25..2659daa 100644
+>--- a/drivers/net/gianfar.c
+>+++ b/drivers/net/gianfar.c
+>@@ -388,12 +388,8 @@ static void gfar_init_mac(struct net_device *ndev)
+> 	if (priv->hwts_rx_en)
+> 		rctrl |= RCTRL_PRSDEP_INIT | RCTRL_TS_ENABLE;
+> 
+>-	/* keep vlan related bits if it's enabled */
+>-	if (ndev->features & NETIF_F_HW_VLAN_TX)
+>-		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
+>-
+> 	if (ndev->features & NETIF_F_HW_VLAN_RX)
+>-		tctrl |= TCTRL_VLINS;
+>+		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
+> 
+> 	/* Init rctrl based on our settings */
+> 	gfar_write(&regs->rctrl, rctrl);
+>
+>
 
-spin_lock(&inode->i_lock);
-inode->i_state =3D 0;
-spin_unlock(&inode->i_lock);
+If you really need that to be done, you should remove NETIF_F_HW_VLAN_TX
+from features (not hw_features) (never add it).
 
-can probably be changed to something less expensive...
-
-inode->i_state =3D 0;
-smp_wmb();
-
-Not clear if we really need a memory barrier either....
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
