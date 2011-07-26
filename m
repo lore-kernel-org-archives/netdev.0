@@ -1,46 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6 2/2] be2net: use stats-sync to read/write
- 64-bit stats
-Date: Tue, 26 Jul 2011 07:58:26 -0700
-Message-ID: <20110726075826.26bca7a9@s6510.ftrdhcpuser.net>
-References: <1311657015-23465-1-git-send-email-sathya.perla@emulex.com>
-	<1311657015-23465-3-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Sathya Perla <sathya.perla@emulex.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in ndo_start_xmit methods (v3)
+Date: Tue, 26 Jul 2011 12:05:36 -0400
+Message-ID: <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35553 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753506Ab1GZO6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2011 10:58:20 -0400
-In-Reply-To: <1311657015-23465-3-git-send-email-sathya.perla@emulex.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57649 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160Ab1GZQFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 12:05:53 -0400
+Received: from hmsreliant.think-freely.org ([2001:470:8:a08:7aac:c0ff:fec2:933b] helo=localhost)
+	by smtp.tuxdriver.com with esmtpsa (TLSv1:AES128-SHA:128)
+	(Exim 4.63)
+	(envelope-from <nhorman@tuxdriver.com>)
+	id 1Qlk8h-0005Ij-Ui
+	for netdev@vger.kernel.org; Tue, 26 Jul 2011 12:05:49 -0400
+In-Reply-To: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Jul 2011 10:40:15 +0530
-Sathya Perla <sathya.perla@emulex.com> wrote:
+Ok, after considering all your comments, Dave suggested this as an alternate
+approach:
 
-> 64-bit stats in be2net are written/read as follows using the stats-sync
-> interface for safe access in 32-bit archs:
-> 
-> 64-bit 		sync			writer			reader
-> stats
-> ------------------------------------------------------------------------------
-> tx_stats	tx_stats->sync		be_xmit			be_get_stats64,
-> 								ethtool
-> tx-compl	tx_stats->sync_compl	tx-compl-processing	ethtool
-> rx-stats	rx_stats->sync		rx-compl-processing	be_get_stats64,
-> 								ethtool,
-> 								eqd-update
-> 
-> This patch is based on Stephen Hemminger's earlier patch on the same issue...
-> 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+1) We create a new priv_flag, IFF_SKB_TX_SHARED, to identify drivers capable of
+handling shared skbs.  Default is to not set this flag
 
-Is the tx complete stat even worth the effort? does it provide a useful metric?
-Since rx/tx bytes are already in regular stats, keeping them in ethtool stats
-is redundant.
+2) Modify ether_setup to enable this flag, under the assumption that any driver
+calling this  function is initalizing a real ethernet device and as such can
+handle shared skbs since they don't tend to store state in the skb struct.
+Pktgen can then query this flag when a user script attempts to issue the
+clone_skb command and decide if it is to be alowed or not.
 
-These are just minor nits, you can ignore this advice if you want.
+3) Audit the network drivers calling ether_setup to identify any code doing so
+that can't actualy handle shared skbs and manually disable the new flag.  There
+are about 10 drivers in this category.
+
+Change notes:
+v3) Fixed Erics note in which I tested the length of the passed in string rather
+than its converted value for beign > 0
+
+Thoughts/reviews aprpeciated.
+Neil
+
