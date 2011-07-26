@@ -1,73 +1,68 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch net-next-2.6] forcedeth: fix vlans
-Date: Tue, 26 Jul 2011 19:55:06 +0200
-Message-ID: <CAHXqBF+qjCzfQmDLdKvanpBuQo1X-zFAr_26SCwVuwbSVwpyPA@mail.gmail.com>
-References: <1311698510-2599-1-git-send-email-jpirko@redhat.com>
- <CAHXqBF+Yr8Bw0LZHPpPuFY9iDyxxCCKw7S7FZkuGseiCK-es3g@mail.gmail.com> <CAEP_g=9xVomtnViW=rWYmXqGO_45=N8YhWMHsObBXnWAf9Gh5A@mail.gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 2/2] net: Audit drivers to identify those needing IFF_TX_SKB_SHARING cleared
+Date: Tue, 26 Jul 2011 20:34:45 +0200
+Message-ID: <m362moao1m.fsf@intrepid.localdomain>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+	<1311623120-26839-1-git-send-email-nhorman@tuxdriver.com>
+	<1311623120-26839-3-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, johnstul@us.ibm.com, w41ter@gmail.com
-To: Jesse Gross <jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:56472 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426Ab1GZRz1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 13:55:27 -0400
-Received: by qyk9 with SMTP id 9so400416qyk.19
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2011 10:55:26 -0700 (PDT)
-In-Reply-To: <CAEP_g=9xVomtnViW=rWYmXqGO_45=N8YhWMHsObBXnWAf9Gh5A@mail.gmail.com>
+Received: from inx.pm.waw.pl ([195.116.170.130]:43749 "EHLO inx.pm.waw.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751731Ab1GZSes convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 14:34:48 -0400
+In-Reply-To: <1311623120-26839-3-git-send-email-nhorman@tuxdriver.com> (Neil
+	Horman's message of "Mon, 25 Jul 2011 15:45:20 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 26 lipca 2011 19:49 u=BFytkownik Jesse Gross <jesse@nicira.com> =
-napisa=B3:
-> 2011/7/26 Micha=B3 Miros=B3aw <mirqus@gmail.com>:
->> 2011/7/26 Jiri Pirko <jpirko@redhat.com>:
->>> For some reason, when rxaccel is disabled, NV_RX3_VLAN_TAG_PRESENT =
-is
->>> still set and some pseudorandom vids appear. So check for
->>> NETIF_F_HW_VLAN_RX as well. Also set correctly hw_features and set =
-vlan
->>> mode on probe.
->>>
->>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>> ---
->>> =A0drivers/net/forcedeth.c | =A0 =A08 ++++++--
->>> =A01 files changed, 6 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
->>> index e64cd9c..256a272 100644
->>> --- a/drivers/net/forcedeth.c
->>> +++ b/drivers/net/forcedeth.c
->>> @@ -2764,7 +2764,8 @@ static int nv_rx_process_optimized(struct net=
-_device *dev, int limit)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0prefetch(skb->data);
->>>
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0vlanflags =3D le32_t=
-o_cpu(np->get_rx.ex->buflow);
->>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (vlanflags & NV_RX=
-3_VLAN_TAG_PRESENT) {
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dev->features & N=
-ETIF_F_HW_VLAN_RX &&
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 vlanflags & N=
-V_RX3_VLAN_TAG_PRESENT) {
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u16 =
-vid =3D vlanflags & NV_RX3_VLAN_TAG_MASK;
->> Please add comment that resembles this patch's description. This is =
-a
->> bad idea to do in the general case as this will cause VLAN tagged
->> packets that were in the queue before feature change to be
->> misinterpreted.
-> It may be a bad idea but it's not that uncommon - frequently those
-> vlan status fields come from the parser and merely indicate the
-> presence of a tag in the original packet, not whether it was stripped=
-=2E
+Neil Horman <nhorman@tuxdriver.com> writes:
 
-That doesn't make this code applicable for general use. If it's not
-commented properly people will copy it without thinking if they really
-need the workaround or not.
+> After the last patch, We are left in a state in which only drivers ca=
+lling
+> ether_setup have IFF_TX_SKB_SHARING set (we assume that drivers touch=
+ing real
+> hardware call ether_setup for their net_devices and don't hold any st=
+ate in
+> their skbs.  There are a handful of drivers that violate this assumpt=
+ion of
+> course, and need to be fixed up.  This patch identifies those drivers=
+, and marks
+> them as not being able to support the safe transmission of skbs by cl=
+earning the
+> IFF_TX_SKB_SHARING flag in priv_flags
 
-Best Regards,
-Micha=B3 Miros=B3aw
+> --- a/drivers/net/wan/hdlc_fr.c
+> +++ b/drivers/net/wan/hdlc_fr.c
+> @@ -1074,9 +1074,10 @@ static int fr_add_pvc(struct net_device *frad,=
+ unsigned int dlci, int type)
+> =20
+>  	used =3D pvc_is_used(pvc);
+> =20
+> -	if (type =3D=3D ARPHRD_ETHER)
+> +	if (type =3D=3D ARPHRD_ETHER) {
+>  		dev =3D alloc_netdev(0, "pvceth%d", ether_setup);
+> -	else
+> +		dev->priv_flags &=3D ~IFF_TX_SKB_SHARING;
+> +	} else
+>  		dev =3D alloc_netdev(0, "pvc%d", pvc_setup);
+> =20
+>  	if (!dev) {
+
+That's right, hdlc_fr has to add an additional header.
+
+Acked-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
+--=20
+Krzysztof Halasa
