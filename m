@@ -1,259 +1,116 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH 2/2] net: Audit drivers to identify those needing IFF_TX_SKB_SHARING cleared
-Date: Tue, 26 Jul 2011 12:05:38 -0400
-Message-ID: <1311696338-4739-3-git-send-email-nhorman@tuxdriver.com>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
- <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
+From: "Karen Xie" <kxie@chelsio.com>
+Subject: RE: [PATCH] cxgb3i: ref count cdev access to prevent modification while in use
+Date: Tue, 26 Jul 2011 09:42:11 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD33409D33334@maui.asicdesigners.com>
+References: <1311623817-6417-1-git-send-email-nhorman@tuxdriver.com> <4E2DDDC5.8040405@chelsio.com> <20110726105002.GA16987@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Steve Wise" <swise@chelsio.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57686 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431Ab1GZQGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 12:06:10 -0400
-In-Reply-To: <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"Mike Christie" <michaelc@cs.wisc.edu>,
+	<James.Bottomley@HansenPartnership.com>,
+	<linux-scsi@vger.kernel.org>
+To: "Neil Horman" <nhorman@tuxdriver.com>,
+	"Divy Le Ray" <divy@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After the last patch, We are left in a state in which only drivers calling
-ether_setup have IFF_TX_SKB_SHARING set (we assume that drivers touching real
-hardware call ether_setup for their net_devices and don't hold any state in
-their skbs.  There are a handful of drivers that violate this assumption of
-course, and need to be fixed up.  This patch identifies those drivers, and marks
-them as not being able to support the safe transmission of skbs by clearning the
-IFF_TX_SKB_SHARING flag in priv_flags
+The patch looks good to me.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Karsten Keil <isdn@linux-pingi.de>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Krzysztof Halasa <khc@pm.waw.pl>
-CC: "John W. Linville" <linville@tuxdriver.com>
-CC: Greg Kroah-Hartman <gregkh@suse.de>
-CC: Marcel Holtmann <marcel@holtmann.org>
-CC: Johannes Berg <johannes@sipsolutions.net>
----
- drivers/isdn/i4l/isdn_net.c                  |    3 +++
- drivers/net/bonding/bond_main.c              |    6 ++++--
- drivers/net/ifb.c                            |    2 +-
- drivers/net/macvlan.c                        |    2 +-
- drivers/net/tun.c                            |    1 +
- drivers/net/veth.c                           |    2 ++
- drivers/net/wan/hdlc_fr.c                    |    5 +++--
- drivers/net/wireless/airo.c                  |    1 +
- drivers/net/wireless/hostap/hostap_main.c    |    1 +
- drivers/staging/ath6kl/os/linux/ar6000_drv.c |    1 +
- net/8021q/vlan_dev.c                         |    2 +-
- net/bluetooth/bnep/netdev.c                  |    1 +
- net/l2tp/l2tp_eth.c                          |    2 +-
- net/mac80211/iface.c                         |    1 +
- 14 files changed, 22 insertions(+), 8 deletions(-)
+Neil, yes, I will do that.
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 48e9cc0..1f73d7f 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -2532,6 +2532,9 @@ static void _isdn_setup(struct net_device *dev)
- 
- 	/* Setup the generic properties */
- 	dev->flags = IFF_NOARP|IFF_POINTOPOINT;
-+
-+	/* isdn prepends a header in the tx path, can't share skbs */
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->header_ops = NULL;
- 	dev->netdev_ops = &isdn_netdev_ops;
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 02842d0..df21e84 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1557,8 +1557,10 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 
- 			if (slave_dev->type != ARPHRD_ETHER)
- 				bond_setup_by_slave(bond_dev, slave_dev);
--			else
-+			else {
- 				ether_setup(bond_dev);
-+				bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+			}
- 
- 			netdev_bonding_change(bond_dev,
- 					      NETDEV_POST_TYPE_CHANGE);
-@@ -4330,7 +4332,7 @@ static void bond_setup(struct net_device *bond_dev)
- 	bond_dev->tx_queue_len = 0;
- 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
- 	bond_dev->priv_flags |= IFF_BONDING;
--	bond_dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
-+	bond_dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
- 
- 	/* At first, we block adding VLANs. That's the only way to
- 	 * prevent problems that occur when adding VLANs over an
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 6e82dd3..46b5f5f 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -183,7 +183,7 @@ static void ifb_setup(struct net_device *dev)
- 
- 	dev->flags |= IFF_NOARP;
- 	dev->flags &= ~IFF_MULTICAST;
--	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
-+	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
- 	random_ether_addr(dev->dev_addr);
- }
- 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index ba631fc..05172c3 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -572,7 +572,7 @@ void macvlan_common_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
- 
--	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
-+	dev->priv_flags	       &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
- 	dev->netdev_ops		= &macvlan_netdev_ops;
- 	dev->destructor		= free_netdev;
- 	dev->header_ops		= &macvlan_hard_header_ops,
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9a6b382..71f3d1a 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -528,6 +528,7 @@ static void tun_net_init(struct net_device *dev)
- 		dev->netdev_ops = &tap_netdev_ops;
- 		/* Ethernet TAP Device */
- 		ether_setup(dev);
-+		dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 
- 		random_ether_addr(dev->dev_addr);
- 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 7f78db7..5b23767 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -263,6 +263,8 @@ static void veth_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
- 
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+
- 	dev->netdev_ops = &veth_netdev_ops;
- 	dev->ethtool_ops = &veth_ethtool_ops;
- 	dev->features |= NETIF_F_LLTX;
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index b25c922..eb20281 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -1074,9 +1074,10 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
- 
- 	used = pvc_is_used(pvc);
- 
--	if (type == ARPHRD_ETHER)
-+	if (type == ARPHRD_ETHER) {
- 		dev = alloc_netdev(0, "pvceth%d", ether_setup);
--	else
-+		dev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+	} else
- 		dev = alloc_netdev(0, "pvc%d", pvc_setup);
- 
- 	if (!dev) {
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index 55cf71f..e1b3e3c 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -2823,6 +2823,7 @@ static struct net_device *_init_airo_card( unsigned short irq, int port,
- 	dev->wireless_data = &ai->wireless_data;
- 	dev->irq = irq;
- 	dev->base_addr = port;
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 
- 	SET_NETDEV_DEV(dev, dmdev);
- 
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
-index d508482..89a116f 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -855,6 +855,7 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
- 
- 	iface = netdev_priv(dev);
- 	ether_setup(dev);
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 
- 	/* kernel callbacks */
- 	if (iface) {
-diff --git a/drivers/staging/ath6kl/os/linux/ar6000_drv.c b/drivers/staging/ath6kl/os/linux/ar6000_drv.c
-index 48dd9e3..8ff5289 100644
---- a/drivers/staging/ath6kl/os/linux/ar6000_drv.c
-+++ b/drivers/staging/ath6kl/os/linux/ar6000_drv.c
-@@ -6179,6 +6179,7 @@ int ar6000_create_ap_interface(struct ar6_softc *ar, char *ap_ifname)
-     
-     ether_setup(dev);
-     init_netdev(dev, ap_ifname);
-+    dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 
-     if (register_netdev(dev)) {
-         AR_DEBUG_PRINTF(ATH_DEBUG_ERR,("ar6000_create_ap_interface: register_netdev failed\n"));
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 934e221..9d40a07 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -695,7 +695,7 @@ void vlan_setup(struct net_device *dev)
- 	ether_setup(dev);
- 
- 	dev->priv_flags		|= IFF_802_1Q_VLAN;
--	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
-+	dev->priv_flags		&= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
- 	dev->tx_queue_len	= 0;
- 
- 	dev->netdev_ops		= &vlan_netdev_ops;
-diff --git a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
-index 8c100c9..d4f5dff 100644
---- a/net/bluetooth/bnep/netdev.c
-+++ b/net/bluetooth/bnep/netdev.c
-@@ -231,6 +231,7 @@ void bnep_net_setup(struct net_device *dev)
- 	dev->addr_len = ETH_ALEN;
- 
- 	ether_setup(dev);
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->netdev_ops = &bnep_netdev_ops;
- 
- 	dev->watchdog_timeo  = HZ * 2;
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index a8193f5..d2726a7 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -103,7 +103,7 @@ static struct net_device_ops l2tp_eth_netdev_ops = {
- static void l2tp_eth_dev_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
--
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->netdev_ops		= &l2tp_eth_netdev_ops;
- 	dev->destructor		= free_netdev;
- }
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index cd5fb40..556e7e6 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -698,6 +698,7 @@ static const struct net_device_ops ieee80211_monitorif_ops = {
- static void ieee80211_if_setup(struct net_device *dev)
- {
- 	ether_setup(dev);
-+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	dev->netdev_ops = &ieee80211_dataif_ops;
- 	dev->destructor = free_netdev;
- }
--- 
-1.7.6
+Thanks,
+Karen
+
+-----Original Message-----
+From: Neil Horman [mailto:nhorman@tuxdriver.com] 
+Sent: Tuesday, July 26, 2011 3:50 AM
+To: Divy Le Ray
+Cc: netdev@vger.kernel.org; Steve Wise; David S. Miller; Karen Xie
+Subject: Re: [PATCH] cxgb3i: ref count cdev access to prevent
+modification while in use
+
+On Mon, Jul 25, 2011 at 02:19:01PM -0700, Divy Le Ray wrote:
+> On 07/25/2011 12:56 PM, Neil Horman wrote:
+> >
+> >This oops was reported recently:
+> >d:mon> e
+> >cpu 0xd: Vector: 300 (Data Access) at [c0000000fd4c7120]
+> >    pc: d00000000076f194: .t3_l2t_get+0x44/0x524 [cxgb3]
+> >    lr: d000000000b02108: .init_act_open+0x150/0x3d4 [cxgb3i]
+> >    sp: c0000000fd4c73a0
+> >   msr: 8000000000009032
+> >   dar: 0
+> > dsisr: 40000000
+> >  current = 0xc0000000fd640d40
+> >  paca    = 0xc00000000054ff80
+> >    pid   = 5085, comm = iscsid
+> >d:mon> t
+> >[c0000000fd4c7450] d000000000b02108 .init_act_open+0x150/0x3d4
+[cxgb3i]
+> >[c0000000fd4c7500] d000000000e45378 .cxgbi_ep_connect+0x784/0x8e8
+> >[libcxgbi]
+> >[c0000000fd4c7650] d000000000db33f0 .iscsi_if_rx+0x71c/0xb18
+> >[scsi_transport_iscsi2]
+> >[c0000000fd4c7740] c000000000370c9c .netlink_data_ready+0x40/0xa4
+> >[c0000000fd4c77c0] c00000000036f010 .netlink_sendskb+0x4c/0x9c
+> >[c0000000fd4c7850] c000000000370c18 .netlink_sendmsg+0x358/0x39c
+> >[c0000000fd4c7950] c00000000033be24 .sock_sendmsg+0x114/0x1b8
+> >[c0000000fd4c7b50] c00000000033d208 .sys_sendmsg+0x218/0x2ac
+> >[c0000000fd4c7d70] c00000000033f55c .sys_socketcall+0x228/0x27c
+> >[c0000000fd4c7e30] c0000000000086a4 syscall_exit+0x0/0x40
+> >--- Exception: c01 (System Call) at 00000080da560cfc
+> >
+> >The root cause was an EEH error, which sent us down the
+> >offload_close path in
+> >the cxgb3 driver, which in turn sets cdev->lldev to NULL, without
+> >regard for
+> >upper layer driver (like the cxgbi drivers) which might have
+> >execution contexts
+> >in the middle of its use. The result is the oops above, when
+> >t3_l2t_get attempts
+> >to dereference cdev->lldev right after the EEH error handler sets
+> >it to NULL.
+> >
+> >The fix is to reference count the cdev structure.  When an EEH
+> >error occurs, the
+> >shutdown path:
+>
+>t3_adapter_error->offload_close->cxgb3i_remove_clients->cxgb3i_dev_clos
+e
+> >will now block until such time as the cdev pointer has a use count
+> >of zero.
+> >This coupled with the fact that lookups will now skip finding any
+> >registered
+> >cdev's in cxgbi_device_find_by_[lldev|netdev] with the
+> >CXGBI_FLAG_ADAPTER_RESET
+> >bit set ensures that on an EEH, the setting of lldev to NULL in
+> >offload_close
+> >will only happen after there are no longer any active users of the
+data
+> >structure.
+> >
+> >This has been tested by the reporter and shown to fix the reproted
+oops
+> >
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >CC: Divy Le Ray <divy@chelsio.com>
+> >CC: Steve Wise <swise@chelsio.com>
+> >CC: "David S. Miller" <davem@davemloft.net>
+> >
+> 
+> Also cc-ing Karen.
+> 
+Thank you Divy. Karen, if you're going to be working on cxgb3i, would
+you mind
+updating the MAINTINERS file so I and others don't forget to CC you in
+the
+future?
+
+Thanks!
+Neil
 
