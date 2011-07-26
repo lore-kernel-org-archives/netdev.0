@@ -1,59 +1,81 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] vfs: dont chain pipe/anon/socket on superblock s_inodes
- list
-Date: Tue, 26 Jul 2011 07:49:06 -0400
-Message-ID: <20110726114906.GA19975@infradead.org>
-References: <20110723132411.GA22183@infradead.org>
- <1311633550.2576.33.camel@schen9-DESK>
- <20110725225154.GD22133@ZenIV.linux.org.uk>
- <1311636178.2576.34.camel@schen9-DESK>
- <1311660013.2996.6.camel@edumazet-laptop>
- <1311668466.2355.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110726090357.GA13013@infradead.org>
- <1311672994.2355.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110726094204.GA12086@infradead.org>
- <1311677013.2355.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] gianfar: fix bug caused by
+ 87c288c6e9aa31720b72e2bc2d665e24e1653c3e
+Date: Tue, 26 Jul 2011 14:04:43 +0200
+Message-ID: <20110726120442.GC2078@minipsycho.brq.redhat.com>
+References: <1311674593.17190.7.camel@DENEC1DT0191>
+ <20110726104559.GA2078@minipsycho.brq.redhat.com>
+ <1311678821.17939.7.camel@DENEC1DT0191>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Tim Chen <tim.c.chen@linux.intel.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Anton Blanchard <anton@samba.org>, npiggin@kernel.dk,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Cc: Linux Netdev <netdev@vger.kernel.org>
+To: Sebastian =?iso-8859-1?Q?P=F6hn?=
+	<sebastian.belden@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:18281 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751025Ab1GZMEq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2011 08:04:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1311677013.2355.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1311678821.17939.7.camel@DENEC1DT0191>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 26, 2011 at 12:43:33PM +0200, Eric Dumazet wrote:
-> BTW, we have one atomic op that could be avoided in new_inode()
-> 
-> spin_lock(&inode->i_lock);
-> inode->i_state = 0;
-> spin_unlock(&inode->i_lock);
-> 
-> can probably be changed to something less expensive...
-> 
-> inode->i_state = 0;
-> smp_wmb();
-> 
-> Not clear if we really need a memory barrier either....
+Tue, Jul 26, 2011 at 01:13:41PM CEST, sebastian.belden@googlemail.com wrote:
+>Am Dienstag, den 26.07.2011, 12:46 +0200 schrieb Jiri Pirko:
+>> Tue, Jul 26, 2011 at 12:03:13PM CEST, sebastian.belden@googlemail.com wrote:
+>> >commit 87c288c6e9aa31720b72e2bc2d665e24e1653c3e "gianfar: do vlan cleanup" has two issues:
+>> ># permutation of rx and tx flags
+>> ># enabling vlan tag insertion by default (this leads to unusable connections on some configurations)
+>> 
+>> How so? What's causing that?
+>If you enable the VLINS bit of txctrl and do not alter the vlan tag
+>configuration of the NIC, every packet will get a all zero vlan tag
+>(0x8100 0000). If you run a network without vlan awareness all packets
+>will be ignored.
 
-I think we already had this in some of the earlier vfs/inode scale
-series, but it got lost when Al asked to just put the fundamental
-changes in.
 
-For plain new_inode() the barrier shouldn't be needed as we take
-the sb list lock just a little later.  I'm not sure about your new
-variant, so I'll rather lave that to you.
+Interesting hw... I would guess that if gfar_tx_vlan() is not called, no
+tag would be put there...
 
-There's a few other things missing from earlier iterations, most notable
-the non-atomic i_count, and the bucket locks for the inode hash, if
-you're eager enough to look into that area.
-
+>
+>In my configuration gianfar system <-> 3c59x system the 3com system
+>discards all packets received with the vlan tag.
+>> 
+>> >
+>> >If VLAN insertion is requested (via ethtool) it will be set at an other point ...
+>> >
+>> >Signed-off-by: Sebastian Poehn <sebastian.poehn@belden.com>
+>> >---
+>> >
+>> > drivers/net/gianfar.c |    6 +-----
+>> > 1 files changed, 1 insertions(+), 5 deletions(-)
+>> >
+>> >diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+>> >index 835cd25..2659daa 100644
+>> >--- a/drivers/net/gianfar.c
+>> >+++ b/drivers/net/gianfar.c
+>> >@@ -388,12 +388,8 @@ static void gfar_init_mac(struct net_device *ndev)
+>> > 	if (priv->hwts_rx_en)
+>> > 		rctrl |= RCTRL_PRSDEP_INIT | RCTRL_TS_ENABLE;
+>> > 
+>> >-	/* keep vlan related bits if it's enabled */
+>> >-	if (ndev->features & NETIF_F_HW_VLAN_TX)
+>> >-		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
+>> >-
+>> > 	if (ndev->features & NETIF_F_HW_VLAN_RX)
+>> >-		tctrl |= TCTRL_VLINS;
+>> >+		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
+>> > 
+>> > 	/* Init rctrl based on our settings */
+>> > 	gfar_write(&regs->rctrl, rctrl);
+>> >
+>> >
+>> 
+>> If you really need that to be done, you should remove NETIF_F_HW_VLAN_TX
+>> from features (not hw_features) (never add it).
+>> 
+>The only thing I did is to let the vlan insertion disabled by default.
+>If someone wants it, it may be enabled via ethtool.
+>
+>
