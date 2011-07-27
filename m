@@ -1,85 +1,75 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: IPv6: autoconfiguration and suspend/resume or link down/up
-Date: Wed, 27 Jul 2011 14:48:46 -0500
-Message-ID: <1311796130.17655.18.camel@dcbw.foobar.com>
-References: <20110719180222.GA7509@midget.suse.cz>
-	 <20110722.010628.1678943945721626312.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next-2.6 v2] bonding: reduce noise during init
+Date: Wed, 27 Jul 2011 16:09:26 -0400
+Message-ID: <20110727200926.GS21309@gospo.rdu.redhat.com>
+References: <1311716107-12328-1-git-send-email-andy@greyhouse.net> <1311717286.15386.34.camel@Joe-Laptop> <11239.1311727039@death> <1311727227.15386.40.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jbohac@suse.cz, netdev@vger.kernel.org,
-	herbert@gondor.hengli.com.au, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13236 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12221 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753253Ab1G0To6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2011 15:44:58 -0400
-In-Reply-To: <20110722.010628.1678943945721626312.davem@davemloft.net>
+	id S1751787Ab1G0UJb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2011 16:09:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1311727227.15386.40.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-07-22 at 01:06 -0700, David Miller wrote:
-> From: Jiri Bohac <jbohac@suse.cz>
-> Date: Tue, 19 Jul 2011 20:02:53 +0200
+On Tue, Jul 26, 2011 at 05:40:27PM -0700, Joe Perches wrote:
+> On Tue, 2011-07-26 at 17:37 -0700, Jay Vosburgh wrote:
+> > Joe Perches <joe@perches.com> wrote:
+> > >I'd prefer you don't separate the format string
+> > >into multiple pieces.
+> > Why not?  To me, it looks easier to read split into sections
+> > that don't wrap lines.
 > 
-> > When the cable is unplugged and plugged in again, we already get
-> > notified through linkwatch -> netdev_state_change ->
-> >   -> call_netdevice_notifiers(NETDEV_CHANGE, ...)
-> > However, if the device has already been autoconfigured,
-> > addrconf_notify() only handles this event by printing a
-> > message.
-> > 
-> > So my idea was to:
-> > - handle link up/down in addrconf_notify() similarly to
-> >   NETDEV_UP/NETDEV_DOWN
-> > 
-> > - on suspend, faking a link down event; on resume, faking a link up event
-> >   (or better, having a special event type for suspend/resume)
-> > 
-> > This would cause autoconfiguration to be restarted on resume as
-> > well as cable plug/unplug, solving both the above problems.
-> > 
-> > Or do we want to completely rely on userspace tools
-> > (networkmanager/ifplug) and expect them to do NETDEV_DOWN on
-> > unplug/suspend and NETDEV_UP on plug/resume?
-> > 
-> > Any thoughts?
+> Harder to grep for a dmesg and the
+> defect rate of these split formats is
+> typically higher than single strings
+> because of bad spacing between string
+> segments.
 > 
-> This is an oft-reocurring discussion, what to do on link up/down
-> events wrt. all sorts of autoconfiguration.
-> 
-> My gut instinct is that on any link state change (physical link down,
-> suspend) we should be prepared to renegotiate everything and anything
-> since as you state we could be on a different physical network.
-> 
-> Suspend is even more important because while we were suspended we
-> could be on the same network but the routers present and available
-> might have changed completely.
-> 
-> In userspace I've noticed that we've grown an ecosystem of stupid
-> tools and facilities, none (or very few) of which monitor link status
-> in order to do handle things intelligently.  DHCP servers are a great
-> example.  DHCP servers spit out broadcast discover packets before we
-> even have a link up.
-> 
-> Filling this void is NetworkManager, which does listen on a netlink
-> socket for device state changes, hotplug, etc.  And in response it
-> explicitly tells various facilities to reprobe the network.
-> 
-> This is why I'm reluctant to give NetworkManager a hard time, because
-> whilst it's a huge beast, it is at least trying to do the right thing.
-> :-)
 
-Oh, it's not that huge :)  What's huge is the networking problem space,
-and thus when you build something that tries to be aware of much of
-what's going on (which in the modern world you do really need) it's
-going to need to talk to all sorts of different subsystems...  Such is
-life :(  It's sufficiently module though that if you have no need to
-modems, or PPP, or WiFi, or 802.1x, or WiMAX, you don't need to run
-those parts.  Of course now we're adding bridging, VLAN, bonding, etc
-support, so the amoeba gets larger.  If only people stopped adding
-features to the kernel networking stack :)
+I noticed that you took some time back in late 2009 to 'consolidate' the
+split format-strings present in the bonding driver at the time and I've
+decided I'm fine to leave them the way they are.  The main point of my
+patch was to change the output and I would like to get that included.
+Here is my updated patch...
 
-Dan
+
+Subject: [PATCH net-next-2.6 v2] bonding: reduce noise during init
+
+Many are using sysfs to configure bonding rather than module options, so
+there is no need for bonding to throw this warning in normal cases.
+
+Keep the message around when debugging is enabled as it might be useful
+for someone desperate enough to enable debugging, but eliminate it
+otherwise.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+
+---
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 61265f7..b37c602 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4745,7 +4745,7 @@ static int bond_check_params(struct bond_params *params)
+ 		/* miimon and arp_interval not set, we need one so things
+ 		 * work as expected, see bonding.txt for details
+ 		 */
+-		pr_warning("Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.\n");
++		pr_debug("Warning: either miimon or arp_interval and arp_ip_target module parameters must be specified, otherwise bonding will not detect link failures! see bonding.txt for details.\n");
+ 	}
+ 
+ 	if (primary && !USES_PRIMARY(bond_mode)) {
+-- 
+1.7.4.4
+
+
 
