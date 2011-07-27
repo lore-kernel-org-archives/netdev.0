@@ -1,56 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCHv4 10/11] drop_monitor: Use *_dec_not_zero instead of
- *_add_unless
-Date: Wed, 27 Jul 2011 06:59:07 -0400
-Message-ID: <20110727105907.GA19001@hmsreliant.think-freely.org>
-References: <1311760070-21532-1-git-send-email-sven@narfation.org>
- <1311760070-21532-10-git-send-email-sven@narfation.org>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
+ groups
+Date: Wed, 27 Jul 2011 13:17:15 +0200
+Message-ID: <20110727111714.GA2027462@jupiter.n2.diac24.net>
+References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
+ <CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
+ <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+ <20110712113643.GC616804@jupiter.n2.diac24.net>
+ <CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
+ <20110715160357.GC1407585@jupiter.n2.diac24.net>
+ <20110715163345.GD1407585@jupiter.n2.diac24.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sven Eckelmann <sven@narfation.org>
+Cc: Nick Carter <ncarter100@gmail.com>, netdev@vger.kernel.org,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	davem@davemloft.net, David Lamparter <equinox@diac24.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41814 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754492Ab1G0K7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 06:59:13 -0400
+Received: from spaceboyz.net ([87.106.131.203]:43941 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752382Ab1G0LRY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2011 07:17:24 -0400
 Content-Disposition: inline
-In-Reply-To: <1311760070-21532-10-git-send-email-sven@narfation.org>
+In-Reply-To: <20110715163345.GD1407585@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 27, 2011 at 11:47:49AM +0200, Sven Eckelmann wrote:
-> atomic_dec_not_zero is defined for each architecture through
-> <linux/atomic.h> to provide the functionality of
-> atomic_add_unless(x, -1, 0).
+On Fri, Jul 15, 2011 at 06:33:45PM +0200, David Lamparter wrote:
+> On Fri, Jul 15, 2011 at 06:03:57PM +0200, David Lamparter wrote:
+> > On Fri, Jul 15, 2011 at 04:44:50PM +0100, Nick Carter wrote:
+> > > On 12 July 2011 12:36, David Lamparter <equinox@diac24.net> wrote:
+> > > > On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
+> > > >> I am still undecided on this. Understand the need, but don't like idea
+> > > >> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
+> > > >> has any input.
+> > > >
+> > > > The patch doesn't make the bridge behave nonconformant. The default mask
+> > > > is 0, which just keeps the old behaviour.
 > 
-> Signed-off-by: Sven Eckelmann <sven@narfation.org>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: netdev@vger.kernel.org
-> ---
->  net/core/drop_monitor.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-> index 7f36b38..ef4a05d 100644
-> --- a/net/core/drop_monitor.c
-> +++ b/net/core/drop_monitor.c
-> @@ -137,7 +137,7 @@ static void trace_drop_common(struct sk_buff *skb, void *location)
->  	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
->  
->  
-> -	if (!atomic_add_unless(&data->dm_hit_count, -1, 0)) {
-> +	if (!atomic_dec_not_zero(&data->dm_hit_count)) {
->  		/*
->  		 * we're already at zero, discard this hit
->  		 */
-> -- 
-> 1.7.5.4
-> 
-> 
-Wheres the patch that creates the per arch definition of this function?  I see
-the other posts in this series went to lkml, but the archives don't have the
-first in the series anywhere, which ostensibly adds the definition.  
-Neil
+> P.S.: I'd like to once more stress this. In my opinion the patch should
+> be merged because it provides desireable functionality at a small cost
+> (one test, one knob) and __does not change any default behaviour__.
 
+Stephen, anything new on this?
+
+-David
