@@ -1,38 +1,32 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/1] tc: filter: fix default 'protocol all' on little-endian platforms
-Date: Wed, 27 Jul 2011 18:47:05 +0200
-Message-ID: <1311785225-23367-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:52401 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754857Ab1G0QsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 12:48:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] vfs: avoid taking locks if inode not in lists
+Date: Wed, 27 Jul 2011 19:12:12 +0200
+Message-ID: <20110727171212.GZ8006@one.firstfloor.org>
+References: <1311294452.2576.18.camel@schen9-DESK> <20110723132411.GA22183@infradead.org> <1311633550.2576.33.camel@schen9-DESK> <20110725225154.GD22133@ZenIV.linux.org.uk> <1311636178.2576.34.camel@schen9-DESK> <1311660013.2996.6.camel@edumazet-laptop> <1311668466.2355.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20110726090357.GA13013@infradead.org> <1311672994.2355.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1311780065.2356.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Tim Chen <tim.c.chen@linux.intel.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>,
+	Matthew Wilcox <matthew@wil.cx>,
+	Anton Blanchard <anton@samba.org>, npiggin@kernel.dk,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1311780065.2356.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-when specifiying filters without 'protocol' keyword, tc will
-default to 'protocol all'.
+> Before even taking locks, we can perform an unlocked test to check if
+> inode can possibly be in the lists.
+> 
+> On a 2x4x2 machine, a close(socket()) pair can be 200% faster with these
+> changes.
 
-Unfortunately, this missed a byte-ordering conversion.
----
- tc/tc_filter.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Great result! Seems simple and obvious to me.
 
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index 919c57c..4e55812 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -73,7 +73,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
- 	req.t.tcm_family = AF_UNSPEC;
- 
- 	if (cmd == RTM_NEWTFILTER && flags & NLM_F_CREATE)
--		protocol = ETH_P_ALL;
-+		protocol = htons(ETH_P_ALL);
- 
- 	while (argc > 0) {
- 		if (strcmp(*argv, "dev") == 0) {
--- 
-1.7.3.4
-
+-Andi
