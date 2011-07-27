@@ -1,44 +1,55 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 00/11] [RFC] s390: af_iucv traffic over HiperSockets transport
-Date: Wed, 27 Jul 2011 18:12:42 +0200
-Message-ID: <20110727161242.018577444@de.ibm.com>
+Subject: [patch 02/11] [PATCH] iucv: kernel option for z/VM IUCV and HiperSockets
+Date: Wed, 27 Jul 2011 18:12:44 +0200
+Message-ID: <20110727161338.558890438@de.ibm.com>
+References: <20110727161242.018577444@de.ibm.com>
+Cc: Ursula Braun <ursula.braun@de.ibm.com>
 To: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([194.196.100.161]:49115 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754584Ab1G0QNy (ORCPT
+Received: from mtagate2.uk.ibm.com ([194.196.100.162]:60985 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754726Ab1G0QNy (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 12:13:54 -0400
+Content-Disposition: inline; filename=net1117-af_iucv-kernel-option-for-z-VM-IUCV-and-HiperSockets.patch
+ transports
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patch set implements a new feature to use HiperSockets
-as a transport mechanism for the af_iucv address family. Basic
-design idea is: The current transport mechanism for af_iucv (iucv)
-is only available on VM. HiperSockets provide similar capabilities
-as iucv and are available on LPAR. There is guaranty for data
-integrity, in order delivery and delivery acknowledgment. A new
-HiperSockets feature is exploited to support
-flow control/congestion management. For this it is nearby to extend
-af_iucv address family to use HiperSockets transport.
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-shortlog:
+When adding HiperSockets transport to AF_IUCV Sockets, af_iucv either
+depends on IUCV or QETH_L3 (or both). This patch introduces the
+necessary changes for kernel configuration.
 
-Einar Lueck (4)
-qdio: support asynchronous delivery of storage blocks
-qdio: support forced signal adapter indications
-qeth: exploit asynchronous delivery of storage blocks
-qeth: support forced signal adapter indications
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+ net/iucv/Kconfig |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Ursula Braun (3)
-iucv: kernel option for z/VM IUCV and HiperSockets
-af_iucv: cleanup - use iucv_sk(sk) early
-af_iucv: add HiperSockets transport
+--- a/net/iucv/Kconfig
++++ b/net/iucv/Kconfig
+@@ -1,15 +1,15 @@
+ config IUCV
+-	tristate "IUCV support (S390 - z/VM only)"
+-	depends on S390
++	def_tristate y if S390
++	prompt "IUCV support (S390 - z/VM only)"
+ 	help
+ 	  Select this option if you want to use inter-user communication
+ 	  under VM or VIF. If you run on z/VM, say "Y" to enable a fast
+ 	  communication link between VM guests.
+ 
+ config AFIUCV
+-	tristate "AF_IUCV support (S390 - z/VM only)"
+-	depends on IUCV
++	def_tristate m if QETH_L3 || IUCV
++	prompt "AF_IUCV Socket support (S390 - z/VM and HiperSockets transport)"
+ 	help
+-	  Select this option if you want to use inter-user communication under
+-	  VM or VIF sockets. If you run on z/VM, say "Y" to enable a fast
+-	  communication link between VM guests.
++	  Select this option if you want to use AF_IUCV socket applications
++	  based on z/VM inter-user communication vehicle or based on
++	  HiperSockets.
 
-Frank Blaschka (4)
-iucv: introduce loadable iucv interface
-af_iucv: use loadable iucv interface
-if_ether: add new Ethernet Protocol ID for af_iucv
-qeth: add support for af_iucv HiperSockets transport
-
-Thanks for review and comments,
-        Frank
