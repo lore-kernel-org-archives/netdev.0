@@ -1,8 +1,8 @@
 From: Greg Rose <gregory.v.rose@intel.com>
-Subject: [RFC net-next PATCH 2/4] ixgbe: Reconfigure SR-IOV Init
-Date: Wed, 27 Jul 2011 15:17:54 -0700
-Message-ID: <20110727221754.8435.99712.stgit@gitlad.jf.intel.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
+Subject: [RFC ethtool PATCH] ethtool: Add new commands to set VFs,
+	VM queues and spoof checking
+Date: Wed, 27 Jul 2011 15:23:17 -0700
+Message-ID: <20110727222317.8595.55126.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,433 +10,124 @@ Cc: davem@davemloft.net, bhutchings@solarflare.com,
 	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:35576 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:8843 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755347Ab1G0WR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2011 18:17:58 -0400
-In-Reply-To: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
+	id S1755326Ab1G0WXc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2011 18:23:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Use the PCI device flag indicating if a VF is assigned to a guest VM
-to guard against destroying VFs upon driver removal.  Implement
-additional feature to detect if VFs already exist when the driver
-is loaded and if so configure them and set the driver state to
-SR-IOV enabled.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe.h       |    1 
- drivers/net/ixgbe/ixgbe_main.c  |  104 ++-------------------
- drivers/net/ixgbe/ixgbe_sriov.c |  195 +++++++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_sriov.h |    5 +
- drivers/net/ixgbe/ixgbe_type.h  |    4 +
- 5 files changed, 213 insertions(+), 96 deletions(-)
+ ethtool-copy.h |   11 ++++++++++-
+ ethtool.c      |   40 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 50 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index e04a8e4..ed9836f 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -120,6 +120,7 @@ struct vf_data_storage {
- 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
- 	u16 pf_qos;
- 	u16 tx_rate;
-+	struct pci_dev *vfdev;
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index c7a18f7..0360070 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -33,12 +33,14 @@ struct ethtool_cmd {
+ 	__u8	mdio_support;
+ 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+ 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
++	__u32	num_vfs;	/* Enable SR-IOV VFs */
++	__u32	num_vmqs;	/* Set number of queues for VMDq */
+ 	__u16	speed_hi;       /* The forced speed (upper
+ 				 * bits) in Mbps. Please use
+ 				 * ethtool_cmd_speed()/_set() to
+ 				 * access it */
+ 	__u8	eth_tp_mdix;
+-	__u8	reserved2;
++	__u8	spoof_check;	/* Enable/Disable anti-spoofing */
+ 	__u32	lp_advertising;	/* Features the link partner advertises */
+ 	__u32	reserved[2];
  };
+@@ -846,6 +848,13 @@ enum ethtool_sfeatures_retval_bits {
+ #define AUTONEG_DISABLE		0x00
+ #define AUTONEG_ENABLE		0x01
  
- struct vf_macvlans {
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 1be6175..06ba9f2 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -160,41 +160,6 @@ MODULE_VERSION(DRV_VERSION);
- 
- #define DEFAULT_DEBUG_LEVEL_SHIFT 3
- 
--static inline void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	u32 gcr;
--	u32 gpie;
--	u32 vmdctl;
--
--#ifdef CONFIG_PCI_IOV
--	/* disable iov and allow time for transactions to clear */
--	pci_disable_sriov(adapter->pdev);
--#endif
--
--	/* turn off device IOV mode */
--	gcr = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
--	gcr &= ~(IXGBE_GCR_EXT_SRIOV);
--	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr);
--	gpie = IXGBE_READ_REG(hw, IXGBE_GPIE);
--	gpie &= ~IXGBE_GPIE_VTMODE_MASK;
--	IXGBE_WRITE_REG(hw, IXGBE_GPIE, gpie);
--
--	/* set default pool back to 0 */
--	vmdctl = IXGBE_READ_REG(hw, IXGBE_VT_CTL);
--	vmdctl &= ~IXGBE_VT_CTL_POOL_MASK;
--	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl);
--
--	/* take a breather then clean up driver data */
--	msleep(100);
--
--	kfree(adapter->vfinfo);
--	adapter->vfinfo = NULL;
--
--	adapter->num_vfs = 0;
--	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
--}
--
- static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
- {
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state) &&
-@@ -7237,11 +7202,8 @@ static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
- {
- #ifdef CONFIG_PCI_IOV
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int err;
--	int num_vf_macvlans, i;
--	struct vf_macvlans *mv_list;
- 
--	if (hw->mac.type == ixgbe_mac_82598EB || !max_vfs)
-+	if (hw->mac.type == ixgbe_mac_82598EB)
- 		return;
- 
- 	/* The 82599 supports up to 64 VFs per physical function
-@@ -7250,60 +7212,7 @@ static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
- 	 * physical function
- 	 */
- 	adapter->num_vfs = (max_vfs > 63) ? 63 : max_vfs;
--	adapter->flags |= IXGBE_FLAG_SRIOV_ENABLED;
--	err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
--	if (err) {
--		e_err(probe, "Failed to enable PCI sriov: %d\n", err);
--		goto err_novfs;
--	}
--
--	num_vf_macvlans = hw->mac.num_rar_entries -
--		(IXGBE_MAX_PF_MACVLANS + 1 + adapter->num_vfs);
--
--	adapter->mv_list = mv_list = kcalloc(num_vf_macvlans,
--					     sizeof(struct vf_macvlans),
--					     GFP_KERNEL);
--	if (mv_list) {
--		/* Initialize list of VF macvlans */
--		INIT_LIST_HEAD(&adapter->vf_mvs.l);
--		for (i = 0; i < num_vf_macvlans; i++) {
--			mv_list->vf = -1;
--			mv_list->free = true;
--			mv_list->rar_entry = hw->mac.num_rar_entries -
--				(i + adapter->num_vfs + 1);
--			list_add(&mv_list->l, &adapter->vf_mvs.l);
--			mv_list++;
--		}
--	}
--
--	/* If call to enable VFs succeeded then allocate memory
--	 * for per VF control structures.
--	 */
--	adapter->vfinfo =
--		kcalloc(adapter->num_vfs,
--			sizeof(struct vf_data_storage), GFP_KERNEL);
--	if (adapter->vfinfo) {
--		/* Now that we're sure SR-IOV is enabled
--		 * and memory allocated set up the mailbox parameters
--		 */
--		ixgbe_init_mbx_params_pf(hw);
--		memcpy(&hw->mbx.ops, ii->mbx_ops,
--		       sizeof(hw->mbx.ops));
--
--		/* Disable RSC when in SR-IOV mode */
--		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
--				     IXGBE_FLAG2_RSC_ENABLED);
--		return;
--	}
--
--	/* Oh oh */
--	e_err(probe, "Unable to allocate memory for VF Data Storage - "
--	      "SRIOV disabled\n");
--	pci_disable_sriov(adapter->pdev);
--
--err_novfs:
--	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
--	adapter->num_vfs = 0;
-+	ixgbe_enable_sriov(adapter, ii);
- #endif /* CONFIG_PCI_IOV */
- }
- 
-@@ -7752,8 +7661,13 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
- 
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
--		ixgbe_disable_sriov(adapter);
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
-+		if (!(ixgbe_check_vf_assignment(adapter)))
-+			ixgbe_disable_sriov(adapter);
-+		else
-+			e_dev_warn("Unloading driver while VFs are assigned "
-+				   "- VFs will not be deallocated\n");
-+	}
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
-diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
-index d99d01e..cdb2f0c 100644
---- a/drivers/net/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ixgbe/ixgbe_sriov.c
-@@ -43,6 +43,158 @@
- 
- #include "ixgbe_sriov.h"
- 
-+static int ixgbe_find_enabled_vfs(struct ixgbe_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *pvfdev;
-+	u16 vf_devfn = 0;
-+	int device_id;
-+	int vfs_found = 0;
++/* Enable or disable MAC and/or VLAN spoofchecking.If this is
++ * set to enable, then depending on the controller capabilities
++ * MAC and/or VLAN spoofing will be turned on.
++ */
++#define SPOOFCHECK_DISABLE	0x00
++#define SPOOFCHECK_ENABLE	0x01
 +
-+	switch (adapter->hw.mac.type) {
-+		case ixgbe_mac_82599EB:
-+			device_id = IXGBE_DEV_ID_82599_VF;
-+			break;
-+		case ixgbe_mac_X540:
-+			device_id = IXGBE_DEV_ID_X540_VF;
-+			break;
-+		default:
-+			device_id = 0;
-+			break;
-+	}
-+
-+	vf_devfn = pdev->devfn + 0x80;
-+	pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID, device_id, NULL);
-+	while (pvfdev) {
-+		if (pvfdev->devfn == vf_devfn)
-+			vfs_found++;
-+		vf_devfn += 2;
-+		pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID,
-+					device_id, pvfdev);
-+	}
-+
-+	return vfs_found;
-+}
-+
-+void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
-+			 const struct ixgbe_info *ii)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int err = 0;
-+	int num_vf_macvlans, i;
-+	struct vf_macvlans *mv_list;
-+	int pre_existing_vfs = 0;
-+
-+	pre_existing_vfs = ixgbe_find_enabled_vfs(adapter);
-+	if (!pre_existing_vfs && !adapter->num_vfs)
-+		return;
-+
-+	/* If there are pre-existing VFs then we have to force
-+ 	 * use of that many because they were not deleted the last
-+ 	 * time someone removed the PF driver.  That would have
-+ 	 * been because they were allocated to guest VMs and can't
-+ 	 * be removed.  Go ahead and just re-enable the old amount.
-+ 	 * If the user wants to change the number of VFs they can
-+ 	 * use ethtool while making sure no VFs are allocated to
-+ 	 * guest VMs... i.e. the right way.
-+ 	 */
-+	if (pre_existing_vfs)
-+		adapter->num_vfs = pre_existing_vfs;
-+	else
-+		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
-+	if (err) {
-+		e_err(probe, "Failed to enable PCI sriov: %d\n", err);
-+		goto err_novfs;
-+	}
-+	adapter->flags |= IXGBE_FLAG_SRIOV_ENABLED;
-+
-+	e_info(probe, "SR-IOV enabled with %d VFs\n", adapter->num_vfs);
-+
-+	num_vf_macvlans = hw->mac.num_rar_entries -
-+	(IXGBE_MAX_PF_MACVLANS + 1 + adapter->num_vfs);
-+
-+	adapter->mv_list = mv_list = kcalloc(num_vf_macvlans,
-+					     sizeof(struct vf_macvlans),
-+					     GFP_KERNEL);
-+	if (mv_list) {
-+		/* Initialize list of VF macvlans */
-+		INIT_LIST_HEAD(&adapter->vf_mvs.l);
-+		for (i = 0; i < num_vf_macvlans; i++) {
-+			mv_list->vf = -1;
-+			mv_list->free = true;
-+			mv_list->rar_entry = hw->mac.num_rar_entries -
-+				(i + adapter->num_vfs + 1);
-+			list_add(&mv_list->l, &adapter->vf_mvs.l);
-+			mv_list++;
-+		}
-+	}
-+
-+	/* If call to enable VFs succeeded then allocate memory
-+	 * for per VF control structures.
-+	 */
-+	adapter->vfinfo =
-+		kcalloc(adapter->num_vfs,
-+			sizeof(struct vf_data_storage), GFP_KERNEL);
-+	if (adapter->vfinfo) {
-+		/* Now that we're sure SR-IOV is enabled
-+		 * and memory allocated set up the mailbox parameters
-+		 */
-+		ixgbe_init_mbx_params_pf(hw);
-+		memcpy(&hw->mbx.ops, ii->mbx_ops,
-+		       sizeof(hw->mbx.ops));
-+
-+		/* Disable RSC when in SR-IOV mode */
-+		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
-+				     IXGBE_FLAG2_RSC_ENABLED);
-+		return;
-+	}
-+
-+	/* Oh oh */
-+	e_err(probe, "Unable to allocate memory for VF Data Storage - "
-+	      "SRIOV disabled\n");
-+	pci_disable_sriov(adapter->pdev);
-+
-+err_novfs:
-+	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
-+	adapter->num_vfs = 0;
-+}
-+
-+void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 gcr;
-+	u32 gpie;
-+	u32 vmdctl;
-+
-+#ifdef CONFIG_PCI_IOV
-+	/* disable iov and allow time for transactions to clear */
-+	pci_disable_sriov(adapter->pdev);
-+#endif
-+
-+	/* turn off device IOV mode */
-+	gcr = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
-+	gcr &= ~(IXGBE_GCR_EXT_SRIOV);
-+	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr);
-+	gpie = IXGBE_READ_REG(hw, IXGBE_GPIE);
-+	gpie &= ~IXGBE_GPIE_VTMODE_MASK;
-+	IXGBE_WRITE_REG(hw, IXGBE_GPIE, gpie);
-+
-+	/* set default pool back to 0 */
-+	vmdctl = IXGBE_READ_REG(hw, IXGBE_VT_CTL);
-+	vmdctl &= ~IXGBE_VT_CTL_POOL_MASK;
-+	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl);
-+
-+	/* take a breather then clean up driver data */
-+	msleep(100);
-+
-+	kfree(adapter->vfinfo);
-+	kfree(adapter->mv_list);
-+	adapter->vfinfo = NULL;
-+
-+	adapter->num_vfs = 0;
-+	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
-+}
-+
- static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
- 				   int entries, u16 *hash_list, u32 vf)
- {
-@@ -273,12 +425,28 @@ static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- 	return 0;
- }
- 
-+int ixgbe_check_vf_assignment(struct ixgbe_adapter *adapter)
-+{
-+	int i;
-+	for (i = 0; i < adapter->num_vfs; i++) {
-+		if (adapter->vfinfo[i].vfdev->dev_flags &
-+			PCI_DEV_FLAGS_ASSIGNED) {
-+		return true;
-+		}
-+	}
-+	return false;
-+}
-+
- int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- {
- 	unsigned char vf_mac_addr[6];
- 	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
- 	unsigned int vfn = (event_mask & 0x3f);
--
-+	struct pci_dev *pvfdev;
-+	unsigned int device_id;
-+	u16 thisvf_devfn = (pdev->devfn + 0x80 + (vfn << 1)) |
-+				(pdev->devfn & 1);
-+ 
- 	bool enable = ((event_mask & 0x10000000U) != 0);
- 
- 	if (enable) {
-@@ -290,6 +458,31 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- 		 * for it later.
- 		 */
- 		memcpy(adapter->vfinfo[vfn].vf_mac_addresses, vf_mac_addr, 6);
-+
-+		switch (adapter->hw.mac.type) {
-+		case ixgbe_mac_82599EB:
-+			device_id = IXGBE_DEV_ID_82599_VF;
-+			break;
-+		case ixgbe_mac_X540:
-+			device_id = IXGBE_DEV_ID_X540_VF;
-+			break;
-+		default:
-+			device_id = 0;
-+			break;
-+		}
-+
-+		pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID, device_id, NULL);
-+		while (pvfdev) {
-+			if (pvfdev->devfn == thisvf_devfn)
+ /* Mode MDI or MDI-X */
+ #define ETH_TP_MDI_INVALID	0x00
+ #define ETH_TP_MDI		0x01
+diff --git a/ethtool.c b/ethtool.c
+index c189c78..0154f41 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -148,6 +148,9 @@ static struct option {
+ 		"		[ autoneg on|off ]\n"
+ 		"		[ advertise %x ]\n"
+ 		"		[ phyad %d ]\n"
++		"		[ vfs %d ]\n"
++		"		[ vmqueues %d]\n"
++		"		[ spoofcheck on|off ]\n"
+ 		"		[ xcvr internal|external ]\n"
+ 		"		[ wol p|u|m|b|a|g|s|d... ]\n"
+ 		"		[ sopass %x:%x:%x:%x:%x:%x ]\n"
+@@ -362,6 +365,9 @@ static int port_wanted = -1;
+ static int autoneg_wanted = -1;
+ static int phyad_wanted = -1;
+ static int xcvr_wanted = -1;
++static int num_vfs_wanted = -1;
++static int num_vmqs_wanted = -1;
++static u8 spoofchk_wanted = -1;
+ static int advertising_wanted = -1;
+ static int gset_changed = 0; /* did anything in GSET change? */
+ static u32  wol_wanted = 0;
+@@ -1074,6 +1080,34 @@ static void parse_cmdline(int argc, char **argp)
+ 					exit_bad_args();
+ 				phyad_wanted = get_int(argp[i], 0);
+ 				break;
++			} else if (!strcmp(argp[i], "vfs")) {
++				gset_changed = 1;
++				i += 1;
++				if (i >= argc)
++					exit_bad_args();
++				num_vfs_wanted = get_int(argp[i], 0);
 +				break;
-+			pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID,
-+						device_id, pvfdev);
-+		}
-+		if (pvfdev)
-+			adapter->vfinfo[vfn].vfdev = pvfdev;
-+		else
-+			e_err(drv, "Couldn't find pci dev ptr for VF %4.4x\n",
-+			      thisvf_devfn);
- 	}
- 
- 	return 0;
-diff --git a/drivers/net/ixgbe/ixgbe_sriov.h b/drivers/net/ixgbe/ixgbe_sriov.h
-index 3417556..2781847 100644
---- a/drivers/net/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ixgbe/ixgbe_sriov.h
-@@ -41,6 +41,11 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
- int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf, struct ifla_vf_info *ivi);
- void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
-+void ixgbe_disable_sriov(struct ixgbe_adapter *adapter);
-+void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
-+			const struct ixgbe_info *ii);
-+int ixgbe_check_vf_assignment(struct ixgbe_adapter *adapter);
-+
- 
- #endif /* _IXGBE_SRIOV_H_ */
- 
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index e0d970e..648cf15 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -65,6 +65,10 @@
- #define IXGBE_DEV_ID_82599_LS            0x154F
- #define IXGBE_DEV_ID_X540T               0x1528
- 
-+/* VF Device IDs */
-+#define IXGBE_DEV_ID_82599_VF           0x10ED
-+#define IXGBE_DEV_ID_X540_VF            0x1515
-+
- /* General Registers */
- #define IXGBE_CTRL      0x00000
- #define IXGBE_STATUS    0x00008
++			} else if (!strcmp(argp[i], "vmqueues")) {
++				gset_changed = 1;
++				i += 1;
++				if (i >= argc)
++					exit_bad_args();
++				num_vmqs_wanted = get_int(argp[i], 0);
++				break;
++			} else if (!strcmp(argp[i], "spoofcheck")) {
++				i += 1;
++				if (i >= argc)
++					exit_bad_args();
++				if (!strcmp(argp[i], "on")) {
++					gset_changed = 1;
++					spoofchk_wanted = SPOOFCHECK_ENABLE;
++				} else if (!strcmp(argp[i], "off")) {
++					gset_changed = 1;
++					spoofchk_wanted = SPOOFCHECK_DISABLE;
++				} else {
++					exit_bad_args();
++				}
++				break;
+ 			} else if (!strcmp(argp[i], "xcvr")) {
+ 				gset_changed = 1;
+ 				i += 1;
+@@ -2447,6 +2481,12 @@ static int do_sset(int fd, struct ifreq *ifr)
+ 				ecmd.phy_address = phyad_wanted;
+ 			if (xcvr_wanted != -1)
+ 				ecmd.transceiver = xcvr_wanted;
++			if (num_vfs_wanted != -1)
++				ecmd.num_vfs = num_vfs_wanted;
++			if (num_vmqs_wanted != -1)
++				ecmd.num_vmqs = num_vmqs_wanted;
++			if (spoofchk_wanted != -1)
++				ecmd.spoof_check = spoofchk_wanted;
+ 			/* XXX If the user specified speed or duplex
+ 			 * then we should mask the advertised modes
+ 			 * accordingly.  For now, warn that we aren't
 
