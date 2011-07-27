@@ -1,56 +1,79 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: IP over 802.2 with LLC/SNAP
-Date: Wed, 27 Jul 2011 13:32:09 +0100
-Message-ID: <20110727133209.0d9dd6c4@lxorguk.ukuu.org.uk>
-References: <4E2F8B7B.80906@signal11.us>
+From: Sven Anders <anders@anduras.de>
+Subject: Re: Realtek 8139 Flow Control?
+Date: Wed, 27 Jul 2011 14:29:49 +0200
+Message-ID: <4E3004BD.4090705@anduras.de>
+References: <4E2DC710.5000100@anduras.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alan Ott <alan@signal11.us>
+Content-Type: multipart/mixed;
+ boundary="------------050709060906080301020102"
+Cc: jgarzik@pobox.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:38536 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751142Ab1G0M3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 08:29:09 -0400
-In-Reply-To: <4E2F8B7B.80906@signal11.us>
+Received: from mailr01.anduras.de ([89.28.138.12]:56433 "EHLO
+	mailr01.anduras.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753714Ab1G0M3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 08:29:50 -0400
+In-Reply-To: <4E2DC710.5000100@anduras.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> So the question is, does Linux support IP over 802.2 with LLC/SNAP? Is 
-> there a sysfs/proc entry that I have to turn on to make this work (I 
-> didn't find one)? I have the LLC2 module loaded, and I believe my packet 
-> to be correct, since Windows recognizes it and since Wireshark doesn't 
-> give any red flags on it. I've been unable to find anything about this 
-> kind of thing in my searching.
+This is a multi-part message in MIME format.
+--------------050709060906080301020102
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Linux supports LLC/SNAP and various things over it (IPX/Appletalk DDP
-etc) but not IP over it, as it's one of those standards bodies driven
-bogosities which nobody ever actually deployed.
+Sven Anders wrote:
+> I have just a short question.
+> 
+> We have appliances with Realtek 8139C/8139C+ (rev 10) chipsets (with the
+> PCI IDs: 10ec:8139). We are using the 8139too driver (version: 0.9.28)
+> According the datasheet the chipset supports Flow Control (IEEE 802.3x).
+> 
+> I want to know, if the support for enabling flow control is missing in
+> the driver by purpose or is only not implemented due to lack of time?
 
-You are about the first person in the known universe to care 8). Now
-there isn't any reason for not supporting it. The receive side is a case
-of using register_snap_client() and piping the frames into the IP stack.
+Hi, again!
 
-The send side could be tackled two ways I can see, one would be to allow
-for snap protocols to be set somehow on devices and routes, the other
-that might be simply would be to create a 'snapifier' device that added
-snap headers then routed the frame via the bound physical device as
-802.2 LLC. That way you'd be able to do
+Can somebody of the old implementors please answer this question?
 
-	route add gould-relic dev snap0
+We need that feature and I'm willing to implement it, but I need the
+confirmation, that it was not done due to lack of time and not because
+will not work (correctly)...
 
-In both cases you'd need to tackle ARP but that seems to need no
-configuration as SNAP requests get SNAP replies, and so on.
+Regards
+ Sven Anders
 
-It should be a 'simple matter of hacking' and there are example devices
-that fiddle with packets and add headers etc you can nick a lot of code
-from. I figure if you can write an IP stack for an ancient Gould system
-you can probably do that.
+-- 
+ Sven Anders <anders@anduras.de>                 () UTF-8 Ribbon Campaign
+                                                 /\ Support plain text e-mail
+ ANDURAS intranet security AG
+ Messestrasse 3 - 94036 Passau - Germany
+ Web: www.anduras.de - Tel: +49 (0)851-4 90 50-0 - Fax: +49 (0)851-4 90 50-55
 
-The other way is to use the Linux raw packet interfaces, open a raw
-socket, push a BPF filter onto it to just get the frames for IP/SNAP and
-ARP/SNAP then modify them and feed them to the kernel tun/tap interface.
+Those who would give up essential Liberty, to purchase a little
+temporary Safety, deserve neither Liberty nor Safety.
+  - Benjamin Franklin
 
-Alan
+--------------050709060906080301020102
+Content-Type: text/x-vcard; charset=utf-8;
+ name="anders.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="anders.vcf"
+
+begin:vcard
+fn:Sven Anders
+n:Anders;Sven
+org:ANDURAS AG;Research and Development
+adr;quoted-printable:;;Messestra=C3=9Fe 3;Passau;Bavaria;94036;Germany
+email;internet:anders@anduras.de
+title:Dipl. Inf.
+tel;work:++49 (0)851 / 490 50 -0
+tel;fax:++49 (0)851 / 590 50 - 55
+x-mozilla-html:FALSE
+url:http://www.anduras.de
+version:2.1
+end:vcard
+
+
+--------------050709060906080301020102--
