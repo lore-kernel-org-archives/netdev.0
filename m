@@ -1,1058 +1,1006 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 06/11] [PATCH] af_iucv: add HiperSockets transport
-Date: Wed, 27 Jul 2011 18:12:48 +0200
-Message-ID: <20110727161338.988311603@de.ibm.com>
+Subject: [patch 07/11] [PATCH] qdio: support asynchronous delivery of storage blocks
+Date: Wed, 27 Jul 2011 18:12:49 +0200
+Message-ID: <20110727161339.098130520@de.ibm.com>
 References: <20110727161242.018577444@de.ibm.com>
-Cc: Ursula Braun <ursula.braun@de.ibm.com>
+Cc: Einar Lueck <elelueck@de.ibm.com>,
+	Jan Glauber <jang@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:36065 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754345Ab1G0QNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 12:13:48 -0400
-Content-Disposition: inline; filename=net1117-af_iucv-add-HiperSockets-transport.patch
+Received: from mtagate2.uk.ibm.com ([194.196.100.162]:60970 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754345Ab1G0QNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 12:13:53 -0400
+Content-Disposition: inline; filename=net1117_qdio_cq.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Einar Lueck <elelueck@de.ibm.com>
 
-The current transport mechanism for af_iucv is the z/VM offered
-communications facility IUCV. To provide equivalent support when
-running Linux in an LPAR, HiperSockets transport is added to the
-AF_IUCV address family. It requires explicit binding of an AF_IUCV
-socket to a HiperSockets device. A new packet_type ETH_P_AF_IUCV
-is announced. An af_iucv specific transport header is defined
-preceding the skb data. A small protocol is implemented for
-connecting and for flow control/congestion management.
+This patch introduces support for asynchronous delivery of storage blocks for
+Hipersockets. Upper layers may exploit this functionality to reuse SBALs for
+which the delivery status is still pending.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Einar Lueck <elelueck@de.ibm.com>
+Signed-off-by: Jan Glauber <jang@linux.vnet.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-Reviewed-by: Hendrik Brueckner <brueckner@linux.vnet.ibm.com>
 ---
- include/net/iucv/af_iucv.h |   52 +++
- net/iucv/af_iucv.c         |  743 ++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 724 insertions(+), 71 deletions(-)
+ arch/s390/include/asm/qdio.h      |   68 ++++++++++++
+ drivers/s390/cio/qdio.h           |   29 +++++
+ drivers/s390/cio/qdio_debug.c     |    3 
+ drivers/s390/cio/qdio_main.c      |  203 +++++++++++++++++++++++++++++++++-----
+ drivers/s390/cio/qdio_setup.c     |   83 ++++++++++++++-
+ drivers/s390/cio/qdio_thinint.c   |   88 +++++++++-------
+ drivers/s390/net/qeth_core_main.c |   30 ++++-
+ 7 files changed, 424 insertions(+), 80 deletions(-)
 
---- a/include/net/iucv/af_iucv.h
-+++ b/include/net/iucv/af_iucv.h
-@@ -14,6 +14,7 @@
- #include <linux/list.h>
- #include <linux/poll.h>
- #include <linux/socket.h>
-+#include <net/iucv/iucv.h>
- 
- #ifndef AF_IUCV
- #define AF_IUCV		32
-@@ -33,6 +34,7 @@ enum {
+--- a/arch/s390/include/asm/qdio.h
++++ b/arch/s390/include/asm/qdio.h
+@@ -123,6 +123,40 @@ struct slibe {
  };
- 
- #define IUCV_QUEUELEN_DEFAULT	65535
-+#define IUCV_HIPER_MSGLIM_DEFAULT	128
- #define IUCV_CONN_TIMEOUT	(HZ * 40)
- #define IUCV_DISCONN_TIMEOUT	(HZ * 2)
- #define IUCV_CONN_IDLE_TIMEOUT	(HZ * 60)
-@@ -57,8 +59,51 @@ struct sock_msg_q {
- 	spinlock_t		lock;
- };
- 
-+#define AF_IUCV_FLAG_ACK 0x1
-+#define AF_IUCV_FLAG_SYN 0x2
-+#define AF_IUCV_FLAG_FIN 0x4
-+#define AF_IUCV_FLAG_WIN 0x8
-+
-+struct af_iucv_trans_hdr {
-+	u16 magic;
-+	u8 version;
-+	u8 flags;
-+	u16 window;
-+	char destNodeID[8];
-+	char destUserID[8];
-+	char destAppName[16];
-+	char srcNodeID[8];
-+	char srcUserID[8];
-+	char srcAppName[16];             /* => 70 bytes */
-+	struct iucv_message iucv_hdr;    /* => 33 bytes */
-+	u8 pad;                          /* total 104 bytes */
-+} __packed;
-+
-+enum iucv_tx_notify {
-+	/* transmission of skb is completed and was successful */
-+	TX_NOTIFY_OK = 0,
-+	/* target is unreachable */
-+	TX_NOTIFY_UNREACHABLE = 1,
-+	/* transfer pending queue full */
-+	TX_NOTIFY_TPQFULL = 2,
-+	/* general error */
-+	TX_NOTIFY_GENERALERROR = 3,
-+	/* transmission of skb is pending - may interleave
-+	 * with TX_NOTIFY_DELAYED_* */
-+	TX_NOTIFY_PENDING = 4,
-+	/* transmission of skb was done successfully (delayed) */
-+	TX_NOTIFY_DELAYED_OK = 5,
-+	/* target unreachable (detected delayed) */
-+	TX_NOTIFY_DELAYED_UNREACHABLE = 6,
-+	/* general error (detected delayed) */
-+	TX_NOTIFY_DELAYED_GENERALERROR = 7,
-+};
-+
- #define iucv_sk(__sk) ((struct iucv_sock *) __sk)
- 
-+#define AF_IUCV_TRANS_IUCV 0
-+#define AF_IUCV_TRANS_HIPER 1
-+
- struct iucv_sock {
- 	struct sock		sk;
- 	char			src_user_id[8];
-@@ -75,6 +120,13 @@ struct iucv_sock {
- 	unsigned int		send_tag;
- 	u8			flags;
- 	u16			msglimit;
-+	u16			msglimit_peer;
-+	atomic_t		msg_sent;
-+	atomic_t		msg_recv;
-+	atomic_t		pendings;
-+	int			transport;
-+	void                    (*sk_txnotify)(struct sk_buff *skb,
-+					       enum iucv_tx_notify n);
- };
- 
- /* iucv socket options (SOL_IUCV) */
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -27,7 +27,6 @@
- #include <asm/cpcmd.h>
- #include <linux/kmod.h>
- 
--#include <net/iucv/iucv.h>
- #include <net/iucv/af_iucv.h>
- 
- #define VERSION "1.1"
-@@ -92,6 +91,12 @@ do {									\
- static void iucv_sock_kill(struct sock *sk);
- static void iucv_sock_close(struct sock *sk);
- 
-+static int afiucv_hs_rcv(struct sk_buff *skb, struct net_device *dev,
-+	struct packet_type *pt, struct net_device *orig_dev);
-+static int afiucv_hs_send(struct iucv_message *imsg, struct sock *sock,
-+		   struct sk_buff *skb, u8 flags);
-+static void afiucv_hs_callback_txnotify(struct sk_buff *, enum iucv_tx_notify);
-+
- /* Call Back functions */
- static void iucv_callback_rx(struct iucv_path *, struct iucv_message *);
- static void iucv_callback_txdone(struct iucv_path *, struct iucv_message *);
-@@ -296,7 +301,11 @@ static inline int iucv_below_msglim(stru
- 
- 	if (sk->sk_state != IUCV_CONNECTED)
- 		return 1;
--	return (skb_queue_len(&iucv->send_skb_q) < iucv->path->msglim);
-+	if (iucv->transport == AF_IUCV_TRANS_IUCV)
-+		return (skb_queue_len(&iucv->send_skb_q) < iucv->path->msglim);
-+	else
-+		return ((atomic_read(&iucv->msg_sent) < iucv->msglimit_peer) &&
-+			(atomic_read(&iucv->pendings) <= 0));
- }
  
  /**
-@@ -314,6 +323,79 @@ static void iucv_sock_wake_msglim(struct
- 	rcu_read_unlock();
- }
- 
-+/**
-+ * afiucv_hs_send() - send a message through HiperSockets transport
++ * struct qaob - queue asynchronous operation block
++ * @res0: reserved parameters
++ * @res1: reserved parameter
++ * @res2: reserved parameter
++ * @res3: reserved parameter
++ * @aorc: asynchronous operation return code
++ * @flags: internal flags
++ * @cbtbs: control block type
++ * @sb_count: number of storage blocks
++ * @sba: storage block element addresses
++ * @dcount: size of storage block elements
++ * @user0: user defineable value
++ * @res4: reserved paramater
++ * @user1: user defineable value
++ * @user2: user defineable value
 + */
-+static int afiucv_hs_send(struct iucv_message *imsg, struct sock *sock,
-+		   struct sk_buff *skb, u8 flags)
-+{
-+	struct net *net = sock_net(sock);
-+	struct iucv_sock *iucv = iucv_sk(sock);
-+	struct af_iucv_trans_hdr *phs_hdr;
-+	struct sk_buff *nskb;
-+	int err, confirm_recv = 0;
-+
-+	memset(skb->head, 0, ETH_HLEN);
-+	phs_hdr = (struct af_iucv_trans_hdr *)skb_push(skb,
-+					sizeof(struct af_iucv_trans_hdr));
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_push(skb, ETH_HLEN);
-+	skb_reset_mac_header(skb);
-+	memset(phs_hdr, 0, sizeof(struct af_iucv_trans_hdr));
-+
-+	phs_hdr->magic = ETH_P_AF_IUCV;
-+	phs_hdr->version = 1;
-+	phs_hdr->flags = flags;
-+	if (flags == AF_IUCV_FLAG_SYN)
-+		phs_hdr->window = iucv->msglimit;
-+	else if ((flags == AF_IUCV_FLAG_WIN) || !flags) {
-+		confirm_recv = atomic_read(&iucv->msg_recv);
-+		phs_hdr->window = confirm_recv;
-+		if (confirm_recv)
-+			phs_hdr->flags = phs_hdr->flags | AF_IUCV_FLAG_WIN;
-+	}
-+	memcpy(phs_hdr->destUserID, iucv->dst_user_id, 8);
-+	memcpy(phs_hdr->destAppName, iucv->dst_name, 8);
-+	memcpy(phs_hdr->srcUserID, iucv->src_user_id, 8);
-+	memcpy(phs_hdr->srcAppName, iucv->src_name, 8);
-+	ASCEBC(phs_hdr->destUserID, sizeof(phs_hdr->destUserID));
-+	ASCEBC(phs_hdr->destAppName, sizeof(phs_hdr->destAppName));
-+	ASCEBC(phs_hdr->srcUserID, sizeof(phs_hdr->srcUserID));
-+	ASCEBC(phs_hdr->srcAppName, sizeof(phs_hdr->srcAppName));
-+	if (imsg)
-+		memcpy(&phs_hdr->iucv_hdr, imsg, sizeof(struct iucv_message));
-+
-+	rcu_read_lock();
-+	skb->dev = dev_get_by_index_rcu(net, sock->sk_bound_dev_if);
-+	rcu_read_unlock();
-+	if (!skb->dev)
-+		return -ENODEV;
-+	if (!(skb->dev->flags & IFF_UP))
-+		return -ENETDOWN;
-+	if (skb->len > skb->dev->mtu) {
-+		if (sock->sk_type == SOCK_SEQPACKET)
-+			return -EMSGSIZE;
-+		else
-+			skb_trim(skb, skb->dev->mtu);
-+	}
-+	skb->protocol = ETH_P_AF_IUCV;
-+	skb_shinfo(skb)->tx_flags |= SKBTX_DRV_NEEDS_SK_REF;
-+	nskb = skb_clone(skb, GFP_ATOMIC);
-+	if (!nskb)
-+		return -ENOMEM;
-+	skb_queue_tail(&iucv->send_skb_q, nskb);
-+	err = dev_queue_xmit(skb);
-+	if (err) {
-+		skb_unlink(nskb, &iucv->send_skb_q);
-+		kfree_skb(nskb);
-+	} else {
-+		atomic_sub(confirm_recv, &iucv->msg_recv);
-+		WARN_ON(atomic_read(&iucv->msg_recv) < 0);
-+	}
-+	return err;
-+}
-+
- /* Timers */
- static void iucv_sock_timeout(unsigned long arg)
- {
-@@ -382,6 +464,8 @@ static void iucv_sock_close(struct sock 
- 	unsigned char user_data[16];
- 	struct iucv_sock *iucv = iucv_sk(sk);
- 	unsigned long timeo;
-+	int err, blen;
-+	struct sk_buff *skb;
- 
- 	iucv_sock_clear_timer(sk);
- 	lock_sock(sk);
-@@ -392,6 +476,20 @@ static void iucv_sock_close(struct sock 
- 		break;
- 
- 	case IUCV_CONNECTED:
-+		if (iucv->transport == AF_IUCV_TRANS_HIPER) {
-+			/* send fin */
-+			blen = sizeof(struct af_iucv_trans_hdr) + ETH_HLEN;
-+			skb = sock_alloc_send_skb(sk, blen, 1, &err);
-+			if (skb) {
-+				skb_reserve(skb,
-+					sizeof(struct af_iucv_trans_hdr) +
-+					ETH_HLEN);
-+				err = afiucv_hs_send(NULL, sk, skb,
-+						     AF_IUCV_FLAG_FIN);
-+			}
-+			sk->sk_state = IUCV_DISCONN;
-+			sk->sk_state_change(sk);
-+		}
- 	case IUCV_DISCONN:
- 		sk->sk_state = IUCV_CLOSING;
- 		sk->sk_state_change(sk);
-@@ -461,9 +559,13 @@ static struct sock *iucv_sock_alloc(stru
- 	spin_lock_init(&iucv->message_q.lock);
- 	skb_queue_head_init(&iucv->backlog_skb_q);
- 	iucv->send_tag = 0;
-+	atomic_set(&iucv->pendings, 0);
- 	iucv->flags = 0;
--	iucv->msglimit = IUCV_QUEUELEN_DEFAULT;
-+	iucv->msglimit = 0;
-+	atomic_set(&iucv->msg_sent, 0);
-+	atomic_set(&iucv->msg_recv, 0);
- 	iucv->path = NULL;
-+	iucv->sk_txnotify = afiucv_hs_callback_txnotify;
- 	memset(&iucv->src_user_id , 0, 32);
- 
- 	sk->sk_destruct = iucv_sock_destruct;
-@@ -595,7 +697,9 @@ static int iucv_sock_bind(struct socket 
- 	struct sockaddr_iucv *sa = (struct sockaddr_iucv *) addr;
- 	struct sock *sk = sock->sk;
- 	struct iucv_sock *iucv;
--	int err;
-+	int err = 0;
-+	struct net_device *dev;
-+	char uid[9];
- 
- 	/* Verify the input sockaddr */
- 	if (!addr || addr->sa_family != AF_IUCV)
-@@ -614,19 +718,46 @@ static int iucv_sock_bind(struct socket 
- 		err = -EADDRINUSE;
- 		goto done_unlock;
- 	}
--	if (iucv->path) {
--		err = 0;
-+	if (iucv->path)
- 		goto done_unlock;
--	}
- 
- 	/* Bind the socket */
--	memcpy(iucv->src_name, sa->siucv_name, 8);
- 
--	/* Copy the user id */
--	memcpy(iucv->src_user_id, iucv_userid, 8);
--	sk->sk_state = IUCV_BOUND;
--	err = 0;
-+	if (pr_iucv)
-+		if (!memcmp(sa->siucv_user_id, iucv_userid, 8))
-+			goto vm_bind; /* VM IUCV transport */
- 
-+	/* try hiper transport */
-+	memcpy(uid, sa->siucv_user_id, sizeof(uid));
-+	ASCEBC(uid, 8);
-+	rcu_read_lock();
-+	for_each_netdev_rcu(&init_net, dev) {
-+		if (!memcmp(dev->perm_addr, uid, 8)) {
-+			memcpy(iucv->src_name, sa->siucv_name, 8);
-+			memcpy(iucv->src_user_id, sa->siucv_user_id, 8);
-+			sock->sk->sk_bound_dev_if = dev->ifindex;
-+			sk->sk_state = IUCV_BOUND;
-+			iucv->transport = AF_IUCV_TRANS_HIPER;
-+			if (!iucv->msglimit)
-+				iucv->msglimit = IUCV_HIPER_MSGLIM_DEFAULT;
-+			rcu_read_unlock();
-+			goto done_unlock;
-+		}
-+	}
-+	rcu_read_unlock();
-+vm_bind:
-+	if (pr_iucv) {
-+		/* use local userid for backward compat */
-+		memcpy(iucv->src_name, sa->siucv_name, 8);
-+		memcpy(iucv->src_user_id, iucv_userid, 8);
-+		sk->sk_state = IUCV_BOUND;
-+		iucv->transport = AF_IUCV_TRANS_IUCV;
-+		if (!iucv->msglimit)
-+			iucv->msglimit = IUCV_QUEUELEN_DEFAULT;
-+		goto done_unlock;
-+	}
-+	/* found no dev to bind */
-+	err = -ENODEV;
- done_unlock:
- 	/* Release the socket list lock */
- 	write_unlock_bh(&iucv_sk_list.lock);
-@@ -662,12 +793,33 @@ static int iucv_sock_autobind(struct soc
- 
- 	memcpy(&iucv->src_name, name, 8);
- 
-+	if (!iucv->msglimit)
-+		iucv->msglimit = IUCV_QUEUELEN_DEFAULT;
-+
- 	return err;
- }
- 
--/* Connect an unconnected socket */
--static int iucv_sock_connect(struct socket *sock, struct sockaddr *addr,
--			     int alen, int flags)
-+static int afiucv_hs_connect(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+	struct sk_buff *skb;
-+	int blen = sizeof(struct af_iucv_trans_hdr) + ETH_HLEN;
-+	int err = 0;
-+
-+	/* send syn */
-+	skb = sock_alloc_send_skb(sk, blen, 1, &err);
-+	if (!skb) {
-+		err = -ENOMEM;
-+		goto done;
-+	}
-+	skb->dev = NULL;
-+	skb_reserve(skb, blen);
-+	err = afiucv_hs_send(NULL, sk, skb, AF_IUCV_FLAG_SYN);
-+done:
-+	return err;
-+}
-+
-+static int afiucv_path_connect(struct socket *sock, struct sockaddr *addr)
- {
- 	struct sockaddr_iucv *sa = (struct sockaddr_iucv *) addr;
- 	struct sock *sk = sock->sk;
-@@ -675,27 +827,6 @@ static int iucv_sock_connect(struct sock
- 	unsigned char user_data[16];
- 	int err;
- 
--	if (addr->sa_family != AF_IUCV || alen < sizeof(struct sockaddr_iucv))
--		return -EINVAL;
--
--	if (sk->sk_state != IUCV_OPEN && sk->sk_state != IUCV_BOUND)
--		return -EBADFD;
--
--	if (sk->sk_type != SOCK_STREAM && sk->sk_type != SOCK_SEQPACKET)
--		return -EINVAL;
--
--	if (sk->sk_state == IUCV_OPEN) {
--		err = iucv_sock_autobind(sk);
--		if (unlikely(err))
--			return err;
--	}
--
--	lock_sock(sk);
--
--	/* Set the destination information */
--	memcpy(iucv->dst_user_id, sa->siucv_user_id, 8);
--	memcpy(iucv->dst_name, sa->siucv_name, 8);
--
- 	high_nmcpy(user_data, sa->siucv_name);
- 	low_nmcpy(user_data, iucv->src_name);
- 	ASCEBC(user_data, sizeof(user_data));
-@@ -728,20 +859,61 @@ static int iucv_sock_connect(struct sock
- 			err = -ECONNREFUSED;
- 			break;
- 		}
--		goto done;
-+	}
-+done:
-+	return err;
-+}
-+
-+/* Connect an unconnected socket */
-+static int iucv_sock_connect(struct socket *sock, struct sockaddr *addr,
-+			     int alen, int flags)
-+{
-+	struct sockaddr_iucv *sa = (struct sockaddr_iucv *) addr;
-+	struct sock *sk = sock->sk;
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+	int err;
-+
-+	if (addr->sa_family != AF_IUCV || alen < sizeof(struct sockaddr_iucv))
-+		return -EINVAL;
-+
-+	if (sk->sk_state != IUCV_OPEN && sk->sk_state != IUCV_BOUND)
-+		return -EBADFD;
-+
-+	if (sk->sk_state == IUCV_OPEN &&
-+	    iucv->transport == AF_IUCV_TRANS_HIPER)
-+		return -EBADFD; /* explicit bind required */
-+
-+	if (sk->sk_type != SOCK_STREAM && sk->sk_type != SOCK_SEQPACKET)
-+		return -EINVAL;
-+
-+	if (sk->sk_state == IUCV_OPEN) {
-+		err = iucv_sock_autobind(sk);
-+		if (unlikely(err))
-+			return err;
- 	}
- 
--	if (sk->sk_state != IUCV_CONNECTED) {
-+	lock_sock(sk);
-+
-+	/* Set the destination information */
-+	memcpy(iucv->dst_user_id, sa->siucv_user_id, 8);
-+	memcpy(iucv->dst_name, sa->siucv_name, 8);
-+
-+	if (iucv->transport == AF_IUCV_TRANS_HIPER)
-+		err = afiucv_hs_connect(sock);
-+	else
-+		err = afiucv_path_connect(sock, addr);
-+	if (err)
-+		goto done;
-+
-+	if (sk->sk_state != IUCV_CONNECTED)
- 		err = iucv_sock_wait(sk, iucv_sock_in_state(sk, IUCV_CONNECTED,
- 							    IUCV_DISCONN),
- 				     sock_sndtimeo(sk, flags & O_NONBLOCK));
--	}
- 
--	if (sk->sk_state == IUCV_DISCONN) {
-+	if (sk->sk_state == IUCV_DISCONN || sk->sk_state == IUCV_CLOSED)
- 		err = -ECONNREFUSED;
--	}
- 
--	if (err) {
-+	if (err && iucv->transport == AF_IUCV_TRANS_IUCV) {
- 		pr_iucv->path_sever(iucv->path, NULL);
- 		iucv_path_free(iucv->path);
- 		iucv->path = NULL;
-@@ -965,9 +1137,16 @@ static int iucv_sock_sendmsg(struct kioc
- 	 * this is fine for SOCK_SEQPACKET (unless we want to support
- 	 * segmented records using the MSG_EOR flag), but
- 	 * for SOCK_STREAM we might want to improve it in future */
--	skb = sock_alloc_send_skb(sk, len, noblock, &err);
-+	if (iucv->transport == AF_IUCV_TRANS_HIPER)
-+		skb = sock_alloc_send_skb(sk,
-+			len + sizeof(struct af_iucv_trans_hdr) + ETH_HLEN,
-+			noblock, &err);
-+	else
-+		skb = sock_alloc_send_skb(sk, len, noblock, &err);
- 	if (!skb)
- 		goto out;
-+	if (iucv->transport == AF_IUCV_TRANS_HIPER)
-+		skb_reserve(skb, sizeof(struct af_iucv_trans_hdr) + ETH_HLEN);
- 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
- 		err = -EFAULT;
- 		goto fail;
-@@ -988,6 +1167,15 @@ static int iucv_sock_sendmsg(struct kioc
- 	/* increment and save iucv message tag for msg_completion cbk */
- 	txmsg.tag = iucv->send_tag++;
- 	memcpy(CB_TAG(skb), &txmsg.tag, CB_TAG_LEN);
-+	if (iucv->transport == AF_IUCV_TRANS_HIPER) {
-+		atomic_inc(&iucv->msg_sent);
-+		err = afiucv_hs_send(&txmsg, sk, skb, 0);
-+		if (err) {
-+			atomic_dec(&iucv->msg_sent);
-+			goto fail;
-+		}
-+		goto release;
-+	}
- 	skb_queue_tail(&iucv->send_skb_q, skb);
- 
- 	if (((iucv->path->flags & IUCV_IPRMDATA) & iucv->flags)
-@@ -1028,6 +1216,7 @@ static int iucv_sock_sendmsg(struct kioc
- 		goto fail;
- 	}
- 
-+release:
- 	release_sock(sk);
- 	return len;
- 
-@@ -1160,7 +1349,8 @@ static int iucv_sock_recvmsg(struct kioc
- 	struct sock *sk = sock->sk;
- 	struct iucv_sock *iucv = iucv_sk(sk);
- 	unsigned int copied, rlen;
--	struct sk_buff *skb, *rskb, *cskb;
-+	struct sk_buff *skb, *rskb, *cskb, *sskb;
-+	int blen;
- 	int err = 0;
- 
- 	if ((sk->sk_state == IUCV_DISCONN || sk->sk_state == IUCV_SEVERED) &&
-@@ -1185,7 +1375,7 @@ static int iucv_sock_recvmsg(struct kioc
- 	copied = min_t(unsigned int, rlen, len);
- 
- 	cskb = skb;
--	if (memcpy_toiovec(msg->msg_iov, cskb->data, copied)) {
-+	if (skb_copy_datagram_iovec(cskb, 0, msg->msg_iov, copied)) {
- 		if (!(flags & MSG_PEEK))
- 			skb_queue_head(&sk->sk_receive_queue, skb);
- 		return -EFAULT;
-@@ -1223,6 +1413,7 @@ static int iucv_sock_recvmsg(struct kioc
- 		}
- 
- 		kfree_skb(skb);
-+		atomic_inc(&iucv->msg_recv);
- 
- 		/* Queue backlog skbs */
- 		spin_lock_bh(&iucv->message_q.lock);
-@@ -1239,6 +1430,24 @@ static int iucv_sock_recvmsg(struct kioc
- 		if (skb_queue_empty(&iucv->backlog_skb_q)) {
- 			if (!list_empty(&iucv->message_q.list))
- 				iucv_process_message_q(sk);
-+			if (atomic_read(&iucv->msg_recv) >=
-+							iucv->msglimit / 2) {
-+				/* send WIN to peer */
-+				blen = sizeof(struct af_iucv_trans_hdr) +
-+					ETH_HLEN;
-+				sskb = sock_alloc_send_skb(sk, blen, 1, &err);
-+				if (sskb) {
-+					skb_reserve(sskb,
-+						sizeof(struct af_iucv_trans_hdr)
-+						+ ETH_HLEN);
-+					err = afiucv_hs_send(NULL, sk, sskb,
-+							     AF_IUCV_FLAG_WIN);
-+				}
-+				if (err) {
-+					sk->sk_state = IUCV_DISCONN;
-+					sk->sk_state_change(sk);
-+				}
-+			}
- 		}
- 		spin_unlock_bh(&iucv->message_q.lock);
- 	}
-@@ -1698,6 +1907,389 @@ static void iucv_callback_shutdown(struc
- 	bh_unlock_sock(sk);
- }
- 
-+/***************** HiperSockets transport callbacks ********************/
-+static void afiucv_swap_src_dest(struct sk_buff *skb)
-+{
-+	struct af_iucv_trans_hdr *trans_hdr =
-+				(struct af_iucv_trans_hdr *)skb->data;
-+	char tmpID[8];
-+	char tmpName[8];
-+
-+	ASCEBC(trans_hdr->destUserID, sizeof(trans_hdr->destUserID));
-+	ASCEBC(trans_hdr->destAppName, sizeof(trans_hdr->destAppName));
-+	ASCEBC(trans_hdr->srcUserID, sizeof(trans_hdr->srcUserID));
-+	ASCEBC(trans_hdr->srcAppName, sizeof(trans_hdr->srcAppName));
-+	memcpy(tmpID, trans_hdr->srcUserID, 8);
-+	memcpy(tmpName, trans_hdr->srcAppName, 8);
-+	memcpy(trans_hdr->srcUserID, trans_hdr->destUserID, 8);
-+	memcpy(trans_hdr->srcAppName, trans_hdr->destAppName, 8);
-+	memcpy(trans_hdr->destUserID, tmpID, 8);
-+	memcpy(trans_hdr->destAppName, tmpName, 8);
-+	skb_push(skb, ETH_HLEN);
-+	memset(skb->data, 0, ETH_HLEN);
-+}
++struct qaob {
++	u64 res0[6];
++	u8 res1;
++	u8 res2;
++	u8 res3;
++	u8 aorc;
++	u8 flags;
++	u16 cbtbs;
++	u8 sb_count;
++	u64 sba[QDIO_MAX_ELEMENTS_PER_BUFFER];
++	u16 dcount[QDIO_MAX_ELEMENTS_PER_BUFFER];
++	u64 user0;
++	u64 res4[2];
++	u64 user1;
++	u64 user2;
++} __attribute__ ((packed, aligned(256)));
 +
 +/**
-+ * afiucv_hs_callback_syn - react on received SYN
-+ **/
-+static int afiucv_hs_callback_syn(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct sock *nsk;
-+	struct iucv_sock *iucv, *niucv;
-+	struct af_iucv_trans_hdr *trans_hdr;
-+	int err;
-+
-+	iucv = iucv_sk(sk);
-+	trans_hdr = (struct af_iucv_trans_hdr *)skb->data;
-+	if (!iucv) {
-+		/* no sock - connection refused */
-+		afiucv_swap_src_dest(skb);
-+		trans_hdr->flags = AF_IUCV_FLAG_SYN | AF_IUCV_FLAG_FIN;
-+		err = dev_queue_xmit(skb);
-+		goto out;
-+	}
-+
-+	nsk = iucv_sock_alloc(NULL, sk->sk_type, GFP_ATOMIC);
-+	bh_lock_sock(sk);
-+	if ((sk->sk_state != IUCV_LISTEN) ||
-+	    sk_acceptq_is_full(sk) ||
-+	    !nsk) {
-+		/* error on server socket - connection refused */
-+		if (nsk)
-+			sk_free(nsk);
-+		afiucv_swap_src_dest(skb);
-+		trans_hdr->flags = AF_IUCV_FLAG_SYN | AF_IUCV_FLAG_FIN;
-+		err = dev_queue_xmit(skb);
-+		bh_unlock_sock(sk);
-+		goto out;
-+	}
-+
-+	niucv = iucv_sk(nsk);
-+	iucv_sock_init(nsk, sk);
-+	niucv->transport = AF_IUCV_TRANS_HIPER;
-+	niucv->msglimit = iucv->msglimit;
-+	if (!trans_hdr->window)
-+		niucv->msglimit_peer = IUCV_HIPER_MSGLIM_DEFAULT;
-+	else
-+		niucv->msglimit_peer = trans_hdr->window;
-+	memcpy(niucv->dst_name, trans_hdr->srcAppName, 8);
-+	memcpy(niucv->dst_user_id, trans_hdr->srcUserID, 8);
-+	memcpy(niucv->src_name, iucv->src_name, 8);
-+	memcpy(niucv->src_user_id, iucv->src_user_id, 8);
-+	nsk->sk_bound_dev_if = sk->sk_bound_dev_if;
-+	afiucv_swap_src_dest(skb);
-+	trans_hdr->flags = AF_IUCV_FLAG_SYN | AF_IUCV_FLAG_ACK;
-+	trans_hdr->window = niucv->msglimit;
-+	/* if receiver acks the xmit connection is established */
-+	err = dev_queue_xmit(skb);
-+	if (!err) {
-+		iucv_accept_enqueue(sk, nsk);
-+		nsk->sk_state = IUCV_CONNECTED;
-+		sk->sk_data_ready(sk, 1);
-+	} else
-+		iucv_sock_kill(nsk);
-+	bh_unlock_sock(sk);
-+
-+out:
-+	return NET_RX_SUCCESS;
-+}
-+
-+/**
-+ * afiucv_hs_callback_synack() - react on received SYN-ACK
-+ **/
-+static int afiucv_hs_callback_synack(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+	struct af_iucv_trans_hdr *trans_hdr =
-+					(struct af_iucv_trans_hdr *)skb->data;
-+
-+	if (!iucv)
-+		goto out;
-+	if (sk->sk_state != IUCV_BOUND)
-+		goto out;
-+	bh_lock_sock(sk);
-+	iucv->msglimit_peer = trans_hdr->window;
-+	sk->sk_state = IUCV_CONNECTED;
-+	sk->sk_state_change(sk);
-+	bh_unlock_sock(sk);
-+out:
-+	kfree_skb(skb);
-+	return NET_RX_SUCCESS;
-+}
-+
-+/**
-+ * afiucv_hs_callback_synfin() - react on received SYN_FIN
-+ **/
-+static int afiucv_hs_callback_synfin(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+
-+	if (!iucv)
-+		goto out;
-+	if (sk->sk_state != IUCV_BOUND)
-+		goto out;
-+	bh_lock_sock(sk);
-+	sk->sk_state = IUCV_DISCONN;
-+	sk->sk_state_change(sk);
-+	bh_unlock_sock(sk);
-+out:
-+	kfree_skb(skb);
-+	return NET_RX_SUCCESS;
-+}
-+
-+/**
-+ * afiucv_hs_callback_fin() - react on received FIN
-+ **/
-+static int afiucv_hs_callback_fin(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+
-+	/* other end of connection closed */
-+	if (iucv) {
-+		bh_lock_sock(sk);
-+		if (!list_empty(&iucv->accept_q))
-+			sk->sk_state = IUCV_SEVERED;
-+		else
-+			sk->sk_state = IUCV_DISCONN;
-+		sk->sk_state_change(sk);
-+		bh_unlock_sock(sk);
-+	}
-+	kfree_skb(skb);
-+	return NET_RX_SUCCESS;
-+}
-+
-+/**
-+ * afiucv_hs_callback_win() - react on received WIN
-+ **/
-+static int afiucv_hs_callback_win(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+	struct af_iucv_trans_hdr *trans_hdr =
-+					(struct af_iucv_trans_hdr *)skb->data;
-+
-+	if (!iucv)
-+		return NET_RX_SUCCESS;
-+
-+	if (sk->sk_state != IUCV_CONNECTED)
-+		return NET_RX_SUCCESS;
-+
-+	atomic_sub(trans_hdr->window, &iucv->msg_sent);
-+	iucv_sock_wake_msglim(sk);
-+	return NET_RX_SUCCESS;
-+}
-+
-+/**
-+ * afiucv_hs_callback_rx() - react on received data
-+ **/
-+static int afiucv_hs_callback_rx(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+
-+	if (!iucv) {
-+		kfree_skb(skb);
-+		return NET_RX_SUCCESS;
-+	}
-+
-+	if (sk->sk_state != IUCV_CONNECTED) {
-+		kfree_skb(skb);
-+		return NET_RX_SUCCESS;
-+	}
-+
-+		/* write stuff from iucv_msg to skb cb */
-+	if (skb->len <= sizeof(struct af_iucv_trans_hdr)) {
-+		kfree_skb(skb);
-+		return NET_RX_SUCCESS;
-+	}
-+	skb_pull(skb, sizeof(struct af_iucv_trans_hdr));
-+	skb_reset_transport_header(skb);
-+	skb_reset_network_header(skb);
-+	spin_lock(&iucv->message_q.lock);
-+	if (skb_queue_empty(&iucv->backlog_skb_q)) {
-+		if (sock_queue_rcv_skb(sk, skb)) {
-+			/* handle rcv queue full */
-+			skb_queue_tail(&iucv->backlog_skb_q, skb);
-+		}
-+	} else
-+		skb_queue_tail(&iucv_sk(sk)->backlog_skb_q, skb);
-+	spin_unlock(&iucv->message_q.lock);
-+	return NET_RX_SUCCESS;
-+}
-+
-+/**
-+ * afiucv_hs_rcv() - base function for arriving data through HiperSockets
-+ *                   transport
-+ *                   called from netif RX softirq
-+ **/
-+static int afiucv_hs_rcv(struct sk_buff *skb, struct net_device *dev,
-+	struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	struct hlist_node *node;
-+	struct sock *sk;
-+	struct iucv_sock *iucv;
-+	struct af_iucv_trans_hdr *trans_hdr;
-+	char nullstring[8];
-+	int err = 0;
-+
-+	skb_pull(skb, ETH_HLEN);
-+	trans_hdr = (struct af_iucv_trans_hdr *)skb->data;
-+	EBCASC(trans_hdr->destAppName, sizeof(trans_hdr->destAppName));
-+	EBCASC(trans_hdr->destUserID, sizeof(trans_hdr->destUserID));
-+	EBCASC(trans_hdr->srcAppName, sizeof(trans_hdr->srcAppName));
-+	EBCASC(trans_hdr->srcUserID, sizeof(trans_hdr->srcUserID));
-+	memset(nullstring, 0, sizeof(nullstring));
-+	iucv = NULL;
-+	sk = NULL;
-+	read_lock(&iucv_sk_list.lock);
-+	sk_for_each(sk, node, &iucv_sk_list.head) {
-+		if (trans_hdr->flags == AF_IUCV_FLAG_SYN) {
-+			if ((!memcmp(&iucv_sk(sk)->src_name,
-+				     trans_hdr->destAppName, 8)) &&
-+			    (!memcmp(&iucv_sk(sk)->src_user_id,
-+				     trans_hdr->destUserID, 8)) &&
-+			    (!memcmp(&iucv_sk(sk)->dst_name, nullstring, 8)) &&
-+			    (!memcmp(&iucv_sk(sk)->dst_user_id,
-+				     nullstring, 8))) {
-+				iucv = iucv_sk(sk);
-+				break;
-+			}
-+		} else {
-+			if ((!memcmp(&iucv_sk(sk)->src_name,
-+				     trans_hdr->destAppName, 8)) &&
-+			    (!memcmp(&iucv_sk(sk)->src_user_id,
-+				     trans_hdr->destUserID, 8)) &&
-+			    (!memcmp(&iucv_sk(sk)->dst_name,
-+				     trans_hdr->srcAppName, 8)) &&
-+			    (!memcmp(&iucv_sk(sk)->dst_user_id,
-+				     trans_hdr->srcUserID, 8))) {
-+				iucv = iucv_sk(sk);
-+				break;
-+			}
-+		}
-+	}
-+	read_unlock(&iucv_sk_list.lock);
-+	if (!iucv)
-+		sk = NULL;
-+
-+	/* no sock
-+	how should we send with no sock
-+	1) send without sock no send rc checking?
-+	2) introduce default sock to handle this cases
-+
-+	 SYN -> send SYN|ACK in good case, send SYN|FIN in bad case
-+	 data -> send FIN
-+	 SYN|ACK, SYN|FIN, FIN -> no action? */
-+
-+	switch (trans_hdr->flags) {
-+	case AF_IUCV_FLAG_SYN:
-+		/* connect request */
-+		err = afiucv_hs_callback_syn(sk, skb);
-+		break;
-+	case (AF_IUCV_FLAG_SYN | AF_IUCV_FLAG_ACK):
-+		/* connect request confirmed */
-+		err = afiucv_hs_callback_synack(sk, skb);
-+		break;
-+	case (AF_IUCV_FLAG_SYN | AF_IUCV_FLAG_FIN):
-+		/* connect request refused */
-+		err = afiucv_hs_callback_synfin(sk, skb);
-+		break;
-+	case (AF_IUCV_FLAG_FIN):
-+		/* close request */
-+		err = afiucv_hs_callback_fin(sk, skb);
-+		break;
-+	case (AF_IUCV_FLAG_WIN):
-+		err = afiucv_hs_callback_win(sk, skb);
-+		if (skb->len > sizeof(struct af_iucv_trans_hdr))
-+			err = afiucv_hs_callback_rx(sk, skb);
-+		else
-+			kfree(skb);
-+		break;
-+	case 0:
-+		/* plain data frame */
-+		err = afiucv_hs_callback_rx(sk, skb);
-+		break;
-+	default:
-+		;
-+	}
-+
-+	return err;
-+}
-+
-+/**
-+ * afiucv_hs_callback_txnotify() - handle send notifcations from HiperSockets
-+ *                                 transport
-+ **/
-+static void afiucv_hs_callback_txnotify(struct sk_buff *skb,
-+					enum iucv_tx_notify n)
-+{
-+	struct sock *isk = skb->sk;
-+	struct sock *sk = NULL;
-+	struct iucv_sock *iucv = NULL;
-+	struct sk_buff_head *list;
-+	struct sk_buff *list_skb;
-+	struct sk_buff *this = NULL;
-+	unsigned long flags;
-+	struct hlist_node *node;
-+
-+	read_lock(&iucv_sk_list.lock);
-+	sk_for_each(sk, node, &iucv_sk_list.head)
-+		if (sk == isk) {
-+			iucv = iucv_sk(sk);
-+			break;
-+		}
-+	read_unlock(&iucv_sk_list.lock);
-+
-+	if (!iucv)
-+		return;
-+
-+	bh_lock_sock(sk);
-+	list = &iucv->send_skb_q;
-+	list_skb = list->next;
-+	if (skb_queue_empty(list))
-+		goto out_unlock;
-+
-+	spin_lock_irqsave(&list->lock, flags);
-+	while (list_skb != (struct sk_buff *)list) {
-+		if (skb_shinfo(list_skb) == skb_shinfo(skb)) {
-+			this = list_skb;
-+			switch (n) {
-+			case TX_NOTIFY_OK:
-+				__skb_unlink(this, list);
-+				iucv_sock_wake_msglim(sk);
-+				kfree_skb(this);
-+				break;
-+			case TX_NOTIFY_PENDING:
-+				atomic_inc(&iucv->pendings);
-+				break;
-+			case TX_NOTIFY_DELAYED_OK:
-+				__skb_unlink(this, list);
-+				atomic_dec(&iucv->pendings);
-+				if (atomic_read(&iucv->pendings) <= 0)
-+					iucv_sock_wake_msglim(sk);
-+				kfree_skb(this);
-+				break;
-+			case TX_NOTIFY_UNREACHABLE:
-+			case TX_NOTIFY_DELAYED_UNREACHABLE:
-+			case TX_NOTIFY_TPQFULL: /* not yet used */
-+			case TX_NOTIFY_GENERALERROR:
-+			case TX_NOTIFY_DELAYED_GENERALERROR:
-+				__skb_unlink(this, list);
-+				kfree_skb(this);
-+				if (!list_empty(&iucv->accept_q))
-+					sk->sk_state = IUCV_SEVERED;
-+				else
-+					sk->sk_state = IUCV_DISCONN;
-+				sk->sk_state_change(sk);
-+				break;
-+			}
-+			break;
-+		}
-+		list_skb = list_skb->next;
-+	}
-+	spin_unlock_irqrestore(&list->lock, flags);
-+
-+out_unlock:
-+	bh_unlock_sock(sk);
-+}
- static const struct proto_ops iucv_sock_ops = {
- 	.family		= PF_IUCV,
- 	.owner		= THIS_MODULE,
-@@ -1724,7 +2316,12 @@ static const struct net_proto_family iuc
- 	.create	= iucv_sock_create,
- };
+  * struct slib - storage list information block (SLIB)
+  * @nsliba: next SLIB address (if any)
+  * @sla: SL address
+@@ -225,6 +259,31 @@ struct slsb {
+ #define CHSC_AC2_DATA_DIV_AVAILABLE	0x0010
+ #define CHSC_AC2_DATA_DIV_ENABLED	0x0002
  
--static int __init afiucv_iucv_init(void)
-+static struct packet_type iucv_packet_type = {
-+	.type = cpu_to_be16(ETH_P_AF_IUCV),
-+	.func = afiucv_hs_rcv,
++/**
++ * struct qdio_outbuf_state - SBAL related asynchronous operation information
++ *   (for communication with upper layer programs)
++ *   (only required for use with completion queues)
++ * @flags: flags indicating state of buffer
++ * @aob: pointer to QAOB used for the particular SBAL
++ * @user: pointer to upper layer program's state information related to SBAL
++ *        (stored in user1 data of QAOB)
++ */
++struct qdio_outbuf_state {
++	u8 flags;
++	struct qaob *aob;
++	void *user;
 +};
 +
-+static int afiucv_iucv_init(void)
++#define QDIO_OUTBUF_STATE_FLAG_NONE	0x00
++#define QDIO_OUTBUF_STATE_FLAG_PENDING	0x01
++
++#define CHSC_AC1_INITIATE_INPUTQ	0x80
++
++#define CHSC_AC2_DATA_DIV_AVAILABLE	0x0010
++#define CHSC_AC2_DATA_DIV_ENABLED	0x0002
++
++#define CHSC_AC3_FORMAT2_CQ_AVAILABLE	0x8000
++
+ struct qdio_ssqd_desc {
+ 	u8 flags;
+ 	u8:8;
+@@ -243,8 +302,7 @@ struct qdio_ssqd_desc {
+ 	u64 sch_token;
+ 	u8 mro;
+ 	u8 mri;
+-	u8:8;
+-	u8 sbalic;
++	u16 qdioac3;
+ 	u16:16;
+ 	u8:8;
+ 	u8 mmwc;
+@@ -280,9 +338,11 @@ typedef void qdio_handler_t(struct ccw_d
+  * @no_output_qs: number of output queues
+  * @input_handler: handler to be called for input queues
+  * @output_handler: handler to be called for output queues
++ * @queue_start_poll: polling handlers (one per input queue or NULL)
+  * @int_parm: interruption parameter
+  * @input_sbal_addr_array:  address of no_input_qs * 128 pointers
+  * @output_sbal_addr_array: address of no_output_qs * 128 pointers
++ * @output_sbal_state_array: no_output_qs * 128 state info (for CQ or NULL)
+  */
+ struct qdio_initialize {
+ 	struct ccw_device *cdev;
+@@ -297,11 +357,12 @@ struct qdio_initialize {
+ 	unsigned int no_output_qs;
+ 	qdio_handler_t *input_handler;
+ 	qdio_handler_t *output_handler;
+-	void (*queue_start_poll) (struct ccw_device *, int, unsigned long);
++	void (**queue_start_poll) (struct ccw_device *, int, unsigned long);
+ 	int scan_threshold;
+ 	unsigned long int_parm;
+ 	void **input_sbal_addr_array;
+ 	void **output_sbal_addr_array;
++	struct qdio_outbuf_state *output_sbal_state_array;
+ };
+ 
+ #define QDIO_STATE_INACTIVE		0x00000002 /* after qdio_cleanup */
+@@ -316,6 +377,7 @@ struct qdio_initialize {
+ extern int qdio_allocate(struct qdio_initialize *);
+ extern int qdio_establish(struct qdio_initialize *);
+ extern int qdio_activate(struct ccw_device *);
++extern void qdio_release_aob(struct qaob *);
+ extern int do_QDIO(struct ccw_device *, unsigned int, int, unsigned int,
+ 		   unsigned int);
+ extern int qdio_start_irq(struct ccw_device *, int);
+--- a/drivers/s390/cio/qdio.h
++++ b/drivers/s390/cio/qdio.h
+@@ -42,6 +42,7 @@ enum qdio_irq_states {
+ #define SLSB_STATE_NOT_INIT	0x0
+ #define SLSB_STATE_EMPTY	0x1
+ #define SLSB_STATE_PRIMED	0x2
++#define SLSB_STATE_PENDING	0x3
+ #define SLSB_STATE_HALTED	0xe
+ #define SLSB_STATE_ERROR	0xf
+ #define SLSB_TYPE_INPUT		0x0
+@@ -65,6 +66,8 @@ enum qdio_irq_states {
+ 	(SLSB_OWNER_PROG | SLSB_TYPE_OUTPUT | SLSB_STATE_NOT_INIT) /* 0xa0 */
+ #define SLSB_P_OUTPUT_EMPTY	\
+ 	(SLSB_OWNER_PROG | SLSB_TYPE_OUTPUT | SLSB_STATE_EMPTY)	   /* 0xa1 */
++#define SLSB_P_OUTPUT_PENDING \
++	(SLSB_OWNER_PROG | SLSB_TYPE_OUTPUT | SLSB_STATE_PENDING)  /* 0xa3 */
+ #define SLSB_CU_OUTPUT_PRIMED	\
+ 	(SLSB_OWNER_CU | SLSB_TYPE_OUTPUT | SLSB_STATE_PRIMED)	   /* 0x62 */
+ #define SLSB_P_OUTPUT_HALTED	\
+@@ -95,6 +98,7 @@ enum qdio_irq_states {
+ #define QDIO_SIGA_WRITE		0x00
+ #define QDIO_SIGA_READ		0x01
+ #define QDIO_SIGA_SYNC		0x02
++#define QDIO_SIGA_WRITEQ	0x04
+ #define QDIO_SIGA_QEBSM_FLAG	0x80
+ 
+ #ifdef CONFIG_64BIT
+@@ -251,6 +255,12 @@ struct qdio_input_q {
+ struct qdio_output_q {
+ 	/* PCIs are enabled for the queue */
+ 	int pci_out_enabled;
++	/* cq: use asynchronous output buffers */
++	int use_cq;
++	/* cq: aobs used for particual SBAL */
++	struct qaob **aobs;
++	/* cq: sbal state related to asynchronous operation */
++	struct qdio_outbuf_state *sbal_state;
+ 	/* timer to check for more outbound work */
+ 	struct timer_list timer;
+ 	/* used SBALs before tasklet schedule */
+@@ -430,9 +440,20 @@ struct indicator_t {
+ 
+ extern struct indicator_t *q_indicators;
+ 
+-static inline int shared_ind(u32 *dsci)
++static inline int has_multiple_inq_on_dsci(struct qdio_irq *irq)
  {
- 	int err;
+-	return dsci == &q_indicators[TIQDIO_SHARED_IND].ind;
++	return irq->nr_input_qs > 1;
++}
++
++static inline int references_shared_dsci(struct qdio_irq *irq)
++{
++	return irq->dsci == &q_indicators[TIQDIO_SHARED_IND].ind;
++}
++
++static inline int shared_ind(struct qdio_q *q)
++{
++	struct qdio_irq *i = q->irq_ptr;
++	return references_shared_dsci(i) || has_multiple_inq_on_dsci(i);
+ }
  
-@@ -1763,24 +2360,22 @@ static int __init afiucv_init(void)
+ /* prototypes for thin interrupt */
+@@ -447,6 +468,7 @@ void tiqdio_free_memory(void);
+ int tiqdio_register_thinints(void);
+ void tiqdio_unregister_thinints(void);
+ 
++
+ /* prototypes for setup */
+ void qdio_inbound_processing(unsigned long data);
+ void qdio_outbound_processing(unsigned long data);
+@@ -467,6 +489,9 @@ int qdio_setup_create_sysfs(struct ccw_d
+ void qdio_setup_destroy_sysfs(struct ccw_device *cdev);
+ int qdio_setup_init(void);
+ void qdio_setup_exit(void);
++int qdio_enable_async_operation(struct qdio_output_q *q);
++void qdio_disable_async_operation(struct qdio_output_q *q);
++struct qaob *qdio_allocate_aob(void);
+ 
+ int debug_get_buf_state(struct qdio_q *q, unsigned int bufnr,
+ 			unsigned char *state);
+--- a/drivers/s390/cio/qdio_debug.c
++++ b/drivers/s390/cio/qdio_debug.c
+@@ -76,6 +76,9 @@ static int qstat_show(struct seq_file *m
+ 		case SLSB_P_OUTPUT_NOT_INIT:
+ 			seq_printf(m, "N");
+ 			break;
++		case SLSB_P_OUTPUT_PENDING:
++			seq_printf(m, "P");
++			break;
+ 		case SLSB_P_INPUT_PRIMED:
+ 		case SLSB_CU_OUTPUT_PRIMED:
+ 			seq_printf(m, "+");
+--- a/drivers/s390/cio/qdio_main.c
++++ b/drivers/s390/cio/qdio_main.c
+@@ -14,6 +14,7 @@
+ #include <linux/timer.h>
+ #include <linux/delay.h>
+ #include <linux/gfp.h>
++#include <linux/io.h>
+ #include <linux/kernel_stat.h>
+ #include <asm/atomic.h>
+ #include <asm/debug.h>
+@@ -77,11 +78,13 @@ static inline int do_siga_input(unsigned
+  * Note: For IQDC unicast queues only the highest priority queue is processed.
+  */
+ static inline int do_siga_output(unsigned long schid, unsigned long mask,
+-				 unsigned int *bb, unsigned int fc)
++				 unsigned int *bb, unsigned int fc,
++				 unsigned long aob)
  {
- 	int err;
+ 	register unsigned long __fc asm("0") = fc;
+ 	register unsigned long __schid asm("1") = schid;
+ 	register unsigned long __mask asm("2") = mask;
++	register unsigned long __aob asm("3") = aob;
+ 	int cc = QDIO_ERROR_SIGA_ACCESS_EXCEPTION;
  
--	if (!MACHINE_IS_VM) {
--		pr_err("The af_iucv module cannot be loaded"
--		       " without z/VM\n");
--		err = -EPROTONOSUPPORT;
--		goto out;
--	}
--	cpcmd("QUERY USERID", iucv_userid, sizeof(iucv_userid), &err);
--	if (unlikely(err)) {
--		WARN_ON(err);
--		err = -EPROTONOSUPPORT;
--		goto out;
--	}
-+	if (MACHINE_IS_VM) {
-+		cpcmd("QUERY USERID", iucv_userid, sizeof(iucv_userid), &err);
-+		if (unlikely(err)) {
-+			WARN_ON(err);
-+			err = -EPROTONOSUPPORT;
-+			goto out;
-+		}
+ 	asm volatile(
+@@ -90,7 +93,8 @@ static inline int do_siga_output(unsigne
+ 		"	srl	%0,28\n"
+ 		"1:\n"
+ 		EX_TABLE(0b, 1b)
+-		: "+d" (cc), "+d" (__fc), "+d" (__schid), "+d" (__mask)
++		: "+d" (cc), "+d" (__fc), "+d" (__schid), "+d" (__mask),
++		  "+d" (__aob)
+ 		: : "cc", "memory");
+ 	*bb = ((unsigned int) __fc) >> 31;
+ 	return cc;
+@@ -212,7 +216,7 @@ again:
+ /* returns number of examined buffers and their common state in *state */
+ static inline int get_buf_states(struct qdio_q *q, unsigned int bufnr,
+ 				 unsigned char *state, unsigned int count,
+-				 int auto_ack)
++				 int auto_ack, int merge_pending)
+ {
+ 	unsigned char __state = 0;
+ 	int i;
+@@ -224,9 +228,14 @@ static inline int get_buf_states(struct
+ 		return qdio_do_eqbs(q, state, bufnr, count, auto_ack);
  
--	pr_iucv = try_then_request_module(symbol_get(iucv_if), "iucv");
--	if (!pr_iucv) {
--		printk(KERN_WARNING "iucv_if lookup failed\n");
--		err = -EPROTONOSUPPORT;
--		goto out;
-+		pr_iucv = try_then_request_module(symbol_get(iucv_if), "iucv");
-+		if (!pr_iucv) {
-+			printk(KERN_WARNING "iucv_if lookup failed\n");
-+			memset(&iucv_userid, 0, sizeof(iucv_userid));
+ 	for (i = 0; i < count; i++) {
+-		if (!__state)
++		if (!__state) {
+ 			__state = q->slsb.val[bufnr];
+-		else if (q->slsb.val[bufnr] != __state)
++			if (merge_pending && __state == SLSB_P_OUTPUT_PENDING)
++				__state = SLSB_P_OUTPUT_EMPTY;
++		} else if (merge_pending) {
++			if ((q->slsb.val[bufnr] & __state) != __state)
++				break;
++		} else if (q->slsb.val[bufnr] != __state)
+ 			break;
+ 		bufnr = next_buf(bufnr);
+ 	}
+@@ -237,7 +246,7 @@ static inline int get_buf_states(struct
+ static inline int get_buf_state(struct qdio_q *q, unsigned int bufnr,
+ 				unsigned char *state, int auto_ack)
+ {
+-	return get_buf_states(q, bufnr, state, 1, auto_ack);
++	return get_buf_states(q, bufnr, state, 1, auto_ack, 0);
+ }
+ 
+ /* wrap-around safe setting of slsb states, returns number of changed buffers */
+@@ -308,19 +317,28 @@ static inline int qdio_siga_sync_q(struc
+ 		return qdio_siga_sync(q, q->mask, 0);
+ }
+ 
+-static int qdio_siga_output(struct qdio_q *q, unsigned int *busy_bit)
++static int qdio_siga_output(struct qdio_q *q, unsigned int *busy_bit,
++	unsigned long aob)
+ {
+ 	unsigned long schid = *((u32 *) &q->irq_ptr->schid);
+ 	unsigned int fc = QDIO_SIGA_WRITE;
+ 	u64 start_time = 0;
+ 	int cc;
++	unsigned long laob = 0;
++
++	if (q->u.out.use_cq && aob != 0) {
++		fc = QDIO_SIGA_WRITEQ;
++		laob = aob;
++	}
+ 
+ 	if (is_qebsm(q)) {
+ 		schid = q->irq_ptr->sch_token;
+ 		fc |= QDIO_SIGA_QEBSM_FLAG;
+ 	}
+ again:
+-	cc = do_siga_output(schid, q->mask, busy_bit, fc);
++	WARN_ON_ONCE((aob && queue_type(q) != QDIO_IQDIO_QFMT) ||
++		(aob && fc != QDIO_SIGA_WRITEQ));
++	cc = do_siga_output(schid, q->mask, busy_bit, fc, laob);
+ 
+ 	/* hipersocket busy condition */
+ 	if (unlikely(*busy_bit)) {
+@@ -373,7 +391,7 @@ int debug_get_buf_state(struct qdio_q *q
+ {
+ 	if (need_siga_sync(q))
+ 		qdio_siga_sync_q(q);
+-	return get_buf_states(q, bufnr, state, 1, 0);
++	return get_buf_states(q, bufnr, state, 1, 0, 0);
+ }
+ 
+ static inline void qdio_stop_polling(struct qdio_q *q)
+@@ -501,7 +519,7 @@ static int get_inbound_buffer_frontier(s
+ 	 * No siga sync here, as a PCI or we after a thin interrupt
+ 	 * already sync'ed the queues.
+ 	 */
+-	count = get_buf_states(q, q->first_to_check, &state, count, 1);
++	count = get_buf_states(q, q->first_to_check, &state, count, 1, 0);
+ 	if (!count)
+ 		goto out;
+ 
+@@ -584,6 +602,107 @@ static inline int qdio_inbound_q_done(st
+ 		return 0;
+ }
+ 
++static inline int contains_aobs(struct qdio_q *q)
++{
++	return !q->is_input_q && q->u.out.use_cq;
++}
++
++static inline void qdio_trace_aob(struct qdio_irq *irq, struct qdio_q *q,
++				int i, struct qaob *aob)
++{
++	int tmp;
++
++	DBF_DEV_EVENT(DBF_INFO, irq, "AOB%d:%lx", i,
++			(unsigned long) virt_to_phys(aob));
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES00:%lx",
++			(unsigned long) aob->res0[0]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES01:%lx",
++			(unsigned long) aob->res0[1]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES02:%lx",
++			(unsigned long) aob->res0[2]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES03:%lx",
++			(unsigned long) aob->res0[3]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES04:%lx",
++			(unsigned long) aob->res0[4]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES05:%lx",
++			(unsigned long) aob->res0[5]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES1:%x", aob->res1);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES2:%x", aob->res2);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES3:%x", aob->res3);
++	DBF_DEV_EVENT(DBF_INFO, irq, "AORC:%u", aob->aorc);
++	DBF_DEV_EVENT(DBF_INFO, irq, "FLAGS:%u", aob->flags);
++	DBF_DEV_EVENT(DBF_INFO, irq, "CBTBS:%u", aob->cbtbs);
++	DBF_DEV_EVENT(DBF_INFO, irq, "SBC:%u", aob->sb_count);
++	for (tmp = 0; tmp < QDIO_MAX_ELEMENTS_PER_BUFFER; ++tmp) {
++		DBF_DEV_EVENT(DBF_INFO, irq, "SBA%d:%lx", tmp,
++				(unsigned long) aob->sba[tmp]);
++		DBF_DEV_EVENT(DBF_INFO, irq, "rSBA%d:%lx", tmp,
++				(unsigned long) q->sbal[i]->element[tmp].addr);
++		DBF_DEV_EVENT(DBF_INFO, irq, "DC%d:%u", tmp, aob->dcount[tmp]);
++		DBF_DEV_EVENT(DBF_INFO, irq, "rDC%d:%u", tmp,
++				q->sbal[i]->element[tmp].length);
++	}
++	DBF_DEV_EVENT(DBF_INFO, irq, "USER0:%lx", (unsigned long) aob->user0);
++	for (tmp = 0; tmp < 2; ++tmp) {
++		DBF_DEV_EVENT(DBF_INFO, irq, "RES4%d:%lx", tmp,
++			(unsigned long) aob->res4[tmp]);
++	}
++	DBF_DEV_EVENT(DBF_INFO, irq, "USER1:%lx", (unsigned long) aob->user1);
++	DBF_DEV_EVENT(DBF_INFO, irq, "USER2:%lx", (unsigned long) aob->user2);
++}
++
++static inline void qdio_handle_aobs(struct qdio_q *q, int start, int count)
++{
++	unsigned char state = 0;
++	int j, b = start;
++
++	if (!contains_aobs(q))
++		return;
++
++	for (j = 0; j < count; ++j) {
++		get_buf_state(q, b, &state, 0);
++		if (state == SLSB_P_OUTPUT_PENDING) {
++			struct qaob *aob = q->u.out.aobs[b];
++			if (aob == NULL)
++				continue;
++
++			BUG_ON(q->u.out.sbal_state == NULL);
++			q->u.out.sbal_state[b].flags |=
++				QDIO_OUTBUF_STATE_FLAG_PENDING;
++			q->u.out.aobs[b] = NULL;
++		} else if (state == SLSB_P_OUTPUT_EMPTY) {
++			BUG_ON(q->u.out.sbal_state == NULL);
++			q->u.out.sbal_state[b].aob = NULL;
 +		}
-+	} else {
-+		memset(&iucv_userid, 0, sizeof(iucv_userid));
-+		pr_iucv = NULL;
++		b = next_buf(b);
++	}
++}
++
++static inline unsigned long qdio_aob_for_buffer(struct qdio_output_q *q,
++					int bufnr)
++{
++	unsigned long phys_aob = 0;
++
++	if (!q->use_cq)
++		goto out;
++
++	if (!q->aobs[bufnr]) {
++		struct qaob *aob = qdio_allocate_aob();
++		q->aobs[bufnr] = aob;
++	}
++	if (q->aobs[bufnr]) {
++		BUG_ON(q->sbal_state == NULL);
++		q->sbal_state[bufnr].flags = QDIO_OUTBUF_STATE_FLAG_NONE;
++		q->sbal_state[bufnr].aob = q->aobs[bufnr];
++		q->aobs[bufnr]->user1 = (u64) q->sbal_state[bufnr].user;
++		phys_aob = virt_to_phys(q->aobs[bufnr]);
++		BUG_ON(phys_aob & 0xFF);
++	}
++
++out:
++	return phys_aob;
++}
++
+ static void qdio_kick_handler(struct qdio_q *q)
+ {
+ 	int start = q->first_to_kick;
+@@ -604,6 +723,8 @@ static void qdio_kick_handler(struct qdi
+ 			      start, count);
  	}
  
- 	err = proto_register(&iucv_proto, 0);
-@@ -1790,10 +2385,12 @@ static int __init afiucv_init(void)
- 	if (err)
- 		goto out_proto;
- 
--	err = afiucv_iucv_init();
--	if (err)
--		goto out_sock;
--
-+	if (pr_iucv) {
-+		err = afiucv_iucv_init();
-+		if (err)
-+			goto out_sock;
-+	}
-+	dev_add_pack(&iucv_packet_type);
- 	return 0;
- 
- out_sock:
-@@ -1808,10 +2405,13 @@ out:
- 
- static void __exit afiucv_exit(void)
- {
--	device_unregister(af_iucv_dev);
--	driver_unregister(&af_iucv_driver);
--	pr_iucv->iucv_unregister(&af_iucv_handler, 0);
--	symbol_put(iucv_if);
-+	if (pr_iucv) {
-+		device_unregister(af_iucv_dev);
-+		driver_unregister(&af_iucv_driver);
-+		pr_iucv->iucv_unregister(&af_iucv_handler, 0);
-+		symbol_put(iucv_if);
-+	}
-+	dev_remove_pack(&iucv_packet_type);
- 	sock_unregister(PF_IUCV);
- 	proto_unregister(&iucv_proto);
- }
-@@ -1824,3 +2424,4 @@ MODULE_DESCRIPTION("IUCV Sockets ver " V
- MODULE_VERSION(VERSION);
- MODULE_LICENSE("GPL");
- MODULE_ALIAS_NETPROTO(PF_IUCV);
++	qdio_handle_aobs(q, start, count);
 +
+ 	q->handler(q->irq_ptr->cdev, q->qdio_error, q->nr, start, count,
+ 		   q->irq_ptr->int_parm);
+ 
+@@ -666,23 +787,26 @@ static int get_outbound_buffer_frontier(
+ 	 */
+ 	count = min(atomic_read(&q->nr_buf_used), QDIO_MAX_BUFFERS_MASK);
+ 	stop = add_buf(q->first_to_check, count);
+-
+ 	if (q->first_to_check == stop)
+-		return q->first_to_check;
++		goto out;
+ 
+-	count = get_buf_states(q, q->first_to_check, &state, count, 0);
++	count = get_buf_states(q, q->first_to_check, &state, count, 0, 1);
+ 	if (!count)
+-		return q->first_to_check;
++		goto out;
+ 
+ 	switch (state) {
++	case SLSB_P_OUTPUT_PENDING:
++		BUG();
+ 	case SLSB_P_OUTPUT_EMPTY:
+ 		/* the adapter got it */
+-		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "out empty:%1d %02x", q->nr, count);
++		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr,
++			"out empty:%1d %02x", q->nr, count);
+ 
+ 		atomic_sub(count, &q->nr_buf_used);
+ 		q->first_to_check = add_buf(q->first_to_check, count);
+ 		if (q->irq_ptr->perf_stat_enabled)
+ 			account_sbals(q, count);
++
+ 		break;
+ 	case SLSB_P_OUTPUT_ERROR:
+ 		process_buffer_error(q, count);
+@@ -695,7 +819,8 @@ static int get_outbound_buffer_frontier(
+ 		/* the adapter has not fetched the output yet */
+ 		if (q->irq_ptr->perf_stat_enabled)
+ 			q->q_stats.nr_sbal_nop++;
+-		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "out primed:%1d", q->nr);
++		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "out primed:%1d",
++			      q->nr);
+ 		break;
+ 	case SLSB_P_OUTPUT_NOT_INIT:
+ 	case SLSB_P_OUTPUT_HALTED:
+@@ -703,6 +828,8 @@ static int get_outbound_buffer_frontier(
+ 	default:
+ 		BUG();
+ 	}
++
++out:
+ 	return q->first_to_check;
+ }
+ 
+@@ -726,7 +853,7 @@ static inline int qdio_outbound_q_moved(
+ 		return 0;
+ }
+ 
+-static int qdio_kick_outbound_q(struct qdio_q *q)
++static int qdio_kick_outbound_q(struct qdio_q *q, unsigned long aob)
+ {
+ 	unsigned int busy_bit;
+ 	int cc;
+@@ -737,7 +864,7 @@ static int qdio_kick_outbound_q(struct q
+ 	DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "siga-w:%1d", q->nr);
+ 	qperf_inc(q, siga_write);
+ 
+-	cc = qdio_siga_output(q, &busy_bit);
++	cc = qdio_siga_output(q, &busy_bit, aob);
+ 	switch (cc) {
+ 	case 0:
+ 		break;
+@@ -906,8 +1033,9 @@ static void qdio_int_handler_pci(struct
+ 			}
+ 			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
+ 						 q->irq_ptr->int_parm);
+-		} else
++		} else {
+ 			tasklet_schedule(&q->tasklet);
++		}
+ 	}
+ 
+ 	if (!pci_out_supported(q))
+@@ -1221,6 +1349,26 @@ out_err:
+ }
+ EXPORT_SYMBOL_GPL(qdio_allocate);
+ 
++static void qdio_detect_hsicq(struct qdio_irq *irq_ptr)
++{
++	struct qdio_q *q = irq_ptr->input_qs[0];
++	int i, use_cq = 0;
++
++	if (irq_ptr->nr_input_qs > 1 && queue_type(q) == QDIO_IQDIO_QFMT)
++		use_cq = 1;
++
++	for_each_output_queue(irq_ptr, q, i) {
++		if (use_cq) {
++			if (qdio_enable_async_operation(&q->u.out) < 0) {
++				use_cq = 0;
++				continue;
++			}
++		} else
++			qdio_disable_async_operation(&q->u.out);
++	}
++	DBF_EVENT("use_cq:%d", use_cq);
++}
++
+ /**
+  * qdio_establish - establish queues on a qdio subchannel
+  * @init_data: initialization data
+@@ -1286,6 +1434,8 @@ int qdio_establish(struct qdio_initializ
+ 	qdio_setup_ssqd_info(irq_ptr);
+ 	DBF_EVENT("qib ac:%4x", irq_ptr->qib.ac);
+ 
++	qdio_detect_hsicq(irq_ptr);
++
+ 	/* qebsm is now setup if available, initialize buffer states */
+ 	qdio_init_buf_states(irq_ptr);
+ 
+@@ -1465,17 +1615,21 @@ static int handle_outbound(struct qdio_q
+ 		q->u.out.pci_out_enabled = 0;
+ 
+ 	if (queue_type(q) == QDIO_IQDIO_QFMT) {
+-		/* One SIGA-W per buffer required for unicast HiperSockets. */
++		unsigned long phys_aob = 0;
++
++		/* One SIGA-W per buffer required for unicast HSI */
+ 		WARN_ON_ONCE(count > 1 && !multicast_outbound(q));
+ 
+-		rc = qdio_kick_outbound_q(q);
++		phys_aob = qdio_aob_for_buffer(&q->u.out, bufnr);
++
++		rc = qdio_kick_outbound_q(q, phys_aob);
+ 	} else if (need_siga_sync(q)) {
+ 		rc = qdio_siga_sync_q(q);
+ 	} else {
+ 		/* try to fast requeue buffers */
+ 		get_buf_state(q, prev_buf(bufnr), &state, 0);
+ 		if (state != SLSB_CU_OUTPUT_PRIMED)
+-			rc = qdio_kick_outbound_q(q);
++			rc = qdio_kick_outbound_q(q, 0);
+ 		else
+ 			qperf_inc(q, fast_requeue);
+ 	}
+@@ -1503,6 +1657,7 @@ int do_QDIO(struct ccw_device *cdev, uns
+ {
+ 	struct qdio_irq *irq_ptr;
+ 
++
+ 	if (bufnr >= QDIO_MAX_BUFFERS_PER_Q || count > QDIO_MAX_BUFFERS_PER_Q)
+ 		return -EINVAL;
+ 
+@@ -1547,7 +1702,7 @@ int qdio_start_irq(struct ccw_device *cd
+ 
+ 	WARN_ON(queue_irqs_enabled(q));
+ 
+-	if (!shared_ind(q->irq_ptr->dsci))
++	if (!shared_ind(q))
+ 		xchg(q->irq_ptr->dsci, 0);
+ 
+ 	qdio_stop_polling(q);
+@@ -1557,7 +1712,7 @@ int qdio_start_irq(struct ccw_device *cd
+ 	 * We need to check again to not lose initiative after
+ 	 * resetting the ACK state.
+ 	 */
+-	if (!shared_ind(q->irq_ptr->dsci) && *q->irq_ptr->dsci)
++	if (!shared_ind(q) && *q->irq_ptr->dsci)
+ 		goto rescan;
+ 	if (!qdio_inbound_q_done(q))
+ 		goto rescan;
+--- a/drivers/s390/cio/qdio_setup.c
++++ b/drivers/s390/cio/qdio_setup.c
+@@ -19,6 +19,22 @@
+ #include "qdio_debug.h"
+ 
+ static struct kmem_cache *qdio_q_cache;
++static struct kmem_cache *qdio_aob_cache;
++
++struct qaob *qdio_allocate_aob()
++{
++	struct qaob *aob;
++
++	aob = kmem_cache_zalloc(qdio_aob_cache, GFP_ATOMIC);
++	return aob;
++}
++EXPORT_SYMBOL_GPL(qdio_allocate_aob);
++
++void qdio_release_aob(struct qaob *aob)
++{
++	kmem_cache_free(qdio_aob_cache, aob);
++}
++EXPORT_SYMBOL_GPL(qdio_release_aob);
+ 
+ /*
+  * qebsm is only available under 64bit but the adapter sets the feature
+@@ -154,29 +170,36 @@ static void setup_queues(struct qdio_irq
+ 	struct qdio_q *q;
+ 	void **input_sbal_array = qdio_init->input_sbal_addr_array;
+ 	void **output_sbal_array = qdio_init->output_sbal_addr_array;
++	struct qdio_outbuf_state *output_sbal_state_array =
++				  qdio_init->output_sbal_state_array;
+ 	int i;
+ 
+ 	for_each_input_queue(irq_ptr, q, i) {
+-		DBF_EVENT("in-q:%1d", i);
++		DBF_EVENT("inq:%1d", i);
+ 		setup_queues_misc(q, irq_ptr, qdio_init->input_handler, i);
+ 
+ 		q->is_input_q = 1;
+-		q->u.in.queue_start_poll = qdio_init->queue_start_poll;
++		q->u.in.queue_start_poll = qdio_init->queue_start_poll[i];
++
+ 		setup_storage_lists(q, irq_ptr, input_sbal_array, i);
+ 		input_sbal_array += QDIO_MAX_BUFFERS_PER_Q;
+ 
+-		if (is_thinint_irq(irq_ptr))
++		if (is_thinint_irq(irq_ptr)) {
+ 			tasklet_init(&q->tasklet, tiqdio_inbound_processing,
+ 				     (unsigned long) q);
+-		else
++		} else {
+ 			tasklet_init(&q->tasklet, qdio_inbound_processing,
+ 				     (unsigned long) q);
++		}
+ 	}
+ 
+ 	for_each_output_queue(irq_ptr, q, i) {
+ 		DBF_EVENT("outq:%1d", i);
+ 		setup_queues_misc(q, irq_ptr, qdio_init->output_handler, i);
+ 
++		q->u.out.sbal_state = output_sbal_state_array;
++		output_sbal_state_array += QDIO_MAX_BUFFERS_PER_Q;
++
+ 		q->is_input_q = 0;
+ 		q->u.out.scan_threshold = qdio_init->scan_threshold;
+ 		setup_storage_lists(q, irq_ptr, output_sbal_array, i);
+@@ -311,6 +334,19 @@ void qdio_release_memory(struct qdio_irq
+ 	for (i = 0; i < QDIO_MAX_QUEUES_PER_IRQ; i++) {
+ 		q = irq_ptr->output_qs[i];
+ 		if (q) {
++			if (q->u.out.use_cq) {
++				int n;
++
++				for (n = 0; n < QDIO_MAX_BUFFERS_PER_Q; ++n) {
++					struct qaob *aob = q->u.out.aobs[n];
++					if (aob) {
++						qdio_release_aob(aob);
++						q->u.out.aobs[n] = NULL;
++					}
++				}
++
++				qdio_disable_async_operation(&q->u.out);
++			}
+ 			free_page((unsigned long) q->slib);
+ 			kmem_cache_free(qdio_q_cache, q);
+ 		}
+@@ -465,23 +501,60 @@ void qdio_print_subchannel_info(struct q
+ 	printk(KERN_INFO "%s", s);
+ }
+ 
++int qdio_enable_async_operation(struct qdio_output_q *outq)
++{
++	outq->aobs = kzalloc(sizeof(struct qaob *) * QDIO_MAX_BUFFERS_PER_Q,
++			     GFP_ATOMIC);
++	if (!outq->aobs) {
++		outq->use_cq = 0;
++		return -ENOMEM;
++	}
++	outq->use_cq = 1;
++	return 0;
++}
++
++void qdio_disable_async_operation(struct qdio_output_q *q)
++{
++	kfree(q->aobs);
++	q->aobs = NULL;
++	q->use_cq = 0;
++}
++
+ int __init qdio_setup_init(void)
+ {
++	int rc;
++
+ 	qdio_q_cache = kmem_cache_create("qdio_q", sizeof(struct qdio_q),
+ 					 256, 0, NULL);
+ 	if (!qdio_q_cache)
+ 		return -ENOMEM;
+ 
++	qdio_aob_cache = kmem_cache_create("qdio_aob",
++					sizeof(struct qaob),
++					sizeof(struct qaob),
++					0,
++					NULL);
++	if (!qdio_aob_cache) {
++		rc = -ENOMEM;
++		goto free_qdio_q_cache;
++	}
++
+ 	/* Check for OSA/FCP thin interrupts (bit 67). */
+ 	DBF_EVENT("thinint:%1d",
+ 		  (css_general_characteristics.aif_osa) ? 1 : 0);
+ 
+ 	/* Check for QEBSM support in general (bit 58). */
+ 	DBF_EVENT("cssQEBSM:%1d", (qebsm_possible()) ? 1 : 0);
+-	return 0;
++	rc = 0;
++out:
++	return rc;
++free_qdio_q_cache:
++	kmem_cache_destroy(qdio_q_cache);
++	goto out;
+ }
+ 
+ void qdio_setup_exit(void)
+ {
++	kmem_cache_destroy(qdio_aob_cache);
+ 	kmem_cache_destroy(qdio_q_cache);
+ }
+--- a/drivers/s390/cio/qdio_thinint.c
++++ b/drivers/s390/cio/qdio_thinint.c
+@@ -67,12 +67,9 @@ static void put_indicator(u32 *addr)
+ 
+ void tiqdio_add_input_queues(struct qdio_irq *irq_ptr)
+ {
+-	struct qdio_q *q;
+-	int i;
+-
+ 	mutex_lock(&tiq_list_lock);
+-	for_each_input_queue(irq_ptr, q, i)
+-		list_add_rcu(&q->entry, &tiq_list);
++	BUG_ON(irq_ptr->nr_input_qs < 1);
++	list_add_rcu(&irq_ptr->input_qs[0]->entry, &tiq_list);
+ 	mutex_unlock(&tiq_list_lock);
+ 	xchg(irq_ptr->dsci, 1 << 7);
+ }
+@@ -80,19 +77,17 @@ void tiqdio_add_input_queues(struct qdio
+ void tiqdio_remove_input_queues(struct qdio_irq *irq_ptr)
+ {
+ 	struct qdio_q *q;
+-	int i;
+ 
+-	for (i = 0; i < irq_ptr->nr_input_qs; i++) {
+-		q = irq_ptr->input_qs[i];
+-		/* if establish triggered an error */
+-		if (!q || !q->entry.prev || !q->entry.next)
+-			continue;
++	BUG_ON(irq_ptr->nr_input_qs < 1);
++	q = irq_ptr->input_qs[0];
++	/* if establish triggered an error */
++	if (!q || !q->entry.prev || !q->entry.next)
++		return;
+ 
+-		mutex_lock(&tiq_list_lock);
+-		list_del_rcu(&q->entry);
+-		mutex_unlock(&tiq_list_lock);
+-		synchronize_rcu();
+-	}
++	mutex_lock(&tiq_list_lock);
++	list_del_rcu(&q->entry);
++	mutex_unlock(&tiq_list_lock);
++	synchronize_rcu();
+ }
+ 
+ static inline u32 shared_ind_set(void)
+@@ -100,6 +95,40 @@ static inline u32 shared_ind_set(void)
+ 	return q_indicators[TIQDIO_SHARED_IND].ind;
+ }
+ 
++static inline void tiqdio_call_inq_handlers(struct qdio_irq *irq)
++{
++	struct qdio_q *q;
++	int i;
++
++	for_each_input_queue(irq, q, i) {
++		if (!references_shared_dsci(irq) &&
++		    has_multiple_inq_on_dsci(irq))
++			xchg(q->irq_ptr->dsci, 0);
++
++		if (q->u.in.queue_start_poll) {
++			/* skip if polling is enabled or already in work */
++			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
++					     &q->u.in.queue_irq_state)) {
++				qperf_inc(q, int_discarded);
++				continue;
++			}
++
++			/* avoid dsci clear here, done after processing */
++			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
++						 q->irq_ptr->int_parm);
++		} else {
++			if (!shared_ind(q))
++				xchg(q->irq_ptr->dsci, 0);
++
++			/*
++			 * Call inbound processing but not directly
++			 * since that could starve other thinint queues.
++			 */
++			tasklet_schedule(&q->tasklet);
++		}
++	}
++}
++
+ /**
+  * tiqdio_thinint_handler - thin interrupt handler for qdio
+  * @alsi: pointer to adapter local summary indicator
+@@ -118,35 +147,18 @@ static void tiqdio_thinint_handler(void
+ 
+ 	/* check for work on all inbound thinint queues */
+ 	list_for_each_entry_rcu(q, &tiq_list, entry) {
++		struct qdio_irq *irq;
+ 
+ 		/* only process queues from changed sets */
+-		if (unlikely(shared_ind(q->irq_ptr->dsci))) {
++		irq = q->irq_ptr;
++		if (unlikely(references_shared_dsci(irq))) {
+ 			if (!si_used)
+ 				continue;
+-		} else if (!*q->irq_ptr->dsci)
++		} else if (!*irq->dsci)
+ 			continue;
+ 
+-		if (q->u.in.queue_start_poll) {
+-			/* skip if polling is enabled or already in work */
+-			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
+-					     &q->u.in.queue_irq_state)) {
+-				qperf_inc(q, int_discarded);
+-				continue;
+-			}
++		tiqdio_call_inq_handlers(irq);
+ 
+-			/* avoid dsci clear here, done after processing */
+-			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
+-						 q->irq_ptr->int_parm);
+-		} else {
+-			/* only clear it if the indicator is non-shared */
+-			if (!shared_ind(q->irq_ptr->dsci))
+-				xchg(q->irq_ptr->dsci, 0);
+-			/*
+-			 * Call inbound processing but not directly
+-			 * since that could starve other thinint queues.
+-			 */
+-			tasklet_schedule(&q->tasklet);
+-		}
+ 		qperf_inc(q, adapter_int);
+ 	}
+ 	rcu_read_unlock();
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -3937,6 +3937,7 @@ static int qeth_qdio_establish(struct qe
+ 	struct qdio_initialize init_data;
+ 	char *qib_param_field;
+ 	struct qdio_buffer **in_sbal_ptrs;
++	void (**queue_start_poll) (struct ccw_device *, int, unsigned long);
+ 	struct qdio_buffer **out_sbal_ptrs;
+ 	int i, j, k;
+ 	int rc = 0;
+@@ -3945,8 +3946,10 @@ static int qeth_qdio_establish(struct qe
+ 
+ 	qib_param_field = kzalloc(QDIO_MAX_BUFFERS_PER_Q * sizeof(char),
+ 			      GFP_KERNEL);
+-	if (!qib_param_field)
+-		return -ENOMEM;
++	if (!qib_param_field) {
++		rc =  -ENOMEM;
++		goto out_free_nothing;
++	}
+ 
+ 	qeth_create_qib_param_field(card, qib_param_field);
+ 	qeth_create_qib_param_field_blkt(card, qib_param_field);
+@@ -3954,20 +3957,26 @@ static int qeth_qdio_establish(struct qe
+ 	in_sbal_ptrs = kmalloc(QDIO_MAX_BUFFERS_PER_Q * sizeof(void *),
+ 			       GFP_KERNEL);
+ 	if (!in_sbal_ptrs) {
+-		kfree(qib_param_field);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto out_free_qib_param;
+ 	}
+ 	for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; ++i)
+ 		in_sbal_ptrs[i] = (struct qdio_buffer *)
+ 			virt_to_phys(card->qdio.in_q->bufs[i].buffer);
+ 
++	queue_start_poll = kmalloc(sizeof(void *) * 1, GFP_KERNEL);
++	if (!queue_start_poll) {
++		rc = -ENOMEM;
++		goto out_free_in_sbals;
++	}
++	queue_start_poll[0] = card->discipline.start_poll;
++
+ 	out_sbal_ptrs =
+ 		kmalloc(card->qdio.no_out_queues * QDIO_MAX_BUFFERS_PER_Q *
+ 			sizeof(void *), GFP_KERNEL);
+ 	if (!out_sbal_ptrs) {
+-		kfree(in_sbal_ptrs);
+-		kfree(qib_param_field);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto out_free_queue_start_poll;
+ 	}
+ 	for (i = 0, k = 0; i < card->qdio.no_out_queues; ++i)
+ 		for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j, ++k) {
+@@ -3984,7 +3993,7 @@ static int qeth_qdio_establish(struct qe
+ 	init_data.no_output_qs           = card->qdio.no_out_queues;
+ 	init_data.input_handler          = card->discipline.input_handler;
+ 	init_data.output_handler         = card->discipline.output_handler;
+-	init_data.queue_start_poll	 = card->discipline.start_poll;
++	init_data.queue_start_poll       = queue_start_poll;
+ 	init_data.int_parm               = (unsigned long) card;
+ 	init_data.input_sbal_addr_array  = (void **) in_sbal_ptrs;
+ 	init_data.output_sbal_addr_array = (void **) out_sbal_ptrs;
+@@ -4006,8 +4015,13 @@ static int qeth_qdio_establish(struct qe
+ 	}
+ out:
+ 	kfree(out_sbal_ptrs);
++out_free_queue_start_poll:
++	kfree(queue_start_poll);
++out_free_in_sbals:
+ 	kfree(in_sbal_ptrs);
++out_free_qib_param:
+ 	kfree(qib_param_field);
++out_free_nothing:
+ 	return rc;
+ }
+ 
 
