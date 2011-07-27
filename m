@@ -1,89 +1,56 @@
-From: Sven Eckelmann <sven@narfation.org>
-Subject: Re: Re: [PATCHv4 10/11] drop_monitor: Use *_dec_not_zero instead of *_add_unless
-Date: Wed, 27 Jul 2011 13:52:50 +0200
-Message-ID: <2127465.xrCKehbL3A@sven-laptop.home.narfation.org>
-References: <1311760070-21532-1-git-send-email-sven@narfation.org> <1311760070-21532-10-git-send-email-sven@narfation.org> <20110727105907.GA19001@hmsreliant.think-freely.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: IP over 802.2 with LLC/SNAP
+Date: Wed, 27 Jul 2011 13:32:09 +0100
+Message-ID: <20110727133209.0d9dd6c4@lxorguk.ukuu.org.uk>
+References: <4E2F8B7B.80906@signal11.us>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart3686055.hEzUH6zKZp"; micalg="pgp-sha512"; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20110727105907.GA19001@hmsreliant.think-freely.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Alan Ott <alan@signal11.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:38536 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751142Ab1G0M3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 08:29:09 -0400
+In-Reply-To: <4E2F8B7B.80906@signal11.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> So the question is, does Linux support IP over 802.2 with LLC/SNAP? Is 
+> there a sysfs/proc entry that I have to turn on to make this work (I 
+> didn't find one)? I have the LLC2 module loaded, and I believe my packet 
+> to be correct, since Windows recognizes it and since Wireshark doesn't 
+> give any red flags on it. I've been unable to find anything about this 
+> kind of thing in my searching.
 
---nextPart3686055.hEzUH6zKZp
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+Linux supports LLC/SNAP and various things over it (IPX/Appletalk DDP
+etc) but not IP over it, as it's one of those standards bodies driven
+bogosities which nobody ever actually deployed.
 
-On Wednesday 27 July 2011 06:59:07 Neil Horman wrote:
-> On Wed, Jul 27, 2011 at 11:47:49AM +0200, Sven Eckelmann wrote:
-> > atomic_dec_not_zero is defined for each architecture through
-> > <linux/atomic.h> to provide the functionality of
-> > atomic_add_unless(x, -1, 0).
-> > 
-> > Signed-off-by: Sven Eckelmann <sven@narfation.org>
-> > Cc: Neil Horman <nhorman@tuxdriver.com>
-> > Cc: netdev@vger.kernel.org
-> > ---
-> > 
-> >  net/core/drop_monitor.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-> > index 7f36b38..ef4a05d 100644
-> > --- a/net/core/drop_monitor.c
-> > +++ b/net/core/drop_monitor.c
-> > @@ -137,7 +137,7 @@ static void trace_drop_common(struct sk_buff *skb,
-> > void *location)
-> > 
-> >  	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
-> > 
-> > -	if (!atomic_add_unless(&data->dm_hit_count, -1, 0)) {
-> > +	if (!atomic_dec_not_zero(&data->dm_hit_count)) {
-> > 
-> >  		/*
-> >  		
-> >  		 * we're already at zero, discard this hit
-> >  		 */
-> 
-> Wheres the patch that creates the per arch definition of this function?  I
-> see the other posts in this series went to lkml, but the archives don't
-> have the first in the series anywhere, which ostensibly adds the
-> definition. Neil
+You are about the first person in the known universe to care 8). Now
+there isn't any reason for not supporting it. The receive side is a case
+of using register_snap_client() and piping the frames into the IP stack.
 
-Most architectures don't use a per architecture definition anymore, but a 
-cross-architecture the definition in include/linux/atomic.h.
+The send side could be tackled two ways I can see, one would be to allow
+for snap protocols to be set somehow on devices and routes, the other
+that might be simply would be to create a 'snapifier' device that added
+snap headers then routed the frame via the bound physical device as
+802.2 LLC. That way you'd be able to do
 
-The 01/11 can be found in different archives under the message id 
-1311760070-21532-1-git-send-email-sven@narfation.org ... for example gmane: 
-http://article.gmane.org/gmane.linux.ports.arm.kernel/126704
+	route add gould-relic dev snap0
 
-Kind regards,
-	Sven
---nextPart3686055.hEzUH6zKZp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
+In both cases you'd need to tackle ARP but that seems to need no
+configuration as SNAP requests get SNAP replies, and so on.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+It should be a 'simple matter of hacking' and there are example devices
+that fiddle with packets and add headers etc you can nick a lot of code
+from. I figure if you can write an IP stack for an ancient Gould system
+you can probably do that.
 
-iQIcBAABCgAGBQJOL/wSAAoJEF2HCgfBJntGNz8P/2wDmBhHkECns7OOuBVqlMOz
-r66gEhnNLTnztYkxL0GQ8/qH2OfsKDwfKF1i7tXkie0yqAhAxUtjMJUahxmX786G
-Ek2nanC8Qbt5EmTrwx/bpzxLDM0UrOaLu1OcxA0AjT8qu/hJlzwicgr4fEElaanM
-oL6VE0fTD2fk/7CYNEBC9omh4Om3pHWulj4pirEjR3pYqQ2/2mUO5RZ3blCNbts/
-MOMrcrRC/p9ZFP/VanETM8xXcjD1nRDeKnliuYC+S0ZYB0ns6apPXBpflXdw2+4A
-CVvfUcGk5ao0DaiggW6yaWxgshDSyT6gmy5fhXc/MKLvq6GswQKDBHjQZCO54fDM
-upV+2gIZa0ehPdDxjQbSvmwY50U50jK9eDp22H/s6WOO+30RMVRrPKpAjhs310lL
-Eql8hKRQP8/6xL27B9lbpIQvkUGNmFi1Uh/gS+kctOl6GUKONzmN40mHSyfS1+nf
-mSUs3+eBmNz1arazwTwzCVC4SibXdC7WV6CwfNXQkceAvkLfOedV6J+wLmDgTE+0
-mcdiIv7D3lnLdDOoyftlFkMOL0+hwAsg0MIhVaWE1BEL3zS4VoEyqI2ass7Vyw7U
-7tR89XaaQKL4+na/NjO4BPulO4DZEVzFh6orxLMaUAbZpZ77+yG90TO4dtSuu3rv
-ohcG9P/NR3n/KRZvxk1I
-=cQPZ
------END PGP SIGNATURE-----
+The other way is to use the Linux raw packet interfaces, open a raw
+socket, push a BPF filter onto it to just get the frames for IP/SNAP and
+ARP/SNAP then modify them and feed them to the kernel tun/tap interface.
 
---nextPart3686055.hEzUH6zKZp--
+Alan
