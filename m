@@ -1,193 +1,99 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-next-2.6 2011-07-27
-Date: Wed, 27 Jul 2011 14:49:21 -0400
-Message-ID: <20110727184920.GB16431@tuxdriver.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: strange behaviour of MC7700 with sierra_net
+Date: Wed, 27 Jul 2011 14:40:40 -0500
+Message-ID: <1311795643.17655.13.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+To: Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110727141246.GC29616-2COwY06ShZsYt6otZODPyA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Wed, 2011-07-27 at 16:12 +0200, Phil Sutter wrote:
+> Hello everyone,
+> 
+> I am testing the above module on linux-2.6.39.2 which should contain the
+> latest changes to at least sierra_net.c. Although I am able to bring the
+> module up and then can get traffic through it, initialisation seems to
+> be a little picky.
 
-Here is a handful of fixes intended for 3.1.  This includes a
-user-visible typo fix, a fix for a user after free in the new pn533
-NFC driver, a cfg80211 fix for a possible NULL pointer dereference,
-a fix for an invalid memory access in b43, and another b43 fix for
-a memory corruption problem.
+I wonder if the firmware changed and Sierra hasn't updated the driver
+yet.  I've got a usb306 which also uses sierra_net which doesn't have
+this problem.  It looks like the driver tries to sync with the firmware
+right after binding to the net interface, so that means at least a
+couple of SYNC requests have already happened by the time you start
+getting errors.  My first thought here is simply that the firmware on
+the MC7700 doesn't work like the rest of the devices that sierra_net
+expects, and for that you'd have to get Sierra to weigh in on the
+required changes :(
 
-On top of that b43 memory corruption fix, there is a patch to remove
-BROKEN from the B43_BCMA Kconfig entry, which is key to enabling
-support for some of the more modern Broadcom wireless hardware.
-I'm sure the Rafa=C5=82 (and a number of others) would love to see that
-merged while the 3.1 merge window is still open as well.
+Since the MC7700 is an LTE module it's 100% likely the firmware is
+different, or at least significantly rebased, from the existing Sierra
+HSPA/EVDO parts that use sierra_net and thus I wouldn't necessarily
+expect it to work out of the box.
 
-Please let me know if there are problems...
+Dan
 
-Thanks!
+> After connecting the module via USB, I get the following final
+> initialisation message:
+> | Jul 27 14:01:15 (none) user.info kernel: [166371.982356] sierra_net 1-1:1.7: wwan0: register 'sierra_net' at usb-0000:00:08.2-1, Sierra Wireless USB-to-WWAN Modem, 4a:82:22:b9:05:07
+> 
+> Doing nothing (successfully), the driver starts printing errors after a
+> while:
+> | Jul 27 14:02:15 (none) user.err kernel: [166432.201461] sierra_net 1-1:1.7: wwan0: Submit SYNC failed -32
+> | Jul 27 14:02:15 (none) user.err kernel: [166432.201609] sierra_net 1-1:1.7: wwan0: Send SYNC failed, status -32
+> | Jul 27 14:02:15 (none) user.err kernel: [166432.205446] sierra_net 1-1:1.7: wwan0: Submit SYNC failed -32
+> | Jul 27 14:02:15 (none) user.err kernel: [166432.205590] sierra_net 1-1:1.7: wwan0: Send SYNC failed, status -32
+> 
+> The above messages are the first ones to appear (so there's a delay of
+> 60 seconds in between), and they repeat each 2 seconds from then on.
+> Depending on how I continue at that point, results vary:
+> 
+> a) 'ip link set wwan0 up': setting the interface up stops the above error
+>    messages from being printed. This worked every time I tried.
+> 
+> b) Sending 'ATZ' on the control-tty: this makes the error-messages
+>    disappear for about 6 seconds, so two iterations of the sync-timer
+>    seem to succeed. When I then try to continue initialisation, I usually
+>    get to 'AT+C' (for AT+CPIN='1234'), then the control-tty dies (neither
+>    echoing of typed characters, nor feedback from the modem printed).
+> 
+> Trying a) from the state after b) indeed makes the error-messages go
+> away, but the tty stays dead until I power-cycle the module. Needless to
+> say, without the control-tty the module is completely useless.
+> 
+> My first thought was that the driver shouldn't try to SYNC while the
+> interface being down, but apparently sierra_net_send_sync() doesn't get
+> called anymore after setting the interface up.
+> 
+> So in order to prevent the module from dieing, I need to up the
+> interface before initialisation via AT-interface.
+> 
+> Another interesting aspect: the above error stays gone after the
+> interface has been upped once, even if it's brought down right
+> afterwards without doing anything else. OK, not completely - there needs
+> to be a little delay in which the interface stays up, but a tenth of a
+> second was enough.
+> 
+> What else can I do to track this problem down further? What additional
+> information do you need from me? Any advice is highly appreciated, of
+> course!
+> 
+> Greetings, Phil
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-John
 
----
-
-The following changes since commit 41bf37117b47fc5ce2aae91f6a108e7e42e0=
-b046:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/gi=
-t/linville/wireless-next-2.6 into for-davem (2011-07-22 17:51:16 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-=
-2.6.git for-davem
-
-Dan Carpenter (1):
-      NFC: pn533: use after free in pn533_disconnect()
-
-John W. Linville (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss-next-2.6 into for-davem
-
-Mihai Moldovan (1):
-      wireless: fix a typo in ignore_reg_update
-
-Pavel Roskin (1):
-      b43: fix invalid memory access in b43_ssb_remove()
-
-Rafa=C5=82 Mi=C5=82ecki (2):
-      b43: bus: fix memory corruption when setting driver's data
-      b43: bcma: drop BROKEN
-
-Sven Neumann (1):
-      cfg80211: really ignore the regulatory request
-
- drivers/net/wireless/b43/Kconfig |    2 +-
- drivers/net/wireless/b43/bus.c   |    2 ++
- drivers/net/wireless/b43/main.c  |    5 +++--
- drivers/nfc/pn533.c              |    2 +-
- net/wireless/reg.c               |    7 ++++---
- 5 files changed, 11 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/wireless/b43/Kconfig b/drivers/net/wireless/b4=
-3/Kconfig
-index d2293dc..3cab843 100644
---- a/drivers/net/wireless/b43/Kconfig
-+++ b/drivers/net/wireless/b43/Kconfig
-@@ -28,7 +28,7 @@ config B43
-=20
- config B43_BCMA
- 	bool "Support for BCMA bus"
--	depends on B43 && BCMA && BROKEN
-+	depends on B43 && BCMA
- 	default y
-=20
- config B43_SSB
-diff --git a/drivers/net/wireless/b43/bus.c b/drivers/net/wireless/b43/=
-bus.c
-index 64c3f65..05f6c7b 100644
---- a/drivers/net/wireless/b43/bus.c
-+++ b/drivers/net/wireless/b43/bus.c
-@@ -244,10 +244,12 @@ void b43_bus_set_wldev(struct b43_bus_dev *dev, v=
-oid *wldev)
- #ifdef CONFIG_B43_BCMA
- 	case B43_BUS_BCMA:
- 		bcma_set_drvdata(dev->bdev, wldev);
-+		break;
- #endif
- #ifdef CONFIG_B43_SSB
- 	case B43_BUS_SSB:
- 		ssb_set_drvdata(dev->sdev, wldev);
-+		break;
- #endif
- 	}
- }
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43=
-/main.c
-index 73fbf03..a92cde8 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -5350,6 +5350,7 @@ static void b43_ssb_remove(struct ssb_device *sde=
-v)
- {
- 	struct b43_wl *wl =3D ssb_get_devtypedata(sdev);
- 	struct b43_wldev *wldev =3D ssb_get_drvdata(sdev);
-+	struct b43_bus_dev *dev =3D wldev->dev;
-=20
- 	/* We must cancel any work here before unregistering from ieee80211,
- 	 * as the ieee80211 unreg will destroy the workqueue. */
-@@ -5365,14 +5366,14 @@ static void b43_ssb_remove(struct ssb_device *s=
-dev)
- 		ieee80211_unregister_hw(wl->hw);
- 	}
-=20
--	b43_one_core_detach(wldev->dev);
-+	b43_one_core_detach(dev);
-=20
- 	if (list_empty(&wl->devlist)) {
- 		b43_leds_unregister(wl);
- 		/* Last core on the chip unregistered.
- 		 * We can destroy common struct b43_wl.
- 		 */
--		b43_wireless_exit(wldev->dev, wl);
-+		b43_wireless_exit(dev, wl);
- 	}
- }
-=20
-diff --git a/drivers/nfc/pn533.c b/drivers/nfc/pn533.c
-index 0372315..c77e054 100644
---- a/drivers/nfc/pn533.c
-+++ b/drivers/nfc/pn533.c
-@@ -1596,7 +1596,7 @@ static void pn533_disconnect(struct usb_interface=
- *interface)
- 	usb_free_urb(dev->out_urb);
- 	kfree(dev);
-=20
--	nfc_dev_info(&dev->interface->dev, "NXP PN533 NFC device disconnected=
-");
-+	nfc_dev_info(&interface->dev, "NXP PN533 NFC device disconnected");
- }
-=20
- static struct usb_driver pn533_driver =3D {
-diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 1ad0f39..02751db 100644
---- a/net/wireless/reg.c
-+++ b/net/wireless/reg.c
-@@ -903,7 +903,7 @@ static bool ignore_reg_update(struct wiphy *wiphy,
- 	    initiator !=3D NL80211_REGDOM_SET_BY_COUNTRY_IE &&
- 	    !is_world_regdom(last_request->alpha2)) {
- 		REG_DBG_PRINT("Ignoring regulatory request %s "
--			      "since the driver requires its own regulaotry "
-+			      "since the driver requires its own regulatory "
- 			      "domain to be set first",
- 			      reg_initiator_name(initiator));
- 		return true;
-@@ -1125,12 +1125,13 @@ void wiphy_update_regulatory(struct wiphy *wiph=
-y,
- 	enum ieee80211_band band;
-=20
- 	if (ignore_reg_update(wiphy, initiator))
--		goto out;
-+		return;
-+
- 	for (band =3D 0; band < IEEE80211_NUM_BANDS; band++) {
- 		if (wiphy->bands[band])
- 			handle_band(wiphy, band, initiator);
- 	}
--out:
-+
- 	reg_process_beacons(wiphy);
- 	reg_process_ht_flags(wiphy);
- 	if (wiphy->reg_notifier)
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
