@@ -1,369 +1,60 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 1/8] bna: Remove get_regs Ethtool Support
-Date: Tue, 26 Jul 2011 19:10:41 -0700
-Message-ID: <1311732648-29876-2-git-send-email-rmody@brocade.com>
-References: <1311732648-29876-1-git-send-email-rmody@brocade.com>
+Subject: [PATCH 0/8] bna: Driver Fixes and Support for Re-architecture
+Date: Tue, 26 Jul 2011 19:10:40 -0700
+Message-ID: <1311732648-29876-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:47470 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751930Ab1G0CdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 22:33:23 -0400
-In-Reply-To: <1311732648-29876-1-git-send-email-rmody@brocade.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58587 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751532Ab1G0CdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2011 22:33:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - This patch contains removal of get_regs support in bnad_ethtool.c. Thus
-   BNA will have minimal register definitions necessary for MBOX and
-   interrupt operations
+   This patch-set consists of few fixes, HW reg consolidation and adds support
+   for re-architecture and re-organisation of the driver.
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/bna/bnad_ethtool.c |  319 ----------------------------------------
- 1 files changed, 0 insertions(+), 319 deletions(-)
+   The driver has been compiled and tested against net-next-2.6(3.0.0-rc7)
 
-diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/bna/bnad_ethtool.c
-index fea07f1..49174f8 100644
---- a/drivers/net/bna/bnad_ethtool.c
-+++ b/drivers/net/bna/bnad_ethtool.c
-@@ -288,323 +288,6 @@ bnad_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
- 	strncpy(drvinfo->bus_info, pci_name(bnad->pcidev), ETHTOOL_BUSINFO_LEN);
- }
- 
--static int
--get_regs(struct bnad *bnad, u32 * regs)
--{
--	int num = 0, i;
--	u32 reg_addr;
--	unsigned long flags;
--
--#define BNAD_GET_REG(addr)					\
--do {								\
--	if (regs)						\
--		regs[num++] = readl(bnad->bar0 + (addr));	\
--	else							\
--		num++;						\
--} while (0)
--
--	spin_lock_irqsave(&bnad->bna_lock, flags);
--
--	/* DMA Block Internal Registers */
--	BNAD_GET_REG(DMA_CTRL_REG0);
--	BNAD_GET_REG(DMA_CTRL_REG1);
--	BNAD_GET_REG(DMA_ERR_INT_STATUS);
--	BNAD_GET_REG(DMA_ERR_INT_ENABLE);
--	BNAD_GET_REG(DMA_ERR_INT_STATUS_SET);
--
--	/* APP Block Register Address Offset from BAR0 */
--	BNAD_GET_REG(HOSTFN0_INT_STATUS);
--	BNAD_GET_REG(HOSTFN0_INT_MASK);
--	BNAD_GET_REG(HOST_PAGE_NUM_FN0);
--	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN0);
--	BNAD_GET_REG(FN0_PCIE_ERR_REG);
--	BNAD_GET_REG(FN0_ERR_TYPE_STATUS_REG);
--	BNAD_GET_REG(FN0_ERR_TYPE_MSK_STATUS_REG);
--
--	BNAD_GET_REG(HOSTFN1_INT_STATUS);
--	BNAD_GET_REG(HOSTFN1_INT_MASK);
--	BNAD_GET_REG(HOST_PAGE_NUM_FN1);
--	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN1);
--	BNAD_GET_REG(FN1_PCIE_ERR_REG);
--	BNAD_GET_REG(FN1_ERR_TYPE_STATUS_REG);
--	BNAD_GET_REG(FN1_ERR_TYPE_MSK_STATUS_REG);
--
--	BNAD_GET_REG(PCIE_MISC_REG);
--
--	BNAD_GET_REG(HOST_SEM0_INFO_REG);
--	BNAD_GET_REG(HOST_SEM1_INFO_REG);
--	BNAD_GET_REG(HOST_SEM2_INFO_REG);
--	BNAD_GET_REG(HOST_SEM3_INFO_REG);
--
--	BNAD_GET_REG(TEMPSENSE_CNTL_REG);
--	BNAD_GET_REG(TEMPSENSE_STAT_REG);
--
--	BNAD_GET_REG(APP_LOCAL_ERR_STAT);
--	BNAD_GET_REG(APP_LOCAL_ERR_MSK);
--
--	BNAD_GET_REG(PCIE_LNK_ERR_STAT);
--	BNAD_GET_REG(PCIE_LNK_ERR_MSK);
--
--	BNAD_GET_REG(FCOE_FIP_ETH_TYPE);
--	BNAD_GET_REG(RESV_ETH_TYPE);
--
--	BNAD_GET_REG(HOSTFN2_INT_STATUS);
--	BNAD_GET_REG(HOSTFN2_INT_MASK);
--	BNAD_GET_REG(HOST_PAGE_NUM_FN2);
--	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN2);
--	BNAD_GET_REG(FN2_PCIE_ERR_REG);
--	BNAD_GET_REG(FN2_ERR_TYPE_STATUS_REG);
--	BNAD_GET_REG(FN2_ERR_TYPE_MSK_STATUS_REG);
--
--	BNAD_GET_REG(HOSTFN3_INT_STATUS);
--	BNAD_GET_REG(HOSTFN3_INT_MASK);
--	BNAD_GET_REG(HOST_PAGE_NUM_FN3);
--	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN3);
--	BNAD_GET_REG(FN3_PCIE_ERR_REG);
--	BNAD_GET_REG(FN3_ERR_TYPE_STATUS_REG);
--	BNAD_GET_REG(FN3_ERR_TYPE_MSK_STATUS_REG);
--
--	/* Host Command Status Registers */
--	reg_addr = HOST_CMDSTS0_CLR_REG;
--	for (i = 0; i < 16; i++) {
--		BNAD_GET_REG(reg_addr);
--		BNAD_GET_REG(reg_addr + 4);
--		BNAD_GET_REG(reg_addr + 8);
--		reg_addr += 0x10;
--	}
--
--	/* Function ID register */
--	BNAD_GET_REG(FNC_ID_REG);
--
--	/* Function personality register */
--	BNAD_GET_REG(FNC_PERS_REG);
--
--	/* Operation mode register */
--	BNAD_GET_REG(OP_MODE);
--
--	/* LPU0 Registers */
--	BNAD_GET_REG(LPU0_MBOX_CTL_REG);
--	BNAD_GET_REG(LPU0_MBOX_CMD_REG);
--	BNAD_GET_REG(LPU0_MBOX_LINK_0REG);
--	BNAD_GET_REG(LPU1_MBOX_LINK_0REG);
--	BNAD_GET_REG(LPU0_MBOX_STATUS_0REG);
--	BNAD_GET_REG(LPU1_MBOX_STATUS_0REG);
--	BNAD_GET_REG(LPU0_ERR_STATUS_REG);
--	BNAD_GET_REG(LPU0_ERR_SET_REG);
--
--	/* LPU1 Registers */
--	BNAD_GET_REG(LPU1_MBOX_CTL_REG);
--	BNAD_GET_REG(LPU1_MBOX_CMD_REG);
--	BNAD_GET_REG(LPU0_MBOX_LINK_1REG);
--	BNAD_GET_REG(LPU1_MBOX_LINK_1REG);
--	BNAD_GET_REG(LPU0_MBOX_STATUS_1REG);
--	BNAD_GET_REG(LPU1_MBOX_STATUS_1REG);
--	BNAD_GET_REG(LPU1_ERR_STATUS_REG);
--	BNAD_GET_REG(LPU1_ERR_SET_REG);
--
--	/* PSS Registers */
--	BNAD_GET_REG(PSS_CTL_REG);
--	BNAD_GET_REG(PSS_ERR_STATUS_REG);
--	BNAD_GET_REG(ERR_STATUS_SET);
--	BNAD_GET_REG(PSS_RAM_ERR_STATUS_REG);
--
--	/* Catapult CPQ Registers */
--	BNAD_GET_REG(HOSTFN0_LPU0_MBOX0_CMD_STAT);
--	BNAD_GET_REG(HOSTFN0_LPU1_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN0_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN0_MBOX0_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN0_LPU0_MBOX1_CMD_STAT);
--	BNAD_GET_REG(HOSTFN0_LPU1_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN0_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN0_MBOX1_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN1_LPU0_MBOX0_CMD_STAT);
--	BNAD_GET_REG(HOSTFN1_LPU1_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN1_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN1_MBOX0_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN1_LPU0_MBOX1_CMD_STAT);
--	BNAD_GET_REG(HOSTFN1_LPU1_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN1_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN1_MBOX1_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN2_LPU0_MBOX0_CMD_STAT);
--	BNAD_GET_REG(HOSTFN2_LPU1_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN2_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN2_MBOX0_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN2_LPU0_MBOX1_CMD_STAT);
--	BNAD_GET_REG(HOSTFN2_LPU1_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN2_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN2_MBOX1_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN3_LPU0_MBOX0_CMD_STAT);
--	BNAD_GET_REG(HOSTFN3_LPU1_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN3_MBOX0_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN3_MBOX0_CMD_STAT);
--
--	BNAD_GET_REG(HOSTFN3_LPU0_MBOX1_CMD_STAT);
--	BNAD_GET_REG(HOSTFN3_LPU1_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU0_HOSTFN3_MBOX1_CMD_STAT);
--	BNAD_GET_REG(LPU1_HOSTFN3_MBOX1_CMD_STAT);
--
--	/* Host Function Force Parity Error Registers */
--	BNAD_GET_REG(HOSTFN0_LPU_FORCE_PERR);
--	BNAD_GET_REG(HOSTFN1_LPU_FORCE_PERR);
--	BNAD_GET_REG(HOSTFN2_LPU_FORCE_PERR);
--	BNAD_GET_REG(HOSTFN3_LPU_FORCE_PERR);
--
--	/* LL Port[0|1] Halt Mask Registers */
--	BNAD_GET_REG(LL_HALT_MSK_P0);
--	BNAD_GET_REG(LL_HALT_MSK_P1);
--
--	/* LL Port[0|1] Error Mask Registers */
--	BNAD_GET_REG(LL_ERR_MSK_P0);
--	BNAD_GET_REG(LL_ERR_MSK_P1);
--
--	/* EMC FLI Registers */
--	BNAD_GET_REG(FLI_CMD_REG);
--	BNAD_GET_REG(FLI_ADDR_REG);
--	BNAD_GET_REG(FLI_CTL_REG);
--	BNAD_GET_REG(FLI_WRDATA_REG);
--	BNAD_GET_REG(FLI_RDDATA_REG);
--	BNAD_GET_REG(FLI_DEV_STATUS_REG);
--	BNAD_GET_REG(FLI_SIG_WD_REG);
--
--	BNAD_GET_REG(FLI_DEV_VENDOR_REG);
--	BNAD_GET_REG(FLI_ERR_STATUS_REG);
--
--	/* RxAdm 0 Registers */
--	BNAD_GET_REG(RAD0_CTL_REG);
--	BNAD_GET_REG(RAD0_PE_PARM_REG);
--	BNAD_GET_REG(RAD0_BCN_REG);
--	BNAD_GET_REG(RAD0_DEFAULT_REG);
--	BNAD_GET_REG(RAD0_PROMISC_REG);
--	BNAD_GET_REG(RAD0_BCNQ_REG);
--	BNAD_GET_REG(RAD0_DEFAULTQ_REG);
--
--	BNAD_GET_REG(RAD0_ERR_STS);
--	BNAD_GET_REG(RAD0_SET_ERR_STS);
--	BNAD_GET_REG(RAD0_ERR_INT_EN);
--	BNAD_GET_REG(RAD0_FIRST_ERR);
--	BNAD_GET_REG(RAD0_FORCE_ERR);
--
--	BNAD_GET_REG(RAD0_MAC_MAN_1H);
--	BNAD_GET_REG(RAD0_MAC_MAN_1L);
--	BNAD_GET_REG(RAD0_MAC_MAN_2H);
--	BNAD_GET_REG(RAD0_MAC_MAN_2L);
--	BNAD_GET_REG(RAD0_MAC_MAN_3H);
--	BNAD_GET_REG(RAD0_MAC_MAN_3L);
--	BNAD_GET_REG(RAD0_MAC_MAN_4H);
--	BNAD_GET_REG(RAD0_MAC_MAN_4L);
--
--	BNAD_GET_REG(RAD0_LAST4_IP);
--
--	/* RxAdm 1 Registers */
--	BNAD_GET_REG(RAD1_CTL_REG);
--	BNAD_GET_REG(RAD1_PE_PARM_REG);
--	BNAD_GET_REG(RAD1_BCN_REG);
--	BNAD_GET_REG(RAD1_DEFAULT_REG);
--	BNAD_GET_REG(RAD1_PROMISC_REG);
--	BNAD_GET_REG(RAD1_BCNQ_REG);
--	BNAD_GET_REG(RAD1_DEFAULTQ_REG);
--
--	BNAD_GET_REG(RAD1_ERR_STS);
--	BNAD_GET_REG(RAD1_SET_ERR_STS);
--	BNAD_GET_REG(RAD1_ERR_INT_EN);
--
--	/* TxA0 Registers */
--	BNAD_GET_REG(TXA0_CTRL_REG);
--	/* TxA0 TSO Sequence # Registers (RO) */
--	for (i = 0; i < 8; i++) {
--		BNAD_GET_REG(TXA0_TSO_TCP_SEQ_REG(i));
--		BNAD_GET_REG(TXA0_TSO_IP_INFO_REG(i));
--	}
--
--	/* TxA1 Registers */
--	BNAD_GET_REG(TXA1_CTRL_REG);
--	/* TxA1 TSO Sequence # Registers (RO) */
--	for (i = 0; i < 8; i++) {
--		BNAD_GET_REG(TXA1_TSO_TCP_SEQ_REG(i));
--		BNAD_GET_REG(TXA1_TSO_IP_INFO_REG(i));
--	}
--
--	/* RxA Registers */
--	BNAD_GET_REG(RXA0_CTL_REG);
--	BNAD_GET_REG(RXA1_CTL_REG);
--
--	/* PLB0 Registers */
--	BNAD_GET_REG(PLB0_ECM_TIMER_REG);
--	BNAD_GET_REG(PLB0_RL_CTL);
--	for (i = 0; i < 8; i++)
--		BNAD_GET_REG(PLB0_RL_MAX_BC(i));
--	BNAD_GET_REG(PLB0_RL_TU_PRIO);
--	for (i = 0; i < 8; i++)
--		BNAD_GET_REG(PLB0_RL_BYTE_CNT(i));
--	BNAD_GET_REG(PLB0_RL_MIN_REG);
--	BNAD_GET_REG(PLB0_RL_MAX_REG);
--	BNAD_GET_REG(PLB0_EMS_ADD_REG);
--
--	/* PLB1 Registers */
--	BNAD_GET_REG(PLB1_ECM_TIMER_REG);
--	BNAD_GET_REG(PLB1_RL_CTL);
--	for (i = 0; i < 8; i++)
--		BNAD_GET_REG(PLB1_RL_MAX_BC(i));
--	BNAD_GET_REG(PLB1_RL_TU_PRIO);
--	for (i = 0; i < 8; i++)
--		BNAD_GET_REG(PLB1_RL_BYTE_CNT(i));
--	BNAD_GET_REG(PLB1_RL_MIN_REG);
--	BNAD_GET_REG(PLB1_RL_MAX_REG);
--	BNAD_GET_REG(PLB1_EMS_ADD_REG);
--
--	/* HQM Control Register */
--	BNAD_GET_REG(HQM0_CTL_REG);
--	BNAD_GET_REG(HQM0_RXQ_STOP_SEM);
--	BNAD_GET_REG(HQM0_TXQ_STOP_SEM);
--	BNAD_GET_REG(HQM1_CTL_REG);
--	BNAD_GET_REG(HQM1_RXQ_STOP_SEM);
--	BNAD_GET_REG(HQM1_TXQ_STOP_SEM);
--
--	/* LUT Registers */
--	BNAD_GET_REG(LUT0_ERR_STS);
--	BNAD_GET_REG(LUT0_SET_ERR_STS);
--	BNAD_GET_REG(LUT1_ERR_STS);
--	BNAD_GET_REG(LUT1_SET_ERR_STS);
--
--	/* TRC Registers */
--	BNAD_GET_REG(TRC_CTL_REG);
--	BNAD_GET_REG(TRC_MODS_REG);
--	BNAD_GET_REG(TRC_TRGC_REG);
--	BNAD_GET_REG(TRC_CNT1_REG);
--	BNAD_GET_REG(TRC_CNT2_REG);
--	BNAD_GET_REG(TRC_NXTS_REG);
--	BNAD_GET_REG(TRC_DIRR_REG);
--	for (i = 0; i < 10; i++)
--		BNAD_GET_REG(TRC_TRGM_REG(i));
--	for (i = 0; i < 10; i++)
--		BNAD_GET_REG(TRC_NXTM_REG(i));
--	for (i = 0; i < 10; i++)
--		BNAD_GET_REG(TRC_STRM_REG(i));
--
--	spin_unlock_irqrestore(&bnad->bna_lock, flags);
--#undef BNAD_GET_REG
--	return num;
--}
--static int
--bnad_get_regs_len(struct net_device *netdev)
--{
--	int ret = get_regs(netdev_priv(netdev), NULL) * sizeof(u32);
--	return ret;
--}
--
--static void
--bnad_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *buf)
--{
--	memset(buf, 0, bnad_get_regs_len(netdev));
--	get_regs(netdev_priv(netdev), buf);
--}
--
- static void
- bnad_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wolinfo)
- {
-@@ -1192,8 +875,6 @@ static struct ethtool_ops bnad_ethtool_ops = {
- 	.get_settings = bnad_get_settings,
- 	.set_settings = bnad_set_settings,
- 	.get_drvinfo = bnad_get_drvinfo,
--	.get_regs_len = bnad_get_regs_len,
--	.get_regs = bnad_get_regs,
- 	.get_wol = bnad_get_wol,
- 	.get_link = ethtool_op_get_link,
- 	.get_coalesce = bnad_get_coalesce,
--- 
-1.7.1
+   Please note the tx rx redesign & enet changes are not enabled. They will get
+   enabled in the subsequent submission when all the other supporting code is
+   ready.
+
+Rasesh Mody (8):
+  bna: Remove get_regs Ethtool Support
+  bna: Consolidated HW Registers for Supported HWs
+  bna: Remove Obsolete File bfi_ctreg.h
+  bna: MSGQ Implementation
+  bna: Remove Unnecessary CNA Check
+  bna: HW Interface Init Update
+  bna: Introduce ENET as New Driver and FW Interface
+  bna: Tx and Rx Redesign
+
+ drivers/net/bna/Makefile       |    3 +-
+ drivers/net/bna/bfa_ioc.c      |   16 +-
+ drivers/net/bna/bfa_ioc.h      |    4 +-
+ drivers/net/bna/bfa_ioc_ct.c   |  118 +-
+ drivers/net/bna/bfa_msgq.c     |  669 +++++++
+ drivers/net/bna/bfa_msgq.h     |  130 ++
+ drivers/net/bna/bfi.h          |  101 +
+ drivers/net/bna/bfi_ctreg.h    |  646 -------
+ drivers/net/bna/bfi_enet.h     |  902 +++++++++
+ drivers/net/bna/bfi_reg.h      |  452 +++++
+ drivers/net/bna/bna_ctrl.c     |    6 +-
+ drivers/net/bna/bna_enet.c     | 2199 ++++++++++++++++++++++
+ drivers/net/bna/bna_hw.h       |    6 +-
+ drivers/net/bna/bna_tx_rx.c    | 3966 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/bna/bnad_ethtool.c |  319 ----
+ 15 files changed, 8499 insertions(+), 1038 deletions(-)
+ create mode 100644 drivers/net/bna/bfa_msgq.c
+ create mode 100644 drivers/net/bna/bfa_msgq.h
+ delete mode 100644 drivers/net/bna/bfi_ctreg.h
+ create mode 100644 drivers/net/bna/bfi_enet.h
+ create mode 100644 drivers/net/bna/bfi_reg.h
+ create mode 100644 drivers/net/bna/bna_enet.c
+ create mode 100644 drivers/net/bna/bna_tx_rx.c
 
