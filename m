@@ -1,154 +1,186 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] vfs: avoid taking locks if inode not in lists
-Date: Wed, 27 Jul 2011 17:21:05 +0200
-Message-ID: <1311780065.2356.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20110718155141.GA11013@ZenIV.linux.org.uk>
-	 <1311093158.2707.75.camel@schen9-DESK>
-	 <20110721204042.GB31405@ZenIV.linux.org.uk>
-	 <1311294452.2576.18.camel@schen9-DESK>
-	 <20110723132411.GA22183@infradead.org>
-	 <1311633550.2576.33.camel@schen9-DESK>
-	 <20110725225154.GD22133@ZenIV.linux.org.uk>
-	 <1311636178.2576.34.camel@schen9-DESK>
-	 <1311660013.2996.6.camel@edumazet-laptop>
-	 <1311668466.2355.12.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110726090357.GA13013@infradead.org>
-	 <1311672994.2355.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Serge E. Hallyn" <serge@hallyn.com>
+Subject: Re: [PATCH 01/14] add Documentation/namespaces/user_namespace.txt
+Date: Wed, 27 Jul 2011 15:38:48 +0000
+Message-ID: <20110727153848.GA17288@hallyn.com>
+References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
+ <1311706717-7398-2-git-send-email-serge@hallyn.com>
+ <20110726132249.69533206.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tim Chen <tim.c.chen@linux.intel.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Matthew Wilcox <matthew@wil.cx>,
-	Anton Blanchard <anton@samba.org>, npiggin@kernel.dk,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1311672994.2355.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, dhowells@redhat.com,
+	ebiederm@xmission.com, containers@lists.linux-foundation.org,
+	netdev@vger.kernel.org, akpm@osdl.org,
+	"Serge E. Hallyn" <serge.hallyn@canonical.com>
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110726132249.69533206.rdunlap@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 26 juillet 2011 =C3=A0 11:36 +0200, Eric Dumazet a =C3=A9crit =
-:
-> Le mardi 26 juillet 2011 =C3=A0 05:03 -0400, Christoph Hellwig a =C3=A9=
-crit :
-> > On Tue, Jul 26, 2011 at 10:21:06AM +0200, Eric Dumazet wrote:
-> > > Well, not 'last' contention point, as we still hit remove_inode_h=
-ash(),
-> >=20
-> > There should be no ned to put pipe or anon inodes on the inode hash=
-=2E
-> > Probably sockets don't need it either, but I'd need to look at it i=
-n
-> > detail.
-> >=20
-> > > inode_wb_list_del()
-> >=20
-> > The should never be on the wb list either, doing an unlocked check =
-for
-> > actually beeing on the list before taking the lock should help you.
->=20
-> Yes, it might even help regular inodes ;)
->=20
-> >=20
-> > > inode_lru_list_del(),
-> >=20
-> > No real need to keep inodes in the LRU if we only allocate them usi=
-ng
-> > new_inode but never look them up either.  You might want to try set=
-ting
-> > .drop_inode to generic_delete_inode for these.
->=20
-> Yes, I'll take a look, thanks.
+Quoting Randy Dunlap (rdunlap@xenotime.net):
+> On Tue, 26 Jul 2011 18:58:24 +0000 Serge Hallyn wrote:
+> 
+> > From: Serge E. Hallyn <serge.hallyn@canonical.com>
+> > 
+> > This will hold some info about the design.  Currently it contains
+> > future todos, issues and questions.
+> > 
+> > Changelog:
+> >    jul 26: incorporate feed back from David Howells.
+> > 
+> > Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
+> > Cc: Eric W. Biederman <ebiederm@xmission.com>
+> > Cc: David Howells <dhowells@redhat.com>
+> > ---
+> >  Documentation/namespaces/user_namespace.txt |  107 +++++++++++++++++++++++++++
+> >  1 files changed, 107 insertions(+), 0 deletions(-)
+> >  create mode 100644 Documentation/namespaces/user_namespace.txt
+> > 
+> > diff --git a/Documentation/namespaces/user_namespace.txt b/Documentation/namespaces/user_namespace.txt
+> > new file mode 100644
+> > index 0000000..7e50517
+> > --- /dev/null
+> > +++ b/Documentation/namespaces/user_namespace.txt
+> > @@ -0,0 +1,107 @@
+> > +Description
+> > +===========
+> > +
+> > +Traditionally, each task is owned by a user ID (UID) and belongs to one or more
+> > +groups (GID).  Both are simple numeric IDs, though userspace usually translates
+> > +them to names.  The user namespace allows tasks to have different views of the
+> > +UIDs and GIDs associated with tasks and other resources.  (See 'UID mapping'
+> > +below for more)
+> 
+>          for more.)
 
-If I am not mistaken, we can add unlocked checks on the three hot spots=
-=2E
+Thanks for reviewing, Randy.
 
-After following patch, a close(socket(PF_INET, SOCK_DGRAM, 0)) pair on
-my dev machine takes ~3us instead of ~9us.
+> > +
+> > +The user namespace is a simple hierarchical one.  The system starts with all
+> > +tasks belonging to the initial user namespace.  A task creates a new user
+> > +namespace by passing the CLONE_NEWUSER flag to clone(2).  This requires the
+> > +creating task to have the CAP_SETUID, CAP_SETGID, and CAP_CHOWN capabilities,
+> > +but it does not need to be running as root.  The clone(2) call will result in a
+> > +new task which to itself appears to be running as UID and GID 0, but to its
+> > +creator seems to have the creator's credentials.
+> > +
+> > +Any task in or resource belonging to the initial user namespace will, to this
+> > +new task, appear to belong to UID and GID -1 - which is usually known as
+> 
+> that extra hyphen is confusing.  how about:
+> 
+>                               to UID and GID -1, which is
+> 
+> > +'nobody'.  Permission to open such files will be granted according to world
 
-Maybe its better to split it in three patches, just let me know.
+As I'd been asked to switch from comma, I'll restructure, something like:
 
-22us -> 3us, thats a nice patch series ;)
+"To this new task, any resource belonging to the initial user namespace will
+appear to belong to user 'nobody', which has UID and GID -1."
 
-Thanks
+> > +access permissions.  UID comparisons and group membership checks will return
+> > +false, and privilege will be denied.
+> > +
+> > +When a task belonging to (for example) userid 500 in the initial user namespace
+> > +creates a new user namespace, even though the new task will see itself as
+> > +belonging to UID 0, any task in the initial user namespace will see it as
+> > +belonging to UID 500.  Therefore, UID 500 in the initial user namespace will be
+> > +able to kill the new task.  Files created by the new user will (eventually) be
+> > +seen by tasks in its own user namespace as belonging to UID 0, but to tasks in
+> > +the initial user namespace as belonging to UID 500.
+> > +
+> > +Note that this userid mapping for the VFS is not yet implemented, though the
+> > +lkml and containers mailing list archives will show several previous
+> > +prototypes.  In the end, those got hung up waiting on the concept of targeted
+> > +capabilities to be developed, which, thanks to the insight of Eric Biederman,
+> > +they finally did.
+> > +
+> > +Relationship between the User namespace and other namespaces
+> > +============================================================
+> > +
+> > +Other namespaces, such as UTS and network, are owned by a user namespace.  When
+> > +such a namespace is created, it is assigned to the user namespace of the task
+> > +by which it was created.  Therefore, attempts to exercise privilege to
+> > +resources in, for instance, a particular network namespace, can be properly
+> > +validated by checking whether the caller has the needed privilege (i.e.
+> > +CAP_NET_ADMIN) targeted to the user namespace which owns the network namespace.
+> > +This is done using the ns_capable() function.
+> > +
+> > +As an example, if a new task is cloned with a private user namespace but
+> > +no private network namespace, then the task's network namespace is owned
+> > +by the parent user namespace.  The new task has no privilege to the
+> > +parent user namespace, so it will not be able to create or configure
+> > +network devices.  If, instead, the task were cloned with both private
+> > +user and network namespaces, then the private network namespace is owned
+> > +by the private user namespace, and so root in the new user namespace
+> > +will have privilege targeted to the network namespace.  It will be able
+> > +to create and configure network devices.
+> > +
+> > +UID Mapping
+> > +===========
+> > +The current plan (see 'flexible UID mapping' at
+> > +https://wiki.ubuntu.com/UserNamespace) is:
+> > +
+> > +The UID/GID stored on disk will be that in the init_user_ns.  Most likely
+> > +UID/GID in other namespaces will be stored in xattrs.  But Eric was advocating
+> > +(a few years ago) leaving the details up to filesystems while providing a lib/
+> > +stock implementation.  See the thread around here
+> 
+>                                                 here:
+> 
+> > +http://www.mail-archive.com/devel@openvz.org/msg09331.html
+> > +
+> > +
+> > +Working notes
+> > +=============
+> 
+> A lot of this file is working notes and will need to be updated...
 
-[PATCH] vfs: avoid taking locks if inode not in lists
+Yup.  I can leave it out of this file and keep it on the wiki instead, if
+that is preferred.
 
-sockets and pipes inodes destruction hits three possibly contended
-locks :
-
-system-wide inode_hash_lock in remove_inode_hash()
-superblock s_inode_lru_lock in inode_lru_list_del()
-bdi wb.list_lock in inode_wb_list_del()
-
-Before even taking locks, we can perform an unlocked test to check if
-inode can possibly be in the lists.
-
-On a 2x4x2 machine, a close(socket()) pair can be 200% faster with thes=
-e
-changes.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- fs/fs-writeback.c |   10 ++++++----
- fs/inode.c        |    6 ++++++
- 2 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/fs/fs-writeback.c b/fs/fs-writeback.c
-index 1599aa9..8b90bdb 100644
---- a/fs/fs-writeback.c
-+++ b/fs/fs-writeback.c
-@@ -182,11 +182,13 @@ void bdi_start_background_writeback(struct backin=
-g_dev_info *bdi)
-  */
- void inode_wb_list_del(struct inode *inode)
- {
--	struct backing_dev_info *bdi =3D inode_to_bdi(inode);
-+	if (!list_empty(&inode->i_wb_list)) {
-+		struct backing_dev_info *bdi =3D inode_to_bdi(inode);
-=20
--	spin_lock(&bdi->wb.list_lock);
--	list_del_init(&inode->i_wb_list);
--	spin_unlock(&bdi->wb.list_lock);
-+		spin_lock(&bdi->wb.list_lock);
-+		list_del_init(&inode->i_wb_list);
-+		spin_unlock(&bdi->wb.list_lock);
-+	}
- }
-=20
- /*
-diff --git a/fs/inode.c b/fs/inode.c
-index d0c72ff..796a420 100644
---- a/fs/inode.c
-+++ b/fs/inode.c
-@@ -338,6 +338,9 @@ static void inode_lru_list_add(struct inode *inode)
-=20
- static void inode_lru_list_del(struct inode *inode)
- {
-+	if (list_empty(&inode->i_lru))
-+		return;
-+
- 	spin_lock(&inode->i_sb->s_inode_lru_lock);
- 	if (!list_empty(&inode->i_lru)) {
- 		list_del_init(&inode->i_lru);
-@@ -406,6 +409,9 @@ EXPORT_SYMBOL(__insert_inode_hash);
-  */
- void remove_inode_hash(struct inode *inode)
- {
-+	if (inode_unhashed(inode))
-+		return;
-+
- 	spin_lock(&inode_hash_lock);
- 	spin_lock(&inode->i_lock);
- 	hlist_del_init(&inode->i_hash);
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > +Capability checks for actions related to syslog must be against the
+> > +init_user_ns until syslog is containerized.
+> > +
+> > +Same is true for reboot and power, control groups, devices, and time.
+> > +
+> > +Perf actions (kernel/event/core.c for instance) will always be constrained to
+> > +init_user_ns.
+> > +
+> > +Q:
+> > +Is accounting considered properly containerized wrt pidns?  (it appears to be).
+> 
+> s/wrt/with respect to/
+> 
+> > +If so, then we can change the capable() check in kernel/acct.c to
+> > +'ns_capable(current_pid_ns()->user_ns, CAP_PACCT)'
+> > +
+> > +Q:
+> > +For things like nice and schedaffinity, we could allow root in a container to
+> > +control those, and leave only cgroups to constrain the container.  I'm not sure
+> > +whether that is right, or whether it violates admin expectations.
+> > +
+> > +I deferred some of commoncap.c.  I'm punting on xattr stuff as they take
+> > +dentries, not inodes.
+> > +
+> > +For drivers/tty/tty_io.c and drivers/tty/vt/vt.c, we'll want to (for some of
+> > +them) target the capability checks at the user_ns owning the tty.  That will
+> > +have to wait until we get userns owning files straightened out.
+> > +
+> > +We need to figure out how to label devices.  Should we just toss a user_ns
+> > +right into struct device?
+> > +
+> > +capable(CAP_MAC_ADMIN) checks are always to be against init_user_ns, unless
+> > +some day LSMs were to be containerized, near zero chance.
+> > +
+> > +inode_owner_or_capable() should probably take an optional ns and cap parameter.
+> > +If cap is 0, then CAP_FOWNER is checked.  If ns is NULL, we derive the ns from
+> > +inode.  But if ns is provided, then callers who need to derive
+> > +inode_userns(inode) anyway can save a few cycles.
+> > -- 
+> 
+> 
+> ---
+> ~Randy
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
