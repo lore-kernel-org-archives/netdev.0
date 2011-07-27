@@ -1,71 +1,71 @@
-From: Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
-Subject: strange behaviour of MC7700 with sierra_net
-Date: Wed, 27 Jul 2011 16:12:46 +0200
-Message-ID: <20110727141246.GC29616@orbit.nwl.cc>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Re: [PATCHv4 10/11] drop_monitor: Use *_dec_not_zero instead of
+ *_add_unless
+Date: Wed, 27 Jul 2011 10:25:22 -0400
+Message-ID: <20110727142521.GB19001@hmsreliant.think-freely.org>
+References: <1311760070-21532-1-git-send-email-sven@narfation.org>
+ <1311760070-21532-10-git-send-email-sven@narfation.org>
+ <20110727105907.GA19001@hmsreliant.think-freely.org>
+ <2127465.xrCKehbL3A@sven-laptop.home.narfation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Sven Eckelmann <sven@narfation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <2127465.xrCKehbL3A@sven-laptop.home.narfation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello everyone,
+On Wed, Jul 27, 2011 at 01:52:50PM +0200, Sven Eckelmann wrote:
+> On Wednesday 27 July 2011 06:59:07 Neil Horman wrote:
+> > On Wed, Jul 27, 2011 at 11:47:49AM +0200, Sven Eckelmann wrote:
+> > > atomic_dec_not_zero is defined for each architecture through
+> > > <linux/atomic.h> to provide the functionality of
+> > > atomic_add_unless(x, -1, 0).
+> > > 
+> > > Signed-off-by: Sven Eckelmann <sven@narfation.org>
+> > > Cc: Neil Horman <nhorman@tuxdriver.com>
+> > > Cc: netdev@vger.kernel.org
+> > > ---
+> > > 
+> > >  net/core/drop_monitor.c |    2 +-
+> > >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > > 
+> > > diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+> > > index 7f36b38..ef4a05d 100644
+> > > --- a/net/core/drop_monitor.c
+> > > +++ b/net/core/drop_monitor.c
+> > > @@ -137,7 +137,7 @@ static void trace_drop_common(struct sk_buff *skb,
+> > > void *location)
+> > > 
+> > >  	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
+> > > 
+> > > -	if (!atomic_add_unless(&data->dm_hit_count, -1, 0)) {
+> > > +	if (!atomic_dec_not_zero(&data->dm_hit_count)) {
+> > > 
+> > >  		/*
+> > >  		
+> > >  		 * we're already at zero, discard this hit
+> > >  		 */
+> > 
+> > Wheres the patch that creates the per arch definition of this function?  I
+> > see the other posts in this series went to lkml, but the archives don't
+> > have the first in the series anywhere, which ostensibly adds the
+> > definition. Neil
+> 
+> Most architectures don't use a per architecture definition anymore, but a 
+> cross-architecture the definition in include/linux/atomic.h.
+> 
+> The 01/11 can be found in different archives under the message id 
+> 1311760070-21532-1-git-send-email-sven@narfation.org ... for example gmane: 
+> http://article.gmane.org/gmane.linux.ports.arm.kernel/126704
+> 
+> Kind regards,
+> 	Sven
+Ok, thank you, I just didn't see the patch that implemented it in the lkml
+archive at MARC, and wanted to be sure this wasn't proposed for a different tree
+than the patch with the definition.
 
-I am testing the above module on linux-2.6.39.2 which should contain the
-latest changes to at least sierra_net.c. Although I am able to bring the
-module up and then can get traffic through it, initialisation seems to
-be a little picky.
-
-After connecting the module via USB, I get the following final
-initialisation message:
-| Jul 27 14:01:15 (none) user.info kernel: [166371.982356] sierra_net 1-1:1.7: wwan0: register 'sierra_net' at usb-0000:00:08.2-1, Sierra Wireless USB-to-WWAN Modem, 4a:82:22:b9:05:07
-
-Doing nothing (successfully), the driver starts printing errors after a
-while:
-| Jul 27 14:02:15 (none) user.err kernel: [166432.201461] sierra_net 1-1:1.7: wwan0: Submit SYNC failed -32
-| Jul 27 14:02:15 (none) user.err kernel: [166432.201609] sierra_net 1-1:1.7: wwan0: Send SYNC failed, status -32
-| Jul 27 14:02:15 (none) user.err kernel: [166432.205446] sierra_net 1-1:1.7: wwan0: Submit SYNC failed -32
-| Jul 27 14:02:15 (none) user.err kernel: [166432.205590] sierra_net 1-1:1.7: wwan0: Send SYNC failed, status -32
-
-The above messages are the first ones to appear (so there's a delay of
-60 seconds in between), and they repeat each 2 seconds from then on.
-Depending on how I continue at that point, results vary:
-
-a) 'ip link set wwan0 up': setting the interface up stops the above error
-   messages from being printed. This worked every time I tried.
-
-b) Sending 'ATZ' on the control-tty: this makes the error-messages
-   disappear for about 6 seconds, so two iterations of the sync-timer
-   seem to succeed. When I then try to continue initialisation, I usually
-   get to 'AT+C' (for AT+CPIN='1234'), then the control-tty dies (neither
-   echoing of typed characters, nor feedback from the modem printed).
-
-Trying a) from the state after b) indeed makes the error-messages go
-away, but the tty stays dead until I power-cycle the module. Needless to
-say, without the control-tty the module is completely useless.
-
-My first thought was that the driver shouldn't try to SYNC while the
-interface being down, but apparently sierra_net_send_sync() doesn't get
-called anymore after setting the interface up.
-
-So in order to prevent the module from dieing, I need to up the
-interface before initialisation via AT-interface.
-
-Another interesting aspect: the above error stays gone after the
-interface has been upped once, even if it's brought down right
-afterwards without doing anything else. OK, not completely - there needs
-to be a little delay in which the interface stays up, but a tenth of a
-second was enough.
-
-What else can I do to track this problem down further? What additional
-information do you need from me? Any advice is highly appreciated, of
-course!
-
-Greetings, Phil
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
