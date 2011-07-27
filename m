@@ -1,37 +1,38 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: IP over 802.2 with LLC/SNAP
-Date: Wed, 27 Jul 2011 09:26:36 -0700
-Message-ID: <4E303C3C.5040802@hp.com>
-References: <4E2F8B7B.80906@signal11.us> <20110727133209.0d9dd6c4@lxorguk.ukuu.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alan Ott <alan@signal11.us>, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/1] tc: filter: fix default 'protocol all' on little-endian platforms
+Date: Wed, 27 Jul 2011 18:47:05 +0200
+Message-ID: <1311785225-23367-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:36211 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754603Ab1G0Q0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 12:26:39 -0400
-In-Reply-To: <20110727133209.0d9dd6c4@lxorguk.ukuu.org.uk>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:52401 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754857Ab1G0QsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2011 12:48:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2011 05:32 AM, Alan Cox wrote:
->> So the question is, does Linux support IP over 802.2 with LLC/SNAP? Is
->> there a sysfs/proc entry that I have to turn on to make this work (I
->> didn't find one)? I have the LLC2 module loaded, and I believe my packet
->> to be correct, since Windows recognizes it and since Wireshark doesn't
->> give any red flags on it. I've been unable to find anything about this
->> kind of thing in my searching.
->
-> Linux supports LLC/SNAP and various things over it (IPX/Appletalk DDP
-> etc) but not IP over it, as it's one of those standards bodies driven
-> bogosities which nobody ever actually deployed.
+when specifiying filters without 'protocol' keyword, tc will
+default to 'protocol all'.
 
-Well...  Hewlett-Packard deployed it in the 80's and 90's in MPE and 
-HP-UX, HP-UX because until the mid-ish 1990's MPE only spoke 802.2 not 
-"Ethernet."  By the late 1990's I think it was gone from HP-UX.
+Unfortunately, this missed a byte-ordering conversion.
+---
+ tc/tc_filter.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-rick jones
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+index 919c57c..4e55812 100644
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -73,7 +73,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
+ 	req.t.tcm_family = AF_UNSPEC;
+ 
+ 	if (cmd == RTM_NEWTFILTER && flags & NLM_F_CREATE)
+-		protocol = ETH_P_ALL;
++		protocol = htons(ETH_P_ALL);
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "dev") == 0) {
+-- 
+1.7.3.4
+
