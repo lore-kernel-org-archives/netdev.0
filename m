@@ -1,71 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Re: [PATCHv4 10/11] drop_monitor: Use *_dec_not_zero instead of
- *_add_unless
-Date: Wed, 27 Jul 2011 10:25:22 -0400
-Message-ID: <20110727142521.GB19001@hmsreliant.think-freely.org>
-References: <1311760070-21532-1-git-send-email-sven@narfation.org>
- <1311760070-21532-10-git-send-email-sven@narfation.org>
- <20110727105907.GA19001@hmsreliant.think-freely.org>
- <2127465.xrCKehbL3A@sven-laptop.home.narfation.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: Oops when insmod rtl8192ce
+Date: Wed, 27 Jul 2011 09:37:13 -0500
+Message-ID: <4E302299.2070309@lwfinger.net>
+References: <CAMzZzFGqPv6Nbw8J8JGNKcLA76sAs3oD6+hH9NPCjwA33fYpOQ@mail.gmail.com> <CAMzZzFGpDiFAhsLAb+SQxjbGMzBoOStF_Lr7Eb3PT6Drcf=VdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sven Eckelmann <sven@narfation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2127465.xrCKehbL3A@sven-laptop.home.narfation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hubert Liao <liao.hubertt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMzZzFGpDiFAhsLAb+SQxjbGMzBoOStF_Lr7Eb3PT6Drcf=VdA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 27, 2011 at 01:52:50PM +0200, Sven Eckelmann wrote:
-> On Wednesday 27 July 2011 06:59:07 Neil Horman wrote:
-> > On Wed, Jul 27, 2011 at 11:47:49AM +0200, Sven Eckelmann wrote:
-> > > atomic_dec_not_zero is defined for each architecture through
-> > > <linux/atomic.h> to provide the functionality of
-> > > atomic_add_unless(x, -1, 0).
-> > > 
-> > > Signed-off-by: Sven Eckelmann <sven@narfation.org>
-> > > Cc: Neil Horman <nhorman@tuxdriver.com>
-> > > Cc: netdev@vger.kernel.org
-> > > ---
-> > > 
-> > >  net/core/drop_monitor.c |    2 +-
-> > >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > > 
-> > > diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-> > > index 7f36b38..ef4a05d 100644
-> > > --- a/net/core/drop_monitor.c
-> > > +++ b/net/core/drop_monitor.c
-> > > @@ -137,7 +137,7 @@ static void trace_drop_common(struct sk_buff *skb,
-> > > void *location)
-> > > 
-> > >  	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
-> > > 
-> > > -	if (!atomic_add_unless(&data->dm_hit_count, -1, 0)) {
-> > > +	if (!atomic_dec_not_zero(&data->dm_hit_count)) {
-> > > 
-> > >  		/*
-> > >  		
-> > >  		 * we're already at zero, discard this hit
-> > >  		 */
-> > 
-> > Wheres the patch that creates the per arch definition of this function?  I
-> > see the other posts in this series went to lkml, but the archives don't
-> > have the first in the series anywhere, which ostensibly adds the
-> > definition. Neil
-> 
-> Most architectures don't use a per architecture definition anymore, but a 
-> cross-architecture the definition in include/linux/atomic.h.
-> 
-> The 01/11 can be found in different archives under the message id 
-> 1311760070-21532-1-git-send-email-sven@narfation.org ... for example gmane: 
-> http://article.gmane.org/gmane.linux.ports.arm.kernel/126704
-> 
-> Kind regards,
-> 	Sven
-Ok, thank you, I just didn't see the patch that implemented it in the lkml
-archive at MARC, and wanted to be sure this wasn't proposed for a different tree
-than the patch with the definition.
+On 07/27/2011 04:26 AM, hubert Liao wrote:
+> Hi,
+> We got an oops when insmod rtl8192ce module (the board is an ARM soc),
+> accroding the oops message, find it's because in rtl_pci_probe()
+> called _rtl_pci_find_adapter(),
+> in this funcation, the  pdev->bus->self is a NULL pointer .
+> static boot _rtl_pci_find_adapter(strcut pci_dev *dev,
+>                struct ieee80211_hw *hw)
+> {
+> struct pci_dev *bridge_pdev = pdev->bus->self;   //line 1601
+> ...
+> pcipriv->ndis_adapter.pcibridge_vendorid = bridge_pdev->vendor;<--
+> [oops here] line 1700
+> ...
+> }
+> here, I just want to know why the bus->self  is NULL?
+> ----
+> [  148.186632] Unable to handle kernel NULL pointer dereference at
+> virtual address 00000020
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+As John Linville suggested, please open a bugzilla report.
+
+I would also like some additional information. What kernel are you using? In 
+addition, please post the 'lspci -nnk' information for your card.
+
+I also think that pdev->bus should have been setup before the initialization 
+code in rtl8192ce was called. I have not tested the driver on other than x86 and 
+x86_64 architectures because of hardware availability, thus ARM may expose some 
+problems. Is this soc little-endian?
+
+Thanks,
+Larry
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
