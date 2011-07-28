@@ -1,39 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Audit drivers to identify those needing
- IFF_TX_SKB_SHARING cleared
-Date: Wed, 27 Jul 2011 22:42:22 -0700 (PDT)
-Message-ID: <20110727.224222.415740695646226639.davem@davemloft.net>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
-	<1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
-	<1311696338-4739-3-git-send-email-nhorman@tuxdriver.com>
+From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/2] ASIX: Use only 11 bits of header for data size
+Date: Thu, 28 Jul 2011 08:06:18 +0200
+Message-ID: <201107280806.18813.marek.vasut@gmail.com>
+References: <1311734687-23551-1-git-send-email-marek.vasut@gmail.com> <1311734687-23551-2-git-send-email-marek.vasut@gmail.com> <20110727.224029.619127041796367339.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isdn@linux-pingi.de, fubar@us.ibm.com,
-	andy@greyhouse.net, kaber@trash.net, khc@pm.waw.pl,
-	linville@tuxdriver.com, gregkh@suse.de, marcel@holtmann.org,
-	johannes@sipsolutions.net
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50496 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753658Ab1G1Fp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 01:45:57 -0400
-In-Reply-To: <1311696338-4739-3-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110727.224029.619127041796367339.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 26 Jul 2011 12:05:38 -0400
-
-> After the last patch, We are left in a state in which only drivers calling
-> ether_setup have IFF_TX_SKB_SHARING set (we assume that drivers touching real
-> hardware call ether_setup for their net_devices and don't hold any state in
-> their skbs.  There are a handful of drivers that violate this assumption of
-> course, and need to be fixed up.  This patch identifies those drivers, and marks
-> them as not being able to support the safe transmission of skbs by clearning the
-> IFF_TX_SKB_SHARING flag in priv_flags
+On Thursday, July 28, 2011 07:40:29 AM David Miller wrote:
+> From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Wed, 27 Jul 2011 04:44:47 +0200
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > The AX88772B uses only 11 bits of the header for the actual size. The
+> > other bits
+> > 
+> > are used for something else. This causes dmesg full of messages:
+> > 	asix_rx_fixup() Bad Header Length
+> > 
+> > This patch trims the check to only 11 bits. I believe on older chips, the
+> > remaining 5 top bits are unused.
+> > 
+> > Signed-off-by: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Applied.
 
-Applied.
+Hi, did you test it ?
+
+I left NOTEs outside the commit message:
+
+NOTE: If possible, can someone test/verify this patch with other ASIX chips ?
+NOTE2: If Ack-ed, Greg, can you get this into -stable?
+
+I hope I won't have a horde of angry people at my door soon ;-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
