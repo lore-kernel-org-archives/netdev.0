@@ -1,67 +1,99 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv6: avoid a dst_entry refcount change in
- ipv6_destopt_rcv()
-Date: Thu, 28 Jul 2011 16:00:35 +0200
-Message-ID: <1311861635.2346.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: [PATCH] ip6tnl: avoid touching dst refcount in ip6_tnl_xmit2()
+Date: Thu, 28 Jul 2011 16:32:25 +0200
+Message-ID: <1311863545.2346.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49629 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55419 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755264Ab1G1OAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 10:00:43 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 8so139467wyg.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 07:00:43 -0700 (PDT)
+	with ESMTP id S1753866Ab1G1Oc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 10:32:29 -0400
+Received: by wyg8 with SMTP id 8so168934wyg.19
+        for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 07:32:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv6_destopt_rcv() runs with rcu_read_lock(), so there is no need to
-take a temporay reference on dst_entry, even if skb is freed by
-ip6_parse_tlv()
+Even using percpu stats, we still hit tunnel dst_entry refcount in
+ip6_tnl_xmit2()
+
+Since we are in RCU locked section, we can use skb_dst_set_noref() and
+avoid these atomic operations, leaving dst shared on cpus.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/ipv6/exthdrs.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ net/ipv6/ip6_tunnel.c |   27 ++++++++++++++-------------
+ 1 file changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 79a485e..1318de4 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -273,12 +273,12 @@ static int ipv6_destopt_rcv(struct sk_buff *skb)
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 	__u16 dstbuf;
- #endif
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 0bc9888..6fb1fb3 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -889,7 +889,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	struct net_device_stats *stats = &t->dev->stats;
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	struct ipv6_tel_txoption opt;
 -	struct dst_entry *dst;
-+	struct dst_entry *dst = skb_dst(skb);
++	struct dst_entry *dst, *ndst = NULL;
+ 	struct net_device *tdev;
+ 	int mtu;
+ 	unsigned int max_headroom = sizeof(struct ipv6hdr);
+@@ -897,19 +897,19 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	int err = -1;
+ 	int pkt_len;
  
- 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + 8) ||
- 	    !pskb_may_pull(skb, (skb_transport_offset(skb) +
- 				 ((skb_transport_header(skb)[1] + 1) << 3)))) {
--		IP6_INC_STATS_BH(dev_net(skb_dst(skb)->dev), ip6_dst_idev(skb_dst(skb)),
-+		IP6_INC_STATS_BH(dev_net(dst->dev), ip6_dst_idev(dst),
- 				 IPSTATS_MIB_INHDRERRORS);
- 		kfree_skb(skb);
- 		return -1;
-@@ -289,9 +289,7 @@ static int ipv6_destopt_rcv(struct sk_buff *skb)
- 	dstbuf = opt->dst1;
- #endif
+-	if ((dst = ip6_tnl_dst_check(t)) != NULL)
+-		dst_hold(dst);
+-	else {
+-		dst = ip6_route_output(net, NULL, fl6);
++	dst = ip6_tnl_dst_check(t);
++	if (!dst) {
++		ndst = ip6_route_output(net, NULL, fl6);
  
--	dst = dst_clone(skb_dst(skb));
- 	if (ip6_parse_tlv(tlvprocdestopt_lst, skb)) {
--		dst_release(dst);
- 		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
- 		opt = IP6CB(skb);
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
-@@ -304,7 +302,6 @@ static int ipv6_destopt_rcv(struct sk_buff *skb)
+-		if (dst->error)
++		if (ndst->error)
+ 			goto tx_err_link_failure;
+-		dst = xfrm_lookup(net, dst, flowi6_to_flowi(fl6), NULL, 0);
+-		if (IS_ERR(dst)) {
+-			err = PTR_ERR(dst);
+-			dst = NULL;
++		ndst = xfrm_lookup(net, ndst, flowi6_to_flowi(fl6), NULL, 0);
++		if (IS_ERR(ndst)) {
++			err = PTR_ERR(ndst);
++			ndst = NULL;
+ 			goto tx_err_link_failure;
+ 		}
++		dst = ndst;
+ 	}
  
- 	IP6_INC_STATS_BH(dev_net(dst->dev),
- 			 ip6_dst_idev(dst), IPSTATS_MIB_INHDRERRORS);
+ 	tdev = dst->dev;
+@@ -955,7 +955,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		skb = new_skb;
+ 	}
+ 	skb_dst_drop(skb);
+-	skb_dst_set(skb, dst_clone(dst));
++	skb_dst_set_noref(skb, dst);
+ 
+ 	skb->transport_header = skb->network_header;
+ 
+@@ -987,13 +987,14 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		stats->tx_errors++;
+ 		stats->tx_aborted_errors++;
+ 	}
+-	ip6_tnl_dst_store(t, dst);
++	if (ndst)
++		ip6_tnl_dst_store(t, ndst);
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
+ 	dst_link_failure(skb);
+ tx_err_dst_release:
 -	dst_release(dst);
- 	return -1;
++	dst_release(ndst);
+ 	return err;
  }
  
 
