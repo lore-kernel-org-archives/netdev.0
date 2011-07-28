@@ -1,64 +1,78 @@
-From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: "mlx4_en: Enabling new steering" brokenness
-Date: Thu, 28 Jul 2011 14:04:59 -0700
-Message-ID: <1311887099-14339-1-git-send-email-roland@kernel.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC net-next PATCH 3/4] ethtool: Add new set commands
+Date: Thu, 28 Jul 2011 23:14:45 +0200
+Message-ID: <1311887685.2677.12.camel@deadeye>
+References: <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
+	 <20110727.222749.1654973220321763098.davem@davemloft.net>
+	 <43F901BD926A4E43B106BF17856F0755019414D509@orsmsx508.amr.corp.intel.com>
+	 <20110728.091448.548423057039764289.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:7810 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756034Ab1G1VOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 17:14:50 -0400
+In-Reply-To: <20110728.091448.548423057039764289.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Yevgeny!
+On Thu, 2011-07-28 at 09:14 -0700, David Miller wrote:
+> From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+> Date: Thu, 28 Jul 2011 08:51:05 -0700
+> 
+> >> -----Original Message-----
+> >> From: David Miller [mailto:davem@davemloft.net]
+> >> Sent: Wednesday, July 27, 2011 10:28 PM
+> >> To: Rose, Gregory V
+> >> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com; Kirsher, Jeffrey T
+> >> Subject: Re: [RFC net-next PATCH 3/4] ethtool: Add new set commands
+> >> 
+> >> From: Greg Rose <gregory.v.rose@intel.com>
+> >> Date: Wed, 27 Jul 2011 15:17:59 -0700
+> >> 
+> >> > Add new set commands to configure the number of SR-IOV VFs, the
+> >> > number of VM queues and spoof checking on/off switch.
+> >> >
+> >> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> >> > ---
+> >> >
+> >> >  include/linux/ethtool.h |   11 ++++++++++-
+> >> >  1 files changed, 10 insertions(+), 1 deletions(-)
+> >> >
+> >> > diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> >> > index c6e427a..c4972ba 100644
+> >> > --- a/include/linux/ethtool.h
+> >> > +++ b/include/linux/ethtool.h
+> >> > @@ -36,12 +36,14 @@ struct ethtool_cmd {
+> >> >  	__u8	mdio_support;
+> >> >  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+> >> >  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+> >> > +	__u32	num_vfs;	/* Enable SR-IOV VFs */
+> >> > +	__u32	num_vmqs;	/* Set number of queues for VMDq */
+> >> 
+> >> You can't change the layout of this datastructure in this way without
+> >> breaking every ethtool binary out there.
+> >> 
+> >> You have to find another place to add these knobs.
+> > 
+> > Perhaps at the end of the ethtool_cmd structure?  Something like this:
+> 
+> Either use the two reserved u32's we have there, or create a new
+> ethtool command and control structure.
 
-So I have a system with an mlx4_en device with pretty old FW (version
-2.7.700), old enough that the firmware doesn't have the capability
-MLX4_DEV_CAP_FLAG_VEP_UC_STEER set.  And it looks like mlx4_en is
-completely broken in this case, at least since your commit
-1679200f91da ("mlx4_en: Enabling new steering").  If I try to bring up
-the interface, I just see:
+I'm going to insist on the latter.  As I see it, struct ethtool_cmd is
+for Ethernet PHY settings.  (The max{rx,tx}pkt fields weren't, but
+they're obsolete.)
 
-    mlx4_en: eth1: Failed to allocate RSS indirection QP
+Ben.
 
-And this is failing because the QPN in 0.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-The problem is in drivers/net/mlx4/port.c:mlx4_register_mac():
-
-	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
-		*qpn = info->base_qpn + free;
-
-but absolutely nothing ever initializes info->base_qpn.  It looks like
-the intention of the code is to initialize this in
-mlx4_init_port_info(); however even the below hack doesn't seem to fix
-things completely -- I still seem to have problems on the RX side
-unless I enable promiscuous mode by running tcpdump:
-
-diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
-index c94b342..38092c7 100644
---- a/drivers/net/mlx4/main.c
-+++ b/drivers/net/mlx4/main.c
-@@ -1125,6 +1125,13 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
- 	info->port_attr.store     = set_port_type;
- 	sysfs_attr_init(&info->port_attr.attr);
- 
-+	err = mlx4_qp_reserve_range(dev, 1, 1, &info->base_qpn);
-+	if (err) {
-+		mlx4_err(dev, "Failed to reserve QP range for port %d\n", port);
-+		info->port = -1;
-+		return err;
-+	}
-+
- 	err = device_create_file(&dev->pdev->dev, &info->port_attr);
- 	if (err) {
- 		mlx4_err(dev, "Failed to create file for port %d\n", port);
-
-Could you take a look at getting this working?  (Or update the driver
-so it immediately fails with an informative message if you want to
-rely on certain FW versions; and then strip out the old broken
-compatibility code)
-
-Thanks!
-  Roland
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
