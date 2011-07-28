@@ -1,41 +1,58 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: invalid requirement from ethtool?
-Date: Thu, 28 Jul 2011 10:23:26 +0300
-Message-ID: <20110728072326.GC6750@mtldesk30>
-References: <20110726124222.GA4842@mtldesk30>
- <20110727.224309.779719590419361909.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] sis190: Rx filter init is needed for MAC address change.
+Date: Thu, 28 Jul 2011 09:11:23 +0200
+Message-ID: <20110728071123.GA11286@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Klement Fish <klement2@azet.sk>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59697 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754870Ab1G1HXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 03:23:32 -0400
-Received: by wyg8 with SMTP id 8so1492086wyg.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 00:23:30 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49959 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754848Ab1G1H1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 03:27:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20110727.224309.779719590419361909.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 27, 2011 at 10:43:09PM -0700, David Miller wrote:
-> From: Eli Cohen <eli@dev.mellanox.co.il>
-> Date: Tue, 26 Jul 2011 15:42:22 +0300
-> 
-> > I think both params zero should be allowed and mean coalescing is not
-> > operational, thus we can remove these comments from ethtool.h
-> 
-> The existing precendence has existed for more than 10 years.  You can't
-> just change it like this.
-> 
-> You'll need to find a new way to encode "disabled" coalescing.
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=34552
 
-I can't see the text explicitly specifies how to "disable" coalescing.
-If I ignore the specific comment that disallows both params 0, I could
-interpret the text such that when they're both zero, the feature is
-disabled.
+Signed-off-by: Klement Fish <klement2@azet.sk>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/sis190.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
 
-BTW, I checked also Intel 10GBE Nic (ixgbe) driver and it allows
-setting both 0.
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 8ad7bfb..3c0f131 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -1825,6 +1825,16 @@ static int sis190_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		generic_mii_ioctl(&tp->mii_if, if_mii(ifr), cmd, NULL);
+ }
+ 
++static int sis190_mac_addr(struct net_device  *dev, void *p)
++{
++	int rc;
++
++	rc = eth_mac_addr(dev, p);
++	if (!rc)
++		sis190_init_rxfilter(dev);
++	return rc;
++}
++
+ static const struct net_device_ops sis190_netdev_ops = {
+ 	.ndo_open		= sis190_open,
+ 	.ndo_stop		= sis190_close,
+@@ -1833,7 +1843,7 @@ static const struct net_device_ops sis190_netdev_ops = {
+ 	.ndo_tx_timeout		= sis190_tx_timeout,
+ 	.ndo_set_multicast_list = sis190_set_rx_mode,
+ 	.ndo_change_mtu		= eth_change_mtu,
+-	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_set_mac_address	= sis190_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	 = sis190_netpoll,
+-- 
+1.7.4.4
+
