@@ -1,56 +1,59 @@
-From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] ASIX: Use only 11 bits of header for data size
-Date: Thu, 28 Jul 2011 18:17:49 +0200
-Message-ID: <201107281817.49843.marek.vasut@gmail.com>
-References: <1311734687-23551-1-git-send-email-marek.vasut@gmail.com> <201107280806.18813.marek.vasut@gmail.com> <20110728151806.GB22202@kroah.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] sis190: Rx filter init is needed for MAC address change.
+Date: Thu, 28 Jul 2011 18:03:22 +0200
+Message-ID: <20110728160322.GA11480@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
-To: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110728151806.GB22202-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Klement Fish <klement2@azet.sk>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:40879 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755186Ab1G1QTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 12:19:18 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 28, 2011 05:18:06 PM Greg KH wrote:
-> On Thu, Jul 28, 2011 at 08:06:18AM +0200, Marek Vasut wrote:
-> > On Thursday, July 28, 2011 07:40:29 AM David Miller wrote:
-> > > From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > Date: Wed, 27 Jul 2011 04:44:47 +0200
-> > > 
-> > > > The AX88772B uses only 11 bits of the header for the actual size. The
-> > > > other bits
-> > > > 
-> > > > are used for something else. This causes dmesg full of messages:
-> > > > 	asix_rx_fixup() Bad Header Length
-> > > > 
-> > > > This patch trims the check to only 11 bits. I believe on older chips,
-> > > > the remaining 5 top bits are unused.
-> > > > 
-> > > > Signed-off-by: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > 
-> > > Applied.
-> > 
-> > Hi, did you test it ?
-> > 
-> > I left NOTEs outside the commit message:
-> > 
-> > NOTE: If possible, can someone test/verify this patch with other ASIX
-> > chips ? NOTE2: If Ack-ed, Greg, can you get this into -stable?
-> 
-> <formletter>
-> 
-> This is not the correct way to submit patches for inclusion in the
-> stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-> for how to do this properly.
+From: Klement Fish <klement2@azet.sk>
 
-Yea I know ... I'm just so very tired (read dead). Sorry
-> 
-> </formletter>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Addresses https://bugzilla.kernel.org/show_bug.cgi?id=34552
+
+Signed-off-by: Klement Fish <klement2@azet.sk>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/sis190.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/sis190.c b/drivers/net/sis190.c
+index 8ad7bfb..3c0f131 100644
+--- a/drivers/net/sis190.c
++++ b/drivers/net/sis190.c
+@@ -1825,6 +1825,16 @@ static int sis190_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		generic_mii_ioctl(&tp->mii_if, if_mii(ifr), cmd, NULL);
+ }
+ 
++static int sis190_mac_addr(struct net_device  *dev, void *p)
++{
++	int rc;
++
++	rc = eth_mac_addr(dev, p);
++	if (!rc)
++		sis190_init_rxfilter(dev);
++	return rc;
++}
++
+ static const struct net_device_ops sis190_netdev_ops = {
+ 	.ndo_open		= sis190_open,
+ 	.ndo_stop		= sis190_close,
+@@ -1833,7 +1843,7 @@ static const struct net_device_ops sis190_netdev_ops = {
+ 	.ndo_tx_timeout		= sis190_tx_timeout,
+ 	.ndo_set_multicast_list = sis190_set_rx_mode,
+ 	.ndo_change_mtu		= eth_change_mtu,
+-	.ndo_set_mac_address 	= eth_mac_addr,
++	.ndo_set_mac_address	= sis190_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	 = sis190_netpoll,
+-- 
+1.7.4.4
