@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vfs: avoid taking locks if inode not in lists
-Date: Thu, 28 Jul 2011 06:41:09 +0200
-Message-ID: <1311828069.2697.27.camel@edumazet-laptop>
+Subject: [PATCH] vfs: avoid call to inode_lru_list_del() if possible
+Date: Thu, 28 Jul 2011 06:55:13 +0200
+Message-ID: <1311828913.2697.33.camel@edumazet-laptop>
 References: <1311294452.2576.18.camel@schen9-DESK>
 	 <20110723132411.GA22183@infradead.org>
 	 <1311633550.2576.33.camel@schen9-DESK>
@@ -61,78 +61,41 @@ rs
 > and thus save a function call for each of them.
 >=20
 
-What about following patch, addressing the micro-optimization and Andi
-Kleen concern about evict() readability ?
+Here is the last patch, addressing inode_lru_list_del() call.
 
-Thanks !
+Only the call done from iput_final() can obviously benefit from checkin=
+g
+i_lru being empty or not, so it makes sense to perform the check at
+caller site instead of doing it in inode_lru_list_del()
 
-[PATCH] vfs: avoid taking inode_hash_lock on pipes and sockets
+[PATCH] vfs: avoid call to inode_lru_list_del() if possible
 
-Some inodes (pipes, sockets, ...) are not hashed, no need to take
-contended inode_hash_lock at dismantle time.
+inode_lru_list_del() is expensive because of per superblock lru locking=
+,
+while some inodes are not in lru list.
 
-nice speedup on SMP machines on socket intensive workloads.
+Adding a check in iput_final() can speedup pipe/sockets workloads on
+SMP.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- fs/inode.c         |    6 +++---
- include/linux/fs.h |    9 ++++++++-
- 2 files changed, 11 insertions(+), 4 deletions(-)
+ fs/inode.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/fs/inode.c b/fs/inode.c
-index d0c72ff..73b5598 100644
+index d0c72ff..b8b8939 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
-@@ -399,12 +399,12 @@ void __insert_inode_hash(struct inode *inode, uns=
-igned long hashval)
- EXPORT_SYMBOL(__insert_inode_hash);
+@@ -1328,7 +1328,8 @@ static void iput_final(struct inode *inode)
+ 	}
 =20
- /**
-- *	remove_inode_hash - remove an inode from the hash
-+ *	__remove_inode_hash - remove an inode from the hash
-  *	@inode: inode to unhash
-  *
-  *	Remove an inode from the superblock.
-  */
--void remove_inode_hash(struct inode *inode)
-+void __remove_inode_hash(struct inode *inode)
- {
- 	spin_lock(&inode_hash_lock);
- 	spin_lock(&inode->i_lock);
-@@ -412,7 +412,7 @@ void remove_inode_hash(struct inode *inode)
+ 	inode->i_state |=3D I_FREEING;
+-	inode_lru_list_del(inode);
++	if (!list_empty(&inode->i_lru))
++		inode_lru_list_del(inode);
  	spin_unlock(&inode->i_lock);
- 	spin_unlock(&inode_hash_lock);
- }
--EXPORT_SYMBOL(remove_inode_hash);
-+EXPORT_SYMBOL(__remove_inode_hash);
 =20
- void end_writeback(struct inode *inode)
- {
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index f23bcb7..786b3b1 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -2317,11 +2317,18 @@ extern int should_remove_suid(struct dentry *);
- extern int file_remove_suid(struct file *);
-=20
- extern void __insert_inode_hash(struct inode *, unsigned long hashval)=
-;
--extern void remove_inode_hash(struct inode *);
- static inline void insert_inode_hash(struct inode *inode)
- {
- 	__insert_inode_hash(inode, inode->i_ino);
- }
-+
-+extern void __remove_inode_hash(struct inode *);
-+static inline void remove_inode_hash(struct inode *inode)
-+{
-+	if (!inode_unhashed(inode))
-+		__remove_inode_hash(inode);
-+}
-+
- extern void inode_sb_list_add(struct inode *inode);
-=20
- #ifdef CONFIG_BLOCK
+ 	evict(inode);
 
 
 --
