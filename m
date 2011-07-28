@@ -1,63 +1,35 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
- been assigned by KVM
-Date: Thu, 28 Jul 2011 08:58:03 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D525@orsmsx508.amr.corp.intel.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
-	 <20110727221749.8435.19000.stgit@gitlad.jf.intel.com>
- <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 40132] New: kernel BUG at mm/slab.c:501, when in kfree
+ from ipv4_frags_exit_net
+Date: Thu, 28 Jul 2011 09:13:33 -0700 (PDT)
+Message-ID: <20110728.091333.243777794824583455.davem@davemloft.net>
+References: <20110728083526.6f55bee9@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Ian Campbell <ijc@hellion.org.uk>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35214 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755154Ab1G1QOf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 12:14:35 -0400
+In-Reply-To: <20110728083526.6f55bee9@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
-bzppamNAaGVsbGlvbi5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI4LCAyMDExIDg6
-MTEgQU0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVjsgS29ucmFkIFJ6ZXN6dXRlayBXaWxrDQo+IENj
-OiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBiaHV0Y2hp
-bmdzQHNvbGFyZmxhcmUuY29tOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IEplc3NlIEJhcm5lczsgbGlu
-dXgtDQo+IHBjaUB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkMgbmV0LW5leHQg
-UEFUQ0ggMS80XSBwY2k6IEFkZCBmbGFnIGluZGljYXRpbmcgZGV2aWNlIGhhcw0KPiBiZWVuIGFz
-c2lnbmVkIGJ5IEtWTQ0KPiANCj4gT24gV2VkLCAyMDExLTA3LTI3IGF0IDE1OjE3IC0wNzAwLCBH
-cmVnIFJvc2Ugd3JvdGU6DQo+ID4gRGV2aWNlIGRyaXZlcnMgdGhhdCBjcmVhdGUgYW5kIGRlc3Ry
-b3kgU1ItSU9WIHZpcnR1YWwgZnVuY3Rpb25zIHZpYQ0KPiA+IGNhbGxzIHRvIHBjaV9lbmFibGVf
-c3Jpb3YoKSBhbmQgcGNpX2Rpc2FibGVfc3Jpb3YgY2FuIGNhdXNlIGNhdGFzdHJvcGhpYw0KPiA+
-IGZhaWx1cmVzIGlmIHRoZXkgYXR0ZW1wdCB0byBkZXN0cm95IFZGcyB3aGlsZSB0aGV5IGFyZSBh
-c3NpZ25lZCB0bw0KPiA+IGd1ZXN0IHZpcnR1YWwgbWFjaGluZXMuICBCeSBhZGRpbmcgYSBmbGFn
-IGZvciB1c2UgYnkgdGhlIEtWTSBtb2R1bGUNCj4gPiB0byBpbmRpY2F0ZSB0aGF0IGEgZGV2aWNl
-IGlzIGFzc2lnbmVkIGEgZGV2aWNlIGRyaXZlciBjYW4gY2hlY2sgdGhhdA0KPiA+IGZsYWcgYW5k
-IGF2b2lkIGRlc3Ryb3lpbmcgVkZzIHdoaWxlIHRoZXkgYXJlIGFzc2lnbmVkIGFuZCBhdm9pZCBz
-eXN0ZW0NCj4gPiBmYWlsdXJlcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8
-Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+DQo+ID4gIGluY2x1ZGUvbGlu
-dXgvcGNpLmggICAgIHwgICAgMiArKw0KPiANCj4gSSBhZGRlZCBKZXNzZSBhbmQgbGludXgtcGNp
-IHRvIENDLg0KPiANCj4gPiAgdmlydC9rdm0vYXNzaWduZWQtZGV2LmMgfCAgICAyICsrDQo+ID4g
-IHZpcnQva3ZtL2lvbW11LmMgICAgICAgIHwgICAgNCArKysrDQo+ID4gIDMgZmlsZXMgY2hhbmdl
-ZCwgOCBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0KPiANCj4gSSBzdXBwb3NlIHRoaXMg
-d291bGQgYWxzbyBiZSB1c2VmdWwgaW4gWGVuJ3MgcGNpYmFjayBvciBhbnkgb3RoZXIgc3lzdGVt
-DQo+IHdoaWNoIGRvZXMgcGFzc3Rocm91Z2g/IChLb25yYWQgQ0MnZCBmb3IgcGNpYmFjaykNCg0K
-RGVmaW5pdGVseSB5ZXMuICBYZW4gZXhwZXJpZW5jZXMgdGhlIHNhbWUgaXNzdWVzIHdoZW4gdGhl
-IFBGIGRyaXZlciBpcyByZW1vdmVkIHdoaWxlIFZGcyBhcmUgYXNzaWduZWQgdG8gZ3Vlc3RzLg0K
-DQo+IA0KPiBJcyB0aGVyZSBzb21lIGNvbW1vbiBsb3dlciBsYXllciB3ZSBjb3VsZCBob29rIHRo
-aXMgaW4gdG8/IChkb2VzDQo+IGlvbW11X2F0dGFjaC9kZXRhY2hfZGV2aWNlIG1ha2Ugc2Vuc2U/
-KSBPciBzaGFsbCB3ZSBqdXN0IGFkZCB0aGUgZmxhZw0KPiBtYW5pcHVsYXRpb25zIHRvIHBjaWJh
-Y2sgYXMgd2VsbD8NCltHcmVnIFJvc2VdIA0KDQpJIHdhcyB1bmF3YXJlIG9mIGFueSBjb21tb24g
-bG93ZXIgbGF5ZXJzLCBpLmUgSSBkaWRuJ3Qga25vdyB0aGF0IFhlbiBhbHNvIHVzZXMgdGhlIGlv
-bW11X2F0dGFjaC9kZXRhY2hfZGV2aWNlIGNhbGxzLiAgSXQgdG9vayBtZSBhIHdlZWsgb2YgZGln
-Z2luZyBhcm91bmQgaW4gdGhlIEtWTSBtb2R1bGUgY29kZSBqdXN0IHRvIGZpbmQgdGhlc2UgaG9v
-a3MuICBHZW5lcmFsbHkgSSBzdGljayB0byBFdGhlcm5ldCBkZXZpY2UgZHJpdmVycyBhbmQgSSdt
-IG5vdCB0aGF0IGZhbWlsaWFyIHdpdGggZGV2aWNlIHBhc3MgdGhyb3VnaCBjb2RlLiAgSSB3YXMg
-anVzdCBjb25mcm9udGVkIHdpdGggYSBwcm9ibGVtIGFuZCBsb29raW5nIGZvciBzb21lIHdheSB0
-byBmaXggaXQuDQoNCjteKQ0KDQpUaGF0IHNvdW5kcyBsaWtlIGEgZ29vZCBpZGVhLCBsZXQgbWUg
-aGF2ZSBhIGxvb2sgYXQgaXQuDQoNCi0gR3JlZw0KDQo=
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Thu, 28 Jul 2011 08:35:26 -0700
+
+> 
+> 
+> Begin forwarded message:
+
+I think the first OOPS in path_init() potentially corrupts his memory,
+and then all bets are off.
+
+There's a lot of SUNRPC failures in these traces too.
+
+Close this and tell the reporter to reopen the bug if it persists after
+getting rid of the initial crashes that happen first.
+
