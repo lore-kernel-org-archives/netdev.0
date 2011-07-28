@@ -1,42 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2011-07-27
-Date: Wed, 27 Jul 2011 22:22:47 -0700 (PDT)
-Message-ID: <20110727.222247.2000159983502866405.davem@davemloft.net>
-References: <20110727184920.GB16431@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC net-next PATCH 2/4] ixgbe: Reconfigure SR-IOV Init
+Date: Wed, 27 Jul 2011 22:26:53 -0700 (PDT)
+Message-ID: <20110727.222653.1937782529626247279.davem@davemloft.net>
+References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
+	<20110727221754.8435.99712.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110727184920.GB16431-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	jeffrey.t.kirsher@intel.com
+To: gregory.v.rose@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44689 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752707Ab1G1F04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 01:26:56 -0400
+In-Reply-To: <20110727221754.8435.99712.stgit@gitlad.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 27 Jul 2011 14:49:21 -0400
+From: Greg Rose <gregory.v.rose@intel.com>
+Date: Wed, 27 Jul 2011 15:17:54 -0700
 
-> Here is a handful of fixes intended for 3.1.  This includes a
-> user-visible typo fix, a fix for a user after free in the new pn533
-> NFC driver, a cfg80211 fix for a possible NULL pointer dereference,
-> a fix for an invalid memory access in b43, and another b43 fix for
-> a memory corruption problem.
->=20
-> On top of that b43 memory corruption fix, there is a patch to remove
-> BROKEN from the B43_BCMA Kconfig entry, which is key to enabling
-> support for some of the more modern Broadcom wireless hardware.
-> I'm sure the Rafa=A9=A9 (and a number of others) would love to see th=
-at
-> merged while the 3.1 merge window is still open as well.
->=20
-> Please let me know if there are problems...
+> +	int i;
+> +	for (i = 0; i < adapter->num_vfs; i++) {
+> +		if (adapter->vfinfo[i].vfdev->dev_flags &
+> +			PCI_DEV_FLAGS_ASSIGNED) {
+> +		return true;
+> +		}
+> +	}
 
-Yep, removing BROKEN from b43 seems reasonable.
+Bad formatting and indentation, please fix this.
 
-Pulled, thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +		pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID, device_id, NULL);
+> +		while (pvfdev) {
+> +			if (pvfdev->devfn == thisvf_devfn)
+> +				break;
+> +			pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID,
+> +						device_id, pvfdev);
+> +		}
+> +		if (pvfdev)
+> +			adapter->vfinfo[vfn].vfdev = pvfdev;
+
+pci_get_*() grabs a reference to any non-NULL pci device object
+returned, where does this reference get released?  I scanned
+all uses of x.vfdev and x->vfdev and could not find the necessary
+release.
+
