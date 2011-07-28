@@ -1,100 +1,60 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/9] tg3: Reintroduce tg3_tx_ring_info
-Date: Wed, 27 Jul 2011 17:20:46 -0700
-Message-ID: <1311812454-18197-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 9/9] tg3: Remove 5719 jumbo frames and TSO
+ blocks
+Date: Wed, 27 Jul 2011 17:20:54 -0700
+Message-ID: <1311812454-18197-10-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4054 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4047 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753248Ab1G1AR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753084Ab1G1AR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 27 Jul 2011 20:17:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patches will require the use of an additional flag in the
-ring_info structure.  The use of this flag is tx path specific, so this
-patch defines a specialized ring_info structure.
+The A0 revision of this chip is the only device that requires these
+features to be disabled.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   12 ++++++------
- drivers/net/tg3.h |    7 ++++++-
- 2 files changed, 12 insertions(+), 7 deletions(-)
+ drivers/net/tg3.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 8035765..3708159 100644
+index c77a39d..dc3fbf6 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4824,7 +4824,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 	txq = netdev_get_tx_queue(tp->dev, index);
+@@ -8406,7 +8406,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	/* Program the jumbo buffer descriptor ring control
+ 	 * blocks on those devices that have them.
+ 	 */
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0 ||
+ 	    (tg3_flag(tp, JUMBO_CAPABLE) && !tg3_flag(tp, 5780_CLASS))) {
  
- 	while (sw_idx != hw_idx) {
--		struct ring_info *ri = &tnapi->tx_buffers[sw_idx];
-+		struct tg3_tx_ring_info *ri = &tnapi->tx_buffers[sw_idx];
- 		struct sk_buff *skb = ri->skb;
- 		int i, tx_bug = 0;
+ 		if (tg3_flag(tp, JUMBO_RING_ENABLE)) {
+@@ -13873,7 +13873,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		tg3_flag_set(tp, 5705_PLUS);
  
-@@ -5929,7 +5929,7 @@ static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
- {
- 	int i;
- 	u32 entry = tnapi->tx_prod;
--	struct ring_info *txb = &tnapi->tx_buffers[entry];
-+	struct tg3_tx_ring_info *txb = &tnapi->tx_buffers[entry];
+ 	/* Determine TSO capabilities */
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0)
+ 		; /* Do nothing. HW bug. */
+ 	else if (tg3_flag(tp, 57765_PLUS))
+ 		tg3_flag_set(tp, HW_TSO_3);
+@@ -13943,7 +13943,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		tg3_flag_set(tp, LRG_PROD_RING_CAP);
  
- 	pci_unmap_single(tnapi->tp->pdev,
- 			 dma_unmap_addr(txb, mapping),
-@@ -6603,7 +6603,7 @@ static void tg3_free_rings(struct tg3 *tp)
- 			continue;
+ 	if (tg3_flag(tp, 57765_PLUS) &&
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5719)
++	    tp->pci_chip_rev_id != CHIPREV_ID_5719_A0)
+ 		tg3_flag_set(tp, USE_JUMBO_BDFLAG);
  
- 		for (i = 0; i < TG3_TX_RING_SIZE; ) {
--			struct ring_info *txp;
-+			struct tg3_tx_ring_info *txp;
- 			struct sk_buff *skb;
- 			unsigned int k;
- 
-@@ -6762,9 +6762,9 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 		 */
- 		if ((!i && !tg3_flag(tp, ENABLE_TSS)) ||
- 		    (i && tg3_flag(tp, ENABLE_TSS))) {
--			tnapi->tx_buffers = kzalloc(sizeof(struct ring_info) *
--						    TG3_TX_RING_SIZE,
--						    GFP_KERNEL);
-+			tnapi->tx_buffers = kzalloc(
-+					       sizeof(struct tg3_tx_ring_info) *
-+					       TG3_TX_RING_SIZE, GFP_KERNEL);
- 			if (!tnapi->tx_buffers)
- 				goto err_out;
- 
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 691539b..f6986ca 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2652,6 +2652,11 @@ struct ring_info {
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- };
- 
-+struct tg3_tx_ring_info {
-+	struct sk_buff			*skb;
-+	DEFINE_DMA_UNMAP_ADDR(mapping);
-+};
-+
- struct tg3_link_config {
- 	/* Describes what we're trying to get. */
- 	u32				advertising;
-@@ -2816,7 +2821,7 @@ struct tg3_napi {
- 	u32				last_tx_cons;
- 	u32				prodmbox;
- 	struct tg3_tx_buffer_desc	*tx_ring;
--	struct ring_info		*tx_buffers;
-+	struct tg3_tx_ring_info		*tx_buffers;
- 
- 	dma_addr_t			status_mapping;
- 	dma_addr_t			rx_rcb_mapping;
+ 	if (!tg3_flag(tp, 5705_PLUS) ||
 -- 
 1.7.3.4
 
