@@ -1,60 +1,63 @@
 From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 4/4] ixgbe: Add support for new ethtool
- settings
-Date: Thu, 28 Jul 2011 08:52:18 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D50E@orsmsx508.amr.corp.intel.com>
+Subject: RE: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
+ been assigned by KVM
+Date: Thu, 28 Jul 2011 08:58:03 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019414D525@orsmsx508.amr.corp.intel.com>
 References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
- <20110727221804.8435.97686.stgit@gitlad.jf.intel.com>
- <CAHXqBFJ30LLV=dgWuSK73rhxYLt5xoVFVwHdU3cWFmr_Yxs5pg@mail.gmail.com>
+	 <20110727221749.8435.19000.stgit@gitlad.jf.intel.com>
+ <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9968 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755683Ab1G1PwV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 11:52:21 -0400
-In-Reply-To: <CAHXqBFJ30LLV=dgWuSK73rhxYLt5xoVFVwHdU3cWFmr_Yxs5pg@mail.gmail.com>
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Ian Campbell <ijc@hellion.org.uk>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Micha=B3 Miros=B3aw [mailto:mirqus@gmail.com]
-> Sent: Thursday, July 28, 2011 4:54 AM
-> To: Rose, Gregory V
-> Cc: netdev@vger.kernel.org; davem@davemloft.net;
-> bhutchings@solarflare.com; Kirsher, Jeffrey T
-> Subject: Re: [RFC net-next PATCH 4/4] ixgbe: Add support for new etht=
-ool
-> settings
->=20
-> 2011/7/28 Greg Rose <gregory.v.rose@intel.com>:
-> > Adds ixgbe driver support for new ethtool settings for SR-IOV re-in=
-it,
-> > number of VM queues and anti-spoofing ON/OFF switch.
-> [...]
-> > +static int ixgbe_reinit_sriov(struct net_device *netdev, int new_v=
-fs)
-> > +{
-> [...]
-> > +       if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
-> > +               adapter->flags &=3D ~(IXGBE_FLAG_RSS_ENABLED |
-> > +                                   IXGBE_FLAG_DCB_ENABLED);
-> > +               netdev->features &=3D ~NETIF_F_RXHASH;
-> > +       } else {
-> > +               adapter->flags |=3D IXGBE_FLAG_RSS_ENABLED;
-> > +               netdev->features |=3D NETIF_F_RXHASH;
-> > +       }
->=20
-> Please use ndo_fix_features/ndo_set_features callbacks for this.
-
-OK, sure.  I'll add a separate patch to do that.
-
-- Greg
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
+bzppamNAaGVsbGlvbi5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI4LCAyMDExIDg6
+MTEgQU0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVjsgS29ucmFkIFJ6ZXN6dXRlayBXaWxrDQo+IENj
+OiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBiaHV0Y2hp
+bmdzQHNvbGFyZmxhcmUuY29tOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IEplc3NlIEJhcm5lczsgbGlu
+dXgtDQo+IHBjaUB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkMgbmV0LW5leHQg
+UEFUQ0ggMS80XSBwY2k6IEFkZCBmbGFnIGluZGljYXRpbmcgZGV2aWNlIGhhcw0KPiBiZWVuIGFz
+c2lnbmVkIGJ5IEtWTQ0KPiANCj4gT24gV2VkLCAyMDExLTA3LTI3IGF0IDE1OjE3IC0wNzAwLCBH
+cmVnIFJvc2Ugd3JvdGU6DQo+ID4gRGV2aWNlIGRyaXZlcnMgdGhhdCBjcmVhdGUgYW5kIGRlc3Ry
+b3kgU1ItSU9WIHZpcnR1YWwgZnVuY3Rpb25zIHZpYQ0KPiA+IGNhbGxzIHRvIHBjaV9lbmFibGVf
+c3Jpb3YoKSBhbmQgcGNpX2Rpc2FibGVfc3Jpb3YgY2FuIGNhdXNlIGNhdGFzdHJvcGhpYw0KPiA+
+IGZhaWx1cmVzIGlmIHRoZXkgYXR0ZW1wdCB0byBkZXN0cm95IFZGcyB3aGlsZSB0aGV5IGFyZSBh
+c3NpZ25lZCB0bw0KPiA+IGd1ZXN0IHZpcnR1YWwgbWFjaGluZXMuICBCeSBhZGRpbmcgYSBmbGFn
+IGZvciB1c2UgYnkgdGhlIEtWTSBtb2R1bGUNCj4gPiB0byBpbmRpY2F0ZSB0aGF0IGEgZGV2aWNl
+IGlzIGFzc2lnbmVkIGEgZGV2aWNlIGRyaXZlciBjYW4gY2hlY2sgdGhhdA0KPiA+IGZsYWcgYW5k
+IGF2b2lkIGRlc3Ryb3lpbmcgVkZzIHdoaWxlIHRoZXkgYXJlIGFzc2lnbmVkIGFuZCBhdm9pZCBz
+eXN0ZW0NCj4gPiBmYWlsdXJlcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8
+Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+DQo+ID4gIGluY2x1ZGUvbGlu
+dXgvcGNpLmggICAgIHwgICAgMiArKw0KPiANCj4gSSBhZGRlZCBKZXNzZSBhbmQgbGludXgtcGNp
+IHRvIENDLg0KPiANCj4gPiAgdmlydC9rdm0vYXNzaWduZWQtZGV2LmMgfCAgICAyICsrDQo+ID4g
+IHZpcnQva3ZtL2lvbW11LmMgICAgICAgIHwgICAgNCArKysrDQo+ID4gIDMgZmlsZXMgY2hhbmdl
+ZCwgOCBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0KPiANCj4gSSBzdXBwb3NlIHRoaXMg
+d291bGQgYWxzbyBiZSB1c2VmdWwgaW4gWGVuJ3MgcGNpYmFjayBvciBhbnkgb3RoZXIgc3lzdGVt
+DQo+IHdoaWNoIGRvZXMgcGFzc3Rocm91Z2g/IChLb25yYWQgQ0MnZCBmb3IgcGNpYmFjaykNCg0K
+RGVmaW5pdGVseSB5ZXMuICBYZW4gZXhwZXJpZW5jZXMgdGhlIHNhbWUgaXNzdWVzIHdoZW4gdGhl
+IFBGIGRyaXZlciBpcyByZW1vdmVkIHdoaWxlIFZGcyBhcmUgYXNzaWduZWQgdG8gZ3Vlc3RzLg0K
+DQo+IA0KPiBJcyB0aGVyZSBzb21lIGNvbW1vbiBsb3dlciBsYXllciB3ZSBjb3VsZCBob29rIHRo
+aXMgaW4gdG8/IChkb2VzDQo+IGlvbW11X2F0dGFjaC9kZXRhY2hfZGV2aWNlIG1ha2Ugc2Vuc2U/
+KSBPciBzaGFsbCB3ZSBqdXN0IGFkZCB0aGUgZmxhZw0KPiBtYW5pcHVsYXRpb25zIHRvIHBjaWJh
+Y2sgYXMgd2VsbD8NCltHcmVnIFJvc2VdIA0KDQpJIHdhcyB1bmF3YXJlIG9mIGFueSBjb21tb24g
+bG93ZXIgbGF5ZXJzLCBpLmUgSSBkaWRuJ3Qga25vdyB0aGF0IFhlbiBhbHNvIHVzZXMgdGhlIGlv
+bW11X2F0dGFjaC9kZXRhY2hfZGV2aWNlIGNhbGxzLiAgSXQgdG9vayBtZSBhIHdlZWsgb2YgZGln
+Z2luZyBhcm91bmQgaW4gdGhlIEtWTSBtb2R1bGUgY29kZSBqdXN0IHRvIGZpbmQgdGhlc2UgaG9v
+a3MuICBHZW5lcmFsbHkgSSBzdGljayB0byBFdGhlcm5ldCBkZXZpY2UgZHJpdmVycyBhbmQgSSdt
+IG5vdCB0aGF0IGZhbWlsaWFyIHdpdGggZGV2aWNlIHBhc3MgdGhyb3VnaCBjb2RlLiAgSSB3YXMg
+anVzdCBjb25mcm9udGVkIHdpdGggYSBwcm9ibGVtIGFuZCBsb29raW5nIGZvciBzb21lIHdheSB0
+byBmaXggaXQuDQoNCjteKQ0KDQpUaGF0IHNvdW5kcyBsaWtlIGEgZ29vZCBpZGVhLCBsZXQgbWUg
+aGF2ZSBhIGxvb2sgYXQgaXQuDQoNCi0gR3JlZw0KDQo=
