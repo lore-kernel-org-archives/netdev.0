@@ -1,186 +1,123 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 2/9] tg3: Simplify tx bd assignments
-Date: Wed, 27 Jul 2011 17:20:47 -0700
-Message-ID: <1311812454-18197-3-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 8/9] tg3: Break larger frags into 4k chunks for
+ 5719
+Date: Wed, 27 Jul 2011 17:20:53 -0700
+Message-ID: <1311812454-18197-9-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2959 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4049 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754144Ab1G1ASA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2011 20:18:00 -0400
+	id S1752785Ab1G1AR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2011 20:17:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the following patches, the process the driver will use to assign skb
-fragments to transmit BDs will get more complicated.  To prepare for
-that new code, this patch seeks to simplify how transmit BDs are
-populated.  It does this by separating the code that assigns the BD
-members from the logic that controls how the fields are set.
+The 5719 has bug where RDMAs larger than 4k can cause problems.  This
+patch works around the problem by dividing larger DMA requests into
+something the hardware can handle.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   76 +++++++++++++++++++++++++---------------------------
- 1 files changed, 37 insertions(+), 39 deletions(-)
+ drivers/net/tg3.c |   52 ++++++++++++++++++++++++++++++++++++++++++++++------
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 47 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 3708159..8dfde34 100644
+index b93ba3d..c77a39d 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5901,27 +5901,16 @@ static inline int tg3_40bit_overflow_test(struct tg3 *tp, dma_addr_t mapping,
- #endif
- }
+@@ -190,6 +190,7 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
  
--static void tg3_set_txd(struct tg3_napi *tnapi, int entry,
--			dma_addr_t mapping, int len, u32 flags,
--			u32 mss_and_is_end)
-+static inline void tg3_tx_set_bd(struct tg3_napi *tnapi, u32 entry,
-+				 dma_addr_t mapping, u32 len, u32 flags,
-+				 u32 mss, u32 vlan)
- {
--	struct tg3_tx_buffer_desc *txd = &tnapi->tx_ring[entry];
--	int is_end = (mss_and_is_end & 0x1);
--	u32 mss = (mss_and_is_end >> 1);
--	u32 vlan_tag = 0;
-+	struct tg3_tx_buffer_desc *txbd = &tnapi->tx_ring[entry];
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
++#define TG3_TX_BD_DMA_MAX		4096
  
--	if (is_end)
--		flags |= TXD_FLAG_END;
--	if (flags & TXD_FLAG_VLAN) {
--		vlan_tag = flags >> 16;
--		flags &= 0xffff;
--	}
--	vlan_tag |= (mss << TXD_MSS_SHIFT);
+ #define TG3_RAW_IP_ALIGN 2
+ 
+@@ -5940,14 +5941,50 @@ static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 *entry, u32 *budget,
+ 	if (tg3_40bit_overflow_test(tp, map, len))
+ 		hwbug = 1;
+ 
+-	if (*budget) {
++	if (tg3_flag(tp, 4K_FIFO_LIMIT)) {
++		u32 tmp_flag = flags & ~TXD_FLAG_END;
++		while (len > TG3_TX_BD_DMA_MAX) {
++			u32 frag_len = TG3_TX_BD_DMA_MAX;
++			len -= TG3_TX_BD_DMA_MAX;
++
++			if (len) {
++				tnapi->tx_buffers[*entry].fragmented = true;
++				/* Avoid the 8byte DMA problem */
++				if (len <= 8) {
++					len += TG3_TX_BD_DMA_MAX / 2;
++					frag_len = TG3_TX_BD_DMA_MAX / 2;
++				}
++			} else
++				tmp_flag = flags;
++
++			if (*budget) {
++				tg3_tx_set_bd(&tnapi->tx_ring[*entry], map,
++					      frag_len, tmp_flag, mss, vlan);
++				(*budget)--;
++				*entry = NEXT_TX(*entry);
++			} else {
++				hwbug = 1;
++				break;
++			}
++
++			map += frag_len;
++		}
++
++		if (len) {
++			if (*budget) {
++				tg3_tx_set_bd(&tnapi->tx_ring[*entry], map,
++					      len, flags, mss, vlan);
++				(*budget)--;
++				*entry = NEXT_TX(*entry);
++			} else {
++				hwbug = 1;
++			}
++		}
++	} else {
+ 		tg3_tx_set_bd(&tnapi->tx_ring[*entry], map,
+ 			      len, flags, mss, vlan);
+-		(*budget)--;
+-	} else
+-		hwbug = 1;
 -
--	txd->addr_hi = ((u64) mapping >> 32);
--	txd->addr_lo = ((u64) mapping & 0xffffffff);
--	txd->len_flags = (len << TXD_LEN_SHIFT) | flags;
--	txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
-+	txbd->addr_hi = ((u64) mapping >> 32);
-+	txbd->addr_lo = ((u64) mapping & 0xffffffff);
-+	txbd->len_flags = (len << TXD_LEN_SHIFT) | (flags & 0x0000ffff);
-+	txbd->vlan_tag = (mss << TXD_MSS_SHIFT) | (vlan << TXD_VLAN_TAG_SHIFT);
- }
- 
- static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
-@@ -5950,7 +5939,7 @@ static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
- /* Workaround 4GB and 40-bit hardware DMA bugs. */
- static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 				       struct sk_buff *skb,
--				       u32 base_flags, u32 mss)
-+				       u32 base_flags, u32 mss, u32 vlan)
- {
- 	struct tg3 *tp = tnapi->tp;
- 	struct sk_buff *new_skb;
-@@ -5988,12 +5977,14 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 			ret = -1;
- 			dev_kfree_skb(new_skb);
- 		} else {
-+			base_flags |= TXD_FLAG_END;
-+
- 			tnapi->tx_buffers[entry].skb = new_skb;
- 			dma_unmap_addr_set(&tnapi->tx_buffers[entry],
- 					   mapping, new_addr);
- 
--			tg3_set_txd(tnapi, entry, new_addr, new_skb->len,
--				    base_flags, 1 | (mss << 1));
-+			tg3_tx_set_bd(tnapi, entry, new_addr, new_skb->len,
-+				      base_flags, mss, vlan);
- 		}
- 	}
- 
-@@ -6051,7 +6042,7 @@ tg3_tso_bug_end:
- static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct tg3 *tp = netdev_priv(dev);
--	u32 len, entry, base_flags, mss;
-+	u32 len, entry, base_flags, mss, vlan = 0;
- 	int i = -1, would_hit_hwbug;
- 	dma_addr_t mapping;
- 	struct tg3_napi *tnapi;
-@@ -6153,9 +6144,12 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
--	if (vlan_tx_tag_present(skb))
--		base_flags |= (TXD_FLAG_VLAN |
--			       (vlan_tx_tag_get(skb) << 16));
-+#ifdef BCM_KERNEL_SUPPORTS_8021Q
-+	if (vlan_tx_tag_present(skb)) {
-+		base_flags |= TXD_FLAG_VLAN;
-+		vlan = vlan_tx_tag_get(skb);
+-	*entry = NEXT_TX(*entry);
++		*entry = NEXT_TX(*entry);
 +	}
-+#endif
  
- 	if (tg3_flag(tp, USE_JUMBO_BDFLAG) &&
- 	    !mss && skb->len > VLAN_ETH_FRAME_LEN)
-@@ -6186,13 +6180,21 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (tg3_flag(tp, 5701_DMA_BUG))
- 		would_hit_hwbug = 1;
+ 	return hwbug;
+ }
+@@ -13899,6 +13936,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	if (tg3_flag(tp, 5755_PLUS))
+ 		tg3_flag_set(tp, SHORT_DMA_BUG);
  
--	tg3_set_txd(tnapi, entry, mapping, len, base_flags,
--		    (skb_shinfo(skb)->nr_frags == 0) | (mss << 1));
-+	tg3_tx_set_bd(tnapi, entry, mapping, len, base_flags |
-+		      ((skb_shinfo(skb)->nr_frags == 0) ? TXD_FLAG_END : 0),
-+		      mss, vlan);
- 
- 	entry = NEXT_TX(entry);
- 
- 	/* Now loop through additional data fragments, and queue them. */
- 	if (skb_shinfo(skb)->nr_frags > 0) {
-+		u32 tmp_mss = mss;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
++		tg3_flag_set(tp, 4K_FIFO_LIMIT);
 +
-+		if (!tg3_flag(tp, HW_TSO_1) &&
-+		    !tg3_flag(tp, HW_TSO_2) &&
-+		    !tg3_flag(tp, HW_TSO_3))
-+			tmp_mss = 0;
-+
- 		last = skb_shinfo(skb)->nr_frags - 1;
- 		for (i = 0; i <= last; i++) {
- 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-@@ -6219,14 +6221,9 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			if (tg3_40bit_overflow_test(tp, mapping, len))
- 				would_hit_hwbug = 1;
+ 	if (tg3_flag(tp, 5717_PLUS))
+ 		tg3_flag_set(tp, LRG_PROD_RING_CAP);
  
--			if (tg3_flag(tp, HW_TSO_1) ||
--			    tg3_flag(tp, HW_TSO_2) ||
--			    tg3_flag(tp, HW_TSO_3))
--				tg3_set_txd(tnapi, entry, mapping, len,
--					    base_flags, (i == last)|(mss << 1));
--			else
--				tg3_set_txd(tnapi, entry, mapping, len,
--					    base_flags, (i == last));
-+			tg3_tx_set_bd(tnapi, entry, mapping, len, base_flags |
-+				      ((i == last) ? TXD_FLAG_END : 0),
-+				      tmp_mss, vlan);
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 466dd7a..2ea456d 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2905,6 +2905,7 @@ enum TG3_FLAGS {
+ 	TG3_FLAG_57765_PLUS,
+ 	TG3_FLAG_APE_HAS_NCSI,
+ 	TG3_FLAG_5717_PLUS,
++	TG3_FLAG_4K_FIFO_LIMIT,
  
- 			entry = NEXT_TX(entry);
- 		}
-@@ -6238,7 +6235,8 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		/* If the workaround fails due to memory/mapping
- 		 * failure, silently drop this packet.
- 		 */
--		if (tigon3_dma_hwbug_workaround(tnapi, skb, base_flags, mss))
-+		if (tigon3_dma_hwbug_workaround(tnapi, skb, base_flags,
-+						mss, vlan))
- 			goto out_unlock;
- 
- 		entry = NEXT_TX(tnapi->tx_prod);
-@@ -11370,8 +11368,8 @@ static int tg3_run_loopback(struct tg3 *tp, u32 pktsz, int loopback_mode)
- 
- 	rx_start_idx = rnapi->hw_status->idx[0].rx_producer;
- 
--	tg3_set_txd(tnapi, tnapi->tx_prod, map, tx_len,
--		    base_flags, (mss << 1) | 1);
-+	tg3_tx_set_bd(tnapi, tnapi->tx_prod, map, tx_len,
-+		      base_flags | TXD_FLAG_END, mss, 0);
- 
- 	tnapi->tx_prod++;
- 
+ 	/* Add new flags before this comment and TG3_FLAG_NUMBER_OF_FLAGS */
+ 	TG3_FLAG_NUMBER_OF_FLAGS,	/* Last entry in enum TG3_FLAGS */
 -- 
 1.7.3.4
 
