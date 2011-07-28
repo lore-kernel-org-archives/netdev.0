@@ -1,68 +1,89 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 3/4] ethtool: Add new set commands
-Date: Thu, 28 Jul 2011 14:16:53 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D8DF@orsmsx508.amr.corp.intel.com>
-References: <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
-	 <20110727.222749.1654973220321763098.davem@davemloft.net>
-	 <43F901BD926A4E43B106BF17856F0755019414D509@orsmsx508.amr.corp.intel.com>
-	 <20110728.091448.548423057039764289.davem@davemloft.net>
- <1311887685.2677.12.camel@deadeye>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC net-next PATCH 3/4] ethtool: Add new set commands
+Date: Thu, 28 Jul 2011 23:20:04 +0200
+Message-ID: <1311888004.2677.18.camel@deadeye>
+References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
+	 <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:63569 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755981Ab1G1VQz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jul 2011 17:16:55 -0400
-In-Reply-To: <1311887685.2677.12.camel@deadeye>
-Content-Language: en-US
+Received: from exchange.solarflare.com ([216.237.3.220]:8300 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755849Ab1G1VUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 17:20:09 -0400
+In-Reply-To: <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMjgs
-IDIwMTEgMjoxNSBQTQ0KPiBUbzogRGF2aWQgTWlsbGVyDQo+IENjOiBSb3NlLCBHcmVnb3J5IFY7
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBTdWJqZWN0OiBS
-ZTogW1JGQyBuZXQtbmV4dCBQQVRDSCAzLzRdIGV0aHRvb2w6IEFkZCBuZXcgc2V0IGNvbW1hbmRz
-DQo+IA0KPiBPbiBUaHUsIDIwMTEtMDctMjggYXQgMDk6MTQgLTA3MDAsIERhdmlkIE1pbGxlciB3
-cm90ZToNCj4gPiBGcm9tOiAiUm9zZSwgR3JlZ29yeSBWIiA8Z3JlZ29yeS52LnJvc2VAaW50ZWwu
-Y29tPg0KPiA+IERhdGU6IFRodSwgMjggSnVsIDIwMTEgMDg6NTE6MDUgLTA3MDANCj4gPg0KPiA+
-ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPj4gRnJvbTogRGF2aWQgTWlsbGVy
-IFttYWlsdG86ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldF0NCj4gPiA+PiBTZW50OiBXZWRuZXNkYXksIEp1
-bHkgMjcsIDIwMTEgMTA6MjggUE0NCj4gPiA+PiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+ID4gPj4g
-Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IEtp
-cnNoZXIsDQo+IEplZmZyZXkgVA0KPiA+ID4+IFN1YmplY3Q6IFJlOiBbUkZDIG5ldC1uZXh0IFBB
-VENIIDMvNF0gZXRodG9vbDogQWRkIG5ldyBzZXQgY29tbWFuZHMNCj4gPiA+Pg0KPiA+ID4+IEZy
-b206IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+ID4+IERhdGU6IFdl
-ZCwgMjcgSnVsIDIwMTEgMTU6MTc6NTkgLTA3MDANCj4gPiA+Pg0KPiA+ID4+ID4gQWRkIG5ldyBz
-ZXQgY29tbWFuZHMgdG8gY29uZmlndXJlIHRoZSBudW1iZXIgb2YgU1ItSU9WIFZGcywgdGhlDQo+
-ID4gPj4gPiBudW1iZXIgb2YgVk0gcXVldWVzIGFuZCBzcG9vZiBjaGVja2luZyBvbi9vZmYgc3dp
-dGNoLg0KPiA+ID4+ID4NCj4gPiA+PiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29y
-eS52LnJvc2VAaW50ZWwuY29tPg0KPiA+ID4+ID4gLS0tDQo+ID4gPj4gPg0KPiA+ID4+ID4gIGlu
-Y2x1ZGUvbGludXgvZXRodG9vbC5oIHwgICAxMSArKysrKysrKysrLQ0KPiA+ID4+ID4gIDEgZmls
-ZXMgY2hhbmdlZCwgMTAgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbnMoLSkNCj4gPiA+PiA+DQo+
-ID4gPj4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9ldGh0b29sLmggYi9pbmNsdWRlL2xp
-bnV4L2V0aHRvb2wuaA0KPiA+ID4+ID4gaW5kZXggYzZlNDI3YS4uYzQ5NzJiYSAxMDA2NDQNCj4g
-PiA+PiA+IC0tLSBhL2luY2x1ZGUvbGludXgvZXRodG9vbC5oDQo+ID4gPj4gPiArKysgYi9pbmNs
-dWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+ID4+ID4gQEAgLTM2LDEyICszNiwxNCBAQCBzdHJ1Y3Qg
-ZXRodG9vbF9jbWQgew0KPiA+ID4+ID4gIAlfX3U4CW1kaW9fc3VwcG9ydDsNCj4gPiA+PiA+ICAJ
-X191MzIJbWF4dHhwa3Q7CS8qIFR4IHBrdHMgYmVmb3JlIGdlbmVyYXRpbmcgdHggaW50ICovDQo+
-ID4gPj4gPiAgCV9fdTMyCW1heHJ4cGt0OwkvKiBSeCBwa3RzIGJlZm9yZSBnZW5lcmF0aW5nIHJ4
-IGludCAqLw0KPiA+ID4+ID4gKwlfX3UzMgludW1fdmZzOwkvKiBFbmFibGUgU1ItSU9WIFZGcyAq
-Lw0KPiA+ID4+ID4gKwlfX3UzMgludW1fdm1xczsJLyogU2V0IG51bWJlciBvZiBxdWV1ZXMgZm9y
-IFZNRHEgKi8NCj4gPiA+Pg0KPiA+ID4+IFlvdSBjYW4ndCBjaGFuZ2UgdGhlIGxheW91dCBvZiB0
-aGlzIGRhdGFzdHJ1Y3R1cmUgaW4gdGhpcyB3YXkgd2l0aG91dA0KPiA+ID4+IGJyZWFraW5nIGV2
-ZXJ5IGV0aHRvb2wgYmluYXJ5IG91dCB0aGVyZS4NCj4gPiA+Pg0KPiA+ID4+IFlvdSBoYXZlIHRv
-IGZpbmQgYW5vdGhlciBwbGFjZSB0byBhZGQgdGhlc2Uga25vYnMuDQo+ID4gPg0KPiA+ID4gUGVy
-aGFwcyBhdCB0aGUgZW5kIG9mIHRoZSBldGh0b29sX2NtZCBzdHJ1Y3R1cmU/ICBTb21ldGhpbmcg
-bGlrZSB0aGlzOg0KPiA+DQo+ID4gRWl0aGVyIHVzZSB0aGUgdHdvIHJlc2VydmVkIHUzMidzIHdl
-IGhhdmUgdGhlcmUsIG9yIGNyZWF0ZSBhIG5ldw0KPiA+IGV0aHRvb2wgY29tbWFuZCBhbmQgY29u
-dHJvbCBzdHJ1Y3R1cmUuDQo+IA0KPiBJJ20gZ29pbmcgdG8gaW5zaXN0IG9uIHRoZSBsYXR0ZXIu
-ICBBcyBJIHNlZSBpdCwgc3RydWN0IGV0aHRvb2xfY21kIGlzDQo+IGZvciBFdGhlcm5ldCBQSFkg
-c2V0dGluZ3MuICAoVGhlIG1heHtyeCx0eH1wa3QgZmllbGRzIHdlcmVuJ3QsIGJ1dA0KPiB0aGV5
-J3JlIG9ic29sZXRlLikNCg0KT0ssIHRoYXQncyB3aGF0IEknbGwgZG8uDQoNCi0gR3JlZw0KDQo=
+On Wed, 2011-07-27 at 15:17 -0700, Greg Rose wrote:
+> Add new set commands to configure the number of SR-IOV VFs, the
+> number of VM queues and spoof checking on/off switch.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> ---
+> 
+>  include/linux/ethtool.h |   11 ++++++++++-
+>  1 files changed, 10 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index c6e427a..c4972ba 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -36,12 +36,14 @@ struct ethtool_cmd {
+>  	__u8	mdio_support;
+>  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
+>  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
+> +	__u32	num_vfs;	/* Enable SR-IOV VFs */
+
+What are the semantics of changing this after VFs have already been set
+up?
+
+> +	__u32	num_vmqs;	/* Set number of queues for VMDq */
+
+VMDq is an Intel proprietary name.  Please specify this in generic
+terms.
+
+>  	__u16	speed_hi;       /* The forced speed (upper
+>  				 * bits) in Mbps. Please use
+>  				 * ethtool_cmd_speed()/_set() to
+>  				 * access it */
+>  	__u8	eth_tp_mdix;
+> -	__u8	reserved2;
+> +	__u8	spoof_check;	/* Enable/Disable anti-spoofing */
+>  	__u32	lp_advertising;	/* Features the link partner advertises */
+>  	__u32	reserved[2];
+>  };
+> @@ -1121,6 +1123,13 @@ struct ethtool_ops {
+>  #define AUTONEG_DISABLE		0x00
+>  #define AUTONEG_ENABLE		0x01
+>  
+> +/* Enable or disable MAC and/or VLAN spoofchecking.If this is
+> + * set to enable, then depending on the controller capabilities
+> + * MAC and/or VLAN spoofing will be turned on.
+> + */
+> +#define SPOOFCHECK_DISABLE     0x00
+> +#define SPOOFCHECK_ENABLE      0x01
+
+I'm not sure it's necessary to continue defining macros for booleans.
+
+This should not 'depend on controller capabilities'.  If the
+administrator tries to enable this feature on a device that does not
+support it, the request must return an error rather than failing
+silently.  (This is another reason to define new commands.)
+
+Ben.
+
+>  /* Mode MDI or MDI-X */
+>  #define ETH_TP_MDI_INVALID	0x00
+>  #define ETH_TP_MDI		0x01
+> 
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
