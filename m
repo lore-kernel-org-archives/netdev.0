@@ -1,46 +1,57 @@
-From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] ASIX: Use only 11 bits of header for data size
-Date: Thu, 28 Jul 2011 08:06:18 +0200
-Message-ID: <201107280806.18813.marek.vasut@gmail.com>
-References: <1311734687-23551-1-git-send-email-marek.vasut@gmail.com> <1311734687-23551-2-git-send-email-marek.vasut@gmail.com> <20110727.224029.619127041796367339.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8139 Flow Control?
+Date: Thu, 28 Jul 2011 08:35:26 +0200
+Message-ID: <20110728063526.GA11214@electric-eye.fr.zoreil.com>
+References: <4E2DC710.5000100@anduras.de> <4E3004BD.4090705@anduras.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110727.224029.619127041796367339.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, jgarzik@pobox.com
+To: Sven Anders <anders@anduras.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38108 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197Ab1G1GvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 02:51:17 -0400
+Content-Disposition: inline
+In-Reply-To: <4E3004BD.4090705@anduras.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 28, 2011 07:40:29 AM David Miller wrote:
-> From: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Wed, 27 Jul 2011 04:44:47 +0200
-> 
-> > The AX88772B uses only 11 bits of the header for the actual size. The
-> > other bits
+Sven Anders <anders@anduras.de> :
+> Sven Anders wrote:
+[...]
+> > We have appliances with Realtek 8139C/8139C+ (rev 10) chipsets (with the
+> > PCI IDs: 10ec:8139). We are using the 8139too driver (version: 0.9.28)
+
+The PCI revision ID is not incompatible with a 8139c(l)+. If so the 8139cp
+driver may prove easier to handle at the driver programming level. It's
+almost surely less commonly used though.
+
+I'd suggest to use both PCI information and TxConfig content to identify
+Realtek's chipset. ethtool should provide the latter.
+
+> > According the datasheet the chipset supports Flow Control (IEEE 802.3x).
 > > 
-> > are used for something else. This causes dmesg full of messages:
-> > 	asix_rx_fixup() Bad Header Length
-> > 
-> > This patch trims the check to only 11 bits. I believe on older chips, the
-> > remaining 5 top bits are unused.
-> > 
-> > Signed-off-by: Marek Vasut <marek.vasut-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Applied.
+> > I want to know, if the support for enabling flow control is missing in
+> > the driver by purpose or is only not implemented due to lack of time?
+[...]
+> Can somebody of the old implementors please answer this question?
 
-Hi, did you test it ?
+Hint ? :o)
 
-I left NOTEs outside the commit message:
+This hardware is not exactly fun, especially if you do not own a c+ model
+(4 Tx descriptors, a single copy-only receive buffer, really cheap...).
 
-NOTE: If possible, can someone test/verify this patch with other ASIX chips ?
-NOTE2: If Ack-ed, Greg, can you get this into -stable?
+> We need that feature and I'm willing to implement it, but I need the
+> confirmation, that it was not done due to lack of time and not because
+> will not work (correctly)...
 
-I hope I won't have a horde of angry people at my door soon ;-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you do not get an answer and the relevant bit is already set in the
+eeprom, you should be able to make your own mind shortly. The comment
+in the datasheet rightfully reminds that both the NIC and the peer
+networking gear need to handle flow control correctly.
+
+Good luck.
+
+-- 
+Ueimor
