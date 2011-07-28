@@ -1,56 +1,83 @@
-From: Jens Osterkamp <jens@linux.vnet.ibm.com>
-Subject: Re: 802.1ad on linux
-Date: Thu, 28 Jul 2011 13:21:46 +0200
-Message-ID: <201107281321.46294.jens@linux.vnet.ibm.com>
-References: <CAChS5kM+xmWRrF-Ez7W9+=7Se9o3bXrk4sSs6X-z7gU21SaWrA@mail.gmail.com>
+From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
+Subject: Re: r8169 driver crashes in 2.6.32.43
+Date: Thu, 28 Jul 2011 13:43:05 +0200
+Message-ID: <20110728114305.GA24549@colin.search.kasperd.net>
+References: <20110724195831.GA8718@colin.search.kasperd.net> <20110724201626.GB24418@zoreil.com> <20110725103643.GA11135@colin.search.kasperd.net> <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Satendra..." <satendra.pratap@gmail.com>
+Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([194.196.100.163]:41809 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754481Ab1G1LWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 07:22:03 -0400
-Received: from d06nrmr1707.portsmouth.uk.ibm.com (d06nrmr1707.portsmouth.uk.ibm.com [9.149.39.225])
-	by mtagate3.uk.ibm.com (8.13.1/8.13.1) with ESMTP id p6SBLllP018141
-	for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 11:21:47 GMT
-Received: from d06av05.portsmouth.uk.ibm.com (d06av05.portsmouth.uk.ibm.com [9.149.37.229])
-	by d06nrmr1707.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p6SBLlA82195532
-	for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 12:21:47 +0100
-Received: from d06av05.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av05.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p6SBLlQs030442
-	for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 05:21:47 -0600
-In-Reply-To: <CAChS5kM+xmWRrF-Ez7W9+=7Se9o3bXrk4sSs6X-z7gU21SaWrA@mail.gmail.com>
+Received: from nfitmail.nfit.au.dk ([130.225.31.129]:65351 "EHLO
+	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755219Ab1G1LnK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 07:43:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20110728105831.GA11385@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 28 July 2011, Satendra... wrote:
-> Hi,
+On 28/07/11 12.58, Francois Romieu wrote:
+> Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net> :
+> [...]
+> > I tried to apply both 1519e57fe81c14bb8fa4855579f19264d1ef63b4
+> > and f60ac8e7ab7cbb413a0131d5665b053f9f386526. It still crashes,
+> > the first two times I booted that exact build it printed out a
+> > stackdump just before crashing. I have pictures of the two
+> > stack dumps in case that is any help, but unfortunately they
+> > were too deep to fit on 25 lines.
 >=20
-> Does linux kernel has support for 802.1ad ? if yes could u plz mentio=
-n
-> the version?
+> It will probably not help but I can hardly tell without seeing them. =
+:o)
+> It will be ok if you publish them somewhere.
 
-No, but David Lamparter has just recently posted patches which implemen=
-t this.
+http://kasperd.net/~kasperd/r8169/
 
-http://marc.info/?l=3Dlinux-netdev&m=3D131093613717022&w=3D2
+>=20
+> Does something prevent you to enable a different video mode ?
 
-They work fine for me on top of net-next. I had to add EXPORT_SYMBOL fo=
-r
-vlan_untag and vlan_do_receive to be able to build as a module.
-You will need his patch for iproute2 as well to be able to create 802.1=
-ad
-VLAN devices.
+I got some problems with getting the video drivers to behave
+properly. I managed to get X to use the correct screen
+resolution, but I haven't figured out to get the text console
+to do so.
 
-Jens
+Netconsole over the network interface we are trying to debug
+probably isn't the way to go. Do you think it would be feasible
+to run netconsole over wifi?
+
+>=20
+> [...]
+> > I tried applying this one as well (in addition to the previous
+> > two). It no longer crashes, but now the network stops working
+> > after the first few packets have been transmitted.
+>=20
+> Thanks for testing.
+>=20
+> > What exactly was 649f25c389e9498923b459bbffff41a2fd1d7a64
+> > trying to fix in the first place?
+> >
+> > Before that patch the network on this machine was running fast and =
+stable.
+>=20
+> It's frustrating.
+>=20
+> Either the hardware did not experience Rx FIFO overflow internally or=
+ it
+> was able to recover from it without driver intervention. Ivan's hardw=
+are
+> seems to behave differently so blindly revert=20
+> 649f25c389e9498923b459bbffff41a2fd1d7a64 is not an option.
+>=20
+> Can you add the crap below on top of the pre "no longer crashes, no n=
+etwork"
+> one (it will work on top of plain -git driver as well) ?
+
+I'll give it a try.
 
 --=20
-
-IBM Deutschland Research & Development GmbH
-Vorsitzender des Aufsichtsrats: Martin Jetter
-Gesch=E4ftsf=FChrung: Dirk Wittkopp
-Sitz der Gesellschaft: B=F6blingen
-Registergericht: Amtsgericht Stuttgart, HRB 243294
+Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
+#define _(_)"d.%.4s%."_"2s" /* This is my email address */
+char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
+,_+6);
