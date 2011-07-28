@@ -1,90 +1,56 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 3/4] ethtool: Add new set commands
-Date: Thu, 28 Jul 2011 15:25:45 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D99D@orsmsx508.amr.corp.intel.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
-	 <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
-	 <1311888004.2677.18.camel@deadeye>
-	 <43F901BD926A4E43B106BF17856F0755019414D910@orsmsx508.amr.corp.intel.com>
- <1311890667.2677.22.camel@deadeye>
+From: Vasiliy Kulikov <segooon@gmail.com>
+Subject: Re: [PATCH 05/14] userns: clamp down users of cap_raised
+Date: Fri, 29 Jul 2011 03:23:37 +0400
+Message-ID: <20110728232337.GA9186@albatros>
+References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
+ <1311706717-7398-6-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:47635 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756079Ab1G1W0F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jul 2011 18:26:05 -0400
-In-Reply-To: <1311890667.2677.22.camel@deadeye>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org, dhowells@redhat.com,
+	ebiederm@xmission.com
+To: Serge Hallyn <serge@hallyn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1311706717-7398-6-git-send-email-serge@hallyn.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMjgs
-IDIwMTEgMzowNCBQTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gU3Vi
-amVjdDogUkU6IFtSRkMgbmV0LW5leHQgUEFUQ0ggMy80XSBldGh0b29sOiBBZGQgbmV3IHNldCBj
-b21tYW5kcw0KPiANCj4gT24gVGh1LCAyMDExLTA3LTI4IGF0IDE0OjM0IC0wNzAwLCBSb3NlLCBH
-cmVnb3J5IFYgd3JvdGU6DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4g
-RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3du
-ZXJAdmdlci5rZXJuZWwub3JnXQ0KPiA+ID4gT24gQmVoYWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4g
-PiA+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI4LCAyMDExIDI6MjAgUE0NCj4gPiA+IFRvOiBSb3Nl
-LCBHcmVnb3J5IFYNCj4gPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZlbUBkYXZl
-bWxvZnQubmV0OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gPiA+IFN1YmplY3Q6IFJlOiBbUkZDIG5l
-dC1uZXh0IFBBVENIIDMvNF0gZXRodG9vbDogQWRkIG5ldyBzZXQgY29tbWFuZHMNCj4gPiA+DQo+
-ID4gPiBPbiBXZWQsIDIwMTEtMDctMjcgYXQgMTU6MTcgLTA3MDAsIEdyZWcgUm9zZSB3cm90ZToN
-Cj4gPiA+ID4gQWRkIG5ldyBzZXQgY29tbWFuZHMgdG8gY29uZmlndXJlIHRoZSBudW1iZXIgb2Yg
-U1ItSU9WIFZGcywgdGhlDQo+ID4gPiA+IG51bWJlciBvZiBWTSBxdWV1ZXMgYW5kIHNwb29mIGNo
-ZWNraW5nIG9uL29mZiBzd2l0Y2guDQo+ID4gPiA+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEdy
-ZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+ID4gPiAtLS0NCj4gPiA+ID4N
-Cj4gPiA+ID4gIGluY2x1ZGUvbGludXgvZXRodG9vbC5oIHwgICAxMSArKysrKysrKysrLQ0KPiA+
-ID4gPiAgMSBmaWxlcyBjaGFuZ2VkLCAxMCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQ0K
-PiA+ID4gPg0KPiA+ID4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9ldGh0b29sLmggYi9p
-bmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+ID4gPiBpbmRleCBjNmU0MjdhLi5jNDk3MmJhIDEw
-MDY0NA0KPiA+ID4gPiAtLS0gYS9pbmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+ID4gPiArKysg
-Yi9pbmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+ID4gPiBAQCAtMzYsMTIgKzM2LDE0IEBAIHN0
-cnVjdCBldGh0b29sX2NtZCB7DQo+ID4gPiA+ICAJX191OAltZGlvX3N1cHBvcnQ7DQo+ID4gPiA+
-ICAJX191MzIJbWF4dHhwa3Q7CS8qIFR4IHBrdHMgYmVmb3JlIGdlbmVyYXRpbmcgdHggaW50ICov
-DQo+ID4gPiA+ICAJX191MzIJbWF4cnhwa3Q7CS8qIFJ4IHBrdHMgYmVmb3JlIGdlbmVyYXRpbmcg
-cnggaW50ICovDQo+ID4gPiA+ICsJX191MzIJbnVtX3ZmczsJLyogRW5hYmxlIFNSLUlPViBWRnMg
-Ki8NCj4gPiA+DQo+ID4gPiBXaGF0IGFyZSB0aGUgc2VtYW50aWNzIG9mIGNoYW5naW5nIHRoaXMg
-YWZ0ZXIgVkZzIGhhdmUgYWxyZWFkeSBiZWVuDQo+IHNldA0KPiA+ID4gdXA/DQo+ID4NCj4gPiBU
-aGVyZSdzIGFuIGV4YW1wbGUgb2YgaXQgcGF0Y2ggNC80IGluIHRoaXMgc2V0LiAgVGhlIFBGIGRy
-aXZlciBjaGVja3MNCj4gPiBpZiBhbnkgVkZzIGFyZSBhc3NpZ25lZCBhbmQgYWN0aXZlIGFuZCBp
-ZiBub3QgdGhlbiBpdCB3aWxsIGRpc2FibGUgYW5kDQo+ID4gZGVzdHJveSBhbGwgdGhlIGN1cnJl
-bnQgVkZzIHZpYSBhIGNhbGwgdG8gcGNpX2Rpc2FibGVfc3Jpb3YoKSBhbmQgdGhlbg0KPiA+IGNh
-bGwgcGNpX2VuYWJsZV9zcmlvdigpIHdpdGggdGhlIG5ldyBudW1iZXIgb2YgVkZzLiAgT3IsIGlm
-IHRoZSBudW1iZXINCj4gPiBvZiBuZXcgVkZzIGlzIHplcm8gdGhlbiBTUi1JT1YgaXMgbGVmdCBk
-aXNhYmxlZCBvbiB0aGF0IFBGLg0KPiANCj4gQW5kIG90aGVyd2lzZSB0aGUgcmVxdWVzdCBmYWls
-cz8NCg0KWWVzLCBpdCByZXR1cm5zIC1FQlVTWSBpZiBWRnMgYXJlIGluIHVzZSAoYXNzaWduZWQg
-dG8gZ3Vlc3QgVk1zKSBvciB0aGUgUEYgZHJpdmVyIGlzIHVwIGFuZCBydW5uaW5nLiAgSXQgY2Fu
-IHJldHVybiBvdGhlciBlcnJvcnMgZnJvbSB0aGUgcG9zdCBjb25maWd1cmF0aW9uIHNldHVwIG9m
-IGludGVycnVwdCByZXNvdXJjZXMuDQoNCj4gDQo+ID4gTW9zdGx5IHRoaXMgaXMgdG8gYWNjb21t
-b2RhdGUgY3VzdG9tZXIgcmVxdWVzdHMgdG8gYmUgYWJsZSB0byBzZXQgYQ0KPiA+IGRpZmZlcmVu
-dCBudW1iZXIgb2YgVkZzIHBlciBQRiBvciB0byBvbmx5IGhhdmUgc3BlY2lmaWVkIFBGcyBlbmFi
-bGUNCj4gPiBWRnMuICBUaGUgY3VycmVudCB1c2FnZSBvZiB0aGUgbWF4X3ZmcyBtb2R1bGUgcGFy
-YW1ldGVyIGlzIHVud2llbGR5IGluDQo+ID4gdGhpcyBzZW5zZSBhcyB5b3UgbXVzdCBlbmFibGUg
-U1ItSU9WIFZGcyBvbiBhbGwgcGh5c2ljYWwgZnVuY3Rpb25zDQo+ID4gZm91bmQgZHVyaW5nIHRo
-ZSBkZXZpY2UgcHJvYmUgd2l0aCB0aGUgc2FtZSBudW1iZXIgb2YgVkZzLg0KPiANCj4gUmlnaHQs
-IHRoaXMgbWFrZXMgYSBsb3Qgb2Ygc2Vuc2UuDQo+IA0KPiA+ID4gPiArCV9fdTMyCW51bV92bXFz
-OwkvKiBTZXQgbnVtYmVyIG9mIHF1ZXVlcyBmb3IgVk1EcSAqLw0KPiA+ID4NCj4gPiA+IFZNRHEg
-aXMgYW4gSW50ZWwgcHJvcHJpZXRhcnkgbmFtZS4gIFBsZWFzZSBzcGVjaWZ5IHRoaXMgaW4gZ2Vu
-ZXJpYw0KPiA+ID4gdGVybXMuDQo+ID4NCj4gPiBJJ2xsIHVzZSB0aGUgbW9yZSBnZW5lcmljIHRl
-cm0gVk0gcXVldWVzLg0KPiBbLi4uXQ0KPiANCj4gU3RpbGwgYW1iaWd1b3VzLiAgSSB0aGluayB3
-aGF0IHlvdSBhY3R1YWxseSBpbnRlbmQgaXMgdGhhdCB0aGlzIHdpbGwgYmUNCj4gdGhlIG51bWJl
-ciBvZiBSWCBxdWV1ZXMgYW5kIHRoZSBudW1iZXIgb2YgVFggcXVldWVzIHBlciBWRi4gIFJpZ2h0
-Pw0KPiBZb3UgbWlnaHQgd2FudCB0byBhbGxvdyBmb3IgZGlmZmVyZW50IG51bWJlcnMgb2YgUlgg
-YW5kIFRYIHF1ZXVlcy4NCg0KT0ssIHRoYXQncyBub3QgYSBwcm9ibGVtLiAgT3VyIGRldmljZXMg
-b25seSBzdXBwb3J0IG1hdGNoaW5nIG51bWJlcnMgb2YgcXVldWUgcGFpcnMgYnV0IEkgc3VwcG9z
-ZSBvdGhlciBkZXZpY2VzIG1pZ2h0IGhhdmUgdGhlIGFiaWxpdHkgdG8gaGF2ZSBkaWZmZXJlbnQg
-bnVtYmVycyBvZiBSeC9UeCBxdWV1ZXMgcGVyIFZGLiAgSSdsbCByZXdvcmsgaXQgdGhhdCB3YXkg
-d2hpbGUgSSdtIGFkZGluZyB0aGUgbmV3IGNvbW1hbmQuDQoNClRoZSBudW1iZXIgb2YgcXVldWVz
-IG1pZ2h0IGFsc28gYmUgdXNlZCBpbiBhIHNjZW5hcmlvIHNpbWlsYXIgdG8gdGhlIFZNd2FyZSBO
-ZXQgUXVldWVzIChUTSkgZmVhdHVyZS4gIFRoZXJlIGlzIG5vIHN1cHBvcnQgZm9yIHRoYXQgaW4g
-TGludXggYXQgdGhlIG1vbWVudCBidXQgaXQgY291bGQgYmUgc3VwcG9ydGVkIGluIHRoZSBmdXR1
-cmUuDQoNCi0gR3JlZw0KDQo=
+On Tue, Jul 26, 2011 at 18:58 +0000, Serge Hallyn wrote:
+> From: Serge E. Hallyn <serge.hallyn@canonical.com>
+> 
+> A few modules are using cap_raised(current_cap(), cap) to authorize
+> actions, but the privilege should be applicable against the initial
+> user namespace.  Refuse privilege if the caller is not in init_user_ns.
+> 
+> Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  drivers/block/drbd/drbd_nl.c           |    5 +++++
+>  drivers/md/dm-log-userspace-transfer.c |    3 +++
+>  drivers/staging/pohmelfs/config.c      |    3 +++
+>  drivers/video/uvesafb.c                |    3 +++
+>  4 files changed, 14 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/block/drbd/drbd_nl.c b/drivers/block/drbd/drbd_nl.c
+> index 515bcd9..7717f8a 100644
+> --- a/drivers/block/drbd/drbd_nl.c
+> +++ b/drivers/block/drbd/drbd_nl.c
+> @@ -2297,6 +2297,11 @@ static void drbd_connector_callback(struct cn_msg *req, struct netlink_skb_parms
+>  		return;
+>  	}
+>  
+> +	if (current_user_ns() != &init_user_ns) {
+[...]
+>  	if (!cap_raised(current_cap(), CAP_SYS_ADMIN)) {
+[...]
+
+Looks like it is an often pattern.  Maybe move both checks to a
+function?
+
+
+Thanks,
+
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
