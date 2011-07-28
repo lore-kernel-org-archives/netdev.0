@@ -1,83 +1,96 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 3/4] ethtool: Add new set commands
-Date: Thu, 28 Jul 2011 09:21:47 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D568@orsmsx508.amr.corp.intel.com>
-References: <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
-	<20110727.222749.1654973220321763098.davem@davemloft.net>
-	<43F901BD926A4E43B106BF17856F0755019414D509@orsmsx508.amr.corp.intel.com>
- <20110728.091448.548423057039764289.davem@davemloft.net>
+From: Ian Campbell <ijc@hellion.org.uk>
+Subject: RE: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
+ been assigned by KVM
+Date: Thu, 28 Jul 2011 17:27:39 +0100
+Message-ID: <1311870459.24408.151.camel@cthulhu.hellion.org.uk>
+References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
+	 <20110727221749.8435.19000.stgit@gitlad.jf.intel.com>
+	 <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
+	 <43F901BD926A4E43B106BF17856F0755019414D525@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46062 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755549Ab1G1QVt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 12:21:49 -0400
-In-Reply-To: <20110728.091448.548423057039764289.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <43F901BD926A4E43B106BF17856F0755019414D525@orsmsx508.amr.corp.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, July 28, 2011 9:15 AM
-> To: Rose, Gregory V
-> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com; Kirsher, Jeffrey T
-> Subject: Re: [RFC net-next PATCH 3/4] ethtool: Add new set commands
+On Thu, 2011-07-28 at 08:58 -0700, Rose, Gregory V wrote:
+> > -----Original Message-----
+> > From: Ian Campbell [mailto:ijc@hellion.org.uk]
+> > Sent: Thursday, July 28, 2011 8:11 AM
+> > To: Rose, Gregory V; Konrad Rzeszutek Wilk
+> > Cc: netdev@vger.kernel.org; davem@davemloft.net;
+> > bhutchings@solarflare.com; Kirsher, Jeffrey T; Jesse Barnes; linux-
+> > pci@vger.kernel.org
+> > Subject: Re: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
+> > been assigned by KVM
+> > 
+> > On Wed, 2011-07-27 at 15:17 -0700, Greg Rose wrote:
+> > > Device drivers that create and destroy SR-IOV virtual functions via
+> > > calls to pci_enable_sriov() and pci_disable_sriov can cause catastrophic
+> > > failures if they attempt to destroy VFs while they are assigned to
+> > > guest virtual machines.  By adding a flag for use by the KVM module
+> > > to indicate that a device is assigned a device driver can check that
+> > > flag and avoid destroying VFs while they are assigned and avoid system
+> > > failures.
+> > >
+> > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > > ---
+> > >
+> > >  include/linux/pci.h     |    2 ++
+> > 
+> > I added Jesse and linux-pci to CC.
+> > 
+> > >  virt/kvm/assigned-dev.c |    2 ++
+> > >  virt/kvm/iommu.c        |    4 ++++
+> > >  3 files changed, 8 insertions(+), 0 deletions(-)
+> > 
+> > I suppose this would also be useful in Xen's pciback or any other system
+> > which does passthrough? (Konrad CC'd for pciback)
 > 
-> From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-> Date: Thu, 28 Jul 2011 08:51:05 -0700
+> Definitely yes.  Xen experiences the same issues when the PF driver is
+> removed while VFs are assigned to guests.
 > 
-> >> -----Original Message-----
-> >> From: David Miller [mailto:davem@davemloft.net]
-> >> Sent: Wednesday, July 27, 2011 10:28 PM
-> >> To: Rose, Gregory V
-> >> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com; Kirsher, Jeffrey
-> T
-> >> Subject: Re: [RFC net-next PATCH 3/4] ethtool: Add new set commands
-> >>
-> >> From: Greg Rose <gregory.v.rose@intel.com>
-> >> Date: Wed, 27 Jul 2011 15:17:59 -0700
-> >>
-> >> > Add new set commands to configure the number of SR-IOV VFs, the
-> >> > number of VM queues and spoof checking on/off switch.
-> >> >
-> >> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> >> > ---
-> >> >
-> >> >  include/linux/ethtool.h |   11 ++++++++++-
-> >> >  1 files changed, 10 insertions(+), 1 deletions(-)
-> >> >
-> >> > diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> >> > index c6e427a..c4972ba 100644
-> >> > --- a/include/linux/ethtool.h
-> >> > +++ b/include/linux/ethtool.h
-> >> > @@ -36,12 +36,14 @@ struct ethtool_cmd {
-> >> >  	__u8	mdio_support;
-> >> >  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
-> >> >  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
-> >> > +	__u32	num_vfs;	/* Enable SR-IOV VFs */
-> >> > +	__u32	num_vmqs;	/* Set number of queues for VMDq */
-> >>
-> >> You can't change the layout of this datastructure in this way without
-> >> breaking every ethtool binary out there.
-> >>
-> >> You have to find another place to add these knobs.
-> >
-> > Perhaps at the end of the ethtool_cmd structure?  Something like this:
+> > 
+> > Is there some common lower layer we could hook this in to? (does
+> > iommu_attach/detach_device make sense?) Or shall we just add the flag
+> > manipulations to pciback as well?
+> [Greg Rose] 
 > 
-> Either use the two reserved u32's we have there, or create a new
-> ethtool command and control structure.
+> I was unaware of any common lower layers, i.e I didn't know that Xen
+> also uses the iommu_attach/detach_device calls.
 
-OK, I see what you're saying.  The size of the structure can never be changed.  I'm slow sometimes but I do eventually get there.  I didn't want to use the reserved u32's because I didn't know what they were reserved for.  The num_vfs and num_vmqs values will actually never exceed 8 bits.  I'll stuff them into the space used by one of the u32's and then add padding to align and keep the same structure size.
+my mistake -- under Xen the iommu is driver by the hypervisor and not
+the domain 0 kernel so there is no iommu_* in pciback.
 
-Thanks for the feedback and help.  I'll address this and the other feedback I've gotten and come back later with V2 of the RFC.
+>   It took me a week of digging around in the KVM module code just to
+> find these hooks.
 
-- Greg
+I'm not actually sure where in pciback the right place to put this would
+be is, perhaps Konrad has an idea.
 
+>   Generally I stick to Ethernet device drivers and I'm not that
+> familiar with device pass through code.  I was just confronted with a
+> problem and looking for some way to fix it.
+> 
+> ;^)
+> 
+> That sounds like a good idea, let me have a look at it.
+> 
+> - Greg
+> 
 
+-- 
+Ian Campbell
+
+Traffic signals in New York are just rough guidelines.
+		-- David Letterman
