@@ -1,58 +1,58 @@
-From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
-Subject: Re: r8169 driver crashes in 2.6.32.43
-Date: Thu, 28 Jul 2011 14:54:37 +0200
-Message-ID: <20110728125437.GA24876@colin.search.kasperd.net>
-References: <20110724195831.GA8718@colin.search.kasperd.net> <20110724201626.GB24418@zoreil.com> <20110725103643.GA11135@colin.search.kasperd.net> <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com> <20110728114305.GA24549@colin.search.kasperd.net> <20110728115936.GC24549@colin.search.kasperd.net> <20110728122328.GA11424@electric-eye.fr.zoreil.com> <20110728124548.GA24762@colin.search.kasperd.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv6: use RCU in inet6_csk_xmit()
+Date: Thu, 28 Jul 2011 15:43:47 +0200
+Message-ID: <1311860627.2346.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nfitmail.nfit.au.dk ([130.225.31.129]:26904 "EHLO
-	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752014Ab1G1Myk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 08:54:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20110728124548.GA24762@colin.search.kasperd.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61512 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930Ab1G1Nnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 09:43:51 -0400
+Received: by wyg8 with SMTP id 8so123591wyg.19
+        for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 06:43:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/07/11 14.45, Kasper Dupont wrote:
-> On 28/07/11 14.23, Francois Romieu wrote:
-> > You can replace them with plain printk(KERN_{INFO/ERR} "S: ...).
->=20
-> Then it compiles, will let you know shortly how it works out.
+Use RCU to avoid changing dst_entry refcount in fast path.
 
-The last 24 lines before network stopped working:
-S: 00000044
-=46Emp
-S: 000000c0
-=46Emp
-S: 00000044
-=46Emp
-S: 00000040
-=46Emp
-S: 00000044
-=46Emp
-S: 00000041
-=46Emp
-S: 000000c0
-=46Emp
-S: 00000040
-=46Emp
-S: 000000c0
-=46Emp
-S: 000000c0
-=46Emp
-S: 00000040
-S: 000000c4
-S: 00000044
-S: 00000040
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/inet6_connection_sock.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
---=20
-Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
-#define _(_)"d.%.4s%."_"2s" /* This is my email address */
-char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
-,_+6);
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index 8a58e8c..2916200 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -211,6 +211,7 @@ int inet6_csk_xmit(struct sk_buff *skb, struct flowi *fl_unused)
+ 	struct flowi6 fl6;
+ 	struct dst_entry *dst;
+ 	struct in6_addr *final_p, final;
++	int res;
+ 
+ 	memset(&fl6, 0, sizeof(fl6));
+ 	fl6.flowi6_proto = sk->sk_protocol;
+@@ -241,12 +242,14 @@ int inet6_csk_xmit(struct sk_buff *skb, struct flowi *fl_unused)
+ 		__inet6_csk_dst_store(sk, dst, NULL, NULL);
+ 	}
+ 
+-	skb_dst_set(skb, dst_clone(dst));
++	rcu_read_lock();
++	skb_dst_set_noref(skb, dst);
+ 
+ 	/* Restore final destination back after routing done */
+ 	ipv6_addr_copy(&fl6.daddr, &np->daddr);
+ 
+-	return ip6_xmit(sk, skb, &fl6, np->opt);
++	res = ip6_xmit(sk, skb, &fl6, np->opt);
++	rcu_read_unlock();
++	return res;
+ }
+-
+ EXPORT_SYMBOL_GPL(inet6_csk_xmit);
+
+
