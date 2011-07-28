@@ -1,37 +1,58 @@
-From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
-Subject: Re: r8169 driver crashes in 2.6.32.43
-Date: Thu, 28 Jul 2011 14:45:48 +0200
-Message-ID: <20110728124548.GA24762@colin.search.kasperd.net>
-References: <20110724195831.GA8718@colin.search.kasperd.net> <20110724201626.GB24418@zoreil.com> <20110725103643.GA11135@colin.search.kasperd.net> <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com> <20110728114305.GA24549@colin.search.kasperd.net> <20110728115936.GC24549@colin.search.kasperd.net> <20110728122328.GA11424@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nfitmail.nfit.au.dk ([130.225.31.129]:56197 "EHLO
-	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754857Ab1G1Mpw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 08:45:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20110728122328.GA11424@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 1/6] net: adjust array index
+Date: Thu, 28 Jul 2011 14:46:01 +0200
+Message-ID: <1311857165-14780-2-git-send-email-julia@diku.dk>
+References: <1311857165-14780-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1311857165-14780-1-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 28/07/11 14.23, Francois Romieu wrote:
-> You can replace them with plain printk(KERN_{INFO/ERR} "S: ...).
+From: Julia Lawall <julia@diku.dk>
 
-Then it compiles, will let you know shortly how it works out.
+Convert array index from the loop bound to the loop index.
 
->=20
-> What are you compiling the patch against ?
+A simplified version of the semantic patch that fixes this problem is as
+follows: (http://coccinelle.lip6.fr/)
 
-2.6.32.43. I picked that version because ultimately I want
-it fixed in Ubuntu 10.04, which also uses a 2.6.32 kernel.
+// <smpl>
+@@
+expression e1,e2,ar;
+@@
 
---=20
-Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
-#define _(_)"d.%.4s%."_"2s" /* This is my email address */
-char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
-,_+6);
+for(e1 = 0; e1 < e2; e1++) { <...
+  ar[
+- e2
++ e1
+  ]
+  ...> }
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+Not tested.
+
+ net/ipv4/igmp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -u -p a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1718,7 +1718,7 @@ static int ip_mc_add_src(struct in_devic
+ 
+ 		pmc->sfcount[sfmode]--;
+ 		for (j=0; j<i; j++)
+-			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[i]);
++			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+ 	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
+ #ifdef CONFIG_IP_MULTICAST
+ 		struct ip_sf_list *psf;
