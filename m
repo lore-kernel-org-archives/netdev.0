@@ -1,61 +1,70 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/2] proc_fork_connector: a lockless ->real_parent usage is not safe
-Date: Thu, 28 Jul 2011 13:54:25 -0700
-Message-ID: <201107282054.p6SKsPtJ007979@imap1.linux-foundation.org>
+From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
+Subject: Re: r8169 driver crashes in 2.6.32.43
+Date: Thu, 28 Jul 2011 23:01:12 +0200
+Message-ID: <20110728210112.GA25953@colin.search.kasperd.net>
+References: <20110725103643.GA11135@colin.search.kasperd.net> <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com> <20110728114305.GA24549@colin.search.kasperd.net> <20110728115936.GC24549@colin.search.kasperd.net> <20110728122328.GA11424@electric-eye.fr.zoreil.com> <20110728124548.GA24762@colin.search.kasperd.net> <20110728125437.GA24876@colin.search.kasperd.net> <20110728144719.GA11465@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, oleg@redhat.com,
-	johnpol@2ka.mipt.ru, vzapolskiy@gmail.com, zbr@ioremap.net
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48773 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755177Ab1G1Uyl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 16:54:41 -0400
+Received: from nfitmail.nfit.au.dk ([130.225.31.129]:22627 "EHLO
+	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755413Ab1G1VBT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 17:01:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20110728144719.GA11465@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oleg Nesterov <oleg@redhat.com>
+On 28/07/11 16.47, Francois Romieu wrote:
+> Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net> :
+> > On 28/07/11 14.45, Kasper Dupont wrote:
+> > > On 28/07/11 14.23, Francois Romieu wrote:
+> > > > You can replace them with plain printk(KERN_{INFO/ERR} "S: ...)=
+=2E
+> > >=20
+> > > Then it compiles, will let you know shortly how it works out.
+> >=20
+> > The last 24 lines before network stopped working:
+> [...]
+> > S: 000000c0
+> > FEmp
+> > S: 000000c0
+> > FEmp
+> > S: 00000040
+> > S: 000000c4
+> > S: 00000044
+> > S: 00000040
+>=20
+> Can you revert the last patch and apply the one below ?
 
-proc_fork_connector() uses ->real_parent lockless.  This is not safe if
-copy_process() was called with CLONE_THREAD or CLONE_PARENT, in this case
-the parent != current can go away at any moment.
+I tested it and put a picture of the output in the same place
+as the error messages from before. If necessary I can try to
+copy the dmesg output back over the other network interface
+(assuming it is still up when the first one stops working).
 
-Signed-off-by: Oleg Nesterov <oleg@redhat.com>
-Cc: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Evgeniy Polyakov <zbr@ioremap.net>
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+>=20
+> Network traffic capture at the remote end of the link would be welcom=
+e,
+> especially ethernet MAC control frames.
 
- drivers/connector/cn_proc.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+I did a dump, but it showed nothing useful. The last packet
+from the machine before the network stopped was a TCP ACK.
+The sending machine send three more packets before it slowed
+down, then send another three packets at lower speed and then
+started sending arp requests, which were not answered.
 
-diff -puN drivers/connector/cn_proc.c~proc_fork_connector-a-lockless-real_parent-usage-is-not-safe drivers/connector/cn_proc.c
---- a/drivers/connector/cn_proc.c~proc_fork_connector-a-lockless-real_parent-usage-is-not-safe
-+++ a/drivers/connector/cn_proc.c
-@@ -57,6 +57,7 @@ void proc_fork_connector(struct task_str
- 	struct proc_event *ev;
- 	__u8 buffer[CN_PROC_MSG_SIZE];
- 	struct timespec ts;
-+	struct task_struct *parent;
- 
- 	if (atomic_read(&proc_event_num_listeners) < 1)
- 		return;
-@@ -67,8 +68,11 @@ void proc_fork_connector(struct task_str
- 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
- 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
- 	ev->what = PROC_EVENT_FORK;
--	ev->event_data.fork.parent_pid = task->real_parent->pid;
--	ev->event_data.fork.parent_tgid = task->real_parent->tgid;
-+	rcu_read_lock();
-+	parent = rcu_dereference(task->real_parent);
-+	ev->event_data.fork.parent_pid = parent->pid;
-+	ev->event_data.fork.parent_tgid = parent->tgid;
-+	rcu_read_unlock();
- 	ev->event_data.fork.child_pid = task->pid;
- 	ev->event_data.fork.child_tgid = task->tgid;
- 
-_
+There were three separate switches on the path between the
+two machines. If necessary I can try to set up a network
+with just a direct link between two hosts. I am not sure
+which control frames you are referring to. Will tcpdump
+capture them by default?
+
+--=20
+Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
+#define _(_)"d.%.4s%."_"2s" /* This is my email address */
+char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
+,_+6);
