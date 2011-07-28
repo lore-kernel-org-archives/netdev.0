@@ -1,89 +1,85 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC net-next PATCH 3/4] ethtool: Add new set commands
-Date: Thu, 28 Jul 2011 23:20:04 +0200
-Message-ID: <1311888004.2677.18.camel@deadeye>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC net-next PATCH 3/4] ethtool: Add new set commands
+Date: Thu, 28 Jul 2011 14:34:57 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019414D910@orsmsx508.amr.corp.intel.com>
 References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
 	 <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
+ <1311888004.2677.18.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Greg Rose <gregory.v.rose@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8300 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755849Ab1G1VUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 17:20:09 -0400
-In-Reply-To: <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:29849 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755984Ab1G1Ve7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jul 2011 17:34:59 -0400
+In-Reply-To: <1311888004.2677.18.camel@deadeye>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-07-27 at 15:17 -0700, Greg Rose wrote:
-> Add new set commands to configure the number of SR-IOV VFs, the
-> number of VM queues and spoof checking on/off switch.
-> 
-> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> ---
-> 
->  include/linux/ethtool.h |   11 ++++++++++-
->  1 files changed, 10 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index c6e427a..c4972ba 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -36,12 +36,14 @@ struct ethtool_cmd {
->  	__u8	mdio_support;
->  	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
->  	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
-> +	__u32	num_vfs;	/* Enable SR-IOV VFs */
-
-What are the semantics of changing this after VFs have already been set
-up?
-
-> +	__u32	num_vmqs;	/* Set number of queues for VMDq */
-
-VMDq is an Intel proprietary name.  Please specify this in generic
-terms.
-
->  	__u16	speed_hi;       /* The forced speed (upper
->  				 * bits) in Mbps. Please use
->  				 * ethtool_cmd_speed()/_set() to
->  				 * access it */
->  	__u8	eth_tp_mdix;
-> -	__u8	reserved2;
-> +	__u8	spoof_check;	/* Enable/Disable anti-spoofing */
->  	__u32	lp_advertising;	/* Features the link partner advertises */
->  	__u32	reserved[2];
->  };
-> @@ -1121,6 +1123,13 @@ struct ethtool_ops {
->  #define AUTONEG_DISABLE		0x00
->  #define AUTONEG_ENABLE		0x01
->  
-> +/* Enable or disable MAC and/or VLAN spoofchecking.If this is
-> + * set to enable, then depending on the controller capabilities
-> + * MAC and/or VLAN spoofing will be turned on.
-> + */
-> +#define SPOOFCHECK_DISABLE     0x00
-> +#define SPOOFCHECK_ENABLE      0x01
-
-I'm not sure it's necessary to continue defining macros for booleans.
-
-This should not 'depend on controller capabilities'.  If the
-administrator tries to enable this feature on a device that does not
-support it, the request must return an error rather than failing
-silently.  (This is another reason to define new commands.)
-
-Ben.
-
->  /* Mode MDI or MDI-X */
->  #define ETH_TP_MDI_INVALID	0x00
->  #define ETH_TP_MDI		0x01
-> 
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMjgsIDIwMTEgMjoy
+MCBQTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBkYXZlbUBkYXZlbWxvZnQubmV0OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gU3ViamVjdDogUmU6
+IFtSRkMgbmV0LW5leHQgUEFUQ0ggMy80XSBldGh0b29sOiBBZGQgbmV3IHNldCBjb21tYW5kcw0K
+PiANCj4gT24gV2VkLCAyMDExLTA3LTI3IGF0IDE1OjE3IC0wNzAwLCBHcmVnIFJvc2Ugd3JvdGU6
+DQo+ID4gQWRkIG5ldyBzZXQgY29tbWFuZHMgdG8gY29uZmlndXJlIHRoZSBudW1iZXIgb2YgU1It
+SU9WIFZGcywgdGhlDQo+ID4gbnVtYmVyIG9mIFZNIHF1ZXVlcyBhbmQgc3Bvb2YgY2hlY2tpbmcg
+b24vb2ZmIHN3aXRjaC4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29y
+eS52LnJvc2VAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+DQo+ID4gIGluY2x1ZGUvbGludXgvZXRo
+dG9vbC5oIHwgICAxMSArKysrKysrKysrLQ0KPiA+ICAxIGZpbGVzIGNoYW5nZWQsIDEwIGluc2Vy
+dGlvbnMoKyksIDEgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9s
+aW51eC9ldGh0b29sLmggYi9pbmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+IGluZGV4IGM2ZTQy
+N2EuLmM0OTcyYmEgMTAwNjQ0DQo+ID4gLS0tIGEvaW5jbHVkZS9saW51eC9ldGh0b29sLmgNCj4g
+PiArKysgYi9pbmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+IEBAIC0zNiwxMiArMzYsMTQgQEAg
+c3RydWN0IGV0aHRvb2xfY21kIHsNCj4gPiAgCV9fdTgJbWRpb19zdXBwb3J0Ow0KPiA+ICAJX191
+MzIJbWF4dHhwa3Q7CS8qIFR4IHBrdHMgYmVmb3JlIGdlbmVyYXRpbmcgdHggaW50ICovDQo+ID4g
+IAlfX3UzMgltYXhyeHBrdDsJLyogUnggcGt0cyBiZWZvcmUgZ2VuZXJhdGluZyByeCBpbnQgKi8N
+Cj4gPiArCV9fdTMyCW51bV92ZnM7CS8qIEVuYWJsZSBTUi1JT1YgVkZzICovDQo+IA0KPiBXaGF0
+IGFyZSB0aGUgc2VtYW50aWNzIG9mIGNoYW5naW5nIHRoaXMgYWZ0ZXIgVkZzIGhhdmUgYWxyZWFk
+eSBiZWVuIHNldA0KPiB1cD8NCg0KVGhlcmUncyBhbiBleGFtcGxlIG9mIGl0IHBhdGNoIDQvNCBp
+biB0aGlzIHNldC4gIFRoZSBQRiBkcml2ZXIgY2hlY2tzIGlmIGFueSBWRnMgYXJlIGFzc2lnbmVk
+IGFuZCBhY3RpdmUgYW5kIGlmIG5vdCB0aGVuIGl0IHdpbGwgZGlzYWJsZSBhbmQgZGVzdHJveSBh
+bGwgdGhlIGN1cnJlbnQgVkZzIHZpYSBhIGNhbGwgdG8gcGNpX2Rpc2FibGVfc3Jpb3YoKSBhbmQg
+dGhlbiBjYWxsIHBjaV9lbmFibGVfc3Jpb3YoKSB3aXRoIHRoZSBuZXcgbnVtYmVyIG9mIFZGcy4g
+IE9yLCBpZiB0aGUgbnVtYmVyIG9mIG5ldyBWRnMgaXMgemVybyB0aGVuIFNSLUlPViBpcyBsZWZ0
+IGRpc2FibGVkIG9uIHRoYXQgUEYuDQoNCk1vc3RseSB0aGlzIGlzIHRvIGFjY29tbW9kYXRlIGN1
+c3RvbWVyIHJlcXVlc3RzIHRvIGJlIGFibGUgdG8gc2V0IGEgZGlmZmVyZW50IG51bWJlciBvZiBW
+RnMgcGVyIFBGIG9yIHRvIG9ubHkgaGF2ZSBzcGVjaWZpZWQgUEZzIGVuYWJsZSBWRnMuICBUaGUg
+Y3VycmVudCB1c2FnZSBvZiB0aGUgbWF4X3ZmcyBtb2R1bGUgcGFyYW1ldGVyIGlzIHVud2llbGR5
+IGluIHRoaXMgc2Vuc2UgYXMgeW91IG11c3QgZW5hYmxlIFNSLUlPViBWRnMgb24gYWxsIHBoeXNp
+Y2FsIGZ1bmN0aW9ucyBmb3VuZCBkdXJpbmcgdGhlIGRldmljZSBwcm9iZSB3aXRoIHRoZSBzYW1l
+IG51bWJlciBvZiBWRnMuDQoNCj4gDQo+ID4gKwlfX3UzMgludW1fdm1xczsJLyogU2V0IG51bWJl
+ciBvZiBxdWV1ZXMgZm9yIFZNRHEgKi8NCj4gDQo+IFZNRHEgaXMgYW4gSW50ZWwgcHJvcHJpZXRh
+cnkgbmFtZS4gIFBsZWFzZSBzcGVjaWZ5IHRoaXMgaW4gZ2VuZXJpYw0KPiB0ZXJtcy4NCg0KSSds
+bCB1c2UgdGhlIG1vcmUgZ2VuZXJpYyB0ZXJtIFZNIHF1ZXVlcy4NCg0KPiANCj4gPiAgCV9fdTE2
+CXNwZWVkX2hpOyAgICAgICAvKiBUaGUgZm9yY2VkIHNwZWVkICh1cHBlcg0KPiA+ICAJCQkJICog
+Yml0cykgaW4gTWJwcy4gUGxlYXNlIHVzZQ0KPiA+ICAJCQkJICogZXRodG9vbF9jbWRfc3BlZWQo
+KS9fc2V0KCkgdG8NCj4gPiAgCQkJCSAqIGFjY2VzcyBpdCAqLw0KPiA+ICAJX191OAlldGhfdHBf
+bWRpeDsNCj4gPiAtCV9fdTgJcmVzZXJ2ZWQyOw0KPiA+ICsJX191OAlzcG9vZl9jaGVjazsJLyog
+RW5hYmxlL0Rpc2FibGUgYW50aS1zcG9vZmluZyAqLw0KPiA+ICAJX191MzIJbHBfYWR2ZXJ0aXNp
+bmc7CS8qIEZlYXR1cmVzIHRoZSBsaW5rIHBhcnRuZXIgYWR2ZXJ0aXNlcyAqLw0KPiA+ICAJX191
+MzIJcmVzZXJ2ZWRbMl07DQo+ID4gIH07DQo+ID4gQEAgLTExMjEsNiArMTEyMywxMyBAQCBzdHJ1
+Y3QgZXRodG9vbF9vcHMgew0KPiA+ICAjZGVmaW5lIEFVVE9ORUdfRElTQUJMRQkJMHgwMA0KPiA+
+ICAjZGVmaW5lIEFVVE9ORUdfRU5BQkxFCQkweDAxDQo+ID4NCj4gPiArLyogRW5hYmxlIG9yIGRp
+c2FibGUgTUFDIGFuZC9vciBWTEFOIHNwb29mY2hlY2tpbmcuSWYgdGhpcyBpcw0KPiA+ICsgKiBz
+ZXQgdG8gZW5hYmxlLCB0aGVuIGRlcGVuZGluZyBvbiB0aGUgY29udHJvbGxlciBjYXBhYmlsaXRp
+ZXMNCj4gPiArICogTUFDIGFuZC9vciBWTEFOIHNwb29maW5nIHdpbGwgYmUgdHVybmVkIG9uLg0K
+PiA+ICsgKi8NCj4gPiArI2RlZmluZSBTUE9PRkNIRUNLX0RJU0FCTEUgICAgIDB4MDANCj4gPiAr
+I2RlZmluZSBTUE9PRkNIRUNLX0VOQUJMRSAgICAgIDB4MDENCj4gDQo+IEknbSBub3Qgc3VyZSBp
+dCdzIG5lY2Vzc2FyeSB0byBjb250aW51ZSBkZWZpbmluZyBtYWNyb3MgZm9yIGJvb2xlYW5zLg0K
+DQpPSy4gIEkgdGVuZCB0byBqdXN0IGZvbGxvdyB0aGUgY29udmVudGlvbnMgaW4gdGhlIGNvZGUg
+SSBzZWUgd2hlbiBJJ20gbm90IHRoYXQgZmFtaWxpYXIgd2l0aCBpdCBidXQgaW4gdGhpcyBjYXNl
+IEknbGwganVzdCB1c2UgdHJ1ZSBhbmQgZmFsc2UuDQoNCj4gDQo+IFRoaXMgc2hvdWxkIG5vdCAn
+ZGVwZW5kIG9uIGNvbnRyb2xsZXIgY2FwYWJpbGl0aWVzJy4gIElmIHRoZQ0KPiBhZG1pbmlzdHJh
+dG9yIHRyaWVzIHRvIGVuYWJsZSB0aGlzIGZlYXR1cmUgb24gYSBkZXZpY2UgdGhhdCBkb2VzIG5v
+dA0KPiBzdXBwb3J0IGl0LCB0aGUgcmVxdWVzdCBtdXN0IHJldHVybiBhbiBlcnJvciByYXRoZXIg
+dGhhbiBmYWlsaW5nDQo+IHNpbGVudGx5LiAgKFRoaXMgaXMgYW5vdGhlciByZWFzb24gdG8gZGVm
+aW5lIG5ldyBjb21tYW5kcy4pDQoNCkFscmlnaHQsIEknbGwgZml4IGl0IHVwIHRvIHdvcmsgdGhh
+dCB3YXkuDQoNCi0gR3JlZw0KDQo=
