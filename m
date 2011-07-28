@@ -1,78 +1,38 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
- been assigned by KVM
-Date: Thu, 28 Jul 2011 09:42:24 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D59C@orsmsx508.amr.corp.intel.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
-	 <20110727221749.8435.19000.stgit@gitlad.jf.intel.com>
-	 <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
-	 <43F901BD926A4E43B106BF17856F0755019414D525@orsmsx508.amr.corp.intel.com>
- <1311870459.24408.151.camel@cthulhu.hellion.org.uk>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: [PATCH] net: fix new sunrpc kernel-doc warning
+Date: Thu, 28 Jul 2011 09:54:36 -0700
+Message-ID: <20110728095436.6fdb3eb4.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Ian Campbell <ijc@hellion.org.uk>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1311870459.24408.151.camel@cthulhu.hellion.org.uk>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oproxy4-pub.bluehost.com ([69.89.21.11]:42579 "HELO
+	oproxy4-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1755300Ab1G1Qyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 12:54:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
-bzppamNAaGVsbGlvbi5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI4LCAyMDExIDk6
-MjggQU0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KPiBDYzogS29ucmFkIFJ6ZXN6dXRlayBXaWxr
-OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBiaHV0Y2hp
-bmdzQHNvbGFyZmxhcmUuY29tOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IEplc3NlIEJhcm5lczsgbGlu
-dXgtDQo+IHBjaUB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUkU6IFtSRkMgbmV0LW5leHQg
-UEFUQ0ggMS80XSBwY2k6IEFkZCBmbGFnIGluZGljYXRpbmcgZGV2aWNlIGhhcw0KPiBiZWVuIGFz
-c2lnbmVkIGJ5IEtWTQ0KPiANCj4gT24gVGh1LCAyMDExLTA3LTI4IGF0IDA4OjU4IC0wNzAwLCBS
-b3NlLCBHcmVnb3J5IFYgd3JvdGU6DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
-PiA+ID4gRnJvbTogSWFuIENhbXBiZWxsIFttYWlsdG86aWpjQGhlbGxpb24ub3JnLnVrXQ0KPiA+
-ID4gU2VudDogVGh1cnNkYXksIEp1bHkgMjgsIDIwMTEgODoxMSBBTQ0KPiA+ID4gVG86IFJvc2Us
-IEdyZWdvcnkgVjsgS29ucmFkIFJ6ZXN6dXRlayBXaWxrDQo+ID4gPiBDYzogbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gPiA+IGJodXRjaGluZ3NAc29sYXJm
-bGFyZS5jb207IEtpcnNoZXIsIEplZmZyZXkgVDsgSmVzc2UgQmFybmVzOyBsaW51eC0NCj4gPiA+
-IHBjaUB2Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IFN1YmplY3Q6IFJlOiBbUkZDIG5ldC1uZXh0IFBB
-VENIIDEvNF0gcGNpOiBBZGQgZmxhZyBpbmRpY2F0aW5nIGRldmljZQ0KPiBoYXMNCj4gPiA+IGJl
-ZW4gYXNzaWduZWQgYnkgS1ZNDQo+ID4gPg0KPiA+ID4gT24gV2VkLCAyMDExLTA3LTI3IGF0IDE1
-OjE3IC0wNzAwLCBHcmVnIFJvc2Ugd3JvdGU6DQo+ID4gPiA+IERldmljZSBkcml2ZXJzIHRoYXQg
-Y3JlYXRlIGFuZCBkZXN0cm95IFNSLUlPViB2aXJ0dWFsIGZ1bmN0aW9ucyB2aWENCj4gPiA+ID4g
-Y2FsbHMgdG8gcGNpX2VuYWJsZV9zcmlvdigpIGFuZCBwY2lfZGlzYWJsZV9zcmlvdiBjYW4gY2F1
-c2UNCj4gY2F0YXN0cm9waGljDQo+ID4gPiA+IGZhaWx1cmVzIGlmIHRoZXkgYXR0ZW1wdCB0byBk
-ZXN0cm95IFZGcyB3aGlsZSB0aGV5IGFyZSBhc3NpZ25lZCB0bw0KPiA+ID4gPiBndWVzdCB2aXJ0
-dWFsIG1hY2hpbmVzLiAgQnkgYWRkaW5nIGEgZmxhZyBmb3IgdXNlIGJ5IHRoZSBLVk0gbW9kdWxl
-DQo+ID4gPiA+IHRvIGluZGljYXRlIHRoYXQgYSBkZXZpY2UgaXMgYXNzaWduZWQgYSBkZXZpY2Ug
-ZHJpdmVyIGNhbiBjaGVjayB0aGF0DQo+ID4gPiA+IGZsYWcgYW5kIGF2b2lkIGRlc3Ryb3lpbmcg
-VkZzIHdoaWxlIHRoZXkgYXJlIGFzc2lnbmVkIGFuZCBhdm9pZA0KPiBzeXN0ZW0NCj4gPiA+ID4g
-ZmFpbHVyZXMuDQo+ID4gPiA+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3Jl
-Z29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+ID4gPiAtLS0NCj4gPiA+ID4NCj4gPiA+ID4gIGlu
-Y2x1ZGUvbGludXgvcGNpLmggICAgIHwgICAgMiArKw0KPiA+ID4NCj4gPiA+IEkgYWRkZWQgSmVz
-c2UgYW5kIGxpbnV4LXBjaSB0byBDQy4NCj4gPiA+DQo+ID4gPiA+ICB2aXJ0L2t2bS9hc3NpZ25l
-ZC1kZXYuYyB8ICAgIDIgKysNCj4gPiA+ID4gIHZpcnQva3ZtL2lvbW11LmMgICAgICAgIHwgICAg
-NCArKysrDQo+ID4gPiA+ICAzIGZpbGVzIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygrKSwgMCBkZWxl
-dGlvbnMoLSkNCj4gPiA+DQo+ID4gPiBJIHN1cHBvc2UgdGhpcyB3b3VsZCBhbHNvIGJlIHVzZWZ1
-bCBpbiBYZW4ncyBwY2liYWNrIG9yIGFueSBvdGhlcg0KPiBzeXN0ZW0NCj4gPiA+IHdoaWNoIGRv
-ZXMgcGFzc3Rocm91Z2g/IChLb25yYWQgQ0MnZCBmb3IgcGNpYmFjaykNCj4gPg0KPiA+IERlZmlu
-aXRlbHkgeWVzLiAgWGVuIGV4cGVyaWVuY2VzIHRoZSBzYW1lIGlzc3VlcyB3aGVuIHRoZSBQRiBk
-cml2ZXIgaXMNCj4gPiByZW1vdmVkIHdoaWxlIFZGcyBhcmUgYXNzaWduZWQgdG8gZ3Vlc3RzLg0K
-PiA+DQo+ID4gPg0KPiA+ID4gSXMgdGhlcmUgc29tZSBjb21tb24gbG93ZXIgbGF5ZXIgd2UgY291
-bGQgaG9vayB0aGlzIGluIHRvPyAoZG9lcw0KPiA+ID4gaW9tbXVfYXR0YWNoL2RldGFjaF9kZXZp
-Y2UgbWFrZSBzZW5zZT8pIE9yIHNoYWxsIHdlIGp1c3QgYWRkIHRoZSBmbGFnDQo+ID4gPiBtYW5p
-cHVsYXRpb25zIHRvIHBjaWJhY2sgYXMgd2VsbD8NCj4gPiBbR3JlZyBSb3NlXQ0KPiA+DQo+ID4g
-SSB3YXMgdW5hd2FyZSBvZiBhbnkgY29tbW9uIGxvd2VyIGxheWVycywgaS5lIEkgZGlkbid0IGtu
-b3cgdGhhdCBYZW4NCj4gPiBhbHNvIHVzZXMgdGhlIGlvbW11X2F0dGFjaC9kZXRhY2hfZGV2aWNl
-IGNhbGxzLg0KPiANCj4gbXkgbWlzdGFrZSAtLSB1bmRlciBYZW4gdGhlIGlvbW11IGlzIGRyaXZl
-ciBieSB0aGUgaHlwZXJ2aXNvciBhbmQgbm90DQo+IHRoZSBkb21haW4gMCBrZXJuZWwgc28gdGhl
-cmUgaXMgbm8gaW9tbXVfKiBpbiBwY2liYWNrLg0KPiANCj4gPiAgIEl0IHRvb2sgbWUgYSB3ZWVr
-IG9mIGRpZ2dpbmcgYXJvdW5kIGluIHRoZSBLVk0gbW9kdWxlIGNvZGUganVzdCB0bw0KPiA+IGZp
-bmQgdGhlc2UgaG9va3MuDQo+IA0KPiBJJ20gbm90IGFjdHVhbGx5IHN1cmUgd2hlcmUgaW4gcGNp
-YmFjayB0aGUgcmlnaHQgcGxhY2UgdG8gcHV0IHRoaXMgd291bGQNCj4gYmUgaXMsIHBlcmhhcHMg
-S29ucmFkIGhhcyBhbiBpZGVhLg0KDQpPSywgYnV0IEkgaG9wZSBYZW4gY2FuIHN0aWxsIHVzZSB0
-aGUgZGV2X2ZsYWcgYXNzaWdubWVudCBiaXQuDQoNClRoYW5rcywNCg0KLSBHcmVnDQoNCg==
+From: Randy Dunlap <rdunlap@xenotime.net>
+
+Fix new kernel-doc warning in sunrpc:
+
+Warning(net/sunrpc/xprt.c:196): No description found for parameter 'xprt'
+
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ net/sunrpc/xprt.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-3.0-git10.orig/net/sunrpc/xprt.c
++++ linux-3.0-git10/net/sunrpc/xprt.c
+@@ -187,6 +187,7 @@ EXPORT_SYMBOL_GPL(xprt_load_transport);
+ /**
+  * xprt_reserve_xprt - serialize write access to transports
+  * @task: task that is requesting access to the transport
++ * @xprt: pointer to the target transport
+  *
+  * This prevents mixing the payload of separate requests, and prevents
+  * transport connects from colliding with writes.  No congestion control
