@@ -1,61 +1,94 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 9/9] tg3: Remove 5719 jumbo frames and TSO
- blocks
-Date: Wed, 27 Jul 2011 17:20:54 -0700
-Message-ID: <1311812454-18197-10-git-send-email-mcarlson@broadcom.com>
+From: hubert Liao <liao.hubertt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Oops when insmod rtl8192ce
+Date: Thu, 28 Jul 2011 09:21:23 +0800
+Message-ID: <CAMzZzFHoQV9wo31sbEMUOv-OQZE1p1WfT8WMGnKJVjNHKvLmQw@mail.gmail.com>
+References: <CAMzZzFGqPv6Nbw8J8JGNKcLA76sAs3oD6+hH9NPCjwA33fYpOQ@mail.gmail.com>
+	<CAMzZzFGpDiFAhsLAb+SQxjbGMzBoOStF_Lr7Eb3PT6Drcf=VdA@mail.gmail.com>
+	<4E302299.2070309@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4047 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753084Ab1G1AR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2011 20:17:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4E302299.2070309-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The A0 revision of this chip is the only device that requires these
-features to be disabled.
+2011/7/27 Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>:
+> On 07/27/2011 04:26 AM, hubert Liao wrote:
+>>
+>> Hi,
+>> We got an oops when insmod rtl8192ce module (the board is an ARM soc=
+),
+>> accroding the oops message, find it's because in rtl_pci_probe()
+>> called _rtl_pci_find_adapter(),
+>> in this funcation, the =A0pdev->bus->self is a NULL pointer .
+>> static boot _rtl_pci_find_adapter(strcut pci_dev *dev,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ieee80211_hw *hw)
+>> {
+>> struct pci_dev *bridge_pdev =3D pdev->bus->self; =A0 //line 1601
+>> ...
+>> pcipriv->ndis_adapter.pcibridge_vendorid =3D bridge_pdev->vendor;<--
+>> [oops here] line 1700
+>> ...
+>> }
+>> here, I just want to know why the bus->self =A0is NULL?
+>> ----
+>> [ =A0148.186632] Unable to handle kernel NULL pointer dereference at
+>> virtual address 00000020
+>
+> As John Linville suggested, please open a bugzilla report.
+>
+Ok, I'll try it, but I am not familiar with it.
+> I would also like some additional information. What kernel are you us=
+ing? In
+> addition, please post the 'lspci -nnk' information for your card.
+>
+The kernel is from the latest linus kernel git tree(3.0.0-05684-ge371d4=
+6-dirty),
+I also have tested the 2.6.38.8 stable release, it has the same problem=
+=2E
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+lspci -nnk
+00:00.0 Class [0580]: Device [11ab:6192] (rev 03)
+        Subsystem: Device [11ab:11ab]
+00:01.0 Class [0280]: Device [10ec:8178] (rev 01)
+        Subsystem: Device [1a3b:1178]
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index c77a39d..dc3fbf6 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -8406,7 +8406,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	/* Program the jumbo buffer descriptor ring control
- 	 * blocks on those devices that have them.
- 	 */
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0 ||
- 	    (tg3_flag(tp, JUMBO_CAPABLE) && !tg3_flag(tp, 5780_CLASS))) {
- 
- 		if (tg3_flag(tp, JUMBO_RING_ENABLE)) {
-@@ -13873,7 +13873,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tg3_flag_set(tp, 5705_PLUS);
- 
- 	/* Determine TSO capabilities */
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
-+	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0)
- 		; /* Do nothing. HW bug. */
- 	else if (tg3_flag(tp, 57765_PLUS))
- 		tg3_flag_set(tp, HW_TSO_3);
-@@ -13943,7 +13943,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tg3_flag_set(tp, LRG_PROD_RING_CAP);
- 
- 	if (tg3_flag(tp, 57765_PLUS) &&
--	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5719)
-+	    tp->pci_chip_rev_id != CHIPREV_ID_5719_A0)
- 		tg3_flag_set(tp, USE_JUMBO_BDFLAG);
- 
- 	if (!tg3_flag(tp, 5705_PLUS) ||
--- 
-1.7.3.4
+> I also think that pdev->bus should have been setup before the initial=
+ization
+> code in rtl8192ce was called. I have not tested the driver on other t=
+han x86
+> and x86_64 architectures because of hardware availability, thus ARM m=
+ay
+> expose some problems. Is this soc little-endian?
+>
+Yes ,it is little-endian
 
+cat /proc/cpuinfo
+Processor       : Feroceon 88FR131 rev 1 (v5l)
+BogoMIPS        : 789.70
+=46eatures        : swp half thumb fastmult edsp
+CPU implementer : 0x56
+CPU architecture: 5TE
+CPU variant     : 0x2
+CPU part        : 0x131
+CPU revision    : 1
 
+Hardware        : Marvell RD-88F6192-NAS Development Board
+Revision        : 0000
+Serial          : 0000000000000000
+
+> Thanks,
+> Larry
+>
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
