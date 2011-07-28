@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v2] bonding: reduce noise during init
-Date: Wed, 27 Jul 2011 22:40:02 -0700 (PDT)
-Message-ID: <20110727.224002.381070158903814963.davem@davemloft.net>
-References: <11239.1311727039@death>
-	<1311727227.15386.40.camel@Joe-Laptop>
-	<20110727200926.GS21309@gospo.rdu.redhat.com>
+Subject: Re: invalid requirement from ethtool?
+Date: Wed, 27 Jul 2011 22:43:09 -0700 (PDT)
+Message-ID: <20110727.224309.779719590419361909.davem@davemloft.net>
+References: <20110726124222.GA4842@mtldesk30>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, fubar@us.ibm.com, netdev@vger.kernel.org
-To: andy@greyhouse.net
+Cc: netdev@vger.kernel.org
+To: eli@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50369 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:50406 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754804Ab1G1FmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 01:42:06 -0400
-In-Reply-To: <20110727200926.GS21309@gospo.rdu.redhat.com>
+	with ESMTP id S1753576Ab1G1FnN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 01:43:13 -0400
+In-Reply-To: <20110726124222.GA4842@mtldesk30>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Wed, 27 Jul 2011 16:09:26 -0400
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Date: Tue, 26 Jul 2011 15:42:22 +0300
 
-> Subject: [PATCH net-next-2.6 v2] bonding: reduce noise during init
-> 
-> Many are using sysfs to configure bonding rather than module options, so
-> there is no need for bonding to throw this warning in normal cases.
-> 
-> Keep the message around when debugging is enabled as it might be useful
-> for someone desperate enough to enable debugging, but eliminate it
-> otherwise.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> I think both params zero should be allowed and mean coalescing is not
+> operational, thus we can remove these comments from ethtool.h
 
-Applied.
+The existing precendence has existed for more than 10 years.  You can't
+just change it like this.
+
+You'll need to find a new way to encode "disabled" coalescing.
