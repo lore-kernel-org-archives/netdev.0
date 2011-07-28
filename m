@@ -1,16 +1,17 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 1/6] net: adjust array index
-Date: Thu, 28 Jul 2011 14:46:01 +0200
-Message-ID: <1311857165-14780-2-git-send-email-julia@diku.dk>
+Subject: [PATCH 3/6] drivers/net/niu.c: adjust array index
+Date: Thu, 28 Jul 2011 14:46:03 +0200
+Message-ID: <1311857165-14780-4-git-send-email-julia@diku.dk>
 References: <1311857165-14780-1-git-send-email-julia@diku.dk>
 Cc: kernel-janitors@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1311857165-14780-1-git-send-email-julia@diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -41,18 +42,27 @@ Signed-off-by: Julia Lawall <julia@diku.dk>
 ---
 Not tested.
 
- net/ipv4/igmp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/niu.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -u -p a/net/ipv4/igmp.c b/net/ipv4/igmp.c
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1718,7 +1718,7 @@ static int ip_mc_add_src(struct in_devic
+diff -u -p a/drivers/net/niu.c b/drivers/net/niu.c
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -9201,7 +9201,7 @@ static int __devinit niu_ldg_init(struct
  
- 		pmc->sfcount[sfmode]--;
- 		for (j=0; j<i; j++)
--			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[i]);
-+			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
- 	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
- #ifdef CONFIG_IP_MULTICAST
- 		struct ip_sf_list *psf;
+ 	first_chan = 0;
+ 	for (i = 0; i < port; i++)
+-		first_chan += parent->rxchan_per_port[port];
++		first_chan += parent->rxchan_per_port[i];
+ 	num_chan = parent->rxchan_per_port[port];
+ 
+ 	for (i = first_chan; i < (first_chan + num_chan); i++) {
+@@ -9217,7 +9217,7 @@ static int __devinit niu_ldg_init(struct
+ 
+ 	first_chan = 0;
+ 	for (i = 0; i < port; i++)
+-		first_chan += parent->txchan_per_port[port];
++		first_chan += parent->txchan_per_port[i];
+ 	num_chan = parent->txchan_per_port[port];
+ 	for (i = first_chan; i < (first_chan + num_chan); i++) {
+ 		err = niu_ldg_assign_ldn(np, parent,
