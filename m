@@ -1,103 +1,122 @@
-From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
-Subject: Re: r8169 driver crashes in 2.6.32.43
-Date: Thu, 28 Jul 2011 10:48:21 +0200
-Message-ID: <20110728084821.GA24125@colin.search.kasperd.net>
-References: <20110724195831.GA8718@colin.search.kasperd.net> <20110724201626.GB24418@zoreil.com> <20110725103643.GA11135@colin.search.kasperd.net> <20110728070455.GA11251@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 28 Jul 2011 02:35:49 -0700 (PDT)
+Message-ID: <20110728.023549.1568333335902886028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nfitmail.nfit.au.dk ([130.225.31.129]:47507 "EHLO
-	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750734Ab1G1Is1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 04:48:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20110728070455.GA11251@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60398 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab1G1Jfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 05:35:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/07/11 09.04, Francois Romieu wrote:
-> Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net> :
-> [...]
-> > [    1.045727] pata_sch 0000:00:1f.1: setting latency timer to 64
-> > [    1.045946] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> > [    1.046061] r8169 0000:02:00.0: PCI INT A -> GSI 16 (level, low)=
- -> IRQ 16
-> > [    1.046201] r8169 0000:02:00.0: setting latency timer to 64
-> > [    1.046257]   alloc irq_desc for 24 on node -1
-> > [    1.046263]   alloc kstat_irqs on node -1
-> > [    1.046284] r8169 0000:02:00.0: irq 24 for MSI/MSI-X
-> > [    1.048097] eth0: RTL8168c/8111c at 0xf8076000, 00:01:c0:09:a1:2=
-5, XID 1c4000c0 IRQ 24
->=20
-> RTL_GIGA_MAC_VER_22
->=20
-> [...]
-> > [    1.082178] eth1: RTL8168c/8111c at 0xf8096000, 00:01:c0:09:a1:2=
-6, XID 1c4000c0 IRQ 25
->=20
-> sic.
->=20
-> I miss it (the light fast crash prone motherboard from hell does not =
-count).
->=20
-> [...]
-> > It works on 2.6.32.32 it crashes on 2.6.32.33. I tried to
-> > take 2.6.32.43 and apply 1519e57fe81c14bb8fa4855579f19264d1ef63b4,
-> > that did not help. 2.6.32.43 crashes with and without that patch.
->=20
-> 1519e57fe81c14bb8fa4855579f19264d1ef63b4 does not help RTL_GIGA_MAC_V=
-ER_22
-> proper but you may apply it, then move the 'case RTL_GIGA_MAC_VER_22:=
-'
-> statement a few line below and see if it helps (assuming the fifo ove=
-rflow
-> event may be ignored):
-
-I tried to apply both 1519e57fe81c14bb8fa4855579f19264d1ef63b4
-and f60ac8e7ab7cbb413a0131d5665b053f9f386526. It still crashes,
-the first two times I booted that exact build it printed out a
-stackdump just before crashing. I have pictures of the two
-stack dumps in case that is any help, but unfortunately they
-were too deep to fit on 25 lines.
-
->=20
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 7d9c650..33c0ead 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -5383,7 +5383,6 @@ static irqreturn_t rtl8169_interrupt(int irq, v=
-oid *dev_instance)
->  			switch (tp->mac_version) {
->  			/* Work around for rx fifo overflow */
->  			case RTL_GIGA_MAC_VER_11:
-> -			case RTL_GIGA_MAC_VER_22:
->  			case RTL_GIGA_MAC_VER_26:
->  				netif_stop_queue(dev);
->  				rtl8169_tx_timeout(dev);
-> @@ -5393,6 +5392,7 @@ static irqreturn_t rtl8169_interrupt(int irq, v=
-oid *dev_instance)
->  			case RTL_GIGA_MAC_VER_19:
->  			case RTL_GIGA_MAC_VER_20:
->  			case RTL_GIGA_MAC_VER_21:
-> +			case RTL_GIGA_MAC_VER_22:
->  			case RTL_GIGA_MAC_VER_23:
->  			case RTL_GIGA_MAC_VER_24:
->  			case RTL_GIGA_MAC_VER_27:
-
-I tried applying this one as well (in addition to the previous
-two). It no longer crashes, but now the network stops working
-after the first few packets have been transmitted.
-
-What exactly was 649f25c389e9498923b459bbffff41a2fd1d7a64
-trying to fix in the first place? Before that patch the
-network on this machine was running fast and stable.
-
---=20
-Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
-#define _(_)"d.%.4s%."_"2s" /* This is my email address */
-char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
-,_+6);
+DQoxKSBHUk8gZnJhZ21lbnQgaGFuZGxpbmcgZml4IGZyb20gSGVyYmVydCBYdS4NCg0KMikgR3Jh
+dHVpdG91dCBBUlAgb25seSBnZXRzIGVtaXR0ZWQgZm9yIGZpcnN0IGFkZHJlc3Mgb24gaW50ZXJm
+YWNlLA0KICAgd2Ugc2hvdWxkIGVtaXQgdGhlbSBmb3IgYWxsIG9mIHRoZW0uICBGcm9tIFpvbHRh
+biBLaXNzLg0KDQozKSBpcHY2IC8xMjcgcHJlZml4IGhhbmRsaW5nIG5lZWRzIG1vcmUgY2hlY2tp
+bmcsIGZyb20gWU9TSElGVUpJIEhpZGVha2kuDQoNCjQpIEZpeCBWTEFOIHJlZ3Jlc3Npb25zIGlu
+IGdpYW5mYXIgYW5kIGZvcmNlZGV0aCwgZnJvbSBTZWJhc3RpYW4gUMO2aG4NCiAgIGFuZCBKaXJp
+IFBpcmtvLg0KDQo1KSBGaXggdmFyaW91cyBjb3JydXB0aW9uIGJ1Z3MgaW4gQjQzIEJDTUEgc3Vw
+cG9ydCwgd2hpY2ggY2FuIG5vdyBiZQ0KICAgbWFya2VkIG5vbi1CUk9LRU4uICBGcm9tIFBhdmVs
+IFJvc2tpbiBhbmQgUmFmYcWCIE1pxYJlY2tpLg0KDQo2KSBOb3QgYWxsIGRldmljZSB0eXBlcyBj
+YW4gaGFuZGxlIHRyYW5zbWl0dGluZyBhIHNoYXJlZCBTS0IsIGFzDQogICBwa3RnZW4gZG9lcyBp
+biBjZXJ0YWluIG1vZGVzLiAgVHJhY2sgdGhpcyBjYXBhYmlsaXR5IHdpdGggYQ0KICAgZmxhZyBh
+bmQgY2hlY2sgaXQgaW4gcGt0Z2VuLiAgRml4IGZyb20gTmVpbCBIb3JtYW4uDQoNCjcpIHRnMyBk
+cml2ZXIgNTcxOSA0SyBSRE1BIGxpbWl0IHdvcmthcm91bmQgZnJvbSBNYXR0IENhcmxzb24uDQoN
+CjgpIElmIGNkYy1waG9uZXQgaXMgdGhlIG9ubHkgVVNCIG5ldCBkcml2ZXIgZW5hYmxlZCwgdGhl
+IGJ1aWxkIHdvbid0DQogICBhY3R1YWxseSB0cmF2ZXJzZSBkb3duIGludG8gZHJpdmVycy9uZXQv
+dXNiIGR1ZSB0byBhIG1pc3NpbmcNCiAgIE1ha2VmaWxlIGxpbmUuICBGaXggZnJvbSBDaHJpcyBD
+TGF5dG9uLg0KDQo5KSBCb25kaW5nIHN0cmluZyBwYXJzaW5nIGZpeCwgcGx1cyBxdWlldCBhIGxl
+c3MtdGhhbi11c2VmdWwgbm9pc3kNCiAgIHdhcm5pbmcgbG9nIG1lc3NhZ2UuICBGcm9tIEFuZHkg
+R29zcG9kYXJlay4NCg0KUGxlYXNlIHB1bGwsIHRoYW5rcyBhIGxvdCENCg0KVGhlIGZvbGxvd2lu
+ZyBjaGFuZ2VzIHNpbmNlIGNvbW1pdCA5NWI2ODg2NTI2YmI1MTBiODM3MGI2MjVhNDliYzBhYjNi
+OGZmMTBmOg0KDQogIE1lcmdlIGJyYW5jaCAnZm9yLWxpbnVzJyBvZiBnaXQ6Ly9naXQua2VybmVs
+Lm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvam1vcnJpcy9zZWN1cml0eS10ZXN0aW5nLTIu
+NiAoMjAxMS0wNy0yNyAxOToyNjozOCAtMDcwMCkNCg0KYXJlIGF2YWlsYWJsZSBpbiB0aGUgZ2l0
+IHJlcG9zaXRvcnkgYXQ6DQoNCiAgbWFzdGVyLmtlcm5lbC5vcmc6L3B1Yi9zY20vbGludXgva2Vy
+bmVsL2dpdC9kYXZlbS9uZXQuZ2l0IG1hc3Rlcg0KDQpBbmR5IEdvc3BvZGFyZWsgKDIpOg0KICAg
+ICAgYm9uZGluZzogZml4IHN0cmluZyBjb21wYXJpc29uIGVycm9ycw0KICAgICAgYm9uZGluZzog
+cmVkdWNlIG5vaXNlIGR1cmluZyBpbml0DQoNCkNocmlzIENsYXl0b24gKDEpOg0KICAgICAgRml4
+IGNkYy1waG9uZXQgYnVpbGQNCg0KRGFuIENhcnBlbnRlciAoMSk6DQogICAgICBORkM6IHBuNTMz
+OiB1c2UgYWZ0ZXIgZnJlZSBpbiBwbjUzM19kaXNjb25uZWN0KCkNCg0KRGF2aWQgUy4gTWlsbGVy
+ICgxKToNCiAgICAgIE1lcmdlIGJyYW5jaCAnZm9yLWRhdmVtJyBvZiBnaXQ6Ly9naXQua2VybmVs
+Lm9yZy8uLi4vbGludmlsbGUvd2lyZWxlc3MtbmV4dC0yLjYNCg0KRXJpYyBEdW1hemV0ICgxKToN
+CiAgICAgIG5ldDogc29ja19zZW5kbXNnX25vc2VjKCkgaXMgc3RhdGljDQoNCkhlcmJlcnQgWHUg
+KDEpOg0KICAgICAgZ3JvOiBPbmx5IHJlc2V0IGZyYWcwIHdoZW4gc2tiIGNhbiBiZSBwdWxsZWQN
+Cg0KSmlyaSBQaXJrbyAoMSk6DQogICAgICBmb3JjZWRldGg6IGZpeCB2bGFucw0KDQpKb2UgUGVy
+Y2hlcyAoMSk6DQogICAgICBuZXQ6IENvbnZlcnQgc3RydWN0IG5ldF9kZXZpY2UgdWNfcHJvbWlz
+YyB0byBib29sDQoNCkpvaG4gVy4gTGludmlsbGUgKDEpOg0KICAgICAgTWVyZ2UgYnJhbmNoICdt
+YXN0ZXInIG9mIGdpdDovL2dpdC5rZXJuZWwub3JnLy4uLi9saW52aWxsZS93aXJlbGVzcy1uZXh0
+LTIuNiBpbnRvIGZvci1kYXZlbQ0KDQpNYXJlayBWYXN1dCAoMik6DQogICAgICBBU0lYOiBTaW1w
+bGlmeSBjb25kaXRpb24gaW4gcnhfZml4dXAoKQ0KICAgICAgQVNJWDogVXNlIG9ubHkgMTEgYml0
+cyBvZiBoZWFkZXIgZm9yIGRhdGEgc2l6ZQ0KDQpNYXR0IENhcmxzb24gKDkpOg0KICAgICAgdGcz
+OiBSZWludHJvZHVjZSB0ZzNfdHhfcmluZ19pbmZvDQogICAgICB0ZzM6IFNpbXBsaWZ5IHR4IGJk
+IGFzc2lnbm1lbnRzDQogICAgICB0ZzM6IFJlbW92ZSBzaG9ydCBETUEgY2hlY2sgZm9yIDFzdCBm
+cmFnbWVudA0KICAgICAgdGczOiBHZW5lcmFsaXplIHRnM19za2JfZXJyb3JfdW5tYXAoKQ0KICAg
+ICAgdGczOiBBZGQgcGFydGlhbCBmcmFnbWVudCB1bm1hcHBpbmcgY29kZQ0KICAgICAgdGczOiBD
+b25zb2xpZGF0ZSBjb2RlIHRoYXQgY2FsbHMgdGczX3R4X3NldF9iZCgpDQogICAgICB0ZzM6IEFk
+ZCB0eCBCRCBidWRnZXRpbmcgY29kZQ0KICAgICAgdGczOiBCcmVhayBsYXJnZXIgZnJhZ3MgaW50
+byA0ayBjaHVua3MgZm9yIDU3MTkNCiAgICAgIHRnMzogUmVtb3ZlIDU3MTkganVtYm8gZnJhbWVz
+IGFuZCBUU08gYmxvY2tzDQoNCk1paGFpIE1vbGRvdmFuICgxKToNCiAgICAgIHdpcmVsZXNzOiBm
+aXggYSB0eXBvIGluIGlnbm9yZV9yZWdfdXBkYXRlDQoNCk5laWwgSG9ybWFuICgyKToNCiAgICAg
+IG5ldDogYWRkIElGRl9TS0JfVFhfU0hBUkVEIGZsYWcgdG8gcHJpdl9mbGFncw0KICAgICAgbmV0
+OiBBdWRpdCBkcml2ZXJzIHRvIGlkZW50aWZ5IHRob3NlIG5lZWRpbmcgSUZGX1RYX1NLQl9TSEFS
+SU5HIGNsZWFyZWQNCg0KUGF2ZWwgUm9za2luICgxKToNCiAgICAgIGI0MzogZml4IGludmFsaWQg
+bWVtb3J5IGFjY2VzcyBpbiBiNDNfc3NiX3JlbW92ZSgpDQoNClJhZmHFgiBNacWCZWNraSAoMik6
+DQogICAgICBiNDM6IGJ1czogZml4IG1lbW9yeSBjb3JydXB0aW9uIHdoZW4gc2V0dGluZyBkcml2
+ZXIncyBkYXRhDQogICAgICBiNDM6IGJjbWE6IGRyb3AgQlJPS0VODQoNClJhbmR5IER1bmxhcCAo
+MSk6DQogICAgICBuZXQ6IGZpeCBldGguYyBrZXJuZWwtZG9jIHdhcm5pbmcNCg0KU2ViYXN0aWFu
+IFDDtmhuICgxKToNCiAgICAgIGdpYW5mYXI6IGZpeCBidWcgY2F1c2VkIGJ5IDg3YzI4OGM2ZTlh
+YTMxNzIwYjcyZTJiYzJkNjY1ZTI0ZTE2NTNjM2UNCg0KU3ZlbiBOZXVtYW5uICgxKToNCiAgICAg
+IGNmZzgwMjExOiByZWFsbHkgaWdub3JlIHRoZSByZWd1bGF0b3J5IHJlcXVlc3QNCg0KV2FubG9u
+ZyBHYW8gKDEpOg0KICAgICAgZHJpdmVyczpjb25uZWN0b3I6cmVtb3ZlIGFuIHVudXNlZCB2YXJp
+YWJsZSAqdHJhY2VyKg0KDQpZT1NISUZVSkkgSGlkZWFraSAoMSk6DQogICAgICBpcHY2OiBEbyBu
+b3QgbGVhdmUgcm91dGVyIGFueWNhc3QgYWRkcmVzcyBmb3IgLzEyNyBwcmVmaXhlcy4NCg0KWm9s
+dGFuIEtpc3MgKDEpOg0KICAgICAgSVB2NDogU2VuZCBncmF0dWl0b3VzIEFSUCBmb3Igc2Vjb25k
+YXJ5IElQIGFkZHJlc3NlcyBhbHNvDQoNCnN0ZXBoZW4gaGVtbWluZ2VyICgxKToNCiAgICAgIGFj
+ZW5pYzogdXNlIG5ldGRldl9hbGxvY19za2JfaXBfYWxpZ24NCg0KIGRyaXZlcnMvY29ubmVjdG9y
+L2NuX3Byb2MuYyAgICAgICAgICAgICAgICAgIHwgICAgMSAtDQogZHJpdmVycy9pc2RuL2k0bC9p
+c2RuX25ldC5jICAgICAgICAgICAgICAgICAgfCAgICAzICsNCiBkcml2ZXJzL25ldC9NYWtlZmls
+ZSAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L2FjZW5pYy5j
+ICAgICAgICAgICAgICAgICAgICAgICAgIHwgICA0NSArKystLQ0KIGRyaXZlcnMvbmV0L2FjZW5p
+Yy5oICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNiArLQ0KIGRyaXZlcnMvbmV0L2JvbmRp
+bmcvYm9uZF9tYWluLmMgICAgICAgICAgICAgIHwgICAgOCArLQ0KIGRyaXZlcnMvbmV0L2JvbmRp
+bmcvYm9uZF9zeXNmcy5jICAgICAgICAgICAgIHwgIDEzMyArKysrKysrLS0tLS0tDQogZHJpdmVy
+cy9uZXQvZm9yY2VkZXRoLmMgICAgICAgICAgICAgICAgICAgICAgfCAgIDE2ICsrLQ0KIGRyaXZl
+cnMvbmV0L2dpYW5mYXIuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNiArLQ0KIGRyaXZl
+cnMvbmV0L2lmYi5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQ0KIGRyaXZl
+cnMvbmV0L21hY3ZsYW4uYyAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQ0KIGRyaXZl
+cnMvbmV0L3RnMy5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDI4NyArKysrKysrKysr
+KysrKysrLS0tLS0tLS0tLQ0KIGRyaXZlcnMvbmV0L3RnMy5oICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIHwgICAgOSArLQ0KIGRyaXZlcnMvbmV0L3R1bi5jICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvdXNiL2FzaXguYyAgICAgICAgICAgICAgICAg
+ICAgICAgfCAgICA3ICstDQogZHJpdmVycy9uZXQvdmV0aC5jICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgfCAgICAyICsNCiBkcml2ZXJzL25ldC93YW4vaGRsY19mci5jICAgICAgICAgICAgICAg
+ICAgICB8ICAgIDUgKy0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9haXJvLmMgICAgICAgICAgICAg
+ICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2I0My9LY29uZmlnICAgICAgICAg
+ICAgIHwgICAgMiArLQ0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2I0My9idXMuYyAgICAgICAgICAg
+ICAgIHwgICAgMiArDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvYjQzL21haW4uYyAgICAgICAgICAg
+ICAgfCAgICA1ICstDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaG9zdGFwL2hvc3RhcF9tYWluLmMg
+ICAgfCAgICAxICsNCiBkcml2ZXJzL25mYy9wbjUzMy5jICAgICAgICAgICAgICAgICAgICAgICAg
+ICB8ICAgIDIgKy0NCiBkcml2ZXJzL3N0YWdpbmcvYXRoNmtsL29zL2xpbnV4L2FyNjAwMF9kcnYu
+YyB8ICAgIDEgKw0KIGluY2x1ZGUvbGludXgvaWYuaCAgICAgICAgICAgICAgICAgICAgICAgICAg
+IHwgICAgMiArDQogaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCAgICAgICAgICAgICAgICAgICAg
+fCAgICA3ICstDQogbmV0LzgwMjFxL3ZsYW5fZGV2LmMgICAgICAgICAgICAgICAgICAgICAgICAg
+fCAgICAyICstDQogbmV0L2JsdWV0b290aC9ibmVwL25ldGRldi5jICAgICAgICAgICAgICAgICAg
+fCAgICAxICsNCiBuZXQvY29yZS9kZXYuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDQgKy0NCiBuZXQvY29yZS9wa3RnZW4uYyAgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDggKy0NCiBuZXQvZXRoZXJuZXQvZXRoLmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8
+ICAgIDIgKw0KIG5ldC9pcHY0L2RldmluZXQuYyAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+ICAxNiArLQ0KIG5ldC9pcHY2L2FkZHJjb25mLmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+ICAgMiArDQogbmV0L2wydHAvbDJ0cF9ldGguYyAgICAgICAgICAgICAgICAgICAgICAgICAgfCAg
+ICAyICstDQogbmV0L21hYzgwMjExL2lmYWNlLmMgICAgICAgICAgICAgICAgICAgICAgICAgfCAg
+ICAxICsNCiBuZXQvc29ja2V0LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAg
+IDIgKy0NCiBuZXQvd2lyZWxlc3MvcmVnLmMgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAg
+IDcgKy0NCiAzNyBmaWxlcyBjaGFuZ2VkLCAzNTggaW5zZXJ0aW9ucygrKSwgMjQ2IGRlbGV0aW9u
+cygtKQ0K
