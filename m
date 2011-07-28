@@ -1,85 +1,89 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC net-next PATCH 3/4] ethtool: Add new set commands
-Date: Thu, 28 Jul 2011 14:34:57 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019414D910@orsmsx508.amr.corp.intel.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
-	 <20110727221759.8435.11589.stgit@gitlad.jf.intel.com>
- <1311888004.2677.18.camel@deadeye>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 2/2] bna: HW Interface Init Update
+Date: Thu, 28 Jul 2011 14:49:27 -0700
+Message-ID: <1311889767-9848-2-git-send-email-rmody@brocade.com>
+References: <1311889767-9848-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29849 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755984Ab1G1Ve7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jul 2011 17:34:59 -0400
-In-Reply-To: <1311888004.2677.18.camel@deadeye>
-Content-Language: en-US
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:52700 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754956Ab1G1Vts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 17:49:48 -0400
+In-Reply-To: <1311889767-9848-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMjgsIDIwMTEgMjoy
-MCBQTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-OyBkYXZlbUBkYXZlbWxvZnQubmV0OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gU3ViamVjdDogUmU6
-IFtSRkMgbmV0LW5leHQgUEFUQ0ggMy80XSBldGh0b29sOiBBZGQgbmV3IHNldCBjb21tYW5kcw0K
-PiANCj4gT24gV2VkLCAyMDExLTA3LTI3IGF0IDE1OjE3IC0wNzAwLCBHcmVnIFJvc2Ugd3JvdGU6
-DQo+ID4gQWRkIG5ldyBzZXQgY29tbWFuZHMgdG8gY29uZmlndXJlIHRoZSBudW1iZXIgb2YgU1It
-SU9WIFZGcywgdGhlDQo+ID4gbnVtYmVyIG9mIFZNIHF1ZXVlcyBhbmQgc3Bvb2YgY2hlY2tpbmcg
-b24vb2ZmIHN3aXRjaC4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29y
-eS52LnJvc2VAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+DQo+ID4gIGluY2x1ZGUvbGludXgvZXRo
-dG9vbC5oIHwgICAxMSArKysrKysrKysrLQ0KPiA+ICAxIGZpbGVzIGNoYW5nZWQsIDEwIGluc2Vy
-dGlvbnMoKyksIDEgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9s
-aW51eC9ldGh0b29sLmggYi9pbmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+IGluZGV4IGM2ZTQy
-N2EuLmM0OTcyYmEgMTAwNjQ0DQo+ID4gLS0tIGEvaW5jbHVkZS9saW51eC9ldGh0b29sLmgNCj4g
-PiArKysgYi9pbmNsdWRlL2xpbnV4L2V0aHRvb2wuaA0KPiA+IEBAIC0zNiwxMiArMzYsMTQgQEAg
-c3RydWN0IGV0aHRvb2xfY21kIHsNCj4gPiAgCV9fdTgJbWRpb19zdXBwb3J0Ow0KPiA+ICAJX191
-MzIJbWF4dHhwa3Q7CS8qIFR4IHBrdHMgYmVmb3JlIGdlbmVyYXRpbmcgdHggaW50ICovDQo+ID4g
-IAlfX3UzMgltYXhyeHBrdDsJLyogUnggcGt0cyBiZWZvcmUgZ2VuZXJhdGluZyByeCBpbnQgKi8N
-Cj4gPiArCV9fdTMyCW51bV92ZnM7CS8qIEVuYWJsZSBTUi1JT1YgVkZzICovDQo+IA0KPiBXaGF0
-IGFyZSB0aGUgc2VtYW50aWNzIG9mIGNoYW5naW5nIHRoaXMgYWZ0ZXIgVkZzIGhhdmUgYWxyZWFk
-eSBiZWVuIHNldA0KPiB1cD8NCg0KVGhlcmUncyBhbiBleGFtcGxlIG9mIGl0IHBhdGNoIDQvNCBp
-biB0aGlzIHNldC4gIFRoZSBQRiBkcml2ZXIgY2hlY2tzIGlmIGFueSBWRnMgYXJlIGFzc2lnbmVk
-IGFuZCBhY3RpdmUgYW5kIGlmIG5vdCB0aGVuIGl0IHdpbGwgZGlzYWJsZSBhbmQgZGVzdHJveSBh
-bGwgdGhlIGN1cnJlbnQgVkZzIHZpYSBhIGNhbGwgdG8gcGNpX2Rpc2FibGVfc3Jpb3YoKSBhbmQg
-dGhlbiBjYWxsIHBjaV9lbmFibGVfc3Jpb3YoKSB3aXRoIHRoZSBuZXcgbnVtYmVyIG9mIFZGcy4g
-IE9yLCBpZiB0aGUgbnVtYmVyIG9mIG5ldyBWRnMgaXMgemVybyB0aGVuIFNSLUlPViBpcyBsZWZ0
-IGRpc2FibGVkIG9uIHRoYXQgUEYuDQoNCk1vc3RseSB0aGlzIGlzIHRvIGFjY29tbW9kYXRlIGN1
-c3RvbWVyIHJlcXVlc3RzIHRvIGJlIGFibGUgdG8gc2V0IGEgZGlmZmVyZW50IG51bWJlciBvZiBW
-RnMgcGVyIFBGIG9yIHRvIG9ubHkgaGF2ZSBzcGVjaWZpZWQgUEZzIGVuYWJsZSBWRnMuICBUaGUg
-Y3VycmVudCB1c2FnZSBvZiB0aGUgbWF4X3ZmcyBtb2R1bGUgcGFyYW1ldGVyIGlzIHVud2llbGR5
-IGluIHRoaXMgc2Vuc2UgYXMgeW91IG11c3QgZW5hYmxlIFNSLUlPViBWRnMgb24gYWxsIHBoeXNp
-Y2FsIGZ1bmN0aW9ucyBmb3VuZCBkdXJpbmcgdGhlIGRldmljZSBwcm9iZSB3aXRoIHRoZSBzYW1l
-IG51bWJlciBvZiBWRnMuDQoNCj4gDQo+ID4gKwlfX3UzMgludW1fdm1xczsJLyogU2V0IG51bWJl
-ciBvZiBxdWV1ZXMgZm9yIFZNRHEgKi8NCj4gDQo+IFZNRHEgaXMgYW4gSW50ZWwgcHJvcHJpZXRh
-cnkgbmFtZS4gIFBsZWFzZSBzcGVjaWZ5IHRoaXMgaW4gZ2VuZXJpYw0KPiB0ZXJtcy4NCg0KSSds
-bCB1c2UgdGhlIG1vcmUgZ2VuZXJpYyB0ZXJtIFZNIHF1ZXVlcy4NCg0KPiANCj4gPiAgCV9fdTE2
-CXNwZWVkX2hpOyAgICAgICAvKiBUaGUgZm9yY2VkIHNwZWVkICh1cHBlcg0KPiA+ICAJCQkJICog
-Yml0cykgaW4gTWJwcy4gUGxlYXNlIHVzZQ0KPiA+ICAJCQkJICogZXRodG9vbF9jbWRfc3BlZWQo
-KS9fc2V0KCkgdG8NCj4gPiAgCQkJCSAqIGFjY2VzcyBpdCAqLw0KPiA+ICAJX191OAlldGhfdHBf
-bWRpeDsNCj4gPiAtCV9fdTgJcmVzZXJ2ZWQyOw0KPiA+ICsJX191OAlzcG9vZl9jaGVjazsJLyog
-RW5hYmxlL0Rpc2FibGUgYW50aS1zcG9vZmluZyAqLw0KPiA+ICAJX191MzIJbHBfYWR2ZXJ0aXNp
-bmc7CS8qIEZlYXR1cmVzIHRoZSBsaW5rIHBhcnRuZXIgYWR2ZXJ0aXNlcyAqLw0KPiA+ICAJX191
-MzIJcmVzZXJ2ZWRbMl07DQo+ID4gIH07DQo+ID4gQEAgLTExMjEsNiArMTEyMywxMyBAQCBzdHJ1
-Y3QgZXRodG9vbF9vcHMgew0KPiA+ICAjZGVmaW5lIEFVVE9ORUdfRElTQUJMRQkJMHgwMA0KPiA+
-ICAjZGVmaW5lIEFVVE9ORUdfRU5BQkxFCQkweDAxDQo+ID4NCj4gPiArLyogRW5hYmxlIG9yIGRp
-c2FibGUgTUFDIGFuZC9vciBWTEFOIHNwb29mY2hlY2tpbmcuSWYgdGhpcyBpcw0KPiA+ICsgKiBz
-ZXQgdG8gZW5hYmxlLCB0aGVuIGRlcGVuZGluZyBvbiB0aGUgY29udHJvbGxlciBjYXBhYmlsaXRp
-ZXMNCj4gPiArICogTUFDIGFuZC9vciBWTEFOIHNwb29maW5nIHdpbGwgYmUgdHVybmVkIG9uLg0K
-PiA+ICsgKi8NCj4gPiArI2RlZmluZSBTUE9PRkNIRUNLX0RJU0FCTEUgICAgIDB4MDANCj4gPiAr
-I2RlZmluZSBTUE9PRkNIRUNLX0VOQUJMRSAgICAgIDB4MDENCj4gDQo+IEknbSBub3Qgc3VyZSBp
-dCdzIG5lY2Vzc2FyeSB0byBjb250aW51ZSBkZWZpbmluZyBtYWNyb3MgZm9yIGJvb2xlYW5zLg0K
-DQpPSy4gIEkgdGVuZCB0byBqdXN0IGZvbGxvdyB0aGUgY29udmVudGlvbnMgaW4gdGhlIGNvZGUg
-SSBzZWUgd2hlbiBJJ20gbm90IHRoYXQgZmFtaWxpYXIgd2l0aCBpdCBidXQgaW4gdGhpcyBjYXNl
-IEknbGwganVzdCB1c2UgdHJ1ZSBhbmQgZmFsc2UuDQoNCj4gDQo+IFRoaXMgc2hvdWxkIG5vdCAn
-ZGVwZW5kIG9uIGNvbnRyb2xsZXIgY2FwYWJpbGl0aWVzJy4gIElmIHRoZQ0KPiBhZG1pbmlzdHJh
-dG9yIHRyaWVzIHRvIGVuYWJsZSB0aGlzIGZlYXR1cmUgb24gYSBkZXZpY2UgdGhhdCBkb2VzIG5v
-dA0KPiBzdXBwb3J0IGl0LCB0aGUgcmVxdWVzdCBtdXN0IHJldHVybiBhbiBlcnJvciByYXRoZXIg
-dGhhbiBmYWlsaW5nDQo+IHNpbGVudGx5LiAgKFRoaXMgaXMgYW5vdGhlciByZWFzb24gdG8gZGVm
-aW5lIG5ldyBjb21tYW5kcy4pDQoNCkFscmlnaHQsIEknbGwgZml4IGl0IHVwIHRvIHdvcmsgdGhh
-dCB3YXkuDQoNCi0gR3JlZw0KDQo=
+Change details:
+ - Split the hw interface into common and asic specific to support new asic
+   in the future.
+ - Fix bfa_ioc_ct_isr_mode_set() to also include the case that we are already
+   in the desired msix mode.
+
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/bna/bfa_ioc_ct.c |   28 +++++++++++++++++-----------
+ 1 files changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/bna/bfa_ioc_ct.c b/drivers/net/bna/bfa_ioc_ct.c
+index c43f942..29b5fd0 100644
+--- a/drivers/net/bna/bfa_ioc_ct.c
++++ b/drivers/net/bna/bfa_ioc_ct.c
+@@ -50,26 +50,32 @@ static enum bfa_status bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode);
+ 
+ static struct bfa_ioc_hwif nw_hwif_ct;
+ 
++static void
++bfa_ioc_set_ctx_hwif(struct bfa_ioc *ioc, struct bfa_ioc_hwif *hwif)
++{
++	hwif->ioc_firmware_lock = bfa_ioc_ct_firmware_lock;
++	hwif->ioc_firmware_unlock = bfa_ioc_ct_firmware_unlock;
++	hwif->ioc_notify_fail = bfa_ioc_ct_notify_fail;
++	hwif->ioc_ownership_reset = bfa_ioc_ct_ownership_reset;
++	hwif->ioc_sync_start = bfa_ioc_ct_sync_start;
++	hwif->ioc_sync_join = bfa_ioc_ct_sync_join;
++	hwif->ioc_sync_leave = bfa_ioc_ct_sync_leave;
++	hwif->ioc_sync_ack = bfa_ioc_ct_sync_ack;
++	hwif->ioc_sync_complete = bfa_ioc_ct_sync_complete;
++}
++
+ /**
+  * Called from bfa_ioc_attach() to map asic specific calls.
+  */
+ void
+ bfa_nw_ioc_set_ct_hwif(struct bfa_ioc *ioc)
+ {
++	bfa_ioc_set_ctx_hwif(ioc, &nw_hwif_ct);
++
+ 	nw_hwif_ct.ioc_pll_init = bfa_ioc_ct_pll_init;
+-	nw_hwif_ct.ioc_firmware_lock = bfa_ioc_ct_firmware_lock;
+-	nw_hwif_ct.ioc_firmware_unlock = bfa_ioc_ct_firmware_unlock;
+ 	nw_hwif_ct.ioc_reg_init = bfa_ioc_ct_reg_init;
+ 	nw_hwif_ct.ioc_map_port = bfa_ioc_ct_map_port;
+ 	nw_hwif_ct.ioc_isr_mode_set = bfa_ioc_ct_isr_mode_set;
+-	nw_hwif_ct.ioc_notify_fail = bfa_ioc_ct_notify_fail;
+-	nw_hwif_ct.ioc_ownership_reset = bfa_ioc_ct_ownership_reset;
+-	nw_hwif_ct.ioc_sync_start = bfa_ioc_ct_sync_start;
+-	nw_hwif_ct.ioc_sync_join = bfa_ioc_ct_sync_join;
+-	nw_hwif_ct.ioc_sync_leave = bfa_ioc_ct_sync_leave;
+-	nw_hwif_ct.ioc_sync_ack = bfa_ioc_ct_sync_ack;
+-	nw_hwif_ct.ioc_sync_complete = bfa_ioc_ct_sync_complete;
+-
+ 	ioc->ioc_hwif = &nw_hwif_ct;
+ }
+ 
+@@ -297,7 +303,7 @@ bfa_ioc_ct_isr_mode_set(struct bfa_ioc *ioc, bool msix)
+ 	/**
+ 	 * If already in desired mode, do not change anything
+ 	 */
+-	if (!msix && mode)
++	if ((!msix && mode) || (msix && !mode))
+ 		return;
+ 
+ 	if (msix)
+-- 
+1.7.1
+
