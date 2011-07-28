@@ -1,44 +1,45 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [RFC net-next PATCH 4/4] ixgbe: Add support for new ethtool settings
-Date: Thu, 28 Jul 2011 13:54:16 +0200
-Message-ID: <CAHXqBFJ30LLV=dgWuSK73rhxYLt5xoVFVwHdU3cWFmr_Yxs5pg@mail.gmail.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com> <20110727221804.8435.97686.stgit@gitlad.jf.intel.com>
+From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
+Subject: Re: r8169 driver crashes in 2.6.32.43
+Date: Thu, 28 Jul 2011 13:59:36 +0200
+Message-ID: <20110728115936.GC24549@colin.search.kasperd.net>
+References: <20110724195831.GA8718@colin.search.kasperd.net> <20110724201626.GB24418@zoreil.com> <20110725103643.GA11135@colin.search.kasperd.net> <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com> <20110728114305.GA24549@colin.search.kasperd.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com
-To: Greg Rose <gregory.v.rose@intel.com>
+Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:45424 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755244Ab1G1Lyh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 07:54:37 -0400
-Received: by qyk29 with SMTP id 29so2687912qyk.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jul 2011 04:54:36 -0700 (PDT)
-In-Reply-To: <20110727221804.8435.97686.stgit@gitlad.jf.intel.com>
+Received: from nfitmail.nfit.au.dk ([130.225.31.129]:13923 "EHLO
+	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754880Ab1G1L7k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 07:59:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20110728114305.GA24549@colin.search.kasperd.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/7/28 Greg Rose <gregory.v.rose@intel.com>:
-> Adds ixgbe driver support for new ethtool settings for SR-IOV re-init=
-,
-> number of VM queues and anti-spoofing ON/OFF switch.
-[...]
-> +static int ixgbe_reinit_sriov(struct net_device *netdev, int new_vfs=
-)
-> +{
-[...]
-> +       if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
-> +               adapter->flags &=3D ~(IXGBE_FLAG_RSS_ENABLED |
-> +                                   IXGBE_FLAG_DCB_ENABLED);
-> +               netdev->features &=3D ~NETIF_F_RXHASH;
-> +       } else {
-> +               adapter->flags |=3D IXGBE_FLAG_RSS_ENABLED;
-> +               netdev->features |=3D NETIF_F_RXHASH;
-> +       }
+On 28/07/11 13.43, Kasper Dupont wrote:
+> Netconsole over the network interface we are trying to debug
+> probably isn't the way to go. Do you think it would be feasible
+> to run netconsole over wifi?
 
-Please use ndo_fix_features/ndo_set_features callbacks for this.
+But maybe the two interfaces are independent enough that I
+can run netconsole over one while triggering a crash on the
+other.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+> >=20
+> > Can you add the crap below on top of the pre "no longer crashes, no=
+ network"
+> > one (it will work on top of plain -git driver as well) ?
+>=20
+> I'll give it a try.
+
+It doesn't compile. It complains about netif_info and drv
+not being declared.
+
+--=20
+Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
+#define _(_)"d.%.4s%."_"2s" /* This is my email address */
+char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
+,_+6);
