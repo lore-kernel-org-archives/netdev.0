@@ -1,57 +1,77 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8139 Flow Control?
-Date: Thu, 28 Jul 2011 08:35:26 +0200
-Message-ID: <20110728063526.GA11214@electric-eye.fr.zoreil.com>
-References: <4E2DC710.5000100@anduras.de> <4E3004BD.4090705@anduras.de>
+From: hubert Liao <liao.hubertt@gmail.com>
+Subject: Re: Oops when insmod rtl8192ce
+Date: Thu, 28 Jul 2011 15:06:52 +0800
+Message-ID: <CAMzZzFH8xBdiEN-rV1XE-1ZhFbzO_tcnA75Hpx_AyJ6LtWq01A@mail.gmail.com>
+References: <CAMzZzFGqPv6Nbw8J8JGNKcLA76sAs3oD6+hH9NPCjwA33fYpOQ@mail.gmail.com>
+	<20110727135353.GA16431@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, jgarzik@pobox.com
-To: Sven Anders <anders@anduras.de>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: wlanfae@realtek.com, Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38108 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752197Ab1G1GvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 02:51:17 -0400
-Content-Disposition: inline
-In-Reply-To: <4E3004BD.4090705@anduras.de>
+Received: from mail-ey0-f171.google.com ([209.85.215.171]:48495 "EHLO
+	mail-ey0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732Ab1G1HGx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 03:06:53 -0400
+In-Reply-To: <20110727135353.GA16431@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sven Anders <anders@anduras.de> :
-> Sven Anders wrote:
-[...]
-> > We have appliances with Realtek 8139C/8139C+ (rev 10) chipsets (with the
-> > PCI IDs: 10ec:8139). We are using the 8139too driver (version: 0.9.28)
+2011/7/27 John W. Linville <linville@tuxdriver.com>:
+> On Wed, Jul 27, 2011 at 05:20:15PM +0800, hubert Liao wrote:
+>> Hi,
+>>
+>> We got an oops when insmod rtl8192ce module (the board is an ARM soc=
+),
+>> accroding the oops message, find it's because in rtl_pci_probe() cal=
+led
+>> _rtl_pci_find_adapter(),
+>> in this funcation, the =A0pdev->bus->self is a NULL pointer .
+>>
+>> static boot _rtl_pci_find_adapter(strcut pci_dev *dev,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ieee80211_hw *hw)
+>> {
+>>
+>> struct pci_dev *bridge_pdev =3D pdev->bus->self; =A0 //line 1601
+>> ...
+>>
+>> pcipriv->ndis_adapter.pcibridge_vendorid =3D bridge_pdev->vendor; <-=
+- [oops
+>> here] line 1700
+>>
+>> ...
+>> }
+>>
+>> here, I just want to know why the bus->self =A0is NULL?
+>
+> pdev is coming straight from what is passed to the PCI probe routine.
+> It seems like pdev->bus->self should already be set before that
+> happens.
+>
+Yes, I think it should be initialized when added the pci bus bridge,
+I have checked the mach-kirkwood(my board is arch/arm/mach-kirkwood)
+pcie related code, and I think when system initialized should call
+kirkwood_pcie_init() ->
+            kirkwood_pcie_scan_bus() ->
+                           pci_scan_bus() ->
+                                    pci_bus_add_devices()
+if the pci_bus->self  was initialized in pci_bus_add_devices()?
+Maybe the code is too complex for me ,  I really can not find where
+set the =93->self" member?
 
-The PCI revision ID is not incompatible with a 8139c(l)+. If so the 8139cp
-driver may prove easier to handle at the driver programming level. It's
-almost surely less commonly used though.
-
-I'd suggest to use both PCI information and TxConfig content to identify
-Realtek's chipset. ethtool should provide the latter.
-
-> > According the datasheet the chipset supports Flow Control (IEEE 802.3x).
-> > 
-> > I want to know, if the support for enabling flow control is missing in
-> > the driver by purpose or is only not implemented due to lack of time?
-[...]
-> Can somebody of the old implementors please answer this question?
-
-Hint ? :o)
-
-This hardware is not exactly fun, especially if you do not own a c+ model
-(4 Tx descriptors, a single copy-only receive buffer, really cheap...).
-
-> We need that feature and I'm willing to implement it, but I need the
-> confirmation, that it was not done due to lack of time and not because
-> will not work (correctly)...
-
-If you do not get an answer and the relevant bit is already set in the
-eeprom, you should be able to make your own mind shortly. The comment
-in the datasheet rightfully reminds that both the NIC and the peer
-networking gear need to handle flow control correctly.
-
-Good luck.
-
--- 
-Ueimor
+> Please open a bug at bugzilla.kernel.org to help us keep track of
+> this -- thanks!
+>
+I have committed it the url,
+https://bugzilla.kernel.org/show_bug.cgi?id=3D40212
+> John
+> --
+> John W. Linville =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Someday the world wil=
+l need a hero, and you
+> linville@tuxdriver.com =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0might be al=
+l we have. =A0Be ready.
+>
