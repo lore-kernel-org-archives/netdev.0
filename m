@@ -1,172 +1,100 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 6/9] tg3: Consolidate code that calls
- tg3_tx_set_bd()
-Date: Wed, 27 Jul 2011 17:20:51 -0700
-Message-ID: <1311812454-18197-7-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 1/9] tg3: Reintroduce tg3_tx_ring_info
+Date: Wed, 27 Jul 2011 17:20:46 -0700
+Message-ID: <1311812454-18197-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4048 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4054 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752353Ab1G1AR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753248Ab1G1AR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 27 Jul 2011 20:17:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch consolidates all code that populates tx BDs into a single
-routine.  Setting tx BDs needs to be more carefully controlled to see if
-workarounds need to be applied.
+The following patches will require the use of an additional flag in the
+ring_info structure.  The use of this flag is tx path specific, so this
+patch defines a specialized ring_info structure.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   79 ++++++++++++++++++++++++++++-------------------------
- 1 files changed, 42 insertions(+), 37 deletions(-)
+ drivers/net/tg3.c |   12 ++++++------
+ drivers/net/tg3.h |    7 ++++++-
+ 2 files changed, 12 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 90b68a2..7f816a0 100644
+index 8035765..3708159 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -5914,18 +5914,37 @@ static inline int tg3_40bit_overflow_test(struct tg3 *tp, dma_addr_t mapping,
- #endif
- }
+@@ -4824,7 +4824,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
+ 	txq = netdev_get_tx_queue(tp->dev, index);
  
--static inline void tg3_tx_set_bd(struct tg3_napi *tnapi, u32 entry,
-+static inline void tg3_tx_set_bd(struct tg3_tx_buffer_desc *txbd,
- 				 dma_addr_t mapping, u32 len, u32 flags,
- 				 u32 mss, u32 vlan)
- {
--	struct tg3_tx_buffer_desc *txbd = &tnapi->tx_ring[entry];
--
- 	txbd->addr_hi = ((u64) mapping >> 32);
- 	txbd->addr_lo = ((u64) mapping & 0xffffffff);
- 	txbd->len_flags = (len << TXD_LEN_SHIFT) | (flags & 0x0000ffff);
- 	txbd->vlan_tag = (mss << TXD_MSS_SHIFT) | (vlan << TXD_VLAN_TAG_SHIFT);
- }
+ 	while (sw_idx != hw_idx) {
+-		struct ring_info *ri = &tnapi->tx_buffers[sw_idx];
++		struct tg3_tx_ring_info *ri = &tnapi->tx_buffers[sw_idx];
+ 		struct sk_buff *skb = ri->skb;
+ 		int i, tx_bug = 0;
  
-+static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 entry,
-+			    dma_addr_t map, u32 len, u32 flags,
-+			    u32 mss, u32 vlan)
-+{
-+	struct tg3 *tp = tnapi->tp;
-+	bool hwbug = false;
-+
-+	if (tg3_flag(tp, SHORT_DMA_BUG) && len <= 8)
-+		hwbug = 1;
-+
-+	if (tg3_4g_overflow_test(map, len))
-+		hwbug = 1;
-+
-+	if (tg3_40bit_overflow_test(tp, map, len))
-+		hwbug = 1;
-+
-+	tg3_tx_set_bd(&tnapi->tx_ring[entry], map, len, flags, mss, vlan);
-+
-+	return hwbug;
-+}
-+
- static void tg3_tx_skb_unmap(struct tg3_napi *tnapi, u32 entry, int last)
+@@ -5929,7 +5929,7 @@ static void tg3_skb_error_unmap(struct tg3_napi *tnapi,
  {
  	int i;
-@@ -5993,17 +6012,8 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 					  PCI_DMA_TODEVICE);
- 		/* Make sure the mapping succeeded */
- 		if (pci_dma_mapping_error(tp->pdev, new_addr)) {
--			ret = -1;
- 			dev_kfree_skb(new_skb);
--
--		/* Make sure new skb does not cross any 4G boundaries.
--		 * Drop the packet if it does.
--		 */
--		} else if (tg3_4g_overflow_test(new_addr, new_skb->len)) {
--			pci_unmap_single(tp->pdev, new_addr, new_skb->len,
--					 PCI_DMA_TODEVICE);
- 			ret = -1;
--			dev_kfree_skb(new_skb);
- 		} else {
- 			base_flags |= TXD_FLAG_END;
+ 	u32 entry = tnapi->tx_prod;
+-	struct ring_info *txb = &tnapi->tx_buffers[entry];
++	struct tg3_tx_ring_info *txb = &tnapi->tx_buffers[entry];
  
-@@ -6011,8 +6021,13 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 			dma_unmap_addr_set(&tnapi->tx_buffers[entry],
- 					   mapping, new_addr);
+ 	pci_unmap_single(tnapi->tp->pdev,
+ 			 dma_unmap_addr(txb, mapping),
+@@ -6603,7 +6603,7 @@ static void tg3_free_rings(struct tg3 *tp)
+ 			continue;
  
--			tg3_tx_set_bd(tnapi, entry, new_addr, new_skb->len,
--				      base_flags, mss, vlan);
-+			if (tg3_tx_frag_set(tnapi, entry, new_addr,
-+					    new_skb->len, base_flags,
-+					    mss, vlan)) {
-+				tg3_tx_skb_unmap(tnapi, entry, 0);
-+				dev_kfree_skb(new_skb);
-+				ret = -1;
-+			}
- 		}
- 	}
+ 		for (i = 0; i < TG3_TX_RING_SIZE; ) {
+-			struct ring_info *txp;
++			struct tg3_tx_ring_info *txp;
+ 			struct sk_buff *skb;
+ 			unsigned int k;
  
-@@ -6196,18 +6211,13 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -6762,9 +6762,9 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 		 */
+ 		if ((!i && !tg3_flag(tp, ENABLE_TSS)) ||
+ 		    (i && tg3_flag(tp, ENABLE_TSS))) {
+-			tnapi->tx_buffers = kzalloc(sizeof(struct ring_info) *
+-						    TG3_TX_RING_SIZE,
+-						    GFP_KERNEL);
++			tnapi->tx_buffers = kzalloc(
++					       sizeof(struct tg3_tx_ring_info) *
++					       TG3_TX_RING_SIZE, GFP_KERNEL);
+ 			if (!tnapi->tx_buffers)
+ 				goto err_out;
  
- 	would_hit_hwbug = 0;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 691539b..f6986ca 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2652,6 +2652,11 @@ struct ring_info {
+ 	DEFINE_DMA_UNMAP_ADDR(mapping);
+ };
  
--	if (tg3_4g_overflow_test(mapping, len))
--		would_hit_hwbug = 1;
--
--	if (tg3_40bit_overflow_test(tp, mapping, len))
--		would_hit_hwbug = 1;
--
- 	if (tg3_flag(tp, 5701_DMA_BUG))
- 		would_hit_hwbug = 1;
++struct tg3_tx_ring_info {
++	struct sk_buff			*skb;
++	DEFINE_DMA_UNMAP_ADDR(mapping);
++};
++
+ struct tg3_link_config {
+ 	/* Describes what we're trying to get. */
+ 	u32				advertising;
+@@ -2816,7 +2821,7 @@ struct tg3_napi {
+ 	u32				last_tx_cons;
+ 	u32				prodmbox;
+ 	struct tg3_tx_buffer_desc	*tx_ring;
+-	struct ring_info		*tx_buffers;
++	struct tg3_tx_ring_info		*tx_buffers;
  
--	tg3_tx_set_bd(tnapi, entry, mapping, len, base_flags |
--		      ((skb_shinfo(skb)->nr_frags == 0) ? TXD_FLAG_END : 0),
--		      mss, vlan);
-+	if (tg3_tx_frag_set(tnapi, entry, mapping, len, base_flags |
-+			  ((skb_shinfo(skb)->nr_frags == 0) ? TXD_FLAG_END : 0),
-+			    mss, vlan))
-+		would_hit_hwbug = 1;
- 
- 	entry = NEXT_TX(entry);
- 
-@@ -6236,20 +6246,11 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			if (pci_dma_mapping_error(tp->pdev, mapping))
- 				goto dma_error;
- 
--			if (tg3_flag(tp, SHORT_DMA_BUG) &&
--			    len <= 8)
--				would_hit_hwbug = 1;
--
--			if (tg3_4g_overflow_test(mapping, len))
--				would_hit_hwbug = 1;
--
--			if (tg3_40bit_overflow_test(tp, mapping, len))
-+			if (tg3_tx_frag_set(tnapi, entry, mapping, len,
-+				  base_flags | ((i == last) ? TXD_FLAG_END : 0),
-+					    tmp_mss, vlan))
- 				would_hit_hwbug = 1;
- 
--			tg3_tx_set_bd(tnapi, entry, mapping, len, base_flags |
--				      ((i == last) ? TXD_FLAG_END : 0),
--				      tmp_mss, vlan);
--
- 			entry = NEXT_TX(entry);
- 		}
- 	}
-@@ -11375,8 +11376,12 @@ static int tg3_run_loopback(struct tg3 *tp, u32 pktsz, int loopback_mode)
- 
- 	rx_start_idx = rnapi->hw_status->idx[0].rx_producer;
- 
--	tg3_tx_set_bd(tnapi, tnapi->tx_prod, map, tx_len,
--		      base_flags | TXD_FLAG_END, mss, 0);
-+	if (tg3_tx_frag_set(tnapi, tnapi->tx_prod, map, tx_len,
-+			    base_flags | TXD_FLAG_END, mss, 0)) {
-+		tnapi->tx_buffers[val].skb = NULL;
-+		dev_kfree_skb(skb);
-+		return -EIO;
-+	}
- 
- 	tnapi->tx_prod++;
- 
+ 	dma_addr_t			status_mapping;
+ 	dma_addr_t			rx_rcb_mapping;
 -- 
 1.7.3.4
 
