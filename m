@@ -1,76 +1,63 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: vpnc-script fix for changed iproute output with newer kernels
-Date: Fri, 29 Jul 2011 13:33:11 +0100
-Message-ID: <1311942793.17528.57.camel@i7.infradead.org>
-References: <20110728021227.GA3620@gmail.com>
-	 <20110728021853.GB3620@gmail.com>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Bug#631945: [Bugme-new] [Bug 39372] New: Problems with HFSC Scheduler
+Date: Fri, 29 Jul 2011 14:29:10 +0200
+Message-ID: <4E32A796.8060104@ziu.info>
+References: <bug-39372-10286@https.bugzilla.kernel.org/> <20110714151425.844b7738.akpm@linux-foundation.org>
+Reply-To: Michal Soltys <soltys@ziu.info>, 631945@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: Justin Bronder <jsbronder@gentoo.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40936 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755367Ab1G2MdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 08:33:14 -0400
-In-Reply-To: <20110728021853.GB3620@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>, lucas.bocchi@gmail.com,
+	Patrick McHardy <kaber@trash.net>, 631945@bugs.debian.org,
+	00bormoj@gmail.com, fdelawarde@wirelessmundi.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.631945.B631945.13119425677710@bugs.debian.org>
+In-Reply-To: <20110714151425.844b7738.akpm@linux-foundation.org>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-07-28 at 03:18 +0100, Justin Bronder wrote:
-> From 0a1c10c83f2043f00793c166ad351dc643bcefe3 Mon Sep 17 00:00:00 2001
-> From: Justin Bronder <jsbronder@gmail.com>
-> Date: Wed, 27 Jul 2011 22:10:06 -0400
-> Subject: [PATCH] fix for newer kernels
+On 11-07-15 00:14, Andrew Morton wrote:
 > 
-> newer kernels have added expires and mtu to the ip route output
-> ---
->  vpnc-script |    8 +++++++-
->  1 files changed, 7 insertions(+), 1 deletions(-)
+> (switched to email.  Please respond via emailed reply-to-all, not via
+> the bugzilla web interface).
 > 
-> diff --git a/vpnc-script b/vpnc-script
-> index e0140c5..b071e0b 100755
-> --- a/vpnc-script
-> +++ b/vpnc-script
-> @@ -139,7 +139,13 @@ destroy_tun_device() {
->  
->  if [ -n "$IPROUTE" ]; then
->  	fix_ip_get_output () {
-> -		sed 's/cache//;s/metric \?[0-9]\+ [0-9]\+//g;s/hoplimit [0-9]\+//g;s/ipid 0x....//g'
-> +		sed \
-> +            -e 's/cache//' \
-> +            -e ';s/metric \?[0-9]\+ [0-9]\+//g' \
-> +            -e 's/hoplimit [0-9]\+//g' \
-> +            -e 's/ipid 0x....//g' \
-> +            -e 's/expires [0-9]\+sec//g' \
-> +            -e 's/mtu [0-9]\+//g'
->  	}
->  
->  	set_vpngateway_route() {
+> 
+> Here: WARN_ON(next_time == 0);
+> 
 
-Thanks for this, Justin. But I'd really prefer not to do it this way.
+>From the other thread on netfilter-devel:
 
-This is the second time in as many kernel releases that this has broken;
-we only added 'ipid' to that regex in May. If we have to keep doing this
-dance, we are doing it *wrong*.
+> On 11-07-22 11:58, Michal Pokrywka wrote: After bisecting 2.6.39.1 it
+> turned out that the bug is caused independently by two patches:
+> 
+> commit b262a5da755cc6ed0cb4fba230cd9bf4037e1096 sch_sfq: fix peek()
+> implementation
+> 
+> and
+> 
+> commit 9df49f2bfe862573911a080c75a6d81113c5c81d sch_sfq: avoid giving
+> spurious NET_XMIT_CN signals
+> 
+> Reverting these patches makes HFSC work again.
+> 
 
-Stephen, what is the *right* way to do this?
+This one (upstream 8efa885406359af300d46910642b50ca82c0fe47) seems to be
+the culprit (does reverting only that one cures the problem ?)
 
-This is for vpnc-script, as you ought to be able to tell from the patch
-header. If we're adding routes to the newly-created VPN device, we first
-have to ensure that the route to the VPN server *itself* doesn't change.
+It allows SFQ to return success on enqueuing, when the packet really
+replaced some other packet in some other flow. This confuses outer qdisc
+(in this particular case HFSC) which thinks new packet was actually
+added each time such situation happes.
 
-So effectively we want to do: 
- ip route add $(ip route get $VPNSERVER)
+This in turn causes additional dequeues and ends with attempt
+to schedule non-existent packets, and triggers the warning.
 
-... except then we have to have that awful bunch of sed crap to make it
-work right. I suppose we could at least make it opt-in, and include the
-'via' and 'dev' and 'src' options and remove *everything* else? But that
-doesn't really fill me with joy *either*.
 
-Any suggestions that *aren't* going to be constantly broken?
+ps.
 
--- 
-dwmw2
-
+removed netfilter from cc, as it's not really netfilter issue.
