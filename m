@@ -1,57 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH][RFC] netfilter: Fix small leak in ipq_build_packet_message()
-Date: Fri, 29 Jul 2011 16:39:47 +0200
-Message-ID: <4E32C633.5000205@trash.net>
-References: <alpine.LNX.2.00.1107171942400.32359@swampdragon.chaosbits.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
+Date: Fri, 29 Jul 2011 16:41:28 +0200
+Message-ID: <1311950488.2843.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1311946421.2843.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4E32C302.8050304@hippy.csoma.elte.hu>
+	 <1311950184.2843.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110729.073910.59762029845942660.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	coreteam@netfilter.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1107171942400.32359@swampdragon.chaosbits.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: synapse@hippy.csoma.elte.hu, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:36389 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297Ab1G2Olb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 10:41:31 -0400
+Received: by wyg8 with SMTP id 8so225857wyg.19
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 07:41:30 -0700 (PDT)
+In-Reply-To: <20110729.073910.59762029845942660.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17.07.2011 19:46, Jesper Juhl wrote:
-> ipq_build_packet_message() in net/ipv4/netfilter/ip_queue.c and
-> net/ipv6/netfilter/ip6_queue.c contain a small potential mem leak as
-> far as I can tell.
-> 
-> We allocate memory for 'skb' with alloc_skb() annd then call
->  nlh = NLMSG_PUT(skb, 0, 0, IPQM_PACKET, size - sizeof(*nlh));
-> 
-> NLMSG_PUT is a macro
->  NLMSG_PUT(skb, pid, seq, type, len) \
->   		NLMSG_NEW(skb, pid, seq, type, len, 0)
-> 
-> that expands to NLMSG_NEW, which is also a macro which expands to:
->  NLMSG_NEW(skb, pid, seq, type, len, flags) \
->   	({	if (unlikely(skb_tailroom(skb) < (int)NLMSG_SPACE(len))) \
->   			goto nlmsg_failure; \
->   		__nlmsg_put(skb, pid, seq, type, len, flags); })
-> 
-> If we take the true branch of the 'if' statement and 'goto
-> nlmsg_failure', then we'll, at that point, return from
-> ipq_build_packet_message() without having assigned 'skb' to anything
-> and we'll leak the memory we allocated for it when it goes out of
-> scope.
-> 
-> Fix this by placing a 'kfree(skb)' at 'nlmsg_failure'.
-> 
-> I admit that I do not know how likely this to actually happen or even
-> if there's something that guarantees that it will never happen - I'm
-> not that familiar with this code, but if that is so, I've not been
-> able to spot it.
-> 
-> Please review and commit if you believe this is correct. Thanks.
-> 
+Le vendredi 29 juillet 2011 =C3=A0 07:39 -0700, David Miller a =C3=A9cr=
+it :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 29 Jul 2011 16:36:24 +0200
+>=20
+> > Hmm, I'll take a look, but check_peer_redir() seems suspicious at f=
+irst
+> > glance.
+>=20
+> I take full responsibility for any bugs you discover in it :-)
 
-Looks correct, applied, thanks.
+
+;)
+
+Bug origin is commit f39925dbde7788cfb96419c0f092b086aa325c0f
+ipv4: Cache learned redirect information in inetpeer.
+
+I'll cook a patch ASAP
+
+
