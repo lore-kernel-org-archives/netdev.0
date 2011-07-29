@@ -1,25 +1,106 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: xt_rateest: fix xt_rateest_mt_checkentry()
-Date: Fri, 29 Jul 2011 16:25:28 +0200
-Message-ID: <4E32C2D8.1040103@trash.net>
-References: <1311911462.7845.5.camel@edumazet-laptop>
+From: synapse <synapse@hippy.csoma.elte.hu>
+Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
+Date: Fri, 29 Jul 2011 16:26:10 +0200
+Message-ID: <4E32C302.8050304@hippy.csoma.elte.hu>
+References: <4E32B33C.2020103@hippy.csoma.elte.hu> <1311946421.2843.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1311911462.7845.5.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:47927 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751092Ab1G2O0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2011 10:26:16 -0400
+In-Reply-To: <1311946421.2843.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29.07.2011 05:51, Eric Dumazet wrote:
-> commit 4a5a5c73b7cfee (slightly better error reporting) added some
-> useless code in xt_rateest_mt_checkentry().
-> 
-> Fix this so that different error codes can really be returned.
-> 
+On 07/29/11 15:33, Eric Dumazet wrote:
+> Le vendredi 29 juillet 2011 =C3=A0 15:18 +0200, synapse a =C3=A9crit =
+:
+>> Hello guys,
+>>
+>> I have a problem that I hope you can help me resolv. This is my firs=
+t
+>> real bug report, so please be
+>> patient :)
+>>
+>> ### Description:
+>> 3.0.0-rc4 routinely locks up with BUG: unable to handle kernel NULL
+>> pointer dereference at 000000000000002c
+>> I have an intel sr2600 machine with a 10Gbit interface, it periodica=
+lly
+>> locks up after a few days.
+>> It serves a lot of traffic. The trace is at the end of the mail.
+>> ###
+>>
+>> ### My efforts:
+>> I've traced the error back from atomic_dec_and_test() to:
+>>
+>> ipv4_dst_check()
+>> check_peer_redir()
+>> neigh_release()
+>> atomic_dec_and_test()
+>>
+>> The parameter to atomic_dec_and_test() is NULL (&neigh->refcnt in
+>> neigh_release), so atomic_dec_and_test()
+>> at /arch/x86/include/asm/atomic.h dies at offset 0xffffffff8140f56f.
+>>
+>> ffffffff8140f560:       48 8b 15 19 47 2f 00    mov
+>> 0x2f4719(%rip),%rdx        # 0xffffffff81703c80
+>> ffffffff8140f567:       48 89 50 18             mov    %rdx,0x18(%ra=
+x)
+>> ffffffff8140f56b:       48 8b 7b 40             mov    0x40(%rbx),%r=
+di
+>> ffffffff8140f56f:       f0 ff 4f 2c             lock decl 0x2c(%rdi)
+>> ffffffff8140f573:       0f 94 c0                sete   %al
+>> ffffffff8140f576:       84 c0                   test   %al,%al
+>> ffffffff8140f578:       0f 85 ab 00 00 00       jne    0xffffffff814=
+0f629
+>>
+>>   From what I've seen is that this code is responsible for pmtu rela=
+ted
+>> things. The refcount member of struct neighbour
+>> is NULL and the neigh pointer (struct neighbour *) in neigh_release(=
+) is
+>> not. I have no clue how this might happen,
+>> though I suspect somebody releases the data structure somehow. Note =
+that
+>> this code is invoked when redirect_learned.a4
+>> is set and is different from rt_gateway in ipv4_dst_check().
+>>
+>> Is it possible that two packets go to two different cores for proces=
+sing
+>> and one core invalidates the rt entry
+>> the other is currently working on (meaning the second will try to
+>> dereference a NULL ptr)?
+>> ###
+>>
+>>
+>> This is just my clumsy attempt at tracking this down, I'm not a kern=
+el
+>> expert unfortunately. I'm happy to provide
+>> further info on the matter. If I'm completely on the wrong track ple=
+ase
+>> let me know.
+>>
+>> Thank you for any help,
+>> Gergely Kalman
+>>
+> This bug was probably already fixed.
+>
+> Please try current linux tree
+>
+>
+found no relevant things in the diffs, except for a check against=20
+DST_NOCOUNT
+when calling dst_entries_add(opc, 1). Will try with the new kernel, but=
+=20
+unfortunately
+it might take days to reproduce.
 
-Applied, thanks Eric.
+Gergely Kalman
+
