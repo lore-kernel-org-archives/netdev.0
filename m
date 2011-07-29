@@ -1,69 +1,78 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: vpnc-script fix for changed iproute output with newer kernels
-Date: Fri, 29 Jul 2011 22:26:36 +0100
-Message-ID: <1311974797.20983.0.camel@i7.infradead.org>
-References: <20110728021227.GA3620@gmail.com>
-	 <20110728021853.GB3620@gmail.com>
-	 <1311942793.17528.57.camel@i7.infradead.org>
-	 <20110729.054649.1274733167127164255.davem@davemloft.net>
-	 <1311944244.17528.76.camel@i7.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jsbronder@gentoo.org, netdev@vger.kernel.org, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51119 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752838Ab1G2V0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 17:26:42 -0400
-In-Reply-To: <1311944244.17528.76.camel@i7.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] cfg80211: Update REG_DBG_PRINT macro and uses
+Date: Fri, 29 Jul 2011 14:51:25 -0700
+Message-ID: <01300ba58766070ab14137b8ba8a29fa78695a5c.1311976033.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-07-29 at 13:57 +0100, David Woodhouse wrote:
-> > You're going to have to be knowledgable about which attributes are
-> > part of the route, whether you want to do this with iproute2 as a tool
-> > or whether you do this directly with C code using netlink.
-> 
-> I don't think I really want to try shipping vpnc-script with C code.
-> 
-> The 'opt-in' approach seems like the best one for now, then. I suppose
-> we want just the 'via' and 'dev' and 'src' attributes... anything else?
+Several uses were missing terminating newlines.
+Typo fix and macro neatening.
 
-This should do it for now, I suppose:
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/wireless/reg.c |   16 +++++++---------
+ 1 files changed, 7 insertions(+), 9 deletions(-)
 
---- a/vpnc-script
-+++ b/vpnc-script
-@@ -139,8 +139,9 @@ destroy_tun_device() {
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index 1ad0f39..b22c324 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -49,10 +49,8 @@
+ #include "nl80211.h"
  
- if [ -n "$IPROUTE" ]; then
- 	fix_ip_get_output () {
--		sed 's/cache//;s/metric \?[0-9]\+ [0-9]\+//g;s/hoplimit [0-9]\+//g;s/ipid 0x....//g'
-+		sed -e 's/ /\n/g' | \
-+		    sed -ne '1p;/via/{N;p};/dev/{N;p};/src/{N;p};/mtu/{N;p}'
+ #ifdef CONFIG_CFG80211_REG_DEBUG
+-#define REG_DBG_PRINT(format, args...) \
+-	do { \
+-		printk(KERN_DEBUG pr_fmt(format), ##args);	\
+-	} while (0)
++#define REG_DBG_PRINT(format, args...)			\
++	printk(KERN_DEBUG pr_fmt(format), ##args)
+ #else
+ #define REG_DBG_PRINT(args...)
+ #endif
+@@ -890,7 +888,7 @@ static bool ignore_reg_update(struct wiphy *wiphy,
+ 	    wiphy->flags & WIPHY_FLAG_CUSTOM_REGULATORY) {
+ 		REG_DBG_PRINT("Ignoring regulatory request %s "
+ 			      "since the driver uses its own custom "
+-			      "regulatory domain ",
++			      "regulatory domain\n",
+ 			      reg_initiator_name(initiator));
+ 		return true;
+ 	}
+@@ -903,8 +901,8 @@ static bool ignore_reg_update(struct wiphy *wiphy,
+ 	    initiator != NL80211_REGDOM_SET_BY_COUNTRY_IE &&
+ 	    !is_world_regdom(last_request->alpha2)) {
+ 		REG_DBG_PRINT("Ignoring regulatory request %s "
+-			      "since the driver requires its own regulaotry "
+-			      "domain to be set first",
++			      "since the driver requires its own regulatory "
++			      "domain to be set first\n",
+ 			      reg_initiator_name(initiator));
+ 		return true;
+ 	}
+@@ -1473,7 +1471,7 @@ static void reg_process_pending_hints(void)
+ 	/* When last_request->processed becomes true this will be rescheduled */
+ 	if (last_request && !last_request->processed) {
+ 		REG_DBG_PRINT("Pending regulatory request, waiting "
+-			      "for it to be processed...");
++			      "for it to be processed...\n");
+ 		goto out;
  	}
  
- 	set_vpngateway_route() {
- 		$IPROUTE route add `$IPROUTE route get "$VPNGATEWAY" | fix_ip_get_output`
-
-I'm still not happy with it, since I'm not 100% convinced I'm
-preserving all the attributes that need to be preserved, and will need
-to be preserved in future. I managed to keep 'src', but what else might
-there be? I just don't want to have to know.
-
-On trying to torture-test it, I also noticed that 'ip route get' doesn't
-do what I'd want in the case of the following route:
-
-default  src 90.155.92.214 
-	nexthop via 81.2.98.173  dev eth1 weight 1
-	nexthop dev ppp1 weight 1
-[root@solos ~]# ip route get 131.111.8.42
-131.111.8.42 via 81.2.98.173 dev eth1  src 90.155.92.214 
-    cache  mtu 1500 advmss 1460 hoplimit 64
-
-
+@@ -2186,7 +2184,7 @@ out:
+ static void reg_timeout_work(struct work_struct *work)
+ {
+ 	REG_DBG_PRINT("Timeout while waiting for CRDA to reply, "
+-		      "restoring regulatory settings");
++		      "restoring regulatory settings\n");
+ 	restore_regulatory_settings(true);
+ }
+ 
 -- 
-dwmw2
-
-
+1.7.6.131.g99019
