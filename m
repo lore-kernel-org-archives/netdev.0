@@ -1,68 +1,37 @@
-From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-Subject: Re: [PATCH 05/14] userns: clamp down users of cap_raised
-Date: Thu, 28 Jul 2011 18:51:19 -0500
-Message-ID: <20110728235119.GA8167@sergelap>
-References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
- <1311706717-7398-6-git-send-email-serge@hallyn.com>
- <20110728232337.GA9186@albatros>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] xfrm: Fix key lengths for rfc3686(ctr(aes))
+Date: Fri, 29 Jul 2011 08:05:37 +0800
+Message-ID: <20110729000537.GC12183@gondor.apana.org.au>
+References: <alpine.LFD.1.10.1107281246381.11308@net-test1.az.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Serge Hallyn <serge@hallyn.com>, dhowells@redhat.com,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: Vasiliy Kulikov <segooon@gmail.com>
+Cc: Joy Latten <latten@austin.ibm.com>, netdev <netdev@vger.kernel.org>
+To: Tushar Gohad <tgohad@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adelie.canonical.com ([91.189.90.139]:58504 "EHLO
-	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932096Ab1G1Xv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 19:51:28 -0400
+Received: from helcar.apana.org.au ([209.40.204.226]:35655 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754031Ab1G2AFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 20:05:51 -0400
 Content-Disposition: inline
-In-Reply-To: <20110728232337.GA9186@albatros>
+In-Reply-To: <alpine.LFD.1.10.1107281246381.11308@net-test1.az.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Vasiliy Kulikov (segooon@gmail.com):
-> On Tue, Jul 26, 2011 at 18:58 +0000, Serge Hallyn wrote:
-> > From: Serge E. Hallyn <serge.hallyn@canonical.com>
-> > 
-> > A few modules are using cap_raised(current_cap(), cap) to authorize
-> > actions, but the privilege should be applicable against the initial
-> > user namespace.  Refuse privilege if the caller is not in init_user_ns.
-> > 
-> > Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
-> > Cc: Eric W. Biederman <ebiederm@xmission.com>
-> > ---
-> >  drivers/block/drbd/drbd_nl.c           |    5 +++++
-> >  drivers/md/dm-log-userspace-transfer.c |    3 +++
-> >  drivers/staging/pohmelfs/config.c      |    3 +++
-> >  drivers/video/uvesafb.c                |    3 +++
-> >  4 files changed, 14 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/block/drbd/drbd_nl.c b/drivers/block/drbd/drbd_nl.c
-> > index 515bcd9..7717f8a 100644
-> > --- a/drivers/block/drbd/drbd_nl.c
-> > +++ b/drivers/block/drbd/drbd_nl.c
-> > @@ -2297,6 +2297,11 @@ static void drbd_connector_callback(struct cn_msg *req, struct netlink_skb_parms
-> >  		return;
-> >  	}
-> >  
-> > +	if (current_user_ns() != &init_user_ns) {
-> [...]
-> >  	if (!cap_raised(current_cap(), CAP_SYS_ADMIN)) {
-> [...]
-> 
-> Looks like it is an often pattern.  Maybe move both checks to a
-> function?
+On Thu, Jul 28, 2011 at 01:36:20PM -0700, Tushar Gohad wrote:
+>
+> Fix the min and max bit lengths for AES-CTR (RFC3686) keys.
+> The number of bits in key spec is the key length (128/256)
+> plus 32 bits of nonce.
+>
+> This change takes care of the "Invalid key length" errors
+> reported by setkey when specifying 288 bit keys for aes-ctr.
+>
+> Signed-off-by: Tushar Gohad <tgohad@mvista.com>
 
-This pattern is used 4 times (IIRC).  The reason I didn't break it out is
-that it's very close to just 'capable(CAP_SYS_ADMIN)', which also checks
-for CAP_SYS_ADMIN to the init_user_ns.  But the above, rightly or wrongly,
-does not set the PF_SUPERPRIV task flag.  I don't want to advocate usage
-of the above, and creating a helper for the above would both further
-pollute the capability-related function namespace, and make the above
-look more legitimate than I think it is.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Imo 'cap-raised(current_cap(), X)' should not be used at all.  But I
-didn't want to deal with that here, just make it user-ns safe.
-
--serge
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
