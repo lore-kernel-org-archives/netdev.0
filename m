@@ -1,86 +1,40 @@
-From: Greg Banks <gnb@fastmail.fm>
-Subject: Re: [PATCH] sunrpc: use better NUMA affinities
-Date: Sat, 30 Jul 2011 06:39:34 +1000
-Message-ID: <D2301275-8653-41CB-BADB-E927CF00BDB0@fastmail.fm>
-References: <1311876249.2346.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20110729164214.GI23194@fieldses.org> <1311962525.2873.6.camel@edumazet-laptop> <20110729180844.GA28947@fieldses.org>
-Mime-Version: 1.0 (iPhone Mail 7C144)
-Content-Type: text/plain; charset=utf-8;
-	format=flowed	delsp=yes
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"bmarson@redhat.com" <bmarson@redhat.com>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110729180844.GA28947@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Clayton <chris2553@googlemail.com>
+Subject: Re: [PATCH] Fix cdc-phonet build
+Date: Fri, 29 Jul 2011 21:49:58 +0100
+Message-ID: <201107292149.58759.chris2553@googlemail.com>
+References: <201107262320.22338.chris2553@googlemail.com> <20110727.224117.389682636642939049.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:40916 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752598Ab1G2UuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 16:50:10 -0400
+Received: by wwe5 with SMTP id 5so3929809wwe.1
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 13:50:09 -0700 (PDT)
+In-Reply-To: <20110727.224117.389682636642939049.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-Sent from my iPhone
-
-On 30/07/2011, at 4:08, "J. Bruce Fields" <bfields@fieldses.org> wrote:
-
-> On Fri, Jul 29, 2011 at 08:02:05PM +0200, Eric Dumazet wrote:
->> Le vendredi 29 juillet 2011 =C3=A0 12:42 -0400, J. Bruce Fields a =C3=
-=A9cri=20
->> t :
->>> On Thu, Jul 28, 2011 at 08:04:09PM +0200, Eric Dumazet wrote:
->>>> Use NUMA aware allocations to reduce latencies and increase =20
->>>> throughput.
->>>>
->>>> sunrpc kthreads can use kthread_create_on_node() if pool_mode is
->>>> "percpu" or "pernode", and svc_prepare_thread()/svc_init_buffer() =
-=20
->>>> can
->>>> also take into account NUMA node affinity for memory allocations.
->>> ...
->>>> @@ -662,14 +675,16 @@ svc_set_num_threads(struct svc_serv *serv, =20
->>>> struct svc_pool *pool, int nrservs)
->>>>        nrservs--;
->>>>        chosen_pool =3D choose_pool(serv, pool, &state);
->>>>
->>>> -        rqstp =3D svc_prepare_thread(serv, chosen_pool);
->>>> +        node =3D svc_pool_map_get_node(chosen_pool->sp_id);
->>>> +        rqstp =3D svc_prepare_thread(serv, chosen_pool, node);
->>>
->>> The only correct value for the third argument there is
->>> svc_pool_map_get_node(chosen_pool->sp_id), so let's have
->>> svc_prepare_thread() call that itself.
->>>
->>
->> I have no idea of what you mean ;)
->>
->> I need 'node' for the following kthread_create_on_node()
+On Thursday 28 July 2011 06:41:17 David Miller wrote:
+> From: Chris Clayton <chris2553@googlemail.com>
+> Date: Tue, 26 Jul 2011 23:20:22 +0100
 >
-> Doh, of course--apologies.
+> > cdc-phonet does not presently build on linux-3.0 because there is no
+> > entry for it in drivers/net/Makefile. This patch adds that entry.
+> >
+> > Signed-off-by: Chris Clayton <chris2553@googlemail.com>
 >
->>> Seems OK otherwise.
->>>
->>> Any suggestions on how we should test this?
->>
->> I did tests on my machine, seems good.
->>
->> I checked that stacks were now correct using :
->> "echo t > /proc/sysrq-trigger"
->
-> I was wondering more about good tests of nfsd's performance on numa;
-> that might be more of a question for Greg.
->
+> Applied, thanks.
 
-To really show a big difference you need a much bigger box, or slower =20
-NUMA interconnects than today's. You also want network cards locally =20
-attached to each node and a metadata heavy (i.e. high rpc call rate) =20
-load.
+Actually, I've just checked and the same problem exists in 2.6.39.3, so once the patch is Linus' 
+tree, I guess it should go in stable too. Do you have that in hand, David or should I send to 
+stable once the patch is applied to mainline?
 
-Greg.--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+-- 
+The more I see, the more I know. The more I know, the less I understand. Changing Man - Paul Weller
