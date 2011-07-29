@@ -1,26 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL nf-2.6] IPVS
-Date: Thu, 28 Jul 2011 18:39:17 -0700 (PDT)
-Message-ID: <20110728.183917.885521460762207540.davem@davemloft.net>
-References: <1311293920-1983-1-git-send-email-horms@verge.net.au>
-	<20110729001203.GB31217@verge.net.au>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 1/2] bna: Remove Unnecessary CNA Check
+Date: Thu, 28 Jul 2011 18:45:11 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A83C0F0752@HQ1-EXCH01.corp.brocade.com>
+References: <1311889767-9848-1-git-send-email-rmody@brocade.com>
+ <20110728.182835.1135590491635663404.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg, kaber@trash.net,
-	pablo@netfilter.org, davej@redhat.com, rdunlap@xenotime.net,
-	huajun.li.lee@gmail.com, davem@davmeloft.net
-To: horms@verge.net.au
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110729001203.GB31217@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Adapter Linux Open SRC Team"
+	<adapter_linux_open_src_team@Brocade.COM>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36368 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756293Ab1G2BpR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jul 2011 21:45:17 -0400
+In-Reply-To: <20110728.182835.1135590491635663404.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Fri, 29 Jul 2011 09:12:06 +0900
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Thursday, July 28, 2011 6:29 PM
+>
+>So are these bug fixes or cleanups/features?  You don't say where
+>you intend these changes to go.
 
-> What is the best way forward to get this both in 3.1 and 3.0 -stable?
+Can you please put these into net-next tree? These patches remove unnecessary code and updates h/w initialize code.
 
-I'll take this directly and do the -stable submission too.
+We'll submit the features/cleanups patches in subsequent submissions against net-next.
+
+Thanks,
+Rasesh
