@@ -1,100 +1,122 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 2/5] qlcnic: FW dump related changes
-Date: Fri, 29 Jul 2011 16:30:26 -0700
-Message-ID: <1311982230-10543-2-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1311982230-10543-1-git-send-email-anirban.chakraborty@qlogic.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: use better NUMA affinities
+Date: Fri, 29 Jul 2011 19:48:57 -0400
+Message-ID: <20110729234857.GA30941@fieldses.org>
+References: <1311921035.7845.10.camel@edumazet-laptop>
+ <4E3258E1.6020000@fastmail.fm>
+ <20110729103634.GA12050@infradead.org>
+ <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
+ <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
+ <20110729164836.GL23194@fieldses.org>
+ <20110729165345.GM23194@fieldses.org>
+ <F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
+ <20110730093025.716f3f50@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:11686
-	"EHLO VA3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753058Ab1G2XkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 19:40:25 -0400
-In-Reply-To: <1311982230-10543-1-git-send-email-anirban.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110730093025.716f3f50-wvvUuzkyo1EYVZTmpyfIwg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-o Added code to support FW reset without invoking the dump
-o Fixed the return value of the dump data size if dump is not available.
+On Sat, Jul 30, 2011 at 09:30:25AM +1000, NeilBrown wrote:
+> On Sat, 30 Jul 2011 06:34:44 +1000 Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org> wrote=
+:
+>=20
+> >=20
+> >=20
+> > Sent from my iPhone
+> >=20
+> > On 30/07/2011, at 2:53, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org> wr=
+ote:
+> >=20
+> > > On Fri, Jul 29, 2011 at 12:48:36PM -0400, bfields wrote:
+> > >> On Fri, Jul 29, 2011 at 11:30:05PM +1000, Greg Banks wrote:
+> > >>>
+> > >>>
+> > >>> Sent from my iPhone
+> > >>>
+> > >>> On 29/07/2011, at 22:11, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =
+=20
+> > >>> wrote:
+> > >>>
+> > >>>> Le vendredi 29 juillet 2011 =C3=A0 21:58 +1000, Greg Banks a =C3=
+=A9crit :
+> > >>>>
+> > >>>>>
+> > >>>>> Sure, and a whole lot of the callsites are ("..._%d", cpu), =20
+> > >>>>> hence the
+> > >>>>> unfortune :(
+> > >>>>
+> > >>>> BTW, we could name nfsd threads differently :
+> > >>>>
+> > >>>> Currently, they all are named : "nfsd"
+> > >>>>
+> > >>>> If SVC_POOL_PERCPU is selected, we could name them :
+> > >>>> nfsd_c0 -> nfsd_cN
+> > >>>>
+> > >>>> If SVC_POOL_PERNODE is selected, we could name them :
+> > >>>> nfsd_n0  -> nfsd_nN
+> > >>>>
+> > >>>> That would help to check with "ps aux" which cpu/nodes are und=
+er
+> > >>>> stress.
+> > >>>>
+> > >>>>
+> > >>>
+> > >>> I like it!
+> > >>
+> > >> Yup, patch welcomed.--b.
+> > >
+> > > (Annoying fact: some initscripts stop nfsd using a rough equivale=
+nt of
+> > > "killall nfsd".  So the name of the threads is arguably ABI.  I t=
+hink
+> > > those initscripts are nuts and deserve what they get, but that ma=
+y be
+> > > because I'm forgetting the reason they do that.)
+> > >
+> >=20
+> > We had this discussion in May-June 2008; it's because the nfsds wer=
+e =20
+> > once  many many years ago userspace threads.
+>=20
+> Even when they became kernel threads, 'kill' was the only way to kill=
+ them -
+> at first.
+>=20
+> >=20
+> > The "killall nfsd" semantics in those scripts are awful and lead to=
+ =20
+> > problems shutting down when there are lots of threads. It would =20
+> > probably be an improvement to provide a better shutdown mechanism a=
+nd =20
+> > force distros to use it.
+>=20
+> rpc.nfsd 0
+>=20
+> will stop all nfsd threads.  Follow with
+>=20
+>   exportfs -f
+>=20
+> and you should be done.  I'm not 100% sure about the nfsv4 thread tho=
+ugh -
+> would need to check.
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h         |    1 +
- drivers/net/qlcnic/qlcnic_ethtool.c |   22 +++++++++++++++++-----
- 2 files changed, 18 insertions(+), 5 deletions(-)
+Should be fine.
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index baf646d..4200ef8 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1344,6 +1344,7 @@ enum op_codes {
- #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
- #define QLCNIC_ENABLE_FW_DUMP		0xaddfeed
- #define QLCNIC_DISABLE_FW_DUMP		0xbadfeed
-+#define QLCNIC_FORCE_FW_RESET		0xdeaddead
- 
- struct qlcnic_dump_operations {
- 	enum op_codes opcode;
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 72a723d..7c64f2f 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -1105,7 +1105,10 @@ qlcnic_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 
--	dump->len = fw_dump->tmpl_hdr->size + fw_dump->size;
-+	if (fw_dump->clr)
-+		dump->len = fw_dump->tmpl_hdr->size + fw_dump->size;
-+	else
-+		dump->len = 0;
- 	dump->flag = fw_dump->tmpl_hdr->drv_cap_mask;
- 	dump->version = adapter->fw_version;
- 	return 0;
-@@ -1152,7 +1155,8 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 
--	if (val->flag == QLCNIC_FORCE_FW_DUMP_KEY) {
-+	switch (val->flag) {
-+	case QLCNIC_FORCE_FW_DUMP_KEY:
- 		if (!fw_dump->enable) {
- 			netdev_info(netdev, "FW dump not enabled\n");
- 			return ret;
-@@ -1164,17 +1168,25 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 		}
- 		netdev_info(netdev, "Forcing a FW dump\n");
- 		qlcnic_dev_request_reset(adapter);
--	} else if (val->flag == QLCNIC_DISABLE_FW_DUMP) {
-+		break;
-+	case QLCNIC_DISABLE_FW_DUMP:
- 		if (fw_dump->enable) {
- 			netdev_info(netdev, "Disabling FW dump\n");
- 			fw_dump->enable = 0;
- 		}
--	} else if (val->flag == QLCNIC_ENABLE_FW_DUMP) {
-+		break;
-+	case QLCNIC_ENABLE_FW_DUMP:
- 		if (!fw_dump->enable && fw_dump->tmpl_hdr) {
- 			netdev_info(netdev, "Enabling FW dump\n");
- 			fw_dump->enable = 1;
- 		}
--	} else {
-+		break;
-+	case QLCNIC_FORCE_FW_RESET:
-+		netdev_info(netdev, "Forcing a FW reset\n");
-+		qlcnic_dev_request_reset(adapter);
-+		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
-+		break;
-+	default:
- 		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
- 			val->flag < QLCNIC_DUMP_MASK_MIN) {
- 				netdev_info(netdev,
--- 
-1.7.4.1
-
-
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
