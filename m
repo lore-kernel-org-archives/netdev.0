@@ -1,99 +1,99 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 3/5] qlcnic: Fix delay in reset path
-Date: Fri, 29 Jul 2011 16:30:27 -0700
-Message-ID: <1311982230-10543-3-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next 2/5] qlcnic: FW dump related changes
+Date: Fri, 29 Jul 2011 16:30:26 -0700
+Message-ID: <1311982230-10543-2-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1311982230-10543-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev <netdev@vger.kernel.org>,
 	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sritej Velaga <sritej.velaga@qlogic.com>
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:28032
-	"EHLO VA3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753058Ab1G2Xjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 19:39:53 -0400
+Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:11686
+	"EHLO VA3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753058Ab1G2XkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 19:40:25 -0400
 In-Reply-To: <1311982230-10543-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+o Added code to support FW reset without invoking the dump
+o Fixed the return value of the dump data size if dump is not available.
 
-Driver should not check for heart beat anymore when FW is hung, rather it
-should restart the FW.
-
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    1 +
- drivers/net/qlcnic/qlcnic_init.c |    3 ++-
- drivers/net/qlcnic/qlcnic_main.c |    5 +++++
- 3 files changed, 8 insertions(+), 1 deletions(-)
+ drivers/net/qlcnic/qlcnic.h         |    1 +
+ drivers/net/qlcnic/qlcnic_ethtool.c |   22 +++++++++++++++++-----
+ 2 files changed, 18 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 4200ef8..5f0141b 100644
+index baf646d..4200ef8 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -911,6 +911,7 @@ struct qlcnic_ipaddr {
- #define QLCNIC_PROMISC_DISABLED		0x800
- #define QLCNIC_NEED_FLR			0x1000
- #define QLCNIC_FW_RESET_OWNER		0x2000
-+#define QLCNIC_FW_HANG			0x4000
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
+@@ -1344,6 +1344,7 @@ enum op_codes {
+ #define QLCNIC_FORCE_FW_DUMP_KEY	0xdeadfeed
+ #define QLCNIC_ENABLE_FW_DUMP		0xaddfeed
+ #define QLCNIC_DISABLE_FW_DUMP		0xbadfeed
++#define QLCNIC_FORCE_FW_RESET		0xdeaddead
  
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index ee8a398..3b6741e 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1056,7 +1056,8 @@ qlcnic_check_fw_hearbeat(struct qlcnic_adapter *adapter)
- int
- qlcnic_need_fw_reset(struct qlcnic_adapter *adapter)
- {
--	if (qlcnic_check_fw_hearbeat(adapter)) {
-+	if ((adapter->flags & QLCNIC_FW_HANG) ||
-+			qlcnic_check_fw_hearbeat(adapter)) {
- 		qlcnic_rom_lock_recovery(adapter);
- 		return 1;
- 	}
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 5ca1b56..248ebbd 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2682,6 +2682,7 @@ qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter, u8 failed)
- 	qlcnic_api_unlock(adapter);
- err:
- 	adapter->fw_fail_cnt = 0;
-+	adapter->flags &= ~QLCNIC_FW_HANG;
- 	clear_bit(__QLCNIC_START_FW, &adapter->state);
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- }
-@@ -2859,6 +2860,7 @@ skip_ack_check:
- 		    (adapter->flags & QLCNIC_FW_RESET_OWNER)) {
- 			QLCDB(adapter, DRV, "Take FW dump\n");
- 			qlcnic_dump_fw(adapter);
-+			adapter->flags |= QLCNIC_FW_HANG;
+ struct qlcnic_dump_operations {
+ 	enum op_codes opcode;
+diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
+index 72a723d..7c64f2f 100644
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c
+@@ -1105,7 +1105,10 @@ qlcnic_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
+ 
+-	dump->len = fw_dump->tmpl_hdr->size + fw_dump->size;
++	if (fw_dump->clr)
++		dump->len = fw_dump->tmpl_hdr->size + fw_dump->size;
++	else
++		dump->len = 0;
+ 	dump->flag = fw_dump->tmpl_hdr->drv_cap_mask;
+ 	dump->version = adapter->fw_version;
+ 	return 0;
+@@ -1152,7 +1155,8 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
+ 
+-	if (val->flag == QLCNIC_FORCE_FW_DUMP_KEY) {
++	switch (val->flag) {
++	case QLCNIC_FORCE_FW_DUMP_KEY:
+ 		if (!fw_dump->enable) {
+ 			netdev_info(netdev, "FW dump not enabled\n");
+ 			return ret;
+@@ -1164,17 +1168,25 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
  		}
- 		rtnl_unlock();
- 
-@@ -3046,6 +3048,7 @@ attach:
- done:
- 	netif_device_attach(netdev);
- 	adapter->fw_fail_cnt = 0;
-+	adapter->flags &= ~QLCNIC_FW_HANG;
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 
- 	if (!qlcnic_clr_drv_state(adapter))
-@@ -3090,6 +3093,8 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 	if (++adapter->fw_fail_cnt < FW_FAIL_THRESH)
- 		return 0;
- 
-+	adapter->flags |= QLCNIC_FW_HANG;
-+
- 	qlcnic_dev_request_reset(adapter);
- 
- 	if (auto_fw_reset)
+ 		netdev_info(netdev, "Forcing a FW dump\n");
+ 		qlcnic_dev_request_reset(adapter);
+-	} else if (val->flag == QLCNIC_DISABLE_FW_DUMP) {
++		break;
++	case QLCNIC_DISABLE_FW_DUMP:
+ 		if (fw_dump->enable) {
+ 			netdev_info(netdev, "Disabling FW dump\n");
+ 			fw_dump->enable = 0;
+ 		}
+-	} else if (val->flag == QLCNIC_ENABLE_FW_DUMP) {
++		break;
++	case QLCNIC_ENABLE_FW_DUMP:
+ 		if (!fw_dump->enable && fw_dump->tmpl_hdr) {
+ 			netdev_info(netdev, "Enabling FW dump\n");
+ 			fw_dump->enable = 1;
+ 		}
+-	} else {
++		break;
++	case QLCNIC_FORCE_FW_RESET:
++		netdev_info(netdev, "Forcing a FW reset\n");
++		qlcnic_dev_request_reset(adapter);
++		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
++		break;
++	default:
+ 		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
+ 			val->flag < QLCNIC_DUMP_MASK_MIN) {
+ 				netdev_info(netdev,
 -- 
 1.7.4.1
 
