@@ -1,63 +1,38 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Bug#631945: [Bugme-new] [Bug 39372] New: Problems with HFSC Scheduler
-Date: Fri, 29 Jul 2011 14:29:10 +0200
-Message-ID: <4E32A796.8060104@ziu.info>
-References: <bug-39372-10286@https.bugzilla.kernel.org/> <20110714151425.844b7738.akpm@linux-foundation.org>
-Reply-To: Michal Soltys <soltys@ziu.info>, 631945@bugs.debian.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: vpnc-script fix for changed iproute output with newer kernels
+Date: Fri, 29 Jul 2011 05:46:49 -0700 (PDT)
+Message-ID: <20110729.054649.1274733167127164255.davem@davemloft.net>
+References: <20110728021227.GA3620@gmail.com>
+	<20110728021853.GB3620@gmail.com>
+	<1311942793.17528.57.camel@i7.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>, lucas.bocchi@gmail.com,
-	Patrick McHardy <kaber@trash.net>, 631945@bugs.debian.org,
-	00bormoj@gmail.com, fdelawarde@wirelessmundi.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.631945.B631945.13119425677710@bugs.debian.org>
-In-Reply-To: <20110714151425.844b7738.akpm@linux-foundation.org>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
-List-Id: netdev.vger.kernel.org
+Cc: jsbronder@gentoo.org, netdev@vger.kernel.org, shemminger@vyatta.com
+To: dwmw2@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48385 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755617Ab1G2MsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 08:48:09 -0400
+In-Reply-To: <1311942793.17528.57.camel@i7.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-07-15 00:14, Andrew Morton wrote:
-> 
-> (switched to email.  Please respond via emailed reply-to-all, not via
-> the bugzilla web interface).
-> 
-> 
-> Here: WARN_ON(next_time == 0);
-> 
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Fri, 29 Jul 2011 13:33:11 +0100
 
->From the other thread on netfilter-devel:
+> Any suggestions that *aren't* going to be constantly broken?
 
-> On 11-07-22 11:58, Michal Pokrywka wrote: After bisecting 2.6.39.1 it
-> turned out that the bug is caused independently by two patches:
-> 
-> commit b262a5da755cc6ed0cb4fba230cd9bf4037e1096 sch_sfq: fix peek()
-> implementation
-> 
-> and
-> 
-> commit 9df49f2bfe862573911a080c75a6d81113c5c81d sch_sfq: avoid giving
-> spurious NET_XMIT_CN signals
-> 
-> Reverting these patches makes HFSC work again.
-> 
+You're going to have to be knowledgable about which attributes are
+part of the route, whether you want to do this with iproute2 as a tool
+or whether you do this directly with C code using netlink.
 
-This one (upstream 8efa885406359af300d46910642b50ca82c0fe47) seems to be
-the culprit (does reverting only that one cures the problem ?)
+If you want to script this using iproute2, you should be grepping for
+the attributes you want to keep rather then grepping for the
+attributes you end up dropping.
 
-It allows SFQ to return success on enqueuing, when the packet really
-replaced some other packet in some other flow. This confuses outer qdisc
-(in this particular case HFSC) which thinks new packet was actually
-added each time such situation happes.
-
-This in turn causes additional dequeues and ends with attempt
-to schedule non-existent packets, and triggers the warning.
-
-
-ps.
-
-removed netfilter from cc, as it's not really netfilter issue.
+iproute2 is never going to allow you to mirror "route get" outputs
+into a "route add" call.  Because 'get' is going to always emit
+metrics and other transient state, upon which we will always
+potentially be buidling new items over time.
