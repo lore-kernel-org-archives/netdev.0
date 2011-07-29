@@ -1,61 +1,46 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: use better NUMA affinities
-Date: Fri, 29 Jul 2011 20:15:03 +0200
-Message-ID: <1311963303.2873.9.camel@edumazet-laptop>
-References: <20110729153207.17af3085@notabene.brown>
-	 <4E324DB4.7060600@fastmail.fm> <1311921035.7845.10.camel@edumazet-laptop>
-	 <4E3258E1.6020000@fastmail.fm> <20110729103634.GA12050@infradead.org>
-	 <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
-	 <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
-	 <20110729164836.GL23194@fieldses.org> <20110729165345.GM23194@fieldses.org>
+From: Alan Ott <alan@signal11.us>
+Subject: Re: IP over 802.2 with LLC/SNAP
+Date: Fri, 29 Jul 2011 14:42:46 -0400
+Message-ID: <4E32FF26.7010701@signal11.us>
+References: <4E2F8B7B.80906@signal11.us> <20110727133209.0d9dd6c4@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110729165345.GM23194-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110727133209.0d9dd6c4@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 29 juillet 2011 =C3=A0 12:53 -0400, J. Bruce Fields a =C3=A9=
-crit :
+On 07/27/2011 08:32 AM, Alan Cox wrote:
+>> So the question is, does Linux support IP over 802.2 with LLC/SNAP? 
+> 
+> It should be a 'simple matter of hacking' and there are example devices
+> that fiddle with packets and add headers etc you can nick a lot of code
+> from.
 
-> (Annoying fact: some initscripts stop nfsd using a rough equivalent o=
-f
-> "killall nfsd".  So the name of the threads is arguably ABI.  I think
-> those initscripts are nuts and deserve what they get, but that may be
-> because I'm forgetting the reason they do that.)
->=20
+That sounds like it could be a fun project actually. It looks like I can
+use what net/ipx does as a pattern, at least to get the receive going.
+The send sounds a bit trickier but doable. I'll take a look when I get
+some time (but it'll be a couple weeks at least).
 
-Yes, it seems we cant change then...
+> I figure if you can write an IP stack for an ancient Gould system
+> you can probably do that.
 
-I tried on a RHEL4 distro and "service nfs stop" could not stop my nfsd
-threads if I changed their names as described.
+I haven't written a fully-featured IP stack on the Gould, but it does
+handle sending/receiving of UDP, which is what I need for my purposes.
 
-Next, I am going to try nfsd/... =20
+> 
+> The other way is to use the Linux raw packet interfaces, open a raw
+> socket, push a BPF filter onto it to just get the frames for IP/SNAP and
+> ARP/SNAP then modify them and feed them to the kernel tun/tap interface.
+> 
 
-By the way, any idea why after "service nfs stop" I cannot unload sunrp=
-c
-module ?
+Since I just needed to read the one packet on the Linux side, I ended up
+just using libpcap to grab the raw packets and parse out the header for
+now to get it working.
 
-# lsmod
-Module                  Size  Used by
-nfsd                  285597  3=20
-lockd                  76103  1 nfsd
-auth_rpcgss            45002  1 nfsd
-sunrpc                231915  6 nfsd,lockd,auth_rpcgss
-exportfs                3813  1 nfsd
+Thanks for the response and information,
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alan.
