@@ -1,120 +1,58 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH] net/smsc911x: add device tree probe support
-Date: Sat, 30 Jul 2011 00:03:44 +0800
-Message-ID: <20110729160343.GA2241@S2100-06.ap.freescale.net>
-References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
- <20110725213723.GI26735@ponder.secretlab.ca>
- <20110726010154.GG21641@S2100-06.ap.freescale.net>
- <alpine.LFD.2.00.1107252105561.12766@xanadu.home>
- <20110726013026.GH21641@S2100-06.ap.freescale.net>
- <alpine.LFD.2.00.1107252222540.12766@xanadu.home>
- <20110729023626.GB1946@S2100-06.ap.freescale.net>
- <20110729154723.GC11164@ponder.secretlab.ca>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch net-next-2.6] dummy: allow report link status and
+ change it via sysfs
+Date: Fri, 29 Jul 2011 18:03:09 +0200
+Message-ID: <1311955389.3220.15.camel@deadeye>
+References: <1311953253-25059-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Nicolas Pitre <nicolas.pitre@linaro.org>, <patches@linaro.org>,
-	<netdev@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, eric.dumazet@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:33640
-	"EHLO DB3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752108Ab1G2P4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 11:56:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20110729154723.GC11164@ponder.secretlab.ca>
+Received: from exchange.solarflare.com ([216.237.3.220]:52435 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752174Ab1G2QDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 12:03:15 -0400
+In-Reply-To: <1311953253-25059-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 29, 2011 at 09:47:23AM -0600, Grant Likely wrote:
-> On Fri, Jul 29, 2011 at 10:36:26AM +0800, Shawn Guo wrote:
-> > On Mon, Jul 25, 2011 at 10:28:05PM -0400, Nicolas Pitre wrote:
-> > > On Tue, 26 Jul 2011, Shawn Guo wrote:
-> > > 
-> > > > On Mon, Jul 25, 2011 at 09:16:40PM -0400, Nicolas Pitre wrote:
-> > > > > On Tue, 26 Jul 2011, Shawn Guo wrote:
-> > > > > 
-> > > > > > On Mon, Jul 25, 2011 at 03:37:23PM -0600, Grant Likely wrote:
-> > > > > > > On Mon, Jul 25, 2011 at 05:44:00PM +0800, Shawn Guo wrote:
-> > > > > > > > It adds device tree probe support for smsc911x driver.
-> > > > > > > > 
-> > > > > > > > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> > > > > > > > Cc: Grant Likely <grant.likely@secretlab.ca>
-> > > > > > > > Cc: Steve Glendinning <steve.glendinning@smsc.com>
-> > > > > > > > Cc: David S. Miller <davem@davemloft.net>
-> > > > > > > > ---
-> > > > > > > >  Documentation/devicetree/bindings/net/smsc.txt |   34 +++++++
-> > > > > > > >  drivers/net/smsc911x.c                         |  123 +++++++++++++++++++-----
-> > > > > > > >  2 files changed, 132 insertions(+), 25 deletions(-)
-> > > > > > > >  create mode 100644 Documentation/devicetree/bindings/net/smsc.txt
-> > > > > > > > 
-> > > > > > > > diff --git a/Documentation/devicetree/bindings/net/smsc.txt b/Documentation/devicetree/bindings/net/smsc.txt
-> > > > > > > > new file mode 100644
-> > > > > > > > index 0000000..1920695
-> > > > > > > > --- /dev/null
-> > > > > > > > +++ b/Documentation/devicetree/bindings/net/smsc.txt
-> > > > > > > > @@ -0,0 +1,34 @@
-> > > > > > > > +* Smart Mixed-Signal Connectivity (SMSC) LAN Controller
-> > > > > > > > +
-> > > > > > > > +Required properties:
-> > > > > > > > +- compatible : Should be "smsc,lan<model>""smsc,lan"
-> > > > > > > 
-> > > > > > > Drop "smsc,lan".  That's far too generic.
-> > > > > > > 
-> > > > > > The following devices are supported by the driver.
-> > > > > > 
-> > > > > > LAN9115, LAN9116, LAN9117, LAN9118
-> > > > > > LAN9215, LAN9216, LAN9217, LAN9218
-> > > > > > LAN9210, LAN9211
-> > > > > > LAN9220, LAN9221
-> > > > > > 
-> > > > > > If we only keep specific <model> as the compatible, we will have a
-> > > > > > long match table which is actually used nowhere to distinguish the
-> > > > > > device.
-> > > > > > 
-> > > > > > So we need some level generic compatible to save the meaningless
-> > > > > > long match table.  What about: 
-> > > > > > 
-> > > > > > static const struct of_device_id smsc_dt_ids[] = {
-> > > > > >         { .compatible = "smsc,lan9", },
-> > > > > >         { /* sentinel */ }
-> > > > > > };
-> > > > > > 
-> > > > > > Or:
-> > > > > > 
-> > > > > > static const struct of_device_id smsc_dt_ids[] = {
-> > > > > >         { .compatible = "smsc,lan91", },
-> > > > > >         { .compatible = "smsc,lan92", },
-> > > > > >         { /* sentinel */ }
-> > > > > > };
-> > > > > 
-> > > > > None of this unambiguously distinguish the devices supported by this 
-> > > > > driver and the smc91x driver which supports LAN91C92, LAN91C94, 
-> > > > > LAN91C95, LAN91C96, LAN91C100, LAN91C110.
-> > > > > 
-> > > > So you suggest to make a long list to explicitly tell the device type
-> > > > that the driver supports?
-> > > 
-> > > I'm not suggesting anything.  :-)  I'm merely pointing out that the 
-> > > above .compatible = "smsc,lan9" or .compatible = "smsc,lan91" are too 
-> > > generic given that there is another driver with different devices to 
-> > > which they could also apply.
-> > > 
-> > Since I do not get any suggestion here, I'm going to follow the driver
-> > name to use '911' as the model number.  Please tell me if there is any
-> > better one.
+On Fri, 2011-07-29 at 17:27 +0200, Jiri Pirko wrote:
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+>  drivers/net/dummy.c |   54 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 54 insertions(+), 0 deletions(-)
 > 
-> What is the manufacturer part name?  lan9111 or lan91c11?  The
-> manufacturer's documented part number is almost always preferred.
-> 
-I just posted the v2 of the patch, and chose to use 'smsc,lan9115'
-which is the first model supported in the driver.  This is the same
-approach I used with i.mx device bindings.
+> diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+> index 39cf9b9..fc39c24 100644
+> --- a/drivers/net/dummy.c
+> +++ b/drivers/net/dummy.c
+> @@ -37,9 +37,57 @@
+>  #include <linux/rtnetlink.h>
+>  #include <net/rtnetlink.h>
+>  #include <linux/u64_stats_sync.h>
+> +#include <linux/ethtool.h>
+>  
+>  static int numdummies = 1;
+>  
+> +static ssize_t dummy_show_link(struct device *d,
+> +			       struct device_attribute *attr,
+> +			       char *buf)
+> +{
+> +	struct net_device *dev = to_net_dev(d);
+> +
+> +	return sprintf(buf, "%d\n", netif_carrier_ok(dev) ? 1 : 0);
+> +}
+[...]
+
+Net devices already have the 'carrier' attribute.  You should make that
+attribute writable for dummy devices, rather than adding another one.
+
+Ben.
 
 -- 
-Regards,
-Shawn
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
