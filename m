@@ -1,67 +1,59 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
- been assigned by KVM
-Date: Fri, 29 Jul 2011 12:54:46 -0400
-Message-ID: <20110729165446.GA6731@dumpdata.com>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
- <20110727221749.8435.19000.stgit@gitlad.jf.intel.com>
- <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
- <43F901BD926A4E43B106BF17856F0755019414D525@orsmsx508.amr.corp.intel.com>
- <1311870459.24408.151.camel@cthulhu.hellion.org.uk>
- <43F901BD926A4E43B106BF17856F0755019414D59C@orsmsx508.amr.corp.intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net-next-2.6] dummy: allow report link status and change
+ it via sysfs
+Date: Fri, 29 Jul 2011 09:55:23 -0700
+Message-ID: <20110729095523.24f8d2dc@nehalam.ftrdhcpuser.net>
+References: <1311953253-25059-1-git-send-email-jpirko@redhat.com>
+	<1311955389.3220.15.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ian Campbell <ijc@hellion.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755019414D59C@orsmsx508.amr.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:58779 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752458Ab1G2QzN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2011 12:55:13 -0400
+In-Reply-To: <1311955389.3220.15.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > > On Wed, 2011-07-27 at 15:17 -0700, Greg Rose wrote:
-> > > > > Device drivers that create and destroy SR-IOV virtual functions via
-> > > > > calls to pci_enable_sriov() and pci_disable_sriov can cause
-> > catastrophic
-> > > > > failures if they attempt to destroy VFs while they are assigned to
-> > > > > guest virtual machines.  By adding a flag for use by the KVM module
-> > > > > to indicate that a device is assigned a device driver can check that
-> > > > > flag and avoid destroying VFs while they are assigned and avoid
-> > system
-> > > > > failures.
-> OK, but I hope Xen can still use the dev_flag assignment bit.
+On Fri, 29 Jul 2011 18:03:09 +0200
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-Yeah, I think the attached patch would do it, but I need to double check it.
-Do you have a git tree with this patchset?
+> On Fri, 2011-07-29 at 17:27 +0200, Jiri Pirko wrote:
+> > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> > ---
+> >  drivers/net/dummy.c |   54 +++++++++++++++++++++++++++++++++++++++++++++++++++
+> >  1 files changed, 54 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+> > index 39cf9b9..fc39c24 100644
+> > --- a/drivers/net/dummy.c
+> > +++ b/drivers/net/dummy.c
+> > @@ -37,9 +37,57 @@
+> >  #include <linux/rtnetlink.h>
+> >  #include <net/rtnetlink.h>
+> >  #include <linux/u64_stats_sync.h>
+> > +#include <linux/ethtool.h>
+> >  
+> >  static int numdummies = 1;
+> >  
+> > +static ssize_t dummy_show_link(struct device *d,
+> > +			       struct device_attribute *attr,
+> > +			       char *buf)
+> > +{
+> > +	struct net_device *dev = to_net_dev(d);
+> > +
+> > +	return sprintf(buf, "%d\n", netif_carrier_ok(dev) ? 1 : 0);
+> > +}
+> [...]
+> 
+> Net devices already have the 'carrier' attribute.  You should make that
+> attribute writable for dummy devices, rather than adding another one.
+> 
 
-Um, so you are fixing up ixgbe only - what about the cxgb4 and be driver?
-Shouldn't they also get some of this treatment?
-
-
-
-diff --git a/drivers/xen/xen-pciback/xenbus.c b/drivers/xen/xen-pciback/xenbus.c
-index 206c4ce0..0d72e84 100644
---- a/drivers/xen/xen-pciback/xenbus.c
-+++ b/drivers/xen/xen-pciback/xenbus.c
-@@ -250,6 +250,7 @@ static int xen_pcibk_export_device(struct xen_pcibk_device *pdev,
- 		goto out;
- 
- 	dev_dbg(&dev->dev, "registering for %d\n", pdev->xdev->otherend_id);
-+	dev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
- 	if (xen_register_device_domain_owner(dev,
- 					     pdev->xdev->otherend_id) != 0) {
- 		dev_err(&dev->dev, "device has been assigned to another " \
-@@ -289,6 +290,7 @@ static int xen_pcibk_remove_device(struct xen_pcibk_device *pdev,
- 	}
- 
- 	dev_dbg(&dev->dev, "unregistering for %d\n", pdev->xdev->otherend_id);
-+	dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
- 	xen_unregister_device_domain_owner(dev);
- 
- 	xen_pcibk_release_pci_dev(pdev, dev);
+And adding ethtool support is unnecessary since carrier is already
+reported by tools like 'ip link'
