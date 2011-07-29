@@ -1,651 +1,235 @@
-From: Rui Ueyama <rui314@gmail.com>
-Subject: [PATCH] net: filter: Convert the BPF VM to threaded code
-Date: Fri, 29 Jul 2011 01:10:26 -0700
-Message-ID: <CACKH++ZfNTB7Y8YhvQnZPEXpwmpWXzxQgnWniamDrjRWUwxaNw@mail.gmail.com>
+From: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v2] net/smsc911x: add device tree probe support
+Date: Fri, 29 Jul 2011 16:43:16 +0800
+Message-ID: <1311928996-10729-1-git-send-email-shawn.guo@linaro.org>
+References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:50333 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753123Ab1G2IKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 04:10:47 -0400
-Received: by gxk21 with SMTP id 21so2364768gxk.19
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 01:10:47 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1311587040-8988-1-git-send-email-shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Convert the BPF VM to threaded code to improve performance.
+It adds device tree probe support for smsc911x driver.
 
-The BPF VM is basically a big for loop containing a switch statement.  That is
-slow because for each instruction it checks the for loop condition and does the
-conditional branch of the switch statement.
-
-This patch eliminates the conditional branch, by replacing it with jump table
-using GCC's labels-as-values feature. The for loop condition check can also be
-removed, because the filter code always end with a RET instruction.
-
-Signed-off-by: Rui Ueyama <rui314@gmail.com>
+Signed-off-by: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Cc: Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- include/linux/filter.h      |   60 +------
- include/linux/filter_inst.h |   57 ++++++
- net/core/filter.c           |  457 +++++++++++++++++++++----------------------
- 3 files changed, 289 insertions(+), 285 deletions(-)
- create mode 100644 include/linux/filter_inst.h
+Changes since v1:
+ * Instead of getting irq line from gpio number, it use irq domain
+   to keep platform_get_resource(IORESOURCE_IRQ) works for dt too.
+ * Use 'lan9115' the first model that smsc911x supports in the match
+   table
+ * Use reg-shift and reg-io-width which already used in of_serial for
+   shift and access size binding
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 741956f..2f72166 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -172,62 +172,10 @@ static inline void bpf_jit_free(struct sk_filter *fp)
- #endif
+ Documentation/devicetree/bindings/net/smsc911x.txt |   38 +++++++++
+ drivers/net/smsc911x.c                             |   85 +++++++++++++++++---
+ 2 files changed, 112 insertions(+), 11 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/smsc911x.txt
 
- enum {
--	BPF_S_RET_K = 1,
--	BPF_S_RET_A,
--	BPF_S_ALU_ADD_K,
--	BPF_S_ALU_ADD_X,
--	BPF_S_ALU_SUB_K,
--	BPF_S_ALU_SUB_X,
--	BPF_S_ALU_MUL_K,
--	BPF_S_ALU_MUL_X,
--	BPF_S_ALU_DIV_X,
--	BPF_S_ALU_AND_K,
--	BPF_S_ALU_AND_X,
--	BPF_S_ALU_OR_K,
--	BPF_S_ALU_OR_X,
--	BPF_S_ALU_LSH_K,
--	BPF_S_ALU_LSH_X,
--	BPF_S_ALU_RSH_K,
--	BPF_S_ALU_RSH_X,
--	BPF_S_ALU_NEG,
--	BPF_S_LD_W_ABS,
--	BPF_S_LD_H_ABS,
--	BPF_S_LD_B_ABS,
--	BPF_S_LD_W_LEN,
--	BPF_S_LD_W_IND,
--	BPF_S_LD_H_IND,
--	BPF_S_LD_B_IND,
--	BPF_S_LD_IMM,
--	BPF_S_LDX_W_LEN,
--	BPF_S_LDX_B_MSH,
--	BPF_S_LDX_IMM,
--	BPF_S_MISC_TAX,
--	BPF_S_MISC_TXA,
--	BPF_S_ALU_DIV_K,
--	BPF_S_LD_MEM,
--	BPF_S_LDX_MEM,
--	BPF_S_ST,
--	BPF_S_STX,
--	BPF_S_JMP_JA,
--	BPF_S_JMP_JEQ_K,
--	BPF_S_JMP_JEQ_X,
--	BPF_S_JMP_JGE_K,
--	BPF_S_JMP_JGE_X,
--	BPF_S_JMP_JGT_K,
--	BPF_S_JMP_JGT_X,
--	BPF_S_JMP_JSET_K,
--	BPF_S_JMP_JSET_X,
--	/* Ancillary data */
--	BPF_S_ANC_PROTOCOL,
--	BPF_S_ANC_PKTTYPE,
--	BPF_S_ANC_IFINDEX,
--	BPF_S_ANC_NLATTR,
--	BPF_S_ANC_NLATTR_NEST,
--	BPF_S_ANC_MARK,
--	BPF_S_ANC_QUEUE,
--	BPF_S_ANC_HATYPE,
--	BPF_S_ANC_RXHASH,
--	BPF_S_ANC_CPU,
-+	BPF_S_DUMMY = 0,
-+#define BPF_INST(inst) inst,
-+#include "filter_inst.h"
-+#undef BPF_INST
- };
-
- #endif /* __KERNEL__ */
-diff --git a/include/linux/filter_inst.h b/include/linux/filter_inst.h
+diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
 new file mode 100644
-index 0000000..235a797
+index 0000000..271c454
 --- /dev/null
-+++ b/include/linux/filter_inst.h
-@@ -0,0 +1,57 @@
-+BPF_INST(BPF_S_RET_K)
-+BPF_INST(BPF_S_RET_A)
-+BPF_INST(BPF_S_ALU_ADD_K)
-+BPF_INST(BPF_S_ALU_ADD_X)
-+BPF_INST(BPF_S_ALU_SUB_K)
-+BPF_INST(BPF_S_ALU_SUB_X)
-+BPF_INST(BPF_S_ALU_MUL_K)
-+BPF_INST(BPF_S_ALU_MUL_X)
-+BPF_INST(BPF_S_ALU_DIV_X)
-+BPF_INST(BPF_S_ALU_AND_K)
-+BPF_INST(BPF_S_ALU_AND_X)
-+BPF_INST(BPF_S_ALU_OR_K)
-+BPF_INST(BPF_S_ALU_OR_X)
-+BPF_INST(BPF_S_ALU_LSH_K)
-+BPF_INST(BPF_S_ALU_LSH_X)
-+BPF_INST(BPF_S_ALU_RSH_K)
-+BPF_INST(BPF_S_ALU_RSH_X)
-+BPF_INST(BPF_S_ALU_NEG)
-+BPF_INST(BPF_S_LD_W_ABS)
-+BPF_INST(BPF_S_LD_H_ABS)
-+BPF_INST(BPF_S_LD_B_ABS)
-+BPF_INST(BPF_S_LD_W_LEN)
-+BPF_INST(BPF_S_LD_W_IND)
-+BPF_INST(BPF_S_LD_H_IND)
-+BPF_INST(BPF_S_LD_B_IND)
-+BPF_INST(BPF_S_LD_IMM)
-+BPF_INST(BPF_S_LDX_W_LEN)
-+BPF_INST(BPF_S_LDX_B_MSH)
-+BPF_INST(BPF_S_LDX_IMM)
-+BPF_INST(BPF_S_MISC_TAX)
-+BPF_INST(BPF_S_MISC_TXA)
-+BPF_INST(BPF_S_ALU_DIV_K)
-+BPF_INST(BPF_S_LD_MEM)
-+BPF_INST(BPF_S_LDX_MEM)
-+BPF_INST(BPF_S_ST)
-+BPF_INST(BPF_S_STX)
-+BPF_INST(BPF_S_JMP_JA)
-+BPF_INST(BPF_S_JMP_JEQ_K)
-+BPF_INST(BPF_S_JMP_JEQ_X)
-+BPF_INST(BPF_S_JMP_JGE_K)
-+BPF_INST(BPF_S_JMP_JGE_X)
-+BPF_INST(BPF_S_JMP_JGT_K)
-+BPF_INST(BPF_S_JMP_JGT_X)
-+BPF_INST(BPF_S_JMP_JSET_K)
-+BPF_INST(BPF_S_JMP_JSET_X)
++++ b/Documentation/devicetree/bindings/net/smsc911x.txt
+@@ -0,0 +1,38 @@
++* Smart Mixed-Signal Connectivity (SMSC) LAN911x/912x Controller
 +
-+/* Ancillary data */
-+BPF_INST(BPF_S_ANC_PROTOCOL)
-+BPF_INST(BPF_S_ANC_PKTTYPE)
-+BPF_INST(BPF_S_ANC_IFINDEX)
-+BPF_INST(BPF_S_ANC_NLATTR)
-+BPF_INST(BPF_S_ANC_NLATTR_NEST)
-+BPF_INST(BPF_S_ANC_MARK)
-+BPF_INST(BPF_S_ANC_QUEUE)
-+BPF_INST(BPF_S_ANC_HATYPE)
-+BPF_INST(BPF_S_ANC_RXHASH)
-+BPF_INST(BPF_S_ANC_CPU)
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 36f975f..e0c9d2c 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -119,245 +119,244 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
- 	u32 tmp;
- 	int k;
-
--	/*
--	 * Process array of filter instructions.
--	 */
--	for (;; fentry++) {
--#if defined(CONFIG_X86_32)
-+	static void *jump_table[] = {
-+		NULL,
-+#define BPF_INST(inst) &&inst,
-+#include <linux/filter_inst.h>
-+#undef BPF_INST
-+	};
++Required properties:
++- compatible : Should be "smsc,lan<model>", "smsc,lan9115"
++- reg : Address and length of the io space for SMSC LAN
++- interrupts : Should contain SMSC LAN interrupt line
++- interrupt-parent : Should be the phandle for the interrupt controller
++  that services interrupts for this device
++- phy-mode : String, operation mode of the PHY interface.
++  Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
++  "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi", "smii".
 +
- #define	K (fentry->k)
--#else
--		const u32 K = fentry->k;
--#endif
--
--		switch (fentry->code) {
--		case BPF_S_ALU_ADD_X:
--			A += X;
--			continue;
--		case BPF_S_ALU_ADD_K:
--			A += K;
--			continue;
--		case BPF_S_ALU_SUB_X:
--			A -= X;
--			continue;
--		case BPF_S_ALU_SUB_K:
--			A -= K;
--			continue;
--		case BPF_S_ALU_MUL_X:
--			A *= X;
--			continue;
--		case BPF_S_ALU_MUL_K:
--			A *= K;
--			continue;
--		case BPF_S_ALU_DIV_X:
--			if (X == 0)
--				return 0;
--			A /= X;
--			continue;
--		case BPF_S_ALU_DIV_K:
--			A = reciprocal_divide(A, K);
--			continue;
--		case BPF_S_ALU_AND_X:
--			A &= X;
--			continue;
--		case BPF_S_ALU_AND_K:
--			A &= K;
--			continue;
--		case BPF_S_ALU_OR_X:
--			A |= X;
--			continue;
--		case BPF_S_ALU_OR_K:
--			A |= K;
--			continue;
--		case BPF_S_ALU_LSH_X:
--			A <<= X;
--			continue;
--		case BPF_S_ALU_LSH_K:
--			A <<= K;
--			continue;
--		case BPF_S_ALU_RSH_X:
--			A >>= X;
--			continue;
--		case BPF_S_ALU_RSH_K:
--			A >>= K;
--			continue;
--		case BPF_S_ALU_NEG:
--			A = -A;
--			continue;
--		case BPF_S_JMP_JA:
--			fentry += K;
--			continue;
--		case BPF_S_JMP_JGT_K:
--			fentry += (A > K) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JGE_K:
--			fentry += (A >= K) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JEQ_K:
--			fentry += (A == K) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JSET_K:
--			fentry += (A & K) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JGT_X:
--			fentry += (A > X) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JGE_X:
--			fentry += (A >= X) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JEQ_X:
--			fentry += (A == X) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_JMP_JSET_X:
--			fentry += (A & X) ? fentry->jt : fentry->jf;
--			continue;
--		case BPF_S_LD_W_ABS:
--			k = K;
--load_w:
--			ptr = load_pointer(skb, k, 4, &tmp);
--			if (ptr != NULL) {
--				A = get_unaligned_be32(ptr);
--				continue;
--			}
-+#define NEXT goto *jump_table[(++fentry)->code]
++Optional properties:
++- reg-shift : Specify the quantity to shift the register offsets by
++- reg-io-width : Specify the size (in bytes) of the IO accesses that
++  should be performed on the device.  Valid value for SMSC LAN is
++  2 or 4.  If it's omitted or invalid, the size would be 2.
++- smsc,irq-active-high : Indicates the IRQ polarity is active-low
++- smsc,irq-push-pull : Indicates the IRQ type is push-pull
++- smsc,force-internal-phy : Forces SMSC LAN controller to use
++  internal PHY
++- smsc,force-external-phy : Forces SMSC LAN controller to use
++  external PHY
++- smsc,save-mac-address : Indicates that mac address needs to be saved
++  before resetting the controller
++- local-mac-address : 6 bytes, mac address
 +
-+	/* Dispatch the first instruction */
-+	goto *jump_table[fentry->code];
++Examples:
 +
-+ BPF_S_ALU_ADD_X:
-+	A += X;
-+	NEXT;
-+ BPF_S_ALU_ADD_K:
-+	A += K;
-+	NEXT;
-+ BPF_S_ALU_SUB_X:
-+	A -= X;
-+	NEXT;
-+ BPF_S_ALU_SUB_K:
-+	A -= K;
-+	NEXT;
-+ BPF_S_ALU_MUL_X:
-+	A *= X;
-+	NEXT;
-+ BPF_S_ALU_MUL_K:
-+	A *= K;
-+	NEXT;
-+ BPF_S_ALU_DIV_X:
-+	if (X == 0)
-+		return 0;
-+	A /= X;
-+	NEXT;
-+ BPF_S_ALU_DIV_K:
-+	A = reciprocal_divide(A, K);
-+	NEXT;
-+ BPF_S_ALU_AND_X:
-+	A &= X;
-+	NEXT;
-+ BPF_S_ALU_AND_K:
-+	A &= K;
-+	NEXT;
-+ BPF_S_ALU_OR_X:
-+	A |= X;
-+	NEXT;
-+ BPF_S_ALU_OR_K:
-+	A |= K;
-+	NEXT;
-+ BPF_S_ALU_LSH_X:
-+	A <<= X;
-+	NEXT;
-+ BPF_S_ALU_LSH_K:
-+	A <<= K;
-+	NEXT;
-+ BPF_S_ALU_RSH_X:
-+	A >>= X;
-+	NEXT;
-+ BPF_S_ALU_RSH_K:
-+	A >>= K;
-+	NEXT;
-+ BPF_S_ALU_NEG:
-+	A = -A;
-+	NEXT;
-+ BPF_S_JMP_JA:
-+	fentry += K;
-+	NEXT;
-+ BPF_S_JMP_JGT_K:
-+	fentry += (A > K) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JGE_K:
-+	fentry += (A >= K) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JEQ_K:
-+	fentry += (A == K) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JSET_K:
-+	fentry += (A & K) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JGT_X:
-+	fentry += (A > X) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JGE_X:
-+	fentry += (A >= X) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JEQ_X:
-+	fentry += (A == X) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_JMP_JSET_X:
-+	fentry += (A & X) ? fentry->jt : fentry->jf;
-+	NEXT;
-+ BPF_S_LD_W_ABS:
-+	k = K;
-+ load_w:
-+	ptr = load_pointer(skb, k, 4, &tmp);
-+	if (ptr != NULL) {
-+		A = get_unaligned_be32(ptr);
-+		NEXT;
-+	}
++lan9220@f4000000 {
++	compatible = "smsc,lan9220", "smsc,lan9115";
++	reg = <0xf4000000 0x2000000>;
++	phy-mode = "mii";
++	interrupt-parent = <&gpio1>;
++	interrupts = <31>;
++	reg-io-width = <4>;
++	smsc,irq-push-pull;
++};
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index b9016a3..75c08a5 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -53,6 +53,10 @@
+ #include <linux/phy.h>
+ #include <linux/smsc911x.h>
+ #include <linux/device.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_gpio.h>
++#include <linux/of_net.h>
+ #include "smsc911x.h"
+ 
+ #define SMSC_CHIPNAME		"smsc911x"
+@@ -2095,8 +2099,58 @@ static const struct smsc911x_ops shifted_smsc911x_ops = {
+ 	.tx_writefifo = smsc911x_tx_writefifo_shift,
+ };
+ 
++#ifdef CONFIG_OF
++static int __devinit smsc911x_probe_config_dt(
++				struct smsc911x_platform_config *config,
++				struct device_node *np)
++{
++	const char *mac;
++	u32 width = 0;
++
++	if (!np)
++		return -ENODEV;
++
++	config->phy_interface = of_get_phy_mode(np);
++
++	mac = of_get_mac_address(np);
++	if (mac)
++		memcpy(config->mac, mac, ETH_ALEN);
++
++	of_property_read_u32(np, "reg-shift", &config->shift);
++
++	of_property_read_u32(np, "reg-io-width", &width);
++	if (width == 4)
++		config->flags |= SMSC911X_USE_32BIT;
++
++	if (of_get_property(np, "smsc,irq-active-high", NULL))
++		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
++
++	if (of_get_property(np, "smsc,irq-push-pull", NULL))
++		config->irq_type = SMSC911X_IRQ_TYPE_PUSH_PULL;
++
++	if (of_get_property(np, "smsc,force-internal-phy", NULL))
++		config->flags |= SMSC911X_FORCE_INTERNAL_PHY;
++
++	if (of_get_property(np, "smsc,force-external-phy", NULL))
++		config->flags |= SMSC911X_FORCE_EXTERNAL_PHY;
++
++	if (of_get_property(np, "smsc,save-mac-address", NULL))
++		config->flags |= SMSC911X_SAVE_MAC_ADDRESS;
++
 +	return 0;
-+ BPF_S_LD_H_ABS:
-+	k = K;
-+ load_h:
-+	ptr = load_pointer(skb, k, 2, &tmp);
-+	if (ptr != NULL) {
-+		A = get_unaligned_be16(ptr);
-+		NEXT;
-+	}
-+	return 0;
-+ BPF_S_LD_B_ABS:
-+	k = K;
-+ load_b:
-+	ptr = load_pointer(skb, k, 1, &tmp);
-+	if (ptr != NULL) {
-+		A = *(u8 *)ptr;
-+		NEXT;
-+	}
-+	return 0;
-+ BPF_S_LD_W_LEN:
-+	A = skb->len;
-+	NEXT;
-+ BPF_S_LDX_W_LEN:
-+	X = skb->len;
-+	NEXT;
-+ BPF_S_LD_W_IND:
-+	k = X + K;
-+	goto load_w;
-+ BPF_S_LD_H_IND:
-+	k = X + K;
-+	goto load_h;
-+ BPF_S_LD_B_IND:
-+	k = X + K;
-+	goto load_b;
-+ BPF_S_LDX_B_MSH:
-+	ptr = load_pointer(skb, K, 1, &tmp);
-+	if (ptr != NULL) {
-+		X = (*(u8 *)ptr & 0xf) << 2;
-+		NEXT;
-+	}
-+	return 0;
-+ BPF_S_LD_IMM:
-+	A = K;
-+	NEXT;
-+ BPF_S_LDX_IMM:
-+	X = K;
-+	NEXT;
-+ BPF_S_LD_MEM:
-+	A = mem[K];
-+	NEXT;
-+ BPF_S_LDX_MEM:
-+	X = mem[K];
-+	NEXT;
-+ BPF_S_MISC_TAX:
-+	X = A;
-+	NEXT;
-+ BPF_S_MISC_TXA:
-+	A = X;
-+	NEXT;
-+ BPF_S_RET_K:
-+	return K;
-+ BPF_S_RET_A:
-+	return A;
-+ BPF_S_ST:
-+	mem[K] = A;
-+	NEXT;
-+ BPF_S_STX:
-+	mem[K] = X;
-+	NEXT;
-+ BPF_S_ANC_PROTOCOL:
-+	A = ntohs(skb->protocol);
-+	NEXT;
-+ BPF_S_ANC_PKTTYPE:
-+	A = skb->pkt_type;
-+	NEXT;
-+ BPF_S_ANC_IFINDEX:
-+	if (!skb->dev)
-+		return 0;
-+	A = skb->dev->ifindex;
-+	NEXT;
-+ BPF_S_ANC_MARK:
-+	A = skb->mark;
-+	NEXT;
-+ BPF_S_ANC_QUEUE:
-+	A = skb->queue_mapping;
-+	NEXT;
-+ BPF_S_ANC_HATYPE:
-+	if (!skb->dev)
-+		return 0;
-+	A = skb->dev->type;
-+	NEXT;
-+ BPF_S_ANC_RXHASH:
-+	A = skb->rxhash;
-+	NEXT;
-+ BPF_S_ANC_CPU:
-+	A = raw_smp_processor_id();
-+	NEXT;
-+ BPF_S_ANC_NLATTR:
-+	{
-+		struct nlattr *nla;
++}
++#else
++static inline int smsc911x_probe_config_dt(
++				struct smsc911x_platform_config *config,
++				struct device_node *np)
++{
++	return -ENODEV;
++}
++#endif /* CONFIG_OF */
 +
-+		if (skb_is_nonlinear(skb))
- 			return 0;
--		case BPF_S_LD_H_ABS:
--			k = K;
--load_h:
--			ptr = load_pointer(skb, k, 2, &tmp);
--			if (ptr != NULL) {
--				A = get_unaligned_be16(ptr);
--				continue;
--			}
-+		if (A > skb->len - sizeof(struct nlattr))
- 			return 0;
--		case BPF_S_LD_B_ABS:
--			k = K;
--load_b:
--			ptr = load_pointer(skb, k, 1, &tmp);
--			if (ptr != NULL) {
--				A = *(u8 *)ptr;
--				continue;
--			}
-+
-+		nla = nla_find((struct nlattr *)&skb->data[A],
-+			       skb->len - A, X);
-+		if (nla)
-+			A = (void *)nla - (void *)skb->data;
-+		else
-+			A = 0;
-+	}
-+	NEXT;
-+ BPF_S_ANC_NLATTR_NEST:
-+	{
-+		struct nlattr *nla;
-+
-+		if (skb_is_nonlinear(skb))
- 			return 0;
--		case BPF_S_LD_W_LEN:
--			A = skb->len;
--			continue;
--		case BPF_S_LDX_W_LEN:
--			X = skb->len;
--			continue;
--		case BPF_S_LD_W_IND:
--			k = X + K;
--			goto load_w;
--		case BPF_S_LD_H_IND:
--			k = X + K;
--			goto load_h;
--		case BPF_S_LD_B_IND:
--			k = X + K;
--			goto load_b;
--		case BPF_S_LDX_B_MSH:
--			ptr = load_pointer(skb, K, 1, &tmp);
--			if (ptr != NULL) {
--				X = (*(u8 *)ptr & 0xf) << 2;
--				continue;
--			}
-+		if (A > skb->len - sizeof(struct nlattr))
- 			return 0;
--		case BPF_S_LD_IMM:
--			A = K;
--			continue;
--		case BPF_S_LDX_IMM:
--			X = K;
--			continue;
--		case BPF_S_LD_MEM:
--			A = mem[K];
--			continue;
--		case BPF_S_LDX_MEM:
--			X = mem[K];
--			continue;
--		case BPF_S_MISC_TAX:
--			X = A;
--			continue;
--		case BPF_S_MISC_TXA:
--			A = X;
--			continue;
--		case BPF_S_RET_K:
--			return K;
--		case BPF_S_RET_A:
--			return A;
--		case BPF_S_ST:
--			mem[K] = A;
--			continue;
--		case BPF_S_STX:
--			mem[K] = X;
--			continue;
--		case BPF_S_ANC_PROTOCOL:
--			A = ntohs(skb->protocol);
--			continue;
--		case BPF_S_ANC_PKTTYPE:
--			A = skb->pkt_type;
--			continue;
--		case BPF_S_ANC_IFINDEX:
--			if (!skb->dev)
--				return 0;
--			A = skb->dev->ifindex;
--			continue;
--		case BPF_S_ANC_MARK:
--			A = skb->mark;
--			continue;
--		case BPF_S_ANC_QUEUE:
--			A = skb->queue_mapping;
--			continue;
--		case BPF_S_ANC_HATYPE:
--			if (!skb->dev)
--				return 0;
--			A = skb->dev->type;
--			continue;
--		case BPF_S_ANC_RXHASH:
--			A = skb->rxhash;
--			continue;
--		case BPF_S_ANC_CPU:
--			A = raw_smp_processor_id();
--			continue;
--		case BPF_S_ANC_NLATTR: {
--			struct nlattr *nla;
+ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ {
++	struct device_node *np = pdev->dev.of_node;
+ 	struct net_device *dev;
+ 	struct smsc911x_data *pdata;
+ 	struct smsc911x_platform_config *config = pdev->dev.platform_data;
+@@ -2107,13 +2161,6 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 
+ 	pr_info("Driver version %s\n", SMSC_DRV_VERSION);
+ 
+-	/* platform data specifies irq & dynamic bus configuration */
+-	if (!pdev->dev.platform_data) {
+-		pr_warn("platform_data not provided\n");
+-		retval = -ENODEV;
+-		goto out_0;
+-	}
 -
--			if (skb_is_nonlinear(skb))
--				return 0;
--			if (A > skb->len - sizeof(struct nlattr))
--				return 0;
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+ 					   "smsc911x-memory");
+ 	if (!res)
+@@ -2152,9 +2199,6 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
+ 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
+ 
+-	/* copy config parameters across to pdata */
+-	memcpy(&pdata->config, config, sizeof(pdata->config));
 -
--			nla = nla_find((struct nlattr *)&skb->data[A],
--				       skb->len - A, X);
--			if (nla)
--				A = (void *)nla - (void *)skb->data;
--			else
--				A = 0;
--			continue;
--		}
--		case BPF_S_ANC_NLATTR_NEST: {
--			struct nlattr *nla;
--
--			if (skb_is_nonlinear(skb))
--				return 0;
--			if (A > skb->len - sizeof(struct nlattr))
--				return 0;
--
--			nla = (struct nlattr *)&skb->data[A];
--			if (nla->nla_len > A - skb->len)
--				return 0;
--
--			nla = nla_find_nested(nla, X);
--			if (nla)
--				A = (void *)nla - (void *)skb->data;
--			else
--				A = 0;
--			continue;
--		}
--		default:
--			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
--				       fentry->code, fentry->jt,
--				       fentry->jf, fentry->k);
-+
-+		nla = (struct nlattr *)&skb->data[A];
-+		if (nla->nla_len > A - skb->len)
- 			return 0;
--		}
-+
-+		nla = nla_find_nested(nla, X);
-+		if (nla)
-+			A = (void *)nla - (void *)skb->data;
-+		else
-+			A = 0;
+ 	pdata->dev = dev;
+ 	pdata->msg_enable = ((1 << debug) - 1);
+ 
+@@ -2164,10 +2208,22 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 		goto out_free_netdev_2;
  	}
-+	NEXT;
-
-+#undef K
-+#undef NEXT
- 	return 0;
- }
- EXPORT_SYMBOL(sk_run_filter);
+ 
++	retval = smsc911x_probe_config_dt(&pdata->config, np);
++	if (retval && config) {
++		/* copy config parameters across to pdata */
++		memcpy(&pdata->config, config, sizeof(pdata->config));
++		retval = 0;
++	}
++
++	if (retval) {
++		SMSC_WARN(pdata, probe, "Error smsc911x config not found");
++		goto out_unmap_io_3;
++	}
++
+ 	/* assume standard, non-shifted, access to HW registers */
+ 	pdata->ops = &standard_smsc911x_ops;
+ 	/* apply the right access if shifting is needed */
+-	if (config->shift)
++	if (pdata->config.shift)
+ 		pdata->ops = &shifted_smsc911x_ops;
+ 
+ 	retval = smsc911x_init(dev);
+@@ -2314,6 +2370,12 @@ static const struct dev_pm_ops smsc911x_pm_ops = {
+ #define SMSC911X_PM_OPS NULL
+ #endif
+ 
++static const struct of_device_id smsc911x_dt_ids[] = {
++	{ .compatible = "smsc,lan9115", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, smsc911x_dt_ids);
++
+ static struct platform_driver smsc911x_driver = {
+ 	.probe = smsc911x_drv_probe,
+ 	.remove = __devexit_p(smsc911x_drv_remove),
+@@ -2321,6 +2383,7 @@ static struct platform_driver smsc911x_driver = {
+ 		.name	= SMSC_CHIPNAME,
+ 		.owner	= THIS_MODULE,
+ 		.pm	= SMSC911X_PM_OPS,
++		.of_match_table = smsc911x_dt_ids,
+ 	},
+ };
+ 
 -- 
-1.7.3.1
+1.7.4.1
