@@ -1,55 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
-Date: Fri, 29 Jul 2011 17:43:28 +0200
-Message-ID: <1311954208.2843.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1311950488.2843.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4E32C76B.5010700@hippy.csoma.elte.hu>
-	 <1311952306.2843.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110729.081902.300678107767426313.davem@davemloft.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] net/smsc911x: add device tree probe support
+Date: Fri, 29 Jul 2011 09:45:12 -0600
+Message-ID: <20110729154512.GB11164@ponder.secretlab.ca>
+References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+ <20110725213723.GI26735@ponder.secretlab.ca>
+ <20110726010154.GG21641@S2100-06.ap.freescale.net>
+ <alpine.LFD.2.00.1107252105561.12766@xanadu.home>
+ <20110726013026.GH21641@S2100-06.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: synapse@hippy.csoma.elte.hu, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Pitre <nicolas.pitre@linaro.org>, patches@linaro.org,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40705 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751693Ab1G2Pnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 11:43:32 -0400
-Received: by wwe5 with SMTP id 5so3701694wwe.1
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 08:43:31 -0700 (PDT)
-In-Reply-To: <20110729.081902.300678107767426313.davem@davemloft.net>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:59708 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751693Ab1G2PpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 11:45:15 -0400
+Received: by yxi11 with SMTP id 11so2305303yxi.19
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 08:45:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110726013026.GH21641@S2100-06.ap.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 29 juillet 2011 =C3=A0 08:19 -0700, David Miller a =C3=A9cr=
-it :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 29 Jul 2011 17:11:46 +0200
->=20
-> > Thats tricky, because I am not sure we dont need RCU protection sin=
-ce we
-> > can now exchange dst neighbour on the fly.
-> >=20
-> > Following patch would only reduce the window of bug, not a complete
-> > fix...
-> >=20
-> > David, any opinion on this ?
->=20
-> Indeed, old code worked because we invalidated entire route cache
-> entry, and we never before ran arp_bind_neighbour() except on new
-> route cache entires before they become globally visible.
->=20
-> I think when we change an existing neigh we will need to release old
-> neigh via RCU, at a minimum.
+On Tue, Jul 26, 2011 at 09:30:26AM +0800, Shawn Guo wrote:
+> On Mon, Jul 25, 2011 at 09:16:40PM -0400, Nicolas Pitre wrote:
+> > On Tue, 26 Jul 2011, Shawn Guo wrote:
+> > 
+> > > On Mon, Jul 25, 2011 at 03:37:23PM -0600, Grant Likely wrote:
+> > > > On Mon, Jul 25, 2011 at 05:44:00PM +0800, Shawn Guo wrote:
+> > > > > It adds device tree probe support for smsc911x driver.
+> > > > > 
+> > > > > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> > > > > Cc: Grant Likely <grant.likely@secretlab.ca>
+> > > > > Cc: Steve Glendinning <steve.glendinning@smsc.com>
+> > > > > Cc: David S. Miller <davem@davemloft.net>
+> > > > > ---
+> > > > >  Documentation/devicetree/bindings/net/smsc.txt |   34 +++++++
+> > > > >  drivers/net/smsc911x.c                         |  123 +++++++++++++++++++-----
+> > > > >  2 files changed, 132 insertions(+), 25 deletions(-)
+> > > > >  create mode 100644 Documentation/devicetree/bindings/net/smsc.txt
+> > > > > 
+> > > > > diff --git a/Documentation/devicetree/bindings/net/smsc.txt b/Documentation/devicetree/bindings/net/smsc.txt
+> > > > > new file mode 100644
+> > > > > index 0000000..1920695
+> > > > > --- /dev/null
+> > > > > +++ b/Documentation/devicetree/bindings/net/smsc.txt
+> > > > > @@ -0,0 +1,34 @@
+> > > > > +* Smart Mixed-Signal Connectivity (SMSC) LAN Controller
+> > > > > +
+> > > > > +Required properties:
+> > > > > +- compatible : Should be "smsc,lan<model>""smsc,lan"
+> > > > 
+> > > > Drop "smsc,lan".  That's far too generic.
+> > > > 
+> > > The following devices are supported by the driver.
+> > > 
+> > > LAN9115, LAN9116, LAN9117, LAN9118
+> > > LAN9215, LAN9216, LAN9217, LAN9218
+> > > LAN9210, LAN9211
+> > > LAN9220, LAN9221
+> > > 
+> > > If we only keep specific <model> as the compatible, we will have a
+> > > long match table which is actually used nowhere to distinguish the
+> > > device.
+> > > 
+> > > So we need some level generic compatible to save the meaningless
+> > > long match table.  What about: 
+> > > 
+> > > static const struct of_device_id smsc_dt_ids[] = {
+> > >         { .compatible = "smsc,lan9", },
+> > >         { /* sentinel */ }
+> > > };
+> > > 
+> > > Or:
+> > > 
+> > > static const struct of_device_id smsc_dt_ids[] = {
+> > >         { .compatible = "smsc,lan91", },
+> > >         { .compatible = "smsc,lan92", },
+> > >         { /* sentinel */ }
+> > > };
+> > 
+> > None of this unambiguously distinguish the devices supported by this 
+> > driver and the smc91x driver which supports LAN91C92, LAN91C94, 
+> > LAN91C95, LAN91C96, LAN91C100, LAN91C110.
+> > 
+> So you suggest to make a long list to explicitly tell the device type
+> that the driver supports?
 
+If newer devices are 100% backwards compatible with an older device,
+then the newer device doesn't need to appear in this list because the
+device node can claim compatibility.
 
-Oh well, we already use RCU in neigh_destroy(), so adding rcu would nee=
-d
-to change all dst_get_neighbour() callers to be in one rcu_read_lock()
-section.
+If it isn't backwards compatible, then you do need an entry in this
+list.
 
-I'll take a look, I suspect its mostly already done.
-
-
+g.
 
