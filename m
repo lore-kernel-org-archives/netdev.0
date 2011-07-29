@@ -1,78 +1,90 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] cfg80211: Update REG_DBG_PRINT macro and uses
-Date: Fri, 29 Jul 2011 14:51:25 -0700
-Message-ID: <01300ba58766070ab14137b8ba8a29fa78695a5c.1311976033.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH RFC net-next] virtio_net: refill buffer right after being
+ used
+Date: Fri, 29 Jul 2011 15:44:08 -0700
+Message-ID: <1311979448.24300.28.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:48367 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193Ab1G2WoQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 18:44:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Several uses were missing terminating newlines.
-Typo fix and macro neatening.
+To even the latency, refill buffer right after being used.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Sign-off-by: Shirley Ma <xma@us.ibm.com>
 ---
- net/wireless/reg.c |   16 +++++++---------
- 1 files changed, 7 insertions(+), 9 deletions(-)
 
-diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 1ad0f39..b22c324 100644
---- a/net/wireless/reg.c
-+++ b/net/wireless/reg.c
-@@ -49,10 +49,8 @@
- #include "nl80211.h"
- 
- #ifdef CONFIG_CFG80211_REG_DEBUG
--#define REG_DBG_PRINT(format, args...) \
--	do { \
--		printk(KERN_DEBUG pr_fmt(format), ##args);	\
--	} while (0)
-+#define REG_DBG_PRINT(format, args...)			\
-+	printk(KERN_DEBUG pr_fmt(format), ##args)
- #else
- #define REG_DBG_PRINT(args...)
- #endif
-@@ -890,7 +888,7 @@ static bool ignore_reg_update(struct wiphy *wiphy,
- 	    wiphy->flags & WIPHY_FLAG_CUSTOM_REGULATORY) {
- 		REG_DBG_PRINT("Ignoring regulatory request %s "
- 			      "since the driver uses its own custom "
--			      "regulatory domain ",
-+			      "regulatory domain\n",
- 			      reg_initiator_name(initiator));
- 		return true;
- 	}
-@@ -903,8 +901,8 @@ static bool ignore_reg_update(struct wiphy *wiphy,
- 	    initiator != NL80211_REGDOM_SET_BY_COUNTRY_IE &&
- 	    !is_world_regdom(last_request->alpha2)) {
- 		REG_DBG_PRINT("Ignoring regulatory request %s "
--			      "since the driver requires its own regulaotry "
--			      "domain to be set first",
-+			      "since the driver requires its own regulatory "
-+			      "domain to be set first\n",
- 			      reg_initiator_name(initiator));
- 		return true;
- 	}
-@@ -1473,7 +1471,7 @@ static void reg_process_pending_hints(void)
- 	/* When last_request->processed becomes true this will be rescheduled */
- 	if (last_request && !last_request->processed) {
- 		REG_DBG_PRINT("Pending regulatory request, waiting "
--			      "for it to be processed...");
-+			      "for it to be processed...\n");
- 		goto out;
- 	}
- 
-@@ -2186,7 +2184,7 @@ out:
- static void reg_timeout_work(struct work_struct *work)
- {
- 	REG_DBG_PRINT("Timeout while waiting for CRDA to reply, "
--		      "restoring regulatory settings");
-+		      "restoring regulatory settings\n");
- 	restore_regulatory_settings(true);
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 0c7321c..c8201d4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -429,6 +429,22 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
+ 	return err;
  }
  
--- 
-1.7.6.131.g99019
++static bool fill_one(struct virtio_net *vi, gfp_t gfp)
++{
++	int err;
++
++	if (vi->mergeable_rx_bufs)
++		err = add_recvbuf_mergeable(vi, gfp);
++	else if (vi->big_packets)
++		err = add_recvbuf_big(vi, gfp);
++	else
++		err = add_recvbuf_small(vi, gfp);
++
++	if (err >= 0)
++		++vi->num;
++	return err;
++}
++
+ /* Returns false if we couldn't fill entirely (OOM). */
+ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ {
+@@ -436,17 +452,10 @@ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ 	bool oom;
+ 
+ 	do {
+-		if (vi->mergeable_rx_bufs)
+-			err = add_recvbuf_mergeable(vi, gfp);
+-		else if (vi->big_packets)
+-			err = add_recvbuf_big(vi, gfp);
+-		else
+-			err = add_recvbuf_small(vi, gfp);
+-
++		err = fill_one(vi, gfp);
+ 		oom = err == -ENOMEM;
+ 		if (err < 0)
+ 			break;
+-		++vi->num;
+ 	} while (err > 0);
+ 	if (unlikely(vi->num > vi->max))
+ 		vi->max = vi->num;
+@@ -506,13 +515,13 @@ again:
+ 		receive_buf(vi->dev, buf, len);
+ 		--vi->num;
+ 		received++;
+-	}
+-
+-	if (vi->num < vi->max / 2) {
+-		if (!try_fill_recv(vi, GFP_ATOMIC))
++		if (fill_one(vi, GFP_ATOMIC) < 0)
+ 			schedule_delayed_work(&vi->refill, 0);
+ 	}
+ 
++	/* notify buffers are refilled */
++	virtqueue_kick(vi->rvq);
++
+ 	/* Out of packets? */
+ 	if (received < budget) {
+ 		napi_complete(napi);
+
+
