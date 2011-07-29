@@ -1,40 +1,48 @@
-From: Chris Clayton <chris2553@googlemail.com>
-Subject: Re: [PATCH] Fix cdc-phonet build
-Date: Fri, 29 Jul 2011 21:49:58 +0100
-Message-ID: <201107292149.58759.chris2553@googlemail.com>
-References: <201107262320.22338.chris2553@googlemail.com> <20110727.224117.389682636642939049.davem@davemloft.net>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: pull request: wireless-next-2.6 2011-07-27
+Date: Fri, 29 Jul 2011 23:20:41 +0200
+Message-ID: <CACna6rzSuTnTXidC-1EOMkddmU9pcSpisNQxrMWba8-4qL=BOA@mail.gmail.com>
+References: <20110727184920.GB16431@tuxdriver.com>
+	<20110727.222247.2000159983502866405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40916 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752598Ab1G2UuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 16:50:10 -0400
-Received: by wwe5 with SMTP id 5so3929809wwe.1
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 13:50:09 -0700 (PDT)
-In-Reply-To: <20110727.224117.389682636642939049.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:52651 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651Ab1G2VUm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 17:20:42 -0400
+In-Reply-To: <20110727.222247.2000159983502866405.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 28 July 2011 06:41:17 David Miller wrote:
-> From: Chris Clayton <chris2553@googlemail.com>
-> Date: Tue, 26 Jul 2011 23:20:22 +0100
+2011/7/28 David Miller <davem@davemloft.net>:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Wed, 27 Jul 2011 14:49:21 -0400
 >
-> > cdc-phonet does not presently build on linux-3.0 because there is no
-> > entry for it in drivers/net/Makefile. This patch adds that entry.
-> >
-> > Signed-off-by: Chris Clayton <chris2553@googlemail.com>
+>> Here is a handful of fixes intended for 3.1. =C2=A0This includes a
+>> user-visible typo fix, a fix for a user after free in the new pn533
+>> NFC driver, a cfg80211 fix for a possible NULL pointer dereference,
+>> a fix for an invalid memory access in b43, and another b43 fix for
+>> a memory corruption problem.
+>>
+>> On top of that b43 memory corruption fix, there is a patch to remove
+>> BROKEN from the B43_BCMA Kconfig entry, which is key to enabling
+>> support for some of the more modern Broadcom wireless hardware.
+>> I'm sure the Rafa=C5=82 (and a number of others) would love to see t=
+hat
+>> merged while the 3.1 merge window is still open as well.
+>>
+>> Please let me know if there are problems...
 >
-> Applied, thanks.
+> Yep, removing BROKEN from b43 seems reasonable.
+>
+> Pulled, thanks!
 
-Actually, I've just checked and the same problem exists in 2.6.39.3, so once the patch is Linus' 
-tree, I guess it should go in stable too. Do you have that in hand, David or should I send to 
-stable once the patch is applied to mainline?
+Thanks a lot John and David, hope to get some testers now :)
 
--- 
-The more I see, the more I know. The more I know, the less I understand. Changing Man - Paul Weller
+--=20
+Rafa=C5=82
