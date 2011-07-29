@@ -1,52 +1,62 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] net/smsc911x: add device tree probe support
-Date: Fri, 29 Jul 2011 10:26:29 -0600
-Message-ID: <20110729162629.GI11164@ponder.secretlab.ca>
-References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
- <20110725213723.GI26735@ponder.secretlab.ca>
- <20110726010154.GG21641@S2100-06.ap.freescale.net>
- <alpine.LFD.2.00.1107252105561.12766@xanadu.home>
- <20110726013026.GH21641@S2100-06.ap.freescale.net>
- <alpine.LFD.2.00.1107252222540.12766@xanadu.home>
- <20110729023626.GB1946@S2100-06.ap.freescale.net>
- <20110729154723.GC11164@ponder.secretlab.ca>
- <20110729160343.GA2241@S2100-06.ap.freescale.net>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: use better NUMA affinities
+Date: Fri, 29 Jul 2011 12:42:14 -0400
+Message-ID: <20110729164214.GI23194@fieldses.org>
+References: <1311876249.2346.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Pitre <nicolas.pitre@linaro.org>, patches@linaro.org,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:62737 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752228Ab1G2Q0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 12:26:32 -0400
-Received: by gyh3 with SMTP id 3so2639983gyh.19
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 09:26:32 -0700 (PDT)
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20110729160343.GA2241@S2100-06.ap.freescale.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1311876249.2346.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 30, 2011 at 12:03:44AM +0800, Shawn Guo wrote:
-> On Fri, Jul 29, 2011 at 09:47:23AM -0600, Grant Likely wrote:
-> > On Fri, Jul 29, 2011 at 10:36:26AM +0800, Shawn Guo wrote:
-> > > Since I do not get any suggestion here, I'm going to follow the driver
-> > > name to use '911' as the model number.  Please tell me if there is any
-> > > better one.
-> > 
-> > What is the manufacturer part name?  lan9111 or lan91c11?  The
-> > manufacturer's documented part number is almost always preferred.
-> > 
-> I just posted the v2 of the patch, and chose to use 'smsc,lan9115'
-> which is the first model supported in the driver.  This is the same
-> approach I used with i.mx device bindings.
+On Thu, Jul 28, 2011 at 08:04:09PM +0200, Eric Dumazet wrote:
+> Use NUMA aware allocations to reduce latencies and increase throughput.
+> 
+> sunrpc kthreads can use kthread_create_on_node() if pool_mode is
+> "percpu" or "pernode", and svc_prepare_thread()/svc_init_buffer() can
+> also take into account NUMA node affinity for memory allocations.
+...
+> @@ -662,14 +675,16 @@ svc_set_num_threads(struct svc_serv *serv, struct svc_pool *pool, int nrservs)
+>  		nrservs--;
+>  		chosen_pool = choose_pool(serv, pool, &state);
+>  
+> -		rqstp = svc_prepare_thread(serv, chosen_pool);
+> +		node = svc_pool_map_get_node(chosen_pool->sp_id);
+> +		rqstp = svc_prepare_thread(serv, chosen_pool, node);
 
-You haven't answered the question.
+The only correct value for the third argument there is
+svc_pool_map_get_node(chosen_pool->sp_id), so let's have
+svc_prepare_thread() call that itself.
 
-g.
+Seems OK otherwise.
 
+Any suggestions on how we should test this?
+
+--b.
+
+>  		if (IS_ERR(rqstp)) {
+>  			error = PTR_ERR(rqstp);
+>  			break;
+>  		}
+>  
+>  		__module_get(serv->sv_module);
+> -		task = kthread_create(serv->sv_function, rqstp, serv->sv_name);
+> +		task = kthread_create_on_node(serv->sv_function, rqstp,
+> +					      node, serv->sv_name);
+>  		if (IS_ERR(task)) {
+>  			error = PTR_ERR(task);
+>  			module_put(serv->sv_module);
+> 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
