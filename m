@@ -1,72 +1,73 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [RFC net-next PATCH 1/4] pci: Add flag indicating device has
- been assigned by KVM
-Date: Fri, 29 Jul 2011 09:51:41 -0700
-Message-ID: <20110729095141.472e8081@jbarnes-desktop>
-References: <20110727221406.8435.44324.stgit@gitlad.jf.intel.com>
-	<20110727221749.8435.19000.stgit@gitlad.jf.intel.com>
-	<1311865877.24408.144.camel@cthulhu.hellion.org.uk>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] sunrpc: use better NUMA affinities
+Date: Fri, 29 Jul 2011 12:53:45 -0400
+Message-ID: <20110729165345.GM23194@fieldses.org>
+References: <20110729153207.17af3085@notabene.brown>
+ <4E324DB4.7060600@fastmail.fm>
+ <1311921035.7845.10.camel@edumazet-laptop>
+ <4E3258E1.6020000@fastmail.fm>
+ <20110729103634.GA12050@infradead.org>
+ <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
+ <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
+ <20110729164836.GL23194@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg Rose <gregory.v.rose@intel.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
-	linux-pci@vger.kernel.org
-To: Ian Campbell <ijc@hellion.org.uk>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1311865877.24408.144.camel@cthulhu.hellion.org.uk>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	NeilBrown <neilb@suse.de>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Greg Banks <gnb@fastmail.fm>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110729164836.GL23194@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Jul 2011 16:11:17 +0100
-Ian Campbell <ijc@hellion.org.uk> wrote:
+On Fri, Jul 29, 2011 at 12:48:36PM -0400, bfields wrote:
+> On Fri, Jul 29, 2011 at 11:30:05PM +1000, Greg Banks wrote:
+> >=20
+> >=20
+> > Sent from my iPhone
+> >=20
+> > On 29/07/2011, at 22:11, Eric Dumazet <eric.dumazet@gmail.com> wrot=
+e:
+> >=20
+> > > Le vendredi 29 juillet 2011 =C3=A0 21:58 +1000, Greg Banks a =C3=A9=
+crit :
+> > >
+> > >>
+> > >> Sure, and a whole lot of the callsites are ("..._%d", cpu), henc=
+e the
+> > >> unfortune :(
+> > >
+> > > BTW, we could name nfsd threads differently :
+> > >
+> > > Currently, they all are named : "nfsd"
+> > >
+> > > If SVC_POOL_PERCPU is selected, we could name them :
+> > > nfsd_c0 -> nfsd_cN
+> > >
+> > > If SVC_POOL_PERNODE is selected, we could name them :
+> > > nfsd_n0  -> nfsd_nN
+> > >
+> > > That would help to check with "ps aux" which cpu/nodes are under =
+=20
+> > > stress.
+> > >
+> > >
+> >=20
+> > I like it!
+>=20
+> Yup, patch welcomed.--b.
 
-> On Wed, 2011-07-27 at 15:17 -0700, Greg Rose wrote:
-> > Device drivers that create and destroy SR-IOV virtual functions via
-> > calls to pci_enable_sriov() and pci_disable_sriov can cause catastrophic
-> > failures if they attempt to destroy VFs while they are assigned to
-> > guest virtual machines.  By adding a flag for use by the KVM module
-> > to indicate that a device is assigned a device driver can check that
-> > flag and avoid destroying VFs while they are assigned and avoid system
-> > failures.
-> > 
-> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > ---
-> > 
-> >  include/linux/pci.h     |    2 ++
-> 
-> I added Jesse and linux-pci to CC.
-> 
-> >  virt/kvm/assigned-dev.c |    2 ++
-> >  virt/kvm/iommu.c        |    4 ++++
-> >  3 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> I suppose this would also be useful in Xen's pciback or any other system
-> which does passthrough? (Konrad CC'd for pciback)
-> 
-> Is there some common lower layer we could hook this in to? (does
-> iommu_attach/detach_device make sense?) Or shall we just add the flag
-> manipulations to pciback as well?
-> 
-> Ian.
-> 
-> > 
-> > diff --git a/include/linux/pci.h b/include/linux/pci.h
-> > index 2d29218..a297ca2 100644
-> > --- a/include/linux/pci.h
-> > +++ b/include/linux/pci.h
-> > @@ -174,6 +174,8 @@ enum pci_dev_flags {
-> >  	PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG = (__force pci_dev_flags_t) 1,
-> >  	/* Device configuration is irrevocably lost if disabled into D3 */
-> >  	PCI_DEV_FLAGS_NO_D3 = (__force pci_dev_flags_t) 2,
-> > +	/* Provide indication device is assigned by KVM */
-> > +	PCI_DEV_FLAGS_ASSIGNED = (__force pci_dev_flags_t) 4,
-> >  };
+(Annoying fact: some initscripts stop nfsd using a rough equivalent of
+"killall nfsd".  So the name of the threads is arguably ABI.  I think
+those initscripts are nuts and deserve what they get, but that may be
+because I'm forgetting the reason they do that.)
 
-Looks fine, but I'd make the comment less redundant with the code, e.g.
-"set when the device is assigned to a guest instance" or somesuch.
-
--- 
-Jesse Barnes, Intel Open Source Technology Center
+--b.
