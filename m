@@ -1,90 +1,86 @@
-From: Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>
+From: Greg Banks <gnb@fastmail.fm>
 Subject: Re: [PATCH] sunrpc: use better NUMA affinities
-Date: Sat, 30 Jul 2011 06:34:44 +1000
-Message-ID: <F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
-References: <20110729153207.17af3085@notabene.brown> <4E324DB4.7060600@fastmail.fm> <1311921035.7845.10.camel@edumazet-laptop> <4E3258E1.6020000@fastmail.fm> <20110729103634.GA12050@infradead.org> <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm> <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm> <20110729164836.GL23194@fieldses.org> <20110729165345.GM23194@fieldses.org>
+Date: Sat, 30 Jul 2011 06:39:34 +1000
+Message-ID: <D2301275-8653-41CB-BADB-E927CF00BDB0@fastmail.fm>
+References: <1311876249.2346.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20110729164214.GI23194@fieldses.org> <1311962525.2873.6.camel@edumazet-laptop> <20110729180844.GA28947@fieldses.org>
 Mime-Version: 1.0 (iPhone Mail 7C144)
 Content-Type: text/plain; charset=utf-8;
 	format=flowed	delsp=yes
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110729165345.GM23194-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Neil Brown <neilb@suse.de>, David Miller <davem@davemloft.net>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"bmarson@redhat.com" <bmarson@redhat.com>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110729180844.GA28947@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
 Sent from my iPhone
 
-On 30/07/2011, at 2:53, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org> wrote:
+On 30/07/2011, at 4:08, "J. Bruce Fields" <bfields@fieldses.org> wrote:
 
-> On Fri, Jul 29, 2011 at 12:48:36PM -0400, bfields wrote:
->> On Fri, Jul 29, 2011 at 11:30:05PM +1000, Greg Banks wrote:
+> On Fri, Jul 29, 2011 at 08:02:05PM +0200, Eric Dumazet wrote:
+>> Le vendredi 29 juillet 2011 =C3=A0 12:42 -0400, J. Bruce Fields a =C3=
+=A9cri=20
+>> t :
+>>> On Thu, Jul 28, 2011 at 08:04:09PM +0200, Eric Dumazet wrote:
+>>>> Use NUMA aware allocations to reduce latencies and increase =20
+>>>> throughput.
+>>>>
+>>>> sunrpc kthreads can use kthread_create_on_node() if pool_mode is
+>>>> "percpu" or "pernode", and svc_prepare_thread()/svc_init_buffer() =
+=20
+>>>> can
+>>>> also take into account NUMA node affinity for memory allocations.
+>>> ...
+>>>> @@ -662,14 +675,16 @@ svc_set_num_threads(struct svc_serv *serv, =20
+>>>> struct svc_pool *pool, int nrservs)
+>>>>        nrservs--;
+>>>>        chosen_pool =3D choose_pool(serv, pool, &state);
+>>>>
+>>>> -        rqstp =3D svc_prepare_thread(serv, chosen_pool);
+>>>> +        node =3D svc_pool_map_get_node(chosen_pool->sp_id);
+>>>> +        rqstp =3D svc_prepare_thread(serv, chosen_pool, node);
 >>>
+>>> The only correct value for the third argument there is
+>>> svc_pool_map_get_node(chosen_pool->sp_id), so let's have
+>>> svc_prepare_thread() call that itself.
 >>>
->>> Sent from my iPhone
->>>
->>> On 29/07/2011, at 22:11, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =20
->>> wrote:
->>>
->>>> Le vendredi 29 juillet 2011 =C3=A0 21:58 +1000, Greg Banks a =C3=A9=
-crit :
->>>>
->>>>>
->>>>> Sure, and a whole lot of the callsites are ("..._%d", cpu), =20
->>>>> hence the
->>>>> unfortune :(
->>>>
->>>> BTW, we could name nfsd threads differently :
->>>>
->>>> Currently, they all are named : "nfsd"
->>>>
->>>> If SVC_POOL_PERCPU is selected, we could name them :
->>>> nfsd_c0 -> nfsd_cN
->>>>
->>>> If SVC_POOL_PERNODE is selected, we could name them :
->>>> nfsd_n0  -> nfsd_nN
->>>>
->>>> That would help to check with "ps aux" which cpu/nodes are under
->>>> stress.
->>>>
->>>>
->>>
->>> I like it!
 >>
->> Yup, patch welcomed.--b.
+>> I have no idea of what you mean ;)
+>>
+>> I need 'node' for the following kthread_create_on_node()
 >
-> (Annoying fact: some initscripts stop nfsd using a rough equivalent o=
-f
-> "killall nfsd".  So the name of the threads is arguably ABI.  I think
-> those initscripts are nuts and deserve what they get, but that may be
-> because I'm forgetting the reason they do that.)
+> Doh, of course--apologies.
+>
+>>> Seems OK otherwise.
+>>>
+>>> Any suggestions on how we should test this?
+>>
+>> I did tests on my machine, seems good.
+>>
+>> I checked that stacks were now correct using :
+>> "echo t > /proc/sysrq-trigger"
+>
+> I was wondering more about good tests of nfsd's performance on numa;
+> that might be more of a question for Greg.
 >
 
-We had this discussion in May-June 2008; it's because the nfsds were =20
-once  many many years ago userspace threads.
-
-The "killall nfsd" semantics in those scripts are awful and lead to =20
-problems shutting down when there are lots of threads. It would =20
-probably be an improvement to provide a better shutdown mechanism and =20
-force distros to use it.
-
-Or, you could preserve the effective semantics by having a single =20
-"nfsd" thread whose purpose is to notice that it's being signalled and =
-=20
-perform a clean shutdown (perhaps blocking the thread doing the kill() =
-=20
-call until the shutdown has completed).
+To really show a big difference you need a much bigger box, or slower =20
+NUMA interconnects than today's. You also want network cards locally =20
+attached to each node and a metadata heavy (i.e. high rpc call rate) =20
+load.
 
 Greg.--
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+the body of a message to majordomo@vger.kernel.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
