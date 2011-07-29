@@ -1,98 +1,115 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
-Date: Fri, 29 Jul 2011 15:33:41 +0200
-Message-ID: <1311946421.2843.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E32B33C.2020103@hippy.csoma.elte.hu>
+Subject: Re: [Bugme-new] [Bug 39372] New: Problems with HFSC Scheduler
+Date: Fri, 29 Jul 2011 16:00:52 +0200
+Message-ID: <1311948052.2843.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <bug-39372-10286@https.bugzilla.kernel.org/>
+	 <20110714151425.844b7738.akpm@linux-foundation.org>
+	 <4E32A796.8060104@ziu.info>
+	 <1311946060.2843.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: synapse <synapse@hippy.csoma.elte.hu>
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>, lucas.bocchi@gmail.com,
+	Patrick McHardy <kaber@trash.net>, 631945@bugs.debian.org,
+	00bormoj@gmail.com, fdelawarde@wirelessmundi.com
+To: Michal Soltys <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45550 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486Ab1G2Ndt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 09:33:49 -0400
-Received: by wyg8 with SMTP id 8so172588wyg.19
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 06:33:48 -0700 (PDT)
-In-Reply-To: <4E32B33C.2020103@hippy.csoma.elte.hu>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:35743 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753774Ab1G2OCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 10:02:06 -0400
+Received: by wwg11 with SMTP id 11so4965679wwg.1
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 07:02:04 -0700 (PDT)
+In-Reply-To: <1311946060.2843.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 29 juillet 2011 =C3=A0 15:18 +0200, synapse a =C3=A9crit :
-> Hello guys,
+Le vendredi 29 juillet 2011 =C3=A0 15:27 +0200, Eric Dumazet a =C3=A9cr=
+it :
+> Le vendredi 29 juillet 2011 =C3=A0 14:29 +0200, Michal Soltys a =C3=A9=
+crit :
+> > On 11-07-15 00:14, Andrew Morton wrote:
+> > >=20
+> > > (switched to email.  Please respond via emailed reply-to-all, not=
+ via
+> > > the bugzilla web interface).
+> > >=20
+> > >=20
+> > > Here: WARN_ON(next_time =3D=3D 0);
+> > >=20
+> >=20
+> > From the other thread on netfilter-devel:
+> >=20
+> > > On 11-07-22 11:58, Michal Pokrywka wrote: After bisecting 2.6.39.=
+1 it
+> > > turned out that the bug is caused independently by two patches:
+> > >=20
+> > > commit b262a5da755cc6ed0cb4fba230cd9bf4037e1096 sch_sfq: fix peek=
+()
+> > > implementation
+> > >=20
+> > > and
+> > >=20
+> > > commit 9df49f2bfe862573911a080c75a6d81113c5c81d sch_sfq: avoid gi=
+ving
+> > > spurious NET_XMIT_CN signals
+> > >=20
+> > > Reverting these patches makes HFSC work again.
+> > >=20
+> >=20
+> > This one (upstream 8efa885406359af300d46910642b50ca82c0fe47) seems =
+to be
+> > the culprit (does reverting only that one cures the problem ?)
+> >=20
+> > It allows SFQ to return success on enqueuing, when the packet reall=
+y
+> > replaced some other packet in some other flow. This confuses outer =
+qdisc
+> > (in this particular case HFSC) which thinks new packet was actually
+> > added each time such situation happes.
+> >=20
 >=20
-> I have a problem that I hope you can help me resolv. This is my first=
-=20
-> real bug report, so please be
-> patient :)
+> Technically speaking, _this_ packet was successfuly enqueued.
 >=20
-> ### Description:
-> 3.0.0-rc4 routinely locks up with BUG: unable to handle kernel NULL=20
-> pointer dereference at 000000000000002c
-> I have an intel sr2600 machine with a 10Gbit interface, it periodical=
-ly=20
-> locks up after a few days.
-> It serves a lot of traffic. The trace is at the end of the mail.
-> ###
+> Returning NET_XMIT_CN or NET_XMIT_SUCCESS should not trigger a bug in
+> caller.
 >=20
-> ### My efforts:
-> I've traced the error back from atomic_dec_and_test() to:
+> > This in turn causes additional dequeues and ends with attempt
+> > to schedule non-existent packets, and triggers the warning.
+> >=20
 >=20
-> ipv4_dst_check()
-> check_peer_redir()
-> neigh_release()
-> atomic_dec_and_test()
+> Then its probably a bug in HFSC : It doesnt understand SFQ lost a
+> packet.
 >=20
-> The parameter to atomic_dec_and_test() is NULL (&neigh->refcnt in=20
-> neigh_release), so atomic_dec_and_test()
-> at /arch/x86/include/asm/atomic.h dies at offset 0xffffffff8140f56f.
+> I'll take a look, thanks for the report.
 >=20
-> ffffffff8140f560:       48 8b 15 19 47 2f 00    mov   =20
-> 0x2f4719(%rip),%rdx        # 0xffffffff81703c80
-> ffffffff8140f567:       48 89 50 18             mov    %rdx,0x18(%rax=
+>=20
+
+Oh well, it seems one qdisc_tree_decrease_qlen(sch, 1) is missing
+
+Maybe following patch would help...
+
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 4536ee6..2a2d287 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -410,7 +410,12 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch=
 )
-> ffffffff8140f56b:       48 8b 7b 40             mov    0x40(%rbx),%rd=
-i
-> ffffffff8140f56f:       f0 ff 4f 2c             lock decl 0x2c(%rdi)
-> ffffffff8140f573:       0f 94 c0                sete   %al
-> ffffffff8140f576:       84 c0                   test   %al,%al
-> ffffffff8140f578:       0f 85 ab 00 00 00       jne    0xffffffff8140=
-f629
->=20
->  From what I've seen is that this code is responsible for pmtu relate=
-d=20
-> things. The refcount member of struct neighbour
-> is NULL and the neigh pointer (struct neighbour *) in neigh_release()=
- is=20
-> not. I have no clue how this might happen,
-> though I suspect somebody releases the data structure somehow. Note t=
-hat=20
-> this code is invoked when redirect_learned.a4
-> is set and is different from rt_gateway in ipv4_dst_check().
->=20
-> Is it possible that two packets go to two different cores for process=
-ing=20
-> and one core invalidates the rt entry
-> the other is currently working on (meaning the second will try to=20
-> dereference a NULL ptr)?
-> ###
->=20
->=20
-> This is just my clumsy attempt at tracking this down, I'm not a kerne=
-l=20
-> expert unfortunately. I'm happy to provide
-> further info on the matter. If I'm completely on the wrong track plea=
-se=20
-> let me know.
->=20
-> Thank you for any help,
-> Gergely Kalman
->=20
-
-This bug was probably already fixed.
-
-Please try current linux tree
-
+ 	/* Return Congestion Notification only if we dropped a packet
+ 	 * from this flow.
+ 	 */
+-	return (qlen !=3D slot->qlen) ? NET_XMIT_CN : NET_XMIT_SUCCESS;
++	if (qlen !=3D slot->qlen)
++		return NET_XMIT_CN;
++
++	/* as we dropped a packet, better let upper stack know this */
++	qdisc_tree_decrease_qlen(sch, 1);
++	return NET_XMIT_SUCCESS;
+ }
+=20
+ static struct sk_buff *
 
 
