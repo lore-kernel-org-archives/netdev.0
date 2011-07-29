@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] proc_fork_connector: a lockless ->real_parent
- usage is not safe
-Date: Thu, 28 Jul 2011 18:27:05 -0700 (PDT)
-Message-ID: <20110728.182705.1674417841277333408.davem@davemloft.net>
-References: <201107282054.p6SKsPtJ007979@imap1.linux-foundation.org>
+Subject: Re: [PATCH] xfrm: Fix key lengths for rfc3686(ctr(aes))
+Date: Thu, 28 Jul 2011 18:25:50 -0700 (PDT)
+Message-ID: <20110728.182550.32786681614701904.davem@davemloft.net>
+References: <alpine.LFD.1.10.1107281246381.11308@net-test1.az.mvista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oleg@redhat.com, johnpol@2ka.mipt.ru,
-	vzapolskiy@gmail.com, zbr@ioremap.net
-To: akpm@linux-foundation.org
+Cc: latten@austin.ibm.com, herbert@gondor.hengli.com.au,
+	netdev@vger.kernel.org
+To: tgohad@mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38122 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38133 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755384Ab1G2B1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 21:27:34 -0400
-In-Reply-To: <201107282054.p6SKsPtJ007979@imap1.linux-foundation.org>
+	with ESMTP id S1755647Ab1G2B16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2011 21:27:58 -0400
+In-Reply-To: <alpine.LFD.1.10.1107281246381.11308@net-test1.az.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: akpm@linux-foundation.org
-Date: Thu, 28 Jul 2011 13:54:25 -0700
+From: Tushar Gohad <tgohad@mvista.com>
+Date: Thu, 28 Jul 2011 13:36:20 -0700 (MST)
 
-> From: Oleg Nesterov <oleg@redhat.com>
 > 
-> proc_fork_connector() uses ->real_parent lockless.  This is not safe if
-> copy_process() was called with CLONE_THREAD or CLONE_PARENT, in this case
-> the parent != current can go away at any moment.
+> Fix the min and max bit lengths for AES-CTR (RFC3686) keys.
+> The number of bits in key spec is the key length (128/256)
+> plus 32 bits of nonce.
 > 
-> Signed-off-by: Oleg Nesterov <oleg@redhat.com>
-> Cc: Vladimir Zapolskiy <vzapolskiy@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Evgeniy Polyakov <zbr@ioremap.net>
-> Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> This change takes care of the "Invalid key length" errors
+> reported by setkey when specifying 288 bit keys for aes-ctr.
+> 
+> Signed-off-by: Tushar Gohad <tgohad@mvista.com>
 
-Applied.
+APplied.
