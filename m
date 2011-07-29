@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net/tun.c: test for CAP_NET_ADMIN before
- attaching
-Date: Fri, 29 Jul 2011 07:36:23 -0700 (PDT)
-Message-ID: <20110729.073623.544936174715744280.davem@davemloft.net>
-References: <20110729142808.GA25695@pintail.smokva.net>
+Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
+Date: Fri, 29 Jul 2011 07:39:10 -0700 (PDT)
+Message-ID: <20110729.073910.59762029845942660.davem@davemloft.net>
+References: <1311946421.2843.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<4E32C302.8050304@hippy.csoma.elte.hu>
+	<1311950184.2843.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: petar@smokva.net
+Cc: synapse@hippy.csoma.elte.hu, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60306 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60358 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751187Ab1G2Ogc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 10:36:32 -0400
-In-Reply-To: <20110729142808.GA25695@pintail.smokva.net>
+	with ESMTP id S1751145Ab1G2OjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2011 10:39:24 -0400
+In-Reply-To: <1311950184.2843.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petar Bogdanovic <petar@smokva.net>
-Date: Fri, 29 Jul 2011 16:28:08 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 29 Jul 2011 16:36:24 +0200
 
-> The following change will test for CAP_NET_ADMIN before attaching, even
-> if both tun->owner and tun->group equal -1.  The latter scenario can be
-> reproduced with ip(8) from iproute2, when using `ip tuntap' without the
-> `user' and `group' option.
+> Hmm, I'll take a look, but check_peer_redir() seems suspicious at first
+> glance.
 
-Please read linux/Documentation/SubmittingPatches, for example you
-need to provide a proper "Signed-off-by: " tag at the end of your
-commit message.
+I take full responsibility for any bugs you discover in it :-)
