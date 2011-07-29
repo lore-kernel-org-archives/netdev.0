@@ -1,122 +1,107 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: use better NUMA affinities
-Date: Fri, 29 Jul 2011 19:48:57 -0400
-Message-ID: <20110729234857.GA30941@fieldses.org>
-References: <1311921035.7845.10.camel@edumazet-laptop>
- <4E3258E1.6020000@fastmail.fm>
- <20110729103634.GA12050@infradead.org>
- <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
- <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
- <20110729164836.GL23194@fieldses.org>
- <20110729165345.GM23194@fieldses.org>
- <F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
- <20110730093025.716f3f50@notabene.brown>
+From: Mike Waychison <mikew@google.com>
+Subject: Re: [PATCH RFC net-next] virtio_net: refill buffer right after being used
+Date: Fri, 29 Jul 2011 16:58:04 -0700
+Message-ID: <CAGTjWtCsgcf664HJ_prmcRyUzLcSSKhjfbaM0KnsxhDJo6k7Fg@mail.gmail.com>
+References: <1311979448.24300.28.camel@localhost.localdomain> <1311980131.24300.30.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110730093025.716f3f50-wvvUuzkyo1EYVZTmpyfIwg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Rusty Russell <rusty@rustcorp.com.au>, mst@redhat.com,
+	kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1311980131.24300.30.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 30, 2011 at 09:30:25AM +1000, NeilBrown wrote:
-> On Sat, 30 Jul 2011 06:34:44 +1000 Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org> wrote=
+On Fri, Jul 29, 2011 at 3:55 PM, Shirley Ma <mashirle@us.ibm.com> wrote=
 :
->=20
-> >=20
-> >=20
-> > Sent from my iPhone
-> >=20
-> > On 30/07/2011, at 2:53, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org> wr=
-ote:
-> >=20
-> > > On Fri, Jul 29, 2011 at 12:48:36PM -0400, bfields wrote:
-> > >> On Fri, Jul 29, 2011 at 11:30:05PM +1000, Greg Banks wrote:
-> > >>>
-> > >>>
-> > >>> Sent from my iPhone
-> > >>>
-> > >>> On 29/07/2011, at 22:11, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =
-=20
-> > >>> wrote:
-> > >>>
-> > >>>> Le vendredi 29 juillet 2011 =C3=A0 21:58 +1000, Greg Banks a =C3=
-=A9crit :
-> > >>>>
-> > >>>>>
-> > >>>>> Sure, and a whole lot of the callsites are ("..._%d", cpu), =20
-> > >>>>> hence the
-> > >>>>> unfortune :(
-> > >>>>
-> > >>>> BTW, we could name nfsd threads differently :
-> > >>>>
-> > >>>> Currently, they all are named : "nfsd"
-> > >>>>
-> > >>>> If SVC_POOL_PERCPU is selected, we could name them :
-> > >>>> nfsd_c0 -> nfsd_cN
-> > >>>>
-> > >>>> If SVC_POOL_PERNODE is selected, we could name them :
-> > >>>> nfsd_n0  -> nfsd_nN
-> > >>>>
-> > >>>> That would help to check with "ps aux" which cpu/nodes are und=
-er
-> > >>>> stress.
-> > >>>>
-> > >>>>
-> > >>>
-> > >>> I like it!
-> > >>
-> > >> Yup, patch welcomed.--b.
-> > >
-> > > (Annoying fact: some initscripts stop nfsd using a rough equivale=
-nt of
-> > > "killall nfsd".  So the name of the threads is arguably ABI.  I t=
-hink
-> > > those initscripts are nuts and deserve what they get, but that ma=
-y be
-> > > because I'm forgetting the reason they do that.)
-> > >
-> >=20
-> > We had this discussion in May-June 2008; it's because the nfsds wer=
-e =20
-> > once  many many years ago userspace threads.
->=20
-> Even when they became kernel threads, 'kill' was the only way to kill=
- them -
-> at first.
->=20
-> >=20
-> > The "killall nfsd" semantics in those scripts are awful and lead to=
- =20
-> > problems shutting down when there are lots of threads. It would =20
-> > probably be an improvement to provide a better shutdown mechanism a=
-nd =20
-> > force distros to use it.
->=20
-> rpc.nfsd 0
->=20
-> will stop all nfsd threads.  Follow with
->=20
->   exportfs -f
->=20
-> and you should be done.  I'm not 100% sure about the nfsv4 thread tho=
-ugh -
-> would need to check.
+> Resubmit it with a typo fix.
+>
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> ---
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 0c7321c..c8201d4 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -429,6 +429,22 @@ static int add_recvbuf_mergeable(struct virtnet_=
+info *vi, gfp_t gfp)
+> =A0 =A0 =A0 =A0return err;
+> =A0}
+>
+> +static int fill_one(struct virtnet_info *vi, gfp_t gfp)
+> +{
+> + =A0 =A0 =A0 int err;
+> +
+> + =A0 =A0 =A0 if (vi->mergeable_rx_bufs)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D add_recvbuf_mergeable(vi, gfp);
+> + =A0 =A0 =A0 else if (vi->big_packets)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D add_recvbuf_big(vi, gfp);
+> + =A0 =A0 =A0 else
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D add_recvbuf_small(vi, gfp);
+> +
+> + =A0 =A0 =A0 if (err >=3D 0)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ++vi->num;
+> + =A0 =A0 =A0 return err;
+> +}
+> +
+> =A0/* Returns false if we couldn't fill entirely (OOM). */
+> =A0static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+> =A0{
+> @@ -436,17 +452,10 @@ static bool try_fill_recv(struct virtnet_info *=
+vi, gfp_t gfp)
+> =A0 =A0 =A0 =A0bool oom;
+>
+> =A0 =A0 =A0 =A0do {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (vi->mergeable_rx_bufs)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D add_recvbuf_mer=
+geable(vi, gfp);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else if (vi->big_packets)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D add_recvbuf_big=
+(vi, gfp);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D add_recvbuf_sma=
+ll(vi, gfp);
+> -
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D fill_one(vi, gfp);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0oom =3D err =3D=3D -ENOMEM;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (err < 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 ++vi->num;
+> =A0 =A0 =A0 =A0} while (err > 0);
+> =A0 =A0 =A0 =A0if (unlikely(vi->num > vi->max))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0vi->max =3D vi->num;
+> @@ -506,13 +515,13 @@ again:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0receive_buf(vi->dev, buf, len);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0--vi->num;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0received++;
+> - =A0 =A0 =A0 }
+> -
+> - =A0 =A0 =A0 if (vi->num < vi->max / 2) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!try_fill_recv(vi, GFP_ATOMIC))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (fill_one(vi, GFP_ATOMIC) < 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0schedule_delayed_work(=
+&vi->refill, 0);
+> =A0 =A0 =A0 =A0}
+>
+> + =A0 =A0 =A0 /* notify buffers are refilled */
+> + =A0 =A0 =A0 virtqueue_kick(vi->rvq);
+> +
 
-Should be fine.
+How does this reduce latency?   We are doing the same amount of work
+in both cases, and in both cases the newly available buffers are not
+visible to the device until the virtqueue_kick..
 
---b.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> =A0 =A0 =A0 =A0/* Out of packets? */
+> =A0 =A0 =A0 =A0if (received < budget) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0napi_complete(napi);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
