@@ -1,117 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IP forwarding regression since 3.0-rc6
-Date: Fri, 29 Jul 2011 09:33:29 +0200
-Message-ID: <1311924809.7845.29.camel@edumazet-laptop>
-References: <20110725T141145.GA.2ae38.stse@fsing.rootsland.net>
-	 <201107281546.33227.maciej.rutecki@gmail.com>
-	 <20110729T091342.GA.06bf4.stse@fsing.rootsland.net>
+From: Andreas Steffen <andreas.steffen@strongswan.org>
+Subject: Re: Kernel IPSec Questions
+Date: Fri, 29 Jul 2011 09:03:52 +0200
+Message-ID: <4E325B58.6030202@strongswan.org>
+References: <CAL0-=Wwb+T_VYgMnOW9UiqQ2gVe8FaJCZgcFmHMLX1Yv3tVAdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Stephan Seitz <stse+lkml@fsing.rootsland.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110729T091342.GA.06bf4.stse@fsing.rootsland.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: T C <tccheung1@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sitav-80024.hsr.ch ([152.96.80.24]:58459 "EHLO strongswan.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755379Ab1G2H7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2011 03:59:19 -0400
+In-Reply-To: <CAL0-=Wwb+T_VYgMnOW9UiqQ2gVe8FaJCZgcFmHMLX1Yv3tVAdQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 29 juillet 2011 =C3=A0 09:15 +0200, Stephan Seitz a =C3=A9c=
-rit :
-> On Thu, Jul 28, 2011 at 03:46:33PM +0200, Maciej Rutecki wrote:
-> >I created a Bugzilla entry at
-> >https://bugzilla.kernel.org/show_bug.cgi?id=3D40282
-> >for your bug report, please add your address to the CC list in there=
-, thanks!
->=20
-> Thank you for creating a bug report for me. I have added my address t=
-o=20
-> the CC list.
->=20
+Hello Terry,
 
-CC netdev
+here a repost of my email including the netdev list and fixing
+the last URL which was wrong.
 
-I suspect your configuration is too complex, and maybe the only way to
-track the bug is to perform a git bisection.
+Here the definition of strongSwan's IPsec high level kernel interface
 
-Your initial message was :
+http://git.strongswan.org/?p=strongswan.git;a=blob;f=src/libhydra/kernel/kernel_ipsec.h;h=986e21fca1bbd109445e95d86dbf458095299573;hb=HEAD
 
-Since 3.0-rc6 I see that my Linux router is losing packets. I can see=20
-them tracing the internal interface, but I don=E2=80=99t see them on th=
-e external=20
-interface. I can reproduce the problem while using tin with=20
-news.individual.de. At the startup when tin checks every newsgroup from=
-=20
-the server, many packets are suddenly not routed anymore but are droppe=
-d,=20
-so tin hangs until it quits with a NNTP error.
-All kernels until 3.0-rc5 are working.
+and here the link to the kernel-netlink plugin which implements
+configuration and management of IPsec Policies and SAs via XFRM
 
-Hardware:
-- 2x Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit=20
-   Ethernet controller
+http://git.strongswan.org/?p=strongswan.git;a=blob;f=src/libhydra/plugins/kernel_netlink/kernel_netlink_ipsec.c;h=06720a0f4bddf9fde60288f796df0eca647ae995;hb=HEAD
 
-Sofware:
-- Debian Testing, 64bit, with Xen 4.1.0
+Our plugin of course relies on the ipsec.h, netlink.h, rtnetlink.h,
+and xfrm.h Linux header files which define the API of the XFRM Netlink
+kernel interface
 
-System:
-Dom0 (Debian Testing, 64bit) is my working system. The two NICs have ea=
-ch=20
-their own bridge interface. One bridge interface (A) has an internal IP=
-=20
-address (IPv4 and IPv6) of my internal network. The other bridge (B)=20
-doesn=E2=80=99t have a IP address in Dom0. The DomU is connected to the=
- two=20
-bridges.
-DomU (Debian Testing, 64bit) is my iptables firewall system with Bind,=20
-Squid, and other services. The interface connected to bridge A has an=20
-internal IP addresses (gateway for my internal network). The interface=20
-connected to bridge B is used for PPPoE (the NIC is directly connected =
-to=20
-my DSL modem).
+http://git.strongswan.org/?p=strongswan.git;a=tree;f=src/include/linux;h=a41d3e9a10954c47aff2efeb06576f323c039483;hb=HEAD
 
-Kernels:
-Dom0 has had all kernel versions from 3.0-rcX and is running 3.0 at the=
-=20
-moment.
-DomU has had the same kernel versions but is running 3.0-rc5 at the=20
-moment because of the network problems in newer kernels.
+Much more documentation than the Linux header files and the XFRM kernel
+source code itself does not exist.
 
-Long problem description:
- From Dom0 I use tin to read different newsserver. One of them is=20
-news.individual.de. The first time after DomU switched kernel to -rc6=20
-I started tin (connecting to the mentioned news server) and tin hung=20
-while reading groups from the newsrc and stopped with a NNTP connection=
-=20
-error.
-Since the problem didn=E2=80=99t vanish, I wrote a mail to the support =
-team of=20
-the news server. They told me that I was the only one with a connection=
-=20
-problem and asked me to try the connection from another client. I tried=
-=20
-it from my vServer, and it worked. So the problem had to be in my setup=
-=2E
+Finally a link which shows how strongSwan installs, updates, queries
+and deletes IPsec Policies and SAs
 
-I traced in Dom0 (bridge A), DomU (bridge A) und DomU (ppp0) and notice=
-d=20
-that all packets generated in Dom0 were visible in DomU bridge A. But n=
-ot=20
-all of the packets were visisble at the ppp0 interface. So my DomU was=20
-dropping packets and the connection between tin in Dom0 and the news=20
-server failed.
+http://git.strongswan.org/?p=strongswan.git;a=blob;f=src/libcharon/sa/child_sa.c;h=cda150f8736d010cf8d897071427daf8a02a337a;hb=HEAD
 
-So I tried older kernels and noticed that 3.0-rc5 in DomU was working,=20
-but rc6 and newer were not. The kernel configuration was the same for a=
-ll=20
-3.0 kernels.
+Just look for all "hydra->kernel_interface" function calls.
 
-Since I don=E2=80=99t know which maintainer I should contact with my pr=
-oblem,=20
-I=E2=80=99ll write directly to lkml.
+Best regards
 
-Thanks for your help.
+Andreas
 
-Shade and sweet water!
+On 07/29/2011 07:40 AM, T C wrote:
+> Hi all,
+> 
+> I have some questions on how IPSec logic works in the kernel.  There might be
+> a difference between when XFRM was introduced and prior.  If possible,
+> I like to know both scenarios.  If not, at least from XFRM perspective would
+> be very helpful.
+> 
+> Specifically, I am interested in knowing how does IPSec obtain the initial keys
+> from IKE exchange (and likely from XFRM) to set up the SA.   Also what happens
+> during rekeying?  Does the SA have to be terminated first, or somehow it can be
+> rekey'ed and continue as the same SA?  I'll be using strongswan for IKE.
+> 
+> Function names and if possible some flow graphs would be greatly appreciated.
+> 
+> Thanks,
+> Terry
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-        Stephan
+
+-- 
+======================================================================
+Andreas Steffen                         andreas.steffen@strongswan.org
+strongSwan - the Linux VPN Solution!                www.strongswan.org
+Institute for Internet Technologies and Applications
+University of Applied Sciences Rapperswil
+CH-8640 Rapperswil (Switzerland)
+===========================================================[ITA-HSR]==
