@@ -1,66 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: xt_rateest: fix xt_rateest_mt_checkentry()
-Date: Fri, 29 Jul 2011 05:51:02 +0200
-Message-ID: <1311911462.7845.5.camel@edumazet-laptop>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: RE: "mlx4_en: Enabling new steering" brokenness
+Date: Fri, 29 Jul 2011 04:34:48 +0000
+Message-ID: <953B660C027164448AE903364AC447D21399BC2F@MTLDAG01.mtl.com>
+References: <1311887099-14339-1-git-send-email-roland@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Jan Engelhardt <jengelh@medozas.de>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1311887099-14339-1-git-send-email-roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-commit 4a5a5c73b7cfee (slightly better error reporting) added some
-useless code in xt_rateest_mt_checkentry().
+Hello Roland,
 
-Fix this so that different error codes can really be returned.
+I'll check this ASAP.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jan Engelhardt <jengelh@medozas.de>
----
- net/netfilter/xt_rateest.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+Thanks,
+Yevgeny
 
-diff --git a/net/netfilter/xt_rateest.c b/net/netfilter/xt_rateest.c
-index 76a0831..ed0db15 100644
---- a/net/netfilter/xt_rateest.c
-+++ b/net/netfilter/xt_rateest.c
-@@ -78,7 +78,7 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
- {
- 	struct xt_rateest_match_info *info = par->matchinfo;
- 	struct xt_rateest *est1, *est2;
--	int ret = false;
-+	int ret = -EINVAL;
- 
- 	if (hweight32(info->flags & (XT_RATEEST_MATCH_ABS |
- 				     XT_RATEEST_MATCH_REL)) != 1)
-@@ -101,13 +101,12 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
- 	if (!est1)
- 		goto err1;
- 
-+	est2 = NULL;
- 	if (info->flags & XT_RATEEST_MATCH_REL) {
- 		est2 = xt_rateest_lookup(info->name2);
- 		if (!est2)
- 			goto err2;
--	} else
--		est2 = NULL;
--
-+	}
- 
- 	info->est1 = est1;
- 	info->est2 = est2;
-@@ -116,7 +115,7 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
- err2:
- 	xt_rateest_put(est1);
- err1:
--	return -EINVAL;
-+	return ret;
- }
- 
- static void xt_rateest_mt_destroy(const struct xt_mtdtor_param *par)
-
-
+> -----Original Message-----
+> From: Roland Dreier [mailto:roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org] On Behalf Of Roland
+> Dreier
+> Sent: Friday, July 29, 2011 12:05 AM
+> To: Yevgeny Petrilin
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: "mlx4_en: Enabling new steering" brokenness
+> 
+> Hi Yevgeny!
+> 
+> So I have a system with an mlx4_en device with pretty old FW (version
+> 2.7.700), old enough that the firmware doesn't have the capability
+> MLX4_DEV_CAP_FLAG_VEP_UC_STEER set.  And it looks like mlx4_en is
+> completely broken in this case, at least since your commit
+> 1679200f91da ("mlx4_en: Enabling new steering").  If I try to bring up
+> the interface, I just see:
+> 
+>     mlx4_en: eth1: Failed to allocate RSS indirection QP
+> 
+> And this is failing because the QPN in 0.
+> 
+> The problem is in drivers/net/mlx4/port.c:mlx4_register_mac():
+> 
+> 	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
+> 		*qpn = info->base_qpn + free;
+> 
+> but absolutely nothing ever initializes info->base_qpn.  It looks like
+> the intention of the code is to initialize this in
+> mlx4_init_port_info(); however even the below hack doesn't seem to fix
+> things completely -- I still seem to have problems on the RX side
+> unless I enable promiscuous mode by running tcpdump:
+> 
+> diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+> index c94b342..38092c7 100644
+> --- a/drivers/net/mlx4/main.c
+> +++ b/drivers/net/mlx4/main.c
+> @@ -1125,6 +1125,13 @@ static int mlx4_init_port_info(struct mlx4_dev
+> *dev, int port)
+>  	info->port_attr.store     = set_port_type;
+>  	sysfs_attr_init(&info->port_attr.attr);
+> 
+> +	err = mlx4_qp_reserve_range(dev, 1, 1, &info->base_qpn);
+> +	if (err) {
+> +		mlx4_err(dev, "Failed to reserve QP range for port %d\n",
+> port);
+> +		info->port = -1;
+> +		return err;
+> +	}
+> +
+>  	err = device_create_file(&dev->pdev->dev, &info->port_attr);
+>  	if (err) {
+>  		mlx4_err(dev, "Failed to create file for port %d\n", port);
+> 
+> Could you take a look at getting this working?  (Or update the driver
+> so it immediately fails with an informative message if you want to
+> rely on certain FW versions; and then strip out the old broken
+> compatibility code)
+> 
+> Thanks!
+>   Roland
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
