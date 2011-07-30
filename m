@@ -1,81 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 39372] New: Problems with HFSC Scheduler
-Date: Sat, 30 Jul 2011 07:22:42 +0200
-Message-ID: <1312003362.2873.54.camel@edumazet-laptop>
-References: <bug-39372-10286@https.bugzilla.kernel.org/>
-	 <20110714151425.844b7738.akpm@linux-foundation.org>
-	 <4E32A796.8060104@ziu.info>
-	 <1311946060.2843.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1311948052.2843.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4E32BF87.6010909@trash.net>
+From: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: use better NUMA affinities
+Date: Sat, 30 Jul 2011 16:06:10 +1000
+Message-ID: <20110730160610.0b751ffd@notabene.brown>
+References: <1311921035.7845.10.camel@edumazet-laptop>
+	<4E3258E1.6020000@fastmail.fm>
+	<20110729103634.GA12050@infradead.org>
+	<5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
+	<1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
+	<20110729164836.GL23194@fieldses.org>
+	<20110729165345.GM23194@fieldses.org>
+	<F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
+	<20110730093025.716f3f50@notabene.brown>
+	<20110729234857.GA30941@fieldses.org>
+	<1311998914.2873.27.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Soltys <soltys@ziu.info>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>, lucas.bocchi@gmail.com,
-	631945@bugs.debian.org, 00bormoj@gmail.com,
-	fdelawarde@wirelessmundi.com
-To: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62233 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937Ab1G3FWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2011 01:22:47 -0400
-Received: by wwe5 with SMTP id 5so4131995wwe.1
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2011 22:22:46 -0700 (PDT)
-In-Reply-To: <4E32BF87.6010909@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1311998914.2873.27.camel@edumazet-laptop>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 29 juillet 2011 =C3=A0 16:11 +0200, Patrick McHardy a =C3=A9=
-crit :
+On Sat, 30 Jul 2011 06:08:34 +0200 Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org=
+>
+wrote:
 
-> Yeah, that seems to be the correct fix, thanks for looking into this.
+> Le vendredi 29 juillet 2011 =E0 19:48 -0400, J. Bruce Fields a =E9cri=
+t :
+> > On Sat, Jul 30, 2011 at 09:30:25AM +1000, NeilBrown wrote:
+> > >=20
+> > > rpc.nfsd 0
+> > >=20
+> > > will stop all nfsd threads.  Follow with
+> > >=20
+> > >   exportfs -f
+> > >=20
+> > > and you should be done.  I'm not 100% sure about the nfsv4 thread=
+ though -
+> > > would need to check.
+> >=20
+> > Should be fine.
+> >=20
+>=20
+> What are the needed steps to be able to unload nfsd module ?
+>=20
+> So far, I am unable to perform this without using -f option.
+>=20
+>=20
+>=20
+>=20
 
-Thanks Patrick, here is the official patch submission then ;)
+Kill all nfsd threads.
+   This can be done with 'kill' or 'rpc.nfsd 0' or
+     echo 0 > /proc/fs/nfsd/threads
 
-[PATCH] sch_sfq: fix sfq_enqueue()
+kill mountd
+   killall rpc.mountd
 
-commit 8efa88540635 (sch_sfq: avoid giving spurious NET_XMIT_CN signals=
-)
-forgot to call qdisc_tree_decrease_qlen() to signal upper levels that a
-packet (from another flow) was dropped, leading to various problems.=20
+kill idmapd
 
-With help from Michal Soltys and Michal Pokrywka, who did a bisection.
+unexport everything.
+   This can be done with 'exportfs -f' and checked by
+    grep . /proc/net/rpc/*/content
+   this should only contain comments
 
-Bugzilla ref: https://bugzilla.kernel.org/show_bug.cgi?id=3D39372
-Debian ref: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=3D631945
+unmount the 'nfsd' filesystem
+   umount /proc/fs/nfsd
 
-Reported-by: Lucas Bocchi <lucas.bocchi@gmail.com>
-Reported-and-bisected-by: Michal Pokrywka <wolfmoon@o2.pl>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Michal Soltys <soltys@ziu.info>
-Acked-by: Patrick McHardy <kaber@trash.net>
----
- net/sched/sch_sfq.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 4536ee6..2a2d287 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -410,7 +410,12 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch=
-)
- 	/* Return Congestion Notification only if we dropped a packet
- 	 * from this flow.
- 	 */
--	return (qlen !=3D slot->qlen) ? NET_XMIT_CN : NET_XMIT_SUCCESS;
-+	if (qlen !=3D slot->qlen)
-+		return NET_XMIT_CN;
-+
-+	/* As we dropped a packet, better let upper stack know this */
-+	qdisc_tree_decrease_qlen(sch, 1);
-+	return NET_XMIT_SUCCESS;
- }
-=20
- static struct sk_buff *
+rmmod nfsd
 
 
+(it look me ages to remember idmapd - but=20
+   lsof /proc/net/rpc/*/*
+ gave it away)
+
+NeilBrown
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
