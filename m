@@ -1,37 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sunrpc: use better NUMA affinities
-Date: Sat, 30 Jul 2011 08:23:10 +0200
-Message-ID: <1312006990.2873.75.camel@edumazet-laptop>
-References: <1311921035.7845.10.camel@edumazet-laptop>
-	 <4E3258E1.6020000@fastmail.fm> <20110729103634.GA12050@infradead.org>
-	 <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
-	 <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
-	 <20110729164836.GL23194@fieldses.org> <20110729165345.GM23194@fieldses.org>
-	 <F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
-	 <20110730093025.716f3f50@notabene.brown>
-	 <20110729234857.GA30941@fieldses.org>
-	 <1311998914.2873.27.camel@edumazet-laptop>
-	 <20110730160610.0b751ffd@notabene.brown>
+From: "jiangtao.jit" <jiangtao.jit@gmail.com>
+Subject: Re: special handling before ndo_start_xmit() been invoked
+Date: Sat, 30 Jul 2011 16:24:59 +0800
+Message-ID: <201107301624568756898@gmail.com>
+References: <201107271848349537853@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Greg Banks <gnb@fastmail.fm>,
-	Christoph Hellwig <hch@infradead.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: NeilBrown <neilb@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110730160610.0b751ffd@notabene.brown>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "Jiri Pirko" <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:50143 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751187Ab1G3IZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2011 04:25:34 -0400
+Received: by iyb12 with SMTP id 12so4872426iyb.19
+        for <netdev@vger.kernel.org>; Sat, 30 Jul 2011 01:25:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 30 juillet 2011 =C3=A0 16:06 +1000, NeilBrown a =C3=A9crit :
-> umount /proc/fs/nfsd
->=20
->=20
+SmlyaToNCg0KMS4gZG8gc29tZSBmaWx0ZXIgcnVsZXMgaW1wbGVtZW50ZWQgaW4gYW4gZXh0ZXJu
+bCBtb2R1bGUNCiAgICB3aXRob3V0IE5GX0hPT0sgb24gYSBicmlkZ2UNCjIuIG91dHB1dCBza2Ig
+dGhyb3VnaCBOSUMgYW5kIHZpcnR1YWwgbmV0X2RldmljZXMNCjMuIG1pcnJvciBhIHBvcnQNCg0K
+YW5kIHNvIG9uLg0KDQoNCg0KMjAxMS0wNy0zMCANCmppYW5ndGFvLmppdCANCg0KDQoNCreivP7I
+y6O6IEppcmkgUGlya28gDQq3osvNyrG85KO6IDIwMTEtMDctMjkgIDAzOjM4OjAzIA0KytW8/sjL
+o7ogamlhbmd0YW8uaml0IA0Ks63LzaO6IG5ldGRldiANCtb3zOKjuiBSZTogc3BlY2lhbCBoYW5k
+bGluZyBiZWZvcmUgbmRvX3N0YXJ0X3htaXQoKSBiZWVuIGludm9rZWQgDQogDQpXaGF0IHdvdWxk
+IHlvdSB3YW50IHRvIGFjaGlldmUgd2l0aCB0aGF0Pw0KV2VkLCBKdWwgMjcsIDIwMTEgYXQgMTI6
+NDg6MzdQTSBDRVNULCBqaWFuZ3Rhby5qaXRAZ21haWwuY29tIHdyb3RlOg0KPkhpIGFsbDoNCj4N
+Cj5pbiBzdHJ1Y3QgbmV0X2RldmljZQ0KPnRoZXJlIGlzIGEgZnVuY3Rpb24gcG9pbnRlciAgICBy
+eF9oYW5kbGVyX2Z1bmNfdCBfX3JjdSAqcnhfaGFuZGxlcg0KPml0J3MgdmVyeSBjb252ZW5pZW50
+IHRvIHJlZ2lzdGVyIGEgZnVuY3Rpb24gaW4gYW4gZXh0ZXJuZWwgbW9kdWxlDQo+YW5kIGRvIHNv
+bWUgc3BlY2lhbCBoYW5kbGluZ3MNCj4NCj5zbyBpIHRoaW5rIHdoYXQgYWJvdXQgdG8gYWRkIGFu
+IHR4X2hhbmRsZXJfZnVuYw0KPmJlZm9yZSAgICAgICAgbmRvX3N0YXJ0X3htaXQoKSBiZWVuIGlu
+dm9rZWQNCj5hbmQgZG8gc29tZSBzcGVjaWFsIHRoaW5ncyBiZWZvcmUgdHJhbnNtaXQNCj4NCj5p
+cyBpdCBuZWNlc3Nhcnkgb3IgdGhlcmUgaXMgYWxyZWFkeSBzb21lIG90aGVyIGJldHRlciBtZXRo
+b2RzIHRvIGFjaGlldmUgdGhpcyBnb2FsID8NCj5UaGFuayB5b3UgYWxsDQo+DQo+LS0tLS0tLQ0K
+PjIwMTEtMDctMjcgDQo+amlhbmd0YW8uaml0IA0KPg0KPi0tDQo+VG8gdW5zdWJzY3JpYmUgZnJv
+bSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj50aGUg
+Ym9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPk1vcmUgbWFq
+b3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRt
+bA0K
 
-Thans  a lot, this was the thing I missed !
