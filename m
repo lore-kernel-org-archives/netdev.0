@@ -1,152 +1,130 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 51/71] ipg: Move the IC Plus driver
-Date: Sat, 30 Jul 2011 20:27:10 -0700
-Message-ID: <1312082850-24914-52-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 49/71] jme: Move the JME driver
+Date: Sat, 30 Jul 2011 20:27:08 -0700
+Message-ID: <1312082850-24914-50-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, <craig_rich@sundanceti.com>,
-	<sorbica@icplus.com.tw>, <jesse@icplus.com.tw>
+	gospo@redhat.com, sassmann@redhat.com,
+	Guo-Fu Tseng <cooldavid@cooldavid.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753368Ab1GaD2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:25 -0400
+	id S1753175Ab1GaD2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:24 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the IC Plus driver into drivers/net/ethernet/icplus/ and
-make the necessary Kconfig and Makefile changes.
+Move the JME driver into drivers/net/ethernet/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: <craig_rich@sundanceti.com>
-CC: <sorbica@icplus.com.tw>
-CC: <jesse@icplus.com.tw>
+CC: Guo-Fu Tseng <cooldavid@cooldavid.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                             |    2 +-
- drivers/net/Kconfig                     |   10 ----------
- drivers/net/Makefile                    |    1 -
- drivers/net/ethernet/Kconfig            |    1 +
- drivers/net/ethernet/Makefile           |    1 +
- drivers/net/ethernet/icplus/Kconfig     |   13 +++++++++++++
- drivers/net/ethernet/icplus/Makefile    |    5 +++++
- drivers/net/{ => ethernet/icplus}/ipg.c |    0
- drivers/net/{ => ethernet/icplus}/ipg.h |    0
- 9 files changed, 21 insertions(+), 12 deletions(-)
- create mode 100644 drivers/net/ethernet/icplus/Kconfig
- create mode 100644 drivers/net/ethernet/icplus/Makefile
- rename drivers/net/{ => ethernet/icplus}/ipg.c (100%)
- rename drivers/net/{ => ethernet/icplus}/ipg.h (100%)
+ MAINTAINERS                      |    2 +-
+ drivers/net/Kconfig              |   12 ------------
+ drivers/net/Makefile             |    1 -
+ drivers/net/ethernet/Kconfig     |   13 +++++++++++++
+ drivers/net/ethernet/Makefile    |    1 +
+ drivers/net/{ => ethernet}/jme.c |    0
+ drivers/net/{ => ethernet}/jme.h |    0
+ 7 files changed, 15 insertions(+), 14 deletions(-)
+ rename drivers/net/{ => ethernet}/jme.c (100%)
+ rename drivers/net/{ => ethernet}/jme.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 940df7b..a91e8fb 100644
+index ae204ed..940df7b 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -3425,7 +3425,7 @@ M:	Francois Romieu <romieu@fr.zoreil.com>
- M:	Sorbica Shieh <sorbica@icplus.com.tw>
+@@ -3573,7 +3573,7 @@ JME NETWORK DRIVER
+ M:	Guo-Fu Tseng <cooldavid@cooldavid.org>
  L:	netdev@vger.kernel.org
  S:	Maintained
--F:	drivers/net/ipg.*
-+F:	drivers/net/ethernet/icplus/ipg.*
+-F:	drivers/net/jme.*
++F:	drivers/net/ethernet/jme.*
  
- IPATH DRIVER
- M:	Mike Marciniszyn <infinipath@qlogic.com>
+ JOURNALLING FLASH FILE SYSTEM V2 (JFFS2)
+ M:	David Woodhouse <dwmw2@infradead.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f8181da..d33d965 100644
+index 2ad05a8..60e850d 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -522,16 +522,6 @@ menuconfig NETDEV_1000
+@@ -547,18 +547,6 @@ config XILINX_LL_TEMAC
+ 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
+ 	  core used in Xilinx Spartan and Virtex FPGAs
  
- if NETDEV_1000
- 
--config IP1000
--	tristate "IP1000 Gigabit Ethernet support"
--	depends on PCI && EXPERIMENTAL
+-config JME
+-	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
+-	depends on PCI
+-	select CRC32
 -	select MII
 -	---help---
--	  This driver supports IP1000 gigabit Ethernet cards.
+-	  This driver supports the PCI-Express gigabit ethernet adapters
+-	  based on JMicron JMC250 chipset.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called ipg.  This is recommended.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called jme.
 -
  endif # NETDEV_1000
  
  #
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 4c7af02..2fb039b 100644
+index 648fa5c..271fc52 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -5,7 +5,6 @@
- obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_PHYLIB) += phy/
--obj-$(CONFIG_IP1000) += ipg.o
+@@ -8,7 +8,6 @@ obj-$(CONFIG_PHYLIB) += phy/
+ obj-$(CONFIG_IP1000) += ipg.o
  obj-$(CONFIG_CAN) += can/
  obj-$(CONFIG_BONDING) += bonding/
+-obj-$(CONFIG_JME) += jme.o
  obj-$(CONFIG_VMXNET3) += vmxnet3/
+ 
+ #
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 922f4d1..72d0f5e 100644
+index 70c60ef..c29c145 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -31,6 +31,7 @@ source "drivers/net/ethernet/ibm/Kconfig"
+@@ -31,6 +31,19 @@ source "drivers/net/ethernet/ibm/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/i825xx/Kconfig"
  source "drivers/net/ethernet/xscale/Kconfig"
-+source "drivers/net/ethernet/icplus/Kconfig"
- 
- config JME
- 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
++
++config JME
++	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
++	depends on PCI
++	select CRC32
++	select MII
++	---help---
++	  This driver supports the PCI-Express gigabit ethernet adapters
++	  based on JMicron JMC250 chipset.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called jme.
++
+ source "drivers/net/ethernet/marvell/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
+ source "drivers/net/ethernet/micrel/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index fcecd5f..a8d8913 100644
+index 929ee29..8495c50 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
 @@ -23,6 +23,7 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
  obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
-+obj-$(CONFIG_IP1000) += icplus/
- obj-$(CONFIG_JME) += jme.o
++obj-$(CONFIG_JME) += jme.o
  obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
  obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-diff --git a/drivers/net/ethernet/icplus/Kconfig b/drivers/net/ethernet/icplus/Kconfig
-new file mode 100644
-index 0000000..e888222
---- /dev/null
-+++ b/drivers/net/ethernet/icplus/Kconfig
-@@ -0,0 +1,13 @@
-+#
-+# IC Plus device configuration
-+#
-+
-+config IP1000
-+	tristate "IP1000 Gigabit Ethernet support"
-+	depends on PCI && EXPERIMENTAL
-+	select MII
-+	---help---
-+	  This driver supports IP1000 gigabit Ethernet cards.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called ipg.  This is recommended.
-diff --git a/drivers/net/ethernet/icplus/Makefile b/drivers/net/ethernet/icplus/Makefile
-new file mode 100644
-index 0000000..5bc87c1
---- /dev/null
-+++ b/drivers/net/ethernet/icplus/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the IC Plus device drivers
-+#
-+
-+obj-$(CONFIG_IP1000) += ipg.o
-diff --git a/drivers/net/ipg.c b/drivers/net/ethernet/icplus/ipg.c
+ obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
+diff --git a/drivers/net/jme.c b/drivers/net/ethernet/jme.c
 similarity index 100%
-rename from drivers/net/ipg.c
-rename to drivers/net/ethernet/icplus/ipg.c
-diff --git a/drivers/net/ipg.h b/drivers/net/ethernet/icplus/ipg.h
+rename from drivers/net/jme.c
+rename to drivers/net/ethernet/jme.c
+diff --git a/drivers/net/jme.h b/drivers/net/ethernet/jme.h
 similarity index 100%
-rename from drivers/net/ipg.h
-rename to drivers/net/ethernet/icplus/ipg.h
+rename from drivers/net/jme.h
+rename to drivers/net/ethernet/jme.h
 -- 
 1.7.6
 
