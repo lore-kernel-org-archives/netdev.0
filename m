@@ -1,200 +1,210 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 31/71] ewrk3/tulip: Move the DEC - Tulip drivers
-Date: Sat, 30 Jul 2011 20:26:50 -0700
-Message-ID: <1312082850-24914-32-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 30/71] atl*: Move the Atheros drivers
+Date: Sat, 30 Jul 2011 20:26:49 -0700
+Message-ID: <1312082850-24914-31-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Tobias Ringstrom <tori@unhappy.mine.nu>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	David Davies <davies@maniac.ultranet.com>
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <jie.yang@atheros.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753276Ab1GaD2F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:05 -0400
+	id S1753271Ab1GaD2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:03 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the DEC - Tulip driver into drivers/net/ethernet/dec/tulip/
-and make the necessary Kconfig and Makefile changes.
+Move the Atheros drivers into drivers/net/ethernet/atheros/ and
+make the necessary Kconfig and Makefile changes.
 
-The Digital Equioment (DEC) driver ewrk3 was moved into
-drivers/net/ethernet/dec/ and the remaining drivers (Tulip)
-were moved into drivers/net/ethernet/dec/tulip/
-
-CC: Tobias Ringstrom <tori@unhappy.mine.nu>
-CC: Grant Grundler <grundler@parisc-linux.org>
-CC: David Davies <davies@maniac.ultranet.com>
+CC: Jay Cliburn <jcliburn@gmail.com>
+CC: Chris Snook <chris.snook@gmail.com>
+CC: Jie Yang <jie.yang@atheros.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
 ---
- MAINTAINERS                                        |    4 +-
- drivers/net/Kconfig                                |   16 ---------
- drivers/net/Makefile                               |    2 -
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   45 --------------
+ drivers/net/Makefile                               |    4 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/dec/Kconfig                   |   30 ++++++++++++++++
- drivers/net/ethernet/dec/Makefile                  |    6 +++
- drivers/net/{ => ethernet/dec}/ewrk3.c             |    0
- drivers/net/{ => ethernet/dec}/ewrk3.h             |    0
- drivers/net/{ => ethernet/dec}/tulip/21142.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/Kconfig       |   36 +++++++++-----------
- drivers/net/{ => ethernet/dec}/tulip/Makefile      |    0
- drivers/net/{ => ethernet/dec}/tulip/de2104x.c     |    0
- drivers/net/{ => ethernet/dec}/tulip/de4x5.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/de4x5.h       |    0
- drivers/net/{ => ethernet/dec}/tulip/dmfe.c        |    0
- drivers/net/{ => ethernet/dec}/tulip/eeprom.c      |    0
- drivers/net/{ => ethernet/dec}/tulip/interrupt.c   |    0
- drivers/net/{ => ethernet/dec}/tulip/media.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/pnic.c        |    0
- drivers/net/{ => ethernet/dec}/tulip/pnic2.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/timer.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/tulip.h       |    0
- drivers/net/{ => ethernet/dec}/tulip/tulip_core.c  |    0
- drivers/net/{ => ethernet/dec}/tulip/uli526x.c     |    0
- drivers/net/{ => ethernet/dec}/tulip/winbond-840.c |    0
- drivers/net/{ => ethernet/dec}/tulip/xircom_cb.c   |    0
- 27 files changed, 56 insertions(+), 40 deletions(-)
- create mode 100644 drivers/net/ethernet/dec/Kconfig
- create mode 100644 drivers/net/ethernet/dec/Makefile
- rename drivers/net/{ => ethernet/dec}/ewrk3.c (100%)
- rename drivers/net/{ => ethernet/dec}/ewrk3.h (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/21142.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/Kconfig (93%)
- rename drivers/net/{ => ethernet/dec}/tulip/Makefile (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/de2104x.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/de4x5.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/de4x5.h (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/dmfe.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/eeprom.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/interrupt.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/media.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/pnic.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/pnic2.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/timer.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/tulip.h (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/tulip_core.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/uli526x.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/winbond-840.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/xircom_cb.c (100%)
+ drivers/net/ethernet/atheros/Kconfig               |   61 ++++++++++++++++++++
+ drivers/net/ethernet/atheros/Makefile              |    8 +++
+ drivers/net/{ => ethernet/atheros}/atl1c/Makefile  |    0
+ drivers/net/{ => ethernet/atheros}/atl1c/atl1c.h   |    0
+ .../{ => ethernet/atheros}/atl1c/atl1c_ethtool.c   |    0
+ .../net/{ => ethernet/atheros}/atl1c/atl1c_hw.c    |    0
+ .../net/{ => ethernet/atheros}/atl1c/atl1c_hw.h    |    0
+ .../net/{ => ethernet/atheros}/atl1c/atl1c_main.c  |    0
+ drivers/net/{ => ethernet/atheros}/atl1e/Makefile  |    0
+ drivers/net/{ => ethernet/atheros}/atl1e/atl1e.h   |    0
+ .../{ => ethernet/atheros}/atl1e/atl1e_ethtool.c   |    0
+ .../net/{ => ethernet/atheros}/atl1e/atl1e_hw.c    |    0
+ .../net/{ => ethernet/atheros}/atl1e/atl1e_hw.h    |    0
+ .../net/{ => ethernet/atheros}/atl1e/atl1e_main.c  |    0
+ .../net/{ => ethernet/atheros}/atl1e/atl1e_param.c |    0
+ drivers/net/{ => ethernet/atheros}/atlx/Makefile   |    0
+ drivers/net/{ => ethernet/atheros}/atlx/atl1.c     |    0
+ drivers/net/{ => ethernet/atheros}/atlx/atl1.h     |    0
+ drivers/net/{ => ethernet/atheros}/atlx/atl2.c     |    0
+ drivers/net/{ => ethernet/atheros}/atlx/atl2.h     |    0
+ drivers/net/{ => ethernet/atheros}/atlx/atlx.c     |    0
+ drivers/net/{ => ethernet/atheros}/atlx/atlx.h     |    0
+ 27 files changed, 72 insertions(+), 50 deletions(-)
+ create mode 100644 drivers/net/ethernet/atheros/Kconfig
+ create mode 100644 drivers/net/ethernet/atheros/Makefile
+ rename drivers/net/{ => ethernet/atheros}/atl1c/Makefile (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c.h (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_hw.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_hw.h (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_main.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/Makefile (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e.h (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_hw.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_hw.h (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_main.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_param.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/Makefile (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/atl1.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/atl1.h (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/atl2.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/atl2.h (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/atlx.c (100%)
+ rename drivers/net/{ => ethernet/atheros}/atlx/atlx.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 8cb244e..c1930ef6 100644
+index 486470e..8cb244e 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -2060,7 +2060,7 @@ DAVICOM FAST ETHERNET (DMFE) NETWORK DRIVER
- L:	netdev@vger.kernel.org
- S:	Orphan
- F:	Documentation/networking/dmfe.txt
--F:	drivers/net/tulip/dmfe.c
-+F:	drivers/net/ethernet/tulip/dmfe.c
- 
- DC390/AM53C974 SCSI driver
- M:	Kurt Garloff <garloff@suse.de>
-@@ -6336,7 +6336,7 @@ TULIP NETWORK DRIVERS
- M:	Grant Grundler <grundler@parisc-linux.org>
- L:	netdev@vger.kernel.org
+@@ -1276,7 +1276,7 @@ L:	netdev@vger.kernel.org
+ W:	http://sourceforge.net/projects/atl1
+ W:	http://atl1.sourceforge.net
  S:	Maintained
--F:	drivers/net/tulip/
-+F:	drivers/net/ethernet/tulip/
+-F:	drivers/net/atlx/
++F:	drivers/net/ethernet/atheros/
  
- TUN/TAP driver
- M:	Maxim Krasnyansky <maxk@qualcomm.com>
+ ATM
+ M:	Chas Williams <chas@cmf.nrl.navy.mil>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index e6be7123..565b2fe 100644
+index 8799caf..e6be7123 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -452,8 +452,6 @@ config DNET
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called dnet.
+@@ -760,17 +760,6 @@ config FEC_MPC52xx_MDIO
+ 	  If not sure, enable.
+ 	  If compiled as module, it will be called fec_mpc52xx_phy.
  
--source "drivers/net/tulip/Kconfig"
--
- config AT1700
- 	tristate "AT1700/1720 support (EXPERIMENTAL)"
- 	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
-@@ -494,20 +492,6 @@ config NET_ISA
- 	  the remaining ISA network card questions. If you say Y, you will be
- 	  asked for your specific card in the following questions.
- 
--config EWRK3
--	tristate "EtherWORKS 3 (DE203, DE204, DE205) support"
--	depends on NET_ISA
+-config ATL2
+-	tristate "Atheros L2 Fast Ethernet support"
+-	depends on PCI
 -	select CRC32
--	---help---
--	  This driver supports the DE203, DE204 and DE205 network (Ethernet)
--	  cards. If this is for you, say Y and read
--	  <file:Documentation/networking/ewrk3.txt> in the kernel source as
--	  well as the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	select MII
+-	help
+-	  This driver supports the Atheros L2 fast ethernet adapter.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called ewrk3.
+-	  To compile this driver as a module, choose M here.  The module
+-	  will be called atl2.
 -
- config ETH16I
- 	tristate "ICL EtherTeam 16i/32 support"
- 	depends on NET_ISA
+ config XILINX_EMACLITE
+ 	tristate "Xilinx 10/100 Ethernet Lite support"
+ 	depends on PPC32 || MICROBLAZE
+@@ -1031,40 +1020,6 @@ config XILINX_LL_TEMAC
+ 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
+ 	  core used in Xilinx Spartan and Virtex FPGAs
+ 
+-config ATL1
+-	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
+-	depends on PCI
+-	select CRC32
+-	select MII
+-	help
+-	  This driver supports the Atheros/Attansic L1 gigabit ethernet
+-	  adapter.
+-
+-	  To compile this driver as a module, choose M here.  The module
+-	  will be called atl1.
+-
+-config ATL1E
+-	tristate "Atheros L1E Gigabit Ethernet support (EXPERIMENTAL)"
+-	depends on PCI && EXPERIMENTAL
+-	select CRC32
+-	select MII
+-	help
+-	  This driver supports the Atheros L1E gigabit ethernet adapter.
+-
+-	  To compile this driver as a module, choose M here.  The module
+-	  will be called atl1e.
+-
+-config ATL1C
+-	tristate "Atheros L1C Gigabit Ethernet support (EXPERIMENTAL)"
+-	depends on PCI && EXPERIMENTAL
+-	select CRC32
+-	select MII
+-	help
+-	  This driver supports the Atheros L1C gigabit ethernet adapter.
+-
+-	  To compile this driver as a module, choose M here.  The module
+-	  will be called atl1c.
+-
+ config JME
+ 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d151075..25f78c4 100644
+index ecd8c9f..d151075 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -106,7 +106,6 @@ obj-$(CONFIG_SGISEEQ) += sgiseeq.o
- obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
- obj-$(CONFIG_AT1700) += at1700.o
- obj-$(CONFIG_CPMAC) += cpmac.o
--obj-$(CONFIG_EWRK3) += ewrk3.o
- 
- obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
-@@ -147,7 +146,6 @@ obj-$(CONFIG_USB_IPHETH)        += usb/
- obj-$(CONFIG_USB_CDC_PHONET)   += usb/
- 
- obj-$(CONFIG_WLAN) += wireless/
--obj-$(CONFIG_NET_TULIP) += tulip/
- obj-$(CONFIG_HAMRADIO) += hamradio/
- obj-$(CONFIG_IRDA) += irda/
- obj-$(CONFIG_ETRAX_ETHERNET) += cris/
+@@ -13,10 +13,6 @@ obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
+ obj-$(CONFIG_IP1000) += ipg.o
+ obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+-obj-$(CONFIG_ATL1) += atlx/
+-obj-$(CONFIG_ATL2) += atlx/
+-obj-$(CONFIG_ATL1E) += atl1e/
+-obj-$(CONFIG_ATL1C) += atl1c/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+ obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
+ obj-$(CONFIG_JME) += jme.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 9410f20..ed42850 100644
+index 8007e20..9410f20 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -19,6 +19,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
+@@ -14,6 +14,7 @@ if ETHERNET
+ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
++source "drivers/net/ethernet/atheros/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
  source "drivers/net/ethernet/brocade/Kconfig"
  source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/cisco/Kconfig"
-+source "drivers/net/ethernet/dec/Kconfig"
- source "drivers/net/ethernet/dlink/Kconfig"
- source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/neterion/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 5d89fd9..3de8249 100644
+index 22ef380..5d89fd9 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -11,6 +11,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
++obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
  obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
-+obj-$(CONFIG_NET_VENDOR_DEC) += dec/
- obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
- obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
-diff --git a/drivers/net/ethernet/dec/Kconfig b/drivers/net/ethernet/dec/Kconfig
+diff --git a/drivers/net/ethernet/atheros/Kconfig b/drivers/net/ethernet/atheros/Kconfig
 new file mode 100644
-index 0000000..6612048
+index 0000000..94b436d
 --- /dev/null
-+++ b/drivers/net/ethernet/dec/Kconfig
-@@ -0,0 +1,30 @@
++++ b/drivers/net/ethernet/atheros/Kconfig
+@@ -0,0 +1,61 @@
 +#
-+# Digital Equipment Inc network device configuration
++# Atheros device configuration
 +#
 +
-+config NET_VENDOR_DEC
-+	bool "Digital Equipment devices"
-+	depends on PCI || EISA || CARDBUS
++config NET_VENDOR_ATHEROS
++	bool "Atheros devices"
++	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -202,240 +212,147 @@ index 0000000..6612048
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about DEC cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about Atheros devices. If you say Y, you will be asked
++	  for your specific card in the following questions.
 +
-+config EWRK3
-+	tristate "EtherWORKS 3 (DE203, DE204, DE205) support"
-+	depends on NET_VENDOR_DEC && ISA
++config ATL2
++	tristate "Atheros L2 Fast Ethernet support"
++	depends on NET_VENDOR_ATHEROS && PCI
 +	select CRC32
++	select MII
 +	---help---
-+	  This driver supports the DE203, DE204 and DE205 network (Ethernet)
-+	  cards. If this is for you, say Y and read
-+	  <file:Documentation/networking/ewrk3.txt> in the kernel source as
-+	  well as the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This driver supports the Atheros L2 fast ethernet adapter.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called ewrk3.
-diff --git a/drivers/net/ethernet/dec/Makefile b/drivers/net/ethernet/dec/Makefile
++	  To compile this driver as a module, choose M here.  The module
++	  will be called atl2.
++
++config ATL1
++	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
++	depends on NET_VENDOR_ATHEROS && PCI
++	select CRC32
++	select MII
++	---help---
++	  This driver supports the Atheros/Attansic L1 gigabit ethernet
++	  adapter.
++
++	  To compile this driver as a module, choose M here.  The module
++	  will be called atl1.
++
++config ATL1E
++	tristate "Atheros L1E Gigabit Ethernet support (EXPERIMENTAL)"
++	depends on NET_VENDOR_ATHEROS && PCI && EXPERIMENTAL
++	select CRC32
++	select MII
++	---help---
++	  This driver supports the Atheros L1E gigabit ethernet adapter.
++
++	  To compile this driver as a module, choose M here.  The module
++	  will be called atl1e.
++
++config ATL1C
++	tristate "Atheros L1C Gigabit Ethernet support (EXPERIMENTAL)"
++	depends on NET_VENDOR_ATHEROS && PCI && EXPERIMENTAL
++	select CRC32
++	select MII
++	---help---
++	  This driver supports the Atheros L1C gigabit ethernet adapter.
++
++	  To compile this driver as a module, choose M here.  The module
++	  will be called atl1c.
+diff --git a/drivers/net/ethernet/atheros/Makefile b/drivers/net/ethernet/atheros/Makefile
 new file mode 100644
-index 0000000..1b01ed8
+index 0000000..e7e76fb
 --- /dev/null
-+++ b/drivers/net/ethernet/dec/Makefile
-@@ -0,0 +1,6 @@
++++ b/drivers/net/ethernet/atheros/Makefile
+@@ -0,0 +1,8 @@
 +#
-+# Makefile for the Digital Equipment Inc. network device drivers.
++# Makefile for the Atheros network device drivers.
 +#
 +
-+obj-$(CONFIG_EWRK3) += ewrk3.o
-+obj-$(CONFIG_NET_TULIP) += tulip/
-diff --git a/drivers/net/ewrk3.c b/drivers/net/ethernet/dec/ewrk3.c
++obj-$(CONFIG_ATL1) += atlx/
++obj-$(CONFIG_ATL2) += atlx/
++obj-$(CONFIG_ATL1E) += atl1e/
++obj-$(CONFIG_ATL1C) += atl1c/
+diff --git a/drivers/net/atl1c/Makefile b/drivers/net/ethernet/atheros/atl1c/Makefile
 similarity index 100%
-rename from drivers/net/ewrk3.c
-rename to drivers/net/ethernet/dec/ewrk3.c
-diff --git a/drivers/net/ewrk3.h b/drivers/net/ethernet/dec/ewrk3.h
+rename from drivers/net/atl1c/Makefile
+rename to drivers/net/ethernet/atheros/atl1c/Makefile
+diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
 similarity index 100%
-rename from drivers/net/ewrk3.h
-rename to drivers/net/ethernet/dec/ewrk3.h
-diff --git a/drivers/net/tulip/21142.c b/drivers/net/ethernet/dec/tulip/21142.c
+rename from drivers/net/atl1c/atl1c.h
+rename to drivers/net/ethernet/atheros/atl1c/atl1c.h
+diff --git a/drivers/net/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
 similarity index 100%
-rename from drivers/net/tulip/21142.c
-rename to drivers/net/ethernet/dec/tulip/21142.c
-diff --git a/drivers/net/tulip/Kconfig b/drivers/net/ethernet/dec/tulip/Kconfig
-similarity index 93%
-rename from drivers/net/tulip/Kconfig
-rename to drivers/net/ethernet/dec/tulip/Kconfig
-index 1f8d4a8..6e1fce5 100644
---- a/drivers/net/tulip/Kconfig
-+++ b/drivers/net/ethernet/dec/tulip/Kconfig
-@@ -2,17 +2,15 @@
- # Tulip family network device configuration
- #
- 
--menuconfig NET_TULIP
--	bool "\"Tulip\" family network device support"
--	depends on PCI || EISA || CARDBUS
--	help
-+config NET_TULIP
-+	bool "DEC - Tulip devices"
-+	depends on NET_VENDOR_DEC && (PCI || EISA || CARDBUS)
-+	---help---
- 	  This selects the "Tulip" family of EISA/PCI network cards.
- 
--if NET_TULIP
--
- config DE2104X
- 	tristate "Early DECchip Tulip (dc2104x) PCI support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is developed for the SMC EtherPower series Ethernet
-@@ -32,7 +30,7 @@ config DE2104X_DSL
- 	depends on DE2104X
- 	range 0 31
- 	default 0
--	help
-+	---help---
- 	  Setting this value allows to align ring buffer descriptors into their
- 	  own cache lines. Value of 4 corresponds to the typical 32 byte line
- 	  (the descriptor is 16 bytes). This is necessary on systems that lack
-@@ -41,7 +39,7 @@ config DE2104X_DSL
- 
- config TULIP
- 	tristate "DECchip Tulip (dc2114x) PCI support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is developed for the SMC EtherPower series Ethernet
-@@ -59,7 +57,7 @@ config TULIP
- config TULIP_MWI
- 	bool "New bus configuration (EXPERIMENTAL)"
- 	depends on TULIP && EXPERIMENTAL
--	help
-+	---help---
- 	  This configures your Tulip card specifically for the card and
- 	  system cache line size type you are using.
- 
-@@ -70,7 +68,7 @@ config TULIP_MWI
- config TULIP_MMIO
- 	bool "Use PCI shared mem for NIC registers"
- 	depends on TULIP
--	help
-+	---help---
- 	  Use PCI shared memory for the NIC registers, rather than going through
- 	  the Tulip's PIO (programmed I/O ports).  Faster, but could produce
- 	  obscure bugs if your mainboard has memory controller timing issues.
-@@ -79,7 +77,7 @@ config TULIP_MMIO
- config TULIP_NAPI
- 	bool "Use RX polling (NAPI)"
- 	depends on TULIP
--	help
-+	---help---
- 	  NAPI is a new driver API designed to reduce CPU and interrupt load
- 	  when the driver is receiving lots of packets from the card. It is
- 	  still somewhat experimental and thus not yet enabled by default.
-@@ -107,7 +105,7 @@ config TULIP_DM910X
- 
- config DE4X5
- 	tristate "Generic DECchip & DIGITAL EtherWORKS PCI/EISA"
--	depends on PCI || EISA
-+	depends on NET_TULIP && (PCI || EISA)
- 	select CRC32
- 	---help---
- 	  This is support for the DIGITAL series of PCI/EISA Ethernet cards.
-@@ -123,10 +121,10 @@ config DE4X5
- 
- config WINBOND_840
- 	tristate "Winbond W89c840 Ethernet support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	select MII
--	help
-+	---help---
- 	  This driver is for the Winbond W89c840 chip.  It also works with 
- 	  the TX9882 chip on the Compex RL100-ATX board.
- 	  More specific information and updates are available from
-@@ -134,7 +132,7 @@ config WINBOND_840
- 
- config DM9102
- 	tristate "Davicom DM910x/DM980x support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is for DM9102(A)/DM9132/DM9801 compatible PCI cards from
-@@ -147,7 +145,7 @@ config DM9102
- 
- config ULI526X
- 	tristate "ULi M526x controller support"
--	depends on PCI
-+	depends on NET_TULIP && PCI
- 	select CRC32
- 	---help---
- 	  This driver is for ULi M5261/M5263 10/100M Ethernet Controller
-@@ -158,7 +156,7 @@ config ULI526X
- 	  
- config PCMCIA_XIRCOM
- 	tristate "Xircom CardBus support"
--	depends on CARDBUS
-+	depends on NET_TULIP && CARDBUS
- 	---help---
- 	  This driver is for the Digital "Tulip" Ethernet CardBus adapters.
- 	  It should work with most DEC 21*4*-based chips/ethercards, as well
-@@ -167,5 +165,3 @@ config PCMCIA_XIRCOM
- 
- 	  To compile this driver as a module, choose M here. The module will
- 	  be called xircom_cb.  If unsure, say N.
--
--endif # NET_TULIP
-diff --git a/drivers/net/tulip/Makefile b/drivers/net/ethernet/dec/tulip/Makefile
+rename from drivers/net/atl1c/atl1c_ethtool.c
+rename to drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+diff --git a/drivers/net/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
 similarity index 100%
-rename from drivers/net/tulip/Makefile
-rename to drivers/net/ethernet/dec/tulip/Makefile
-diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+rename from drivers/net/atl1c/atl1c_hw.c
+rename to drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+diff --git a/drivers/net/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 similarity index 100%
-rename from drivers/net/tulip/de2104x.c
-rename to drivers/net/ethernet/dec/tulip/de2104x.c
-diff --git a/drivers/net/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
+rename from drivers/net/atl1c/atl1c_hw.h
+rename to drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 similarity index 100%
-rename from drivers/net/tulip/de4x5.c
-rename to drivers/net/ethernet/dec/tulip/de4x5.c
-diff --git a/drivers/net/tulip/de4x5.h b/drivers/net/ethernet/dec/tulip/de4x5.h
+rename from drivers/net/atl1c/atl1c_main.c
+rename to drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+diff --git a/drivers/net/atl1e/Makefile b/drivers/net/ethernet/atheros/atl1e/Makefile
 similarity index 100%
-rename from drivers/net/tulip/de4x5.h
-rename to drivers/net/ethernet/dec/tulip/de4x5.h
-diff --git a/drivers/net/tulip/dmfe.c b/drivers/net/ethernet/dec/tulip/dmfe.c
+rename from drivers/net/atl1e/Makefile
+rename to drivers/net/ethernet/atheros/atl1e/Makefile
+diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
 similarity index 100%
-rename from drivers/net/tulip/dmfe.c
-rename to drivers/net/ethernet/dec/tulip/dmfe.c
-diff --git a/drivers/net/tulip/eeprom.c b/drivers/net/ethernet/dec/tulip/eeprom.c
+rename from drivers/net/atl1e/atl1e.h
+rename to drivers/net/ethernet/atheros/atl1e/atl1e.h
+diff --git a/drivers/net/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
 similarity index 100%
-rename from drivers/net/tulip/eeprom.c
-rename to drivers/net/ethernet/dec/tulip/eeprom.c
-diff --git a/drivers/net/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
+rename from drivers/net/atl1e/atl1e_ethtool.c
+rename to drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.c
 similarity index 100%
-rename from drivers/net/tulip/interrupt.c
-rename to drivers/net/ethernet/dec/tulip/interrupt.c
-diff --git a/drivers/net/tulip/media.c b/drivers/net/ethernet/dec/tulip/media.c
+rename from drivers/net/atl1e/atl1e_hw.c
+rename to drivers/net/ethernet/atheros/atl1e/atl1e_hw.c
+diff --git a/drivers/net/atl1e/atl1e_hw.h b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
 similarity index 100%
-rename from drivers/net/tulip/media.c
-rename to drivers/net/ethernet/dec/tulip/media.c
-diff --git a/drivers/net/tulip/pnic.c b/drivers/net/ethernet/dec/tulip/pnic.c
+rename from drivers/net/atl1e/atl1e_hw.h
+rename to drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
 similarity index 100%
-rename from drivers/net/tulip/pnic.c
-rename to drivers/net/ethernet/dec/tulip/pnic.c
-diff --git a/drivers/net/tulip/pnic2.c b/drivers/net/ethernet/dec/tulip/pnic2.c
+rename from drivers/net/atl1e/atl1e_main.c
+rename to drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+diff --git a/drivers/net/atl1e/atl1e_param.c b/drivers/net/ethernet/atheros/atl1e/atl1e_param.c
 similarity index 100%
-rename from drivers/net/tulip/pnic2.c
-rename to drivers/net/ethernet/dec/tulip/pnic2.c
-diff --git a/drivers/net/tulip/timer.c b/drivers/net/ethernet/dec/tulip/timer.c
+rename from drivers/net/atl1e/atl1e_param.c
+rename to drivers/net/ethernet/atheros/atl1e/atl1e_param.c
+diff --git a/drivers/net/atlx/Makefile b/drivers/net/ethernet/atheros/atlx/Makefile
 similarity index 100%
-rename from drivers/net/tulip/timer.c
-rename to drivers/net/ethernet/dec/tulip/timer.c
-diff --git a/drivers/net/tulip/tulip.h b/drivers/net/ethernet/dec/tulip/tulip.h
+rename from drivers/net/atlx/Makefile
+rename to drivers/net/ethernet/atheros/atlx/Makefile
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
 similarity index 100%
-rename from drivers/net/tulip/tulip.h
-rename to drivers/net/ethernet/dec/tulip/tulip.h
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+rename from drivers/net/atlx/atl1.c
+rename to drivers/net/ethernet/atheros/atlx/atl1.c
+diff --git a/drivers/net/atlx/atl1.h b/drivers/net/ethernet/atheros/atlx/atl1.h
 similarity index 100%
-rename from drivers/net/tulip/tulip_core.c
-rename to drivers/net/ethernet/dec/tulip/tulip_core.c
-diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
+rename from drivers/net/atlx/atl1.h
+rename to drivers/net/ethernet/atheros/atlx/atl1.h
+diff --git a/drivers/net/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
 similarity index 100%
-rename from drivers/net/tulip/uli526x.c
-rename to drivers/net/ethernet/dec/tulip/uli526x.c
-diff --git a/drivers/net/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
+rename from drivers/net/atlx/atl2.c
+rename to drivers/net/ethernet/atheros/atlx/atl2.c
+diff --git a/drivers/net/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
 similarity index 100%
-rename from drivers/net/tulip/winbond-840.c
-rename to drivers/net/ethernet/dec/tulip/winbond-840.c
-diff --git a/drivers/net/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+rename from drivers/net/atlx/atl2.h
+rename to drivers/net/ethernet/atheros/atlx/atl2.h
+diff --git a/drivers/net/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
 similarity index 100%
-rename from drivers/net/tulip/xircom_cb.c
-rename to drivers/net/ethernet/dec/tulip/xircom_cb.c
+rename from drivers/net/atlx/atlx.c
+rename to drivers/net/ethernet/atheros/atlx/atlx.c
+diff --git a/drivers/net/atlx/atlx.h b/drivers/net/ethernet/atheros/atlx/atlx.h
+similarity index 100%
+rename from drivers/net/atlx/atlx.h
+rename to drivers/net/ethernet/atheros/atlx/atlx.h
 -- 
 1.7.6
 
