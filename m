@@ -1,146 +1,132 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 32/71] ioc3-eth/meth: Move the SGI drivers
-Date: Sat, 30 Jul 2011 20:26:51 -0700
-Message-ID: <1312082850-24914-33-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 27/71] ftgmac100/ftmac100: Move the Faraday drivers
+Date: Sat, 30 Jul 2011 20:26:46 -0700
+Message-ID: <1312082850-24914-28-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Ralf Baechle <ralf@linux-mips.org>
+	"Po-Yu Chuang" <ratbert@faraday-tech.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753284Ab1GaD2F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:05 -0400
+	id S1753257Ab1GaD2B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:01 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the SGI drivers into drivers/net/ethernet/sgi/ and make the
-necessary Kconfig and Makefile changes.
+Move the Faraday driver into drivers/net/ethernet/faraday/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Ralf Baechle <ralf@linux-mips.org>
+CC: "Po-Yu Chuang" <ratbert@faraday-tech.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
 ---
- MAINTAINERS                               |    2 +-
- drivers/net/Kconfig                       |   14 -------------
- drivers/net/Makefile                      |    2 -
- drivers/net/ethernet/Kconfig              |    1 +
- drivers/net/ethernet/Makefile             |    1 +
- drivers/net/ethernet/sgi/Kconfig          |   30 +++++++++++++++++++++++++++++
- drivers/net/ethernet/sgi/Makefile         |    6 +++++
- drivers/net/{ => ethernet/sgi}/ioc3-eth.c |    0
- drivers/net/{ => ethernet/sgi}/meth.c     |    0
- drivers/net/{ => ethernet/sgi}/meth.h     |    0
- 10 files changed, 39 insertions(+), 17 deletions(-)
- create mode 100644 drivers/net/ethernet/sgi/Kconfig
- create mode 100644 drivers/net/ethernet/sgi/Makefile
- rename drivers/net/{ => ethernet/sgi}/ioc3-eth.c (100%)
- rename drivers/net/{ => ethernet/sgi}/meth.c (100%)
- rename drivers/net/{ => ethernet/sgi}/meth.h (100%)
+ drivers/net/Kconfig                            |   18 ------------
+ drivers/net/Makefile                           |    2 -
+ drivers/net/ethernet/Kconfig                   |    1 +
+ drivers/net/ethernet/Makefile                  |    1 +
+ drivers/net/ethernet/faraday/Kconfig           |   34 ++++++++++++++++++++++++
+ drivers/net/ethernet/faraday/Makefile          |    6 ++++
+ drivers/net/{ => ethernet/faraday}/ftgmac100.c |    0
+ drivers/net/{ => ethernet/faraday}/ftgmac100.h |    0
+ drivers/net/{ => ethernet/faraday}/ftmac100.c  |    0
+ drivers/net/{ => ethernet/faraday}/ftmac100.h  |    0
+ 10 files changed, 42 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/net/ethernet/faraday/Kconfig
+ create mode 100644 drivers/net/ethernet/faraday/Makefile
+ rename drivers/net/{ => ethernet/faraday}/ftgmac100.c (100%)
+ rename drivers/net/{ => ethernet/faraday}/ftgmac100.h (100%)
+ rename drivers/net/{ => ethernet/faraday}/ftmac100.c (100%)
+ rename drivers/net/{ => ethernet/faraday}/ftmac100.h (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c1930ef6..3d9ddd9 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3406,7 +3406,7 @@ IOC3 ETHERNET DRIVER
- M:	Ralf Baechle <ralf@linux-mips.org>
- L:	linux-mips@linux-mips.org
- S:	Maintained
--F:	drivers/net/ioc3-eth.c
-+F:	drivers/net/ethernet/sgi/ioc3-eth.c
- 
- IOC3 SERIAL DRIVER
- M:	Pat Gefre <pfg@sgi.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 565b2fe..1e889b3 100644
+index 7f09cd5..8da9f96 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -244,16 +244,6 @@ config KORINA
- 	  If you have a Mikrotik RouterBoard 500 or IDT RC32434
- 	  based system say Y. Otherwise say N.
+@@ -922,15 +922,6 @@ config XILINX_EMACLITE
+ 	help
+ 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
  
--config SGI_IOC3_ETH
--	bool "SGI IOC3 Ethernet"
--	depends on PCI && SGI_IP27
--	select CRC32
+-config FTMAC100
+-	tristate "Faraday FTMAC100 10/100 Ethernet support"
+-	depends on ARM
 -	select MII
 -	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This driver supports the FTMAC100 10/100 Ethernet controller
+-	  from Faraday. It is used on Faraday A320, Andes AG101 and some
+-	  other ARM/NDS32 SoC's.
 -
- config MIPS_SIM_NET
- 	tristate "MIPS simulator Network device"
- 	depends on MIPS_SIM
-@@ -262,10 +252,6 @@ config MIPS_SIM_NET
- 	  emulated by the MIPS Simulator.
- 	  If you are not using a MIPSsim or are unsure, say N.
+ config LANTIQ_ETOP
+ 	tristate "Lantiq SoC ETOP driver"
+ 	depends on SOC_TYPE_XWAY
+@@ -1286,15 +1277,6 @@ config PCH_GBE
+ 	  ML7223 is companion chip for Intel Atom E6xx series.
+ 	  ML7223 is completely compatible for Intel EG20T PCH.
  
--config SGI_O2MACE_ETH
--	tristate "SGI O2 MACE Fast Ethernet support"
--	depends on SGI_IP32=y
+-config FTGMAC100
+-	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
+-	depends on ARM
+-	select PHYLIB
+-	help
+-	  This driver supports the FTGMAC100 Gigabit Ethernet controller
+-	  from Faraday. It is used on Faraday A369, Andes AG102 and some
+-	  other ARM/NDS32 SoC's.
 -
- config SH_ETH
- 	tristate "Renesas SuperH Ethernet support"
- 	depends on SUPERH && \
+ endif # NETDEV_1000
+ 
+ #
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 25f78c4..a40549b 100644
+index ffcb609..0b341dc 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -103,7 +103,6 @@ obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_SGISEEQ) += sgiseeq.o
--obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
- obj-$(CONFIG_AT1700) += at1700.o
- obj-$(CONFIG_CPMAC) += cpmac.o
+@@ -79,8 +79,6 @@ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+ 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+ endif
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
+-obj-$(CONFIG_FTGMAC100) += ftgmac100.o
+-obj-$(CONFIG_FTMAC100) += ftmac100.o
  
-@@ -111,7 +110,6 @@ obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
--obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
+ obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index ed42850..7d25fa4 100644
+index 45d3eff..110071e 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -37,6 +37,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/realtek/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
-+source "drivers/net/ethernet/sgi/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
- source "drivers/net/ethernet/stmicro/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
+@@ -20,6 +20,7 @@ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/neterion/Kconfig"
++source "drivers/net/ethernet/faraday/Kconfig"
+ source "drivers/net/ethernet/ibm/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 3de8249..ec58715 100644
+index 09536de..4a6edf7 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
- obj-$(CONFIG_SFC) += sfc/
-+obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
- obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
-diff --git a/drivers/net/ethernet/sgi/Kconfig b/drivers/net/ethernet/sgi/Kconfig
+@@ -12,6 +12,7 @@ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
++obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
+ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+diff --git a/drivers/net/ethernet/faraday/Kconfig b/drivers/net/ethernet/faraday/Kconfig
 new file mode 100644
-index 0000000..d2f403d
+index 0000000..32eaee9
 --- /dev/null
-+++ b/drivers/net/ethernet/sgi/Kconfig
-@@ -0,0 +1,30 @@
++++ b/drivers/net/ethernet/faraday/Kconfig
+@@ -0,0 +1,34 @@
 +#
-+# SGI device configuration
++# Faraday device configuration
 +#
 +
-+config NET_VENDOR_SGI
-+	bool "SGI devices"
-+	depends on (PCI && SGI_IP27) || SGI_IP32
++config NET_VENDOR_FARADAY
++	bool "Faraday devices"
++	depends on ARM
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -148,46 +134,54 @@ index 0000000..d2f403d
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about SGI devices. If you say Y, you will be asked for
++	  the questions about Faraday cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config SGI_IOC3_ETH
-+	bool "SGI IOC3 Ethernet"
-+	depends on NET_VENDOR_SGI && PCI && SGI_IP27
-+	select CRC32
++config FTMAC100
++	tristate "Faraday FTMAC100 10/100 Ethernet support"
++	depends on NET_VENDOR_FARADAY && ARM
 +	select MII
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This driver supports the FTMAC100 10/100 Ethernet controller
++	  from Faraday. It is used on Faraday A320, Andes AG101 and some
++	  other ARM/NDS32 SoC's.
 +
-+config SGI_O2MACE_ETH
-+	tristate "SGI O2 MACE Fast Ethernet support"
-+	depends on NET_VENDOR_SGI && SGI_IP32=y
-diff --git a/drivers/net/ethernet/sgi/Makefile b/drivers/net/ethernet/sgi/Makefile
++config FTGMAC100
++	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
++	depends on NET_VENDOR_FARADAY && ARM
++	select PHYLIB
++	---help---
++	  This driver supports the FTGMAC100 Gigabit Ethernet controller
++	  from Faraday. It is used on Faraday A369, Andes AG102 and some
++	  other ARM/NDS32 SoC's.
+diff --git a/drivers/net/ethernet/faraday/Makefile b/drivers/net/ethernet/faraday/Makefile
 new file mode 100644
-index 0000000..e5bedd2
+index 0000000..408b539
 --- /dev/null
-+++ b/drivers/net/ethernet/sgi/Makefile
++++ b/drivers/net/ethernet/faraday/Makefile
 @@ -0,0 +1,6 @@
 +#
-+# Makefile for the SGI device drivers.
++# Makefile for the Faraday device drivers.
 +#
 +
-+obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
-+obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
-diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
++obj-$(CONFIG_FTGMAC100) += ftgmac100.o
++obj-$(CONFIG_FTMAC100) += ftmac100.o
+diff --git a/drivers/net/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
 similarity index 100%
-rename from drivers/net/ioc3-eth.c
-rename to drivers/net/ethernet/sgi/ioc3-eth.c
-diff --git a/drivers/net/meth.c b/drivers/net/ethernet/sgi/meth.c
+rename from drivers/net/ftgmac100.c
+rename to drivers/net/ethernet/faraday/ftgmac100.c
+diff --git a/drivers/net/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
 similarity index 100%
-rename from drivers/net/meth.c
-rename to drivers/net/ethernet/sgi/meth.c
-diff --git a/drivers/net/meth.h b/drivers/net/ethernet/sgi/meth.h
+rename from drivers/net/ftgmac100.h
+rename to drivers/net/ethernet/faraday/ftgmac100.h
+diff --git a/drivers/net/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
 similarity index 100%
-rename from drivers/net/meth.h
-rename to drivers/net/ethernet/sgi/meth.h
+rename from drivers/net/ftmac100.c
+rename to drivers/net/ethernet/faraday/ftmac100.c
+diff --git a/drivers/net/ftmac100.h b/drivers/net/ethernet/faraday/ftmac100.h
+similarity index 100%
+rename from drivers/net/ftmac100.h
+rename to drivers/net/ethernet/faraday/ftmac100.h
 -- 
 1.7.6
 
