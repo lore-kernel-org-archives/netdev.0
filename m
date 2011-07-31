@@ -1,98 +1,190 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 48/71] octeon: Move the Cavium driver
-Date: Sat, 30 Jul 2011 20:27:07 -0700
-Message-ID: <1312082850-24914-49-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 47/71] hamachi/yellowfin: Move the packet engine drivers
+Date: Sat, 30 Jul 2011 20:27:06 -0700
+Message-ID: <1312082850-24914-48-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	David Daney <ddaney@caviumnetworks.com>
+	Donald Becker <becker@scyld.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753359Ab1GaD2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:23 -0400
+	id S1753356Ab1GaD2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:22 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Cavium driver to drivers/net/ethernet/octeon/ and
-make the necessary Kconfig and Makefile changes.
+Move the packet engine drivers to drivers/net/ethernet/packetengines/
+and the necessary Kconfig and Makefile changes.
 
-CC: David Daney <ddaney@caviumnetworks.com>
+CC: Donald Becker <becker@scyld.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                             |    2 --
- drivers/net/Makefile                            |    1 -
- drivers/net/ethernet/Kconfig                    |    1 +
- drivers/net/ethernet/Makefile                   |    1 +
- drivers/net/{ => ethernet}/octeon/Kconfig       |    0
- drivers/net/{ => ethernet}/octeon/Makefile      |    0
- drivers/net/{ => ethernet}/octeon/octeon_mgmt.c |    0
- 7 files changed, 2 insertions(+), 3 deletions(-)
- rename drivers/net/{ => ethernet}/octeon/Kconfig (100%)
- rename drivers/net/{ => ethernet}/octeon/Makefile (100%)
- rename drivers/net/{ => ethernet}/octeon/octeon_mgmt.c (100%)
+ drivers/net/Kconfig                                |   26 ------------
+ drivers/net/Makefile                               |    2 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/packetengines/Kconfig         |   42 ++++++++++++++++++++
+ drivers/net/ethernet/packetengines/Makefile        |    6 +++
+ drivers/net/{ => ethernet/packetengines}/hamachi.c |    0
+ .../net/{ => ethernet/packetengines}/yellowfin.c   |    0
+ 8 files changed, 50 insertions(+), 28 deletions(-)
+ create mode 100644 drivers/net/ethernet/packetengines/Kconfig
+ create mode 100644 drivers/net/ethernet/packetengines/Makefile
+ rename drivers/net/{ => ethernet/packetengines}/hamachi.c (100%)
+ rename drivers/net/{ => ethernet/packetengines}/yellowfin.c (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index eb50af7..2ad05a8 100644
+index 698b5e7..eb50af7 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -506,8 +506,6 @@ config LANTIQ_ETOP
- 	help
- 	  Support for the MII0 inside the Lantiq SoC
+@@ -541,32 +541,6 @@ config IP1000
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called ipg.  This is recommended.
  
--source "drivers/net/octeon/Kconfig"
+-config HAMACHI
+-	tristate "Packet Engines Hamachi GNIC-II support"
+-	depends on PCI
+-	select MII
+-	help
+-	  If you have a Gigabit Ethernet card of this type, say Y and read
+-	  the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
- endif # NET_ETHERNET
- 
- #
+-	  To compile this driver as a module, choose M here. The module will be
+-	  called hamachi.
+-
+-config YELLOWFIN
+-	tristate "Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)"
+-	depends on PCI && EXPERIMENTAL
+-	select CRC32
+-	---help---
+-	  Say Y here if you have a Packet Engines G-NIC PCI Gigabit Ethernet
+-	  adapter or the SYM53C885 Ethernet controller. The Gigabit adapter is
+-	  used by the Beowulf Linux cluster project.  See
+-	  <http://cesdis.gsfc.nasa.gov/linux/drivers/yellowfin.html> for more
+-	  information about this driver in particular and Beowulf in general.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called yellowfin.  This is recommended.
+-
+ config XILINX_LL_TEMAC
+ 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
+ 	depends on PPC || MICROBLAZE
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d8c286e..648fa5c 100644
+index 96112dd..d8c286e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -105,5 +105,4 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_WIMAX) += wimax/
- obj-$(CONFIG_CAIF) += caif/
+@@ -19,7 +19,6 @@ obj-$(CONFIG_PLIP) += plip.o
+ obj-$(CONFIG_ROADRUNNER) += rrunner.o
  
--obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
- obj-$(CONFIG_TILE_NET) += tile/
+ obj-$(CONFIG_R6040) += r6040.o
+-obj-$(CONFIG_YELLOWFIN) += yellowfin.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+ obj-$(CONFIG_SKFP) += skfp/
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+@@ -30,7 +29,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
+ # end link order section
+ #
+ 
+-obj-$(CONFIG_HAMACHI) += hamachi.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+ obj-$(CONFIG_HP100) += hp100.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 140dd73..70c60ef 100644
+index 3983e70..140dd73 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -38,6 +38,7 @@ source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
+@@ -39,6 +39,7 @@ source "drivers/net/ethernet/natsemi/Kconfig"
  source "drivers/net/ethernet/8390/Kconfig"
  source "drivers/net/ethernet/nuvoton/Kconfig"
-+source "drivers/net/ethernet/octeon/Kconfig"
  source "drivers/net/ethernet/oki-semi/Kconfig"
- source "drivers/net/ethernet/packetengines/Kconfig"
++source "drivers/net/ethernet/packetengines/Kconfig"
  source "drivers/net/ethernet/pasemi/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 8a97b19..929ee29 100644
+index 873d275..8a97b19 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -29,6 +29,7 @@ obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+@@ -30,6 +30,7 @@ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
  obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
  obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
-+obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
  obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
- obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
++obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
  obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
-diff --git a/drivers/net/octeon/Kconfig b/drivers/net/ethernet/octeon/Kconfig
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+diff --git a/drivers/net/ethernet/packetengines/Kconfig b/drivers/net/ethernet/packetengines/Kconfig
+new file mode 100644
+index 0000000..3fa8d39
+--- /dev/null
++++ b/drivers/net/ethernet/packetengines/Kconfig
+@@ -0,0 +1,42 @@
++#
++# Packet engine device configuration
++#
++
++config NET_PACKET_ENGINE
++	bool "Packet Engine devices"
++	depends on PCI
++	---help---
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about packet engine devices. If you say Y, you will
++	  be asked for your specific card in the following questions.
++
++config HAMACHI
++	tristate "Packet Engines Hamachi GNIC-II support"
++	depends on NET_PACKET_ENGINE && PCI
++	select MII
++	---help---
++	  If you have a Gigabit Ethernet card of this type, say Y and read
++	  the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  To compile this driver as a module, choose M here. The module will be
++	  called hamachi.
++
++config YELLOWFIN
++	tristate "Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)"
++	depends on NET_PACKET_ENGINE && PCI && EXPERIMENTAL
++	select CRC32
++	---help---
++	  Say Y here if you have a Packet Engines G-NIC PCI Gigabit Ethernet
++	  adapter or the SYM53C885 Ethernet controller. The Gigabit adapter is
++	  used by the Beowulf Linux cluster project.  See
++	  <http://cesdis.gsfc.nasa.gov/linux/drivers/yellowfin.html> for more
++	  information about this driver in particular and Beowulf in general.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called yellowfin.  This is recommended.
+diff --git a/drivers/net/ethernet/packetengines/Makefile b/drivers/net/ethernet/packetengines/Makefile
+new file mode 100644
+index 0000000..995ccd0
+--- /dev/null
++++ b/drivers/net/ethernet/packetengines/Makefile
+@@ -0,0 +1,6 @@
++#
++# Makefile for the Packet Engine network device drivers.
++#
++
++obj-$(CONFIG_HAMACHI) += hamachi.o
++obj-$(CONFIG_YELLOWFIN) += yellowfin.o
+diff --git a/drivers/net/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
 similarity index 100%
-rename from drivers/net/octeon/Kconfig
-rename to drivers/net/ethernet/octeon/Kconfig
-diff --git a/drivers/net/octeon/Makefile b/drivers/net/ethernet/octeon/Makefile
+rename from drivers/net/hamachi.c
+rename to drivers/net/ethernet/packetengines/hamachi.c
+diff --git a/drivers/net/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
 similarity index 100%
-rename from drivers/net/octeon/Makefile
-rename to drivers/net/ethernet/octeon/Makefile
-diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-similarity index 100%
-rename from drivers/net/octeon/octeon_mgmt.c
-rename to drivers/net/ethernet/octeon/octeon_mgmt.c
+rename from drivers/net/yellowfin.c
+rename to drivers/net/ethernet/packetengines/yellowfin.c
 -- 
 1.7.6
 
