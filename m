@@ -1,126 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 61/71] hp100: Move the HP driver
-Date: Sat, 30 Jul 2011 20:27:20 -0700
-Message-ID: <1312082850-24914-62-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 50/71] xilinx/ll_temac: Move the Xilinx drivers
+Date: Sat, 30 Jul 2011 20:27:09 -0700
+Message-ID: <1312082850-24914-51-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jaroslav Kysela <perex@perex.cz>
+	John Williams <john.williams@petalogix.com>,
+	"David H. Lynch Jr." <dhlii@dlasys.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753420Ab1GaD2p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:45 -0400
+	id S1753364Ab1GaD2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:25 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the HP driver into drivers/net/ethernet/hp/ and
-made the necessary Kconfig and Makefile changes.
+Move the Xilinx drivers into drivers/net/ethernet/xilinx/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Jaroslav Kysela <perex@perex.cz>
+CC: John Williams <john.williams@petalogix.com>
+CC: "David H. Lynch Jr." <dhlii@dlasys.net>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                           |    2 +-
- drivers/net/Kconfig                   |   11 -----------
- drivers/net/Makefile                  |    1 -
- drivers/net/ethernet/Kconfig          |    1 +
- drivers/net/ethernet/Makefile         |    1 +
- drivers/net/ethernet/hp/Kconfig       |   27 +++++++++++++++++++++++++++
- drivers/net/ethernet/hp/Makefile      |    5 +++++
- drivers/net/{ => ethernet/hp}/hp100.c |    0
- drivers/net/{ => ethernet/hp}/hp100.h |    0
- 9 files changed, 35 insertions(+), 13 deletions(-)
- create mode 100644 drivers/net/ethernet/hp/Kconfig
- create mode 100644 drivers/net/ethernet/hp/Makefile
- rename drivers/net/{ => ethernet/hp}/hp100.c (100%)
- rename drivers/net/{ => ethernet/hp}/hp100.h (100%)
+ drivers/net/Kconfig                                |   15 ---------
+ drivers/net/Makefile                               |    4 --
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/xilinx/Kconfig                |   31 ++++++++++++++++++++
+ drivers/net/ethernet/xilinx/Makefile               |    7 ++++
+ drivers/net/{ => ethernet/xilinx}/ll_temac.h       |    0
+ drivers/net/{ => ethernet/xilinx}/ll_temac_main.c  |    0
+ drivers/net/{ => ethernet/xilinx}/ll_temac_mdio.c  |    0
+ .../net/{ => ethernet/xilinx}/xilinx_emaclite.c    |    0
+ 10 files changed, 40 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/net/ethernet/xilinx/Kconfig
+ create mode 100644 drivers/net/ethernet/xilinx/Makefile
+ rename drivers/net/{ => ethernet/xilinx}/ll_temac.h (100%)
+ rename drivers/net/{ => ethernet/xilinx}/ll_temac_main.c (100%)
+ rename drivers/net/{ => ethernet/xilinx}/ll_temac_mdio.c (100%)
+ rename drivers/net/{ => ethernet/xilinx}/xilinx_emaclite.c (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4c82a79..d3a0a99 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3054,7 +3054,7 @@ F:	drivers/platform/x86/tc1100-wmi.c
- HP100:	Driver for HP 10/100 Mbit/s Voice Grade Network Adapter Series
- M:	Jaroslav Kysela <perex@perex.cz>
- S:	Maintained
--F:	drivers/net/hp100.*
-+F:	drivers/net/ethernet/hp/hp100.*
- 
- HPET:	High Precision Event Timers driver
- M:	Clemens Ladisch <clemens@ladisch.de>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c72e76f..d216f99 100644
+index 60e850d..f8181da 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -320,17 +320,6 @@ config DNET
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called dnet.
+@@ -493,13 +493,6 @@ config NET_POCKET
+ 	  the questions about this class of network devices. If you say Y, you
+ 	  will be asked for your specific device in the following questions.
  
--config HP100
--	tristate "HP 10/100VG PCLAN (ISA, EISA, PCI) support"
--	depends on ISA || EISA || PCI
+-config XILINX_EMACLITE
+-	tristate "Xilinx 10/100 Ethernet Lite support"
+-	depends on PPC32 || MICROBLAZE
+-	select PHYLIB
 -	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This driver supports the 10/100 Ethernet Lite from Xilinx.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called hp100.
+ config LANTIQ_ETOP
+ 	tristate "Lantiq SoC ETOP driver"
+ 	depends on SOC_TYPE_XWAY
+@@ -539,14 +532,6 @@ config IP1000
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called ipg.  This is recommended.
+ 
+-config XILINX_LL_TEMAC
+-	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
+-	depends on PPC || MICROBLAZE
+-	select PHYLIB
+-	help
+-	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
+-	  core used in Xilinx Spartan and Virtex FPGAs
 -
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on ISA || EISA || PCI
+ endif # NETDEV_1000
+ 
+ #
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 670e175..5b37149 100644
+index 271fc52..4c7af02 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -26,7 +26,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
+@@ -33,10 +33,6 @@ obj-$(CONFIG_NET_SB1000) += sb1000.o
+ obj-$(CONFIG_HP100) += hp100.o
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
  
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NET_SB1000) += sb1000.o
--obj-$(CONFIG_HP100) += hp100.o
- 
+-ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
+-obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
+-obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
+-
  obj-$(CONFIG_PPP) += ppp_generic.o
  obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
+ obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 8cd38c9..c1ce356 100644
+index c29c145..922f4d1 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -30,6 +30,7 @@ source "drivers/net/ethernet/neterion/Kconfig"
- source "drivers/net/ethernet/faraday/Kconfig"
- source "drivers/net/ethernet/freescale/Kconfig"
- source "drivers/net/ethernet/fujitsu/Kconfig"
-+source "drivers/net/ethernet/hp/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
+@@ -82,5 +82,6 @@ source "drivers/net/ethernet/ti/Kconfig"
+ source "drivers/net/ethernet/toshiba/Kconfig"
+ source "drivers/net/ethernet/tundra/Kconfig"
+ source "drivers/net/ethernet/via/Kconfig"
++source "drivers/net/ethernet/xilinx/Kconfig"
+ 
+ endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 50e040c..34e84fa 100644
+index 8495c50..fcecd5f 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
- obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
- obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
- obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
-+obj-$(CONFIG_NET_VENDOR_HP) += hp/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
-diff --git a/drivers/net/ethernet/hp/Kconfig b/drivers/net/ethernet/hp/Kconfig
+@@ -50,3 +50,4 @@ obj-$(CONFIG_NET_VENDOR_TI) += ti/
+ obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
+ obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
+ obj-$(CONFIG_NET_VENDOR_VIA) += via/
++obj-$(CONFIG_NET_VENDOR_XILINX) += xilinx/
+diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethernet/xilinx/Kconfig
 new file mode 100644
-index 0000000..291a3a0
+index 0000000..d66feb1
 --- /dev/null
-+++ b/drivers/net/ethernet/hp/Kconfig
-@@ -0,0 +1,27 @@
++++ b/drivers/net/ethernet/xilinx/Kconfig
+@@ -0,0 +1,31 @@
 +#
-+# HP network device configuration
++# Xilink device configuration
 +#
 +
-+config NET_VENDOR_HP
-+	bool "HP devices"
-+	depends on ISA || EISA || PCI
++config NET_VENDOR_XILINX
++	bool "Xilinx devices"
++	depends on PPC || PPC32 || MICROBLAZE
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -128,38 +130,52 @@ index 0000000..291a3a0
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about HP cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about Xilinx devices. If you say Y, you will be asked
++	  for your specific card in the following questions.
 +
-+config HP100
-+	tristate "HP 10/100VG PCLAN (ISA, EISA, PCI) support"
-+	depends on NET_VENDOR_HP && (ISA || EISA || PCI)
++config XILINX_EMACLITE
++	tristate "Xilinx 10/100 Ethernet Lite support"
++	depends on NET_VENDOR_XILINX && (PPC32 || MICROBLAZE)
++	select PHYLIB
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This driver supports the 10/100 Ethernet Lite from Xilinx.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called hp100.
-diff --git a/drivers/net/ethernet/hp/Makefile b/drivers/net/ethernet/hp/Makefile
++config XILINX_LL_TEMAC
++	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
++	depends on NET_VENDOR_XILINX && (PPC || MICROBLAZE)
++	select PHYLIB
++	---help---
++	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
++	  core used in Xilinx Spartan and Virtex FPGAs
+diff --git a/drivers/net/ethernet/xilinx/Makefile b/drivers/net/ethernet/xilinx/Makefile
 new file mode 100644
-index 0000000..20b6918
+index 0000000..5feac73
 --- /dev/null
-+++ b/drivers/net/ethernet/hp/Makefile
-@@ -0,0 +1,5 @@
++++ b/drivers/net/ethernet/xilinx/Makefile
+@@ -0,0 +1,7 @@
 +#
-+# Makefile for the HP network device drivers.
++# Makefile for the Xilink network device drivers.
 +#
 +
-+obj-$(CONFIG_HP100) += hp100.o
-diff --git a/drivers/net/hp100.c b/drivers/net/ethernet/hp/hp100.c
++ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
++obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
++obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
+diff --git a/drivers/net/ll_temac.h b/drivers/net/ethernet/xilinx/ll_temac.h
 similarity index 100%
-rename from drivers/net/hp100.c
-rename to drivers/net/ethernet/hp/hp100.c
-diff --git a/drivers/net/hp100.h b/drivers/net/ethernet/hp/hp100.h
+rename from drivers/net/ll_temac.h
+rename to drivers/net/ethernet/xilinx/ll_temac.h
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
 similarity index 100%
-rename from drivers/net/hp100.h
-rename to drivers/net/ethernet/hp/hp100.h
+rename from drivers/net/ll_temac_main.c
+rename to drivers/net/ethernet/xilinx/ll_temac_main.c
+diff --git a/drivers/net/ll_temac_mdio.c b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
+similarity index 100%
+rename from drivers/net/ll_temac_mdio.c
+rename to drivers/net/ethernet/xilinx/ll_temac_mdio.c
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+similarity index 100%
+rename from drivers/net/xilinx_emaclite.c
+rename to drivers/net/ethernet/xilinx/xilinx_emaclite.c
 -- 
 1.7.6
 
