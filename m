@@ -1,146 +1,188 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 14/71] be2net: Move the Emulex driver
-Date: Sat, 30 Jul 2011 20:26:33 -0700
-Message-ID: <1312082850-24914-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 16/71] mlx4: Move the Mellanox driver
+Date: Sat, 30 Jul 2011 20:26:35 -0700
+Message-ID: <1312082850-24914-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
+	Roland Dreier <roland@kernel.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:54473 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:27579 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753163Ab1GaD1r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:27:47 -0400
+	id S1753175Ab1GaD1s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:27:48 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the Emulex driver into drivers/net/ethernet/emulex/ and
+Moves the Mellanox driver into drivers/net/ethernet/mellanox/ and
 make the necessary Kconfig and Makefile changes.
 
-CC: Sathya Perla <sathya.perla@emulex.com>
-CC: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-CC: Ajit Khaparde <ajit.khaparde@emulex.com>
+CC: Roland Dreier <roland@kernel.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |    2 --
+ drivers/net/Kconfig                                |   24 -----------------
  drivers/net/Makefile                               |    1 -
- drivers/net/benet/Kconfig                          |    6 ------
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/emulex/Kconfig                |   18 ++++++++++++++++++
- drivers/net/ethernet/emulex/Makefile               |    5 +++++
- drivers/net/ethernet/emulex/benet/Kconfig          |    6 ++++++
- drivers/net/{ => ethernet/emulex}/benet/Makefile   |    0
- drivers/net/{ => ethernet/emulex}/benet/be.h       |    0
- drivers/net/{ => ethernet/emulex}/benet/be_cmds.c  |    0
- drivers/net/{ => ethernet/emulex}/benet/be_cmds.h  |    0
- .../net/{ => ethernet/emulex}/benet/be_ethtool.c   |    0
- drivers/net/{ => ethernet/emulex}/benet/be_hw.h    |    0
- drivers/net/{ => ethernet/emulex}/benet/be_main.c  |    0
- 16 files changed, 32 insertions(+), 10 deletions(-)
- delete mode 100644 drivers/net/benet/Kconfig
- create mode 100644 drivers/net/ethernet/emulex/Kconfig
- create mode 100644 drivers/net/ethernet/emulex/Makefile
- create mode 100644 drivers/net/ethernet/emulex/benet/Kconfig
- rename drivers/net/{ => ethernet/emulex}/benet/Makefile (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be.h (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_cmds.c (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_cmds.h (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_ethtool.c (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_hw.h (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_main.c (100%)
+ drivers/net/ethernet/mellanox/Kconfig              |   18 +++++++++++++
+ drivers/net/ethernet/mellanox/Makefile             |    5 +++
+ drivers/net/ethernet/mellanox/mlx4/Kconfig         |   27 ++++++++++++++++++++
+ drivers/net/{ => ethernet/mellanox}/mlx4/Makefile  |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/alloc.c   |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/catas.c   |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/cmd.c     |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/cq.c      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/en_cq.c   |    0
+ .../net/{ => ethernet/mellanox}/mlx4/en_ethtool.c  |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/en_main.c |    0
+ .../net/{ => ethernet/mellanox}/mlx4/en_netdev.c   |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/en_port.c |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/en_port.h |    0
+ .../{ => ethernet/mellanox}/mlx4/en_resources.c    |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/en_rx.c   |    0
+ .../net/{ => ethernet/mellanox}/mlx4/en_selftest.c |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/en_tx.c   |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/eq.c      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/fw.c      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/fw.h      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/icm.c     |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/icm.h     |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/intf.c    |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/main.c    |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/mcg.c     |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/mlx4.h    |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/mlx4_en.h |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/mr.c      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/pd.c      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/port.c    |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/profile.c |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/qp.c      |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/reset.c   |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/sense.c   |    0
+ drivers/net/{ => ethernet/mellanox}/mlx4/srq.c     |    0
+ 40 files changed, 52 insertions(+), 25 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/Kconfig
+ create mode 100644 drivers/net/ethernet/mellanox/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/Kconfig
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/Makefile (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/alloc.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/catas.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/cmd.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/cq.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_cq.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_main.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_netdev.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_port.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_port.h (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_resources.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_rx.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_selftest.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/en_tx.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/eq.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/fw.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/fw.h (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/icm.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/icm.h (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/intf.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/main.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/mcg.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/mlx4.h (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/mlx4_en.h (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/mr.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/pd.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/port.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/profile.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/qp.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/reset.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/sense.c (100%)
+ rename drivers/net/{ => ethernet/mellanox}/mlx4/srq.c (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 28ee38d..0c0fda5 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5708,7 +5708,7 @@ M:	Ajit Khaparde <ajit.khaparde@emulex.com>
- L:	netdev@vger.kernel.org
- W:	http://www.emulex.com
- S:	Supported
--F:	drivers/net/benet/
-+F:	drivers/net/ethernet/emulex/benet/
- 
- SFC NETWORK DRIVER
- M:	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index fe22712..db03c21 100644
+index 2701ee9..56c033a 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1598,8 +1598,6 @@ config BNA
+@@ -1554,30 +1554,6 @@ config PASEMI_MAC
+ 	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+ 	  PA Semi's PWRficient line of chips.
  
- 	  <http://support.brocade.com>
- 
--source "drivers/net/benet/Kconfig"
+-config MLX4_EN
+-	tristate "Mellanox Technologies 10Gbit Ethernet support"
+-	depends on PCI && INET
+-	select MLX4_CORE
+-	select INET_LRO
+-	help
+-	  This driver supports Mellanox Technologies ConnectX Ethernet
+-	  devices.
 -
- endif # NETDEV_10000
- 
- source "drivers/net/tokenring/Kconfig"
+-config MLX4_CORE
+-	tristate
+-	depends on PCI
+-	default n
+-
+-config MLX4_DEBUG
+-	bool "Verbose debugging output" if (MLX4_CORE && EXPERT)
+-	depends on MLX4_CORE
+-	default y
+-	---help---
+-	  This option causes debugging code to be compiled into the
+-	  mlx4_core driver.  The output can be turned on via the
+-	  debug_level module parameter (which can also be set after
+-	  the driver is loaded through sysfs).
+-
+ config TEHUTI
+ 	tristate "Tehuti Networks 10G Ethernet"
+ 	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index faf3068..39b04e0 100644
+index c8a176f..73e357e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -24,7 +24,6 @@ obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
- obj-$(CONFIG_TEHUTI) += tehuti.o
- obj-$(CONFIG_ENIC) += enic/
- obj-$(CONFIG_JME) += jme.o
--obj-$(CONFIG_BE2NET) += benet/
- obj-$(CONFIG_VMXNET3) += vmxnet3/
- obj-$(CONFIG_BNA) += bna/
- 
-diff --git a/drivers/net/benet/Kconfig b/drivers/net/benet/Kconfig
-deleted file mode 100644
-index 1a41a49..0000000
---- a/drivers/net/benet/Kconfig
-+++ /dev/null
-@@ -1,6 +0,0 @@
--config BE2NET
--	tristate "ServerEngines' 10Gbps NIC - BladeEngine"
--	depends on PCI && INET
--	help
--	This driver implements the NIC functionality for ServerEngines'
--	10Gbps network adapter - BladeEngine.
+@@ -157,7 +157,6 @@ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+ obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
+ pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
+-obj-$(CONFIG_MLX4_CORE) += mlx4/
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
+ obj-$(CONFIG_GRETH) += greth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 0bc6635..9c003f3 100644
+index 225918d..8bbddc9 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -16,6 +16,7 @@ source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
-+source "drivers/net/ethernet/emulex/Kconfig"
+@@ -20,6 +20,7 @@ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/i825xx/Kconfig"
++source "drivers/net/ethernet/mellanox/Kconfig"
  source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 50faab5..2ac05ba 100644
+index 734f7c9..e5f2954 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -7,6 +7,7 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
-+obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+@@ -11,6 +11,7 @@ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
++obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
  obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
-diff --git a/drivers/net/ethernet/emulex/Kconfig b/drivers/net/ethernet/emulex/Kconfig
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_SFC) += sfc/
+diff --git a/drivers/net/ethernet/mellanox/Kconfig b/drivers/net/ethernet/mellanox/Kconfig
 new file mode 100644
-index 0000000..f8a68ce
+index 0000000..ba0524a
 --- /dev/null
-+++ b/drivers/net/ethernet/emulex/Kconfig
++++ b/drivers/net/ethernet/mellanox/Kconfig
 @@ -0,0 +1,18 @@
 +#
-+# Emulex driver configuration
++# Mellanox driver configuration
 +#
 +
-+config NET_VENDOR_EMULEX
-+	bool "Emulex devices"
++config NET_VENDOR_MELLANOX
++	bool "Mellanox devices"
 +	depends on PCI || INET
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
@@ -149,61 +191,186 @@ index 0000000..f8a68ce
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Emulex cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about Mellanox cards. If you say Y, you will be asked
++	  for your specific card in the following questions.
 +
-+source "drivers/net/ethernet/emulex/benet/Kconfig"
-diff --git a/drivers/net/ethernet/emulex/Makefile b/drivers/net/ethernet/emulex/Makefile
++source "drivers/net/ethernet/mellanox/mlx4/Kconfig"
+diff --git a/drivers/net/ethernet/mellanox/Makefile b/drivers/net/ethernet/mellanox/Makefile
 new file mode 100644
-index 0000000..ea8ec57
+index 0000000..37afb96
 --- /dev/null
-+++ b/drivers/net/ethernet/emulex/Makefile
++++ b/drivers/net/ethernet/mellanox/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Emulex device drivers.
++# Makefile for the Mellanox device drivers.
 +#
 +
-+obj-$(CONFIG_BE2NET) += benet/
-diff --git a/drivers/net/ethernet/emulex/benet/Kconfig b/drivers/net/ethernet/emulex/benet/Kconfig
++obj-$(CONFIG_MLX4_CORE) += mlx4/
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
 new file mode 100644
-index 0000000..ca2c28e
+index 0000000..67df67a
 --- /dev/null
-+++ b/drivers/net/ethernet/emulex/benet/Kconfig
-@@ -0,0 +1,6 @@
-+config BE2NET
-+	tristate "ServerEngines' 10Gbps NIC - BladeEngine"
-+	depends on NET_VENDOR_EMULEX && PCI && INET
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -0,0 +1,27 @@
++#
++# Mellanox driver configuration
++#
++
++config MLX4_EN
++	tristate "Mellanox Technologies 10Gbit Ethernet support"
++	depends on NET_VENDOR_MELLANOX && PCI && INET
++	select MLX4_CORE
++	select INET_LRO
 +	---help---
-+	  This driver implements the NIC functionality for ServerEngines'
-+	  10Gbps network adapter - BladeEngine.
-diff --git a/drivers/net/benet/Makefile b/drivers/net/ethernet/emulex/benet/Makefile
++	  This driver supports Mellanox Technologies ConnectX Ethernet
++	  devices.
++
++config MLX4_CORE
++	tristate
++	depends on PCI
++	default n
++
++config MLX4_DEBUG
++	bool "Verbose debugging output" if (MLX4_CORE && EXPERT)
++	depends on MLX4_CORE
++	default y
++	---help---
++	  This option causes debugging code to be compiled into the
++	  mlx4_core driver.  The output can be turned on via the
++	  debug_level module parameter (which can also be set after
++	  the driver is loaded through sysfs).
+diff --git a/drivers/net/mlx4/Makefile b/drivers/net/ethernet/mellanox/mlx4/Makefile
 similarity index 100%
-rename from drivers/net/benet/Makefile
-rename to drivers/net/ethernet/emulex/benet/Makefile
-diff --git a/drivers/net/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+rename from drivers/net/mlx4/Makefile
+rename to drivers/net/ethernet/mellanox/mlx4/Makefile
+diff --git a/drivers/net/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
 similarity index 100%
-rename from drivers/net/benet/be.h
-rename to drivers/net/ethernet/emulex/benet/be.h
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+rename from drivers/net/mlx4/alloc.c
+rename to drivers/net/ethernet/mellanox/mlx4/alloc.c
+diff --git a/drivers/net/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
 similarity index 100%
-rename from drivers/net/benet/be_cmds.c
-rename to drivers/net/ethernet/emulex/benet/be_cmds.c
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+rename from drivers/net/mlx4/catas.c
+rename to drivers/net/ethernet/mellanox/mlx4/catas.c
+diff --git a/drivers/net/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
 similarity index 100%
-rename from drivers/net/benet/be_cmds.h
-rename to drivers/net/ethernet/emulex/benet/be_cmds.h
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+rename from drivers/net/mlx4/cmd.c
+rename to drivers/net/ethernet/mellanox/mlx4/cmd.c
+diff --git a/drivers/net/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
 similarity index 100%
-rename from drivers/net/benet/be_ethtool.c
-rename to drivers/net/ethernet/emulex/benet/be_ethtool.c
-diff --git a/drivers/net/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+rename from drivers/net/mlx4/cq.c
+rename to drivers/net/ethernet/mellanox/mlx4/cq.c
+diff --git a/drivers/net/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
 similarity index 100%
-rename from drivers/net/benet/be_hw.h
-rename to drivers/net/ethernet/emulex/benet/be_hw.h
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+rename from drivers/net/mlx4/en_cq.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_cq.c
+diff --git a/drivers/net/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
 similarity index 100%
-rename from drivers/net/benet/be_main.c
-rename to drivers/net/ethernet/emulex/benet/be_main.c
+rename from drivers/net/mlx4/en_ethtool.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+diff --git a/drivers/net/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+similarity index 100%
+rename from drivers/net/mlx4/en_main.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_main.c
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+similarity index 100%
+rename from drivers/net/mlx4/en_netdev.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
+similarity index 100%
+rename from drivers/net/mlx4/en_port.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_port.c
+diff --git a/drivers/net/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+similarity index 100%
+rename from drivers/net/mlx4/en_port.h
+rename to drivers/net/ethernet/mellanox/mlx4/en_port.h
+diff --git a/drivers/net/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+similarity index 100%
+rename from drivers/net/mlx4/en_resources.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_resources.c
+diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+similarity index 100%
+rename from drivers/net/mlx4/en_rx.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_rx.c
+diff --git a/drivers/net/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
+similarity index 100%
+rename from drivers/net/mlx4/en_selftest.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_selftest.c
+diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+similarity index 100%
+rename from drivers/net/mlx4/en_tx.c
+rename to drivers/net/ethernet/mellanox/mlx4/en_tx.c
+diff --git a/drivers/net/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+similarity index 100%
+rename from drivers/net/mlx4/eq.c
+rename to drivers/net/ethernet/mellanox/mlx4/eq.c
+diff --git a/drivers/net/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+similarity index 100%
+rename from drivers/net/mlx4/fw.c
+rename to drivers/net/ethernet/mellanox/mlx4/fw.c
+diff --git a/drivers/net/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+similarity index 100%
+rename from drivers/net/mlx4/fw.h
+rename to drivers/net/ethernet/mellanox/mlx4/fw.h
+diff --git a/drivers/net/mlx4/icm.c b/drivers/net/ethernet/mellanox/mlx4/icm.c
+similarity index 100%
+rename from drivers/net/mlx4/icm.c
+rename to drivers/net/ethernet/mellanox/mlx4/icm.c
+diff --git a/drivers/net/mlx4/icm.h b/drivers/net/ethernet/mellanox/mlx4/icm.h
+similarity index 100%
+rename from drivers/net/mlx4/icm.h
+rename to drivers/net/ethernet/mellanox/mlx4/icm.h
+diff --git a/drivers/net/mlx4/intf.c b/drivers/net/ethernet/mellanox/mlx4/intf.c
+similarity index 100%
+rename from drivers/net/mlx4/intf.c
+rename to drivers/net/ethernet/mellanox/mlx4/intf.c
+diff --git a/drivers/net/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+similarity index 100%
+rename from drivers/net/mlx4/main.c
+rename to drivers/net/ethernet/mellanox/mlx4/main.c
+diff --git a/drivers/net/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+similarity index 100%
+rename from drivers/net/mlx4/mcg.c
+rename to drivers/net/ethernet/mellanox/mlx4/mcg.c
+diff --git a/drivers/net/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+similarity index 100%
+rename from drivers/net/mlx4/mlx4.h
+rename to drivers/net/ethernet/mellanox/mlx4/mlx4.h
+diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+similarity index 100%
+rename from drivers/net/mlx4/mlx4_en.h
+rename to drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+diff --git a/drivers/net/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+similarity index 100%
+rename from drivers/net/mlx4/mr.c
+rename to drivers/net/ethernet/mellanox/mlx4/mr.c
+diff --git a/drivers/net/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
+similarity index 100%
+rename from drivers/net/mlx4/pd.c
+rename to drivers/net/ethernet/mellanox/mlx4/pd.c
+diff --git a/drivers/net/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+similarity index 100%
+rename from drivers/net/mlx4/port.c
+rename to drivers/net/ethernet/mellanox/mlx4/port.c
+diff --git a/drivers/net/mlx4/profile.c b/drivers/net/ethernet/mellanox/mlx4/profile.c
+similarity index 100%
+rename from drivers/net/mlx4/profile.c
+rename to drivers/net/ethernet/mellanox/mlx4/profile.c
+diff --git a/drivers/net/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
+similarity index 100%
+rename from drivers/net/mlx4/qp.c
+rename to drivers/net/ethernet/mellanox/mlx4/qp.c
+diff --git a/drivers/net/mlx4/reset.c b/drivers/net/ethernet/mellanox/mlx4/reset.c
+similarity index 100%
+rename from drivers/net/mlx4/reset.c
+rename to drivers/net/ethernet/mellanox/mlx4/reset.c
+diff --git a/drivers/net/mlx4/sense.c b/drivers/net/ethernet/mellanox/mlx4/sense.c
+similarity index 100%
+rename from drivers/net/mlx4/sense.c
+rename to drivers/net/ethernet/mellanox/mlx4/sense.c
+diff --git a/drivers/net/mlx4/srq.c b/drivers/net/ethernet/mellanox/mlx4/srq.c
+similarity index 100%
+rename from drivers/net/mlx4/srq.c
+rename to drivers/net/ethernet/mellanox/mlx4/srq.c
 -- 
 1.7.6
 
