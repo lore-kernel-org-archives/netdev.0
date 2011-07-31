@@ -1,264 +1,300 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 35/71] skge/sky2/mv643xx/pxa168: Move the Marvell Ethernet drivers
-Date: Sat, 30 Jul 2011 20:26:54 -0700
-Message-ID: <1312082850-24914-36-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 38/71] freescale: Move the Freescale drivers
+Date: Sat, 30 Jul 2011 20:26:57 -0700
+Message-ID: <1312082850-24914-39-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Sachin Sanap <ssanap@marvell.com>,
-	Zhangfei Gao <zgao6@marvell.com>,
-	Philip Rakity <prakity@marvell.com>,
-	Mark Brown <markb@marvell.com>,
-	Lennert Buytenhek <buytenh@marvell.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+	Sandeep Gopalpet <sandeep.kumar@freescale.com>,
+	Andy Fleming <afleming@freescale.com>,
+	Shlomi Gridish <gridish@freescale.com>,
+	Li Yang <leoli@freescale.com>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Dan Malek <dmalek@jlc.net>, Sylvain Munaut <tnt@246tNt.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753297Ab1GaD2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:06 -0400
+	id S1753320Ab1GaD2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:09 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Marvell Ethernet drivers into drivers/net/ethernet/marvell/
-and make the necessary Kconfig and Makefile changes.
+Move the Freescale drivers into drivers/net/ethernet/freescale/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Sachin Sanap <ssanap@marvell.com>
-CC: Zhangfei Gao <zgao6@marvell.com>
-CC: Philip Rakity <prakity@marvell.com>
-CC: Mark Brown <markb@marvell.com>
-CC: Lennert Buytenhek <buytenh@marvell.com>
-CC: Stephen Hemminger <shemminger@linux-foundation.org>
+CC: Sandeep Gopalpet <sandeep.kumar@freescale.com>
+CC: Andy Fleming <afleming@freescale.com>
+CC: Shlomi Gridish <gridish@freescale.com>
+CC: Li Yang <leoli@freescale.com>
+CC: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+CC: Vitaly Bordug <vbordug@ru.mvista.com>
+CC: Dan Malek <dmalek@jlc.net>
+CC: Sylvain Munaut <tnt@246tNt.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                      |    5 +-
- drivers/net/Kconfig                              |   90 ------------------
- drivers/net/Makefile                             |    4 -
- drivers/net/ethernet/Kconfig                     |    1 +
- drivers/net/ethernet/Makefile                    |    1 +
- drivers/net/ethernet/marvell/Kconfig             |  107 ++++++++++++++++++++++
- drivers/net/ethernet/marvell/Makefile            |    8 ++
- drivers/net/{ => ethernet/marvell}/mv643xx_eth.c |    0
- drivers/net/{ => ethernet/marvell}/pxa168_eth.c  |    0
- drivers/net/{ => ethernet/marvell}/skge.c        |    0
- drivers/net/{ => ethernet/marvell}/skge.h        |    0
- drivers/net/{ => ethernet/marvell}/sky2.c        |    0
- drivers/net/{ => ethernet/marvell}/sky2.h        |    0
- 13 files changed, 119 insertions(+), 97 deletions(-)
- create mode 100644 drivers/net/ethernet/marvell/Kconfig
- create mode 100644 drivers/net/ethernet/marvell/Makefile
- rename drivers/net/{ => ethernet/marvell}/mv643xx_eth.c (100%)
- rename drivers/net/{ => ethernet/marvell}/pxa168_eth.c (100%)
- rename drivers/net/{ => ethernet/marvell}/skge.c (100%)
- rename drivers/net/{ => ethernet/marvell}/skge.h (100%)
- rename drivers/net/{ => ethernet/marvell}/sky2.c (100%)
- rename drivers/net/{ => ethernet/marvell}/sky2.h (100%)
+ MAINTAINERS                                        |    4 +-
+ drivers/net/Kconfig                                |   66 ---------------
+ drivers/net/Makefile                               |   18 ----
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/freescale/Kconfig             |   85 ++++++++++++++++++++
+ drivers/net/ethernet/freescale/Makefile            |   18 ++++
+ drivers/net/{ => ethernet/freescale}/fec.c         |    0
+ drivers/net/{ => ethernet/freescale}/fec.h         |    0
+ drivers/net/{ => ethernet/freescale}/fec_mpc52xx.c |    0
+ drivers/net/{ => ethernet/freescale}/fec_mpc52xx.h |    0
+ .../net/{ => ethernet/freescale}/fec_mpc52xx_phy.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/Kconfig   |    2 +-
+ .../net/{ => ethernet/freescale}/fs_enet/Makefile  |    0
+ drivers/net/{ => ethernet/freescale}/fs_enet/fec.h |    0
+ .../freescale}/fs_enet/fs_enet-main.c              |    0
+ .../net/{ => ethernet/freescale}/fs_enet/fs_enet.h |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mac-fcc.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mac-fec.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mac-scc.c |    0
+ .../{ => ethernet/freescale}/fs_enet/mii-bitbang.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mii-fec.c |    0
+ drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.c |    0
+ drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.h |    0
+ drivers/net/{ => ethernet/freescale}/gianfar.c     |    0
+ drivers/net/{ => ethernet/freescale}/gianfar.h     |    0
+ .../net/{ => ethernet/freescale}/gianfar_ethtool.c |    0
+ drivers/net/{ => ethernet/freescale}/gianfar_ptp.c |    0
+ .../net/{ => ethernet/freescale}/gianfar_sysfs.c   |    0
+ drivers/net/{ => ethernet/freescale}/ucc_geth.c    |    0
+ drivers/net/{ => ethernet/freescale}/ucc_geth.h    |    0
+ .../{ => ethernet/freescale}/ucc_geth_ethtool.c    |    0
+ 32 files changed, 108 insertions(+), 87 deletions(-)
+ create mode 100644 drivers/net/ethernet/freescale/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/Makefile
+ rename drivers/net/{ => ethernet/freescale}/fec.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx_phy.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/Kconfig (91%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/Makefile (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/fec.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/fs_enet-main.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/fs_enet.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-fcc.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-fec.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-scc.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mii-bitbang.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mii-fec.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar_ptp.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar_sysfs.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/ucc_geth.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/ucc_geth.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/ucc_geth_ethtool.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index d96c791..9b06d37 100644
+index 9e4a6b0..8843c16 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4103,7 +4103,7 @@ MARVELL MV643XX ETHERNET DRIVER
- M:	Lennert Buytenhek <buytenh@wantstofly.org>
+@@ -2677,7 +2677,7 @@ M:	Vitaly Bordug <vbordug@ru.mvista.com>
+ L:	linuxppc-dev@lists.ozlabs.org
  L:	netdev@vger.kernel.org
  S:	Maintained
--F:	drivers/net/mv643xx_eth.*
-+F:	drivers/net/ethernet/marvell/mv643xx_eth.*
- F:	include/linux/mv643xx.h
+-F:	drivers/net/fs_enet/
++F:	drivers/net/ethernet/freescale/fs_enet/
+ F:	include/linux/fs_enet_pd.h
  
- MARVELL MWIFIEX WIRELESS DRIVER
-@@ -5816,8 +5816,7 @@ SKGE, SKY2 10/100/1000 GIGABIT ETHERNET DRIVERS
- M:	Stephen Hemminger <shemminger@linux-foundation.org>
+ FREESCALE QUICC ENGINE LIBRARY
+@@ -2699,7 +2699,7 @@ M:	Li Yang <leoli@freescale.com>
  L:	netdev@vger.kernel.org
+ L:	linuxppc-dev@lists.ozlabs.org
  S:	Maintained
--F:	drivers/net/skge.*
--F:	drivers/net/sky2.*
-+F:	drivers/net/ethernet/marvell/sk*
+-F:	drivers/net/ucc_geth*
++F:	drivers/net/ethernet/freescale/ucc_geth*
  
- SLAB ALLOCATOR
- M:	Christoph Lameter <cl@linux-foundation.org>
+ FREESCALE QUICC ENGINE UCC UART DRIVER
+ M:	Timur Tabi <timur@freescale.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 7001b0d..ec5f7f4 100644
+index 91a498e..ce9771a 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -313,16 +313,6 @@ config BFIN_MAC_USE_HWSTAMP
+@@ -605,39 +605,6 @@ config NET_POCKET
+ 	  the questions about this class of network devices. If you say Y, you
+ 	  will be asked for your specific device in the following questions.
+ 
+-config FEC
+-	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+-	depends on M523x || M527x || M5272 || M528x || M520x || M532x || \
+-		IMX_HAVE_PLATFORM_FEC || MXS_HAVE_PLATFORM_FEC
+-	default IMX_HAVE_PLATFORM_FEC || MXS_HAVE_PLATFORM_FEC if ARM
+-	select PHYLIB
+-	help
+-	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+-	  controller on some Motorola ColdFire and Freescale i.MX processors.
+-
+-config FEC_MPC52xx
+-	tristate "MPC52xx FEC driver"
+-	depends on PPC_MPC52xx && PPC_BESTCOMM
+-	select CRC32
+-	select PHYLIB
+-	select PPC_BESTCOMM_FEC
+-	---help---
+-	  This option enables support for the MPC5200's on-chip
+-	  Fast Ethernet Controller
+-	  If compiled as module, it will be called fec_mpc52xx.
+-
+-config FEC_MPC52xx_MDIO
+-	bool "MPC52xx FEC MDIO bus driver"
+-	depends on FEC_MPC52xx
+-	default y
+-	---help---
+-	  The MPC5200's FEC can connect to the Ethernet either with
+-	  an external MII PHY chip or 10 Mbps 7-wire interface
+-	  (Motorola? industry standard).
+-	  If your board uses an external PHY connected to FEC, enable this.
+-	  If not sure, enable.
+-	  If compiled as module, it will be called fec_mpc52xx_phy.
+-
+ config XILINX_EMACLITE
+ 	tristate "Xilinx 10/100 Ethernet Lite support"
+ 	depends on PPC32 || MICROBLAZE
+@@ -651,9 +618,6 @@ config LANTIQ_ETOP
  	help
- 	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+ 	  Support for the MII0 inside the Lantiq SoC
  
--config PXA168_ETH
--	tristate "Marvell pxa168 ethernet support"
--	depends on CPU_PXA168
+-
+-source "drivers/net/fs_enet/Kconfig"
+-
+ source "drivers/net/octeon/Kconfig"
+ 
+ endif # NET_ETHERNET
+@@ -768,36 +732,6 @@ config GELIC_WIRELESS
+ 	  the driver automatically distinguishes the models, you can
+ 	  safely enable this option even if you have a wireless-less model.
+ 
+-config FSL_PQ_MDIO
+-	tristate "Freescale PQ MDIO"
+-	depends on FSL_SOC
 -	select PHYLIB
 -	help
--	  This driver supports the pxa168 Ethernet ports.
+-	  This driver supports the MDIO bus used by the gianfar and UCC drivers.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called pxa168_eth.
--
- config NET_NETX
- 	tristate "NetX Ethernet support"
- 	select MII
-@@ -803,73 +793,6 @@ config SIS190
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sis190.  This is recommended.
- 
--config SKGE
--	tristate "Marvell Yukon Gigabit Ethernet support"
--	depends on PCI
+-config GIANFAR
+-	tristate "Gianfar Ethernet"
+-	depends on FSL_SOC
+-	select FSL_PQ_MDIO
+-	select PHYLIB
 -	select CRC32
--	---help---
--	  This driver support the Marvell Yukon or SysKonnect SK-98xx/SK-95xx
--	  and related Gigabit Ethernet adapters. It is a new smaller driver
--	  with better performance and more complete ethtool support.
--
--	  It does not support the link failover and network management 
--	  features that "portable" vendor supplied sk98lin driver does.
--
--	  This driver supports adapters based on the original Yukon chipset:
--	  Marvell 88E8001, Belkin F5D5005, CNet GigaCard, DLink DGE-530T,
--	  Linksys EG1032/EG1064, 3Com 3C940/3C940B, SysKonnect SK-9871/9872.
--
--	  It does not support the newer Yukon2 chipset: a separate driver,
--	  sky2, is provided for these adapters.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called skge.  This is recommended.
--
--config SKGE_DEBUG
--	bool "Debugging interface"
--	depends on SKGE && DEBUG_FS
 -	help
--	  This option adds the ability to dump driver state for debugging.
--	  The file /sys/kernel/debug/skge/ethX displays the state of the internal
--	  transmit and receive rings.
+-	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
+-	  and MPC86xx family of chips, and the FEC on the 8540.
 -
--	  If unsure, say N.
--
--config SKGE_GENESIS
--       bool "Support for older SysKonnect Genesis boards"
--       depends on SKGE
--       help
--         This enables support for the older and uncommon SysKonnect Genesis
--	 chips, which support MII via an external transceiver, instead of
--	 an internal one. Disabling this option will save some memory
--	 by making code smaller. If unsure say Y.
--
--config SKY2
--	tristate "Marvell Yukon 2 support"
--	depends on PCI
--	select CRC32
--	---help---
--	  This driver supports Gigabit Ethernet adapters based on the
--	  Marvell Yukon 2 chipset:
--	  Marvell 88E8021/88E8022/88E8035/88E8036/88E8038/88E8050/88E8052/
--	  88E8053/88E8055/88E8061/88E8062, SysKonnect SK-9E21D/SK-9S21
--
--	  There is companion driver for the older Marvell Yukon and
--	  SysKonnect Genesis based adapters: skge.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called sky2.  This is recommended.
--
--config SKY2_DEBUG
--	bool "Debugging interface"
--	depends on SKY2 && DEBUG_FS
--	help
--	  This option adds the ability to dump driver state for debugging.
--	  The file /sys/kernel/debug/sky2/ethX displays the state of the internal
--	  transmit and receive rings.
--
--	  If unsure, say N.
--
- config VIA_VELOCITY
- 	tristate "VIA Velocity support"
- 	depends on PCI
-@@ -951,19 +874,6 @@ config UGETH_TX_ON_DEMAND
- 	bool "Transmit on Demand support"
- 	depends on UCC_GETH
- 
--config MV643XX_ETH
--	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
--	select INET_LRO
+-config UCC_GETH
+-	tristate "Freescale QE Gigabit Ethernet"
+-	depends on QUICC_ENGINE
+-	select FSL_PQ_MDIO
 -	select PHYLIB
 -	help
--	  This driver supports the gigabit ethernet MACs in the
--	  Marvell Discovery PPC/MIPS chipset family (MV643XX) and
--	  in the Marvell Orion ARM SoC family.
+-	  This driver supports the Gigabit Ethernet mode of the QUICC Engine,
+-	  which is available on some Freescale SOCs.
 -
--	  Some boards that use the Discovery chipset are the Momenco
--	  Ocelot C and Jaguar ATX and Pegasos II.
+-config UGETH_TX_ON_DEMAND
+-	bool "Transmit on Demand support"
+-	depends on UCC_GETH
 -
  config XILINX_LL_TEMAC
  	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
  	depends on PPC || MICROBLAZE
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d60c838..60b2d20 100644
+index 00a180c..8801f33 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -46,8 +46,6 @@ obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
- gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
- ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
- obj-$(CONFIG_TC35815) += tc35815.o
--obj-$(CONFIG_SKGE) += skge.o
--obj-$(CONFIG_SKY2) += sky2.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_KS8842)	+= ks8842.o
- obj-$(CONFIG_KS8851)	+= ks8851.o
-@@ -75,7 +73,6 @@ endif
+@@ -13,20 +13,9 @@ obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
+ obj-$(CONFIG_IP1000) += ipg.o
+ obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+-obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+-obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ 
+-gianfar_driver-objs := gianfar.o \
+-		gianfar_ethtool.o \
+-		gianfar_sysfs.o
+-
+-obj-$(CONFIG_UCC_GETH) += ucc_geth_driver.o
+-ucc_geth_driver-objs := ucc_geth.o ucc_geth_ethtool.o
+-
+-obj-$(CONFIG_FSL_PQ_MDIO) += fsl_pq_mdio.o
+-
+ #
+ # link order important here
+ #
+@@ -63,11 +52,6 @@ obj-$(CONFIG_HAMACHI) += hamachi.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+ obj-$(CONFIG_HP100) += hp100.o
+-obj-$(CONFIG_FEC) += fec.o
+-obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
+-ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+-	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+-endif
  obj-$(CONFIG_FORCEDETH) += forcedeth.o
  
  obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
--obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
- ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
- obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
- obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
-@@ -111,7 +108,6 @@ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
--obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
- obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
- obj-$(CONFIG_DM9000) += dm9000.o
- obj-$(CONFIG_ENC28J60) += enc28j60.o
+@@ -139,8 +123,6 @@ obj-$(CONFIG_ETRAX_ETHERNET) += cris/
+ 
+ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+ 
+-obj-$(CONFIG_FS_ENET) += fs_enet/
+-
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ 
+ obj-$(CONFIG_WIMAX) += wimax/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 0eaf957..1c447d9 100644
+index d3aff74..924c287 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -28,6 +28,7 @@ source "drivers/net/ethernet/ibm/Kconfig"
+@@ -24,6 +24,7 @@ source "drivers/net/ethernet/dlink/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/neterion/Kconfig"
+ source "drivers/net/ethernet/faraday/Kconfig"
++source "drivers/net/ethernet/freescale/Kconfig"
+ source "drivers/net/ethernet/fujitsu/Kconfig"
+ source "drivers/net/ethernet/ibm/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
- source "drivers/net/ethernet/xscale/Kconfig"
-+source "drivers/net/ethernet/marvell/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index b5ca872..48c8656 100644
+index b098c5e..025d7b7 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+ obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
++obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
+ obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
+ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
- obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
-+obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
 new file mode 100644
-index 0000000..dcdc258
+index 0000000..6913409
 --- /dev/null
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -0,0 +1,107 @@
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -0,0 +1,85 @@
 +#
-+# Marvell device configuration
++# Freescale device configuration
 +#
 +
-+config NET_VENDOR_MARVELL
-+	bool "Marvell devices"
-+	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
++config NET_VENDOR_FEESCALE
++	bool "Freescale devices"
++	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
++		   M523x || M527x || M5272 || M528x || M520x || M532x || \
++		   IMX_HAVE_PLATFORM_FEC || MXS_HAVE_PLATFORM_FEC || \
++		   (PPC_MPC52xx && PPC_BESTCOMM)
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -266,137 +302,209 @@ index 0000000..dcdc258
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Marvell devices. If you say Y, you will be
-+	  asked for your specific card in the following questions.
++	  the questions about IBM devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config MV643XX_ETH
-+	tristate "Marvell Discovery (643XX) and Orion ethernet support"
-+	depends on NET_VENDOR_MARVELL && (MV64X60 || PPC32 || PLAT_ORION) && \
-+		   INET
-+	select INET_LRO
++config FEC
++	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
++	depends on NET_VENDOR_FREESCALE && (M523x || M527x || M5272 || \
++		   M528x || M520x || M532x || IMX_HAVE_PLATFORM_FEC || \
++		   MXS_HAVE_PLATFORM_FEC)
++	default IMX_HAVE_PLATFORM_FEC || MXS_HAVE_PLATFORM_FEC if ARM
 +	select PHYLIB
 +	---help---
-+	  This driver supports the gigabit ethernet MACs in the
-+	  Marvell Discovery PPC/MIPS chipset family (MV643XX) and
-+	  in the Marvell Orion ARM SoC family.
++	  Say Y here if you want to use the built-in 10/100 Fast ethernet
++	  controller on some Motorola ColdFire and Freescale i.MX processors.
 +
-+	  Some boards that use the Discovery chipset are the Momenco
-+	  Ocelot C and Jaguar ATX and Pegasos II.
++config FEC_MPC52xx
++	tristate "FEC MPC52xx driver"
++	depends on NET_VENDOR_FREESCALE && PPC_MPC52xx && PPC_BESTCOMM
++	select CRC32
++	select PHYLIB
++	select PPC_BESTCOMM_FEC
++	---help---
++	  This option enables support for the MPC5200's on-chip
++	  Fast Ethernet Controller
++	  If compiled as module, it will be called fec_mpc52xx.
 +
-+config PXA168_ETH
-+	tristate "Marvell pxa168 ethernet support"
-+	depends on NET_VENDOR_MARVELL && CPU_PXA168
++config FEC_MPC52xx_MDIO
++	bool "FEC MPC52xx MDIO bus driver"
++	depends on FEC_MPC52xx
++	default y
++	---help---
++	  The MPC5200's FEC can connect to the Ethernet either with
++	  an external MII PHY chip or 10 Mbps 7-wire interface
++	  (Motorola? industry standard).
++	  If your board uses an external PHY connected to FEC, enable this.
++	  If not sure, enable.
++	  If compiled as module, it will be called fec_mpc52xx_phy.
++
++source "drivers/net/ethernet/freescale/fs_enet/Kconfig"
++
++config FSL_PQ_MDIO
++	tristate "Freescale PQ MDIO"
++	depends on NET_VENDOR_FREESCALE && FSL_SOC
 +	select PHYLIB
 +	---help---
-+	  This driver supports the pxa168 Ethernet ports.
++	  This driver supports the MDIO bus used by the gianfar and UCC drivers.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called pxa168_eth.
++config UCC_GETH
++	tristate "Freescale QE Gigabit Ethernet"
++	depends on NET_VENDOR_FREESCALE && QUICC_ENGINE
++	select FSL_PQ_MDIO
++	select PHYLIB
++	---help---
++	  This driver supports the Gigabit Ethernet mode of the QUICC Engine,
++	  which is available on some Freescale SOCs.
 +
-+config SKGE
-+	tristate "Marvell Yukon Gigabit Ethernet support"
-+	depends on NET_VENDOR_MARVELL && PCI
++config UGETH_TX_ON_DEMAND
++	bool "Transmit on Demand support"
++	depends on UCC_GETH
++
++config GIANFAR
++	tristate "Gianfar Ethernet"
++	depends on NET_VENDOR_FREESCALE && FSL_SOC
++	select FSL_PQ_MDIO
++	select PHYLIB
 +	select CRC32
 +	---help---
-+	  This driver support the Marvell Yukon or SysKonnect SK-98xx/SK-95xx
-+	  and related Gigabit Ethernet adapters. It is a new smaller driver
-+	  with better performance and more complete ethtool support.
-+
-+	  It does not support the link failover and network management
-+	  features that "portable" vendor supplied sk98lin driver does.
-+
-+	  This driver supports adapters based on the original Yukon chipset:
-+	  Marvell 88E8001, Belkin F5D5005, CNet GigaCard, DLink DGE-530T,
-+	  Linksys EG1032/EG1064, 3Com 3C940/3C940B, SysKonnect SK-9871/9872.
-+
-+	  It does not support the newer Yukon2 chipset: a separate driver,
-+	  sky2, is provided for these adapters.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called skge.  This is recommended.
-+
-+config SKGE_DEBUG
-+	bool "Debugging interface"
-+	depends on SKGE && DEBUG_FS
-+	---help---
-+	  This option adds the ability to dump driver state for debugging.
-+	  The file /sys/kernel/debug/skge/ethX displays the state of the internal
-+	  transmit and receive rings.
-+
-+	  If unsure, say N.
-+
-+config SKGE_GENESIS
-+	bool "Support for older SysKonnect Genesis boards"
-+	depends on SKGE
-+	---help---
-+	 This enables support for the older and uncommon SysKonnect Genesis
-+	 chips, which support MII via an external transceiver, instead of
-+	 an internal one. Disabling this option will save some memory
-+	 by making code smaller. If unsure say Y.
-+
-+config SKY2
-+	tristate "Marvell Yukon 2 support"
-+	depends on NET_VENDOR_MARVELL && PCI
-+	select CRC32
-+	---help---
-+	  This driver supports Gigabit Ethernet adapters based on the
-+	  Marvell Yukon 2 chipset:
-+	  Marvell 88E8021/88E8022/88E8035/88E8036/88E8038/88E8050/88E8052/
-+	  88E8053/88E8055/88E8061/88E8062, SysKonnect SK-9E21D/SK-9S21
-+
-+	  There is companion driver for the older Marvell Yukon and
-+	  SysKonnect Genesis based adapters: skge.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sky2.  This is recommended.
-+
-+config SKY2_DEBUG
-+	bool "Debugging interface"
-+	depends on SKY2 && DEBUG_FS
-+	---help---
-+	  This option adds the ability to dump driver state for debugging.
-+	  The file /sys/kernel/debug/sky2/ethX displays the state of the internal
-+	  transmit and receive rings.
-+
-+	  If unsure, say N.
-diff --git a/drivers/net/ethernet/marvell/Makefile b/drivers/net/ethernet/marvell/Makefile
++	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
++	  and MPC86xx family of chips, and the FEC on the 8540.
+diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
 new file mode 100644
-index 0000000..57e3234
+index 0000000..1752488
 --- /dev/null
-+++ b/drivers/net/ethernet/marvell/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/freescale/Makefile
+@@ -0,0 +1,18 @@
 +#
-+# Makefile for the Marvell device drivers.
++# Makefile for the Freescale network device drivers.
 +#
 +
-+obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
-+obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
-+obj-$(CONFIG_SKGE) += skge.o
-+obj-$(CONFIG_SKY2) += sky2.o
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
++obj-$(CONFIG_FEC) += fec.o
++obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
++ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
++	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
++endif
++obj-$(CONFIG_FS_ENET) += fs_enet/
++obj-$(CONFIG_FSL_PQ_MDIO) += fsl_pq_mdio.o
++obj-$(CONFIG_GIANFAR) += gianfar_driver.o
++obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
++gianfar_driver-objs := gianfar.o \
++		gianfar_ethtool.o \
++		gianfar_sysfs.o
++obj-$(CONFIG_UCC_GETH) += ucc_geth_driver.o
++ucc_geth_driver-objs := ucc_geth.o ucc_geth_ethtool.o
+diff --git a/drivers/net/fec.c b/drivers/net/ethernet/freescale/fec.c
 similarity index 100%
-rename from drivers/net/mv643xx_eth.c
-rename to drivers/net/ethernet/marvell/mv643xx_eth.c
-diff --git a/drivers/net/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+rename from drivers/net/fec.c
+rename to drivers/net/ethernet/freescale/fec.c
+diff --git a/drivers/net/fec.h b/drivers/net/ethernet/freescale/fec.h
 similarity index 100%
-rename from drivers/net/pxa168_eth.c
-rename to drivers/net/ethernet/marvell/pxa168_eth.c
-diff --git a/drivers/net/skge.c b/drivers/net/ethernet/marvell/skge.c
+rename from drivers/net/fec.h
+rename to drivers/net/ethernet/freescale/fec.h
+diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
 similarity index 100%
-rename from drivers/net/skge.c
-rename to drivers/net/ethernet/marvell/skge.c
-diff --git a/drivers/net/skge.h b/drivers/net/ethernet/marvell/skge.h
+rename from drivers/net/fec_mpc52xx.c
+rename to drivers/net/ethernet/freescale/fec_mpc52xx.c
+diff --git a/drivers/net/fec_mpc52xx.h b/drivers/net/ethernet/freescale/fec_mpc52xx.h
 similarity index 100%
-rename from drivers/net/skge.h
-rename to drivers/net/ethernet/marvell/skge.h
-diff --git a/drivers/net/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+rename from drivers/net/fec_mpc52xx.h
+rename to drivers/net/ethernet/freescale/fec_mpc52xx.h
+diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/ethernet/freescale/fec_mpc52xx_phy.c
 similarity index 100%
-rename from drivers/net/sky2.c
-rename to drivers/net/ethernet/marvell/sky2.c
-diff --git a/drivers/net/sky2.h b/drivers/net/ethernet/marvell/sky2.h
+rename from drivers/net/fec_mpc52xx_phy.c
+rename to drivers/net/ethernet/freescale/fec_mpc52xx_phy.c
+diff --git a/drivers/net/fs_enet/Kconfig b/drivers/net/ethernet/freescale/fs_enet/Kconfig
+similarity index 91%
+rename from drivers/net/fs_enet/Kconfig
+rename to drivers/net/ethernet/freescale/fs_enet/Kconfig
+index fc073b5..be92229 100644
+--- a/drivers/net/fs_enet/Kconfig
++++ b/drivers/net/ethernet/freescale/fs_enet/Kconfig
+@@ -1,6 +1,6 @@
+ config FS_ENET
+        tristate "Freescale Ethernet Driver"
+-       depends on CPM1 || CPM2 || PPC_MPC512x
++       depends on NET_VENDOR_FREESCALE && (CPM1 || CPM2 || PPC_MPC512x)
+        select MII
+        select PHYLIB
+ 
+diff --git a/drivers/net/fs_enet/Makefile b/drivers/net/ethernet/freescale/fs_enet/Makefile
 similarity index 100%
-rename from drivers/net/sky2.h
-rename to drivers/net/ethernet/marvell/sky2.h
+rename from drivers/net/fs_enet/Makefile
+rename to drivers/net/ethernet/freescale/fs_enet/Makefile
+diff --git a/drivers/net/fs_enet/fec.h b/drivers/net/ethernet/freescale/fs_enet/fec.h
+similarity index 100%
+rename from drivers/net/fs_enet/fec.h
+rename to drivers/net/ethernet/freescale/fs_enet/fec.h
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+similarity index 100%
+rename from drivers/net/fs_enet/fs_enet-main.c
+rename to drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+diff --git a/drivers/net/fs_enet/fs_enet.h b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
+similarity index 100%
+rename from drivers/net/fs_enet/fs_enet.h
+rename to drivers/net/ethernet/freescale/fs_enet/fs_enet.h
+diff --git a/drivers/net/fs_enet/mac-fcc.c b/drivers/net/ethernet/freescale/fs_enet/mac-fcc.c
+similarity index 100%
+rename from drivers/net/fs_enet/mac-fcc.c
+rename to drivers/net/ethernet/freescale/fs_enet/mac-fcc.c
+diff --git a/drivers/net/fs_enet/mac-fec.c b/drivers/net/ethernet/freescale/fs_enet/mac-fec.c
+similarity index 100%
+rename from drivers/net/fs_enet/mac-fec.c
+rename to drivers/net/ethernet/freescale/fs_enet/mac-fec.c
+diff --git a/drivers/net/fs_enet/mac-scc.c b/drivers/net/ethernet/freescale/fs_enet/mac-scc.c
+similarity index 100%
+rename from drivers/net/fs_enet/mac-scc.c
+rename to drivers/net/ethernet/freescale/fs_enet/mac-scc.c
+diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
+similarity index 100%
+rename from drivers/net/fs_enet/mii-bitbang.c
+rename to drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
+diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
+similarity index 100%
+rename from drivers/net/fs_enet/mii-fec.c
+rename to drivers/net/ethernet/freescale/fs_enet/mii-fec.c
+diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+similarity index 100%
+rename from drivers/net/fsl_pq_mdio.c
+rename to drivers/net/ethernet/freescale/fsl_pq_mdio.c
+diff --git a/drivers/net/fsl_pq_mdio.h b/drivers/net/ethernet/freescale/fsl_pq_mdio.h
+similarity index 100%
+rename from drivers/net/fsl_pq_mdio.h
+rename to drivers/net/ethernet/freescale/fsl_pq_mdio.h
+diff --git a/drivers/net/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+similarity index 100%
+rename from drivers/net/gianfar.c
+rename to drivers/net/ethernet/freescale/gianfar.c
+diff --git a/drivers/net/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+similarity index 100%
+rename from drivers/net/gianfar.h
+rename to drivers/net/ethernet/freescale/gianfar.h
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+similarity index 100%
+rename from drivers/net/gianfar_ethtool.c
+rename to drivers/net/ethernet/freescale/gianfar_ethtool.c
+diff --git a/drivers/net/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+similarity index 100%
+rename from drivers/net/gianfar_ptp.c
+rename to drivers/net/ethernet/freescale/gianfar_ptp.c
+diff --git a/drivers/net/gianfar_sysfs.c b/drivers/net/ethernet/freescale/gianfar_sysfs.c
+similarity index 100%
+rename from drivers/net/gianfar_sysfs.c
+rename to drivers/net/ethernet/freescale/gianfar_sysfs.c
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+similarity index 100%
+rename from drivers/net/ucc_geth.c
+rename to drivers/net/ethernet/freescale/ucc_geth.c
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ethernet/freescale/ucc_geth.h
+similarity index 100%
+rename from drivers/net/ucc_geth.h
+rename to drivers/net/ethernet/freescale/ucc_geth.h
+diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+similarity index 100%
+rename from drivers/net/ucc_geth_ethtool.c
+rename to drivers/net/ethernet/freescale/ucc_geth_ethtool.c
 -- 
 1.7.6
 
