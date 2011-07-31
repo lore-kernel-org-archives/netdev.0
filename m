@@ -1,97 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 54/71] lantiq: Move the Lantiq SoC driver
-Date: Sat, 30 Jul 2011 20:27:13 -0700
-Message-ID: <1312082850-24914-55-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 62/71] dnet: Move the Dave Ethernet driver
+Date: Sat, 30 Jul 2011 20:27:21 -0700
+Message-ID: <1312082850-24914-63-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	John Crispin <blogic@openwrt.org>
+	Ilya Yanok <yanok@emcraft.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753385Ab1GaD2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:35 -0400
+	id S1753422Ab1GaD2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:45 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Lantiq driver into drivers/net/ethernet/ and the
-necessary Kconfig and Makefile changes.
+Move the Dave Ethernet driver into drivers/net/ethernet/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: John Crispin <blogic@openwrt.org>
+CC: Ilya Yanok <yanok@emcraft.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                      |    6 ------
- drivers/net/Makefile                     |    1 -
- drivers/net/ethernet/Kconfig             |    6 ++++++
- drivers/net/ethernet/Makefile            |    1 +
- drivers/net/{ => ethernet}/lantiq_etop.c |    0
- 5 files changed, 7 insertions(+), 7 deletions(-)
- rename drivers/net/{ => ethernet}/lantiq_etop.c (100%)
+ drivers/net/Kconfig               |   11 -----------
+ drivers/net/Makefile              |    1 -
+ drivers/net/ethernet/Kconfig      |   12 ++++++++++++
+ drivers/net/ethernet/Makefile     |    1 +
+ drivers/net/{ => ethernet}/dnet.c |    0
+ drivers/net/{ => ethernet}/dnet.h |    0
+ 6 files changed, 13 insertions(+), 12 deletions(-)
+ rename drivers/net/{ => ethernet}/dnet.c (100%)
+ rename drivers/net/{ => ethernet}/dnet.h (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index beee9a2..61e71d0 100644
+index d216f99..873133e 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -478,12 +478,6 @@ config NET_POCKET
- 	  the questions about this class of network devices. If you say Y, you
- 	  will be asked for your specific device in the following questions.
+@@ -309,17 +309,6 @@ config GRETH
+ 	help
+ 	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
  
--config LANTIQ_ETOP
--	tristate "Lantiq SoC ETOP driver"
--	depends on SOC_TYPE_XWAY
+-config DNET
+-	tristate "Dave ethernet support (DNET)"
+-	depends on NET_ETHERNET && HAS_IOMEM
+-	select PHYLIB
 -	help
--	  Support for the MII0 inside the Lantiq SoC
+-	  The Dave ethernet interface (DNET) is found on Qong Board FPGA.
+-	  Say Y to include support for the DNET chip.
 -
- endif # NET_ETHERNET
- 
- #
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called dnet.
+-
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 389c268..8e6dbd7 100644
+index 5b37149..14960d4 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -62,7 +62,6 @@ obj-$(CONFIG_DM9000) += dm9000.o
- obj-$(CONFIG_ENC28J60) += enc28j60.o
+@@ -57,7 +57,6 @@ obj-$(CONFIG_ENC28J60) += enc28j60.o
  obj-$(CONFIG_ETHOC) += ethoc.o
  obj-$(CONFIG_GRETH) += greth.o
--obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
  
- obj-$(CONFIG_DNET) += dnet.o
- obj-$(CONFIG_MACB) += macb.o
+-obj-$(CONFIG_DNET) += dnet.o
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_TR) += tokenring/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index f1509a5..6b3b3dc 100644
+index c1ce356..a911753 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -52,6 +52,12 @@ config KORINA
- 	  If you have a Mikrotik RouterBoard 500 or IDT RC32434
- 	  based system say Y. Otherwise say N.
- 
-+config LANTIQ_ETOP
-+	tristate "Lantiq SoC ETOP driver"
-+	depends on SOC_TYPE_XWAY
-+	---help---
-+	  Support for the MII0 inside the Lantiq SoC
+@@ -23,6 +23,18 @@ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/cirrus/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
 +
- source "drivers/net/ethernet/marvell/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/micrel/Kconfig"
++config DNET
++	tristate "Dave ethernet support (DNET)"
++	depends on HAS_IOMEM
++	select PHYLIB
++	---help---
++	  The Dave ethernet interface (DNET) is found on Qong Board FPGA.
++	  Say Y to include support for the DNET chip.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called dnet.
++
+ source "drivers/net/ethernet/dec/Kconfig"
+ source "drivers/net/ethernet/dlink/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 50fc50a..2a1cbce 100644
+index 34e84fa..5154291 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -26,6 +26,7 @@ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
- obj-$(CONFIG_IP1000) += icplus/
- obj-$(CONFIG_JME) += jme.o
- obj-$(CONFIG_KORINA) += korina.o
-+obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
- obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
-diff --git a/drivers/net/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+@@ -15,6 +15,7 @@ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
++obj-$(CONFIG_DNET) += dnet.o
+ obj-$(CONFIG_NET_VENDOR_DEC) += dec/
+ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+diff --git a/drivers/net/dnet.c b/drivers/net/ethernet/dnet.c
 similarity index 100%
-rename from drivers/net/lantiq_etop.c
-rename to drivers/net/ethernet/lantiq_etop.c
+rename from drivers/net/dnet.c
+rename to drivers/net/ethernet/dnet.c
+diff --git a/drivers/net/dnet.h b/drivers/net/ethernet/dnet.h
+similarity index 100%
+rename from drivers/net/dnet.h
+rename to drivers/net/ethernet/dnet.h
 -- 
 1.7.6
 
