@@ -1,116 +1,119 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 43/71] nuvoton: Move the Nuvoton driver
-Date: Sat, 30 Jul 2011 20:27:02 -0700
-Message-ID: <1312082850-24914-44-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 42/71] cirrus: Move the Cirrus network driver
+Date: Sat, 30 Jul 2011 20:27:01 -0700
+Message-ID: <1312082850-24914-43-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Wan ZongShun <mcuos.com@gmail.com>
+	Hartley Sweeten <hsweeten@visionengravers.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753163Ab1GaD2U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:20 -0400
+	id S1753330Ab1GaD2T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:19 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Nuvoton driver into drivers/net/ethernet/nuvoton/ and
-make the necessary Kconfig and Makefile changes.
+Move the Cirrus Ethernet driver into drivers/net/ethernet/cirrus/
+and make the necessary Kconfig and Makefile changes
 
-CC: Wan ZongShun <mcuos.com@gmail.com>
+CC: Hartley Sweeten <hsweeten@visionengravers.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/arm/Kconfig                            |    9 -------
- drivers/net/arm/Makefile                           |    1 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/nuvoton/Kconfig               |   25 ++++++++++++++++++++
- drivers/net/ethernet/nuvoton/Makefile              |    5 ++++
- .../net/{arm => ethernet/nuvoton}/w90p910_ether.c  |    0
- 8 files changed, 33 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/ethernet/nuvoton/Kconfig
- create mode 100644 drivers/net/ethernet/nuvoton/Makefile
- rename drivers/net/{arm => ethernet/nuvoton}/w90p910_ether.c (100%)
+ MAINTAINERS                                       |    2 +-
+ drivers/net/arm/Kconfig                           |    8 -------
+ drivers/net/arm/Makefile                          |    1 -
+ drivers/net/ethernet/Kconfig                      |    1 +
+ drivers/net/ethernet/Makefile                     |    1 +
+ drivers/net/ethernet/cirrus/Kconfig               |   24 +++++++++++++++++++++
+ drivers/net/ethernet/cirrus/Makefile              |    5 ++++
+ drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c |    0
+ 8 files changed, 32 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/ethernet/cirrus/Kconfig
+ create mode 100644 drivers/net/ethernet/cirrus/Makefile
+ rename drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index d84f2c6..1b63c8f 100644
+index 3c28188..d84f2c6 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1121,7 +1121,7 @@ F:	arch/arm/mach-nuc93x/
- F:	drivers/input/keyboard/w90p910_keypad.c
- F:	drivers/input/touchscreen/w90p910_ts.c
- F:	drivers/watchdog/nuc900_wdt.c
--F:	drivers/net/arm/w90p910_ether.c
-+F:	drivers/net/ethernet/nuvoton/w90p910_ether.c
- F:	drivers/mtd/nand/nuc900_nand.c
- F:	drivers/rtc/rtc-nuc900.c
- F:	drivers/spi/spi_nuc900.c
+@@ -1761,7 +1761,7 @@ CIRRUS LOGIC EP93XX ETHERNET DRIVER
+ M:	Hartley Sweeten <hsweeten@visionengravers.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/arm/ep93xx_eth.c
++F:	drivers/net/ethernet/cirrus/ep93xx_eth.c
+ 
+ CIRRUS LOGIC EP93XX OHCI USB HOST DRIVER
+ M:	Lennert Buytenhek <kernel@wantstofly.org>
 diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
-index fc94b4b..57d16b9 100644
+index 4f748cc..fc94b4b 100644
 --- a/drivers/net/arm/Kconfig
 +++ b/drivers/net/arm/Kconfig
-@@ -10,12 +10,3 @@ config ARM_AT91_ETHER
- 	help
+@@ -11,14 +11,6 @@ config ARM_AT91_ETHER
  	  If you wish to compile a kernel for the AT91RM9200 and enable
  	  ethernet support, then you should always answer Y to this.
--
--config W90P910_ETH
--	tristate "Nuvoton w90p910 Ethernet support"
--	depends on ARM && ARCH_W90X900
--	select PHYLIB
+ 
+-config EP93XX_ETH
+-	tristate "EP93xx Ethernet support"
+-	depends on ARM && ARCH_EP93XX
 -	select MII
 -	help
--	  Say Y here if you want to use built-in Ethernet ports
--	  on w90p910 processor.
+-	  This is a driver for the ethernet hardware included in EP93xx CPUs.
+-	  Say Y if you are building a kernel for EP93xx based devices.
+-
+ config W90P910_ETH
+ 	tristate "Nuvoton w90p910 Ethernet support"
+ 	depends on ARM && ARCH_W90X900
 diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
-index 462b3a4..fc0f85c 100644
+index 316b06c..462b3a4 100644
 --- a/drivers/net/arm/Makefile
 +++ b/drivers/net/arm/Makefile
-@@ -4,4 +4,3 @@
+@@ -4,5 +4,4 @@
  #
  
  obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
--obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
+-obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
+ obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index ff07408..3893065 100644
+index b15b1e2..ff07408 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -37,6 +37,7 @@ source "drivers/net/ethernet/micrel/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
-+source "drivers/net/ethernet/nuvoton/Kconfig"
- source "drivers/net/ethernet/oki-semi/Kconfig"
- source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
+@@ -18,6 +18,7 @@ source "drivers/net/ethernet/atheros/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
++source "drivers/net/ethernet/cirrus/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
+ source "drivers/net/ethernet/dec/Kconfig"
+ source "drivers/net/ethernet/dlink/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 3a17413..e1f0b94 100644
+index 1f45ec9..3a17413 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-+obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
- obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
- obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
-diff --git a/drivers/net/ethernet/nuvoton/Kconfig b/drivers/net/ethernet/nuvoton/Kconfig
+@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
++obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
+ obj-$(CONFIG_NET_VENDOR_DEC) += dec/
+ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
 new file mode 100644
-index 0000000..f03587d
+index 0000000..b48128b
 --- /dev/null
-+++ b/drivers/net/ethernet/nuvoton/Kconfig
-@@ -0,0 +1,25 @@
++++ b/drivers/net/ethernet/cirrus/Kconfig
+@@ -0,0 +1,24 @@
 +#
-+# Nuvoton network device configuration
++# Cirrus network device configuration
 +#
 +
-+config NET_VENDOR_NUVOTON
-+	bool "Nuvoton devices"
-+	depends on ARM && ARCH_W90X900
++config NET_VENDOR_CIRRUS
++	bool "Cirrus devices"
++	depends on ARM && ARCH_EP93XX
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -118,32 +121,31 @@ index 0000000..f03587d
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Nuvoton cards. If you say Y, you will be asked
++	  the questions about Cirrus cards. If you say Y, you will be asked
 +	  for your specific card in the following questions.
 +
-+config W90P910_ETH
-+	tristate "Nuvoton w90p910 Ethernet support"
-+	depends on NET_VENDOR_NUVOTON && ARM && ARCH_W90X900
-+	select PHYLIB
++config EP93XX_ETH
++	tristate "EP93xx Ethernet support"
++	depends on NET_VENDOR_CIRRUS && ARM && ARCH_EP93XX
 +	select MII
-+	---help---
-+	  Say Y here if you want to use built-in Ethernet ports
-+	  on w90p910 processor.
-diff --git a/drivers/net/ethernet/nuvoton/Makefile b/drivers/net/ethernet/nuvoton/Makefile
++	help
++	  This is a driver for the ethernet hardware included in EP93xx CPUs.
++	  Say Y if you are building a kernel for EP93xx based devices.
+diff --git a/drivers/net/ethernet/cirrus/Makefile b/drivers/net/ethernet/cirrus/Makefile
 new file mode 100644
-index 0000000..171aa04
+index 0000000..9905ea2
 --- /dev/null
-+++ b/drivers/net/ethernet/nuvoton/Makefile
++++ b/drivers/net/ethernet/cirrus/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Nuvoton network device drivers.
++# Makefile for the Cirrus network device drivers.
 +#
 +
-+obj-$(CONFIG_W90P910_ETH) += w90p910_ether.o
-diff --git a/drivers/net/arm/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
++obj-$(CONFIG_EP93XX_ETH) += ep93xx_eth.o
+diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/ethernet/cirrus/ep93xx_eth.c
 similarity index 100%
-rename from drivers/net/arm/w90p910_ether.c
-rename to drivers/net/ethernet/nuvoton/w90p910_ether.c
+rename from drivers/net/arm/ep93xx_eth.c
+rename to drivers/net/ethernet/cirrus/ep93xx_eth.c
 -- 
 1.7.6
 
