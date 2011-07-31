@@ -1,335 +1,238 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 46/71] davinci*/tlan/cpmac: Move the Texas Instruments (TI) drivers
-Date: Sat, 30 Jul 2011 20:27:05 -0700
-Message-ID: <1312082850-24914-47-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 55/71] bfin_mac: Move the Analog Devices Inc driver
+Date: Sat, 30 Jul 2011 20:27:14 -0700
+Message-ID: <1312082850-24914-56-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, Sriram <srk@ti.com>,
-	Vinay Hegde <vinay.hegde@ti.com>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Samuel Chessman <chessman@tux.org>,
-	<torben.mathiasen@compaq.com>, Eugene Konev <ejka@imfi.kspu.ru>,
-	Florian Fainelli <florian@openwrt.org>
+	gospo@redhat.com, sassmann@redhat.com,
+	<uclinux-dist-devel@blackfin.uclinux.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753354Ab1GaD2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:22 -0400
+	id S1753401Ab1GaD2j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:39 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Texas Instruments drivers to drivers/net/ethernet/ti/ and
+Move the Analog Devices Inc driver into drivers/net/ethernet/adi/ and
 make the necessary Kconfig and Makefile changes.
 
-CC: Sriram <srk@ti.com>
-CC: Vinay Hegde <vinay.hegde@ti.com>
-CC: Cyril Chemparathy <cyril@ti.com>
-CC: Samuel Chessman <chessman@tux.org>
-CC: <torben.mathiasen@compaq.com>
-CC: Eugene Konev <ejka@imfi.kspu.ru>
-CC: Florian Fainelli <florian@openwrt.org>
+CC: <uclinux-dist-devel@blackfin.uclinux.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                   |    4 +-
- drivers/net/Kconfig                           |   56 -------------------
- drivers/net/Makefile                          |    7 ---
- drivers/net/ethernet/Kconfig                  |    1 +
- drivers/net/ethernet/Makefile                 |    1 +
- drivers/net/ethernet/ti/Kconfig               |   72 +++++++++++++++++++++++++
- drivers/net/ethernet/ti/Makefile              |    9 +++
- drivers/net/{ => ethernet/ti}/cpmac.c         |    0
- drivers/net/{ => ethernet/ti}/davinci_cpdma.c |    0
- drivers/net/{ => ethernet/ti}/davinci_cpdma.h |    0
- drivers/net/{ => ethernet/ti}/davinci_emac.c  |    0
- drivers/net/{ => ethernet/ti}/davinci_mdio.c  |    0
- drivers/net/{ => ethernet/ti}/tlan.c          |    0
- drivers/net/{ => ethernet/ti}/tlan.h          |    0
- 14 files changed, 85 insertions(+), 65 deletions(-)
- create mode 100644 drivers/net/ethernet/ti/Kconfig
- create mode 100644 drivers/net/ethernet/ti/Makefile
- rename drivers/net/{ => ethernet/ti}/cpmac.c (100%)
- rename drivers/net/{ => ethernet/ti}/davinci_cpdma.c (100%)
- rename drivers/net/{ => ethernet/ti}/davinci_cpdma.h (100%)
- rename drivers/net/{ => ethernet/ti}/davinci_emac.c (100%)
- rename drivers/net/{ => ethernet/ti}/davinci_mdio.c (100%)
- rename drivers/net/{ => ethernet/ti}/tlan.c (100%)
- rename drivers/net/{ => ethernet/ti}/tlan.h (100%)
+ MAINTAINERS                               |    2 +-
+ drivers/net/Kconfig                       |   46 --------------------
+ drivers/net/Makefile                      |    1 -
+ drivers/net/ethernet/Kconfig              |    1 +
+ drivers/net/ethernet/Makefile             |    1 +
+ drivers/net/ethernet/adi/Kconfig          |   65 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/adi/Makefile         |    5 ++
+ drivers/net/{ => ethernet/adi}/bfin_mac.c |    0
+ drivers/net/{ => ethernet/adi}/bfin_mac.h |    0
+ 9 files changed, 73 insertions(+), 48 deletions(-)
+ create mode 100644 drivers/net/ethernet/adi/Kconfig
+ create mode 100644 drivers/net/ethernet/adi/Makefile
+ rename drivers/net/{ => ethernet/adi}/bfin_mac.c (100%)
+ rename drivers/net/{ => ethernet/adi}/bfin_mac.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 1b63c8f..ae204ed 100644
+index a91e8fb..83a51ad 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1901,7 +1901,7 @@ CPMAC ETHERNET DRIVER
- M:	Florian Fainelli <florian@openwrt.org>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/cpmac.c
-+F:	drivers/net/ethernet/ti/cpmac.c
+@@ -1440,7 +1440,7 @@ BLACKFIN EMAC DRIVER
+ L:	uclinux-dist-devel@blackfin.uclinux.org
+ W:	http://blackfin.uclinux.org
+ S:	Supported
+-F:	drivers/net/bfin_mac.*
++F:	drivers/net/ethernet/adi/
  
- CPU FREQUENCY DRIVERS
- M:	Dave Jones <davej@redhat.com>
-@@ -6242,7 +6242,7 @@ L:	tlan-devel@lists.sourceforge.net (subscribers-only)
- W:	http://sourceforge.net/projects/tlan/
- S:	Maintained
- F:	Documentation/networking/tlan.txt
--F:	drivers/net/tlan.*
-+F:	drivers/net/ethernet/ti/tlan.*
- 
- TOMOYO SECURITY MODULE
- M:	Kentaro Takeda <takedakn@nttdata.co.jp>
+ BLACKFIN RTC DRIVER
+ M:	Mike Frysinger <vapier.adi@gmail.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 4f934f1..698b5e7 100644
+index 61e71d0..bb4bc4b 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -323,37 +323,6 @@ config NET_NETX
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called netx-eth.
+@@ -252,52 +252,6 @@ config SH_ETH
+ 	  This driver supporting CPUs are:
+ 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
  
--config TI_DAVINCI_EMAC
--	tristate "TI DaVinci EMAC Support"
--	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
--	select TI_DAVINCI_MDIO
--	select TI_DAVINCI_CPDMA
+-config BFIN_MAC
+-	tristate "Blackfin on-chip MAC support"
+-	depends on NET_ETHERNET && (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
+-	select CRC32
+-	select MII
 -	select PHYLIB
+-	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
 -	help
--	  This driver supports TI's DaVinci Ethernet .
+-	  This is the driver for Blackfin on-chip mac device. Say Y if you want it
+-	  compiled into the kernel. This driver is also available as a module
+-	  ( = code which can be inserted in and removed from the running kernel
+-	  whenever you want). The module will be called bfin_mac.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called davinci_emac_driver.  This is recommended.
--
--config TI_DAVINCI_MDIO
--	tristate "TI DaVinci MDIO Support"
--	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
--	select PHYLIB
+-config BFIN_MAC_USE_L1
+-	bool "Use L1 memory for rx/tx packets"
+-	depends on BFIN_MAC && (BF527 || BF537)
+-	default y
 -	help
--	  This driver supports TI's DaVinci MDIO module.
+-	  To get maximum network performance, you should use L1 memory as rx/tx buffers.
+-	  Say N here if you want to reserve L1 memory for other uses.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called davinci_mdio.  This is recommended.
--
--config TI_DAVINCI_CPDMA
--	tristate "TI DaVinci CPDMA Support"
--	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
+-config BFIN_TX_DESC_NUM
+-	int "Number of transmit buffer packets"
+-	depends on BFIN_MAC
+-	range 6 10 if BFIN_MAC_USE_L1
+-	range 10 100
+-	default "10"
 -	help
--	  This driver supports TI's DaVinci CPDMA dma engine.
+-	  Set the number of buffer packets used in driver.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called davinci_cpdma.  This is recommended.
--
- config DM9000
- 	tristate "DM9000 support"
- 	depends on ARM || BLACKFIN || MIPS
-@@ -500,31 +469,6 @@ config R6040
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called r6040. This is recommended.
- 
--config TLAN
--	tristate "TI ThunderLAN support"
--	depends on NET_PCI && (PCI || EISA)
--	---help---
--	  If you have a PCI Ethernet network card based on the ThunderLAN chip
--	  which is supported by this driver, say Y and read the
--	  Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  Devices currently supported by this driver are Compaq Netelligent,
--	  Compaq NetFlex and Olicom cards.  Please read the file
--	  <file:Documentation/networking/tlan.txt> for more details.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called tlan.
--
--	  Please email feedback to <torben.mathiasen@compaq.com>.
--
--config CPMAC
--	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
--	depends on NET_ETHERNET && EXPERIMENTAL && AR7
--	select PHYLIB
+-config BFIN_RX_DESC_NUM
+-	int "Number of receive buffer packets"
+-	depends on BFIN_MAC
+-	range 20 100 if BFIN_MAC_USE_L1
+-	range 20 800
+-	default "20"
 -	help
--	  TI AR7 CPMAC Ethernet support
+-	  Set the number of buffer packets used in driver.
 -
- config NET_POCKET
- 	bool "Pocket and portable adapters"
- 	depends on PARPORT
+-config BFIN_MAC_USE_HWSTAMP
+-	bool "Use IEEE 1588 hwstamp"
+-	depends on BFIN_MAC && BF518
+-	default y
+-	help
+-	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+-
+ config NET_NETX
+ 	tristate "NetX Ethernet support"
+ 	select MII
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 938484f..96112dd 100644
+index 8e6dbd7..d249d76 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -5,11 +5,6 @@
- obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_PHYLIB) += phy/
--
--obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
--obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
--obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
--
- obj-$(CONFIG_IP1000) += ipg.o
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_BONDING) += bonding/
-@@ -23,7 +18,6 @@ obj-$(CONFIG_PLIP) += plip.o
- 
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
- 
--obj-$(CONFIG_TLAN) += tlan.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
- obj-$(CONFIG_FEALNX) += fealnx.o
-@@ -67,7 +61,6 @@ obj-$(CONFIG_IFB) += ifb.o
- obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_DEFXX) += defxx.o
--obj-$(CONFIG_CPMAC) += cpmac.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
+@@ -57,7 +57,6 @@ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
+-obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index f53a4bc..3983e70 100644
+index 6b3b3dc..e087337 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -63,6 +63,7 @@ source "drivers/net/ethernet/smsc/Kconfig"
- source "drivers/net/ethernet/stmicro/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
- source "drivers/net/ethernet/tehuti/Kconfig"
-+source "drivers/net/ethernet/ti/Kconfig"
- source "drivers/net/ethernet/toshiba/Kconfig"
- source "drivers/net/ethernet/tundra/Kconfig"
- source "drivers/net/ethernet/via/Kconfig"
+@@ -15,6 +15,7 @@ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
++source "drivers/net/ethernet/adi/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 4491d84..873d275 100644
+index 2a1cbce..826db27 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -43,6 +43,7 @@ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
- obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
- obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
-+obj-$(CONFIG_NET_VENDOR_TI) += ti/
- obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
- obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
- obj-$(CONFIG_NET_VENDOR_VIA) += via/
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+@@ -7,6 +7,7 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
++obj-$(CONFIG_NET_BFIN) += adi/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+diff --git a/drivers/net/ethernet/adi/Kconfig b/drivers/net/ethernet/adi/Kconfig
 new file mode 100644
-index 0000000..1688d5f
+index 0000000..a2c8a3b
 --- /dev/null
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -0,0 +1,72 @@
++++ b/drivers/net/ethernet/adi/Kconfig
+@@ -0,0 +1,65 @@
 +#
-+# TI device configuration
++# Blackfin device configuration
 +#
 +
-+config NET_VENDOR_TI
-+	bool "Texas Instruments (TI) devices"
-+	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3))
++config NET_BFIN
++	bool "Blackfin devices"
++	depends on BF516 || BF518 || BF526 || BF527 || BF536 || BF537
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  If you have a network (Ethernet) card belonging to this class, say Y.
++	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
++	  available from <http://www.tldp.org/docs.html#howto>.
++
++	  If unsure, say Y.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about TI devices. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the remaining Blackfin card questions. If you say Y, you will be
++	  asked for your specific card in the following questions.
 +
-+config TI_DAVINCI_EMAC
-+	tristate "TI DaVinci EMAC Support"
-+	depends on NET_VENDOR_TI && ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	select TI_DAVINCI_MDIO
-+	select TI_DAVINCI_CPDMA
++config BFIN_MAC
++	tristate "Blackfin on-chip MAC support"
++	depends on NET_BFIN && (BF516 || BF518 || BF526 || BF527 || \
++		 BF536 || BF537)
++	select CRC32
++	select MII
 +	select PHYLIB
++	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
 +	---help---
-+	  This driver supports TI's DaVinci Ethernet .
++	  This is the driver for Blackfin on-chip mac device. Say Y if you want
++	  it compiled into the kernel. This driver is also available as a
++	  module ( = code which can be inserted in and removed from the running
++	  kernel whenever you want). The module will be called bfin_mac.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called davinci_emac_driver.  This is recommended.
-+
-+config TI_DAVINCI_MDIO
-+	tristate "TI DaVinci MDIO Support"
-+	depends on NET_VENDOR_TI && ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	select PHYLIB
++config BFIN_MAC_USE_L1
++	bool "Use L1 memory for rx/tx packets"
++	depends on BFIN_MAC && (BF527 || BF537)
++	default y
 +	---help---
-+	  This driver supports TI's DaVinci MDIO module.
++	  To get maximum network performance, you should use L1 memory as rx/tx
++	  buffers. Say N here if you want to reserve L1 memory for other uses.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called davinci_mdio.  This is recommended.
-+
-+config TI_DAVINCI_CPDMA
-+	tristate "TI DaVinci CPDMA Support"
-+	depends on NET_VENDOR_TI && ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++config BFIN_TX_DESC_NUM
++	int "Number of transmit buffer packets"
++	depends on BFIN_MAC
++	range 6 10 if BFIN_MAC_USE_L1
++	range 10 100
++	default "10"
 +	---help---
-+	  This driver supports TI's DaVinci CPDMA dma engine.
++	  Set the number of buffer packets used in driver.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called davinci_cpdma.  This is recommended.
-+
-+config TLAN
-+	tristate "TI ThunderLAN support"
-+	depends on NET_VENDOR_TI && (PCI || EISA)
++config BFIN_RX_DESC_NUM
++	int "Number of receive buffer packets"
++	depends on BFIN_MAC
++	range 20 100 if BFIN_MAC_USE_L1
++	range 20 800
++	default "20"
 +	---help---
-+	  If you have a PCI Ethernet network card based on the ThunderLAN chip
-+	  which is supported by this driver, say Y and read the
-+	  Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  Set the number of buffer packets used in driver.
 +
-+	  Devices currently supported by this driver are Compaq Netelligent,
-+	  Compaq NetFlex and Olicom cards.  Please read the file
-+	  <file:Documentation/networking/tlan.txt> for more details.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called tlan.
-+
-+	  Please email feedback to <torben.mathiasen@compaq.com>.
-+
-+config CPMAC
-+	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_TI && EXPERIMENTAL && AR7
-+	select PHYLIB
++config BFIN_MAC_USE_HWSTAMP
++	bool "Use IEEE 1588 hwstamp"
++	depends on BFIN_MAC && BF518
++	default y
 +	---help---
-+	  TI AR7 CPMAC Ethernet support
-diff --git a/drivers/net/ethernet/ti/Makefile b/drivers/net/ethernet/ti/Makefile
++	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+diff --git a/drivers/net/ethernet/adi/Makefile b/drivers/net/ethernet/adi/Makefile
 new file mode 100644
-index 0000000..aedb3af
+index 0000000..b1fbe19
 --- /dev/null
-+++ b/drivers/net/ethernet/ti/Makefile
-@@ -0,0 +1,9 @@
++++ b/drivers/net/ethernet/adi/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the TI network device drivers.
++# Makefile for the Blackfin device drivers.
 +#
 +
-+obj-$(CONFIG_TLAN) += tlan.o
-+obj-$(CONFIG_CPMAC) += cpmac.o
-+obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
-+obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
-+obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
-diff --git a/drivers/net/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
++obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
 similarity index 100%
-rename from drivers/net/cpmac.c
-rename to drivers/net/ethernet/ti/cpmac.c
-diff --git a/drivers/net/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+rename from drivers/net/bfin_mac.c
+rename to drivers/net/ethernet/adi/bfin_mac.c
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/ethernet/adi/bfin_mac.h
 similarity index 100%
-rename from drivers/net/davinci_cpdma.c
-rename to drivers/net/ethernet/ti/davinci_cpdma.c
-diff --git a/drivers/net/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-similarity index 100%
-rename from drivers/net/davinci_cpdma.h
-rename to drivers/net/ethernet/ti/davinci_cpdma.h
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-similarity index 100%
-rename from drivers/net/davinci_emac.c
-rename to drivers/net/ethernet/ti/davinci_emac.c
-diff --git a/drivers/net/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-similarity index 100%
-rename from drivers/net/davinci_mdio.c
-rename to drivers/net/ethernet/ti/davinci_mdio.c
-diff --git a/drivers/net/tlan.c b/drivers/net/ethernet/ti/tlan.c
-similarity index 100%
-rename from drivers/net/tlan.c
-rename to drivers/net/ethernet/ti/tlan.c
-diff --git a/drivers/net/tlan.h b/drivers/net/ethernet/ti/tlan.h
-similarity index 100%
-rename from drivers/net/tlan.h
-rename to drivers/net/ethernet/ti/tlan.h
+rename from drivers/net/bfin_mac.h
+rename to drivers/net/ethernet/adi/bfin_mac.h
 -- 
 1.7.6
 
