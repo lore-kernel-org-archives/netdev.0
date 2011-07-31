@@ -1,209 +1,167 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 30/71] atl*: Move the Atheros drivers
-Date: Sat, 30 Jul 2011 20:26:49 -0700
-Message-ID: <1312082850-24914-31-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 36/71] via-*: Move the VIA drivers
+Date: Sat, 30 Jul 2011 20:26:55 -0700
+Message-ID: <1312082850-24914-37-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
+	Roger Luethi <rl@hellgate.ch>,
+	Francois Romieu <romieu@fr.zoreil.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753271Ab1GaD2D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:03 -0400
+	id S1753302Ab1GaD2H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:07 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Atheros drivers into drivers/net/ethernet/atheros/ and
-make the necessary Kconfig and Makefile changes.
+Move the VIA drivers into drivers/net/ethernet/via/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Jay Cliburn <jcliburn@gmail.com>
-CC: Chris Snook <chris.snook@gmail.com>
-CC: Jie Yang <jie.yang@atheros.com>
+CC: Roger Luethi <rl@hellgate.ch>
+CC: Francois Romieu <romieu@fr.zoreil.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |   45 --------------
- drivers/net/Makefile                               |    4 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/atheros/Kconfig               |   61 ++++++++++++++++++++
- drivers/net/ethernet/atheros/Makefile              |    8 +++
- drivers/net/{ => ethernet/atheros}/atl1c/Makefile  |    0
- drivers/net/{ => ethernet/atheros}/atl1c/atl1c.h   |    0
- .../{ => ethernet/atheros}/atl1c/atl1c_ethtool.c   |    0
- .../net/{ => ethernet/atheros}/atl1c/atl1c_hw.c    |    0
- .../net/{ => ethernet/atheros}/atl1c/atl1c_hw.h    |    0
- .../net/{ => ethernet/atheros}/atl1c/atl1c_main.c  |    0
- drivers/net/{ => ethernet/atheros}/atl1e/Makefile  |    0
- drivers/net/{ => ethernet/atheros}/atl1e/atl1e.h   |    0
- .../{ => ethernet/atheros}/atl1e/atl1e_ethtool.c   |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_hw.c    |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_hw.h    |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_main.c  |    0
- .../net/{ => ethernet/atheros}/atl1e/atl1e_param.c |    0
- drivers/net/{ => ethernet/atheros}/atlx/Makefile   |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl1.c     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl1.h     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl2.c     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atl2.h     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atlx.c     |    0
- drivers/net/{ => ethernet/atheros}/atlx/atlx.h     |    0
- 27 files changed, 72 insertions(+), 50 deletions(-)
- create mode 100644 drivers/net/ethernet/atheros/Kconfig
- create mode 100644 drivers/net/ethernet/atheros/Makefile
- rename drivers/net/{ => ethernet/atheros}/atl1c/Makefile (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_ethtool.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_hw.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_hw.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1c/atl1c_main.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/Makefile (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_ethtool.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_hw.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_hw.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_main.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atl1e/atl1e_param.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/Makefile (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl1.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl1.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl2.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atl2.h (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atlx.c (100%)
- rename drivers/net/{ => ethernet/atheros}/atlx/atlx.h (100%)
+ MAINTAINERS                                   |    4 +-
+ drivers/net/Kconfig                           |   36 -----------------
+ drivers/net/Makefile                          |    2 -
+ drivers/net/ethernet/Kconfig                  |    1 +
+ drivers/net/ethernet/Makefile                 |    1 +
+ drivers/net/ethernet/via/Kconfig              |   52 +++++++++++++++++++++++++
+ drivers/net/ethernet/via/Makefile             |    6 +++
+ drivers/net/{ => ethernet/via}/via-rhine.c    |    0
+ drivers/net/{ => ethernet/via}/via-velocity.c |    0
+ drivers/net/{ => ethernet/via}/via-velocity.h |    0
+ 10 files changed, 62 insertions(+), 40 deletions(-)
+ create mode 100644 drivers/net/ethernet/via/Kconfig
+ create mode 100644 drivers/net/ethernet/via/Makefile
+ rename drivers/net/{ => ethernet/via}/via-rhine.c (100%)
+ rename drivers/net/{ => ethernet/via}/via-velocity.c (100%)
+ rename drivers/net/{ => ethernet/via}/via-velocity.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 486470e..8cb244e 100644
+index 9b06d37..7acba11 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1276,7 +1276,7 @@ L:	netdev@vger.kernel.org
- W:	http://sourceforge.net/projects/atl1
- W:	http://atl1.sourceforge.net
+@@ -6817,7 +6817,7 @@ F:	include/linux/vhost.h
+ VIA RHINE NETWORK DRIVER
+ M:	Roger Luethi <rl@hellgate.ch>
  S:	Maintained
--F:	drivers/net/atlx/
-+F:	drivers/net/ethernet/atheros/
+-F:	drivers/net/via-rhine.c
++F:	drivers/net/ethernet/via/via-rhine.c
  
- ATM
- M:	Chas Williams <chas@cmf.nrl.navy.mil>
+ VIAPRO SMBUS DRIVER
+ M:	Jean Delvare <khali@linux-fr.org>
+@@ -6845,7 +6845,7 @@ VIA VELOCITY NETWORK DRIVER
+ M:	Francois Romieu <romieu@fr.zoreil.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/via-velocity.*
++F:	drivers/net/ethernet/via/via-velocity.*
+ 
+ VLAN (802.1Q)
+ M:	Patrick McHardy <kaber@trash.net>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 8799caf..e6be7123 100644
+index ec5f7f4..349c6e1 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -760,17 +760,6 @@ config FEC_MPC52xx_MDIO
- 	  If not sure, enable.
- 	  If compiled as module, it will be called fec_mpc52xx_phy.
+@@ -614,30 +614,6 @@ config KS8851_MLL
+ 	  This platform driver is for Micrel KS8851 Address/data bus
+ 	  multiplexed network chip.
  
--config ATL2
--	tristate "Atheros L2 Fast Ethernet support"
+-config VIA_RHINE
+-	tristate "VIA Rhine support"
+-	depends on NET_PCI && PCI
+-	select CRC32
+-	select MII
+-	help
+-	  If you have a VIA "Rhine" based network card (Rhine-I (VT86C100A),
+-	  Rhine-II (VT6102), or Rhine-III (VT6105)), say Y here. Rhine-type
+-	  Ethernet functions can also be found integrated on South Bridges
+-	  (e.g. VT8235).
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called via-rhine.
+-
+-config VIA_RHINE_MMIO
+-	bool "Use MMIO instead of PIO"
+-	depends on VIA_RHINE
+-	help
+-	  This instructs the driver to use PCI shared memory (MMIO) instead of
+-	  programmed I/O ports (PIO). Enabling this gives an improvement in
+-	  processing time in parts of the driver.
+-
+-	  If unsure, say Y.
+-
+ config CPMAC
+ 	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
+ 	depends on NET_ETHERNET && EXPERIMENTAL && AR7
+@@ -793,18 +769,6 @@ config SIS190
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called sis190.  This is recommended.
+ 
+-config VIA_VELOCITY
+-	tristate "VIA Velocity support"
 -	depends on PCI
 -	select CRC32
+-	select CRC_CCITT
 -	select MII
 -	help
--	  This driver supports the Atheros L2 fast ethernet adapter.
+-	  If you have a VIA "Velocity" based network card say Y here.
 -
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl2.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called via-velocity.
 -
- config XILINX_EMACLITE
- 	tristate "Xilinx 10/100 Ethernet Lite support"
- 	depends on PPC32 || MICROBLAZE
-@@ -1031,40 +1020,6 @@ config XILINX_LL_TEMAC
- 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
- 	  core used in Xilinx Spartan and Virtex FPGAs
- 
--config ATL1
--	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
--	depends on PCI
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros/Attansic L1 gigabit ethernet
--	  adapter.
--
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl1.
--
--config ATL1E
--	tristate "Atheros L1E Gigabit Ethernet support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros L1E gigabit ethernet adapter.
--
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl1e.
--
--config ATL1C
--	tristate "Atheros L1C Gigabit Ethernet support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
--	select CRC32
--	select MII
--	help
--	  This driver supports the Atheros L1C gigabit ethernet adapter.
--
--	  To compile this driver as a module, choose M here.  The module
--	  will be called atl1c.
--
- config JME
- 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
- 	depends on PCI
+ config SPIDER_NET
+ 	tristate "Spider Gigabit Ethernet driver"
+ 	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index ecd8c9f..d151075 100644
+index 60b2d20..ad3b8a8 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -13,10 +13,6 @@ obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
- obj-$(CONFIG_IP1000) += ipg.o
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_BONDING) += bonding/
--obj-$(CONFIG_ATL1) += atlx/
--obj-$(CONFIG_ATL2) += atlx/
--obj-$(CONFIG_ATL1E) += atl1e/
--obj-$(CONFIG_ATL1C) += atl1c/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
- obj-$(CONFIG_JME) += jme.o
+@@ -51,8 +51,6 @@ obj-$(CONFIG_KS8842)	+= ks8842.o
+ obj-$(CONFIG_KS8851)	+= ks8851.o
+ obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
+ obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
+-obj-$(CONFIG_VIA_RHINE) += via-rhine.o
+-obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_SH_ETH) += sh_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 8007e20..9410f20 100644
+index 1c447d9..bdc0df8 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -14,6 +14,7 @@ if ETHERNET
- source "drivers/net/ethernet/3com/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
-+source "drivers/net/ethernet/atheros/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
- source "drivers/net/ethernet/brocade/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
+@@ -45,5 +45,6 @@ source "drivers/net/ethernet/smsc/Kconfig"
+ source "drivers/net/ethernet/stmicro/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
+ source "drivers/net/ethernet/tehuti/Kconfig"
++source "drivers/net/ethernet/via/Kconfig"
+ 
+ endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 22ef380..5d89fd9 100644
+index 48c8656..ac60ac9 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
- obj-$(CONFIG_NET_VENDOR_8390) += 8390/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
-+obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
- obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
- obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
-diff --git a/drivers/net/ethernet/atheros/Kconfig b/drivers/net/ethernet/atheros/Kconfig
+@@ -36,3 +36,4 @@ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+ obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+ obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
++obj-$(CONFIG_NET_VENDOR_VIA) += via/
+diff --git a/drivers/net/ethernet/via/Kconfig b/drivers/net/ethernet/via/Kconfig
 new file mode 100644
-index 0000000..94b436d
+index 0000000..e606aa1
 --- /dev/null
-+++ b/drivers/net/ethernet/atheros/Kconfig
-@@ -0,0 +1,61 @@
++++ b/drivers/net/ethernet/via/Kconfig
+@@ -0,0 +1,52 @@
 +#
-+# Atheros device configuration
++# VIA device configuration
 +#
 +
-+config NET_VENDOR_ATHEROS
-+	bool "Atheros devices"
++config NET_VENDOR_VIA
++	bool "VIA devices"
 +	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
@@ -212,147 +170,68 @@ index 0000000..94b436d
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Atheros devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
++	  the questions about VIA devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config ATL2
-+	tristate "Atheros L2 Fast Ethernet support"
-+	depends on NET_VENDOR_ATHEROS && PCI
++config VIA_RHINE
++	tristate "VIA Rhine support"
++	depends on NET_VENDOR_VIA && PCI
 +	select CRC32
 +	select MII
 +	---help---
-+	  This driver supports the Atheros L2 fast ethernet adapter.
++	  If you have a VIA "Rhine" based network card (Rhine-I (VT86C100A),
++	  Rhine-II (VT6102), or Rhine-III (VT6105)), say Y here. Rhine-type
++	  Ethernet functions can also be found integrated on South Bridges
++	  (e.g. VT8235).
 +
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl2.
++	  To compile this driver as a module, choose M here. The module
++	  will be called via-rhine.
 +
-+config ATL1
-+	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
-+	depends on NET_VENDOR_ATHEROS && PCI
++config VIA_RHINE_MMIO
++	bool "Use MMIO instead of PIO"
++	depends on VIA_RHINE
++	---help---
++	  This instructs the driver to use PCI shared memory (MMIO) instead of
++	  programmed I/O ports (PIO). Enabling this gives an improvement in
++	  processing time in parts of the driver.
++
++	  If unsure, say Y.
++
++config VIA_VELOCITY
++	tristate "VIA Velocity support"
++	depends on NET_VENDOR_VIA && PCI
 +	select CRC32
++	select CRC_CCITT
 +	select MII
 +	---help---
-+	  This driver supports the Atheros/Attansic L1 gigabit ethernet
-+	  adapter.
++	  If you have a VIA "Velocity" based network card say Y here.
 +
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl1.
-+
-+config ATL1E
-+	tristate "Atheros L1E Gigabit Ethernet support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_ATHEROS && PCI && EXPERIMENTAL
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver supports the Atheros L1E gigabit ethernet adapter.
-+
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl1e.
-+
-+config ATL1C
-+	tristate "Atheros L1C Gigabit Ethernet support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_ATHEROS && PCI && EXPERIMENTAL
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver supports the Atheros L1C gigabit ethernet adapter.
-+
-+	  To compile this driver as a module, choose M here.  The module
-+	  will be called atl1c.
-diff --git a/drivers/net/ethernet/atheros/Makefile b/drivers/net/ethernet/atheros/Makefile
++	  To compile this driver as a module, choose M here. The module
++	  will be called via-velocity.
+diff --git a/drivers/net/ethernet/via/Makefile b/drivers/net/ethernet/via/Makefile
 new file mode 100644
-index 0000000..e7e76fb
+index 0000000..46c5d4a
 --- /dev/null
-+++ b/drivers/net/ethernet/atheros/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/via/Makefile
+@@ -0,0 +1,6 @@
 +#
-+# Makefile for the Atheros network device drivers.
++# Makefile for the VIA device drivers.
 +#
 +
-+obj-$(CONFIG_ATL1) += atlx/
-+obj-$(CONFIG_ATL2) += atlx/
-+obj-$(CONFIG_ATL1E) += atl1e/
-+obj-$(CONFIG_ATL1C) += atl1c/
-diff --git a/drivers/net/atl1c/Makefile b/drivers/net/ethernet/atheros/atl1c/Makefile
++obj-$(CONFIG_VIA_RHINE) += via-rhine.o
++obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
+diff --git a/drivers/net/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
 similarity index 100%
-rename from drivers/net/atl1c/Makefile
-rename to drivers/net/ethernet/atheros/atl1c/Makefile
-diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+rename from drivers/net/via-rhine.c
+rename to drivers/net/ethernet/via/via-rhine.c
+diff --git a/drivers/net/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
 similarity index 100%
-rename from drivers/net/atl1c/atl1c.h
-rename to drivers/net/ethernet/atheros/atl1c/atl1c.h
-diff --git a/drivers/net/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+rename from drivers/net/via-velocity.c
+rename to drivers/net/ethernet/via/via-velocity.c
+diff --git a/drivers/net/via-velocity.h b/drivers/net/ethernet/via/via-velocity.h
 similarity index 100%
-rename from drivers/net/atl1c/atl1c_ethtool.c
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-diff --git a/drivers/net/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-similarity index 100%
-rename from drivers/net/atl1c/atl1c_hw.c
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-diff --git a/drivers/net/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-similarity index 100%
-rename from drivers/net/atl1c/atl1c_hw.h
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-similarity index 100%
-rename from drivers/net/atl1c/atl1c_main.c
-rename to drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-diff --git a/drivers/net/atl1e/Makefile b/drivers/net/ethernet/atheros/atl1e/Makefile
-similarity index 100%
-rename from drivers/net/atl1e/Makefile
-rename to drivers/net/ethernet/atheros/atl1e/Makefile
-diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/ethernet/atheros/atl1e/atl1e.h
-similarity index 100%
-rename from drivers/net/atl1e/atl1e.h
-rename to drivers/net/ethernet/atheros/atl1e/atl1e.h
-diff --git a/drivers/net/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-similarity index 100%
-rename from drivers/net/atl1e/atl1e_ethtool.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-diff --git a/drivers/net/atl1e/atl1e_hw.c b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.c
-similarity index 100%
-rename from drivers/net/atl1e/atl1e_hw.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_hw.c
-diff --git a/drivers/net/atl1e/atl1e_hw.h b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
-similarity index 100%
-rename from drivers/net/atl1e/atl1e_hw.h
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
-diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-similarity index 100%
-rename from drivers/net/atl1e/atl1e_main.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-diff --git a/drivers/net/atl1e/atl1e_param.c b/drivers/net/ethernet/atheros/atl1e/atl1e_param.c
-similarity index 100%
-rename from drivers/net/atl1e/atl1e_param.c
-rename to drivers/net/ethernet/atheros/atl1e/atl1e_param.c
-diff --git a/drivers/net/atlx/Makefile b/drivers/net/ethernet/atheros/atlx/Makefile
-similarity index 100%
-rename from drivers/net/atlx/Makefile
-rename to drivers/net/ethernet/atheros/atlx/Makefile
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-similarity index 100%
-rename from drivers/net/atlx/atl1.c
-rename to drivers/net/ethernet/atheros/atlx/atl1.c
-diff --git a/drivers/net/atlx/atl1.h b/drivers/net/ethernet/atheros/atlx/atl1.h
-similarity index 100%
-rename from drivers/net/atlx/atl1.h
-rename to drivers/net/ethernet/atheros/atlx/atl1.h
-diff --git a/drivers/net/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
-similarity index 100%
-rename from drivers/net/atlx/atl2.c
-rename to drivers/net/ethernet/atheros/atlx/atl2.c
-diff --git a/drivers/net/atlx/atl2.h b/drivers/net/ethernet/atheros/atlx/atl2.h
-similarity index 100%
-rename from drivers/net/atlx/atl2.h
-rename to drivers/net/ethernet/atheros/atlx/atl2.h
-diff --git a/drivers/net/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
-similarity index 100%
-rename from drivers/net/atlx/atlx.c
-rename to drivers/net/ethernet/atheros/atlx/atlx.c
-diff --git a/drivers/net/atlx/atlx.h b/drivers/net/ethernet/atheros/atlx/atlx.h
-similarity index 100%
-rename from drivers/net/atlx/atlx.h
-rename to drivers/net/ethernet/atheros/atlx/atlx.h
+rename from drivers/net/via-velocity.h
+rename to drivers/net/ethernet/via/via-velocity.h
 -- 
 1.7.6
 
