@@ -1,179 +1,152 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 15/71] bna: Move the Brocade driver
-Date: Sat, 30 Jul 2011 20:26:34 -0700
-Message-ID: <1312082850-24914-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 23/71] stmmac: Move the STMicroelectronics driver
+Date: Sat, 30 Jul 2011 20:26:42 -0700
+Message-ID: <1312082850-24914-24-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Rasesh Mody <rmody@brocade.com>,
-	Debashis Dutt <ddutt@brocade.com>
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:43146 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753169Ab1GaD1s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:27:48 -0400
+	id S1753238Ab1GaD17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:27:59 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the Brocade driver into drivers/net/ethernet/brocade/ and make
-the necessary Kconfig and Makefile changes.
+Move the STMicroelectronics driver into driver/net/ethernet/stmicro/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Rasesh Mody <rmody@brocade.com>
-CC: Debashis Dutt <ddutt@brocade.com>
+CC: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
  MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |   14 --------------
+ drivers/net/Kconfig                                |    2 --
  drivers/net/Makefile                               |    1 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/brocade/Kconfig               |   18 ++++++++++++++++++
- drivers/net/ethernet/brocade/Makefile              |    5 +++++
- drivers/net/ethernet/brocade/bna/Kconfig           |   17 +++++++++++++++++
- drivers/net/{ => ethernet/brocade}/bna/Makefile    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_cs.h    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h  |    0
- .../net/{ => ethernet/brocade}/bna/bfa_defs_cna.h  |    0
- .../{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h |    0
- .../{ => ethernet/brocade}/bna/bfa_defs_status.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h   |    0
- .../net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi.h       |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi_ctreg.h |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h    |    0
- drivers/net/{ => ethernet/brocade}/bna/bna.h       |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c  |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_hw.h    |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c  |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_types.h |    0
- drivers/net/{ => ethernet/brocade}/bna/bnad.c      |    0
- drivers/net/{ => ethernet/brocade}/bna/bnad.h      |    0
- .../net/{ => ethernet/brocade}/bna/bnad_ethtool.c  |    0
- drivers/net/{ => ethernet/brocade}/bna/cna.h       |    0
- drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c |    0
- 33 files changed, 43 insertions(+), 16 deletions(-)
- create mode 100644 drivers/net/ethernet/brocade/Kconfig
- create mode 100644 drivers/net/ethernet/brocade/Makefile
- create mode 100644 drivers/net/ethernet/brocade/bna/Kconfig
- rename drivers/net/{ => ethernet/brocade}/bna/Makefile (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_cs.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_cna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_status.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi_ctreg.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_hw.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_types.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bnad.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bnad.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bnad_ethtool.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/cna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c (100%)
+ drivers/net/ethernet/stmicro/Kconfig               |   18 ++++++++++++++++++
+ drivers/net/ethernet/stmicro/Makefile              |    5 +++++
+ drivers/net/{ => ethernet/stmicro}/stmmac/Kconfig  |   14 +++++++-------
+ drivers/net/{ => ethernet/stmicro}/stmmac/Makefile |    0
+ drivers/net/{ => ethernet/stmicro}/stmmac/common.h |    0
+ drivers/net/{ => ethernet/stmicro}/stmmac/descs.h  |    0
+ .../net/{ => ethernet/stmicro}/stmmac/dwmac100.h   |    0
+ .../net/{ => ethernet/stmicro}/stmmac/dwmac1000.h  |    0
+ .../{ => ethernet/stmicro}/stmmac/dwmac1000_core.c |    0
+ .../{ => ethernet/stmicro}/stmmac/dwmac1000_dma.c  |    0
+ .../{ => ethernet/stmicro}/stmmac/dwmac100_core.c  |    0
+ .../{ => ethernet/stmicro}/stmmac/dwmac100_dma.c   |    0
+ .../net/{ => ethernet/stmicro}/stmmac/dwmac_dma.h  |    0
+ .../net/{ => ethernet/stmicro}/stmmac/dwmac_lib.c  |    0
+ .../net/{ => ethernet/stmicro}/stmmac/enh_desc.c   |    0
+ .../net/{ => ethernet/stmicro}/stmmac/norm_desc.c  |    0
+ drivers/net/{ => ethernet/stmicro}/stmmac/stmmac.h |    0
+ .../{ => ethernet/stmicro}/stmmac/stmmac_ethtool.c |    0
+ .../{ => ethernet/stmicro}/stmmac/stmmac_main.c    |    0
+ .../{ => ethernet/stmicro}/stmmac/stmmac_mdio.c    |    0
+ .../{ => ethernet/stmicro}/stmmac/stmmac_timer.c   |    0
+ .../{ => ethernet/stmicro}/stmmac/stmmac_timer.h   |    0
+ 27 files changed, 33 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/Kconfig
+ create mode 100644 drivers/net/ethernet/stmicro/Makefile
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/Kconfig (92%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/Makefile (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/common.h (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/descs.h (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100.h (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000.h (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000_core.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000_dma.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100_core.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100_dma.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac_dma.h (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac_lib.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/enh_desc.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/norm_desc.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac.h (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_main.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_mdio.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_timer.c (100%)
+ rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_timer.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 0c0fda5..ddec2eb 100644
+index 05e51e2..f16acae 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1569,7 +1569,7 @@ M:	Rasesh Mody <rmody@brocade.com>
- M:	Debashis Dutt <ddutt@brocade.com>
+@@ -2016,7 +2016,7 @@ M:	Giuseppe Cavallaro <peppe.cavallaro@st.com>
  L:	netdev@vger.kernel.org
+ W:	http://www.stlinux.com
  S:	Supported
--F:	drivers/net/bna/
-+F:	drivers/net/ethernet/brocade/bna/
+-F:	drivers/net/stmmac/
++F:	drivers/net/ethernet/stmicro/stmmac/
  
- BSG (block layer generic sg v4 driver)
- M:	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+ CYBERPRO FB DRIVER
+ M:	Russell King <linux@arm.linux.org.uk>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index db03c21..2701ee9 100644
+index 9a294bd..7eb052b 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1584,20 +1584,6 @@ config TEHUTI
- 	help
- 	  Tehuti Networks 10G Ethernet NIC
+@@ -1391,8 +1391,6 @@ config S6GMAC
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called s6gmac.
  
--config BNA
--	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
--	depends on PCI
--	---help---
--	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
--	  cards.
--	  To compile this driver as a module, choose M here: the module
--	  will be called bna.
+-source "drivers/net/stmmac/Kconfig"
 -
--	  For general information and support, go to the Brocade support
--	  website at:
--
--	  <http://support.brocade.com>
--
- endif # NETDEV_10000
- 
- source "drivers/net/tokenring/Kconfig"
+ config PCH_GBE
+ 	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
+ 	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 39b04e0..c8a176f 100644
+index f82495a..b322cde 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -25,7 +25,6 @@ obj-$(CONFIG_TEHUTI) += tehuti.o
- obj-$(CONFIG_ENIC) += enic/
- obj-$(CONFIG_JME) += jme.o
- obj-$(CONFIG_VMXNET3) += vmxnet3/
--obj-$(CONFIG_BNA) += bna/
+@@ -67,7 +67,6 @@ obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_SH_ETH) += sh_eth.o
+-obj-$(CONFIG_STMMAC_ETH) += stmmac/
  
- gianfar_driver-objs := gianfar.o \
- 		gianfar_ethtool.o \
+ #
+ # end link order section
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 9c003f3..225918d 100644
+index 8375b8b..c38e902 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -15,6 +15,7 @@ source "drivers/net/ethernet/3com/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
-+source "drivers/net/ethernet/brocade/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
+@@ -30,6 +30,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
++source "drivers/net/ethernet/stmicro/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
+ source "drivers/net/ethernet/tehuti/Kconfig"
+ 
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 2ac05ba..734f7c9 100644
+index 26324a1..75d7a02 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
- obj-$(CONFIG_NET_VENDOR_8390) += 8390/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
-+obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
-diff --git a/drivers/net/ethernet/brocade/Kconfig b/drivers/net/ethernet/brocade/Kconfig
+@@ -21,5 +21,6 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_SFC) += sfc/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
++obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+ obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
+diff --git a/drivers/net/ethernet/stmicro/Kconfig b/drivers/net/ethernet/stmicro/Kconfig
 new file mode 100644
-index 0000000..8d8bff7
+index 0000000..d4f7e02
 --- /dev/null
-+++ b/drivers/net/ethernet/brocade/Kconfig
++++ b/drivers/net/ethernet/stmicro/Kconfig
 @@ -0,0 +1,18 @@
 +#
-+# Brocade device configuration
++# STMicroelectronics device configuration
 +#
 +
-+config NET_VENDOR_BROCADE
-+	bool "Brocade devices"
-+	depends on PCI
++config NET_VENDOR_STMICRO
++	bool "STMicroelectronics devices"
++	depends on HAS_IOMEM
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -181,144 +154,159 @@ index 0000000..8d8bff7
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Brocade cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about STMicroelectronics cards. If you say Y, you will
++	  be asked for your specific card in the following questions.
 +
-+source "drivers/net/ethernet/brocade/bna/Kconfig"
-diff --git a/drivers/net/ethernet/brocade/Makefile b/drivers/net/ethernet/brocade/Makefile
++source "drivers/net/ethernet/stmicro/stmmac/Kconfig"
+diff --git a/drivers/net/ethernet/stmicro/Makefile b/drivers/net/ethernet/stmicro/Makefile
 new file mode 100644
-index 0000000..b58238d
+index 0000000..9b3bfdd
 --- /dev/null
-+++ b/drivers/net/ethernet/brocade/Makefile
++++ b/drivers/net/ethernet/stmicro/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Brocade device drivers.
++# Makefile for the STMicroelectronics device drivers.
 +#
 +
-+obj-$(CONFIG_BNA) += bna/
-diff --git a/drivers/net/ethernet/brocade/bna/Kconfig b/drivers/net/ethernet/brocade/bna/Kconfig
-new file mode 100644
-index 0000000..ba37af2
---- /dev/null
-+++ b/drivers/net/ethernet/brocade/bna/Kconfig
-@@ -0,0 +1,17 @@
-+#
-+# Brocade network device configuration
-+#
-+
-+config BNA
-+	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
-+	depends on NET_VENDOR_BROCADE && PCI
++obj-$(CONFIG_STMMAC_ETH) += stmmac/
+diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+similarity index 92%
+rename from drivers/net/stmmac/Kconfig
+rename to drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 7df7df4..e1d915d 100644
+--- a/drivers/net/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -1,10 +1,10 @@
+ config STMMAC_ETH
+ 	tristate "STMicroelectronics 10/100/1000 Ethernet driver"
++	depends on NET_VENDOR_STMICRO && HAS_IOMEM
+ 	select MII
+ 	select PHYLIB
+ 	select CRC32
+-	depends on NETDEVICES && HAS_IOMEM
+-	help
 +	---help---
-+	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
-+	  cards.
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called bna.
-+
-+	  For general information and support, go to the Brocade support
-+	  website at:
-+
-+	  <http://support.brocade.com>
-diff --git a/drivers/net/bna/Makefile b/drivers/net/ethernet/brocade/bna/Makefile
+ 	  This is the driver for the Ethernet IPs are built around a
+ 	  Synopsys IP Core and only tested on the STMicroelectronics
+ 	  platforms.
+@@ -14,7 +14,7 @@ if STMMAC_ETH
+ config STMMAC_DA
+ 	bool "STMMAC DMA arbitration scheme"
+ 	default n
+-	help
++	---help---
+ 	  Selecting this option, rx has priority over Tx (only for Giga
+ 	  Ethernet device).
+ 	  By default, the DMA arbitration scheme is based on Round-robin
+@@ -24,7 +24,7 @@ config STMMAC_DUAL_MAC
+ 	bool "STMMAC: dual mac support (EXPERIMENTAL)"
+ 	default n
+         depends on EXPERIMENTAL && STMMAC_ETH && !STMMAC_TIMER
+-	help
++	---help---
+ 	  Some ST SoCs (for example the stx7141 and stx7200c2) have two
+ 	  Ethernet Controllers. This option turns on the second Ethernet
+ 	  device on this kind of platforms.
+@@ -33,7 +33,7 @@ config STMMAC_TIMER
+ 	bool "STMMAC Timer optimisation"
+ 	default n
+ 	depends on RTC_HCTOSYS_DEVICE
+-	help
++	---help---
+ 	  Use an external timer for mitigating the number of network
+ 	  interrupts. Currently, for SH architectures, it is possible
+ 	  to use the TMU channel 2 and the SH-RTC device.
+@@ -45,12 +45,12 @@ choice
+ config STMMAC_TMU_TIMER
+         bool "TMU channel 2"
+         depends on CPU_SH4
+-	help
++	---help---
+ 
+ config STMMAC_RTC_TIMER
+         bool "Real time clock"
+         depends on RTC_CLASS
+-	help
++	---help---
+ 
+ endchoice
+ 
+diff --git a/drivers/net/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
 similarity index 100%
-rename from drivers/net/bna/Makefile
-rename to drivers/net/ethernet/brocade/bna/Makefile
-diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/ethernet/brocade/bna/bfa_cee.c
+rename from drivers/net/stmmac/Makefile
+rename to drivers/net/ethernet/stmicro/stmmac/Makefile
+diff --git a/drivers/net/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
 similarity index 100%
-rename from drivers/net/bna/bfa_cee.c
-rename to drivers/net/ethernet/brocade/bna/bfa_cee.c
-diff --git a/drivers/net/bna/bfa_cee.h b/drivers/net/ethernet/brocade/bna/bfa_cee.h
+rename from drivers/net/stmmac/common.h
+rename to drivers/net/ethernet/stmicro/stmmac/common.h
+diff --git a/drivers/net/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
 similarity index 100%
-rename from drivers/net/bna/bfa_cee.h
-rename to drivers/net/ethernet/brocade/bna/bfa_cee.h
-diff --git a/drivers/net/bna/bfa_cs.h b/drivers/net/ethernet/brocade/bna/bfa_cs.h
+rename from drivers/net/stmmac/descs.h
+rename to drivers/net/ethernet/stmicro/stmmac/descs.h
+diff --git a/drivers/net/stmmac/dwmac100.h b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
 similarity index 100%
-rename from drivers/net/bna/bfa_cs.h
-rename to drivers/net/ethernet/brocade/bna/bfa_cs.h
-diff --git a/drivers/net/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
+rename from drivers/net/stmmac/dwmac100.h
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+diff --git a/drivers/net/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
 similarity index 100%
-rename from drivers/net/bna/bfa_defs.h
-rename to drivers/net/ethernet/brocade/bna/bfa_defs.h
-diff --git a/drivers/net/bna/bfa_defs_cna.h b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+rename from drivers/net/stmmac/dwmac1000.h
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
 similarity index 100%
-rename from drivers/net/bna/bfa_defs_cna.h
-rename to drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
-diff --git a/drivers/net/bna/bfa_defs_mfg_comm.h b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+rename from drivers/net/stmmac/dwmac1000_core.c
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+diff --git a/drivers/net/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
 similarity index 100%
-rename from drivers/net/bna/bfa_defs_mfg_comm.h
-rename to drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
-diff --git a/drivers/net/bna/bfa_defs_status.h b/drivers/net/ethernet/brocade/bna/bfa_defs_status.h
+rename from drivers/net/stmmac/dwmac1000_dma.c
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+diff --git a/drivers/net/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
 similarity index 100%
-rename from drivers/net/bna/bfa_defs_status.h
-rename to drivers/net/ethernet/brocade/bna/bfa_defs_status.h
-diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+rename from drivers/net/stmmac/dwmac100_core.c
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+diff --git a/drivers/net/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
 similarity index 100%
-rename from drivers/net/bna/bfa_ioc.c
-rename to drivers/net/ethernet/brocade/bna/bfa_ioc.c
-diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+rename from drivers/net/stmmac/dwmac100_dma.c
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+diff --git a/drivers/net/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
 similarity index 100%
-rename from drivers/net/bna/bfa_ioc.h
-rename to drivers/net/ethernet/brocade/bna/bfa_ioc.h
-diff --git a/drivers/net/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+rename from drivers/net/stmmac/dwmac_dma.h
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+diff --git a/drivers/net/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
 similarity index 100%
-rename from drivers/net/bna/bfa_ioc_ct.c
-rename to drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
-diff --git a/drivers/net/bna/bfi.h b/drivers/net/ethernet/brocade/bna/bfi.h
+rename from drivers/net/stmmac/dwmac_lib.c
+rename to drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+diff --git a/drivers/net/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
 similarity index 100%
-rename from drivers/net/bna/bfi.h
-rename to drivers/net/ethernet/brocade/bna/bfi.h
-diff --git a/drivers/net/bna/bfi_cna.h b/drivers/net/ethernet/brocade/bna/bfi_cna.h
+rename from drivers/net/stmmac/enh_desc.c
+rename to drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+diff --git a/drivers/net/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
 similarity index 100%
-rename from drivers/net/bna/bfi_cna.h
-rename to drivers/net/ethernet/brocade/bna/bfi_cna.h
-diff --git a/drivers/net/bna/bfi_ctreg.h b/drivers/net/ethernet/brocade/bna/bfi_ctreg.h
+rename from drivers/net/stmmac/norm_desc.c
+rename to drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+diff --git a/drivers/net/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
 similarity index 100%
-rename from drivers/net/bna/bfi_ctreg.h
-rename to drivers/net/ethernet/brocade/bna/bfi_ctreg.h
-diff --git a/drivers/net/bna/bfi_ll.h b/drivers/net/ethernet/brocade/bna/bfi_ll.h
+rename from drivers/net/stmmac/stmmac.h
+rename to drivers/net/ethernet/stmicro/stmmac/stmmac.h
+diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
 similarity index 100%
-rename from drivers/net/bna/bfi_ll.h
-rename to drivers/net/ethernet/brocade/bna/bfi_ll.h
-diff --git a/drivers/net/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
+rename from drivers/net/stmmac/stmmac_ethtool.c
+rename to drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 similarity index 100%
-rename from drivers/net/bna/bna.h
-rename to drivers/net/ethernet/brocade/bna/bna.h
-diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/ethernet/brocade/bna/bna_ctrl.c
+rename from drivers/net/stmmac/stmmac_main.c
+rename to drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+diff --git a/drivers/net/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
 similarity index 100%
-rename from drivers/net/bna/bna_ctrl.c
-rename to drivers/net/ethernet/brocade/bna/bna_ctrl.c
-diff --git a/drivers/net/bna/bna_hw.h b/drivers/net/ethernet/brocade/bna/bna_hw.h
+rename from drivers/net/stmmac/stmmac_mdio.c
+rename to drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+diff --git a/drivers/net/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
 similarity index 100%
-rename from drivers/net/bna/bna_hw.h
-rename to drivers/net/ethernet/brocade/bna/bna_hw.h
-diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/ethernet/brocade/bna/bna_txrx.c
+rename from drivers/net/stmmac/stmmac_timer.c
+rename to drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
+diff --git a/drivers/net/stmmac/stmmac_timer.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
 similarity index 100%
-rename from drivers/net/bna/bna_txrx.c
-rename to drivers/net/ethernet/brocade/bna/bna_txrx.c
-diff --git a/drivers/net/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-similarity index 100%
-rename from drivers/net/bna/bna_types.h
-rename to drivers/net/ethernet/brocade/bna/bna_types.h
-diff --git a/drivers/net/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-similarity index 100%
-rename from drivers/net/bna/bnad.c
-rename to drivers/net/ethernet/brocade/bna/bnad.c
-diff --git a/drivers/net/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-similarity index 100%
-rename from drivers/net/bna/bnad.h
-rename to drivers/net/ethernet/brocade/bna/bnad.h
-diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-similarity index 100%
-rename from drivers/net/bna/bnad_ethtool.c
-rename to drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-diff --git a/drivers/net/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
-similarity index 100%
-rename from drivers/net/bna/cna.h
-rename to drivers/net/ethernet/brocade/bna/cna.h
-diff --git a/drivers/net/bna/cna_fwimg.c b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-similarity index 100%
-rename from drivers/net/bna/cna_fwimg.c
-rename to drivers/net/ethernet/brocade/bna/cna_fwimg.c
+rename from drivers/net/stmmac/stmmac_timer.h
+rename to drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
 -- 
 1.7.6
 
