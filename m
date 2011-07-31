@@ -1,128 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 50/71] xilinx/ll_temac: Move the Xilinx drivers
-Date: Sat, 30 Jul 2011 20:27:09 -0700
-Message-ID: <1312082850-24914-51-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 60/71] starfire: Move the Adaptec driver
+Date: Sat, 30 Jul 2011 20:27:19 -0700
+Message-ID: <1312082850-24914-61-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	John Williams <john.williams@petalogix.com>,
-	"David H. Lynch Jr." <dhlii@dlasys.net>
+	Ion Badulescu <ionut@badula.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:63626 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753364Ab1GaD2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:25 -0400
+	id S1753416Ab1GaD2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:42 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Xilinx drivers into drivers/net/ethernet/xilinx/ and
-make the necessary Kconfig and Makefile changes.
+Move the Adaptec driver into drivers/net/ethernet/adaptec/ and make
+the necessary Kconfig and Makefile changes.
 
-CC: John Williams <john.williams@petalogix.com>
-CC: "David H. Lynch Jr." <dhlii@dlasys.net>
+CC: Ion Badulescu <ionut@badula.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                                |   15 ---------
- drivers/net/Makefile                               |    4 --
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/xilinx/Kconfig                |   31 ++++++++++++++++++++
- drivers/net/ethernet/xilinx/Makefile               |    7 ++++
- drivers/net/{ => ethernet/xilinx}/ll_temac.h       |    0
- drivers/net/{ => ethernet/xilinx}/ll_temac_main.c  |    0
- drivers/net/{ => ethernet/xilinx}/ll_temac_mdio.c  |    0
- .../net/{ => ethernet/xilinx}/xilinx_emaclite.c    |    0
- 10 files changed, 40 insertions(+), 19 deletions(-)
- create mode 100644 drivers/net/ethernet/xilinx/Kconfig
- create mode 100644 drivers/net/ethernet/xilinx/Makefile
- rename drivers/net/{ => ethernet/xilinx}/ll_temac.h (100%)
- rename drivers/net/{ => ethernet/xilinx}/ll_temac_main.c (100%)
- rename drivers/net/{ => ethernet/xilinx}/ll_temac_mdio.c (100%)
- rename drivers/net/{ => ethernet/xilinx}/xilinx_emaclite.c (100%)
+ MAINTAINERS                                   |    2 +-
+ drivers/net/Kconfig                           |   14 -----------
+ drivers/net/Makefile                          |    1 -
+ drivers/net/ethernet/Kconfig                  |    1 +
+ drivers/net/ethernet/Makefile                 |    1 +
+ drivers/net/ethernet/adaptec/Kconfig          |   30 +++++++++++++++++++++++++
+ drivers/net/ethernet/adaptec/Makefile         |    5 ++++
+ drivers/net/{ => ethernet/adaptec}/starfire.c |    0
+ 8 files changed, 38 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/net/ethernet/adaptec/Kconfig
+ create mode 100644 drivers/net/ethernet/adaptec/Makefile
+ rename drivers/net/{ => ethernet/adaptec}/starfire.c (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 16873fb..4c82a79 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6085,7 +6085,7 @@ F:	drivers/staging/
+ STARFIRE/DURALAN NETWORK DRIVER
+ M:	Ion Badulescu <ionut@badula.org>
+ S:	Odd Fixes
+-F:	drivers/net/starfire*
++F:	drivers/net/ethernet/adaptec/starfire*
+ 
+ SUN3/3X
+ M:	Sam Creasey <sammy@sammy.net>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 60e850d..f8181da 100644
+index 139af5d..c72e76f 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -493,13 +493,6 @@ config NET_POCKET
- 	  the questions about this class of network devices. If you say Y, you
- 	  will be asked for your specific device in the following questions.
+@@ -345,20 +345,6 @@ config NET_PCI
+ 	  will be asked for your specific card in the following questions. If
+ 	  you are unsure, say Y.
  
--config XILINX_EMACLITE
--	tristate "Xilinx 10/100 Ethernet Lite support"
--	depends on PPC32 || MICROBLAZE
--	select PHYLIB
+-config ADAPTEC_STARFIRE
+-	tristate "Adaptec Starfire/DuraLAN support"
+-	depends on NET_PCI && PCI
+-	select CRC32
+-	select MII
 -	help
--	  This driver supports the 10/100 Ethernet Lite from Xilinx.
+-	  Say Y here if you have an Adaptec Starfire (or DuraLAN) PCI network
+-	  adapter. The DuraLAN chip is used on the 64 bit PCI boards from
+-	  Adaptec e.g. the ANA-6922A. The older 32 bit boards use the tulip
+-	  driver.
 -
- config LANTIQ_ETOP
- 	tristate "Lantiq SoC ETOP driver"
- 	depends on SOC_TYPE_XWAY
-@@ -539,14 +532,6 @@ config IP1000
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called ipg.  This is recommended.
- 
--config XILINX_LL_TEMAC
--	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
--	depends on PPC || MICROBLAZE
--	select PHYLIB
--	help
--	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
--	  core used in Xilinx Spartan and Virtex FPGAs
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called starfire.  This is recommended.
 -
- endif # NETDEV_1000
- 
- #
+ config NET_POCKET
+ 	bool "Pocket and portable adapters"
+ 	depends on PARPORT
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 271fc52..4c7af02 100644
+index 4d5af15..670e175 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -33,10 +33,6 @@ obj-$(CONFIG_NET_SB1000) += sb1000.o
- obj-$(CONFIG_HP100) += hp100.o
- obj-$(CONFIG_FORCEDETH) += forcedeth.o
+@@ -17,7 +17,6 @@ obj-$(CONFIG_PLIP) += plip.o
+ obj-$(CONFIG_ROADRUNNER) += rrunner.o
  
--ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
--obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
--obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
--
- obj-$(CONFIG_PPP) += ppp_generic.o
- obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
- obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
+ obj-$(CONFIG_SKFP) += skfp/
+-obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_SH_ETH) += sh_eth.o
+ 
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index c29c145..922f4d1 100644
+index 1de8edc..8cd38c9 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -82,5 +82,6 @@ source "drivers/net/ethernet/ti/Kconfig"
- source "drivers/net/ethernet/toshiba/Kconfig"
- source "drivers/net/ethernet/tundra/Kconfig"
- source "drivers/net/ethernet/via/Kconfig"
-+source "drivers/net/ethernet/xilinx/Kconfig"
+@@ -12,6 +12,7 @@ menuconfig ETHERNET
+ if ETHERNET
  
- endif # ETHERNET
+ source "drivers/net/ethernet/3com/Kconfig"
++source "drivers/net/ethernet/adaptec/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 8495c50..fcecd5f 100644
+index 3d5ed1f..50e040c 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -50,3 +50,4 @@ obj-$(CONFIG_NET_VENDOR_TI) += ti/
- obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
- obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
- obj-$(CONFIG_NET_VENDOR_VIA) += via/
-+obj-$(CONFIG_NET_VENDOR_XILINX) += xilinx/
-diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethernet/xilinx/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
++obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
+diff --git a/drivers/net/ethernet/adaptec/Kconfig b/drivers/net/ethernet/adaptec/Kconfig
 new file mode 100644
-index 0000000..d66feb1
+index 0000000..6dd1b48
 --- /dev/null
-+++ b/drivers/net/ethernet/xilinx/Kconfig
-@@ -0,0 +1,31 @@
++++ b/drivers/net/ethernet/adaptec/Kconfig
+@@ -0,0 +1,30 @@
 +#
-+# Xilink device configuration
++# Adaptec network device configuration
 +#
 +
-+config NET_VENDOR_XILINX
-+	bool "Xilinx devices"
-+	depends on PPC || PPC32 || MICROBLAZE
++config NET_VENDOR_ADAPTEC
++	bool "Adaptec devices"
++	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -130,52 +129,37 @@ index 0000000..d66feb1
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Xilinx devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
++	  the questions about Adaptec cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config XILINX_EMACLITE
-+	tristate "Xilinx 10/100 Ethernet Lite support"
-+	depends on NET_VENDOR_XILINX && (PPC32 || MICROBLAZE)
-+	select PHYLIB
++config ADAPTEC_STARFIRE
++	tristate "Adaptec Starfire/DuraLAN support"
++	depends on NET_VENDOR_ADAPTEC && PCI
++	select CRC32
++	select MII
 +	---help---
-+	  This driver supports the 10/100 Ethernet Lite from Xilinx.
++	  Say Y here if you have an Adaptec Starfire (or DuraLAN) PCI network
++	  adapter. The DuraLAN chip is used on the 64 bit PCI boards from
++	  Adaptec e.g. the ANA-6922A. The older 32 bit boards use the tulip
++	  driver.
 +
-+config XILINX_LL_TEMAC
-+	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
-+	depends on NET_VENDOR_XILINX && (PPC || MICROBLAZE)
-+	select PHYLIB
-+	---help---
-+	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
-+	  core used in Xilinx Spartan and Virtex FPGAs
-diff --git a/drivers/net/ethernet/xilinx/Makefile b/drivers/net/ethernet/xilinx/Makefile
++	  To compile this driver as a module, choose M here: the module
++	  will be called starfire.  This is recommended.
+diff --git a/drivers/net/ethernet/adaptec/Makefile b/drivers/net/ethernet/adaptec/Makefile
 new file mode 100644
-index 0000000..5feac73
+index 0000000..6c07b75
 --- /dev/null
-+++ b/drivers/net/ethernet/xilinx/Makefile
-@@ -0,0 +1,7 @@
++++ b/drivers/net/ethernet/adaptec/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the Xilink network device drivers.
++# Makefile for the Adaptec network device drivers.
 +#
 +
-+ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
-+obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
-+obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
-diff --git a/drivers/net/ll_temac.h b/drivers/net/ethernet/xilinx/ll_temac.h
++obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+diff --git a/drivers/net/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
 similarity index 100%
-rename from drivers/net/ll_temac.h
-rename to drivers/net/ethernet/xilinx/ll_temac.h
-diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-similarity index 100%
-rename from drivers/net/ll_temac_main.c
-rename to drivers/net/ethernet/xilinx/ll_temac_main.c
-diff --git a/drivers/net/ll_temac_mdio.c b/drivers/net/ethernet/xilinx/ll_temac_mdio.c
-similarity index 100%
-rename from drivers/net/ll_temac_mdio.c
-rename to drivers/net/ethernet/xilinx/ll_temac_mdio.c
-diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-similarity index 100%
-rename from drivers/net/xilinx_emaclite.c
-rename to drivers/net/ethernet/xilinx/xilinx_emaclite.c
+rename from drivers/net/starfire.c
+rename to drivers/net/ethernet/adaptec/starfire.c
 -- 
 1.7.6
 
