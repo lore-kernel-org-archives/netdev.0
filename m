@@ -1,190 +1,241 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 47/71] hamachi/yellowfin: Move the packet engine drivers
-Date: Sat, 30 Jul 2011 20:27:06 -0700
-Message-ID: <1312082850-24914-48-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 56/71] macb: Move the Atmel driver
+Date: Sat, 30 Jul 2011 20:27:15 -0700
+Message-ID: <1312082850-24914-57-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Donald Becker <becker@scyld.com>
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jamie Iles <jamie@jamieiles.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:63626 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753356Ab1GaD2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:22 -0400
+	id S1753187Ab1GaD2k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:40 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the packet engine drivers to drivers/net/ethernet/packetengines/
-and the necessary Kconfig and Makefile changes.
+Move the Atmel driver into drivers/net/ethernet/cadence/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Donald Becker <becker@scyld.com>
+CC: Nicolas Ferre <nicolas.ferre@atmel.com>
+CC: Jamie Iles <jamie@jamieiles.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                                |   26 ------------
- drivers/net/Makefile                               |    2 -
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   16 --------
+ drivers/net/Makefile                               |    3 -
+ drivers/net/arm/Kconfig                            |   12 ------
+ drivers/net/arm/Makefile                           |    6 ---
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/packetengines/Kconfig         |   42 ++++++++++++++++++++
- drivers/net/ethernet/packetengines/Makefile        |    6 +++
- drivers/net/{ => ethernet/packetengines}/hamachi.c |    0
- .../net/{ => ethernet/packetengines}/yellowfin.c   |    0
- 8 files changed, 50 insertions(+), 28 deletions(-)
- create mode 100644 drivers/net/ethernet/packetengines/Kconfig
- create mode 100644 drivers/net/ethernet/packetengines/Makefile
- rename drivers/net/{ => ethernet/packetengines}/hamachi.c (100%)
- rename drivers/net/{ => ethernet/packetengines}/yellowfin.c (100%)
+ drivers/net/ethernet/cadence/Kconfig               |   40 ++++++++++++++++++++
+ drivers/net/ethernet/cadence/Makefile              |    6 +++
+ drivers/net/{arm => ethernet/cadence}/at91_ether.c |    0
+ drivers/net/{arm => ethernet/cadence}/at91_ether.h |    0
+ drivers/net/{ => ethernet/cadence}/macb.c          |    0
+ drivers/net/{ => ethernet/cadence}/macb.h          |    0
+ 13 files changed, 49 insertions(+), 38 deletions(-)
+ delete mode 100644 drivers/net/arm/Kconfig
+ delete mode 100644 drivers/net/arm/Makefile
+ create mode 100644 drivers/net/ethernet/cadence/Kconfig
+ create mode 100644 drivers/net/ethernet/cadence/Makefile
+ rename drivers/net/{arm => ethernet/cadence}/at91_ether.c (100%)
+ rename drivers/net/{arm => ethernet/cadence}/at91_ether.h (100%)
+ rename drivers/net/{ => ethernet/cadence}/macb.c (100%)
+ rename drivers/net/{ => ethernet/cadence}/macb.h (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 83a51ad..995f504 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1317,7 +1317,7 @@ F:	include/video/atmel_lcdc.h
+ ATMEL MACB ETHERNET DRIVER
+ M:	Nicolas Ferre <nicolas.ferre@atmel.com>
+ S:	Supported
+-F:	drivers/net/macb.*
++F:	drivers/net/ethernet/cadence/
+ 
+ ATMEL SPI DRIVER
+ M:	Nicolas Ferre <nicolas.ferre@atmel.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 698b5e7..eb50af7 100644
+index bb4bc4b..6db322c 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -541,32 +541,6 @@ config IP1000
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called ipg.  This is recommended.
- 
--config HAMACHI
--	tristate "Packet Engines Hamachi GNIC-II support"
--	depends on PCI
--	select MII
--	help
--	  If you have a Gigabit Ethernet card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module will be
--	  called hamachi.
--
--config YELLOWFIN
--	tristate "Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
--	select CRC32
--	---help---
--	  Say Y here if you have a Packet Engines G-NIC PCI Gigabit Ethernet
--	  adapter or the SYM53C885 Ethernet controller. The Gigabit adapter is
--	  used by the Beowulf Linux cluster project.  See
--	  <http://cesdis.gsfc.nasa.gov/linux/drivers/yellowfin.html> for more
--	  information about this driver in particular and Beowulf in general.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called yellowfin.  This is recommended.
--
- config XILINX_LL_TEMAC
- 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
- 	depends on PPC || MICROBLAZE
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 96112dd..d8c286e 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -19,7 +19,6 @@ obj-$(CONFIG_PLIP) += plip.o
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
- 
- obj-$(CONFIG_R6040) += r6040.o
--obj-$(CONFIG_YELLOWFIN) += yellowfin.o
- obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
-@@ -30,7 +29,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
- # end link order section
+@@ -2,9 +2,6 @@
+ # Network device configuration
  #
  
--obj-$(CONFIG_HAMACHI) += hamachi.o
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NET_SB1000) += sb1000.o
- obj-$(CONFIG_HP100) += hp100.o
+-config HAVE_NET_MACB
+-	bool
+-
+ menuconfig NETDEVICES
+ 	default y if UML
+ 	depends on NET
+@@ -224,19 +221,6 @@ menuconfig NET_ETHERNET
+ 
+ if NET_ETHERNET
+ 
+-config MACB
+-	tristate "Atmel MACB support"
+-	depends on HAVE_NET_MACB
+-	select PHYLIB
+-	help
+-	  The Atmel MACB ethernet interface is found on many AT32 and AT91
+-	  parts. Say Y to include support for the MACB chip.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called macb.
+-
+-source "drivers/net/arm/Kconfig"
+-
+ config SH_ETH
+ 	tristate "Renesas SuperH Ethernet support"
+ 	depends on SUPERH && \
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index d249d76..d7873ba 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -63,9 +63,6 @@ obj-$(CONFIG_ETHOC) += ethoc.o
+ obj-$(CONFIG_GRETH) += greth.o
+ 
+ obj-$(CONFIG_DNET) += dnet.o
+-obj-$(CONFIG_MACB) += macb.o
+-
+-obj-$(CONFIG_ARM) += arm/
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_TR) += tokenring/
+diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
+deleted file mode 100644
+index 57d16b9..0000000
+--- a/drivers/net/arm/Kconfig
++++ /dev/null
+@@ -1,12 +0,0 @@
+-#
+-# Acorn Network device configuration
+-#  These are for Acorn's Expansion card network interfaces
+-#
+-
+-config ARM_AT91_ETHER
+-	tristate "AT91RM9200 Ethernet support"
+-	depends on ARM && ARCH_AT91RM9200
+-	select MII
+-	help
+-	  If you wish to compile a kernel for the AT91RM9200 and enable
+-	  ethernet support, then you should always answer Y to this.
+diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
+deleted file mode 100644
+index fc0f85c..0000000
+--- a/drivers/net/arm/Makefile
++++ /dev/null
+@@ -1,6 +0,0 @@
+-# File: drivers/net/arm/Makefile
+-#
+-# Makefile for the ARM network device drivers
+-#
+-
+-obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 3983e70..140dd73 100644
+index e087337..68a31b9 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -39,6 +39,7 @@ source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/nuvoton/Kconfig"
- source "drivers/net/ethernet/oki-semi/Kconfig"
-+source "drivers/net/ethernet/packetengines/Kconfig"
- source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
+@@ -15,6 +15,7 @@ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
++source "drivers/net/ethernet/cadence/Kconfig"
+ source "drivers/net/ethernet/adi/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 873d275..8a97b19 100644
+index 826db27..0e91c4d 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
- obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
- obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
-+obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
- obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
-diff --git a/drivers/net/ethernet/packetengines/Kconfig b/drivers/net/ethernet/packetengines/Kconfig
+@@ -7,6 +7,7 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
++obj-$(CONFIG_NET_ATMEL) += cadence/
+ obj-$(CONFIG_NET_BFIN) += adi/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
 new file mode 100644
-index 0000000..3fa8d39
+index 0000000..4c443da
 --- /dev/null
-+++ b/drivers/net/ethernet/packetengines/Kconfig
-@@ -0,0 +1,42 @@
++++ b/drivers/net/ethernet/cadence/Kconfig
+@@ -0,0 +1,40 @@
 +#
-+# Packet engine device configuration
++# Atmel device configuration
 +#
 +
-+config NET_PACKET_ENGINE
-+	bool "Packet Engine devices"
-+	depends on PCI
++config HAVE_NET_MACB
++	bool
++
++config NET_ATMEL
++	bool "Atmel devices"
++	depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  If you have a network (Ethernet) card belonging to this class, say Y.
++	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
++	  available from <http://www.tldp.org/docs.html#howto>.
++
++	  If unsure, say Y.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about packet engine devices. If you say Y, you will
-+	  be asked for your specific card in the following questions.
++	  the remaining Atmel network card questions. If you say Y, you will be
++	  asked for your specific card in the following questions.
 +
-+config HAMACHI
-+	tristate "Packet Engines Hamachi GNIC-II support"
-+	depends on NET_PACKET_ENGINE && PCI
++config ARM_AT91_ETHER
++	tristate "AT91RM9200 Ethernet support"
++	depends on NET_ATMEL && ARM && ARCH_AT91RM9200
 +	select MII
 +	---help---
-+	  If you have a Gigabit Ethernet card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  If you wish to compile a kernel for the AT91RM9200 and enable
++	  ethernet support, then you should always answer Y to this.
 +
-+	  To compile this driver as a module, choose M here. The module will be
-+	  called hamachi.
-+
-+config YELLOWFIN
-+	tristate "Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)"
-+	depends on NET_PACKET_ENGINE && PCI && EXPERIMENTAL
-+	select CRC32
++config MACB
++	tristate "Atmel MACB support"
++	depends on NET_ATMEL && HAVE_NET_MACB
++	select PHYLIB
 +	---help---
-+	  Say Y here if you have a Packet Engines G-NIC PCI Gigabit Ethernet
-+	  adapter or the SYM53C885 Ethernet controller. The Gigabit adapter is
-+	  used by the Beowulf Linux cluster project.  See
-+	  <http://cesdis.gsfc.nasa.gov/linux/drivers/yellowfin.html> for more
-+	  information about this driver in particular and Beowulf in general.
++	  The Atmel MACB ethernet interface is found on many AT32 and AT91
++	  parts. Say Y to include support for the MACB chip.
 +
 +	  To compile this driver as a module, choose M here: the module
-+	  will be called yellowfin.  This is recommended.
-diff --git a/drivers/net/ethernet/packetengines/Makefile b/drivers/net/ethernet/packetengines/Makefile
++	  will be called macb.
+diff --git a/drivers/net/ethernet/cadence/Makefile b/drivers/net/ethernet/cadence/Makefile
 new file mode 100644
-index 0000000..995ccd0
+index 0000000..9068b83
 --- /dev/null
-+++ b/drivers/net/ethernet/packetengines/Makefile
++++ b/drivers/net/ethernet/cadence/Makefile
 @@ -0,0 +1,6 @@
 +#
-+# Makefile for the Packet Engine network device drivers.
++# Makefile for the Atmel network device drivers.
 +#
 +
-+obj-$(CONFIG_HAMACHI) += hamachi.o
-+obj-$(CONFIG_YELLOWFIN) += yellowfin.o
-diff --git a/drivers/net/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
++obj-$(CONFIG_ARM_AT91_ETHER) += at91_ether.o
++obj-$(CONFIG_MACB) += macb.o
+diff --git a/drivers/net/arm/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
 similarity index 100%
-rename from drivers/net/hamachi.c
-rename to drivers/net/ethernet/packetengines/hamachi.c
-diff --git a/drivers/net/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
+rename from drivers/net/arm/at91_ether.c
+rename to drivers/net/ethernet/cadence/at91_ether.c
+diff --git a/drivers/net/arm/at91_ether.h b/drivers/net/ethernet/cadence/at91_ether.h
 similarity index 100%
-rename from drivers/net/yellowfin.c
-rename to drivers/net/ethernet/packetengines/yellowfin.c
+rename from drivers/net/arm/at91_ether.h
+rename to drivers/net/ethernet/cadence/at91_ether.h
+diff --git a/drivers/net/macb.c b/drivers/net/ethernet/cadence/macb.c
+similarity index 100%
+rename from drivers/net/macb.c
+rename to drivers/net/ethernet/cadence/macb.c
+diff --git a/drivers/net/macb.h b/drivers/net/ethernet/cadence/macb.h
+similarity index 100%
+rename from drivers/net/macb.h
+rename to drivers/net/ethernet/cadence/macb.h
 -- 
 1.7.6
 
