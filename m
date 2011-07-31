@@ -1,126 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 57/71] r6040: Move the RDC driver
-Date: Sat, 30 Jul 2011 20:27:16 -0700
-Message-ID: <1312082850-24914-58-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 61/71] hp100: Move the HP driver
+Date: Sat, 30 Jul 2011 20:27:20 -0700
+Message-ID: <1312082850-24914-62-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Florian Fainelli <florian@openwrt.org>
+	Jaroslav Kysela <perex@perex.cz>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753403Ab1GaD2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:41 -0400
+	id S1753420Ab1GaD2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:45 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the RDC driver into drivers/net/ethernet/rdc/ and make the
-necessary Kconfig and Makefile changes.
+Move the HP driver into drivers/net/ethernet/hp/ and
+made the necessary Kconfig and Makefile changes.
 
-CC: Florian Fainelli <florian@openwrt.org>
+CC: Jaroslav Kysela <perex@perex.cz>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                            |    2 +-
- drivers/net/Kconfig                    |   13 -------------
- drivers/net/Makefile                   |    1 -
- drivers/net/ethernet/Kconfig           |    1 +
- drivers/net/ethernet/Makefile          |    1 +
- drivers/net/ethernet/rdc/Kconfig       |   29 +++++++++++++++++++++++++++++
- drivers/net/ethernet/rdc/Makefile      |    5 +++++
- drivers/net/{ => ethernet/rdc}/r6040.c |    0
- 8 files changed, 37 insertions(+), 15 deletions(-)
- create mode 100644 drivers/net/ethernet/rdc/Kconfig
- create mode 100644 drivers/net/ethernet/rdc/Makefile
- rename drivers/net/{ => ethernet/rdc}/r6040.c (100%)
+ MAINTAINERS                           |    2 +-
+ drivers/net/Kconfig                   |   11 -----------
+ drivers/net/Makefile                  |    1 -
+ drivers/net/ethernet/Kconfig          |    1 +
+ drivers/net/ethernet/Makefile         |    1 +
+ drivers/net/ethernet/hp/Kconfig       |   27 +++++++++++++++++++++++++++
+ drivers/net/ethernet/hp/Makefile      |    5 +++++
+ drivers/net/{ => ethernet/hp}/hp100.c |    0
+ drivers/net/{ => ethernet/hp}/hp100.h |    0
+ 9 files changed, 35 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/ethernet/hp/Kconfig
+ create mode 100644 drivers/net/ethernet/hp/Makefile
+ rename drivers/net/{ => ethernet/hp}/hp100.c (100%)
+ rename drivers/net/{ => ethernet/hp}/hp100.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 995f504..16873fb 100644
+index 4c82a79..d3a0a99 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -5305,7 +5305,7 @@ RDC R6040 FAST ETHERNET DRIVER
- M:	Florian Fainelli <florian@openwrt.org>
- L:	netdev@vger.kernel.org
+@@ -3054,7 +3054,7 @@ F:	drivers/platform/x86/tc1100-wmi.c
+ HP100:	Driver for HP 10/100 Mbit/s Voice Grade Network Adapter Series
+ M:	Jaroslav Kysela <perex@perex.cz>
  S:	Maintained
--F:	drivers/net/r6040.c
-+F:	drivers/net/ethernet/rdc/r6040.c
+-F:	drivers/net/hp100.*
++F:	drivers/net/ethernet/hp/hp100.*
  
- RDS - RELIABLE DATAGRAM SOCKETS
- M:	Andy Grover <andy.grover@oracle.com>
+ HPET:	High Precision Event Timers driver
+ M:	Clemens Ladisch <clemens@ladisch.de>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 6db322c..363801e 100644
+index c72e76f..d216f99 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -379,19 +379,6 @@ config FEALNX
- 	  Say Y here to support the Myson MTD-800 family of PCI-based Ethernet 
- 	  cards. <http://www.myson.com.tw/>
+@@ -320,17 +320,6 @@ config DNET
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called dnet.
  
--config R6040
--	tristate "RDC R6040 Fast Ethernet Adapter support"
--	depends on NET_PCI && PCI
--	select CRC32
--	select MII
--	select PHYLIB
+-config HP100
+-	tristate "HP 10/100VG PCLAN (ISA, EISA, PCI) support"
+-	depends on ISA || EISA || PCI
 -	help
--	  This is a driver for the R6040 Fast Ethernet MACs found in the
--	  the RDC R-321x System-on-chips.
+-	  If you have a network (Ethernet) card of this type, say Y and read
+-	  the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called r6040. This is recommended.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called hp100.
 -
- config NET_POCKET
- 	bool "Pocket and portable adapters"
- 	depends on PARPORT
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d7873ba..051439f 100644
+index 670e175..5b37149 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -16,7 +16,6 @@ obj-$(CONFIG_PLIP) += plip.o
+@@ -26,7 +26,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
  
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+-obj-$(CONFIG_HP100) += hp100.o
  
--obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_PPP) += ppp_generic.o
+ obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 68a31b9..78e567f 100644
+index 8cd38c9..c1ce356 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -83,6 +83,7 @@ source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/realtek/Kconfig"
-+source "drivers/net/ethernet/rdc/Kconfig"
- 
- config S6GMAC
- 	tristate "S6105 GMAC ethernet support"
+@@ -30,6 +30,7 @@ source "drivers/net/ethernet/neterion/Kconfig"
+ source "drivers/net/ethernet/faraday/Kconfig"
+ source "drivers/net/ethernet/freescale/Kconfig"
+ source "drivers/net/ethernet/fujitsu/Kconfig"
++source "drivers/net/ethernet/hp/Kconfig"
+ source "drivers/net/ethernet/ibm/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 0e91c4d..48d3209 100644
+index 50e040c..34e84fa 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -43,6 +43,7 @@ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
-+obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
- obj-$(CONFIG_S6GMAC) += s6gmac.o
- obj-$(CONFIG_NET_VENDOR_SEEQ) += seeq/
- obj-$(CONFIG_NET_VENDOR_SIS) += sis/
-diff --git a/drivers/net/ethernet/rdc/Kconfig b/drivers/net/ethernet/rdc/Kconfig
+@@ -22,6 +22,7 @@ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+ obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
+ obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
+ obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
++obj-$(CONFIG_NET_VENDOR_HP) += hp/
+ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+diff --git a/drivers/net/ethernet/hp/Kconfig b/drivers/net/ethernet/hp/Kconfig
 new file mode 100644
-index 0000000..64a4914
+index 0000000..291a3a0
 --- /dev/null
-+++ b/drivers/net/ethernet/rdc/Kconfig
-@@ -0,0 +1,29 @@
++++ b/drivers/net/ethernet/hp/Kconfig
+@@ -0,0 +1,27 @@
 +#
-+# RDC network device configuration
++# HP network device configuration
 +#
 +
-+config NET_VENDOR_RDC
-+	bool "RDC devices"
-+	depends on PCI
++config NET_VENDOR_HP
++	bool "HP devices"
++	depends on ISA || EISA || PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -128,36 +128,38 @@ index 0000000..64a4914
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about RDC cards. If you say Y, you will be asked for
++	  the questions about HP cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config R6040
-+	tristate "RDC R6040 Fast Ethernet Adapter support"
-+	depends on NET_VENDOR_RDC && PCI
-+	select CRC32
-+	select MII
-+	select PHYLIB
++config HP100
++	tristate "HP 10/100VG PCLAN (ISA, EISA, PCI) support"
++	depends on NET_VENDOR_HP && (ISA || EISA || PCI)
 +	---help---
-+	  This is a driver for the R6040 Fast Ethernet MACs found in the
-+	  the RDC R-321x System-on-chips.
++	  If you have a network (Ethernet) card of this type, say Y and read
++	  the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called r6040. This is recommended.
-diff --git a/drivers/net/ethernet/rdc/Makefile b/drivers/net/ethernet/rdc/Makefile
++	  To compile this driver as a module, choose M here. The module
++	  will be called hp100.
+diff --git a/drivers/net/ethernet/hp/Makefile b/drivers/net/ethernet/hp/Makefile
 new file mode 100644
-index 0000000..8d51fd2
+index 0000000..20b6918
 --- /dev/null
-+++ b/drivers/net/ethernet/rdc/Makefile
++++ b/drivers/net/ethernet/hp/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the RDC network device drivers.
++# Makefile for the HP network device drivers.
 +#
 +
-+obj-$(CONFIG_R6040) += r6040.o
-diff --git a/drivers/net/r6040.c b/drivers/net/ethernet/rdc/r6040.c
++obj-$(CONFIG_HP100) += hp100.o
+diff --git a/drivers/net/hp100.c b/drivers/net/ethernet/hp/hp100.c
 similarity index 100%
-rename from drivers/net/r6040.c
-rename to drivers/net/ethernet/rdc/r6040.c
+rename from drivers/net/hp100.c
+rename to drivers/net/ethernet/hp/hp100.c
+diff --git a/drivers/net/hp100.h b/drivers/net/ethernet/hp/hp100.h
+similarity index 100%
+rename from drivers/net/hp100.h
+rename to drivers/net/ethernet/hp/hp100.h
 -- 
 1.7.6
 
