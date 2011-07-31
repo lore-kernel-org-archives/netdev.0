@@ -1,187 +1,286 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 27/71] ftgmac100/ftmac100: Move the Faraday drivers
-Date: Sat, 30 Jul 2011 20:26:46 -0700
-Message-ID: <1312082850-24914-28-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 18/71] s2io/vxge: Move the Exar drivers
+Date: Sat, 30 Jul 2011 20:26:37 -0700
+Message-ID: <1312082850-24914-19-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	"Po-Yu Chuang" <ratbert@faraday-tech.com>
+	gospo@redhat.com, sassmann@redhat.com, Jon Mason <jdmason@kudzu.us>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753257Ab1GaD2B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:01 -0400
+	id S1753181Ab1GaD1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:27:50 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Faraday driver into drivers/net/ethernet/faraday/ and
-make the necessary Kconfig and Makefile changes.
+Move the Exar drivers into drivers/net/ethernet/neterion/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: "Po-Yu Chuang" <ratbert@faraday-tech.com>
+CC: Jon Mason <jdmason@kudzu.us>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
 ---
- drivers/net/Kconfig                            |   18 ------------
- drivers/net/Makefile                           |    2 -
- drivers/net/ethernet/Kconfig                   |    1 +
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/ethernet/faraday/Kconfig           |   34 ++++++++++++++++++++++++
- drivers/net/ethernet/faraday/Makefile          |    6 ++++
- drivers/net/{ => ethernet/faraday}/ftgmac100.c |    0
- drivers/net/{ => ethernet/faraday}/ftgmac100.h |    0
- drivers/net/{ => ethernet/faraday}/ftmac100.c  |    0
- drivers/net/{ => ethernet/faraday}/ftmac100.h  |    0
- 10 files changed, 42 insertions(+), 20 deletions(-)
- create mode 100644 drivers/net/ethernet/faraday/Kconfig
- create mode 100644 drivers/net/ethernet/faraday/Makefile
- rename drivers/net/{ => ethernet/faraday}/ftgmac100.c (100%)
- rename drivers/net/{ => ethernet/faraday}/ftgmac100.h (100%)
- rename drivers/net/{ => ethernet/faraday}/ftmac100.c (100%)
- rename drivers/net/{ => ethernet/faraday}/ftmac100.h (100%)
+ MAINTAINERS                                        |    3 +-
+ drivers/net/Kconfig                                |   34 -------------
+ drivers/net/Makefile                               |    2 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/neterion/Kconfig              |   50 ++++++++++++++++++++
+ drivers/net/ethernet/neterion/Makefile             |    6 ++
+ drivers/net/{ => ethernet/neterion}/s2io-regs.h    |    0
+ drivers/net/{ => ethernet/neterion}/s2io.c         |    0
+ drivers/net/{ => ethernet/neterion}/s2io.h         |    0
+ drivers/net/{ => ethernet/neterion}/vxge/Makefile  |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-config.c |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-config.h |    0
+ .../{ => ethernet/neterion}/vxge/vxge-ethtool.c    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-ethtool.h    |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-main.c   |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-main.h   |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-reg.h    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-traffic.c    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-traffic.h    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-version.h    |    0
+ 21 files changed, 59 insertions(+), 38 deletions(-)
+ create mode 100644 drivers/net/ethernet/neterion/Kconfig
+ create mode 100644 drivers/net/ethernet/neterion/Makefile
+ rename drivers/net/{ => ethernet/neterion}/s2io-regs.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/s2io.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/s2io.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/Makefile (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-reg.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-version.h (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 3423692..dc83dd9 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4353,9 +4353,8 @@ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
+ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
+ S:	Supported
+ F:	Documentation/networking/s2io.txt
+-F:	drivers/net/s2io*
+ F:	Documentation/networking/vxge.txt
+-F:	drivers/net/vxge/
++F:	drivers/net/ethernet/neterion/
+ 
+ NETFILTER/IPTABLES/IPCHAINS
+ P:	Rusty Russell
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 7f09cd5..8da9f96 100644
+index 38fcaea..3e216b3 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -922,15 +922,6 @@ config XILINX_EMACLITE
+@@ -1485,40 +1485,6 @@ config ENIC
  	help
- 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
+ 	  This enables the support for the Cisco VIC Ethernet card.
  
--config FTMAC100
--	tristate "Faraday FTMAC100 10/100 Ethernet support"
--	depends on ARM
--	select MII
--	help
--	  This driver supports the FTMAC100 10/100 Ethernet controller
--	  from Faraday. It is used on Faraday A320, Andes AG101 and some
--	  other ARM/NDS32 SoC's.
+-config S2IO
+-	tristate "Exar Xframe 10Gb Ethernet Adapter"
+-	depends on PCI
+-	---help---
+-	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
 -
- config LANTIQ_ETOP
- 	tristate "Lantiq SoC ETOP driver"
- 	depends on SOC_TYPE_XWAY
-@@ -1286,15 +1277,6 @@ config PCH_GBE
- 	  ML7223 is companion chip for Intel Atom E6xx series.
- 	  ML7223 is completely compatible for Intel EG20T PCH.
- 
--config FTGMAC100
--	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
--	depends on ARM
--	select PHYLIB
--	help
--	  This driver supports the FTGMAC100 Gigabit Ethernet controller
--	  from Faraday. It is used on Faraday A369, Andes AG102 and some
--	  other ARM/NDS32 SoC's.
+-	  More specific information on configuring the driver is in 
+-	  <file:Documentation/networking/s2io.txt>.
 -
- endif # NETDEV_1000
- 
- #
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called s2io.
+-
+-config VXGE
+-	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
+-	depends on PCI && INET
+-	---help---
+-	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
+-	  I/O Virtualized Server Adapter.
+-
+-	  More specific information on configuring the driver is in
+-	  <file:Documentation/networking/vxge.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called vxge.
+-
+-config VXGE_DEBUG_TRACE_ALL
+-	bool "Enabling All Debug trace statments in driver"
+-	default n
+-	depends on VXGE
+-	---help---
+-	  Say Y here if you want to enabling all the debug trace statements in
+-	  the vxge driver. By default only few debug trace statements are
+-	  enabled.
+-
+ config PASEMI_MAC
+ 	tristate "PA Semi 1/10Gbit MAC"
+ 	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index ffcb609..0b341dc 100644
+index b9e1f5a..d28c153e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -79,8 +79,6 @@ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
- 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
- endif
- obj-$(CONFIG_FORCEDETH) += forcedeth.o
--obj-$(CONFIG_FTGMAC100) += ftgmac100.o
--obj-$(CONFIG_FTMAC100) += ftmac100.o
- 
- obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
- obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
+@@ -149,8 +149,6 @@ obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_DL2K) += dl2k.o
+ obj-$(CONFIG_R8169) += r8169.o
+ obj-$(CONFIG_IBMVETH) += ibmveth.o
+-obj-$(CONFIG_S2IO) += s2io.o
+-obj-$(CONFIG_VXGE) += vxge/
+ obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
+ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 45d3eff..110071e 100644
+index ce3040d..1a39ec0 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -20,6 +20,7 @@ source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/cisco/Kconfig"
+@@ -18,6 +18,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
  source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/neterion/Kconfig"
-+source "drivers/net/ethernet/faraday/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
++source "drivers/net/ethernet/neterion/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 09536de..4a6edf7 100644
+index b4dcb93..4c21e8f 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -12,6 +12,7 @@ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
+@@ -9,6 +9,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
  obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
-+obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
++obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
-diff --git a/drivers/net/ethernet/faraday/Kconfig b/drivers/net/ethernet/faraday/Kconfig
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
 new file mode 100644
-index 0000000..32eaee9
+index 0000000..90874de
 --- /dev/null
-+++ b/drivers/net/ethernet/faraday/Kconfig
-@@ -0,0 +1,34 @@
++++ b/drivers/net/ethernet/neterion/Kconfig
+@@ -0,0 +1,50 @@
 +#
-+# Faraday device configuration
++# Exar device configuration
 +#
 +
-+config NET_VENDOR_FARADAY
-+	bool "Faraday devices"
-+	depends on ARM
++config NET_VENDOR_EXAR
++	bool "Exar devices"
++	depends on PCI
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say
++	  Y and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Faraday cards. If you say Y, you will be asked for
++	  the questions about Exar cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config FTMAC100
-+	tristate "Faraday FTMAC100 10/100 Ethernet support"
-+	depends on NET_VENDOR_FARADAY && ARM
-+	select MII
++config S2IO
++	tristate "Exar Xframe 10Gb Ethernet Adapter"
++	depends on NET_VENDOR_EXAR && PCI
 +	---help---
-+	  This driver supports the FTMAC100 10/100 Ethernet controller
-+	  from Faraday. It is used on Faraday A320, Andes AG101 and some
-+	  other ARM/NDS32 SoC's.
++	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
 +
-+config FTGMAC100
-+	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
-+	depends on NET_VENDOR_FARADAY && ARM
-+	select PHYLIB
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/s2io.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called s2io.
++
++config VXGE
++	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
++	depends on NET_VENDOR_EXAR && PCI && INET
 +	---help---
-+	  This driver supports the FTGMAC100 Gigabit Ethernet controller
-+	  from Faraday. It is used on Faraday A369, Andes AG102 and some
-+	  other ARM/NDS32 SoC's.
-diff --git a/drivers/net/ethernet/faraday/Makefile b/drivers/net/ethernet/faraday/Makefile
++	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
++	  I/O Virtualized Server Adapter.
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/vxge.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called vxge.
++
++config VXGE_DEBUG_TRACE_ALL
++	bool "Enabling All Debug trace statments in driver"
++	default n
++	depends on VXGE
++	---help---
++	  Say Y here if you want to enabling all the debug trace statements in
++	  the vxge driver. By default only few debug trace statements are
++	  enabled.
+diff --git a/drivers/net/ethernet/neterion/Makefile b/drivers/net/ethernet/neterion/Makefile
 new file mode 100644
-index 0000000..408b539
+index 0000000..70c8058
 --- /dev/null
-+++ b/drivers/net/ethernet/faraday/Makefile
++++ b/drivers/net/ethernet/neterion/Makefile
 @@ -0,0 +1,6 @@
 +#
-+# Makefile for the Faraday device drivers.
++# Makefile for the Exar network device drivers.
 +#
 +
-+obj-$(CONFIG_FTGMAC100) += ftgmac100.o
-+obj-$(CONFIG_FTMAC100) += ftmac100.o
-diff --git a/drivers/net/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
++obj-$(CONFIG_S2IO) += s2io.o
++obj-$(CONFIG_VXGE) += vxge/
+diff --git a/drivers/net/s2io-regs.h b/drivers/net/ethernet/neterion/s2io-regs.h
 similarity index 100%
-rename from drivers/net/ftgmac100.c
-rename to drivers/net/ethernet/faraday/ftgmac100.c
-diff --git a/drivers/net/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
+rename from drivers/net/s2io-regs.h
+rename to drivers/net/ethernet/neterion/s2io-regs.h
+diff --git a/drivers/net/s2io.c b/drivers/net/ethernet/neterion/s2io.c
 similarity index 100%
-rename from drivers/net/ftgmac100.h
-rename to drivers/net/ethernet/faraday/ftgmac100.h
-diff --git a/drivers/net/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+rename from drivers/net/s2io.c
+rename to drivers/net/ethernet/neterion/s2io.c
+diff --git a/drivers/net/s2io.h b/drivers/net/ethernet/neterion/s2io.h
 similarity index 100%
-rename from drivers/net/ftmac100.c
-rename to drivers/net/ethernet/faraday/ftmac100.c
-diff --git a/drivers/net/ftmac100.h b/drivers/net/ethernet/faraday/ftmac100.h
+rename from drivers/net/s2io.h
+rename to drivers/net/ethernet/neterion/s2io.h
+diff --git a/drivers/net/vxge/Makefile b/drivers/net/ethernet/neterion/vxge/Makefile
 similarity index 100%
-rename from drivers/net/ftmac100.h
-rename to drivers/net/ethernet/faraday/ftmac100.h
+rename from drivers/net/vxge/Makefile
+rename to drivers/net/ethernet/neterion/vxge/Makefile
+diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-config.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-config.c
+diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/ethernet/neterion/vxge/vxge-config.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-config.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-config.h
+diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-ethtool.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+diff --git a/drivers/net/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-ethtool.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-main.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-main.c
+diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-main.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-main.h
+diff --git a/drivers/net/vxge/vxge-reg.h b/drivers/net/ethernet/neterion/vxge/vxge-reg.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-reg.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-reg.h
+diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+similarity index 100%
+rename from drivers/net/vxge/vxge-traffic.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+diff --git a/drivers/net/vxge/vxge-traffic.h b/drivers/net/ethernet/neterion/vxge/vxge-traffic.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-traffic.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.h
+diff --git a/drivers/net/vxge/vxge-version.h b/drivers/net/ethernet/neterion/vxge/vxge-version.h
+similarity index 100%
+rename from drivers/net/vxge/vxge-version.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-version.h
 -- 
 1.7.6
 
