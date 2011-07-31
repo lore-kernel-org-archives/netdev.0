@@ -1,265 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 25/71] *sonic/natsemi/ns83829: Move the National Semi-conductor drivers
-Date: Sat, 30 Jul 2011 20:26:44 -0700
-Message-ID: <1312082850-24914-26-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 21/71] pasemic_mac*: Move the PA Semi driver
+Date: Sat, 30 Jul 2011 20:26:40 -0700
+Message-ID: <1312082850-24914-22-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	Harald Welte <laforge@gnumonks.org>,
-	Tim Hockin <thockin@hockin.org>, <linux-ns83820@kvack.org>,
-	Kevin Chea <kchea@yahoo.com>,
-	Marc Gauthier <marc@linux-xtensa.org>,
-	Chris Zankel <chris@zankel.net>
+	Olof Johansson <olof@lixom.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753240Ab1GaD2A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:00 -0400
+	id S1753198Ab1GaD1w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:27:52 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the National Semi-conductor drivers into drivers/net/ethernet/natsemi/
-and make the necessary Kconfig and Makefile changes.  Also moved the 8390
-(National Semi-conductor) devices as a sub-menu of National Semi-conductor
-devices.
+Move the PA Semi driver into drivers/net/ethernet/pasemi/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-CC: Harald Welte <laforge@gnumonks.org>
-CC: Tim Hockin <thockin@hockin.org>
-CC: <linux-ns83820@kvack.org>
-CC: Kevin Chea <kchea@yahoo.com>
-CC: Marc Gauthier <marc@linux-xtensa.org>
-CC: Chris Zankel <chris@zankel.net>
+CC: Olof Johansson <olof@lixom.net>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Marc Gauthier <marc@tensilica.com>
+Acked-by: Olof Johansson <olof@lixom.net>
 ---
- MAINTAINERS                                    |    4 +-
- drivers/net/Kconfig                            |   47 ------------------
- drivers/net/Makefile                           |    6 --
- drivers/net/ethernet/8390/Kconfig              |    7 ++-
- drivers/net/ethernet/Kconfig                   |    3 +-
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/ethernet/natsemi/Kconfig           |   63 ++++++++++++++++++++++++
- drivers/net/ethernet/natsemi/Makefile          |    9 +++
- drivers/net/{ => ethernet/natsemi}/jazzsonic.c |    0
- drivers/net/{ => ethernet/natsemi}/macsonic.c  |    0
- drivers/net/{ => ethernet/natsemi}/natsemi.c   |    0
- drivers/net/{ => ethernet/natsemi}/ns83820.c   |    0
- drivers/net/{ => ethernet/natsemi}/sonic.c     |    0
- drivers/net/{ => ethernet/natsemi}/sonic.h     |    0
- drivers/net/{ => ethernet/natsemi}/xtsonic.c   |    0
- 15 files changed, 81 insertions(+), 59 deletions(-)
- create mode 100644 drivers/net/ethernet/natsemi/Kconfig
- create mode 100644 drivers/net/ethernet/natsemi/Makefile
- rename drivers/net/{ => ethernet/natsemi}/jazzsonic.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/macsonic.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/natsemi.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/ns83820.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/sonic.c (100%)
- rename drivers/net/{ => ethernet/natsemi}/sonic.h (100%)
- rename drivers/net/{ => ethernet/natsemi}/xtsonic.c (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |    9 -------
+ drivers/net/Makefile                               |    2 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/pasemi/Kconfig                |   25 ++++++++++++++++++++
+ drivers/net/ethernet/pasemi/Makefile               |    5 ++++
+ drivers/net/{ => ethernet/pasemi}/pasemi_mac.c     |    0
+ drivers/net/{ => ethernet/pasemi}/pasemi_mac.h     |    0
+ .../net/{ => ethernet/pasemi}/pasemi_mac_ethtool.c |    0
+ 10 files changed, 33 insertions(+), 12 deletions(-)
+ create mode 100644 drivers/net/ethernet/pasemi/Kconfig
+ create mode 100644 drivers/net/ethernet/pasemi/Makefile
+ rename drivers/net/{ => ethernet/pasemi}/pasemi_mac.c (100%)
+ rename drivers/net/{ => ethernet/pasemi}/pasemi_mac.h (100%)
+ rename drivers/net/{ => ethernet/pasemi}/pasemi_mac_ethtool.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index f16acae..f811111 100644
+index e3d41a5..da22b40 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4313,7 +4313,7 @@ F:	drivers/net/ethernet/myricom/myri10ge/
- NATSEMI ETHERNET DRIVER (DP8381x)
- M:	Tim Hockin <thockin@hockin.org>
- S:	Maintained
--F:	drivers/net/natsemi.c
-+F:	drivers/net/ethernet/natsemi/natsemi.c
- 
- NATIVE INSTRUMENTS USB SOUND INTERFACE DRIVER
- M:	Daniel Mack <zonque@gmail.com>
-@@ -5905,7 +5905,7 @@ SONIC NETWORK DRIVER
- M:	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+@@ -4758,7 +4758,7 @@ PA SEMI ETHERNET DRIVER
+ M:	Olof Johansson <olof@lixom.net>
  L:	netdev@vger.kernel.org
  S:	Maintained
--F:	drivers/net/sonic.*
-+F:	drivers/net/ethernet/natsemi/sonic.*
+-F:	drivers/net/pasemi_mac.*
++F:	drivers/net/ethernet/pasemi/*
  
- SONICS SILICON BACKPLANE DRIVER (SSB)
- M:	Michael Buesch <m@bues.ch>
+ PA SEMI SMBUS DRIVER
+ M:	Olof Johansson <olof@lixom.net>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 8e6f8d4..8b1fae8 100644
+index 3090c98..becb786 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -237,19 +237,6 @@ config MACB
+@@ -1442,15 +1442,6 @@ if NETDEV_10000
+ config MDIO
+ 	tristate
  
- source "drivers/net/arm/Kconfig"
- 
--config MACSONIC
--	tristate "Macintosh SONIC based ethernet (onboard, NuBus, LC, CS)"
--	depends on MAC
--	---help---
--	  Support for NatSemi SONIC based Ethernet devices.  This includes
--	  the onboard Ethernet in many Quadras as well as some LC-PDS,
--	  a few Nubus and all known Comm Slot Ethernet cards.  If you have
--	  one of these say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. This module will
--	  be called macsonic.
--
- config KORINA
- 	tristate "Korina (IDT RC32434) Ethernet support"
- 	depends on NET_ETHERNET && MIKROTIK_RB532
-@@ -257,19 +244,6 @@ config KORINA
- 	  If you have a Mikrotik RouterBoard 500 or IDT RC32434
- 	  based system say Y. Otherwise say N.
- 
--config MIPS_JAZZ_SONIC
--	tristate "MIPS JAZZ onboard SONIC Ethernet support"
--	depends on MACH_JAZZ
+-config PASEMI_MAC
+-	tristate "PA Semi 1/10Gbit MAC"
+-	depends on PPC_PASEMI && PCI && INET
+-	select PHYLIB
+-	select INET_LRO
 -	help
--	  This is the driver for the onboard card of MIPS Magnum 4000,
--	  Acer PICA, Olivetti M700-10 and a few other identical OEM systems.
+-	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+-	  PA Semi's PWRficient line of chips.
 -
--config XTENSA_XT2000_SONIC
--	tristate "Xtensa XT2000 onboard SONIC Ethernet support"
--	depends on XTENSA_PLATFORM_XT2000
--	help
--	  This is the driver for the onboard card of the Xtensa XT2000 board.
--
- config SGI_IOC3_ETH
- 	bool "SGI IOC3 Ethernet"
- 	depends on PCI && SGI_IP27
-@@ -620,17 +594,6 @@ config FEALNX
- 	  Say Y here to support the Myson MTD-800 family of PCI-based Ethernet 
- 	  cards. <http://www.myson.com.tw/>
- 
--config NATSEMI
--	tristate "National Semiconductor DP8381x series PCI Ethernet support"
--	depends on NET_PCI && PCI
--	select CRC32
--	help
--	  This driver is for the National Semiconductor DP83810 series,
--	  which is used in cards from PureData, NetGear, Linksys
--	  and others, including the 83815 chip.
--	  More specific information and updates are available from
--	  <http://www.scyld.com/network/natsemi.html>.
--
- config 8139CP
- 	tristate "RealTek RTL-8139 C+ PCI Fast Ethernet Adapter support (EXPERIMENTAL)"
- 	depends on NET_PCI && PCI && EXPERIMENTAL
-@@ -1028,16 +991,6 @@ config IP1000
- 
- source "drivers/net/ixp2000/Kconfig"
- 
--config NS83820
--	tristate "National Semiconductor DP83820 support"
--	depends on PCI
--	help
--	  This is a driver for the National Semiconductor DP83820 series
--	  of gigabit ethernet MACs.  Cards using this chipset include
--	  the D-Link DGE-500T, PureData's PDP8023Z-TG, SMC's SMC9462TX,
--	  SOHO-GA2000T, SOHO-GA2500T.  The driver supports the use of
--	  zero copy.
--
- config HAMACHI
- 	tristate "Packet Engines Hamachi GNIC-II support"
+ config TEHUTI
+ 	tristate "Tehuti Networks 10G Ethernet"
  	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 7d233c8..843edb3 100644
+index 2a50b73..b396475 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -43,8 +43,6 @@ obj-$(CONFIG_SIS190) += sis190.o
- obj-$(CONFIG_SIS900) += sis900.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
--obj-$(CONFIG_NATSEMI) += natsemi.o
--obj-$(CONFIG_NS83820) += ns83820.o
- obj-$(CONFIG_FEALNX) += fealnx.o
- spidernet-y += spider_net.o spider_net_ethtool.o
- obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
-@@ -126,10 +124,8 @@ obj-$(CONFIG_SC92031) += sc92031.o
- obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
--obj-$(CONFIG_MIPS_JAZZ_SONIC) += jazzsonic.o
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
--obj-$(CONFIG_MACSONIC) += macsonic.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
-@@ -143,8 +139,6 @@ obj-$(CONFIG_ETHOC) += ethoc.o
+@@ -146,8 +146,6 @@ obj-$(CONFIG_R8169) += r8169.o
+ obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
+ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+-obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
+-pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
  obj-$(CONFIG_GRETH) += greth.o
- obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
- 
--obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
--
- obj-$(CONFIG_DNET) += dnet.o
- obj-$(CONFIG_MACB) += macb.o
- obj-$(CONFIG_S6GMAC) += s6gmac.o
-diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
-index 1c48e4f..c15bbd7 100644
---- a/drivers/net/ethernet/8390/Kconfig
-+++ b/drivers/net/ethernet/8390/Kconfig
-@@ -4,9 +4,10 @@
- 
- config NET_VENDOR_8390
- 	bool "National Semi-conductor 8390 devices"
--	depends on AMIGA_PCMCIA || PCI || SUPERH || ISA || MCA || EISA ||  \
--		   MAC || M32R || MACH_TX49XX || MCA_LEGACY || H8300 ||  \
--		   ARM || MIPS || ZORRO || PCMCIA || EXPERIMENTAL
-+	depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH || \
-+		   ISA || MCA || EISA || MAC || M32R || MACH_TX49XX || \
-+		   MCA_LEGACY || H8300 || ARM || MIPS || ZORRO || PCMCIA || \
-+		   EXPERIMENTAL)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index c3c415d..efc3665 100644
+index 18b634e..16c206e 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -12,7 +12,6 @@ menuconfig ETHERNET
- if ETHERNET
- 
- source "drivers/net/ethernet/3com/Kconfig"
--source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
-@@ -26,6 +25,8 @@ source "drivers/net/ethernet/intel/Kconfig"
+@@ -25,6 +25,7 @@ source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/i825xx/Kconfig"
  source "drivers/net/ethernet/mellanox/Kconfig"
  source "drivers/net/ethernet/myricom/Kconfig"
-+source "drivers/net/ethernet/natsemi/Kconfig"
-+source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/pasemi/Kconfig"
++source "drivers/net/ethernet/pasemi/Kconfig"
  source "drivers/net/ethernet/qlogic/Kconfig"
  source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index b67b88d..668ca92 100644
+index 288179b..a52dc26 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -17,6 +17,7 @@ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
  obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
  obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
-+obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
- obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
++obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
  obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
  obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
-diff --git a/drivers/net/ethernet/natsemi/Kconfig b/drivers/net/ethernet/natsemi/Kconfig
+ obj-$(CONFIG_SFC) += sfc/
+diff --git a/drivers/net/ethernet/pasemi/Kconfig b/drivers/net/ethernet/pasemi/Kconfig
 new file mode 100644
-index 0000000..dc1852b
+index 0000000..97beb45
 --- /dev/null
-+++ b/drivers/net/ethernet/natsemi/Kconfig
-@@ -0,0 +1,63 @@
++++ b/drivers/net/ethernet/pasemi/Kconfig
+@@ -0,0 +1,25 @@
 +#
-+# National Semi-conductor device configuration
++# PA Semi network device configuration
 +#
 +
-+config NET_VENDOR_NATSEMI
-+	bool "National Semi-conductor devices"
-+	depends on MAC || MACH_JAZZ || PCI || XTENSA_PLATFORM_XT2000
++config NET_VENDOR_PASEMI
++	bool "PA Semi devices"
++	depends on PPC_PASEMI && PCI && INET
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -267,98 +130,40 @@ index 0000000..dc1852b
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about National Semi-conductor devices. If you say Y,
-+	  you will be asked for your specific card in the following questions.
++	  the questions about PA Semi cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+config MACSONIC
-+	tristate "Macintosh SONIC based ethernet (onboard, NuBus, LC, CS)"
-+	depends on NET_VENDOR_NATSEMI && MAC
++config PASEMI_MAC
++	tristate "PA Semi 1/10Gbit MAC"
++	depends on NET_VENDOR_PASEMI && PPC_PASEMI && PCI && INET
++	select PHYLIB
++	select INET_LRO
 +	---help---
-+	  Support for NatSemi SONIC based Ethernet devices.  This includes
-+	  the onboard Ethernet in many Quadras as well as some LC-PDS,
-+	  a few Nubus and all known Comm Slot Ethernet cards.  If you have
-+	  one of these say Y and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. This module will
-+	  be called macsonic.
-+
-+config MIPS_JAZZ_SONIC
-+	tristate "MIPS JAZZ onboard SONIC Ethernet support"
-+	depends on NET_VENDOR_NATSEMI && MACH_JAZZ
-+	---help---
-+	  This is the driver for the onboard card of MIPS Magnum 4000,
-+	  Acer PICA, Olivetti M700-10 and a few other identical OEM systems.
-+
-+config NATSEMI
-+	tristate "National Semiconductor DP8381x series PCI Ethernet support"
-+	depends on NET_VENDOR_NATSEMI && PCI
-+	select CRC32
-+	---help---
-+	  This driver is for the National Semiconductor DP83810 series,
-+	  which is used in cards from PureData, NetGear, Linksys
-+	  and others, including the 83815 chip.
-+	  More specific information and updates are available from
-+	  <http://www.scyld.com/network/natsemi.html>.
-+
-+config NS83820
-+	tristate "National Semiconductor DP83820 support"
-+	depends on NET_VENDOR_NATSEMI && PCI
-+	---help---
-+	  This is a driver for the National Semiconductor DP83820 series
-+	  of gigabit ethernet MACs.  Cards using this chipset include
-+	  the D-Link DGE-500T, PureData's PDP8023Z-TG, SMC's SMC9462TX,
-+	  SOHO-GA2000T, SOHO-GA2500T.  The driver supports the use of
-+	  zero copy.
-+
-+config XTENSA_XT2000_SONIC
-+	tristate "Xtensa XT2000 onboard SONIC Ethernet support"
-+	depends on NET_VENDOR_NATSEMI && XTENSA_PLATFORM_XT2000
-+	---help---
-+	  This is the driver for the onboard card of the Xtensa XT2000 board.
-diff --git a/drivers/net/ethernet/natsemi/Makefile b/drivers/net/ethernet/natsemi/Makefile
++	  This driver supports the on-chip 1/10Gbit Ethernet controller on
++	  PA Semi's PWRficient line of chips.
+diff --git a/drivers/net/ethernet/pasemi/Makefile b/drivers/net/ethernet/pasemi/Makefile
 new file mode 100644
-index 0000000..764c532
+index 0000000..05db543
 --- /dev/null
-+++ b/drivers/net/ethernet/natsemi/Makefile
-@@ -0,0 +1,9 @@
++++ b/drivers/net/ethernet/pasemi/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the National Semi-conductor Sonic devices.
++# Makefile for the A Semi network device drivers.
 +#
 +
-+obj-$(CONFIG_MACSONIC) += macsonic.o
-+obj-$(CONFIG_MIPS_JAZZ_SONIC) += jazzsonic.o
-+obj-$(CONFIG_NATSEMI) += natsemi.o
-+obj-$(CONFIG_NS83820) += ns83820.o
-+obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
-diff --git a/drivers/net/jazzsonic.c b/drivers/net/ethernet/natsemi/jazzsonic.c
++obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o pasemi_mac_ethtool.o
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
 similarity index 100%
-rename from drivers/net/jazzsonic.c
-rename to drivers/net/ethernet/natsemi/jazzsonic.c
-diff --git a/drivers/net/macsonic.c b/drivers/net/ethernet/natsemi/macsonic.c
+rename from drivers/net/pasemi_mac.c
+rename to drivers/net/ethernet/pasemi/pasemi_mac.c
+diff --git a/drivers/net/pasemi_mac.h b/drivers/net/ethernet/pasemi/pasemi_mac.h
 similarity index 100%
-rename from drivers/net/macsonic.c
-rename to drivers/net/ethernet/natsemi/macsonic.c
-diff --git a/drivers/net/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+rename from drivers/net/pasemi_mac.h
+rename to drivers/net/ethernet/pasemi/pasemi_mac.h
+diff --git a/drivers/net/pasemi_mac_ethtool.c b/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
 similarity index 100%
-rename from drivers/net/natsemi.c
-rename to drivers/net/ethernet/natsemi/natsemi.c
-diff --git a/drivers/net/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
-similarity index 100%
-rename from drivers/net/ns83820.c
-rename to drivers/net/ethernet/natsemi/ns83820.c
-diff --git a/drivers/net/sonic.c b/drivers/net/ethernet/natsemi/sonic.c
-similarity index 100%
-rename from drivers/net/sonic.c
-rename to drivers/net/ethernet/natsemi/sonic.c
-diff --git a/drivers/net/sonic.h b/drivers/net/ethernet/natsemi/sonic.h
-similarity index 100%
-rename from drivers/net/sonic.h
-rename to drivers/net/ethernet/natsemi/sonic.h
-diff --git a/drivers/net/xtsonic.c b/drivers/net/ethernet/natsemi/xtsonic.c
-similarity index 100%
-rename from drivers/net/xtsonic.c
-rename to drivers/net/ethernet/natsemi/xtsonic.c
+rename from drivers/net/pasemi_mac_ethtool.c
+rename to drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
 -- 
 1.7.6
 
