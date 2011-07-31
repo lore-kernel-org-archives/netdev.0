@@ -1,163 +1,200 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 65/71] enc28j60: Move the Microchip driver
-Date: Sat, 30 Jul 2011 20:27:24 -0700
-Message-ID: <1312082850-24914-66-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 71/71] drivers/net: Kconfig and Makefile cleanup
+Date: Sat, 30 Jul 2011 20:27:30 -0700
+Message-ID: <1312082850-24914-72-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Claudio Lanconelli <lanconelli.claudio@eptar.com>
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753238Ab1GaD2v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:51 -0400
+	id S1753456Ab1GaD27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:59 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Microchip driver into drivers/net/ethernet/microchip/ and
-make the necessary Kconfig and Makefile changes.
+After the move of the Ethernet drivers into drivers/net/ethernet/
+there was some leftover cleanup to do in the Kconfig and Makefile.
 
-CC: Claudio Lanconelli <lanconelli.claudio@eptar.com>
+Removed the 10/100, 1000, and 10GbE Kconfig menus.
+
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                                |   17 ----------
- drivers/net/Makefile                               |    1 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/microchip/Kconfig             |   33 ++++++++++++++++++++
- drivers/net/ethernet/microchip/Makefile            |    5 +++
- drivers/net/{ => ethernet/microchip}/enc28j60.c    |    0
- drivers/net/{ => ethernet/microchip}/enc28j60_hw.h |    0
- 8 files changed, 40 insertions(+), 18 deletions(-)
- create mode 100644 drivers/net/ethernet/microchip/Kconfig
- create mode 100644 drivers/net/ethernet/microchip/Makefile
- rename drivers/net/{ => ethernet/microchip}/enc28j60.c (100%)
- rename drivers/net/{ => ethernet/microchip}/enc28j60_hw.h (100%)
+ drivers/net/Kconfig          |  113 ------------------------------------------
+ drivers/net/Makefile         |    4 --
+ drivers/net/ethernet/Kconfig |    3 +
+ 3 files changed, 3 insertions(+), 117 deletions(-)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0a20a35..ca11d5e 100644
+index 6fce41b..31d8792 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -274,23 +274,6 @@ config DM9000_FORCE_SIMPLE_PHY_POLL
- 	  costly MII PHY reads. Note, this will not work if the chip is
- 	  operating with an external PHY.
+@@ -192,119 +192,6 @@ source "drivers/net/phy/Kconfig"
  
--config ENC28J60
--	tristate "ENC28J60 support"
--	depends on EXPERIMENTAL && SPI && NET_ETHERNET
--	select CRC32
+ source "drivers/net/ethernet/Kconfig"
+ 
+-menuconfig NET_ETHERNET
+-	bool "Ethernet (10 or 100Mbit)"
+-	depends on !UML
 -	---help---
--	  Support for the Microchip EN28J60 ethernet chip.
+-	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
+-	  type of Local Area Network (LAN) in universities and companies.
 -
--	  To compile this driver as a module, choose M here. The module will be
--	  called enc28j60.
+-	  Common varieties of Ethernet are: 10BASE-2 or Thinnet (10 Mbps over
+-	  coaxial cable, linking computers in a chain), 10BASE-T or twisted
+-	  pair (10 Mbps over twisted pair cable, linking computers to central
+-	  hubs), 10BASE-F (10 Mbps over optical fiber links, using hubs),
+-	  100BASE-TX (100 Mbps over two twisted pair cables, using hubs),
+-	  100BASE-T4 (100 Mbps over 4 standard voice-grade twisted pair
+-	  cables, using hubs), 100BASE-FX (100 Mbps over optical fiber links)
+-	  [the 100BASE varieties are also known as Fast Ethernet], and Gigabit
+-	  Ethernet (1 Gbps over optical fiber or short copper links).
 -
--config ENC28J60_WRITEVERIFY
--	bool "Enable write verify"
--	depends on ENC28J60
+-	  If your Linux machine will be connected to an Ethernet and you have
+-	  an Ethernet network interface card (NIC) installed in your computer,
+-	  say Y here and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>. You will then also have
+-	  to say Y to the driver for your particular NIC.
+-
+-	  Note that the answer to this question won't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about Ethernet network cards. If unsure, say N.
+-
+-if NET_ETHERNET
+-
+-config NET_PCI
+-	bool "EISA, VLB, PCI and on board controllers"
+-	depends on ISA || EISA || PCI
+-	help
+-	  This is another class of network cards which attach directly to the
+-	  bus. If you have one of those, say Y and read the Ethernet-HOWTO,
+-	  available from <http://www.tldp.org/docs.html#howto>.
+-
+-	  Note that the answer to this question doesn't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about this class of network cards. If you say Y, you
+-	  will be asked for your specific card in the following questions. If
+-	  you are unsure, say Y.
+-
+-config NET_POCKET
+-	bool "Pocket and portable adapters"
+-	depends on PARPORT
 -	---help---
--	  Enable the verify after the buffer write useful for debugging purpose.
--	  If unsure, say N.
+-	  Cute little network (Ethernet) devices which attach to the parallel
+-	  port ("pocket adapters"), commonly used with laptops. If you have
+-	  one of those, say Y and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on ISA || EISA || PCI
+-	  If you want to plug a network (or some other) card into the PCMCIA
+-	  (or PC-card) slot of your laptop instead (PCMCIA is the standard for
+-	  credit card size extension cards used by all modern laptops), you
+-	  need the pcmcia-cs package (location contained in the file
+-	  <file:Documentation/Changes>) and you can say N here.
+-
+-	  Laptop users should read the Linux Laptop home page at
+-	  <http://www.linux-on-laptops.com/> or
+-	  Tuxmobil - Linux on Mobile Computers at <http://www.tuxmobil.org/>.
+-
+-	  Note that the answer to this question doesn't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about this class of network devices. If you say Y, you
+-	  will be asked for your specific device in the following questions.
+-
+-endif # NET_ETHERNET
+-
+-#
+-#	Gigabit Ethernet
+-#
+-
+-menuconfig NETDEV_1000
+-	bool "Ethernet (1000 Mbit)"
+-	depends on !UML
+-	default y
+-	---help---
+-	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
+-	  type of Local Area Network (LAN) in universities and companies.
+-
+-	  Say Y here to get to see options for Gigabit Ethernet drivers.
+-	  This option alone does not add any kernel code.
+-	  Note that drivers supporting both 100 and 1000 MBit may be listed
+-	  under "Ethernet (10 or 100MBit)" instead.
+-
+-	  If you say N, all options in this submenu will be skipped and disabled.
+-
+-if NETDEV_1000
+-
+-endif # NETDEV_1000
+-
+-#
+-#	10 Gigabit Ethernet
+-#
+-
+-menuconfig NETDEV_10000
+-	bool "Ethernet (10000 Mbit)"
+-	depends on !UML
+-	default y
+-	---help---
+-	  Say Y here to get to see options for 10 Gigabit Ethernet drivers.
+-	  This option alone does not add any kernel code.
+-
+-	  If you say N, all options in this submenu will be skipped and disabled.
+-
+-if NETDEV_10000
+-
+-config MDIO
+-	tristate
+-
+-endif # NETDEV_10000
+-
+ source "drivers/net/tokenring/Kconfig"
+ 
+ source "drivers/net/wireless/Kconfig"
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index e2f1f55..08ee56f 100644
+index fcc62e6..9cb47bb 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -53,7 +53,6 @@ obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
- obj-$(CONFIG_DM9000) += dm9000.o
--obj-$(CONFIG_ENC28J60) += enc28j60.o
+@@ -13,9 +13,7 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ # link order important here
+ #
+ obj-$(CONFIG_PLIP) += plip.o
+-
+ obj-$(CONFIG_ROADRUNNER) += rrunner.o
+-
+ obj-$(CONFIG_SKFP) += skfp/
+ obj-$(CONFIG_RIONET) += rionet.o
  
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
- obj-$(CONFIG_ETHERNET) += ethernet/
+@@ -25,7 +23,6 @@ obj-$(CONFIG_RIONET) += rionet.o
+ 
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+-
+ obj-$(CONFIG_PPP) += ppp_generic.o
+ obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
+ obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
+@@ -35,7 +32,6 @@ obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
+ obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+ obj-$(CONFIG_PPPOL2TP) += pppox.o
+ obj-$(CONFIG_PPTP) += pppox.o pptp.o
+-
+ obj-$(CONFIG_SLIP) += slip.o
+ obj-$(CONFIG_SLHC) += slhc.o
+ 
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 32561c7..0cec25c 100644
+index cff6ef5..9ed3dc7 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -78,6 +78,7 @@ config LANTIQ_ETOP
- source "drivers/net/ethernet/marvell/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/micrel/Kconfig"
-+source "drivers/net/ethernet/microchip/Kconfig"
+@@ -11,6 +11,9 @@ menuconfig ETHERNET
  
- config MIPS_SIM_NET
- 	tristate "MIPS simulator Network device"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 94f1be8..ebe8aee 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -36,6 +36,7 @@ obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
- obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
-+obj-$(CONFIG_NET_VENDOR_MICROCHIP) += microchip/
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_FEALNX) += fealnx.o
-diff --git a/drivers/net/ethernet/microchip/Kconfig b/drivers/net/ethernet/microchip/Kconfig
-new file mode 100644
-index 0000000..0b013d4
---- /dev/null
-+++ b/drivers/net/ethernet/microchip/Kconfig
-@@ -0,0 +1,33 @@
-+#
-+# Microchip network device configuration
-+#
+ if ETHERNET
+ 
++config MDIO
++	tristate
 +
-+config NET_VENDOR_MICROCHIP
-+	bool "Microchip devices"
-+	depends on SPI && EXPERIMENTAL
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Microchip cards. If you say Y, you will be asked
-+	  for your specific card in the following questions.
-+
-+config ENC28J60
-+	tristate "ENC28J60 support"
-+	depends on NET_VENDOR_MICROCHIP && SPI && EXPERIMENTAL
-+	select CRC32
-+	---help---
-+	  Support for the Microchip EN28J60 ethernet chip.
-+
-+	  To compile this driver as a module, choose M here. The module will be
-+	  called enc28j60.
-+
-+config ENC28J60_WRITEVERIFY
-+	bool "Enable write verify"
-+	depends on ENC28J60
-+	---help---
-+	  Enable the verify after the buffer write useful for debugging purpose.
-+	  If unsure, say N.
-diff --git a/drivers/net/ethernet/microchip/Makefile b/drivers/net/ethernet/microchip/Makefile
-new file mode 100644
-index 0000000..573d429
---- /dev/null
-+++ b/drivers/net/ethernet/microchip/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Microchip network device drivers.
-+#
-+
-+obj-$(CONFIG_ENC28J60) += enc28j60.o
-diff --git a/drivers/net/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
-similarity index 100%
-rename from drivers/net/enc28j60.c
-rename to drivers/net/ethernet/microchip/enc28j60.c
-diff --git a/drivers/net/enc28j60_hw.h b/drivers/net/ethernet/microchip/enc28j60_hw.h
-similarity index 100%
-rename from drivers/net/enc28j60_hw.h
-rename to drivers/net/ethernet/microchip/enc28j60_hw.h
+ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/adaptec/Kconfig"
+ source "drivers/net/ethernet/aeroflex/Kconfig"
 -- 
 1.7.6
 
