@@ -1,191 +1,116 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 39/71] ks8*/ksz8*: Move the Micrel drivers
-Date: Sat, 30 Jul 2011 20:26:58 -0700
-Message-ID: <1312082850-24914-40-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 43/71] nuvoton: Move the Nuvoton driver
+Date: Sat, 30 Jul 2011 20:27:02 -0700
+Message-ID: <1312082850-24914-44-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Ben Dooks <ben@simtec.co.uk>,
-	Tristram Ha <Tristram.Ha@micrel.com>
+	Wan ZongShun <mcuos.com@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751997Ab1GaD2J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:09 -0400
+	id S1753163Ab1GaD2U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:20 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Micrel drivers into drivers/net/ethernet/micrel/ and
+Move the Nuvoton driver into drivers/net/ethernet/nuvoton/ and
 make the necessary Kconfig and Makefile changes.
 
-CC: Ben Dooks <ben@simtec.co.uk>
-CC: Tristram Ha <Tristram.Ha@micrel.com>
+CC: Wan ZongShun <mcuos.com@gmail.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                              |   35 -------------
- drivers/net/Makefile                             |    4 --
- drivers/net/arm/Kconfig                          |    8 ---
- drivers/net/arm/Makefile                         |    1 -
- drivers/net/ethernet/Kconfig                     |    1 +
- drivers/net/ethernet/Makefile                    |    1 +
- drivers/net/ethernet/micrel/Kconfig              |   60 ++++++++++++++++++++++
- drivers/net/ethernet/micrel/Makefile             |    9 +++
- drivers/net/{arm => ethernet/micrel}/ks8695net.c |    0
- drivers/net/{arm => ethernet/micrel}/ks8695net.h |    0
- drivers/net/{ => ethernet/micrel}/ks8842.c       |    0
- drivers/net/{ => ethernet/micrel}/ks8851.c       |    0
- drivers/net/{ => ethernet/micrel}/ks8851.h       |    0
- drivers/net/{ => ethernet/micrel}/ks8851_mll.c   |    0
- drivers/net/{ => ethernet/micrel}/ksz884x.c      |    0
- 15 files changed, 71 insertions(+), 48 deletions(-)
- create mode 100644 drivers/net/ethernet/micrel/Kconfig
- create mode 100644 drivers/net/ethernet/micrel/Makefile
- rename drivers/net/{arm => ethernet/micrel}/ks8695net.c (100%)
- rename drivers/net/{arm => ethernet/micrel}/ks8695net.h (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8842.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851.h (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851_mll.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ksz884x.c (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/arm/Kconfig                            |    9 -------
+ drivers/net/arm/Makefile                           |    1 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/nuvoton/Kconfig               |   25 ++++++++++++++++++++
+ drivers/net/ethernet/nuvoton/Makefile              |    5 ++++
+ .../net/{arm => ethernet/nuvoton}/w90p910_ether.c  |    0
+ 8 files changed, 33 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/net/ethernet/nuvoton/Kconfig
+ create mode 100644 drivers/net/ethernet/nuvoton/Makefile
+ rename drivers/net/{arm => ethernet/nuvoton}/w90p910_ether.c (100%)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ce9771a..53c491c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -467,17 +467,6 @@ config ADAPTEC_STARFIRE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called starfire.  This is recommended.
- 
--config KSZ884X_PCI
--	tristate "Micrel KSZ8841/2 PCI"
--	depends on NET_PCI && PCI
--	select MII
--	select CRC32
--	help
--	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called ksz884x.
--
- config FORCEDETH
- 	tristate "nForce Ethernet support"
- 	depends on NET_PCI && PCI
-@@ -550,30 +539,6 @@ config TLAN
- 
- 	  Please email feedback to <torben.mathiasen@compaq.com>.
- 
--config KS8842
--	tristate "Micrel KSZ8841/42 with generic bus interface"
--	depends on HAS_IOMEM && DMA_ENGINE
--	help
--	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
--	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
--	  Timberdale(FPGA).
--
--config KS8851
--	tristate "Micrel KS8851 SPI"
--	depends on SPI
--	select MII
--	select CRC32
--	help
--	  SPI driver for Micrel KS8851 SPI attached network chip.
--
--config KS8851_MLL
--	tristate "Micrel KS8851 MLL"
--	depends on HAS_IOMEM
--	select MII
--	help
--	  This platform driver is for Micrel KS8851 Address/data bus
--	  multiplexed network chip.
--
- config CPMAC
- 	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
- 	depends on NET_ETHERNET && EXPERIMENTAL && AR7
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8801f33..e008859 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -36,10 +36,6 @@ gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
- ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
- obj-$(CONFIG_TC35815) += tc35815.o
- obj-$(CONFIG_SKFP) += skfp/
--obj-$(CONFIG_KS8842)	+= ks8842.o
--obj-$(CONFIG_KS8851)	+= ks8851.o
--obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
--obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_SH_ETH) += sh_eth.o
+diff --git a/MAINTAINERS b/MAINTAINERS
+index d84f2c6..1b63c8f 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1121,7 +1121,7 @@ F:	arch/arm/mach-nuc93x/
+ F:	drivers/input/keyboard/w90p910_keypad.c
+ F:	drivers/input/touchscreen/w90p910_ts.c
+ F:	drivers/watchdog/nuc900_wdt.c
+-F:	drivers/net/arm/w90p910_ether.c
++F:	drivers/net/ethernet/nuvoton/w90p910_ether.c
+ F:	drivers/mtd/nand/nuc900_nand.c
+ F:	drivers/rtc/rtc-nuc900.c
+ F:	drivers/spi/spi_nuc900.c
 diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
-index b6f7302..4f748cc 100644
+index fc94b4b..57d16b9 100644
 --- a/drivers/net/arm/Kconfig
 +++ b/drivers/net/arm/Kconfig
-@@ -11,14 +11,6 @@ config ARM_AT91_ETHER
+@@ -10,12 +10,3 @@ config ARM_AT91_ETHER
+ 	help
  	  If you wish to compile a kernel for the AT91RM9200 and enable
  	  ethernet support, then you should always answer Y to this.
- 
--config ARM_KS8695_ETHER
--	tristate "KS8695 Ethernet support"
--	depends on ARM && ARCH_KS8695
+-
+-config W90P910_ETH
+-	tristate "Nuvoton w90p910 Ethernet support"
+-	depends on ARM && ARCH_W90X900
+-	select PHYLIB
 -	select MII
 -	help
--	  If you wish to compile a kernel for the KS8695 and want to
--	  use the internal ethernet then you should answer Y to this.
--
- config EP93XX_ETH
- 	tristate "EP93xx Ethernet support"
- 	depends on ARM && ARCH_EP93XX
+-	  Say Y here if you want to use built-in Ethernet ports
+-	  on w90p910 processor.
 diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
-index a2532e6..316b06c 100644
+index 462b3a4..fc0f85c 100644
 --- a/drivers/net/arm/Makefile
 +++ b/drivers/net/arm/Makefile
-@@ -4,6 +4,5 @@
+@@ -4,4 +4,3 @@
  #
  
  obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
--obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
- obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
- obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
+-obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 924c287..d90f47f3 100644
+index ff07408..3893065 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -32,6 +32,7 @@ source "drivers/net/ethernet/i825xx/Kconfig"
- source "drivers/net/ethernet/xscale/Kconfig"
- source "drivers/net/ethernet/marvell/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
-+source "drivers/net/ethernet/micrel/Kconfig"
+@@ -37,6 +37,7 @@ source "drivers/net/ethernet/micrel/Kconfig"
  source "drivers/net/ethernet/myricom/Kconfig"
  source "drivers/net/ethernet/natsemi/Kconfig"
  source "drivers/net/ethernet/8390/Kconfig"
++source "drivers/net/ethernet/nuvoton/Kconfig"
+ source "drivers/net/ethernet/oki-semi/Kconfig"
+ source "drivers/net/ethernet/pasemi/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 025d7b7..cf27ae0 100644
+index 3a17413..e1f0b94 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -24,6 +24,7 @@ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
- obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
- obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-+obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
+@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+ obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
  obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
  obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
++obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
  obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
-diff --git a/drivers/net/ethernet/micrel/Kconfig b/drivers/net/ethernet/micrel/Kconfig
+ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+diff --git a/drivers/net/ethernet/nuvoton/Kconfig b/drivers/net/ethernet/nuvoton/Kconfig
 new file mode 100644
-index 0000000..6dfd412
+index 0000000..f03587d
 --- /dev/null
-+++ b/drivers/net/ethernet/micrel/Kconfig
-@@ -0,0 +1,60 @@
++++ b/drivers/net/ethernet/nuvoton/Kconfig
+@@ -0,0 +1,25 @@
 +#
-+# Micrel device configuration
++# Nuvoton network device configuration
 +#
 +
-+config NET_VENDOR_MICREL
-+	bool "Micrel devices"
-+	depends on HAS_IOMEM || DMA_ENGINE || SPI || PCI || \
-+		   (ARM && ARCH_KS8695)
++config NET_VENDOR_NUVOTON
++	bool "Nuvoton devices"
++	depends on ARM && ARCH_W90X900
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -193,94 +118,32 @@ index 0000000..6dfd412
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Micrel devices. If you say Y, you will be asked
++	  the questions about Nuvoton cards. If you say Y, you will be asked
 +	  for your specific card in the following questions.
 +
-+config ARM_KS8695_ETHER
-+	tristate "KS8695 Ethernet support"
-+	depends on NET_VENDOR_MICREL && ARM && ARCH_KS8695
++config W90P910_ETH
++	tristate "Nuvoton w90p910 Ethernet support"
++	depends on NET_VENDOR_NUVOTON && ARM && ARCH_W90X900
++	select PHYLIB
 +	select MII
 +	---help---
-+	  If you wish to compile a kernel for the KS8695 and want to
-+	  use the internal ethernet then you should answer Y to this.
-+
-+config KS8842
-+	tristate "Micrel KSZ8841/42 with generic bus interface"
-+	depends on NET_VENDOR_MICREL && HAS_IOMEM && DMA_ENGINE
-+	---help---
-+	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
-+	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
-+	  Timberdale(FPGA).
-+
-+config KS8851
-+	tristate "Micrel KS8851 SPI"
-+	depends on NET_VENDOR_MICREL && SPI
-+	select MII
-+	select CRC32
-+	---help---
-+	  SPI driver for Micrel KS8851 SPI attached network chip.
-+
-+config KS8851_MLL
-+	tristate "Micrel KS8851 MLL"
-+	depends on NET_VENDOR_MICREL && HAS_IOMEM
-+	select MII
-+	---help---
-+	  This platform driver is for Micrel KS8851 Address/data bus
-+	  multiplexed network chip.
-+
-+config KSZ884X_PCI
-+	tristate "Micrel KSZ8841/2 PCI"
-+	depends on NET_VENDOR_MICREL && PCI
-+	select MII
-+	select CRC32
-+	---help---
-+	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called ksz884x.
-diff --git a/drivers/net/ethernet/micrel/Makefile b/drivers/net/ethernet/micrel/Makefile
++	  Say Y here if you want to use built-in Ethernet ports
++	  on w90p910 processor.
+diff --git a/drivers/net/ethernet/nuvoton/Makefile b/drivers/net/ethernet/nuvoton/Makefile
 new file mode 100644
-index 0000000..c83e4bc
+index 0000000..171aa04
 --- /dev/null
-+++ b/drivers/net/ethernet/micrel/Makefile
-@@ -0,0 +1,9 @@
++++ b/drivers/net/ethernet/nuvoton/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the Micrel network device drivers.
++# Makefile for the Nuvoton network device drivers.
 +#
 +
-+obj-$(CONFIG_ARM_KS8695_ETHER) += ks8695net.o
-+obj-$(CONFIG_KS8842) += ks8842.o
-+obj-$(CONFIG_KS8851) += ks8851.o
-+obj-$(CONFIG_KS8851_MLL) += ks8851_mll.o
-+obj-$(CONFIG_KSZ884X_PCI) += ksz884x.o
-diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
++obj-$(CONFIG_W90P910_ETH) += w90p910_ether.o
+diff --git a/drivers/net/arm/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
 similarity index 100%
-rename from drivers/net/arm/ks8695net.c
-rename to drivers/net/ethernet/micrel/ks8695net.c
-diff --git a/drivers/net/arm/ks8695net.h b/drivers/net/ethernet/micrel/ks8695net.h
-similarity index 100%
-rename from drivers/net/arm/ks8695net.h
-rename to drivers/net/ethernet/micrel/ks8695net.h
-diff --git a/drivers/net/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
-similarity index 100%
-rename from drivers/net/ks8842.c
-rename to drivers/net/ethernet/micrel/ks8842.c
-diff --git a/drivers/net/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-similarity index 100%
-rename from drivers/net/ks8851.c
-rename to drivers/net/ethernet/micrel/ks8851.c
-diff --git a/drivers/net/ks8851.h b/drivers/net/ethernet/micrel/ks8851.h
-similarity index 100%
-rename from drivers/net/ks8851.h
-rename to drivers/net/ethernet/micrel/ks8851.h
-diff --git a/drivers/net/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-similarity index 100%
-rename from drivers/net/ks8851_mll.c
-rename to drivers/net/ethernet/micrel/ks8851_mll.c
-diff --git a/drivers/net/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-similarity index 100%
-rename from drivers/net/ksz884x.c
-rename to drivers/net/ethernet/micrel/ksz884x.c
+rename from drivers/net/arm/w90p910_ether.c
+rename to drivers/net/ethernet/nuvoton/w90p910_ether.c
 -- 
 1.7.6
 
