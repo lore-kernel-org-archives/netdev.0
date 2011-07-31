@@ -1,152 +1,220 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 23/71] stmmac: Move the STMicroelectronics driver
-Date: Sat, 30 Jul 2011 20:26:42 -0700
-Message-ID: <1312082850-24914-24-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 24/71] bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh (Apple) drivers
+Date: Sat, 30 Jul 2011 20:26:43 -0700
+Message-ID: <1312082850-24914-25-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	Paul Mackerras <paulus@samba.org>,
+	Paul Mackerras <paulus@au.ibm.com>,
+	Russell Nelson <nelson@crynwr.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753238Ab1GaD17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753239Ab1GaD17 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 30 Jul 2011 23:27:59 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the STMicroelectronics driver into driver/net/ethernet/stmicro/ and
-make the necessary Kconfig and Makefile changes.
+Move the Apple drivers into driver/net/ethernet/apple/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Paul Mackerras <paulus@au.ibm.com>
+CC: Russell Nelson <nelson@crynwr.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |    2 --
- drivers/net/Makefile                               |    1 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/stmicro/Kconfig               |   18 ++++++++++++++++++
- drivers/net/ethernet/stmicro/Makefile              |    5 +++++
- drivers/net/{ => ethernet/stmicro}/stmmac/Kconfig  |   14 +++++++-------
- drivers/net/{ => ethernet/stmicro}/stmmac/Makefile |    0
- drivers/net/{ => ethernet/stmicro}/stmmac/common.h |    0
- drivers/net/{ => ethernet/stmicro}/stmmac/descs.h  |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac100.h   |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac1000.h  |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac1000_core.c |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac1000_dma.c  |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac100_core.c  |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac100_dma.c   |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac_dma.h  |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac_lib.c  |    0
- .../net/{ => ethernet/stmicro}/stmmac/enh_desc.c   |    0
- .../net/{ => ethernet/stmicro}/stmmac/norm_desc.c  |    0
- drivers/net/{ => ethernet/stmicro}/stmmac/stmmac.h |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_ethtool.c |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_main.c    |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_mdio.c    |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_timer.c   |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_timer.h   |    0
- 27 files changed, 33 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/Kconfig
- create mode 100644 drivers/net/ethernet/stmicro/Makefile
- rename drivers/net/{ => ethernet/stmicro}/stmmac/Kconfig (92%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/Makefile (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/common.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/descs.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000_core.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000_dma.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100_core.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100_dma.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac_dma.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac_lib.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/enh_desc.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/norm_desc.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_ethtool.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_main.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_mdio.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_timer.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_timer.h (100%)
+ drivers/net/Kconfig                        |   75 ----------------------
+ drivers/net/Makefile                       |    6 --
+ drivers/net/ethernet/Kconfig               |    1 +
+ drivers/net/ethernet/Makefile              |    1 +
+ drivers/net/ethernet/apple/Kconfig         |   92 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/apple/Makefile        |    9 +++
+ drivers/net/{ => ethernet/apple}/bmac.c    |    0
+ drivers/net/{ => ethernet/apple}/bmac.h    |    0
+ drivers/net/{ => ethernet/apple}/cs89x0.c  |    0
+ drivers/net/{ => ethernet/apple}/cs89x0.h  |    0
+ drivers/net/{ => ethernet/apple}/mac89x0.c |    0
+ drivers/net/{ => ethernet/apple}/mace.c    |    0
+ drivers/net/{ => ethernet/apple}/mace.h    |    0
+ drivers/net/{ => ethernet/apple}/macmace.c |    0
+ 14 files changed, 103 insertions(+), 81 deletions(-)
+ create mode 100644 drivers/net/ethernet/apple/Kconfig
+ create mode 100644 drivers/net/ethernet/apple/Makefile
+ rename drivers/net/{ => ethernet/apple}/bmac.c (100%)
+ rename drivers/net/{ => ethernet/apple}/bmac.h (100%)
+ rename drivers/net/{ => ethernet/apple}/cs89x0.c (100%)
+ rename drivers/net/{ => ethernet/apple}/cs89x0.h (100%)
+ rename drivers/net/{ => ethernet/apple}/mac89x0.c (100%)
+ rename drivers/net/{ => ethernet/apple}/mace.c (100%)
+ rename drivers/net/{ => ethernet/apple}/mace.h (100%)
+ rename drivers/net/{ => ethernet/apple}/macmace.c (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 05e51e2..f16acae 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2016,7 +2016,7 @@ M:	Giuseppe Cavallaro <peppe.cavallaro@st.com>
- L:	netdev@vger.kernel.org
- W:	http://www.stlinux.com
- S:	Supported
--F:	drivers/net/stmmac/
-+F:	drivers/net/ethernet/stmicro/stmmac/
- 
- CYBERPRO FB DRIVER
- M:	Russell King <linux@arm.linux.org.uk>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9a294bd..7eb052b 100644
+index 7eb052b..8e6f8d4 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1391,8 +1391,6 @@ config S6GMAC
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called s6gmac.
+@@ -237,52 +237,6 @@ config MACB
  
--source "drivers/net/stmmac/Kconfig"
+ source "drivers/net/arm/Kconfig"
+ 
+-config MACE
+-	tristate "MACE (Power Mac ethernet) support"
+-	depends on PPC_PMAC && PPC32
+-	select CRC32
+-	help
+-	  Power Macintoshes and clones with Ethernet built-in on the
+-	  motherboard will usually use a MACE (Medium Access Control for
+-	  Ethernet) interface. Say Y to include support for the MACE chip.
 -
- config PCH_GBE
- 	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
- 	depends on PCI
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called mace.
+-
+-config MACE_AAUI_PORT
+-	bool "Use AAUI port instead of TP by default"
+-	depends on MACE
+-	help
+-	  Some Apple machines (notably the Apple Network Server) which use the
+-	  MACE ethernet chip have an Apple AUI port (small 15-pin connector),
+-	  instead of an 8-pin RJ45 connector for twisted-pair ethernet.  Say
+-	  Y here if you have such a machine.  If unsure, say N.
+-	  The driver will default to AAUI on ANS anyway, and if you use it as
+-	  a module, you can provide the port_aaui=0|1 to force the driver.
+-
+-config BMAC
+-	tristate "BMAC (G3 ethernet) support"
+-	depends on PPC_PMAC && PPC32
+-	select CRC32
+-	help
+-	  Say Y for support of BMAC Ethernet interfaces. These are used on G3
+-	  computers.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called bmac.
+-
+-config MAC89x0
+-	tristate "Macintosh CS89x0 based ethernet cards"
+-	depends on MAC
+-	---help---
+-	  Support for CS89x0 chipset based Ethernet cards.  If you have a
+-	  Nubus or LC-PDS network (Ethernet) card of this type, say Y and
+-	  read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
+-
+-	  To compile this driver as a module, choose M here. This module will
+-	  be called mac89x0.
+-
+ config MACSONIC
+ 	tristate "Macintosh SONIC based ethernet (onboard, NuBus, LC, CS)"
+ 	depends on MAC
+@@ -296,16 +250,6 @@ config MACSONIC
+ 	  To compile this driver as a module, choose M here. This module will
+ 	  be called macsonic.
+ 
+-config MACMACE
+-	bool "Macintosh (AV) onboard MACE ethernet"
+-	depends on MAC
+-	select CRC32
+-	help
+-	  Support for the onboard AMD 79C940 MACE Ethernet controller used in
+-	  the 660AV and 840AV Macintosh.  If you have one of these Macintoshes
+-	  say Y and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
+-
+ config KORINA
+ 	tristate "Korina (IDT RC32434) Ethernet support"
+ 	depends on NET_ETHERNET && MIKROTIK_RB532
+@@ -662,25 +606,6 @@ config FORCEDETH
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called forcedeth.
+ 
+-config CS89x0
+-	tristate "CS89x0 support"
+-	depends on NET_ETHERNET && (ISA || EISA || MACH_IXDP2351 \
+-		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
+-	---help---
+-	  Support for CS89x0 chipset based Ethernet cards. If you have a
+-	  network (Ethernet) card of this type, say Y and read the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto> as well as
+-	  <file:Documentation/networking/cs89x0.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called cs89x0.
+-
+-config CS89x0_NONISA_IRQ
+-	def_bool y
+-	depends on CS89x0 != n
+-	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
+-
+ config TC35815
+ 	tristate "TOSHIBA TC35815 Ethernet support"
+ 	depends on NET_PCI && PCI && MIPS
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index f82495a..b322cde 100644
+index b322cde..7d233c8 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -67,7 +67,6 @@ obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_SH_ETH) += sh_eth.o
--obj-$(CONFIG_STMMAC_ETH) += stmmac/
+@@ -38,9 +38,6 @@ obj-$(CONFIG_PLIP) += plip.o
  
- #
- # end link order section
+ obj-$(CONFIG_ROADRUNNER) += rrunner.o
+ 
+-obj-$(CONFIG_MACE) += mace.o
+-obj-$(CONFIG_BMAC) += bmac.o
+-
+ obj-$(CONFIG_TLAN) += tlan.o
+ obj-$(CONFIG_SIS190) += sis190.o
+ obj-$(CONFIG_SIS900) += sis900.o
+@@ -132,10 +129,7 @@ obj-$(CONFIG_KORINA) += korina.o
+ obj-$(CONFIG_MIPS_JAZZ_SONIC) += jazzsonic.o
+ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
+ obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
+-obj-$(CONFIG_CS89x0) += cs89x0.o
+ obj-$(CONFIG_MACSONIC) += macsonic.o
+-obj-$(CONFIG_MACMACE) += macmace.o
+-obj-$(CONFIG_MAC89x0) += mac89x0.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 8375b8b..c38e902 100644
+index c38e902..c3c415d 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -30,6 +30,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
-+source "drivers/net/ethernet/stmicro/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
- source "drivers/net/ethernet/tehuti/Kconfig"
- 
+@@ -14,6 +14,7 @@ if ETHERNET
+ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
++source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 26324a1..75d7a02 100644
+index 75d7a02..b67b88d 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -21,5 +21,6 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_SFC) += sfc/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
-+obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
- obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
-diff --git a/drivers/net/ethernet/stmicro/Kconfig b/drivers/net/ethernet/stmicro/Kconfig
+@@ -5,6 +5,7 @@
+ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
++obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+diff --git a/drivers/net/ethernet/apple/Kconfig b/drivers/net/ethernet/apple/Kconfig
 new file mode 100644
-index 0000000..d4f7e02
+index 0000000..018fab6
 --- /dev/null
-+++ b/drivers/net/ethernet/stmicro/Kconfig
-@@ -0,0 +1,18 @@
++++ b/drivers/net/ethernet/apple/Kconfig
+@@ -0,0 +1,92 @@
 +#
-+# STMicroelectronics device configuration
++# Apple device configuration
 +#
 +
-+config NET_VENDOR_STMICRO
-+	bool "STMicroelectronics devices"
-+	depends on HAS_IOMEM
++config NET_VENDOR_APPLE
++	bool "Apple devices"
++	depends on PPC_PMAC || PPC32 || MAC || ISA || EISA || MACH_IXDP2351 \
++		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -154,159 +222,130 @@ index 0000000..d4f7e02
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about STMicroelectronics cards. If you say Y, you will
-+	  be asked for your specific card in the following questions.
++	  the questions about IBM devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+source "drivers/net/ethernet/stmicro/stmmac/Kconfig"
-diff --git a/drivers/net/ethernet/stmicro/Makefile b/drivers/net/ethernet/stmicro/Makefile
++config MACE
++	tristate "MACE (Power Mac ethernet) support"
++	depends on NET_VENDOR_APPLE && PPC_PMAC && PPC32
++	select CRC32
++	---help---
++	  Power Macintoshes and clones with Ethernet built-in on the
++	  motherboard will usually use a MACE (Medium Access Control for
++	  Ethernet) interface. Say Y to include support for the MACE chip.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called mace.
++
++config MACE_AAUI_PORT
++	bool "Use AAUI port instead of TP by default"
++	depends on MACE
++	---help---
++	  Some Apple machines (notably the Apple Network Server) which use the
++	  MACE ethernet chip have an Apple AUI port (small 15-pin connector),
++	  instead of an 8-pin RJ45 connector for twisted-pair ethernet.  Say
++	  Y here if you have such a machine.  If unsure, say N.
++	  The driver will default to AAUI on ANS anyway, and if you use it as
++	  a module, you can provide the port_aaui=0|1 to force the driver.
++
++config BMAC
++	tristate "BMAC (G3 ethernet) support"
++	depends on NET_VENDOR_APPLE && PPC_PMAC && PPC32
++	select CRC32
++	---help---
++	  Say Y for support of BMAC Ethernet interfaces. These are used on G3
++	  computers.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called bmac.
++
++config MAC89x0
++	tristate "Macintosh CS89x0 based ethernet cards"
++	depends on NET_VENDOR_APPLE && MAC
++	---help---
++	  Support for CS89x0 chipset based Ethernet cards.  If you have a
++	  Nubus or LC-PDS network (Ethernet) card of this type, say Y and
++	  read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  To compile this driver as a module, choose M here. This module will
++	  be called mac89x0.
++
++config MACMACE
++	bool "Macintosh (AV) onboard MACE ethernet"
++	depends on NET_VENDOR_APPLE && MAC
++	select CRC32
++	---help---
++	  Support for the onboard AMD 79C940 MACE Ethernet controller used in
++	  the 660AV and 840AV Macintosh.  If you have one of these Macintoshes
++	  say Y and read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++config CS89x0
++	tristate "CS89x0 support"
++	depends on NET_VENDOR_APPLE && (ISA || EISA || MACH_IXDP2351 \
++		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
++	---help---
++	  Support for CS89x0 chipset based Ethernet cards. If you have a
++	  network (Ethernet) card of this type, say Y and read the
++	  Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto> as well as
++	  <file:Documentation/networking/cs89x0.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called cs89x0.
++
++config CS89x0_NONISA_IRQ
++	def_bool y
++	depends on CS89x0 != n
++	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
+diff --git a/drivers/net/ethernet/apple/Makefile b/drivers/net/ethernet/apple/Makefile
 new file mode 100644
-index 0000000..9b3bfdd
+index 0000000..9d30086
 --- /dev/null
-+++ b/drivers/net/ethernet/stmicro/Makefile
-@@ -0,0 +1,5 @@
++++ b/drivers/net/ethernet/apple/Makefile
+@@ -0,0 +1,9 @@
 +#
-+# Makefile for the STMicroelectronics device drivers.
++# Makefile for the Apple network device drivers.
 +#
 +
-+obj-$(CONFIG_STMMAC_ETH) += stmmac/
-diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-similarity index 92%
-rename from drivers/net/stmmac/Kconfig
-rename to drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 7df7df4..e1d915d 100644
---- a/drivers/net/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -1,10 +1,10 @@
- config STMMAC_ETH
- 	tristate "STMicroelectronics 10/100/1000 Ethernet driver"
-+	depends on NET_VENDOR_STMICRO && HAS_IOMEM
- 	select MII
- 	select PHYLIB
- 	select CRC32
--	depends on NETDEVICES && HAS_IOMEM
--	help
-+	---help---
- 	  This is the driver for the Ethernet IPs are built around a
- 	  Synopsys IP Core and only tested on the STMicroelectronics
- 	  platforms.
-@@ -14,7 +14,7 @@ if STMMAC_ETH
- config STMMAC_DA
- 	bool "STMMAC DMA arbitration scheme"
- 	default n
--	help
-+	---help---
- 	  Selecting this option, rx has priority over Tx (only for Giga
- 	  Ethernet device).
- 	  By default, the DMA arbitration scheme is based on Round-robin
-@@ -24,7 +24,7 @@ config STMMAC_DUAL_MAC
- 	bool "STMMAC: dual mac support (EXPERIMENTAL)"
- 	default n
-         depends on EXPERIMENTAL && STMMAC_ETH && !STMMAC_TIMER
--	help
-+	---help---
- 	  Some ST SoCs (for example the stx7141 and stx7200c2) have two
- 	  Ethernet Controllers. This option turns on the second Ethernet
- 	  device on this kind of platforms.
-@@ -33,7 +33,7 @@ config STMMAC_TIMER
- 	bool "STMMAC Timer optimisation"
- 	default n
- 	depends on RTC_HCTOSYS_DEVICE
--	help
-+	---help---
- 	  Use an external timer for mitigating the number of network
- 	  interrupts. Currently, for SH architectures, it is possible
- 	  to use the TMU channel 2 and the SH-RTC device.
-@@ -45,12 +45,12 @@ choice
- config STMMAC_TMU_TIMER
-         bool "TMU channel 2"
-         depends on CPU_SH4
--	help
-+	---help---
- 
- config STMMAC_RTC_TIMER
-         bool "Real time clock"
-         depends on RTC_CLASS
--	help
-+	---help---
- 
- endchoice
- 
-diff --git a/drivers/net/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
++obj-$(CONFIG_MACE) += mace.o
++obj-$(CONFIG_BMAC) += bmac.o
++obj-$(CONFIG_MAC89x0) += mac89x0.o
++obj-$(CONFIG_CS89x0) += cs89x0.o
++obj-$(CONFIG_MACMACE) += macmace.o
+diff --git a/drivers/net/bmac.c b/drivers/net/ethernet/apple/bmac.c
 similarity index 100%
-rename from drivers/net/stmmac/Makefile
-rename to drivers/net/ethernet/stmicro/stmmac/Makefile
-diff --git a/drivers/net/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+rename from drivers/net/bmac.c
+rename to drivers/net/ethernet/apple/bmac.c
+diff --git a/drivers/net/bmac.h b/drivers/net/ethernet/apple/bmac.h
 similarity index 100%
-rename from drivers/net/stmmac/common.h
-rename to drivers/net/ethernet/stmicro/stmmac/common.h
-diff --git a/drivers/net/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
+rename from drivers/net/bmac.h
+rename to drivers/net/ethernet/apple/bmac.h
+diff --git a/drivers/net/cs89x0.c b/drivers/net/ethernet/apple/cs89x0.c
 similarity index 100%
-rename from drivers/net/stmmac/descs.h
-rename to drivers/net/ethernet/stmicro/stmmac/descs.h
-diff --git a/drivers/net/stmmac/dwmac100.h b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+rename from drivers/net/cs89x0.c
+rename to drivers/net/ethernet/apple/cs89x0.c
+diff --git a/drivers/net/cs89x0.h b/drivers/net/ethernet/apple/cs89x0.h
 similarity index 100%
-rename from drivers/net/stmmac/dwmac100.h
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac100.h
-diff --git a/drivers/net/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+rename from drivers/net/cs89x0.h
+rename to drivers/net/ethernet/apple/cs89x0.h
+diff --git a/drivers/net/mac89x0.c b/drivers/net/ethernet/apple/mac89x0.c
 similarity index 100%
-rename from drivers/net/stmmac/dwmac1000.h
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+rename from drivers/net/mac89x0.c
+rename to drivers/net/ethernet/apple/mac89x0.c
+diff --git a/drivers/net/mace.c b/drivers/net/ethernet/apple/mace.c
 similarity index 100%
-rename from drivers/net/stmmac/dwmac1000_core.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-diff --git a/drivers/net/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+rename from drivers/net/mace.c
+rename to drivers/net/ethernet/apple/mace.c
+diff --git a/drivers/net/mace.h b/drivers/net/ethernet/apple/mace.h
 similarity index 100%
-rename from drivers/net/stmmac/dwmac1000_dma.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-diff --git a/drivers/net/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+rename from drivers/net/mace.h
+rename to drivers/net/ethernet/apple/mace.h
+diff --git a/drivers/net/macmace.c b/drivers/net/ethernet/apple/macmace.c
 similarity index 100%
-rename from drivers/net/stmmac/dwmac100_core.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-diff --git a/drivers/net/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac100_dma.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-diff --git a/drivers/net/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-similarity index 100%
-rename from drivers/net/stmmac/dwmac_dma.h
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-diff --git a/drivers/net/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac_lib.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-diff --git a/drivers/net/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-similarity index 100%
-rename from drivers/net/stmmac/enh_desc.c
-rename to drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-diff --git a/drivers/net/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-similarity index 100%
-rename from drivers/net/stmmac/norm_desc.c
-rename to drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-diff --git a/drivers/net/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-similarity index 100%
-rename from drivers/net/stmmac/stmmac.h
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac.h
-diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_ethtool.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_main.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-diff --git a/drivers/net/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_mdio.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-diff --git a/drivers/net/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_timer.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-diff --git a/drivers/net/stmmac/stmmac_timer.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_timer.h
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
+rename from drivers/net/macmace.c
+rename to drivers/net/ethernet/apple/macmace.c
 -- 
 1.7.6
 
