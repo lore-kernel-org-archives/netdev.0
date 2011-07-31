@@ -1,73 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 69/71] xircom: Move the Xircom driver
-Date: Sat, 30 Jul 2011 20:27:28 -0700
-Message-ID: <1312082850-24914-70-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 44/71] tsi108*: Move the Tundra driver
+Date: Sat, 30 Jul 2011 20:27:03 -0700
+Message-ID: <1312082850-24914-45-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, <psheer@icon.co.za>,
-	Dominik Brodowski <linux@dominikbrodowski.net>
+	gospo@redhat.com, sassmann@redhat.com,
+	Kong Lai <kong.lai@tundra.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441Ab1GaD2w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:52 -0400
+	id S1753339Ab1GaD2U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:20 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Xircom driver into drivers/net/ethernet/xircom/ and
-make the necessary Kconfig and Makefile changes.
+Move the Tundra driver to drivers/net/ethernet/tundra/ and
+make the necessary Kocnfig and Makefile changes.
 
-CC: <psheer@icon.co.za>
-CC: Dominik Brodowski <linux@dominikbrodowski.net>
+CC: Kong Lai <kong.lai@tundra.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/xircom/Kconfig                |   26 ++++++++++++++++++++
- drivers/net/ethernet/xircom/Makefile               |    5 ++++
- .../net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c   |    0
- drivers/net/pcmcia/Kconfig                         |    9 -------
- drivers/net/pcmcia/Makefile                        |    1 -
- 7 files changed, 33 insertions(+), 10 deletions(-)
- create mode 100644 drivers/net/ethernet/xircom/Kconfig
- create mode 100644 drivers/net/ethernet/xircom/Makefile
- rename drivers/net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c (100%)
+ drivers/net/Kconfig                            |    8 --------
+ drivers/net/Makefile                           |    1 -
+ drivers/net/ethernet/Kconfig                   |    1 +
+ drivers/net/ethernet/Makefile                  |    1 +
+ drivers/net/ethernet/tundra/Kconfig            |   24 ++++++++++++++++++++++++
+ drivers/net/ethernet/tundra/Makefile           |    5 +++++
+ drivers/net/{ => ethernet/tundra}/tsi108_eth.c |    0
+ drivers/net/{ => ethernet/tundra}/tsi108_eth.h |    0
+ 8 files changed, 31 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/ethernet/tundra/Kconfig
+ create mode 100644 drivers/net/ethernet/tundra/Makefile
+ rename drivers/net/{ => ethernet/tundra}/tsi108_eth.c (100%)
+ rename drivers/net/{ => ethernet/tundra}/tsi108_eth.h (100%)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 9e4a7dd..62dcf17 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -623,14 +623,6 @@ config YELLOWFIN
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called yellowfin.  This is recommended.
+ 
+-config TSI108_ETH
+-	tristate "Tundra TSI108 gigabit Ethernet support"
+-	depends on TSI108_BRIDGE
+-	help
+-	  This driver supports Tundra TSI108 gigabit Ethernet ports.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called tsi108_eth.
+-
+ config XILINX_LL_TEMAC
+ 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
+ 	depends on PPC || MICROBLAZE
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 3b14f1a..d7ac2f8 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -42,7 +42,6 @@ obj-$(CONFIG_NET_SB1000) += sb1000.o
+ obj-$(CONFIG_HP100) += hp100.o
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
+ 
+-obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
+ ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
+ obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
+ obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index df8940d..f011665 100644
+index 3893065..8f404ea 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -160,5 +160,6 @@ source "drivers/net/ethernet/toshiba/Kconfig"
- source "drivers/net/ethernet/tundra/Kconfig"
+@@ -52,6 +52,7 @@ source "drivers/net/ethernet/stmicro/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
+ source "drivers/net/ethernet/tehuti/Kconfig"
+ source "drivers/net/ethernet/toshiba/Kconfig"
++source "drivers/net/ethernet/tundra/Kconfig"
  source "drivers/net/ethernet/via/Kconfig"
- source "drivers/net/ethernet/xilinx/Kconfig"
-+source "drivers/net/ethernet/xircom/Kconfig"
  
  endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 09f26b6..7f3b73c 100644
+index e1f0b94..6cf7f99 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -69,3 +69,4 @@ obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
- obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
+@@ -43,4 +43,5 @@ obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+ obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
+ obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
++obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
  obj-$(CONFIG_NET_VENDOR_VIA) += via/
- obj-$(CONFIG_NET_VENDOR_XILINX) += xilinx/
-+obj-$(CONFIG_NET_VENDOR_XIRCOM) += xircom/
-diff --git a/drivers/net/ethernet/xircom/Kconfig b/drivers/net/ethernet/xircom/Kconfig
+diff --git a/drivers/net/ethernet/tundra/Kconfig b/drivers/net/ethernet/tundra/Kconfig
 new file mode 100644
-index 0000000..0e01524
+index 0000000..175e7df
 --- /dev/null
-+++ b/drivers/net/ethernet/xircom/Kconfig
-@@ -0,0 +1,26 @@
++++ b/drivers/net/ethernet/tundra/Kconfig
+@@ -0,0 +1,24 @@
 +#
-+# Xircom network device configuration
++# Tundra network device configuration
 +#
 +
-+config NET_VENDOR_XIRCOM
-+	bool "Xircom devices"
-+	depends on PCMCIA
++config NET_VENDOR_TUNDRA
++	bool "Tundra devices"
++	depends on TSI108_BRIDGE
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -75,65 +109,35 @@ index 0000000..0e01524
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Xircom cards. If you say Y, you will be asked for
++	  the questions about Tundra cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config PCMCIA_XIRC2PS
-+	tristate "Xircom 16-bit PCMCIA support"
-+	depends on NET_VENDOR_XIRCOM && PCMCIA
++config TSI108_ETH
++	tristate "Tundra TSI108 gigabit Ethernet support"
++	depends on NET_VENDOR_TUNDRA && TSI108_BRIDGE
 +	---help---
-+	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
-+	  Ethernet or Fast Ethernet card to your computer.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called xirc2ps_cs.  If unsure, say N.
-diff --git a/drivers/net/ethernet/xircom/Makefile b/drivers/net/ethernet/xircom/Makefile
++	  This driver supports Tundra TSI108 gigabit Ethernet ports.
++	  To compile this driver as a module, choose M here: the module
++	  will be called tsi108_eth.
+diff --git a/drivers/net/ethernet/tundra/Makefile b/drivers/net/ethernet/tundra/Makefile
 new file mode 100644
-index 0000000..3b7aebd
+index 0000000..439f693
 --- /dev/null
-+++ b/drivers/net/ethernet/xircom/Makefile
++++ b/drivers/net/ethernet/tundra/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Xircom network device drivers.
++# Makefile for the Tundra network device drivers.
 +#
 +
-+obj-$(CONFIG_PCMCIA_XIRC2PS) += xirc2ps_cs.o
-diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/ethernet/xircom/xirc2ps_cs.c
++obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
+diff --git a/drivers/net/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
 similarity index 100%
-rename from drivers/net/pcmcia/xirc2ps_cs.c
-rename to drivers/net/ethernet/xircom/xirc2ps_cs.c
-diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
-index 80d291e..12e7ae4 100644
---- a/drivers/net/pcmcia/Kconfig
-+++ b/drivers/net/pcmcia/Kconfig
-@@ -21,15 +21,6 @@ menuconfig NET_PCMCIA
- 
- if NET_PCMCIA && PCMCIA
- 
--config PCMCIA_XIRC2PS
--	tristate "Xircom 16-bit PCMCIA support"
--	help
--	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
--	  Ethernet or Fast Ethernet card to your computer.
--
--	  To compile this driver as a module, choose M here: the module will be
--	  called xirc2ps_cs.  If unsure, say N.
--
- config ARCNET_COM20020_CS
- 	tristate "COM20020 ARCnet PCMCIA support"
- 	depends on ARCNET_COM20020
-diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
-index ccf5535..618e816 100644
---- a/drivers/net/pcmcia/Makefile
-+++ b/drivers/net/pcmcia/Makefile
-@@ -3,7 +3,6 @@
- #
- 
- # 16-bit client drivers
--obj-$(CONFIG_PCMCIA_XIRC2PS)	+= xirc2ps_cs.o
- obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
- 
- obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
+rename from drivers/net/tsi108_eth.c
+rename to drivers/net/ethernet/tundra/tsi108_eth.c
+diff --git a/drivers/net/tsi108_eth.h b/drivers/net/ethernet/tundra/tsi108_eth.h
+similarity index 100%
+rename from drivers/net/tsi108_eth.h
+rename to drivers/net/ethernet/tundra/tsi108_eth.h
 -- 
 1.7.6
 
