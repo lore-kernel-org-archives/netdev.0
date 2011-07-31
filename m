@@ -1,107 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 44/71] tsi108*: Move the Tundra driver
-Date: Sat, 30 Jul 2011 20:27:03 -0700
-Message-ID: <1312082850-24914-45-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 39/71] ks8*/ksz8*: Move the Micrel drivers
+Date: Sat, 30 Jul 2011 20:26:58 -0700
+Message-ID: <1312082850-24914-40-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Kong Lai <kong.lai@tundra.com>
+	Ben Dooks <ben@simtec.co.uk>,
+	Tristram Ha <Tristram.Ha@micrel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753339Ab1GaD2U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:20 -0400
+	id S1751997Ab1GaD2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:09 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Tundra driver to drivers/net/ethernet/tundra/ and
-make the necessary Kocnfig and Makefile changes.
+Move the Micrel drivers into drivers/net/ethernet/micrel/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Kong Lai <kong.lai@tundra.com>
+CC: Ben Dooks <ben@simtec.co.uk>
+CC: Tristram Ha <Tristram.Ha@micrel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                            |    8 --------
- drivers/net/Makefile                           |    1 -
- drivers/net/ethernet/Kconfig                   |    1 +
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/ethernet/tundra/Kconfig            |   24 ++++++++++++++++++++++++
- drivers/net/ethernet/tundra/Makefile           |    5 +++++
- drivers/net/{ => ethernet/tundra}/tsi108_eth.c |    0
- drivers/net/{ => ethernet/tundra}/tsi108_eth.h |    0
- 8 files changed, 31 insertions(+), 9 deletions(-)
- create mode 100644 drivers/net/ethernet/tundra/Kconfig
- create mode 100644 drivers/net/ethernet/tundra/Makefile
- rename drivers/net/{ => ethernet/tundra}/tsi108_eth.c (100%)
- rename drivers/net/{ => ethernet/tundra}/tsi108_eth.h (100%)
+ drivers/net/Kconfig                              |   35 -------------
+ drivers/net/Makefile                             |    4 --
+ drivers/net/arm/Kconfig                          |    8 ---
+ drivers/net/arm/Makefile                         |    1 -
+ drivers/net/ethernet/Kconfig                     |    1 +
+ drivers/net/ethernet/Makefile                    |    1 +
+ drivers/net/ethernet/micrel/Kconfig              |   60 ++++++++++++++++++++++
+ drivers/net/ethernet/micrel/Makefile             |    9 +++
+ drivers/net/{arm => ethernet/micrel}/ks8695net.c |    0
+ drivers/net/{arm => ethernet/micrel}/ks8695net.h |    0
+ drivers/net/{ => ethernet/micrel}/ks8842.c       |    0
+ drivers/net/{ => ethernet/micrel}/ks8851.c       |    0
+ drivers/net/{ => ethernet/micrel}/ks8851.h       |    0
+ drivers/net/{ => ethernet/micrel}/ks8851_mll.c   |    0
+ drivers/net/{ => ethernet/micrel}/ksz884x.c      |    0
+ 15 files changed, 71 insertions(+), 48 deletions(-)
+ create mode 100644 drivers/net/ethernet/micrel/Kconfig
+ create mode 100644 drivers/net/ethernet/micrel/Makefile
+ rename drivers/net/{arm => ethernet/micrel}/ks8695net.c (100%)
+ rename drivers/net/{arm => ethernet/micrel}/ks8695net.h (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8842.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851.h (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851_mll.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ksz884x.c (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 9e4a7dd..62dcf17 100644
+index ce9771a..53c491c 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -623,14 +623,6 @@ config YELLOWFIN
+@@ -467,17 +467,6 @@ config ADAPTEC_STARFIRE
  	  To compile this driver as a module, choose M here: the module
- 	  will be called yellowfin.  This is recommended.
+ 	  will be called starfire.  This is recommended.
  
--config TSI108_ETH
--	tristate "Tundra TSI108 gigabit Ethernet support"
--	depends on TSI108_BRIDGE
+-config KSZ884X_PCI
+-	tristate "Micrel KSZ8841/2 PCI"
+-	depends on NET_PCI && PCI
+-	select MII
+-	select CRC32
 -	help
--	  This driver supports Tundra TSI108 gigabit Ethernet ports.
--	  To compile this driver as a module, choose M here: the module
--	  will be called tsi108_eth.
+-	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
 -
- config XILINX_LL_TEMAC
- 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
- 	depends on PPC || MICROBLAZE
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called ksz884x.
+-
+ config FORCEDETH
+ 	tristate "nForce Ethernet support"
+ 	depends on NET_PCI && PCI
+@@ -550,30 +539,6 @@ config TLAN
+ 
+ 	  Please email feedback to <torben.mathiasen@compaq.com>.
+ 
+-config KS8842
+-	tristate "Micrel KSZ8841/42 with generic bus interface"
+-	depends on HAS_IOMEM && DMA_ENGINE
+-	help
+-	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
+-	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
+-	  Timberdale(FPGA).
+-
+-config KS8851
+-	tristate "Micrel KS8851 SPI"
+-	depends on SPI
+-	select MII
+-	select CRC32
+-	help
+-	  SPI driver for Micrel KS8851 SPI attached network chip.
+-
+-config KS8851_MLL
+-	tristate "Micrel KS8851 MLL"
+-	depends on HAS_IOMEM
+-	select MII
+-	help
+-	  This platform driver is for Micrel KS8851 Address/data bus
+-	  multiplexed network chip.
+-
+ config CPMAC
+ 	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
+ 	depends on NET_ETHERNET && EXPERIMENTAL && AR7
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 3b14f1a..d7ac2f8 100644
+index 8801f33..e008859 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -42,7 +42,6 @@ obj-$(CONFIG_NET_SB1000) += sb1000.o
- obj-$(CONFIG_HP100) += hp100.o
- obj-$(CONFIG_FORCEDETH) += forcedeth.o
+@@ -36,10 +36,6 @@ gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
+ ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+ obj-$(CONFIG_TC35815) += tc35815.o
+ obj-$(CONFIG_SKFP) += skfp/
+-obj-$(CONFIG_KS8842)	+= ks8842.o
+-obj-$(CONFIG_KS8851)	+= ks8851.o
+-obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
+-obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_SH_ETH) += sh_eth.o
+diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
+index b6f7302..4f748cc 100644
+--- a/drivers/net/arm/Kconfig
++++ b/drivers/net/arm/Kconfig
+@@ -11,14 +11,6 @@ config ARM_AT91_ETHER
+ 	  If you wish to compile a kernel for the AT91RM9200 and enable
+ 	  ethernet support, then you should always answer Y to this.
  
--obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
- ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
- obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
- obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
+-config ARM_KS8695_ETHER
+-	tristate "KS8695 Ethernet support"
+-	depends on ARM && ARCH_KS8695
+-	select MII
+-	help
+-	  If you wish to compile a kernel for the KS8695 and want to
+-	  use the internal ethernet then you should answer Y to this.
+-
+ config EP93XX_ETH
+ 	tristate "EP93xx Ethernet support"
+ 	depends on ARM && ARCH_EP93XX
+diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
+index a2532e6..316b06c 100644
+--- a/drivers/net/arm/Makefile
++++ b/drivers/net/arm/Makefile
+@@ -4,6 +4,5 @@
+ #
+ 
+ obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
+-obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
+ obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
+ obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 3893065..8f404ea 100644
+index 924c287..d90f47f3 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -52,6 +52,7 @@ source "drivers/net/ethernet/stmicro/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
- source "drivers/net/ethernet/tehuti/Kconfig"
- source "drivers/net/ethernet/toshiba/Kconfig"
-+source "drivers/net/ethernet/tundra/Kconfig"
- source "drivers/net/ethernet/via/Kconfig"
- 
- endif # ETHERNET
+@@ -32,6 +32,7 @@ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/xscale/Kconfig"
+ source "drivers/net/ethernet/marvell/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
++source "drivers/net/ethernet/micrel/Kconfig"
+ source "drivers/net/ethernet/myricom/Kconfig"
+ source "drivers/net/ethernet/natsemi/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index e1f0b94..6cf7f99 100644
+index 025d7b7..cf27ae0 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -43,4 +43,5 @@ obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
- obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
- obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
-+obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
- obj-$(CONFIG_NET_VENDOR_VIA) += via/
-diff --git a/drivers/net/ethernet/tundra/Kconfig b/drivers/net/ethernet/tundra/Kconfig
+@@ -24,6 +24,7 @@ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
+ obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
++obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
+ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+ obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
+ obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
+diff --git a/drivers/net/ethernet/micrel/Kconfig b/drivers/net/ethernet/micrel/Kconfig
 new file mode 100644
-index 0000000..175e7df
+index 0000000..6dfd412
 --- /dev/null
-+++ b/drivers/net/ethernet/tundra/Kconfig
-@@ -0,0 +1,24 @@
++++ b/drivers/net/ethernet/micrel/Kconfig
+@@ -0,0 +1,60 @@
 +#
-+# Tundra network device configuration
++# Micrel device configuration
 +#
 +
-+config NET_VENDOR_TUNDRA
-+	bool "Tundra devices"
-+	depends on TSI108_BRIDGE
++config NET_VENDOR_MICREL
++	bool "Micrel devices"
++	depends on HAS_IOMEM || DMA_ENGINE || SPI || PCI || \
++		   (ARM && ARCH_KS8695)
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -109,35 +193,94 @@ index 0000000..175e7df
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Tundra cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about Micrel devices. If you say Y, you will be asked
++	  for your specific card in the following questions.
 +
-+config TSI108_ETH
-+	tristate "Tundra TSI108 gigabit Ethernet support"
-+	depends on NET_VENDOR_TUNDRA && TSI108_BRIDGE
++config ARM_KS8695_ETHER
++	tristate "KS8695 Ethernet support"
++	depends on NET_VENDOR_MICREL && ARM && ARCH_KS8695
++	select MII
 +	---help---
-+	  This driver supports Tundra TSI108 gigabit Ethernet ports.
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called tsi108_eth.
-diff --git a/drivers/net/ethernet/tundra/Makefile b/drivers/net/ethernet/tundra/Makefile
++	  If you wish to compile a kernel for the KS8695 and want to
++	  use the internal ethernet then you should answer Y to this.
++
++config KS8842
++	tristate "Micrel KSZ8841/42 with generic bus interface"
++	depends on NET_VENDOR_MICREL && HAS_IOMEM && DMA_ENGINE
++	---help---
++	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
++	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
++	  Timberdale(FPGA).
++
++config KS8851
++	tristate "Micrel KS8851 SPI"
++	depends on NET_VENDOR_MICREL && SPI
++	select MII
++	select CRC32
++	---help---
++	  SPI driver for Micrel KS8851 SPI attached network chip.
++
++config KS8851_MLL
++	tristate "Micrel KS8851 MLL"
++	depends on NET_VENDOR_MICREL && HAS_IOMEM
++	select MII
++	---help---
++	  This platform driver is for Micrel KS8851 Address/data bus
++	  multiplexed network chip.
++
++config KSZ884X_PCI
++	tristate "Micrel KSZ8841/2 PCI"
++	depends on NET_VENDOR_MICREL && PCI
++	select MII
++	select CRC32
++	---help---
++	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ksz884x.
+diff --git a/drivers/net/ethernet/micrel/Makefile b/drivers/net/ethernet/micrel/Makefile
 new file mode 100644
-index 0000000..439f693
+index 0000000..c83e4bc
 --- /dev/null
-+++ b/drivers/net/ethernet/tundra/Makefile
-@@ -0,0 +1,5 @@
++++ b/drivers/net/ethernet/micrel/Makefile
+@@ -0,0 +1,9 @@
 +#
-+# Makefile for the Tundra network device drivers.
++# Makefile for the Micrel network device drivers.
 +#
 +
-+obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
-diff --git a/drivers/net/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
++obj-$(CONFIG_ARM_KS8695_ETHER) += ks8695net.o
++obj-$(CONFIG_KS8842) += ks8842.o
++obj-$(CONFIG_KS8851) += ks8851.o
++obj-$(CONFIG_KS8851_MLL) += ks8851_mll.o
++obj-$(CONFIG_KSZ884X_PCI) += ksz884x.o
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
 similarity index 100%
-rename from drivers/net/tsi108_eth.c
-rename to drivers/net/ethernet/tundra/tsi108_eth.c
-diff --git a/drivers/net/tsi108_eth.h b/drivers/net/ethernet/tundra/tsi108_eth.h
+rename from drivers/net/arm/ks8695net.c
+rename to drivers/net/ethernet/micrel/ks8695net.c
+diff --git a/drivers/net/arm/ks8695net.h b/drivers/net/ethernet/micrel/ks8695net.h
 similarity index 100%
-rename from drivers/net/tsi108_eth.h
-rename to drivers/net/ethernet/tundra/tsi108_eth.h
+rename from drivers/net/arm/ks8695net.h
+rename to drivers/net/ethernet/micrel/ks8695net.h
+diff --git a/drivers/net/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
+similarity index 100%
+rename from drivers/net/ks8842.c
+rename to drivers/net/ethernet/micrel/ks8842.c
+diff --git a/drivers/net/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+similarity index 100%
+rename from drivers/net/ks8851.c
+rename to drivers/net/ethernet/micrel/ks8851.c
+diff --git a/drivers/net/ks8851.h b/drivers/net/ethernet/micrel/ks8851.h
+similarity index 100%
+rename from drivers/net/ks8851.h
+rename to drivers/net/ethernet/micrel/ks8851.h
+diff --git a/drivers/net/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+similarity index 100%
+rename from drivers/net/ks8851_mll.c
+rename to drivers/net/ethernet/micrel/ks8851_mll.c
+diff --git a/drivers/net/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+similarity index 100%
+rename from drivers/net/ksz884x.c
+rename to drivers/net/ethernet/micrel/ksz884x.c
 -- 
 1.7.6
 
