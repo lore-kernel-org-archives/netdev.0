@@ -1,128 +1,146 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 21/71] pasemic_mac*: Move the PA Semi driver
-Date: Sat, 30 Jul 2011 20:26:40 -0700
-Message-ID: <1312082850-24914-22-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 32/71] ioc3-eth/meth: Move the SGI drivers
+Date: Sat, 30 Jul 2011 20:26:51 -0700
+Message-ID: <1312082850-24914-33-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Olof Johansson <olof@lixom.net>
+	Ralf Baechle <ralf@linux-mips.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:39387 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753198Ab1GaD1w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:27:52 -0400
+	id S1753284Ab1GaD2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:05 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the PA Semi driver into drivers/net/ethernet/pasemi/ and
-make the necessary Kconfig and Makefile changes.
+Move the SGI drivers into drivers/net/ethernet/sgi/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Olof Johansson <olof@lixom.net>
+CC: Ralf Baechle <ralf@linux-mips.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Olof Johansson <olof@lixom.net>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |    9 -------
- drivers/net/Makefile                               |    2 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/pasemi/Kconfig                |   25 ++++++++++++++++++++
- drivers/net/ethernet/pasemi/Makefile               |    5 ++++
- drivers/net/{ => ethernet/pasemi}/pasemi_mac.c     |    0
- drivers/net/{ => ethernet/pasemi}/pasemi_mac.h     |    0
- .../net/{ => ethernet/pasemi}/pasemi_mac_ethtool.c |    0
- 10 files changed, 33 insertions(+), 12 deletions(-)
- create mode 100644 drivers/net/ethernet/pasemi/Kconfig
- create mode 100644 drivers/net/ethernet/pasemi/Makefile
- rename drivers/net/{ => ethernet/pasemi}/pasemi_mac.c (100%)
- rename drivers/net/{ => ethernet/pasemi}/pasemi_mac.h (100%)
- rename drivers/net/{ => ethernet/pasemi}/pasemi_mac_ethtool.c (100%)
+ MAINTAINERS                               |    2 +-
+ drivers/net/Kconfig                       |   14 -------------
+ drivers/net/Makefile                      |    2 -
+ drivers/net/ethernet/Kconfig              |    1 +
+ drivers/net/ethernet/Makefile             |    1 +
+ drivers/net/ethernet/sgi/Kconfig          |   30 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/sgi/Makefile         |    6 +++++
+ drivers/net/{ => ethernet/sgi}/ioc3-eth.c |    0
+ drivers/net/{ => ethernet/sgi}/meth.c     |    0
+ drivers/net/{ => ethernet/sgi}/meth.h     |    0
+ 10 files changed, 39 insertions(+), 17 deletions(-)
+ create mode 100644 drivers/net/ethernet/sgi/Kconfig
+ create mode 100644 drivers/net/ethernet/sgi/Makefile
+ rename drivers/net/{ => ethernet/sgi}/ioc3-eth.c (100%)
+ rename drivers/net/{ => ethernet/sgi}/meth.c (100%)
+ rename drivers/net/{ => ethernet/sgi}/meth.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index e3d41a5..da22b40 100644
+index c1930ef6..3d9ddd9 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4758,7 +4758,7 @@ PA SEMI ETHERNET DRIVER
- M:	Olof Johansson <olof@lixom.net>
- L:	netdev@vger.kernel.org
+@@ -3406,7 +3406,7 @@ IOC3 ETHERNET DRIVER
+ M:	Ralf Baechle <ralf@linux-mips.org>
+ L:	linux-mips@linux-mips.org
  S:	Maintained
--F:	drivers/net/pasemi_mac.*
-+F:	drivers/net/ethernet/pasemi/*
+-F:	drivers/net/ioc3-eth.c
++F:	drivers/net/ethernet/sgi/ioc3-eth.c
  
- PA SEMI SMBUS DRIVER
- M:	Olof Johansson <olof@lixom.net>
+ IOC3 SERIAL DRIVER
+ M:	Pat Gefre <pfg@sgi.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 3090c98..becb786 100644
+index 565b2fe..1e889b3 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1442,15 +1442,6 @@ if NETDEV_10000
- config MDIO
- 	tristate
+@@ -244,16 +244,6 @@ config KORINA
+ 	  If you have a Mikrotik RouterBoard 500 or IDT RC32434
+ 	  based system say Y. Otherwise say N.
  
--config PASEMI_MAC
--	tristate "PA Semi 1/10Gbit MAC"
--	depends on PPC_PASEMI && PCI && INET
--	select PHYLIB
--	select INET_LRO
+-config SGI_IOC3_ETH
+-	bool "SGI IOC3 Ethernet"
+-	depends on PCI && SGI_IP27
+-	select CRC32
+-	select MII
 -	help
--	  This driver supports the on-chip 1/10Gbit Ethernet controller on
--	  PA Semi's PWRficient line of chips.
+-	  If you have a network (Ethernet) card of this type, say Y and read
+-	  the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
- config TEHUTI
- 	tristate "Tehuti Networks 10G Ethernet"
- 	depends on PCI
+ config MIPS_SIM_NET
+ 	tristate "MIPS simulator Network device"
+ 	depends on MIPS_SIM
+@@ -262,10 +252,6 @@ config MIPS_SIM_NET
+ 	  emulated by the MIPS Simulator.
+ 	  If you are not using a MIPSsim or are unsure, say N.
+ 
+-config SGI_O2MACE_ETH
+-	tristate "SGI O2 MACE Fast Ethernet support"
+-	depends on SGI_IP32=y
+-
+ config SH_ETH
+ 	tristate "Renesas SuperH Ethernet support"
+ 	depends on SUPERH && \
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 2a50b73..b396475 100644
+index 25f78c4..a40549b 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -146,8 +146,6 @@ obj-$(CONFIG_R8169) += r8169.o
- obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
- obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
- obj-$(CONFIG_DM9000) += dm9000.o
--obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
--pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
- obj-$(CONFIG_ENC28J60) += enc28j60.o
- obj-$(CONFIG_ETHOC) += ethoc.o
- obj-$(CONFIG_GRETH) += greth.o
+@@ -103,7 +103,6 @@ obj-$(CONFIG_MACVLAN) += macvlan.o
+ obj-$(CONFIG_MACVTAP) += macvtap.o
+ obj-$(CONFIG_DEFXX) += defxx.o
+ obj-$(CONFIG_SGISEEQ) += sgiseeq.o
+-obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
+ obj-$(CONFIG_AT1700) += at1700.o
+ obj-$(CONFIG_CPMAC) += cpmac.o
+ 
+@@ -111,7 +110,6 @@ obj-$(CONFIG_ETH16I) += eth16i.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_KORINA) += korina.o
+ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
+-obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 18b634e..16c206e 100644
+index ed42850..7d25fa4 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -25,6 +25,7 @@ source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
-+source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
+@@ -37,6 +37,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
  source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/realtek/Kconfig"
  source "drivers/net/ethernet/sfc/Kconfig"
++source "drivers/net/ethernet/sgi/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
+ source "drivers/net/ethernet/stmicro/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 288179b..a52dc26 100644
+index 3de8249..ec58715 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
-+obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
  obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
  obj-$(CONFIG_SFC) += sfc/
-diff --git a/drivers/net/ethernet/pasemi/Kconfig b/drivers/net/ethernet/pasemi/Kconfig
++obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+ obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+diff --git a/drivers/net/ethernet/sgi/Kconfig b/drivers/net/ethernet/sgi/Kconfig
 new file mode 100644
-index 0000000..97beb45
+index 0000000..d2f403d
 --- /dev/null
-+++ b/drivers/net/ethernet/pasemi/Kconfig
-@@ -0,0 +1,25 @@
++++ b/drivers/net/ethernet/sgi/Kconfig
+@@ -0,0 +1,30 @@
 +#
-+# PA Semi network device configuration
++# SGI device configuration
 +#
 +
-+config NET_VENDOR_PASEMI
-+	bool "PA Semi devices"
-+	depends on PPC_PASEMI && PCI && INET
++config NET_VENDOR_SGI
++	bool "SGI devices"
++	depends on (PCI && SGI_IP27) || SGI_IP32
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -130,40 +148,46 @@ index 0000000..97beb45
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about PA Semi cards. If you say Y, you will be asked for
++	  the questions about SGI devices. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config PASEMI_MAC
-+	tristate "PA Semi 1/10Gbit MAC"
-+	depends on NET_VENDOR_PASEMI && PPC_PASEMI && PCI && INET
-+	select PHYLIB
-+	select INET_LRO
++config SGI_IOC3_ETH
++	bool "SGI IOC3 Ethernet"
++	depends on NET_VENDOR_SGI && PCI && SGI_IP27
++	select CRC32
++	select MII
 +	---help---
-+	  This driver supports the on-chip 1/10Gbit Ethernet controller on
-+	  PA Semi's PWRficient line of chips.
-diff --git a/drivers/net/ethernet/pasemi/Makefile b/drivers/net/ethernet/pasemi/Makefile
++	  If you have a network (Ethernet) card of this type, say Y and read
++	  the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++config SGI_O2MACE_ETH
++	tristate "SGI O2 MACE Fast Ethernet support"
++	depends on NET_VENDOR_SGI && SGI_IP32=y
+diff --git a/drivers/net/ethernet/sgi/Makefile b/drivers/net/ethernet/sgi/Makefile
 new file mode 100644
-index 0000000..05db543
+index 0000000..e5bedd2
 --- /dev/null
-+++ b/drivers/net/ethernet/pasemi/Makefile
-@@ -0,0 +1,5 @@
++++ b/drivers/net/ethernet/sgi/Makefile
+@@ -0,0 +1,6 @@
 +#
-+# Makefile for the A Semi network device drivers.
++# Makefile for the SGI device drivers.
 +#
 +
-+obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o pasemi_mac_ethtool.o
-diff --git a/drivers/net/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
++obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
++obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
+diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
 similarity index 100%
-rename from drivers/net/pasemi_mac.c
-rename to drivers/net/ethernet/pasemi/pasemi_mac.c
-diff --git a/drivers/net/pasemi_mac.h b/drivers/net/ethernet/pasemi/pasemi_mac.h
+rename from drivers/net/ioc3-eth.c
+rename to drivers/net/ethernet/sgi/ioc3-eth.c
+diff --git a/drivers/net/meth.c b/drivers/net/ethernet/sgi/meth.c
 similarity index 100%
-rename from drivers/net/pasemi_mac.h
-rename to drivers/net/ethernet/pasemi/pasemi_mac.h
-diff --git a/drivers/net/pasemi_mac_ethtool.c b/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
+rename from drivers/net/meth.c
+rename to drivers/net/ethernet/sgi/meth.c
+diff --git a/drivers/net/meth.h b/drivers/net/ethernet/sgi/meth.h
 similarity index 100%
-rename from drivers/net/pasemi_mac_ethtool.c
-rename to drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
+rename from drivers/net/meth.h
+rename to drivers/net/ethernet/sgi/meth.h
 -- 
 1.7.6
 
