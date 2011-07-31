@@ -1,130 +1,203 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: use better NUMA affinities
-Date: Sun, 31 Jul 2011 08:58:54 +0200
-Message-ID: <1312095534.2873.108.camel@edumazet-laptop>
-References: <1311921035.7845.10.camel@edumazet-laptop>
-	 <4E3258E1.6020000@fastmail.fm> <20110729103634.GA12050@infradead.org>
-	 <5933F48C-49D6-492D-AB7B-B76A3ADDB6C6@fastmail.fm>
-	 <1311941491.2843.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
-	 <20110729164836.GL23194@fieldses.org> <20110729165345.GM23194@fieldses.org>
-	 <F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
-	 <20110730093025.716f3f50@notabene.brown>
-	 <20110729234857.GA30941@fieldses.org>
-	 <1311998914.2873.27.camel@edumazet-laptop>
-	 <20110730160610.0b751ffd@notabene.brown>
-	 <1312006990.2873.75.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 09/71] smsc: Move the SMC (SMSC) drivers
+Date: Sun, 31 Jul 2011 00:17:34 -0700
+Message-ID: <CAL3LdT5xW9pK+dDeB+h9YhHfT4nqpbk0jRyU8M_Zei-H7AqGMg@mail.gmail.com>
+References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1312082850-24914-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>,
-	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1312006990.2873.75.camel@edumazet-laptop>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Nicolas Pitre <nico@fluxnic.net>,
+	Donald Becker <becker@scyld.com>, Erik Stahlman <erik@vt.edu>,
+	Dustin McIntire <dustin@sensoria.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	David Hinds <dahinds@users.sourceforge.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60206 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185Ab1GaHRf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2011 03:17:35 -0400
+Received: by fxh19 with SMTP id 19so3537756fxh.19
+        for <netdev@vger.kernel.org>; Sun, 31 Jul 2011 00:17:34 -0700 (PDT)
+In-Reply-To: <1312082850-24914-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 30 juillet 2011 =C3=A0 08:23 +0200, Eric Dumazet a =C3=A9crit=
- :
-> Le samedi 30 juillet 2011 =C3=A0 16:06 +1000, NeilBrown a =C3=A9crit =
-:
-> > umount /proc/fs/nfsd
-> >=20
-> >=20
->=20
-> Thans  a lot, this was the thing I missed !
->=20
->=20
+On Sat, Jul 30, 2011 at 20:26, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
+m> wrote:
+> Moves the SMC (SMSC) drivers into drivers/net/ethernet/smsc/ and the
+> necessary Kconfig and Makefile changes. =C2=A0Also did some cleanup
+> of NET_VENDOR_SMC Kconfig tag for the 8390 based drivers.
+>
+> CC: Nicolas Pitre <nico@fluxnic.net>
+> CC: Donald Becker <becker@scyld.com>
+> CC: Erik Stahlman <erik@vt.edu>
+> CC: Dustin McIntire <dustin@sensoria.com>
+> CC: Steve Glendinning <steve.glendinning@smsc.com>
+> CC: David Hinds <dahinds@users.sourceforge.net>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> =C2=A0MAINTAINERS =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0| =C2=A0 =C2=A06 +-
+> =C2=A0drivers/net/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=
+=A0105 ----------------
+> =C2=A0drivers/net/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ =C2=A07 -
+> =C2=A0drivers/net/ethernet/8390/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 21 +---
+> =C2=A0drivers/net/ethernet/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A01 +
+> =C2=A0drivers/net/ethernet/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A01 +
+> =C2=A0drivers/net/ethernet/smsc/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0128 ++++++++++++++++++++
+> =C2=A0drivers/net/ethernet/smsc/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 11 ++
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/epic100.c =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0| =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smc911x.c =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0| =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smc911x.h =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0| =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smc9194.c =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0| =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smc9194.h =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0| =C2=A0 =C2=A00
+> =C2=A0.../net/{pcmcia =3D> ethernet/smsc}/smc91c92_cs.c =C2=A0 =C2=A0=
+| =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smc91x.c =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 | =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smc91x.h =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 | =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smsc911x.c =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 | =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smsc911x.h =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 | =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smsc9420.c =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 | =C2=A0 =C2=A00
+> =C2=A0drivers/net/{ =3D> ethernet/smsc}/smsc9420.h =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 | =C2=A0 =C2=A00
+> =C2=A0drivers/net/pcmcia/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 11 --
+> =C2=A0drivers/net/pcmcia/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A01 -
+> =C2=A022 files changed, 148 insertions(+), 144 deletions(-)
+> =C2=A0create mode 100644 drivers/net/ethernet/smsc/Kconfig
+> =C2=A0create mode 100644 drivers/net/ethernet/smsc/Makefile
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/epic100.c (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smc911x.c (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smc911x.h (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smc9194.c (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smc9194.h (100%)
+> =C2=A0rename drivers/net/{pcmcia =3D> ethernet/smsc}/smc91c92_cs.c (1=
+00%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smc91x.c (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smc91x.h (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smsc911x.c (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smsc911x.h (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smsc9420.c (100%)
+> =C2=A0rename drivers/net/{ =3D> ethernet/smsc}/smsc9420.h (100%)
+>
 
-Hmm, after this, I left things as the were (nfsd module loaded, but a 0
-use count )
+=2E..[snip] ...
 
-I got a BUG while updatedb was running,
-(I tried this on a debian machine/kernel)
+> diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet=
+/smsc/Kconfig
+> new file mode 100644
+> index 0000000..dbb3069
+> --- /dev/null
+> +++ b/drivers/net/ethernet/smsc/Kconfig
+> @@ -0,0 +1,128 @@
+> +#
+> +# Western Digital/SMC network device configuration
+> +#
+> +
+> +config NET_VENDOR_SMSC
+> + =C2=A0 =C2=A0 =C2=A0 bool "SMC (SMSC)/Western Digital devices"
+> + =C2=A0 =C2=A0 =C2=A0 depends on ARM || ISA || MAC || ARM || MIPS ||=
+ M32R || SUPERH || \
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 BLACKFIN || MN1030=
+0 || COLDFIRE || PCI || PCMCIA
+> + =C2=A0 =C2=A0 =C2=A0 ---help---
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 If you have a network (Ethernet) card b=
+elonging to this class, say Y
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 and read the Ethernet-HOWTO, available =
+from
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 <http://www.tldp.org/docs.html#howto>.
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 Note that the answer to this question d=
+oesn't directly affect the
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 kernel: saying N will just cause the co=
+nfigurator to skip all
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 the questions about SMC/Western Digital=
+ cards. If you say Y, you will
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 be asked for your specific card in the =
+following questions.
+> +
+> +config SMC9194
+> + =C2=A0 =C2=A0 =C2=A0 tristate "SMC 9194 support"
+> + =C2=A0 =C2=A0 =C2=A0 depends on NET_VENDOR_SMSC && (ISA || MAC && B=
+ROKEN)
+> + =C2=A0 =C2=A0 =C2=A0 select CRC32
+> + =C2=A0 =C2=A0 =C2=A0 ---help---
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 This is support for the SMC9xxx based E=
+thernet cards. Choose this
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 option if you have a DELL laptop with t=
+he docking station, or
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 another SMC9192/9194 based chipset. =C2=
+=A0Say Y if you want it compiled
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 into the kernel, and read the file
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 <file:Documentation/networking/smc9.txt=
+> and the Ethernet-HOWTO,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 available from <http://www.tldp.org/doc=
+s.html#howto>.
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 To compile this driver as a module, cho=
+ose M here. The module
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 will be called smc9194.
+> +
+> +config SMC91X
+> + =C2=A0 =C2=A0 =C2=A0 tristate "SMC 91C9x/91C1xxx support"
+> + =C2=A0 =C2=A0 =C2=A0 select CRC32
+> + =C2=A0 =C2=A0 =C2=A0 select MII
+> + =C2=A0 =C2=A0 =C2=A0 depends on NET_VENDOR_SMSC && (ARM || M32R || =
+SUPERH || \
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 MIPS || BLACKFIN |=
+| MN10300 || COLDFIRE)
+> + =C2=A0 =C2=A0 =C2=A0 ---help---
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 This is a driver for SMC's 91x series o=
+f Ethernet chipsets,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 including the SMC91C94 and the SMC91C11=
+1. Say Y if you want it
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 compiled into the kernel, and read the =
+file
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 <file:Documentation/networking/smc9.txt=
+> =C2=A0and the Ethernet-HOWTO,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 available from =C2=A0<http://www.tldp.o=
+rg/docs.html#howto>.
+> +
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 This driver is also available as a modu=
+le ( =3D code which can be
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 inserted in and removed from the runnin=
+g kernel whenever you want).
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 The module will be called smc91x. =C2=A0=
+If you want to compile it as a
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 module, say M here and read <file:Docum=
+entation/kbuild/modules.txt>.
+> +
+> +config PCMCIA_SMC91C92
+> + =C2=A0 =C2=A0 =C2=A0 tristate "SMC 91Cxx PCMCIA support"
+> + =C2=A0 =C2=A0 =C2=A0 depends NET_VENDOR_SMSC && PCMCIA
 
-Same bug on :
+=46ound a typo, should be "DEPENDS ON ..." , I will fix up the patch on=
+ my tree.
 
-cat /proc/self/mounts=20
-
-I'll take a look at this issue later, after my vacations, unless someon=
-e
-wants to take a look before me ;)
-
-[1020029.301174] BUG: unable to handle kernel paging request at fffffff=
-fa03da0d0
-[1020029.301318] IP: [<ffffffff811105bd>] show_type+0x17/0x5a
-[1020029.301436] PGD 1605067 PUD 1609063 PMD 127353067 PTE 0
-[1020029.301574] Oops: 0000 [#1] SMP=20
-[1020029.301637] last sysfs file: /sys/module/nfsd/initstate
-[1020029.301722] CPU 6=20
-[1020029.301765] Modules linked in: nfsd fuse btrfs zlib_deflate crc32c=
- libcrc32c ufs qnx4 hfsplus hfs minix ntfs vfat msdos fat jfs xfs reise=
-rfs ext4 jbd2 crc16 ext2 dm_mod nls_utf8 isofs lockd fscache auth_rpcgs=
-s nfs_acl sunrpc loop i5000_edac radeon edac_core ttm drm_kms_helper sn=
-d_pcm drm snd_timer snd i2c_algo_bit soundcore i2c_core snd_page_alloc =
-i5k_amb power_supply ipmi_si evdev psmouse rng_core ipmi_msghandler hpi=
-lo hpwdt shpchp processor button pcspkr serio_raw pci_hotplug container=
- ext3 jbd mbcache hpsa usbhid hid uhci_hcd cciss scsi_mod ehci_hcd usbc=
-ore bnx2 thermal thermal_sys [last unloaded: nfsd]
-[1020029.303561]=20
-[1020029.303588] Pid: 23460, comm: updatedb.mlocat Tainted: G  R       =
-   2.6.39-2-amd64 #1 HP ProLiant BL460c G1
-[1020029.303751] RIP: 0010:[<ffffffff811105bd>]  [<ffffffff811105bd>] s=
-how_type+0x17/0x5a
-[1020029.303866] RSP: 0018:ffff880011da7e48  EFLAGS: 00010296
-[1020029.303953] RAX: ffffffffa03da0d0 RBX: ffff8801288a4a80 RCX: 00000=
-00000007774
-[1020029.304061] RDX: ffffffff814c9935 RSI: ffff880129ea3800 RDI: ffff8=
-801288a4a80
-[1020029.304169] RBP: ffff880129ea3800 R08: ffff880011da7e68 R09: fffff=
-fffffffffff
-[1020029.304263] R10: ffff880011d883b2 R11: 0000000000000007 R12: ffff8=
-8012794a2c0
-[1020029.304263] R13: ffff8801288a4a80 R14: ffff88012794a338 R15: 00000=
-00000000000
-[1020029.304263] FS:  00007f9cf0dec700(0000) GS:ffff88012fd80000(0000) =
-knlGS:0000000000000000
-[1020029.304263] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[1020029.304263] CR2: ffffffffa03da0d0 CR3: 0000000058f90000 CR4: 00000=
-000000006e0
-[1020029.304263] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 00000=
-00000000000
-[1020029.304263] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 00000=
-00000000400
-[1020029.304263] Process updatedb.mlocat (pid: 23460, threadinfo ffff88=
-0011da6000, task ffff88002741a440)
-[1020029.304263] Stack:
-[1020029.304263]  ffff8801288a4a80 ffff8801288a4a80 ffff88012794a338 ff=
-ffffff81110abf
-[1020029.304263]  ffff88012794a2c0 ffff88010d992440 0000000000000400 00=
-007f9cf0df3000
-[1020029.304263]  ffff880127960cc0 ffff8801288a4a80 ffff88012794a338 ff=
-ffffff8111427a
-[1020029.304263] Call Trace:
-[1020029.304263]  [<ffffffff81110abf>] ? show_vfsmnt+0x9b/0x134
-[1020029.304263]  [<ffffffff8111427a>] ? seq_read+0x276/0x350
-[1020029.304263]  [<ffffffff810fc207>] ? vfs_read+0xa1/0xfb
-[1020029.304263]  [<ffffffff810d8052>] ? sys_mmap_pgoff+0x127/0x15a
-[1020029.304263]  [<ffffffff810fc317>] ? sys_read+0x45/0x6e
-[1020029.304263]  [<ffffffff81338e52>] ? system_call_fastpath+0x16/0x1b
-[1020029.304263] Code: 01 00 65 48 03 14 25 20 dc 00 00 66 ff 02 c3 f0 =
-ff 47 38 c3 55 48 89 f5 48 c7 c2 35 99 4c 81 53 48 89 fb 48 83 ec 08 48=
- 8b 46 28=20
-[1020029.304263]  8b 30 e8 c7 36 00 00 48 8b 85 b8 02 00 00 48 85 c0 74=
- 2b 80=20
-[1020029.304263] RIP  [<ffffffff811105bd>] show_type+0x17/0x5a
-[1020029.304263]  RSP <ffff880011da7e48>
-[1020029.304263] CR2: ffffffffa03da0d0
-[1020029.311417] ---[ end trace ebf19aff1e083659 ]---
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Cheers,
+Jeff
