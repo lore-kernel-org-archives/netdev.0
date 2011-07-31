@@ -1,118 +1,178 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 22/71] tehuti: Move the Tehuti driver
-Date: Sat, 30 Jul 2011 20:26:41 -0700
-Message-ID: <1312082850-24914-23-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 15/71] bna: Move the Brocade driver
+Date: Sat, 30 Jul 2011 20:26:34 -0700
+Message-ID: <1312082850-24914-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Alexander Indenbaum <baum@tehutinetworks.net>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Rasesh Mody <rmody@brocade.com>,
+	Debashis Dutt <ddutt@brocade.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:38846 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:43146 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752851Ab1GaD1x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:27:53 -0400
+	id S1753169Ab1GaD1s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:27:48 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Tehuti driver into drivers/net/ethernet/tehuti/ and
-make the necessary Kconfig and Makefile changes.
+Moves the Brocade driver into drivers/net/ethernet/brocade/ and make
+the necessary Kconfig and Makefile changes.
 
-CC: Alexander Indenbaum <baum@tehutinetworks.net>
-CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Rasesh Mody <rmody@brocade.com>
+CC: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                |    2 +-
- drivers/net/Kconfig                        |    6 ------
- drivers/net/Makefile                       |    1 -
- drivers/net/ethernet/Kconfig               |    1 +
- drivers/net/ethernet/Makefile              |    1 +
- drivers/net/ethernet/tehuti/Kconfig        |   22 ++++++++++++++++++++++
- drivers/net/ethernet/tehuti/Makefile       |    5 +++++
- drivers/net/{ => ethernet/tehuti}/tehuti.c |    0
- drivers/net/{ => ethernet/tehuti}/tehuti.h |    0
- 9 files changed, 30 insertions(+), 8 deletions(-)
- create mode 100644 drivers/net/ethernet/tehuti/Kconfig
- create mode 100644 drivers/net/ethernet/tehuti/Makefile
- rename drivers/net/{ => ethernet/tehuti}/tehuti.c (100%)
- rename drivers/net/{ => ethernet/tehuti}/tehuti.h (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   14 --------------
+ drivers/net/Makefile                               |    1 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/brocade/Kconfig               |   18 ++++++++++++++++++
+ drivers/net/ethernet/brocade/Makefile              |    5 +++++
+ drivers/net/ethernet/brocade/bna/Kconfig           |   17 +++++++++++++++++
+ drivers/net/{ => ethernet/brocade}/bna/Makefile    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_cs.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h  |    0
+ .../net/{ => ethernet/brocade}/bna/bfa_defs_cna.h  |    0
+ .../{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h |    0
+ .../{ => ethernet/brocade}/bna/bfa_defs_status.h   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h   |    0
+ .../net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi.h       |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h   |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi_ctreg.h |    0
+ drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna.h       |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c  |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_hw.h    |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c  |    0
+ drivers/net/{ => ethernet/brocade}/bna/bna_types.h |    0
+ drivers/net/{ => ethernet/brocade}/bna/bnad.c      |    0
+ drivers/net/{ => ethernet/brocade}/bna/bnad.h      |    0
+ .../net/{ => ethernet/brocade}/bna/bnad_ethtool.c  |    0
+ drivers/net/{ => ethernet/brocade}/bna/cna.h       |    0
+ drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c |    0
+ 33 files changed, 43 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/net/ethernet/brocade/Kconfig
+ create mode 100644 drivers/net/ethernet/brocade/Makefile
+ create mode 100644 drivers/net/ethernet/brocade/bna/Kconfig
+ rename drivers/net/{ => ethernet/brocade}/bna/Makefile (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_cs.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_cna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_status.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi_ctreg.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_hw.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bna_types.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bnad.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bnad.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/bnad_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/cna.h (100%)
+ rename drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index da22b40..05e51e2 100644
+index 0c0fda5..ddec2eb 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -6182,7 +6182,7 @@ M:	Alexander Indenbaum <baum@tehutinetworks.net>
- M:	Andy Gospodarek <andy@greyhouse.net>
+@@ -1569,7 +1569,7 @@ M:	Rasesh Mody <rmody@brocade.com>
+ M:	Debashis Dutt <ddutt@brocade.com>
  L:	netdev@vger.kernel.org
  S:	Supported
--F:	drivers/net/tehuti*
-+F:	drivers/net/ethernet/tehuti/*
+-F:	drivers/net/bna/
++F:	drivers/net/ethernet/brocade/bna/
  
- Telecom Clock Driver for MCPL0010
- M:	Mark Gross <mark.gross@intel.com>
+ BSG (block layer generic sg v4 driver)
+ M:	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index becb786..9a294bd 100644
+index db03c21..2701ee9 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1442,12 +1442,6 @@ if NETDEV_10000
- config MDIO
- 	tristate
+@@ -1584,20 +1584,6 @@ config TEHUTI
+ 	help
+ 	  Tehuti Networks 10G Ethernet NIC
  
--config TEHUTI
--	tristate "Tehuti Networks 10G Ethernet"
+-config BNA
+-	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
 -	depends on PCI
--	help
--	  Tehuti Networks 10G Ethernet NIC
+-	---help---
+-	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
+-	  cards.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called bna.
+-
+-	  For general information and support, go to the Brocade support
+-	  website at:
+-
+-	  <http://support.brocade.com>
 -
  endif # NETDEV_10000
  
  source "drivers/net/tokenring/Kconfig"
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index b396475..f82495a 100644
+index 39b04e0..c8a176f 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -19,7 +19,6 @@ obj-$(CONFIG_ATL1E) += atl1e/
- obj-$(CONFIG_ATL1C) += atl1c/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
--obj-$(CONFIG_TEHUTI) += tehuti.o
+@@ -25,7 +25,6 @@ obj-$(CONFIG_TEHUTI) += tehuti.o
+ obj-$(CONFIG_ENIC) += enic/
  obj-$(CONFIG_JME) += jme.o
  obj-$(CONFIG_VMXNET3) += vmxnet3/
+-obj-$(CONFIG_BNA) += bna/
  
+ gianfar_driver-objs := gianfar.o \
+ 		gianfar_ethtool.o \
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 16c206e..8375b8b 100644
+index 9c003f3..225918d 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -31,5 +31,6 @@ source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
-+source "drivers/net/ethernet/tehuti/Kconfig"
- 
- endif # ETHERNET
+@@ -15,6 +15,7 @@ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
++source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index a52dc26..26324a1 100644
+index 2ac05ba..734f7c9 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -22,3 +22,4 @@ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_SFC) += sfc/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
-+obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
-diff --git a/drivers/net/ethernet/tehuti/Kconfig b/drivers/net/ethernet/tehuti/Kconfig
+@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
++obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+diff --git a/drivers/net/ethernet/brocade/Kconfig b/drivers/net/ethernet/brocade/Kconfig
 new file mode 100644
-index 0000000..f5e3d1f
+index 0000000..8d8bff7
 --- /dev/null
-+++ b/drivers/net/ethernet/tehuti/Kconfig
-@@ -0,0 +1,22 @@
++++ b/drivers/net/ethernet/brocade/Kconfig
+@@ -0,0 +1,18 @@
 +#
-+# Tehuti network device configuration
++# Brocade device configuration
 +#
 +
-+config NET_VENDOR_TEHUTI
-+	bool "Tehuti devices"
++config NET_VENDOR_BROCADE
++	bool "Brocade devices"
 +	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
@@ -121,33 +181,144 @@ index 0000000..f5e3d1f
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Tehuti cards. If you say Y, you will be asked for
++	  the questions about Brocade cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+config TEHUTI
-+	tristate "Tehuti Networks 10G Ethernet"
-+	depends on NET_VENDOR_TEHUTI && PCI
-+	---help---
-+	  Tehuti Networks 10G Ethernet NIC
-diff --git a/drivers/net/ethernet/tehuti/Makefile b/drivers/net/ethernet/tehuti/Makefile
++source "drivers/net/ethernet/brocade/bna/Kconfig"
+diff --git a/drivers/net/ethernet/brocade/Makefile b/drivers/net/ethernet/brocade/Makefile
 new file mode 100644
-index 0000000..f995421
+index 0000000..b58238d
 --- /dev/null
-+++ b/drivers/net/ethernet/tehuti/Makefile
++++ b/drivers/net/ethernet/brocade/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Tehuti network device drivers.
++# Makefile for the Brocade device drivers.
 +#
 +
-+obj-$(CONFIG_TEHUTI) += tehuti.o
-diff --git a/drivers/net/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
++obj-$(CONFIG_BNA) += bna/
+diff --git a/drivers/net/ethernet/brocade/bna/Kconfig b/drivers/net/ethernet/brocade/bna/Kconfig
+new file mode 100644
+index 0000000..ba37af2
+--- /dev/null
++++ b/drivers/net/ethernet/brocade/bna/Kconfig
+@@ -0,0 +1,17 @@
++#
++# Brocade network device configuration
++#
++
++config BNA
++	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
++	depends on NET_VENDOR_BROCADE && PCI
++	---help---
++	  This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
++	  cards.
++	  To compile this driver as a module, choose M here: the module
++	  will be called bna.
++
++	  For general information and support, go to the Brocade support
++	  website at:
++
++	  <http://support.brocade.com>
+diff --git a/drivers/net/bna/Makefile b/drivers/net/ethernet/brocade/bna/Makefile
 similarity index 100%
-rename from drivers/net/tehuti.c
-rename to drivers/net/ethernet/tehuti/tehuti.c
-diff --git a/drivers/net/tehuti.h b/drivers/net/ethernet/tehuti/tehuti.h
+rename from drivers/net/bna/Makefile
+rename to drivers/net/ethernet/brocade/bna/Makefile
+diff --git a/drivers/net/bna/bfa_cee.c b/drivers/net/ethernet/brocade/bna/bfa_cee.c
 similarity index 100%
-rename from drivers/net/tehuti.h
-rename to drivers/net/ethernet/tehuti/tehuti.h
+rename from drivers/net/bna/bfa_cee.c
+rename to drivers/net/ethernet/brocade/bna/bfa_cee.c
+diff --git a/drivers/net/bna/bfa_cee.h b/drivers/net/ethernet/brocade/bna/bfa_cee.h
+similarity index 100%
+rename from drivers/net/bna/bfa_cee.h
+rename to drivers/net/ethernet/brocade/bna/bfa_cee.h
+diff --git a/drivers/net/bna/bfa_cs.h b/drivers/net/ethernet/brocade/bna/bfa_cs.h
+similarity index 100%
+rename from drivers/net/bna/bfa_cs.h
+rename to drivers/net/ethernet/brocade/bna/bfa_cs.h
+diff --git a/drivers/net/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
+similarity index 100%
+rename from drivers/net/bna/bfa_defs.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs.h
+diff --git a/drivers/net/bna/bfa_defs_cna.h b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+similarity index 100%
+rename from drivers/net/bna/bfa_defs_cna.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+diff --git a/drivers/net/bna/bfa_defs_mfg_comm.h b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+similarity index 100%
+rename from drivers/net/bna/bfa_defs_mfg_comm.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+diff --git a/drivers/net/bna/bfa_defs_status.h b/drivers/net/ethernet/brocade/bna/bfa_defs_status.h
+similarity index 100%
+rename from drivers/net/bna/bfa_defs_status.h
+rename to drivers/net/ethernet/brocade/bna/bfa_defs_status.h
+diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+similarity index 100%
+rename from drivers/net/bna/bfa_ioc.c
+rename to drivers/net/ethernet/brocade/bna/bfa_ioc.c
+diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+similarity index 100%
+rename from drivers/net/bna/bfa_ioc.h
+rename to drivers/net/ethernet/brocade/bna/bfa_ioc.h
+diff --git a/drivers/net/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+similarity index 100%
+rename from drivers/net/bna/bfa_ioc_ct.c
+rename to drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+diff --git a/drivers/net/bna/bfi.h b/drivers/net/ethernet/brocade/bna/bfi.h
+similarity index 100%
+rename from drivers/net/bna/bfi.h
+rename to drivers/net/ethernet/brocade/bna/bfi.h
+diff --git a/drivers/net/bna/bfi_cna.h b/drivers/net/ethernet/brocade/bna/bfi_cna.h
+similarity index 100%
+rename from drivers/net/bna/bfi_cna.h
+rename to drivers/net/ethernet/brocade/bna/bfi_cna.h
+diff --git a/drivers/net/bna/bfi_ctreg.h b/drivers/net/ethernet/brocade/bna/bfi_ctreg.h
+similarity index 100%
+rename from drivers/net/bna/bfi_ctreg.h
+rename to drivers/net/ethernet/brocade/bna/bfi_ctreg.h
+diff --git a/drivers/net/bna/bfi_ll.h b/drivers/net/ethernet/brocade/bna/bfi_ll.h
+similarity index 100%
+rename from drivers/net/bna/bfi_ll.h
+rename to drivers/net/ethernet/brocade/bna/bfi_ll.h
+diff --git a/drivers/net/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
+similarity index 100%
+rename from drivers/net/bna/bna.h
+rename to drivers/net/ethernet/brocade/bna/bna.h
+diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/ethernet/brocade/bna/bna_ctrl.c
+similarity index 100%
+rename from drivers/net/bna/bna_ctrl.c
+rename to drivers/net/ethernet/brocade/bna/bna_ctrl.c
+diff --git a/drivers/net/bna/bna_hw.h b/drivers/net/ethernet/brocade/bna/bna_hw.h
+similarity index 100%
+rename from drivers/net/bna/bna_hw.h
+rename to drivers/net/ethernet/brocade/bna/bna_hw.h
+diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/ethernet/brocade/bna/bna_txrx.c
+similarity index 100%
+rename from drivers/net/bna/bna_txrx.c
+rename to drivers/net/ethernet/brocade/bna/bna_txrx.c
+diff --git a/drivers/net/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+similarity index 100%
+rename from drivers/net/bna/bna_types.h
+rename to drivers/net/ethernet/brocade/bna/bna_types.h
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+similarity index 100%
+rename from drivers/net/bna/bnad.c
+rename to drivers/net/ethernet/brocade/bna/bnad.c
+diff --git a/drivers/net/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+similarity index 100%
+rename from drivers/net/bna/bnad.h
+rename to drivers/net/ethernet/brocade/bna/bnad.h
+diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+similarity index 100%
+rename from drivers/net/bna/bnad_ethtool.c
+rename to drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+diff --git a/drivers/net/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
+similarity index 100%
+rename from drivers/net/bna/cna.h
+rename to drivers/net/ethernet/brocade/bna/cna.h
+diff --git a/drivers/net/bna/cna_fwimg.c b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
+similarity index 100%
+rename from drivers/net/bna/cna_fwimg.c
+rename to drivers/net/ethernet/brocade/bna/cna_fwimg.c
 -- 
 1.7.6
 
