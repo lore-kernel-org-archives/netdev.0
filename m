@@ -1,165 +1,152 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 60/71] starfire: Move the Adaptec driver
-Date: Sat, 30 Jul 2011 20:27:19 -0700
-Message-ID: <1312082850-24914-61-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 51/71] ipg: Move the IC Plus driver
+Date: Sat, 30 Jul 2011 20:27:10 -0700
+Message-ID: <1312082850-24914-52-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Ion Badulescu <ionut@badula.org>
+	gospo@redhat.com, sassmann@redhat.com, <craig_rich@sundanceti.com>,
+	<sorbica@icplus.com.tw>, <jesse@icplus.com.tw>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:63626 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:2242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753416Ab1GaD2m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:28:42 -0400
+	id S1753368Ab1GaD2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:28:25 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Adaptec driver into drivers/net/ethernet/adaptec/ and make
-the necessary Kconfig and Makefile changes.
+Move the IC Plus driver into drivers/net/ethernet/icplus/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Ion Badulescu <ionut@badula.org>
+CC: <craig_rich@sundanceti.com>
+CC: <sorbica@icplus.com.tw>
+CC: <jesse@icplus.com.tw>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                   |    2 +-
- drivers/net/Kconfig                           |   14 -----------
- drivers/net/Makefile                          |    1 -
- drivers/net/ethernet/Kconfig                  |    1 +
- drivers/net/ethernet/Makefile                 |    1 +
- drivers/net/ethernet/adaptec/Kconfig          |   30 +++++++++++++++++++++++++
- drivers/net/ethernet/adaptec/Makefile         |    5 ++++
- drivers/net/{ => ethernet/adaptec}/starfire.c |    0
- 8 files changed, 38 insertions(+), 16 deletions(-)
- create mode 100644 drivers/net/ethernet/adaptec/Kconfig
- create mode 100644 drivers/net/ethernet/adaptec/Makefile
- rename drivers/net/{ => ethernet/adaptec}/starfire.c (100%)
+ MAINTAINERS                             |    2 +-
+ drivers/net/Kconfig                     |   10 ----------
+ drivers/net/Makefile                    |    1 -
+ drivers/net/ethernet/Kconfig            |    1 +
+ drivers/net/ethernet/Makefile           |    1 +
+ drivers/net/ethernet/icplus/Kconfig     |   13 +++++++++++++
+ drivers/net/ethernet/icplus/Makefile    |    5 +++++
+ drivers/net/{ => ethernet/icplus}/ipg.c |    0
+ drivers/net/{ => ethernet/icplus}/ipg.h |    0
+ 9 files changed, 21 insertions(+), 12 deletions(-)
+ create mode 100644 drivers/net/ethernet/icplus/Kconfig
+ create mode 100644 drivers/net/ethernet/icplus/Makefile
+ rename drivers/net/{ => ethernet/icplus}/ipg.c (100%)
+ rename drivers/net/{ => ethernet/icplus}/ipg.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 16873fb..4c82a79 100644
+index 940df7b..a91e8fb 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -6085,7 +6085,7 @@ F:	drivers/staging/
- STARFIRE/DURALAN NETWORK DRIVER
- M:	Ion Badulescu <ionut@badula.org>
- S:	Odd Fixes
--F:	drivers/net/starfire*
-+F:	drivers/net/ethernet/adaptec/starfire*
+@@ -3425,7 +3425,7 @@ M:	Francois Romieu <romieu@fr.zoreil.com>
+ M:	Sorbica Shieh <sorbica@icplus.com.tw>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/ipg.*
++F:	drivers/net/ethernet/icplus/ipg.*
  
- SUN3/3X
- M:	Sam Creasey <sammy@sammy.net>
+ IPATH DRIVER
+ M:	Mike Marciniszyn <infinipath@qlogic.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 139af5d..c72e76f 100644
+index f8181da..d33d965 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -345,20 +345,6 @@ config NET_PCI
- 	  will be asked for your specific card in the following questions. If
- 	  you are unsure, say Y.
+@@ -522,16 +522,6 @@ menuconfig NETDEV_1000
  
--config ADAPTEC_STARFIRE
--	tristate "Adaptec Starfire/DuraLAN support"
--	depends on NET_PCI && PCI
--	select CRC32
+ if NETDEV_1000
+ 
+-config IP1000
+-	tristate "IP1000 Gigabit Ethernet support"
+-	depends on PCI && EXPERIMENTAL
 -	select MII
--	help
--	  Say Y here if you have an Adaptec Starfire (or DuraLAN) PCI network
--	  adapter. The DuraLAN chip is used on the 64 bit PCI boards from
--	  Adaptec e.g. the ANA-6922A. The older 32 bit boards use the tulip
--	  driver.
+-	---help---
+-	  This driver supports IP1000 gigabit Ethernet cards.
 -
 -	  To compile this driver as a module, choose M here: the module
--	  will be called starfire.  This is recommended.
+-	  will be called ipg.  This is recommended.
 -
- config NET_POCKET
- 	bool "Pocket and portable adapters"
- 	depends on PARPORT
+ endif # NETDEV_1000
+ 
+ #
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 4d5af15..670e175 100644
+index 4c7af02..2fb039b 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -17,7 +17,6 @@ obj-$(CONFIG_PLIP) += plip.o
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
- 
- obj-$(CONFIG_SKFP) += skfp/
--obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_SH_ETH) += sh_eth.o
- 
+@@ -5,7 +5,6 @@
+ obj-$(CONFIG_MII) += mii.o
+ obj-$(CONFIG_MDIO) += mdio.o
+ obj-$(CONFIG_PHYLIB) += phy/
+-obj-$(CONFIG_IP1000) += ipg.o
+ obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_VMXNET3) += vmxnet3/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 1de8edc..8cd38c9 100644
+index 922f4d1..72d0f5e 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -12,6 +12,7 @@ menuconfig ETHERNET
- if ETHERNET
+@@ -31,6 +31,7 @@ source "drivers/net/ethernet/ibm/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/xscale/Kconfig"
++source "drivers/net/ethernet/icplus/Kconfig"
  
- source "drivers/net/ethernet/3com/Kconfig"
-+source "drivers/net/ethernet/adaptec/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- source "drivers/net/ethernet/atheros/Kconfig"
+ config JME
+ 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 3d5ed1f..50e040c 100644
+index fcecd5f..a8d8913 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -4,6 +4,7 @@
- 
- obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
- obj-$(CONFIG_NET_VENDOR_8390) += 8390/
-+obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
- obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
-diff --git a/drivers/net/ethernet/adaptec/Kconfig b/drivers/net/ethernet/adaptec/Kconfig
+@@ -23,6 +23,7 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
++obj-$(CONFIG_IP1000) += icplus/
+ obj-$(CONFIG_JME) += jme.o
+ obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+diff --git a/drivers/net/ethernet/icplus/Kconfig b/drivers/net/ethernet/icplus/Kconfig
 new file mode 100644
-index 0000000..6dd1b48
+index 0000000..e888222
 --- /dev/null
-+++ b/drivers/net/ethernet/adaptec/Kconfig
-@@ -0,0 +1,30 @@
++++ b/drivers/net/ethernet/icplus/Kconfig
+@@ -0,0 +1,13 @@
 +#
-+# Adaptec network device configuration
++# IC Plus device configuration
 +#
 +
-+config NET_VENDOR_ADAPTEC
-+	bool "Adaptec devices"
-+	depends on PCI
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Adaptec cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
-+
-+config ADAPTEC_STARFIRE
-+	tristate "Adaptec Starfire/DuraLAN support"
-+	depends on NET_VENDOR_ADAPTEC && PCI
-+	select CRC32
++config IP1000
++	tristate "IP1000 Gigabit Ethernet support"
++	depends on PCI && EXPERIMENTAL
 +	select MII
 +	---help---
-+	  Say Y here if you have an Adaptec Starfire (or DuraLAN) PCI network
-+	  adapter. The DuraLAN chip is used on the 64 bit PCI boards from
-+	  Adaptec e.g. the ANA-6922A. The older 32 bit boards use the tulip
-+	  driver.
++	  This driver supports IP1000 gigabit Ethernet cards.
 +
 +	  To compile this driver as a module, choose M here: the module
-+	  will be called starfire.  This is recommended.
-diff --git a/drivers/net/ethernet/adaptec/Makefile b/drivers/net/ethernet/adaptec/Makefile
++	  will be called ipg.  This is recommended.
+diff --git a/drivers/net/ethernet/icplus/Makefile b/drivers/net/ethernet/icplus/Makefile
 new file mode 100644
-index 0000000..6c07b75
+index 0000000..5bc87c1
 --- /dev/null
-+++ b/drivers/net/ethernet/adaptec/Makefile
++++ b/drivers/net/ethernet/icplus/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Adaptec network device drivers.
++# Makefile for the IC Plus device drivers
 +#
 +
-+obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
-diff --git a/drivers/net/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
++obj-$(CONFIG_IP1000) += ipg.o
+diff --git a/drivers/net/ipg.c b/drivers/net/ethernet/icplus/ipg.c
 similarity index 100%
-rename from drivers/net/starfire.c
-rename to drivers/net/ethernet/adaptec/starfire.c
+rename from drivers/net/ipg.c
+rename to drivers/net/ethernet/icplus/ipg.c
+diff --git a/drivers/net/ipg.h b/drivers/net/ethernet/icplus/ipg.h
+similarity index 100%
+rename from drivers/net/ipg.h
+rename to drivers/net/ethernet/icplus/ipg.h
 -- 
 1.7.6
 
