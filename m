@@ -1,737 +1,657 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/71] 3c*/acenic/typhoon: Move 3Com Ethernet drivers
-Date: Sat, 30 Jul 2011 20:26:21 -0700
-Message-ID: <1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/71] broadcom: Move the Broadcom drivers
+Date: Sat, 30 Jul 2011 20:26:24 -0700
+Message-ID: <1312082850-24914-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Philip Blundell <philb@gnu.org>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	David Dillow <dave@thedillows.org>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Alan Cox <alan@linux.intel.com>,
-	Donald Becker <becker@scyld.com>,
-	Craig Southeren <craigs@ineluki.apana.org.au>,
-	David Hinds <dahinds@users.sourceforge.net>
+	Eilon Greenstein <eilong@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Gary Zambrano <zambrano@broadcom.com>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:22213 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752751Ab1GaD1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2011 23:27:38 -0400
+	id S1752953Ab1GaD1k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2011 23:27:40 -0400
 In-Reply-To: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the 3Com drivers into drivers/net/ethernet/3com/ and the necessary
-Kconfig and Makefile changes.
+Moves the drivers for Broadcom devices into
+drivers/net/ethernet/broadcom/ and the necessary Kconfig and Makefile
+changes.
 
-CC: Philip Blundell <philb@gnu.org>
-CC: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-CC: David Dillow <dave@thedillows.org>
-CC: Jes Sorensen <jes@trained-monkey.org>
-CC: Alan Cox <alan@linux.intel.com>
-CC: Donald Becker <becker@scyld.com>
-CC: Craig Southeren <craigs@ineluki.apana.org.au>
-CC: David Hinds <dahinds@users.sourceforge.net>
+CC: Eilon Greenstein <eilong@broadcom.com>
+CC: Michael Chan <mchan@broadcom.com>
+CC: Matt Carlson <mcarlson@broadcom.com>
+CC: Gary Zambrano <zambrano@broadcom.com>
+CC: "Maciej W. Rozycki" <macro@linux-mips.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: David Dillow <dave@thedillows.org>
 ---
- MAINTAINERS                                      |    8 +-
- drivers/net/Kconfig                              |  177 -------------------
- drivers/net/Makefile                             |   11 +-
- drivers/net/{ => ethernet/3com}/3c501.c          |    0
- drivers/net/{ => ethernet/3com}/3c501.h          |    0
- drivers/net/{ => ethernet/3com}/3c505.c          |    0
- drivers/net/{ => ethernet/3com}/3c505.h          |    0
- drivers/net/{ => ethernet/3com}/3c507.c          |    0
- drivers/net/{ => ethernet/3com}/3c509.c          |    0
- drivers/net/{ => ethernet/3com}/3c515.c          |    0
- drivers/net/{ => ethernet/3com}/3c523.c          |    0
- drivers/net/{ => ethernet/3com}/3c523.h          |    0
- drivers/net/{ => ethernet/3com}/3c527.c          |    0
- drivers/net/{ => ethernet/3com}/3c527.h          |    0
- drivers/net/{pcmcia => ethernet/3com}/3c574_cs.c |    0
- drivers/net/{pcmcia => ethernet/3com}/3c589_cs.c |    0
- drivers/net/{ => ethernet/3com}/3c59x.c          |    0
- drivers/net/ethernet/3com/Kconfig                |  200 ++++++++++++++++++++++
- drivers/net/ethernet/3com/Makefile               |   16 ++
- drivers/net/{ => ethernet/3com}/acenic.c         |    0
- drivers/net/{ => ethernet/3com}/acenic.h         |    0
- drivers/net/{ => ethernet/3com}/typhoon.c        |    0
- drivers/net/{ => ethernet/3com}/typhoon.h        |    0
- drivers/net/ethernet/Kconfig                     |    2 +
- drivers/net/ethernet/Makefile                    |    2 +
- drivers/net/pcmcia/Kconfig                       |   18 --
- drivers/net/pcmcia/Makefile                      |    2 -
- 27 files changed, 225 insertions(+), 211 deletions(-)
- rename drivers/net/{ => ethernet/3com}/3c501.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c501.h (100%)
- rename drivers/net/{ => ethernet/3com}/3c505.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c505.h (100%)
- rename drivers/net/{ => ethernet/3com}/3c507.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c509.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c515.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c523.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c523.h (100%)
- rename drivers/net/{ => ethernet/3com}/3c527.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c527.h (100%)
- rename drivers/net/{pcmcia => ethernet/3com}/3c574_cs.c (100%)
- rename drivers/net/{pcmcia => ethernet/3com}/3c589_cs.c (100%)
- rename drivers/net/{ => ethernet/3com}/3c59x.c (100%)
- create mode 100644 drivers/net/ethernet/3com/Kconfig
- create mode 100644 drivers/net/ethernet/3com/Makefile
- rename drivers/net/{ => ethernet/3com}/acenic.c (100%)
- rename drivers/net/{ => ethernet/3com}/acenic.h (100%)
- rename drivers/net/{ => ethernet/3com}/typhoon.c (100%)
- rename drivers/net/{ => ethernet/3com}/typhoon.h (100%)
+ MAINTAINERS                                        |   10 +-
+ drivers/net/Kconfig                                |   99 -----------------
+ drivers/net/Makefile                               |    7 --
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/broadcom/Kconfig              |  114 ++++++++++++++++++++
+ drivers/net/ethernet/broadcom/Makefile             |   11 ++
+ drivers/net/{ => ethernet/broadcom}/b44.c          |    0
+ drivers/net/{ => ethernet/broadcom}/b44.h          |    0
+ drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.c |    0
+ drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.h |    0
+ drivers/net/{ => ethernet/broadcom}/bnx2.c         |    0
+ drivers/net/{ => ethernet/broadcom}/bnx2.h         |    0
+ drivers/net/{ => ethernet/broadcom}/bnx2_fw.h      |    0
+ drivers/net/{ => ethernet/broadcom}/bnx2x/Makefile |    0
+ drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x.h  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.c  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.h  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.c  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.h  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_dump.h |    0
+ .../{ => ethernet/broadcom}/bnx2x/bnx2x_ethtool.c  |    0
+ .../{ => ethernet/broadcom}/bnx2x/bnx2x_fw_defs.h  |    0
+ .../broadcom}/bnx2x/bnx2x_fw_file_hdr.h            |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_hsi.h  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_init.h |    0
+ .../{ => ethernet/broadcom}/bnx2x/bnx2x_init_ops.h |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.c |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.h |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_main.c |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_reg.h  |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.c   |    0
+ .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.h   |    0
+ .../{ => ethernet/broadcom}/bnx2x/bnx2x_stats.c    |    0
+ .../{ => ethernet/broadcom}/bnx2x/bnx2x_stats.h    |    0
+ drivers/net/{ => ethernet/broadcom}/cnic.c         |    4 +-
+ drivers/net/{ => ethernet/broadcom}/cnic.h         |    0
+ drivers/net/{ => ethernet/broadcom}/cnic_defs.h    |    0
+ drivers/net/{ => ethernet/broadcom}/cnic_if.h      |    0
+ drivers/net/{ => ethernet/broadcom}/sb1250-mac.c   |    0
+ drivers/net/{ => ethernet/broadcom}/tg3.c          |    0
+ drivers/net/{ => ethernet/broadcom}/tg3.h          |    0
+ drivers/scsi/bnx2fc/bnx2fc.h                       |    2 +-
+ drivers/scsi/bnx2i/bnx2i.h                         |    2 +-
+ 44 files changed, 136 insertions(+), 115 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/Kconfig
+ create mode 100644 drivers/net/ethernet/broadcom/Makefile
+ rename drivers/net/{ => ethernet/broadcom}/b44.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/b44.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2_fw.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/Makefile (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_dump.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_fw_defs.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_fw_file_hdr.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_hsi.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_init.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_init_ops.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_main.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_reg.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_stats.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_stats.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/cnic.c (99%)
+ rename drivers/net/{ => ethernet/broadcom}/cnic.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/cnic_defs.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/cnic_if.h (100%)
+ rename drivers/net/{ => ethernet/broadcom}/sb1250-mac.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/tg3.c (100%)
+ rename drivers/net/{ => ethernet/broadcom}/tg3.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 91e5cc7..f77c3ac 100644
+index e7fea16..db0a832 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -117,20 +117,20 @@ Maintainers List (try to look for most precise areas first)
- M:	Philip Blundell <philb@gnu.org>
+@@ -1520,27 +1520,27 @@ BROADCOM B44 10/100 ETHERNET DRIVER
+ M:	Gary Zambrano <zambrano@broadcom.com>
  L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/3c505*
-+F:	drivers/net/ethernet/3com/3c505*
+ S:	Supported
+-F:	drivers/net/b44.*
++F:	drivers/net/ethernet/broadcom/b44.*
  
- 3C59X NETWORK DRIVER
- M:	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+ BROADCOM BNX2 GIGABIT ETHERNET DRIVER
+ M:	Michael Chan <mchan@broadcom.com>
  L:	netdev@vger.kernel.org
- S:	Maintained
- F:	Documentation/networking/vortex.txt
--F:	drivers/net/3c59x.c
-+F:	drivers/net/ethernet/3com/3c59x.c
+ S:	Supported
+-F:	drivers/net/bnx2.*
+-F:	drivers/net/bnx2_*
++F:	drivers/net/ethernet/broadcom/bnx2.*
++F:	drivers/net/ethernet/broadcom/bnx2_*
  
- 3CR990 NETWORK DRIVER
- M:	David Dillow <dave@thedillows.org>
+ BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
+ M:	Eilon Greenstein <eilong@broadcom.com>
  L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/typhoon*
-+F:	drivers/net/ethernet/3com/typhoon*
+ S:	Supported
+-F:	drivers/net/bnx2x/
++F:	drivers/net/ethernet/broadcom/bnx2x/
  
- 3WARE SAS/SATA-RAID SCSI DRIVERS (3W-XXXX, 3W-9XXX, 3W-SAS)
- M:	Adam Radford <linuxraid@lsi.com>
-@@ -214,7 +214,7 @@ ACENIC DRIVER
- M:	Jes Sorensen <jes@trained-monkey.org>
- L:	linux-acenic@sunsite.dk
- S:	Maintained
--F:	drivers/net/acenic*
-+F:	drivers/net/ethernet/3com/acenic*
+ BROADCOM TG3 GIGABIT ETHERNET DRIVER
+ M:	Matt Carlson <mcarlson@broadcom.com>
+ M:	Michael Chan <mchan@broadcom.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+-F:	drivers/net/tg3.*
++F:	drivers/net/ethernet/broadcom/tg3.*
  
- ACER ASPIRE ONE TEMPERATURE AND FAN DRIVER
- M:	Peter Feuerer <peter@piie.net>
+ BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER
+ M:	Brett Rudley <brudley@broadcom.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 5b95796..17ef5c2 100644
+index 077085d..d08a05f 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -616,156 +616,6 @@ config SUNVNET
- 	help
- 	  Support for virtual network devices under Sun Logical Domains.
+@@ -940,38 +940,6 @@ config APRICOT
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called apricot.
  
--config NET_VENDOR_3COM
--	bool "3COM cards"
--	depends on ISA || EISA || MCA || PCI
--	help
--	  If you have a network (Ethernet) card belonging to this class, say Y
--	  and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  Note that the answer to this question doesn't directly affect the
--	  kernel: saying N will just cause the configurator to skip all
--	  the questions about 3COM cards. If you say Y, you will be asked for
--	  your specific card in the following questions.
--
--config EL1
--	tristate "3c501 \"EtherLink\" support"
--	depends on NET_VENDOR_3COM && ISA
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.  Also, consider buying a
--	  new card, since the 3c501 is slow, broken, and obsolete: you will
--	  have problems.  Some people suggest to ping ("man ping") a nearby
--	  machine every minute ("man cron") when using this card.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c501.
--
--config EL2
--	tristate "3c503 \"EtherLink II\" support"
--	depends on NET_VENDOR_3COM && ISA
--	select CRC32
--	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c503.
--
--config ELPLUS
--	tristate "3c505 \"EtherLink Plus\" support"
--	depends on NET_VENDOR_3COM && ISA && ISA_DMA_API
--	---help---
--	  Information about this network (Ethernet) card can be found in
--	  <file:Documentation/networking/3c505.txt>.  If you have a card of
--	  this type, say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c505.
--
--config EL16
--	tristate "3c507 \"EtherLink 16\" support (EXPERIMENTAL)"
--	depends on NET_VENDOR_3COM && ISA && EXPERIMENTAL
--	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c507.
--
--config EL3
--	tristate "3c509/3c529 (MCA)/3c579 \"EtherLink III\" support"
--	depends on NET_VENDOR_3COM && (ISA || EISA || MCA)
--	---help---
--	  If you have a network (Ethernet) card belonging to the 3Com
--	  EtherLinkIII series, say Y and read the Ethernet-HOWTO, available
--	  from <http://www.tldp.org/docs.html#howto>.
--
--	  If your card is not working you may need to use the DOS
--	  setup disk to disable Plug & Play mode, and to select the default
--	  media type.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c509.
--
--config 3C515
--	tristate "3c515 ISA \"Fast EtherLink\""
--	depends on NET_VENDOR_3COM && (ISA || EISA) && ISA_DMA_API
--	help
--	  If you have a 3Com ISA EtherLink XL "Corkscrew" 3c515 Fast Ethernet
--	  network card, say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c515.
--
--config ELMC
--	tristate "3c523 \"EtherLink/MC\" support"
--	depends on NET_VENDOR_3COM && MCA_LEGACY
--	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c523.
--
--config ELMC_II
--	tristate "3c527 \"EtherLink/MC 32\" support (EXPERIMENTAL)"
--	depends on NET_VENDOR_3COM && MCA && MCA_LEGACY
--	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c527.
--
--config VORTEX
--	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
--	depends on NET_VENDOR_3COM && (PCI || EISA)
+-config B44
+-	tristate "Broadcom 440x/47xx ethernet support"
+-	depends on SSB_POSSIBLE && HAS_DMA
+-	select SSB
 -	select MII
--	---help---
--	  This option enables driver support for a large number of 10Mbps and
--	  10/100Mbps EISA, PCI and PCMCIA 3Com network cards:
--
--	  "Vortex"    (Fast EtherLink 3c590/3c592/3c595/3c597) EISA and PCI
--	  "Boomerang" (EtherLink XL 3c900 or 3c905)            PCI
--	  "Cyclone"   (3c540/3c900/3c905/3c980/3c575/3c656)    PCI and Cardbus
--	  "Tornado"   (3c905)                                  PCI
--	  "Hurricane" (3c555/3cSOHO)                           PCI
--
--	  If you have such a card, say Y and read the Ethernet-HOWTO,
--	  available from <http://www.tldp.org/docs.html#howto>. More
--	  specific information is in
--	  <file:Documentation/networking/vortex.txt> and in the comments at
--	  the beginning of <file:drivers/net/3c59x.c>.
--
--	  To compile this support as a module, choose M here.
--
--config TYPHOON
--	tristate "3cr990 series \"Typhoon\" support"
--	depends on NET_VENDOR_3COM && PCI
--	select CRC32
--	---help---
--	  This option enables driver support for the 3cr990 series of cards:
--
--	  3C990-TX, 3CR990-TX-95, 3CR990-TX-97, 3CR990-FX-95, 3CR990-FX-97,
--	  3CR990SVR, 3CR990SVR95, 3CR990SVR97, 3CR990-FX-95 Server,
--	  3CR990-FX-97 Server, 3C990B-TX-M, 3C990BSVR
--
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
+-	help
+-	  If you have a network (Ethernet) controller of this type, say Y
+-	  or M and read the Ethernet-HOWTO, available from
 -	  <http://www.tldp.org/docs.html#howto>.
 -
 -	  To compile this driver as a module, choose M here. The module
--	  will be called typhoon.
+-	  will be called b44.
 -
- config LANCE
- 	tristate "AMD LANCE and PCnet (AT1500 and NE2100) support"
- 	depends on ISA && ISA_DMA_API
-@@ -2046,33 +1896,6 @@ menuconfig NETDEV_1000
+-# Auto-select SSB PCI-HOST support, if possible
+-config B44_PCI_AUTOSELECT
+-	bool
+-	depends on B44 && SSB_PCIHOST_POSSIBLE
+-	select SSB_PCIHOST
+-	default y
+-
+-# Auto-select SSB PCICORE driver, if possible
+-config B44_PCICORE_AUTOSELECT
+-	bool
+-	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
+-	select SSB_DRIVER_PCICORE
+-	default y
+-
+-config B44_PCI
+-	bool
+-	depends on B44_PCI_AUTOSELECT && B44_PCICORE_AUTOSELECT
+-	default y
+-
+ config FORCEDETH
+ 	tristate "nForce Ethernet support"
+ 	depends on NET_PCI && PCI
+@@ -1408,15 +1376,6 @@ config XILINX_EMACLITE
+ 	help
+ 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
  
- if NETDEV_1000
- 
--config ACENIC
--	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
--	depends on PCI
--	---help---
--	  Say Y here if you have an Alteon AceNIC, 3Com 3C985(B), NetGear
--	  GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit Ethernet
--	  adapter. The driver allows for using the Jumbo Frame option (9000
--	  bytes/frame) however it requires that your switches can handle this
--	  as well. To enable Jumbo Frames, add `mtu 9000' to your ifconfig
--	  line.
--
--	  To compile this driver as a module, choose M here: the
--	  module will be called acenic.
--
--config ACENIC_OMIT_TIGON_I
--	bool "Omit support for old Tigon I based AceNICs"
--	depends on ACENIC
+-config BCM63XX_ENET
+-	tristate "Broadcom 63xx internal mac support"
+-	depends on BCM63XX
+-	select MII
+-	select PHYLIB
 -	help
--	  Say Y here if you only have Tigon II based AceNICs and want to leave
--	  out support for the older Tigon I based cards which are no longer
--	  being sold (ie. the original Alteon AceNIC and 3Com 3C985 (non B
--	  version)).  This will reduce the size of the driver object by
--	  app. 100KB.  If you are not sure whether your card is a Tigon I or a
--	  Tigon II, say N here.
+-	  This driver supports the ethernet MACs in the Broadcom 63xx
+-	  MIPS chipset family (BCM63XX).
 -
--	  The safe and default value for this is N.
+ config FTMAC100
+ 	tristate "Faraday FTMAC100 10/100 Ethernet support"
+ 	depends on ARM
+@@ -1626,19 +1585,6 @@ config R8169
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called r8169.  This is recommended.
+ 
+-config SB1250_MAC
+-	tristate "SB1250 Gigabit Ethernet support"
+-	depends on SIBYTE_SB1xxx_SOC
+-	select PHYLIB
+-	---help---
+-	  This driver supports Gigabit Ethernet interfaces based on the
+-	  Broadcom SiByte family of System-On-a-Chip parts.  They include
+-	  the BCM1120, BCM1125, BCM1125H, BCM1250, BCM1255, BCM1280, BCM1455
+-	  and BCM1480 chips.
 -
- config DL2K
- 	tristate "DL2000/TC902x-based Gigabit Ethernet support"
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called sb1250-mac.
+-
+ config SIS190
+ 	tristate "SiS190/SiS191 gigabit ethernet support"
+ 	depends on PCI
+@@ -1732,39 +1678,6 @@ config VIA_VELOCITY
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called via-velocity.
+ 
+-config TIGON3
+-	tristate "Broadcom Tigon3 support"
+-	depends on PCI
+-	select PHYLIB
+-	help
+-	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called tg3.  This is recommended.
+-
+-config BNX2
+-	tristate "Broadcom NetXtremeII support"
+-	depends on PCI
+-	select CRC32
+-	select FW_LOADER
+-	help
+-	  This driver supports Broadcom NetXtremeII gigabit Ethernet cards.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called bnx2.  This is recommended.
+-
+-config CNIC
+-	tristate "Broadcom CNIC support"
+-	depends on PCI
+-	select BNX2
+-	select UIO
+-	help
+-	  This driver supports offload features of Broadcom NetXtremeII
+-	  gigabit Ethernet cards.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called cnic.  This is recommended.
+-
+ config SPIDER_NET
+ 	tristate "Spider Gigabit Ethernet driver"
+ 	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
+@@ -2270,18 +2183,6 @@ config TEHUTI
+ 	help
+ 	  Tehuti Networks 10G Ethernet NIC
+ 
+-config BNX2X
+-	tristate "Broadcom NetXtremeII 10Gb support"
+-	depends on PCI
+-	select FW_LOADER
+-	select ZLIB_INFLATE
+-	select LIBCRC32C
+-	select MDIO
+-	help
+-	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called bnx2x.  This is recommended.
+-
+ config QLCNIC
+ 	tristate "QLOGIC QLCNIC 1/10Gb Converged Ethernet NIC Support"
  	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 670b514..c8223a1 100644
+index 9861f6f..491127f 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -66,8 +66,6 @@ obj-$(CONFIG_SUNVNET) += sunvnet.o
- obj-$(CONFIG_MACE) += mace.o
- obj-$(CONFIG_BMAC) += bmac.o
- 
--obj-$(CONFIG_VORTEX) += 3c59x.o
--obj-$(CONFIG_TYPHOON) += typhoon.o
- obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
- obj-$(CONFIG_PCNET32) += pcnet32.o
- obj-$(CONFIG_E100) += e100.o
-@@ -78,7 +76,6 @@ obj-$(CONFIG_SIS190) += sis190.o
- obj-$(CONFIG_SIS900) += sis900.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
--obj-$(CONFIG_ACENIC) += acenic.o
- obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
+@@ -77,10 +77,6 @@ obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
  obj-$(CONFIG_NATSEMI) += natsemi.o
  obj-$(CONFIG_NS83820) += ns83820.o
-@@ -187,13 +184,7 @@ obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_SGISEEQ) += sgiseeq.o
- obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
- obj-$(CONFIG_AT1700) += at1700.o
--obj-$(CONFIG_EL1) += 3c501.o
--obj-$(CONFIG_EL16) += 3c507.o
--obj-$(CONFIG_ELMC) += 3c523.o
- obj-$(CONFIG_IBMLANA) += ibmlana.o
--obj-$(CONFIG_ELMC_II) += 3c527.o
--obj-$(CONFIG_EL3) += 3c509.o
--obj-$(CONFIG_3C515) += 3c515.o
- obj-$(CONFIG_EEXPRESS) += eexpress.o
- obj-$(CONFIG_EEXPRESS_PRO) += eepro.o
- obj-$(CONFIG_8139CP) += 8139cp.o
-@@ -206,7 +197,6 @@ obj-$(CONFIG_ATP) += atp.o
- obj-$(CONFIG_NI5010) += ni5010.o
- obj-$(CONFIG_NI52) += ni52.o
- obj-$(CONFIG_NI65) += ni65.o
--obj-$(CONFIG_ELPLUS) += 3c505.o
- obj-$(CONFIG_AC3200) += ac3200.o 8390.o
- obj-$(CONFIG_APRICOT) += 82596.o
- obj-$(CONFIG_LASI_82596) += lasi_82596.o
-@@ -269,6 +259,7 @@ obj-$(CONFIG_S6GMAC) += s6gmac.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+-obj-$(CONFIG_TIGON3) += tg3.o
+-obj-$(CONFIG_BNX2) += bnx2.o
+-obj-$(CONFIG_CNIC) += cnic.o
+-obj-$(CONFIG_BNX2X) += bnx2x/
+ spidernet-y += spider_net.o spider_net_ethtool.o
+ obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
+ obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+@@ -117,10 +113,7 @@ obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
+ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+ 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+ endif
+-obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
+-obj-$(CONFIG_B44) += b44.o
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
+-obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
+ obj-$(CONFIG_FTGMAC100) += ftgmac100.o
+ obj-$(CONFIG_FTMAC100) += ftmac100.o
  
- obj-$(CONFIG_ARM) += arm/
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
-+obj-$(CONFIG_ETHERNET) += ethernet/
- obj-$(CONFIG_TR) += tokenring/
- obj-$(CONFIG_WAN) += wan/
- obj-$(CONFIG_ARCNET) += arcnet/
-diff --git a/drivers/net/3c501.c b/drivers/net/ethernet/3com/3c501.c
-similarity index 100%
-rename from drivers/net/3c501.c
-rename to drivers/net/ethernet/3com/3c501.c
-diff --git a/drivers/net/3c501.h b/drivers/net/ethernet/3com/3c501.h
-similarity index 100%
-rename from drivers/net/3c501.h
-rename to drivers/net/ethernet/3com/3c501.h
-diff --git a/drivers/net/3c505.c b/drivers/net/ethernet/3com/3c505.c
-similarity index 100%
-rename from drivers/net/3c505.c
-rename to drivers/net/ethernet/3com/3c505.c
-diff --git a/drivers/net/3c505.h b/drivers/net/ethernet/3com/3c505.h
-similarity index 100%
-rename from drivers/net/3c505.h
-rename to drivers/net/ethernet/3com/3c505.h
-diff --git a/drivers/net/3c507.c b/drivers/net/ethernet/3com/3c507.c
-similarity index 100%
-rename from drivers/net/3c507.c
-rename to drivers/net/ethernet/3com/3c507.c
-diff --git a/drivers/net/3c509.c b/drivers/net/ethernet/3com/3c509.c
-similarity index 100%
-rename from drivers/net/3c509.c
-rename to drivers/net/ethernet/3com/3c509.c
-diff --git a/drivers/net/3c515.c b/drivers/net/ethernet/3com/3c515.c
-similarity index 100%
-rename from drivers/net/3c515.c
-rename to drivers/net/ethernet/3com/3c515.c
-diff --git a/drivers/net/3c523.c b/drivers/net/ethernet/3com/3c523.c
-similarity index 100%
-rename from drivers/net/3c523.c
-rename to drivers/net/ethernet/3com/3c523.c
-diff --git a/drivers/net/3c523.h b/drivers/net/ethernet/3com/3c523.h
-similarity index 100%
-rename from drivers/net/3c523.h
-rename to drivers/net/ethernet/3com/3c523.h
-diff --git a/drivers/net/3c527.c b/drivers/net/ethernet/3com/3c527.c
-similarity index 100%
-rename from drivers/net/3c527.c
-rename to drivers/net/ethernet/3com/3c527.c
-diff --git a/drivers/net/3c527.h b/drivers/net/ethernet/3com/3c527.h
-similarity index 100%
-rename from drivers/net/3c527.h
-rename to drivers/net/ethernet/3com/3c527.h
-diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/ethernet/3com/3c574_cs.c
-similarity index 100%
-rename from drivers/net/pcmcia/3c574_cs.c
-rename to drivers/net/ethernet/3com/3c574_cs.c
-diff --git a/drivers/net/pcmcia/3c589_cs.c b/drivers/net/ethernet/3com/3c589_cs.c
-similarity index 100%
-rename from drivers/net/pcmcia/3c589_cs.c
-rename to drivers/net/ethernet/3com/3c589_cs.c
-diff --git a/drivers/net/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-similarity index 100%
-rename from drivers/net/3c59x.c
-rename to drivers/net/ethernet/3com/3c59x.c
-diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
-new file mode 100644
-index 0000000..9b343d9
---- /dev/null
-+++ b/drivers/net/ethernet/3com/Kconfig
-@@ -0,0 +1,200 @@
-+#
-+# 3Com Ethernet device configuration
-+#
-+
-+config NET_VENDOR_3COM
-+	bool "3Com devices"
-+	depends on ISA || EISA || MCA || PCI || PCMCIA
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about 3COM cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
-+
-+config EL1
-+	tristate "3c501 \"EtherLink\" support"
-+	depends on NET_VENDOR_3COM && ISA
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.  Also, consider buying a
-+	  new card, since the 3c501 is slow, broken, and obsolete: you will
-+	  have problems.  Some people suggest to ping ("man ping") a nearby
-+	  machine every minute ("man cron") when using this card.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c501.
-+
-+config EL2
-+	tristate "3c503 \"EtherLink II\" support"
-+	depends on NET_VENDOR_3COM && ISA
-+	select CRC32
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c503.
-+
-+config ELPLUS
-+	tristate "3c505 \"EtherLink Plus\" support"
-+	depends on NET_VENDOR_3COM && ISA && ISA_DMA_API
-+	---help---
-+	  Information about this network (Ethernet) card can be found in
-+	  <file:Documentation/networking/3c505.txt>.  If you have a card of
-+	  this type, say Y and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c505.
-+
-+config EL16
-+	tristate "3c507 \"EtherLink 16\" support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_3COM && ISA && EXPERIMENTAL
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c507.
-+
-+config EL3
-+	tristate "3c509/3c529 (MCA)/3c579 \"EtherLink III\" support"
-+	depends on NET_VENDOR_3COM && (ISA || EISA || MCA)
-+	---help---
-+	  If you have a network (Ethernet) card belonging to the 3Com
-+	  EtherLinkIII series, say Y and read the Ethernet-HOWTO, available
-+	  from <http://www.tldp.org/docs.html#howto>.
-+
-+	  If your card is not working you may need to use the DOS
-+	  setup disk to disable Plug & Play mode, and to select the default
-+	  media type.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c509.
-+
-+config 3C515
-+	tristate "3c515 ISA \"Fast EtherLink\""
-+	depends on NET_VENDOR_3COM && (ISA || EISA) && ISA_DMA_API
-+	---help---
-+	  If you have a 3Com ISA EtherLink XL "Corkscrew" 3c515 Fast Ethernet
-+	  network card, say Y and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c515.
-+
-+config ELMC
-+	tristate "3c523 \"EtherLink/MC\" support"
-+	depends on NET_VENDOR_3COM && MCA_LEGACY
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c523.
-+
-+config ELMC_II
-+	tristate "3c527 \"EtherLink/MC 32\" support (EXPERIMENTAL)"
-+	depends on NET_VENDOR_3COM && MCA && MCA_LEGACY
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c527.
-+
-+config PCMCIA_3C574
-+	tristate "3Com 3c574 PCMCIA support"
-+	depends on NET_VENDOR_3COM && PCMCIA
-+	---help---
-+	  Say Y here if you intend to attach a 3Com 3c574 or compatible PCMCIA
-+	  (PC-card) Fast Ethernet card to your computer.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called 3c574_cs.  If unsure, say N.
-+
-+config PCMCIA_3C589
-+	tristate "3Com 3c589 PCMCIA support"
-+	depends on NET_VENDOR_3COM && PCMCIA
-+	---help---
-+	  Say Y here if you intend to attach a 3Com 3c589 or compatible PCMCIA
-+	  (PC-card) Ethernet card to your computer.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called 3c589_cs.  If unsure, say N.
-+
-+config VORTEX
-+	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
-+	depends on NET_VENDOR_3COM && (PCI || EISA)
-+	select MII
-+	---help---
-+	  This option enables driver support for a large number of 10Mbps and
-+	  10/100Mbps EISA, PCI and PCMCIA 3Com network cards:
-+
-+	  "Vortex"    (Fast EtherLink 3c590/3c592/3c595/3c597) EISA and PCI
-+	  "Boomerang" (EtherLink XL 3c900 or 3c905)            PCI
-+	  "Cyclone"   (3c540/3c900/3c905/3c980/3c575/3c656)    PCI and Cardbus
-+	  "Tornado"   (3c905)                                  PCI
-+	  "Hurricane" (3c555/3cSOHO)                           PCI
-+
-+	  If you have such a card, say Y and read the Ethernet-HOWTO,
-+	  available from <http://www.tldp.org/docs.html#howto>. More
-+	  specific information is in
-+	  <file:Documentation/networking/vortex.txt> and in the comments at
-+	  the beginning of <file:drivers/net/3c59x.c>.
-+
-+	  To compile this support as a module, choose M here.
-+
-+config TYPHOON
-+	tristate "3cr990 series \"Typhoon\" support"
-+	depends on NET_VENDOR_3COM && PCI
-+	select CRC32
-+	---help---
-+	  This option enables driver support for the 3cr990 series of cards:
-+
-+	  3C990-TX, 3CR990-TX-95, 3CR990-TX-97, 3CR990-FX-95, 3CR990-FX-97,
-+	  3CR990SVR, 3CR990SVR95, 3CR990SVR97, 3CR990-FX-95 Server,
-+	  3CR990-FX-97 Server, 3C990B-TX-M, 3C990BSVR
-+
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called typhoon.
-+
-+config ACENIC
-+	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
-+	depends on NET_VENDOR_3COM && PCI
-+	---help---
-+	  Say Y here if you have an Alteon AceNIC, 3Com 3C985(B), NetGear
-+	  GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit Ethernet
-+	  adapter. The driver allows for using the Jumbo Frame option (9000
-+	  bytes/frame) however it requires that your switches can handle this
-+	  as well. To enable Jumbo Frames, add `mtu 9000' to your ifconfig
-+	  line.
-+
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called acenic.
-+
-+config ACENIC_OMIT_TIGON_I
-+	bool "Omit support for old Tigon I based AceNICs"
-+	depends on ACENIC
-+	---help---
-+	  Say Y here if you only have Tigon II based AceNICs and want to leave
-+	  out support for the older Tigon I based cards which are no longer
-+	  being sold (ie. the original Alteon AceNIC and 3Com 3C985 (non B
-+	  version)).  This will reduce the size of the driver object by
-+	  app. 100KB.  If you are not sure whether your card is a Tigon I or a
-+	  Tigon II, say N here.
-+
-+	  The safe and default value for this is N.
-diff --git a/drivers/net/ethernet/3com/Makefile b/drivers/net/ethernet/3com/Makefile
-new file mode 100644
-index 0000000..ba27c7e
---- /dev/null
-+++ b/drivers/net/ethernet/3com/Makefile
-@@ -0,0 +1,16 @@
-+#
-+# Makefile for the 3Com Ethernet device drivers
-+#
-+
-+obj-$(CONFIG_EL1) += 3c501.o
-+obj-$(CONFIG_ELPLUS) += 3c505.o
-+obj-$(CONFIG_EL16) += 3c507.o
-+obj-$(CONFIG_EL3) += 3c509.o
-+obj-$(CONFIG_3C515) += 3c515.o
-+obj-$(CONFIG_ELMC) += 3c523.o
-+obj-$(CONFIG_ELMC_II) += 3c527.o
-+obj-$(CONFIG_PCMCIA_3C589) += 3c589_cs.o
-+obj-$(CONFIG_PCMCIA_3C574) += 3c574_cs.o
-+obj-$(CONFIG_VORTEX) += 3c59x.o
-+obj-$(CONFIG_ACENIC) += acenic.o
-+obj-$(CONFIG_TYPHOON) += typhoon.o
-diff --git a/drivers/net/acenic.c b/drivers/net/ethernet/3com/acenic.c
-similarity index 100%
-rename from drivers/net/acenic.c
-rename to drivers/net/ethernet/3com/acenic.c
-diff --git a/drivers/net/acenic.h b/drivers/net/ethernet/3com/acenic.h
-similarity index 100%
-rename from drivers/net/acenic.h
-rename to drivers/net/ethernet/3com/acenic.h
-diff --git a/drivers/net/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
-similarity index 100%
-rename from drivers/net/typhoon.c
-rename to drivers/net/ethernet/3com/typhoon.c
-diff --git a/drivers/net/typhoon.h b/drivers/net/ethernet/3com/typhoon.h
-similarity index 100%
-rename from drivers/net/typhoon.h
-rename to drivers/net/ethernet/3com/typhoon.h
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index d59e4f2..18193ec 100644
+index 56ed5ec..772fb49 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -11,4 +11,6 @@ menuconfig ETHERNET
+@@ -14,5 +14,6 @@ if ETHERNET
+ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
++source "drivers/net/ethernet/broadcom/Kconfig"
  
- if ETHERNET
- 
-+source "drivers/net/ethernet/3com/Kconfig"
-+
  endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 0d21dda..07766ba 100644
+index fc82588..3ef49a2 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -1,3 +1,5 @@
- #
- # Makefile for the Linux network Ethernet device drivers.
- #
+@@ -5,3 +5,4 @@
+ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
++obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+new file mode 100644
+index 0000000..55fd2cf
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -0,0 +1,114 @@
++#
++# Broadcom device configuration
++#
 +
-+obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
-diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
-index 9b8f793..b67c5ed 100644
---- a/drivers/net/pcmcia/Kconfig
-+++ b/drivers/net/pcmcia/Kconfig
-@@ -21,24 +21,6 @@ menuconfig NET_PCMCIA
++config NET_VENDOR_BROADCOM
++	bool "Broadcom devices"
++	depends on (SSB_POSSIBLE && HAS_DMA) || PCI || BCM63XX || SIBYTE_SB1xxx_SOC
++	---help---
++	  If you have a network (Ethernet) chipset belonging to this class,
++	  say Y.
++
++	  Note that the answer to this question does not directly affect
++	  the kernel: saying N will just case the configurator to skip all
++	  the questions regarding AMD chipsets. If you say Y, you will be asked
++	  for your specific chipset/driver in the following questions.
++
++config B44
++	tristate "Broadcom 440x/47xx ethernet support"
++	depends on NET_VENDOR_BROADCOM && SSB_POSSIBLE && HAS_DMA
++	select SSB
++	select MII
++	---help---
++	  If you have a network (Ethernet) controller of this type, say Y
++	  or M and read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called b44.
++
++# Auto-select SSB PCI-HOST support, if possible
++config B44_PCI_AUTOSELECT
++	bool
++	depends on B44 && SSB_PCIHOST_POSSIBLE
++	select SSB_PCIHOST
++	default y
++
++# Auto-select SSB PCICORE driver, if possible
++config B44_PCICORE_AUTOSELECT
++	bool
++	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
++	select SSB_DRIVER_PCICORE
++	default y
++
++config B44_PCI
++	bool
++	depends on B44_PCI_AUTOSELECT && B44_PCICORE_AUTOSELECT
++	default y
++
++config BCM63XX_ENET
++	tristate "Broadcom 63xx internal mac support"
++	depends on NET_VENDOR_BROADCOM && BCM63XX
++	select MII
++	select PHYLIB
++	help
++	  This driver supports the ethernet MACs in the Broadcom 63xx
++	  MIPS chipset family (BCM63XX).
++
++config BNX2
++	tristate "Broadcom NetXtremeII support"
++	depends on NET_VENDOR_BROADCOM && PCI
++	select CRC32
++	select FW_LOADER
++	---help---
++	  This driver supports Broadcom NetXtremeII gigabit Ethernet cards.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called bnx2.  This is recommended.
++
++config CNIC
++	tristate "Broadcom CNIC support"
++	depends on NET_VENDOR_BROADCOM && PCI
++	select BNX2
++	select UIO
++	---help---
++	  This driver supports offload features of Broadcom NetXtremeII
++	  gigabit Ethernet cards.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called cnic.  This is recommended.
++
++config SB1250_MAC
++	tristate "SB1250 Gigabit Ethernet support"
++	depends on NET_VENDOR_BROADCOM && SIBYTE_SB1xxx_SOC
++	select PHYLIB
++	---help---
++	  This driver supports Gigabit Ethernet interfaces based on the
++	  Broadcom SiByte family of System-On-a-Chip parts.  They include
++	  the BCM1120, BCM1125, BCM1125H, BCM1250, BCM1255, BCM1280, BCM1455
++	  and BCM1480 chips.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called sb1250-mac.
++
++config TIGON3
++	tristate "Broadcom Tigon3 support"
++	depends on NET_VENDOR_BROADCOM && PCI
++	select PHYLIB
++	---help---
++	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called tg3.  This is recommended.
++
++config BNX2X
++	tristate "Broadcom NetXtremeII 10Gb support"
++	depends on NET_VENDOR_BROADCOM && PCI
++	select FW_LOADER
++	select ZLIB_INFLATE
++	select LIBCRC32C
++	select MDIO
++	---help---
++	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
++	  To compile this driver as a module, choose M here: the module
++	  will be called bnx2x.  This is recommended.
+diff --git a/drivers/net/ethernet/broadcom/Makefile b/drivers/net/ethernet/broadcom/Makefile
+new file mode 100644
+index 0000000..b789605
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/Makefile
+@@ -0,0 +1,11 @@
++#
++# Makefile for the Broadcom network device drivers.
++#
++
++obj-$(CONFIG_B44) += b44.o
++obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
++obj-$(CONFIG_BNX2) += bnx2.o
++obj-$(CONFIG_CNIC) += cnic.o
++obj-$(CONFIG_BNX2X) += bnx2x/
++obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
++obj-$(CONFIG_TIGON3) += tg3.o
+diff --git a/drivers/net/b44.c b/drivers/net/ethernet/broadcom/b44.c
+similarity index 100%
+rename from drivers/net/b44.c
+rename to drivers/net/ethernet/broadcom/b44.c
+diff --git a/drivers/net/b44.h b/drivers/net/ethernet/broadcom/b44.h
+similarity index 100%
+rename from drivers/net/b44.h
+rename to drivers/net/ethernet/broadcom/b44.h
+diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+similarity index 100%
+rename from drivers/net/bcm63xx_enet.c
+rename to drivers/net/ethernet/broadcom/bcm63xx_enet.c
+diff --git a/drivers/net/bcm63xx_enet.h b/drivers/net/ethernet/broadcom/bcm63xx_enet.h
+similarity index 100%
+rename from drivers/net/bcm63xx_enet.h
+rename to drivers/net/ethernet/broadcom/bcm63xx_enet.h
+diff --git a/drivers/net/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+similarity index 100%
+rename from drivers/net/bnx2.c
+rename to drivers/net/ethernet/broadcom/bnx2.c
+diff --git a/drivers/net/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
+similarity index 100%
+rename from drivers/net/bnx2.h
+rename to drivers/net/ethernet/broadcom/bnx2.h
+diff --git a/drivers/net/bnx2_fw.h b/drivers/net/ethernet/broadcom/bnx2_fw.h
+similarity index 100%
+rename from drivers/net/bnx2_fw.h
+rename to drivers/net/ethernet/broadcom/bnx2_fw.h
+diff --git a/drivers/net/bnx2x/Makefile b/drivers/net/ethernet/broadcom/bnx2x/Makefile
+similarity index 100%
+rename from drivers/net/bnx2x/Makefile
+rename to drivers/net/ethernet/broadcom/bnx2x/Makefile
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_cmn.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_cmn.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+diff --git a/drivers/net/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_dcb.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+diff --git a/drivers/net/bnx2x/bnx2x_dcb.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_dcb.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
+diff --git a/drivers/net/bnx2x/bnx2x_dump.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_dump.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_ethtool.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+diff --git a/drivers/net/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_fw_defs.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+diff --git a/drivers/net/bnx2x/bnx2x_fw_file_hdr.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_fw_file_hdr.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
+diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_hsi.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+diff --git a/drivers/net/bnx2x/bnx2x_init.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_init.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+diff --git a/drivers/net/bnx2x/bnx2x_init_ops.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_init_ops.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
+diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_link.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_link.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_main.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_reg.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+diff --git a/drivers/net/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_sp.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+diff --git a/drivers/net/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_sp.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_stats.c
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+diff --git a/drivers/net/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+similarity index 100%
+rename from drivers/net/bnx2x/bnx2x_stats.h
+rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+diff --git a/drivers/net/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+similarity index 99%
+rename from drivers/net/cnic.c
+rename to drivers/net/ethernet/broadcom/cnic.c
+index 94a2e54..7698161 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -45,8 +45,8 @@
+ #include "bnx2x/bnx2x_reg.h"
+ #include "bnx2x/bnx2x_fw_defs.h"
+ #include "bnx2x/bnx2x_hsi.h"
+-#include "../scsi/bnx2i/57xx_iscsi_constants.h"
+-#include "../scsi/bnx2i/57xx_iscsi_hsi.h"
++#include "../../../scsi/bnx2i/57xx_iscsi_constants.h"
++#include "../../../scsi/bnx2i/57xx_iscsi_hsi.h"
+ #include "cnic.h"
+ #include "cnic_defs.h"
  
- if NET_PCMCIA && PCMCIA
+diff --git a/drivers/net/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
+similarity index 100%
+rename from drivers/net/cnic.h
+rename to drivers/net/ethernet/broadcom/cnic.h
+diff --git a/drivers/net/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
+similarity index 100%
+rename from drivers/net/cnic_defs.h
+rename to drivers/net/ethernet/broadcom/cnic_defs.h
+diff --git a/drivers/net/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+similarity index 100%
+rename from drivers/net/cnic_if.h
+rename to drivers/net/ethernet/broadcom/cnic_if.h
+diff --git a/drivers/net/sb1250-mac.c b/drivers/net/ethernet/broadcom/sb1250-mac.c
+similarity index 100%
+rename from drivers/net/sb1250-mac.c
+rename to drivers/net/ethernet/broadcom/sb1250-mac.c
+diff --git a/drivers/net/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+similarity index 100%
+rename from drivers/net/tg3.c
+rename to drivers/net/ethernet/broadcom/tg3.c
+diff --git a/drivers/net/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+similarity index 100%
+rename from drivers/net/tg3.h
+rename to drivers/net/ethernet/broadcom/tg3.h
+diff --git a/drivers/scsi/bnx2fc/bnx2fc.h b/drivers/scsi/bnx2fc/bnx2fc.h
+index d924236..5ce7cb5 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc.h
++++ b/drivers/scsi/bnx2fc/bnx2fc.h
+@@ -58,7 +58,7 @@
  
--config PCMCIA_3C589
--	tristate "3Com 3c589 PCMCIA support"
--	help
--	  Say Y here if you intend to attach a 3Com 3c589 or compatible PCMCIA
--	  (PC-card) Ethernet card to your computer.
--
--	  To compile this driver as a module, choose M here: the module will be
--	  called 3c589_cs.  If unsure, say N.
--
--config PCMCIA_3C574
--	tristate "3Com 3c574 PCMCIA support"
--	help
--	  Say Y here if you intend to attach a 3Com 3c574 or compatible PCMCIA
--	  (PC-card) Fast Ethernet card to your computer.
--
--	  To compile this driver as a module, choose M here: the module will be
--	  called 3c574_cs.  If unsure, say N.
--
- config PCMCIA_FMVJ18X
- 	tristate "Fujitsu FMV-J18x PCMCIA support"
- 	select CRC32
-diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
-index 87d2d99..2f2ab3b 100644
---- a/drivers/net/pcmcia/Makefile
-+++ b/drivers/net/pcmcia/Makefile
-@@ -3,8 +3,6 @@
- #
+ #include "57xx_hsi_bnx2fc.h"
+ #include "bnx2fc_debug.h"
+-#include "../../net/cnic_if.h"
++#include "../../net/ethernet/broadcom/cnic_if.h"
+ #include "bnx2fc_constants.h"
  
- # 16-bit client drivers
--obj-$(CONFIG_PCMCIA_3C589)	+= 3c589_cs.o
--obj-$(CONFIG_PCMCIA_3C574)	+= 3c574_cs.o
- obj-$(CONFIG_PCMCIA_FMVJ18X)	+= fmvj18x_cs.o
- obj-$(CONFIG_PCMCIA_NMCLAN)	+= nmclan_cs.o
- obj-$(CONFIG_PCMCIA_PCNET)	+= pcnet_cs.o
+ #define BNX2FC_NAME		"bnx2fc"
+diff --git a/drivers/scsi/bnx2i/bnx2i.h b/drivers/scsi/bnx2i/bnx2i.h
+index dc57007..0bd70e8 100644
+--- a/drivers/scsi/bnx2i/bnx2i.h
++++ b/drivers/scsi/bnx2i/bnx2i.h
+@@ -40,7 +40,7 @@
+ #include <scsi/libiscsi.h>
+ #include <scsi/scsi_transport_iscsi.h>
+ 
+-#include "../../net/cnic_if.h"
++#include "../../net/ethernet/broadcom/cnic_if.h"
+ #include "57xx_iscsi_hsi.h"
+ #include "57xx_iscsi_constants.h"
+ 
 -- 
 1.7.6
 
