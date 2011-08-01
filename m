@@ -1,85 +1,73 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: [net-next v2 02/71] 3c*/acenic/typhoon: Move 3Com Ethernet
- drivers
-Date: Mon, 1 Aug 2011 10:42:03 +0100
-Message-ID: <20110801104203.6c0dcbac@bob.linux.org.uk>
-References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110801100303.48ed75f7@bob.linux.org.uk>
-	<20110801.022107.740149515523315115.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] cxgb3i: ref count cdev access to prevent modification
+ while in use
+Date: Mon, 1 Aug 2011 07:18:24 -0400
+Message-ID: <20110801111824.GB23131@hmsreliant.think-freely.org>
+References: <1311623817-6417-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, philb@gnu.org,
-	klassert@mathematik.tu-chemnitz.de, dave@thedillows.org,
-	jes@trained-monkey.org, becker@scyld.com,
-	craigs@ineluki.apana.org.au, dahinds@users.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Divy Le Ray <divy@chelsio.com>, Steve Wise <swise@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45636 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753484Ab1HAJjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2011 05:39:25 -0400
-In-Reply-To: <20110801.022107.740149515523315115.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54518 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751784Ab1HALSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 07:18:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1311623817-6417-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 01 Aug 2011 02:21:07 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Alan Cox <alan@linux.intel.com>
-> Date: Mon, 1 Aug 2011 10:03:03 +0100
+On Mon, Jul 25, 2011 at 03:56:57PM -0400, Neil Horman wrote:
+> This oops was reported recently:
+> d:mon> e
+> cpu 0xd: Vector: 300 (Data Access) at [c0000000fd4c7120]
+>     pc: d00000000076f194: .t3_l2t_get+0x44/0x524 [cxgb3]
+>     lr: d000000000b02108: .init_act_open+0x150/0x3d4 [cxgb3i]
+>     sp: c0000000fd4c73a0
+>    msr: 8000000000009032
+>    dar: 0
+>  dsisr: 40000000
+>   current = 0xc0000000fd640d40
+>   paca    = 0xc00000000054ff80
+>     pid   = 5085, comm = iscsid
+> d:mon> t
+> [c0000000fd4c7450] d000000000b02108 .init_act_open+0x150/0x3d4 [cxgb3i]
+> [c0000000fd4c7500] d000000000e45378 .cxgbi_ep_connect+0x784/0x8e8 [libcxgbi]
+> [c0000000fd4c7650] d000000000db33f0 .iscsi_if_rx+0x71c/0xb18
+> [scsi_transport_iscsi2]
+> [c0000000fd4c7740] c000000000370c9c .netlink_data_ready+0x40/0xa4
+> [c0000000fd4c77c0] c00000000036f010 .netlink_sendskb+0x4c/0x9c
+> [c0000000fd4c7850] c000000000370c18 .netlink_sendmsg+0x358/0x39c
+> [c0000000fd4c7950] c00000000033be24 .sock_sendmsg+0x114/0x1b8
+> [c0000000fd4c7b50] c00000000033d208 .sys_sendmsg+0x218/0x2ac
+> [c0000000fd4c7d70] c00000000033f55c .sys_socketcall+0x228/0x27c
+> [c0000000fd4c7e30] c0000000000086a4 syscall_exit+0x0/0x40
+> --- Exception: c01 (System Call) at 00000080da560cfc
 > 
-> > And even if you wanted to make Kconfig simpler - you don't need to
-> > move files around.
+> The root cause was an EEH error, which sent us down the offload_close path in
+> the cxgb3 driver, which in turn sets cdev->lldev to NULL, without regard for
+> upper layer driver (like the cxgbi drivers) which might have execution contexts
+> in the middle of its use. The result is the oops above, when t3_l2t_get attempts
+> to dereference cdev->lldev right after the EEH error handler sets it to NULL.
 > 
-> The point is to move the files around, so that drivers/net/ isn't
-> a turd pond.
+> The fix is to reference count the cdev structure.  When an EEH error occurs, the
+> shutdown path:
+> t3_adapter_error->offload_close->cxgb3i_remove_clients->cxgb3i_dev_close
+> will now block until such time as the cdev pointer has a use count of zero.
+> This coupled with the fact that lookups will now skip finding any registered
+> cdev's in cxgbi_device_find_by_[lldev|netdev] with the CXGBI_FLAG_ADAPTER_RESET
+> bit set ensures that on an EEH, the setting of lldev to NULL in offload_close
+> will only happen after there are no longer any active users of the data
+> structure.
 > 
-> I agree with some of your feedback, but I disagree with a wholesale
-> rejecting the idea of untangling the mess under drivers/net/ as that's
-> the main reason why I want Jeff's work to be done
-
-In which case I think I'd sort by chipset for the non bus distinct
-ones. That also has the added advantage that all the annoying weird
-crap disappears into its own subdirectories for ancient chipsets !
-
-So my suggestion would be :
-
-Create an i82586 directory
-Stick the following into it
-	3c505 3c507 3c523 3c527 eepro eexpress ni52 sun3_82586 znet
-
-Create an i82596 directory
-Stick the following into it
-	82596 lasi_82596 lib82596 lp486e sni_82596
-
-Create an ns8390 directory
-Stick the following into it
-	3c503 8390 8390p ac3200 apne aax88796 e2100 es3210 hp hp-plus
-	hydra lib8390 lne390 mac8390 ne ne2 ne2k-pci ne3210 ne-h8300
-	smc-mca smc-ultra32 smc-ultra stnic wd zorro8390
-
-Create a sonic directory (sadly nobody ever produced a screwdriver card)
-Stick the following into it
-	jazzsonic macsonic sonic xtsonic
-
-Create a lance directory (actually this is 7990 + lance32 etc)
-Stick the following into it
-	7990.c a2065 ariadne atarilance declance hplance lance mvme147
-	ni65 pcnet32 sun3lance sunlance
-
-
-Some bits are then sort of bustypeish
-
-Create a parallel directory
-Stick the following into it
-	atp de600 de620 plip
-
-Create a ppp directory
-Stick all the ppp bits in
-
-Given x25_asy is in WAN perhaps slip should be there too ?
-
-
+> This has been tested by the reporter and shown to fix the reproted oops
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Divy Le Ray <divy@chelsio.com>
+> CC: Steve Wise <swise@chelsio.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+Divy, Steve, I think Dave is waiting for an ACK from one of you to, since you're
+the listed maintainers.
+Neil
