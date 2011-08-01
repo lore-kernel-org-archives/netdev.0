@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 2/6] bna: Consolidated HW Registers for Supported HWs
-Date: Mon, 1 Aug 2011 13:42:51 -0700
-Message-ID: <1312231375-14398-3-git-send-email-rmody@brocade.com>
+Subject: [PATCH 4/6] bna: MSGQ Implementation
+Date: Mon, 1 Aug 2011 13:42:53 -0700
+Message-ID: <1312231375-14398-5-git-send-email-rmody@brocade.com>
 References: <1312231375-14398-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,198 +9,124 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40212 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40214 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753514Ab1HAUoa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 16:44:30 -0400
+	by vger.kernel.org with ESMTP id S1753531Ab1HAUoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 16:44:32 -0400
 In-Reply-To: <1312231375-14398-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Introducing new file bfi_reg.h for consolidating all supported hardware
-   registers. This file completely replaces bfi_ctreg.h.
- - Updated ioc code as per register definition change.
+ - Currently modules communicate with the FW using 32 byte command and
+   response register. This limits the size of the command and response
+   messages exchanged with the FW to 32 bytes. We need a mechanism to
+   exchange the comamnds and responses exchange with FW that exceeds 32 bytes.
+
+ - MSGQ implementation provides that facility. It removes the assumption that
+   command/response queue size is precisely calculated to accommodate all
+   concurrent FW commands/responses. The queue depth is made variable now, defined
+   by a macro. A waiting command list is implemented to hold all the commands
+   when there is no place in the command queue. Callback is implemented for
+   each command entry to invoke the module posting the command, when there is
+   space in the command queue and the command was finally posted to the queue.
+   Module/Object information is embedded in the response for tracking purpose.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bfa_ioc.c    |    2 +-
- drivers/net/bna/bfa_ioc_ct.c |   78 ++++----
- drivers/net/bna/bfi_reg.h    |  452 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/bna/bna_hw.h     |    6 +-
- 4 files changed, 497 insertions(+), 41 deletions(-)
- create mode 100644 drivers/net/bna/bfi_reg.h
+ drivers/net/bna/Makefile   |    3 +-
+ drivers/net/bna/bfa_ioc.c  |   14 +-
+ drivers/net/bna/bfa_ioc.h  |    4 +-
+ drivers/net/bna/bfa_msgq.c |  669 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/bna/bfa_msgq.h |  130 +++++++++
+ drivers/net/bna/bfi.h      |  101 +++++++
+ drivers/net/bna/bna_ctrl.c |    6 +-
+ 7 files changed, 918 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/bna/bfa_msgq.c
+ create mode 100644 drivers/net/bna/bfa_msgq.h
 
+diff --git a/drivers/net/bna/Makefile b/drivers/net/bna/Makefile
+index a5d604d..5c4629d 100644
+--- a/drivers/net/bna/Makefile
++++ b/drivers/net/bna/Makefile
+@@ -6,6 +6,7 @@
+ obj-$(CONFIG_BNA) += bna.o
+ 
+ bna-objs := bnad.o bnad_ethtool.o bna_ctrl.o bna_txrx.o
+-bna-objs += bfa_ioc.o bfa_ioc_ct.o bfa_cee.o cna_fwimg.o
++bna-objs +=	bfa_msgq.o bfa_ioc.o bfa_ioc_ct.o bfa_cee.o
++bna-objs +=	cna_fwimg.o
+ 
+ EXTRA_CFLAGS := -Idrivers/net/bna
 diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
-index 126b0aa..3cdea65 100644
+index 3cdea65..2d5c4fd 100644
 --- a/drivers/net/bna/bfa_ioc.c
 +++ b/drivers/net/bna/bfa_ioc.c
-@@ -19,7 +19,7 @@
- #include "bfa_ioc.h"
- #include "cna.h"
- #include "bfi.h"
--#include "bfi_ctreg.h"
-+#include "bfi_reg.h"
- #include "bfa_defs.h"
- 
- /**
-diff --git a/drivers/net/bna/bfa_ioc_ct.c b/drivers/net/bna/bfa_ioc_ct.c
-index 29b5fd0..209f1f3 100644
---- a/drivers/net/bna/bfa_ioc_ct.c
-+++ b/drivers/net/bna/bfa_ioc_ct.c
-@@ -19,7 +19,7 @@
- #include "bfa_ioc.h"
- #include "cna.h"
- #include "bfi.h"
--#include "bfi_ctreg.h"
-+#include "bfi_reg.h"
- #include "bfa_defs.h"
- 
- #define bfa_ioc_ct_sync_pos(__ioc)	\
-@@ -172,7 +172,7 @@ bfa_ioc_ct_notify_fail(struct bfa_ioc *ioc)
- 		readl(ioc->ioc_regs.ll_halt);
- 		readl(ioc->ioc_regs.alt_ll_halt);
- 	} else {
--		writel(__PSS_ERR_STATUS_SET, ioc->ioc_regs.err_set);
-+		writel(~0U, ioc->ioc_regs.err_set);
- 		readl(ioc->ioc_regs.err_set);
- 	}
- }
-@@ -190,21 +190,21 @@ static struct { u32 hfn_mbox, lpu_mbox, hfn_pgn; } iocreg_fnreg[] = {
- /**
-  * Host <-> LPU mailbox command/status registers - port 0
+@@ -1968,18 +1968,22 @@ bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+  * @param[in]	ioc	IOC instance
+  * @param[i]	cmd	Mailbox command
   */
--static struct { u32 hfn, lpu; } iocreg_mbcmd_p0[] = {
--	{ HOSTFN0_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN0_MBOX0_CMD_STAT },
--	{ HOSTFN1_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN1_MBOX0_CMD_STAT },
--	{ HOSTFN2_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN2_MBOX0_CMD_STAT },
--	{ HOSTFN3_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN3_MBOX0_CMD_STAT }
-+static struct { u32 hfn, lpu; } ct_p0reg[] = {
-+	{ HOSTFN0_LPU0_CMD_STAT, LPU0_HOSTFN0_CMD_STAT },
-+	{ HOSTFN1_LPU0_CMD_STAT, LPU0_HOSTFN1_CMD_STAT },
-+	{ HOSTFN2_LPU0_CMD_STAT, LPU0_HOSTFN2_CMD_STAT },
-+	{ HOSTFN3_LPU0_CMD_STAT, LPU0_HOSTFN3_CMD_STAT }
- };
- 
- /**
-  * Host <-> LPU mailbox command/status registers - port 1
-  */
--static struct { u32 hfn, lpu; } iocreg_mbcmd_p1[] = {
--	{ HOSTFN0_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN0_MBOX0_CMD_STAT },
--	{ HOSTFN1_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN1_MBOX0_CMD_STAT },
--	{ HOSTFN2_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN2_MBOX0_CMD_STAT },
--	{ HOSTFN3_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN3_MBOX0_CMD_STAT }
-+static struct { u32 hfn, lpu; } ct_p1reg[] = {
-+	{ HOSTFN0_LPU1_CMD_STAT, LPU1_HOSTFN0_CMD_STAT },
-+	{ HOSTFN1_LPU1_CMD_STAT, LPU1_HOSTFN1_CMD_STAT },
-+	{ HOSTFN2_LPU1_CMD_STAT, LPU1_HOSTFN2_CMD_STAT },
-+	{ HOSTFN3_LPU1_CMD_STAT, LPU1_HOSTFN3_CMD_STAT }
- };
- 
- static void
-@@ -223,16 +223,16 @@ bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
- 		ioc->ioc_regs.heartbeat = rb + BFA_IOC0_HBEAT_REG;
- 		ioc->ioc_regs.ioc_fwstate = rb + BFA_IOC0_STATE_REG;
- 		ioc->ioc_regs.alt_ioc_fwstate = rb + BFA_IOC1_STATE_REG;
--		ioc->ioc_regs.hfn_mbox_cmd = rb + iocreg_mbcmd_p0[pcifn].hfn;
--		ioc->ioc_regs.lpu_mbox_cmd = rb + iocreg_mbcmd_p0[pcifn].lpu;
-+		ioc->ioc_regs.hfn_mbox_cmd = rb + ct_p0reg[pcifn].hfn;
-+		ioc->ioc_regs.lpu_mbox_cmd = rb + ct_p0reg[pcifn].lpu;
- 		ioc->ioc_regs.ll_halt = rb + FW_INIT_HALT_P0;
- 		ioc->ioc_regs.alt_ll_halt = rb + FW_INIT_HALT_P1;
- 	} else {
- 		ioc->ioc_regs.heartbeat = (rb + BFA_IOC1_HBEAT_REG);
- 		ioc->ioc_regs.ioc_fwstate = (rb + BFA_IOC1_STATE_REG);
- 		ioc->ioc_regs.alt_ioc_fwstate = rb + BFA_IOC0_STATE_REG;
--		ioc->ioc_regs.hfn_mbox_cmd = rb + iocreg_mbcmd_p1[pcifn].hfn;
--		ioc->ioc_regs.lpu_mbox_cmd = rb + iocreg_mbcmd_p1[pcifn].lpu;
-+		ioc->ioc_regs.hfn_mbox_cmd = rb + ct_p1reg[pcifn].hfn;
-+		ioc->ioc_regs.lpu_mbox_cmd = rb + ct_p1reg[pcifn].lpu;
- 		ioc->ioc_regs.ll_halt = rb + FW_INIT_HALT_P1;
- 		ioc->ioc_regs.alt_ll_halt = rb + FW_INIT_HALT_P0;
- 	}
-@@ -242,8 +242,8 @@ bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
- 	 */
- 	ioc->ioc_regs.pss_ctl_reg = (rb + PSS_CTL_REG);
- 	ioc->ioc_regs.pss_err_status_reg = (rb + PSS_ERR_STATUS_REG);
--	ioc->ioc_regs.app_pll_fast_ctl_reg = (rb + APP_PLL_425_CTL_REG);
--	ioc->ioc_regs.app_pll_slow_ctl_reg = (rb + APP_PLL_312_CTL_REG);
-+	ioc->ioc_regs.app_pll_fast_ctl_reg = (rb + APP_PLL_LCLK_CTL_REG);
-+	ioc->ioc_regs.app_pll_slow_ctl_reg = (rb + APP_PLL_SCLK_CTL_REG);
- 
- 	/*
- 	 * IOC semaphore registers and serialization
-@@ -440,14 +440,15 @@ bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode)
+-void
+-bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
++bool
++bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd,
++			bfa_mbox_cmd_cbfn_t cbfn, void *cbarg)
  {
- 	u32	pll_sclk, pll_fclk, r32;
+ 	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
+ 	u32			stat;
  
--	pll_sclk = __APP_PLL_312_LRESETN | __APP_PLL_312_ENARST |
--		__APP_PLL_312_RSEL200500 | __APP_PLL_312_P0_1(3U) |
--		__APP_PLL_312_JITLMT0_1(3U) |
--		__APP_PLL_312_CNTLMT0_1(1U);
--	pll_fclk = __APP_PLL_425_LRESETN | __APP_PLL_425_ENARST |
--		__APP_PLL_425_RSEL200500 | __APP_PLL_425_P0_1(3U) |
--		__APP_PLL_425_JITLMT0_1(3U) |
--		__APP_PLL_425_CNTLMT0_1(1U);
-+	pll_sclk = __APP_PLL_SCLK_LRESETN | __APP_PLL_SCLK_ENARST |
-+		__APP_PLL_SCLK_RSEL200500 | __APP_PLL_SCLK_P0_1(3U) |
-+		__APP_PLL_SCLK_JITLMT0_1(3U) |
-+		__APP_PLL_SCLK_CNTLMT0_1(1U);
-+	pll_fclk = __APP_PLL_LCLK_LRESETN | __APP_PLL_LCLK_ENARST |
-+		__APP_PLL_LCLK_RSEL200500 | __APP_PLL_LCLK_P0_1(3U) |
-+		__APP_PLL_LCLK_JITLMT0_1(3U) |
-+		__APP_PLL_LCLK_CNTLMT0_1(1U);
++	cmd->cbfn = cbfn;
++	cmd->cbarg = cbarg;
 +
- 	if (fcmode) {
- 		writel(0, (rb + OP_MODE));
- 		writel(__APP_EMS_CMLCKSEL |
-@@ -468,27 +469,28 @@ bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode)
- 	writel(0xffffffffU, (rb + HOSTFN0_INT_MSK));
- 	writel(0xffffffffU, (rb + HOSTFN1_INT_MSK));
- 	writel(pll_sclk |
--		__APP_PLL_312_LOGIC_SOFT_RESET,
--		rb + APP_PLL_312_CTL_REG);
-+		__APP_PLL_SCLK_LOGIC_SOFT_RESET,
-+		rb + APP_PLL_SCLK_CTL_REG);
- 	writel(pll_fclk |
--		__APP_PLL_425_LOGIC_SOFT_RESET,
--		rb + APP_PLL_425_CTL_REG);
-+		__APP_PLL_LCLK_LOGIC_SOFT_RESET,
-+		rb + APP_PLL_LCLK_CTL_REG);
- 	writel(pll_sclk |
--		__APP_PLL_312_LOGIC_SOFT_RESET | __APP_PLL_312_ENABLE,
--		rb + APP_PLL_312_CTL_REG);
-+		__APP_PLL_SCLK_LOGIC_SOFT_RESET | __APP_PLL_SCLK_ENABLE,
-+		rb + APP_PLL_SCLK_CTL_REG);
- 	writel(pll_fclk |
--		__APP_PLL_425_LOGIC_SOFT_RESET | __APP_PLL_425_ENABLE,
--		rb + APP_PLL_425_CTL_REG);
-+		__APP_PLL_LCLK_LOGIC_SOFT_RESET | __APP_PLL_LCLK_ENABLE,
-+		rb + APP_PLL_LCLK_CTL_REG);
- 	readl(rb + HOSTFN0_INT_MSK);
- 	udelay(2000);
- 	writel(0xffffffffU, (rb + HOSTFN0_INT_STATUS));
- 	writel(0xffffffffU, (rb + HOSTFN1_INT_STATUS));
- 	writel(pll_sclk |
--		__APP_PLL_312_ENABLE,
--		rb + APP_PLL_312_CTL_REG);
-+		__APP_PLL_SCLK_ENABLE,
-+		rb + APP_PLL_SCLK_CTL_REG);
- 	writel(pll_fclk |
--		__APP_PLL_425_ENABLE,
--		rb + APP_PLL_425_CTL_REG);
-+		__APP_PLL_LCLK_ENABLE,
-+		rb + APP_PLL_LCLK_CTL_REG);
-+
- 	if (!fcmode) {
- 		writel(__PMM_1T_RESET_P, (rb + PMM_1T_RESET_REG_P0));
- 		writel(__PMM_1T_RESET_P, (rb + PMM_1T_RESET_REG_P1));
-diff --git a/drivers/net/bna/bfi_reg.h b/drivers/net/bna/bfi_reg.h
+ 	/**
+ 	 * If a previous command is pending, queue new command
+ 	 */
+ 	if (!list_empty(&mod->cmd_q)) {
+ 		list_add_tail(&cmd->qe, &mod->cmd_q);
+-		return;
++		return true;
+ 	}
+ 
+ 	/**
+@@ -1988,7 +1992,7 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
+ 	stat = readl(ioc->ioc_regs.hfn_mbox_cmd);
+ 	if (stat) {
+ 		list_add_tail(&cmd->qe, &mod->cmd_q);
+-		return;
++		return true;
+ 	}
+ 
+ 	/**
+@@ -1996,7 +2000,7 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
+ 	 */
+ 	bfa_ioc_mbox_send(ioc, cmd->msg, sizeof(cmd->msg));
+ 
+-	return;
++	return false;
+ }
+ 
+ /**
+diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/bna/bfa_ioc.h
+index bda866b..33ba5f4 100644
+--- a/drivers/net/bna/bfa_ioc.h
++++ b/drivers/net/bna/bfa_ioc.h
+@@ -253,7 +253,9 @@ struct bfa_ioc_hwif {
+ /**
+  * IOC mailbox interface
+  */
+-void bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd);
++bool bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc,
++			struct bfa_mbox_cmd *cmd,
++			bfa_mbox_cmd_cbfn_t cbfn, void *cbarg);
+ void bfa_nw_ioc_mbox_isr(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+ 		bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg);
+diff --git a/drivers/net/bna/bfa_msgq.c b/drivers/net/bna/bfa_msgq.c
 new file mode 100644
-index 0000000..efacff3
+index 0000000..ed52187
 --- /dev/null
-+++ b/drivers/net/bna/bfi_reg.h
-@@ -0,0 +1,452 @@
++++ b/drivers/net/bna/bfa_msgq.c
+@@ -0,0 +1,669 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -219,463 +145,936 @@ index 0000000..efacff3
 + * www.brocade.com
 + */
 +
-+/*
-+ * bfi_reg.h ASIC register defines for all Brocade adapter ASICs
-+ */
-+
-+#ifndef __BFI_REG_H__
-+#define __BFI_REG_H__
-+
-+#define HOSTFN0_INT_STATUS		0x00014000	/* cb/ct	*/
-+#define HOSTFN1_INT_STATUS		0x00014100	/* cb/ct	*/
-+#define HOSTFN2_INT_STATUS		0x00014300	/* ct		*/
-+#define HOSTFN3_INT_STATUS		0x00014400	/* ct		*/
-+#define HOSTFN0_INT_MSK			0x00014004	/* cb/ct	*/
-+#define HOSTFN1_INT_MSK			0x00014104	/* cb/ct	*/
-+#define HOSTFN2_INT_MSK			0x00014304	/* ct		*/
-+#define HOSTFN3_INT_MSK			0x00014404	/* ct		*/
-+
-+#define HOST_PAGE_NUM_FN0		0x00014008	/* cb/ct	*/
-+#define HOST_PAGE_NUM_FN1		0x00014108	/* cb/ct	*/
-+#define HOST_PAGE_NUM_FN2		0x00014308	/* ct		*/
-+#define HOST_PAGE_NUM_FN3		0x00014408	/* ct		*/
-+
-+#define APP_PLL_LCLK_CTL_REG		0x00014204	/* cb/ct	*/
-+#define __P_LCLK_PLL_LOCK		0x80000000
-+#define __APP_PLL_LCLK_SRAM_USE_100MHZ	0x00100000
-+#define __APP_PLL_LCLK_RESET_TIMER_MK	0x000e0000
-+#define __APP_PLL_LCLK_RESET_TIMER_SH	17
-+#define __APP_PLL_LCLK_RESET_TIMER(_v)	((_v) << __APP_PLL_LCLK_RESET_TIMER_SH)
-+#define __APP_PLL_LCLK_LOGIC_SOFT_RESET	0x00010000
-+#define __APP_PLL_LCLK_CNTLMT0_1_MK	0x0000c000
-+#define __APP_PLL_LCLK_CNTLMT0_1_SH	14
-+#define __APP_PLL_LCLK_CNTLMT0_1(_v)	((_v) << __APP_PLL_LCLK_CNTLMT0_1_SH)
-+#define __APP_PLL_LCLK_JITLMT0_1_MK	0x00003000
-+#define __APP_PLL_LCLK_JITLMT0_1_SH	12
-+#define __APP_PLL_LCLK_JITLMT0_1(_v)	((_v) << __APP_PLL_LCLK_JITLMT0_1_SH)
-+#define __APP_PLL_LCLK_HREF		0x00000800
-+#define __APP_PLL_LCLK_HDIV		0x00000400
-+#define __APP_PLL_LCLK_P0_1_MK		0x00000300
-+#define __APP_PLL_LCLK_P0_1_SH		8
-+#define __APP_PLL_LCLK_P0_1(_v)		((_v) << __APP_PLL_LCLK_P0_1_SH)
-+#define __APP_PLL_LCLK_Z0_2_MK		0x000000e0
-+#define __APP_PLL_LCLK_Z0_2_SH		5
-+#define __APP_PLL_LCLK_Z0_2(_v)		((_v) << __APP_PLL_LCLK_Z0_2_SH)
-+#define __APP_PLL_LCLK_RSEL200500	0x00000010
-+#define __APP_PLL_LCLK_ENARST		0x00000008
-+#define __APP_PLL_LCLK_BYPASS		0x00000004
-+#define __APP_PLL_LCLK_LRESETN		0x00000002
-+#define __APP_PLL_LCLK_ENABLE		0x00000001
-+#define APP_PLL_SCLK_CTL_REG		0x00014208	/* cb/ct	*/
-+#define __P_SCLK_PLL_LOCK		0x80000000
-+#define __APP_PLL_SCLK_RESET_TIMER_MK	0x000e0000
-+#define __APP_PLL_SCLK_RESET_TIMER_SH	17
-+#define __APP_PLL_SCLK_RESET_TIMER(_v)	((_v) << __APP_PLL_SCLK_RESET_TIMER_SH)
-+#define __APP_PLL_SCLK_LOGIC_SOFT_RESET	0x00010000
-+#define __APP_PLL_SCLK_CNTLMT0_1_MK	0x0000c000
-+#define __APP_PLL_SCLK_CNTLMT0_1_SH	14
-+#define __APP_PLL_SCLK_CNTLMT0_1(_v)	((_v) << __APP_PLL_SCLK_CNTLMT0_1_SH)
-+#define __APP_PLL_SCLK_JITLMT0_1_MK	0x00003000
-+#define __APP_PLL_SCLK_JITLMT0_1_SH	12
-+#define __APP_PLL_SCLK_JITLMT0_1(_v)	((_v) << __APP_PLL_SCLK_JITLMT0_1_SH)
-+#define __APP_PLL_SCLK_HREF		0x00000800
-+#define __APP_PLL_SCLK_HDIV		0x00000400
-+#define __APP_PLL_SCLK_P0_1_MK		0x00000300
-+#define __APP_PLL_SCLK_P0_1_SH		8
-+#define __APP_PLL_SCLK_P0_1(_v)		((_v) << __APP_PLL_SCLK_P0_1_SH)
-+#define __APP_PLL_SCLK_Z0_2_MK		0x000000e0
-+#define __APP_PLL_SCLK_Z0_2_SH		5
-+#define __APP_PLL_SCLK_Z0_2(_v)		((_v) << __APP_PLL_SCLK_Z0_2_SH)
-+#define __APP_PLL_SCLK_RSEL200500	0x00000010
-+#define __APP_PLL_SCLK_ENARST		0x00000008
-+#define __APP_PLL_SCLK_BYPASS		0x00000004
-+#define __APP_PLL_SCLK_LRESETN		0x00000002
-+#define __APP_PLL_SCLK_ENABLE		0x00000001
-+#define __ENABLE_MAC_AHB_1		0x00800000	/* ct		*/
-+#define __ENABLE_MAC_AHB_0		0x00400000	/* ct		*/
-+#define __ENABLE_MAC_1			0x00200000	/* ct		*/
-+#define __ENABLE_MAC_0			0x00100000	/* ct		*/
-+
-+#define HOST_SEM0_REG			0x00014230	/* cb/ct	*/
-+#define HOST_SEM1_REG			0x00014234	/* cb/ct	*/
-+#define HOST_SEM2_REG			0x00014238	/* cb/ct	*/
-+#define HOST_SEM3_REG			0x0001423c	/* cb/ct	*/
-+#define HOST_SEM4_REG			0x00014610	/* cb/ct	*/
-+#define HOST_SEM5_REG			0x00014614	/* cb/ct	*/
-+#define HOST_SEM6_REG			0x00014618	/* cb/ct	*/
-+#define HOST_SEM7_REG			0x0001461c	/* cb/ct	*/
-+#define HOST_SEM0_INFO_REG		0x00014240	/* cb/ct	*/
-+#define HOST_SEM1_INFO_REG		0x00014244	/* cb/ct	*/
-+#define HOST_SEM2_INFO_REG		0x00014248	/* cb/ct	*/
-+#define HOST_SEM3_INFO_REG		0x0001424c	/* cb/ct	*/
-+#define HOST_SEM4_INFO_REG		0x00014620	/* cb/ct	*/
-+#define HOST_SEM5_INFO_REG		0x00014624	/* cb/ct	*/
-+#define HOST_SEM6_INFO_REG		0x00014628	/* cb/ct	*/
-+#define HOST_SEM7_INFO_REG		0x0001462c	/* cb/ct	*/
-+
-+#define HOSTFN0_LPU0_CMD_STAT		0x00019000	/* cb/ct	*/
-+#define HOSTFN0_LPU1_CMD_STAT		0x00019004	/* cb/ct	*/
-+#define HOSTFN1_LPU0_CMD_STAT		0x00019010	/* cb/ct	*/
-+#define HOSTFN1_LPU1_CMD_STAT		0x00019014	/* cb/ct	*/
-+#define HOSTFN2_LPU0_CMD_STAT		0x00019150	/* ct		*/
-+#define HOSTFN2_LPU1_CMD_STAT		0x00019154	/* ct		*/
-+#define HOSTFN3_LPU0_CMD_STAT		0x00019160	/* ct		*/
-+#define HOSTFN3_LPU1_CMD_STAT		0x00019164	/* ct		*/
-+#define LPU0_HOSTFN0_CMD_STAT		0x00019008	/* cb/ct	*/
-+#define LPU1_HOSTFN0_CMD_STAT		0x0001900c	/* cb/ct	*/
-+#define LPU0_HOSTFN1_CMD_STAT		0x00019018	/* cb/ct	*/
-+#define LPU1_HOSTFN1_CMD_STAT		0x0001901c	/* cb/ct	*/
-+#define LPU0_HOSTFN2_CMD_STAT		0x00019158	/* ct		*/
-+#define LPU1_HOSTFN2_CMD_STAT		0x0001915c	/* ct		*/
-+#define LPU0_HOSTFN3_CMD_STAT		0x00019168	/* ct		*/
-+#define LPU1_HOSTFN3_CMD_STAT		0x0001916c	/* ct		*/
-+
-+#define PSS_CTL_REG			0x00018800	/* cb/ct	*/
-+#define __PSS_I2C_CLK_DIV_MK		0x007f0000
-+#define __PSS_I2C_CLK_DIV_SH		16
-+#define __PSS_I2C_CLK_DIV(_v)		((_v) << __PSS_I2C_CLK_DIV_SH)
-+#define __PSS_LMEM_INIT_DONE		0x00001000
-+#define __PSS_LMEM_RESET		0x00000200
-+#define __PSS_LMEM_INIT_EN		0x00000100
-+#define __PSS_LPU1_RESET		0x00000002
-+#define __PSS_LPU0_RESET		0x00000001
-+#define PSS_ERR_STATUS_REG		0x00018810	/* cb/ct	*/
-+#define ERR_SET_REG			0x00018818	/* cb/ct	*/
-+#define PSS_GPIO_OUT_REG		0x000188c0	/* cb/ct	*/
-+#define __PSS_GPIO_OUT_REG		0x00000fff
-+#define PSS_GPIO_OE_REG			0x000188c8	/* cb/ct	*/
-+#define __PSS_GPIO_OE_REG		0x000000ff
-+
-+#define HOSTFN0_LPU_MBOX0_0		0x00019200	/* cb/ct	*/
-+#define HOSTFN1_LPU_MBOX0_8		0x00019260	/* cb/ct	*/
-+#define LPU_HOSTFN0_MBOX0_0		0x00019280	/* cb/ct	*/
-+#define LPU_HOSTFN1_MBOX0_8		0x000192e0	/* cb/ct	*/
-+#define HOSTFN2_LPU_MBOX0_0		0x00019400	/* ct		*/
-+#define HOSTFN3_LPU_MBOX0_8		0x00019460	/* ct		*/
-+#define LPU_HOSTFN2_MBOX0_0		0x00019480	/* ct		*/
-+#define LPU_HOSTFN3_MBOX0_8		0x000194e0	/* ct		*/
-+
-+#define HOST_MSIX_ERR_INDEX_FN0		0x0001400c	/* ct		*/
-+#define HOST_MSIX_ERR_INDEX_FN1		0x0001410c	/* ct		*/
-+#define HOST_MSIX_ERR_INDEX_FN2		0x0001430c	/* ct		*/
-+#define HOST_MSIX_ERR_INDEX_FN3		0x0001440c	/* ct		*/
-+
-+#define MBIST_CTL_REG			0x00014220	/* ct		*/
-+#define __EDRAM_BISTR_START		0x00000004
-+#define MBIST_STAT_REG			0x00014224	/* ct		*/
-+#define ETH_MAC_SER_REG			0x00014288	/* ct		*/
-+#define __APP_EMS_CKBUFAMPIN		0x00000020
-+#define __APP_EMS_REFCLKSEL		0x00000010
-+#define __APP_EMS_CMLCKSEL		0x00000008
-+#define __APP_EMS_REFCKBUFEN2		0x00000004
-+#define __APP_EMS_REFCKBUFEN1		0x00000002
-+#define __APP_EMS_CHANNEL_SEL		0x00000001
-+#define FNC_PERS_REG			0x00014604	/* ct		*/
-+#define __F3_FUNCTION_ACTIVE		0x80000000
-+#define __F3_FUNCTION_MODE		0x40000000
-+#define __F3_PORT_MAP_MK		0x30000000
-+#define __F3_PORT_MAP_SH		28
-+#define __F3_PORT_MAP(_v)		((_v) << __F3_PORT_MAP_SH)
-+#define __F3_VM_MODE			0x08000000
-+#define __F3_INTX_STATUS_MK		0x07000000
-+#define __F3_INTX_STATUS_SH		24
-+#define __F3_INTX_STATUS(_v)		((_v) << __F3_INTX_STATUS_SH)
-+#define __F2_FUNCTION_ACTIVE		0x00800000
-+#define __F2_FUNCTION_MODE		0x00400000
-+#define __F2_PORT_MAP_MK		0x00300000
-+#define __F2_PORT_MAP_SH		20
-+#define __F2_PORT_MAP(_v)		((_v) << __F2_PORT_MAP_SH)
-+#define __F2_VM_MODE			0x00080000
-+#define __F2_INTX_STATUS_MK		0x00070000
-+#define __F2_INTX_STATUS_SH		16
-+#define __F2_INTX_STATUS(_v)		((_v) << __F2_INTX_STATUS_SH)
-+#define __F1_FUNCTION_ACTIVE		0x00008000
-+#define __F1_FUNCTION_MODE		0x00004000
-+#define __F1_PORT_MAP_MK		0x00003000
-+#define __F1_PORT_MAP_SH		12
-+#define __F1_PORT_MAP(_v)		((_v) << __F1_PORT_MAP_SH)
-+#define __F1_VM_MODE			0x00000800
-+#define __F1_INTX_STATUS_MK		0x00000700
-+#define __F1_INTX_STATUS_SH		8
-+#define __F1_INTX_STATUS(_v)		((_v) << __F1_INTX_STATUS_SH)
-+#define __F0_FUNCTION_ACTIVE		0x00000080
-+#define __F0_FUNCTION_MODE		0x00000040
-+#define __F0_PORT_MAP_MK		0x00000030
-+#define __F0_PORT_MAP_SH		4
-+#define __F0_PORT_MAP(_v)		((_v) << __F0_PORT_MAP_SH)
-+#define __F0_VM_MODE			0x00000008
-+#define __F0_INTX_STATUS		0x00000007
-+enum {
-+	__F0_INTX_STATUS_MSIX = 0x0,
-+	__F0_INTX_STATUS_INTA = 0x1,
-+	__F0_INTX_STATUS_INTB = 0x2,
-+	__F0_INTX_STATUS_INTC = 0x3,
-+	__F0_INTX_STATUS_INTD = 0x4,
-+};
-+
-+#define OP_MODE				0x0001460c
-+#define __APP_ETH_CLK_LOWSPEED		0x00000004
-+#define __GLOBAL_CORECLK_HALFSPEED	0x00000002
-+#define __GLOBAL_FCOE_MODE		0x00000001
-+#define FW_INIT_HALT_P0			0x000191ac
-+#define __FW_INIT_HALT_P		0x00000001
-+#define FW_INIT_HALT_P1			0x000191bc
-+#define PMM_1T_RESET_REG_P0		0x0002381c
-+#define __PMM_1T_RESET_P		0x00000001
-+#define PMM_1T_RESET_REG_P1		0x00023c1c
-+
 +/**
-+ * Brocade 1860 Adapter specific defines
++ * @file bfa_msgq.c MSGQ module source file.
 + */
-+#define CT2_PCI_CPQ_BASE		0x00030000
-+#define CT2_PCI_APP_BASE		0x00030100
-+#define CT2_PCI_ETH_BASE		0x00030400
 +
-+/*
-+ * APP block registers
-+ */
-+#define CT2_HOSTFN_INT_STATUS		(CT2_PCI_APP_BASE + 0x00)
-+#define CT2_HOSTFN_INTR_MASK		(CT2_PCI_APP_BASE + 0x04)
-+#define CT2_HOSTFN_PERSONALITY0		(CT2_PCI_APP_BASE + 0x08)
-+#define __PME_STATUS_			0x00200000
-+#define __PF_VF_BAR_SIZE_MODE__MK	0x00180000
-+#define __PF_VF_BAR_SIZE_MODE__SH	19
-+#define __PF_VF_BAR_SIZE_MODE_(_v)	((_v) << __PF_VF_BAR_SIZE_MODE__SH)
-+#define __FC_LL_PORT_MAP__MK		0x00060000
-+#define __FC_LL_PORT_MAP__SH		17
-+#define __FC_LL_PORT_MAP_(_v)		((_v) << __FC_LL_PORT_MAP__SH)
-+#define __PF_VF_ACTIVE_			0x00010000
-+#define __PF_VF_CFG_RDY_		0x00008000
-+#define __PF_VF_ENABLE_			0x00004000
-+#define __PF_DRIVER_ACTIVE_		0x00002000
-+#define __PF_PME_SEND_ENABLE_		0x00001000
-+#define __PF_EXROM_OFFSET__MK		0x00000ff0
-+#define __PF_EXROM_OFFSET__SH		4
-+#define __PF_EXROM_OFFSET_(_v)		((_v) << __PF_EXROM_OFFSET__SH)
-+#define __FC_LL_MODE_			0x00000008
-+#define __PF_INTX_PIN_			0x00000007
-+#define CT2_HOSTFN_PERSONALITY1		(CT2_PCI_APP_BASE + 0x0C)
-+#define __PF_NUM_QUEUES1__MK		0xff000000
-+#define __PF_NUM_QUEUES1__SH		24
-+#define __PF_NUM_QUEUES1_(_v)		((_v) << __PF_NUM_QUEUES1__SH)
-+#define __PF_VF_QUE_OFFSET1__MK		0x00ff0000
-+#define __PF_VF_QUE_OFFSET1__SH		16
-+#define __PF_VF_QUE_OFFSET1_(_v)	((_v) << __PF_VF_QUE_OFFSET1__SH)
-+#define __PF_VF_NUM_QUEUES__MK		0x0000ff00
-+#define __PF_VF_NUM_QUEUES__SH		8
-+#define __PF_VF_NUM_QUEUES_(_v)		((_v) << __PF_VF_NUM_QUEUES__SH)
-+#define __PF_VF_QUE_OFFSET_		0x000000ff
-+#define CT2_HOSTFN_PAGE_NUM		(CT2_PCI_APP_BASE + 0x18)
-+#define CT2_HOSTFN_MSIX_VT_INDEX_MBOX_ERR	(CT2_PCI_APP_BASE + 0x38)
++#include "bfi.h"
++#include "bfa_msgq.h"
++#include "bfa_ioc.h"
 +
-+/*
-+ * Brocade 1860 adapter CPQ block registers
-+ */
-+#define CT2_HOSTFN_LPU0_MBOX0		(CT2_PCI_CPQ_BASE + 0x00)
-+#define CT2_HOSTFN_LPU1_MBOX0		(CT2_PCI_CPQ_BASE + 0x20)
-+#define CT2_LPU0_HOSTFN_MBOX0		(CT2_PCI_CPQ_BASE + 0x40)
-+#define CT2_LPU1_HOSTFN_MBOX0		(CT2_PCI_CPQ_BASE + 0x60)
-+#define CT2_HOSTFN_LPU0_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x80)
-+#define CT2_HOSTFN_LPU1_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x84)
-+#define CT2_LPU0_HOSTFN_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x88)
-+#define CT2_LPU1_HOSTFN_CMD_STAT	(CT2_PCI_CPQ_BASE + 0x8c)
-+#define CT2_HOSTFN_LPU0_READ_STAT	(CT2_PCI_CPQ_BASE + 0x90)
-+#define CT2_HOSTFN_LPU1_READ_STAT	(CT2_PCI_CPQ_BASE + 0x94)
-+#define CT2_LPU0_HOSTFN_MBOX0_MSK	(CT2_PCI_CPQ_BASE + 0x98)
-+#define CT2_LPU1_HOSTFN_MBOX0_MSK	(CT2_PCI_CPQ_BASE + 0x9C)
-+#define CT2_HOST_SEM0_REG		0x000148f0
-+#define CT2_HOST_SEM1_REG		0x000148f4
-+#define CT2_HOST_SEM2_REG		0x000148f8
-+#define CT2_HOST_SEM3_REG		0x000148fc
-+#define CT2_HOST_SEM4_REG		0x00014900
-+#define CT2_HOST_SEM5_REG		0x00014904
-+#define CT2_HOST_SEM6_REG		0x00014908
-+#define CT2_HOST_SEM7_REG		0x0001490c
-+#define CT2_HOST_SEM0_INFO_REG		0x000148b0
-+#define CT2_HOST_SEM1_INFO_REG		0x000148b4
-+#define CT2_HOST_SEM2_INFO_REG		0x000148b8
-+#define CT2_HOST_SEM3_INFO_REG		0x000148bc
-+#define CT2_HOST_SEM4_INFO_REG		0x000148c0
-+#define CT2_HOST_SEM5_INFO_REG		0x000148c4
-+#define CT2_HOST_SEM6_INFO_REG		0x000148c8
-+#define CT2_HOST_SEM7_INFO_REG		0x000148cc
++#define call_cmdq_ent_cbfn(_cmdq_ent, _status)				\
++{									\
++	bfa_msgq_cmdcbfn_t cbfn;					\
++	void *cbarg;							\
++	cbfn = (_cmdq_ent)->cbfn;					\
++	cbarg = (_cmdq_ent)->cbarg;					\
++	(_cmdq_ent)->cbfn = NULL;					\
++	(_cmdq_ent)->cbarg = NULL;					\
++	if (cbfn) {							\
++		cbfn(cbarg, (_status));					\
++	}								\
++}
 +
-+#define CT2_APP_PLL_LCLK_CTL_REG	0x00014808
-+#define __APP_LPUCLK_HALFSPEED		0x40000000
-+#define __APP_PLL_LCLK_LOAD		0x20000000
-+#define __APP_PLL_LCLK_FBCNT_MK		0x1fe00000
-+#define __APP_PLL_LCLK_FBCNT_SH		21
-+#define __APP_PLL_LCLK_FBCNT(_v)	((_v) << __APP_PLL_SCLK_FBCNT_SH)
-+enum {
-+	__APP_PLL_LCLK_FBCNT_425_MHZ = 6,
-+	__APP_PLL_LCLK_FBCNT_468_MHZ = 4,
++static void bfa_msgq_cmdq_dbell(struct bfa_msgq_cmdq *cmdq);
++static void bfa_msgq_cmdq_copy_rsp(struct bfa_msgq_cmdq *cmdq);
++
++enum cmdq_event {
++	CMDQ_E_START			= 1,
++	CMDQ_E_STOP			= 2,
++	CMDQ_E_FAIL			= 3,
++	CMDQ_E_POST			= 4,
++	CMDQ_E_INIT_RESP		= 5,
++	CMDQ_E_DB_READY			= 6,
 +};
-+#define __APP_PLL_LCLK_EXTFB		0x00000800
-+#define __APP_PLL_LCLK_ENOUTS		0x00000400
-+#define __APP_PLL_LCLK_RATE		0x00000010
-+#define CT2_APP_PLL_SCLK_CTL_REG	0x0001480c
-+#define __P_SCLK_PLL_LOCK		0x80000000
-+#define __APP_PLL_SCLK_REFCLK_SEL	0x40000000
-+#define __APP_PLL_SCLK_CLK_DIV2		0x20000000
-+#define __APP_PLL_SCLK_LOAD		0x10000000
-+#define __APP_PLL_SCLK_FBCNT_MK		0x0ff00000
-+#define __APP_PLL_SCLK_FBCNT_SH		20
-+#define __APP_PLL_SCLK_FBCNT(_v)	((_v) << __APP_PLL_SCLK_FBCNT_SH)
-+enum {
-+	__APP_PLL_SCLK_FBCNT_NORM = 6,
-+	__APP_PLL_SCLK_FBCNT_10G_FC = 10,
++
++bfa_fsm_state_decl(cmdq, stopped, struct bfa_msgq_cmdq, enum cmdq_event);
++bfa_fsm_state_decl(cmdq, init_wait, struct bfa_msgq_cmdq, enum cmdq_event);
++bfa_fsm_state_decl(cmdq, ready, struct bfa_msgq_cmdq, enum cmdq_event);
++bfa_fsm_state_decl(cmdq, dbell_wait, struct bfa_msgq_cmdq,
++			enum cmdq_event);
++
++static void
++cmdq_sm_stopped_entry(struct bfa_msgq_cmdq *cmdq)
++{
++	struct bfa_msgq_cmd_entry *cmdq_ent;
++
++	cmdq->producer_index = 0;
++	cmdq->consumer_index = 0;
++	cmdq->flags = 0;
++	cmdq->token = 0;
++	cmdq->offset = 0;
++	cmdq->bytes_to_copy = 0;
++	while (!list_empty(&cmdq->pending_q)) {
++		bfa_q_deq(&cmdq->pending_q, &cmdq_ent);
++		bfa_q_qe_init(&cmdq_ent->qe);
++		call_cmdq_ent_cbfn(cmdq_ent, BFA_STATUS_FAILED);
++	}
++}
++
++static void
++cmdq_sm_stopped(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
++{
++	switch (event) {
++	case CMDQ_E_START:
++		bfa_fsm_set_state(cmdq, cmdq_sm_init_wait);
++		break;
++
++	case CMDQ_E_STOP:
++	case CMDQ_E_FAIL:
++		/* No-op */
++		break;
++
++	case CMDQ_E_POST:
++		cmdq->flags |= BFA_MSGQ_CMDQ_F_DB_UPDATE;
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++cmdq_sm_init_wait_entry(struct bfa_msgq_cmdq *cmdq)
++{
++	bfa_wc_down(&cmdq->msgq->init_wc);
++}
++
++static void
++cmdq_sm_init_wait(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
++{
++	switch (event) {
++	case CMDQ_E_STOP:
++	case CMDQ_E_FAIL:
++		bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
++		break;
++
++	case CMDQ_E_POST:
++		cmdq->flags |= BFA_MSGQ_CMDQ_F_DB_UPDATE;
++		break;
++
++	case CMDQ_E_INIT_RESP:
++		if (cmdq->flags & BFA_MSGQ_CMDQ_F_DB_UPDATE) {
++			cmdq->flags &= ~BFA_MSGQ_CMDQ_F_DB_UPDATE;
++			bfa_fsm_set_state(cmdq, cmdq_sm_dbell_wait);
++		} else
++			bfa_fsm_set_state(cmdq, cmdq_sm_ready);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++cmdq_sm_ready_entry(struct bfa_msgq_cmdq *cmdq)
++{
++}
++
++static void
++cmdq_sm_ready(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
++{
++	switch (event) {
++	case CMDQ_E_STOP:
++	case CMDQ_E_FAIL:
++		bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
++		break;
++
++	case CMDQ_E_POST:
++		bfa_fsm_set_state(cmdq, cmdq_sm_dbell_wait);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++cmdq_sm_dbell_wait_entry(struct bfa_msgq_cmdq *cmdq)
++{
++	bfa_msgq_cmdq_dbell(cmdq);
++}
++
++static void
++cmdq_sm_dbell_wait(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
++{
++	switch (event) {
++	case CMDQ_E_STOP:
++	case CMDQ_E_FAIL:
++		bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
++		break;
++
++	case CMDQ_E_POST:
++		cmdq->flags |= BFA_MSGQ_CMDQ_F_DB_UPDATE;
++		break;
++
++	case CMDQ_E_DB_READY:
++		if (cmdq->flags & BFA_MSGQ_CMDQ_F_DB_UPDATE) {
++			cmdq->flags &= ~BFA_MSGQ_CMDQ_F_DB_UPDATE;
++			bfa_fsm_set_state(cmdq, cmdq_sm_dbell_wait);
++		} else
++			bfa_fsm_set_state(cmdq, cmdq_sm_ready);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++bfa_msgq_cmdq_dbell_ready(void *arg)
++{
++	struct bfa_msgq_cmdq *cmdq = (struct bfa_msgq_cmdq *)arg;
++	bfa_fsm_send_event(cmdq, CMDQ_E_DB_READY);
++}
++
++static void
++bfa_msgq_cmdq_dbell(struct bfa_msgq_cmdq *cmdq)
++{
++	struct bfi_msgq_h2i_db *dbell =
++		(struct bfi_msgq_h2i_db *)(&cmdq->dbell_mb.msg[0]);
++
++	memset(dbell, 0, sizeof(struct bfi_msgq_h2i_db));
++	bfi_h2i_set(dbell->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_DOORBELL_PI, 0);
++	dbell->mh.mtag.i2htok = 0;
++	dbell->idx.cmdq_pi = htons(cmdq->producer_index);
++
++	if (!bfa_nw_ioc_mbox_queue(cmdq->msgq->ioc, &cmdq->dbell_mb,
++				bfa_msgq_cmdq_dbell_ready, cmdq)) {
++		bfa_msgq_cmdq_dbell_ready(cmdq);
++	}
++}
++
++static void
++__cmd_copy(struct bfa_msgq_cmdq *cmdq, struct bfa_msgq_cmd_entry *cmd)
++{
++	size_t len = cmd->msg_size;
++	int num_entries = 0;
++	size_t to_copy;
++	u8 *src, *dst;
++
++	src = (u8 *)cmd->msg_hdr;
++	dst = (u8 *)cmdq->addr.kva;
++	dst += (cmdq->producer_index * BFI_MSGQ_CMD_ENTRY_SIZE);
++
++	while (len) {
++		to_copy = (len < BFI_MSGQ_CMD_ENTRY_SIZE) ?
++				len : BFI_MSGQ_CMD_ENTRY_SIZE;
++		memcpy(dst, src, to_copy);
++		len -= to_copy;
++		src += BFI_MSGQ_CMD_ENTRY_SIZE;
++		BFA_MSGQ_INDX_ADD(cmdq->producer_index, 1, cmdq->depth);
++		dst = (u8 *)cmdq->addr.kva;
++		dst += (cmdq->producer_index * BFI_MSGQ_CMD_ENTRY_SIZE);
++		num_entries++;
++	}
++
++}
++
++static void
++bfa_msgq_cmdq_ci_update(struct bfa_msgq_cmdq *cmdq, struct bfi_mbmsg *mb)
++{
++	struct bfi_msgq_i2h_db *dbell = (struct bfi_msgq_i2h_db *)mb;
++	struct bfa_msgq_cmd_entry *cmd;
++	int posted = 0;
++
++	cmdq->consumer_index = ntohs(dbell->idx.cmdq_ci);
++
++	/* Walk through pending list to see if the command can be posted */
++	while (!list_empty(&cmdq->pending_q)) {
++		cmd =
++		(struct bfa_msgq_cmd_entry *)bfa_q_first(&cmdq->pending_q);
++		if (ntohs(cmd->msg_hdr->num_entries) <=
++			BFA_MSGQ_FREE_CNT(cmdq)) {
++			list_del(&cmd->qe);
++			__cmd_copy(cmdq, cmd);
++			posted = 1;
++			call_cmdq_ent_cbfn(cmd, BFA_STATUS_OK);
++		} else {
++			break;
++		}
++	}
++
++	if (posted)
++		bfa_fsm_send_event(cmdq, CMDQ_E_POST);
++}
++
++static void
++bfa_msgq_cmdq_copy_next(void *arg)
++{
++	struct bfa_msgq_cmdq *cmdq = (struct bfa_msgq_cmdq *)arg;
++
++	if (cmdq->bytes_to_copy)
++		bfa_msgq_cmdq_copy_rsp(cmdq);
++}
++
++static void
++bfa_msgq_cmdq_copy_req(struct bfa_msgq_cmdq *cmdq, struct bfi_mbmsg *mb)
++{
++	struct bfi_msgq_i2h_cmdq_copy_req *req =
++		(struct bfi_msgq_i2h_cmdq_copy_req *)mb;
++
++	cmdq->token = 0;
++	cmdq->offset = ntohs(req->offset);
++	cmdq->bytes_to_copy = ntohs(req->len);
++	bfa_msgq_cmdq_copy_rsp(cmdq);
++}
++
++static void
++bfa_msgq_cmdq_copy_rsp(struct bfa_msgq_cmdq *cmdq)
++{
++	struct bfi_msgq_h2i_cmdq_copy_rsp *rsp =
++		(struct bfi_msgq_h2i_cmdq_copy_rsp *)&cmdq->copy_mb.msg[0];
++	int copied;
++	u8 *addr = (u8 *)cmdq->addr.kva;
++
++	memset(rsp, 0, sizeof(struct bfi_msgq_h2i_cmdq_copy_rsp));
++	bfi_h2i_set(rsp->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_CMDQ_COPY_RSP, 0);
++	rsp->mh.mtag.i2htok = htons(cmdq->token);
++	copied = (cmdq->bytes_to_copy >= BFI_CMD_COPY_SZ) ? BFI_CMD_COPY_SZ :
++		cmdq->bytes_to_copy;
++	addr += cmdq->offset;
++	memcpy(rsp->data, addr, copied);
++
++	cmdq->token++;
++	cmdq->offset += copied;
++	cmdq->bytes_to_copy -= copied;
++
++	if (!bfa_nw_ioc_mbox_queue(cmdq->msgq->ioc, &cmdq->copy_mb,
++				bfa_msgq_cmdq_copy_next, cmdq)) {
++		bfa_msgq_cmdq_copy_next(cmdq);
++	}
++}
++
++static void
++bfa_msgq_cmdq_attach(struct bfa_msgq_cmdq *cmdq, struct bfa_msgq *msgq)
++{
++	cmdq->depth = BFA_MSGQ_CMDQ_NUM_ENTRY;
++	INIT_LIST_HEAD(&cmdq->pending_q);
++	cmdq->msgq = msgq;
++	bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
++}
++
++static void bfa_msgq_rspq_dbell(struct bfa_msgq_rspq *rspq);
++
++enum rspq_event {
++	RSPQ_E_START			= 1,
++	RSPQ_E_STOP			= 2,
++	RSPQ_E_FAIL			= 3,
++	RSPQ_E_RESP			= 4,
++	RSPQ_E_INIT_RESP		= 5,
++	RSPQ_E_DB_READY			= 6,
 +};
-+#define __APP_PLL_SCLK_EXTFB		0x00000800
-+#define __APP_PLL_SCLK_ENOUTS		0x00000400
-+#define __APP_PLL_SCLK_RATE		0x00000010
-+#define CT2_PCIE_MISC_REG		0x00014804
-+#define __ETH_CLK_ENABLE_PORT1		0x00000010
-+#define CT2_CHIP_MISC_PRG		0x000148a4
-+#define __ETH_CLK_ENABLE_PORT0		0x00004000
-+#define __APP_LPU_SPEED			0x00000002
-+#define CT2_MBIST_STAT_REG		0x00014818
-+#define CT2_MBIST_CTL_REG		0x0001481c
-+#define CT2_PMM_1T_CONTROL_REG_P0	0x0002381c
-+#define __PMM_1T_PNDB_P			0x00000002
-+#define CT2_PMM_1T_CONTROL_REG_P1	0x00023c1c
-+#define CT2_WGN_STATUS			0x00014990
-+#define __A2T_AHB_LOAD			0x00000800
-+#define __WGN_READY			0x00000400
-+#define __GLBL_PF_VF_CFG_RDY		0x00000200
-+#define CT2_NFC_CSR_SET_REG		0x00027424
-+#define __HALT_NFC_CONTROLLER		0x00000002
-+#define __NFC_CONTROLLER_HALTED		0x00001000
 +
-+#define CT2_CSI_MAC0_CONTROL_REG	0x000270d0
-+#define __CSI_MAC_RESET			0x00000010
-+#define __CSI_MAC_AHB_RESET		0x00000008
-+#define CT2_CSI_MAC1_CONTROL_REG	0x000270d4
-+#define CT2_CSI_MAC_CONTROL_REG(__n) \
-+	(CT2_CSI_MAC0_CONTROL_REG + \
-+	(__n) * (CT2_CSI_MAC1_CONTROL_REG - CT2_CSI_MAC0_CONTROL_REG))
++bfa_fsm_state_decl(rspq, stopped, struct bfa_msgq_rspq, enum rspq_event);
++bfa_fsm_state_decl(rspq, init_wait, struct bfa_msgq_rspq,
++			enum rspq_event);
++bfa_fsm_state_decl(rspq, ready, struct bfa_msgq_rspq, enum rspq_event);
++bfa_fsm_state_decl(rspq, dbell_wait, struct bfa_msgq_rspq,
++			enum rspq_event);
 +
++static void
++rspq_sm_stopped_entry(struct bfa_msgq_rspq *rspq)
++{
++	rspq->producer_index = 0;
++	rspq->consumer_index = 0;
++	rspq->flags = 0;
++}
++
++static void
++rspq_sm_stopped(struct bfa_msgq_rspq *rspq, enum rspq_event event)
++{
++	switch (event) {
++	case RSPQ_E_START:
++		bfa_fsm_set_state(rspq, rspq_sm_init_wait);
++		break;
++
++	case RSPQ_E_STOP:
++	case RSPQ_E_FAIL:
++		/* No-op */
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++rspq_sm_init_wait_entry(struct bfa_msgq_rspq *rspq)
++{
++	bfa_wc_down(&rspq->msgq->init_wc);
++}
++
++static void
++rspq_sm_init_wait(struct bfa_msgq_rspq *rspq, enum rspq_event event)
++{
++	switch (event) {
++	case RSPQ_E_FAIL:
++	case RSPQ_E_STOP:
++		bfa_fsm_set_state(rspq, rspq_sm_stopped);
++		break;
++
++	case RSPQ_E_INIT_RESP:
++		bfa_fsm_set_state(rspq, rspq_sm_ready);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++rspq_sm_ready_entry(struct bfa_msgq_rspq *rspq)
++{
++}
++
++static void
++rspq_sm_ready(struct bfa_msgq_rspq *rspq, enum rspq_event event)
++{
++	switch (event) {
++	case RSPQ_E_STOP:
++	case RSPQ_E_FAIL:
++		bfa_fsm_set_state(rspq, rspq_sm_stopped);
++		break;
++
++	case RSPQ_E_RESP:
++		bfa_fsm_set_state(rspq, rspq_sm_dbell_wait);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++rspq_sm_dbell_wait_entry(struct bfa_msgq_rspq *rspq)
++{
++	if (!bfa_nw_ioc_is_disabled(rspq->msgq->ioc))
++		bfa_msgq_rspq_dbell(rspq);
++}
++
++static void
++rspq_sm_dbell_wait(struct bfa_msgq_rspq *rspq, enum rspq_event event)
++{
++	switch (event) {
++	case RSPQ_E_STOP:
++	case RSPQ_E_FAIL:
++		bfa_fsm_set_state(rspq, rspq_sm_stopped);
++		break;
++
++	case RSPQ_E_RESP:
++		rspq->flags |= BFA_MSGQ_RSPQ_F_DB_UPDATE;
++		break;
++
++	case RSPQ_E_DB_READY:
++		if (rspq->flags & BFA_MSGQ_RSPQ_F_DB_UPDATE) {
++			rspq->flags &= ~BFA_MSGQ_RSPQ_F_DB_UPDATE;
++			bfa_fsm_set_state(rspq, rspq_sm_dbell_wait);
++		} else
++			bfa_fsm_set_state(rspq, rspq_sm_ready);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
++static void
++bfa_msgq_rspq_dbell_ready(void *arg)
++{
++	struct bfa_msgq_rspq *rspq = (struct bfa_msgq_rspq *)arg;
++	bfa_fsm_send_event(rspq, RSPQ_E_DB_READY);
++}
++
++static void
++bfa_msgq_rspq_dbell(struct bfa_msgq_rspq *rspq)
++{
++	struct bfi_msgq_h2i_db *dbell =
++		(struct bfi_msgq_h2i_db *)(&rspq->dbell_mb.msg[0]);
++
++	memset(dbell, 0, sizeof(struct bfi_msgq_h2i_db));
++	bfi_h2i_set(dbell->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_DOORBELL_CI, 0);
++	dbell->mh.mtag.i2htok = 0;
++	dbell->idx.rspq_ci = htons(rspq->consumer_index);
++
++	if (!bfa_nw_ioc_mbox_queue(rspq->msgq->ioc, &rspq->dbell_mb,
++				bfa_msgq_rspq_dbell_ready, rspq)) {
++		bfa_msgq_rspq_dbell_ready(rspq);
++	}
++}
++
++static void
++bfa_msgq_rspq_pi_update(struct bfa_msgq_rspq *rspq, struct bfi_mbmsg *mb)
++{
++	struct bfi_msgq_i2h_db *dbell = (struct bfi_msgq_i2h_db *)mb;
++	struct bfi_msgq_mhdr *msghdr;
++	int num_entries;
++	int mc;
++	u8 *rspq_qe;
++
++	rspq->producer_index = ntohs(dbell->idx.rspq_pi);
++
++	while (rspq->consumer_index != rspq->producer_index) {
++		rspq_qe = (u8 *)rspq->addr.kva;
++		rspq_qe += (rspq->consumer_index * BFI_MSGQ_RSP_ENTRY_SIZE);
++		msghdr = (struct bfi_msgq_mhdr *)rspq_qe;
++
++		mc = msghdr->msg_class;
++		num_entries = ntohs(msghdr->num_entries);
++
++		if ((mc > BFI_MC_MAX) || (rspq->rsphdlr[mc].cbfn == NULL))
++			break;
++
++		(rspq->rsphdlr[mc].cbfn)(rspq->rsphdlr[mc].cbarg, msghdr);
++
++		BFA_MSGQ_INDX_ADD(rspq->consumer_index, num_entries,
++				rspq->depth);
++	}
++
++	bfa_fsm_send_event(rspq, RSPQ_E_RESP);
++}
++
++static void
++bfa_msgq_rspq_attach(struct bfa_msgq_rspq *rspq, struct bfa_msgq *msgq)
++{
++	rspq->depth = BFA_MSGQ_RSPQ_NUM_ENTRY;
++	rspq->msgq = msgq;
++	bfa_fsm_set_state(rspq, rspq_sm_stopped);
++}
++
++static void
++bfa_msgq_init_rsp(struct bfa_msgq *msgq,
++		 struct bfi_mbmsg *mb)
++{
++	bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_INIT_RESP);
++	bfa_fsm_send_event(&msgq->rspq, RSPQ_E_INIT_RESP);
++}
++
++static void
++bfa_msgq_init(void *arg)
++{
++	struct bfa_msgq *msgq = (struct bfa_msgq *)arg;
++	struct bfi_msgq_cfg_req *msgq_cfg =
++		(struct bfi_msgq_cfg_req *)&msgq->init_mb.msg[0];
++
++	memset(msgq_cfg, 0, sizeof(struct bfi_msgq_cfg_req));
++	bfi_h2i_set(msgq_cfg->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_INIT_REQ, 0);
++	msgq_cfg->mh.mtag.i2htok = 0;
++
++	bfa_dma_be_addr_set(msgq_cfg->cmdq.addr, msgq->cmdq.addr.pa);
++	msgq_cfg->cmdq.q_depth = htons(msgq->cmdq.depth);
++	bfa_dma_be_addr_set(msgq_cfg->rspq.addr, msgq->rspq.addr.pa);
++	msgq_cfg->rspq.q_depth = htons(msgq->rspq.depth);
++
++	bfa_nw_ioc_mbox_queue(msgq->ioc, &msgq->init_mb, NULL, NULL);
++}
++
++static void
++bfa_msgq_isr(void *cbarg, struct bfi_mbmsg *msg)
++{
++	struct bfa_msgq *msgq = (struct bfa_msgq *)cbarg;
++
++	switch (msg->mh.msg_id) {
++	case BFI_MSGQ_I2H_INIT_RSP:
++		bfa_msgq_init_rsp(msgq, msg);
++		break;
++
++	case BFI_MSGQ_I2H_DOORBELL_PI:
++		bfa_msgq_rspq_pi_update(&msgq->rspq, msg);
++		break;
++
++	case BFI_MSGQ_I2H_DOORBELL_CI:
++		bfa_msgq_cmdq_ci_update(&msgq->cmdq, msg);
++		break;
++
++	case BFI_MSGQ_I2H_CMDQ_COPY_REQ:
++		bfa_msgq_cmdq_copy_req(&msgq->cmdq, msg);
++		break;
++
++	default:
++		BUG_ON(1);
++	}
++}
++
++static void
++bfa_msgq_notify(void *cbarg, enum bfa_ioc_event event)
++{
++	struct bfa_msgq *msgq = (struct bfa_msgq *)cbarg;
++
++	switch (event) {
++	case BFA_IOC_E_ENABLED:
++		bfa_wc_init(&msgq->init_wc, bfa_msgq_init, msgq);
++		bfa_wc_up(&msgq->init_wc);
++		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_START);
++		bfa_wc_up(&msgq->init_wc);
++		bfa_fsm_send_event(&msgq->rspq, RSPQ_E_START);
++		bfa_wc_wait(&msgq->init_wc);
++		break;
++
++	case BFA_IOC_E_DISABLED:
++		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_STOP);
++		bfa_fsm_send_event(&msgq->rspq, RSPQ_E_STOP);
++		break;
++
++	case BFA_IOC_E_FAILED:
++		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_FAIL);
++		bfa_fsm_send_event(&msgq->rspq, RSPQ_E_FAIL);
++		break;
++
++	default:
++		break;
++	}
++}
++
++u32
++bfa_msgq_meminfo(void)
++{
++	return roundup(BFA_MSGQ_CMDQ_SIZE, BFA_DMA_ALIGN_SZ) +
++		roundup(BFA_MSGQ_RSPQ_SIZE, BFA_DMA_ALIGN_SZ);
++}
++
++void
++bfa_msgq_memclaim(struct bfa_msgq *msgq, u8 *kva, u64 pa)
++{
++	msgq->cmdq.addr.kva = kva;
++	msgq->cmdq.addr.pa  = pa;
++
++	kva += roundup(BFA_MSGQ_CMDQ_SIZE, BFA_DMA_ALIGN_SZ);
++	pa += roundup(BFA_MSGQ_CMDQ_SIZE, BFA_DMA_ALIGN_SZ);
++
++	msgq->rspq.addr.kva = kva;
++	msgq->rspq.addr.pa = pa;
++}
++
++void
++bfa_msgq_attach(struct bfa_msgq *msgq, struct bfa_ioc *ioc)
++{
++	msgq->ioc    = ioc;
++
++	bfa_msgq_cmdq_attach(&msgq->cmdq, msgq);
++	bfa_msgq_rspq_attach(&msgq->rspq, msgq);
++
++	bfa_nw_ioc_mbox_regisr(msgq->ioc, BFI_MC_MSGQ, bfa_msgq_isr, msgq);
++	bfa_q_qe_init(&msgq->ioc_notify);
++	bfa_ioc_notify_init(&msgq->ioc_notify, bfa_msgq_notify, msgq);
++	bfa_nw_ioc_notify_register(msgq->ioc, &msgq->ioc_notify);
++}
++
++void
++bfa_msgq_regisr(struct bfa_msgq *msgq, enum bfi_mclass mc,
++		bfa_msgq_mcfunc_t cbfn, void *cbarg)
++{
++	msgq->rspq.rsphdlr[mc].cbfn	= cbfn;
++	msgq->rspq.rsphdlr[mc].cbarg	= cbarg;
++}
++
++void
++bfa_msgq_cmd_post(struct bfa_msgq *msgq,  struct bfa_msgq_cmd_entry *cmd)
++{
++	if (ntohs(cmd->msg_hdr->num_entries) <=
++		BFA_MSGQ_FREE_CNT(&msgq->cmdq)) {
++		__cmd_copy(&msgq->cmdq, cmd);
++		call_cmdq_ent_cbfn(cmd, BFA_STATUS_OK);
++		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_POST);
++	} else {
++		list_add_tail(&cmd->qe, &msgq->cmdq.pending_q);
++	}
++}
++
++void
++bfa_msgq_rsp_copy(struct bfa_msgq *msgq, u8 *buf, size_t buf_len)
++{
++	struct bfa_msgq_rspq *rspq = &msgq->rspq;
++	size_t len = buf_len;
++	size_t to_copy;
++	int ci;
++	u8 *src, *dst;
++
++	ci = rspq->consumer_index;
++	src = (u8 *)rspq->addr.kva;
++	src += (ci * BFI_MSGQ_RSP_ENTRY_SIZE);
++	dst = buf;
++
++	while (len) {
++		to_copy = (len < BFI_MSGQ_RSP_ENTRY_SIZE) ?
++				len : BFI_MSGQ_RSP_ENTRY_SIZE;
++		memcpy(dst, src, to_copy);
++		len -= to_copy;
++		dst += BFI_MSGQ_RSP_ENTRY_SIZE;
++		BFA_MSGQ_INDX_ADD(ci, 1, rspq->depth);
++		src = (u8 *)rspq->addr.kva;
++		src += (ci * BFI_MSGQ_RSP_ENTRY_SIZE);
++	}
++}
+diff --git a/drivers/net/bna/bfa_msgq.h b/drivers/net/bna/bfa_msgq.h
+new file mode 100644
+index 0000000..a6a565a
+--- /dev/null
++++ b/drivers/net/bna/bfa_msgq.h
+@@ -0,0 +1,130 @@
 +/*
-+ * Name semaphore registers based on usage
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
 + */
-+#define BFA_IOC0_HBEAT_REG		HOST_SEM0_INFO_REG
-+#define BFA_IOC0_STATE_REG		HOST_SEM1_INFO_REG
-+#define BFA_IOC1_HBEAT_REG		HOST_SEM2_INFO_REG
-+#define BFA_IOC1_STATE_REG		HOST_SEM3_INFO_REG
-+#define BFA_FW_USE_COUNT		HOST_SEM4_INFO_REG
-+#define BFA_IOC_FAIL_SYNC		HOST_SEM5_INFO_REG
-+
 +/*
-+ * CT2 semaphore register locations changed
-+ */
-+#define CT2_BFA_IOC0_HBEAT_REG		CT2_HOST_SEM0_INFO_REG
-+#define CT2_BFA_IOC0_STATE_REG		CT2_HOST_SEM1_INFO_REG
-+#define CT2_BFA_IOC1_HBEAT_REG		CT2_HOST_SEM2_INFO_REG
-+#define CT2_BFA_IOC1_STATE_REG		CT2_HOST_SEM3_INFO_REG
-+#define CT2_BFA_FW_USE_COUNT		CT2_HOST_SEM4_INFO_REG
-+#define CT2_BFA_IOC_FAIL_SYNC		CT2_HOST_SEM5_INFO_REG
-+
-+#define CPE_Q_NUM(__fn, __q)	(((__fn) << 2) + (__q))
-+#define RME_Q_NUM(__fn, __q)	(((__fn) << 2) + (__q))
-+
-+/*
-+ * And corresponding host interrupt status bit field defines
-+ */
-+#define __HFN_INT_CPE_Q0	0x00000001U
-+#define __HFN_INT_CPE_Q1	0x00000002U
-+#define __HFN_INT_CPE_Q2	0x00000004U
-+#define __HFN_INT_CPE_Q3	0x00000008U
-+#define __HFN_INT_CPE_Q4	0x00000010U
-+#define __HFN_INT_CPE_Q5	0x00000020U
-+#define __HFN_INT_CPE_Q6	0x00000040U
-+#define __HFN_INT_CPE_Q7	0x00000080U
-+#define __HFN_INT_RME_Q0	0x00000100U
-+#define __HFN_INT_RME_Q1	0x00000200U
-+#define __HFN_INT_RME_Q2	0x00000400U
-+#define __HFN_INT_RME_Q3	0x00000800U
-+#define __HFN_INT_RME_Q4	0x00001000U
-+#define __HFN_INT_RME_Q5	0x00002000U
-+#define __HFN_INT_RME_Q6	0x00004000U
-+#define __HFN_INT_RME_Q7	0x00008000U
-+#define __HFN_INT_ERR_EMC	0x00010000U
-+#define __HFN_INT_ERR_LPU0	0x00020000U
-+#define __HFN_INT_ERR_LPU1	0x00040000U
-+#define __HFN_INT_ERR_PSS	0x00080000U
-+#define __HFN_INT_MBOX_LPU0	0x00100000U
-+#define __HFN_INT_MBOX_LPU1	0x00200000U
-+#define __HFN_INT_MBOX1_LPU0	0x00400000U
-+#define __HFN_INT_MBOX1_LPU1	0x00800000U
-+#define __HFN_INT_LL_HALT	0x01000000U
-+#define __HFN_INT_CPE_MASK	0x000000ffU
-+#define __HFN_INT_RME_MASK	0x0000ff00U
-+#define __HFN_INT_ERR_MASK	\
-+	(__HFN_INT_ERR_EMC | __HFN_INT_ERR_LPU0 | __HFN_INT_ERR_LPU1 | \
-+	 __HFN_INT_ERR_PSS | __HFN_INT_LL_HALT)
-+#define __HFN_INT_FN0_MASK	\
-+	(__HFN_INT_CPE_Q0 | __HFN_INT_CPE_Q1 | __HFN_INT_CPE_Q2 | \
-+	 __HFN_INT_CPE_Q3 | __HFN_INT_RME_Q0 | __HFN_INT_RME_Q1 | \
-+	 __HFN_INT_RME_Q2 | __HFN_INT_RME_Q3 | __HFN_INT_MBOX_LPU0)
-+#define __HFN_INT_FN1_MASK	\
-+	(__HFN_INT_CPE_Q4 | __HFN_INT_CPE_Q5 | __HFN_INT_CPE_Q6 | \
-+	 __HFN_INT_CPE_Q7 | __HFN_INT_RME_Q4 | __HFN_INT_RME_Q5 | \
-+	 __HFN_INT_RME_Q6 | __HFN_INT_RME_Q7 | __HFN_INT_MBOX_LPU1)
-+
-+/*
-+ * Host interrupt status defines for 1860
-+ */
-+#define __HFN_INT_MBOX_LPU0_CT2	0x00010000U
-+#define __HFN_INT_MBOX_LPU1_CT2	0x00020000U
-+#define __HFN_INT_ERR_PSS_CT2	0x00040000U
-+#define __HFN_INT_ERR_LPU0_CT2	0x00080000U
-+#define __HFN_INT_ERR_LPU1_CT2	0x00100000U
-+#define __HFN_INT_CPQ_HALT_CT2	0x00200000U
-+#define __HFN_INT_ERR_WGN_CT2	0x00400000U
-+#define __HFN_INT_ERR_LEHRX_CT2	0x00800000U
-+#define __HFN_INT_ERR_LEHTX_CT2	0x01000000U
-+#define __HFN_INT_ERR_MASK_CT2	\
-+	(__HFN_INT_ERR_PSS_CT2 | __HFN_INT_ERR_LPU0_CT2 | \
-+	 __HFN_INT_ERR_LPU1_CT2 | __HFN_INT_CPQ_HALT_CT2 | \
-+	 __HFN_INT_ERR_WGN_CT2 | __HFN_INT_ERR_LEHRX_CT2 | \
-+	 __HFN_INT_ERR_LEHTX_CT2)
-+#define __HFN_INT_FN0_MASK_CT2	\
-+	(__HFN_INT_CPE_Q0 | __HFN_INT_CPE_Q1 | __HFN_INT_CPE_Q2 | \
-+	 __HFN_INT_CPE_Q3 | __HFN_INT_RME_Q0 | __HFN_INT_RME_Q1 | \
-+	 __HFN_INT_RME_Q2 | __HFN_INT_RME_Q3 | __HFN_INT_MBOX_LPU0_CT2)
-+#define __HFN_INT_FN1_MASK_CT2	\
-+	(__HFN_INT_CPE_Q4 | __HFN_INT_CPE_Q5 | __HFN_INT_CPE_Q6 | \
-+	 __HFN_INT_CPE_Q7 | __HFN_INT_RME_Q4 | __HFN_INT_RME_Q5 | \
-+	 __HFN_INT_RME_Q6 | __HFN_INT_RME_Q7 | __HFN_INT_MBOX_LPU1_CT2)
-+
-+/*
-+ * asic memory map.
-+ */
-+#define PSS_SMEM_PAGE_START		0x8000
-+#define PSS_SMEM_PGNUM(_pg0, _ma)	((_pg0) + ((_ma) >> 15))
-+#define PSS_SMEM_PGOFF(_ma)		((_ma) & 0x7fff)
-+
-+#endif /* __BFI_REG_H__ */
-diff --git a/drivers/net/bna/bna_hw.h b/drivers/net/bna/bna_hw.h
-index cad233d..16a5eed 100644
---- a/drivers/net/bna/bna_hw.h
-+++ b/drivers/net/bna/bna_hw.h
-@@ -14,14 +14,16 @@
-  * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
-  * All rights reserved
-  * www.brocade.com
-- *
++ * Copyright (c) 2005-2011 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
 + */
 +
++#ifndef __BFA_MSGQ_H__
++#define __BFA_MSGQ_H__
++
++#include "bfa_defs.h"
++#include "bfi.h"
++#include "bfa_ioc.h"
++#include "bfa_cs.h"
++
++#define BFA_MSGQ_FREE_CNT(_q)						\
++	(((_q)->consumer_index - (_q)->producer_index - 1) & ((_q)->depth - 1))
++
++#define BFA_MSGQ_INDX_ADD(_q_indx, _qe_num, _q_depth)			\
++	((_q_indx) = (((_q_indx) + (_qe_num)) & ((_q_depth) - 1)))
++
++#define BFA_MSGQ_CMDQ_NUM_ENTRY		128
++#define BFA_MSGQ_CMDQ_SIZE						\
++	(BFI_MSGQ_CMD_ENTRY_SIZE * BFA_MSGQ_CMDQ_NUM_ENTRY)
++
++#define BFA_MSGQ_RSPQ_NUM_ENTRY		128
++#define BFA_MSGQ_RSPQ_SIZE						\
++	(BFI_MSGQ_RSP_ENTRY_SIZE * BFA_MSGQ_RSPQ_NUM_ENTRY)
++
++#define bfa_msgq_cmd_set(_cmd, _cbfn, _cbarg, _msg_size, _msg_hdr)	\
++do {									\
++	(_cmd)->cbfn = (_cbfn);						\
++	(_cmd)->cbarg = (_cbarg);					\
++	(_cmd)->msg_size = (_msg_size);					\
++	(_cmd)->msg_hdr = (_msg_hdr);					\
++} while (0)
++
++struct bfa_msgq;
++
++typedef void (*bfa_msgq_cmdcbfn_t)(void *cbarg, enum bfa_status status);
++
++struct bfa_msgq_cmd_entry {
++	struct list_head				qe;
++	bfa_msgq_cmdcbfn_t		cbfn;
++	void				*cbarg;
++	size_t				msg_size;
++	struct bfi_msgq_mhdr *msg_hdr;
++};
++
++enum bfa_msgq_cmdq_flags {
++	BFA_MSGQ_CMDQ_F_DB_UPDATE	= 1,
++};
++
++struct bfa_msgq_cmdq {
++	bfa_fsm_t			fsm;
++	enum bfa_msgq_cmdq_flags flags;
++
++	u16			producer_index;
++	u16			consumer_index;
++	u16			depth; /* FW Q depth is 16 bits */
++	struct bfa_dma addr;
++	struct bfa_mbox_cmd dbell_mb;
++
++	u16			token;
++	int				offset;
++	int				bytes_to_copy;
++	struct bfa_mbox_cmd copy_mb;
++
++	struct list_head		pending_q; /* pending command queue */
++
++	struct bfa_msgq *msgq;
++};
++
++enum bfa_msgq_rspq_flags {
++	BFA_MSGQ_RSPQ_F_DB_UPDATE	= 1,
++};
++
++typedef void (*bfa_msgq_mcfunc_t)(void *cbarg, struct bfi_msgq_mhdr *mhdr);
++
++struct bfa_msgq_rspq {
++	bfa_fsm_t			fsm;
++	enum bfa_msgq_rspq_flags flags;
++
++	u16			producer_index;
++	u16			consumer_index;
++	u16			depth; /* FW Q depth is 16 bits */
++	struct bfa_dma addr;
++	struct bfa_mbox_cmd dbell_mb;
++
++	int				nmclass;
++	struct {
++		bfa_msgq_mcfunc_t	cbfn;
++		void			*cbarg;
++	} rsphdlr[BFI_MC_MAX];
++
++	struct bfa_msgq *msgq;
++};
++
++struct bfa_msgq {
++	struct bfa_msgq_cmdq cmdq;
++	struct bfa_msgq_rspq rspq;
++
++	struct bfa_wc			init_wc;
++	struct bfa_mbox_cmd init_mb;
++
++	struct bfa_ioc_notify ioc_notify;
++	struct bfa_ioc *ioc;
++};
++
++u32 bfa_msgq_meminfo(void);
++void bfa_msgq_memclaim(struct bfa_msgq *msgq, u8 *kva, u64 pa);
++void bfa_msgq_attach(struct bfa_msgq *msgq, struct bfa_ioc *ioc);
++void bfa_msgq_regisr(struct bfa_msgq *msgq, enum bfi_mclass mc,
++		     bfa_msgq_mcfunc_t cbfn, void *cbarg);
++void bfa_msgq_cmd_post(struct bfa_msgq *msgq,
++		       struct bfa_msgq_cmd_entry *cmd);
++void bfa_msgq_rsp_copy(struct bfa_msgq *msgq, u8 *buf, size_t buf_len);
++
++#endif
+diff --git a/drivers/net/bna/bfi.h b/drivers/net/bna/bfi.h
+index 088211c..6a53183 100644
+--- a/drivers/net/bna/bfi.h
++++ b/drivers/net/bna/bfi.h
+@@ -192,6 +192,8 @@ enum bfi_mclass {
+ 
+ #define BFI_BOOT_LOADER_OS		0
+ 
++#define BFI_FWBOOT_ENV_OS		0
++
+ #define BFI_BOOT_MEMTEST_RES_ADDR   0x900
+ #define BFI_BOOT_MEMTEST_RES_SIG    0xA0A1A2A3
+ 
+@@ -395,6 +397,105 @@ union bfi_ioc_i2h_msg_u {
+ 	u32			mboxmsg[BFI_IOC_MSGSZ];
+ };
+ 
 +/**
-  * File for interrupt macros and functions
-  */
++ *----------------------------------------------------------------------
++ *				MSGQ
++ *----------------------------------------------------------------------
++ */
++
++enum bfi_msgq_h2i_msgs {
++	BFI_MSGQ_H2I_INIT_REQ	   = 1,
++	BFI_MSGQ_H2I_DOORBELL_PI	= 2,
++	BFI_MSGQ_H2I_DOORBELL_CI	= 3,
++	BFI_MSGQ_H2I_CMDQ_COPY_RSP      = 4,
++};
++
++enum bfi_msgq_i2h_msgs {
++	BFI_MSGQ_I2H_INIT_RSP	   = BFA_I2HM(BFI_MSGQ_H2I_INIT_REQ),
++	BFI_MSGQ_I2H_DOORBELL_PI	= BFA_I2HM(BFI_MSGQ_H2I_DOORBELL_PI),
++	BFI_MSGQ_I2H_DOORBELL_CI	= BFA_I2HM(BFI_MSGQ_H2I_DOORBELL_CI),
++	BFI_MSGQ_I2H_CMDQ_COPY_REQ      = BFA_I2HM(BFI_MSGQ_H2I_CMDQ_COPY_RSP),
++};
++
++/* Messages(commands/responsed/AENS will have the following header */
++struct bfi_msgq_mhdr {
++	u8	msg_class;
++	u8	msg_id;
++	u16	msg_token;
++	u16	num_entries;
++	u8	enet_id;
++	u8	rsvd[1];
++};
++
++#define bfi_msgq_mhdr_set(_mh, _mc, _mid, _tok, _enet_id) do {	\
++	(_mh).msg_class	 = (_mc);	\
++	(_mh).msg_id	    = (_mid);       \
++	(_mh).msg_token	 = (_tok);       \
++	(_mh).enet_id	   = (_enet_id);   \
++} while (0)
++
++/*
++ * Mailbox  for messaging interface
++ */
++#define BFI_MSGQ_CMD_ENTRY_SIZE	 (64)    /* TBD */
++#define BFI_MSGQ_RSP_ENTRY_SIZE	 (64)    /* TBD */
++
++#define bfi_msgq_num_cmd_entries(_size)				 \
++	(((_size) + BFI_MSGQ_CMD_ENTRY_SIZE - 1) / BFI_MSGQ_CMD_ENTRY_SIZE)
++
++struct bfi_msgq {
++	union bfi_addr_u addr;
++	u16 q_depth;     /* Total num of entries in the queue */
++	u8 rsvd[2];
++};
++
++/* BFI_ENET_MSGQ_CFG_REQ TBD init or cfg? */
++struct bfi_msgq_cfg_req {
++	struct bfi_mhdr mh;
++	struct bfi_msgq cmdq;
++	struct bfi_msgq rspq;
++};
++
++/* BFI_ENET_MSGQ_CFG_RSP */
++struct bfi_msgq_cfg_rsp {
++	struct bfi_mhdr mh;
++	u8 cmd_status;
++	u8 rsvd[3];
++};
++
++/* BFI_MSGQ_H2I_DOORBELL */
++struct bfi_msgq_h2i_db {
++	struct bfi_mhdr mh;
++	union {
++		u16 cmdq_pi;
++		u16 rspq_ci;
++	} idx;
++};
++
++/* BFI_MSGQ_I2H_DOORBELL */
++struct bfi_msgq_i2h_db {
++	struct bfi_mhdr mh;
++	union {
++		u16 rspq_pi;
++		u16 cmdq_ci;
++	} idx;
++};
++
++#define BFI_CMD_COPY_SZ 28
++
++/* BFI_MSGQ_H2I_CMD_COPY_RSP */
++struct bfi_msgq_h2i_cmdq_copy_rsp {
++	struct bfi_mhdr mh;
++	u8	      data[BFI_CMD_COPY_SZ];
++};
++
++/* BFI_MSGQ_I2H_CMD_COPY_REQ */
++struct bfi_msgq_i2h_cmdq_copy_req {
++	struct bfi_mhdr mh;
++	u16     offset;
++	u16     len;
++};
++
+ #pragma pack()
  
- #ifndef __BNA_HW_H__
- #define __BNA_HW_H__
- 
--#include "bfi_ctreg.h"
-+#include "bfi_reg.h"
- 
- /**
-  *
+ #endif /* __BFI_H__ */
+diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
+index cb2594c..7d95517 100644
+--- a/drivers/net/bna/bna_ctrl.c
++++ b/drivers/net/bna/bna_ctrl.c
+@@ -183,7 +183,8 @@ bna_ll_isr(void *llarg, struct bfi_mbmsg *msg)
+ 			if (to_post) {
+ 				mb_qe = bfa_q_first(&bna->mbox_mod.posted_q);
+ 				bfa_nw_ioc_mbox_queue(&bna->device.ioc,
+-							&mb_qe->cmd);
++							&mb_qe->cmd, NULL,
++							NULL);
+ 			}
+ 		} else {
+ 			snprintf(message, BNA_MESSAGE_SIZE,
+@@ -234,7 +235,8 @@ bna_mbox_send(struct bna *bna, struct bna_mbox_qe *mbox_qe)
+ 	bna->mbox_mod.msg_pending++;
+ 	if (bna->mbox_mod.state == BNA_MBOX_FREE) {
+ 		list_add_tail(&mbox_qe->qe, &bna->mbox_mod.posted_q);
+-		bfa_nw_ioc_mbox_queue(&bna->device.ioc, &mbox_qe->cmd);
++		bfa_nw_ioc_mbox_queue(&bna->device.ioc, &mbox_qe->cmd,
++					NULL, NULL);
+ 		bna->mbox_mod.state = BNA_MBOX_POSTED;
+ 	} else {
+ 		list_add_tail(&mbox_qe->qe, &bna->mbox_mod.posted_q);
 -- 
 1.7.1
 
