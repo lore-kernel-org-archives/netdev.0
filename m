@@ -1,38 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] MAINTAINERS: Remove Pekka Savola from ipv6.
-Date: Mon, 01 Aug 2011 02:23:48 -0700 (PDT)
-Message-ID: <20110801.022348.1544250023029768444.davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 39372] New: Problems with HFSC Scheduler
+Date: Mon, 01 Aug 2011 02:27:37 -0700 (PDT)
+Message-ID: <20110801.022737.74290317435199544.davem@davemloft.net>
+References: <1311948052.2843.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<4E32BF87.6010909@trash.net>
+	<1312003362.2873.54.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi
-To: netdev@vger.kernel.org
+Cc: kaber@trash.net, soltys@ziu.info, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	hadi@cyberus.ca, lucas.bocchi@gmail.com, 631945@bugs.debian.org,
+	00bormoj@gmail.com, fdelawarde@wirelessmundi.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58109 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42875 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751254Ab1HAJYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 05:24:55 -0400
+	with ESMTP id S1751254Ab1HAJ2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 05:28:55 -0400
+In-Reply-To: <1312003362.2873.54.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 30 Jul 2011 07:22:42 +0200
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- MAINTAINERS |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> [PATCH] sch_sfq: fix sfq_enqueue()
+> 
+> commit 8efa88540635 (sch_sfq: avoid giving spurious NET_XMIT_CN signals)
+> forgot to call qdisc_tree_decrease_qlen() to signal upper levels that a
+> packet (from another flow) was dropped, leading to various problems. 
+> 
+> With help from Michal Soltys and Michal Pokrywka, who did a bisection.
+> 
+> Bugzilla ref: https://bugzilla.kernel.org/show_bug.cgi?id=39372
+> Debian ref: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=631945
+> 
+> Reported-by: Lucas Bocchi <lucas.bocchi@gmail.com>
+> Reported-and-bisected-by: Michal Pokrywka <wolfmoon@o2.pl>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Michal Soltys <soltys@ziu.info>
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index a99fed1..5d4ceba 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4443,7 +4443,6 @@ F:	include/linux/netdevice.h
- NETWORKING [IPv4/IPv6]
- M:	"David S. Miller" <davem@davemloft.net>
- M:	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
--M:	"Pekka Savola (ipv6)" <pekkas@netcore.fi>
- M:	James Morris <jmorris@namei.org>
- M:	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
- M:	Patrick McHardy <kaber@trash.net>
--- 
-1.7.6
-
+Applied, thanks.
