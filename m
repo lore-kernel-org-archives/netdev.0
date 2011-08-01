@@ -1,34 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3/6] drivers/net/niu.c: adjust array index
-Date: Mon, 01 Aug 2011 02:27:59 -0700 (PDT)
-Message-ID: <20110801.022759.1366729474517785485.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/6] net: adjust array index
+Date: Mon, 01 Aug 2011 02:27:52 -0700 (PDT)
+Message-ID: <20110801.022752.1007506557598017442.davem@davemloft.net>
 References: <1311857165-14780-1-git-send-email-julia@diku.dk>
-	<1311857165-14780-4-git-send-email-julia@diku.dk>
+	<1311857165-14780-2-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-To: julia-dAYI7NvHqcQ@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1311857165-14780-4-git-send-email-julia-dAYI7NvHqcQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: julia@diku.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59878 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753088Ab1HAJdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 05:33:53 -0400
+In-Reply-To: <1311857165-14780-2-git-send-email-julia@diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Date: Thu, 28 Jul 2011 14:46:03 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Thu, 28 Jul 2011 14:46:01 +0200
 
-> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+> From: Julia Lawall <julia@diku.dk>
 > 
 > Convert array index from the loop bound to the loop index.
 > 
@@ -48,6 +44,6 @@ Date: Thu, 28 Jul 2011 14:46:03 +0200
 >   ...> }
 > // </smpl>
 > 
-> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
