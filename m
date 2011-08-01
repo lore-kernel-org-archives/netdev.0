@@ -1,76 +1,43 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: [net-next v2 02/71] 3c*/acenic/typhoon: Move 3Com Ethernet
- drivers
-Date: Mon, 1 Aug 2011 10:03:03 +0100
-Message-ID: <20110801100303.48ed75f7@bob.linux.org.uk>
-References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
+Date: Mon, 01 Aug 2011 11:15:45 +0200
+Message-ID: <1312190145.2719.2.camel@edumazet-laptop>
+References: <1311950488.2843.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4E32C76B.5010700@hippy.csoma.elte.hu>
+	 <1311952306.2843.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110729.081902.300678107767426313.davem@davemloft.net>
+	 <1311954208.2843.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1312002053.2873.41.camel@edumazet-laptop>
+	 <4E366A8F.201@hippy.csoma.elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, Philip Blundell <philb@gnu.org>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	David Dillow <dave@thedillows.org>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Donald Becker <becker@scyld.com>,
-	Craig Southeren <craigs@ineluki.apana.org.au>,
-	David Hinds <dahinds@users.sourceforge.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: synapse <synapse@hippy.csoma.elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:36031 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750699Ab1HAJAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2011 05:00:17 -0400
-In-Reply-To: <1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53779 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254Ab1HAJQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 05:16:03 -0400
+Received: by wyg8 with SMTP id 8so1421584wyg.19
+        for <netdev@vger.kernel.org>; Mon, 01 Aug 2011 02:16:01 -0700 (PDT)
+In-Reply-To: <4E366A8F.201@hippy.csoma.elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 30 Jul 2011 20:26:21 -0700
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+Le lundi 01 ao=C3=BBt 2011 =C3=A0 10:57 +0200, synapse a =C3=A9crit :
+> Hello
+>=20
+> Sorry, I wasn't home on the weekend. Exactly to which tree should I=20
+> apply this?
+> It doesn't apply cleanly to 3.0.0. Am I missing something?
+>=20
 
-> Moves the 3Com drivers into drivers/net/ethernet/3com/ and the
-> necessary Kconfig and Makefile changes.
+Could you try latest linux tree ?
 
-This still seems crazy
+We first validate patches on current tree, then backport them if needed
+to previous kernels.
 
-The 3c503 is not being moved (as its 8390 based)
+Thanks
 
-But the 3c505/3c523/3c527/3c507 by that logic also shouldn't be moved
-as really they all belong with the rest of the Intel devices they are
-basically variants of (the 3c527 is weirder, in fact you can probably
-run CP/M 86 on it if you were mad enough)
 
->  drivers/net/{pcmcia => ethernet/3com}/3c574_cs.c |    0
->  drivers/net/{pcmcia => ethernet/3com}/3c589_cs.c |    0
-
-These are currently sensibly where they belong - with the pcmcia
-adapters.
-
->  drivers/net/{ => ethernet/3com}/3c59x.c          |    0
->  drivers/net/ethernet/3com/Kconfig                |  200
-> ++++++++++++++++++++++
-> drivers/net/ethernet/3com/Makefile               |   16 ++
-> drivers/net/{ => ethernet/3com}/acenic.c         |    0
-> drivers/net/{ => ethernet/3com}/acenic.h         |    0
-
-And most Acenic devices are probably branded Netgear not 3COM and may
-also claim to be from Farallon, SGI, Alteon or DEC. Again not a 3Com
-originated part.
-
-So I still think this patch is utter nonsense and just noise.
-
-There isn't any sense in trying to line the network drivers up by
-whatever is written on the box that was thrown away years before. The
-reality is that most cards do not bear anything relevant to the chipset
-vendors name, even by the early 1990s. 
-
-Architectually it makes more sense to keep tidy by bus type and by
-chipset, not by vendor name
-
-NAK
-
-And even if you wanted to make Kconfig simpler - you don't need to move
-files around.
-
-Alan
