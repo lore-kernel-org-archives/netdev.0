@@ -1,16 +1,15 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [net-next v2 35/71] skge/sky2/mv643xx/pxa168: Move the Marvell
  Ethernet drivers
-Date: Sun, 31 Jul 2011 19:43:34 -0700
-Message-ID: <1312166615.20837.128.camel@jtkirshe-mobl>
+Date: Sun, 31 Jul 2011 19:35:51 -0700
+Message-ID: <1312166151.20837.127.camel@jtkirshe-mobl>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <1312082850-24914-36-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <20110731151116.647e9974@nehalam.ftrdhcpuser.net>
 	 <1312151237.11635.5.camel@Joe-Laptop>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-zQ/l2UwAXh0UfalktasH"
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-q6K4rqz5ITEQj2JnRSwX"
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Sachin Sanap <ssanap@marvell.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
@@ -23,16 +22,16 @@ Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Lennert Buytenhek <buytenh@marvell.com>
 To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:16101 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47329 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752637Ab1HACng (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Jul 2011 22:43:36 -0400
+	id S1752926Ab1HACoi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jul 2011 22:44:38 -0400
 In-Reply-To: <1312151237.11635.5.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-zQ/l2UwAXh0UfalktasH
+--=-q6K4rqz5ITEQj2JnRSwX
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -58,23 +57,21 @@ On Sun, 2011-07-31 at 15:27 -0700, Joe Perches wrote:
 Joe is right, the skfp (fddi) driver would go in driver/net/fddi/, which
 is the next set of follow on patches I am working on.
 
-
---=-zQ/l2UwAXh0UfalktasH
+--=-q6K4rqz5ITEQj2JnRSwX
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJONhLWAAoJECTsCADr/EWUZdEH/js8kAfOgn773oB3whVSA+96
-I3qBXDP3TWg5fO9I+Z+xs3kON0NZaQ+MGNOhUXRSUi6YBEYpE0meCvQGahwB1FrE
-4EUcp1pHKV3KJ3ez210Ib6oh+8jTXj0wZQXmELuIZSLsnLJiJEeKZ/1KIdX0G8Ln
-+qmH27/qtEw431kIzS2dk11eDFFTJuYwQ3SA34Nzic//ktiZlfmpAePKK1hoDQEN
-WZMrKBO1XhBC+R+vFz4spyfkRiVB7qfxwdc+/dtmVh5M+5W0wz9D1lbz/sRyqbPL
-tD85hJPh91/4PSMup9udCnJc6hhbq0gF/fw72AMuRYDEB58wr7sTCTXkLitLRSM=
-=6vhQ
+iQEcBAABAgAGBQJONhEGAAoJECTsCADr/EWU6pYH/jQF46XH6I2nTzoLDwaxSO3w
+xRtK90Dx2s0Tpfe3rgkX1fwDJFamPayuzP38cloQe+Heff+CTGBgnMwe1MJluHmh
+kFTBBkwoDCKwtXGuAalym/Ne05sRbinhCRQ6ymk//NwrAdT+6ZAKyE7GVrg7PGzu
+34QKmr/dJZZv/8JydsBplVxMZ9O70SjJF5jfDkMUch6G0hXly2hfM27+axFsWGBM
+GAGJRTcgYbDSTcc9XCDEvW7fku34uEbKvbdHnxz71lxd8fbQopxzeY/mfMVPSOjX
+Z5zazXl/O10BTyeFmv0/K4iu+1/DUnet1G2pWySFxs8hCaZFDZykotrFYD4lXWo=
+=sOFg
 -----END PGP SIGNATURE-----
 
---=-zQ/l2UwAXh0UfalktasH--
+--=-q6K4rqz5ITEQj2JnRSwX--
 
