@@ -1,53 +1,41 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: net-next-2.6 [PATCH 0/7] dccp: add support for dynamic
- parameter updates
-Date: Mon, 1 Aug 2011 08:43:37 -0600
-Message-ID: <20110801144337.GA4955@gerrit.erg.abdn.ac.uk>
-References: <test_tree_patch_set_update_2011-07-25>
- <1311600996-6712-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <20110801.001042.6263177526030880.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 1/1] atm: br2864: sent packets truncated in VC routed mode
+Date: Mon, 01 Aug 2011 11:03:29 -0400
+Message-ID: <201108011503.p71F3Tan031501@cmf.nrl.navy.mil>
+Cc: pascal@plouf.fr.eu.org, davem@davemloft.net,
+	linux-atm-general@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61017 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750862Ab1HAPDJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2011 11:03:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20110801.001042.6263177526030880.davem@davemloft.net>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:41761 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751710Ab1HAPFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 11:05:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting David S. Miller:
-| From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-| Date: Mon, 25 Jul 2011 07:36:29 -0600
-| 
-| > I have also placed this in into a fresh (today's) copy of net-next-2.6, on
-| > 
-| >     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
-| 
-| I did a test pull and this URL doesn't work:
-| 
-| 
-Sorry, I must have clobbered something during a subsequent update last week. 
+hopefully this could be included for the next kernel release.
 
-I have just regenerated the whole tree from scratch, including the 'dccp' sub-branch,
-using  today's net-next-2.6, double-checking it running 
-  git ls-remote git://eden-feed.erg.abdn.ac.uk/net-next-2.6  dccp
-and doing a test-pull of the dccp sub-tree.
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
+commit 8b5e1c9db2bcd2d13c2db08e6c6dbe66882fa186
+Author: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Date:   Mon Aug 1 07:55:07 2011 -0400
 
-Can you please consider pulling again, from
+    atm: br2864: sent packets truncated in VC routed mode
+    
+    Reported-by: Pascal Hambourg <pascal@plouf.fr.eu.org>
+    Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-    git://eden-feed.erg.abdn.ac.uk/net-next-2.6		[sub-tree 'dccp']
-
-
-The patch listing of this set is at
-  http://eden-feed.erg.abdn.ac.uk/cgi-bin/gitweb.cgi?p=net-next-2.6.git;a=log;h=dccp
-
-
-Thank you for the update
-Gerrit
--- 
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 2252c20..52cfd0c 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -242,8 +242,6 @@ static int br2684_xmit_vcc(struct sk_buff *skb, struct net_device *dev,
+ 		if (brdev->payload == p_bridged) {
+ 			skb_push(skb, 2);
+ 			memset(skb->data, 0, 2);
+-		} else { /* p_routed */
+-			skb_pull(skb, ETH_HLEN);
+ 		}
+ 	}
+ 	skb_debug(skb);
