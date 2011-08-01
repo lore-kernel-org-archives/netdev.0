@@ -1,176 +1,83 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 02/14] allow root in container to copy namespaces (v3)
-Date: Mon, 01 Aug 2011 15:25:46 -0700
-Message-ID: <m1ei146a6t.fsf@fess.ebiederm.org>
-References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
-	<1311706717-7398-3-git-send-email-serge@hallyn.com>
-	<m1hb67fh9l.fsf@fess.ebiederm.org> <20110729172748.GB18935@hallyn.com>
+From: Jaroslaw Fedewicz <jafd-cTM//Nd5/DKCo84Yma55WQ@public.gmane.org>
+Subject: Re: [Bug?] Machine hangs, rtl8192se possible cause
+Date: Tue, 2 Aug 2011 02:10:49 +0300
+Message-ID: <CAFdoEiRBPMx0C+YXwd4-Q=_nHpOb+r2+GspwujZrPh6S4tDwEQ@mail.gmail.com>
+References: <CAFdoEiT54o+NQKO=dAcOXgyf6GJ1E51w_H_p7PJyRmynz8Sbzg@mail.gmail.com>
+	<4E36C693.6000705@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-To: "Serge E. Hallyn" <serge@hallyn.com>,
-	"Serge E. Hallyn" <serge.hallyn@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110729172748.GB18935@hallyn.com> (Serge E. Hallyn's message of
-	"Fri, 29 Jul 2011 17:27:48 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4E36C693.6000705-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-"Serge E. Hallyn" <serge@hallyn.com> writes:
-
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> Serge Hallyn <serge@hallyn.com> writes:
->> 
->> > From: Serge E. Hallyn <serge.hallyn@canonical.com>
->> >
->> > Othewise nested containers with user namespaces won't be possible.
->> >
->> > It's true that user namespaces are not yet fully isolated, but for
->> > that same reason there are far worse things that root in a child
->> > user ns can do.  Spawning a child user ns is not in itself bad.
->> >
->> > This patch also allows setns for root in a container:
->> > @Eric Biederman: are there gotchas in allowing setns from child
->> > userns?
->> 
->> Yes.  We need to ensure that the target namespaces are namespaces
->> that have been created in from user_namespace or from a child of this
->> user_namespace.
->> 
->> Aka we need to ensure that we have CAP_SYS_ADMIN for the new namespace.
+> What kernel are you using? The only problems I've had were some kernel
+> panics due to improper handling of memory allocation failures with the
+> receive skb's, but they have been fixed.
 >
-> [New patch below]
+
+I'm using a fairly recent version of kernel from git (I think from
+before yesterday). The mysterious hangs were there from the beginning,
+but it also might be partly because ATI driver was messed up too at
+these times. Later, ati appeared fixed but the hangs wouldn't go away.
+
+I don't think it's a panic proper, though. Nothing ever gets logged
+along the lines of "panic". Even if I happen to have a text mode
+console, it just freezes. If I have a panic or an oops proper, I'm
+also kicked out of X11 to see it by the KMS. But not in this case.
+
+(Also, the laptop has neither Caps Lock nor Num Lock nor Scroll Lock
+LEDs, so I can't see if they blink.)
+
+What raised my suspicions is that I've never seen this happen when
+rtl8192se wasn't compiled at all or was not loaded.
+
+> It can be difficult to use netconsole to debug problems with wireless
+> devices.
+
+I can hook netconsole to the Ethernet and it *might* manage to log the
+last packet (at least I used to reason that way when screen just
+froze). The trick is, it never did log anything spurious. Just your
+normal initialization messages and then it just stops.
+
 >
-> Othewise nested containers with user namespaces won't be possible.
+> As you prevent rtl8192se from loading automatically, the logging console may
+> provide some clues. Use the following command to load the driver:
 >
-> It's true that user namespaces are not yet fully isolated, but for
-> that same reason there are far worse things that root in a child
-> user ns can do.  Spawning a child user ns is not in itself bad.
+> sleep 10 ; modprobe rtl8192se
 >
-> This patch also allows setns for root in a container:
-> @Eric Biederman: are there gotchas in allowing setns from child
-> userns?
-
-The dangers of changing the namespace of a process remain the same,
-confused suid programs.  I don't believe there are any unique new
-dangers. 
-
-Not allowing joining namespaces you already have a copy of is just
-a matter of making it hard to get things wrong.
-
-I would feel more a bit more comfortable if the way we did this was
-to move all of the capable calls into the per namespace methods
-and then changed them one namespace at a time.  I don't think
-there are any fundmanetal dangers of allowing unshare without
-the global CAP_SYS_ADMIN, but it would be good to be able to audit
-and make or revoke the decision one namespace at a time.
-
-Eric
-
-
-> Changelog:
->   Jul 29: setns: target capability check for setns
->           When changing to another namespace, make sure that we have
->           the CAP_SYS_ADMIN capability targeted at the user namespace
->           owning the new ns.
+> During the 10 second sleep, use CTRL-ALT-F10 to switch consoles and see if
+> any messages appear.
 >
-> Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  ipc/namespace.c          |    3 +++
->  kernel/fork.c            |    4 ++--
->  kernel/nsproxy.c         |    7 ++-----
->  kernel/utsname.c         |    3 +++
->  net/core/net_namespace.c |    3 +++
->  5 files changed, 13 insertions(+), 7 deletions(-)
->
-> diff --git a/ipc/namespace.c b/ipc/namespace.c
-> index ce0a647..f527e49 100644
-> --- a/ipc/namespace.c
-> +++ b/ipc/namespace.c
-> @@ -163,6 +163,9 @@ static void ipcns_put(void *ns)
->  
->  static int ipcns_install(struct nsproxy *nsproxy, void *ns)
->  {
-> +	struct ipc_namespace *newns = ns;
-> +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
-> +		return -1;
->  	/* Ditch state from the old ipc namespace */
->  	exit_sem(current);
->  	put_ipc_ns(nsproxy->ipc_ns);
-> diff --git a/kernel/fork.c b/kernel/fork.c
-> index e7ceaca..f9fac70 100644
-> --- a/kernel/fork.c
-> +++ b/kernel/fork.c
-> @@ -1488,8 +1488,8 @@ long do_fork(unsigned long clone_flags,
->  		/* hopefully this check will go away when userns support is
->  		 * complete
->  		 */
-> -		if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SETUID) ||
-> -				!capable(CAP_SETGID))
-> +		if (!nsown_capable(CAP_SYS_ADMIN) || !nsown_capable(CAP_SETUID) ||
-> +				!nsown_capable(CAP_SETGID))
->  			return -EPERM;
->  	}
->  
-> diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-> index 9aeab4b..cadcee0 100644
-> --- a/kernel/nsproxy.c
-> +++ b/kernel/nsproxy.c
-> @@ -134,7 +134,7 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
->  				CLONE_NEWPID | CLONE_NEWNET)))
->  		return 0;
->  
-> -	if (!capable(CAP_SYS_ADMIN)) {
-> +	if (!nsown_capable(CAP_SYS_ADMIN)) {
->  		err = -EPERM;
->  		goto out;
->  	}
-> @@ -191,7 +191,7 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
->  			       CLONE_NEWNET)))
->  		return 0;
->  
-> -	if (!capable(CAP_SYS_ADMIN))
-> +	if (!nsown_capable(CAP_SYS_ADMIN))
->  		return -EPERM;
->  
->  	*new_nsp = create_new_namespaces(unshare_flags, current,
-> @@ -241,9 +241,6 @@ SYSCALL_DEFINE2(setns, int, fd, int, nstype)
->  	struct file *file;
->  	int err;
->  
-> -	if (!capable(CAP_SYS_ADMIN))
-> -		return -EPERM;
-> -
->  	file = proc_ns_fget(fd);
->  	if (IS_ERR(file))
->  		return PTR_ERR(file);
-> diff --git a/kernel/utsname.c b/kernel/utsname.c
-> index bff131b..8f648cc 100644
-> --- a/kernel/utsname.c
-> +++ b/kernel/utsname.c
-> @@ -104,6 +104,9 @@ static void utsns_put(void *ns)
->  
->  static int utsns_install(struct nsproxy *nsproxy, void *ns)
->  {
-> +	struct uts_namespace *newns = ns;
-> +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
-> +		return -1;
->  	get_uts_ns(ns);
->  	put_uts_ns(nsproxy->uts_ns);
->  	nsproxy->uts_ns = ns;
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index 5bbdbf0..90c97f6 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -620,6 +620,9 @@ static void netns_put(void *ns)
->  
->  static int netns_install(struct nsproxy *nsproxy, void *ns)
->  {
-> +	struct net *net = ns;
-> +	if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
-> +		return -1;
->  	put_net(nsproxy->net_ns);
->  	nsproxy->net_ns = get_net(ns);
->  	return 0;
+
+The most problematic thing is that it does not hang right away. Most
+of the time, I see the machine go into the catatonia after quite a
+while, and as it is not the laptop I do most of my work on, I usually
+see it hanged when screen PM has already kicked in. So I cannot really
+read what the log might say on the matter.
+
+I cannot also trigger the freeze reliably. Most of the time it happens
+"when you are not looking at it", and it usually happens either during
+or just after high load averages and low to none network activity (a
+typical scenario: build a firefox from sources, go outside, come home
+4 hours later, the laptop is turned on but dead by hanging; no
+messages as the screen is obviously off; a less typical scenario is to
+freeze during startup).
+
+I'm the last person ever to suggest anything on the subject, but could
+it be a problem in the card's power management?
+
+> Please use 'lspci -nn' to determine which version of the card you have.
+
+03:00.0 Network controller [0280]: Realtek Semiconductor Co., Ltd.
+RTL8191SEvB Wireless LAN Controller [10ec:8172] (rev 10)
+
+If there is a test I can conduct or any other information to provide,
+please let me know.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
