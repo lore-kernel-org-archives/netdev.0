@@ -1,45 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 39372] New: Problems with HFSC Scheduler
-Date: Mon, 01 Aug 2011 02:27:37 -0700 (PDT)
-Message-ID: <20110801.022737.74290317435199544.davem@davemloft.net>
-References: <1311948052.2843.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<4E32BF87.6010909@trash.net>
-	<1312003362.2873.54.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 3/6] drivers/net/niu.c: adjust array index
+Date: Mon, 01 Aug 2011 02:27:59 -0700 (PDT)
+Message-ID: <20110801.022759.1366729474517785485.davem@davemloft.net>
+References: <1311857165-14780-1-git-send-email-julia@diku.dk>
+	<1311857165-14780-4-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, soltys@ziu.info, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	hadi@cyberus.ca, lucas.bocchi@gmail.com, 631945@bugs.debian.org,
-	00bormoj@gmail.com, fdelawarde@wirelessmundi.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42875 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751254Ab1HAJ2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 05:28:55 -0400
-In-Reply-To: <1312003362.2873.54.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+To: julia-dAYI7NvHqcQ@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1311857165-14780-4-git-send-email-julia-dAYI7NvHqcQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 30 Jul 2011 07:22:42 +0200
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Date: Thu, 28 Jul 2011 14:46:03 +0200
 
-> [PATCH] sch_sfq: fix sfq_enqueue()
+> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 > 
-> commit 8efa88540635 (sch_sfq: avoid giving spurious NET_XMIT_CN signals)
-> forgot to call qdisc_tree_decrease_qlen() to signal upper levels that a
-> packet (from another flow) was dropped, leading to various problems. 
+> Convert array index from the loop bound to the loop index.
 > 
-> With help from Michal Soltys and Michal Pokrywka, who did a bisection.
+> A simplified version of the semantic patch that fixes this problem is as
+> follows: (http://coccinelle.lip6.fr/)
 > 
-> Bugzilla ref: https://bugzilla.kernel.org/show_bug.cgi?id=39372
-> Debian ref: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=631945
+> // <smpl>
+> @@
+> expression e1,e2,ar;
+> @@
 > 
-> Reported-by: Lucas Bocchi <lucas.bocchi@gmail.com>
-> Reported-and-bisected-by: Michal Pokrywka <wolfmoon@o2.pl>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Michal Soltys <soltys@ziu.info>
-> Acked-by: Patrick McHardy <kaber@trash.net>
+> for(e1 = 0; e1 < e2; e1++) { <...
+>   ar[
+> - e2
+> + e1
+>   ]
+>   ...> }
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 
-Applied, thanks.
+Applied.
