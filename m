@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [PATCH 0/7] dccp: add support for dynamic
- parameter updates
-Date: Mon, 01 Aug 2011 00:10:42 -0700 (PDT)
-Message-ID: <20110801.001042.6263177526030880.davem@davemloft.net>
-References: <test_tree_patch_set_update_2011-07-25>
-	<1311600996-6712-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH net-next-2.6 1/2] be2net: cleanup and refactor stats
+ code
+Date: Mon, 01 Aug 2011 01:54:58 -0700 (PDT)
+Message-ID: <20110801.015458.572481070444067078.davem@davemloft.net>
+References: <1311657015-23465-1-git-send-email-sathya.perla@emulex.com>
+	<1311657015-23465-2-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54459 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:39644 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445Ab1HAHLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 03:11:51 -0400
-In-Reply-To: <1311600996-6712-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	with ESMTP id S1750699Ab1HAIzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 04:55:03 -0400
+In-Reply-To: <1311657015-23465-2-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 25 Jul 2011 07:36:29 -0600
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 26 Jul 2011 10:40:14 +0530
 
-> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
+> In preparation for 64-bit stats interface, the following cleanups help
+> streamline the code:
+> 1) made some more rx/tx stats stored by driver 64 bit
+> 2) made some HW stas (err/drop counters) stored in be_drv_stats 32 bit to
+>    keep the code simple as BE provides 32-bit counters only.
+> 3) removed duplication of netdev stats in ethtool
+> 4) removed some un-necessary stats and fixed some names
 > 
->     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
-I did a test pull and this URL doesn't work:
-
-[davem@dokdo net-next]$ git pull git://eden-feed.erg.abdn.ac.uk/net-next-2.6 dccp
-fatal: The remote end hung up unexpectedly
-[davem@dokdo net-next]$ git pull git://eden-feed.erg.abdn.ac.uk/net-next-2.6
-fatal: The remote end hung up unexpectedly
-[davem@dokdo net-next]$ 
+Queued up for net-next
