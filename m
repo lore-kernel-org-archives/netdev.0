@@ -1,183 +1,369 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: RE: [net-next v2 42/71] cirrus: Move the Cirrus network driver
-Date: Mon, 1 Aug 2011 15:23:30 -0500
-Message-ID: <ADE657CA350FB648AAC2C43247A983F001F3882B82AF@AUSP01VMBX24.collaborationhost.net>
-References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1312082850-24914-43-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 1/6] bna: Remove get_regs Ethtool Support
+Date: Mon, 1 Aug 2011 13:42:50 -0700
+Message-ID: <1312231375-14398-2-git-send-email-rmody@brocade.com>
+References: <1312231375-14398-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail132.messagelabs.com ([216.82.242.115]:16598 "EHLO
-	mail132.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254Ab1HAUXn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 16:23:43 -0400
-In-Reply-To: <1312082850-24914-43-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40146 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753349Ab1HAUnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 16:43:24 -0400
+In-Reply-To: <1312231375-14398-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday, July 30, 2011 8:27 PM, Jeff Kirsher wrote:
->
-> Move the Cirrus Ethernet driver into drivers/net/ethernet/cirrus/
-> and make the necessary Kconfig and Makefile changes
-> 
-> CC: Hartley Sweeten <hsweeten@visionengravers.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Change details:
+ - This patch contains removal of get_regs support in bnad_ethtool.c. Thus
+   BNA will have minimal register definitions necessary for MBOX and
+   interrupt operations
 
-I'm not sure why this is being done... Are all the Ethernet drivers being
-moved into "vendor" sub-directories?
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/bna/bnad_ethtool.c |  319 ----------------------------------------
+ 1 files changed, 0 insertions(+), 319 deletions(-)
 
-A couple comments below...
+diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/bna/bnad_ethtool.c
+index fea07f1..49174f8 100644
+--- a/drivers/net/bna/bnad_ethtool.c
++++ b/drivers/net/bna/bnad_ethtool.c
+@@ -288,323 +288,6 @@ bnad_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
+ 	strncpy(drvinfo->bus_info, pci_name(bnad->pcidev), ETHTOOL_BUSINFO_LEN);
+ }
+ 
+-static int
+-get_regs(struct bnad *bnad, u32 * regs)
+-{
+-	int num = 0, i;
+-	u32 reg_addr;
+-	unsigned long flags;
+-
+-#define BNAD_GET_REG(addr)					\
+-do {								\
+-	if (regs)						\
+-		regs[num++] = readl(bnad->bar0 + (addr));	\
+-	else							\
+-		num++;						\
+-} while (0)
+-
+-	spin_lock_irqsave(&bnad->bna_lock, flags);
+-
+-	/* DMA Block Internal Registers */
+-	BNAD_GET_REG(DMA_CTRL_REG0);
+-	BNAD_GET_REG(DMA_CTRL_REG1);
+-	BNAD_GET_REG(DMA_ERR_INT_STATUS);
+-	BNAD_GET_REG(DMA_ERR_INT_ENABLE);
+-	BNAD_GET_REG(DMA_ERR_INT_STATUS_SET);
+-
+-	/* APP Block Register Address Offset from BAR0 */
+-	BNAD_GET_REG(HOSTFN0_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN0_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN0);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN0);
+-	BNAD_GET_REG(FN0_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN0_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN0_ERR_TYPE_MSK_STATUS_REG);
+-
+-	BNAD_GET_REG(HOSTFN1_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN1_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN1);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN1);
+-	BNAD_GET_REG(FN1_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN1_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN1_ERR_TYPE_MSK_STATUS_REG);
+-
+-	BNAD_GET_REG(PCIE_MISC_REG);
+-
+-	BNAD_GET_REG(HOST_SEM0_INFO_REG);
+-	BNAD_GET_REG(HOST_SEM1_INFO_REG);
+-	BNAD_GET_REG(HOST_SEM2_INFO_REG);
+-	BNAD_GET_REG(HOST_SEM3_INFO_REG);
+-
+-	BNAD_GET_REG(TEMPSENSE_CNTL_REG);
+-	BNAD_GET_REG(TEMPSENSE_STAT_REG);
+-
+-	BNAD_GET_REG(APP_LOCAL_ERR_STAT);
+-	BNAD_GET_REG(APP_LOCAL_ERR_MSK);
+-
+-	BNAD_GET_REG(PCIE_LNK_ERR_STAT);
+-	BNAD_GET_REG(PCIE_LNK_ERR_MSK);
+-
+-	BNAD_GET_REG(FCOE_FIP_ETH_TYPE);
+-	BNAD_GET_REG(RESV_ETH_TYPE);
+-
+-	BNAD_GET_REG(HOSTFN2_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN2_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN2);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN2);
+-	BNAD_GET_REG(FN2_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN2_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN2_ERR_TYPE_MSK_STATUS_REG);
+-
+-	BNAD_GET_REG(HOSTFN3_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN3_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN3);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN3);
+-	BNAD_GET_REG(FN3_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN3_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN3_ERR_TYPE_MSK_STATUS_REG);
+-
+-	/* Host Command Status Registers */
+-	reg_addr = HOST_CMDSTS0_CLR_REG;
+-	for (i = 0; i < 16; i++) {
+-		BNAD_GET_REG(reg_addr);
+-		BNAD_GET_REG(reg_addr + 4);
+-		BNAD_GET_REG(reg_addr + 8);
+-		reg_addr += 0x10;
+-	}
+-
+-	/* Function ID register */
+-	BNAD_GET_REG(FNC_ID_REG);
+-
+-	/* Function personality register */
+-	BNAD_GET_REG(FNC_PERS_REG);
+-
+-	/* Operation mode register */
+-	BNAD_GET_REG(OP_MODE);
+-
+-	/* LPU0 Registers */
+-	BNAD_GET_REG(LPU0_MBOX_CTL_REG);
+-	BNAD_GET_REG(LPU0_MBOX_CMD_REG);
+-	BNAD_GET_REG(LPU0_MBOX_LINK_0REG);
+-	BNAD_GET_REG(LPU1_MBOX_LINK_0REG);
+-	BNAD_GET_REG(LPU0_MBOX_STATUS_0REG);
+-	BNAD_GET_REG(LPU1_MBOX_STATUS_0REG);
+-	BNAD_GET_REG(LPU0_ERR_STATUS_REG);
+-	BNAD_GET_REG(LPU0_ERR_SET_REG);
+-
+-	/* LPU1 Registers */
+-	BNAD_GET_REG(LPU1_MBOX_CTL_REG);
+-	BNAD_GET_REG(LPU1_MBOX_CMD_REG);
+-	BNAD_GET_REG(LPU0_MBOX_LINK_1REG);
+-	BNAD_GET_REG(LPU1_MBOX_LINK_1REG);
+-	BNAD_GET_REG(LPU0_MBOX_STATUS_1REG);
+-	BNAD_GET_REG(LPU1_MBOX_STATUS_1REG);
+-	BNAD_GET_REG(LPU1_ERR_STATUS_REG);
+-	BNAD_GET_REG(LPU1_ERR_SET_REG);
+-
+-	/* PSS Registers */
+-	BNAD_GET_REG(PSS_CTL_REG);
+-	BNAD_GET_REG(PSS_ERR_STATUS_REG);
+-	BNAD_GET_REG(ERR_STATUS_SET);
+-	BNAD_GET_REG(PSS_RAM_ERR_STATUS_REG);
+-
+-	/* Catapult CPQ Registers */
+-	BNAD_GET_REG(HOSTFN0_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN0_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN0_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN0_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN0_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN0_MBOX1_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN1_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN1_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN1_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN1_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN1_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN1_MBOX1_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN2_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN2_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN2_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN2_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN2_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN2_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN2_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN2_MBOX1_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN3_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN3_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN3_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN3_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN3_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN3_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN3_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN3_MBOX1_CMD_STAT);
+-
+-	/* Host Function Force Parity Error Registers */
+-	BNAD_GET_REG(HOSTFN0_LPU_FORCE_PERR);
+-	BNAD_GET_REG(HOSTFN1_LPU_FORCE_PERR);
+-	BNAD_GET_REG(HOSTFN2_LPU_FORCE_PERR);
+-	BNAD_GET_REG(HOSTFN3_LPU_FORCE_PERR);
+-
+-	/* LL Port[0|1] Halt Mask Registers */
+-	BNAD_GET_REG(LL_HALT_MSK_P0);
+-	BNAD_GET_REG(LL_HALT_MSK_P1);
+-
+-	/* LL Port[0|1] Error Mask Registers */
+-	BNAD_GET_REG(LL_ERR_MSK_P0);
+-	BNAD_GET_REG(LL_ERR_MSK_P1);
+-
+-	/* EMC FLI Registers */
+-	BNAD_GET_REG(FLI_CMD_REG);
+-	BNAD_GET_REG(FLI_ADDR_REG);
+-	BNAD_GET_REG(FLI_CTL_REG);
+-	BNAD_GET_REG(FLI_WRDATA_REG);
+-	BNAD_GET_REG(FLI_RDDATA_REG);
+-	BNAD_GET_REG(FLI_DEV_STATUS_REG);
+-	BNAD_GET_REG(FLI_SIG_WD_REG);
+-
+-	BNAD_GET_REG(FLI_DEV_VENDOR_REG);
+-	BNAD_GET_REG(FLI_ERR_STATUS_REG);
+-
+-	/* RxAdm 0 Registers */
+-	BNAD_GET_REG(RAD0_CTL_REG);
+-	BNAD_GET_REG(RAD0_PE_PARM_REG);
+-	BNAD_GET_REG(RAD0_BCN_REG);
+-	BNAD_GET_REG(RAD0_DEFAULT_REG);
+-	BNAD_GET_REG(RAD0_PROMISC_REG);
+-	BNAD_GET_REG(RAD0_BCNQ_REG);
+-	BNAD_GET_REG(RAD0_DEFAULTQ_REG);
+-
+-	BNAD_GET_REG(RAD0_ERR_STS);
+-	BNAD_GET_REG(RAD0_SET_ERR_STS);
+-	BNAD_GET_REG(RAD0_ERR_INT_EN);
+-	BNAD_GET_REG(RAD0_FIRST_ERR);
+-	BNAD_GET_REG(RAD0_FORCE_ERR);
+-
+-	BNAD_GET_REG(RAD0_MAC_MAN_1H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_1L);
+-	BNAD_GET_REG(RAD0_MAC_MAN_2H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_2L);
+-	BNAD_GET_REG(RAD0_MAC_MAN_3H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_3L);
+-	BNAD_GET_REG(RAD0_MAC_MAN_4H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_4L);
+-
+-	BNAD_GET_REG(RAD0_LAST4_IP);
+-
+-	/* RxAdm 1 Registers */
+-	BNAD_GET_REG(RAD1_CTL_REG);
+-	BNAD_GET_REG(RAD1_PE_PARM_REG);
+-	BNAD_GET_REG(RAD1_BCN_REG);
+-	BNAD_GET_REG(RAD1_DEFAULT_REG);
+-	BNAD_GET_REG(RAD1_PROMISC_REG);
+-	BNAD_GET_REG(RAD1_BCNQ_REG);
+-	BNAD_GET_REG(RAD1_DEFAULTQ_REG);
+-
+-	BNAD_GET_REG(RAD1_ERR_STS);
+-	BNAD_GET_REG(RAD1_SET_ERR_STS);
+-	BNAD_GET_REG(RAD1_ERR_INT_EN);
+-
+-	/* TxA0 Registers */
+-	BNAD_GET_REG(TXA0_CTRL_REG);
+-	/* TxA0 TSO Sequence # Registers (RO) */
+-	for (i = 0; i < 8; i++) {
+-		BNAD_GET_REG(TXA0_TSO_TCP_SEQ_REG(i));
+-		BNAD_GET_REG(TXA0_TSO_IP_INFO_REG(i));
+-	}
+-
+-	/* TxA1 Registers */
+-	BNAD_GET_REG(TXA1_CTRL_REG);
+-	/* TxA1 TSO Sequence # Registers (RO) */
+-	for (i = 0; i < 8; i++) {
+-		BNAD_GET_REG(TXA1_TSO_TCP_SEQ_REG(i));
+-		BNAD_GET_REG(TXA1_TSO_IP_INFO_REG(i));
+-	}
+-
+-	/* RxA Registers */
+-	BNAD_GET_REG(RXA0_CTL_REG);
+-	BNAD_GET_REG(RXA1_CTL_REG);
+-
+-	/* PLB0 Registers */
+-	BNAD_GET_REG(PLB0_ECM_TIMER_REG);
+-	BNAD_GET_REG(PLB0_RL_CTL);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB0_RL_MAX_BC(i));
+-	BNAD_GET_REG(PLB0_RL_TU_PRIO);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB0_RL_BYTE_CNT(i));
+-	BNAD_GET_REG(PLB0_RL_MIN_REG);
+-	BNAD_GET_REG(PLB0_RL_MAX_REG);
+-	BNAD_GET_REG(PLB0_EMS_ADD_REG);
+-
+-	/* PLB1 Registers */
+-	BNAD_GET_REG(PLB1_ECM_TIMER_REG);
+-	BNAD_GET_REG(PLB1_RL_CTL);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB1_RL_MAX_BC(i));
+-	BNAD_GET_REG(PLB1_RL_TU_PRIO);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB1_RL_BYTE_CNT(i));
+-	BNAD_GET_REG(PLB1_RL_MIN_REG);
+-	BNAD_GET_REG(PLB1_RL_MAX_REG);
+-	BNAD_GET_REG(PLB1_EMS_ADD_REG);
+-
+-	/* HQM Control Register */
+-	BNAD_GET_REG(HQM0_CTL_REG);
+-	BNAD_GET_REG(HQM0_RXQ_STOP_SEM);
+-	BNAD_GET_REG(HQM0_TXQ_STOP_SEM);
+-	BNAD_GET_REG(HQM1_CTL_REG);
+-	BNAD_GET_REG(HQM1_RXQ_STOP_SEM);
+-	BNAD_GET_REG(HQM1_TXQ_STOP_SEM);
+-
+-	/* LUT Registers */
+-	BNAD_GET_REG(LUT0_ERR_STS);
+-	BNAD_GET_REG(LUT0_SET_ERR_STS);
+-	BNAD_GET_REG(LUT1_ERR_STS);
+-	BNAD_GET_REG(LUT1_SET_ERR_STS);
+-
+-	/* TRC Registers */
+-	BNAD_GET_REG(TRC_CTL_REG);
+-	BNAD_GET_REG(TRC_MODS_REG);
+-	BNAD_GET_REG(TRC_TRGC_REG);
+-	BNAD_GET_REG(TRC_CNT1_REG);
+-	BNAD_GET_REG(TRC_CNT2_REG);
+-	BNAD_GET_REG(TRC_NXTS_REG);
+-	BNAD_GET_REG(TRC_DIRR_REG);
+-	for (i = 0; i < 10; i++)
+-		BNAD_GET_REG(TRC_TRGM_REG(i));
+-	for (i = 0; i < 10; i++)
+-		BNAD_GET_REG(TRC_NXTM_REG(i));
+-	for (i = 0; i < 10; i++)
+-		BNAD_GET_REG(TRC_STRM_REG(i));
+-
+-	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-#undef BNAD_GET_REG
+-	return num;
+-}
+-static int
+-bnad_get_regs_len(struct net_device *netdev)
+-{
+-	int ret = get_regs(netdev_priv(netdev), NULL) * sizeof(u32);
+-	return ret;
+-}
+-
+-static void
+-bnad_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *buf)
+-{
+-	memset(buf, 0, bnad_get_regs_len(netdev));
+-	get_regs(netdev_priv(netdev), buf);
+-}
+-
+ static void
+ bnad_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wolinfo)
+ {
+@@ -1192,8 +875,6 @@ static struct ethtool_ops bnad_ethtool_ops = {
+ 	.get_settings = bnad_get_settings,
+ 	.set_settings = bnad_set_settings,
+ 	.get_drvinfo = bnad_get_drvinfo,
+-	.get_regs_len = bnad_get_regs_len,
+-	.get_regs = bnad_get_regs,
+ 	.get_wol = bnad_get_wol,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_coalesce = bnad_get_coalesce,
+-- 
+1.7.1
 
-> ---
->  MAINTAINERS                                       |    2 +-
->  drivers/net/arm/Kconfig                           |    8 -------
->  drivers/net/arm/Makefile                          |    1 -
->  drivers/net/ethernet/Kconfig                      |    1 +
->  drivers/net/ethernet/Makefile                     |    1 +
->  drivers/net/ethernet/cirrus/Kconfig               |   24 +++++++++++++++++++++
->  drivers/net/ethernet/cirrus/Makefile              |    5 ++++
->  drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c |    0
->  8 files changed, 32 insertions(+), 10 deletions(-)
->  create mode 100644 drivers/net/ethernet/cirrus/Kconfig
->  create mode 100644 drivers/net/ethernet/cirrus/Makefile
->  rename drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c (100%)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 3c28188..d84f2c6 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -1761,7 +1761,7 @@ CIRRUS LOGIC EP93XX ETHERNET DRIVER
->  M:	Hartley Sweeten <hsweeten@visionengravers.com>
->  L:	netdev@vger.kernel.org
->  S:	Maintained
-> -F:	drivers/net/arm/ep93xx_eth.c
-> +F:	drivers/net/ethernet/cirrus/ep93xx_eth.c
->  
->  CIRRUS LOGIC EP93XX OHCI USB HOST DRIVER
->  M:	Lennert Buytenhek <kernel@wantstofly.org>
-> diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
-> index 4f748cc..fc94b4b 100644
-> --- a/drivers/net/arm/Kconfig
-> +++ b/drivers/net/arm/Kconfig
-> @@ -11,14 +11,6 @@ config ARM_AT91_ETHER
->  	  If you wish to compile a kernel for the AT91RM9200 and enable
->  	  ethernet support, then you should always answer Y to this.
->  
-> -config EP93XX_ETH
-> -	tristate "EP93xx Ethernet support"
-> -	depends on ARM && ARCH_EP93XX
-> -	select MII
-> -	help
-> -	  This is a driver for the ethernet hardware included in EP93xx CPUs.
-> -	  Say Y if you are building a kernel for EP93xx based devices.
-> -
->  config W90P910_ETH
->  	tristate "Nuvoton w90p910 Ethernet support"
->  	depends on ARM && ARCH_W90X900
-> diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
-> index 316b06c..462b3a4 100644
-> --- a/drivers/net/arm/Makefile
-> +++ b/drivers/net/arm/Makefile
-> @@ -4,5 +4,4 @@
->  #
->  
->  obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
-> -obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
->  obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
-> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-> index b15b1e2..ff07408 100644
-> --- a/drivers/net/ethernet/Kconfig
-> +++ b/drivers/net/ethernet/Kconfig
-> @@ -18,6 +18,7 @@ source "drivers/net/ethernet/atheros/Kconfig"
->  source "drivers/net/ethernet/broadcom/Kconfig"
->  source "drivers/net/ethernet/brocade/Kconfig"
->  source "drivers/net/ethernet/chelsio/Kconfig"
-> +source "drivers/net/ethernet/cirrus/Kconfig"
->  source "drivers/net/ethernet/cisco/Kconfig"
->  source "drivers/net/ethernet/dec/Kconfig"
->  source "drivers/net/ethernet/dlink/Kconfig"
-> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-> index 1f45ec9..3a17413 100644
-> --- a/drivers/net/ethernet/Makefile
-> +++ b/drivers/net/ethernet/Makefile
-> @@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
->  obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
->  obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
->  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
-> +obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
->  obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
->  obj-$(CONFIG_NET_VENDOR_DEC) += dec/
->  obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
-> diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
-> new file mode 100644
-> index 0000000..b48128b
-> --- /dev/null
-> +++ b/drivers/net/ethernet/cirrus/Kconfig
-> @@ -0,0 +1,24 @@
-> +#
-> +# Cirrus network device configuration
-> +#
-> +
-> +config NET_VENDOR_CIRRUS
-> +	bool "Cirrus devices"
-> +	depends on ARM && ARCH_EP93XX
-
-I'm not sure this depends on is correct.
-
-Cirrus also manufactures the CS8900A and CS8952 Ethernet controllers.  As far as I
-can tell, these controllers are general purpose and not limited to ARM or ARCH_EP93XX.
-
-> +	---help---
-> +	  If you have a network (Ethernet) card belonging to this class, say Y
-> +	  and read the Ethernet-HOWTO, available from
-> +	  <http://www.tldp.org/docs.html#howto>.
-> +
-> +	  Note that the answer to this question doesn't directly affect the
-> +	  kernel: saying N will just cause the configurator to skip all
-> +	  the questions about Cirrus cards. If you say Y, you will be asked
-> +	  for your specific card in the following questions.
-> +
-> +config EP93XX_ETH
-> +	tristate "EP93xx Ethernet support"
-> +	depends on NET_VENDOR_CIRRUS && ARM && ARCH_EP93XX
-
-The depends on ARM is redundant.  ARCH_EP93XX can only be selected if ARM is already
-selected.
-
-If drivers exist for the other two Cirrus controllers and are going to be moved
-to this directory it might be cleaner to just block all the drivers in a
-
-+if NET_VENDOR_CIRRUS
-# add all config options for Cirrus Ethernet controllers
-+endif 
-
-> +	select MII
-> +	help
-> +	  This is a driver for the ethernet hardware included in EP93xx CPUs.
-> +	  Say Y if you are building a kernel for EP93xx based devices.
-> diff --git a/drivers/net/ethernet/cirrus/Makefile b/drivers/net/ethernet/cirrus/Makefile
-> new file mode 100644
-> index 0000000..9905ea2
-> --- /dev/null
-> +++ b/drivers/net/ethernet/cirrus/Makefile
-> @@ -0,0 +1,5 @@
-> +#
-> +# Makefile for the Cirrus network device drivers.
-> +#
-> +
-> +obj-$(CONFIG_EP93XX_ETH) += ep93xx_eth.o
-> diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/ethernet/cirrus/ep93xx_eth.c
-> similarity index 100%
-> rename from drivers/net/arm/ep93xx_eth.c
-> rename to drivers/net/ethernet/cirrus/ep93xx_eth.c
-
-Other than those comments...
-
-Acked-by: H Hartley Sweeten <hsweeten@visionengravers.com>
