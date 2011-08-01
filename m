@@ -1,411 +1,76 @@
-From: synapse <synapse@hippy.csoma.elte.hu>
-Subject: Re: PROBLEM: BUG (NULL ptr dereference in ipv4_dst_check)
-Date: Mon, 01 Aug 2011 10:57:51 +0200
-Message-ID: <4E366A8F.201@hippy.csoma.elte.hu>
-References: <1311950488.2843.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <4E32C76B.5010700@hippy.csoma.elte.hu>	 <1311952306.2843.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	 <20110729.081902.300678107767426313.davem@davemloft.net>	 <1311954208.2843.31.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1312002053.2873.41.camel@edumazet-laptop>
+From: Alan Cox <alan@linux.intel.com>
+Subject: Re: [net-next v2 02/71] 3c*/acenic/typhoon: Move 3Com Ethernet
+ drivers
+Date: Mon, 1 Aug 2011 10:03:03 +0100
+Message-ID: <20110801100303.48ed75f7@bob.linux.org.uk>
+References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com, Philip Blundell <philb@gnu.org>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	David Dillow <dave@thedillows.org>,
+	Jes Sorensen <jes@trained-monkey.org>,
+	Donald Becker <becker@scyld.com>,
+	Craig Southeren <craigs@ineluki.apana.org.au>,
+	David Hinds <dahinds@users.sourceforge.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:40234 "EHLO mx2.mail.elte.hu"
+Received: from mga01.intel.com ([192.55.52.88]:36031 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752994Ab1HAI6A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2011 04:58:00 -0400
-In-Reply-To: <1312002053.2873.41.camel@edumazet-laptop>
+	id S1750699Ab1HAJAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2011 05:00:17 -0400
+In-Reply-To: <1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+On Sat, 30 Jul 2011 20:26:21 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-Sorry, I wasn't home on the weekend. Exactly to which tree should I=20
-apply this?
-It doesn't apply cleanly to 3.0.0. Am I missing something?
+> Moves the 3Com drivers into drivers/net/ethernet/3com/ and the
+> necessary Kconfig and Makefile changes.
 
-Gergely Kalman
+This still seems crazy
 
+The 3c503 is not being moved (as its 8390 based)
 
-On 07/30/11 07:00, Eric Dumazet wrote:
-> Le vendredi 29 juillet 2011 =C3=A0 17:43 +0200, Eric Dumazet a =C3=A9=
-crit :
->
->> Oh well, we already use RCU in neigh_destroy(), so adding rcu would =
-need
->> to change all dst_get_neighbour() callers to be in one rcu_read_lock=
-()
->> section.
->>
->> I'll take a look, I suspect its mostly already done.
->>
->>
-> Here is the patch I finally cooked and tested.
->
-> Could you please test it as well Gergely ?
->
-> Thanks !
->
-> [PATCH] net: fix NULL dereferences in check_peer_redir()
->
-> Gergely Kalman reported crashes in check_peer_redir().
->
-> It appears commit f39925dbde778 (ipv4: Cache learned redirect
-> information in inetpeer.) added a race, leading to possible NULL ptr
-> dereference.
->
-> Since we can now change dst neighbour, we should make sure a reader c=
-an
-> safely use a neighbour.
->
-> Add RCU protection to dst neighbour, and make sure check_peer_redir()
-> can be called safely by different cpus in parallel.
->
-> As neighbours are already freed after one RCU grace period, this patc=
-h
-> should not add typical RCU penalty (cache cold effects)
->
-> Many thanks to Gergely for providing a pretty report pointing to the
-> bug.
->
-> Reported-by: Gergely Kalman<synapse@hippy.csoma.elte.hu>
-> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-> ---
->   include/net/dst.h     |   17 +++++++++++++----
->   net/ipv4/ip_output.c  |   10 ++++++++--
->   net/ipv4/route.c      |   14 ++++++++------
->   net/ipv6/addrconf.c   |    2 +-
->   net/ipv6/ip6_fib.c    |    2 +-
->   net/ipv6/ip6_output.c |   13 +++++++++++--
->   net/ipv6/route.c      |   35 +++++++++++++++++++++++++----------
->   7 files changed, 67 insertions(+), 26 deletions(-)
->
-> diff --git a/include/net/dst.h b/include/net/dst.h
-> index 29e2557..13d507d 100644
-> --- a/include/net/dst.h
-> +++ b/include/net/dst.h
-> @@ -37,7 +37,7 @@ struct dst_entry {
->   	unsigned long		_metrics;
->   	unsigned long		expires;
->   	struct dst_entry	*path;
-> -	struct neighbour	*_neighbour;
-> +	struct neighbour __rcu	*_neighbour;
->   #ifdef CONFIG_XFRM
->   	struct xfrm_state	*xfrm;
->   #else
-> @@ -88,12 +88,17 @@ struct dst_entry {
->
->   static inline struct neighbour *dst_get_neighbour(struct dst_entry =
-*dst)
->   {
-> -	return dst->_neighbour;
-> +	return rcu_dereference(dst->_neighbour);
-> +}
-> +
-> +static inline struct neighbour *dst_get_neighbour_raw(struct dst_ent=
-ry *dst)
-> +{
-> +	return rcu_dereference_raw(dst->_neighbour);
->   }
->
->   static inline void dst_set_neighbour(struct dst_entry *dst, struct =
-neighbour *neigh)
->   {
-> -	dst->_neighbour =3D neigh;
-> +	rcu_assign_pointer(dst->_neighbour, neigh);
->   }
->
->   extern u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned=
- long old);
-> @@ -382,8 +387,12 @@ static inline void dst_rcu_free(struct rcu_head =
-*head)
->   static inline void dst_confirm(struct dst_entry *dst)
->   {
->   	if (dst) {
-> -		struct neighbour *n =3D dst_get_neighbour(dst);
-> +		struct neighbour *n;
-> +
-> +		rcu_read_lock();
-> +		n =3D dst_get_neighbour(dst);
->   		neigh_confirm(n);
-> +		rcu_read_unlock();
->   	}
->   }
->
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index ccaaa85..77d3ede 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -204,9 +204,15 @@ static inline int ip_finish_output2(struct sk_bu=
-ff *skb)
->   		skb =3D skb2;
->   	}
->
-> +	rcu_read_lock();
->   	neigh =3D dst_get_neighbour(dst);
-> -	if (neigh)
-> -		return neigh_output(neigh, skb);
-> +	if (neigh) {
-> +		int res =3D neigh_output(neigh, skb);
-> +
-> +		rcu_read_unlock();
-> +		return res;
-> +	}
-> +	rcu_read_unlock();
->
->   	if (net_ratelimit())
->   		printk(KERN_DEBUG "ip_finish_output2: No header cache and no neig=
-hbour!\n");
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 1730689..6afc4eb 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1628,16 +1628,18 @@ static int check_peer_redir(struct dst_entry =
-*dst, struct inet_peer *peer)
->   {
->   	struct rtable *rt =3D (struct rtable *) dst;
->   	__be32 orig_gw =3D rt->rt_gateway;
-> -	struct neighbour *n;
-> +	struct neighbour *n, *old_n;
->
->   	dst_confirm(&rt->dst);
->
-> -	neigh_release(dst_get_neighbour(&rt->dst));
-> -	dst_set_neighbour(&rt->dst, NULL);
-> -
->   	rt->rt_gateway =3D peer->redirect_learned.a4;
-> -	rt_bind_neighbour(rt);
-> -	n =3D dst_get_neighbour(&rt->dst);
-> +
-> +	n =3D ipv4_neigh_lookup(&rt->dst,&rt->rt_gateway);
-> +	if (IS_ERR(n))
-> +		return PTR_ERR(n);
-> +	old_n =3D xchg(&rt->dst._neighbour, n);
-> +	if (old_n)
-> +		neigh_release(old_n);
->   	if (!n || !(n->nud_state&  NUD_VALID)) {
->   		if (n)
->   			neigh_event_send(n, NULL);
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index a55500c..f012ebd 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -656,7 +656,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struc=
-t in6_addr *addr, int pfxlen,
->   	 * layer address of our nexhop router
->   	 */
->
-> -	if (dst_get_neighbour(&rt->dst) =3D=3D NULL)
-> +	if (dst_get_neighbour_raw(&rt->dst) =3D=3D NULL)
->   		ifa->flags&=3D ~IFA_F_OPTIMISTIC;
->
->   	ifa->idev =3D idev;
-> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-> index 54a4678..320d91d 100644
-> --- a/net/ipv6/ip6_fib.c
-> +++ b/net/ipv6/ip6_fib.c
-> @@ -1455,7 +1455,7 @@ static int fib6_age(struct rt6_info *rt, void *=
-arg)
->   			RT6_TRACE("aging clone %p\n", rt);
->   			return -1;
->   		} else if ((rt->rt6i_flags&  RTF_GATEWAY)&&
-> -			   (!(dst_get_neighbour(&rt->dst)->flags&  NTF_ROUTER))) {
-> +			   (!(dst_get_neighbour_raw(&rt->dst)->flags&  NTF_ROUTER))) {
->   			RT6_TRACE("purging route %p via non-router but gateway\n",
->   				  rt);
->   			return -1;
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 32e5339..4c882cf 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -135,10 +135,15 @@ static int ip6_finish_output2(struct sk_buff *s=
-kb)
->   				skb->len);
->   	}
->
-> +	rcu_read_lock();
->   	neigh =3D dst_get_neighbour(dst);
-> -	if (neigh)
-> -		return neigh_output(neigh, skb);
-> +	if (neigh) {
-> +		int res =3D neigh_output(neigh, skb);
->
-> +		rcu_read_unlock();
-> +		return res;
-> +	}
-> +	rcu_read_unlock();
->   	IP6_INC_STATS_BH(dev_net(dst->dev),
->   			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
->   	kfree_skb(skb);
-> @@ -975,12 +980,14 @@ static int ip6_dst_lookup_tail(struct sock *sk,
->   	 * dst entry and replace it instead with the
->   	 * dst entry of the nexthop router
->   	 */
-> +	rcu_read_lock();
->   	n =3D dst_get_neighbour(*dst);
->   	if (n&&  !(n->nud_state&  NUD_VALID)) {
->   		struct inet6_ifaddr *ifp;
->   		struct flowi6 fl_gw6;
->   		int redirect;
->
-> +		rcu_read_unlock();
->   		ifp =3D ipv6_get_ifaddr(net,&fl6->saddr,
->   				      (*dst)->dev, 1);
->
-> @@ -1000,6 +1007,8 @@ static int ip6_dst_lookup_tail(struct sock *sk,
->   			if ((err =3D (*dst)->error))
->   				goto out_err_release;
->   		}
-> +	} else {
-> +		rcu_read_unlock();
->   	}
->   #endif
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index e8987da..9e69eb0 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -364,7 +364,7 @@ out:
->   #ifdef CONFIG_IPV6_ROUTER_PREF
->   static void rt6_probe(struct rt6_info *rt)
->   {
-> -	struct neighbour *neigh =3D rt ? dst_get_neighbour(&rt->dst) : NULL=
-;
-> +	struct neighbour *neigh;
->   	/*
->   	 * Okay, this does not seem to be appropriate
->   	 * for now, however, we need to check if it
-> @@ -373,8 +373,10 @@ static void rt6_probe(struct rt6_info *rt)
->   	 * Router Reachability Probe MUST be rate-limited
->   	 * to no more than one per minute.
->   	 */
-> +	rcu_read_lock();
-> +	neigh =3D rt ? dst_get_neighbour(&rt->dst) : NULL;
->   	if (!neigh || (neigh->nud_state&  NUD_VALID))
-> -		return;
-> +		goto out;
->   	read_lock_bh(&neigh->lock);
->   	if (!(neigh->nud_state&  NUD_VALID)&&
->   	time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_=
-interval)) {
-> @@ -387,8 +389,11 @@ static void rt6_probe(struct rt6_info *rt)
->   		target =3D (struct in6_addr *)&neigh->primary_key;
->   		addrconf_addr_solict_mult(target,&mcaddr);
->   		ndisc_send_ns(rt->rt6i_dev, NULL, target,&mcaddr, NULL);
-> -	} else
-> +	} else {
->   		read_unlock_bh(&neigh->lock);
-> +	}
-> +out:
-> +	rcu_read_unlock();
->   }
->   #else
->   static inline void rt6_probe(struct rt6_info *rt)
-> @@ -412,8 +417,11 @@ static inline int rt6_check_dev(struct rt6_info =
-*rt, int oif)
->
->   static inline int rt6_check_neigh(struct rt6_info *rt)
->   {
-> -	struct neighbour *neigh =3D dst_get_neighbour(&rt->dst);
-> +	struct neighbour *neigh;
->   	int m;
-> +
-> +	rcu_read_lock();
-> +	neigh =3D dst_get_neighbour(&rt->dst);
->   	if (rt->rt6i_flags&  RTF_NONEXTHOP ||
->   	    !(rt->rt6i_flags&  RTF_GATEWAY))
->   		m =3D 1;
-> @@ -430,6 +438,7 @@ static inline int rt6_check_neigh(struct rt6_info=
- *rt)
->   		read_unlock_bh(&neigh->lock);
->   	} else
->   		m =3D 0;
-> +	rcu_read_unlock();
->   	return m;
->   }
->
-> @@ -769,7 +778,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt=
-6_info *ort,
->   		rt->rt6i_dst.plen =3D 128;
->   		rt->rt6i_flags |=3D RTF_CACHE;
->   		rt->dst.flags |=3D DST_HOST;
-> -		dst_set_neighbour(&rt->dst, neigh_clone(dst_get_neighbour(&ort->ds=
-t)));
-> +		dst_set_neighbour(&rt->dst, neigh_clone(dst_get_neighbour_raw(&ort=
-->dst)));
->   	}
->   	return rt;
->   }
-> @@ -803,7 +812,7 @@ restart:
->   	dst_hold(&rt->dst);
->   	read_unlock_bh(&table->tb6_lock);
->
-> -	if (!dst_get_neighbour(&rt->dst)&&  !(rt->rt6i_flags&  RTF_NONEXTHO=
-P))
-> +	if (!dst_get_neighbour_raw(&rt->dst)&&  !(rt->rt6i_flags&  RTF_NONE=
-XTHOP))
->   		nrt =3D rt6_alloc_cow(rt,&fl6->daddr,&fl6->saddr);
->   	else if (!(rt->dst.flags&  DST_HOST))
->   		nrt =3D rt6_alloc_clone(rt,&fl6->daddr);
-> @@ -1587,7 +1596,7 @@ void rt6_redirect(const struct in6_addr *dest, =
-const struct in6_addr *src,
->   	dst_confirm(&rt->dst);
->
->   	/* Duplicate redirect: silently ignore. */
-> -	if (neigh =3D=3D dst_get_neighbour(&rt->dst))
-> +	if (neigh =3D=3D dst_get_neighbour_raw(&rt->dst))
->   		goto out;
->
->   	nrt =3D ip6_rt_copy(rt, dest);
-> @@ -1682,7 +1691,7 @@ again:
->   	   1. It is connected route. Action: COW
->   	   2. It is gatewayed route or NONEXTHOP route. Action: clone it.
->   	 */
-> -	if (!dst_get_neighbour(&rt->dst)&&  !(rt->rt6i_flags&  RTF_NONEXTHO=
-P))
-> +	if (!dst_get_neighbour_raw(&rt->dst)&&  !(rt->rt6i_flags&  RTF_NONE=
-XTHOP))
->   		nrt =3D rt6_alloc_cow(rt, daddr, saddr);
->   	else
->   		nrt =3D rt6_alloc_clone(rt, daddr);
-> @@ -2326,6 +2335,7 @@ static int rt6_fill_node(struct net *net,
->   	struct nlmsghdr *nlh;
->   	long expires;
->   	u32 table;
-> +	struct neighbour *n;
->
->   	if (prefix) {	/* user wants prefix routes only */
->   		if (!(rt->rt6i_flags&  RTF_PREFIX_RT)) {
-> @@ -2414,8 +2424,11 @@ static int rt6_fill_node(struct net *net,
->   	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst))<  0)
->   		goto nla_put_failure;
->
-> -	if (dst_get_neighbour(&rt->dst))
-> -		NLA_PUT(skb, RTA_GATEWAY, 16,&dst_get_neighbour(&rt->dst)->primary=
-_key);
-> +	rcu_read_lock();
-> +	n =3D dst_get_neighbour(&rt->dst);
-> +	if (n)
-> +		NLA_PUT(skb, RTA_GATEWAY, 16,&n->primary_key);
-> +	rcu_read_unlock();
->
->   	if (rt->dst.dev)
->   		NLA_PUT_U32(skb, RTA_OIF, rt->rt6i_dev->ifindex);
-> @@ -2608,12 +2621,14 @@ static int rt6_info_route(struct rt6_info *rt=
-, void *p_arg)
->   #else
->   	seq_puts(m, "00000000000000000000000000000000 00 ");
->   #endif
-> +	rcu_read_lock();
->   	n =3D dst_get_neighbour(&rt->dst);
->   	if (n) {
->   		seq_printf(m, "%pi6", n->primary_key);
->   	} else {
->   		seq_puts(m, "00000000000000000000000000000000");
->   	}
-> +	rcu_read_unlock();
->   	seq_printf(m, " %08x %08x %08x %08x %8s\n",
->   		   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
->   		   rt->dst.__use, rt->rt6i_flags,
->
+But the 3c505/3c523/3c527/3c507 by that logic also shouldn't be moved
+as really they all belong with the rest of the Intel devices they are
+basically variants of (the 3c527 is weirder, in fact you can probably
+run CP/M 86 on it if you were mad enough)
 
+>  drivers/net/{pcmcia => ethernet/3com}/3c574_cs.c |    0
+>  drivers/net/{pcmcia => ethernet/3com}/3c589_cs.c |    0
+
+These are currently sensibly where they belong - with the pcmcia
+adapters.
+
+>  drivers/net/{ => ethernet/3com}/3c59x.c          |    0
+>  drivers/net/ethernet/3com/Kconfig                |  200
+> ++++++++++++++++++++++
+> drivers/net/ethernet/3com/Makefile               |   16 ++
+> drivers/net/{ => ethernet/3com}/acenic.c         |    0
+> drivers/net/{ => ethernet/3com}/acenic.h         |    0
+
+And most Acenic devices are probably branded Netgear not 3COM and may
+also claim to be from Farallon, SGI, Alteon or DEC. Again not a 3Com
+originated part.
+
+So I still think this patch is utter nonsense and just noise.
+
+There isn't any sense in trying to line the network drivers up by
+whatever is written on the box that was thrown away years before. The
+reality is that most cards do not bear anything relevant to the chipset
+vendors name, even by the early 1990s. 
+
+Architectually it makes more sense to keep tidy by bus type and by
+chipset, not by vendor name
+
+NAK
+
+And even if you wanted to make Kconfig simpler - you don't need to move
+files around.
+
+Alan
