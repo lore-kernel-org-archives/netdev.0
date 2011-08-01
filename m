@@ -1,113 +1,183 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 02/71] 3c*/acenic/typhoon: Move 3Com Ethernet
- drivers
-Date: Mon, 01 Aug 2011 13:15:56 -0700
-Message-ID: <1312229757.1984.6.camel@jtkirshe-mobl>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: RE: [net-next v2 42/71] cirrus: Move the Cirrus network driver
+Date: Mon, 1 Aug 2011 15:23:30 -0500
+Message-ID: <ADE657CA350FB648AAC2C43247A983F001F3882B82AF@AUSP01VMBX24.collaborationhost.net>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1312082850-24914-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110801100303.48ed75f7@bob.linux.org.uk>
-Reply-To: jeffrey.t.kirsher@intel.com
+ <1312082850-24914-43-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-eELgCz3ELM8TRUpISd+4"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Philip Blundell <philb@gnu.org>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	David Dillow <dave@thedillows.org>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Donald Becker <becker@scyld.com>,
-	Craig Southeren <craigs@ineluki.apana.org.au>,
-	David Hinds <dahinds@users.sourceforge.net>
-To: Alan Cox <alan@linux.intel.com>
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:17861 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752821Ab1HAUQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2011 16:16:00 -0400
-In-Reply-To: <20110801100303.48ed75f7@bob.linux.org.uk>
+Received: from mail132.messagelabs.com ([216.82.242.115]:16598 "EHLO
+	mail132.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753254Ab1HAUXn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 16:23:43 -0400
+In-Reply-To: <1312082850-24914-43-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Saturday, July 30, 2011 8:27 PM, Jeff Kirsher wrote:
+>
+> Move the Cirrus Ethernet driver into drivers/net/ethernet/cirrus/
+> and make the necessary Kconfig and Makefile changes
+> 
+> CC: Hartley Sweeten <hsweeten@visionengravers.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
---=-eELgCz3ELM8TRUpISd+4
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I'm not sure why this is being done... Are all the Ethernet drivers being
+moved into "vendor" sub-directories?
 
-On Mon, 2011-08-01 at 02:03 -0700, Alan Cox wrote:
-> On Sat, 30 Jul 2011 20:26:21 -0700
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
->=20
-> > Moves the 3Com drivers into drivers/net/ethernet/3com/ and the
-> > necessary Kconfig and Makefile changes.
->=20
-> This still seems crazy
->=20
-> The 3c503 is not being moved (as its 8390 based)
->=20
-> But the 3c505/3c523/3c527/3c507 by that logic also shouldn't be moved
-> as really they all belong with the rest of the Intel devices they are
-> basically variants of (the 3c527 is weirder, in fact you can probably
-> run CP/M 86 on it if you were mad enough)
+A couple comments below...
 
-I did as you asked, just not in this patch.  I should have cleaned up
-this patch to reflect the changes I made in patch #4 and #10.
+> ---
+>  MAINTAINERS                                       |    2 +-
+>  drivers/net/arm/Kconfig                           |    8 -------
+>  drivers/net/arm/Makefile                          |    1 -
+>  drivers/net/ethernet/Kconfig                      |    1 +
+>  drivers/net/ethernet/Makefile                     |    1 +
+>  drivers/net/ethernet/cirrus/Kconfig               |   24 +++++++++++++++++++++
+>  drivers/net/ethernet/cirrus/Makefile              |    5 ++++
+>  drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c |    0
+>  8 files changed, 32 insertions(+), 10 deletions(-)
+>  create mode 100644 drivers/net/ethernet/cirrus/Kconfig
+>  create mode 100644 drivers/net/ethernet/cirrus/Makefile
+>  rename drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c (100%)
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 3c28188..d84f2c6 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1761,7 +1761,7 @@ CIRRUS LOGIC EP93XX ETHERNET DRIVER
+>  M:	Hartley Sweeten <hsweeten@visionengravers.com>
+>  L:	netdev@vger.kernel.org
+>  S:	Maintained
+> -F:	drivers/net/arm/ep93xx_eth.c
+> +F:	drivers/net/ethernet/cirrus/ep93xx_eth.c
+>  
+>  CIRRUS LOGIC EP93XX OHCI USB HOST DRIVER
+>  M:	Lennert Buytenhek <kernel@wantstofly.org>
+> diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
+> index 4f748cc..fc94b4b 100644
+> --- a/drivers/net/arm/Kconfig
+> +++ b/drivers/net/arm/Kconfig
+> @@ -11,14 +11,6 @@ config ARM_AT91_ETHER
+>  	  If you wish to compile a kernel for the AT91RM9200 and enable
+>  	  ethernet support, then you should always answer Y to this.
+>  
+> -config EP93XX_ETH
+> -	tristate "EP93xx Ethernet support"
+> -	depends on ARM && ARCH_EP93XX
+> -	select MII
+> -	help
+> -	  This is a driver for the ethernet hardware included in EP93xx CPUs.
+> -	  Say Y if you are building a kernel for EP93xx based devices.
+> -
+>  config W90P910_ETH
+>  	tristate "Nuvoton w90p910 Ethernet support"
+>  	depends on ARM && ARCH_W90X900
+> diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
+> index 316b06c..462b3a4 100644
+> --- a/drivers/net/arm/Makefile
+> +++ b/drivers/net/arm/Makefile
+> @@ -4,5 +4,4 @@
+>  #
+>  
+>  obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
+> -obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
+>  obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
+> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+> index b15b1e2..ff07408 100644
+> --- a/drivers/net/ethernet/Kconfig
+> +++ b/drivers/net/ethernet/Kconfig
+> @@ -18,6 +18,7 @@ source "drivers/net/ethernet/atheros/Kconfig"
+>  source "drivers/net/ethernet/broadcom/Kconfig"
+>  source "drivers/net/ethernet/brocade/Kconfig"
+>  source "drivers/net/ethernet/chelsio/Kconfig"
+> +source "drivers/net/ethernet/cirrus/Kconfig"
+>  source "drivers/net/ethernet/cisco/Kconfig"
+>  source "drivers/net/ethernet/dec/Kconfig"
+>  source "drivers/net/ethernet/dlink/Kconfig"
+> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+> index 1f45ec9..3a17413 100644
+> --- a/drivers/net/ethernet/Makefile
+> +++ b/drivers/net/ethernet/Makefile
+> @@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
+>  obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+>  obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+>  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+> +obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
+>  obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
+>  obj-$(CONFIG_NET_VENDOR_DEC) += dec/
+>  obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+> diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
+> new file mode 100644
+> index 0000000..b48128b
+> --- /dev/null
+> +++ b/drivers/net/ethernet/cirrus/Kconfig
+> @@ -0,0 +1,24 @@
+> +#
+> +# Cirrus network device configuration
+> +#
+> +
+> +config NET_VENDOR_CIRRUS
+> +	bool "Cirrus devices"
+> +	depends on ARM && ARCH_EP93XX
 
->=20
-> >  drivers/net/{pcmcia =3D> ethernet/3com}/3c574_cs.c |    0
-> >  drivers/net/{pcmcia =3D> ethernet/3com}/3c589_cs.c |    0
->=20
-> These are currently sensibly where they belong - with the pcmcia
-> adapters.
->=20
-> >  drivers/net/{ =3D> ethernet/3com}/3c59x.c          |    0
-> >  drivers/net/ethernet/3com/Kconfig                |  200
-> > ++++++++++++++++++++++
-> > drivers/net/ethernet/3com/Makefile               |   16 ++
-> > drivers/net/{ =3D> ethernet/3com}/acenic.c         |    0
-> > drivers/net/{ =3D> ethernet/3com}/acenic.h         |    0
->=20
-> And most Acenic devices are probably branded Netgear not 3COM and may
-> also claim to be from Farallon, SGI, Alteon or DEC. Again not a 3Com
-> originated part.
->=20
-> So I still think this patch is utter nonsense and just noise.
->=20
-> There isn't any sense in trying to line the network drivers up by
-> whatever is written on the box that was thrown away years before. The
-> reality is that most cards do not bear anything relevant to the chipset
-> vendors name, even by the early 1990s.=20
->=20
-> Architectually it makes more sense to keep tidy by bus type and by
-> chipset, not by vendor name
->=20
-> NAK
->=20
-> And even if you wanted to make Kconfig simpler - you don't need to move
-> files around.
->=20
-> Alan
+I'm not sure this depends on is correct.
 
+Cirrus also manufactures the CS8900A and CS8952 Ethernet controllers.  As far as I
+can tell, these controllers are general purpose and not limited to ARM or ARCH_EP93XX.
 
+> +	---help---
+> +	  If you have a network (Ethernet) card belonging to this class, say Y
+> +	  and read the Ethernet-HOWTO, available from
+> +	  <http://www.tldp.org/docs.html#howto>.
+> +
+> +	  Note that the answer to this question doesn't directly affect the
+> +	  kernel: saying N will just cause the configurator to skip all
+> +	  the questions about Cirrus cards. If you say Y, you will be asked
+> +	  for your specific card in the following questions.
+> +
+> +config EP93XX_ETH
+> +	tristate "EP93xx Ethernet support"
+> +	depends on NET_VENDOR_CIRRUS && ARM && ARCH_EP93XX
 
---=-eELgCz3ELM8TRUpISd+4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+The depends on ARM is redundant.  ARCH_EP93XX can only be selected if ARM is already
+selected.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+If drivers exist for the other two Cirrus controllers and are going to be moved
+to this directory it might be cleaner to just block all the drivers in a
 
-iQEcBAABAgAGBQJONwl8AAoJECTsCADr/EWU8RAH/Rz/5BmzdK0kU7H2c6rZLK6s
-LuwTNbmxWu34nNMAd4iy4HFqTO18SpuSo23ArRt7ho4wPmUeWHM6ybzmR6n7gMnR
-yK1hU4GyJbT+egWe0wuXvz21vjqCedRp+YLbjxXksqhLSfp3gbs0b3kfay1Avk+d
-PIPHhQZgGXpIvAMs9JBJnXtXVJq6WjlTZnusKDPpbhXxmTERHSnXIbB8onFz0HLA
-TBT8ImaNpOJnFqATT+8VNEmMGgwn2EQzOFzoTSJ5zF21YA2DEM7EwFh5AQzlsEvh
-yNeSHgnd1oh+VA8h+m00c0dWTDIeyV4DoLqYj2gWh5vhqpiPMPokkdOL961pmYk=
-=8Wn2
------END PGP SIGNATURE-----
++if NET_VENDOR_CIRRUS
+# add all config options for Cirrus Ethernet controllers
++endif 
 
---=-eELgCz3ELM8TRUpISd+4--
+> +	select MII
+> +	help
+> +	  This is a driver for the ethernet hardware included in EP93xx CPUs.
+> +	  Say Y if you are building a kernel for EP93xx based devices.
+> diff --git a/drivers/net/ethernet/cirrus/Makefile b/drivers/net/ethernet/cirrus/Makefile
+> new file mode 100644
+> index 0000000..9905ea2
+> --- /dev/null
+> +++ b/drivers/net/ethernet/cirrus/Makefile
+> @@ -0,0 +1,5 @@
+> +#
+> +# Makefile for the Cirrus network device drivers.
+> +#
+> +
+> +obj-$(CONFIG_EP93XX_ETH) += ep93xx_eth.o
+> diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/ethernet/cirrus/ep93xx_eth.c
+> similarity index 100%
+> rename from drivers/net/arm/ep93xx_eth.c
+> rename to drivers/net/ethernet/cirrus/ep93xx_eth.c
 
+Other than those comments...
+
+Acked-by: H Hartley Sweeten <hsweeten@visionengravers.com>
