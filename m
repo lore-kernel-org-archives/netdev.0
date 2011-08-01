@@ -1,71 +1,176 @@
-From: Mihai =?UTF-8?B?RG9uyJt1?= <mihai.dontu@gmail.com>
-Subject: Re: [Bug 40422] New: 3.0: kernel panic - not syncing: fatal
- exception in interrupt
-Date: Tue, 2 Aug 2011 00:45:58 +0300
-Message-ID: <20110802004558.393e2a77@mdontu-dell>
-References: <bug-40422-27@https.bugzilla.kernel.org/>
-	<20110801140418.510c5dc4.akpm@linux-foundation.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 02/14] allow root in container to copy namespaces (v3)
+Date: Mon, 01 Aug 2011 15:25:46 -0700
+Message-ID: <m1ei146a6t.fsf@fess.ebiederm.org>
+References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
+	<1311706717-7398-3-git-send-email-serge@hallyn.com>
+	<m1hb67fh9l.fsf@fess.ebiederm.org> <20110729172748.GB18935@hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugzilla-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:64501 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751034Ab1HAVt1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 17:49:27 -0400
-In-Reply-To: <20110801140418.510c5dc4.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: "Serge E. Hallyn" <serge@hallyn.com>,
+	"Serge E. Hallyn" <serge.hallyn@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110729172748.GB18935@hallyn.com> (Serge E. Hallyn's message of
+	"Fri, 29 Jul 2011 17:27:48 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Aug 2011 14:04:18 -0700 Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via
-> the bugzilla web interface).
->=20
-> On Mon, 1 Aug 2011 20:51:43 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->=20
-> > https://bugzilla.kernel.org/show_bug.cgi?id=3D40422
-> >=20
-> >            Summary: 3.0: kernel panic - not syncing: fatal
-> > exception in interrupt
-> >            Product: Memory Management
-> >            Version: 2.5
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: normal
-> >           Priority: P1
-> >          Component: Other
-> >         AssignedTo: akpm@linux-foundation.org
-> >         ReportedBy: mihai.dontu@gmail.com
-> >         Regression: No
-> >=20
-> >=20
-> > Upon resuming from suspend to disk, I got a kernel panic like it
-> > can be seen in the attached picture. I'm using 3.0 for less than a
-> > week and this is the first time this happens (after several
-> > successful suspend+resume-s).
-> >=20
->=20
-> --- Comment #1 from Mihai Don#u <mihai.dontu@gmail.com>  2011-08-01
-> 20:55:23 --- Created an attachment (id=3D67322)
->  --> (https://bugzilla.kernel.org/attachment.cgi?id=3D67322)
-> kernel panic camera shot
->=20
-> drat, the first part of that crash scrolled off the screen or wasn't
-> in the photo.  I don't suppose it's possible to get that information?
+"Serge E. Hallyn" <serge@hallyn.com> writes:
 
-No, I'm afraid not. I'll disable the framebuffer decorations for the
-future. Should get me 4 or 5 more lines of backtrace when the crash
-reappears.
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> Serge Hallyn <serge@hallyn.com> writes:
+>> 
+>> > From: Serge E. Hallyn <serge.hallyn@canonical.com>
+>> >
+>> > Othewise nested containers with user namespaces won't be possible.
+>> >
+>> > It's true that user namespaces are not yet fully isolated, but for
+>> > that same reason there are far worse things that root in a child
+>> > user ns can do.  Spawning a child user ns is not in itself bad.
+>> >
+>> > This patch also allows setns for root in a container:
+>> > @Eric Biederman: are there gotchas in allowing setns from child
+>> > userns?
+>> 
+>> Yes.  We need to ensure that the target namespaces are namespaces
+>> that have been created in from user_namespace or from a child of this
+>> user_namespace.
+>> 
+>> Aka we need to ensure that we have CAP_SYS_ADMIN for the new namespace.
+>
+> [New patch below]
+>
+> Othewise nested containers with user namespaces won't be possible.
+>
+> It's true that user namespaces are not yet fully isolated, but for
+> that same reason there are far worse things that root in a child
+> user ns can do.  Spawning a child user ns is not in itself bad.
+>
+> This patch also allows setns for root in a container:
+> @Eric Biederman: are there gotchas in allowing setns from child
+> userns?
 
-> Still, the oops is in netfilter code - a bad pointer dereference unde=
-r
-> devinet_ioctl->masq_device_event.
+The dangers of changing the namespace of a process remain the same,
+confused suid programs.  I don't believe there are any unique new
+dangers. 
 
---=20
-Mihai Don=C8=9Bu
+Not allowing joining namespaces you already have a copy of is just
+a matter of making it hard to get things wrong.
+
+I would feel more a bit more comfortable if the way we did this was
+to move all of the capable calls into the per namespace methods
+and then changed them one namespace at a time.  I don't think
+there are any fundmanetal dangers of allowing unshare without
+the global CAP_SYS_ADMIN, but it would be good to be able to audit
+and make or revoke the decision one namespace at a time.
+
+Eric
+
+
+> Changelog:
+>   Jul 29: setns: target capability check for setns
+>           When changing to another namespace, make sure that we have
+>           the CAP_SYS_ADMIN capability targeted at the user namespace
+>           owning the new ns.
+>
+> Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  ipc/namespace.c          |    3 +++
+>  kernel/fork.c            |    4 ++--
+>  kernel/nsproxy.c         |    7 ++-----
+>  kernel/utsname.c         |    3 +++
+>  net/core/net_namespace.c |    3 +++
+>  5 files changed, 13 insertions(+), 7 deletions(-)
+>
+> diff --git a/ipc/namespace.c b/ipc/namespace.c
+> index ce0a647..f527e49 100644
+> --- a/ipc/namespace.c
+> +++ b/ipc/namespace.c
+> @@ -163,6 +163,9 @@ static void ipcns_put(void *ns)
+>  
+>  static int ipcns_install(struct nsproxy *nsproxy, void *ns)
+>  {
+> +	struct ipc_namespace *newns = ns;
+> +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
+> +		return -1;
+>  	/* Ditch state from the old ipc namespace */
+>  	exit_sem(current);
+>  	put_ipc_ns(nsproxy->ipc_ns);
+> diff --git a/kernel/fork.c b/kernel/fork.c
+> index e7ceaca..f9fac70 100644
+> --- a/kernel/fork.c
+> +++ b/kernel/fork.c
+> @@ -1488,8 +1488,8 @@ long do_fork(unsigned long clone_flags,
+>  		/* hopefully this check will go away when userns support is
+>  		 * complete
+>  		 */
+> -		if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SETUID) ||
+> -				!capable(CAP_SETGID))
+> +		if (!nsown_capable(CAP_SYS_ADMIN) || !nsown_capable(CAP_SETUID) ||
+> +				!nsown_capable(CAP_SETGID))
+>  			return -EPERM;
+>  	}
+>  
+> diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+> index 9aeab4b..cadcee0 100644
+> --- a/kernel/nsproxy.c
+> +++ b/kernel/nsproxy.c
+> @@ -134,7 +134,7 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+>  				CLONE_NEWPID | CLONE_NEWNET)))
+>  		return 0;
+>  
+> -	if (!capable(CAP_SYS_ADMIN)) {
+> +	if (!nsown_capable(CAP_SYS_ADMIN)) {
+>  		err = -EPERM;
+>  		goto out;
+>  	}
+> @@ -191,7 +191,7 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
+>  			       CLONE_NEWNET)))
+>  		return 0;
+>  
+> -	if (!capable(CAP_SYS_ADMIN))
+> +	if (!nsown_capable(CAP_SYS_ADMIN))
+>  		return -EPERM;
+>  
+>  	*new_nsp = create_new_namespaces(unshare_flags, current,
+> @@ -241,9 +241,6 @@ SYSCALL_DEFINE2(setns, int, fd, int, nstype)
+>  	struct file *file;
+>  	int err;
+>  
+> -	if (!capable(CAP_SYS_ADMIN))
+> -		return -EPERM;
+> -
+>  	file = proc_ns_fget(fd);
+>  	if (IS_ERR(file))
+>  		return PTR_ERR(file);
+> diff --git a/kernel/utsname.c b/kernel/utsname.c
+> index bff131b..8f648cc 100644
+> --- a/kernel/utsname.c
+> +++ b/kernel/utsname.c
+> @@ -104,6 +104,9 @@ static void utsns_put(void *ns)
+>  
+>  static int utsns_install(struct nsproxy *nsproxy, void *ns)
+>  {
+> +	struct uts_namespace *newns = ns;
+> +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
+> +		return -1;
+>  	get_uts_ns(ns);
+>  	put_uts_ns(nsproxy->uts_ns);
+>  	nsproxy->uts_ns = ns;
+> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+> index 5bbdbf0..90c97f6 100644
+> --- a/net/core/net_namespace.c
+> +++ b/net/core/net_namespace.c
+> @@ -620,6 +620,9 @@ static void netns_put(void *ns)
+>  
+>  static int netns_install(struct nsproxy *nsproxy, void *ns)
+>  {
+> +	struct net *net = ns;
+> +	if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
+> +		return -1;
+>  	put_net(nsproxy->net_ns);
+>  	nsproxy->net_ns = get_net(ns);
+>  	return 0;
