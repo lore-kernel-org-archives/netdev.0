@@ -1,37 +1,48 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 0/3] bna: Remove get_reg support and HW reg consolidation
-Date: Tue, 2 Aug 2011 15:36:04 -0700
-Message-ID: <1312324567-18487-1-git-send-email-rmody@brocade.com>
+From: David Daney <david.daney@cavium.com>
+Subject: Re: [net-next v2 48/71] octeon: Move the Cavium driver
+Date: Tue, 02 Aug 2011 15:48:20 -0700
+Message-ID: <4E387EB4.3080000@cavium.com>
+References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com> <1312082850-24914-49-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com, David Daney <ddaney@caviumnetworks.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40193 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752148Ab1HBWg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 18:36:26 -0400
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:12052 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752349Ab1HBWs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 18:48:27 -0400
+In-Reply-To: <1312082850-24914-49-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-   This patch-set removes get_regs ethtool support and consists of HW reg
-   consolidation to support various Brocade HW.
+On 07/30/2011 08:27 PM, Jeff Kirsher wrote:
+> Move the Cavium driver to drivers/net/ethernet/octeon/ and
+> make the necessary Kconfig and Makefile changes.
+>
+> CC: David Daney<ddaney@caviumnetworks.com>
+> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
 
-   The driver has been compiled and tested against net-next-2.6(3.0.0-rc7)
+Acked-by: <david.daney@cavium.com>
 
-Rasesh Mody (3):
-  bna: Remove get_regs Ethtool Support
-  bna: Consolidated HW Registers for Supported HWs
-  bna: Remove Obsolete File bfi_ctreg.h
+I haven't tested the patch, but it looks good to me.  I will fix any 
+breakage that may occur after the patch is merged.
 
- drivers/net/bna/bfa_ioc.c      |    2 +-
- drivers/net/bna/bfa_ioc_ct.c   |   78 +++---
- drivers/net/bna/bfi_ctreg.h    |  646 ----------------------------------------
- drivers/net/bna/bfi_reg.h      |  452 ++++++++++++++++++++++++++++
- drivers/net/bna/bna_hw.h       |    6 +-
- drivers/net/bna/bnad_ethtool.c |  319 --------------------
- 6 files changed, 497 insertions(+), 1006 deletions(-)
- delete mode 100644 drivers/net/bna/bfi_ctreg.h
- create mode 100644 drivers/net/bna/bfi_reg.h
+Thanks.
+David Daney
 
+> ---
+>   drivers/net/Kconfig                             |    2 --
+>   drivers/net/Makefile                            |    1 -
+>   drivers/net/ethernet/Kconfig                    |    1 +
+>   drivers/net/ethernet/Makefile                   |    1 +
+>   drivers/net/{ =>  ethernet}/octeon/Kconfig       |    0
+>   drivers/net/{ =>  ethernet}/octeon/Makefile      |    0
+>   drivers/net/{ =>  ethernet}/octeon/octeon_mgmt.c |    0
+>   7 files changed, 2 insertions(+), 3 deletions(-)
+>   rename drivers/net/{ =>  ethernet}/octeon/Kconfig (100%)
+>   rename drivers/net/{ =>  ethernet}/octeon/Makefile (100%)
+>   rename drivers/net/{ =>  ethernet}/octeon/octeon_mgmt.c (100%)
+>
