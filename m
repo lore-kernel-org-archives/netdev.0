@@ -1,42 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2011-08-02
-Date: Tue, 02 Aug 2011 14:39:55 -0700 (PDT)
-Message-ID: <20110802.143955.1785360722763378138.davem@davemloft.net>
-References: <20110802181131.GH14167@tuxdriver.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [RFC PATCH] common receive API + r8169 use
+Date: Tue, 2 Aug 2011 23:43:49 +0200
+Message-ID: <20110802214349.GA17411@rere.qmqm.pl>
+References: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
+ <20110802141500.3c99185b@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60111 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755367Ab1HBVlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 17:41:00 -0400
-In-Reply-To: <20110802181131.GH14167@tuxdriver.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:60805 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755515Ab1HBVnv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2011 17:43:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20110802141500.3c99185b@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 2 Aug 2011 14:11:31 -0400
+On Tue, Aug 02, 2011 at 02:15:00PM -0700, Stephen Hemminger wrote:
+> On Tue,  2 Aug 2011 22:24:35 +0200 (CEST)
+> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
+> > Here is a preliminary version of common RX path for network drivers=
+=2E The idea
+> > is an extension to Eric Dumazet's patch introducing build_skb() (it=
+'s
+> > incorporated here for easier testing).
+> >=20
+> > Future plans:
+> >  - extend this API to devices which can do split buffer receives co=
+rrectly
+> >    and use napi_gro_frags() instead;
+> >  - implement DaveM's idea of RX buffer handling (fill first, proces=
+s
+> >    if buffers available) in parallel to my version (process first, =
+refill
+> >    later);
+> >  - get rid of indirect calls in fast path (process_buffer() and
+> >    add_buffer()) - ideas? inline netdev_rx_poll() and pass callback=
+ to it?
+> >=20
+> > Version rebased on v3.0 is running succesfully on one laptop with r=
+8169 on
+> > board since about a week. No problems showed up yet. For net-next t=
+his
+> > needs retesting because of changes in device reset handling.
+>=20
+> 1. Don't put #ifdef code in, just go with the new code.
 
-> Here are a few more fixes intended for 3.1.  Dan Carpenter gives us an
-> off-by-one fix in the scan trigger code for nl80211.  Felix gives us a
-> fix for tx power initialization for ath9k.  Larry fixes an oops on ARM
-> by rewriting some init code to avoid checking something that doesn't get
-> initialized on ARM.  This round's big hero is Stanislaw, who gives us a
-> brown paper bag fix for some skb handling in rt2x00, an ath9k fix to
-> avoid hangs on systems w/ ASPM disabled, and an iwlegacy fix to ensure
-> that tx power settings are applied properly.
-> 
-> Please let me know if there are problems!
+I have a patch that removes old code. I left it out for now to make rev=
+iew
+of the main code easier.
 
-I'll pull this, but I think once you've sent me all of your features
-for the merge window you should drop "-next" from the name of the
-tree and/or branches you ask me to pull from.
+> 2. Get rid of the inline on all those functions. Anything over 3 line=
+s
+>    really shouldn't be inlined.
 
-This makes it entirely clear that you're sending me bug fixes and not
-features and cleanups.
+I plan to move most of those functions to dev.c later. For the receive
+processing hot path (netdev_rx_poll), inlining won't add much code to
+running kernel (I expect most systems use single or at most a few drive=
+rs
+at once), but will allow the compiler to optimize out function calls fr=
+om
+the inner loop.
 
-Thanks.
+> 3. What is the performance difference (if any)?
+
+I don't have fast enough transmitter yet, so have no real data. Eric's
+testing showed dramatic reduction in CPU usage after changing igb to us=
+e
+build_skb().  Inlined version of this patch should give similar results=
+=2E
+
+Eric: can you share the igb changes? I have no hardware for it, but cou=
+ld
+merge our changes for you to test.
+
+Best Regards,
+Micha=B3 Miros=B3aw
