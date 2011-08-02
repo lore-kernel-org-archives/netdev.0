@@ -1,140 +1,69 @@
-From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
-Date: Tue,  2 Aug 2011 18:20:26 +0200
-Message-ID: <1312302026-7077-1-git-send-email-alexey.orishko@stericsson.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Dave Jones <davej@redhat.com>
+Subject: return of ip_rt_bug()
+Date: Tue, 2 Aug 2011 13:09:42 -0400
+Message-ID: <20110802170942.GA17164@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom London <selinux@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47071 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753927Ab1HBRJp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2011 13:09:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes:
-- removed redandunt conversion for usb control requests
-- added missing conversion for nth16.wNdpIndex
-Thanks to Giuseppe Scrivano for providing fixes
+Tom (CC'd) has been hitting that ip_rt_bug() WARN_ON() since 3.0rc
 
-This patch shall be applied on top of today's Josh Boyle patch
-[PATCH v3] usbnet/cdc_ncm: Don't use stack variables for DMA
+Here's the latest report.
 
-Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
----
- drivers/net/usb/cdc_ncm.c |   33 ++++++++++++++++-----------------
- 1 files changed, 16 insertions(+), 17 deletions(-)
+------------[ cut here]------------
+WARNING: atnet/ipv4/route.c:1714 ip_rt_bug+0x5c/0x62()
+Hardware name: 74585FU
+Modules linked in: fuse
+ip6table_filter ip6_tables ebtable_nat ebtables ppdev parport_pc lp parport
+ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xt_state
+nf_conntrack xt_CHECKSUM iptable_mangle tun bridge stp llc sunrpc rfcomm bnep
+usblp arc4 uvcvideo videodev media snd_usb_audio snd_usbmidi_lib snd_rawmidi
+v4l2_compat_ioctl32 iwlagn microcode i2c_i801 btusb iTCO_wdt
+iTCO_vendor_support mac80211 bluetooth snd_hda_codec_conexant cfg80211
+thinkpad_acpi snd_hda_intel snd_hda_codec rfkill snd_hwdep snd_seq
+snd_seq_device snd_pcm snd_timer snd soundcore snd_page_alloc e1000e virtio_net
+kvm_intel kvm uinput wmi i915 drm_kms_helper drm i2c_algo_bit i2c_core video[last unloaded: scsi_wait_scan]
+Pid: 5492, comm: xsane Not tainted 3.1.0-0.rc0.git12.1.fc17.x86_64 #1
+Call Trace:
+ [<ffffffff8105c5ec>] warn_slowpath_common+0x83/0x9b
+ [<ffffffff8105c61e>] warn_slowpath_null+0x1a/0x1c
+ [<ffffffff8142f485>] ip_rt_bug+0x5c/0x62
+ [<ffffffff81437091>] dst_output+0x19/0x1d
+ [<ffffffff814387c0>] ip_local_out+0x20/0x25
+ [<ffffffff81439695>] ip_send_skb+0x19/0x3e
+ [<ffffffff81455ea2>] udp_send_skb+0x239/0x29b
+ [<ffffffff8145763f>] udp_sendmsg+0x5a1/0x7d4
+ [<ffffffff813f67d5>] ? release_sock+0x35/0x155
+ [<ffffffff8143718c>] ? ip_select_ident+0x3d/0x3d
+ [<ffffffff81062703>] ? local_bh_enable_ip+0xe/0x10
+ [<ffffffff814f1231>] ? _raw_spin_unlock_bh+0x40/0x44
+ [<ffffffff813f68ec>] ? release_sock+0x14c/0x155
+ [<ffffffff8145eb58>] inet_sendmsg+0x66/0x6f
+ [<ffffffff813f1d92>] sock_sendmsg+0xe6/0x109
+ [<ffffffff8108f1c8>] ? lock_acquire+0x10f/0x13e
+ [<ffffffff8110dd34>] ? might_fault+0x5c/0xac
+ [<ffffffff8108f08c>] ? lock_release+0x1a4/0x1d1
+ [<ffffffff8110dd7d>] ? might_fault+0xa5/0xac
+ [<ffffffff813f2ad7>] ? copy_from_user+0x2f/0x31
+ [<ffffffff813f496d>] sys_sendto+0x132/0x174
+ [<ffffffff8124ef6e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+ [<ffffffff814f80c2>] system_call_fastpath+0x16/0x1b
+---[ end trace 0e82aef47f8d8552 ]---
+------------[ cut here ]------------
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index bbcb133..4b2a317 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -53,7 +53,7 @@
- #include <linux/usb/usbnet.h>
- #include <linux/usb/cdc.h>
- 
--#define	DRIVER_VERSION				"01-June-2011"
-+#define	DRIVER_VERSION				"02-Aug-2011"
- 
- /* CDC NCM subclass 3.2.1 */
- #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
-@@ -203,8 +203,8 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 	req.bmRequestType = USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE;
- 	req.bNotificationType = USB_CDC_GET_NTB_PARAMETERS;
- 	req.wValue = 0;
--	req.wIndex = cpu_to_le16(iface_no);
--	req.wLength = cpu_to_le16(sizeof(ctx->ncm_parm));
-+	req.wIndex = iface_no;
-+	req.wLength = sizeof(ctx->ncm_parm);
- 
- 	err = cdc_ncm_do_request(ctx, &req, &ctx->ncm_parm, 0, NULL, 1000);
- 	if (err) {
-@@ -257,7 +257,7 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 							USB_RECIP_INTERFACE;
- 		req.bNotificationType = USB_CDC_SET_NTB_INPUT_SIZE;
- 		req.wValue = 0;
--		req.wIndex = cpu_to_le16(iface_no);
-+		req.wIndex = iface_no;
- 
- 		if (flags & USB_CDC_NCM_NCAP_NTB_INPUT_SIZE) {
- 			struct usb_cdc_ncm_ndp_input_size *ndp_in_sz;
-@@ -351,8 +351,8 @@ size_err:
- 		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
- 							USB_RECIP_INTERFACE;
- 		req.bNotificationType = USB_CDC_SET_CRC_MODE;
--		req.wValue = cpu_to_le16(USB_CDC_NCM_CRC_NOT_APPENDED);
--		req.wIndex = cpu_to_le16(iface_no);
-+		req.wValue = USB_CDC_NCM_CRC_NOT_APPENDED;
-+		req.wIndex = iface_no;
- 		req.wLength = 0;
- 
- 		err = cdc_ncm_do_request(ctx, &req, NULL, 0, NULL, 1000);
-@@ -365,8 +365,8 @@ size_err:
- 		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
- 							USB_RECIP_INTERFACE;
- 		req.bNotificationType = USB_CDC_SET_NTB_FORMAT;
--		req.wValue = cpu_to_le16(USB_CDC_NCM_NTB16_FORMAT);
--		req.wIndex = cpu_to_le16(iface_no);
-+		req.wValue = USB_CDC_NCM_NTB16_FORMAT;
-+		req.wIndex = iface_no;
- 		req.wLength = 0;
- 
- 		err = cdc_ncm_do_request(ctx, &req, NULL, 0, NULL, 1000);
-@@ -392,8 +392,8 @@ size_err:
- 							USB_RECIP_INTERFACE;
- 		req.bNotificationType = USB_CDC_GET_MAX_DATAGRAM_SIZE;
- 		req.wValue = 0;
--		req.wIndex = cpu_to_le16(iface_no);
--		req.wLength = cpu_to_le16(2);
-+		req.wIndex = iface_no;
-+		req.wLength = 2;
- 
- 		err = cdc_ncm_do_request(ctx, &req, max_datagram_size, 0, NULL,
- 									1000);
-@@ -426,7 +426,7 @@ size_err:
- 							USB_RECIP_INTERFACE;
- 			req.bNotificationType = USB_CDC_SET_MAX_DATAGRAM_SIZE;
- 			req.wValue = 0;
--			req.wIndex = cpu_to_le16(iface_no);
-+			req.wIndex = iface_no;
- 			req.wLength = 2;
- 			*max_datagram_size =
- 				cpu_to_le16(ctx->max_datagram_size);
-@@ -702,6 +702,7 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
- 	u32 offset;
- 	u32 last_offset;
- 	u16 n = 0;
-+	u16 ndpIndex = 0;
- 	u8 ready2send = 0;
- 
- 	/* if there is a remaining skb, it gets priority */
-@@ -889,8 +890,8 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
- 					cpu_to_le16(sizeof(ctx->tx_ncm.nth16));
- 	ctx->tx_ncm.nth16.wSequence = cpu_to_le16(ctx->tx_seq);
- 	ctx->tx_ncm.nth16.wBlockLength = cpu_to_le16(last_offset);
--	ctx->tx_ncm.nth16.wNdpIndex = ALIGN(sizeof(struct usb_cdc_ncm_nth16),
--							ctx->tx_ndp_modulus);
-+	ndpIndex = ALIGN(sizeof(struct usb_cdc_ncm_nth16), ctx->tx_ndp_modulus);
-+	ctx->tx_ncm.nth16.wNdpIndex = cpu_to_le16(ndpIndex);
- 
- 	memcpy(skb_out->data, &(ctx->tx_ncm.nth16), sizeof(ctx->tx_ncm.nth16));
- 	ctx->tx_seq++;
-@@ -903,12 +904,10 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
- 	ctx->tx_ncm.ndp16.wLength = cpu_to_le16(rem);
- 	ctx->tx_ncm.ndp16.wNextNdpIndex = 0; /* reserved */
- 
--	memcpy(((u8 *)skb_out->data) + ctx->tx_ncm.nth16.wNdpIndex,
--						&(ctx->tx_ncm.ndp16),
-+	memcpy(((u8 *)skb_out->data) + ndpIndex, &(ctx->tx_ncm.ndp16),
- 						sizeof(ctx->tx_ncm.ndp16));
- 
--	memcpy(((u8 *)skb_out->data) + ctx->tx_ncm.nth16.wNdpIndex +
--					sizeof(ctx->tx_ncm.ndp16),
-+	memcpy(((u8 *)skb_out->data) + ndpIndex + sizeof(ctx->tx_ncm.ndp16),
- 					&(ctx->tx_ncm.dpe16),
- 					(ctx->tx_curr_frame_num + 1) *
- 					sizeof(struct usb_cdc_ncm_dpe16));
--- 
-1.7.4.1
+all the traces he's hit so far seem to be caused by udp, and they all seem to be
+going from 192.168.2.5 -> 255.255.255.255
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://bugzilla.redhat.com/show_bug.cgi?id=712632 is his full report with similar traces.
+
+	Dave
+
