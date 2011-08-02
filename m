@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add kerneldoc to skb_copy_bits()
-Date: Mon, 01 Aug 2011 18:03:19 -0700 (PDT)
-Message-ID: <20110801.180319.51331125222324108.davem@davemloft.net>
-References: <1312000651.2873.30.camel@edumazet-laptop>
+Subject: Re: [PATCH v3] net/smsc911x: add device tree probe support
+Date: Mon, 01 Aug 2011 18:01:46 -0700 (PDT)
+Message-ID: <20110801.180146.1671950827798171194.davem@davemloft.net>
+References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+	<1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50077 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753634Ab1HBBDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 21:03:21 -0400
-In-Reply-To: <1312000651.2873.30.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: patches@linaro.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	steve.glendinning@smsc.com, linux-arm-kernel@lists.infradead.org
+To: shawn.guo@linaro.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 30 Jul 2011 06:37:31 +0200
+From: Shawn Guo <shawn.guo@linaro.org>
+Date: Sun, 31 Jul 2011 02:26:00 +0800
 
-> Since skb_copy_bits() is called from assembly, add a fat comment to make
-> clear we should think twice before changing its prototype.
+> It adds device tree probe support for smsc911x driver.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Cc: Steve Glendinning <steve.glendinning@smsc.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
 
-Applied.
+Queued up for net-next, thanks.
