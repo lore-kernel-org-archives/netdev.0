@@ -1,124 +1,369 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC PATCH] common receive API + r8169 use
-Date: Wed, 3 Aug 2011 00:01:08 +0200
-Message-ID: <20110802220108.GA13963@electric-eye.fr.zoreil.com>
-References: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 1/3] bna: Remove get_regs Ethtool Support
+Date: Tue, 2 Aug 2011 15:36:05 -0700
+Message-ID: <1312324567-18487-2-git-send-email-rmody@brocade.com>
+References: <1312324567-18487-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:40084 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755569Ab1HBWRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 18:17:21 -0400
-Content-Disposition: inline
-In-Reply-To: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:44766 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751266Ab1HBWgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 18:36:20 -0400
+In-Reply-To: <1312324567-18487-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> :
-[...]
-> @@ -4808,6 +4844,29 @@ static inline void rtl8169_mark_as_last_descri=
-ptor(struct RxDesc *desc)
->  	desc->opts1 |=3D cpu_to_le32(RingEnd);
->  }
-> =20
-> +static int rtl_add_rx_buffer(struct netdev_ring *ring, void *buf,
-> +	dma_addr_t dma)
-> +{
-> +	unsigned next_tail =3D (ring->tail + 1) & (NUM_RX_DESC - 1);
-> +	struct RxDesc *rxd =3D (struct RxDesc *)ring->desc_table + ring->ta=
-il;
-> +
-> +	if (next_tail =3D=3D ACCESS_ONCE(ring->head))
-> +		return -ENOSPC;
-> +	ring->buf_table[ring->tail] =3D buf;
-> +	ring->tail =3D next_tail;
+Change details:
+ - This patch contains removal of get_regs support in bnad_ethtool.c. Thus
+   BNA will have minimal register definitions necessary for MBOX and
+   interrupt operations
 
-The four lines above are driver agnostic.
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/bna/bnad_ethtool.c |  319 ----------------------------------------
+ 1 files changed, 0 insertions(+), 319 deletions(-)
 
-[...]
-> @@ -4841,9 +4900,16 @@ static int rtl8169_init_ring(struct net_device=
- *dev)
->  	rtl8169_init_ring_indexes(tp);
-> =20
->  	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
-> +#ifdef NO_COMMON_RX_API
->  	memset(tp->Rx_databuff, 0x0, NUM_RX_DESC * sizeof(void *));
-> =20
->  	return rtl8169_rx_fill(tp);
-> +#else
-> +	rtl8169_mark_as_last_descriptor((struct RxDesc *)tp->rx_ring.desc_t=
-able +
-> +		NUM_RX_DESC - 1);
+diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/bna/bnad_ethtool.c
+index fea07f1..49174f8 100644
+--- a/drivers/net/bna/bnad_ethtool.c
++++ b/drivers/net/bna/bnad_ethtool.c
+@@ -288,323 +288,6 @@ bnad_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
+ 	strncpy(drvinfo->bus_info, pci_name(bnad->pcidev), ETHTOOL_BUSINFO_LEN);
+ }
+ 
+-static int
+-get_regs(struct bnad *bnad, u32 * regs)
+-{
+-	int num = 0, i;
+-	u32 reg_addr;
+-	unsigned long flags;
+-
+-#define BNAD_GET_REG(addr)					\
+-do {								\
+-	if (regs)						\
+-		regs[num++] = readl(bnad->bar0 + (addr));	\
+-	else							\
+-		num++;						\
+-} while (0)
+-
+-	spin_lock_irqsave(&bnad->bna_lock, flags);
+-
+-	/* DMA Block Internal Registers */
+-	BNAD_GET_REG(DMA_CTRL_REG0);
+-	BNAD_GET_REG(DMA_CTRL_REG1);
+-	BNAD_GET_REG(DMA_ERR_INT_STATUS);
+-	BNAD_GET_REG(DMA_ERR_INT_ENABLE);
+-	BNAD_GET_REG(DMA_ERR_INT_STATUS_SET);
+-
+-	/* APP Block Register Address Offset from BAR0 */
+-	BNAD_GET_REG(HOSTFN0_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN0_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN0);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN0);
+-	BNAD_GET_REG(FN0_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN0_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN0_ERR_TYPE_MSK_STATUS_REG);
+-
+-	BNAD_GET_REG(HOSTFN1_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN1_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN1);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN1);
+-	BNAD_GET_REG(FN1_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN1_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN1_ERR_TYPE_MSK_STATUS_REG);
+-
+-	BNAD_GET_REG(PCIE_MISC_REG);
+-
+-	BNAD_GET_REG(HOST_SEM0_INFO_REG);
+-	BNAD_GET_REG(HOST_SEM1_INFO_REG);
+-	BNAD_GET_REG(HOST_SEM2_INFO_REG);
+-	BNAD_GET_REG(HOST_SEM3_INFO_REG);
+-
+-	BNAD_GET_REG(TEMPSENSE_CNTL_REG);
+-	BNAD_GET_REG(TEMPSENSE_STAT_REG);
+-
+-	BNAD_GET_REG(APP_LOCAL_ERR_STAT);
+-	BNAD_GET_REG(APP_LOCAL_ERR_MSK);
+-
+-	BNAD_GET_REG(PCIE_LNK_ERR_STAT);
+-	BNAD_GET_REG(PCIE_LNK_ERR_MSK);
+-
+-	BNAD_GET_REG(FCOE_FIP_ETH_TYPE);
+-	BNAD_GET_REG(RESV_ETH_TYPE);
+-
+-	BNAD_GET_REG(HOSTFN2_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN2_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN2);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN2);
+-	BNAD_GET_REG(FN2_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN2_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN2_ERR_TYPE_MSK_STATUS_REG);
+-
+-	BNAD_GET_REG(HOSTFN3_INT_STATUS);
+-	BNAD_GET_REG(HOSTFN3_INT_MASK);
+-	BNAD_GET_REG(HOST_PAGE_NUM_FN3);
+-	BNAD_GET_REG(HOST_MSIX_ERR_INDEX_FN3);
+-	BNAD_GET_REG(FN3_PCIE_ERR_REG);
+-	BNAD_GET_REG(FN3_ERR_TYPE_STATUS_REG);
+-	BNAD_GET_REG(FN3_ERR_TYPE_MSK_STATUS_REG);
+-
+-	/* Host Command Status Registers */
+-	reg_addr = HOST_CMDSTS0_CLR_REG;
+-	for (i = 0; i < 16; i++) {
+-		BNAD_GET_REG(reg_addr);
+-		BNAD_GET_REG(reg_addr + 4);
+-		BNAD_GET_REG(reg_addr + 8);
+-		reg_addr += 0x10;
+-	}
+-
+-	/* Function ID register */
+-	BNAD_GET_REG(FNC_ID_REG);
+-
+-	/* Function personality register */
+-	BNAD_GET_REG(FNC_PERS_REG);
+-
+-	/* Operation mode register */
+-	BNAD_GET_REG(OP_MODE);
+-
+-	/* LPU0 Registers */
+-	BNAD_GET_REG(LPU0_MBOX_CTL_REG);
+-	BNAD_GET_REG(LPU0_MBOX_CMD_REG);
+-	BNAD_GET_REG(LPU0_MBOX_LINK_0REG);
+-	BNAD_GET_REG(LPU1_MBOX_LINK_0REG);
+-	BNAD_GET_REG(LPU0_MBOX_STATUS_0REG);
+-	BNAD_GET_REG(LPU1_MBOX_STATUS_0REG);
+-	BNAD_GET_REG(LPU0_ERR_STATUS_REG);
+-	BNAD_GET_REG(LPU0_ERR_SET_REG);
+-
+-	/* LPU1 Registers */
+-	BNAD_GET_REG(LPU1_MBOX_CTL_REG);
+-	BNAD_GET_REG(LPU1_MBOX_CMD_REG);
+-	BNAD_GET_REG(LPU0_MBOX_LINK_1REG);
+-	BNAD_GET_REG(LPU1_MBOX_LINK_1REG);
+-	BNAD_GET_REG(LPU0_MBOX_STATUS_1REG);
+-	BNAD_GET_REG(LPU1_MBOX_STATUS_1REG);
+-	BNAD_GET_REG(LPU1_ERR_STATUS_REG);
+-	BNAD_GET_REG(LPU1_ERR_SET_REG);
+-
+-	/* PSS Registers */
+-	BNAD_GET_REG(PSS_CTL_REG);
+-	BNAD_GET_REG(PSS_ERR_STATUS_REG);
+-	BNAD_GET_REG(ERR_STATUS_SET);
+-	BNAD_GET_REG(PSS_RAM_ERR_STATUS_REG);
+-
+-	/* Catapult CPQ Registers */
+-	BNAD_GET_REG(HOSTFN0_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN0_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN0_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN0_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN0_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN0_MBOX1_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN1_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN1_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN1_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN1_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN1_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN1_MBOX1_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN2_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN2_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN2_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN2_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN2_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN2_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN2_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN2_MBOX1_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN3_LPU0_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN3_LPU1_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN3_MBOX0_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN3_MBOX0_CMD_STAT);
+-
+-	BNAD_GET_REG(HOSTFN3_LPU0_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(HOSTFN3_LPU1_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU0_HOSTFN3_MBOX1_CMD_STAT);
+-	BNAD_GET_REG(LPU1_HOSTFN3_MBOX1_CMD_STAT);
+-
+-	/* Host Function Force Parity Error Registers */
+-	BNAD_GET_REG(HOSTFN0_LPU_FORCE_PERR);
+-	BNAD_GET_REG(HOSTFN1_LPU_FORCE_PERR);
+-	BNAD_GET_REG(HOSTFN2_LPU_FORCE_PERR);
+-	BNAD_GET_REG(HOSTFN3_LPU_FORCE_PERR);
+-
+-	/* LL Port[0|1] Halt Mask Registers */
+-	BNAD_GET_REG(LL_HALT_MSK_P0);
+-	BNAD_GET_REG(LL_HALT_MSK_P1);
+-
+-	/* LL Port[0|1] Error Mask Registers */
+-	BNAD_GET_REG(LL_ERR_MSK_P0);
+-	BNAD_GET_REG(LL_ERR_MSK_P1);
+-
+-	/* EMC FLI Registers */
+-	BNAD_GET_REG(FLI_CMD_REG);
+-	BNAD_GET_REG(FLI_ADDR_REG);
+-	BNAD_GET_REG(FLI_CTL_REG);
+-	BNAD_GET_REG(FLI_WRDATA_REG);
+-	BNAD_GET_REG(FLI_RDDATA_REG);
+-	BNAD_GET_REG(FLI_DEV_STATUS_REG);
+-	BNAD_GET_REG(FLI_SIG_WD_REG);
+-
+-	BNAD_GET_REG(FLI_DEV_VENDOR_REG);
+-	BNAD_GET_REG(FLI_ERR_STATUS_REG);
+-
+-	/* RxAdm 0 Registers */
+-	BNAD_GET_REG(RAD0_CTL_REG);
+-	BNAD_GET_REG(RAD0_PE_PARM_REG);
+-	BNAD_GET_REG(RAD0_BCN_REG);
+-	BNAD_GET_REG(RAD0_DEFAULT_REG);
+-	BNAD_GET_REG(RAD0_PROMISC_REG);
+-	BNAD_GET_REG(RAD0_BCNQ_REG);
+-	BNAD_GET_REG(RAD0_DEFAULTQ_REG);
+-
+-	BNAD_GET_REG(RAD0_ERR_STS);
+-	BNAD_GET_REG(RAD0_SET_ERR_STS);
+-	BNAD_GET_REG(RAD0_ERR_INT_EN);
+-	BNAD_GET_REG(RAD0_FIRST_ERR);
+-	BNAD_GET_REG(RAD0_FORCE_ERR);
+-
+-	BNAD_GET_REG(RAD0_MAC_MAN_1H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_1L);
+-	BNAD_GET_REG(RAD0_MAC_MAN_2H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_2L);
+-	BNAD_GET_REG(RAD0_MAC_MAN_3H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_3L);
+-	BNAD_GET_REG(RAD0_MAC_MAN_4H);
+-	BNAD_GET_REG(RAD0_MAC_MAN_4L);
+-
+-	BNAD_GET_REG(RAD0_LAST4_IP);
+-
+-	/* RxAdm 1 Registers */
+-	BNAD_GET_REG(RAD1_CTL_REG);
+-	BNAD_GET_REG(RAD1_PE_PARM_REG);
+-	BNAD_GET_REG(RAD1_BCN_REG);
+-	BNAD_GET_REG(RAD1_DEFAULT_REG);
+-	BNAD_GET_REG(RAD1_PROMISC_REG);
+-	BNAD_GET_REG(RAD1_BCNQ_REG);
+-	BNAD_GET_REG(RAD1_DEFAULTQ_REG);
+-
+-	BNAD_GET_REG(RAD1_ERR_STS);
+-	BNAD_GET_REG(RAD1_SET_ERR_STS);
+-	BNAD_GET_REG(RAD1_ERR_INT_EN);
+-
+-	/* TxA0 Registers */
+-	BNAD_GET_REG(TXA0_CTRL_REG);
+-	/* TxA0 TSO Sequence # Registers (RO) */
+-	for (i = 0; i < 8; i++) {
+-		BNAD_GET_REG(TXA0_TSO_TCP_SEQ_REG(i));
+-		BNAD_GET_REG(TXA0_TSO_IP_INFO_REG(i));
+-	}
+-
+-	/* TxA1 Registers */
+-	BNAD_GET_REG(TXA1_CTRL_REG);
+-	/* TxA1 TSO Sequence # Registers (RO) */
+-	for (i = 0; i < 8; i++) {
+-		BNAD_GET_REG(TXA1_TSO_TCP_SEQ_REG(i));
+-		BNAD_GET_REG(TXA1_TSO_IP_INFO_REG(i));
+-	}
+-
+-	/* RxA Registers */
+-	BNAD_GET_REG(RXA0_CTL_REG);
+-	BNAD_GET_REG(RXA1_CTL_REG);
+-
+-	/* PLB0 Registers */
+-	BNAD_GET_REG(PLB0_ECM_TIMER_REG);
+-	BNAD_GET_REG(PLB0_RL_CTL);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB0_RL_MAX_BC(i));
+-	BNAD_GET_REG(PLB0_RL_TU_PRIO);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB0_RL_BYTE_CNT(i));
+-	BNAD_GET_REG(PLB0_RL_MIN_REG);
+-	BNAD_GET_REG(PLB0_RL_MAX_REG);
+-	BNAD_GET_REG(PLB0_EMS_ADD_REG);
+-
+-	/* PLB1 Registers */
+-	BNAD_GET_REG(PLB1_ECM_TIMER_REG);
+-	BNAD_GET_REG(PLB1_RL_CTL);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB1_RL_MAX_BC(i));
+-	BNAD_GET_REG(PLB1_RL_TU_PRIO);
+-	for (i = 0; i < 8; i++)
+-		BNAD_GET_REG(PLB1_RL_BYTE_CNT(i));
+-	BNAD_GET_REG(PLB1_RL_MIN_REG);
+-	BNAD_GET_REG(PLB1_RL_MAX_REG);
+-	BNAD_GET_REG(PLB1_EMS_ADD_REG);
+-
+-	/* HQM Control Register */
+-	BNAD_GET_REG(HQM0_CTL_REG);
+-	BNAD_GET_REG(HQM0_RXQ_STOP_SEM);
+-	BNAD_GET_REG(HQM0_TXQ_STOP_SEM);
+-	BNAD_GET_REG(HQM1_CTL_REG);
+-	BNAD_GET_REG(HQM1_RXQ_STOP_SEM);
+-	BNAD_GET_REG(HQM1_TXQ_STOP_SEM);
+-
+-	/* LUT Registers */
+-	BNAD_GET_REG(LUT0_ERR_STS);
+-	BNAD_GET_REG(LUT0_SET_ERR_STS);
+-	BNAD_GET_REG(LUT1_ERR_STS);
+-	BNAD_GET_REG(LUT1_SET_ERR_STS);
+-
+-	/* TRC Registers */
+-	BNAD_GET_REG(TRC_CTL_REG);
+-	BNAD_GET_REG(TRC_MODS_REG);
+-	BNAD_GET_REG(TRC_TRGC_REG);
+-	BNAD_GET_REG(TRC_CNT1_REG);
+-	BNAD_GET_REG(TRC_CNT2_REG);
+-	BNAD_GET_REG(TRC_NXTS_REG);
+-	BNAD_GET_REG(TRC_DIRR_REG);
+-	for (i = 0; i < 10; i++)
+-		BNAD_GET_REG(TRC_TRGM_REG(i));
+-	for (i = 0; i < 10; i++)
+-		BNAD_GET_REG(TRC_NXTM_REG(i));
+-	for (i = 0; i < 10; i++)
+-		BNAD_GET_REG(TRC_STRM_REG(i));
+-
+-	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-#undef BNAD_GET_REG
+-	return num;
+-}
+-static int
+-bnad_get_regs_len(struct net_device *netdev)
+-{
+-	int ret = get_regs(netdev_priv(netdev), NULL) * sizeof(u32);
+-	return ret;
+-}
+-
+-static void
+-bnad_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void *buf)
+-{
+-	memset(buf, 0, bnad_get_regs_len(netdev));
+-	get_regs(netdev_priv(netdev), buf);
+-}
+-
+ static void
+ bnad_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wolinfo)
+ {
+@@ -1192,8 +875,6 @@ static struct ethtool_ops bnad_ethtool_ops = {
+ 	.get_settings = bnad_get_settings,
+ 	.set_settings = bnad_set_settings,
+ 	.get_drvinfo = bnad_get_drvinfo,
+-	.get_regs_len = bnad_get_regs_len,
+-	.get_regs = bnad_get_regs,
+ 	.get_wol = bnad_get_wol,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_coalesce = bnad_get_coalesce,
+-- 
+1.7.1
 
-> +	tp->rx_ring.bufsz =3D 0x4000;
-> +	return netdev_fill_rx_ring(&tp->rx_ring);
-
-return netdev_init_rx_ring(..., 0x4000);
-
-[...]
-> @@ -4955,10 +5025,12 @@ static void rtl8169_reset_task(struct work_st=
-ruct *work)
->  		goto out_unlock;
-> =20
->  	rtl8169_wait_for_quiescence(dev);
-> -
-> +#ifdef NO_COMMON_RX_API
->  	for (i =3D 0; i < NUM_RX_DESC; i++)
->  		rtl8169_mark_to_asic(tp->RxDescArray + i, rx_buf_sz);
-> -
-> +#else
-> +	netdev_reset_rx_ring(&tp->rx_ring, tp->rx_ring.bufsz);
-
-netdev_reset_rx_ring() with a single parameter, netdev_resize_rx_ring()
-otherwise ?
-
-> +#endif
->  	rtl8169_tx_clear(tp);
-> =20
->  	rtl8169_hw_reset(tp);
-> @@ -5356,6 +5428,91 @@ static int rtl8169_rx_interrupt(struct net_dev=
-ice *dev,
->  	return count;
->  }
-> =20
-> +static int rtl_rx_buffer(struct netdev_ring *ring)
-> +{
-> +	struct net_device *dev =3D ring->napi.dev;
-> +	struct RxDesc *rxd =3D (struct RxDesc *)ring->desc_table + ring->he=
-ad;
-> +	dma_addr_t dma =3D le64_to_cpu(rxd->addr);
-> +	void *buf =3D ring->buf_table[ring->head];
-
-	void *buf =3D netdev_head_buf(ring); ?
-
-The driver does not really use it. It could / should be really opaque.
-
-> +	struct sk_buff *skb;
-> +	u32 status;
-> +
-> +	status =3D le32_to_cpu(ACCESS_ONCE(rxd->opts1));
-> +	if (status & DescOwn)
-> +		return -ENOENT;
-> +
-> +	netdev_dbg(dev, "RxDesc[%d] =3D %08x %08x %016llx %p\n",
-> +		ring->head, status, le32_to_cpu(rxd->opts2), dma, buf);
-> +
-> +	/*
-> +	 * release this descriptor - it won't be reused at least until
-> +	 * netdev_reuse_rx_buffer() or this function returns.
-> +	 */
-> +	if (!(status & RingEnd))
-> +		++ring->head;
-> +	else
-> +		ring->head =3D 0;
-
-You can probably add an helper for the lines above.
-
-The style is a bit raw but it looks interesting.
-
---=20
-Ueimor
