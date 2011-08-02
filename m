@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Series short description
-Date: Mon, 01 Aug 2011 17:58:52 -0700 (PDT)
-Message-ID: <20110801.175852.1978424920065850721.davem@davemloft.net>
-References: <20110801210642.11940.49764.stgit@localhost6.localdomain6>
+Subject: Re: [PATCH 1/1] atm: br2864: sent packets truncated in VC routed
+ mode
+Date: Mon, 01 Aug 2011 17:56:29 -0700 (PDT)
+Message-ID: <20110801.175629.1547300452555271781.davem@davemloft.net>
+References: <201108011503.p71F3Tan031501@cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, paul@paul-moore.com
-To: paul.moore@hp.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20110801210642.11940.49764.stgit@localhost6.localdomain6>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, pascal@plouf.fr.eu.org,
+	linux-atm-general@lists.sourceforge.net
+To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58116 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753991Ab1HBA7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 20:59:46 -0400
+In-Reply-To: <201108011503.p71F3Tan031501@cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Mon, 01 Aug 2011 17:10:19 -0400
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Mon, 01 Aug 2011 11:03:29 -0400
 
-> A little bit of housekeeping as I'm leaving HP and my email address will
-> be going away at the end of this week.  For those of you who need to
-> contact me directly please use the address in the CC line above (and
-> mentioned in the patches below).  The first patch is a pretty straight
-> forward update of the MAINTAINERS file, the second patch updates my
-> email in the various source files.
+>     atm: br2864: sent packets truncated in VC routed mode
+>     
+>     Reported-by: Pascal Hambourg <pascal@plouf.fr.eu.org>
+>     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-Both applied, thanks.
+Applied, thanks.
