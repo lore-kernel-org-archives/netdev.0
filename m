@@ -1,40 +1,79 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
-Date: Tue, 2 Aug 2011 15:45:34 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1108021544360.2158-100000@iolanthe.rowland.org>
-References: <201108022030.21331.oliver@neukum.org>
+From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+Subject: [PATCH] bonding: document two undocumented options.
+Date: Tue,  2 Aug 2011 22:06:55 +0200
+Message-ID: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexey Orishko <alexey.orishko@gmail.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-usb@vger.kernel.org>, <gregkh@suse.de>,
-	Alexey Orishko <alexey.orishko@stericsson.com>
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org,
+	=?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
+	<nicolas.2p.debian@free.fr>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:54923 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754697Ab1HBTpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 15:45:35 -0400
-In-Reply-To: <201108022030.21331.oliver@neukum.org>
+Received: from smtp6-g21.free.fr ([212.27.42.6]:38947 "EHLO smtp6-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755024Ab1HBUHR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2011 16:07:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2 Aug 2011, Oliver Neukum wrote:
+Commit 655f8919d549ad1872e24d826b6ce42530516d2e
+    bonding: add min links parameter to 802.3ad
 
-> Am Dienstag, 2. August 2011, 18:20:26 schrieb Alexey Orishko:
-> > Changes:
-> > - removed redandunt conversion for usb control requests
-> > - added missing conversion for nth16.wNdpIndex
-> > Thanks to Giuseppe Scrivano for providing fixes
-> 
-> What? How can a conversion of endianness be redundant?
+and commit ebd8e4977a87cb81d93c62a9bff0102a9713722f
+    bonding: add all_slaves_active parameter
 
-When it's done twice.  :-)
+introduced new options to bonding, but didn't provide the documentation
+for those options.
 
-> Either this version or the old version must be buggy. What is
-> happening here?
+Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+---
+ Documentation/networking/bonding.txt |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
 
-The old version is buggy.  Read the code and you'll see.
-
-Alan Stern
+diff --git a/Documentation/networking/bonding.txt b/Documentation/netwo=
+rking/bonding.txt
+index 675612f..058ddea 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -238,6 +238,15 @@ ad_select
+=20
+ 	This option was added in bonding version 3.4.0.
+=20
++all_slaves_active
++
++	Specifies that duplicate frames (received on inactive ports) should b=
+e
++	dropped (0) or delivered (1).
++
++	Normally, bonding will drop duplicate frames (received on inactive
++	ports), which is desirable for most users. But there are some times
++	it is nice to allow duplicate frames to be delivered.
++
+ arp_interval
+=20
+ 	Specifies the ARP link monitoring frequency in milliseconds.
+@@ -433,6 +442,18 @@ miimon
+ 	determined.  See the High Availability section for additional
+ 	information.  The default value is 0.
+=20
++min_links
++
++	Specifies the minimum number of links that must be active before
++	asserting carrier. It is similar to the Cisco EtherChannel min-links
++	feature. This allows setting the minimum number of member ports that
++	must be up (link-up state) before marking the bond device as up
++	(carrier on). This is useful for situations where higher level servic=
+es
++	such as clustering want to ensure a minimum number of low bandwidth
++	links are active before switchover.
++
++	This only affect 802.3ad mode.
++
+ mode
+=20
+ 	Specifies one of the bonding policies. The default is
+--=20
+1.7.5.4
 
