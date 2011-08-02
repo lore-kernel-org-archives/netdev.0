@@ -1,167 +1,140 @@
-From: "Serge E. Hallyn" <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 02/14] allow root in container to copy namespaces (v3)
-Date: Tue, 2 Aug 2011 09:08:32 -0500
-Message-ID: <20110802140832.GA26646@sergelap>
-References: <1311706717-7398-1-git-send-email-serge@hallyn.com>
-	<1311706717-7398-3-git-send-email-serge@hallyn.com>
-	<m1hb67fh9l.fsf@fess.ebiederm.org>
-	<20110729172748.GB18935@hallyn.com>
-	<m1ei146a6t.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <m1ei146a6t.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
+Date: Tue,  2 Aug 2011 18:20:26 +0200
+Message-ID: <1312302026-7077-1-git-send-email-alexey.orishko@stericsson.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Eric W. Biederman (ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org):
-> The dangers of changing the namespace of a process remain the same,
-> confused suid programs.  I don't believe there are any unique new
-> dangers. 
-> 
-> Not allowing joining namespaces you already have a copy of is just
-> a matter of making it hard to get things wrong.
-> 
-> I would feel more a bit more comfortable if the way we did this was
-> to move all of the capable calls into the per namespace methods
-> and then changed them one namespace at a time.  I don't think
+Changes:
+- removed redandunt conversion for usb control requests
+- added missing conversion for nth16.wNdpIndex
+Thanks to Giuseppe Scrivano for providing fixes
 
-The patch belows moves them into the per namespace methods, for
-what it's worth.  If you like I can change them, for now, to
-'capable(CAP_SYS_ADMIN)' targeted at init_user_ns, but if we're
-targetting at the userns owning the destination namespace, it
-seems this must be sufficient...
+This patch shall be applied on top of today's Josh Boyle patch
+[PATCH v3] usbnet/cdc_ncm: Don't use stack variables for DMA
 
-> there are any fundmanetal dangers of allowing unshare without
-> the global CAP_SYS_ADMIN, but it would be good to be able to audit
+Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |   33 ++++++++++++++++-----------------
+ 1 files changed, 16 insertions(+), 17 deletions(-)
 
-If you have suspicions that there may in fact be dangers, then
-perhaps this whole patch should be delayed, and copy_namespaces()
-and unshare_nsproxy_namespaces() should continue to check global
-CAP_SYS_ADMIN?  The only part which would remain would be the
-moving of the setns capable check into the per-ns ->install
-method, but it would check the global CAP_SYS_ADMIN?
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index bbcb133..4b2a317 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -53,7 +53,7 @@
+ #include <linux/usb/usbnet.h>
+ #include <linux/usb/cdc.h>
+ 
+-#define	DRIVER_VERSION				"01-June-2011"
++#define	DRIVER_VERSION				"02-Aug-2011"
+ 
+ /* CDC NCM subclass 3.2.1 */
+ #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
+@@ -203,8 +203,8 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 	req.bmRequestType = USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE;
+ 	req.bNotificationType = USB_CDC_GET_NTB_PARAMETERS;
+ 	req.wValue = 0;
+-	req.wIndex = cpu_to_le16(iface_no);
+-	req.wLength = cpu_to_le16(sizeof(ctx->ncm_parm));
++	req.wIndex = iface_no;
++	req.wLength = sizeof(ctx->ncm_parm);
+ 
+ 	err = cdc_ncm_do_request(ctx, &req, &ctx->ncm_parm, 0, NULL, 1000);
+ 	if (err) {
+@@ -257,7 +257,7 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 							USB_RECIP_INTERFACE;
+ 		req.bNotificationType = USB_CDC_SET_NTB_INPUT_SIZE;
+ 		req.wValue = 0;
+-		req.wIndex = cpu_to_le16(iface_no);
++		req.wIndex = iface_no;
+ 
+ 		if (flags & USB_CDC_NCM_NCAP_NTB_INPUT_SIZE) {
+ 			struct usb_cdc_ncm_ndp_input_size *ndp_in_sz;
+@@ -351,8 +351,8 @@ size_err:
+ 		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
+ 							USB_RECIP_INTERFACE;
+ 		req.bNotificationType = USB_CDC_SET_CRC_MODE;
+-		req.wValue = cpu_to_le16(USB_CDC_NCM_CRC_NOT_APPENDED);
+-		req.wIndex = cpu_to_le16(iface_no);
++		req.wValue = USB_CDC_NCM_CRC_NOT_APPENDED;
++		req.wIndex = iface_no;
+ 		req.wLength = 0;
+ 
+ 		err = cdc_ncm_do_request(ctx, &req, NULL, 0, NULL, 1000);
+@@ -365,8 +365,8 @@ size_err:
+ 		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
+ 							USB_RECIP_INTERFACE;
+ 		req.bNotificationType = USB_CDC_SET_NTB_FORMAT;
+-		req.wValue = cpu_to_le16(USB_CDC_NCM_NTB16_FORMAT);
+-		req.wIndex = cpu_to_le16(iface_no);
++		req.wValue = USB_CDC_NCM_NTB16_FORMAT;
++		req.wIndex = iface_no;
+ 		req.wLength = 0;
+ 
+ 		err = cdc_ncm_do_request(ctx, &req, NULL, 0, NULL, 1000);
+@@ -392,8 +392,8 @@ size_err:
+ 							USB_RECIP_INTERFACE;
+ 		req.bNotificationType = USB_CDC_GET_MAX_DATAGRAM_SIZE;
+ 		req.wValue = 0;
+-		req.wIndex = cpu_to_le16(iface_no);
+-		req.wLength = cpu_to_le16(2);
++		req.wIndex = iface_no;
++		req.wLength = 2;
+ 
+ 		err = cdc_ncm_do_request(ctx, &req, max_datagram_size, 0, NULL,
+ 									1000);
+@@ -426,7 +426,7 @@ size_err:
+ 							USB_RECIP_INTERFACE;
+ 			req.bNotificationType = USB_CDC_SET_MAX_DATAGRAM_SIZE;
+ 			req.wValue = 0;
+-			req.wIndex = cpu_to_le16(iface_no);
++			req.wIndex = iface_no;
+ 			req.wLength = 2;
+ 			*max_datagram_size =
+ 				cpu_to_le16(ctx->max_datagram_size);
+@@ -702,6 +702,7 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
+ 	u32 offset;
+ 	u32 last_offset;
+ 	u16 n = 0;
++	u16 ndpIndex = 0;
+ 	u8 ready2send = 0;
+ 
+ 	/* if there is a remaining skb, it gets priority */
+@@ -889,8 +890,8 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
+ 					cpu_to_le16(sizeof(ctx->tx_ncm.nth16));
+ 	ctx->tx_ncm.nth16.wSequence = cpu_to_le16(ctx->tx_seq);
+ 	ctx->tx_ncm.nth16.wBlockLength = cpu_to_le16(last_offset);
+-	ctx->tx_ncm.nth16.wNdpIndex = ALIGN(sizeof(struct usb_cdc_ncm_nth16),
+-							ctx->tx_ndp_modulus);
++	ndpIndex = ALIGN(sizeof(struct usb_cdc_ncm_nth16), ctx->tx_ndp_modulus);
++	ctx->tx_ncm.nth16.wNdpIndex = cpu_to_le16(ndpIndex);
+ 
+ 	memcpy(skb_out->data, &(ctx->tx_ncm.nth16), sizeof(ctx->tx_ncm.nth16));
+ 	ctx->tx_seq++;
+@@ -903,12 +904,10 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
+ 	ctx->tx_ncm.ndp16.wLength = cpu_to_le16(rem);
+ 	ctx->tx_ncm.ndp16.wNextNdpIndex = 0; /* reserved */
+ 
+-	memcpy(((u8 *)skb_out->data) + ctx->tx_ncm.nth16.wNdpIndex,
+-						&(ctx->tx_ncm.ndp16),
++	memcpy(((u8 *)skb_out->data) + ndpIndex, &(ctx->tx_ncm.ndp16),
+ 						sizeof(ctx->tx_ncm.ndp16));
+ 
+-	memcpy(((u8 *)skb_out->data) + ctx->tx_ncm.nth16.wNdpIndex +
+-					sizeof(ctx->tx_ncm.ndp16),
++	memcpy(((u8 *)skb_out->data) + ndpIndex + sizeof(ctx->tx_ncm.ndp16),
+ 					&(ctx->tx_ncm.dpe16),
+ 					(ctx->tx_curr_frame_num + 1) *
+ 					sizeof(struct usb_cdc_ncm_dpe16));
+-- 
+1.7.4.1
 
-> and make or revoke the decision one namespace at a time.
-> 
-> Eric
-> 
-> 
-> > Changelog:
-> >   Jul 29: setns: target capability check for setns
-> >           When changing to another namespace, make sure that we have
-> >           the CAP_SYS_ADMIN capability targeted at the user namespace
-> >           owning the new ns.
-> >
-> > Signed-off-by: Serge E. Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> > Cc: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-> > ---
-> >  ipc/namespace.c          |    3 +++
-> >  kernel/fork.c            |    4 ++--
-> >  kernel/nsproxy.c         |    7 ++-----
-> >  kernel/utsname.c         |    3 +++
-> >  net/core/net_namespace.c |    3 +++
-> >  5 files changed, 13 insertions(+), 7 deletions(-)
-> >
-> > diff --git a/ipc/namespace.c b/ipc/namespace.c
-> > index ce0a647..f527e49 100644
-> > --- a/ipc/namespace.c
-> > +++ b/ipc/namespace.c
-> > @@ -163,6 +163,9 @@ static void ipcns_put(void *ns)
-> >  
-> >  static int ipcns_install(struct nsproxy *nsproxy, void *ns)
-> >  {
-> > +	struct ipc_namespace *newns = ns;
-> > +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
-> > +		return -1;
-> >  	/* Ditch state from the old ipc namespace */
-> >  	exit_sem(current);
-> >  	put_ipc_ns(nsproxy->ipc_ns);
-> > diff --git a/kernel/fork.c b/kernel/fork.c
-> > index e7ceaca..f9fac70 100644
-> > --- a/kernel/fork.c
-> > +++ b/kernel/fork.c
-> > @@ -1488,8 +1488,8 @@ long do_fork(unsigned long clone_flags,
-> >  		/* hopefully this check will go away when userns support is
-> >  		 * complete
-> >  		 */
-> > -		if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SETUID) ||
-> > -				!capable(CAP_SETGID))
-> > +		if (!nsown_capable(CAP_SYS_ADMIN) || !nsown_capable(CAP_SETUID) ||
-> > +				!nsown_capable(CAP_SETGID))
-> >  			return -EPERM;
-> >  	}
-> >  
-> > diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
-> > index 9aeab4b..cadcee0 100644
-> > --- a/kernel/nsproxy.c
-> > +++ b/kernel/nsproxy.c
-> > @@ -134,7 +134,7 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
-> >  				CLONE_NEWPID | CLONE_NEWNET)))
-> >  		return 0;
-> >  
-> > -	if (!capable(CAP_SYS_ADMIN)) {
-> > +	if (!nsown_capable(CAP_SYS_ADMIN)) {
-> >  		err = -EPERM;
-> >  		goto out;
-> >  	}
-> > @@ -191,7 +191,7 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
-> >  			       CLONE_NEWNET)))
-> >  		return 0;
-> >  
-> > -	if (!capable(CAP_SYS_ADMIN))
-> > +	if (!nsown_capable(CAP_SYS_ADMIN))
-> >  		return -EPERM;
-> >  
-> >  	*new_nsp = create_new_namespaces(unshare_flags, current,
-> > @@ -241,9 +241,6 @@ SYSCALL_DEFINE2(setns, int, fd, int, nstype)
-> >  	struct file *file;
-> >  	int err;
-> >  
-> > -	if (!capable(CAP_SYS_ADMIN))
-> > -		return -EPERM;
-> > -
-> >  	file = proc_ns_fget(fd);
-> >  	if (IS_ERR(file))
-> >  		return PTR_ERR(file);
-> > diff --git a/kernel/utsname.c b/kernel/utsname.c
-> > index bff131b..8f648cc 100644
-> > --- a/kernel/utsname.c
-> > +++ b/kernel/utsname.c
-> > @@ -104,6 +104,9 @@ static void utsns_put(void *ns)
-> >  
-> >  static int utsns_install(struct nsproxy *nsproxy, void *ns)
-> >  {
-> > +	struct uts_namespace *newns = ns;
-> > +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
-> > +		return -1;
-> >  	get_uts_ns(ns);
-> >  	put_uts_ns(nsproxy->uts_ns);
-> >  	nsproxy->uts_ns = ns;
-> > diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> > index 5bbdbf0..90c97f6 100644
-> > --- a/net/core/net_namespace.c
-> > +++ b/net/core/net_namespace.c
-> > @@ -620,6 +620,9 @@ static void netns_put(void *ns)
-> >  
-> >  static int netns_install(struct nsproxy *nsproxy, void *ns)
-> >  {
-> > +	struct net *net = ns;
-> > +	if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
-> > +		return -1;
-> >  	put_net(nsproxy->net_ns);
-> >  	nsproxy->net_ns = get_net(ns);
-> >  	return 0;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
