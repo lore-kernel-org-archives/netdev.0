@@ -1,67 +1,85 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: pandaboard brctl oops
-Date: Tue, 02 Aug 2011 10:24:22 +0800
-Message-ID: <4E375FD6.4090404@cn.fujitsu.com>
-References: <201108012325.17312.marek.vasut@gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: failure to find rate WARN_ON on iwlagn
+Date: Mon, 1 Aug 2011 22:31:32 -0400
+Message-ID: <20110802023132.GA27315@redhat.com>
+References: <20110706151128.GB1425@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, m.kloucek.m@gmail.com
-To: Marek Vasut <marek.vasut@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: ilw@linux.intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60435 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753206Ab1HBCXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2011 22:23:04 -0400
-In-Reply-To: <201108012325.17312.marek.vasut@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:14396 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753206Ab1HBCbi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2011 22:31:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20110706151128.GB1425@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi
+On Wed, Jul 06, 2011 at 11:11:28AM -0400, Dave Jones wrote:
+ > I just hit this trace 3 times on this hardware..
+ > 04:00.0 Network controller: Intel Corporation Ultimate N WiFi Link 5300
 
-Marek Vasut wrote, at 08/02/2011 05:25 AM:
-> Hi,
-> 
-> recently a friend of mine sent me this backtrace. I put him in CC so please any 
-> subsequent questions shall be forwarded to him.
-> 
-> He claims this happens on pandaboard.
-> 
-> Cheers
-> 
-> root@box:~# brctl addbr br0
-> root@box:~# brctl addif br0 eth0
-> [   77.795776] Unable to handle kernel NULL pointer dereference at virtual 
-> address 00000000
-> [   77.804321] pgd = ee8d4000
-> [   77.807312] [00000000] *pgd=af8e6831, *pte=00000000, *ppte=00000000
-> [   77.813995] Internal error: Oops: 80000007 [#1] SMP
-> [   77.819122] last sysfs file: /sys/devices/virtual/net/br0/uevent
-> [   77.825439] Modules linked in: bridge stp llc wl12xx_sdio wl12xx
-> [   77.831787] CPU: 0    Not tainted  (2.6.39.2-omap4 #3)
-> [   77.837188] PC is at 0x0
-> [   77.839904] LR is at br_change_mtu+0x64/0x7c [bridge]
+I'm still seeing this every couple days, even on current trees.
 
-This one has been fixed in latest kernel.
-
-commit 6407d74c5106bb362b4087693688afd34942b094
-Author: Alexander Holler <holler@ahsoftware.de>
-Date:   Tue Jun 7 00:51:35 2011 -0700
-
-    bridge: provide a cow_metrics method for fake_ops
-    
-    Like in commit 0972ddb237 (provide cow_metrics() methods to blackhole
-    dst_ops), we must provide a cow_metrics for bridges fake_dst_ops as
-    well.
-    
-    This fixes a regression coming from commits 62fa8a846d7d (net: Implement
-    read-only protection and COW'ing of metrics.) and 33eb9873a28 (bridge:
-    initialize fake_rtable metrics)
-    
-    ip link set mybridge mtu 1234
-
--- 
-Best Regards
------
-Shan Wei
+	Dave
+ 
+ 
+ > wlan0: authenticate with b8:c7:5d:0c:39:88 (try 1)
+ > wlan0: authenticate with b8:c7:5d:0c:39:88 (try 2)
+ > wlan0: authenticate with b8:c7:5d:0c:39:88 (try 3)
+ > wlan0: authentication with b8:c7:5d:0c:39:88 timed out
+ > ------------[ cut here ]------------
+ > WARNING: at include/net/mac80211.h:3081 rate_control_send_low+0x8b/0x10f [mac80211]()
+ > Hardware name: Adamo 13   
+ > Modules linked in: sctp libcrc32c ip_queue can_raw cmtp kernelcapi rfcomm can_bcm hidp caif_socket caif af_802154 phonet af_rxrpc can pppoe pppox ppp_generic slhc irda crc_ccitt rds af_key decnet rose ax25 x25 atm appletalk ipx p8022 psnap llc p8023 tcp_lp nfs fscache fuse nfsd lockd nfs_acl auth_rpcgss sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables btusb bluetooth arc4 dell_wmi sparse_keymap snd_usb_audio snd_usbmidi_lib snd_rawmidi snd_hda_codec_hdmi snd_hda_codec_idt cdc_ether usbnet cdc_wdm mii snd_hda_intel snd_hda_codec snd_hwdep cdc_acm uvcvideo dell_laptop snd_seq microcode videodev v4l2_compat_ioctl32 dcdbas snd_seq_device snd_pcm iwlagn mac80211 iTCO_wdt tg3 cfg80211 pcspkr joydev i2c_i801 iTCO_vend
+ or_support rfkill snd_timer snd soundcore snd_page_alloc wmi virtio_net kvm_intel kvm ipv6 xts gf128mul dm_crypt i915 drm_kms_helper drm i2c_algo_bit i2c_core video [last unloaded: scsi_wait_s!
+ >  can]
+ > Pid: 0, comm: swapper Not tainted 3.0.0-rc5+ #89
+ > Call Trace:
+ >  <IRQ>  [<ffffffff8105acfc>] warn_slowpath_common+0x83/0x9b
+ >  [<ffffffff8105ad2e>] warn_slowpath_null+0x1a/0x1c
+ >  [<ffffffffa0252b17>] rate_control_send_low+0x8b/0x10f [mac80211]
+ >  [<ffffffffa0291c59>] rs_get_rate+0x138/0x215 [iwlagn]
+ >  [<ffffffffa0252fcf>] rate_control_get_rate+0x86/0x14c [mac80211]
+ >  [<ffffffff814cf60e>] ? _raw_spin_unlock_irqrestore+0x6c/0x7a
+ >  [<ffffffffa025bde1>] invoke_tx_handlers+0x8f3/0xf47 [mac80211]
+ >  [<ffffffffa025a4f0>] ? compare_ether_addr+0x2c/0x2c [mac80211]
+ >  [<ffffffff814c818e>] ? __slab_alloc+0x399/0x3b4
+ >  [<ffffffffa025c4b4>] ieee80211_tx+0x7f/0xaf [mac80211]
+ >  [<ffffffffa025c66a>] ieee80211_xmit+0x186/0x19a [mac80211]
+ >  [<ffffffff81060d3f>] ? __local_bh_disable+0x8c/0xbe
+ >  [<ffffffffa025d5dc>] ieee80211_tx_skb+0x56/0x5e [mac80211]
+ >  [<ffffffffa02493c3>] ieee80211_send_bar+0xda/0xe9 [mac80211]
+ >  [<ffffffffa0243928>] ieee80211_tx_status+0x25c/0x808 [mac80211]
+ >  [<ffffffff814cf600>] ? _raw_spin_unlock_irqrestore+0x5e/0x7a
+ >  [<ffffffffa0242d12>] ieee80211_tasklet_handler+0x5b/0xa8 [mac80211]
+ >  [<ffffffff81061311>] tasklet_action+0x93/0xf3
+ >  [<ffffffff810614ba>] __do_softirq+0x10f/0x257
+ >  [<ffffffff814d6bdc>] call_softirq+0x1c/0x30
+ >  [<ffffffff8100bcaa>] do_softirq+0x4b/0xa1
+ >  [<ffffffff8106189d>] irq_exit+0x5d/0xb5
+ >  [<ffffffff814d747d>] do_IRQ+0x8d/0xa4
+ >  [<ffffffff814cfc13>] common_interrupt+0x13/0x13
+ >  <EOI>  [<ffffffff814d29f7>] ? notifier_call_chain+0xbb/0xbb
+ >  [<ffffffff812e11c3>] ? arch_local_irq_enable+0x8/0xd
+ >  [<ffffffff8108e2a8>] ? trace_hardirqs_on+0xd/0xf
+ >  [<ffffffff812e1d80>] acpi_idle_enter_c1+0xa0/0xbe
+ >  [<ffffffff813e0acb>] cpuidle_idle_call+0x10c/0x1eb
+ >  [<ffffffff81009323>] cpu_idle+0xe3/0x143
+ >  [<ffffffff81d3dbc2>] ? start_kernel+0x401/0x40c
+ >  [<ffffffff814abc71>] rest_init+0xd5/0xdc
+ >  [<ffffffff814abb9c>] ? csum_partial_copy_generic+0x16c/0x16c
+ >  [<ffffffff81d3dbc2>] start_kernel+0x401/0x40c
+ >  [<ffffffff81d3d2c4>] x86_64_start_reservations+0xaf/0xb3
+ >  [<ffffffff81d3d140>] ? early_idt_handlers+0x140/0x140
+ >  [<ffffffff81d3d3ca>] x86_64_start_kernel+0x102/0x111
+ > ---[ end trace ab18f52dc63f6394 ]---
+ > 
+ > --
+ > To unsubscribe from this list: send the line "unsubscribe netdev" in
+ > the body of a message to majordomo@vger.kernel.org
+ > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---end quoted text---
