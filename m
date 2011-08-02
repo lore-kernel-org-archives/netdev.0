@@ -1,49 +1,72 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH] common receive API + r8169 use
-Date: Tue, 2 Aug 2011 14:15:00 -0700
-Message-ID: <20110802141500.3c99185b@nehalam.ftrdhcpuser.net>
-References: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
+From: =?UTF-8?B?TWlsb8WhIEd5bVJL?= <m.kloucek.m@gmail.com>
+Subject: Re: pandaboard brctl oops
+Date: Tue, 2 Aug 2011 23:18:02 +0200
+Message-ID: <CAPOFEBOnaqn_gaGNu33_JhiEtGo8R_jyjkHCTLv02KmnbhvzmQ@mail.gmail.com>
+References: <201108012325.17312.marek.vasut@gmail.com>
+	<4E375FD6.4090404@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46056 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755376Ab1HBVOw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 17:14:52 -0400
-In-Reply-To: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <4E375FD6.4090404@cn.fujitsu.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue,  2 Aug 2011 22:24:35 +0200 (CEST)
-Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl> wrote:
+On 8/2/11, Shan Wei <shanwei@cn.fujitsu.com> wrote:
+> hi
+>
+> Marek Vasut wrote, at 08/02/2011 05:25 AM:
+>> Hi,
+>>
+>> recently a friend of mine sent me this backtrace. I put him in CC so
+>> please any
+>> subsequent questions shall be forwarded to him.
+>>
+>> He claims this happens on pandaboard.
+>>
+>> Cheers
+>>
+>> root@box:~# brctl addif br0 eth0
+>> [   77.795776] Unable to handle kernel NULL pointer dereference at virtual
+>>
+>> address 00000000
+>> [   77.804321] pgd = ee8d4000
+>> [   77.807312] [00000000] *pgd=af8e6831, *pte=00000000, *ppte=00000000
+>> [   77.813995] Internal error: Oops: 80000007 [#1] SMP
+>> [   77.819122] last sysfs file: /sys/devices/virtual/net/br0/uevent
+>> [   77.825439] Modules linked in: bridge stp llc wl12xx_sdio wl12xx
+>> [   77.831787] CPU: 0    Not tainted  (2.6.39.2-omap4 #3)
+>> [   77.837188] PC is at 0x0
+>> [   77.839904] LR is at br_change_mtu+0x64/0x7c [bridge]
+>
+> This one has been fixed in latest kernel.
+>
+> commit 6407d74c5106bb362b4087693688afd34942b094
+> Author: Alexander Holler <holler@ahsoftware.de>
+> Date:   Tue Jun 7 00:51:35 2011 -0700
+>
+>     bridge: provide a cow_metrics method for fake_ops
+>
+>     Like in commit 0972ddb237 (provide cow_metrics() methods to blackhole
+>     dst_ops), we must provide a cow_metrics for bridges fake_dst_ops as
+>     well.
+>
+>     This fixes a regression coming from commits 62fa8a846d7d (net: Implement
+>     read-only protection and COW'ing of metrics.) and 33eb9873a28 (bridge:
+>     initialize fake_rtable metrics)
+>
+>     ip link set mybridge mtu 1234
+>
+> --
+> Best Regards
+> -----
+> Shan Wei
+>
 
-> Here is a preliminary version of common RX path for network drivers. =
-The idea
-> is an extension to Eric Dumazet's patch introducing build_skb() (it's
-> incorporated here for easier testing).
->=20
-> Future plans:
->  - extend this API to devices which can do split buffer receives corr=
-ectly
->    and use napi_gro_frags() instead;
->  - implement DaveM's idea of RX buffer handling (fill first, process
->    if buffers available) in parallel to my version (process first, re=
-fill
->    later);
->  - get rid of indirect calls in fast path (process_buffer() and
->    add_buffer()) - ideas? inline netdev_rx_poll() and pass callback t=
-o it?
->=20
-> Version rebased on v3.0 is running succesfully on one laptop with r81=
-69 on
-> board since about a week. No problems showed up yet. For net-next thi=
-s
-> needs retesting because of changes in device reset handling.
+I expected something rare or architecture-dependent, because I had no
+problems when adding wlan0 to the bridge
 
-1. Don't put #ifdef code in, just go with the new code.
-2. Get rid of the inline on all those functions. Anything over 3 lines
-   really shouldn't be inlined.
-3. What is the performance difference (if any)?
+Chery-picking the commit indeed fixed the problem
+thanks for such quick reply
