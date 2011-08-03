@@ -1,60 +1,102 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Subject: bonding and ifenslave version.
-Date: Wed, 03 Aug 2011 08:43:47 +0200
-Message-ID: <4E38EE23.8030703@gmail.com>
-References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr>
+From: Matvejchikov Ilya <matvejchikov@gmail.com>
+Subject: [PATCH] slip: cleanup statistics generation
+Date: Wed, 3 Aug 2011 11:23:35 +0400
+Message-ID: <CAKh5naZEyehLdP=sHM8H3_+n7ieto0YC_6hn3x=A+y823Gqs-Q@mail.gmail.com>
+Reply-To: matvejchikov@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40336 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733Ab1HCGnu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 02:43:50 -0400
-Received: by wyg8 with SMTP id 8so319042wyg.19
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2011 23:43:49 -0700 (PDT)
-In-Reply-To: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:41629 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751117Ab1HCHXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 03:23:55 -0400
+Received: by vxh35 with SMTP id 35so414421vxh.19
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 00:23:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 02/08/2011 22:06, Nicolas de Peslo=C3=BCan a =C3=A9crit :
-> Commit 655f8919d549ad1872e24d826b6ce42530516d2e
->      bonding: add min links parameter to 802.3ad
->
-> and commit ebd8e4977a87cb81d93c62a9bff0102a9713722f
->      bonding: add all_slaves_active parameter
->
-> introduced new options to bonding, but didn't provide the documentati=
-on
-> for those options.
->
-> Signed-off-by: Nicolas de Peslo=C3=BCan<nicolas.2p.debian@free.fr>
-> ---
+Remove unused tx_compressed, tx_compressed and tx_misses fields from
+the slip structure. Also, make some device stats generation cleanups.
 
-Jay, Andy,
+Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
+---
+ drivers/net/slip.c |   29 ++++++++++++++---------------
+ drivers/net/slip.h |    9 ---------
+ 2 files changed, 14 insertions(+), 24 deletions(-)
 
-While working at this patch, I noticed that the bonding driver version =
-wasn't bumped up at the time=20
-those options were introduced.
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+index f11b3f3..85420cf 100644
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -562,34 +562,33 @@ static struct rtnl_link_stats64 *
+ sl_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct net_device_stats *devstats = &dev->stats;
+-	unsigned long c_rx_dropped = 0;
+ #ifdef SL_INCLUDE_CSLIP
+-	unsigned long c_rx_fifo_errors = 0;
+-	unsigned long c_tx_fifo_errors = 0;
+-	unsigned long c_collisions = 0;
+ 	struct slip *sl = netdev_priv(dev);
+ 	struct slcompress *comp = sl->slcomp;
+-
+-	if (comp) {
+-		c_rx_fifo_errors = comp->sls_i_compressed;
+-		c_rx_dropped     = comp->sls_i_tossed;
+-		c_tx_fifo_errors = comp->sls_o_compressed;
+-		c_collisions     = comp->sls_o_misses;
+-	}
+-	stats->rx_fifo_errors = sl->rx_compressed + c_rx_fifo_errors;
+-	stats->tx_fifo_errors = sl->tx_compressed + c_tx_fifo_errors;
+-	stats->collisions     = sl->tx_misses + c_collisions;
+ #endif
+ 	stats->rx_packets     = devstats->rx_packets;
+ 	stats->tx_packets     = devstats->tx_packets;
+ 	stats->rx_bytes       = devstats->rx_bytes;
+ 	stats->tx_bytes       = devstats->tx_bytes;
+-	stats->rx_dropped     = devstats->rx_dropped + c_rx_dropped;
++	stats->rx_dropped     = devstats->rx_dropped;
+ 	stats->tx_dropped     = devstats->tx_dropped;
+ 	stats->tx_errors      = devstats->tx_errors;
+ 	stats->rx_errors      = devstats->rx_errors;
+ 	stats->rx_over_errors = devstats->rx_over_errors;
 
-I thought introducing a new option should cause the driver version to c=
-hange. Am I right?
++#ifdef SL_INCLUDE_CSLIP
++	if (comp) {
++		/* Generic compressed statistics */
++		stats->rx_compressed   = comp->sls_i_compressed.
++		stats->tx_compressed   = comp->sls_o_compressed;
++
++		/* Are we really still needs this? */
++		stats->rx_fifo_errors += comp->sls_i_compressed;
++		stats->rx_dropped     += comp->sls_i_tossed;
++		stats->tx_fifo_errors += comp->sls_o_compressed;
++		stats->collisions     += comp->sls_o_misses;
++	}
++#endif
+ 	return stats;
+ }
 
-On a different but related topic, the version in Documentation/networki=
-ng/ifenslave.c (1.1.0) didn't=20
-change since the git origin and probably since 2003.
+diff --git a/drivers/net/slip.h b/drivers/net/slip.h
+index aa0764c..67673cf 100644
+--- a/drivers/net/slip.h
++++ b/drivers/net/slip.h
+@@ -65,15 +65,6 @@ struct slip {
+   unsigned char		*xbuff;		/* transmitter buffer		*/
+   unsigned char         *xhead;         /* pointer to next byte to XMIT */
+   int                   xleft;          /* bytes left in XMIT queue     */
+-
+-  /* SLIP interface statistics. */
+-#ifdef SL_INCLUDE_CSLIP
+-  unsigned long		tx_compressed;
+-  unsigned long		rx_compressed;
+-  unsigned long		tx_misses;
+-#endif
+-  /* Detailed SLIP statistics. */
+-
+   int			mtu;		/* Our mtu (to spot changes!)   */
+   int                   buffsize;       /* Max buffers sizes            */
 
-Arguably, none of the commit regarding this file introduced a significa=
-nt change (with the possible=20
-exception of commit e6d184e33109010412ad1d59719af74755a935f4, [NET]: Fi=
-x ifenslave to not fail on=20
-lack of IP information). But if we never change a 3-level version numbe=
-r, whatever the level of=20
-change, this version number might be useless. Any comment?
-
-	Nicolas.
+-- 
+1.7.6
