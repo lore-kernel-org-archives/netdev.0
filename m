@@ -1,98 +1,28 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 56/71] macb: Move the Atmel driver
-Date: Wed, 03 Aug 2011 02:03:35 -0700
-Message-ID: <1312362216.2294.139.camel@jtkirshe-mobl>
-References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1312082850-24914-57-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <4E36BCEF.8080703@atmel.com> <1312351168.2294.92.camel@jtkirshe-mobl>
-	 <20110803084719.GA2607@pulham.picochip.com> <4E390BCD.4010609@atmel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH] slip: cleanup statistics generation
+Date: Wed, 03 Aug 2011 03:26:32 -0700 (PDT)
+Message-ID: <20110803.032632.1644745928704394302.davem@redhat.com>
+References: <CAKh5naZEyehLdP=sHM8H3_+n7ieto0YC_6hn3x=A+y823Gqs-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-y4TaiNC4njoE1tVB6dGv"
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: matvejchikov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:57330 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51364 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752594Ab1HCJDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2011 05:03:36 -0400
-In-Reply-To: <4E390BCD.4010609@atmel.com>
+	id S1753528Ab1HCK0d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 06:26:33 -0400
+In-Reply-To: <CAKh5naZEyehLdP=sHM8H3_+n7ieto0YC_6hn3x=A+y823Gqs-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-y4TaiNC4njoE1tVB6dGv
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2011-08-03 at 01:50 -0700, Nicolas Ferre wrote:
-> On 08/03/2011 09:47 AM, Jamie Iles wrote:
-> > On Tue, Aug 02, 2011 at 10:59:28PM -0700, Jeff Kirsher wrote:
-> >> On Mon, 2011-08-01 at 07:49 -0700, Nicolas Ferre wrote:
-> >>> On 07/31/2011 04:27 AM, Jeff Kirsher wrote:
-> >>>> Move the Atmel driver into drivers/net/ethernet/cadence/ and
-> >>>> make the necessary Kconfig and Makefile changes.
-> >>>>
-> >>>> CC: Nicolas Ferre<nicolas.ferre@atmel.com>
-> >>>
-> >>> You can add my:
-> >>> Acked-by: Nicolas Ferre<nicolas.ferre@atmel.com>
-> >>>
-> >>>> CC: Jamie Iles<jamie@jamieiles.com>
-> >>>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
-> >>
-> >> Nicolas/Jamie-
-> >>
-> >> I have a v3 series of patches coming out here imminently, and I have
-> >> tweaked the Kconfig just a bit based on feedback from others.  Since t=
-he
-> >> "tweak" made sense for all the Kconfig, I applied it across the board.
-> >> Here is the new Kconfig:
-> > [...]
-> >> If these changes are fine, I can add your ACK's.
-> >
-> > It all reads fine to me though I wonder if we should substitute Atmel
-> > for Cadence.  Perhaps this should be a separate patch though that makes
-> > it a little clearer in the drivers too.
-
-Not that I am trying to get out of the additional cleanup, but I vote
-for a separate patch after we go through the push of this series of
-patches. :)
-
->=20
-> Yes, that is true.
->=20
-> > Anyhow, for now I'm happy as it is, so:
-> >
-> > Acked-by: Jamie Iles<jamie@jamieiles.com>
->=20
-> Yes, you can add my:
->=20
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-Thanks, I will add your ACK's.
-
---=-y4TaiNC4njoE1tVB6dGv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJOOQ7nAAoJECTsCADr/EWUjqIH/jt2OAajCFAVTyYcQFInAu+l
-+HKhVE69WEiul3hEE07FhoqHt9MTKmOCoSe2zOv7ML/UlXkTKRfy2SNyqdKxlbq+
-PBcdMltqpE/Lru6rFvq+DNNRxYvzb/4vB/qy+7kHx91y1XyvjwoHWqqDMaZGXQuQ
-NujuAZAtEcevM76w6/mM7ih5aln6QdrTYnoRoUvJMGHBpCiEriL+2r/0wnvRc3BU
-BQ6dMnAXN88nfnr7nesdcZsL2UP0p29Jz/UFGsdEiPMQt/iOsbD6mZBZv1FGPsrp
-I+0s/kbRNQa1KTeD5cR0ZQQKMP4u9zhm+y/O9vRwSt0BH8GgXtqZtgJ7Tprq0DQ=
-=6r8U
------END PGP SIGNATURE-----
-
---=-y4TaiNC4njoE1tVB6dGv--
-
+RnJvbTogTWF0dmVqY2hpa292IElseWEgPG1hdHZlamNoaWtvdkBnbWFpbC5jb20+DQpEYXRlOiBX
+ZWQsIDMgQXVnIDIwMTEgMTE6MjM6MzUgKzA0MDANCg0KPiBSZW1vdmUgdW51c2VkIHR4X2NvbXBy
+ZXNzZWQsIHR4X2NvbXByZXNzZWQgYW5kIHR4X21pc3NlcyBmaWVsZHMgZnJvbQ0KPiB0aGUgc2xp
+cCBzdHJ1Y3R1cmUuIEFsc28sIG1ha2Ugc29tZSBkZXZpY2Ugc3RhdHMgZ2VuZXJhdGlvbiBjbGVh
+bnVwcy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE1hdHZlamNoaWtvdiBJbHlhIDxtYXR2ZWpjaGlr
+b3ZAZ21haWwuY29tPg0KDQpUZXN0IGNvbXBpbGUgeW91ciBjaGFuZ2VzIG11Y2g/DQoNCmRyaXZl
+cnMvbmV0L3NsaXAuYzogSW4gZnVuY3Rpb24gJ3NsX2dldF9zdGF0czY0JzoNCmRyaXZlcnMvbmV0
+L3NsaXAuYzo1ODI6NTA6IGVycm9yOiByZXF1ZXN0IGZvciBtZW1iZXIgoXN0YXRzoiBpbiBzb21l
+dGhpbmcgbm90IGEgc3RydWN0dXJlIG9yIHVuaW9uDQo=
