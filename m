@@ -1,47 +1,60 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
-Date: Wed, 3 Aug 2011 16:07:18 +0200
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3DEF6C26@EXDCVYMBSTM006.EQ1STM.local>
-References: <87hb5yock6.fsf@gnu.org>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: [PATCH] mlx4: Fixing Ethernet unicast packet steering
+Date: Wed, 3 Aug 2011 17:21:00 +0300
+Message-ID: <4E39594C.4090808@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org" <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"gregkh-l3A5Bk7waGM@public.gmane.org" <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	"alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Giuseppe Scrivano <giuseppe-A9uVI2HLR7kOP4wsBPIw7w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87hb5yock6.fsf-mXXj517/zsQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+To: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> From 8bd65735b4f0db5b6213f59a443c21d0d55dba8e Mon Sep 17 00:00:00 2001
-> From: Giuseppe Scrivano <giuseppe-A9uVI2HLR7kOP4wsBPIw7w@public.gmane.org>
-> Date: Fri, 15 Jul 2011 15:34:14 +0200
-> Subject: [PATCH] cdc_ncm: fix endianess problem.
-> 
-> Signed-off-by: Giuseppe Scrivano <giuseppe-A9uVI2HLR7kOP4wsBPIw7w@public.gmane.org>
-> ---
->  drivers/net/usb/cdc_ncm.c |   65 +++++++++++++++++++++++++-------------------
-> -
 
-> +struct cdc_ncm_request {
-> +	u8	bRequest;
-> +	u8	bmRequestType;
-> +	u16	wValue;
-> +	u16	wIndex;
-> +	u16	wLength;
-> +} __packed;
+For older FW versions, fixing the usage of per port Mac table.
+For each port we must define the base QP number, which is passed
+to the HW.
+Setting the correct value in SET_PORT FW command to enable the steering.
 
-Since it was incorrect to use struct usb_cdc_notification I would rather
-remove cdc_ncm_do_request() function and provide u16 parameters directly to 
-usb_control_msg without creating yet additional structure for usb control request.
+Reported-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+---
+ drivers/net/mlx4/en_port.c |    2 +-
+ drivers/net/mlx4/main.c    |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-alexey
+diff --git a/drivers/net/mlx4/en_port.c b/drivers/net/mlx4/en_port.c
+index 5e71091..5ada5b4 100644
+--- a/drivers/net/mlx4/en_port.c
++++ b/drivers/net/mlx4/en_port.c
+@@ -128,7 +128,7 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
+ 	memset(context, 0, sizeof *context);
+ 
+ 	context->base_qpn = cpu_to_be32(base_qpn);
+-	context->n_mac = 0x7;
++	context->n_mac = 0x2;
+ 	context->promisc = cpu_to_be32(promisc << SET_PORT_PROMISC_SHIFT |
+ 				       base_qpn);
+ 	context->mcast = cpu_to_be32(m_promisc << SET_PORT_MC_PROMISC_SHIFT |
+diff --git a/drivers/net/mlx4/main.c b/drivers/net/mlx4/main.c
+index c94b342..f0ee35d 100644
+--- a/drivers/net/mlx4/main.c
++++ b/drivers/net/mlx4/main.c
+@@ -1117,6 +1117,8 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
+ 	info->port = port;
+ 	mlx4_init_mac_table(dev, &info->mac_table);
+ 	mlx4_init_vlan_table(dev, &info->vlan_table);
++	info->base_qpn = dev->caps.reserved_qps_base[MLX4_QP_REGION_ETH_ADDR] +
++			(port - 1) * (1 << log_num_mac);
+ 
+ 	sprintf(info->dev_name, "mlx4_port%d", port);
+ 	info->port_attr.attr.name = info->dev_name;
+-- 
+1.6.0.2
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
