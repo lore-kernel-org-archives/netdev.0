@@ -1,31 +1,30 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Wed, 3 Aug 2011 23:54:13 +1000
-Message-ID: <20110803235413.6d1a589d@kryten>
-References: <20110802.041857.1325765319466840715.davem@davemloft.net>
-	<20110802.042641.2122529993066553943.davem@davemloft.net>
-	<201108022052.FBE56208.FLQHFtMOVOSOJF@I-love.SAKURA.ne.jp>
-	<20110802.050115.1714327089688495866.davem@davemloft.net>
-	<201108022211.BJI69291.QLFFJMOOtOHVSF@I-love.SAKURA.ne.jp>
-	<201108030325.p733Pplb030986@www262.sakura.ne.jp>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [RFC PATCH] common receive API + r8169 use
+Date: Wed, 3 Aug 2011 16:06:27 +0200
+Message-ID: <20110803140627.GA26803@rere.qmqm.pl>
+References: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
+ <20110802220108.GA13963@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, eparis@parisplace.org, casey@schaufler-ca.com,
-	mjt@tls.msk.ru, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201108030325.p733Pplb030986@www262.sakura.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:50542 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752347Ab1HCOGa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 10:06:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20110802220108.GA13963@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Aug 03, 2011 at 12:01:08AM +0200, Francois Romieu wrote:
+[...a bit of comments...]
+> The style is a bit raw but it looks interesting.
 
-> Also, attaching kmalloc()-free version. If performance loss by
-> kmalloc()-free version is small enough, can it be a candidate?
+I've taken your comments into account. I'll post a new version after I =
+clean it up further.
 
-Thanks. Running some benchmarks across both versions, will have some
-numbers later on today.
-
-Anton
+Thanks,
+Micha=B3 Miros=B3aw
