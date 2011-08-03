@@ -1,38 +1,97 @@
-From: s l u =?iso-8859-2?Q?=BE_b_a?= <info@cuni.cz>
-Subject: =?iso-8859-2?Q?V=E1=B9_webmail_kv=F3tu_p=F8ekro=E8ila_stanoven=E9_kv=F3ty?=
-Date: Wed, 3 Aug 2011 20:42:58 +0300 (EEST)
-Message-ID: <22774.41.206.15.43.1312393378.squirrel__14379.1875489571$1312402925$gmane$org@webmail3.cc.jyu.fi>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC net-next] virtio_net: refill buffer right after being
+ used
+Date: Wed, 3 Aug 2011 23:26:48 +0300
+Message-ID: <20110803202648.GA19501@redhat.com>
+References: <1311979448.24300.28.camel@localhost.localdomain>
+ <1311980131.24300.30.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from posti6.jyu.fi ([130.234.4.43]:53794 "EHLO posti6.jyu.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755422Ab1HCUVd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2011 16:21:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1311980131.24300.30.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 29, 2011 at 03:55:31PM -0700, Shirley Ma wrote:
+> Resubmit it with a typo fix.
+> 
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> ---
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 0c7321c..c8201d4 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -429,6 +429,22 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
+>  	return err;
+>  }
+>  
+> +static int fill_one(struct virtnet_info *vi, gfp_t gfp)
+> +{
+> +	int err;
+> +
+> +	if (vi->mergeable_rx_bufs)
+> +		err = add_recvbuf_mergeable(vi, gfp);
+> +	else if (vi->big_packets)
+> +		err = add_recvbuf_big(vi, gfp);
+> +	else
+> +		err = add_recvbuf_small(vi, gfp);
+> +
+> +	if (err >= 0)
+> +		++vi->num;
+> +	return err;
+> +}
+> +
+>  /* Returns false if we couldn't fill entirely (OOM). */
+>  static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+>  {
+> @@ -436,17 +452,10 @@ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+>  	bool oom;
+>  
+>  	do {
+> -		if (vi->mergeable_rx_bufs)
+> -			err = add_recvbuf_mergeable(vi, gfp);
+> -		else if (vi->big_packets)
+> -			err = add_recvbuf_big(vi, gfp);
+> -		else
+> -			err = add_recvbuf_small(vi, gfp);
+> -
+> +		err = fill_one(vi, gfp);
+>  		oom = err == -ENOMEM;
+>  		if (err < 0)
+>  			break;
+> -		++vi->num;
+>  	} while (err > 0);
+>  	if (unlikely(vi->num > vi->max))
+>  		vi->max = vi->num;
+> @@ -506,13 +515,13 @@ again:
+>  		receive_buf(vi->dev, buf, len);
+>  		--vi->num;
+>  		received++;
+> -	}
+> -
+> -	if (vi->num < vi->max / 2) {
+> -		if (!try_fill_recv(vi, GFP_ATOMIC))
+> +		if (fill_one(vi, GFP_ATOMIC) < 0)
+>  			schedule_delayed_work(&vi->refill, 0);
 
+If we get a large packet, we might add less that what we removed from
+the ring.  Isn't this a problem?
 
-V=E1=B9 webmail kv=F3tu p=F8ekro=E8ila stanoven=E9 kv=F3ty, kter=E1 je =
-2 GB. Nach=E1z=EDte se
-v sou=E8asn=E9 dob=EC b=EC=BE=ED na 2,3 GB.
+>  	}
+>  
+> +	/* notify buffers are refilled */
+> +	virtqueue_kick(vi->rvq);
+> +
+>  	/* Out of packets? */
+>  	if (received < budget) {
+>  		napi_complete(napi);
+> 
+> 
 
-Chcete-li znovu aktivovat a zv=FD=B9it sv=E9 kv=F3ty, webmail, pros=EDm=
- ov=EC=F8it a
-aktualizovat webmail =FA=E8et
-
-Ve snaze znovu aktivovat a zv=FD=B9it sv=E9 kv=F3ty webmail klikn=ECte =
-na odkaz n=ED=BEe.
-
-http://fd8.formdesk.com/cunicz/statsqq
-
-Pokud tak neu=E8in=EDte, m=F9=BEe m=EDt za n=E1sledek zru=B9en=ED va=B9=
-eho =FA=E8tu webmail.
-
-D=EDky, a omlouv=E1m se za nep=F8=EDjemnosti
-
-Admin / webmaster / M=EDstn=ED host
-
+-- 
+MST
