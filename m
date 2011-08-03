@@ -1,107 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 56/71] macb: Move the Atmel driver
-Date: Tue, 02 Aug 2011 22:59:28 -0700
-Message-ID: <1312351168.2294.92.camel@jtkirshe-mobl>
+Subject: Re: [net-next v2 17/71] myri*: Move the Myricom drivers
+Date: Tue, 02 Aug 2011 23:02:39 -0700
+Message-ID: <1312351360.2294.95.camel@jtkirshe-mobl>
 References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1312082850-24914-57-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <4E36BCEF.8080703@atmel.com>
+	 <1312082850-24914-18-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CAMaF-rOs_8=F1-nKMSR4kosNuoGUTE284MKtRvSQ-X2p5sb+rw@mail.gmail.com>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-HcBbnPvnCGyM6LziCzls"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+	boundary="=-aJOb1WMzPMAPy+pMNs7s"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jamie Iles <jamie@jamieiles.com>
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
+To: Jon Mason <jon.mason@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64282 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:19160 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754400Ab1HCF73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2011 01:59:29 -0400
-In-Reply-To: <4E36BCEF.8080703@atmel.com>
+	id S1754436Ab1HCGCl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 02:02:41 -0400
+In-Reply-To: <CAMaF-rOs_8=F1-nKMSR4kosNuoGUTE284MKtRvSQ-X2p5sb+rw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-HcBbnPvnCGyM6LziCzls
+--=-aJOb1WMzPMAPy+pMNs7s
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2011-08-01 at 07:49 -0700, Nicolas Ferre wrote:
-> On 07/31/2011 04:27 AM, Jeff Kirsher wrote:
-> > Move the Atmel driver into drivers/net/ethernet/cadence/ and
-> > make the necessary Kconfig and Makefile changes.
-> >
-> > CC: Nicolas Ferre<nicolas.ferre@atmel.com>
+On Mon, 2011-08-01 at 10:09 -0700, Jon Mason wrote:
+> On Sat, Jul 30, 2011 at 10:26 PM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> > Move the Myricom drivers into drivers/net/ethernet/myricom/ and make
+> > the necessary Kconfig and Makefile changes.
 >=20
-> You can add my:
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Acked-by: Jon Mason <mason@myri.com>
 >=20
-> > CC: Jamie Iles<jamie@jamieiles.com>
-> > Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>=20
+> > CC: Andrew Gallatin <gallatin@myri.com>
+> > CC: Brice Goglin <brice@myri.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>=20
 
-Nicolas/Jamie-
+Jon-
 
-I have a v3 series of patches coming out here imminently, and I have
-tweaked the Kconfig just a bit based on feedback from others.  Since the
-"tweak" made sense for all the Kconfig, I applied it across the board.
-Here is the new Kconfig:
+I made some minor changes to the Kconfig based on feedback from others
+on other Kconfig's which made sense to apply to the other driver
+Kconfig's.  Here is the Kconfig:
 
-+#
-+# Atmel device configuration
-+#
-+
-+config HAVE_NET_MACB
-+       bool
-+
-+config NET_ATMEL
-+       bool "Atmel devices"
-+       depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
++config NET_VENDOR_MYRI
++       bool "Myricom devices"
++       depends on PCI && INET
 +       ---help---
 +         If you have a network (Ethernet) card belonging to this class,
-say Y.
-+         Make sure you know the name of your card. Read the
-Ethernet-HOWTO,
-+         available from <http://www.tldp.org/docs.html#howto>.
-+
-+         If unsure, say Y.
+say
++         Y and read the Ethernet-HOWTO, available from
++         <http://www.tldp.org/docs.html#howto>.
 +
 +         Note that the answer to this question doesn't directly affect
 the
 +         kernel: saying N will just cause the configurator to skip all
-+         the remaining Atmel network card questions. If you say Y, you
-will be
-+         asked for your specific card in the following questions.
++         the questions about Myricom cards. If you say Y, you will be
+asked for
++         your specific card in the following questions.
 +
-+if NET_ATMEL
++if NET_VENDOR_MYRI
 +
-+config ARM_AT91_ETHER
-+       tristate "AT91RM9200 Ethernet support"
-+       depends on ARM && ARCH_AT91RM9200
-+       select MII
++config MYRI10GE
++       tristate "Myricom Myri-10G Ethernet support"
++       depends on PCI && INET
++       select FW_LOADER
++       select CRC32
++       select INET_LRO
 +       ---help---
-+         If you wish to compile a kernel for the AT91RM9200 and enable
-+         ethernet support, then you should always answer Y to this.
++         This driver supports Myricom Myri-10G Dual Protocol interface
+in
++         Ethernet mode. If the eeprom on your board is not recent
+enough,
++         you will need a newer firmware image.
++         You may get this image or more information, at:
 +
-+config MACB
-+       tristate "Atmel MACB support"
-+       depends on HAVE_NET_MACB
-+       select PHYLIB
++         <http://www.myri.com/scs/download-Myri10GE.html>
++
++         To compile this driver as a module, choose M here. The module
++         will be called myri10ge.
++
++config MYRI10GE_DCA
++       bool "Direct Cache Access (DCA) Support"
++       default y
++       depends on MYRI10GE && DCA && !(MYRI10GE=3Dy && DCA=3Dm)
 +       ---help---
-+         The Atmel MACB ethernet interface is found on many AT32 and
-AT91
-+         parts. Say Y to include support for the MACB chip.
++         Say Y here if you want to use Direct Cache Access (DCA) in the
++         driver.  DCA is a method for warming the CPU cache before data
++         is used, with the intent of lessening the impact of cache
+misses.
 +
-+         To compile this driver as a module, choose M here: the module
-+         will be called macb.
-+
-+endif # NET_ATMEL
++endif # NET_VENDOR_MYRI
 
-If these changes are fine, I can add your ACK's.
+Let me know if these changes are ok and I can add your ACK.
 
---=-HcBbnPvnCGyM6LziCzls
+--=-aJOb1WMzPMAPy+pMNs7s
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -109,14 +107,14 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJOOOPAAAoJECTsCADr/EWUBRYH/2KnqoxEalAFL3AmVTtaLFRu
-J7+D3YI807PvMaVMEK/PwouWNeqsXm7fuSeo854MyHDhWD1GpQCXrRUAIZJVVUna
-slL4I4G164cZcuEUgE1btFaJGui/9uPLTR2Ui1Ob+4GRCCuOVlyOhUgmzYcFIcIh
-L8zPTfO4bHu/7xlQsmJimAnNwn0aqRVwlE5/plXDWqAnrJF39LpWRO6FGOSCz1LM
-uqizZJOiDAbJ7by/yDnHATj0kcDmSfMm7Ohv9A9DdhOc4rnupO7Tgibj15Im8SoJ
-z8b9JahcXiQIJCyog10qzzzyfha6ruZxcb0FfkaWEeu7G/gDhr+m0pO4CykXvCk=
-=otYz
+iQEcBAABAgAGBQJOOOR/AAoJECTsCADr/EWUt40H/1fxAq7QveeiKDFT9jXGHs1j
+hLu4QwQ5nuyG286xFzBzrbtyDEHd5RqXMvIKdT/z01CXXNbaXC4XLoXWn3pr9yuA
+yE+GlB7tQ5r6ydKOMix2bzxTPjLhkZXSS1X+aBbYzzie6ZV3PKZQRV6If6MfTAT3
+r3Y+PIAZFnnR3jCawtbMjZYD4HHBLmVXKr2HqdM20V20jZNZLqg9ZlmNZZcj1tCQ
+fy0UXngRHD0xLCWhcyqoth2X1lc18I3la/wce+2ZOuSKOgRGNkXq+RpsqtovEk3d
+OCHi/x/xRTYk9lDfpsYpf6738mf3n4y8OpPJ2AmT8rsxIGWLw8nmnvqeZNHwJi0=
+=BQCi
 -----END PGP SIGNATURE-----
 
---=-HcBbnPvnCGyM6LziCzls--
+--=-aJOb1WMzPMAPy+pMNs7s--
 
