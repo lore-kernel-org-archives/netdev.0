@@ -1,122 +1,66 @@
-From: Matvejchikov Ilya <matvejchikov@gmail.com>
-Subject: Re: [PATCH] slip: cleanup statistics generation
-Date: Wed, 3 Aug 2011 15:02:18 +0400
-Message-ID: <CAKh5naZiFHjQ_q00iBk1kz5XCU9E4wC+7Pxd-8w=v96z-f0Vig@mail.gmail.com>
-References: <CAKh5naZEyehLdP=sHM8H3_+n7ieto0YC_6hn3x=A+y823Gqs-Q@mail.gmail.com>
- <20110803.032632.1644745928704394302.davem@redhat.com>
-Reply-To: matvejchikov@gmail.com
+From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Subject: RE: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
+Date: Wed, 3 Aug 2011 13:13:08 +0200
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153E3DEF6B0D@EXDCVYMBSTM006.EQ1STM.local>
+References: <1312302026-7077-1-git-send-email-alexey.orishko@stericsson.com>
+ <20110803.034253.417905916118311130.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:60653 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753107Ab1HCLCj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 07:02:39 -0400
-Received: by vws1 with SMTP id 1so205160vws.19
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 04:02:38 -0700 (PDT)
-In-Reply-To: <20110803.032632.1644745928704394302.davem@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org" <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"gregkh-l3A5Bk7waGM@public.gmane.org" <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	"alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110803.034253.417905916118311130.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2011/8/3 David Miller <davem@redhat.com>:
-> Test compile your changes much?
->
-> drivers/net/slip.c: In function 'sl_get_stats64':
-> drivers/net/slip.c:582:50: error: request for member =91stats=92 in s=
-omething not a structure or union
+> -----Original Message-----
+> From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
+> Sent: Wednesday, August 03, 2011 12:43 PM
+> To: alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> gregkh-l3A5Bk7waGM@public.gmane.org; Alexey ORISHKO
+> Subject: Re: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
+> 
+> From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue,  2 Aug 2011 18:20:26 +0200
+> 
+> > @@ -203,8 +203,8 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+> >  	req.bmRequestType = USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE;
+> >  	req.bNotificationType = USB_CDC_GET_NTB_PARAMETERS;
+> >  	req.wValue = 0;
+> > -	req.wIndex = cpu_to_le16(iface_no);
+> > -	req.wLength = cpu_to_le16(sizeof(ctx->ncm_parm));
+> > +	req.wIndex = iface_no;
+> > +	req.wLength = sizeof(ctx->ncm_parm);
+> >
+> >  	err = cdc_ncm_do_request(ctx, &req, &ctx->ncm_parm, 0, NULL, 1000);
+> >  	if (err) {
+> 
+> This can't be correct.
+> 
+> "iface_no" is a u8 we read out of desc->bInterfaceNumber
+> 
+> we still have to extend it to a u16 and convert it to a little endian
+> 16-bit value for the req.wIndex field.
+> 
+> If the types for the cdc notification struct are wrong, that's another
+> story entirely.  But currently they are marked as __le16 so you must
+> resolve this first.
 
-OMG, sorry for the typo. Here is the correct patch.
+Ok. I see where confusion started...
+cdc_ncm is incorrectly using struct usb_cdc_notification (__le16) as input
+to usb_control_msg() function, which is expecting u16 data type arguments.
 
-Subject: [PATCH] slip: cleanup statistics generation
+I will post an updated patch shortly.
 
-Remove unused tx_compressed, tx_compressed and tx_misses fields from
-the slip structure. Also, make some device stats generation cleanups.
-
-Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
----
- drivers/net/slip.c |   29 ++++++++++++++---------------
- drivers/net/slip.h |    9 ---------
- 2 files changed, 14 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/slip.c b/drivers/net/slip.c
-index f11b3f3..cbe8865 100644
---- a/drivers/net/slip.c
-+++ b/drivers/net/slip.c
-@@ -562,34 +562,33 @@ static struct rtnl_link_stats64 *
- sl_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats=
-)
- {
- 	struct net_device_stats *devstats =3D &dev->stats;
--	unsigned long c_rx_dropped =3D 0;
- #ifdef SL_INCLUDE_CSLIP
--	unsigned long c_rx_fifo_errors =3D 0;
--	unsigned long c_tx_fifo_errors =3D 0;
--	unsigned long c_collisions =3D 0;
- 	struct slip *sl =3D netdev_priv(dev);
- 	struct slcompress *comp =3D sl->slcomp;
--
--	if (comp) {
--		c_rx_fifo_errors =3D comp->sls_i_compressed;
--		c_rx_dropped     =3D comp->sls_i_tossed;
--		c_tx_fifo_errors =3D comp->sls_o_compressed;
--		c_collisions     =3D comp->sls_o_misses;
--	}
--	stats->rx_fifo_errors =3D sl->rx_compressed + c_rx_fifo_errors;
--	stats->tx_fifo_errors =3D sl->tx_compressed + c_tx_fifo_errors;
--	stats->collisions     =3D sl->tx_misses + c_collisions;
- #endif
- 	stats->rx_packets     =3D devstats->rx_packets;
- 	stats->tx_packets     =3D devstats->tx_packets;
- 	stats->rx_bytes       =3D devstats->rx_bytes;
- 	stats->tx_bytes       =3D devstats->tx_bytes;
--	stats->rx_dropped     =3D devstats->rx_dropped + c_rx_dropped;
-+	stats->rx_dropped     =3D devstats->rx_dropped;
- 	stats->tx_dropped     =3D devstats->tx_dropped;
- 	stats->tx_errors      =3D devstats->tx_errors;
- 	stats->rx_errors      =3D devstats->rx_errors;
- 	stats->rx_over_errors =3D devstats->rx_over_errors;
-
-+#ifdef SL_INCLUDE_CSLIP
-+	if (comp) {
-+		/* Generic compressed statistics */
-+		stats->rx_compressed   =3D comp->sls_i_compressed;
-+		stats->tx_compressed   =3D comp->sls_o_compressed;
-+
-+		/* Are we really still needs this? */
-+		stats->rx_fifo_errors +=3D comp->sls_i_compressed;
-+		stats->rx_dropped     +=3D comp->sls_i_tossed;
-+		stats->tx_fifo_errors +=3D comp->sls_o_compressed;
-+		stats->collisions     +=3D comp->sls_o_misses;
-+	}
-+#endif
- 	return stats;
- }
-
-diff --git a/drivers/net/slip.h b/drivers/net/slip.h
-index aa0764c..67673cf 100644
---- a/drivers/net/slip.h
-+++ b/drivers/net/slip.h
-@@ -65,15 +65,6 @@ struct slip {
-   unsigned char		*xbuff;		/* transmitter buffer		*/
-   unsigned char         *xhead;         /* pointer to next byte to XMI=
-T */
-   int                   xleft;          /* bytes left in XMIT queue   =
-  */
--
--  /* SLIP interface statistics. */
--#ifdef SL_INCLUDE_CSLIP
--  unsigned long		tx_compressed;
--  unsigned long		rx_compressed;
--  unsigned long		tx_misses;
--#endif
--  /* Detailed SLIP statistics. */
--
-   int			mtu;		/* Our mtu (to spot changes!)   */
-   int                   buffsize;       /* Max buffers sizes          =
-  */
-
---=20
-1.7.6
+alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
