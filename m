@@ -1,36 +1,32 @@
-From: David Miller <davem@davemloft.net>
+From: Anton Blanchard <anton@samba.org>
 Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Tue, 02 Aug 2011 20:38:36 -0700 (PDT)
-Message-ID: <20110802.203836.40056483416201909.davem@davemloft.net>
+Date: Wed, 3 Aug 2011 13:47:52 +1000
+Message-ID: <20110803134752.31347b64@kryten>
 References: <20110802.050115.1714327089688495866.davem@davemloft.net>
 	<201108022211.BJI69291.QLFFJMOOtOHVSF@I-love.SAKURA.ne.jp>
 	<201108030325.p733Pplb030986@www262.sakura.ne.jp>
+	<20110802.203836.40056483416201909.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, eparis@parisplace.org, casey@schaufler-ca.com,
-	mjt@tls.msk.ru, netdev@vger.kernel.org,
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, eparis@parisplace.org,
+	casey@schaufler-ca.com, mjt@tls.msk.ru, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org
-To: penguin-kernel@I-love.SAKURA.ne.jp
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201108030325.p733Pplb030986@www262.sakura.ne.jp>
+In-Reply-To: <20110802.203836.40056483416201909.davem@davemloft.net>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Wed, 03 Aug 2011 12:25:51 +0900
+Hi Dave,
 
-> Tetsuo Handa wrote:
->> I see. Here is an updated version.
-> Oops, seems whitespace damaged. Resending.
+> Anton, _PLEASE_ look into this and do some testing or at least give
+> some kind of feedback.
 > 
-> Also, attaching kmalloc()-free version. If performance loss by kmalloc()-free
-> version is small enough, can it be a candidate?
+> This regression came from your change so I really need you to be
+> active in the resolution of this regression.
 
-Anton, _PLEASE_ look into this and do some testing or at least give
-some kind of feedback.
+Sorry, was travelling but looking at it now.
 
-This regression came from your change so I really need you to be
-active in the resolution of this regression.
+Anton 
 
-Thanks.
