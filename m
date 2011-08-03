@@ -1,96 +1,82 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [net-next v2 70/71] tile: Move the Tilera driver
-Date: Wed, 3 Aug 2011 15:02:20 -0400
-Message-ID: <4E399B3C.4010902@tilera.com>
-References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>  <1312082850-24914-71-git-send-email-jeffrey.t.kirsher@intel.com>  <4E36E0B2.60900@tilera.com> <1312350454.2294.86.camel@jtkirshe-mobl>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: bonding and ifenslave version.
+Date: Wed, 3 Aug 2011 15:03:17 -0400
+Message-ID: <CAHashqCrRq3z_bwddy3Y3+t+hmA4oN3hndmsTKUDNc73U=c3Gg@mail.gmail.com>
+References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr>
+	<4E38EE23.8030703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([206.83.70.75]:11518 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872Ab1HCTCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 15:02:22 -0400
-In-Reply-To: <1312350454.2294.86.camel@jtkirshe-mobl>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:51538 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754584Ab1HCTDT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 15:03:19 -0400
+Received: by eyx24 with SMTP id 24so1130868eyx.19
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 12:03:17 -0700 (PDT)
+In-Reply-To: <4E38EE23.8030703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/3/2011 1:47 AM, Jeff Kirsher wrote:
-> On 7/30/2011 11:27 PM, Jeff Kirsher wrote:
->>> Move the Tilera driver into drivers/net/ethernet/tile and
->>> make the necessary Kconfig and Makefile changes.
->>>
->>> CC: Chris Metcalf <cmetcalf@tilera.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> [...]
->>> +++ b/drivers/net/ethernet/tile/Kconfig
->>> @@ -0,0 +1,28 @@
->>> +#
->>> +# Tilera network device configuration
->>> +#
->>> +
->>> +config NET_VENDOR_TILERA
->>> +	bool "Tilera devices"
->>> +	depends on TILE
->>> +	---help---
->>> +	  If you have a network (Ethernet) card belonging to this class, say Y
->>> +	  and read the Ethernet-HOWTO, available from
->>> +	  <http://www.tldp.org/docs.html#howto>.
->>> +
->>> +	  Note that the answer to this question doesn't directly affect the
->>> +	  kernel: saying N will just cause the configurator to skip all
->>> +	  the questions about Tilera cards. If you say Y, you will be asked for
->>> +	  your specific card in the following questions.
->>> +
->>> +config TILE_NET
->>> +	tristate "Tilera GBE/XGBE network driver support"
->>> +	depends on NET_VENDOR_TILERA && TILE
->>> +	default y
->>> +	select CRC32
->>> +	---help---
->>> +	  This is a standard Linux network device driver for the
->>> +	  on-chip Tilera Gigabit Ethernet and XAUI interfaces.
->>> +
->>> +	  To compile this driver as a module, choose M here: the module
->>> +	  will be called tile_net.
->>>
-> [...]
+On Wed, Aug 3, 2011 at 2:43 AM, Nicolas de Peslo=FCan
+<nicolas.2p.debian@gmail.com> wrote:
+> Le 02/08/2011 22:06, Nicolas de Peslo=FCan a =E9crit :
+>>
+>> Commit 655f8919d549ad1872e24d826b6ce42530516d2e
+>> =A0 =A0 bonding: add min links parameter to 802.3ad
+>>
+>> and commit ebd8e4977a87cb81d93c62a9bff0102a9713722f
+>> =A0 =A0 bonding: add all_slaves_active parameter
+>>
+>> introduced new options to bonding, but didn't provide the documentat=
+ion
+>> for those options.
+>>
+>> Signed-off-by: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
+>> ---
 >
-> This Kconfig would automatically default to y for TILE kernels and would
-> allow you to easily add additional future drivers for Tilera silicon,
-> and if you expand to other architectures/systems in the future it would
-> also allow for that as well.  Your thoughts?
+> Jay, Andy,
 >
-> Otherwise I can have it just as this:
-> +config TILE_NET
-> +       tristate "Tilera GBE/XGBE network driver support"
-> +       depends on TILE
-> +       default y
-> +       select CRC32
-> +       ---help---
-> +         This is a standard Linux network device driver for the
-> +         on-chip Tilera Gigabit Ethernet and XAUI interfaces.
-> +
-> +         To compile this driver as a module, choose M here: the module
-> +         will be called tile_net.
+> While working at this patch, I noticed that the bonding driver versio=
+n
+> wasn't bumped up at the time those options were introduced.
 >
-> Because you only have 1 driver, there is no large need to add the
-> NET_VENDOR_<blah> and it can always be added in the future if the need
-> arises.
+> I thought introducing a new option should cause the driver version to
+> change. Am I right?
 
-Honestly, I think I'd prefer the simple TILE_NET solution.  My sense is
-that even for the next generation of the chip, we're likely to keep using
-TILE_NET to enable it in the config.  Note that we have done this now for
-both tilepro and tilegx, though we haven't pushed the tilegx driver back to
-the community yet; look at the conditionals in drivers/net/tile/Makefile to
-see what I mean.  So let's stick with the simple thing for now.  Thanks!
+When a significant change happens, we try to change the version
+number.  The version number probably should have been changed when
+those were added.  Inspecting the module options or sysfs parameters
+indicate whether or not these patches were added, so it is less of a
+priority than when some internal infrastructure (like moving to use
+rx_handler) changes.
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+I consider it more critical to change the bonding module version when
+something changes that cannot be detected by inspecting the module or
+sysfs parameters.  This is more helpful to users reporting problems.
 
+> On a different but related topic, the version in
+> Documentation/networking/ifenslave.c (1.1.0) didn't change since the =
+git
+> origin and probably since 2003.
+>
+> Arguably, none of the commit regarding this file introduced a signifi=
+cant
+> change (with the possible exception of commit
+> e6d184e33109010412ad1d59719af74755a935f4, [NET]: Fix ifenslave to not=
+ fail
+> on lack of IP information). But if we never change a 3-level version =
+number,
+> whatever the level of change, this version number might be useless. A=
+ny
+> comment?
+>
+> =A0 =A0 =A0 =A0Nicolas.
+>
+
+Distributions benefit from version numbers on userspace utils.  It
+would probably be better to keep ifenslave's version number as it is
+to help those maintaining those distro packages.
