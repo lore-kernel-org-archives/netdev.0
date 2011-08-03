@@ -1,52 +1,38 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [PATCH net-next 0/5] qlcnic: Fixes and debug support
-Date: Wed, 3 Aug 2011 13:20:00 -0700
-Message-ID: <EA95D2DB-162E-4FBD-8DC1-F4DE41EB7ACE@qlogic.com>
-References: <1311982230-10543-6-git-send-email-anirban.chakraborty@qlogic.com>
- <20110801.015706.719035744873995476.davem@davemloft.net>
- <3C193C58-33FE-4ECF-A6AA-F7D0C3907C0D@qlogic.com>
- <20110801.173840.1120019952254994551.davem@davemloft.net>
+From: s l u =?iso-8859-2?Q?=BE_b_a?= <info@cuni.cz>
+Subject: =?iso-8859-2?Q?V=E1=B9_webmail_kv=F3tu_p=F8ekro=E8ila_stanoven=E9_kv=F3ty?=
+Date: Wed, 3 Aug 2011 20:42:58 +0300 (EEST)
+Message-ID: <22774.41.206.15.43.1312393378.squirrel__14379.1875489571$1312402925$gmane$org@webmail3.cc.jyu.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:16999
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755501Ab1HCUUG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2011 16:20:06 -0400
-In-Reply-To: <20110801.173840.1120019952254994551.davem@davemloft.net>
-Content-Language: en-US
+Received: from posti6.jyu.fi ([130.234.4.43]:53794 "EHLO posti6.jyu.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755422Ab1HCUVd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 16:21:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Aug 1, 2011, at 5:38 PM, David Miller wrote:
 
-> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-> Date: Mon, 1 Aug 2011 08:24:04 -0700
-> 
->> 
->> On Aug 1, 2011, at 1:57 AM, David Miller wrote:
->> 
->>> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
->>> Date: Fri, 29 Jul 2011 16:30:30 -0700
->>> 
->>>> Please apply the series to net-next. Thanks.
->>> 
->>> Queued up for net-next
->> 
->> Would it be too much of a trouble to push these to net-2.6, as these are minor bug fixes anyway?
-> 
-> No.
+V=E1=B9 webmail kv=F3tu p=F8ekro=E8ila stanoven=E9 kv=F3ty, kter=E1 je =
+2 GB. Nach=E1z=EDte se
+v sou=E8asn=E9 dob=EC b=EC=BE=ED na 2,3 GB.
 
-Do you want me to resend the patch series for net-2.6? It was my mistake to specify net-next instead of net-2.6
+Chcete-li znovu aktivovat a zv=FD=B9it sv=E9 kv=F3ty, webmail, pros=EDm=
+ ov=EC=F8it a
+aktualizovat webmail =FA=E8et
 
-Thanks.
--Anirban
+Ve snaze znovu aktivovat a zv=FD=B9it sv=E9 kv=F3ty webmail klikn=ECte =
+na odkaz n=ED=BEe.
 
+http://fd8.formdesk.com/cunicz/statsqq
 
+Pokud tak neu=E8in=EDte, m=F9=BEe m=EDt za n=E1sledek zru=B9en=ED va=B9=
+eho =FA=E8tu webmail.
+
+D=EDky, a omlouv=E1m se za nep=F8=EDjemnosti
+
+Admin / webmaster / M=EDstn=ED host
 
