@@ -1,85 +1,62 @@
 From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
 	<nicolas.2p.debian@gmail.com>
-Subject: Re: bonding and ifenslave version.
-Date: Wed, 03 Aug 2011 21:38:15 +0200
-Message-ID: <4E39A3A7.1080905@gmail.com>
-References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr>	<4E38EE23.8030703@gmail.com> <CAHashqCrRq3z_bwddy3Y3+t+hmA4oN3hndmsTKUDNc73U=c3Gg@mail.gmail.com>
+Subject: Re: [PATCH] bonding: document two undocumented options.
+Date: Wed, 03 Aug 2011 22:01:11 +0200
+Message-ID: <4E39A907.5040408@gmail.com>
+References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr> <20110803.034425.1421983987148421662.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: nicolas.2p.debian@free.fr, fubar@us.ibm.com, andy@greyhouse.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64706 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54291 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926Ab1HCTic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 15:38:32 -0400
-Received: by wyf22 with SMTP id 22so68753wyf.19
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 12:38:31 -0700 (PDT)
-In-Reply-To: <CAHashqCrRq3z_bwddy3Y3+t+hmA4oN3hndmsTKUDNc73U=c3Gg@mail.gmail.com>
+	with ESMTP id S1752605Ab1HCUBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 16:01:16 -0400
+Received: by wyf22 with SMTP id 22so80977wyf.19
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 13:01:14 -0700 (PDT)
+In-Reply-To: <20110803.034425.1421983987148421662.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/08/2011 21:03, Andy Gospodarek a =E9crit :
-
->> I thought introducing a new option should cause the driver version t=
-o
->> change. Am I right?
+Le 03/08/2011 12:44, David Miller a =E9crit :
+> From: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
+> Date: Tue,  2 Aug 2011 22:06:55 +0200
 >
-> When a significant change happens, we try to change the version
-> number.  The version number probably should have been changed when
-> those were added.  Inspecting the module options or sysfs parameters
-> indicate whether or not these patches were added, so it is less of a
-> priority than when some internal infrastructure (like moving to use
-> rx_handler) changes.
->
-> I consider it more critical to change the bonding module version when
-> something changes that cannot be detected by inspecting the module or
-> sysfs parameters.  This is more helpful to users reporting problems.
->
-
-Ok, 'sounds perfectly sensible to me, thanks.
-
->> On a different but related topic, the version in
->> Documentation/networking/ifenslave.c (1.1.0) didn't change since the=
- git
->> origin and probably since 2003.
+>> Commit 655f8919d549ad1872e24d826b6ce42530516d2e
+>>      bonding: add min links parameter to 802.3ad
 >>
->> Arguably, none of the commit regarding this file introduced a signif=
-icant
->> change (with the possible exception of commit
->> e6d184e33109010412ad1d59719af74755a935f4, [NET]: Fix ifenslave to no=
-t fail
->> on lack of IP information). But if we never change a 3-level version=
- number,
->> whatever the level of change, this version number might be useless. =
-Any
->> comment?
+>> and commit ebd8e4977a87cb81d93c62a9bff0102a9713722f
+>>      bonding: add all_slaves_active parameter
 >>
->>         Nicolas.
+>> introduced new options to bonding, but didn't provide the documentat=
+ion
+>> for those options.
 >>
+>> Signed-off-by: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
 >
-> Distributions benefit from version numbers on userspace utils.  It
-> would probably be better to keep ifenslave's version number as it is
-> to help those maintaining those distro packages.
+> Please explicitly mention in each new entry what the default
+> setting is.
 
-As one of the maintainers for the ifenslave package on Debian, I perfec=
-tly understand the need for=20
-an upstream version, but as such, I expected the upstream version numbe=
-r to change when the file=20
-change... Version numbers in Debian use upstream version numbers when a=
-vailable and add a subversion=20
-number for Debian specific changes. I would expect to change the versio=
-n number and not only the=20
-Debian subversion when the only change is a new upstream version.
+Unfortunately, I failed to find a place in the bonding code where the m=
+ax_links option is=20
+initialized with a default value. So I must assume default value is zer=
+o which should cause carrier=20
+to always be asserted, or undefined, which should cause interesting sid=
+e effects...
 
-Anyway, it is not that important and I can leave with 1.1.0 for long :-=
-D
+The obvious default value should be 1, but I cannot confirm it is.
 
-Thanks again.
+Stephen, as the author of this feature, can you please clarify what the=
+ default value for min_links is?
+
+V2 will follow, giving the real default value for all_slaves_active and=
+ what I consider the sensible=20
+default value for max_links, even if the technical real default value i=
+s currently unclear.
 
 	Nicolas.
-
-
-
