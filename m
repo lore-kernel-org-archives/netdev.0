@@ -1,17 +1,16 @@
 From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 Subject: [PATCH] mlx4: Fixing Ethernet unicast packet steering
-Date: Wed, 3 Aug 2011 17:21:00 +0300
-Message-ID: <4E39594C.4090808@mellanox.co.il>
+Date: Wed, 3 Aug 2011 17:24:24 +0300
+Message-ID: <4E395A18.8070600@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	<yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-To: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+To: <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
-
 
 For older FW versions, fixing the usage of per port Mac table.
 For each port we must define the base QP number, which is passed
@@ -51,9 +50,7 @@ index c94b342..f0ee35d 100644
  
  	sprintf(info->dev_name, "mlx4_port%d", port);
  	info->port_attr.attr.name = info->dev_name;
--- 
-1.6.0.2
-
+-- 1.6.0.2 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
