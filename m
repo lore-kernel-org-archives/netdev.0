@@ -1,29 +1,29 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] net: Fix security_socket_sendmsg() bypass problem.
-Date: Thu, 4 Aug 2011 06:50:27 +0900
-Message-ID: <201108040650.JIF90138.tFLHFJOSFOQMOV@I-love.SAKURA.ne.jp>
-References: <201108030325.p733Pplb030986@www262.sakura.ne.jp>
-	<20110802.203836.40056483416201909.davem@davemloft.net>
-	<20110803134752.31347b64@kryten>
-	<201108032120.CHC60420.OVOFQFHMJLSOtF@I-love.SAKURA.ne.jp>
-	<20110803232957.5e7a5d0a@kryten>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] qlcnic: Fixes and debug support
+Date: Wed, 03 Aug 2011 16:30:58 -0700 (PDT)
+Message-ID: <20110803.163058.1039782232013988525.davem@davemloft.net>
+References: <3C193C58-33FE-4ECF-A6AA-F7D0C3907C0D@qlogic.com>
+	<20110801.173840.1120019952254994551.davem@davemloft.net>
+	<EA95D2DB-162E-4FBD-8DC1-F4DE41EB7ACE@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eparis@parisplace.org, casey@schaufler-ca.com,
-	mjt@tls.msk.ru, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: anton@samba.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20110803232957.5e7a5d0a@kryten>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: anirban.chakraborty@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52454 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756324Ab1HCXbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 19:31:02 -0400
+In-Reply-To: <EA95D2DB-162E-4FBD-8DC1-F4DE41EB7ACE@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Anton Blanchard wrote:
-> [PATCH] net: Cap number of elements for recvmmsg and sendmmsg
-> 
-> To limit the amount of time we can spend in recvmmsg and sendmmsg,
-> cap the number of elements to UIO_MAXIOV (currently 1024).
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Date: Wed, 3 Aug 2011 13:20:00 -0700
 
-Looks reasonable value. But it will return less than requested without setting
-error code. Programmers would needlessly call getsockopt(SO_ERROR) and get 0.
-Maybe -EINVAL or something is better than returning less than requested?
+> Do you want me to resend the patch series for net-2.6? It was my
+> mistake to specify net-next instead of net-2.6
+
+The debug support patches are not appropriate for plain 'net',
+only the pure most critical bug fixes are.
