@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net 01/10] bnx2x: Fix missing pause on for 578xx
-Date: Wed, 3 Aug 2011 11:59:10 +0300
-Message-ID: <1312361950.21665.91.camel@lb-tlvb-dmitry.il.broadcom.com>
+Subject: [PATCH net 02/10] bnx2x: Fix chip hanging due to TX pipe stall.
+Date: Wed, 3 Aug 2011 11:59:18 +0300
+Message-ID: <1312361958.21665.92.camel@lb-tlvb-dmitry.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -9,57 +9,52 @@ Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2501 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1083 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752804Ab1HCI7V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2011 04:59:21 -0400
+	id S1752637Ab1HCI71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 04:59:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When link speed is 1G and below, pause weren't sent due to missing pause setting in the UMAC.
+Fix a problem in which the 578xx chip hangs after running traffic, and then pulling the network cable.
+This occurs since TX pipe is stalled due to missing XON indication towards the NIG.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_link.c |    6 ++++++
- drivers/net/bnx2x/bnx2x_reg.h  |    2 ++
- 2 files changed, 8 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index bcd8f00..aa9958e 100644
+index aa9958e..0a7091d 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -1546,6 +1546,12 @@ static void bnx2x_umac_enable(struct link_params *params,
- 			       vars->line_speed);
- 		break;
- 	}
-+	if (!(vars->flow_ctrl & BNX2X_FLOW_CTRL_TX))
-+		val |= UMAC_COMMAND_CONFIG_REG_IGNORE_TX_PAUSE;
-+
-+	if (!(vars->flow_ctrl & BNX2X_FLOW_CTRL_RX))
-+		val |= UMAC_COMMAND_CONFIG_REG_PAUSE_IGNORE;
-+
- 	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, val);
- 	udelay(50);
+@@ -1667,10 +1667,20 @@ static void bnx2x_xmac_disable(struct link_params *params)
+ {
+ 	u8 port = params->port;
+ 	struct bnx2x *bp = params->bp;
+-	u32 xmac_base = (port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
++	u32 pfc_ctrl, xmac_base = (port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
  
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 02461fe..d84642a 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -4771,9 +4771,11 @@
-    The fields are: [4:0] - tail pointer; 10:5] - Link List size; 15:11] -
-    header pointer. */
- #define UCM_REG_XX_TABLE					 0xe0300
-+#define UMAC_COMMAND_CONFIG_REG_IGNORE_TX_PAUSE			 (0x1<<28)
- #define UMAC_COMMAND_CONFIG_REG_LOOP_ENA			 (0x1<<15)
- #define UMAC_COMMAND_CONFIG_REG_NO_LGTH_CHECK			 (0x1<<24)
- #define UMAC_COMMAND_CONFIG_REG_PAD_EN				 (0x1<<5)
-+#define UMAC_COMMAND_CONFIG_REG_PAUSE_IGNORE			 (0x1<<8)
- #define UMAC_COMMAND_CONFIG_REG_PROMIS_EN			 (0x1<<4)
- #define UMAC_COMMAND_CONFIG_REG_RX_ENA				 (0x1<<1)
- #define UMAC_COMMAND_CONFIG_REG_SW_RESET			 (0x1<<13)
+ 	if (REG_RD(bp, MISC_REG_RESET_REG_2) &
+ 	    MISC_REGISTERS_RESET_REG_2_XMAC) {
++		/*
++		 * Send an indication to change the state in the NIG back to XON
++		 * Clearing this bit enables the next set of this bit to get
++		 * rising edge
++		 */
++		pfc_ctrl = REG_RD(bp, xmac_base + XMAC_REG_PFC_CTRL_HI);
++		REG_WR(bp, xmac_base + XMAC_REG_PFC_CTRL_HI,
++		       (pfc_ctrl & ~(1<<1)));
++		REG_WR(bp, xmac_base + XMAC_REG_PFC_CTRL_HI,
++		       (pfc_ctrl | (1<<1)));
+ 		DP(NETIF_MSG_LINK, "Disable XMAC on port %x\n", port);
+ 		REG_WR(bp, xmac_base + XMAC_REG_CTRL, 0);
+ 		usleep_range(1000, 1000);
 -- 
 1.7.1
+
+
 
 
 
