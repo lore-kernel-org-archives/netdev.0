@@ -1,33 +1,34 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next 0/6] be2net: fixes
-Date: Wed, 03 Aug 2011 03:27:24 -0700 (PDT)
-Message-ID: <20110803.032724.2002152463981614514.davem@redhat.com>
-References: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [PATCH 0/3] bna: Remove get_reg support and HW reg
+ consolidation
+Date: Wed, 03 Aug 2011 03:27:37 -0700 (PDT)
+Message-ID: <20110803.032737.1740279402865331589.davem@redhat.com>
+References: <1312324567-18487-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
+To: rmody@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2808 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56699 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753792Ab1HCK11 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2011 06:27:27 -0400
-In-Reply-To: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
+	id S1754012Ab1HCK1j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 06:27:39 -0400
+In-Reply-To: <1312324567-18487-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Wed, 3 Aug 2011 11:27:40 +0530
+From: Rasesh Mody <rmody@brocade.com>
+Date: Tue, 2 Aug 2011 15:36:04 -0700
 
-> Pls apply.
+>    This patch-set removes get_regs ethtool support and consists of HW reg
+>    consolidation to support various Brocade HW.
 > 
-> Sathya Perla (6):
->   be2net: remove wrong and unnecessary calls to netif_carrier_off()
->   be2net: no need to query link status
->   be2net: non-member vlan pkts not received in promiscous mode
->   be2net: use RX_FILTER cmd to program multicast addresses
->   be2net: add support for flashing Teranetics PHY firmware
->   be2net: drop pkts that do not belong to the port
+>    The driver has been compiled and tested against net-next-2.6(3.0.0-rc7)
+> 
+> Rasesh Mody (3):
+>   bna: Remove get_regs Ethtool Support
+>   bna: Consolidated HW Registers for Supported HWs
+>   bna: Remove Obsolete File bfi_ctreg.h
 
 Queued up for net-next, thanks.
