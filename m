@@ -1,52 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2011-08-02
-Date: Tue, 02 Aug 2011 17:06:37 -0700 (PDT)
-Message-ID: <20110802.170637.389945963010848876.davem@davemloft.net>
-References: <20110802181131.GH14167@tuxdriver.com>
-	<20110802.143955.1785360722763378138.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8169 : MAC address change fix for the 8168e-vl.
+Date: Tue, 02 Aug 2011 17:09:09 -0700 (PDT)
+Message-ID: <20110802.170909.805403275265071509.davem@davemloft.net>
+References: <20110802135343.GA13908@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110802.143955.1785360722763378138.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46497 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753067Ab1HCAJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2011 20:09:20 -0400
+In-Reply-To: <20110802135343.GA13908@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Tue, 02 Aug 2011 14:39:55 -0700 (PDT)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 2 Aug 2011 15:53:43 +0200
 
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Tue, 2 Aug 2011 14:11:31 -0400
+> Addresses https://bugzilla.kernel.org/show_bug.cgi?id=39252
 > 
->> Here are a few more fixes intended for 3.1.  Dan Carpenter gives us an
->> off-by-one fix in the scan trigger code for nl80211.  Felix gives us a
->> fix for tx power initialization for ath9k.  Larry fixes an oops on ARM
->> by rewriting some init code to avoid checking something that doesn't get
->> initialized on ARM.  This round's big hero is Stanislaw, who gives us a
->> brown paper bag fix for some skb handling in rt2x00, an ath9k fix to
->> avoid hangs on systems w/ ASPM disabled, and an iwlegacy fix to ensure
->> that tx power settings are applied properly.
->> 
->> Please let me know if there are problems!
+> Hayes suggested that the usual MAC{0, 4} register writes be completed
+> with writes to extended GigaMAC registers :
+> - 0xe0 .. 0xe5
+> - 0xf2 .. 0xf7
 > 
-> I'll pull this, but I think once you've sent me all of your features
-> for the merge window you should drop "-next" from the name of the
-> tree and/or branches you ask me to pull from.
+> Registers 0xf0 and 0xf1 should be set to 0.
 > 
-> This makes it entirely clear that you're sending me bug fixes and not
-> features and cleanups.
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Well, this thing is not based upon the plain net GIT tree, because
-when I pull it I get a bunch of things from Linus's tree which are
-not in the net tree yet.
-
-Please fix this up.
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
