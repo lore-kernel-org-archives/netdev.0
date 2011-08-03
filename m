@@ -1,240 +1,122 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 2/6] be2net: no need to query link status
-Date: Wed, 3 Aug 2011 11:27:42 +0530
-Message-ID: <1312351066-16745-3-git-send-email-sathya.perla@emulex.com>
-References: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 56/71] macb: Move the Atmel driver
+Date: Tue, 02 Aug 2011 22:59:28 -0700
+Message-ID: <1312351168.2294.92.camel@jtkirshe-mobl>
+References: <1312082850-24914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1312082850-24914-57-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <4E36BCEF.8080703@atmel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-HcBbnPvnCGyM6LziCzls"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jamie Iles <jamie@jamieiles.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:24506 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754492Ab1HCF4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 01:56:30 -0400
-In-Reply-To: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
+Received: from mga11.intel.com ([192.55.52.93]:64282 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754400Ab1HCF73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2011 01:59:29 -0400
+In-Reply-To: <4E36BCEF.8080703@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change in the link status generates an MCC event. This is processed and
-netif_carrier_on/off is called accordingly. Don't need to query/store the
-link_status state.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/benet/be.h         |    2 +-
- drivers/net/benet/be_cmds.c    |   10 +++-------
- drivers/net/benet/be_cmds.h    |    7 ++++---
- drivers/net/benet/be_ethtool.c |    9 +++------
- drivers/net/benet/be_main.c    |   37 +++++++++++--------------------------
- 5 files changed, 22 insertions(+), 43 deletions(-)
+--=-HcBbnPvnCGyM6LziCzls
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index af57b51..8d897d1 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -521,7 +521,7 @@ static inline bool be_multi_rxq(const struct be_adapter *adapter)
- 
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
--extern void be_link_status_update(struct be_adapter *adapter, bool link_up);
-+extern void be_link_status_update(struct be_adapter *adapter, u32 link_status);
- extern void be_parse_stats(struct be_adapter *adapter);
- extern int be_load_fw(struct be_adapter *adapter, u8 *func);
- #endif				/* BE_H */
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 7dc4741..1c25dbd 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -110,8 +110,7 @@ done:
- static void be_async_link_state_process(struct be_adapter *adapter,
- 		struct be_async_event_link_state *evt)
- {
--	be_link_status_update(adapter,
--		evt->port_link_status == ASYNC_EVENT_LINK_UP);
-+	be_link_status_update(adapter, evt->port_link_status);
- }
- 
- /* Grp5 CoS Priority evt */
-@@ -1261,8 +1260,8 @@ err:
- }
- 
- /* Uses synchronous mcc */
--int be_cmd_link_status_query(struct be_adapter *adapter,
--			bool *link_up, u8 *mac_speed, u16 *link_speed, u32 dom)
-+int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
-+			u16 *link_speed, u32 dom)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_link_status *req;
-@@ -1277,8 +1276,6 @@ int be_cmd_link_status_query(struct be_adapter *adapter,
- 	}
- 	req = embedded_payload(wrb);
- 
--	*link_up = false;
--
- 	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0,
- 			OPCODE_COMMON_NTWK_LINK_STATUS_QUERY);
- 
-@@ -1289,7 +1286,6 @@ int be_cmd_link_status_query(struct be_adapter *adapter,
- 	if (!status) {
- 		struct be_cmd_resp_link_status *resp = embedded_payload(wrb);
- 		if (resp->mac_speed != PHY_LINK_SPEED_ZERO) {
--			*link_up = true;
- 			*link_speed = le16_to_cpu(resp->link_speed);
- 			*mac_speed = resp->mac_speed;
- 		}
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index d3342c4..6db545f 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -89,9 +89,10 @@ struct be_async_event_trailer {
- };
- 
- enum {
--	ASYNC_EVENT_LINK_DOWN 	= 0x0,
--	ASYNC_EVENT_LINK_UP 	= 0x1
-+	LINK_DOWN	= 0x0,
-+	LINK_UP		= 0x1
- };
-+#define LINK_STATUS_MASK			0x1
- 
- /* When the event code of an async trailer is link-state, the mcc_compl
-  * must be interpreted as follows
-@@ -1442,7 +1443,7 @@ extern int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- extern int be_cmd_rxq_destroy(struct be_adapter *adapter,
- 			struct be_queue_info *q);
- extern int be_cmd_link_status_query(struct be_adapter *adapter,
--			bool *link_up, u8 *mac_speed, u16 *link_speed, u32 dom);
-+			u8 *mac_speed, u16 *link_speed, u32 dom);
- extern int be_cmd_reset(struct be_adapter *adapter);
- extern int be_cmd_get_stats(struct be_adapter *adapter,
- 			struct be_dma_mem *nonemb_cmd);
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index e92a8d8..60c85f6 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -353,15 +353,13 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	struct be_cmd_resp_get_phy_info *resp;
- 	u8 mac_speed = 0;
- 	u16 link_speed = 0;
--	bool link_up = false;
- 	int status;
- 	u16 intf_type;
- 
- 	if ((adapter->link_speed < 0) || (!(netdev->flags & IFF_UP))) {
--		status = be_cmd_link_status_query(adapter, &link_up,
--						&mac_speed, &link_speed, 0);
-+		status = be_cmd_link_status_query(adapter, &mac_speed,
-+						&link_speed, 0);
- 
--		be_link_status_update(adapter, link_up);
- 		/* link_speed is in units of 10 Mbps */
- 		if (link_speed) {
- 			ethtool_cmd_speed_set(ecmd, link_speed*10);
-@@ -617,7 +615,6 @@ static void
- be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	bool link_up;
- 	u8 mac_speed = 0;
- 	u16 qos_link_speed = 0;
- 
-@@ -643,7 +640,7 @@ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
- 		test->flags |= ETH_TEST_FL_FAILED;
- 	}
- 
--	if (be_cmd_link_status_query(adapter, &link_up, &mac_speed,
-+	if (be_cmd_link_status_query(adapter, &mac_speed,
- 				&qos_link_speed, 0) != 0) {
- 		test->flags |= ETH_TEST_FL_FAILED;
- 		data[4] = -1;
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 553cc0d..3b2c5e6 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -462,21 +462,18 @@ static struct rtnl_link_stats64 *be_get_stats64(struct net_device *netdev,
- 	return stats;
- }
- 
--void be_link_status_update(struct be_adapter *adapter, bool link_up)
-+void be_link_status_update(struct be_adapter *adapter, u32 link_status)
- {
- 	struct net_device *netdev = adapter->netdev;
- 
--	/* If link came up or went down */
--	if (adapter->link_up != link_up) {
--		adapter->link_speed = -1;
--		if (link_up) {
--			netif_carrier_on(netdev);
--			printk(KERN_INFO "%s: Link up\n", netdev->name);
--		} else {
--			netif_carrier_off(netdev);
--			printk(KERN_INFO "%s: Link down\n", netdev->name);
--		}
--		adapter->link_up = link_up;
-+	/* when link status changes, link speed must be re-queried from card */
-+	adapter->link_speed = -1;
-+	if ((link_status & LINK_STATUS_MASK) == LINK_UP) {
-+		netif_carrier_on(netdev);
-+		dev_info(&adapter->pdev->dev, "%s: Link up\n", netdev->name);
-+	} else {
-+		netif_carrier_off(netdev);
-+		dev_info(&adapter->pdev->dev, "%s: Link down\n", netdev->name);
- 	}
- }
- 
-@@ -2217,8 +2214,6 @@ static int be_close(struct net_device *netdev)
- 
- 	be_async_mcc_disable(adapter);
- 
--	adapter->link_up = false;
--
- 	if (!lancer_chip(adapter))
- 		be_intr_set(adapter, false);
- 
-@@ -2296,10 +2291,7 @@ static int be_open(struct net_device *netdev)
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
- 	struct be_rx_obj *rxo;
--	bool link_up;
- 	int status, i;
--	u8 mac_speed;
--	u16 link_speed;
- 
- 	status = be_rx_queues_setup(adapter);
- 	if (status)
-@@ -2322,12 +2314,6 @@ static int be_open(struct net_device *netdev)
- 	/* Now that interrupts are on we can process async mcc */
- 	be_async_mcc_enable(adapter);
- 
--	status = be_cmd_link_status_query(adapter, &link_up, &mac_speed,
--			&link_speed, 0);
--	if (status)
--		goto err;
--	be_link_status_update(adapter, link_up);
--
- 	if (be_physfn(adapter)) {
- 		status = be_vid_config(adapter, false, 0);
- 		if (status)
-@@ -3347,7 +3333,6 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 
- 	if (be_physfn(adapter) && adapter->sriov_enabled) {
- 		u8 mac_speed;
--		bool link_up;
- 		u16 vf, lnk_speed;
- 
- 		if (!lancer_chip(adapter)) {
-@@ -3357,8 +3342,8 @@ static int __devinit be_probe(struct pci_dev *pdev,
- 		}
- 
- 		for (vf = 0; vf < num_vfs; vf++) {
--			status = be_cmd_link_status_query(adapter, &link_up,
--					&mac_speed, &lnk_speed, vf + 1);
-+			status = be_cmd_link_status_query(adapter, &mac_speed,
-+						&lnk_speed, vf + 1);
- 			if (!status)
- 				adapter->vf_cfg[vf].vf_tx_rate = lnk_speed * 10;
- 			else
--- 
-1.7.4
+On Mon, 2011-08-01 at 07:49 -0700, Nicolas Ferre wrote:
+> On 07/31/2011 04:27 AM, Jeff Kirsher wrote:
+> > Move the Atmel driver into drivers/net/ethernet/cadence/ and
+> > make the necessary Kconfig and Makefile changes.
+> >
+> > CC: Nicolas Ferre<nicolas.ferre@atmel.com>
+>=20
+> You can add my:
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>=20
+> > CC: Jamie Iles<jamie@jamieiles.com>
+> > Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>=20
+
+Nicolas/Jamie-
+
+I have a v3 series of patches coming out here imminently, and I have
+tweaked the Kconfig just a bit based on feedback from others.  Since the
+"tweak" made sense for all the Kconfig, I applied it across the board.
+Here is the new Kconfig:
+
++#
++# Atmel device configuration
++#
++
++config HAVE_NET_MACB
++       bool
++
++config NET_ATMEL
++       bool "Atmel devices"
++       depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
++       ---help---
++         If you have a network (Ethernet) card belonging to this class,
+say Y.
++         Make sure you know the name of your card. Read the
+Ethernet-HOWTO,
++         available from <http://www.tldp.org/docs.html#howto>.
++
++         If unsure, say Y.
++
++         Note that the answer to this question doesn't directly affect
+the
++         kernel: saying N will just cause the configurator to skip all
++         the remaining Atmel network card questions. If you say Y, you
+will be
++         asked for your specific card in the following questions.
++
++if NET_ATMEL
++
++config ARM_AT91_ETHER
++       tristate "AT91RM9200 Ethernet support"
++       depends on ARM && ARCH_AT91RM9200
++       select MII
++       ---help---
++         If you wish to compile a kernel for the AT91RM9200 and enable
++         ethernet support, then you should always answer Y to this.
++
++config MACB
++       tristate "Atmel MACB support"
++       depends on HAVE_NET_MACB
++       select PHYLIB
++       ---help---
++         The Atmel MACB ethernet interface is found on many AT32 and
+AT91
++         parts. Say Y to include support for the MACB chip.
++
++         To compile this driver as a module, choose M here: the module
++         will be called macb.
++
++endif # NET_ATMEL
+
+If these changes are fine, I can add your ACK's.
+
+--=-HcBbnPvnCGyM6LziCzls
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJOOOPAAAoJECTsCADr/EWUBRYH/2KnqoxEalAFL3AmVTtaLFRu
+J7+D3YI807PvMaVMEK/PwouWNeqsXm7fuSeo854MyHDhWD1GpQCXrRUAIZJVVUna
+slL4I4G164cZcuEUgE1btFaJGui/9uPLTR2Ui1Ob+4GRCCuOVlyOhUgmzYcFIcIh
+L8zPTfO4bHu/7xlQsmJimAnNwn0aqRVwlE5/plXDWqAnrJF39LpWRO6FGOSCz1LM
+uqizZJOiDAbJ7by/yDnHATj0kcDmSfMm7Ohv9A9DdhOc4rnupO7Tgibj15Im8SoJ
+z8b9JahcXiQIJCyog10qzzzyfha6ruZxcb0FfkaWEeu7G/gDhr+m0pO4CykXvCk=
+=otYz
+-----END PGP SIGNATURE-----
+
+--=-HcBbnPvnCGyM6LziCzls--
 
