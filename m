@@ -1,333 +1,102 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 5/6] be2net: add support for flashing Teranetics PHY firmware
-Date: Wed, 3 Aug 2011 11:27:45 +0530
-Message-ID: <5c1e4c0c-f61f-4499-a585-9bad514df580@exht1.ad.emulex.com>
+Subject: [PATCH net-next 6/6] be2net: drop pkts that do not belong to the port
+Date: Wed, 3 Aug 2011 11:27:46 +0530
+Message-ID: <7da52ae4-5906-4360-9837-97354f0f58b7@exht1.ad.emulex.com>
 References: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Naresh G <bgottumukkala@emulex.com>
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:24506 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754550Ab1HCF4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 01:56:32 -0400
+	with ESMTP id S1754633Ab1HCF4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 01:56:34 -0400
 In-Reply-To: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support for flashing RJ45 PHY (from Teranetics) on a 10GBaseT BE3 card.
+On some BE skews, while in promiscuous mode, pkts that do not belong to a
+port can arrive on that port. Drop such pkts.
 
-Signed-off-by: Naresh G <bgottumukkala@emulex.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/benet/be_cmds.c    |   29 ++++++++++++++++++----
- drivers/net/benet/be_cmds.h    |   11 ++++++--
- drivers/net/benet/be_ethtool.c |   23 +++---------------
- drivers/net/benet/be_hw.h      |   21 +++++++++++-----
- drivers/net/benet/be_main.c    |   51 ++++++++++++++++++++++++++++++++--------
- 5 files changed, 91 insertions(+), 44 deletions(-)
+ drivers/net/benet/be.h      |    2 +-
+ drivers/net/benet/be_main.c |   30 +++++++++++++++++++++++-------
+ 2 files changed, 24 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index f138fbb..7292be6 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -2186,11 +2186,13 @@ err:
- 	return status;
- }
- 
--int be_cmd_get_phy_info(struct be_adapter *adapter, struct be_dma_mem *cmd)
-+int be_cmd_get_phy_info(struct be_adapter *adapter,
-+				struct be_phy_info *phy_info)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_get_phy_info *req;
- 	struct be_sge *sge;
-+	struct be_dma_mem cmd;
- 	int status;
- 
- 	spin_lock_bh(&adapter->mcc_lock);
-@@ -2200,8 +2202,16 @@ int be_cmd_get_phy_info(struct be_adapter *adapter, struct be_dma_mem *cmd)
- 		status = -EBUSY;
- 		goto err;
- 	}
-+	cmd.size = sizeof(struct be_cmd_req_get_phy_info);
-+	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size,
-+					&cmd.dma);
-+	if (!cmd.va) {
-+		dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
-+		status = -ENOMEM;
-+		goto err;
-+	}
- 
--	req = cmd->va;
-+	req = cmd.va;
- 	sge = nonembedded_sgl(wrb);
- 
- 	be_wrb_hdr_prepare(wrb, sizeof(*req), false, 1,
-@@ -2211,11 +2221,20 @@ int be_cmd_get_phy_info(struct be_adapter *adapter, struct be_dma_mem *cmd)
- 			OPCODE_COMMON_GET_PHY_DETAILS,
- 			sizeof(*req));
- 
--	sge->pa_hi = cpu_to_le32(upper_32_bits(cmd->dma));
--	sge->pa_lo = cpu_to_le32(cmd->dma & 0xFFFFFFFF);
--	sge->len = cpu_to_le32(cmd->size);
-+	sge->pa_hi = cpu_to_le32(upper_32_bits(cmd.dma));
-+	sge->pa_lo = cpu_to_le32(cmd.dma & 0xFFFFFFFF);
-+	sge->len = cpu_to_le32(cmd.size);
- 
- 	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		struct be_phy_info *resp_phy_info =
-+				cmd.va + sizeof(struct be_cmd_req_hdr);
-+		phy_info->phy_type = le16_to_cpu(resp_phy_info->phy_type);
-+		phy_info->interface_type =
-+			le16_to_cpu(resp_phy_info->interface_type);
-+	}
-+	pci_free_consistent(adapter->pdev, cmd.size,
-+				cmd.va, cmd.dma);
- err:
- 	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index 008bfae9..b61eac7 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -1244,14 +1244,19 @@ struct be_cmd_req_get_phy_info {
- 	struct be_cmd_req_hdr hdr;
- 	u8 rsvd0[24];
- };
--struct be_cmd_resp_get_phy_info {
--	struct be_cmd_req_hdr hdr;
-+
-+struct be_phy_info {
- 	u16 phy_type;
- 	u16 interface_type;
- 	u32 misc_params;
- 	u32 future_use[4];
- };
- 
-+struct be_cmd_resp_get_phy_info {
-+	struct be_cmd_req_hdr hdr;
-+	struct be_phy_info phy_info;
-+};
-+
- /*********************** Set QOS ***********************/
- 
- #define BE_QOS_BITS_NIC				1
-@@ -1486,7 +1491,7 @@ extern int be_cmd_get_seeprom_data(struct be_adapter *adapter,
- extern int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
- 				u8 loopback_type, u8 enable);
- extern int be_cmd_get_phy_info(struct be_adapter *adapter,
--		struct be_dma_mem *cmd);
-+				struct be_phy_info *phy_info);
- extern int be_cmd_set_qos(struct be_adapter *adapter, u32 bps, u32 domain);
- extern void be_detect_dump_ue(struct be_adapter *adapter);
- extern int be_cmd_get_die_temperature(struct be_adapter *adapter);
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 60c85f6..f144a6f 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -349,12 +349,10 @@ static int be_get_sset_count(struct net_device *netdev, int stringset)
- static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	struct be_dma_mem phy_cmd;
--	struct be_cmd_resp_get_phy_info *resp;
-+	struct be_phy_info phy_info;
- 	u8 mac_speed = 0;
- 	u16 link_speed = 0;
- 	int status;
--	u16 intf_type;
- 
- 	if ((adapter->link_speed < 0) || (!(netdev->flags & IFF_UP))) {
- 		status = be_cmd_link_status_query(adapter, &mac_speed,
-@@ -383,20 +381,9 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 			}
- 		}
- 
--		phy_cmd.size = sizeof(struct be_cmd_req_get_phy_info);
--		phy_cmd.va = dma_alloc_coherent(&adapter->pdev->dev,
--						phy_cmd.size, &phy_cmd.dma,
--						GFP_KERNEL);
--		if (!phy_cmd.va) {
--			dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
--			return -ENOMEM;
--		}
--		status = be_cmd_get_phy_info(adapter, &phy_cmd);
-+		status = be_cmd_get_phy_info(adapter, &phy_info);
- 		if (!status) {
--			resp = phy_cmd.va;
--			intf_type = le16_to_cpu(resp->interface_type);
--
--			switch (intf_type) {
-+			switch (phy_info.interface_type) {
- 			case PHY_TYPE_XFP_10GB:
- 			case PHY_TYPE_SFP_1GB:
- 			case PHY_TYPE_SFP_PLUS_10GB:
-@@ -407,7 +394,7 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 				break;
- 			}
- 
--			switch (intf_type) {
-+			switch (phy_info.interface_type) {
- 			case PHY_TYPE_KR_10GB:
- 			case PHY_TYPE_KX4_10GB:
- 				ecmd->autoneg = AUTONEG_ENABLE;
-@@ -425,8 +412,6 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		adapter->port_type = ecmd->port;
- 		adapter->transceiver = ecmd->transceiver;
- 		adapter->autoneg = ecmd->autoneg;
--		dma_free_coherent(&adapter->pdev->dev, phy_cmd.size, phy_cmd.va,
--				  phy_cmd.dma);
- 	} else {
- 		ethtool_cmd_speed_set(ecmd, adapter->link_speed);
- 		ecmd->port = adapter->port_type;
-diff --git a/drivers/net/benet/be_hw.h b/drivers/net/benet/be_hw.h
-index 53d658a..fbc8a91 100644
---- a/drivers/net/benet/be_hw.h
-+++ b/drivers/net/benet/be_hw.h
-@@ -175,18 +175,24 @@
- #define IMG_TYPE_FCOE_FW_ACTIVE		10
- #define IMG_TYPE_FCOE_FW_BACKUP 	11
- #define IMG_TYPE_NCSI_FW		13
-+#define IMG_TYPE_PHY_FW			99
-+#define TN_8022				13
- 
-+#define ILLEGAL_IOCTL_REQ		2
-+#define FLASHROM_OPER_PHY_FLASH		9
-+#define FLASHROM_OPER_PHY_SAVE		10
- #define FLASHROM_OPER_FLASH		1
- #define FLASHROM_OPER_SAVE		2
- #define FLASHROM_OPER_REPORT		4
- 
--#define FLASH_IMAGE_MAX_SIZE_g2            (1310720) /* Max firmware image sz */
--#define FLASH_BIOS_IMAGE_MAX_SIZE_g2       (262144)  /* Max OPTION ROM img sz */
--#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g2	  (262144)  /* Max Redboot image sz */
--#define FLASH_IMAGE_MAX_SIZE_g3            (2097152) /* Max fw image size */
--#define FLASH_BIOS_IMAGE_MAX_SIZE_g3       (524288)  /* Max OPTION ROM img sz */
--#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g3	  (1048576)  /* Max Redboot image sz */
--#define FLASH_NCSI_IMAGE_MAX_SIZE_g3       (262144)  /* Max NSCI image sz */
-+#define FLASH_IMAGE_MAX_SIZE_g2		(1310720) /* Max firmware image size */
-+#define FLASH_BIOS_IMAGE_MAX_SIZE_g2	(262144)  /* Max OPTION ROM image sz */
-+#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g2	(262144)  /* Max Redboot image sz    */
-+#define FLASH_IMAGE_MAX_SIZE_g3		(2097152) /* Max firmware image size */
-+#define FLASH_BIOS_IMAGE_MAX_SIZE_g3	(524288)  /* Max OPTION ROM image sz */
-+#define FLASH_REDBOOT_IMAGE_MAX_SIZE_g3	(1048576)  /* Max Redboot image sz    */
-+#define FLASH_NCSI_IMAGE_MAX_SIZE_g3	(262144)
-+#define FLASH_PHY_FW_IMAGE_MAX_SIZE_g3	262144
- 
- #define FLASH_NCSI_MAGIC		(0x16032009)
- #define FLASH_NCSI_DISABLED		(0)
-@@ -213,6 +219,7 @@
- #define FLASH_PXE_BIOS_START_g3            (13107200)
- #define FLASH_FCoE_BIOS_START_g3           (13631488)
- #define FLASH_REDBOOT_START_g3             (262144)
-+#define FLASH_PHY_FW_START_g3		   1310720
- 
- /************* Rx Packet Type Encoding **************/
- #define BE_UNICAST_PACKET		0
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 1e7f009..12b5b51 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -217,7 +217,7 @@ struct be_rx_compl_info {
+ 	u16 vlan_tag;
+ 	u16 pkt_size;
+ 	u16 rxq_idx;
+-	u16 mac_id;
++	u16 port;
+ 	u8 vlanf;
+ 	u8 num_rcvd;
+ 	u8 err;
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 5890bca..dba6941f 100644
+index dba6941f..1a3acca 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -2569,6 +2569,21 @@ static bool be_flash_redboot(struct be_adapter *adapter,
- 		return true;
+@@ -1213,6 +1213,7 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
+ 		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
+ 					       compl);
+ 	}
++	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, port, compl);
  }
  
-+static bool phy_flashing_required(struct be_adapter *adapter)
-+{
-+	int status = 0;
-+	struct be_phy_info phy_info;
-+
-+	status = be_cmd_get_phy_info(adapter, &phy_info);
-+	if (status)
-+		return false;
-+	if ((phy_info.phy_type == TN_8022) &&
-+		(phy_info.interface_type == PHY_TYPE_BASET_10GB)) {
-+		return true;
-+	}
-+	return false;
-+}
-+
- static int be_flash_data(struct be_adapter *adapter,
- 			const struct firmware *fw,
- 			struct be_dma_mem *flash_cmd, int num_of_images)
-@@ -2582,7 +2597,7 @@ static int be_flash_data(struct be_adapter *adapter,
- 	const struct flash_comp *pflashcomp;
- 	int num_comp;
+ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
+@@ -1245,6 +1246,7 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
+ 		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
+ 					       compl);
+ 	}
++	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, port, compl);
+ }
  
--	static const struct flash_comp gen3_flash_types[9] = {
-+	static const struct flash_comp gen3_flash_types[10] = {
- 		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, IMG_TYPE_ISCSI_ACTIVE,
- 			FLASH_IMAGE_MAX_SIZE_g3},
- 		{ FLASH_REDBOOT_START_g3, IMG_TYPE_REDBOOT,
-@@ -2600,7 +2615,9 @@ static int be_flash_data(struct be_adapter *adapter,
- 		{ FLASH_FCoE_BACKUP_IMAGE_START_g3, IMG_TYPE_FCOE_FW_BACKUP,
- 			FLASH_IMAGE_MAX_SIZE_g3},
- 		{ FLASH_NCSI_START_g3, IMG_TYPE_NCSI_FW,
--			FLASH_NCSI_IMAGE_MAX_SIZE_g3}
-+			FLASH_NCSI_IMAGE_MAX_SIZE_g3},
-+		{ FLASH_PHY_FW_START_g3, IMG_TYPE_PHY_FW,
-+			FLASH_PHY_FW_IMAGE_MAX_SIZE_g3}
- 	};
- 	static const struct flash_comp gen2_flash_types[8] = {
- 		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g2, IMG_TYPE_ISCSI_ACTIVE,
-@@ -2634,6 +2651,10 @@ static int be_flash_data(struct be_adapter *adapter,
- 		if ((pflashcomp[i].optype == IMG_TYPE_NCSI_FW) &&
- 				memcmp(adapter->fw_ver, "3.102.148.0", 11) < 0)
- 			continue;
-+		if (pflashcomp[i].optype == IMG_TYPE_PHY_FW) {
-+			if (!phy_flashing_required(adapter))
-+				continue;
-+		}
- 		if ((pflashcomp[i].optype == IMG_TYPE_REDBOOT) &&
- 			(!be_flash_redboot(adapter, fw->data,
- 			pflashcomp[i].offset, pflashcomp[i].size, filehdr_size +
-@@ -2642,25 +2663,35 @@ static int be_flash_data(struct be_adapter *adapter,
- 		p = fw->data;
- 		p += filehdr_size + pflashcomp[i].offset
- 			+ (num_of_images * sizeof(struct image_hdr));
--	if (p + pflashcomp[i].size > fw->data + fw->size)
--		return -1;
--	total_bytes = pflashcomp[i].size;
-+		if (p + pflashcomp[i].size > fw->data + fw->size)
-+			return -1;
-+		total_bytes = pflashcomp[i].size;
- 		while (total_bytes) {
- 			if (total_bytes > 32*1024)
- 				num_bytes = 32*1024;
- 			else
- 				num_bytes = total_bytes;
- 			total_bytes -= num_bytes;
--
--			if (!total_bytes)
--				flash_op = FLASHROM_OPER_FLASH;
+ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+@@ -1833,16 +1835,30 @@ static int be_poll_rx(struct napi_struct *napi, int budget)
+ 		if (!rxcp)
+ 			break;
+ 
+-		/* Ignore flush completions */
+-		if (rxcp->num_rcvd && rxcp->pkt_size) {
+-			if (do_gro(rxcp))
+-				be_rx_compl_process_gro(adapter, rxo, rxcp);
 -			else
--				flash_op = FLASHROM_OPER_SAVE;
-+			if (!total_bytes) {
-+				if (pflashcomp[i].optype == IMG_TYPE_PHY_FW)
-+					flash_op = FLASHROM_OPER_PHY_FLASH;
-+				else
-+					flash_op = FLASHROM_OPER_FLASH;
-+			} else {
-+				if (pflashcomp[i].optype == IMG_TYPE_PHY_FW)
-+					flash_op = FLASHROM_OPER_PHY_SAVE;
-+				else
-+					flash_op = FLASHROM_OPER_SAVE;
-+			}
- 			memcpy(req->params.data_buf, p, num_bytes);
- 			p += num_bytes;
- 			status = be_cmd_write_flashrom(adapter, flash_cmd,
- 				pflashcomp[i].optype, flash_op, num_bytes);
- 			if (status) {
-+				if ((status == ILLEGAL_IOCTL_REQ) &&
-+					(pflashcomp[i].optype ==
-+						IMG_TYPE_PHY_FW))
-+					break;
- 				dev_err(&adapter->pdev->dev,
- 					"cmd to write to flash rom failed.\n");
- 				return -1;
+-				be_rx_compl_process(adapter, rxo, rxcp);
+-		} else if (rxcp->pkt_size == 0) {
++		/* Is it a flush compl that has no data */
++		if (unlikely(rxcp->num_rcvd == 0))
++			goto loop_continue;
++
++		/* Discard compl with partial DMA Lancer B0 */
++		if (unlikely(!rxcp->pkt_size)) {
+ 			be_rx_compl_discard(adapter, rxo, rxcp);
++			goto loop_continue;
+ 		}
+ 
++		/* On BE drop pkts that arrive due to imperfect filtering in
++		 * promiscuous mode on some skews
++		 */
++		if (unlikely(rxcp->port != adapter->port_num &&
++				!lancer_chip(adapter))) {
++			be_rx_compl_discard(adapter, rxo, rxcp);
++			goto loop_continue;
++		}
++
++		if (do_gro(rxcp))
++			be_rx_compl_process_gro(adapter, rxo, rxcp);
++		else
++			be_rx_compl_process(adapter, rxo, rxcp);
++loop_continue:
+ 		be_rx_stats_update(rxo, rxcp);
+ 	}
+ 
 -- 
 1.7.4
 
