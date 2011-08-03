@@ -1,102 +1,240 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 6/6] be2net: drop pkts that do not belong to the port
-Date: Wed, 3 Aug 2011 11:27:46 +0530
-Message-ID: <7da52ae4-5906-4360-9837-97354f0f58b7@exht1.ad.emulex.com>
+Subject: [PATCH net-next 2/6] be2net: no need to query link status
+Date: Wed, 3 Aug 2011 11:27:42 +0530
+Message-ID: <1312351066-16745-3-git-send-email-sathya.perla@emulex.com>
 References: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:24506 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754633Ab1HCF4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 01:56:34 -0400
+	with ESMTP id S1754492Ab1HCF4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 01:56:30 -0400
 In-Reply-To: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some BE skews, while in promiscuous mode, pkts that do not belong to a
-port can arrive on that port. Drop such pkts.
+Change in the link status generates an MCC event. This is processed and
+netif_carrier_on/off is called accordingly. Don't need to query/store the
+link_status state.
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/benet/be.h      |    2 +-
- drivers/net/benet/be_main.c |   30 +++++++++++++++++++++++-------
- 2 files changed, 24 insertions(+), 8 deletions(-)
+ drivers/net/benet/be.h         |    2 +-
+ drivers/net/benet/be_cmds.c    |   10 +++-------
+ drivers/net/benet/be_cmds.h    |    7 ++++---
+ drivers/net/benet/be_ethtool.c |    9 +++------
+ drivers/net/benet/be_main.c    |   37 +++++++++++--------------------------
+ 5 files changed, 22 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 1e7f009..12b5b51 100644
+index af57b51..8d897d1 100644
 --- a/drivers/net/benet/be.h
 +++ b/drivers/net/benet/be.h
-@@ -217,7 +217,7 @@ struct be_rx_compl_info {
- 	u16 vlan_tag;
- 	u16 pkt_size;
- 	u16 rxq_idx;
--	u16 mac_id;
-+	u16 port;
- 	u8 vlanf;
- 	u8 num_rcvd;
- 	u8 err;
+@@ -521,7 +521,7 @@ static inline bool be_multi_rxq(const struct be_adapter *adapter)
+ 
+ extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
+ 		u16 num_popped);
+-extern void be_link_status_update(struct be_adapter *adapter, bool link_up);
++extern void be_link_status_update(struct be_adapter *adapter, u32 link_status);
+ extern void be_parse_stats(struct be_adapter *adapter);
+ extern int be_load_fw(struct be_adapter *adapter, u8 *func);
+ #endif				/* BE_H */
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 7dc4741..1c25dbd 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -110,8 +110,7 @@ done:
+ static void be_async_link_state_process(struct be_adapter *adapter,
+ 		struct be_async_event_link_state *evt)
+ {
+-	be_link_status_update(adapter,
+-		evt->port_link_status == ASYNC_EVENT_LINK_UP);
++	be_link_status_update(adapter, evt->port_link_status);
+ }
+ 
+ /* Grp5 CoS Priority evt */
+@@ -1261,8 +1260,8 @@ err:
+ }
+ 
+ /* Uses synchronous mcc */
+-int be_cmd_link_status_query(struct be_adapter *adapter,
+-			bool *link_up, u8 *mac_speed, u16 *link_speed, u32 dom)
++int be_cmd_link_status_query(struct be_adapter *adapter, u8 *mac_speed,
++			u16 *link_speed, u32 dom)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_link_status *req;
+@@ -1277,8 +1276,6 @@ int be_cmd_link_status_query(struct be_adapter *adapter,
+ 	}
+ 	req = embedded_payload(wrb);
+ 
+-	*link_up = false;
+-
+ 	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0,
+ 			OPCODE_COMMON_NTWK_LINK_STATUS_QUERY);
+ 
+@@ -1289,7 +1286,6 @@ int be_cmd_link_status_query(struct be_adapter *adapter,
+ 	if (!status) {
+ 		struct be_cmd_resp_link_status *resp = embedded_payload(wrb);
+ 		if (resp->mac_speed != PHY_LINK_SPEED_ZERO) {
+-			*link_up = true;
+ 			*link_speed = le16_to_cpu(resp->link_speed);
+ 			*mac_speed = resp->mac_speed;
+ 		}
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index d3342c4..6db545f 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -89,9 +89,10 @@ struct be_async_event_trailer {
+ };
+ 
+ enum {
+-	ASYNC_EVENT_LINK_DOWN 	= 0x0,
+-	ASYNC_EVENT_LINK_UP 	= 0x1
++	LINK_DOWN	= 0x0,
++	LINK_UP		= 0x1
+ };
++#define LINK_STATUS_MASK			0x1
+ 
+ /* When the event code of an async trailer is link-state, the mcc_compl
+  * must be interpreted as follows
+@@ -1442,7 +1443,7 @@ extern int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
+ extern int be_cmd_rxq_destroy(struct be_adapter *adapter,
+ 			struct be_queue_info *q);
+ extern int be_cmd_link_status_query(struct be_adapter *adapter,
+-			bool *link_up, u8 *mac_speed, u16 *link_speed, u32 dom);
++			u8 *mac_speed, u16 *link_speed, u32 dom);
+ extern int be_cmd_reset(struct be_adapter *adapter);
+ extern int be_cmd_get_stats(struct be_adapter *adapter,
+ 			struct be_dma_mem *nonemb_cmd);
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index e92a8d8..60c85f6 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -353,15 +353,13 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	struct be_cmd_resp_get_phy_info *resp;
+ 	u8 mac_speed = 0;
+ 	u16 link_speed = 0;
+-	bool link_up = false;
+ 	int status;
+ 	u16 intf_type;
+ 
+ 	if ((adapter->link_speed < 0) || (!(netdev->flags & IFF_UP))) {
+-		status = be_cmd_link_status_query(adapter, &link_up,
+-						&mac_speed, &link_speed, 0);
++		status = be_cmd_link_status_query(adapter, &mac_speed,
++						&link_speed, 0);
+ 
+-		be_link_status_update(adapter, link_up);
+ 		/* link_speed is in units of 10 Mbps */
+ 		if (link_speed) {
+ 			ethtool_cmd_speed_set(ecmd, link_speed*10);
+@@ -617,7 +615,6 @@ static void
+ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+-	bool link_up;
+ 	u8 mac_speed = 0;
+ 	u16 qos_link_speed = 0;
+ 
+@@ -643,7 +640,7 @@ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
+ 		test->flags |= ETH_TEST_FL_FAILED;
+ 	}
+ 
+-	if (be_cmd_link_status_query(adapter, &link_up, &mac_speed,
++	if (be_cmd_link_status_query(adapter, &mac_speed,
+ 				&qos_link_speed, 0) != 0) {
+ 		test->flags |= ETH_TEST_FL_FAILED;
+ 		data[4] = -1;
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index dba6941f..1a3acca 100644
+index 553cc0d..3b2c5e6 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -1213,6 +1213,7 @@ static void be_parse_rx_compl_v1(struct be_adapter *adapter,
- 		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, vlan_tag,
- 					       compl);
- 	}
-+	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, port, compl);
+@@ -462,21 +462,18 @@ static struct rtnl_link_stats64 *be_get_stats64(struct net_device *netdev,
+ 	return stats;
  }
  
- static void be_parse_rx_compl_v0(struct be_adapter *adapter,
-@@ -1245,6 +1246,7 @@ static void be_parse_rx_compl_v0(struct be_adapter *adapter,
- 		rxcp->vlan_tag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, vlan_tag,
- 					       compl);
+-void be_link_status_update(struct be_adapter *adapter, bool link_up)
++void be_link_status_update(struct be_adapter *adapter, u32 link_status)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 
+-	/* If link came up or went down */
+-	if (adapter->link_up != link_up) {
+-		adapter->link_speed = -1;
+-		if (link_up) {
+-			netif_carrier_on(netdev);
+-			printk(KERN_INFO "%s: Link up\n", netdev->name);
+-		} else {
+-			netif_carrier_off(netdev);
+-			printk(KERN_INFO "%s: Link down\n", netdev->name);
+-		}
+-		adapter->link_up = link_up;
++	/* when link status changes, link speed must be re-queried from card */
++	adapter->link_speed = -1;
++	if ((link_status & LINK_STATUS_MASK) == LINK_UP) {
++		netif_carrier_on(netdev);
++		dev_info(&adapter->pdev->dev, "%s: Link up\n", netdev->name);
++	} else {
++		netif_carrier_off(netdev);
++		dev_info(&adapter->pdev->dev, "%s: Link down\n", netdev->name);
  	}
-+	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, port, compl);
  }
  
- static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
-@@ -1833,16 +1835,30 @@ static int be_poll_rx(struct napi_struct *napi, int budget)
- 		if (!rxcp)
- 			break;
+@@ -2217,8 +2214,6 @@ static int be_close(struct net_device *netdev)
  
--		/* Ignore flush completions */
--		if (rxcp->num_rcvd && rxcp->pkt_size) {
--			if (do_gro(rxcp))
--				be_rx_compl_process_gro(adapter, rxo, rxcp);
--			else
--				be_rx_compl_process(adapter, rxo, rxcp);
--		} else if (rxcp->pkt_size == 0) {
-+		/* Is it a flush compl that has no data */
-+		if (unlikely(rxcp->num_rcvd == 0))
-+			goto loop_continue;
-+
-+		/* Discard compl with partial DMA Lancer B0 */
-+		if (unlikely(!rxcp->pkt_size)) {
- 			be_rx_compl_discard(adapter, rxo, rxcp);
-+			goto loop_continue;
+ 	be_async_mcc_disable(adapter);
+ 
+-	adapter->link_up = false;
+-
+ 	if (!lancer_chip(adapter))
+ 		be_intr_set(adapter, false);
+ 
+@@ -2296,10 +2291,7 @@ static int be_open(struct net_device *netdev)
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct be_eq_obj *tx_eq = &adapter->tx_eq;
+ 	struct be_rx_obj *rxo;
+-	bool link_up;
+ 	int status, i;
+-	u8 mac_speed;
+-	u16 link_speed;
+ 
+ 	status = be_rx_queues_setup(adapter);
+ 	if (status)
+@@ -2322,12 +2314,6 @@ static int be_open(struct net_device *netdev)
+ 	/* Now that interrupts are on we can process async mcc */
+ 	be_async_mcc_enable(adapter);
+ 
+-	status = be_cmd_link_status_query(adapter, &link_up, &mac_speed,
+-			&link_speed, 0);
+-	if (status)
+-		goto err;
+-	be_link_status_update(adapter, link_up);
+-
+ 	if (be_physfn(adapter)) {
+ 		status = be_vid_config(adapter, false, 0);
+ 		if (status)
+@@ -3347,7 +3333,6 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 
+ 	if (be_physfn(adapter) && adapter->sriov_enabled) {
+ 		u8 mac_speed;
+-		bool link_up;
+ 		u16 vf, lnk_speed;
+ 
+ 		if (!lancer_chip(adapter)) {
+@@ -3357,8 +3342,8 @@ static int __devinit be_probe(struct pci_dev *pdev,
  		}
  
-+		/* On BE drop pkts that arrive due to imperfect filtering in
-+		 * promiscuous mode on some skews
-+		 */
-+		if (unlikely(rxcp->port != adapter->port_num &&
-+				!lancer_chip(adapter))) {
-+			be_rx_compl_discard(adapter, rxo, rxcp);
-+			goto loop_continue;
-+		}
-+
-+		if (do_gro(rxcp))
-+			be_rx_compl_process_gro(adapter, rxo, rxcp);
-+		else
-+			be_rx_compl_process(adapter, rxo, rxcp);
-+loop_continue:
- 		be_rx_stats_update(rxo, rxcp);
- 	}
- 
+ 		for (vf = 0; vf < num_vfs; vf++) {
+-			status = be_cmd_link_status_query(adapter, &link_up,
+-					&mac_speed, &lnk_speed, vf + 1);
++			status = be_cmd_link_status_query(adapter, &mac_speed,
++						&lnk_speed, vf + 1);
+ 			if (!status)
+ 				adapter->vf_cfg[vf].vf_tx_rate = lnk_speed * 10;
+ 			else
 -- 
 1.7.4
 
