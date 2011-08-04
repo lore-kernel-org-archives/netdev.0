@@ -1,121 +1,304 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: WARNING: at drivers/net/e1000e/netdev.c:5221 __e1000_shutdown+0x43f/0x4c0
- [e1000e]()
-Date: Thu, 4 Aug 2011 10:24:42 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1108041013390.7617@swampdragon.chaosbits.net>
+From: Giuseppe Scrivano <giuseppe-A9uVI2HLR7kOP4wsBPIw7w@public.gmane.org>
+Subject: Re: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
+Date: Thu, 04 Aug 2011 10:10:29 +0200
+Message-ID: <87fwlhzjey.fsf@gnu.org>
+References: <87hb5yock6.fsf@gnu.org>
+	<2AC7D4AD8BA1C640B4C60C61C8E520153E3DEF6C26@EXDCVYMBSTM006.EQ1STM.local>
+	<87ipqeebvg.fsf@gnu.org>
+	<20110803.191141.888495095889424492.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110803.191141.888495095889424492.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+	Miller's message of "Wed, 03 Aug 2011 19:11:41 -0700 (PDT)")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+Hello David,
 
-I just woke my laptop from suspend and found this in dmesg :
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 
-...
-[46011.457402] e1000e: eth0 NIC Link is Up 100 Mbps Full Duplex, Flow Control: None
-[46011.457407] e1000e 0000:00:19.0: eth0: 10/100 speed: disabling TSO
-[46011.457808] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-[46011.465085] hub 1-1.2:1.0: USB hub found
-[46011.465482] hub 1-1.2:1.0: 4 ports detected
-[46011.731642] usb 1-1.2.3: new low speed USB device number 11 using ehci_hcd
-[46011.823432] input: USB Mouse as /devices/pci0000:00/0000:00:1a.0/usb1/1-1/1-1.2/1-1.2.3/1-1.2.3:1.0/input/input14
-[46011.823546] generic-usb 0003:0566:4006.0005: input,hidraw0: USB HID v1.11 Mouse [USB Mouse] on usb-0000:00:1a.0-1.2.3/input0
-[46011.901235] usb 1-1.2.4: new full speed USB device number 12 using ehci_hcd
-[46012.017545] input: Sun USB Keyboard as /devices/pci0000:00/0000:00:1a.0/usb1/1-1/1-1.2/1-1.2.4/1-1.2.4:1.0/input/input15
-[46012.017786] generic-usb 0003:0430:00A2.0006: input,hidraw1: USB HID v1.10 Keyboard [Sun USB Keyboard] on usb-0000:00:1a.0-1.2.4/input0
-[46013.437900] e1000e 0000:00:19.0: PME# enabled
-[46013.467170] e1000e 0000:00:19.0: BAR 0: set to [mem 0xf2600000-0xf261ffff] (PCI address [0xf2600000-0xf261ffff])
-[46013.467182] e1000e 0000:00:19.0: BAR 1: set to [mem 0xf2625000-0xf2625fff] (PCI address [0xf2625000-0xf2625fff])
-[46013.467191] e1000e 0000:00:19.0: BAR 2: set to [io  0x1820-0x183f] (PCI address [0x1820-0x183f])
-[46013.467214] e1000e 0000:00:19.0: restoring config space at offset 0xf (was 0x100, writing 0x10b)
-[46013.467241] e1000e 0000:00:19.0: restoring config space at offset 0x1 (was 0x100000, writing 0x100107)
-[46013.467305] e1000e 0000:00:19.0: PME# disabled
-[46013.560412] e1000e 0000:00:19.0: irq 41 for MSI/MSI-X
-[46013.613523] e1000e 0000:00:19.0: irq 41 for MSI/MSI-X
-[46013.614823] ADDRCONF(NETDEV_UP): eth0: link is not ready
-[46013.750226] e1000e 0000:00:19.0: PME# enabled
-[46013.786332] e1000e 0000:00:19.0: BAR 0: set to [mem 0xf2600000-0xf261ffff] (PCI address [0xf2600000-0xf261ffff])
-[46013.786344] e1000e 0000:00:19.0: BAR 1: set to [mem 0xf2625000-0xf2625fff] (PCI address [0xf2625000-0xf2625fff])
-[46013.786354] e1000e 0000:00:19.0: BAR 2: set to [io  0x1820-0x183f] (PCI address [0x1820-0x183f])
-[46013.786377] e1000e 0000:00:19.0: restoring config space at offset 0xf (was 0x100, writing 0x10b)
-[46013.786405] e1000e 0000:00:19.0: restoring config space at offset 0x1 (was 0x100000, writing 0x100507)
-[46013.786467] e1000e 0000:00:19.0: PME# disabled
-[46013.879654] e1000e 0000:00:19.0: irq 41 for MSI/MSI-X
-[46013.932698] e1000e 0000:00:19.0: irq 41 for MSI/MSI-X
-[46013.933919] ADDRCONF(NETDEV_UP): eth0: link is not ready
-[46014.933488] ------------[ cut here ]------------
-[46014.933522] WARNING: at drivers/net/e1000e/netdev.c:5221 __e1000_shutdown+0x43f/0x4c0 [e1000e]()
-[46014.933526] Hardware name: 4384GJG
-[46014.933529] Modules linked in: ipv6 usbhid hid uvcvideo videodev media v4l2_compat_ioctl32 snd_hda_codec_hdmi snd_hda_codec_conexant arc4 vboxnetadp vboxnetflt snd_hda_intel vboxdrv ecb i915 drm_kms_helper snd_hda_codec iwlagn snd_hwdep drm serio_raw sg sdhci_pci mac80211 firewire_ohci cfg80211 snd_pcm ehci_hcd tpm_tis usbcore sdhci cpufreq_ondemand firewire_core battery snd_timer mmc_core msr i2c_i801 tpm intel_agp pcspkr psmouse crc_itu_t acpi_cpufreq freq_table e1000e mperf intel_ips wmi i2c_algo_bit tpm_bios evdev intel_gtt i2c_core button thinkpad_acpi processor iTCO_wdt snd_page_alloc ac iTCO_vendor_support video thermal rfkill snd soundcore nvram ext4 mbcache jbd2 crc16 sr_mod cdrom sd_mod ahci libahci libata scsi_mod
-[46014.933612] Pid: 29819, comm: kworker/2:1 Not tainted 2.6.39-ARCH #1
-[46014.933616] Call Trace:
-[46014.933628]  [<ffffffff8105b90f>] warn_slowpath_common+0x7f/0xc0
-[46014.933634]  [<ffffffff8105b96a>] warn_slowpath_null+0x1a/0x20
-[46014.933643]  [<ffffffffa01c4f7f>] __e1000_shutdown+0x43f/0x4c0 [e1000e]
-[46014.933652]  [<ffffffff81012fc9>] ? sched_clock+0x9/0x10
-[46014.933656]  [<ffffffffa01c5039>] e1000_runtime_suspend+0x39/0x50 [e1000e]
-[46014.933660]  [<ffffffff8100a6cf>] ? __switch_to+0xbf/0x2f0
-[46014.933665]  [<ffffffff812392dd>] pci_pm_runtime_suspend+0x4d/0x100
-[46014.933667]  [<ffffffff81239290>] ? pci_legacy_suspend_late+0x100/0x100
-[46014.933671]  [<ffffffff812e7d52>] rpm_callback+0x42/0x80
-[46014.933674]  [<ffffffff813e4faf>] ? schedule+0x33f/0xad0
-[46014.933676]  [<ffffffff812e82fa>] rpm_suspend+0x1da/0x3f0
-[46014.933679]  [<ffffffff812e9380>] ? pm_schedule_suspend+0xe0/0xe0
-[46014.933681]  [<ffffffff812e941a>] pm_runtime_work+0x9a/0xc0
-[46014.933685]  [<ffffffff81077f6e>] process_one_work+0x11e/0x4c0
-[46014.933687]  [<ffffffff810788ff>] worker_thread+0x15f/0x350
-[46014.933689]  [<ffffffff810787a0>] ? manage_workers.isra.29+0x230/0x230
-[46014.933694]  [<ffffffff8107d6ec>] kthread+0x8c/0xa0
-[46014.933697]  [<ffffffff813e9fe4>] kernel_thread_helper+0x4/0x10
-[46014.933699]  [<ffffffff8107d660>] ? kthread_worker_fn+0x190/0x190
-[46014.933700]  [<ffffffff813e9fe0>] ? gs_change+0x13/0x13
-[46014.933702] ---[ end trace b2e5aa34f74b5252 ]---
-[46015.215367] e1000e 0000:00:19.0: PME# enabled
-...
+> The patch looks great, but please repost this fresh with a more
+> vebose commit log message explaining all the things we discussed
+> to get the change to it's current form.
 
-This is with a 2.6.39.3 kernel.
+thanks for your review!  I hope I was enough verbose this time :-)
 
-The laptop is a Lenovo Thinkpad T510 model 4384-GJG.
+Regards,
+Giuseppe
 
-lspci -vvx has this to say about the ethernet device:
 
-00:19.0 Ethernet controller: Intel Corporation 82577LM Gigabit Network Connection (rev 06)
-        Subsystem: Lenovo Device 2153
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B- DisINTx+
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 0
-        Interrupt: pin A routed to IRQ 41
-        Region 0: Memory at f2600000 (32-bit, non-prefetchable) [size=128K]
-        Region 1: Memory at f2625000 (32-bit, non-prefetchable) [size=4K]
-        Region 2: I/O ports at 1820 [size=32]
-        Capabilities: [c8] Power Management version 2
-                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME+
-        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-                Address: 00000000fee0f00c  Data: 415d
-        Capabilities: [e0] PCI Advanced Features
-                AFCap: TP+ FLR+
-                AFCtrl: FLR-
-                AFStatus: TP-
-        Kernel driver in use: e1000e
-        Kernel modules: e1000e
-00: 86 80 ea 10 07 05 10 00 06 00 00 02 00 00 00 00
-10: 00 00 60 f2 00 50 62 f2 21 18 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 00 00 00 00 aa 17 53 21
-30: 00 00 00 00 c8 00 00 00 00 00 00 00 0b 01 00 00
 
-The network seems to be working fine, so it's clearly not fatal.
-I regularly suspend/resume this laptop and I've never seen this before 
-with this or other kernels, so it's not really reproducible.
+>From 2ad27dac918eea4d39f3cc10796f4f08ead7210b Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <giuseppe-A9uVI2HLR7kOP4wsBPIw7w@public.gmane.org>
+Date: Fri, 15 Jul 2011 15:34:14 +0200
+Subject: [PATCH] cdc_ncm: fix endianness problem.
 
-Let me know if there is other information you'd like and I'll be happy to 
-provide it.
+Fix a misusage of the struct usb_cdc_notification to pass arguments to the
+usb_control_msg function.  The usb_control_msg function expects host endian
+arguments but usb_cdc_notification stores these values as little endian.
 
+Now usb_control_msg is directly invoked with host endian values.
+
+Signed-off-by: Giuseppe Scrivano <giuseppe-A9uVI2HLR7kOP4wsBPIw7w@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |  156 ++++++++++++++++-----------------------------
+ 1 files changed, 56 insertions(+), 100 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index f33ca6a..d3b9e95 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -54,7 +54,7 @@
+ #include <linux/usb/usbnet.h>
+ #include <linux/usb/cdc.h>
+ 
+-#define	DRIVER_VERSION				"01-June-2011"
++#define	DRIVER_VERSION				"04-Aug-2011"
+ 
+ /* CDC NCM subclass 3.2.1 */
+ #define USB_CDC_NCM_NDP16_LENGTH_MIN		0x10
+@@ -164,35 +164,8 @@ cdc_ncm_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
+ 	usb_make_path(dev->udev, info->bus_info, sizeof(info->bus_info));
+ }
+ 
+-static int
+-cdc_ncm_do_request(struct cdc_ncm_ctx *ctx, struct usb_cdc_notification *req,
+-		   void *data, u16 flags, u16 *actlen, u16 timeout)
+-{
+-	int err;
+-
+-	err = usb_control_msg(ctx->udev, (req->bmRequestType & USB_DIR_IN) ?
+-				usb_rcvctrlpipe(ctx->udev, 0) :
+-				usb_sndctrlpipe(ctx->udev, 0),
+-				req->bNotificationType, req->bmRequestType,
+-				req->wValue,
+-				req->wIndex, data,
+-				req->wLength, timeout);
+-
+-	if (err < 0) {
+-		if (actlen)
+-			*actlen = 0;
+-		return err;
+-	}
+-
+-	if (actlen)
+-		*actlen = err;
+-
+-	return 0;
+-}
+-
+ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ {
+-	struct usb_cdc_notification req;
+ 	u32 val;
+ 	u8 flags;
+ 	u8 iface_no;
+@@ -201,14 +174,14 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 
+ 	iface_no = ctx->control->cur_altsetting->desc.bInterfaceNumber;
+ 
+-	req.bmRequestType = USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE;
+-	req.bNotificationType = USB_CDC_GET_NTB_PARAMETERS;
+-	req.wValue = 0;
+-	req.wIndex = cpu_to_le16(iface_no);
+-	req.wLength = cpu_to_le16(sizeof(ctx->ncm_parm));
+-
+-	err = cdc_ncm_do_request(ctx, &req, &ctx->ncm_parm, 0, NULL, 1000);
+-	if (err) {
++	err = usb_control_msg(ctx->udev,
++				usb_rcvctrlpipe(ctx->udev, 0),
++				USB_CDC_GET_NTB_PARAMETERS,
++				USB_TYPE_CLASS | USB_DIR_IN
++				 | USB_RECIP_INTERFACE,
++				0, iface_no, &ctx->ncm_parm,
++				sizeof(ctx->ncm_parm), 10000);
++	if (err < 0) {
+ 		pr_debug("failed GET_NTB_PARAMETERS\n");
+ 		return 1;
+ 	}
+@@ -254,31 +227,26 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 
+ 	/* inform device about NTB input size changes */
+ 	if (ctx->rx_max != le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
+-		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
+-							USB_RECIP_INTERFACE;
+-		req.bNotificationType = USB_CDC_SET_NTB_INPUT_SIZE;
+-		req.wValue = 0;
+-		req.wIndex = cpu_to_le16(iface_no);
+ 
+ 		if (flags & USB_CDC_NCM_NCAP_NTB_INPUT_SIZE) {
+ 			struct usb_cdc_ncm_ndp_input_size ndp_in_sz;
+-
+-			req.wLength = 8;
+-			ndp_in_sz.dwNtbInMaxSize = cpu_to_le32(ctx->rx_max);
+-			ndp_in_sz.wNtbInMaxDatagrams =
+-					cpu_to_le16(CDC_NCM_DPT_DATAGRAMS_MAX);
+-			ndp_in_sz.wReserved = 0;
+-			err = cdc_ncm_do_request(ctx, &req, &ndp_in_sz, 0, NULL,
+-									1000);
++			err = usb_control_msg(ctx->udev,
++					usb_sndctrlpipe(ctx->udev, 0),
++					USB_CDC_SET_NTB_INPUT_SIZE,
++					USB_TYPE_CLASS | USB_DIR_OUT
++					 | USB_RECIP_INTERFACE,
++					0, iface_no, &ndp_in_sz, 8, 1000);
+ 		} else {
+ 			__le32 dwNtbInMaxSize = cpu_to_le32(ctx->rx_max);
+-
+-			req.wLength = 4;
+-			err = cdc_ncm_do_request(ctx, &req, &dwNtbInMaxSize, 0,
+-								NULL, 1000);
++			err = usb_control_msg(ctx->udev,
++					usb_sndctrlpipe(ctx->udev, 0),
++					USB_CDC_SET_NTB_INPUT_SIZE,
++					USB_TYPE_CLASS | USB_DIR_OUT
++					 | USB_RECIP_INTERFACE,
++					0, iface_no, &dwNtbInMaxSize, 4, 1000);
+ 		}
+ 
+-		if (err)
++		if (err < 0)
+ 			pr_debug("Setting NTB Input Size failed\n");
+ 	}
+ 
+@@ -333,29 +301,24 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 
+ 	/* set CRC Mode */
+ 	if (flags & USB_CDC_NCM_NCAP_CRC_MODE) {
+-		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
+-							USB_RECIP_INTERFACE;
+-		req.bNotificationType = USB_CDC_SET_CRC_MODE;
+-		req.wValue = cpu_to_le16(USB_CDC_NCM_CRC_NOT_APPENDED);
+-		req.wIndex = cpu_to_le16(iface_no);
+-		req.wLength = 0;
+-
+-		err = cdc_ncm_do_request(ctx, &req, NULL, 0, NULL, 1000);
+-		if (err)
++		err = usb_control_msg(ctx->udev, usb_sndctrlpipe(ctx->udev, 0),
++				USB_CDC_SET_CRC_MODE,
++				USB_TYPE_CLASS | USB_DIR_OUT
++				 | USB_RECIP_INTERFACE,
++				USB_CDC_NCM_CRC_NOT_APPENDED,
++				iface_no, NULL, 0, 1000);
++		if (err < 0)
+ 			pr_debug("Setting CRC mode off failed\n");
+ 	}
+ 
+ 	/* set NTB format, if both formats are supported */
+ 	if (ntb_fmt_supported & USB_CDC_NCM_NTH32_SIGN) {
+-		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
+-							USB_RECIP_INTERFACE;
+-		req.bNotificationType = USB_CDC_SET_NTB_FORMAT;
+-		req.wValue = cpu_to_le16(USB_CDC_NCM_NTB16_FORMAT);
+-		req.wIndex = cpu_to_le16(iface_no);
+-		req.wLength = 0;
+-
+-		err = cdc_ncm_do_request(ctx, &req, NULL, 0, NULL, 1000);
+-		if (err)
++		err = usb_control_msg(ctx->udev, usb_sndctrlpipe(ctx->udev, 0),
++				USB_CDC_SET_NTB_FORMAT, USB_TYPE_CLASS
++				 | USB_DIR_OUT | USB_RECIP_INTERFACE,
++				USB_CDC_NCM_NTB16_FORMAT,
++				iface_no, NULL, 0, 1000);
++		if (err < 0)
+ 			pr_debug("Setting NTB format to 16-bit failed\n");
+ 	}
+ 
+@@ -365,17 +328,13 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 	if (flags & USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE) {
+ 		__le16 max_datagram_size;
+ 		u16 eth_max_sz = le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
+-
+-		req.bmRequestType = USB_TYPE_CLASS | USB_DIR_IN |
+-							USB_RECIP_INTERFACE;
+-		req.bNotificationType = USB_CDC_GET_MAX_DATAGRAM_SIZE;
+-		req.wValue = 0;
+-		req.wIndex = cpu_to_le16(iface_no);
+-		req.wLength = cpu_to_le16(2);
+-
+-		err = cdc_ncm_do_request(ctx, &req, &max_datagram_size, 0, NULL,
+-									1000);
+-		if (err) {
++		err = usb_control_msg(ctx->udev, usb_rcvctrlpipe(ctx->udev, 0),
++				USB_CDC_GET_MAX_DATAGRAM_SIZE,
++				USB_TYPE_CLASS | USB_DIR_IN
++				 | USB_RECIP_INTERFACE,
++				0, iface_no, &max_datagram_size,
++				2, 1000);
++		if (err < 0) {
+ 			pr_debug("GET_MAX_DATAGRAM_SIZE failed, use size=%u\n",
+ 						CDC_NCM_MIN_DATAGRAM_SIZE);
+ 		} else {
+@@ -396,17 +355,15 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
+ 					CDC_NCM_MIN_DATAGRAM_SIZE;
+ 
+ 			/* if value changed, update device */
+-			req.bmRequestType = USB_TYPE_CLASS | USB_DIR_OUT |
+-							USB_RECIP_INTERFACE;
+-			req.bNotificationType = USB_CDC_SET_MAX_DATAGRAM_SIZE;
+-			req.wValue = 0;
+-			req.wIndex = cpu_to_le16(iface_no);
+-			req.wLength = 2;
+-			max_datagram_size = cpu_to_le16(ctx->max_datagram_size);
+-
+-			err = cdc_ncm_do_request(ctx, &req, &max_datagram_size,
+-								0, NULL, 1000);
+-			if (err)
++			err = usb_control_msg(ctx->udev,
++						usb_sndctrlpipe(ctx->udev, 0),
++						USB_CDC_SET_MAX_DATAGRAM_SIZE,
++						USB_TYPE_CLASS | USB_DIR_OUT
++						 | USB_RECIP_INTERFACE,
++						0,
++						iface_no, &max_datagram_size,
++						2, 1000);
++			if (err < 0)
+ 				pr_debug("SET_MAX_DATAGRAM_SIZE failed\n");
+ 		}
+ 
+@@ -672,7 +629,7 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
+ 	u32 rem;
+ 	u32 offset;
+ 	u32 last_offset;
+-	u16 n = 0;
++	u16 n = 0, index;
+ 	u8 ready2send = 0;
+ 
+ 	/* if there is a remaining skb, it gets priority */
+@@ -860,8 +817,8 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
+ 					cpu_to_le16(sizeof(ctx->tx_ncm.nth16));
+ 	ctx->tx_ncm.nth16.wSequence = cpu_to_le16(ctx->tx_seq);
+ 	ctx->tx_ncm.nth16.wBlockLength = cpu_to_le16(last_offset);
+-	ctx->tx_ncm.nth16.wNdpIndex = ALIGN(sizeof(struct usb_cdc_ncm_nth16),
+-							ctx->tx_ndp_modulus);
++	index = ALIGN(sizeof(struct usb_cdc_ncm_nth16), ctx->tx_ndp_modulus);
++	ctx->tx_ncm.nth16.wNdpIndex = cpu_to_le16(index);
+ 
+ 	memcpy(skb_out->data, &(ctx->tx_ncm.nth16), sizeof(ctx->tx_ncm.nth16));
+ 	ctx->tx_seq++;
+@@ -874,12 +831,11 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb)
+ 	ctx->tx_ncm.ndp16.wLength = cpu_to_le16(rem);
+ 	ctx->tx_ncm.ndp16.wNextNdpIndex = 0; /* reserved */
+ 
+-	memcpy(((u8 *)skb_out->data) + ctx->tx_ncm.nth16.wNdpIndex,
++	memcpy(((u8 *)skb_out->data) + index,
+ 						&(ctx->tx_ncm.ndp16),
+ 						sizeof(ctx->tx_ncm.ndp16));
+ 
+-	memcpy(((u8 *)skb_out->data) + ctx->tx_ncm.nth16.wNdpIndex +
+-					sizeof(ctx->tx_ncm.ndp16),
++	memcpy(((u8 *)skb_out->data) + index + sizeof(ctx->tx_ncm.ndp16),
+ 					&(ctx->tx_ncm.dpe16),
+ 					(ctx->tx_curr_frame_num + 1) *
+ 					sizeof(struct usb_cdc_ncm_dpe16));
 -- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+1.7.5.4
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
