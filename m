@@ -1,66 +1,81 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
 	<nicolas.2p.debian@gmail.com>
-Subject: Re: bonding and ifenslave version.
-Date: Thu, 04 Aug 2011 07:31:38 +0200
-Message-ID: <4E3A2EBA.4040003@gmail.com>
-References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr>	<4E38EE23.8030703@gmail.com>	<CAHashqCrRq3z_bwddy3Y3+t+hmA4oN3hndmsTKUDNc73U=c3Gg@mail.gmail.com>	<4E39A3A7.1080905@gmail.com>	<1718.1312402077@death>	<4E39B1AB.7050502@gmail.com> <20110803143338.03988aab@nehalam.ftrdhcpuser.net>
+Subject: Re: [PATCH] bonding: document two undocumented options.
+Date: Thu, 04 Aug 2011 07:41:53 +0200
+Message-ID: <4E3A3121.3030403@gmail.com>
+References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr> <20110803.034425.1421983987148421662.davem@davemloft.net> <4E39A907.5040408@gmail.com> <3571.1312405193@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
+Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>, andy@greyhouse.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41629 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:64300 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab1HDFbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 01:31:41 -0400
-Received: by wwe5 with SMTP id 5so1528471wwe.1
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 22:31:40 -0700 (PDT)
-In-Reply-To: <20110803143338.03988aab@nehalam.ftrdhcpuser.net>
+	with ESMTP id S1750773Ab1HDFl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 01:41:57 -0400
+Received: by wwe5 with SMTP id 5so1533709wwe.1
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 22:41:56 -0700 (PDT)
+In-Reply-To: <3571.1312405193@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/08/2011 23:33, Stephen Hemminger a =E9crit :
-> On Wed, 03 Aug 2011 22:38:03 +0200
-> Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
+Le 03/08/2011 22:59, Jay Vosburgh a =C3=A9crit :
+> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
+
 <snip>
->> At least, we can:
->> - update the bonding documentation to clarify that ifenslave is depr=
-ecated (and move most ifenslave
->> related stuffs at the end of the documentation);
->> - possibly issue a warning when the API is used, suggesting to use s=
-ysfs instead.
->>
->> I can take care of the documentation update if appropriate.
->>
->> 	Nicolas.
+
+>> The obvious default value should be 1, but I cannot confirm it is.
 >
-> Or I could just put a shell script that does the same thing in iprout=
-e.
+> 	Looking at it now, I see no initialization, and it's a static,
+> so I believe it will end up being zero.  From the code, zero seems li=
+ke
+> the proper default, since it will make this test never pass:
+>
+>                  /* are enough slaves available to consider link up? =
+*/
+>                  if (active->num_of_ports<  bond->params.min_links) {
+>                          if (netif_carrier_ok(bond->dev)) {
+>                                  netif_carrier_off(bond->dev);
+>                                  return 1;
+>                          }
+>
+> 	This will cause carrier to be asserted (for 802.3ad mode)
+> whenever there is an active aggregator, regardless of the number of
+> available links in that aggregator.
+>
+>> Stephen, as the author of this feature, can you please clarify what =
+the default value for min_links is?
+>>
+>> V2 will follow, giving the real default value for all_slaves_active =
+and
+>> what I consider the sensible default value for max_links, even if th=
+e
+>> technical real default value is currently unclear.
+>
+> 	I think the actual and sensible default are both zero, although
+> the documentation should probably mention that a value of zero is mag=
+ic
+> and won't ever set the bond down due to too few ports (links) active.
+>
+> 	Or, perhaps describe it how it actually works: if there are
+> fewer than "min_links" ports in the active aggregator, the bond is se=
+t
+> carrier down.  The default min_links value of zero means that the bon=
+d
+> will never be set down due to having too few ports active.
 
-You mean, to replace ifenslave (from ifenslave.c) by a shell script by =
-the same name that gives=20
-users the same command-line interface but use sysfs instead of the ioct=
-l API internally?
+Well, you are right, but for as far as I understand, using 1 as the def=
+ault value for min_links=20
+would cause the exact same behavior.
 
-I had this in mind two years ago, in a private conversation while chang=
-ing the ifenslave package on=20
-Debian.
-
-But chance exist that those who expect ifenslave to work would like to =
-disable sysfs support if not=20
-used. I assume that totally disabling sysfs at compile time would reduc=
-e the size of the kernel far=20
-more that disabling the ioctl API. So, for those doing embedded things,=
- this may makes sens to have=20
-an ifenslave version that doesn't rely on sysfs.
-
-Or do you mean, to replace ifenslave (.c) by a shell script that use ne=
-tlink internally? Are all the=20
-bonding options available through netlink? I remember many conversation=
- about using netlink for=20
-bonding setup, but don't remember seeing that in the actual code.
+And 1 would be less "magical" and as such, more understandable from a u=
+ser point of view. User might=20
+understand min_links=3D0 as "assert carrier on if at least 0 link have =
+carrier on", which might be=20
+understood as "always assert carrier on".
 
 	Nicolas.
