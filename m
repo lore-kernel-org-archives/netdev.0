@@ -1,50 +1,52 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] macb: restore wrap bit when performing underrun cleanup
-Date: Thu, 04 Aug 2011 09:58:45 +0100
-Message-ID: <4E3A5F45.9020609@atmel.com>
-References: <> <1312445507-31382-1-git-send-email-tord.andersson@endian.se>
+From: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Subject: [PATCH] mlx4: decreasing ref count when removing mac
+Date: Thu, 4 Aug 2011 14:05:12 +0300
+Message-ID: <4E3A7CE8.4080407@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Tord Andersson <tord.andersson@endian.se>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from newsmtp5.atmel.com ([204.2.163.5]:4570 "EHLO sjogate2.atmel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752116Ab1HDI7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2011 04:59:00 -0400
-In-Reply-To: <1312445507-31382-1-git-send-email-tord.andersson@endian.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 08/04/2011 09:11 AM, Tord Andersson wrote:
-> When TX underrun occurs, a cleanup is performed that marks all buffers as used. As a side effect it also clears the wrap bit in the last buffer. This patch will restore the wrap bit.
->
-> Signed-off-by: Tord Andersson<tord.andersson@endian.se>
-
-Thanks for fixing this.
-
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-> ---
->   drivers/net/macb.c |    3 +++
->   1 files changed, 3 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-> index 0fcdc25..dc4e305 100644
-> --- a/drivers/net/macb.c
-> +++ b/drivers/net/macb.c
-> @@ -322,6 +322,9 @@ static void macb_tx(struct macb *bp)
->   		for (i = 0; i<  TX_RING_SIZE; i++)
->   			bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
->
-> +		/* Add wrap bit */
-> +		bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
-> +
->   		/* free transmit buffer in upper layer*/
->   		for (tail = bp->tx_tail; tail != head; tail = NEXT_TX(tail)) {
->   			struct ring_info *rp =&bp->tx_skb[tail];
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+To: <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
+For older FW versions, when a Mac address removed from Mac table,
+we should set 0 for reference count for the corresponding Mac index.
+Fixes a bug where removing Mac from the table still left that entry as
+invalid.
+
+Signed-off-by: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+---
+ drivers/net/mlx4/port.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/mlx4/port.c b/drivers/net/mlx4/port.c
+index 1f95afd..609e0ec 100644
+--- a/drivers/net/mlx4/port.c
++++ b/drivers/net/mlx4/port.c
+@@ -258,9 +258,12 @@ void mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, int qpn)
+ 	if (validate_index(dev, table, index))
+ 		goto out;
+ 
+-	table->entries[index] = 0;
+-	mlx4_set_port_mac_table(dev, port, table->entries);
+-	--table->total;
++	/* Check whether this address has reference count */
++	if (!(--table->refs[index])) {
++		table->entries[index] = 0;
++		mlx4_set_port_mac_table(dev, port, table->entries);
++		--table->total;
++	}
+ out:
+ 	mutex_unlock(&table->mutex);
+ }
 -- 
-Nicolas Ferre
+1.6.0.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
