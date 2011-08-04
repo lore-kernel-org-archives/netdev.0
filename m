@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ] cdc_ncm: fixes for big-endian architecture / MIPS
-Date: Wed, 03 Aug 2011 19:11:41 -0700 (PDT)
-Message-ID: <20110803.191141.888495095889424492.davem@davemloft.net>
-References: <87hb5yock6.fsf@gnu.org>
-	<2AC7D4AD8BA1C640B4C60C61C8E520153E3DEF6C26@EXDCVYMBSTM006.EQ1STM.local>
-	<87ipqeebvg.fsf@gnu.org>
+Subject: Re: [PATCH] slip: cleanup statistics generation
+Date: Wed, 03 Aug 2011 19:12:45 -0700 (PDT)
+Message-ID: <20110803.191245.1720167342434348858.davem@davemloft.net>
+References: <CAKh5naZEyehLdP=sHM8H3_+n7ieto0YC_6hn3x=A+y823Gqs-Q@mail.gmail.com>
+	<20110803.032632.1644745928704394302.davem@redhat.com>
+	<CAKh5naZiFHjQ_q00iBk1kz5XCU9E4wC+7Pxd-8w=v96z-f0Vig@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexey.orishko@stericsson.com, netdev@vger.kernel.org,
-	oliver@neukum.org, linux-usb@vger.kernel.org, gregkh@suse.de,
-	alexey.orishko@gmail.com
-To: giuseppe@southpole.se
+Cc: netdev@vger.kernel.org
+To: matvejchikov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45053 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:45066 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755992Ab1HDCMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 22:12:00 -0400
-In-Reply-To: <87ipqeebvg.fsf@gnu.org>
+	with ESMTP id S1755992Ab1HDCMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2011 22:12:47 -0400
+In-Reply-To: <CAKh5naZiFHjQ_q00iBk1kz5XCU9E4wC+7Pxd-8w=v96z-f0Vig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe Scrivano <giuseppe@southpole.se>
-Date: Wed, 03 Aug 2011 17:46:43 +0200
+From: Matvejchikov Ilya <matvejchikov@gmail.com>
+Date: Wed, 3 Aug 2011 15:02:18 +0400
 
->>From 7ba49d858103acb2ce4043127e3512ea29dff307 Mon Sep 17 00:00:00 2001
-> From: Giuseppe Scrivano <giuseppe@southpole.se>
-> Date: Fri, 15 Jul 2011 15:34:14 +0200
-> Subject: [PATCH] cdc_ncm: fix endianess problem.
+> OMG, sorry for the typo. Here is the correct patch.
 > 
-> Signed-off-by: Giuseppe Scrivano <giuseppe@southpole.se>
+> Subject: [PATCH] slip: cleanup statistics generation
+> 
+> Remove unused tx_compressed, tx_compressed and tx_misses fields from
+> the slip structure. Also, make some device stats generation cleanups.
+> 
+> Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
 
-The patch looks great, but please repost this fresh with a more
-vebose commit log message explaining all the things we discussed
-to get the change to it's current form.
-
-Thanks!
+Looks better, applied, thanks.
