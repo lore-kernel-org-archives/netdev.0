@@ -1,81 +1,54 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] bonding: document two undocumented options.
-Date: Thu, 04 Aug 2011 07:41:53 +0200
-Message-ID: <4E3A3121.3030403@gmail.com>
-References: <1312315615-5739-1-git-send-email-nicolas.2p.debian@free.fr> <20110803.034425.1421983987148421662.davem@davemloft.net> <4E39A907.5040408@gmail.com> <3571.1312405193@death>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: data vs overhead bytes, netperf aggregate RR and retransmissions
+Date: Wed, 3 Aug 2011 23:37:32 -0700
+Message-ID: <CAEuXFEzemZxw5PVTzJeEZD=csyrB6uTWO6m-hZTdKqUvhBAhxQ@mail.gmail.com>
+References: <4E386E98.1090606@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>, andy@greyhouse.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64300 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773Ab1HDFl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 01:41:57 -0400
-Received: by wwe5 with SMTP id 5so1533709wwe.1
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 22:41:56 -0700 (PDT)
-In-Reply-To: <3571.1312405193@death>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:59086 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806Ab1HDGhd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 02:37:33 -0400
+Received: by fxh19 with SMTP id 19so1417075fxh.19
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2011 23:37:32 -0700 (PDT)
+In-Reply-To: <4E386E98.1090606@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/08/2011 22:59, Jay Vosburgh a =C3=A9crit :
-> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
+On Tue, Aug 2, 2011 at 2:39 PM, Rick Jones <rick.jones2@hp.com> wrote:
+> driver: igb
+> version: 2.1.0-k2
+> firmware-version: 1.8-2
+> bus-info: 0000:05:00.0
+>
+> One of the things fixed recently in netperf (top-of-trunk, beyond 2.5=
+=2E0) is
+> I actually have reporting of per-connection TCP retransmissions worki=
+ng. =A0I
+> was looking at that, and noticed a bunch of retransmissions at the 25=
+6 burst
+> level with 24 concurrent netperfs. =A0I figured it was simple overloa=
+d of say
+> the switch or the one port active on the SUT (I do have one system ta=
+lking
+> to two, so perhaps some incast). =A0Burst 64 had retrans as well. =A0=
+Burst 16
+> and below did not. =A0That pattern repeated at 12 concurrent netperfs=
+, and 8,
+> and 4 and 2 and even 1 - yes, a single netperf aggregate TCP_RR test =
+with a
+> burst of 64 was reporting TCP retransmissions. =A0No incasting issues=
+ there.
+> =A0The network was otherwise clean.
 
-<snip>
+Rick, can you reboot and try with idle=3Dpoll OR set ethtool -C ethX rx=
+-usecs 0
+both tests would be interesting, possibly relating your issue to cpu
+power management and/or interrupt throttling, or some combo of both.
 
->> The obvious default value should be 1, but I cannot confirm it is.
->
-> 	Looking at it now, I see no initialization, and it's a static,
-> so I believe it will end up being zero.  From the code, zero seems li=
-ke
-> the proper default, since it will make this test never pass:
->
->                  /* are enough slaves available to consider link up? =
-*/
->                  if (active->num_of_ports<  bond->params.min_links) {
->                          if (netif_carrier_ok(bond->dev)) {
->                                  netif_carrier_off(bond->dev);
->                                  return 1;
->                          }
->
-> 	This will cause carrier to be asserted (for 802.3ad mode)
-> whenever there is an active aggregator, regardless of the number of
-> available links in that aggregator.
->
->> Stephen, as the author of this feature, can you please clarify what =
-the default value for min_links is?
->>
->> V2 will follow, giving the real default value for all_slaves_active =
-and
->> what I consider the sensible default value for max_links, even if th=
-e
->> technical real default value is currently unclear.
->
-> 	I think the actual and sensible default are both zero, although
-> the documentation should probably mention that a value of zero is mag=
-ic
-> and won't ever set the bond down due to too few ports (links) active.
->
-> 	Or, perhaps describe it how it actually works: if there are
-> fewer than "min_links" ports in the active aggregator, the bond is se=
-t
-> carrier down.  The default min_links value of zero means that the bon=
-d
-> will never be set down due to having too few ports active.
-
-Well, you are right, but for as far as I understand, using 1 as the def=
-ault value for min_links=20
-would cause the exact same behavior.
-
-And 1 would be less "magical" and as such, more understandable from a u=
-ser point of view. User might=20
-understand min_links=3D0 as "assert carrier on if at least 0 link have =
-carrier on", which might be=20
-understood as "always assert carrier on".
-
-	Nicolas.
+Also please check the ethtool -S ethX stats from the hardware, and
+include them in your reply.
