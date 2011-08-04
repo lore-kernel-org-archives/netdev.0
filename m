@@ -1,64 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/6][pull request] Intel Wired LAN Driver Update
-Date: Thu,  4 Aug 2011 05:18:12 -0700
-Message-ID: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net 6/6] ixgbe: fix PHY link setup for 82599
+Date: Thu,  4 Aug 2011 05:18:18 -0700
+Message-ID: <1312460298-20405-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:1910 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752764Ab1HDMSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2011 08:18:38 -0400
+	id S1753544Ab1HDMSl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2011 08:18:41 -0400
+In-Reply-To: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to e1000, e1000e, igb, igbvf,
-ixgb and ixgbe.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The following are changes since commit d3e614577198757d5854caa912e88f2d4296479b:
-  macb: restore wrap bit when performing underrun cleanup
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net master
+Fix pointer to setup_link for 82599.
 
-Bruce Allan (2):
-  e1000e: remove unnecessary check for NULL pointer
-  e1000e: minor re-order of #include files
+This resolves some link issues when advertising modes unsupported
+by the link partner.
 
-Carolyn Wyborny (1):
-  igb: fix WOL on second port of i350 device
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_82599.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Don Skidmore (1):
-  ixgbe: fix __ixgbe_notify_dca() bail out code
-
-Emil Tantilov (1):
-  ixgbe: fix PHY link setup for 82599
-
-Jesse Brandeburg (1):
-  intel drivers: repair missing flush operations
-
- drivers/net/e1000/e1000_ethtool.c |    6 ++++++
- drivers/net/e1000/e1000_hw.c      |    3 +++
- drivers/net/e1000e/es2lan.c       |    2 ++
- drivers/net/e1000e/ethtool.c      |   11 ++++++++++-
- drivers/net/e1000e/ich8lan.c      |    7 +++++--
- drivers/net/e1000e/lib.c          |    1 +
- drivers/net/e1000e/netdev.c       |    2 +-
- drivers/net/e1000e/phy.c          |    2 ++
- drivers/net/igb/e1000_nvm.c       |    1 +
- drivers/net/igb/igb_ethtool.c     |    5 +++++
- drivers/net/igb/igb_main.c        |    4 +++-
- drivers/net/igbvf/netdev.c        |    2 ++
- drivers/net/ixgb/ixgb_ee.c        |    9 +++++++++
- drivers/net/ixgb/ixgb_hw.c        |    2 ++
- drivers/net/ixgbe/ixgbe_82599.c   |    1 +
- drivers/net/ixgbe/ixgbe_common.c  |    1 +
- drivers/net/ixgbe/ixgbe_ethtool.c |    5 +++++
- drivers/net/ixgbe/ixgbe_main.c    |    3 ++-
- drivers/net/ixgbe/ixgbe_phy.c     |    3 +++
- drivers/net/ixgbe/ixgbe_x540.c    |    1 +
- 20 files changed, 65 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
+index 3b3dd4d..34f30ec 100644
+--- a/drivers/net/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ixgbe/ixgbe_82599.c
+@@ -213,6 +213,7 @@ static s32 ixgbe_init_phy_ops_82599(struct ixgbe_hw *hw)
+ 	switch (hw->phy.type) {
+ 	case ixgbe_phy_tn:
+ 		phy->ops.check_link = &ixgbe_check_phy_link_tnx;
++		phy->ops.setup_link = &ixgbe_setup_phy_link_tnx;
+ 		phy->ops.get_firmware_version =
+ 		             &ixgbe_get_phy_firmware_version_tnx;
+ 		break;
 -- 
 1.7.6
 
