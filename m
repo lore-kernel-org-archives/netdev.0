@@ -1,41 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/3] via-velocity : update receive packets statistics.
-Date: Thu, 4 Aug 2011 14:37:55 +0200
-Message-ID: <20110804123755.GA14858@electric-eye.fr.zoreil.com>
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] mlx4: decreasing ref count when removing mac
+Date: Thu, 4 Aug 2011 05:55:39 -0700
+Message-ID: <CAL1RGDWVBWvc_p_XM2BQ-jV8DG19ZcbCcpntMJifED2frR+jcQ@mail.gmail.com>
+References: <4E3A7CE8.4080407@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jon Nelson <jnelson@jamponi.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:45259 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754287Ab1HDMyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 08:54:22 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4E3A7CE8.4080407-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Addresses https://bugzilla.kernel.org/show_bug.cgi?id=14076.
+> For older FW versions, when a Mac address removed from Mac table,
+> we should set 0 for reference count for the corresponding Mac index.
+> Fixes a bug where removing Mac from the table still left that entry as
+> invalid.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Tested-by: Jon Nelson <jnelson@jamponi.net>
----
+This fixes my problems with MTU settings with old FW.
 
- drivers/net/via-velocity.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index deb1eca..ae66696 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -2092,6 +2092,7 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
- 	netif_rx(skb);
- 
- 	stats->rx_bytes += pkt_len;
-+	stats->rx_packets++;
- 
- 	return 0;
- }
--- 
-1.7.4.4
-
+Tested-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
