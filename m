@@ -1,73 +1,52 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] ipv6: check for IPv4 mapped addresses when connecting
- IPv6 sockets
-Date: Thu, 04 Aug 2011 10:14:53 -0400
-Message-ID: <4E3AA95D.2000407@hp.com>
-References: <20110804075506.62225813270B@regina.usersys.redhat.com>
+From: Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
+Subject: Re: strange behaviour of MC7700 with sierra_net
+Date: Thu, 4 Aug 2011 18:38:33 +0200
+Message-ID: <20110804163833.GC15300@orbit.nwl.cc>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+ <8F90F944E50427428C60E12A34A309D23424BB0F25@carmd-exchmb01.sierrawireless.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Max Matveev <makc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:16385 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850Ab1HDOO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 10:14:59 -0400
-In-Reply-To: <20110804075506.62225813270B@regina.usersys.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rory Filer <rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <8F90F944E50427428C60E12A34A309D23424BB0F25-3qf8vkpM5jTbmvMHnzRVpW3Pdy6AhKVLXbPIYa3/oNjDOqzlkpFKJg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/04/2011 03:42 AM, Max Matveev wrote:
-> When support for binding to 'mapped INADDR_ANY (::ffff.0.0.0.0)' was added
-> in 0f8d3c7ac3693d7b6c731bf2159273a59bf70e12 the rest of the code
-> wasn't told so now it's possible to bind IPv6 datagram socket to
-> ::ffff.0.0.0.0, connect it to another IPv4 address and it will all
-> work except for getsockhame() which does not return the local address
-> as expected.
+Hello Elina,
+
+(Added the lists to CC again since others might benefit from the
+provided information.)
+
+On Tue, Aug 02, 2011 at 03:48:42PM -0700, Elina Pasheva wrote:
+> Please note that we publish updates to sierra and sierra_net Linux drivers on Sierra Wireless Knowledge Base.
+> http://www.sierrawireless.com/Support/knowledgebase.aspx
 > 
-> To give getsockname() something to work with check for 'mapped INADDR_ANY'
-> when connecting and update the in-core source addresses appropriately.
 > 
-> Signed-off-by: Max Matveev <makc@redhat.com>
-
-Yes.  Good catch.
-
--vlad
-
-> ---
->  net/ipv6/datagram.c |   11 +++++++++--
->  1 files changed, 9 insertions(+), 2 deletions(-)
+> Please find attached the latest published drivers (for kernel-2.6.38, but sierra_net may be ported to kernel-2.6.39 with almost no changes).
 > 
-> diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-> index 1656033..d3a65a18 100644
-> --- a/net/ipv6/datagram.c
-> +++ b/net/ipv6/datagram.c
-> @@ -33,6 +33,11 @@
->  #include <linux/errqueue.h>
->  #include <asm/uaccess.h>
->  
-> +static inline int ipv6_mapped_addr_any(const struct in6_addr *a)
-> +{
-> +	return (ipv6_addr_v4mapped(a) && (a->s6_addr32[3] == 0));
-> +}
-> +
->  int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
->  {
->  	struct sockaddr_in6	*usin = (struct sockaddr_in6 *) uaddr;
-> @@ -102,10 +107,12 @@ ipv4_connected:
->  
->  		ipv6_addr_set_v4mapped(inet->inet_daddr, &np->daddr);
->  
-> -		if (ipv6_addr_any(&np->saddr))
-> +		if (ipv6_addr_any(&np->saddr) ||
-> +		    ipv6_mapped_addr_any(&np->saddr))
->  			ipv6_addr_set_v4mapped(inet->inet_saddr, &np->saddr);
->  
-> -		if (ipv6_addr_any(&np->rcv_saddr)) {
-> +		if (ipv6_addr_any(&np->rcv_saddr) || 
-> +		    ipv6_mapped_addr_any(&np->rcv_saddr)) {
->  			ipv6_addr_set_v4mapped(inet->inet_rcv_saddr,
->  					       &np->rcv_saddr);
->  			if (sk->sk_prot->rehash)
+> Would you please let me know if these work for you?
+> 
+> I have tried MC7700 device on kernel-2.6.38 with sierra v.1.7.40 and sierra_net v.3.0 Linux drivers.
+> 
+> Using a commercial sim card I do not see problems with sync as you described it.
+> 
+> Please let me know if it works better for you.
 
+Thanks for the pointer! I've downloaded the DirectIP driver v3.0, which
+indeed compiles against 2.6.39.2 without any changes at all. Also, the
+SYNC problem is gone. Looking at the driver, it seems to be related to
+the new function sierra_net_open() calling sierra_net_dosync() instead
+of sierra_net_bind(). 
+
+Other than that and the autopm-support, there are not many changes to
+the driver. Are there concrete plans already when this will go mainline?
+
+Greetings and again many thanks,
+Phil
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
