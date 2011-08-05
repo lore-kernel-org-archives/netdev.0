@@ -1,43 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 NEXT 1/1] netxen: add vlan accel support
-Date: Fri, 05 Aug 2011 03:26:06 -0700 (PDT)
-Message-ID: <20110805.032606.1214964517719657458.davem@davemloft.net>
-References: <1312536015-21719-2-git-send-email-amit.salecha@qlogic.com>
-	<20110805.024247.1468547132343070339.davem@davemloft.net>
-	<99737F4847ED0A48AECC9F4A1974A4B80FE464EF82@MNEXMB2.qlogic.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH, REVERT] Re: [forcedeth bug] Re: [GIT] Networking
+Date: Fri, 5 Aug 2011 12:26:01 +0200
+Message-ID: <20110805102600.GC1928@minipsycho.orion>
+References: <20110801151308.GA31256@elte.hu>
+ <20110804215354.GA7056@elte.hu>
+ <20110805101625.GA11502@elte.hu>
+ <20110805.031953.239005825626336696.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	rajesh.borundia@qlogic.com
-To: amit.salecha@qlogic.com
+Content-Type: text/plain; charset=us-ascii
+Cc: mingo@elte.hu, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33509 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753196Ab1HEK0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 06:26:12 -0400
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80FE464EF82@MNEXMB2.qlogic.org>
+Received: from mx1.redhat.com ([209.132.183.28]:15501 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754906Ab1HEK0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2011 06:26:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20110805.031953.239005825626336696.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Salecha <amit.salecha@qlogic.com>
-Date: Fri, 5 Aug 2011 05:12:37 -0500
+Fri, Aug 05, 2011 at 12:19:53PM CEST, davem@davemloft.net wrote:
+>From: Ingo Molnar <mingo@elte.hu>
+>Date: Fri, 5 Aug 2011 12:16:25 +0200
+>
+>> I have reverted the two forcedeth commits:
+>> 
+>>   0891b0e08937: forcedeth: fix vlans
+>>   3326c784c9f4: forcedeth: do vlan cleanup
+>> 
+>> and also reverted two vlan commits that the pre-cleanup driver 
+>> depended on:
+>> 
+>>   ffcf9b767293: vlan: kill vlan_gro_frags and vlan_gro_receive
+>>   7890a5b9cbfd: vlan: kill ndo_vlan_rx_register
+>> 
+>> and this finally gave me a working forcedeth driver. I've attached 
+>> the working revert below.
+>
+>Jiri please diagnose this immediately otherwise I will have to apply
+>Ingo's reverts.
+>
+>Ingo has been reporting this regression for days and you haven't said
+>anything.  That's not acceptable.
 
-> After fw recovery we don't get vlan devices by any kernel api, so we
-> are adding NETIF_VLAN_ACC support.  Earlier kernel had vlan group
-> support, through that we get vlan devices and then their ip
-> addresses.
+Sorry, but first time I saw this was ~3hours ago. Looking at it
+(reserving systems, compiling with ingo's config, etc) since then...
 
-Every time an IP address is added or removed there is a notification
-generated on the "inetaddr_chain", and you seem to be properly using
-this.
-
-You have the VLAN device expansion in there as well.
-
-Why doesn't this work?
-
-The IP addresses cannot be added or removed from the VLAN device
-until it is attached to your device.  So you should see any IP
-address manipulation that occurs for VLANs stacked on top of
-your device.
+/me cannot be faster.
 
