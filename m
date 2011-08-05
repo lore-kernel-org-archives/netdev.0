@@ -1,112 +1,108 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 3/6] be2net: add be_cmd_get_port_speed to get port
- speed
-Date: Fri, 5 Aug 2011 15:00:17 -0500
-Message-ID: <20110805200017.GA13562@akhaparde-VBox>
+Subject: [PATCH net-next 4/6] be2net: add ethtool::set_settings support
+Date: Fri, 5 Aug 2011 15:00:36 -0500
+Message-ID: <20110805200036.GA13585@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:2936 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:2946 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755900Ab1HEUAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 16:00:39 -0400
+	with ESMTP id S1755900Ab1HEUBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 16:01:14 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
+
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/benet/be_cmds.c |   35 +++++++++++++++++++++++++++++++++++
- drivers/net/benet/be_cmds.h |   15 +++++++++++++++
- 2 files changed, 50 insertions(+), 0 deletions(-)
+ drivers/net/benet/be_ethtool.c |   63 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 63 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 863ae67..ee6d274 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -2368,6 +2368,41 @@ err:
- 	return status;
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index f144a6f..5dd3ed6 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -443,6 +443,68 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	return 0;
  }
  
-+int be_cmd_get_port_speed(struct be_adapter *adapter,
-+		u8 port_num, u16 *dac_cable_len, u16 *port_speed)
++static int be_set_settings(struct net_device *netdev,
++				struct ethtool_cmd *ecmd)
 +{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_port_speed *req;
-+	int status = 0;
++	struct be_adapter *adapter = netdev_priv(netdev);
++	struct be_phy_info phy_info;
++	u16 mac_speed = 0;
++	u16 dac_cable_len = 0;
++	u16 port_speed = 0;
++	int status;
 +
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
++	status = be_cmd_get_phy_info(adapter, &phy_info);
++	if (status) {
++		dev_err(&adapter->pdev->dev, "Get phy info cmd failed.\n");
++		return status;
 +	}
 +
-+	req = embedded_payload(wrb);
-+	be_wrb_hdr_prepare(wrb, sizeof(*req), true, 0,
-+			OPCODE_COMMON_NTWK_GET_LINK_SPEED);
-+	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			OPCODE_COMMON_NTWK_GET_LINK_SPEED,
-+			sizeof(*req));
-+	req->port_num = port_num;
-+	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		struct be_cmd_resp_get_port_speed *resp =
-+			embedded_payload(wrb);
-+		*dac_cable_len = le16_to_cpu(resp->dac_cable_length);
-+		*port_speed = le16_to_cpu(resp->mac_speed);
++	if (ecmd->autoneg == AUTONEG_ENABLE) {
++		switch (phy_info.interface_type) {
++		case PHY_TYPE_SFP_1GB:
++		case PHY_TYPE_BASET_1GB:
++		case PHY_TYPE_BASEX_1GB:
++		case PHY_TYPE_SGMII:
++			mac_speed = SPEED_AUTONEG_1GB_100MB_10MB;
++			break;
++		case PHY_TYPE_SFP_PLUS_10GB:
++			 dev_warn(&adapter->pdev->dev,
++				"Autoneg not supported on this module.\n");
++			 return -EINVAL;
++		case PHY_TYPE_KR_10GB:
++		case PHY_TYPE_KX4_10GB:
++			 mac_speed = SPEED_AUTONEG_10GB_1GB;
++			 break;
++		case PHY_TYPE_BASET_10GB:
++			 mac_speed = SPEED_AUTONEG_10GB_1GB_100MB;
++			 break;
++		}
++	} else if (ecmd->autoneg == AUTONEG_DISABLE) {
++		if (ethtool_cmd_speed(ecmd) == SPEED_10)
++			mac_speed = SPEED_FORCED_10MB;
++		else if (ethtool_cmd_speed(ecmd) == SPEED_100)
++			mac_speed = SPEED_FORCED_100MB;
++		else if (ethtool_cmd_speed(ecmd) == SPEED_1000)
++			mac_speed = SPEED_FORCED_1GB;
++		else if (ethtool_cmd_speed(ecmd) == SPEED_10000)
++			mac_speed = SPEED_FORCED_10GB;
 +	}
 +
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
++	status = be_cmd_get_port_speed(adapter, adapter->port_num,
++						&dac_cable_len, &port_speed);
++	if (status) {
++		dev_err(&adapter->pdev->dev, "Get port speed cmd failed.\n");
++		return status;
++	}
++
++	status = be_cmd_set_port_speed_v1(adapter, adapter->port_num,
++						mac_speed, dac_cable_len);
++	if (status)
++		dev_err(&adapter->pdev->dev, "Set port speed cmd failed.\n");
++
 +	return status;
 +}
 +
- int be_cmd_set_port_speed_v1(struct be_adapter *adapter,
- 				u8 port_num, u16 mac_speed,
- 				u16 dac_cable_len)
-diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
-index 4a6a959..40ce808 100644
---- a/drivers/net/benet/be_cmds.h
-+++ b/drivers/net/benet/be_cmds.h
-@@ -190,6 +190,7 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_PHY_DETAILS			102
- #define OPCODE_COMMON_SET_DRIVER_FUNCTION_CAP		103
- #define OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES	121
-+#define OPCODE_COMMON_NTWK_GET_LINK_SPEED               134
- #define OPCODE_COMMON_WRITE_OBJECT			172
+ static void
+ be_get_ringparam(struct net_device *netdev, struct ethtool_ringparam *ring)
+ {
+@@ -692,6 +754,7 @@ be_read_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
  
- #define OPCODE_ETH_RSS_CONFIG				1
-@@ -1335,6 +1336,18 @@ struct be_cmd_resp_set_port_speed_v1 {
- 	u32 rsvd0;
- };
- 
-+/************** get port speed *******************/
-+struct be_cmd_req_get_port_speed {
-+	struct be_cmd_req_hdr hdr;
-+	u8 port_num;
-+};
-+
-+struct be_cmd_resp_get_port_speed {
-+	struct be_cmd_resp_hdr hdr;
-+	u16 mac_speed;
-+	u16 dac_cable_length;
-+};
-+
- /*************** HW Stats Get v1 **********************************/
- #define BE_TXP_SW_SZ			48
- struct be_port_rxf_stats_v1 {
-@@ -1535,3 +1548,5 @@ extern int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size);
- extern void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf);
- extern int be_cmd_set_port_speed_v1(struct be_adapter *adapter, u8 port_num,
- 			u16 mac_speed, u16 dac_cable_len);
-+extern int be_cmd_get_port_speed(struct be_adapter *adapter, u8 port_num,
-+			u16 *dac_cable_len, u16 *port_speed);
+ const struct ethtool_ops be_ethtool_ops = {
+ 	.get_settings = be_get_settings,
++	.set_settings = be_set_settings,
+ 	.get_drvinfo = be_get_drvinfo,
+ 	.get_wol = be_get_wol,
+ 	.set_wol = be_set_wol,
 -- 
 1.7.4.1
 
