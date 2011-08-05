@@ -1,125 +1,220 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next-2.6 PATCH] enic: Add timestamp to network interface
- stats
-Date: Thu, 4 Aug 2011 21:42:18 -0700
-Message-ID: <20110804214218.30621022@nehalam.ftrdhcpuser.net>
-References: <20110805001124.32402.42919.stgit@savbu-pc100.cisco.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH 2/3] net: Cap number of elements for sendmmsg
+Date: Fri, 5 Aug 2011 14:46:19 +1000
+Message-ID: <20110805144619.729c631a@kryten>
+References: <20110805000737.743684961@samba.org>
+	<20110805000822.327910762@samba.org>
+	<201108050429.p754TTBa030939@www262.sakura.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Danny Guo <dannguo@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58716 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750751Ab1HEEmL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 00:42:11 -0400
-In-Reply-To: <20110805001124.32402.42919.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: acme@redhat.com, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, davem@davemloft.net,
+	eparis@parisplace.org, casey@schaufler-ca.com, mjt@tls.msk.ru
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201108050429.p754TTBa030939@www262.sakura.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 04 Aug 2011 17:11:24 -0700
-Danny Guo <dannguo@cisco.com> wrote:
 
-> From: Danny Guo <dannguo@cisco.com>
+Hi,
+
+> I think 1024 is a reasonable value.
+> But I also worry that programmers may wish to send more.
 > 
-> This patch adds timestamps in ethtool stats. It makes it easier to provide scripts to users to calculate throughput, etc. It also allows software to synchronize timestamps with host time for correlating host events with stats collection.
 > 
-> Signed-off-by: Danny Guo <dannguo@cisco.com>
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+> Apart from the upper limit for vlen argument of sendmmsg()/recvmmsg(),
+> we need to deal with stall problem (described below).
 
+Capping vlen at 1024 should prevent that. Your patch does a signed
+comparison which just reduces the maximum value by 1 bit doesn't it?
 
-The concept is okay, but don't like drivers doing device specific
-things all the time.
+Keep in mind each element could have up to 1024 iovec entries at worst
+case, so I think 1024 is a sane upper max.
 
+Anton
+
+> It may be possible to abuse sendmmsg() which was introduced in Linux
+> 3.0 and recvmmsg() which was introduced in Linux 2.6.33 for
+> triggering CPU stall warning.
+> 
+> I ran below program
+> 
+> ---------- Test program start ----------
+> #include <string.h>
+> #include <stdlib.h>
+> #include <stdio.h>
+> #include <unistd.h>
+> #include <netdb.h>
+> #include <sys/types.h>
+> #include <sys/ioctl.h>
+> #include <sys/socket.h>
+> #include <asm/unistd.h>
+> #include <errno.h>
+> 
+> #ifndef __NR_sendmmsg
+> #if defined( __PPC__)
+> #define __NR_sendmmsg	349
+> #elif defined(__x86_64__)
+> #define __NR_sendmmsg	307
+> #elif defined(__i386__)
+> #define __NR_sendmmsg	345
+> #else
+> #error __NR_sendmmsg not defined
+> #endif
+> #endif
+> 
+> struct mmsghdr {
+> 	struct msghdr msg_hdr;
+> 	unsigned int msg_len;
+> };
+> 
+> static inline int sendmmsg(int fd, struct mmsghdr *mmsg, unsigned
+> vlen, unsigned flags)
+> {
+> 	return syscall(__NR_sendmmsg, fd, mmsg, vlen, flags, NULL);
+> }
+> 
+> #define NUMBATCH (1048576 * 64)
+> 
+> int main(int argc, char *argv[])
+> {
+> 	const int fd = socket(AF_INET, SOCK_DGRAM, 0);
+> 	struct mmsghdr *datagrams;
+> 	unsigned int i;
+> 	struct iovec iovec = { };
+> 	struct sockaddr_in addr = { };
+> 	addr.sin_family = AF_INET;
+> 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+> 	addr.sin_port = htons(10000);
+> 	datagrams = calloc(sizeof(*datagrams), NUMBATCH);
+> 	for (i = 0; i < NUMBATCH; ++i) {
+> 		datagrams[i].msg_hdr.msg_iov = &iovec;
+> 		datagrams[i].msg_hdr.msg_iovlen = 1;
+> 		datagrams[i].msg_hdr.msg_name = &addr;
+> 		datagrams[i].msg_hdr.msg_namelen = sizeof(addr);
+> 	}
+> 	printf("Calling sendmmsg()\n");
+> 	printf("%d\n", sendmmsg(fd, datagrams, NUMBATCH, 0));
+> 	printf("Done\n");
+> 	return 0;
+> }
+> ---------- Test program end ----------
+> 
+> and got below output.
+> 
+> # time ./a.out
+> Calling sendmmsg()
+> INFO: rcu_sched_state detected stall on CPU 0 (t=15000 jiffies)
+> 67108864
+> Done
+> 
+> real    2m48.736s
+> user    0m0.128s
+> sys     0m16.489s
+> 
+> 
+> 
+> If this application created threads that matches number of CPUs
+> available, and entered into sendmmsg(), the machine will hang for
+> many seconds.
+> 
+> Also, signals are ignored when this application is in sendmmsg().
+> That is, if this application is holding much RAM (like above program)
+> and is selected by OOM-killer, this application cannot be killed
+> until returns from sendmmsg().
+> 
+> Applying below patch solves the stall message and signal delaying
+> problem. ----------------------------------------
+> [PATCH] net: Fix sendmmsg() stall problem.
+> 
+> If the caller passed a huge value (e.g. 64M) to vlen argument of
+> sendmmsg(), the caller triggers "INFO: rcu_sched_state detected stall
+> on CPU X" message because there is no chance to call scheduler. Thus
+> give a chance to call scheduler and also check for pending signal.
+> 
+> Also, if the caller passed a value where IS_ERR() returns true (e.g.
+> UINT_MAX), the caller will get EOF and errno will be set to (e.g.)
+> EPERM when all datagrams are successfully sent. Thus, limit the max
+> value of vlen to INT_MAX.
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Cc: stable <stable@kernel.org> [3.0+]
 > ---
->  drivers/net/enic/enic.h       |    2 +-
->  drivers/net/enic/enic_main.c  |    7 ++++++-
->  drivers/net/enic/vnic_dev.c   |    1 +
->  drivers/net/enic/vnic_stats.h |    1 +
->  4 files changed, 9 insertions(+), 2 deletions(-)
+>  net/socket.c |    5 +++++
+>  1 file changed, 5 insertions(+)
 > 
+> --- linux-3.0.orig/net/socket.c
+> +++ linux-3.0/net/socket.c
+> @@ -1999,6 +1999,8 @@ int __sys_sendmmsg(int fd, struct mmsghd
+>  	struct compat_mmsghdr __user *compat_entry;
+>  	struct msghdr msg_sys;
+>  
+> +	if ((int) vlen < 0)
+> +		return -EINVAL;
+>  	datagrams = 0;
+>  
+>  	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+> @@ -2035,6 +2037,9 @@ int __sys_sendmmsg(int fd, struct mmsghd
+>  		if (err)
+>  			break;
+>  		++datagrams;
+> +		cond_resched();
+> +		if (signal_pending(current))
+> +			break;
+>  	}
+>  
+>  out_put:
+> ----------------------------------------
 > 
-> diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-> index ce76d9a..2e58bdc 100644
-> --- a/drivers/net/enic/enic.h
-> +++ b/drivers/net/enic/enic.h
-> @@ -32,7 +32,7 @@
+> The situation is similar regaring recvmmsg(). Although recvmmsg()
+> less likely stalls than sendmmsg() does, it could happen if a huge
+> number of datagrams are in the socket's receive queue and the caller
+> attempted to fetch all of them at once. Thus, we may want below patch
+> as well.
+> 
+> ----------------------------------------
+> [PATCH] net: Fix recvmmsg() stall problem.
+> 
+> If the caller passed a huge value to vlen argument of recvmmsg() and
+> there are enough datagrams in the socket's receive queue, trying to
+> pick up all at once may trigger "INFO: rcu_sched_state detected stall
+> on CPU X" message because there is no chance to call scheduler. Thus
+> give a chance to call scheduler and also check for pending signal.
+> 
+> Also, if the caller passed a value where IS_ERR() returns true (e.g.
+> UINT_MAX), the caller will get EOF and errno will be set to (e.g.)
+> EPERM when all datagrams are successfully received. Thus, limit the
+> max value of vlen to INT_MAX.
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Cc: stable <stable@kernel.org> [2.6.33+]
+> ---
+>  net/socket.c |    5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> --- linux-3.0.orig/net/socket.c
+> +++ linux-3.0/net/socket.c
+> @@ -2204,6 +2204,8 @@ int __sys_recvmmsg(int fd, struct mmsghd
+>  	struct msghdr msg_sys;
+>  	struct timespec end_time;
 >  
->  #define DRV_NAME		"enic"
->  #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
-> -#define DRV_VERSION		"2.1.1.24"
-> +#define DRV_VERSION		"2.1.1.25"
->  #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+> +	if ((int) vlen < 0)
+> +		return -EINVAL;
+>  	if (timeout &&
+>  	    poll_select_set_timeout(&end_time, timeout->tv_sec,
+>  				    timeout->tv_nsec))
+> @@ -2247,6 +2249,9 @@ int __sys_recvmmsg(int fd, struct mmsghd
+>  		if (err)
+>  			break;
+>  		++datagrams;
+> +		cond_resched();
+> +		if (signal_pending(current))
+> +			break;
 >  
->  #define ENIC_BARS_MAX		6
-> diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-> index 67a27cd..a3f61c1 100644
-> --- a/drivers/net/enic/enic_main.c
-> +++ b/drivers/net/enic/enic_main.c
-> @@ -121,6 +121,8 @@ static const struct enic_stat enic_rx_stats[] = {
->  static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
->  static const unsigned int enic_n_rx_stats = ARRAY_SIZE(enic_rx_stats);
->  
-> +#define ENIC_TIMESTAMP_STAT_NAME	"timestamp(ns)"
-> +
->  static int enic_is_dynamic(struct enic *enic)
->  {
->  	return enic->pdev->device == PCI_DEVICE_ID_CISCO_VIC_ENET_DYN;
-> @@ -224,6 +226,8 @@ static void enic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
->  			memcpy(data, enic_rx_stats[i].name, ETH_GSTRING_LEN);
->  			data += ETH_GSTRING_LEN;
->  		}
-> +		memcpy(data, ENIC_TIMESTAMP_STAT_NAME, ETH_GSTRING_LEN);
-> +		data += ETH_GSTRING_LEN;
->  		break;
->  	}
->  }
-> @@ -232,7 +236,7 @@ static int enic_get_sset_count(struct net_device *netdev, int sset)
->  {
->  	switch (sset) {
->  	case ETH_SS_STATS:
-> -		return enic_n_tx_stats + enic_n_rx_stats;
-> +		return enic_n_tx_stats + enic_n_rx_stats + 1;
->  	default:
->  		return -EOPNOTSUPP;
->  	}
-> @@ -251,6 +255,7 @@ static void enic_get_ethtool_stats(struct net_device *netdev,
->  		*(data++) = ((u64 *)&vstats->tx)[enic_tx_stats[i].offset];
->  	for (i = 0; i < enic_n_rx_stats; i++)
->  		*(data++) = ((u64 *)&vstats->rx)[enic_rx_stats[i].offset];
-> +	*(data++) = vstats->timestamp_ns;
->  }
->  
->  static u32 enic_get_msglevel(struct net_device *netdev)
-> diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
-> index 8c4c8cf..656871a 100644
-> --- a/drivers/net/enic/vnic_dev.c
-> +++ b/drivers/net/enic/vnic_dev.c
-> @@ -467,6 +467,7 @@ int vnic_dev_stats_dump(struct vnic_dev *vdev, struct vnic_stats **stats)
->  		if (!vdev->stats)
->  			return -ENOMEM;
->  	}
-> +	memset(vdev->stats, 0, sizeof(*vdev->stats));
-
-No, reading stats should not clear them!
-
-
->  	*stats = vdev->stats;
->  	a0 = vdev->stats_pa;
-> diff --git a/drivers/net/enic/vnic_stats.h b/drivers/net/enic/vnic_stats.h
-> index 77750ec..9d5158d 100644
-> --- a/drivers/net/enic/vnic_stats.h
-> +++ b/drivers/net/enic/vnic_stats.h
-> @@ -65,6 +65,7 @@ struct vnic_rx_stats {
->  struct vnic_stats {
->  	struct vnic_tx_stats tx;
->  	struct vnic_rx_stats rx;
-> +	u64 timestamp_ns;
->  };
-
-Two problems: one is that you are exposing a timestamp in a random unit, and
-the other problem is that is never set (at least in this code).
+>  		/* MSG_WAITFORONE turns on MSG_DONTWAIT after one
+> packet */ if (flags & MSG_WAITFORONE)
+> ----------------------------------------
+> 
 
