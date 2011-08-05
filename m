@@ -1,46 +1,97 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH 1/3] net: sendmmsg should only return an error if no messages were sent
-Date: Fri, 05 Aug 2011 12:57:55 +0900
-Message-ID: <201108050357.p753vtpO022773@www262.sakura.ne.jp>
-References: <20110805000737.743684961@samba.org> <20110805000822.240895823@samba.org>
+From: David Hill <hilld@binarystorm.net>
+Subject: Re: Fw: [Bug 39132] Starting with 3.0.0-rc6,
+ masquerading seems to be broken.
+Date: Fri, 05 Aug 2011 00:09:08 -0400
+Message-ID: <8A188C9C23A54337A5A276BAE29DC6E0@delorimier>
+References: <20110804193107.68d93727@schatten.dmk.lab>
+ <alpine.LFD.2.00.1108042131040.1495@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: acme@redhat.com, rdenis@simphalempin.com, swhiteho@redhat.com
+Content-Type: text/plain; format=flowed; charset=iso-8859-1; reply-type=original
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Julian Anastasov <ja@ssi.bg>, Florian Mickler <florian@mickler.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:63028 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050Ab1HED6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2011 23:58:00 -0400
-In-Reply-To: <20110805000822.240895823@samba.org>
+Received: from relais.videotron.ca ([24.201.245.36]:20336 "EHLO
+	relais.videotron.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750698Ab1HEEJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 00:09:30 -0400
+Received: from wolfe ([173.177.17.75]) by vl-mr-mrz22.ip.videotron.ca
+ (Sun Java(tm) System Messaging Server 6.3-8.01 (built Dec 16 2008; 32bit))
+ with ESMTP id <0LPF00N6LSVT3FG0@vl-mr-mrz22.ip.videotron.ca> for
+ netdev@vger.kernel.org; Fri, 05 Aug 2011 00:09:29 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Blanchard wrote:
-> sendmmsg uses a similar error return strategy as recvmmsg but it
-> turns out to be a confusing way to communicate errors.
-> 
-> The current code stores the error code away and returns it on the next
-> sendmmsg call. This means a call with completely valid arguments could
-> get an error from a previous call.
-> 
-> Change things so we only return an error if no datagrams could be sent.
-> If less than the requested number of messages were sent, the application
-> must retry starting at the first failed one and if the problem is
-> persistent the error will be returned.
-> 
-> This matches the behaviour of other syscalls like read/write - it
-> is not an error if less than the requested number of elements are sent.
+Hello Julian,
 
-OK. David S. Miller suggested this behavior and Anton Blanchard agreed with
-this behavior.
+    I'm not using TPROXY and I've used a blank firewall with only 
+masquerading and reproduced the issue.
+Nothing is in NAT/mangle nor OUTPUT  but the rules mentionned in the 
+attached files to this bug.
 
-Quoting from commit a2e27255 "net: Introduce recvmmsg socket syscall":
-| . R?mi Denis-Courmont & Steven Whitehouse: If we receive N < vlen
-|   datagrams and then recvmsg returns an error, recvmmsg will return
-|   the successfully received datagrams, store the error and return it
-|   in the next call.
+ Francis Whittle  (Comment #18) has the same issue.
 
-R?mi Denis-Courmont, Steven Whitehouse and Arnaldo Carvalho de Melo, do you
-want to change recvmmsg()'s behaviour as well?
+Thank you ,
+
+Dave
+
+
+----- Original Message ----- 
+From: "Julian Anastasov" <ja@ssi.bg>
+To: "Florian Mickler" <florian@mickler.org>
+Cc: <hilld@binarystorm.net>; <netdev@vger.kernel.org>; "David Miller" 
+<davem@davemloft.net>
+Sent: Thursday, August 04, 2011 2:38 PM
+Subject: Re: Fw: [Bug 39132] Starting with 3.0.0-rc6, masquerading seems to 
+be broken.
+
+
+>
+> Hello,
+>
+> On Thu, 4 Aug 2011, Florian Mickler wrote:
+>
+>> Can someone take a look at this regression?
+>>
+>> Begin forwarded message:
+>>
+>> Date: Thu, 28 Jul 2011 04:51:12 GMT
+>> From: bugzilla-daemon@bugzilla.kernel.org
+>> To: florian@mickler.org
+>> Subject: [Bug 39132] Starting with 3.0.0-rc6, masquerading seems to be
+>> broken.
+>>
+>>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=39132
+>
+> So, problem points again to
+> "Fix ip_route_me_harder triggering ip_rt_bug" ? May be
+> David C. Hill or Florian can provide some information, eg. is
+> tproxy used, what NAT rules are used, any rules in OUTPUT
+> hooks (NAT/mangle) and which packets are dropped.
+>
+> Regards
+>
+> --
+> Julian Anastasov <ja@ssi.bg>
+>
+> -- 
+> This message has been scanned for viruses and
+> dangerous content by MailScanner, and is
+> believed to be clean.
+>
+>
+>
+>
+> -----
+> No virus found in this message.
+> Checked by AVG - www.avg.com
+> Version: 10.0.1390 / Virus Database: 1518/3810 - Release Date: 08/04/11
+> 
+
+
+-- 
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
+
