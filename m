@@ -1,100 +1,199 @@
-From: Andrei Warkentin <andreiw@motorola.com>
-Subject: [PATCHv4] Bridge: Always send NETDEV_CHANGEADDR up on br MAC change.
-Date: Fri,  5 Aug 2011 16:04:10 -0500
-Message-ID: <1312578250-2944-2-git-send-email-andreiw@motorola.com>
-References: <CALfQTu7MVjfO7vHB-mAC=RwokBRsi7vR6_XVfQX0+vU2ZCVHOw@mail.gmail.com>
-Cc: Andrei Warkentin <andreiw@motorola.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og110.obsmtp.com ([64.18.0.20]:49202 "EHLO
-	exprod5og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755974Ab1HEVLB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 17:11:01 -0400
-Received: from il93mgrg01.am.mot-mobility.com ([10.22.94.167])
-	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p75L7X1l005695
-	for <netdev@vger.kernel.org>; Fri, 5 Aug 2011 17:07:33 -0400 (EDT)
-Received: from mail-iy0-f170.google.com (mail-iy0-f170.google.com [209.85.210.170])
-	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p75L6fXM005366
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 5 Aug 2011 17:07:33 -0400 (EDT)
-Received: by mail-iy0-f170.google.com with SMTP id 16so4373654iye.29
-        for <netdev@vger.kernel.org>; Fri, 05 Aug 2011 14:10:59 -0700 (PDT)
-In-Reply-To: <CALfQTu7MVjfO7vHB-mAC=RwokBRsi7vR6_XVfQX0+vU2ZCVHOw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: use better NUMA affinities
+Date: Fri, 5 Aug 2011 17:28:43 -0400
+Message-ID: <20110805212843.GA21997@fieldses.org>
+References: <1311876249.2346.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1311876249.2346.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This ensures the neighbor entries associated with the bridge
-dev are flushed, also invalidating the associated cached L2 headers.
+On Thu, Jul 28, 2011 at 08:04:09PM +0200, Eric Dumazet wrote:
+> Use NUMA aware allocations to reduce latencies and increase throughput.
+> 
+> sunrpc kthreads can use kthread_create_on_node() if pool_mode is
+> "percpu" or "pernode", and svc_prepare_thread()/svc_init_buffer() can
+> also take into account NUMA node affinity for memory allocations.
 
-This means we br_add_if/br_del_if ports to implement hand-over and
-not wind up with bridge packets going out with stale MAC.
+By the way, thanks, applying for 3.2 with one minor fixup below.--b.
 
-This means we can also change MAC of port device and also not wind
-up with bridge packets going out with stale MAC.
+diff --git a/fs/nfs/callback.c b/fs/nfs/callback.c
+index ce620b5..516f337 100644
+--- a/fs/nfs/callback.c
++++ b/fs/nfs/callback.c
+@@ -199,7 +199,7 @@ nfs41_callback_up(struct svc_serv *serv, struct rpc_xprt *xprt)
+ 	INIT_LIST_HEAD(&serv->sv_cb_list);
+ 	spin_lock_init(&serv->sv_cb_lock);
+ 	init_waitqueue_head(&serv->sv_cb_waitq);
+-	rqstp = svc_prepare_thread(serv, &serv->sv_pools[0]);
++	rqstp = svc_prepare_thread(serv, &serv->sv_pools[0], NUMA_NO_NODE);
+ 	if (IS_ERR(rqstp)) {
+ 		svc_xprt_put(serv->sv_bc_xprt);
+ 		serv->sv_bc_xprt = NULL;
 
-This builds on Stephen Hemminger's patch, also handling the br_del_if
-case and the port MAC change case.
-
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: Andrei Warkentin <andreiw@motorola.com>
----
- net/bridge/br_if.c     |    6 +++++-
- net/bridge/br_notify.c |    7 ++++++-
- 2 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 3176e2e..2cdf007 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -417,6 +417,7 @@ put_back:
- int br_del_if(struct net_bridge *br, struct net_device *dev)
- {
- 	struct net_bridge_port *p;
-+	bool changed_addr;
- 
- 	p = br_port_get_rtnl(dev);
- 	if (!p || p->br != br)
-@@ -425,9 +426,12 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- 	del_nbp(p);
- 
- 	spin_lock_bh(&br->lock);
--	br_stp_recalculate_bridge_id(br);
-+	changed_addr = br_stp_recalculate_bridge_id(br);
- 	spin_unlock_bh(&br->lock);
- 
-+	if (changed_addr)
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
-+
- 	netdev_update_features(br->dev);
- 
- 	return 0;
-diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
-index 6545ee9..a76b621 100644
---- a/net/bridge/br_notify.c
-+++ b/net/bridge/br_notify.c
-@@ -34,6 +34,7 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
- 	struct net_device *dev = ptr;
- 	struct net_bridge_port *p;
- 	struct net_bridge *br;
-+	bool changed_addr;
- 	int err;
- 
- 	/* register of bridge completed, add sysfs entries */
-@@ -57,8 +58,12 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
- 	case NETDEV_CHANGEADDR:
- 		spin_lock_bh(&br->lock);
- 		br_fdb_changeaddr(p, dev->dev_addr);
--		br_stp_recalculate_bridge_id(br);
-+		changed_addr = br_stp_recalculate_bridge_id(br);
- 		spin_unlock_bh(&br->lock);
-+
-+		if (changed_addr)
-+			call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
-+
- 		break;
- 
- 	case NETDEV_CHANGE:
--- 
-1.7.0.4
-
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> CC: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> CC: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> CC: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> ---
+>  fs/lockd/svc.c             |    2 +-
+>  fs/nfs/callback.c          |    2 +-
+>  include/linux/sunrpc/svc.h |    2 +-
+>  net/sunrpc/svc.c           |   33 ++++++++++++++++++++++++---------
+>  4 files changed, 27 insertions(+), 12 deletions(-)
+> 
+> diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
+> index abfff9d..c061b9a 100644
+> --- a/fs/lockd/svc.c
+> +++ b/fs/lockd/svc.c
+> @@ -282,7 +282,7 @@ int lockd_up(void)
+>  	/*
+>  	 * Create the kernel thread and wait for it to start.
+>  	 */
+> -	nlmsvc_rqst = svc_prepare_thread(serv, &serv->sv_pools[0]);
+> +	nlmsvc_rqst = svc_prepare_thread(serv, &serv->sv_pools[0], NUMA_NO_NODE);
+>  	if (IS_ERR(nlmsvc_rqst)) {
+>  		error = PTR_ERR(nlmsvc_rqst);
+>  		nlmsvc_rqst = NULL;
+> diff --git a/fs/nfs/callback.c b/fs/nfs/callback.c
+> index e3d2942..ce620b5 100644
+> --- a/fs/nfs/callback.c
+> +++ b/fs/nfs/callback.c
+> @@ -125,7 +125,7 @@ nfs4_callback_up(struct svc_serv *serv)
+>  	else
+>  		goto out_err;
+>  
+> -	return svc_prepare_thread(serv, &serv->sv_pools[0]);
+> +	return svc_prepare_thread(serv, &serv->sv_pools[0], NUMA_NO_NODE);
+>  
+>  out_err:
+>  	if (ret == 0)
+> diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+> index 223588a..a78a51e 100644
+> --- a/include/linux/sunrpc/svc.h
+> +++ b/include/linux/sunrpc/svc.h
+> @@ -404,7 +404,7 @@ struct svc_procedure {
+>  struct svc_serv *svc_create(struct svc_program *, unsigned int,
+>  			    void (*shutdown)(struct svc_serv *));
+>  struct svc_rqst *svc_prepare_thread(struct svc_serv *serv,
+> -					struct svc_pool *pool);
+> +					struct svc_pool *pool, int node);
+>  void		   svc_exit_thread(struct svc_rqst *);
+>  struct svc_serv *  svc_create_pooled(struct svc_program *, unsigned int,
+>  			void (*shutdown)(struct svc_serv *),
+> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+> index 6a69a11..30d70ab 100644
+> --- a/net/sunrpc/svc.c
+> +++ b/net/sunrpc/svc.c
+> @@ -295,6 +295,18 @@ svc_pool_map_put(void)
+>  }
+>  
+>  
+> +static int svc_pool_map_get_node(unsigned int pidx)
+> +{
+> +	const struct svc_pool_map *m = &svc_pool_map;
+> +
+> +	if (m->count) {
+> +		if (m->mode == SVC_POOL_PERCPU)
+> +			return cpu_to_node(m->pool_to[pidx]);
+> +		if (m->mode == SVC_POOL_PERNODE)
+> +			return m->pool_to[pidx];
+> +	}
+> +	return NUMA_NO_NODE;
+> +}
+>  /*
+>   * Set the given thread's cpus_allowed mask so that it
+>   * will only run on cpus in the given pool.
+> @@ -499,7 +511,7 @@ EXPORT_SYMBOL_GPL(svc_destroy);
+>   * We allocate pages and place them in rq_argpages.
+>   */
+>  static int
+> -svc_init_buffer(struct svc_rqst *rqstp, unsigned int size)
+> +svc_init_buffer(struct svc_rqst *rqstp, unsigned int size, int node)
+>  {
+>  	unsigned int pages, arghi;
+>  
+> @@ -513,7 +525,7 @@ svc_init_buffer(struct svc_rqst *rqstp, unsigned int size)
+>  	arghi = 0;
+>  	BUG_ON(pages > RPCSVC_MAXPAGES);
+>  	while (pages) {
+> -		struct page *p = alloc_page(GFP_KERNEL);
+> +		struct page *p = alloc_pages_node(node, GFP_KERNEL, 0);
+>  		if (!p)
+>  			break;
+>  		rqstp->rq_pages[arghi++] = p;
+> @@ -536,11 +548,11 @@ svc_release_buffer(struct svc_rqst *rqstp)
+>  }
+>  
+>  struct svc_rqst *
+> -svc_prepare_thread(struct svc_serv *serv, struct svc_pool *pool)
+> +svc_prepare_thread(struct svc_serv *serv, struct svc_pool *pool, int node)
+>  {
+>  	struct svc_rqst	*rqstp;
+>  
+> -	rqstp = kzalloc(sizeof(*rqstp), GFP_KERNEL);
+> +	rqstp = kzalloc_node(sizeof(*rqstp), GFP_KERNEL, node);
+>  	if (!rqstp)
+>  		goto out_enomem;
+>  
+> @@ -554,15 +566,15 @@ svc_prepare_thread(struct svc_serv *serv, struct svc_pool *pool)
+>  	rqstp->rq_server = serv;
+>  	rqstp->rq_pool = pool;
+>  
+> -	rqstp->rq_argp = kmalloc(serv->sv_xdrsize, GFP_KERNEL);
+> +	rqstp->rq_argp = kmalloc_node(serv->sv_xdrsize, GFP_KERNEL, node);
+>  	if (!rqstp->rq_argp)
+>  		goto out_thread;
+>  
+> -	rqstp->rq_resp = kmalloc(serv->sv_xdrsize, GFP_KERNEL);
+> +	rqstp->rq_resp = kmalloc_node(serv->sv_xdrsize, GFP_KERNEL, node);
+>  	if (!rqstp->rq_resp)
+>  		goto out_thread;
+>  
+> -	if (!svc_init_buffer(rqstp, serv->sv_max_mesg))
+> +	if (!svc_init_buffer(rqstp, serv->sv_max_mesg, node))
+>  		goto out_thread;
+>  
+>  	return rqstp;
+> @@ -647,6 +659,7 @@ svc_set_num_threads(struct svc_serv *serv, struct svc_pool *pool, int nrservs)
+>  	struct svc_pool *chosen_pool;
+>  	int error = 0;
+>  	unsigned int state = serv->sv_nrthreads-1;
+> +	int node;
+>  
+>  	if (pool == NULL) {
+>  		/* The -1 assumes caller has done a svc_get() */
+> @@ -662,14 +675,16 @@ svc_set_num_threads(struct svc_serv *serv, struct svc_pool *pool, int nrservs)
+>  		nrservs--;
+>  		chosen_pool = choose_pool(serv, pool, &state);
+>  
+> -		rqstp = svc_prepare_thread(serv, chosen_pool);
+> +		node = svc_pool_map_get_node(chosen_pool->sp_id);
+> +		rqstp = svc_prepare_thread(serv, chosen_pool, node);
+>  		if (IS_ERR(rqstp)) {
+>  			error = PTR_ERR(rqstp);
+>  			break;
+>  		}
+>  
+>  		__module_get(serv->sv_module);
+> -		task = kthread_create(serv->sv_function, rqstp, serv->sv_name);
+> +		task = kthread_create_on_node(serv->sv_function, rqstp,
+> +					      node, serv->sv_name);
+>  		if (IS_ERR(task)) {
+>  			error = PTR_ERR(task);
+>  			module_put(serv->sv_module);
+> 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
