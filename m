@@ -1,31 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/6][pull request] Intel Wired LAN Driver Update
-Date: Fri, 05 Aug 2011 03:35:11 -0700 (PDT)
-Message-ID: <20110805.033511.228784191049127261.davem@davemloft.net>
-References: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mlx4: decreasing ref count when removing mac
+Date: Fri, 05 Aug 2011 03:36:21 -0700 (PDT)
+Message-ID: <20110805.033621.638948788704368568.davem@davemloft.net>
+References: <4E3A7CE8.4080407@mellanox.co.il>
+	<CAL1RGDWVBWvc_p_XM2BQ-jV8DG19ZcbCcpntMJifED2frR+jcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48096 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755932Ab1HEKff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 06:35:35 -0400
-In-Reply-To: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDWVBWvc_p_XM2BQ-jV8DG19ZcbCcpntMJifED2frR+jcQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  4 Aug 2011 05:18:12 -0700
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Thu, 4 Aug 2011 05:55:39 -0700
 
-> The following series contains updates to e1000, e1000e, igb, igbvf,
-> ixgb and ixgbe.
+>> For older FW versions, when a Mac address removed from Mac table,
+>> we should set 0 for reference count for the corresponding Mac index.
+>> Fixes a bug where removing Mac from the table still left that entry as
+>> invalid.
 > 
-> The following are changes since commit d3e614577198757d5854caa912e88f2d4296479b:
->   macb: restore wrap bit when performing underrun cleanup
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net master
+> This fixes my problems with MTU settings with old FW.
+> 
+> Tested-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
 
-Pulled, thanks Jeff.
+Applied, thanks everyone.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
