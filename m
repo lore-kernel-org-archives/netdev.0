@@ -1,50 +1,218 @@
-From: "Edgar E. Iglesias" <edgar.iglesias@gmail.com>
-Subject: Re: PHY down?
-Date: Fri, 5 Aug 2011 06:13:09 +0200
-Message-ID: <20110805041309.GB15141@zapo>
-References: <OF6D5A2ABF.61D9AA63-ONC12578E0.00335EE4-C12578E0.0033AE22@transmode.se>
- <1312282868.2591.68.camel@deadeye>
- <OFEC77B7FA.1BCB17E8-ONC12578E0.0043754B-C12578E0.00441F36@transmode.se>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH 2/3] net: Cap number of elements for sendmmsg
+Date: Fri, 05 Aug 2011 13:29:29 +0900
+Message-ID: <201108050429.p754TTBa030939@www262.sakura.ne.jp>
+References: <20110805000737.743684961@samba.org> <20110805000822.327910762@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	davem@davemloft.net, eparis@parisplace.org, casey@schaufler-ca.com,
+	mjt@tls.msk.ru
+To: anton@samba.org, acme@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:37206 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758Ab1HEENN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 00:13:13 -0400
-Received: by fxh19 with SMTP id 19so2405261fxh.19
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2011 21:13:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <OFEC77B7FA.1BCB17E8-ONC12578E0.0043754B-C12578E0.00441F36@transmode.se>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:64291 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766Ab1HEE3b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 00:29:31 -0400
+In-Reply-To: <20110805000822.327910762@samba.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 02, 2011 at 02:24:04PM +0200, Joakim Tjernlund wrote:
-> Ben Hutchings <bhutchings@solarflare.com> wrote on 2011/08/02 13:01:08:
-> >
-> > On Tue, 2011-08-02 at 11:24 +0200, Joakim Tjernlund wrote:
-> > > I must be missing something obvious but I cannot find how
-> > > to bring eth0's PHY down (link down) from user space.
-> > > Tried various settings with ethtool and ifconfig eth0 down but it didn't help.
-> >
-> > If you configure an interface down, and if the interface is not used for
-> > remote management, then some drivers will turn the PHY off.  But there
-> > is no general way to control this explicitly.
+Anton Blanchard wrote:
+> To limit the amount of time we can spend in sendmmsg, cap the
+> number of elements to UIO_MAXIOV (currently 1024). 
 > 
-> OK, when to stop the PHY doesn't seem standardized. Seem logical to me
-> to also turn off the PHY when interface is configured down. Perhaps this could
-> be agreed upon?
-> What does remote management mean? How do I identify if the I/F is used for remote management?
+> For error handling an application using sendmmsg needs to retry at
+> the first unsent message, so capping is simpler and requires less
+> application logic than returning EINVAL.
 > 
->  Jocke
+> Signed-off-by: Anton Blanchard <anton@samba.org>
+> Cc: stable <stable@kernel.org> [3.0+]
 
-I'd rather see an explicit way of turning off the PHY. Downing the interface might be
-useful without killing the PHY. I've seen PoE switches that kill you when you bring
-the link down or reset the PHY after once beeing up, Down/up of interface might become
-impossible in some environments if we would standardize on PHY off for interface down.
+I think 1024 is a reasonable value.
+But I also worry that programmers may wish to send more.
 
-Maybe an explicit ethtool option?
 
-Cheers
+Apart from the upper limit for vlen argument of sendmmsg()/recvmmsg(),
+we need to deal with stall problem (described below).
+
+
+
+It may be possible to abuse sendmmsg() which was introduced in Linux 3.0 and
+recvmmsg() which was introduced in Linux 2.6.33 for triggering CPU stall
+warning.
+
+I ran below program
+
+---------- Test program start ----------
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <asm/unistd.h>
+#include <errno.h>
+
+#ifndef __NR_sendmmsg
+#if defined( __PPC__)
+#define __NR_sendmmsg	349
+#elif defined(__x86_64__)
+#define __NR_sendmmsg	307
+#elif defined(__i386__)
+#define __NR_sendmmsg	345
+#else
+#error __NR_sendmmsg not defined
+#endif
+#endif
+
+struct mmsghdr {
+	struct msghdr msg_hdr;
+	unsigned int msg_len;
+};
+
+static inline int sendmmsg(int fd, struct mmsghdr *mmsg, unsigned vlen,
+			   unsigned flags)
+{
+	return syscall(__NR_sendmmsg, fd, mmsg, vlen, flags, NULL);
+}
+
+#define NUMBATCH (1048576 * 64)
+
+int main(int argc, char *argv[])
+{
+	const int fd = socket(AF_INET, SOCK_DGRAM, 0);
+	struct mmsghdr *datagrams;
+	unsigned int i;
+	struct iovec iovec = { };
+	struct sockaddr_in addr = { };
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	addr.sin_port = htons(10000);
+	datagrams = calloc(sizeof(*datagrams), NUMBATCH);
+	for (i = 0; i < NUMBATCH; ++i) {
+		datagrams[i].msg_hdr.msg_iov = &iovec;
+		datagrams[i].msg_hdr.msg_iovlen = 1;
+		datagrams[i].msg_hdr.msg_name = &addr;
+		datagrams[i].msg_hdr.msg_namelen = sizeof(addr);
+	}
+	printf("Calling sendmmsg()\n");
+	printf("%d\n", sendmmsg(fd, datagrams, NUMBATCH, 0));
+	printf("Done\n");
+	return 0;
+}
+---------- Test program end ----------
+
+and got below output.
+
+# time ./a.out
+Calling sendmmsg()
+INFO: rcu_sched_state detected stall on CPU 0 (t=15000 jiffies)
+67108864
+Done
+
+real    2m48.736s
+user    0m0.128s
+sys     0m16.489s
+
+
+
+If this application created threads that matches number of CPUs available, and
+entered into sendmmsg(), the machine will hang for many seconds.
+
+Also, signals are ignored when this application is in sendmmsg(). That is,
+if this application is holding much RAM (like above program) and is selected by
+OOM-killer, this application cannot be killed until returns from sendmmsg().
+
+Applying below patch solves the stall message and signal delaying problem.
+----------------------------------------
+[PATCH] net: Fix sendmmsg() stall problem.
+
+If the caller passed a huge value (e.g. 64M) to vlen argument of sendmmsg(),
+the caller triggers "INFO: rcu_sched_state detected stall on CPU X" message
+because there is no chance to call scheduler. Thus give a chance to call
+scheduler and also check for pending signal.
+
+Also, if the caller passed a value where IS_ERR() returns true (e.g. UINT_MAX),
+the caller will get EOF and errno will be set to (e.g.) EPERM when all
+datagrams are successfully sent. Thus, limit the max value of vlen to INT_MAX.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: stable <stable@kernel.org> [3.0+]
+---
+ net/socket.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+--- linux-3.0.orig/net/socket.c
++++ linux-3.0/net/socket.c
+@@ -1999,6 +1999,8 @@ int __sys_sendmmsg(int fd, struct mmsghd
+ 	struct compat_mmsghdr __user *compat_entry;
+ 	struct msghdr msg_sys;
+ 
++	if ((int) vlen < 0)
++		return -EINVAL;
+ 	datagrams = 0;
+ 
+ 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+@@ -2035,6 +2037,9 @@ int __sys_sendmmsg(int fd, struct mmsghd
+ 		if (err)
+ 			break;
+ 		++datagrams;
++		cond_resched();
++		if (signal_pending(current))
++			break;
+ 	}
+ 
+ out_put:
+----------------------------------------
+
+The situation is similar regaring recvmmsg(). Although recvmmsg() less likely
+stalls than sendmmsg() does, it could happen if a huge number of datagrams are
+in the socket's receive queue and the caller attempted to fetch all of them at
+once. Thus, we may want below patch as well.
+
+----------------------------------------
+[PATCH] net: Fix recvmmsg() stall problem.
+
+If the caller passed a huge value to vlen argument of recvmmsg() and there are
+enough datagrams in the socket's receive queue, trying to pick up all at once
+may trigger "INFO: rcu_sched_state detected stall on CPU X" message because
+there is no chance to call scheduler. Thus give a chance to call scheduler and
+also check for pending signal.
+
+Also, if the caller passed a value where IS_ERR() returns true (e.g. UINT_MAX),
+the caller will get EOF and errno will be set to (e.g.) EPERM when all
+datagrams are successfully received. Thus, limit the max value of vlen to
+INT_MAX.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: stable <stable@kernel.org> [2.6.33+]
+---
+ net/socket.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+--- linux-3.0.orig/net/socket.c
++++ linux-3.0/net/socket.c
+@@ -2204,6 +2204,8 @@ int __sys_recvmmsg(int fd, struct mmsghd
+ 	struct msghdr msg_sys;
+ 	struct timespec end_time;
+ 
++	if ((int) vlen < 0)
++		return -EINVAL;
+ 	if (timeout &&
+ 	    poll_select_set_timeout(&end_time, timeout->tv_sec,
+ 				    timeout->tv_nsec))
+@@ -2247,6 +2249,9 @@ int __sys_recvmmsg(int fd, struct mmsghd
+ 		if (err)
+ 			break;
+ 		++datagrams;
++		cond_resched();
++		if (signal_pending(current))
++			break;
+ 
+ 		/* MSG_WAITFORONE turns on MSG_DONTWAIT after one packet */
+ 		if (flags & MSG_WAITFORONE)
+----------------------------------------
