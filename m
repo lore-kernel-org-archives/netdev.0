@@ -1,104 +1,125 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCHv3] Bridge: Always send NETDEV_CHANGEADDR up on br MAC
- change.
-Date: Thu, 4 Aug 2011 21:36:05 -0700
-Message-ID: <20110804213605.31be6131@nehalam.ftrdhcpuser.net>
-References: <1312509349-23363-1-git-send-email-andreiw@motorola.com>
-	<1312510625-26596-2-git-send-email-andreiw@motorola.com>
+Subject: Re: [net-next-2.6 PATCH] enic: Add timestamp to network interface
+ stats
+Date: Thu, 4 Aug 2011 21:42:18 -0700
+Message-ID: <20110804214218.30621022@nehalam.ftrdhcpuser.net>
+References: <20110805001124.32402.42919.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrei Warkentin <andreiw@motorola.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Danny Guo <dannguo@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54106 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:58716 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751128Ab1HEEf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 00:35:57 -0400
-In-Reply-To: <1312510625-26596-2-git-send-email-andreiw@motorola.com>
+	id S1750751Ab1HEEmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2011 00:42:11 -0400
+In-Reply-To: <20110805001124.32402.42919.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  4 Aug 2011 21:17:05 -0500
-Andrei Warkentin <andreiw@motorola.com> wrote:
+On Thu, 04 Aug 2011 17:11:24 -0700
+Danny Guo <dannguo@cisco.com> wrote:
 
-Half ok, half not.
+> From: Danny Guo <dannguo@cisco.com>
+> 
+> This patch adds timestamps in ethtool stats. It makes it easier to provide scripts to users to calculate throughput, etc. It also allows software to synchronize timestamps with host time for correlating host events with stats collection.
+> 
+> Signed-off-by: Danny Guo <dannguo@cisco.com>
+> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+> Signed-off-by: David Wang <dwang2@cisco.com>
 
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index cf09fe5..ef18070 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -162,6 +162,7 @@ static int br_set_mac_address(struct net_device *dev, void *p)
->  	br->flags |= BR_SET_MAC_ADDR;
->  	spin_unlock_bh(&br->lock);
+
+The concept is okay, but don't like drivers doing device specific
+things all the time.
+
+> ---
+>  drivers/net/enic/enic.h       |    2 +-
+>  drivers/net/enic/enic_main.c  |    7 ++++++-
+>  drivers/net/enic/vnic_dev.c   |    1 +
+>  drivers/net/enic/vnic_stats.h |    1 +
+>  4 files changed, 9 insertions(+), 2 deletions(-)
+> 
+> 
+> diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+> index ce76d9a..2e58bdc 100644
+> --- a/drivers/net/enic/enic.h
+> +++ b/drivers/net/enic/enic.h
+> @@ -32,7 +32,7 @@
 >  
-> +	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
->  	return 0;
->  }
-
-This is unnecessary since already done by dev_set_mac_address.
-
-> @@ -492,10 +493,13 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->  	del_nbp(p);
+>  #define DRV_NAME		"enic"
+>  #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+> -#define DRV_VERSION		"2.1.1.24"
+> +#define DRV_VERSION		"2.1.1.25"
+>  #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
 >  
->  	spin_lock_bh(&br->lock);
-> -	br_stp_recalculate_bridge_id(br);
-> +	changed_addr = br_stp_recalculate_bridge_id(br);
->  	br_features_recompute(br);
->  	spin_unlock_bh(&br->lock);
+>  #define ENIC_BARS_MAX		6
+> diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+> index 67a27cd..a3f61c1 100644
+> --- a/drivers/net/enic/enic_main.c
+> +++ b/drivers/net/enic/enic_main.c
+> @@ -121,6 +121,8 @@ static const struct enic_stat enic_rx_stats[] = {
+>  static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
+>  static const unsigned int enic_n_rx_stats = ARRAY_SIZE(enic_rx_stats);
 >  
-> +	if (changed_addr)
-> +		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+> +#define ENIC_TIMESTAMP_STAT_NAME	"timestamp(ns)"
 > +
->  	return 0;
->  }
->  
-Good, I forgot that case.
-
-> diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
-> index 404d4e1..651eac3 100644
-> --- a/net/bridge/br_notify.c
-> +++ b/net/bridge/br_notify.c
-> @@ -34,6 +34,7 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
->  	struct net_device *dev = ptr;
->  	struct net_bridge_port *p = br_port_get(dev);
->  	struct net_bridge *br;
-> +	bool changed_addr;
->  	int err;
->  
->  	/* not a port of a bridge */
-> @@ -51,8 +52,11 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
->  	case NETDEV_CHANGEADDR:
->  		spin_lock_bh(&br->lock);
->  		br_fdb_changeaddr(p, dev->dev_addr);
-> -		br_stp_recalculate_bridge_id(br);
-> +		changed_addr = br_stp_recalculate_bridge_id(br);
->  		spin_unlock_bh(&br->lock);
-> +
-> +		if (changed_addr)
-> +			call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+>  static int enic_is_dynamic(struct enic *enic)
+>  {
+>  	return enic->pdev->device == PCI_DEVICE_ID_CISCO_VIC_ENET_DYN;
+> @@ -224,6 +226,8 @@ static void enic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+>  			memcpy(data, enic_rx_stats[i].name, ETH_GSTRING_LEN);
+>  			data += ETH_GSTRING_LEN;
+>  		}
+> +		memcpy(data, ENIC_TIMESTAMP_STAT_NAME, ETH_GSTRING_LEN);
+> +		data += ETH_GSTRING_LEN;
 >  		break;
+>  	}
+>  }
+> @@ -232,7 +236,7 @@ static int enic_get_sset_count(struct net_device *netdev, int sset)
+>  {
+>  	switch (sset) {
+>  	case ETH_SS_STATS:
+> -		return enic_n_tx_stats + enic_n_rx_stats;
+> +		return enic_n_tx_stats + enic_n_rx_stats + 1;
+>  	default:
+>  		return -EOPNOTSUPP;
+>  	}
+> @@ -251,6 +255,7 @@ static void enic_get_ethtool_stats(struct net_device *netdev,
+>  		*(data++) = ((u64 *)&vstats->tx)[enic_tx_stats[i].offset];
+>  	for (i = 0; i < enic_n_rx_stats; i++)
+>  		*(data++) = ((u64 *)&vstats->rx)[enic_rx_stats[i].offset];
+> +	*(data++) = vstats->timestamp_ns;
+>  }
 >  
->  	case NETDEV_CHANGE:
+>  static u32 enic_get_msglevel(struct net_device *netdev)
+> diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
+> index 8c4c8cf..656871a 100644
+> --- a/drivers/net/enic/vnic_dev.c
+> +++ b/drivers/net/enic/vnic_dev.c
+> @@ -467,6 +467,7 @@ int vnic_dev_stats_dump(struct vnic_dev *vdev, struct vnic_stats **stats)
+>  		if (!vdev->stats)
+>  			return -ENOMEM;
+>  	}
+> +	memset(vdev->stats, 0, sizeof(*vdev->stats));
 
-This is also fine.
-
-> iff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-> index c0990ba..4528e9a 100644
-> --- a/net/bridge/br_stp_if.c
-> +++ b/net/bridge/br_stp_if.c
-> @@ -213,7 +213,7 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
->  
->  	/* user has chosen a value so keep it */
->  	if (br->flags & BR_SET_MAC_ADDR)
-> -		return;
-> +		return false;
->  
->  	list_for_each_entry(p, &br->port_list, list) {
->  		if (addr == br_mac_zero ||
-
-This is already in net-next.
+No, reading stats should not clear them!
 
 
+>  	*stats = vdev->stats;
+>  	a0 = vdev->stats_pa;
+> diff --git a/drivers/net/enic/vnic_stats.h b/drivers/net/enic/vnic_stats.h
+> index 77750ec..9d5158d 100644
+> --- a/drivers/net/enic/vnic_stats.h
+> +++ b/drivers/net/enic/vnic_stats.h
+> @@ -65,6 +65,7 @@ struct vnic_rx_stats {
+>  struct vnic_stats {
+>  	struct vnic_tx_stats tx;
+>  	struct vnic_rx_stats rx;
+> +	u64 timestamp_ns;
+>  };
 
+Two problems: one is that you are exposing a timestamp in a random unit, and
+the other problem is that is never set (at least in this code).
 
