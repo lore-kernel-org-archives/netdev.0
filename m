@@ -1,24 +1,23 @@
 From: Robin Holt <holt@sgi.com>
-Subject: [RFC 2/4] [flexcan] Introduce a flexcan_clk set of functions.
-Date: Thu,  4 Aug 2011 21:06:17 -0500
-Message-ID: <1312509979-13226-3-git-send-email-holt@sgi.com>
+Subject: [RFC 4/4] [flexcan] Add support for FLEXCAN_DEBUG
+Date: Thu,  4 Aug 2011 21:06:19 -0500
+Message-ID: <1312509979-13226-5-git-send-email-holt@sgi.com>
 References: <1312509979-13226-1-git-send-email-holt@sgi.com>
 Cc: Robin Holt <holt@sgi.com>, socketcan-core@lists.berlios.de,
 	netdev@vger.kernel.org
 To: Robin Holt <holt@sgi.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
 	Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.sgi.com ([192.48.179.30]:50253 "EHLO relay.sgi.com"
+Received: from relay3.sgi.com ([192.48.152.1]:47531 "EHLO relay.sgi.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752958Ab1HECGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755200Ab1HECGW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 4 Aug 2011 22:06:22 -0400
 In-Reply-To: <1312509979-13226-1-git-send-email-holt@sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The freescale P1010RDB board does not have a
-clk_{get,put,get_rate,enable,disable} set of functions.  Wrap these with a
-flexcan_ #define for arm, and implement a more complete function for ppc.
+Add a wrapper function for a register dump when a developer defines
+FLEXCAN_DEBUG.
 
 Signed-off-by: Robin Holt <holt@sgi.com>
 To: Marc Kleine-Budde <mkl@pengutronix.de>
@@ -26,196 +25,87 @@ To: Wolfgang Grandegger <wg@grandegger.com>
 Cc: socketcan-core@lists.berlios.de
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/can/flexcan.c |  114 +++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 105 insertions(+), 9 deletions(-)
+ drivers/net/can/flexcan.c |   40 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 40 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 74b1706..3417d0b 100644
+index fbb61c6..96684ca 100644
 --- a/drivers/net/can/flexcan.c
 +++ b/drivers/net/can/flexcan.c
-@@ -220,6 +220,102 @@ static inline void flexcan_write(u32 val, void __iomem *addr)
- }
+@@ -316,6 +316,38 @@ static inline unsigned long flexcan_clk_get_rate(struct clk *clk)
+ 
  #endif
  
-+#if defined(__powerpc__)
-+struct flexcan_clk {
-+	unsigned long rate;
-+	void *data;
-+};
-+
-+static struct clk *flexcan_clk_get(struct device *dev, const char *id)
++#if defined(FLEXCAN_DEBUG)
++void _flexcan_reg_dump(struct net_device *dev, const char *file, int line,
++		       const char *func)
 +{
-+	struct flexcan_clk *clock;
-+	u32 *clock_freq;
-+	u32 *clock_divider;
-+	int err;
++	const struct flexcan_priv *priv = netdev_priv(dev);
++	struct flexcan_regs __iomem *regs = priv->base;
 +
-+	clock = kmalloc(sizeof(struct flexcan_clk), GFP_KERNEL);
-+	if (!clock) {
-+		dev_err(dev, "Cannot allocate memory\n");
-+		err = -ENOMEM;
-+		goto failed_clock;
-+	}
-+	clock_freq = (u32 *)of_get_property(dev->of_node, "clock_freq", NULL);
-+	if (!clock_freq) {
-+		dev_err(dev, "Cannot find clock_freq property\n");
-+		err = -EINVAL;
-+		goto failed_clock;
-+	}
-+
-+	clock_divider = (u32 *) of_get_property(dev->of_node,
-+					"fsl,flexcan-clock-divider", NULL);
-+	if (clock_divider == NULL) {
-+		dev_err(dev, "Cannot find fsl,flexcan-clock-divider property\n");
-+		err = -EINVAL;
-+		goto failed_clock;
-+	}
-+
-+	clock->rate = DIV_ROUND_CLOSEST(*clock_freq / *clock_divider, 1000);
-+	clock->rate *= 1000;
-+
-+	return (struct clk *)clock;
-+
-+ failed_clock:
-+	kfree(clock);
-+	return ERR_PTR(err);
++	printk(KERN_INFO "flexcan_reg_dump:%s:%d:%s()\n", file, line, func);
++	printk(KERN_INFO
++		"\t  mcr 0x%08x  ctrl 0x%08x timer 0x%08x   rxg 0x%08x",
++		flexcan_read(&regs->mcr),
++		flexcan_read(&regs->ctrl),
++		flexcan_read(&regs->timer),
++		flexcan_read(&regs->rxgmask));
++	printk(KERN_INFO
++		"\t rx14 0x%08x  rx15 0x%08x   ecr 0x%08x   esr 0x%08x",
++		flexcan_read(&regs->rx14mask),
++		flexcan_read(&regs->rx15mask),
++		flexcan_read(&regs->ecr),
++		flexcan_read(&regs->esr));
++	printk(KERN_INFO
++		"\timsk2 0x%08x imsk1 0x%08x iflg2 0x%08x iflg1 0x%08x",
++		flexcan_read(&regs->imask2),
++		flexcan_read(&regs->imask1),
++		flexcan_read(&regs->iflag2),
++		flexcan_read(&regs->iflag1));
 +}
-+
-+static inline void flexcan_clk_put(struct clk *_clk)
-+{
-+	struct flexcan_clk *clk = (struct flexcan_clk *)_clk;
-+
-+	kfree(clk);
-+}
-+
-+static inline int flexcan_clk_enable(struct clk *clk)
-+{
-+	return 0;
-+}
-+
-+static inline void flexcan_clk_disable(struct clk *clk)
-+{
-+	return;
-+}
-+
-+static inline unsigned long flexcan_clk_get_rate(struct clk *_clk)
-+{
-+	struct flexcan_clk *clk = (struct flexcan_clk *)_clk;
-+
-+	return clk->rate;
-+}
-+
++#define flexcan_reg_dump(_d) _flexcan_reg_dump(_d, __FILE__, __LINE__, __func__)
 +#else
-+static inline struct clk *flexcan_clk_get(struct device *dev, const char *id)
-+{
-+	return clk_get(dev, id);
-+}
-+
-+static inline void flexcan_clk_put(struct clk *clk)
-+{
-+	clk_put(clk);
-+}
-+
-+static inline int flexcan_clk_enable(struct clk *clk)
-+{
-+	return clk_enable(clk);
-+}
-+
-+static inline void flexcan_clk_disable(struct clk *clk)
-+{
-+	clk_disable(clk);
-+}
-+
-+static inline unsigned long flexcan_clk_get_rate(struct clk *clk)
-+{
-+	return clk_get_rate(clk);
-+}
-+
++#define flexcan_reg_dump(_d)
 +#endif
 +
  /*
   * Swtich transceiver on or off
   */
-@@ -807,7 +903,7 @@ static int flexcan_open(struct net_device *dev)
- 	struct flexcan_priv *priv = netdev_priv(dev);
- 	int err;
+@@ -376,6 +408,8 @@ static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u32 can_id;
+ 	u32 ctrl = FLEXCAN_MB_CNT_CODE(0xc) | (cf->can_dlc << 16);
  
--	clk_enable(priv->clk);
-+	flexcan_clk_enable(priv->clk);
++	flexcan_reg_dump(dev);
++
+ 	if (can_dropped_invalid_skb(dev, skb))
+ 		return NETDEV_TX_OK;
  
- 	err = open_candev(dev);
- 	if (err)
-@@ -829,7 +925,7 @@ static int flexcan_open(struct net_device *dev)
-  out_close:
- 	close_candev(dev);
-  out:
--	clk_disable(priv->clk);
-+	flexcan_clk_disable(priv->clk);
+@@ -408,6 +442,8 @@ static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* tx_packets is incremented in flexcan_irq */
+ 	stats->tx_bytes += cf->can_dlc;
  
- 	return err;
++	flexcan_reg_dump(dev);
++
+ 	return NETDEV_TX_OK;
  }
-@@ -843,7 +939,7 @@ static int flexcan_close(struct net_device *dev)
- 	flexcan_chip_stop(dev);
  
- 	free_irq(dev->irq, dev);
--	clk_disable(priv->clk);
-+	flexcan_clk_disable(priv->clk);
- 
- 	close_candev(dev);
- 
-@@ -882,7 +978,7 @@ static int __devinit register_flexcandev(struct net_device *dev)
+@@ -676,6 +712,8 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
  	struct flexcan_regs __iomem *regs = priv->base;
- 	u32 reg, err;
+ 	u32 reg_iflag1, reg_esr;
  
--	clk_enable(priv->clk);
-+	flexcan_clk_enable(priv->clk);
++	flexcan_reg_dump(dev);
++
+ 	reg_iflag1 = flexcan_read(&regs->iflag1);
+ 	reg_esr = flexcan_read(&regs->esr);
+ 	flexcan_write(FLEXCAN_ESR_ERR_INT, &regs->esr);	/* ACK err IRQ */
+@@ -716,6 +754,8 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
+ 		netif_wake_queue(dev);
+ 	}
  
- 	/* select "bus clock", chip must be disabled */
- 	flexcan_chip_disable(priv);
-@@ -916,7 +1012,7 @@ static int __devinit register_flexcandev(struct net_device *dev)
-  out:
- 	/* disable core and turn off clocks */
- 	flexcan_chip_disable(priv);
--	clk_disable(priv->clk);
-+	flexcan_clk_disable(priv->clk);
- 
- 	return err;
++	flexcan_reg_dump(dev);
++
+ 	return IRQ_HANDLED;
  }
-@@ -936,7 +1032,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
- 	resource_size_t mem_size;
- 	int err, irq;
- 
--	clk = clk_get(&pdev->dev, NULL);
-+	clk = flexcan_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(clk)) {
- 		dev_err(&pdev->dev, "no clock defined\n");
- 		err = PTR_ERR(clk);
-@@ -973,7 +1069,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
- 	dev->flags |= IFF_ECHO; /* we support local echo in hardware */
- 
- 	priv = netdev_priv(dev);
--	priv->can.clock.freq = clk_get_rate(clk);
-+	priv->can.clock.freq = flexcan_clk_get_rate(clk);
- 	priv->can.bittiming_const = &flexcan_bittiming_const;
- 	priv->can.do_set_mode = flexcan_set_mode;
- 	priv->can.do_get_berr_counter = flexcan_get_berr_counter;
-@@ -1008,7 +1104,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-  failed_map:
- 	release_mem_region(mem->start, mem_size);
-  failed_get:
--	clk_put(clk);
-+	flexcan_clk_put(clk);
-  failed_clock:
- 	return err;
- }
-@@ -1026,7 +1122,7 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(mem->start, resource_size(mem));
- 
--	clk_put(priv->clk);
-+	flexcan_clk_put(priv->clk);
- 
- 	free_candev(dev);
  
 -- 
 1.7.2.1
