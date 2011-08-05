@@ -1,270 +1,135 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: [RFC 2/4] [flexcan] Introduce a flexcan_clk set of functions.
-Date: Fri, 5 Aug 2011 06:36:38 -0500
-Message-ID: <20110805113638.GF4926@sgi.com>
-References: <1312509979-13226-1-git-send-email-holt@sgi.com>
- <1312509979-13226-3-git-send-email-holt@sgi.com>
- <4E3BAB03.4040803@pengutronix.de>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [forcedeth bug] Re: [GIT] Networking
+Date: Fri, 5 Aug 2011 13:44:12 +0200
+Message-ID: <20110805114411.GE1928@minipsycho.orion>
+References: <20110722.073339.1236244143490935644.davem@davemloft.net>
+ <20110801151308.GA31256@elte.hu>
+ <20110804215354.GA7056@elte.hu>
+ <20110805102239.GB1928@minipsycho.orion>
+ <20110805102903.GF2420@elte.hu>
+ <20110805111231.GA29466@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Robin Holt <holt@sgi.com>, Wolfgang Grandegger <wg@grandegger.com>,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3.sgi.com ([192.48.152.1]:36332 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750710Ab1HELgk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 07:36:40 -0400
+Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4E3BAB03.4040803@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110805111231.GA29466@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I implemented the coding style changes below (Sorry I missed the two
-the first time).
+Fri, Aug 05, 2011 at 01:12:31PM CEST, nhorman@tuxdriver.com wrote:
+>On Fri, Aug 05, 2011 at 12:29:03PM +0200, Ingo Molnar wrote:
+>> 
+>> * Jiri Pirko <jpirko@redhat.com> wrote:
+>> 
+>> > Thu, Aug 04, 2011 at 11:53:54PM CEST, mingo@elte.hu wrote:
+>> > >
+>> > >* Ingo Molnar <mingo@elte.hu> wrote:
+>> > >
+>> > >>  0891b0e08937: forcedeth: fix vlans
+>> > >
+>> > >Hm, forcedeth is still giving me trouble even on latest -git that has 
+>> > >the above fix included.
+>> > >
+>> > >The symptom is a stuck interface, no packets in. There's a frame 
+>> > >error RX packet:
+>> > >
+>> > > [root@mercury ~]# ifconfig eth0
+>> > > eth0      Link encap:Ethernet  HWaddr 00:13:D4:DC:41:12  
+>> > >           inet addr:10.0.1.13  Bcast:10.0.1.255  Mask:255.255.255.0
+>> > >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>> > >           RX packets:0 errors:1 dropped:0 overruns:0 frame:1
+>> > >           TX packets:531 errors:0 dropped:0 overruns:0 carrier:0
+>> > >           collisions:0 txqueuelen:1000 
+>> > >           RX bytes:0 (0.0 b)  TX bytes:34112 (33.3 KiB)
+>> > >           Interrupt:35 
+>> > >
+>> > >Weirdly enough a defconfig x86 bootup works just fine - it's certain 
+>> > >.config combinations that trigger the bug. I've attached such a 
+>> > >config.
+>> > >
+>> > >Note that at least once i've observed a seemingly good kernel going 
+>> > >'bad' after a couple of minutes uptime. I've also observed 
+>> > >intermittent behavior - apparent lost packets and a laggy network.
+>> > >
+>> > >I have done 3 failed attempts to bisect it any further - i got to the 
+>> > >commit that got fixed by:
+>> > >
+>> > >  0891b0e08937: forcedeth: fix vlans
+>> > >
+>> > >... but that's something we already knew.
+>> > >
+>> > >Let me know if there's any data i can provide to help debug this 
+>> > >problem.
+>> > >
+>> > >Thanks,
+>> > >
+>> > >	Ingo
+>> > 
+>> > Interesting.
+>> > 
+>> > Is DEV_HAS_VLAN set in id->driver_data (L5344) ?
+>> 
+>Looks like you can match it to pci id.  Device ids 0x0372 and 0x0373 look to
+>have the flag set
+>
+>> How do i tell that without hacking the driver?
+>> 
+>> > If so, would you try to disable both rx an tx vlan accel using 
+>> > ethtool and see if it helps?
+>> 
+>> Should i do that when the device is in a stuck state and see whether 
+>> it recovers?
+>> 
+>> Also, please provide the exact ethtool command sequences i should 
+>> try, this makes it easier for me to test exactly what you want me to 
+>> test.
+>> 
+>should be:
+>ethtool -K ethX rxvlan off txvlan off
+>
+>I'm just poking about, but If I had to guess it looks like the card you have
+>ingo is an older forcedeth and uses the older format ring descriptor (I base
+>this on the fact that the rx error count noted above only gets incremented ni
+>nv_rx_process, but not nv_rx_process_optimized.  Both paths should support hw
+>vlan acceleration though and Jiris fixes for vlan hw rx acceleration were only
+>applied to the optimized path.
 
-As for a better implementation, I guess I would need to understand what
-is being attempted here.  I only marginally understand the flexcan
-hardware on the Freescale P1010 and certainly am clueless about arm
-implementations of flexcan.  I just skimmed over freescale's site
-and it looks like I would be looking at their i.MX25, i.MX28, i.MX35,
-and i.MX53 family of processors.  I will attempt to find some useful
-documentation of those and look at the kernel sources for what the clk_*
-functions are trying to accomplish.
+Well hw accel was not implemented in nv_rx_process before so I did not
+see any reason to do so during vlan conversion. Anyway, since this path
+was touched, I do not see reason why regression might happen there. Only
+change is that now hw accel is enabled by default (before, it got
+enabled only when vid was added). So if turning off hw accel fixes the
+problem for Ingo, I would tend fix this by simply disabling vlan hw
+accel for non-optimized path, by patch like this:
 
-I _THINK_ I understand.  It looks like I could implement this as a powerpc
-p1010 specific thing and get the same effect without impacting flexcan.c.
-I also think I understand that the i.MX25 family of processors do
-essentially the same thing the p1010 is doing for determining the
-clock rate.
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index e55df30..3f1b24b 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -5341,7 +5341,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 	}
+ 
+ 	np->vlanctl_bits = 0;
+-	if (id->driver_data & DEV_HAS_VLAN) {
++	if (id->driver_data & DEV_HAS_VLAN && nv_optimized(np)) {
+ 		np->vlanctl_bits = NVREG_VLANCONTROL_ENABLE;
+ 		dev->hw_features |= NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX;
+ 	}
 
-Thanks,
-Robin
+Strange kind of hw this is ....
 
-On Fri, Aug 05, 2011 at 10:34:11AM +0200, Marc Kleine-Budde wrote:
-> On 08/05/2011 04:06 AM, Robin Holt wrote:
-> > The freescale P1010RDB board does not have a
-> > clk_{get,put,get_rate,enable,disable} set of functions.  Wrap these with a
-> > flexcan_ #define for arm, and implement a more complete function for ppc.
-> 
-> Some codingstyle nitpicks inline. I hope we'll find a cleaner solution
-> than this patch.
-> 
-> Marc
-> 
-> > Signed-off-by: Robin Holt <holt@sgi.com>
-> > To: Marc Kleine-Budde <mkl@pengutronix.de>
-> > To: Wolfgang Grandegger <wg@grandegger.com>
-> > Cc: socketcan-core@lists.berlios.de
-> > Cc: netdev@vger.kernel.org
-> > ---
-> >  drivers/net/can/flexcan.c |  114 +++++++++++++++++++++++++++++++++++++++++----
-> >  1 files changed, 105 insertions(+), 9 deletions(-)
-> > 
-> > diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> > index 74b1706..3417d0b 100644
-> > --- a/drivers/net/can/flexcan.c
-> > +++ b/drivers/net/can/flexcan.c
-> > @@ -220,6 +220,102 @@ static inline void flexcan_write(u32 val, void __iomem *addr)
-> >  }
-> >  #endif
-> >  
-> > +#if defined(__powerpc__)
-> > +struct flexcan_clk {
-> > +	unsigned long rate;
-> > +	void *data;
-> > +};
-> > +
-> > +static struct clk *flexcan_clk_get(struct device *dev, const char *id)
-> > +{
-> > +	struct flexcan_clk *clock;
-> > +	u32 *clock_freq;
-> > +	u32 *clock_divider;
-> > +	int err;
-> > +
-> > +	clock = kmalloc(sizeof(struct flexcan_clk), GFP_KERNEL);
-> > +	if (!clock) {
-> > +		dev_err(dev, "Cannot allocate memory\n");
-> > +		err = -ENOMEM;
-> > +		goto failed_clock;
-> > +	}
-> > +	clock_freq = (u32 *)of_get_property(dev->of_node, "clock_freq", NULL);
-> > +	if (!clock_freq) {
-> > +		dev_err(dev, "Cannot find clock_freq property\n");
-> > +		err = -EINVAL;
-> > +		goto failed_clock;
-> > +	}
-> > +
-> > +	clock_divider = (u32 *) of_get_property(dev->of_node,
->                                ^
-> 
-> remove this space, please
-> > +					"fsl,flexcan-clock-divider", NULL);
-> > +	if (clock_divider == NULL) {
-> 
-> !clock_divider
-> 
-> > +		dev_err(dev, "Cannot find fsl,flexcan-clock-divider property\n");
-> > +		err = -EINVAL;
-> > +		goto failed_clock;
-> > +	}
-> > +
-> > +	clock->rate = DIV_ROUND_CLOSEST(*clock_freq / *clock_divider, 1000);
-> > +	clock->rate *= 1000;
-> > +
-> > +	return (struct clk *)clock;
-> > +
-> > + failed_clock:
-> > +	kfree(clock);
-> > +	return ERR_PTR(err);
-> > +}
-> > +
-> > +static inline void flexcan_clk_put(struct clk *_clk)
-> > +{
-> > +	struct flexcan_clk *clk = (struct flexcan_clk *)_clk;
-> 
-> that cast is not needed.
-> 
-> > +
-> > +	kfree(clk);
-> > +}
-> > +
-> > +static inline int flexcan_clk_enable(struct clk *clk)
-> > +{
-> > +	return 0;
-> > +}
-> > +
-> > +static inline void flexcan_clk_disable(struct clk *clk)
-> > +{
-> > +	return;
-> > +}
-> > +
-> > +static inline unsigned long flexcan_clk_get_rate(struct clk *_clk)
-> > +{
-> > +	struct flexcan_clk *clk = (struct flexcan_clk *)_clk;
-> > +
-> > +	return clk->rate;
-> > +}
-> > +
-> > +#else
-> > +static inline struct clk *flexcan_clk_get(struct device *dev, const char *id)
-> > +{
-> > +	return clk_get(dev, id);
-> > +}
-> > +
-> > +static inline void flexcan_clk_put(struct clk *clk)
-> > +{
-> > +	clk_put(clk);
-> > +}
-> > +
-> > +static inline int flexcan_clk_enable(struct clk *clk)
-> > +{
-> > +	return clk_enable(clk);
-> > +}
-> > +
-> > +static inline void flexcan_clk_disable(struct clk *clk)
-> > +{
-> > +	clk_disable(clk);
-> > +}
-> > +
-> > +static inline unsigned long flexcan_clk_get_rate(struct clk *clk)
-> > +{
-> > +	return clk_get_rate(clk);
-> > +}
-> > +
-> > +#endif
-> > +
-> >  /*
-> >   * Swtich transceiver on or off
-> >   */
-> > @@ -807,7 +903,7 @@ static int flexcan_open(struct net_device *dev)
-> >  	struct flexcan_priv *priv = netdev_priv(dev);
-> >  	int err;
-> >  
-> > -	clk_enable(priv->clk);
-> > +	flexcan_clk_enable(priv->clk);
-> >  
-> >  	err = open_candev(dev);
-> >  	if (err)
-> > @@ -829,7 +925,7 @@ static int flexcan_open(struct net_device *dev)
-> >   out_close:
-> >  	close_candev(dev);
-> >   out:
-> > -	clk_disable(priv->clk);
-> > +	flexcan_clk_disable(priv->clk);
-> >  
-> >  	return err;
-> >  }
-> > @@ -843,7 +939,7 @@ static int flexcan_close(struct net_device *dev)
-> >  	flexcan_chip_stop(dev);
-> >  
-> >  	free_irq(dev->irq, dev);
-> > -	clk_disable(priv->clk);
-> > +	flexcan_clk_disable(priv->clk);
-> >  
-> >  	close_candev(dev);
-> >  
-> > @@ -882,7 +978,7 @@ static int __devinit register_flexcandev(struct net_device *dev)
-> >  	struct flexcan_regs __iomem *regs = priv->base;
-> >  	u32 reg, err;
-> >  
-> > -	clk_enable(priv->clk);
-> > +	flexcan_clk_enable(priv->clk);
-> >  
-> >  	/* select "bus clock", chip must be disabled */
-> >  	flexcan_chip_disable(priv);
-> > @@ -916,7 +1012,7 @@ static int __devinit register_flexcandev(struct net_device *dev)
-> >   out:
-> >  	/* disable core and turn off clocks */
-> >  	flexcan_chip_disable(priv);
-> > -	clk_disable(priv->clk);
-> > +	flexcan_clk_disable(priv->clk);
-> >  
-> >  	return err;
-> >  }
-> > @@ -936,7 +1032,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-> >  	resource_size_t mem_size;
-> >  	int err, irq;
-> >  
-> > -	clk = clk_get(&pdev->dev, NULL);
-> > +	clk = flexcan_clk_get(&pdev->dev, NULL);
-> >  	if (IS_ERR(clk)) {
-> >  		dev_err(&pdev->dev, "no clock defined\n");
-> >  		err = PTR_ERR(clk);
-> > @@ -973,7 +1069,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-> >  	dev->flags |= IFF_ECHO; /* we support local echo in hardware */
-> >  
-> >  	priv = netdev_priv(dev);
-> > -	priv->can.clock.freq = clk_get_rate(clk);
-> > +	priv->can.clock.freq = flexcan_clk_get_rate(clk);
-> >  	priv->can.bittiming_const = &flexcan_bittiming_const;
-> >  	priv->can.do_set_mode = flexcan_set_mode;
-> >  	priv->can.do_get_berr_counter = flexcan_get_berr_counter;
-> > @@ -1008,7 +1104,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-> >   failed_map:
-> >  	release_mem_region(mem->start, mem_size);
-> >   failed_get:
-> > -	clk_put(clk);
-> > +	flexcan_clk_put(clk);
-> >   failed_clock:
-> >  	return err;
-> >  }
-> > @@ -1026,7 +1122,7 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
-> >  	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> >  	release_mem_region(mem->start, resource_size(mem));
-> >  
-> > -	clk_put(priv->clk);
-> > +	flexcan_clk_put(priv->clk);
-> >  
-> >  	free_candev(dev);
-> >  
-> 
-> 
-> -- 
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-> 
-
-
+>
+>Neil
+>
+>> Thanks,
+>> 
+>> 	Ingo
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
