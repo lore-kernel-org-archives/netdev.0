@@ -1,50 +1,55 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCHv2 NEXT 1/1] netxen: add vlan accel support
-Date: Fri, 5 Aug 2011 07:13:43 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FE464EFC2@MNEXMB2.qlogic.org>
-References: <99737F4847ED0A48AECC9F4A1974A4B80FE464EF82@MNEXMB2.qlogic.org>
-	<20110805.032606.1214964517719657458.davem@davemloft.net>
-	<99737F4847ED0A48AECC9F4A1974A4B80FE464EF99@MNEXMB2.qlogic.org>
- <20110805.042755.2121843538632981106.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [forcedeth bug] Re: [GIT] Networking
+Date: Fri, 5 Aug 2011 14:18:55 +0200
+Message-ID: <20110805121855.GC13055@elte.hu>
+References: <20110722.073339.1236244143490935644.davem@davemloft.net>
+ <20110801151308.GA31256@elte.hu>
+ <20110804215354.GA7056@elte.hu>
+ <20110805102239.GB1928@minipsycho.orion>
+ <20110805102903.GF2420@elte.hu>
+ <20110805112557.GD1928@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:58325
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755958Ab1HEMNu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 08:13:50 -0400
-In-Reply-To: <20110805.042755.2121843538632981106.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110805112557.GD1928@minipsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, August 05, 2011 4:58 PM
-> 
-> From: Amit Salecha <amit.salecha@qlogic.com>
-> Date: Fri, 5 Aug 2011 06:04:10 -0500
-> 
-> > This is true, but problem is after fw recovery. So flow is
-> > 1) vlan device added
-> > 2) Driver program ip address of vlan device (through inet events)
-> > 3) Fw recovery
-> > 4) After fw recovery driver need to program ip addresses again which
-> were already programmed.
-> >    After fw recovery there won't be any inet/netdev event.
+
+* Jiri Pirko <jpirko@redhat.com> wrote:
+
+> >> Is DEV_HAS_VLAN set in id->driver_data (L5344) ?
 > >
-> > Simple solution is to maintain those ip addresses in driver.
+> >How do i tell that without hacking the driver?
 > 
-> When you program the device, in response to inet events, maintain a
-> software list in the driver that remembers the IP address state.
+> look in dmesg for line like:
+> "forcedeth 0000:00:08.0: highdma csum vlan pwrctl mgmt gbit lnktim msi
+> desc-v3"
 > 
-> Then on FW recovery, walk the special list to reprogram the device.
+> if "vlan" is there, DEV_HAS_VLAN is set
 
-Make sense. Will repost patch with above logic
--Thanks.
+[    3.534489] forcedeth 0000:00:0a.0: highdma csum gbit lnktim desc-v3
 
+Note, this is a pretty old system with an old nvidia chipset and 
+on-board ethernet:
+
+00:0a.0 Bridge: nVidia Corporation CK804 Ethernet Controller (rev a3)
+        Subsystem: ASUSTeK Computer Inc. K8N4-E Mainboard
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+        Latency: 0 (250ns min, 5000ns max)
+        Interrupt: pin A routed to IRQ 11
+        Region 0: Memory at da100000 (32-bit, non-prefetchable) [size=4K]
+        Region 1: I/O ports at d000 [size=8]
+        Capabilities: [44] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable+ DSel=0 DScale=0 PME-
+
+Thanks,
+
+	Ingo
