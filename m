@@ -1,140 +1,81 @@
-From: Tom London <selinux@gmail.com>
-Subject: Re: return of ip_rt_bug()
-Date: Fri, 5 Aug 2011 06:37:48 -0700
-Message-ID: <CAFiZG+VJ27939BT-dTbvSotxO6+ACbxWiYwQBUT9pC_Fw22O-w@mail.gmail.com>
-References: <20110802170942.GA17164@redhat.com>
-	<alpine.LFD.2.00.1108041422510.1495@ja.ssi.bg>
-	<CAFiZG+X0oyTOXqm4b0g_UEGYK_0JCW3=WOR5d_7GfbJrTMhMzg@mail.gmail.com>
-	<alpine.LFD.2.00.1108042034540.1495@ja.ssi.bg>
-	<CAFiZG+W9-vV6o9EbuVEwztW4sQ1QV-MxD+xCHFw7TbNAryzN6A@mail.gmail.com>
-	<CAFiZG+UY+Rn=wqi6b9CM0CcARHJUGiqh_jpfEveGLhm+D2hNhA@mail.gmail.com>
-	<alpine.LFD.2.00.1108051048160.1494@ja.ssi.bg>
-	<CAFiZG+Wmv_FEx2ZX3qZt0tAr-QVQD_javX1gbRWujr9xyf7nbQ@mail.gmail.com>
-	<CAFiZG+Ve9Y4v9CWCrbGsR+7C79AyoiWncVSVbeqApDuKaPm_jA@mail.gmail.com>
+From: Stephen Smalley <sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+Subject: Re: [PATCH 1/5] Define the function to write sock's security
+ context to seq_file.
+Date: Fri, 05 Aug 2011 09:32:38 -0400
+Message-ID: <1312551158.19283.39.camel@moss-pluto>
+References: <1312534686-4099-1-git-send-email-rongqing.li@windriver.com>
+	 <1312534686-4099-2-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:48695 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753008Ab1HENhs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 09:37:48 -0400
-Received: by qyk34 with SMTP id 34so393122qyk.19
-        for <netdev@vger.kernel.org>; Fri, 05 Aug 2011 06:37:48 -0700 (PDT)
-In-Reply-To: <CAFiZG+Ve9Y4v9CWCrbGsR+7C79AyoiWncVSVbeqApDuKaPm_jA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org,
+        lsm
+ <linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: rongqing.li-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org
+Return-path: <owner-selinux-MESi4pFTnrejpDF0oNHs+n7yKkN/O5/Z@public.gmane.org>
+In-Reply-To: <1312534686-4099-2-git-send-email-rongqing.li-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Sender: owner-selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 5, 2011 at 6:30 AM, Tom London <selinux@gmail.com> wrote:
-> On Fri, Aug 5, 2011 at 6:18 AM, Tom London <selinux@gmail.com> wrote:
->> On Fri, Aug 5, 2011 at 12:56 AM, Julian Anastasov <ja@ssi.bg> wrote:
->>>
->>> =A0 =A0 =A0 =A0Hello,
->>>
->>> On Thu, 4 Aug 2011, Tom London wrote:
->>>
->>>> So, my router is just giving my wired NIC different addresses....
->>>>
->>>> More I can provide?
->>>
->>> =A0 =A0 =A0 =A0Thanks! Can you check in dmesg or in another log
->>> about the first IP address in such line:
->>>
->>> printk(KERN_DEBUG "ip_rt_bug: %pI4 -> %pI4, %s\n"
->>>
->>> =A0 =A0 =A0 =A0Is it now 192.168.2.6 ?
->>>
->>> Regards
->>>
->>> --
->>> Julian Anastasov <ja@ssi.bg>
->>>
->>
->> Sorry, don't see those messages. =A0I guess I'll have to reboot with
->> 'debug' to see that.
->>
->> Before I do that, I booted this time with the RFKILL switch set to
->> kill the radio (both BT and WIFI), and reran the above tests.
->>
->> Here is what 'ip monitor' said:
->>
->> [root@tlondon ~]# ip monitor
->> 192.168.2.1 dev eth0 lladdr 00:1c:df:e2:3e:e9 STALE
->> 192.168.2.1 dev eth0 lladdr 00:1c:df:e2:3e:e9 REACHABLE
->> 192.168.2.1 dev eth0 lladdr 00:1c:df:e2:3e:e9 STALE
->> 192.168.2.1 dev eth0 lladdr 00:1c:df:e2:3e:e9 STALE
->> ff02::fb via ff02::fb dev eth0 =A0metric 0
->> =A0 =A0cache
->> 192.168.2.1 dev eth0 lladdr 00:1c:df:e2:3e:e9 STALE
->>
->> Here is what 'inotail -f /var/log/messages' said:
->>
->>
->> Aug =A05 06:12:21 tlondon kernel: [ =A0536.727187] usb 3-1: new full=
- speed
->> USB device number 2 using uhci_hcd
->> Aug =A05 06:12:21 tlondon kernel: [ =A0537.315296] usb 3-1: New USB =
-device
->> found, idVendor=3D04b8, idProduct=3D010a
->> Aug =A05 06:12:21 tlondon kernel: [ =A0537.315308] usb 3-1: New USB =
-device
->> strings: Mfr=3D1, Product=3D2, SerialNumber=3D0
->> Aug =A05 06:12:21 tlondon kernel: [ =A0537.315317] usb 3-1: Product:=
- Perfection1640
->> Aug =A05 06:12:21 tlondon kernel: [ =A0537.315323] usb 3-1: Manufact=
-urer: EPSON
->> Aug =A05 06:12:21 tlondon mtp-probe: checking bus 3, device 2:
->> "/sys/devices/pci0000:00/0000:00:1a.0/usb3/3-1"
->> Aug =A05 06:12:22 tlondon mtp-probe: bus: 3, device: 2 was not an MT=
-P device
->>
->> So, no WARN_ON messages.
->>
->> I'd like to conclude that this is due to UDP casting on the wlan.
->> I'll reboot with the radio on and in debug mode to see what happens.
->>
->> tom
->> --
->> Tom London
->>
->
-> Hmmm, first attempt at recreating in debug mode didn't actually
-> produce any WARN_ON reports.
->
-> 'ip monitor' did say:
->
-> [root@tlondon ~]# ip monitor
-> 239.255.255.250 dev eth0 lladdr 01:00:5e:7f:ff:fa NOARP
-> 3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP>
-> =A0 =A0link/ether
-> ff02::2 dev wlan0 lladdr 33:33:00:00:00:02 NOARP
-> ff02::16 dev wlan0 lladdr 33:33:00:00:00:16 NOARP
-> ff02::1:ffac:c692 dev wlan0 lladdr 33:33:ff:ac:c6:92 NOARP
-> 192.168.2.1 dev eth0 lladdr 00:1c:df:e2:3e:e9 STALE
-> 3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP>
-> =A0 =A0link/ether
->
-> Will try one more time.
->
-> tom
->
-> --
-> Tom London
->
+On Fri, 2011-08-05 at 16:58 +0800, rongqing.li-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org wrote:
+> From: Roy.Li <rongqing.li-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+> 
+> This function will write the sock's security context to a seq_file
+> and return the error code, and the number of characters successfully
+> written is written in int pointers parameter.
+> 
+> This function will be called when export socket information to proc.
+> 
+> Signed-off-by: Roy.Li <rongqing.li-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+> ---
+>  include/net/sock.h |    1 +
+>  net/core/sock.c    |   26 ++++++++++++++++++++++++++
+>  2 files changed, 27 insertions(+), 0 deletions(-)
+> 
 
-Can't seem to reproduce this when I boot with 'debug' on the boot line.
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index bc745d0..1126a49 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -2254,6 +2254,32 @@ void sk_common_release(struct sock *sk)
+>  }
+>  EXPORT_SYMBOL(sk_common_release);
+>  
+> +int sock_write_secctx(struct sock *sk, struct seq_file *seq, int *len)
+> +{
+> +	struct flowi fl;
+> +	char *ctx = NULL;
+> +	u32 ctxlen;
+> +	int res = 0;
+> +
+> +	*len = 0;
+> +
+> +	if (sk == NULL)
+> +		return -EINVAL;
+> +	res = security_socket_getsockname(sk->sk_socket);
+> +	if (res)
+> +		return res;
+> +
+> +	security_sk_classify_flow(sk, &fl);
 
-Here is what 'ip monitor' says:
+Rather than using a fake flowi, just define and use
+security_sk_getsecid().  There is already a security_ops->sk_getsecid()
+hook, so you just need the wrapper function.
 
-[root@tlondon ~]# ip monitor
-ff02::1:ffac:c692 dev wlan0 lladdr 33:33:ff:ac:c6:92 NOARP
-ff02::16 dev wlan0 lladdr 33:33:00:00:00:16 NOARP
-ff02::2 dev wlan0 lladdr 33:33:00:00:00:02 NOARP
-3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP>
-    link/ether
+> +
+> +	res = security_secid_to_secctx(fl.flowi_secid, &ctx, &ctxlen);
+> +	if (res)
+> +		return res;
+> +
+> +	seq_printf(seq, " %s%n", ctx, len);
+> +	security_release_secctx(ctx, ctxlen);
+> +	return res;
+> +}
+> +
+>  static DEFINE_RWLOCK(proto_list_lock);
+>  static LIST_HEAD(proto_list);
+>  
 
-tom
---=20
-Tom London
+-- 
+Stephen Smalley
+National Security Agency
