@@ -1,116 +1,72 @@
-From: Andrei Warkentin <andreiw@motorola.com>
-Subject: [PATCH] Bridge: Always send NETDEV_CHANGEADDR up on br MAC change.
-Date: Thu,  4 Aug 2011 20:55:49 -0500
-Message-ID: <1312509349-23363-2-git-send-email-andreiw@motorola.com>
-References: <1312509349-23363-1-git-send-email-andreiw@motorola.com>
-Cc: Andrei Warkentin <andreiw@motorola.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [forcedeth bug] Re: [GIT] Networking
+Date: Fri, 5 Aug 2011 14:31:37 +0200
+Message-ID: <20110805123136.GF1928@minipsycho.orion>
+References: <20110722.073339.1236244143490935644.davem@davemloft.net>
+ <20110801151308.GA31256@elte.hu>
+ <20110804215354.GA7056@elte.hu>
+ <20110805102239.GB1928@minipsycho.orion>
+ <20110805102903.GF2420@elte.hu>
+ <20110805112557.GD1928@minipsycho.orion>
+ <20110805121855.GC13055@elte.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og106.obsmtp.com ([64.18.0.182]:34196 "EHLO
-	exprod5og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609Ab1HEMb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 08:31:28 -0400
-Received: from il93mgrg01.am.mot-mobility.com ([10.176.129.42])
-	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p751xCXq006769
-	for <netdev@vger.kernel.org>; Thu, 4 Aug 2011 21:59:13 -0400 (EDT)
-Received: from mail-iy0-f170.google.com (mail-iy0-f170.google.com [209.85.210.170])
-	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p751xCHA006759
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 4 Aug 2011 21:59:12 -0400 (EDT)
-Received: by iye16 with SMTP id 16so2709591iye.29
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2011 19:02:37 -0700 (PDT)
-In-Reply-To: <1312509349-23363-1-git-send-email-andreiw@motorola.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1029 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755799Ab1HEMbv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2011 08:31:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20110805121855.GC13055@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ensures the neighbor entries associated with the bridge
-dev are flushed, also invalidating the associated cached L2 headers.
+Fri, Aug 05, 2011 at 02:18:55PM CEST, mingo@elte.hu wrote:
+>
+>* Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>> >> Is DEV_HAS_VLAN set in id->driver_data (L5344) ?
+>> >
+>> >How do i tell that without hacking the driver?
+>> 
+>> look in dmesg for line like:
+>> "forcedeth 0000:00:08.0: highdma csum vlan pwrctl mgmt gbit lnktim msi
+>> desc-v3"
+>> 
+>> if "vlan" is there, DEV_HAS_VLAN is set
+>
+>[    3.534489] forcedeth 0000:00:0a.0: highdma csum gbit lnktim desc-v3
+>
+>Note, this is a pretty old system with an old nvidia chipset and 
+>on-board ethernet:
+>
+>00:0a.0 Bridge: nVidia Corporation CK804 Ethernet Controller (rev a3)
+>        Subsystem: ASUSTeK Computer Inc. K8N4-E Mainboard
+>        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>        Latency: 0 (250ns min, 5000ns max)
+>        Interrupt: pin A routed to IRQ 11
+>        Region 0: Memory at da100000 (32-bit, non-prefetchable) [size=4K]
+>        Region 1: I/O ports at d000 [size=8]
+>        Capabilities: [44] Power Management version 2
+>                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>                Status: D0 PME-Enable+ DSel=0 DScale=0 PME-
 
-This means we br_add_if/br_del_if ports to implement hand-over and
-not wind up with bridge packets going out with stale MAC.
+Please do lspci -nn
 
-This means we can also change MAC of port device and also not wind
-up with bridge packets going out with stale MAC.
+There are two CK804 chips:
+0x10DE, 0x0056
+0x10DE, 0x0057
 
-This builds on Stephen Hemminger's patch, also handling the br_del_if
-case, port MAC change case, and bridge MAC manual assignment case.
+I have only the second one handy - Getting the machine as we speak.
 
-Change-Id: I6039ba021006f854e0e7e83dd1c4261c500aeab7
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: Andrei Warkentin <andreiw@motorola.com>
----
- net/bridge/br_device.c |    1 +
- net/bridge/br_if.c     |    6 +++++-
- net/bridge/br_notify.c |    2 ++
- net/bridge/br_stp_if.c |    2 +-
- 4 files changed, 9 insertions(+), 2 deletions(-)
+Jirka
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index cf09fe5..ef18070 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -162,6 +162,7 @@ static int br_set_mac_address(struct net_device *dev, void *p)
- 	br->flags |= BR_SET_MAC_ADDR;
- 	spin_unlock_bh(&br->lock);
- 
-+	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
- 	return 0;
- }
- 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 204e542..36ad887 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -481,6 +481,7 @@ put_back:
- int br_del_if(struct net_bridge *br, struct net_device *dev)
- {
- 	struct net_bridge_port *p;
-+	bool changed_addr;
- 
- 	if (!br_port_exists(dev))
- 		return -EINVAL;
-@@ -492,10 +493,13 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- 	del_nbp(p);
- 
- 	spin_lock_bh(&br->lock);
--	br_stp_recalculate_bridge_id(br);
-+	changed_addr = br_stp_recalculate_bridge_id(br);
- 	br_features_recompute(br);
- 	spin_unlock_bh(&br->lock);
- 
-+	if (changed_addr)
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
-+
- 	return 0;
- }
- 
-diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
-index 404d4e1..c7160b1 100644
---- a/net/bridge/br_notify.c
-+++ b/net/bridge/br_notify.c
-@@ -53,6 +53,8 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
- 		br_fdb_changeaddr(p, dev->dev_addr);
- 		br_stp_recalculate_bridge_id(br);
- 		spin_unlock_bh(&br->lock);
-+
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
- 		break;
- 
- 	case NETDEV_CHANGE:
-diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index c0990ba..4528e9a 100644
---- a/net/bridge/br_stp_if.c
-+++ b/net/bridge/br_stp_if.c
-@@ -213,7 +213,7 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
- 
- 	/* user has chosen a value so keep it */
- 	if (br->flags & BR_SET_MAC_ADDR)
--		return;
-+		return false;
- 
- 	list_for_each_entry(p, &br->port_list, list) {
- 		if (addr == br_mac_zero ||
--- 
-1.7.0.4
-
+>
+>Thanks,
+>
+>	Ingo
