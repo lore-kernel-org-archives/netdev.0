@@ -1,83 +1,77 @@
 From: <rongqing.li@windriver.com>
-Subject: [PATCH 1/5] Define the function to write sock's security context to seq_file.
-Date: Fri, 5 Aug 2011 16:58:02 +0800
-Message-ID: <1312534686-4099-2-git-send-email-rongqing.li@windriver.com>
+Subject: [PATCH 3/5] Export the udp sock's security context to proc.
+Date: Fri, 5 Aug 2011 16:58:04 +0800
+Message-ID: <1312534686-4099-4-git-send-email-rongqing.li@windriver.com>
 References: <1312534686-4099-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34182 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:34212 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753895Ab1HEI6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 04:58:10 -0400
+	with ESMTP id S1753895Ab1HEI6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 04:58:13 -0400
 In-Reply-To: <1312534686-4099-1-git-send-email-rongqing.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roy.Li <rongqing.li@windriver.com>
 
-This function will write the sock's security context to a seq_file
-and return the error code, and the number of characters successfully
-written is written in int pointers parameter.
-
-This function will be called when export socket information to proc.
+Export the udp sock's security context to proc, since it maybe
+different from the sock's owner process security context.
 
 Signed-off-by: Roy.Li <rongqing.li@windriver.com>
 ---
- include/net/sock.h |    1 +
- net/core/sock.c    |   26 ++++++++++++++++++++++++++
- 2 files changed, 27 insertions(+), 0 deletions(-)
+ net/ipv4/udp.c |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 8e4062f..0366ab1 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1828,6 +1828,7 @@ static inline struct sock *skb_steal_sock(struct sk_buff *skb)
- extern void sock_enable_timestamp(struct sock *sk, int flag);
- extern int sock_get_timestamp(struct sock *, struct timeval __user *);
- extern int sock_get_timestampns(struct sock *, struct timespec __user *);
-+extern int sock_write_secctx(struct sock *sk, struct seq_file *seq, int *len);
- 
- /* 
-  *	Enable debug/info messages 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index bc745d0..1126a49 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2254,6 +2254,32 @@ void sk_common_release(struct sock *sk)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 1b5a193..e64b858 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2089,6 +2089,7 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
+ 		int bucket, int *len)
+ {
+ 	struct inet_sock *inet = inet_sk(sp);
++	int sclen;
+ 	__be32 dest = inet->inet_daddr;
+ 	__be32 src  = inet->inet_rcv_saddr;
+ 	__u16 destp	  = ntohs(inet->inet_dport);
+@@ -2102,21 +2103,29 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+ 		atomic_read(&sp->sk_refcnt), sp,
+ 		atomic_read(&sp->sk_drops), len);
++
++	sock_write_secctx(sp, f, &sclen);
++	*len += sclen;
  }
- EXPORT_SYMBOL(sk_common_release);
  
-+int sock_write_secctx(struct sock *sk, struct seq_file *seq, int *len)
-+{
-+	struct flowi fl;
-+	char *ctx = NULL;
-+	u32 ctxlen;
-+	int res = 0;
+ int udp4_seq_show(struct seq_file *seq, void *v)
+ {
+-	if (v == SEQ_START_TOKEN)
+-		seq_printf(seq, "%-127s\n",
++	int len;
 +
-+	*len = 0;
-+
-+	if (sk == NULL)
-+		return -EINVAL;
-+	res = security_socket_getsockname(sk->sk_socket);
-+	if (res)
-+		return res;
-+
-+	security_sk_classify_flow(sk, &fl);
-+
-+	res = security_secid_to_secctx(fl.flowi_secid, &ctx, &ctxlen);
-+	if (res)
-+		return res;
-+
-+	seq_printf(seq, " %s%n", ctx, len);
-+	security_release_secctx(ctx, ctxlen);
-+	return res;
-+}
-+
- static DEFINE_RWLOCK(proto_list_lock);
- static LIST_HEAD(proto_list);
++	if (v == SEQ_START_TOKEN) {
++		seq_printf(seq,
+ 			   "  sl  local_address rem_address   st tx_queue "
+ 			   "rx_queue tr tm->when retrnsmt   uid  timeout "
+-			   "inode ref pointer drops");
++			   "inode ref pointer drops%n",
++			   &len);
++		seq_printf(seq, "%-*s\n", 150 - len,
++			   (selinux_is_enabled() ? "  scontext" : ""));
++	}
+ 	else {
+ 		struct udp_iter_state *state = seq->private;
+-		int len;
  
+ 		udp4_format_sock(v, seq, state->bucket, &len);
+-		seq_printf(seq, "%*s\n", 127 - len, "");
++		seq_printf(seq, "%*s\n", 150 - len, "");
+ 	}
+ 	return 0;
+ }
 -- 
 1.7.1
 
