@@ -1,68 +1,111 @@
-From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
-Subject: Re: r8169 driver crashes in 2.6.32.43
-Date: Fri, 5 Aug 2011 16:08:15 +0200
-Message-ID: <20110805140047.GA19758@colin.search.kasperd.net>
-References: <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com> <20110728114305.GA24549@colin.search.kasperd.net> <20110728115936.GC24549@colin.search.kasperd.net> <20110728122328.GA11424@electric-eye.fr.zoreil.com> <20110728124548.GA24762@colin.search.kasperd.net> <20110728125437.GA24876@colin.search.kasperd.net> <20110728144719.GA11465@electric-eye.fr.zoreil.com> <20110728210112.GA25953@colin.search.kasperd.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [forcedeth bug] Re: [GIT] Networking
+Date: Fri, 5 Aug 2011 16:37:33 +0200
+Message-ID: <20110805143732.GH1928@minipsycho.orion>
+References: <20110722.073339.1236244143490935644.davem@davemloft.net>
+ <20110801151308.GA31256@elte.hu>
+ <20110804215354.GA7056@elte.hu>
+ <20110805102239.GB1928@minipsycho.orion>
+ <20110805102903.GF2420@elte.hu>
+ <20110805112557.GD1928@minipsycho.orion>
+ <20110805121855.GC13055@elte.hu>
+ <20110805123136.GF1928@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nfitmail.nfit.au.dk ([130.225.31.129]:29426 "EHLO
-	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752917Ab1HEOIV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 10:08:21 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:29782 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753216Ab1HEOiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2011 10:38:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20110728210112.GA25953@colin.search.kasperd.net>
+In-Reply-To: <20110805123136.GF1928@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I did a bit more of experiments. I took the unmodified
-2.6.32.43 kernel and added printk statements to see when
-it entered the interrupt handler and when it left it.
+Fri, Aug 05, 2011 at 02:31:37PM CEST, jpirko@redhat.com wrote:
+>Fri, Aug 05, 2011 at 02:18:55PM CEST, mingo@elte.hu wrote:
+>>
+>>* Jiri Pirko <jpirko@redhat.com> wrote:
+>>
+>>> >> Is DEV_HAS_VLAN set in id->driver_data (L5344) ?
+>>> >
+>>> >How do i tell that without hacking the driver?
+>>> 
+>>> look in dmesg for line like:
+>>> "forcedeth 0000:00:08.0: highdma csum vlan pwrctl mgmt gbit lnktim msi
+>>> desc-v3"
+>>> 
+>>> if "vlan" is there, DEV_HAS_VLAN is set
+>>
+>>[    3.534489] forcedeth 0000:00:0a.0: highdma csum gbit lnktim desc-v3
+>>
+>>Note, this is a pretty old system with an old nvidia chipset and 
+>>on-board ethernet:
+>>
+>>00:0a.0 Bridge: nVidia Corporation CK804 Ethernet Controller (rev a3)
+>>        Subsystem: ASUSTeK Computer Inc. K8N4-E Mainboard
+>>        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+>>        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+>>        Latency: 0 (250ns min, 5000ns max)
+>>        Interrupt: pin A routed to IRQ 11
+>>        Region 0: Memory at da100000 (32-bit, non-prefetchable) [size=4K]
+>>        Region 1: I/O ports at d000 [size=8]
+>>        Capabilities: [44] Power Management version 2
+>>                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+>>                Status: D0 PME-Enable+ DSel=0 DScale=0 PME-
+>
+>Please do lspci -nn
+>
+>There are two CK804 chips:
+>0x10DE, 0x0056
+>0x10DE, 0x0057
+>
+>I have only the second one handy - Getting the machine as we speak.
 
-That way I was able to confirm that the system locked
-up inside the interrupt handler.
+I'm unable to see problems you are referring to on my machine.
 
-Next I added printk statements to see how many times the
-loop in the interrupt handler was run. It seemed that
-when it locked up inside the handler it would run the
-loop just two times and then lock up before leaving the
-handler.
+Would you please try following patch if it fixes your issue? It's
+in fact returning everything back to the original state (for your card).
 
-I added more printk statements to see which branches were
-taken inside the loop. Unfortunately those printk
-statements changed the timing enough that the crashes
-were no longer as reproducable.
-
-I saw a pattern repeating. It would do the stop queue
-thing, then leave the handler and while not inside this
-interrupt handler there would be a message about the
-interface coming up again. Seems like it was doing stop
-queue calls much more frequently than it should be.
-
-After a few attempts I managed to get it to lock up again
-with all the printk statements in place. What I found was
-that in the beginning of the loop status was 0x85. It
-would then call the napi event code. At the end of the
-first itteration of the loop status was 0.
-
-At that point it did not itterate through the loop again
-and it did not leave the interrupt handler either. I'll
-power cycle the machine and take a closer look on the
-source to see what could possible be happening at that
-point.
-
-I also did a bit of testing with the patches that causes
-it to drop the network instead of crashing. On those I
-am able to bring up the second interface and get data off
-the machine for debugging, so if there is any debug info
-you think would be useful in those cases, let me know.
-
---=20
-Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
-#define _(_)"d.%.4s%."_"2s" /* This is my email address */
-char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
-,_+6);
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index e55df30..d7d43d4 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -2763,18 +2763,18 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 			prefetch(skb->data);
+ 
+-			vlanflags = le32_to_cpu(np->get_rx.ex->buflow);
+-
+ 			/*
+ 			 * There's need to check for NETIF_F_HW_VLAN_RX here.
+ 			 * Even if vlan rx accel is disabled,
+ 			 * NV_RX3_VLAN_TAG_PRESENT is pseudo randomly set.
+ 			 */
+-			if (dev->features & NETIF_F_HW_VLAN_RX &&
+-			    vlanflags & NV_RX3_VLAN_TAG_PRESENT) {
+-				u16 vid = vlanflags & NV_RX3_VLAN_TAG_MASK;
++			if (dev->features & NETIF_F_HW_VLAN_RX) {
++				vlanflags = le32_to_cpu(np->get_rx.ex->buflow);
++				if (vlanflags & NV_RX3_VLAN_TAG_PRESENT) {
++					u16 vid = vlanflags & NV_RX3_VLAN_TAG_MASK;
+ 
+-				__vlan_hwaccel_put_tag(skb, vid);
++					__vlan_hwaccel_put_tag(skb, vid);
++				}
+ 			}
+ 			napi_gro_receive(&np->napi, skb);
+ 
+@@ -5615,7 +5615,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 		goto out_error;
+ 	}
+ 
+-	nv_vlan_mode(dev, dev->features);
++	//nv_vlan_mode(dev, dev->features);
+ 
+ 	netif_carrier_off(dev);
+ 
