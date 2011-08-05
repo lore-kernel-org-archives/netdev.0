@@ -1,218 +1,104 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH 2/3] net: Cap number of elements for sendmmsg
-Date: Fri, 05 Aug 2011 13:29:29 +0900
-Message-ID: <201108050429.p754TTBa030939@www262.sakura.ne.jp>
-References: <20110805000737.743684961@samba.org> <20110805000822.327910762@samba.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCHv3] Bridge: Always send NETDEV_CHANGEADDR up on br MAC
+ change.
+Date: Thu, 4 Aug 2011 21:36:05 -0700
+Message-ID: <20110804213605.31be6131@nehalam.ftrdhcpuser.net>
+References: <1312509349-23363-1-git-send-email-andreiw@motorola.com>
+	<1312510625-26596-2-git-send-email-andreiw@motorola.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	davem@davemloft.net, eparis@parisplace.org, casey@schaufler-ca.com,
-	mjt@tls.msk.ru
-To: anton@samba.org, acme@redhat.com
+Cc: netdev@vger.kernel.org
+To: Andrei Warkentin <andreiw@motorola.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:64291 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766Ab1HEE3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 00:29:31 -0400
-In-Reply-To: <20110805000822.327910762@samba.org>
+Received: from mail.vyatta.com ([76.74.103.46]:54106 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751128Ab1HEEf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2011 00:35:57 -0400
+In-Reply-To: <1312510625-26596-2-git-send-email-andreiw@motorola.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anton Blanchard wrote:
-> To limit the amount of time we can spend in sendmmsg, cap the
-> number of elements to UIO_MAXIOV (currently 1024). 
-> 
-> For error handling an application using sendmmsg needs to retry at
-> the first unsent message, so capping is simpler and requires less
-> application logic than returning EINVAL.
-> 
-> Signed-off-by: Anton Blanchard <anton@samba.org>
-> Cc: stable <stable@kernel.org> [3.0+]
+On Thu,  4 Aug 2011 21:17:05 -0500
+Andrei Warkentin <andreiw@motorola.com> wrote:
 
-I think 1024 is a reasonable value.
-But I also worry that programmers may wish to send more.
+Half ok, half not.
 
+> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+> index cf09fe5..ef18070 100644
+> --- a/net/bridge/br_device.c
+> +++ b/net/bridge/br_device.c
+> @@ -162,6 +162,7 @@ static int br_set_mac_address(struct net_device *dev, void *p)
+>  	br->flags |= BR_SET_MAC_ADDR;
+>  	spin_unlock_bh(&br->lock);
+>  
+> +	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+>  	return 0;
+>  }
 
-Apart from the upper limit for vlen argument of sendmmsg()/recvmmsg(),
-we need to deal with stall problem (described below).
+This is unnecessary since already done by dev_set_mac_address.
 
+> @@ -492,10 +493,13 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+>  	del_nbp(p);
+>  
+>  	spin_lock_bh(&br->lock);
+> -	br_stp_recalculate_bridge_id(br);
+> +	changed_addr = br_stp_recalculate_bridge_id(br);
+>  	br_features_recompute(br);
+>  	spin_unlock_bh(&br->lock);
+>  
+> +	if (changed_addr)
+> +		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+> +
+>  	return 0;
+>  }
+>  
+Good, I forgot that case.
 
+> diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+> index 404d4e1..651eac3 100644
+> --- a/net/bridge/br_notify.c
+> +++ b/net/bridge/br_notify.c
+> @@ -34,6 +34,7 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+>  	struct net_device *dev = ptr;
+>  	struct net_bridge_port *p = br_port_get(dev);
+>  	struct net_bridge *br;
+> +	bool changed_addr;
+>  	int err;
+>  
+>  	/* not a port of a bridge */
+> @@ -51,8 +52,11 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+>  	case NETDEV_CHANGEADDR:
+>  		spin_lock_bh(&br->lock);
+>  		br_fdb_changeaddr(p, dev->dev_addr);
+> -		br_stp_recalculate_bridge_id(br);
+> +		changed_addr = br_stp_recalculate_bridge_id(br);
+>  		spin_unlock_bh(&br->lock);
+> +
+> +		if (changed_addr)
+> +			call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+>  		break;
+>  
+>  	case NETDEV_CHANGE:
 
-It may be possible to abuse sendmmsg() which was introduced in Linux 3.0 and
-recvmmsg() which was introduced in Linux 2.6.33 for triggering CPU stall
-warning.
+This is also fine.
 
-I ran below program
+> iff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+> index c0990ba..4528e9a 100644
+> --- a/net/bridge/br_stp_if.c
+> +++ b/net/bridge/br_stp_if.c
+> @@ -213,7 +213,7 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
+>  
+>  	/* user has chosen a value so keep it */
+>  	if (br->flags & BR_SET_MAC_ADDR)
+> -		return;
+> +		return false;
+>  
+>  	list_for_each_entry(p, &br->port_list, list) {
+>  		if (addr == br_mac_zero ||
 
----------- Test program start ----------
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <asm/unistd.h>
-#include <errno.h>
-
-#ifndef __NR_sendmmsg
-#if defined( __PPC__)
-#define __NR_sendmmsg	349
-#elif defined(__x86_64__)
-#define __NR_sendmmsg	307
-#elif defined(__i386__)
-#define __NR_sendmmsg	345
-#else
-#error __NR_sendmmsg not defined
-#endif
-#endif
-
-struct mmsghdr {
-	struct msghdr msg_hdr;
-	unsigned int msg_len;
-};
-
-static inline int sendmmsg(int fd, struct mmsghdr *mmsg, unsigned vlen,
-			   unsigned flags)
-{
-	return syscall(__NR_sendmmsg, fd, mmsg, vlen, flags, NULL);
-}
-
-#define NUMBATCH (1048576 * 64)
-
-int main(int argc, char *argv[])
-{
-	const int fd = socket(AF_INET, SOCK_DGRAM, 0);
-	struct mmsghdr *datagrams;
-	unsigned int i;
-	struct iovec iovec = { };
-	struct sockaddr_in addr = { };
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	addr.sin_port = htons(10000);
-	datagrams = calloc(sizeof(*datagrams), NUMBATCH);
-	for (i = 0; i < NUMBATCH; ++i) {
-		datagrams[i].msg_hdr.msg_iov = &iovec;
-		datagrams[i].msg_hdr.msg_iovlen = 1;
-		datagrams[i].msg_hdr.msg_name = &addr;
-		datagrams[i].msg_hdr.msg_namelen = sizeof(addr);
-	}
-	printf("Calling sendmmsg()\n");
-	printf("%d\n", sendmmsg(fd, datagrams, NUMBATCH, 0));
-	printf("Done\n");
-	return 0;
-}
----------- Test program end ----------
-
-and got below output.
-
-# time ./a.out
-Calling sendmmsg()
-INFO: rcu_sched_state detected stall on CPU 0 (t=15000 jiffies)
-67108864
-Done
-
-real    2m48.736s
-user    0m0.128s
-sys     0m16.489s
+This is already in net-next.
 
 
 
-If this application created threads that matches number of CPUs available, and
-entered into sendmmsg(), the machine will hang for many seconds.
 
-Also, signals are ignored when this application is in sendmmsg(). That is,
-if this application is holding much RAM (like above program) and is selected by
-OOM-killer, this application cannot be killed until returns from sendmmsg().
-
-Applying below patch solves the stall message and signal delaying problem.
-----------------------------------------
-[PATCH] net: Fix sendmmsg() stall problem.
-
-If the caller passed a huge value (e.g. 64M) to vlen argument of sendmmsg(),
-the caller triggers "INFO: rcu_sched_state detected stall on CPU X" message
-because there is no chance to call scheduler. Thus give a chance to call
-scheduler and also check for pending signal.
-
-Also, if the caller passed a value where IS_ERR() returns true (e.g. UINT_MAX),
-the caller will get EOF and errno will be set to (e.g.) EPERM when all
-datagrams are successfully sent. Thus, limit the max value of vlen to INT_MAX.
-
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Cc: stable <stable@kernel.org> [3.0+]
----
- net/socket.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
---- linux-3.0.orig/net/socket.c
-+++ linux-3.0/net/socket.c
-@@ -1999,6 +1999,8 @@ int __sys_sendmmsg(int fd, struct mmsghd
- 	struct compat_mmsghdr __user *compat_entry;
- 	struct msghdr msg_sys;
- 
-+	if ((int) vlen < 0)
-+		return -EINVAL;
- 	datagrams = 0;
- 
- 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
-@@ -2035,6 +2037,9 @@ int __sys_sendmmsg(int fd, struct mmsghd
- 		if (err)
- 			break;
- 		++datagrams;
-+		cond_resched();
-+		if (signal_pending(current))
-+			break;
- 	}
- 
- out_put:
-----------------------------------------
-
-The situation is similar regaring recvmmsg(). Although recvmmsg() less likely
-stalls than sendmmsg() does, it could happen if a huge number of datagrams are
-in the socket's receive queue and the caller attempted to fetch all of them at
-once. Thus, we may want below patch as well.
-
-----------------------------------------
-[PATCH] net: Fix recvmmsg() stall problem.
-
-If the caller passed a huge value to vlen argument of recvmmsg() and there are
-enough datagrams in the socket's receive queue, trying to pick up all at once
-may trigger "INFO: rcu_sched_state detected stall on CPU X" message because
-there is no chance to call scheduler. Thus give a chance to call scheduler and
-also check for pending signal.
-
-Also, if the caller passed a value where IS_ERR() returns true (e.g. UINT_MAX),
-the caller will get EOF and errno will be set to (e.g.) EPERM when all
-datagrams are successfully received. Thus, limit the max value of vlen to
-INT_MAX.
-
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Cc: stable <stable@kernel.org> [2.6.33+]
----
- net/socket.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
---- linux-3.0.orig/net/socket.c
-+++ linux-3.0/net/socket.c
-@@ -2204,6 +2204,8 @@ int __sys_recvmmsg(int fd, struct mmsghd
- 	struct msghdr msg_sys;
- 	struct timespec end_time;
- 
-+	if ((int) vlen < 0)
-+		return -EINVAL;
- 	if (timeout &&
- 	    poll_select_set_timeout(&end_time, timeout->tv_sec,
- 				    timeout->tv_nsec))
-@@ -2247,6 +2249,9 @@ int __sys_recvmmsg(int fd, struct mmsghd
- 		if (err)
- 			break;
- 		++datagrams;
-+		cond_resched();
-+		if (signal_pending(current))
-+			break;
- 
- 		/* MSG_WAITFORONE turns on MSG_DONTWAIT after one packet */
- 		if (flags & MSG_WAITFORONE)
-----------------------------------------
