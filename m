@@ -1,67 +1,59 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH 1/3] net: sendmmsg should only return an error if no
-	messages were sent
-Date: Fri, 5 Aug 2011 11:40:27 -0300
-Message-ID: <20110805144027.GA7560@ghostprotocols.net>
-References: <20110805000737.743684961@samba.org> <20110805000822.240895823@samba.org> <201108050357.p753vtpO022773@www262.sakura.ne.jp> <1312532408.2762.4.camel@menhir>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Fw: [Bug 39132] Starting with 3.0.0-rc6, masquerading seems to
+ be broken.
+Date: Fri, 5 Aug 2011 18:16:43 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108051744480.29588@ja.ssi.bg>
+References: <20110804193107.68d93727@schatten.dmk.lab> <alpine.LFD.2.00.1108042131040.1495@ja.ssi.bg> <8A188C9C23A54337A5A276BAE29DC6E0@delorimier>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	rdenis@simphalempin.com, netdev@vger.kernel.org
-To: Steven Whitehouse <swhiteho@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Florian Mickler <florian@mickler.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	bugzilla-daemon@bugzilla.kernel.org
+To: David Hill <hilld@binarystorm.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37947 "EHLO mx1.redhat.com"
+Received: from ja.ssi.bg ([178.16.129.10]:33709 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756648Ab1HEOke (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 10:40:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1312532408.2762.4.camel@menhir>
+	id S1753817Ab1HEPPP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2011 11:15:15 -0400
+In-Reply-To: <8A188C9C23A54337A5A276BAE29DC6E0@delorimier>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Fri, Aug 05, 2011 at 09:20:08AM +0100, Steven Whitehouse escreveu:
-> On Fri, 2011-08-05 at 12:57 +0900, Tetsuo Handa wrote:
-> > Anton Blanchard wrote:
-> > > sendmmsg uses a similar error return strategy as recvmmsg but it
-> > > turns out to be a confusing way to communicate errors.
-> > > 
-> > > The current code stores the error code away and returns it on the next
-> > > sendmmsg call. This means a call with completely valid arguments could
-> > > get an error from a previous call.
-> > > 
-> > > Change things so we only return an error if no datagrams could be sent.
-> > > If less than the requested number of messages were sent, the application
-> > > must retry starting at the first failed one and if the problem is
-> > > persistent the error will be returned.
-> > > 
-> > > This matches the behaviour of other syscalls like read/write - it
-> > > is not an error if less than the requested number of elements are sent.
-> > 
-> > OK. David S. Miller suggested this behavior and Anton Blanchard agreed with
-> > this behavior.
-> > 
-> > Quoting from commit a2e27255 "net: Introduce recvmmsg socket syscall":
-> > | . R?mi Denis-Courmont & Steven Whitehouse: If we receive N < vlen
-> > |   datagrams and then recvmsg returns an error, recvmmsg will return
-> > |   the successfully received datagrams, store the error and return it
-> > |   in the next call.
-> > 
-> > R?mi Denis-Courmont, Steven Whitehouse and Arnaldo Carvalho de Melo, do you
-> > want to change recvmmsg()'s behaviour as well?
-> 
-> Since I've joined this part way through it seems, I'm assuming that if
-> something was sent/received then that will be returned and the error
-> stored until the next call. If nothing was sent/received then the error
-> can be returned immediately.
-> 
-> That is what I'd expect to be the case, since otherwise it is impossible
-> to know how much has been successfully sent/received in the partial
-> failure case, I think. Also it means that sendmmesg/recvmmsg matches
-> sendmsg/recvmsg in terms of expected return values and thus the
-> principle of least surprise.
-> 
-> So if thats what is being proposed, then it sounds good to me,
 
-Sounds sane to me too.
+	Hello,
 
-- Arnaldo
+On Fri, 5 Aug 2011, David Hill wrote:
+
+>    I'm not using TPROXY and I've used a blank firewall with only masquerading
+> and reproduced the issue.
+> Nothing is in NAT/mangle nor OUTPUT  but the rules mentionned in the attached
+> files to this bug.
+> 
+> Francis Whittle  (Comment #18) has the same issue.
+
+	I compiled 3.0 kernel, added one -j MASQUERADE and
+tried TCP connection - it works. I'm not sure ip_route_me_harder
+is called for masqueraded traffic, usually it is called
+from LOCAL_OUT handlers or to send TCP RST (-j REJECT) via
+LOCAL_OUT, not for forwarded traffic.
+
+	Can you show lines of tcpdump output with addresses and
+ports, so that I can understand what kind of traffic is
+dropped, is it initial forwarded packet or its response,
+is it problem with some ICMP packets, I assume there is
+no problem with locally generated traffic.
+
+	Can you show output from:
+
+# grep . /proc/sys/net/ipv4/conf/*/rp_filter
+# grep . /proc/sys/net/ipv4/conf/*/send_redirects
+
+	If it works with -rc5 it should not be rp_filter,
+for NAT, problem can be with ICMP redirects or something else.
+Can you tell us if the internal and external devices are
+same or may be many.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
