@@ -1,66 +1,112 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCHv2 NEXT 1/1] netxen: add vlan accel support
-Date: Fri, 5 Aug 2011 06:04:10 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80FE464EF99@MNEXMB2.qlogic.org>
-References: <1312536015-21719-2-git-send-email-amit.salecha@qlogic.com>
-	<20110805.024247.1468547132343070339.davem@davemloft.net>
-	<99737F4847ED0A48AECC9F4A1974A4B80FE464EF82@MNEXMB2.qlogic.org>
- <20110805.032606.1214964517719657458.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [forcedeth bug] Re: [GIT] Networking
+Date: Fri, 5 Aug 2011 07:12:31 -0400
+Message-ID: <20110805111231.GA29466@hmsreliant.think-freely.org>
+References: <20110722.073339.1236244143490935644.davem@davemloft.net>
+ <20110801151308.GA31256@elte.hu>
+ <20110804215354.GA7056@elte.hu>
+ <20110805102239.GB1928@minipsycho.orion>
+ <20110805102903.GF2420@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>, David Miller <davem@davemloft.net>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:1100 "EHLO
-	VA3EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753006Ab1HELES convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 07:04:18 -0400
-In-Reply-To: <20110805.032606.1214964517719657458.davem@davemloft.net>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53163 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753196Ab1HELMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 07:12:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20110805102903.GF2420@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, August 05, 2011 3:56 PM
+On Fri, Aug 05, 2011 at 12:29:03PM +0200, Ingo Molnar wrote:
 > 
-> From: Amit Salecha <amit.salecha@qlogic.com>
-> Date: Fri, 5 Aug 2011 05:12:37 -0500
+> * Jiri Pirko <jpirko@redhat.com> wrote:
 > 
-> > After fw recovery we don't get vlan devices by any kernel api, so we
-> > are adding NETIF_VLAN_ACC support.  Earlier kernel had vlan group
-> > support, through that we get vlan devices and then their ip
-> > addresses.
+> > Thu, Aug 04, 2011 at 11:53:54PM CEST, mingo@elte.hu wrote:
+> > >
+> > >* Ingo Molnar <mingo@elte.hu> wrote:
+> > >
+> > >>  0891b0e08937: forcedeth: fix vlans
+> > >
+> > >Hm, forcedeth is still giving me trouble even on latest -git that has 
+> > >the above fix included.
+> > >
+> > >The symptom is a stuck interface, no packets in. There's a frame 
+> > >error RX packet:
+> > >
+> > > [root@mercury ~]# ifconfig eth0
+> > > eth0      Link encap:Ethernet  HWaddr 00:13:D4:DC:41:12  
+> > >           inet addr:10.0.1.13  Bcast:10.0.1.255  Mask:255.255.255.0
+> > >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> > >           RX packets:0 errors:1 dropped:0 overruns:0 frame:1
+> > >           TX packets:531 errors:0 dropped:0 overruns:0 carrier:0
+> > >           collisions:0 txqueuelen:1000 
+> > >           RX bytes:0 (0.0 b)  TX bytes:34112 (33.3 KiB)
+> > >           Interrupt:35 
+> > >
+> > >Weirdly enough a defconfig x86 bootup works just fine - it's certain 
+> > >.config combinations that trigger the bug. I've attached such a 
+> > >config.
+> > >
+> > >Note that at least once i've observed a seemingly good kernel going 
+> > >'bad' after a couple of minutes uptime. I've also observed 
+> > >intermittent behavior - apparent lost packets and a laggy network.
+> > >
+> > >I have done 3 failed attempts to bisect it any further - i got to the 
+> > >commit that got fixed by:
+> > >
+> > >  0891b0e08937: forcedeth: fix vlans
+> > >
+> > >... but that's something we already knew.
+> > >
+> > >Let me know if there's any data i can provide to help debug this 
+> > >problem.
+> > >
+> > >Thanks,
+> > >
+> > >	Ingo
+> > 
+> > Interesting.
+> > 
+> > Is DEV_HAS_VLAN set in id->driver_data (L5344) ?
 > 
-> Every time an IP address is added or removed there is a notification
-> generated on the "inetaddr_chain", and you seem to be properly using
-> this.
+Looks like you can match it to pci id.  Device ids 0x0372 and 0x0373 look to
+have the flag set
+
+> How do i tell that without hacking the driver?
 > 
-> You have the VLAN device expansion in there as well.
+> > If so, would you try to disable both rx an tx vlan accel using 
+> > ethtool and see if it helps?
 > 
-> Why doesn't this work?
+> Should i do that when the device is in a stuck state and see whether 
+> it recovers?
 > 
-> The IP addresses cannot be added or removed from the VLAN device
-> until it is attached to your device.  So you should see any IP
-> address manipulation that occurs for VLANs stacked on top of
-> your device.
->
+> Also, please provide the exact ethtool command sequences i should 
+> try, this makes it easier for me to test exactly what you want me to 
+> test.
+> 
+should be:
+ethtool -K ethX rxvlan off txvlan off
 
-This is true, but problem is after fw recovery. So flow is 
-1) vlan device added
-2) Driver program ip address of vlan device (through inet events)
-3) Fw recovery
-4) After fw recovery driver need to program ip addresses again which were already programmed.
-   After fw recovery there won't be any inet/netdev event.
+I'm just poking about, but If I had to guess it looks like the card you have
+ingo is an older forcedeth and uses the older format ring descriptor (I base
+this on the fact that the rx error count noted above only gets incremented ni
+nv_rx_process, but not nv_rx_process_optimized.  Both paths should support hw
+vlan acceleration though and Jiris fixes for vlan hw rx acceleration were only
+applied to the optimized path.
 
-Simple solution is to maintain those ip addresses in driver.
+Neil
 
-It can be more easier, if we can get vlan ip addresses(or vlan device) by some kernel api.
-
--Amit
- 
-
-
+> Thanks,
+> 
+> 	Ingo
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
