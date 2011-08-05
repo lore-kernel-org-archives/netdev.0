@@ -1,38 +1,31 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] netfilter: avoid double free in nf_reinject
-Date: Fri, 5 Aug 2011 13:36:28 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1108051326300.1494@ja.ssi.bg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net 0/6][pull request] Intel Wired LAN Driver Update
+Date: Fri, 05 Aug 2011 03:35:11 -0700 (PDT)
+Message-ID: <20110805.033511.228784191049127261.davem@davemloft.net>
+References: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Kumar Swamy <kswamy@barracuda.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35123 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754774Ab1HEKcA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2011 06:32:00 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:48096 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755932Ab1HEKff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 06:35:35 -0400
+In-Reply-To: <1312460298-20405-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  4 Aug 2011 05:18:12 -0700
 
-	NF_STOLEN means skb was already freed
+> The following series contains updates to e1000, e1000e, igb, igbvf,
+> ixgb and ixgbe.
+> 
+> The following are changes since commit d3e614577198757d5854caa912e88f2d4296479b:
+>   macb: restore wrap bit when performing underrun cleanup
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net master
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
-
-	May be fixes IPVS+ip_queue problem reported by Kumar Swamy:
-
-	http://marc.info/?l=linux-virtual-server&m=131098073717449&w=2
-
-diff -urp v3.0/linux/net/netfilter/nf_queue.c linux/net/netfilter/nf_queue.c
---- v3.0/linux/net/netfilter/nf_queue.c	2011-05-20 10:38:08.000000000 +0300
-+++ linux/net/netfilter/nf_queue.c	2011-08-05 13:18:29.755962759 +0300
-@@ -312,6 +312,7 @@ void nf_reinject(struct nf_queue_entry *
- 		}
- 		break;
- 	case NF_STOLEN:
-+		break;
- 	default:
- 		kfree_skb(skb);
- 	}
+Pulled, thanks Jeff.
