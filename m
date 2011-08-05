@@ -1,67 +1,68 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [RFC 4/4] [flexcan] Add support for FLEXCAN_DEBUG
-Date: Fri, 5 Aug 2011 09:01:10 -0500
-Message-ID: <20110805140110.GI4926@sgi.com>
-References: <1312509979-13226-1-git-send-email-holt@sgi.com>
-	<1312509979-13226-5-git-send-email-holt@sgi.com>
-	<4E3B98B6.4040003@pengutronix.de>
+From: Kasper Dupont <kasperd@cpvhh.24.jul.2011.kasperd.net>
+Subject: Re: r8169 driver crashes in 2.6.32.43
+Date: Fri, 5 Aug 2011 16:08:15 +0200
+Message-ID: <20110805140047.GA19758@colin.search.kasperd.net>
+References: <20110728070455.GA11251@electric-eye.fr.zoreil.com> <20110728084821.GA24125@colin.search.kasperd.net> <20110728105831.GA11385@electric-eye.fr.zoreil.com> <20110728114305.GA24549@colin.search.kasperd.net> <20110728115936.GC24549@colin.search.kasperd.net> <20110728122328.GA11424@electric-eye.fr.zoreil.com> <20110728124548.GA24762@colin.search.kasperd.net> <20110728125437.GA24876@colin.search.kasperd.net> <20110728144719.GA11465@electric-eye.fr.zoreil.com> <20110728210112.GA25953@colin.search.kasperd.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ivecera@redhat.com, hayeswang@realtek.com, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nfitmail.nfit.au.dk ([130.225.31.129]:29426 "EHLO
+	smtp.nfit.au.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752917Ab1HEOIV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2011 10:08:21 -0400
 Content-Disposition: inline
-In-Reply-To: <4E3B98B6.4040003-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110728210112.GA25953@colin.search.kasperd.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 05, 2011 at 09:16:06AM +0200, Marc Kleine-Budde wrote:
-> On 08/05/2011 04:06 AM, Robin Holt wrote:
-> > Add a wrapper function for a register dump when a developer defines
-> > FLEXCAN_DEBUG
-> 
-> Comments inline..however I'm not sure if we need this patch.
+I did a bit more of experiments. I took the unmodified
+2.6.32.43 kernel and added printk statements to see when
+it entered the interrupt handler and when it left it.
 
-I really do like the ability to dump the registers.  It has come in handy
-a couple of times while bringing up the board.  I do not know how hard
-I would push for them, but I do not see them as having much down side
-and I do know they have proven useful for me.
+That way I was able to confirm that the system locked
+up inside the interrupt handler.
 
-At this point, I have interpretted both your's and Wolfgang's comment as
-a suggestion.  I do not know how this group of developers works and if
-I should be taking that suggestion as a dope-slap indicating I should
-drop this right now because I am an idiot or if the patch just leaves
-a bad taste in your mouth.  Would either or both of you please clarify.
+Next I added printk statements to see how many times the
+loop in the interrupt handler was run. It seemed that
+when it locked up inside the handler it would run the
+loop just two times and then lock up before leaving the
+handler.
 
-> > +#if defined(FLEXCAN_DEBUG)
-> > +void _flexcan_reg_dump(struct net_device *dev, const char *file, int line,
-> > +		       const char *func)
-> > +{
-> > +	const struct flexcan_priv *priv = netdev_priv(dev);
-> > +	struct flexcan_regs __iomem *regs = priv->base;
-> > +
-> > +	printk(KERN_INFO "flexcan_reg_dump:%s:%d:%s()\n", file, line, func);
-> 
-> Use netdev_$LEVEL, please.
-> If you use dbg, you can remove the ifdef altogether.
+I added more printk statements to see which branches were
+taken inside the loop. Unfortunately those printk
+statements changed the timing enough that the crashes
+were no longer as reproducable.
 
-I assume you mean netdev_dbg.  If that were the case, then setting
-CONFIG_CAN_DEBUG_DEVICES would bring these printks back and that was
-explicitly stated as undesirable.  Am I understanding this wrong?
+I saw a pattern repeating. It would do the stop queue
+thing, then leave the handler and while not inside this
+interrupt handler there would be a message about the
+interface coming up again. Seems like it was doing stop
+queue calls much more frequently than it should be.
 
-If not, I am going to fall back to netdev_info instead and leave the
-#ifdef FLEXCAN_DEBUG.  Will that work?
+After a few attempts I managed to get it to lock up again
+with all the printk statements in place. What I found was
+that in the beginning of the loop status was 0x85. It
+would then call the napi event code. At the end of the
+first itteration of the loop status was 0.
 
-Thanks,
-Robin
+At that point it did not itterate through the loop again
+and it did not leave the interrupt handler either. I'll
+power cycle the machine and take a closer look on the
+source to see what could possible be happening at that
+point.
+
+I also did a bit of testing with the patches that causes
+it to drop the network instead of crashing. On those I
+am able to bring up the second interface and get data off
+the machine for debugging, so if there is any debug info
+you think would be useful in those cases, let me know.
+
+--=20
+Kasper Dupont -- Rigtige m=E6nd skriver deres egne backupprogrammer
+#define _(_)"d.%.4s%."_"2s" /* This is my email address */
+char*_=3D"@2kaspner"_()"%03"_("4s%.")"t\n";printf(_+11,_+6,_,11,_+2,_+7=
+,_+6);
