@@ -1,43 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] enic: Add timestamp to network interface
- stats
-Date: Fri, 05 Aug 2011 23:25:35 -0700 (PDT)
-Message-ID: <20110805.232535.445092900994011542.davem@davemloft.net>
-References: <20110805001124.32402.42919.stgit@savbu-pc100.cisco.com>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [RFC 0/4] [flexcan] Add support for powerpc (freescale p1010) -V5
+Date: Sat, 6 Aug 2011 06:06:02 -0500
+Message-ID: <20110806110602.GO4926@sgi.com>
+References: <1312603504-30282-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dannguo@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45792 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750917Ab1HFGZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 02:25:36 -0400
-In-Reply-To: <20110805001124.32402.42919.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1312603504-30282-1-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Danny Guo <dannguo@cisco.com>
-Date: Thu, 04 Aug 2011 17:11:24 -0700
-
-> From: Danny Guo <dannguo@cisco.com>
+On Fri, Aug 05, 2011 at 11:05:00PM -0500, Robin Holt wrote:
+> Marc, Wolfgang or U Bhaskar,
 > 
-> This patch adds timestamps in ethtool stats. It makes it easier to provide scripts to users to calculate throughput, etc. It also allows software to synchronize timestamps with host time for correlating host events with stats collection.
+> This patch set should have all your comments included.
 > 
-> Signed-off-by: Danny Guo <dannguo@cisco.com>
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+> I did implement a very simple clock source in the p1010rdb.c file, which,
+> unfortunately, your tree will not have so please do not apply the last
+> patch in the series.  That will need to go to the powerpc folks and
+> follow the p1010rdb patch from freescale.
+> 
+> Could you please apply the first three patches to a test branch, compile
+> and test them on an arm based system?  I would like to at least feel
+> comfortable that I have not broken anything there.
+> 
+> I have tested the full set on a p1010rdb with an external PSOC based
+> can communicator.  That PSOC code has a bunch of erroneous can comms it
+> can generate, but I do not know how the developer of that code injects
+> those errors.  As a result, no error handling from the can input has been
+> tested.  I have tested both flexcan interfaces on the board and both work
+> with these patches in addition to the other p1010rdb patches not included.
 
-It's "easier" but only for your specific driver if we let this patch
-go in.
+ARGH!
 
-Everyone tends to come up with the "easy" but localized and selfish
-solution.
+I just did a quick look back at my git log, and I have one other patch
+earlier in the series where I committed a one-line change to flexcan.c
+which is probably very relevant to you, but not so much to me.  I removed
+the mach/clock.h which does not seem to exist for powerpc.
 
-We have not one but several rate estimators in the kernel, if that's
-unusable then fix them instead of just going for private facilities
-that only will work with your driver.
+Can any of you tell me if that is relevant for the arm flexcan build?
+If not, does it seem reasonable to just remove it early on?
 
-I'm not applying this, sorry.
+Thanks,
+Robin
