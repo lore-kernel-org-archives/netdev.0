@@ -1,45 +1,111 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: [RFC 0/4] [flexcan] Add support for powerpc (freescale p1010) -V5
-Date: Fri,  5 Aug 2011 23:05:00 -0500
-Message-ID: <1312603504-30282-1-git-send-email-holt@sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Robin Holt <holt@sgi.com>
+Subject: [RFC 3/4] [flexcan] Add support for FLEXCAN_DEBUG
+Date: Fri,  5 Aug 2011 23:05:03 -0500
+Message-ID: <1312603504-30282-4-git-send-email-holt@sgi.com>
+References: <1312603504-30282-1-git-send-email-holt@sgi.com>
+Cc: Robin Holt <holt@sgi.com>, socketcan-core@lists.berlios.de,
+	netdev@vger.kernel.org
+To: Robin Holt <holt@sgi.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	U Bhaskar-B22300 <B22300@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3.sgi.com ([192.48.152.1]:51565 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750795Ab1HFEFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Aug 2011 00:05:09 -0400
+In-Reply-To: <1312603504-30282-1-git-send-email-holt@sgi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Marc, Wolfgang or U Bhaskar,
+Add a wrapper function for a register dump when a developer defines
+FLEXCAN_DEBUG.
 
-This patch set should have all your comments included.
+Signed-off-by: Robin Holt <holt@sgi.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
+To: U Bhaskar-B22300 <B22300@freescale.com>
+Cc: socketcan-core@lists.berlios.de
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/can/flexcan.c |   37 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 37 insertions(+), 0 deletions(-)
 
-I did implement a very simple clock source in the p1010rdb.c file, which,
-unfortunately, your tree will not have so please do not apply the last
-patch in the series.  That will need to go to the powerpc folks and
-follow the p1010rdb patch from freescale.
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index c20d673..941b99e 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -220,6 +220,35 @@ static inline void flexcan_write(u32 val, void __iomem *addr)
+ }
+ #endif
+ 
++#if defined(FLEXCAN_DEBUG)
++void _flexcan_reg_dump(struct net_device *dev, const char *file, int line,
++		       const char *func)
++{
++	const struct flexcan_priv *priv = netdev_priv(dev);
++	struct flexcan_regs __iomem *regs = priv->base;
++
++	netdev_info("flexcan_reg_dump:%s:%d:%s()\n", file, line, func);
++	netdev_info("\t  mcr 0x%08x  ctrl 0x%08x timer 0x%08x   rxg 0x%08x",
++		flexcan_read(&regs->mcr),
++		flexcan_read(&regs->ctrl),
++		flexcan_read(&regs->timer),
++		flexcan_read(&regs->rxgmask));
++	netdev_info("\t rx14 0x%08x  rx15 0x%08x   ecr 0x%08x   esr 0x%08x",
++		flexcan_read(&regs->rx14mask),
++		flexcan_read(&regs->rx15mask),
++		flexcan_read(&regs->ecr),
++		flexcan_read(&regs->esr));
++	netdev_info("\timsk2 0x%08x imsk1 0x%08x iflg2 0x%08x iflg1 0x%08x",
++		flexcan_read(&regs->imask2),
++		flexcan_read(&regs->imask1),
++		flexcan_read(&regs->iflag2),
++		flexcan_read(&regs->iflag1));
++}
++#define flexcan_reg_dump(_d) _flexcan_reg_dump(_d, __FILE__, __LINE__, __func__)
++#else
++#define flexcan_reg_dump(_d)
++#endif
++
+ /*
+  * Swtich transceiver on or off
+  */
+@@ -280,6 +309,8 @@ static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	u32 can_id;
+ 	u32 ctrl = FLEXCAN_MB_CNT_CODE(0xc) | (cf->can_dlc << 16);
+ 
++	flexcan_reg_dump(dev);
++
+ 	if (can_dropped_invalid_skb(dev, skb))
+ 		return NETDEV_TX_OK;
+ 
+@@ -312,6 +343,8 @@ static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* tx_packets is incremented in flexcan_irq */
+ 	stats->tx_bytes += cf->can_dlc;
+ 
++	flexcan_reg_dump(dev);
++
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -580,6 +613,8 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
+ 	struct flexcan_regs __iomem *regs = priv->base;
+ 	u32 reg_iflag1, reg_esr;
+ 
++	flexcan_reg_dump(dev);
++
+ 	reg_iflag1 = flexcan_read(&regs->iflag1);
+ 	reg_esr = flexcan_read(&regs->esr);
+ 	flexcan_write(FLEXCAN_ESR_ERR_INT, &regs->esr);	/* ACK err IRQ */
+@@ -620,6 +655,8 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
+ 		netif_wake_queue(dev);
+ 	}
+ 
++	flexcan_reg_dump(dev);
++
+ 	return IRQ_HANDLED;
+ }
+ 
+-- 
+1.7.2.1
 
-Could you please apply the first three patches to a test branch, compile
-and test them on an arm based system?  I would like to at least feel
-comfortable that I have not broken anything there.
-
-I have tested the full set on a p1010rdb with an external PSOC based
-can communicator.  That PSOC code has a bunch of erroneous can comms it
-can generate, but I do not know how the developer of that code injects
-those errors.  As a result, no error handling from the can input has been
-tested.  I have tested both flexcan interfaces on the board and both work
-with these patches in addition to the other p1010rdb patches not included.
-
-Thanks,
-Robin Holt
