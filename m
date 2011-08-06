@@ -1,143 +1,187 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Sat,  6 Aug 2011 09:34:30 -0500
-Message-ID: <1312641270-6018-6-git-send-email-holt@sgi.com>
-References: <1312641270-6018-1-git-send-email-holt@sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1312641270-6018-1-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: SCTP patch reviewer
+Date: Sun, 7 Aug 2011 00:34:11 +0900
+Message-ID: <B11D49C7-D2AC-4CB6-9BE9-3CBA9D8CFEF6@sfc.wide.ad.jp>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:33912 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751412Ab1HFPmO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 11:42:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-flexcan driver needs the clk_get, clk_get_rate, etc functions
-to work.  This patch provides the minimum functionality.
+Hi, 
 
-Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- arch/powerpc/platforms/85xx/p1010rdb.c |   78 ++++++++++++++++++++++++++++++++
- 1 files changed, 78 insertions(+), 0 deletions(-)
+I posted these patches 2 months ago; Wei Yongjun initially looked at them
+but now i am getting bounces his email address is no longer valid. Can anybody
+help me please?
 
-diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
-index 3540a88..8f78ddd 100644
---- a/arch/powerpc/platforms/85xx/p1010rdb.c
-+++ b/arch/powerpc/platforms/85xx/p1010rdb.c
-@@ -28,6 +28,7 @@
- #include <asm/udbg.h>
- #include <asm/mpic.h>
- #include <asm/swiotlb.h>
-+#include <asm/clk_interface.h>
- 
- #include <sysdev/fsl_soc.h>
- #include <sysdev/fsl_pci.h>
-@@ -164,6 +165,82 @@ static void __init p1010_rdb_setup_arch(void)
- 	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
- }
- 
-+/*
-+ * p1010rdb needs to provide a clock source for the flexcan driver.
-+ */
-+struct clk {
-+	unsigned long rate;
-+} p1010rdb_system_clk;
-+
-+static struct clk *p1010_rdb_clk_get(struct device *dev, const char *id)
-+{
-+	struct clk *clk;
-+	u32 *of_property;
-+	unsigned long clock_freq, clock_divider;
-+	const char *dev_init_name;
-+
-+	if (!dev)
-+		return ERR_PTR(-ENOENT);
-+
-+	/*
-+	 * The can devices are named ffe1c000.can0 and ffe1d000.can1 on
-+	 * the p1010rdb.  Check for the "can" portion of that name before
-+	 * returning a clock source.
-+	 */
-+	dev_init_name = dev_name(dev);
-+	if (strlen(dev_init_name) != 13)
-+		return ERR_PTR(-ENOENT);
-+	dev_init_name += 9;
-+	if (strncmp(dev_init_name, "can", 3))
-+		return ERR_PTR(-ENOENT);
-+
-+	of_property = (u32 *)of_get_property(dev->of_node, "clock_freq", NULL);
-+	if (!of_property)
-+		return ERR_PTR(-ENOENT);
-+	clock_freq = *of_property;
-+
-+	of_property = (u32 *)of_get_property(dev->of_node,
-+					     "fsl,flexcan-clock-divider", NULL);
-+	if (!of_property)
-+		return ERR_PTR(-ENOENT);
-+	clock_divider = *of_property;
-+
-+	clk = kmalloc(sizeof(struct clk), GFP_KERNEL);
-+	if (!clk)
-+		return ERR_PTR(-ENOMEM);
-+
-+	clk->rate = DIV_ROUND_CLOSEST(clock_freq / clock_divider, 1000);
-+	clk->rate *= 1000;
-+
-+	return clk;
-+}
-+
-+static void p1010_rdb_clk_put(struct clk *clk)
-+{
-+	kfree(clk);
-+}
-+
-+static unsigned long p1010_rdb_clk_get_rate(struct clk *clk)
-+{
-+	return clk->rate;
-+}
-+
-+static struct clk_interface p1010_rdb_clk_functions = {
-+	.clk_get		= p1010_rdb_clk_get,
-+	.clk_get_rate		= p1010_rdb_clk_get_rate,
-+	.clk_put		= p1010_rdb_clk_put,
-+};
-+
-+static void __init p1010_rdb_clk_init(void)
-+{
-+	clk_functions = p1010_rdb_clk_functions;
-+}
-+
-+static void __init p1010_rdb_init(void)
-+{
-+	p1010_rdb_clk_init();
-+}
-+
- static struct of_device_id __initdata p1010rdb_ids[] = {
- 	{ .type = "soc", },
- 	{ .compatible = "soc", },
-@@ -195,6 +272,7 @@ define_machine(p1010_rdb) {
- 	.name			= "P1010 RDB",
- 	.probe			= p1010_rdb_probe,
- 	.setup_arch		= p1010_rdb_setup_arch,
-+	.init			= p1010_rdb_init,
- 	.init_IRQ		= p1010_rdb_pic_init,
- #ifdef CONFIG_PCI
- 	.pcibios_fixup_bus	= fsl_pcibios_fixup_bus,
--- 
-1.7.2.1
+Thanks,
+- Michio
+
+Begin forwarded message:
+
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: June 16, 2011 5:56:29 PM GMT+09:00
+> To: David Miller <davem@davemloft.net>, Wei Yongjun <yjwei@cn.fujitsu.com>
+> Cc: netdev@vger.kernel.org
+> Subject: [PATCH 0/2] sctp: patches for HEARTBEAT bug fix and improvement
+> 
+> From 111463f295a5ea7ae03c26bf62671895e803bc28 Mon Sep 17 00:00:00 2001
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: Thu, 16 Jun 2011 17:40:04 +0900
+> Subject: [PATCH 0/2]  sctp: patches for HEARTBEAT bug fix and improvement
+> 
+> Series of 2 patches for bug fix and improvement around HEARTBEAT after the 
+> ASCONF event
+> 
+> Michio Honda (2):
+>  sctp: HEARTBEAT negotiation after ASCONF
+>  sctp: Bundle HEAERTBEAT into ASCONF_ACK
+> 
+> include/net/sctp/structs.h |    1 +
+> net/sctp/associola.c       |    1 +
+> net/sctp/outqueue.c        |    4 ++++
+> net/sctp/sm_make_chunk.c   |    1 +
+> net/sctp/sm_statefuns.c    |    5 +++++
+> 5 files changed, 12 insertions(+), 0 deletions(-)
+> 
+> -- 
+> 1.7.3.2
+> 
+> 
+Begin forwarded message:
+
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: June 16, 2011 5:56:42 PM GMT+09:00
+> To: David Miller <davem@davemloft.net>, Wei Yongjun <yjwei@cn.fujitsu.com>
+> Cc: netdev@vger.kernel.org
+> Subject: [PATCH 1/2] sctp: HEARTBEAT negotiation after ASCONF
+> 
+> From 6780e27850126dc200a8700a0f8c3105971b8978 Mon Sep 17 00:00:00 2001
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: Thu, 16 Jun 2011 10:54:23 +0900
+> Subject: [PATCH 1/2] sctp: HEARTBEAT negotiation after ASCONF
+> 
+> This patch fixes BUG that the ASCONF receiver transmits DATA chunks
+> to the newly added UNCONFIRMED destination.
+> 
+> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+> ---
+> net/sctp/outqueue.c |    4 ++++
+> 1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index edc7532..4adfc1e 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -917,6 +917,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+> 		 * current cwnd).
+> 		 */
+> 		if (!list_empty(&q->retransmit)) {
+> +			if (asoc->peer.retran_path->state == SCTP_UNCONFIRMED) 
+> +				goto sctp_flush_out;
+> 			if (transport == asoc->peer.retran_path)
+> 				goto retran;
+> 
+> @@ -989,6 +991,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+> 			    ((new_transport->state == SCTP_INACTIVE) ||
+> 			     (new_transport->state == SCTP_UNCONFIRMED)))
+> 				new_transport = asoc->peer.active_path;
+> +			if (new_transport->state == SCTP_UNCONFIRMED) 
+> +				continue;
+> 
+> 			/* Change packets if necessary.  */
+> 			if (new_transport != transport) {
+> -- 
+> 1.7.3.2
+> 
+> 
+Begin forwarded message:
+
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: June 16, 2011 5:56:52 PM GMT+09:00
+> To: David Miller <davem@davemloft.net>, Wei Yongjun <yjwei@cn.fujitsu.com>
+> Cc: netdev@vger.kernel.org
+> Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
+> 
+> From 111463f295a5ea7ae03c26bf62671895e803bc28 Mon Sep 17 00:00:00 2001
+> From: Michio Honda <micchie@sfc.wide.ad.jp>
+> Date: Thu, 16 Jun 2011 17:14:34 +0900
+> Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
+> 
+> With this patch a HEARTBEAT chunk is bundled into the ASCONF-ACK
+> for ADD IP ADDRESS, confirming the new destination as quickly as
+> possible.
+> 
+> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
+> ---
+> include/net/sctp/structs.h |    1 +
+> net/sctp/associola.c       |    1 +
+> net/sctp/sm_make_chunk.c   |    1 +
+> net/sctp/sm_statefuns.c    |    5 +++++
+> 4 files changed, 8 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 31d7ea2..7154980 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1915,6 +1915,7 @@ struct sctp_association {
+> 	__u32 addip_serial;
+> 	union sctp_addr *asconf_addr_del_pending;
+> 	int src_out_of_asoc_ok;
+> +	struct sctp_transport *new_transport;
+> 
+> 	/* SCTP AUTH: list of the endpoint shared keys.  These
+> 	 * keys are provided out of band by the user applicaton
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index dc16b90..152b5b3 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -282,6 +282,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+> 		asoc->peer.asconf_capable = 1;
+> 	asoc->asconf_addr_del_pending = NULL;
+> 	asoc->src_out_of_asoc_ok = 0;
+> +	asoc->new_transport = NULL;
+> 
+> 	/* Create an input queue.  */
+> 	sctp_inq_init(&asoc->base.inqueue);
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 3363d37..a42d3b0 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -3016,6 +3016,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
+> 		/* Start the heartbeat timer. */
+> 		if (!mod_timer(&peer->hb_timer, sctp_transport_timeout(peer)))
+> 			sctp_transport_hold(peer);
+> +		asoc->new_transport = peer;
+> 		break;
+> 	case SCTP_PARAM_DEL_IP:
+> 		/* ADDIP 4.3 D7) If a request is received to delete the
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index a297283..5cfd6d2 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -3612,6 +3612,11 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
+> 	 */
+> 	asconf_ack->dest = chunk->source;
+> 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(asconf_ack));
+> +	if (asoc->new_transport) {
+> +	        sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport,
+> +                    commands);
+> +		((struct sctp_association *)asoc)->new_transport = NULL;
+> +	}
+> 
+> 	return SCTP_DISPOSITION_CONSUME;
+> }
+> -- 
+> 1.7.3.2
+> 
+> 
+
