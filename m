@@ -1,75 +1,131 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [RFC 4/4] [powerpc] Implement a p1010rdb clock source.
-Date: Sat, 6 Aug 2011 15:59:47 -0500
-Message-ID: <3C4B6145-5C75-4A3C-B504-DA32E0D2EC8A@kernel.crashing.org>
-References: <1312603504-30282-1-git-send-email-holt@sgi.com>
-	<1312603504-30282-5-git-send-email-holt@sgi.com>
-	<4E3D4875.30707@pengutronix.de>
-	<39414D86-7822-4B92-B005-351890A2A167@kernel.crashing.org>
-	<20110806205010.GQ4926@sgi.com>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, U Bhaskar-B22300 <B22300@freescale.com>,
-	socketcan-core@lists.berlios.de,
-	"linuxppc-dev@lists.ozlabs.org Development" <linuxppc-dev@lists.ozlabs.org>
-To: Robin Holt <holt@sgi.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20110806205010.GQ4926@sgi.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: return of ip_rt_bug()
+Date: Sun, 7 Aug 2011 01:14:22 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108070104440.1413@ja.ssi.bg>
+References: <20110802170942.GA17164@redhat.com> <alpine.LFD.2.00.1108041422510.1495@ja.ssi.bg> <CAFiZG+X0oyTOXqm4b0g_UEGYK_0JCW3=WOR5d_7GfbJrTMhMzg@mail.gmail.com> <alpine.LFD.2.00.1108042034540.1495@ja.ssi.bg> <CAFiZG+W9-vV6o9EbuVEwztW4sQ1QV-MxD+xCHFw7TbNAryzN6A@mail.gmail.com>
+ <CAFiZG+UY+Rn=wqi6b9CM0CcARHJUGiqh_jpfEveGLhm+D2hNhA@mail.gmail.com> <alpine.LFD.2.00.1108051048160.1494@ja.ssi.bg> <CAFiZG+Wmv_FEx2ZX3qZt0tAr-QVQD_javX1gbRWujr9xyf7nbQ@mail.gmail.com> <CAFiZG+Ve9Y4v9CWCrbGsR+7C79AyoiWncVSVbeqApDuKaPm_jA@mail.gmail.com>
+ <CAFiZG+VJ27939BT-dTbvSotxO6+ACbxWiYwQBUT9pC_Fw22O-w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
+To: Tom London <selinux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:54658 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753459Ab1HFWJt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Aug 2011 18:09:49 -0400
+In-Reply-To: <CAFiZG+VJ27939BT-dTbvSotxO6+ACbxWiYwQBUT9pC_Fw22O-w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On Aug 6, 2011, at 3:50 PM, Robin Holt wrote:
+	Hello,
 
-> On Sat, Aug 06, 2011 at 11:52:45AM -0500, Kumar Gala wrote:
->> 
->> On Aug 6, 2011, at 8:58 AM, Marc Kleine-Budde wrote:
->> 
->>> On 08/06/2011 06:05 AM, Robin Holt wrote:
->>>> flexcan driver needs the clk_get, clk_get_rate, etc functions
->>>> to work.  This patch provides the minimum functionality.
->>> 
->>> This patch has to go via the powerpc git tree. Added
->>> linuxppc-dev@lists.ozlabs.org on CC.
->>> 
->>>> Signed-off-by: Robin Holt <holt@sgi.com>
->>>> To: Marc Kleine-Budde <mkl@pengutronix.de>
->>>> To: Wolfgang Grandegger <wg@grandegger.com>
->>>> To: U Bhaskar-B22300 <B22300@freescale.com>
->>>> Cc: socketcan-core@lists.berlios.de
->>>> Cc: netdev@vger.kernel.org
->>>> ---
->>>> arch/powerpc/platforms/85xx/p1010rdb.c |   78 ++++++++++++++++++++++++++++++++
->>>> 1 files changed, 78 insertions(+), 0 deletions(-)
->> 
->> NAK.
->> 
->> This doesn't look right at all.  We should be doing something based on the device tree node that isn't board specific.
->> 
->> I believe Bhaskar has a version of flexcan support that he's been working on cleanup up for upstream.
-> 
-> That version may be similar to what is in the freescale BSP which puts
-> the clock functions inside flexcan.c
-> 
-> The powerpc arch already provides a means for individual boards to provide
-> the clock functions.  I am not posting this patch here for acceptance
-> for powerpc and I am sure I will get feedback there when I post to
-> their mailing list.  I am posting it here only to show that the flexcan
-> developers earlier assertion that this can and should be done in the arch
-> tree is correct and will work for the p1010 assuming we can get changes
-> into the arch/powerpc directory to implement these clk_* functions.
+	OK, after a bit of digging here is the problem.
+It is evident that ip_rt_bug reports skb->dev = NULL which
+is impossible to pass ip_route_input. It means, we got this
+input route no matter our skb->dev = NULL. Here is how
+that happened.
 
-My point is that I don't think they should live in the arch code.  The clk_* functions you want to implement are tied more the FlexCAN IP than anything arch specific.  As such I believe they should be in the driver.
+	For the routing cache compare_keys matches
+rt_key_dst, rt_key_src, rt_mark, rt_key_tos, rt_oif, rt_iif
 
-For example when FSL has a P9999 with FlexCAN on it, we should NOT have to add any arch code to support it.
+	Consider the following two examples:
 
-- k
+1. Received traffic from 0.0.0.0 to 255.255.255.255, one example is DHCP
+
+	ip_route_input_slow caches the things as follows:
+
+	rt_key_dst = 255.255.255.255 (iph->daddr)
+	rt_key_src = 0.0.0.0 (iph->saddr)
+	rt_mark = 0
+	rt_key_tos = 0 (RT TOS from iph->tos)
+	rt_oif = 0 (always for input route)
+	rt_iif = eth0 (input device)
+
+	not compared by compare_keys:
+	rt_route_iif = eth0 (input device)
+
+	use hash chain based on some keys and iif
+
+2. Local traffic from ANY LOCAL IP to 255.255.255.255, our example
+	is broadcast for EPSON printer where the socket is not
+	bound to source address
+
+	__mkroute_output caches the things as follows:
+
+	rt_key_dst = 255.255.255.255 (orig_daddr)
+	rt_key_src = 0.0.0.0 (orig_saddr), because not bound
+	rt_mark = 0
+	rt_key_tos = 0 (RT TOS from iph->tos)
+	rt_oif = 0 (orig_oif), because not bound to output device
+	rt_iif = eth0 (orig_oif or dev_out->ifindex), dev_out in our case
+
+	not compared by compare_keys:
+	rt_route_iif = 0 (always for output route)
+
+	use hash chain based on some keys and orig_oif
+
+	Now when we put rt_intern_hash in the game, it tries to
+reuse existing entries in the cache by using compare_keys.
+It is hard to hit the problem because input and output
+routes use different hashing based on iif/orig_oif.
+
+	The problem: if we have input route in the cache
+it can be returned to callers that request output route.
+That is why dst_output points to ip_rt_bug.
+
+	As noted above, compare_keys must consider rt_route_iif.
+It must be also considered by ip_route_input_common.
+
+	The appended patch fixes the problem for me. I was
+able to reproduce ip_rt_bug by using rhash_entries=1 (resulting
+in rt_hash_mask=1) and increasing gc_thresh to 8, so that
+I can send these 2 packets with custom programs and the
+cache entries to live longer in cache.
+
+===============================================================
+
+[PATCH] ipv4: fix the reusing of routing cache entries
+
+	compare_keys and ip_route_input_common rely on
+rt_oif for distinguishing of input and output routes
+with same keys values. But sometimes the input route has
+also same hash chain (keyed by iif != 0) with the output
+routes (keyed by orig_oif=0). Problem visible if running
+with small number of rhash_entries.
+
+	Fix them to use rt_route_iif instead. By this way
+input route can not be returned to users that request
+output route.
+
+	The patch fixes the ip_rt_bug errors that were
+reported in ip_local_out context, mostly for 255.255.255.255
+destinations.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+
+	This is for 3.0, didn't checked net-next yet.
+
+diff -urp v3.0/linux/net/ipv4/route.c linux/net/ipv4/route.c
+--- v3.0/linux/net/ipv4/route.c	2011-07-22 09:43:33.000000000 +0300
++++ linux/net/ipv4/route.c	2011-08-06 18:15:17.841066642 +0300
+@@ -725,6 +725,7 @@ static inline int compare_keys(struct rt
+ 		((__force u32)rt1->rt_key_src ^ (__force u32)rt2->rt_key_src) |
+ 		(rt1->rt_mark ^ rt2->rt_mark) |
+ 		(rt1->rt_key_tos ^ rt2->rt_key_tos) |
++		(rt1->rt_route_iif ^ rt2->rt_route_iif) |
+ 		(rt1->rt_oif ^ rt2->rt_oif) |
+ 		(rt1->rt_iif ^ rt2->rt_iif)) == 0;
+ }
+@@ -2281,8 +2282,8 @@ int ip_route_input_common(struct sk_buff
+ 		if ((((__force u32)rth->rt_key_dst ^ (__force u32)daddr) |
+ 		     ((__force u32)rth->rt_key_src ^ (__force u32)saddr) |
+ 		     (rth->rt_iif ^ iif) |
+-		     rth->rt_oif |
+ 		     (rth->rt_key_tos ^ tos)) == 0 &&
++		    rt_is_input_route(rth) &&
+ 		    rth->rt_mark == skb->mark &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+ 		    !rt_is_expired(rth)) {
