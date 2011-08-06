@@ -1,187 +1,90 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: SCTP patch reviewer
-Date: Sun, 7 Aug 2011 00:34:11 +0900
-Message-ID: <B11D49C7-D2AC-4CB6-9BE9-3CBA9D8CFEF6@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Pierre Ossman <pierre-list@ossman.eu>
+Subject: Re: accelerated vlan gives pcap tagged packets untagged
+Date: Sat, 6 Aug 2011 18:00:46 +0200
+Message-ID: <20110806180046.32a57a97@mjolnir.ossman.eu>
+References: <20090208123735.15d9ea4b@mjolnir.drzeus.cx>
+	<49902E35.6060506@trash.net>
+	<alpine.DEB.2.00.0907231656000.12037@callisto.malc.org.uk>
+	<4A689159.2010807@trash.net>
+	<alpine.DEB.2.00.0907241743180.12037@callisto.malc.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=PGP-SHA256; protocol="application/pgp-signature"; boundary="=_freyr.ossman.eu-2517-1312646449-0001-2"
+Cc: Patrick McHardy <kaber@trash.net>,
+	Pierre Ossman <drzeus-list@drzeus.cx>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Malcolm Scott <linux-netdev@malc.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:33912 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751412Ab1HFPmO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 11:42:14 -0400
+Received: from c-62-220-186-130.cust.bredband2.com ([62.220.186.130]:36019
+	"EHLO smtp.ossman.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640Ab1HFQGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 12:06:03 -0400
+In-Reply-To: <alpine.DEB.2.00.0907241743180.12037@callisto.malc.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, 
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-I posted these patches 2 months ago; Wei Yongjun initially looked at them
-but now i am getting bounces his email address is no longer valid. Can anybody
-help me please?
+--=_freyr.ossman.eu-2517-1312646449-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
-- Michio
+Reviving a really old thread.
 
-Begin forwarded message:
+On Fri, 24 Jul 2009 17:50:26 +0100 (BST)
+Malcolm Scott <linux-netdev@malc.org.uk> wrote:
 
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: June 16, 2011 5:56:29 PM GMT+09:00
-> To: David Miller <davem@davemloft.net>, Wei Yongjun <yjwei@cn.fujitsu.com>
-> Cc: netdev@vger.kernel.org
-> Subject: [PATCH 0/2] sctp: patches for HEARTBEAT bug fix and improvement
-> 
-> From 111463f295a5ea7ae03c26bf62671895e803bc28 Mon Sep 17 00:00:00 2001
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: Thu, 16 Jun 2011 17:40:04 +0900
-> Subject: [PATCH 0/2]  sctp: patches for HEARTBEAT bug fix and improvement
-> 
-> Series of 2 patches for bug fix and improvement around HEARTBEAT after the 
-> ASCONF event
-> 
-> Michio Honda (2):
->  sctp: HEARTBEAT negotiation after ASCONF
->  sctp: Bundle HEAERTBEAT into ASCONF_ACK
-> 
-> include/net/sctp/structs.h |    1 +
-> net/sctp/associola.c       |    1 +
-> net/sctp/outqueue.c        |    4 ++++
-> net/sctp/sm_make_chunk.c   |    1 +
-> net/sctp/sm_statefuns.c    |    5 +++++
-> 5 files changed, 12 insertions(+), 0 deletions(-)
-> 
-> -- 
-> 1.7.3.2
-> 
-> 
-Begin forwarded message:
+> At 18:35 yesterday, Patrick McHardy wrote:
+>=20
+> > Malcolm Scott wrote:
+> >
+> >> In my case, this is manifesting as the DHCP misbehaviour which Pierre
+> >> mentioned.  (ISC dhcp3d does not use libpcap, and does not query the
+> >> packet socket for the VLAN tag, so it treats every VLAN's packets as f=
+or
+> >> the default VLAN.)
+> >
+> > It needs to get the VLAN tag from the auxilliary data.
+>=20
+> Right.  But backwards compatibility with older apps is the issue.  An app=
+=20
+> which doesn't go looking for a VLAN tag in the auxiliary data -- because =
+it=20
+> didn't have to do so prior to 2.6.28 -- will start seeing packets from al=
+l=20
+> VLANs rather than just the untagged ones.
+>=20
+> Perhaps what's actually needed is another interface which sees _just_ the=
+=20
+> untagged packets, e.g. eth0.0 (0 being a reserved VLAN ID meaning 'no VLA=
+N',=20
+> i.e. equivalent to no 802.1q tag).
+>=20
 
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: June 16, 2011 5:56:42 PM GMT+09:00
-> To: David Miller <davem@davemloft.net>, Wei Yongjun <yjwei@cn.fujitsu.com>
-> Cc: netdev@vger.kernel.org
-> Subject: [PATCH 1/2] sctp: HEARTBEAT negotiation after ASCONF
-> 
-> From 6780e27850126dc200a8700a0f8c3105971b8978 Mon Sep 17 00:00:00 2001
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: Thu, 16 Jun 2011 10:54:23 +0900
-> Subject: [PATCH 1/2] sctp: HEARTBEAT negotiation after ASCONF
-> 
-> This patch fixes BUG that the ASCONF receiver transmits DATA chunks
-> to the newly added UNCONFIRMED destination.
-> 
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-> ---
-> net/sctp/outqueue.c |    4 ++++
-> 1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index edc7532..4adfc1e 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -917,6 +917,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
-> 		 * current cwnd).
-> 		 */
-> 		if (!list_empty(&q->retransmit)) {
-> +			if (asoc->peer.retran_path->state == SCTP_UNCONFIRMED) 
-> +				goto sctp_flush_out;
-> 			if (transport == asoc->peer.retran_path)
-> 				goto retran;
-> 
-> @@ -989,6 +991,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
-> 			    ((new_transport->state == SCTP_INACTIVE) ||
-> 			     (new_transport->state == SCTP_UNCONFIRMED)))
-> 				new_transport = asoc->peer.active_path;
-> +			if (new_transport->state == SCTP_UNCONFIRMED) 
-> +				continue;
-> 
-> 			/* Change packets if necessary.  */
-> 			if (new_transport != transport) {
-> -- 
-> 1.7.3.2
-> 
-> 
-Begin forwarded message:
+Has any progress been made on this front? I'm running kernel 2.6.32 and
+dhcpd 4.1.1 and that combination is still getting very upset by these
+stray packages.
 
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: June 16, 2011 5:56:52 PM GMT+09:00
-> To: David Miller <davem@davemloft.net>, Wei Yongjun <yjwei@cn.fujitsu.com>
-> Cc: netdev@vger.kernel.org
-> Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
-> 
-> From 111463f295a5ea7ae03c26bf62671895e803bc28 Mon Sep 17 00:00:00 2001
-> From: Michio Honda <micchie@sfc.wide.ad.jp>
-> Date: Thu, 16 Jun 2011 17:14:34 +0900
-> Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
-> 
-> With this patch a HEARTBEAT chunk is bundled into the ASCONF-ACK
-> for ADD IP ADDRESS, confirming the new destination as quickly as
-> possible.
-> 
-> Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
-> ---
-> include/net/sctp/structs.h |    1 +
-> net/sctp/associola.c       |    1 +
-> net/sctp/sm_make_chunk.c   |    1 +
-> net/sctp/sm_statefuns.c    |    5 +++++
-> 4 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 31d7ea2..7154980 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1915,6 +1915,7 @@ struct sctp_association {
-> 	__u32 addip_serial;
-> 	union sctp_addr *asconf_addr_del_pending;
-> 	int src_out_of_asoc_ok;
-> +	struct sctp_transport *new_transport;
-> 
-> 	/* SCTP AUTH: list of the endpoint shared keys.  These
-> 	 * keys are provided out of band by the user applicaton
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index dc16b90..152b5b3 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -282,6 +282,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
-> 		asoc->peer.asconf_capable = 1;
-> 	asoc->asconf_addr_del_pending = NULL;
-> 	asoc->src_out_of_asoc_ok = 0;
-> +	asoc->new_transport = NULL;
-> 
-> 	/* Create an input queue.  */
-> 	sctp_inq_init(&asoc->base.inqueue);
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 3363d37..a42d3b0 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -3016,6 +3016,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
-> 		/* Start the heartbeat timer. */
-> 		if (!mod_timer(&peer->hb_timer, sctp_transport_timeout(peer)))
-> 			sctp_transport_hold(peer);
-> +		asoc->new_transport = peer;
-> 		break;
-> 	case SCTP_PARAM_DEL_IP:
-> 		/* ADDIP 4.3 D7) If a request is received to delete the
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index a297283..5cfd6d2 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -3612,6 +3612,11 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
-> 	 */
-> 	asconf_ack->dest = chunk->source;
-> 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(asconf_ack));
-> +	if (asoc->new_transport) {
-> +	        sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport,
-> +                    commands);
-> +		((struct sctp_association *)asoc)->new_transport = NULL;
-> +	}
-> 
-> 	return SCTP_DISPOSITION_CONSUME;
-> }
-> -- 
-> 1.7.3.2
-> 
-> 
+Rgds
+--=20
+     -- Pierre Ossman
 
+  WARNING: This correspondence is being monitored by FRA, a
+  Swedish intelligence agency. Make sure your server uses
+  encryption for SMTP traffic and consider using PGP for
+  end-to-end encryption.
+
+--=_freyr.ossman.eu-2517-1312646449-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.16 (GNU/Linux)
+
+iF4EAREIAAYFAk49ZTAACgkQopDLsoqlmEIYFwEAla88+wxsRzOmK1CnSjvkDtDa
+/1RR3HG/lwFjqc3hJyoA/2H1Iq3QwBvM2tBziES4mSne81EoNZK35vWxDwGQeOnU
+=4hzk
+-----END PGP SIGNATURE-----
+
+--=_freyr.ossman.eu-2517-1312646449-0001-2--
