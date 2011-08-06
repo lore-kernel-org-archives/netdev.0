@@ -1,72 +1,75 @@
-From: Mark Kamichoff <prox@prolixium.com>
-Subject: [PATCH] net/usb: Add IPv6 support to the LG-VL600 LTE USB modem driver
-Date: Sat,  6 Aug 2011 18:28:14 -0400
-Message-ID: <1312669694-28800-1-git-send-email-prox@prolixium.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Mark Kamichoff <prox@prolixium.com>
-To: gregkh@suse.de
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: [PATCH] ipv4: Fix ip_getsockopt for IP_PKTOPTIONS
+Date: Sun,  7 Aug 2011 02:20:50 +0300
+Message-ID: <1312672850-13676-1-git-send-email-dbaluta@ixiacom.com>
+Cc: netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>,
+	Tiberiu Szocs-Mihai <tszocs@ixiacom.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nox.prolixium.com ([64.16.214.60]:37958 "EHLO nox.prolixium.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751658Ab1HFXET (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 Aug 2011 19:04:19 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38625 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732Ab1HFXU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 19:20:59 -0400
+Received: by fxh19 with SMTP id 19so4046439fxh.19
+        for <netdev@vger.kernel.org>; Sat, 06 Aug 2011 16:20:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The LG-VL600 LTE USB modem supports IPv6, but uses and expects an IPv4
-ethertype (0x800) for these packets instead of the standard 0x86dd.
-This patch peeks at the IP version in the L3 header and sets the
-ethertype appropriately for IPv6 packets.
+IP_PKTOPTIONS is broken for 32-bit applications running
+in COMPAT mode on 64-bit kernels.
 
-Signed-off-by: Mark Kamichoff <prox@prolixium.com>
+This happens because msghdr's msg_flags field is always
+set to zero. When running in COMPAT mode this should be
+set to MSG_CMSG_COMPAT instead.
+
+Signed-off-by: Tiberiu Szocs-Mihai <tszocs@ixiacom.com>
+Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
 ---
- drivers/net/usb/lg-vl600.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+ net/ipv4/ip_sockglue.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
-index 1d83ccf..1e72219 100644
---- a/drivers/net/usb/lg-vl600.c
-+++ b/drivers/net/usb/lg-vl600.c
-@@ -89,6 +89,8 @@ static int vl600_bind(struct usbnet *dev, struct usb_interface *intf)
- 	 * addresses have no meaning, the destination and the source of every
- 	 * packet depend only on whether it is on the IN or OUT endpoint.  */
- 	dev->net->flags |= IFF_NOARP;
-+	/* IPv6 NDP relies on multicast.  Enable it by default. */
-+	dev->net->flags |= IFF_MULTICAST;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index ab0c9ef..c77f5a8 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1067,7 +1067,7 @@ EXPORT_SYMBOL(compat_ip_setsockopt);
+  */
  
- 	return ret;
- }
-@@ -200,6 +202,14 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 		} else {
- 			memset(ethhdr->h_source, 0, ETH_ALEN);
- 			memcpy(ethhdr->h_dest, dev->net->dev_addr, ETH_ALEN);
-+
-+			/* Inbound IPv6 packets have an IPv4 ethertype (0x800)
-+			 * for some reason.  Peek at the L3 header to check
-+			 * for IPv6 packets, and set the ethertype to IPv6
-+			 * (0x86dd) so Linux can understand it.
-+			 */
-+			if ((buf->data[sizeof(*ethhdr)] & 0xf0) == 0x60)
-+				ethhdr->h_proto = __constant_htons(ETH_P_IPV6);
- 		}
+ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+-			    char __user *optval, int __user *optlen)
++			    char __user *optval, int __user *optlen, unsigned flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	int val;
+@@ -1240,7 +1240,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
  
- 		if (count) {
-@@ -297,6 +307,15 @@ encapsulate:
- 	if (skb->len < full_len) /* Pad */
- 		skb_put(skb, full_len - skb->len);
+ 		msg.msg_control = optval;
+ 		msg.msg_controllen = len;
+-		msg.msg_flags = 0;
++		msg.msg_flags = flags;
  
-+	/* The VL600 wants IPv6 packets to have an IPv4 ethertype
-+	 * Check if this is an IPv6 packet, and set the ethertype
-+	 * to 0x800
-+	 */
-+	if ((skb->data[sizeof(struct vl600_pkt_hdr *) + 0x22] & 0xf0) == 0x60) {
-+		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x20] = 0x08;
-+		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x21] = 0;
-+	}
-+
- 	return skb;
- }
+ 		if (inet->cmsg_flags & IP_CMSG_PKTINFO) {
+ 			struct in_pktinfo info;
+@@ -1294,7 +1294,7 @@ int ip_getsockopt(struct sock *sk, int level,
+ {
+ 	int err;
  
+-	err = do_ip_getsockopt(sk, level, optname, optval, optlen);
++	err = do_ip_getsockopt(sk, level, optname, optval, optlen, 0);
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
+ 	if (err == -ENOPROTOOPT && optname != IP_PKTOPTIONS &&
+@@ -1327,7 +1327,8 @@ int compat_ip_getsockopt(struct sock *sk, int level, int optname,
+ 		return compat_mc_getsockopt(sk, level, optname, optval, optlen,
+ 			ip_getsockopt);
+ 
+-	err = do_ip_getsockopt(sk, level, optname, optval, optlen);
++	err = do_ip_getsockopt(sk, level, optname, optval, optlen, 
++		MSG_CMSG_COMPAT);
+ 
+ #ifdef CONFIG_NETFILTER
+ 	/* we need to exclude all possible ENOPROTOOPTs except default case */
 -- 
-1.7.5.4
+1.7.2.5
 
