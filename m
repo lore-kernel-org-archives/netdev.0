@@ -1,7 +1,7 @@
 From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: [RFC 4/4] [powerpc] Implement a p1010rdb clock source.
-Date: Fri,  5 Aug 2011 23:05:04 -0500
-Message-ID: <1312603504-30282-5-git-send-email-holt@sgi.com>
+Subject: [RFC 2/4] [flexcan] Add of_match to platform_device definition.
+Date: Fri,  5 Aug 2011 23:05:02 -0500
+Message-ID: <1312603504-30282-3-git-send-email-holt@sgi.com>
 References: <1312603504-30282-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,8 +23,9 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-flexcan driver needs the clk_get, clk_get_rate, etc functions
-to work.  This patch provides the minimum functionality.
+The OpenFirmware devices are not matched without specifying
+an of_match array.  Introduce that array as that is used for
+matching on the Freescale P1010 processor.
 
 Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
 To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
@@ -33,111 +34,36 @@ To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- arch/powerpc/platforms/85xx/p1010rdb.c |   78 ++++++++++++++++++++++++++++++++
- 1 files changed, 78 insertions(+), 0 deletions(-)
+ drivers/net/can/flexcan.c |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
 
-diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
-index 3540a88..8f78ddd 100644
---- a/arch/powerpc/platforms/85xx/p1010rdb.c
-+++ b/arch/powerpc/platforms/85xx/p1010rdb.c
-@@ -28,6 +28,7 @@
- #include <asm/udbg.h>
- #include <asm/mpic.h>
- #include <asm/swiotlb.h>
-+#include <asm/clk_interface.h>
- 
- #include <sysdev/fsl_soc.h>
- #include <sysdev/fsl_pci.h>
-@@ -164,6 +165,82 @@ static void __init p1010_rdb_setup_arch(void)
- 	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index 74b1706..c20d673 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -1033,8 +1033,22 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
+ 	return 0;
  }
  
-+/*
-+ * p1010rdb needs to provide a clock source for the flexcan driver.
-+ */
-+struct clk {
-+	unsigned long rate;
-+} p1010rdb_system_clk;
-+
-+static struct clk *p1010_rdb_clk_get(struct device *dev, const char *id)
-+{
-+	struct clk *clk;
-+	u32 *of_property;
-+	unsigned long clock_freq, clock_divider;
-+	const char *dev_init_name;
-+
-+	if (!dev)
-+		return ERR_PTR(-ENOENT);
-+
-+	/*
-+	 * The can devices are named ffe1c000.can0 and ffe1d000.can1 on
-+	 * the p1010rdb.  Check for the "can" portion of that name before
-+	 * returning a clock source.
-+	 */
-+	dev_init_name = dev_name(dev);
-+	if (strlen(dev_init_name) != 13)
-+		return ERR_PTR(-ENOENT);
-+	dev_init_name += 9;
-+	if (strncmp(dev_init_name, "can", 3))
-+		return ERR_PTR(-ENOENT);
-+
-+	of_property = (u32 *)of_get_property(dev->of_node, "clock_freq", NULL);
-+	if (!of_property)
-+		return ERR_PTR(-ENOENT);
-+	clock_freq = *of_property;
-+
-+	of_property = (u32 *)of_get_property(dev->of_node,
-+					     "fsl,flexcan-clock-divider", NULL);
-+	if (!of_property)
-+		return ERR_PTR(-ENOENT);
-+	clock_divider = *of_property;
-+
-+	clk = kmalloc(sizeof(struct clk), GFP_KERNEL);
-+	if (!clk)
-+		return ERR_PTR(-ENOMEM);
-+
-+	clk->rate = DIV_ROUND_CLOSEST(clock_freq / clock_divider, 1000);
-+	clk->rate *= 1000;
-+
-+	return clk;
-+}
-+
-+static void p1010_rdb_clk_put(struct clk *clk)
-+{
-+	kfree(clk);
-+}
-+
-+static unsigned long p1010_rdb_clk_get_rate(struct clk *clk)
-+{
-+	return clk->rate;
-+}
-+
-+static struct clk_interface p1010_rdb_clk_functions = {
-+	.clk_get		= p1010_rdb_clk_get,
-+	.clk_get_rate		= p1010_rdb_clk_get_rate,
-+	.clk_put		= p1010_rdb_clk_put,
++static struct of_device_id flexcan_of_match[] = {
++	{
++		.compatible = "fsl,flexcan-v1.0",
++	},
++	{
++		.compatible = "fsl,flexcan",
++	},
++	{},
 +};
 +
-+static void __init p1010_rdb_clk_init(void)
-+{
-+	clk_functions = p1010_rdb_clk_functions;
-+}
-+
-+static void __init p1010_rdb_init(void)
-+{
-+	p1010_rdb_clk_init();
-+}
-+
- static struct of_device_id __initdata p1010rdb_ids[] = {
- 	{ .type = "soc", },
- 	{ .compatible = "soc", },
-@@ -195,6 +272,7 @@ define_machine(p1010_rdb) {
- 	.name			= "P1010 RDB",
- 	.probe			= p1010_rdb_probe,
- 	.setup_arch		= p1010_rdb_setup_arch,
-+	.init			= p1010_rdb_init,
- 	.init_IRQ		= p1010_rdb_pic_init,
- #ifdef CONFIG_PCI
- 	.pcibios_fixup_bus	= fsl_pcibios_fixup_bus,
+ static struct platform_driver flexcan_driver = {
+-	.driver.name = DRV_NAME,
++	.driver = {
++		.name = DRV_NAME,
++		.owner = THIS_MODULE,
++		.of_match_table = flexcan_of_match,
++	},
+ 	.probe = flexcan_probe,
+ 	.remove = __devexit_p(flexcan_remove),
+ };
 -- 
 1.7.2.1
