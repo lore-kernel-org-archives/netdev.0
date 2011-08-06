@@ -1,39 +1,72 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] compat_ioctl: add compat handler for PPPIOCGL2TPSTATS
-Date: Sun,  7 Aug 2011 00:12:04 +0200
-Message-ID: <1312668724-10877-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	James Chapman <jchapman@katalix.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	linux-fsdevel@vger.kernel.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mark Kamichoff <prox@prolixium.com>
+Subject: [PATCH] net/usb: Add IPv6 support to the LG-VL600 LTE USB modem driver
+Date: Sat,  6 Aug 2011 18:28:14 -0400
+Message-ID: <1312669694-28800-1-git-send-email-prox@prolixium.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Mark Kamichoff <prox@prolixium.com>
+To: gregkh@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nox.prolixium.com ([64.16.214.60]:37958 "EHLO nox.prolixium.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751658Ab1HFXET (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 Aug 2011 19:04:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fixes following error seen on x86_64 kernel:
-ioctl32(openl2tpd:7480): Unknown cmd fd(14) cmd(80487436){t:'t';sz:72} arg(ffa7e6c0) on socket:[105094]
+The LG-VL600 LTE USB modem supports IPv6, but uses and expects an IPv4
+ethertype (0x800) for these packets instead of the standard 0x86dd.
+This patch peeks at the IP version in the L3 header and sets the
+ethertype appropriately for IPv6 packets.
 
-The argument (struct pppol2tp_ioc_stats) uses "aligned_u64" and thus doesn't need
-fixups.
-
-Cc: James Chapman <jchapman@katalix.com>
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-Cc: linux-fsdevel@vger.kernel.org
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Mark Kamichoff <prox@prolixium.com>
 ---
-diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
-index 8be086e..51352de 100644
---- a/fs/compat_ioctl.c
-+++ b/fs/compat_ioctl.c
-@@ -1003,6 +1003,7 @@ COMPATIBLE_IOCTL(PPPIOCCONNECT)
- COMPATIBLE_IOCTL(PPPIOCDISCONN)
- COMPATIBLE_IOCTL(PPPIOCATTCHAN)
- COMPATIBLE_IOCTL(PPPIOCGCHAN)
-+COMPATIBLE_IOCTL(PPPIOCGL2TPSTATS)
- /* PPPOX */
- COMPATIBLE_IOCTL(PPPOEIOCSFWD)
- COMPATIBLE_IOCTL(PPPOEIOCDFWD)
+ drivers/net/usb/lg-vl600.c |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
+index 1d83ccf..1e72219 100644
+--- a/drivers/net/usb/lg-vl600.c
++++ b/drivers/net/usb/lg-vl600.c
+@@ -89,6 +89,8 @@ static int vl600_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	 * addresses have no meaning, the destination and the source of every
+ 	 * packet depend only on whether it is on the IN or OUT endpoint.  */
+ 	dev->net->flags |= IFF_NOARP;
++	/* IPv6 NDP relies on multicast.  Enable it by default. */
++	dev->net->flags |= IFF_MULTICAST;
+ 
+ 	return ret;
+ }
+@@ -200,6 +202,14 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 		} else {
+ 			memset(ethhdr->h_source, 0, ETH_ALEN);
+ 			memcpy(ethhdr->h_dest, dev->net->dev_addr, ETH_ALEN);
++
++			/* Inbound IPv6 packets have an IPv4 ethertype (0x800)
++			 * for some reason.  Peek at the L3 header to check
++			 * for IPv6 packets, and set the ethertype to IPv6
++			 * (0x86dd) so Linux can understand it.
++			 */
++			if ((buf->data[sizeof(*ethhdr)] & 0xf0) == 0x60)
++				ethhdr->h_proto = __constant_htons(ETH_P_IPV6);
+ 		}
+ 
+ 		if (count) {
+@@ -297,6 +307,15 @@ encapsulate:
+ 	if (skb->len < full_len) /* Pad */
+ 		skb_put(skb, full_len - skb->len);
+ 
++	/* The VL600 wants IPv6 packets to have an IPv4 ethertype
++	 * Check if this is an IPv6 packet, and set the ethertype
++	 * to 0x800
++	 */
++	if ((skb->data[sizeof(struct vl600_pkt_hdr *) + 0x22] & 0xf0) == 0x60) {
++		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x20] = 0x08;
++		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x21] = 0;
++	}
++
+ 	return skb;
+ }
+ 
 -- 
-1.7.3.4
+1.7.5.4
 
