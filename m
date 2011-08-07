@@ -1,69 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 1/2] gianfar: fix fiper alignment after resetting the time
-Date: Sun,  7 Aug 2011 09:03:03 +0200
-Message-ID: <018b1f12e792c4758d1e601742f758a09dd10d62.1312699694.git.richard.cochran@omicron.at>
-References: <cover.1312699693.git.richard.cochran@omicron.at>
-Cc: <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	<stable@kernel.org>
-To: <netdev@vger.kernel.org>
+From: "WESTERN UNION OFFICE" <info@westen.com>
+Subject: Pick Up
+Date: Sun, 7 Aug 2011 19:26:12 +0800
+Message-ID: <20110807112621.M16189@westen.com>
+Reply-To: western-money71@xnmsn.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=big5
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:52931 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826Ab1HGHI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2011 03:08:56 -0400
-In-Reply-To: <cover.1312699693.git.richard.cochran@omicron.at>
-In-Reply-To: <cover.1312699693.git.richard.cochran@omicron.at>
-References: <cover.1312699693.git.richard.cochran@omicron.at>
+Received: from mail.richfieldgroup.hk ([219.76.192.210]:48102 "EHLO
+	mailserver.richfieldgroup.hk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751918Ab1HGLiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2011 07:38:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After resetting the time, the PPS signals on the FIPER output channels
-are incorrectly offset from the clock time, as can be readily verified
-by a looping back the FIPER to the external time stamp input.
+How are you today?
 
-Despite its name, setting the "Fiper Realignment Disable" bit seems to
-fix the problem, at least on the P2020.
 
-Also, following the example code from the Freescale BSP, it is not really
-necessary to disable and re-enable the timer in order to reprogram the
-FIPER. (The documentation is rather unclear on this point. It seems that
-writing to the alarm register also disables the FIPER.)
+I write to inform you that we have already sent you $5,000.00USD
+through Western union as we have been given the mandate to transfer
+your full compensation payment of  $1.800,000.00USD via western union
+by this government.
 
-Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-Cc: <stable@kernel.org>
----
- drivers/net/gianfar_ptp.c |    9 ++-------
- 1 files changed, 2 insertions(+), 7 deletions(-)
+I called to give you the information through phone as internet hackers
+were many but i cannot reach you yesterday even this morning,So I
+decided to email you the (MTCN) and sender name so that you can pick
+up this $5,000.00USD to enable us send another $5,000.00USD by
+tomorrow as you knows we will be sending you only $5,000.00USD per
+day.Please pick up this information and run to any western union
+(OUTLET) in your country and pick up this $5,000.00USD and send us an
+email back,so that we can send another $5,000.00USD by tomorrow.
 
-diff --git a/drivers/net/gianfar_ptp.c b/drivers/net/gianfar_ptp.c
-index 1c97861..f67b8ae 100644
---- a/drivers/net/gianfar_ptp.c
-+++ b/drivers/net/gianfar_ptp.c
-@@ -193,14 +193,9 @@ static void set_alarm(struct etsects *etsects)
- /* Caller must hold etsects->lock. */
- static void set_fipers(struct etsects *etsects)
- {
--	u32 tmr_ctrl = gfar_read(&etsects->regs->tmr_ctrl);
--
--	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl & (~TE));
--	gfar_write(&etsects->regs->tmr_prsc,   etsects->tmr_prsc);
-+	set_alarm(etsects);
- 	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
- 	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
--	set_alarm(etsects);
--	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|TE);
- }
- 
- /*
-@@ -511,7 +506,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
- 	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
- 	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
- 	set_alarm(etsects);
--	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE);
-+	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE|FRD);
- 
- 	spin_unlock_irqrestore(&etsects->lock, flags);
- 
--- 
-1.7.0.4
+Manager: Mr Frank Amos
+email me on:western-money71@xnmsn.com
+call us on: +234-7031908911
+once you picked up this $5000.00USD today.
 
+Here is the western union information to pick up the $5000.00USD,
+
+MTCN :___________  MTCN 9500834460
+first name: ________Appoline
+Second Name: ____Ouedraoge
+Text Question: ____When
+Answer: ____________2Hours ago
+Amount:__________ $5,000.00 United State Dollars
+
+I am waiting for your E-mail once you pick up $5000.00USD,
+
+Thanks
+Mr Frank Amos.
