@@ -1,8 +1,8 @@
 From: Jakub Muszynski <jakubxmuszynski@googlemail.com>
 Subject: ping6: echo reply ok in tcpdump, but not captured in ping
  (Depending on address type)
-Date: Sun, 07 Aug 2011 11:56:17 +0200
-Message-ID: <1312710977.2986.18.camel@fsk1104>
+Date: Sun, 07 Aug 2011 16:13:54 +0200
+Message-ID: <1312726434.4526.2.camel@fsk1104>
 Reply-To: jakubxmuszynski@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,10 +11,10 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f46.google.com ([209.85.161.46]:49657 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783Ab1HGOOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2011 10:14:05 -0400
-Received: by fxh19 with SMTP id 19so4445808fxh.19
-        for <netdev@vger.kernel.org>; Sun, 07 Aug 2011 07:14:04 -0700 (PDT)
+	with ESMTP id S1753366Ab1HGOOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2011 10:14:11 -0400
+Received: by mail-fx0-f46.google.com with SMTP id 19so4445808fxh.19
+        for <netdev@vger.kernel.org>; Sun, 07 Aug 2011 07:14:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -172,5 +172,6 @@ ff02::2aa:ff:fe28:9c5a: icmp_seq=2 ttl=255 time=125 ms
 ) = 69
 gettimeofday({1312710445, 46448}, NULL) = 0
 poll([{fd=3, events=POLLIN|POLLERR}], 1, 873) = 0 (Timeout)
+
 
 
