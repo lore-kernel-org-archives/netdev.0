@@ -1,812 +1,300 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 2/2] net: Compute protocol sequence numbers and fragment
- IDs using MD5.
-Date: Sat, 06 Aug 2011 18:50:23 -0700 (PDT)
-Message-ID: <20110806.185023.1891858447048735160.davem@davemloft.net>
+From: <amit.salecha@qlogic.com>
+Subject: [PATCHv3 NEXT 1/1] netxen: add vlan LRO support
+Date: Sat, 6 Aug 2011 19:46:44 -0700
+Message-ID: <1312685204-19800-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dan@doxpara.com, w@1wt.eu, torvalds@linux-foundation.org,
-	linux-kernel@vger.kernel.org, dccp@vger.kernel.org,
-	mpm@selenic.com, herbert@gondor.hengli.com.au,
-	gerrit@erg.abdn.ac.uk
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <ameen.rahman@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44841 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756956Ab1HGBwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 21:52:11 -0400
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:15572
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756338Ab1HGC4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2011 22:56:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-Computers have become a lot faster since we compromised on the
-partial MD4 hash which we use currently for performance reasons.
+o To support vlan lro, driver need to program ip address in device.
+o Same ip addresses need to be program after fw recovery, so sotre them
+  in list.
+o In case of vlan packet, include vlan header length while
+calculating ip and tcp headers.
 
-MD5 is a much safer choice, and is inline with both RFC1948 and
-other ISS generators (OpenBSD, Solaris, etc.)
-
-Furthermore, only having 24-bits of the sequence number be truly
-unpredictable is a very serious limitation.  So the periodic
-regeneration and 8-bit counter have been removed.  We compute and
-use a full 32-bit sequence number.
-
-For ipv6, DCCP was found to use a 32-bit truncated initial sequence
-number (it needs 43-bits) and that is fixed here as well.
-
-Reported-by: Dan Kaminsky <dan@doxpara.com>
-Tested-by: Willy Tarreau <w@1wt.eu>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/char/random.c                    |  349 +-----------------------------
- include/linux/random.h                   |   12 -
- include/net/secure_seq.h                 |   20 ++
- net/core/Makefile                        |    2 +-
- net/core/secure_seq.c                    |  184 ++++++++++++++++
- net/dccp/ipv4.c                          |    1 +
- net/dccp/ipv6.c                          |    9 +-
- net/ipv4/inet_hashtables.c               |    1 +
- net/ipv4/inetpeer.c                      |    1 +
- net/ipv4/netfilter/nf_nat_proto_common.c |    1 +
- net/ipv4/route.c                         |    1 +
- net/ipv4/tcp_ipv4.c                      |    1 +
- net/ipv6/inet6_hashtables.c              |    1 +
- net/ipv6/tcp_ipv6.c                      |    1 +
- 14 files changed, 223 insertions(+), 361 deletions(-)
- create mode 100644 include/net/secure_seq.h
- create mode 100644 net/core/secure_seq.c
+ drivers/net/netxen/netxen_nic.h      |    6 ++
+ drivers/net/netxen/netxen_nic_init.c |    8 ++-
+ drivers/net/netxen/netxen_nic_main.c |  103 +++++++++++++++++++++++++++++++---
+ 3 files changed, 107 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index 7292819..c35a785 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -1300,345 +1300,14 @@ ctl_table random_table[] = {
- };
- #endif 	/* CONFIG_SYSCTL */
+diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
+index f744d29..196b660 100644
+--- a/drivers/net/netxen/netxen_nic.h
++++ b/drivers/net/netxen/netxen_nic.h
+@@ -940,6 +940,11 @@ typedef struct nx_mac_list_s {
+ 	uint8_t mac_addr[ETH_ALEN+2];
+ } nx_mac_list_t;
  
--/********************************************************************
-- *
-- * Random functions for networking
-- *
-- ********************************************************************/
--
--/*
-- * TCP initial sequence number picking.  This uses the random number
-- * generator to pick an initial secret value.  This value is hashed
-- * along with the TCP endpoint information to provide a unique
-- * starting point for each pair of TCP endpoints.  This defeats
-- * attacks which rely on guessing the initial TCP sequence number.
-- * This algorithm was suggested by Steve Bellovin.
-- *
-- * Using a very strong hash was taking an appreciable amount of the total
-- * TCP connection establishment time, so this is a weaker hash,
-- * compensated for by changing the secret periodically.
-- */
--
--/* F, G and H are basic MD4 functions: selection, majority, parity */
--#define F(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
--#define G(x, y, z) (((x) & (y)) + (((x) ^ (y)) & (z)))
--#define H(x, y, z) ((x) ^ (y) ^ (z))
--
--/*
-- * The generic round function.  The application is so specific that
-- * we don't bother protecting all the arguments with parens, as is generally
-- * good macro practice, in favor of extra legibility.
-- * Rotation is separate from addition to prevent recomputation
-- */
--#define ROUND(f, a, b, c, d, x, s)	\
--	(a += f(b, c, d) + x, a = (a << s) | (a >> (32 - s)))
--#define K1 0
--#define K2 013240474631UL
--#define K3 015666365641UL
--
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--
--static __u32 twothirdsMD4Transform(__u32 const buf[4], __u32 const in[12])
--{
--	__u32 a = buf[0], b = buf[1], c = buf[2], d = buf[3];
--
--	/* Round 1 */
--	ROUND(F, a, b, c, d, in[ 0] + K1,  3);
--	ROUND(F, d, a, b, c, in[ 1] + K1,  7);
--	ROUND(F, c, d, a, b, in[ 2] + K1, 11);
--	ROUND(F, b, c, d, a, in[ 3] + K1, 19);
--	ROUND(F, a, b, c, d, in[ 4] + K1,  3);
--	ROUND(F, d, a, b, c, in[ 5] + K1,  7);
--	ROUND(F, c, d, a, b, in[ 6] + K1, 11);
--	ROUND(F, b, c, d, a, in[ 7] + K1, 19);
--	ROUND(F, a, b, c, d, in[ 8] + K1,  3);
--	ROUND(F, d, a, b, c, in[ 9] + K1,  7);
--	ROUND(F, c, d, a, b, in[10] + K1, 11);
--	ROUND(F, b, c, d, a, in[11] + K1, 19);
--
--	/* Round 2 */
--	ROUND(G, a, b, c, d, in[ 1] + K2,  3);
--	ROUND(G, d, a, b, c, in[ 3] + K2,  5);
--	ROUND(G, c, d, a, b, in[ 5] + K2,  9);
--	ROUND(G, b, c, d, a, in[ 7] + K2, 13);
--	ROUND(G, a, b, c, d, in[ 9] + K2,  3);
--	ROUND(G, d, a, b, c, in[11] + K2,  5);
--	ROUND(G, c, d, a, b, in[ 0] + K2,  9);
--	ROUND(G, b, c, d, a, in[ 2] + K2, 13);
--	ROUND(G, a, b, c, d, in[ 4] + K2,  3);
--	ROUND(G, d, a, b, c, in[ 6] + K2,  5);
--	ROUND(G, c, d, a, b, in[ 8] + K2,  9);
--	ROUND(G, b, c, d, a, in[10] + K2, 13);
--
--	/* Round 3 */
--	ROUND(H, a, b, c, d, in[ 3] + K3,  3);
--	ROUND(H, d, a, b, c, in[ 7] + K3,  9);
--	ROUND(H, c, d, a, b, in[11] + K3, 11);
--	ROUND(H, b, c, d, a, in[ 2] + K3, 15);
--	ROUND(H, a, b, c, d, in[ 6] + K3,  3);
--	ROUND(H, d, a, b, c, in[10] + K3,  9);
--	ROUND(H, c, d, a, b, in[ 1] + K3, 11);
--	ROUND(H, b, c, d, a, in[ 5] + K3, 15);
--	ROUND(H, a, b, c, d, in[ 9] + K3,  3);
--	ROUND(H, d, a, b, c, in[ 0] + K3,  9);
--	ROUND(H, c, d, a, b, in[ 4] + K3, 11);
--	ROUND(H, b, c, d, a, in[ 8] + K3, 15);
--
--	return buf[1] + b; /* "most hashed" word */
--	/* Alternative: return sum of all words? */
--}
--#endif
--
--#undef ROUND
--#undef F
--#undef G
--#undef H
--#undef K1
--#undef K2
--#undef K3
--
--/* This should not be decreased so low that ISNs wrap too fast. */
--#define REKEY_INTERVAL (300 * HZ)
--/*
-- * Bit layout of the tcp sequence numbers (before adding current time):
-- * bit 24-31: increased after every key exchange
-- * bit 0-23: hash(source,dest)
-- *
-- * The implementation is similar to the algorithm described
-- * in the Appendix of RFC 1185, except that
-- * - it uses a 1 MHz clock instead of a 250 kHz clock
-- * - it performs a rekey every 5 minutes, which is equivalent
-- * 	to a (source,dest) tulple dependent forward jump of the
-- * 	clock by 0..2^(HASH_BITS+1)
-- *
-- * Thus the average ISN wraparound time is 68 minutes instead of
-- * 4.55 hours.
-- *
-- * SMP cleanup and lock avoidance with poor man's RCU.
-- * 			Manfred Spraul <manfred@colorfullife.com>
-- *
-- */
--#define COUNT_BITS 8
--#define COUNT_MASK ((1 << COUNT_BITS) - 1)
--#define HASH_BITS 24
--#define HASH_MASK ((1 << HASH_BITS) - 1)
-+static u32 random_int_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
- 
--static struct keydata {
--	__u32 count; /* already shifted to the final position */
--	__u32 secret[12];
--} ____cacheline_aligned ip_keydata[2];
--
--static unsigned int ip_cnt;
--
--static void rekey_seq_generator(struct work_struct *work);
--
--static DECLARE_DELAYED_WORK(rekey_work, rekey_seq_generator);
--
--/*
-- * Lock avoidance:
-- * The ISN generation runs lockless - it's just a hash over random data.
-- * State changes happen every 5 minutes when the random key is replaced.
-- * Synchronization is performed by having two copies of the hash function
-- * state and rekey_seq_generator always updates the inactive copy.
-- * The copy is then activated by updating ip_cnt.
-- * The implementation breaks down if someone blocks the thread
-- * that processes SYN requests for more than 5 minutes. Should never
-- * happen, and even if that happens only a not perfectly compliant
-- * ISN is generated, nothing fatal.
-- */
--static void rekey_seq_generator(struct work_struct *work)
-+static int __init random_int_secret_init(void)
- {
--	struct keydata *keyptr = &ip_keydata[1 ^ (ip_cnt & 1)];
--
--	get_random_bytes(keyptr->secret, sizeof(keyptr->secret));
--	keyptr->count = (ip_cnt & COUNT_MASK) << HASH_BITS;
--	smp_wmb();
--	ip_cnt++;
--	schedule_delayed_work(&rekey_work,
--			      round_jiffies_relative(REKEY_INTERVAL));
--}
--
--static inline struct keydata *get_keyptr(void)
--{
--	struct keydata *keyptr = &ip_keydata[ip_cnt & 1];
--
--	smp_rmb();
--
--	return keyptr;
--}
--
--static __init int seqgen_init(void)
--{
--	rekey_seq_generator(NULL);
-+	get_random_bytes(random_int_secret, sizeof(random_int_secret));
- 	return 0;
- }
--late_initcall(seqgen_init);
--
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--__u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
--				   __be16 sport, __be16 dport)
--{
--	__u32 seq;
--	__u32 hash[12];
--	struct keydata *keyptr = get_keyptr();
--
--	/* The procedure is the same as for IPv4, but addresses are longer.
--	 * Thus we must use twothirdsMD4Transform.
--	 */
--
--	memcpy(hash, saddr, 16);
--	hash[4] = ((__force u16)sport << 16) + (__force u16)dport;
--	memcpy(&hash[5], keyptr->secret, sizeof(__u32) * 7);
--
--	seq = twothirdsMD4Transform((const __u32 *)daddr, hash) & HASH_MASK;
--	seq += keyptr->count;
--
--	seq += ktime_to_ns(ktime_get_real());
--
--	return seq;
--}
--EXPORT_SYMBOL(secure_tcpv6_sequence_number);
--#endif
--
--/*  The code below is shamelessly stolen from secure_tcp_sequence_number().
-- *  All blames to Andrey V. Savochkin <saw@msu.ru>.
-- */
--__u32 secure_ip_id(__be32 daddr)
--{
--	struct keydata *keyptr;
--	__u32 hash[4];
--
--	keyptr = get_keyptr();
--
--	/*
--	 *  Pick a unique starting offset for each IP destination.
--	 *  The dest ip address is placed in the starting vector,
--	 *  which is then hashed with random data.
--	 */
--	hash[0] = (__force __u32)daddr;
--	hash[1] = keyptr->secret[9];
--	hash[2] = keyptr->secret[10];
--	hash[3] = keyptr->secret[11];
--
--	return half_md4_transform(hash, keyptr->secret);
--}
--
--__u32 secure_ipv6_id(const __be32 daddr[4])
--{
--	const struct keydata *keyptr;
--	__u32 hash[4];
--
--	keyptr = get_keyptr();
--
--	hash[0] = (__force __u32)daddr[0];
--	hash[1] = (__force __u32)daddr[1];
--	hash[2] = (__force __u32)daddr[2];
--	hash[3] = (__force __u32)daddr[3];
--
--	return half_md4_transform(hash, keyptr->secret);
--}
--
--#ifdef CONFIG_INET
--
--__u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
--				 __be16 sport, __be16 dport)
--{
--	__u32 seq;
--	__u32 hash[4];
--	struct keydata *keyptr = get_keyptr();
--
--	/*
--	 *  Pick a unique starting offset for each TCP connection endpoints
--	 *  (saddr, daddr, sport, dport).
--	 *  Note that the words are placed into the starting vector, which is
--	 *  then mixed with a partial MD4 over random data.
--	 */
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = keyptr->secret[11];
--
--	seq = half_md4_transform(hash, keyptr->secret) & HASH_MASK;
--	seq += keyptr->count;
--	/*
--	 *	As close as possible to RFC 793, which
--	 *	suggests using a 250 kHz clock.
--	 *	Further reading shows this assumes 2 Mb/s networks.
--	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
--	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
--	 *	we also need to limit the resolution so that the u32 seq
--	 *	overlaps less than one time per MSL (2 minutes).
--	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
--	 */
--	seq += ktime_to_ns(ktime_get_real()) >> 6;
--
--	return seq;
--}
--
--/* Generate secure starting point for ephemeral IPV4 transport port search */
--u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
--{
--	struct keydata *keyptr = get_keyptr();
--	u32 hash[4];
--
--	/*
--	 *  Pick a unique starting offset for each ephemeral port search
--	 *  (saddr, daddr, dport) and 48bits of random data.
--	 */
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = (__force u32)dport ^ keyptr->secret[10];
--	hash[3] = keyptr->secret[11];
--
--	return half_md4_transform(hash, keyptr->secret);
--}
--EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
--
--#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
--			       __be16 dport)
--{
--	struct keydata *keyptr = get_keyptr();
--	u32 hash[12];
--
--	memcpy(hash, saddr, 16);
--	hash[4] = (__force u32)dport;
--	memcpy(&hash[5], keyptr->secret, sizeof(__u32) * 7);
--
--	return twothirdsMD4Transform((const __u32 *)daddr, hash);
--}
--#endif
--
--#if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
--/* Similar to secure_tcp_sequence_number but generate a 48 bit value
-- * bit's 32-47 increase every key exchange
-- *       0-31  hash(source, dest)
-- */
--u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
--				__be16 sport, __be16 dport)
--{
--	u64 seq;
--	__u32 hash[4];
--	struct keydata *keyptr = get_keyptr();
--
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = keyptr->secret[11];
--
--	seq = half_md4_transform(hash, keyptr->secret);
--	seq |= ((u64)keyptr->count) << (32 - HASH_BITS);
--
--	seq += ktime_to_ns(ktime_get_real());
--	seq &= (1ull << 48) - 1;
--
--	return seq;
--}
--EXPORT_SYMBOL(secure_dccp_sequence_number);
--#endif
--
--#endif /* CONFIG_INET */
--
-+late_initcall(random_int_secret_init);
- 
++struct nx_vlan_ip_list {
++	struct list_head list;
++	u32 ip_addr;
++};
++
  /*
-  * Get a random word for internal kernel use only. Similar to urandom but
-@@ -1646,17 +1315,15 @@ EXPORT_SYMBOL(secure_dccp_sequence_number);
-  * value is not cryptographically secure but for several uses the cost of
-  * depleting entropy is too high
-  */
--DEFINE_PER_CPU(__u32 [4], get_random_int_hash);
-+DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash);
- unsigned int get_random_int(void)
- {
--	struct keydata *keyptr;
- 	__u32 *hash = get_cpu_var(get_random_int_hash);
--	int ret;
-+	unsigned int ret;
+  * Interrupt coalescing defaults. The defaults are for 1500 MTU. It is
+  * adjusted based on configured MTU.
+@@ -1165,6 +1170,7 @@ struct netxen_adapter {
+ 	struct net_device *netdev;
+ 	struct pci_dev *pdev;
+ 	struct list_head mac_list;
++	struct list_head vlan_ip_list;
  
--	keyptr = get_keyptr();
- 	hash[0] += current->pid + jiffies + get_cycles();
--
--	ret = half_md4_transform(hash, keyptr->secret);
-+	md5_transform(hash, random_int_secret);
-+	ret = hash[0];
- 	put_cpu_var(get_random_int_hash);
+ 	spinlock_t tx_clean_lock;
  
- 	return ret;
-diff --git a/include/linux/random.h b/include/linux/random.h
-index ce29a04..d13059f 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -57,18 +57,6 @@ extern void add_interrupt_randomness(int irq);
- extern void get_random_bytes(void *buf, int nbytes);
- void generate_random_uuid(unsigned char uuid_out[16]);
- 
--extern __u32 secure_ip_id(__be32 daddr);
--extern __u32 secure_ipv6_id(const __be32 daddr[4]);
--extern u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
--extern u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
--				      __be16 dport);
--extern __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
--					__be16 sport, __be16 dport);
--extern __u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
--					  __be16 sport, __be16 dport);
--extern u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
--				       __be16 sport, __be16 dport);
--
- #ifndef MODULE
- extern const struct file_operations random_fops, urandom_fops;
- #endif
-diff --git a/include/net/secure_seq.h b/include/net/secure_seq.h
-new file mode 100644
-index 0000000..d97f689
---- /dev/null
-+++ b/include/net/secure_seq.h
-@@ -0,0 +1,20 @@
-+#ifndef _NET_SECURE_SEQ
-+#define _NET_SECURE_SEQ
-+
-+#include <linux/types.h>
-+
-+extern __u32 secure_ip_id(__be32 daddr);
-+extern __u32 secure_ipv6_id(const __be32 daddr[4]);
-+extern u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport);
-+extern u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
-+				      __be16 dport);
-+extern __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
-+					__be16 sport, __be16 dport);
-+extern __u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-+					  __be16 sport, __be16 dport);
-+extern u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
-+				       __be16 sport, __be16 dport);
-+extern u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-+					 __be16 sport, __be16 dport);
-+
-+#endif /* _NET_SECURE_SEQ */
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 8a04dd2..0d357b1 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -3,7 +3,7 @@
- #
- 
- obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
--	 gen_stats.o gen_estimator.o net_namespace.o
-+	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-new file mode 100644
-index 0000000..45329d7
---- /dev/null
-+++ b/net/core/secure_seq.c
-@@ -0,0 +1,184 @@
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/cryptohash.h>
-+#include <linux/module.h>
-+#include <linux/cache.h>
-+#include <linux/random.h>
-+#include <linux/hrtimer.h>
-+#include <linux/ktime.h>
-+#include <linux/string.h>
-+
-+#include <net/secure_seq.h>
-+
-+static u32 net_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
-+
-+static int __init net_secret_init(void)
-+{
-+	get_random_bytes(net_secret, sizeof(net_secret));
-+	return 0;
-+}
-+late_initcall(net_secret_init);
-+
-+static u32 seq_scale(u32 seq)
-+{
-+	/*
-+	 *	As close as possible to RFC 793, which
-+	 *	suggests using a 250 kHz clock.
-+	 *	Further reading shows this assumes 2 Mb/s networks.
-+	 *	For 10 Mb/s Ethernet, a 1 MHz clock is appropriate.
-+	 *	For 10 Gb/s Ethernet, a 1 GHz clock should be ok, but
-+	 *	we also need to limit the resolution so that the u32 seq
-+	 *	overlaps less than one time per MSL (2 minutes).
-+	 *	Choosing a clock of 64 ns period is OK. (period of 274 s)
-+	 */
-+	return seq + (ktime_to_ns(ktime_get_real()) >> 6);
-+}
-+
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+__u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-+				   __be16 sport, __be16 dport)
-+{
-+	u32 secret[MD5_MESSAGE_BYTES / 4];
-+	u32 hash[MD5_DIGEST_WORDS];
-+	u32 i;
-+
-+	memcpy(hash, saddr, 16);
-+	for (i = 0; i < 4; i++)
-+		secret[i] = net_secret[i] + daddr[i];
-+	secret[4] = net_secret[4] +
-+		(((__force u16)sport << 16) + (__force u16)dport);
-+	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
-+		secret[i] = net_secret[i];
-+
-+	md5_transform(hash, secret);
-+
-+	return seq_scale(hash[0]);
-+}
-+EXPORT_SYMBOL(secure_tcpv6_sequence_number);
-+
-+u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
-+			       __be16 dport)
-+{
-+	u32 secret[MD5_MESSAGE_BYTES / 4];
-+	u32 hash[MD5_DIGEST_WORDS];
-+	u32 i;
-+
-+	memcpy(hash, saddr, 16);
-+	for (i = 0; i < 4; i++)
-+		secret[i] = net_secret[i] + (__force u32) daddr[i];
-+	secret[4] = net_secret[4] + (__force u32)dport;
-+	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
-+		secret[i] = net_secret[i];
-+
-+	md5_transform(hash, secret);
-+
-+	return hash[0];
-+}
-+#endif
-+
-+#ifdef CONFIG_INET
-+__u32 secure_ip_id(__be32 daddr)
-+{
-+	u32 hash[MD5_DIGEST_WORDS];
-+
-+	hash[0] = (__force __u32) daddr;
-+	hash[1] = net_secret[13];
-+	hash[2] = net_secret[14];
-+	hash[3] = net_secret[15];
-+
-+	md5_transform(hash, net_secret);
-+
-+	return hash[0];
-+}
-+
-+__u32 secure_ipv6_id(const __be32 daddr[4])
-+{
-+	__u32 hash[4];
-+
-+	memcpy(hash, daddr, 16);
-+	md5_transform(hash, net_secret);
-+
-+	return hash[0];
-+}
-+
-+__u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
-+				 __be16 sport, __be16 dport)
-+{
-+	u32 hash[MD5_DIGEST_WORDS];
-+
-+	hash[0] = (__force u32)saddr;
-+	hash[1] = (__force u32)daddr;
-+	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
-+	hash[3] = net_secret[15];
-+
-+	md5_transform(hash, net_secret);
-+
-+	return seq_scale(hash[0]);
-+}
-+
-+u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
-+{
-+	u32 hash[MD5_DIGEST_WORDS];
-+
-+	hash[0] = (__force u32)saddr;
-+	hash[1] = (__force u32)daddr;
-+	hash[2] = (__force u32)dport ^ net_secret[14];
-+	hash[3] = net_secret[15];
-+
-+	md5_transform(hash, net_secret);
-+
-+	return hash[0];
-+}
-+EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
-+#endif
-+
-+#if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
-+u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
-+				__be16 sport, __be16 dport)
-+{
-+	u32 hash[MD5_DIGEST_WORDS];
-+	u64 seq;
-+
-+	hash[0] = (__force u32)saddr;
-+	hash[1] = (__force u32)daddr;
-+	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
-+	hash[3] = net_secret[15];
-+
-+	md5_transform(hash, net_secret);
-+
-+	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq += ktime_to_ns(ktime_get_real());
-+	seq &= (1ull << 48) - 1;
-+
-+	return seq;
-+}
-+EXPORT_SYMBOL(secure_dccp_sequence_number);
-+
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-+				  __be16 sport, __be16 dport)
-+{
-+	u32 secret[MD5_MESSAGE_BYTES / 4];
-+	u32 hash[MD5_DIGEST_WORDS];
-+	u64 seq;
-+	u32 i;
-+
-+	memcpy(hash, saddr, 16);
-+	for (i = 0; i < 4; i++)
-+		secret[i] = net_secret[i] + daddr[i];
-+	secret[4] = net_secret[4] +
-+		(((__force u16)sport << 16) + (__force u16)dport);
-+	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
-+		secret[i] = net_secret[i];
-+
-+	md5_transform(hash, secret);
-+
-+	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq += ktime_to_ns(ktime_get_real());
-+	seq &= (1ull << 48) - 1;
-+
-+	return seq;
-+}
-+EXPORT_SYMBOL(secure_dccpv6_sequence_number);
-+#endif
-+#endif
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 8c36adf..332639b 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index e8993a7..d6c6357 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
 @@ -26,6 +26,7 @@
- #include <net/timewait_sock.h>
- #include <net/tcp_states.h>
- #include <net/xfrm.h>
-+#include <net/secure_seq.h>
+ #include <linux/netdevice.h>
+ #include <linux/delay.h>
+ #include <linux/slab.h>
++#include <linux/if_vlan.h>
+ #include "netxen_nic.h"
+ #include "netxen_nic_hw.h"
  
- #include "ackvec.h"
- #include "ccid.h"
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 8dc4348..b74f761 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -29,6 +29,7 @@
- #include <net/transp_v6.h>
- #include <net/ip6_checksum.h>
- #include <net/xfrm.h>
-+#include <net/secure_seq.h>
+@@ -1619,6 +1620,7 @@ netxen_process_lro(struct netxen_adapter *adapter,
+ 	int index;
+ 	u16 lro_length, length, data_offset;
+ 	u32 seq_number;
++	u8 vhdr_len;
  
- #include "dccp.h"
- #include "ipv6.h"
-@@ -69,13 +70,7 @@ static inline void dccp_v6_send_check(struct sock *sk, struct sk_buff *skb)
- 	dh->dccph_checksum = dccp_v6_csum_finish(skb, &np->saddr, &np->daddr);
+ 	if (unlikely(ring > adapter->max_rds_rings))
+ 		return NULL;
+@@ -1652,8 +1654,10 @@ netxen_process_lro(struct netxen_adapter *adapter,
+ 	skb_pull(skb, l2_hdr_offset);
+ 	skb->protocol = eth_type_trans(skb, netdev);
+ 
+-	iph = (struct iphdr *)skb->data;
+-	th = (struct tcphdr *)(skb->data + (iph->ihl << 2));
++	if (skb->protocol == htons(ETH_P_8021Q))
++		vhdr_len = VLAN_HLEN;
++	iph = (struct iphdr *)(skb->data + vhdr_len);
++	th = (struct tcphdr *)((skb->data + vhdr_len) + (iph->ihl << 2));
+ 
+ 	length = (iph->ihl << 2) + (th->doff << 2) + lro_length;
+ 	iph->tot_len = htons(length);
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index f574edf..8c7fc32 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -91,7 +91,8 @@ static irqreturn_t netxen_intr(int irq, void *data);
+ static irqreturn_t netxen_msi_intr(int irq, void *data);
+ static irqreturn_t netxen_msix_intr(int irq, void *data);
+ 
+-static void netxen_config_indev_addr(struct net_device *dev, unsigned long);
++static void netxen_free_vlan_ip_list(struct netxen_adapter *);
++static void netxen_restore_indev_addr(struct net_device *dev, unsigned long);
+ static struct rtnl_link_stats64 *netxen_nic_get_stats(struct net_device *dev,
+ 						      struct rtnl_link_stats64 *stats);
+ static int netxen_nic_set_mac(struct net_device *netdev, void *p);
+@@ -1359,6 +1360,7 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	spin_lock_init(&adapter->tx_clean_lock);
+ 	INIT_LIST_HEAD(&adapter->mac_list);
++	INIT_LIST_HEAD(&adapter->vlan_ip_list);
+ 
+ 	err = netxen_setup_pci_map(adapter);
+ 	if (err)
+@@ -1481,6 +1483,7 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
+ 
+ 	cancel_work_sync(&adapter->tx_timeout_task);
+ 
++	netxen_free_vlan_ip_list(adapter);
+ 	netxen_nic_detach(adapter);
+ 
+ 	nx_decr_dev_ref_cnt(adapter);
+@@ -1563,7 +1566,7 @@ static int netxen_nic_attach_func(struct pci_dev *pdev)
+ 		if (err)
+ 			goto err_out_detach;
+ 
+-		netxen_config_indev_addr(netdev, NETDEV_UP);
++		netxen_restore_indev_addr(netdev, NETDEV_UP);
+ 	}
+ 
+ 	netif_device_attach(netdev);
+@@ -2374,7 +2377,7 @@ netxen_attach_work(struct work_struct *work)
+ 			goto done;
+ 		}
+ 
+-		netxen_config_indev_addr(netdev, NETDEV_UP);
++		netxen_restore_indev_addr(netdev, NETDEV_UP);
+ 	}
+ 
+ 	netif_device_attach(netdev);
+@@ -2848,10 +2851,70 @@ netxen_destip_supported(struct netxen_adapter *adapter)
  }
  
--static inline __u32 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
--						  __be16 sport, __be16 dport   )
--{
--	return secure_tcpv6_sequence_number(saddr, daddr, sport, dport);
--}
--
--static inline __u32 dccp_v6_init_sequence(struct sk_buff *skb)
-+static inline __u64 dccp_v6_init_sequence(struct sk_buff *skb)
+ static void
+-netxen_config_indev_addr(struct net_device *dev, unsigned long event)
++netxen_free_vlan_ip_list(struct netxen_adapter *adapter)
++{
++	struct nx_vlan_ip_list  *cur;
++	struct list_head *head = &adapter->vlan_ip_list;
++
++	while (!list_empty(head)) {
++		cur = list_entry(head->next, struct nx_vlan_ip_list, list);
++		netxen_config_ipaddr(adapter, cur->ip_addr, NX_IP_DOWN);
++		list_del(&cur->list);
++		kfree(cur);
++	}
++
++}
++static void
++netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
++		struct in_ifaddr *ifa, unsigned long event)
++{
++	struct net_device *dev;
++	struct nx_vlan_ip_list *cur, *tmp_cur;
++	struct list_head *head;
++
++	dev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
++
++	if (dev == NULL)
++		return;
++
++	if (!is_vlan_dev(dev))
++		return;
++
++	switch (event) {
++	case NX_IP_UP:
++		list_for_each(head, &adapter->vlan_ip_list) {
++			cur = list_entry(head, struct nx_vlan_ip_list, list);
++
++			if (cur->ip_addr == ifa->ifa_address)
++				return;
++		}
++
++		cur = kzalloc(sizeof(struct nx_vlan_ip_list), GFP_ATOMIC);
++		if (cur == NULL) {
++			printk(KERN_ERR "%s: failed to add vlan ip to list\n",
++					adapter->netdev->name);
++			return;
++		}
++
++		cur->ip_addr = ifa->ifa_address;
++		list_add_tail(&cur->list, &adapter->vlan_ip_list);
++		break;
++	case NX_IP_DOWN:
++		list_for_each_entry_safe(cur, tmp_cur,
++					&adapter->vlan_ip_list, list) {
++			if (cur->ip_addr == ifa->ifa_address) {
++				list_del(&cur->list);
++				kfree(cur);
++				break;
++			}
++		}
++	}
++}
++static void
++netxen_config_indev_addr(struct netxen_adapter *adapter,
++		struct net_device *dev, unsigned long event)
  {
- 	return secure_dccpv6_sequence_number(ipv6_hdr(skb)->daddr.s6_addr32,
- 					     ipv6_hdr(skb)->saddr.s6_addr32,
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 3c0369a..984ec65 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -21,6 +21,7 @@
+ 	struct in_device *indev;
+-	struct netxen_adapter *adapter = netdev_priv(dev);
  
- #include <net/inet_connection_sock.h>
- #include <net/inet_hashtables.h>
-+#include <net/secure_seq.h>
- #include <net/ip.h>
+ 	if (!netxen_destip_supported(adapter))
+ 		return;
+@@ -2865,10 +2928,12 @@ netxen_config_indev_addr(struct net_device *dev, unsigned long event)
+ 		case NETDEV_UP:
+ 			netxen_config_ipaddr(adapter,
+ 					ifa->ifa_address, NX_IP_UP);
++			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+ 			break;
+ 		case NETDEV_DOWN:
+ 			netxen_config_ipaddr(adapter,
+ 					ifa->ifa_address, NX_IP_DOWN);
++			netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+ 			break;
+ 		default:
+ 			break;
+@@ -2878,11 +2943,28 @@ netxen_config_indev_addr(struct net_device *dev, unsigned long event)
+ 	in_dev_put(indev);
+ }
  
- /*
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index e382138..86f13c67 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -19,6 +19,7 @@
- #include <linux/net.h>
- #include <net/ip.h>
- #include <net/inetpeer.h>
-+#include <net/secure_seq.h>
++static void
++netxen_restore_indev_addr(struct net_device *netdev, unsigned long event)
++
++{
++	struct netxen_adapter *adapter = netdev_priv(netdev);
++	struct nx_vlan_ip_list *pos, *tmp_pos;
++	unsigned long ip_event;
++
++	ip_event = (event == NETDEV_UP) ? NX_IP_UP : NX_IP_DOWN;
++	netxen_config_indev_addr(adapter, netdev, event);
++
++	list_for_each_entry_safe(pos, tmp_pos, &adapter->vlan_ip_list, list) {
++		netxen_config_ipaddr(adapter, pos->ip_addr, ip_event);
++	}
++}
++
+ static int netxen_netdev_event(struct notifier_block *this,
+ 				 unsigned long event, void *ptr)
+ {
+ 	struct netxen_adapter *adapter;
+ 	struct net_device *dev = (struct net_device *)ptr;
++	struct net_device *orig_dev = dev;
  
- /*
-  *  Theory of operations.
-diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
-index 3e61faf..f52d41e 100644
---- a/net/ipv4/netfilter/nf_nat_proto_common.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_common.c
-@@ -12,6 +12,7 @@
- #include <linux/ip.h>
+ recheck:
+ 	if (dev == NULL)
+@@ -2904,7 +2986,7 @@ recheck:
+ 	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+ 		goto done;
  
- #include <linux/netfilter.h>
-+#include <net/secure_seq.h>
- #include <net/netfilter/nf_nat.h>
- #include <net/netfilter/nf_nat_core.h>
- #include <net/netfilter/nf_nat_rule.h>
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 6afc4eb..e3dec1c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -109,6 +109,7 @@
- #include <linux/sysctl.h>
+-	netxen_config_indev_addr(dev, event);
++	netxen_config_indev_addr(adapter, orig_dev, event);
+ done:
+ 	return NOTIFY_DONE;
+ }
+@@ -2921,7 +3003,7 @@ netxen_inetaddr_event(struct notifier_block *this,
+ 	dev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
+ 
+ recheck:
+-	if (dev == NULL || !netif_running(dev))
++	if (dev == NULL)
+ 		goto done;
+ 
+ 	if (dev->priv_flags & IFF_802_1Q_VLAN) {
+@@ -2943,9 +3025,11 @@ recheck:
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_UP);
++		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_UP);
+ 		break;
+ 	case NETDEV_DOWN:
+ 		netxen_config_ipaddr(adapter, ifa->ifa_address, NX_IP_DOWN);
++		netxen_list_config_vlan_ip(adapter, ifa, NX_IP_DOWN);
+ 		break;
+ 	default:
+ 		break;
+@@ -2964,7 +3048,10 @@ static struct notifier_block netxen_inetaddr_cb = {
+ };
+ #else
+ static void
+-netxen_config_indev_addr(struct net_device *dev, unsigned long event)
++netxen_restore_indev_addr(struct net_device *dev, unsigned long event)
++{ }
++static void
++netxen_free_vlan_ip_list(struct netxen_adapter *adapter)
+ { }
  #endif
- #include <net/atmclip.h>
-+#include <net/secure_seq.h>
- 
- #define RT_FL_TOS(oldflp4) \
-     ((u32)(oldflp4->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 955b8e6..1c12b8e 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -72,6 +72,7 @@
- #include <net/timewait_sock.h>
- #include <net/xfrm.h>
- #include <net/netdma.h>
-+#include <net/secure_seq.h>
- 
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index b531972..73f1a00 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -20,6 +20,7 @@
- #include <net/inet_connection_sock.h>
- #include <net/inet_hashtables.h>
- #include <net/inet6_hashtables.h>
-+#include <net/secure_seq.h>
- #include <net/ip.h>
- 
- int __inet6_hash(struct sock *sk, struct inet_timewait_sock *tw)
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 78aa534..d1fb63f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -61,6 +61,7 @@
- #include <net/timewait_sock.h>
- #include <net/netdma.h>
- #include <net/inet_common.h>
-+#include <net/secure_seq.h>
- 
- #include <asm/uaccess.h>
  
 -- 
-1.7.6
+1.6.3.3
+
 
