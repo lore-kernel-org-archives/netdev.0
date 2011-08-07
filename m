@@ -1,38 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] ipv4: use dst with ref during bcast/mcast loopback
-Date: Sun, 7 Aug 2011 23:17:22 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1108072232170.13644@ja.ssi.bg>
+From: Michel Machado <michel@digirati.com.br>
+Subject: Re: include/linux/netlink.h: problem when included by an
+ application
+Date: Sun, 07 Aug 2011 18:14:23 -0400
+Message-ID: <1312755263.2908.6.camel@Thor>
+References: <1312580748.2326.15.camel@Thor>
+	 <1312679707.2591.987.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:34369 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754858Ab1HGUMl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Aug 2011 16:12:41 -0400
+Received: from mta63.f1.k8.com.br ([187.16.23.95]:56448 "EHLO
+	mta63.f1.k8.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755393Ab1HGWOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2011 18:14:31 -0400
+In-Reply-To: <1312679707.2591.987.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> >    The simplest solution that I came up was replacing sa_family_t in
+> > include/linux/netlink.h to 'unsigned short' as header
+> > include/linux/socket.h does for struct __kernel_sockaddr_storage
+> > available to applications.
+> 
+> Maybe we should do something like this in <linux/socket.h>:
+> 
+> typedef unsigned short __kernel_sa_family_t;
+> #ifdef __KERNEL__
+> typedef __kernel_sa_family_t sa_family_t;
+> #endif
+> 
+> and then use __kernel_sa_family_t in <linux/netlink.h>.
+> 
+> Ben.
 
-	Make sure skb dst has reference when moving to
-another context. Currently, I don't see protocols that can
-hit it when sending broadcasts/multicasts to loopback using
-noref dsts, so it is just a precaution.
+   I like this solution, it solves both struct __kernel_sockaddr_storage
+in include/linux/socket.h, and struct sockaddr_nl in
+include/linux/netlink.h.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+[ ]'s
+Michel Machado
 
-	Please, review and apply if needed...
-
-diff -urp v3.0/linux/net/ipv4/ip_output.c linux/net/ipv4/ip_output.c
---- v3.0/linux/net/ipv4/ip_output.c	2011-07-22 09:43:32.000000000 +0300
-+++ linux/net/ipv4/ip_output.c	2011-08-07 22:21:23.909347184 +0300
-@@ -122,6 +122,7 @@ static int ip_dev_loopback_xmit(struct s
- 	newskb->pkt_type = PACKET_LOOPBACK;
- 	newskb->ip_summed = CHECKSUM_UNNECESSARY;
- 	WARN_ON(!skb_dst(newskb));
-+	skb_dst_force(newskb);
- 	netif_rx_ni(newskb);
- 	return 0;
- }
