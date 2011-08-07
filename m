@@ -1,54 +1,69 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 2/2] dp83640: increase receive time stamp buffer size
-Date: Sun,  7 Aug 2011 09:03:04 +0200
-Message-ID: <d38d5b44e8894387852a116492cb825159b5842c.1312699694.git.richard.cochran@omicron.at>
+Subject: [PATCH 1/2] gianfar: fix fiper alignment after resetting the time
+Date: Sun,  7 Aug 2011 09:03:03 +0200
+Message-ID: <018b1f12e792c4758d1e601742f758a09dd10d62.1312699694.git.richard.cochran@omicron.at>
 References: <cover.1312699693.git.richard.cochran@omicron.at>
 Cc: <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
 	<stable@kernel.org>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52931 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826Ab1HGHI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2011 03:08:56 -0400
 In-Reply-To: <cover.1312699693.git.richard.cochran@omicron.at>
 In-Reply-To: <cover.1312699693.git.richard.cochran@omicron.at>
 References: <cover.1312699693.git.richard.cochran@omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dp83640 buffers receive time stamps from special PHY status frames,
-matching them to received PTP packets in a work queue. Because the timeout
-for orphaned time stamps is so long and the buffer is so small, the driver
-can drop time stamps under moderate PTP traffic.
+After resetting the time, the PPS signals on the FIPER output channels
+are incorrectly offset from the clock time, as can be readily verified
+by a looping back the FIPER to the external time stamp input.
 
-This commit fixes the issue by decreasing the timeout to (at least) one
-timer tick and increasing the buffer size.
+Despite its name, setting the "Fiper Realignment Disable" bit seems to
+fix the problem, at least on the P2020.
+
+Also, following the example code from the Freescale BSP, it is not really
+necessary to disable and re-enable the timer in order to reprogram the
+FIPER. (The documentation is rather unclear on this point. It seems that
+writing to the alarm register also disables the FIPER.)
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 Cc: <stable@kernel.org>
 ---
- drivers/net/phy/dp83640.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/gianfar_ptp.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 2cd8dc5..cb6e0b4 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -34,8 +34,7 @@
- #define PAGESEL		0x13
- #define LAYER4		0x02
- #define LAYER2		0x01
--#define MAX_RXTS	4
--#define MAX_TXTS	4
-+#define MAX_RXTS	64
- #define N_EXT_TS	1
- #define PSF_PTPVER	2
- #define PSF_EVNT	0x4000
-@@ -218,7 +217,7 @@ static void phy2rxts(struct phy_rxts *p, struct rxts *rxts)
- 	rxts->seqid = p->seqid;
- 	rxts->msgtype = (p->msgtype >> 12) & 0xf;
- 	rxts->hash = p->msgtype & 0x0fff;
--	rxts->tmo = jiffies + HZ;
-+	rxts->tmo = jiffies + 2;
+diff --git a/drivers/net/gianfar_ptp.c b/drivers/net/gianfar_ptp.c
+index 1c97861..f67b8ae 100644
+--- a/drivers/net/gianfar_ptp.c
++++ b/drivers/net/gianfar_ptp.c
+@@ -193,14 +193,9 @@ static void set_alarm(struct etsects *etsects)
+ /* Caller must hold etsects->lock. */
+ static void set_fipers(struct etsects *etsects)
+ {
+-	u32 tmr_ctrl = gfar_read(&etsects->regs->tmr_ctrl);
+-
+-	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl & (~TE));
+-	gfar_write(&etsects->regs->tmr_prsc,   etsects->tmr_prsc);
++	set_alarm(etsects);
+ 	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
+ 	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
+-	set_alarm(etsects);
+-	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|TE);
  }
  
- static u64 phy2txts(struct phy_txts *p)
+ /*
+@@ -511,7 +506,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
+ 	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
+ 	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
+ 	set_alarm(etsects);
+-	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE);
++	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE|FRD);
+ 
+ 	spin_unlock_irqrestore(&etsects->lock, flags);
+ 
 -- 
 1.7.0.4
+
