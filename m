@@ -1,67 +1,52 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] netfilter: TCP and raw fix for ip_route_me_harder
-Date: Sun, 7 Aug 2011 22:11:00 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1108072158050.1423@ja.ssi.bg>
+Subject: [PATCH] ipv4: route non-local sources for raw socket
+Date: Sun, 7 Aug 2011 22:16:09 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108072212390.1423@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:59359 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754605Ab1HGTL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Aug 2011 15:11:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-	TCP in some cases uses different global (raw) socket
-to send RST and ACK. The transparent flag is not set there.
-Currently, it is a problem for rerouting after the previous
-change.
-
-	Fix it by simplifying the checks in ip_route_me_harder
-and use FLOWI_FLAG_ANYSRC even for sockets. It looks safe
-because the initial routing allowed this source address to
-be used and now we just have to make sure the packet is rerouted.
-
-	As a side effect this also allows rerouting for normal
-raw sockets that use spoofed source addresses which was not possible
-even before we eliminated the ip_route_input call.
+	The raw sockets can provide source address for
+routing but their privileges are not considered. We
+can provide non-local source address, make sure the
+FLOWI_FLAG_ANYSRC flag is set if socket has privileges
+for this, i.e. based on hdrincl (IP_HDRINCL) and
+transparent flags.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
 
-diff -urp v3.0/linux/net/ipv4/netfilter.c linux/net/ipv4/netfilter.c
---- v3.0/linux/net/ipv4/netfilter.c	2011-07-22 09:43:32.862081622 +0300
-+++ linux/net/ipv4/netfilter.c	2011-08-07 19:22:05.772347388 +0300
-@@ -18,17 +18,15 @@ int ip_route_me_harder(struct sk_buff *s
- 	struct rtable *rt;
- 	struct flowi4 fl4 = {};
- 	__be32 saddr = iph->saddr;
--	__u8 flags = 0;
-+	__u8 flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : 0;
- 	unsigned int hh_len;
+diff -urp v3.0/linux/include/net/inet_sock.h linux/include/net/inet_sock.h
+--- v3.0/linux/include/net/inet_sock.h	2011-07-22 09:43:31.000000000 +0300
++++ linux/include/net/inet_sock.h	2011-08-07 19:09:37.365347358 +0300
+@@ -238,7 +238,7 @@ static inline __u8 inet_sk_flowi_flags(c
+ {
+ 	__u8 flags = 0;
  
--	if (!skb->sk && addr_type != RTN_LOCAL) {
--		if (addr_type == RTN_UNSPEC)
--			addr_type = inet_addr_type(net, saddr);
--		if (addr_type == RTN_LOCAL || addr_type == RTN_UNICAST)
--			flags |= FLOWI_FLAG_ANYSRC;
--		else
--			saddr = 0;
--	}
-+	if (addr_type == RTN_UNSPEC)
-+		addr_type = inet_addr_type(net, saddr);
-+	if (addr_type == RTN_LOCAL || addr_type == RTN_UNICAST)
-+		flags |= FLOWI_FLAG_ANYSRC;
-+	else
-+		saddr = 0;
+-	if (inet_sk(sk)->transparent)
++	if (inet_sk(sk)->transparent || inet_sk(sk)->hdrincl)
+ 		flags |= FLOWI_FLAG_ANYSRC;
+ 	if (sk->sk_protocol == IPPROTO_TCP)
+ 		flags |= FLOWI_FLAG_PRECOW_METRICS;
+diff -urp v3.0/linux/net/ipv4/raw.c linux/net/ipv4/raw.c
+--- v3.0/linux/net/ipv4/raw.c	2011-07-22 09:43:33.000000000 +0300
++++ linux/net/ipv4/raw.c	2011-08-06 20:38:48.493063515 +0300
+@@ -563,7 +563,8 @@ static int raw_sendmsg(struct kiocb *ioc
+ 	flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
+ 			   RT_SCOPE_UNIVERSE,
+ 			   inet->hdrincl ? IPPROTO_RAW : sk->sk_protocol,
+-			   FLOWI_FLAG_CAN_SLEEP, daddr, saddr, 0, 0);
++			   inet_sk_flowi_flags(sk) | FLOWI_FLAG_CAN_SLEEP,
++			   daddr, saddr, 0, 0);
  
- 	/* some non-standard hacks like ipt_REJECT.c:send_reset() can cause
- 	 * packets with foreign saddr to appear on the NF_INET_LOCAL_OUT hook.
-@@ -38,7 +36,7 @@ int ip_route_me_harder(struct sk_buff *s
- 	fl4.flowi4_tos = RT_TOS(iph->tos);
- 	fl4.flowi4_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
- 	fl4.flowi4_mark = skb->mark;
--	fl4.flowi4_flags = skb->sk ? inet_sk_flowi_flags(skb->sk) : flags;
-+	fl4.flowi4_flags = flags;
- 	rt = ip_route_output_key(net, &fl4);
- 	if (IS_ERR(rt))
- 		return -1;
+ 	if (!inet->hdrincl) {
+ 		err = raw_probe_proto_opt(&fl4, msg);
