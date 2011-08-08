@@ -1,17 +1,22 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
 Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Mon, 08 Aug 2011 20:53:11 +0200
-Message-ID: <4E403097.4020306@pengutronix.de>
-References: <1312641270-6018-1-git-send-email-holt@sgi.com>	<1312641270-6018-6-git-send-email-holt@sgi.com>	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com>
-	<4E3FF9EA.6030601@grandegger.com> <4E3FFD5B.7080000@pengutronix.de>
-	<4E4001E1.3030508@grandegger.com>
+Date: Mon, 8 Aug 2011 14:14:03 -0500
+Message-ID: <20110808191403.GG4926@sgi.com>
+References: <20110808142153.GW4926@sgi.com> <4E3FF4B8.2010603@grandegger.com>
+	<20110808144424.GY4926@sgi.com> <4E3FF9EA.6030601@grandegger.com>
+	<4E3FFD5B.7080000@pengutronix.de> <4E4001E1.3030508@grandegger.com>
+	<20110808155540.GD4926@sgi.com> <4E4008BA.6030303@grandegger.com>
+	<20110808160810.GF4926@sgi.com> <4E402CF1.1040300@grandegger.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1712257848420726622=="
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
 	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4E4001E1.3030508-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4E402CF1.1040300-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -23,77 +28,99 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============1712257848420726622==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig6265233AAE04C87139791E67"
+On Mon, Aug 08, 2011 at 08:37:37PM +0200, Wolfgang Grandegger wrote:
+> On 08/08/2011 06:08 PM, Robin Holt wrote:
+> > On Mon, Aug 08, 2011 at 06:03:06PM +0200, Wolfgang Grandegger wrote:
+> ...
+> > So we would stay with the clk_* functions.  I assume clk_get() would
+> > return NULL, clk_get_rate() would just return fsl_get_sys_freq() and
+> > the other functions would do nothing.  Doesn't this really polute what
+> > clk_* functions are supposed to do?  Aren't we making flexcan dictate
+> > a different behavior for powerpc than for the arm (and possibly other)
+> > architectures?
+> 
+> Well, I see it as one way to provide compatibility with the ARM port. If
+> the PowerPC people don't like it, we can switch to something else,
+> whatever they suggest.
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig6265233AAE04C87139791E67
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+I have spent the last few hours and I think I found the communication
+problem and I think it is me.
 
-On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
->> ACK - The device tree bindings as in mainline's Documentation is a mes=
-s.
->> If the powerpc guys are happy with a clock interfaces based approach
->> somewhere in arch/ppc, I'm more than happy to remove:
->> - fsl,flexcan-clock-source (not implemented, even in the fsl driver)
->>
->> - fsl,flexcan-clock-divider \__ replace with code in arch/ppc, or
->> - clock-frequency           /   a single clock-frequency attribute
->=20
-> In the "net-next-2.6" tree there is also:
->=20
->  $ grep flexcan arch/powerpc/boots/dts/*.dts
->   p1010rdb.dts:			fsl,flexcan-clock-source =3D "platform";
->   p1010rdb.dts:			fsl,flexcan-clock-source =3D "platform";
->   p1010si.dtsi:			compatible =3D "fsl,flexcan-v1.0";
->   p1010si.dtsi:			fsl,flexcan-clock-divider =3D <2>;
->   p1010si.dtsi:			compatible =3D "fsl,flexcan-v1.0";
->   p1010si.dtsi:			fsl,flexcan-clock-divider =3D <2>;
->=20
-> Especially the fsl,flexcan-clock-divider =3D <2>; might make people thi=
-nk,
-> that they could set something else.
+I assumed long ago we would be better off implementing a Kconfig language
+which does "select PPC_CLOCK".  This assumption was in part because I
+did not understand what I was doing when I started this (still don't
+honestly), but I did know the freescale patch series did a select
+PPC_CLOCK.
 
-ARGH... :D
+Here is my patch for introducing the p1010 clock source.  Am I finally
+starting to understand your guidance?
 
-Marc
+Thanks,
+Robin
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+------------------------------------------------------------------------
 
-
---------------enig6265233AAE04C87139791E67
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk5AMPUACgkQjTAFq1RaXHP6OACfYLDH67bfElwkZtkoDjGmeDt7
-LMIAmQGVk5kk6j7YBHBwxx57fB3pqH04
-=YQeE
------END PGP SIGNATURE-----
-
---------------enig6265233AAE04C87139791E67--
-
---===============1712257848420726622==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1712257848420726622==--
+diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/platforms/85xx/Kconfig
+index 498534c..ed4cf92 100644
+--- a/arch/powerpc/platforms/85xx/Kconfig
++++ b/arch/powerpc/platforms/85xx/Kconfig
+@@ -26,6 +26,10 @@ config MPC8560_ADS
+ 	help
+ 	  This option enables support for the MPC 8560 ADS board
+ 
++config 85xx_HAVE_CAN_FLEXCAN
++	bool
++	select HAVE_CAN_FLEXCAN if NET && CAN
++
+ config MPC85xx_CDS
+ 	bool "Freescale MPC85xx CDS"
+ 	select DEFAULT_UIMAGE
+@@ -70,6 +74,8 @@ config MPC85xx_RDB
+ config P1010_RDB
+ 	bool "Freescale P1010RDB"
+ 	select DEFAULT_UIMAGE
++	select 85xx_HAVE_CAN_FLEXCAN
++	select PPC_CLOCK if CAN_FLEXCAN
+ 	help
+ 	  This option enables support for the MPC85xx RDB (P1010 RDB) board
+ 
+diff --git a/arch/powerpc/platforms/85xx/Makefile b/arch/powerpc/platforms/85xx/Makefile
+index a971b32..64ad7a4 100644
+--- a/arch/powerpc/platforms/85xx/Makefile
++++ b/arch/powerpc/platforms/85xx/Makefile
+@@ -11,6 +11,7 @@ obj-$(CONFIG_MPC85xx_DS)  += mpc85xx_ds.o
+ obj-$(CONFIG_MPC85xx_MDS) += mpc85xx_mds.o
+ obj-$(CONFIG_MPC85xx_RDB) += mpc85xx_rdb.o
+ obj-$(CONFIG_P1010_RDB)   += p1010rdb.o
++obj-$(CONFIG_PPC_CLOCK)   += clock.o
+ obj-$(CONFIG_P1022_DS)    += p1022_ds.o
+ obj-$(CONFIG_P1023_RDS)   += p1023_rds.o
+ obj-$(CONFIG_P2040_RDB)   += p2040_rdb.o corenet_ds.o
+diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
+index d7387fa..29e04d6 100644
+--- a/arch/powerpc/platforms/85xx/p1010rdb.c
++++ b/arch/powerpc/platforms/85xx/p1010rdb.c
+@@ -81,6 +81,13 @@ static void __init p1010_rdb_setup_arch(void)
+ 	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
+ }
+ 
++static void __init p1010_rdb_init(void)
++{
++#ifdef PPC_CLOCK
++	p1010_rdb_clk_init();
++#endif
++}
++
+ static struct of_device_id __initdata p1010rdb_ids[] = {
+ 	{ .type = "soc", },
+ 	{ .compatible = "soc", },
+@@ -111,6 +118,7 @@ define_machine(p1010_rdb) {
+ 	.name			= "P1010 RDB",
+ 	.probe			= p1010_rdb_probe,
+ 	.setup_arch		= p1010_rdb_setup_arch,
++	.init			= p1010_rdb_init,
+ 	.init_IRQ		= p1010_rdb_pic_init,
+ #ifdef CONFIG_PCI
+ 	.pcibios_fixup_bus	= fsl_pcibios_fixup_bus,
+-- 
+1.7.2.1
