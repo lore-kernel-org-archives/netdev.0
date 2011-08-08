@@ -1,7 +1,7 @@
 From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
 Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Mon, 8 Aug 2011 09:44:24 -0500
-Message-ID: <20110808144424.GY4926@sgi.com>
+Date: Mon, 8 Aug 2011 09:48:08 -0500
+Message-ID: <20110808144808.GZ4926@sgi.com>
 References: <1312641270-6018-1-git-send-email-holt@sgi.com>
 	<1312641270-6018-6-git-send-email-holt@sgi.com>
 	<4E3FA066.3020301@grandegger.com> <20110808113136.GS4926@sgi.com>
@@ -56,33 +56,15 @@ On Mon, Aug 08, 2011 at 04:37:44PM +0200, Wolfgang Grandegger wrote:
 > > as well.
 > 
 > Well, I wrote above: "Well, no. Let's wait. I don't think we need it."
-> 
-> For the P1010 we can sinmply derive the clock frequency from
-> "fsl_get_sys_freq()", which is fine for the time being. No extra
-> properties, etc. The clk implemetation might go into
-> 
->  http://lxr.linux.no/#linux+v3.0.1/arch/powerpc/platforms/85xx/clock.c
-> 
-> or
-> 
->  http://lxr.linux.no/#linux+v3.0.1/arch/powerpc/sysdev/fsl_soc.c
-> 
-> And may depend on HAVE_CAN_FLEXCAN
-> 
-> BTW, I have not found HAVE_CAN_FLEXCAN in your patch. What kernel are
-> you using?
 
-I am starting with the v3.0 kernel, apply one patch from the freescale BSP
-we receive under NDA which introduces the P1010RDB board into the QorIQ
-platform, and then work from there for the flexcan stuff.  That patch
-introduces the HAVE_CAN_FLEXCAN.  I do not like how freescale structured
-that Kconfig bit, so I have tweaked it to be selected automatically
-when P1010RDB, NET, and CAN are selected.  That allows the CAN_FLEXCAN
-selection to determine is we are going to build the flexcan.c file.
+My question remains "What should we be naming the device tree node in
+general.  Line 5 of the fsl-flexcan.txt file specifically calls the node
+"fsl,flexcan-v1.0"  In the .dts file the freescale patches introduces into
+the arch/powerpc portion of the kernel, they call it that same thing.
+Likewise, in the code already checked into uboot it is the same name.
+Whether it is needed or not for the clock frequency, it does need to
+be consistent between the .dts file and the driver for device discovery
+to work.
 
-Our contact with Freescale would prefer that I not post that patch until
-we get the OK from freescale to do so since we received it under NDA.
-
+Thanks,
 Robin
-> 
-> Wolfgang.
