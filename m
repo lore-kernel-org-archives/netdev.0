@@ -1,83 +1,19 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 02/13] [PATCH] qeth: do not apply priority queuing to HiperSockets
-Date: Mon, 08 Aug 2011 13:33:48 +0200
-Message-ID: <20110808113515.489806765@de.ibm.com>
-References: <20110808113346.516293249@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
+From: favourndoye <webdraw753@att.net>
+Subject: Hello my love, My name is Favour Ndoye,i come across and read through your profile today and i became interested in you,i will also like to know you the more,and i want you to send an e-mail to my e-mail address so i can give you my picture for you to know whom i am and for the both of us to know each other very well and better in life,and we can achieve it in future because ture love and feeling means alot in future.Here is my private e-mail address you can contact me with it.(favourndoye41@gmail.com)I am waiting for your mail to my e-mail address above and aslo, Remember the distance or colour does not matter but love,feeling,e-motions and sympathetic love matters alot in life. Thanks,and i promise to be honest and to keep a very good relationship with you. Favour.              
+ favourndoye41@gmail.com
+Date: Mon, 8 Aug 2011 04:38:31 -0700 (PDT)
+Message-ID: <1312803511.48162.YahooMailRC@web181511.mail.ne1.yahoo.com>
+Reply-To: favourndoye <favourndoye41@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:33051 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143Ab1HHLfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 07:35:31 -0400
-Content-Disposition: inline; filename=qeth-nr-outq.patch
+Received: from nm2-vm0.access.bullet.mail.sp2.yahoo.com ([98.139.44.158]:24429
+	"HELO nm2-vm0.access.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751652Ab1HHLic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 07:38:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
 
-OSA cards can be configured to support 1 or 4 output queues. This
-does not apply to HiperSockets. This patch limits determination of
-the configured number of output queues to OSA cards only, but excludes
-HiperSockets.
-
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
-
- qeth_core_main.c |   40 +++++++++++++++++++++-------------------
- 1 file changed, 21 insertions(+), 19 deletions(-)
-
---- linux-2.5/drivers/s390/net/qeth_core_main.c	22 Jul 2011 08:38:02 -0000	1.119
-+++ linux-2.5/drivers/s390/net/qeth_core_main.c	4 Aug 2011 07:02:55 -0000	1.120
-@@ -995,27 +995,29 @@ static void qeth_get_channel_path_desc(s
- 	ccwdev = card->data.ccwdev;
- 	chp_dsc = (struct channelPath_dsc *)ccw_device_get_chp_desc(ccwdev, 0);
- 	if (chp_dsc != NULL) {
--		/* CHPP field bit 6 == 1 -> single queue */
--		if ((chp_dsc->chpp & 0x02) == 0x02) {
--			if ((atomic_read(&card->qdio.state) !=
--				QETH_QDIO_UNINITIALIZED) &&
--			    (card->qdio.no_out_queues == 4))
--				/* change from 4 to 1 outbound queues */
--				qeth_free_qdio_buffers(card);
--			card->qdio.no_out_queues = 1;
--			if (card->qdio.default_out_queue != 0)
--				dev_info(&card->gdev->dev,
-+		if (card->info.type != QETH_CARD_TYPE_IQD) {
-+			/* CHPP field bit 6 == 1 -> single queue */
-+			if ((chp_dsc->chpp & 0x02) == 0x02) {
-+				if ((atomic_read(&card->qdio.state) !=
-+					QETH_QDIO_UNINITIALIZED) &&
-+				    (card->qdio.no_out_queues == 4))
-+					/* change from 4 to 1 outbound queues */
-+					qeth_free_qdio_buffers(card);
-+				card->qdio.no_out_queues = 1;
-+				if (card->qdio.default_out_queue != 0)
-+					dev_info(&card->gdev->dev,
- 					"Priority Queueing not supported\n");
--			card->qdio.default_out_queue = 0;
--		} else {
--			if ((atomic_read(&card->qdio.state) !=
--				QETH_QDIO_UNINITIALIZED) &&
--			    (card->qdio.no_out_queues == 1)) {
--				/* change from 1 to 4 outbound queues */
--				qeth_free_qdio_buffers(card);
--				card->qdio.default_out_queue = 2;
-+				card->qdio.default_out_queue = 0;
-+			} else {
-+				if ((atomic_read(&card->qdio.state) !=
-+					QETH_QDIO_UNINITIALIZED) &&
-+				    (card->qdio.no_out_queues == 1)) {
-+					/* change from 1 to 4 outbound queues */
-+					qeth_free_qdio_buffers(card);
-+					card->qdio.default_out_queue = 2;
-+				}
-+				card->qdio.no_out_queues = 4;
- 			}
--			card->qdio.no_out_queues = 4;
- 		}
- 		card->info.func_level = 0x4100 + chp_dsc->desc;
- 		kfree(chp_dsc);
 
