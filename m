@@ -1,130 +1,57 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: [PATCH v4] usbnet/cdc_ncm: Don't use stack variables for DMA
-Date: Mon, 8 Aug 2011 08:34:07 -0400
-Message-ID: <20110808123406.GA2526@zod.bos.redhat.com>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+Date: Mon, 8 Aug 2011 07:48:42 -0500
+Message-ID: <20110808124842.GT4926@sgi.com>
+References: <1312641270-6018-1-git-send-email-holt@sgi.com>
+	<1312641270-6018-6-git-send-email-holt@sgi.com>
+	<4E3FA066.3020301@grandegger.com> <20110808113136.GS4926@sgi.com>
+	<4E3FD184.1070706@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@suse.de, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>,
-	Alexey ORISHKO <alexey.orishko@stericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10153 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751525Ab1HHMeS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2011 08:34:18 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4E3FD184.1070706-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The cdc_ncm driver still has a few places where stack variables are
-passed to the cdc_ncm_do_request function.  This triggers a stack trace in
-lib/dma-debug.c if the CONFIG_DEBUG_DMA_API option is set.
+On Mon, Aug 08, 2011 at 02:07:32PM +0200, Marc Kleine-Budde wrote:
+> On 08/08/2011 01:31 PM, Robin Holt wrote:
+> > On Mon, Aug 08, 2011 at 10:37:58AM +0200, Wolfgang Grandegger wrote:
+> >> On 08/06/2011 04:34 PM, Robin Holt wrote:
+> >>> flexcan driver needs the clk_get, clk_get_rate, etc functions
+> >>> to work.  This patch provides the minimum functionality.
+> >>
+> >> This needs some more general thoughts... apart from the question where
+> >> the code should go.
+> >>
+> >> Like for the MSCAN on the MPC5200, the user should be *able* to select
+> >> an appropriate clock source and divider via DTS node properties.
+> >> Currently it seems, that the DTS properties must match some
+> >> pre-configured values, most likely set by the boot loader. Please
+> >> correct me if I'm wrong. For me this is generic and should go into the
+> >> Flexcan driver. From there, a platform specific function, e.g.
+> >> flexcan_set_clock() might be called.
+> > 
+> > OK.  Dug a bit more.  The p1010 built-in clocksource seems to be the
+> > periphereal clock frequency which is system bus frequency divided
+> > by 2.  The clock source can not be changed, but the clock divider can
+> > by freezing the interface and setting the CTRL register.  This appears
+> 
+> Which bit(s) in the CTRL register is/are this?
 
-Adjust these calls to pass parameters that have been allocated with
-kzalloc.
+PRESDIV bits 24-31.  Documented on the P1010 reference manual section 21.3.3.2.
 
-Signed-off-by: Josh Boyer <jwboyer@redhat.com>
----
-v4: Rebase against 3.1-rc1
-v3: Fix checkpatch errors
-v2: Fix leak in error path
-
- drivers/net/usb/cdc_ncm.c |   47 ++++++++++++++++++++++++++++++++++++--------
- 1 files changed, 38 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index a03336e..f06fb78 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -228,23 +228,40 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 	if (ctx->rx_max != le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
- 
- 		if (flags & USB_CDC_NCM_NCAP_NTB_INPUT_SIZE) {
--			struct usb_cdc_ncm_ndp_input_size ndp_in_sz;
-+			struct usb_cdc_ncm_ndp_input_size *ndp_in_sz;
-+
-+			ndp_in_sz = kzalloc(sizeof(*ndp_in_sz), GFP_KERNEL);
-+			if (!ndp_in_sz) {
-+				err = -ENOMEM;
-+				goto size_err;
-+			}
-+
- 			err = usb_control_msg(ctx->udev,
- 					usb_sndctrlpipe(ctx->udev, 0),
- 					USB_CDC_SET_NTB_INPUT_SIZE,
- 					USB_TYPE_CLASS | USB_DIR_OUT
- 					 | USB_RECIP_INTERFACE,
--					0, iface_no, &ndp_in_sz, 8, 1000);
-+					0, iface_no, ndp_in_sz, 8, 1000);
-+			kfree(ndp_in_sz);
- 		} else {
--			__le32 dwNtbInMaxSize = cpu_to_le32(ctx->rx_max);
-+			__le32 *dwNtbInMaxSize;
-+			dwNtbInMaxSize = kzalloc(sizeof(*dwNtbInMaxSize),
-+					GFP_KERNEL);
-+			if (!dwNtbInMaxSize) {
-+				err = -ENOMEM;
-+				goto size_err;
-+			}
-+			*dwNtbInMaxSize = cpu_to_le32(ctx->rx_max);
-+
- 			err = usb_control_msg(ctx->udev,
- 					usb_sndctrlpipe(ctx->udev, 0),
- 					USB_CDC_SET_NTB_INPUT_SIZE,
- 					USB_TYPE_CLASS | USB_DIR_OUT
- 					 | USB_RECIP_INTERFACE,
--					0, iface_no, &dwNtbInMaxSize, 4, 1000);
-+					0, iface_no, dwNtbInMaxSize, 4, 1000);
-+			kfree(dwNtbInMaxSize);
- 		}
--
-+size_err:
- 		if (err < 0)
- 			pr_debug("Setting NTB Input Size failed\n");
- 	}
-@@ -325,19 +342,29 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 
- 	/* set Max Datagram Size (MTU) */
- 	if (flags & USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE) {
--		__le16 max_datagram_size;
-+		__le16 *max_datagram_size;
- 		u16 eth_max_sz = le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
-+
-+		max_datagram_size = kzalloc(sizeof(*max_datagram_size),
-+				GFP_KERNEL);
-+		if (!max_datagram_size) {
-+			err = -ENOMEM;
-+			goto max_dgram_err;
-+		}
-+
- 		err = usb_control_msg(ctx->udev, usb_rcvctrlpipe(ctx->udev, 0),
- 				USB_CDC_GET_MAX_DATAGRAM_SIZE,
- 				USB_TYPE_CLASS | USB_DIR_IN
- 				 | USB_RECIP_INTERFACE,
--				0, iface_no, &max_datagram_size,
-+				0, iface_no, max_datagram_size,
- 				2, 1000);
- 		if (err < 0) {
- 			pr_debug("GET_MAX_DATAGRAM_SIZE failed, use size=%u\n",
- 						CDC_NCM_MIN_DATAGRAM_SIZE);
-+			kfree(max_datagram_size);
- 		} else {
--			ctx->max_datagram_size = le16_to_cpu(max_datagram_size);
-+			ctx->max_datagram_size =
-+				le16_to_cpu(*max_datagram_size);
- 			/* Check Eth descriptor value */
- 			if (eth_max_sz < CDC_NCM_MAX_DATAGRAM_SIZE) {
- 				if (ctx->max_datagram_size > eth_max_sz)
-@@ -360,8 +387,10 @@ static u8 cdc_ncm_setup(struct cdc_ncm_ctx *ctx)
- 						USB_TYPE_CLASS | USB_DIR_OUT
- 						 | USB_RECIP_INTERFACE,
- 						0,
--						iface_no, &max_datagram_size,
-+						iface_no, max_datagram_size,
- 						2, 1000);
-+			kfree(max_datagram_size);
-+max_dgram_err:
- 			if (err < 0)
- 				pr_debug("SET_MAX_DATAGRAM_SIZE failed\n");
- 		}
+Robin
