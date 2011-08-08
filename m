@@ -1,37 +1,57 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 07/13] [PATCH] if_ether: add new Ethernet Protocol ID for af_iucv
-Date: Mon, 08 Aug 2011 13:33:53 +0200
-Message-ID: <20110808113516.030180536@de.ibm.com>
+Subject: [patch 04/13] [PATCH] iucv: kernel option for z/VM IUCV and HiperSockets
+Date: Mon, 08 Aug 2011 13:33:50 +0200
+Message-ID: <20110808113515.706509254@de.ibm.com>
 References: <20110808113346.516293249@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:59925 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753212Ab1HHLfb (ORCPT
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:33052 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753153Ab1HHLfb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 07:35:31 -0400
-Content-Disposition: inline; filename=net1117-af_iucv-new-protocol-id.patch
+Content-Disposition: inline; filename=net1117-af_iucv-kernel-option-for-z-VM-IUCV-and-HiperSockets.patch
+ transports
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-Add a new ethertype for af_iucv over s/390 HiperSockets transport. Since
-HiperSockets is not a real ethernet hw this is not an officially registered ID.
+When adding HiperSockets transport to AF_IUCV Sockets, af_iucv either
+depends on IUCV or QETH_L3 (or both). This patch introduces the
+necessary changes for kernel configuration.
 
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
- include/linux/if_ether.h |    1 +
- 1 file changed, 1 insertion(+)
+ net/iucv/Kconfig |   14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -88,6 +88,7 @@
- #define ETH_P_QINQ2	0x9200		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
- #define ETH_P_QINQ3	0x9300		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
- #define ETH_P_EDSA	0xDADA		/* Ethertype DSA [ NOT AN OFFICIALLY REGISTERED ID ] */
-+#define ETH_P_AF_IUCV   0xFBFB		/* IBM af_iucv [ NOT AN OFFICIALLY REGISTERED ID ] */
+--- a/net/iucv/Kconfig
++++ b/net/iucv/Kconfig
+@@ -1,15 +1,17 @@
+ config IUCV
+-	tristate "IUCV support (S390 - z/VM only)"
+ 	depends on S390
++	def_tristate y if S390
++	prompt "IUCV support (S390 - z/VM only)"
+ 	help
+ 	  Select this option if you want to use inter-user communication
+ 	  under VM or VIF. If you run on z/VM, say "Y" to enable a fast
+ 	  communication link between VM guests.
  
- /*
-  *	Non DIX types. Won't clash for 1500 types.
+ config AFIUCV
+-	tristate "AF_IUCV support (S390 - z/VM only)"
+-	depends on IUCV
++	depends on S390
++	def_tristate m if QETH_L3 || IUCV
++	prompt "AF_IUCV Socket support (S390 - z/VM and HiperSockets transport)"
+ 	help
+-	  Select this option if you want to use inter-user communication under
+-	  VM or VIF sockets. If you run on z/VM, say "Y" to enable a fast
+-	  communication link between VM guests.
++	  Select this option if you want to use AF_IUCV socket applications
++	  based on z/VM inter-user communication vehicle or based on
++	  HiperSockets.
 
