@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] dp83640: increase receive time stamp
-	buffer size
-Date: Sun, 07 Aug 2011 22:53:37 -0700 (PDT)
-Message-ID: <20110807.225337.661560107256045057.davem@davemloft.net>
-References: <cover.1312699693.git.richard.cochran@omicron.at>
-	<cover.1312699693.git.richard.cochran@omicron.at>
-	<d38d5b44e8894387852a116492cb825159b5842c.1312699694.git.richard.cochran@omicron.at>
+Subject: Re: [PATCHv3 NEXT 1/1] netxen: add vlan LRO support
+Date: Sun, 07 Aug 2011 22:53:44 -0700 (PDT)
+Message-ID: <20110807.225344.2052172031549537207.davem@davemloft.net>
+References: <1312685204-19800-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, stable@kernel.org
-To: richardcochran@gmail.com
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <d38d5b44e8894387852a116492cb825159b5842c.1312699694.git.richard.cochran@omicron.at>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	rajesh.borundia@qlogic.com
+To: amit.salecha@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48533 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870Ab1HHFxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 01:53:48 -0400
+In-Reply-To: <1312685204-19800-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Sun,  7 Aug 2011 09:03:04 +0200
+From: <amit.salecha@qlogic.com>
+Date: Sat, 6 Aug 2011 19:46:44 -0700
 
-> The dp83640 buffers receive time stamps from special PHY status frames,
-> matching them to received PTP packets in a work queue. Because the timeout
-> for orphaned time stamps is so long and the buffer is so small, the driver
-> can drop time stamps under moderate PTP traffic.
+> From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 > 
-> This commit fixes the issue by decreasing the timeout to (at least) one
-> timer tick and increasing the buffer size.
+> o To support vlan lro, driver need to program ip address in device.
+> o Same ip addresses need to be program after fw recovery, so sotre them
+>   in list.
+> o In case of vlan packet, include vlan header length while
+> calculating ip and tcp headers.
 > 
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-> Cc: <stable@kernel.org>
+> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
 Applied.
-
-_______________________________________________
-stable mailing list
-stable@linux.kernel.org
-http://linux.kernel.org/mailman/listinfo/stable
