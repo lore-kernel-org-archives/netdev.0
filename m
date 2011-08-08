@@ -1,65 +1,44 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 09/12] headers, xtables: Add missing #include
- <linux/netfilter.h>
-Date: Mon, 08 Aug 2011 14:20:32 +0100
-Message-ID: <1312809632.2591.1148.camel@deadeye>
+Subject: [PATCH 10/12] headers, can: Add missing #include to
+ <linux/can/bcm.h>
+Date: Mon, 08 Aug 2011 14:20:55 +0100
+Message-ID: <1312809655.2591.1149.camel@deadeye>
 References: <1312809302.2591.1139.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <socketcan@hartkopp.net>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50093 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751357Ab1HHNU6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2011 09:20:58 -0400
 In-Reply-To: <1312809302.2591.1139.camel@deadeye>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Various headers use union nf_inet_addr, defined in <linux/netfilter.h>.
+<linux/can/bcm.h> uses type canid_t, defined in <linux/can.h>.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/linux/netfilter/xt_connlimit.h |    1 +
- include/linux/netfilter/xt_conntrack.h |    1 +
- include/linux/netfilter/xt_iprange.h   |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+ include/linux/can/bcm.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt_connlimit.h
-index 0ca66e9..d1366f0 100644
---- a/include/linux/netfilter/xt_connlimit.h
-+++ b/include/linux/netfilter/xt_connlimit.h
-@@ -2,6 +2,7 @@
- #define _XT_CONNLIMIT_H
+diff --git a/include/linux/can/bcm.h b/include/linux/can/bcm.h
+index 1432b27..e96154d 100644
+--- a/include/linux/can/bcm.h
++++ b/include/linux/can/bcm.h
+@@ -15,6 +15,7 @@
+ #define CAN_BCM_H
  
  #include <linux/types.h>
-+#include <linux/netfilter.h>
++#include <linux/can.h>
  
- struct xt_connlimit_data;
- 
-diff --git a/include/linux/netfilter/xt_conntrack.h b/include/linux/netfilter/xt_conntrack.h
-index 74b904d..e3c041d 100644
---- a/include/linux/netfilter/xt_conntrack.h
-+++ b/include/linux/netfilter/xt_conntrack.h
-@@ -6,6 +6,7 @@
- #define _XT_CONNTRACK_H
- 
- #include <linux/types.h>
-+#include <linux/netfilter.h>
- #include <linux/netfilter/nf_conntrack_tuple_common.h>
- 
- #define XT_CONNTRACK_STATE_BIT(ctinfo) (1 << ((ctinfo)%IP_CT_IS_REPLY+1))
-diff --git a/include/linux/netfilter/xt_iprange.h b/include/linux/netfilter/xt_iprange.h
-index c1f21a7..25fd7cf 100644
---- a/include/linux/netfilter/xt_iprange.h
-+++ b/include/linux/netfilter/xt_iprange.h
-@@ -2,6 +2,7 @@
- #define _LINUX_NETFILTER_XT_IPRANGE_H 1
- 
- #include <linux/types.h>
-+#include <linux/netfilter.h>
- 
- enum {
- 	IPRANGE_SRC     = 1 << 0,	/* match source IP address */
+ /**
+  * struct bcm_msg_head - head of messages to/from the broadcast manager
 -- 
 1.7.5.4
 
