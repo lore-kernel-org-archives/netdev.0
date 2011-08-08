@@ -1,90 +1,123 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net] vmxnet3: Don't enable vlan filters in promiscuous mode.
-Date: Mon,  8 Aug 2011 02:15:47 -0700
-Message-ID: <1312794947-3163-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, "Scott J. Goldman" <scottjg@vmware.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	VMware PV-Drivers <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:56095 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490Ab1HHJP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 05:15:59 -0400
-Received: by pzk37 with SMTP id 37so7995891pzk.1
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2011 02:15:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH 1/5] Define the function to write sock's security context
+ to seq_file.
+Date: Mon, 8 Aug 2011 17:32:48 +0800
+Message-ID: <4E3FAD40.1020404@windriver.com>
+References: <1312534686-4099-1-git-send-email-rongqing.li@windriver.com>	 <1312534686-4099-2-git-send-email-rongqing.li@windriver.com> <1312552618.19283.51.camel@moss-pluto>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	lsm <linux-security-module@vger.kernel.org>
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1312552618.19283.51.camel@moss-pluto>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The vmxnet3 driver enables vlan filters if filtering is enabled for
-any vlan.  In promiscuous mode the filter table is cleared to in
-order to disable filtering.  However, if a vlan device is subsequently
-created that vlan will be added to the filter, re-engaging it.  As a
-result, not only do we not see all the vlans in promiscuous mode, we
-don't even see vlans for which a filter was previously created.
+On 08/05/2011 09:56 PM, Stephen Smalley wrote:
+> On Fri, 2011-08-05 at 16:58 +0800, rongqing.li@windriver.com wrote:
+>> From: Roy.Li<rongqing.li@windriver.com>
+>>
+>> This function will write the sock's security context to a seq_file
+>> and return the error code, and the number of characters successfully
+>> written is written in int pointers parameter.
+>>
+>> This function will be called when export socket information to proc.
+>>
+>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
+>> ---
+>>   include/net/sock.h |    1 +
+>>   net/core/sock.c    |   26 ++++++++++++++++++++++++++
+>>   2 files changed, 27 insertions(+), 0 deletions(-)
+>
+>> diff --git a/net/core/sock.c b/net/core/sock.c
+>> index bc745d0..1126a49 100644
+>> --- a/net/core/sock.c
+>> +++ b/net/core/sock.c
+>> @@ -2254,6 +2254,32 @@ void sk_common_release(struct sock *sk)
+>>   }
+>>   EXPORT_SYMBOL(sk_common_release);
+>>
+>> +int sock_write_secctx(struct sock *sk, struct seq_file *seq, int *len)
+>> +{
+>> +	struct flowi fl;
+>> +	char *ctx = NULL;
+>> +	u32 ctxlen;
+>> +	int res = 0;
+>> +
+>> +	*len = 0;
+>> +
+>> +	if (sk == NULL)
+>> +		return -EINVAL;
+>
+> Is this ever possible?
+>
+Hi Stephen:
 
-CC: Scott J. Goldman <scottjg@vmware.com>
-CC: Shreyas Bhatewara <sbhatewara@vmware.com>
-CC: VMware PV-Drivers <pv-drivers@vmware.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
- drivers/net/vmxnet3/vmxnet3_drv.c |   34 ++++++++++++++++++++--------------
- 1 files changed, 20 insertions(+), 14 deletions(-)
+When output the tcp information to proc by tcp4_seq_show and
+tcp state is TCP_SEQ_STATE_TIME_WAIT, the input argument v is
+struct inet_timewait_sock, it seem we can not get the struct sock
+from struct inet_timewait_sock, so I assume the sk is NULL in that
+condition.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 1cbacb3..0959583 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1929,14 +1929,17 @@ static void
- vmxnet3_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
--	u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
--	unsigned long flags;
- 
--	VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
--	spin_lock_irqsave(&adapter->cmd_lock, flags);
--	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
--			       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
--	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-+	if (!(netdev->flags & IFF_PROMISC)) {
-+		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
-+		unsigned long flags;
-+
-+		VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
-+		spin_lock_irqsave(&adapter->cmd_lock, flags);
-+		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-+				       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
-+		spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-+	}
- 
- 	set_bit(vid, adapter->active_vlans);
- }
-@@ -1946,14 +1949,17 @@ static void
- vmxnet3_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- {
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
--	u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
--	unsigned long flags;
- 
--	VMXNET3_CLEAR_VFTABLE_ENTRY(vfTable, vid);
--	spin_lock_irqsave(&adapter->cmd_lock, flags);
--	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
--			       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
--	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-+	if (!(netdev->flags & IFF_PROMISC)) {
-+		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
-+		unsigned long flags;
-+
-+		VMXNET3_CLEAR_VFTABLE_ENTRY(vfTable, vid);
-+		spin_lock_irqsave(&adapter->cmd_lock, flags);
-+		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
-+				       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
-+		spin_unlock_irqrestore(&adapter->cmd_lock, flags);
-+	}
- 
- 	clear_bit(vid, adapter->active_vlans);
- }
+static int tcp4_seq_show(struct seq_file *seq, void *v)
+{
+
+        case TCP_SEQ_STATE_TIME_WAIT:
+                 get_timewait4_sock(v, seq, st->num, &len);
+                 break;
+         }
+}
+
+
+>> +	res = security_socket_getsockname(sk->sk_socket);
+>> +	if (res)
+>> +		return res;
+>
+> I'm not sure it is a good idea to output nothing if permission is denied
+> to the socket, as opposed to some well-defined string indicating that
+> condition.  Particularly if someone later adds another field to
+> the /proc files after the context; we don't want the contents of that
+> field to be interpreted as the context if permission was denied.
+>
+
+ From your review, I redesign the output information as below.
+
+when disable SELinux, print "(none)" in proc
+when enable  SELinux, no error on getting security context, print the 
+real security context
+when enable  SELinux, there is error on getting security context, print 
+"??"
+
+Do you think it is OK?
+
+Thanks very much
+
+-Roy
+
+>> +
+>> +	security_sk_classify_flow(sk,&fl);
+>> +
+>> +	res = security_secid_to_secctx(fl.flowi_secid,&ctx,&ctxlen);
+>> +	if (res)
+>> +		return res;
+>
+> Likewise, if we couldn't map the secid to a secctx for some reason, we
+> likely ought to output some well-defined string indicating that
+> condition.
+>
+>> +
+>> +	seq_printf(seq, " %s%n", ctx, len);
+>> +	security_release_secctx(ctx, ctxlen);
+>> +	return res;
+>> +}
+>> +
+>>   static DEFINE_RWLOCK(proto_list_lock);
+>>   static LIST_HEAD(proto_list);
+>>
+>
+
 -- 
-1.7.4.1
-
+Best Reagrds,
+Roy | RongQing Li
