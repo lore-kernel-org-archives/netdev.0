@@ -1,106 +1,54 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/9] drivers/net/wireless/wl12xx: add missing kfree
-Date: Mon,  8 Aug 2011 13:17:56 +0200
-Message-ID: <1312802283-9107-2-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Luciano Coelho <coelho@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+Date: Mon, 8 Aug 2011 06:31:36 -0500
+Message-ID: <20110808113136.GS4926@sgi.com>
+References: <1312641270-6018-1-git-send-email-holt@sgi.com>
+	<1312641270-6018-6-git-send-email-holt@sgi.com>
+	<4E3FA066.3020301@grandegger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4E3FA066.3020301-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+On Mon, Aug 08, 2011 at 10:37:58AM +0200, Wolfgang Grandegger wrote:
+> On 08/06/2011 04:34 PM, Robin Holt wrote:
+> > flexcan driver needs the clk_get, clk_get_rate, etc functions
+> > to work.  This patch provides the minimum functionality.
+> 
+> This needs some more general thoughts... apart from the question where
+> the code should go.
+> 
+> Like for the MSCAN on the MPC5200, the user should be *able* to select
+> an appropriate clock source and divider via DTS node properties.
+> Currently it seems, that the DTS properties must match some
+> pre-configured values, most likely set by the boot loader. Please
+> correct me if I'm wrong. For me this is generic and should go into the
+> Flexcan driver. From there, a platform specific function, e.g.
+> flexcan_set_clock() might be called.
 
-In each case, the freed data should be freed in the error handling code as
-well.
+OK.  Dug a bit more.  The p1010 built-in clocksource seems to be the
+periphereal clock frequency which is system bus frequency divided
+by 2.  The clock source can not be changed, but the clock divider can
+by freezing the interface and setting the CTRL register.  This appears
+to only be done by the boot loader.  I do not see why we can not leave
+that functionality in the boot loader and then go back to a variation
+on my earlier flexcan_clk_* patch.  Is that close to the direction you
+think we should go or have I completely misunderstood your wishes?
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@exists@
-local idexpression x;
-statement S,S1;
-expression E;
-identifier fl;
-expression *ptr != NULL;
-@@
-
-x = \(kmalloc\|kzalloc\|kcalloc\)(...);
-...
-if (x == NULL) S
-<... when != x
-     when != if (...) { <+...kfree(x)...+> }
-     when any
-     when != true x == NULL
-x->fl
-...>
-(
-if (x == NULL) S1
-|
-if (...) { ... when != x
-               when forall
-(
- return \(0\|<+...x...+>\|ptr\);
-|
-* return ...;
-)
-}
-)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/wireless/wl12xx/acx.c      |    6 +-----
- drivers/net/wireless/wl12xx/testmode.c |    5 ++++-
- 2 files changed, 5 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/wireless/wl12xx/testmode.c b/drivers/net/wireless/wl12xx/testmode.c
-index 5d5e1ef..88add68 100644
---- a/drivers/net/wireless/wl12xx/testmode.c
-+++ b/drivers/net/wireless/wl12xx/testmode.c
-@@ -139,12 +139,15 @@ static int wl1271_tm_cmd_interrogate(struct wl1271 *wl, struct nlattr *tb[])
- 
- 	if (ret < 0) {
- 		wl1271_warning("testmode cmd interrogate failed: %d", ret);
-+		kfree(cmd);
- 		return ret;
- 	}
- 
- 	skb = cfg80211_testmode_alloc_reply_skb(wl->hw->wiphy, sizeof(*cmd));
--	if (!skb)
-+	if (!skb) {
-+		kfree(cmd);
- 		return -ENOMEM;
-+	}
- 
- 	NLA_PUT(skb, WL1271_TM_ATTR_DATA, sizeof(*cmd), cmd);
- 
-diff --git a/drivers/net/wireless/wl12xx/acx.c b/drivers/net/wireless/wl12xx/acx.c
-index 7e33f1f..34f6ab5 100644
---- a/drivers/net/wireless/wl12xx/acx.c
-+++ b/drivers/net/wireless/wl12xx/acx.c
-@@ -77,8 +77,6 @@ int wl1271_acx_sleep_auth(struct wl1271 *wl, u8 sleep_auth)
- 	auth->sleep_auth = sleep_auth;
- 
- 	ret = wl1271_cmd_configure(wl, ACX_SLEEP_AUTH, auth, sizeof(*auth));
--	if (ret < 0)
--		return ret;
- 
- out:
- 	kfree(auth);
-@@ -624,10 +622,8 @@ int wl1271_acx_cca_threshold(struct wl1271 *wl)
- 
- 	ret = wl1271_cmd_configure(wl, ACX_CCA_THRESHOLD,
- 				   detection, sizeof(*detection));
--	if (ret < 0) {
-+	if (ret < 0)
- 		wl1271_warning("failed to set cca threshold: %d", ret);
--		return ret;
--	}
- 
- out:
- 	kfree(detection);
+Thanks,
+Robin
