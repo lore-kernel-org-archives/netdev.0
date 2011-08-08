@@ -1,31 +1,40 @@
-From: Phillip Susi <psusi@cfl.rr.com>
-Subject: Re: 802.3ad bonding brain damaged?
-Date: Mon, 08 Aug 2011 16:06:13 -0400
-Message-ID: <4E4041B5.5040908@cfl.rr.com>
-References: <4E3EECF6.90409@cfl.rr.com> <1312790234.7020.26.camel@arkology.n2.diac24.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCHv4] Bridge: Always send NETDEV_CHANGEADDR up on br MAC
+ change.
+Date: Mon, 8 Aug 2011 13:12:30 -0700
+Message-ID: <20110808131230.7f4b4d99@nehalam.ftrdhcpuser.net>
+References: <CALfQTu7MVjfO7vHB-mAC=RwokBRsi7vR6_XVfQX0+vU2ZCVHOw@mail.gmail.com>
+	<1312578250-2944-2-git-send-email-andreiw@motorola.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
+To: Andrei Warkentin <andreiw@motorola.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cdptpa-omtalb.mail.rr.com ([75.180.132.122]:57662 "EHLO
-	cdptpa-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751408Ab1HHUHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 16:07:17 -0400
-In-Reply-To: <1312790234.7020.26.camel@arkology.n2.diac24.net>
+Received: from mail.vyatta.com ([76.74.103.46]:53998 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751408Ab1HHUMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2011 16:12:21 -0400
+In-Reply-To: <1312578250-2944-2-git-send-email-andreiw@motorola.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/8/2011 3:57 AM, David Lamparter wrote:
-> No, it isn't. 802.3ad/.1AX explicitly requires that no packet
-> re-ordering may ever occur, which can only be guaranteed by enqueueing
-> packets for one host on one TX interface. This behaviour is mandated by
-> 802.1AX-2008 page 15 which reads:
+On Fri,  5 Aug 2011 16:04:10 -0500
+Andrei Warkentin <andreiw@motorola.com> wrote:
 
-Outch, that does cause a big problem for store-and-forward switching. 
-You basically can't split up packets from a single stream without very 
-careful cut-through switching, which we obviously can't do in Linux. 
-That seems a rather silly requirement given that higher level protocols 
-already deal with packet reordering.  Why not an option to say stuff the 
-standard?
+> This ensures the neighbor entries associated with the bridge
+> dev are flushed, also invalidating the associated cached L2 headers.
+> 
+> This means we br_add_if/br_del_if ports to implement hand-over and
+> not wind up with bridge packets going out with stale MAC.
+> 
+> This means we can also change MAC of port device and also not wind
+> up with bridge packets going out with stale MAC.
+> 
+> This builds on Stephen Hemminger's patch, also handling the br_del_if
+> case and the port MAC change case.
+> 
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Andrei Warkentin <andreiw@motorola.com>
+
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
