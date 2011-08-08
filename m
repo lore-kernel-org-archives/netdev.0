@@ -1,67 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [BUG] 3.0-rc1 Bridge not forwarding unicast packages
-Date: Mon, 8 Aug 2011 10:48:03 -0700
-Message-ID: <20110808104803.2762dbf7@nehalam.ftrdhcpuser.net>
-References: <20110808192646@it-loops.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Mon, 8 Aug 2011 10:51:06 -0700
+Message-ID: <CA+mtBx_vgsH+uHLi6p80E8CEhU7SHXY=Fw1Z-W2OFWy44LP-ig@mail.gmail.com>
+References: <alpine.DEB.2.00.1108072129010.13386@pokey.mtv.corp.google.com>
+	<20110808084016.063a0699@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Michael Guntsche <mike@it-loops.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36681 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259Ab1HHRry (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2011 13:47:54 -0400
-In-Reply-To: <20110808192646@it-loops.com>
+Received: from smtp-out.google.com ([216.239.44.51]:56290 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751460Ab1HHRvJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 13:51:09 -0400
+Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
+	by smtp-out.google.com with ESMTP id p78Hp75n008000
+	for <netdev@vger.kernel.org>; Mon, 8 Aug 2011 10:51:08 -0700
+Received: from iym5 (iym5.prod.google.com [10.241.52.5])
+	by hpaq2.eem.corp.google.com with ESMTP id p78HmkTF003799
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 8 Aug 2011 10:51:06 -0700
+Received: by iym5 with SMTP id 5so9924968iym.9
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2011 10:51:06 -0700 (PDT)
+In-Reply-To: <20110808084016.063a0699@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Aug 2011 19:42:19 +0200
-Michael Guntsche <mike@it-loops.com> wrote:
+On Mon, Aug 8, 2011 at 8:40 AM, Stephen Hemminger <shemminger@vyatta.co=
+m> wrote:
+> On Sun, 7 Aug 2011 21:43:13 -0700 (PDT)
+> Tom Herbert <therbert@google.com> wrote:
+>
+>> =A0 =A0 netdev_tx_completed_queue: Called at end of transmit complet=
+ion
+>> =A0 =A0 =A0 to inform stack of number of bytes and packets processed=
+=2E
+>> =A0 =A0 netdev_tx_sent_queue: Called to inform stack when packets ar=
+e
+>> =A0 =A0 =A0 queued.
+>
+> Couldn't these be done for the device in the existing qdisc infra
+> structure (or dev_start_xmit). Alternatively, rename ndo_start_xmit
+> to something else and make all the callers use the wrapper.
+>
+> Changing all the drivers for something that the driver has no real
+> need to care about seems like incorrect object design.
+>
+The netdev_tx_completed_queue is needed to inform the stack of number
+of packets and bytes completed in an execution of transmit completion
+(epic).  I don't see a way to get that information outside of the
+driver.
 
-> Hi list,
-> 
-> I just upgraded my router/bridge combo to 3.1-rc1 from 3.0 for
-> testing. On a first look everything seemed to work fine, but when I
-> tried to connect via openvpn to my internal network (tap0 being bridged
-> with the internal network) I noticed that I was not able to access the
-> server on my internal network. I could access the bridge (which is
-> acting as the openvpn server as well) just fine though. 
-> To debug this I ran tcpdump on the openvpn client and started a ping to the
-> internal network. I could see the ARP requests being answered.
-> 
-> 19:23:49.247846 ARP, Request who-has 192.168.42.127 tell 192.168.42.96,
-> length 28
-> 19:23:49.287752 ARP, Reply 192.168.42.127 is-at 00:13:d4:4f:a2:dc,
-> length 46
-> 
-> in this case .127 is the server on the internal net and .96 the openvpn
-> client, but the icmp request did not arrive on the server. 
-> The strange thing I noticed was that I could see broadcasts packages
-> from the server on the client
-> 
-> 19:23:28.135185 IP 192.168.42.127.631 > 192.168.42.255.631: UDP, length
-> 187
-> 19:23:29.470975 IP 192.168.42.96.5353 > 224.0.0.251.5353: .......
-> 
-> but no icmp packages arrived on the server side.
-> 
-> 
-> brctl showmacs lan
-> port no mac addr                is local?       ageing timer
->   1     00:0c:42:28:de:4e       yes                0.00
->   2     00:0c:42:61:7f:f2       yes                0.00
->   1     00:13:d4:4f:a2:dc       no                 0.00 <---- server on the lan side
->   3     8e:22:41:d9:95:23       yes                0.00
->   3     b6:e1:e3:06:c9:1a       no                 5.00 <---- client connected via tap0
-> 
-> Reverting to 3.0 solves the problem for me. I tried just reverting the bridge code on the server to the 3.0 version to make sure that it is really Bridge related, but there are too many changes outside the bridge tree so compilation fails for me.
-> 
-> If you need more information, please to not hesitate to conact me.
-> 
-> Kind regards,
-> Michael Guntsche
-
-Do you have spanning tree enabled?
-If  so you may have a packet loop and now it is being detected.
+Tom
