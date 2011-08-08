@@ -1,74 +1,105 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: 802.3ad bonding brain damaged?
-Date: Mon, 08 Aug 2011 09:57:14 +0200
-Message-ID: <1312790234.7020.26.camel@arkology.n2.diac24.net>
-References: <4E3EECF6.90409@cfl.rr.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+Date: Mon, 08 Aug 2011 10:37:58 +0200
+Message-ID: <4E3FA066.3020301@grandegger.com>
+References: <1312641270-6018-1-git-send-email-holt@sgi.com>
+	<1312641270-6018-6-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Phillip Susi <psusi@cfl.rr.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:54344 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751664Ab1HHIYg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 04:24:36 -0400
-Received: from equinox by spaceboyz.net with local-bsmtp (Exim 4.76)
-	(envelope-from <equinox@spaceboyz.net>)
-	id 1QqKjh-0007fZ-Ki
-	for netdev@vger.kernel.org; Mon, 08 Aug 2011 09:58:57 +0200
-In-Reply-To: <4E3EECF6.90409@cfl.rr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1312641270-6018-6-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Am Sonntag, den 07.08.2011, 15:52 -0400 schrieb Phillip Susi:
-> - From Documentation/networking/bonding.txt:
+On 08/06/2011 04:34 PM, Robin Holt wrote:
+> flexcan driver needs the clk_get, clk_get_rate, etc functions
+> to work.  This patch provides the minimum functionality.
+
+This needs some more general thoughts... apart from the question where
+the code should go.
+
+Like for the MSCAN on the MPC5200, the user should be *able* to select
+an appropriate clock source and divider via DTS node properties.
+Currently it seems, that the DTS properties must match some
+pre-configured values, most likely set by the boot loader. Please
+correct me if I'm wrong. For me this is generic and should go into the
+Flexcan driver. From there, a platform specific function, e.g.
+flexcan_set_clock() might be called.
+
+
+> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+> To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> ---
+>  arch/powerpc/platforms/85xx/p1010rdb.c |   78 ++++++++++++++++++++++++++++++++
+>  1 files changed, 78 insertions(+), 0 deletions(-)
 > 
-> 	Additionally, the linux bonding 802.3ad implementation
-> 	distributes traffic by peer (using an XOR of MAC addresses),
-> 
-> This is counter to the entire point of 802.3ad. Distributing traffic by
-> hash of the destination address is poor mans load balancing for
-> systems not supporting 802.3ad. 
+> diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
+> index 3540a88..8f78ddd 100644
+> --- a/arch/powerpc/platforms/85xx/p1010rdb.c
+> +++ b/arch/powerpc/platforms/85xx/p1010rdb.c
+> @@ -28,6 +28,7 @@
+>  #include <asm/udbg.h>
+>  #include <asm/mpic.h>
+>  #include <asm/swiotlb.h>
+> +#include <asm/clk_interface.h>
+>  
+>  #include <sysdev/fsl_soc.h>
+>  #include <sysdev/fsl_pci.h>
+> @@ -164,6 +165,82 @@ static void __init p1010_rdb_setup_arch(void)
+>  	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
+>  }
+>  
+> +/*
+> + * p1010rdb needs to provide a clock source for the flexcan driver.
+> + */
+> +struct clk {
+> +	unsigned long rate;
+> +} p1010rdb_system_clk;
+> +
+> +static struct clk *p1010_rdb_clk_get(struct device *dev, const char *id)
+> +{
 
-No, it isn't. 802.3ad/.1AX explicitly requires that no packet
-re-ordering may ever occur, which can only be guaranteed by enqueueing
-packets for one host on one TX interface. This behaviour is mandated by
-802.1AX-2008 page 15 which reads:
+I persoanlly don't like the
 
-  This standard does not mandate any particular distribution
-  algorithm(s); however, any distribution algorithm shall ensure that,
-  when frames are received by a Frame Collector as specified in 5.2.3,
-  the algorithm shall not cause
-  a) Misordering of frames that are part of any given conversation, or
-  b) Duplication of frames.
-| The above requirement to maintain frame ordering is met by ensuring
-| that all frames that compose a given conversation are transmitted on a
-| single link in the order that they are generated by the MAC Client;
-  hence, this requirement does not involve the addition (or
-  modification) of any information to the MAC frame, nor any buffering
-  or processing on the part of the corresponding Frame Collector in
-  order to reorder frames. This approach to the operation of the
-  distribution function permits a wide variety of distribution and load
-  balancing algorithms to be used, while also ensuring interoperability
-  between devices that adopt differing algorithms.
+> +	struct clk *clk;
+> +	u32 *of_property;
+> +	unsigned long clock_freq, clock_divider;
+> +	const char *dev_init_name;
+> +
+> +	if (!dev)
+> +		return ERR_PTR(-ENOENT);
+> +
+> +	/*
+> +	 * The can devices are named ffe1c000.can0 and ffe1d000.can1 on
+> +	 * the p1010rdb.  Check for the "can" portion of that name before
+> +	 * returning a clock source.
+> +	 */
+> +	dev_init_name = dev_name(dev);
+> +	if (strlen(dev_init_name) != 13)
+> +		return ERR_PTR(-ENOENT);
+> +	dev_init_name += 9;
+> +	if (strncmp(dev_init_name, "can", 3))
+> +		return ERR_PTR(-ENOENT);
 
-(IMHO it is 802.3ad/.1AX that is brain damaged, I would've made this a
-weak requirement with an optional mode switch for networks that require
-a strong one.)
+There are dedicated functions to find the of node. But with my above
+proposal we do not need to provide p1010_rdb_clk_get().
 
-It is true that it might be possible to fulfill this requirement with a
-more sophisticated approach or just ignore edge cases, but in that case
-you can just use a different bonding algorithm.
+More comments on the other patches soon...
 
-> When in 802.3ad mode, packets are supposed to
-> be queued to whichever interface has the shortest tx length so a single
-> stream to a single host can be balanced across all links instead of
-> being restricted to one, while the other is idle.
-
-Please make sure to tag your assumptions as such and don't make
-assertions without reading the specification.
-
-
--David
-
+Wolfgang.
