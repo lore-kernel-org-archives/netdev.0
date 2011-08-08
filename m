@@ -1,117 +1,90 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Mon, 8 Aug 2011 04:15:22 -0500
-Message-ID: <20110808091522.GR4926@sgi.com>
-References: <1312641270-6018-1-git-send-email-holt@sgi.com>
-	<1312641270-6018-6-git-send-email-holt@sgi.com>
-	<4E3FA066.3020301@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4E3FA066.3020301-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net] vmxnet3: Don't enable vlan filters in promiscuous mode.
+Date: Mon,  8 Aug 2011 02:15:47 -0700
+Message-ID: <1312794947-3163-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, "Scott J. Goldman" <scottjg@vmware.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:56095 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490Ab1HHJP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 05:15:59 -0400
+Received: by pzk37 with SMTP id 37so7995891pzk.1
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2011 02:15:58 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 08, 2011 at 10:37:58AM +0200, Wolfgang Grandegger wrote:
-> On 08/06/2011 04:34 PM, Robin Holt wrote:
-> > flexcan driver needs the clk_get, clk_get_rate, etc functions
-> > to work.  This patch provides the minimum functionality.
-> 
-> This needs some more general thoughts... apart from the question where
-> the code should go.
-> 
-> Like for the MSCAN on the MPC5200, the user should be *able* to select
-> an appropriate clock source and divider via DTS node properties.
-> Currently it seems, that the DTS properties must match some
-> pre-configured values, most likely set by the boot loader. Please
-> correct me if I'm wrong. For me this is generic and should go into the
-> Flexcan driver. From there, a platform specific function, e.g.
-> flexcan_set_clock() might be called.
+The vmxnet3 driver enables vlan filters if filtering is enabled for
+any vlan.  In promiscuous mode the filter table is cleared to in
+order to disable filtering.  However, if a vlan device is subsequently
+created that vlan will be added to the filter, re-engaging it.  As a
+result, not only do we not see all the vlans in promiscuous mode, we
+don't even see vlans for which a filter was previously created.
 
-The P1010 really only supports the system bus clock for a source.  I was
-wrong last week when I said it supported either.  That was a confusion
-I have because of a task I was assigned a couple months ago.
+CC: Scott J. Goldman <scottjg@vmware.com>
+CC: Shreyas Bhatewara <sbhatewara@vmware.com>
+CC: VMware PV-Drivers <pv-drivers@vmware.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c |   34 ++++++++++++++++++++--------------
+ 1 files changed, 20 insertions(+), 14 deletions(-)
 
-It can select different divider values.
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 1cbacb3..0959583 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1929,14 +1929,17 @@ static void
+ vmxnet3_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+-	u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
+-	unsigned long flags;
+ 
+-	VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
+-	spin_lock_irqsave(&adapter->cmd_lock, flags);
+-	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+-			       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
+-	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
++	if (!(netdev->flags & IFF_PROMISC)) {
++		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
++		unsigned long flags;
++
++		VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
++		spin_lock_irqsave(&adapter->cmd_lock, flags);
++		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++				       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
++		spin_unlock_irqrestore(&adapter->cmd_lock, flags);
++	}
+ 
+ 	set_bit(vid, adapter->active_vlans);
+ }
+@@ -1946,14 +1949,17 @@ static void
+ vmxnet3_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+-	u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
+-	unsigned long flags;
+ 
+-	VMXNET3_CLEAR_VFTABLE_ENTRY(vfTable, vid);
+-	spin_lock_irqsave(&adapter->cmd_lock, flags);
+-	VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
+-			       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
+-	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
++	if (!(netdev->flags & IFF_PROMISC)) {
++		u32 *vfTable = adapter->shared->devRead.rxFilterConf.vfTable;
++		unsigned long flags;
++
++		VMXNET3_CLEAR_VFTABLE_ENTRY(vfTable, vid);
++		spin_lock_irqsave(&adapter->cmd_lock, flags);
++		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
++				       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
++		spin_unlock_irqrestore(&adapter->cmd_lock, flags);
++	}
+ 
+ 	clear_bit(vid, adapter->active_vlans);
+ }
+-- 
+1.7.4.1
 
-Robin
-
-> 
-> 
-> > Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-> > To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> > To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> > To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> > Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-> > Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > ---
-> >  arch/powerpc/platforms/85xx/p1010rdb.c |   78 ++++++++++++++++++++++++++++++++
-> >  1 files changed, 78 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
-> > index 3540a88..8f78ddd 100644
-> > --- a/arch/powerpc/platforms/85xx/p1010rdb.c
-> > +++ b/arch/powerpc/platforms/85xx/p1010rdb.c
-> > @@ -28,6 +28,7 @@
-> >  #include <asm/udbg.h>
-> >  #include <asm/mpic.h>
-> >  #include <asm/swiotlb.h>
-> > +#include <asm/clk_interface.h>
-> >  
-> >  #include <sysdev/fsl_soc.h>
-> >  #include <sysdev/fsl_pci.h>
-> > @@ -164,6 +165,82 @@ static void __init p1010_rdb_setup_arch(void)
-> >  	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
-> >  }
-> >  
-> > +/*
-> > + * p1010rdb needs to provide a clock source for the flexcan driver.
-> > + */
-> > +struct clk {
-> > +	unsigned long rate;
-> > +} p1010rdb_system_clk;
-> > +
-> > +static struct clk *p1010_rdb_clk_get(struct device *dev, const char *id)
-> > +{
-> 
-> I persoanlly don't like the
-> 
-> > +	struct clk *clk;
-> > +	u32 *of_property;
-> > +	unsigned long clock_freq, clock_divider;
-> > +	const char *dev_init_name;
-> > +
-> > +	if (!dev)
-> > +		return ERR_PTR(-ENOENT);
-> > +
-> > +	/*
-> > +	 * The can devices are named ffe1c000.can0 and ffe1d000.can1 on
-> > +	 * the p1010rdb.  Check for the "can" portion of that name before
-> > +	 * returning a clock source.
-> > +	 */
-> > +	dev_init_name = dev_name(dev);
-> > +	if (strlen(dev_init_name) != 13)
-> > +		return ERR_PTR(-ENOENT);
-> > +	dev_init_name += 9;
-> > +	if (strncmp(dev_init_name, "can", 3))
-> > +		return ERR_PTR(-ENOENT);
-> 
-> There are dedicated functions to find the of node. But with my above
-> proposal we do not need to provide p1010_rdb_clk_get().
-> 
-> More comments on the other patches soon...
-> 
-> Wolfgang.
