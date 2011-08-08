@@ -1,54 +1,45 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 02/12] headers, ax25: Add missing #include to
- <linux/netrom.h>, <linux/rose.h>
-Date: Mon, 08 Aug 2011 14:17:20 +0100
-Message-ID: <1312809440.2591.1141.camel@deadeye>
+Subject: [PATCH 03/12] headers, pppol2tp: Use __kernel_pid_t in
+ <linux/pppol2tp.h>
+Date: Mon, 08 Aug 2011 14:17:59 +0100
+Message-ID: <1312809479.2591.1142.camel@deadeye>
 References: <1312809302.2591.1139.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>,
-	linux-hams@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50051 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751318Ab1HHNSC convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2011 09:18:02 -0400
 In-Reply-To: <1312809302.2591.1139.camel@deadeye>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These headers use the ax25_address type defined in <linux/ax25.h>.
+<linux/types.h> defines __kernel_pid_t for userland; pid_t is
+defined elsewhere (and potentially differently).
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/linux/netrom.h |    2 ++
- include/linux/rose.h   |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ include/linux/if_pppol2tp.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netrom.h b/include/linux/netrom.h
-index 6939b32..af7313c 100644
---- a/include/linux/netrom.h
-+++ b/include/linux/netrom.h
-@@ -7,6 +7,8 @@
- #ifndef	NETROM_KERNEL_H
- #define	NETROM_KERNEL_H
+diff --git a/include/linux/if_pppol2tp.h b/include/linux/if_pppol2tp.h
+index 184bc55..23cefa1 100644
+--- a/include/linux/if_pppol2tp.h
++++ b/include/linux/if_pppol2tp.h
+@@ -39,7 +39,7 @@ struct pppol2tp_addr {
+  * bits. So we need a different sockaddr structure.
+  */
+ struct pppol2tpv3_addr {
+-	pid_t	pid;			/* pid that owns the fd.
++	__kernel_pid_t	pid;		/* pid that owns the fd.
+ 					 * 0 => current */
+ 	int	fd;			/* FD of UDP or IP socket to use */
  
-+#include <linux/ax25.h>
-+
- #define NETROM_MTU	236
- 
- #define NETROM_T1	1
-diff --git a/include/linux/rose.h b/include/linux/rose.h
-index c7b4b18..e8289cd 100644
---- a/include/linux/rose.h
-+++ b/include/linux/rose.h
-@@ -7,6 +7,8 @@
- #ifndef	ROSE_KERNEL_H
- #define	ROSE_KERNEL_H
- 
-+#include <linux/ax25.h>
-+
- #define ROSE_MTU	251
- 
- #define ROSE_MAX_DIGIS 6
 -- 
 1.7.5.4
 
