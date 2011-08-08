@@ -1,72 +1,123 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [RFC PATCH v2 7/9] tg3: Support for byte queue limits
-Date: Sun, 7 Aug 2011 21:53:34 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1108072149400.14333@pokey.mtv.corp.google.com>
+Subject: [RFC PATCH v2 8/9] bnx2x: Support for byte queue limits
+Date: Sun, 7 Aug 2011 21:53:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1108072151330.13721@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:13974 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:23068 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899Ab1HHExj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 00:53:39 -0400
+	with ESMTP id S1751241Ab1HHExr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 00:53:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to tg3 to use byte queue limits.
+Changes to bnx2x to use byte queue limits.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/tg3.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x/bnx2x_cmn.c |   26 ++++++++++++++++++++++----
+ 1 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index dc3fbf6..ad06c40 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -4818,6 +4818,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 	u32 sw_idx = tnapi->tx_cons;
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 5b0dba6..d4f921a 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -97,7 +97,8 @@ int load_count[2][3] = { {0} }; /* per-path: 0-common, 1-port0, 2-port1 */
+  * return idx of last bd freed
+  */
+ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+-			     u16 idx)
++			     u16 idx, unsigned int *pkts_compl,
++			     unsigned int *bytes_compl)
+ {
+ 	struct sw_tx_bd *tx_buf = &txdata->tx_buf_ring[idx];
+ 	struct eth_tx_start_bd *tx_start_bd;
+@@ -154,6 +155,10 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+ 
+ 	/* release skb */
+ 	WARN_ON(!skb);
++	if (skb) {
++		(*pkts_compl)++;
++		(*bytes_compl) += skb->len;
++	}
+ 	dev_kfree_skb_any(skb);
+ 	tx_buf->first_bd = 0;
+ 	tx_buf->skb = NULL;
+@@ -165,6 +170,7 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
+ {
  	struct netdev_queue *txq;
- 	int index = tnapi - tp->napi;
+ 	u16 hw_cons, sw_cons, bd_cons = txdata->tx_bd_cons;
 +	unsigned int pkts_compl = 0, bytes_compl = 0;
  
- 	if (tg3_flag(tp, ENABLE_TSS))
- 		index--;
-@@ -4868,6 +4869,9 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 			sw_idx = NEXT_TX(sw_idx);
- 		}
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+@@ -184,10 +190,13 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
+ 				      " pkt_cons %u\n",
+ 		   txdata->txq_index, hw_cons, sw_cons, pkt_cons);
  
-+		pkts_compl++;
-+		bytes_compl += skb->len;
-+
- 		dev_kfree_skb(skb);
- 
- 		if (unlikely(tx_bug)) {
-@@ -4876,6 +4880,8 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 		}
+-		bd_cons = bnx2x_free_tx_pkt(bp, txdata, pkt_cons);
++		bd_cons = bnx2x_free_tx_pkt(bp, txdata, pkt_cons,
++		    &pkts_compl, &bytes_compl);
+ 		sw_cons++;
  	}
  
-+	netdev_completed_queue(tp->dev, pkts_compl, bytes_compl);
++	netdev_tx_completed_queue(txq, pkts_compl, bytes_compl);
 +
- 	tnapi->tx_cons = sw_idx;
+ 	txdata->tx_pkt_cons = sw_cons;
+ 	txdata->tx_bd_cons = bd_cons;
  
- 	/* Need to make the tx_cons update visible to tg3_start_xmit()
-@@ -6313,6 +6319,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
+@@ -1088,6 +1097,7 @@ static void bnx2x_free_tx_skbs(struct bnx2x *bp)
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+ 		for_each_cos_in_tx_queue(fp, cos) {
+ 			struct bnx2x_fp_txdata *txdata = &fp->txdata[cos];
++			unsigned pkts_compl = 0, bytes_compl = 0;
  
- 	skb_tx_timestamp(skb);
-+	netdev_sent_queue(tp->dev, 1, skb->len);
+ 			u16 bd_cons = txdata->tx_bd_cons;
+ 			u16 sw_prod = txdata->tx_pkt_prod;
+@@ -1095,9 +1105,13 @@ static void bnx2x_free_tx_skbs(struct bnx2x *bp)
  
- 	/* Packets are ready, update Tx producer idx local and on card. */
- 	tw32_tx_mbox(tnapi->prodmbox, entry);
-@@ -6680,6 +6687,7 @@ static void tg3_free_rings(struct tg3 *tp)
- 
- 			dev_kfree_skb_any(skb);
+ 			while (sw_cons != sw_prod) {
+ 				bd_cons = bnx2x_free_tx_pkt(bp, txdata,
+-							    TX_BD(sw_cons));
++							    TX_BD(sw_cons),
++							    &pkts_compl,
++							    &bytes_compl);
+ 				sw_cons++;
+ 			}
++			netdev_tx_reset_queue(
++			    netdev_get_tx_queue(bp->dev, txdata->txq_index));
  		}
-+		netdev_reset_queue(tp->dev);
  	}
  }
+@@ -2771,6 +2785,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				       frag->page_offset, frag->size,
+ 				       DMA_TO_DEVICE);
+ 		if (unlikely(dma_mapping_error(&bp->pdev->dev, mapping))) {
++			unsigned int pkts_compl = 0, bytes_compl = 0;
  
+ 			DP(NETIF_MSG_TX_QUEUED, "Unable to map page - "
+ 						"dropping packet...\n");
+@@ -2782,7 +2797,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			 */
+ 			first_bd->nbd = cpu_to_le16(nbd);
+ 			bnx2x_free_tx_pkt(bp, txdata,
+-					  TX_BD(txdata->tx_pkt_prod));
++					  TX_BD(txdata->tx_pkt_prod),
++					  &pkts_compl, &bytes_compl);
+ 			return NETDEV_TX_OK;
+ 		}
+ 
+@@ -2843,6 +2859,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		   pbd_e2->parsing_data);
+ 	DP(NETIF_MSG_TX_QUEUED, "doorbell: nbd %d  bd %u\n", nbd, bd_prod);
+ 
++	netdev_tx_sent_queue(txq, 1, skb->len);
++
+ 	txdata->tx_pkt_prod++;
+ 	/*
+ 	 * Make sure that the BD data is updated before updating the producer
 -- 
 1.7.3.1
 
