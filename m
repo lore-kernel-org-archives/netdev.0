@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] via-velocity : cleanups.
-Date: Sun, 07 Aug 2011 22:09:25 -0700 (PDT)
-Message-ID: <20110807.220925.706763995539078819.davem@davemloft.net>
-References: <20110804123903.GC14858@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] ucc_geth: Add SUPPORTED_MII and SUPPORTED_Autoneg
+Date: Sun, 07 Aug 2011 22:09:38 -0700 (PDT)
+Message-ID: <20110807.220938.1623245893219976344.davem@davemloft.net>
+References: <1312463985-2230-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jnelson@jamponi.net
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, cbouatmailru@gmail.com
+To: Joakim.Tjernlund@transmode.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48831 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48843 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080Ab1HHFJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 01:09:30 -0400
-In-Reply-To: <20110804123903.GC14858@electric-eye.fr.zoreil.com>
+	with ESMTP id S1751368Ab1HHFJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 01:09:45 -0400
+In-Reply-To: <1312463985-2230-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 4 Aug 2011 14:39:03 +0200
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Thu, 4 Aug 2011 15:19:45 +0200
 
-> - empty lines
-> - tabs / spaces
-> - ETHTOOL_GWOL _is_ defined
-> - useless cast from void *
+> The driver supports Autoneg and at least MII. Tell the PHY
+> that to avoid any confusion in the PHY code.
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
 Applied.
