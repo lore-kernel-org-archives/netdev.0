@@ -1,941 +1,1005 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 12/13] [PATCH] qeth: exploit asynchronous delivery of storage blocks
-Date: Mon, 08 Aug 2011 13:33:58 +0200
-Message-ID: <20110808113516.575246594@de.ibm.com>
+Subject: [patch 09/13] [PATCH] qdio: support asynchronous delivery of storage blocks
+Date: Mon, 08 Aug 2011 13:33:55 +0200
+Message-ID: <20110808113516.248069402@de.ibm.com>
 References: <20110808113346.516293249@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Einar Lueck <elelueck@de.ibm.com>
+	Einar Lueck <elelueck@de.ibm.com>,
+	Jan Glauber <jang@linux.vnet.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([194.196.100.162]:59893 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562Ab1HHLfY (ORCPT
+Received: from mtagate3.uk.ibm.com ([194.196.100.163]:57403 "EHLO
+	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479Ab1HHLfY (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 07:35:24 -0400
-Content-Disposition: inline; filename=net1117_qeth_cq.patch
+Content-Disposition: inline; filename=net1117_qdio_cq.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Einar Lueck <elelueck@de.ibm.com>
-
-This patch exploits the QDIO support for asynchronous delivery of storage 
-blocks for Hipersockets. The exploitation is not configured per default and
-may be enabled via the function qeth_configure_cq.
+This patch introduces support for asynchronous delivery of storage blocks for
+Hipersockets. Upper layers may exploit this functionality to reuse SBALs for
+which the delivery status is still pending.
 
 Signed-off-by: Einar Lueck <elelueck@de.ibm.com>
+Signed-off-by: Jan Glauber <jang@linux.vnet.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
- drivers/s390/net/qeth_core.h      |   28 +-
- drivers/s390/net/qeth_core_main.c |  495 ++++++++++++++++++++++++++++++++++----
- 2 files changed, 480 insertions(+), 43 deletions(-)
+ arch/s390/include/asm/qdio.h      |   68 ++++++++++++
+ drivers/s390/cio/qdio.h           |   29 +++++
+ drivers/s390/cio/qdio_debug.c     |    3 
+ drivers/s390/cio/qdio_main.c      |  203 +++++++++++++++++++++++++++++++++-----
+ drivers/s390/cio/qdio_setup.c     |   83 ++++++++++++++-
+ drivers/s390/cio/qdio_thinint.c   |   88 +++++++++-------
+ drivers/s390/net/qeth_core_main.c |   30 ++++-
+ 7 files changed, 424 insertions(+), 80 deletions(-)
 
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -110,6 +110,10 @@ struct qeth_perf_stats {
- 
- 	unsigned int sc_dp_p;
- 	unsigned int sc_p_dp;
-+	/* qdio_cq_handler: number of times called, time spent in */
-+	__u64 cq_start_time;
-+	unsigned int cq_cnt;
-+	unsigned int cq_time;
- 	/* qdio_input_handler: number of times called, time spent in */
- 	__u64 inbound_start_time;
- 	unsigned int inbound_cnt;
-@@ -376,6 +380,11 @@ enum qeth_qdio_buffer_states {
- 	 * outbound: filled by driver; owned by hardware in order to be sent
- 	 */
- 	QETH_QDIO_BUF_PRIMED,
-+	/*
-+	 * inbound: not applicable
-+	 * outbound: handled via transfer pending / completion queue
-+	 */
-+	QETH_QDIO_BUF_HANDLED_DELAYED,
+--- a/arch/s390/include/asm/qdio.h
++++ b/arch/s390/include/asm/qdio.h
+@@ -123,6 +123,40 @@ struct slibe {
  };
  
- enum qeth_qdio_info_states {
-@@ -413,8 +422,11 @@ struct qeth_qdio_out_buffer {
- 	atomic_t state;
- 	int next_element_to_fill;
- 	struct sk_buff_head skb_list;
--	struct list_head ctx_list;
- 	int is_header[16];
+ /**
++ * struct qaob - queue asynchronous operation block
++ * @res0: reserved parameters
++ * @res1: reserved parameter
++ * @res2: reserved parameter
++ * @res3: reserved parameter
++ * @aorc: asynchronous operation return code
++ * @flags: internal flags
++ * @cbtbs: control block type
++ * @sb_count: number of storage blocks
++ * @sba: storage block element addresses
++ * @dcount: size of storage block elements
++ * @user0: user defineable value
++ * @res4: reserved paramater
++ * @user1: user defineable value
++ * @user2: user defineable value
++ */
++struct qaob {
++	u64 res0[6];
++	u8 res1;
++	u8 res2;
++	u8 res3;
++	u8 aorc;
++	u8 flags;
++	u16 cbtbs;
++	u8 sb_count;
++	u64 sba[QDIO_MAX_ELEMENTS_PER_BUFFER];
++	u16 dcount[QDIO_MAX_ELEMENTS_PER_BUFFER];
++	u64 user0;
++	u64 res4[2];
++	u64 user1;
++	u64 user2;
++} __attribute__ ((packed, aligned(256)));
 +
++/**
+  * struct slib - storage list information block (SLIB)
+  * @nsliba: next SLIB address (if any)
+  * @sla: SL address
+@@ -225,6 +259,31 @@ struct slsb {
+ #define CHSC_AC2_DATA_DIV_AVAILABLE	0x0010
+ #define CHSC_AC2_DATA_DIV_ENABLED	0x0002
+ 
++/**
++ * struct qdio_outbuf_state - SBAL related asynchronous operation information
++ *   (for communication with upper layer programs)
++ *   (only required for use with completion queues)
++ * @flags: flags indicating state of buffer
++ * @aob: pointer to QAOB used for the particular SBAL
++ * @user: pointer to upper layer program's state information related to SBAL
++ *        (stored in user1 data of QAOB)
++ */
++struct qdio_outbuf_state {
++	u8 flags;
 +	struct qaob *aob;
-+	struct qeth_qdio_out_q *q;
-+	struct qeth_qdio_out_buffer *next_pending;
- };
- 
- struct qeth_card;
-@@ -427,7 +439,8 @@ enum qeth_out_q_states {
- 
- struct qeth_qdio_out_q {
- 	struct qdio_buffer qdio_bufs[QDIO_MAX_BUFFERS_PER_Q];
--	struct qeth_qdio_out_buffer bufs[QDIO_MAX_BUFFERS_PER_Q];
-+	struct qeth_qdio_out_buffer *bufs[QDIO_MAX_BUFFERS_PER_Q];
-+	struct qdio_outbuf_state *bufstates; /* convenience pointer */
- 	int queue_no;
- 	struct qeth_card *card;
- 	atomic_t state;
-@@ -448,7 +461,9 @@ struct qeth_qdio_out_q {
- struct qeth_qdio_info {
- 	atomic_t state;
- 	/* input */
-+	int no_in_queues;
- 	struct qeth_qdio_q *in_q;
-+	struct qeth_qdio_q *c_q;
- 	struct qeth_qdio_buffer_pool in_buf_pool;
- 	struct qeth_qdio_buffer_pool init_pool;
- 	int in_buf_size;
-@@ -456,6 +471,7 @@ struct qeth_qdio_info {
- 	/* output */
- 	int no_out_queues;
- 	struct qeth_qdio_out_q **out_qs;
-+	struct qdio_outbuf_state *out_bufstates;
- 
- 	/* priority queueing */
- 	int do_prio_queueing;
-@@ -527,6 +543,12 @@ enum qeth_cmd_buffer_state {
- 	BUF_STATE_PROCESSED,
- };
- 
-+enum qeth_cq {
-+	QETH_CQ_DISABLED = 0,
-+	QETH_CQ_ENABLED = 1,
-+	QETH_CQ_NOTAVAILABLE = 2,
++	void *user;
 +};
 +
- struct qeth_ipato {
- 	int enabled;
- 	int invert4;
-@@ -651,6 +673,7 @@ struct qeth_card_options {
- 	int rx_sg_cb;
- 	enum qeth_ipa_isolation_modes isolation;
- 	int sniffer;
-+	enum qeth_cq cq;
++#define QDIO_OUTBUF_STATE_FLAG_NONE	0x00
++#define QDIO_OUTBUF_STATE_FLAG_PENDING	0x01
++
++#define CHSC_AC1_INITIATE_INPUTQ	0x80
++
++#define CHSC_AC2_DATA_DIV_AVAILABLE	0x0010
++#define CHSC_AC2_DATA_DIV_ENABLED	0x0002
++
++#define CHSC_AC3_FORMAT2_CQ_AVAILABLE	0x8000
++
+ struct qdio_ssqd_desc {
+ 	u8 flags;
+ 	u8:8;
+@@ -243,8 +302,7 @@ struct qdio_ssqd_desc {
+ 	u64 sch_token;
+ 	u8 mro;
+ 	u8 mri;
+-	u8:8;
+-	u8 sbalic;
++	u16 qdioac3;
+ 	u16:16;
+ 	u8:8;
+ 	u8 mmwc;
+@@ -280,9 +338,11 @@ typedef void qdio_handler_t(struct ccw_d
+  * @no_output_qs: number of output queues
+  * @input_handler: handler to be called for input queues
+  * @output_handler: handler to be called for output queues
++ * @queue_start_poll: polling handlers (one per input queue or NULL)
+  * @int_parm: interruption parameter
+  * @input_sbal_addr_array:  address of no_input_qs * 128 pointers
+  * @output_sbal_addr_array: address of no_output_qs * 128 pointers
++ * @output_sbal_state_array: no_output_qs * 128 state info (for CQ or NULL)
+  */
+ struct qdio_initialize {
+ 	struct ccw_device *cdev;
+@@ -297,11 +357,12 @@ struct qdio_initialize {
+ 	unsigned int no_output_qs;
+ 	qdio_handler_t *input_handler;
+ 	qdio_handler_t *output_handler;
+-	void (*queue_start_poll) (struct ccw_device *, int, unsigned long);
++	void (**queue_start_poll) (struct ccw_device *, int, unsigned long);
+ 	int scan_threshold;
+ 	unsigned long int_parm;
+ 	void **input_sbal_addr_array;
+ 	void **output_sbal_addr_array;
++	struct qdio_outbuf_state *output_sbal_state_array;
  };
  
- /*
-@@ -888,6 +911,7 @@ void qeth_dbf_longtext(debug_info_t *id,
- int qeth_core_ethtool_get_settings(struct net_device *, struct ethtool_cmd *);
- int qeth_set_access_ctrl_online(struct qeth_card *card);
- int qeth_hdr_chk_and_bounce(struct sk_buff *, int);
-+int qeth_configure_cq(struct qeth_card *, enum qeth_cq);
- int qeth_hw_trap(struct qeth_card *, enum qeth_diags_trap_action);
- int qeth_query_ipassists(struct qeth_card *, enum qeth_prot_versions prot);
+ #define QDIO_STATE_INACTIVE		0x00000002 /* after qdio_cleanup */
+@@ -316,6 +377,7 @@ struct qdio_initialize {
+ extern int qdio_allocate(struct qdio_initialize *);
+ extern int qdio_establish(struct qdio_initialize *);
+ extern int qdio_activate(struct ccw_device *);
++extern void qdio_release_aob(struct qaob *);
+ extern int do_QDIO(struct ccw_device *, unsigned int, int, unsigned int,
+ 		   unsigned int);
+ extern int qdio_start_irq(struct ccw_device *, int);
+--- a/drivers/s390/cio/qdio.h
++++ b/drivers/s390/cio/qdio.h
+@@ -44,6 +44,7 @@ enum qdio_irq_states {
+ #define SLSB_STATE_NOT_INIT	0x0
+ #define SLSB_STATE_EMPTY	0x1
+ #define SLSB_STATE_PRIMED	0x2
++#define SLSB_STATE_PENDING	0x3
+ #define SLSB_STATE_HALTED	0xe
+ #define SLSB_STATE_ERROR	0xf
+ #define SLSB_TYPE_INPUT		0x0
+@@ -67,6 +68,8 @@ enum qdio_irq_states {
+ 	(SLSB_OWNER_PROG | SLSB_TYPE_OUTPUT | SLSB_STATE_NOT_INIT) /* 0xa0 */
+ #define SLSB_P_OUTPUT_EMPTY	\
+ 	(SLSB_OWNER_PROG | SLSB_TYPE_OUTPUT | SLSB_STATE_EMPTY)	   /* 0xa1 */
++#define SLSB_P_OUTPUT_PENDING \
++	(SLSB_OWNER_PROG | SLSB_TYPE_OUTPUT | SLSB_STATE_PENDING)  /* 0xa3 */
+ #define SLSB_CU_OUTPUT_PRIMED	\
+ 	(SLSB_OWNER_CU | SLSB_TYPE_OUTPUT | SLSB_STATE_PRIMED)	   /* 0x62 */
+ #define SLSB_P_OUTPUT_HALTED	\
+@@ -97,6 +100,7 @@ enum qdio_irq_states {
+ #define QDIO_SIGA_WRITE		0x00
+ #define QDIO_SIGA_READ		0x01
+ #define QDIO_SIGA_SYNC		0x02
++#define QDIO_SIGA_WRITEQ	0x04
+ #define QDIO_SIGA_QEBSM_FLAG	0x80
  
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -44,6 +44,7 @@ struct qeth_card_list_struct qeth_core_c
- EXPORT_SYMBOL_GPL(qeth_core_card_list);
- struct kmem_cache *qeth_core_header_cache;
- EXPORT_SYMBOL_GPL(qeth_core_header_cache);
-+static struct kmem_cache *qeth_qdio_outbuf_cache;
+ #ifdef CONFIG_64BIT
+@@ -253,6 +257,12 @@ struct qdio_input_q {
+ struct qdio_output_q {
+ 	/* PCIs are enabled for the queue */
+ 	int pci_out_enabled;
++	/* cq: use asynchronous output buffers */
++	int use_cq;
++	/* cq: aobs used for particual SBAL */
++	struct qaob **aobs;
++	/* cq: sbal state related to asynchronous operation */
++	struct qdio_outbuf_state *sbal_state;
+ 	/* timer to check for more outbound work */
+ 	struct timer_list timer;
+ 	/* used SBALs before tasklet schedule */
+@@ -432,9 +442,20 @@ struct indicator_t {
  
- static struct device *qeth_core_root_dev;
- static unsigned int known_devices[][6] = QETH_MODELLIST_ARRAY;
-@@ -56,6 +57,10 @@ static struct qeth_cmd_buffer *qeth_get_
- static void qeth_setup_ccw(struct qeth_channel *, unsigned char *, __u32);
- static void qeth_free_buffer_pool(struct qeth_card *);
- static int qeth_qdio_establish(struct qeth_card *);
-+static void qeth_free_qdio_buffers(struct qeth_card *);
-+static void qeth_clear_output_buffer(struct qeth_qdio_out_q *queue,
-+		struct qeth_qdio_out_buffer *buf,
-+		enum qeth_qdio_buffer_states newbufstate);
+ extern struct indicator_t *q_indicators;
  
- 
- static inline const char *qeth_get_cardname(struct qeth_card *card)
-@@ -239,6 +244,150 @@ int qeth_realloc_buffer_pool(struct qeth
+-static inline int shared_ind(u32 *dsci)
++static inline int has_multiple_inq_on_dsci(struct qdio_irq *irq)
+ {
+-	return dsci == &q_indicators[TIQDIO_SHARED_IND].ind;
++	return irq->nr_input_qs > 1;
++}
++
++static inline int references_shared_dsci(struct qdio_irq *irq)
++{
++	return irq->dsci == &q_indicators[TIQDIO_SHARED_IND].ind;
++}
++
++static inline int shared_ind(struct qdio_q *q)
++{
++	struct qdio_irq *i = q->irq_ptr;
++	return references_shared_dsci(i) || has_multiple_inq_on_dsci(i);
  }
- EXPORT_SYMBOL_GPL(qeth_realloc_buffer_pool);
  
-+static inline int qeth_cq_init(struct qeth_card *card)
-+{
-+	int rc;
+ /* prototypes for thin interrupt */
+@@ -449,6 +470,7 @@ void tiqdio_free_memory(void);
+ int tiqdio_register_thinints(void);
+ void tiqdio_unregister_thinints(void);
+ 
 +
-+	if (card->options.cq == QETH_CQ_ENABLED) {
-+		QETH_DBF_TEXT(SETUP, 2, "cqinit");
-+		memset(card->qdio.c_q->qdio_bufs, 0,
-+		       QDIO_MAX_BUFFERS_PER_Q * sizeof(struct qdio_buffer));
-+		card->qdio.c_q->next_buf_to_init = 127;
-+		rc = do_QDIO(CARD_DDEV(card), QDIO_FLAG_SYNC_INPUT,
-+			     card->qdio.no_in_queues - 1, 0,
-+			     127);
-+		if (rc) {
-+			QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
-+			goto out;
-+		}
+ /* prototypes for setup */
+ void qdio_inbound_processing(unsigned long data);
+ void qdio_outbound_processing(unsigned long data);
+@@ -469,6 +491,9 @@ int qdio_setup_create_sysfs(struct ccw_d
+ void qdio_setup_destroy_sysfs(struct ccw_device *cdev);
+ int qdio_setup_init(void);
+ void qdio_setup_exit(void);
++int qdio_enable_async_operation(struct qdio_output_q *q);
++void qdio_disable_async_operation(struct qdio_output_q *q);
++struct qaob *qdio_allocate_aob(void);
+ 
+ int debug_get_buf_state(struct qdio_q *q, unsigned int bufnr,
+ 			unsigned char *state);
+--- a/drivers/s390/cio/qdio_debug.c
++++ b/drivers/s390/cio/qdio_debug.c
+@@ -76,6 +76,9 @@ static int qstat_show(struct seq_file *m
+ 		case SLSB_P_OUTPUT_NOT_INIT:
+ 			seq_printf(m, "N");
+ 			break;
++		case SLSB_P_OUTPUT_PENDING:
++			seq_printf(m, "P");
++			break;
+ 		case SLSB_P_INPUT_PRIMED:
+ 		case SLSB_CU_OUTPUT_PRIMED:
+ 			seq_printf(m, "+");
+--- a/drivers/s390/cio/qdio_main.c
++++ b/drivers/s390/cio/qdio_main.c
+@@ -14,6 +14,7 @@
+ #include <linux/timer.h>
+ #include <linux/delay.h>
+ #include <linux/gfp.h>
++#include <linux/io.h>
+ #include <linux/kernel_stat.h>
+ #include <linux/atomic.h>
+ #include <asm/debug.h>
+@@ -77,11 +78,13 @@ static inline int do_siga_input(unsigned
+  * Note: For IQDC unicast queues only the highest priority queue is processed.
+  */
+ static inline int do_siga_output(unsigned long schid, unsigned long mask,
+-				 unsigned int *bb, unsigned int fc)
++				 unsigned int *bb, unsigned int fc,
++				 unsigned long aob)
+ {
+ 	register unsigned long __fc asm("0") = fc;
+ 	register unsigned long __schid asm("1") = schid;
+ 	register unsigned long __mask asm("2") = mask;
++	register unsigned long __aob asm("3") = aob;
+ 	int cc = QDIO_ERROR_SIGA_ACCESS_EXCEPTION;
+ 
+ 	asm volatile(
+@@ -90,7 +93,8 @@ static inline int do_siga_output(unsigne
+ 		"	srl	%0,28\n"
+ 		"1:\n"
+ 		EX_TABLE(0b, 1b)
+-		: "+d" (cc), "+d" (__fc), "+d" (__schid), "+d" (__mask)
++		: "+d" (cc), "+d" (__fc), "+d" (__schid), "+d" (__mask),
++		  "+d" (__aob)
+ 		: : "cc", "memory");
+ 	*bb = ((unsigned int) __fc) >> 31;
+ 	return cc;
+@@ -212,7 +216,7 @@ again:
+ /* returns number of examined buffers and their common state in *state */
+ static inline int get_buf_states(struct qdio_q *q, unsigned int bufnr,
+ 				 unsigned char *state, unsigned int count,
+-				 int auto_ack)
++				 int auto_ack, int merge_pending)
+ {
+ 	unsigned char __state = 0;
+ 	int i;
+@@ -224,9 +228,14 @@ static inline int get_buf_states(struct
+ 		return qdio_do_eqbs(q, state, bufnr, count, auto_ack);
+ 
+ 	for (i = 0; i < count; i++) {
+-		if (!__state)
++		if (!__state) {
+ 			__state = q->slsb.val[bufnr];
+-		else if (q->slsb.val[bufnr] != __state)
++			if (merge_pending && __state == SLSB_P_OUTPUT_PENDING)
++				__state = SLSB_P_OUTPUT_EMPTY;
++		} else if (merge_pending) {
++			if ((q->slsb.val[bufnr] & __state) != __state)
++				break;
++		} else if (q->slsb.val[bufnr] != __state)
+ 			break;
+ 		bufnr = next_buf(bufnr);
+ 	}
+@@ -237,7 +246,7 @@ static inline int get_buf_states(struct
+ static inline int get_buf_state(struct qdio_q *q, unsigned int bufnr,
+ 				unsigned char *state, int auto_ack)
+ {
+-	return get_buf_states(q, bufnr, state, 1, auto_ack);
++	return get_buf_states(q, bufnr, state, 1, auto_ack, 0);
+ }
+ 
+ /* wrap-around safe setting of slsb states, returns number of changed buffers */
+@@ -308,19 +317,28 @@ static inline int qdio_siga_sync_q(struc
+ 		return qdio_siga_sync(q, q->mask, 0);
+ }
+ 
+-static int qdio_siga_output(struct qdio_q *q, unsigned int *busy_bit)
++static int qdio_siga_output(struct qdio_q *q, unsigned int *busy_bit,
++	unsigned long aob)
+ {
+ 	unsigned long schid = *((u32 *) &q->irq_ptr->schid);
+ 	unsigned int fc = QDIO_SIGA_WRITE;
+ 	u64 start_time = 0;
+ 	int retries = 0, cc;
++	unsigned long laob = 0;
++
++	if (q->u.out.use_cq && aob != 0) {
++		fc = QDIO_SIGA_WRITEQ;
++		laob = aob;
 +	}
-+	rc = 0;
-+out:
-+	return rc;
+ 
+ 	if (is_qebsm(q)) {
+ 		schid = q->irq_ptr->sch_token;
+ 		fc |= QDIO_SIGA_QEBSM_FLAG;
+ 	}
+ again:
+-	cc = do_siga_output(schid, q->mask, busy_bit, fc);
++	WARN_ON_ONCE((aob && queue_type(q) != QDIO_IQDIO_QFMT) ||
++		(aob && fc != QDIO_SIGA_WRITEQ));
++	cc = do_siga_output(schid, q->mask, busy_bit, fc, laob);
+ 
+ 	/* hipersocket busy condition */
+ 	if (unlikely(*busy_bit)) {
+@@ -379,7 +397,7 @@ int debug_get_buf_state(struct qdio_q *q
+ {
+ 	if (need_siga_sync(q))
+ 		qdio_siga_sync_q(q);
+-	return get_buf_states(q, bufnr, state, 1, 0);
++	return get_buf_states(q, bufnr, state, 1, 0, 0);
+ }
+ 
+ static inline void qdio_stop_polling(struct qdio_q *q)
+@@ -507,7 +525,7 @@ static int get_inbound_buffer_frontier(s
+ 	 * No siga sync here, as a PCI or we after a thin interrupt
+ 	 * already sync'ed the queues.
+ 	 */
+-	count = get_buf_states(q, q->first_to_check, &state, count, 1);
++	count = get_buf_states(q, q->first_to_check, &state, count, 1, 0);
+ 	if (!count)
+ 		goto out;
+ 
+@@ -590,6 +608,107 @@ static inline int qdio_inbound_q_done(st
+ 		return 0;
+ }
+ 
++static inline int contains_aobs(struct qdio_q *q)
++{
++	return !q->is_input_q && q->u.out.use_cq;
 +}
 +
-+static inline int qeth_alloc_cq(struct qeth_card *card)
++static inline void qdio_trace_aob(struct qdio_irq *irq, struct qdio_q *q,
++				int i, struct qaob *aob)
 +{
++	int tmp;
++
++	DBF_DEV_EVENT(DBF_INFO, irq, "AOB%d:%lx", i,
++			(unsigned long) virt_to_phys(aob));
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES00:%lx",
++			(unsigned long) aob->res0[0]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES01:%lx",
++			(unsigned long) aob->res0[1]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES02:%lx",
++			(unsigned long) aob->res0[2]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES03:%lx",
++			(unsigned long) aob->res0[3]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES04:%lx",
++			(unsigned long) aob->res0[4]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES05:%lx",
++			(unsigned long) aob->res0[5]);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES1:%x", aob->res1);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES2:%x", aob->res2);
++	DBF_DEV_EVENT(DBF_INFO, irq, "RES3:%x", aob->res3);
++	DBF_DEV_EVENT(DBF_INFO, irq, "AORC:%u", aob->aorc);
++	DBF_DEV_EVENT(DBF_INFO, irq, "FLAGS:%u", aob->flags);
++	DBF_DEV_EVENT(DBF_INFO, irq, "CBTBS:%u", aob->cbtbs);
++	DBF_DEV_EVENT(DBF_INFO, irq, "SBC:%u", aob->sb_count);
++	for (tmp = 0; tmp < QDIO_MAX_ELEMENTS_PER_BUFFER; ++tmp) {
++		DBF_DEV_EVENT(DBF_INFO, irq, "SBA%d:%lx", tmp,
++				(unsigned long) aob->sba[tmp]);
++		DBF_DEV_EVENT(DBF_INFO, irq, "rSBA%d:%lx", tmp,
++				(unsigned long) q->sbal[i]->element[tmp].addr);
++		DBF_DEV_EVENT(DBF_INFO, irq, "DC%d:%u", tmp, aob->dcount[tmp]);
++		DBF_DEV_EVENT(DBF_INFO, irq, "rDC%d:%u", tmp,
++				q->sbal[i]->element[tmp].length);
++	}
++	DBF_DEV_EVENT(DBF_INFO, irq, "USER0:%lx", (unsigned long) aob->user0);
++	for (tmp = 0; tmp < 2; ++tmp) {
++		DBF_DEV_EVENT(DBF_INFO, irq, "RES4%d:%lx", tmp,
++			(unsigned long) aob->res4[tmp]);
++	}
++	DBF_DEV_EVENT(DBF_INFO, irq, "USER1:%lx", (unsigned long) aob->user1);
++	DBF_DEV_EVENT(DBF_INFO, irq, "USER2:%lx", (unsigned long) aob->user2);
++}
++
++static inline void qdio_handle_aobs(struct qdio_q *q, int start, int count)
++{
++	unsigned char state = 0;
++	int j, b = start;
++
++	if (!contains_aobs(q))
++		return;
++
++	for (j = 0; j < count; ++j) {
++		get_buf_state(q, b, &state, 0);
++		if (state == SLSB_P_OUTPUT_PENDING) {
++			struct qaob *aob = q->u.out.aobs[b];
++			if (aob == NULL)
++				continue;
++
++			BUG_ON(q->u.out.sbal_state == NULL);
++			q->u.out.sbal_state[b].flags |=
++				QDIO_OUTBUF_STATE_FLAG_PENDING;
++			q->u.out.aobs[b] = NULL;
++		} else if (state == SLSB_P_OUTPUT_EMPTY) {
++			BUG_ON(q->u.out.sbal_state == NULL);
++			q->u.out.sbal_state[b].aob = NULL;
++		}
++		b = next_buf(b);
++	}
++}
++
++static inline unsigned long qdio_aob_for_buffer(struct qdio_output_q *q,
++					int bufnr)
++{
++	unsigned long phys_aob = 0;
++
++	if (!q->use_cq)
++		goto out;
++
++	if (!q->aobs[bufnr]) {
++		struct qaob *aob = qdio_allocate_aob();
++		q->aobs[bufnr] = aob;
++	}
++	if (q->aobs[bufnr]) {
++		BUG_ON(q->sbal_state == NULL);
++		q->sbal_state[bufnr].flags = QDIO_OUTBUF_STATE_FLAG_NONE;
++		q->sbal_state[bufnr].aob = q->aobs[bufnr];
++		q->aobs[bufnr]->user1 = (u64) q->sbal_state[bufnr].user;
++		phys_aob = virt_to_phys(q->aobs[bufnr]);
++		BUG_ON(phys_aob & 0xFF);
++	}
++
++out:
++	return phys_aob;
++}
++
+ static void qdio_kick_handler(struct qdio_q *q)
+ {
+ 	int start = q->first_to_kick;
+@@ -610,6 +729,8 @@ static void qdio_kick_handler(struct qdi
+ 			      start, count);
+ 	}
+ 
++	qdio_handle_aobs(q, start, count);
++
+ 	q->handler(q->irq_ptr->cdev, q->qdio_error, q->nr, start, count,
+ 		   q->irq_ptr->int_parm);
+ 
+@@ -672,23 +793,26 @@ static int get_outbound_buffer_frontier(
+ 	 */
+ 	count = min(atomic_read(&q->nr_buf_used), QDIO_MAX_BUFFERS_MASK);
+ 	stop = add_buf(q->first_to_check, count);
+-
+ 	if (q->first_to_check == stop)
+-		return q->first_to_check;
++		goto out;
+ 
+-	count = get_buf_states(q, q->first_to_check, &state, count, 0);
++	count = get_buf_states(q, q->first_to_check, &state, count, 0, 1);
+ 	if (!count)
+-		return q->first_to_check;
++		goto out;
+ 
+ 	switch (state) {
++	case SLSB_P_OUTPUT_PENDING:
++		BUG();
+ 	case SLSB_P_OUTPUT_EMPTY:
+ 		/* the adapter got it */
+-		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "out empty:%1d %02x", q->nr, count);
++		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr,
++			"out empty:%1d %02x", q->nr, count);
+ 
+ 		atomic_sub(count, &q->nr_buf_used);
+ 		q->first_to_check = add_buf(q->first_to_check, count);
+ 		if (q->irq_ptr->perf_stat_enabled)
+ 			account_sbals(q, count);
++
+ 		break;
+ 	case SLSB_P_OUTPUT_ERROR:
+ 		process_buffer_error(q, count);
+@@ -701,7 +825,8 @@ static int get_outbound_buffer_frontier(
+ 		/* the adapter has not fetched the output yet */
+ 		if (q->irq_ptr->perf_stat_enabled)
+ 			q->q_stats.nr_sbal_nop++;
+-		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "out primed:%1d", q->nr);
++		DBF_DEV_EVENT(DBF_INFO, q->irq_ptr, "out primed:%1d",
++			      q->nr);
+ 		break;
+ 	case SLSB_P_OUTPUT_NOT_INIT:
+ 	case SLSB_P_OUTPUT_HALTED:
+@@ -709,6 +834,8 @@ static int get_outbound_buffer_frontier(
+ 	default:
+ 		BUG();
+ 	}
++
++out:
+ 	return q->first_to_check;
+ }
+ 
+@@ -732,7 +859,7 @@ static inline int qdio_outbound_q_moved(
+ 		return 0;
+ }
+ 
+-static int qdio_kick_outbound_q(struct qdio_q *q)
++static int qdio_kick_outbound_q(struct qdio_q *q, unsigned long aob)
+ {
+ 	int retries = 0, cc;
+ 	unsigned int busy_bit;
+@@ -744,7 +871,7 @@ static int qdio_kick_outbound_q(struct q
+ retry:
+ 	qperf_inc(q, siga_write);
+ 
+-	cc = qdio_siga_output(q, &busy_bit);
++	cc = qdio_siga_output(q, &busy_bit, aob);
+ 	switch (cc) {
+ 	case 0:
+ 		break;
+@@ -921,8 +1048,9 @@ static void qdio_int_handler_pci(struct
+ 			}
+ 			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
+ 						 q->irq_ptr->int_parm);
+-		} else
++		} else {
+ 			tasklet_schedule(&q->tasklet);
++		}
+ 	}
+ 
+ 	if (!pci_out_supported(q))
+@@ -1236,6 +1364,26 @@ out_err:
+ }
+ EXPORT_SYMBOL_GPL(qdio_allocate);
+ 
++static void qdio_detect_hsicq(struct qdio_irq *irq_ptr)
++{
++	struct qdio_q *q = irq_ptr->input_qs[0];
++	int i, use_cq = 0;
++
++	if (irq_ptr->nr_input_qs > 1 && queue_type(q) == QDIO_IQDIO_QFMT)
++		use_cq = 1;
++
++	for_each_output_queue(irq_ptr, q, i) {
++		if (use_cq) {
++			if (qdio_enable_async_operation(&q->u.out) < 0) {
++				use_cq = 0;
++				continue;
++			}
++		} else
++			qdio_disable_async_operation(&q->u.out);
++	}
++	DBF_EVENT("use_cq:%d", use_cq);
++}
++
+ /**
+  * qdio_establish - establish queues on a qdio subchannel
+  * @init_data: initialization data
+@@ -1301,6 +1449,8 @@ int qdio_establish(struct qdio_initializ
+ 	qdio_setup_ssqd_info(irq_ptr);
+ 	DBF_EVENT("qib ac:%4x", irq_ptr->qib.ac);
+ 
++	qdio_detect_hsicq(irq_ptr);
++
+ 	/* qebsm is now setup if available, initialize buffer states */
+ 	qdio_init_buf_states(irq_ptr);
+ 
+@@ -1480,17 +1630,21 @@ static int handle_outbound(struct qdio_q
+ 		q->u.out.pci_out_enabled = 0;
+ 
+ 	if (queue_type(q) == QDIO_IQDIO_QFMT) {
+-		/* One SIGA-W per buffer required for unicast HiperSockets. */
++		unsigned long phys_aob = 0;
++
++		/* One SIGA-W per buffer required for unicast HSI */
+ 		WARN_ON_ONCE(count > 1 && !multicast_outbound(q));
+ 
+-		rc = qdio_kick_outbound_q(q);
++		phys_aob = qdio_aob_for_buffer(&q->u.out, bufnr);
++
++		rc = qdio_kick_outbound_q(q, phys_aob);
+ 	} else if (need_siga_sync(q)) {
+ 		rc = qdio_siga_sync_q(q);
+ 	} else {
+ 		/* try to fast requeue buffers */
+ 		get_buf_state(q, prev_buf(bufnr), &state, 0);
+ 		if (state != SLSB_CU_OUTPUT_PRIMED)
+-			rc = qdio_kick_outbound_q(q);
++			rc = qdio_kick_outbound_q(q, 0);
+ 		else
+ 			qperf_inc(q, fast_requeue);
+ 	}
+@@ -1518,6 +1672,7 @@ int do_QDIO(struct ccw_device *cdev, uns
+ {
+ 	struct qdio_irq *irq_ptr;
+ 
++
+ 	if (bufnr >= QDIO_MAX_BUFFERS_PER_Q || count > QDIO_MAX_BUFFERS_PER_Q)
+ 		return -EINVAL;
+ 
+@@ -1562,7 +1717,7 @@ int qdio_start_irq(struct ccw_device *cd
+ 
+ 	WARN_ON(queue_irqs_enabled(q));
+ 
+-	if (!shared_ind(q->irq_ptr->dsci))
++	if (!shared_ind(q))
+ 		xchg(q->irq_ptr->dsci, 0);
+ 
+ 	qdio_stop_polling(q);
+@@ -1572,7 +1727,7 @@ int qdio_start_irq(struct ccw_device *cd
+ 	 * We need to check again to not lose initiative after
+ 	 * resetting the ACK state.
+ 	 */
+-	if (!shared_ind(q->irq_ptr->dsci) && *q->irq_ptr->dsci)
++	if (!shared_ind(q) && *q->irq_ptr->dsci)
+ 		goto rescan;
+ 	if (!qdio_inbound_q_done(q))
+ 		goto rescan;
+--- a/drivers/s390/cio/qdio_setup.c
++++ b/drivers/s390/cio/qdio_setup.c
+@@ -19,6 +19,22 @@
+ #include "qdio_debug.h"
+ 
+ static struct kmem_cache *qdio_q_cache;
++static struct kmem_cache *qdio_aob_cache;
++
++struct qaob *qdio_allocate_aob()
++{
++	struct qaob *aob;
++
++	aob = kmem_cache_zalloc(qdio_aob_cache, GFP_ATOMIC);
++	return aob;
++}
++EXPORT_SYMBOL_GPL(qdio_allocate_aob);
++
++void qdio_release_aob(struct qaob *aob)
++{
++	kmem_cache_free(qdio_aob_cache, aob);
++}
++EXPORT_SYMBOL_GPL(qdio_release_aob);
+ 
+ /*
+  * qebsm is only available under 64bit but the adapter sets the feature
+@@ -154,29 +170,36 @@ static void setup_queues(struct qdio_irq
+ 	struct qdio_q *q;
+ 	void **input_sbal_array = qdio_init->input_sbal_addr_array;
+ 	void **output_sbal_array = qdio_init->output_sbal_addr_array;
++	struct qdio_outbuf_state *output_sbal_state_array =
++				  qdio_init->output_sbal_state_array;
+ 	int i;
+ 
+ 	for_each_input_queue(irq_ptr, q, i) {
+-		DBF_EVENT("in-q:%1d", i);
++		DBF_EVENT("inq:%1d", i);
+ 		setup_queues_misc(q, irq_ptr, qdio_init->input_handler, i);
+ 
+ 		q->is_input_q = 1;
+-		q->u.in.queue_start_poll = qdio_init->queue_start_poll;
++		q->u.in.queue_start_poll = qdio_init->queue_start_poll[i];
++
+ 		setup_storage_lists(q, irq_ptr, input_sbal_array, i);
+ 		input_sbal_array += QDIO_MAX_BUFFERS_PER_Q;
+ 
+-		if (is_thinint_irq(irq_ptr))
++		if (is_thinint_irq(irq_ptr)) {
+ 			tasklet_init(&q->tasklet, tiqdio_inbound_processing,
+ 				     (unsigned long) q);
+-		else
++		} else {
+ 			tasklet_init(&q->tasklet, qdio_inbound_processing,
+ 				     (unsigned long) q);
++		}
+ 	}
+ 
+ 	for_each_output_queue(irq_ptr, q, i) {
+ 		DBF_EVENT("outq:%1d", i);
+ 		setup_queues_misc(q, irq_ptr, qdio_init->output_handler, i);
+ 
++		q->u.out.sbal_state = output_sbal_state_array;
++		output_sbal_state_array += QDIO_MAX_BUFFERS_PER_Q;
++
+ 		q->is_input_q = 0;
+ 		q->u.out.scan_threshold = qdio_init->scan_threshold;
+ 		setup_storage_lists(q, irq_ptr, output_sbal_array, i);
+@@ -311,6 +334,19 @@ void qdio_release_memory(struct qdio_irq
+ 	for (i = 0; i < QDIO_MAX_QUEUES_PER_IRQ; i++) {
+ 		q = irq_ptr->output_qs[i];
+ 		if (q) {
++			if (q->u.out.use_cq) {
++				int n;
++
++				for (n = 0; n < QDIO_MAX_BUFFERS_PER_Q; ++n) {
++					struct qaob *aob = q->u.out.aobs[n];
++					if (aob) {
++						qdio_release_aob(aob);
++						q->u.out.aobs[n] = NULL;
++					}
++				}
++
++				qdio_disable_async_operation(&q->u.out);
++			}
+ 			free_page((unsigned long) q->slib);
+ 			kmem_cache_free(qdio_q_cache, q);
+ 		}
+@@ -465,23 +501,60 @@ void qdio_print_subchannel_info(struct q
+ 	printk(KERN_INFO "%s", s);
+ }
+ 
++int qdio_enable_async_operation(struct qdio_output_q *outq)
++{
++	outq->aobs = kzalloc(sizeof(struct qaob *) * QDIO_MAX_BUFFERS_PER_Q,
++			     GFP_ATOMIC);
++	if (!outq->aobs) {
++		outq->use_cq = 0;
++		return -ENOMEM;
++	}
++	outq->use_cq = 1;
++	return 0;
++}
++
++void qdio_disable_async_operation(struct qdio_output_q *q)
++{
++	kfree(q->aobs);
++	q->aobs = NULL;
++	q->use_cq = 0;
++}
++
+ int __init qdio_setup_init(void)
+ {
 +	int rc;
 +
-+	if (card->options.cq == QETH_CQ_ENABLED) {
-+		int i;
-+		struct qdio_outbuf_state *outbuf_states;
-+
-+		QETH_DBF_TEXT(SETUP, 2, "cqon");
-+		card->qdio.c_q = kzalloc(sizeof(struct qeth_qdio_q),
-+					 GFP_KERNEL);
-+		if (!card->qdio.c_q) {
-+			rc = -1;
-+			goto kmsg_out;
-+		}
-+		QETH_DBF_HEX(SETUP, 2, &card->qdio.c_q, sizeof(void *));
-+
-+		for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; ++i) {
-+			card->qdio.c_q->bufs[i].buffer =
-+				&card->qdio.c_q->qdio_bufs[i];
-+		}
-+
-+		card->qdio.no_in_queues = 2;
-+
-+		card->qdio.out_bufstates = (struct qdio_outbuf_state *)
-+			kzalloc(card->qdio.no_out_queues *
-+				QDIO_MAX_BUFFERS_PER_Q *
-+				sizeof(struct qdio_outbuf_state), GFP_KERNEL);
-+		outbuf_states = card->qdio.out_bufstates;
-+		if (outbuf_states == NULL) {
-+			rc = -1;
-+			goto free_cq_out;
-+		}
-+		for (i = 0; i < card->qdio.no_out_queues; ++i) {
-+			card->qdio.out_qs[i]->bufstates = outbuf_states;
-+			outbuf_states += QDIO_MAX_BUFFERS_PER_Q;
-+		}
-+	} else {
-+		QETH_DBF_TEXT(SETUP, 2, "nocq");
-+		card->qdio.c_q = NULL;
-+		card->qdio.no_in_queues = 1;
+ 	qdio_q_cache = kmem_cache_create("qdio_q", sizeof(struct qdio_q),
+ 					 256, 0, NULL);
+ 	if (!qdio_q_cache)
+ 		return -ENOMEM;
+ 
++	qdio_aob_cache = kmem_cache_create("qdio_aob",
++					sizeof(struct qaob),
++					sizeof(struct qaob),
++					0,
++					NULL);
++	if (!qdio_aob_cache) {
++		rc = -ENOMEM;
++		goto free_qdio_q_cache;
 +	}
-+	QETH_DBF_TEXT_(SETUP, 2, "iqc%d", card->qdio.no_in_queues);
++
+ 	/* Check for OSA/FCP thin interrupts (bit 67). */
+ 	DBF_EVENT("thinint:%1d",
+ 		  (css_general_characteristics.aif_osa) ? 1 : 0);
+ 
+ 	/* Check for QEBSM support in general (bit 58). */
+ 	DBF_EVENT("cssQEBSM:%1d", (qebsm_possible()) ? 1 : 0);
+-	return 0;
 +	rc = 0;
 +out:
 +	return rc;
-+free_cq_out:
-+	kfree(card->qdio.c_q);
-+	card->qdio.c_q = NULL;
-+kmsg_out:
-+	dev_err(&card->gdev->dev, "Failed to create completion queue\n");
++free_qdio_q_cache:
++	kmem_cache_destroy(qdio_q_cache);
 +	goto out;
-+}
-+
-+static inline void qeth_free_cq(struct qeth_card *card)
+ }
+ 
+ void qdio_setup_exit(void)
+ {
++	kmem_cache_destroy(qdio_aob_cache);
+ 	kmem_cache_destroy(qdio_q_cache);
+ }
+--- a/drivers/s390/cio/qdio_thinint.c
++++ b/drivers/s390/cio/qdio_thinint.c
+@@ -67,12 +67,9 @@ static void put_indicator(u32 *addr)
+ 
+ void tiqdio_add_input_queues(struct qdio_irq *irq_ptr)
+ {
+-	struct qdio_q *q;
+-	int i;
+-
+ 	mutex_lock(&tiq_list_lock);
+-	for_each_input_queue(irq_ptr, q, i)
+-		list_add_rcu(&q->entry, &tiq_list);
++	BUG_ON(irq_ptr->nr_input_qs < 1);
++	list_add_rcu(&irq_ptr->input_qs[0]->entry, &tiq_list);
+ 	mutex_unlock(&tiq_list_lock);
+ 	xchg(irq_ptr->dsci, 1 << 7);
+ }
+@@ -80,19 +77,17 @@ void tiqdio_add_input_queues(struct qdio
+ void tiqdio_remove_input_queues(struct qdio_irq *irq_ptr)
+ {
+ 	struct qdio_q *q;
+-	int i;
+ 
+-	for (i = 0; i < irq_ptr->nr_input_qs; i++) {
+-		q = irq_ptr->input_qs[i];
+-		/* if establish triggered an error */
+-		if (!q || !q->entry.prev || !q->entry.next)
+-			continue;
++	BUG_ON(irq_ptr->nr_input_qs < 1);
++	q = irq_ptr->input_qs[0];
++	/* if establish triggered an error */
++	if (!q || !q->entry.prev || !q->entry.next)
++		return;
+ 
+-		mutex_lock(&tiq_list_lock);
+-		list_del_rcu(&q->entry);
+-		mutex_unlock(&tiq_list_lock);
+-		synchronize_rcu();
+-	}
++	mutex_lock(&tiq_list_lock);
++	list_del_rcu(&q->entry);
++	mutex_unlock(&tiq_list_lock);
++	synchronize_rcu();
+ }
+ 
+ static inline u32 clear_shared_ind(void)
+@@ -102,6 +97,40 @@ static inline u32 clear_shared_ind(void)
+ 	return xchg(&q_indicators[TIQDIO_SHARED_IND].ind, 0);
+ }
+ 
++static inline void tiqdio_call_inq_handlers(struct qdio_irq *irq)
 +{
-+	if (card->qdio.c_q) {
-+		--card->qdio.no_in_queues;
-+		kfree(card->qdio.c_q);
-+		card->qdio.c_q = NULL;
-+	}
-+	kfree(card->qdio.out_bufstates);
-+	card->qdio.out_bufstates = NULL;
-+}
++	struct qdio_q *q;
++	int i;
 +
-+static inline void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q,
-+	int bidx, int forced_cleanup)
-+{
-+	if (q->bufs[bidx]->next_pending != NULL) {
-+		struct qeth_qdio_out_buffer *head = q->bufs[bidx];
-+		struct qeth_qdio_out_buffer *c = q->bufs[bidx]->next_pending;
++	for_each_input_queue(irq, q, i) {
++		if (!references_shared_dsci(irq) &&
++		    has_multiple_inq_on_dsci(irq))
++			xchg(q->irq_ptr->dsci, 0);
 +
-+		while (c) {
-+			if (forced_cleanup ||
-+			    atomic_read(&c->state) ==
-+			      QETH_QDIO_BUF_HANDLED_DELAYED) {
-+				struct qeth_qdio_out_buffer *f = c;
-+				QETH_CARD_TEXT(f->q->card, 5, "fp");
-+				QETH_CARD_TEXT_(f->q->card, 5, "%lx", (long) f);
-+				c = f->next_pending;
-+				BUG_ON(head->next_pending != f);
-+				head->next_pending = c;
-+				kmem_cache_free(qeth_qdio_outbuf_cache, f);
-+			} else {
-+				head = c;
-+				c = c->next_pending;
++		if (q->u.in.queue_start_poll) {
++			/* skip if polling is enabled or already in work */
++			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
++					     &q->u.in.queue_irq_state)) {
++				qperf_inc(q, int_discarded);
++				continue;
 +			}
 +
++			/* avoid dsci clear here, done after processing */
++			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
++						 q->irq_ptr->int_parm);
++		} else {
++			if (!shared_ind(q))
++				xchg(q->irq_ptr->dsci, 0);
++
++			/*
++			 * Call inbound processing but not directly
++			 * since that could starve other thinint queues.
++			 */
++			tasklet_schedule(&q->tasklet);
 +		}
 +	}
 +}
 +
-+
-+static inline void qeth_qdio_handle_aob(struct qeth_card *card,
-+		unsigned long phys_aob_addr) {
-+	struct qaob *aob;
-+	struct qeth_qdio_out_buffer *buffer;
-+
-+	aob = (struct qaob *) phys_to_virt(phys_aob_addr);
-+	QETH_CARD_TEXT(card, 5, "haob");
-+	QETH_CARD_TEXT_(card, 5, "%lx", phys_aob_addr);
-+	buffer = (struct qeth_qdio_out_buffer *) aob->user1;
-+	QETH_CARD_TEXT_(card, 5, "%lx", aob->user1);
-+
-+	BUG_ON(buffer == NULL);
-+
-+	buffer->aob = NULL;
-+	qeth_clear_output_buffer(buffer->q, buffer,
-+				QETH_QDIO_BUF_HANDLED_DELAYED);
-+	/* from here on: do not touch buffer anymore */
-+	qdio_release_aob(aob);
-+}
-+
-+static inline int qeth_is_cq(struct qeth_card *card, unsigned int queue)
-+{
-+	return card->options.cq == QETH_CQ_ENABLED &&
-+	    card->qdio.c_q != NULL &&
-+	    queue != 0 &&
-+	    queue == card->qdio.no_in_queues - 1;
-+}
-+
-+
- static int qeth_issue_next_read(struct qeth_card *card)
- {
- 	int rc;
-@@ -681,6 +830,7 @@ EXPORT_SYMBOL_GPL(qeth_do_run_thread);
- void qeth_schedule_recovery(struct qeth_card *card)
- {
- 	QETH_CARD_TEXT(card, 2, "startrec");
-+	WARN_ON(1);
- 	if (qeth_set_thread_start_bit(card, QETH_RECOVER_THREAD) == 0)
- 		schedule_work(&card->kernel_thread_starter);
- }
-@@ -884,7 +1034,8 @@ out:
- }
+ /**
+  * tiqdio_thinint_handler - thin interrupt handler for qdio
+  * @alsi: pointer to adapter local summary indicator
+@@ -120,35 +149,18 @@ static void tiqdio_thinint_handler(void
  
- static void qeth_clear_output_buffer(struct qeth_qdio_out_q *queue,
--		struct qeth_qdio_out_buffer *buf)
-+		struct qeth_qdio_out_buffer *buf,
-+		enum qeth_qdio_buffer_states newbufstate)
- {
- 	int i;
- 	struct sk_buff *skb;
-@@ -912,21 +1063,36 @@ static void qeth_clear_output_buffer(str
- 	buf->buffer->element[15].eflags = 0;
- 	buf->buffer->element[15].sflags = 0;
- 	buf->next_element_to_fill = 0;
--	atomic_set(&buf->state, QETH_QDIO_BUF_EMPTY);
-+	atomic_set(&buf->state, newbufstate);
-+}
-+
-+static void qeth_clear_outq_buffers(struct qeth_qdio_out_q *q, int free)
-+{
-+	int j;
-+
-+	for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j) {
-+		if (!q->bufs[j])
-+			continue;
-+		qeth_cleanup_handled_pending(q, j, free);
-+		qeth_clear_output_buffer(q, q->bufs[j], QETH_QDIO_BUF_EMPTY);
-+		if (free) {
-+			kmem_cache_free(qeth_qdio_outbuf_cache, q->bufs[j]);
-+			q->bufs[j] = NULL;
-+		}
-+	}
- }
+ 	/* check for work on all inbound thinint queues */
+ 	list_for_each_entry_rcu(q, &tiq_list, entry) {
++		struct qdio_irq *irq;
  
- void qeth_clear_qdio_buffers(struct qeth_card *card)
- {
--	int i, j;
-+	int i;
- 
- 	QETH_CARD_TEXT(card, 2, "clearqdbf");
- 	/* clear outbound buffers to free skbs */
--	for (i = 0; i < card->qdio.no_out_queues; ++i)
-+	for (i = 0; i < card->qdio.no_out_queues; ++i) {
- 		if (card->qdio.out_qs[i]) {
--			for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j)
--				qeth_clear_output_buffer(card->qdio.out_qs[i],
--						&card->qdio.out_qs[i]->bufs[j]);
-+			qeth_clear_outq_buffers(card->qdio.out_qs[i], 0);
- 		}
-+	}
- }
- EXPORT_SYMBOL_GPL(qeth_clear_qdio_buffers);
- 
-@@ -945,11 +1111,14 @@ static void qeth_free_buffer_pool(struct
- 
- static void qeth_free_qdio_buffers(struct qeth_card *card)
- {
--	int i, j;
-+	int i;
- 
- 	if (atomic_xchg(&card->qdio.state, QETH_QDIO_UNINITIALIZED) ==
- 		QETH_QDIO_UNINITIALIZED)
- 		return;
-+
-+	qeth_free_cq(card);
-+
- 	kfree(card->qdio.in_q);
- 	card->qdio.in_q = NULL;
- 	/* inbound buffer pool */
-@@ -957,9 +1126,7 @@ static void qeth_free_qdio_buffers(struc
- 	/* free outbound qdio_qs */
- 	if (card->qdio.out_qs) {
- 		for (i = 0; i < card->qdio.no_out_queues; ++i) {
--			for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j)
--				qeth_clear_output_buffer(card->qdio.out_qs[i],
--						&card->qdio.out_qs[i]->bufs[j]);
-+			qeth_clear_outq_buffers(card->qdio.out_qs[i], 1);
- 			kfree(card->qdio.out_qs[i]);
- 		}
- 		kfree(card->qdio.out_qs);
-@@ -1053,6 +1220,7 @@ static void qeth_set_intial_options(stru
- 	card->options.performance_stats = 0;
- 	card->options.rx_sg_cb = QETH_RX_SG_CB;
- 	card->options.isolation = ISOLATION_MODE_NONE;
-+	card->options.cq = QETH_CQ_DISABLED;
- }
- 
- static int qeth_do_start_thread(struct qeth_card *card, unsigned long thread)
-@@ -1182,6 +1350,7 @@ static int qeth_determine_card_type(stru
- 			card->info.type = known_devices[i][QETH_DEV_MODEL_IND];
- 			card->qdio.no_out_queues =
- 				known_devices[i][QETH_QUEUE_NO_IND];
-+			card->qdio.no_in_queues = 1;
- 			card->info.is_multicast_different =
- 				known_devices[i][QETH_MULTICAST_IND];
- 			qeth_get_channel_path_desc(card);
-@@ -2029,6 +2198,37 @@ static int qeth_ulp_setup(struct qeth_ca
- 	return rc;
- }
- 
-+static int qeth_init_qdio_out_buf(struct qeth_qdio_out_q *q, int bidx)
-+{
-+	int rc;
-+	struct qeth_qdio_out_buffer *newbuf;
-+
-+	rc = 0;
-+	newbuf = kmem_cache_zalloc(qeth_qdio_outbuf_cache, GFP_ATOMIC);
-+	if (!newbuf) {
-+		rc = -ENOMEM;
-+		goto out;
-+	}
-+	newbuf->buffer = &q->qdio_bufs[bidx];
-+	skb_queue_head_init(&newbuf->skb_list);
-+	lockdep_set_class(&newbuf->skb_list.lock, &qdio_out_skb_queue_key);
-+	newbuf->q = q;
-+	newbuf->aob = NULL;
-+	newbuf->next_pending = q->bufs[bidx];
-+	atomic_set(&newbuf->state, QETH_QDIO_BUF_EMPTY);
-+	q->bufs[bidx] = newbuf;
-+	if (q->bufstates) {
-+		q->bufstates[bidx].user = newbuf;
-+		QETH_CARD_TEXT_(q->card, 2, "nbs%d", bidx);
-+		QETH_CARD_TEXT_(q->card, 2, "%lx", (long) newbuf);
-+		QETH_CARD_TEXT_(q->card, 2, "%lx",
-+				(long) newbuf->next_pending);
-+	}
-+out:
-+	return rc;
-+}
-+
-+
- static int qeth_alloc_qdio_buffers(struct qeth_card *card)
- {
- 	int i, j;
-@@ -2040,7 +2240,7 @@ static int qeth_alloc_qdio_buffers(struc
- 		return 0;
- 
- 	card->qdio.in_q = kmalloc(sizeof(struct qeth_qdio_q),
--				  GFP_KERNEL);
-+				   GFP_KERNEL);
- 	if (!card->qdio.in_q)
- 		goto out_nomem;
- 	QETH_DBF_TEXT(SETUP, 2, "inq");
-@@ -2053,6 +2253,7 @@ static int qeth_alloc_qdio_buffers(struc
- 	/* inbound buffer pool */
- 	if (qeth_alloc_buffer_pool(card))
- 		goto out_freeinq;
-+
- 	/* outbound */
- 	card->qdio.out_qs =
- 		kmalloc(card->qdio.no_out_queues *
-@@ -2070,21 +2271,30 @@ static int qeth_alloc_qdio_buffers(struc
- 		card->qdio.out_qs[i]->queue_no = i;
- 		/* give outbound qeth_qdio_buffers their qdio_buffers */
- 		for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j) {
--			card->qdio.out_qs[i]->bufs[j].buffer =
--				&card->qdio.out_qs[i]->qdio_bufs[j];
--			skb_queue_head_init(&card->qdio.out_qs[i]->bufs[j].
--					    skb_list);
--			lockdep_set_class(
--				&card->qdio.out_qs[i]->bufs[j].skb_list.lock,
--				&qdio_out_skb_queue_key);
--			INIT_LIST_HEAD(&card->qdio.out_qs[i]->bufs[j].ctx_list);
-+			BUG_ON(card->qdio.out_qs[i]->bufs[j] != NULL);
-+			if (qeth_init_qdio_out_buf(card->qdio.out_qs[i], j))
-+				goto out_freeoutqbufs;
- 		}
- 	}
-+
-+	/* completion */
-+	if (qeth_alloc_cq(card))
-+		goto out_freeoutq;
-+
- 	return 0;
- 
-+out_freeoutqbufs:
-+	while (j > 0) {
-+		--j;
-+		kmem_cache_free(qeth_qdio_outbuf_cache,
-+				card->qdio.out_qs[i]->bufs[j]);
-+		card->qdio.out_qs[i]->bufs[j] = NULL;
-+	}
- out_freeoutq:
--	while (i > 0)
-+	while (i > 0) {
- 		kfree(card->qdio.out_qs[--i]);
-+		qeth_clear_outq_buffers(card->qdio.out_qs[i], 1);
-+	}
- 	kfree(card->qdio.out_qs);
- 	card->qdio.out_qs = NULL;
- out_freepool:
-@@ -2401,13 +2611,21 @@ int qeth_init_qdio_queues(struct qeth_ca
- 		QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
- 		return rc;
- 	}
-+
-+	/* completion */
-+	rc = qeth_cq_init(card);
-+	if (rc) {
-+		return rc;
-+	}
-+
- 	/* outbound queue */
- 	for (i = 0; i < card->qdio.no_out_queues; ++i) {
- 		memset(card->qdio.out_qs[i]->qdio_bufs, 0,
- 		       QDIO_MAX_BUFFERS_PER_Q * sizeof(struct qdio_buffer));
- 		for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j) {
- 			qeth_clear_output_buffer(card->qdio.out_qs[i],
--					&card->qdio.out_qs[i]->bufs[j]);
-+					card->qdio.out_qs[i]->bufs[j],
-+					QETH_QDIO_BUF_EMPTY);
- 		}
- 		card->qdio.out_qs[i]->card = card;
- 		card->qdio.out_qs[i]->next_buf_to_fill = 0;
-@@ -2789,8 +3007,6 @@ void qeth_queue_input_buffer(struct qeth
- 				qeth_get_micros() -
- 				card->perf_stats.inbound_do_qdio_start_time;
- 		if (rc) {
--			dev_warn(&card->gdev->dev,
--				"QDIO reported an error, rc=%i\n", rc);
- 			QETH_CARD_TEXT(card, 2, "qinberr");
- 		}
- 		queue->next_buf_to_init = (queue->next_buf_to_init + count) %
-@@ -2864,12 +3080,12 @@ static int qeth_switch_to_nonpacking_if_
- 				queue->card->perf_stats.sc_p_dp++;
- 			queue->do_pack = 0;
- 			/* flush packing buffers */
--			buffer = &queue->bufs[queue->next_buf_to_fill];
-+			buffer = queue->bufs[queue->next_buf_to_fill];
- 			if ((atomic_read(&buffer->state) ==
- 						QETH_QDIO_BUF_EMPTY) &&
- 			    (buffer->next_element_to_fill > 0)) {
- 				atomic_set(&buffer->state,
--						QETH_QDIO_BUF_PRIMED);
-+					   QETH_QDIO_BUF_PRIMED);
- 				flush_count++;
- 				queue->next_buf_to_fill =
- 					(queue->next_buf_to_fill + 1) %
-@@ -2880,6 +3096,7 @@ static int qeth_switch_to_nonpacking_if_
- 	return flush_count;
- }
- 
-+
- /*
-  * Called to flush a packing buffer if no more pci flags are on the queue.
-  * Checks if there is a packing buffer and prepares it to be flushed.
-@@ -2889,7 +3106,7 @@ static int qeth_flush_buffers_on_no_pci(
- {
- 	struct qeth_qdio_out_buffer *buffer;
- 
--	buffer = &queue->bufs[queue->next_buf_to_fill];
-+	buffer = queue->bufs[queue->next_buf_to_fill];
- 	if ((atomic_read(&buffer->state) == QETH_QDIO_BUF_EMPTY) &&
- 	   (buffer->next_element_to_fill > 0)) {
- 		/* it's a packing buffer */
-@@ -2910,10 +3127,14 @@ static void qeth_flush_buffers(struct qe
- 	unsigned int qdio_flags;
- 
- 	for (i = index; i < index + count; ++i) {
--		buf = &queue->bufs[i % QDIO_MAX_BUFFERS_PER_Q];
-+		int bidx = i % QDIO_MAX_BUFFERS_PER_Q;
-+		buf = queue->bufs[bidx];
- 		buf->buffer->element[buf->next_element_to_fill - 1].eflags |=
- 				SBAL_EFLAGS_LAST_ENTRY;
- 
-+		if (queue->bufstates)
-+			queue->bufstates[bidx].user = buf;
-+
- 		if (queue->card->info.type == QETH_CARD_TYPE_IQD)
+ 		/* only process queues from changed sets */
+-		if (unlikely(shared_ind(q->irq_ptr->dsci))) {
++		irq = q->irq_ptr;
++		if (unlikely(references_shared_dsci(irq))) {
+ 			if (!si_used)
+ 				continue;
+-		} else if (!*q->irq_ptr->dsci)
++		} else if (!*irq->dsci)
  			continue;
  
-@@ -2965,6 +3186,9 @@ static void qeth_flush_buffers(struct qe
- 		if (rc == QDIO_ERROR_SIGA_TARGET)
- 			return;
- 		QETH_CARD_TEXT(queue->card, 2, "flushbuf");
-+		QETH_CARD_TEXT_(queue->card, 2, " q%d", queue->queue_no);
-+		QETH_CARD_TEXT_(queue->card, 2, " idx%d", index);
-+		QETH_CARD_TEXT_(queue->card, 2, " c%d", count);
- 		QETH_CARD_TEXT_(queue->card, 2, " err%d", rc);
+-		if (q->u.in.queue_start_poll) {
+-			/* skip if polling is enabled or already in work */
+-			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
+-					     &q->u.in.queue_irq_state)) {
+-				qperf_inc(q, int_discarded);
+-				continue;
+-			}
++		tiqdio_call_inq_handlers(irq);
  
- 		/* this must not happen under normal circumstances. if it
-@@ -3026,14 +3250,120 @@ void qeth_qdio_start_poll(struct ccw_dev
- }
- EXPORT_SYMBOL_GPL(qeth_qdio_start_poll);
- 
-+int qeth_configure_cq(struct qeth_card *card, enum qeth_cq cq)
-+{
-+	int rc;
-+
-+	if (card->options.cq ==  QETH_CQ_NOTAVAILABLE) {
-+		rc = -1;
-+		goto out;
-+	} else {
-+		if (card->options.cq == cq) {
-+			rc = 0;
-+			goto out;
-+		}
-+
-+		if (card->state != CARD_STATE_DOWN &&
-+		    card->state != CARD_STATE_RECOVER) {
-+			rc = -1;
-+			goto out;
-+		}
-+
-+		qeth_free_qdio_buffers(card);
-+		card->options.cq = cq;
-+		rc = 0;
-+	}
-+out:
-+	return rc;
-+
-+}
-+EXPORT_SYMBOL_GPL(qeth_configure_cq);
-+
-+
-+static void qeth_qdio_cq_handler(struct qeth_card *card,
-+		unsigned int qdio_err,
-+		unsigned int queue, int first_element, int count) {
-+	struct qeth_qdio_q *cq = card->qdio.c_q;
-+	int i;
-+	int rc;
-+
-+	if (!qeth_is_cq(card, queue))
-+		goto out;
-+
-+	QETH_CARD_TEXT_(card, 5, "qcqhe%d", first_element);
-+	QETH_CARD_TEXT_(card, 5, "qcqhc%d", count);
-+	QETH_CARD_TEXT_(card, 5, "qcqherr%d", qdio_err);
-+
-+	if (qdio_err) {
-+		netif_stop_queue(card->dev);
-+		qeth_schedule_recovery(card);
-+		goto out;
-+	}
-+
-+	if (card->options.performance_stats) {
-+		card->perf_stats.cq_cnt++;
-+		card->perf_stats.cq_start_time = qeth_get_micros();
-+	}
-+
-+	for (i = first_element; i < first_element + count; ++i) {
-+		int bidx = i % QDIO_MAX_BUFFERS_PER_Q;
-+		struct qdio_buffer *buffer = &cq->qdio_bufs[bidx];
-+		int e;
-+
-+		e = 0;
-+		while (buffer->element[e].addr) {
-+			unsigned long phys_aob_addr;
-+
-+			phys_aob_addr = (unsigned long) buffer->element[e].addr;
-+			qeth_qdio_handle_aob(card, phys_aob_addr);
-+			buffer->element[e].addr = NULL;
-+			buffer->element[e].eflags = 0;
-+			buffer->element[e].sflags = 0;
-+			buffer->element[e].length = 0;
-+
-+			++e;
-+		}
-+
-+		buffer->element[15].eflags = 0;
-+		buffer->element[15].sflags = 0;
-+	}
-+	rc = do_QDIO(CARD_DDEV(card), QDIO_FLAG_SYNC_INPUT, queue,
-+		    card->qdio.c_q->next_buf_to_init,
-+		    count);
-+	if (rc) {
-+		dev_warn(&card->gdev->dev,
-+			"QDIO reported an error, rc=%i\n", rc);
-+		QETH_CARD_TEXT(card, 2, "qcqherr");
-+	}
-+	card->qdio.c_q->next_buf_to_init = (card->qdio.c_q->next_buf_to_init
-+				   + count) % QDIO_MAX_BUFFERS_PER_Q;
-+
-+	netif_wake_queue(card->dev);
-+
-+	if (card->options.performance_stats) {
-+		int delta_t = qeth_get_micros();
-+		delta_t -= card->perf_stats.cq_start_time;
-+		card->perf_stats.cq_time += delta_t;
-+	}
-+out:
-+	return;
-+}
-+
- void qeth_qdio_input_handler(struct ccw_device *ccwdev, unsigned int qdio_err,
--		unsigned int queue, int first_element, int count,
-+		unsigned int queue, int first_elem, int count,
- 		unsigned long card_ptr)
- {
- 	struct qeth_card *card = (struct qeth_card *)card_ptr;
- 
--	if (qdio_err)
-+	QETH_CARD_TEXT_(card, 2, "qihq%d", queue);
-+	QETH_CARD_TEXT_(card, 2, "qiec%d", qdio_err);
-+
-+	if (qeth_is_cq(card, queue))
-+		qeth_qdio_cq_handler(card, qdio_err, queue, first_elem, count);
-+	else if (qdio_err)
- 		qeth_schedule_recovery(card);
-+
-+
- }
- EXPORT_SYMBOL_GPL(qeth_qdio_input_handler);
- 
-@@ -3059,9 +3389,26 @@ void qeth_qdio_output_handler(struct ccw
- 			qeth_get_micros();
+-			/* avoid dsci clear here, done after processing */
+-			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
+-						 q->irq_ptr->int_parm);
+-		} else {
+-			/* only clear it if the indicator is non-shared */
+-			if (!shared_ind(q->irq_ptr->dsci))
+-				xchg(q->irq_ptr->dsci, 0);
+-			/*
+-			 * Call inbound processing but not directly
+-			 * since that could starve other thinint queues.
+-			 */
+-			tasklet_schedule(&q->tasklet);
+-		}
+ 		qperf_inc(q, adapter_int);
  	}
- 	for (i = first_element; i < (first_element + count); ++i) {
--		buffer = &queue->bufs[i % QDIO_MAX_BUFFERS_PER_Q];
-+		int bidx = i % QDIO_MAX_BUFFERS_PER_Q;
-+		buffer = queue->bufs[bidx];
- 		qeth_handle_send_error(card, buffer, qdio_error);
--		qeth_clear_output_buffer(queue, buffer);
-+
-+		if (queue->bufstates &&
-+		    (queue->bufstates[bidx].flags &
-+		     QDIO_OUTBUF_STATE_FLAG_PENDING) != 0) {
-+			buffer->aob = queue->bufstates[bidx].aob;
-+			QETH_CARD_TEXT_(queue->card, 5, "pel%d", bidx);
-+			QETH_CARD_TEXT_(queue->card, 5, "aob");
-+			QETH_CARD_TEXT_(queue->card, 5, "%lx",
-+					virt_to_phys(buffer->aob));
-+			BUG_ON(bidx < 0 || bidx >= QDIO_MAX_BUFFERS_PER_Q);
-+			if (qeth_init_qdio_out_buf(queue, bidx))
-+				qeth_schedule_recovery(card);
-+		} else {
-+			qeth_clear_output_buffer(queue, buffer,
-+						QETH_QDIO_BUF_EMPTY);
-+		}
-+		qeth_cleanup_handled_pending(queue, bidx, 0);
- 	}
- 	atomic_sub(count, &queue->used_buffers);
- 	/* check if we need to do something on this outbound queue */
-@@ -3293,7 +3640,7 @@ int qeth_do_send_packet_fast(struct qeth
- 			      QETH_OUT_Q_LOCKED) != QETH_OUT_Q_UNLOCKED);
- 	/* ... now we've got the queue */
- 	index = queue->next_buf_to_fill;
--	buffer = &queue->bufs[queue->next_buf_to_fill];
-+	buffer = queue->bufs[queue->next_buf_to_fill];
- 	/*
- 	 * check if buffer is empty to make sure that we do not 'overtake'
- 	 * ourselves and try to fill a buffer that is already primed
-@@ -3327,7 +3674,7 @@ int qeth_do_send_packet(struct qeth_card
- 	while (atomic_cmpxchg(&queue->state, QETH_OUT_Q_UNLOCKED,
- 			      QETH_OUT_Q_LOCKED) != QETH_OUT_Q_UNLOCKED);
- 	start_index = queue->next_buf_to_fill;
--	buffer = &queue->bufs[queue->next_buf_to_fill];
-+	buffer = queue->bufs[queue->next_buf_to_fill];
- 	/*
- 	 * check if buffer is empty to make sure that we do not 'overtake'
- 	 * ourselves and try to fill a buffer that is already primed
-@@ -3349,7 +3696,7 @@ int qeth_do_send_packet(struct qeth_card
- 			queue->next_buf_to_fill =
- 				(queue->next_buf_to_fill + 1) %
- 				QDIO_MAX_BUFFERS_PER_Q;
--			buffer = &queue->bufs[queue->next_buf_to_fill];
-+			buffer = queue->bufs[queue->next_buf_to_fill];
- 			/* we did a step forward, so check buffer state
- 			 * again */
- 			if (atomic_read(&buffer->state) !=
-@@ -3927,6 +4274,20 @@ static void qeth_determine_capabilities(
- 	if (rc)
- 		QETH_DBF_TEXT_(SETUP, 2, "6err%d", rc);
- 
-+	QETH_DBF_TEXT_(SETUP, 2, "qfmt%d", card->ssqd.qfmt);
-+	QETH_DBF_TEXT_(SETUP, 2, "%d", card->ssqd.qdioac1);
-+	QETH_DBF_TEXT_(SETUP, 2, "%d", card->ssqd.qdioac3);
-+	QETH_DBF_TEXT_(SETUP, 2, "icnt%d", card->ssqd.icnt);
-+	if (!((card->ssqd.qfmt != QDIO_IQDIO_QFMT) ||
-+	    ((card->ssqd.qdioac1 & CHSC_AC1_INITIATE_INPUTQ) == 0) ||
-+	    ((card->ssqd.qdioac3 & CHSC_AC3_FORMAT2_CQ_AVAILABLE) == 0))) {
-+		dev_info(&card->gdev->dev,
-+			"Completion Queueing supported\n");
-+	} else {
-+		card->options.cq = QETH_CQ_NOTAVAILABLE;
-+	}
-+
-+
- out_offline:
- 	if (ddev_offline == 1)
- 		ccw_device_set_offline(ddev);
-@@ -3934,6 +4295,24 @@ out:
- 	return;
- }
- 
-+static inline void qeth_qdio_establish_cq(struct qeth_card *card,
-+	struct qdio_buffer **in_sbal_ptrs,
-+	void (**queue_start_poll) (struct ccw_device *, int, unsigned long)) {
-+	int i;
-+
-+	if (card->options.cq == QETH_CQ_ENABLED) {
-+		int offset = QDIO_MAX_BUFFERS_PER_Q *
-+			     (card->qdio.no_in_queues - 1);
-+		i = QDIO_MAX_BUFFERS_PER_Q * (card->qdio.no_in_queues - 1);
-+		for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; ++i) {
-+			in_sbal_ptrs[offset + i] = (struct qdio_buffer *)
-+				virt_to_phys(card->qdio.c_q->bufs[i].buffer);
-+		}
-+
-+		queue_start_poll[card->qdio.no_in_queues - 1] = NULL;
-+	}
-+}
-+
- static int qeth_qdio_establish(struct qeth_card *card)
- {
+ 	rcu_read_unlock();
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -3939,6 +3939,7 @@ static int qeth_qdio_establish(struct qe
  	struct qdio_initialize init_data;
-@@ -3956,22 +4335,28 @@ static int qeth_qdio_establish(struct qe
+ 	char *qib_param_field;
+ 	struct qdio_buffer **in_sbal_ptrs;
++	void (**queue_start_poll) (struct ccw_device *, int, unsigned long);
+ 	struct qdio_buffer **out_sbal_ptrs;
+ 	int i, j, k;
+ 	int rc = 0;
+@@ -3947,8 +3948,10 @@ static int qeth_qdio_establish(struct qe
+ 
+ 	qib_param_field = kzalloc(QDIO_MAX_BUFFERS_PER_Q * sizeof(char),
+ 			      GFP_KERNEL);
+-	if (!qib_param_field)
+-		return -ENOMEM;
++	if (!qib_param_field) {
++		rc =  -ENOMEM;
++		goto out_free_nothing;
++	}
+ 
  	qeth_create_qib_param_field(card, qib_param_field);
  	qeth_create_qib_param_field_blkt(card, qib_param_field);
- 
--	in_sbal_ptrs = kmalloc(QDIO_MAX_BUFFERS_PER_Q * sizeof(void *),
-+	in_sbal_ptrs = kmalloc(card->qdio.no_in_queues *
-+			       QDIO_MAX_BUFFERS_PER_Q * sizeof(void *),
+@@ -3956,20 +3959,26 @@ static int qeth_qdio_establish(struct qe
+ 	in_sbal_ptrs = kmalloc(QDIO_MAX_BUFFERS_PER_Q * sizeof(void *),
  			       GFP_KERNEL);
  	if (!in_sbal_ptrs) {
- 		rc = -ENOMEM;
- 		goto out_free_qib_param;
+-		kfree(qib_param_field);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto out_free_qib_param;
  	}
--	for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; ++i)
-+	for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; ++i) {
+ 	for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; ++i)
  		in_sbal_ptrs[i] = (struct qdio_buffer *)
  			virt_to_phys(card->qdio.in_q->bufs[i].buffer);
+ 
++	queue_start_poll = kmalloc(sizeof(void *) * 1, GFP_KERNEL);
++	if (!queue_start_poll) {
++		rc = -ENOMEM;
++		goto out_free_in_sbals;
 +	}
- 
--	queue_start_poll = kmalloc(sizeof(void *) * 1, GFP_KERNEL);
-+	queue_start_poll = kzalloc(sizeof(void *) * card->qdio.no_in_queues,
-+				   GFP_KERNEL);
- 	if (!queue_start_poll) {
- 		rc = -ENOMEM;
- 		goto out_free_in_sbals;
- 	}
--	queue_start_poll[0] = card->discipline.start_poll;
-+	for (i = 0; i < card->qdio.no_in_queues; ++i)
-+		queue_start_poll[i] = card->discipline.start_poll;
++	queue_start_poll[0] = card->discipline.start_poll;
 +
-+	qeth_qdio_establish_cq(card, in_sbal_ptrs, queue_start_poll);
- 
  	out_sbal_ptrs =
  		kmalloc(card->qdio.no_out_queues * QDIO_MAX_BUFFERS_PER_Q *
-@@ -3983,7 +4368,7 @@ static int qeth_qdio_establish(struct qe
+ 			sizeof(void *), GFP_KERNEL);
+ 	if (!out_sbal_ptrs) {
+-		kfree(in_sbal_ptrs);
+-		kfree(qib_param_field);
+-		return -ENOMEM;
++		rc = -ENOMEM;
++		goto out_free_queue_start_poll;
+ 	}
  	for (i = 0, k = 0; i < card->qdio.no_out_queues; ++i)
  		for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j, ++k) {
- 			out_sbal_ptrs[k] = (struct qdio_buffer *)virt_to_phys(
--				card->qdio.out_qs[i]->bufs[j].buffer);
-+				card->qdio.out_qs[i]->bufs[j]->buffer);
- 		}
- 
- 	memset(&init_data, 0, sizeof(struct qdio_initialize));
-@@ -3991,7 +4376,7 @@ static int qeth_qdio_establish(struct qe
- 	init_data.q_format               = qeth_get_qdio_q_format(card);
- 	init_data.qib_param_field_format = 0;
- 	init_data.qib_param_field        = qib_param_field;
--	init_data.no_input_qs            = 1;
-+	init_data.no_input_qs            = card->qdio.no_in_queues;
+@@ -3986,7 +3995,7 @@ static int qeth_qdio_establish(struct qe
  	init_data.no_output_qs           = card->qdio.no_out_queues;
  	init_data.input_handler          = card->discipline.input_handler;
  	init_data.output_handler         = card->discipline.output_handler;
-@@ -3999,6 +4384,7 @@ static int qeth_qdio_establish(struct qe
+-	init_data.queue_start_poll	 = card->discipline.start_poll;
++	init_data.queue_start_poll       = queue_start_poll;
  	init_data.int_parm               = (unsigned long) card;
  	init_data.input_sbal_addr_array  = (void **) in_sbal_ptrs;
  	init_data.output_sbal_addr_array = (void **) out_sbal_ptrs;
-+	init_data.output_sbal_state_array = card->qdio.out_bufstates;
- 	init_data.scan_threshold =
- 		(card->info.type == QETH_CARD_TYPE_IQD) ? 8 : 32;
- 
-@@ -4015,6 +4401,17 @@ static int qeth_qdio_establish(struct qe
- 			qdio_free(CARD_DDEV(card));
- 		}
+@@ -4008,8 +4017,13 @@ static int qeth_qdio_establish(struct qe
  	}
-+
-+	switch (card->options.cq) {
-+	case QETH_CQ_ENABLED:
-+		dev_info(&card->gdev->dev, "Completion Queue support enabled");
-+		break;
-+	case QETH_CQ_DISABLED:
-+		dev_info(&card->gdev->dev, "Completion Queue support disabled");
-+		break;
-+	default:
-+		break;
-+	}
  out:
  	kfree(out_sbal_ptrs);
- out_free_queue_start_poll:
-@@ -4193,6 +4590,8 @@ static inline int qeth_create_skb_frag(s
- 		(*pskb)->truesize += data_len;
- 		(*pfrag)++;
- 	}
-+
-+
- 	return 0;
++out_free_queue_start_poll:
++	kfree(queue_start_poll);
++out_free_in_sbals:
+ 	kfree(in_sbal_ptrs);
++out_free_qib_param:
+ 	kfree(qib_param_field);
++out_free_nothing:
+ 	return rc;
  }
  
-@@ -4666,6 +5065,8 @@ static struct {
- 	{"tx do_QDIO count"},
- 	{"tx csum"},
- 	{"tx lin"},
-+	{"cq handler count"},
-+	{"cq handler time"}
- };
- 
- int qeth_core_get_sset_count(struct net_device *dev, int stringset)
-@@ -4724,6 +5125,8 @@ void qeth_core_get_ethtool_stats(struct
- 	data[32] = card->perf_stats.outbound_do_qdio_cnt;
- 	data[33] = card->perf_stats.tx_csum;
- 	data[34] = card->perf_stats.tx_lin;
-+	data[35] = card->perf_stats.cq_cnt;
-+	data[36] = card->perf_stats.cq_time;
- }
- EXPORT_SYMBOL_GPL(qeth_core_get_ethtool_stats);
- 
-@@ -4882,7 +5285,16 @@ static int __init qeth_core_init(void)
- 		goto slab_err;
- 	}
- 
-+	qeth_qdio_outbuf_cache = kmem_cache_create("qeth_buf",
-+			sizeof(struct qeth_qdio_out_buffer), 0, 0, NULL);
-+	if (!qeth_qdio_outbuf_cache) {
-+		rc = -ENOMEM;
-+		goto cqslab_err;
-+	}
-+
- 	return 0;
-+cqslab_err:
-+	kmem_cache_destroy(qeth_core_header_cache);
- slab_err:
- 	root_device_unregister(qeth_core_root_dev);
- register_err:
-@@ -4907,6 +5319,7 @@ static void __exit qeth_core_exit(void)
- 			   &driver_attr_group);
- 	ccwgroup_driver_unregister(&qeth_core_ccwgroup_driver);
- 	ccw_driver_unregister(&qeth_ccw_driver);
-+	kmem_cache_destroy(qeth_qdio_outbuf_cache);
- 	kmem_cache_destroy(qeth_core_header_cache);
- 	qeth_unregister_dbf_views();
- 	pr_info("core functions removed\n");
 
