@@ -1,44 +1,70 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: Bonding problem
-Date: Mon, 8 Aug 2011 12:26:45 -0400
-Message-ID: <20110808162645.GT21309@gospo.rdu.redhat.com>
-References: <CANMAZFUibmkyfWP2TyjwV6wtox6LNry2Gh3AtXB2KHnhGF80rQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: majordomo@vger.kernel.org, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Eduard Sinelnikov <eduard.sinelnikov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16765 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753114Ab1HHQ0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2011 12:26:51 -0400
-Content-Disposition: inline
-In-Reply-To: <CANMAZFUibmkyfWP2TyjwV6wtox6LNry2Gh3AtXB2KHnhGF80rQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] drivers/net/can/sja1000/plx_pci.c: eliminate double free
+Date: Mon,  8 Aug 2011 18:28:50 +0200
+Message-ID: <1312820931-28230-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, Joe Perches <joe@perches.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 07, 2011 at 03:00:30PM +0300, Eduard Sinelnikov wrote:
-> Hi,
->=20
-> In the kernel 2.6.39.3 ( /drivers/net/bond/bond_main.c).
-> In the function =C2=A0=E2=80=98bond_xmit_roundrobin=E2=80=99
-> The code check if the bond is active via
-> =E2=80=98bond_is_active_slave(slave)=E2=80=99 Function call.
-> Which actually checks if the slave is backup or active
-> What is the meaning of slave being =C2=A0backup in round robin mode?
-> Correct me if I wrong but in round robin every slave should send a
-> packet, regardless of being active or backup.
->=20
-> Thank you,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Eduard
+From: Julia Lawall <julia@diku.dk>
 
-There probably is not a compelling reason to continue to have it.  Ther=
-e
-may be a reason historically, but I'm not aware what that might be at
-this point.  For modes other than active-backup, the value of
-slave->link and slave->backup should always contain a value that
-indicates the slave is up and available for transmit.
+In this code, the failure_cleanup label calls the function
+plx_pci_del_card, which frees everything in the card->net_dev array.  dev
+is placed in this array immediately after allocation, so the two subsequent
+jumps to failure_cleanup should not also call free_sja1000dev, but the
+second one does.
 
+If plx_pci_check_sja1000 fails, then free_sja1000dev is also called on
+dev.  Because dev is already in the card->net_dev array, this implies that
+when plx_pci_del_card is later called, it may get freed again.  So that
+entry is reset to NULL after the free.
+
+Finally, if there is a problem with one channel, there will be a hole in the
+array.  card->channels counts the number of channels that have succeeded,
+and does not keep track of the index of the largest element in the array
+that is valid.  So the loop in plx_pci_del_card is changed to go up to
+PLX_PCI_MAX_CHAN, which is only 2.
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+Compiled but not tested.  I'm not sure the fix is sufficient to take into
+account possible failures.  In particular, is it safe to call
+unregister_sja1000dev without previously having (successfully) called
+register_sja1000dev?
+
+ drivers/net/can/sja1000/plx_pci.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/can/sja1000/plx_pci.c b/drivers/net/can/sja1000/plx_pci.c
+index 231385b..c7f3d4e 100644
+--- a/drivers/net/can/sja1000/plx_pci.c
++++ b/drivers/net/can/sja1000/plx_pci.c
+@@ -408,7 +408,7 @@ static void plx_pci_del_card(struct pci_dev *pdev)
+ 	struct sja1000_priv *priv;
+ 	int i = 0;
+ 
+-	for (i = 0; i < card->channels; i++) {
++	for (i = 0; i < PLX_PCI_MAX_CHAN; i++) {
+ 		dev = card->net_dev[i];
+ 		if (!dev)
+ 			continue;
+@@ -536,7 +536,6 @@ static int __devinit plx_pci_add_card(struct pci_dev *pdev,
+ 			if (err) {
+ 				dev_err(&pdev->dev, "Registering device failed "
+ 					"(err=%d)\n", err);
+-				free_sja1000dev(dev);
+ 				goto failure_cleanup;
+ 			}
+ 
+@@ -549,6 +548,7 @@ static int __devinit plx_pci_add_card(struct pci_dev *pdev,
+ 			dev_err(&pdev->dev, "Channel #%d not detected\n",
+ 				i + 1);
+ 			free_sja1000dev(dev);
++			card->net_dev[i] = NULL;
+ 		}
+ 	}
+ 
