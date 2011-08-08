@@ -1,126 +1,31 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Mon, 8 Aug 2011 14:14:03 -0500
-Message-ID: <20110808191403.GG4926@sgi.com>
-References: <20110808142153.GW4926@sgi.com> <4E3FF4B8.2010603@grandegger.com>
-	<20110808144424.GY4926@sgi.com> <4E3FF9EA.6030601@grandegger.com>
-	<4E3FFD5B.7080000@pengutronix.de> <4E4001E1.3030508@grandegger.com>
-	<20110808155540.GD4926@sgi.com> <4E4008BA.6030303@grandegger.com>
-	<20110808160810.GF4926@sgi.com> <4E402CF1.1040300@grandegger.com>
+From: Phillip Susi <psusi@cfl.rr.com>
+Subject: Re: 802.3ad bonding brain damaged?
+Date: Mon, 08 Aug 2011 16:06:13 -0400
+Message-ID: <4E4041B5.5040908@cfl.rr.com>
+References: <4E3EECF6.90409@cfl.rr.com> <1312790234.7020.26.camel@arkology.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4E402CF1.1040300-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Lamparter <equinox@diac24.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cdptpa-omtalb.mail.rr.com ([75.180.132.122]:57662 "EHLO
+	cdptpa-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751408Ab1HHUHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 16:07:17 -0400
+In-Reply-To: <1312790234.7020.26.camel@arkology.n2.diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 08, 2011 at 08:37:37PM +0200, Wolfgang Grandegger wrote:
-> On 08/08/2011 06:08 PM, Robin Holt wrote:
-> > On Mon, Aug 08, 2011 at 06:03:06PM +0200, Wolfgang Grandegger wrote:
-> ...
-> > So we would stay with the clk_* functions.  I assume clk_get() would
-> > return NULL, clk_get_rate() would just return fsl_get_sys_freq() and
-> > the other functions would do nothing.  Doesn't this really polute what
-> > clk_* functions are supposed to do?  Aren't we making flexcan dictate
-> > a different behavior for powerpc than for the arm (and possibly other)
-> > architectures?
-> 
-> Well, I see it as one way to provide compatibility with the ARM port. If
-> the PowerPC people don't like it, we can switch to something else,
-> whatever they suggest.
+On 8/8/2011 3:57 AM, David Lamparter wrote:
+> No, it isn't. 802.3ad/.1AX explicitly requires that no packet
+> re-ordering may ever occur, which can only be guaranteed by enqueueing
+> packets for one host on one TX interface. This behaviour is mandated by
+> 802.1AX-2008 page 15 which reads:
 
-I have spent the last few hours and I think I found the communication
-problem and I think it is me.
-
-I assumed long ago we would be better off implementing a Kconfig language
-which does "select PPC_CLOCK".  This assumption was in part because I
-did not understand what I was doing when I started this (still don't
-honestly), but I did know the freescale patch series did a select
-PPC_CLOCK.
-
-Here is my patch for introducing the p1010 clock source.  Am I finally
-starting to understand your guidance?
-
-Thanks,
-Robin
-
-------------------------------------------------------------------------
-
-diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/platforms/85xx/Kconfig
-index 498534c..ed4cf92 100644
---- a/arch/powerpc/platforms/85xx/Kconfig
-+++ b/arch/powerpc/platforms/85xx/Kconfig
-@@ -26,6 +26,10 @@ config MPC8560_ADS
- 	help
- 	  This option enables support for the MPC 8560 ADS board
- 
-+config 85xx_HAVE_CAN_FLEXCAN
-+	bool
-+	select HAVE_CAN_FLEXCAN if NET && CAN
-+
- config MPC85xx_CDS
- 	bool "Freescale MPC85xx CDS"
- 	select DEFAULT_UIMAGE
-@@ -70,6 +74,8 @@ config MPC85xx_RDB
- config P1010_RDB
- 	bool "Freescale P1010RDB"
- 	select DEFAULT_UIMAGE
-+	select 85xx_HAVE_CAN_FLEXCAN
-+	select PPC_CLOCK if CAN_FLEXCAN
- 	help
- 	  This option enables support for the MPC85xx RDB (P1010 RDB) board
- 
-diff --git a/arch/powerpc/platforms/85xx/Makefile b/arch/powerpc/platforms/85xx/Makefile
-index a971b32..64ad7a4 100644
---- a/arch/powerpc/platforms/85xx/Makefile
-+++ b/arch/powerpc/platforms/85xx/Makefile
-@@ -11,6 +11,7 @@ obj-$(CONFIG_MPC85xx_DS)  += mpc85xx_ds.o
- obj-$(CONFIG_MPC85xx_MDS) += mpc85xx_mds.o
- obj-$(CONFIG_MPC85xx_RDB) += mpc85xx_rdb.o
- obj-$(CONFIG_P1010_RDB)   += p1010rdb.o
-+obj-$(CONFIG_PPC_CLOCK)   += clock.o
- obj-$(CONFIG_P1022_DS)    += p1022_ds.o
- obj-$(CONFIG_P1023_RDS)   += p1023_rds.o
- obj-$(CONFIG_P2040_RDB)   += p2040_rdb.o corenet_ds.o
-diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
-index d7387fa..29e04d6 100644
---- a/arch/powerpc/platforms/85xx/p1010rdb.c
-+++ b/arch/powerpc/platforms/85xx/p1010rdb.c
-@@ -81,6 +81,13 @@ static void __init p1010_rdb_setup_arch(void)
- 	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
- }
- 
-+static void __init p1010_rdb_init(void)
-+{
-+#ifdef PPC_CLOCK
-+	p1010_rdb_clk_init();
-+#endif
-+}
-+
- static struct of_device_id __initdata p1010rdb_ids[] = {
- 	{ .type = "soc", },
- 	{ .compatible = "soc", },
-@@ -111,6 +118,7 @@ define_machine(p1010_rdb) {
- 	.name			= "P1010 RDB",
- 	.probe			= p1010_rdb_probe,
- 	.setup_arch		= p1010_rdb_setup_arch,
-+	.init			= p1010_rdb_init,
- 	.init_IRQ		= p1010_rdb_pic_init,
- #ifdef CONFIG_PCI
- 	.pcibios_fixup_bus	= fsl_pcibios_fixup_bus,
--- 
-1.7.2.1
+Outch, that does cause a big problem for store-and-forward switching. 
+You basically can't split up packets from a single stream without very 
+careful cut-through switching, which we obviously can't do in Linux. 
+That seems a rather silly requirement given that higher level protocols 
+already deal with packet reordering.  Why not an option to say stuff the 
+standard?
