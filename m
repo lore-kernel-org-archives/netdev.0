@@ -1,93 +1,82 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Tue, 09 Aug 2011 10:32:31 +0200
-Message-ID: <4E40F09F.60305@grandegger.com>
-References: <1312641270-6018-1-git-send-email-holt@sgi.com>	<1312641270-6018-6-git-send-email-holt@sgi.com>	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com>
-	<4E3FF9EA.6030601@grandegger.com> <4E3FFD5B.7080000@pengutronix.de>
-	<4E4001E1.3030508@grandegger.com> <4E403097.4020306@pengutronix.de>
-	<9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: filter: Convert the BPF VM to threaded code
+Date: Tue, 09 Aug 2011 10:36:28 +0200
+Message-ID: <1312878988.2371.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CACKH++ZfNTB7Y8YhvQnZPEXpwmpWXzxQgnWniamDrjRWUwxaNw@mail.gmail.com>
+	 <20110801181652.GB2732@nuttenaction>
+	 <1312223866.2719.3.camel@edumazet-laptop>
+	 <20110801.175705.2074393848482150971.davem@davemloft.net>
+	 <1312866027.2531.42.camel@edumazet-laptop>
+	 <7f02f2970d225cddfad74ee660f39d1d@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1B9D6C-TcFNo7jSaXPiTqIcKZ1S2K4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, rui314@gmail.com,
+	netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:62894 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750880Ab1HIIga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 04:36:30 -0400
+Received: by wyg24 with SMTP id 24so190666wyg.19
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 01:36:29 -0700 (PDT)
+In-Reply-To: <7f02f2970d225cddfad74ee660f39d1d@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bhaskar,
+Le mardi 09 ao=C3=BBt 2011 =C3=A0 10:29 +0200, Hagen Paul Pfeifer a =C3=
+=A9crit :
+> On Tue, 09 Aug 2011 07:00:27 +0200, Eric Dumazet wrote:
+>=20
+> > I tried this idea since its already an enum and all enum values are
+> > handled in the switch, but all gcc versions I used still generate t=
+he
+> > useless compare and branch (always predicted by modern CPU, so harm=
+less
+> > anyway ?)
+>=20
+> Don't think so, the list is rather long - the CPU may not have any
+> indication. But strange that your gcc generate a conditional sequence=
+ of
+> cmp and conditional jump instruction instead of a jump table! Look at
+> commit 01f2f3f6ef4d076c, this is what I got after I refactored to an
+> _dense_ enum list.
 
-On 08/09/2011 09:57 AM, U Bhaskar-B22300 wrote:
-> 
-> 
->> -----Original Message-----
->> From: Marc Kleine-Budde [mailto:mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org]
->> Sent: Tuesday, August 09, 2011 12:23 AM
->> To: Wolfgang Grandegger
->> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; U Bhaskar-
->> B22300
->> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
->>
->> On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
->>>> ACK - The device tree bindings as in mainline's Documentation is a
->> mess.
->>>> If the powerpc guys are happy with a clock interfaces based approach
->>>> somewhere in arch/ppc, I'm more than happy to remove:
->>>> - fsl,flexcan-clock-source (not implemented, even in the fsl driver)
-> [Bhaskar]I have pushed the FlexCAN series of patches, It contains the usage of all the fields posted in the FlexCAN bindings at
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-3.0.y.git;a=blob;f=Documentation/devicetree/bindings/net/can/fsl-flexcan.txt;h=1a729f089866259ef82d0db5893ff7a8c54d5ccf;hb=94ed5b4788a7cdbe68bc7cb8516972cbebdc8274  
+I am speaking of one single conditional branch, the one that is done fo=
+r
+every BPF instruction done in a filter. It's never taken, so must be
+predicted by the cpu. A perf session could make sure it is  ;)
 
-As Marc already pointed out, Robin already has a much more advanced
-patch stack in preparation. Especially your patches do not care about
-the already existing Flexcan core on the Freescale's ARM socks.
+> =20
+> > (But this would need to use a larger kernel_sock_filter with not an=
+ u16
+> > code, but the target address).
+>=20
+> Not sure if the benefit is worth to try it. Can we avoid any cachelin=
+e
+> misses? I don't think so.
 
->>>>
->>>> - fsl,flexcan-clock-divider \__ replace with code in arch/ppc, or
->>>> - clock-frequency           /   a single clock-frequency attribute
->>>
->>> In the "net-next-2.6" tree there is also:
->>>
->>>  $ grep flexcan arch/powerpc/boots/dts/*.dts
->>>   p1010rdb.dts:			fsl,flexcan-clock-source = "platform";
->>>   p1010rdb.dts:			fsl,flexcan-clock-source = "platform";
->>>   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
->>>   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
->>>   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
->>>   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
->>>
->>> Especially the fsl,flexcan-clock-divider = <2>; might make people
->>> think, that they could set something else.
->>
-> [Bhaskar] As it is mentioned in the Flexcan bindings, the need of fsl,flexcan-clock-divider = <2>;
-> 	    But I kept it as "2" because FlexCan clock source is the platform clock and it is CCB/2
-> 	    If the "2" is misleading, the bindings can be changed or some text can be written to make the meaning of "2"
->           Understandable , Please suggest ..  
+We avoid some instructions (to load the address from the instruction
+code), thats all, for each BPF instruction.
 
-The clock source and frequency is fixed. Why do we need an extra
-properties for that. We have panned to remove these bogus bindings from
-the Linux kernel, which sneaked in *without* any review on the relevant
-mailing lists (at least I have not realized any posting). We do not
-think they are really needed. They just confuse the user. We also prefer
-to use the compatibility string "fsl,flexcan" instead
-"fsl,flexcan-v1.0". It's unusual to add a version number, which is  for
-the Flexcan on the PowerPC cores only, I assume, but there will be
-device tree for ARM soon. A proper compatibility string would be
-"fsl,p1010-flexcan" if we really need to distinguish.
+>=20
+>=20
+> > +		switch ((enum bpf_inst)fentry->code) {
+>=20
+> That should not differ! Eric, sure that this do the trick?
 
-Please join the discussion on the mailing list helping to get this
-driver mainline.
+It is the way to tell gcc to make its optimizations, if they exists on
+enum switch (), as David suggested.
 
-Thanks,
+If I add a new BPF_S_ANC_NEW_INST value in the enum list, not handled i=
+n
+the switch(), gcc complains correctly.
 
-Wolfgang.
+net/core/filter.c: In function =E2=80=98sk_run_filter=E2=80=99:
+net/core/filter.c:130:3: warning: enumeration value =E2=80=98BPF_S_ANC_=
+NEW_INST=E2=80=99
+not handled in switch
+
+
+
