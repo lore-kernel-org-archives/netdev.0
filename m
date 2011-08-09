@@ -1,58 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/6] be2net: fixes
-Date: Tue, 09 Aug 2011 17:47:28 +0200
-Message-ID: <1312904848.2371.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Sathya Perla <sathya.perla@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36283 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778Ab1HIPra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 11:47:30 -0400
-Received: by wyg24 with SMTP id 24so83117wyg.19
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 08:47:29 -0700 (PDT)
-In-Reply-To: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: stufever@gmail.com
+Subject: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Tue,  9 Aug 2011 23:45:11 +0800
+Message-ID: <1312904711-1855-1-git-send-email-wangshaoyan.pt@taobao.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Sandeep.Kumar@freescale.com,
+	Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 03 ao=C3=BBt 2011 =C3=A0 11:27 +0530, Sathya Perla a =C3=A9=
-crit :
+From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
 
-> Pls apply.
->=20
-> Sathya Perla (6):
->   be2net: remove wrong and unnecessary calls to netif_carrier_off()
->   be2net: no need to query link status
->   be2net: non-member vlan pkts not received in promiscous mode
->   be2net: use RX_FILTER cmd to program multicast addresses
->   be2net: add support for flashing Teranetics PHY firmware
->   be2net: drop pkts that do not belong to the port
->=20
->  drivers/net/benet/be.h         |    8 ++-
->  drivers/net/benet/be_cmds.c    |  140 +++++++++++++-----------------=
-------
->  drivers/net/benet/be_cmds.h    |   38 ++++------
->  drivers/net/benet/be_ethtool.c |   32 ++-------
->  drivers/net/benet/be_hw.h      |   21 ++++--
->  drivers/net/benet/be_main.c    |  155 ++++++++++++++++++++++++------=
-----------
->  6 files changed, 185 insertions(+), 209 deletions(-)
->=20
+  drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 bytes is larger than 1024 bytes
 
-Not sure which recent be2net patch is problematic on 32bit arches :
+Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+---
+ drivers/net/gianfar_ethtool.c |   26 +++++++++++++++++++++++---
+ 1 files changed, 23 insertions(+), 3 deletions(-)
 
-Kernel: arch/x86/boot/bzImage is ready  (#280)
-  Building modules, stage 2.
-  MODPOST 1854 modules
-ERROR: "__udivdi3" [drivers/net/benet/be2net.ko] undefined!
-make[1]: *** [__modpost] Erreur 1
-make: *** [modules] Erreur 2
-
-Please fix this, thanks.
-
-
-
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+index 6e35069..9bca11c 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -686,10 +686,26 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
+ {
+ 	unsigned int last_rule_idx = priv->cur_filer_idx;
+ 	unsigned int cmp_rqfpr;
+-	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+-	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
++	unsigned int *local_rqfpr;
++	unsigned int *local_rqfcr;
+ 	int i = 0x0, k = 0x0;
+ 	int j = MAX_FILER_IDX, l = 0x0;
++	int ret = 1;
++
++	local_rqfpr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	if (!local_rqfpr) {
++		pr_err("Out of memory\n");
++		ret = 0;
++		got err;
++	}
++	local_rqfcr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	if (!local_rqfcr) {
++		pr_err("Out of memory\n");
++		ret = 0;
++		goto err1;
++	}
+ 
+ 	switch (class) {
+ 	case TCP_V4_FLOW:
+@@ -765,7 +781,11 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
+ 		priv->cur_filer_idx = priv->cur_filer_idx - 1;
+ 	}
+ 
+-	return 1;
++	kfree(local_rqfcr);
++err1:
++	kfree(local_rqfpr);
++err:
++	return ret;
+ }
+ 
+ static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtool_rxnfc *cmd)
+-- 
+1.7.0.4
