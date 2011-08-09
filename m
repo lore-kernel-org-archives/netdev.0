@@ -1,40 +1,69 @@
-From: Wang Shaoyan <stufever@gmail.com>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Wed, 10 Aug 2011 00:06:03 +0800
-Message-ID: <CANxBZFq2VJ4os9zuFrm0qxU2MdGep92JP9bFggpX14F01OzH_A@mail.gmail.com>
+Date: Tue, 09 Aug 2011 09:08:38 -0700
+Message-ID: <1312906118.11924.8.camel@Joe-Laptop>
 References: <1312904711-1855-1-git-send-email-wangshaoyan.pt@taobao.com>
-	<20110809.085049.747100276988072226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sandeep.Kumar@freescale.com, wangshaoyan.pt@taobao.com
-To: David Miller <davem@davemloft.net>
+	davem@davemloft.net, Sandeep.Kumar@freescale.com,
+	Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: stufever@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110809.085049.747100276988072226.davem@davemloft.net>
+In-Reply-To: <1312904711-1855-1-git-send-email-wangshaoyan.pt@taobao.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for remainding, I just want to cover up my careless asap:-)
+On Tue, 2011-08-09 at 23:45 +0800, stufever@gmail.com wrote:
+> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+>   drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 bytes is larger than 1024 bytes
+[]
+> diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+[]
+> @@ -686,10 +686,26 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
+>  {
+>  	unsigned int last_rule_idx = priv->cur_filer_idx;
+>  	unsigned int cmp_rqfpr;
+> -	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+> -	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
+> +	unsigned int *local_rqfpr;
+> +	unsigned int *local_rqfcr;
+>  	int i = 0x0, k = 0x0;
+>  	int j = MAX_FILER_IDX, l = 0x0;
+> +	int ret = 1;
+> +
+> +	local_rqfpr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
+> +		GFP_KERNEL);
+> +	if (!local_rqfpr) {
+> +		pr_err("Out of memory\n");
+> +		ret = 0;
+> +		got err;
+> +	}
+> +	local_rqfcr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
+> +		GFP_KERNEL);
+> +	if (!local_rqfcr) {
+> +		pr_err("Out of memory\n");
+> +		ret = 0;
+> +		goto err1;
+> +	}
 
-2011/8/9 David Miller <davem@davemloft.net>:
-> From: stufever@gmail.com
-> Date: Tue, =A09 Aug 2011 23:45:11 +0800
->
->> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
->>
->> =A0 drivers/net/gianfar_ethtool.c:765: warning: the frame size of 20=
-48 bytes is larger than 1024 bytes
->>
->> Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
->
-> Would you be so kind as to actually acknowledge in some way the perso=
-n
-> who found all the bugs in your first version of this patch? :-/
->
->
+Perhaps it'd be clearer to use:
 
+	local_rqfpr = kmalloc(...)
+	local_rqfcr = kmalloc(...)
+	if (!local_rqfpr || !local_rqfcr) {
+		pr_err(...)
+		ret = -ENOMEM;
+		goto err;
+	}
 
+[...]
 
---=20
-Wang Shaoyan
+err:
+	kfree(local_rqfpr);
+	kfree(local_rqfcr);
+	return ret;
+
+Is the "local_" prefix useful?
+It seems like visual noise to me.
