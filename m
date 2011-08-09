@@ -1,69 +1,79 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Tue, 09 Aug 2011 09:08:38 -0700
-Message-ID: <1312906118.11924.8.camel@Joe-Laptop>
-References: <1312904711-1855-1-git-send-email-wangshaoyan.pt@taobao.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
+Date: Tue, 09 Aug 2011 09:13:39 -0700
+Message-ID: <4E415CB3.8020202@schaufler-ca.com>
+References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Sandeep.Kumar@freescale.com,
-	Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: stufever@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1312904711-1855-1-git-send-email-wangshaoyan.pt@taobao.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org, sds@tycho.nsa.gov,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: rongqing.li@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm10.bullet.mail.sp2.yahoo.com ([98.139.91.80]:27444 "HELO
+	nm10.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753595Ab1HIQNn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 12:13:43 -0400
+In-Reply-To: <1312874910-31010-2-git-send-email-rongqing.li@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-08-09 at 23:45 +0800, stufever@gmail.com wrote:
-> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
->   drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 bytes is larger than 1024 bytes
-[]
-> diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-[]
-> @@ -686,10 +686,26 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
+On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
+> From: Roy.Li <rongqing.li@windriver.com>
+>
+> Define security_sk_getsecid to get the security id of a sock.
+
+Why are you requesting the secid when you're just going to
+use it to get the secctx? Why not ask for that directly?
+Is there ever a case where you only want the secid?
+
+>
+> Signed-off-by: Roy.Li <rongqing.li@windriver.com>
+> ---
+>  include/linux/security.h |    6 ++++++
+>  security/security.c      |    6 ++++++
+>  2 files changed, 12 insertions(+), 0 deletions(-)
+>
+> diff --git a/include/linux/security.h b/include/linux/security.h
+> index ebd2a53..739ac39 100644
+> --- a/include/linux/security.h
+> +++ b/include/linux/security.h
+> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
+>  void security_sk_free(struct sock *sk);
+>  void security_sk_clone(const struct sock *sk, struct sock *newsk);
+>  void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+> +void security_sk_getsecid(struct sock *sk, u32 *secid);
+>  void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
+>  void security_sock_graft(struct sock*sk, struct socket *parent);
+>  int security_inet_conn_request(struct sock *sk,
+> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
 >  {
->  	unsigned int last_rule_idx = priv->cur_filer_idx;
->  	unsigned int cmp_rqfpr;
-> -	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
-> -	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
-> +	unsigned int *local_rqfpr;
-> +	unsigned int *local_rqfcr;
->  	int i = 0x0, k = 0x0;
->  	int j = MAX_FILER_IDX, l = 0x0;
-> +	int ret = 1;
+>  }
+>  
+> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
+> +{
+> +	*secid = 0;
+> +}
 > +
-> +	local_rqfpr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-> +		GFP_KERNEL);
-> +	if (!local_rqfpr) {
-> +		pr_err("Out of memory\n");
-> +		ret = 0;
-> +		got err;
-> +	}
-> +	local_rqfcr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-> +		GFP_KERNEL);
-> +	if (!local_rqfcr) {
-> +		pr_err("Out of memory\n");
-> +		ret = 0;
-> +		goto err1;
-> +	}
+>  static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>  {
+>  }
+> diff --git a/security/security.c b/security/security.c
+> index 0e4fccf..b0e0825 100644
+> --- a/security/security.c
+> +++ b/security/security.c
+> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>  }
+>  EXPORT_SYMBOL(security_sk_classify_flow);
+>  
+> +void security_sk_getsecid(struct sock *sk, u32 *secid)
+> +{
+> +	security_ops->sk_getsecid(sk, secid);
+> +}
+> +EXPORT_SYMBOL(security_sk_getsecid);
+> +
+>  void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>  {
+>  	security_ops->req_classify_flow(req, fl);
 
-Perhaps it'd be clearer to use:
-
-	local_rqfpr = kmalloc(...)
-	local_rqfcr = kmalloc(...)
-	if (!local_rqfpr || !local_rqfcr) {
-		pr_err(...)
-		ret = -ENOMEM;
-		goto err;
-	}
-
-[...]
-
-err:
-	kfree(local_rqfpr);
-	kfree(local_rqfcr);
-	return ret;
-
-Is the "local_" prefix useful?
-It seems like visual noise to me.
