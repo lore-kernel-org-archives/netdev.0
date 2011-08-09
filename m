@@ -1,118 +1,85 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] neigh: reduce arp latency
-Date: Tue, 09 Aug 2011 17:40:34 +0200
-Message-ID: <1312904434.2371.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Tue, 09 Aug 2011 17:43:44 +0200
+Message-ID: <1312904624.2371.40.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1312903103-1734-1-git-send-email-wangshaoyan.pt@taobao.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59843 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753178Ab1HIPkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 11:40:37 -0400
-Received: by wyg24 with SMTP id 24so78785wyg.19
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 08:40:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Sandeep.Kumar@freescale.com,
+	Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: stufever@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1312903103-1734-1-git-send-email-wangshaoyan.pt@taobao.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove the artificial HZ latency on arp resolution.
+Le mardi 09 ao=C3=BBt 2011 =C3=A0 23:18 +0800, stufever@gmail.com a =C3=
+=A9crit :
+> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+>=20
+>   drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 =
+bytes is larger than 1024 bytes
+>=20
+> Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+> ---
+>  drivers/net/gianfar_ethtool.c |   26 +++++++++++++++++++++++---
+>  1 files changed, 23 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_etht=
+ool.c
+> index 6e35069..039e9c3 100644
+> --- a/drivers/net/gianfar_ethtool.c
+> +++ b/drivers/net/gianfar_ethtool.c
+> @@ -686,10 +686,26 @@ static int gfar_ethflow_to_filer_table(struct g=
+far_private *priv, u64 ethflow, u
+>  {
+>  	unsigned int last_rule_idx =3D priv->cur_filer_idx;
+>  	unsigned int cmp_rqfpr;
+> -	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+> -	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
+> +	unsigned int *local_rqfpr;
+> +	unsigned int *local_rqfcr;
+>  	int i =3D 0x0, k =3D 0x0;
+>  	int j =3D MAX_FILER_IDX, l =3D 0x0;
+> +	int ret =3D 1;
+> +
+> +	local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
+> +		GFP_KERNEL);
+> +	if (local_rqfpr) {
 
-Instead of firing a timer in one jiffy (up to 10 ms if HZ=100), lets
-send the ARP message immediately.
+	if (!local_rqfpr) {
 
-Before patch :
+> +		pr_err("Out of memory\n");
+> +		ret =3D 0;
+> +		got err;
+> +	}
+> +	local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
+> +		GFP_KERNEL);
+> +	if (local_rqfcr) {
 
-# arp -d 192.168.20.108 ; ping -c 3 192.168.20.108
-PING 192.168.20.108 (192.168.20.108) 56(84) bytes of data.
-64 bytes from 192.168.20.108: icmp_seq=1 ttl=64 time=9.91 ms
-64 bytes from 192.168.20.108: icmp_seq=2 ttl=64 time=0.065 ms
-64 bytes from 192.168.20.108: icmp_seq=3 ttl=64 time=0.061 ms
+same here : if (!local_rqfcr) ...
 
-After patch :
-
-$ arp -d 192.168.20.108 ; ping -c 3 192.168.20.108
-PING 192.168.20.108 (192.168.20.108) 56(84) bytes of data.
-64 bytes from 192.168.20.108: icmp_seq=1 ttl=64 time=0.152 ms
-64 bytes from 192.168.20.108: icmp_seq=2 ttl=64 time=0.064 ms
-64 bytes from 192.168.20.108: icmp_seq=3 ttl=64 time=0.074 ms
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/neighbour.c |   32 ++++++++++++++++++++++----------
- 1 file changed, 22 insertions(+), 10 deletions(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 8fab9b0..d99f908 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -844,6 +844,19 @@ static void neigh_invalidate(struct neighbour *neigh)
- 	skb_queue_purge(&neigh->arp_queue);
- }
- 
-+static void neigh_probe(struct neighbour *neigh)
-+	__releases(neigh->lock)
-+{
-+	struct sk_buff *skb = skb_peek(&neigh->arp_queue);
-+	/* keep skb alive even if arp_queue overflows */
-+	if (skb)
-+		skb = skb_copy(skb, GFP_ATOMIC);
-+	write_unlock(&neigh->lock);
-+	neigh->ops->solicit(neigh, skb);
-+	atomic_inc(&neigh->probes);
-+	kfree_skb(skb);
-+}
-+
- /* Called when a timer expires for a neighbour entry. */
- 
- static void neigh_timer_handler(unsigned long arg)
-@@ -920,14 +933,7 @@ static void neigh_timer_handler(unsigned long arg)
- 			neigh_hold(neigh);
- 	}
- 	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
--		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
--		/* keep skb alive even if arp_queue overflows */
--		if (skb)
--			skb = skb_copy(skb, GFP_ATOMIC);
--		write_unlock(&neigh->lock);
--		neigh->ops->solicit(neigh, skb);
--		atomic_inc(&neigh->probes);
--		kfree_skb(skb);
-+		neigh_probe(neigh);
- 	} else {
- out:
- 		write_unlock(&neigh->lock);
-@@ -943,6 +949,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
- {
- 	int rc;
- 	unsigned long now;
-+	bool immediate_probe = false;
- 
- 	write_lock_bh(&neigh->lock);
- 
-@@ -957,7 +964,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
- 			atomic_set(&neigh->probes, neigh->parms->ucast_probes);
- 			neigh->nud_state     = NUD_INCOMPLETE;
- 			neigh->updated = jiffies;
--			neigh_add_timer(neigh, now + 1);
-+			neigh_add_timer(neigh, now + HZ);
-+			immediate_probe = true;
- 		} else {
- 			neigh->nud_state = NUD_FAILED;
- 			neigh->updated = jiffies;
-@@ -989,7 +997,11 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
- 		rc = 1;
- 	}
- out_unlock_bh:
--	write_unlock_bh(&neigh->lock);
-+	if (immediate_probe)
-+		neigh_probe(neigh);
-+	else
-+		write_unlock(&neigh->lock);
-+	local_bh_enable();
- 	return rc;
- }
- EXPORT_SYMBOL(__neigh_event_send);
-
-
+> +		pr_err("Out of memory\n");
+> +		ret =3D 0;
+> +		goto err1;
+> +	}
+> =20
+>  	switch (class) {
+>  	case TCP_V4_FLOW:
+> @@ -765,7 +781,11 @@ static int gfar_ethflow_to_filer_table(struct gf=
+ar_private *priv, u64 ethflow, u
+>  		priv->cur_filer_idx =3D priv->cur_filer_idx - 1;
+>  	}
+> =20
+> -	return 1;
+> +	kfree(local_rqfcr);
+> +err1:
+> +	kfree(local_rqfpr);
+> +err:
+> +	return ret;
+>  }
+> =20
+>  static int gfar_set_hash_opts(struct gfar_private *priv, struct etht=
+ool_rxnfc *cmd)
