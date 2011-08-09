@@ -1,49 +1,62 @@
-From: Wang Shaoyan <stufever@gmail.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Wed, 10 Aug 2011 00:37:54 +0800
-Message-ID: <CANxBZFqdhbSttgf5C6UjmTvkS8BfHHbo2qSiftQtQCT0w=B07g@mail.gmail.com>
-References: <1312904711-1855-1-git-send-email-wangshaoyan.pt@taobao.com>
-	<1312906118.11924.8.camel@Joe-Laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: Joe Perches <joe@perches.com>
+From: stufever@gmail.com
+Subject: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Wed, 10 Aug 2011 00:39:05 +0800
+Message-ID: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1312906118.11924.8.camel@Joe-Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I thought kfree should not call, when kmalloc is failed. Now I think
-is fine, thanks, it is much clearer
+From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
 
-> Perhaps it'd be clearer to use:
->
-> =A0 =A0 =A0 =A0local_rqfpr =3D kmalloc(...)
-> =A0 =A0 =A0 =A0local_rqfcr =3D kmalloc(...)
-> =A0 =A0 =A0 =A0if (!local_rqfpr || !local_rqfcr) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pr_err(...)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ret =3D -ENOMEM;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto err;
-> =A0 =A0 =A0 =A0}
->
-> [...]
->
-> err:
-> =A0 =A0 =A0 =A0kfree(local_rqfpr);
-> =A0 =A0 =A0 =A0kfree(local_rqfcr);
-> =A0 =A0 =A0 =A0return ret;
->
-> Is the "local_" prefix useful?
-> It seems like visual noise to me.
+  drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 bytes is larger than 1024 bytes
 
-They are some temporary variable, we better to left them
+Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+---
+ drivers/net/gianfar_ethtool.c |   20 +++++++++++++++++---
+ 1 files changed, 17 insertions(+), 3 deletions(-)
 
->
->
-
-
-
---=20
-Wang Shaoyan
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+index 6e35069..134fe1b 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
+ {
+ 	unsigned int last_rule_idx = priv->cur_filer_idx;
+ 	unsigned int cmp_rqfpr;
+-	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+-	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
++	unsigned int *local_rqfpr;
++	unsigned int *local_rqfcr;
+ 	int i = 0x0, k = 0x0;
+ 	int j = MAX_FILER_IDX, l = 0x0;
++	int ret = 1;
++
++	local_rqfpr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	local_rqfcr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	if (!local_rqfpr || !local_rqfcr) {
++		pr_err("Out of memory\n");
++		ret = 0;
++		got err;
++	}
+ 
+ 	switch (class) {
+ 	case TCP_V4_FLOW:
+@@ -765,7 +776,10 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
+ 		priv->cur_filer_idx = priv->cur_filer_idx - 1;
+ 	}
+ 
+-	return 1;
++err:
++	kfree(local_rqfcr);
++	kfree(local_rqfpr);
++	return ret;
+ }
+ 
+ static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtool_rxnfc *cmd)
+-- 
+1.7.0.4
