@@ -1,37 +1,41 @@
 From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCHv3 9/9] macb: allow GEM to have configurable receive
-	buffer size
-Date: Tue, 9 Aug 2011 16:59:01 +0200
-Message-ID: <20110809145901.GO22213@game.jcrosoft.org>
+Subject: Re: [PATCHv3 0/9] macb: add support for Cadence GEM
+Date: Tue, 9 Aug 2011 16:59:40 +0200
+Message-ID: <20110809145940.GP22213@game.jcrosoft.org>
 References: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
-	<1312881411-2376-10-git-send-email-jamie@jamieiles.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: Jamie Iles <jamie@jamieiles.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 14.mo3.mail-out.ovh.net ([188.165.43.98]:32804 "EHLO
+	mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752760Ab1HIPSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 11:18:17 -0400
+Received: from mail191.ha.ovh.net (b9.ovh.net [213.186.33.59])
+	by mo3.mail-out.ovh.net (Postfix) with SMTP id 9D67210045EC
+	for <netdev@vger.kernel.org>; Tue,  9 Aug 2011 17:18:25 +0200 (CEST)
 Content-Disposition: inline
-In-Reply-To: <1312881411-2376-10-git-send-email-jamie@jamieiles.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 10:16 Tue 09 Aug     , Jamie Iles wrote:
-> GEM has configurable receive buffer sizes so requires this to be
-> programmed up.  Any size < 2048 and a multiple of 64 bytes is permitted.
+> This is largely a repost of the series I posted back in March.  The only changes
+> since then are rebasing onto 3.1-rc1 and changing the gem conditionals from a
+> boolean in the macb structure to an inline helper as requested by
+> Jean-Christophe.
 > 
-> Signed-off-by: Jamie Iles <jamie@jamieiles.com>
-> Acked-by: David S. Miller <davem@davemloft.net>
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> This has been run-tested on picoxcell and compile tested for all AT91 platforms
+> but I couldn't get a working cross compiler for avr32.
+> 
+> All patches are available in a git branch at
+> 
+> 	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
+> 
+looks good except few comments
+
+I'll test it later this week
 
 Best Regards,
 J.
