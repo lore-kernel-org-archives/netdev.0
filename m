@@ -1,238 +1,500 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Tue, 09 Aug 2011 16:14:55 +0200
-Message-ID: <4E4140DF.6000004@grandegger.com>
-References: <9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>
-	<4E40F09F.60305@grandegger.com>
-	<9C64B7751C3BCA41B64A68E23005A7BE1BDF8C@039-SN1MPN1-004.039d.mgd.msft.net>
-	<4E41108F.1090104@grandegger.com>
-	<9C64B7751C3BCA41B64A68E23005A7BE1C3552@039-SN1MPN1-002.039d.mgd.msft.net>
-	<20110809124919.GS4926@sgi.com> <4E413036.5080207@grandegger.com>
-	<20110809133531.GV4926@sgi.com>
-	<9C64B7751C3BCA41B64A68E23005A7BE1C4746@039-SN1MPN1-002.039d.mgd.msft.net>
-	<4E413E3A.7050502@grandegger.com> <20110809140901.GX4926@sgi.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH v2] net: add Documentation/networking/scaling.txt
+Date: Tue, 09 Aug 2011 10:20:48 -0400
+Message-ID: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
-	<Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110809140901.GX4926-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/09/2011 04:09 PM, Robin Holt wrote:
-> On Tue, Aug 09, 2011 at 04:03:38PM +0200, Wolfgang Grandegger wrote:
->> On 08/09/2011 03:44 PM, U Bhaskar-B22300 wrote:
->>>
->>>
->>>> -----Original Message-----
->>>> From: Robin Holt [mailto:holt-sJ/iWh9BUns@public.gmane.org]
->>>> Sent: Tuesday, August 09, 2011 7:06 PM
->>>> To: Wolfgang Grandegger
->>>> Cc: Robin Holt; U Bhaskar-B22300; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
->>>> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org; Marc Kleine-
->>>> Budde
->>>> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
->>>>
->>>> On Tue, Aug 09, 2011 at 03:03:50PM +0200, Wolfgang Grandegger wrote:
->>>>> On 08/09/2011 02:49 PM, Robin Holt wrote:
->>>>>> On Tue, Aug 09, 2011 at 12:41:39PM +0000, U Bhaskar-B22300 wrote:
->>>>>>>
->>>>>>>
->>>>>>>> -----Original Message-----
->>>>>>>> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
->>>>>>>> Sent: Tuesday, August 09, 2011 4:19 PM
->>>>>>>> To: U Bhaskar-B22300
->>>>>>>> Cc: Marc Kleine-Budde; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
->>>>>>>> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
->>>>>>>> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
->>>>>>>>
->>>>>>>> On 08/09/2011 11:27 AM, U Bhaskar-B22300 wrote:
->>>>>>>>>
->>>>>>>>>
->>>>>>>>>> -----Original Message-----
->>>>>>>>>> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
->>>>>>>>>> Sent: Tuesday, August 09, 2011 2:03 PM
->>>>>>>>>> To: U Bhaskar-B22300
->>>>>>>>>> Cc: Marc Kleine-Budde; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
->>>>>>>>>> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
->>>>>>>>>> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock
->>>> source.
->>>>>>>>>>
->>>>>>>>>> Hi Bhaskar,
->>>>>>>>>>
->>>>>>>>>> On 08/09/2011 09:57 AM, U Bhaskar-B22300 wrote:
->>>>>>>>>>>
->>>>>>>>>>>
->>>>>>>>>>>> -----Original Message-----
->>>>>>>>>>>> From: Marc Kleine-Budde [mailto:mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org]
->>>>>>>>>>>> Sent: Tuesday, August 09, 2011 12:23 AM
->>>>>>>>>>>> To: Wolfgang Grandegger
->>>>>>>>>>>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; U
->>>>>>>>>>>> Bhaskar- B22300
->>>>>>>>>>>> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock
->>>> source.
->>>>>>>>>>>>
->>>>>>>>>>>> On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
->>>>>>>>>>>>>> ACK - The device tree bindings as in mainline's
->>>>>>>>>>>>>> Documentation is a
->>>>>>>>>>>> mess.
->>>>>>>>>>>>>> If the powerpc guys are happy with a clock interfaces based
->>>>>>>>>>>>>> approach somewhere in arch/ppc, I'm more than happy to
->>>> remove:
->>>>>>>>>>>>>> - fsl,flexcan-clock-source (not implemented, even in the fsl
->>>>>>>>>>>>>> driver)
->>>>>>>>>>> [Bhaskar]I have pushed the FlexCAN series of patches, It
->>>>>>>>>>> contains the usage of all the fields posted in the FlexCAN
->>>>>>>>>>> bindings at
->>>>>>>>>>> http://git.kernel.org/?p=linux/kernel/git/stable/linux-3.0.y.gi
->>>>>>>>>>> t;a=b
->>>>>>>>>>> lo
->>>>>>>>>>> b;f=Documentation/devicetree/bindings/net/can/fsl-flexcan.txt;h
->>>>>>>>>>> =1a72
->>>>>>>>>>> 9f
->>>>>>>>>>> 089866259ef82d0db5893ff7a8c54d5ccf;hb=94ed5b4788a7cdbe68bc7cb85
->>>>>>>>>>> 16972
->>>>>>>>>>> cb
->>>>>>>>>>> ebdc8274
->>>>>>>>>>
->>>>>>>>>> As Marc already pointed out, Robin already has a much more
->>>>>>>>>> advanced patch stack in preparation. Especially your patches do
->>>>>>>>>> not care about the already existing Flexcan core on the
->>>> Freescale's ARM socks.
->>>>>>>>> [Bhaskar] No, the patches are taking care of the existing ARM
->>>>>>>> functionality.
->>>>>>>>> 	I have not tested on the ARM based board, but the patches are
->>>>>>>>> made
->>>>>>>> in a
->>>>>>>>>       Manner that it should not break the ARM based functionality.
->>>>>>>>>>
->>>>>>>>>>>>>>
->>>>>>>>>>>>>> - fsl,flexcan-clock-divider \__ replace with code in
->>>> arch/ppc, or
->>>>>>>>>>>>>> - clock-frequency           /   a single clock-frequency
->>>> attribute
->>>>>>>>>>>>>
->>>>>>>>>>>>> In the "net-next-2.6" tree there is also:
->>>>>>>>>>>>>
->>>>>>>>>>>>>  $ grep flexcan arch/powerpc/boots/dts/*.dts
->>>>>>>>>>>>>   p1010rdb.dts:			fsl,flexcan-clock-source =
->>>>>>>>>> "platform";
->>>>>>>>>>>>>   p1010rdb.dts:			fsl,flexcan-clock-source =
->>>>>>>>>> "platform";
->>>>>>>>>>>>>   p1010si.dtsi:			compatible = "fsl,flexcan-
->>>> v1.0";
->>>>>>>>>>>>>   p1010si.dtsi:			fsl,flexcan-clock-divider =
->>>> <2>;
->>>>>>>>>>>>>   p1010si.dtsi:			compatible = "fsl,flexcan-
->>>> v1.0";
->>>>>>>>>>>>>   p1010si.dtsi:			fsl,flexcan-clock-divider =
->>>> <2>;
->>>>>>>>>>>>>
->>>>>>>>>>>>> Especially the fsl,flexcan-clock-divider = <2>; might make
->>>>>>>>>>>>> people think, that they could set something else.
->>>>>>>>>>>>
->>>>>>>>>>> [Bhaskar] As it is mentioned in the Flexcan bindings, the need
->>>>>>>>>>> of
->>>>>>>>>> fsl,flexcan-clock-divider = <2>;
->>>>>>>>>>> 	    But I kept it as "2" because FlexCan clock source is the
->>>>>>>>>> platform clock and it is CCB/2
->>>>>>>>>>> 	    If the "2" is misleading, the bindings can be changed or
->>>>>>>>>>> some
->>>>>>>>>> text can be written to make the meaning of "2"
->>>>>>>>>>>           Understandable , Please suggest ..
->>>>>>>>>>
->>>>>>>>>> The clock source and frequency is fixed. Why do we need an extra
->>>>>>>>>> properties for that. We have panned to remove these bogus
->>>>>>>>>> bindings from the Linux kernel, which sneaked in *without* any
->>>>>>>>>> review on the relevant mailing lists (at least I have not
->>>>>>>>>> realized any posting). We do not think they are really needed.
->>>>>>>>>> They just confuse the user. We also prefer to use the
->>>>>>>>>> compatibility string "fsl,flexcan" instead "fsl,flexcan-v1.0".
->>>>>>>>>> It's unusual to add a version number, which is for the Flexcan
->>>>>>>>>> on the PowerPC cores only, I assume, but there will be device
->>>>>>>>>> tree for ARM soon. A proper compatibility string would be
->>>> "fsl,p1010-flexcan" if we really need to distinguish.
->>>>>>>>>>
->>>>>>>>> [Bhaskar] About clock source.. There can be two sources of clock
->>>>>>>>> for
->>>>>>>> the CAN.
->>>>>>>>> 	Oscillator or the platform clock, but at present only
->>>> platform
->>>>>>>> clock is supported
->>>>>>>>> 	in P1010.If we remove the fsl,flexcan-clock-source property,
->>>> we
->>>>>>>> will lost the flexibility
->>>>>>>>> 	of changing the clock source ..
->>>>>>>>>
->>>>>>>>>           About clock-frequency... it is also not fixed. It
->>>>>>>>> depends on
->>>>>>>> the platform clock which in turns
->>>>>>>>>           Depends on the CCB clock. So it will be better to keep
->>>>>>>>> clock-
->>>>>>>> frequency property which is getting fixed via u-boot.
->>>>>>>>
->>>>>>>> The frequency is fixed to CCB-frequency / 2. Will that ever
->>>>>>>> change? What can we expect from future Flexcan hardware? Will it
->>>>>>>> support further clock sources?
->>>>>>> [Bhaskar] Yes the frequency will always be CCB-frequency/2.Even if
->>>> the CCB gets changed that will be taken care by the u-boot fixup code for
->>>>>>> 	clock-frequency. clock-frequency is not filled by somebody in the
->>>> dts file. It will be done by u-boot.
->>>>>>> 	For clock source,I can't say right now, that's why I have kept a
->>>> property for this in the can node. So that in future, we need to fill it
->>>>>>> 	appropriately
->>>>>>
->>>>>> Speaking of the dts file, I have left the p1010si.dtsi file with the
->>>>>> fsl,flexcan-v1.0 .compatible definition.  The flexcan folks (IIRC
->>>>>> Wolfgang) objected to that as it does not follow the standard which
->>>>>> should be just fsl,flexcan.
->>>>>>
->>>>>> How would you like to change that?  Should I add it as part of this
->>>>>> patch, add another patch to the series, or let you take care of it?
->>>>>>
->>>>>> Also, I assume the uboot project will need to be changed as well to
->>>>>> reflect the corrected name.
->>>>>
->>>>> I think you should provide patches within this series to cleanup the
->>>>> obsolete stuff, dts and binding doc.
->>>>
->>>> It reads to me that the binding doc now reduces just the required
->>>> properties.  Should I remove the file entirely?
->>> [Bhaskar] I think the binding doc should atleast be present with the required properties to give the clarity
->>>  	    about the CAN functionality
->>> 		can0@1c000 {
->>>                  compatible = "fsl,flexcan";
->>>                  reg = <0x1c000 0x1000>;
->>>                  interrupts = <48 0x2>;
->>>                  interrupt-parent = <&mpic>;
->>>                  clock-frequency = <fixed by u-boot>;
->>>          	}; 
->>
->> Yes, I also find the introduction is quite useful, with some related
->> correction.
-> 
-> I am not sure what is useful.  The clock source bits are all wrong.
-> When that is removed, you end up with a discussion about the prescaler
-> which is actually related to the flexcan.c file and has nothing
-> to do with the device node.  Maybe I am just going back into my
-> not-communicating-well mode.  Could you follow up with what you think
-> belongs in the introduction of the binding file?
+Describes RSS, RPS, RFS, accelerated RFS, and XPS.
 
-Yep, you are right. Keep it simple...
+This version incorporates comments by Randy Dunlap and Rick Jones.
+Besides text cleanup, it adds an explicit "Suggested Configuration"=20
+heading to each section.
 
-Wolfgang,
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+
+---
+ Documentation/networking/scaling.txt |  372 ++++++++++++++++++++++++++=
+++++++++
+ 1 files changed, 372 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/scaling.txt
+
+diff --git a/Documentation/networking/scaling.txt b/Documentation/netwo=
+rking/scaling.txt
+new file mode 100644
+index 0000000..3da03c3
+--- /dev/null
++++ b/Documentation/networking/scaling.txt
+@@ -0,0 +1,372 @@
++Scaling in the Linux Networking Stack
++
++
++Introduction
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++
++This document describes a set of complementary techniques in the Linux
++networking stack to increase parallelism and improve performance for
++multi-processor systems.
++
++The following technologies are described:
++
++  RSS: Receive Side Scaling
++  RPS: Receive Packet Steering
++  RFS: Receive Flow Steering
++  Accelerated Receive Flow Steering
++  XPS: Transmit Packet Steering
++
++
++RSS: Receive Side Scaling
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
++
++Contemporary NICs support multiple receive and transmit descriptor que=
+ues
++(multi-queue). On reception, a NIC can send different packets to diffe=
+rent
++queues to distribute processing among CPUs. The NIC distributes packet=
+s by
++applying a filter to each packet that assigns it to one of a small num=
+ber
++of logical flows. Packets for each flow are steered to a separate rece=
+ive
++queue, which in turn can be processed by separate CPUs. This mechanism=
+ is
++generally known as =E2=80=9CReceive-side Scaling=E2=80=9D (RSS). The g=
+oal of RSS and
++the other scaling techniques to increase performance uniformly.
++Multi-queue distribution can also be used for traffic prioritization, =
+but
++that is not the focus of these techniques.
++
++The filter used in RSS is typically a hash function over the network
++and/or transport layer headers-- for example, a 4-tuple hash over
++IP addresses and TCP ports of a packet. The most common hardware
++implementation of RSS uses a 128-entry indirection table where each en=
+try
++stores a queue number. The receive queue for a packet is determined
++by masking out the low order seven bits of the computed hash for the
++packet (usually a Toeplitz hash), taking this number as a key into the
++indirection table and reading the corresponding value.
++
++Some advanced NICs allow steering packets to queues based on
++programmable filters. For example, webserver bound TCP port 80 packets
++can be directed to their own receive queue. Such =E2=80=9Cn-tuple=E2=80=
+=9D filters can
++be configured from ethtool (--config-ntuple).
++
++=3D=3D=3D=3D RSS Configuration
++
++The driver for a multi-queue capable NIC typically provides a kernel
++module parameter for specifying the number of hardware queues to
++configure. In the bnx2x driver, for instance, this parameter is called
++num_queues. A typical RSS configuration would be to have one receive q=
+ueue
++for each CPU if the device supports enough queues, or otherwise at lea=
+st
++one for each cache domain at a particular cache level (L1, L2, etc.).
++
++The indirection table of an RSS device, which resolves a queue by mask=
+ed
++hash, is usually programmed by the driver at initialization. The
++default mapping is to distribute the queues evenly in the table, but t=
+he
++indirection table can be retrieved and modified at runtime using ethto=
+ol
++commands (--show-rxfh-indir and --set-rxfh-indir). Modifying the
++indirection table could be done to give different queues different
++relative weights.
++
++=3D=3D RSS IRQ Configuration
++
++Each receive queue has a separate IRQ associated with it. The NIC trig=
+gers
++this to notify a CPU when new packets arrive on the given queue. The
++signaling path for PCIe devices uses message signaled interrupts (MSI-=
+X),
++that can route each interrupt to a particular CPU. The active mapping
++of queues to IRQs can be determined from /proc/interrupts. By default,
++an IRQ may be handled on any CPU. Because a non-negligible part of pac=
+ket
++processing takes place in receive interrupt handling, it is advantageo=
+us
++to spread receive interrupts between CPUs. To manually adjust the IRQ
++affinity of each interrupt see Documentation/IRQ-affinity. Some system=
+s
++will be running irqbalance, a daemon that dynamically optimizes IRQ
++assignments and as a result may override any manual settings.
++
++=3D=3D Suggested Configuration
++
++RSS should be enabled when latency is a concern or whenever receive
++interrupt processing forms a bottleneck. Spreading load between CPUs
++decreases queue length. For low latency networking, the optimal settin=
+g
++is to allocate as many queues as there are CPUs in the system (or the
++NIC maximum, if lower). Because the aggregate number of interrupts gro=
+ws
++with each additional queue, the most efficient high-rate configuration
++is likely the one with the smallest number of receive queues where no
++CPU that processes receive interrupts reaches 100% utilization. Per-cp=
+u
++load can be observed using the mpstat utility.
++
++
++RPS: Receive Packet Steering
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
++
++Receive Packet Steering (RPS) is logically a software implementation o=
+f
++RSS. Being in software, it is necessarily called later in the datapath=
+=2E
++Whereas RSS selects the queue and hence CPU that will run the hardware
++interrupt handler, RPS selects the CPU to perform protocol processing
++above the interrupt handler. This is accomplished by placing the packe=
+t
++on the desired CPU=E2=80=99s backlog queue and waking up the CPU for p=
+rocessing.
++RPS has some advantages over RSS: 1) it can be used with any NIC,
++2) software filters can easily be added to hash over new protocols,
++3) it does not increase hardware device interrupt rate (although it do=
+es
++introduce inter-processor interrupts (IPIs)).
++
++RPS is called during bottom half of the receive interrupt handler, whe=
+n
++a driver sends a packet up the network stack with netif_rx() or
++netif_receive_skb(). These call the get_rps_cpu() function, which
++selects the queue that should process a packet.
++
++The first step in determining the target CPU for RPS is to calculate a
++flow hash over the packet=E2=80=99s addresses or ports (2-tuple or 4-t=
+uple hash
++depending on the protocol). This serves as a consistent hash of the
++associated flow of the packet. The hash is either provided by hardware
++or will be computed in the stack. Capable hardware can pass the hash i=
+n
++the receive descriptor for the packet; this would usually be the same
++hash used for RSS (e.g. computed Toeplitz hash). The hash is saved in
++skb->rx_hash and can be used elsewhere in the stack as a hash of the
++packet=E2=80=99s flow.
++
++Each receive hardware queue has an associated list of CPUs to which
++RPS may enqueue packets for processing. For each received packet,
++an index into the list is computed from the flow hash modulo the size
++of the list. The indexed CPU is the target for processing the packet,
++and the packet is queued to the tail of that CPU=E2=80=99s backlog que=
+ue. At
++the end of the bottom half routine, IPIs are sent to any CPUs for whic=
+h
++packets have been queued to their backlog queue. The IPI wakes backlog
++processing on the remote CPU, and any queued packets are then processe=
+d
++up the networking stack.
++
++=3D=3D=3D=3D RPS Configuration
++
++RPS requires a kernel compiled with the CONFIG_RPS kconfig symbol (on
++by default for SMP). Even when compiled in, RPS remains disabled until
++explicitly configured. The list of CPUs to which RPS may forward traff=
+ic
++can be configured for each receive queue using a sysfs file entry:
++
++ /sys/class/net/<dev>/queues/rx-<n>/rps_cpus
++
++This file implements a bitmap of CPUs. RPS is disabled when it is zero
++(the default), in which case packets are processed on the interrupting
++CPU. Documentation/IRQ-affinity.txt explains how CPUs are assigned to
++the bitmap.
++
++=3D=3D Suggested Configuration
++
++For a single queue device, a typical RPS configuration would be to set
++the rps_cpus to the CPUs in the same cache domain of the interrupting
++CPU. If NUMA locality is not an issue, this could also be all CPUs in
++the system. At high interrupt rate, it might be wise to exclude the
++interrupting CPU from the map since that already performs much work.
++
++For a multi-queue system, if RSS is configured so that a hardware
++receive queue is mapped to each CPU, then RPS is probably redundant
++and unnecessary. If there are fewer hardware queues than CPUs, then
++RPS might be beneficial if the rps_cpus for each queue are the ones th=
+at
++share the same cache domain as the interrupting CPU for that queue.
++
++
++RFS: Receive Flow Steering
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D
++
++While RPS steers packets solely based on hash, and thus generally
++provides good load distribution, it does not take into account
++application locality. This is accomplished by Receive Flow Steering
++(RFS). The goal of RFS is to increase datacache hitrate by steering
++kernel processing of packets to the CPU where the application thread
++consuming the packet is running. RFS relies on the same RPS mechanisms
++to enqueue packets onto the backlog of another CPU and to wake up that
++CPU.
++
++In RFS, packets are not forwarded directly by the value of their hash,
++but the hash is used as index into a flow lookup table. This table map=
+s
++flows to the CPUs where those flows are being processed. The flow hash
++(see RPS section above) is used to calculate the index into this table=
+=2E
++The CPU recorded in each entry is the one which last processed the flo=
+w.
++If an entry does not hold a valid CPU, then packets mapped to that ent=
+ry
++are steered using plain RPS. Multiple table entries may point to the
++same CPU. Indeed, with many flows and few CPUs, it is very likely that
++a single application thread handles flows with many different flow has=
+hes.
++
++rps_sock_table is a global flow table that contains the *desired* CPU =
+for
++flows: the CPU that is currently processing the flow in userspace. Eac=
+h
++table value is a CPU index that is updated during calls to recvmsg and
++sendmsg (specifically, inet_recvmsg(), inet_sendmsg(), inet_sendpage()
++and tcp_splice_read()).
++
++When the scheduler moves a thread to a new CPU while it has outstandin=
+g
++receive packets on the old CPU, packets may arrive out of order. To
++avoid this, RFS uses a second flow table to track outstanding packets
++for each flow: rps_dev_flow_table is a table specific to each hardware
++receive queue of each device. Each table value stores a CPU index and =
+a
++counter. The CPU index represents the *current* CPU onto which packets
++for this flow are enqueued for further kernel processing. Ideally, ker=
+nel
++and userspace processing occur on the same CPU, and hence the CPU inde=
+x
++in both tables is identical. This is likely false if the scheduler has
++recently migrated a userspace thread while the kernel still has packet=
+s
++enqueued for kernel processing on the old CPU.
++
++The counter in rps_dev_flow_table values records the length of the cur=
+rent
++CPU's backlog when a packet in this flow was last enqueued. Each backl=
+og
++queue has a head counter that is incremented on dequeue. A tail counte=
+r
++is computed as head counter + queue length. In other words, the counte=
+r
++in rps_dev_flow_table[i] records the last element in flow i that has
++been enqueued onto the currently designated CPU for flow i (of course,
++entry i is actually selected by hash and multiple flows may hash to th=
+e
++same entry i).
++
++And now the trick for avoiding out of order packets: when selecting th=
+e
++CPU for packet processing (from get_rps_cpu()) the rps_sock_flow table
++and the rps_dev_flow table of the queue that the packet was received o=
+n
++are compared. If the desired CPU for the flow (found in the
++rps_sock_flow table) matches the current CPU (found in the rps_dev_flo=
+w
++table), the packet is enqueued onto that CPU=E2=80=99s backlog. If the=
+y differ,
++the current CPU is updated to match the desired CPU if one of the
++following is true:
++
++- The current CPU's queue head counter >=3D the recorded tail counter
++  value in rps_dev_flow[i]
++- The current CPU is unset (equal to NR_CPUS)
++- The current CPU is offline
++
++After this check, the packet is sent to the (possibly updated) current
++CPU. These rules aim to ensure that a flow only moves to a new CPU whe=
+n
++there are no packets outstanding on the old CPU, as the outstanding
++packets could arrive later than those about to be processed on the new
++CPU.
++
++=3D=3D=3D=3D RFS Configuration
++
++RFS is only available if the kconfig symbol CONFIG_RFS is enabled (on
++by default for SMP). The functionality remains disabled until explicit=
+ly
++configured. The number of entries in the global flow table is set thro=
+ugh:
++
++ /proc/sys/net/core/rps_sock_flow_entries
++
++The number of entries in the per-queue flow table are set through:
++
++ /sys/class/net/<dev>/queues/tx-<n>/rps_flow_cnt
++
++=3D=3D Suggested Configuration
++
++Both of these need to be set before RFS is enabled for a receive queue=
+=2E
++Values for both are rounded up to the nearest power of two. The
++suggested flow count depends on the expected number of active connecti=
+ons
++at any given time, which may be significantly less than the number of =
+open
++connections. We have found that a value of 32768 for rps_sock_flow_ent=
+ries
++works fairly well on a moderately loaded server.
++
++For a single queue device, the rps_flow_cnt value for the single queue
++would normally be configured to the same value as rps_sock_flow_entrie=
+s.
++For a multi-queue device, the rps_flow_cnt for each queue might be
++configured as rps_sock_flow_entries / N, where N is the number of
++queues. So for instance, if rps_flow_entries is set to 32768 and there
++are 16 configured receive queues, rps_flow_cnt for each queue might be
++configured as 2048.
++
++
++Accelerated RFS
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++
++Accelerated RFS is to RFS what RSS is to RPS: a hardware-accelerated l=
+oad
++balancing mechanism that uses soft state to steer flows based on where
++the application thread consuming the packets of each flow is running.
++Accelerated RFS should perform better than RFS since packets are sent
++directly to a CPU local to the thread consuming the data. The target C=
+PU
++will either be the same CPU where the application runs, or at least a =
+CPU
++which is local to the application thread=E2=80=99s CPU in the cache hi=
+erarchy.
++
++To enable accelerated RFS, the networking stack calls the
++ndo_rx_flow_steer driver function to communicate the desired hardware
++queue for packets matching a particular flow. The network stack
++automatically calls this function every time a flow entry in
++rps_dev_flow_table is updated. The driver in turn uses a device specif=
+ic
++method to program the NIC to steer the packets.
++
++The hardware queue for a flow is derived from the CPU recorded in
++rps_dev_flow_table. The stack consults a CPU to hardware queue map whi=
+ch
++is maintained by the NIC driver. This is an auto-generated reverse map=
+ of
++the IRQ affinity table shown by /proc/interrupts. Drivers can use
++functions in the cpu_rmap (=E2=80=9CCPU affinity reverse map=E2=80=9D)=
+ kernel library
++to populate the map. For each CPU, the corresponding queue in the map =
+is
++set to be one whose processing CPU is closest in cache locality.
++
++=3D=3D=3D=3D Accelerated RFS Configuration
++
++Accelerated RFS is only available if the kernel is compiled with
++CONFIG_RFS_ACCEL and support is provided by the NIC device and driver.
++It also requires that ntuple filtering is enabled via ethtool. The map
++of CPU to queues is automatically deduced from the IRQ affinities
++configured for each receive queue by the driver, so no additional
++configuration should be necessary.
++
++=3D=3D Suggested Configuration
++
++This technique should be enabled whenever one wants to use RFS and the
++NIC supports hardware acceleration.
++
++XPS: Transmit Packet Steering
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D
++
++Transmit Packet Steering is a mechanism for intelligently selecting
++which transmit queue to use when transmitting a packet on a multi-queu=
+e
++device. To accomplish this, a mapping from CPU to hardware queue(s) is
++recorded. The goal of this mapping is usually to assign queues
++exclusively to a subset of CPUs, where the transmit completions for
++these queues are processed on a CPU within this set. This choice
++provides two benefits. First, contention on the device queue lock is
++significantly reduced since fewer CPUs contend for the same queue
++(contention can be eliminated completely if each CPU has its own
++transmit queue). Secondly, cache miss rate on transmit completion is
++reduced, in particular for data cache lines that hold the sk_buff
++structures.
++
++XPS is configured per transmit queue by setting a bitmap of CPUs that
++may use that queue to transmit. The reverse mapping, from CPUs to
++transmit queues, is computed and maintained for each network device.
++When transmitting the first packet in a flow, the function
++get_xps_queue() is called to select a queue. This function uses the ID
++of the running CPU as a key into the CPU-to-queue lookup table. If the
++ID matches a single queue, that is used for transmission. If multiple
++queues match, one is selected by using the flow hash to compute an ind=
+ex
++into the set.
++
++The queue chosen for transmitting a particular flow is saved in the
++corresponding socket structure for the flow (e.g. a TCP connection).
++This transmit queue is used for subsequent packets sent on the flow to
++prevent out of order (ooo) packets. The choice also amortizes the cost
++of calling get_xps_queues() over all packets in the connection. To avo=
+id
++ooo packets, the queue for a flow can subsequently only be changed if
++skb->ooo_okay is set for a packet in the flow. This flag indicates tha=
+t
++there are no outstanding packets in the flow, so the transmit queue ca=
+n
++change without the risk of generating out of order packets. The
++transport layer is responsible for setting ooo_okay appropriately. TCP=
+,
++for instance, sets the flag when all data for a connection has been
++acknowledged.
++
++=3D=3D=3D=3D XPS Configuration
++
++XPS is only available if the kconfig symbol CONFIG_XPS is enabled (on =
+by
++default for SMP). The functionality remains disabled until explicitly
++configured. To enable XPS, the bitmap of CPUs that may use a transmit
++queue is configured using the sysfs file entry:
++
++/sys/class/net/<dev>/queues/tx-<n>/xps_cpus
++
++=3D=3D Suggested Configuration
++
++For a network device with a single transmission queue, XPS configurati=
+on
++has no effect, since there is no choice in this case. In a multi-queue
++system, XPS is preferably configured so that each CPU maps onto one qu=
+eue.
++If there are as many queues as there are CPUs in the system, then each
++queue can also map onto one CPU, resulting in exclusive pairings that
++experience no contention. If there are fewer queues than CPUs, then th=
+e
++best CPUs to share a given queue are probably those that share the cac=
+he
++with the CPU that processes transmit completions for that queue
++(transmit interrupts).
++
++
++Further Information
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++RPS and RFS were introduced in kernel 2.6.35. XPS was incorporated int=
+o
++2.6.38. Original patches were submitted by Tom Herbert
++(therbert@google.com)
++
++Accelerated RFS was introduced in 2.6.35. Original patches were
++submitted by Ben Hutchings (bhutchings@solarflare.com)
++
++Authors:
++Tom Herbert (therbert@google.com)
++Willem de Bruijn (willemb@google.com)
++
+--=20
+1.7.3.1
+
+
