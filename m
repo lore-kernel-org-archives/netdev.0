@@ -1,67 +1,53 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] net: filter: Convert the BPF VM to threaded code
-Date: Tue, 09 Aug 2011 10:53:22 +0200
-Message-ID: <4039f2893f574313ee14131c7f9961d3@localhost>
-References: <CACKH++ZfNTB7Y8YhvQnZPEXpwmpWXzxQgnWniamDrjRWUwxaNw@mail.gmail.com>
- <20110801181652.GB2732@nuttenaction>
- <1312223866.2719.3.camel@edumazet-laptop>
- <20110801.175705.2074393848482150971.davem@davemloft.net>
- <1312866027.2531.42.camel@edumazet-laptop>
- <7f02f2970d225cddfad74ee660f39d1d@localhost>
- <1312878988.2371.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH 6/6] Export the tcp sock's security context to proc.
+Date: Tue, 9 Aug 2011 16:54:46 +0800
+Message-ID: <4E40F5D6.5060704@windriver.com>
+References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com>	<1312874910-31010-7-git-send-email-rongqing.li@windriver.com> <20110809.003326.1002501904080430572.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <rui314@gmail.com>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:44486 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751097Ab1HIIxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 04:53:24 -0400
-In-Reply-To: <1312878988.2371.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	<linux-security-module@vger.kernel.org>, <sds@tycho.nsa.gov>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20110809.003326.1002501904080430572.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On 08/09/2011 03:33 PM, David Miller wrote:
+> From:<rongqing.li@windriver.com>
+> Date: Tue, 9 Aug 2011 15:28:30 +0800
+>
+>>   	if (v == SEQ_START_TOKEN) {
+>>   		seq_printf(seq, "%-*s\n", TMPSZ - 1,
+>>   			   "  sl  local_address rem_address   st tx_queue "
+>>   			   "rx_queue tr tm->when retrnsmt   uid  timeout "
+>> -			   "inode");
+>> +			   "inode seclabel");
+>>   		goto out;
+>>   	}
+>
+> Unfortunately you cannot change the layout of procfs file output in
+> this way.  It has the potential to break programs which are parsing
+> this file in userspace already.
+>
+> The layout hasn't changed in a very long time because it is essentially
+> a uservisible ABI.
+>
+> If you want to export new information you'll have to do it using the
+> facility that is extensible, and that's the netlink based socket dumping
+> facility implemented in inet_diag.c, tcp_diag.c and friends.
+>
+> There, you can simply add a new netlink attribute that gets dumped with
+> the entry, which will provide the security context.
+>
+>
+
+Thanks, I see how I should do.
+I will continue to develop it and hope get your help.
+Thanks.
 
 
-On Tue, 09 Aug 2011 10:36:28 +0200, Eric Dumazet wrote:
-
-
-
- 
-
-> I am speaking of one single conditional branch, the one that is done for
-
-> every BPF instruction done in a filter. It's never taken, so must be
-
-> predicted by the cpu. A perf session could make sure it is  ;)
-
-
-
-Ahh, ok - perf is your friend, I know Eric ;-)
-
-
-
->> > +		switch ((enum bpf_inst)fentry->code) {
-
->> 
-
->> That should not differ! Eric, sure that this do the trick?
-
-> 
-
-> It is the way to tell gcc to make its optimizations, if they exists on
-
-> enum switch (), as David suggested.
-
-
-
-Argl, I see sock_filter.code is declared as __u16 not enum.
-
-
-
-
-
-Hagen
+-- 
+Best Reagrds,
+Roy | RongQing Li
