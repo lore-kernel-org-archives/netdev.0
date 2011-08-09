@@ -1,22 +1,20 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 3/4] powerpc/p1010: FlexCAN Controller for of_ type
-Date: Tue, 09 Aug 2011 12:37:13 +0200
-Message-ID: <4E410DD9.40500@grandegger.com>
-References: <1312815640-25804-1-git-send-email-bhaskar.upadhaya@freescale.com>
-	<4E3FFEEB.8070400@pengutronix.de>
-	<9C64B7751C3BCA41B64A68E23005A7BE1BF197@039-SN1MPN1-004.039d.mgd.msft.net>
+Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+Date: Tue, 09 Aug 2011 12:41:08 +0200
+Message-ID: <4E410EC4.3030305@grandegger.com>
+References: <1312641270-6018-1-git-send-email-holt@sgi.com>	<1312641270-6018-6-git-send-email-holt@sgi.com>	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com>	<4E3FF9EA.6030601@grandegger.com>
+	<4E3FFD5B.7080000@pengutronix.de>	<4E4001E1.3030508@grandegger.com>
+	<4E403097.4020306@pengutronix.de>	<9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>	<4E40EC14.1010005@pengutronix.de>
+	<9C64B7751C3BCA41B64A68E23005A7BE1BEFCE@039-SN1MPN1-004.039d.mgd.msft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "linuxppc-release-50dRxjG7WBCY5r8RbUyfqNHuzzzSOjJt@public.gmane.org"
-	<linuxppc-release-50dRxjG7WBCY5r8RbUyfqNHuzzzSOjJt@public.gmane.org>,
+Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
 	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1BF197-TcFNo7jSaXM0vywKSws3iq4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
+In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1BEFCE-TcFNo7jSaXM0vywKSws3iq4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -28,40 +26,76 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/09/2011 12:29 PM, U Bhaskar-B22300 wrote:
+On 08/09/2011 11:34 AM, U Bhaskar-B22300 wrote:
 > 
 > 
 >> -----Original Message-----
 >> From: Marc Kleine-Budde [mailto:mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org]
->> Sent: Monday, August 08, 2011 8:51 PM
+>> Sent: Tuesday, August 09, 2011 1:43 PM
 >> To: U Bhaskar-B22300
->> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; holt-sJ/iWh9BUns@public.gmane.org; wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org;
->> davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; linuxppc-release-50dRxjG7WBCY5r8RbUyfqNHuzzzSOjJt@public.gmane.org; U Bhaskar-
->> B22300; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
->> Subject: Re: [PATCH 3/4] powerpc/p1010: FlexCAN Controller for of_ type
+>> Cc: Wolfgang Grandegger; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
+>> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
 >>
->> On 08/08/2011 05:00 PM, Bhaskar Upadhaya wrote:
->>> Provide FlexCAN support for Freescale P1010 SoC.
->>> Modify the existing FlexCAN, so as to support the of_type approach on
->>> P1010(power architecture based)SoC.
->>>
->>> FlexCAN is a communication controller implementing the CAN protocol
->>> according to the CAN 2.0B protocol specification.
->>> This controller is available on Freescale P1010 platform.
->>> Signed-off-by: Bhaskar Upadhaya <bhaskar.upadhaya-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+>> On 08/09/2011 09:57 AM, U Bhaskar-B22300 wrote:
+>>>> On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
+>>>>>> ACK - The device tree bindings as in mainline's Documentation is a
+>>>> mess.
+>>>>>> If the powerpc guys are happy with a clock interfaces based
+>>>>>> approach somewhere in arch/ppc, I'm more than happy to remove:
+>>>>>> - fsl,flexcan-clock-source (not implemented, even in the fsl
+>>>>>> driver)
 >>
->> NACK - your patch does more than the description states (debug code).
-> [Bhaskar] Ok I will change description as below
-> 	This patch introduces the following features
-> 	1. provides the support for FlexCAN on P1010 SoC.
-> 	2. Provides the common read/write interface for ARM and PowerPC based FlexCAN.
-> 	3. Provides the clock interface for PowerPC based FlexCAN.
-> 	Will it be OK ?
+>>> [Bhaskar]I have pushed the FlexCAN series of patches, It contains the
+>>> usage of all the fields posted in the FlexCAN bindings at
+>>> http://git.kernel.org/?p=linux/kernel/git/stable/linux-3.0.y.git;a=blo
+>>> b;f=Documentation/devicetree/bindings/net/can/fsl-flexcan.txt;h=1a729f
+>>> 089866259ef82d0db5893ff7a8c54d5ccf;hb=94ed5b4788a7cdbe68bc7cb8516972cb
+>>> ebdc8274
+>>
+>> I've commented the patches. They are in a very bad shape. Please test
+>> Robin's patches.
+>>
+>>>>>>
+>>>>>> - fsl,flexcan-clock-divider \__ replace with code in arch/ppc, or
+>>>>>> - clock-frequency           /   a single clock-frequency attribute
+>>>>>
+>>>>> In the "net-next-2.6" tree there is also:
+>>>>>
+>>>>>  $ grep flexcan arch/powerpc/boots/dts/*.dts
+>>>>>   p1010rdb.dts:			fsl,flexcan-clock-source =
+>> "platform";
+>>>>>   p1010rdb.dts:			fsl,flexcan-clock-source =
+>> "platform";
+>>>>>   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
+>>>>>   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
+>>>>>   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
+>>>>>   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
+>>>>>
+>>>>> Especially the fsl,flexcan-clock-divider = <2>; might make people
+>>>>> think, that they could set something else.
+>>>>
+>>> [Bhaskar] As it is mentioned in the Flexcan bindings, the need of
+>>> fsl,flexcan-clock-divider = <2>; But I kept it as "2" because FlexCan
+>>> clock source is the platform clock and it is CCB/2 If the "2" is
+>>> misleading, the bindings can be changed or some text can be written to
+>>> make the meaning of "2" Understandable , Please suggest ..
+>>
+>> The clock devider is crap. Why not specify the clockrate that goes into
+>> the flexcan core?
+> [Bhaskar] The reason why I placed the "fsl,flexcan-clock-divider" property is just because the earlier implementations
+> 		 Of CAN also follows the same approach. Please see below the approach of mscan.
+>                 compatible = "fsl,mpc5121-mscan";
+>                 interrupts = <13 0x8>;
+>                 interrupt-parent = <&ipic>;
+>                 reg = <0x1380 0x80>;
+>                 fsl,mscan-clock-source = "ref";
+>                 fsl,mscan-clock-divider = <3>;
+>         };
+> 	If you want we can remove the fsl,flexcan-clock-divider property. Please comment ..
 
-Sorry, too late. Please try the patches posted by Robin recently. We are
-currently reviewing those for mainline inclusion and would be happy, if
-you would help.
-
-Thanks,
+For that platform the user can *change* these properties so select
+another clock-source or clock-divider. This is not the case for the
+P1010. Therefore these properties are not needed.
 
 Wolfgang.
