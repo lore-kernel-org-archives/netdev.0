@@ -1,55 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Tue, 09 Aug 2011 12:57:15 -0700
-Message-ID: <1312919835.11924.26.camel@Joe-Laptop>
-References: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
-	 <1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1312912326.11924.12.camel@Joe-Laptop>
-	 <1312912774.2547.1.camel@edumazet-laptop>
-	 <1312913545.11924.16.camel@Joe-Laptop>
-	 <1312914257.2547.10.camel@edumazet-laptop>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 5/5] [powerpc] Fix up fsl-flexcan device tree binding.
+Date: Tue, 9 Aug 2011 14:58:56 -0500
+Message-ID: <4E419180.3090507@freescale.com>
+References: <1312901031-29887-1-git-send-email-holt@sgi.com> <1312901031-29887-6-git-send-email-holt@sgi.com> <4E4179CB.6030101@freescale.com> <20110809184524.GB4926@sgi.com> <4E4186BD.5000602@freescale.com> <4E418F2D.4060504@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, stufever@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1312914257.2547.10.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Robin Holt <holt@sgi.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
+	U Bhaskar-B22300 <B22300@freescale.com>,
+	<netdev@vger.kernel.org>, <socketcan-core@lists.berlios.de>,
+	PPC list <linuxppc-dev@lists.ozlabs.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:8615
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752582Ab1HIT7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 15:59:01 -0400
+In-Reply-To: <4E418F2D.4060504@grandegger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-08-09 at 20:24 +0200, Eric Dumazet wrote:
-> Le mardi 09 ao=C3=BBt 2011 =C3=A0 11:12 -0700, Joe Perches a =C3=A9cr=
-it :
-> > On Tue, 2011-08-09 at 19:59 +0200, Eric Dumazet wrote:
-> > > Le mardi 09 ao=C3=BBt 2011 =C3=A0 10:52 -0700, Joe Perches a =C3=A9=
-crit :
-> > > > On Tue, 2011-08-09 at 18:53 +0200, Eric Dumazet wrote:
-> > > > > Le mercredi 10 ao=C3=BBt 2011 =C3=A0 00:39 +0800, stufever@gm=
-ail.com a =C3=A9crit :
-> > > > []
-> > > > > > +	if (!local_rqfpr || !local_rqfcr) {
-> > > > > > +		pr_err("Out of memory\n");
-> > > > > 	Please remove this pr_err(), kmalloc() will complain already=
-=2E
+On 08/09/2011 02:49 PM, Wolfgang Grandegger wrote:
+> Yes. The doc for the bindings we speak about
+> 
+> http://lxr.linux.no/#linux+v3.0.1/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
+> 
+> sneaked into the kernel without been presented on any mailing list and
+> without the corresponding driver patch.
 
-I think this is fine and should be kept until
-some general agreement is made that OOM messages
-should be removed generically.
+It was posted on linuxppc-dev:
+http://patchwork.ozlabs.org/patch/91980/
 
-If these are really superfluous, which I doubt a
-little because these are emitted at different
-KERN_<LEVEL>, (the generic one emits at KERN_WARNING),
-there are _thousands_ of these OOM errors in drivers/
-alone that could be removed.
+Though I agree it should have been posted more widely.
 
-$ grep -rP --include=3D*.[ch] \
-	"(printk|\b[a-z]+_\w+)\s*\(.*\".*(alloc|mem)" drivers | \
-  wc -l
-5147
+> OK, just
+> 
+>   "fsl,p1010-flexcan"
+> 
+> or
+> 
+>   "fsl,p1010-flexcan", "fsl,flexcan"
 
-call it 50% false positive, it's still a lot.
+I'm ok with the latter, if there's enough in common that it's
+conceivable that a driver wouldn't care.  The more specific compatible
+will be there if the driver wants to make use of it later.
 
-I think one more won't hurt for awhile.
+-Scot
+
