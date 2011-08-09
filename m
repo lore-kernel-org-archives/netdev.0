@@ -1,49 +1,52 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 5/5] [powerpc] Fix up fsl-flexcan device tree binding.
-Date: Tue, 9 Aug 2011 13:17:47 -0500
-Message-ID: <4E4179CB.6030101@freescale.com>
-References: <1312901031-29887-1-git-send-email-holt@sgi.com> <1312901031-29887-6-git-send-email-holt@sgi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Tue, 09 Aug 2011 20:24:17 +0200
+Message-ID: <1312914257.2547.10.camel@edumazet-laptop>
+References: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
+	 <1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1312912326.11924.12.camel@Joe-Laptop>
+	 <1312912774.2547.1.camel@edumazet-laptop>
+	 <1312913545.11924.16.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	U Bhaskar-B22300 <B22300@freescale.com>,
-	<netdev@vger.kernel.org>, <socketcan-core@lists.berlios.de>,
-	PPC list <linuxppc-dev@lists.ozlabs.org>
-To: Robin Holt <holt@sgi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:48013
-	"EHLO VA3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751061Ab1HISSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 14:18:07 -0400
-In-Reply-To: <1312901031-29887-6-git-send-email-holt@sgi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, stufever@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1312913545.11924.16.camel@Joe-Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/09/2011 09:43 AM, Robin Holt wrote:
-> In working with the socketcan developers, we have come to the conclusion
-> the fsl-flexcan device tree bindings need to be cleaned up. 
-> The driver does not depend upon any properties other than the required properties
-> so we are removing the file.
+Le mardi 09 ao=C3=BBt 2011 =C3=A0 11:12 -0700, Joe Perches a =C3=A9crit=
+ :
+> On Tue, 2011-08-09 at 19:59 +0200, Eric Dumazet wrote:
+> > Le mardi 09 ao=C3=BBt 2011 =C3=A0 10:52 -0700, Joe Perches a =C3=A9=
+crit :
+> > > On Tue, 2011-08-09 at 18:53 +0200, Eric Dumazet wrote:
+> > > > Le mercredi 10 ao=C3=BBt 2011 =C3=A0 00:39 +0800, stufever@gmai=
+l.com a =C3=A9crit :
+> > > []
+> > > > > +	if (!local_rqfpr || !local_rqfcr) {
+> > > > > +		pr_err("Out of memory\n");
+> > > > 	Please remove this pr_err(), kmalloc() will complain already.
+> > > Always?
+> > > I know there's a trace option, but is it always on?
+> > Yes, unless caller added ___GFP_NOWARN in gfp :
+> > ptr =3D kmalloc(size, GFP_KERNEL | ___GFP_NOWARN);
+>=20
+> Isn't that true only for slub?
+>=20
 
-That is not the criterion for whether something should be expresed in
-the device tree.  It's a description of the hardware, not a Linux driver
-configuration file.  If there are integration parameters that can not be
-inferred from "this is FSL flexcan v1.0", they should be expressed in
-the node.
+nope, this is page allocation, so common to slab/slub/...
 
-Removing the binding altogether seems extreme as well -- we should have
-bindings for all devices, even if there are no special properties.
+> Do you know where this get emitted?
+> I looked cursorily but I don't see it.
+>=20
 
-> Additionally, the p1010*dts files are not
-> following the standard for node naming in that they have a trailing -v1.0.
+This is a bit beyond this thread
 
-What "standard for node naming"?  There's nothing wrong with putting a
-block version number in the compatible string, and it looks like the
-p1010 dts files were following the binding document in this regard.  It
-is common practice when the block version is publicly documented but
-there's no register it can be read from at runtime.
+Look at mm/page_alloc.c
 
--Scott
-
+void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
