@@ -1,108 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: filter: Convert the BPF VM to threaded code
-Date: Tue, 09 Aug 2011 07:00:27 +0200
-Message-ID: <1312866027.2531.42.camel@edumazet-laptop>
-References: <CACKH++ZfNTB7Y8YhvQnZPEXpwmpWXzxQgnWniamDrjRWUwxaNw@mail.gmail.com>
-	 <20110801181652.GB2732@nuttenaction>
-	 <1312223866.2719.3.camel@edumazet-laptop>
-	 <20110801.175705.2074393848482150971.davem@davemloft.net>
+From: Andrei Warkentin <andreiw@motorola.com>
+Subject: Re: [PATCHv4] Bridge: Always send NETDEV_CHANGEADDR up on br MAC change.
+Date: Tue, 9 Aug 2011 00:12:45 -0500
+Message-ID: <CALfQTu7x5NVjLCEWenXR8nK1fVZ1c6190FA8+84Teksrm_Wg8w@mail.gmail.com>
+References: <CALfQTu7MVjfO7vHB-mAC=RwokBRsi7vR6_XVfQX0+vU2ZCVHOw@mail.gmail.com>
+	<1312578250-2944-2-git-send-email-andreiw@motorola.com>
+	<20110808131230.7f4b4d99@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hagen@jauu.net, rui314@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47915 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab1HIFAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 01:00:35 -0400
-Received: by wyg24 with SMTP id 24so102390wyg.19
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2011 22:00:34 -0700 (PDT)
-In-Reply-To: <20110801.175705.2074393848482150971.davem@davemloft.net>
+Received: from exprod5og108.obsmtp.com ([64.18.0.186]:34317 "EHLO
+	exprod5og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750695Ab1HIFMs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 01:12:48 -0400
+Received: from DE01MGRG01.AM.MOT-MOBILITY.COM ([10.22.94.168])
+	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p795DWSa020725
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 01:13:32 -0400 (EDT)
+Received: from mail-ww0-f46.google.com (mail-ww0-f46.google.com [74.125.82.46])
+	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p795BA6g020274
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 01:13:31 -0400 (EDT)
+Received: by mail-ww0-f46.google.com with SMTP id 27so2841049wwf.3
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2011 22:12:45 -0700 (PDT)
+In-Reply-To: <20110808131230.7f4b4d99@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 01 ao=C3=BBt 2011 =C3=A0 17:57 -0700, David Miller a =C3=A9cri=
-t :
+On Mon, Aug 8, 2011 at 3:12 PM, Stephen Hemminger <shemminger@vyatta.co=
+m> wrote:
+> On Fri, =A05 Aug 2011 16:04:10 -0500
+> Andrei Warkentin <andreiw@motorola.com> wrote:
+>
+>> This ensures the neighbor entries associated with the bridge
+>> dev are flushed, also invalidating the associated cached L2 headers.
+>>
+>> This means we br_add_if/br_del_if ports to implement hand-over and
+>> not wind up with bridge packets going out with stale MAC.
+>>
+>> This means we can also change MAC of port device and also not wind
+>> up with bridge packets going out with stale MAC.
+>>
+>> This builds on Stephen Hemminger's patch, also handling the br_del_i=
+f
+>> case and the port MAC change case.
+>>
+>> Cc: Stephen Hemminger <shemminger@vyatta.com>
+>> Signed-off-by: Andrei Warkentin <andreiw@motorola.com>
+>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>
 
-> Maybe it won't if we use an enum and make sure all enum values are ha=
-ndled
-> in the switch? :-)
+Thank you for the Ack.
 
-I tried this idea since its already an enum and all enum values are
-handled in the witch, but all gcc versions I used still generate the
-useless compare and branch (always predicted by modern CPU, so harmless
-anyway ?)
-
-348:   83 c3 08                add    $0x8,%ebx
-34b:   66 83 3b 37             cmpw   $0x37,(%ebx)
-34f:   77 f7                   ja     348 <sk_run_filter+0x18>
-351:   0f b7 03                movzwl (%ebx),%eax
-354:   ff 24 85 34 01 00 00    jmp    *0x134(,%eax,4)
-
-
-It would be nice to try the jump table idea and avoid the array
-indirection and get instead :
-
-add	$0xc,%ebx
-jmp	*(ebx)
-
-(But this would need to use a larger kernel_sock_filter with not an u16
-code, but the target address).
-
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 741956f..f2a1b37 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -171,7 +171,7 @@ static inline void bpf_jit_free(struct sk_filter *f=
-p)
- #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
- #endif
-=20
--enum {
-+enum bpf_inst {
- 	BPF_S_RET_K =3D 1,
- 	BPF_S_RET_A,
- 	BPF_S_ALU_ADD_K,
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 36f975f..ea1f467 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -119,17 +119,15 @@ unsigned int sk_run_filter(const struct sk_buff *=
-skb,
- 	u32 tmp;
- 	int k;
-=20
-+	fentry--;
- 	/*
- 	 * Process array of filter instructions.
- 	 */
--	for (;; fentry++) {
--#if defined(CONFIG_X86_32)
-+	for (;;) {
- #define	K (fentry->k)
--#else
--		const u32 K =3D fentry->k;
--#endif
-=20
--		switch (fentry->code) {
-+		fentry++;
-+		switch ((enum bpf_inst)fentry->code) {
- 		case BPF_S_ALU_ADD_X:
- 			A +=3D X;
- 			continue;
-@@ -350,11 +348,6 @@ load_b:
- 				A =3D 0;
- 			continue;
- 		}
--		default:
--			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
--				       fentry->code, fentry->jt,
--				       fentry->jf, fentry->k);
--			return 0;
- 		}
- 	}
-=20
-
-
+A
