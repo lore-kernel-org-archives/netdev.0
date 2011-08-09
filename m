@@ -1,9 +1,10 @@
 From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCHv3 8/9] macb: support DMA bus widths > 32 bits
-Date: Tue, 9 Aug 2011 16:57:55 +0200
-Message-ID: <20110809145755.GN22213@game.jcrosoft.org>
+Subject: Re: [PATCHv3 9/9] macb: allow GEM to have configurable receive
+	buffer size
+Date: Tue, 9 Aug 2011 16:59:01 +0200
+Message-ID: <20110809145901.GO22213@game.jcrosoft.org>
 References: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
-	<1312881411-2376-9-git-send-email-jamie@jamieiles.com>
+	<1312881411-2376-10-git-send-email-jamie@jamieiles.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +12,7 @@ Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: Jamie Iles <jamie@jamieiles.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1312881411-2376-9-git-send-email-jamie@jamieiles.com>
+In-Reply-To: <1312881411-2376-10-git-send-email-jamie@jamieiles.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
 	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -24,9 +25,8 @@ Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead
 List-Id: netdev.vger.kernel.org
 
 On 10:16 Tue 09 Aug     , Jamie Iles wrote:
-> Some GEM implementations may support DMA bus widths up to 128 bits.  We
-> can get the maximum supported DMA bus width from the design
-> configuration register so use that to program the device up.
+> GEM has configurable receive buffer sizes so requires this to be
+> programmed up.  Any size < 2048 and a multiple of 64 bytes is permitted.
 > 
 > Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 > Acked-by: David S. Miller <davem@davemloft.net>
