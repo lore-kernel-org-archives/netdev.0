@@ -1,85 +1,72 @@
 From: <rongqing.li@windriver.com>
-Subject: [PATCH 5/6] Export the unix sock's security context to proc.
-Date: Tue, 9 Aug 2011 15:28:29 +0800
-Message-ID: <1312874910-31010-6-git-send-email-rongqing.li@windriver.com>
+Subject: [PATCH 6/6] Export the tcp sock's security context to proc.
+Date: Tue, 9 Aug 2011 15:28:30 +0800
+Message-ID: <1312874910-31010-7-git-send-email-rongqing.li@windriver.com>
 References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
 	<linux-security-module@vger.kernel.org>, <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43747 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:43758 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752438Ab1HIH2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 03:28:42 -0400
+	with ESMTP id S1752438Ab1HIH2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 03:28:44 -0400
 In-Reply-To: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roy.Li <rongqing.li@windriver.com>
 
-Export the unix sock's security context to proc, since it maybe
+Export the tcp sock's security context to proc, since it maybe
 different from the sock's owner process security context.
-
-Output '-' on Path column if the addr of unix_sock is NULL, rather 
-than nothing.
 
 Signed-off-by: Roy.Li <rongqing.li@windriver.com>
 ---
- net/unix/af_unix.c |   20 ++++++++++++++++----
- 1 files changed, 16 insertions(+), 4 deletions(-)
+ net/ipv4/tcp_ipv4.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index ec68e1c..9021f9b 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2239,12 +2239,14 @@ static void unix_seq_stop(struct seq_file *seq, void *v)
- 	spin_unlock(&unix_table_lock);
- }
- 
-+#define OFFSET_PATH_START	40
- static int unix_seq_show(struct seq_file *seq, void *v)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 955b8e6..ddac912 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2479,12 +2479,13 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
  {
-+	int len, offset = OFFSET_PATH_START;
+ 	struct tcp_iter_state *st;
+ 	int len;
++	struct sock *s = NULL;
  
- 	if (v == SEQ_START_TOKEN)
- 		seq_puts(seq, "Num       RefCount Protocol Flags    Type St "
--			 "Inode Path\n");
-+			 "Inode Path  SecLabel\n");
- 	else {
- 		struct sock *s = v;
- 		struct unix_sock *u = unix_sk(s);
-@@ -2261,9 +2263,9 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 			(s->sk_state == TCP_ESTABLISHED ? SS_CONNECTING : SS_DISCONNECTING),
- 			sock_i_ino(s));
- 
-+		seq_putc(seq, ' ');
- 		if (u->addr) {
--			int i, len;
--			seq_putc(seq, ' ');
-+			int i;
- 
- 			i = 0;
- 			len = u->addr->len - sizeof(short);
-@@ -2275,7 +2277,17 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 			}
- 			for ( ; i < len; i++)
- 				seq_putc(seq, u->addr->name->sun_path[i]);
--		}
-+		} else
-+			seq_printf(seq, " %s%n", "-", &len);
-+
-+		if (offset > len)
-+			offset -= (len + 1);
-+		else
-+			offset = 0;
-+
-+		seq_printf(seq, "%*s", offset, " ");
-+		sock_write_secctx(s, seq);
-+
- 		unix_state_unlock(s);
- 		seq_putc(seq, '\n');
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_printf(seq, "%-*s\n", TMPSZ - 1,
+ 			   "  sl  local_address rem_address   st tx_queue "
+ 			   "rx_queue tr tm->when retrnsmt   uid  timeout "
+-			   "inode");
++			   "inode seclabel");
+ 		goto out;
  	}
+ 	st = seq->private;
+@@ -2493,15 +2494,20 @@ static int tcp4_seq_show(struct seq_file *seq, void *v)
+ 	case TCP_SEQ_STATE_LISTENING:
+ 	case TCP_SEQ_STATE_ESTABLISHED:
+ 		get_tcp4_sock(v, seq, st->num, &len);
++		s = v;
+ 		break;
+ 	case TCP_SEQ_STATE_OPENREQ:
+ 		get_openreq4(st->syn_wait_sk, v, seq, st->num, st->uid, &len);
++		s = st->syn_wait_sk;
+ 		break;
+ 	case TCP_SEQ_STATE_TIME_WAIT:
+ 		get_timewait4_sock(v, seq, st->num, &len);
+ 		break;
+ 	}
+-	seq_printf(seq, "%*s\n", TMPSZ - 1 - len, "");
++
++	len += sock_write_secctx(s, seq);
++	len = TMPSZ - 1 - len;
++	seq_printf(seq, "%*s\n", len > 0 ? len : 0, "");
+ out:
+ 	return 0;
+ }
 -- 
 1.7.1
 
