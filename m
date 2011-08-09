@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 1/8] bna: MSGQ Implementation
-Date: Mon, 8 Aug 2011 19:21:35 -0700
-Message-ID: <1312856502-31242-2-git-send-email-rmody@brocade.com>
+Subject: [PATCH 4/8] bna: Add New HW Defs
+Date: Mon, 8 Aug 2011 19:21:38 -0700
+Message-ID: <1312856502-31242-5-git-send-email-rmody@brocade.com>
 References: <1312856502-31242-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,124 +9,31 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:44196 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751249Ab1HICWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 22:22:03 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:50086 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751632Ab1HICWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 22:22:10 -0400
 In-Reply-To: <1312856502-31242-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Currently modules communicate with the FW using 32 byte command and
-   response register. This limits the size of the command and response
-   messages exchanged with the FW to 32 bytes. We need a mechanism to
-   exchange the comamnds and responses exchange with FW that exceeds 32 bytes.
-
- - MSGQ implementation provides that facility. It removes the assumption that
-   command/response queue size is precisely calculated to accommodate all
-   concurrent FW commands/responses. The queue depth is made variable now, defined
-   by a macro. A waiting command list is implemented to hold all the commands
-   when there is no place in the command queue. Callback is implemented for
-   each command entry to invoke the module posting the command, when there is
-   space in the command queue and the command was finally posted to the queue.
-   Module/Object information is embedded in the response for tracking purpose.
+ - Add new file bna_hw_defs.h to support new code MSGQ, ENET and TX RX redign.
+   This makes bna_hw.h obsolete and is removed in a later patch. bna_hw_defs.h
+   removes all unused HW register definition that were part of bna_hw.h.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/Makefile   |    3 +-
- drivers/net/bna/bfa_ioc.c  |   14 +-
- drivers/net/bna/bfa_ioc.h  |    4 +-
- drivers/net/bna/bfa_msgq.c |  669 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/bna/bfa_msgq.h |  130 +++++++++
- drivers/net/bna/bfi.h      |  101 +++++++
- drivers/net/bna/bna_ctrl.c |    6 +-
- 7 files changed, 918 insertions(+), 9 deletions(-)
- create mode 100644 drivers/net/bna/bfa_msgq.c
- create mode 100644 drivers/net/bna/bfa_msgq.h
+ drivers/net/bna/bna_hw_defs.h |  413 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 413 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/bna/bna_hw_defs.h
 
-diff --git a/drivers/net/bna/Makefile b/drivers/net/bna/Makefile
-index a5d604d..d501f52 100644
---- a/drivers/net/bna/Makefile
-+++ b/drivers/net/bna/Makefile
-@@ -6,6 +6,7 @@
- obj-$(CONFIG_BNA) += bna.o
- 
- bna-objs := bnad.o bnad_ethtool.o bna_ctrl.o bna_txrx.o
--bna-objs += bfa_ioc.o bfa_ioc_ct.o bfa_cee.o cna_fwimg.o
-+bna-objs += bfa_msgq.o bfa_ioc.o bfa_ioc_ct.o bfa_cee.o
-+bna-objs += cna_fwimg.o
- 
- EXTRA_CFLAGS := -Idrivers/net/bna
-diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
-index 3cdea65..2d5c4fd 100644
---- a/drivers/net/bna/bfa_ioc.c
-+++ b/drivers/net/bna/bfa_ioc.c
-@@ -1968,18 +1968,22 @@ bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
-  * @param[in]	ioc	IOC instance
-  * @param[i]	cmd	Mailbox command
-  */
--void
--bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
-+bool
-+bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd,
-+			bfa_mbox_cmd_cbfn_t cbfn, void *cbarg)
- {
- 	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
- 	u32			stat;
- 
-+	cmd->cbfn = cbfn;
-+	cmd->cbarg = cbarg;
-+
- 	/**
- 	 * If a previous command is pending, queue new command
- 	 */
- 	if (!list_empty(&mod->cmd_q)) {
- 		list_add_tail(&cmd->qe, &mod->cmd_q);
--		return;
-+		return true;
- 	}
- 
- 	/**
-@@ -1988,7 +1992,7 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
- 	stat = readl(ioc->ioc_regs.hfn_mbox_cmd);
- 	if (stat) {
- 		list_add_tail(&cmd->qe, &mod->cmd_q);
--		return;
-+		return true;
- 	}
- 
- 	/**
-@@ -1996,7 +2000,7 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
- 	 */
- 	bfa_ioc_mbox_send(ioc, cmd->msg, sizeof(cmd->msg));
- 
--	return;
-+	return false;
- }
- 
- /**
-diff --git a/drivers/net/bna/bfa_ioc.h b/drivers/net/bna/bfa_ioc.h
-index bda866b..33ba5f4 100644
---- a/drivers/net/bna/bfa_ioc.h
-+++ b/drivers/net/bna/bfa_ioc.h
-@@ -253,7 +253,9 @@ struct bfa_ioc_hwif {
- /**
-  * IOC mailbox interface
-  */
--void bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd);
-+bool bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc,
-+			struct bfa_mbox_cmd *cmd,
-+			bfa_mbox_cmd_cbfn_t cbfn, void *cbarg);
- void bfa_nw_ioc_mbox_isr(struct bfa_ioc *ioc);
- void bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
- 		bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg);
-diff --git a/drivers/net/bna/bfa_msgq.c b/drivers/net/bna/bfa_msgq.c
+diff --git a/drivers/net/bna/bna_hw_defs.h b/drivers/net/bna/bna_hw_defs.h
 new file mode 100644
-index 0000000..ed52187
+index 0000000..07bb792
 --- /dev/null
-+++ b/drivers/net/bna/bfa_msgq.c
-@@ -0,0 +1,669 @@
++++ b/drivers/net/bna/bna_hw_defs.h
+@@ -0,0 +1,413 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -146,935 +53,400 @@ index 0000000..ed52187
 + */
 +
 +/**
-+ * @file bfa_msgq.c MSGQ module source file.
++ * File for interrupt macros and functions
 + */
 +
-+#include "bfi.h"
-+#include "bfa_msgq.h"
-+#include "bfa_ioc.h"
++#ifndef __BNA_HW_DEFS_H__
++#define __BNA_HW_DEFS_H__
 +
-+#define call_cmdq_ent_cbfn(_cmdq_ent, _status)				\
++#include "bfi_reg.h"
++
++/**
++ *
++ * SW imposed limits
++ *
++ */
++
++#define BFI_ENET_MAX_MCAM		256
++
++#define BFI_INVALID_RID			-1
++
++#define BFI_IBIDX_SIZE			4
++
++#define BFI_VLAN_WORD_SHIFT		5	/* 32 bits */
++#define BFI_VLAN_WORD_MASK		0x1F
++#define BFI_VLAN_BLOCK_SHIFT		9	/* 512 bits */
++#define BFI_VLAN_BMASK_ALL		0xFF
++
++#define BFI_COALESCING_TIMER_UNIT	5	/* 5us */
++#define BFI_MAX_COALESCING_TIMEO	0xFF	/* in 5us units */
++#define BFI_MAX_INTERPKT_COUNT		0xFF
++#define BFI_MAX_INTERPKT_TIMEO		0xF	/* in 0.5us units */
++#define BFI_TX_COALESCING_TIMEO		20	/* 20 * 5 = 100us */
++#define BFI_TX_INTERPKT_COUNT		32
++#define	BFI_RX_COALESCING_TIMEO		12	/* 12 * 5 = 60us */
++#define	BFI_RX_INTERPKT_COUNT		6	/* Pkt Cnt = 6 */
++#define	BFI_RX_INTERPKT_TIMEO		3	/* 3 * 0.5 = 1.5us */
++
++#define BFI_TXQ_WI_SIZE			64	/* bytes */
++#define BFI_RXQ_WI_SIZE			8	/* bytes */
++#define BFI_CQ_WI_SIZE			16	/* bytes */
++#define BFI_TX_MAX_WRR_QUOTA		0xFFF
++
++#define BFI_TX_MAX_VECTORS_PER_WI	4
++#define BFI_TX_MAX_VECTORS_PER_PKT	0xFF
++#define BFI_TX_MAX_DATA_PER_VECTOR	0xFFFF
++#define BFI_TX_MAX_DATA_PER_PKT		0xFFFFFF
++
++/* Small Q buffer size */
++#define BFI_SMALL_RXBUF_SIZE		128
++
++#define BFI_TX_MAX_PRIO			8
++#define BFI_TX_PRIO_MAP_ALL		0xFF
++
++/*
++ *
++ * Register definitions and macros
++ *
++ */
++
++#define BNA_PCI_REG_CT_ADDRSZ		(0x40000)
++
++#define ct_reg_addr_init(_bna, _pcidev)					\
 +{									\
-+	bfa_msgq_cmdcbfn_t cbfn;					\
-+	void *cbarg;							\
-+	cbfn = (_cmdq_ent)->cbfn;					\
-+	cbarg = (_cmdq_ent)->cbarg;					\
-+	(_cmdq_ent)->cbfn = NULL;					\
-+	(_cmdq_ent)->cbarg = NULL;					\
-+	if (cbfn) {							\
-+		cbfn(cbarg, (_status));					\
++	struct bna_reg_offset reg_offset[] =				\
++	{{HOSTFN0_INT_STATUS, HOSTFN0_INT_MSK},				\
++	 {HOSTFN1_INT_STATUS, HOSTFN1_INT_MSK},				\
++	 {HOSTFN2_INT_STATUS, HOSTFN2_INT_MSK},				\
++	 {HOSTFN3_INT_STATUS, HOSTFN3_INT_MSK} };			\
++									\
++	(_bna)->regs.fn_int_status = (_pcidev)->pci_bar_kva +		\
++				reg_offset[(_pcidev)->pci_func].fn_int_status;\
++	(_bna)->regs.fn_int_mask = (_pcidev)->pci_bar_kva +		\
++				reg_offset[(_pcidev)->pci_func].fn_int_mask;\
++}
++
++#define ct_bit_defn_init(_bna, _pcidev)					\
++{									\
++	(_bna)->bits.mbox_status_bits = (__HFN_INT_MBOX_LPU0 |		\
++					__HFN_INT_MBOX_LPU1);		\
++	(_bna)->bits.mbox_mask_bits = (__HFN_INT_MBOX_LPU0 |		\
++					__HFN_INT_MBOX_LPU1);		\
++	(_bna)->bits.error_status_bits = (__HFN_INT_ERR_MASK);		\
++	(_bna)->bits.error_mask_bits = (__HFN_INT_ERR_MASK);		\
++	(_bna)->bits.halt_status_bits = __HFN_INT_LL_HALT;		\
++}
++
++#define ct2_reg_addr_init(_bna, _pcidev)				\
++{									\
++	(_bna)->regs.fn_int_status = (_pcidev)->pci_bar_kva +		\
++				CT2_HOSTFN_INT_STATUS;			\
++	(_bna)->regs.fn_int_mask = (_pcidev)->pci_bar_kva +		\
++				CT2_HOSTFN_INTR_MASK;			\
++}
++
++#define ct2_bit_defn_init(_bna, _pcidev)				\
++{									\
++	(_bna)->bits.mbox_status_bits = (__HFN_INT_MBOX_LPU0_CT2 |	\
++					__HFN_INT_MBOX_LPU1_CT2);	\
++	(_bna)->bits.mbox_mask_bits = (__HFN_INT_MBOX_LPU0_CT2 |	\
++					__HFN_INT_MBOX_LPU1_CT2);	\
++	(_bna)->bits.error_status_bits = (__HFN_INT_ERR_MASK_CT2);	\
++	(_bna)->bits.error_mask_bits = (__HFN_INT_ERR_MASK_CT2);	\
++	(_bna)->bits.halt_status_bits = __HFN_INT_CPQ_HALT_CT2;		\
++	(_bna)->bits.halt_mask_bits = __HFN_INT_CPQ_HALT_CT2;		\
++}
++
++#define bna_reg_addr_init(_bna, _pcidev)				\
++{									\
++	switch ((_pcidev)->device_id) {					\
++	case PCI_DEVICE_ID_BROCADE_CT:					\
++		ct_reg_addr_init((_bna), (_pcidev));			\
++		ct_bit_defn_init((_bna), (_pcidev));			\
++		break;							\
 +	}								\
 +}
 +
-+static void bfa_msgq_cmdq_dbell(struct bfa_msgq_cmdq *cmdq);
-+static void bfa_msgq_cmdq_copy_rsp(struct bfa_msgq_cmdq *cmdq);
-+
-+enum cmdq_event {
-+	CMDQ_E_START			= 1,
-+	CMDQ_E_STOP			= 2,
-+	CMDQ_E_FAIL			= 3,
-+	CMDQ_E_POST			= 4,
-+	CMDQ_E_INIT_RESP		= 5,
-+	CMDQ_E_DB_READY			= 6,
-+};
-+
-+bfa_fsm_state_decl(cmdq, stopped, struct bfa_msgq_cmdq, enum cmdq_event);
-+bfa_fsm_state_decl(cmdq, init_wait, struct bfa_msgq_cmdq, enum cmdq_event);
-+bfa_fsm_state_decl(cmdq, ready, struct bfa_msgq_cmdq, enum cmdq_event);
-+bfa_fsm_state_decl(cmdq, dbell_wait, struct bfa_msgq_cmdq,
-+			enum cmdq_event);
-+
-+static void
-+cmdq_sm_stopped_entry(struct bfa_msgq_cmdq *cmdq)
-+{
-+	struct bfa_msgq_cmd_entry *cmdq_ent;
-+
-+	cmdq->producer_index = 0;
-+	cmdq->consumer_index = 0;
-+	cmdq->flags = 0;
-+	cmdq->token = 0;
-+	cmdq->offset = 0;
-+	cmdq->bytes_to_copy = 0;
-+	while (!list_empty(&cmdq->pending_q)) {
-+		bfa_q_deq(&cmdq->pending_q, &cmdq_ent);
-+		bfa_q_qe_init(&cmdq_ent->qe);
-+		call_cmdq_ent_cbfn(cmdq_ent, BFA_STATUS_FAILED);
-+	}
-+}
-+
-+static void
-+cmdq_sm_stopped(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
-+{
-+	switch (event) {
-+	case CMDQ_E_START:
-+		bfa_fsm_set_state(cmdq, cmdq_sm_init_wait);
-+		break;
-+
-+	case CMDQ_E_STOP:
-+	case CMDQ_E_FAIL:
-+		/* No-op */
-+		break;
-+
-+	case CMDQ_E_POST:
-+		cmdq->flags |= BFA_MSGQ_CMDQ_F_DB_UPDATE;
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+cmdq_sm_init_wait_entry(struct bfa_msgq_cmdq *cmdq)
-+{
-+	bfa_wc_down(&cmdq->msgq->init_wc);
-+}
-+
-+static void
-+cmdq_sm_init_wait(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
-+{
-+	switch (event) {
-+	case CMDQ_E_STOP:
-+	case CMDQ_E_FAIL:
-+		bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
-+		break;
-+
-+	case CMDQ_E_POST:
-+		cmdq->flags |= BFA_MSGQ_CMDQ_F_DB_UPDATE;
-+		break;
-+
-+	case CMDQ_E_INIT_RESP:
-+		if (cmdq->flags & BFA_MSGQ_CMDQ_F_DB_UPDATE) {
-+			cmdq->flags &= ~BFA_MSGQ_CMDQ_F_DB_UPDATE;
-+			bfa_fsm_set_state(cmdq, cmdq_sm_dbell_wait);
-+		} else
-+			bfa_fsm_set_state(cmdq, cmdq_sm_ready);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+cmdq_sm_ready_entry(struct bfa_msgq_cmdq *cmdq)
-+{
-+}
-+
-+static void
-+cmdq_sm_ready(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
-+{
-+	switch (event) {
-+	case CMDQ_E_STOP:
-+	case CMDQ_E_FAIL:
-+		bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
-+		break;
-+
-+	case CMDQ_E_POST:
-+		bfa_fsm_set_state(cmdq, cmdq_sm_dbell_wait);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+cmdq_sm_dbell_wait_entry(struct bfa_msgq_cmdq *cmdq)
-+{
-+	bfa_msgq_cmdq_dbell(cmdq);
-+}
-+
-+static void
-+cmdq_sm_dbell_wait(struct bfa_msgq_cmdq *cmdq, enum cmdq_event event)
-+{
-+	switch (event) {
-+	case CMDQ_E_STOP:
-+	case CMDQ_E_FAIL:
-+		bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
-+		break;
-+
-+	case CMDQ_E_POST:
-+		cmdq->flags |= BFA_MSGQ_CMDQ_F_DB_UPDATE;
-+		break;
-+
-+	case CMDQ_E_DB_READY:
-+		if (cmdq->flags & BFA_MSGQ_CMDQ_F_DB_UPDATE) {
-+			cmdq->flags &= ~BFA_MSGQ_CMDQ_F_DB_UPDATE;
-+			bfa_fsm_set_state(cmdq, cmdq_sm_dbell_wait);
-+		} else
-+			bfa_fsm_set_state(cmdq, cmdq_sm_ready);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+bfa_msgq_cmdq_dbell_ready(void *arg)
-+{
-+	struct bfa_msgq_cmdq *cmdq = (struct bfa_msgq_cmdq *)arg;
-+	bfa_fsm_send_event(cmdq, CMDQ_E_DB_READY);
-+}
-+
-+static void
-+bfa_msgq_cmdq_dbell(struct bfa_msgq_cmdq *cmdq)
-+{
-+	struct bfi_msgq_h2i_db *dbell =
-+		(struct bfi_msgq_h2i_db *)(&cmdq->dbell_mb.msg[0]);
-+
-+	memset(dbell, 0, sizeof(struct bfi_msgq_h2i_db));
-+	bfi_h2i_set(dbell->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_DOORBELL_PI, 0);
-+	dbell->mh.mtag.i2htok = 0;
-+	dbell->idx.cmdq_pi = htons(cmdq->producer_index);
-+
-+	if (!bfa_nw_ioc_mbox_queue(cmdq->msgq->ioc, &cmdq->dbell_mb,
-+				bfa_msgq_cmdq_dbell_ready, cmdq)) {
-+		bfa_msgq_cmdq_dbell_ready(cmdq);
-+	}
-+}
-+
-+static void
-+__cmd_copy(struct bfa_msgq_cmdq *cmdq, struct bfa_msgq_cmd_entry *cmd)
-+{
-+	size_t len = cmd->msg_size;
-+	int num_entries = 0;
-+	size_t to_copy;
-+	u8 *src, *dst;
-+
-+	src = (u8 *)cmd->msg_hdr;
-+	dst = (u8 *)cmdq->addr.kva;
-+	dst += (cmdq->producer_index * BFI_MSGQ_CMD_ENTRY_SIZE);
-+
-+	while (len) {
-+		to_copy = (len < BFI_MSGQ_CMD_ENTRY_SIZE) ?
-+				len : BFI_MSGQ_CMD_ENTRY_SIZE;
-+		memcpy(dst, src, to_copy);
-+		len -= to_copy;
-+		src += BFI_MSGQ_CMD_ENTRY_SIZE;
-+		BFA_MSGQ_INDX_ADD(cmdq->producer_index, 1, cmdq->depth);
-+		dst = (u8 *)cmdq->addr.kva;
-+		dst += (cmdq->producer_index * BFI_MSGQ_CMD_ENTRY_SIZE);
-+		num_entries++;
-+	}
-+
-+}
-+
-+static void
-+bfa_msgq_cmdq_ci_update(struct bfa_msgq_cmdq *cmdq, struct bfi_mbmsg *mb)
-+{
-+	struct bfi_msgq_i2h_db *dbell = (struct bfi_msgq_i2h_db *)mb;
-+	struct bfa_msgq_cmd_entry *cmd;
-+	int posted = 0;
-+
-+	cmdq->consumer_index = ntohs(dbell->idx.cmdq_ci);
-+
-+	/* Walk through pending list to see if the command can be posted */
-+	while (!list_empty(&cmdq->pending_q)) {
-+		cmd =
-+		(struct bfa_msgq_cmd_entry *)bfa_q_first(&cmdq->pending_q);
-+		if (ntohs(cmd->msg_hdr->num_entries) <=
-+			BFA_MSGQ_FREE_CNT(cmdq)) {
-+			list_del(&cmd->qe);
-+			__cmd_copy(cmdq, cmd);
-+			posted = 1;
-+			call_cmdq_ent_cbfn(cmd, BFA_STATUS_OK);
-+		} else {
-+			break;
-+		}
-+	}
-+
-+	if (posted)
-+		bfa_fsm_send_event(cmdq, CMDQ_E_POST);
-+}
-+
-+static void
-+bfa_msgq_cmdq_copy_next(void *arg)
-+{
-+	struct bfa_msgq_cmdq *cmdq = (struct bfa_msgq_cmdq *)arg;
-+
-+	if (cmdq->bytes_to_copy)
-+		bfa_msgq_cmdq_copy_rsp(cmdq);
-+}
-+
-+static void
-+bfa_msgq_cmdq_copy_req(struct bfa_msgq_cmdq *cmdq, struct bfi_mbmsg *mb)
-+{
-+	struct bfi_msgq_i2h_cmdq_copy_req *req =
-+		(struct bfi_msgq_i2h_cmdq_copy_req *)mb;
-+
-+	cmdq->token = 0;
-+	cmdq->offset = ntohs(req->offset);
-+	cmdq->bytes_to_copy = ntohs(req->len);
-+	bfa_msgq_cmdq_copy_rsp(cmdq);
-+}
-+
-+static void
-+bfa_msgq_cmdq_copy_rsp(struct bfa_msgq_cmdq *cmdq)
-+{
-+	struct bfi_msgq_h2i_cmdq_copy_rsp *rsp =
-+		(struct bfi_msgq_h2i_cmdq_copy_rsp *)&cmdq->copy_mb.msg[0];
-+	int copied;
-+	u8 *addr = (u8 *)cmdq->addr.kva;
-+
-+	memset(rsp, 0, sizeof(struct bfi_msgq_h2i_cmdq_copy_rsp));
-+	bfi_h2i_set(rsp->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_CMDQ_COPY_RSP, 0);
-+	rsp->mh.mtag.i2htok = htons(cmdq->token);
-+	copied = (cmdq->bytes_to_copy >= BFI_CMD_COPY_SZ) ? BFI_CMD_COPY_SZ :
-+		cmdq->bytes_to_copy;
-+	addr += cmdq->offset;
-+	memcpy(rsp->data, addr, copied);
-+
-+	cmdq->token++;
-+	cmdq->offset += copied;
-+	cmdq->bytes_to_copy -= copied;
-+
-+	if (!bfa_nw_ioc_mbox_queue(cmdq->msgq->ioc, &cmdq->copy_mb,
-+				bfa_msgq_cmdq_copy_next, cmdq)) {
-+		bfa_msgq_cmdq_copy_next(cmdq);
-+	}
-+}
-+
-+static void
-+bfa_msgq_cmdq_attach(struct bfa_msgq_cmdq *cmdq, struct bfa_msgq *msgq)
-+{
-+	cmdq->depth = BFA_MSGQ_CMDQ_NUM_ENTRY;
-+	INIT_LIST_HEAD(&cmdq->pending_q);
-+	cmdq->msgq = msgq;
-+	bfa_fsm_set_state(cmdq, cmdq_sm_stopped);
-+}
-+
-+static void bfa_msgq_rspq_dbell(struct bfa_msgq_rspq *rspq);
-+
-+enum rspq_event {
-+	RSPQ_E_START			= 1,
-+	RSPQ_E_STOP			= 2,
-+	RSPQ_E_FAIL			= 3,
-+	RSPQ_E_RESP			= 4,
-+	RSPQ_E_INIT_RESP		= 5,
-+	RSPQ_E_DB_READY			= 6,
-+};
-+
-+bfa_fsm_state_decl(rspq, stopped, struct bfa_msgq_rspq, enum rspq_event);
-+bfa_fsm_state_decl(rspq, init_wait, struct bfa_msgq_rspq,
-+			enum rspq_event);
-+bfa_fsm_state_decl(rspq, ready, struct bfa_msgq_rspq, enum rspq_event);
-+bfa_fsm_state_decl(rspq, dbell_wait, struct bfa_msgq_rspq,
-+			enum rspq_event);
-+
-+static void
-+rspq_sm_stopped_entry(struct bfa_msgq_rspq *rspq)
-+{
-+	rspq->producer_index = 0;
-+	rspq->consumer_index = 0;
-+	rspq->flags = 0;
-+}
-+
-+static void
-+rspq_sm_stopped(struct bfa_msgq_rspq *rspq, enum rspq_event event)
-+{
-+	switch (event) {
-+	case RSPQ_E_START:
-+		bfa_fsm_set_state(rspq, rspq_sm_init_wait);
-+		break;
-+
-+	case RSPQ_E_STOP:
-+	case RSPQ_E_FAIL:
-+		/* No-op */
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+rspq_sm_init_wait_entry(struct bfa_msgq_rspq *rspq)
-+{
-+	bfa_wc_down(&rspq->msgq->init_wc);
-+}
-+
-+static void
-+rspq_sm_init_wait(struct bfa_msgq_rspq *rspq, enum rspq_event event)
-+{
-+	switch (event) {
-+	case RSPQ_E_FAIL:
-+	case RSPQ_E_STOP:
-+		bfa_fsm_set_state(rspq, rspq_sm_stopped);
-+		break;
-+
-+	case RSPQ_E_INIT_RESP:
-+		bfa_fsm_set_state(rspq, rspq_sm_ready);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+rspq_sm_ready_entry(struct bfa_msgq_rspq *rspq)
-+{
-+}
-+
-+static void
-+rspq_sm_ready(struct bfa_msgq_rspq *rspq, enum rspq_event event)
-+{
-+	switch (event) {
-+	case RSPQ_E_STOP:
-+	case RSPQ_E_FAIL:
-+		bfa_fsm_set_state(rspq, rspq_sm_stopped);
-+		break;
-+
-+	case RSPQ_E_RESP:
-+		bfa_fsm_set_state(rspq, rspq_sm_dbell_wait);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+rspq_sm_dbell_wait_entry(struct bfa_msgq_rspq *rspq)
-+{
-+	if (!bfa_nw_ioc_is_disabled(rspq->msgq->ioc))
-+		bfa_msgq_rspq_dbell(rspq);
-+}
-+
-+static void
-+rspq_sm_dbell_wait(struct bfa_msgq_rspq *rspq, enum rspq_event event)
-+{
-+	switch (event) {
-+	case RSPQ_E_STOP:
-+	case RSPQ_E_FAIL:
-+		bfa_fsm_set_state(rspq, rspq_sm_stopped);
-+		break;
-+
-+	case RSPQ_E_RESP:
-+		rspq->flags |= BFA_MSGQ_RSPQ_F_DB_UPDATE;
-+		break;
-+
-+	case RSPQ_E_DB_READY:
-+		if (rspq->flags & BFA_MSGQ_RSPQ_F_DB_UPDATE) {
-+			rspq->flags &= ~BFA_MSGQ_RSPQ_F_DB_UPDATE;
-+			bfa_fsm_set_state(rspq, rspq_sm_dbell_wait);
-+		} else
-+			bfa_fsm_set_state(rspq, rspq_sm_ready);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
-+static void
-+bfa_msgq_rspq_dbell_ready(void *arg)
-+{
-+	struct bfa_msgq_rspq *rspq = (struct bfa_msgq_rspq *)arg;
-+	bfa_fsm_send_event(rspq, RSPQ_E_DB_READY);
-+}
-+
-+static void
-+bfa_msgq_rspq_dbell(struct bfa_msgq_rspq *rspq)
-+{
-+	struct bfi_msgq_h2i_db *dbell =
-+		(struct bfi_msgq_h2i_db *)(&rspq->dbell_mb.msg[0]);
-+
-+	memset(dbell, 0, sizeof(struct bfi_msgq_h2i_db));
-+	bfi_h2i_set(dbell->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_DOORBELL_CI, 0);
-+	dbell->mh.mtag.i2htok = 0;
-+	dbell->idx.rspq_ci = htons(rspq->consumer_index);
-+
-+	if (!bfa_nw_ioc_mbox_queue(rspq->msgq->ioc, &rspq->dbell_mb,
-+				bfa_msgq_rspq_dbell_ready, rspq)) {
-+		bfa_msgq_rspq_dbell_ready(rspq);
-+	}
-+}
-+
-+static void
-+bfa_msgq_rspq_pi_update(struct bfa_msgq_rspq *rspq, struct bfi_mbmsg *mb)
-+{
-+	struct bfi_msgq_i2h_db *dbell = (struct bfi_msgq_i2h_db *)mb;
-+	struct bfi_msgq_mhdr *msghdr;
-+	int num_entries;
-+	int mc;
-+	u8 *rspq_qe;
-+
-+	rspq->producer_index = ntohs(dbell->idx.rspq_pi);
-+
-+	while (rspq->consumer_index != rspq->producer_index) {
-+		rspq_qe = (u8 *)rspq->addr.kva;
-+		rspq_qe += (rspq->consumer_index * BFI_MSGQ_RSP_ENTRY_SIZE);
-+		msghdr = (struct bfi_msgq_mhdr *)rspq_qe;
-+
-+		mc = msghdr->msg_class;
-+		num_entries = ntohs(msghdr->num_entries);
-+
-+		if ((mc > BFI_MC_MAX) || (rspq->rsphdlr[mc].cbfn == NULL))
-+			break;
-+
-+		(rspq->rsphdlr[mc].cbfn)(rspq->rsphdlr[mc].cbarg, msghdr);
-+
-+		BFA_MSGQ_INDX_ADD(rspq->consumer_index, num_entries,
-+				rspq->depth);
-+	}
-+
-+	bfa_fsm_send_event(rspq, RSPQ_E_RESP);
-+}
-+
-+static void
-+bfa_msgq_rspq_attach(struct bfa_msgq_rspq *rspq, struct bfa_msgq *msgq)
-+{
-+	rspq->depth = BFA_MSGQ_RSPQ_NUM_ENTRY;
-+	rspq->msgq = msgq;
-+	bfa_fsm_set_state(rspq, rspq_sm_stopped);
-+}
-+
-+static void
-+bfa_msgq_init_rsp(struct bfa_msgq *msgq,
-+		 struct bfi_mbmsg *mb)
-+{
-+	bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_INIT_RESP);
-+	bfa_fsm_send_event(&msgq->rspq, RSPQ_E_INIT_RESP);
-+}
-+
-+static void
-+bfa_msgq_init(void *arg)
-+{
-+	struct bfa_msgq *msgq = (struct bfa_msgq *)arg;
-+	struct bfi_msgq_cfg_req *msgq_cfg =
-+		(struct bfi_msgq_cfg_req *)&msgq->init_mb.msg[0];
-+
-+	memset(msgq_cfg, 0, sizeof(struct bfi_msgq_cfg_req));
-+	bfi_h2i_set(msgq_cfg->mh, BFI_MC_MSGQ, BFI_MSGQ_H2I_INIT_REQ, 0);
-+	msgq_cfg->mh.mtag.i2htok = 0;
-+
-+	bfa_dma_be_addr_set(msgq_cfg->cmdq.addr, msgq->cmdq.addr.pa);
-+	msgq_cfg->cmdq.q_depth = htons(msgq->cmdq.depth);
-+	bfa_dma_be_addr_set(msgq_cfg->rspq.addr, msgq->rspq.addr.pa);
-+	msgq_cfg->rspq.q_depth = htons(msgq->rspq.depth);
-+
-+	bfa_nw_ioc_mbox_queue(msgq->ioc, &msgq->init_mb, NULL, NULL);
-+}
-+
-+static void
-+bfa_msgq_isr(void *cbarg, struct bfi_mbmsg *msg)
-+{
-+	struct bfa_msgq *msgq = (struct bfa_msgq *)cbarg;
-+
-+	switch (msg->mh.msg_id) {
-+	case BFI_MSGQ_I2H_INIT_RSP:
-+		bfa_msgq_init_rsp(msgq, msg);
-+		break;
-+
-+	case BFI_MSGQ_I2H_DOORBELL_PI:
-+		bfa_msgq_rspq_pi_update(&msgq->rspq, msg);
-+		break;
-+
-+	case BFI_MSGQ_I2H_DOORBELL_CI:
-+		bfa_msgq_cmdq_ci_update(&msgq->cmdq, msg);
-+		break;
-+
-+	case BFI_MSGQ_I2H_CMDQ_COPY_REQ:
-+		bfa_msgq_cmdq_copy_req(&msgq->cmdq, msg);
-+		break;
-+
-+	default:
-+		BUG_ON(1);
-+	}
-+}
-+
-+static void
-+bfa_msgq_notify(void *cbarg, enum bfa_ioc_event event)
-+{
-+	struct bfa_msgq *msgq = (struct bfa_msgq *)cbarg;
-+
-+	switch (event) {
-+	case BFA_IOC_E_ENABLED:
-+		bfa_wc_init(&msgq->init_wc, bfa_msgq_init, msgq);
-+		bfa_wc_up(&msgq->init_wc);
-+		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_START);
-+		bfa_wc_up(&msgq->init_wc);
-+		bfa_fsm_send_event(&msgq->rspq, RSPQ_E_START);
-+		bfa_wc_wait(&msgq->init_wc);
-+		break;
-+
-+	case BFA_IOC_E_DISABLED:
-+		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_STOP);
-+		bfa_fsm_send_event(&msgq->rspq, RSPQ_E_STOP);
-+		break;
-+
-+	case BFA_IOC_E_FAILED:
-+		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_FAIL);
-+		bfa_fsm_send_event(&msgq->rspq, RSPQ_E_FAIL);
-+		break;
-+
-+	default:
-+		break;
-+	}
-+}
-+
-+u32
-+bfa_msgq_meminfo(void)
-+{
-+	return roundup(BFA_MSGQ_CMDQ_SIZE, BFA_DMA_ALIGN_SZ) +
-+		roundup(BFA_MSGQ_RSPQ_SIZE, BFA_DMA_ALIGN_SZ);
-+}
-+
-+void
-+bfa_msgq_memclaim(struct bfa_msgq *msgq, u8 *kva, u64 pa)
-+{
-+	msgq->cmdq.addr.kva = kva;
-+	msgq->cmdq.addr.pa  = pa;
-+
-+	kva += roundup(BFA_MSGQ_CMDQ_SIZE, BFA_DMA_ALIGN_SZ);
-+	pa += roundup(BFA_MSGQ_CMDQ_SIZE, BFA_DMA_ALIGN_SZ);
-+
-+	msgq->rspq.addr.kva = kva;
-+	msgq->rspq.addr.pa = pa;
-+}
-+
-+void
-+bfa_msgq_attach(struct bfa_msgq *msgq, struct bfa_ioc *ioc)
-+{
-+	msgq->ioc    = ioc;
-+
-+	bfa_msgq_cmdq_attach(&msgq->cmdq, msgq);
-+	bfa_msgq_rspq_attach(&msgq->rspq, msgq);
-+
-+	bfa_nw_ioc_mbox_regisr(msgq->ioc, BFI_MC_MSGQ, bfa_msgq_isr, msgq);
-+	bfa_q_qe_init(&msgq->ioc_notify);
-+	bfa_ioc_notify_init(&msgq->ioc_notify, bfa_msgq_notify, msgq);
-+	bfa_nw_ioc_notify_register(msgq->ioc, &msgq->ioc_notify);
-+}
-+
-+void
-+bfa_msgq_regisr(struct bfa_msgq *msgq, enum bfi_mclass mc,
-+		bfa_msgq_mcfunc_t cbfn, void *cbarg)
-+{
-+	msgq->rspq.rsphdlr[mc].cbfn	= cbfn;
-+	msgq->rspq.rsphdlr[mc].cbarg	= cbarg;
-+}
-+
-+void
-+bfa_msgq_cmd_post(struct bfa_msgq *msgq,  struct bfa_msgq_cmd_entry *cmd)
-+{
-+	if (ntohs(cmd->msg_hdr->num_entries) <=
-+		BFA_MSGQ_FREE_CNT(&msgq->cmdq)) {
-+		__cmd_copy(&msgq->cmdq, cmd);
-+		call_cmdq_ent_cbfn(cmd, BFA_STATUS_OK);
-+		bfa_fsm_send_event(&msgq->cmdq, CMDQ_E_POST);
-+	} else {
-+		list_add_tail(&cmd->qe, &msgq->cmdq.pending_q);
-+	}
-+}
-+
-+void
-+bfa_msgq_rsp_copy(struct bfa_msgq *msgq, u8 *buf, size_t buf_len)
-+{
-+	struct bfa_msgq_rspq *rspq = &msgq->rspq;
-+	size_t len = buf_len;
-+	size_t to_copy;
-+	int ci;
-+	u8 *src, *dst;
-+
-+	ci = rspq->consumer_index;
-+	src = (u8 *)rspq->addr.kva;
-+	src += (ci * BFI_MSGQ_RSP_ENTRY_SIZE);
-+	dst = buf;
-+
-+	while (len) {
-+		to_copy = (len < BFI_MSGQ_RSP_ENTRY_SIZE) ?
-+				len : BFI_MSGQ_RSP_ENTRY_SIZE;
-+		memcpy(dst, src, to_copy);
-+		len -= to_copy;
-+		dst += BFI_MSGQ_RSP_ENTRY_SIZE;
-+		BFA_MSGQ_INDX_ADD(ci, 1, rspq->depth);
-+		src = (u8 *)rspq->addr.kva;
-+		src += (ci * BFI_MSGQ_RSP_ENTRY_SIZE);
-+	}
-+}
-diff --git a/drivers/net/bna/bfa_msgq.h b/drivers/net/bna/bfa_msgq.h
-new file mode 100644
-index 0000000..a6a565a
---- /dev/null
-+++ b/drivers/net/bna/bfa_msgq.h
-@@ -0,0 +1,130 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+/*
-+ * Copyright (c) 2005-2011 Brocade Communications Systems, Inc.
-+ * All rights reserved
-+ * www.brocade.com
-+ */
-+
-+#ifndef __BFA_MSGQ_H__
-+#define __BFA_MSGQ_H__
-+
-+#include "bfa_defs.h"
-+#include "bfi.h"
-+#include "bfa_ioc.h"
-+#include "bfa_cs.h"
-+
-+#define BFA_MSGQ_FREE_CNT(_q)						\
-+	(((_q)->consumer_index - (_q)->producer_index - 1) & ((_q)->depth - 1))
-+
-+#define BFA_MSGQ_INDX_ADD(_q_indx, _qe_num, _q_depth)			\
-+	((_q_indx) = (((_q_indx) + (_qe_num)) & ((_q_depth) - 1)))
-+
-+#define BFA_MSGQ_CMDQ_NUM_ENTRY		128
-+#define BFA_MSGQ_CMDQ_SIZE						\
-+	(BFI_MSGQ_CMD_ENTRY_SIZE * BFA_MSGQ_CMDQ_NUM_ENTRY)
-+
-+#define BFA_MSGQ_RSPQ_NUM_ENTRY		128
-+#define BFA_MSGQ_RSPQ_SIZE						\
-+	(BFI_MSGQ_RSP_ENTRY_SIZE * BFA_MSGQ_RSPQ_NUM_ENTRY)
-+
-+#define bfa_msgq_cmd_set(_cmd, _cbfn, _cbarg, _msg_size, _msg_hdr)	\
-+do {									\
-+	(_cmd)->cbfn = (_cbfn);						\
-+	(_cmd)->cbarg = (_cbarg);					\
-+	(_cmd)->msg_size = (_msg_size);					\
-+	(_cmd)->msg_hdr = (_msg_hdr);					\
-+} while (0)
-+
-+struct bfa_msgq;
-+
-+typedef void (*bfa_msgq_cmdcbfn_t)(void *cbarg, enum bfa_status status);
-+
-+struct bfa_msgq_cmd_entry {
-+	struct list_head				qe;
-+	bfa_msgq_cmdcbfn_t		cbfn;
-+	void				*cbarg;
-+	size_t				msg_size;
-+	struct bfi_msgq_mhdr *msg_hdr;
-+};
-+
-+enum bfa_msgq_cmdq_flags {
-+	BFA_MSGQ_CMDQ_F_DB_UPDATE	= 1,
-+};
-+
-+struct bfa_msgq_cmdq {
-+	bfa_fsm_t			fsm;
-+	enum bfa_msgq_cmdq_flags flags;
-+
-+	u16			producer_index;
-+	u16			consumer_index;
-+	u16			depth; /* FW Q depth is 16 bits */
-+	struct bfa_dma addr;
-+	struct bfa_mbox_cmd dbell_mb;
-+
-+	u16			token;
-+	int				offset;
-+	int				bytes_to_copy;
-+	struct bfa_mbox_cmd copy_mb;
-+
-+	struct list_head		pending_q; /* pending command queue */
-+
-+	struct bfa_msgq *msgq;
-+};
-+
-+enum bfa_msgq_rspq_flags {
-+	BFA_MSGQ_RSPQ_F_DB_UPDATE	= 1,
-+};
-+
-+typedef void (*bfa_msgq_mcfunc_t)(void *cbarg, struct bfi_msgq_mhdr *mhdr);
-+
-+struct bfa_msgq_rspq {
-+	bfa_fsm_t			fsm;
-+	enum bfa_msgq_rspq_flags flags;
-+
-+	u16			producer_index;
-+	u16			consumer_index;
-+	u16			depth; /* FW Q depth is 16 bits */
-+	struct bfa_dma addr;
-+	struct bfa_mbox_cmd dbell_mb;
-+
-+	int				nmclass;
-+	struct {
-+		bfa_msgq_mcfunc_t	cbfn;
-+		void			*cbarg;
-+	} rsphdlr[BFI_MC_MAX];
-+
-+	struct bfa_msgq *msgq;
-+};
-+
-+struct bfa_msgq {
-+	struct bfa_msgq_cmdq cmdq;
-+	struct bfa_msgq_rspq rspq;
-+
-+	struct bfa_wc			init_wc;
-+	struct bfa_mbox_cmd init_mb;
-+
-+	struct bfa_ioc_notify ioc_notify;
-+	struct bfa_ioc *ioc;
-+};
-+
-+u32 bfa_msgq_meminfo(void);
-+void bfa_msgq_memclaim(struct bfa_msgq *msgq, u8 *kva, u64 pa);
-+void bfa_msgq_attach(struct bfa_msgq *msgq, struct bfa_ioc *ioc);
-+void bfa_msgq_regisr(struct bfa_msgq *msgq, enum bfi_mclass mc,
-+		     bfa_msgq_mcfunc_t cbfn, void *cbarg);
-+void bfa_msgq_cmd_post(struct bfa_msgq *msgq,
-+		       struct bfa_msgq_cmd_entry *cmd);
-+void bfa_msgq_rsp_copy(struct bfa_msgq *msgq, u8 *buf, size_t buf_len);
-+
-+#endif
-diff --git a/drivers/net/bna/bfi.h b/drivers/net/bna/bfi.h
-index 088211c..6a53183 100644
---- a/drivers/net/bna/bfi.h
-+++ b/drivers/net/bna/bfi.h
-@@ -192,6 +192,8 @@ enum bfi_mclass {
- 
- #define BFI_BOOT_LOADER_OS		0
- 
-+#define BFI_FWBOOT_ENV_OS		0
-+
- #define BFI_BOOT_MEMTEST_RES_ADDR   0x900
- #define BFI_BOOT_MEMTEST_RES_SIG    0xA0A1A2A3
- 
-@@ -395,6 +397,105 @@ union bfi_ioc_i2h_msg_u {
- 	u32			mboxmsg[BFI_IOC_MSGSZ];
- };
- 
++#define bna_port_id_get(_bna) ((_bna)->ioceth.ioc.port_id)
 +/**
-+ *----------------------------------------------------------------------
-+ *				MSGQ
-+ *----------------------------------------------------------------------
++ *
++ *  Interrupt related bits, flags and macros
++ *
 + */
 +
-+enum bfi_msgq_h2i_msgs {
-+	BFI_MSGQ_H2I_INIT_REQ	   = 1,
-+	BFI_MSGQ_H2I_DOORBELL_PI	= 2,
-+	BFI_MSGQ_H2I_DOORBELL_CI	= 3,
-+	BFI_MSGQ_H2I_CMDQ_COPY_RSP      = 4,
-+};
++#define IB_STATUS_BITS		0x0000ffff
 +
-+enum bfi_msgq_i2h_msgs {
-+	BFI_MSGQ_I2H_INIT_RSP	   = BFA_I2HM(BFI_MSGQ_H2I_INIT_REQ),
-+	BFI_MSGQ_I2H_DOORBELL_PI	= BFA_I2HM(BFI_MSGQ_H2I_DOORBELL_PI),
-+	BFI_MSGQ_I2H_DOORBELL_CI	= BFA_I2HM(BFI_MSGQ_H2I_DOORBELL_CI),
-+	BFI_MSGQ_I2H_CMDQ_COPY_REQ      = BFA_I2HM(BFI_MSGQ_H2I_CMDQ_COPY_RSP),
-+};
++#define BNA_IS_MBOX_INTR(_bna, _intr_status)				\
++	((_intr_status) & (_bna)->bits.mbox_status_bits)
 +
-+/* Messages(commands/responsed/AENS will have the following header */
-+struct bfi_msgq_mhdr {
-+	u8	msg_class;
-+	u8	msg_id;
-+	u16	msg_token;
-+	u16	num_entries;
-+	u8	enet_id;
-+	u8	rsvd[1];
-+};
++#define BNA_IS_HALT_INTR(_bna, _intr_status)				\
++	((_intr_status) & (_bna)->bits.halt_status_bits)
 +
-+#define bfi_msgq_mhdr_set(_mh, _mc, _mid, _tok, _enet_id) do {	\
-+	(_mh).msg_class	 = (_mc);	\
-+	(_mh).msg_id	    = (_mid);       \
-+	(_mh).msg_token	 = (_tok);       \
-+	(_mh).enet_id	   = (_enet_id);   \
++#define BNA_IS_ERR_INTR(_bna, _intr_status)	\
++	((_intr_status) & (_bna)->bits.error_status_bits)
++
++#define BNA_IS_MBOX_ERR_INTR(_bna, _intr_status)	\
++	(BNA_IS_MBOX_INTR(_bna, _intr_status) |		\
++	BNA_IS_ERR_INTR(_bna, _intr_status))
++
++#define BNA_IS_INTX_DATA_INTR(_intr_status)		\
++		((_intr_status) & IB_STATUS_BITS)
++
++#define bna_halt_clear(_bna)						\
++do {									\
++	u32 init_halt;						\
++	init_halt = readl((_bna)->ioceth.ioc.ioc_regs.ll_halt);	\
++	init_halt &= ~__FW_INIT_HALT_P;					\
++	writel(init_halt, (_bna)->ioceth.ioc.ioc_regs.ll_halt);	\
++	init_halt = readl((_bna)->ioceth.ioc.ioc_regs.ll_halt);	\
 +} while (0)
 +
++#define bna_intx_disable(_bna, _cur_mask)				\
++{									\
++	(_cur_mask) = readl((_bna)->regs.fn_int_mask);		\
++	writel(0xffffffff, (_bna)->regs.fn_int_mask);		\
++}
++
++#define bna_intx_enable(bna, new_mask)					\
++	writel((new_mask), (bna)->regs.fn_int_mask)
++#define bna_mbox_intr_disable(bna)					\
++do {									\
++	u32 mask;							\
++	mask = readl((bna)->regs.fn_int_mask);				\
++	writel((mask | (bna)->bits.mbox_mask_bits |			\
++		(bna)->bits.error_mask_bits), (bna)->regs.fn_int_mask); \
++	mask = readl((bna)->regs.fn_int_mask);				\
++} while (0)
++
++#define bna_mbox_intr_enable(bna)					\
++do {									\
++	u32 mask;							\
++	mask = readl((bna)->regs.fn_int_mask);				\
++	writel((mask & ~((bna)->bits.mbox_mask_bits |			\
++		(bna)->bits.error_mask_bits)), (bna)->regs.fn_int_mask);\
++	mask = readl((bna)->regs.fn_int_mask);				\
++} while (0)
++
++#define bna_intr_status_get(_bna, _status)				\
++{									\
++	(_status) = readl((_bna)->regs.fn_int_status);			\
++	if (_status) {							\
++		writel(((_status) & ~(_bna)->bits.mbox_status_bits),	\
++			(_bna)->regs.fn_int_status);			\
++	}								\
++}
++
 +/*
-+ * Mailbox  for messaging interface
++ * MAX ACK EVENTS : No. of acks that can be accumulated in driver,
++ * before acking to h/w. The no. of bits is 16 in the doorbell register,
++ * however we keep this limited to 15 bits.
++ * This is because around the edge of 64K boundary (16 bits), one
++ * single poll can make the accumulated ACK counter cross the 64K boundary,
++ * causing problems, when we try to ack with a value greater than 64K.
++ * 15 bits (32K) should  be large enough to accumulate, anyways, and the max.
++ * acked events to h/w can be (32K + max poll weight) (currently 64).
 + */
-+#define BFI_MSGQ_CMD_ENTRY_SIZE	 (64)    /* TBD */
-+#define BFI_MSGQ_RSP_ENTRY_SIZE	 (64)    /* TBD */
++#define	BNA_IB_MAX_ACK_EVENTS		(1 << 15)
 +
-+#define bfi_msgq_num_cmd_entries(_size)				 \
-+	(((_size) + BFI_MSGQ_CMD_ENTRY_SIZE - 1) / BFI_MSGQ_CMD_ENTRY_SIZE)
++/* These macros build the data portion of the TxQ/RxQ doorbell */
++#define BNA_DOORBELL_Q_PRD_IDX(_pi)	(0x80000000 | (_pi))
++#define BNA_DOORBELL_Q_STOP		(0x40000000)
 +
-+struct bfi_msgq {
-+	union bfi_addr_u addr;
-+	u16 q_depth;     /* Total num of entries in the queue */
-+	u8 rsvd[2];
++/* These macros build the data portion of the IB doorbell */
++#define BNA_DOORBELL_IB_INT_ACK(_timeout, _events)			\
++	(0x80000000 | ((_timeout) << 16) | (_events))
++#define BNA_DOORBELL_IB_INT_DISABLE	(0x40000000)
++
++/* Set the coalescing timer for the given ib */
++#define bna_ib_coalescing_timer_set(_i_dbell, _cls_timer)		\
++	((_i_dbell)->doorbell_ack = BNA_DOORBELL_IB_INT_ACK((_cls_timer), 0));
++
++/* Acks 'events' # of events for a given ib while disabling interrupts */
++#define bna_ib_ack_disable_irq(_i_dbell, _events)			\
++	(writel(BNA_DOORBELL_IB_INT_ACK(0, (_events)), \
++		(_i_dbell)->doorbell_addr));
++
++/* Acks 'events' # of events for a given ib */
++#define bna_ib_ack(_i_dbell, _events)					\
++	(writel(((_i_dbell)->doorbell_ack | (_events)), \
++		(_i_dbell)->doorbell_addr));
++
++#define bna_ib_start(_bna, _ib, _is_regular)				\
++{									\
++	u32 intx_mask;						\
++	struct bna_ib *ib = _ib;					\
++	if ((ib->intr_type == BNA_INTR_T_INTX)) {			\
++		bna_intx_disable((_bna), intx_mask);			\
++		intx_mask &= ~(ib->intr_vector);			\
++		bna_intx_enable((_bna), intx_mask);			\
++	}								\
++	bna_ib_coalescing_timer_set(&ib->door_bell,			\
++			ib->coalescing_timeo);				\
++	if (_is_regular)						\
++		bna_ib_ack(&ib->door_bell, 0);				\
++}
++
++#define bna_ib_stop(_bna, _ib)						\
++{									\
++	u32 intx_mask;						\
++	struct bna_ib *ib = _ib;					\
++	writel(BNA_DOORBELL_IB_INT_DISABLE,				\
++		ib->door_bell.doorbell_addr);				\
++	if (ib->intr_type == BNA_INTR_T_INTX) {				\
++		bna_intx_disable((_bna), intx_mask);			\
++		intx_mask |= ib->intr_vector;				\
++		bna_intx_enable((_bna), intx_mask);			\
++	}								\
++}
++
++#define bna_txq_prod_indx_doorbell(_tcb)				\
++	(writel(BNA_DOORBELL_Q_PRD_IDX((_tcb)->producer_index), \
++		(_tcb)->q_dbell));
++
++#define bna_rxq_prod_indx_doorbell(_rcb)				\
++	(writel(BNA_DOORBELL_Q_PRD_IDX((_rcb)->producer_index), \
++		(_rcb)->q_dbell));
++
++/**
++ *
++ * TxQ, RxQ, CQ related bits, offsets, macros
++ *
++ */
++
++/* TxQ Entry Opcodes */
++#define BNA_TXQ_WI_SEND			(0x402)	/* Single Frame Transmission */
++#define BNA_TXQ_WI_SEND_LSO		(0x403)	/* Multi-Frame Transmission */
++#define BNA_TXQ_WI_EXTENSION		(0x104)	/* Extension WI */
++
++/* TxQ Entry Control Flags */
++#define BNA_TXQ_WI_CF_FCOE_CRC		(1 << 8)
++#define BNA_TXQ_WI_CF_IPID_MODE		(1 << 5)
++#define BNA_TXQ_WI_CF_INS_PRIO		(1 << 4)
++#define BNA_TXQ_WI_CF_INS_VLAN		(1 << 3)
++#define BNA_TXQ_WI_CF_UDP_CKSUM		(1 << 2)
++#define BNA_TXQ_WI_CF_TCP_CKSUM		(1 << 1)
++#define BNA_TXQ_WI_CF_IP_CKSUM		(1 << 0)
++
++#define BNA_TXQ_WI_L4_HDR_N_OFFSET(_hdr_size, _offset) \
++		(((_hdr_size) << 10) | ((_offset) & 0x3FF))
++
++/*
++ * Completion Q defines
++ */
++/* CQ Entry Flags */
++#define	BNA_CQ_EF_MAC_ERROR	(1 <<  0)
++#define	BNA_CQ_EF_FCS_ERROR	(1 <<  1)
++#define	BNA_CQ_EF_TOO_LONG	(1 <<  2)
++#define	BNA_CQ_EF_FC_CRC_OK	(1 <<  3)
++
++#define	BNA_CQ_EF_RSVD1		(1 <<  4)
++#define	BNA_CQ_EF_L4_CKSUM_OK	(1 <<  5)
++#define	BNA_CQ_EF_L3_CKSUM_OK	(1 <<  6)
++#define	BNA_CQ_EF_HDS_HEADER	(1 <<  7)
++
++#define	BNA_CQ_EF_UDP		(1 <<  8)
++#define	BNA_CQ_EF_TCP		(1 <<  9)
++#define	BNA_CQ_EF_IP_OPTIONS	(1 << 10)
++#define	BNA_CQ_EF_IPV6		(1 << 11)
++
++#define	BNA_CQ_EF_IPV4		(1 << 12)
++#define	BNA_CQ_EF_VLAN		(1 << 13)
++#define	BNA_CQ_EF_RSS		(1 << 14)
++#define	BNA_CQ_EF_RSVD2		(1 << 15)
++
++#define	BNA_CQ_EF_MCAST_MATCH   (1 << 16)
++#define	BNA_CQ_EF_MCAST		(1 << 17)
++#define BNA_CQ_EF_BCAST		(1 << 18)
++#define	BNA_CQ_EF_REMOTE	(1 << 19)
++
++#define	BNA_CQ_EF_LOCAL		(1 << 20)
++
++/**
++ *
++ * Data structures
++ *
++ */
++
++struct bna_reg_offset {
++	u32 fn_int_status;
++	u32 fn_int_mask;
 +};
 +
-+/* BFI_ENET_MSGQ_CFG_REQ TBD init or cfg? */
-+struct bfi_msgq_cfg_req {
-+	struct bfi_mhdr mh;
-+	struct bfi_msgq cmdq;
-+	struct bfi_msgq rspq;
++struct bna_bit_defn {
++	u32 mbox_status_bits;
++	u32 mbox_mask_bits;
++	u32 error_status_bits;
++	u32 error_mask_bits;
++	u32 halt_status_bits;
++	u32 halt_mask_bits;
 +};
 +
-+/* BFI_ENET_MSGQ_CFG_RSP */
-+struct bfi_msgq_cfg_rsp {
-+	struct bfi_mhdr mh;
-+	u8 cmd_status;
-+	u8 rsvd[3];
++struct bna_reg {
++	void __iomem *fn_int_status;
++	void __iomem *fn_int_mask;
 +};
 +
-+/* BFI_MSGQ_H2I_DOORBELL */
-+struct bfi_msgq_h2i_db {
-+	struct bfi_mhdr mh;
++/* TxQ Vector (a.k.a. Tx-Buffer Descriptor) */
++struct bna_dma_addr {
++	u32		msb;
++	u32		lsb;
++};
++
++struct bna_txq_wi_vector {
++	u16		reserved;
++	u16		length;		/* Only 14 LSB are valid */
++	struct bna_dma_addr host_addr; /* Tx-Buf DMA addr */
++};
++
++/**
++ *  TxQ Entry Structure
++ *
++ *  BEWARE:  Load values into this structure with correct endianess.
++ */
++struct bna_txq_entry {
 +	union {
-+		u16 cmdq_pi;
-+		u16 rspq_ci;
-+	} idx;
++		struct {
++			u8 reserved;
++			u8 num_vectors;	/* number of vectors present */
++			u16 opcode; /* Either */
++						    /* BNA_TXQ_WI_SEND or */
++						    /* BNA_TXQ_WI_SEND_LSO */
++			u16 flags; /* OR of all the flags */
++			u16 l4_hdr_size_n_offset;
++			u16 vlan_tag;
++			u16 lso_mss;	/* Only 14 LSB are valid */
++			u32 frame_length;	/* Only 24 LSB are valid */
++		} wi;
++
++		struct {
++			u16 reserved;
++			u16 opcode; /* Must be */
++						    /* BNA_TXQ_WI_EXTENSION */
++			u32 reserved2[3];	/* Place holder for */
++						/* removed vector (12 bytes) */
++		} wi_ext;
++	} hdr;
++	struct bna_txq_wi_vector vector[4];
 +};
 +
-+/* BFI_MSGQ_I2H_DOORBELL */
-+struct bfi_msgq_i2h_db {
-+	struct bfi_mhdr mh;
-+	union {
-+		u16 rspq_pi;
-+		u16 cmdq_ci;
-+	} idx;
++/* RxQ Entry Structure */
++struct bna_rxq_entry {		/* Rx-Buffer */
++	struct bna_dma_addr host_addr; /* Rx-Buffer DMA address */
 +};
 +
-+#define BFI_CMD_COPY_SZ 28
-+
-+/* BFI_MSGQ_H2I_CMD_COPY_RSP */
-+struct bfi_msgq_h2i_cmdq_copy_rsp {
-+	struct bfi_mhdr mh;
-+	u8	      data[BFI_CMD_COPY_SZ];
++/* CQ Entry Structure */
++struct bna_cq_entry {
++	u32 flags;
++	u16 vlan_tag;
++	u16 length;
++	u32 rss_hash;
++	u8 valid;
++	u8 reserved1;
++	u8 reserved2;
++	u8 rxq_id;
 +};
 +
-+/* BFI_MSGQ_I2H_CMD_COPY_REQ */
-+struct bfi_msgq_i2h_cmdq_copy_req {
-+	struct bfi_mhdr mh;
-+	u16     offset;
-+	u16     len;
-+};
-+
- #pragma pack()
- 
- #endif /* __BFI_H__ */
-diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
-index cb2594c..7d95517 100644
---- a/drivers/net/bna/bna_ctrl.c
-+++ b/drivers/net/bna/bna_ctrl.c
-@@ -183,7 +183,8 @@ bna_ll_isr(void *llarg, struct bfi_mbmsg *msg)
- 			if (to_post) {
- 				mb_qe = bfa_q_first(&bna->mbox_mod.posted_q);
- 				bfa_nw_ioc_mbox_queue(&bna->device.ioc,
--							&mb_qe->cmd);
-+							&mb_qe->cmd, NULL,
-+							NULL);
- 			}
- 		} else {
- 			snprintf(message, BNA_MESSAGE_SIZE,
-@@ -234,7 +235,8 @@ bna_mbox_send(struct bna *bna, struct bna_mbox_qe *mbox_qe)
- 	bna->mbox_mod.msg_pending++;
- 	if (bna->mbox_mod.state == BNA_MBOX_FREE) {
- 		list_add_tail(&mbox_qe->qe, &bna->mbox_mod.posted_q);
--		bfa_nw_ioc_mbox_queue(&bna->device.ioc, &mbox_qe->cmd);
-+		bfa_nw_ioc_mbox_queue(&bna->device.ioc, &mbox_qe->cmd,
-+					NULL, NULL);
- 		bna->mbox_mod.state = BNA_MBOX_POSTED;
- 	} else {
- 		list_add_tail(&mbox_qe->qe, &bna->mbox_mod.posted_q);
++#endif /* __BNA_HW_DEFS_H__ */
 -- 
 1.7.1
 
