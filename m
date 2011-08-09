@@ -1,164 +1,89 @@
-From: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Subject: RE: [PATCH 4/4] [powerpc] Add flexcan device support for p1010rdb.
-Date: Tue, 9 Aug 2011 14:45:58 +0000
-Message-ID: <9C64B7751C3BCA41B64A68E23005A7BE1C4A88@039-SN1MPN1-002.039d.mgd.msft.net>
-References: <1312892907-20419-1-git-send-email-holt@sgi.com>
-	<1312892907-20419-5-git-send-email-holt@sgi.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Tue, 9 Aug 2011 07:54:54 -0700
+Message-ID: <20110809075454.5331dcac@nehalam.ftrdhcpuser.net>
+References: <20110808105529.4c8c52e1@nehalam.ftrdhcpuser.net>
+	<CA+mtBx_bdCGvR+xBMq9px0vOV6a6kFn0wYyJH26+CdSPLtvgfw@mail.gmail.com>
+	<20110808111917.4b2669de@nehalam.ftrdhcpuser.net>
+	<20110809.004123.2080217558650594315.davem@davemloft.net>
+	<1312877173.2371.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1312892907-20419-5-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:50840 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750722Ab1HIOyp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 10:54:45 -0400
+In-Reply-To: <1312877173.2371.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Robin,
-	Where are you doing the irq handling ie request_irq() for the powerpc based P1010.
-	Or the existing code of ARM based FlexCAN will work for P1010 ??
---Bhaskar
+On Tue, 09 Aug 2011 10:06:13 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> -----Original Message-----
-> From: Robin Holt [mailto:holt-sJ/iWh9BUns@public.gmane.org]
-> Sent: Tuesday, August 09, 2011 5:58 PM
-> To: Robin Holt; Marc Kleine-Budde; Wolfgang Grandegger; U Bhaskar-B22300
-> Cc: Robin Holt; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> PPC list
-> Subject: [PATCH 4/4] [powerpc] Add flexcan device support for p1010rdb.
-> 
-> I added a simple clock source for the p1010rdb so the flexcan driver
-> could determine a clock frequency.  The p1010 can device only has an
-> oscillator of system bus frequency divided by 2.
-> 
-> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-> To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-> To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-> To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-> ---
->  arch/powerpc/platforms/85xx/Kconfig    |    2 +
->  arch/powerpc/platforms/85xx/Makefile   |    2 +
->  arch/powerpc/platforms/85xx/clock.c    |   42
-> ++++++++++++++++++++++++++++++++
->  arch/powerpc/platforms/85xx/p1010rdb.c |    8 ++++++
->  4 files changed, 54 insertions(+), 0 deletions(-)  create mode 100644
-> arch/powerpc/platforms/85xx/clock.c
-> 
-> diff --git a/arch/powerpc/platforms/85xx/Kconfig
-> b/arch/powerpc/platforms/85xx/Kconfig
-> index 498534c..c4304ae 100644
-> --- a/arch/powerpc/platforms/85xx/Kconfig
-> +++ b/arch/powerpc/platforms/85xx/Kconfig
-> @@ -70,6 +70,8 @@ config MPC85xx_RDB
->  config P1010_RDB
->  	bool "Freescale P1010RDB"
->  	select DEFAULT_UIMAGE
-> +	select HAVE_CAN_FLEXCAN if NET && CAN
-> +	select PPC_CLOCK if CAN_FLEXCAN
->  	help
->  	  This option enables support for the MPC85xx RDB (P1010 RDB) board
-> 
-> diff --git a/arch/powerpc/platforms/85xx/Makefile
-> b/arch/powerpc/platforms/85xx/Makefile
-> index a971b32..cc7f381 100644
-> --- a/arch/powerpc/platforms/85xx/Makefile
-> +++ b/arch/powerpc/platforms/85xx/Makefile
-> @@ -3,6 +3,8 @@
->  #
->  obj-$(CONFIG_SMP) += smp.o
-> 
-> +obj-$(CONFIG_PPC_CLOCK)   += clock.o
-> +
->  obj-$(CONFIG_MPC8540_ADS) += mpc85xx_ads.o
->  obj-$(CONFIG_MPC8560_ADS) += mpc85xx_ads.o
->  obj-$(CONFIG_MPC85xx_CDS) += mpc85xx_cds.o diff --git
-> a/arch/powerpc/platforms/85xx/clock.c
-> b/arch/powerpc/platforms/85xx/clock.c
-> new file mode 100644
-> index 0000000..a6fd2c8
-> --- /dev/null
-> +++ b/arch/powerpc/platforms/85xx/clock.c
-> @@ -0,0 +1,42 @@
-> +
-> +#include <linux/device.h>
-> +#include <linux/err.h>
-> +
-> +#include <asm/clk_interface.h>
-> +
-> +#include <sysdev/fsl_soc.h>
-> +
-> +/*
-> + * p1010 needs to provide a clock source for the flexcan driver. The
-> + * oscillator for the p1010 processor is only ever the system clock / 2.
-> + */
-> +
-> +static struct clk *mpc85xx_clk_get(struct device *dev, const char *id)
-> +{
-> +	if (!dev)
-> +		return ERR_PTR(-ENOENT);
-> +
-> +	return NULL;
-> +}
-> +
-> +static void mpc85xx_clk_put(struct clk *clk) {
-> +	return;
-> +}
-> +
-> +static unsigned long mpc85xx_clk_get_rate(struct clk *clk) {
-> +	return fsl_get_sys_freq() / 2;
-> +}
-> +
-> +static struct clk_interface mpc85xx_clk_functions = {
-> +	.clk_get		= mpc85xx_clk_get,
-> +	.clk_get_rate		= mpc85xx_clk_get_rate,
-> +	.clk_put		= mpc85xx_clk_put,
-> +};
-> +
-> +void __init mpc85xx_clk_init(void)
-> +{
-> +	clk_functions = mpc85xx_clk_functions; }
-> +
-> diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c
-> b/arch/powerpc/platforms/85xx/p1010rdb.c
-> index d7387fa..5e52122 100644
-> --- a/arch/powerpc/platforms/85xx/p1010rdb.c
-> +++ b/arch/powerpc/platforms/85xx/p1010rdb.c
-> @@ -81,6 +81,13 @@ static void __init p1010_rdb_setup_arch(void)
->  	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
-> }
-> 
-> +extern void mpc85xx_clk_init(void);
-> +
-> +static void __init p1010_rdb_init(void) {
-> +	mpc85xx_clk_init();
-> +}
-> +
->  static struct of_device_id __initdata p1010rdb_ids[] = {
->  	{ .type = "soc", },
->  	{ .compatible = "soc", },
-> @@ -111,6 +118,7 @@ define_machine(p1010_rdb) {
->  	.name			= "P1010 RDB",
->  	.probe			= p1010_rdb_probe,
->  	.setup_arch		= p1010_rdb_setup_arch,
-> +	.init			= p1010_rdb_init,
->  	.init_IRQ		= p1010_rdb_pic_init,
->  #ifdef CONFIG_PCI
->  	.pcibios_fixup_bus	= fsl_pcibios_fixup_bus,
-> --
-> 1.7.2.1
-> 
+> Le mardi 09 ao=FBt 2011 =E0 00:41 -0700, David Miller a =E9crit :
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> > Date: Mon, 8 Aug 2011 11:19:17 -0700
+> >=20
+> > > On Mon, 8 Aug 2011 11:01:57 -0700
+> > > Tom Herbert <therbert@google.com> wrote:
+> > >=20
+> > >> > Since transmit completion means calling dev_kfree_skb() why no=
+t account
+> > >> > there? You could add some info to netdev if necessary to get c=
+ompile
+> > >> > the statistics.
+> > >> >
+> > >> The algorithm depends on knowing the total number of packets com=
+peted
+> > >> in a single execution of transmit completion (epic based).  We o=
+nly
+> > >> want to recalculate the limits once per completion, which happen=
+s when
+> > >> the completion function is called.
+> > >=20
+> > > So just add some stats to netdev and count the number of dev_kfre=
+e_skb
+> > > calls and do your work at napi complete.
+> >=20
+> > No, I think what Tom's doing here is reasonable.
+> >=20
+> > First off, drivers have never been required to do specific things i=
+f
+> > they return success for ->ndo_start_xmit().  They can kfree_skb(skb=
+)
+> > and return NET_TX_SUCCESS, and that's fine.
+> >=20
+> > This mean we can't use ->ndo_start_xmit() return values to drive th=
+e
+> > BQL engine.
+> >=20
+> > So we simply have a way for the driver to say when it really does
+> > queue up a packet, and that might be useful for other things.
+> >=20
+> > Second, you absolutely do not want to run the BQL engine on every
+> > single dev_kfree_skb() call.  You want to batch it, and that's what
+> > Tom's new interface does, and that is therefore quite reasonable
+> > too.
+> >=20
+> > In fact, I think the best part about this revision of the BQL patch=
+es
+> > is the device driver interface. :-)
+> >=20
+>=20
+> I agree, it permits a smooth transition to selected drivers, even som=
+e
+> non NAPI ones ;)
+>=20
+> In some stress situations, NAPI never completes, so it would also mea=
+n
+> adding a dql call in this case...
+
+Ok. then we need to fix all NAPI drivers at once, and get more
+drivers converted over to NAPI. It is really annoying how there
+is just too much variation among network drivers.
+
