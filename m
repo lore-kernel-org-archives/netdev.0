@@ -1,60 +1,91 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: return of ip_rt_bug()
-Date: Tue, 9 Aug 2011 16:51:26 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1108091645351.1527@ja.ssi.bg>
-References: <CAFiZG+Ve9Y4v9CWCrbGsR+7C79AyoiWncVSVbeqApDuKaPm_jA@mail.gmail.com> <CAFiZG+VJ27939BT-dTbvSotxO6+ACbxWiYwQBUT9pC_Fw22O-w@mail.gmail.com> <alpine.LFD.2.00.1108070104440.1413@ja.ssi.bg> <20110807.222042.1034530719366562334.davem@davemloft.net>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+Date: Tue, 9 Aug 2011 08:50:02 -0500
+Message-ID: <20110809135002.GW4926@sgi.com>
+References: <4E403097.4020306@pengutronix.de>
+	<9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>
+	<4E40F09F.60305@grandegger.com>
+	<9C64B7751C3BCA41B64A68E23005A7BE1BDF8C@039-SN1MPN1-004.039d.mgd.msft.net>
+	<4E41108F.1090104@grandegger.com>
+	<9C64B7751C3BCA41B64A68E23005A7BE1C3552@039-SN1MPN1-002.039d.mgd.msft.net>
+	<20110809124919.GS4926@sgi.com> <4E413036.5080207@grandegger.com>
+	<20110809133531.GV4926@sgi.com>
+	<9C64B7751C3BCA41B64A68E23005A7BE1C4746@039-SN1MPN1-002.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: selinux@gmail.com, davej@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47571 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750741Ab1HINqk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Aug 2011 09:46:40 -0400
-In-Reply-To: <20110807.222042.1034530719366562334.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
+	<Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1C4746-TcFNo7jSaXPiTqIcKZ1S2K4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Sun, 7 Aug 2011, David Miller wrote:
-
-> commit 1b86a58f9d7ce4fe2377687f378fbfb53bdc9b6c
-> Author: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-> Date:   Thu Apr 7 14:04:08 2011 -0700
+On Tue, Aug 09, 2011 at 01:44:16PM +0000, U Bhaskar-B22300 wrote:
 > 
->     ipv4: Fix "Set rt->rt_iif more sanely on output routes."
+> 
+> > -----Original Message-----
+> > From: Robin Holt [mailto:holt-sJ/iWh9BUns@public.gmane.org]
+> > Sent: Tuesday, August 09, 2011 7:06 PM
+> > To: Wolfgang Grandegger
+> > Cc: Robin Holt; U Bhaskar-B22300; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
+> > netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org; Marc Kleine-
+> > Budde
+> > Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+> > 
+> > On Tue, Aug 09, 2011 at 03:03:50PM +0200, Wolfgang Grandegger wrote:
+> > > On 08/09/2011 02:49 PM, Robin Holt wrote:
+...
+> > > > How would you like to change that?  Should I add it as part of this
+> > > > patch, add another patch to the series, or let you take care of it?
+> > > >
+> > > > Also, I assume the uboot project will need to be changed as well to
+> > > > reflect the corrected name.
+> > >
+> > > I think you should provide patches within this series to cleanup the
+> > > obsolete stuff, dts and binding doc.
+> > 
+> > It reads to me that the binding doc now reduces just the required
+> > properties.  Should I remove the file entirely?
+> [Bhaskar] I think the binding doc should atleast be present with the required properties to give the clarity
+>  	    about the CAN functionality
+> 		can0@1c000 {
+>                  compatible = "fsl,flexcan";
+>                  reg = <0x1c000 0x1000>;
+>                  interrupts = <48 0x2>;
+>                  interrupt-parent = <&mpic>;
+>                  clock-frequency = <fixed by u-boot>;
+>          	}; 
 
-	I now checked these changes back to 2.6.38.
-As rt_iif is used to provide input device even for loopback packets
-that come with output route, may be we can optimize further
-the code to save some CPU cycles. In fact, it restores
-some route.c functions to 2.6.38 semantics. The conversion was:
+I am not sure what clarity we get for it.  Here it is as a work in progress:
 
-fl.iif -> rt_route_iif
-rt_iif -> preserved
 
-	There are other places that used fl.iif (0 for output
-routes) but are now using rt_iif instead of rt_route_iif,
-not sure if this change is fatal for them because:
+CAN Device Tree Bindings
+------------------------
+2011 Freescale Semiconductor, Inc.
 
-- net/sched/cls_route.c, route4_classify() gets optional
-iif, so it can be 0, may be to match output route? And
-later route4_classify does exact match for rt_iif. Does
-it mean that now we can not match output packets without
-providing "fromif OUTDEV" ?
+fsl,flexcan nodes
+-----------------------
+Only the required compatible-, reg- and interrupt-properties are supported.
 
-- net/sched/em_meta.c: now int_rtiif (being rt_iif) is
-always != 0, may be not good to match output routes?
-
-	In short, the fl.iif -> rt_iif conversion is risky
-at some places.
-
-	For now posting patch for route.c in another thread...
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Examples:
+	can0@1c000 {
+		compatible = "fsl,flexcan";
+		reg = <0x1c000 0x1000>;
+		interrupts = <48 0x2>;
+		interrupt-parent = <&mpic>;
+	};
