@@ -1,57 +1,68 @@
-From: Andrei Warkentin <andreiw@motorola.com>
-Subject: Re: [PATCHv4] Bridge: Always send NETDEV_CHANGEADDR up on br MAC change.
-Date: Tue, 9 Aug 2011 00:12:45 -0500
-Message-ID: <CALfQTu7x5NVjLCEWenXR8nK1fVZ1c6190FA8+84Teksrm_Wg8w@mail.gmail.com>
-References: <CALfQTu7MVjfO7vHB-mAC=RwokBRsi7vR6_XVfQX0+vU2ZCVHOw@mail.gmail.com>
-	<1312578250-2944-2-git-send-email-andreiw@motorola.com>
-	<20110808131230.7f4b4d99@nehalam.ftrdhcpuser.net>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: [RFC 3/4] [flexcan] Add of_match to platform_device definition.
+Date: Tue,  9 Aug 2011 00:55:12 -0500
+Message-ID: <1312869313-22434-4-git-send-email-holt@sgi.com>
+References: <1312869313-22434-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og108.obsmtp.com ([64.18.0.186]:34317 "EHLO
-	exprod5og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750695Ab1HIFMs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 01:12:48 -0400
-Received: from DE01MGRG01.AM.MOT-MOBILITY.COM ([10.22.94.168])
-	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p795DWSa020725
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 01:13:32 -0400 (EDT)
-Received: from mail-ww0-f46.google.com (mail-ww0-f46.google.com [74.125.82.46])
-	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p795BA6g020274
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 01:13:31 -0400 (EDT)
-Received: by mail-ww0-f46.google.com with SMTP id 27so2841049wwf.3
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2011 22:12:45 -0700 (PDT)
-In-Reply-To: <20110808131230.7f4b4d99@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1312869313-22434-1-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 8, 2011 at 3:12 PM, Stephen Hemminger <shemminger@vyatta.co=
-m> wrote:
-> On Fri, =A05 Aug 2011 16:04:10 -0500
-> Andrei Warkentin <andreiw@motorola.com> wrote:
->
->> This ensures the neighbor entries associated with the bridge
->> dev are flushed, also invalidating the associated cached L2 headers.
->>
->> This means we br_add_if/br_del_if ports to implement hand-over and
->> not wind up with bridge packets going out with stale MAC.
->>
->> This means we can also change MAC of port device and also not wind
->> up with bridge packets going out with stale MAC.
->>
->> This builds on Stephen Hemminger's patch, also handling the br_del_i=
-f
->> case and the port MAC change case.
->>
->> Cc: Stephen Hemminger <shemminger@vyatta.com>
->> Signed-off-by: Andrei Warkentin <andreiw@motorola.com>
->
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
->
+On powerpc, the OpenFirmware devices are not matched without specifying
+an of_match array.  Introduce that array as that is used for matching
+on the Freescale P1010 processor.
 
-Thank you for the Ack.
+Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+---
+ drivers/net/can/flexcan.c |   13 ++++++++++++-
+ 1 files changed, 12 insertions(+), 1 deletions(-)
 
-A
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index 68cbe52..662f832 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -1027,8 +1027,19 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++static struct of_device_id flexcan_of_match[] = {
++	{
++		.compatible = "fsl,flexcan",
++	},
++	{},
++};
++
+ static struct platform_driver flexcan_driver = {
+-	.driver.name = DRV_NAME,
++	.driver = {
++		.name = DRV_NAME,
++		.owner = THIS_MODULE,
++		.of_match_table = flexcan_of_match,
++	},
+ 	.probe = flexcan_probe,
+ 	.remove = __devexit_p(flexcan_remove),
+ };
+-- 
+1.7.2.1
