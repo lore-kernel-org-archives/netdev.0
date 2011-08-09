@@ -1,43 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/6] Export the tcp sock's security context to proc.
-Date: Tue, 09 Aug 2011 00:33:26 -0700 (PDT)
-Message-ID: <20110809.003326.1002501904080430572.davem@davemloft.net>
-References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com>
-	<1312874910-31010-7-git-send-email-rongqing.li@windriver.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Tue, 09 Aug 2011 00:41:23 -0700 (PDT)
+Message-ID: <20110809.004123.2080217558650594315.davem@davemloft.net>
+References: <20110808105529.4c8c52e1@nehalam.ftrdhcpuser.net>
+	<CA+mtBx_bdCGvR+xBMq9px0vOV6a6kFn0wYyJH26+CdSPLtvgfw@mail.gmail.com>
+	<20110808111917.4b2669de@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, sds@tycho.nsa.gov
-To: rongqing.li@windriver.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1312874910-31010-7-git-send-email-rongqing.li@windriver.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51180 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751468Ab1HIHl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 03:41:27 -0400
+In-Reply-To: <20110808111917.4b2669de@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <rongqing.li@windriver.com>
-Date: Tue, 9 Aug 2011 15:28:30 +0800
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 8 Aug 2011 11:19:17 -0700
 
->  	if (v == SEQ_START_TOKEN) {
->  		seq_printf(seq, "%-*s\n", TMPSZ - 1,
->  			   "  sl  local_address rem_address   st tx_queue "
->  			   "rx_queue tr tm->when retrnsmt   uid  timeout "
-> -			   "inode");
-> +			   "inode seclabel");
->  		goto out;
->  	}
+> On Mon, 8 Aug 2011 11:01:57 -0700
+> Tom Herbert <therbert@google.com> wrote:
+> 
+>> > Since transmit completion means calling dev_kfree_skb() why not account
+>> > there? You could add some info to netdev if necessary to get compile
+>> > the statistics.
+>> >
+>> The algorithm depends on knowing the total number of packets competed
+>> in a single execution of transmit completion (epic based).  We only
+>> want to recalculate the limits once per completion, which happens when
+>> the completion function is called.
+> 
+> So just add some stats to netdev and count the number of dev_kfree_skb
+> calls and do your work at napi complete.
 
-Unfortunately you cannot change the layout of procfs file output in
-this way.  It has the potential to break programs which are parsing
-this file in userspace already.
+No, I think what Tom's doing here is reasonable.
 
-The layout hasn't changed in a very long time because it is essentially
-a uservisible ABI.
+First off, drivers have never been required to do specific things if
+they return success for ->ndo_start_xmit().  They can kfree_skb(skb)
+and return NET_TX_SUCCESS, and that's fine.
 
-If you want to export new information you'll have to do it using the
-facility that is extensible, and that's the netlink based socket dumping
-facility implemented in inet_diag.c, tcp_diag.c and friends.
+This mean we can't use ->ndo_start_xmit() return values to drive the
+BQL engine.
 
-There, you can simply add a new netlink attribute that gets dumped with
-the entry, which will provide the security context.
+So we simply have a way for the driver to say when it really does
+queue up a packet, and that might be useful for other things.
+
+Second, you absolutely do not want to run the BQL engine on every
+single dev_kfree_skb() call.  You want to batch it, and that's what
+Tom's new interface does, and that is therefore quite reasonable
+too.
+
+In fact, I think the best part about this revision of the BQL patches
+is the device driver interface. :-)
 
