@@ -1,44 +1,147 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Tue, 09 Aug 2011 11:12:25 -0700
-Message-ID: <1312913545.11924.16.camel@Joe-Laptop>
-References: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
-	 <1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1312912326.11924.12.camel@Joe-Laptop>
-	 <1312912774.2547.1.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] neigh: reduce arp latency
+Date: Tue, 09 Aug 2011 20:15:58 +0200
+Message-ID: <1312913758.2547.8.camel@edumazet-laptop>
+References: <1312904434.2371.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <alpine.LFD.2.00.1108091959250.1527@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, stufever@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wondertoys-mx.wondertoys.net ([206.117.179.246]:36759 "EHLO
-	labridge.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751518Ab1HISM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 14:12:28 -0400
-In-Reply-To: <1312912774.2547.1.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:33453 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096Ab1HISQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 14:16:03 -0400
+Received: by wwf5 with SMTP id 5so251607wwf.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 11:16:02 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.1108091959250.1527@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-08-09 at 19:59 +0200, Eric Dumazet wrote:
-> Le mardi 09 ao=C3=BBt 2011 =C3=A0 10:52 -0700, Joe Perches a =C3=A9cr=
-it :
-> > On Tue, 2011-08-09 at 18:53 +0200, Eric Dumazet wrote:
-> > > Le mercredi 10 ao=C3=BBt 2011 =C3=A0 00:39 +0800, stufever@gmail.=
-com a =C3=A9crit :
-> > []
-> > > > +	if (!local_rqfpr || !local_rqfcr) {
-> > > > +		pr_err("Out of memory\n");
-> > > 	Please remove this pr_err(), kmalloc() will complain already.
-> > Always?
-> > I know there's a trace option, but is it always on?
-> Yes, unless caller added ___GFP_NOWARN in gfp :
-> ptr =3D kmalloc(size, GFP_KERNEL | ___GFP_NOWARN);
+Le mardi 09 ao=C3=BBt 2011 =C3=A0 20:06 +0300, Julian Anastasov a =C3=A9=
+crit :
 
-Isn't that true only for slub?
+> 	To be correct with old NUD_INCOMPLETE logic may be we can use=20
+> max(neigh->parms->retrans_time, HZ/2) here instead of HZ?
+>=20
 
-Do you know where this get emitted?
-I looked cursorily but I don't see it.
+Thanks Julian a lot for reviewing, here is v2 adressing this point.
+
+[PATCH v2 net-next] neigh: reduce arp latency
+
+Remove the artificial HZ latency on arp resolution.
+
+Instead of firing a timer in one jiffy (up to 10 ms if HZ=3D100), lets
+send the ARP message immediately.
+
+Before patch :
+
+# arp -d 192.168.20.108 ; ping -c 3 192.168.20.108
+PING 192.168.20.108 (192.168.20.108) 56(84) bytes of data.
+64 bytes from 192.168.20.108: icmp_seq=3D1 ttl=3D64 time=3D9.91 ms
+64 bytes from 192.168.20.108: icmp_seq=3D2 ttl=3D64 time=3D0.065 ms
+64 bytes from 192.168.20.108: icmp_seq=3D3 ttl=3D64 time=3D0.061 ms
+
+After patch :
+
+$ arp -d 192.168.20.108 ; ping -c 3 192.168.20.108
+PING 192.168.20.108 (192.168.20.108) 56(84) bytes of data.
+64 bytes from 192.168.20.108: icmp_seq=3D1 ttl=3D64 time=3D0.152 ms
+64 bytes from 192.168.20.108: icmp_seq=3D2 ttl=3D64 time=3D0.064 ms
+64 bytes from 192.168.20.108: icmp_seq=3D3 ttl=3D64 time=3D0.074 ms
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/neighbour.c |   40 ++++++++++++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 8fab9b0..4002261 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -844,6 +844,19 @@ static void neigh_invalidate(struct neighbour *nei=
+gh)
+ 	skb_queue_purge(&neigh->arp_queue);
+ }
+=20
++static void neigh_probe(struct neighbour *neigh)
++	__releases(neigh->lock)
++{
++	struct sk_buff *skb =3D skb_peek(&neigh->arp_queue);
++	/* keep skb alive even if arp_queue overflows */
++	if (skb)
++		skb =3D skb_copy(skb, GFP_ATOMIC);
++	write_unlock(&neigh->lock);
++	neigh->ops->solicit(neigh, skb);
++	atomic_inc(&neigh->probes);
++	kfree_skb(skb);
++}
++
+ /* Called when a timer expires for a neighbour entry. */
+=20
+ static void neigh_timer_handler(unsigned long arg)
+@@ -920,14 +933,7 @@ static void neigh_timer_handler(unsigned long arg)
+ 			neigh_hold(neigh);
+ 	}
+ 	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
+-		struct sk_buff *skb =3D skb_peek(&neigh->arp_queue);
+-		/* keep skb alive even if arp_queue overflows */
+-		if (skb)
+-			skb =3D skb_copy(skb, GFP_ATOMIC);
+-		write_unlock(&neigh->lock);
+-		neigh->ops->solicit(neigh, skb);
+-		atomic_inc(&neigh->probes);
+-		kfree_skb(skb);
++		neigh_probe(neigh);
+ 	} else {
+ out:
+ 		write_unlock(&neigh->lock);
+@@ -942,7 +948,7 @@ out:
+ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	int rc;
+-	unsigned long now;
++	bool immediate_probe =3D false;
+=20
+ 	write_lock_bh(&neigh->lock);
+=20
+@@ -950,14 +956,16 @@ int __neigh_event_send(struct neighbour *neigh, s=
+truct sk_buff *skb)
+ 	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
+ 		goto out_unlock_bh;
+=20
+-	now =3D jiffies;
+-
+ 	if (!(neigh->nud_state & (NUD_STALE | NUD_INCOMPLETE))) {
+ 		if (neigh->parms->mcast_probes + neigh->parms->app_probes) {
++			unsigned long next, now =3D jiffies;
++
+ 			atomic_set(&neigh->probes, neigh->parms->ucast_probes);
+ 			neigh->nud_state     =3D NUD_INCOMPLETE;
+-			neigh->updated =3D jiffies;
+-			neigh_add_timer(neigh, now + 1);
++			neigh->updated =3D now;
++			next =3D now + max(neigh->parms->retrans_time, HZ/2);
++			neigh_add_timer(neigh, next);
++			immediate_probe =3D true;
+ 		} else {
+ 			neigh->nud_state =3D NUD_FAILED;
+ 			neigh->updated =3D jiffies;
+@@ -989,7 +997,11 @@ int __neigh_event_send(struct neighbour *neigh, st=
+ruct sk_buff *skb)
+ 		rc =3D 1;
+ 	}
+ out_unlock_bh:
+-	write_unlock_bh(&neigh->lock);
++	if (immediate_probe)
++		neigh_probe(neigh);
++	else
++		write_unlock(&neigh->lock);
++	local_bh_enable();
+ 	return rc;
+ }
+ EXPORT_SYMBOL(__neigh_event_send);
+
 
