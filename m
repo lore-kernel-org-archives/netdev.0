@@ -1,54 +1,50 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net-next 2/2] bnx2x: Coalesce pr_cont uses and fix
- DP typos
-Date: Tue, 9 Aug 2011 17:41:23 +0300
-Message-ID: <1312900883.31417.2.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <cover.1312818707.git.joe@perches.com>
- <98d09e1b3d7a73bf5f2744f0ca238321573e4579.1312818707.git.joe@perches.com>
-Reply-To: eilong@broadcom.com
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: [Patch 0/5] [flexcan/powerpc] Add support for powerpc flexcan
+	(freescale p1010) -V9
+Date: Tue,  9 Aug 2011 09:43:46 -0500
+Message-ID: <1312901031-29887-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Joe Perches" <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <98d09e1b3d7a73bf5f2744f0ca238321573e4579.1312818707.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-08-08 at 08:53 -0700, Joe Perches wrote:
-> Uses of pr_cont should be avoided where reasonably possible
-> because they can be interleaved by other threads and processes.
-> 
-> Coalesce pr_cont uses.
-> 
-> Fix typos, duplicated words and spacing in DP uses caused
-> by split multi-line formats.  Coalesce some of these
-> split formats.  Add missing terminating newlines to DP uses.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
+Marc, Wolfgang or U Bhaskar,
 
-....
+This patch set should have all your comments included.  It is based on
+the David S. Miller net-next-2.6 tree commit 19fd617.
 
-> @@ -12254,7 +12261,7 @@ void bnx2x_period_func(struct link_params *params, struct link_vars *vars)
->  {
->         struct bnx2x *bp = params->bp;
->         if (!params) {
-> -               DP(NETIF_MSG_LINK, "Ininitliazed params !\n");
-> +               DP(NETIF_MSG_LINK, "Uninitialized params !\n");
->                 return;
->         }
->         /* DP(NETIF_MSG_LINK, "Periodic called vars->phy_flags 0x%x speed 0x%x
+This series adds a fifth patch which cleans up and corrects the device
+bindigs for the fsl-flexcan nodes.
 
-This does not apply on the current net-next. Other than that - it looks
-good.
+I have compiled each patch in the series individually for both arm and
+powerpc (cheated on ppc and reordered them with the last patch first so
+I could select CAN_FLEXCAN.
 
-Please re-submit this patch series once net-next is opened for driver
-changes (see: http://marc.info/?l=linux-netdev&m=131278578427946&w=2 )
-and I will ACK it.
+With all the patches applied, my p1010rdb works for communicating between
+its two can ports and also can communicate with an external PSOC.  I have
+done no testing beyond compile testing on an arm system as I have no
+access to an arm based system.
+
+For the first three patches in the series, I believe they are all ready
+for forwarding to David S. Miller for the netdev tree.  I think patch
+4 is ready for submission to the PPC85xx maintainer.  This is the
+first submission of patch 5.
 
 Thanks,
-Eilon
+Robin Holt
