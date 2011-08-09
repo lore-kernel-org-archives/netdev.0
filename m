@@ -1,40 +1,51 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: 802.3ad bonding brain damaged?
-Date: Tue, 09 Aug 2011 13:24:32 +0200
-Message-ID: <m3obzyq13j.fsf@ursa.amorsen.dk>
-References: <4E3EECF6.90409@cfl.rr.com>
-	<1312790234.7020.26.camel@arkology.n2.diac24.net>
-	<4E4041B5.5040908@cfl.rr.com> <4E4043AB.1060500@genband.com>
-	<4E4047CF.5030705@cfl.rr.com>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [RFC 4/4] [powerpc] Add flexcan device support for p1010rdb.
+Date: Tue, 9 Aug 2011 06:40:43 -0500
+Message-ID: <20110809114043.GN4926@sgi.com>
+References: <1312869313-22434-1-git-send-email-holt@sgi.com>
+	<1312869313-22434-5-git-send-email-holt@sgi.com>
+	<20110809063319.GK4926@sgi.com> <4E40DDA5.1050004@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Friesen <chris.friesen@genband.com>,
-	David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
-To: Phillip Susi <psusi@cfl.rr.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.ipvision.dk ([217.195.186.4]:45114 "EHLO
-	gate2.ipvision.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254Ab1HILhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 07:37:32 -0400
-In-Reply-To: <4E4047CF.5030705@cfl.rr.com> (Phillip Susi's message of "Mon, 08
-	Aug 2011 16:32:15 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4E40DDA5.1050004-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Phillip Susi <psusi@cfl.rr.com> writes:
+On Tue, Aug 09, 2011 at 09:11:33AM +0200, Wolfgang Grandegger wrote:
+> > +	return &p1010_rdb_system_clock;
+> 
+> Just returning fsl_get_sys_freq() here would already be fine. I'm also
+> missing the factor of two here:
+> 
+>         return fsl_get_sys_freq() / 2; ????
 
-> Try, sure, but if you can't without seriously affecting performance,
-> then having a knob for damn the torpedoes, full speed ahead mode seems
-> reasonable.
+I am working on the other comments right now as well, but this one
+brought up a good question.  The old algorithm in the original freescale
+patches I started with actually did, essentially:
 
-Packet reordering often affects performance. It can easily be more
-costly than losing half the bandwidth of a bundled link.
+	...clock.freq = DIV_ROUND_CLOSEST(fsl_get_sys_freq() / 2, 1000) * 1000
 
-These days you are even dependent on the NIC firmware for good
-performance with TCP for reordered packets -- if the NIC is bad at
-handling them, you don't get any performance boost from GRO.
+The end result was before:
+	...clock.freq=0x0bebc200
+After:
+	...clock.freq=0x0bebc1fe
 
-For UDP, applications have to handle it on their own.
+Is that rounding relavent?
 
-
-/Benny
+Thanks,
+Robin
