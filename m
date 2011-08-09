@@ -1,39 +1,41 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [PATCH 4/4] [powerpc] Add flexcan device support for p1010rdb.
-Date: Tue, 9 Aug 2011 09:55:07 -0500
-Message-ID: <20110809145507.GY4926@sgi.com>
-References: <1312892907-20419-1-git-send-email-holt@sgi.com>
-	<1312892907-20419-5-git-send-email-holt@sgi.com>
-	<9C64B7751C3BCA41B64A68E23005A7BE1C4A88@039-SN1MPN1-002.039d.mgd.msft.net>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCHv3 1/9] at91: provide macb clks with "pclk" and "hclk" name
+Date: Tue, 9 Aug 2011 16:49:01 +0200
+Message-ID: <20110809144901.GH22213@game.jcrosoft.org>
+References: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
+	<1312881411-2376-2-git-send-email-jamie@jamieiles.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Jamie Iles <jamie@jamieiles.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1C4A88-TcFNo7jSaXPiTqIcKZ1S2K4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <1312881411-2376-2-git-send-email-jamie@jamieiles.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 09, 2011 at 02:45:58PM +0000, U Bhaskar-B22300 wrote:
-> Hi Robin,
-> 	Where are you doing the irq handling ie request_irq() for the powerpc based P1010.
-> 	Or the existing code of ARM based FlexCAN will work for P1010 ??
+On 10:16 Tue 09 Aug     , Jamie Iles wrote:
+> The macb driver expects clocks with the names "pclk" and "hclk".  We
+> currently provide "macb_clk" but to fit in line with other
+> architectures (namely AVR32), provide "pclk" and a fake "hclk".
+> 
+> Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> Signed-off-by: Jamie Iles <jamie@jamieiles.com>
+> Acked-by: David S. Miller <davem@davemloft.net>
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> ---
+we now use clkdev
 
-It appears that the of_device stuff got moved under the struct device
-and that allows the request_irq() to just magically work.
+I'll send a updated version
 
-Robin
+Best Regards,
+J.
