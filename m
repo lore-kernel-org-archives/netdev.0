@@ -1,152 +1,113 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv3 1/9] at91: provide macb clks with "pclk" and "hclk" name
-Date: Tue,  9 Aug 2011 10:16:43 +0100
-Message-ID: <1312881411-2376-2-git-send-email-jamie@jamieiles.com>
+Subject: [PATCHv3 2/9] macb: remove conditional clk handling
+Date: Tue,  9 Aug 2011 10:16:44 +0100
+Message-ID: <1312881411-2376-3-git-send-email-jamie@jamieiles.com>
 References: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
 Cc: plagnioj@jcrosoft.com, Jamie Iles <jamie@jamieiles.com>
 To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ww0-f44.google.com ([74.125.82.44]:40251 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981Ab1HIJRc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 05:17:32 -0400
-Received: by wwf5 with SMTP id 5so2433881wwf.1
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 02:17:31 -0700 (PDT)
+	with ESMTP id S1750801Ab1HIJRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 05:17:39 -0400
+Received: by mail-ww0-f44.google.com with SMTP id 5so2433881wwf.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 02:17:38 -0700 (PDT)
 In-Reply-To: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The macb driver expects clocks with the names "pclk" and "hclk".  We
-currently provide "macb_clk" but to fit in line with other
-architectures (namely AVR32), provide "pclk" and a fake "hclk".
+AT91 now provides both "pclk" and "hclk" aliases for the the macb
+device so we can use the same clk handling paths for both AT91 and
+AVR32.
 
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- arch/arm/mach-at91/at91cap9.c    |    8 +++++++-
- arch/arm/mach-at91/at91sam9260.c |    8 +++++++-
- arch/arm/mach-at91/at91sam9263.c |    8 +++++++-
- arch/arm/mach-at91/at91sam9g45.c |    8 +++++++-
- 4 files changed, 28 insertions(+), 4 deletions(-)
+ drivers/net/macb.c |   23 ++---------------------
+ 1 files changed, 2 insertions(+), 21 deletions(-)
 
-diff --git a/arch/arm/mach-at91/at91cap9.c b/arch/arm/mach-at91/at91cap9.c
-index bfc6844..da17a72 100644
---- a/arch/arm/mach-at91/at91cap9.c
-+++ b/arch/arm/mach-at91/at91cap9.c
-@@ -137,10 +137,15 @@ static struct clk pwm_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91CAP9_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk aestdes_clk = {
- 	.name		= "aestdes_clk",
- 	.pmc_mask	= 1 << AT91CAP9_ID_AESTDES,
-@@ -199,6 +204,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&tcb_clk,
- 	&pwm_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&aestdes_clk,
- 	&adc_clk,
- 	&isi_clk,
-diff --git a/arch/arm/mach-at91/at91sam9260.c b/arch/arm/mach-at91/at91sam9260.c
-index cb397be..d4e70cd 100644
---- a/arch/arm/mach-at91/at91sam9260.c
-+++ b/arch/arm/mach-at91/at91sam9260.c
-@@ -120,10 +120,15 @@ static struct clk ohci_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91SAM9260_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk isi_clk = {
- 	.name		= "isi_clk",
- 	.pmc_mask	= 1 << AT91SAM9260_ID_ISI,
-@@ -179,6 +184,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&tc2_clk,
- 	&ohci_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&isi_clk,
- 	&usart3_clk,
- 	&usart4_clk,
-diff --git a/arch/arm/mach-at91/at91sam9263.c b/arch/arm/mach-at91/at91sam9263.c
-index 044f3c9..ff4ddd3 100644
---- a/arch/arm/mach-at91/at91sam9263.c
-+++ b/arch/arm/mach-at91/at91sam9263.c
-@@ -118,10 +118,15 @@ static struct clk pwm_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91SAM9263_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk dma_clk = {
- 	.name		= "dma_clk",
- 	.pmc_mask	= 1 << AT91SAM9263_ID_DMA,
-@@ -172,6 +177,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&tcb_clk,
- 	&pwm_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&twodge_clk,
- 	&udc_clk,
- 	&isi_clk,
-diff --git a/arch/arm/mach-at91/at91sam9g45.c b/arch/arm/mach-at91/at91sam9g45.c
-index e04c5fb..3726d1b 100644
---- a/arch/arm/mach-at91/at91sam9g45.c
-+++ b/arch/arm/mach-at91/at91sam9g45.c
-@@ -144,10 +144,15 @@ static struct clk ac97_clk = {
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
- static struct clk macb_clk = {
--	.name		= "macb_clk",
-+	.name		= "pclk",
- 	.pmc_mask	= 1 << AT91SAM9G45_ID_EMAC,
- 	.type		= CLK_TYPE_PERIPHERAL,
- };
-+static struct clk macb_hclk = {
-+	.name		= "hclk",
-+	.pmc_mask	= 0,
-+	.type		= CLK_TYPE_PERIPHERAL,
-+};
- static struct clk isi_clk = {
- 	.name		= "isi_clk",
- 	.pmc_mask	= 1 << AT91SAM9G45_ID_ISI,
-@@ -195,6 +200,7 @@ static struct clk *periph_clocks[] __initdata = {
- 	&lcdc_clk,
- 	&ac97_clk,
- 	&macb_clk,
-+	&macb_hclk,
- 	&isi_clk,
- 	&udphs_clk,
- 	&mmc1_clk,
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index dc4e305..6e57567 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -1152,28 +1152,19 @@ static int __init macb_probe(struct platform_device *pdev)
+ 
+ 	spin_lock_init(&bp->lock);
+ 
+-#if defined(CONFIG_ARCH_AT91)
+-	bp->pclk = clk_get(&pdev->dev, "macb_clk");
++	bp->pclk = clk_get(&pdev->dev, "pclk");
+ 	if (IS_ERR(bp->pclk)) {
+ 		dev_err(&pdev->dev, "failed to get macb_clk\n");
+ 		goto err_out_free_dev;
+ 	}
+ 	clk_enable(bp->pclk);
+-#else
+-	bp->pclk = clk_get(&pdev->dev, "pclk");
+-	if (IS_ERR(bp->pclk)) {
+-		dev_err(&pdev->dev, "failed to get pclk\n");
+-		goto err_out_free_dev;
+-	}
++
+ 	bp->hclk = clk_get(&pdev->dev, "hclk");
+ 	if (IS_ERR(bp->hclk)) {
+ 		dev_err(&pdev->dev, "failed to get hclk\n");
+ 		goto err_out_put_pclk;
+ 	}
+-
+-	clk_enable(bp->pclk);
+ 	clk_enable(bp->hclk);
+-#endif
+ 
+ 	bp->regs = ioremap(regs->start, resource_size(regs));
+ 	if (!bp->regs) {
+@@ -1256,14 +1247,10 @@ err_out_free_irq:
+ err_out_iounmap:
+ 	iounmap(bp->regs);
+ err_out_disable_clocks:
+-#ifndef CONFIG_ARCH_AT91
+ 	clk_disable(bp->hclk);
+ 	clk_put(bp->hclk);
+-#endif
+ 	clk_disable(bp->pclk);
+-#ifndef CONFIG_ARCH_AT91
+ err_out_put_pclk:
+-#endif
+ 	clk_put(bp->pclk);
+ err_out_free_dev:
+ 	free_netdev(dev);
+@@ -1289,10 +1276,8 @@ static int __exit macb_remove(struct platform_device *pdev)
+ 		unregister_netdev(dev);
+ 		free_irq(dev->irq, dev);
+ 		iounmap(bp->regs);
+-#ifndef CONFIG_ARCH_AT91
+ 		clk_disable(bp->hclk);
+ 		clk_put(bp->hclk);
+-#endif
+ 		clk_disable(bp->pclk);
+ 		clk_put(bp->pclk);
+ 		free_netdev(dev);
+@@ -1310,9 +1295,7 @@ static int macb_suspend(struct platform_device *pdev, pm_message_t state)
+ 
+ 	netif_device_detach(netdev);
+ 
+-#ifndef CONFIG_ARCH_AT91
+ 	clk_disable(bp->hclk);
+-#endif
+ 	clk_disable(bp->pclk);
+ 
+ 	return 0;
+@@ -1324,9 +1307,7 @@ static int macb_resume(struct platform_device *pdev)
+ 	struct macb *bp = netdev_priv(netdev);
+ 
+ 	clk_enable(bp->pclk);
+-#ifndef CONFIG_ARCH_AT91
+ 	clk_enable(bp->hclk);
+-#endif
+ 
+ 	netif_device_attach(netdev);
+ 
 -- 
 1.7.4.1
 
