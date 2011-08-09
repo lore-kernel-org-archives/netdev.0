@@ -1,52 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Tue, 09 Aug 2011 20:24:17 +0200
-Message-ID: <1312914257.2547.10.camel@edumazet-laptop>
-References: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
-	 <1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1312912326.11924.12.camel@Joe-Laptop>
-	 <1312912774.2547.1.camel@edumazet-laptop>
-	 <1312913545.11924.16.camel@Joe-Laptop>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Tue, 9 Aug 2011 11:28:43 -0700
+Message-ID: <CA+mtBx9DWop_HYU9H4X-9nuFZw8epJhqy9FPArz6evSY0=9Ohg@mail.gmail.com>
+References: <20110808105529.4c8c52e1@nehalam.ftrdhcpuser.net>
+	<CA+mtBx_bdCGvR+xBMq9px0vOV6a6kFn0wYyJH26+CdSPLtvgfw@mail.gmail.com>
+	<20110808111917.4b2669de@nehalam.ftrdhcpuser.net>
+	<20110809.004123.2080217558650594315.davem@davemloft.net>
+	<1312877173.2371.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20110809075454.5331dcac@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, stufever@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1312913545.11924.16.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:1243 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab1HIS2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 14:28:47 -0400
+Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
+	by smtp-out.google.com with ESMTP id p79ISjht006020
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 11:28:45 -0700
+Received: from iym5 (iym5.prod.google.com [10.241.52.5])
+	by kpbe16.cbf.corp.google.com with ESMTP id p79IN1iF027763
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 11:28:43 -0700
+Received: by iym5 with SMTP id 5so442509iym.37
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 11:28:43 -0700 (PDT)
+In-Reply-To: <20110809075454.5331dcac@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 09 ao=C3=BBt 2011 =C3=A0 11:12 -0700, Joe Perches a =C3=A9crit=
- :
-> On Tue, 2011-08-09 at 19:59 +0200, Eric Dumazet wrote:
-> > Le mardi 09 ao=C3=BBt 2011 =C3=A0 10:52 -0700, Joe Perches a =C3=A9=
-crit :
-> > > On Tue, 2011-08-09 at 18:53 +0200, Eric Dumazet wrote:
-> > > > Le mercredi 10 ao=C3=BBt 2011 =C3=A0 00:39 +0800, stufever@gmai=
-l.com a =C3=A9crit :
-> > > []
-> > > > > +	if (!local_rqfpr || !local_rqfcr) {
-> > > > > +		pr_err("Out of memory\n");
-> > > > 	Please remove this pr_err(), kmalloc() will complain already.
-> > > Always?
-> > > I know there's a trace option, but is it always on?
-> > Yes, unless caller added ___GFP_NOWARN in gfp :
-> > ptr =3D kmalloc(size, GFP_KERNEL | ___GFP_NOWARN);
->=20
-> Isn't that true only for slub?
->=20
+> Ok. then we need to fix all NAPI drivers at once, and get more
+> drivers converted over to NAPI. It is really annoying how there
+> is just too much variation among network drivers.
 
-nope, this is page allocation, so common to slab/slub/...
+Agreed this variation has created a mess and makes it difficult to add
+this sort of functionality.  But I'm not sure what the "fix" would be.
 
-> Do you know where this get emitted?
-> I looked cursorily but I don't see it.
->=20
+For instance...
 
-This is a bit beyond this thread
+It seems like there are three primary points points where drivers
+interact with stack to stop or wakeup queue:
 
-Look at mm/page_alloc.c
+1) On start-xmit, availability is checked and queue is stopped if no
+space available queue is stopped.  Some drivers report an error if
+there was no availability and queue had not been stopped as expected.
+2) At the end of start-xmit availability is checked and queue is
+stopped if necessary.
+3) At end of completion processing, availability is checked and queue
+is waked up if necessary.
 
-void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
+Each of these are several lines of code in each driver, and seem to be
+begging for a unified abstraction.  For instance in tg3 instead of:
+
+if (unlikely(netif_tx_queue_stopped(txq) &&
+                     (tg3_tx_avail(tnapi) > TG3_TX_WAKEUP_THRESH(tnapi)))) {
+                __netif_tx_lock(txq, smp_processor_id());
+                if (netif_tx_queue_stopped(txq) &&
+                    (tg3_tx_avail(tnapi) > TG3_TX_WAKEUP_THRESH(tnapi)))
+                        netif_tx_wake_queue(txq);
+                __netif_tx_unlock(txq);
+        }
+
+we probably would want something like:
+
+netif_tx_queue_complete_check(txq, pkts, bytes, tg3_tx_avail(tnapi) >
+TG3_TX_WAKEUP_THRESH(tnapi))
+
+which would do all the work to check for available space, wakeup the
+queue, statistic, bql, etc...
+
+I actually did consider abstracting these out as part of bql, but even
+though drivers implemented these in similar ways, variations in each
+driver might make introducing a unified abstraction nontrivial (like
+where drivers need to insert memory barriers and variations in
+locking).
