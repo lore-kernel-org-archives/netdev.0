@@ -1,180 +1,39 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [RFC 4/4] [powerpc] Add flexcan device support for p1010rdb.
-Date: Tue, 9 Aug 2011 01:33:19 -0500
-Message-ID: <20110809063319.GK4926@sgi.com>
-References: <1312869313-22434-1-git-send-email-holt@sgi.com>
-	<1312869313-22434-5-git-send-email-holt@sgi.com>
+From: Robin Holt <holt@sgi.com>
+Subject: Re: gianfar.c null pointer deref in gfar_start_xmit().
+Date: Tue, 9 Aug 2011 01:54:07 -0500
+Message-ID: <20110809065407.GF3709@sgi.com>
+References: <20110803024438.GH4926@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.sgi.com ([192.48.179.29]:50310 "EHLO relay.sgi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751140Ab1HIGyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2011 02:54:08 -0400
 Content-Disposition: inline
-In-Reply-To: <1312869313-22434-5-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110803024438.GH4926@sgi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Argh.  I sent an earlier (non-working) version of this patch.  Here is
-the correct one.
+On Tue, Aug 02, 2011 at 09:44:38PM -0500, Robin Holt wrote:
+> 
+> While using the v3.0 kernel on a Freescale P1010RDB with 3 minor patches
+> (None which affect gianfar.c), I get a NULL pointer deref at:
+> 
+> static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> {
+> ...
+> 	regs = tx_queue->grp->regs;
+> 
+> I put a BUG_ON(tx_queue->grp) just before this line and it did trip.
+> I have not looked at this any more than that.
+> 
+> Any suggestions would be welcome.   To reproduce, all I need to do is
+> a few sequences of pings.
 
-I added a clock source for the p1010rdb so the flexcan driver
-could find its clock frequency.
+I was able to reproduce this with the net-next-2.6 kernel as well.
 
-Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
----
- arch/powerpc/platforms/85xx/Kconfig    |    6 +++
- arch/powerpc/platforms/85xx/Makefile   |    1 +
- arch/powerpc/platforms/85xx/clock.c    |   59 ++++++++++++++++++++++++++++++++
- arch/powerpc/platforms/85xx/p1010rdb.c |   10 +++++
- 4 files changed, 76 insertions(+), 0 deletions(-)
- create mode 100644 arch/powerpc/platforms/85xx/clock.c
-
-diff --git a/arch/powerpc/platforms/85xx/Kconfig b/arch/powerpc/platforms/85xx/Kconfig
-index 498534c..ed4cf92 100644
---- a/arch/powerpc/platforms/85xx/Kconfig
-+++ b/arch/powerpc/platforms/85xx/Kconfig
-@@ -26,6 +26,10 @@ config MPC8560_ADS
- 	help
- 	  This option enables support for the MPC 8560 ADS board
- 
-+config 85xx_HAVE_CAN_FLEXCAN
-+	bool
-+	select HAVE_CAN_FLEXCAN if NET && CAN
-+
- config MPC85xx_CDS
- 	bool "Freescale MPC85xx CDS"
- 	select DEFAULT_UIMAGE
-@@ -70,6 +74,8 @@ config MPC85xx_RDB
- config P1010_RDB
- 	bool "Freescale P1010RDB"
- 	select DEFAULT_UIMAGE
-+	select 85xx_HAVE_CAN_FLEXCAN
-+	select PPC_CLOCK if CAN_FLEXCAN
- 	help
- 	  This option enables support for the MPC85xx RDB (P1010 RDB) board
- 
-diff --git a/arch/powerpc/platforms/85xx/Makefile b/arch/powerpc/platforms/85xx/Makefile
-index a971b32..64ad7a4 100644
---- a/arch/powerpc/platforms/85xx/Makefile
-+++ b/arch/powerpc/platforms/85xx/Makefile
-@@ -11,6 +11,7 @@ obj-$(CONFIG_MPC85xx_DS)  += mpc85xx_ds.o
- obj-$(CONFIG_MPC85xx_MDS) += mpc85xx_mds.o
- obj-$(CONFIG_MPC85xx_RDB) += mpc85xx_rdb.o
- obj-$(CONFIG_P1010_RDB)   += p1010rdb.o
-+obj-$(CONFIG_PPC_CLOCK)   += clock.o
- obj-$(CONFIG_P1022_DS)    += p1022_ds.o
- obj-$(CONFIG_P1023_RDS)   += p1023_rds.o
- obj-$(CONFIG_P2040_RDB)   += p2040_rdb.o corenet_ds.o
-diff --git a/arch/powerpc/platforms/85xx/clock.c b/arch/powerpc/platforms/85xx/clock.c
-new file mode 100644
-index 0000000..a25cbf3
---- /dev/null
-+++ b/arch/powerpc/platforms/85xx/clock.c
-@@ -0,0 +1,59 @@
-+
-+#include <linux/device.h>
-+#include <linux/err.h>
-+
-+#include <asm/clk_interface.h>
-+
-+#include <sysdev/fsl_soc.h>
-+
-+/*
-+ * p1010rdb needs to provide a clock source for the flexcan driver.
-+ */
-+struct clk {
-+	unsigned long rate;
-+} p1010_rdb_system_clock;
-+
-+static struct clk *p1010_rdb_clk_get(struct device *dev, const char *id)
-+{
-+	const char *dev_init_name;
-+
-+	if (!dev)
-+		return ERR_PTR(-ENOENT);
-+
-+	/*
-+	 * The can devices are named ffe1c000.can0 and ffe1d000.can1 on
-+	 * the p1010rdb.  Check for the "can" portion of that name before
-+	 * returning a clock source.
-+	 */
-+	dev_init_name = dev_name(dev);
-+	if (strlen(dev_init_name) != 13)
-+		return ERR_PTR(-ENOENT);
-+	dev_init_name += 9;
-+	if (strncmp(dev_init_name, "can", 3))
-+		return ERR_PTR(-ENOENT);
-+
-+	return &p1010_rdb_system_clock;
-+}
-+
-+static void p1010_rdb_clk_put(struct clk *clk)
-+{
-+	return;
-+}
-+
-+static unsigned long p1010_rdb_clk_get_rate(struct clk *clk)
-+{
-+	return clk->rate;
-+}
-+
-+static struct clk_interface p1010_rdb_clk_functions = {
-+	.clk_get		= p1010_rdb_clk_get,
-+	.clk_get_rate		= p1010_rdb_clk_get_rate,
-+	.clk_put		= p1010_rdb_clk_put,
-+};
-+
-+void __init p1010_rdb_clk_init(void)
-+{
-+	p1010_rdb_system_clock.rate = fsl_get_sys_freq();
-+	clk_functions = p1010_rdb_clk_functions;
-+}
-+
-diff --git a/arch/powerpc/platforms/85xx/p1010rdb.c b/arch/powerpc/platforms/85xx/p1010rdb.c
-index d7387fa..d0afbf9 100644
---- a/arch/powerpc/platforms/85xx/p1010rdb.c
-+++ b/arch/powerpc/platforms/85xx/p1010rdb.c
-@@ -81,6 +81,15 @@ static void __init p1010_rdb_setup_arch(void)
- 	printk(KERN_INFO "P1010 RDB board from Freescale Semiconductor\n");
- }
- 
-+extern void p1010_rdb_clk_init(void);
-+
-+static void __init p1010_rdb_init(void)
-+{
-+#ifdef CONFIG_PPC_CLOCK
-+	p1010_rdb_clk_init();
-+#endif
-+}
-+
- static struct of_device_id __initdata p1010rdb_ids[] = {
- 	{ .type = "soc", },
- 	{ .compatible = "soc", },
-@@ -111,6 +120,7 @@ define_machine(p1010_rdb) {
- 	.name			= "P1010 RDB",
- 	.probe			= p1010_rdb_probe,
- 	.setup_arch		= p1010_rdb_setup_arch,
-+	.init			= p1010_rdb_init,
- 	.init_IRQ		= p1010_rdb_pic_init,
- #ifdef CONFIG_PCI
- 	.pcibios_fixup_bus	= fsl_pcibios_fixup_bus,
--- 
-1.7.2.1
+Robin
