@@ -1,51 +1,53 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [RFC 4/4] [powerpc] Add flexcan device support for p1010rdb.
-Date: Tue, 9 Aug 2011 06:40:43 -0500
-Message-ID: <20110809114043.GN4926@sgi.com>
-References: <1312869313-22434-1-git-send-email-holt@sgi.com>
-	<1312869313-22434-5-git-send-email-holt@sgi.com>
-	<20110809063319.GK4926@sgi.com> <4E40DDA5.1050004@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4E40DDA5.1050004-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] net_sched: prio: use qdisc_dequeue_peeked
+Date: Tue,  9 Aug 2011 14:04:43 +0200
+Message-ID: <1312891483-30034-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41241 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753310Ab1HIMCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 08:02:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 09, 2011 at 09:11:33AM +0200, Wolfgang Grandegger wrote:
-> > +	return &p1010_rdb_system_clock;
-> 
-> Just returning fsl_get_sys_freq() here would already be fine. I'm also
-> missing the factor of two here:
-> 
->         return fsl_get_sys_freq() / 2; ????
+commit 07bd8df5df4369487812bf85a237322ff3569b77
+(sch_sfq: fix peek() implementation) changed sfq to use generic
+peek helper.
 
-I am working on the other comments right now as well, but this one
-brought up a good question.  The old algorithm in the original freescale
-patches I started with actually did, essentially:
+This makes HFSC complain about a non-work-conserving child qdisc, if
+prio with sfq child is used within hfsc:
 
-	...clock.freq = DIV_ROUND_CLOSEST(fsl_get_sys_freq() / 2, 1000) * 1000
+hfsc peeks into prio qdisc, which will then peek into sfq.
+returned skb is stashed in sch->gso_skb.
 
-The end result was before:
-	...clock.freq=0x0bebc200
-After:
-	...clock.freq=0x0bebc1fe
+Next, hfsc tries to dequeue from prio, but prio will call sfq dequeue
+directly, which may return NULL instead of previously peeked-at skb.
 
-Is that rounding relavent?
+Have prio call qdisc_dequeue_peeked, so sfq->dequeue() is
+not called in this case.
 
-Thanks,
-Robin
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Eric, does this look correct to you?
+ I am not sure if sfq needs fixing instead of this patch here.
+
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 2a318f2..b5d56a2 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -112,7 +112,7 @@ static struct sk_buff *prio_dequeue(struct Qdisc *sch)
+ 
+ 	for (prio = 0; prio < q->bands; prio++) {
+ 		struct Qdisc *qdisc = q->queues[prio];
+-		struct sk_buff *skb = qdisc->dequeue(qdisc);
++		struct sk_buff *skb = qdisc_dequeue_peeked(qdisc);
+ 		if (skb) {
+ 			qdisc_bstats_update(sch, skb);
+ 			sch->q.qlen--;
+-- 
+1.7.3.4
+
