@@ -1,76 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Tue, 09 Aug 2011 18:53:04 +0200
-Message-ID: <1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next] neigh: reduce arp latency
+Date: Tue, 9 Aug 2011 20:06:25 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108091959250.1527@ja.ssi.bg>
+References: <1312904434.2371.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: stufever@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:54153 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753011Ab1HIRBd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2011 13:01:33 -0400
+In-Reply-To: <1312904434.2371.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 10 ao=C3=BBt 2011 =C3=A0 00:39 +0800, stufever@gmail.com a =
-=C3=A9crit :
-> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
->=20
->   drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 =
-bytes is larger than 1024 bytes
->=20
-> Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
-> ---
->  drivers/net/gianfar_ethtool.c |   20 +++++++++++++++++---
->  1 files changed, 17 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_etht=
-ool.c
-> index 6e35069..134fe1b 100644
-> --- a/drivers/net/gianfar_ethtool.c
-> +++ b/drivers/net/gianfar_ethtool.c
-> @@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct g=
-far_private *priv, u64 ethflow, u
->  {
->  	unsigned int last_rule_idx =3D priv->cur_filer_idx;
->  	unsigned int cmp_rqfpr;
-> -	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
-> -	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
-> +	unsigned int *local_rqfpr;
-> +	unsigned int *local_rqfcr;
->  	int i =3D 0x0, k =3D 0x0;
->  	int j =3D MAX_FILER_IDX, l =3D 0x0;
-> +	int ret =3D 1;
-> +
-> +	local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-> +		GFP_KERNEL);
-> +	local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-> +		GFP_KERNEL);
-> +	if (!local_rqfpr || !local_rqfcr) {
-> +		pr_err("Out of memory\n");
 
-	Please remove this pr_err(), kmalloc() will complain already.
+	Hello,
 
-> +		ret =3D 0;
-> +		got err;
-> +	}
-> =20
->  	switch (class) {
->  	case TCP_V4_FLOW:
-> @@ -765,7 +776,10 @@ static int gfar_ethflow_to_filer_table(struct gf=
-ar_private *priv, u64 ethflow, u
->  		priv->cur_filer_idx =3D priv->cur_filer_idx - 1;
->  	}
-> =20
-> -	return 1;
-> +err:
-> +	kfree(local_rqfcr);
-> +	kfree(local_rqfpr);
-> +	return ret;
->  }
-> =20
+On Tue, 9 Aug 2011, Eric Dumazet wrote:
 
-You should now track all "return 0;" done in this function to make sure
-no memory leak is added by your patch.
+> Remove the artificial HZ latency on arp resolution.
+> 
+> Instead of firing a timer in one jiffy (up to 10 ms if HZ=100), lets
+> send the ARP message immediately.
+> 
+> @@ -957,7 +964,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+>  			atomic_set(&neigh->probes, neigh->parms->ucast_probes);
+>  			neigh->nud_state     = NUD_INCOMPLETE;
+>  			neigh->updated = jiffies;
+> -			neigh_add_timer(neigh, now + 1);
+> +			neigh_add_timer(neigh, now + HZ);
+
+	To be correct with old NUD_INCOMPLETE logic may be we can use 
+max(neigh->parms->retrans_time, HZ/2) here instead of HZ?
+
+> +			immediate_probe = true;
+>  		} else {
+>  			neigh->nud_state = NUD_FAILED;
+>  			neigh->updated = jiffies;
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
