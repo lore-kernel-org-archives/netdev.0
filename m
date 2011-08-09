@@ -1,56 +1,21 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [EXAMPLE CODE] Parasite thread injection and TCP connection
- hijacking
-Date: Mon, 8 Aug 2011 12:20:45 +0200
-Message-ID: <20110808102045.GJ23937@htj.dyndns.org>
-References: <20110806121247.GC23937@htj.dyndns.org>
- <4E3D3768.3070108@mit.edu>
- <20110806130037.GD23937@htj.dyndns.org>
+From: =?utf-8?q?Motorola_=C2=AE__=3Cinfo=40mail=2Ecom=3E?=@mail.trabajo.gob.hn
+Subject: "Winner"
+Date: Mon, 08 Aug 2011 18:56:15 -0700
+Message-ID: <20110808105749.B43671F8857@mail.trabajo.gob.hn>
+Reply-To: beeline@diploma.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Helsley <matthltc@us.ibm.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Nathan Lynch <ntl@pobox.com>,
-	Oren Laadan <orenl@cs.columbia.edu>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andy Lutomirski <luto@MIT.EDU>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <info@mail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:48350 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499Ab1HHKUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 06:20:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20110806130037.GD23937@htj.dyndns.org>
+Received: from mail.trabajo.gob.hn ([207.42.179.137]:34045 "EHLO
+	mail.trabajo.gob.hn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751173Ab1HHKvJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2011 06:51:09 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 06, 2011 at 03:00:37PM +0200, Tejun Heo wrote:
-> Hello,
-> 
-> On Sat, Aug 06, 2011 at 08:45:28AM -0400, Andy Lutomirski wrote:
-> > > 2. Decide where to inject the foreign code and save the original code
-> > >    with PTRACE_PEEKDATA.  Tracer can poke any mapped area regardless
-> > >    of protection flags but it can't add execution permission to the
-> > >    code, so it needs to choose memory area which already has X flag
-> > >    set.  The example code uses the page the %rip is in.
-> > 
-> > If the process is executing from the vsyscall page, then you'll
-> > probably fail.  (Admittedly, this is rather unlikely, given that the
-> > vsyscalls are now exactly one instruction.)  Presumably you also
-> > fail if executing from a read-only MAP_SHARED mapping.
-> 
-> Heh, yeah, I originally thought about scanning /proc/PID/maps to look
-> for the page to use but was lazy and just used %rip.  I think that
-> should work.  I'll note the problem in README.
-
-Okay, updated README.
-
-  http://code.google.com/p/ptrace-parasite/source/browse/README
-
-Thanks.
-
--- 
-tejun
+You Won =A3600,000.00GBP  from Motorola Promotion 2011. Bee Line Courie=
+r Service UK (beeline@diploma.com)for your Check delivery with your Nam=
+e,Address,Country,Phone Number
