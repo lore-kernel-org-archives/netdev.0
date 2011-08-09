@@ -1,83 +1,79 @@
-From: U Bhaskar-B22300 <B22300@freescale.com>
-Subject: RE: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Tue, 9 Aug 2011 07:57:10 +0000
-Message-ID: <9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>
-References: <1312641270-6018-1-git-send-email-holt@sgi.com>
-	<1312641270-6018-6-git-send-email-holt@sgi.com>
-	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>
-	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>
-	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>
-	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com>
- <4E3FF9EA.6030601@grandegger.com> <4E3FFD5B.7080000@pengutronix.de>
- <4E4001E1.3030508@grandegger.com> <4E403097.4020306@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Tue, 09 Aug 2011 10:06:13 +0200
+Message-ID: <1312877173.2371.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110808105529.4c8c52e1@nehalam.ftrdhcpuser.net>
+	 <CA+mtBx_bdCGvR+xBMq9px0vOV6a6kFn0wYyJH26+CdSPLtvgfw@mail.gmail.com>
+	 <20110808111917.4b2669de@nehalam.ftrdhcpuser.net>
+	 <20110809.004123.2080217558650594315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, therbert@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:23874
-	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752347Ab1HIH6Z convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Aug 2011 03:58:25 -0400
-In-Reply-To: <4E403097.4020306@pengutronix.de>
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49509 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808Ab1HIIGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 04:06:16 -0400
+Received: by wwf5 with SMTP id 5so2377272wwf.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 01:06:15 -0700 (PDT)
+In-Reply-To: <20110809.004123.2080217558650594315.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 09 ao=C3=BBt 2011 =C3=A0 00:41 -0700, David Miller a =C3=A9cri=
+t :
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Mon, 8 Aug 2011 11:19:17 -0700
+>=20
+> > On Mon, 8 Aug 2011 11:01:57 -0700
+> > Tom Herbert <therbert@google.com> wrote:
+> >=20
+> >> > Since transmit completion means calling dev_kfree_skb() why not =
+account
+> >> > there? You could add some info to netdev if necessary to get com=
+pile
+> >> > the statistics.
+> >> >
+> >> The algorithm depends on knowing the total number of packets compe=
+ted
+> >> in a single execution of transmit completion (epic based).  We onl=
+y
+> >> want to recalculate the limits once per completion, which happens =
+when
+> >> the completion function is called.
+> >=20
+> > So just add some stats to netdev and count the number of dev_kfree_=
+skb
+> > calls and do your work at napi complete.
+>=20
+> No, I think what Tom's doing here is reasonable.
+>=20
+> First off, drivers have never been required to do specific things if
+> they return success for ->ndo_start_xmit().  They can kfree_skb(skb)
+> and return NET_TX_SUCCESS, and that's fine.
+>=20
+> This mean we can't use ->ndo_start_xmit() return values to drive the
+> BQL engine.
+>=20
+> So we simply have a way for the driver to say when it really does
+> queue up a packet, and that might be useful for other things.
+>=20
+> Second, you absolutely do not want to run the BQL engine on every
+> single dev_kfree_skb() call.  You want to batch it, and that's what
+> Tom's new interface does, and that is therefore quite reasonable
+> too.
+>=20
+> In fact, I think the best part about this revision of the BQL patches
+> is the device driver interface. :-)
+>=20
 
+I agree, it permits a smooth transition to selected drivers, even some
+non NAPI ones ;)
 
-> -----Original Message-----
-> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
-> Sent: Tuesday, August 09, 2011 12:23 AM
-> To: Wolfgang Grandegger
-> Cc: socketcan-core@lists.berlios.de; netdev@vger.kernel.org; U Bhaskar-
-> B22300
-> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-> 
-> On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
-> >> ACK - The device tree bindings as in mainline's Documentation is a
-> mess.
-> >> If the powerpc guys are happy with a clock interfaces based approach
-> >> somewhere in arch/ppc, I'm more than happy to remove:
-> >> - fsl,flexcan-clock-source (not implemented, even in the fsl driver)
-[Bhaskar]I have pushed the FlexCAN series of patches, It contains the usage of all the fields posted in the FlexCAN bindings at
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-3.0.y.git;a=blob;f=Documentation/devicetree/bindings/net/can/fsl-flexcan.txt;h=1a729f089866259ef82d0db5893ff7a8c54d5ccf;hb=94ed5b4788a7cdbe68bc7cb8516972cbebdc8274  
-> >>
-> >> - fsl,flexcan-clock-divider \__ replace with code in arch/ppc, or
-> >> - clock-frequency           /   a single clock-frequency attribute
-> >
-> > In the "net-next-2.6" tree there is also:
-> >
-> >  $ grep flexcan arch/powerpc/boots/dts/*.dts
-> >   p1010rdb.dts:			fsl,flexcan-clock-source = "platform";
-> >   p1010rdb.dts:			fsl,flexcan-clock-source = "platform";
-> >   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
-> >   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
-> >   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
-> >   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
-> >
-> > Especially the fsl,flexcan-clock-divider = <2>; might make people
-> > think, that they could set something else.
->
-[Bhaskar] As it is mentioned in the Flexcan bindings, the need of fsl,flexcan-clock-divider = <2>;
-	    But I kept it as "2" because FlexCan clock source is the platform clock and it is CCB/2
-	    If the "2" is misleading, the bindings can be changed or some text can be written to make the meaning of "2"
-          Understandable , Please suggest ..  
- 
+In some stress situations, NAPI never completes, so it would also mean
+adding a dql call in this case...
 
- 
-> ARGH... :D
-> 
-> Marc
-> 
-> --
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
