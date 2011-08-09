@@ -1,125 +1,134 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv3 8/9] macb: support DMA bus widths > 32 bits
-Date: Tue,  9 Aug 2011 10:16:50 +0100
-Message-ID: <1312881411-2376-9-git-send-email-jamie@jamieiles.com>
-References: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
-Cc: plagnioj@jcrosoft.com, Jamie Iles <jamie@jamieiles.com>
-To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+From: U Bhaskar-B22300 <B22300@freescale.com>
+Subject: RE: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+Date: Tue, 9 Aug 2011 09:27:22 +0000
+Message-ID: <9C64B7751C3BCA41B64A68E23005A7BE1BDF8C@039-SN1MPN1-004.039d.mgd.msft.net>
+References: <1312641270-6018-1-git-send-email-holt@sgi.com>
+	<1312641270-6018-6-git-send-email-holt@sgi.com>
+	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>
+	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>
+	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>
+	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com>
+ <4E3FF9EA.6030601@grandegger.com> <4E3FFD5B.7080000@pengutronix.de>
+ <4E4001E1.3030508@grandegger.com> <4E403097.4020306@pengutronix.de>
+ <9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>
+ <4E40F09F.60305@grandegger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Devicetree-discuss@lists.ozlabs.org"
+	<Devicetree-discuss@lists.ozlabs.org>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54522 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752745Ab1HIJSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 05:18:15 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 24so212672wyg.19
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 02:18:14 -0700 (PDT)
-In-Reply-To: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:53657
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751593Ab1HIJ10 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2011 05:27:26 -0400
+In-Reply-To: <4E40F09F.60305@grandegger.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some GEM implementations may support DMA bus widths up to 128 bits.  We
-can get the maximum supported DMA bus width from the design
-configuration register so use that to program the device up.
 
-Signed-off-by: Jamie Iles <jamie@jamieiles.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/macb.c |   23 +++++++++++++++++++++++
- drivers/net/macb.h |   19 +++++++++++++++++++
- 2 files changed, 42 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index 0e35804..a8a9b4b 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -836,6 +836,27 @@ static u32 macb_mdc_clk_div(struct macb *bp)
- 	return config;
- }
- 
-+/*
-+ * Get the DMA bus width field of the network configuration register that we
-+ * should program.  We find the width from decoding the design configuration
-+ * register to find the maximum supported data bus width.
-+ */
-+static u32 macb_dbw(struct macb *bp)
-+{
-+	if (!macb_is_gem(bp))
-+		return 0;
-+
-+	switch (GEM_BFEXT(DBWDEF, gem_readl(bp, DCFG1))) {
-+	case 4:
-+		return GEM_BF(DBW, GEM_DBW128);
-+	case 2:
-+		return GEM_BF(DBW, GEM_DBW64);
-+	case 1:
-+	default:
-+		return GEM_BF(DBW, GEM_DBW32);
-+	}
-+}
-+
- static void macb_init_hw(struct macb *bp)
- {
- 	u32 config;
-@@ -851,6 +872,7 @@ static void macb_init_hw(struct macb *bp)
- 		config |= MACB_BIT(CAF);	/* Copy All Frames */
- 	if (!(bp->dev->flags & IFF_BROADCAST))
- 		config |= MACB_BIT(NBC);	/* No BroadCast */
-+	config |= macb_dbw(bp);
- 	macb_writel(bp, NCFGR, config);
- 
- 	/* Initialize TX and RX buffers */
-@@ -1277,6 +1299,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- 	/* Set MII management clock divider */
- 	config = macb_mdc_clk_div(bp);
-+	config |= macb_dbw(bp);
- 	macb_writel(bp, NCFGR, config);
- 
- 	macb_get_hwaddr(bp);
-diff --git a/drivers/net/macb.h b/drivers/net/macb.h
-index 1367b92..71424aa 100644
---- a/drivers/net/macb.h
-+++ b/drivers/net/macb.h
-@@ -69,6 +69,13 @@
- #define GEM_SA1B				0x0088
- #define GEM_SA1T				0x008C
- #define GEM_OTX					0x0100
-+#define GEM_DCFG1				0x0280
-+#define GEM_DCFG2				0x0284
-+#define GEM_DCFG3				0x0288
-+#define GEM_DCFG4				0x028c
-+#define GEM_DCFG5				0x0290
-+#define GEM_DCFG6				0x0294
-+#define GEM_DCFG7				0x0298
- 
- /* Bitfields in NCR */
- #define MACB_LB_OFFSET				0
-@@ -139,6 +146,14 @@
- /* GEM specific NCFGR bitfields. */
- #define GEM_CLK_OFFSET				18
- #define GEM_CLK_SIZE				3
-+#define GEM_DBW_OFFSET				21
-+#define GEM_DBW_SIZE				2
-+
-+/* Constants for data bus width. */
-+#define GEM_DBW32				0
-+#define GEM_DBW64				1
-+#define GEM_DBW128				2
-+
- /* Bitfields in NSR */
- #define MACB_NSR_LINK_OFFSET			0
- #define MACB_NSR_LINK_SIZE			1
-@@ -247,6 +262,10 @@
- #define MACB_REV_OFFSET				0
- #define MACB_REV_SIZE				16
- 
-+/* Bitfields in DCFG1. */
-+#define GEM_DBWDEF_OFFSET			25
-+#define GEM_DBWDEF_SIZE				3
-+
- /* Constants for CLK */
- #define MACB_CLK_DIV8				0
- #define MACB_CLK_DIV16				1
--- 
-1.7.4.1
+> -----Original Message-----
+> From: Wolfgang Grandegger [mailto:wg@grandegger.com]
+> Sent: Tuesday, August 09, 2011 2:03 PM
+> To: U Bhaskar-B22300
+> Cc: Marc Kleine-Budde; socketcan-core@lists.berlios.de;
+> netdev@vger.kernel.org; Devicetree-discuss@lists.ozlabs.org
+> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+> 
+> Hi Bhaskar,
+> 
+> On 08/09/2011 09:57 AM, U Bhaskar-B22300 wrote:
+> >
+> >
+> >> -----Original Message-----
+> >> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
+> >> Sent: Tuesday, August 09, 2011 12:23 AM
+> >> To: Wolfgang Grandegger
+> >> Cc: socketcan-core@lists.berlios.de; netdev@vger.kernel.org; U
+> >> Bhaskar- B22300
+> >> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+> >>
+> >> On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
+> >>>> ACK - The device tree bindings as in mainline's Documentation is a
+> >> mess.
+> >>>> If the powerpc guys are happy with a clock interfaces based
+> >>>> approach somewhere in arch/ppc, I'm more than happy to remove:
+> >>>> - fsl,flexcan-clock-source (not implemented, even in the fsl
+> >>>> driver)
+> > [Bhaskar]I have pushed the FlexCAN series of patches, It contains the
+> > usage of all the fields posted in the FlexCAN bindings at
+> > http://git.kernel.org/?p=linux/kernel/git/stable/linux-3.0.y.git;a=blo
+> > b;f=Documentation/devicetree/bindings/net/can/fsl-flexcan.txt;h=1a729f
+> > 089866259ef82d0db5893ff7a8c54d5ccf;hb=94ed5b4788a7cdbe68bc7cb8516972cb
+> > ebdc8274
+> 
+> As Marc already pointed out, Robin already has a much more advanced patch
+> stack in preparation. Especially your patches do not care about the
+> already existing Flexcan core on the Freescale's ARM socks.
+[Bhaskar] No, the patches are taking care of the existing ARM functionality.
+	I have not tested on the ARM based board, but the patches are made in a 
+      Manner that it should not break the ARM based functionality.
+> 
+> >>>>
+> >>>> - fsl,flexcan-clock-divider \__ replace with code in arch/ppc, or
+> >>>> - clock-frequency           /   a single clock-frequency attribute
+> >>>
+> >>> In the "net-next-2.6" tree there is also:
+> >>>
+> >>>  $ grep flexcan arch/powerpc/boots/dts/*.dts
+> >>>   p1010rdb.dts:			fsl,flexcan-clock-source =
+> "platform";
+> >>>   p1010rdb.dts:			fsl,flexcan-clock-source =
+> "platform";
+> >>>   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
+> >>>   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
+> >>>   p1010si.dtsi:			compatible = "fsl,flexcan-v1.0";
+> >>>   p1010si.dtsi:			fsl,flexcan-clock-divider = <2>;
+> >>>
+> >>> Especially the fsl,flexcan-clock-divider = <2>; might make people
+> >>> think, that they could set something else.
+> >>
+> > [Bhaskar] As it is mentioned in the Flexcan bindings, the need of
+> fsl,flexcan-clock-divider = <2>;
+> > 	    But I kept it as "2" because FlexCan clock source is the
+> platform clock and it is CCB/2
+> > 	    If the "2" is misleading, the bindings can be changed or some
+> text can be written to make the meaning of "2"
+> >           Understandable , Please suggest ..
+> 
+> The clock source and frequency is fixed. Why do we need an extra
+> properties for that. We have panned to remove these bogus bindings from
+> the Linux kernel, which sneaked in *without* any review on the relevant
+> mailing lists (at least I have not realized any posting). We do not think
+> they are really needed. They just confuse the user. We also prefer to use
+> the compatibility string "fsl,flexcan" instead "fsl,flexcan-v1.0". It's
+> unusual to add a version number, which is  for the Flexcan on the PowerPC
+> cores only, I assume, but there will be device tree for ARM soon. A
+> proper compatibility string would be "fsl,p1010-flexcan" if we really
+> need to distinguish.
+> 
+[Bhaskar] About clock source.. There can be two sources of clock for the CAN.
+	Oscillator or the platform clock, but at present only platform clock is supported
+	in P1010.If we remove the fsl,flexcan-clock-source property, we will lost the flexibility
+	of changing the clock source ..
+	   
+          About clock-frequency... it is also not fixed. It depends on the platform clock which in turns
+          Depends on the CCB clock. So it will be better to keep clock-frequency property which is getting fixed via u-boot.   	
+
+	    Agreed on the discussion of changing "fsl,flexcan-v1.0" to "fsl,flexcan"
+	
+> Please join the discussion on the mailing list helping to get this driver
+> mainline.
+> 
+> Thanks,
+> 
+> Wolfgang.
+
 
