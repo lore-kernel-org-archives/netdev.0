@@ -1,43 +1,50 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+From: Wolfgang Grandegger <wg@grandegger.com>
 Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
-Date: Tue, 09 Aug 2011 12:41:08 +0200
-Message-ID: <4E410EC4.3030305@grandegger.com>
-References: <1312641270-6018-1-git-send-email-holt@sgi.com>	<1312641270-6018-6-git-send-email-holt@sgi.com>	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com>	<4E3FF9EA.6030601@grandegger.com>
-	<4E3FFD5B.7080000@pengutronix.de>	<4E4001E1.3030508@grandegger.com>
-	<4E403097.4020306@pengutronix.de>	<9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net>	<4E40EC14.1010005@pengutronix.de>
-	<9C64B7751C3BCA41B64A68E23005A7BE1BEFCE@039-SN1MPN1-004.039d.mgd.msft.net>
+Date: Tue, 09 Aug 2011 12:48:47 +0200
+Message-ID: <4E41108F.1090104@grandegger.com>
+References: <1312641270-6018-1-git-send-email-holt@sgi.com>	<1312641270-6018-6-git-send-email-holt@sgi.com>	<4E3FA066.3020301@grandegger.com>	<20110808113136.GS4926@sgi.com>	<4E3FDFC9.7080508@grandegger.com>	<20110808135630.GU4926@sgi.com>	<4E3FEFBB.9050103@grandegger.com>	<20110808142153.GW4926@sgi.com>	<4E3FF4B8.2010603@grandegger.com>	<20110808144424.GY4926@sgi.com> <4E3FF9EA.6030601@grandegger.com> <4E3FFD5B.7080000@pengutronix.de> <4E4001E1.3030508@grandegger.com> <4E403097.4020306@pengutronix.de> <9C64B7751C3BCA41B64A68E23005A7BE1B9D6C@039-SN1MPN1-002.039d.mgd.msft.net> <4E40F09F.60305@grandegger.com> <9C64B7751C3BCA41B64A68E23005A7BE1BDF8C@039-SN1MPN1-004.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1BEFCE-TcFNo7jSaXM0vywKSws3iq4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Devicetree-discuss@lists.ozlabs.org"
+	<Devicetree-discuss@lists.ozlabs.org>
+To: U Bhaskar-B22300 <B22300@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:54950 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752622Ab1HIKsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 06:48:50 -0400
+In-Reply-To: <9C64B7751C3BCA41B64A68E23005A7BE1BDF8C@039-SN1MPN1-004.039d.mgd.msft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2011 11:34 AM, U Bhaskar-B22300 wrote:
+On 08/09/2011 11:27 AM, U Bhaskar-B22300 wrote:
 > 
 > 
 >> -----Original Message-----
->> From: Marc Kleine-Budde [mailto:mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org]
->> Sent: Tuesday, August 09, 2011 1:43 PM
+>> From: Wolfgang Grandegger [mailto:wg@grandegger.com]
+>> Sent: Tuesday, August 09, 2011 2:03 PM
 >> To: U Bhaskar-B22300
->> Cc: Wolfgang Grandegger; socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
->> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> Cc: Marc Kleine-Budde; socketcan-core@lists.berlios.de;
+>> netdev@vger.kernel.org; Devicetree-discuss@lists.ozlabs.org
 >> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
 >>
+>> Hi Bhaskar,
+>>
 >> On 08/09/2011 09:57 AM, U Bhaskar-B22300 wrote:
+>>>
+>>>
+>>>> -----Original Message-----
+>>>> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
+>>>> Sent: Tuesday, August 09, 2011 12:23 AM
+>>>> To: Wolfgang Grandegger
+>>>> Cc: socketcan-core@lists.berlios.de; netdev@vger.kernel.org; U
+>>>> Bhaskar- B22300
+>>>> Subject: Re: [RFC 5/5] [powerpc] Implement a p1010rdb clock source.
+>>>>
 >>>> On 08/08/2011 05:33 PM, Wolfgang Grandegger wrote:
 >>>>>> ACK - The device tree bindings as in mainline's Documentation is a
 >>>> mess.
@@ -45,7 +52,6 @@ On 08/09/2011 11:34 AM, U Bhaskar-B22300 wrote:
 >>>>>> approach somewhere in arch/ppc, I'm more than happy to remove:
 >>>>>> - fsl,flexcan-clock-source (not implemented, even in the fsl
 >>>>>> driver)
->>
 >>> [Bhaskar]I have pushed the FlexCAN series of patches, It contains the
 >>> usage of all the fields posted in the FlexCAN bindings at
 >>> http://git.kernel.org/?p=linux/kernel/git/stable/linux-3.0.y.git;a=blo
@@ -53,8 +59,12 @@ On 08/09/2011 11:34 AM, U Bhaskar-B22300 wrote:
 >>> 089866259ef82d0db5893ff7a8c54d5ccf;hb=94ed5b4788a7cdbe68bc7cb8516972cb
 >>> ebdc8274
 >>
->> I've commented the patches. They are in a very bad shape. Please test
->> Robin's patches.
+>> As Marc already pointed out, Robin already has a much more advanced patch
+>> stack in preparation. Especially your patches do not care about the
+>> already existing Flexcan core on the Freescale's ARM socks.
+> [Bhaskar] No, the patches are taking care of the existing ARM functionality.
+> 	I have not tested on the ARM based board, but the patches are made in a 
+>       Manner that it should not break the ARM based functionality.
 >>
 >>>>>>
 >>>>>> - fsl,flexcan-clock-divider \__ replace with code in arch/ppc, or
@@ -76,26 +86,34 @@ On 08/09/2011 11:34 AM, U Bhaskar-B22300 wrote:
 >>>>> think, that they could set something else.
 >>>>
 >>> [Bhaskar] As it is mentioned in the Flexcan bindings, the need of
->>> fsl,flexcan-clock-divider = <2>; But I kept it as "2" because FlexCan
->>> clock source is the platform clock and it is CCB/2 If the "2" is
->>> misleading, the bindings can be changed or some text can be written to
->>> make the meaning of "2" Understandable , Please suggest ..
+>> fsl,flexcan-clock-divider = <2>;
+>>> 	    But I kept it as "2" because FlexCan clock source is the
+>> platform clock and it is CCB/2
+>>> 	    If the "2" is misleading, the bindings can be changed or some
+>> text can be written to make the meaning of "2"
+>>>           Understandable , Please suggest ..
 >>
->> The clock devider is crap. Why not specify the clockrate that goes into
->> the flexcan core?
-> [Bhaskar] The reason why I placed the "fsl,flexcan-clock-divider" property is just because the earlier implementations
-> 		 Of CAN also follows the same approach. Please see below the approach of mscan.
->                 compatible = "fsl,mpc5121-mscan";
->                 interrupts = <13 0x8>;
->                 interrupt-parent = <&ipic>;
->                 reg = <0x1380 0x80>;
->                 fsl,mscan-clock-source = "ref";
->                 fsl,mscan-clock-divider = <3>;
->         };
-> 	If you want we can remove the fsl,flexcan-clock-divider property. Please comment ..
+>> The clock source and frequency is fixed. Why do we need an extra
+>> properties for that. We have panned to remove these bogus bindings from
+>> the Linux kernel, which sneaked in *without* any review on the relevant
+>> mailing lists (at least I have not realized any posting). We do not think
+>> they are really needed. They just confuse the user. We also prefer to use
+>> the compatibility string "fsl,flexcan" instead "fsl,flexcan-v1.0". It's
+>> unusual to add a version number, which is  for the Flexcan on the PowerPC
+>> cores only, I assume, but there will be device tree for ARM soon. A
+>> proper compatibility string would be "fsl,p1010-flexcan" if we really
+>> need to distinguish.
+>>
+> [Bhaskar] About clock source.. There can be two sources of clock for the CAN.
+> 	Oscillator or the platform clock, but at present only platform clock is supported
+> 	in P1010.If we remove the fsl,flexcan-clock-source property, we will lost the flexibility
+> 	of changing the clock source ..
+> 	   
+>           About clock-frequency... it is also not fixed. It depends on the platform clock which in turns
+>           Depends on the CCB clock. So it will be better to keep clock-frequency property which is getting fixed via u-boot.   	
 
-For that platform the user can *change* these properties so select
-another clock-source or clock-divider. This is not the case for the
-P1010. Therefore these properties are not needed.
+The frequency is fixed to CCB-frequency / 2. Will that ever change? What
+can we expect from future Flexcan hardware? Will it support further
+clock sources?
 
 Wolfgang.
