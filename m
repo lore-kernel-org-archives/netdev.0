@@ -1,46 +1,57 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH v11 5/5] powerpc: Fix up fsl-flexcan device tree binding.
-Date: Wed, 10 Aug 2011 11:56:28 -0500
-Message-ID: <4E42B83C.2040705@freescale.com>
-References: <1312993670-23999-1-git-send-email-holt@sgi.com> <1312993670-23999-6-git-send-email-holt@sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+From: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
+Date: Wed, 10 Aug 2011 12:01:51 -0500
+Message-ID: <8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>
+References: <1312993670-23999-1-git-send-email-holt@sgi.com>
+	<1312993670-23999-5-git-send-email-holt@sgi.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Kumar Gala <galak@kernel.crashing.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	U Bhaskar-B22300 <B22300@freescale.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	<socketcan-core@lists.berlios.de>, <netdev@vger.kernel.org>,
-	PPC list <linuxppc-dev@lists.ozlabs.org>,
-	<devicetree-discuss@lists.ozlabs.org>
-To: Robin Holt <holt@sgi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:23442
-	"EHLO AM1EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753381Ab1HJQ4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 12:56:34 -0400
-In-Reply-To: <1312993670-23999-6-git-send-email-holt@sgi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1312993670-23999-5-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/10/2011 11:27 AM, Robin Holt wrote:
-> -CPI Clock- Can Protocol Interface Clock
-> -	This CLK_SRC bit of CTRL(control register) selects the clock source to
-> -	the CAN Protocol Interface(CPI) to be either the peripheral clock
-> -	(driven by the PLL) or the crystal oscillator clock. The selected clock
-> -	is the one fed to the prescaler to generate the Serial Clock (Sclock).
-> -	The PRESDIV field of CTRL(control register) controls a prescaler that
-> -	generates the Serial Clock (Sclock), whose period defines the
-> -	time quantum used to compose the CAN waveform.
-> +- compatible : Should be "fsl,flexcan" and optionally
-> +               "fsl,flexcan-<processor>"
 
-fsl,<processor>-flexcan, and it should not be optional, and should come
-before "fsl,flexcan".
+On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
 
-Also may want to list fsl,p1010-rdb as a "canonical compatible" for
-anything which is backwards compatible with p1010's implementation.
+> I added a simple clock source for the p1010rdb so the flexcan driver
+> could determine a clock frequency.  The p1010 flexcan device only has
+> an oscillator of system bus frequency divided by 2.
+> 
+> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+> Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+> ---
+> arch/powerpc/platforms/85xx/Kconfig    |    2 +
+> arch/powerpc/platforms/85xx/Makefile   |    2 +
+> arch/powerpc/platforms/85xx/clock.c    |   52 ++++++++++++++++++++++++++++++++
+> arch/powerpc/platforms/85xx/p1010rdb.c |    8 +++++
+> 4 files changed, 64 insertions(+), 0 deletions(-)
+> create mode 100644 arch/powerpc/platforms/85xx/clock.c
 
--Scott
+I dont understand how mpc85xx_clk_functions() ends up being associated with the frequency the flexcan is running at.
 
+This either seems to global or I'm missing something.
+
+I still think the clk / freq info should be in the device tree and handled in the driver and NOT arch/powerpc platform code.
+
+- k
