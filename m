@@ -1,73 +1,82 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
-Date: Wed, 10 Aug 2011 08:49:53 -0400
-Message-ID: <1312980593.21048.12.camel@moss-pluto>
-References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com>
-	 <1312874910-31010-2-git-send-email-rongqing.li@windriver.com>
-	 <4E415CB3.8020202@schaufler-ca.com> <4E41D421.1000302@windriver.com>
-	 <4E41D78C.7040007@schaufler-ca.com>  <4E41DDEB.9040904@windriver.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [linux-firmware v2 1/2] rtl_nic: update firmware for
+ RTL8111E-VL
+Date: Wed, 10 Aug 2011 13:54:20 +0100
+Message-ID: <1312980860.2591.1267.camel@deadeye>
+References: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512"; protocol="application/pgp-signature"; boundary="=-OBxF+ZFQ8OeEOxPpqWu1"
+Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57729 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754108Ab1HJMy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 08:54:28 -0400
+In-Reply-To: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-OBxF+ZFQ8OeEOxPpqWu1
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Casey Schaufler <casey@schaufler-ca.com>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org
-To: Rongqing Li <rongqing.li@windriver.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4E41DDEB.9040904@windriver.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2011-08-10 at 09:24 +0800, Rongqing Li wrote:
-> On 08/10/2011 08:57 AM, Casey Schaufler wrote:
-> > On 8/9/2011 5:43 PM, Rongqing Li wrote:
-> >> On 08/10/2011 12:13 AM, Casey Schaufler wrote:
-> >>> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
-> >>>> From: Roy.Li<rongqing.li@windriver.com>
-> >>>>
-> >>>> Define security_sk_getsecid to get the security id of a sock.
-> >>>
-> >>> Why are you requesting the secid when you're just going to
-> >>> use it to get the secctx? Why not ask for that directly?
-> >>> Is there ever a case where you only want the secid?
-> >>>
-> >> Hi:
-> >>
-> >> As I know, we have not method to get secctx directly.
-> >
-> > You are defining the method! Ask for what you want!
-> >
-> > The whole notion of secids is a holdover from the bad old
-> > days when SELinux was a user space based enforcement mechanism.
-> > The audit system was implemented when SELinux was the lone LSM
-> > and unfortunately and unnecessarily propagated the use of secids.
-> > If an object has a secid it must also have a secctx. The
-> > interfaces that use secids could just as well use the secctx.
-> > It is wasteful to create a new interface that fetches a secid
-> > just to turn around and ask for the secctx in all cases.
-> >
-> 
-> Do you means I should write a method like below
-> security_sk_getsecctx(struct sock *sk, char *secctx, int *len)?
-> 
-> But secctx only is used to user. secid is used to source code to
-> compute and compare the access permission.
-> 
-> And I do not see the same method like
-> security_task_getsecctx(). but security_task_getsecid() has been
-> implemented in kernel source code.
+On Wed, 2011-08-10 at 20:22 +0800, Hayes Wang wrote:
+> Updated firmware with stability fixes.
+> Version: rtl8168e-3_0.0.1.
+>=20
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
+>  WHENCE                |    2 +-
+>  rtl_nic/rtl8168e-3.fw |  Bin 2804 -> 3264 bytes
+>  2 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/WHENCE b/WHENCE
+> index 4b88f1f..a463417 100644
+> --- a/WHENCE
+> +++ b/WHENCE
+> @@ -1626,7 +1626,7 @@ File: rtl_nic/rtl8168d-2.fw
+>  File: rtl_nic/rtl8105e-1.fw
+>  File: rtl_nic/rtl8168e-1.fw
+>  File: rtl_nic/rtl8168e-2.fw
+> -File: rtl_nic/rtl8168e-3.fw
+> +File: rtl_nic/rtl8168e-3.fw (Version: rtl8168e-3_0.0.1)
+[...]
 
-Unlike Casey, I don't think secids are a bad idea or just a holdover -
-we find them to be quite useful and efficient in SELinux.  But in this
-instance, he is correct that there is no reason to first fetch a secid
-only to convert it into a context.  There are other cases where you do
-in fact want to avoid generating and managing the life cycle of a
-security context string until you truly need it, and thus a secid makes
-sense.  So if you want to add a security_sk_getsecctx() hook, feel free.
-There are some existing examples, e.g. security_inode_getsecctx() for
-inodes, security_getprocattr() for tasks.  Note that they use a slightly
-different interface than what you describe above.
+Please don't write the version in yet another way.  It should be:
 
--- 
-Stephen Smalley
-National Security Agency
+File: rtl_nic/rtl8168e-3.fw
+Version: 0.0.1
 
+Or, if you insist on duplicating the name in the version:
+
+File: rtl_nic/rtl8168e-3.fw
+Version: rtl8168e-3_0.0.1
+
+Ben.
+
+
+--=-OBxF+ZFQ8OeEOxPpqWu1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATkJ/fOe/yOyVhhEJAQq/6w//Rbl3Fn/7E2hogZ1qBujiUe+k8XIg805M
+unCUK3rVKc/trg+duuc+D9o8AdG21hN3UsmAKMNtAlYPBUCBoVP9qPF2D6iE/pJw
+CoCbnw+7lKzoi8WFOd3ULH2U0ZL4dzD61mc+UswlQtT0rSTLRW4SxbFyOTtwtD3l
+BnlPrFt+HRonciRxdixxhnBSOYtsB1FERRheuws/YUJ48i6a9dZu1nbn3V6m0k5A
+3XNYWpWkK+N5K14s5t3O+UZ2be3o0I3Zxvgv7eOHH5S8F6KMWms9jzgOPgpwc4lD
+ZymAFi8OGlvbFifnUG8UP8Wki7hK6eItZk4w8SiK9U7hawQL0xKooDUAYHpuq7Is
+MgP7YvzeOsM5Bt4kmu/qHvjwJ/kaYjQ2a1KN8AIEXcGd3xApf4dwtKlg/UVNzIgH
+DU9mP4QtH2mDj378xNEF2Rq9wZwgF5K2gZSgOCVBdOKBe4pxb1YYhcSX9CC6+ofU
+jK46rGYgR8Rfz6z5z+981A7/smVWmTZ9pz/oq2G881pbPvgkKv70TIWh9NXlFNDK
+PWvgqtK6BJhdd48AuwXakFQFUZl/qrK7N0mxaRyK6WoXfMHlLvxAftLHFpWb8k/M
+eO18Cy93RHwHMwUutGiNA4hxktRWsm/VK0LxKFZGNFepjlkrPMnb298vH/eZLHFy
+lullkx8hekU=
+=lVh9
+-----END PGP SIGNATURE-----
+
+--=-OBxF+ZFQ8OeEOxPpqWu1--
