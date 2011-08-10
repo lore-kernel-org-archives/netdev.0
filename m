@@ -1,31 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Tue, 09 Aug 2011 19:28:36 -0700
-Message-ID: <1312943316.11924.54.camel@Joe-Laptop>
-References: <1312943399-14435-1-git-send-email-wangshaoyan.pt@taobao.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: Re: [PATCH net] vmxnet3: Don't enable vlan filters in promiscuous
+ mode.
+Date: Tue, 9 Aug 2011 20:00:54 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1108091958430.27839@sbhatewara-dev1.eng.vmware.com>
+References: <1312794947-3163-1-git-send-email-jesse@nicira.com> <alpine.LRH.2.00.1108091426010.27839@sbhatewara-dev1.eng.vmware.com> <CAEP_g=-dwrhuJddX9Jq1yLuUrH0XKwuEdknOHipdZx8dB64xdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: stufever@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1312943399-14435-1-git-send-email-wangshaoyan.pt@taobao.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Scott Goldman <scottjg@vmware.com>,
+	VMware PV-Drivers <pv-drivers@vmware.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:15787 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751568Ab1HJDAv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 23:00:51 -0400
+In-Reply-To: <CAEP_g=-dwrhuJddX9Jq1yLuUrH0XKwuEdknOHipdZx8dB64xdg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-08-10 at 10:29 +0800, stufever@gmail.com wrote:
-> Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
-[]
-> diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-[]
-> @@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow, u
-[]
-> +	if (!local_rqfpr || !local_rqfcr) {
-> +		pr_err("Out of memory\n");
-> +		ret = 0;
-> +		got err;
 
-"got err" is true.
+> 
+> Adds and removes are not ignored when in promiscuous mode because the
+> active_vlans bitfield is still being updated (this is in the context
+> that you clipped out).  When we come out of promiscuous mode,
+> vmxnet3_restore_vlan() is called which will update the hardware with
+> the vlans that have been registered.  This is much safer than directly
+> updating vfTable because it will get overwritten if vmxnet3_set_mc()
+> is called again and is potentially very error prone to have it not
+> reflect what we actually want programmed in the hardware.
+> 
 
-Please compile test your patches before sending them.
+Thats right.
+
+Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
