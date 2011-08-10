@@ -1,104 +1,66 @@
-From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.belden@googlemail.com>
-Subject: Fwd: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
-Date: Wed, 10 Aug 2011 15:11:21 +0200
-Message-ID: <1312981881.29613.22.camel@DENEC1DT0191>
+From: Tom Brown <sa212+glibc@cyconix.com>
+Subject: Use of 802.3ad bonding for increasing link throughput
+Date: Wed, 10 Aug 2011 13:07:53 +0100
+Message-ID: <4E427499.8060108@cyconix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Linux Netdev <netdev@vger.kernel.org>, wangshaoyan.pt@taobao.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56129 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800Ab1HJNNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 09:13:51 -0400
-Received: by wyg24 with SMTP id 24so696463wyg.19
-        for <netdev@vger.kernel.org>; Wed, 10 Aug 2011 06:13:50 -0700 (PDT)
+Received: from queue02.mail.zen.net.uk ([212.23.3.27]:37231 "EHLO
+	queue02.mail.zen.net.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800Ab1HJNSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 09:18:05 -0400
+Received: from [212.23.3.142] (helo=smarthost03.mail.zen.net.uk)
+	by queue02.mail.zen.net.uk with esmtp (Exim 4.72)
+	(envelope-from <sa212+glibc@cyconix.com>)
+	id 1Qr7Zw-0006IN-JL
+	for netdev@vger.kernel.org; Wed, 10 Aug 2011 12:08:08 +0000
+Received: from 82-70-243-134.dsl.in-addr.zen.co.uk ([82.70.243.134] helo=[127.0.0.1])
+	by smarthost03.mail.zen.net.uk with esmtps (TLS-1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.63)
+	(envelope-from <sa212+glibc@cyconix.com>)
+	id 1Qr7Zp-0001YZ-FD
+	for netdev@vger.kernel.org; Wed, 10 Aug 2011 12:08:01 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was annoyed by the compiler warning for quite a long time ...
+[couldn't thread with '802.3ad bonding brain damaged', as I've just 
+signed up]
 
-Patch seems to work. Please put version information in your email heade=
-r on future patches.
+So, under what circumstances would a user actually use 802.3ad mode to 
+"increase" link throughput, rather than just for redundancy? Are there 
+any circumstances in which a single file, for example, could be 
+transferred at multiple-NIC speed? The 3 hashing options are:
 
+- layer 2: presumably this always puts traffic on the same NIC, even in 
+a LAG with multiple NICs? Should layer 2 ever be used?
 
-Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
-Reviewed-and-tested-by: Sebastian P=C3=B6hn <sebastian.poehn@belden.com=
->
+- layer2+3: can't be used for a single file, since it still hashes to 
+the same NIC, and can't be used for load-balancing, since different IP 
+endpoints go unintelligently to different NICs
 
----
- drivers/net/gianfar_ethtool.c |   26 +++++++++++++++++++++-----
- 1 files changed, 21 insertions(+), 5 deletions(-)
+- layer3+4: seems to have exactly the same issue as layer2+3, as well as 
+being non-compliant
 
-diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtoo=
-l.c
-index 6e35069..25a8c2a 100644
---- a/drivers/net/gianfar_ethtool.c
-+++ b/drivers/net/gianfar_ethtool.c
-@@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct gfa=
-r_private *priv, u64 ethflow, u
- {
- 	unsigned int last_rule_idx =3D priv->cur_filer_idx;
- 	unsigned int cmp_rqfpr;
--	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
--	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
-+	unsigned int *local_rqfpr;
-+	unsigned int *local_rqfcr;
- 	int i =3D 0x0, k =3D 0x0;
- 	int j =3D MAX_FILER_IDX, l =3D 0x0;
-+	int ret =3D 1;
-+
-+	local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-+		GFP_KERNEL);
-+	local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-+		GFP_KERNEL);
-+	if (!local_rqfpr || !local_rqfcr) {
-+		pr_err("Out of memory\n");
-+		ret =3D 0;
-+		goto err;
-+	}
-=20
- 	switch (class) {
- 	case TCP_V4_FLOW:
-@@ -706,7 +717,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
-private *priv, u64 ethflow, u
- 		break;
- 	default:
- 		pr_err("Right now this class is not supported\n");
--		return 0;
-+		ret =3D 0;
-+		goto err;
- 	}
-=20
- 	for (i =3D 0; i < MAX_FILER_IDX + 1; i++) {
-@@ -721,7 +733,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
-private *priv, u64 ethflow, u
-=20
- 	if (i =3D=3D MAX_FILER_IDX + 1) {
- 		pr_err("No parse rule found, can't create hash rules\n");
--		return 0;
-+		ret =3D 0;
-+		goto err;
- 	}
-=20
- 	/* If a match was found, then it begins the starting of a cluster rul=
-e
-@@ -765,7 +778,10 @@ static int gfar_ethflow_to_filer_table(struct gfar=
-_private *priv, u64 ethflow, u
- 		priv->cur_filer_idx =3D priv->cur_filer_idx - 1;
- 	}
-=20
--	return 1;
-+err:
-+	kfree(local_rqfcr);
-+	kfree(local_rqfpr);
-+	return ret;
- }
-=20
- static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtoo=
-l_rxnfc *cmd)
+I guess my problem is in understanding whether the 802.3/802.1AX spec 
+has any use at all beyond redundancy. Given the requirement to maintain 
+frame order at the distributor, I can't immediately see how having a 
+bonded group of, say, 3 NICs is any better than having 3 separate NICs. 
+Have I missed something obvious?
 
+And, having said that, the redundancy features seem limited. For hot 
+standby, when the main link fails, you have to wait for both ends to 
+timeout, and re-negotiate via LACP, and hopefully pick up the same 
+lower-priority NIC, and then rely on a higher layer to request 
+retransmission of the missing frame. Do any of you have any experience 
+of using 802.1AX for anything useful and non-trivial?
 
+So, to get multiple-NIC speed, are we stuck with balance-rr? But 
+presumably this only works if the other end of the link is also running 
+the bonding driver?
 
+Thanks -
 
+Tom
 
