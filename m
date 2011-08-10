@@ -1,124 +1,149 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
-Date: Tue, 9 Aug 2011 18:11:06 -0700
-Message-ID: <20110810011106.GD2737@linux.vnet.ibm.com>
-References: <1312909360-2675-1-git-send-email-mark.rutland@arm.com>
- <1312910336.2371.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
+Date: Wed, 10 Aug 2011 09:24:59 +0800
+Message-ID: <4E41DDEB.9040904@windriver.com>
+References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com> <4E415CB3.8020202@schaufler-ca.com> <4E41D421.1000302@windriver.com> <4E41D78C.7040007@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Gergely Kalman <synapse@hippy.csoma.elte.hu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:44791 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751526Ab1HJBLI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Aug 2011 21:11:08 -0400
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p7A0fZSa029661
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 20:41:35 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p7A1B7rh271550
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 21:11:07 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p7A1B6CX006719
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2011 21:11:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1312910336.2371.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	<linux-security-module@vger.kernel.org>, <sds@tycho.nsa.gov>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4E41D78C.7040007@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 09, 2011 at 07:18:56PM +0200, Eric Dumazet wrote:
-> Le mardi 09 ao=FBt 2011 =E0 18:02 +0100, Mark Rutland a =E9crit :
-> > Commit f2c31e32 ("net: fix NULL dereferences in check_peer_redir()"=
-)
-> > added rcu protection to dst neighbour, and updated callsites for
-> > dst_{get,set}_neighbour. Unfortunately, it missed rt_cache_seq_show=
-=2E
-> >=20
-> > This produces a warning on v3.1-rc1 (on a preemptible kernel, on an
-> > ARM Vexpress A9x4):
-> >=20
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
-> > [ INFO: suspicious rcu_dereference_check() usage. ]
-> > ---------------------------------------------------
-> > include/net/dst.h:91 invoked rcu_dereference_check() without protec=
-tion!
-> >=20
-> > other info that might help us debug this:
-> >=20
-> > rcu_scheduler_active =3D 1, debug_locks =3D 0
-> > 2 locks held by proc01/32159:
+On 08/10/2011 08:57 AM, Casey Schaufler wrote:
+> On 8/9/2011 5:43 PM, Rongqing Li wrote:
+>> On 08/10/2011 12:13 AM, Casey Schaufler wrote:
+>>> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
+>>>> From: Roy.Li<rongqing.li@windriver.com>
+>>>>
+>>>> Define security_sk_getsecid to get the security id of a sock.
+>>>
+>>> Why are you requesting the secid when you're just going to
+>>> use it to get the secctx? Why not ask for that directly?
+>>> Is there ever a case where you only want the secid?
+>>>
+>> Hi:
+>>
+>> As I know, we have not method to get secctx directly.
+>
+> You are defining the method! Ask for what you want!
+>
+> The whole notion of secids is a holdover from the bad old
+> days when SELinux was a user space based enforcement mechanism.
+> The audit system was implemented when SELinux was the lone LSM
+> and unfortunately and unnecessarily propagated the use of secids.
+> If an object has a secid it must also have a secctx. The
+> interfaces that use secids could just as well use the secctx.
+> It is wasteful to create a new interface that fetches a secid
+> just to turn around and ask for the secctx in all cases.
+>
 
-This is very strange.  It says that there are two locks held by the
-task, but refuses to list them.  Maybe something stomped on the list
-of held locks?
+Do you means I should write a method like below
+security_sk_getsecctx(struct sock *sk, char *secctx, int *len)?
 
-							Thanx, Paul
+But secctx only is used to user. secid is used to source code to
+compute and compare the access permission.
 
-> > stack backtrace:
-> > [<80014880>] (unwind_backtrace+0x0/0xf8) from [<802e5c78>] (rt_cach=
-e_seq_show+0x18c/0x1c4)
-> > [<802e5c78>] (rt_cache_seq_show+0x18c/0x1c4) from [<800e0c5c>] (seq=
-_read+0x324/0x4a4)
-> > [<800e0c5c>] (seq_read+0x324/0x4a4) from [<8010786c>] (proc_reg_rea=
-d+0x70/0x94)
-> > [<8010786c>] (proc_reg_read+0x70/0x94) from [<800c0ba8>] (vfs_read+=
-0xb0/0x144)
-> > [<800c0ba8>] (vfs_read+0xb0/0x144) from [<800c0ea8>] (sys_read+0x40=
-/0x70)
-> > [<800c0ea8>] (sys_read+0x40/0x70) from [<8000e0c0>] (ret_fast_sysca=
-ll+0x0/0x3c)
-> >=20
-> > This patch adds calls to rcu_read_{lock,unlock} in rt_cache_seq_sho=
-w,
-> > protecting the dereferenced variable, and clearing the warning.
-> >=20
-> > Signed-off-by: Mark Rutland <mark.rutland@arm.com>
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > Cc: Gergely Kalman <synapse@hippy.csoma.elte.hu>
-> > ---
-> >  net/ipv4/route.c |    2 ++
-> >  1 files changed, 2 insertions(+), 0 deletions(-)
-> >=20
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index e3dec1c..6699ef7 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -419,6 +419,7 @@ static int rt_cache_seq_show(struct seq_file *s=
-eq, void *v)
-> >  		struct neighbour *n;
-> >  		int len;
-> > =20
-> > +		rcu_read_lock();
-> >  		n =3D dst_get_neighbour(&r->dst);
-> >  		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
-> >  			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
-> > @@ -435,6 +436,7 @@ static int rt_cache_seq_show(struct seq_file *s=
-eq, void *v)
-> >  			-1,
-> >  			(n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0,
-> >  			r->rt_spec_dst, &len);
-> > +		rcu_read_unlock();
-> > =20
-> >  		seq_printf(seq, "%*s\n", 127 - len, "");
-> >  	}
->=20
->=20
-> Hmm, I though rcu_read_lock_bh() (done by caller of this function) wa=
-s
-> protecting us here.
->=20
->=20
-> Paul, is it really needed, or is it a lockdep artifact ?
->=20
->=20
->=20
->=20
->=20
+And I do not see the same method like
+security_task_getsecctx(). but security_task_getsecid() has been
+implemented in kernel source code.
+
+-Roy
+
+
+>> On the most of time, we get secctx like this.
+>>
+>> The below comes from kernel/auditsc.c
+>>
+>> void audit_log_task_context(struct audit_buffer *ab)
+>> {
+>>          char *ctx = NULL;
+>>          unsigned len;
+>>          int error;
+>>          u32 sid;
+>>
+>>          security_task_getsecid(current,&sid);
+>>          if (!sid)
+>>                  return;
+>>
+>>          error = security_secid_to_secctx(sid,&ctx,&len);
+>>          if (error) {
+>>                  if (error != -EINVAL)
+>>                          goto error_path;
+>>                  return;
+>>          }
+>>
+>>          audit_log_format(ab, " subj=%s", ctx);
+>>          security_release_secctx(ctx, len);
+>>          return;
+>>
+>> error_path:
+>>          audit_panic("error in audit_log_task_context");
+>>          return;
+>> }
+>>
+>>
+>> -Roy
+>>
+>>
+>>>>
+>>>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
+>>>> ---
+>>>>    include/linux/security.h |    6 ++++++
+>>>>    security/security.c      |    6 ++++++
+>>>>    2 files changed, 12 insertions(+), 0 deletions(-)
+>>>>
+>>>> diff --git a/include/linux/security.h b/include/linux/security.h
+>>>> index ebd2a53..739ac39 100644
+>>>> --- a/include/linux/security.h
+>>>> +++ b/include/linux/security.h
+>>>> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
+>>>>    void security_sk_free(struct sock *sk);
+>>>>    void security_sk_clone(const struct sock *sk, struct sock *newsk);
+>>>>    void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid);
+>>>>    void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
+>>>>    void security_sock_graft(struct sock*sk, struct socket *parent);
+>>>>    int security_inet_conn_request(struct sock *sk,
+>>>> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>>>    {
+>>>>    }
+>>>>
+>>>> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
+>>>> +{
+>>>> +    *secid = 0;
+>>>> +}
+>>>> +
+>>>>    static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>>>    {
+>>>>    }
+>>>> diff --git a/security/security.c b/security/security.c
+>>>> index 0e4fccf..b0e0825 100644
+>>>> --- a/security/security.c
+>>>> +++ b/security/security.c
+>>>> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>>>    }
+>>>>    EXPORT_SYMBOL(security_sk_classify_flow);
+>>>>
+>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid)
+>>>> +{
+>>>> +    security_ops->sk_getsecid(sk, secid);
+>>>> +}
+>>>> +EXPORT_SYMBOL(security_sk_getsecid);
+>>>> +
+>>>>    void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>>>    {
+>>>>        security_ops->req_classify_flow(req, fl);
+>>>
+>>>
+>>
+>
+>
+
+-- 
+Best Reagrds,
+Roy | RongQing Li
