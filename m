@@ -1,51 +1,77 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] PCnet: Fix section mismatch
-Date: Wed, 10 Aug 2011 16:23:46 +0100
-Message-ID: <20110810152346.GA6092@linux-mips.org>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [PATCH v10 5/5] [powerpc] Fix up fsl-flexcan device tree binding.
+Date: Wed, 10 Aug 2011 10:35:43 -0500
+Message-ID: <20110810153543.GS4926@sgi.com>
+References: <1312945564-6626-1-git-send-email-holt@sgi.com>
+	<1312945564-6626-6-git-send-email-holt@sgi.com>
+	<4E428BFF.7060402@grandegger.com> <20110810141550.GQ4926@sgi.com>
+	<8ED8063F-7227-402A-89D5-7CE69241AF9C@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-	linux-mips@linux-mips.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Don Fry <pcnet32@frontier.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:53991 "EHLO linux-mips.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752026Ab1HJPYB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2011 11:24:01 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <8ED8063F-7227-402A-89D5-7CE69241AF9C-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Building MIPS mtx1_defconfig results in:
+On Wed, Aug 10, 2011 at 09:45:17AM -0500, Kumar Gala wrote:
+> 
+> On Aug 10, 2011, at 9:15 AM, Robin Holt wrote:
+> 
+> > On Wed, Aug 10, 2011 at 03:47:43PM +0200, Wolfgang Grandegger wrote:
+> >> Hi Robin,
+> >> 
+> >> On 08/10/2011 05:06 AM, Robin Holt wrote:
+> >>> In working with the socketcan developers, we have come to the conclusion
+> >>> the Documentation...fsl-flexcan.txt device tree documentation needs to
+> >>> be cleaned up.  The driver does not depend upon any properties other
+> >> 
+> >> Your first sentence could be misleading. Please just describe what the
+> >> patch does and why, something like:
+> >> 
+> >> "This patch cleans up the documentation of the device-tree binding for
+> >> the Flexcan devices on Freescale's PowerPC and ARM cores. Extra
+> >> properties are not needed as the frequency of the source clock is
+> >> fixed..." and so on.
+> > 
+> > I borrowed heavily from your message. ;)
+> > 
+> >>> than the required properties so we are removing the file.  Additionally,
+> >>> the p1010*dts* files are not following the standard for node naming in
+> >>> that they have a trailing -v1.0.
+> >> 
+> >>> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+> >>> To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+> >>> To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+> >>> To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> >>> To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> >>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+> >>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+> >>> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+> >>> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+> >>> ---
+> >>> .../devicetree/bindings/net/can/fsl-flexcan.txt    |   61 --------------------
+> >>> arch/powerpc/boot/dts/p1010rdb.dts                 |    8 ---
+> >>> arch/powerpc/boot/dts/p1010si.dtsi                 |    8 +-
+> >>> 3 files changed, 4 insertions(+), 73 deletions(-)
+> >>> delete mode 100644 Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
+> 
+> I don't understand how we can do this?  What binding spec covers the P1010 CAN support if you remove this?
 
-  MODPOST 735 modules
-WARNING: drivers/net/pcnet32.o(.devinit.text+0x11ec): Section mismatch in reference from the function pcnet32_probe_vlbus.constprop.22() to the variable .init.data:pcnet32_portlist
-The function __devinit pcnet32_probe_vlbus.constprop.22() references
-a variable __initdata pcnet32_portlist.
-If pcnet32_portlist is only used by pcnet32_probe_vlbus.constprop.22 then
-annotate pcnet32_portlist with a matching annotation.
+We have added it back in based upon an earlier comment from Wolfgang.
+I will post a new version shortly.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-
----
-As recently discussed in the discussion of submission of a fix for a
-similar bug in another driver remove __initdata rather than replace it
-with __devinitdata.
-
- drivers/net/pcnet32.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
-index 8b3090d..80b6f36 100644
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -82,7 +82,7 @@ static int cards_found;
- /*
-  * VLB I/O addresses
-  */
--static unsigned int pcnet32_portlist[] __initdata =
-+static unsigned int pcnet32_portlist[] =
-     { 0x300, 0x320, 0x340, 0x360, 0 };
- 
- static int pcnet32_debug;
+Robin
