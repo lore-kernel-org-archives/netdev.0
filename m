@@ -1,89 +1,91 @@
-From: Michael Guntsche <mguntsche@gmail.com>
-Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets (was:
- 3.0-rc1 Bridge not forwarding unicast packages)
-Date: Wed, 10 Aug 2011 09:40:50 +0200
-Message-ID: <CAMvAeqNA9Wcr3bO+Vya4gt2YC47oe=-A8Fxnswdj0ozD5tfZtQ@mail.gmail.com>
-References: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
-	<20110810070722.GA2150@minipsycho>
+From: Matvejchikov Ilya <matvejchikov@gmail.com>
+Subject: Re: [PATCH] slip: fix NOHZ local_softirq_pending 08 warning
+Date: Wed, 10 Aug 2011 11:47:56 +0400
+Message-ID: <CAKh5naayzp3ANwnE2Y9U2LEaiWNoZAuT3aOQbRYdoB5uNdrOPw@mail.gmail.com>
+References: <CAKh5naYrNPG3UO02VzG13QUP-SOP8-Td+O0G5LAr-+npduP49A@mail.gmail.com>
+ <4E416951.4020207@hartkopp.net>
+Reply-To: matvejchikov@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: shemminger@vyatta.com, sebastian.belden@googlemail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:51919 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720Ab1HJHkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 03:40:52 -0400
-In-Reply-To: <20110810070722.GA2150@minipsycho>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:63348 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241Ab1HJHsQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 03:48:16 -0400
+Received: by vws1 with SMTP id 1so642023vws.19
+        for <netdev@vger.kernel.org>; Wed, 10 Aug 2011 00:48:16 -0700 (PDT)
+In-Reply-To: <4E416951.4020207@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 10, 2011 at 9:07 AM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Wed, Aug 10, 2011 at 02:50:20AM CEST, mguntsche@gmail.com wrote:
->>Good evening/morning,
->>
->>> I just upgraded my router/bridge combo to 3.1-rc1 from 3.0 for
->>> testing. On a first look everything seemed to work fine, but when I
->>> tried to connect via openvpn to my internal network (tap0 being bridged
->>> with the internal network) I noticed that I was not able to access the
->>> server on my internal network. I could access the bridge (which is
->>> acting as the openvpn server as well) just fine though.
->>> To debug this I ran tcpdump on the openvpn client and started a ping to the
->>> internal network. I could see the ARP requests being answered.....
->><snip>
->>
->>After much digging and testing I found the commit that causes the
->>problem for me here.
->>
->>87c288c6e gianfar: do vlan cleanup
->>
->>Before this commit my bridge works fine. I simplified the test case
->>and just tried to access the server from a local wireless device with
->>gets also bridged via
->>a gianfar nic to the wired lan. Before commit 87c288c6e I can ping the
->>device from the internal network afterwards it stops.
->>For testing purposes I reverted this commit (plus some others to make
->>the code compile) and it started working again.
->>The hardware is a routerboard with three onboard nics two of em gianfar.
->>The gianfar nics do not support any kind of offloading,
+Oliver,
+
+As I see it, there is the following call chain of the netif_rx_ni() in
+the slip (or slcan) driver:
+[flush_to_ldisc] -> [disc->ops->receive_buf] -> [slip_unesc] ->
+[sl_bump] -> [netif_rx_ni]
+
+So flush_to_ldisc() may be called:
+  1) From tty_flush_to_ldisc() with flush_work and as it mentioned
+must not be called from IRQ context.
+  2) From input_available_p() which can be called from n_tty_read() or
+n_tty_poll(), so it's the user's context.
+  2) From tty_flip_buffer_push() which schedules the flush_to_ldisc to
+work or calls it directly if the tty->low_latency set.
+
+So the only thing we must take into account that with tty->low_latency
+set we can be in IRQ context when doing with netif_rx_ni(). But if we
+are using netif_rx_ni() we can handle both IRQ and softirq contexts
+well as if there are any softirq pending netif_rx_ni() calls
+do_softirq()  with preemtion disabled. Then do_softirq() checks if
+there is an IRQ context and does nothing if so.
+
+So, I think it's correct to change netif_rx() with the netif_rx_ni().
+
+2011/8/9 Oliver Hartkopp <socketcan@hartkopp.net>:
+> Hello Ilya,
 >
-> Thanks for testing/report. I'm not sure I understand your simplified
-> case :(
-Sorry if my explanation was confusing but it was late night/morning
-when I wrote it.
-
-The setup is quite easy.
-
-WLAN ----->|Bridge|<----- Wired Lan (gianfar nic)
-
-Client (in WLAN): 192.168.42.55
-Bridge: 192.168.42.1
-Server (on Wired): 192.168.42.127
-
-With your patch the Bridge can ping the client and the server, but the
-client cannot reach the server and vice-versa.
-
+> is the processing of characters in the tty input stream for line disc=
+iplines
+> *always* done in softirq context???
 >
-> Anyway, gianfar supports rx/tx vlan accel. Would you please try to turn
-> it on/off manually by ethtool to see if it works in some setup?
-The gianfar chip in this routerboard does NOT support vlan accel it is
-a TSEC model.
-ethtool complains that this feature is not supported.
-
+> If so, i would send a patch for drivers/net/can/slcan.c too ...
 >
-> I presume you have no vlans involved in your setup, right?
-No, there are no vlans in my setup.
-
-
->>Is it possible that the new code is tripped up by the bridge offload
->>parameters somehow and thinks that the gianfar nic supports it as
->>well?
+> Thanks,
+> Oliver
 >
-> I don't see how now. Outside the bridge all is working correctly?
-Yes I can access the server from the bridge so the network is working.
-For me it looks like that the packets are just dropped when they
-should go through the bridge.
-
-Kind regards,
-Michael
+> On 05.08.2011 21:23, Matvejchikov Ilya wrote:
+>> When using nanosleep() in an userspace application we get a ratelimi=
+t warning:
+>>
+>> =A0 =A0 =A0 NOHZ: local_softirq_pending 08
+>>
+>> According to 481a8199142c050b72bff8a1956a49fd0a75bbe0 the problem is=
+ caused by
+>> netif_rx() function. This patch replaces netif_rx() with netif_rx_ni=
+() which
+>> has to be used from process/softirq context.
+>>
+>> Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
+>> ---
+>> =A0drivers/net/slip.c | =A0 =A02 +-
+>> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+>> index f11b3f3..4c61753 100644
+>> --- a/drivers/net/slip.c
+>> +++ b/drivers/net/slip.c
+>> @@ -367,7 +367,7 @@ static void sl_bump(struct slip *sl)
+>> =A0 =A0 =A0 memcpy(skb_put(skb, count), sl->rbuff, count);
+>> =A0 =A0 =A0 skb_reset_mac_header(skb);
+>> =A0 =A0 =A0 skb->protocol =3D htons(ETH_P_IP);
+>> - =A0 =A0 netif_rx(skb);
+>> + =A0 =A0 netif_rx_ni(skb);
+>> =A0 =A0 =A0 dev->stats.rx_packets++;
+>> =A0}
+>>
+>
+>
