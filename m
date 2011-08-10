@@ -1,179 +1,99 @@
-From: Rongqing Li <rongqing.li@windriver.com>
-Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
-Date: Wed, 10 Aug 2011 09:44:34 +0800
-Message-ID: <4E41E282.7020409@windriver.com>
-References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com> <4E415CB3.8020202@schaufler-ca.com> <4E41D421.1000302@windriver.com> <4E41D78C.7040007@schaufler-ca.com> <4E41DDEB.9040904@windriver.com> <4E41E07C.4080908@schaufler-ca.com>
+From: Wang Shaoyan <stufever@gmail.com>
+Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Wed, 10 Aug 2011 10:20:07 +0800
+Message-ID: <CANxBZFrMgFdedyq2SoY3neoHbQVKjDfXjNVfMyOZcTApQuLUEA@mail.gmail.com>
+References: <1312907945-1982-1-git-send-email-wangshaoyan.pt@taobao.com>
+	<1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
-	<linux-security-module@vger.kernel.org>, <sds@tycho.nsa.gov>
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4E41E07C.4080908@schaufler-ca.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:50207 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753006Ab1HJCUH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 22:20:07 -0400
+In-Reply-To: <1312908784.2371.53.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/10/2011 09:35 AM, Casey Schaufler wrote:
-> On 8/9/2011 6:24 PM, Rongqing Li wrote:
->> On 08/10/2011 08:57 AM, Casey Schaufler wrote:
->>> On 8/9/2011 5:43 PM, Rongqing Li wrote:
->>>> On 08/10/2011 12:13 AM, Casey Schaufler wrote:
->>>>> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
->>>>>> From: Roy.Li<rongqing.li@windriver.com>
->>>>>>
->>>>>> Define security_sk_getsecid to get the security id of a sock.
->>>>>
->>>>> Why are you requesting the secid when you're just going to
->>>>> use it to get the secctx? Why not ask for that directly?
->>>>> Is there ever a case where you only want the secid?
->>>>>
->>>> Hi:
->>>>
->>>> As I know, we have not method to get secctx directly.
->>>
->>> You are defining the method! Ask for what you want!
->>>
->>> The whole notion of secids is a holdover from the bad old
->>> days when SELinux was a user space based enforcement mechanism.
->>> The audit system was implemented when SELinux was the lone LSM
->>> and unfortunately and unnecessarily propagated the use of secids.
->>> If an object has a secid it must also have a secctx. The
->>> interfaces that use secids could just as well use the secctx.
->>> It is wasteful to create a new interface that fetches a secid
->>> just to turn around and ask for the secctx in all cases.
->>>
+2011/8/10 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le mercredi 10 ao=FBt 2011 =E0 00:39 +0800, stufever@gmail.com a =E9c=
+rit :
+>> From: Wang Shaoyan <wangshaoyan.pt@taobao.com>
 >>
->> Do you means I should write a method like below
->> security_sk_getsecctx(struct sock *sk, char *secctx, int *len)?
->
-> Yes. That is exactly what you should do.
->
+>> =A0 drivers/net/gianfar_ethtool.c:765: warning: the frame size of 20=
+48 bytes is larger than 1024 bytes
 >>
->> But secctx only is used to user.
->
-> But all you're doing is printing out the secctx. The only
-> thing you are doing with the secid is converting it to a
-> secctx.
->
->> secid is used to source code to
->> compute and compare the access permission.
->
-> That will depend on the LSM involved. You are making a change to
-> the LSM, not just SELinux.
->
+>> Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+>> ---
+>> =A0drivers/net/gianfar_ethtool.c | =A0 20 +++++++++++++++++---
+>> =A01 files changed, 17 insertions(+), 3 deletions(-)
 >>
->> And I do not see the same method like
->> security_task_getsecctx(). but security_task_getsecid() has been
->> implemented in kernel source code.
+>> diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_eth=
+tool.c
+>> index 6e35069..134fe1b 100644
+>> --- a/drivers/net/gianfar_ethtool.c
+>> +++ b/drivers/net/gianfar_ethtool.c
+>> @@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct =
+gfar_private *priv, u64 ethflow, u
+>> =A0{
+>> =A0 =A0 =A0 unsigned int last_rule_idx =3D priv->cur_filer_idx;
+>> =A0 =A0 =A0 unsigned int cmp_rqfpr;
+>> - =A0 =A0 unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+>> - =A0 =A0 unsigned int local_rqfcr[MAX_FILER_IDX + 1];
+>> + =A0 =A0 unsigned int *local_rqfpr;
+>> + =A0 =A0 unsigned int *local_rqfcr;
+>> =A0 =A0 =A0 int i =3D 0x0, k =3D 0x0;
+>> =A0 =A0 =A0 int j =3D MAX_FILER_IDX, l =3D 0x0;
+>> + =A0 =A0 int ret =3D 1;
+>> +
+>> + =A0 =A0 local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_=
+IDX + 1),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 GFP_KERNEL);
+>> + =A0 =A0 local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_=
+IDX + 1),
+>> + =A0 =A0 =A0 =A0 =A0 =A0 GFP_KERNEL);
+>> + =A0 =A0 if (!local_rqfpr || !local_rqfcr) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 pr_err("Out of memory\n");
 >
-> Have a look at how those interfaces are used.
+> =A0 =A0 =A0 =A0Please remove this pr_err(), kmalloc() will complain a=
+lready.
 >
+>> + =A0 =A0 =A0 =A0 =A0 =A0 ret =3D 0;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 got err;
+>> + =A0 =A0 }
+>>
+>> =A0 =A0 =A0 switch (class) {
+>> =A0 =A0 =A0 case TCP_V4_FLOW:
+>> @@ -765,7 +776,10 @@ static int gfar_ethflow_to_filer_table(struct g=
+far_private *priv, u64 ethflow, u
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->cur_filer_idx =3D priv->cur_filer_=
+idx - 1;
+>> =A0 =A0 =A0 }
+>>
+>> - =A0 =A0 return 1;
+>> +err:
+>> + =A0 =A0 kfree(local_rqfcr);
+>> + =A0 =A0 kfree(local_rqfpr);
+>> + =A0 =A0 return ret;
+>> =A0}
+>>
 >
-Thank you very much.
 
-I will study these interfaces, and hope get your comments when
-I send new patches.
+Thanks, I will do it
 
-Thanks.
-
-
->>
->> -Roy
->>
->>
->>>> On the most of time, we get secctx like this.
->>>>
->>>> The below comes from kernel/auditsc.c
->>>>
->>>> void audit_log_task_context(struct audit_buffer *ab)
->>>> {
->>>>           char *ctx = NULL;
->>>>           unsigned len;
->>>>           int error;
->>>>           u32 sid;
->>>>
->>>>           security_task_getsecid(current,&sid);
->>>>           if (!sid)
->>>>                   return;
->>>>
->>>>           error = security_secid_to_secctx(sid,&ctx,&len);
->>>>           if (error) {
->>>>                   if (error != -EINVAL)
->>>>                           goto error_path;
->>>>                   return;
->>>>           }
->>>>
->>>>           audit_log_format(ab, " subj=%s", ctx);
->>>>           security_release_secctx(ctx, len);
->>>>           return;
->>>>
->>>> error_path:
->>>>           audit_panic("error in audit_log_task_context");
->>>>           return;
->>>> }
->>>>
->>>>
->>>> -Roy
->>>>
->>>>
->>>>>>
->>>>>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
->>>>>> ---
->>>>>>     include/linux/security.h |    6 ++++++
->>>>>>     security/security.c      |    6 ++++++
->>>>>>     2 files changed, 12 insertions(+), 0 deletions(-)
->>>>>>
->>>>>> diff --git a/include/linux/security.h b/include/linux/security.h
->>>>>> index ebd2a53..739ac39 100644
->>>>>> --- a/include/linux/security.h
->>>>>> +++ b/include/linux/security.h
->>>>>> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
->>>>>>     void security_sk_free(struct sock *sk);
->>>>>>     void security_sk_clone(const struct sock *sk, struct sock *newsk);
->>>>>>     void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
->>>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid);
->>>>>>     void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
->>>>>>     void security_sock_graft(struct sock*sk, struct socket *parent);
->>>>>>     int security_inet_conn_request(struct sock *sk,
->>>>>> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
->>>>>>     {
->>>>>>     }
->>>>>>
->>>>>> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
->>>>>> +{
->>>>>> +    *secid = 0;
->>>>>> +}
->>>>>> +
->>>>>>     static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
->>>>>>     {
->>>>>>     }
->>>>>> diff --git a/security/security.c b/security/security.c
->>>>>> index 0e4fccf..b0e0825 100644
->>>>>> --- a/security/security.c
->>>>>> +++ b/security/security.c
->>>>>> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
->>>>>>     }
->>>>>>     EXPORT_SYMBOL(security_sk_classify_flow);
->>>>>>
->>>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid)
->>>>>> +{
->>>>>> +    security_ops->sk_getsecid(sk, secid);
->>>>>> +}
->>>>>> +EXPORT_SYMBOL(security_sk_getsecid);
->>>>>> +
->>>>>>     void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
->>>>>>     {
->>>>>>         security_ops->req_classify_flow(req, fl);
->>>>>
->>>>>
->>>>
->>>
->>>
->>
+> You should now track all "return 0;" done in this function to make su=
+re
+> no memory leak is added by your patch.
+>
+>
 >
 >
 
--- 
-Best Reagrds,
-Roy | RongQing Li
+
+
+--=20
+Wang Shaoyan
