@@ -1,41 +1,112 @@
-From: "J.Hwan Kim" <frog1120@gmail.com>
-Subject: Intel 82599 ixgbe driver performance
-Date: Wed, 10 Aug 2011 15:19:34 +0900
-Message-ID: <4E4222F6.7050304@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets (was:
+ 3.0-rc1 Bridge not forwarding unicast packages)
+Date: Wed, 10 Aug 2011 09:07:23 +0200
+Message-ID: <20110810070722.GA2150@minipsycho>
+References: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, sebastian.belden@googlemail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Guntsche <mguntsche@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f170.google.com ([209.85.210.170]:32802 "EHLO
-	mail-iy0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121Ab1HJGTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 02:19:37 -0400
-Received: by iye16 with SMTP id 16so563463iye.1
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 23:19:37 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:17191 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750894Ab1HJHH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2011 03:07:28 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, everyone
+Wed, Aug 10, 2011 at 02:50:20AM CEST, mguntsche@gmail.com wrote:
+>Good evening/morning,
+>
+>> I just upgraded my router/bridge combo to 3.1-rc1 from 3.0 for
+>> testing. On a first look everything seemed to work fine, but when I
+>> tried to connect via openvpn to my internal network (tap0 being bridged
+>> with the internal network) I noticed that I was not able to access the
+>> server on my internal network. I could access the bridge (which is
+>> acting as the openvpn server as well) just fine though.
+>> To debug this I ran tcpdump on the openvpn client and started a ping to the
+>> internal network. I could see the ARP requests being answered.....
+><snip>
+>
+>After much digging and testing I found the commit that causes the
+>problem for me here.
+>
+>87c288c6e gianfar: do vlan cleanup
+>
+>Before this commit my bridge works fine. I simplified the test case
+>and just tried to access the server from a local wireless device with
+>gets also bridged via
+>a gianfar nic to the wired lan. Before commit 87c288c6e I can ping the
+>device from the internal network afterwards it stops.
+>For testing purposes I reverted this commit (plus some others to make
+>the code compile) and it started working again.
+>The hardware is a routerboard with three onboard nics two of em gianfar.
+>The gianfar nics do not support any kind of offloading,
 
-I'm testing our network card which includes intel 82599 based on ixgbe 
-driver.
-I wonder what is the Rx performance of i82599 without network stack only 
-with 64Byte frames.
-Our driver reads the packet directly from DMA packet buffer and push to 
-the application
-without passing through linux kernel stack.
-It seems that the intel 82599 cannot push 64B frames to DMA area in 10G.
-Is it right?
+Thanks for testing/report. I'm not sure I understand your simplified
+case :(
 
-If it is the case, what is the bottleneck of 82599?
+Anyway, gianfar supports rx/tx vlan accel. Would you please try to turn
+it on/off manually by ethtool to see if it works in some setup?
 
-Thanks in advance.
+I presume you have no vlans involved in your setup, right?
+	
+>
+>Offload parameters for lan_wire:
+>rx-checksumming: off
+>tx-checksumming: off
+>scatter-gather: off
+>tcp-segmentation-offload: off
+>udp-fragmentation-offload: off
+>generic-segmentation-offload: off
+>generic-receive-offload: on
+>large-receive-offload: off
+>rx-vlan-offload: off
+>tx-vlan-offload: off
+>ntuple-filters: off
+>receive-hashing: off
+>
+>The Bridge device on the other hand....
+>
+>Offload parameters for lan:
+>rx-checksumming: on
+>tx-checksumming: on
+>scatter-gather: off
+>tcp-segmentation-offload: off
+>udp-fragmentation-offload: off
+>generic-segmentation-offload: off
+>generic-receive-offload: on
+>large-receive-offload: off
+>rx-vlan-offload: off
+>tx-vlan-offload: on
+>ntuple-filters: off
+>receive-hashing: off
+>
+>Is it possible that the new code is tripped up by the bridge offload
+>parameters somehow and thinks that the gianfar nic supports it as
+>well?
 
-Best Regards,
-J.Hwan KIm
+I don't see how now. Outside the bridge all is working correctly?
 
-
-
-
-
+>As I wrote in my initial mail, connecting to the Bridge itself works,
+>I can also see ARP requests and Broadcasts, the rest just seems to
+>disappear.
+>
+>As for the commits I reverted:
+>a4aeb2662 vlan: kill __vlan_hwaccel_rx and vlan_hwaccel_rx
+>6dacaddd4 vlan: kill vlan_hwaccel_receive_skb
+>7890a5b9c vlan: kill ndo_vlan_rx_register
+>b852b7208 gianfar: fix bug caused by 87c288c6e9aa31720b72e2bc2d665e24e1653c3e
+>
+>87c288c6e gianfar: do vlan cleanup
+>
+>I really think that there is only some small change in the gianfar
+>code needed, but I could not figure it out myself.
+>Please tell me if you need any more information.
+>
+>Kind regards,
+>Michael Guntsche
