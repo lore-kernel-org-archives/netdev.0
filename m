@@ -1,50 +1,51 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH] slcan: ldisc generated skbs are received in softirq context
-Date: Wed, 10 Aug 2011 17:18:59 +0200
-Message-ID: <4E42A163.5030208@hartkopp.net>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] PCnet: Fix section mismatch
+Date: Wed, 10 Aug 2011 16:23:46 +0100
+Message-ID: <20110810152346.GA6092@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Matvejchikov Ilya <matvejchikov@gmail.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+	linux-mips@linux-mips.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Don Fry <pcnet32@frontier.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:21683 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273Ab1HJPTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 11:19:38 -0400
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:53991 "EHLO linux-mips.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752026Ab1HJPYB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2011 11:24:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As this discussion pointed out
+Building MIPS mtx1_defconfig results in:
 
-http://marc.info/?l=linux-netdev&m=131257225602375
+  MODPOST 735 modules
+WARNING: drivers/net/pcnet32.o(.devinit.text+0x11ec): Section mismatch in reference from the function pcnet32_probe_vlbus.constprop.22() to the variable .init.data:pcnet32_portlist
+The function __devinit pcnet32_probe_vlbus.constprop.22() references
+a variable __initdata pcnet32_portlist.
+If pcnet32_portlist is only used by pcnet32_probe_vlbus.constprop.22 then
+annotate pcnet32_portlist with a matching annotation.
 
-netdevices that are based on serial line disciplines should use netif_rx_ni()
-when pushing received socketbuffers into the netdev rx queue.
-
-Following commit 614851601c121b1320a35757ab88292d6272f906 ("slip: fix NOHZ
-local_softirq_pending 08 warning") this patch updates the slcan driver
-accordingly.
-
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-CC: Matvejchikov Ilya <matvejchikov@gmail.com>
-CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
 ---
+As recently discussed in the discussion of submission of a fix for a
+similar bug in another driver remove __initdata rather than replace it
+with __devinitdata.
 
-diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
-index f523f1c..4b70b7e 100644
---- a/drivers/net/can/slcan.c
-+++ b/drivers/net/can/slcan.c
-@@ -197,7 +197,7 @@ static void slc_bump(struct slcan *sl)
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	memcpy(skb_put(skb, sizeof(struct can_frame)),
- 	       &cf, sizeof(struct can_frame));
--	netif_rx(skb);
-+	netif_rx_ni(skb);
+ drivers/net/pcnet32.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- 	sl->dev->stats.rx_packets++;
- 	sl->dev->stats.rx_bytes += cf.can_dlc;
-
+diff --git a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
+index 8b3090d..80b6f36 100644
+--- a/drivers/net/pcnet32.c
++++ b/drivers/net/pcnet32.c
+@@ -82,7 +82,7 @@ static int cards_found;
+ /*
+  * VLB I/O addresses
+  */
+-static unsigned int pcnet32_portlist[] __initdata =
++static unsigned int pcnet32_portlist[] =
+     { 0x300, 0x320, 0x340, 0x360, 0 };
+ 
+ static int pcnet32_debug;
