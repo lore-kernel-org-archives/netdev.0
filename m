@@ -1,82 +1,104 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [linux-firmware v2 1/2] rtl_nic: update firmware for
- RTL8111E-VL
-Date: Wed, 10 Aug 2011 13:54:20 +0100
-Message-ID: <1312980860.2591.1267.camel@deadeye>
-References: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
+From: "Sebastian =?ISO-8859-1?Q?P=F6hn?=" <sebastian.belden@googlemail.com>
+Subject: Fwd: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Wed, 10 Aug 2011 15:11:21 +0200
+Message-ID: <1312981881.29613.22.camel@DENEC1DT0191>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512"; protocol="application/pgp-signature"; boundary="=-OBxF+ZFQ8OeEOxPpqWu1"
-Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Linux Netdev <netdev@vger.kernel.org>, wangshaoyan.pt@taobao.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57729 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754108Ab1HJMy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 08:54:28 -0400
-In-Reply-To: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56129 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800Ab1HJNNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 09:13:51 -0400
+Received: by wyg24 with SMTP id 24so696463wyg.19
+        for <netdev@vger.kernel.org>; Wed, 10 Aug 2011 06:13:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I was annoyed by the compiler warning for quite a long time ...
 
---=-OBxF+ZFQ8OeEOxPpqWu1
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2011-08-10 at 20:22 +0800, Hayes Wang wrote:
-> Updated firmware with stability fixes.
-> Version: rtl8168e-3_0.0.1.
->=20
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  WHENCE                |    2 +-
->  rtl_nic/rtl8168e-3.fw |  Bin 2804 -> 3264 bytes
->  2 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/WHENCE b/WHENCE
-> index 4b88f1f..a463417 100644
-> --- a/WHENCE
-> +++ b/WHENCE
-> @@ -1626,7 +1626,7 @@ File: rtl_nic/rtl8168d-2.fw
->  File: rtl_nic/rtl8105e-1.fw
->  File: rtl_nic/rtl8168e-1.fw
->  File: rtl_nic/rtl8168e-2.fw
-> -File: rtl_nic/rtl8168e-3.fw
-> +File: rtl_nic/rtl8168e-3.fw (Version: rtl8168e-3_0.0.1)
-[...]
-
-Please don't write the version in yet another way.  It should be:
-
-File: rtl_nic/rtl8168e-3.fw
-Version: 0.0.1
-
-Or, if you insist on duplicating the name in the version:
-
-File: rtl_nic/rtl8168e-3.fw
-Version: rtl8168e-3_0.0.1
-
-Ben.
+Patch seems to work. Please put version information in your email heade=
+r on future patches.
 
 
---=-OBxF+ZFQ8OeEOxPpqWu1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+Reviewed-and-tested-by: Sebastian P=C3=B6hn <sebastian.poehn@belden.com=
+>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+---
+ drivers/net/gianfar_ethtool.c |   26 +++++++++++++++++++++-----
+ 1 files changed, 21 insertions(+), 5 deletions(-)
 
-iQIVAwUATkJ/fOe/yOyVhhEJAQq/6w//Rbl3Fn/7E2hogZ1qBujiUe+k8XIg805M
-unCUK3rVKc/trg+duuc+D9o8AdG21hN3UsmAKMNtAlYPBUCBoVP9qPF2D6iE/pJw
-CoCbnw+7lKzoi8WFOd3ULH2U0ZL4dzD61mc+UswlQtT0rSTLRW4SxbFyOTtwtD3l
-BnlPrFt+HRonciRxdixxhnBSOYtsB1FERRheuws/YUJ48i6a9dZu1nbn3V6m0k5A
-3XNYWpWkK+N5K14s5t3O+UZ2be3o0I3Zxvgv7eOHH5S8F6KMWms9jzgOPgpwc4lD
-ZymAFi8OGlvbFifnUG8UP8Wki7hK6eItZk4w8SiK9U7hawQL0xKooDUAYHpuq7Is
-MgP7YvzeOsM5Bt4kmu/qHvjwJ/kaYjQ2a1KN8AIEXcGd3xApf4dwtKlg/UVNzIgH
-DU9mP4QtH2mDj378xNEF2Rq9wZwgF5K2gZSgOCVBdOKBe4pxb1YYhcSX9CC6+ofU
-jK46rGYgR8Rfz6z5z+981A7/smVWmTZ9pz/oq2G881pbPvgkKv70TIWh9NXlFNDK
-PWvgqtK6BJhdd48AuwXakFQFUZl/qrK7N0mxaRyK6WoXfMHlLvxAftLHFpWb8k/M
-eO18Cy93RHwHMwUutGiNA4hxktRWsm/VK0LxKFZGNFepjlkrPMnb298vH/eZLHFy
-lullkx8hekU=
-=lVh9
------END PGP SIGNATURE-----
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtoo=
+l.c
+index 6e35069..25a8c2a 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct gfa=
+r_private *priv, u64 ethflow, u
+ {
+ 	unsigned int last_rule_idx =3D priv->cur_filer_idx;
+ 	unsigned int cmp_rqfpr;
+-	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+-	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
++	unsigned int *local_rqfpr;
++	unsigned int *local_rqfcr;
+ 	int i =3D 0x0, k =3D 0x0;
+ 	int j =3D MAX_FILER_IDX, l =3D 0x0;
++	int ret =3D 1;
++
++	local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	if (!local_rqfpr || !local_rqfcr) {
++		pr_err("Out of memory\n");
++		ret =3D 0;
++		goto err;
++	}
+=20
+ 	switch (class) {
+ 	case TCP_V4_FLOW:
+@@ -706,7 +717,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
+private *priv, u64 ethflow, u
+ 		break;
+ 	default:
+ 		pr_err("Right now this class is not supported\n");
+-		return 0;
++		ret =3D 0;
++		goto err;
+ 	}
+=20
+ 	for (i =3D 0; i < MAX_FILER_IDX + 1; i++) {
+@@ -721,7 +733,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
+private *priv, u64 ethflow, u
+=20
+ 	if (i =3D=3D MAX_FILER_IDX + 1) {
+ 		pr_err("No parse rule found, can't create hash rules\n");
+-		return 0;
++		ret =3D 0;
++		goto err;
+ 	}
+=20
+ 	/* If a match was found, then it begins the starting of a cluster rul=
+e
+@@ -765,7 +778,10 @@ static int gfar_ethflow_to_filer_table(struct gfar=
+_private *priv, u64 ethflow, u
+ 		priv->cur_filer_idx =3D priv->cur_filer_idx - 1;
+ 	}
+=20
+-	return 1;
++err:
++	kfree(local_rqfcr);
++	kfree(local_rqfpr);
++	return ret;
+ }
+=20
+ static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtoo=
+l_rxnfc *cmd)
 
---=-OBxF+ZFQ8OeEOxPpqWu1--
+
+
+
+
