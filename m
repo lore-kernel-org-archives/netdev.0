@@ -1,98 +1,89 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] Add pch ieee1588 driver for Intel EG20T PCH
-Date: Wed, 10 Aug 2011 09:28:52 +0200
-Message-ID: <20110810072852.GA3619@riccoc20.at.omicron.at>
-References: <1312352861-10955-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
- <20110803192331.GA11166@riccoc20.at.omicron.at>
- <817E42EB77CC464D9F0BA9D4CB92C152@hacdom.okisemi.com>
+From: Michael Guntsche <mguntsche@gmail.com>
+Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets (was:
+ 3.0-rc1 Bridge not forwarding unicast packages)
+Date: Wed, 10 Aug 2011 09:40:50 +0200
+Message-ID: <CAMvAeqNA9Wcr3bO+Vya4gt2YC47oe=-A8Fxnswdj0ozD5tfZtQ@mail.gmail.com>
+References: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
+	<20110810070722.GA2150@minipsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tomoya-linux@dsn.okisemi.com, kok.howg.ewe@intel.com,
-	joel.clark@intel.com, yong.y.wang@intel.com, qi.wang@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	richard.cochran@omicron.at
-To: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <817E42EB77CC464D9F0BA9D4CB92C152@hacdom.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: shemminger@vyatta.com, sebastian.belden@googlemail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:51919 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720Ab1HJHkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 03:40:52 -0400
+In-Reply-To: <20110810070722.GA2150@minipsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 10, 2011 at 02:03:32PM +0900, Toshiharu Okada wrote:
-> Hi Richard
-> 
-> I added comment below.
-> Please confirm them
+On Wed, Aug 10, 2011 at 9:07 AM, Jiri Pirko <jpirko@redhat.com> wrote:
+> Wed, Aug 10, 2011 at 02:50:20AM CEST, mguntsche@gmail.com wrote:
+>>Good evening/morning,
+>>
+>>> I just upgraded my router/bridge combo to 3.1-rc1 from 3.0 for
+>>> testing. On a first look everything seemed to work fine, but when I
+>>> tried to connect via openvpn to my internal network (tap0 being bridged
+>>> with the internal network) I noticed that I was not able to access the
+>>> server on my internal network. I could access the bridge (which is
+>>> acting as the openvpn server as well) just fine though.
+>>> To debug this I ran tcpdump on the openvpn client and started a ping to the
+>>> internal network. I could see the ARP requests being answered.....
+>><snip>
+>>
+>>After much digging and testing I found the commit that causes the
+>>problem for me here.
+>>
+>>87c288c6e gianfar: do vlan cleanup
+>>
+>>Before this commit my bridge works fine. I simplified the test case
+>>and just tried to access the server from a local wireless device with
+>>gets also bridged via
+>>a gianfar nic to the wired lan. Before commit 87c288c6e I can ping the
+>>device from the internal network afterwards it stops.
+>>For testing purposes I reverted this commit (plus some others to make
+>>the code compile) and it started working again.
+>>The hardware is a routerboard with three onboard nics two of em gianfar.
+>>The gianfar nics do not support any kind of offloading,
+>
+> Thanks for testing/report. I'm not sure I understand your simplified
+> case :(
+Sorry if my explanation was confusing but it was late night/morning
+when I wrote it.
 
-Thanks, I have a few questions, below.
+The setup is quite easy.
 
-I will also comment on the patch itself.
+WLAN ----->|Bridge|<----- Wired Lan (gianfar nic)
 
-> >Section 14.6.1.10 in the data sheet seems to imply that the input
-> >clock is 50 MHz. In that case you could use a nominal frequency of
-> >31.25 MHz (period 32 ns, SHIFT 5). However, you need to find out
-> >the actual input clock frequency. If this can vary, then the driver
-> >should allow changing these values.
-> 
-> modify as follows.
-> 
-> #define DEFAULT_ADDEND 0xA0000000
-> #define TICKS_NS_SHIFT  5
+Client (in WLAN): 192.168.42.55
+Bridge: 192.168.42.1
+Server (on Wired): 192.168.42.127
 
-Have you determined the input clock frequency?
-If so, what is it?
+With your patch the Bridge can ping the client and the server, but the
+client cannot reach the server and vice-versa.
 
-> >> + u32 ch_control;
-> >
-> >You never program this register. But I think the "Mode" field should
-> >be set to 2. The other settings really make no sense at all.  Or do
-> >you set this in the MAC driver?
-> >
-> >(I wonder why Intel retained the very limited PTP V1 modes from the
-> >IXP time stamping unit.)
-> 
-> ch_control register was set as 0x80020000    (Version:1, mode:2 )
+>
+> Anyway, gianfar supports rx/tx vlan accel. Would you please try to turn
+> it on/off manually by ethtool to see if it works in some setup?
+The gianfar chip in this routerboard does NOT support vlan accel it is
+a TSEC model.
+ethtool complains that this feature is not supported.
 
-It might make more sense to set this register in the MAC driver in
-connection with enabling and disabling packet time stamps (see below).
+>
+> I presume you have no vlans involved in your setup, right?
+No, there are no vlans in my setup.
 
-> >This ISR code (and much of the rest of the driver) is copied from the
-> >IXP driver. It would be nice to know if it actually works on the atom
-> >hardware. Do have any hardware to try it on?
-> 
-> We have a board of atom(E600) and EG20T.
-> However there is no environment for confirming auxiliary snapshot.
 
-Well, if you plan to test the auxiliary snapshot on real hardware,
-then we can leave the code as it is.
+>>Is it possible that the new code is tripped up by the bridge offload
+>>parameters somehow and thinks that the gianfar nic supports it as
+>>well?
+>
+> I don't see how now. Outside the bridge all is working correctly?
+Yes I can access the server from the bridge so the network is working.
+For me it looks like that the packets are just dropped when they
+should go through the bridge.
 
-Otherwise, I would prefer to move the auxiliary snapshot code into a
-separate patch. Then, we can wait to merge that code until someone
-tests it.
-
-I did test the auxiliary snapshot code on the IXP465, and probably it
-will work just fine, but I want to be sure that it works on the atom
-before merging.
-
-> >I would also like to see how the time stamps are done in the MAC
-> >driver. Have you already posted that?
-> 
-> Mac driver already upstreamed. ( drivers/net/pch_gbe)
-> However the code relevant to IEEE1588 is not contained into Ethernet driver.
-> I have question about rx/tx snapshot.
-> Is it necessary to use a snapshot within an Ethernet driver driver?
-> I was indicated that there must not be any dependence of a device when the 
-> Ethernet driver was upstreamed.
-
-(I assume that you mean "time stamp" when you say, "snapshot")
-
-You will need to also add time stamping support into that driver. That
-means supporting the SIOCSHWTSTAMP ioctl. As an example, you can take
-a look at drivers/net/arm/ixp4xx_eth.c.
-
-It would be nice to have a series of two patches, one adding the PHC
-driver, and one adding SIOCSHWTSTAMP to the MAC driver.
-
-Thanks,
-
-Richard
+Kind regards,
+Michael
