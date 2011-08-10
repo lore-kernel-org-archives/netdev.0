@@ -1,84 +1,118 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net] vmxnet3: Don't enable vlan filters in promiscuous mode.
-Date: Wed, 10 Aug 2011 08:16:20 +0800
-Message-ID: <CAEP_g=-dwrhuJddX9Jq1yLuUrH0XKwuEdknOHipdZx8dB64xdg@mail.gmail.com>
-References: <1312794947-3163-1-git-send-email-jesse@nicira.com> <alpine.LRH.2.00.1108091426010.27839@sbhatewara-dev1.eng.vmware.com>
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
+Date: Wed, 10 Aug 2011 08:43:13 +0800
+Message-ID: <4E41D421.1000302@windriver.com>
+References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com> <4E415CB3.8020202@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Scott Goldman <scottjg@vmware.com>,
-	VMware PV-Drivers <pv-drivers@vmware.com>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:49655 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751851Ab1HJAQk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 20:16:40 -0400
-Received: by gya6 with SMTP id 6so367472gya.19
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 17:16:40 -0700 (PDT)
-In-Reply-To: <alpine.LRH.2.00.1108091426010.27839@sbhatewara-dev1.eng.vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	<linux-security-module@vger.kernel.org>, <sds@tycho.nsa.gov>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4E415CB3.8020202@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 10, 2011 at 5:32 AM, Shreyas Bhatewara
-<sbhatewara@vmware.com> wrote:
->
->
-> On Mon, 8 Aug 2011, Jesse Gross wrote:
->
->> @@ -1929,14 +1929,17 @@ static void
->> =C2=A0vmxnet3_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
->> =C2=A0{
->> =C2=A0 =C2=A0 =C2=A0 struct vmxnet3_adapter *adapter =3D netdev_priv=
-(netdev);
->> - =C2=A0 =C2=A0 u32 *vfTable =3D adapter->shared->devRead.rxFilterCo=
-nf.vfTable;
->> - =C2=A0 =C2=A0 unsigned long flags;
+On 08/10/2011 12:13 AM, Casey Schaufler wrote:
+> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
+>> From: Roy.Li<rongqing.li@windriver.com>
 >>
->> - =C2=A0 =C2=A0 VMXNET3_SET_VFTABLE_ENTRY(vfTable, vid);
->> - =C2=A0 =C2=A0 spin_lock_irqsave(&adapter->cmd_lock, flags);
->> - =C2=A0 =C2=A0 VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0VMXNET3_CMD_UPDATE_VLAN_FILTERS);
->> - =C2=A0 =C2=A0 spin_unlock_irqrestore(&adapter->cmd_lock, flags);
->> + =C2=A0 =C2=A0 if (!(netdev->flags & IFF_PROMISC)) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 u32 *vfTable =3D adapter=
-->shared->devRead.rxFilterConf.vfTable;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 unsigned long flags;
+>> Define security_sk_getsecid to get the security id of a sock.
+>
+> Why are you requesting the secid when you're just going to
+> use it to get the secctx? Why not ask for that directly?
+> Is there ever a case where you only want the secid?
+>
+Hi:
+
+As I know, we have not method to get secctx directly.
+On the most of time, we get secctx like this.
+
+The below comes from kernel/auditsc.c
+
+void audit_log_task_context(struct audit_buffer *ab)
+{
+         char *ctx = NULL;
+         unsigned len;
+         int error;
+         u32 sid;
+
+         security_task_getsecid(current, &sid);
+         if (!sid)
+                 return;
+
+         error = security_secid_to_secctx(sid, &ctx, &len);
+         if (error) {
+                 if (error != -EINVAL)
+                         goto error_path;
+                 return;
+         }
+
+         audit_log_format(ab, " subj=%s", ctx);
+         security_release_secctx(ctx, len);
+         return;
+
+error_path:
+         audit_panic("error in audit_log_task_context");
+         return;
+}
+
+
+-Roy
+
+
+>>
+>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
+>> ---
+>>   include/linux/security.h |    6 ++++++
+>>   security/security.c      |    6 ++++++
+>>   2 files changed, 12 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/linux/security.h b/include/linux/security.h
+>> index ebd2a53..739ac39 100644
+>> --- a/include/linux/security.h
+>> +++ b/include/linux/security.h
+>> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
+>>   void security_sk_free(struct sock *sk);
+>>   void security_sk_clone(const struct sock *sk, struct sock *newsk);
+>>   void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+>> +void security_sk_getsecid(struct sock *sk, u32 *secid);
+>>   void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
+>>   void security_sock_graft(struct sock*sk, struct socket *parent);
+>>   int security_inet_conn_request(struct sock *sk,
+>> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>   {
+>>   }
+>>
+>> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
+>> +{
+>> +	*secid = 0;
+>> +}
 >> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 VMXNET3_SET_VFTABLE_ENTR=
-Y(vfTable, vid);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_lock_irqsave(&adapt=
-er->cmd_lock, flags);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 VMXNET3_WRITE_BAR1_REG(a=
-dapter, VMXNET3_REG_CMD,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0VMXNET3_CMD_=
-UPDATE_VLAN_FILTERS);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_unlock_irqrestore(&=
-adapter->cmd_lock, flags);
->> + =C2=A0 =C2=A0 }
+>>   static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>   {
+>>   }
+>> diff --git a/security/security.c b/security/security.c
+>> index 0e4fccf..b0e0825 100644
+>> --- a/security/security.c
+>> +++ b/security/security.c
+>> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>   }
+>>   EXPORT_SYMBOL(security_sk_classify_flow);
 >>
+>> +void security_sk_getsecid(struct sock *sk, u32 *secid)
+>> +{
+>> +	security_ops->sk_getsecid(sk, secid);
+>> +}
+>> +EXPORT_SYMBOL(security_sk_getsecid);
+>> +
+>>   void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>   {
+>>   	security_ops->req_classify_flow(req, fl);
 >
-> If this is done, the driver will ignore all vlan tag registrations (a=
-nd
-> deletions) while the interface is in promiscuous mode. Better solutio=
-n
-> would be to send UPDATE_VLAN_FILTERS command alone inside the promisc=
-uous
-> condition. vfTable can be set/unset unconditionally as before. By doi=
-ng
-> this, when the interface comes out of promiscuous mode, the restored =
-vlan
-> state will have all the added/removed vlan tags into effect.
+>
 
-Adds and removes are not ignored when in promiscuous mode because the
-active_vlans bitfield is still being updated (this is in the context
-that you clipped out).  When we come out of promiscuous mode,
-vmxnet3_restore_vlan() is called which will update the hardware with
-the vlans that have been registered.  This is much safer than directly
-updating vfTable because it will get overwritten if vmxnet3_set_mc()
-is called again and is potentially very error prone to have it not
-reflect what we actually want programmed in the hardware.
+-- 
+Best Reagrds,
+Roy | RongQing Li
