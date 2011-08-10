@@ -1,179 +1,109 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets (was:
- 3.0-rc1 Bridge not forwarding unicast packages)
-Date: Wed, 10 Aug 2011 13:59:50 +0200
-Message-ID: <20110810115949.GD1909@minipsycho.brq.redhat.com>
-References: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
- <20110810090014.GB1909@minipsycho.brq.redhat.com>
- <CAMvAeqO2bLaPwmdW+c+7hz-ec=-tF6Z0EFBv=FA7+rU_QZ_wDA@mail.gmail.com>
- <CAMvAeqM-oH1UzxEp9PgO6ZP-AKtqosuMg5za25_X8DpPJMDX2w@mail.gmail.com>
- <20110810111947.GC1909@minipsycho.brq.redhat.com>
- <CAMvAeqOZ9OoV5KxTbn0+sPxJ=AkSrb__31GShVshDkX6NUXgNw@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: =?UTF-8?q?=5Blinux-firmware=20v2=202/2=5D=20rtl=5Fnic=3A=20add=20new=20firmware=20for=20RTL8111F?=
+Date: Wed, 10 Aug 2011 20:22:59 +0800
+Message-ID: <1312978979-1808-2-git-send-email-hayeswang@realtek.com>
+References: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, sebastian.belden@googlemail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: Michael Guntsche <mguntsche@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMvAeqOZ9OoV5KxTbn0+sPxJ=AkSrb__31GShVshDkX6NUXgNw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:59995 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753224Ab1HJMYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 08:24:05 -0400
+In-Reply-To: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 10, 2011 at 01:51:54PM CEST, mguntsche@gmail.com wrote:
->On Wed, Aug 10, 2011 at 1:19 PM, Jiri Pirko <jpirko@redhat.com> wrote:
->> Wed, Aug 10, 2011 at 12:30:16PM CEST, mguntsche@gmail.com wrote:
->>>On Wed, Aug 10, 2011 at 11:59 AM, Michael Guntsche <mguntsche@gmail.=
-com> wrote:
->>><snip>
->>>>>>Offload parameters for lan_wire:
->>>>>>rx-checksumming: off
->>>>>>tx-checksumming: off
->>>>>>scatter-gather: off
->>>>>>tcp-segmentation-offload: off
->>>>>>udp-fragmentation-offload: off
->>>>>>generic-segmentation-offload: off
->>>>>>generic-receive-offload: on
->>>>>>large-receive-offload: off
->>>>>>rx-vlan-offload: off
->>>>>>tx-vlan-offload: off
->>>>>>ntuple-filters: off
->>>>>>receive-hashing: off
->>>>>>
->>>>>>The Bridge device on the other hand....
->>>>>>
->>>>>>Offload parameters for lan:
->>>>>>rx-checksumming: on
->>>>>>tx-checksumming: on
->>>>>>scatter-gather: off
->>>>>>tcp-segmentation-offload: off
->>>>>>udp-fragmentation-offload: off
->>>>>>generic-segmentation-offload: off
->>>>>>generic-receive-offload: on
->>>>>>large-receive-offload: off
->>>>>>rx-vlan-offload: off
->>>>>>tx-vlan-offload: on
->>>>> =A0^^^^^^^^^^^^^^^^^^^ is this gfar?
->>>> No the "Lan" nic is the bridge itself. The gfar in question is lan=
-_wire.
->>>>
->>>> /Michael
->>>>
->>>
->>>Ok I would have saved hours of bisecting if I had just used the -e
->>>switch with tcpdump from the beginning.
->>>Jiri first of all the patch makes the connection work again. I can
->>>ping the client on the wlan from the server and vice-versa. Taking a
->>>look at the tcpdump (WITH -e) makes it obvious why it fails with the
->>>non patched version...
->>>
->>>This is a capture from the gfar lan port on the bridge with no patch=
- applied
->>>12:13:24.011492 00:13:d4:4f:a2:dc (oui Unknown) > b4:07:f9:70:b7:c1
->>>(oui Unknown), ethertype 802.1Q (0x8100), length 102: vlan 19, p 0,
->>>ethertype IPv4, gibson.comsick.at > 192.168.42.55: ICMP echo request=
-,
->>>id 23567, seq 74, length 64
->>>
->>>As you can see we get a VLAN package????
->>
->> Ugh, this is what I expected. Patch to fix:
->>
->> Subject: [patch net-2.6] gianfar: prevent buggy hw rx vlan tagging
->>
->> On some buggy chips, "vlan tag present" flag is set which causes pac=
-ket
->> loss. Fix this by checking if rx vlan accel is enabled in features.
->>
->> Reported-by: Michael Guntsche <mguntsche@gmail.com>
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->> =A0drivers/net/gianfar.c | =A0 =A09 +++++++--
->> =A01 files changed, 7 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
->> index 2659daa..31d5c57 100644
->> --- a/drivers/net/gianfar.c
->> +++ b/drivers/net/gianfar.c
->> @@ -2710,8 +2710,13 @@ static int gfar_process_frame(struct net_devi=
-ce *dev, struct sk_buff *skb,
->> =A0 =A0 =A0 =A0/* Tell the skb what kind of packet this is */
->> =A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, dev);
->>
->> - =A0 =A0 =A0 /* Set vlan tag */
->> - =A0 =A0 =A0 if (fcb->flags & RXFCB_VLN)
->> + =A0 =A0 =A0 /*
->> + =A0 =A0 =A0 =A0* There's need to check for NETIF_F_HW_VLAN_RX here=
-=2E
->> + =A0 =A0 =A0 =A0* Even if vlan rx accel is disabled, on some chips
->> + =A0 =A0 =A0 =A0* RXFCB_VLN is pseudo randomly set.
->> + =A0 =A0 =A0 =A0*/
->> + =A0 =A0 =A0 if (dev->features & NETIF_F_HW_VLAN_RX &&
->> + =A0 =A0 =A0 =A0 =A0 fcb->flags & RXFCB_VLN)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__vlan_hwaccel_put_tag(skb, fcb->vlct=
-l);
->>
->> =A0 =A0 =A0 =A0/* Send the packet up the stack */
->> --
->> 1.7.6
->>
->>
->
->Jiri, there seems to be another bug lingering in the bridge code,
->which might cause this problem in the first place but I am not really
->sure. I looked at the ethtool output some more and I noticed that some
->features were enabled on the Bridge which should be off.
->
->With 3.1-rc1
->Offload parameters for lan (This is the bridge interface itself):
->rx-checksumming: on                  <---- ON
->tx-checksumming: on                  <---- ON
->scatter-gather: off
->tcp-segmentation-offload: off
->udp-fragmentation-offload: off
->generic-segmentation-offload: off
->generic-receive-offload: on
->large-receive-offload: off
->rx-vlan-offload: off
->tx-vlan-offload: on                         <---- ON
->
->I booted an older kernel on the same hardware (2.6.39) and the output =
-differs.
->
->Offload parameters for lan:
->rx-checksumming: off
->tx-checksumming: off
->scatter-gather: off
->tcp-segmentation-offload: off
->udp-fragmentation-offload: off
->generic-segmentation-offload: off
->generic-receive-offload: off
->large-receive-offload: off
->rx-vlan-offload: off
->tx-vlan-offload: off
->ntuple-filters: off
->receive-hashing: off
->
->As you can see all the values are OFF which is correct, since no
->attached interface supports these features.
->Is it possible that this is tripping up the now changed gianfar code s=
-omehow?
->What I am trying to say. Could it be that your patch is hiding a
->problem that is now surfacing with a change in the bridge code?
+Add new firmware:
+1. rtl_nic/rtl8168f-1.fw
+   version: rtl8168f-1_0.0.1
+2. rtl_nic/rtl8168f-2.fw
+   version: rtl8168f-2_0.0.1
 
-Well this seems unrelated. The problem is that gianfar hw is indicating
-it received vlan tagged packet even in case it did not.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ WHENCE                |    2 ++
+ rtl_nic/rtl8168f-1.fw |  Bin 0 -> 2928 bytes
+ rtl_nic/rtl8168f-2.fw |  Bin 0 -> 256 bytes
+ 3 files changed, 2 insertions(+), 0 deletions(-)
+ create mode 100644 rtl_nic/rtl8168f-1.fw
+ create mode 100644 rtl_nic/rtl8168f-2.fw
 
->
->I am thinking about this commit:
->c4d27ef95:  bridge: convert br_features_recompute() to ndo_fix_feature=
-s
->
->Of course this could also be a totally separate bug as well.
->
->Any thoughts, Dave, Stephen?
->
->Kind regards,
->Michael Guntsche
+diff --git a/WHENCE b/WHENCE
+index a463417..7290828 100644
+--- a/WHENCE
++++ b/WHENCE
+@@ -1627,6 +1627,8 @@ File: rtl_nic/rtl8105e-1.fw
+ File: rtl_nic/rtl8168e-1.fw
+ File: rtl_nic/rtl8168e-2.fw
+ File: rtl_nic/rtl8168e-3.fw (Version: rtl8168e-3_0.0.1)
++File: rtl_nic/rtl8168f-1.fw (Version: rtl8168f-1_0.0.1)
++File: rtl_nic/rtl8168f-2.fw (Version: rtl8168f-2_0.0.1)
+=20
+ Licence:
+  * Copyright =C2=A9 2011, Realtek Semiconductor Corporation
+diff --git a/rtl_nic/rtl8168f-1.fw b/rtl_nic/rtl8168f-1.fw
+new file mode 100644
+index 0000000000000000000000000000000000000000..a0dd2e5dec0a73968b26e0d=
+81b4542240dbc719d
+GIT binary patch
+literal 2928
+zcmbuBdx+Fk6vyw(I>$BBd~Le9uCou{kDb|YUG1OMD2%K`h{z;^G!TTMj8rs^u8TUG
+zB3VWRvKa)4vxEqRfxC)i`bYQ*l(c@U>w}V60^3#Fb^4sSzgfrdzXmS%ywCTXd+z;>
+zbI!fHdR2Y0uKukV$z_R|iJ8fGqP`}Xs7WT#*>4f+c+|NKZt=3Dpp+S<gtWsB#%u<Yr#
+zm#<isOeSVMnTRKob8GA7CTF{y&W%?$#;J29F5Bhe?CoxW(}BoqTsd<0PQ<yuxiT|~
+ztBbZQcjgyM<bBPy>H*s^4xhNgc2sB^!=3D^hMQ+1MyZT3?1xDI4}5-HIQ4W)!H$;lit
+zi(TmB6yK<5&jQha7(H20Z4qrn7VQ=3Dt6A_IVJwbG*hV*>VrO3@Mnif5Yyg3l<*ebfM
+z8JlwW4$<-yGVGcQWgmIj_CnbX(H88EJJBCnMK_-l?W`017@Ov+qM2QyKM^ZaL@wLk
+z5N)>|`y=3D6g*!F><ZMMHB`YC%G__h+m-4y+%6#UScJ3_y_uhn|`9(Kg}eY0pi_NO<%
+zgXMC_4}cGDi>C06Q)_0Fr=3D$2h9|vbZJrhMIbwX!EtDrl<+&fA1_5k0P^mfrv*fyhg
+z&?$V@ED_y9J<&m;H)5h2t(Px}uBsIs(Cc&V2y=3DFiBPRaF*O(nX-%b^sZuC&mL&O<i
+z^cSLk%@A!g8r<*a^Y0KHTp?P)c{YPH3V*6mv<$o8b04>o+PaI$Q|b9xrhC)VRe4>N
+z=3DaZ&;#naWM1Ak|=3D=3DWPzs#E(r7oe<^=3D;0^o4d>ndY{0xgz=3DIKfKIP}eQMd*6f=
+_b}kh
+zHk$u_?4R&-h0&Zv6Y{vxLp@z(G<9r2UJY$?oS~;>)SaOp<Jd2=3DuLoyvg+-t0jqU*V
+z9MQ2eMdyI!^bkJ>>ni<RSU<nsNFQ6_!?;lqy@G5LIr=3D91bL(JMZZUhgKA?+I>*SvM
+ze5^vW68j!{5=3D;s4lP^jSzo(w5dD|v>NWVvz?JaDlg*An?A8z9Ou}xj2Pw4w+jhv30
+z`TT>(XY;lno1(bSZ8himMy!BYGQ8H$Xpv|!7;?VkA4L9s-%8PuU<tTmx!xA|TF=3De5
+z5ll9_5AA`?0yxs(djw34(A_t=3D_nf!YJ|(XwZ!tJ6Z~6v0Y^N6Lz+`b+u(6!e^13bf
+zReQgdqh2>1o%QESYA<&5<uvuTp<5@qq26OnWsqav-#_A%7sQF-XXo3xkDPyVCXtXo
+z1V0!aT~2=3Dt9z2d^J-EvptnBi-%&($H>2Vjn_jY@I2K@<S_Kpm1^fG&A?43(>h>kzO
+z`+)s$X3T16g}3>&IK9XX?_KVN<!Jjy^ceEB(C!TD95qxT2U~T*&u<%No*n7wA&W#`
+zeFi+^MK66uZ_bMD;$DroB)WIB=3Dx@aC;%zjny?qbn%8<)2{6d}f%}LSEE^6;uOFm*g
+zEMJ;@QO-HL#@9CXr070s=3D;E$jAiu+R+8(fM<n6cf;oR+fBAi#0njRg-dpBHk2z_m1
+zzq;Aik$bDbkmobhXxQw|kEDj?uSCxtq%QS!r5{q4y)AYZCfGbL5Z#Tx^?$wLBK9nB
+z<z|Fl<aXpXn;nP2Vz!rg1KRy}Xf}D%tH~Glwnd@OcjjYrhFxwy!nwAJUMun6vD9@i
+zBg+&&_+9IB56)5?AH(#2RuF)l7!h`Ra|7PS2I`OZ(63HvY7k8zvu~lDTg7B-%qI@b
+zZr{LQOz6|?eKPnwMT~%%NrnCEgm>5n%x>Y_-(kjozKe`?cO^KO)q^jSm+x>n-vZ0K
+zpS**~TV}H`R&)`wFxlSR=3DdfGO8(m=3Dc8g}j!b7OwTxQ`XwakGVQdy#tqh9=3DJH3|P-=
+|
+z{ufI5pTsJ?$YS2N4Ft<J(btKag<dg)d0z?^CwlQ&W)j;2taF#aiY$-G=3D5rk95!f7%
+zx4Vh6;_j86XI;RTSmtZFZXEz4b=3Dv=3DoJobCc>TYKHN9yil#d`TJ-4Xo*y!KsM@+Wgo
+zjB@VTwRkAMjt+UR*)XGh+)YPK4bUAQh%RnmhD=3D9(w@`F`N6co${xc3^Z*TYypZ_oD
+z!vCV#taCWT?Z0UL|K<Jvprc(h7iV<4`4zDq+dBwzPp4`l{j_tX?q1gZr<P(nETo4)
+K^Pf1kock9M(ey3=3D
+
+literal 0
+HcmV?d00001
+
+diff --git a/rtl_nic/rtl8168f-2.fw b/rtl_nic/rtl8168f-2.fw
+new file mode 100644
+index 0000000000000000000000000000000000000000..f8b48c3b5d4d4a040dc9703=
+235bce4799c1fb106
+GIT binary patch
+literal 256
+zcmY+7!3qIU6ox+}+gXsA61S`@n0u~FlO48{Y%OMkl_Gh7c?3&KkK$3hfj7XpBKhld
+zPXGV?9e~4en@W;yx-PRl+Y@8cSZpk!nb%yWqqAf&O`NmiY%!W;lig~aiP)rXjmXd?
+zLpR_At(=3De?YCP{4-B-@!74>79>a#Dv4H_OYImOEg-z(d1*R$<EHbgrHWvd_d$J8l8
+a0QIZym;8Ss9#79l>II)Wc<1jQ{PY6x_bUMa
+
+literal 0
+HcmV?d00001
+
+--=20
+1.7.3.2
+
