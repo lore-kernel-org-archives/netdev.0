@@ -1,84 +1,92 @@
-From: Michael Guntsche <mguntsche@gmail.com>
-Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets (was:
- 3.0-rc1 Bridge not forwarding unicast packages)
-Date: Wed, 10 Aug 2011 11:59:50 +0200
-Message-ID: <CAMvAeqO2bLaPwmdW+c+7hz-ec=-tF6Z0EFBv=FA7+rU_QZ_wDA@mail.gmail.com>
-References: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
-	<20110810090014.GB1909@minipsycho.brq.redhat.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v10 0/5] [flexcan/powerpc] Add support for powerpc flexcan
+	(freescale p1010)
+Date: Wed, 10 Aug 2011 12:01:58 +0200
+Message-ID: <4E425716.4010104@pengutronix.de>
+References: <1312945564-6626-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, sebastian.belden@googlemail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110810090014.GB1909@minipsycho.brq.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============5089529563832761653=="
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1312945564-6626-1-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 10, 2011 at 11:00 AM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Wed, Aug 10, 2011 at 02:50:20AM CEST, mguntsche@gmail.com wrote:
->>Good evening/morning,
->>
->>> I just upgraded my router/bridge combo to 3.1-rc1 from 3.0 for
->>> testing. On a first look everything seemed to work fine, but when I
->>> tried to connect via openvpn to my internal network (tap0 being bri=
-dged
->>> with the internal network) I noticed that I was not able to access =
-the
->>> server on my internal network. I could access the bridge (which is
->>> acting as the openvpn server as well) just fine though.
->>> To debug this I ran tcpdump on the openvpn client and started a pin=
-g to the
->>> internal network. I could see the ARP requests being answered.....
->><snip>
->>
->>After much digging and testing I found the commit that causes the
->>problem for me here.
->>
->>87c288c6e gianfar: do vlan cleanup
->>
->>Before this commit my bridge works fine. I simplified the test case
->>and just tried to access the server from a local wireless device with
->>gets also bridged via
->>a gianfar nic to the wired lan. Before commit 87c288c6e I can ping th=
-e
->>device from the internal network afterwards it stops.
->>For testing purposes I reverted this commit (plus some others to make
->>the code compile) and it started working again.
->>The hardware is a routerboard with three onboard nics two of em gianf=
-ar.
->>The gianfar nics do not support any kind of offloading,
->>
->>Offload parameters for lan_wire:
->>rx-checksumming: off
->>tx-checksumming: off
->>scatter-gather: off
->>tcp-segmentation-offload: off
->>udp-fragmentation-offload: off
->>generic-segmentation-offload: off
->>generic-receive-offload: on
->>large-receive-offload: off
->>rx-vlan-offload: off
->>tx-vlan-offload: off
->>ntuple-filters: off
->>receive-hashing: off
->>
->>The Bridge device on the other hand....
->>
->>Offload parameters for lan:
->>rx-checksumming: on
->>tx-checksumming: on
->>scatter-gather: off
->>tcp-segmentation-offload: off
->>udp-fragmentation-offload: off
->>generic-segmentation-offload: off
->>generic-receive-offload: on
->>large-receive-offload: off
->>rx-vlan-offload: off
->>tx-vlan-offload: on
-> =A0^^^^^^^^^^^^^^^^^^^ is this gfar?
-No the "Lan" nic is the bridge itself. The gfar in question is lan_wire=
-=2E
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============5089529563832761653==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig9C0B8C17E26D201769E37BF1"
 
-/Michael
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig9C0B8C17E26D201769E37BF1
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 08/10/2011 05:05 AM, Robin Holt wrote:
+> With all the patches applied, my p1010rdb works for communicating betwe=
+en
+> its two can ports and also can communicate with an external PSOC.  I ha=
+ve
+> done no testing beyond compile testing on an arm system as I have no
+> access to an arm based system.
+>=20
+> For the first three patches in the series, I believe they are all ready=
+
+> for forwarding to David S. Miller for the netdev tree.  I think patch
+> 4 is ready for submission to the PPC85xx maintainer.  Patch 5 changed
+> from the previous post by adding a second compatible string for the
+> fsl,p1010_flexcan.
+
+One remark for the subjects. It seems no one is using "[$subsystem]"
+anymore, but rather "$subsystem:".
+
+cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig9C0B8C17E26D201769E37BF1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk5CVxwACgkQjTAFq1RaXHMCHwCfTD7iyAZxgxfl7BbetHxXv1wr
+UZYAni2q0frlVo6yC4Lyp7TyBPVwBwgT
+=AR8C
+-----END PGP SIGNATURE-----
+
+--------------enig9C0B8C17E26D201769E37BF1--
+
+--===============5089529563832761653==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============5089529563832761653==--
