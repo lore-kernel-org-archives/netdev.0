@@ -1,8 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: =?UTF-8?q?=5Blinux-firmware=20v2=202/2=5D=20rtl=5Fnic=3A=20add=20new=20firmware=20for=20RTL8111F?=
-Date: Wed, 10 Aug 2011 20:22:59 +0800
-Message-ID: <1312978979-1808-2-git-send-email-hayeswang@realtek.com>
-References: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
+Subject: =?UTF-8?q?=5Blinux-firmware=20v2=201/2=5D=20rtl=5Fnic=3A=20update=20firmware=20for=20RTL8111E-VL?=
+Date: Wed, 10 Aug 2011 20:22:58 +0800
+Message-ID: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -10,99 +9,111 @@ Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
 	Hayes Wang <hayeswang@realtek.com>
 To: <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:59995 "EHLO
+Received: from rtits2.realtek.com ([60.250.210.242]:59996 "EHLO
 	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753224Ab1HJMYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 08:24:05 -0400
-In-Reply-To: <1312978979-1808-1-git-send-email-hayeswang@realtek.com>
+	with ESMTP id S1752894Ab1HJMYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 08:24:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new firmware:
-1. rtl_nic/rtl8168f-1.fw
-   version: rtl8168f-1_0.0.1
-2. rtl_nic/rtl8168f-2.fw
-   version: rtl8168f-2_0.0.1
+Updated firmware with stability fixes.
+Version: rtl8168e-3_0.0.1.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- WHENCE                |    2 ++
- rtl_nic/rtl8168f-1.fw |  Bin 0 -> 2928 bytes
- rtl_nic/rtl8168f-2.fw |  Bin 0 -> 256 bytes
- 3 files changed, 2 insertions(+), 0 deletions(-)
- create mode 100644 rtl_nic/rtl8168f-1.fw
- create mode 100644 rtl_nic/rtl8168f-2.fw
+ WHENCE                |    2 +-
+ rtl_nic/rtl8168e-3.fw |  Bin 2804 -> 3264 bytes
+ 2 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/WHENCE b/WHENCE
-index a463417..7290828 100644
+index 4b88f1f..a463417 100644
 --- a/WHENCE
 +++ b/WHENCE
-@@ -1627,6 +1627,8 @@ File: rtl_nic/rtl8105e-1.fw
+@@ -1626,7 +1626,7 @@ File: rtl_nic/rtl8168d-2.fw
+ File: rtl_nic/rtl8105e-1.fw
  File: rtl_nic/rtl8168e-1.fw
  File: rtl_nic/rtl8168e-2.fw
- File: rtl_nic/rtl8168e-3.fw (Version: rtl8168e-3_0.0.1)
-+File: rtl_nic/rtl8168f-1.fw (Version: rtl8168f-1_0.0.1)
-+File: rtl_nic/rtl8168f-2.fw (Version: rtl8168f-2_0.0.1)
+-File: rtl_nic/rtl8168e-3.fw
++File: rtl_nic/rtl8168e-3.fw (Version: rtl8168e-3_0.0.1)
 =20
  Licence:
   * Copyright =C2=A9 2011, Realtek Semiconductor Corporation
-diff --git a/rtl_nic/rtl8168f-1.fw b/rtl_nic/rtl8168f-1.fw
-new file mode 100644
-index 0000000000000000000000000000000000000000..a0dd2e5dec0a73968b26e0d=
-81b4542240dbc719d
+diff --git a/rtl_nic/rtl8168e-3.fw b/rtl_nic/rtl8168e-3.fw
+index cb494071d0273c7b3102b97552f4bc7b756c0e17..43d1b8641fb09d2f8dd9199=
+8ed78c1deb7c71a7a 100644
 GIT binary patch
-literal 2928
-zcmbuBdx+Fk6vyw(I>$BBd~Le9uCou{kDb|YUG1OMD2%K`h{z;^G!TTMj8rs^u8TUG
-zB3VWRvKa)4vxEqRfxC)i`bYQ*l(c@U>w}V60^3#Fb^4sSzgfrdzXmS%ywCTXd+z;>
-zbI!fHdR2Y0uKukV$z_R|iJ8fGqP`}Xs7WT#*>4f+c+|NKZt=3Dpp+S<gtWsB#%u<Yr#
-zm#<isOeSVMnTRKob8GA7CTF{y&W%?$#;J29F5Bhe?CoxW(}BoqTsd<0PQ<yuxiT|~
-ztBbZQcjgyM<bBPy>H*s^4xhNgc2sB^!=3D^hMQ+1MyZT3?1xDI4}5-HIQ4W)!H$;lit
-zi(TmB6yK<5&jQha7(H20Z4qrn7VQ=3Dt6A_IVJwbG*hV*>VrO3@Mnif5Yyg3l<*ebfM
-z8JlwW4$<-yGVGcQWgmIj_CnbX(H88EJJBCnMK_-l?W`017@Ov+qM2QyKM^ZaL@wLk
-z5N)>|`y=3D6g*!F><ZMMHB`YC%G__h+m-4y+%6#UScJ3_y_uhn|`9(Kg}eY0pi_NO<%
-zgXMC_4}cGDi>C06Q)_0Fr=3D$2h9|vbZJrhMIbwX!EtDrl<+&fA1_5k0P^mfrv*fyhg
-z&?$V@ED_y9J<&m;H)5h2t(Px}uBsIs(Cc&V2y=3DFiBPRaF*O(nX-%b^sZuC&mL&O<i
-z^cSLk%@A!g8r<*a^Y0KHTp?P)c{YPH3V*6mv<$o8b04>o+PaI$Q|b9xrhC)VRe4>N
-z=3DaZ&;#naWM1Ak|=3D=3DWPzs#E(r7oe<^=3D;0^o4d>ndY{0xgz=3DIKfKIP}eQMd*6f=
-_b}kh
-zHk$u_?4R&-h0&Zv6Y{vxLp@z(G<9r2UJY$?oS~;>)SaOp<Jd2=3DuLoyvg+-t0jqU*V
-z9MQ2eMdyI!^bkJ>>ni<RSU<nsNFQ6_!?;lqy@G5LIr=3D91bL(JMZZUhgKA?+I>*SvM
-ze5^vW68j!{5=3D;s4lP^jSzo(w5dD|v>NWVvz?JaDlg*An?A8z9Ou}xj2Pw4w+jhv30
-z`TT>(XY;lno1(bSZ8himMy!BYGQ8H$Xpv|!7;?VkA4L9s-%8PuU<tTmx!xA|TF=3De5
-z5ll9_5AA`?0yxs(djw34(A_t=3D_nf!YJ|(XwZ!tJ6Z~6v0Y^N6Lz+`b+u(6!e^13bf
-zReQgdqh2>1o%QESYA<&5<uvuTp<5@qq26OnWsqav-#_A%7sQF-XXo3xkDPyVCXtXo
-z1V0!aT~2=3Dt9z2d^J-EvptnBi-%&($H>2Vjn_jY@I2K@<S_Kpm1^fG&A?43(>h>kzO
-z`+)s$X3T16g}3>&IK9XX?_KVN<!Jjy^ceEB(C!TD95qxT2U~T*&u<%No*n7wA&W#`
-zeFi+^MK66uZ_bMD;$DroB)WIB=3Dx@aC;%zjny?qbn%8<)2{6d}f%}LSEE^6;uOFm*g
-zEMJ;@QO-HL#@9CXr070s=3D;E$jAiu+R+8(fM<n6cf;oR+fBAi#0njRg-dpBHk2z_m1
-zzq;Aik$bDbkmobhXxQw|kEDj?uSCxtq%QS!r5{q4y)AYZCfGbL5Z#Tx^?$wLBK9nB
-z<z|Fl<aXpXn;nP2Vz!rg1KRy}Xf}D%tH~Glwnd@OcjjYrhFxwy!nwAJUMun6vD9@i
-zBg+&&_+9IB56)5?AH(#2RuF)l7!h`Ra|7PS2I`OZ(63HvY7k8zvu~lDTg7B-%qI@b
-zZr{LQOz6|?eKPnwMT~%%NrnCEgm>5n%x>Y_-(kjozKe`?cO^KO)q^jSm+x>n-vZ0K
-zpS**~TV}H`R&)`wFxlSR=3DdfGO8(m=3Dc8g}j!b7OwTxQ`XwakGVQdy#tqh9=3DJH3|P-=
-|
-z{ufI5pTsJ?$YS2N4Ft<J(btKag<dg)d0z?^CwlQ&W)j;2taF#aiY$-G=3D5rk95!f7%
-zx4Vh6;_j86XI;RTSmtZFZXEz4b=3Dv=3DoJobCc>TYKHN9yil#d`TJ-4Xo*y!KsM@+Wgo
-zjB@VTwRkAMjt+UR*)XGh+)YPK4bUAQh%RnmhD=3D9(w@`F`N6co${xc3^Z*TYypZ_oD
-z!vCV#taCWT?Z0UL|K<Jvprc(h7iV<4`4zDq+dBwzPp4`l{j_tX?q1gZr<P(nETo4)
-K^Pf1kock9M(ey3=3D
+literal 3264
+zcmaKvYiyKd7RR4XJEv1F2Cx-|%P_rAM4+9iSgT*G$Qn#^V@Nhxb+hmRKA3FcMoAX$
+zr$R?<l^E|avDV%FqB0d(q94pMd@!2qCYvonBD=3DbIr?%kknwf+^%cW)foq68TS3{iS
+z&3T^loXh{*p7$N+oO^Kh@A|U6eY-YZzdh5H>B^=3Dvz1=3D-M-PtT>_Pd*BdA)N<x9!f}
+zo@{3G_HDP`wf(jScJA7q&1QPDnRIs3%{_fLXEW{v=3DT@s*=3DG3_sS1G$R^r+kFv=3DM%=
+{
+zOTl-)uX8SNZlwvO)x}14I@611YPu%d{v+9?4xO|^wmFoIBQsrzt2(LLHhHPPMjLtF
+zcP+Z3KdA?yZckD_F#1GN4?zz;nAE@6{>h{sw*5m%t*dL%xJzn1v>qCV&SjD+(3v-r
+z+6euWJ+V}MIDEt`&hXjMy0nU+9}Ep{nI3OirVjs;MiWUrYqXNohIyXfY;-|VJB-5L
+zZFCyB<^H^31r)tzqjSg^#oi{P=3Dxqu4FB?U#iX(!-fx&pu962RdG0~Z=3Dq5(OZsfg;R
+z=3Doq}%v}jA6Xq~OwL`OAT-y(VseAA2lRrFu*hXc{#GosH9Ba>oZ6ip4mLvA?Ad(QKo
+zkMj0o8@bP%=3D*MHC1II-tkBPpB%<z=3Dx_)DUNdeQbl(HrqO-p(G{8SYE$6FJcmGV_e?
+z5M5*xdy7MQ1T3XS^o%|v`U=3D!+JcAGSt>`;R(HB^kE(rbObuAa;myyHH@~CgHt_t@J
+z_zupC4xyXQqu1=3D$F?8NoO&kI7c8ac@WL+W#){|4Bvuj1qH~75epBHUTv*z5f9zti&
+zy`m$;6KfLvcU<%-%k`t8*&fk`S?_ay=3DyQ4%Hqp2JfXV$v^zZ9MH`;og=3Dwa+M*!mUG
+zzjcZ3v-M}957hkc7oFcK+Dg5L!5L$}iL({R1>bnPZNxSWj>$H^w|eK1OAvp1L~ms_
+zjES>&hiFH57O*#bYif4Z{KO7<>5SMpw=3DrUeT&<0qJ!0{YgA3%nd=3DZTIi#{FZ;@B=3D=
+<
+zum5(7_JTi!UV+%oh5H5UQ;R+Ce3ZAu^DaesS9{)T)X{8Jb*Zn}OAkhP*MI@ubM#aU
+z*|rgCc#8bc>&@gNL(FA-{u&!23*gg-iC*~BxZy44WgNXRY7gx$us%ahZxnsCEILR3
+z)nfezv0A(riMNg!Is7ZIaK0hLa)8+8Un@FjHmLhFKCV5$EZ>3LPSJG{x%-fF|MY!z
+zU<b7Vf1AmIvG7aLPpEJ1i0Com{eoUN$$T{OB){bOia95S^0T79#cqZ5u7&h7eV1~g
+zU*0bI6|#qTj!%FUUJaAQwTf5+Y!^NuKRM!K){|fGoJ1E}rfa^=3D9s(nA+WZ-IoBhl5
+zo8{$G;<ntx>4S+2qW=3DSL@U`f@|EEsaNYNvw(joseXYglDrik90pS=3DLR0s5wsxP#?>
+z-D+!M9<+Y4^;Le|ZtH~avkumlr&5pT%1J2sSp}VdJ{IB#9vAHk{pD|Bmbyf5q7TN&
+zQ=3Dv}u1o^gjV#IUoDe6W}`a-)g5nZxZbT8*~)+5ANq}R{VU)8xAAns1;#re#i!9^`C
+zj#li);@oA}TsITSlD9Z{Xg1mRki9O9CzL(CM09;k_Gx50yx*A*MW;4+pSAm@nk&;I
+zw^QJ+VQFG*ch-TkqV@P{$5-%rm_y`)CU3`bYr2=3D1tEw*8n!x(KZX0o%E<JAZ+!4{W
+z{G0B_d#{|21o_wthCIC#TSMP73pIT6z_*XH>3O_o)^bjc*456zkN~q`$bZ8bve!k=3D
+zz-M+wkum@4YiHytL9TLk24*|kz}e80=3D-cEW;ru+e+AN;%^K5y{mEa@){oRk9RK!jk
+zJ*)fJ1a{9+kGgPwhW&i@oZ0<7MqiHN)A5+yi}c6+%!Qqmh(E?$mC?QYsy{Dr-UQFy
+zOZV;byhZe!Gn_y3*t^Z%t+}G;YU((G&Bel=3DILFvq@0+h#_!iSeX3B6BF5v_I!>k=3DO
+zu{ln)!3W>B-M;q=3D?V@Ms1-n}plDm6;0p``r|7-aCT=3DXSoatU|MAD4>$2ixU}k7qWV
+z-<q!yz6`?&a-qbMBj;t4e;9w*ypq2>{$lh(Wsi?-1-<buF_gQw>+tW;T|WYr0s7c#
+z*yC$hy{n07!6MOv-02I+eF54%82L5<Lv3&0CWg)Ki>tvj{3p@R4-=3DRAxbjzs%kCw+
+zf9zcuY~{XV?uUxpErtu*H-Kx%`iR<ADSYeS;t{YQo0|~*8hrNcW4X;+9@Ad7KGgXL
+zooX*4SEa<Tn0`3b;=3Di48r@;)b#GM!YmYTzV^*)0Bp<lEgTmd!eX%oGhb#XU2-NH9v
+z0H1noJBkfkp9JrnqMM6xi^0Cz7eSBq|72hLK6T;$fl9?W6w>y8p!SV#{{uGL|A2P?
+OJ^RD|0{iy%zwZF4*F!x3
 
-literal 0
-HcmV?d00001
-
-diff --git a/rtl_nic/rtl8168f-2.fw b/rtl_nic/rtl8168f-2.fw
-new file mode 100644
-index 0000000000000000000000000000000000000000..f8b48c3b5d4d4a040dc9703=
-235bce4799c1fb106
-GIT binary patch
-literal 256
-zcmY+7!3qIU6ox+}+gXsA61S`@n0u~FlO48{Y%OMkl_Gh7c?3&KkK$3hfj7XpBKhld
-zPXGV?9e~4en@W;yx-PRl+Y@8cSZpk!nb%yWqqAf&O`NmiY%!W;lig~aiP)rXjmXd?
-zLpR_At(=3De?YCP{4-B-@!74>79>a#Dv4H_OYImOEg-z(d1*R$<EHbgrHWvd_d$J8l8
-a0QIZym;8Ss9#79l>II)Wc<1jQ{PY6x_bUMa
-
-literal 0
-HcmV?d00001
+literal 2804
+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
+VdHX+Uxf?6kf6?+D|9>1#e*sYqwB!H)
 
 --=20
 1.7.3.2
