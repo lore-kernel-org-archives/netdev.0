@@ -1,91 +1,64 @@
-From: Matvejchikov Ilya <matvejchikov@gmail.com>
-Subject: Re: [PATCH] slip: fix NOHZ local_softirq_pending 08 warning
-Date: Wed, 10 Aug 2011 11:47:56 +0400
-Message-ID: <CAKh5naayzp3ANwnE2Y9U2LEaiWNoZAuT3aOQbRYdoB5uNdrOPw@mail.gmail.com>
-References: <CAKh5naYrNPG3UO02VzG13QUP-SOP8-Td+O0G5LAr-+npduP49A@mail.gmail.com>
- <4E416951.4020207@hartkopp.net>
-Reply-To: matvejchikov@gmail.com
+From: Robert Schwebel <r.schwebel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v10 5/5] [powerpc] Fix up fsl-flexcan device tree binding.
+Date: Wed, 10 Aug 2011 10:15:26 +0200
+Message-ID: <20110810081526.GW31398@pengutronix.de>
+References: <1312945564-6626-1-git-send-email-holt@sgi.com>
+	<1312945564-6626-6-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:63348 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751241Ab1HJHsQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 03:48:16 -0400
-Received: by vws1 with SMTP id 1so642023vws.19
-        for <netdev@vger.kernel.org>; Wed, 10 Aug 2011 00:48:16 -0700 (PDT)
-In-Reply-To: <4E416951.4020207@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1312945564-6626-6-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Oliver,
+Robin,
 
-As I see it, there is the following call chain of the netif_rx_ni() in
-the slip (or slcan) driver:
-[flush_to_ldisc] -> [disc->ops->receive_buf] -> [slip_unesc] ->
-[sl_bump] -> [netif_rx_ni]
+On Tue, Aug 09, 2011 at 10:06:04PM -0500, Robin Holt wrote:
+> In working with the socketcan developers, we have come to the conclusion
+> the Documentation...fsl-flexcan.txt device tree documentation needs to
+> be cleaned up.  The driver does not depend upon any properties other
+> than the required properties so we are removing the file.  Additionally,
+> the p1010*dts* files are not following the standard for node naming in
+> that they have a trailing -v1.0.
+>
+> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+> To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+> To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+> To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/can/fsl-flexcan.txt    |   61 --------------------
+>  arch/powerpc/boot/dts/p1010rdb.dts                 |    8 ---
+>  arch/powerpc/boot/dts/p1010si.dtsi                 |    8 +-
+>  3 files changed, 4 insertions(+), 73 deletions(-)
+>  delete mode 100644 Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
 
-So flush_to_ldisc() may be called:
-  1) From tty_flush_to_ldisc() with flush_work and as it mentioned
-must not be called from IRQ context.
-  2) From input_available_p() which can be called from n_tty_read() or
-n_tty_poll(), so it's the user's context.
-  2) From tty_flip_buffer_push() which schedules the flush_to_ldisc to
-work or calls it directly if the tty->low_latency set.
+I suggest that you set devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org and Grant
+Likely on Cc: for this patch.
 
-So the only thing we must take into account that with tty->low_latency
-set we can be in IRQ context when doing with netif_rx_ni(). But if we
-are using netif_rx_ni() we can handle both IRQ and softirq contexts
-well as if there are any softirq pending netif_rx_ni() calls
-do_softirq()  with preemtion disabled. Then do_softirq() checks if
-there is an IRQ context and does nothing if so.
-
-So, I think it's correct to change netif_rx() with the netif_rx_ni().
-
-2011/8/9 Oliver Hartkopp <socketcan@hartkopp.net>:
-> Hello Ilya,
->
-> is the processing of characters in the tty input stream for line disc=
-iplines
-> *always* done in softirq context???
->
-> If so, i would send a patch for drivers/net/can/slcan.c too ...
->
-> Thanks,
-> Oliver
->
-> On 05.08.2011 21:23, Matvejchikov Ilya wrote:
->> When using nanosleep() in an userspace application we get a ratelimi=
-t warning:
->>
->> =A0 =A0 =A0 NOHZ: local_softirq_pending 08
->>
->> According to 481a8199142c050b72bff8a1956a49fd0a75bbe0 the problem is=
- caused by
->> netif_rx() function. This patch replaces netif_rx() with netif_rx_ni=
-() which
->> has to be used from process/softirq context.
->>
->> Signed-off-by: Matvejchikov Ilya <matvejchikov@gmail.com>
->> ---
->> =A0drivers/net/slip.c | =A0 =A02 +-
->> =A01 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/slip.c b/drivers/net/slip.c
->> index f11b3f3..4c61753 100644
->> --- a/drivers/net/slip.c
->> +++ b/drivers/net/slip.c
->> @@ -367,7 +367,7 @@ static void sl_bump(struct slip *sl)
->> =A0 =A0 =A0 memcpy(skb_put(skb, count), sl->rbuff, count);
->> =A0 =A0 =A0 skb_reset_mac_header(skb);
->> =A0 =A0 =A0 skb->protocol =3D htons(ETH_P_IP);
->> - =A0 =A0 netif_rx(skb);
->> + =A0 =A0 netif_rx_ni(skb);
->> =A0 =A0 =A0 dev->stats.rx_packets++;
->> =A0}
->>
->
->
+rsc
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
