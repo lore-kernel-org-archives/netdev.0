@@ -1,66 +1,36 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [PATCH v10 3/5] [flexcan] Add of_match to platform_device
-	definition.
-Date: Wed, 10 Aug 2011 09:33:06 -0500
-Message-ID: <20110810143306.GR4926@sgi.com>
-References: <1312945564-6626-1-git-send-email-holt@sgi.com>
-	<1312945564-6626-4-git-send-email-holt@sgi.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] slip: fix NOHZ local_softirq_pending 08 warning
+Date: Wed, 10 Aug 2011 16:33:28 +0200
+Message-ID: <4E4296B8.1090806@hartkopp.net>
+References: <CAKh5naYrNPG3UO02VzG13QUP-SOP8-Td+O0G5LAr-+npduP49A@mail.gmail.com>	<4E416951.4020207@hartkopp.net>	<CAKh5naayzp3ANwnE2Y9U2LEaiWNoZAuT3aOQbRYdoB5uNdrOPw@mail.gmail.com> <20110810102824.4c4eaefe@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1312945564-6626-4-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>, matvejchikov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:20616 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750Ab1HJOdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 10:33:50 -0400
+In-Reply-To: <20110810102824.4c4eaefe@lxorguk.ukuu.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 09, 2011 at 10:06:02PM -0500, Robin Holt wrote:
-> On powerpc, the OpenFirmware devices are not matched without specifying
-> an of_match array.  Introduce that array as that is used for matching
-> on the Freescale P1010 processor.
+On 10.08.2011 11:28, Alan Cox wrote:
+>>   2) From tty_flip_buffer_push() which schedules the flush_to_ldisc to
+>> work or calls it directly if the tty->low_latency set.
+>>
+>> So the only thing we must take into account that with tty->low_latency
+>> set we can be in IRQ context when doing with netif_rx_ni(). But if we
 > 
-> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-> To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-> ---
->  drivers/net/can/flexcan.c |   13 ++++++++++++-
->  1 files changed, 12 insertions(+), 1 deletions(-)
+> A driver is not permitted to directly call into flush_to_ldisc from an
+> interrupt so that case doesn't happen.
 > 
-> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> index 68cbe52..662f832 100644
-> --- a/drivers/net/can/flexcan.c
-> +++ b/drivers/net/can/flexcan.c
-> @@ -1027,8 +1027,19 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> +static struct of_device_id flexcan_of_match[] = {
-> +	{
-> +		.compatible = "fsl,flexcan",
 
-Let me make sure I have this correct.  At this point, we would want it
-to be fsl,flexcan here.  If, at some point, we find the i.MX-wonderful
-has diverged from the -p1010, we would, at that point in the code, use
-of_device_is_compatible to differentiate the two, correct?  That would
-mean we should make no change to this patch for the fsl,flexcan-p1010,
-right?
+Thanks to both of you for the explanation!
 
-Robin
+I'll send a patch for slcan.c then.
+
+Best regards,
+Oliver
