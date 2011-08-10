@@ -1,302 +1,97 @@
-From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
-Subject: Re: [PATCH] Add pch ieee1588 driver for Intel EG20T PCH
-Date: Wed, 10 Aug 2011 14:03:32 +0900
-Message-ID: <817E42EB77CC464D9F0BA9D4CB92C152@hacdom.okisemi.com>
-References: <1312352861-10955-1-git-send-email-toshiharu-linux@dsn.okisemi.com> <20110803192331.GA11166@riccoc20.at.omicron.at>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [linux-firmware 1/2] rtl_nic: update firmware for RTL8111E-VL
+Date: Wed, 10 Aug 2011 13:41:01 +0800
+Message-ID: <1312954862-32708-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <tomoya-linux@dsn.okisemi.com>, <kok.howg.ewe@intel.com>,
-	<joel.clark@intel.com>, <yong.y.wang@intel.com>,
-	<qi.wang@intel.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <richard.cochran@omicron.at>
-To: "Richard Cochran" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:17835 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750966Ab1HJFKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 01:10:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Richard
+From: Albert Kuo <albertk@realtek.com>
 
-I added comment below.
-Please confirm them
+Updated firmware with stability fixes.
+Version: rtl8168e-3_0.0.1.
 
-> +/* Register read/write macros */
-> +#define PCH_BIT_SET_CHECK(addr, bitmask) \
-> + ((ioread32(addr) & (bitmask)) == (bitmask))
-> +#define PCH_SET_ADDR_BIT(addr, bitmask)\
-> + iowrite32((ioread32(addr) | (bitmask)), (addr))
-> +#define PCH_CLR_ADDR_BIT(addr, bitmask)\
-> + iowrite32((ioread32(addr) & ~(bitmask)), (addr))
->
->I don't really like macros of this sort, just to set and clear
->register bits. It doesn't make any fewer lines nor does it clarify the
->code. Every driver author will know what is meant by the plain old C,
->like:
->
->    x = x | mask;
->    x = x & ~mask;
->
->Also, you should consider whether you need to protect against
->concurrent access on a register.
+Signed-off-by: Albert Kuo <albertk@realtek.com>
+---
+ rtl_nic/rtl8168e-3.fw |  Bin 2804 -> 3264 bytes
+ 1 files changed, 0 insertions(+), 0 deletions(-)
 
-modify
+diff --git a/rtl_nic/rtl8168e-3.fw b/rtl_nic/rtl8168e-3.fw
+index cb494071d0273c7b3102b97552f4bc7b756c0e17..43d1b8641fb09d2f8dd91998ed78c1deb7c71a7a 100644
+GIT binary patch
+literal 3264
+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
+OJ^RD|0{iy%zwZF4*F!x3
 
->> +
->> +#define DEFAULT_ADDEND 0xF0000029
->> +#define TICKS_NS_SHIFT  4
->
->This driver is based on my ixp46x driver, which is fine because,
->looking at the data sheet, it appears that the time stamping unit in
->the EG20T PCH is fairly similar.
->
->However, I doubt that these ADDEND and SHIFT values will work for you,
->since they were calculated for the frequency compensated clock on the
->IXP. They reflect an input clock frequency of 66.666666 MHz and a
->nominal frequency of 62.5 MHz (or a period of 16 nanoseconds, thus
->SHIFT is 4).
->
->Section 14.6.1.10 in the data sheet seems to imply that the input
->clock is 50 MHz. In that case you could use a nominal frequency of
->31.25 MHz (period 32 ns, SHIFT 5). However, you need to find out
->the actual input clock frequency. If this can vary, then the driver
->should allow changing these values.
+literal 2804
+zcmaKuS!|S56vyvuXDEwdX=z8WolZ+xrAP=!Vq#-Nc`(M9m<Srf13vJiQ4@-BIfa&`
+zMS>d`6R?UeXp0DaGtxc~Ow<@#AOWSxH%JAQw21-A(sulv@B5~F;_~q2-gE9*{^x(s
+zJu}W#sjG16T$w8jxh!jsTkSNBzTQ=$cQ3}A^PHP)Mp<?7_Vv!~b}qHVg}!E6^Ecaa
+zhfmgFTN>J?u(?)9sXFmvo4q7vYMSp0SElP4GJ2TRHD>fnTi?j&5!S;mW%Q`YZ)UX1
+z<d-uVi<N20Wi-K>U`?@(F3G5{4)4oon)L)SwfH$4IpT&j{MJ>M`xqL)kaQJVo32nd
+zmeFOlj%KvBf^`JhR%G8V;^Xi!U9={r)D{;VUM=cT<8VP#+eHtdi(eBhi;2c;pA)Sw
+z?jICg!`}SjJ4FwwXqzXR-!8hN4f{&uyl7=BI_%n_I_ypNR#dl3v>n|y<p1iBXwxat
+z3;RXi!KQ6MwD(=n?u6*u&7v#F*;|9m`d%mxB1?<tAT|?NyVr?s$Jbp3TSjy@`@tK+
+zJ+hL+YU~}uj{Wv%Ov4(=Nn(1}1Dx4T{7QqpakQ4Y5{;rIU`!bYKZ`!FS#&A;k^4li
+zCyC>Uc2d{fS<x&!wq3vud0vy~Li71fbpE}>v3-~5`}i!j{kNhoMEoaJi&jVcmvJ@=
+zJMWU{F6zpG?OF=Ha)DgTI|2MP5x?2sDxRfkMQg(|4@?$kPBG4$JL1%d)<xo61@m~E
+zxuSC;XRpG4azyk7ybaw1;|9@f#5Vr=o)7r`tzL9F_$%@2rnal0JQ=xiTA;fg)lCm{
+zx1zckfo^YA5X<-Fek|Uu=7?@47|`wHzT(*CxUbe<xfgn{6h4-KYlxgrgJ=I_^lAEM
+zIr_EK@ezI8iy!^ySnIpl{|TonME4Adj?zEHT7RHctM?}L#^~Lyr@+Gbhar|uYI}5^
+zXtTxG%YBh!UWe$9&mhxJ)tmW{JGe)CXOEN9!}i#5aBd|}pJ?U`-&xUfVC<)-(|kL2
+zh^_}q`Z>`l1<_~W*uniHmDrx+>lZzL1Ra>VW1@S(WAEn>y>aXw(c|>!R`T@0-I=85
+z*)VR=_XxR8UBMrWMeJ7p5Vei%;X6UUk8<DO_Rfp`^1J9C#7x6q0zR|g@ZkGmsP{O_
+z(;uU(N%I4%^-@O@@1*YbzLY!j^(~@zWpD4Tr+xi4c&g>S!PA97V$BX$YVvWsCi*&Y
+z{e1U}u4KQMyY8F?Pb-6at+u;39o*+;<AfR0F$o>^LR{0uPx98b1U1^5Zp{-DKAPz1
+zI^xBt`_mkEIUL~Xq>dEWYw#UDi0ypQmazZL_H%e%P_(7C6!lCu+l$yP4Bkp@7<VIi
+z7h&5vKz?$L&lGYb;Hnxwk2AwkjgMC%dWAmE(ns-x=m*3$t~$w60*9^aJBX72-wgA;
+z6=180_~t_2o4h&S7oJPtdEA$nTksu$-+$x7n?Nst+n*(tgPtG9H&JwAb1*Mb?Ysdy
+zkMLu@m%wke_-6|u_&Cc_XQJpA;mZ6RH5ShX76m-GkD2kD*^EC;&DQrL;2-23%|40V
+z=DW=&<J_ZHP4CEIcXfa|uF?mwP(F%02{|6hUn3`wE$@g6_^=re-@u#UtYr{i^foI-
+zcrV76=^SsW*|5;FzRu%K2ycemu_}6Rzvuun$>b#Qi*bsx#&X;uM+^NsM4Y}&<Redx
+zFHQ~qoVpzJ^$hEAW|qyHRZ~Q()-VIWbF!cJ1~>im{8Vz-`~JVLoPJ1tB3k(VpR;cq
+z549yM4sWVk$qW8X<XXk|Uzp~?dm}aE3&HPpjQ6?tvjF3!v&>}THF4M7;BBXOiog9s
+zF>vEIZ8AI_W~DZNKJ5$Yws{?ujYFHW#^(WkJG!`Y<!z7G1&-)U&tto>L9`)HUyyrg
+zPV@=(`B&iJVbPyF^k9Cnhkmj>Slwfy59L$Fqy2}R%G%R#hg|&c<--4_g@POZZ(97n
+VdHX+Uxf?6kf6?+D|9>1#e*sYqwB!H)
 
-modify as follows.
-
-#define DEFAULT_ADDEND 0xA0000000
-#define TICKS_NS_SHIFT  5
-
-
->> + u32 asms_hi;
->> + u32 amms_lo;
->> + u32 amms_hi;
->> + u32 ch_control;
->
->You never program this register. But I think the "Mode" field should
->be set to 2. The other settings really make no sense at all.  Or do
->you set this in the MAC driver?
->
->(I wonder why Intel retained the very limited PTP V1 modes from the
->IXP time stamping unit.)
-
-ch_control register was set as 0x80020000    (Version:1, mode:2 )
-
-
->> + u32 mem_base;
->> + u32 mem_size;
->> + u32 irq;
->> + u32 suspend:1;
->> + u32 initialized:1;
->> + struct pci_dev *pdev;
->> + spinlock_t lock;
->
->It would be nice to have a short comment telling what this lock
->protects. (Yes, I know what it protects, but still that is good
->practice to have a comment.)
-
-It renames to "register_lock"
-
->> +static inline void pch_eth_enable_set(struct pch_dev *chip)
->> +{
->> + /* SET the eth_enable bit */
->> + PCH_SET_ADDR_BIT(&chip->regs->ts_sel, PCH_ECS_ETH);
->> +}
->
->I really don't like this or the other similar helper functions,
->below. They don't make the driver more understandable or shorter.
->This function is only used in one place. You need at least two callers
->to justify this.
-
-modify
-
->I think the following helper functions ...
->
->> +static inline u32 pch_pps_evt_get(struct pch_dev *chip)
->> +{
->> + /* Poll for PPS event */
->> + return PCH_BIT_SET_CHECK(&chip->regs->event, PCH_TSE_PPS);
->> +}
-   :
-   :
->> +
->> +static inline void pch_ttm_evt_clear(struct pch_dev *chip)
->> +{
->> + /* Clear Target Time Reached event */
->> + PCH_SET_ADDR_BIT(&chip->regs->event, PCH_TSE_TTIPEND);
->> +}
->
->... are just noise and add nothing useful to the driver.
-
-These functions are removed.
-
->> +static void pch_reset(struct pch_dev *chip)
->> +{
->> + /* Reset Hardware Assist */
->> + pch_block_reset(chip);
->> +
->> + /* enable all 32 bits in system time registers */
->> + pch_set_system_time_count(chip);
->> +}
->
->These three, above, are okay, since they encapsulate one logical
->operation that takes more than one register access.
->
->However, you might consider whether you need locking here.
-
-add spin lock.
-
->> +static void pch_eth_enable(struct pch_dev *chip)
->> +{
->> + pch_eth_enable_set(chip);
->> +}
->
->Again, this helper only has one caller. Why not just set the bit that
->you need in line?
-
-modify
-
-> +
-> +/*
-> + * Interrupt service routine
-> + */
-> +static irqreturn_t isr(int irq, void *priv)
-> +{
-> + struct pch_dev *pch_dev = priv;
-> + struct pch_ts_regs *regs = pch_dev->regs;
-> + struct ptp_clock_event event;
-> + u32 ack = 0, lo, hi, val;
-> +
-> + val = ioread32(&regs->event);
-> +
-> + if (val & PCH_TSE_SNS) {
-> + ack |= PCH_TSE_SNS;
-> + if (pch_dev->exts0_enabled) {
-> + hi = ioread32(&regs->asms_hi);
-> + lo = ioread32(&regs->asms_lo);
-> + event.type = PTP_CLOCK_EXTTS;
-> + event.index = 0;
-> + event.timestamp = ((u64) hi) << 32;
-> + event.timestamp |= lo;
-> + event.timestamp <<= TICKS_NS_SHIFT;
-> + ptp_clock_event(pch_dev->ptp_clock, &event);
-> + }
-> + }
-> +
-> + if (val & PCH_TSE_SNM) {
-> + ack |= PCH_TSE_SNM;
-> + if (pch_dev->exts1_enabled) {
-> + hi = ioread32(&regs->amms_hi);
-> + lo = ioread32(&regs->amms_lo);
-> + event.type = PTP_CLOCK_EXTTS;
-> + event.index = 1;
-> + event.timestamp = ((u64) hi) << 32;
-> + event.timestamp |= lo;
-> + event.timestamp <<= TICKS_NS_SHIFT;
-> + ptp_clock_event(pch_dev->ptp_clock, &event);
-> + }
-> + }
-> +
-> + if (val & PCH_TSE_TTIPEND)
-> + ack |= PCH_TSE_TTIPEND; /* this bit seems to be always set */
->
->This ISR code (and much of the rest of the driver) is copied from the
->IXP driver. It would be nice to know if it actually works on the atom
->hardware. Do have any hardware to try it on?
-
-We have a board of atom(E600) and EG20T.
-However there is no environment for confirming auxiliary snapshot.
-
->> +static struct ptp_clock_info ptp_pch_caps = {
->> + .owner = THIS_MODULE,
->> + .name = "PCH timer",
->> + .max_adj = 66666655,
->
->This should be recalculated once you figure out the input clock and
->nominal frequency.
-
-modify to .max_adj = 50000000,
-
->> +#ifdef CONFIG_PM
->> +static s32 pch_suspend(struct pci_dev *pdev, pm_message_t state)
->> +{
->> + struct pch_dev *chip = pci_get_drvdata(pdev);
->> +
->> + chip->suspend = 1;
->
->You set this flag here ...
-
-remove
-
->> + /* allocate the memory for the device registers */
->> + if (!request_mem_region
->> +     (chip->mem_base, chip->mem_size, "1588_regs")) {
->
->Poor statement break (and this would fit all on one line).
-
-modify
-
-> + dev_err(&pdev->dev,
-> +     "%s: could not allocate register memory space\n", __func__);
->
->Bad indentation.
-
-modify
-
->> + if (ret != 0) {
->> + dev_err(&pdev->dev,
->> + "%s: failed to get irq %d\n", __func__, pdev->irq);
->> + goto err_req_irq;
->> + }
->> +
->> + chip->initialized = 1;
->
->You set this flag, but never use it.
-
-remove
-
->> +
->> +static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
->> + {.vendor = PCI_VENDOR_ID_INTEL,
->
->Needs a space (or newline) before the dot.
-
-modify
-
->> +
->> +static struct pci_driver pch_pcidev = {
->> + .name = KBUILD_MODNAME,
->> + .id_table = pch_pcidev_id,
->
->Here you meant "pch_gbe_pcidev_id" instead (or no "gbe" in the PCI
->device table).
-
-modify
-
->Overall, the driver looks okay. I would appreciate if you would take a
->look at the comments and submit a revised patch.
->
->I would also like to see how the time stamps are done in the MAC
->driver. Have you already posted that?
->
-
-Mac driver already upstreamed. ( drivers/net/pch_gbe)
-However the code relevant to IEEE1588 is not contained into Ethernet driver.
-I have question about rx/tx snapshot.
-Is it necessary to use a snapshot within an Ethernet driver driver?
-I was indicated that there must not be any dependence of a device when the 
-Ethernet driver was upstreamed.
-
->Feature request: I notice in the data sheet that the time stamping
->unit can produce a PPS output. Any chance that you could program this
->feature?
-
-Currently, there is no plan.
-
-Best  Regards
-Toshiharu Okada 
-
+-- 
+1.7.3.2
