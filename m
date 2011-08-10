@@ -1,77 +1,742 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gianfar.c null pointer deref in gfar_start_xmit().
-Date: Wed, 10 Aug 2011 08:01:01 +0200
-Message-ID: <1312956061.2547.74.camel@edumazet-laptop>
-References: <20110803024438.GH4926@sgi.com> <20110809065407.GF3709@sgi.com>
-	 <1312873813.2531.54.camel@edumazet-laptop>  <20110809130615.GT4926@sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Robin Holt <holt@sgi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45598 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121Ab1HJGBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 02:01:07 -0400
-Received: by wyg24 with SMTP id 24so467311wyg.19
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 23:01:06 -0700 (PDT)
-In-Reply-To: <20110809130615.GT4926@sgi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Subject: [PATCH v2] pch ieee1588 driver for Intel EG20T PCH
+Date: Wed, 10 Aug 2011 15:13:03 +0900
+Message-ID: <1312956783-11460-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
+Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, tomoya-linux@dsn.okisemi.com,
+	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+To: richard.cochran@omicron.at, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 09 ao=C3=BBt 2011 =C3=A0 08:06 -0500, Robin Holt a =C3=A9crit =
-:
-> On Tue, Aug 09, 2011 at 09:10:13AM +0200, Eric Dumazet wrote:
-> > Le mardi 09 ao=C3=BBt 2011 =C3=A0 01:54 -0500, Robin Holt a =C3=A9c=
-rit :
-> > > On Tue, Aug 02, 2011 at 09:44:38PM -0500, Robin Holt wrote:
-> > > >=20
-> > > > While using the v3.0 kernel on a Freescale P1010RDB with 3 mino=
-r patches
-> > > > (None which affect gianfar.c), I get a NULL pointer deref at:
-> > > >=20
-> > > > static int gfar_start_xmit(struct sk_buff *skb, struct net_devi=
-ce *dev)
-> > > > {
-> > > > ...
-> > > > 	regs =3D tx_queue->grp->regs;
-> > > >=20
-> > > > I put a BUG_ON(tx_queue->grp) just before this line and it did =
-trip.
-> > > > I have not looked at this any more than that.
-> > > >=20
-> > > > Any suggestions would be welcome.   To reproduce, all I need to=
- do is
-> > > > a few sequences of pings.
-> > >=20
-> > > I was able to reproduce this with the net-next-2.6 kernel as well=
-=2E
-> > >=20
-> >=20
-> > This driver incorrectly assumes a non dense txqueue array is possib=
-le
-> > for a netdev, but its not true.
-> >=20
-> > In the meantime, you could force it to use one tx_queue only.
-> >=20
-> > tx_queues =3D (u32 *)of_get_property(np, "fsl,num_tx_queues", NULL)=
-;
-> > num_tx_qs =3D tx_queues ? *tx_queues : 1;
->=20
-> I fixed up the .dts file and now it works.  I have not tested the RGM=
-II
-> interface yet so I do not know if that supports multiple queues.  I a=
-ssume
-> I could find it in the documentation.  What might I be looking for?
->=20
+This patch is for IEEE1588 driver of Intel EG20T PCH.
+EG20T PCH is the platform controller hub that is used in Intel's
+general embedded platform.
+This driver adds support for using the EG20T PCH as a PTP clock.
 
-What exact change did you in dts ?
+Would you review this patch, although this driver has not been tested yet?
 
-Assuming your p1010rdb is single core powerpc, I fail to see why 8
-queues should be enabled on NIC. It only increases number of interrupts
-if multiple flows are in use, and memory footprint.
+[Post Ver2]
+Modifyed this patch for Richard's comment.
+ - modifyed clock frequency
+ - added setting of ch_control register
+ - added setting of station address
+  etc
 
+Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+---
+ drivers/ptp/Kconfig   |   13 +
+ drivers/ptp/Makefile  |    1 +
+ drivers/ptp/ptp_pch.c |  668 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 682 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/ptp/ptp_pch.c
 
-
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index 68d7201..cd9bc3b 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -72,4 +72,17 @@ config DP83640_PHY
+ 	  In order for this to work, your MAC driver must also
+ 	  implement the skb_tx_timetamp() function.
+ 
++config PTP_1588_CLOCK_PCH
++	tristate "Intel PCH EG20T as PTP clock"
++	depends on PTP_1588_CLOCK
++	depends on PCH_GBE
++	help
++	  This driver adds support for using the PCH EG20T as a PTP
++	  clock. This clock is only useful if your PTP programs are
++	  getting hardware time stamps on the PTP Ethernet packets
++	  using the SO_TIMESTAMPING API.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called ptp_pch.
++
+ endmenu
+diff --git a/drivers/ptp/Makefile b/drivers/ptp/Makefile
+index f6933e8..8b58597 100644
+--- a/drivers/ptp/Makefile
++++ b/drivers/ptp/Makefile
+@@ -5,3 +5,4 @@
+ ptp-y					:= ptp_clock.o ptp_chardev.o ptp_sysfs.o
+ obj-$(CONFIG_PTP_1588_CLOCK)		+= ptp.o
+ obj-$(CONFIG_PTP_1588_CLOCK_IXP46X)	+= ptp_ixp46x.o
++obj-$(CONFIG_PTP_1588_CLOCK_PCH)	+= ptp_pch.o
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+new file mode 100644
+index 0000000..159576d
+--- /dev/null
++++ b/drivers/ptp/ptp_pch.c
+@@ -0,0 +1,668 @@
++/*
++ * PTP 1588 clock using the EG20T PCH
++ *
++ * Copyright (C) 2010 OMICRON electronics GmbH
++ * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
++ *
++ * This code was derived from the IXP46X driver.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA.
++ */
++
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/ptp_clock_kernel.h>
++
++#define STATION_ADDR_LEN	20
++#define PCI_DEVICE_ID_PCH_1588	0x8819
++#define IO_MEM_BAR 1
++
++#define DEFAULT_ADDEND 0xA0000000
++#define TICKS_NS_SHIFT  5
++#define N_EXT_TS	2
++
++enum pch_status {
++	PCH_SUCCESS,
++	PCH_INVALIDPARAM,
++	PCH_NOTIMESTAMP,
++	PCH_INTERRUPTMODEINUSE,
++	PCH_FAILED,
++	PCH_UNSUPPORTED,
++};
++/**
++ * struct pch_ts_regs - IEEE 1588 registers
++ */
++struct pch_ts_regs {
++	u32 control;
++	u32 event;
++	u32 addend;
++	u32 accum;
++	u32 test;
++	u32 ts_compare;
++	u32 rsystime_lo;
++	u32 rsystime_hi;
++	u32 systime_lo;
++	u32 systime_hi;
++	u32 trgt_lo;
++	u32 trgt_hi;
++	u32 asms_lo;
++	u32 asms_hi;
++	u32 amms_lo;
++	u32 amms_hi;
++	u32 ch_control;
++	u32 ch_event;
++	u32 tx_snap_lo;
++	u32 tx_snap_hi;
++	u32 rx_snap_lo;
++	u32 rx_snap_hi;
++	u32 src_uuid_lo;
++	u32 src_uuid_hi;
++	u32 can_status;
++	u32 can_snap_lo;
++	u32 can_snap_hi;
++	u32 ts_sel;
++	u32 ts_st[6];
++	u32 reserve1[14];
++	u32 stl_max_set_en;
++	u32 stl_max_set;
++	u32 reserve2[13];
++	u32 srst;
++};
++
++#define PCH_TSC_RESET		(1 << 0)
++#define PCH_TSC_TTM_MASK	(1 << 1)
++#define PCH_TSC_ASMS_MASK	(1 << 2)
++#define PCH_TSC_AMMS_MASK	(1 << 3)
++#define PCH_TSC_PPSM_MASK	(1 << 4)
++#define PCH_TSE_TTIPEND		(1 << 1)
++#define PCH_TSE_SNS		(1 << 2)
++#define PCH_TSE_SNM		(1 << 3)
++#define PCH_TSE_PPS		(1 << 4)
++#define PCH_CC_MM		(1 << 0)
++#define PCH_CC_TA		(1 << 1)
++
++#define PCH_CC_MODE_SHIFT	16
++#define PCH_CC_MODE_MASK	0x001F0000
++#define PCH_CC_VERSION		(1 << 31)
++#define PCH_CE_TXS		(1 << 0)
++#define PCH_CE_RXS		(1 << 1)
++#define PCH_CE_OVR		(1 << 0)
++#define PCH_CE_VAL		(1 << 1)
++#define PCH_ECS_ETH		(1 << 0)
++
++#define PCH_ECS_CAN		(1 << 1)
++#define PCH_STATION_BYTES	6
++
++#define PCH_IEEE1588_ETH	(1 << 0)
++#define PCH_IEEE1588_CAN	(1 << 1)
++/**
++ * struct pch_dev - Driver private data
++ */
++struct pch_dev {
++	struct pch_ts_regs *regs;
++	struct ptp_clock *ptp_clock;
++	struct ptp_clock_info caps;
++	int exts0_enabled;
++	int exts1_enabled;
++
++	u32 mem_base;
++	u32 mem_size;
++	u32 irq;
++	struct pci_dev *pdev;
++	spinlock_t register_lock;
++};
++
++/**
++ * struct ch_1588_params_ - 1588 module paramter
++ */
++struct pch_params_ {
++	u8 station[STATION_ADDR_LEN];
++};
++
++/* structure to hold the module parameters */
++static struct pch_params_ pch_param = {
++	"00:00:00:00:00:00"
++};
++
++/*
++ * Register access functions
++ */
++static inline void pch_eth_enable_set(struct pch_dev *chip)
++{
++	u32 val;
++	/* SET the eth_enable bit */
++	val = ioread32(&chip->regs->ts_sel) | (PCH_ECS_ETH);
++	iowrite32(val, (&chip->regs->ts_sel));
++}
++
++static u64 pch_systime_read(struct pch_ts_regs *regs)
++{
++	u64 ns;
++	u32 lo, hi;
++
++	lo = ioread32(&regs->systime_lo);
++	hi = ioread32(&regs->systime_hi);
++
++	ns = ((u64) hi) << 32;
++	ns |= lo;
++	ns <<= TICKS_NS_SHIFT;
++
++	return ns;
++}
++
++static void pch_systime_write(struct pch_ts_regs *regs, u64 ns)
++{
++	u32 hi, lo;
++
++	ns >>= TICKS_NS_SHIFT;
++	hi = ns >> 32;
++	lo = ns & 0xffffffff;
++
++	iowrite32(lo, &regs->systime_lo);
++	iowrite32(hi, &regs->systime_hi);
++}
++
++static inline void pch_block_reset(struct pch_dev *chip)
++{
++	u32 val;
++	/* Reset Hardware Assist block */
++	val = ioread32(&chip->regs->control) | PCH_TSC_RESET;
++	iowrite32(val, (&chip->regs->control));
++	val = val & ~PCH_TSC_RESET;
++	iowrite32(val, (&chip->regs->control));
++}
++
++/* This function enables all 64 bits in system time registers [high & low].
++This is a work-around for non continuous value in the SystemTime Register*/
++static void pch_set_system_time_count(struct pch_dev *chip)
++{
++	iowrite32(0x01, &chip->regs->stl_max_set_en);
++	iowrite32(0xFFFFFFFF, &chip->regs->stl_max_set);
++	iowrite32(0x00, &chip->regs->stl_max_set_en);
++}
++
++static void pch_reset(struct pch_dev *chip)
++{
++	/* Reset Hardware Assist */
++	pch_block_reset(chip);
++
++	/* enable all 32 bits in system time registers */
++	pch_set_system_time_count(chip);
++}
++
++/**
++ * get_decimal() - Returns the decimal value of the passed hexadecimal value
++ * @ch:	The hexadecimal value that has to be converted.
++ */
++static s32 get_decimal(u8 ch)
++{
++	s32 ret;
++
++	if ((ch >= '0') && (ch <= '9'))
++		ret = ch - '0';
++	else if ((ch >= 'A') && (ch <= 'F'))
++		ret = 10 + ch - 'A';
++	else if ((ch >= 'a') && (ch <= 'f'))
++		ret = 10 + ch - 'a';
++	else
++		return -1;
++
++	return ret;
++}
++
++/**
++ * pch_set_station_address() - This API sets the station address used by
++ *				    IEEE 1588 hardware when looking at PTP
++ *				    traffic on the  ethernet interface
++ * @addr:	dress which contain the column separated address to be used.
++ */
++static int pch_set_station_address(u8 *addr, struct pci_dev *pdev)
++{
++	s32 i;
++	struct pch_dev *chip = pci_get_drvdata(pdev);
++
++	/* Verify the parameter */
++	if ((chip->regs == 0) || addr == (u8 *)NULL) {
++		dev_err(&pdev->dev,
++		"%s :invalid params returning PCH_INVALIDPARAM\n", __func__);
++		return PCH_INVALIDPARAM;
++	}
++
++	for (i = 0; i < PCH_STATION_BYTES; i++) {	/* For all station
++							 address bytes */
++		u32 val;
++		s32 tmp;
++
++		tmp = get_decimal(addr[i * 3]);
++		if (tmp < 0) {
++			dev_err(&pdev->dev,
++			    "%s :invalid params returning PCH_INVALIDPARAM\n",
++			    __func__);
++			return PCH_INVALIDPARAM;
++		}
++		val = tmp * 16;
++		tmp = get_decimal(addr[(i * 3) + 1]);
++		if (tmp < 0) {
++			dev_err(&pdev->dev,
++			    "%s :invalid params returning PCH_INVALIDPARAM\n",
++			    __func__);
++			return PCH_INVALIDPARAM;
++		}
++		val += tmp;
++		if ((i < 5) && (addr[(i * 3) + 2] != ':')) {	/* Expects ':'
++							 separated addresses */
++			dev_err(&pdev->dev,
++			    "%s :invalid params returning PCH_INVALIDPARAM\n",
++			    __func__);
++			return PCH_INVALIDPARAM;
++		}
++
++		/* Ideally we should set the address only after validating
++							 entire string */
++		dev_dbg(&pdev->dev, "%s :invoking pch_station_set\n", __func__);
++		iowrite32(val, &chip->regs->ts_st[i]);
++	}
++	return 0;
++}
++
++/*
++ * Interrupt service routine
++ */
++static irqreturn_t isr(int irq, void *priv)
++{
++	struct pch_dev *pch_dev = priv;
++	struct pch_ts_regs *regs = pch_dev->regs;
++	struct ptp_clock_event event;
++	u32 ack = 0, lo, hi, val;
++
++	val = ioread32(&regs->event);
++
++	if (val & PCH_TSE_SNS) {
++		ack |= PCH_TSE_SNS;
++		if (pch_dev->exts0_enabled) {
++			hi = ioread32(&regs->asms_hi);
++			lo = ioread32(&regs->asms_lo);
++			event.type = PTP_CLOCK_EXTTS;
++			event.index = 0;
++			event.timestamp = ((u64) hi) << 32;
++			event.timestamp |= lo;
++			event.timestamp <<= TICKS_NS_SHIFT;
++			ptp_clock_event(pch_dev->ptp_clock, &event);
++		}
++	}
++
++	if (val & PCH_TSE_SNM) {
++		ack |= PCH_TSE_SNM;
++		if (pch_dev->exts1_enabled) {
++			hi = ioread32(&regs->amms_hi);
++			lo = ioread32(&regs->amms_lo);
++			event.type = PTP_CLOCK_EXTTS;
++			event.index = 1;
++			event.timestamp = ((u64) hi) << 32;
++			event.timestamp |= lo;
++			event.timestamp <<= TICKS_NS_SHIFT;
++			ptp_clock_event(pch_dev->ptp_clock, &event);
++		}
++	}
++
++	if (val & PCH_TSE_TTIPEND)
++		ack |= PCH_TSE_TTIPEND; /* this bit seems to be always set */
++
++	if (ack) {
++		iowrite32(ack, &regs->event);
++		return IRQ_HANDLED;
++	} else
++		return IRQ_NONE;
++}
++
++/*
++ * PTP clock operations
++ */
++
++static int ptp_pch_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
++{
++	u64 adj;
++	u32 diff, addend;
++	int neg_adj = 0;
++	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
++	struct pch_ts_regs *regs = pch_dev->regs;
++
++	if (ppb < 0) {
++		neg_adj = 1;
++		ppb = -ppb;
++	}
++	addend = DEFAULT_ADDEND;
++	adj = addend;
++	adj *= ppb;
++	diff = div_u64(adj, 1000000000ULL);
++
++	addend = neg_adj ? addend - diff : addend + diff;
++
++	iowrite32(addend, &regs->addend);
++
++	return 0;
++}
++
++static int ptp_pch_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	s64 now;
++	unsigned long flags;
++	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
++	struct pch_ts_regs *regs = pch_dev->regs;
++
++	spin_lock_irqsave(&pch_dev->register_lock, flags);
++	now = pch_systime_read(regs);
++	now += delta;
++	pch_systime_write(regs, now);
++	spin_unlock_irqrestore(&pch_dev->register_lock, flags);
++
++	return 0;
++}
++
++static int ptp_pch_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++{
++	u64 ns;
++	u32 remainder;
++	unsigned long flags;
++	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
++	struct pch_ts_regs *regs = pch_dev->regs;
++
++	spin_lock_irqsave(&pch_dev->register_lock, flags);
++	ns = pch_systime_read(regs);
++	spin_unlock_irqrestore(&pch_dev->register_lock, flags);
++
++	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
++	ts->tv_nsec = remainder;
++	return 0;
++}
++
++static int ptp_pch_settime(struct ptp_clock_info *ptp,
++			   const struct timespec *ts)
++{
++	u64 ns;
++	unsigned long flags;
++	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
++	struct pch_ts_regs *regs = pch_dev->regs;
++
++	ns = ts->tv_sec * 1000000000ULL;
++	ns += ts->tv_nsec;
++
++	spin_lock_irqsave(&pch_dev->register_lock, flags);
++	pch_systime_write(regs, ns);
++	spin_unlock_irqrestore(&pch_dev->register_lock, flags);
++
++	return 0;
++}
++
++static int ptp_pch_enable(struct ptp_clock_info *ptp,
++			  struct ptp_clock_request *rq, int on)
++{
++	struct pch_dev *pch_dev = container_of(ptp, struct pch_dev, caps);
++
++	switch (rq->type) {
++	case PTP_CLK_REQ_EXTTS:
++		switch (rq->extts.index) {
++		case 0:
++			pch_dev->exts0_enabled = on ? 1 : 0;
++			break;
++		case 1:
++			pch_dev->exts1_enabled = on ? 1 : 0;
++			break;
++		default:
++			return -EINVAL;
++		}
++		return 0;
++	default:
++		break;
++	}
++
++	return -EOPNOTSUPP;
++}
++
++static struct ptp_clock_info ptp_pch_caps = {
++	.owner		= THIS_MODULE,
++	.name		= "PCH timer",
++	.max_adj	= 50000000,
++	.n_ext_ts	= N_EXT_TS,
++	.pps		= 0,
++	.adjfreq	= ptp_pch_adjfreq,
++	.adjtime	= ptp_pch_adjtime,
++	.gettime	= ptp_pch_gettime,
++	.settime	= ptp_pch_settime,
++	.enable		= ptp_pch_enable,
++};
++
++
++#ifdef CONFIG_PM
++static s32 pch_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	pci_disable_device(pdev);
++	pci_enable_wake(pdev, PCI_D3hot, 0);
++
++	if (pci_save_state(pdev) != 0) {
++		dev_err(&pdev->dev,
++			"%s: could not save PCI config state\n", __func__);
++		return -ENOMEM;
++	}
++	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++
++	return 0;
++}
++
++static s32 pch_resume(struct pci_dev *pdev)
++{
++	s32 ret;
++
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++	ret = pci_enable_device(pdev);
++	if (ret) {
++		dev_err(&pdev->dev, "%s: pci_enable_device failed\n", __func__);
++		return ret;
++	}
++	pci_enable_wake(pdev, PCI_D3hot, 0);
++	return 0;
++}
++#else
++#define pch_suspend NULL
++#define pch_resume NULL
++#endif
++
++static void __devexit pch_remove(struct pci_dev *pdev)
++{
++	struct pch_dev *chip = pci_get_drvdata(pdev);
++
++	ptp_clock_unregister(chip->ptp_clock);
++	/* free the interrupt */
++	if (pdev->irq != 0)
++		free_irq(pdev->irq, chip);
++
++	/* unmap the virtual IO memory space */
++	if (chip->regs != 0) {
++		iounmap(chip->regs);
++		chip->regs = 0;
++	}
++	/* release the reserved IO memory space */
++	if (chip->mem_base != 0) {
++		release_mem_region(chip->mem_base, chip->mem_size);
++		chip->mem_base = 0;
++	}
++	pci_disable_device(pdev);
++	kfree(chip);
++	dev_info(&pdev->dev, "%s: complete\n", __func__);
++}
++
++static s32 __devinit
++pch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
++{
++	s32 ret;
++	unsigned long flags;
++	struct pch_dev *chip;
++
++	chip = kzalloc(sizeof(struct pch_dev), GFP_KERNEL);
++	if (chip == NULL)
++		return -ENOMEM;
++
++	/* enable the 1588 pci device */
++	ret = pci_enable_device(pdev);
++	if (ret != 0) {
++		dev_err(&pdev->dev,
++			"%s:could not enable the pci device\n", __func__);
++		goto err_pci_en;
++	}
++
++	chip->mem_base = pci_resource_start(pdev, IO_MEM_BAR);
++	if (!chip->mem_base) {
++		dev_err(&pdev->dev,
++			"%s: could not locate IO memory address\n", __func__);
++		ret = -ENODEV;
++		goto err_pci_start;
++	}
++
++	/* retreive the available length of the IO memory space */
++	chip->mem_size = pci_resource_len(pdev, IO_MEM_BAR);
++
++	/* allocate the memory for the device registers */
++	if (!request_mem_region(chip->mem_base, chip->mem_size, "1588_regs")) {
++		dev_err(&pdev->dev, "%s: could not allocate register memory "
++			"space\n", __func__);
++		ret = -EBUSY;
++		goto err_req_mem_region;
++	}
++
++	/* get the virtual address to the 1588 registers */
++	chip->regs = ioremap(chip->mem_base, chip->mem_size);
++
++	if (!chip->regs) {
++		dev_err(&pdev->dev, "%s: Could not get virtual address\n",
++			__func__);
++		ret = -ENOMEM;
++		goto err_ioremap;
++	}
++
++	chip->caps = ptp_pch_caps;
++	chip->ptp_clock = ptp_clock_register(&chip->caps);
++
++	if (IS_ERR(chip->ptp_clock))
++		return PTR_ERR(chip->ptp_clock);
++
++	spin_lock_init(&chip->register_lock);
++
++	ret = request_irq(pdev->irq, &isr, IRQF_SHARED, KBUILD_MODNAME, chip);
++	if (ret != 0) {
++		dev_err(&pdev->dev, "%s: failed to get irq %d\n", __func__,
++			pdev->irq);
++		goto err_req_irq;
++	}
++
++	/* indicate success */
++	chip->irq = pdev->irq;
++	chip->pdev = pdev;
++	pci_set_drvdata(pdev, chip);
++
++	spin_lock_irqsave(&chip->register_lock, flags);
++	/* reset the ieee1588 h/w */
++	pch_reset(chip);
++
++	iowrite32(DEFAULT_ADDEND, &chip->regs->addend);
++	iowrite32(1, &chip->regs->trgt_lo);
++	iowrite32(0, &chip->regs->trgt_hi);
++	iowrite32(PCH_TSE_TTIPEND, &chip->regs->event);
++	/* Version: IEEE1588 v1 and IEEE1588-2008,  Mode: All Evwnt, Locked  */
++	iowrite32(0x80020000, &chip->regs->ch_control);
++
++	pch_eth_enable_set(chip);
++
++	if (strcmp(pch_param.station, "00:00:00:00:00:00") != 0) {
++		if (pch_set_station_address(pch_param.station, pdev) != 0) {
++			dev_err(&pdev->dev,
++				"%s: Invalid station address parameter\n"
++				"Module loaded; But, station address not set "
++				"correctly\n", __func__);
++		}
++	}
++	spin_unlock_irqrestore(&chip->register_lock, flags);
++	return 0;
++
++err_req_irq:
++	ptp_clock_unregister(chip->ptp_clock);
++	iounmap(chip->regs);
++	chip->regs = 0;
++
++err_ioremap:
++	release_mem_region(chip->mem_base, chip->mem_size);
++
++err_req_mem_region:
++	chip->mem_base = 0;
++
++err_pci_start:
++	pci_disable_device(pdev);
++
++err_pci_en:
++	kfree(chip);
++	dev_err(&pdev->dev, "%s: probe failed(ret=0x%x)\n", __func__, ret);
++
++	return ret;
++}
++
++static DEFINE_PCI_DEVICE_TABLE(pch_ieee1588_pcidev_id) = {
++	{
++	  .vendor = PCI_VENDOR_ID_INTEL,
++	  .device = PCI_DEVICE_ID_PCH_1588
++	 },
++	{0}
++};
++
++static struct pci_driver pch_pcidev = {
++	.name = KBUILD_MODNAME,
++	.id_table = pch_ieee1588_pcidev_id,
++	.probe = pch_probe,
++	.remove = pch_remove,
++	.suspend = pch_suspend,
++	.resume = pch_resume,
++};
++
++static void __exit ptp_pch_exit(void)
++{
++	pci_unregister_driver(&pch_pcidev);
++}
++
++static s32 __init ptp_pch_init(void)
++{
++	s32 ret;
++
++	/* register the driver with the pci core */
++	ret = pci_register_driver(&pch_pcidev);
++
++	return ret;
++}
++
++module_init(ptp_pch_init);
++module_exit(ptp_pch_exit);
++
++module_param_string(station, pch_param.station, sizeof pch_param.station, 0444);
++MODULE_PARM_DESC(station,
++	 "IEEE 1588 station address to use - column separated hex values");
++
++MODULE_AUTHOR("OKI SEMICONDUCTOR, <toshiharu-linux@dsn.okisemi.com>");
++MODULE_DESCRIPTION("PTP clock using the EG20T timer");
++MODULE_LICENSE("GPL");
++
+-- 
+1.7.4.4
