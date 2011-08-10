@@ -1,166 +1,33 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: [PATCH v10 5/5] [powerpc] Fix up fsl-flexcan device tree binding.
-Date: Tue,  9 Aug 2011 22:06:04 -0500
-Message-ID: <1312945564-6626-6-git-send-email-holt@sgi.com>
-References: <1312945564-6626-1-git-send-email-holt@sgi.com>
+From: Wang Shaoyan <stufever@gmail.com>
+Subject: Re: [PATCH] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Wed, 10 Aug 2011 11:50:40 +0800
+Message-ID: <CANxBZFpm-at-FgNdP9nefwFfpzHmTMMsPSNWKJuT2R6TazhsYQ@mail.gmail.com>
+References: <1312943399-14435-1-git-send-email-wangshaoyan.pt@taobao.com>
+	<1312943316.11924.54.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: , netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1312945564-6626-1-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:53719 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751811Ab1HJDul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 23:50:41 -0400
+In-Reply-To: <1312943316.11924.54.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In working with the socketcan developers, we have come to the conclusion
-the Documentation...fsl-flexcan.txt device tree documentation needs to
-be cleaned up.  The driver does not depend upon any properties other
-than the required properties so we are removing the file.  Additionally,
-the p1010*dts* files are not following the standard for node naming in
-that they have a trailing -v1.0.
+Yes, I want to test, but I can't open CONFIG_GIANFAR, because I can't
+find FSL_SOC, am i miss something?
+> "got err" is true.
+>
+> Please compile test your patches before sending them.
+>
+>
+>
 
-Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
----
- .../devicetree/bindings/net/can/fsl-flexcan.txt    |   61 --------------------
- arch/powerpc/boot/dts/p1010rdb.dts                 |    8 ---
- arch/powerpc/boot/dts/p1010si.dtsi                 |    8 +-
- 3 files changed, 4 insertions(+), 73 deletions(-)
- delete mode 100644 Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
 
-diff --git a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-deleted file mode 100644
-index 1a729f0..0000000
---- a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-+++ /dev/null
-@@ -1,61 +0,0 @@
--CAN Device Tree Bindings
--------------------------
--2011 Freescale Semiconductor, Inc.
--
--fsl,flexcan-v1.0 nodes
-------------------------
--In addition to the required compatible-, reg- and interrupt-properties, you can
--also specify which clock source shall be used for the controller.
--
--CPI Clock- Can Protocol Interface Clock
--	This CLK_SRC bit of CTRL(control register) selects the clock source to
--	the CAN Protocol Interface(CPI) to be either the peripheral clock
--	(driven by the PLL) or the crystal oscillator clock. The selected clock
--	is the one fed to the prescaler to generate the Serial Clock (Sclock).
--	The PRESDIV field of CTRL(control register) controls a prescaler that
--	generates the Serial Clock (Sclock), whose period defines the
--	time quantum used to compose the CAN waveform.
--
--Can Engine Clock Source
--	There are two sources for CAN clock
--	- Platform Clock  It represents the bus clock
--	- Oscillator Clock
--
--	Peripheral Clock (PLL)
--	--------------
--		     |
--		    ---------		      -------------
--		    |       |CPI Clock	      | Prescaler |       Sclock
--		    |       |---------------->| (1.. 256) |------------>
--		    ---------		      -------------
--                     |  |
--	--------------  ---------------------CLK_SRC
--	Oscillator Clock
--
--- fsl,flexcan-clock-source : CAN Engine Clock Source.This property selects
--			     the peripheral clock. PLL clock is fed to the
--			     prescaler to generate the Serial Clock (Sclock).
--			     Valid values are "oscillator" and "platform"
--			     "oscillator": CAN engine clock source is oscillator clock.
--			     "platform" The CAN engine clock source is the bus clock
--		             (platform clock).
--
--- fsl,flexcan-clock-divider : for the reference and system clock, an additional
--			      clock divider can be specified.
--- clock-frequency: frequency required to calculate the bitrate for FlexCAN.
--
--Note:
--	- v1.0 of flexcan-v1.0 represent the IP block version for P1010 SOC.
--	- P1010 does not have oscillator as the Clock Source.So the default
--	  Clock Source is platform clock.
--Examples:
--
--	can0@1c000 {
--		compatible = "fsl,flexcan-v1.0";
--		reg = <0x1c000 0x1000>;
--		interrupts = <48 0x2>;
--		interrupt-parent = <&mpic>;
--		fsl,flexcan-clock-source = "platform";
--		fsl,flexcan-clock-divider = <2>;
--		clock-frequency = <fixed by u-boot>;
--	};
-diff --git a/arch/powerpc/boot/dts/p1010rdb.dts b/arch/powerpc/boot/dts/p1010rdb.dts
-index 6b33b73..d6a0bb2 100644
---- a/arch/powerpc/boot/dts/p1010rdb.dts
-+++ b/arch/powerpc/boot/dts/p1010rdb.dts
-@@ -169,14 +169,6 @@
- 			};
- 		};
- 
--		can0@1c000 {
--			fsl,flexcan-clock-source = "platform";
--		};
--
--		can1@1d000 {
--			fsl,flexcan-clock-source = "platform";
--		};
--
- 		usb@22000 {
- 			phy_type = "utmi";
- 		};
-diff --git a/arch/powerpc/boot/dts/p1010si.dtsi b/arch/powerpc/boot/dts/p1010si.dtsi
-index 7f51104..20c396d 100644
---- a/arch/powerpc/boot/dts/p1010si.dtsi
-+++ b/arch/powerpc/boot/dts/p1010si.dtsi
-@@ -141,19 +141,19 @@
- 		};
- 
- 		can0@1c000 {
--			compatible = "fsl,flexcan-v1.0";
-+			compatible = "fsl,p1010-flexcan",
-+					"fsl,flexcan";
- 			reg = <0x1c000 0x1000>;
- 			interrupts = <48 0x2>;
- 			interrupt-parent = <&mpic>;
--			fsl,flexcan-clock-divider = <2>;
- 		};
- 
- 		can1@1d000 {
--			compatible = "fsl,flexcan-v1.0";
-+			compatible = "fsl,p1010-flexcan",
-+					"fsl,flexcan";
- 			reg = <0x1d000 0x1000>;
- 			interrupts = <61 0x2>;
- 			interrupt-parent = <&mpic>;
--			fsl,flexcan-clock-divider = <2>;
- 		};
- 
- 		L2: l2-cache-controller@20000 {
+
 -- 
-1.7.2.1
+Wang Shaoyan
