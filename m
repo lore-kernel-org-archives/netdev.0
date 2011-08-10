@@ -1,51 +1,41 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH] net: sh_eth: Fix build by forgot including linux/interrupt.h
-Date: Wed, 10 Aug 2011 15:15:50 +0900
-Message-ID: <1312956950-32598-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: adobriyan@gmail.com,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
+From: "J.Hwan Kim" <frog1120@gmail.com>
+Subject: Intel 82599 ixgbe driver performance
+Date: Wed, 10 Aug 2011 15:19:34 +0900
+Message-ID: <4E4222F6.7050304@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:38952 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752167Ab1HJGQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 02:16:26 -0400
-Received: by gwaa12 with SMTP id a12so480419gwa.19
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 23:16:25 -0700 (PDT)
+Received: from mail-iy0-f170.google.com ([209.85.210.170]:32802 "EHLO
+	mail-iy0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121Ab1HJGTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 02:19:37 -0400
+Received: by iye16 with SMTP id 16so563463iye.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2011 23:19:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By a6b7a407865aab9f849dd99a71072b7cd1175116, remove interrupt.h
-from netdevice.h. But this forget to revise sh_eth.
+Hi, everyone
 
-This fix the build failure.
+I'm testing our network card which includes intel 82599 based on ixgbe 
+driver.
+I wonder what is the Rx performance of i82599 without network stack only 
+with 64Byte frames.
+Our driver reads the packet directly from DMA packet buffer and push to 
+the application
+without passing through linux kernel stack.
+It seems that the intel 82599 cannot push 64B frames to DMA area in 10G.
+Is it right?
 
-error: expected '=', ',', ';', 'asm' or '__attribute__' before 'sh_eth_interrupt'
-error: implicit declaration of function 'request_irq'
-error: 'sh_eth_interrupt' undeclared (first use in this function)
-error: (Each undeclared identifier is reported only once
-	drivers/net/sh_eth.c:1386: error: for each function it appears in.)
-error: 'IRQF_SHARED' undeclared (first use in this function)
-error: implicit declaration of function 'free_irq'
+If it is the case, what is the bottleneck of 82599?
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-CC: Alexey Dobriyan <adobriyan@gmail.com>
----
- drivers/net/sh_eth.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Thanks in advance.
 
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index ad35c21..190f619 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -21,6 +21,7 @@
-  */
- 
- #include <linux/init.h>
-+#include <linux/interrupt.h>
- #include <linux/dma-mapping.h>
- #include <linux/etherdevice.h>
- #include <linux/delay.h>
--- 
-1.7.5.4
+Best Regards,
+J.Hwan KIm
+
+
+
+
 
