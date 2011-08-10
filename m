@@ -1,37 +1,103 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next 0/6] be2net: fixes
-Date: Wed, 10 Aug 2011 03:15:55 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F63FFDC662F3@EXMAIL.ad.emulex.com>
-References: <1312351066-16745-1-git-send-email-sathya.perla@emulex.com>
-	 <1312904848.2371.42.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1312906987.2371.51.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v10 0/5] [flexcan/powerpc] Add support for powerpc flexcan
+	(freescale p1010)
+Date: Wed, 10 Aug 2011 12:24:16 +0200
+Message-ID: <4E425C50.6030508@pengutronix.de>
+References: <1312945564-6626-1-git-send-email-holt@sgi.com>
+	<4E425716.4010104@pengutronix.de> <20110810101113.GN4926@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:58627 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751040Ab1HJKQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 06:16:27 -0400
-In-Reply-To: <1312906987.2371.51.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============3666694717005693140=="
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110810101113.GN4926-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PkZyb206IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+U2Vu
-dDogVHVlc2RheSwgQXVndXN0IDA5LCAyMDExIDk6NTMgUE0NCj4+ID4NCj4+DQo+PiBOb3Qgc3Vy
-ZSB3aGljaCByZWNlbnQgYmUybmV0IHBhdGNoIGlzIHByb2JsZW1hdGljIG9uIDMyYml0IGFyY2hl
-cyA6DQo+Pg0KPj4gS2VybmVsOiBhcmNoL3g4Ni9ib290L2J6SW1hZ2UgaXMgcmVhZHkgICgjMjgw
-KQ0KPj4gICBCdWlsZGluZyBtb2R1bGVzLCBzdGFnZSAyLg0KPj4gICBNT0RQT1NUIDE4NTQgbW9k
-dWxlcw0KPj4gRVJST1I6ICJfX3VkaXZkaTMiIFtkcml2ZXJzL25ldC9iZW5ldC9iZTJuZXQua29d
-IHVuZGVmaW5lZCENCj4+IG1ha2VbMV06ICoqKiBbX19tb2Rwb3N0XSBFcnJldXIgMQ0KPj4gbWFr
-ZTogKioqIFttb2R1bGVzXSBFcnJldXIgMg0KPj4NCj4+IFBsZWFzZSBmaXggdGhpcywgdGhhbmtz
-Lg0KPj4NCj4+DQo+DQo+Q29tZXMgZnJvbSBjb21taXQgYWMxMjRmZjk3M2UyNzgwMjc5Nw0KPihi
-ZTJuZXQ6IGNsZWFudXAgYW5kIHJlZmFjdG9yIHN0YXRzIGNvZGUpDQo+DQo+YmVfcnhfZXFkX3Vw
-ZGF0ZSgpIG5vdyBwZXJmb3JtcyB1NjQgZGl2aWRlcy4NCj4NCj5Gb2xsb3dpbmcgcGF0Y2ggc2hv
-dWxkIGJlIGVub3VnaCwgdGhlcmUgaXMgbm8gd2F5IHBhY2tldCBjb3VudCBjYW4NCj5vdmVyd3Jh
-cCBhIGxvbmcgYW55d2F5IGJldHdlZW4gdHdvIHNhbXBsZXMuLi4NCj4NCj4NCj4NCj5bUEFUQ0hd
-IGJlbmV0OiBmaXggYnVpbGQgZXJyb3Igb24gMzJiaXQgYXJjaA0KPg0KVGhhbmtzIGZvciB0aGUg
-cXVpY2sgcGF0Y2guDQoNCi1TYXRoeWENCg==
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============3666694717005693140==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigBF2531F8679515AE9C064267"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBF2531F8679515AE9C064267
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 08/10/2011 12:11 PM, Robin Holt wrote:
+> On Wed, Aug 10, 2011 at 12:01:58PM +0200, Marc Kleine-Budde wrote:
+>> On 08/10/2011 05:05 AM, Robin Holt wrote:
+>>> With all the patches applied, my p1010rdb works for communicating bet=
+ween
+>>> its two can ports and also can communicate with an external PSOC.  I =
+have
+>>> done no testing beyond compile testing on an arm system as I have no
+>>> access to an arm based system.
+>>>
+>>> For the first three patches in the series, I believe they are all rea=
+dy
+>>> for forwarding to David S. Miller for the netdev tree.  I think patch=
+
+>>> 4 is ready for submission to the PPC85xx maintainer.  Patch 5 changed=
+
+>>> from the previous post by adding a second compatible string for the
+>>> fsl,p1010_flexcan.
+>>
+>> One remark for the subjects. It seems no one is using "[$subsystem]"
+>> anymore, but rather "$subsystem:".
+>=20
+> I will, one day, get these patches subject lines correct ;)
+>=20
+> Did you happen to get a chance to test the patches on arm?
+
+It's still compiling...
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigBF2531F8679515AE9C064267
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk5CXFMACgkQjTAFq1RaXHM5CACghJ/nPTGxcIDc/+Pa52zDjVFD
+K8AAnA7LJJXdI46isS1qU+RaiSMACBxV
+=wXYH
+-----END PGP SIGNATURE-----
+
+--------------enigBF2531F8679515AE9C064267--
+
+--===============3666694717005693140==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============3666694717005693140==--
