@@ -1,99 +1,55 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [PATCH v11 5/5] powerpc: Fix up fsl-flexcan device tree binding.
-Date: Wed, 10 Aug 2011 13:45:38 -0500
-Message-ID: <20110810184538.GA4926@sgi.com>
-References: <1312993670-23999-1-git-send-email-holt@sgi.com>
-	<1312993670-23999-6-git-send-email-holt@sgi.com>
-	<4E42B83C.2040705@freescale.com> <20110810171933.GW4926@sgi.com>
-	<4E42C196.7030708@freescale.com> <20110810183016.GY4926@sgi.com>
-	<4E42D09E.4080405@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4E42D09E.4080405-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+From: Mike Waychison <mikew@google.com>
+Subject: [PATCH] tcp: initialize variable ecn_ok in syncookies path
+Date: Wed, 10 Aug 2011 11:51:24 -0700
+Message-ID: <1313002284-2362-1-git-send-email-mikew@google.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mike Waychison <mikew@google.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kabe
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 10, 2011 at 01:40:30PM -0500, Scott Wood wrote:
-> On 08/10/2011 01:30 PM, Robin Holt wrote:
-> > On Wed, Aug 10, 2011 at 12:36:22PM -0500, Scott Wood wrote:
-> >> On 08/10/2011 12:19 PM, Robin Holt wrote:
-> >>> On Wed, Aug 10, 2011 at 11:56:28AM -0500, Scott Wood wrote:
-> >>>> Also may want to list fsl,p1010-rdb as a "canonical compatible" for
-> >>>> anything which is backwards compatible with p1010's implementation.
-> >>>
-> >>> How do I specify 'canonical compatible'?
-> >>
-> >> Something like:
-> >>
-> >>   compatible: Should be "fsl,<processor>-flexcan" and "fsl,flexcan".
-> >>
-> >>   An implementation should also claim any of the following compatibles
-> >>   that it is fully backwards compatible with:
-> >>
-> >>   - fsl,p1010-rdb
-> 
-> Gah, I don't know how "rdb" replaced "flexcan" in the above.  Sorry for
-> any confusion.
-> 
-> > I am so confused.  fsl,p1010-flexcan refers, in my mind at least, to
-> > a particular chiplet on the p1010 freescale processor. 
-> 
-> It refers to a particular version of the flexcan logic, for which the
-> hardware doc people weren't kind enough to give us a public version number.
-> 
-> It has been common and recommended practice in such cases, when there
-> are multiple chips containing the same device, to pick a canonical chip
-> (such as the first one to have the device or to be supported) and have
-> others claim compatibility with it.
-> 
-> > fsl,p1010-rdb
-> > would mean nothing to me as that is a p1010 processor with two flexcan
-> > chiplets wired to a pair of DB-9 jacks.  For the driver, what additional
-> > information is being conveyed?
-> 
-> The programming model of the flexcan chiplet.
-> 
-> > Let's cut to the chase.  Here is what I have after incorporating your
-> > earlier comment about the compatible line.  Please mark this up to
-> > exactly what you are asking for.
-> > 
-> > Thanks,
-> > Robin
-> > ------------------------------------------------------------------------
-> > Flexcan CAN contoller on Freescale's ARM and PowerPC processors
-> > 
-> > Required properties:
-> > 
-> > - compatible : Should be "fsl,<processor>-flexcan" and "fsl,flexcan"
-> 
->    An implementation should also claim any of the following compatibles
->    that it is fully backwards compatible with:
-> 
->    - fsl,p1010-flexcan
+Using a gcc 4.4.3, warnings are emitted for a possibly uninitialized use
+of ecn_ok.
 
-Ah, there is my confusion.  I did not realize you were saying the
-entire preceeding 4 lines should be included.  I thought you were
-making a comment which I did not understand.
+This can happen if cookie_check_timestamp() returns due to not having
+seen a timestamp.  Defaulting to ecn off seems like a reasonable thing to do in this case, so initialized ecn_ok to false.
 
-Thank you for your patience with my ignorance,
-Robin
+Signed-off-by: Mike Waychison <mikew@google.com>
+---
+ net/ipv4/syncookies.c |    2 +-
+ net/ipv6/syncookies.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 92bb943..3bc5c8f 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -276,7 +276,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	int mss;
+ 	struct rtable *rt;
+ 	__u8 rcv_wscale;
+-	bool ecn_ok;
++	bool ecn_ok = false;
+ 
+ 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
+ 		goto out;
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index 89d5bf8..ac83896 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -165,7 +165,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 	int mss;
+ 	struct dst_entry *dst;
+ 	__u8 rcv_wscale;
+-	bool ecn_ok;
++	bool ecn_ok = false;
+ 
+ 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
+ 		goto out;
+-- 
+1.7.3.1
