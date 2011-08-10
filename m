@@ -1,96 +1,129 @@
-From: Michael Guntsche <mguntsche@gmail.com>
-Subject: BUG: Bisected Gianfar in bridge not forwarding packets (was: 3.0-rc1
- Bridge not forwarding unicast packages)
-Date: Wed, 10 Aug 2011 02:50:20 +0200
-Message-ID: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
+Date: Tue, 09 Aug 2011 17:57:48 -0700
+Message-ID: <4E41D78C.7040007@schaufler-ca.com>
+References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com> <4E415CB3.8020202@schaufler-ca.com> <4E41D421.1000302@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@vyatta.com, jpirko@redhat.com,
-	sebastian.belden@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61196 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752485Ab1HJAuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2011 20:50:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org, sds@tycho.nsa.gov
+To: Rongqing Li <rongqing.li@windriver.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4E41D421.1000302@windriver.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Good evening/morning,
+On 8/9/2011 5:43 PM, Rongqing Li wrote:
+> On 08/10/2011 12:13 AM, Casey Schaufler wrote:
+>> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
+>>> From: Roy.Li<rongqing.li@windriver.com>
+>>>
+>>> Define security_sk_getsecid to get the security id of a sock.
+>>
+>> Why are you requesting the secid when you're just going to
+>> use it to get the secctx? Why not ask for that directly?
+>> Is there ever a case where you only want the secid?
+>>
+> Hi:
+>
+> As I know, we have not method to get secctx directly.
 
-> I just upgraded my router/bridge combo to 3.1-rc1 from 3.0 for
-> testing. On a first look everything seemed to work fine, but when I
-> tried to connect via openvpn to my internal network (tap0 being bridged
-> with the internal network) I noticed that I was not able to access the
-> server on my internal network. I could access the bridge (which is
-> acting as the openvpn server as well) just fine though.
-> To debug this I ran tcpdump on the openvpn client and started a ping to the
-> internal network. I could see the ARP requests being answered.....
-<snip>
+You are defining the method! Ask for what you want!
 
-After much digging and testing I found the commit that causes the
-problem for me here.
+The whole notion of secids is a holdover from the bad old
+days when SELinux was a user space based enforcement mechanism.
+The audit system was implemented when SELinux was the lone LSM
+and unfortunately and unnecessarily propagated the use of secids.
+If an object has a secid it must also have a secctx. The
+interfaces that use secids could just as well use the secctx.
+It is wasteful to create a new interface that fetches a secid
+just to turn around and ask for the secctx in all cases.
 
-87c288c6e gianfar: do vlan cleanup
+> On the most of time, we get secctx like this.
+>
+> The below comes from kernel/auditsc.c
+>
+> void audit_log_task_context(struct audit_buffer *ab)
+> {
+>         char *ctx = NULL;
+>         unsigned len;
+>         int error;
+>         u32 sid;
+>
+>         security_task_getsecid(current, &sid);
+>         if (!sid)
+>                 return;
+>
+>         error = security_secid_to_secctx(sid, &ctx, &len);
+>         if (error) {
+>                 if (error != -EINVAL)
+>                         goto error_path;
+>                 return;
+>         }
+>
+>         audit_log_format(ab, " subj=%s", ctx);
+>         security_release_secctx(ctx, len);
+>         return;
+>
+> error_path:
+>         audit_panic("error in audit_log_task_context");
+>         return;
+> }
+>
+>
+> -Roy
+>
+>
+>>>
+>>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
+>>> ---
+>>>   include/linux/security.h |    6 ++++++
+>>>   security/security.c      |    6 ++++++
+>>>   2 files changed, 12 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/include/linux/security.h b/include/linux/security.h
+>>> index ebd2a53..739ac39 100644
+>>> --- a/include/linux/security.h
+>>> +++ b/include/linux/security.h
+>>> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
+>>>   void security_sk_free(struct sock *sk);
+>>>   void security_sk_clone(const struct sock *sk, struct sock *newsk);
+>>>   void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+>>> +void security_sk_getsecid(struct sock *sk, u32 *secid);
+>>>   void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
+>>>   void security_sock_graft(struct sock*sk, struct socket *parent);
+>>>   int security_inet_conn_request(struct sock *sk,
+>>> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>>   {
+>>>   }
+>>>
+>>> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
+>>> +{
+>>> +    *secid = 0;
+>>> +}
+>>> +
+>>>   static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>>   {
+>>>   }
+>>> diff --git a/security/security.c b/security/security.c
+>>> index 0e4fccf..b0e0825 100644
+>>> --- a/security/security.c
+>>> +++ b/security/security.c
+>>> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>>   }
+>>>   EXPORT_SYMBOL(security_sk_classify_flow);
+>>>
+>>> +void security_sk_getsecid(struct sock *sk, u32 *secid)
+>>> +{
+>>> +    security_ops->sk_getsecid(sk, secid);
+>>> +}
+>>> +EXPORT_SYMBOL(security_sk_getsecid);
+>>> +
+>>>   void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>>   {
+>>>       security_ops->req_classify_flow(req, fl);
+>>
+>>
+>
 
-Before this commit my bridge works fine. I simplified the test case
-and just tried to access the server from a local wireless device with
-gets also bridged via
-a gianfar nic to the wired lan. Before commit 87c288c6e I can ping the
-device from the internal network afterwards it stops.
-For testing purposes I reverted this commit (plus some others to make
-the code compile) and it started working again.
-The hardware is a routerboard with three onboard nics two of em gianfar.
-The gianfar nics do not support any kind of offloading,
-
-Offload parameters for lan_wire:
-rx-checksumming: off
-tx-checksumming: off
-scatter-gather: off
-tcp-segmentation-offload: off
-udp-fragmentation-offload: off
-generic-segmentation-offload: off
-generic-receive-offload: on
-large-receive-offload: off
-rx-vlan-offload: off
-tx-vlan-offload: off
-ntuple-filters: off
-receive-hashing: off
-
-The Bridge device on the other hand....
-
-Offload parameters for lan:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: off
-tcp-segmentation-offload: off
-udp-fragmentation-offload: off
-generic-segmentation-offload: off
-generic-receive-offload: on
-large-receive-offload: off
-rx-vlan-offload: off
-tx-vlan-offload: on
-ntuple-filters: off
-receive-hashing: off
-
-Is it possible that the new code is tripped up by the bridge offload
-parameters somehow and thinks that the gianfar nic supports it as
-well?
-As I wrote in my initial mail, connecting to the Bridge itself works,
-I can also see ARP requests and Broadcasts, the rest just seems to
-disappear.
-
-As for the commits I reverted:
-a4aeb2662 vlan: kill __vlan_hwaccel_rx and vlan_hwaccel_rx
-6dacaddd4 vlan: kill vlan_hwaccel_receive_skb
-7890a5b9c vlan: kill ndo_vlan_rx_register
-b852b7208 gianfar: fix bug caused by 87c288c6e9aa31720b72e2bc2d665e24e1653c3e
-
-87c288c6e gianfar: do vlan cleanup
-
-I really think that there is only some small change in the gianfar
-code needed, but I could not figure it out myself.
-Please tell me if you need any more information.
-
-Kind regards,
-Michael Guntsche
