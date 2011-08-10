@@ -1,30 +1,28 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 01/02] net: add missing entries to Documentation/networking/00-INDEX
-Date: Fri, 12 Aug 2011 09:40:34 +0200
-Message-ID: <CAHXqBFJhvp5-AbacLCvRGzD-7yysyBSkp7Na8axrt90y-KET3Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: add Documentation/networking/scaling.txt
+Date: Wed, 10 Aug 2011 07:57:12 -0700 (PDT)
+Message-ID: <20110810.075712.969951188477872063.davem@davemloft.net>
 References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
- <4E418030.2010102@hp.com> <4E44752D.1080905@google.com> <4E44765F.7060709@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>, rdunlap@xenotime.net,
-	linux-doc@vger.kernel.org, davem@davemloft.net,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
 	netdev@vger.kernel.org, therbert@google.com
-To: Willem de Bruijn <willemb@google.com>
+To: willemb@google.com
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <4E44765F.7060709@google.com>
+In-Reply-To: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2011/8/12 Willem de Bruijn <willemb@google.com>:
-> A simple janitor duty patch that adds a one sentence overview to
-> 00-INDEX for all files that lacked it.
-[...]
-> +netdev-features.txt
-> + =A0 =A0 =A0 - Network interface "feature mess and how to get out fr=
-om it alive".
+From: Willem de Bruijn <willemb@google.com>
+Date: Tue, 09 Aug 2011 10:20:48 -0400
 
-"Network interface features API description."
+> Describes RSS, RPS, RFS, accelerated RFS, and XPS.
+> 
+> This version incorporates comments by Randy Dunlap and Rick Jones.
+> Besides text cleanup, it adds an explicit "Suggested Configuration" 
+> heading to each section.
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Applied, thanks.
