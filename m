@@ -1,44 +1,53 @@
-From: Martin Josefsson <gandalf@mjufs.se>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: Intel 82599 ixgbe driver performance
-Date: Wed, 10 Aug 2011 21:18:08 +0200
-Message-ID: <CAP1qwHj3Vb7Ci8QPkvx_dR0zouO7AZB1o8fB53TuOp69Dj5Qsw@mail.gmail.com>
+Date: Wed, 10 Aug 2011 13:58:58 -0700
+Message-ID: <4E42F112.4020300@hp.com>
 References: <4E4222F6.7050304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, rizzo@iet.unipi.it
 To: "J.Hwan Kim" <frog1120@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:49046 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754730Ab1HJTSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 15:18:09 -0400
-Received: by qwk3 with SMTP id 3so702943qwk.19
-        for <netdev@vger.kernel.org>; Wed, 10 Aug 2011 12:18:08 -0700 (PDT)
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:33845 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754022Ab1HJVA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 17:00:58 -0400
 In-Reply-To: <4E4222F6.7050304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 10, 2011 at 8:19 AM, J.Hwan Kim <frog1120@gmail.com> wrote:
-
-> I'm testing our network card which includes intel 82599 based on ixgbe driver.
-> I wonder what is the Rx performance of i82599 without network stack only with 64Byte frames.
-> Our driver reads the packet directly from DMA packet buffer and push to the application
-> without passing through linux kernel stack.
-> It seems that the intel 82599 cannot push 64B frames to DMA area in 10G.
-> Is it right?
+On 08/09/2011 11:19 PM, J.Hwan Kim wrote:
+> Hi, everyone
 >
-> If it is the case, what is the bottleneck of 82599?
+> I'm testing our network card which includes intel 82599 based on
+> ixgbe driver. I wonder what is the Rx performance of i82599 without
+> network stack only with 64Byte frames. Our driver reads the packet
+> directly from DMA packet buffer and push to the application without
+> passing through linux kernel stack. It seems that the intel 82599
+> cannot push 64B frames to DMA area in 10G. Is it right?
 
-My experience with 82599 is that it can RX 13.4 Mpps using 64byte
-frames and a single port.
-When using both ports the rate drops to 10.7 Mpps per port.
+Does your driver perform a copy of that 64B frame to user space?
 
-Note that my experience does not involve the ixgbe driver, these
-numbers were obtained using a custom driver and OS, but should give
-some indication of what the hardware is capable of.
+Is this a single-threaded test running?
 
-(If you want to see something "fun", try 65byte packets with 82599 and
-the Intel X58 IOH (or 5500/5520 server versions) :)
+What does an lat_mem_rd -t (-t for random stride) test from lmbench give 
+for your system's memory latency?  (Perhaps using numactl to ensure 
+local, or remote memory access, as you desire)
 
---
-/Martin
+At line rate for minimum sized frames over 10 GbE, you have a frame 
+arriving every 60-odd nanoseconds. At that speed, you cannot take even 
+one cache miss per frame (*) in a single-threaded path and still achieve 
+line-rate PPS.
+
+As it happens, there was a presentation at HP Labs recently, given by 
+Luigi Rizzo on his netmap work.  The slides can be found at
+http://info.iet.unipi.it/~luigi/netmap/talk-hp.html .  As it happens, 
+Luigi presented some performance figures using an Intel 82599.
+
+happy benchmarking,
+
+rick jones
+(*) much of my time has been spent in a world where a cache miss is 
+three digits worth of nanoseconds (to the left of the decimal), 
+sometimes high two digits.
