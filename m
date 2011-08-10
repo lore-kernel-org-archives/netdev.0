@@ -1,46 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: GRO support in the bridge
-Date: Wed, 10 Aug 2011 08:08:31 -0700
-Message-ID: <20110810080831.05de9a5f@nehalam.ftrdhcpuser.net>
-References: <1312884184.2170.YahooMailNeo@web110401.mail.gq1.yahoo.com>
-	<1312958391.84140.YahooMailNeo@web110415.mail.gq1.yahoo.com>
-	<1312979355.53304.YahooMailNeo@web110404.mail.gq1.yahoo.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH] slcan: ldisc generated skbs are received in softirq context
+Date: Wed, 10 Aug 2011 17:18:59 +0200
+Message-ID: <4E42A163.5030208@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sedat Cakir <cakir_sedat@yahoo.com>
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Matvejchikov Ilya <matvejchikov@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57331 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915Ab1HJPIw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2011 11:08:52 -0400
-In-Reply-To: <1312979355.53304.YahooMailNeo@web110404.mail.gq1.yahoo.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:21683 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273Ab1HJPTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 11:19:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Aug 2011 05:29:15 -0700 (PDT)
-Sedat Cakir <cakir_sedat@yahoo.com> wrote:
+As this discussion pointed out
 
-> Hi,=A0
->=20
->=20
->=20
-> I am trying to understand why GRO is NOT enabled on the bridge. Is th=
-ere a special reason for it? Reading the code in net/core/dev.c:2817 (_=
-_netif_receieve_skb) which is what I think the bridge is calling becaus=
-e that is what is passed in at br_input.c:br_pass_frame_up():24. I am w=
-ondering if this can be modified to use one of the _gro_ receive functi=
-ons and if so if that will positively impact performance? Do you have a=
-ny idea?=20
->=20
-> Appreciate your help.Thanks,
-> Sedat
+http://marc.info/?l=linux-netdev&m=131257225602375
 
-The reason is that GRO is related to NAPI.
-GRO works by coalescing frames received in one NAPI interval
-of work.  The bridge itself has no receive irq or NAPI and is upcalled
-from the device receive handler. There is no expectation or
-requirement that devices in a bridge use NAPI. Therefore it
-is not possible or safe for bridge pseudo-device to use GRO.
+netdevices that are based on serial line disciplines should use netif_rx_ni()
+when pushing received socketbuffers into the netdev rx queue.
+
+Following commit 614851601c121b1320a35757ab88292d6272f906 ("slip: fix NOHZ
+local_softirq_pending 08 warning") this patch updates the slcan driver
+accordingly.
+
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+CC: Matvejchikov Ilya <matvejchikov@gmail.com>
+CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
+
+---
+
+diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
+index f523f1c..4b70b7e 100644
+--- a/drivers/net/can/slcan.c
++++ b/drivers/net/can/slcan.c
+@@ -197,7 +197,7 @@ static void slc_bump(struct slcan *sl)
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	memcpy(skb_put(skb, sizeof(struct can_frame)),
+ 	       &cf, sizeof(struct can_frame));
+-	netif_rx(skb);
++	netif_rx_ni(skb);
+
+ 	sl->dev->stats.rx_packets++;
+ 	sl->dev->stats.rx_bytes += cf.can_dlc;
+
