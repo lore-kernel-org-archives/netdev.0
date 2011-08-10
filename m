@@ -1,166 +1,179 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
+From: Rongqing Li <rongqing.li@windriver.com>
 Subject: Re: [PATCH 1/6] Security: define security_sk_getsecid.
-Date: Tue, 09 Aug 2011 18:35:56 -0700
-Message-ID: <4E41E07C.4080908@schaufler-ca.com>
-References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com> <4E415CB3.8020202@schaufler-ca.com> <4E41D421.1000302@windriver.com> <4E41D78C.7040007@schaufler-ca.com> <4E41DDEB.9040904@windriver.com>
+Date: Wed, 10 Aug 2011 09:44:34 +0800
+Message-ID: <4E41E282.7020409@windriver.com>
+References: <1312874910-31010-1-git-send-email-rongqing.li@windriver.com> <1312874910-31010-2-git-send-email-rongqing.li@windriver.com> <4E415CB3.8020202@schaufler-ca.com> <4E41D421.1000302@windriver.com> <4E41D78C.7040007@schaufler-ca.com> <4E41DDEB.9040904@windriver.com> <4E41E07C.4080908@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, sds@tycho.nsa.gov,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: Rongqing Li <rongqing.li@windriver.com>
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	<linux-security-module@vger.kernel.org>, <sds@tycho.nsa.gov>
+To: Casey Schaufler <casey@schaufler-ca.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <4E41DDEB.9040904@windriver.com>
+In-Reply-To: <4E41E07C.4080908@schaufler-ca.com>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/9/2011 6:24 PM, Rongqing Li wrote:
-> On 08/10/2011 08:57 AM, Casey Schaufler wrote:
->> On 8/9/2011 5:43 PM, Rongqing Li wrote:
->>> On 08/10/2011 12:13 AM, Casey Schaufler wrote:
->>>> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
->>>>> From: Roy.Li<rongqing.li@windriver.com>
+On 08/10/2011 09:35 AM, Casey Schaufler wrote:
+> On 8/9/2011 6:24 PM, Rongqing Li wrote:
+>> On 08/10/2011 08:57 AM, Casey Schaufler wrote:
+>>> On 8/9/2011 5:43 PM, Rongqing Li wrote:
+>>>> On 08/10/2011 12:13 AM, Casey Schaufler wrote:
+>>>>> On 8/9/2011 12:28 AM, rongqing.li@windriver.com wrote:
+>>>>>> From: Roy.Li<rongqing.li@windriver.com>
+>>>>>>
+>>>>>> Define security_sk_getsecid to get the security id of a sock.
 >>>>>
->>>>> Define security_sk_getsecid to get the security id of a sock.
+>>>>> Why are you requesting the secid when you're just going to
+>>>>> use it to get the secctx? Why not ask for that directly?
+>>>>> Is there ever a case where you only want the secid?
+>>>>>
+>>>> Hi:
 >>>>
->>>> Why are you requesting the secid when you're just going to
->>>> use it to get the secctx? Why not ask for that directly?
->>>> Is there ever a case where you only want the secid?
+>>>> As I know, we have not method to get secctx directly.
+>>>
+>>> You are defining the method! Ask for what you want!
+>>>
+>>> The whole notion of secids is a holdover from the bad old
+>>> days when SELinux was a user space based enforcement mechanism.
+>>> The audit system was implemented when SELinux was the lone LSM
+>>> and unfortunately and unnecessarily propagated the use of secids.
+>>> If an object has a secid it must also have a secctx. The
+>>> interfaces that use secids could just as well use the secctx.
+>>> It is wasteful to create a new interface that fetches a secid
+>>> just to turn around and ask for the secctx in all cases.
+>>>
+>>
+>> Do you means I should write a method like below
+>> security_sk_getsecctx(struct sock *sk, char *secctx, int *len)?
+>
+> Yes. That is exactly what you should do.
+>
+>>
+>> But secctx only is used to user.
+>
+> But all you're doing is printing out the secctx. The only
+> thing you are doing with the secid is converting it to a
+> secctx.
+>
+>> secid is used to source code to
+>> compute and compare the access permission.
+>
+> That will depend on the LSM involved. You are making a change to
+> the LSM, not just SELinux.
+>
+>>
+>> And I do not see the same method like
+>> security_task_getsecctx(). but security_task_getsecid() has been
+>> implemented in kernel source code.
+>
+> Have a look at how those interfaces are used.
+>
+>
+Thank you very much.
+
+I will study these interfaces, and hope get your comments when
+I send new patches.
+
+Thanks.
+
+
+>>
+>> -Roy
+>>
+>>
+>>>> On the most of time, we get secctx like this.
 >>>>
->>> Hi:
->>>
->>> As I know, we have not method to get secctx directly.
->>
->> You are defining the method! Ask for what you want!
->>
->> The whole notion of secids is a holdover from the bad old
->> days when SELinux was a user space based enforcement mechanism.
->> The audit system was implemented when SELinux was the lone LSM
->> and unfortunately and unnecessarily propagated the use of secids.
->> If an object has a secid it must also have a secctx. The
->> interfaces that use secids could just as well use the secctx.
->> It is wasteful to create a new interface that fetches a secid
->> just to turn around and ask for the secctx in all cases.
->>
->
-> Do you means I should write a method like below
-> security_sk_getsecctx(struct sock *sk, char *secctx, int *len)?
-
-Yes. That is exactly what you should do.
-
->
-> But secctx only is used to user.
-
-But all you're doing is printing out the secctx. The only
-thing you are doing with the secid is converting it to a
-secctx.
-
-> secid is used to source code to
-> compute and compare the access permission.
-
-That will depend on the LSM involved. You are making a change to
-the LSM, not just SELinux.
-
->
-> And I do not see the same method like
-> security_task_getsecctx(). but security_task_getsecid() has been
-> implemented in kernel source code.
-
-Have a look at how those interfaces are used.
-
-
->
-> -Roy
->
->
->>> On the most of time, we get secctx like this.
->>>
->>> The below comes from kernel/auditsc.c
->>>
->>> void audit_log_task_context(struct audit_buffer *ab)
->>> {
->>>          char *ctx = NULL;
->>>          unsigned len;
->>>          int error;
->>>          u32 sid;
->>>
->>>          security_task_getsecid(current,&sid);
->>>          if (!sid)
->>>                  return;
->>>
->>>          error = security_secid_to_secctx(sid,&ctx,&len);
->>>          if (error) {
->>>                  if (error != -EINVAL)
->>>                          goto error_path;
->>>                  return;
->>>          }
->>>
->>>          audit_log_format(ab, " subj=%s", ctx);
->>>          security_release_secctx(ctx, len);
->>>          return;
->>>
->>> error_path:
->>>          audit_panic("error in audit_log_task_context");
->>>          return;
->>> }
->>>
->>>
->>> -Roy
->>>
->>>
->>>>>
->>>>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
->>>>> ---
->>>>>    include/linux/security.h |    6 ++++++
->>>>>    security/security.c      |    6 ++++++
->>>>>    2 files changed, 12 insertions(+), 0 deletions(-)
->>>>>
->>>>> diff --git a/include/linux/security.h b/include/linux/security.h
->>>>> index ebd2a53..739ac39 100644
->>>>> --- a/include/linux/security.h
->>>>> +++ b/include/linux/security.h
->>>>> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
->>>>>    void security_sk_free(struct sock *sk);
->>>>>    void security_sk_clone(const struct sock *sk, struct sock *newsk);
->>>>>    void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
->>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid);
->>>>>    void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
->>>>>    void security_sock_graft(struct sock*sk, struct socket *parent);
->>>>>    int security_inet_conn_request(struct sock *sk,
->>>>> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
->>>>>    {
->>>>>    }
->>>>>
->>>>> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
->>>>> +{
->>>>> +    *secid = 0;
->>>>> +}
->>>>> +
->>>>>    static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
->>>>>    {
->>>>>    }
->>>>> diff --git a/security/security.c b/security/security.c
->>>>> index 0e4fccf..b0e0825 100644
->>>>> --- a/security/security.c
->>>>> +++ b/security/security.c
->>>>> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
->>>>>    }
->>>>>    EXPORT_SYMBOL(security_sk_classify_flow);
->>>>>
->>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid)
->>>>> +{
->>>>> +    security_ops->sk_getsecid(sk, secid);
->>>>> +}
->>>>> +EXPORT_SYMBOL(security_sk_getsecid);
->>>>> +
->>>>>    void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
->>>>>    {
->>>>>        security_ops->req_classify_flow(req, fl);
+>>>> The below comes from kernel/auditsc.c
+>>>>
+>>>> void audit_log_task_context(struct audit_buffer *ab)
+>>>> {
+>>>>           char *ctx = NULL;
+>>>>           unsigned len;
+>>>>           int error;
+>>>>           u32 sid;
+>>>>
+>>>>           security_task_getsecid(current,&sid);
+>>>>           if (!sid)
+>>>>                   return;
+>>>>
+>>>>           error = security_secid_to_secctx(sid,&ctx,&len);
+>>>>           if (error) {
+>>>>                   if (error != -EINVAL)
+>>>>                           goto error_path;
+>>>>                   return;
+>>>>           }
+>>>>
+>>>>           audit_log_format(ab, " subj=%s", ctx);
+>>>>           security_release_secctx(ctx, len);
+>>>>           return;
+>>>>
+>>>> error_path:
+>>>>           audit_panic("error in audit_log_task_context");
+>>>>           return;
+>>>> }
 >>>>
 >>>>
+>>>> -Roy
+>>>>
+>>>>
+>>>>>>
+>>>>>> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
+>>>>>> ---
+>>>>>>     include/linux/security.h |    6 ++++++
+>>>>>>     security/security.c      |    6 ++++++
+>>>>>>     2 files changed, 12 insertions(+), 0 deletions(-)
+>>>>>>
+>>>>>> diff --git a/include/linux/security.h b/include/linux/security.h
+>>>>>> index ebd2a53..739ac39 100644
+>>>>>> --- a/include/linux/security.h
+>>>>>> +++ b/include/linux/security.h
+>>>>>> @@ -2560,6 +2560,7 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
+>>>>>>     void security_sk_free(struct sock *sk);
+>>>>>>     void security_sk_clone(const struct sock *sk, struct sock *newsk);
+>>>>>>     void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+>>>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid);
+>>>>>>     void security_req_classify_flow(const struct request_sock *req, struct flowi *fl);
+>>>>>>     void security_sock_graft(struct sock*sk, struct socket *parent);
+>>>>>>     int security_inet_conn_request(struct sock *sk,
+>>>>>> @@ -2701,6 +2702,11 @@ static inline void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>>>>>     {
+>>>>>>     }
+>>>>>>
+>>>>>> +static inline void security_sk_getsecid(struct sock *sk, u32 *secid)
+>>>>>> +{
+>>>>>> +    *secid = 0;
+>>>>>> +}
+>>>>>> +
+>>>>>>     static inline void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>>>>>     {
+>>>>>>     }
+>>>>>> diff --git a/security/security.c b/security/security.c
+>>>>>> index 0e4fccf..b0e0825 100644
+>>>>>> --- a/security/security.c
+>>>>>> +++ b/security/security.c
+>>>>>> @@ -1104,6 +1104,12 @@ void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
+>>>>>>     }
+>>>>>>     EXPORT_SYMBOL(security_sk_classify_flow);
+>>>>>>
+>>>>>> +void security_sk_getsecid(struct sock *sk, u32 *secid)
+>>>>>> +{
+>>>>>> +    security_ops->sk_getsecid(sk, secid);
+>>>>>> +}
+>>>>>> +EXPORT_SYMBOL(security_sk_getsecid);
+>>>>>> +
+>>>>>>     void security_req_classify_flow(const struct request_sock *req, struct flowi *fl)
+>>>>>>     {
+>>>>>>         security_ops->req_classify_flow(req, fl);
+>>>>>
+>>>>>
+>>>>
+>>>
 >>>
 >>
->>
+>
 >
 
+-- 
+Best Reagrds,
+Roy | RongQing Li
