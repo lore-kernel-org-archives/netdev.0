@@ -1,103 +1,88 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v10 0/5] [flexcan/powerpc] Add support for powerpc flexcan
-	(freescale p1010)
-Date: Wed, 10 Aug 2011 12:24:16 +0200
-Message-ID: <4E425C50.6030508@pengutronix.de>
-References: <1312945564-6626-1-git-send-email-holt@sgi.com>
-	<4E425716.4010104@pengutronix.de> <20110810101113.GN4926@sgi.com>
+From: Michael Guntsche <mguntsche@gmail.com>
+Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets (was:
+ 3.0-rc1 Bridge not forwarding unicast packages)
+Date: Wed, 10 Aug 2011 12:30:16 +0200
+Message-ID: <CAMvAeqM-oH1UzxEp9PgO6ZP-AKtqosuMg5za25_X8DpPJMDX2w@mail.gmail.com>
+References: <CAMvAeqOA0=FnjB2oPPCEYpkXdKrmqOs+MwAqszV5sTGys_a3mQ@mail.gmail.com>
+	<20110810090014.GB1909@minipsycho.brq.redhat.com>
+	<CAMvAeqO2bLaPwmdW+c+7hz-ec=-tF6Z0EFBv=FA7+rU_QZ_wDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3666694717005693140=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110810101113.GN4926-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, sebastian.belden@googlemail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMvAeqO2bLaPwmdW+c+7hz-ec=-tF6Z0EFBv=FA7+rU_QZ_wDA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============3666694717005693140==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBF2531F8679515AE9C064267"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBF2531F8679515AE9C064267
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 08/10/2011 12:11 PM, Robin Holt wrote:
-> On Wed, Aug 10, 2011 at 12:01:58PM +0200, Marc Kleine-Budde wrote:
->> On 08/10/2011 05:05 AM, Robin Holt wrote:
->>> With all the patches applied, my p1010rdb works for communicating bet=
-ween
->>> its two can ports and also can communicate with an external PSOC.  I =
-have
->>> done no testing beyond compile testing on an arm system as I have no
->>> access to an arm based system.
+On Wed, Aug 10, 2011 at 11:59 AM, Michael Guntsche <mguntsche@gmail.com=
+> wrote:
+<snip>
+>>>Offload parameters for lan_wire:
+>>>rx-checksumming: off
+>>>tx-checksumming: off
+>>>scatter-gather: off
+>>>tcp-segmentation-offload: off
+>>>udp-fragmentation-offload: off
+>>>generic-segmentation-offload: off
+>>>generic-receive-offload: on
+>>>large-receive-offload: off
+>>>rx-vlan-offload: off
+>>>tx-vlan-offload: off
+>>>ntuple-filters: off
+>>>receive-hashing: off
 >>>
->>> For the first three patches in the series, I believe they are all rea=
-dy
->>> for forwarding to David S. Miller for the netdev tree.  I think patch=
+>>>The Bridge device on the other hand....
+>>>
+>>>Offload parameters for lan:
+>>>rx-checksumming: on
+>>>tx-checksumming: on
+>>>scatter-gather: off
+>>>tcp-segmentation-offload: off
+>>>udp-fragmentation-offload: off
+>>>generic-segmentation-offload: off
+>>>generic-receive-offload: on
+>>>large-receive-offload: off
+>>>rx-vlan-offload: off
+>>>tx-vlan-offload: on
+>> =A0^^^^^^^^^^^^^^^^^^^ is this gfar?
+> No the "Lan" nic is the bridge itself. The gfar in question is lan_wi=
+re.
+>
+> /Michael
+>
 
->>> 4 is ready for submission to the PPC85xx maintainer.  Patch 5 changed=
+Ok I would have saved hours of bisecting if I had just used the -e
+switch with tcpdump from the beginning.
+Jiri first of all the patch makes the connection work again. I can
+ping the client on the wlan from the server and vice-versa. Taking a
+look at the tcpdump (WITH -e) makes it obvious why it fails with the
+non patched version...
 
->>> from the previous post by adding a second compatible string for the
->>> fsl,p1010_flexcan.
->>
->> One remark for the subjects. It seems no one is using "[$subsystem]"
->> anymore, but rather "$subsystem:".
->=20
-> I will, one day, get these patches subject lines correct ;)
->=20
-> Did you happen to get a chance to test the patches on arm?
+This is a capture from the gfar lan port on the bridge with no patch ap=
+plied
+12:13:24.011492 00:13:d4:4f:a2:dc (oui Unknown) > b4:07:f9:70:b7:c1
+(oui Unknown), ethertype 802.1Q (0x8100), length 102: vlan 19, p 0,
+ethertype IPv4, gibson.comsick.at > 192.168.42.55: ICMP echo request,
+id 23567, seq 74, length 64
 
-It's still compiling...
+As you can see we get a VLAN package????
 
-Marc
+With the patched version:
+12:16:33.756966 00:13:d4:4f:a2:dc (oui Unknown) > b4:07:f9:70:b7:c1
+(oui Unknown), ethertype IPv4 (0x0800), length 98: gibson.comsick.at >
+192.168.42.55: ICMP echo request, id 23669, seq 2, length 64
+12:16:33.843289 b4:07:f9:70:b7:c1 (oui Unknown) > 00:13:d4:4f:a2:dc
+(oui Unknown), ethertype IPv4 (0x0800), length 98: 192.168.42.55 >
+gibson.comsick.at: ICMP echo reply, id 23669, seq 2, length 64
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+No VLAN and I get my replies.
+All that is left to do now is to find out why the current driver
+thinks that it is on a VLAN when it isn't.
 
+Any ideas Jiri?
 
---------------enigBF2531F8679515AE9C064267
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk5CXFMACgkQjTAFq1RaXHM5CACghJ/nPTGxcIDc/+Pa52zDjVFD
-K8AAnA7LJJXdI46isS1qU+RaiSMACBxV
-=wXYH
------END PGP SIGNATURE-----
-
---------------enigBF2531F8679515AE9C064267--
-
---===============3666694717005693140==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============3666694717005693140==--
+Kind regards,
+Michael
