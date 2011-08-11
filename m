@@ -1,48 +1,45 @@
-From: Phil Blundell <philb@gnu.org>
-Subject: Re: [net-next 10/10] i825xx: Move the Intel 82586/82593/82596 based
- drivers
-Date: Thu, 11 Aug 2011 12:04:55 +0100
-Message-ID: <1313060697.6733.111.camel@phil-desktop>
-References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1313033278-7337-11-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@tredhat.com,
-	sassmann@redhat.com, Russell King <linux@arm.linux.org.uk>,
-	aris@cathedrallabs.org, Donald Becker <becker@scyld.com>,
-	Chris Beauregard <cpbeaure@undergrad.math.uwaterloo.ca>,
-	Richard Procter <rnp@paradise.net.nz>,
-	Andries Brouwer <aeb@cwi.nl>,
-	"M.Hipp" <hippm@informatik.uni-tuebingen.de>,
-	Richard Hirst <richard@sleepie.demon.co.uk>,
-	Sam Creasey <sammy@oh.verio.com>,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] net/bridge/netfilter/ebtables.c: use available error handling code
+Date: Thu, 11 Aug 2011 13:59:38 +0200
+Message-ID: <1313063978-29400-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bart De Schuymer <bart.de.schuymer@pandora.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pbcl.net ([88.198.119.4]:37793 "EHLO hetzner.pbcl.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755338Ab1HKLgp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 07:36:45 -0400
-In-Reply-To: <1313033278-7337-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:40090 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751864Ab1HKL7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 07:59:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-08-10 at 20:27 -0700, Jeff Kirsher wrote:
-> Move the drivers that use the i82586/i82593/i82596 chipsets into
-> drivers/net/ethernet/i825xx/ and make the necessary Kconfig and
-> Makefile changes.  There were 4 3Com drivers which were initially
-> moved into 3com/, which now reside in i825xx since they all used
-> the i82586 chip.
+From: Julia Lawall <julia@diku.dk>
 
-Actually, I think 3c505 was better in 3com/ where you had it before.
-Although the card does use an i82586, it's front-ended by an 80186
-microcontroller and that's what the driver talks to.  So there is no
-meaningful code commonality with the other '586 drivers.
+Free the locally allocated table and newinfo as done in adjacent error
+handling code.
 
-That said, I don't think it's a massive deal either way and if you have
-a strong preference for putting it in i825xx then that's probably fine.
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-p.
+---
+ net/bridge/netfilter/ebtables.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 2b5ca1a..5864cc4 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1198,7 +1198,8 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table)
+ 
+ 	if (table->check && table->check(newinfo, table->valid_hooks)) {
+ 		BUGPRINT("The table doesn't like its own initial data, lol\n");
+-		return ERR_PTR(-EINVAL);
++		ret = -EINVAL;
++		goto free_chainstack;
+ 	}
+ 
+ 	table->private = newinfo;
 
