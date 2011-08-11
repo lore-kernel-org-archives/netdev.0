@@ -1,209 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] de6*/dl2k/sundance: Move the D-Link drivers
-Date: Thu, 11 Aug 2011 16:39:57 -0700
-Message-ID: <1313105998-2859-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] pasemic_mac*: Move the PA Semi driver
+Date: Thu, 11 Aug 2011 16:39:49 -0700
+Message-ID: <1313105998-2859-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313105998-2859-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Bjorn Ekwall <bj0rn@blox.se>, Donald Becker <becker@scyld.com>,
-	Edward Peng <edward_peng@dlink.com.tw>
+	Olof Johansson <olof@lixom.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7345 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:1637 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754259Ab1HKXkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 19:40:05 -0400
+	id S1754022Ab1HKXkD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 19:40:03 -0400
 In-Reply-To: <1313105998-2859-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the D-Link drivers into drivers/net/ethernet/dlink/ and
+Move the PA Semi driver into drivers/net/ethernet/pasemi/ and
 make the necessary Kconfig and Makefile changes.
 
-CC: Bjorn Ekwall <bj0rn@blox.se>
-CC: Donald Becker <becker@scyld.com>
-CC: Edward Peng <edward_peng@dlink.com.tw>
+CC: Olof Johansson <olof@lixom.net>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Olof Johansson <olof@lixom.net>
 ---
- drivers/net/Kconfig                         |   64 --------------------
- drivers/net/Makefile                        |    4 -
- drivers/net/ethernet/Kconfig                |    1 +
- drivers/net/ethernet/Makefile               |    1 +
- drivers/net/ethernet/dlink/Kconfig          |   84 +++++++++++++++++++++++++++
- drivers/net/ethernet/dlink/Makefile         |    8 +++
- drivers/net/{ => ethernet/dlink}/de600.c    |    0
- drivers/net/{ => ethernet/dlink}/de600.h    |    0
- drivers/net/{ => ethernet/dlink}/de620.c    |    0
- drivers/net/{ => ethernet/dlink}/de620.h    |    0
- drivers/net/{ => ethernet/dlink}/dl2k.c     |    0
- drivers/net/{ => ethernet/dlink}/dl2k.h     |    0
- drivers/net/{ => ethernet/dlink}/sundance.c |    0
- 13 files changed, 94 insertions(+), 68 deletions(-)
- create mode 100644 drivers/net/ethernet/dlink/Kconfig
- create mode 100644 drivers/net/ethernet/dlink/Makefile
- rename drivers/net/{ => ethernet/dlink}/de600.c (100%)
- rename drivers/net/{ => ethernet/dlink}/de600.h (100%)
- rename drivers/net/{ => ethernet/dlink}/de620.c (100%)
- rename drivers/net/{ => ethernet/dlink}/de620.h (100%)
- rename drivers/net/{ => ethernet/dlink}/dl2k.c (100%)
- rename drivers/net/{ => ethernet/dlink}/dl2k.h (100%)
- rename drivers/net/{ => ethernet/dlink}/sundance.c (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |    9 ------
+ drivers/net/Makefile                               |    2 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/pasemi/Kconfig                |   29 ++++++++++++++++++++
+ drivers/net/ethernet/pasemi/Makefile               |    5 +++
+ drivers/net/{ => ethernet/pasemi}/pasemi_mac.c     |    0
+ drivers/net/{ => ethernet/pasemi}/pasemi_mac.h     |    0
+ .../net/{ => ethernet/pasemi}/pasemi_mac_ethtool.c |    0
+ 10 files changed, 37 insertions(+), 12 deletions(-)
+ create mode 100644 drivers/net/ethernet/pasemi/Kconfig
+ create mode 100644 drivers/net/ethernet/pasemi/Makefile
+ rename drivers/net/{ => ethernet/pasemi}/pasemi_mac.c (100%)
+ rename drivers/net/{ => ethernet/pasemi}/pasemi_mac.h (100%)
+ rename drivers/net/{ => ethernet/pasemi}/pasemi_mac_ethtool.c (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c54e736..51ac08b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4785,7 +4785,7 @@ PA SEMI ETHERNET DRIVER
+ M:	Olof Johansson <olof@lixom.net>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/pasemi_mac.*
++F:	drivers/net/ethernet/pasemi/*
+ 
+ PA SEMI SMBUS DRIVER
+ M:	Olof Johansson <olof@lixom.net>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 42408d7..8799caf 100644
+index 08ce280..69333fe 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -623,26 +623,6 @@ config SIS900
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sis900.  This is recommended.
+@@ -1457,15 +1457,6 @@ if NETDEV_10000
+ config MDIO
+ 	tristate
  
--config SUNDANCE
--	tristate "Sundance Alta support"
--	depends on NET_PCI && PCI
--	select CRC32
--	select MII
+-config PASEMI_MAC
+-	tristate "PA Semi 1/10Gbit MAC"
+-	depends on PPC_PASEMI && PCI && INET
+-	select PHYLIB
+-	select INET_LRO
 -	help
--	  This driver is for the Sundance "Alta" chip.
--	  More specific information and updates are available from
--	  <http://www.scyld.com/network/sundance.html>.
+-	  This driver supports the on-chip 1/10Gbit Ethernet controller on
+-	  PA Semi's PWRficient line of chips.
 -
--config SUNDANCE_MMIO
--	bool "Use MMIO instead of PIO"
--	depends on SUNDANCE
--	help
--	  Enable memory-mapped I/O for interaction with Sundance NIC registers.
--	  Do NOT enable this by default, PIO (enabled when MMIO is disabled)
--	  is known to solve bugs on certain chips.
--
--	  If unsure, say N.
--
- config TLAN
- 	tristate "TI ThunderLAN support"
- 	depends on NET_PCI && (PCI || EISA)
-@@ -740,36 +720,6 @@ config NET_POCKET
- 	  the questions about this class of network devices. If you say Y, you
- 	  will be asked for your specific device in the following questions.
- 
--config DE600
--	tristate "D-Link DE600 pocket adapter support"
--	depends on NET_POCKET && PARPORT
--	---help---
--	  This is a network (Ethernet) device which attaches to your parallel
--	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
--	  Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>, if you want to use
--	  this. It is possible to have several devices share a single parallel
--	  port and it is safe to compile the corresponding drivers into the
--	  kernel.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called de600.
--
--config DE620
--	tristate "D-Link DE620 pocket adapter support"
--	depends on NET_POCKET && PARPORT
--	---help---
--	  This is a network (Ethernet) device which attaches to your parallel
--	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
--	  Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>, if you want to use
--	  this. It is possible to have several devices share a single parallel
--	  port and it is safe to compile the corresponding drivers into the
--	  kernel.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called de620.
--
- config SGISEEQ
- 	tristate "SGI Seeq ethernet controller support"
- 	depends on SGI_HAS_SEEQ
-@@ -862,20 +812,6 @@ menuconfig NETDEV_1000
- 
- if NETDEV_1000
- 
--config DL2K
--	tristate "DL2000/TC902x-based Gigabit Ethernet support"
--	depends on PCI
--	select CRC32
--	help
--	  This driver supports DL2000/TC902x-based Gigabit ethernet cards,
--	  which includes
--	  D-Link DGE-550T Gigabit Ethernet Adapter.
--	  D-Link DL2000-based Gigabit Ethernet Adapter.
--	  Sundance/Tamarack TC902x Gigabit Ethernet Adapter.
--
--	  To compile this driver as a module, choose M here: the
--	  module will be called dl2k.
--
- config IP1000
- 	tristate "IP1000 Gigabit Ethernet support"
- 	depends on PCI && EXPERIMENTAL
+ config TEHUTI
+ 	tristate "Tehuti Networks 10G Ethernet"
+ 	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d142fc5..ecd8c9f 100644
+index cf1d5a2..5dfa4c3 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -67,7 +67,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
- # end link order section
- #
- 
--obj-$(CONFIG_SUNDANCE) += sundance.o
- obj-$(CONFIG_HAMACHI) += hamachi.o
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_SEEQ8005) += seeq8005.o
-@@ -106,8 +105,6 @@ obj-$(CONFIG_DUMMY) += dummy.o
- obj-$(CONFIG_IFB) += ifb.o
- obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
--obj-$(CONFIG_DE600) += de600.o
--obj-$(CONFIG_DE620) += de620.o
- obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_SGISEEQ) += sgiseeq.o
- obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
-@@ -123,7 +120,6 @@ obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
--obj-$(CONFIG_DL2K) += dl2k.o
+@@ -147,8 +147,6 @@ obj-$(CONFIG_R8169) += r8169.o
  obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
  obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
  obj-$(CONFIG_DM9000) += dm9000.o
+-obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
+-pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
+ obj-$(CONFIG_GRETH) += greth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index fecac79..8007e20 100644
+index 18b634e..16c206e 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -18,6 +18,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
- source "drivers/net/ethernet/brocade/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/cisco/Kconfig"
-+source "drivers/net/ethernet/dlink/Kconfig"
- source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/neterion/Kconfig"
- source "drivers/net/ethernet/faraday/Kconfig"
+@@ -25,6 +25,7 @@ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
+ source "drivers/net/ethernet/myricom/Kconfig"
++source "drivers/net/ethernet/pasemi/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 0092c30..22ef380 100644
+index 288179b..a52dc26 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
- obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
-+obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
- obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
- obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
-diff --git a/drivers/net/ethernet/dlink/Kconfig b/drivers/net/ethernet/dlink/Kconfig
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
++obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_SFC) += sfc/
+diff --git a/drivers/net/ethernet/pasemi/Kconfig b/drivers/net/ethernet/pasemi/Kconfig
 new file mode 100644
-index 0000000..9fdb66b
+index 0000000..ccb79b8
 --- /dev/null
-+++ b/drivers/net/ethernet/dlink/Kconfig
-@@ -0,0 +1,84 @@
++++ b/drivers/net/ethernet/pasemi/Kconfig
+@@ -0,0 +1,29 @@
 +#
-+# D-Link device configuration
++# PA Semi network device configuration
 +#
 +
-+config NET_VENDOR_DLINK
-+	bool "D-Link devices"
-+	depends on PCI || PARPORT
++config NET_VENDOR_PASEMI
++	bool "PA Semi devices"
++	depends on PPC_PASEMI && PCI && INET
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -211,118 +130,44 @@ index 0000000..9fdb66b
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about D-Link devices. If you say Y, you will be asked for
++	  the questions about PA Semi cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+if NET_VENDOR_DLINK
++if NET_VENDOR_PASEMI
 +
-+config DE600
-+	tristate "D-Link DE600 pocket adapter support"
-+	depends on PARPORT
++config PASEMI_MAC
++	tristate "PA Semi 1/10Gbit MAC"
++	depends on PPC_PASEMI && PCI && INET
++	select PHYLIB
++	select INET_LRO
 +	---help---
-+	  This is a network (Ethernet) device which attaches to your parallel
-+	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
-+	  Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>, if you want to use
-+	  this. It is possible to have several devices share a single parallel
-+	  port and it is safe to compile the corresponding drivers into the
-+	  kernel.
++	  This driver supports the on-chip 1/10Gbit Ethernet controller on
++	  PA Semi's PWRficient line of chips.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called de600.
-+
-+config DE620
-+	tristate "D-Link DE620 pocket adapter support"
-+	depends on PARPORT
-+	---help---
-+	  This is a network (Ethernet) device which attaches to your parallel
-+	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
-+	  Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>, if you want to use
-+	  this. It is possible to have several devices share a single parallel
-+	  port and it is safe to compile the corresponding drivers into the
-+	  kernel.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called de620.
-+
-+config DL2K
-+	tristate "DL2000/TC902x-based Gigabit Ethernet support"
-+	depends on PCI
-+	select CRC32
-+	---help---
-+	  This driver supports DL2000/TC902x-based Gigabit ethernet cards,
-+	  which includes
-+	  D-Link DGE-550T Gigabit Ethernet Adapter.
-+	  D-Link DL2000-based Gigabit Ethernet Adapter.
-+	  Sundance/Tamarack TC902x Gigabit Ethernet Adapter.
-+
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called dl2k.
-+
-+config SUNDANCE
-+	tristate "Sundance Alta support"
-+	depends on PCI
-+	select CRC32
-+	select MII
-+	---help---
-+	  This driver is for the Sundance "Alta" chip.
-+	  More specific information and updates are available from
-+	  <http://www.scyld.com/network/sundance.html>.
-+
-+config SUNDANCE_MMIO
-+	bool "Use MMIO instead of PIO"
-+	depends on SUNDANCE
-+	---help---
-+	  Enable memory-mapped I/O for interaction with Sundance NIC registers.
-+	  Do NOT enable this by default, PIO (enabled when MMIO is disabled)
-+	  is known to solve bugs on certain chips.
-+
-+	  If unsure, say N.
-+
-+endif # NET_VENDOR_DLINK
-diff --git a/drivers/net/ethernet/dlink/Makefile b/drivers/net/ethernet/dlink/Makefile
++endif # NET_VENDOR_PASEMI
+diff --git a/drivers/net/ethernet/pasemi/Makefile b/drivers/net/ethernet/pasemi/Makefile
 new file mode 100644
-index 0000000..c705eaa
+index 0000000..05db543
 --- /dev/null
-+++ b/drivers/net/ethernet/dlink/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/pasemi/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the D-Link network device drivers.
++# Makefile for the A Semi network device drivers.
 +#
 +
-+obj-$(CONFIG_DE600) += de600.o
-+obj-$(CONFIG_DE620) += de620.o
-+obj-$(CONFIG_DL2K) += dl2k.o
-+obj-$(CONFIG_SUNDANCE) += sundance.o
-diff --git a/drivers/net/de600.c b/drivers/net/ethernet/dlink/de600.c
++obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o pasemi_mac_ethtool.o
+diff --git a/drivers/net/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
 similarity index 100%
-rename from drivers/net/de600.c
-rename to drivers/net/ethernet/dlink/de600.c
-diff --git a/drivers/net/de600.h b/drivers/net/ethernet/dlink/de600.h
+rename from drivers/net/pasemi_mac.c
+rename to drivers/net/ethernet/pasemi/pasemi_mac.c
+diff --git a/drivers/net/pasemi_mac.h b/drivers/net/ethernet/pasemi/pasemi_mac.h
 similarity index 100%
-rename from drivers/net/de600.h
-rename to drivers/net/ethernet/dlink/de600.h
-diff --git a/drivers/net/de620.c b/drivers/net/ethernet/dlink/de620.c
+rename from drivers/net/pasemi_mac.h
+rename to drivers/net/ethernet/pasemi/pasemi_mac.h
+diff --git a/drivers/net/pasemi_mac_ethtool.c b/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
 similarity index 100%
-rename from drivers/net/de620.c
-rename to drivers/net/ethernet/dlink/de620.c
-diff --git a/drivers/net/de620.h b/drivers/net/ethernet/dlink/de620.h
-similarity index 100%
-rename from drivers/net/de620.h
-rename to drivers/net/ethernet/dlink/de620.h
-diff --git a/drivers/net/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-similarity index 100%
-rename from drivers/net/dl2k.c
-rename to drivers/net/ethernet/dlink/dl2k.c
-diff --git a/drivers/net/dl2k.h b/drivers/net/ethernet/dlink/dl2k.h
-similarity index 100%
-rename from drivers/net/dl2k.h
-rename to drivers/net/ethernet/dlink/dl2k.h
-diff --git a/drivers/net/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-similarity index 100%
-rename from drivers/net/sundance.c
-rename to drivers/net/ethernet/dlink/sundance.c
+rename from drivers/net/pasemi_mac_ethtool.c
+rename to drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
 -- 
 1.7.6
 
