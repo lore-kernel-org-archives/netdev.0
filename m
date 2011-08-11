@@ -1,40 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] slcan: ldisc generated skbs are received in softirq
- context
-Date: Thu, 11 Aug 2011 05:56:14 -0700 (PDT)
-Message-ID: <20110811.055614.415286593914229309.davem@davemloft.net>
-References: <4E42A163.5030208@hartkopp.net>
+Subject: Re: [PATCH] ipv4: some rt_iif -> rt_route_iif conversions
+Date: Thu, 11 Aug 2011 06:01:10 -0700 (PDT)
+Message-ID: <20110811.060110.955532382602835203.davem@davemloft.net>
+References: <alpine.LFD.2.00.1108091651290.1527@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matvejchikov@gmail.com,
-	alan@lxorguk.ukuu.org.uk
-To: socketcan@hartkopp.net
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36555 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56039 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755583Ab1HKM60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 08:58:26 -0400
-In-Reply-To: <4E42A163.5030208@hartkopp.net>
+	with ESMTP id S1755845Ab1HKNBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 09:01:21 -0400
+In-Reply-To: <alpine.LFD.2.00.1108091651290.1527@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Wed, 10 Aug 2011 17:18:59 +0200
+From: Julian Anastasov <ja@ssi.bg>
+Date: Tue, 9 Aug 2011 17:01:16 +0300 (EEST)
 
-> As this discussion pointed out
 > 
-> http://marc.info/?l=linux-netdev&m=131257225602375
+> 	As rt_iif represents input device even for packets
+> coming from loopback with output route, it is not an unique
+> key specific to input routes. Now rt_route_iif has such role,
+> it was fl.iif in 2.6.38, so better to change the checks at
+> some places to save CPU cycles and to restore 2.6.38 semantics.
 > 
-> netdevices that are based on serial line disciplines should use netif_rx_ni()
-> when pushing received socketbuffers into the netdev rx queue.
+> compare_keys:
+> 	- input routes: only rt_route_iif matters, rt_iif is same
+> 	- output routes: only rt_oif matters, rt_iif is not
+> 		used for matching in __ip_route_output_key
+> 	- now we are back to 2.6.38 state
 > 
-> Following commit 614851601c121b1320a35757ab88292d6272f906 ("slip: fix NOHZ
-> local_softirq_pending 08 warning") this patch updates the slcan driver
-> accordingly.
+> ip_route_input_common:
+> 	- matching rt_route_iif implies input route
+> 	- compared to 2.6.38 we eliminated one rth->fl.oif check
+> 	because it was not needed even for 2.6.38
 > 
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> CC: Matvejchikov Ilya <matvejchikov@gmail.com>
-> CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> compare_hash_inputs:
+> 	Only the change here is not an optimization, it has
+> 	effect only for output routes. I assume I'm restoring
+> 	the original intention to ignore oif, it was using fl.iif
+> 	- now we are back to 2.6.38 state
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Applied.
+Applied, thanks a lot for doing these audits.
