@@ -1,352 +1,290 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] enic: Move the Cisco driver
-Date: Thu, 11 Aug 2011 02:51:34 -0700
-Message-ID: <1313056294-28426-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/10] s2io/vxge: Move the Exar drivers
+Date: Thu, 11 Aug 2011 02:51:32 -0700
+Message-ID: <1313056294-28426-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Christian Benvenuti <benve@cisco.com>,
-	Vasanthy Kolluri <vkolluri@cisco.com>,
-	Roopa Prabhu <roprabhu@cisco.com>,
-	David Wang <dwang2@cisco.com>
+	gospo@redhat.com, sassmann@redhat.com, Jon Mason <jdmason@kudzu.us>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:16531 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:26123 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755022Ab1HKJvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 05:51:45 -0400
+	id S1755005Ab1HKJvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 05:51:43 -0400
 In-Reply-To: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Cisco driver into drivers/net/ethernet/cisco/ and make the
+Move the Exar drivers into drivers/net/ethernet/neterion/ and make the
 necessary Kconfig and Makefile changes.
 
-CC: Christian Benvenuti <benve@cisco.com>
-CC: Vasanthy Kolluri <vkolluri@cisco.com>
-CC: Roopa Prabhu <roprabhu@cisco.com>
-CC: David Wang <dwang2@cisco.com>
+CC: Jon Mason <jdmason@kudzu.us>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |    6 -----
- drivers/net/Makefile                               |    1 -
+ MAINTAINERS                                        |    3 +-
+ drivers/net/Kconfig                                |   34 ------------
+ drivers/net/Makefile                               |    2 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/cisco/Kconfig                 |   22 ++++++++++++++++++++
- drivers/net/ethernet/cisco/Makefile                |    5 ++++
- drivers/net/ethernet/cisco/enic/Kconfig            |    9 ++++++++
- drivers/net/{ => ethernet/cisco}/enic/Makefile     |    0
- drivers/net/{ => ethernet/cisco}/enic/cq_desc.h    |    0
- .../net/{ => ethernet/cisco}/enic/cq_enet_desc.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic.h       |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_dev.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_dev.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_main.c  |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_pp.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_pp.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_res.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_res.h   |    0
- .../net/{ => ethernet/cisco}/enic/rq_enet_desc.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_cq.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_cq.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_dev.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_dev.h   |    0
- .../net/{ => ethernet/cisco}/enic/vnic_devcmd.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_enet.h  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_intr.c  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_intr.h  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_nic.h   |    0
- .../net/{ => ethernet/cisco}/enic/vnic_resource.h  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_rq.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_rq.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_rss.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_stats.h |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_vic.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_vic.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_wq.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_wq.h    |    0
- .../net/{ => ethernet/cisco}/enic/wq_enet_desc.h   |    0
- 39 files changed, 39 insertions(+), 8 deletions(-)
- create mode 100644 drivers/net/ethernet/cisco/Kconfig
- create mode 100644 drivers/net/ethernet/cisco/Makefile
- create mode 100644 drivers/net/ethernet/cisco/enic/Kconfig
- rename drivers/net/{ => ethernet/cisco}/enic/Makefile (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/cq_desc.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/cq_enet_desc.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_dev.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_dev.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_main.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_pp.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_pp.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_res.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_res.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/rq_enet_desc.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_cq.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_cq.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_dev.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_dev.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_devcmd.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_enet.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_intr.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_intr.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_nic.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_resource.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_rq.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_rq.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_rss.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_stats.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_vic.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_vic.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_wq.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_wq.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/wq_enet_desc.h (100%)
+ drivers/net/ethernet/neterion/Kconfig              |   54 ++++++++++++++++++++
+ drivers/net/ethernet/neterion/Makefile             |    6 ++
+ drivers/net/{ => ethernet/neterion}/s2io-regs.h    |    0
+ drivers/net/{ => ethernet/neterion}/s2io.c         |    0
+ drivers/net/{ => ethernet/neterion}/s2io.h         |    0
+ drivers/net/{ => ethernet/neterion}/vxge/Makefile  |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-config.c |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-config.h |    0
+ .../{ => ethernet/neterion}/vxge/vxge-ethtool.c    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-ethtool.h    |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-main.c   |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-main.h   |    0
+ .../net/{ => ethernet/neterion}/vxge/vxge-reg.h    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-traffic.c    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-traffic.h    |    0
+ .../{ => ethernet/neterion}/vxge/vxge-version.h    |    0
+ 21 files changed, 63 insertions(+), 38 deletions(-)
+ create mode 100644 drivers/net/ethernet/neterion/Kconfig
+ create mode 100644 drivers/net/ethernet/neterion/Makefile
+ rename drivers/net/{ => ethernet/neterion}/s2io-regs.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/s2io.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/s2io.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/Makefile (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-reg.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.c (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.h (100%)
+ rename drivers/net/{ => ethernet/neterion}/vxge/vxge-version.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 2fcfa8b..c54e736 100644
+index 0a5ae23..bcfc144 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1761,7 +1761,7 @@ M:	Vasanthy Kolluri <vkolluri@cisco.com>
- M:	Roopa Prabhu <roprabhu@cisco.com>
- M:	David Wang <dwang2@cisco.com>
+@@ -4380,9 +4380,8 @@ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
+ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
  S:	Supported
--F:	drivers/net/enic/
-+F:	drivers/net/ethernet/cisco/enic/
+ F:	Documentation/networking/s2io.txt
+-F:	drivers/net/s2io*
+ F:	Documentation/networking/vxge.txt
+-F:	drivers/net/vxge/
++F:	drivers/net/ethernet/neterion/
  
- CIRRUS LOGIC EP93XX ETHERNET DRIVER
- M:	Hartley Sweeten <hsweeten@visionengravers.com>
+ NETFILTER/IPTABLES/IPCHAINS
+ P:	Rusty Russell
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 116f744..08ce280 100644
+index 38fcaea..3e216b3 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1457,12 +1457,6 @@ if NETDEV_10000
- config MDIO
- 	tristate
+@@ -1485,40 +1485,6 @@ config ENIC
+ 	help
+ 	  This enables the support for the Cisco VIC Ethernet card.
  
--config ENIC
--	tristate "Cisco VIC Ethernet NIC Support"
+-config S2IO
+-	tristate "Exar Xframe 10Gb Ethernet Adapter"
+-	depends on PCI
+-	---help---
+-	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
+-
+-	  More specific information on configuring the driver is in 
+-	  <file:Documentation/networking/s2io.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called s2io.
+-
+-config VXGE
+-	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
 -	depends on PCI && INET
--	help
--	  This enables the support for the Cisco VIC Ethernet card.
+-	---help---
+-	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
+-	  I/O Virtualized Server Adapter.
+-
+-	  More specific information on configuring the driver is in
+-	  <file:Documentation/networking/vxge.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called vxge.
+-
+-config VXGE_DEBUG_TRACE_ALL
+-	bool "Enabling All Debug trace statments in driver"
+-	default n
+-	depends on VXGE
+-	---help---
+-	  Say Y here if you want to enabling all the debug trace statements in
+-	  the vxge driver. By default only few debug trace statements are
+-	  enabled.
 -
  config PASEMI_MAC
  	tristate "PA Semi 1/10Gbit MAC"
  	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 54146ed..cf1d5a2 100644
+index b9e1f5a..d28c153e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -20,7 +20,6 @@ obj-$(CONFIG_ATL1C) += atl1c/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- obj-$(CONFIG_PTP_1588_CLOCK_GIANFAR) += gianfar_ptp.o
- obj-$(CONFIG_TEHUTI) += tehuti.o
--obj-$(CONFIG_ENIC) += enic/
- obj-$(CONFIG_JME) += jme.o
- obj-$(CONFIG_VMXNET3) += vmxnet3/
- 
+@@ -149,8 +149,6 @@ obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_DL2K) += dl2k.o
+ obj-$(CONFIG_R8169) += r8169.o
+ obj-$(CONFIG_IBMVETH) += ibmveth.o
+-obj-$(CONFIG_S2IO) += s2io.o
+-obj-$(CONFIG_VXGE) += vxge/
+ obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
+ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index f23f1b2..18b634e 100644
+index ce3040d..1a39ec0 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -17,6 +17,7 @@ source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
+@@ -18,6 +18,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
  source "drivers/net/ethernet/brocade/Kconfig"
  source "drivers/net/ethernet/chelsio/Kconfig"
-+source "drivers/net/ethernet/cisco/Kconfig"
  source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/neterion/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
++source "drivers/net/ethernet/neterion/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 27e4da6..288179b 100644
+index b4dcb93..4c21e8f 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -8,6 +8,7 @@ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+@@ -9,6 +9,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
  obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
-+obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
  obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
-diff --git a/drivers/net/ethernet/cisco/Kconfig b/drivers/net/ethernet/cisco/Kconfig
++obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
 new file mode 100644
-index 0000000..bbd5348
+index 0000000..3d98e62
 --- /dev/null
-+++ b/drivers/net/ethernet/cisco/Kconfig
-@@ -0,0 +1,22 @@
++++ b/drivers/net/ethernet/neterion/Kconfig
+@@ -0,0 +1,54 @@
 +#
-+# Cisco device configuration
++# Exar device configuration
 +#
 +
-+config NET_VENDOR_CISCO
-+	bool "Cisco devices"
-+	depends on PCI && INET
++config NET_VENDOR_EXAR
++	bool "Exar devices"
++	depends on PCI
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say
++	  Y and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Cisco cards. If you say Y, you will be asked for
++	  the questions about Exar cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+if NET_VENDOR_CISCO
++if NET_VENDOR_EXAR
 +
-+source "drivers/net/ethernet/cisco/enic/Kconfig"
++config S2IO
++	tristate "Exar Xframe 10Gb Ethernet Adapter"
++	depends on PCI
++	---help---
++	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
 +
-+endif # NET_VENDOR_CISCO
-diff --git a/drivers/net/ethernet/cisco/Makefile b/drivers/net/ethernet/cisco/Makefile
-new file mode 100644
-index 0000000..6c7437b
---- /dev/null
-+++ b/drivers/net/ethernet/cisco/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Cisco device drivers.
-+#
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/s2io.txt>.
 +
-+obj-$(CONFIG_ENIC) += enic/
-diff --git a/drivers/net/ethernet/cisco/enic/Kconfig b/drivers/net/ethernet/cisco/enic/Kconfig
-new file mode 100644
-index 0000000..9cc706a
---- /dev/null
-+++ b/drivers/net/ethernet/cisco/enic/Kconfig
-@@ -0,0 +1,9 @@
-+#
-+# Cisco device configuration
-+#
++	  To compile this driver as a module, choose M here. The module
++	  will be called s2io.
 +
-+config ENIC
-+	tristate "Cisco VIC Ethernet NIC Support"
++config VXGE
++	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
 +	depends on PCI && INET
 +	---help---
-+	  This enables the support for the Cisco VIC Ethernet card.
-diff --git a/drivers/net/enic/Makefile b/drivers/net/ethernet/cisco/enic/Makefile
++	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
++	  I/O Virtualized Server Adapter.
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/vxge.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called vxge.
++
++config VXGE_DEBUG_TRACE_ALL
++	bool "Enabling All Debug trace statements in driver"
++	default n
++	depends on VXGE
++	---help---
++	  Say Y here if you want to enabling all the debug trace statements in
++	  the vxge driver. By default only few debug trace statements are
++	  enabled.
++
++endif # NET_VENDOR_EXAR
+diff --git a/drivers/net/ethernet/neterion/Makefile b/drivers/net/ethernet/neterion/Makefile
+new file mode 100644
+index 0000000..70c8058
+--- /dev/null
++++ b/drivers/net/ethernet/neterion/Makefile
+@@ -0,0 +1,6 @@
++#
++# Makefile for the Exar network device drivers.
++#
++
++obj-$(CONFIG_S2IO) += s2io.o
++obj-$(CONFIG_VXGE) += vxge/
+diff --git a/drivers/net/s2io-regs.h b/drivers/net/ethernet/neterion/s2io-regs.h
 similarity index 100%
-rename from drivers/net/enic/Makefile
-rename to drivers/net/ethernet/cisco/enic/Makefile
-diff --git a/drivers/net/enic/cq_desc.h b/drivers/net/ethernet/cisco/enic/cq_desc.h
+rename from drivers/net/s2io-regs.h
+rename to drivers/net/ethernet/neterion/s2io-regs.h
+diff --git a/drivers/net/s2io.c b/drivers/net/ethernet/neterion/s2io.c
 similarity index 100%
-rename from drivers/net/enic/cq_desc.h
-rename to drivers/net/ethernet/cisco/enic/cq_desc.h
-diff --git a/drivers/net/enic/cq_enet_desc.h b/drivers/net/ethernet/cisco/enic/cq_enet_desc.h
+rename from drivers/net/s2io.c
+rename to drivers/net/ethernet/neterion/s2io.c
+diff --git a/drivers/net/s2io.h b/drivers/net/ethernet/neterion/s2io.h
 similarity index 100%
-rename from drivers/net/enic/cq_enet_desc.h
-rename to drivers/net/ethernet/cisco/enic/cq_enet_desc.h
-diff --git a/drivers/net/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+rename from drivers/net/s2io.h
+rename to drivers/net/ethernet/neterion/s2io.h
+diff --git a/drivers/net/vxge/Makefile b/drivers/net/ethernet/neterion/vxge/Makefile
 similarity index 100%
-rename from drivers/net/enic/enic.h
-rename to drivers/net/ethernet/cisco/enic/enic.h
-diff --git a/drivers/net/enic/enic_dev.c b/drivers/net/ethernet/cisco/enic/enic_dev.c
+rename from drivers/net/vxge/Makefile
+rename to drivers/net/ethernet/neterion/vxge/Makefile
+diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
 similarity index 100%
-rename from drivers/net/enic/enic_dev.c
-rename to drivers/net/ethernet/cisco/enic/enic_dev.c
-diff --git a/drivers/net/enic/enic_dev.h b/drivers/net/ethernet/cisco/enic/enic_dev.h
+rename from drivers/net/vxge/vxge-config.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-config.c
+diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/ethernet/neterion/vxge/vxge-config.h
 similarity index 100%
-rename from drivers/net/enic/enic_dev.h
-rename to drivers/net/ethernet/cisco/enic/enic_dev.h
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+rename from drivers/net/vxge/vxge-config.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-config.h
+diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
 similarity index 100%
-rename from drivers/net/enic/enic_main.c
-rename to drivers/net/ethernet/cisco/enic/enic_main.c
-diff --git a/drivers/net/enic/enic_pp.c b/drivers/net/ethernet/cisco/enic/enic_pp.c
+rename from drivers/net/vxge/vxge-ethtool.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+diff --git a/drivers/net/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
 similarity index 100%
-rename from drivers/net/enic/enic_pp.c
-rename to drivers/net/ethernet/cisco/enic/enic_pp.c
-diff --git a/drivers/net/enic/enic_pp.h b/drivers/net/ethernet/cisco/enic/enic_pp.h
+rename from drivers/net/vxge/vxge-ethtool.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
 similarity index 100%
-rename from drivers/net/enic/enic_pp.h
-rename to drivers/net/ethernet/cisco/enic/enic_pp.h
-diff --git a/drivers/net/enic/enic_res.c b/drivers/net/ethernet/cisco/enic/enic_res.c
+rename from drivers/net/vxge/vxge-main.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-main.c
+diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
 similarity index 100%
-rename from drivers/net/enic/enic_res.c
-rename to drivers/net/ethernet/cisco/enic/enic_res.c
-diff --git a/drivers/net/enic/enic_res.h b/drivers/net/ethernet/cisco/enic/enic_res.h
+rename from drivers/net/vxge/vxge-main.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-main.h
+diff --git a/drivers/net/vxge/vxge-reg.h b/drivers/net/ethernet/neterion/vxge/vxge-reg.h
 similarity index 100%
-rename from drivers/net/enic/enic_res.h
-rename to drivers/net/ethernet/cisco/enic/enic_res.h
-diff --git a/drivers/net/enic/rq_enet_desc.h b/drivers/net/ethernet/cisco/enic/rq_enet_desc.h
+rename from drivers/net/vxge/vxge-reg.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-reg.h
+diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
 similarity index 100%
-rename from drivers/net/enic/rq_enet_desc.h
-rename to drivers/net/ethernet/cisco/enic/rq_enet_desc.h
-diff --git a/drivers/net/enic/vnic_cq.c b/drivers/net/ethernet/cisco/enic/vnic_cq.c
+rename from drivers/net/vxge/vxge-traffic.c
+rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+diff --git a/drivers/net/vxge/vxge-traffic.h b/drivers/net/ethernet/neterion/vxge/vxge-traffic.h
 similarity index 100%
-rename from drivers/net/enic/vnic_cq.c
-rename to drivers/net/ethernet/cisco/enic/vnic_cq.c
-diff --git a/drivers/net/enic/vnic_cq.h b/drivers/net/ethernet/cisco/enic/vnic_cq.h
+rename from drivers/net/vxge/vxge-traffic.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.h
+diff --git a/drivers/net/vxge/vxge-version.h b/drivers/net/ethernet/neterion/vxge/vxge-version.h
 similarity index 100%
-rename from drivers/net/enic/vnic_cq.h
-rename to drivers/net/ethernet/cisco/enic/vnic_cq.h
-diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-similarity index 100%
-rename from drivers/net/enic/vnic_dev.c
-rename to drivers/net/ethernet/cisco/enic/vnic_dev.c
-diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-similarity index 100%
-rename from drivers/net/enic/vnic_dev.h
-rename to drivers/net/ethernet/cisco/enic/vnic_dev.h
-diff --git a/drivers/net/enic/vnic_devcmd.h b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-similarity index 100%
-rename from drivers/net/enic/vnic_devcmd.h
-rename to drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-diff --git a/drivers/net/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
-similarity index 100%
-rename from drivers/net/enic/vnic_enet.h
-rename to drivers/net/ethernet/cisco/enic/vnic_enet.h
-diff --git a/drivers/net/enic/vnic_intr.c b/drivers/net/ethernet/cisco/enic/vnic_intr.c
-similarity index 100%
-rename from drivers/net/enic/vnic_intr.c
-rename to drivers/net/ethernet/cisco/enic/vnic_intr.c
-diff --git a/drivers/net/enic/vnic_intr.h b/drivers/net/ethernet/cisco/enic/vnic_intr.h
-similarity index 100%
-rename from drivers/net/enic/vnic_intr.h
-rename to drivers/net/ethernet/cisco/enic/vnic_intr.h
-diff --git a/drivers/net/enic/vnic_nic.h b/drivers/net/ethernet/cisco/enic/vnic_nic.h
-similarity index 100%
-rename from drivers/net/enic/vnic_nic.h
-rename to drivers/net/ethernet/cisco/enic/vnic_nic.h
-diff --git a/drivers/net/enic/vnic_resource.h b/drivers/net/ethernet/cisco/enic/vnic_resource.h
-similarity index 100%
-rename from drivers/net/enic/vnic_resource.h
-rename to drivers/net/ethernet/cisco/enic/vnic_resource.h
-diff --git a/drivers/net/enic/vnic_rq.c b/drivers/net/ethernet/cisco/enic/vnic_rq.c
-similarity index 100%
-rename from drivers/net/enic/vnic_rq.c
-rename to drivers/net/ethernet/cisco/enic/vnic_rq.c
-diff --git a/drivers/net/enic/vnic_rq.h b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-similarity index 100%
-rename from drivers/net/enic/vnic_rq.h
-rename to drivers/net/ethernet/cisco/enic/vnic_rq.h
-diff --git a/drivers/net/enic/vnic_rss.h b/drivers/net/ethernet/cisco/enic/vnic_rss.h
-similarity index 100%
-rename from drivers/net/enic/vnic_rss.h
-rename to drivers/net/ethernet/cisco/enic/vnic_rss.h
-diff --git a/drivers/net/enic/vnic_stats.h b/drivers/net/ethernet/cisco/enic/vnic_stats.h
-similarity index 100%
-rename from drivers/net/enic/vnic_stats.h
-rename to drivers/net/ethernet/cisco/enic/vnic_stats.h
-diff --git a/drivers/net/enic/vnic_vic.c b/drivers/net/ethernet/cisco/enic/vnic_vic.c
-similarity index 100%
-rename from drivers/net/enic/vnic_vic.c
-rename to drivers/net/ethernet/cisco/enic/vnic_vic.c
-diff --git a/drivers/net/enic/vnic_vic.h b/drivers/net/ethernet/cisco/enic/vnic_vic.h
-similarity index 100%
-rename from drivers/net/enic/vnic_vic.h
-rename to drivers/net/ethernet/cisco/enic/vnic_vic.h
-diff --git a/drivers/net/enic/vnic_wq.c b/drivers/net/ethernet/cisco/enic/vnic_wq.c
-similarity index 100%
-rename from drivers/net/enic/vnic_wq.c
-rename to drivers/net/ethernet/cisco/enic/vnic_wq.c
-diff --git a/drivers/net/enic/vnic_wq.h b/drivers/net/ethernet/cisco/enic/vnic_wq.h
-similarity index 100%
-rename from drivers/net/enic/vnic_wq.h
-rename to drivers/net/ethernet/cisco/enic/vnic_wq.h
-diff --git a/drivers/net/enic/wq_enet_desc.h b/drivers/net/ethernet/cisco/enic/wq_enet_desc.h
-similarity index 100%
-rename from drivers/net/enic/wq_enet_desc.h
-rename to drivers/net/ethernet/cisco/enic/wq_enet_desc.h
+rename from drivers/net/vxge/vxge-version.h
+rename to drivers/net/ethernet/neterion/vxge/vxge-version.h
 -- 
 1.7.6
 
