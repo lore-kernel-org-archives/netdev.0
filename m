@@ -1,316 +1,484 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/10] stmmac: Move the STMicroelectronics driver
-Date: Thu, 11 Aug 2011 16:39:51 -0700
-Message-ID: <1313105998-2859-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1313105998-2859-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11581 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753950Ab1HKXkD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 19:40:03 -0400
-In-Reply-To: <1313105998-2859-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tonda <as@strmilov.cz>
+Subject: TCP port firewall controlled by UDP packets
+Date: Fri, 12 Aug 2011 01:42:52 +0200
+Message-ID: <1313106172-18455-1-git-send-email-as@strmilov.cz>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move the STMicroelectronics driver into driver/net/ethernet/stmicro/ and
-make the necessary Kconfig and Makefile changes.
-
-CC: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |    2 -
- drivers/net/Makefile                               |    1 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/stmicro/Kconfig               |   22 ++++++++++++++++++++
- drivers/net/ethernet/stmicro/Makefile              |    5 ++++
- drivers/net/{ => ethernet/stmicro}/stmmac/Kconfig  |   14 ++++++------
- drivers/net/{ => ethernet/stmicro}/stmmac/Makefile |    0
- drivers/net/{ => ethernet/stmicro}/stmmac/common.h |    0
- drivers/net/{ => ethernet/stmicro}/stmmac/descs.h  |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac100.h   |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac1000.h  |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac1000_core.c |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac1000_dma.c  |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac100_core.c  |    0
- .../{ => ethernet/stmicro}/stmmac/dwmac100_dma.c   |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac_dma.h  |    0
- .../net/{ => ethernet/stmicro}/stmmac/dwmac_lib.c  |    0
- .../net/{ => ethernet/stmicro}/stmmac/enh_desc.c   |    0
- .../net/{ => ethernet/stmicro}/stmmac/norm_desc.c  |    0
- drivers/net/{ => ethernet/stmicro}/stmmac/stmmac.h |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_ethtool.c |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_main.c    |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_mdio.c    |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_timer.c   |    0
- .../{ => ethernet/stmicro}/stmmac/stmmac_timer.h   |    0
- 27 files changed, 37 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/Kconfig
- create mode 100644 drivers/net/ethernet/stmicro/Makefile
- rename drivers/net/{ => ethernet/stmicro}/stmmac/Kconfig (93%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/Makefile (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/common.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/descs.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000_core.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac1000_dma.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100_core.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac100_dma.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac_dma.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/dwmac_lib.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/enh_desc.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/norm_desc.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac.h (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_ethtool.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_main.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_mdio.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_timer.c (100%)
- rename drivers/net/{ => ethernet/stmicro}/stmmac/stmmac_timer.h (100%)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c789b6f..5dffc8e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2029,7 +2029,7 @@ M:	Giuseppe Cavallaro <peppe.cavallaro@st.com>
- L:	netdev@vger.kernel.org
- W:	http://www.stlinux.com
- S:	Supported
--F:	drivers/net/stmmac/
-+F:	drivers/net/ethernet/stmicro/stmmac/
- 
- CYBERPRO FB DRIVER
- M:	Russell King <linux@arm.linux.org.uk>
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index d3d2febe..a7ec50f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1406,8 +1406,6 @@ config S6GMAC
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called s6gmac.
- 
--source "drivers/net/stmmac/Kconfig"
--
- config PCH_GBE
- 	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
- 	depends on PCI
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8d2d677..b54e308 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -67,7 +67,6 @@ obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_SH_ETH) += sh_eth.o
--obj-$(CONFIG_STMMAC_ETH) += stmmac/
- 
- #
- # end link order section
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 8375b8b..c38e902 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -30,6 +30,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
-+source "drivers/net/ethernet/stmicro/Kconfig"
- source "drivers/net/ethernet/sun/Kconfig"
- source "drivers/net/ethernet/tehuti/Kconfig"
- 
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 26324a1..75d7a02 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -21,5 +21,6 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_SFC) += sfc/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
-+obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
- obj-$(CONFIG_NET_VENDOR_SUN) += sun/
- obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
-diff --git a/drivers/net/ethernet/stmicro/Kconfig b/drivers/net/ethernet/stmicro/Kconfig
-new file mode 100644
-index 0000000..e40df64
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/Kconfig
-@@ -0,0 +1,22 @@
-+#
-+# STMicroelectronics device configuration
-+#
+ 	  If unsure, say N.
 +
-+config NET_VENDOR_STMICRO
-+	bool "STMicroelectronics devices"
-+	depends on HAS_IOMEM
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about STMicroelectronics cards. If you say Y, you will
-+	  be asked for your specific card in the following questions.
-+
-+if NET_VENDOR_STMICRO
-+
-+source "drivers/net/ethernet/stmicro/stmmac/Kconfig"
-+
-+endif # NET_VENDOR_STMICRO
-diff --git a/drivers/net/ethernet/stmicro/Makefile b/drivers/net/ethernet/stmicro/Makefile
-new file mode 100644
-index 0000000..9b3bfdd
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the STMicroelectronics device drivers.
-+#
-+
-+obj-$(CONFIG_STMMAC_ETH) += stmmac/
-diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-similarity index 93%
-rename from drivers/net/stmmac/Kconfig
-rename to drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 7df7df4..cda61e3 100644
---- a/drivers/net/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -1,10 +1,10 @@
- config STMMAC_ETH
- 	tristate "STMicroelectronics 10/100/1000 Ethernet driver"
-+	depends on HAS_IOMEM
- 	select MII
- 	select PHYLIB
- 	select CRC32
--	depends on NETDEVICES && HAS_IOMEM
--	help
-+	---help---
- 	  This is the driver for the Ethernet IPs are built around a
- 	  Synopsys IP Core and only tested on the STMicroelectronics
- 	  platforms.
-@@ -14,7 +14,7 @@ if STMMAC_ETH
- config STMMAC_DA
- 	bool "STMMAC DMA arbitration scheme"
- 	default n
--	help
-+	---help---
- 	  Selecting this option, rx has priority over Tx (only for Giga
- 	  Ethernet device).
- 	  By default, the DMA arbitration scheme is based on Round-robin
-@@ -24,7 +24,7 @@ config STMMAC_DUAL_MAC
- 	bool "STMMAC: dual mac support (EXPERIMENTAL)"
- 	default n
-         depends on EXPERIMENTAL && STMMAC_ETH && !STMMAC_TIMER
--	help
-+	---help---
- 	  Some ST SoCs (for example the stx7141 and stx7200c2) have two
- 	  Ethernet Controllers. This option turns on the second Ethernet
- 	  device on this kind of platforms.
-@@ -33,7 +33,7 @@ config STMMAC_TIMER
- 	bool "STMMAC Timer optimisation"
- 	default n
- 	depends on RTC_HCTOSYS_DEVICE
--	help
-+	---help---
- 	  Use an external timer for mitigating the number of network
- 	  interrupts. Currently, for SH architectures, it is possible
- 	  to use the TMU channel 2 and the SH-RTC device.
-@@ -45,12 +45,12 @@ choice
- config STMMAC_TMU_TIMER
-         bool "TMU channel 2"
-         depends on CPU_SH4
--	help
-+	---help---
++config TCPFIREWALL
++	tristate "TCP Firewall controlled by UDP queries"
++	depends on m
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -51,3 +51,4 @@
  
- config STMMAC_RTC_TIMER
-         bool "Real time clock"
-         depends on RTC_CLASS
--	help
-+	---help---
- 
- endchoice
- 
-diff --git a/drivers/net/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-similarity index 100%
-rename from drivers/net/stmmac/Makefile
-rename to drivers/net/ethernet/stmicro/stmmac/Makefile
-diff --git a/drivers/net/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-similarity index 100%
-rename from drivers/net/stmmac/common.h
-rename to drivers/net/ethernet/stmicro/stmmac/common.h
-diff --git a/drivers/net/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
-similarity index 100%
-rename from drivers/net/stmmac/descs.h
-rename to drivers/net/ethernet/stmicro/stmmac/descs.h
-diff --git a/drivers/net/stmmac/dwmac100.h b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
-similarity index 100%
-rename from drivers/net/stmmac/dwmac100.h
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac100.h
-diff --git a/drivers/net/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-similarity index 100%
-rename from drivers/net/stmmac/dwmac1000.h
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac1000_core.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-diff --git a/drivers/net/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac1000_dma.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-diff --git a/drivers/net/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac100_core.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-diff --git a/drivers/net/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac100_dma.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-diff --git a/drivers/net/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-similarity index 100%
-rename from drivers/net/stmmac/dwmac_dma.h
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-diff --git a/drivers/net/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-similarity index 100%
-rename from drivers/net/stmmac/dwmac_lib.c
-rename to drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-diff --git a/drivers/net/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-similarity index 100%
-rename from drivers/net/stmmac/enh_desc.c
-rename to drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-diff --git a/drivers/net/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-similarity index 100%
-rename from drivers/net/stmmac/norm_desc.c
-rename to drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-diff --git a/drivers/net/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-similarity index 100%
-rename from drivers/net/stmmac/stmmac.h
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac.h
-diff --git a/drivers/net/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_ethtool.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_main.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-diff --git a/drivers/net/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_mdio.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-diff --git a/drivers/net/stmmac/stmmac_timer.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_timer.c
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_timer.c
-diff --git a/drivers/net/stmmac/stmmac_timer.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
-similarity index 100%
-rename from drivers/net/stmmac/stmmac_timer.h
-rename to drivers/net/ethernet/stmicro/stmmac/stmmac_timer.h
--- 
-1.7.6
-
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+ 		      xfrm4_output.o
++obj-$(CONFIG_TCPFIREWALL) += tcpfirewall/
+diff --git a/net/ipv4/tcpfirewall/Makefile b/net/ipv4/tcpfirewall/Makefile
+--- a/net/ipv4/tcpfirewall/Makefile
++++ b/net/ipv4/tcpfirewall/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_TCPFIREWALL) += tcpfirewall.o
+diff --git a/net/ipv4/tcpfirewall/tcpfirewall.c b/net/ipv4/tcpfirewall/tcpfirewall.c
+--- a/net/ipv4/tcpfirewall/tcpfirewall.c
++++ b/net/ipv4/tcpfirewall/tcpfirewall.c
+@@ -0,0 +1,451 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/skbuff.h>
++#include <linux/in.h>
++#include <linux/if_packet.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <net/tcp.h>
++#include <net/udp.h>
++
++struct net_protocol {
++	int (*handler)(struct sk_buff *skb);
++	void (*err_handler)(struct sk_buff *skb, u32 info);
++	int (*gso_send_check)(struct sk_buff *skb);
++	struct sk_buff *(*gso_segment)(struct sk_buff *skb,
++		u32 features);
++	struct sk_buff **(*gro_receive)(struct sk_buff **head,
++		struct sk_buff *skb);
++	int (*gro_complete)(struct sk_buff *skb);
++	unsigned int no_policy:1,
++		netns_ok:1;
++};
++
++MODULE_LICENSE("GPL");
++
++static unsigned long inet_protos = 0x01234567;
++
++struct net_protocol **_inet_protos;
++
++module_param(inet_protos, ulong, 0);
++
++static int *otviraky;
++static int *zaviraky;
++
++static int pocetotviraku;
++static int pocetzaviraku;
++static int stav;
++static int packetcounter;
++static int tcpport;
++static int open;
++static int firewall;
++
++int (*tcpv4recv) (struct sk_buff *skb);
++int (*udprecv) (struct sk_buff *skb);
++
++int udpcontroller(struct sk_buff *skb)
++{
++	const struct udphdr *uh;
++
++	if (skb->pkt_type != PACKET_HOST) {
++		kfree_skb(skb);
++		return 0;
++	}
++
++	if (!pskb_may_pull(skb, sizeof(struct tcphdr))) {
++		kfree_skb(skb);
++		return 0;
++	}
++
++	uh = udp_hdr(skb);
++
++	if (pocetotviraku == 0)
++		return udprecv(skb);
++
++	if (!open) {
++		if (uh->dest == otviraky[stav]) {
++			++stav;
++			packetcounter = 0;
++
++			if (stav == pocetotviraku) {
++				open = 1;
++				stav = 0;
++			}
++		} else {
++			if (packetcounter <= 16) {
++				++packetcounter;
++				if (packetcounter > 16)
++					stav = 0;
++			}
++		}
++	} else {
++		if (uh->dest == zaviraky[stav]) {
++			++stav;
++			packetcounter = 0;
++
++			if (stav == pocetzaviraku) {
++				open = 0;
++				stav = 0;
++			}
++		} else {
++			if (packetcounter <= 16) {
++				++packetcounter;
++				if (packetcounter > 16)
++					stav = 0;
++			}
++		}
++	}
++
++
++	return udprecv(skb);
++}
++
++int tcpfirewall(struct sk_buff *skb)
++{
++	const struct tcphdr *th;
++
++	if (skb->pkt_type != PACKET_HOST) {
++		kfree_skb(skb);
++		return 0;
++	}
++
++	if (!pskb_may_pull(skb, sizeof(struct tcphdr))) {
++		kfree_skb(skb);
++		return 0;
++	}
++
++	th = tcp_hdr(skb);
++
++	if (th->dest == tcpport) {
++		if (firewall == 1 && !open) {
++			/*tcpv4sendreset(NULL, skb);*/
++			kfree_skb(skb);
++			return 0;
++		}
++	}
++
++	return tcpv4recv(skb);
++}
++
++static struct net_protocol *zalohatcp;
++static struct net_protocol *zalohaudp;
++static struct net_protocol mytcp;
++static struct net_protocol myudp;
++
++static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buffer)
++{
++	if (!strcmp(attr->name, "firewall")) {
++		if (firewall)
++			buffer[0] = '1';
++		else
++			buffer[0] = '0';
++
++		buffer[1] = '\n';
++		return 2;
++	}
++
++	if (!strcmp(attr->name, "tcpport")) {
++		sprintf(buffer, "%d\n", ntohs(tcpport));
++		return strlen(buffer)+1;
++	}
++
++	if (!strcmp(attr->name, "openers")) {
++		int i;
++		char *znak;
++		if (pocetotviraku == 0)
++			return 0;
++		buffer[0] = '\0';
++		znak = kmalloc(10, GFP_KERNEL);
++		for (i = 0; i < pocetotviraku; ++i) {
++			sprintf(znak, "%d ", ntohs(otviraky[i]));
++			strcat(buffer, znak);
++		}
++		kfree(znak);
++		buffer[strlen(buffer)-1] = '\n';
++		return strlen(buffer);
++	}
++
++	if (!strcmp(attr->name, "closers")) {
++		int i;
++		char *znak;
++		if (pocetzaviraku == 0)
++			return 0;
++		buffer[0] = '\0';
++		znak = kmalloc(10, GFP_KERNEL);
++		for (i = 0; i < pocetzaviraku; ++i) {
++			sprintf(znak, "%d ", ntohs(zaviraky[i]));
++			strcat(buffer, znak);
++		}
++		kfree(znak);
++		buffer[strlen(buffer)-1] = '\n';
++		return strlen(buffer);
++	}
++
++	if (!strcmp(attr->name, "open")) {
++		if (open)
++			buffer[0] = '1';
++		else
++			buffer[0] = '0';
++
++		buffer[1] = '\n';
++		return 2;
++	}
++
++	if (!strcmp(attr->name, "state")) {
++		sprintf(buffer, "%d\n", stav);
++		return strlen(buffer)+1;
++	}
++
++	if (!strcmp(attr->name, "counter")) {
++		sprintf(buffer, "%d\n", packetcounter);
++		return strlen(buffer)+1;
++	}
++
++	return 0;
++}
++
++static ssize_t store(struct kobject *kobj, struct attribute *attr,
++	const char *buffer, size_t size)
++{
++	int i;
++	char *cislo;
++	if (!strcmp(attr->name, "firewall")) {
++		if (size > 0 && buffer[0] == '1')
++			firewall = 1;
++		else
++			firewall = 0;
++		stav = 0;
++		return size;
++	}
++
++	if (!strcmp(attr->name, "tcpport")) {
++		cislo = kmalloc(size+1, GFP_KERNEL);
++		for (i = 0; i < size; ++i)
++			cislo[i] = buffer[i];
++		cislo[size] = '\0';
++		if (kstrtoint(cislo, 10, &i) < 0)
++			i = -1;
++		if (i > 0 && i < 65536)
++			tcpport = htons(i);
++		kfree(cislo);
++		stav = 0;
++		return size;
++	}
++
++	if (!strcmp(attr->name, "openers")) {
++		int udpport, i;
++		int *noveotviraky;
++		int *stareotviraky;
++		cislo = kmalloc(size+1, GFP_KERNEL);
++		for (i = 0; i < size; ++i)
++			cislo[i] = buffer[i];
++		cislo[size] = '\0';
++
++		if (!strcmp(cislo, "reset") || !strcmp(cislo, "reset\n")) {
++			if (pocetotviraku)
++				kfree(otviraky);
++			pocetotviraku = 0;
++		}
++
++		if (kstrtoint(cislo, 10, &i) < 0)
++			i = -1;
++		kfree(cislo);
++
++		if (i > 0 && i < 65536 && (pocetotviraku == 0 ||
++			otviraky[pocetotviraku-1] != i))
++				udpport = htons(i);
++		else
++			return size;
++
++		if (pocetotviraku < 10) {
++			noveotviraky = kmalloc((pocetotviraku+1)*sizeof(int),
++				GFP_KERNEL);
++
++			for (i = 0; i < pocetotviraku; ++i)
++				noveotviraky[i] = otviraky[i];
++
++			noveotviraky[pocetotviraku] = udpport;
++			stareotviraky = otviraky;
++			otviraky = noveotviraky;
++			if (pocetotviraku)
++				kfree(stareotviraky);
++
++			++pocetotviraku;
++		}
++		stav = 0;
++		return size;
++	}
++
++	if (!strcmp(attr->name, "closers")) {
++		int udpport, i;
++		int *novezaviraky;
++		int *starezaviraky;
++		cislo = kmalloc(size+1, GFP_KERNEL);
++		for (i = 0; i < size; ++i)
++			cislo[i] = buffer[i];
++		cislo[size] = '\0';
++
++		if (!strcmp(cislo, "reset") || !strcmp(cislo, "reset\n")) {
++			if (pocetzaviraku)
++				kfree(zaviraky);
++			pocetzaviraku = 0;
++		}
++
++		if (kstrtoint(cislo, 10, &i) < 0)
++			i = -1;
++		kfree(cislo);
++
++		if (i > 0 && i < 65536 && (pocetzaviraku == 0 ||
++			zaviraky[pocetzaviraku-1] != i))
++				udpport = htons(i);
++		else
++			return size;
++
++		if (pocetzaviraku < 10) {
++			novezaviraky = kmalloc((pocetzaviraku+1)*sizeof(int),
++				GFP_KERNEL);
++
++			for (i = 0; i < pocetzaviraku; ++i)
++				novezaviraky[i] = zaviraky[i];
++
++			novezaviraky[pocetzaviraku] = udpport;
++			starezaviraky = zaviraky;
++			zaviraky = novezaviraky;
++			if (pocetzaviraku)
++				kfree(starezaviraky);
++
++			++pocetzaviraku;
++		}
++		stav = 0;
++		return size;
++	}
++
++	if (!strcmp(attr->name, "open")) {
++		if (size > 0 && buffer[0] == '1')
++			open = 1;
++		else
++			open = 0;
++
++		stav = 0;
++		return size;
++	}
++
++	return 0;
++}
++
++static const struct sysfs_ops so = {
++	.show = show,
++	.store = store,
++};
++
++static struct kobj_type khid = {
++	.sysfs_ops = &so,
++};
++
++static struct kobject kobj;
++
++static const struct attribute fw = {
++	.name = "firewall",
++	.mode = S_IRWXU,
++};
++
++static const struct attribute opn = {
++	.name = "open",
++	.mode = S_IRWXU,
++};
++
++static const struct attribute tcpp = {
++	.name = "tcpport",
++	.mode = S_IRWXU,
++};
++
++static const struct attribute openers = {
++	.name = "openers",
++	.mode = S_IRWXU,
++};
++
++static const struct attribute closers = {
++	.name = "closers",
++	.mode = S_IRWXU,
++};
++
++static const struct attribute stat = {
++	.name = "state",
++	.mode = S_IRUSR,
++};
++
++static const struct attribute counte = {
++	.name = "counter",
++	.mode = S_IRUSR,
++};
++
++static int __init start(void)
++{
++	if (inet_protos == 0x01234567) {
++		printk(KERN_WARNING "inet_protos parameter was not");
++		printk(KERN_WARNING " specified!\nread its value from");
++		printk(KERN_WARNING " System_map file file, and insert");
++		printk(KERN_WARNING " the module again!\n");
++		return -1;
++	}
++
++	pocetotviraku = 0;
++	pocetzaviraku = 0;
++	stav = -1;
++	packetcounter = 0;
++	tcpport = 0;
++	open = 1;
++	firewall = 0;
++
++	memset(&kobj, 0, sizeof(struct kobject));
++
++	_inet_protos = (struct net_protocol **)inet_protos;
++
++	kobject_init(&kobj, &khid);
++	if (kobject_add(&kobj, NULL, "tcpfirewall") < 0)
++		printk(KERN_ERR "kobject_add failed");
++
++	if (sysfs_create_file(&kobj, &fw) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++	if (sysfs_create_file(&kobj, &opn) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++	if (sysfs_create_file(&kobj, &tcpp) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++	if (sysfs_create_file(&kobj, &openers) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++	if (sysfs_create_file(&kobj, &closers) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++	if (sysfs_create_file(&kobj, &stat) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++	if (sysfs_create_file(&kobj, &counte) < 0)
++		printk(KERN_ERR "sysfs_create_file failed");
++
++	zalohatcp = _inet_protos[IPPROTO_TCP];
++	zalohaudp = _inet_protos[IPPROTO_UDP];
++	mytcp = *zalohatcp;
++	myudp = *zalohaudp;
++	tcpv4recv = mytcp.handler;
++	udprecv = myudp.handler;
++	mytcp.handler = tcpfirewall;
++	myudp.handler = udpcontroller;
++	_inet_protos[IPPROTO_TCP] = &mytcp;
++	_inet_protos[IPPROTO_UDP] = &myudp;
++	return 0;
++}
++
++static void konec(void)
++{
++	_inet_protos[IPPROTO_TCP] = zalohatcp;
++	_inet_protos[IPPROTO_UDP] = zalohaudp;
++
++	if (pocetotviraku)
++		kfree(otviraky);
++	if (pocetzaviraku)
++		kfree(zaviraky);
++
++	kobject_del(&kobj);
++}
++
++module_init(start);
++module_exit(konec);
