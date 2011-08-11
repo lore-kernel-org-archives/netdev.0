@@ -1,54 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: add Documentation/networking/scaling.txt
-Date: Thu, 11 Aug 2011 18:31:19 +0200
-Message-ID: <1313080279.3261.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
-	 <4E418030.2010102@hp.com>
-	 <CA+FuTSfCp+Ju6YAGvPUzkLXiMFqV8XZV_SOueW5bwxeaeD1vng@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: rt_iif conversions (was Re: return of ip_rt_bug())
+Date: Thu, 11 Aug 2011 19:36:37 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108111919250.1494@ja.ssi.bg>
+References: <alpine.LFD.2.00.1108070104440.1413@ja.ssi.bg> <20110807.222042.1034530719366562334.davem@davemloft.net> <alpine.LFD.2.00.1108091645351.1527@ja.ssi.bg> <20110811.060057.36747750681761864.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rick Jones <rick.jones2@hp.com>, rdunlap@xenotime.net,
-	linux-doc@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, therbert@google.com
-To: Will de Bruijn <willemb@google.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@infradead.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54963 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933Ab1HKQbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 12:31:19 -0400
-In-Reply-To: <CA+FuTSfCp+Ju6YAGvPUzkLXiMFqV8XZV_SOueW5bwxeaeD1vng@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:47327 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750825Ab1HKQbn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 12:31:43 -0400
+In-Reply-To: <20110811.060057.36747750681761864.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 11 ao=C3=BBt 2011 =C3=A0 10:26 -0400, Will de Bruijn a =C3=A9c=
-rit :
 
->=20
-> I'll be happy to revise it once more. This version also lacks the
-> required one-line description in Documentation/networking/00-INDEX, s=
-o
-> I will have to resubmit, either way.
->=20
+	Hello,
 
-Well, patch was already accepted by David in net tree two days ago ;)
+On Thu, 11 Aug 2011, David Miller wrote:
 
-You can make changes, but it must be against what was committed.
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Tue, 9 Aug 2011 16:51:26 +0300 (EEST)
+> 
+> > 	There are other places that used fl.iif (0 for output
+> > routes) but are now using rt_iif instead of rt_route_iif,
+> > not sure if this change is fatal for them because:
+> > 
+> > - net/sched/cls_route.c, route4_classify() gets optional
+> > iif, so it can be 0, may be to match output route? And
+> > later route4_classify does exact match for rt_iif. Does
+> > it mean that now we can not match output packets without
+> > providing "fromif OUTDEV" ?
 
-commit 56c07271307b4a20802005692b2b70dfe13d72e8
-Author: Willem de Bruijn <willemb@google.com>
-Date:   Tue Aug 9 04:20:48 2011 +0000
+	It seems the user space for route filter treats
+0 as error, so "fromif if0" was never supported. So, using
+rt_iif is a better choice here.
 
-    net: add Documentation/networking/scaling.txt
-   =20
-    Describes RSS, RPS, RFS, accelerated RFS, and XPS.
-   =20
-    This version incorporates comments by Randy Dunlap and Rick Jones.
-    Besides text cleanup, it adds an explicit "Suggested Configuration"
-    heading to each section.
-   =20
-    Signed-off-by: Willem de Bruijn <willemb@google.com>
-    Acked-By: Rick Jones <rick.jones2@hp.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+> > - net/sched/em_meta.c: now int_rtiif (being rt_iif) is
+> > always != 0, may be not good to match output routes?
 
+	May be using 'rt_iif eq 0' is silly for the meta match.
+It is preferred to use rt_iif instead of rt_route_iif so that
+one can match even packets from loopback.
 
+> > 	In short, the fl.iif -> rt_iif conversion is risky
+> > at some places.
+> 
+> If we convert em_meta.c and cls_route.c to use rt_route_iif
+> we should be OK right?  Please patches to do this if so.
+
+	It seems no patches are needed. Sorry for the confusion.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
