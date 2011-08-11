@@ -1,19 +1,19 @@
 From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
-Date: Thu, 11 Aug 2011 09:26:28 +0200
-Message-ID: <4E438424.1050503@grandegger.com>
+Date: Thu, 11 Aug 2011 09:35:39 +0200
+Message-ID: <4E43864B.2050302@grandegger.com>
 References: <1312993670-23999-1-git-send-email-holt@sgi.com>	<1312993670-23999-5-git-send-email-holt@sgi.com>	<8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>	<4E42CB01.7030700@grandegger.com>
-	<634AB7A6-1CDA-41B3-8A5D-01F29EF01521@kernel.crashing.org>
+	<20110811035620.GB4926@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
 	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
 	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <634AB7A6-1CDA-41B3-8A5D-01F29EF01521-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20110811035620.GB4926-sJ/iWh9BUns@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -25,10 +25,8 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/11/2011 06:46 AM, Kumar Gala wrote:
-> 
-> On Aug 10, 2011, at 1:16 PM, Wolfgang Grandegger wrote:
-> 
+On 08/11/2011 05:56 AM, Robin Holt wrote:
+> On Wed, Aug 10, 2011 at 08:16:33PM +0200, Wolfgang Grandegger wrote:
 >> On 08/10/2011 07:01 PM, Kumar Gala wrote:
 >>>
 >>> On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
@@ -68,26 +66,74 @@ On 08/11/2011 06:46 AM, Kumar Gala wrote:
 >> clk interface, we found it straight-forward to implement it for the
 >> P1010, or more general for the 85xx, as well, instead of using an
 >> additional helper function.
-> 
-> I see, that.  What concerns me is there are numerous clocks / frequencies that exist inside a MPC85xx/P1010 SOC.  The code I'm seeing does NOT seem to do anything to relate this clock JUST to the flexcan.
-
-The clk interface is not commonly used on PowerPC, I know. It's just to
-provide compatibility with ARM. An alternative would be to use some
-helper function.
-
+>>
 >>> I still think the clk / freq info should be in the device tree and handled in the driver and NOT arch/powerpc platform code.
 >>
 >> If I understand you correctly, you want the boot-loader to provide the
 >> relevant information by fixing up the device tree, which then can be
 >> handled arch-independently by the driver, right?
 > 
-> Yes, that is part of what I want.
+> Marc and Wolfgang,
+> 
+> This is a very early swag at this which I worked up while driving home from dinner
+> this evening.  It works with my current config, but that includes at least one
+> bogus patch.  I will have to do more testing tomorrow.  For now, it is something
+> to ponder.
 
-This works fine if we just have *one* fixed clock source and frequency.
-When there are choices (source and divider) it does make sense to allow
-the user to select the frequency via DTS file entries for Linux. Then we
-need arch-specific code anyway (to set the relevant registers).
-Furthermore we rely on the boot-loader (the usual argument) which is not
-a problem for new boards (with new boot-loader), of course.
+Yes, that's what Kumar is proposing. Fine for me with the P1010. It just
+needs some proper U-Boot implementation.
+
+> Thanks,
+> Robin
+> ------------------------------------------------------------------------
+> 
+> flexcan: Prefer device tree clock frequency if available.
+> 
+> If our CAN device's device tree node has a clock-frequency property,
+> then use that value for the can devices clock frequency.  If not, fall
+> back to asking the platform/mach code for the clock frequency associated
+> with the flexcan device.
+> 
+> Too-early-to-be-signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+> 
+> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+> index 662f832..d6a87c9 100644
+> --- a/drivers/net/can/flexcan.c
+> +++ b/drivers/net/can/flexcan.c
+> @@ -33,6 +33,7 @@
+>  #include <linux/kernel.h>
+>  #include <linux/list.h>
+>  #include <linux/module.h>
+> +#include <linux/of.h>
+>  #include <linux/platform_device.h>
+>  
+>  #define DRV_NAME			"flexcan"
+> @@ -929,12 +930,25 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
+>  	void __iomem *base;
+>  	resource_size_t mem_size;
+>  	int err, irq;
+> +	u32 clock_freq = 0;
+>  
+> -	clk = clk_get(&pdev->dev, NULL);
+> -	if (IS_ERR(clk)) {
+> -		dev_err(&pdev->dev, "no clock defined\n");
+> -		err = PTR_ERR(clk);
+> -		goto failed_clock;
+> +	if (pdev->dev.of_node) {
+> +		u32 *clock_freq_p;
+
+Should be:
+
+		const u32 *clock_freq_p;
+
+> +
+> +		clk = NULL;
+> +		clock_freq_p = (u32 *)of_get_property(pdev->dev.of_node, "clock-frequency", NULL);
+
+No cast please.
+
+> +		if (clock_freq_p)
+> +			clock_freq = *clock_freq_p;
+> +	}
 
 Wolfgang.
