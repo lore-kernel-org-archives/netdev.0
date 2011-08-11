@@ -1,432 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/10] drivers/net organize Ethernet drivers (2nd series)
-Date: Thu, 11 Aug 2011 02:51:24 -0700
-Message-ID: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/10] sfc: Move the Solarflare drivers
+Date: Thu, 11 Aug 2011 02:51:27 -0700
+Message-ID: <1313056294-28426-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+	gospo@redhat.com, sassmann@redhat.com,
+	Steve Hodgson <shodgson@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33305 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:16531 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754492Ab1HKJvh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 05:51:37 -0400
+	id S1754965Ab1HKJvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 05:51:39 -0400
+In-Reply-To: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the second of seven 10 patch series to move the Ethernet
-drivers into drivers/net/ethernet/
+Moves the Solarflare drivers into drivers/net/ethernet/sfc/ and
+make the necessary Kconfig and Makefile changes.
 
-The following are changes since commit 628a604842b68cb0fc483e7cd5fcfb836be633d5:
-  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
-
-Jeff Kirsher (10):
-  ni5010: Move the Racal-Interlan (Micom) driver
-  cassini/niu/sun*: Move the Sun drivers
-  sfc: Move the Solarflare drivers
-  be2net: Move the Emulex driver
-  bna: Move the Brocade driver
-  mlx4: Move the Mellanox driver
-  myri*: Move the Myricom drivers
-  s2io/vxge: Move the Exar drivers
-  ehea/ibm*: Move the IBM drivers
-  enic: Move the Cisco driver
-
- MAINTAINERS                                        |   20 +-
- drivers/net/Kconfig                                |  225 --------------------
- drivers/net/Makefile                               |   23 +--
- drivers/net/benet/Kconfig                          |    6 -
- drivers/net/ethernet/Kconfig                       |   10 +
- drivers/net/ethernet/Makefile                      |   10 +
- drivers/net/ethernet/brocade/Kconfig               |   22 ++
- drivers/net/ethernet/brocade/Makefile              |    5 +
- drivers/net/ethernet/brocade/bna/Kconfig           |   17 ++
- drivers/net/{ => ethernet/brocade}/bna/Makefile    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_cs.h    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h  |    0
- .../net/{ => ethernet/brocade}/bna/bfa_defs_cna.h  |    0
- .../{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h |    0
- .../{ => ethernet/brocade}/bna/bfa_defs_status.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h   |    0
- .../net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi.h       |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h    |    0
- drivers/net/{ => ethernet/brocade}/bna/bfi_reg.h   |    0
- drivers/net/{ => ethernet/brocade}/bna/bna.h       |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c  |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_hw.h    |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c  |    0
- drivers/net/{ => ethernet/brocade}/bna/bna_types.h |    0
- drivers/net/{ => ethernet/brocade}/bna/bnad.c      |    0
- drivers/net/{ => ethernet/brocade}/bna/bnad.h      |    0
- .../net/{ => ethernet/brocade}/bna/bnad_ethtool.c  |    0
- drivers/net/{ => ethernet/brocade}/bna/cna.h       |    0
- drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c |    0
- drivers/net/ethernet/cisco/Kconfig                 |   22 ++
- drivers/net/ethernet/cisco/Makefile                |    5 +
- drivers/net/ethernet/cisco/enic/Kconfig            |    9 +
- drivers/net/{ => ethernet/cisco}/enic/Makefile     |    0
- drivers/net/{ => ethernet/cisco}/enic/cq_desc.h    |    0
- .../net/{ => ethernet/cisco}/enic/cq_enet_desc.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic.h       |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_dev.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_dev.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_main.c  |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_pp.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_pp.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_res.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/enic_res.h   |    0
- .../net/{ => ethernet/cisco}/enic/rq_enet_desc.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_cq.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_cq.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_dev.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_dev.h   |    0
- .../net/{ => ethernet/cisco}/enic/vnic_devcmd.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_enet.h  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_intr.c  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_intr.h  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_nic.h   |    0
- .../net/{ => ethernet/cisco}/enic/vnic_resource.h  |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_rq.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_rq.h    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_rss.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_stats.h |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_vic.c   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_vic.h   |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_wq.c    |    0
- drivers/net/{ => ethernet/cisco}/enic/vnic_wq.h    |    0
- .../net/{ => ethernet/cisco}/enic/wq_enet_desc.h   |    0
- drivers/net/ethernet/emulex/Kconfig                |   22 ++
- drivers/net/ethernet/emulex/Makefile               |    5 +
- drivers/net/ethernet/emulex/benet/Kconfig          |    6 +
- drivers/net/{ => ethernet/emulex}/benet/Makefile   |    0
- drivers/net/{ => ethernet/emulex}/benet/be.h       |    0
- drivers/net/{ => ethernet/emulex}/benet/be_cmds.c  |    0
- drivers/net/{ => ethernet/emulex}/benet/be_cmds.h  |    0
- .../net/{ => ethernet/emulex}/benet/be_ethtool.c   |    0
- drivers/net/{ => ethernet/emulex}/benet/be_hw.h    |    0
- drivers/net/{ => ethernet/emulex}/benet/be_main.c  |    0
- drivers/net/ethernet/ibm/Kconfig                   |   47 ++++
- drivers/net/ethernet/ibm/Makefile                  |    8 +
- drivers/net/{ => ethernet/ibm}/ehea/Makefile       |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea.h         |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_ethtool.c |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_hw.h      |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_main.c    |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.c    |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.h    |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.c     |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.h     |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/Kconfig |   40 ++--
- .../{ibm_newemac => ethernet/ibm/emac}/Makefile    |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/core.c  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/core.h  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/debug.c |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/debug.h |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/emac.h  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/mal.c   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/mal.h   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/phy.c   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/phy.h   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/rgmii.c |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/rgmii.h |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/tah.c   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/tah.h   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/zmii.c  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/zmii.h  |    0
- drivers/net/{ => ethernet/ibm}/ibmveth.c           |    0
- drivers/net/{ => ethernet/ibm}/ibmveth.h           |    0
- drivers/net/{ => ethernet/ibm}/iseries_veth.c      |    0
- drivers/net/ethernet/mellanox/Kconfig              |   22 ++
- drivers/net/ethernet/mellanox/Makefile             |    5 +
- drivers/net/ethernet/mellanox/mlx4/Kconfig         |   27 +++
- drivers/net/{ => ethernet/mellanox}/mlx4/Makefile  |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/alloc.c   |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/catas.c   |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/cmd.c     |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/cq.c      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/en_cq.c   |    0
- .../net/{ => ethernet/mellanox}/mlx4/en_ethtool.c  |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/en_main.c |    0
- .../net/{ => ethernet/mellanox}/mlx4/en_netdev.c   |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/en_port.c |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/en_port.h |    0
- .../{ => ethernet/mellanox}/mlx4/en_resources.c    |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/en_rx.c   |    0
- .../net/{ => ethernet/mellanox}/mlx4/en_selftest.c |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/en_tx.c   |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/eq.c      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/fw.c      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/fw.h      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/icm.c     |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/icm.h     |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/intf.c    |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/main.c    |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/mcg.c     |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/mlx4.h    |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/mlx4_en.h |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/mr.c      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/pd.c      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/port.c    |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/profile.c |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/qp.c      |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/reset.c   |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/sense.c   |    0
- drivers/net/{ => ethernet/mellanox}/mlx4/srq.c     |    0
- drivers/net/ethernet/myricom/Kconfig               |   46 ++++
- drivers/net/ethernet/myricom/Makefile              |    5 +
- .../net/{ => ethernet/myricom}/myri10ge/Makefile   |    0
- .../net/{ => ethernet/myricom}/myri10ge/myri10ge.c |    0
- .../{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h |    0
- .../myricom}/myri10ge/myri10ge_mcp_gen_header.h    |    0
- drivers/net/ethernet/neterion/Kconfig              |   54 +++++
- drivers/net/ethernet/neterion/Makefile             |    6 +
- drivers/net/{ => ethernet/neterion}/s2io-regs.h    |    0
- drivers/net/{ => ethernet/neterion}/s2io.c         |    0
- drivers/net/{ => ethernet/neterion}/s2io.h         |    0
- drivers/net/{ => ethernet/neterion}/vxge/Makefile  |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-config.c |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-config.h |    0
- .../{ => ethernet/neterion}/vxge/vxge-ethtool.c    |    0
- .../{ => ethernet/neterion}/vxge/vxge-ethtool.h    |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-main.c   |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-main.h   |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-reg.h    |    0
- .../{ => ethernet/neterion}/vxge/vxge-traffic.c    |    0
- .../{ => ethernet/neterion}/vxge/vxge-traffic.h    |    0
- .../{ => ethernet/neterion}/vxge/vxge-version.h    |    0
- drivers/net/ethernet/racal/Kconfig                 |   32 +++
- drivers/net/ethernet/racal/Makefile                |    5 +
- drivers/net/{ => ethernet/racal}/ni5010.c          |    0
- drivers/net/{ => ethernet/racal}/ni5010.h          |    0
- drivers/net/{ => ethernet}/sfc/Kconfig             |    4 +-
- drivers/net/{ => ethernet}/sfc/Makefile            |    0
- drivers/net/{ => ethernet}/sfc/bitfield.h          |    0
- drivers/net/{ => ethernet}/sfc/efx.c               |    0
- drivers/net/{ => ethernet}/sfc/efx.h               |    0
- drivers/net/{ => ethernet}/sfc/enum.h              |    0
- drivers/net/{ => ethernet}/sfc/ethtool.c           |    0
- drivers/net/{ => ethernet}/sfc/falcon.c            |    0
- drivers/net/{ => ethernet}/sfc/falcon_boards.c     |    0
- drivers/net/{ => ethernet}/sfc/falcon_xmac.c       |    0
- drivers/net/{ => ethernet}/sfc/filter.c            |    0
- drivers/net/{ => ethernet}/sfc/filter.h            |    0
- drivers/net/{ => ethernet}/sfc/io.h                |    0
- drivers/net/{ => ethernet}/sfc/mac.h               |    0
- drivers/net/{ => ethernet}/sfc/mcdi.c              |    0
- drivers/net/{ => ethernet}/sfc/mcdi.h              |    0
- drivers/net/{ => ethernet}/sfc/mcdi_mac.c          |    0
- drivers/net/{ => ethernet}/sfc/mcdi_pcol.h         |    0
- drivers/net/{ => ethernet}/sfc/mcdi_phy.c          |    0
- drivers/net/{ => ethernet}/sfc/mdio_10g.c          |    0
- drivers/net/{ => ethernet}/sfc/mdio_10g.h          |    0
- drivers/net/{ => ethernet}/sfc/mtd.c               |    0
- drivers/net/{ => ethernet}/sfc/net_driver.h        |    0
- drivers/net/{ => ethernet}/sfc/nic.c               |    0
- drivers/net/{ => ethernet}/sfc/nic.h               |    0
- drivers/net/{ => ethernet}/sfc/phy.h               |    0
- drivers/net/{ => ethernet}/sfc/qt202x_phy.c        |    0
- drivers/net/{ => ethernet}/sfc/regs.h              |    0
- drivers/net/{ => ethernet}/sfc/rx.c                |    0
- drivers/net/{ => ethernet}/sfc/selftest.c          |    0
- drivers/net/{ => ethernet}/sfc/selftest.h          |    0
- drivers/net/{ => ethernet}/sfc/siena.c             |    0
- drivers/net/{ => ethernet}/sfc/spi.h               |    0
- drivers/net/{ => ethernet}/sfc/tenxpress.c         |    0
- drivers/net/{ => ethernet}/sfc/tx.c                |    0
- drivers/net/{ => ethernet}/sfc/txc43128_phy.c      |    0
- drivers/net/{ => ethernet}/sfc/workarounds.h       |    0
- drivers/net/ethernet/sun/Kconfig                   |   86 ++++++++
- drivers/net/ethernet/sun/Makefile                  |   11 +
- drivers/net/{ => ethernet/sun}/cassini.c           |    0
- drivers/net/{ => ethernet/sun}/cassini.h           |    0
- drivers/net/{ => ethernet/sun}/niu.c               |    0
- drivers/net/{ => ethernet/sun}/niu.h               |    0
- drivers/net/{ => ethernet/sun}/sunbmac.c           |    0
- drivers/net/{ => ethernet/sun}/sunbmac.h           |    0
- drivers/net/{ => ethernet/sun}/sungem.c            |    0
- drivers/net/{ => ethernet/sun}/sungem.h            |    0
- drivers/net/{ => ethernet/sun}/sungem_phy.c        |    0
- drivers/net/{ => ethernet/sun}/sungem_phy.h        |    0
- drivers/net/{ => ethernet/sun}/sunhme.c            |    0
- drivers/net/{ => ethernet/sun}/sunhme.h            |    0
- drivers/net/{ => ethernet/sun}/sunqe.c             |    0
- drivers/net/{ => ethernet/sun}/sunqe.h             |    0
- drivers/net/{ => ethernet/sun}/sunvnet.c           |    0
- drivers/net/{ => ethernet/sun}/sunvnet.h           |    0
- drivers/net/spider_net.h                           |    2 +-
- 227 files changed, 521 insertions(+), 286 deletions(-)
- delete mode 100644 drivers/net/benet/Kconfig
- create mode 100644 drivers/net/ethernet/brocade/Kconfig
- create mode 100644 drivers/net/ethernet/brocade/Makefile
- create mode 100644 drivers/net/ethernet/brocade/bna/Kconfig
- rename drivers/net/{ => ethernet/brocade}/bna/Makefile (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_cee.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_cs.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_cna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_mfg_comm.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_defs_status.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfa_ioc_ct.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi_cna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi_ll.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bfi_reg.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_ctrl.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_hw.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_txrx.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bna_types.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bnad.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bnad.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/bnad_ethtool.c (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/cna.h (100%)
- rename drivers/net/{ => ethernet/brocade}/bna/cna_fwimg.c (100%)
- create mode 100644 drivers/net/ethernet/cisco/Kconfig
- create mode 100644 drivers/net/ethernet/cisco/Makefile
- create mode 100644 drivers/net/ethernet/cisco/enic/Kconfig
- rename drivers/net/{ => ethernet/cisco}/enic/Makefile (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/cq_desc.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/cq_enet_desc.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_dev.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_dev.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_main.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_pp.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_pp.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_res.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/enic_res.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/rq_enet_desc.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_cq.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_cq.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_dev.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_dev.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_devcmd.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_enet.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_intr.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_intr.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_nic.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_resource.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_rq.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_rq.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_rss.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_stats.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_vic.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_vic.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_wq.c (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/vnic_wq.h (100%)
- rename drivers/net/{ => ethernet/cisco}/enic/wq_enet_desc.h (100%)
- create mode 100644 drivers/net/ethernet/emulex/Kconfig
- create mode 100644 drivers/net/ethernet/emulex/Makefile
- create mode 100644 drivers/net/ethernet/emulex/benet/Kconfig
- rename drivers/net/{ => ethernet/emulex}/benet/Makefile (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be.h (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_cmds.c (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_cmds.h (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_ethtool.c (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_hw.h (100%)
- rename drivers/net/{ => ethernet/emulex}/benet/be_main.c (100%)
- create mode 100644 drivers/net/ethernet/ibm/Kconfig
- create mode 100644 drivers/net/ethernet/ibm/Makefile
- rename drivers/net/{ => ethernet/ibm}/ehea/Makefile (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_ethtool.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_hw.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_main.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/Kconfig (63%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/Makefile (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/core.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/core.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/debug.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/debug.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/emac.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/mal.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/mal.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/phy.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/phy.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/rgmii.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/rgmii.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/tah.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/tah.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/zmii.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/zmii.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ibmveth.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ibmveth.h (100%)
- rename drivers/net/{ => ethernet/ibm}/iseries_veth.c (100%)
- create mode 100644 drivers/net/ethernet/mellanox/Kconfig
- create mode 100644 drivers/net/ethernet/mellanox/Makefile
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/Kconfig
- rename drivers/net/{ => ethernet/mellanox}/mlx4/Makefile (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/alloc.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/catas.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/cmd.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/cq.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_cq.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_ethtool.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_main.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_netdev.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_port.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_port.h (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_resources.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_rx.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_selftest.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/en_tx.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/eq.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/fw.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/fw.h (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/icm.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/icm.h (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/intf.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/main.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/mcg.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/mlx4.h (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/mlx4_en.h (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/mr.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/pd.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/port.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/profile.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/qp.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/reset.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/sense.c (100%)
- rename drivers/net/{ => ethernet/mellanox}/mlx4/srq.c (100%)
- create mode 100644 drivers/net/ethernet/myricom/Kconfig
- create mode 100644 drivers/net/ethernet/myricom/Makefile
- rename drivers/net/{ => ethernet/myricom}/myri10ge/Makefile (100%)
- rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge.c (100%)
- rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h (100%)
- rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp_gen_header.h (100%)
- create mode 100644 drivers/net/ethernet/neterion/Kconfig
- create mode 100644 drivers/net/ethernet/neterion/Makefile
- rename drivers/net/{ => ethernet/neterion}/s2io-regs.h (100%)
- rename drivers/net/{ => ethernet/neterion}/s2io.c (100%)
- rename drivers/net/{ => ethernet/neterion}/s2io.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/Makefile (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-reg.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-version.h (100%)
- create mode 100644 drivers/net/ethernet/racal/Kconfig
- create mode 100644 drivers/net/ethernet/racal/Makefile
- rename drivers/net/{ => ethernet/racal}/ni5010.c (100%)
- rename drivers/net/{ => ethernet/racal}/ni5010.h (100%)
+CC: Steve Hodgson <shodgson@solarflare.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ MAINTAINERS                                    |    2 +-
+ drivers/net/Kconfig                            |    2 --
+ drivers/net/Makefile                           |    1 -
+ drivers/net/ethernet/Kconfig                   |    1 +
+ drivers/net/ethernet/Makefile                  |    1 +
+ drivers/net/{ => ethernet}/sfc/Kconfig         |    4 ++--
+ drivers/net/{ => ethernet}/sfc/Makefile        |    0
+ drivers/net/{ => ethernet}/sfc/bitfield.h      |    0
+ drivers/net/{ => ethernet}/sfc/efx.c           |    0
+ drivers/net/{ => ethernet}/sfc/efx.h           |    0
+ drivers/net/{ => ethernet}/sfc/enum.h          |    0
+ drivers/net/{ => ethernet}/sfc/ethtool.c       |    0
+ drivers/net/{ => ethernet}/sfc/falcon.c        |    0
+ drivers/net/{ => ethernet}/sfc/falcon_boards.c |    0
+ drivers/net/{ => ethernet}/sfc/falcon_xmac.c   |    0
+ drivers/net/{ => ethernet}/sfc/filter.c        |    0
+ drivers/net/{ => ethernet}/sfc/filter.h        |    0
+ drivers/net/{ => ethernet}/sfc/io.h            |    0
+ drivers/net/{ => ethernet}/sfc/mac.h           |    0
+ drivers/net/{ => ethernet}/sfc/mcdi.c          |    0
+ drivers/net/{ => ethernet}/sfc/mcdi.h          |    0
+ drivers/net/{ => ethernet}/sfc/mcdi_mac.c      |    0
+ drivers/net/{ => ethernet}/sfc/mcdi_pcol.h     |    0
+ drivers/net/{ => ethernet}/sfc/mcdi_phy.c      |    0
+ drivers/net/{ => ethernet}/sfc/mdio_10g.c      |    0
+ drivers/net/{ => ethernet}/sfc/mdio_10g.h      |    0
+ drivers/net/{ => ethernet}/sfc/mtd.c           |    0
+ drivers/net/{ => ethernet}/sfc/net_driver.h    |    0
+ drivers/net/{ => ethernet}/sfc/nic.c           |    0
+ drivers/net/{ => ethernet}/sfc/nic.h           |    0
+ drivers/net/{ => ethernet}/sfc/phy.h           |    0
+ drivers/net/{ => ethernet}/sfc/qt202x_phy.c    |    0
+ drivers/net/{ => ethernet}/sfc/regs.h          |    0
+ drivers/net/{ => ethernet}/sfc/rx.c            |    0
+ drivers/net/{ => ethernet}/sfc/selftest.c      |    0
+ drivers/net/{ => ethernet}/sfc/selftest.h      |    0
+ drivers/net/{ => ethernet}/sfc/siena.c         |    0
+ drivers/net/{ => ethernet}/sfc/spi.h           |    0
+ drivers/net/{ => ethernet}/sfc/tenxpress.c     |    0
+ drivers/net/{ => ethernet}/sfc/tx.c            |    0
+ drivers/net/{ => ethernet}/sfc/txc43128_phy.c  |    0
+ drivers/net/{ => ethernet}/sfc/workarounds.h   |    0
+ 42 files changed, 5 insertions(+), 6 deletions(-)
  rename drivers/net/{ => ethernet}/sfc/Kconfig (96%)
  rename drivers/net/{ => ethernet}/sfc/Makefile (100%)
  rename drivers/net/{ => ethernet}/sfc/bitfield.h (100%)
@@ -464,25 +104,237 @@ Jeff Kirsher (10):
  rename drivers/net/{ => ethernet}/sfc/tx.c (100%)
  rename drivers/net/{ => ethernet}/sfc/txc43128_phy.c (100%)
  rename drivers/net/{ => ethernet}/sfc/workarounds.h (100%)
- create mode 100644 drivers/net/ethernet/sun/Kconfig
- create mode 100644 drivers/net/ethernet/sun/Makefile
- rename drivers/net/{ => ethernet/sun}/cassini.c (100%)
- rename drivers/net/{ => ethernet/sun}/cassini.h (100%)
- rename drivers/net/{ => ethernet/sun}/niu.c (100%)
- rename drivers/net/{ => ethernet/sun}/niu.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunbmac.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunbmac.h (100%)
- rename drivers/net/{ => ethernet/sun}/sungem.c (100%)
- rename drivers/net/{ => ethernet/sun}/sungem.h (100%)
- rename drivers/net/{ => ethernet/sun}/sungem_phy.c (100%)
- rename drivers/net/{ => ethernet/sun}/sungem_phy.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunhme.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunhme.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunqe.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunqe.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunvnet.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunvnet.h (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1cb72da..5a4c875 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5754,7 +5754,7 @@ M:	Steve Hodgson <shodgson@solarflare.com>
+ M:	Ben Hutchings <bhutchings@solarflare.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+-F:	drivers/net/sfc/
++F:	drivers/net/ethernet/sfc/
+ 
+ SGI GRU DRIVER
+ M:	Jack Steiner <steiner@sgi.com>
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 7977002..fe22712 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1598,8 +1598,6 @@ config BNA
+ 
+ 	  <http://support.brocade.com>
+ 
+-source "drivers/net/sfc/Kconfig"
+-
+ source "drivers/net/benet/Kconfig"
+ 
+ endif # NETDEV_10000
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index cfbb060..faf3068 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -201,7 +201,6 @@ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+ obj-$(CONFIG_FS_ENET) += fs_enet/
+ 
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+-obj-$(CONFIG_SFC) += sfc/
+ 
+ obj-$(CONFIG_WIMAX) += wimax/
+ obj-$(CONFIG_CAIF) += caif/
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 5edd237..0bc6635 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -20,6 +20,7 @@ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
++source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
+ 
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index 18d8a89..50faab5 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -11,5 +11,6 @@ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
++obj-$(CONFIG_SFC) += sfc/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+diff --git a/drivers/net/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
+similarity index 96%
+rename from drivers/net/sfc/Kconfig
+rename to drivers/net/ethernet/sfc/Kconfig
+index a3d5bb9..5d18841 100644
+--- a/drivers/net/sfc/Kconfig
++++ b/drivers/net/ethernet/sfc/Kconfig
+@@ -5,7 +5,7 @@ config SFC
+ 	select CRC32
+ 	select I2C
+ 	select I2C_ALGOBIT
+-	help
++	---help---
+ 	  This driver supports 10-gigabit Ethernet cards based on
+ 	  the Solarflare SFC4000 and SFC9000-family controllers.
+ 
+@@ -15,7 +15,7 @@ config SFC_MTD
+ 	bool "Solarflare SFC4000/SFC9000-family MTD support"
+ 	depends on SFC && MTD && !(SFC=y && MTD=m)
+ 	default y
+-	help
++	---help---
+ 	  This exposes the on-board flash memory as MTD devices (e.g.
+ 	  /dev/mtd1).  This makes it possible to upload new firmware
+ 	  to the NIC.
+diff --git a/drivers/net/sfc/Makefile b/drivers/net/ethernet/sfc/Makefile
+similarity index 100%
+rename from drivers/net/sfc/Makefile
+rename to drivers/net/ethernet/sfc/Makefile
+diff --git a/drivers/net/sfc/bitfield.h b/drivers/net/ethernet/sfc/bitfield.h
+similarity index 100%
+rename from drivers/net/sfc/bitfield.h
+rename to drivers/net/ethernet/sfc/bitfield.h
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+similarity index 100%
+rename from drivers/net/sfc/efx.c
+rename to drivers/net/ethernet/sfc/efx.c
+diff --git a/drivers/net/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+similarity index 100%
+rename from drivers/net/sfc/efx.h
+rename to drivers/net/ethernet/sfc/efx.h
+diff --git a/drivers/net/sfc/enum.h b/drivers/net/ethernet/sfc/enum.h
+similarity index 100%
+rename from drivers/net/sfc/enum.h
+rename to drivers/net/ethernet/sfc/enum.h
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+similarity index 100%
+rename from drivers/net/sfc/ethtool.c
+rename to drivers/net/ethernet/sfc/ethtool.c
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+similarity index 100%
+rename from drivers/net/sfc/falcon.c
+rename to drivers/net/ethernet/sfc/falcon.c
+diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/ethernet/sfc/falcon_boards.c
+similarity index 100%
+rename from drivers/net/sfc/falcon_boards.c
+rename to drivers/net/ethernet/sfc/falcon_boards.c
+diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/ethernet/sfc/falcon_xmac.c
+similarity index 100%
+rename from drivers/net/sfc/falcon_xmac.c
+rename to drivers/net/ethernet/sfc/falcon_xmac.c
+diff --git a/drivers/net/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
+similarity index 100%
+rename from drivers/net/sfc/filter.c
+rename to drivers/net/ethernet/sfc/filter.c
+diff --git a/drivers/net/sfc/filter.h b/drivers/net/ethernet/sfc/filter.h
+similarity index 100%
+rename from drivers/net/sfc/filter.h
+rename to drivers/net/ethernet/sfc/filter.h
+diff --git a/drivers/net/sfc/io.h b/drivers/net/ethernet/sfc/io.h
+similarity index 100%
+rename from drivers/net/sfc/io.h
+rename to drivers/net/ethernet/sfc/io.h
+diff --git a/drivers/net/sfc/mac.h b/drivers/net/ethernet/sfc/mac.h
+similarity index 100%
+rename from drivers/net/sfc/mac.h
+rename to drivers/net/ethernet/sfc/mac.h
+diff --git a/drivers/net/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+similarity index 100%
+rename from drivers/net/sfc/mcdi.c
+rename to drivers/net/ethernet/sfc/mcdi.c
+diff --git a/drivers/net/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+similarity index 100%
+rename from drivers/net/sfc/mcdi.h
+rename to drivers/net/ethernet/sfc/mcdi.h
+diff --git a/drivers/net/sfc/mcdi_mac.c b/drivers/net/ethernet/sfc/mcdi_mac.c
+similarity index 100%
+rename from drivers/net/sfc/mcdi_mac.c
+rename to drivers/net/ethernet/sfc/mcdi_mac.c
+diff --git a/drivers/net/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+similarity index 100%
+rename from drivers/net/sfc/mcdi_pcol.h
+rename to drivers/net/ethernet/sfc/mcdi_pcol.h
+diff --git a/drivers/net/sfc/mcdi_phy.c b/drivers/net/ethernet/sfc/mcdi_phy.c
+similarity index 100%
+rename from drivers/net/sfc/mcdi_phy.c
+rename to drivers/net/ethernet/sfc/mcdi_phy.c
+diff --git a/drivers/net/sfc/mdio_10g.c b/drivers/net/ethernet/sfc/mdio_10g.c
+similarity index 100%
+rename from drivers/net/sfc/mdio_10g.c
+rename to drivers/net/ethernet/sfc/mdio_10g.c
+diff --git a/drivers/net/sfc/mdio_10g.h b/drivers/net/ethernet/sfc/mdio_10g.h
+similarity index 100%
+rename from drivers/net/sfc/mdio_10g.h
+rename to drivers/net/ethernet/sfc/mdio_10g.h
+diff --git a/drivers/net/sfc/mtd.c b/drivers/net/ethernet/sfc/mtd.c
+similarity index 100%
+rename from drivers/net/sfc/mtd.c
+rename to drivers/net/ethernet/sfc/mtd.c
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+similarity index 100%
+rename from drivers/net/sfc/net_driver.h
+rename to drivers/net/ethernet/sfc/net_driver.h
+diff --git a/drivers/net/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+similarity index 100%
+rename from drivers/net/sfc/nic.c
+rename to drivers/net/ethernet/sfc/nic.c
+diff --git a/drivers/net/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+similarity index 100%
+rename from drivers/net/sfc/nic.h
+rename to drivers/net/ethernet/sfc/nic.h
+diff --git a/drivers/net/sfc/phy.h b/drivers/net/ethernet/sfc/phy.h
+similarity index 100%
+rename from drivers/net/sfc/phy.h
+rename to drivers/net/ethernet/sfc/phy.h
+diff --git a/drivers/net/sfc/qt202x_phy.c b/drivers/net/ethernet/sfc/qt202x_phy.c
+similarity index 100%
+rename from drivers/net/sfc/qt202x_phy.c
+rename to drivers/net/ethernet/sfc/qt202x_phy.c
+diff --git a/drivers/net/sfc/regs.h b/drivers/net/ethernet/sfc/regs.h
+similarity index 100%
+rename from drivers/net/sfc/regs.h
+rename to drivers/net/ethernet/sfc/regs.h
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+similarity index 100%
+rename from drivers/net/sfc/rx.c
+rename to drivers/net/ethernet/sfc/rx.c
+diff --git a/drivers/net/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+similarity index 100%
+rename from drivers/net/sfc/selftest.c
+rename to drivers/net/ethernet/sfc/selftest.c
+diff --git a/drivers/net/sfc/selftest.h b/drivers/net/ethernet/sfc/selftest.h
+similarity index 100%
+rename from drivers/net/sfc/selftest.h
+rename to drivers/net/ethernet/sfc/selftest.h
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+similarity index 100%
+rename from drivers/net/sfc/siena.c
+rename to drivers/net/ethernet/sfc/siena.c
+diff --git a/drivers/net/sfc/spi.h b/drivers/net/ethernet/sfc/spi.h
+similarity index 100%
+rename from drivers/net/sfc/spi.h
+rename to drivers/net/ethernet/sfc/spi.h
+diff --git a/drivers/net/sfc/tenxpress.c b/drivers/net/ethernet/sfc/tenxpress.c
+similarity index 100%
+rename from drivers/net/sfc/tenxpress.c
+rename to drivers/net/ethernet/sfc/tenxpress.c
+diff --git a/drivers/net/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+similarity index 100%
+rename from drivers/net/sfc/tx.c
+rename to drivers/net/ethernet/sfc/tx.c
+diff --git a/drivers/net/sfc/txc43128_phy.c b/drivers/net/ethernet/sfc/txc43128_phy.c
+similarity index 100%
+rename from drivers/net/sfc/txc43128_phy.c
+rename to drivers/net/ethernet/sfc/txc43128_phy.c
+diff --git a/drivers/net/sfc/workarounds.h b/drivers/net/ethernet/sfc/workarounds.h
+similarity index 100%
+rename from drivers/net/sfc/workarounds.h
+rename to drivers/net/ethernet/sfc/workarounds.h
 -- 
 1.7.6
 
