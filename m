@@ -1,92 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.35.11 bridge drops fragmented packets
-Date: Thu, 11 Aug 2011 16:17:10 +0200
-Message-ID: <1313072230.3261.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1313066585.14145.18.camel@ierdnac-hp>
-	 <1313069946.3261.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1313070275.814.2.camel@ierdnac-hp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ierdnah@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54009 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751241Ab1HKORL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 10:17:11 -0400
-Received: by wwf5 with SMTP id 5so2093377wwf.1
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2011 07:17:10 -0700 (PDT)
-In-Reply-To: <1313070275.814.2.camel@ierdnac-hp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le jeudi 11 ao=C3=BBt 2011 =C3=A0 16:44 +0300, Andrei Popa a =C3=A9crit=
- :
-> On Thu, 2011-08-11 at 15:39 +0200, Eric Dumazet wrote:=20
-> > Le jeudi 11 ao=C3=BBt 2011 =C3=A0 15:43 +0300, Andrei Popa a =C3=A9=
-crit :
-> > > Hello,
-> > >=20
-> > > We've got a problem with kernel 2.6.35.11 as it does not forward
-> > > fragmented packets on a bridge.
-> > > I've seen this thread
-> > > http://lkml.indiana.edu/hypermail/linux/kernel/0604.0/0201.html a=
-nd I
-> > > thought to email you.
-> > >=20
-> > > The command "echo 0 > /proc/sys/net/bridge/bridge-nf-call-iptable=
-s"
-> > > fixes the problem.
-> > >=20
-> > > The config from the kernel is attached.
-> > > The network configuration is as follows:
-> > > cisco, interace in mode trunk with allowed vlan 1501,299 -> linux=
- ->
-> > > cisco, interface in mode trunk with allowed vlan 1501
-> > >=20
-> > > The MTU on cisco and on linux interfaces is set to 1500.
-> > > Packets with size 1500 and no fragments are forwarded succesfully=
-,
-> > > packets with size 1500 and fragments are not forwaded.
-> > > On linux it's a bond comprised of eth1.1501 and eth0.1501.
-> > > root@shaper_b2b_bucuresti:~# brctl show
-> > > bridge name     bridge id               STP enabled     interface=
-s
-> > > br1501          8000.0015170ae7b8       no              eth0.1501
-> > >                                                         eth1.1501
-> > > I cand see the fragmented packets arriving on eth0 and eth0.1501 =
-but I
-> > > don't see them leaving on eth1 or eth1.1501.
-> > >=20
-> > > Andrei
-> > >=20
-> >=20
-> > Could you give us output of 'netstat -s' to check if IP defrag drop=
-s
-> > some packets ?
-> root@shaper_b2b_bucuresti:~# echo 1
-> > /proc/sys/net/bridge/bridge-nf-call-iptables
->=20
-> On a server behind the shaper:
->=20
-> nl2 ~ # ping -s 65000 lg.telia.net
-> PING juniperlg1-sn4.m-sp.skanova.net (81.228.10.74) 65000(65028) byte=
-s
-> of data.
-> ^C
-> ---=20
-
-65000 bytes means 43 frames, and your network seems a bit busy.
-
-If _one_ frame is lost (becasue of shaping for example), IP
-fragmentation in bridge will fail -> all frames are discarded.
-
-Could you try with "-s 2000" ?
-
-I could not reproduce your problem on my dev machine (admitidly using a
-more recent kernel)
+From: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
+Date: Thu, 11 Aug 2011 09:17:44 -0500
+Message-ID: <46C9B419-6B1F-4070-8D57-05763EF27C9C@kernel.crashing.org>
+References: <1312993670-23999-1-git-send-email-holt@sgi.com>
+	<1312993670-23999-5-git-send-email-holt@sgi.com>
+	<8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>
+	<4E42CB01.7030700@grandegger.com>
+	<634AB7A6-1CDA-41B3-8A5D-01F29EF01521@kernel.crashing.org>
+	<20110811104252.GC4926@sgi.com>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110811104252.GC4926-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
+On Aug 11, 2011, at 5:42 AM, Robin Holt wrote:
 
+> On Wed, Aug 10, 2011 at 11:46:27PM -0500, Kumar Gala wrote:
+>> 
+>> On Aug 10, 2011, at 1:16 PM, Wolfgang Grandegger wrote:
+>> 
+>>> On 08/10/2011 07:01 PM, Kumar Gala wrote:
+>>>> 
+>>>> On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
+>>>> 
+>>>>> I added a simple clock source for the p1010rdb so the flexcan driver
+>>>>> could determine a clock frequency.  The p1010 flexcan device only has
+>>>>> an oscillator of system bus frequency divided by 2.
+>>>>> 
+>>>>> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+>>>>> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+>>>>> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+>>>>> Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+>>>>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+>>>>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+>>>>> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+>>>>> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+>>>>> ---
+>>>>> arch/powerpc/platforms/85xx/Kconfig    |    2 +
+>>>>> arch/powerpc/platforms/85xx/Makefile   |    2 +
+>>>>> arch/powerpc/platforms/85xx/clock.c    |   52 ++++++++++++++++++++++++++++++++
+>>>>> arch/powerpc/platforms/85xx/p1010rdb.c |    8 +++++
+>>>>> 4 files changed, 64 insertions(+), 0 deletions(-)
+>>>>> create mode 100644 arch/powerpc/platforms/85xx/clock.c
+>>>> 
+>>>> I dont understand how mpc85xx_clk_functions() ends up being associated with the frequency the flexcan is running at.
+>>> 
+>>> The function mpc85xx_clk_get_rate() returns "fsl_get_sys_freq() / 2" for
+>>> Flexcan devices.
+>>> 
+>>>> This either seems to global or I'm missing something.
+>>> 
+>>> This patch extends the existing Flexcan platform driver for ARM for the
+>>> PowerPC using the device tree. Due to the nice integration of the device
+>>> tree (of-platform) into the platform driver and devices, the difference
+>>> are quite small (see patches 1..3). Apart from the endianess issue, only
+>>> the clock needs to be handled in a common way. As ARM already uses the
+>>> clk interface, we found it straight-forward to implement it for the
+>>> P1010, or more general for the 85xx, as well, instead of using an
+>>> additional helper function.
+>> 
+>> I see, that.  What concerns me is there are numerous clocks /
+>> frequencies that exist inside a MPC85xx/P1010 SOC.  The code I'm seeing
+>> does NOT seem to do anything to relate this clock JUST to the flexcan.
+> 
+>        if (!dev->of_node ||
+>            !of_device_is_compatible(dev->of_node, "fsl,flexcan"))
+>                return ERR_PTR(-ENOENT);
+> 
+> That should relate it just to flexcan, right?  Plus it has the added
+> benefit of being a baby-step in the direction of implementing a clkdev
+> type thing for powerpc which did look fairly slick to me, but I may
+> be confused.
+> 
+> It sounds like Wolfgang is defering to you.  Give it an honest evaluation
+> and tell me which direction you would like me to go.  I don't have a
+> strong preference either way.  The alternative I gave to Wolfgang of
+> using a flexcan property to avoid needing any clk_get_rate seems fairly
+> hackish at this point, but I have had more time to get used to the
+> 'hack in a 85xx clock' method.
 
+For some time we've been adding 'clock-frequency' nodes in the device tree to abstract having to know this headache in the kernel and adding a bunch of SoC specific code all the time.  So pushing this to the firmware is exactly where we want it for FSL PPC SoCs.
+
+We need to make sure the device tree binding has details on a 'clock-frequency' property.
+
+- k
