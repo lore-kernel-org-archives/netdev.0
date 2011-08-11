@@ -1,41 +1,89 @@
-From: Renato Westphal <renatowestphal@gmail.com>
-Subject: Move interface across network namespaces
-Date: Wed, 10 Aug 2011 21:31:39 -0300
-Message-ID: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] drivers/net/ethernet: Add ethernet dir and config option
+Date: Wed, 10 Aug 2011 20:27:49 -0700
+Message-ID: <1313033278-7337-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@tredhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:60196 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019Ab1HKAbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2011 20:31:40 -0400
-Received: by vws1 with SMTP id 1so1320669vws.19
-        for <netdev@vger.kernel.org>; Wed, 10 Aug 2011 17:31:39 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:54295 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753930Ab1HKD2B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2011 23:28:01 -0400
+In-Reply-To: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This is the initial patch to organize the drivers/net directory
+structure and networking device driver config options.  This patch
+does the following:
+  - add drivers/net/ethernet/Kconfig
+  - integrate the new files into the existing config
 
-I have two questions regarding the process of moving a network
-interface across different network namespaces:
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/Kconfig           |    2 ++
+ drivers/net/Makefile          |    2 +-
+ drivers/net/ethernet/Kconfig  |   14 ++++++++++++++
+ drivers/net/ethernet/Makefile |    3 +++
+ 4 files changed, 20 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/net/ethernet/Kconfig
+ create mode 100644 drivers/net/ethernet/Makefile
 
-* When I move an interface, all the virtual interfaces attached to it
-are deleted. Is there any reason for such odd behavior? I would like
-to move some network interfaces and keep the attached vlans untouched.
-
-* The target network namespace sends a RTM_NEWLINK netlink message
-when an interface is moved to it. In the other hand, the source
-network namespace doesn't sends a RTM_DELLINK message when an
-interface is moved from it. This is very annoying because user space
-applications (such as zebra) can't detect some interface moving
-operations and then get into an inconsistent state. Anyone knows if
-there's a workaround for this?
-
-Any help would be appreciated.
-
-Best Regards,
-Renato.
-
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 8d0314d..5b95796 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -193,6 +193,8 @@ source "drivers/net/phy/Kconfig"
+ #	Ethernet
+ #
+ 
++source "drivers/net/ethernet/Kconfig"
++
+ menuconfig NET_ETHERNET
+ 	bool "Ethernet (10 or 100Mbit)"
+ 	depends on !UML
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index e1eca2a..670b514 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -1,5 +1,5 @@
+ #
+-# Makefile for the Linux network (ethercard) device drivers.
++# Makefile for the Linux network device drivers.
+ #
+ 
+ obj-$(CONFIG_MII) += mii.o
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+new file mode 100644
+index 0000000..d59e4f2
+--- /dev/null
++++ b/drivers/net/ethernet/Kconfig
+@@ -0,0 +1,14 @@
++#
++# Ethernet LAN device configuration
++#
++
++menuconfig ETHERNET
++	bool "Ethernet driver support"
++	depends on NET
++	default y
++	---help---
++	  This section contains all the Ethernet device drivers.
++
++if ETHERNET
++
++endif # ETHERNET
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+new file mode 100644
+index 0000000..0d21dda
+--- /dev/null
++++ b/drivers/net/ethernet/Makefile
+@@ -0,0 +1,3 @@
++#
++# Makefile for the Linux network Ethernet device drivers.
++#
 -- 
-Renato Westphal
+1.7.6
+
