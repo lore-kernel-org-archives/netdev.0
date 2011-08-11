@@ -1,290 +1,518 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/10] s2io/vxge: Move the Exar drivers
-Date: Thu, 11 Aug 2011 02:51:32 -0700
-Message-ID: <1313056294-28426-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] ehea/ibm*: Move the IBM drivers
+Date: Thu, 11 Aug 2011 02:51:33 -0700
+Message-ID: <1313056294-28426-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, Jon Mason <jdmason@kudzu.us>
+	gospo@redhat.com, sassmann@redhat.com,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Santiago Leon <santil@linux.vnet.ibm.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	David Gibson <dwg@au1.ibm.com>, Kyle Lucke <klucke@us.ibm.com>,
+	Michael Ellerman <michael@ellerman.id.au>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26123 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:33305 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755005Ab1HKJvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754965Ab1HKJvn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 11 Aug 2011 05:51:43 -0400
 In-Reply-To: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Exar drivers into drivers/net/ethernet/neterion/ and make the
+Move the IBM drivers into drivers/net/ethernet/ibm/ and make the
 necessary Kconfig and Makefile changes.
 
-CC: Jon Mason <jdmason@kudzu.us>
+- Renamed ibm_new_emac to emac
+- Cleaned up Makefile and Kconfig options which referred to
+  IBM_NEW_EMAC to IBM_EMAC
+- ibmlana driver is a National Semiconductor SONIC driver so
+  it was not moved
+
+CC: Christoph Raisch <raisch@de.ibm.com>
+CC: Santiago Leon <santil@linux.vnet.ibm.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: David Gibson <dwg@au1.ibm.com>
+CC: Kyle Lucke <klucke@us.ibm.com>
+CC: Michael Ellerman <michael@ellerman.id.au>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    3 +-
- drivers/net/Kconfig                                |   34 ------------
- drivers/net/Makefile                               |    2 -
+ MAINTAINERS                                        |    4 +-
+ drivers/net/Kconfig                                |   26 -----------
+ drivers/net/Makefile                               |    4 --
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/neterion/Kconfig              |   54 ++++++++++++++++++++
- drivers/net/ethernet/neterion/Makefile             |    6 ++
- drivers/net/{ => ethernet/neterion}/s2io-regs.h    |    0
- drivers/net/{ => ethernet/neterion}/s2io.c         |    0
- drivers/net/{ => ethernet/neterion}/s2io.h         |    0
- drivers/net/{ => ethernet/neterion}/vxge/Makefile  |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-config.c |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-config.h |    0
- .../{ => ethernet/neterion}/vxge/vxge-ethtool.c    |    0
- .../{ => ethernet/neterion}/vxge/vxge-ethtool.h    |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-main.c   |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-main.h   |    0
- .../net/{ => ethernet/neterion}/vxge/vxge-reg.h    |    0
- .../{ => ethernet/neterion}/vxge/vxge-traffic.c    |    0
- .../{ => ethernet/neterion}/vxge/vxge-traffic.h    |    0
- .../{ => ethernet/neterion}/vxge/vxge-version.h    |    0
- 21 files changed, 63 insertions(+), 38 deletions(-)
- create mode 100644 drivers/net/ethernet/neterion/Kconfig
- create mode 100644 drivers/net/ethernet/neterion/Makefile
- rename drivers/net/{ => ethernet/neterion}/s2io-regs.h (100%)
- rename drivers/net/{ => ethernet/neterion}/s2io.c (100%)
- rename drivers/net/{ => ethernet/neterion}/s2io.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/Makefile (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-config.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-ethtool.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-main.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-reg.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.c (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-traffic.h (100%)
- rename drivers/net/{ => ethernet/neterion}/vxge/vxge-version.h (100%)
+ drivers/net/ethernet/ibm/Kconfig                   |   47 ++++++++++++++++++++
+ drivers/net/ethernet/ibm/Makefile                  |    8 +++
+ drivers/net/{ => ethernet/ibm}/ehea/Makefile       |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea.h         |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_ethtool.c |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_hw.h      |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_main.c    |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.c    |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.h    |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.c     |    0
+ drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.h     |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/Kconfig |   40 ++++++++--------
+ .../{ibm_newemac => ethernet/ibm/emac}/Makefile    |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/core.c  |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/core.h  |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/debug.c |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/debug.h |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/emac.h  |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/mal.c   |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/mal.h   |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/phy.c   |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/phy.h   |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/rgmii.c |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/rgmii.h |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/tah.c   |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/tah.h   |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/zmii.c  |    0
+ .../net/{ibm_newemac => ethernet/ibm/emac}/zmii.h  |    0
+ drivers/net/{ => ethernet/ibm}/ibmveth.c           |    0
+ drivers/net/{ => ethernet/ibm}/ibmveth.h           |    0
+ drivers/net/{ => ethernet/ibm}/iseries_veth.c      |    0
+ 36 files changed, 79 insertions(+), 52 deletions(-)
+ create mode 100644 drivers/net/ethernet/ibm/Kconfig
+ create mode 100644 drivers/net/ethernet/ibm/Makefile
+ rename drivers/net/{ => ethernet/ibm}/ehea/Makefile (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea.h (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_hw.h (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_main.c (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.c (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.h (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.c (100%)
+ rename drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/Kconfig (63%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/Makefile (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/core.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/core.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/debug.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/debug.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/emac.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/mal.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/mal.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/phy.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/phy.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/rgmii.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/rgmii.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/tah.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/tah.h (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/zmii.c (100%)
+ rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/zmii.h (100%)
+ rename drivers/net/{ => ethernet/ibm}/ibmveth.c (100%)
+ rename drivers/net/{ => ethernet/ibm}/ibmveth.h (100%)
+ rename drivers/net/{ => ethernet/ibm}/iseries_veth.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 0a5ae23..bcfc144 100644
+index bcfc144..2fcfa8b 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4380,9 +4380,8 @@ W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
- W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
- S:	Supported
- F:	Documentation/networking/s2io.txt
--F:	drivers/net/s2io*
- F:	Documentation/networking/vxge.txt
--F:	drivers/net/vxge/
-+F:	drivers/net/ethernet/neterion/
+@@ -2465,7 +2465,7 @@ EHEA (IBM pSeries eHEA 10Gb ethernet adapter) DRIVER
+ M:	Breno Leitao <leitao@linux.vnet.ibm.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/ehea/
++F:	drivers/net/ethernet/ibm/ehea/
  
- NETFILTER/IPTABLES/IPCHAINS
- P:	Rusty Russell
+ EMBEDDED LINUX
+ M:	Paul Gortmaker <paul.gortmaker@windriver.com>
+@@ -3163,7 +3163,7 @@ IBM Power Virtual Ethernet Device Driver
+ M:	Santiago Leon <santil@linux.vnet.ibm.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+-F:	drivers/net/ibmveth.*
++F:	drivers/net/ethernet/ibm/ibmveth.*
+ 
+ IBM ServeRAID RAID DRIVER
+ P:	Jack Hammer
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 38fcaea..3e216b3 100644
+index 3e216b3..116f744 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1485,40 +1485,6 @@ config ENIC
- 	help
- 	  This enables the support for the Cisco VIC Ethernet card.
+@@ -627,18 +627,6 @@ config IBMLANA
+ 	  boards with this driver should be possible, but has not been tested
+ 	  up to now due to lack of hardware.
  
--config S2IO
--	tristate "Exar Xframe 10Gb Ethernet Adapter"
--	depends on PCI
+-config IBMVETH
+-	tristate "IBM LAN Virtual Ethernet support"
+-	depends on PPC_PSERIES
 -	---help---
--	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
+-	  This driver supports virtual ethernet adapters on newer IBM iSeries
+-	  and pSeries systems.
 -
--	  More specific information on configuring the driver is in 
--	  <file:Documentation/networking/s2io.txt>.
+-	  To compile this driver as a module, choose M here. The module will
+-	  be called ibmveth.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called s2io.
+-source "drivers/net/ibm_newemac/Kconfig"
 -
--config VXGE
--	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
--	depends on PCI && INET
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
+@@ -1469,16 +1457,6 @@ if NETDEV_10000
+ config MDIO
+ 	tristate
+ 
+-config EHEA
+-	tristate "eHEA Ethernet support"
+-	depends on IBMEBUS && INET && SPARSEMEM
+-	select INET_LRO
 -	---help---
--	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
--	  I/O Virtualized Server Adapter.
+-	  This driver supports the IBM pSeries eHEA ethernet adapter.
 -
--	  More specific information on configuring the driver is in
--	  <file:Documentation/networking/vxge.txt>.
+-	  To compile the driver as a module, choose M here. The module
+-	  will be called ehea.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called vxge.
+ config ENIC
+ 	tristate "Cisco VIC Ethernet NIC Support"
+ 	depends on PCI && INET
+@@ -1573,10 +1551,6 @@ config XEN_NETDEV_BACKEND
+ 	  compile this driver as a module, chose M here: the module
+ 	  will be called xen-netback.
+ 
+-config ISERIES_VETH
+-	tristate "iSeries Virtual Ethernet driver support"
+-	depends on PPC_ISERIES
 -
--config VXGE_DEBUG_TRACE_ALL
--	bool "Enabling All Debug trace statments in driver"
--	default n
--	depends on VXGE
--	---help---
--	  Say Y here if you want to enabling all the debug trace statements in
--	  the vxge driver. By default only few debug trace statements are
--	  enabled.
--
- config PASEMI_MAC
- 	tristate "PA Semi 1/10Gbit MAC"
- 	depends on PPC_PASEMI && PCI && INET
+ config RIONET
+ 	tristate "RapidIO Ethernet over messaging driver support"
+ 	depends on RAPIDIO
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index b9e1f5a..d28c153e 100644
+index d28c153e..54146ed 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -149,8 +149,6 @@ obj-$(CONFIG_NET_NETX) += netx-eth.o
+@@ -10,9 +10,7 @@ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
+ obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
+ obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
+ 
+-obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
+ obj-$(CONFIG_IP1000) += ipg.o
+-obj-$(CONFIG_EHEA) += ehea/
+ obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_ATL1) += atlx/
+@@ -50,7 +48,6 @@ obj-$(CONFIG_SIS190) += sis190.o
+ obj-$(CONFIG_SIS900) += sis900.o
+ obj-$(CONFIG_R6040) += r6040.o
+ obj-$(CONFIG_YELLOWFIN) += yellowfin.o
+-obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
+ obj-$(CONFIG_NATSEMI) += natsemi.o
+ obj-$(CONFIG_NS83820) += ns83820.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+@@ -148,7 +145,6 @@ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
  obj-$(CONFIG_DL2K) += dl2k.o
  obj-$(CONFIG_R8169) += r8169.o
- obj-$(CONFIG_IBMVETH) += ibmveth.o
--obj-$(CONFIG_S2IO) += s2io.o
--obj-$(CONFIG_VXGE) += vxge/
+-obj-$(CONFIG_IBMVETH) += ibmveth.o
  obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
  obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
  obj-$(CONFIG_DM9000) += dm9000.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index ce3040d..1a39ec0 100644
+index 1a39ec0..f23f1b2 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -18,6 +18,7 @@ source "drivers/net/ethernet/broadcom/Kconfig"
- source "drivers/net/ethernet/brocade/Kconfig"
+@@ -19,6 +19,7 @@ source "drivers/net/ethernet/brocade/Kconfig"
  source "drivers/net/ethernet/chelsio/Kconfig"
  source "drivers/net/ethernet/emulex/Kconfig"
-+source "drivers/net/ethernet/neterion/Kconfig"
+ source "drivers/net/ethernet/neterion/Kconfig"
++source "drivers/net/ethernet/ibm/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/i825xx/Kconfig"
  source "drivers/net/ethernet/mellanox/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index b4dcb93..4c21e8f 100644
+index 4c21e8f..27e4da6 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -9,6 +9,7 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
- obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
  obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
-+obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
++obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
  obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
+diff --git a/drivers/net/ethernet/ibm/Kconfig b/drivers/net/ethernet/ibm/Kconfig
 new file mode 100644
-index 0000000..3d98e62
+index 0000000..4c7ef98
 --- /dev/null
-+++ b/drivers/net/ethernet/neterion/Kconfig
-@@ -0,0 +1,54 @@
++++ b/drivers/net/ethernet/ibm/Kconfig
+@@ -0,0 +1,47 @@
 +#
-+# Exar device configuration
++# IBM device configuration.
 +#
 +
-+config NET_VENDOR_EXAR
-+	bool "Exar devices"
-+	depends on PCI
++config NET_VENDOR_IBM
++	bool "IBM devices"
++	depends on MCA || PPC_PSERIES || PPC_PSERIES || PPC_DCR || \
++		   (IBMEBUS && INET && SPARSEMEM)
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say
-+	  Y and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Exar cards. If you say Y, you will be asked for
++	  the questions about IBM devices. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+if NET_VENDOR_EXAR
++if NET_VENDOR_IBM
 +
-+config S2IO
-+	tristate "Exar Xframe 10Gb Ethernet Adapter"
-+	depends on PCI
++config IBMVETH
++	tristate "IBM LAN Virtual Ethernet support"
++	depends on PPC_PSERIES
 +	---help---
-+	  This driver supports Exar Corp's Xframe Series 10Gb Ethernet Adapters.
++	  This driver supports virtual ethernet adapters on newer IBM iSeries
++	  and pSeries systems.
 +
-+	  More specific information on configuring the driver is in
-+	  <file:Documentation/networking/s2io.txt>.
++	  To compile this driver as a module, choose M here. The module will
++	  be called ibmveth.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called s2io.
++config ISERIES_VETH
++	tristate "iSeries Virtual Ethernet driver support"
++	depends on PPC_ISERIES
 +
-+config VXGE
-+	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
-+	depends on PCI && INET
++source "drivers/net/ethernet/ibm/emac/Kconfig"
++
++config EHEA
++	tristate "eHEA Ethernet support"
++	depends on IBMEBUS && INET && SPARSEMEM
++	select INET_LRO
 +	---help---
-+	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
-+	  I/O Virtualized Server Adapter.
++	  This driver supports the IBM pSeries eHEA ethernet adapter.
 +
-+	  More specific information on configuring the driver is in
-+	  <file:Documentation/networking/vxge.txt>.
++	  To compile the driver as a module, choose M here. The module
++	  will be called ehea.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called vxge.
-+
-+config VXGE_DEBUG_TRACE_ALL
-+	bool "Enabling All Debug trace statements in driver"
-+	default n
-+	depends on VXGE
-+	---help---
-+	  Say Y here if you want to enabling all the debug trace statements in
-+	  the vxge driver. By default only few debug trace statements are
-+	  enabled.
-+
-+endif # NET_VENDOR_EXAR
-diff --git a/drivers/net/ethernet/neterion/Makefile b/drivers/net/ethernet/neterion/Makefile
++endif # NET_VENDOR_IBM
+diff --git a/drivers/net/ethernet/ibm/Makefile b/drivers/net/ethernet/ibm/Makefile
 new file mode 100644
-index 0000000..70c8058
+index 0000000..5a7d4e9
 --- /dev/null
-+++ b/drivers/net/ethernet/neterion/Makefile
-@@ -0,0 +1,6 @@
++++ b/drivers/net/ethernet/ibm/Makefile
+@@ -0,0 +1,8 @@
 +#
-+# Makefile for the Exar network device drivers.
++# Makefile for th IBM network device drivers.
 +#
 +
-+obj-$(CONFIG_S2IO) += s2io.o
-+obj-$(CONFIG_VXGE) += vxge/
-diff --git a/drivers/net/s2io-regs.h b/drivers/net/ethernet/neterion/s2io-regs.h
++obj-$(CONFIG_IBMVETH) += ibmveth.o
++obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
++obj-$(CONFIG_IBM_EMAC) += emac/
++obj-$(CONFIG_EHEA) += ehea/
+diff --git a/drivers/net/ehea/Makefile b/drivers/net/ethernet/ibm/ehea/Makefile
 similarity index 100%
-rename from drivers/net/s2io-regs.h
-rename to drivers/net/ethernet/neterion/s2io-regs.h
-diff --git a/drivers/net/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+rename from drivers/net/ehea/Makefile
+rename to drivers/net/ethernet/ibm/ehea/Makefile
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ethernet/ibm/ehea/ehea.h
 similarity index 100%
-rename from drivers/net/s2io.c
-rename to drivers/net/ethernet/neterion/s2io.c
-diff --git a/drivers/net/s2io.h b/drivers/net/ethernet/neterion/s2io.h
+rename from drivers/net/ehea/ehea.h
+rename to drivers/net/ethernet/ibm/ehea/ehea.h
+diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
 similarity index 100%
-rename from drivers/net/s2io.h
-rename to drivers/net/ethernet/neterion/s2io.h
-diff --git a/drivers/net/vxge/Makefile b/drivers/net/ethernet/neterion/vxge/Makefile
+rename from drivers/net/ehea/ehea_ethtool.c
+rename to drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
+diff --git a/drivers/net/ehea/ehea_hw.h b/drivers/net/ethernet/ibm/ehea/ehea_hw.h
 similarity index 100%
-rename from drivers/net/vxge/Makefile
-rename to drivers/net/ethernet/neterion/vxge/Makefile
-diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
+rename from drivers/net/ehea/ehea_hw.h
+rename to drivers/net/ethernet/ibm/ehea/ehea_hw.h
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
 similarity index 100%
-rename from drivers/net/vxge/vxge-config.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-config.c
-diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/ethernet/neterion/vxge/vxge-config.h
+rename from drivers/net/ehea/ehea_main.c
+rename to drivers/net/ethernet/ibm/ehea/ehea_main.c
+diff --git a/drivers/net/ehea/ehea_phyp.c b/drivers/net/ethernet/ibm/ehea/ehea_phyp.c
 similarity index 100%
-rename from drivers/net/vxge/vxge-config.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-config.h
-diff --git a/drivers/net/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+rename from drivers/net/ehea/ehea_phyp.c
+rename to drivers/net/ethernet/ibm/ehea/ehea_phyp.c
+diff --git a/drivers/net/ehea/ehea_phyp.h b/drivers/net/ethernet/ibm/ehea/ehea_phyp.h
 similarity index 100%
-rename from drivers/net/vxge/vxge-ethtool.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-diff --git a/drivers/net/vxge/vxge-ethtool.h b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
+rename from drivers/net/ehea/ehea_phyp.h
+rename to drivers/net/ethernet/ibm/ehea/ehea_phyp.h
+diff --git a/drivers/net/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
 similarity index 100%
-rename from drivers/net/vxge/vxge-ethtool.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-ethtool.h
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+rename from drivers/net/ehea/ehea_qmr.c
+rename to drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+diff --git a/drivers/net/ehea/ehea_qmr.h b/drivers/net/ethernet/ibm/ehea/ehea_qmr.h
 similarity index 100%
-rename from drivers/net/vxge/vxge-main.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-main.c
-diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
+rename from drivers/net/ehea/ehea_qmr.h
+rename to drivers/net/ethernet/ibm/ehea/ehea_qmr.h
+diff --git a/drivers/net/ibm_newemac/Kconfig b/drivers/net/ethernet/ibm/emac/Kconfig
+similarity index 63%
+rename from drivers/net/ibm_newemac/Kconfig
+rename to drivers/net/ethernet/ibm/emac/Kconfig
+index 78a1628..3f44a30 100644
+--- a/drivers/net/ibm_newemac/Kconfig
++++ b/drivers/net/ethernet/ibm/emac/Kconfig
+@@ -1,4 +1,4 @@
+-config IBM_NEW_EMAC
++config IBM_EMAC
+ 	tristate "IBM EMAC Ethernet support"
+ 	depends on PPC_DCR
+ 	select CRC32
+@@ -7,29 +7,29 @@ config IBM_NEW_EMAC
+ 	  typically found on 4xx embedded PowerPC chips, but also on the
+ 	  Axon southbridge for Cell.
+ 
+-config IBM_NEW_EMAC_RXB
++config IBM_EMAC_RXB
+ 	int "Number of receive buffers"
+-	depends on IBM_NEW_EMAC
++	depends on IBM_EMAC
+ 	default "128"
+ 
+-config IBM_NEW_EMAC_TXB
++config IBM_EMAC_TXB
+ 	int "Number of transmit buffers"
+-	depends on IBM_NEW_EMAC
++	depends on IBM_EMAC
+ 	default "64"
+ 
+-config IBM_NEW_EMAC_POLL_WEIGHT
++config IBM_EMAC_POLL_WEIGHT
+ 	int "MAL NAPI polling weight"
+-	depends on IBM_NEW_EMAC
++	depends on IBM_EMAC
+ 	default "32"
+ 
+-config IBM_NEW_EMAC_RX_COPY_THRESHOLD
++config IBM_EMAC_RX_COPY_THRESHOLD
+ 	int "RX skb copy threshold (bytes)"
+-	depends on IBM_NEW_EMAC
++	depends on IBM_EMAC
+ 	default "256"
+ 
+-config IBM_NEW_EMAC_RX_SKB_HEADROOM
++config IBM_EMAC_RX_SKB_HEADROOM
+ 	int "Additional RX skb headroom (bytes)"
+-	depends on IBM_NEW_EMAC
++	depends on IBM_EMAC
+ 	default "0"
+ 	help
+ 	  Additional receive skb headroom. Note, that driver
+@@ -39,38 +39,38 @@ config IBM_NEW_EMAC_RX_SKB_HEADROOM
+ 
+ 	  If unsure, set to 0.
+ 
+-config IBM_NEW_EMAC_DEBUG
++config IBM_EMAC_DEBUG
+ 	bool "Debugging"
+-	depends on IBM_NEW_EMAC
++	depends on IBM_EMAC
+ 	default n
+ 
+ # The options below has to be select'ed by the respective
+ # processor types or platforms
+ 
+-config IBM_NEW_EMAC_ZMII
++config IBM_EMAC_ZMII
+ 	bool
+ 	default n
+ 
+-config IBM_NEW_EMAC_RGMII
++config IBM_EMAC_RGMII
+ 	bool
+ 	default n
+ 
+-config IBM_NEW_EMAC_TAH
++config IBM_EMAC_TAH
+ 	bool
+ 	default n
+ 
+-config IBM_NEW_EMAC_EMAC4
++config IBM_EMAC_EMAC4
+ 	bool
+ 	default n
+ 
+-config IBM_NEW_EMAC_NO_FLOW_CTRL
++config IBM_EMAC_NO_FLOW_CTRL
+ 	bool
+ 	default n
+ 
+-config IBM_NEW_EMAC_MAL_CLR_ICINTSTAT
++config IBM_EMAC_MAL_CLR_ICINTSTAT
+ 	bool
+ 	default n
+ 
+-config IBM_NEW_EMAC_MAL_COMMON_ERR
++config IBM_EMAC_MAL_COMMON_ERR
+ 	bool
+ 	default n
+diff --git a/drivers/net/ibm_newemac/Makefile b/drivers/net/ethernet/ibm/emac/Makefile
 similarity index 100%
-rename from drivers/net/vxge/vxge-main.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-main.h
-diff --git a/drivers/net/vxge/vxge-reg.h b/drivers/net/ethernet/neterion/vxge/vxge-reg.h
+rename from drivers/net/ibm_newemac/Makefile
+rename to drivers/net/ethernet/ibm/emac/Makefile
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ethernet/ibm/emac/core.c
 similarity index 100%
-rename from drivers/net/vxge/vxge-reg.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-reg.h
-diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+rename from drivers/net/ibm_newemac/core.c
+rename to drivers/net/ethernet/ibm/emac/core.c
+diff --git a/drivers/net/ibm_newemac/core.h b/drivers/net/ethernet/ibm/emac/core.h
 similarity index 100%
-rename from drivers/net/vxge/vxge-traffic.c
-rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-diff --git a/drivers/net/vxge/vxge-traffic.h b/drivers/net/ethernet/neterion/vxge/vxge-traffic.h
+rename from drivers/net/ibm_newemac/core.h
+rename to drivers/net/ethernet/ibm/emac/core.h
+diff --git a/drivers/net/ibm_newemac/debug.c b/drivers/net/ethernet/ibm/emac/debug.c
 similarity index 100%
-rename from drivers/net/vxge/vxge-traffic.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-traffic.h
-diff --git a/drivers/net/vxge/vxge-version.h b/drivers/net/ethernet/neterion/vxge/vxge-version.h
+rename from drivers/net/ibm_newemac/debug.c
+rename to drivers/net/ethernet/ibm/emac/debug.c
+diff --git a/drivers/net/ibm_newemac/debug.h b/drivers/net/ethernet/ibm/emac/debug.h
 similarity index 100%
-rename from drivers/net/vxge/vxge-version.h
-rename to drivers/net/ethernet/neterion/vxge/vxge-version.h
+rename from drivers/net/ibm_newemac/debug.h
+rename to drivers/net/ethernet/ibm/emac/debug.h
+diff --git a/drivers/net/ibm_newemac/emac.h b/drivers/net/ethernet/ibm/emac/emac.h
+similarity index 100%
+rename from drivers/net/ibm_newemac/emac.h
+rename to drivers/net/ethernet/ibm/emac/emac.h
+diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
+similarity index 100%
+rename from drivers/net/ibm_newemac/mal.c
+rename to drivers/net/ethernet/ibm/emac/mal.c
+diff --git a/drivers/net/ibm_newemac/mal.h b/drivers/net/ethernet/ibm/emac/mal.h
+similarity index 100%
+rename from drivers/net/ibm_newemac/mal.h
+rename to drivers/net/ethernet/ibm/emac/mal.h
+diff --git a/drivers/net/ibm_newemac/phy.c b/drivers/net/ethernet/ibm/emac/phy.c
+similarity index 100%
+rename from drivers/net/ibm_newemac/phy.c
+rename to drivers/net/ethernet/ibm/emac/phy.c
+diff --git a/drivers/net/ibm_newemac/phy.h b/drivers/net/ethernet/ibm/emac/phy.h
+similarity index 100%
+rename from drivers/net/ibm_newemac/phy.h
+rename to drivers/net/ethernet/ibm/emac/phy.h
+diff --git a/drivers/net/ibm_newemac/rgmii.c b/drivers/net/ethernet/ibm/emac/rgmii.c
+similarity index 100%
+rename from drivers/net/ibm_newemac/rgmii.c
+rename to drivers/net/ethernet/ibm/emac/rgmii.c
+diff --git a/drivers/net/ibm_newemac/rgmii.h b/drivers/net/ethernet/ibm/emac/rgmii.h
+similarity index 100%
+rename from drivers/net/ibm_newemac/rgmii.h
+rename to drivers/net/ethernet/ibm/emac/rgmii.h
+diff --git a/drivers/net/ibm_newemac/tah.c b/drivers/net/ethernet/ibm/emac/tah.c
+similarity index 100%
+rename from drivers/net/ibm_newemac/tah.c
+rename to drivers/net/ethernet/ibm/emac/tah.c
+diff --git a/drivers/net/ibm_newemac/tah.h b/drivers/net/ethernet/ibm/emac/tah.h
+similarity index 100%
+rename from drivers/net/ibm_newemac/tah.h
+rename to drivers/net/ethernet/ibm/emac/tah.h
+diff --git a/drivers/net/ibm_newemac/zmii.c b/drivers/net/ethernet/ibm/emac/zmii.c
+similarity index 100%
+rename from drivers/net/ibm_newemac/zmii.c
+rename to drivers/net/ethernet/ibm/emac/zmii.c
+diff --git a/drivers/net/ibm_newemac/zmii.h b/drivers/net/ethernet/ibm/emac/zmii.h
+similarity index 100%
+rename from drivers/net/ibm_newemac/zmii.h
+rename to drivers/net/ethernet/ibm/emac/zmii.h
+diff --git a/drivers/net/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+similarity index 100%
+rename from drivers/net/ibmveth.c
+rename to drivers/net/ethernet/ibm/ibmveth.c
+diff --git a/drivers/net/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
+similarity index 100%
+rename from drivers/net/ibmveth.h
+rename to drivers/net/ethernet/ibm/ibmveth.h
+diff --git a/drivers/net/iseries_veth.c b/drivers/net/ethernet/ibm/iseries_veth.c
+similarity index 100%
+rename from drivers/net/iseries_veth.c
+rename to drivers/net/ethernet/ibm/iseries_veth.c
 -- 
 1.7.6
 
