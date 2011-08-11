@@ -1,96 +1,48 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
-Date: Thu, 11 Aug 2011 05:42:52 -0500
-Message-ID: <20110811104252.GC4926@sgi.com>
-References: <1312993670-23999-1-git-send-email-holt@sgi.com>
-	<1312993670-23999-5-git-send-email-holt@sgi.com>
-	<8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>
-	<4E42CB01.7030700@grandegger.com>
-	<634AB7A6-1CDA-41B3-8A5D-01F29EF01521@kernel.crashing.org>
+From: Phil Blundell <philb@gnu.org>
+Subject: Re: [net-next 10/10] i825xx: Move the Intel 82586/82593/82596 based
+ drivers
+Date: Thu, 11 Aug 2011 12:04:55 +0100
+Message-ID: <1313060697.6733.111.camel@phil-desktop>
+References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1313033278-7337-11-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <634AB7A6-1CDA-41B3-8A5D-01F29EF01521-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@tredhat.com,
+	sassmann@redhat.com, Russell King <linux@arm.linux.org.uk>,
+	aris@cathedrallabs.org, Donald Becker <becker@scyld.com>,
+	Chris Beauregard <cpbeaure@undergrad.math.uwaterloo.ca>,
+	Richard Procter <rnp@paradise.net.nz>,
+	Andries Brouwer <aeb@cwi.nl>,
+	"M.Hipp" <hippm@informatik.uni-tuebingen.de>,
+	Richard Hirst <richard@sleepie.demon.co.uk>,
+	Sam Creasey <sammy@oh.verio.com>,
+	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.pbcl.net ([88.198.119.4]:37793 "EHLO hetzner.pbcl.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755338Ab1HKLgp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 07:36:45 -0400
+In-Reply-To: <1313033278-7337-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 10, 2011 at 11:46:27PM -0500, Kumar Gala wrote:
-> 
-> On Aug 10, 2011, at 1:16 PM, Wolfgang Grandegger wrote:
-> 
-> > On 08/10/2011 07:01 PM, Kumar Gala wrote:
-> >> 
-> >> On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
-> >> 
-> >>> I added a simple clock source for the p1010rdb so the flexcan driver
-> >>> could determine a clock frequency.  The p1010 flexcan device only has
-> >>> an oscillator of system bus frequency divided by 2.
-> >>> 
-> >>> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-> >>> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-> >>> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-> >>> Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> >>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-> >>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-> >>> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-> >>> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-> >>> ---
-> >>> arch/powerpc/platforms/85xx/Kconfig    |    2 +
-> >>> arch/powerpc/platforms/85xx/Makefile   |    2 +
-> >>> arch/powerpc/platforms/85xx/clock.c    |   52 ++++++++++++++++++++++++++++++++
-> >>> arch/powerpc/platforms/85xx/p1010rdb.c |    8 +++++
-> >>> 4 files changed, 64 insertions(+), 0 deletions(-)
-> >>> create mode 100644 arch/powerpc/platforms/85xx/clock.c
-> >> 
-> >> I dont understand how mpc85xx_clk_functions() ends up being associated with the frequency the flexcan is running at.
-> > 
-> > The function mpc85xx_clk_get_rate() returns "fsl_get_sys_freq() / 2" for
-> > Flexcan devices.
-> > 
-> >> This either seems to global or I'm missing something.
-> > 
-> > This patch extends the existing Flexcan platform driver for ARM for the
-> > PowerPC using the device tree. Due to the nice integration of the device
-> > tree (of-platform) into the platform driver and devices, the difference
-> > are quite small (see patches 1..3). Apart from the endianess issue, only
-> > the clock needs to be handled in a common way. As ARM already uses the
-> > clk interface, we found it straight-forward to implement it for the
-> > P1010, or more general for the 85xx, as well, instead of using an
-> > additional helper function.
-> 
-> I see, that.  What concerns me is there are numerous clocks /
-> frequencies that exist inside a MPC85xx/P1010 SOC.  The code I'm seeing
-> does NOT seem to do anything to relate this clock JUST to the flexcan.
+On Wed, 2011-08-10 at 20:27 -0700, Jeff Kirsher wrote:
+> Move the drivers that use the i82586/i82593/i82596 chipsets into
+> drivers/net/ethernet/i825xx/ and make the necessary Kconfig and
+> Makefile changes.  There were 4 3Com drivers which were initially
+> moved into 3com/, which now reside in i825xx since they all used
+> the i82586 chip.
 
-        if (!dev->of_node ||
-            !of_device_is_compatible(dev->of_node, "fsl,flexcan"))
-                return ERR_PTR(-ENOENT);
+Actually, I think 3c505 was better in 3com/ where you had it before.
+Although the card does use an i82586, it's front-ended by an 80186
+microcontroller and that's what the driver talks to.  So there is no
+meaningful code commonality with the other '586 drivers.
 
-That should relate it just to flexcan, right?  Plus it has the added
-benefit of being a baby-step in the direction of implementing a clkdev
-type thing for powerpc which did look fairly slick to me, but I may
-be confused.
+That said, I don't think it's a massive deal either way and if you have
+a strong preference for putting it in i825xx then that's probably fine.
 
-It sounds like Wolfgang is defering to you.  Give it an honest evaluation
-and tell me which direction you would like me to go.  I don't have a
-strong preference either way.  The alternative I gave to Wolfgang of
-using a flexcan property to avoid needing any clk_get_rate seems fairly
-hackish at this point, but I have had more time to get used to the
-'hack in a 85xx clock' method.
+p.
 
-Thanks,
-Robin
+
