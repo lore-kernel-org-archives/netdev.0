@@ -1,171 +1,182 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v11 3/6] flexcan: Fix up fsl-flexcan device tree binding.
-Date: Thu, 11 Aug 2011 10:53:43 -0600
-Message-ID: <CACxGe6vA8K7fhrSvBpKC+9aKftUc2+1EAUQ=A0SmmwzJ2Le=9A@mail.gmail.com>
-References: <1313078831-2511-1-git-send-email-holt@sgi.com> <1313078831-2511-4-git-send-email-holt@sgi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] Fix RCU warning in rt_cache_seq_show
+Date: Thu, 11 Aug 2011 18:58:21 +0200
+Message-ID: <1313081901.3261.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1312909360-2675-1-git-send-email-mark.rutland@arm.com>
+	 <1312910336.2371.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4e424f6c.12cde30a.131e.ffffec9bSMTPIN_ADDED@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kumar Gala <galak@kernel.crashing.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	U Bhaskar-B22300 <B22300@freescale.com>,
-	Scott Wood <scottwood@freescale.com>,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	PPC list <linuxppc-dev@lists.ozlabs.org>,
-	devicetree-discuss@lists.ozlabs.org
-To: Robin Holt <holt@sgi.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Gergely Kalman <synapse@hippy.csoma.elte.hu>
+To: Mark Rutland <mark.rutland@arm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:50355 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751560Ab1HKQyL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 12:54:11 -0400
-Received: by vxi9 with SMTP id 9so1760362vxi.19
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2011 09:54:10 -0700 (PDT)
-In-Reply-To: <1313078831-2511-4-git-send-email-holt@sgi.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:44448 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131Ab1HKQ6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 12:58:23 -0400
+Received: by wwe5 with SMTP id 5so4284347wwe.1
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2011 09:58:21 -0700 (PDT)
+In-Reply-To: <4e424f6c.12cde30a.131e.ffffec9bSMTPIN_ADDED@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 11, 2011 at 10:07 AM, Robin Holt <holt@sgi.com> wrote:
-> This patch cleans up the documentation of the device-tree binding for
-> the Flexcan devices on Freescale's PowerPC and ARM cores. Extra
-> properties are not used by the driver so we are removing them.
->
-> Signed-off-by: Robin Holt <holt@sgi.com>
-> To: Marc Kleine-Budde <mkl@pengutronix.de>,
-> To: Wolfgang Grandegger <wg@grandegger.com>,
-> To: U Bhaskar-B22300 <B22300@freescale.com>
-> To: Scott Wood <scottwood@freescale.com>
-> To: Grant Likely <grant.likely@secretlab.ca>
-> To: Kumar Gala <galak@kernel.crashing.org>
-> Cc: socketcan-core@lists.berlios.de,
-> Cc: netdev@vger.kernel.org,
-> Cc: PPC list <linuxppc-dev@lists.ozlabs.org>
-> Cc: devicetree-discuss@lists.ozlabs.org
-> ---
-> =A0.../devicetree/bindings/net/can/fsl-flexcan.txt =A0 =A0| =A0 69 ++=
-++---------------
-> =A0arch/powerpc/boot/dts/p1010rdb.dts =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- | =A0 10 +--
-> =A0arch/powerpc/boot/dts/p1010si.dtsi =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- | =A0 10 +--
-> =A03 files changed, 21 insertions(+), 68 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/can/fsl-flexcan.tx=
-t b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-> index 1a729f0..c78dcbb 100644
-> --- a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-> +++ b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-> @@ -1,61 +1,22 @@
-> -CAN Device Tree Bindings
-> -------------------------
-> -2011 Freescale Semiconductor, Inc.
-> +Flexcan CAN contoller on Freescale's ARM and PowerPC processors
->
-> -fsl,flexcan-v1.0 nodes
-> ------------------------
-> -In addition to the required compatible-, reg- and interrupt-properti=
-es, you can
-> -also specify which clock source shall be used for the controller.
-> +Required properties:
->
-> -CPI Clock- Can Protocol Interface Clock
-> - =A0 =A0 =A0 This CLK_SRC bit of CTRL(control register) selects the =
-clock source to
-> - =A0 =A0 =A0 the CAN Protocol Interface(CPI) to be either the periph=
-eral clock
-> - =A0 =A0 =A0 (driven by the PLL) or the crystal oscillator clock. Th=
-e selected clock
-> - =A0 =A0 =A0 is the one fed to the prescaler to generate the Serial =
-Clock (Sclock).
-> - =A0 =A0 =A0 The PRESDIV field of CTRL(control register) controls a =
-prescaler that
-> - =A0 =A0 =A0 generates the Serial Clock (Sclock), whose period defin=
-es the
-> - =A0 =A0 =A0 time quantum used to compose the CAN waveform.
-> +- compatible : Should be "fsl,<processor>-flexcan" and "fsl,flexcan"
+Le mercredi 10 ao=C3=BBt 2011 =C3=A0 10:28 +0100, Mark Rutland a =C3=A9=
+crit :
+> > -----Original Message-----
+> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > Sent: 09 August 2011 18:19
+> > To: Mark Rutland; Paul E. McKenney
+> > Cc: netdev@vger.kernel.org; David S. Miller; Gergely Kalman
+> > Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
+> >=20
+> > Le mardi 09 ao=C3=BBt 2011 =C3=A0 18:02 +0100, Mark Rutland a =C3=A9=
+crit :
+> > > Commit f2c31e32 ("net: fix NULL dereferences in check_peer_redir(=
+)")
+> > > added rcu protection to dst neighbour, and updated callsites for
+> > > dst_{get,set}_neighbour. Unfortunately, it missed rt_cache_seq_sh=
+ow.
+> > >
+> > > This produces a warning on v3.1-rc1 (on a preemptible kernel, on =
+an
+> > > ARM Vexpress A9x4):
+> > >
+> > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D
+> > > [ INFO: suspicious rcu_dereference_check() usage. ]
+> > > ---------------------------------------------------
+> > > include/net/dst.h:91 invoked rcu_dereference_check() without
+> > protection!
+> > >
+> > > other info that might help us debug this:
+> > >
+> > > rcu_scheduler_active =3D 1, debug_locks =3D 0
+> > > 2 locks held by proc01/32159:
+> > >
+> > > stack backtrace:
+> > > [<80014880>] (unwind_backtrace+0x0/0xf8) from [<802e5c78>]
+> > (rt_cache_seq_show+0x18c/0x1c4)
+> > > [<802e5c78>] (rt_cache_seq_show+0x18c/0x1c4) from [<800e0c5c>]
+> > (seq_read+0x324/0x4a4)
+> > > [<800e0c5c>] (seq_read+0x324/0x4a4) from [<8010786c>]
+> > (proc_reg_read+0x70/0x94)
+> > > [<8010786c>] (proc_reg_read+0x70/0x94) from [<800c0ba8>]
+> > (vfs_read+0xb0/0x144)
+> > > [<800c0ba8>] (vfs_read+0xb0/0x144) from [<800c0ea8>]
+> > (sys_read+0x40/0x70)
+> > > [<800c0ea8>] (sys_read+0x40/0x70) from [<8000e0c0>]
+> > (ret_fast_syscall+0x0/0x3c)
+> > >
+> > > This patch adds calls to rcu_read_{lock,unlock} in rt_cache_seq_s=
+how,
+> > > protecting the dereferenced variable, and clearing the warning.
+> > >
+> > > Signed-off-by: Mark Rutland <mark.rutland@arm.com>
+> > > Cc: David S. Miller <davem@davemloft.net>
+> > > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > > Cc: Gergely Kalman <synapse@hippy.csoma.elte.hu>
+> > > ---
+> > >  net/ipv4/route.c |    2 ++
+> > >  1 files changed, 2 insertions(+), 0 deletions(-)
+> > >
+> > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > > index e3dec1c..6699ef7 100644
+> > > --- a/net/ipv4/route.c
+> > > +++ b/net/ipv4/route.c
+> > > @@ -419,6 +419,7 @@ static int rt_cache_seq_show(struct seq_file
+> > *seq, void *v)
+> > >  		struct neighbour *n;
+> > >  		int len;
+> > >
+> > > +		rcu_read_lock();
+> > >  		n =3D dst_get_neighbour(&r->dst);
+> > >  		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
+> > >  			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
+> > > @@ -435,6 +436,7 @@ static int rt_cache_seq_show(struct seq_file
+> > *seq, void *v)
+> > >  			-1,
+> > >  			(n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0,
+> > >  			r->rt_spec_dst, &len);
+> > > +		rcu_read_unlock();
+> > >
+> > >  		seq_printf(seq, "%*s\n", 127 - len, "");
+> > >  	}
+> >=20
+> >=20
+> > Hmm, I though rcu_read_lock_bh() (done by caller of this function) =
+was
+> > protecting us here.
+>=20
+> Aha. Being a bit trigger-happy, I'd had a quick look at the functions
+> mentioned in the backtrace, and not looked at any possible inlining.
+>=20
+> This being my first real exposure to RCU, I wasn't aware of the *_bh
+> variants. Looking at the documentation (Documentation/RCU/checklist.t=
+xt),
+> I think the real problem is that we should be using rcu_dereference_b=
+h in
+> this case:
+>=20
+>   > read-side critical sections are delimited by rcu_read_lock()
+>   > and rcu_read_unlock(), or by similar primitives such as
+>   > rcu_read_lock_bh() and rcu_read_unlock_bh(), in which case
+>   > the matching rcu_dereference() primitive must be used in order
+>   > to keep lockdep happy, in this case, rcu_dereference_bh().
 
-Don't do this.  "fsl,flexcan" is far too generic.  Be specific to the
-soc part number or the ip core implementation version.
+Hmm.
 
->
-> -Can Engine Clock Source
-> - =A0 =A0 =A0 There are two sources for CAN clock
-> - =A0 =A0 =A0 - Platform Clock =A0It represents the bus clock
-> - =A0 =A0 =A0 - Oscillator Clock
-> + =A0An implementation should also claim any of the following compati=
-bles
-> + =A0that it is fully backwards compatible with:
->
-> - =A0 =A0 =A0 Peripheral Clock (PLL)
-> - =A0 =A0 =A0 --------------
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0|
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 --------- =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 -------------
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |CPI Clock =A0 =A0=
- =A0 =A0| Prescaler | =A0 =A0 =A0 Sclock
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |----------------=
->| (1.. 256) |------------>
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 --------- =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 -------------
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0|
-> - =A0 =A0 =A0 -------------- =A0---------------------CLK_SRC
-> - =A0 =A0 =A0 Oscillator Clock
-> + =A0- fsl,p1010-flexcan
->
-> -- fsl,flexcan-clock-source : CAN Engine Clock Source.This property s=
-elects
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0the peripher=
-al clock. PLL clock is fed to the
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0prescaler to=
- generate the Serial Clock (Sclock).
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Valid values=
- are "oscillator" and "platform"
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"oscillator"=
-: CAN engine clock source is oscillator clock.
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"platform" T=
-he CAN engine clock source is the bus clock
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(platform cl=
-ock).
-> +- reg : Offset and length of the register set for this device
-> +- interrupts : Interrupt tuple for this device
->
-> -- fsl,flexcan-clock-divider : for the reference and system clock, an=
- additional
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clock divid=
-er can be specified.
-> -- clock-frequency: frequency required to calculate the bitrate for F=
-lexCAN.
-> +Example:
->
-> -Note:
-> - =A0 =A0 =A0 - v1.0 of flexcan-v1.0 represent the IP block version f=
-or P1010 SOC.
-> - =A0 =A0 =A0 - P1010 does not have oscillator as the Clock Source.So=
- the default
-> - =A0 =A0 =A0 =A0 Clock Source is platform clock.
-> -Examples:
-> -
-> - =A0 =A0 =A0 can0@1c000 {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "fsl,flexcan-v1.0";
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 reg =3D <0x1c000 0x1000>;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 interrupts =3D <48 0x2>;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 interrupt-parent =3D <&mpic>;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,flexcan-clock-source =3D "platform"=
-;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,flexcan-clock-divider =3D <2>;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 clock-frequency =3D <fixed by u-boot>;
-> - =A0 =A0 =A0 };
-> + =A0can@1c000 {
-> + =A0 =A0 =A0 =A0 =A0compatible =3D "fsl,p1010-flexcan", "fsl,flexcan=
-";
-> + =A0 =A0 =A0 =A0 =A0reg =3D <0x1c000 0x1000>;
-> + =A0 =A0 =A0 =A0 =A0interrupts =3D <48 0x2>;
-> + =A0 =A0 =A0 =A0 =A0interrupt-parent =3D <&mpic>;
-> + =A0};
+I do think dst_get_neighbour() should use rcu_dereference(), because
+dst->_neighbour are freed by call_rcu().
 
-The diffstat for this patch looks too big because the whitespace has
-changed.  Try to restrict whitespace changes so that the patch is
-friendly to reviewers.
+The question is : Is following construct [A] safe or not ?
 
-g.
+{
+rcu_read_lock_bh();
+	/* BH are now disabled, and we are not allowed to sleep */
+	...
+
+	ptr =3D rcu_dereference();
+	...
+rcu_read_unlock_bh();
+}
+
+
+I dont really understand why lockdep wants [B] instead :
+
+{
+rcu_read_lock_bh();
+	...
+
+	{
+	rcu_read_lock();
+	ptr =3D rcu_dereference();
+	rcu_read_unlock();
+	}
+	...
+rcu_read_unlock_bh();
+}
+
+
+
+However, I can understand the other way [C], this is really needed :
+
+{
+rcu_read_lock();
+	...
+
+	{
+	rcu_read_lock_bh();
+	ptr =3D rcu_dereference_bh();
+	rcu_read_unlock_bh();
+	}
+	...
+rcu_read_unlock();
+}
+
+I believe [A] should be allowed by lockdep.
+
+
