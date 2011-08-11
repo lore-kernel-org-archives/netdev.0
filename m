@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] net/irda: sh_sir: tidyup compile warning
-Date: Thu, 11 Aug 2011 05:54:02 -0700 (PDT)
-Message-ID: <20110811.055402.1398178965872838288.davem@davemloft.net>
-References: <20110810.231558.2202030270747790994.davem@davemloft.net>
-	<877h6kwbiq.wl%kuninori.morimoto.gx@renesas.com>
-	<8739h8wb79.wl%kuninori.morimoto.gx@renesas.com>
+Subject: Re: [PATCH] net/bridge/netfilter/ebtables.c: use available error
+ handling code
+Date: Thu, 11 Aug 2011 05:53:33 -0700 (PDT)
+Message-ID: <20110811.055333.1199553373699762518.davem@davemloft.net>
+References: <1313063978-29400-1-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuninori.morimoto.gx@renesas.com, netdev@vger.kernel.org
-To: kuninori.morimoto.gx@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36469 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755845Ab1HKMyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 08:54:07 -0400
-In-Reply-To: <8739h8wb79.wl%kuninori.morimoto.gx@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bart.de.schuymer@pandora.be, kernel-janitors@vger.kernel.org,
+	kaber@trash.net, shemminger@linux-foundation.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: julia@diku.dk
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1313063978-29400-1-git-send-email-julia@diku.dk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: kuninori.morimoto.gx@gmail.com
-Date: Thu, 11 Aug 2011 02:26:37 -0700 (PDT)
+From: Julia Lawall <julia@diku.dk>
+Date: Thu, 11 Aug 2011 13:59:38 +0200
 
-> From: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+> From: Julia Lawall <julia@diku.dk>
 > 
-> This patch tidyup below warning
+> Free the locally allocated table and newinfo as done in adjacent error
+> handling code.
 > 
-> ${LINUX}/drivers/net/irda/sh_sir.c:514:6: warning:
->  'val' may be used uninitialized in this function
-> 
-> Signed-off-by: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
