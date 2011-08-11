@@ -1,753 +1,591 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] i825xx: Move the Intel 82586/82593/82596 based drivers
-Date: Wed, 10 Aug 2011 20:27:58 -0700
-Message-ID: <1313033278-7337-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] smsc: Move the SMC (SMSC) drivers
+Date: Wed, 10 Aug 2011 20:27:57 -0700
+Message-ID: <1313033278-7337-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@tredhat.com, sassmann@redhat.com,
-	Philip Blundell <philb@gnu.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	<aris@cathedrallabs.org>, Donald Becker <becker@scyld.com>,
-	Chris Beauregard <cpbeaure@undergrad.math.uwaterloo.ca>,
-	Richard Procter <rnp@paradise.net.nz>,
-	Andries Brouwer <aeb@cwi.nl>,
-	"M.Hipp" <hippm@informatik.uni-tuebingen.de>,
-	Richard Hirst <richard@sleepie.demon.co.uk>,
-	Sam Creasey <sammy@oh.verio.com>,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+	Nicolas Pitre <nico@fluxnic.net>,
+	Donald Becker <becker@scyld.com>, Erik Stahlman <erik@vt.edu>,
+	Dustin McIntire <dustin@sensoria.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	David Hinds <dahinds@users.sourceforge.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:54295 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:4743 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754375Ab1HKD2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753987Ab1HKD2L (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 10 Aug 2011 23:28:11 -0400
 In-Reply-To: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the drivers that use the i82586/i82593/i82596 chipsets into
-drivers/net/ethernet/i825xx/ and make the necessary Kconfig and
-Makefile changes.  There were 4 3Com drivers which were initially
-moved into 3com/, which now reside in i825xx since they all used
-the i82586 chip.
+Moves the SMC (SMSC) drivers into drivers/net/ethernet/smsc/ and the
+necessary Kconfig and Makefile changes.  Also did some cleanup
+of NET_VENDOR_SMC Kconfig tag for the 8390 based drivers.
 
-CC: Philip Blundell <philb@gnu.org>
-CC: Russell King <linux@arm.linux.org.uk>
-CC: <aris@cathedrallabs.org>
+CC: Nicolas Pitre <nico@fluxnic.net>
 CC: Donald Becker <becker@scyld.com>
-CC: Chris Beauregard <cpbeaure@undergrad.math.uwaterloo.ca>
-CC: Richard Procter <rnp@paradise.net.nz>
-CC: Andries Brouwer <aeb@cwi.nl>
-CC: "M.Hipp" <hippm@informatik.uni-tuebingen.de>
-CC: Richard Hirst <richard@sleepie.demon.co.uk>
-CC: Sam Creasey <sammy@oh.verio.com>
-CC: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+CC: Erik Stahlman <erik@vt.edu>
+CC: Dustin McIntire <dustin@sensoria.com>
+CC: Steve Glendinning <steve.glendinning@smsc.com>
+CC: David Hinds <dahinds@users.sourceforge.net>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                    |    6 +-
- drivers/net/Kconfig                            |  167 +---------------------
- drivers/net/Makefile                           |   17 ---
- drivers/net/arm/Kconfig                        |    7 -
- drivers/net/arm/Makefile                       |    1 -
- drivers/net/ethernet/Kconfig                   |    1 +
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/{ => ethernet/i825xx}/3c505.c      |    0
- drivers/net/{ => ethernet/i825xx}/3c505.h      |    0
- drivers/net/{ => ethernet/i825xx}/3c507.c      |    0
- drivers/net/{ => ethernet/i825xx}/3c523.c      |    0
- drivers/net/{ => ethernet/i825xx}/3c523.h      |    0
- drivers/net/{ => ethernet/i825xx}/3c527.c      |    0
- drivers/net/{ => ethernet/i825xx}/3c527.h      |    0
- drivers/net/{ => ethernet/i825xx}/82596.c      |    0
- drivers/net/ethernet/i825xx/Kconfig            |  182 ++++++++++++++++++++++++
- drivers/net/ethernet/i825xx/Makefile           |   20 +++
- drivers/net/{ => ethernet/i825xx}/eepro.c      |    0
- drivers/net/{ => ethernet/i825xx}/eexpress.c   |    0
- drivers/net/{ => ethernet/i825xx}/eexpress.h   |    0
- drivers/net/{arm => ethernet/i825xx}/ether1.c  |    0
- drivers/net/{arm => ethernet/i825xx}/ether1.h  |    0
- drivers/net/{ => ethernet/i825xx}/lasi_82596.c |    0
- drivers/net/{ => ethernet/i825xx}/lib82596.c   |    0
- drivers/net/{ => ethernet/i825xx}/lp486e.c     |    0
- drivers/net/{ => ethernet/i825xx}/ni52.c       |    0
- drivers/net/{ => ethernet/i825xx}/ni52.h       |    0
- drivers/net/{ => ethernet/i825xx}/sni_82596.c  |    0
- drivers/net/{ => ethernet/i825xx}/sun3_82586.c |    0
- drivers/net/{ => ethernet/i825xx}/sun3_82586.h |    0
- drivers/net/{ => ethernet/i825xx}/znet.c       |    0
- 31 files changed, 208 insertions(+), 194 deletions(-)
- rename drivers/net/{ => ethernet/i825xx}/3c505.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/3c505.h (100%)
- rename drivers/net/{ => ethernet/i825xx}/3c507.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/3c523.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/3c523.h (100%)
- rename drivers/net/{ => ethernet/i825xx}/3c527.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/3c527.h (100%)
- rename drivers/net/{ => ethernet/i825xx}/82596.c (100%)
- create mode 100644 drivers/net/ethernet/i825xx/Kconfig
- create mode 100644 drivers/net/ethernet/i825xx/Makefile
- rename drivers/net/{ => ethernet/i825xx}/eepro.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/eexpress.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/eexpress.h (100%)
- rename drivers/net/{arm => ethernet/i825xx}/ether1.c (100%)
- rename drivers/net/{arm => ethernet/i825xx}/ether1.h (100%)
- rename drivers/net/{ => ethernet/i825xx}/lasi_82596.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/lib82596.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/lp486e.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/ni52.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/ni52.h (100%)
- rename drivers/net/{ => ethernet/i825xx}/sni_82596.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/sun3_82586.c (100%)
- rename drivers/net/{ => ethernet/i825xx}/sun3_82586.h (100%)
- rename drivers/net/{ => ethernet/i825xx}/znet.c (100%)
+ MAINTAINERS                                        |    6 +-
+ drivers/net/Kconfig                                |  105 ----------------
+ drivers/net/Makefile                               |    7 -
+ drivers/net/ethernet/8390/Kconfig                  |   21 +---
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/smsc/Kconfig                  |  131 ++++++++++++++++++++
+ drivers/net/ethernet/smsc/Makefile                 |   11 ++
+ drivers/net/{ => ethernet/smsc}/epic100.c          |    0
+ drivers/net/{ => ethernet/smsc}/smc911x.c          |    0
+ drivers/net/{ => ethernet/smsc}/smc911x.h          |    0
+ drivers/net/{ => ethernet/smsc}/smc9194.c          |    0
+ drivers/net/{ => ethernet/smsc}/smc9194.h          |    0
+ .../net/{pcmcia => ethernet/smsc}/smc91c92_cs.c    |    0
+ drivers/net/{ => ethernet/smsc}/smc91x.c           |    0
+ drivers/net/{ => ethernet/smsc}/smc91x.h           |    0
+ drivers/net/{ => ethernet/smsc}/smsc911x.c         |    0
+ drivers/net/{ => ethernet/smsc}/smsc911x.h         |    0
+ drivers/net/{ => ethernet/smsc}/smsc9420.c         |    0
+ drivers/net/{ => ethernet/smsc}/smsc9420.h         |    0
+ drivers/net/pcmcia/Kconfig                         |   11 --
+ drivers/net/pcmcia/Makefile                        |    1 -
+ 22 files changed, 151 insertions(+), 144 deletions(-)
+ create mode 100644 drivers/net/ethernet/smsc/Kconfig
+ create mode 100644 drivers/net/ethernet/smsc/Makefile
+ rename drivers/net/{ => ethernet/smsc}/epic100.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smc911x.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smc911x.h (100%)
+ rename drivers/net/{ => ethernet/smsc}/smc9194.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smc9194.h (100%)
+ rename drivers/net/{pcmcia => ethernet/smsc}/smc91c92_cs.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smc91x.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smc91x.h (100%)
+ rename drivers/net/{ => ethernet/smsc}/smsc911x.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smsc911x.h (100%)
+ rename drivers/net/{ => ethernet/smsc}/smsc9420.c (100%)
+ rename drivers/net/{ => ethernet/smsc}/smsc9420.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 7c0294c..5b368cc 100644
+index 8f2821c..7c0294c 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -117,7 +117,7 @@ Maintainers List (try to look for most precise areas first)
- M:	Philip Blundell <philb@gnu.org>
+@@ -5869,7 +5869,7 @@ F:	mm/sl?b.c
+ SMC91x ETHERNET DRIVER
+ M:	Nicolas Pitre <nico@fluxnic.net>
+ S:	Odd Fixes
+-F:	drivers/net/smc91x.*
++F:	drivers/net/ethernet/smsc/smc91x.*
+ 
+ SMM665 HARDWARE MONITOR DRIVER
+ M:	Guenter Roeck <linux@roeck-us.net>
+@@ -5904,13 +5904,13 @@ M:	Steve Glendinning <steve.glendinning@smsc.com>
  L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/3c505*
-+F:	drivers/net/ethernet/i825xx/3c505*
+ S:	Supported
+ F:	include/linux/smsc911x.h
+-F:	drivers/net/smsc911x.*
++F:	drivers/net/ethernet/smsc/smsc911x.*
  
- 3C59X NETWORK DRIVER
- M:	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-@@ -1014,7 +1014,7 @@ F:	arch/arm/include/asm/hardware/ioc.h
- F:	arch/arm/include/asm/hardware/iomd.h
- F:	arch/arm/include/asm/hardware/memc.h
- F:	arch/arm/mach-rpc/
--F:	drivers/net/arm/ether*
-+F:	drivers/net/arm/ether3*
- F:	drivers/scsi/arm/
- 
- ARM/SHARK MACHINE SUPPORT
-@@ -2510,7 +2510,7 @@ ETHEREXPRESS-16 NETWORK DRIVER
- M:	Philip Blundell <philb@gnu.org>
+ SMSC9420 PCI ETHERNET DRIVER
+ M:	Steve Glendinning <steve.glendinning@smsc.com>
  L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/eexpress.*
-+F:	drivers/net/ethernet/i825xx/eexpress.*
+ S:	Supported
+-F:	drivers/net/smsc9420.*
++F:	drivers/net/ethernet/smsc/smsc9420.*
  
- ETHERNET BRIDGE
- M:	Stephen Hemminger <shemminger@linux-foundation.org>
+ SN-IA64 (Itanium) SUB-PLATFORM
+ M:	Jes Sorensen <jes@sgi.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 6499186..d7d0b35 100644
+index de2293d..6499186 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -306,47 +306,6 @@ config MACMACE
- 	  say Y and read the Ethernet-HOWTO, available from
- 	  <http://www.tldp.org/docs.html#howto>.
- 
--config MVME16x_NET
--	tristate "MVME16x Ethernet support"
--	depends on MVME16x
--	help
--	  This is the driver for the Ethernet interface on the Motorola
--	  MVME162, 166, 167, 172 and 177 boards.  Say Y here to include the
--	  driver for this chip in your kernel.
--	  To compile this driver as a module, choose M here.
--
--config BVME6000_NET
--	tristate "BVME6000 Ethernet support"
--	depends on BVME6000
--	help
--	  This is the driver for the Ethernet interface on BVME4000 and
--	  BVME6000 VME boards.  Say Y here to include the driver for this chip
--	  in your kernel.
--	  To compile this driver as a module, choose M here.
--
--config SUN3_82586
--	bool "Sun3 on-board Intel 82586 support"
--	depends on SUN3
--	help
--	  This driver enables support for the on-board Intel 82586 based
--	  Ethernet adapter found on Sun 3/1xx and 3/2xx motherboards.  Note
--	  that this driver does not support 82586-based adapters on additional
--	  VME boards.
--
--config LASI_82596
--	tristate "Lasi ethernet"
--	depends on GSC
--	help
--	  Say Y here to support the builtin Intel 82596 ethernet controller
--	  found in Hewlett-Packard PA-RISC machines with 10Mbit ethernet.
--
--config SNI_82596
--	tristate "SNI RM ethernet"
--	depends on NET_ETHERNET && SNI_RM
--	help
--	  Say Y here to support the on-board Intel 82596 ethernet controller
--	  built into SNI RM machines.
--
- config KORINA
- 	tristate "Korina (IDT RC32434) Ethernet support"
- 	depends on NET_ETHERNET && MIKROTIK_RB532
-@@ -462,63 +421,6 @@ config SUNVNET
+@@ -565,39 +565,6 @@ config BFIN_MAC_USE_HWSTAMP
  	help
- 	  Support for virtual network devices under Sun Logical Domains.
+ 	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
  
--config EL2
--	tristate "3c503 \"EtherLink II\" support"
--	depends on ISA
+-config SMC9194
+-	tristate "SMC 9194 support"
+-	depends on NET_VENDOR_SMC && (ISA || MAC && BROKEN)
 -	select CRC32
 -	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This is support for the SMC9xxx based Ethernet cards. Choose this
+-	  option if you have a DELL laptop with the docking station, or
+-	  another SMC9192/9194 based chipset.  Say Y if you want it compiled
+-	  into the kernel, and read the file
+-	  <file:Documentation/networking/smc9.txt> and the Ethernet-HOWTO,
+-	  available from <http://www.tldp.org/docs.html#howto>.
 -
 -	  To compile this driver as a module, choose M here. The module
--	  will be called 3c503.
+-	  will be called smc9194.
 -
--config ELPLUS
--	tristate "3c505 \"EtherLink Plus\" support"
--	depends on ISA && ISA_DMA_API
--	---help---
--	  Information about this network (Ethernet) card can be found in
--	  <file:Documentation/networking/3c505.txt>.  If you have a card of
--	  this type, say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-config SMC91X
+-	tristate "SMC 91C9x/91C1xxx support"
+-	select CRC32
+-	select MII
+-	depends on ARM || M32R || SUPERH || \
+-		MIPS || BLACKFIN || MN10300 || COLDFIRE
+-	help
+-	  This is a driver for SMC's 91x series of Ethernet chipsets,
+-	  including the SMC91C94 and the SMC91C111. Say Y if you want it
+-	  compiled into the kernel, and read the file
+-	  <file:Documentation/networking/smc9.txt>  and the Ethernet-HOWTO,
+-	  available from  <http://www.tldp.org/docs.html#howto>.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c505.
+-	  This driver is also available as a module ( = code which can be
+-	  inserted in and removed from the running kernel whenever you want).
+-	  The module will be called smc91x.  If you want to compile it as a
+-	  module, say M here and read <file:Documentation/kbuild/modules.txt>.
 -
--config EL16
--	tristate "3c507 \"EtherLink 16\" support (EXPERIMENTAL)"
--	depends on ISA && EXPERIMENTAL
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c507.
--
--config ELMC
--	tristate "3c523 \"EtherLink/MC\" support"
--	depends on MCA_LEGACY
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c523.
--
--config ELMC_II
--	tristate "3c527 \"EtherLink/MC 32\" support (EXPERIMENTAL)"
--	depends on MCA && MCA_LEGACY
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c527.
--
- config BFIN_MAC
- 	tristate "Blackfin on-chip MAC support"
- 	depends on NET_ETHERNET && (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
-@@ -684,7 +586,7 @@ config NET_VENDOR_RACAL
- 	depends on ISA
+ config PXA168_ETH
+ 	tristate "Marvell pxa168 ethernet support"
+ 	depends on CPU_PXA168
+@@ -712,44 +679,6 @@ config GRETH
  	help
- 	  If you have a network (Ethernet) card belonging to this class, such
--	  as the NI5010, NI5210 or NI6210, say Y and read the Ethernet-HOWTO,
-+	  as the NI5010, say Y and read the Ethernet-HOWTO,
- 	  available from <http://www.tldp.org/docs.html#howto>.
+ 	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
  
- 	  Note that the answer to this question doesn't directly affect the
-@@ -704,17 +606,6 @@ config NI5010
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ni5010.
- 
--config NI52
--	tristate "NI5210 support"
--	depends on NET_VENDOR_RACAL && ISA
+-config SMC911X
+-	tristate "SMSC LAN911[5678] support"
+-	select CRC32
+-	select MII
+-	depends on ARM || SUPERH || MN10300
 -	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
+-	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
+-	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
+-	  Say Y if you want it compiled into the kernel, 
+-	  and read the Ethernet-HOWTO, available from
 -	  <http://www.tldp.org/docs.html#howto>.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called ni52.
+-	  This driver is also available as a module. The module will be 
+-	  called smc911x.  If you want to compile it as a module, say M 
+-	  here and read <file:Documentation/kbuild/modules.txt>
 -
- config DNET
- 	tristate "Dave ethernet support (DNET)"
- 	depends on NET_ETHERNET && HAS_IOMEM
-@@ -782,41 +673,6 @@ config EWRK3
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ewrk3.
- 
--config EEXPRESS
--	tristate "EtherExpress 16 support"
--	depends on NET_ISA
+-config SMSC911X
+-	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
+-	depends on ARM || SUPERH || BLACKFIN || MIPS || MN10300
+-	select CRC32
+-	select MII
+-	select PHYLIB
 -	---help---
--	  If you have an EtherExpress16 network (Ethernet) card, say Y and
--	  read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.  Note that the Intel
--	  EtherExpress16 card used to be regarded as a very poor choice
--	  because the driver was very unreliable. We now have a new driver
--	  that should do better.
+-	  Say Y here if you want support for SMSC LAN911x and LAN921x families
+-	  of ethernet controllers.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called eexpress.
+-	  To compile this driver as a module, choose M here and read
+-	  <file:Documentation/networking/net-modules.txt>. The module
+-	  will be called smsc911x.
 -
--config EEXPRESS_PRO
--	tristate "EtherExpressPro support/EtherExpress 10 (i82595) support"
--	depends on NET_ISA
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y. This
--	  driver supports Intel i82595{FX,TX} based boards. Note however
--	  that the EtherExpress PRO/100 Ethernet card has its own separate
--	  driver.  Please read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called eepro.
--
--config LP486E
--	tristate "LP486E on board Ethernet"
--	depends on NET_ISA
+-config SMSC911X_ARCH_HOOKS
+-	def_bool n
+-	depends on SMSC911X
 -	help
--	  Say Y here to support the 82596-based on-board Ethernet controller
--	  for the Panther motherboard, which is one of the two shipped in the
--	  Intel Professional Workstation.
+-	  If the arch enables this, it allows the arch to implement various
+-	  hooks for more comprehensive interrupt control and also to override
+-	  the source of the MAC address.
 -
- config ETH16I
- 	tristate "ICL EtherTeam 16i/32 support"
- 	depends on NET_ISA
-@@ -828,16 +684,6 @@ config ETH16I
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called eth16i.
+ config NET_VENDOR_RACAL
+ 	bool "Racal-Interlan (Micom) NI cards"
+ 	depends on ISA
+@@ -1148,33 +1077,6 @@ config SIS900
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called sis900.  This is recommended.
  
--config ZNET
--	tristate "Zenith Z-Note support (EXPERIMENTAL)"
--	depends on NET_ISA && EXPERIMENTAL && ISA_DMA_API
+-config EPIC100
+-	tristate "SMC EtherPower II"
+-	depends on NET_PCI && PCI
+-	select CRC32
+-	select MII
 -	help
--	  The Zenith Z-Note notebook computer has a built-in network
--	  (Ethernet) card, and this is the Linux driver for it. Note that the
--	  IBM Thinkpad 300 is compatible with the Z-Note and is also supported
--	  by this driver. Read the Ethernet-HOWTO, available from
+-	  This driver is for the SMC EtherPower II 9432 PCI Ethernet NIC,
+-	  which is based on the SMC83c17x (EPIC/100).
+-	  More specific information and updates are available from
+-	  <http://www.scyld.com/network/epic100.html>.
+-
+-config SMSC9420
+-	tristate "SMSC LAN9420 PCI ethernet adapter support"
+-	depends on NET_PCI && PCI
+-	select CRC32
+-	select PHYLIB
+-	select SMSC_PHY
+-	help
+-	  This is a driver for SMSC's LAN9420 PCI ethernet adapter.
+-	  Say Y if you want it compiled into the kernel,
+-	  and read the Ethernet-HOWTO, available from
 -	  <http://www.tldp.org/docs.html#howto>.
 -
- config SEEQ8005
- 	tristate "SEEQ8005 support (EXPERIMENTAL)"
- 	depends on NET_ISA && EXPERIMENTAL
-@@ -915,17 +761,6 @@ config KSZ884X_PCI
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ksz884x.
- 
--config APRICOT
--	tristate "Apricot Xen-II on board Ethernet"
--	depends on NET_PCI && ISA
--	help
--	  If you have a network (Ethernet) controller of this type, say Y and
--	  read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This driver is also available as a module. The module will be
+-	  called smsc9420.  If you want to compile it as a module, say M
+-	  here and read <file:Documentation/kbuild/modules.txt>
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called apricot.
--
- config FORCEDETH
- 	tristate "nForce Ethernet support"
+ config SUNDANCE
+ 	tristate "Sundance Alta support"
  	depends on NET_PCI && PCI
+@@ -1891,13 +1793,6 @@ config MYRI10GE_DCA
+ 	  driver.  DCA is a method for warming the CPU cache before data
+ 	  is used, with the intent of lessening the impact of cache misses.
+ 
+-config NETXEN_NIC
+-	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
+-	depends on PCI
+-	select FW_LOADER
+-	help
+-	  This enables the support for NetXen's Gigabit Ethernet card.
+-
+ config NIU
+ 	tristate "Sun Neptune 10Gbit Ethernet support"
+ 	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index e74b424..49b3e87 100644
+index a58a9f0..e74b424 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -130,36 +130,19 @@ obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_DE600) += de600.o
- obj-$(CONFIG_DE620) += de620.o
--obj-$(CONFIG_SUN3_82586) += sun3_82586.o
- obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_SGISEEQ) += sgiseeq.o
- obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
- obj-$(CONFIG_AT1700) += at1700.o
--obj-$(CONFIG_EL16) += 3c507.o
--obj-$(CONFIG_ELMC) += 3c523.o
- obj-$(CONFIG_IBMLANA) += ibmlana.o
--obj-$(CONFIG_ELMC_II) += 3c527.o
--obj-$(CONFIG_EEXPRESS) += eexpress.o
--obj-$(CONFIG_EEXPRESS_PRO) += eepro.o
- obj-$(CONFIG_8139CP) += 8139cp.o
- obj-$(CONFIG_8139TOO) += 8139too.o
--obj-$(CONFIG_ZNET) += znet.o
- obj-$(CONFIG_CPMAC) += cpmac.o
- obj-$(CONFIG_EWRK3) += ewrk3.o
- obj-$(CONFIG_ATP) += atp.o
- obj-$(CONFIG_NI5010) += ni5010.o
--obj-$(CONFIG_NI52) += ni52.o
--obj-$(CONFIG_ELPLUS) += 3c505.o
--obj-$(CONFIG_APRICOT) += 82596.o
--obj-$(CONFIG_LASI_82596) += lasi_82596.o
--obj-$(CONFIG_SNI_82596) += sni_82596.o
--obj-$(CONFIG_MVME16x_NET) += 82596.o
--obj-$(CONFIG_BVME6000_NET) += 82596.o
- obj-$(CONFIG_SC92031) += sc92031.o
+@@ -55,8 +55,6 @@ obj-$(CONFIG_MACE) += mace.o
+ obj-$(CONFIG_BMAC) += bmac.o
  
--# This is also a 82596 and should probably be merged
--obj-$(CONFIG_LP486E) += lp486e.o
+ obj-$(CONFIG_TLAN) += tlan.o
+-obj-$(CONFIG_EPIC100) += epic100.o
+-obj-$(CONFIG_SMSC9420) += smsc9420.o
+ obj-$(CONFIG_SIS190) += sis190.o
+ obj-$(CONFIG_SIS900) += sis900.o
+ obj-$(CONFIG_R6040) += r6040.o
+@@ -95,7 +93,6 @@ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_SEEQ8005) += seeq8005.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+ obj-$(CONFIG_HP100) += hp100.o
+-obj-$(CONFIG_SMC9194) += smc9194.o
+ obj-$(CONFIG_FEC) += fec.o
+ obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
+ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+@@ -182,9 +179,6 @@ obj-$(CONFIG_IBMVETH) += ibmveth.o
+ obj-$(CONFIG_S2IO) += s2io.o
+ obj-$(CONFIG_VXGE) += vxge/
+ obj-$(CONFIG_MYRI10GE) += myri10ge/
+-obj-$(CONFIG_SMC91X) += smc91x.o
+-obj-$(CONFIG_SMC911X) += smc911x.o
+-obj-$(CONFIG_SMSC911X) += smsc911x.o
+ obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
+ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+@@ -231,7 +225,6 @@ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+ 
+ obj-$(CONFIG_FS_ENET) += fs_enet/
+ 
+-obj-$(CONFIG_NETXEN_NIC) += netxen/
+ obj-$(CONFIG_NIU) += niu.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_SFC) += sfc/
+diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+index 5cd53f1..f1b9bdd 100644
+--- a/drivers/net/ethernet/8390/Kconfig
++++ b/drivers/net/ethernet/8390/Kconfig
+@@ -264,22 +264,9 @@ config STNIC
+ 
+ 	  If unsure, say N.
+ 
+-config NET_VENDOR_SMC
+-	bool "Western Digital/SMC cards"
+-	depends on (ISA || MCA || EISA || MAC)
+-	---help---
+-	  If you have a network (Ethernet) card belonging to this class, say Y
+-	  and read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
- obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
-diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
-index 715bf2a..7848b5f 100644
---- a/drivers/net/arm/Kconfig
-+++ b/drivers/net/arm/Kconfig
-@@ -3,13 +3,6 @@
- #  These are for Acorn's Expansion card network interfaces
- #
- 
--config ARM_ETHER1
--	tristate "Acorn Ether1 support"
--	depends on ARM && ARCH_ACORN
--	help
--	  If you have an Acorn system with one of these (AKA25) network cards,
--	  you should say Y to this option if you wish to use it with Linux.
+-	  Note that the answer to this question doesn't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the questions about Western Digital cards. If you say Y, you will be
+-	  asked for your specific card in the following questions.
 -
- config ARM_ETHER3
- 	tristate "Acorn/ANT Ether3 support"
- 	depends on ARM && ARCH_ACORN
-diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
-index f1e6150..6cca728 100644
---- a/drivers/net/arm/Makefile
-+++ b/drivers/net/arm/Makefile
-@@ -4,7 +4,6 @@
- #
+ config ULTRAMCA
+ 	tristate "SMC Ultra MCA support"
+-	depends on NET_VENDOR_SMC && MCA
++	depends on MCA
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type and are running
+@@ -291,7 +278,7 @@ config ULTRAMCA
  
- obj-$(CONFIG_ARM_ETHER3)	+= ether3.o
--obj-$(CONFIG_ARM_ETHER1)	+= ether1.o
- obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
- obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
- obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
+ config ULTRA
+ 	tristate "SMC Ultra support"
+-	depends on NET_VENDOR_SMC && ISA
++	depends on ISA
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type, say Y and read
+@@ -310,7 +297,7 @@ config ULTRA
+ 
+ config ULTRA32
+ 	tristate "SMC Ultra32 EISA support"
+-	depends on NET_VENDOR_SMC && EISA
++	depends on EISA
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type, say Y and read
+@@ -322,7 +309,7 @@ config ULTRA32
+ 
+ config WD80x3
+ 	tristate "WD80*3 support"
+-	depends on NET_VENDOR_SMC && ISA
++	depends on ISA
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type, say Y and read
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index ed5836c..d0a8fa8 100644
+index ab591bb..ed5836c 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -17,6 +17,7 @@ source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/broadcom/Kconfig"
+@@ -18,5 +18,6 @@ source "drivers/net/ethernet/broadcom/Kconfig"
  source "drivers/net/ethernet/chelsio/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
-+source "drivers/net/ethernet/i825xx/Kconfig"
  source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
++source "drivers/net/ethernet/smsc/Kconfig"
  
+ endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 983fd27..6d3276a 100644
+index d8cf120..983fd27 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -8,5 +8,6 @@ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+@@ -9,3 +9,4 @@ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
-+obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
  obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
-diff --git a/drivers/net/3c505.c b/drivers/net/ethernet/i825xx/3c505.c
-similarity index 100%
-rename from drivers/net/3c505.c
-rename to drivers/net/ethernet/i825xx/3c505.c
-diff --git a/drivers/net/3c505.h b/drivers/net/ethernet/i825xx/3c505.h
-similarity index 100%
-rename from drivers/net/3c505.h
-rename to drivers/net/ethernet/i825xx/3c505.h
-diff --git a/drivers/net/3c507.c b/drivers/net/ethernet/i825xx/3c507.c
-similarity index 100%
-rename from drivers/net/3c507.c
-rename to drivers/net/ethernet/i825xx/3c507.c
-diff --git a/drivers/net/3c523.c b/drivers/net/ethernet/i825xx/3c523.c
-similarity index 100%
-rename from drivers/net/3c523.c
-rename to drivers/net/ethernet/i825xx/3c523.c
-diff --git a/drivers/net/3c523.h b/drivers/net/ethernet/i825xx/3c523.h
-similarity index 100%
-rename from drivers/net/3c523.h
-rename to drivers/net/ethernet/i825xx/3c523.h
-diff --git a/drivers/net/3c527.c b/drivers/net/ethernet/i825xx/3c527.c
-similarity index 100%
-rename from drivers/net/3c527.c
-rename to drivers/net/ethernet/i825xx/3c527.c
-diff --git a/drivers/net/3c527.h b/drivers/net/ethernet/i825xx/3c527.h
-similarity index 100%
-rename from drivers/net/3c527.h
-rename to drivers/net/ethernet/i825xx/3c527.h
-diff --git a/drivers/net/82596.c b/drivers/net/ethernet/i825xx/82596.c
-similarity index 100%
-rename from drivers/net/82596.c
-rename to drivers/net/ethernet/i825xx/82596.c
-diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
++obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
 new file mode 100644
-index 0000000..5c30a5b
+index 0000000..702efe6
 --- /dev/null
-+++ b/drivers/net/ethernet/i825xx/Kconfig
-@@ -0,0 +1,182 @@
++++ b/drivers/net/ethernet/smsc/Kconfig
+@@ -0,0 +1,131 @@
 +#
-+# Intel 82596/82593/82596 network device configuration
++# Western Digital/SMC network device configuration
 +#
 +
-+config NET_VENDOR_I825XX
-+	bool "Intel (82586/82593/82596) devices"
-+	depends on NET_VENDOR_INTEL && (ISA || ISA_DMA_API || ARM || \
-+		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
-+		   GSC || BVME6000 || MVME16x || EXPERIMENTAL)
++config NET_VENDOR_SMSC
++	bool "SMC (SMSC)/Western Digital devices"
++	depends on ARM || ISA || MAC || ARM || MIPS || M32R || SUPERH || \
++		BLACKFIN || MN10300 || COLDFIRE || PCI || PCMCIA
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  Note that the answer to this question does not directly affect the
++	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about these devices. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about SMC/Western Digital cards. If you say Y, you will
++	  be asked for your specific card in the following questions.
 +
-+if NET_VENDOR_I825XX
++if NET_VENDOR_SMSC
 +
-+config ELPLUS
-+	tristate "3c505 \"EtherLink Plus\" support"
-+	depends on ISA && ISA_DMA_API
++config SMC9194
++	tristate "SMC 9194 support"
++	depends on (ISA || MAC && BROKEN)
++	select CRC32
 +	---help---
-+	  Information about this network (Ethernet) card can be found in
-+	  <file:Documentation/networking/3c505.txt>.  If you have a card of
-+	  this type, say Y and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This is support for the SMC9xxx based Ethernet cards. Choose this
++	  option if you have a DELL laptop with the docking station, or
++	  another SMC9192/9194 based chipset.  Say Y if you want it compiled
++	  into the kernel, and read the file
++	  <file:Documentation/networking/smc9.txt> and the Ethernet-HOWTO,
++	  available from <http://www.tldp.org/docs.html#howto>.
 +
 +	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c505.
++	  will be called smc9194.
 +
-+config EL16
-+	tristate "3c507 \"EtherLink 16\" support (EXPERIMENTAL)"
-+	depends on ISA && EXPERIMENTAL
++config SMC91X
++	tristate "SMC 91C9x/91C1xxx support"
++	select CRC32
++	select MII
++	depends on (ARM || M32R || SUPERH || MIPS || BLACKFIN || \
++		    MN10300 || COLDFIRE)
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
++	  This is a driver for SMC's 91x series of Ethernet chipsets,
++	  including the SMC91C94 and the SMC91C111. Say Y if you want it
++	  compiled into the kernel, and read the file
++	  <file:Documentation/networking/smc9.txt>  and the Ethernet-HOWTO,
++	  available from  <http://www.tldp.org/docs.html#howto>.
++
++	  This driver is also available as a module ( = code which can be
++	  inserted in and removed from the running kernel whenever you want).
++	  The module will be called smc91x.  If you want to compile it as a
++	  module, say M here and read <file:Documentation/kbuild/modules.txt>.
++
++config PCMCIA_SMC91C92
++	tristate "SMC 91Cxx PCMCIA support"
++	depends on PCMCIA
++	select CRC32
++	select MII
++	---help---
++	  Say Y here if you intend to attach an SMC 91Cxx compatible PCMCIA
++	  (PC-card) Ethernet or Fast Ethernet card to your computer.
++
++	  To compile this driver as a module, choose M here: the module will be
++	  called smc91c92_cs.  If unsure, say N.
++
++config EPIC100
++	tristate "SMC EtherPower II"
++	depends on PCI
++	select CRC32
++	select MII
++	---help---
++	  This driver is for the SMC EtherPower II 9432 PCI Ethernet NIC,
++	  which is based on the SMC83c17x (EPIC/100).
++	  More specific information and updates are available from
++	  <http://www.scyld.com/network/epic100.html>.
++
++config SMC911X
++	tristate "SMSC LAN911[5678] support"
++	select CRC32
++	select MII
++	depends on (ARM || SUPERH || MN10300)
++	---help---
++	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
++	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
++	  Say Y if you want it compiled into the kernel,
++	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c507.
++	  This driver is also available as a module. The module will be
++	  called smc911x.  If you want to compile it as a module, say M
++	  here and read <file:Documentation/kbuild/modules.txt>
 +
-+config ELMC
-+	tristate "3c523 \"EtherLink/MC\" support"
-+	depends on MCA_LEGACY
++config SMSC911X
++	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
++	depends on (ARM || SUPERH || BLACKFIN || MIPS || MN10300)
++	select CRC32
++	select MII
++	select PHYLIB
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
++	  Say Y here if you want support for SMSC LAN911x and LAN921x families
++	  of ethernet controllers.
++
++	  To compile this driver as a module, choose M here and read
++	  <file:Documentation/networking/net-modules.txt>. The module
++	  will be called smsc911x.
++
++config SMSC911X_ARCH_HOOKS
++	def_bool n
++	depends on SMSC911X
++	---help---
++	  If the arch enables this, it allows the arch to implement various
++	  hooks for more comprehensive interrupt control and also to override
++	  the source of the MAC address.
++
++config SMSC9420
++	tristate "SMSC LAN9420 PCI ethernet adapter support"
++	depends on PCI
++	select CRC32
++	select PHYLIB
++	select SMSC_PHY
++	---help---
++	  This is a driver for SMSC's LAN9420 PCI ethernet adapter.
++	  Say Y if you want it compiled into the kernel,
++	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c523.
++	  This driver is also available as a module. The module will be
++	  called smsc9420.  If you want to compile it as a module, say M
++	  here and read <file:Documentation/kbuild/modules.txt>
 +
-+config ELMC_II
-+	tristate "3c527 \"EtherLink/MC 32\" support (EXPERIMENTAL)"
-+	depends on MCA && MCA_LEGACY
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called 3c527.
-+
-+config ARM_ETHER1
-+	tristate "Acorn Ether1 support"
-+	depends on ARM && ARCH_ACORN
-+	---help---
-+	  If you have an Acorn system with one of these (AKA25) network cards,
-+	  you should say Y to this option if you wish to use it with Linux.
-+
-+config APRICOT
-+	tristate "Apricot Xen-II on board Ethernet"
-+	depends on ISA
-+	---help---
-+	  If you have a network (Ethernet) controller of this type, say Y and
-+	  read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called apricot.
-+
-+config BVME6000_NET
-+	tristate "BVME6000 Ethernet support"
-+	depends on BVME6000MVME16x
-+	---help---
-+	  This is the driver for the Ethernet interface on BVME4000 and
-+	  BVME6000 VME boards.  Say Y here to include the driver for this chip
-+	  in your kernel.
-+	  To compile this driver as a module, choose M here.
-+
-+config EEXPRESS
-+	tristate "EtherExpress 16 support"
-+	depends on ISA
-+	---help---
-+	  If you have an EtherExpress16 network (Ethernet) card, say Y and
-+	  read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.  Note that the Intel
-+	  EtherExpress16 card used to be regarded as a very poor choice
-+	  because the driver was very unreliable. We now have a new driver
-+	  that should do better.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called eexpress.
-+
-+config EEXPRESS_PRO
-+	tristate "EtherExpressPro support/EtherExpress 10 (i82595) support"
-+	depends on ISA
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y. This
-+	  driver supports Intel i82595{FX,TX} based boards. Note however
-+	  that the EtherExpress PRO/100 Ethernet card has its own separate
-+	  driver.  Please read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called eepro.
-+
-+config LASI_82596
-+	tristate "Lasi ethernet"
-+	depends on GSC
-+	---help---
-+	  Say Y here to support the builtin Intel 82596 ethernet controller
-+	  found in Hewlett-Packard PA-RISC machines with 10Mbit ethernet.
-+
-+config LP486E
-+	tristate "LP486E on board Ethernet"
-+	depends on ISA
-+	---help---
-+	  Say Y here to support the 82596-based on-board Ethernet controller
-+	  for the Panther motherboard, which is one of the two shipped in the
-+	  Intel Professional Workstation.
-+
-+config MVME16x_NET
-+	tristate "MVME16x Ethernet support"
-+	depends on MVME16x
-+	---help---
-+	  This is the driver for the Ethernet interface on the Motorola
-+	  MVME162, 166, 167, 172 and 177 boards.  Say Y here to include the
-+	  driver for this chip in your kernel.
-+	  To compile this driver as a module, choose M here.
-+
-+config NI52
-+	tristate "NI5210 support"
-+	depends on ISA
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called ni52.
-+
-+config SNI_82596
-+	tristate "SNI RM ethernet"
-+	depends on SNI_RM
-+	---help---
-+	  Say Y here to support the on-board Intel 82596 ethernet controller
-+	  built into SNI RM machines.
-+
-+config SUN3_82586
-+	bool "Sun3 on-board Intel 82586 support"
-+	depends on SUN3
-+	---help---
-+	  This driver enables support for the on-board Intel 82586 based
-+	  Ethernet adapter found on Sun 3/1xx and 3/2xx motherboards.  Note
-+	  that this driver does not support 82586-based adapters on additional
-+	  VME boards.
-+
-+config ZNET
-+	tristate "Zenith Z-Note support (EXPERIMENTAL)"
-+	depends on EXPERIMENTAL && ISA_DMA_API
-+	---help---
-+	  The Zenith Z-Note notebook computer has a built-in network
-+	  (Ethernet) card, and this is the Linux driver for it. Note that the
-+	  IBM Thinkpad 300 is compatible with the Z-Note and is also supported
-+	  by this driver. Read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+endif # NET_VENDOR_I825XX
-diff --git a/drivers/net/ethernet/i825xx/Makefile b/drivers/net/ethernet/i825xx/Makefile
++endif # NET_VENDOR_SMSC
+diff --git a/drivers/net/ethernet/smsc/Makefile b/drivers/net/ethernet/smsc/Makefile
 new file mode 100644
-index 0000000..f68a369
+index 0000000..f3438de
 --- /dev/null
-+++ b/drivers/net/ethernet/i825xx/Makefile
-@@ -0,0 +1,20 @@
++++ b/drivers/net/ethernet/smsc/Makefile
+@@ -0,0 +1,11 @@
 +#
-+# Makefile for the Intel 82586/82593/82596 chipset device drivers.
++# Makefile for the SMSC network device drivers.
 +#
 +
-+obj-$(CONFIG_ARM_ETHER1) += ether1.o
-+obj-$(CONFIG_EEXPRESS) += eexpress.o
-+obj-$(CONFIG_EEXPRESS_PRO) += eepro.o
-+obj-$(CONFIG_ELPLUS) += 3c505.o
-+obj-$(CONFIG_EL16) += 3c507.o
-+obj-$(CONFIG_ELMC) += 3c523.o
-+obj-$(CONFIG_ELMC_II) += 3c527.o
-+obj-$(CONFIG_LP486E) += lp486e.o
-+obj-$(CONFIG_NI52) += ni52.o
-+obj-$(CONFIG_SUN3_82586) += sun3_82586.o
-+obj-$(CONFIG_ZNET) += znet.o
-+obj-$(CONFIG_APRICOT) += 82596.o
-+obj-$(CONFIG_LASI_82596) += lasi_82596.o
-+obj-$(CONFIG_SNI_82596) += sni_82596.o
-+obj-$(CONFIG_MVME16x_NET) += 82596.o
-+obj-$(CONFIG_BVME6000_NET) += 82596.o
-diff --git a/drivers/net/eepro.c b/drivers/net/ethernet/i825xx/eepro.c
++obj-$(CONFIG_SMC9194) += smc9194.o
++obj-$(CONFIG_SMC91X) += smc91x.o
++obj-$(CONFIG_PCMCIA_SMC91C92) += smc91c92_cs.o
++obj-$(CONFIG_EPIC100) += epic100.o
++obj-$(CONFIG_SMSC9420) += smsc9420.o
++obj-$(CONFIG_SMC911X) += smc911x.o
++obj-$(CONFIG_SMSC911X) += smsc911x.o
+diff --git a/drivers/net/epic100.c b/drivers/net/ethernet/smsc/epic100.c
 similarity index 100%
-rename from drivers/net/eepro.c
-rename to drivers/net/ethernet/i825xx/eepro.c
-diff --git a/drivers/net/eexpress.c b/drivers/net/ethernet/i825xx/eexpress.c
+rename from drivers/net/epic100.c
+rename to drivers/net/ethernet/smsc/epic100.c
+diff --git a/drivers/net/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
 similarity index 100%
-rename from drivers/net/eexpress.c
-rename to drivers/net/ethernet/i825xx/eexpress.c
-diff --git a/drivers/net/eexpress.h b/drivers/net/ethernet/i825xx/eexpress.h
+rename from drivers/net/smc911x.c
+rename to drivers/net/ethernet/smsc/smc911x.c
+diff --git a/drivers/net/smc911x.h b/drivers/net/ethernet/smsc/smc911x.h
 similarity index 100%
-rename from drivers/net/eexpress.h
-rename to drivers/net/ethernet/i825xx/eexpress.h
-diff --git a/drivers/net/arm/ether1.c b/drivers/net/ethernet/i825xx/ether1.c
+rename from drivers/net/smc911x.h
+rename to drivers/net/ethernet/smsc/smc911x.h
+diff --git a/drivers/net/smc9194.c b/drivers/net/ethernet/smsc/smc9194.c
 similarity index 100%
-rename from drivers/net/arm/ether1.c
-rename to drivers/net/ethernet/i825xx/ether1.c
-diff --git a/drivers/net/arm/ether1.h b/drivers/net/ethernet/i825xx/ether1.h
+rename from drivers/net/smc9194.c
+rename to drivers/net/ethernet/smsc/smc9194.c
+diff --git a/drivers/net/smc9194.h b/drivers/net/ethernet/smsc/smc9194.h
 similarity index 100%
-rename from drivers/net/arm/ether1.h
-rename to drivers/net/ethernet/i825xx/ether1.h
-diff --git a/drivers/net/lasi_82596.c b/drivers/net/ethernet/i825xx/lasi_82596.c
+rename from drivers/net/smc9194.h
+rename to drivers/net/ethernet/smsc/smc9194.h
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
 similarity index 100%
-rename from drivers/net/lasi_82596.c
-rename to drivers/net/ethernet/i825xx/lasi_82596.c
-diff --git a/drivers/net/lib82596.c b/drivers/net/ethernet/i825xx/lib82596.c
+rename from drivers/net/pcmcia/smc91c92_cs.c
+rename to drivers/net/ethernet/smsc/smc91c92_cs.c
+diff --git a/drivers/net/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
 similarity index 100%
-rename from drivers/net/lib82596.c
-rename to drivers/net/ethernet/i825xx/lib82596.c
-diff --git a/drivers/net/lp486e.c b/drivers/net/ethernet/i825xx/lp486e.c
+rename from drivers/net/smc91x.c
+rename to drivers/net/ethernet/smsc/smc91x.c
+diff --git a/drivers/net/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
 similarity index 100%
-rename from drivers/net/lp486e.c
-rename to drivers/net/ethernet/i825xx/lp486e.c
-diff --git a/drivers/net/ni52.c b/drivers/net/ethernet/i825xx/ni52.c
+rename from drivers/net/smc91x.h
+rename to drivers/net/ethernet/smsc/smc91x.h
+diff --git a/drivers/net/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
 similarity index 100%
-rename from drivers/net/ni52.c
-rename to drivers/net/ethernet/i825xx/ni52.c
-diff --git a/drivers/net/ni52.h b/drivers/net/ethernet/i825xx/ni52.h
+rename from drivers/net/smsc911x.c
+rename to drivers/net/ethernet/smsc/smsc911x.c
+diff --git a/drivers/net/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
 similarity index 100%
-rename from drivers/net/ni52.h
-rename to drivers/net/ethernet/i825xx/ni52.h
-diff --git a/drivers/net/sni_82596.c b/drivers/net/ethernet/i825xx/sni_82596.c
+rename from drivers/net/smsc911x.h
+rename to drivers/net/ethernet/smsc/smsc911x.h
+diff --git a/drivers/net/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
 similarity index 100%
-rename from drivers/net/sni_82596.c
-rename to drivers/net/ethernet/i825xx/sni_82596.c
-diff --git a/drivers/net/sun3_82586.c b/drivers/net/ethernet/i825xx/sun3_82586.c
+rename from drivers/net/smsc9420.c
+rename to drivers/net/ethernet/smsc/smsc9420.c
+diff --git a/drivers/net/smsc9420.h b/drivers/net/ethernet/smsc/smsc9420.h
 similarity index 100%
-rename from drivers/net/sun3_82586.c
-rename to drivers/net/ethernet/i825xx/sun3_82586.c
-diff --git a/drivers/net/sun3_82586.h b/drivers/net/ethernet/i825xx/sun3_82586.h
-similarity index 100%
-rename from drivers/net/sun3_82586.h
-rename to drivers/net/ethernet/i825xx/sun3_82586.h
-diff --git a/drivers/net/znet.c b/drivers/net/ethernet/i825xx/znet.c
-similarity index 100%
-rename from drivers/net/znet.c
-rename to drivers/net/ethernet/i825xx/znet.c
+rename from drivers/net/smsc9420.h
+rename to drivers/net/ethernet/smsc/smsc9420.h
+diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
+index 72aa257..f5a738f 100644
+--- a/drivers/net/pcmcia/Kconfig
++++ b/drivers/net/pcmcia/Kconfig
+@@ -31,17 +31,6 @@ config PCMCIA_FMVJ18X
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called fmvj18x_cs.  If unsure, say N.
+ 
+-config PCMCIA_SMC91C92
+-	tristate "SMC 91Cxx PCMCIA support"
+-	select CRC32
+-	select MII
+-	help
+-	  Say Y here if you intend to attach an SMC 91Cxx compatible PCMCIA
+-	  (PC-card) Ethernet or Fast Ethernet card to your computer.
+-
+-	  To compile this driver as a module, choose M here: the module will be
+-	  called smc91c92_cs.  If unsure, say N.
+-
+ config PCMCIA_XIRC2PS
+ 	tristate "Xircom 16-bit PCMCIA support"
+ 	help
+diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
+index c2b8b44..f9c9883 100644
+--- a/drivers/net/pcmcia/Makefile
++++ b/drivers/net/pcmcia/Makefile
+@@ -4,7 +4,6 @@
+ 
+ # 16-bit client drivers
+ obj-$(CONFIG_PCMCIA_FMVJ18X)	+= fmvj18x_cs.o
+-obj-$(CONFIG_PCMCIA_SMC91C92)	+= smc91c92_cs.o
+ obj-$(CONFIG_PCMCIA_XIRC2PS)	+= xirc2ps_cs.o
+ obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
+ 
 -- 
 1.7.6
 
