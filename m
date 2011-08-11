@@ -1,73 +1,160 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/10] drivers/net/ organize Ethernet drivers
-Date: Wed, 10 Aug 2011 22:24:14 -0700
-Message-ID: <1313040255.3940.9.camel@jtkirshe-mobl>
-References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110810.220822.781839847644610294.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Tom Herbert <therbert@google.com>
+Subject: [RFC PATCH] tcp: Replace possible syn attack msg by counters
+Date: Wed, 10 Aug 2011 22:38:02 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1108102229130.5341@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-XzlIarNTvWIS6Hg8i4WP"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@tredhat.com" <gospo@tredhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9741 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752179Ab1HKFYP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 01:24:15 -0400
-In-Reply-To: <20110810.220822.781839847644610294.davem@davemloft.net>
+Received: from smtp-out.google.com ([74.125.121.67]:32295 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752514Ab1HKFiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 01:38:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Rather than printing the message to the log, use a mib counter to keep
+track of the count of occurences of syn cookies being used or syn
+being dropped when request queue is full.
 
---=-XzlIarNTvWIS6Hg8i4WP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Rationale is these messages can fill up /var/log/messages on server
+which is simply under heavy load... I'm not sure how much more useful
+they would be in identifying a server DOS attack (compared to
+counters).
 
-On Wed, 2011-08-10 at 22:08 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 10 Aug 2011 20:27:48 -0700
->=20
-> > This is the first of seven 10 patch series to move the Ethernet
-> > drivers into drivers/net/ethernet/
-> >=20
-> > The following are changes since commit 19fd61785a580c60cba900c5171bfadb=
-57dd5056:
-> >   Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/=
-davem/net
-> > and are available in the git repository at:
-> >   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize ma=
-ster
->=20
-> Pulled, thanks Jeff.
->=20
-> I'll push this back out to net-next after some build validation.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/snmp.h |    2 ++
+ net/ipv4/proc.c      |    2 ++
+ net/ipv4/tcp_ipv4.c  |   30 +++++++++---------------------
+ net/ipv6/tcp_ipv6.c  |   29 +++++++++--------------------
+ 4 files changed, 22 insertions(+), 41 deletions(-)
 
-As an FYI, I have had Aaron Brown test the Kconfig and compile options
-on this series (as well as the remaining 60+ patches) over the last
-several days while I was out and so far there have been no issues.
-
-The more eyes the better though, thanks.  I will start to prepare the
-second 10 patch series.
-
---=-XzlIarNTvWIS6Hg8i4WP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJOQ2d+AAoJECTsCADr/EWU6u4H/29IMiWRhGzJDAlXTvYYO/hs
-GtFq2VwxtG3FW9164CPa1IroatJ0R+FTokC+3uhaOGq5tnwA9czl6+IJ+P2GBZKH
-fwSXl2O1FtF19a1zCqXTG0ybnGcG730su6BqvXhcXfRu+K6eYHFQMuPHJiZMKVch
-J3i7mHv2rK8466YNYyZFPFfxOT5Vg6PeHAggxx1Jzb4HYtyHDG2sepL8BTK0ei/O
-sbr5XMCFZTOjYD9BmQgIJA51N7ZpET4Q2mIjxZh/pn1uI7NDyqILtnb3P+H0TIFg
-SBz9UKafCviXzDlSF9xIaYAW1o1r0xhDP6uZbatPsB+OO4klNB8Q0NdDTW7FDBA=
-=Xuxk
------END PGP SIGNATURE-----
-
---=-XzlIarNTvWIS6Hg8i4WP--
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 12b2b18..e16557a 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -231,6 +231,8 @@ enum
+ 	LINUX_MIB_TCPDEFERACCEPTDROP,
+ 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
+ 	LINUX_MIB_TCPTIMEWAITOVERFLOW,		/* TCPTimeWaitOverflow */
++	LINUX_MIB_TCPREQQFULLDOCOOKIES,		/* TCPReqQFullDoCookies */
++	LINUX_MIB_TCPREQQFULLDROP,		/* TCPReqQFullDrop */
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index b14ec7d..4bfad5d 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -254,6 +254,8 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
+ 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
+ 	SNMP_MIB_ITEM("TCPTimeWaitOverflow", LINUX_MIB_TCPTIMEWAITOVERFLOW),
++	SNMP_MIB_ITEM("TCPReqQFullDoCookies", LINUX_MIB_TCPREQQFULLDOCOOKIES),
++	SNMP_MIB_ITEM("TCPReqQFullDrop", LINUX_MIB_TCPREQQFULLDROP),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 955b8e6..f36ab28 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -807,21 +807,6 @@ static void tcp_v4_reqsk_destructor(struct request_sock *req)
+ 	kfree(inet_rsk(req)->opt);
+ }
+ 
+-static void syn_flood_warning(const struct sk_buff *skb)
+-{
+-	const char *msg;
+-
+-#ifdef CONFIG_SYN_COOKIES
+-	if (sysctl_tcp_syncookies)
+-		msg = "Sending cookies";
+-	else
+-#endif
+-		msg = "Dropping request";
+-
+-	pr_info("TCP: Possible SYN flooding on port %d. %s.\n",
+-				ntohs(tcp_hdr(skb)->dest), msg);
+-}
+-
+ /*
+  * Save and compile IPv4 options into the request_sock if needed.
+  */
+@@ -1249,14 +1234,17 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	 * evidently real one.
+ 	 */
+ 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
+-		if (net_ratelimit())
+-			syn_flood_warning(skb);
+ #ifdef CONFIG_SYN_COOKIES
+-		if (sysctl_tcp_syncookies) {
+-			want_cookie = 1;
+-		} else
++		want_cookie = sysctl_tcp_syncookies;
+ #endif
+-		goto drop;
++		if (want_cookie)
++			NET_INC_STATS_BH(sock_net(sk),
++			      LINUX_MIB_TCPREQQFULLDOCOOKIES);
++		else {
++			NET_INC_STATS_BH(sock_net(sk),
++			    LINUX_MIB_TCPREQQFULLDROP);
++			goto drop;
++		}
+ 	}
+ 
+ 	/* Accept backlog is full. If we have already queued enough
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 78aa534..810ae64 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -530,20 +530,6 @@ static int tcp_v6_rtx_synack(struct sock *sk, struct request_sock *req,
+ 	return tcp_v6_send_synack(sk, req, rvp);
+ }
+ 
+-static inline void syn_flood_warning(struct sk_buff *skb)
+-{
+-#ifdef CONFIG_SYN_COOKIES
+-	if (sysctl_tcp_syncookies)
+-		printk(KERN_INFO
+-		       "TCPv6: Possible SYN flooding on port %d. "
+-		       "Sending cookies.\n", ntohs(tcp_hdr(skb)->dest));
+-	else
+-#endif
+-		printk(KERN_INFO
+-		       "TCPv6: Possible SYN flooding on port %d. "
+-		       "Dropping request.\n", ntohs(tcp_hdr(skb)->dest));
+-}
+-
+ static void tcp_v6_reqsk_destructor(struct request_sock *req)
+ {
+ 	kfree_skb(inet6_rsk(req)->pktopts);
+@@ -1191,14 +1177,17 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 
+ 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
+-		if (net_ratelimit())
+-			syn_flood_warning(skb);
+ #ifdef CONFIG_SYN_COOKIES
+-		if (sysctl_tcp_syncookies)
+-			want_cookie = 1;
+-		else
++		want_cookie = sysctl_tcp_syncookies;
+ #endif
+-		goto drop;
++		if (want_cookie)
++			NET_INC_STATS_BH(sock_net(sk),
++			      LINUX_MIB_TCPREQQFULLDOCOOKIES);
++		else {
++			NET_INC_STATS_BH(sock_net(sk),
++			    LINUX_MIB_TCPREQQFULLDROP);
++			goto drop;
++		}
+ 	}
+ 
+ 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+-- 
+1.7.3.1
 
