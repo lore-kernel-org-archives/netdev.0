@@ -1,224 +1,553 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/10] qlogic: Move the QLogic drivers
-Date: Wed, 10 Aug 2011 20:27:56 -0700
-Message-ID: <1313033278-7337-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/10] intel: Move the Intel wired LAN drivers
+Date: Wed, 10 Aug 2011 20:27:55 -0700
+Message-ID: <1313033278-7337-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@tredhat.com, sassmann@redhat.com,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+	gospo@tredhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13952 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:54295 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754336Ab1HKD2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2011 23:28:10 -0400
+	id S1754276Ab1HKD2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2011 23:28:08 -0400
 In-Reply-To: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the QLogic drivers into drivers/net/ethernet/qlogic/ and
+Moves the Intel wired LAN drivers into drivers/net/ethernet/intel/ and
 the necessary Kconfig and Makefile changes.
 
-CC: Ron Mercer <ron.mercer@qlogic.com>
-CC: Amit Kumar Salecha <amit.salecha@qlogic.com>
-CC: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- MAINTAINERS                                        |    8 ++--
- drivers/net/Kconfig                                |   26 ----------
- drivers/net/Makefile                               |    3 -
+ MAINTAINERS                                        |   15 +-
+ drivers/net/Kconfig                                |  200 ------------------
+ drivers/net/Makefile                               |    8 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/qlogic/Kconfig                |   53 ++++++++++++++++++++
- drivers/net/ethernet/qlogic/Makefile               |    8 +++
- drivers/net/{ => ethernet/qlogic}/netxen/Makefile  |    0
- .../net/{ => ethernet/qlogic}/netxen/netxen_nic.h  |    0
- .../{ => ethernet/qlogic}/netxen/netxen_nic_ctx.c  |    0
- .../qlogic}/netxen/netxen_nic_ethtool.c            |    0
- .../{ => ethernet/qlogic}/netxen/netxen_nic_hdr.h  |    0
- .../{ => ethernet/qlogic}/netxen/netxen_nic_hw.c   |    0
- .../{ => ethernet/qlogic}/netxen/netxen_nic_hw.h   |    0
- .../{ => ethernet/qlogic}/netxen/netxen_nic_init.c |    0
- .../{ => ethernet/qlogic}/netxen/netxen_nic_main.c |    0
- drivers/net/{ => ethernet/qlogic}/qla3xxx.c        |    0
- drivers/net/{ => ethernet/qlogic}/qla3xxx.h        |    0
- drivers/net/{ => ethernet/qlogic}/qlcnic/Makefile  |    0
- drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic.h  |    0
- .../net/{ => ethernet/qlogic}/qlcnic/qlcnic_ctx.c  |    0
- .../{ => ethernet/qlogic}/qlcnic/qlcnic_ethtool.c  |    0
- .../net/{ => ethernet/qlogic}/qlcnic/qlcnic_hdr.h  |    0
- .../net/{ => ethernet/qlogic}/qlcnic/qlcnic_hw.c   |    0
- .../net/{ => ethernet/qlogic}/qlcnic/qlcnic_init.c |    0
- .../net/{ => ethernet/qlogic}/qlcnic/qlcnic_main.c |    0
- drivers/net/{ => ethernet/qlogic}/qlge/Makefile    |    0
- drivers/net/{ => ethernet/qlogic}/qlge/qlge.h      |    0
- drivers/net/{ => ethernet/qlogic}/qlge/qlge_dbg.c  |    0
- .../net/{ => ethernet/qlogic}/qlge/qlge_ethtool.c  |    0
- drivers/net/{ => ethernet/qlogic}/qlge/qlge_main.c |    0
- drivers/net/{ => ethernet/qlogic}/qlge/qlge_mpi.c  |    0
- 32 files changed, 67 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/Kconfig
- create mode 100644 drivers/net/ethernet/qlogic/Makefile
- rename drivers/net/{ => ethernet/qlogic}/netxen/Makefile (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_ctx.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_ethtool.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_hdr.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_hw.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_hw.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_init.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/netxen/netxen_nic_main.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qla3xxx.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qla3xxx.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/Makefile (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic_ctx.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic_ethtool.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic_hdr.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic_hw.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic_init.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlcnic/qlcnic_main.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlge/Makefile (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlge/qlge.h (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlge/qlge_dbg.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlge/qlge_ethtool.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlge/qlge_main.c (100%)
- rename drivers/net/{ => ethernet/qlogic}/qlge/qlge_mpi.c (100%)
+ drivers/net/ethernet/intel/Kconfig                 |  220 ++++++++++++++++++++
+ drivers/net/ethernet/intel/Makefile                |   12 +
+ drivers/net/{ => ethernet/intel}/e100.c            |    0
+ drivers/net/{ => ethernet/intel}/e1000/Makefile    |    0
+ drivers/net/{ => ethernet/intel}/e1000/e1000.h     |    0
+ .../net/{ => ethernet/intel}/e1000/e1000_ethtool.c |    0
+ drivers/net/{ => ethernet/intel}/e1000/e1000_hw.c  |    0
+ drivers/net/{ => ethernet/intel}/e1000/e1000_hw.h  |    0
+ .../net/{ => ethernet/intel}/e1000/e1000_main.c    |    0
+ .../net/{ => ethernet/intel}/e1000/e1000_osdep.h   |    0
+ .../net/{ => ethernet/intel}/e1000/e1000_param.c   |    0
+ .../intel/e1000e/80003es2lan.c}                    |    0
+ drivers/net/{ => ethernet/intel}/e1000e/82571.c    |    0
+ drivers/net/{ => ethernet/intel}/e1000e/Makefile   |    2 +-
+ drivers/net/{ => ethernet/intel}/e1000e/defines.h  |    0
+ drivers/net/{ => ethernet/intel}/e1000e/e1000.h    |    0
+ drivers/net/{ => ethernet/intel}/e1000e/ethtool.c  |    0
+ drivers/net/{ => ethernet/intel}/e1000e/hw.h       |    0
+ drivers/net/{ => ethernet/intel}/e1000e/ich8lan.c  |    0
+ drivers/net/{ => ethernet/intel}/e1000e/lib.c      |    0
+ drivers/net/{ => ethernet/intel}/e1000e/netdev.c   |    0
+ drivers/net/{ => ethernet/intel}/e1000e/param.c    |    0
+ drivers/net/{ => ethernet/intel}/e1000e/phy.c      |    0
+ drivers/net/{ => ethernet/intel}/igb/Makefile      |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_82575.c |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_82575.h |    0
+ .../net/{ => ethernet/intel}/igb/e1000_defines.h   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_hw.h    |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_mac.c   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_mac.h   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_mbx.c   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_mbx.h   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_nvm.c   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_nvm.h   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_phy.c   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_phy.h   |    0
+ drivers/net/{ => ethernet/intel}/igb/e1000_regs.h  |    0
+ drivers/net/{ => ethernet/intel}/igb/igb.h         |    0
+ drivers/net/{ => ethernet/intel}/igb/igb_ethtool.c |    0
+ drivers/net/{ => ethernet/intel}/igb/igb_main.c    |    0
+ drivers/net/{ => ethernet/intel}/igbvf/Makefile    |    0
+ drivers/net/{ => ethernet/intel}/igbvf/defines.h   |    0
+ drivers/net/{ => ethernet/intel}/igbvf/ethtool.c   |    0
+ drivers/net/{ => ethernet/intel}/igbvf/igbvf.h     |    0
+ drivers/net/{ => ethernet/intel}/igbvf/mbx.c       |    0
+ drivers/net/{ => ethernet/intel}/igbvf/mbx.h       |    0
+ drivers/net/{ => ethernet/intel}/igbvf/netdev.c    |    0
+ drivers/net/{ => ethernet/intel}/igbvf/regs.h      |    0
+ drivers/net/{ => ethernet/intel}/igbvf/vf.c        |    0
+ drivers/net/{ => ethernet/intel}/igbvf/vf.h        |    0
+ drivers/net/{ => ethernet/intel}/ixgb/Makefile     |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb.h       |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_ee.c    |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_ee.h    |    0
+ .../net/{ => ethernet/intel}/ixgb/ixgb_ethtool.c   |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_hw.c    |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_hw.h    |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_ids.h   |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_main.c  |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_osdep.h |    0
+ drivers/net/{ => ethernet/intel}/ixgb/ixgb_param.c |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/Makefile    |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe.h     |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_82598.c   |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_82599.c   |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_common.c  |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_common.h  |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb.c |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb.h |    0
+ .../{ => ethernet/intel}/ixgbe/ixgbe_dcb_82598.c   |    0
+ .../{ => ethernet/intel}/ixgbe/ixgbe_dcb_82598.h   |    0
+ .../{ => ethernet/intel}/ixgbe/ixgbe_dcb_82599.c   |    0
+ .../{ => ethernet/intel}/ixgbe/ixgbe_dcb_82599.h   |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_dcb_nl.c  |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_ethtool.c |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_fcoe.c    |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_fcoe.h    |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_main.c    |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_mbx.c |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_mbx.h |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_phy.c |    0
+ drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_phy.h |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_sriov.c   |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_sriov.h   |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_type.h    |    0
+ .../net/{ => ethernet/intel}/ixgbe/ixgbe_x540.c    |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/Makefile  |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/defines.h |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/ethtool.c |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/ixgbevf.h |    0
+ .../{ => ethernet/intel}/ixgbevf/ixgbevf_main.c    |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/mbx.c     |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/mbx.h     |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/regs.h    |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/vf.c      |    0
+ drivers/net/{ => ethernet/intel}/ixgbevf/vf.h      |    0
+ 101 files changed, 239 insertions(+), 220 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/Kconfig
+ create mode 100644 drivers/net/ethernet/intel/Makefile
+ rename drivers/net/{ => ethernet/intel}/e100.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/Makefile (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000.h (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000_hw.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000_hw.h (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000_main.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000_osdep.h (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000/e1000_param.c (100%)
+ rename drivers/net/{e1000e/es2lan.c => ethernet/intel/e1000e/80003es2lan.c} (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/82571.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/Makefile (96%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/defines.h (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/e1000.h (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/hw.h (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/ich8lan.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/lib.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/netdev.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/param.c (100%)
+ rename drivers/net/{ => ethernet/intel}/e1000e/phy.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/Makefile (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_82575.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_82575.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_defines.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_hw.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_mac.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_mac.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_mbx.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_mbx.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_nvm.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_nvm.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_phy.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_phy.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/e1000_regs.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/igb.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/igb_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igb/igb_main.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/Makefile (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/defines.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/igbvf.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/mbx.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/mbx.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/netdev.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/regs.h (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/vf.c (100%)
+ rename drivers/net/{ => ethernet/intel}/igbvf/vf.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/Makefile (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_ee.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_ee.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_hw.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_hw.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_ids.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_main.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_osdep.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgb/ixgb_param.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/Makefile (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_82598.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_82599.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_common.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_common.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb_82598.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb_82598.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb_82599.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb_82599.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_dcb_nl.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_fcoe.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_fcoe.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_main.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_mbx.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_mbx.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_phy.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_phy.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_sriov.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_sriov.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_type.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbe/ixgbe_x540.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/Makefile (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/defines.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/ethtool.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/ixgbevf.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/ixgbevf_main.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/mbx.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/mbx.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/regs.h (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/vf.c (100%)
+ rename drivers/net/{ => ethernet/intel}/ixgbevf/vf.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index f4838da..8f2821c 100644
+index 0853d00..f4838da 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4499,7 +4499,7 @@ M:	Amit Kumar Salecha <amit.salecha@qlogic.com>
- L:	netdev@vger.kernel.org
- W:	http://www.qlogic.com
+@@ -3340,13 +3340,13 @@ M:	Bruce Allan <bruce.w.allan@intel.com>
+ M:	Carolyn Wyborny <carolyn.wyborny@intel.com>
+ M:	Don Skidmore <donald.c.skidmore@intel.com>
+ M:	Greg Rose <gregory.v.rose@intel.com>
+-M:	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
++M:	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+ M:	Alex Duyck <alexander.h.duyck@intel.com>
+ M:	John Ronciak <john.ronciak@intel.com>
+ L:	e1000-devel@lists.sourceforge.net
+ W:	http://e1000.sourceforge.net/
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-2.6.git
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
  S:	Supported
--F:	drivers/net/netxen/
-+F:	drivers/net/ethernet/qlogic/netxen/
+ F:	Documentation/networking/e100.txt
+ F:	Documentation/networking/e1000.txt
+@@ -3356,14 +3356,7 @@ F:	Documentation/networking/igbvf.txt
+ F:	Documentation/networking/ixgb.txt
+ F:	Documentation/networking/ixgbe.txt
+ F:	Documentation/networking/ixgbevf.txt
+-F:	drivers/net/e100.c
+-F:	drivers/net/e1000/
+-F:	drivers/net/e1000e/
+-F:	drivers/net/igb/
+-F:	drivers/net/igbvf/
+-F:	drivers/net/ixgb/
+-F:	drivers/net/ixgbe/
+-F:	drivers/net/ixgbevf/
++F:	drivers/net/ethernet/intel/
  
- NFS, SUNRPC, AND LOCKD CLIENTS
- M:	Trond Myklebust <Trond.Myklebust@netapp.com>
-@@ -5245,7 +5245,7 @@ M:	linux-driver@qlogic.com
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	Documentation/networking/LICENSE.qla3xxx
--F:	drivers/net/qla3xxx.*
-+F:	drivers/net/ethernet/qlogic/qla3xxx.*
- 
- QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
- M:	Amit Kumar Salecha <amit.salecha@qlogic.com>
-@@ -5253,7 +5253,7 @@ M:	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
- M:	linux-driver@qlogic.com
- L:	netdev@vger.kernel.org
- S:	Supported
--F:	drivers/net/qlcnic/
-+F:	drivers/net/ethernet/qlogic/qlcnic/
- 
- QLOGIC QLGE 10Gb ETHERNET DRIVER
- M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-@@ -5261,7 +5261,7 @@ M:	Ron Mercer <ron.mercer@qlogic.com>
- M:	linux-driver@qlogic.com
- L:	netdev@vger.kernel.org
- S:	Supported
--F:	drivers/net/qlge/
-+F:	drivers/net/ethernet/qlogic/qlge/
- 
- QNX4 FILESYSTEM
- M:	Anders Larsen <al@alarsen.net>
+ INTEL MRST PMU DRIVER
+ M:	Len Brown <len.brown@intel.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index e649116..de2293d 100644
+index 77ab2e1..e649116 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -1707,15 +1707,6 @@ config XILINX_LL_TEMAC
- 	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
- 	  core used in Xilinx Spartan and Virtex FPGAs
+@@ -1032,32 +1032,6 @@ config TC35815
+ 	depends on NET_PCI && PCI && MIPS
+ 	select PHYLIB
  
--config QLA3XXX
--	tristate "QLogic QLA3XXX Network Driver Support"
+-config E100
+-	tristate "Intel(R) PRO/100+ support"
+-	depends on NET_PCI && PCI
+-	select MII
+-	---help---
+-	  This driver supports Intel(R) PRO/100 family of adapters.
+-	  To verify that your adapter is supported, find the board ID number 
+-	  on the adapter. Look for a label that has a barcode and a number 
+-	  in the format 123456-001 (six digits hyphen three digits). 
+-
+-	  Use the above information and the Adapter & Driver ID Guide at:
+-
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+-
+-	  to identify the adapter.
+-
+-	  For the latest Intel PRO/100 network driver for Linux, see:
+-
+-	  <http://www.intel.com/p/en_US/support/highlights/network/pro100plus>
+-
+-	  More specific information on configuring the driver is in 
+-	  <file:Documentation/networking/e100.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called e100.
+-
+ config FEALNX
+ 	tristate "Myson MTD-8xx PCI Ethernet support"
+ 	depends on NET_PCI && PCI
+@@ -1490,47 +1464,6 @@ config DL2K
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called dl2k.
+ 
+-config E1000
+-	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
 -	depends on PCI
--	help
--	  This driver supports QLogic ISP3XXX gigabit Ethernet cards.
+-	---help---
+-	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
+-	  adapters.  For more information on how to identify your adapter, go 
+-	  to the Adapter & Driver ID Guide at:
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called qla3xxx.
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
 -
- config ATL1
- 	tristate "Atheros/Attansic L1 Gigabit Ethernet support"
- 	depends on PCI
-@@ -1954,23 +1945,6 @@ config TEHUTI
+-	  For general information and support, go to the Intel support
+-	  website at:
+-
+-	  <http://support.intel.com>
+-
+-	  More specific information on configuring the driver is in 
+-	  <file:Documentation/networking/e1000.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called e1000.
+-
+-config E1000E
+-	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+-	depends on PCI && (!SPARC32 || BROKEN)
+-	select CRC32
+-	---help---
+-	  This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
+-	  ethernet family of adapters. For PCI or PCI-X e1000 adapters,
+-	  use the regular e1000 driver For more information on how to
+-	  identify your adapter, go to the Adapter & Driver ID Guide at:
+-
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+-
+-	  For general information and support, go to the Intel support
+-	  website at:
+-
+-	  <http://support.intel.com>
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called e1000e.
+-
+ config IP1000
+ 	tristate "IP1000 Gigabit Ethernet support"
+ 	depends on PCI && EXPERIMENTAL
+@@ -1541,57 +1474,6 @@ config IP1000
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called ipg.  This is recommended.
+ 
+-config IGB
+-	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
+-	depends on PCI
+-	---help---
+-	  This driver supports Intel(R) 82575/82576 gigabit ethernet family of
+-	  adapters.  For more information on how to identify your adapter, go
+-	  to the Adapter & Driver ID Guide at:
+-
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+-
+-	  For general information and support, go to the Intel support
+-	  website at:
+-
+-	  <http://support.intel.com>
+-
+-	  More specific information on configuring the driver is in
+-	  <file:Documentation/networking/e1000.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called igb.
+-
+-config IGB_DCA
+-	bool "Direct Cache Access (DCA) Support"
+-	default y
+-	depends on IGB && DCA && !(IGB=y && DCA=m)
+-	---help---
+-	  Say Y here if you want to use Direct Cache Access (DCA) in the
+-	  driver.  DCA is a method for warming the CPU cache before data
+-	  is used, with the intent of lessening the impact of cache misses.
+-
+-config IGBVF
+-	tristate "Intel(R) 82576 Virtual Function Ethernet support"
+-	depends on PCI
+-	---help---
+-	  This driver supports Intel(R) 82576 virtual functions.  For more
+-	  information on how to identify your adapter, go to the Adapter &
+-	  Driver ID Guide at:
+-
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+-
+-	  For general information and support, go to the Intel support
+-	  website at:
+-
+-	  <http://support.intel.com>
+-
+-	  More specific information on configuring the driver is in
+-	  <file:Documentation/networking/e1000.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called igbvf.
+-
+ source "drivers/net/ixp2000/Kconfig"
+ 
+ config NS83820
+@@ -1958,88 +1840,6 @@ config ENIC
  	help
- 	  Tehuti Networks 10G Ethernet NIC
+ 	  This enables the support for the Cisco VIC Ethernet card.
  
--config QLCNIC
--	tristate "QLOGIC QLCNIC 1/10Gb Converged Ethernet NIC Support"
+-config IXGBE
+-	tristate "Intel(R) 10GbE PCI Express adapters support"
+-	depends on PCI && INET
+-	select MDIO
+-	---help---
+-	  This driver supports Intel(R) 10GbE PCI Express family of
+-	  adapters.  For more information on how to identify your adapter, go
+-	  to the Adapter & Driver ID Guide at:
+-
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+-
+-	  For general information and support, go to the Intel support
+-	  website at:
+-
+-	  <http://support.intel.com>
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called ixgbe.
+-
+-config IXGBE_DCA
+-	bool "Direct Cache Access (DCA) Support"
+-	default y
+-	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
+-	---help---
+-	  Say Y here if you want to use Direct Cache Access (DCA) in the
+-	  driver.  DCA is a method for warming the CPU cache before data
+-	  is used, with the intent of lessening the impact of cache misses.
+-
+-config IXGBE_DCB
+-	bool "Data Center Bridging (DCB) Support"
+-	default n
+-	depends on IXGBE && DCB
+-	---help---
+-	  Say Y here if you want to use Data Center Bridging (DCB) in the
+-	  driver.
+-
+-	  If unsure, say N.
+-
+-config IXGBEVF
+-	tristate "Intel(R) 82599 Virtual Function Ethernet support"
+-	depends on PCI_MSI
+-	---help---
+-	  This driver supports Intel(R) 82599 virtual functions.  For more
+-	  information on how to identify your adapter, go to the Adapter &
+-	  Driver ID Guide at:
+-
+-	  <http://support.intel.com/support/network/sb/CS-008441.htm>
+-
+-	  For general information and support, go to the Intel support
+-	  website at:
+-
+-	  <http://support.intel.com>
+-
+-	  More specific information on configuring the driver is in
+-	  <file:Documentation/networking/ixgbevf.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called ixgbevf.  MSI-X interrupt support is required
+-	  for this driver to work correctly.
+-
+-config IXGB
+-	tristate "Intel(R) PRO/10GbE support"
 -	depends on PCI
--	select FW_LOADER
--	help
--	  This driver supports QLogic QLE8240 and QLE8242 Converged Ethernet
--	  devices.
+-	---help---
+-	  This driver supports Intel(R) PRO/10GbE family of adapters for
+-	  PCI-X type cards. For PCI-E type cards, use the "ixgbe" driver
+-	  instead. For more information on how to identify your adapter, go
+-	  to the Adapter & Driver ID Guide at:
 -
--config QLGE
--	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
--	depends on PCI
--	help
--	  This driver supports QLogic ISP8XXX 10Gb Ethernet cards.
+-	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called qlge.
+-	  For general information and support, go to the Intel support
+-	  website at:
 -
- config BNA
- 	tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
+-	  <http://support.intel.com>
+-
+-	  More specific information on configuring the driver is in 
+-	  <file:Documentation/networking/ixgb.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called ixgb.
+-
+ config S2IO
+ 	tristate "Exar Xframe 10Gb Ethernet Adapter"
  	depends on PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 84b9860..a58a9f0 100644
+index a987d46..84b9860 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -110,9 +110,6 @@ obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
- ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
- obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
- obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
--obj-$(CONFIG_QLA3XXX) += qla3xxx.o
--obj-$(CONFIG_QLCNIC) += qlcnic/
--obj-$(CONFIG_QLGE) += qlge/
+@@ -10,14 +10,7 @@ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
+ obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
+ obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
  
- obj-$(CONFIG_PPP) += ppp_generic.o
- obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
+-obj-$(CONFIG_E1000) += e1000/
+-obj-$(CONFIG_E1000E) += e1000e/
+ obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
+-obj-$(CONFIG_IGB) += igb/
+-obj-$(CONFIG_IGBVF) += igbvf/
+-obj-$(CONFIG_IXGBE) += ixgbe/
+-obj-$(CONFIG_IXGBEVF) += ixgbevf/
+-obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_IP1000) += ipg.o
+ obj-$(CONFIG_EHEA) += ehea/
+ obj-$(CONFIG_CAN) += can/
+@@ -61,7 +54,6 @@ obj-$(CONFIG_SUNVNET) += sunvnet.o
+ obj-$(CONFIG_MACE) += mace.o
+ obj-$(CONFIG_BMAC) += bmac.o
+ 
+-obj-$(CONFIG_E100) += e100.o
+ obj-$(CONFIG_TLAN) += tlan.o
+ obj-$(CONFIG_EPIC100) += epic100.o
+ obj-$(CONFIG_SMSC9420) += smsc9420.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index a2fd385..ab591bb 100644
+index 69d6403..a2fd385 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -17,5 +17,6 @@ source "drivers/net/ethernet/amd/Kconfig"
+@@ -16,5 +16,6 @@ source "drivers/net/ethernet/8390/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
  source "drivers/net/ethernet/broadcom/Kconfig"
  source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
-+source "drivers/net/ethernet/qlogic/Kconfig"
++source "drivers/net/ethernet/intel/Kconfig"
  
  endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 5265271..d8cf120 100644
+index 470e5d8..5265271 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -8,3 +8,4 @@ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+@@ -7,3 +7,4 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
  obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
  obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
-+obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
++obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
 new file mode 100644
-index 0000000..a7c4424
+index 0000000..5fe185b
 --- /dev/null
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -0,0 +1,53 @@
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -0,0 +1,220 @@
 +#
-+# QLogic network device configuration
++# Intel network device configuration
 +#
 +
-+config NET_VENDOR_QLOGIC
-+	bool "QLogic devices"
-+	depends on PCI
++config NET_VENDOR_INTEL
++	bool "Intel devices"
++	depends on PCI || PCI_MSI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -226,159 +555,617 @@ index 0000000..a7c4424
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about QLogic cards. If you say Y, you will be asked for
++	  the questions about Intel cards. If you say Y, you will be asked for
 +	  your specific card in the following questions.
 +
-+if NET_VENDOR_QLOGIC
++if NET_VENDOR_INTEL
 +
-+config QLA3XXX
-+	tristate "QLogic QLA3XXX Network Driver Support"
++config E100
++	tristate "Intel(R) PRO/100+ support"
++	depends on PCI
++	select MII
++	---help---
++	  This driver supports Intel(R) PRO/100 family of adapters.
++	  To verify that your adapter is supported, find the board ID number
++	  on the adapter. Look for a label that has a barcode and a number
++	  in the format 123456-001 (six digits hyphen three digits).
++
++	  Use the above information and the Adapter & Driver ID Guide at:
++
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
++
++	  to identify the adapter.
++
++	  For the latest Intel PRO/100 network driver for Linux, see:
++
++	  <http://www.intel.com/p/en_US/support/highlights/network/pro100plus>
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/e100.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called e100.
++
++config E1000
++	tristate "Intel(R) PRO/1000 Gigabit Ethernet support"
 +	depends on PCI
 +	---help---
-+	  This driver supports QLogic ISP3XXX gigabit Ethernet cards.
++	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
++	  adapters.  For more information on how to identify your adapter, go
++	  to the Adapter & Driver ID Guide at:
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called qla3xxx.
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
 +
-+config QLCNIC
-+	tristate "QLOGIC QLCNIC 1/10Gb Converged Ethernet NIC Support"
-+	depends on PCI
-+	select FW_LOADER
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/e1000.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called e1000.
++
++config E1000E
++	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
++	depends on PCI && (!SPARC32 || BROKEN)
++	select CRC32
 +	---help---
-+	  This driver supports QLogic QLE8240 and QLE8242 Converged Ethernet
-+	  devices.
++	  This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
++	  ethernet family of adapters. For PCI or PCI-X e1000 adapters,
++	  use the regular e1000 driver For more information on how to
++	  identify your adapter, go to the Adapter & Driver ID Guide at:
 +
-+config QLGE
-+	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
++
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called e1000e.
++
++config IGB
++	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
 +	depends on PCI
 +	---help---
-+	  This driver supports QLogic ISP8XXX 10Gb Ethernet cards.
++	  This driver supports Intel(R) 82575/82576 gigabit ethernet family of
++	  adapters.  For more information on how to identify your adapter, go
++	  to the Adapter & Driver ID Guide at:
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called qlge.
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
 +
-+config NETXEN_NIC
-+	tristate "NetXen Multi port (1/10) Gigabit Ethernet NIC"
-+	depends on PCI
-+	select FW_LOADER
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/e1000.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called igb.
++
++config IGB_DCA
++	bool "Direct Cache Access (DCA) Support"
++	default y
++	depends on IGB && DCA && !(IGB=y && DCA=m)
 +	---help---
-+	  This enables the support for NetXen's Gigabit Ethernet card.
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
 +
-+endif # NET_VENDOR_QLOGIC
-diff --git a/drivers/net/ethernet/qlogic/Makefile b/drivers/net/ethernet/qlogic/Makefile
++config IGBVF
++	tristate "Intel(R) 82576 Virtual Function Ethernet support"
++	depends on PCI
++	---help---
++	  This driver supports Intel(R) 82576 virtual functions.  For more
++	  information on how to identify your adapter, go to the Adapter &
++	  Driver ID Guide at:
++
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
++
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/e1000.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called igbvf.
++
++config IXGB
++	tristate "Intel(R) PRO/10GbE support"
++	depends on PCI
++	---help---
++	  This driver supports Intel(R) PRO/10GbE family of adapters for
++	  PCI-X type cards. For PCI-E type cards, use the "ixgbe" driver
++	  instead. For more information on how to identify your adapter, go
++	  to the Adapter & Driver ID Guide at:
++
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
++
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/ixgb.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ixgb.
++
++config IXGBE
++	tristate "Intel(R) 10GbE PCI Express adapters support"
++	depends on PCI && INET
++	select MDIO
++	---help---
++	  This driver supports Intel(R) 10GbE PCI Express family of
++	  adapters.  For more information on how to identify your adapter, go
++	  to the Adapter & Driver ID Guide at:
++
++	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
++
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ixgbe.
++
++config IXGBE_DCA
++	bool "Direct Cache Access (DCA) Support"
++	default y
++	depends on IXGBE && DCA && !(IXGBE=y && DCA=m)
++	---help---
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
++
++config IXGBE_DCB
++	bool "Data Center Bridging (DCB) Support"
++	default n
++	depends on IXGBE && DCB
++	---help---
++	  Say Y here if you want to use Data Center Bridging (DCB) in the
++	  driver.
++
++	  If unsure, say N.
++
++config IXGBEVF
++	tristate "Intel(R) 82599 Virtual Function Ethernet support"
++	depends on PCI_MSI
++	---help---
++	  This driver supports Intel(R) 82599 virtual functions.  For more
++	  information on how to identify your adapter, go to the Adapter &
++	  Driver ID Guide at:
++
++	  <http://support.intel.com/support/network/sb/CS-008441.htm>
++
++	  For general information and support, go to the Intel support
++	  website at:
++
++	  <http://support.intel.com>
++
++	  More specific information on configuring the driver is in
++	  <file:Documentation/networking/ixgbevf.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ixgbevf.  MSI-X interrupt support is required
++	  for this driver to work correctly.
++
++endif # NET_VENDOR_INTEL
+diff --git a/drivers/net/ethernet/intel/Makefile b/drivers/net/ethernet/intel/Makefile
 new file mode 100644
-index 0000000..b2a283d
+index 0000000..c8210e6
 --- /dev/null
-+++ b/drivers/net/ethernet/qlogic/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/intel/Makefile
+@@ -0,0 +1,12 @@
 +#
-+# Makefile for the QLogic network device drivers.
++# Makefile for the Intel network device drivers.
 +#
 +
-+obj-$(CONFIG_QLA3XXX) += qla3xxx.o
-+obj-$(CONFIG_QLCNIC) += qlcnic/
-+obj-$(CONFIG_QLGE) += qlge/
-+obj-$(CONFIG_NETXEN_NIC) += netxen/
-diff --git a/drivers/net/netxen/Makefile b/drivers/net/ethernet/qlogic/netxen/Makefile
++obj-$(CONFIG_E100) += e100.o
++obj-$(CONFIG_E1000) += e1000/
++obj-$(CONFIG_E1000E) += e1000e/
++obj-$(CONFIG_IGB) += igb/
++obj-$(CONFIG_IGBVF) += igbvf/
++obj-$(CONFIG_IXGBE) += ixgbe/
++obj-$(CONFIG_IXGBEVF) += ixgbevf/
++obj-$(CONFIG_IXGB) += ixgb/
+diff --git a/drivers/net/e100.c b/drivers/net/ethernet/intel/e100.c
 similarity index 100%
-rename from drivers/net/netxen/Makefile
-rename to drivers/net/ethernet/qlogic/netxen/Makefile
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+rename from drivers/net/e100.c
+rename to drivers/net/ethernet/intel/e100.c
+diff --git a/drivers/net/e1000/Makefile b/drivers/net/ethernet/intel/e1000/Makefile
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic.h
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic.h
-diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
+rename from drivers/net/e1000/Makefile
+rename to drivers/net/ethernet/intel/e1000/Makefile
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_ctx.c
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+rename from drivers/net/e1000/e1000.h
+rename to drivers/net/ethernet/intel/e1000/e1000.h
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_ethtool.c
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-diff --git a/drivers/net/netxen/netxen_nic_hdr.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hdr.h
+rename from drivers/net/e1000/e1000_ethtool.c
+rename to drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_hdr.h
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_hdr.h
-diff --git a/drivers/net/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+rename from drivers/net/e1000/e1000_hw.c
+rename to drivers/net/ethernet/intel/e1000/e1000_hw.c
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/ethernet/intel/e1000/e1000_hw.h
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_hw.c
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-diff --git a/drivers/net/netxen/netxen_nic_hw.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.h
+rename from drivers/net/e1000/e1000_hw.h
+rename to drivers/net/ethernet/intel/e1000/e1000_hw.h
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_hw.h
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.h
-diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+rename from drivers/net/e1000/e1000_main.c
+rename to drivers/net/ethernet/intel/e1000/e1000_main.c
+diff --git a/drivers/net/e1000/e1000_osdep.h b/drivers/net/ethernet/intel/e1000/e1000_osdep.h
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_init.c
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+rename from drivers/net/e1000/e1000_osdep.h
+rename to drivers/net/ethernet/intel/e1000/e1000_osdep.h
+diff --git a/drivers/net/e1000/e1000_param.c b/drivers/net/ethernet/intel/e1000/e1000_param.c
 similarity index 100%
-rename from drivers/net/netxen/netxen_nic_main.c
-rename to drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+rename from drivers/net/e1000/e1000_param.c
+rename to drivers/net/ethernet/intel/e1000/e1000_param.c
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
 similarity index 100%
-rename from drivers/net/qla3xxx.c
-rename to drivers/net/ethernet/qlogic/qla3xxx.c
-diff --git a/drivers/net/qla3xxx.h b/drivers/net/ethernet/qlogic/qla3xxx.h
+rename from drivers/net/e1000e/es2lan.c
+rename to drivers/net/ethernet/intel/e1000e/80003es2lan.c
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
 similarity index 100%
-rename from drivers/net/qla3xxx.h
-rename to drivers/net/ethernet/qlogic/qla3xxx.h
-diff --git a/drivers/net/qlcnic/Makefile b/drivers/net/ethernet/qlogic/qlcnic/Makefile
+rename from drivers/net/e1000e/82571.c
+rename to drivers/net/ethernet/intel/e1000e/82571.c
+diff --git a/drivers/net/e1000e/Makefile b/drivers/net/ethernet/intel/e1000e/Makefile
+similarity index 96%
+rename from drivers/net/e1000e/Makefile
+rename to drivers/net/ethernet/intel/e1000e/Makefile
+index 28519ac..948c05d 100644
+--- a/drivers/net/e1000e/Makefile
++++ b/drivers/net/ethernet/intel/e1000e/Makefile
+@@ -32,6 +32,6 @@
+ 
+ obj-$(CONFIG_E1000E) += e1000e.o
+ 
+-e1000e-objs := 82571.o ich8lan.o es2lan.o \
++e1000e-objs := 82571.o ich8lan.o 80003es2lan.o \
+ 	       lib.o phy.o param.o ethtool.o netdev.o
+ 
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
 similarity index 100%
-rename from drivers/net/qlcnic/Makefile
-rename to drivers/net/ethernet/qlogic/qlcnic/Makefile
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+rename from drivers/net/e1000e/defines.h
+rename to drivers/net/ethernet/intel/e1000e/defines.h
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic.h
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+rename from drivers/net/e1000e/e1000.h
+rename to drivers/net/ethernet/intel/e1000e/e1000.h
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic_ctx.c
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+rename from drivers/net/e1000e/ethtool.c
+rename to drivers/net/ethernet/intel/e1000e/ethtool.c
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic_ethtool.c
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
+rename from drivers/net/e1000e/hw.h
+rename to drivers/net/ethernet/intel/e1000e/hw.h
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic_hdr.h
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+rename from drivers/net/e1000e/ich8lan.c
+rename to drivers/net/ethernet/intel/e1000e/ich8lan.c
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/ethernet/intel/e1000e/lib.c
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic_hw.c
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+rename from drivers/net/e1000e/lib.c
+rename to drivers/net/ethernet/intel/e1000e/lib.c
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic_init.c
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+rename from drivers/net/e1000e/netdev.c
+rename to drivers/net/ethernet/intel/e1000e/netdev.c
+diff --git a/drivers/net/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
 similarity index 100%
-rename from drivers/net/qlcnic/qlcnic_main.c
-rename to drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-diff --git a/drivers/net/qlge/Makefile b/drivers/net/ethernet/qlogic/qlge/Makefile
+rename from drivers/net/e1000e/param.c
+rename to drivers/net/ethernet/intel/e1000e/param.c
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
 similarity index 100%
-rename from drivers/net/qlge/Makefile
-rename to drivers/net/ethernet/qlogic/qlge/Makefile
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
+rename from drivers/net/e1000e/phy.c
+rename to drivers/net/ethernet/intel/e1000e/phy.c
+diff --git a/drivers/net/igb/Makefile b/drivers/net/ethernet/intel/igb/Makefile
 similarity index 100%
-rename from drivers/net/qlge/qlge.h
-rename to drivers/net/ethernet/qlogic/qlge/qlge.h
-diff --git a/drivers/net/qlge/qlge_dbg.c b/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
+rename from drivers/net/igb/Makefile
+rename to drivers/net/ethernet/intel/igb/Makefile
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
 similarity index 100%
-rename from drivers/net/qlge/qlge_dbg.c
-rename to drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-diff --git a/drivers/net/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
+rename from drivers/net/igb/e1000_82575.c
+rename to drivers/net/ethernet/intel/igb/e1000_82575.c
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
 similarity index 100%
-rename from drivers/net/qlge/qlge_ethtool.c
-rename to drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+rename from drivers/net/igb/e1000_82575.h
+rename to drivers/net/ethernet/intel/igb/e1000_82575.h
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
 similarity index 100%
-rename from drivers/net/qlge/qlge_main.c
-rename to drivers/net/ethernet/qlogic/qlge/qlge_main.c
-diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/ethernet/qlogic/qlge/qlge_mpi.c
+rename from drivers/net/igb/e1000_defines.h
+rename to drivers/net/ethernet/intel/igb/e1000_defines.h
+diff --git a/drivers/net/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
 similarity index 100%
-rename from drivers/net/qlge/qlge_mpi.c
-rename to drivers/net/ethernet/qlogic/qlge/qlge_mpi.c
+rename from drivers/net/igb/e1000_hw.h
+rename to drivers/net/ethernet/intel/igb/e1000_hw.h
+diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
+similarity index 100%
+rename from drivers/net/igb/e1000_mac.c
+rename to drivers/net/ethernet/intel/igb/e1000_mac.c
+diff --git a/drivers/net/igb/e1000_mac.h b/drivers/net/ethernet/intel/igb/e1000_mac.h
+similarity index 100%
+rename from drivers/net/igb/e1000_mac.h
+rename to drivers/net/ethernet/intel/igb/e1000_mac.h
+diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/ethernet/intel/igb/e1000_mbx.c
+similarity index 100%
+rename from drivers/net/igb/e1000_mbx.c
+rename to drivers/net/ethernet/intel/igb/e1000_mbx.c
+diff --git a/drivers/net/igb/e1000_mbx.h b/drivers/net/ethernet/intel/igb/e1000_mbx.h
+similarity index 100%
+rename from drivers/net/igb/e1000_mbx.h
+rename to drivers/net/ethernet/intel/igb/e1000_mbx.h
+diff --git a/drivers/net/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+similarity index 100%
+rename from drivers/net/igb/e1000_nvm.c
+rename to drivers/net/ethernet/intel/igb/e1000_nvm.c
+diff --git a/drivers/net/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
+similarity index 100%
+rename from drivers/net/igb/e1000_nvm.h
+rename to drivers/net/ethernet/intel/igb/e1000_nvm.h
+diff --git a/drivers/net/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+similarity index 100%
+rename from drivers/net/igb/e1000_phy.c
+rename to drivers/net/ethernet/intel/igb/e1000_phy.c
+diff --git a/drivers/net/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
+similarity index 100%
+rename from drivers/net/igb/e1000_phy.h
+rename to drivers/net/ethernet/intel/igb/e1000_phy.h
+diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+similarity index 100%
+rename from drivers/net/igb/e1000_regs.h
+rename to drivers/net/ethernet/intel/igb/e1000_regs.h
+diff --git a/drivers/net/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+similarity index 100%
+rename from drivers/net/igb/igb.h
+rename to drivers/net/ethernet/intel/igb/igb.h
+diff --git a/drivers/net/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+similarity index 100%
+rename from drivers/net/igb/igb_ethtool.c
+rename to drivers/net/ethernet/intel/igb/igb_ethtool.c
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+similarity index 100%
+rename from drivers/net/igb/igb_main.c
+rename to drivers/net/ethernet/intel/igb/igb_main.c
+diff --git a/drivers/net/igbvf/Makefile b/drivers/net/ethernet/intel/igbvf/Makefile
+similarity index 100%
+rename from drivers/net/igbvf/Makefile
+rename to drivers/net/ethernet/intel/igbvf/Makefile
+diff --git a/drivers/net/igbvf/defines.h b/drivers/net/ethernet/intel/igbvf/defines.h
+similarity index 100%
+rename from drivers/net/igbvf/defines.h
+rename to drivers/net/ethernet/intel/igbvf/defines.h
+diff --git a/drivers/net/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
+similarity index 100%
+rename from drivers/net/igbvf/ethtool.c
+rename to drivers/net/ethernet/intel/igbvf/ethtool.c
+diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/ethernet/intel/igbvf/igbvf.h
+similarity index 100%
+rename from drivers/net/igbvf/igbvf.h
+rename to drivers/net/ethernet/intel/igbvf/igbvf.h
+diff --git a/drivers/net/igbvf/mbx.c b/drivers/net/ethernet/intel/igbvf/mbx.c
+similarity index 100%
+rename from drivers/net/igbvf/mbx.c
+rename to drivers/net/ethernet/intel/igbvf/mbx.c
+diff --git a/drivers/net/igbvf/mbx.h b/drivers/net/ethernet/intel/igbvf/mbx.h
+similarity index 100%
+rename from drivers/net/igbvf/mbx.h
+rename to drivers/net/ethernet/intel/igbvf/mbx.h
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+similarity index 100%
+rename from drivers/net/igbvf/netdev.c
+rename to drivers/net/ethernet/intel/igbvf/netdev.c
+diff --git a/drivers/net/igbvf/regs.h b/drivers/net/ethernet/intel/igbvf/regs.h
+similarity index 100%
+rename from drivers/net/igbvf/regs.h
+rename to drivers/net/ethernet/intel/igbvf/regs.h
+diff --git a/drivers/net/igbvf/vf.c b/drivers/net/ethernet/intel/igbvf/vf.c
+similarity index 100%
+rename from drivers/net/igbvf/vf.c
+rename to drivers/net/ethernet/intel/igbvf/vf.c
+diff --git a/drivers/net/igbvf/vf.h b/drivers/net/ethernet/intel/igbvf/vf.h
+similarity index 100%
+rename from drivers/net/igbvf/vf.h
+rename to drivers/net/ethernet/intel/igbvf/vf.h
+diff --git a/drivers/net/ixgb/Makefile b/drivers/net/ethernet/intel/ixgb/Makefile
+similarity index 100%
+rename from drivers/net/ixgb/Makefile
+rename to drivers/net/ethernet/intel/ixgb/Makefile
+diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ethernet/intel/ixgb/ixgb.h
+similarity index 100%
+rename from drivers/net/ixgb/ixgb.h
+rename to drivers/net/ethernet/intel/ixgb/ixgb.h
+diff --git a/drivers/net/ixgb/ixgb_ee.c b/drivers/net/ethernet/intel/ixgb/ixgb_ee.c
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_ee.c
+rename to drivers/net/ethernet/intel/ixgb/ixgb_ee.c
+diff --git a/drivers/net/ixgb/ixgb_ee.h b/drivers/net/ethernet/intel/ixgb/ixgb_ee.h
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_ee.h
+rename to drivers/net/ethernet/intel/ixgb/ixgb_ee.h
+diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_ethtool.c
+rename to drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ethernet/intel/ixgb/ixgb_hw.c
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_hw.c
+rename to drivers/net/ethernet/intel/ixgb/ixgb_hw.c
+diff --git a/drivers/net/ixgb/ixgb_hw.h b/drivers/net/ethernet/intel/ixgb/ixgb_hw.h
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_hw.h
+rename to drivers/net/ethernet/intel/ixgb/ixgb_hw.h
+diff --git a/drivers/net/ixgb/ixgb_ids.h b/drivers/net/ethernet/intel/ixgb/ixgb_ids.h
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_ids.h
+rename to drivers/net/ethernet/intel/ixgb/ixgb_ids.h
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_main.c
+rename to drivers/net/ethernet/intel/ixgb/ixgb_main.c
+diff --git a/drivers/net/ixgb/ixgb_osdep.h b/drivers/net/ethernet/intel/ixgb/ixgb_osdep.h
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_osdep.h
+rename to drivers/net/ethernet/intel/ixgb/ixgb_osdep.h
+diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ethernet/intel/ixgb/ixgb_param.c
+similarity index 100%
+rename from drivers/net/ixgb/ixgb_param.c
+rename to drivers/net/ethernet/intel/ixgb/ixgb_param.c
+diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ethernet/intel/ixgbe/Makefile
+similarity index 100%
+rename from drivers/net/ixgbe/Makefile
+rename to drivers/net/ethernet/intel/ixgbe/Makefile
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe.h
+diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_82598.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_82599.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_common.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+diff --git a/drivers/net/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_common.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+diff --git a/drivers/net/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
+diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb_82598.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb_82598.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb_82599.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb_82599.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_dcb_nl.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_ethtool.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_fcoe.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_fcoe.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_main.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+diff --git a/drivers/net/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_mbx.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
+diff --git a/drivers/net/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_mbx.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_phy.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_phy.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_sriov.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_sriov.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_type.h
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+diff --git a/drivers/net/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+similarity index 100%
+rename from drivers/net/ixgbe/ixgbe_x540.c
+rename to drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+diff --git a/drivers/net/ixgbevf/Makefile b/drivers/net/ethernet/intel/ixgbevf/Makefile
+similarity index 100%
+rename from drivers/net/ixgbevf/Makefile
+rename to drivers/net/ethernet/intel/ixgbevf/Makefile
+diff --git a/drivers/net/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
+similarity index 100%
+rename from drivers/net/ixgbevf/defines.h
+rename to drivers/net/ethernet/intel/ixgbevf/defines.h
+diff --git a/drivers/net/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+similarity index 100%
+rename from drivers/net/ixgbevf/ethtool.c
+rename to drivers/net/ethernet/intel/ixgbevf/ethtool.c
+diff --git a/drivers/net/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+similarity index 100%
+rename from drivers/net/ixgbevf/ixgbevf.h
+rename to drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+similarity index 100%
+rename from drivers/net/ixgbevf/ixgbevf_main.c
+rename to drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+diff --git a/drivers/net/ixgbevf/mbx.c b/drivers/net/ethernet/intel/ixgbevf/mbx.c
+similarity index 100%
+rename from drivers/net/ixgbevf/mbx.c
+rename to drivers/net/ethernet/intel/ixgbevf/mbx.c
+diff --git a/drivers/net/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+similarity index 100%
+rename from drivers/net/ixgbevf/mbx.h
+rename to drivers/net/ethernet/intel/ixgbevf/mbx.h
+diff --git a/drivers/net/ixgbevf/regs.h b/drivers/net/ethernet/intel/ixgbevf/regs.h
+similarity index 100%
+rename from drivers/net/ixgbevf/regs.h
+rename to drivers/net/ethernet/intel/ixgbevf/regs.h
+diff --git a/drivers/net/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+similarity index 100%
+rename from drivers/net/ixgbevf/vf.c
+rename to drivers/net/ethernet/intel/ixgbevf/vf.c
+diff --git a/drivers/net/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+similarity index 100%
+rename from drivers/net/ixgbevf/vf.h
+rename to drivers/net/ethernet/intel/ixgbevf/vf.h
 -- 
 1.7.6
 
