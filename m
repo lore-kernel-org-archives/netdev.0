@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: initialize variable ecn_ok in syncookies path
-Date: Wed, 10 Aug 2011 22:00:34 -0700 (PDT)
-Message-ID: <20110810.220034.1867514011580098205.davem@davemloft.net>
-References: <1313002284-2362-1-git-send-email-mikew@google.com>
+Subject: Re: [net-next 00/10] drivers/net/ organize Ethernet drivers
+Date: Wed, 10 Aug 2011 22:08:22 -0700 (PDT)
+Message-ID: <20110810.220822.781839847644610294.davem@davemloft.net>
+References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mikew@google.com
+Cc: netdev@vger.kernel.org, gospo@tredhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34720 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34775 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152Ab1HKFF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 01:05:26 -0400
-In-Reply-To: <1313002284-2362-1-git-send-email-mikew@google.com>
+	with ESMTP id S1751771Ab1HKFI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 01:08:26 -0400
+In-Reply-To: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Waychison <mikew@google.com>
-Date: Wed, 10 Aug 2011 11:51:24 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 10 Aug 2011 20:27:48 -0700
 
-> Using a gcc 4.4.3, warnings are emitted for a possibly uninitialized use
-> of ecn_ok.
+> This is the first of seven 10 patch series to move the Ethernet
+> drivers into drivers/net/ethernet/
 > 
-> This can happen if cookie_check_timestamp() returns due to not
-> having seen a timestamp.  Defaulting to ecn off seems like a
-> reasonable thing to do in this case, so initialized ecn_ok to false.
-> 
-> Signed-off-by: Mike Waychison <mikew@google.com>
+> The following are changes since commit 19fd61785a580c60cba900c5171bfadb57dd5056:
+>   Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
 
-Applied, thanks Mike.
+Pulled, thanks Jeff.
+
+I'll push this back out to net-next after some build validation.
