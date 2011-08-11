@@ -1,139 +1,83 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
-Date: Thu, 11 Aug 2011 09:35:39 +0200
-Message-ID: <4E43864B.2050302@grandegger.com>
-References: <1312993670-23999-1-git-send-email-holt@sgi.com>	<1312993670-23999-5-git-send-email-holt@sgi.com>	<8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>	<4E42CB01.7030700@grandegger.com>
-	<20110811035620.GB4926@sgi.com>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Bridge stays down until a port is added
+Date: Thu, 11 Aug 2011 09:06:59 +0200
+Message-ID: <20110811070659.GA21307@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110811035620.GB4926-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from torres.zugschlus.de ([85.214.131.164]:48522 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751253Ab1HKHk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 03:40:26 -0400
+Received: from mh by torres.zugschlus.de with local (Exim 4.72)
+	(envelope-from <mh+netdev@zugschlus.de>)
+	id 1QrPM3-0005p2-OY
+	for netdev@vger.kernel.org; Thu, 11 Aug 2011 09:06:59 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/11/2011 05:56 AM, Robin Holt wrote:
-> On Wed, Aug 10, 2011 at 08:16:33PM +0200, Wolfgang Grandegger wrote:
->> On 08/10/2011 07:01 PM, Kumar Gala wrote:
->>>
->>> On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
->>>
->>>> I added a simple clock source for the p1010rdb so the flexcan driver
->>>> could determine a clock frequency.  The p1010 flexcan device only has
->>>> an oscillator of system bus frequency divided by 2.
->>>>
->>>> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
->>>> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
->>>> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
->>>> Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->>>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
->>>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
->>>> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
->>>> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
->>>> ---
->>>> arch/powerpc/platforms/85xx/Kconfig    |    2 +
->>>> arch/powerpc/platforms/85xx/Makefile   |    2 +
->>>> arch/powerpc/platforms/85xx/clock.c    |   52 ++++++++++++++++++++++++++++++++
->>>> arch/powerpc/platforms/85xx/p1010rdb.c |    8 +++++
->>>> 4 files changed, 64 insertions(+), 0 deletions(-)
->>>> create mode 100644 arch/powerpc/platforms/85xx/clock.c
->>>
->>> I dont understand how mpc85xx_clk_functions() ends up being associated with the frequency the flexcan is running at.
->>
->> The function mpc85xx_clk_get_rate() returns "fsl_get_sys_freq() / 2" for
->> Flexcan devices.
->>
->>> This either seems to global or I'm missing something.
->>
->> This patch extends the existing Flexcan platform driver for ARM for the
->> PowerPC using the device tree. Due to the nice integration of the device
->> tree (of-platform) into the platform driver and devices, the difference
->> are quite small (see patches 1..3). Apart from the endianess issue, only
->> the clock needs to be handled in a common way. As ARM already uses the
->> clk interface, we found it straight-forward to implement it for the
->> P1010, or more general for the 85xx, as well, instead of using an
->> additional helper function.
->>
->>> I still think the clk / freq info should be in the device tree and handled in the driver and NOT arch/powerpc platform code.
->>
->> If I understand you correctly, you want the boot-loader to provide the
->> relevant information by fixing up the device tree, which then can be
->> handled arch-independently by the driver, right?
-> 
-> Marc and Wolfgang,
-> 
-> This is a very early swag at this which I worked up while driving home from dinner
-> this evening.  It works with my current config, but that includes at least one
-> bogus patch.  I will have to do more testing tomorrow.  For now, it is something
-> to ponder.
+Hi,
 
-Yes, that's what Kumar is proposing. Fine for me with the P1010. It just
-needs some proper U-Boot implementation.
+since a few kernel versions, I think since 2.6.39, I have noticed that
+a bridge interface stays in NO CARRIER state unless the first port is
+added:
 
-> Thanks,
-> Robin
-> ------------------------------------------------------------------------
-> 
-> flexcan: Prefer device tree clock frequency if available.
-> 
-> If our CAN device's device tree node has a clock-frequency property,
-> then use that value for the can devices clock frequency.  If not, fall
-> back to asking the platform/mach code for the clock frequency associated
-> with the flexcan device.
-> 
-> Too-early-to-be-signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-> 
-> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> index 662f832..d6a87c9 100644
-> --- a/drivers/net/can/flexcan.c
-> +++ b/drivers/net/can/flexcan.c
-> @@ -33,6 +33,7 @@
->  #include <linux/kernel.h>
->  #include <linux/list.h>
->  #include <linux/module.h>
-> +#include <linux/of.h>
->  #include <linux/platform_device.h>
->  
->  #define DRV_NAME			"flexcan"
-> @@ -929,12 +930,25 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
->  	void __iomem *base;
->  	resource_size_t mem_size;
->  	int err, irq;
-> +	u32 clock_freq = 0;
->  
-> -	clk = clk_get(&pdev->dev, NULL);
-> -	if (IS_ERR(clk)) {
-> -		dev_err(&pdev->dev, "no clock defined\n");
-> -		err = PTR_ERR(clk);
-> -		goto failed_clock;
-> +	if (pdev->dev.of_node) {
-> +		u32 *clock_freq_p;
+$ sudo brctl show
+bridge name     bridge id               STP enabled     interfaces
+br0             8000.000000000000       no
+$ ip a show dev br0
+9: br0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN
+    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+    inet6 2001:db8::1/64 scope global tentative
+       valid_lft forever preferred_lft forever
+$ ping6 2001:db8::1
+PING 2001:db8::1(2001:db8::1) 56 data bytes
+^C
+--- 2001:db8::1 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2016ms
 
-Should be:
+$ sudo modprobe dummy
+$ sudo brctl addif br0 dummy0
+$ sudo ip link set dev dummy0 up
+$ ping6 2001:db8::1
+PING 2001:db8::1(2001:db8::1) 56 data bytes
+64 bytes from 2001:db8::1: icmp_seq=1 ttl=64 time=0.019 ms
+64 bytes from 2001:db8::1: icmp_seq=2 ttl=64 time=0.023 ms
+^C
+--- 2001:db8::1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 999ms
+rtt min/avg/max/mdev = 0.019/0.021/0.023/0.002 ms
+$ ip a show dev br0
+9: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP
+    link/ether da:1c:11:bc:3e:54 brd ff:ff:ff:ff:ff:ff
+    inet6 2001:db8::1/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 fe80::d81c:11ff:febc:3e54/64 scope link
+       valid_lft forever preferred_lft forever
+$
 
-		const u32 *clock_freq_p;
+Is that a feature? If so, why does the interface stay pingable after
+removing the dummy0 interface from the bridge?
 
-> +
-> +		clk = NULL;
-> +		clock_freq_p = (u32 *)of_get_property(pdev->dev.of_node, "clock-frequency", NULL);
+Can I somehow get the old behavior back, that the bridge is
+immediately up, and addresses configured on the bridge interfaces are
+immediately pingable?
 
-No cast please.
+New new behavior is somewhat unhandy when one uses the bridge address
+for services that the host offers, to save on IP addresses and
+networks (for example, when one has only a single IP address and a
+single additional network), since one has to take extra measures to
+have the addresses on the bridge interface reachable.
 
-> +		if (clock_freq_p)
-> +			clock_freq = *clock_freq_p;
-> +	}
+Or am I doing things wrong?
 
-Wolfgang.
+Greetings
+Marc
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
