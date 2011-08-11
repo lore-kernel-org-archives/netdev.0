@@ -1,7 +1,7 @@
 From: Tonda <as@strmilov.cz>
 Subject: TCP port firewall controlled by UDP packets
-Date: Fri, 12 Aug 2011 01:42:52 +0200
-Message-ID: <1313106172-18455-1-git-send-email-as@strmilov.cz>
+Date: Fri, 12 Aug 2011 01:56:09 +0200
+Message-ID: <1313106969-18733-1-git-send-email-as@strmilov.cz>
 To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
@@ -9,6 +9,12 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -624,3 +624,7 @@
+ 	  on the Internet.
+ 
  	  If unsure, say N.
 +
 +config TCPFIREWALL
