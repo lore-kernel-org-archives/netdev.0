@@ -1,81 +1,34 @@
-From: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
-Date: Wed, 10 Aug 2011 23:46:27 -0500
-Message-ID: <634AB7A6-1CDA-41B3-8A5D-01F29EF01521@kernel.crashing.org>
-References: <1312993670-23999-1-git-send-email-holt@sgi.com>	<1312993670-23999-5-git-send-email-holt@sgi.com>
-	<8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>
-	<4E42CB01.7030700@grandegger.com>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset="us-ascii"
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: initialize variable ecn_ok in syncookies path
+Date: Wed, 10 Aug 2011 22:00:34 -0700 (PDT)
+Message-ID: <20110810.220034.1867514011580098205.davem@davemloft.net>
+References: <1313002284-2362-1-git-send-email-mikew@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4E42CB01.7030700-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mikew@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152Ab1HKFF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 01:05:26 -0400
+In-Reply-To: <1313002284-2362-1-git-send-email-mikew@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Mike Waychison <mikew@google.com>
+Date: Wed, 10 Aug 2011 11:51:24 -0700
 
-On Aug 10, 2011, at 1:16 PM, Wolfgang Grandegger wrote:
-
-> On 08/10/2011 07:01 PM, Kumar Gala wrote:
->> 
->> On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
->> 
->>> I added a simple clock source for the p1010rdb so the flexcan driver
->>> could determine a clock frequency.  The p1010 flexcan device only has
->>> an oscillator of system bus frequency divided by 2.
->>> 
->>> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
->>> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
->>> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
->>> Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
->>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
->>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
->>> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
->>> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
->>> ---
->>> arch/powerpc/platforms/85xx/Kconfig    |    2 +
->>> arch/powerpc/platforms/85xx/Makefile   |    2 +
->>> arch/powerpc/platforms/85xx/clock.c    |   52 ++++++++++++++++++++++++++++++++
->>> arch/powerpc/platforms/85xx/p1010rdb.c |    8 +++++
->>> 4 files changed, 64 insertions(+), 0 deletions(-)
->>> create mode 100644 arch/powerpc/platforms/85xx/clock.c
->> 
->> I dont understand how mpc85xx_clk_functions() ends up being associated with the frequency the flexcan is running at.
+> Using a gcc 4.4.3, warnings are emitted for a possibly uninitialized use
+> of ecn_ok.
 > 
-> The function mpc85xx_clk_get_rate() returns "fsl_get_sys_freq() / 2" for
-> Flexcan devices.
+> This can happen if cookie_check_timestamp() returns due to not
+> having seen a timestamp.  Defaulting to ecn off seems like a
+> reasonable thing to do in this case, so initialized ecn_ok to false.
 > 
->> This either seems to global or I'm missing something.
-> 
-> This patch extends the existing Flexcan platform driver for ARM for the
-> PowerPC using the device tree. Due to the nice integration of the device
-> tree (of-platform) into the platform driver and devices, the difference
-> are quite small (see patches 1..3). Apart from the endianess issue, only
-> the clock needs to be handled in a common way. As ARM already uses the
-> clk interface, we found it straight-forward to implement it for the
-> P1010, or more general for the 85xx, as well, instead of using an
-> additional helper function.
+> Signed-off-by: Mike Waychison <mikew@google.com>
 
-I see, that.  What concerns me is there are numerous clocks / frequencies that exist inside a MPC85xx/P1010 SOC.  The code I'm seeing does NOT seem to do anything to relate this clock JUST to the flexcan.
-
->> I still think the clk / freq info should be in the device tree and handled in the driver and NOT arch/powerpc platform code.
-> 
-> If I understand you correctly, you want the boot-loader to provide the
-> relevant information by fixing up the device tree, which then can be
-> handled arch-independently by the driver, right?
-
-Yes, that is part of what I want.
-
-- k
+Applied, thanks Mike.
