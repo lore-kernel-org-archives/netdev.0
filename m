@@ -1,518 +1,416 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] ehea/ibm*: Move the IBM drivers
-Date: Thu, 11 Aug 2011 02:51:33 -0700
-Message-ID: <1313056294-28426-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/10] cassini/niu/sun*: Move the Sun drivers
+Date: Thu, 11 Aug 2011 02:51:26 -0700
+Message-ID: <1313056294-28426-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Santiago Leon <santil@linux.vnet.ibm.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	David Gibson <dwg@au1.ibm.com>, Kyle Lucke <klucke@us.ibm.com>,
-	Michael Ellerman <michael@ellerman.id.au>
+	Sam Creasey <sammy@sammy.net>,
+	Adrian Sun <asun@darksunrising.com>,
+	Benjamin Herrenscmidt <benh@kernel.crashing.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33305 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:26123 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754965Ab1HKJvn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 05:51:43 -0400
+	id S1754872Ab1HKJvi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 05:51:38 -0400
 In-Reply-To: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the IBM drivers into drivers/net/ethernet/ibm/ and make the
-necessary Kconfig and Makefile changes.
+Moves the Sun drivers into drivers/net/ethernet/sun/ and make
+the necessary Kconfig and Makefile changes.
 
-- Renamed ibm_new_emac to emac
-- Cleaned up Makefile and Kconfig options which referred to
-  IBM_NEW_EMAC to IBM_EMAC
-- ibmlana driver is a National Semiconductor SONIC driver so
-  it was not moved
+Oliver Hartkopp <socketcan@hartkopp.net> suggested removing the
+sun* prefix on the driver names.  This type of change I will
+leave up to the driver maintainers.
 
-CC: Christoph Raisch <raisch@de.ibm.com>
-CC: Santiago Leon <santil@linux.vnet.ibm.com>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: David Gibson <dwg@au1.ibm.com>
-CC: Kyle Lucke <klucke@us.ibm.com>
-CC: Michael Ellerman <michael@ellerman.id.au>
+CC: Sam Creasey <sammy@sammy.net>
+CC: Adrian Sun <asun@darksunrising.com>
+CC: Benjamin Herrenscmidt <benh@kernel.crashing.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    4 +-
- drivers/net/Kconfig                                |   26 -----------
- drivers/net/Makefile                               |    4 --
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/ibm/Kconfig                   |   47 ++++++++++++++++++++
- drivers/net/ethernet/ibm/Makefile                  |    8 +++
- drivers/net/{ => ethernet/ibm}/ehea/Makefile       |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea.h         |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_ethtool.c |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_hw.h      |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_main.c    |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.c    |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.h    |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.c     |    0
- drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.h     |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/Kconfig |   40 ++++++++--------
- .../{ibm_newemac => ethernet/ibm/emac}/Makefile    |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/core.c  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/core.h  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/debug.c |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/debug.h |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/emac.h  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/mal.c   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/mal.h   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/phy.c   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/phy.h   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/rgmii.c |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/rgmii.h |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/tah.c   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/tah.h   |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/zmii.c  |    0
- .../net/{ibm_newemac => ethernet/ibm/emac}/zmii.h  |    0
- drivers/net/{ => ethernet/ibm}/ibmveth.c           |    0
- drivers/net/{ => ethernet/ibm}/ibmveth.h           |    0
- drivers/net/{ => ethernet/ibm}/iseries_veth.c      |    0
- 36 files changed, 79 insertions(+), 52 deletions(-)
- create mode 100644 drivers/net/ethernet/ibm/Kconfig
- create mode 100644 drivers/net/ethernet/ibm/Makefile
- rename drivers/net/{ => ethernet/ibm}/ehea/Makefile (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_ethtool.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_hw.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_main.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_phyp.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ehea/ehea_qmr.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/Kconfig (63%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/Makefile (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/core.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/core.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/debug.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/debug.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/emac.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/mal.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/mal.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/phy.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/phy.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/rgmii.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/rgmii.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/tah.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/tah.h (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/zmii.c (100%)
- rename drivers/net/{ibm_newemac => ethernet/ibm/emac}/zmii.h (100%)
- rename drivers/net/{ => ethernet/ibm}/ibmveth.c (100%)
- rename drivers/net/{ => ethernet/ibm}/ibmveth.h (100%)
- rename drivers/net/{ => ethernet/ibm}/iseries_veth.c (100%)
+ MAINTAINERS                                 |    1 +
+ drivers/net/Kconfig                         |   66 --------------------
+ drivers/net/Makefile                        |   10 +---
+ drivers/net/ethernet/Kconfig                |    1 +
+ drivers/net/ethernet/Makefile               |    1 +
+ drivers/net/ethernet/sun/Kconfig            |   86 +++++++++++++++++++++++++++
+ drivers/net/ethernet/sun/Makefile           |   11 ++++
+ drivers/net/{ => ethernet/sun}/cassini.c    |    0
+ drivers/net/{ => ethernet/sun}/cassini.h    |    0
+ drivers/net/{ => ethernet/sun}/niu.c        |    0
+ drivers/net/{ => ethernet/sun}/niu.h        |    0
+ drivers/net/{ => ethernet/sun}/sunbmac.c    |    0
+ drivers/net/{ => ethernet/sun}/sunbmac.h    |    0
+ drivers/net/{ => ethernet/sun}/sungem.c     |    0
+ drivers/net/{ => ethernet/sun}/sungem.h     |    0
+ drivers/net/{ => ethernet/sun}/sungem_phy.c |    0
+ drivers/net/{ => ethernet/sun}/sungem_phy.h |    0
+ drivers/net/{ => ethernet/sun}/sunhme.c     |    0
+ drivers/net/{ => ethernet/sun}/sunhme.h     |    0
+ drivers/net/{ => ethernet/sun}/sunqe.c      |    0
+ drivers/net/{ => ethernet/sun}/sunqe.h      |    0
+ drivers/net/{ => ethernet/sun}/sunvnet.c    |    0
+ drivers/net/{ => ethernet/sun}/sunvnet.h    |    0
+ drivers/net/spider_net.h                    |    2 +-
+ 24 files changed, 102 insertions(+), 76 deletions(-)
+ create mode 100644 drivers/net/ethernet/sun/Kconfig
+ create mode 100644 drivers/net/ethernet/sun/Makefile
+ rename drivers/net/{ => ethernet/sun}/cassini.c (100%)
+ rename drivers/net/{ => ethernet/sun}/cassini.h (100%)
+ rename drivers/net/{ => ethernet/sun}/niu.c (100%)
+ rename drivers/net/{ => ethernet/sun}/niu.h (100%)
+ rename drivers/net/{ => ethernet/sun}/sunbmac.c (100%)
+ rename drivers/net/{ => ethernet/sun}/sunbmac.h (100%)
+ rename drivers/net/{ => ethernet/sun}/sungem.c (100%)
+ rename drivers/net/{ => ethernet/sun}/sungem.h (100%)
+ rename drivers/net/{ => ethernet/sun}/sungem_phy.c (100%)
+ rename drivers/net/{ => ethernet/sun}/sungem_phy.h (100%)
+ rename drivers/net/{ => ethernet/sun}/sunhme.c (100%)
+ rename drivers/net/{ => ethernet/sun}/sunhme.h (100%)
+ rename drivers/net/{ => ethernet/sun}/sunqe.c (100%)
+ rename drivers/net/{ => ethernet/sun}/sunqe.h (100%)
+ rename drivers/net/{ => ethernet/sun}/sunvnet.c (100%)
+ rename drivers/net/{ => ethernet/sun}/sunvnet.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index bcfc144..2fcfa8b 100644
+index 19bd60d..1cb72da 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -2465,7 +2465,7 @@ EHEA (IBM pSeries eHEA 10Gb ethernet adapter) DRIVER
- M:	Breno Leitao <leitao@linux.vnet.ibm.com>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/ehea/
-+F:	drivers/net/ethernet/ibm/ehea/
+@@ -6272,6 +6272,7 @@ S:	Maintained
+ F:	arch/m68k/kernel/*sun3*
+ F:	arch/m68k/sun3*/
+ F:	arch/m68k/include/asm/sun3*
++F:	drivers/net/ethernet/i825xx/sun3*
  
- EMBEDDED LINUX
- M:	Paul Gortmaker <paul.gortmaker@windriver.com>
-@@ -3163,7 +3163,7 @@ IBM Power Virtual Ethernet Device Driver
- M:	Santiago Leon <santil@linux.vnet.ibm.com>
- L:	netdev@vger.kernel.org
- S:	Supported
--F:	drivers/net/ibmveth.*
-+F:	drivers/net/ethernet/ibm/ibmveth.*
- 
- IBM ServeRAID RAID DRIVER
- P:	Jack Hammer
+ SUPERH
+ M:	Paul Mundt <lethal@linux-sh.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 3e216b3..116f744 100644
+index b76de82..7977002 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -627,18 +627,6 @@ config IBMLANA
- 	  boards with this driver should be possible, but has not been tested
- 	  up to now due to lack of hardware.
+@@ -363,64 +363,6 @@ config SH_ETH
+ 	  This driver supporting CPUs are:
+ 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
  
--config IBMVETH
--	tristate "IBM LAN Virtual Ethernet support"
--	depends on PPC_PSERIES
--	---help---
--	  This driver supports virtual ethernet adapters on newer IBM iSeries
--	  and pSeries systems.
+-config HAPPYMEAL
+-	tristate "Sun Happy Meal 10/100baseT support"
+-	depends on SBUS || PCI
+-	select CRC32
+-	help
+-	  This driver supports the "hme" interface present on most Ultra
+-	  systems and as an option on older Sbus systems. This driver supports
+-	  both PCI and Sbus devices. This driver also supports the "qfe" quad
+-	  100baseT device available in both PCI and Sbus configurations.
 -
--	  To compile this driver as a module, choose M here. The module will
--	  be called ibmveth.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called sunhme.
 -
--source "drivers/net/ibm_newemac/Kconfig"
+-config SUNBMAC
+-	tristate "Sun BigMAC 10/100baseT support (EXPERIMENTAL)"
+-	depends on SBUS && EXPERIMENTAL
+-	select CRC32
+-	help
+-	  This driver supports the "be" interface available as an Sbus option.
+-	  This is Sun's older 100baseT Ethernet device.
 -
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on ISA || EISA || PCI
-@@ -1469,16 +1457,6 @@ if NETDEV_10000
- config MDIO
- 	tristate
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called sunbmac.
+-
+-config SUNQE
+-	tristate "Sun QuadEthernet support"
+-	depends on SBUS
+-	select CRC32
+-	help
+-	  This driver supports the "qe" 10baseT Ethernet device, available as
+-	  an Sbus option. Note that this is not the same as Quad FastEthernet
+-	  "qfe" which is supported by the Happy Meal driver instead.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called sunqe.
+-
+-config SUNGEM
+-	tristate "Sun GEM support"
+-	depends on PCI
+-	select CRC32
+-	help
+-	  Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
+-	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
+-
+-config CASSINI
+-	tristate "Sun Cassini support"
+-	depends on PCI
+-	select CRC32
+-	help
+-	  Support for the Sun Cassini chip, aka Sun GigaSwift Ethernet. See also
+-	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/817-4341-10.pdf>
+-
+-config SUNVNET
+-	tristate "Sun Virtual Network support"
+-	depends on SUN_LDOMS
+-	help
+-	  Support for virtual network devices under Sun Logical Domains.
+-
+ config BFIN_MAC
+ 	tristate "Blackfin on-chip MAC support"
+ 	depends on NET_ETHERNET && (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
+@@ -1603,14 +1545,6 @@ config MYRI10GE_DCA
+ 	  driver.  DCA is a method for warming the CPU cache before data
+ 	  is used, with the intent of lessening the impact of cache misses.
  
--config EHEA
--	tristate "eHEA Ethernet support"
--	depends on IBMEBUS && INET && SPARSEMEM
--	select INET_LRO
--	---help---
--	  This driver supports the IBM pSeries eHEA ethernet adapter.
+-config NIU
+-	tristate "Sun Neptune 10Gbit Ethernet support"
+-	depends on PCI
+-	select CRC32
+-	help
+-	  This enables support for cards based upon Sun's
+-	  Neptune chipset.
 -
--	  To compile the driver as a module, choose M here. The module
--	  will be called ehea.
--
- config ENIC
- 	tristate "Cisco VIC Ethernet NIC Support"
- 	depends on PCI && INET
-@@ -1573,10 +1551,6 @@ config XEN_NETDEV_BACKEND
- 	  compile this driver as a module, chose M here: the module
- 	  will be called xen-netback.
- 
--config ISERIES_VETH
--	tristate "iSeries Virtual Ethernet driver support"
--	depends on PPC_ISERIES
--
- config RIONET
- 	tristate "RapidIO Ethernet over messaging driver support"
- 	depends on RAPIDIO
+ config PASEMI_MAC
+ 	tristate "PA Semi 1/10Gbit MAC"
+ 	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d28c153e..54146ed 100644
+index e641f70..cfbb060 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -10,9 +10,7 @@ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
- obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
- obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
+@@ -44,13 +44,6 @@ obj-$(CONFIG_PLIP) += plip.o
  
--obj-$(CONFIG_IBM_NEW_EMAC) += ibm_newemac/
- obj-$(CONFIG_IP1000) += ipg.o
--obj-$(CONFIG_EHEA) += ehea/
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_ATL1) += atlx/
-@@ -50,7 +48,6 @@ obj-$(CONFIG_SIS190) += sis190.o
- obj-$(CONFIG_SIS900) += sis900.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
--obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
- obj-$(CONFIG_NATSEMI) += natsemi.o
+ obj-$(CONFIG_ROADRUNNER) += rrunner.o
+ 
+-obj-$(CONFIG_HAPPYMEAL) += sunhme.o
+-obj-$(CONFIG_SUNQE) += sunqe.o
+-obj-$(CONFIG_SUNBMAC) += sunbmac.o
+-obj-$(CONFIG_SUNGEM) += sungem.o sungem_phy.o
+-obj-$(CONFIG_CASSINI) += cassini.o
+-obj-$(CONFIG_SUNVNET) += sunvnet.o
+-
+ obj-$(CONFIG_MACE) += mace.o
+ obj-$(CONFIG_BMAC) += bmac.o
+ 
+@@ -64,7 +57,7 @@ obj-$(CONFIG_NATSEMI) += natsemi.o
  obj-$(CONFIG_NS83820) += ns83820.o
  obj-$(CONFIG_FEALNX) += fealnx.o
-@@ -148,7 +145,6 @@ obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
- obj-$(CONFIG_DL2K) += dl2k.o
- obj-$(CONFIG_R8169) += r8169.o
--obj-$(CONFIG_IBMVETH) += ibmveth.o
- obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
- obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
- obj-$(CONFIG_DM9000) += dm9000.o
+ spidernet-y += spider_net.o spider_net_ethtool.o
+-obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
++obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
+ obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+ gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
+ ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+@@ -207,7 +200,6 @@ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+ 
+ obj-$(CONFIG_FS_ENET) += fs_enet/
+ 
+-obj-$(CONFIG_NIU) += niu.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_SFC) += sfc/
+ 
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 1a39ec0..f23f1b2 100644
+index 7efbb7c..5edd237 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -19,6 +19,7 @@ source "drivers/net/ethernet/brocade/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/neterion/Kconfig"
-+source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
+@@ -21,5 +21,6 @@ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
++source "drivers/net/ethernet/sun/Kconfig"
+ 
+ endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 4c21e8f..27e4da6 100644
+index 86da8b8..18d8a89 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
-+obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-diff --git a/drivers/net/ethernet/ibm/Kconfig b/drivers/net/ethernet/ibm/Kconfig
+@@ -12,3 +12,4 @@ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
++obj-$(CONFIG_NET_VENDOR_SUN) += sun/
+diff --git a/drivers/net/ethernet/sun/Kconfig b/drivers/net/ethernet/sun/Kconfig
 new file mode 100644
-index 0000000..4c7ef98
+index 0000000..87b17a7
 --- /dev/null
-+++ b/drivers/net/ethernet/ibm/Kconfig
-@@ -0,0 +1,47 @@
++++ b/drivers/net/ethernet/sun/Kconfig
+@@ -0,0 +1,86 @@
 +#
-+# IBM device configuration.
++# Sun network device configuration
 +#
 +
-+config NET_VENDOR_IBM
-+	bool "IBM devices"
-+	depends on MCA || PPC_PSERIES || PPC_PSERIES || PPC_DCR || \
-+		   (IBMEBUS && INET && SPARSEMEM)
++config NET_VENDOR_SUN
++	bool "Sun devices"
++	depends on SUN3 || SBUS || PCI || SUN_LDOMS
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say
++	  Y and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about IBM devices. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about Sun network interfaces. If you say Y, you will be
++	  asked for your specific card in the following questions.
 +
-+if NET_VENDOR_IBM
++if NET_VENDOR_SUN
 +
-+config IBMVETH
-+	tristate "IBM LAN Virtual Ethernet support"
-+	depends on PPC_PSERIES
++config HAPPYMEAL
++	tristate "Sun Happy Meal 10/100baseT support"
++	depends on (SBUS || PCI)
++	select CRC32
 +	---help---
-+	  This driver supports virtual ethernet adapters on newer IBM iSeries
-+	  and pSeries systems.
++	  This driver supports the "hme" interface present on most Ultra
++	  systems and as an option on older Sbus systems. This driver supports
++	  both PCI and Sbus devices. This driver also supports the "qfe" quad
++	  100baseT device available in both PCI and Sbus configurations.
 +
-+	  To compile this driver as a module, choose M here. The module will
-+	  be called ibmveth.
++	  To compile this driver as a module, choose M here: the module
++	  will be called sunhme.
 +
-+config ISERIES_VETH
-+	tristate "iSeries Virtual Ethernet driver support"
-+	depends on PPC_ISERIES
-+
-+source "drivers/net/ethernet/ibm/emac/Kconfig"
-+
-+config EHEA
-+	tristate "eHEA Ethernet support"
-+	depends on IBMEBUS && INET && SPARSEMEM
-+	select INET_LRO
++config SUNBMAC
++	tristate "Sun BigMAC 10/100baseT support (EXPERIMENTAL)"
++	depends on SBUS && EXPERIMENTAL
++	select CRC32
 +	---help---
-+	  This driver supports the IBM pSeries eHEA ethernet adapter.
++	  This driver supports the "be" interface available as an Sbus option.
++	  This is Sun's older 100baseT Ethernet device.
 +
-+	  To compile the driver as a module, choose M here. The module
-+	  will be called ehea.
++	  To compile this driver as a module, choose M here: the module
++	  will be called sunbmac.
 +
-+endif # NET_VENDOR_IBM
-diff --git a/drivers/net/ethernet/ibm/Makefile b/drivers/net/ethernet/ibm/Makefile
++config SUNQE
++	tristate "Sun QuadEthernet support"
++	depends on SBUS
++	select CRC32
++	---help---
++	  This driver supports the "qe" 10baseT Ethernet device, available as
++	  an Sbus option. Note that this is not the same as Quad FastEthernet
++	  "qfe" which is supported by the Happy Meal driver instead.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called sunqe.
++
++config SUNGEM
++	tristate "Sun GEM support"
++	depends on PCI
++	select CRC32
++	---help---
++	  Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
++	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
++
++config CASSINI
++	tristate "Sun Cassini support"
++	depends on PCI
++	select CRC32
++	---help---
++	  Support for the Sun Cassini chip, aka Sun GigaSwift Ethernet. See also
++	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/817-4341-10.pdf>
++
++config SUNVNET
++	tristate "Sun Virtual Network support"
++	depends on SUN_LDOMS
++	---help---
++	  Support for virtual network devices under Sun Logical Domains.
++
++config NIU
++	tristate "Sun Neptune 10Gbit Ethernet support"
++	depends on PCI
++	select CRC32
++	---help---
++	  This enables support for cards based upon Sun's
++	  Neptune chipset.
++
++endif # NET_VENDOR_SUN
+diff --git a/drivers/net/ethernet/sun/Makefile b/drivers/net/ethernet/sun/Makefile
 new file mode 100644
-index 0000000..5a7d4e9
+index 0000000..4f25217
 --- /dev/null
-+++ b/drivers/net/ethernet/ibm/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/sun/Makefile
+@@ -0,0 +1,11 @@
 +#
-+# Makefile for th IBM network device drivers.
++# Makefile for the Sun network device drivers.
 +#
 +
-+obj-$(CONFIG_IBMVETH) += ibmveth.o
-+obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
-+obj-$(CONFIG_IBM_EMAC) += emac/
-+obj-$(CONFIG_EHEA) += ehea/
-diff --git a/drivers/net/ehea/Makefile b/drivers/net/ethernet/ibm/ehea/Makefile
++obj-$(CONFIG_HAPPYMEAL) += sunhme.o
++obj-$(CONFIG_SUNQE) += sunqe.o
++obj-$(CONFIG_SUNBMAC) += sunbmac.o
++obj-$(CONFIG_SUNGEM) += sungem.o sungem_phy.o
++obj-$(CONFIG_CASSINI) += cassini.o
++obj-$(CONFIG_SUNVNET) += sunvnet.o
++obj-$(CONFIG_NIU) += niu.o
+diff --git a/drivers/net/cassini.c b/drivers/net/ethernet/sun/cassini.c
 similarity index 100%
-rename from drivers/net/ehea/Makefile
-rename to drivers/net/ethernet/ibm/ehea/Makefile
-diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ethernet/ibm/ehea/ehea.h
+rename from drivers/net/cassini.c
+rename to drivers/net/ethernet/sun/cassini.c
+diff --git a/drivers/net/cassini.h b/drivers/net/ethernet/sun/cassini.h
 similarity index 100%
-rename from drivers/net/ehea/ehea.h
-rename to drivers/net/ethernet/ibm/ehea/ehea.h
-diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
+rename from drivers/net/cassini.h
+rename to drivers/net/ethernet/sun/cassini.h
+diff --git a/drivers/net/niu.c b/drivers/net/ethernet/sun/niu.c
 similarity index 100%
-rename from drivers/net/ehea/ehea_ethtool.c
-rename to drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
-diff --git a/drivers/net/ehea/ehea_hw.h b/drivers/net/ethernet/ibm/ehea/ehea_hw.h
+rename from drivers/net/niu.c
+rename to drivers/net/ethernet/sun/niu.c
+diff --git a/drivers/net/niu.h b/drivers/net/ethernet/sun/niu.h
 similarity index 100%
-rename from drivers/net/ehea/ehea_hw.h
-rename to drivers/net/ethernet/ibm/ehea/ehea_hw.h
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+rename from drivers/net/niu.h
+rename to drivers/net/ethernet/sun/niu.h
+diff --git a/drivers/net/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
 similarity index 100%
-rename from drivers/net/ehea/ehea_main.c
-rename to drivers/net/ethernet/ibm/ehea/ehea_main.c
-diff --git a/drivers/net/ehea/ehea_phyp.c b/drivers/net/ethernet/ibm/ehea/ehea_phyp.c
+rename from drivers/net/sunbmac.c
+rename to drivers/net/ethernet/sun/sunbmac.c
+diff --git a/drivers/net/sunbmac.h b/drivers/net/ethernet/sun/sunbmac.h
 similarity index 100%
-rename from drivers/net/ehea/ehea_phyp.c
-rename to drivers/net/ethernet/ibm/ehea/ehea_phyp.c
-diff --git a/drivers/net/ehea/ehea_phyp.h b/drivers/net/ethernet/ibm/ehea/ehea_phyp.h
+rename from drivers/net/sunbmac.h
+rename to drivers/net/ethernet/sun/sunbmac.h
+diff --git a/drivers/net/sungem.c b/drivers/net/ethernet/sun/sungem.c
 similarity index 100%
-rename from drivers/net/ehea/ehea_phyp.h
-rename to drivers/net/ethernet/ibm/ehea/ehea_phyp.h
-diff --git a/drivers/net/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+rename from drivers/net/sungem.c
+rename to drivers/net/ethernet/sun/sungem.c
+diff --git a/drivers/net/sungem.h b/drivers/net/ethernet/sun/sungem.h
 similarity index 100%
-rename from drivers/net/ehea/ehea_qmr.c
-rename to drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-diff --git a/drivers/net/ehea/ehea_qmr.h b/drivers/net/ethernet/ibm/ehea/ehea_qmr.h
+rename from drivers/net/sungem.h
+rename to drivers/net/ethernet/sun/sungem.h
+diff --git a/drivers/net/sungem_phy.c b/drivers/net/ethernet/sun/sungem_phy.c
 similarity index 100%
-rename from drivers/net/ehea/ehea_qmr.h
-rename to drivers/net/ethernet/ibm/ehea/ehea_qmr.h
-diff --git a/drivers/net/ibm_newemac/Kconfig b/drivers/net/ethernet/ibm/emac/Kconfig
-similarity index 63%
-rename from drivers/net/ibm_newemac/Kconfig
-rename to drivers/net/ethernet/ibm/emac/Kconfig
-index 78a1628..3f44a30 100644
---- a/drivers/net/ibm_newemac/Kconfig
-+++ b/drivers/net/ethernet/ibm/emac/Kconfig
-@@ -1,4 +1,4 @@
--config IBM_NEW_EMAC
-+config IBM_EMAC
- 	tristate "IBM EMAC Ethernet support"
- 	depends on PPC_DCR
- 	select CRC32
-@@ -7,29 +7,29 @@ config IBM_NEW_EMAC
- 	  typically found on 4xx embedded PowerPC chips, but also on the
- 	  Axon southbridge for Cell.
+rename from drivers/net/sungem_phy.c
+rename to drivers/net/ethernet/sun/sungem_phy.c
+diff --git a/drivers/net/sungem_phy.h b/drivers/net/ethernet/sun/sungem_phy.h
+similarity index 100%
+rename from drivers/net/sungem_phy.h
+rename to drivers/net/ethernet/sun/sungem_phy.h
+diff --git a/drivers/net/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+similarity index 100%
+rename from drivers/net/sunhme.c
+rename to drivers/net/ethernet/sun/sunhme.c
+diff --git a/drivers/net/sunhme.h b/drivers/net/ethernet/sun/sunhme.h
+similarity index 100%
+rename from drivers/net/sunhme.h
+rename to drivers/net/ethernet/sun/sunhme.h
+diff --git a/drivers/net/sunqe.c b/drivers/net/ethernet/sun/sunqe.c
+similarity index 100%
+rename from drivers/net/sunqe.c
+rename to drivers/net/ethernet/sun/sunqe.c
+diff --git a/drivers/net/sunqe.h b/drivers/net/ethernet/sun/sunqe.h
+similarity index 100%
+rename from drivers/net/sunqe.h
+rename to drivers/net/ethernet/sun/sunqe.h
+diff --git a/drivers/net/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+similarity index 100%
+rename from drivers/net/sunvnet.c
+rename to drivers/net/ethernet/sun/sunvnet.c
+diff --git a/drivers/net/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
+similarity index 100%
+rename from drivers/net/sunvnet.h
+rename to drivers/net/ethernet/sun/sunvnet.h
+diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
+index 020f64a..a891ad0 100644
+--- a/drivers/net/spider_net.h
++++ b/drivers/net/spider_net.h
+@@ -27,7 +27,7 @@
  
--config IBM_NEW_EMAC_RXB
-+config IBM_EMAC_RXB
- 	int "Number of receive buffers"
--	depends on IBM_NEW_EMAC
-+	depends on IBM_EMAC
- 	default "128"
+ #define VERSION "2.0 B"
  
--config IBM_NEW_EMAC_TXB
-+config IBM_EMAC_TXB
- 	int "Number of transmit buffers"
--	depends on IBM_NEW_EMAC
-+	depends on IBM_EMAC
- 	default "64"
+-#include "sungem_phy.h"
++#include "./ethernet/sun/sungem_phy.h"
  
--config IBM_NEW_EMAC_POLL_WEIGHT
-+config IBM_EMAC_POLL_WEIGHT
- 	int "MAL NAPI polling weight"
--	depends on IBM_NEW_EMAC
-+	depends on IBM_EMAC
- 	default "32"
- 
--config IBM_NEW_EMAC_RX_COPY_THRESHOLD
-+config IBM_EMAC_RX_COPY_THRESHOLD
- 	int "RX skb copy threshold (bytes)"
--	depends on IBM_NEW_EMAC
-+	depends on IBM_EMAC
- 	default "256"
- 
--config IBM_NEW_EMAC_RX_SKB_HEADROOM
-+config IBM_EMAC_RX_SKB_HEADROOM
- 	int "Additional RX skb headroom (bytes)"
--	depends on IBM_NEW_EMAC
-+	depends on IBM_EMAC
- 	default "0"
- 	help
- 	  Additional receive skb headroom. Note, that driver
-@@ -39,38 +39,38 @@ config IBM_NEW_EMAC_RX_SKB_HEADROOM
- 
- 	  If unsure, set to 0.
- 
--config IBM_NEW_EMAC_DEBUG
-+config IBM_EMAC_DEBUG
- 	bool "Debugging"
--	depends on IBM_NEW_EMAC
-+	depends on IBM_EMAC
- 	default n
- 
- # The options below has to be select'ed by the respective
- # processor types or platforms
- 
--config IBM_NEW_EMAC_ZMII
-+config IBM_EMAC_ZMII
- 	bool
- 	default n
- 
--config IBM_NEW_EMAC_RGMII
-+config IBM_EMAC_RGMII
- 	bool
- 	default n
- 
--config IBM_NEW_EMAC_TAH
-+config IBM_EMAC_TAH
- 	bool
- 	default n
- 
--config IBM_NEW_EMAC_EMAC4
-+config IBM_EMAC_EMAC4
- 	bool
- 	default n
- 
--config IBM_NEW_EMAC_NO_FLOW_CTRL
-+config IBM_EMAC_NO_FLOW_CTRL
- 	bool
- 	default n
- 
--config IBM_NEW_EMAC_MAL_CLR_ICINTSTAT
-+config IBM_EMAC_MAL_CLR_ICINTSTAT
- 	bool
- 	default n
- 
--config IBM_NEW_EMAC_MAL_COMMON_ERR
-+config IBM_EMAC_MAL_COMMON_ERR
- 	bool
- 	default n
-diff --git a/drivers/net/ibm_newemac/Makefile b/drivers/net/ethernet/ibm/emac/Makefile
-similarity index 100%
-rename from drivers/net/ibm_newemac/Makefile
-rename to drivers/net/ethernet/ibm/emac/Makefile
-diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/core.c
-rename to drivers/net/ethernet/ibm/emac/core.c
-diff --git a/drivers/net/ibm_newemac/core.h b/drivers/net/ethernet/ibm/emac/core.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/core.h
-rename to drivers/net/ethernet/ibm/emac/core.h
-diff --git a/drivers/net/ibm_newemac/debug.c b/drivers/net/ethernet/ibm/emac/debug.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/debug.c
-rename to drivers/net/ethernet/ibm/emac/debug.c
-diff --git a/drivers/net/ibm_newemac/debug.h b/drivers/net/ethernet/ibm/emac/debug.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/debug.h
-rename to drivers/net/ethernet/ibm/emac/debug.h
-diff --git a/drivers/net/ibm_newemac/emac.h b/drivers/net/ethernet/ibm/emac/emac.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/emac.h
-rename to drivers/net/ethernet/ibm/emac/emac.h
-diff --git a/drivers/net/ibm_newemac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/mal.c
-rename to drivers/net/ethernet/ibm/emac/mal.c
-diff --git a/drivers/net/ibm_newemac/mal.h b/drivers/net/ethernet/ibm/emac/mal.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/mal.h
-rename to drivers/net/ethernet/ibm/emac/mal.h
-diff --git a/drivers/net/ibm_newemac/phy.c b/drivers/net/ethernet/ibm/emac/phy.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/phy.c
-rename to drivers/net/ethernet/ibm/emac/phy.c
-diff --git a/drivers/net/ibm_newemac/phy.h b/drivers/net/ethernet/ibm/emac/phy.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/phy.h
-rename to drivers/net/ethernet/ibm/emac/phy.h
-diff --git a/drivers/net/ibm_newemac/rgmii.c b/drivers/net/ethernet/ibm/emac/rgmii.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/rgmii.c
-rename to drivers/net/ethernet/ibm/emac/rgmii.c
-diff --git a/drivers/net/ibm_newemac/rgmii.h b/drivers/net/ethernet/ibm/emac/rgmii.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/rgmii.h
-rename to drivers/net/ethernet/ibm/emac/rgmii.h
-diff --git a/drivers/net/ibm_newemac/tah.c b/drivers/net/ethernet/ibm/emac/tah.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/tah.c
-rename to drivers/net/ethernet/ibm/emac/tah.c
-diff --git a/drivers/net/ibm_newemac/tah.h b/drivers/net/ethernet/ibm/emac/tah.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/tah.h
-rename to drivers/net/ethernet/ibm/emac/tah.h
-diff --git a/drivers/net/ibm_newemac/zmii.c b/drivers/net/ethernet/ibm/emac/zmii.c
-similarity index 100%
-rename from drivers/net/ibm_newemac/zmii.c
-rename to drivers/net/ethernet/ibm/emac/zmii.c
-diff --git a/drivers/net/ibm_newemac/zmii.h b/drivers/net/ethernet/ibm/emac/zmii.h
-similarity index 100%
-rename from drivers/net/ibm_newemac/zmii.h
-rename to drivers/net/ethernet/ibm/emac/zmii.h
-diff --git a/drivers/net/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-similarity index 100%
-rename from drivers/net/ibmveth.c
-rename to drivers/net/ethernet/ibm/ibmveth.c
-diff --git a/drivers/net/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
-similarity index 100%
-rename from drivers/net/ibmveth.h
-rename to drivers/net/ethernet/ibm/ibmveth.h
-diff --git a/drivers/net/iseries_veth.c b/drivers/net/ethernet/ibm/iseries_veth.c
-similarity index 100%
-rename from drivers/net/iseries_veth.c
-rename to drivers/net/ethernet/ibm/iseries_veth.c
+ extern int spider_net_stop(struct net_device *netdev);
+ extern int spider_net_open(struct net_device *netdev);
 -- 
 1.7.6
 
