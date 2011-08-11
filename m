@@ -1,96 +1,55 @@
-From: stufever@gmail.com
-Subject: =?UTF-8?q?=5BPATCH=20RESEND=5D=20gianfar=3A=20reduce=20stack=20usage=20in=20gianfar=5Fethtool=2Ec?=
-Date: Thu, 11 Aug 2011 15:00:37 +0800
-Message-ID: <1313046037-21655-1-git-send-email-wangshaoyan.pt@taobao.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Move interface across network namespaces
+Date: Thu, 11 Aug 2011 00:13:07 -0700
+Message-ID: <m1r54s8lq4.fsf@fess.ebiederm.org>
+References: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	sebastian.poehn@belden.com,
-	Wang Shaoyan <wangshaoyan.pt@taobao.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Renato Westphal <renatowestphal@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:53015 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754282Ab1HKHNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 03:13:11 -0400
+In-Reply-To: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
+	(Renato Westphal's message of "Wed, 10 Aug 2011 21:31:39 -0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+Renato Westphal <renatowestphal@gmail.com> writes:
 
-  drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 by=
-tes is larger than 1024 bytes
-
-Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
-Reviewed-and-tested-by: Sebastian P=C3=B6hn <sebastian.poehn@belden.com=
+> Hello,
 >
----
- drivers/net/gianfar_ethtool.c |   26 +++++++++++++++++++++-----
- 1 files changed, 21 insertions(+), 5 deletions(-)
+> I have two questions regarding the process of moving a network
+> interface across different network namespaces:
+>
+> * When I move an interface, all the virtual interfaces attached to it
+> are deleted. Is there any reason for such odd behavior? I would like
+> to move some network interfaces and keep the attached vlans untouched.
 
-diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtoo=
-l.c
-index 6e35069..25a8c2a 100644
---- a/drivers/net/gianfar_ethtool.c
-+++ b/drivers/net/gianfar_ethtool.c
-@@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct gfa=
-r_private *priv, u64 ethflow, u
- {
- 	unsigned int last_rule_idx =3D priv->cur_filer_idx;
- 	unsigned int cmp_rqfpr;
--	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
--	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
-+	unsigned int *local_rqfpr;
-+	unsigned int *local_rqfcr;
- 	int i =3D 0x0, k =3D 0x0;
- 	int j =3D MAX_FILER_IDX, l =3D 0x0;
-+	int ret =3D 1;
-+
-+	local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-+		GFP_KERNEL);
-+	local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
-+		GFP_KERNEL);
-+	if (!local_rqfpr || !local_rqfcr) {
-+		pr_err("Out of memory\n");
-+		ret =3D 0;
-+		goto err;
-+	}
-=20
- 	switch (class) {
- 	case TCP_V4_FLOW:
-@@ -706,7 +717,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
-private *priv, u64 ethflow, u
- 		break;
- 	default:
- 		pr_err("Right now this class is not supported\n");
--		return 0;
-+		ret =3D 0;
-+		goto err;
- 	}
-=20
- 	for (i =3D 0; i < MAX_FILER_IDX + 1; i++) {
-@@ -721,7 +733,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
-private *priv, u64 ethflow, u
-=20
- 	if (i =3D=3D MAX_FILER_IDX + 1) {
- 		pr_err("No parse rule found, can't create hash rules\n");
--		return 0;
-+		ret =3D 0;
-+		goto err;
- 	}
-=20
- 	/* If a match was found, then it begins the starting of a cluster rul=
-e
-@@ -765,7 +778,10 @@ static int gfar_ethflow_to_filer_table(struct gfar=
-_private *priv, u64 ethflow, u
- 		priv->cur_filer_idx =3D priv->cur_filer_idx - 1;
- 	}
-=20
--	return 1;
-+err:
-+	kfree(local_rqfcr);
-+	kfree(local_rqfpr);
-+	return ret;
- }
-=20
- static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtoo=
-l_rxnfc *cmd)
---=20
-1.7.4.1
+The defined semantics are that a network device is unregistered from
+the networking stack in one network namespace and then registered
+with the networking stack in another.  It is an unfortunate fact
+that when vlan devices see their underlying device being unregistered
+they decide to delete themselves.
+
+A different vlan implementation might be able to have different
+properties but I can't think of any obvious solution other than
+don't do move the device that you have your vlans on top of.
+
+> * The target network namespace sends a RTM_NEWLINK netlink message
+> when an interface is moved to it. In the other hand, the source
+> network namespace doesn't sends a RTM_DELLINK message when an
+> interface is moved from it. This is very annoying because user space
+> applications (such as zebra) can't detect some interface moving
+> operations and then get into an inconsistent state. Anyone knows if
+> there's a workaround for this?
+
+Not getting RTM_DELLINK is a bug.  The device registration and
+unregistration code has changed since dev_change_net_namespace was
+written and apparently one of the changes failed to update
+dev_change_net_namespace.
+
+Eric
+
