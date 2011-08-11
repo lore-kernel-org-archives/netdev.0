@@ -1,41 +1,28 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] net/netlabel/netlabel_kapi.c: add missing cleanup code
-Date: Thu, 11 Aug 2011 11:40:33 +0200
-Message-ID: <1313055633-25327-1-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org,
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [PATCH] net/netlabel/netlabel_kapi.c: add missing cleanup code
+Date: Thu, 11 Aug 2011 12:44:07 +0300
+Message-ID: <20110811094407.GG3777@shale.localdomain>
+References: <1313055633-25327-1-git-send-email-julia@diku.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <paul@paul-moore.com>, kernel-janitors@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:33840 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753875Ab1HKJkj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 05:40:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1313055633-25327-1-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+On Thu, Aug 11, 2011 at 11:40:33AM +0200, Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Use the same cleanup code for the failure of kzalloc as for the failure of
+> kstrdup just below.
+> 
 
-Use the same cleanup code for the failure of kzalloc as for the failure of
-kstrdup just below.
+That doesn't work.  The kfree(entry->domain) would cause an oops.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- net/netlabel/netlabel_kapi.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 58107d0..225e12c 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -341,7 +341,7 @@ int netlbl_cfg_cipsov4_map_add(u32 doi,
- 
- 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
- 	if (entry == NULL)
--		return -ENOMEM;
-+		goto cfg_cipsov4_map_add_failure;
- 	if (domain != NULL) {
- 		entry->domain = kstrdup(domain, GFP_ATOMIC);
- 		if (entry->domain == NULL)
-
+regards,
+dan carpenter
