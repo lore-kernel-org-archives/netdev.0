@@ -1,63 +1,93 @@
-From: Panduranga <x0125717@ti.com>
-Subject: Re: [PATCH 0/1] OMAP: wlan : To fix wlan issue with kernel 3.0
-Date: Thu, 11 Aug 2011 12:45:07 +0530
-Message-ID: <606B2926D61D49379AEF49D407C6C912@MINX0125717>
-References: <1311950476-2452-1-git-send-email-panduranga_mallireddy@ti.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v11 4/5] powerpc: Add flexcan device support for p1010rdb.
+Date: Thu, 11 Aug 2011 09:26:28 +0200
+Message-ID: <4E438424.1050503@grandegger.com>
+References: <1312993670-23999-1-git-send-email-holt@sgi.com>	<1312993670-23999-5-git-send-email-holt@sgi.com>	<8E5FA886-038D-4DF4-8A54-DD60188A21A2@kernel.crashing.org>	<4E42CB01.7030700@grandegger.com>
+	<634AB7A6-1CDA-41B3-8A5D-01F29EF01521@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset="iso-8859-1";
-	reply-type=original
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <ohad@wizery.com>, "Gabay, Benzy" <benzyg@ti.com>,
-	"Gurumath, Pradeep" <pradeepgurumath@ti.com>,
-	"Mahaveer, Vishal" <vishalm@ti.com>,
-	"Boudet, Xavier" <x-boudet@ti.com>,
-	"Jain, Naveen" <naveen_jain@ti.com>,
-	"Halli, Manjunatha" <manjunatha_halli@ti.com>,
-	"Mallireddy, Panduranga" <panduranga_mallireddy@ti.com>,
-	"Coelho, Luciano" <coelho@ti.com>, <netdev@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>, <linux-mmc@vger.kernel.org>
-To: <tony@atomide.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:46143 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754451Ab1HKHPF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 03:15:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <634AB7A6-1CDA-41B3-8A5D-01F29EF01521-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Tony,
+On 08/11/2011 06:46 AM, Kumar Gala wrote:
+> 
+> On Aug 10, 2011, at 1:16 PM, Wolfgang Grandegger wrote:
+> 
+>> On 08/10/2011 07:01 PM, Kumar Gala wrote:
+>>>
+>>> On Aug 10, 2011, at 11:27 AM, Robin Holt wrote:
+>>>
+>>>> I added a simple clock source for the p1010rdb so the flexcan driver
+>>>> could determine a clock frequency.  The p1010 flexcan device only has
+>>>> an oscillator of system bus frequency divided by 2.
+>>>>
+>>>> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+>>>> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+>>>> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+>>>> Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+>>>> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+>>>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+>>>> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+>>>> Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+>>>> ---
+>>>> arch/powerpc/platforms/85xx/Kconfig    |    2 +
+>>>> arch/powerpc/platforms/85xx/Makefile   |    2 +
+>>>> arch/powerpc/platforms/85xx/clock.c    |   52 ++++++++++++++++++++++++++++++++
+>>>> arch/powerpc/platforms/85xx/p1010rdb.c |    8 +++++
+>>>> 4 files changed, 64 insertions(+), 0 deletions(-)
+>>>> create mode 100644 arch/powerpc/platforms/85xx/clock.c
+>>>
+>>> I dont understand how mpc85xx_clk_functions() ends up being associated with the frequency the flexcan is running at.
+>>
+>> The function mpc85xx_clk_get_rate() returns "fsl_get_sys_freq() / 2" for
+>> Flexcan devices.
+>>
+>>> This either seems to global or I'm missing something.
+>>
+>> This patch extends the existing Flexcan platform driver for ARM for the
+>> PowerPC using the device tree. Due to the nice integration of the device
+>> tree (of-platform) into the platform driver and devices, the difference
+>> are quite small (see patches 1..3). Apart from the endianess issue, only
+>> the clock needs to be handled in a common way. As ARM already uses the
+>> clk interface, we found it straight-forward to implement it for the
+>> P1010, or more general for the 85xx, as well, instead of using an
+>> additional helper function.
+> 
+> I see, that.  What concerns me is there are numerous clocks / frequencies that exist inside a MPC85xx/P1010 SOC.  The code I'm seeing does NOT seem to do anything to relate this clock JUST to the flexcan.
 
-Can you merge this patch series to Kernel 3.1.
-It fixes the WLAN issue on Panda board, reported in Kernel 3.0
+The clk interface is not commonly used on PowerPC, I know. It's just to
+provide compatibility with ARM. An alternative would be to use some
+helper function.
 
-Regards,
-Pandu.
+>>> I still think the clk / freq info should be in the device tree and handled in the driver and NOT arch/powerpc platform code.
+>>
+>> If I understand you correctly, you want the boot-loader to provide the
+>> relevant information by fixing up the device tree, which then can be
+>> handled arch-independently by the driver, right?
+> 
+> Yes, that is part of what I want.
 
------ Original Message ----- 
-From: "Mallireddy, Panduranga" <panduranga_mallireddy@ti.com>
-To: "Coelho, Luciano" <coelho@ti.com>; <netdev@vger.kernel.org>; 
-<linux-omap@vger.kernel.org>; <linux-mmc@vger.kernel.org>
-Cc: <ohad@wizery.com>; "Gabay, Benzy" <benzyg@ti.com>; "Gurumath, Pradeep" 
-<pradeepgurumath@ti.com>; "Mahaveer, Vishal" <vishalm@ti.com>; "Boudet, 
-Xavier" <x-boudet@ti.com>; "Jain, Naveen" <naveen_jain@ti.com>; "Halli, 
-Manjunatha" <manjunatha_halli@ti.com>; "Mallireddy, Panduranga" 
-<panduranga_mallireddy@ti.com>
-Sent: Friday, July 29, 2011 8:11 PM
-Subject: [PATCH 0/1] OMAP: wlan : To fix wlan issue with kernel 3.0
+This works fine if we just have *one* fixed clock source and frequency.
+When there are choices (source and divider) it does make sense to allow
+the user to select the frequency via DTS file entries for Linux. Then we
+need arch-specific code anyway (to set the relevant registers).
+Furthermore we rely on the boot-loader (the usual argument) which is not
+a problem for new boards (with new boot-loader), of course.
 
-
-From: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
-
-Error reported for wl12xx driver with Kernel 3.0 is
-[    0.181457] error setting wl12xx data
-
-FIX:
-For regulator omap4_clk32k used by wlan, set .constraints.always_on to 1
-
-Panduranga Mallireddy (1):
-  OMAP: wlan: Set the WLAN Regulator to be always on
-
- arch/arm/mach-omap2/twl-common.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-
+Wolfgang.
