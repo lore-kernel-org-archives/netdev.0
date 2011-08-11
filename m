@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge/netfilter/ebtables.c: use available error
- handling code
-Date: Thu, 11 Aug 2011 05:53:33 -0700 (PDT)
-Message-ID: <20110811.055333.1199553373699762518.davem@davemloft.net>
-References: <1313063978-29400-1-git-send-email-julia@diku.dk>
+Subject: Re: [PATCH] slcan: ldisc generated skbs are received in softirq
+ context
+Date: Thu, 11 Aug 2011 05:56:14 -0700 (PDT)
+Message-ID: <20110811.055614.415286593914229309.davem@davemloft.net>
+References: <4E42A163.5030208@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bart.de.schuymer@pandora.be, kernel-janitors@vger.kernel.org,
-	kaber@trash.net, shemminger@linux-foundation.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: julia@diku.dk
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1313063978-29400-1-git-send-email-julia@diku.dk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, matvejchikov@gmail.com,
+	alan@lxorguk.ukuu.org.uk
+To: socketcan@hartkopp.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36555 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755583Ab1HKM60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 08:58:26 -0400
+In-Reply-To: <4E42A163.5030208@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Thu, 11 Aug 2011 13:59:38 +0200
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Wed, 10 Aug 2011 17:18:59 +0200
 
-> From: Julia Lawall <julia@diku.dk>
+> As this discussion pointed out
 > 
-> Free the locally allocated table and newinfo as done in adjacent error
-> handling code.
+> http://marc.info/?l=linux-netdev&m=131257225602375
 > 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+> netdevices that are based on serial line disciplines should use netif_rx_ni()
+> when pushing received socketbuffers into the netdev rx queue.
+> 
+> Following commit 614851601c121b1320a35757ab88292d6272f906 ("slip: fix NOHZ
+> local_softirq_pending 08 warning") this patch updates the slcan driver
+> accordingly.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> CC: Matvejchikov Ilya <matvejchikov@gmail.com>
+> CC: Alan Cox <alan@lxorguk.ukuu.org.uk>
 
 Applied.
