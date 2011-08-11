@@ -1,34 +1,92 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: [net-next 02/10] 3c*/acenic/typhoon: Move 3Com Ethernet drivers
-Date: Thu, 11 Aug 2011 10:58:39 +0100
-Message-ID: <20110811105839.12694227@bob.linux.org.uk>
-References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1313033278-7337-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110811100255.421a5fbc@bob.linux.org.uk>
-	<1313054026.2339.3.camel@jtkirshe-mobl>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [PATCH] net/netlabel/netlabel_kapi.c: add missing cleanup code
+Date: Thu, 11 Aug 2011 12:06:04 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1108111205450.18938@ask.diku.dk>
+References: <1313055633-25327-1-git-send-email-julia@diku.dk>
+ <20110811094407.GG3777@shale.localdomain> <Pine.LNX.4.64.1108111152130.18938@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@tredhat.com" <gospo@tredhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	David Dillow <dave@thedillows.org>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	David Hinds <dahinds@users.sourceforge.net>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8361 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754492Ab1HKJy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 05:54:56 -0400
-In-Reply-To: <1313054026.2339.3.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Moore <paul@paul-moore.com>, kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1108111152130.18938@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Where would you like to put it? drivers/net/ethernet/alteon/?  I am
-> fine with fixing this up by placing somewhere else.
+From: Julia Lawall <julia@diku.dk>
 
-If you are going by chip vendor then I guess yes it goes into alteon.
+Call cipso_v4_doi_putdef in the case of the failure of the allocation of
+entry.  Reverse the order of the error handling code at the end of the
+function and insert more labels in order to reduce the number of
+unnecessary calls to kfree.
 
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ net/netlabel/netlabel_kapi.c |   20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 58107d0..9c24de1 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -341,11 +341,11 @@ int netlbl_cfg_cipsov4_map_add(u32 doi,
+ 
+ 	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+ 	if (entry == NULL)
+-		return -ENOMEM;
++		goto out_entry;
+ 	if (domain != NULL) {
+ 		entry->domain = kstrdup(domain, GFP_ATOMIC);
+ 		if (entry->domain == NULL)
+-			goto cfg_cipsov4_map_add_failure;
++			goto out_domain;
+ 	}
+ 
+ 	if (addr == NULL && mask == NULL) {
+@@ -354,13 +354,13 @@ int netlbl_cfg_cipsov4_map_add(u32 doi,
+ 	} else if (addr != NULL && mask != NULL) {
+ 		addrmap = kzalloc(sizeof(*addrmap), GFP_ATOMIC);
+ 		if (addrmap == NULL)
+-			goto cfg_cipsov4_map_add_failure;
++			goto out_addrmap;
+ 		INIT_LIST_HEAD(&addrmap->list4);
+ 		INIT_LIST_HEAD(&addrmap->list6);
+ 
+ 		addrinfo = kzalloc(sizeof(*addrinfo), GFP_ATOMIC);
+ 		if (addrinfo == NULL)
+-			goto cfg_cipsov4_map_add_failure;
++			goto out_addrinfo;
+ 		addrinfo->type_def.cipsov4 = doi_def;
+ 		addrinfo->type = NETLBL_NLTYPE_CIPSOV4;
+ 		addrinfo->list.addr = addr->s_addr & mask->s_addr;
+@@ -374,7 +374,7 @@ int netlbl_cfg_cipsov4_map_add(u32 doi,
+ 		entry->type = NETLBL_NLTYPE_ADDRSELECT;
+ 	} else {
+ 		ret_val = -EINVAL;
+-		goto cfg_cipsov4_map_add_failure;
++		goto out_addrmap;
+ 	}
+ 
+ 	ret_val = netlbl_domhsh_add(entry, audit_info);
+@@ -384,11 +384,15 @@ int netlbl_cfg_cipsov4_map_add(u32 doi,
+ 	return 0;
+ 
+ cfg_cipsov4_map_add_failure:
+-	cipso_v4_doi_putdef(doi_def);
++	kfree(addrinfo);
++out_addrinfo:
++	kfree(addrmap);
++out_addrmap:
+ 	kfree(entry->domain);
++out_domain:
+ 	kfree(entry);
+-	kfree(addrmap);
+-	kfree(addrinfo);
++out_entry:
++	cipso_v4_doi_putdef(doi_def);
+ 	return ret_val;
+ }
+ 
