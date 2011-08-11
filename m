@@ -1,662 +1,776 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/10] broadcom: Move the Broadcom drivers
-Date: Wed, 10 Aug 2011 20:27:53 -0700
-Message-ID: <1313033278-7337-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] chelsio: Move the Chelsio drivers
+Date: Wed, 10 Aug 2011 20:27:54 -0700
+Message-ID: <1313033278-7337-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@tredhat.com, sassmann@redhat.com,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Gary Zambrano <zambrano@broadcom.com>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>
+	Divy Le Ray <divy@chelsio.com>,
+	Dimitris Michailidis <dm@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13952 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:4743 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754154Ab1HKD2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2011 23:28:06 -0400
+	id S1754209Ab1HKD2H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2011 23:28:07 -0400
 In-Reply-To: <1313033278-7337-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the drivers for Broadcom devices into
-drivers/net/ethernet/broadcom/ and the necessary Kconfig and Makefile
+Moves the drivers for the Chelsio chipsets into
+drivers/net/ethernet/chelsio/ and the necessary Kconfig and Makefile
 changes.
 
-CC: Eilon Greenstein <eilong@broadcom.com>
-CC: Michael Chan <mchan@broadcom.com>
-CC: Matt Carlson <mcarlson@broadcom.com>
-CC: Gary Zambrano <zambrano@broadcom.com>
-CC: "Maciej W. Rozycki" <macro@linux-mips.org>
+CC: Divy Le Ray <divy@chelsio.com>
+CC: Dimitris Michailidis <dm@chelsio.com>
+CC: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |   10 +-
- drivers/net/Kconfig                                |   99 ----------------
- drivers/net/Makefile                               |    7 -
+ MAINTAINERS                                        |    6 +-
+ drivers/infiniband/hw/cxgb3/Makefile               |    2 +-
+ drivers/infiniband/hw/cxgb4/Makefile               |    2 +-
+ drivers/net/Kconfig                                |   86 ----------------
+ drivers/net/Makefile                               |    4 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/broadcom/Kconfig              |  119 ++++++++++++++++++++
- drivers/net/ethernet/broadcom/Makefile             |   11 ++
- drivers/net/{ => ethernet/broadcom}/b44.c          |    0
- drivers/net/{ => ethernet/broadcom}/b44.h          |    0
- drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.c |    0
- drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.h |    0
- drivers/net/{ => ethernet/broadcom}/bnx2.c         |    0
- drivers/net/{ => ethernet/broadcom}/bnx2.h         |    0
- drivers/net/{ => ethernet/broadcom}/bnx2_fw.h      |    0
- drivers/net/{ => ethernet/broadcom}/bnx2x/Makefile |    0
- drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x.h  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.c  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.h  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.c  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.h  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_dump.h |    0
- .../{ => ethernet/broadcom}/bnx2x/bnx2x_ethtool.c  |    0
- .../{ => ethernet/broadcom}/bnx2x/bnx2x_fw_defs.h  |    0
- .../broadcom}/bnx2x/bnx2x_fw_file_hdr.h            |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_hsi.h  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_init.h |    0
- .../{ => ethernet/broadcom}/bnx2x/bnx2x_init_ops.h |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.c |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.h |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_main.c |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_reg.h  |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.c   |    0
- .../net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.h   |    0
- .../{ => ethernet/broadcom}/bnx2x/bnx2x_stats.c    |    0
- .../{ => ethernet/broadcom}/bnx2x/bnx2x_stats.h    |    0
- drivers/net/{ => ethernet/broadcom}/cnic.c         |    4 +-
- drivers/net/{ => ethernet/broadcom}/cnic.h         |    0
- drivers/net/{ => ethernet/broadcom}/cnic_defs.h    |    0
- drivers/net/{ => ethernet/broadcom}/cnic_if.h      |    0
- drivers/net/{ => ethernet/broadcom}/sb1250-mac.c   |    0
- drivers/net/{ => ethernet/broadcom}/tg3.c          |    0
- drivers/net/{ => ethernet/broadcom}/tg3.h          |    0
- drivers/scsi/bnx2fc/bnx2fc.h                       |    2 +-
- drivers/scsi/bnx2i/bnx2i.h                         |    2 +-
- 44 files changed, 141 insertions(+), 115 deletions(-)
- create mode 100644 drivers/net/ethernet/broadcom/Kconfig
- create mode 100644 drivers/net/ethernet/broadcom/Makefile
- rename drivers/net/{ => ethernet/broadcom}/b44.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/b44.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bcm63xx_enet.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2_fw.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/Makefile (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_cmn.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_dcb.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_dump.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_ethtool.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_fw_defs.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_fw_file_hdr.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_hsi.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_init.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_init_ops.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_link.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_main.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_reg.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_sp.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_stats.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/bnx2x/bnx2x_stats.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/cnic.c (99%)
- rename drivers/net/{ => ethernet/broadcom}/cnic.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/cnic_defs.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/cnic_if.h (100%)
- rename drivers/net/{ => ethernet/broadcom}/sb1250-mac.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/tg3.c (100%)
- rename drivers/net/{ => ethernet/broadcom}/tg3.h (100%)
+ drivers/net/ethernet/chelsio/Kconfig               |  106 ++++++++++++++++++++
+ drivers/net/ethernet/chelsio/Makefile              |    8 ++
+ .../{chelsio => ethernet/chelsio/cxgb}/Makefile    |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/common.h    |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/cphy.h  |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/cpl5_cmd.h  |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/cxgb2.c |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/elmer0.h    |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/espi.c  |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/espi.h  |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/fpga_defs.h |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/gmac.h  |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/mv88e1xxx.c |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/mv88e1xxx.h |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/mv88x201x.c |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/my3126.c    |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/pm3393.c    |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/regs.h  |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/sge.c   |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/sge.h   |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/subr.c  |    0
+ .../chelsio/cxgb}/suni1x10gexp_regs.h              |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/tp.c    |    0
+ .../net/{chelsio => ethernet/chelsio/cxgb}/tp.h    |    0
+ .../{chelsio => ethernet/chelsio/cxgb}/vsc7326.c   |    0
+ .../chelsio/cxgb}/vsc7326_reg.h                    |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/Makefile  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/adapter.h |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/ael1002.c |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/aq100x.c  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/common.h  |    0
+ .../{ => ethernet/chelsio}/cxgb3/cxgb3_ctl_defs.h  |    0
+ .../net/{ => ethernet/chelsio}/cxgb3/cxgb3_defs.h  |    0
+ .../net/{ => ethernet/chelsio}/cxgb3/cxgb3_ioctl.h |    0
+ .../net/{ => ethernet/chelsio}/cxgb3/cxgb3_main.c  |    0
+ .../{ => ethernet/chelsio}/cxgb3/cxgb3_offload.c   |    0
+ .../{ => ethernet/chelsio}/cxgb3/cxgb3_offload.h   |    0
+ .../chelsio}/cxgb3/firmware_exports.h              |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/l2t.c     |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/l2t.h     |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/mc5.c     |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/regs.h    |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/sge.c     |    0
+ .../net/{ => ethernet/chelsio}/cxgb3/sge_defs.h    |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/t3_cpl.h  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/t3_hw.c   |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/t3cdev.h  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/version.h |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/vsc8211.c |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb3/xgmac.c   |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/Makefile  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/cxgb4.h   |    0
+ .../net/{ => ethernet/chelsio}/cxgb4/cxgb4_main.c  |    0
+ .../net/{ => ethernet/chelsio}/cxgb4/cxgb4_uld.h   |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/l2t.c     |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/l2t.h     |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/sge.c     |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/t4_hw.c   |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/t4_hw.h   |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/t4_msg.h  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4/t4_regs.h |    0
+ .../net/{ => ethernet/chelsio}/cxgb4/t4fw_api.h    |    0
+ .../net/{ => ethernet/chelsio}/cxgb4vf/Makefile    |    0
+ .../net/{ => ethernet/chelsio}/cxgb4vf/adapter.h   |    0
+ .../{ => ethernet/chelsio}/cxgb4vf/cxgb4vf_main.c  |    0
+ drivers/net/{ => ethernet/chelsio}/cxgb4vf/sge.c   |    0
+ .../{ => ethernet/chelsio}/cxgb4vf/t4vf_common.h   |    0
+ .../net/{ => ethernet/chelsio}/cxgb4vf/t4vf_defs.h |    0
+ .../net/{ => ethernet/chelsio}/cxgb4vf/t4vf_hw.c   |    0
+ drivers/scsi/cxgbi/cxgb3i/Kbuild                   |    2 +-
+ drivers/scsi/cxgbi/cxgb4i/Kbuild                   |    2 +-
+ 78 files changed, 123 insertions(+), 97 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/Kconfig
+ create mode 100644 drivers/net/ethernet/chelsio/Makefile
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/Makefile (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/common.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/cphy.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/cpl5_cmd.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/cxgb2.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/elmer0.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/espi.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/espi.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/fpga_defs.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/gmac.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/mv88e1xxx.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/mv88e1xxx.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/mv88x201x.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/my3126.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/pm3393.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/regs.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/sge.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/sge.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/subr.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/suni1x10gexp_regs.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/tp.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/tp.h (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/vsc7326.c (100%)
+ rename drivers/net/{chelsio => ethernet/chelsio/cxgb}/vsc7326_reg.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/Makefile (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/adapter.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/ael1002.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/aq100x.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/common.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/cxgb3_ctl_defs.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/cxgb3_defs.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/cxgb3_ioctl.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/cxgb3_main.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/cxgb3_offload.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/cxgb3_offload.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/firmware_exports.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/l2t.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/l2t.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/mc5.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/regs.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/sge.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/sge_defs.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/t3_cpl.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/t3_hw.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/t3cdev.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/version.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/vsc8211.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb3/xgmac.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/Makefile (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/cxgb4.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/cxgb4_main.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/cxgb4_uld.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/l2t.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/l2t.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/sge.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/t4_hw.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/t4_hw.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/t4_msg.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/t4_regs.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4/t4fw_api.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/Makefile (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/adapter.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/cxgb4vf_main.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/sge.c (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/t4vf_common.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/t4vf_defs.h (100%)
+ rename drivers/net/{ => ethernet/chelsio}/cxgb4vf/t4vf_hw.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index c694583..af9de64 100644
+index af9de64..0853d00 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -1526,27 +1526,27 @@ BROADCOM B44 10/100 ETHERNET DRIVER
- M:	Gary Zambrano <zambrano@broadcom.com>
+@@ -1994,7 +1994,7 @@ M:	Divy Le Ray <divy@chelsio.com>
  L:	netdev@vger.kernel.org
+ W:	http://www.chelsio.com
  S:	Supported
--F:	drivers/net/b44.*
-+F:	drivers/net/ethernet/broadcom/b44.*
+-F:	drivers/net/cxgb3/
++F:	drivers/net/ethernet/chelsio/cxgb3/
  
- BROADCOM BNX2 GIGABIT ETHERNET DRIVER
- M:	Michael Chan <mchan@broadcom.com>
+ CXGB3 IWARP RNIC DRIVER (IW_CXGB3)
+ M:	Steve Wise <swise@chelsio.com>
+@@ -2008,7 +2008,7 @@ M:	Dimitris Michailidis <dm@chelsio.com>
  L:	netdev@vger.kernel.org
+ W:	http://www.chelsio.com
  S:	Supported
--F:	drivers/net/bnx2.*
--F:	drivers/net/bnx2_*
-+F:	drivers/net/ethernet/broadcom/bnx2.*
-+F:	drivers/net/ethernet/broadcom/bnx2_*
+-F:	drivers/net/cxgb4/
++F:	drivers/net/ethernet/chelsio/cxgb4/
  
- BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
- M:	Eilon Greenstein <eilong@broadcom.com>
+ CXGB4 IWARP RNIC DRIVER (IW_CXGB4)
+ M:	Steve Wise <swise@chelsio.com>
+@@ -2022,7 +2022,7 @@ M:	Casey Leedom <leedom@chelsio.com>
  L:	netdev@vger.kernel.org
+ W:	http://www.chelsio.com
  S:	Supported
--F:	drivers/net/bnx2x/
-+F:	drivers/net/ethernet/broadcom/bnx2x/
+-F:	drivers/net/cxgb4vf/
++F:	drivers/net/ethernet/chelsio/cxgb4vf/
  
- BROADCOM TG3 GIGABIT ETHERNET DRIVER
- M:	Matt Carlson <mcarlson@broadcom.com>
- M:	Michael Chan <mchan@broadcom.com>
- L:	netdev@vger.kernel.org
- S:	Supported
--F:	drivers/net/tg3.*
-+F:	drivers/net/ethernet/broadcom/tg3.*
+ STMMAC ETHERNET DRIVER
+ M:	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+diff --git a/drivers/infiniband/hw/cxgb3/Makefile b/drivers/infiniband/hw/cxgb3/Makefile
+index 621619c..2761364 100644
+--- a/drivers/infiniband/hw/cxgb3/Makefile
++++ b/drivers/infiniband/hw/cxgb3/Makefile
+@@ -1,4 +1,4 @@
+-ccflags-y := -Idrivers/net/cxgb3
++ccflags-y := -Idrivers/net/ethernet/chelsio/cxgb3
  
- BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER
- M:	Brett Rudley <brudley@broadcom.com>
+ obj-$(CONFIG_INFINIBAND_CXGB3) += iw_cxgb3.o
+ 
+diff --git a/drivers/infiniband/hw/cxgb4/Makefile b/drivers/infiniband/hw/cxgb4/Makefile
+index cd20b13..46b878c 100644
+--- a/drivers/infiniband/hw/cxgb4/Makefile
++++ b/drivers/infiniband/hw/cxgb4/Makefile
+@@ -1,4 +1,4 @@
+-ccflags-y := -Idrivers/net/cxgb4
++ccflags-y := -Idrivers/net/ethernet/chelsio/cxgb4
+ 
+ obj-$(CONFIG_INFINIBAND_CXGB4) += iw_cxgb4.o
+ 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c877f41..2f9f208 100644
+index 2f9f208..77ab2e1 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -997,38 +997,6 @@ config APRICOT
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called apricot.
+@@ -1942,92 +1942,6 @@ if NETDEV_10000
+ config MDIO
+ 	tristate
  
--config B44
--	tristate "Broadcom 440x/47xx ethernet support"
--	depends on SSB_POSSIBLE && HAS_DMA
--	select SSB
--	select MII
--	help
--	  If you have a network (Ethernet) controller of this type, say Y
--	  or M and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called b44.
--
--# Auto-select SSB PCI-HOST support, if possible
--config B44_PCI_AUTOSELECT
--	bool
--	depends on B44 && SSB_PCIHOST_POSSIBLE
--	select SSB_PCIHOST
--	default y
--
--# Auto-select SSB PCICORE driver, if possible
--config B44_PCICORE_AUTOSELECT
--	bool
--	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
--	select SSB_DRIVER_PCICORE
--	default y
--
--config B44_PCI
--	bool
--	depends on B44_PCI_AUTOSELECT && B44_PCICORE_AUTOSELECT
--	default y
--
- config FORCEDETH
- 	tristate "nForce Ethernet support"
- 	depends on NET_PCI && PCI
-@@ -1465,15 +1433,6 @@ config XILINX_EMACLITE
- 	help
- 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
- 
--config BCM63XX_ENET
--	tristate "Broadcom 63xx internal mac support"
--	depends on BCM63XX
--	select MII
--	select PHYLIB
--	help
--	  This driver supports the ethernet MACs in the Broadcom 63xx
--	  MIPS chipset family (BCM63XX).
--
- config FTMAC100
- 	tristate "Faraday FTMAC100 10/100 Ethernet support"
- 	depends on ARM
-@@ -1683,19 +1642,6 @@ config R8169
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called r8169.  This is recommended.
- 
--config SB1250_MAC
--	tristate "SB1250 Gigabit Ethernet support"
--	depends on SIBYTE_SB1xxx_SOC
--	select PHYLIB
--	---help---
--	  This driver supports Gigabit Ethernet interfaces based on the
--	  Broadcom SiByte family of System-On-a-Chip parts.  They include
--	  the BCM1120, BCM1125, BCM1125H, BCM1250, BCM1255, BCM1280, BCM1455
--	  and BCM1480 chips.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called sb1250-mac.
--
- config SIS190
- 	tristate "SiS190/SiS191 gigabit ethernet support"
- 	depends on PCI
-@@ -1789,39 +1735,6 @@ config VIA_VELOCITY
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called via-velocity.
- 
--config TIGON3
--	tristate "Broadcom Tigon3 support"
--	depends on PCI
--	select PHYLIB
--	help
--	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called tg3.  This is recommended.
--
--config BNX2
--	tristate "Broadcom NetXtremeII support"
+-config CHELSIO_T1
+-	tristate "Chelsio 10Gb Ethernet support"
 -	depends on PCI
 -	select CRC32
--	select FW_LOADER
--	help
--	  This driver supports Broadcom NetXtremeII gigabit Ethernet cards.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called bnx2.  This is recommended.
--
--config CNIC
--	tristate "Broadcom CNIC support"
--	depends on PCI
--	select BNX2
--	select UIO
--	help
--	  This driver supports offload features of Broadcom NetXtremeII
--	  gigabit Ethernet cards.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called cnic.  This is recommended.
--
- config SPIDER_NET
- 	tristate "Spider Gigabit Ethernet driver"
- 	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
-@@ -2327,18 +2240,6 @@ config TEHUTI
- 	help
- 	  Tehuti Networks 10G Ethernet NIC
- 
--config BNX2X
--	tristate "Broadcom NetXtremeII 10Gb support"
--	depends on PCI
--	select FW_LOADER
--	select ZLIB_INFLATE
--	select LIBCRC32C
 -	select MDIO
 -	help
--	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
--	  To compile this driver as a module, choose M here: the module
--	  will be called bnx2x.  This is recommended.
+-	  This driver supports Chelsio gigabit and 10-gigabit
+-	  Ethernet cards. More information about adapter features and
+-	  performance tuning is in <file:Documentation/networking/cxgb.txt>.
 -
- config QLCNIC
- 	tristate "QLOGIC QLCNIC 1/10Gb Converged Ethernet NIC Support"
- 	depends on PCI
+-	  For general information about Chelsio and our products, visit
+-	  our website at <http://www.chelsio.com>.
+-
+-	  For customer support, please visit our customer support page at
+-	  <http://www.chelsio.com/support.html>.
+-
+-	  Please send feedback to <linux-bugs@chelsio.com>.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called cxgb.
+-
+-config CHELSIO_T1_1G
+-	bool "Chelsio gigabit Ethernet support"
+-	depends on CHELSIO_T1
+-	help
+-	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
+-	  are using only 10G cards say 'N' here.
+-
+-config CHELSIO_T3
+-	tristate "Chelsio Communications T3 10Gb Ethernet support"
+-	depends on PCI && INET
+-	select FW_LOADER
+-	select MDIO
+-	help
+-	  This driver supports Chelsio T3-based gigabit and 10Gb Ethernet
+-	  adapters.
+-
+-	  For general information about Chelsio and our products, visit
+-	  our website at <http://www.chelsio.com>.
+-
+-	  For customer support, please visit our customer support page at
+-	  <http://www.chelsio.com/support.html>.
+-
+-	  Please send feedback to <linux-bugs@chelsio.com>.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called cxgb3.
+-
+-config CHELSIO_T4
+-	tristate "Chelsio Communications T4 Ethernet support"
+-	depends on PCI
+-	select FW_LOADER
+-	select MDIO
+-	help
+-	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+-	  adapters.
+-
+-	  For general information about Chelsio and our products, visit
+-	  our website at <http://www.chelsio.com>.
+-
+-	  For customer support, please visit our customer support page at
+-	  <http://www.chelsio.com/support.html>.
+-
+-	  Please send feedback to <linux-bugs@chelsio.com>.
+-
+-	  To compile this driver as a module choose M here; the module
+-	  will be called cxgb4.
+-
+-config CHELSIO_T4VF
+-	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
+-	depends on PCI
+-	help
+-	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+-	  adapters with PCI-E SR-IOV Virtual Functions.
+-
+-	  For general information about Chelsio and our products, visit
+-	  our website at <http://www.chelsio.com>.
+-
+-	  For customer support, please visit our customer support page at
+-	  <http://www.chelsio.com/support.html>.
+-
+-	  Please send feedback to <linux-bugs@chelsio.com>.
+-
+-	  To compile this driver as a module choose M here; the module
+-	  will be called cxgb4vf.
+-
+ config EHEA
+ 	tristate "eHEA Ethernet support"
+ 	depends on IBMEBUS && INET && SPARSEMEM
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 4e8fa73..4cc2dcd 100644
+index 4cc2dcd..a987d46 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -77,10 +77,6 @@ obj-$(CONFIG_ISERIES_VETH) += iseries_veth.o
- obj-$(CONFIG_NATSEMI) += natsemi.o
- obj-$(CONFIG_NS83820) += ns83820.o
- obj-$(CONFIG_FEALNX) += fealnx.o
--obj-$(CONFIG_TIGON3) += tg3.o
--obj-$(CONFIG_BNX2) += bnx2.o
--obj-$(CONFIG_CNIC) += cnic.o
--obj-$(CONFIG_BNX2X) += bnx2x/
- spidernet-y += spider_net.o spider_net_ethtool.o
- obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
- obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-@@ -117,10 +113,7 @@ obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
- ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
- 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
- endif
--obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
--obj-$(CONFIG_B44) += b44.o
- obj-$(CONFIG_FORCEDETH) += forcedeth.o
--obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
- obj-$(CONFIG_FTGMAC100) += ftgmac100.o
- obj-$(CONFIG_FTMAC100) += ftmac100.o
- 
+@@ -19,10 +19,6 @@ obj-$(CONFIG_IXGBE) += ixgbe/
+ obj-$(CONFIG_IXGBEVF) += ixgbevf/
+ obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_IP1000) += ipg.o
+-obj-$(CONFIG_CHELSIO_T1) += chelsio/
+-obj-$(CONFIG_CHELSIO_T3) += cxgb3/
+-obj-$(CONFIG_CHELSIO_T4) += cxgb4/
+-obj-$(CONFIG_CHELSIO_T4VF) += cxgb4vf/
+ obj-$(CONFIG_EHEA) += ehea/
+ obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 56ed5ec..772fb49 100644
+index 772fb49..69d6403 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -14,5 +14,6 @@ if ETHERNET
- source "drivers/net/ethernet/3com/Kconfig"
+@@ -15,5 +15,6 @@ source "drivers/net/ethernet/3com/Kconfig"
  source "drivers/net/ethernet/8390/Kconfig"
  source "drivers/net/ethernet/amd/Kconfig"
-+source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
++source "drivers/net/ethernet/chelsio/Kconfig"
  
  endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index fc82588..3ef49a2 100644
+index 3ef49a2..470e5d8 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -5,3 +5,4 @@
- obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+@@ -6,3 +6,4 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
  obj-$(CONFIG_NET_VENDOR_8390) += 8390/
  obj-$(CONFIG_NET_VENDOR_AMD) += amd/
-+obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
++obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
 new file mode 100644
-index 0000000..8986e57
+index 0000000..7b54574
 --- /dev/null
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -0,0 +1,119 @@
++++ b/drivers/net/ethernet/chelsio/Kconfig
+@@ -0,0 +1,106 @@
 +#
-+# Broadcom device configuration
++# Chelsio device configuration
 +#
 +
-+config NET_VENDOR_BROADCOM
-+	bool "Broadcom devices"
-+	depends on (SSB_POSSIBLE && HAS_DMA) || PCI || BCM63XX || \
-+		   SIBYTE_SB1xxx_SOC
++config NET_VENDOR_CHELSIO
++	bool "Chelsio devices"
++	depends on PCI || INET
 +	---help---
-+	  If you have a network (Ethernet) chipset belonging to this class,
-+	  say Y.
-+
-+	  Note that the answer to this question does not directly affect
-+	  the kernel: saying N will just case the configurator to skip all
-+	  the questions regarding AMD chipsets. If you say Y, you will be asked
-+	  for your specific chipset/driver in the following questions.
-+
-+if NET_VENDOR_BROADCOM
-+
-+config B44
-+	tristate "Broadcom 440x/47xx ethernet support"
-+	depends on SSB_POSSIBLE && HAS_DMA
-+	select SSB
-+	select MII
-+	---help---
-+	  If you have a network (Ethernet) controller of this type, say Y
-+	  or M and read the Ethernet-HOWTO, available from
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called b44.
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about Chelsio devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+# Auto-select SSB PCI-HOST support, if possible
-+config B44_PCI_AUTOSELECT
-+	bool
-+	depends on B44 && SSB_PCIHOST_POSSIBLE
-+	select SSB_PCIHOST
-+	default y
++if NET_VENDOR_CHELSIO
 +
-+# Auto-select SSB PCICORE driver, if possible
-+config B44_PCICORE_AUTOSELECT
-+	bool
-+	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
-+	select SSB_DRIVER_PCICORE
-+	default y
-+
-+config B44_PCI
-+	bool
-+	depends on B44_PCI_AUTOSELECT && B44_PCICORE_AUTOSELECT
-+	default y
-+
-+config BCM63XX_ENET
-+	tristate "Broadcom 63xx internal mac support"
-+	depends on BCM63XX
-+	select MII
-+	select PHYLIB
-+	help
-+	  This driver supports the ethernet MACs in the Broadcom 63xx
-+	  MIPS chipset family (BCM63XX).
-+
-+config BNX2
-+	tristate "Broadcom NetXtremeII support"
++config CHELSIO_T1
++	tristate "Chelsio 10Gb Ethernet support"
 +	depends on PCI
 +	select CRC32
-+	select FW_LOADER
-+	---help---
-+	  This driver supports Broadcom NetXtremeII gigabit Ethernet cards.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called bnx2.  This is recommended.
-+
-+config CNIC
-+	tristate "Broadcom CNIC support"
-+	depends on PCI
-+	select BNX2
-+	select UIO
-+	---help---
-+	  This driver supports offload features of Broadcom NetXtremeII
-+	  gigabit Ethernet cards.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called cnic.  This is recommended.
-+
-+config SB1250_MAC
-+	tristate "SB1250 Gigabit Ethernet support"
-+	depends on SIBYTE_SB1xxx_SOC
-+	select PHYLIB
-+	---help---
-+	  This driver supports Gigabit Ethernet interfaces based on the
-+	  Broadcom SiByte family of System-On-a-Chip parts.  They include
-+	  the BCM1120, BCM1125, BCM1125H, BCM1250, BCM1255, BCM1280, BCM1455
-+	  and BCM1480 chips.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sb1250-mac.
-+
-+config TIGON3
-+	tristate "Broadcom Tigon3 support"
-+	depends on PCI
-+	select PHYLIB
-+	---help---
-+	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called tg3.  This is recommended.
-+
-+config BNX2X
-+	tristate "Broadcom NetXtremeII 10Gb support"
-+	depends on PCI
-+	select FW_LOADER
-+	select ZLIB_INFLATE
-+	select LIBCRC32C
 +	select MDIO
 +	---help---
-+	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
++	  This driver supports Chelsio gigabit and 10-gigabit
++	  Ethernet cards. More information about adapter features and
++	  performance tuning is in <file:Documentation/networking/cxgb.txt>.
++
++	  For general information about Chelsio and our products, visit
++	  our website at <http://www.chelsio.com>.
++
++	  For customer support, please visit our customer support page at
++	  <http://www.chelsio.com/support.html>.
++
++	  Please send feedback to <linux-bugs@chelsio.com>.
++
 +	  To compile this driver as a module, choose M here: the module
-+	  will be called bnx2x.  This is recommended.
++	  will be called cxgb.
 +
-+endif # NET_VENDOR_BROADCOM
-diff --git a/drivers/net/ethernet/broadcom/Makefile b/drivers/net/ethernet/broadcom/Makefile
++config CHELSIO_T1_1G
++	bool "Chelsio gigabit Ethernet support"
++	depends on CHELSIO_T1
++	---help---
++	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
++	  are using only 10G cards say 'N' here.
++
++config CHELSIO_T3
++	tristate "Chelsio Communications T3 10Gb Ethernet support"
++	depends on PCI && INET
++	select FW_LOADER
++	select MDIO
++	---help---
++	  This driver supports Chelsio T3-based gigabit and 10Gb Ethernet
++	  adapters.
++
++	  For general information about Chelsio and our products, visit
++	  our website at <http://www.chelsio.com>.
++
++	  For customer support, please visit our customer support page at
++	  <http://www.chelsio.com/support.html>.
++
++	  Please send feedback to <linux-bugs@chelsio.com>.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called cxgb3.
++
++config CHELSIO_T4
++	tristate "Chelsio Communications T4 Ethernet support"
++	depends on PCI
++	select FW_LOADER
++	select MDIO
++	---help---
++	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
++	  adapters.
++
++	  For general information about Chelsio and our products, visit
++	  our website at <http://www.chelsio.com>.
++
++	  For customer support, please visit our customer support page at
++	  <http://www.chelsio.com/support.html>.
++
++	  Please send feedback to <linux-bugs@chelsio.com>.
++
++	  To compile this driver as a module choose M here; the module
++	  will be called cxgb4.
++
++config CHELSIO_T4VF
++	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
++	depends on PCI
++	---help---
++	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
++	  adapters with PCI-E SR-IOV Virtual Functions.
++
++	  For general information about Chelsio and our products, visit
++	  our website at <http://www.chelsio.com>.
++
++	  For customer support, please visit our customer support page at
++	  <http://www.chelsio.com/support.html>.
++
++	  Please send feedback to <linux-bugs@chelsio.com>.
++
++	  To compile this driver as a module choose M here; the module
++	  will be called cxgb4vf.
++
++endif # NET_VENDOR_CHELSIO
+diff --git a/drivers/net/ethernet/chelsio/Makefile b/drivers/net/ethernet/chelsio/Makefile
 new file mode 100644
-index 0000000..b789605
+index 0000000..390510b
 --- /dev/null
-+++ b/drivers/net/ethernet/broadcom/Makefile
-@@ -0,0 +1,11 @@
++++ b/drivers/net/ethernet/chelsio/Makefile
+@@ -0,0 +1,8 @@
 +#
-+# Makefile for the Broadcom network device drivers.
++# Makefile for the Chelsio network device drivers.
 +#
 +
-+obj-$(CONFIG_B44) += b44.o
-+obj-$(CONFIG_BCM63XX_ENET) += bcm63xx_enet.o
-+obj-$(CONFIG_BNX2) += bnx2.o
-+obj-$(CONFIG_CNIC) += cnic.o
-+obj-$(CONFIG_BNX2X) += bnx2x/
-+obj-$(CONFIG_SB1250_MAC) += sb1250-mac.o
-+obj-$(CONFIG_TIGON3) += tg3.o
-diff --git a/drivers/net/b44.c b/drivers/net/ethernet/broadcom/b44.c
++obj-$(CONFIG_CHELSIO_T1) += cxgb/
++obj-$(CONFIG_CHELSIO_T3) += cxgb3/
++obj-$(CONFIG_CHELSIO_T4) += cxgb4/
++obj-$(CONFIG_CHELSIO_T4VF) += cxgb4vf/
+diff --git a/drivers/net/chelsio/Makefile b/drivers/net/ethernet/chelsio/cxgb/Makefile
 similarity index 100%
-rename from drivers/net/b44.c
-rename to drivers/net/ethernet/broadcom/b44.c
-diff --git a/drivers/net/b44.h b/drivers/net/ethernet/broadcom/b44.h
+rename from drivers/net/chelsio/Makefile
+rename to drivers/net/ethernet/chelsio/cxgb/Makefile
+diff --git a/drivers/net/chelsio/common.h b/drivers/net/ethernet/chelsio/cxgb/common.h
 similarity index 100%
-rename from drivers/net/b44.h
-rename to drivers/net/ethernet/broadcom/b44.h
-diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+rename from drivers/net/chelsio/common.h
+rename to drivers/net/ethernet/chelsio/cxgb/common.h
+diff --git a/drivers/net/chelsio/cphy.h b/drivers/net/ethernet/chelsio/cxgb/cphy.h
 similarity index 100%
-rename from drivers/net/bcm63xx_enet.c
-rename to drivers/net/ethernet/broadcom/bcm63xx_enet.c
-diff --git a/drivers/net/bcm63xx_enet.h b/drivers/net/ethernet/broadcom/bcm63xx_enet.h
+rename from drivers/net/chelsio/cphy.h
+rename to drivers/net/ethernet/chelsio/cxgb/cphy.h
+diff --git a/drivers/net/chelsio/cpl5_cmd.h b/drivers/net/ethernet/chelsio/cxgb/cpl5_cmd.h
 similarity index 100%
-rename from drivers/net/bcm63xx_enet.h
-rename to drivers/net/ethernet/broadcom/bcm63xx_enet.h
-diff --git a/drivers/net/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+rename from drivers/net/chelsio/cpl5_cmd.h
+rename to drivers/net/ethernet/chelsio/cxgb/cpl5_cmd.h
+diff --git a/drivers/net/chelsio/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
 similarity index 100%
-rename from drivers/net/bnx2.c
-rename to drivers/net/ethernet/broadcom/bnx2.c
-diff --git a/drivers/net/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
+rename from drivers/net/chelsio/cxgb2.c
+rename to drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+diff --git a/drivers/net/chelsio/elmer0.h b/drivers/net/ethernet/chelsio/cxgb/elmer0.h
 similarity index 100%
-rename from drivers/net/bnx2.h
-rename to drivers/net/ethernet/broadcom/bnx2.h
-diff --git a/drivers/net/bnx2_fw.h b/drivers/net/ethernet/broadcom/bnx2_fw.h
+rename from drivers/net/chelsio/elmer0.h
+rename to drivers/net/ethernet/chelsio/cxgb/elmer0.h
+diff --git a/drivers/net/chelsio/espi.c b/drivers/net/ethernet/chelsio/cxgb/espi.c
 similarity index 100%
-rename from drivers/net/bnx2_fw.h
-rename to drivers/net/ethernet/broadcom/bnx2_fw.h
-diff --git a/drivers/net/bnx2x/Makefile b/drivers/net/ethernet/broadcom/bnx2x/Makefile
+rename from drivers/net/chelsio/espi.c
+rename to drivers/net/ethernet/chelsio/cxgb/espi.c
+diff --git a/drivers/net/chelsio/espi.h b/drivers/net/ethernet/chelsio/cxgb/espi.h
 similarity index 100%
-rename from drivers/net/bnx2x/Makefile
-rename to drivers/net/ethernet/broadcom/bnx2x/Makefile
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+rename from drivers/net/chelsio/espi.h
+rename to drivers/net/ethernet/chelsio/cxgb/espi.h
+diff --git a/drivers/net/chelsio/fpga_defs.h b/drivers/net/ethernet/chelsio/cxgb/fpga_defs.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+rename from drivers/net/chelsio/fpga_defs.h
+rename to drivers/net/ethernet/chelsio/cxgb/fpga_defs.h
+diff --git a/drivers/net/chelsio/gmac.h b/drivers/net/ethernet/chelsio/cxgb/gmac.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_cmn.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+rename from drivers/net/chelsio/gmac.h
+rename to drivers/net/ethernet/chelsio/cxgb/gmac.h
+diff --git a/drivers/net/chelsio/mv88e1xxx.c b/drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_cmn.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-diff --git a/drivers/net/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+rename from drivers/net/chelsio/mv88e1xxx.c
+rename to drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.c
+diff --git a/drivers/net/chelsio/mv88e1xxx.h b/drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_dcb.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-diff --git a/drivers/net/bnx2x/bnx2x_dcb.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
+rename from drivers/net/chelsio/mv88e1xxx.h
+rename to drivers/net/ethernet/chelsio/cxgb/mv88e1xxx.h
+diff --git a/drivers/net/chelsio/mv88x201x.c b/drivers/net/ethernet/chelsio/cxgb/mv88x201x.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_dcb.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
-diff --git a/drivers/net/bnx2x/bnx2x_dump.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
+rename from drivers/net/chelsio/mv88x201x.c
+rename to drivers/net/ethernet/chelsio/cxgb/mv88x201x.c
+diff --git a/drivers/net/chelsio/my3126.c b/drivers/net/ethernet/chelsio/cxgb/my3126.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_dump.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_dump.h
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+rename from drivers/net/chelsio/my3126.c
+rename to drivers/net/ethernet/chelsio/cxgb/my3126.c
+diff --git a/drivers/net/chelsio/pm3393.c b/drivers/net/ethernet/chelsio/cxgb/pm3393.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_ethtool.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-diff --git a/drivers/net/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+rename from drivers/net/chelsio/pm3393.c
+rename to drivers/net/ethernet/chelsio/cxgb/pm3393.c
+diff --git a/drivers/net/chelsio/regs.h b/drivers/net/ethernet/chelsio/cxgb/regs.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_fw_defs.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
-diff --git a/drivers/net/bnx2x/bnx2x_fw_file_hdr.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
+rename from drivers/net/chelsio/regs.h
+rename to drivers/net/ethernet/chelsio/cxgb/regs.h
+diff --git a/drivers/net/chelsio/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_fw_file_hdr.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_file_hdr.h
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+rename from drivers/net/chelsio/sge.c
+rename to drivers/net/ethernet/chelsio/cxgb/sge.c
+diff --git a/drivers/net/chelsio/sge.h b/drivers/net/ethernet/chelsio/cxgb/sge.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_hsi.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-diff --git a/drivers/net/bnx2x/bnx2x_init.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+rename from drivers/net/chelsio/sge.h
+rename to drivers/net/ethernet/chelsio/cxgb/sge.h
+diff --git a/drivers/net/chelsio/subr.c b/drivers/net/ethernet/chelsio/cxgb/subr.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_init.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
-diff --git a/drivers/net/bnx2x/bnx2x_init_ops.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
+rename from drivers/net/chelsio/subr.c
+rename to drivers/net/ethernet/chelsio/cxgb/subr.c
+diff --git a/drivers/net/chelsio/suni1x10gexp_regs.h b/drivers/net/ethernet/chelsio/cxgb/suni1x10gexp_regs.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_init_ops.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_init_ops.h
-diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+rename from drivers/net/chelsio/suni1x10gexp_regs.h
+rename to drivers/net/ethernet/chelsio/cxgb/suni1x10gexp_regs.h
+diff --git a/drivers/net/chelsio/tp.c b/drivers/net/ethernet/chelsio/cxgb/tp.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_link.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-diff --git a/drivers/net/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+rename from drivers/net/chelsio/tp.c
+rename to drivers/net/ethernet/chelsio/cxgb/tp.c
+diff --git a/drivers/net/chelsio/tp.h b/drivers/net/ethernet/chelsio/cxgb/tp.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_link.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+rename from drivers/net/chelsio/tp.h
+rename to drivers/net/ethernet/chelsio/cxgb/tp.h
+diff --git a/drivers/net/chelsio/vsc7326.c b/drivers/net/ethernet/chelsio/cxgb/vsc7326.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_main.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+rename from drivers/net/chelsio/vsc7326.c
+rename to drivers/net/ethernet/chelsio/cxgb/vsc7326.c
+diff --git a/drivers/net/chelsio/vsc7326_reg.h b/drivers/net/ethernet/chelsio/cxgb/vsc7326_reg.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_reg.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-diff --git a/drivers/net/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+rename from drivers/net/chelsio/vsc7326_reg.h
+rename to drivers/net/ethernet/chelsio/cxgb/vsc7326_reg.h
+diff --git a/drivers/net/cxgb3/Makefile b/drivers/net/ethernet/chelsio/cxgb3/Makefile
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_sp.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-diff --git a/drivers/net/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+rename from drivers/net/cxgb3/Makefile
+rename to drivers/net/ethernet/chelsio/cxgb3/Makefile
+diff --git a/drivers/net/cxgb3/adapter.h b/drivers/net/ethernet/chelsio/cxgb3/adapter.h
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_sp.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+rename from drivers/net/cxgb3/adapter.h
+rename to drivers/net/ethernet/chelsio/cxgb3/adapter.h
+diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/ethernet/chelsio/cxgb3/ael1002.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_stats.c
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-diff --git a/drivers/net/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+rename from drivers/net/cxgb3/ael1002.c
+rename to drivers/net/ethernet/chelsio/cxgb3/ael1002.c
+diff --git a/drivers/net/cxgb3/aq100x.c b/drivers/net/ethernet/chelsio/cxgb3/aq100x.c
 similarity index 100%
-rename from drivers/net/bnx2x/bnx2x_stats.h
-rename to drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-diff --git a/drivers/net/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-similarity index 99%
-rename from drivers/net/cnic.c
-rename to drivers/net/ethernet/broadcom/cnic.c
-index 94a2e54..7698161 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -45,8 +45,8 @@
- #include "bnx2x/bnx2x_reg.h"
- #include "bnx2x/bnx2x_fw_defs.h"
- #include "bnx2x/bnx2x_hsi.h"
--#include "../scsi/bnx2i/57xx_iscsi_constants.h"
--#include "../scsi/bnx2i/57xx_iscsi_hsi.h"
-+#include "../../../scsi/bnx2i/57xx_iscsi_constants.h"
-+#include "../../../scsi/bnx2i/57xx_iscsi_hsi.h"
- #include "cnic.h"
- #include "cnic_defs.h"
+rename from drivers/net/cxgb3/aq100x.c
+rename to drivers/net/ethernet/chelsio/cxgb3/aq100x.c
+diff --git a/drivers/net/cxgb3/common.h b/drivers/net/ethernet/chelsio/cxgb3/common.h
+similarity index 100%
+rename from drivers/net/cxgb3/common.h
+rename to drivers/net/ethernet/chelsio/cxgb3/common.h
+diff --git a/drivers/net/cxgb3/cxgb3_ctl_defs.h b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_ctl_defs.h
+similarity index 100%
+rename from drivers/net/cxgb3/cxgb3_ctl_defs.h
+rename to drivers/net/ethernet/chelsio/cxgb3/cxgb3_ctl_defs.h
+diff --git a/drivers/net/cxgb3/cxgb3_defs.h b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_defs.h
+similarity index 100%
+rename from drivers/net/cxgb3/cxgb3_defs.h
+rename to drivers/net/ethernet/chelsio/cxgb3/cxgb3_defs.h
+diff --git a/drivers/net/cxgb3/cxgb3_ioctl.h b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_ioctl.h
+similarity index 100%
+rename from drivers/net/cxgb3/cxgb3_ioctl.h
+rename to drivers/net/ethernet/chelsio/cxgb3/cxgb3_ioctl.h
+diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+similarity index 100%
+rename from drivers/net/cxgb3/cxgb3_main.c
+rename to drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+similarity index 100%
+rename from drivers/net/cxgb3/cxgb3_offload.c
+rename to drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+diff --git a/drivers/net/cxgb3/cxgb3_offload.h b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.h
+similarity index 100%
+rename from drivers/net/cxgb3/cxgb3_offload.h
+rename to drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.h
+diff --git a/drivers/net/cxgb3/firmware_exports.h b/drivers/net/ethernet/chelsio/cxgb3/firmware_exports.h
+similarity index 100%
+rename from drivers/net/cxgb3/firmware_exports.h
+rename to drivers/net/ethernet/chelsio/cxgb3/firmware_exports.h
+diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
+similarity index 100%
+rename from drivers/net/cxgb3/l2t.c
+rename to drivers/net/ethernet/chelsio/cxgb3/l2t.c
+diff --git a/drivers/net/cxgb3/l2t.h b/drivers/net/ethernet/chelsio/cxgb3/l2t.h
+similarity index 100%
+rename from drivers/net/cxgb3/l2t.h
+rename to drivers/net/ethernet/chelsio/cxgb3/l2t.h
+diff --git a/drivers/net/cxgb3/mc5.c b/drivers/net/ethernet/chelsio/cxgb3/mc5.c
+similarity index 100%
+rename from drivers/net/cxgb3/mc5.c
+rename to drivers/net/ethernet/chelsio/cxgb3/mc5.c
+diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/ethernet/chelsio/cxgb3/regs.h
+similarity index 100%
+rename from drivers/net/cxgb3/regs.h
+rename to drivers/net/ethernet/chelsio/cxgb3/regs.h
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+similarity index 100%
+rename from drivers/net/cxgb3/sge.c
+rename to drivers/net/ethernet/chelsio/cxgb3/sge.c
+diff --git a/drivers/net/cxgb3/sge_defs.h b/drivers/net/ethernet/chelsio/cxgb3/sge_defs.h
+similarity index 100%
+rename from drivers/net/cxgb3/sge_defs.h
+rename to drivers/net/ethernet/chelsio/cxgb3/sge_defs.h
+diff --git a/drivers/net/cxgb3/t3_cpl.h b/drivers/net/ethernet/chelsio/cxgb3/t3_cpl.h
+similarity index 100%
+rename from drivers/net/cxgb3/t3_cpl.h
+rename to drivers/net/ethernet/chelsio/cxgb3/t3_cpl.h
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+similarity index 100%
+rename from drivers/net/cxgb3/t3_hw.c
+rename to drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+diff --git a/drivers/net/cxgb3/t3cdev.h b/drivers/net/ethernet/chelsio/cxgb3/t3cdev.h
+similarity index 100%
+rename from drivers/net/cxgb3/t3cdev.h
+rename to drivers/net/ethernet/chelsio/cxgb3/t3cdev.h
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/ethernet/chelsio/cxgb3/version.h
+similarity index 100%
+rename from drivers/net/cxgb3/version.h
+rename to drivers/net/ethernet/chelsio/cxgb3/version.h
+diff --git a/drivers/net/cxgb3/vsc8211.c b/drivers/net/ethernet/chelsio/cxgb3/vsc8211.c
+similarity index 100%
+rename from drivers/net/cxgb3/vsc8211.c
+rename to drivers/net/ethernet/chelsio/cxgb3/vsc8211.c
+diff --git a/drivers/net/cxgb3/xgmac.c b/drivers/net/ethernet/chelsio/cxgb3/xgmac.c
+similarity index 100%
+rename from drivers/net/cxgb3/xgmac.c
+rename to drivers/net/ethernet/chelsio/cxgb3/xgmac.c
+diff --git a/drivers/net/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
+similarity index 100%
+rename from drivers/net/cxgb4/Makefile
+rename to drivers/net/ethernet/chelsio/cxgb4/Makefile
+diff --git a/drivers/net/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+similarity index 100%
+rename from drivers/net/cxgb4/cxgb4.h
+rename to drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+similarity index 100%
+rename from drivers/net/cxgb4/cxgb4_main.c
+rename to drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+diff --git a/drivers/net/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+similarity index 100%
+rename from drivers/net/cxgb4/cxgb4_uld.h
+rename to drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+diff --git a/drivers/net/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+similarity index 100%
+rename from drivers/net/cxgb4/l2t.c
+rename to drivers/net/ethernet/chelsio/cxgb4/l2t.c
+diff --git a/drivers/net/cxgb4/l2t.h b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
+similarity index 100%
+rename from drivers/net/cxgb4/l2t.h
+rename to drivers/net/ethernet/chelsio/cxgb4/l2t.h
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+similarity index 100%
+rename from drivers/net/cxgb4/sge.c
+rename to drivers/net/ethernet/chelsio/cxgb4/sge.c
+diff --git a/drivers/net/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+similarity index 100%
+rename from drivers/net/cxgb4/t4_hw.c
+rename to drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+diff --git a/drivers/net/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+similarity index 100%
+rename from drivers/net/cxgb4/t4_hw.h
+rename to drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+diff --git a/drivers/net/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+similarity index 100%
+rename from drivers/net/cxgb4/t4_msg.h
+rename to drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+diff --git a/drivers/net/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+similarity index 100%
+rename from drivers/net/cxgb4/t4_regs.h
+rename to drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+diff --git a/drivers/net/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+similarity index 100%
+rename from drivers/net/cxgb4/t4fw_api.h
+rename to drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+diff --git a/drivers/net/cxgb4vf/Makefile b/drivers/net/ethernet/chelsio/cxgb4vf/Makefile
+similarity index 100%
+rename from drivers/net/cxgb4vf/Makefile
+rename to drivers/net/ethernet/chelsio/cxgb4vf/Makefile
+diff --git a/drivers/net/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+similarity index 100%
+rename from drivers/net/cxgb4vf/adapter.h
+rename to drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+similarity index 100%
+rename from drivers/net/cxgb4vf/cxgb4vf_main.c
+rename to drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+similarity index 100%
+rename from drivers/net/cxgb4vf/sge.c
+rename to drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+diff --git a/drivers/net/cxgb4vf/t4vf_common.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+similarity index 100%
+rename from drivers/net/cxgb4vf/t4vf_common.h
+rename to drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h
+diff --git a/drivers/net/cxgb4vf/t4vf_defs.h b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h
+similarity index 100%
+rename from drivers/net/cxgb4vf/t4vf_defs.h
+rename to drivers/net/ethernet/chelsio/cxgb4vf/t4vf_defs.h
+diff --git a/drivers/net/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+similarity index 100%
+rename from drivers/net/cxgb4vf/t4vf_hw.c
+rename to drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+diff --git a/drivers/scsi/cxgbi/cxgb3i/Kbuild b/drivers/scsi/cxgbi/cxgb3i/Kbuild
+index 09dbf9e..6f095e2 100644
+--- a/drivers/scsi/cxgbi/cxgb3i/Kbuild
++++ b/drivers/scsi/cxgbi/cxgb3i/Kbuild
+@@ -1,3 +1,3 @@
+-EXTRA_CFLAGS += -I$(srctree)/drivers/net/cxgb3
++EXTRA_CFLAGS += -I$(srctree)/drivers/net/ethernet/chelsio/cxgb3
  
-diff --git a/drivers/net/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
-similarity index 100%
-rename from drivers/net/cnic.h
-rename to drivers/net/ethernet/broadcom/cnic.h
-diff --git a/drivers/net/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
-similarity index 100%
-rename from drivers/net/cnic_defs.h
-rename to drivers/net/ethernet/broadcom/cnic_defs.h
-diff --git a/drivers/net/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-similarity index 100%
-rename from drivers/net/cnic_if.h
-rename to drivers/net/ethernet/broadcom/cnic_if.h
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/ethernet/broadcom/sb1250-mac.c
-similarity index 100%
-rename from drivers/net/sb1250-mac.c
-rename to drivers/net/ethernet/broadcom/sb1250-mac.c
-diff --git a/drivers/net/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-similarity index 100%
-rename from drivers/net/tg3.c
-rename to drivers/net/ethernet/broadcom/tg3.c
-diff --git a/drivers/net/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-similarity index 100%
-rename from drivers/net/tg3.h
-rename to drivers/net/ethernet/broadcom/tg3.h
-diff --git a/drivers/scsi/bnx2fc/bnx2fc.h b/drivers/scsi/bnx2fc/bnx2fc.h
-index 42228ca..5613e8a 100644
---- a/drivers/scsi/bnx2fc/bnx2fc.h
-+++ b/drivers/scsi/bnx2fc/bnx2fc.h
-@@ -58,7 +58,7 @@
+ obj-$(CONFIG_SCSI_CXGB3_ISCSI) += cxgb3i.o
+diff --git a/drivers/scsi/cxgbi/cxgb4i/Kbuild b/drivers/scsi/cxgbi/cxgb4i/Kbuild
+index b9f4af7..8290cda 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/Kbuild
++++ b/drivers/scsi/cxgbi/cxgb4i/Kbuild
+@@ -1,3 +1,3 @@
+-EXTRA_CFLAGS += -I$(srctree)/drivers/net/cxgb4
++EXTRA_CFLAGS += -I$(srctree)/drivers/net/ethernet/chelsio/cxgb4
  
- #include "57xx_hsi_bnx2fc.h"
- #include "bnx2fc_debug.h"
--#include "../../net/cnic_if.h"
-+#include "../../net/ethernet/broadcom/cnic_if.h"
- #include "bnx2fc_constants.h"
- 
- #define BNX2FC_NAME		"bnx2fc"
-diff --git a/drivers/scsi/bnx2i/bnx2i.h b/drivers/scsi/bnx2i/bnx2i.h
-index dc57007..0bd70e8 100644
---- a/drivers/scsi/bnx2i/bnx2i.h
-+++ b/drivers/scsi/bnx2i/bnx2i.h
-@@ -40,7 +40,7 @@
- #include <scsi/libiscsi.h>
- #include <scsi/scsi_transport_iscsi.h>
- 
--#include "../../net/cnic_if.h"
-+#include "../../net/ethernet/broadcom/cnic_if.h"
- #include "57xx_iscsi_hsi.h"
- #include "57xx_iscsi_constants.h"
- 
+ obj-$(CONFIG_SCSI_CXGB4_ISCSI) += cxgb4i.o
 -- 
 1.7.6
 
