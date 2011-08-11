@@ -1,304 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/10] xscale: Move the Intel XScale IXP drivers
-Date: Thu, 11 Aug 2011 16:39:54 -0700
-Message-ID: <1313105998-2859-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/10] ftgmac100/ftmac100: Move the Faraday drivers
+Date: Thu, 11 Aug 2011 16:39:55 -0700
+Message-ID: <1313105998-2859-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313105998-2859-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Lennert Buytenhek <kernel@wantstofly.org>
+	"Po-Yu Chuang" <ratbert@faraday-tech.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11581 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:1637 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754173Ab1HKXkE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754095Ab1HKXkE (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 11 Aug 2011 19:40:04 -0400
 In-Reply-To: <1313105998-2859-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Intel XScale IXP drivers into drivers/net/ethernet/xscale/
-and make the necessary Kconfig and Makefile changes.
+Move the Faraday driver into drivers/net/ethernet/faraday/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Krzysztof Halasa <khc@pm.waw.pl>
-CC: Lennert Buytenhek <kernel@wantstofly.org>
+CC: "Po-Yu Chuang" <ratbert@faraday-tech.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Po-Yu Chuang <ratbert@faraday-tech.com>
 ---
- MAINTAINERS                                        |    4 +-
- drivers/net/Kconfig                                |    2 -
- drivers/net/Makefile                               |    1 -
- drivers/net/arm/Kconfig                            |    8 -----
- drivers/net/arm/Makefile                           |    1 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/xscale/Kconfig                |   31 ++++++++++++++++++++
- drivers/net/ethernet/xscale/Makefile               |    6 ++++
- drivers/net/{ => ethernet/xscale}/ixp2000/Kconfig  |    2 +-
- drivers/net/{ => ethernet/xscale}/ixp2000/Makefile |    0
- drivers/net/{ => ethernet/xscale}/ixp2000/caleb.c  |    0
- drivers/net/{ => ethernet/xscale}/ixp2000/caleb.h  |    0
- .../net/{ => ethernet/xscale}/ixp2000/enp2611.c    |    0
- .../{ => ethernet/xscale}/ixp2000/ixp2400-msf.c    |    0
- .../{ => ethernet/xscale}/ixp2000/ixp2400-msf.h    |    0
- .../{ => ethernet/xscale}/ixp2000/ixp2400_rx.uc    |    0
- .../{ => ethernet/xscale}/ixp2000/ixp2400_rx.ucode |    0
- .../{ => ethernet/xscale}/ixp2000/ixp2400_tx.uc    |    0
- .../{ => ethernet/xscale}/ixp2000/ixp2400_tx.ucode |    0
- drivers/net/{ => ethernet/xscale}/ixp2000/ixpdev.c |    0
- drivers/net/{ => ethernet/xscale}/ixp2000/ixpdev.h |    0
- .../{ => ethernet/xscale}/ixp2000/ixpdev_priv.h    |    0
- drivers/net/{ => ethernet/xscale}/ixp2000/pm3386.c |    0
- drivers/net/{ => ethernet/xscale}/ixp2000/pm3386.h |    0
- drivers/net/{arm => ethernet/xscale}/ixp4xx_eth.c  |    0
- 26 files changed, 42 insertions(+), 15 deletions(-)
- create mode 100644 drivers/net/ethernet/xscale/Kconfig
- create mode 100644 drivers/net/ethernet/xscale/Makefile
- rename drivers/net/{ => ethernet/xscale}/ixp2000/Kconfig (94%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/Makefile (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/caleb.c (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/caleb.h (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/enp2611.c (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixp2400-msf.c (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixp2400-msf.h (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixp2400_rx.uc (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixp2400_rx.ucode (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixp2400_tx.uc (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixp2400_tx.ucode (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixpdev.c (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixpdev.h (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/ixpdev_priv.h (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/pm3386.c (100%)
- rename drivers/net/{ => ethernet/xscale}/ixp2000/pm3386.h (100%)
- rename drivers/net/{arm => ethernet/xscale}/ixp4xx_eth.c (100%)
+ drivers/net/Kconfig                            |   18 -----------
+ drivers/net/Makefile                           |    2 -
+ drivers/net/ethernet/Kconfig                   |    1 +
+ drivers/net/ethernet/Makefile                  |    1 +
+ drivers/net/ethernet/faraday/Kconfig           |   38 ++++++++++++++++++++++++
+ drivers/net/ethernet/faraday/Makefile          |    6 ++++
+ drivers/net/{ => ethernet/faraday}/ftgmac100.c |    0
+ drivers/net/{ => ethernet/faraday}/ftgmac100.h |    0
+ drivers/net/{ => ethernet/faraday}/ftmac100.c  |    0
+ drivers/net/{ => ethernet/faraday}/ftmac100.h  |    0
+ 10 files changed, 46 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/net/ethernet/faraday/Kconfig
+ create mode 100644 drivers/net/ethernet/faraday/Makefile
+ rename drivers/net/{ => ethernet/faraday}/ftgmac100.c (100%)
+ rename drivers/net/{ => ethernet/faraday}/ftgmac100.h (100%)
+ rename drivers/net/{ => ethernet/faraday}/ftmac100.c (100%)
+ rename drivers/net/{ => ethernet/faraday}/ftmac100.h (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 554529d..39607a9 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3319,7 +3319,7 @@ F:	arch/arm/mach-ixp4xx/include/mach/qmgr.h
- F:	arch/arm/mach-ixp4xx/include/mach/npe.h
- F:	arch/arm/mach-ixp4xx/ixp4xx_qmgr.c
- F:	arch/arm/mach-ixp4xx/ixp4xx_npe.c
--F:	drivers/net/arm/ixp4xx_eth.c
-+F:	drivers/net/ethernet/xscale/ixp4xx_eth.c
- F:	drivers/net/wan/ixp4xx_hss.c
- 
- INTEL IXP4XX RANDOM NUMBER GENERATOR SUPPORT
-@@ -3331,7 +3331,7 @@ INTEL IXP2000 ETHERNET DRIVER
- M:	Lennert Buytenhek <kernel@wantstofly.org>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/ixp2000/
-+F:	drivers/net/ethernet/xscale/ixp2000/
- 
- INTEL ETHERNET DRIVERS (e100/e1000/e1000e/igb/igbvf/ixgb/ixgbe/ixgbevf)
- M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 8b1fae8..7f09cd5 100644
+index 7f09cd5..8da9f96 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -989,8 +989,6 @@ config IP1000
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called ipg.  This is recommended.
+@@ -922,15 +922,6 @@ config XILINX_EMACLITE
+ 	help
+ 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
  
--source "drivers/net/ixp2000/Kconfig"
+-config FTMAC100
+-	tristate "Faraday FTMAC100 10/100 Ethernet support"
+-	depends on ARM
+-	select MII
+-	help
+-	  This driver supports the FTMAC100 10/100 Ethernet controller
+-	  from Faraday. It is used on Faraday A320, Andes AG101 and some
+-	  other ARM/NDS32 SoC's.
 -
- config HAMACHI
- 	tristate "Packet Engines Hamachi GNIC-II support"
- 	depends on PCI
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 843edb3..ffcb609 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -166,7 +166,6 @@ obj-$(CONFIG_NET_TULIP) += tulip/
- obj-$(CONFIG_HAMRADIO) += hamradio/
- obj-$(CONFIG_IRDA) += irda/
- obj-$(CONFIG_ETRAX_ETHERNET) += cris/
--obj-$(CONFIG_ENP2611_MSF_NET) += ixp2000/
+ config LANTIQ_ETOP
+ 	tristate "Lantiq SoC ETOP driver"
+ 	depends on SOC_TYPE_XWAY
+@@ -1286,15 +1277,6 @@ config PCH_GBE
+ 	  ML7223 is companion chip for Intel Atom E6xx series.
+ 	  ML7223 is completely compatible for Intel EG20T PCH.
  
- obj-$(CONFIG_NETCONSOLE) += netconsole.o
- 
-diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
-index 7848b5f..4320e88 100644
---- a/drivers/net/arm/Kconfig
-+++ b/drivers/net/arm/Kconfig
-@@ -34,14 +34,6 @@ config EP93XX_ETH
- 	  This is a driver for the ethernet hardware included in EP93xx CPUs.
- 	  Say Y if you are building a kernel for EP93xx based devices.
- 
--config IXP4XX_ETH
--	tristate "Intel IXP4xx Ethernet support"
--	depends on ARM && ARCH_IXP4XX && IXP4XX_NPE && IXP4XX_QMGR
+-config FTGMAC100
+-	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
+-	depends on ARM
 -	select PHYLIB
 -	help
--	  Say Y here if you want to use built-in Ethernet ports
--	  on IXP4xx processor.
+-	  This driver supports the FTGMAC100 Gigabit Ethernet controller
+-	  from Faraday. It is used on Faraday A369, Andes AG102 and some
+-	  other ARM/NDS32 SoC's.
 -
- config W90P910_ETH
- 	tristate "Nuvoton w90p910 Ethernet support"
- 	depends on ARM && ARCH_W90X900
-diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
-index 6cca728..5a0f141 100644
---- a/drivers/net/arm/Makefile
-+++ b/drivers/net/arm/Makefile
-@@ -7,5 +7,4 @@ obj-$(CONFIG_ARM_ETHER3)	+= ether3.o
- obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
- obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
- obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
--obj-$(CONFIG_IXP4XX_ETH)	+= ixp4xx_eth.o
- obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
+ endif # NETDEV_1000
+ 
+ #
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ffcb609..0b341dc 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -79,8 +79,6 @@ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+ 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+ endif
+ obj-$(CONFIG_FORCEDETH) += forcedeth.o
+-obj-$(CONFIG_FTGMAC100) += ftgmac100.o
+-obj-$(CONFIG_FTMAC100) += ftmac100.o
+ 
+ obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
+ obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index efc3665..45d3eff 100644
+index 45d3eff..110071e 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -23,6 +23,7 @@ source "drivers/net/ethernet/neterion/Kconfig"
+@@ -20,6 +20,7 @@ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/neterion/Kconfig"
++source "drivers/net/ethernet/faraday/Kconfig"
  source "drivers/net/ethernet/ibm/Kconfig"
  source "drivers/net/ethernet/intel/Kconfig"
  source "drivers/net/ethernet/i825xx/Kconfig"
-+source "drivers/net/ethernet/xscale/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 668ca92..09536de 100644
+index 09536de..4a6edf7 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -15,6 +15,7 @@ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+@@ -12,6 +12,7 @@ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
++obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
  obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
  obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
  obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
-+obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-diff --git a/drivers/net/ethernet/xscale/Kconfig b/drivers/net/ethernet/xscale/Kconfig
+diff --git a/drivers/net/ethernet/faraday/Kconfig b/drivers/net/ethernet/faraday/Kconfig
 new file mode 100644
-index 0000000..6bbcc54
+index 0000000..b0d76f0
 --- /dev/null
-+++ b/drivers/net/ethernet/xscale/Kconfig
-@@ -0,0 +1,31 @@
++++ b/drivers/net/ethernet/faraday/Kconfig
+@@ -0,0 +1,38 @@
 +#
-+# Intel XScale IXP device configuration
++# Faraday device configuration
 +#
 +
-+config NET_VENDOR_XSCALE
-+	bool "Intel XScale IXP devices"
-+	depends on NET_VENDOR_INTEL && ((ARM && ARCH_IXP4XX && \
-+		   IXP4XX_NPE && IXP4XX_QMGR) || ARCH_ENP2611)
++config NET_VENDOR_FARADAY
++	bool "Faraday devices"
++	depends on ARM
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  Note that the answer to this question does not directly affect the
++	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about XSacle IXP devices. If you say Y, you will be
-+	  asked for your specific card in the following questions.
++	  the questions about Faraday cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+if NET_VENDOR_XSCALE
++if NET_VENDOR_FARADAY
 +
-+config IXP4XX_ETH
-+	tristate "Intel IXP4xx Ethernet support"
-+	depends on ARM && ARCH_IXP4XX && IXP4XX_NPE && IXP4XX_QMGR
++config FTMAC100
++	tristate "Faraday FTMAC100 10/100 Ethernet support"
++	depends on ARM
++	select MII
++	---help---
++	  This driver supports the FTMAC100 10/100 Ethernet controller
++	  from Faraday. It is used on Faraday A320, Andes AG101 and some
++	  other ARM/NDS32 SoC's.
++
++config FTGMAC100
++	tristate "Faraday FTGMAC100 Gigabit Ethernet support"
++	depends on ARM
 +	select PHYLIB
 +	---help---
-+	  Say Y here if you want to use built-in Ethernet ports
-+	  on IXP4xx processor.
++	  This driver supports the FTGMAC100 Gigabit Ethernet controller
++	  from Faraday. It is used on Faraday A369, Andes AG102 and some
++	  other ARM/NDS32 SoC's.
 +
-+source "drivers/net/ethernet/xscale/ixp2000/Kconfig"
-+
-+endif # NET_VENDOR_XSCALE
-diff --git a/drivers/net/ethernet/xscale/Makefile b/drivers/net/ethernet/xscale/Makefile
++endif # NET_VENDOR_FARADAY
+diff --git a/drivers/net/ethernet/faraday/Makefile b/drivers/net/ethernet/faraday/Makefile
 new file mode 100644
-index 0000000..b195b9d
+index 0000000..408b539
 --- /dev/null
-+++ b/drivers/net/ethernet/xscale/Makefile
++++ b/drivers/net/ethernet/faraday/Makefile
 @@ -0,0 +1,6 @@
 +#
-+# Makefile for the Intel XScale IXP device drivers.
++# Makefile for the Faraday device drivers.
 +#
 +
-+obj-$(CONFIG_ENP2611_MSF_NET) += ixp2000/
-+obj-$(CONFIG_IXP4XX_ETH) += ixp4xx_eth.o
-diff --git a/drivers/net/ixp2000/Kconfig b/drivers/net/ethernet/xscale/ixp2000/Kconfig
-similarity index 94%
-rename from drivers/net/ixp2000/Kconfig
-rename to drivers/net/ethernet/xscale/ixp2000/Kconfig
-index 2fec241..58dbc5b 100644
---- a/drivers/net/ixp2000/Kconfig
-+++ b/drivers/net/ethernet/xscale/ixp2000/Kconfig
-@@ -1,6 +1,6 @@
- config ENP2611_MSF_NET
- 	tristate "Radisys ENP2611 MSF network interface support"
- 	depends on ARCH_ENP2611
--	help
-+	---help---
- 	  This is a driver for the MSF network interface unit in
- 	  the IXP2400 on the Radisys ENP2611 platform.
-diff --git a/drivers/net/ixp2000/Makefile b/drivers/net/ethernet/xscale/ixp2000/Makefile
++obj-$(CONFIG_FTGMAC100) += ftgmac100.o
++obj-$(CONFIG_FTMAC100) += ftmac100.o
+diff --git a/drivers/net/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
 similarity index 100%
-rename from drivers/net/ixp2000/Makefile
-rename to drivers/net/ethernet/xscale/ixp2000/Makefile
-diff --git a/drivers/net/ixp2000/caleb.c b/drivers/net/ethernet/xscale/ixp2000/caleb.c
+rename from drivers/net/ftgmac100.c
+rename to drivers/net/ethernet/faraday/ftgmac100.c
+diff --git a/drivers/net/ftgmac100.h b/drivers/net/ethernet/faraday/ftgmac100.h
 similarity index 100%
-rename from drivers/net/ixp2000/caleb.c
-rename to drivers/net/ethernet/xscale/ixp2000/caleb.c
-diff --git a/drivers/net/ixp2000/caleb.h b/drivers/net/ethernet/xscale/ixp2000/caleb.h
+rename from drivers/net/ftgmac100.h
+rename to drivers/net/ethernet/faraday/ftgmac100.h
+diff --git a/drivers/net/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
 similarity index 100%
-rename from drivers/net/ixp2000/caleb.h
-rename to drivers/net/ethernet/xscale/ixp2000/caleb.h
-diff --git a/drivers/net/ixp2000/enp2611.c b/drivers/net/ethernet/xscale/ixp2000/enp2611.c
+rename from drivers/net/ftmac100.c
+rename to drivers/net/ethernet/faraday/ftmac100.c
+diff --git a/drivers/net/ftmac100.h b/drivers/net/ethernet/faraday/ftmac100.h
 similarity index 100%
-rename from drivers/net/ixp2000/enp2611.c
-rename to drivers/net/ethernet/xscale/ixp2000/enp2611.c
-diff --git a/drivers/net/ixp2000/ixp2400-msf.c b/drivers/net/ethernet/xscale/ixp2000/ixp2400-msf.c
-similarity index 100%
-rename from drivers/net/ixp2000/ixp2400-msf.c
-rename to drivers/net/ethernet/xscale/ixp2000/ixp2400-msf.c
-diff --git a/drivers/net/ixp2000/ixp2400-msf.h b/drivers/net/ethernet/xscale/ixp2000/ixp2400-msf.h
-similarity index 100%
-rename from drivers/net/ixp2000/ixp2400-msf.h
-rename to drivers/net/ethernet/xscale/ixp2000/ixp2400-msf.h
-diff --git a/drivers/net/ixp2000/ixp2400_rx.uc b/drivers/net/ethernet/xscale/ixp2000/ixp2400_rx.uc
-similarity index 100%
-rename from drivers/net/ixp2000/ixp2400_rx.uc
-rename to drivers/net/ethernet/xscale/ixp2000/ixp2400_rx.uc
-diff --git a/drivers/net/ixp2000/ixp2400_rx.ucode b/drivers/net/ethernet/xscale/ixp2000/ixp2400_rx.ucode
-similarity index 100%
-rename from drivers/net/ixp2000/ixp2400_rx.ucode
-rename to drivers/net/ethernet/xscale/ixp2000/ixp2400_rx.ucode
-diff --git a/drivers/net/ixp2000/ixp2400_tx.uc b/drivers/net/ethernet/xscale/ixp2000/ixp2400_tx.uc
-similarity index 100%
-rename from drivers/net/ixp2000/ixp2400_tx.uc
-rename to drivers/net/ethernet/xscale/ixp2000/ixp2400_tx.uc
-diff --git a/drivers/net/ixp2000/ixp2400_tx.ucode b/drivers/net/ethernet/xscale/ixp2000/ixp2400_tx.ucode
-similarity index 100%
-rename from drivers/net/ixp2000/ixp2400_tx.ucode
-rename to drivers/net/ethernet/xscale/ixp2000/ixp2400_tx.ucode
-diff --git a/drivers/net/ixp2000/ixpdev.c b/drivers/net/ethernet/xscale/ixp2000/ixpdev.c
-similarity index 100%
-rename from drivers/net/ixp2000/ixpdev.c
-rename to drivers/net/ethernet/xscale/ixp2000/ixpdev.c
-diff --git a/drivers/net/ixp2000/ixpdev.h b/drivers/net/ethernet/xscale/ixp2000/ixpdev.h
-similarity index 100%
-rename from drivers/net/ixp2000/ixpdev.h
-rename to drivers/net/ethernet/xscale/ixp2000/ixpdev.h
-diff --git a/drivers/net/ixp2000/ixpdev_priv.h b/drivers/net/ethernet/xscale/ixp2000/ixpdev_priv.h
-similarity index 100%
-rename from drivers/net/ixp2000/ixpdev_priv.h
-rename to drivers/net/ethernet/xscale/ixp2000/ixpdev_priv.h
-diff --git a/drivers/net/ixp2000/pm3386.c b/drivers/net/ethernet/xscale/ixp2000/pm3386.c
-similarity index 100%
-rename from drivers/net/ixp2000/pm3386.c
-rename to drivers/net/ethernet/xscale/ixp2000/pm3386.c
-diff --git a/drivers/net/ixp2000/pm3386.h b/drivers/net/ethernet/xscale/ixp2000/pm3386.h
-similarity index 100%
-rename from drivers/net/ixp2000/pm3386.h
-rename to drivers/net/ethernet/xscale/ixp2000/pm3386.h
-diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-similarity index 100%
-rename from drivers/net/arm/ixp4xx_eth.c
-rename to drivers/net/ethernet/xscale/ixp4xx_eth.c
+rename from drivers/net/ftmac100.h
+rename to drivers/net/ethernet/faraday/ftmac100.h
 -- 
 1.7.6
 
