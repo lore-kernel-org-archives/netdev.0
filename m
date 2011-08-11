@@ -1,243 +1,147 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] cassini/niu/sun*: Move the Sun drivers
-Date: Thu, 11 Aug 2011 02:51:26 -0700
-Message-ID: <1313056294-28426-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/10] myri*: Move the Myricom drivers
+Date: Thu, 11 Aug 2011 02:51:31 -0700
+Message-ID: <1313056294-28426-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Sam Creasey <sammy@sammy.net>,
-	Adrian Sun <asun@darksunrising.com>,
-	Benjamin Herrenscmidt <benh@kernel.crashing.org>
+	Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26123 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:16531 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754872Ab1HKJvi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2011 05:51:38 -0400
+	id S1754990Ab1HKJvm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2011 05:51:42 -0400
 In-Reply-To: <1313056294-28426-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the Sun drivers into drivers/net/ethernet/sun/ and make
+Move the Myricom drivers into drivers/net/ethernet/myricom/ and make
 the necessary Kconfig and Makefile changes.
 
-Oliver Hartkopp <socketcan@hartkopp.net> suggested removing the
-sun* prefix on the driver names.  This type of change I will
-leave up to the driver maintainers.
-
-CC: Sam Creasey <sammy@sammy.net>
-CC: Adrian Sun <asun@darksunrising.com>
-CC: Benjamin Herrenscmidt <benh@kernel.crashing.org>
+CC: Andrew Gallatin <gallatin@myri.com>
+CC: Brice Goglin <brice@myri.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                 |    1 +
- drivers/net/Kconfig                         |   66 --------------------
- drivers/net/Makefile                        |   10 +---
- drivers/net/ethernet/Kconfig                |    1 +
- drivers/net/ethernet/Makefile               |    1 +
- drivers/net/ethernet/sun/Kconfig            |   86 +++++++++++++++++++++++++++
- drivers/net/ethernet/sun/Makefile           |   11 ++++
- drivers/net/{ => ethernet/sun}/cassini.c    |    0
- drivers/net/{ => ethernet/sun}/cassini.h    |    0
- drivers/net/{ => ethernet/sun}/niu.c        |    0
- drivers/net/{ => ethernet/sun}/niu.h        |    0
- drivers/net/{ => ethernet/sun}/sunbmac.c    |    0
- drivers/net/{ => ethernet/sun}/sunbmac.h    |    0
- drivers/net/{ => ethernet/sun}/sungem.c     |    0
- drivers/net/{ => ethernet/sun}/sungem.h     |    0
- drivers/net/{ => ethernet/sun}/sungem_phy.c |    0
- drivers/net/{ => ethernet/sun}/sungem_phy.h |    0
- drivers/net/{ => ethernet/sun}/sunhme.c     |    0
- drivers/net/{ => ethernet/sun}/sunhme.h     |    0
- drivers/net/{ => ethernet/sun}/sunqe.c      |    0
- drivers/net/{ => ethernet/sun}/sunqe.h      |    0
- drivers/net/{ => ethernet/sun}/sunvnet.c    |    0
- drivers/net/{ => ethernet/sun}/sunvnet.h    |    0
- drivers/net/spider_net.h                    |    2 +-
- 24 files changed, 102 insertions(+), 76 deletions(-)
- create mode 100644 drivers/net/ethernet/sun/Kconfig
- create mode 100644 drivers/net/ethernet/sun/Makefile
- rename drivers/net/{ => ethernet/sun}/cassini.c (100%)
- rename drivers/net/{ => ethernet/sun}/cassini.h (100%)
- rename drivers/net/{ => ethernet/sun}/niu.c (100%)
- rename drivers/net/{ => ethernet/sun}/niu.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunbmac.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunbmac.h (100%)
- rename drivers/net/{ => ethernet/sun}/sungem.c (100%)
- rename drivers/net/{ => ethernet/sun}/sungem.h (100%)
- rename drivers/net/{ => ethernet/sun}/sungem_phy.c (100%)
- rename drivers/net/{ => ethernet/sun}/sungem_phy.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunhme.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunhme.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunqe.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunqe.h (100%)
- rename drivers/net/{ => ethernet/sun}/sunvnet.c (100%)
- rename drivers/net/{ => ethernet/sun}/sunvnet.h (100%)
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   26 -----------
+ drivers/net/Makefile                               |    1 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/myricom/Kconfig               |   46 ++++++++++++++++++++
+ drivers/net/ethernet/myricom/Makefile              |    5 ++
+ .../net/{ => ethernet/myricom}/myri10ge/Makefile   |    0
+ .../net/{ => ethernet/myricom}/myri10ge/myri10ge.c |    0
+ .../{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h |    0
+ .../myricom}/myri10ge/myri10ge_mcp_gen_header.h    |    0
+ 11 files changed, 54 insertions(+), 28 deletions(-)
+ create mode 100644 drivers/net/ethernet/myricom/Kconfig
+ create mode 100644 drivers/net/ethernet/myricom/Makefile
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/Makefile (100%)
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge.c (100%)
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp.h (100%)
+ rename drivers/net/{ => ethernet/myricom}/myri10ge/myri10ge_mcp_gen_header.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 19bd60d..1cb72da 100644
+index 0613e60..0a5ae23 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -6272,6 +6272,7 @@ S:	Maintained
- F:	arch/m68k/kernel/*sun3*
- F:	arch/m68k/sun3*/
- F:	arch/m68k/include/asm/sun3*
-+F:	drivers/net/ethernet/i825xx/sun3*
+@@ -4335,7 +4335,7 @@ M:	Andrew Gallatin <gallatin@myri.com>
+ L:	netdev@vger.kernel.org
+ W:	http://www.myri.com/scs/download-Myri10GE.html
+ S:	Supported
+-F:	drivers/net/myri10ge/
++F:	drivers/net/ethernet/myricom/myri10ge/
  
- SUPERH
- M:	Paul Mundt <lethal@linux-sh.org>
+ NATSEMI ETHERNET DRIVER (DP8381x)
+ M:	Tim Hockin <thockin@hockin.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index b76de82..7977002 100644
+index 56c033a..38fcaea 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -363,64 +363,6 @@ config SH_ETH
- 	  This driver supporting CPUs are:
- 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
+@@ -1519,32 +1519,6 @@ config VXGE_DEBUG_TRACE_ALL
+ 	  the vxge driver. By default only few debug trace statements are
+ 	  enabled.
  
--config HAPPYMEAL
--	tristate "Sun Happy Meal 10/100baseT support"
--	depends on SBUS || PCI
+-config MYRI10GE
+-	tristate "Myricom Myri-10G Ethernet support"
+-	depends on PCI && INET
+-	select FW_LOADER
 -	select CRC32
--	help
--	  This driver supports the "hme" interface present on most Ultra
--	  systems and as an option on older Sbus systems. This driver supports
--	  both PCI and Sbus devices. This driver also supports the "qfe" quad
--	  100baseT device available in both PCI and Sbus configurations.
+-	select INET_LRO
+-	---help---
+-	  This driver supports Myricom Myri-10G Dual Protocol interface in
+-	  Ethernet mode. If the eeprom on your board is not recent enough,
+-	  you will need a newer firmware image.
+-	  You may get this image or more information, at:
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called sunhme.
+-	  <http://www.myri.com/scs/download-Myri10GE.html>
 -
--config SUNBMAC
--	tristate "Sun BigMAC 10/100baseT support (EXPERIMENTAL)"
--	depends on SBUS && EXPERIMENTAL
--	select CRC32
--	help
--	  This driver supports the "be" interface available as an Sbus option.
--	  This is Sun's older 100baseT Ethernet device.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called myri10ge.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called sunbmac.
--
--config SUNQE
--	tristate "Sun QuadEthernet support"
--	depends on SBUS
--	select CRC32
--	help
--	  This driver supports the "qe" 10baseT Ethernet device, available as
--	  an Sbus option. Note that this is not the same as Quad FastEthernet
--	  "qfe" which is supported by the Happy Meal driver instead.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called sunqe.
--
--config SUNGEM
--	tristate "Sun GEM support"
--	depends on PCI
--	select CRC32
--	help
--	  Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
--	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
--
--config CASSINI
--	tristate "Sun Cassini support"
--	depends on PCI
--	select CRC32
--	help
--	  Support for the Sun Cassini chip, aka Sun GigaSwift Ethernet. See also
--	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/817-4341-10.pdf>
--
--config SUNVNET
--	tristate "Sun Virtual Network support"
--	depends on SUN_LDOMS
--	help
--	  Support for virtual network devices under Sun Logical Domains.
--
- config BFIN_MAC
- 	tristate "Blackfin on-chip MAC support"
- 	depends on NET_ETHERNET && (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
-@@ -1603,14 +1545,6 @@ config MYRI10GE_DCA
- 	  driver.  DCA is a method for warming the CPU cache before data
- 	  is used, with the intent of lessening the impact of cache misses.
- 
--config NIU
--	tristate "Sun Neptune 10Gbit Ethernet support"
--	depends on PCI
--	select CRC32
--	help
--	  This enables support for cards based upon Sun's
--	  Neptune chipset.
+-config MYRI10GE_DCA
+-	bool "Direct Cache Access (DCA) Support"
+-	default y
+-	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
+-	---help---
+-	  Say Y here if you want to use Direct Cache Access (DCA) in the
+-	  driver.  DCA is a method for warming the CPU cache before data
+-	  is used, with the intent of lessening the impact of cache misses.
 -
  config PASEMI_MAC
  	tristate "PA Semi 1/10Gbit MAC"
  	depends on PPC_PASEMI && PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index e641f70..cfbb060 100644
+index 73e357e..b9e1f5a 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -44,13 +44,6 @@ obj-$(CONFIG_PLIP) += plip.o
- 
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
- 
--obj-$(CONFIG_HAPPYMEAL) += sunhme.o
--obj-$(CONFIG_SUNQE) += sunqe.o
--obj-$(CONFIG_SUNBMAC) += sunbmac.o
--obj-$(CONFIG_SUNGEM) += sungem.o sungem_phy.o
--obj-$(CONFIG_CASSINI) += cassini.o
--obj-$(CONFIG_SUNVNET) += sunvnet.o
--
- obj-$(CONFIG_MACE) += mace.o
- obj-$(CONFIG_BMAC) += bmac.o
- 
-@@ -64,7 +57,7 @@ obj-$(CONFIG_NATSEMI) += natsemi.o
- obj-$(CONFIG_NS83820) += ns83820.o
- obj-$(CONFIG_FEALNX) += fealnx.o
- spidernet-y += spider_net.o spider_net_ethtool.o
--obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
-+obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
- obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
- gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
- ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
-@@ -207,7 +200,6 @@ obj-$(CONFIG_NETCONSOLE) += netconsole.o
- 
- obj-$(CONFIG_FS_ENET) += fs_enet/
- 
--obj-$(CONFIG_NIU) += niu.o
- obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_SFC) += sfc/
- 
+@@ -151,7 +151,6 @@ obj-$(CONFIG_R8169) += r8169.o
+ obj-$(CONFIG_IBMVETH) += ibmveth.o
+ obj-$(CONFIG_S2IO) += s2io.o
+ obj-$(CONFIG_VXGE) += vxge/
+-obj-$(CONFIG_MYRI10GE) += myri10ge/
+ obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
+ obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 7efbb7c..5edd237 100644
+index 8bbddc9..ce3040d 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -21,5 +21,6 @@ source "drivers/net/ethernet/i825xx/Kconfig"
+@@ -21,6 +21,7 @@ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
++source "drivers/net/ethernet/myricom/Kconfig"
  source "drivers/net/ethernet/qlogic/Kconfig"
  source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
-+source "drivers/net/ethernet/sun/Kconfig"
- 
- endif # ETHERNET
+ source "drivers/net/ethernet/sfc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 86da8b8..18d8a89 100644
+index e5f2954..b4dcb93 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -12,3 +12,4 @@ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+@@ -12,6 +12,7 @@ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
++obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
  obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
  obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
-+obj-$(CONFIG_NET_VENDOR_SUN) += sun/
-diff --git a/drivers/net/ethernet/sun/Kconfig b/drivers/net/ethernet/sun/Kconfig
+ obj-$(CONFIG_SFC) += sfc/
+diff --git a/drivers/net/ethernet/myricom/Kconfig b/drivers/net/ethernet/myricom/Kconfig
 new file mode 100644
-index 0000000..87b17a7
+index 0000000..1816ae1
 --- /dev/null
-+++ b/drivers/net/ethernet/sun/Kconfig
-@@ -0,0 +1,86 @@
++++ b/drivers/net/ethernet/myricom/Kconfig
+@@ -0,0 +1,46 @@
 +#
-+# Sun network device configuration
++# Myricom device configuration
 +#
 +
-+config NET_VENDOR_SUN
-+	bool "Sun devices"
-+	depends on SUN3 || SBUS || PCI || SUN_LDOMS
++config NET_VENDOR_MYRI
++	bool "Myricom devices"
++	depends on PCI && INET
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say
 +	  Y and read the Ethernet-HOWTO, available from
@@ -245,172 +149,65 @@ index 0000000..87b17a7
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Sun network interfaces. If you say Y, you will be
-+	  asked for your specific card in the following questions.
++	  the questions about Myricom cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+if NET_VENDOR_SUN
++if NET_VENDOR_MYRI
 +
-+config HAPPYMEAL
-+	tristate "Sun Happy Meal 10/100baseT support"
-+	depends on (SBUS || PCI)
++config MYRI10GE
++	tristate "Myricom Myri-10G Ethernet support"
++	depends on PCI && INET
++	select FW_LOADER
 +	select CRC32
++	select INET_LRO
 +	---help---
-+	  This driver supports the "hme" interface present on most Ultra
-+	  systems and as an option on older Sbus systems. This driver supports
-+	  both PCI and Sbus devices. This driver also supports the "qfe" quad
-+	  100baseT device available in both PCI and Sbus configurations.
++	  This driver supports Myricom Myri-10G Dual Protocol interface in
++	  Ethernet mode. If the eeprom on your board is not recent enough,
++	  you will need a newer firmware image.
++	  You may get this image or more information, at:
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sunhme.
++	  <http://www.myri.com/scs/download-Myri10GE.html>
 +
-+config SUNBMAC
-+	tristate "Sun BigMAC 10/100baseT support (EXPERIMENTAL)"
-+	depends on SBUS && EXPERIMENTAL
-+	select CRC32
++	  To compile this driver as a module, choose M here. The module
++	  will be called myri10ge.
++
++config MYRI10GE_DCA
++	bool "Direct Cache Access (DCA) Support"
++	default y
++	depends on MYRI10GE && DCA && !(MYRI10GE=y && DCA=m)
 +	---help---
-+	  This driver supports the "be" interface available as an Sbus option.
-+	  This is Sun's older 100baseT Ethernet device.
++	  Say Y here if you want to use Direct Cache Access (DCA) in the
++	  driver.  DCA is a method for warming the CPU cache before data
++	  is used, with the intent of lessening the impact of cache misses.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sunbmac.
-+
-+config SUNQE
-+	tristate "Sun QuadEthernet support"
-+	depends on SBUS
-+	select CRC32
-+	---help---
-+	  This driver supports the "qe" 10baseT Ethernet device, available as
-+	  an Sbus option. Note that this is not the same as Quad FastEthernet
-+	  "qfe" which is supported by the Happy Meal driver instead.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sunqe.
-+
-+config SUNGEM
-+	tristate "Sun GEM support"
-+	depends on PCI
-+	select CRC32
-+	---help---
-+	  Support for the Sun GEM chip, aka Sun GigabitEthernet/P 2.0.  See also
-+	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/806-3985-10.pdf>.
-+
-+config CASSINI
-+	tristate "Sun Cassini support"
-+	depends on PCI
-+	select CRC32
-+	---help---
-+	  Support for the Sun Cassini chip, aka Sun GigaSwift Ethernet. See also
-+	  <http://www.sun.com/products-n-solutions/hardware/docs/pdf/817-4341-10.pdf>
-+
-+config SUNVNET
-+	tristate "Sun Virtual Network support"
-+	depends on SUN_LDOMS
-+	---help---
-+	  Support for virtual network devices under Sun Logical Domains.
-+
-+config NIU
-+	tristate "Sun Neptune 10Gbit Ethernet support"
-+	depends on PCI
-+	select CRC32
-+	---help---
-+	  This enables support for cards based upon Sun's
-+	  Neptune chipset.
-+
-+endif # NET_VENDOR_SUN
-diff --git a/drivers/net/ethernet/sun/Makefile b/drivers/net/ethernet/sun/Makefile
++endif # NET_VENDOR_MYRI
+diff --git a/drivers/net/ethernet/myricom/Makefile b/drivers/net/ethernet/myricom/Makefile
 new file mode 100644
-index 0000000..4f25217
+index 0000000..296c0a1
 --- /dev/null
-+++ b/drivers/net/ethernet/sun/Makefile
-@@ -0,0 +1,11 @@
++++ b/drivers/net/ethernet/myricom/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Makefile for the Sun network device drivers.
++# Makefile for the Myricom network device drivers.
 +#
 +
-+obj-$(CONFIG_HAPPYMEAL) += sunhme.o
-+obj-$(CONFIG_SUNQE) += sunqe.o
-+obj-$(CONFIG_SUNBMAC) += sunbmac.o
-+obj-$(CONFIG_SUNGEM) += sungem.o sungem_phy.o
-+obj-$(CONFIG_CASSINI) += cassini.o
-+obj-$(CONFIG_SUNVNET) += sunvnet.o
-+obj-$(CONFIG_NIU) += niu.o
-diff --git a/drivers/net/cassini.c b/drivers/net/ethernet/sun/cassini.c
++obj-$(CONFIG_MYRI10GE) += myri10ge/
+diff --git a/drivers/net/myri10ge/Makefile b/drivers/net/ethernet/myricom/myri10ge/Makefile
 similarity index 100%
-rename from drivers/net/cassini.c
-rename to drivers/net/ethernet/sun/cassini.c
-diff --git a/drivers/net/cassini.h b/drivers/net/ethernet/sun/cassini.h
+rename from drivers/net/myri10ge/Makefile
+rename to drivers/net/ethernet/myricom/myri10ge/Makefile
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
 similarity index 100%
-rename from drivers/net/cassini.h
-rename to drivers/net/ethernet/sun/cassini.h
-diff --git a/drivers/net/niu.c b/drivers/net/ethernet/sun/niu.c
+rename from drivers/net/myri10ge/myri10ge.c
+rename to drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+diff --git a/drivers/net/myri10ge/myri10ge_mcp.h b/drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp.h
 similarity index 100%
-rename from drivers/net/niu.c
-rename to drivers/net/ethernet/sun/niu.c
-diff --git a/drivers/net/niu.h b/drivers/net/ethernet/sun/niu.h
+rename from drivers/net/myri10ge/myri10ge_mcp.h
+rename to drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp.h
+diff --git a/drivers/net/myri10ge/myri10ge_mcp_gen_header.h b/drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp_gen_header.h
 similarity index 100%
-rename from drivers/net/niu.h
-rename to drivers/net/ethernet/sun/niu.h
-diff --git a/drivers/net/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
-similarity index 100%
-rename from drivers/net/sunbmac.c
-rename to drivers/net/ethernet/sun/sunbmac.c
-diff --git a/drivers/net/sunbmac.h b/drivers/net/ethernet/sun/sunbmac.h
-similarity index 100%
-rename from drivers/net/sunbmac.h
-rename to drivers/net/ethernet/sun/sunbmac.h
-diff --git a/drivers/net/sungem.c b/drivers/net/ethernet/sun/sungem.c
-similarity index 100%
-rename from drivers/net/sungem.c
-rename to drivers/net/ethernet/sun/sungem.c
-diff --git a/drivers/net/sungem.h b/drivers/net/ethernet/sun/sungem.h
-similarity index 100%
-rename from drivers/net/sungem.h
-rename to drivers/net/ethernet/sun/sungem.h
-diff --git a/drivers/net/sungem_phy.c b/drivers/net/ethernet/sun/sungem_phy.c
-similarity index 100%
-rename from drivers/net/sungem_phy.c
-rename to drivers/net/ethernet/sun/sungem_phy.c
-diff --git a/drivers/net/sungem_phy.h b/drivers/net/ethernet/sun/sungem_phy.h
-similarity index 100%
-rename from drivers/net/sungem_phy.h
-rename to drivers/net/ethernet/sun/sungem_phy.h
-diff --git a/drivers/net/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-similarity index 100%
-rename from drivers/net/sunhme.c
-rename to drivers/net/ethernet/sun/sunhme.c
-diff --git a/drivers/net/sunhme.h b/drivers/net/ethernet/sun/sunhme.h
-similarity index 100%
-rename from drivers/net/sunhme.h
-rename to drivers/net/ethernet/sun/sunhme.h
-diff --git a/drivers/net/sunqe.c b/drivers/net/ethernet/sun/sunqe.c
-similarity index 100%
-rename from drivers/net/sunqe.c
-rename to drivers/net/ethernet/sun/sunqe.c
-diff --git a/drivers/net/sunqe.h b/drivers/net/ethernet/sun/sunqe.h
-similarity index 100%
-rename from drivers/net/sunqe.h
-rename to drivers/net/ethernet/sun/sunqe.h
-diff --git a/drivers/net/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-similarity index 100%
-rename from drivers/net/sunvnet.c
-rename to drivers/net/ethernet/sun/sunvnet.c
-diff --git a/drivers/net/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-similarity index 100%
-rename from drivers/net/sunvnet.h
-rename to drivers/net/ethernet/sun/sunvnet.h
-diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
-index 020f64a..a891ad0 100644
---- a/drivers/net/spider_net.h
-+++ b/drivers/net/spider_net.h
-@@ -27,7 +27,7 @@
- 
- #define VERSION "2.0 B"
- 
--#include "sungem_phy.h"
-+#include "./ethernet/sun/sungem_phy.h"
- 
- extern int spider_net_stop(struct net_device *netdev);
- extern int spider_net_open(struct net_device *netdev);
+rename from drivers/net/myri10ge/myri10ge_mcp_gen_header.h
+rename to drivers/net/ethernet/myricom/myri10ge/myri10ge_mcp_gen_header.h
 -- 
 1.7.6
 
