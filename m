@@ -1,55 +1,68 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Question about the drivers movement (IBM_NEW_EMAC)
-Date: Thu, 11 Aug 2011 19:22:38 -0700
-Message-ID: <1313115758.2057.25.camel@jtkirshe-mobl>
-References: <20110812120744.1912ca01ab4e76faaa93892c@canb.auug.org.au>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-GuthjxeeG5onEOrCQUvS"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110812120744.1912ca01ab4e76faaa93892c@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chetan Loke <loke.chetan@gmail.com>
+Subject: [PATCH net-next v4 af-packet 0/2] Enhance af-packet to provide (near zero)lossless packet capture functionality.
+Date: Thu, 11 Aug 2011 22:30:58 -0400
+Message-ID: <1313116260-1000-1-git-send-email-loke.chetan@gmail.com>
+Cc: Chetan Loke <loke.chetan@gmail.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:63169 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821Ab1HLCbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 22:31:16 -0400
+Received: by vws1 with SMTP id 1so2160599vws.19
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2011 19:31:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Changes in v4:
+1) Used ALIGN macro                                     (Joe Perches)
+2) Deleted duplicate field                              (Eric Dumazet)
+3) Re-aligned tpacket fields for disk-capture
+
+Changes in v3:
+1) Stripped __packed__ attribute.                       (Dave Miller)
+   Replaced with aligned_u64 and padding.
+2) Added 'feature_request_word'.
+3) Added rx_hash field to the v3-header.                (Chetan L)
+
+Changes in v2:
+
+1) Aligned bdqc members, pr_err to WARN, sob email      (Joe Perches)
+2) Added tp_padding                                     (Eric Dumazet)
+3) Nuked useless ;) white space                         (Stephen H)
+4) Use __u types in headers                             (Ben Hutchings)
+5) Added field for creating private area                (Chetan Loke)
+
+This patch attempts to:
+1)Improve network capture visibility by increasing packet density
+2)Assist in analyzing multiple(aggregated) capture ports.
+
+Benefits:
+  B1) ~15-20% reduction in cpu-usage.
+  B2) ~20% increase in packet capture rate.
+  B3) ~2x  increase in packet density.
+  B4) Port aggregation analysis.
+  B5) Non static frame size to capture entire packet payload.
+
+With the current af_packet->rx::mmap based approach, the element size
+in the block needs to be statically configured. Nothing wrong with this
+config/implementation. But the traffic profile cannot be known in advance.
+And so it would be nice if that configuration wasn't static. Normally,
+one would configure the element-size to be '2048' so that you can atleast
+capture the entire 'MTU-size'.But if the traffic profile varies then we
+would end up either i)wasting memory or ii) end up getting a sliced frame.
+In other words the packet density will be much less in the first case.
+
+Detailed description of the test-setup etc can be viewed at:
+http://thread.gmane.org/gmane.linux.kernel/1158216
 
 
---=-GuthjxeeG5onEOrCQUvS
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+----------------------------------------
 
-On Thu, 2011-08-11 at 19:07 -0700, Stephen Rothwell wrote:
-> Hi Jeff,
->=20
-> In commit 9aa328359545 ("ehea/ibm*: Move the IBM drivers") from Dave's
-> net tree, you not only move the drivers around, but you change
-> CONFIG_IBM_NEW_EMAC to CONFIG_IBM_EMAC.  Won't that mean that all the
-> PowerPC configs that currently set CONFIG_IBM_NEW_EMAC to y will no
-> longer build this driver?
->=20
+ include/linux/if_packet.h |  119 ++++++
+ net/packet/af_packet.c    |  947 ++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 1020 insertions(+), 46 deletions(-)
 
-Your right.  The defconfig's will need to be updated by the arch
-maintainers.  This particular change was requested by the maintainer's
-of the driver.
+-- 
+1.7.5.2
 
---=-GuthjxeeG5onEOrCQUvS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJORI5uAAoJECTsCADr/EWU+lIH/2jbFn1/qICXEEhm0SnIINUl
-K/2EVC5sJS2CN8lYouERhJymgRtX1dxeKBaqFVrQQQTV3oz80Xk/GmjbRjNCOhRS
-CBB3M9fCyVByl+RCcrPfH3jUjlw5+Xs8r9DzZfnuz/qW4jkyU9qGuhFlo6gpTcDY
-VvzPqKTy9LeCMyT+DOhWVcWNWf1kSZoHEXCvJxbp412x3+e+PXtEvWNqXNuAnO6R
-hxa+zk+2366NRwg8mQGzW1bVQPQOCHDsoFIrlA20Yl12exr3IUh2BgF7bVIIhqX6
-e5tiEkFMTfjSJ4eRXZkeBPE/8DZkoKRiclSCp+wjBzuivCJApQqvg1AHj6i/qo4=
-=P9D0
------END PGP SIGNATURE-----
-
---=-GuthjxeeG5onEOrCQUvS--
