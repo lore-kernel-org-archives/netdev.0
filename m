@@ -1,32 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Thu, 11 Aug 2011 19:51:50 -0700 (PDT)
-Message-ID: <20110811.195150.1070520107072994432.davem@davemloft.net>
-References: <20110812120248.a23ecc95e9c1111da3a8ef30@canb.auug.org.au>
-	<1313116296.2057.30.camel@jtkirshe-mobl>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Question about the drivers movement (IBM_NEW_EMAC)
+Date: Fri, 12 Aug 2011 12:54:02 +1000
+Message-ID: <20110812125402.f54c52c09a18cb40ecc5489b@canb.auug.org.au>
+References: <20110812120744.1912ca01ab4e76faaa93892c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1313116296.2057.30.camel@jtkirshe-mobl>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH"
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, ppc-dev <linuxppc-dev@lists.ozlabs.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110812120744.1912ca01ab4e76faaa93892c@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 11 Aug 2011 19:31:35 -0700
+--Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> I am curious, can you compile the Sun GEM support driver?  and if so,
-> does the Spider Net driver compile?
+[just cc'ing linuxppc-dev mailing list]
 
-I'm pretty sure you cannot reference object targets outside of
-the current directory and expect it to work.
+On Fri, 12 Aug 2011 12:07:44 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
+wrote:
+>
+> Hi Jeff,
+>=20
+> In commit 9aa328359545 ("ehea/ibm*: Move the IBM drivers") from Dave's
+> net tree, you not only move the drivers around, but you change
+> CONFIG_IBM_NEW_EMAC to CONFIG_IBM_EMAC.  Won't that mean that all the
+> PowerPC configs that currently set CONFIG_IBM_NEW_EMAC to y will no
+> longer build this driver?
 
-You can only reference things in the current directory (objects,
-directories to traverse down into, etc.) as targets
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-So when there is a common piece of infrastructure shared by
-two drivers, you're really going to have to cope with them
-at the same time.
+--Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJORJXKAAoJEDMEi1NhKgbs2FMH/AupNfIXYr5afODGIH4sSgNW
+i6G8xTD5o2euiBLupdKnA6FeY9nxaGhWLJ7K9qpXPUyym5I4ptOONcLkOXvLx1c6
+mJNgdzZp/Qp1py9T5cpdOaQRDA4iuohsLNbcq1pXbBZEMq8bDecZJIIP7knbGQtb
+DZRmVPW2bJXvpTKfahQbuKujiJAi8bRtUxv4/o+BIVDI3bUdcv+/NJeAM1Rdfi4Q
+8hohZ8eZsvFMHUR1Qnt69ci4hsDe/ewfzleWkz8wBz6TMIBORM0desgJiqAq135U
+BtUD1fSW0zdoGYMVI5z7EIynKA4uJrsBiRYYfRz6oVT/HIiGegiQvMZsOXukqnA=
+=QEju
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH--
