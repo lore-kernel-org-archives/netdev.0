@@ -1,232 +1,233 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
-Date: Fri, 12 Aug 2011 09:23:50 +0200
-Message-ID: <1313133830.2669.34.camel@edumazet-laptop>
-References: <1312909360-2675-1-git-send-email-mark.rutland@arm.com>
-	 <1312910336.2371.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4e424f6c.12cde30a.131e.ffffec9bSMTPIN_ADDED@mx.google.com>
-	 <1313081901.3261.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110812023237.GA2372@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Gergely Kalman <synapse@hippy.csoma.elte.hu>
-To: paulmck@linux.vnet.ibm.com
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: [PATCH] Proportional Rate Reduction for TCP.
+Date: Fri, 12 Aug 2011 00:29:57 -0700
+Message-ID: <1313134197-5082-1-git-send-email-nanditad@google.com>
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38565 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751218Ab1HLHX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 03:23:56 -0400
-Received: by wyg24 with SMTP id 24so1915316wyg.19
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 00:23:55 -0700 (PDT)
-In-Reply-To: <20110812023237.GA2372@linux.vnet.ibm.com>
+Received: from smtp-out.google.com ([74.125.121.67]:3030 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890Ab1HLHaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 03:30:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 11 ao=C3=BBt 2011 =C3=A0 19:32 -0700, Paul E. McKenney a =C3=A9=
-crit :
-> On Thu, Aug 11, 2011 at 06:58:21PM +0200, Eric Dumazet wrote:
-> > Le mercredi 10 ao=C3=BBt 2011 =C3=A0 10:28 +0100, Mark Rutland a =C3=
-=A9crit :
-> > > > -----Original Message-----
-> > > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > > > Sent: 09 August 2011 18:19
-> > > > To: Mark Rutland; Paul E. McKenney
-> > > > Cc: netdev@vger.kernel.org; David S. Miller; Gergely Kalman
-> > > > Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
-> > > >=20
-> > > > Le mardi 09 ao=C3=BBt 2011 =C3=A0 18:02 +0100, Mark Rutland a =C3=
-=A9crit :
-> > > > > Commit f2c31e32 ("net: fix NULL dereferences in check_peer_re=
-dir()")
-> > > > > added rcu protection to dst neighbour, and updated callsites =
-for
-> > > > > dst_{get,set}_neighbour. Unfortunately, it missed rt_cache_se=
-q_show.
-> > > > >
-> > > > > This produces a warning on v3.1-rc1 (on a preemptible kernel,=
- on an
-> > > > > ARM Vexpress A9x4):
-> > > > >
-> > > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
-> > > > > [ INFO: suspicious rcu_dereference_check() usage. ]
-> > > > > ---------------------------------------------------
-> > > > > include/net/dst.h:91 invoked rcu_dereference_check() without
-> > > > protection!
-> > > > >
-> > > > > other info that might help us debug this:
-> > > > >
-> > > > > rcu_scheduler_active =3D 1, debug_locks =3D 0
-> > > > > 2 locks held by proc01/32159:
-> > > > >
-> > > > > stack backtrace:
-> > > > > [<80014880>] (unwind_backtrace+0x0/0xf8) from [<802e5c78>]
-> > > > (rt_cache_seq_show+0x18c/0x1c4)
-> > > > > [<802e5c78>] (rt_cache_seq_show+0x18c/0x1c4) from [<800e0c5c>=
-]
-> > > > (seq_read+0x324/0x4a4)
-> > > > > [<800e0c5c>] (seq_read+0x324/0x4a4) from [<8010786c>]
-> > > > (proc_reg_read+0x70/0x94)
-> > > > > [<8010786c>] (proc_reg_read+0x70/0x94) from [<800c0ba8>]
-> > > > (vfs_read+0xb0/0x144)
-> > > > > [<800c0ba8>] (vfs_read+0xb0/0x144) from [<800c0ea8>]
-> > > > (sys_read+0x40/0x70)
-> > > > > [<800c0ea8>] (sys_read+0x40/0x70) from [<8000e0c0>]
-> > > > (ret_fast_syscall+0x0/0x3c)
-> > > > >
-> > > > > This patch adds calls to rcu_read_{lock,unlock} in rt_cache_s=
-eq_show,
-> > > > > protecting the dereferenced variable, and clearing the warnin=
-g.
-> > > > >
-> > > > > Signed-off-by: Mark Rutland <mark.rutland@arm.com>
-> > > > > Cc: David S. Miller <davem@davemloft.net>
-> > > > > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > > > > Cc: Gergely Kalman <synapse@hippy.csoma.elte.hu>
-> > > > > ---
-> > > > >  net/ipv4/route.c |    2 ++
-> > > > >  1 files changed, 2 insertions(+), 0 deletions(-)
-> > > > >
-> > > > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > > > > index e3dec1c..6699ef7 100644
-> > > > > --- a/net/ipv4/route.c
-> > > > > +++ b/net/ipv4/route.c
-> > > > > @@ -419,6 +419,7 @@ static int rt_cache_seq_show(struct seq_f=
-ile
-> > > > *seq, void *v)
-> > > > >  		struct neighbour *n;
-> > > > >  		int len;
-> > > > >
-> > > > > +		rcu_read_lock();
-> > > > >  		n =3D dst_get_neighbour(&r->dst);
-> > > > >  		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
-> > > > >  			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
-> > > > > @@ -435,6 +436,7 @@ static int rt_cache_seq_show(struct seq_f=
-ile
-> > > > *seq, void *v)
-> > > > >  			-1,
-> > > > >  			(n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0,
-> > > > >  			r->rt_spec_dst, &len);
-> > > > > +		rcu_read_unlock();
-> > > > >
-> > > > >  		seq_printf(seq, "%*s\n", 127 - len, "");
-> > > > >  	}
-> > > >=20
-> > > >=20
-> > > > Hmm, I though rcu_read_lock_bh() (done by caller of this functi=
-on) was
-> > > > protecting us here.
-> > >=20
-> > > Aha. Being a bit trigger-happy, I'd had a quick look at the funct=
-ions
-> > > mentioned in the backtrace, and not looked at any possible inlini=
-ng.
-> > >=20
-> > > This being my first real exposure to RCU, I wasn't aware of the *=
-_bh
-> > > variants. Looking at the documentation (Documentation/RCU/checkli=
-st.txt),
-> > > I think the real problem is that we should be using rcu_dereferen=
-ce_bh in
-> > > this case:
-> > >=20
-> > >   > read-side critical sections are delimited by rcu_read_lock()
-> > >   > and rcu_read_unlock(), or by similar primitives such as
-> > >   > rcu_read_lock_bh() and rcu_read_unlock_bh(), in which case
-> > >   > the matching rcu_dereference() primitive must be used in orde=
-r
-> > >   > to keep lockdep happy, in this case, rcu_dereference_bh().
-> >=20
-> > Hmm.
-> >=20
-> > I do think dst_get_neighbour() should use rcu_dereference(), becaus=
-e
-> > dst->_neighbour are freed by call_rcu().
-> >=20
-> > The question is : Is following construct [A] safe or not ?
-> >=20
-> > {
-> > rcu_read_lock_bh();
-> > 	/* BH are now disabled, and we are not allowed to sleep */
-> > 	...
-> >=20
-> > 	ptr =3D rcu_dereference();
->=20
-> This should be:
->=20
-> 	ptr =3D rcu_dereference_bh();
->=20
-> As you say below.  Never mind!  ;-)
->=20
-> > 	...
-> > rcu_read_unlock_bh();
-> > }
-> >=20
-> >=20
-> > I dont really understand why lockdep wants [B] instead :
-> >=20
-> > {
-> > rcu_read_lock_bh();
-> > 	...
-> >=20
-> > 	{
-> > 	rcu_read_lock();
-> > 	ptr =3D rcu_dereference();
->=20
-> Here you are protected by both RCU and RCU-bh, so you should be able
-> to use either rcu_dereference() or rcu_dereference_bh().  A bit
-> strange to use rcu_dereference_bh(), though.  Except perhaps if a
-> pointer to a function was passed in from the outer RCU-bh read-side
-> critical section or something.
->=20
-> > 	rcu_read_unlock();
-> > 	}
-> > 	...
-> > rcu_read_unlock_bh();
-> > }
-> >=20
-> >=20
-> >=20
-> > However, I can understand the other way [C], this is really needed =
-:
-> >=20
-> > {
-> > rcu_read_lock();
-> > 	...
-> >=20
-> > 	{
-> > 	rcu_read_lock_bh();
-> > 	ptr =3D rcu_dereference_bh();
-> > 	rcu_read_unlock_bh();
-> > 	}
-> > 	...
-> > rcu_read_unlock();
-> > }
-> >=20
-> > I believe [A] should be allowed by lockdep.
->=20
-> OK, I'll bite.  Why?
->=20
+This patch implements Proportional Rate Reduction (PRR) for TCP.
+PRR is an algorithm that determines TCP's sending rate in fast
+recovery. PRR avoids excessive window reductions and aims for
+the actual congestion window size at the end of recovery to be as
+close as possible to the window determined by the congestion control
+algorithm. PRR also improves accuracy of the amount of data sent
+during loss recovery.
 
-Oh well, I assumed local_bh_disable() disables preemption.
+The patch implements the recommended flavor of PRR called PRR-SSRB
+(Proportional rate reduction with slow start reduction bound) and
+replaces the existing rate halving algorithm. PRR improves upon the
+existing Linux fast recovery under a number of conditions including:
+  1) burst losses where the losses implicitly reduce the amount of
+outstanding data (pipe) below the ssthresh value selected by the
+congestion control algorithm and,
+  2) losses near the end of short flows where application runs out of
+data to send.
 
-It does since day-0
-add_preempt_count(SOFTIRQ_DISABLE_OFFSET);
+As an example, with the existing rate halving implementation a single
+loss event can cause a connection carrying short Web transactions to
+go into the slow start mode after the recovery. This is because during
+recovery Linux pulls the congestion window down to packets_in_flight+1
+on every ACK. A short Web response often runs out of new data to send
+and its pipe reduces to zero by the end of recovery when all its packets
+are drained from the network. Subsequent HTTP responses using the same
+connection will have to slow start to raise cwnd to ssthresh. PRR on
+the other hand aims for the cwnd to be as close as possible to ssthresh
+by the end of recovery.
 
-So following should be safe :
+A description of PRR and a discussion of its performance can be found at
+the following links:
+- IETF Draft:
+    http://tools.ietf.org/html/draft-mathis-tcpm-proportional-rate-reduction-01
+- IETF Slides:
+    http://www.ietf.org/proceedings/80/slides/tcpm-6.pdf
+    http://tools.ietf.org/agenda/81/slides/tcpm-2.pdf
+- Paper to appear in Internet Measurements Conference (IMC) 2011:
+    Improving TCP Loss Recovery
+    Nandita Dukkipati, Matt Mathis, Yuchung Cheng
 
-local_bh_disable();
-{
-ptr =3D rcu_dereference(...);
-use(ptr);
-}
-local_bh_enable();
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+---
+ include/linux/tcp.h   |    4 +++
+ net/ipv4/tcp_input.c  |   63 ++++++++++++++++++++++++++++++++++++++++++++----
+ net/ipv4/tcp_output.c |    7 ++++-
+ 3 files changed, 67 insertions(+), 7 deletions(-)
 
-Maybe they are longterm plans to break this assumption, I dont know.
-
-
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 531ede8..dda4f2e1 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -379,6 +379,10 @@ struct tcp_sock {
+ 	u32	snd_cwnd_clamp; /* Do not allow snd_cwnd to grow above this */
+ 	u32	snd_cwnd_used;
+ 	u32	snd_cwnd_stamp;
++	u32	prr_cwnd;	/* Congestion window at start of Recovery. */
++	u32	prr_delivered;	/* Number of newly delivered packets to
++				 * receiver in Recovery. */
++	u32	prr_out;	/* Total number of pkts sent during Recovery. */
+ 
+  	u32	rcv_wnd;	/* Current receiver window		*/
+ 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ea0d218..601eff0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2830,9 +2830,14 @@ static int tcp_try_undo_loss(struct sock *sk)
+ static inline void tcp_complete_cwr(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	/* Do not moderate cwnd if it's already undone in cwr or recovery */
+-	if (tp->undo_marker && tp->snd_cwnd > tp->snd_ssthresh) {
+-		tp->snd_cwnd = tp->snd_ssthresh;
++
++	/* Do not moderate cwnd if it's already undone in cwr or recovery. */
++	if (tp->undo_marker) {
++
++		if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR)
++			tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_ssthresh);
++		else /* PRR */
++			tp->snd_cwnd = tp->snd_ssthresh;
+ 		tp->snd_cwnd_stamp = tcp_time_stamp;
+ 	}
+ 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
+@@ -2950,6 +2955,39 @@ void tcp_simple_retransmit(struct sock *sk)
+ }
+ EXPORT_SYMBOL(tcp_simple_retransmit);
+ 
++/* This function implements the PRR algorithm, specifcally the PRR-SSRB
++ * (proportional rate reduction with slow start reduction bound) as described in
++ * http://www.ietf.org/id/draft-mathis-tcpm-proportional-rate-reduction-01.txt.
++ * It computes the number of packets to send (sndcnt) based on packets newly
++ * delivered:
++ *   1) If the packets in flight is larger than ssthresh, PRR spreads the
++ *	cwnd reductions across a full RTT.
++ *   2) If packets in flight is lower than ssthresh (such as due to excess
++ *	losses and/or application stalls), do not perform any further cwnd
++ *	reductions, but instead slow start up to ssthresh.
++ */
++static void tcp_update_cwnd_in_recovery(struct sock *sk, int pkts_delivered,
++					int fast_rexmit, int flag)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	int sndcnt = 0;
++	int delta = tp->snd_ssthresh - tcp_packets_in_flight(tp);
++
++	if (tcp_packets_in_flight(tp) > tp->snd_ssthresh) {
++		if (WARN_ON(!tp->prr_cwnd))
++			tp->prr_cwnd = 1;
++		sndcnt = DIV_ROUND_UP(tp->prr_delivered * tp->snd_ssthresh,
++				      tp->prr_cwnd) - tp->prr_out;
++	} else {
++		sndcnt = min_t(int, delta,
++			       max_t(int, tp->prr_delivered - tp->prr_out,
++				     pkts_delivered) + 1);
++	}
++
++	sndcnt = max(sndcnt, (fast_rexmit ? 1 : 0));
++	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
++}
++
+ /* Process an event, which can update packets-in-flight not trivially.
+  * Main goal of this function is to calculate new estimate for left_out,
+  * taking into account both packets sitting in receiver's buffer and
+@@ -2961,7 +2999,8 @@ EXPORT_SYMBOL(tcp_simple_retransmit);
+  * It does _not_ decide what to send, it is made in function
+  * tcp_xmit_retransmit_queue().
+  */
+-static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
++static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
++				  int pkts_delivered, int flag)
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -3111,13 +3150,17 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
+ 
+ 		tp->bytes_acked = 0;
+ 		tp->snd_cwnd_cnt = 0;
++		tp->prr_cwnd = tp->snd_cwnd;
++		tp->prr_delivered = 0;
++		tp->prr_out = 0;
+ 		tcp_set_ca_state(sk, TCP_CA_Recovery);
+ 		fast_rexmit = 1;
+ 	}
+ 
+ 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
+ 		tcp_update_scoreboard(sk, fast_rexmit);
+-	tcp_cwnd_down(sk, flag);
++	tp->prr_delivered += pkts_delivered;
++	tcp_update_cwnd_in_recovery(sk, pkts_delivered, fast_rexmit, flag);
+ 	tcp_xmit_retransmit_queue(sk);
+ }
+ 
+@@ -3632,6 +3675,11 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 	u32 prior_in_flight;
+ 	u32 prior_fackets;
+ 	int prior_packets;
++	int prior_sacked = tp->sacked_out;
++	/* pkts_delivered is number of packets newly cumulatively acked or
++	 * sacked on this ACK.
++	 */
++	int pkts_delivered = 0;
+ 	int frto_cwnd = 0;
+ 
+ 	/* If the ack is older than previous acks
+@@ -3703,6 +3751,9 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 	/* See if we can take anything off of the retransmit queue. */
+ 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
+ 
++	pkts_delivered = (prior_packets - prior_sacked) -
++			 (tp->packets_out - tp->sacked_out);
++
+ 	if (tp->frto_counter)
+ 		frto_cwnd = tcp_process_frto(sk, flag);
+ 	/* Guarantee sacktag reordering detection against wrap-arounds */
+@@ -3715,7 +3766,7 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 		    tcp_may_raise_cwnd(sk, flag))
+ 			tcp_cong_avoid(sk, ack, prior_in_flight);
+ 		tcp_fastretrans_alert(sk, prior_packets - tp->packets_out,
+-				      flag);
++				      pkts_delivered, flag);
+ 	} else {
+ 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
+ 			tcp_cong_avoid(sk, ack, prior_in_flight);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 882e0b0..ca50408 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1796,11 +1796,13 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		tcp_event_new_data_sent(sk, skb);
+ 
+ 		tcp_minshall_update(tp, mss_now, skb);
+-		sent_pkts++;
++		sent_pkts += tcp_skb_pcount(skb);
+ 
+ 		if (push_one)
+ 			break;
+ 	}
++	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
++		tp->prr_out += sent_pkts;
+ 
+ 	if (likely(sent_pkts)) {
+ 		tcp_cwnd_validate(sk);
+@@ -2294,6 +2296,9 @@ begin_fwd:
+ 			return;
+ 		NET_INC_STATS_BH(sock_net(sk), mib_idx);
+ 
++		if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
++			tp->prr_out += tcp_skb_pcount(skb);
++
+ 		if (skb == tcp_write_queue_head(sk))
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+ 						  inet_csk(sk)->icsk_rto,
+-- 
+1.7.3.1
 
